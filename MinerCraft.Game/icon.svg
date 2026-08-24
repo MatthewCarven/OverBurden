@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect width="128" height="128" fill="#2b2a28"/>
+  <!-- stacked voxels, 4 per metre -->
+  <g fill="#6b6b70">
+    <rect x="16" y="72" width="24" height="24"/>
+    <rect x="40" y="72" width="24" height="24"/>
+    <rect x="64" y="72" width="24" height="24"/>
+    <rect x="88" y="72" width="24" height="24"/>
+    <rect x="40" y="48" width="24" height="24"/>
+    <rect x="64" y="48" width="24" height="24"/>
+  </g>
+  <g fill="#3f7a35">
+    <rect x="40" y="40" width="24" height="8"/>
+    <rect x="64" y="40" width="24" height="8"/>
+    <rect x="16" y="64" width="24" height="8"/>
+    <rect x="88" y="64" width="24" height="8"/>
+  </g>
+  <!-- water pooling in the cut -->
+  <rect x="16" y="96" width="96" height="16" fill="#2f6f9e" opacity="0.85"/>
+</svg>

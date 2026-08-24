@@ -1,5 +1,46 @@
 # MinerCraft — Worklog
 
+## 2026-08-24 — M0: skeleton
+
+Builds clean, runs headless with no errors, 43 tests passing.
+
+### Built
+
+- `.slnx` solution, three projects. **`MinerCraft.Core` has no Godot reference and must
+  never get one** — that absence is the whole multiplayer seam, and a test project that
+  exercises Core without Godot is what keeps it honest.
+- `VoxelConstants`, `VoxelPos`, `ChunkPos` in Core. Chunk/local decomposition by
+  arithmetic shift and mask.
+- `Texture2DArray` + `Voxel.gdshader`. Layer index in UV2.x, light×AO in UV2.y.
+- Culled block mesh through `RenderingServer`, no `MeshInstance3D` anywhere.
+- Flycam, `.gitignore`, `start.cmd` (prefers a vendored Godot, falls back to `GAME/`'s).
+
+### Findings
+
+- **Negative coordinates are the whole reason the coordinate types exist.** Truncating
+  division puts voxel -1 in chunk 0 next to voxel 0, which tears a chunk-wide seam
+  through the origin. Because chunk size is a power of two, `x >> 5` is the correct
+  floor division and `x & 31` the correct positive remainder — both branch-free and both
+  already right for negatives. Most of the 43 tests are there purely to pin this down;
+  every one of them passes trivially in the positive octant.
+- **Godot C# projects don't enable `ImplicitUsings`** (matching `GAME/`), so `System` and
+  `System.Collections.Generic` need explicit imports. Cost one failed build.
+- **Winding verified analytically rather than by eye.** For all six faces the
+  right-hand-rule normal of the emitted triangles points inward, consistently. That
+  means the block renders either all-correct or all-inside-out, never a mix — a mixed
+  winding bug would have been the nasty one. Under Godot's documented clockwise
+  front-face convention this should be correct; it still wants one visual confirmation,
+  and it is a one-line flip if wrong.
+- **Culling maths checks out**: a 4³ solid block emits 192 triangles (six 4×4 faces)
+  against 768 for naive per-voxel cubes.
+
+### Deliberately deferred
+
+- Textures are generated in code, so there are no binary assets yet. Real images arrive
+  with the registry at M1.
+- `RenderingServer` direct vs `MeshInstance3D` is still an assumption, not a
+  measurement. The measurement belongs at M2 when there are real chunk counts.
+
 ## 2026-08-23 — Design session
 
 Planned the whole thing end to end with Claude. No code written, by request.

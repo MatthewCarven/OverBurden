@@ -10,27 +10,45 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
 - [x] **Chunk size — 32³ (8 m cube).** Decided 2026-08-23.
 - [x] **No mobs.** Pressure comes from flooding, collapse and logistics.
 - [x] **Mod support — data mods at M1, Lua at M12, no C# DLL loading.**
+- [x] **Chunk storage order — Y-major, then Z, then X.** Decided 2026-08-24. X
+      contiguous so the mesher sweeps a row with sequential reads; Y-major keeps a
+      horizontal slab together for the lighting column pass.
 - [ ] Collapse debris: loose re-settling rubble vs rigid falling chunks — decide at M9
 - [ ] Power model complexity — decide at M10
 - [ ] Name check: "MinerCraft" — keeping it?
 
-## Blocked on Matthew
+## Needs a human eye
 
-- [ ] `git init` — project should be a repo before the first code lands
+- [ ] **Face winding — run `start.cmd` and confirm the block is not inside-out.**
+      All six faces are consistently wound (verified analytically: the right-hand-rule
+      normal points inward on every face), so it renders either all-correct or
+      all-flipped — never a mix. If flipped, it is one line in
+      `VoxelMeshBuilder.AddFace`, already commented.
 
 ---
 
 ## Phase 1 — Engine
 
-### M0 — Skeleton
+### M0 — Skeleton ✅ done 2026-08-24, builds clean and runs headless
 
-- [ ] Godot 4.7 mono project, .NET 8, solution layout
-- [ ] Decide project split now (`MinerCraft.Core` headless sim / `MinerCraft.Game`
-      Godot front end) — this is the multiplayer seam, cheap now, expensive later
-- [ ] Single textured cube via `RenderingServer`
-- [ ] Flycam
+- [x] Godot 4.7.1 mono project, net8.0, `.slnx` solution
+- [x] Project split: `MinerCraft.Core` (headless sim, no Godot reference — enforced by
+      having no Godot dependency at all) / `MinerCraft.Core.Tests` / `MinerCraft.Game`
+      (Godot front end). The test project exists to prove Core stays headless.
+- [x] `VoxelConstants` — 0.25 m voxels, 32³ chunks, power-of-two shift/mask constants
+- [x] `VoxelPos` / `ChunkPos` — floor-based chunk/local decomposition via shift and
+      mask, correct for negative coordinates. 43 tests, all passing.
+- [x] `Texture2DArray` + `Voxel.gdshader` — layer index in UV2.x, light/AO in UV2.y
+      (constant 1.0 until M5, but the channel exists now)
+- [x] Culled block mesh via `RenderingServer`, no `MeshInstance3D`. A 4³ block emits
+      192 triangles against 768 naive.
+- [x] Flycam — WASD/Space/Ctrl, sprint and crawl, mouse capture
+- [x] `.gitignore`, `start.cmd`
 
 ### M1 — Storage and registry ⚠️ over-invest here
+
+- [ ] Move the face table (`VoxelFaces`) from Game to Core once the mesher emits plain
+      float arrays instead of Godot types — it only lives in Game because of `Vector3`
 
 - [ ] **Namespaced string IDs** (`minercraft:stone`) → per-world numeric palette,
       palette saved into the world file. No `enum BlockType`, ever.

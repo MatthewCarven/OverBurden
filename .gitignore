@@ -1,0 +1,23 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+
+# Godot (.import sidecar files are committed — they carry import settings)
+.godot/
+mono_crash.*.json
+
+# export_credentials.cfg would hold secrets; export_presets.cfg does not and is committed
+export_credentials.cfg
+
+# Local export output
+build/
+*.pck
+
+# IDE
+.idea/
+.vscode/
+
+# Godot editor install, if vendored beside the code rather than shared from GAME/
+Godot_v*/

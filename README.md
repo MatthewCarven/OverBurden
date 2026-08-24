@@ -13,9 +13,23 @@ No mobs, no combat. The mine is the antagonist.
 
 ## Status
 
-Planning only — there is no code yet. The design is settled through to v1.0 and
-broken into milestones; M0 (Godot project skeleton, `Core`/`Game` split, a textured
-cube, a flycam) is next.
+**M0 done.** Solution skeleton, voxel coordinate maths with tests, a texture-array
+shader, one culled block mesh drawn through `RenderingServer`, and a flycam. M1 —
+chunk storage and the content registry — is next.
+
+## Run it
+
+```
+start.cmd
+```
+
+Needs Godot 4.7.1-stable **mono**, either vendored at `./Godot_v4.7.1-stable_mono_win64/`
+or shared from `../GAME/`. WASD to move, Space/Ctrl for up and down, Shift to sprint,
+Esc to release the mouse.
+
+```
+dotnet test MinerCraft.slnx
+```
 
 ## The shape of it
 
