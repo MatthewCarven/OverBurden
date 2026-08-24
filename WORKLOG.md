@@ -1,5 +1,47 @@
 # MinerCraft — Worklog
 
+## 2026-08-25 — Reading godot_voxel, and a storage-order correction
+
+Sources cloned into `reference/godot_voxel` (51 MB, gitignored, repo stays clean). Read
+`storage/` ahead of schedule because M1b is next and that is exactly what it covers.
+
+### Corrected: chunk storage order was wrong
+
+They store `[z][x][y]` — **Y contiguous** — with the comment "because it allows faster
+vertical-wise access (the engine is Y-up)", and `fill_3d_region_zxy` confirms it
+throughout.
+
+M0 chose the opposite, X contiguous, and the justification written down at the time was
+*"Y-major keeps a horizontal slab together for the lighting column pass"* — which is
+self-contradictory. A column pass wants a **column** contiguous; Y-major makes a
+horizontal slab contiguous, which is precisely the opposite.
+
+It matters more here than it would in a generic voxel engine, because nearly every
+mechanic in MinerCraft is vertical: skylight propagates down columns, water falls,
+structural support propagates up from bedrock, groundwater drains downward, terrain
+generation writes a column at a time. All of those would have strided a full 1024-element
+slab per step.
+
+Changed to `[z][x][y]`. 100 tests pass, including the bijection test, which independently
+confirms the new order is still a valid permutation with no aliasing. Added a test pinning
+the exact strides so a future reordering has to argue with the reasoning first.
+
+Cheap today, expensive after M1b — which is the whole argument for having read this now
+rather than at M2.
+
+### Confirmed: our palette tier is ours to add
+
+Their `VoxelBuffer` has only `COMPRESSION_NONE` (raw 8/16-bit array) and
+`COMPRESSION_UNIFORM`. No palette, no bit-packing. That is correct at their scale — a
+16³ block of 8-bit voxels is 4 KB — and would not survive 64× the voxel count. So M1b
+takes their uniform fast path and adds the palette tier they do not need, rather than
+copying their storage design wholesale.
+
+Nice detail worth stealing conceptually: a uniform channel stores its default value *in
+the union slot where the data pointer would be*, so a uniform chunk allocates nothing at
+all. In C# that is just two fields with no real saving, but "uniform means no allocation"
+is the right invariant to hold.
+
 ## 2026-08-25 — Decision: build our own voxel engine
 
 Matthew asked the right question at the right moment: should we just use

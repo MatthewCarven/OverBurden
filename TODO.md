@@ -10,9 +10,12 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
 - [x] **Chunk size — 32³ (8 m cube).** Decided 2026-08-23.
 - [x] **No mobs.** Pressure comes from flooding, collapse and logistics.
 - [x] **Mod support — data mods at M1, Lua at M12, no C# DLL loading.**
-- [x] **Chunk storage order — Y-major, then Z, then X.** Decided 2026-08-24. X
-      contiguous so the mesher sweeps a row with sequential reads; Y-major keeps a
-      horizontal slab together for the lighting column pass.
+- [x] **Chunk storage order — Z-major, then X, then Y contiguous.** Revised 2026-08-25
+      after reading godot_voxel, which uses the same `[z][x][y]` order for the same
+      reason. The original 2026-08-24 choice (X contiguous) was wrong: its stated
+      justification — "keeps a horizontal slab together for the lighting column pass" —
+      was self-contradictory, and every hot path in this game is vertical (skylight,
+      falling water, support propagation, groundwater drainage, columnar terrain gen).
 - [x] **Build our own voxel engine, don't adopt godot_voxel.** Decided 2026-08-25, see
       [ADR-0001](docs/adr/ADR-0001-build-our-own-voxel-engine.md). Read theirs as
       reference; `reference/` is gitignored for exactly that.

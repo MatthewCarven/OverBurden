@@ -41,20 +41,30 @@ public readonly record struct VoxelPos(int X, int Y, int Z)
     }
 
     /// <summary>
-    /// Flat storage order for a chunk: Y-major, then Z, then X. X is contiguous so the
-    /// mesher can sweep a row along X with sequential reads, and Y-major keeps a
-    /// horizontal slab together for the lighting column pass.
+    /// Flat storage order for a chunk: Z-major, then X, then <b>Y contiguous</b>.
     /// </summary>
+    /// <remarks>
+    /// Y is the fast axis because almost everything this game does is vertical. Skylight
+    /// propagates down columns, water falls, structural support propagates up from
+    /// bedrock, groundwater drains downward, and terrain generation writes a column at a
+    /// time from a heightmap. Under an X-contiguous order every one of those strides a
+    /// full slab per step.
+    /// <para>
+    /// Greedy meshing does not get a say: its three axis sweeps each want a different
+    /// contiguity, so no single order suits it and it has to be cache-blocked regardless.
+    /// That leaves the vertical passes as the ones worth optimising for.
+    /// </para>
+    /// </remarks>
     public static int Index(int localX, int localY, int localZ) =>
-        (localY << (VoxelConstants.ChunkSizeLog2 * 2))
-        | (localZ << VoxelConstants.ChunkSizeLog2)
-        | localX;
+        (localZ << (VoxelConstants.ChunkSizeLog2 * 2))
+        | (localX << VoxelConstants.ChunkSizeLog2)
+        | localY;
 
     /// <summary>Inverse of <see cref="Index"/>.</summary>
     public static (int X, int Y, int Z) FromIndex(int index) => (
+        (index >> VoxelConstants.ChunkSizeLog2) & VoxelConstants.ChunkMask,
         index & VoxelConstants.ChunkMask,
-        index >> (VoxelConstants.ChunkSizeLog2 * 2),
-        (index >> VoxelConstants.ChunkSizeLog2) & VoxelConstants.ChunkMask);
+        index >> (VoxelConstants.ChunkSizeLog2 * 2));
 
     /// <summary>Rebuild a global position from a chunk and coordinates inside it.</summary>
     public static VoxelPos FromChunkLocal(ChunkPos chunk, int localX, int localY, int localZ)

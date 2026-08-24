@@ -109,13 +109,26 @@ public class VoxelPosTests
     }
 
     [Fact]
-    public void Index_IsContiguousAlongX()
+    public void Index_IsContiguousAlongY()
     {
-        // The mesher sweeps rows along X and relies on this being a sequential read.
-        for (int x = 0; x < VoxelConstants.ChunkSize - 1; x++)
+        // Y is the fast axis on purpose: skylight, falling water, support propagation and
+        // groundwater drainage all walk columns, and they are the hot paths that care.
+        for (int y = 0; y < VoxelConstants.ChunkSize - 1; y++)
         {
-            Assert.Equal(VoxelPos.Index(x, 4, 9) + 1, VoxelPos.Index(x + 1, 4, 9));
+            Assert.Equal(VoxelPos.Index(4, y, 9) + 1, VoxelPos.Index(4, y + 1, 9));
         }
+    }
+
+    [Fact]
+    public void Index_StridesAreZxy()
+    {
+        // Pins the exact layout, so a well-meaning "optimisation" that reorders the axes
+        // has to come here and argue with the reasoning first.
+        Assert.Equal(1, VoxelPos.Index(0, 1, 0) - VoxelPos.Index(0, 0, 0));
+        Assert.Equal(VoxelConstants.ChunkSize, VoxelPos.Index(1, 0, 0) - VoxelPos.Index(0, 0, 0));
+        Assert.Equal(
+            VoxelConstants.ChunkSize * VoxelConstants.ChunkSize,
+            VoxelPos.Index(0, 0, 1) - VoxelPos.Index(0, 0, 0));
     }
 
     [Theory]

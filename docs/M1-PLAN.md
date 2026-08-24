@@ -104,6 +104,19 @@ the mesher's inner loop, fast to write on a pick swing, and cheap to serialise. 
 `ushort[]` is 64 KB per chunk and ~320 MB for a modest view distance, which is why
 compression is a requirement here and not an optimisation.
 
+### Checked against godot_voxel first
+
+Their `VoxelBuffer` has only two modes: `COMPRESSION_NONE` (a raw 8- or 16-bit array) and
+`COMPRESSION_UNIFORM` (no allocation at all — the default value is stored in the union
+slot where the data pointer would be). **No palette, no bit-packing.**
+
+That is the right call at their scale and the wrong one at ours, which is a useful
+confirmation rather than a contradiction: a 16³ block of 8-bit voxels is 4 KB, so raw
+storage is simply affordable at 1 m voxels. At 0.25 m we have 64× the voxels, and the
+palette layer below is what buys that decision back. So we take their uniform fast path
+— the idea that a uniform chunk allocates *nothing* — and add the palette tier they do
+not need.
+
 ### Three representations behind one interface
 
 1. **Uniform** — the entire chunk is one material. Stores a single int. This covers the
