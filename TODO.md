@@ -48,22 +48,72 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
 - [x] Flycam — WASD/Space/Ctrl, sprint and crawl, mouse capture
 - [x] `.gitignore`, `start.cmd`
 
-### M1 — Storage and registry ⚠️ over-invest here
+### M1 — Storage, identity and the mesher ⚠️ over-invest here
 
-- [ ] Move the face table (`VoxelFaces`) from Game to Core once the mesher emits plain
-      float arrays instead of Godot types — it only lives in Game because of `Vector3`
+Split into four sessions. Full reasoning in [docs/M1-PLAN.md](docs/M1-PLAN.md).
 
-- [ ] **Namespaced string IDs** (`minercraft:stone`) → per-world numeric palette,
-      palette saved into the world file. No `enum BlockType`, ever.
-- [ ] Registry: materials, items, tools, recipes, worldgen features, biomes
-- [ ] Material properties: hardness, support distance, permeability, density, textures
-- [ ] Load phase that scans `mods/` after base content
-- [ ] Base game content registered through the public path — no privileged backdoor
-- [ ] Chunk storage: palette + bit-packed array + uniform-chunk fast path
-- [ ] `Texture2DArray` + custom `ShaderMaterial` (never an atlas)
-- [ ] Greedy mesher, padded 34³ border copy, `ArrayPool<T>` for vertex buffers
-- [ ] **Reserve vertex bits for light and AO** even though both are constant for now
-- [ ] Render one chunk
+#### M1a — Identity and registry
+
+- [ ] `Identifier` — namespaced string IDs (`minercraft:stone`), validated. No
+      `enum BlockType`, ever.
+- [ ] **One numeric ID space, owned by the world, not the run.** Seed assignment from
+      the world's saved `stringID → numericID` table; only new content gets fresh
+      numbers. Chunk data then never needs remapping.
+- [ ] **Never renumber, never compact.** A removed mod leaves a hole that stays; its IDs
+      resolve to an unknown-material placeholder that retains the original string ID, so
+      re-installing restores the world exactly.
+- [ ] `minercraft:air` is numeric ID 0, guaranteed and hardcoded
+- [ ] `Registry<T>` — frozen after the load phase; mutating it afterwards throws
+- [ ] `MaterialDefinition`: hardness, support distance, permeability, density, texture
+      layer, flags (opaque/fluid/replaceable)
+- [ ] `mods/*/mod.json` manifests + `materials/*.json`
+- [ ] **Base game ships as `mods/minercraft/` through the identical loader** — the
+      dogfood test, no privileged path
+- [ ] Tests: identifier validation, freeze behaviour, ID stability across
+      save → remove mod → reload → re-add, placeholder retains string ID
+- [ ] Deferred: dependency topological sort (parsed and validated now, resolved at M12)
+
+#### M1b — Chunk storage
+
+- [ ] Three representations behind one interface: Uniform (one int) → Palettised
+      bit-packed → Direct `ushort[]` above 256 palette entries
+- [ ] **Pad bit-packed indices to `ulong` word boundaries, do not straddle** — single
+      load/shift/mask per read, and this array is read tens of millions of times a
+      second by the mesher
+- [ ] Palette widening at 1→2→4→8→16 bits; repack on boundary crossing
+- [ ] **Never shrink eagerly** — compaction only on serialise or explicit `Compact()`,
+      because a pick swing must not pay for a full scan
+- [ ] Name the per-chunk compression palette distinctly from M1a's per-world ID table —
+      conflating them is an easy and nasty bug
+- [ ] Padded 34³ copy taken **on the sim thread** when queueing a mesh job, so storage
+      needs no locks at all
+- [ ] Tests: every bit width, exact growth boundaries, memory assertions, and a **fuzz
+      test against a naive `ushort[]` reference** — bit-packing bugs are invisible to
+      inspection
+
+#### M1c — Greedy mesher (largest part, may spill)
+
+- [ ] Sweep: 3 axes × 2 directions × slices, 2D mask per slice, greedy rectangle merge
+- [ ] **Merge key carries material + light + AO + normal from the start**, even though
+      light and AO are constant until M5 — otherwise M5 rewrites the mesher
+- [ ] Output `MeshData` of plain `float[]`/`int[]` — Godot-free, so it tests headlessly
+      and a dedicated server can link Core without meshing
+- [ ] Tiled UVs (a 7-voxel quad gets UV 0..7) — the thing an atlas cannot do
+- [ ] **Separate opaque and transparent surfaces now** — water is M8, but adding the
+      split later touches every emit path
+- [ ] `ArrayPool<T>` for mask and output buffers; allocation-free in steady state
+- [ ] Tests: empty → 0 quads, uniform → 6, single voxel → 6, checkerboard → culled count
+- [ ] Invariant tests: **surface area conservation** (merge only, never lose or
+      duplicate) and **no overlapping quads within a slice**
+- [ ] Fuzz random chunks against both invariants with a naive culled mesher as reference
+
+#### M1d — Godot bridge
+
+- [ ] `MeshData` → `ArrayMesh`, the only place Godot types meet mesher output
+- [ ] Move the face table (`VoxelFaces`) from Game to Core — it only lives in Game
+      because of `Vector3`
+- [ ] Render one real chunk from a test pattern chosen to make merging visible
+- [ ] Measure: quad count vs culled, build time, bytes per chunk
 
 ### M2 — World
 
