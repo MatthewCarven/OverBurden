@@ -1,5 +1,45 @@
 # MinerCraft — Worklog
 
+## 2026-08-25 — Decision: build our own voxel engine
+
+Matthew asked the right question at the right moment: should we just use
+[Zylann/godot_voxel](https://github.com/Zylann/godot_voxel) instead of building this?
+
+Decision recorded in
+[ADR-0001](docs/adr/ADR-0001-build-our-own-voxel-engine.md): **build our own, read
+theirs.**
+
+### Why the timing mattered
+
+Almost nothing was sunk cost. M1a's registry is independent of voxel storage and survives
+either way; the coordinate types largely survive; only ~200 lines of block mesh builder
+were throwaway. After M1c that stops being true, so this was close to the last cheap
+moment to ask.
+
+### What decided it
+
+- **Adopting it would reverse the headless-Core decision.** `MinerCraft.Core` has no
+  Godot reference on purpose; godot_voxel puts world storage inside the engine.
+- **The game is the simulation, not the terrain.** Phase 2 needs fast direct access to
+  voxel arrays plus its own per-voxel fields. A library is worth adopting when it owns
+  something peripheral — this would own the thing the product is made of.
+- **It is a C++ module and GDExtension is still incomplete**, so realistically we would
+  be compiling a custom Godot instead of using the stock 4.7.1 mono build.
+
+### The cost, stated plainly
+
+Six to ten sessions rebuilding something that exists and is better tested, plus giving up
+Transvoxel LOD for free. Not a free choice. The justification is that Phase 1 is the
+*known* part and the project risk lives in Phase 2, where the library helps not at all.
+
+Revisit triggers are named in the ADR rather than left to mood: M1c or M2 exceeding ~3
+sessions each, and M13's LOD work.
+
+### Housekeeping
+
+`reference/` added and gitignored, for third-party sources we read but do not vendor.
+Keeps the repo small and avoids inheriting an attribution obligation we do not need.
+
 ## 2026-08-24 — M1a: identity and the registry
 
 99 tests passing. The base game now loads from `mods/minercraft/materials/*.json`

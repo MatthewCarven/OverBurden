@@ -13,6 +13,13 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
 - [x] **Chunk storage order — Y-major, then Z, then X.** Decided 2026-08-24. X
       contiguous so the mesher sweeps a row with sequential reads; Y-major keeps a
       horizontal slab together for the lighting column pass.
+- [x] **Build our own voxel engine, don't adopt godot_voxel.** Decided 2026-08-25, see
+      [ADR-0001](docs/adr/ADR-0001-build-our-own-voxel-engine.md). Read theirs as
+      reference; `reference/` is gitignored for exactly that.
+      - [ ] **Read godot_voxel's threaded mesh scheduling and chunk streaming before
+            M2** — the two places we are most likely to make an avoidable mistake
+      - [ ] Revisit trigger: M1c or M2 exceeding ~3 sessions each
+      - [ ] Revisit trigger: M13 distance LOD, where their advantage is largest
 - [ ] Collapse debris: loose re-settling rubble vs rigid falling chunks — decide at M9
 - [ ] Power model complexity — decide at M10
 - [ ] Name check: "MinerCraft" — keeping it?

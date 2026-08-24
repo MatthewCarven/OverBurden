@@ -21,3 +21,10 @@ build/
 
 # Godot editor install, if vendored beside the code rather than shared from GAME/
 Godot_v*/
+
+# Third-party sources kept locally to read, NOT vendored into the project.
+# godot_voxel and anything else we study goes here — see docs/adr/ADR-0001.
+# Keeping it ignored avoids bloating the repo and avoids inheriting an attribution
+# obligation we do not need; if code is ever genuinely lifted, it moves out of here
+# and carries its license notice with it.
+reference/
