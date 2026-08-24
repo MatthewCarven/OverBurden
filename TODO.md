@@ -19,11 +19,14 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
 
 ## Needs a human eye
 
-- [ ] **Face winding — run `start.cmd` and confirm the block is not inside-out.**
-      All six faces are consistently wound (verified analytically: the right-hand-rule
-      normal points inward on every face), so it renders either all-correct or
-      all-flipped — never a mix. If flipped, it is one line in
-      `VoxelMeshBuilder.AddFace`, already commented.
+- [x] **Face winding — confirmed correct 2026-08-24.** Visually verified from three
+      angles: grass top, dirt sides, stone underneath, solid convex silhouette. Godot's
+      clockwise front-face convention is as documented, so no flip was needed. The
+      screenshots also confirmed texture-array indexing, per-vertex normals, and the
+      UV2.y shade channel.
+- [ ] Ambient fill is low — faces angled away from the sun go nearly black. Cosmetic
+      only, and M5 lighting replaces this shading path entirely, so not worth tuning
+      the Environment now.
 
 ---
 

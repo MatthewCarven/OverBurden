@@ -25,12 +25,19 @@ Builds clean, runs headless with no errors, 43 tests passing.
   every one of them passes trivially in the positive octant.
 - **Godot C# projects don't enable `ImplicitUsings`** (matching `GAME/`), so `System` and
   `System.Collections.Generic` need explicit imports. Cost one failed build.
-- **Winding verified analytically rather than by eye.** For all six faces the
-  right-hand-rule normal of the emitted triangles points inward, consistently. That
-  means the block renders either all-correct or all-inside-out, never a mix — a mixed
-  winding bug would have been the nasty one. Under Godot's documented clockwise
-  front-face convention this should be correct; it still wants one visual confirmation,
-  and it is a one-line flip if wrong.
+- **Winding verified analytically, then confirmed on screen.** For all six faces the
+  right-hand-rule normal of the emitted triangles points inward, consistently — so the
+  block could only render all-correct or all-inside-out, never a mix, and a mixed
+  winding bug would have been the nasty one. Matthew ran it and it is correct: Godot's
+  clockwise front-face convention is as documented, no flip needed.
+- **The screenshots settled four things at once**, which is a good argument for looking
+  at the thing rather than only testing it: winding, texture-array layer indexing (three
+  distinct materials on one mesh), per-vertex normals (the lit and unlit faces differ
+  under `diffuse_lambert`), and the UV2.y shade channel multiplying through at 1.0.
+- **The 4×4 tile grid is visible on each face**, which is culled meshing showing its
+  working: 16 quads per face, one per voxel. Greedy meshing collapses that to 1 quad per
+  face at M1 — 96 quads down to 6 on this shape, a 16× reduction, and the clearest
+  possible demonstration of why greedy is mandatory at 0.25 m.
 - **Culling maths checks out**: a 4³ solid block emits 192 triangles (six 4×4 faces)
   against 768 for naive per-voxel cubes.
 
