@@ -1,0 +1,8 @@
+{
+  "id": "dirt",
+  "hardness": 0.8,
+  "supportDistance": 8,
+  "permeability": 0.35,
+  "density": 1500,
+  "textureLayer": 1
+}

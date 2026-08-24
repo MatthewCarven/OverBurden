@@ -61,7 +61,12 @@ public static class VoxelMeshBuilder
     /// rule — just with the neighbour test hardcoded to a cube rather than read from
     /// chunk storage.
     /// </summary>
-    public static ArrayMesh BuildSolidBlock(int voxelsPerSide, Material material)
+    public static ArrayMesh BuildSolidBlock(
+        int voxelsPerSide,
+        Material material,
+        int topLayer,
+        int sideLayer,
+        int bottomLayer)
     {
         var vertices = new List<Vector3>();
         var normals = new List<Vector3>();
@@ -90,7 +95,7 @@ public static class VoxelMeshBuilder
                     vertices, normals, uvs, uv2s, indices,
                     face,
                     new Vector3(x, y, z) * VoxelConstants.VoxelSize,
-                    LayerForFace(face));
+                    face switch { 2 => topLayer, 3 => bottomLayer, _ => sideLayer });
             }
         }
 
@@ -108,18 +113,10 @@ public static class VoxelMeshBuilder
         return mesh;
     }
 
-    /// <summary>Grass on top, stone underneath, dirt around the sides.</summary>
-    private static float LayerForFace(int face) => face switch
-    {
-        2 => (float)PlaceholderLayer.Grass,
-        3 => (float)PlaceholderLayer.Stone,
-        _ => (float)PlaceholderLayer.Dirt,
-    };
-
     private static void AddFace(
         List<Vector3> vertices, List<Vector3> normals,
         List<Vector2> uvs, List<Vector2> uv2s, List<int> indices,
-        int face, Vector3 originMetres, float layer)
+        int face, Vector3 originMetres, int layer)
     {
         int baseIndex = vertices.Count;
         var corners = VoxelFaces.Corners[face];

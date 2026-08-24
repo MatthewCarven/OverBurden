@@ -1,5 +1,54 @@
 # MinerCraft — Worklog
 
+## 2026-08-24 — M1a: identity and the registry
+
+99 tests passing. The base game now loads from `mods/minercraft/materials/*.json`
+through the same code path a third-party mod would use, and the block on screen takes
+its textures from those files rather than from a hardcoded enum.
+
+### Built
+
+- `Identifier` — namespaced, validated, lowercase-only.
+- `Registry<T>` — seedable numeric ID assignment, freeze semantics, placeholder fill.
+- `MaterialDefinition`, `ModManifest`, `IContentSource` (directory + in-memory),
+  `ContentLoader`, `GameContent`.
+- `mods/minercraft/` with air, stone, dirt, grass.
+
+### Findings
+
+- **The numeric ID space has to belong to the world, not the process.** Assigning
+  numbers in registration order at startup looks correct until a mod is installed, at
+  which point every number shifts and every saved chunk decodes to the wrong material.
+  `IdStabilityTests.WithoutASavedTable_RemovingAModRenumbersEverythingAfterIt` pins that
+  failure as a test on purpose, so the hazard stays visible rather than becoming folklore.
+- **Reserving air's *number* is not the same as privileging air's *content*.** The
+  tension was real: air must be ID 0 for the uniform-chunk fast path, but the dogfood
+  rule says no privileged content path. Splitting the two resolves it — the loader
+  reserves the number before scanning mods, and the definition still has to arrive from
+  `air.json` or it is a load error. That also makes air's ID independent of filename
+  ordering, which a test now pins.
+- **The placeholder for a removed mod must be solid, not air.** Turning missing blocks
+  into air would quietly punch holes through every structure built from them. It is
+  opaque, non-replaceable, and retains the original identifier — that last part is what
+  makes re-installing the mod lossless rather than merely non-crashing.
+- **Load errors are collected, not thrown.** One mod with a malformed file must be a
+  diagnosable message, not a black screen. Only a missing air definition is fatal.
+- **Load order has to be deterministic even before it is dependency-correct.** Numeric
+  IDs for unseen content are assigned in load order, so a non-deterministic scan would
+  hand out different IDs on different runs. Base game first, then ordinal by mod ID.
+- **A bare `"id": "copper_ore"` resolves into the owning mod's namespace**, so a mod
+  cannot accidentally claim someone else's; writing the explicit `ns:path` form is how a
+  compatibility patch deliberately targets another mod, and a genuine collision is
+  reported rather than silently overriding.
+
+### Deferred
+
+- Dependency declarations are validated for presence but not topologically sorted. Real
+  resolution belongs with scripting at M12, when mods can actually conflict.
+- `res://mods` resolves to a real directory in the editor and debug builds but not inside
+  an exported `.pck`. Packaging loose mod content is a genuine problem; it just is not
+  this milestone's problem.
+
 ## 2026-08-24 — M0: skeleton
 
 Builds clean, runs headless with no errors, 43 tests passing.

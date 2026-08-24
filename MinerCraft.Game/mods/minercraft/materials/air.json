@@ -1,0 +1,9 @@
+{
+  "id": "air",
+  "hardness": 0,
+  "supportDistance": 0,
+  "permeability": 1.0,
+  "density": 1.2,
+  "opaque": false,
+  "replaceable": true
+}

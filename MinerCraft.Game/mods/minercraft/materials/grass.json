@@ -1,0 +1,8 @@
+{
+  "id": "grass",
+  "hardness": 0.9,
+  "supportDistance": 8,
+  "permeability": 0.30,
+  "density": 1500,
+  "textureLayer": 2
+}

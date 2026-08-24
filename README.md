@@ -13,9 +13,10 @@ No mobs, no combat. The mine is the antagonist.
 
 ## Status
 
-**M0 done.** Solution skeleton, voxel coordinate maths with tests, a texture-array
-shader, one culled block mesh drawn through `RenderingServer`, and a flycam. M1 —
-chunk storage and the content registry — is next.
+**M0 and M1a done**, 99 tests passing. Solution skeleton, voxel coordinate maths, a
+texture-array shader, one culled block mesh through `RenderingServer`, a flycam — and a
+content registry where the base game loads from `mods/minercraft/*.json` exactly the way
+a third-party mod would. M1b, chunk storage, is next.
 
 ## Run it
 

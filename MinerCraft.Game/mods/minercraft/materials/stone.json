@@ -1,0 +1,8 @@
+{
+  "id": "stone",
+  "hardness": 3.0,
+  "supportDistance": 30,
+  "permeability": 0.02,
+  "density": 2600,
+  "textureLayer": 0
+}

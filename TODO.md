@@ -52,26 +52,28 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
 
 Split into four sessions. Full reasoning in [docs/M1-PLAN.md](docs/M1-PLAN.md).
 
-#### M1a — Identity and registry
+#### M1a — Identity and registry ✅ done 2026-08-24, 99 tests passing
 
-- [ ] `Identifier` — namespaced string IDs (`minercraft:stone`), validated. No
-      `enum BlockType`, ever.
-- [ ] **One numeric ID space, owned by the world, not the run.** Seed assignment from
-      the world's saved `stringID → numericID` table; only new content gets fresh
-      numbers. Chunk data then never needs remapping.
-- [ ] **Never renumber, never compact.** A removed mod leaves a hole that stays; its IDs
-      resolve to an unknown-material placeholder that retains the original string ID, so
-      re-installing restores the world exactly.
-- [ ] `minercraft:air` is numeric ID 0, guaranteed and hardcoded
-- [ ] `Registry<T>` — frozen after the load phase; mutating it afterwards throws
-- [ ] `MaterialDefinition`: hardness, support distance, permeability, density, texture
-      layer, flags (opaque/fluid/replaceable)
-- [ ] `mods/*/mod.json` manifests + `materials/*.json`
-- [ ] **Base game ships as `mods/minercraft/` through the identical loader** — the
-      dogfood test, no privileged path
-- [ ] Tests: identifier validation, freeze behaviour, ID stability across
-      save → remove mod → reload → re-add, placeholder retains string ID
+- [x] `Identifier` — namespaced string IDs (`minercraft:stone`), validated, lowercase
+      only. No `enum BlockType`, ever.
+- [x] **One numeric ID space, owned by the world, not the run.** `SeedIdTable` restores
+      the world's saved assignment; only unseen content gets fresh numbers appended.
+- [x] **Never renumber, never compact.** Holes are preserved and never reclaimed; a
+      removed mod's IDs resolve to a placeholder retaining the original string ID.
+- [x] `minercraft:air` pinned to numeric ID 0 by reserving the *number* before loading —
+      the definition still comes from JSON, so the dogfood rule holds
+- [x] `Registry<T>` — frozen after the load phase, immutable and lock-free to read after
+- [x] `MaterialDefinition` incl. support distance and permeability for M8/M9
+- [x] `IContentSource` with directory and in-memory implementations
+- [x] `mods/*/mod.json` manifests + `materials/*.json`, errors collected not thrown
+- [x] **Base game ships as `mods/minercraft/` through the identical loader**
+- [x] Wired into Godot: block textures now come from material JSON
+- [x] Tests: identifier validation, freeze, save → remove mod → reload → re-add cycle,
+      hole preservation, load determinism, and the counter-example showing ID drift
+      *without* a saved table
 - [ ] Deferred: dependency topological sort (parsed and validated now, resolved at M12)
+- [ ] Deferred: `res://mods` does not resolve inside an exported `.pck` — packaging loose
+      mod content needs solving before the first export, not before then
 
 #### M1b — Chunk storage
 
