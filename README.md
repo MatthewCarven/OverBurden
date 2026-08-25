@@ -13,10 +13,11 @@ No mobs, no combat. The mine is the antagonist.
 
 ## Status
 
-**M0 and M1a done**, 99 tests passing. Solution skeleton, voxel coordinate maths, a
+**M0, M1a and M1b done**, 133 tests passing. Solution skeleton, voxel coordinate maths, a
 texture-array shader, one culled block mesh through `RenderingServer`, a flycam — and a
 content registry where the base game loads from `mods/minercraft/*.json` exactly the way
-a third-party mod would. M1b, chunk storage, is next.
+a third-party mod would, over palette-compressed chunk storage that costs zero bytes for
+the uniform chunks most of a world is made of. M1c, the greedy mesher, is next.
 
 ## Run it
 

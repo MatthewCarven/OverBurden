@@ -85,23 +85,28 @@ Split into four sessions. Full reasoning in [docs/M1-PLAN.md](docs/M1-PLAN.md).
 - [ ] Deferred: `res://mods` does not resolve inside an exported `.pck` — packaging loose
       mod content needs solving before the first export, not before then
 
-#### M1b — Chunk storage
+#### M1b — Chunk storage ✅ done 2026-08-25, 133 tests passing
 
-- [ ] Three representations behind one interface: Uniform (one int) → Palettised
-      bit-packed → Direct `ushort[]` above 256 palette entries
-- [ ] **Pad bit-packed indices to `ulong` word boundaries, do not straddle** — single
-      load/shift/mask per read, and this array is read tens of millions of times a
-      second by the mesher
-- [ ] Palette widening at 1→2→4→8→16 bits; repack on boundary crossing
-- [ ] **Never shrink eagerly** — compaction only on serialise or explicit `Compact()`,
-      because a pick swing must not pay for a full scan
-- [ ] Name the per-chunk compression palette distinctly from M1a's per-world ID table —
-      conflating them is an easy and nasty bug
-- [ ] Padded 34³ copy taken **on the sim thread** when queueing a mesh job, so storage
-      needs no locks at all
-- [ ] Tests: every bit width, exact growth boundaries, memory assertions, and a **fuzz
-      test against a naive `ushort[]` reference** — bit-packing bugs are invisible to
-      inspection
+- [x] Three representations in one class: Uniform (one int, **zero allocation**) →
+      Palettised bit-packed → Direct `ushort[]` above 256 palette entries
+- [x] **Padded to `ulong` word boundaries, no straddling.** Every width used (1, 2, 4, 8)
+      divides 64 exactly, so padding wastes literally nothing and every read is one
+      load/shift/mask with no branch and no second word fetch.
+- [x] Palette widening at 1→2→4→8 bits, repack on boundary crossing
+- [x] **Dropped the 16-bit palette tier** the plan called for: a 16-bit palette index
+      costs exactly as much as the material ID it points at, so the tier is pure
+      overhead. 256 entries is the honest cutover to Direct.
+- [x] **Never shrinks eagerly** — `Compact()` only, pinned by a test asserting a chunk
+      stays palettised after being mined back to uniform content
+- [x] Per-chunk compression palette named distinctly from M1a's per-world ID table
+- [x] `CopyTo` bulk read, with a uniform fast path that never touches packed storage
+- [x] Tests: every width, exact growth boundaries, exact byte counts, `Compact` narrowing
+      and demoting, Direct→Palettised recovery, bounds and 16-bit material validation
+- [x] **Differential fuzz against a naive `ushort[]`** — 4 pool sizes × 40k random ops,
+      each probing an unrelated voxel so a clobbered neighbour surfaces early, with
+      `Compact()` interleaved to prove it never changes content
+- [ ] Padded 34³ copy on the sim thread when queueing a mesh job — belongs with M1c,
+      which is the thing that consumes it
 
 #### M1c — Greedy mesher (largest part, may spill)
 

@@ -1,5 +1,46 @@
 # MinerCraft — Worklog
 
+## 2026-08-25 — M1b: chunk storage
+
+133 tests passing. `VoxelChunk` holds 32³ voxels in one of three representations, with
+the differential fuzzer running 160,000 random operations against a naive `ushort[]`.
+
+### Built
+
+`VoxelChunk` — Uniform (single int, zero allocation) → Palettised (1/2/4/8-bit packed
+indices) → Direct (`ushort[]`), promoted as content demands, with `Compact()`,
+`Fill()` and a bulk `CopyTo`.
+
+### Findings
+
+- **The 16-bit palette tier the plan called for is pure overhead, and got dropped.** A
+  16-bit palette index costs exactly as much as the material ID it points at, so above
+  256 entries the palette buys nothing at all and Direct storage is the honest answer.
+  Caught while writing `BitsForPaletteSize`; docs/M1-PLAN.md had specified 1→2→4→8→16.
+- **Zero-initialised packed storage is already correct on promotion.** When a uniform
+  chunk takes its first differing write, the new palette puts the old uniform value at
+  index 0 — so a fresh zeroed word array already reads back as the value every voxel
+  used to hold. No fill pass, no loop.
+- **Every width we use divides 64 exactly**, so the "pad, don't straddle" decision costs
+  nothing whatsoever rather than the few wasted bits per word I had expected when
+  planning it. The tradeoff turned out to be free.
+- **The memory claim needed correcting, not the code.** A test asserted a maximum-entropy
+  chunk fits in 16 KB and it came to 16,420 B — the packed array is exactly 16 KB and I
+  had forgotten the palette. Worse, I had called that chunk "typical" when every voxel
+  being independently random across 9 materials is the 4-bit *worst* case. Split into
+  three honest tests: max-entropy (exact bytes), terrain-like (2 bits, ~8 KB), and the
+  one that actually explains the budget — **the chunks that dominate a world are entirely
+  air or entirely stone and cost zero bytes**. The palette tier only pays for the thin
+  shell between them.
+- **Compaction is genuinely not eager, and there is a test that says so.** Mining a lone
+  block back out leaves the chunk palettised rather than snapping back to uniform,
+  because detecting that needs a 32,768-voxel scan and a pick swing must not pay for it.
+
+### Note
+
+`InternalsVisibleTo` added for the test project, so packing internals are tested
+directly rather than being promoted to public API just to be reachable.
+
 ## 2026-08-25 — Reading godot_voxel, and a storage-order correction
 
 Sources cloned into `reference/godot_voxel` (51 MB, gitignored, repo stays clean). Read

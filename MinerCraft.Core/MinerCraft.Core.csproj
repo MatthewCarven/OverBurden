@@ -10,4 +10,10 @@
          Godot-free is what keeps a dedicated server possible later. -->
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Storage internals (packing widths, representation transitions) are tested
+         directly rather than being promoted to public API just to be reachable. -->
+    <InternalsVisibleTo Include="MinerCraft.Core.Tests" />
+  </ItemGroup>
+
 </Project>
