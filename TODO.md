@@ -27,6 +27,25 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
 - [ ] Power model complexity — decide at M10
 - [ ] Name check: "MinerCraft" — keeping it?
 
+## Before the repo goes public
+
+Not urgent — it stays private for now — but cheaper to settle before there are forks and
+outside contributors than after.
+
+- [ ] **Pick a licence.** Your other projects are MIT, but those are tools and toys where
+      the code isn't the product. For a game MIT means anyone may rebrand and sell it.
+      Source-available (readable, not freely redistributable) is the common alternative if
+      you might ship this. Genuinely your call — flag it and I'll write the file.
+- [ ] Decide whether commit authorship stays `matthewcarven@gmail.com`. It becomes a
+      permanent public record on every commit, and rewriting history afterwards is
+      unpleasant. GitHub's `users.noreply.github.com` address is the usual alternative.
+- [ ] Godot's MIT attribution — a credits screen using `Engine.GetLicenseText()` and
+      `Engine.GetCopyrightInfo()`. Obligation attaches when the **game** is distributed,
+      not when the repo is published, so this belongs with the first export rather than
+      here. Recorded so it isn't discovered at release.
+- [ ] Sanity-check before the first push: `reference/` stays ignored (51 MB of
+      godot_voxel), and no `export_credentials.cfg` has appeared.
+
 ## Needs a human eye
 
 - [x] **Face winding — confirmed correct 2026-08-24.** Visually verified from three
