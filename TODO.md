@@ -138,8 +138,14 @@ Split into four sessions. Full reasoning in [docs/M1-PLAN.md](docs/M1-PLAN.md).
 - [x] Measured: 8,208 B for 32,768 voxels; 196,608 naive faces → 6,128 culled → **850
       greedy quads**, 7.2× better than culled and 231× better than naive
 
-### M2 — World
+### M2 — World ⬅️ **start here**
 
+- [ ] **First: read `reference/godot_voxel/` threaded mesh scheduling and streaming
+      policy.** Not optional ceremony — consulting that reference before M1b caught a
+      storage-order mistake that would have been a rewrite afterwards. Look at
+      `meshers/mesh_block_task.*`, `engine/`, and `terrain/` .
+- [ ] Consider planning M2 as sub-parts first, the way M1 was — see
+      [docs/M1-PLAN.md](docs/M1-PLAN.md) for the shape
 - [ ] `System.Threading.Channels` job queue for gen + mesh
 - [ ] Worldgen: 2D fBm heightmap, strata layers, 3D noise caves
 - [ ] Deterministic per-chunk seeding `hash(seed, cx, cy, cz)`
