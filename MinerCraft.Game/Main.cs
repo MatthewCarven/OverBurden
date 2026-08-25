@@ -1,18 +1,18 @@
 using Godot;
 using MinerCraft.Core.Content;
+using MinerCraft.Core.Meshing;
 using MinerCraft.Core.Voxels;
 using MinerCraft.Game.Rendering;
 
 namespace MinerCraft.Game;
 
 /// <summary>
-/// M0/M1a entry point: load content from <c>mods/</c>, then build one culled block mesh
-/// whose textures come from that content and hand it to the RenderingServer. Replaced by
-/// the chunk manager at M2.
+/// M1d entry point: load content, generate one chunk of test terrain, greedy-mesh it, and
+/// hand the result to the RenderingServer. Replaced by the chunk manager at M2.
 /// </summary>
 public partial class Main : Node3D
 {
-    private VoxelRenderInstance? _block;
+    private VoxelRenderInstance? _chunk;
 
     public GameContent Content { get; } = new();
 
@@ -20,40 +20,104 @@ public partial class Main : Node3D
     {
         LoadContent();
 
+        var materials = MaterialTable.From(Content.Materials);
+        var voxels = BuildTestTerrain();
+
+        var padded = new PaddedChunk();
+        padded.CopyInteriorFrom(voxels);
+        padded.FillBorder(MaterialIds.AirNumericId); // a lone chunk, so open on all sides
+
+        var mesh = new ChunkMesh();
+        new GreedyMesher().Build(padded, materials, mesh);
+
+        Report(voxels, padded, materials, mesh);
+
         var material = VoxelMaterial.Create();
+        var arrayMesh = ChunkMeshConverter.ToArrayMesh(mesh, material, material);
 
-        // One cubic metre of voxels — 4×4×4 at 0.25 m. Small enough to eyeball, and it
-        // makes the working scale legible: this is the unit a placement brush will drop.
-        // The texture layers now come from mods/minercraft/materials/*.json rather than
-        // from a hardcoded enum, which is the point of M1a.
-        var mesh = VoxelMeshBuilder.BuildSolidBlock(
-            VoxelConstants.VoxelsPerMetre,
-            material,
-            topLayer: TextureLayerOf("minercraft:grass"),
-            sideLayer: TextureLayerOf("minercraft:dirt"),
-            bottomLayer: TextureLayerOf("minercraft:stone"));
-
-        _block = new VoxelRenderInstance(GetWorld3D(), mesh, Transform3D.Identity);
-
-        int triangles = mesh.GetFaces().Length / 3;
-        int naive = VoxelConstants.VoxelsPerMetre
-                    * VoxelConstants.VoxelsPerMetre
-                    * VoxelConstants.VoxelsPerMetre * 12;
-
-        GD.Print(
-            $"M0: {VoxelConstants.VoxelsPerMetre}³ voxel block " +
-            $"({VoxelConstants.VoxelsPerMetre * VoxelConstants.VoxelSize} m per side), " +
-            $"{triangles} triangles after interior culling (naive would be {naive}).");
+        if (arrayMesh is not null)
+        {
+            _chunk = new VoxelRenderInstance(GetWorld3D(), arrayMesh, Transform3D.Identity);
+        }
     }
 
     /// <summary>
-    /// Loads <c>res://mods/</c> through the same path a third-party mod takes.
+    /// A slice of terrain chosen to show what greedy meshing does: broad flat layers that
+    /// merge into a handful of quads, a rolling surface that cannot merge as well, and a
+    /// carved cavity so the interior geometry is not trivial.
     /// </summary>
-    /// <remarks>
-    /// GlobalizePath gives a real filesystem path in the editor and in debug builds. In an
-    /// exported build res:// lives inside the .pck and this will not resolve — packaging
-    /// loose mod content is a real problem, deferred until there is something to export.
-    /// </remarks>
+    private VoxelChunk BuildTestTerrain()
+    {
+        int stone = MaterialId("minercraft:stone");
+        int dirt = MaterialId("minercraft:dirt");
+        int grass = MaterialId("minercraft:grass");
+
+        var chunk = new VoxelChunk(MaterialIds.AirNumericId);
+        const int size = VoxelConstants.ChunkSize;
+
+        for (int z = 0; z < size; z++)
+        for (int x = 0; x < size; x++)
+        {
+            int height = 18
+                         + (int)(3f * Mathf.Sin(x * 0.28f))
+                         + (int)(3f * Mathf.Cos(z * 0.22f));
+            height = Mathf.Clamp(height, 1, size - 1);
+
+            for (int y = 0; y <= height; y++)
+            {
+                chunk.Set(x, y, z, y == height ? grass : y >= height - 3 ? dirt : stone);
+            }
+        }
+
+        // Carve a cavity, so the mesh has interior surfaces and not just a heightfield.
+        var centre = new Vector3(12f, 9f, 16f);
+        for (int z = 0; z < size; z++)
+        for (int x = 0; x < size; x++)
+        for (int y = 0; y < size; y++)
+        {
+            if (new Vector3(x, y, z).DistanceTo(centre) < 6.5f)
+            {
+                chunk.Set(x, y, z, MaterialIds.AirNumericId);
+            }
+        }
+
+        return chunk;
+    }
+
+    private void Report(
+        VoxelChunk voxels, PaddedChunk padded, MaterialTable materials, ChunkMesh mesh)
+    {
+        // Diagnostic only: what a culled mesher would have emitted, for comparison.
+        int culledFaces = 0;
+        for (int face = 0; face < VoxelFace.Count; face++)
+        {
+            int[] offset = VoxelFace.Offset[face];
+
+            for (int z = 0; z < VoxelConstants.ChunkSize; z++)
+            for (int x = 0; x < VoxelConstants.ChunkSize; x++)
+            for (int y = 0; y < VoxelConstants.ChunkSize; y++)
+            {
+                int here = padded[x, y, z];
+                int there = padded[x + offset[0], y + offset[1], z + offset[2]];
+
+                if (here != MaterialIds.AirNumericId && here != there && !materials.IsOpaque(there))
+                {
+                    culledFaces++;
+                }
+            }
+        }
+
+        int naive = VoxelConstants.ChunkVolume * 6;
+        GD.Print(
+            $"M1d: chunk stored as {voxels} ({voxels.EstimatedBytes} B for " +
+            $"{VoxelConstants.ChunkVolume} voxels)\n" +
+            $"  naive {naive} faces → culled {culledFaces} → greedy {mesh.QuadCount} quads " +
+            $"({(float)culledFaces / Mathf.Max(mesh.QuadCount, 1):F1}× better than culled, " +
+            $"{(float)naive / Mathf.Max(mesh.QuadCount, 1):F0}× better than naive)\n" +
+            $"  {mesh.Opaque.QuadCount} opaque, {mesh.Transparent.QuadCount} transparent, " +
+            $"{mesh.Opaque.IndexCount / 3} triangles");
+    }
+
     private void LoadContent()
     {
         string modsPath = ProjectSettings.GlobalizePath("res://mods");
@@ -65,27 +129,16 @@ public partial class Main : Node3D
         }
 
         GD.Print($"Content: {result}");
-        foreach (var (numericId, id, definition) in Content.Materials.Entries())
-        {
-            GD.Print(
-                $"  [{numericId}] {id,-20} hardness={definition.Hardness,-5} " +
-                $"support={definition.SupportDistance,-3} perm={definition.Permeability,-5} " +
-                $"layer={definition.TextureLayer}");
-        }
     }
 
-    private int TextureLayerOf(string identifier)
-    {
-        // A missing material resolves to the unknown placeholder rather than throwing,
-        // so a broken mod set still renders something rather than failing to start.
-        return Content.Materials.TryGet(Identifier.Parse(identifier), out var definition)
-            ? definition.TextureLayer
-            : 0;
-    }
+    private int MaterialId(string identifier) =>
+        Content.Materials.TryGetNumericId(Identifier.Parse(identifier), out int id)
+            ? id
+            : MaterialIds.AirNumericId;
 
     public override void _ExitTree()
     {
-        _block?.Dispose();
-        _block = null;
+        _chunk?.Dispose();
+        _chunk = null;
     }
 }

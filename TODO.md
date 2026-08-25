@@ -108,29 +108,35 @@ Split into four sessions. Full reasoning in [docs/M1-PLAN.md](docs/M1-PLAN.md).
 - [ ] Padded 34³ copy on the sim thread when queueing a mesh job — belongs with M1c,
       which is the thing that consumes it
 
-#### M1c — Greedy mesher (largest part, may spill)
+#### M1c — Greedy mesher ✅ done 2026-08-25, did not spill
 
-- [ ] Sweep: 3 axes × 2 directions × slices, 2D mask per slice, greedy rectangle merge
-- [ ] **Merge key carries material + light + AO + normal from the start**, even though
-      light and AO are constant until M5 — otherwise M5 rewrites the mesher
-- [ ] Output `MeshData` of plain `float[]`/`int[]` — Godot-free, so it tests headlessly
-      and a dedicated server can link Core without meshing
-- [ ] Tiled UVs (a 7-voxel quad gets UV 0..7) — the thing an atlas cannot do
-- [ ] **Separate opaque and transparent surfaces now** — water is M8, but adding the
-      split later touches every emit path
-- [ ] `ArrayPool<T>` for mask and output buffers; allocation-free in steady state
-- [ ] Tests: empty → 0 quads, uniform → 6, single voxel → 6, checkerboard → culled count
-- [ ] Invariant tests: **surface area conservation** (merge only, never lose or
-      duplicate) and **no overlapping quads within a slice**
-- [ ] Fuzz random chunks against both invariants with a naive culled mesher as reference
+- [x] Sweep: 6 face directions × 32 slices, 2D mask per slice, greedy rectangle merge
+- [x] **Merge key carries material + light + AO from the start**, constant until M5
+- [x] `PaddedChunk` (34³) so boundary faces need no cross-chunk lookup and no locking
+- [x] `MaterialTable` — properties flattened into arrays after the registry freezes,
+      because the mesher asks "is this opaque?" tens of millions of times a second
+- [x] Output `MeshBuffer`/`ChunkMesh` of plain `float[]`/`int[]` — Godot-free
+- [x] Tiled UVs — a 32-voxel quad gets UV 0..32
+- [x] **Opaque and transparent surfaces separated now**, before water needs it at M8
+- [x] Mask allocated once per mesher and buffers reused via `Reset()` — allocation-free
+      in steady state, and simpler than pooling since the buffers never escape
+- [x] Tests: empty → 0, solid → exactly 6, single voxel → 6, checkerboard → culled count,
+      layered terrain → 1
+- [x] **Coverage equivalence**: every quad expanded back into voxel faces must reproduce
+      the culled mesher's answer exactly, with no cell covered twice. Subsumes both
+      surface-area conservation and no-overlap, across 5 random densities.
+- [x] Winding invariant: `du × dv` points along the outward normal on every quad
 
-#### M1d — Godot bridge
+#### M1d — Godot bridge ✅ done 2026-08-25
 
-- [ ] `MeshData` → `ArrayMesh`, the only place Godot types meet mesher output
-- [ ] Move the face table (`VoxelFaces`) from Game to Core — it only lives in Game
-      because of `Vector3`
-- [ ] Render one real chunk from a test pattern chosen to make merging visible
-- [ ] Measure: quad count vs culled, build time, bytes per chunk
+- [x] `ChunkMeshConverter` — `MeshBuffer` → `ArrayMesh`, the only place Godot types meet
+      mesher output, and what makes reusing the buffers safe
+- [x] Face table now lives in Core as `VoxelFace`; the Game-side copy and the M0 block
+      builder are deleted
+- [x] Real chunk of test terrain rendered: layered strata, a rolling surface, and a
+      carved cavity so interior geometry is non-trivial
+- [x] Measured: 8,208 B for 32,768 voxels; 196,608 naive faces → 6,128 culled → **850
+      greedy quads**, 7.2× better than culled and 231× better than naive
 
 ### M2 — World
 

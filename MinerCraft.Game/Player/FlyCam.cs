@@ -18,7 +18,7 @@ public partial class FlyCam : Camera3D
     [Export] public float MouseSensitivity { get; set; } = 0.0025f;
 
     /// <summary>Where the camera aims on startup, in metres.</summary>
-    [Export] public Vector3 InitialTarget { get; set; } = new(0.5f, 0.5f, 0.5f);
+    [Export] public Vector3 InitialTarget { get; set; } = new(4f, 3f, 4f);
 
     private const float PitchLimit = 1.55f; // just shy of ±90°, so up never flips
 
@@ -41,7 +41,7 @@ public partial class FlyCam : Camera3D
         SetMouseCaptured(true);
 
         GD.Print(
-            $"MinerCraft M0 — voxel {VoxelConstants.VoxelSize} m, " +
+            $"MinerCraft — voxel {VoxelConstants.VoxelSize} m, " +
             $"chunk {VoxelConstants.ChunkSize}³ ({VoxelConstants.ChunkSizeMetres} m)\n" +
             "  WASD move, Space/Ctrl up-down, Shift sprint, Alt crawl\n" +
             "  Esc releases the mouse, click to recapture");

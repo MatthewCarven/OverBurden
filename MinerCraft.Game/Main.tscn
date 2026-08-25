@@ -31,5 +31,5 @@ light_energy = 1.2
 shadow_enabled = true
 
 [node name="FlyCam" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.8, 1.6, 2.6)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 10, 15)
 script = ExtResource("2_flycam")

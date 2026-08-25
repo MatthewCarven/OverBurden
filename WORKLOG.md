@@ -1,5 +1,56 @@
 # MinerCraft — Worklog
 
+## 2026-08-25 — M1c and M1d: greedy mesher, and a real chunk on screen
+
+154 tests passing. M1c was flagged as the part most likely to spill into two sessions;
+it didn't, largely because the test strategy turned out stronger than expected.
+
+### Measured, on a chunk of test terrain
+
+```
+chunk stored as palette 4 @ 2b, 8,208 B for 32,768 voxels
+naive 196,608 faces → culled 6,128 → greedy 850 quads
+7.2× better than culled, 231× better than naive
+```
+
+### Built
+
+`PaddedChunk` (34³), `MaterialTable`, `VoxelFace`, `MeshBuffer`/`ChunkMesh`,
+`GreedyMesher`, and `ChunkMeshConverter` on the Godot side. The M0 block builder and the
+Game-side face table are deleted — Core owns that now.
+
+### Findings
+
+- **The coverage-equivalence test is better than the two invariants it replaces.** The
+  plan called for surface-area conservation and a no-overlap check. Expanding every
+  emitted quad back into the voxel faces it covers and comparing that to the culled
+  mesher's answer *as a set* subsumes both, and additionally catches faces invented in
+  the wrong place — which neither original invariant would have. It reads the actual
+  emitted vertex data rather than any internal side-channel, so it tests what ships.
+- **The U and V axes per face are not free choices.** They must satisfy
+  `du × dv = +normal`, or that one face renders inside-out while the other five look
+  correct. Derived per face rather than guessed, and pinned by a winding test — the M0
+  experience of not being able to check winding without running it was worth avoiding
+  twice.
+- **Clearing the mask as quads are emitted makes overlap structurally impossible**, not
+  merely unlikely. Worth stating in the code, because it is the kind of property that
+  gets refactored away by someone optimising the clear loop.
+- **`ArrayPool` was the wrong call in the plan.** Pooling earns its keep when a buffer's
+  lifetime is unpredictable; here the mesher owns its buffers for its whole life and the
+  Godot bridge copies out of them, so plain reuse via `Reset()` is both simpler and
+  strictly less work. Steady state allocates nothing either way.
+- **The reference implementation in the tests is deliberately a second copy** of the
+  visibility rule rather than a call into the mesher's. A reference that shares code with
+  the thing it checks proves nothing.
+- **Emitting Godot-free output cost one conversion loop and bought the headless tests.**
+  That conversion is also what makes buffer reuse safe, since Godot copies rather than
+  retaining.
+
+### Note
+
+`stackalloc` inside a nested loop in a test helper tripped CA2014 — a real stack-overflow
+risk rather than a style nit. Hoisted out.
+
 ## 2026-08-25 — M1b: chunk storage
 
 133 tests passing. `VoxelChunk` holds 32³ voxels in one of three representations, with

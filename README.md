@@ -13,11 +13,15 @@ No mobs, no combat. The mine is the antagonist.
 
 ## Status
 
-**M0, M1a and M1b done**, 133 tests passing. Solution skeleton, voxel coordinate maths, a
-texture-array shader, one culled block mesh through `RenderingServer`, a flycam — and a
-content registry where the base game loads from `mods/minercraft/*.json` exactly the way
-a third-party mod would, over palette-compressed chunk storage that costs zero bytes for
-the uniform chunks most of a world is made of. M1c, the greedy mesher, is next.
+**M0 and all of M1 done**, 154 tests passing. A chunk of generated terrain renders
+through a greedy mesher, drawn via `RenderingServer` with a texture array, over
+palette-compressed storage, with every material loaded from `mods/minercraft/*.json`
+exactly the way a third-party mod would load its own.
+
+On that test chunk: **8,208 bytes** for 32,768 voxels, and 196,608 naive faces reduced to
+**850 quads** — 7.2× better than culled meshing, 231× better than naive.
+
+M2, chunk streaming and infinite terrain, is next.
 
 ## Run it
 
