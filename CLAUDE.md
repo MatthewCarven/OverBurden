@@ -11,6 +11,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 |---|---|
 | [docs/DESIGN.md](docs/DESIGN.md) | Locked decisions, the five non-negotiables, per-system architecture, milestones, **and a list of rejected alternatives so they don't get re-litigated** |
 | [docs/M1-PLAN.md](docs/M1-PLAN.md) | Worked example of how a milestone gets planned before it gets built |
+| [docs/M2-REFERENCE-NOTES.md](docs/M2-REFERENCE-NOTES.md) | What reading godot_voxel's scheduler and streaming taught us, and what it changed in the M2 plan. **Read before building the job queue.** |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
 | [TODO.md](TODO.md) | Milestones as checkable tasks, and the decisions still open |
 | [WORKLOG.md](WORKLOG.md) | What happened and why, newest first. Findings worth keeping live here. |
@@ -83,7 +84,16 @@ M0 and all of M1 are done, 154 tests passing. A chunk of generated terrain rende
 through the greedy mesher over palette-compressed storage, with materials loaded from
 JSON. On that chunk: 8,208 B for 32,768 voxels, 196,608 naive faces → 850 quads.
 
-**M2 is next: chunk streaming and infinite terrain.** There is a TODO item to read
-godot_voxel's threaded mesh scheduling and streaming policy *first* — the last time that
-reference was consulted it caught a storage-order mistake that would have been a rewrite
-after M1b, so it is worth honouring rather than skipping.
+**M2 is next: chunk streaming and infinite terrain.** The prerequisite reading of
+godot_voxel's scheduling and streaming is **done** (2026-08-26) and paid for itself again:
+it caught that the M2 job queue had been specified as `System.Threading.Channels`, and a
+FIFO can neither reprioritise queued work as the player moves nor drop work that went stale
+before it ran. Findings and the corrected plan are in
+[docs/M2-REFERENCE-NOTES.md](docs/M2-REFERENCE-NOTES.md).
+
+Next actual step is to **split M2 into sub-parts** the way M1 was split, before writing
+code. The reference notes suggest the seams.
+
+The licence is settled: [PolyForm Noncommercial 1.0.0](LICENSE.md), source-available. It
+can be loosened to MIT any time; it cannot be tightened after the first outside PR is
+merged, which is the real freeze point.

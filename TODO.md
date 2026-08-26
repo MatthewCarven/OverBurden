@@ -19,8 +19,9 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
 - [x] **Build our own voxel engine, don't adopt godot_voxel.** Decided 2026-08-25, see
       [ADR-0001](docs/adr/ADR-0001-build-our-own-voxel-engine.md). Read theirs as
       reference; `reference/` is gitignored for exactly that.
-      - [ ] **Read godot_voxel's threaded mesh scheduling and chunk streaming before
-            M2** — the two places we are most likely to make an avoidable mistake
+      - [x] **Read godot_voxel's threaded mesh scheduling and chunk streaming before
+            M2** — done 2026-08-26, and it paid for itself a second time. Findings in
+            [docs/M2-REFERENCE-NOTES.md](docs/M2-REFERENCE-NOTES.md).
       - [ ] Revisit trigger: M1c or M2 exceeding ~3 sessions each
       - [ ] Revisit trigger: M13 distance LOD, where their advantage is largest
 - [ ] Collapse debris: loose re-settling rubble vs rigid falling chunks — decide at M9
@@ -137,7 +138,13 @@ Split into four sessions. Full reasoning in [docs/M1-PLAN.md](docs/M1-PLAN.md).
       each probing an unrelated voxel so a clobbered neighbour surfaces early, with
       `Compact()` interleaved to prove it never changes content
 - [ ] Padded 34³ copy on the sim thread when queueing a mesh job — belongs with M1c,
-      which is the thing that consumes it
+      which is the thing that consumes it.
+      **Reopened 2026-08-26:** godot_voxel does the opposite — the job holds references to
+      the chunk and its 26 neighbours and does the padded copy *on the worker thread*.
+      That keeps the sim thread free and skips the copy entirely for jobs cancelled before
+      they run, but it requires chunk storage to be safe to read while the sim thread may
+      write, which is a real cost and not a free win. Decide during M2 planning; see
+      [docs/M2-REFERENCE-NOTES.md](docs/M2-REFERENCE-NOTES.md).
 
 #### M1c — Greedy mesher ✅ done 2026-08-25, did not spill
 
@@ -171,18 +178,56 @@ Split into four sessions. Full reasoning in [docs/M1-PLAN.md](docs/M1-PLAN.md).
 
 ### M2 — World ⬅️ **start here**
 
-- [ ] **First: read `reference/godot_voxel/` threaded mesh scheduling and streaming
-      policy.** Not optional ceremony — consulting that reference before M1b caught a
-      storage-order mistake that would have been a rewrite afterwards. Look at
-      `meshers/mesh_block_task.*`, `engine/`, and `terrain/` .
-- [ ] Consider planning M2 as sub-parts first, the way M1 was — see
-      [docs/M1-PLAN.md](docs/M1-PLAN.md) for the shape
-- [ ] `System.Threading.Channels` job queue for gen + mesh
+- [x] **Read `reference/godot_voxel/` threaded mesh scheduling and streaming policy.**
+      Done 2026-08-26 — findings in
+      [docs/M2-REFERENCE-NOTES.md](docs/M2-REFERENCE-NOTES.md). It earned its keep again:
+      it caught that the job queue below was specified as the wrong data structure.
+- [ ] Plan M2 as sub-parts first, the way M1 was — see
+      [docs/M1-PLAN.md](docs/M1-PLAN.md) for the shape. The reference notes suggest the
+      seams: job queue → worldgen → streaming policy → the unload/free path.
+- [ ] ~~`System.Threading.Channels` job queue for gen + mesh~~ **Corrected.** Channels is
+      FIFO, and a FIFO cannot reprioritise queued work as the player moves, nor drop work
+      that became irrelevant before it ran. A priority heap is also wrong, for the same
+      reason: it orders at insert time, which is when the ordering is least valuable.
+      Build a **flat list re-sorted on a timer** (~200 ms), with the sweep also dropping
+      cancelled jobs. Channels stays appropriate for handing *results* back to the main
+      thread, which really is FIFO.
+      - [ ] Pack job priority into one `uint` of four byte-bands so comparison is a single
+            integer compare. Bands we need now: distance, and job class.
+      - [ ] Read viewer positions **without a lock** — priority is a heuristic, and a
+            stale one still schedules correctly. Pre-size the viewer array and bound it
+            with an atomic count rather than resizing it.
+      - [ ] Use real `CancellationToken`s from the start. godot_voxel's distance-based
+            drop check is something they explicitly regret and want to replace.
+      - [ ] One pool, two lanes — a `serial` flag for disk work, not a second thread pool.
+            Matters at M6; cheaper to build the flag in now.
+      - [ ] Thread count `clamp(round(0.5 × cores), 1, cores - 1)`. Never all cores.
+      - [ ] A cancelled job must still report back, or its chunk stays marked "meshing"
+            forever and never updates again.
+- [ ] **Budget mesh *destruction*, not just construction.** Freeing many `RenderingServer`
+      RIDs in one frame stutters, and the cost is deferred inside the renderer, so it
+      lands a frame or two *after* the cause and will be misdiagnosed as a meshing
+      problem. Needs a "run N per frame until done" path, distinct from a time-sliced one,
+      because the cost cannot be measured from our side. See the reference notes.
 - [ ] Worldgen: 2D fBm heightmap, strata layers, 3D noise caves
 - [ ] Deterministic per-chunk seeding `hash(seed, cx, cy, cz)`
 - [ ] Staged generation pipeline so cross-chunk features don't tear
-- [ ] Chunk streaming around the player, empty-chunk skipping
+- [ ] Chunk streaming: **box difference, not volume iteration.** Iterate only the shell
+      that entered or left view when the player crosses a chunk boundary — O(R²) per
+      crossing, not O(R³). Empty-chunk skipping.
+      - [ ] **Refcount chunks per viewer**, and make "viewer" a Core concept (a position
+            and a radius, not a camera). Build it at M2 with exactly one viewer —
+            retrofitting it later is a rewrite of the streaming policy, and it is what
+            makes multiplayer not a special case.
+      - [ ] Cancel in-flight loads when a chunk's refcount hits zero. Without it, running
+            somewhere and turning around queues work for terrain you'll never see.
+      - [ ] View distance is **not one scalar** — vertical extent is separate. A mining
+            game probably wants a tall narrow volume, the opposite of the usual default.
+      - [ ] Dedup queued chunks with a flag *on the chunk*, not a `HashSet` probe. Matters
+            at M3 when one carve dirties the same chunk repeatedly in a frame.
 - [ ] Measure: `RenderingServer` direct vs `MeshInstance3D` at target chunk count
+      - [ ] Also measure whether meshing 2×2×2 chunks as one surface cuts draw calls
+            enough to be worth it. Mesh blocks need not equal storage blocks.
 
 ### M3 — Mining ← first fun moment
 

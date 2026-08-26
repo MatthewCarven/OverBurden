@@ -1,5 +1,82 @@
 # MinerCraft — Worklog
 
+## 2026-08-26 — Read godot_voxel's scheduling and streaming before M2
+
+No code. Full notes in [docs/M2-REFERENCE-NOTES.md](docs/M2-REFERENCE-NOTES.md), with the
+file list; TODO.md's M2 section rewritten around them.
+
+**The reference earned its keep a second time.** Before M1b it caught the chunk storage
+order. This time it caught that the M2 job queue was specified as the wrong data structure,
+which would have been discovered only after the streaming code was built on top of it.
+
+### The catch
+
+TODO.md said "`System.Threading.Channels` job queue for gen + mesh". Channels is FIFO, and
+a FIFO cannot do the two things a voxel job queue exists to do: **reprioritise queued work
+as the player moves**, and **drop work that became irrelevant before it ran**. godot_voxel
+uses neither a FIFO nor a heap — it keeps a flat vector re-sorted on a 200 ms timer, popping
+from the back, with the same sweep recomputing priority and removing cancelled tasks.
+
+A priority heap was my next instinct and is wrong for the same reason: it orders correctly
+at insert time, and insert time is precisely when the ordering is least valuable. A chunk
+queued at 20 m may be 200 m away before a thread frees up. Their `get_priority()` is a
+virtual polled on an interval, not a number captured on push.
+
+### Other findings that change the plan
+
+- **Mesh *destruction* is a stutter source and we are unusually exposed to it.** They
+  needed a whole third task runner for it, plus a task whose entire body is dropping a
+  mesh reference later, because the renderer's deallocation cost is deferred and therefore
+  unmeasurable from the caller. Their comment is candid: *"I hate this workaround because
+  it feels like we are almost not in control of a stable framerate."* We draw through
+  `RenderingServer` with explicit RIDs, so unloading chunks means freeing RIDs in bulk. The
+  stutter arrives a frame or two after its cause, so it would have been misdiagnosed as a
+  meshing problem. Now an explicit M2 task.
+- **Three execution contexts, not one.** Worker pool (priority-ordered), a main-thread
+  time-sliced runner (8 ms/frame), and a main-thread "N per frame until done" runner for
+  costs you cannot measure. "Off the main thread" is not a sufficient plan.
+- **One pool with a `serial` flag, not two pools.** I/O runs serially because it contends
+  on shared resources anyway, and a second pool would make disk work compete in a separate
+  ignorant queue instead of one ordering. Relevant at M6.
+- **Streaming is a box difference over a refcounted viewer set.** Only the shell that
+  entered or left view is iterated — O(R²) per boundary crossing rather than O(R³). Chunks
+  are refcounted per viewer, which is also how multiplayer avoids being a special case.
+  Building the refcount at M2 with one viewer is cheap; retrofitting it is a rewrite.
+- **View distance must not be one scalar.** They keep a separate vertical ratio to avoid
+  loading useless sky. We probably want that inverted — a mining game wants a tall narrow
+  loaded volume, because the content is below the player.
+- **Reopened an M1b leftover.** Our note says to build the padded 34³ copy on the sim
+  thread when queueing. They hold references to the chunk and its 26 neighbours and copy
+  *on the worker*, which keeps the sim thread free and skips the copy for cancelled jobs —
+  but requires storage to be readable while the sim thread may write. A real tradeoff, not
+  a free win. Deferred to M2 planning rather than decided here.
+- **Cancellation is not deletion.** A dropped task still reports back (`TYPE_DROPPED`), or
+  the chunk stays flagged as "being meshed" forever and never updates again.
+
+### Patterns worth stealing outright
+
+- Priority packed as four `uint8` bands in one `uint32`, so comparison is one integer
+  compare.
+- Viewer positions read **without a lock**, deliberately — priority is a heuristic, and
+  paying for exactness is waste. Made safe by a pre-sized never-resized array plus an
+  atomic count, not by the absence of races.
+- Shared config invalidated by **replacement plus a `valid` flag** rather than mutation
+  under a lock. In-flight tasks see the stale flag and discard their output. This composes
+  neatly with our "registry frozen after load" rule: a reload makes a new frozen registry.
+- Thread-local batching of enqueues, flushed once per frame, so the queue mutex is taken
+  once per frame rather than once per chunk.
+
+### Where they are unhappy with their own code
+
+Worth recording, because these are the places not to copy:
+
+- Distance-based task dropping is called "not always reliable" with a TODO to replace it
+  with cancellation tokens. We should go straight to `CancellationToken`.
+- Postponed tasks effectively spin: *"Those postponed tasks will sort of spinlock with no
+  sleeping. Is that a bad thing?"* — an open question in their own source.
+- A known mutex hotspot when tasks are very short. Our jobs are chunk-sized, so probably
+  not our problem, but it says where to look first if the pool underperforms.
+
 ## 2026-08-26 — Licence: PolyForm Noncommercial 1.0.0
 
 No code. [LICENSE.md](LICENSE.md) written, with README, TODO and CONTRIBUTORS updated to
