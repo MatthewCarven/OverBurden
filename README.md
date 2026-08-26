@@ -52,6 +52,19 @@ dotnet test MinerCraft.slnx
   from M1, with the base game registered through the same public path a mod would
   use. Lua scripting via MoonSharp later.
 
+## Licence
+
+[PolyForm Noncommercial 1.0.0](LICENSE.md) — source-available, not open source.
+
+Read it, fork it, mod it, learn from it, share it. Don't sell it. Personal, hobby,
+research, educational and charitable use are all explicitly permitted; commercial use
+is not.
+
+Chosen because it is the low-regret option while the copyright is held by one person:
+relaxing a licence later is one commit, but code once published under a permissive
+licence can never be pulled back. If this never becomes commercial, it can move to MIT
+at any time.
+
 ## Built with
 
 Designed and built by Matthew Carven with [Claude Code](https://claude.com/claude-code)

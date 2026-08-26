@@ -1,5 +1,60 @@
 # MinerCraft — Worklog
 
+## 2026-08-26 — Licence: PolyForm Noncommercial 1.0.0
+
+No code. [LICENSE.md](LICENSE.md) written, with README, TODO and CONTRIBUTORS updated to
+match. Matthew delegated the choice.
+
+### The argument
+
+The decision looked like a values question and turned out to be a timing question.
+
+**Loosening a licence is one commit; tightening one is impossible.** Anyone who receives
+a copy under MIT keeps those rights permanently, so "start permissive, restrict later if
+it gets serious" is not a strategy that exists. The reverse works fine. While one person
+holds the whole copyright, the cost of picking too restrictive is therefore zero and the
+cost of picking too permissive is unrecoverable. That asymmetry decides it without
+needing to predict whether this is ever sold.
+
+PolyForm Noncommercial over the alternatives because it says the actual intent in
+readable English — read it, fork it, mod it, share it, don't sell it — in one short file.
+BUSL-1.1 was the other serious candidate and has a genuinely nice property (automatic
+conversion to Apache-2.0 after four years), but it is drafted for SaaS, and its
+Additional Use Grant would need custom wording to make sense for a game.
+
+### Findings
+
+- **Nothing constrains the choice.** Shipped dependencies are Godot (MIT) and .NET 8
+  (MIT); xunit and coverlet are test-only and never distributed. `reference/` is
+  gitignored and never built against — the comment already sitting in `.gitignore` about
+  not inheriting an attribution obligation turned out to be load-bearing.
+- **A split code/content licence is premature.** It is the right long-term shape for a
+  moddable game — permissive engine, restricted content, so the reusable part is reusable
+  and nobody can ship *your* game. But every texture is currently procedural and there
+  are no art assets at all, so there is nothing to split yet. Filed as a revisit trigger
+  at first real assets rather than done now.
+- **GPL was rejected on the mod story, not on principle.** MIT→GPL is legally fine and
+  Godot's licence permits it. But whether runtime-loaded mods become derivative works is
+  unsettled, and the base game shipping as a mod is a design pillar here. A licence that
+  makes third-party mod authors think twice is the wrong licence for this project.
+- **The licence is not the moat, and CONTRIBUTORS.md had already spotted why.** It
+  records that AI-generated work sits in unsettled copyright territory. A licence can
+  only restrict what is protectable, and a meaningful share of this code was written by
+  Claude. What actually stops someone shipping a clone is the name and the content, not
+  copyright over the engine source. Worth knowing before treating LICENSE.md as armour.
+- **The freeze point is the first merged PR, not publication.** Publishing changes
+  nothing about the ability to relicense; merging someone else's commit does. That is the
+  real deadline, and it is now recorded as the first revisit trigger. A DCO sign-off
+  requirement keeps the door open at almost no friction.
+
+### Note on sourcing
+
+The licence text was fetched from the canonical repository and diffed against what was
+written, rather than reproduced from memory — a subtly wrong licence is worse than no
+licence. Two obvious raw URLs 404'd because that repository's default branch is named
+`1.0.0` rather than `main` or `master`. `LICENSE.md` is byte-identical to canonical apart
+from the `Required Notice:` copyright line PolyForm expects the licensor to add.
+
 ## 2026-08-25 — M1c and M1d: greedy mesher, and a real chunk on screen
 
 154 tests passing. M1c was flagged as the part most likely to spill into two sessions;

@@ -32,10 +32,22 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
 Not urgent — it stays private for now — but cheaper to settle before there are forks and
 outside contributors than after.
 
-- [ ] **Pick a licence.** Your other projects are MIT, but those are tools and toys where
-      the code isn't the product. For a game MIT means anyone may rebrand and sell it.
-      Source-available (readable, not freely redistributable) is the common alternative if
-      you might ship this. Genuinely your call — flag it and I'll write the file.
+- [x] **Licence — PolyForm Noncommercial 1.0.0.** Decided 2026-08-26, written to
+      [LICENSE.md](LICENSE.md). Source-available, not open source: read, fork, mod and
+      share freely; no commercial use. Picked on asymmetry rather than ideology —
+      loosening a licence later is one commit, tightening one is impossible, and while
+      you hold 100% of the copyright the cost of choosing "too restrictive" is zero.
+      - [ ] Revisit trigger: **before merging the first outside PR.** After that the
+            licence is effectively frozen without every contributor's agreement, so
+            decide then whether to require a DCO sign-off or a CLA.
+      - [ ] Revisit trigger: first real art/audio assets (≈M6, or first export) — that
+            is when splitting code and content licences starts to earn its complexity.
+            Right now every texture is procedural, so there is nothing to split.
+      - [ ] Revisit trigger: if you ever want distro packaging or a real contributor
+            community, that is the moment to go MIT or Apache-2.0 instead.
+      - [ ] Not covered by any licence: the **name**. If "MinerCraft" survives the name
+            check, the protection against someone shipping a clone is trademark and the
+            content, not copyright on the engine.
 - [ ] Decide whether commit authorship stays `matthewcarven@gmail.com`. It becomes a
       permanent public record on every commit, and rewriting history afterwards is
       unpleasant. GitHub's `users.noreply.github.com` address is the usual alternative.

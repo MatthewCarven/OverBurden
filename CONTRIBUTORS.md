@@ -26,3 +26,19 @@ credited as co-author and not as primary contributor, because the design judgeme
 is Matthew's, and because AI-generated work sits in unsettled copyright territory —
 overstating an AI's authorship would complicate licensing and outside contributions
 later.
+
+## Licensing and contributions
+
+The project is under [PolyForm Noncommercial 1.0.0](LICENSE.md). Contributions are
+accepted under those same terms.
+
+This matters more than it looks. Matthew currently holds the entire copyright, so the
+licence can be changed at any time by editing one file. The first time an outside
+contribution is merged, that stops being true — relicensing would then need every
+contributor's agreement. Anyone opening a pull request should expect to be asked for a
+DCO sign-off (`git commit -s`) so the option stays open.
+
+The caveat noted above applies here too: material written by Claude sits in unsettled
+copyright territory, and a licence can only restrict what is actually protectable. The
+durable protection for a game is the name and the content, not copyright over the
+engine source.
