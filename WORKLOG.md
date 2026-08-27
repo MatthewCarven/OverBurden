@@ -1,5 +1,88 @@
 # MinerCraft — Worklog
 
+## 2026-08-27 — M2c-1: streaming policy, as pure data
+
+254 tests passing, up from 216.
+
+M2-PLAN.md flagged M2c as the part most likely to need two sessions, so it was split before
+starting rather than halfway through: **M2c-1 is the policy with no threads and no jobs**,
+every property fuzzable against brute force; M2c-2 wires it to the scheduler, which is where
+refcounting, cancellation and async completion actually interact.
+
+### Built
+
+`ChunkBox` (half-open box of chunk positions, with the six-way difference decomposition),
+`Viewer` / `ViewerId`, `ChunkState` and `StreamedChunk` (the state machine with a guard),
+and `ChunkStreamer` (refcounts, box difference on move, the stage barrier).
+
+### The load margin is two chunks, and the second one was not in the plan
+
+The most useful thing this session produced, because it is a design hole that would have
+surfaced at M13 as a visible seam rather than as a bug.
+
+A chunk may only mesh once its voxels are final, which means every neighbour that could
+write into it has finished stage 2. But a neighbour can only *reach* stage 2 once its own
+neighbours have terrain to be written into. That is two rings, not one:
+
+| Ring | Reaches | Because |
+|---|---|---|
+| `R` | meshable | neighbours out to `R+1` have finished Features |
+| `R+1` | Features | neighbours out to `R+2` have finished Terrain |
+| `R+2` | Terrain | needs nobody — stage 1 is per-chunk |
+
+The mesher's padded 34³ copy wanted the first ring anyway, so only the second is the stage
+pipeline's own cost — but it is a real one: at radius 16 the loaded volume goes from
+33³ = 35,937 chunks to 37³ = 50,653, **41% more**. Made a constructor parameter rather than
+a constant, because while stage 2 places nothing a margin of 1 gives identical terrain for
+30% fewer chunks, and M2d should measure that rather than guess.
+
+### The barrier turned out to make a second refcount unnecessary
+
+The obvious way to keep the margin from meshing is to track which shell each chunk is in — a
+second refcount over the unexpanded box, kept in step with the first.
+
+None of that is needed. **A chunk in the margin fails the barrier by construction**, because
+its own outward neighbours were never loaded at all. Running the pipeline to a standstill
+lands the meshable set exactly on the viewer's visible box, from one refcount and a
+predicate. `TheMeshableSetIsExactlyTheVisibleBox` asserts precisely that, at three radii —
+no wider, so nothing draws voxels a neighbour could still change, and no narrower, so there
+is no hole at the edge of view.
+
+This is the second time a barrier has paid for itself by deleting bookkeeping rather than
+adding it. Worth a bias toward deriving state over tracking it.
+
+### Findings
+
+- **Intersecting before slicing is not a fast path.** Handling the disjoint case up front
+  looks like an optimisation and is actually load-bearing: it guarantees the overlap lies
+  inside the box on every axis, which is what lets all six slices skip clamping. Written the
+  other way round — slice first, clamp as you go — a non-overlapping box emits slabs with
+  inverted bounds. Same code, half the length, and correct instead of nearly correct.
+- **Fuzz the decomposition against brute force, and assert both halves.** 2,000 random box
+  pairs, checking that the emitted sub-boxes are pairwise *disjoint* and that their union is
+  *exact*. Disjointness is the half that matters here: a position emitted twice is a
+  refcount incremented twice, which is a chunk that never unloads — and it presents as a
+  memory leak that isn't one. Exactness alone would not have caught it.
+- **The refcount fuzz asserts counts, not set membership.** Set equality passes while counts
+  drift, and the two drift directions are different bugs: high never unloads, low unloads
+  terrain someone is standing on. Checking the counts costs one dictionary and separates
+  them.
+- **Self-transitions had to be rejected, and that immediately caught a bug in the unload
+  path** — the first run threw, because a chunk viewed and released without ever being
+  queued had sat in `Unloaded` the whole time and was being sent there again. A guard that
+  fires on its author within a minute of being written is a guard worth having.
+- **One test was wrong about the design rather than about the code.** It asserted a fresh
+  chunk has `ViewCount == 0`; there is no such moment, because a chunk record only exists
+  because a viewer asked for it. Fixed the test and wrote the reason next to it.
+
+### Deliberately left for M2c-2
+
+`ChunkStreamer.Unview` removes the chunk entry the instant the count hits zero. That is
+correct while nothing submits jobs and wrong the moment something does — a worker still
+holds the chunk and will report a result for something the streamer no longer knows about.
+The removal has to become conditional on the outstanding-job count. The comment marking the
+exact line is in place, so it is a scheduled change rather than a discovered bug.
+
 ## 2026-08-27 — M2b: worldgen
 
 216 tests passing, up from 186.

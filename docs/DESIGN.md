@@ -73,6 +73,26 @@ simulation, not enemies.
 - Pool vertex arrays (`ArrayPool<T>`). GC churn from per-remesh allocation causes
   frame hitches exactly while mining.
 
+### Streaming
+
+- **Viewers are plural and live in Core** — a position and two radii, not a camera. The
+  Godot layer only reports where the player is. Multiplayer is then a second viewer rather
+  than a special case.
+- **Vertical view distance is its own radius, not a ratio of the horizontal one.** A mining
+  game's content is below the player, so the useful shape is a tall column. "View distance"
+  is never one scalar.
+- **Chunks are refcounted across viewers**; zero unloads. Built with one viewer, because
+  retrofitting it is a rewrite of the policy.
+- **Box difference on a boundary crossing**, so only the shells that entered and left are
+  iterated — O(R²) per crossing, not O(R³). Chunk quantisation supplies the hysteresis.
+- **The loaded region is larger than the visible one by a two-chunk margin**, and both
+  chunks of it are load-bearing: the mesher's padded 34³ copy needs the first ring, and the
+  cross-chunk feature stage needs the second, because a chunk can only run stage 2 once its
+  own neighbours have terrain to be written into. Costs ~41% more chunks at radius 16.
+- **One enum per chunk, `Unloaded → Queued → Generating → Generated → Meshing → Meshed`**,
+  not a scatter of `bool`s that can express contradictory states. "Already queued" is a
+  state, so it cannot drift out of sync with the thing it describes.
+
 ### Lighting
 
 - **Propagate on a coarse 1 m grid, sample trilinearly at mesh time.** Light is

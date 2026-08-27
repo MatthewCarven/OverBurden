@@ -82,9 +82,10 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **M2a** and **M2b** are done — **216 tests passing**. A chunk of generated terrain
-renders through the greedy mesher over palette-compressed storage, with materials loaded
-from JSON. On that chunk: 8,208 B for 32,768 voxels, 196,608 naive faces → 850 quads.
+M0, all of M1, **M2a**, **M2b** and **M2c-1** are done — **254 tests passing**. A chunk of
+generated terrain renders through the greedy mesher over palette-compressed storage, with
+materials loaded from JSON. On that chunk: 8,208 B for 32,768 voxels, 196,608 naive faces →
+850 quads.
 
 M2 is split into four parts in [docs/M2-PLAN.md](docs/M2-PLAN.md). The prerequisite
 reading of godot_voxel is done and paid for itself: it caught that the job queue had been
@@ -104,11 +105,28 @@ position. Measured over 2,048 chunks: 4.0 MiB against 128 MiB naive, 68% of chun
 6.55 ms/chunk. Caves are 80% of that and want one more optimisation pass, deferred to M2d
 with the analysis in TODO.md — do not treat it as a streaming problem when it surfaces.
 
-**Next step is M2c, streaming** — box difference over a refcounted viewer set, cancelling
-in-flight work when a chunk's count hits zero, and an explicit chunk state machine. This is
-the part flagged as most likely to need two sessions, because refcounting, cancellation and
-async completion interact and the bugs only appear under movement. Then M2d, the unload
-path and measurement.
+**M2c-1 — streaming policy: done 2026-08-27.** `MinerCraft.Core/Streaming/` holds `ChunkBox`
+(six-way box difference, fuzzed against brute force for disjointness *and* exactness),
+`Viewer` with separate horizontal and vertical radii, a chunk state machine that throws on
+an illegal transition, and `ChunkStreamer` — refcounts across viewers, box difference on
+move, and the stage barrier. M2c was split up front rather than halfway through, so this
+part has no threads and no jobs.
+
+Two things from it worth knowing before touching streaming:
+
+- **The loaded region exceeds the visible one by two chunks, not one.** The mesher's padded
+  copy needs the first ring; the cross-chunk feature stage needs the second, because a chunk
+  reaches stage 2 only once its own neighbours have terrain. ~41% more chunks at radius 16.
+- **Meshability is derived from the barrier, not tracked.** A margin chunk fails it by
+  construction, so the meshable set lands exactly on the visible box with one refcount and
+  no shell bookkeeping. Don't add a second refcount to "fix" the margin.
+
+**Next step is M2c-2, wiring streaming to the scheduler** — generate and mesh jobs,
+cancelling in-flight work when a count hits zero, applying results, and driving the stage
+pipeline. Note that `ChunkStreamer.Unview` currently forgets a chunk the instant its count
+hits zero, which is correct only while nothing submits jobs; the removal has to become
+conditional on outstanding jobs, and the comment marking the spot is already there. Then
+M2d, the unload path and measurement.
 
 The licence is settled: [PolyForm Noncommercial 1.0.0](LICENSE.md), source-available. It
 can be loosened to MIT any time; it cannot be tightened after the first outside PR is

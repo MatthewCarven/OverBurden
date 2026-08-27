@@ -190,7 +190,7 @@ Split into four sessions. Full reasoning in [docs/M1-PLAN.md](docs/M1-PLAN.md).
 - [x] Measured: 8,208 B for 32,768 voxels; 196,608 naive faces → 6,128 culled → **850
       greedy quads**, 7.2× better than culled and 231× better than naive
 
-### M2 — World ⬅️ **start here**
+### M2 — World
 
 - [x] **Read `reference/godot_voxel/` threaded mesh scheduling and streaming policy.**
       Done 2026-08-26 — findings in
@@ -232,13 +232,10 @@ Split into four sessions. Full reasoning in [docs/M1-PLAN.md](docs/M1-PLAN.md).
 - [x] Tests: band precedence, distance evaluation, the **reprioritisation test a FIFO
       cannot pass**, sweep timing, serial-lane exclusion, and the exactly-once invariant.
       27 job tests, all headless in Core.
-- [ ] Deferred to M2c: nothing submits jobs yet. The scheduler is exercised only by tests
-      until streaming exists to feed it.
-- [ ] **Budget mesh *destruction*, not just construction.** Freeing many `RenderingServer`
-      RIDs in one frame stutters, and the cost is deferred inside the renderer, so it
-      lands a frame or two *after* the cause and will be misdiagnosed as a meshing
-      problem. Needs a "run N per frame until done" path, distinct from a time-sliced one,
-      because the cost cannot be measured from our side. See the reference notes.
+- [ ] Deferred to M2c-2: nothing submits jobs yet. The scheduler is exercised only by tests
+      until streaming feeds it. M2c-1 built the policy that decides *what* to submit; M2c-2
+      does the submitting.
+
 #### M2b — Worldgen ✅ done 2026-08-27, 216 tests passing
 
 - [x] Worldgen as a pure function `(seed, chunkPos) → chunk`, reading nothing but its
@@ -283,25 +280,83 @@ Split into four sessions. Full reasoning in [docs/M1-PLAN.md](docs/M1-PLAN.md).
 - [ ] Load strata from mod JSON rather than constructing `StrataTable` in code. The table
       is already data and takes resolved numeric IDs, so this is loader work, not a
       worldgen change.
-- [ ] Staged generation pipeline so cross-chunk features don't tear — the *barrier* (a
-      chunk may advance to stage N+1 only once every neighbour has completed stage N) is
-      streaming's job and belongs with M2c. The stages themselves exist now.
-- [ ] Chunk streaming: **box difference, not volume iteration.** Iterate only the shell
-      that entered or left view when the player crosses a chunk boundary — O(R²) per
-      crossing, not O(R³). Empty-chunk skipping.
-      - [ ] **Refcount chunks per viewer**, and make "viewer" a Core concept (a position
-            and a radius, not a camera). Build it at M2 with exactly one viewer —
-            retrofitting it later is a rewrite of the streaming policy, and it is what
-            makes multiplayer not a special case.
-      - [ ] Cancel in-flight loads when a chunk's refcount hits zero. Without it, running
-            somewhere and turning around queues work for terrain you'll never see.
-      - [ ] View distance is **not one scalar** — vertical extent is separate. A mining
-            game probably wants a tall narrow volume, the opposite of the usual default.
-      - [ ] Dedup queued chunks with a flag *on the chunk*, not a `HashSet` probe. Matters
-            at M3 when one carve dirties the same chunk repeatedly in a frame.
+#### M2c-1 — Streaming policy, as pure data ✅ done 2026-08-27, 254 tests passing
+
+The two-session warning in [docs/M2-PLAN.md](docs/M2-PLAN.md) was taken up front: the
+policy is built and fuzzed with no threads and no jobs, so M2c-2 wires the scheduler to
+something whose invariants are already pinned.
+
+- [x] `ChunkBox` with **box difference, not volume iteration** — a boundary crossing
+      decomposes into at most six disjoint sub-boxes and touches only the shells that
+      entered and left. O(R²) per crossing, not O(R³): at radius 8, 289 chunks instead of
+      4,913. Verified against brute force over 2,000 random box pairs, asserting both
+      halves — the sub-boxes are pairwise **disjoint** and their union is **exact**.
+- [x] Intersect-first, so the disjoint case is handled before any slicing. Not a fast
+      path: it is what lets the slicing arithmetic skip clamping entirely, and written the
+      other way round a non-overlapping box emits slabs with inverted bounds.
+- [x] `Viewer` is a Core concept — a position and **two** radii, not a camera. Vertical
+      extent is separate from horizontal, so "view distance" is never one scalar.
+- [x] **Refcount per chunk across viewers**, built with one viewer. A shared chunk survives
+      one of two viewers leaving; the fuzz asserts counts, not just membership, because a
+      count drifting high is a chunk that never unloads and a count drifting low unloads
+      terrain someone is standing on.
+- [x] `ChunkState` enum with a transition guard that **throws** on an illegal edge, rather
+      than a scatter of `bool`s. Includes the three edges that are easy to forget: any
+      state to Unloaded, one step back when a job reports Dropped, and Meshed back to
+      Meshing for M3's re-mesh.
+- [x] Dedup lives in the state, not a `HashSet` probe — "already queued" *is* `Queued`, so
+      it cannot drift out of sync with the chunk it describes.
+- [x] The **stage barrier**: a chunk advances to Features only once all 26 neighbours have
+      completed Terrain, and meshes only once all 26 have completed Features.
+- [x] **Load margin of two chunks**, derived rather than guessed — see M2-PLAN.md. The
+      mesher's padded copy needs the first ring; the feature stage needs the second. Costs
+      ~41% more chunks at radius 16, and a parameter rather than a constant so M2d can
+      measure both.
+- [x] `ChunkStreamer` publishes viewer positions into the `ViewerSet` the job queue sorts
+      against, so streaming and scheduling cannot disagree about where the player is.
+- [x] Tests: the shell test, two-viewer sharing, radius changes, hysteresis, the barrier at
+      the edge of the loaded region, and the fuzz invariant over 400 random viewer
+      add/move/resize/remove steps. 38 new tests, all headless in Core.
+
+#### M2c-2 — Wiring streaming to the scheduler ⬅️ **start here**
+
+Where refcounting, cancellation and async completion actually interact.
+
+- [ ] Generate and mesh `IJob` implementations, submitted from `onChunkViewed` via
+      `SubmitBatch` so the queue lock is taken once per frame rather than once per chunk.
+- [ ] Apply results on the sim thread: `DrainResults` → state transition → store voxels or
+      hand the mesh over. `Dropped` steps back one state, `Faulted` needs a decision.
+- [ ] **Cancel in-flight work when a refcount hits zero.** Without it, running somewhere and
+      turning around queues work for terrain nobody will ever see, and under continuous
+      movement the queue never drains.
+- [ ] **A chunk with a job in flight cannot simply be forgotten.** `ChunkStreamer.Unview`
+      currently removes the entry immediately; the removal has to become conditional on the
+      outstanding-job count, or a worker reports a result for a chunk the streamer no longer
+      knows about. The comment marking the exact spot is already in place.
+- [ ] Drive the stage pipeline: Terrain on generate, then Features once `CanAdvanceToFeatures`
+      passes, then mesh once `CanMesh` passes. Re-check neighbours when a chunk advances,
+      since one chunk finishing can unblock up to 26 others.
+- [ ] The fuzz invariant to extend from M2c-1: after any sequence of moves, **no chunk is
+      waiting on a job that will never complete.**
+- [ ] Replace `Main.cs`'s single hand-built test chunk with the streamer driven by the
+      flycam's position.
+
+#### M2d — Unload path and measurement
+
+- [ ] **Budget mesh *destruction*, not just construction.** Freeing many `RenderingServer`
+      RIDs in one frame stutters, and the cost is deferred inside the renderer, so it lands
+      a frame or two *after* the cause and will be misdiagnosed as a meshing problem. Needs
+      a "run N per frame until done" path, distinct from a time-sliced one, because the cost
+      cannot be measured from our side.
 - [ ] Measure: `RenderingServer` direct vs `MeshInstance3D` at target chunk count
       - [ ] Also measure whether meshing 2×2×2 chunks as one surface cuts draw calls
             enough to be worth it. Mesh blocks need not equal storage blocks.
+- [ ] Measure the load margin: 2 against 1, in chunks loaded and in generation time. While
+      stage 2 places nothing the terrain is identical, so this is a free 30% if it matters.
+- [ ] Memory and frame time at target view distance, and **while flying fast enough to force
+      continuous load and unload**. Standing still proves nothing about a streaming system.
+- [ ] The cave optimisation pass deferred from M2b — coarser cave lattice with
+      interpolation. Do not treat it as a streaming problem when it surfaces.
 
 ### M3 — Mining ← first fun moment
 

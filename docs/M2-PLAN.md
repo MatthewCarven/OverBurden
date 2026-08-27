@@ -236,6 +236,45 @@ rather than a scatter of `bool`s that can express contradictory states. The dedu
 lives here too — "already queued" is a state, not a `HashSet` probe, and cannot drift out
 of sync with the thing it describes.
 
+### The load margin is two chunks, and the second one was not in this plan
+
+*Added 2026-08-27, while building M2c-1.* The stage barrier and the streaming radius
+interact, and the plan above did not say how.
+
+A chunk may only mesh once its voxels are final, which means every neighbour that could
+write into it has finished stage 2. That neighbour can only reach stage 2 once *its*
+neighbours have terrain. Two rings, not one:
+
+| Ring | Reaches | Because |
+|---|---|---|
+| `R` | meshable | its neighbours out to `R+1` have finished Features |
+| `R+1` | Features | its neighbours out to `R+2` have finished Terrain |
+| `R+2` | Terrain | needs nobody — stage 1 is per-chunk |
+
+The mesher's padded 34³ copy wanted the first ring anyway, so only the second is the stage
+pipeline's own cost. It is not free: at radius 16 the loaded volume goes from 33³ = 35,937
+chunks to 37³ = 50,653, or **41% more**. That is the honest price of seamless cross-chunk
+features and it belongs in the M2d measurements. The margin is a constructor parameter, not
+a constant, because while stage 2 places nothing a margin of 1 produces identical terrain
+for 30% fewer chunks.
+
+**The payoff is that meshability needs no bookkeeping at all.** A chunk out in the margin
+has neighbours beyond the margin that were never loaded, so it fails the barrier by
+construction. The margin generates and never meshes because of the barrier itself — there
+is one refcount over the expanded box and no second one tracking which shell a chunk is in.
+
+### Split into M2c-1 and M2c-2
+
+The two-session warning was taken up front rather than discovered halfway:
+
+- **M2c-1 — the policy as pure data.** `ChunkBox` and box difference, `Viewer`, the chunk
+  state machine, the refcounted `ChunkStreamer`, the stage barrier. No threads, no jobs,
+  every property fuzzable against brute force.
+- **M2c-2 — wiring to the scheduler.** Generate and mesh job types, cancelling on refcount
+  zero, applying results, driving the stage pipeline. This is where refcounting,
+  cancellation and async completion actually interact, and it starts on a policy whose
+  invariants are already pinned.
+
 ### Tests
 
 All headless: a viewer is Core data, so the entire policy is testable without Godot.
