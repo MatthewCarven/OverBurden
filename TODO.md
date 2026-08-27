@@ -201,25 +201,39 @@ Split into four sessions. Full reasoning in [docs/M1-PLAN.md](docs/M1-PLAN.md).
       **M2a** job scheduler → **M2b** worldgen → **M2c** streaming policy →
       **M2d** unload path and measurement. M2c is flagged as the one most likely to
       spill into two sessions. The bullets below are grouped by part in that document.
-- [ ] ~~`System.Threading.Channels` job queue for gen + mesh~~ **Corrected.** Channels is
-      FIFO, and a FIFO cannot reprioritise queued work as the player moves, nor drop work
-      that became irrelevant before it ran. A priority heap is also wrong, for the same
-      reason: it orders at insert time, which is when the ordering is least valuable.
-      Build a **flat list re-sorted on a timer** (~200 ms), with the sweep also dropping
-      cancelled jobs. Channels stays appropriate for handing *results* back to the main
-      thread, which really is FIFO.
-      - [ ] Pack job priority into one `uint` of four byte-bands so comparison is a single
-            integer compare. Bands we need now: distance, and job class.
-      - [ ] Read viewer positions **without a lock** — priority is a heuristic, and a
-            stale one still schedules correctly. Pre-size the viewer array and bound it
-            with an atomic count rather than resizing it.
-      - [ ] Use real `CancellationToken`s from the start. godot_voxel's distance-based
-            drop check is something they explicitly regret and want to replace.
-      - [ ] One pool, two lanes — a `serial` flag for disk work, not a second thread pool.
-            Matters at M6; cheaper to build the flag in now.
-      - [ ] Thread count `clamp(round(0.5 × cores), 1, cores - 1)`. Never all cores.
-      - [ ] A cancelled job must still report back, or its chunk stays marked "meshing"
-            forever and never updates again.
+#### M2a — Job scheduler ✅ done 2026-08-27, 186 tests passing
+
+- [x] ~~`System.Threading.Channels` job queue for gen + mesh~~ **Corrected and built.**
+      Channels is FIFO, and a FIFO cannot reprioritise queued work as the player moves,
+      nor drop work that became irrelevant before it ran. A priority heap is also wrong,
+      for the same reason: it orders at insert time, which is when the ordering is least
+      valuable. `JobQueue` is a **flat list re-sorted on a timer** (200 ms default), with
+      one sweep recomputing priority, dropping cancelled entries, and sorting. Channels is
+      used for handing *results* back to the sim thread, which really is FIFO.
+- [x] `JobPriority` packs four byte-bands into one `uint`, so comparison is a single
+      integer compare. Band0 distance, band2 job class, band1/band3 reserved.
+- [x] Generation outranks meshing at equal distance — a mesh job cannot run before the
+      data it reads exists, so scheduling it first only burns a worker slot.
+- [x] `ViewerSet` reads **without a lock**. Improved on godot_voxel's pre-sized array plus
+      atomic count: reference assignment is atomic in .NET, so swapping in a whole new
+      snapshot array gives readers a consistent view with **no tearing at all**, which
+      their approach cannot. Viewers move at most once a frame, so the allocation is free.
+- [x] Real `CancellationToken`s from the start, skipping the distance-drop scheme
+      godot_voxel explicitly regrets.
+- [x] One pool, two lanes — a `serial` flag for disk work, not a second thread pool.
+      Unused until M6; the flag exists now because retrofitting it touches every
+      submission site.
+- [x] Thread count `clamp(round(0.5 × cores), 1, cores - 1)`. Dedicated threads, not
+      `Task.Run` — the .NET thread pool knows nothing about voxel priority.
+- [x] **Every submitted job reports exactly one result** — never zero, never two. A job
+      that throws faults without taking its worker down; a job still queued at shutdown
+      reports Dropped. Fuzzed over 400 jobs with concurrent cancellation, viewer movement
+      and sweeping.
+- [x] Tests: band precedence, distance evaluation, the **reprioritisation test a FIFO
+      cannot pass**, sweep timing, serial-lane exclusion, and the exactly-once invariant.
+      27 job tests, all headless in Core.
+- [ ] Deferred to M2c: nothing submits jobs yet. The scheduler is exercised only by tests
+      until streaming exists to feed it.
 - [ ] **Budget mesh *destruction*, not just construction.** Freeing many `RenderingServer`
       RIDs in one frame stutters, and the cost is deferred inside the renderer, so it
       lands a frame or two *after* the cause and will be misdiagnosed as a meshing

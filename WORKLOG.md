@@ -1,5 +1,59 @@
 # MinerCraft — Worklog
 
+## 2026-08-27 — M2a: the job scheduler
+
+186 tests passing, up from 154. 27 of them are the scheduler, all headless in Core.
+
+### Built
+
+`JobPriority` (four byte-bands packed into a `uint`), `JobKind`, `ViewerSet`, `IJob` /
+`JobResult`, `JobQueue` (the flat re-sorted list), and `JobScheduler` (dedicated worker
+threads, results back through a `Channel`). Nothing submits jobs yet — streaming at M2c is
+what will feed it.
+
+### The test that justifies the whole part
+
+`MovingTheViewerReordersAlreadyQueuedWork` submits a near job *first*, then a far one, then
+moves the viewer across the map before either runs. A FIFO returns the near job because it
+arrived first; the queue returns the far one, because that is now where the player is. That
+is the entire argument against `Channels` in one assertion.
+
+### Findings
+
+- **The queue's ordering contract is "after a sweep", and two of my own tests were
+  asserting otherwise.** `Enqueue` deliberately does not sort — per-insert ordering is the
+  cost this design exists to avoid — so an un-swept queue pops newest-first. Both failures
+  were the tests being wrong, not the code, but the property was folklore until they
+  failed. Now documented on the class and pinned by
+  `BeforeAnySweepTheQueueIsInArrivalOrder`. It is also harmless in practice: the chunk
+  queued most recently is usually the nearest one, and the next sweep corrects it anyway.
+- **`ViewerSet` came out better than the thing it was copied from.** godot_voxel uses a
+  pre-sized never-resized array plus an atomic count, which leaves individual position
+  reads able to tear — they accept that, because a torn read only means one job scheduled
+  at a wrong priority. We get strictly better for free: reference assignment is atomic in
+  .NET, so publishing a whole new snapshot array by swapping one reference gives readers a
+  consistent view with no tearing at all. Same lock-free property, no torn reads, and the
+  allocation is irrelevant because viewers move at most once a frame. Second time in two
+  days that a C# guarantee has made a C++ workaround unnecessary — the first was GC
+  replacing `shared_ptr` for chunk lifetime.
+- **The fuzz test initially proved much less than it looked like it did.** It submitted 400
+  jobs and disposed immediately, so nearly everything came back Dropped from the shutdown
+  path rather than actually running — 27 ms for the whole job suite was the tell. The
+  exactly-once invariant held, but almost none of the concurrent run/cancel/sweep
+  interleaving was being exercised. Now it drains first and asserts that most jobs really
+  ran; the suite takes ~290 ms and eight consecutive runs are clean.
+- **Caught a callback-under-lock bug in review, before running anything.** `TryTake`'s
+  success path fired the dropped-entry callback while still holding the queue lock —
+  directly contradicting the comment three lines below it explaining why that must never
+  happen. Restructured to collect inside the lock and report outside. This is the kind of
+  deadlock that reproduces once a fortnight on a customer's machine.
+
+### Note
+
+Nothing in `MinerCraft.Core/Jobs/` references Godot; the only occurrences of the word are
+comments citing godot_voxel. The seam holds, and the tests would stop compiling if it
+didn't.
+
 ## 2026-08-27 — M2 split into four parts, and DESIGN.md corrected
 
 No code. [docs/M2-PLAN.md](docs/M2-PLAN.md) written: **M2a** job scheduler → **M2b**

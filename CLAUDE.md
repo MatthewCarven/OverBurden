@@ -82,23 +82,27 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0 and all of M1 are done, 154 tests passing. A chunk of generated terrain renders
-through the greedy mesher over palette-compressed storage, with materials loaded from
-JSON. On that chunk: 8,208 B for 32,768 voxels, 196,608 naive faces → 850 quads.
+M0, all of M1, and **M2a** are done — **186 tests passing**. A chunk of generated terrain
+renders through the greedy mesher over palette-compressed storage, with materials loaded
+from JSON. On that chunk: 8,208 B for 32,768 voxels, 196,608 naive faces → 850 quads.
 
-**M2 is next: chunk streaming and infinite terrain.** The prerequisite reading of
-godot_voxel's scheduling and streaming is **done** (2026-08-26) and paid for itself again:
-it caught that the M2 job queue had been specified as `System.Threading.Channels`, and a
-FIFO can neither reprioritise queued work as the player moves nor drop work that went stale
-before it ran. Findings and the corrected plan are in
+M2 is split into four parts in [docs/M2-PLAN.md](docs/M2-PLAN.md). The prerequisite
+reading of godot_voxel is done and paid for itself: it caught that the job queue had been
+specified as `System.Threading.Channels`, and a FIFO can neither reprioritise queued work
+as the player moves nor drop work that went stale before it ran. See
 [docs/M2-REFERENCE-NOTES.md](docs/M2-REFERENCE-NOTES.md).
 
-M2 is now split into four parts in [docs/M2-PLAN.md](docs/M2-PLAN.md), and planning is
-done. **Next actual step is to build M2a, the job scheduler** — a flat list re-sorted on a
-timer, priority packed into one `uint`, real cancellation tokens, dedicated worker threads.
-It is Core-only and entirely headless-testable, including the reprioritisation test that
-Channels would have failed. Then M2b worldgen, M2c streaming, M2d unload and measurement.
-M2c is flagged as the one most likely to need two sessions.
+**M2a — job scheduler: done 2026-08-27.** `MinerCraft.Core/Jobs/` holds a flat list
+re-sorted on a 200 ms timer, priority packed into one `uint` of four byte-bands, real
+cancellation tokens, and dedicated worker threads. Every submitted job reports exactly one
+result — that invariant is fuzzed, and a job that vanishes silently would leave its chunk
+flagged as work-in-progress forever. Nothing submits jobs yet; streaming at M2c feeds it.
+
+**Next step is M2b, worldgen** — a pure `(seed, chunkPos) → chunk`, no threading, fully
+headless. Note the trap recorded in the plan: **do not build the per-chunk hash on
+`HashCode.Combine`**, whose seed .NET randomises per process, which would generate a
+different world every launch while looking correct within any single session. Then M2c
+streaming, M2d unload and measurement. M2c is flagged as likely to need two sessions.
 
 The licence is settled: [PolyForm Noncommercial 1.0.0](LICENSE.md), source-available. It
 can be loosened to MIT any time; it cannot be tightened after the first outside PR is
