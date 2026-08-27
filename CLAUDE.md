@@ -82,7 +82,7 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, and **M2a** are done — **186 tests passing**. A chunk of generated terrain
+M0, all of M1, **M2a** and **M2b** are done — **216 tests passing**. A chunk of generated terrain
 renders through the greedy mesher over palette-compressed storage, with materials loaded
 from JSON. On that chunk: 8,208 B for 32,768 voxels, 196,608 naive faces → 850 quads.
 
@@ -98,11 +98,17 @@ cancellation tokens, and dedicated worker threads. Every submitted job reports e
 result — that invariant is fuzzed, and a job that vanishes silently would leave its chunk
 flagged as work-in-progress forever. Nothing submits jobs yet; streaming at M2c feeds it.
 
-**Next step is M2b, worldgen** — a pure `(seed, chunkPos) → chunk`, no threading, fully
-headless. Note the trap recorded in the plan: **do not build the per-chunk hash on
-`HashCode.Combine`**, whose seed .NET randomises per process, which would generate a
-different world every launch while looking correct within any single session. Then M2c
-streaming, M2d unload and measurement. M2c is flagged as likely to need two sessions.
+**M2b — worldgen: done 2026-08-27.** `MinerCraft.Core/Worldgen/` holds splitmix64, gradient
+noise, a data-driven strata table, and a generator that is a pure function of seed and
+position. Measured over 2,048 chunks: 4.0 MiB against 128 MiB naive, 68% of chunks uniform,
+6.55 ms/chunk. Caves are 80% of that and want one more optimisation pass, deferred to M2d
+with the analysis in TODO.md — do not treat it as a streaming problem when it surfaces.
+
+**Next step is M2c, streaming** — box difference over a refcounted viewer set, cancelling
+in-flight work when a chunk's count hits zero, and an explicit chunk state machine. This is
+the part flagged as most likely to need two sessions, because refcounting, cancellation and
+async completion interact and the bugs only appear under movement. Then M2d, the unload
+path and measurement.
 
 The licence is settled: [PolyForm Noncommercial 1.0.0](LICENSE.md), source-available. It
 can be loosened to MIT any time; it cannot be tightened after the first outside PR is

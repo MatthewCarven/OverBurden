@@ -239,16 +239,53 @@ Split into four sessions. Full reasoning in [docs/M1-PLAN.md](docs/M1-PLAN.md).
       lands a frame or two *after* the cause and will be misdiagnosed as a meshing
       problem. Needs a "run N per frame until done" path, distinct from a time-sliced one,
       because the cost cannot be measured from our side. See the reference notes.
-- [ ] Worldgen: 2D fBm heightmap, strata layers, 3D noise caves, as a pure function
-      `(seed, chunkPos) → chunk` reading nothing but its arguments
-- [ ] Deterministic per-chunk seeding `hash(seed, cx, cy, cz)` — **write splitmix64 or
-      xxHash explicitly; do NOT build it on `HashCode.Combine`**, whose seed .NET
-      randomises per process. That would generate a different world every launch, look
-      perfectly correct within one session, and fail only across restarts. Pin it with a
-      test asserting known constants from a fresh process.
-- [ ] Empty-chunk fast path in the generator: a chunk entirely above terrain should
-      *notice* and return Uniform air, not fill 32,768 voxels and compact afterwards
-- [ ] Staged generation pipeline so cross-chunk features don't tear
+#### M2b — Worldgen ✅ done 2026-08-27, 216 tests passing
+
+- [x] Worldgen as a pure function `(seed, chunkPos) → chunk`, reading nothing but its
+      arguments — no cache, no neighbour lookup, no field mutated between calls. Pinned by
+      an order-independence test, which is really a guard against anyone later adding
+      shared mutable state.
+- [x] Deterministic seeding via **splitmix64 written out explicitly**, never
+      `HashCode.Combine`, whose seed .NET randomises per process. Pinned by
+      `KnownInputsHashToKnownOutputs`; `Mix(0)` matches the published splitmix64 value, so
+      the test also proves the mixer is the real algorithm rather than a plausible
+      rearrangement of it.
+- [x] Gradient noise, not value noise — value noise takes its extremes *at* lattice
+      points, which shows up on a heightmap as an axis-aligned grid of hills.
+- [x] 2D fBm heightmap, strata from a data-driven `StrataTable`, 3D noise caves with a
+      surface margin so caves do not bite craters out of the landscape from above.
+- [x] Sky fast path: a chunk entirely above terrain returns Uniform air without touching
+      memory. Deep chunks are not special-cased — they fill and let `Compact()` notice.
+- [x] `GenerationStage` enum and an `ApplyFeatures` hook that deliberately does nothing
+      yet, so the two-stage barrier exists before M2c builds the pipeline around it.
+- [x] Tests: determinism, seam agreement across a chunk boundary, order independence, the
+      sky and deep fast paths, strata ordering, caves-only-remove, and noise continuity.
+
+**Measured** over 2,048 chunks (128 m × 64 m × 128 m):
+
+```
+4.0 MiB total, mean ~2 KB/chunk, against 128 MiB naive — 32× better
+68% of chunks uniform (803 air, 541 solid), 704 palettised, 0 direct
+6.55 ms/chunk with caves, 1.35 ms without — caves are 80% of generation
+```
+
+- [ ] **Cave generation is the bottleneck and needs another pass — deferred to M2d.**
+      Two free wins already taken (one avalanche round instead of four chained; 16-entry
+      gradient table indexed by `& 15` instead of a 64-bit `% 12`), which took it from
+      9.48 to 6.55 ms/chunk. What remains is inherent to evaluating 3D fBm per voxel:
+      ~256,000 hash-and-dot operations per chunk. The real fix is to sample cave noise on
+      a coarser lattice and interpolate, since at frequency 0.02 the field barely varies
+      across a 32-voxel chunk anyway. Not urgent — across ~6 workers this is ~1.1 ms of
+      wall clock per chunk — but it wants doing before shipping.
+- [ ] Caves are blobby pockets rather than connected tunnels, which is what thresholding
+      fBm gives you. Connected systems want ridged or worm noise, and are a stage-2
+      feature once the pipeline can place things across chunk boundaries.
+- [ ] Load strata from mod JSON rather than constructing `StrataTable` in code. The table
+      is already data and takes resolved numeric IDs, so this is loader work, not a
+      worldgen change.
+- [ ] Staged generation pipeline so cross-chunk features don't tear — the *barrier* (a
+      chunk may advance to stage N+1 only once every neighbour has completed stage N) is
+      streaming's job and belongs with M2c. The stages themselves exist now.
 - [ ] Chunk streaming: **box difference, not volume iteration.** Iterate only the shell
       that entered or left view when the player crosses a chunk boundary — O(R²) per
       crossing, not O(R³). Empty-chunk skipping.

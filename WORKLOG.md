@@ -1,5 +1,69 @@
 # MinerCraft — Worklog
 
+## 2026-08-27 — M2b: worldgen
+
+216 tests passing, up from 186.
+
+### Built
+
+`Hash64` (splitmix64), `GradientNoise` (2D/3D gradient noise plus fBm), `StrataTable`,
+`WorldGenSettings` / `GenerationStage`, and `WorldGenerator`. Terrain is a pure function of
+seed and position: heightmap, strata, caves.
+
+### Measured, over 2,048 chunks — 128 m × 64 m × 128 m
+
+```
+4.0 MiB total, mean ~2 KB/chunk, against 128 MiB naive — 32× better
+68% of chunks uniform (803 air, 541 solid), 704 palettised, 0 direct
+6.55 ms/chunk with caves, 1.35 ms without — caves are 80% of generation
+```
+
+That 68% uniform figure is M1b's uniform tier paying off exactly as designed, without
+worldgen doing anything clever: only the sky case is an explicit fast path, and the solid
+chunks fall out of `Compact()` on the way past.
+
+### Findings
+
+- **Measuring immediately was worth it, because the first number was bad.** 9.48 ms/chunk
+  would have made streaming pointless, and nothing in M2c would have revealed *why* — it
+  would have looked like a streaming problem. Isolating caves (regenerate the same region
+  with `CavesEnabled = false`) took one run and showed they were 84% of the cost.
+- **Two of the three obvious cave costs were free to remove.** `Hash64.Combine` chained
+  four avalanche rounds, and 3D noise hashes eight lattice corners per octave per voxel, so
+  that sits in the innermost loop the generator has; one round over multiply-mixed
+  coordinates is ample for choosing among sixteen gradients. And the gradient table was
+  indexed with `% 12` — a 64-bit integer division per corner — where padding the table to
+  sixteen entries makes it `& 15`. Together: 9.48 → 6.55 ms/chunk.
+- **The remaining cost is inherent and deliberately deferred to M2d.** ~256,000
+  hash-and-dot operations per chunk is what evaluating 3D fBm per voxel costs. The real fix
+  is a coarser cave lattice with interpolation — at frequency 0.02 the field barely varies
+  across a 32-voxel chunk anyway — but that is an optimisation project, not a worldgen one,
+  and M2b is closed without it. Across ~6 workers this is ~1.1 ms of wall clock per chunk,
+  which is fine for building M2c against.
+- **The default cave threshold was picked from a distribution, not from intuition.** The
+  first guess of 0.55 carved nothing, because normalised fBm at these settings actually
+  spans only [-0.48, 0.58] with p99 at 0.50 — "roughly [-1, 1]" is true of the theoretical
+  range and badly misleading about the practical one. Measured over 216,000 samples and set
+  to 0.42, near p95, for about 5% of underground volume.
+- **Changing the hash broke the pinned-constants test, which is the test working.** The
+  optimisation altered `Combine`, so the world changed, and the failure said so loudly and
+  immediately. That is exactly the alarm that test exists to raise — it just happened to be
+  a deliberate change rather than someone reaching for `HashCode.Combine`. Re-pinned.
+
+### Two tests were wrong about the world rather than about the code
+
+Both worth recording, because both were me asserting something tidier than reality:
+
+- **Adjacent columns are allowed to have the same height.** At 48 voxels of amplitude over
+  a frequency of 0.004 the terrain is deliberately smooth, so neighbouring columns
+  routinely round to the same integer. Asserting they differ tests the rounding, not the
+  noise. Now compares distant columns.
+- **Caves cluster, so "caves exist" cannot be asserted per chunk.** At the default
+  frequency a 32-voxel chunk spans less than one noise lattice cell, so plenty of chunks
+  legitimately contain no cave at all — 5% of global volume is not 5% of every chunk. The
+  test now separates the two claims by scope: "caves only ever remove material" holds in
+  every chunk, "caves exist" is asserted across a 25-chunk region.
+
 ## 2026-08-27 — M2a: the job scheduler
 
 186 tests passing, up from 154. 27 of them are the scheduler, all headless in Core.
