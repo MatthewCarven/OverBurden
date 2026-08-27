@@ -1,5 +1,54 @@
 # MinerCraft — Worklog
 
+## 2026-08-27 — M2 split into four parts, and DESIGN.md corrected
+
+No code. [docs/M2-PLAN.md](docs/M2-PLAN.md) written: **M2a** job scheduler → **M2b**
+worldgen → **M2c** streaming policy → **M2d** unload path and measurement. Same shape as
+the M1 split, for the same reason — the four parts fail in completely different ways.
+
+Also pushed to `github.com/MatthewCarven/MinerCraft` today, private, default branch `main`.
+The pre-push sanity check passed: `reference/` tracked zero files, and the whole repo is
+63 files and 122 KiB, which is itself the proof the 51 MB of godot_voxel stayed out.
+
+### DESIGN.md was still wrong
+
+The Channels correction had gone into TODO.md and the reference notes but **not** into
+DESIGN.md, which still listed `System.Threading.Channels` under "Godot 4 / C# specific
+traps" as a locked decision. Fixed, and both the FIFO and the priority-heap alternatives
+are now recorded under "Rejected alternatives" so neither gets re-litigated. Worth noting
+the failure mode: a correction that lands in the working docs but not the decisions doc is
+a correction that comes back.
+
+### Two findings from the planning pass itself
+
+- **`HashCode.Combine` would have silently randomised the world.** .NET randomises its
+  seed per process, so `hash(seed, cx, cy, cz)` built on it generates *different terrain
+  every launch* — while looking perfectly correct within any single session. It fails only
+  across restarts, which is exactly when a player would notice their world had changed.
+  M2b now specifies splitmix64 or xxHash written explicitly, pinned by a test that asserts
+  known constants from a fresh process. This is the kind of bug that would have been
+  blamed on the noise function for a week.
+- **GC settles the padded-copy question that was reopened yesterday.** godot_voxel needs
+  `shared_ptr` so a chunk isn't freed while a mesh job holds it; in C# holding a reference
+  already does that, so half their machinery is free for us. What GC does *not* solve is
+  mutation — but at M2 there is no concurrent writer, since mining is M3 and fluid is M8.
+  So: copy on the worker thread, which keeps the sim thread free and skips the copy
+  entirely for cancelled jobs. **Revisit trigger recorded at M3**, where the first writer
+  appears and needs either a per-chunk lock or a copy-on-write snapshot.
+
+### Notes on the plan
+
+- **M2c is flagged as likely to spill into two sessions.** Refcounting, in-flight
+  cancellation and async completion interact, and the bugs are state-machine bugs that
+  only appear under movement. M1c carried the same warning and didn't need it; this one
+  probably will.
+- Each part gets a single fuzzable conservation invariant, following the M1c lesson that
+  one well-chosen property beats several narrow assertions. For the scheduler: every job
+  reports exactly one result, never zero, never two. For streaming: the loaded set equals
+  the union of viewer boxes, with no chunk waiting on a job that will never complete.
+- **Flying fast is the test.** A streaming system standing still proves nothing; the
+  measurements in M2d are specified under continuous load and unload.
+
 ## 2026-08-26 — Read godot_voxel's scheduling and streaming before M2
 
 No code. Full notes in [docs/M2-REFERENCE-NOTES.md](docs/M2-REFERENCE-NOTES.md), with the

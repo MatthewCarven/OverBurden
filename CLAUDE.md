@@ -12,6 +12,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/DESIGN.md](docs/DESIGN.md) | Locked decisions, the five non-negotiables, per-system architecture, milestones, **and a list of rejected alternatives so they don't get re-litigated** |
 | [docs/M1-PLAN.md](docs/M1-PLAN.md) | Worked example of how a milestone gets planned before it gets built |
 | [docs/M2-REFERENCE-NOTES.md](docs/M2-REFERENCE-NOTES.md) | What reading godot_voxel's scheduler and streaming taught us, and what it changed in the M2 plan. **Read before building the job queue.** |
+| [docs/M2-PLAN.md](docs/M2-PLAN.md) | The current milestone, split into M2a–M2d with per-part design and tests. **This is what to work from.** |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
 | [TODO.md](TODO.md) | Milestones as checkable tasks, and the decisions still open |
 | [WORKLOG.md](WORKLOG.md) | What happened and why, newest first. Findings worth keeping live here. |
@@ -92,8 +93,12 @@ FIFO can neither reprioritise queued work as the player moves nor drop work that
 before it ran. Findings and the corrected plan are in
 [docs/M2-REFERENCE-NOTES.md](docs/M2-REFERENCE-NOTES.md).
 
-Next actual step is to **split M2 into sub-parts** the way M1 was split, before writing
-code. The reference notes suggest the seams.
+M2 is now split into four parts in [docs/M2-PLAN.md](docs/M2-PLAN.md), and planning is
+done. **Next actual step is to build M2a, the job scheduler** — a flat list re-sorted on a
+timer, priority packed into one `uint`, real cancellation tokens, dedicated worker threads.
+It is Core-only and entirely headless-testable, including the reprioritisation test that
+Channels would have failed. Then M2b worldgen, M2c streaming, M2d unload and measurement.
+M2c is flagged as the one most likely to need two sessions.
 
 The licence is settled: [PolyForm Noncommercial 1.0.0](LICENSE.md), source-available. It
 can be loosened to MIT any time; it cannot be tightened after the first outside PR is

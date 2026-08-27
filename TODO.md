@@ -150,12 +150,15 @@ Split into four sessions. Full reasoning in [docs/M1-PLAN.md](docs/M1-PLAN.md).
       `Compact()` interleaved to prove it never changes content
 - [ ] Padded 34³ copy on the sim thread when queueing a mesh job — belongs with M1c,
       which is the thing that consumes it.
-      **Reopened 2026-08-26:** godot_voxel does the opposite — the job holds references to
-      the chunk and its 26 neighbours and does the padded copy *on the worker thread*.
-      That keeps the sim thread free and skips the copy entirely for jobs cancelled before
-      they run, but it requires chunk storage to be safe to read while the sim thread may
-      write, which is a real cost and not a free win. Decide during M2 planning; see
-      [docs/M2-REFERENCE-NOTES.md](docs/M2-REFERENCE-NOTES.md).
+      **Reopened 2026-08-26, resolved 2026-08-27: copy on the worker thread instead.**
+      godot_voxel needs `shared_ptr` to stop a chunk being freed while a job holds it; in
+      C# holding a reference already does that, so GC gives us half the machinery free.
+      The remaining hazard is *mutation*, not lifetime — and at M2 there is no concurrent
+      writer, because mining is M3 and fluid is M8. So the worker-side copy is safe now,
+      keeps the sim thread free, and skips the copy entirely for cancelled jobs.
+      - [ ] **Revisit trigger: M3.** The first concurrent writer arrives with mining, and
+            needs either a per-chunk lock or a copy-on-write snapshot. Scheduled decision,
+            not a bug to discover. See [docs/M2-PLAN.md](docs/M2-PLAN.md).
 
 #### M1c — Greedy mesher ✅ done 2026-08-25, did not spill
 
@@ -193,9 +196,11 @@ Split into four sessions. Full reasoning in [docs/M1-PLAN.md](docs/M1-PLAN.md).
       Done 2026-08-26 — findings in
       [docs/M2-REFERENCE-NOTES.md](docs/M2-REFERENCE-NOTES.md). It earned its keep again:
       it caught that the job queue below was specified as the wrong data structure.
-- [ ] Plan M2 as sub-parts first, the way M1 was — see
-      [docs/M1-PLAN.md](docs/M1-PLAN.md) for the shape. The reference notes suggest the
-      seams: job queue → worldgen → streaming policy → the unload/free path.
+- [x] **Plan M2 as sub-parts first, the way M1 was** — done 2026-08-27, in
+      [docs/M2-PLAN.md](docs/M2-PLAN.md). Four parts, built in order:
+      **M2a** job scheduler → **M2b** worldgen → **M2c** streaming policy →
+      **M2d** unload path and measurement. M2c is flagged as the one most likely to
+      spill into two sessions. The bullets below are grouped by part in that document.
 - [ ] ~~`System.Threading.Channels` job queue for gen + mesh~~ **Corrected.** Channels is
       FIFO, and a FIFO cannot reprioritise queued work as the player moves, nor drop work
       that became irrelevant before it ran. A priority heap is also wrong, for the same
@@ -220,8 +225,15 @@ Split into four sessions. Full reasoning in [docs/M1-PLAN.md](docs/M1-PLAN.md).
       lands a frame or two *after* the cause and will be misdiagnosed as a meshing
       problem. Needs a "run N per frame until done" path, distinct from a time-sliced one,
       because the cost cannot be measured from our side. See the reference notes.
-- [ ] Worldgen: 2D fBm heightmap, strata layers, 3D noise caves
-- [ ] Deterministic per-chunk seeding `hash(seed, cx, cy, cz)`
+- [ ] Worldgen: 2D fBm heightmap, strata layers, 3D noise caves, as a pure function
+      `(seed, chunkPos) → chunk` reading nothing but its arguments
+- [ ] Deterministic per-chunk seeding `hash(seed, cx, cy, cz)` — **write splitmix64 or
+      xxHash explicitly; do NOT build it on `HashCode.Combine`**, whose seed .NET
+      randomises per process. That would generate a different world every launch, look
+      perfectly correct within one session, and fail only across restarts. Pin it with a
+      test asserting known constants from a fresh process.
+- [ ] Empty-chunk fast path in the generator: a chunk entirely above terrain should
+      *notice* and return Uniform air, not fill 32,768 voxels and compact afterwards
 - [ ] Staged generation pipeline so cross-chunk features don't tear
 - [ ] Chunk streaming: **box difference, not volume iteration.** Iterate only the shell
       that entered or left view when the player crosses a chunk boundary — O(R²) per

@@ -187,7 +187,13 @@ pragmatic one for a solo project. World file carries the string→int ID palette
 
 - `RenderingServer` direct calls for chunk meshes, not thousands of
   `MeshInstance3D` nodes — node overhead is real at this chunk count.
-- `System.Threading.Channels` for the gen/mesh job queue.
+- **Job queue: a flat list re-sorted on a timer, not `Channels` and not a heap.**
+  Corrected 2026-08-26; see [M2-REFERENCE-NOTES.md](M2-REFERENCE-NOTES.md). `Channels` is
+  FIFO and cannot reprioritise queued work as the player moves, nor drop work that went
+  stale before it ran. Channels remains right for handing *results* back to the main
+  thread, which really is FIFO.
+- Dedicated worker threads for that queue, not `Task.Run` — the .NET thread pool knows
+  nothing about voxel priority.
 - `ArrayPool<T>` for mesh buffers.
 - Custom `ShaderMaterial` + `Texture2DArray`.
 - Structs over classes in hot paths; watch GC.
@@ -244,3 +250,10 @@ change later.
 - **Godot physics for terrain collision** — `ConcavePolygonShape3D` per chunk is a
   well-known performance trap.
 - **Texture atlas** — incompatible with greedy meshing's tiled UVs.
+- **`System.Threading.Channels` as the gen/mesh job queue** — held until 2026-08-26. It is
+  FIFO, so it cannot reprioritise queued work as the player moves, and cannot drop work
+  that became irrelevant before it ran. Both are the entire purpose of a voxel job queue.
+- **A priority heap for that queue** — the obvious replacement, and wrong for the same
+  reason: it orders correctly at insert time, and insert time is precisely when the
+  ordering is least valuable. A chunk queued at 20 m may be 200 m away before a worker
+  frees up.
