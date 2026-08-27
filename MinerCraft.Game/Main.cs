@@ -1,18 +1,48 @@
+using System;
+using System.Collections.Generic;
 using Godot;
 using MinerCraft.Core.Content;
+using MinerCraft.Core.Jobs;
 using MinerCraft.Core.Meshing;
+using MinerCraft.Core.Streaming;
 using MinerCraft.Core.Voxels;
+using MinerCraft.Core.Worldgen;
+using MinerCraft.Game.Player;
 using MinerCraft.Game.Rendering;
 
 namespace MinerCraft.Game;
 
 /// <summary>
-/// M1d entry point: load content, generate one chunk of test terrain, greedy-mesh it, and
-/// hand the result to the RenderingServer. Replaced by the chunk manager at M2.
+/// M2c entry point: load content, then stream terrain around the camera through the job
+/// scheduler and the greedy mesher.
 /// </summary>
+/// <remarks>
+/// Everything that decides <em>what</em> exists lives in <c>MinerCraft.Core</c>. This class
+/// only reports where the camera is, turns finished meshes into <c>ArrayMesh</c>es, and
+/// frees RIDs — the Godot half of the seam, and deliberately thin.
+/// </remarks>
 public partial class Main : Node3D
 {
-    private VoxelRenderInstance? _chunk;
+    [Export] public int ViewDistanceHorizontal { get; set; } = 4;
+
+    /// <summary>
+    /// Separate from the horizontal radius on purpose — a mining game's content is below the
+    /// player. Kept modest until M2d has measured what the load actually costs.
+    /// </summary>
+    [Export] public int ViewDistanceVertical { get; set; } = 2;
+
+    /// <summary>Jobs submitted per frame. Bounds the sim-thread cost of a fast traverse.</summary>
+    [Export] public int MaxSubmissionsPerFrame { get; set; } = 64;
+
+    private readonly Dictionary<ChunkPos, VoxelRenderInstance> _instances = [];
+
+    private JobScheduler? _scheduler;
+    private ChunkPipeline? _pipeline;
+    private ViewerId _viewer;
+    private FlyCam? _camera;
+    private ShaderMaterial? _material;
+    private ChunkPos _lastViewerChunk;
+    private double _sinceReport;
 
     public GameContent Content { get; } = new();
 
@@ -20,102 +50,142 @@ public partial class Main : Node3D
     {
         LoadContent();
 
-        var materials = MaterialTable.From(Content.Materials);
-        var voxels = BuildTestTerrain();
+        _camera = GetNodeOrNull<FlyCam>("FlyCam");
+        _material = VoxelMaterial.Create();
 
-        var padded = new PaddedChunk();
-        padded.CopyInteriorFrom(voxels);
-        padded.FillBorder(MaterialIds.AirNumericId); // a lone chunk, so open on all sides
+        var settings = new WorldGenSettings { Seed = 0x4D494E455243UL };
+        var generator = new WorldGenerator(settings, BuildStrata());
 
-        var mesh = new ChunkMesh();
-        new GreedyMesher().Build(padded, materials, mesh);
+        var viewers = new ViewerSet();
+        _scheduler = new JobScheduler(viewers);
+        _pipeline = new ChunkPipeline(
+            generator,
+            MaterialTable.From(Content.Materials),
+            _scheduler,
+            viewers,
+            onMeshReady: OnMeshReady,
+            onMeshDiscarded: OnMeshDiscarded,
+            onJobFaulted: (position, error) => GD.PushError($"Chunk job failed at {position}: {error}"));
 
-        Report(voxels, padded, materials, mesh);
+        PlaceCameraAboveTerrain(generator);
 
-        var material = VoxelMaterial.Create();
-        var arrayMesh = ChunkMeshConverter.ToArrayMesh(mesh, material, material);
+        _lastViewerChunk = ViewerChunk();
+        _viewer = _pipeline.Streamer.AddViewer(
+            _lastViewerChunk, ViewDistanceHorizontal, ViewDistanceVertical);
 
-        if (arrayMesh is not null)
+        GD.Print(
+            $"M2c: streaming r{ViewDistanceHorizontal}h/{ViewDistanceVertical}v " +
+            $"+{_pipeline.Streamer.LoadMargin} margin on {_scheduler.ThreadCount} worker(s)");
+    }
+
+    public override void _Process(double delta)
+    {
+        if (_pipeline is null)
         {
-            _chunk = new VoxelRenderInstance(GetWorld3D(), arrayMesh, Transform3D.Identity);
+            return;
         }
+
+        // The viewer only moves in whole chunks. Comparing first means a camera drifting
+        // inside one chunk never touches the streaming policy at all.
+        ChunkPos current = ViewerChunk();
+        if (current != _lastViewerChunk)
+        {
+            _lastViewerChunk = current;
+            _pipeline.Streamer.MoveViewer(_viewer, current);
+        }
+
+        _pipeline.Update(MaxSubmissionsPerFrame);
+        Report(delta);
     }
 
     /// <summary>
-    /// A slice of terrain chosen to show what greedy meshing does: broad flat layers that
-    /// merge into a handful of quads, a rolling surface that cannot merge as well, and a
-    /// carved cavity so the interior geometry is not trivial.
+    /// A chunk's mesh is ready. Runs on the main thread inside
+    /// <see cref="ChunkPipeline.Update"/>, so touching the RenderingServer here is safe.
     /// </summary>
-    private VoxelChunk BuildTestTerrain()
+    private void OnMeshReady(StreamedChunk chunk, ChunkMesh mesh)
     {
-        int stone = MaterialId("minercraft:stone");
-        int dirt = MaterialId("minercraft:dirt");
-        int grass = MaterialId("minercraft:grass");
+        // Re-meshing an existing chunk replaces its instance; M3 makes that the common case.
+        OnMeshDiscarded(chunk.Position);
 
-        var chunk = new VoxelChunk(MaterialIds.AirNumericId);
-        const int size = VoxelConstants.ChunkSize;
-
-        for (int z = 0; z < size; z++)
-        for (int x = 0; x < size; x++)
+        ArrayMesh? arrayMesh = ChunkMeshConverter.ToArrayMesh(mesh, _material!, _material!);
+        if (arrayMesh is null)
         {
-            int height = 18
-                         + (int)(3f * Mathf.Sin(x * 0.28f))
-                         + (int)(3f * Mathf.Cos(z * 0.22f));
-            height = Mathf.Clamp(height, 1, size - 1);
-
-            for (int y = 0; y <= height; y++)
-            {
-                chunk.Set(x, y, z, y == height ? grass : y >= height - 3 ? dirt : stone);
-            }
+            // Nothing to draw — a chunk of open sky or of solid buried rock. Most chunks.
+            return;
         }
 
-        // Carve a cavity, so the mesh has interior surfaces and not just a heightfield.
-        var centre = new Vector3(12f, 9f, 16f);
-        for (int z = 0; z < size; z++)
-        for (int x = 0; x < size; x++)
-        for (int y = 0; y < size; y++)
-        {
-            if (new Vector3(x, y, z).DistanceTo(centre) < 6.5f)
-            {
-                chunk.Set(x, y, z, MaterialIds.AirNumericId);
-            }
-        }
-
-        return chunk;
+        var (x, y, z) = chunk.Position.OriginMetres;
+        _instances[chunk.Position] = new VoxelRenderInstance(
+            GetWorld3D(), arrayMesh, new Transform3D(Basis.Identity, new Vector3(x, y, z)));
     }
 
-    private void Report(
-        VoxelChunk voxels, PaddedChunk padded, MaterialTable materials, ChunkMesh mesh)
+    /// <summary>
+    /// A chunk that had a mesh is gone.
+    /// </summary>
+    /// <remarks>
+    /// <b>Freed immediately, and M2d is where that stops being good enough.</b> Godot defers
+    /// the actual deallocation, so freeing several hundred RIDs in one frame stutters a frame
+    /// or two later and gets blamed on meshing. The fix is a "free N per frame until drained"
+    /// budget rather than a time slice, because the cost is not spent inside this call and
+    /// cannot be measured from here. See docs/M2-REFERENCE-NOTES.md.
+    /// </remarks>
+    private void OnMeshDiscarded(ChunkPos position)
     {
-        // Diagnostic only: what a culled mesher would have emitted, for comparison.
-        int culledFaces = 0;
-        for (int face = 0; face < VoxelFace.Count; face++)
+        if (_instances.Remove(position, out VoxelRenderInstance? instance))
         {
-            int[] offset = VoxelFace.Offset[face];
+            instance.Dispose();
+        }
+    }
 
-            for (int z = 0; z < VoxelConstants.ChunkSize; z++)
-            for (int x = 0; x < VoxelConstants.ChunkSize; x++)
-            for (int y = 0; y < VoxelConstants.ChunkSize; y++)
-            {
-                int here = padded[x, y, z];
-                int there = padded[x + offset[0], y + offset[1], z + offset[2]];
+    private ChunkPos ViewerChunk()
+    {
+        Vector3 position = _camera?.GlobalPosition ?? Vector3.Zero;
+        return VoxelPos.FromMetres(position.X, position.Y, position.Z).Chunk;
+    }
 
-                if (here != MaterialIds.AirNumericId && here != there && !materials.IsOpaque(there))
-                {
-                    culledFaces++;
-                }
-            }
+    /// <summary>
+    /// Drops the camera just above the surface, so a fresh run opens on terrain rather than
+    /// inside rock or high in empty sky.
+    /// </summary>
+    private void PlaceCameraAboveTerrain(WorldGenerator generator)
+    {
+        if (_camera is null)
+        {
+            return;
         }
 
-        int naive = VoxelConstants.ChunkVolume * 6;
+        Vector3 position = _camera.GlobalPosition;
+        VoxelPos voxel = VoxelPos.FromMetres(position.X, position.Y, position.Z);
+        int surface = generator.SurfaceHeightAt(voxel.X, voxel.Z);
+
+        float metres = (surface + 8) * VoxelConstants.VoxelSize;
+        _camera.GlobalPosition = new Vector3(position.X, metres, position.Z);
+    }
+
+    /// <summary>Strata for the base game. Data already — moving it into mod JSON is on the TODO.</summary>
+    private StrataTable BuildStrata() => new(
+        [
+            new StrataLayer(MaterialId("minercraft:grass"), 1),
+            new StrataLayer(MaterialId("minercraft:dirt"), 3),
+        ],
+        MaterialId("minercraft:stone"));
+
+    private void Report(double delta)
+    {
+        _sinceReport += delta;
+        if (_sinceReport < 5.0 || _pipeline is null)
+        {
+            return;
+        }
+
+        _sinceReport = 0.0;
+        ChunkStreamer streamer = _pipeline.Streamer;
+
         GD.Print(
-            $"M1d: chunk stored as {voxels} ({voxels.EstimatedBytes} B for " +
-            $"{VoxelConstants.ChunkVolume} voxels)\n" +
-            $"  naive {naive} faces → culled {culledFaces} → greedy {mesh.QuadCount} quads " +
-            $"({(float)culledFaces / Mathf.Max(mesh.QuadCount, 1):F1}× better than culled, " +
-            $"{(float)naive / Mathf.Max(mesh.QuadCount, 1):F0}× better than naive)\n" +
-            $"  {mesh.Opaque.QuadCount} opaque, {mesh.Transparent.QuadCount} transparent, " +
-            $"{mesh.Opaque.IndexCount / 3} triangles");
+            $"M2c: {streamer.ViewedCount} viewed ({streamer.TrackedCount} tracked), " +
+            $"{_instances.Count} drawn, {_pipeline.JobsInFlight} in flight, " +
+            $"{_pipeline.WorkListCount} queued | jobs {_pipeline.CompletedJobs} done / " +
+            $"{_pipeline.DroppedJobs} dropped / {_pipeline.FaultedJobs} faulted");
     }
 
     private void LoadContent()
@@ -138,7 +208,19 @@ public partial class Main : Node3D
 
     public override void _ExitTree()
     {
-        _chunk?.Dispose();
-        _chunk = null;
+        // Order matters: stop the pipeline submitting, then stop the workers, then release
+        // the RIDs. Freeing instances while a mesh result could still arrive would hand the
+        // renderer a mesh for a chunk that has just been torn down.
+        _pipeline?.Dispose();
+        _scheduler?.Dispose();
+
+        foreach (VoxelRenderInstance instance in _instances.Values)
+        {
+            instance.Dispose();
+        }
+
+        _instances.Clear();
+        _pipeline = null;
+        _scheduler = null;
     }
 }

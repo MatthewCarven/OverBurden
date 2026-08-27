@@ -80,6 +80,10 @@ comes first.
 - [ ] Ambient fill is low — faces angled away from the sun go nearly black. Cosmetic
       only, and M5 lighting replaces this shading path entirely, so not worth tuning
       the Environment now.
+- [ ] **Look at streamed terrain on a screen.** M2c-2 is verified headless and the numbers
+      are exactly right — 1521 chunks tracked, 405 meshed, 0 leaked — but no one has seen
+      it. Worth checking for seams at chunk boundaries, terrain that pops in visibly late,
+      and whether the camera lands somewhere sensible. `start.cmd`, then fly.
 
 ---
 
@@ -318,30 +322,58 @@ something whose invariants are already pinned.
       the edge of the loaded region, and the fuzz invariant over 400 random viewer
       add/move/resize/remove steps. 38 new tests, all headless in Core.
 
-#### M2c-2 — Wiring streaming to the scheduler ⬅️ **start here**
+#### M2c-2 — Wiring streaming to the scheduler ✅ done 2026-08-27, 261 tests passing
 
-Where refcounting, cancellation and async completion actually interact.
+**M2 runs end to end.** Terrain streams around the flycam through the job queue and the
+greedy mesher; `Main.cs` no longer builds a chunk by hand.
 
-- [ ] Generate and mesh `IJob` implementations, submitted from `onChunkViewed` via
-      `SubmitBatch` so the queue lock is taken once per frame rather than once per chunk.
-- [ ] Apply results on the sim thread: `DrainResults` → state transition → store voxels or
-      hand the mesh over. `Dropped` steps back one state, `Faulted` needs a decision.
-- [ ] **Cancel in-flight work when a refcount hits zero.** Without it, running somewhere and
-      turning around queues work for terrain nobody will ever see, and under continuous
-      movement the queue never drains.
-- [ ] **A chunk with a job in flight cannot simply be forgotten.** `ChunkStreamer.Unview`
-      currently removes the entry immediately; the removal has to become conditional on the
-      outstanding-job count, or a worker reports a result for a chunk the streamer no longer
-      knows about. The comment marking the exact spot is already in place.
-- [ ] Drive the stage pipeline: Terrain on generate, then Features once `CanAdvanceToFeatures`
-      passes, then mesh once `CanMesh` passes. Re-check neighbours when a chunk advances,
-      since one chunk finishing can unblock up to 26 others.
-- [ ] The fuzz invariant to extend from M2c-1: after any sequence of moves, **no chunk is
-      waiting on a job that will never complete.**
-- [ ] Replace `Main.cs`'s single hand-built test chunk with the streamer driven by the
-      flycam's position.
+- [x] `GenerateChunkJob` and `MeshChunkJob`, submitted through `SubmitBatch` so the queue
+      lock is taken once per frame rather than once per chunk.
+- [x] `ChunkPipeline` applies results on the sim thread: `DrainResults` → state transition →
+      store voxels or hand the mesh over. Workers only read the snapshot given to them and
+      write their own result field; every dictionary and refcount touch is sim-thread.
+- [x] **A work list, not a per-frame scan.** A chunk is pushed exactly when something might
+      have changed for it, with the dedup flag on the chunk. Advancing one chunk pushes its
+      26 neighbours — miss that and the pipeline stalls silently with everything idle.
+- [x] **Cancel in-flight work when a refcount hits zero.** Measured under fuzzed movement:
+      394 jobs completed against 3,693 dropped, asserted so the test cannot quietly stop
+      exercising the path.
+- [x] **A chunk with a job in flight is retained, not forgotten.** `ForgetIfUnwanted` collects
+      it once the result lands. `ViewedCount` and `TrackedCount` are separate for this
+      reason, and a gap between them that does not close is a job that never reported.
+- [x] `onChunkViewed` fires on **revival** as well as creation — a chunk that came back mid-job
+      would otherwise sit behind a cancelled job forever, leaving a hole exactly where the
+      player turned around.
+- [x] Stage pipeline driven: Terrain on generate, Features once `CanAdvanceToFeatures`
+      passes, mesh once `CanMesh` passes.
+- [x] Worker-side neighbourhood gather via `PaddedChunk.CopyFrom` — all 26 neighbours, not
+      the 6 that face visibility needs today, because M5's vertex AO samples diagonally.
+- [x] Tests: end-to-end generate-and-mesh, the margin generating without meshing, full
+      release when the last viewer leaves, leave-and-return mid-load, cancellation on
+      teleport, chunk revival, and the no-chunk-left-waiting fuzz. 7 integration tests
+      against a real scheduler on real threads.
 
-#### M2d — Unload path and measurement
+**Measured** headless from a standing start, r4h/2v + 2 margin on 8 workers:
+
+```
+1521 viewed (1521 tracked), 166 drawn, 0 in flight, 0 queued
+1926 jobs done / 0 dropped / 0 faulted   — settled inside 5 s
+```
+
+1926 = 1521 generates + 405 meshes, and 405 is exactly the 9×5×9 visible box.
+
+- [ ] **Nothing has looked at this on a screen yet** — see "Needs a human eye" above. The
+      numbers are right; "looks like terrain" is a different claim.
+- [ ] Stage 2 runs on the sim thread, because it writes into its neighbours by design and a
+      worker would need a lock over the whole 3×3×3 region. Fine while it places nothing.
+      Revisit trigger is the one already recorded for chunk storage: **M3, the first
+      concurrent writer.**
+- [ ] A faulted job is reported and not retried, so the chunk renders as a hole until the
+      player leaves and returns. Untested, deliberately: `WorldGenerator` is a concrete
+      dependency with no clean way to induce a fault, and a seam added only for that would
+      cost more than the branch is worth.
+
+#### M2d — Unload path and measurement ⬅️ **start here**
 
 - [ ] **Budget mesh *destruction*, not just construction.** Freeing many `RenderingServer`
       RIDs in one frame stutters, and the cost is deferred inside the renderer, so it lands

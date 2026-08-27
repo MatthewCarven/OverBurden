@@ -1,0 +1,333 @@
+using System.Diagnostics;
+using MinerCraft.Core.Content;
+using MinerCraft.Core.Jobs;
+using MinerCraft.Core.Meshing;
+using MinerCraft.Core.Streaming;
+using MinerCraft.Core.Voxels;
+using MinerCraft.Core.Worldgen;
+
+namespace MinerCraft.Core.Tests;
+
+/// <summary>
+/// The pipeline against a real <see cref="JobScheduler"/> on real threads. These are
+/// integration tests on purpose — the bugs M2-PLAN.md warned about only exist in the
+/// interaction between refcounting, cancellation and async completion, and a fake scheduler
+/// that completes jobs inline would have none of it.
+/// </summary>
+public class ChunkPipelineTests
+{
+    [Fact]
+    public void AViewerGeneratesAndMeshesItsVisibleBox()
+    {
+        using var harness = new PipelineHarness();
+        harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+
+        Assert.Equal(0, harness.Pipeline.FaultedJobs);
+
+        // Everything visible is meshed and has voxels.
+        foreach (ChunkPos position in Box(ChunkPos.Zero, 1))
+        {
+            StreamedChunk chunk = harness.Pipeline.Streamer.Get(position)!;
+            Assert.Equal(ChunkState.Meshed, chunk.State);
+            Assert.Equal(GenerationStage.Features, chunk.Stage);
+            Assert.True(chunk.HasVoxels);
+        }
+    }
+
+    /// <summary>
+    /// The M2c-1 property, now proved through the real pipeline rather than by driving the
+    /// stages by hand: meshes are delivered for exactly the visible box.
+    /// </summary>
+    [Fact]
+    public void MeshesAreDeliveredForExactlyTheVisibleBoxAndTheMarginOnlyGenerates()
+    {
+        using var harness = new PipelineHarness();
+        harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+
+        Assert.Equal(Box(ChunkPos.Zero, 1).ToHashSet(), harness.MeshedPositions.ToHashSet());
+
+        // The margin did real work — it generated — it just never meshed.
+        StreamedChunk margin = harness.Pipeline.Streamer.Get(new ChunkPos(3, 0, 0))!;
+        Assert.True(margin.HasVoxels);
+        Assert.Equal(ChunkState.Generated, margin.State);
+        Assert.DoesNotContain(new ChunkPos(3, 0, 0), harness.MeshedPositions);
+    }
+
+    [Fact]
+    public void EverythingIsReleasedWhenTheLastViewerLeaves()
+    {
+        using var harness = new PipelineHarness();
+        ViewerId id = harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+
+        Assert.True(harness.Pipeline.Streamer.TrackedCount > 0);
+
+        harness.Pipeline.Streamer.RemoveViewer(id);
+        harness.Settle();
+
+        Assert.Equal(0, harness.Pipeline.Streamer.ViewedCount);
+
+        // The one that matters: no chunk records survive their last viewer. A gap here that
+        // does not close is a job that never reported.
+        Assert.Equal(0, harness.Pipeline.Streamer.TrackedCount);
+
+        // Every mesh that was handed over was handed back.
+        Assert.Equal(harness.MeshesDelivered, harness.MeshesDiscarded);
+    }
+
+    /// <summary>
+    /// The named test from docs/M2-PLAN.md. Leaving and returning while the load is still in
+    /// flight must not lose the chunk, duplicate the load, or orphan a job.
+    /// </summary>
+    [Fact]
+    public void LeavingAndReturningMidLoadLosesNothing()
+    {
+        using var harness = new PipelineHarness();
+        ChunkStreamer streamer = harness.Pipeline.Streamer;
+
+        ViewerId id = streamer.AddViewer(ChunkPos.Zero, 1, 1);
+
+        // One pump submits the first wave, then the viewer changes its mind before any of it
+        // has had a chance to land.
+        harness.Pipeline.Update();
+        Assert.True(harness.Pipeline.JobsInFlight > 0);
+
+        streamer.MoveViewer(id, new ChunkPos(100, 100, 100));
+        harness.Pipeline.Update();
+        streamer.MoveViewer(id, ChunkPos.Zero);
+
+        harness.Settle();
+
+        Assert.Equal(0, harness.Pipeline.FaultedJobs);
+        foreach (ChunkPos position in Box(ChunkPos.Zero, 1))
+        {
+            Assert.Equal(ChunkState.Meshed, streamer.Get(position)!.State);
+        }
+
+        // No orphans: the far-away chunks the viewer briefly wanted are all gone.
+        Assert.Equal(streamer.ViewedCount, streamer.TrackedCount);
+    }
+
+    /// <summary>
+    /// Running somewhere and turning around must <em>stop</em> the work, not merely stop
+    /// caring about it. Without cancellation the queue never drains under continuous
+    /// movement.
+    /// </summary>
+    [Fact]
+    public void MovingAwayCancelsWorkRatherThanLettingItRun()
+    {
+        using var harness = new PipelineHarness();
+        ChunkStreamer streamer = harness.Pipeline.Streamer;
+
+        ViewerId id = streamer.AddViewer(ChunkPos.Zero, 2, 2);
+        harness.Pipeline.Update();
+
+        // Teleport far enough that not one chunk of the old box is still wanted.
+        streamer.MoveViewer(id, new ChunkPos(500, 0, 0));
+        harness.Settle();
+
+        Assert.True(
+            harness.Pipeline.DroppedJobs > 0,
+            "work queued for the abandoned region should have been cancelled, not completed");
+        Assert.Equal(streamer.ViewedCount, streamer.TrackedCount);
+    }
+
+    [Fact]
+    public void ARevivedChunkIsReusedRatherThanDuplicated()
+    {
+        using var harness = new PipelineHarness();
+        ChunkStreamer streamer = harness.Pipeline.Streamer;
+
+        ViewerId a = streamer.AddViewer(ChunkPos.Zero, 0, 0);
+        harness.Pipeline.Update();
+
+        StreamedChunk before = streamer.Get(ChunkPos.Zero)!;
+
+        // A second viewer arrives while the first one's work is still in flight, then the
+        // first leaves. The chunk is wanted throughout and must never be rebuilt.
+        streamer.AddViewer(ChunkPos.Zero, 0, 0);
+        streamer.RemoveViewer(a);
+        harness.Settle();
+
+        Assert.Same(before, streamer.Get(ChunkPos.Zero));
+        Assert.Equal(ChunkState.Meshed, before.State);
+    }
+
+    /// <summary>
+    /// The fuzzable invariant from docs/M2-PLAN.md, in its strongest form: after any sequence
+    /// of viewer movement, <b>no chunk is left waiting on a job that will never complete</b>,
+    /// and the tracked set has collapsed back onto the viewed set.
+    /// </summary>
+    /// <remarks>
+    /// The move sequence deliberately interleaves <see cref="ChunkPipeline.Update"/> calls
+    /// with viewer changes at every phase of a chunk's life — mid-submit, mid-flight,
+    /// mid-apply — because a state-machine bug here is a bug about ordering, and a test that
+    /// only moves between quiet moments will never see one.
+    /// </remarks>
+    [Fact]
+    public void NoChunkIsLeftWaitingOnAJobThatWillNeverComplete()
+    {
+        var random = new Random(2026_08_27);
+        using var harness = new PipelineHarness();
+        ChunkStreamer streamer = harness.Pipeline.Streamer;
+
+        ViewerId id = streamer.AddViewer(ChunkPos.Zero, 1, 1);
+
+        for (int step = 0; step < 60; step++)
+        {
+            streamer.MoveViewer(id, new ChunkPos(
+                random.Next(-3, 4), random.Next(-2, 3), random.Next(-3, 4)));
+
+            // Pump a random number of times, sometimes zero, so moves land at every phase.
+            for (int pump = random.Next(0, 3); pump > 0; pump--)
+            {
+                harness.Pipeline.Update();
+            }
+        }
+
+        harness.Settle();
+
+        Assert.Equal(0, harness.Pipeline.FaultedJobs);
+        Assert.Equal(0, harness.Pipeline.JobsInFlight);
+
+        // Proof the run was not trivial. Measured at this seed: 394 completed against 3,693
+        // dropped — under movement this fast, nine jobs in ten are cancelled before they run,
+        // which is cancellation doing its job rather than a fault. A real player crossing one
+        // boundary at a time turns over a 49-chunk shell, not a 343-chunk box.
+        Assert.True(
+            harness.Pipeline.DroppedJobs > harness.Pipeline.CompletedJobs,
+            "the fuzz should be cancelling far more work than it completes");
+
+        // Nothing retained: every job reported, and every chunk that lost its last viewer was
+        // released once it did.
+        Assert.Equal(streamer.ViewedCount, streamer.TrackedCount);
+        Assert.All(streamer.Chunks, c => Assert.Equal(0, c.OutstandingJobs));
+
+        // And the work actually finished rather than merely stopping.
+        ChunkPos centre = streamer.GetViewer(id).Position;
+        foreach (ChunkPos position in Box(centre, 1))
+        {
+            Assert.Equal(ChunkState.Meshed, streamer.Get(position)!.State);
+        }
+
+        // Mesh handover balances: every mesh delivered and not since discarded is a chunk
+        // that is meshed right now.
+        int live = streamer.Chunks.Count(c => c.State == ChunkState.Meshed);
+        Assert.Equal(live, harness.MeshesDelivered - harness.MeshesDiscarded);
+    }
+
+    private static IEnumerable<ChunkPos> Box(ChunkPos centre, int radius)
+    {
+        var positions = new List<ChunkPos>();
+        ChunkBox.Around(centre, radius, radius).ForEach(positions.Add);
+        return positions;
+    }
+}
+
+/// <summary>
+/// A pipeline wired to a real scheduler, with worldgen tuned for test speed rather than for
+/// looking like terrain.
+/// </summary>
+internal sealed class PipelineHarness : IDisposable
+{
+    private const int Grass = 1;
+    private const int Dirt = 2;
+    private const int Stone = 3;
+
+    private readonly JobScheduler _scheduler;
+
+    public PipelineHarness(int loadMargin = ChunkStreamer.DefaultLoadMargin)
+    {
+        var viewers = new ViewerSet();
+        _scheduler = new JobScheduler(viewers, threadCount: 4, sweepInterval: TimeSpan.FromMilliseconds(5));
+
+        Pipeline = new ChunkPipeline(
+            Generator(),
+            Materials(),
+            _scheduler,
+            viewers,
+            onMeshReady: (chunk, _) =>
+            {
+                MeshesDelivered++;
+                MeshedPositions.Add(chunk.Position);
+            },
+            onMeshDiscarded: position =>
+            {
+                MeshesDiscarded++;
+                MeshedPositions.Remove(position);
+            },
+            onJobFaulted: (position, error) => Faults.Add($"{position}: {error}"),
+            loadMargin: loadMargin);
+    }
+
+    public ChunkPipeline Pipeline { get; }
+
+    public int MeshesDelivered { get; private set; }
+
+    public int MeshesDiscarded { get; private set; }
+
+    /// <summary>Positions currently holding a delivered mesh, from the renderer's point of view.</summary>
+    public HashSet<ChunkPos> MeshedPositions { get; } = [];
+
+    public List<string> Faults { get; } = [];
+
+    /// <summary>
+    /// Pumps until nothing is in flight and nothing is waiting, which is the only moment the
+    /// pipeline's state is worth asserting on.
+    /// </summary>
+    /// <remarks>
+    /// A chunk can neither be pushed nor completed once both are zero, so this is genuine
+    /// quiescence rather than a snapshot. The timeout exists to fail loudly instead of
+    /// hanging the suite if the work list ever stops converging.
+    /// </remarks>
+    public void Settle(int timeoutMillis = 60_000)
+    {
+        var clock = Stopwatch.StartNew();
+
+        while (true)
+        {
+            Pipeline.Update();
+            if (Pipeline.JobsInFlight == 0 && Pipeline.WorkListCount == 0)
+            {
+                Assert.Empty(Faults);
+                return;
+            }
+
+            if (clock.ElapsedMilliseconds > timeoutMillis)
+            {
+                throw new TimeoutException(
+                    $"Pipeline did not settle: {Pipeline.JobsInFlight} in flight, " +
+                    $"{Pipeline.WorkListCount} queued, {Pipeline.FaultedJobs} faulted.");
+            }
+
+            Thread.Sleep(1);
+        }
+    }
+
+    /// <summary>
+    /// Caves off and a single octave. Caves are 80% of generation cost, and this suite cares
+    /// about the state machine rather than about what the terrain looks like.
+    /// </summary>
+    private static WorldGenerator Generator() => new(
+        new WorldGenSettings
+        {
+            Seed = 0x5EEDUL,
+            SurfaceOctaves = 1,
+            CavesEnabled = false,
+        },
+        new StrataTable([new StrataLayer(Grass, 1), new StrataLayer(Dirt, 3)], Stone));
+
+    private static MaterialTable Materials() => MaterialTable.ForTesting(
+        //             air    grass dirt  stone
+        isOpaque: [false, true, true, true],
+        isFluid: [false, false, false, false],
+        textureLayer: [0, 1, 2, 3]);
+
+    public void Dispose()
+    {
+        Pipeline.Dispose();
+        _scheduler.Dispose();
+    }
+}

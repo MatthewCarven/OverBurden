@@ -82,10 +82,19 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **M2a**, **M2b** and **M2c-1** are done — **254 tests passing**. A chunk of
-generated terrain renders through the greedy mesher over palette-compressed storage, with
-materials loaded from JSON. On that chunk: 8,208 B for 32,768 voxels, 196,608 naive faces →
-850 quads.
+M0, all of M1, and **all of M2 except M2d** are done — **261 tests passing**. Terrain
+streams around the flycam: worldgen and greedy meshing run on worker threads over
+palette-compressed storage, with materials loaded from JSON, and chunks load and unload as
+the viewer moves.
+
+Headless from a standing start, r4h/2v + 2 margin on 8 workers:
+
+```
+1521 viewed (1521 tracked), 166 drawn, 0 in flight, 0 queued
+1926 jobs done / 0 dropped / 0 faulted   — settled inside 5 s
+```
+
+1926 = 1521 generates + 405 meshes, and 405 is exactly the 9×5×9 visible box.
 
 M2 is split into four parts in [docs/M2-PLAN.md](docs/M2-PLAN.md). The prerequisite
 reading of godot_voxel is done and paid for itself: it caught that the job queue had been
@@ -121,12 +130,27 @@ Two things from it worth knowing before touching streaming:
   construction, so the meshable set lands exactly on the visible box with one refcount and
   no shell bookkeeping. Don't add a second refcount to "fix" the margin.
 
-**Next step is M2c-2, wiring streaming to the scheduler** — generate and mesh jobs,
-cancelling in-flight work when a count hits zero, applying results, and driving the stage
-pipeline. Note that `ChunkStreamer.Unview` currently forgets a chunk the instant its count
-hits zero, which is correct only while nothing submits jobs; the removal has to become
-conditional on outstanding jobs, and the comment marking the spot is already there. Then
-M2d, the unload path and measurement.
+**M2c-2 — wiring: done 2026-08-27.** `ChunkPipeline` owns the work list, job submission,
+result application and cancellation; `GenerateChunkJob` and `MeshChunkJob` do the work;
+`Main.cs` is now a thin Godot shell that reports where the camera is and turns finished
+meshes into RIDs. Three things about it that are easy to undo by accident:
+
+- **Advancing one chunk pushes its 26 neighbours.** A chunk finishing terrain may be the
+  last thing its whole neighbourhood was waiting on. Miss that push and the pipeline stalls
+  silently, everything idle, nothing obviously wrong.
+- **`onChunkViewed` fires on revival, not just creation.** A chunk retained past its last
+  viewer keeps whatever state its cancelled job left it in, so coming back has to announce
+  itself or that chunk sits behind a dead job forever.
+- **`ViewedCount` and `TrackedCount` are different numbers.** A chunk with a job in flight
+  is retained after its last viewer leaves. A gap between the two that does not close means
+  a job never reported.
+
+**Next step is M2d** — the unload path and measurement. `Main.OnMeshDiscarded` frees RIDs
+immediately, which is the thing godot_voxel is openly unhappy about: Godot defers the
+deallocation, so freeing several hundred in one frame stutters a frame or two later and
+gets blamed on meshing. It needs a "free N per frame until drained" budget, not a time
+slice, because the cost is not spent inside our call. M2d also owns the deferred cave
+optimisation and the load-margin measurement.
 
 The licence is settled: [PolyForm Noncommercial 1.0.0](LICENSE.md), source-available. It
 can be loosened to MIT any time; it cannot be tightened after the first outside PR is

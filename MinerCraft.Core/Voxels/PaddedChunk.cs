@@ -4,10 +4,21 @@ namespace MinerCraft.Core.Voxels;
 /// A chunk's voxels plus a one-voxel border copied from its six neighbours.
 /// </summary>
 /// <remarks>
+/// <para>
 /// The border is what lets a mesh job decide whether a face on the chunk boundary is
-/// visible without looking anything up outside itself. That means mesh jobs touch no
-/// shared state and need no locking — the copy is taken on the sim thread when the job
-/// is queued, and after that the worker owns it outright.
+/// visible without looking anything up outside itself. Once built, the worker owns it
+/// outright and touches no shared state.
+/// </para>
+/// <para>
+/// <b>The copy is taken on the worker thread, not the sim thread.</b> M1b originally
+/// specified the opposite; M2a reversed it after reading godot_voxel. A mesh job holds
+/// references to the chunk and its neighbours and calls <see cref="CopyFrom"/> itself,
+/// which keeps a 34³ copy per queued chunk off the thread we most want free, and skips it
+/// entirely for jobs cancelled before they run. In C# holding a reference is already
+/// enough to keep those chunks alive, so the lifetime half of the problem costs nothing.
+/// The mutation half is real and is deferred: there is no concurrent writer until mining
+/// at M3, which is the recorded revisit trigger. See docs/M2-PLAN.md.
+/// </para>
 /// <para>
 /// Coordinates run -1..32 on each axis: -1 and 32 are the borrowed border, 0..31 is the
 /// chunk proper.
@@ -45,6 +56,72 @@ public sealed class PaddedChunk
 
     /// <summary>Sets every voxel, border included.</summary>
     public void Fill(int materialId) => Array.Fill(_voxels, materialId);
+
+    /// <summary>How many chunks a full neighbourhood holds — the centre plus its 26 neighbours.</summary>
+    public const int NeighbourhoodSize = 27;
+
+    /// <summary>
+    /// Index into a neighbourhood array for the chunk at offset
+    /// (<paramref name="dx"/>, <paramref name="dy"/>, <paramref name="dz"/>), each in -1..1.
+    /// The centre chunk is <c>NeighbourIndex(0, 0, 0)</c>.
+    /// </summary>
+    /// <remarks>Z-major, then X, then Y — the same order as everything else here.</remarks>
+    public static int NeighbourIndex(int dx, int dy, int dz) =>
+        ((dz + 1) * 3 + (dx + 1)) * 3 + (dy + 1);
+
+    /// <summary>
+    /// Fills the interior from the centre chunk and the border from its neighbours, in one
+    /// pass. A null entry contributes <paramref name="missingMaterial"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>All 26 neighbours, not just the 6 that share a face.</b> Face visibility alone
+    /// only ever reads a border voxel with exactly one coordinate out of range, so the
+    /// edges and corners of the border are dead weight today. They stop being dead weight
+    /// at M5: vertex AO samples diagonally, and a corner voxel is exactly what it reads.
+    /// Filling them costs 392 voxels on top of 6,144 — cheaper than revisiting the gather
+    /// and the merge key later, and the merge key already carries the AO channel for the
+    /// same reason.
+    /// </para>
+    /// <para>
+    /// <c>&amp; 31</c> rather than a branch: it maps -1 to 31 and 32 to 0, which is exactly
+    /// the wrap into the neighbour's local coordinates.
+    /// </para>
+    /// </remarks>
+    public void CopyFrom(ReadOnlySpan<VoxelChunk?> neighbourhood, int missingMaterial)
+    {
+        if (neighbourhood.Length != NeighbourhoodSize)
+        {
+            throw new ArgumentException(
+                $"Expected {NeighbourhoodSize} chunks, got {neighbourhood.Length}.",
+                nameof(neighbourhood));
+        }
+
+        const int lo = -1;
+        const int hi = VoxelConstants.ChunkSize;
+
+        for (int z = lo; z <= hi; z++)
+        {
+            int dz = z < 0 ? -1 : z >= VoxelConstants.ChunkSize ? 1 : 0;
+
+            for (int x = lo; x <= hi; x++)
+            {
+                int dx = x < 0 ? -1 : x >= VoxelConstants.ChunkSize ? 1 : 0;
+
+                for (int y = lo; y <= hi; y++)
+                {
+                    int dy = y < 0 ? -1 : y >= VoxelConstants.ChunkSize ? 1 : 0;
+
+                    VoxelChunk? source = neighbourhood[NeighbourIndex(dx, dy, dz)];
+                    this[x, y, z] = source is null
+                        ? missingMaterial
+                        : source.Get(x & VoxelConstants.ChunkMask,
+                                     y & VoxelConstants.ChunkMask,
+                                     z & VoxelConstants.ChunkMask);
+                }
+            }
+        }
+    }
 
     /// <summary>
     /// Fills only the border, for the common case of a chunk whose neighbours are all the

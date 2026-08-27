@@ -65,19 +65,21 @@ public sealed class ChunkStreamer
     private readonly int _loadMargin;
 
     private int _nextViewerId = 1;
+    private int _viewedCount;
 
     /// <param name="priorityViewers">
     /// Kept in step with the registered viewers, so job priority and streaming decisions
     /// read the same positions. Optional only so the policy can be tested on its own.
     /// </param>
     /// <param name="onChunkViewed">
-    /// Fired when a chunk's view count rises from zero — it needs loading. M2c-2 submits
-    /// the generation job from here.
+    /// Fired when a chunk's view count rises from zero — it needs loading. Fires for a
+    /// revived chunk as well as a new one, since both mean "this is wanted now".
     /// </param>
     /// <param name="onChunkUnviewed">
-    /// Fired when a chunk's view count falls to zero — nobody wants it any more. M2c-2
-    /// cancels in-flight work and frees the mesh from here. The chunk has already been
-    /// removed from the streamer by the time this runs.
+    /// Fired when a chunk's view count falls to zero — nobody wants it any more. The chunk
+    /// is <em>still tracked</em> when this runs, because this is where the pipeline cancels
+    /// the job in flight and frees the mesh, and both need the chunk. It is dropped
+    /// immediately afterwards unless a worker still owes it a result.
     /// </param>
     /// <param name="loadMargin">See <see cref="DefaultLoadMargin"/>.</param>
     public ChunkStreamer(
@@ -96,10 +98,25 @@ public sealed class ChunkStreamer
 
     public int ViewerCount => _viewers.Count;
 
-    /// <summary>How many chunks are currently viewed by at least one viewer.</summary>
-    public int LoadedCount => _chunks.Count;
+    /// <summary>
+    /// How many chunks at least one viewer currently wants. This is the number the streaming
+    /// invariant is stated over: it equals the size of the union of the viewer load boxes.
+    /// </summary>
+    public int ViewedCount => _viewedCount;
 
-    public IReadOnlyCollection<ChunkPos> LoadedPositions => _chunks.Keys;
+    /// <summary>
+    /// How many chunk records exist, including any being retained past their last viewer
+    /// while a worker still owes them a result.
+    /// </summary>
+    /// <remarks>
+    /// Never below <see cref="ViewedCount"/>, and equal to it whenever nothing is in flight.
+    /// A gap that does not close is the symptom of a job that never reported — which is the
+    /// exact failure the exactly-once invariant in <see cref="Jobs.JobResult"/> exists to
+    /// make impossible.
+    /// </remarks>
+    public int TrackedCount => _chunks.Count;
+
+    public IReadOnlyCollection<ChunkPos> TrackedPositions => _chunks.Keys;
 
     public IEnumerable<StreamedChunk> Chunks => _chunks.Values;
 
@@ -168,7 +185,11 @@ public sealed class ChunkStreamer
     public StreamedChunk? Get(ChunkPos position) =>
         _chunks.TryGetValue(position, out StreamedChunk? chunk) ? chunk : null;
 
-    public bool IsLoaded(ChunkPos position) => _chunks.ContainsKey(position);
+    /// <summary>Whether a record exists — viewed, or retained for a job in flight.</summary>
+    public bool IsTracked(ChunkPos position) => _chunks.ContainsKey(position);
+
+    /// <summary>Whether at least one viewer currently wants this chunk.</summary>
+    public bool IsViewed(ChunkPos position) => ViewCountOf(position) > 0;
 
     public int ViewCountOf(ChunkPos position) =>
         _chunks.TryGetValue(position, out StreamedChunk? chunk) ? chunk.ViewCount : 0;
@@ -240,16 +261,50 @@ public sealed class ChunkStreamer
         return true;
     }
 
+    /// <summary>
+    /// Drops a chunk that nobody wants and no worker still owes a result for. Returns
+    /// whether it went.
+    /// </summary>
+    /// <remarks>
+    /// Called by the pipeline after a job reports, which is the moment a chunk retained by
+    /// <see cref="Unview"/> becomes safe to release. Idempotent, and refuses to drop a
+    /// chunk somebody has since viewed again.
+    /// </remarks>
+    public bool ForgetIfUnwanted(ChunkPos position)
+    {
+        if (!_chunks.TryGetValue(position, out StreamedChunk? chunk))
+        {
+            return false;
+        }
+
+        if (chunk.ViewCount > 0 || chunk.HasJobInFlight)
+        {
+            return false;
+        }
+
+        Forget(chunk);
+        return true;
+    }
+
     private void View(ChunkPos position)
     {
-        if (_chunks.TryGetValue(position, out StreamedChunk? chunk))
+        if (!_chunks.TryGetValue(position, out StreamedChunk? chunk))
         {
-            chunk.ViewCount++;
+            chunk = new StreamedChunk(position);
+            _chunks[position] = chunk;
+        }
+
+        chunk.ViewCount++;
+        if (chunk.ViewCount != 1)
+        {
             return;
         }
 
-        chunk = new StreamedChunk(position) { ViewCount = 1 };
-        _chunks[position] = chunk;
+        // Zero to one, whether the chunk was just created or is being revived after being
+        // retained for a job in flight. Both mean the same thing to the pipeline — this
+        // chunk is wanted — and a revived chunk that did not announce itself would sit at
+        // whatever state its cancelled job left it in and never be looked at again.
+        _viewedCount++;
         _onChunkViewed?.Invoke(chunk);
     }
 
@@ -268,13 +323,26 @@ public sealed class ChunkStreamer
             return;
         }
 
-        // M2c-2: a chunk with a job in flight cannot simply be forgotten here — its worker
-        // still holds a reference and will report a result for a chunk the streamer no
-        // longer knows about. The removal becomes conditional on the outstanding-job count,
-        // and the entry lingers in Unloaded until that result lands. Until jobs exist there
-        // is nothing to wait for.
-        _chunks.Remove(position);
         chunk.ViewCount = 0;
+        _viewedCount--;
+
+        // Fired while the chunk is still tracked, because this is where the pipeline
+        // cancels the job in flight and it needs the chunk to do it.
+        _onChunkUnviewed?.Invoke(chunk);
+
+        // A chunk a worker still owes a result for is kept — see
+        // StreamedChunk.OutstandingJobs. It stays in whatever state its job left it in, so
+        // that the result has something coherent to land on, and ForgetIfUnwanted collects
+        // it once that happens.
+        if (!chunk.HasJobInFlight)
+        {
+            Forget(chunk);
+        }
+    }
+
+    private void Forget(StreamedChunk chunk)
+    {
+        _chunks.Remove(chunk.Position);
 
         // Guarded because self-transitions are rejected, and a chunk that was viewed and
         // released without ever being queued has sat in Unloaded the whole time.
@@ -283,7 +351,8 @@ public sealed class ChunkStreamer
             chunk.TransitionTo(ChunkState.Unloaded);
         }
 
-        _onChunkUnviewed?.Invoke(chunk);
+        chunk.Cancellation?.Dispose();
+        chunk.Cancellation = null;
     }
 
     /// <summary>

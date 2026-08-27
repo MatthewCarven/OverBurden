@@ -1,5 +1,95 @@
 # MinerCraft — Worklog
 
+## 2026-08-27 — M2c-2: wiring streaming to the scheduler
+
+261 tests passing, up from 254. **M2 now runs end to end**: terrain streams around the
+flycam through the job queue and the greedy mesher, and `Main.cs` no longer builds a chunk
+by hand.
+
+### Built
+
+`ChunkPipeline` (work list, job submission, result application, cancellation),
+`GenerateChunkJob` and `MeshChunkJob`, `PaddedChunk.CopyFrom` for the worker-side
+neighbourhood gather, chunk retention in `ChunkStreamer` while a job is in flight, and the
+Godot half — mesh handover and RID freeing.
+
+### Measured, headless, from a standing start
+
+```
+r4h/2v + 2 margin, 8 workers
+1521 viewed (1521 tracked), 166 drawn, 0 in flight, 0 queued
+1926 jobs done / 0 dropped / 0 faulted   — settled inside 5 s
+```
+
+**1926 = 1521 generates + 405 meshes, and 405 is exactly the 9×5×9 visible box.** That is
+the M2c-1 margin property holding in the real pipeline rather than in a test that drove the
+stages by hand: the margin generated, and not one margin chunk meshed. `viewed == tracked`
+is the other half — nothing was retained after its last viewer left.
+
+166 of 405 meshed chunks produced geometry at all. The rest are open sky or buried rock,
+which is the uniform fast path from M2b paying out again.
+
+### A work list, not a per-frame scan
+
+Deciding what each chunk needs by sweeping all of them is O(n) per frame with n in the tens
+of thousands. Instead a chunk is pushed exactly when something might have changed for it —
+it was viewed, its job reported, or a neighbour advanced a stage — with the dedup flag on
+the chunk so pushing twice in a frame costs nothing.
+
+The subtle part is that **advancing one chunk has to push 26 others**. A chunk finishing
+terrain may be the last thing its whole neighbourhood was waiting on before any of them can
+run their feature stage. Miss that push and the pipeline stalls silently with everything
+idle and nothing wrong — which is the worst shape of bug this milestone could have had.
+
+### Findings
+
+- **`Queued` and `Generating` are only distinguishable because submissions are budgeted.**
+  This nearly got collapsed into one state: the sim thread cannot observe a worker picking a
+  job up, so "queued" and "running" look identical from here, and an unreachable state is
+  exactly the contradiction the enum exists to prevent. What rescues it is
+  `maxSubmissionsPerFrame` — a chunk that wants generating but has no slot this frame sits in
+  `Queued`, and one with a job in flight is `Generating`. Both reachable, both meaningful,
+  and the six states from the plan survive intact. Worth knowing before anyone "simplifies"
+  them.
+- **`onChunkViewed` has to fire on revival, not just on creation.** A chunk retained past its
+  last viewer keeps whatever state its cancelled job left it in. If coming back only
+  incremented the refcount, that chunk would sit in `Generating` behind a job that was
+  already cancelled and never be looked at again — a permanent hole exactly where the player
+  turned around. Now the callback fires on every 0→1 transition and says "wanted", not
+  "created".
+- **The fault path got simpler after the retry counter turned out to be untestable.** The
+  first version capped retries at three. With `WorldGenerator` a concrete dependency there is
+  no clean way to induce a fault, and an untestable branch guarding against a spin is worse
+  than the simpler behaviour: report it, step back, do not retry. A deterministic bug — which
+  is what a fault here is — reaches the same end state either way, and leaving and returning
+  retries it naturally. Deleted the counter and the dictionary behind it.
+- **Under fast movement nine jobs in ten are cancelled, and that is the system working.**
+  The fuzz measured 394 completed against 3,693 dropped. Recorded as an assertion, because a
+  version of this test that quietly stopped exercising cancellation would still pass every
+  other check in it. A real player crossing one boundary at a time turns over a 49-chunk
+  shell rather than a 343-chunk box, so this ratio is the stress case, not the normal one.
+- **The mesh job gathers all 26 neighbours although only 6 are readable today.** Face
+  visibility never reads a border voxel with more than one coordinate out of range, so edges
+  and corners are dead weight — until M5, where vertex AO samples diagonally and a corner
+  voxel is precisely what it reads. 392 extra voxels against 6,144 is cheaper than revisiting
+  the gather later, and the mesher's merge key already carries the AO channel for the same
+  reason.
+- **Stage 2 runs on the sim thread, deliberately.** It writes into its neighbours by design,
+  so putting it on a worker needs a lock over the whole 3×3×3 region — real work for a stage
+  that currently places nothing. Revisit trigger is the one already recorded for chunk
+  storage: M3, the first concurrent writer.
+- **`PaddedChunk`'s own documentation still claimed the copy happens on the sim thread**,
+  which M2a reversed a session earlier. Corrected. The class doc was the last copy of a
+  decision that had already been superseded in three other places.
+
+### Still open
+
+- The unload path frees RIDs immediately. That is M2d's headline item and the one most
+  likely to be dismissed until it bites, because the stutter lands a frame or two after its
+  cause.
+- Nothing has looked at this on a screen yet. The headless numbers are right, but "right
+  numbers" and "looks like terrain" are different claims.
+
 ## 2026-08-27 — M2c-1: streaming policy, as pure data
 
 254 tests passing, up from 216.

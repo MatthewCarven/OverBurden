@@ -14,9 +14,9 @@ public class ChunkStreamerTests
         streamer.AddViewer(ChunkPos.Zero, horizontalRadius: 3, verticalRadius: 1);
 
         // Visible box is 7×3×7; loaded is that grown by two on every side.
-        Assert.Equal(11 * 7 * 11, streamer.LoadedCount);
-        Assert.True(streamer.IsLoaded(new ChunkPos(5, 3, 5)));
-        Assert.False(streamer.IsLoaded(new ChunkPos(6, 0, 0)));
+        Assert.Equal(11 * 7 * 11, streamer.ViewedCount);
+        Assert.True(streamer.IsViewed(new ChunkPos(5, 3, 5)));
+        Assert.False(streamer.IsViewed(new ChunkPos(6, 0, 0)));
     }
 
     [Fact]
@@ -78,7 +78,7 @@ public class ChunkStreamerTests
         Assert.Equal(side * side, unviewed.Count);
         Assert.All(viewed, p => Assert.Equal(radius + 1, p.X));
         Assert.All(unviewed, p => Assert.Equal(-radius, p.X));
-        Assert.Equal(side * side * side, streamer.LoadedCount);
+        Assert.Equal(side * side * side, streamer.ViewedCount);
     }
 
     /// <summary>
@@ -105,9 +105,9 @@ public class ChunkStreamerTests
 
         streamer.RemoveViewer(a);
 
-        Assert.True(streamer.IsLoaded(shared));
+        Assert.True(streamer.IsViewed(shared));
         Assert.Equal(1, streamer.ViewCountOf(shared));
-        Assert.False(streamer.IsLoaded(aOnly));
+        Assert.False(streamer.IsViewed(aOnly));
         Assert.Contains(aOnly, unviewed);
         Assert.DoesNotContain(shared, unviewed);
     }
@@ -118,10 +118,10 @@ public class ChunkStreamerTests
         var streamer = new ChunkStreamer(loadMargin: 1);
         ViewerId id = streamer.AddViewer(ChunkPos.Zero, 3, 3);
 
-        Assert.True(streamer.LoadedCount > 0);
+        Assert.True(streamer.ViewedCount > 0);
         streamer.RemoveViewer(id);
 
-        Assert.Equal(0, streamer.LoadedCount);
+        Assert.Equal(0, streamer.ViewedCount);
         Assert.Equal(0, streamer.ViewerCount);
     }
 
@@ -130,13 +130,13 @@ public class ChunkStreamerTests
     {
         var streamer = new ChunkStreamer(loadMargin: 0);
         ViewerId id = streamer.AddViewer(ChunkPos.Zero, 1, 1);
-        Assert.Equal(27, streamer.LoadedCount);
+        Assert.Equal(27, streamer.ViewedCount);
 
         streamer.UpdateViewer(id, new Viewer(ChunkPos.Zero, 2, 2));
-        Assert.Equal(125, streamer.LoadedCount);
+        Assert.Equal(125, streamer.ViewedCount);
 
         streamer.UpdateViewer(id, new Viewer(ChunkPos.Zero, 0, 0));
-        Assert.Equal(1, streamer.LoadedCount);
+        Assert.Equal(1, streamer.ViewedCount);
     }
 
     /// <summary>
@@ -285,7 +285,7 @@ public class ChunkStreamerTests
             streamer.RemoveViewer(id);
         }
 
-        Assert.Equal(0, streamer.LoadedCount);
+        Assert.Equal(0, streamer.ViewedCount);
     }
 
     private static void AssertMatchesViewers(ChunkStreamer streamer, List<ViewerId> live)
@@ -297,7 +297,7 @@ public class ChunkStreamerTests
                 .ForEach(p => expected[p] = expected.GetValueOrDefault(p) + 1);
         }
 
-        Assert.Equal(expected.Count, streamer.LoadedCount);
+        Assert.Equal(expected.Count, streamer.ViewedCount);
         foreach ((ChunkPos position, int count) in expected)
         {
             Assert.Equal(count, streamer.ViewCountOf(position));

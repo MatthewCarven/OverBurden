@@ -79,6 +79,48 @@ public sealed class StreamedChunk
     /// <summary>True when the chunk has voxels a mesher could read.</summary>
     public bool HasVoxels => Voxels is not null;
 
+    /// <summary>
+    /// How many submitted jobs have yet to report a result for this chunk.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A chunk with this above zero cannot be forgotten</b>, however unwanted it is. A
+    /// worker still holds it and will report, and a result arriving for a chunk the
+    /// streamer has already dropped is either a lost update or a crash depending on how the
+    /// handler is written.
+    /// </para>
+    /// <para>
+    /// In practice this is only ever 0 or 1 — the states are exclusive, so a chunk cannot be
+    /// generating and meshing at once — but it is a count rather than a bool because that
+    /// assumption is the pipeline's to keep, not this type's to enforce.
+    /// </para>
+    /// </remarks>
+    public int OutstandingJobs { get; internal set; }
+
+    /// <summary>True while a worker still owes this chunk a result.</summary>
+    public bool HasJobInFlight => OutstandingJobs > 0;
+
+    /// <summary>
+    /// Cancels the job currently in flight. Replaced per submission, null when idle.
+    /// </summary>
+    /// <remarks>
+    /// Signalled when the view count reaches zero, so that running somewhere and turning
+    /// around stops the work rather than merely stopping caring about it. Under continuous
+    /// movement, without this, the queue never drains.
+    /// </remarks>
+    internal CancellationTokenSource? Cancellation { get; set; }
+
+    /// <summary>
+    /// Whether this chunk is already sitting in the pipeline's work list.
+    /// </summary>
+    /// <remarks>
+    /// The dedup flag, kept on the chunk rather than as a <c>HashSet</c> probe — the same
+    /// reasoning as <see cref="ChunkState"/>, and godot_voxel's <c>is_in_update_list</c>.
+    /// It matters most at M3, where one carve dirties the same chunk several times in a
+    /// frame and each of its neighbours once per touched face.
+    /// </remarks>
+    internal bool InWorkList { get; set; }
+
     /// <summary>Whether <see cref="TransitionTo"/> would accept <paramref name="next"/>.</summary>
     public bool CanTransitionTo(ChunkState next) => IsLegalTransition(State, next);
 
