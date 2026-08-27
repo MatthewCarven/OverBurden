@@ -30,8 +30,10 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
 
 ## Before the repo goes public
 
-Not urgent — it stays private for now — but cheaper to settle before there are forks and
-outside contributors than after.
+Pushed to `github.com/MatthewCarven/MinerCraft` on 2026-08-27, **private**, default branch
+`main`. Still not urgent — but the window for the cheap version of some of these is now
+open rather than hypothetical, and it closes at "public" or "first collaborator", whichever
+comes first.
 
 - [x] **Licence — PolyForm Noncommercial 1.0.0.** Decided 2026-08-26, written to
       [LICENSE.md](LICENSE.md). Source-available, not open source: read, fork, mod and
@@ -49,15 +51,24 @@ outside contributors than after.
       - [ ] Not covered by any licence: the **name**. If "MinerCraft" survives the name
             check, the protection against someone shipping a clone is trademark and the
             content, not copyright on the engine.
-- [ ] Decide whether commit authorship stays `matthewcarven@gmail.com`. It becomes a
-      permanent public record on every commit, and rewriting history afterwards is
-      unpleasant. GitHub's `users.noreply.github.com` address is the usual alternative.
+- [ ] **Decide whether commit authorship stays `matthewcarven@gmail.com`** — now the only
+      item here with a closing window. All 6 commits carry it. While the repo is private
+      and has no other collaborators, rewriting it is genuinely cheap: `git filter-repo
+      --mail-map`, then one force-push, and nothing downstream breaks because nothing
+      downstream exists. That stops being true the moment it goes public or anyone else
+      clones it, after which the address is a permanent public record on every commit.
+      GitHub's `users.noreply.github.com` address is the usual alternative, and setting
+      `git config user.email` afterwards keeps new commits consistent.
 - [ ] Godot's MIT attribution — a credits screen using `Engine.GetLicenseText()` and
       `Engine.GetCopyrightInfo()`. Obligation attaches when the **game** is distributed,
       not when the repo is published, so this belongs with the first export rather than
       here. Recorded so it isn't discovered at release.
-- [ ] Sanity-check before the first push: `reference/` stays ignored (51 MB of
-      godot_voxel), and no `export_credentials.cfg` has appeared.
+- [x] **Sanity-check before the first push — done 2026-08-27, passed.** `reference/`
+      tracked 0 files, no `export_credentials.cfg` or `.pck`, 63 files and 122 KiB total,
+      which is itself the proof the 51 MB of godot_voxel stayed out.
+- [ ] Cosmetic, expected, not a bug: GitHub reports the licence as **"Other"**, because
+      PolyForm isn't in its licence database. Nothing to fix unless the badge matters
+      enough to switch licences, which it doesn't.
 
 ## Needs a human eye
 

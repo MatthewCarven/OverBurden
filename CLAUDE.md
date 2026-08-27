@@ -74,7 +74,8 @@ copy in `../GAME/`.
   go, not at the end.
 - Commit with a message that explains *why*, and end with
   `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`.
-- Matthew runs `git init` and `git push` himself — flag when either is needed.
+- Matthew runs `git init` and `git push` himself — flag when either is needed. Remote is
+  `github.com/MatthewCarven/MinerCraft`, **private**, default branch `main`.
 - `reference/` is gitignored and holds third-party sources we **read but never build
   against** (currently godot_voxel). Nothing in it belongs in a `.csproj`.
 
