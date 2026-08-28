@@ -80,10 +80,14 @@ comes first.
 - [ ] Ambient fill is low — faces angled away from the sun go nearly black. Cosmetic
       only, and M5 lighting replaces this shading path entirely, so not worth tuning
       the Environment now.
-- [ ] **Look at streamed terrain on a screen.** M2c-2 is verified headless and the numbers
-      are exactly right — 1521 chunks tracked, 405 meshed, 0 leaked — but no one has seen
-      it. Worth checking for seams at chunk boundaries, terrain that pops in visibly late,
-      and whether the camera lands somewhere sensible. `start.cmd`, then fly.
+- [x] **Streamed terrain confirmed on screen 2026-08-27.** Continuous rolling terrain, no
+      seams at chunk boundaries, camera lands above ground. The visible bright and dark
+      slivers follow terrain **contours, not the chunk grid** — that is what rules out a
+      meshing or streaming seam, which would appear on the 8 m lattice. They are the
+      vertical risers of the integer heightmap's terracing, lit or unlit by which way each
+      contour segment faces, and they are the concrete symptom of the low-ambient item
+      above. Terrain scale matches the settings: ~62 m features, ~12 m amplitude, so at
+      r4h's 72 m box roughly one hill fills the view.
 
 ---
 

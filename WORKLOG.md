@@ -87,8 +87,13 @@ idle and nothing wrong — which is the worst shape of bug this milestone could 
 - The unload path frees RIDs immediately. That is M2d's headline item and the one most
   likely to be dismissed until it bites, because the stutter lands a frame or two after its
   cause.
-- Nothing has looked at this on a screen yet. The headless numbers are right, but "right
-  numbers" and "looks like terrain" are different claims.
+- **Confirmed on screen the same day.** Continuous rolling terrain, no seams, camera above
+  ground. The diagnostic worth keeping: the bright and dark slivers on the slopes follow
+  terrain *contours, not the chunk grid*, and that is what rules out a meshing or streaming
+  seam — a real seam would land on the 8 m lattice. They are terracing risers lit by which
+  way each contour segment faces, which is the low-ambient TODO item showing its symptom.
+  Terrain scale matches the settings exactly: ~62 m features against a 72 m view box, so
+  one hill fills the screen.
 
 ## 2026-08-27 — M2c-1: streaming policy, as pure data
 
