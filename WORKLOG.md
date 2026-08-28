@@ -101,10 +101,15 @@ cost yet:
 
 | Preset | Radii | Chunks | Memory |
 |---|---|---|---|
-| Low | r4h/2v | 1,521 | ~32 MiB |
-| Medium | r8h/4v | 5,733 | ~60 MiB |
-| High | r10h/5v | 9,375 | ~87 MiB |
-| Ultra | r12h/6v | 14,297 | ~122 MiB |
+| Low | r4h/2v | 1,521 | not measured at this speed |
+| Medium | r8h/4v | 5,733 | not measured at this speed |
+| High | r10h/5v | 9,375 | 86.8 MiB |
+| Ultra | r12h/6v | 14,297 | 122.1 MiB |
+
+Only the last two were measured at 6 m/s; the sweep ran the smaller radii at 40 m/s, where
+too little gets meshed for the memory figure to mean anything. Interpolating from ~46 KiB
+per drawn chunk would give plausible numbers for the first two, which is exactly why they
+are left blank — a figure that looks measured and is not is worse than a gap.
 
 ## 2026-08-27 — M2c-2: wiring streaming to the scheduler
 
