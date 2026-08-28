@@ -126,6 +126,8 @@ Two things from it worth knowing before touching streaming:
 - **The loaded region exceeds the visible one by two chunks, not one.** The mesher's padded
   copy needs the first ring; the cross-chunk feature stage needs the second, because a chunk
   reaches stage 2 only once its own neighbours have terrain. ~41% more chunks at radius 16.
+  It is **not** a tuning knob: M2d measured margin 1 at r4h/2v as identical to margin 2 at
+  r3h/1v, because the barrier applies whether or not stage 2 places anything.
 - **Meshability is derived from the barrier, not tracked.** A margin chunk fails it by
   construction, so the meshable set lands exactly on the visible box with one refcount and
   no shell bookkeeping. Don't add a second refcount to "fix" the margin.
@@ -145,12 +147,32 @@ meshes into RIDs. Three things about it that are easy to undo by accident:
   is retained after its last viewer leaves. A gap between the two that does not close means
   a job never reported.
 
-**Next step is M2d** — the unload path and measurement. `Main.OnMeshDiscarded` frees RIDs
-immediately, which is the thing godot_voxel is openly unhappy about: Godot defers the
-deallocation, so freeing several hundred in one frame stutters a frame or two later and
-gets blamed on meshing. It needs a "free N per frame until drained" budget, not a time
-slice, because the cost is not spent inside our call. M2d also owns the deferred cave
-optimisation and the load-margin measurement.
+**M2d-1 — unload path and measurement: done 2026-08-27.** `MeshFreeQueue` releases meshes a
+few per frame with the budget scaling to the backlog, and `VoxelRenderInstance` now disposes
+its `ArrayMesh` — it never did, so the expensive half was left to the GC. `StreamingProfiler`
+plus a scripted flythrough and `--profile --radius --vradius --margin --speed` make a sweep
+one shell loop.
+
+What the numbers changed:
+
+- **The load margin is not a tuning knob**, and three docs said it was. Margin 1 at r4h/2v is
+  identical to margin 2 at r3h/1v on every metric, because the barrier applies whether or not
+  stage 2 places anything. Keep margin 2; view distance is the knob.
+- **Main-thread streaming cost plateaus near 3% of one core** from r6 to r12 — bounded by
+  worker hand-back rate, not box size.
+- **Memory is mesh-dominated, ~46 KiB per drawn chunk** against ~2 KB of voxel storage. So
+  horizontal radius is expensive and vertical is nearly free, which is the measured argument
+  for separate radii.
+- **Caves cap sustainable view distance.** r12 draws 205 chunks at 40 m/s and 2,245 at 6 m/s
+  — a speed effect, not a radius ceiling — and the constraint is generation throughput, of
+  which caves are 80%.
+
+**Next step is M2d-2, the cave optimisation** deferred from M2b: a coarser cave lattice with
+interpolation. M2d-1 raised its priority — it is what buys a larger view distance rather than
+a tidy-up. Two things stay open: whether the free budget actually removes the stutter cannot
+be shown headlessly (no renderer, so no deferred deallocation), and M1d's `RenderingServer`
+vs `MeshInstance3D` and 2×2×2 mesh-block questions need the windowed draw-call counter that
+`StreamingProfiler.RenderLine` already prints.
 
 The licence is settled: [PolyForm Noncommercial 1.0.0](LICENSE.md), source-available. It
 can be loosened to MIT any time; it cannot be tightened after the first outside PR is

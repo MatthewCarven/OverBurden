@@ -377,22 +377,67 @@ greedy mesher; `Main.cs` no longer builds a chunk by hand.
       dependency with no clean way to induce a fault, and a seam added only for that would
       cost more than the branch is worth.
 
-#### M2d — Unload path and measurement ⬅️ **start here**
+#### M2d-1 — Unload path and measurement ✅ done 2026-08-27, 261 tests passing
 
-- [ ] **Budget mesh *destruction*, not just construction.** Freeing many `RenderingServer`
-      RIDs in one frame stutters, and the cost is deferred inside the renderer, so it lands
-      a frame or two *after* the cause and will be misdiagnosed as a meshing problem. Needs
-      a "run N per frame until done" path, distinct from a time-sliced one, because the cost
-      cannot be measured from our side.
-- [ ] Measure: `RenderingServer` direct vs `MeshInstance3D` at target chunk count
-      - [ ] Also measure whether meshing 2×2×2 chunks as one surface cuts draw calls
-            enough to be worth it. Mesh blocks need not equal storage blocks.
-- [ ] Measure the load margin: 2 against 1, in chunks loaded and in generation time. While
-      stage 2 places nothing the terrain is identical, so this is a free 30% if it matters.
-- [ ] Memory and frame time at target view distance, and **while flying fast enough to force
-      continuous load and unload**. Standing still proves nothing about a streaming system.
-- [ ] The cave optimisation pass deferred from M2b — coarser cave lattice with
-      interpolation. Do not treat it as a streaming problem when it surfaces.
+- [x] **Budget mesh *destruction*, not just construction.** `MeshFreeQueue` hides the
+      instance immediately and releases a few per frame, with the budget **scaling to the
+      backlog** (`max(4, pending/30)`) so a fast traverse cannot outrun it. A count per
+      frame, not a time slice, because Godot defers the deallocation and a stopwatch around
+      the call reports nothing.
+- [x] **`VoxelRenderInstance` never disposed its `ArrayMesh`** — the instance RID was freed
+      and the mesh left to the GC finaliser, so the expensive half was happening whenever
+      the collector felt like it. Fixed; without it the budget would have controlled only
+      the cheap half.
+- [x] `StreamingProfiler` with percentile sampling, a scripted surface-following flythrough,
+      and `--profile --radius --vradius --margin --speed --warmup --measure`.
+- [x] **Load margin measured, and the answer reversed the plan: it is not a tuning knob.**
+      Margin 1 at r4h/2v is identical to margin 2 at r3h/1v on every metric — 847 tracked,
+      97 drawn, 1.37% of one core. The barrier applies whether or not stage 2 places
+      anything, so lowering the margin shrinks the meshable radius rather than buying
+      anything. Corrected in four documents. **Keep margin 2; view distance is the knob.**
+- [x] Memory and cost while **flying fast enough to force continuous load and unload**,
+      swept r2 to r12 — table in [WORKLOG.md](WORKLOG.md).
+
+**Measured**, 40 m/s unless noted:
+
+```
+config    chunks   drawn   update p99   main    dropped   memory
+r4h/2v      1521     189      1.20 ms   2.50%      712    32.3 MiB
+r8h/4v      5733     283      1.26 ms   3.13%    14061    35.2 MiB
+r12h/6v    14297     205      1.24 ms   3.11%    56132    31.5 MiB
+r12h/6v    14297    2245      1.42 ms   2.97%     5244   122.1 MiB   at 6 m/s
+```
+
+- [x] Main-thread cost **plateaus near 3% of one core** from r6 to r12 — bounded by worker
+      hand-back rate, not by box size. View distance is not a main-thread cost.
+- [x] **Memory is mesh-dominated, ~46 KiB per drawn chunk against ~2 KB of voxel storage.**
+      Horizontal radius is expensive (it adds surface); vertical radius is nearly free (it
+      adds sky and buried rock that mesh to nothing). The measured argument for separate
+      radii.
+- [ ] **Not measurable headless: whether the free budget removes the stutter.** Headless has
+      no renderer and so no deferred deallocation to spread. Peak queue depth stayed ≤27 in
+      every run, so the budget is not itself a bottleneck — but confirming the benefit needs
+      a windowed run. Fold into the next visual check.
+- [ ] Still open from M1d: `RenderingServer` direct vs `MeshInstance3D`, and whether meshing
+      2×2×2 chunks into one surface cuts draw calls enough to be worth it. Both need the
+      windowed draw-call counter, which `StreamingProfiler.RenderLine` already prints.
+
+#### M2d-2 — Cave optimisation ⬅️ **start here**
+
+- [ ] The pass deferred from M2b — coarser cave lattice with interpolation. Do not treat it
+      as a streaming problem when it surfaces. **M2d-1 raised its priority**: caves are 80%
+      of the 6.55 ms/chunk generation cost, and generation throughput is what caps
+      sustainable view distance at speed. This is the change that buys a bigger view
+      distance, not a tidy-up.
+
+#### Settings
+
+- [ ] **Expose view distance as a player option.** `ChunkStreamer.UpdateViewer` already
+      handles radius changes by box difference, and there is a test for it, so the mechanism
+      exists. Presets grounded in the M2d-1 sweep, at walking speed and **excluding rendering
+      cost**: Low r4h/2v (1,521 chunks, ~32 MiB), Medium r8h/4v (5,733), High r10h/5v
+      (9,375, ~87 MiB), Ultra r12h/6v (14,297, ~122 MiB). Re-check after the cave pass, which
+      moves the ceiling.
 
 ### M3 — Mining ← first fun moment
 

@@ -51,9 +51,25 @@ public sealed class VoxelRenderInstance : IDisposable
     }
 
     /// <summary>
-    /// RenderingServer RIDs are not garbage collected — every InstanceCreate needs a
-    /// matching FreeRid or the instance leaks for the lifetime of the process.
+    /// Releases both the instance and the mesh behind it.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// RenderingServer RIDs are not garbage collected — every <c>InstanceCreate</c> needs a
+    /// matching <c>FreeRid</c> or the instance leaks for the lifetime of the process.
+    /// </para>
+    /// <para>
+    /// <b>The mesh is disposed explicitly, and that is the half that actually costs.</b>
+    /// Dropping the last reference to the <see cref="ArrayMesh"/> and letting the finaliser
+    /// free its RID works, but hands the timing to the GC: the vertex buffers — which is
+    /// what Godot is slow to deallocate — then come back in unpredictable bursts that no
+    /// per-frame budget can shape. Disposing here makes the expensive part happen at a
+    /// moment we choose, which is the whole point of <see cref="MeshFreeQueue"/>.
+    /// </para>
+    /// <para>
+    /// Order matters: the instance's base is the mesh's RID, so the instance goes first.
+    /// </para>
+    /// </remarks>
     public void Dispose()
     {
         if (_instance.IsValid)
@@ -61,5 +77,7 @@ public sealed class VoxelRenderInstance : IDisposable
             RenderingServer.FreeRid(_instance);
             _instance = default;
         }
+
+        _mesh.Dispose();
     }
 }

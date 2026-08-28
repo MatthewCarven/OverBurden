@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Godot;
 using MinerCraft.Core.Content;
 using MinerCraft.Core.Jobs;
@@ -7,6 +8,7 @@ using MinerCraft.Core.Meshing;
 using MinerCraft.Core.Streaming;
 using MinerCraft.Core.Voxels;
 using MinerCraft.Core.Worldgen;
+using MinerCraft.Game.Diagnostics;
 using MinerCraft.Game.Player;
 using MinerCraft.Game.Rendering;
 
@@ -35,14 +37,19 @@ public partial class Main : Node3D
     [Export] public int MaxSubmissionsPerFrame { get; set; } = 64;
 
     private readonly Dictionary<ChunkPos, VoxelRenderInstance> _instances = [];
+    private readonly MeshFreeQueue _freeQueue = new();
 
     private JobScheduler? _scheduler;
     private ChunkPipeline? _pipeline;
+    private WorldGenerator? _generator;
     private ViewerId _viewer;
     private FlyCam? _camera;
     private ShaderMaterial? _material;
     private ChunkPos _lastViewerChunk;
     private double _sinceReport;
+
+    private StreamingProfiler? _profiler;
+    private float _flySpeed;
 
     public GameContent Content { get; } = new();
 
@@ -53,21 +60,24 @@ public partial class Main : Node3D
         _camera = GetNodeOrNull<FlyCam>("FlyCam");
         _material = VoxelMaterial.Create();
 
+        int margin = ApplyCommandLineOverrides();
+
         var settings = new WorldGenSettings { Seed = 0x4D494E455243UL };
-        var generator = new WorldGenerator(settings, BuildStrata());
+        _generator = new WorldGenerator(settings, BuildStrata());
 
         var viewers = new ViewerSet();
         _scheduler = new JobScheduler(viewers);
         _pipeline = new ChunkPipeline(
-            generator,
+            _generator,
             MaterialTable.From(Content.Materials),
             _scheduler,
             viewers,
             onMeshReady: OnMeshReady,
             onMeshDiscarded: OnMeshDiscarded,
-            onJobFaulted: (position, error) => GD.PushError($"Chunk job failed at {position}: {error}"));
+            onJobFaulted: (position, error) => GD.PushError($"Chunk job failed at {position}: {error}"),
+            loadMargin: margin);
 
-        PlaceCameraAboveTerrain(generator);
+        PlaceCameraAboveTerrain(_generator);
 
         _lastViewerChunk = ViewerChunk();
         _viewer = _pipeline.Streamer.AddViewer(
@@ -78,12 +88,82 @@ public partial class Main : Node3D
             $"+{_pipeline.Streamer.LoadMargin} margin on {_scheduler.ThreadCount} worker(s)");
     }
 
+    /// <summary>
+    /// Reads <c>--radius</c>, <c>--vradius</c>, <c>--margin</c>, <c>--speed</c> and
+    /// <c>--profile</c> from the command line, after a bare <c>--</c>.
+    /// </summary>
+    /// <remarks>
+    /// Configurable from outside so a sweep is one shell loop rather than five edit-rebuild
+    /// cycles — which is what makes comparing view distances, and margin 2 against 1,
+    /// cheap enough to actually do.
+    /// </remarks>
+    private int ApplyCommandLineOverrides()
+    {
+        int margin = ChunkStreamer.DefaultLoadMargin;
+        double warmup = 3.0;
+        double measure = 15.0;
+        bool profile = false;
+
+        foreach (string argument in OS.GetCmdlineUserArgs())
+        {
+            string[] parts = argument.Split('=', 2);
+            string name = parts[0].TrimStart('-');
+            string value = parts.Length > 1 ? parts[1] : string.Empty;
+
+            switch (name)
+            {
+                case "radius" when int.TryParse(value, out int radius):
+                    ViewDistanceHorizontal = radius;
+                    break;
+
+                case "vradius" when int.TryParse(value, out int vertical):
+                    ViewDistanceVertical = vertical;
+                    break;
+
+                case "margin" when int.TryParse(value, out int parsed):
+                    margin = parsed;
+                    break;
+
+                case "speed" when float.TryParse(value, out float speed):
+                    _flySpeed = speed;
+                    break;
+
+                case "warmup" when double.TryParse(value, out double seconds):
+                    warmup = seconds;
+                    break;
+
+                case "measure" when double.TryParse(value, out double seconds):
+                    measure = seconds;
+                    break;
+
+                case "profile":
+                    profile = true;
+                    break;
+            }
+        }
+
+        if (profile)
+        {
+            // Flying is the test. Standing still measures a system that has stopped doing
+            // the thing being measured.
+            _profiler = new StreamingProfiler { WarmupSeconds = warmup, MeasureSeconds = measure };
+            if (_flySpeed <= 0f)
+            {
+                _flySpeed = 40f;
+            }
+        }
+
+        return margin;
+    }
+
     public override void _Process(double delta)
     {
         if (_pipeline is null)
         {
             return;
         }
+
+        AdvanceFlythrough(delta);
 
         // The viewer only moves in whole chunks. Comparing first means a camera drifting
         // inside one chunk never touches the streaming policy at all.
@@ -94,8 +174,85 @@ public partial class Main : Node3D
             _pipeline.Streamer.MoveViewer(_viewer, current);
         }
 
+        long before = Stopwatch.GetTimestamp();
         _pipeline.Update(MaxSubmissionsPerFrame);
+        long afterUpdate = Stopwatch.GetTimestamp();
+        _freeQueue.Drain();
+        long afterFree = Stopwatch.GetTimestamp();
+
+        if (_profiler is { Warm: true })
+        {
+            _profiler.PipelineUpdate.Add(Milliseconds(before, afterUpdate));
+            _profiler.MeshFree.Add(Milliseconds(afterUpdate, afterFree));
+        }
+
+        if (_profiler is not null && _profiler.Tick(delta))
+        {
+            PrintProfile();
+            GetTree().Quit();
+            return;
+        }
+
         Report(delta);
+    }
+
+    private static double Milliseconds(long from, long to) =>
+        (to - from) * 1000.0 / Stopwatch.Frequency;
+
+    /// <summary>
+    /// Drives the camera along a fixed path during a profile run, hugging the surface.
+    /// </summary>
+    /// <remarks>
+    /// A scripted path rather than a recorded one so two runs are comparable — the whole
+    /// point is to put margin 2 against margin 1, or one view distance against another, and
+    /// a hand-flown route differs more between runs than the thing being measured.
+    /// Surface-following keeps terrain inside the vertical box, which is the case a player
+    /// is actually in; flying at a fixed altitude would drift the ground out of view and
+    /// quietly stop measuring meshing at all.
+    /// </remarks>
+    private void AdvanceFlythrough(double delta)
+    {
+        if (_flySpeed <= 0f || _camera is null || _generator is null)
+        {
+            return;
+        }
+
+        Vector3 position = _camera.GlobalPosition;
+        position.X += _flySpeed * (float)delta;
+
+        VoxelPos voxel = VoxelPos.FromMetres(position.X, position.Y, position.Z);
+        int surface = _generator.SurfaceHeightAt(voxel.X, voxel.Z);
+        position.Y = (surface + 16) * VoxelConstants.VoxelSize;
+
+        _camera.GlobalPosition = position;
+    }
+
+    private void PrintProfile()
+    {
+        if (_pipeline is null || _profiler is null)
+        {
+            return;
+        }
+
+        ChunkStreamer streamer = _pipeline.Streamer;
+
+        GD.Print(
+            $"\n=== MinerCraft streaming profile ===\n" +
+            $"config    r{ViewDistanceHorizontal}h/{ViewDistanceVertical}v " +
+            $"+{streamer.LoadMargin} margin, {_scheduler!.ThreadCount} workers, " +
+            $"{_flySpeed:F0} m/s\n" +
+            $"{_profiler.PipelineUpdate.Line("update ms")}\n" +
+            $"{_profiler.MeshFree.Line("free ms")}   (deferred by Godot — see MeshFreeQueue)\n" +
+            $"{_profiler.Frame.Line("frame ms")}\n" +
+            $"main      {_profiler.PipelineUpdate.Total() / Math.Max(_profiler.MeasuredSeconds, 0.001) / 10.0:F2}% " +
+            $"of one core, streaming on the main thread\n" +
+            $"chunks    {streamer.ViewedCount} viewed / {streamer.TrackedCount} tracked / " +
+            $"{_instances.Count} drawn\n" +
+            $"jobs      {_pipeline.CompletedJobs} done / {_pipeline.DroppedJobs} dropped / " +
+            $"{_pipeline.FaultedJobs} faulted\n" +
+            $"freeing   {_freeQueue.TotalFreed} released, peak queue {_freeQueue.PeakPending}\n" +
+            $"{StreamingProfiler.RenderLine()}\n" +
+            $"{StreamingProfiler.MemoryLine()}\n");
     }
 
     /// <summary>
@@ -123,17 +280,16 @@ public partial class Main : Node3D
     /// A chunk that had a mesh is gone.
     /// </summary>
     /// <remarks>
-    /// <b>Freed immediately, and M2d is where that stops being good enough.</b> Godot defers
-    /// the actual deallocation, so freeing several hundred RIDs in one frame stutters a frame
-    /// or two later and gets blamed on meshing. The fix is a "free N per frame until drained"
-    /// budget rather than a time slice, because the cost is not spent inside this call and
-    /// cannot be measured from here. See docs/M2-REFERENCE-NOTES.md.
+    /// Handed to <see cref="MeshFreeQueue"/> rather than freed here. Godot defers the actual
+    /// deallocation, so releasing several hundred meshes in one frame stutters a frame or two
+    /// <em>later</em> and gets blamed on meshing. The queue hides the instance immediately and
+    /// spreads the frees over the following frames.
     /// </remarks>
     private void OnMeshDiscarded(ChunkPos position)
     {
         if (_instances.Remove(position, out VoxelRenderInstance? instance))
         {
-            instance.Dispose();
+            _freeQueue.Enqueue(instance);
         }
     }
 
@@ -184,7 +340,8 @@ public partial class Main : Node3D
         GD.Print(
             $"M2c: {streamer.ViewedCount} viewed ({streamer.TrackedCount} tracked), " +
             $"{_instances.Count} drawn, {_pipeline.JobsInFlight} in flight, " +
-            $"{_pipeline.WorkListCount} queued | jobs {_pipeline.CompletedJobs} done / " +
+            $"{_pipeline.WorkListCount} queued, {_freeQueue.PendingCount} to free | " +
+            $"jobs {_pipeline.CompletedJobs} done / " +
             $"{_pipeline.DroppedJobs} dropped / {_pipeline.FaultedJobs} faulted");
     }
 
@@ -213,6 +370,9 @@ public partial class Main : Node3D
         // renderer a mesh for a chunk that has just been torn down.
         _pipeline?.Dispose();
         _scheduler?.Dispose();
+
+        // Budget ignored here: a stutter during teardown costs nothing and a leak would not.
+        _freeQueue.DrainAll();
 
         foreach (VoxelRenderInstance instance in _instances.Values)
         {

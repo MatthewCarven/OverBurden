@@ -89,6 +89,13 @@ simulation, not enemies.
   chunks of it are load-bearing: the mesher's padded 34³ copy needs the first ring, and the
   cross-chunk feature stage needs the second, because a chunk can only run stage 2 once its
   own neighbours have terrain to be written into. Costs ~41% more chunks at radius 16.
+  **Not a tuning knob** — measured at M2d, lowering it shrinks the meshable radius by one
+  rather than buying anything, because the barrier applies whether or not stage 2 places
+  something. View distance is the knob.
+- **View distance costs memory through meshes, not through chunks** — ~46 KiB per drawn
+  chunk against ~2 KB of voxel storage. So horizontal radius is expensive and vertical
+  radius is nearly free, since extra vertical chunks are sky and buried rock that mesh to
+  nothing. That is the measured argument for the separate radii above.
 - **One enum per chunk, `Unloaded → Queued → Generating → Generated → Meshing → Meshed`**,
   not a scatter of `bool`s that can express contradictory states. "Already queued" is a
   state, so it cannot drift out of sync with the thing it describes.

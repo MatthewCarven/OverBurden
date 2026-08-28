@@ -254,9 +254,15 @@ neighbours have terrain. Two rings, not one:
 The mesher's padded 34³ copy wanted the first ring anyway, so only the second is the stage
 pipeline's own cost. It is not free: at radius 16 the loaded volume goes from 33³ = 35,937
 chunks to 37³ = 50,653, or **41% more**. That is the honest price of seamless cross-chunk
-features and it belongs in the M2d measurements. The margin is a constructor parameter, not
-a constant, because while stage 2 places nothing a margin of 1 produces identical terrain
-for 30% fewer chunks.
+features.
+
+> **Measured at M2d, and it corrected this section.** The claim originally written here —
+> that while stage 2 places nothing, a margin of 1 gives identical terrain for 30% fewer
+> chunks — is wrong. The barrier is enforced regardless of whether stage 2 places anything,
+> so dropping the margin shrinks the *meshable* radius by one on every axis. Margin 1 at
+> r4h/2v measured identical to margin 2 at r3h/1v on every number: 847 tracked, 97 drawn,
+> 1.37% of one core. **The margin is not a tuning knob** — view distance is, and it already
+> exists.
 
 **The payoff is that meshability needs no bookkeeping at all.** A chunk out in the margin
 has neighbours beyond the margin that were never loaded, so it fails the barrier by

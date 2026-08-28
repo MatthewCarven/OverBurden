@@ -1,5 +1,111 @@
 # MinerCraft — Worklog
 
+## 2026-08-27 — M2d-1: the unload path, and measurement that corrected a decision
+
+261 tests passing, unchanged — this part is a Godot-layer change plus instrumentation.
+
+### Built
+
+`MeshFreeQueue` (budgeted mesh release), `StreamingProfiler` (percentile sampling), a
+scripted surface-following flythrough, and command-line overrides — `--profile`,
+`--radius`, `--vradius`, `--margin`, `--speed`, `--warmup`, `--measure` — so a sweep is one
+shell loop rather than five edit-rebuild cycles. That cheapness is what made the finding
+below possible at all.
+
+### The load margin is not a tuning knob, and three documents said it was
+
+The headline, and it reverses a claim written yesterday. M2c-1 recorded that "while stage 2
+places nothing, a margin of 1 produces identical terrain for 30% fewer chunks", and made
+the margin a constructor parameter so M2d could pick the cheaper one.
+
+It is wrong. **The barrier is enforced whether or not stage 2 places anything**, so dropping
+the margin does not buy cheaper terrain — it shrinks the *meshable* radius by one on every
+axis. Measured:
+
+```
+margin 1, r4h/2v   →  847 tracked, 97 drawn, 1.37% of one core, 28.7 MiB
+margin 2, r3h/1v   →  847 tracked, 97 drawn, 1.37% of one core, 28.8 MiB
+```
+
+Identical on every number collected. Margin 1 at a given radius simply *is* margin 2 at one
+radius less. There was never a 30% saving to take: the same saving, with the same output, is
+available by lowering view distance and keeping the margin correct for when features exist.
+
+Corrected in `ChunkStreamer`, M2-PLAN.md, DESIGN.md and CLAUDE.md. The parameter stays, but
+now documented as a test seam rather than a knob.
+
+### Measured: view distance, flying at 40 m/s
+
+```
+config    chunks   drawn   update p99   main    jobs dropped   memory
+r2h/1v       567      49      0.82 ms   0.97%           127    27.2 MiB
+r4h/2v      1521     189      1.20 ms   2.50%           712    32.3 MiB
+r6h/3v      3179     249      1.71 ms   3.34%          5166    35.5 MiB
+r8h/4v      5733     283      1.26 ms   3.13%         14061    35.2 MiB
+r10h/5v     9375     307      1.60 ms   2.94%         30266    35.7 MiB
+r12h/6v    14297     205      1.24 ms   3.11%         56132    31.5 MiB
+```
+
+And the same large radii at a realistic speed:
+
+```
+r10h/5v at 6 m/s    9375    1462      1.21 ms   1.67%    2810    86.8 MiB
+r12h/6v at 6 m/s   14297    2245      1.42 ms   2.97%    5244   122.1 MiB
+r12h/6v at 15 m/s  14297     759      1.64 ms   3.24%   15016    56.0 MiB
+```
+
+### Findings
+
+- **Main-thread streaming cost plateaus at about 3% of one core**, flat from r6 to r12
+  across a 4.5× range in chunk count. It is bounded by how fast the workers can hand back
+  results, not by how big the box is — so view distance is not a main-thread cost at all.
+  Update p99 stays near 1.2–1.7 ms throughout.
+- **The drawn count falling at r12 was a speed effect, not a ceiling, and I nearly wrote it
+  up as one.** At 40 m/s r12 draws 205 chunks against r10's 307, which reads exactly like
+  "past the useful limit". At 6 m/s the same r12 draws 2,245 and sits at 2.97% of a core.
+  The sustainable view distance is set by the ratio of movement speed to generation
+  throughput, and nothing about the radius itself. Worth having run the control.
+- **Memory is mesh-dominated: ~46 KiB per drawn chunk against ~2 KB of voxel storage.**
+  From the 6 m/s pair, 783 extra drawn chunks cost 35.3 MiB. This is the useful shape:
+  horizontal radius is expensive because it adds *surface*, while vertical radius is nearly
+  free because it adds sky and buried rock that mesh to nothing. DESIGN.md argued for
+  separate radii from instinct; this is the number behind it.
+- **Caves are what cap view distance.** At 6.55 ms/chunk with caves as 80% of it, generation
+  throughput is the constraint that makes r12 fall apart at speed. The optimisation deferred
+  from M2b is therefore not a tidy-up — it is the thing that would raise the sustainable
+  view distance, which is exactly the setting a player will reach for.
+- **`VoxelRenderInstance` never disposed its `ArrayMesh`.** It freed the instance RID and
+  left the mesh to the GC finaliser — so the expensive half, the vertex-buffer deallocation
+  that this whole part exists to control, was happening at times nobody chose. Budgeting the
+  frees without fixing that would have controlled the cheap half, measured no improvement,
+  and been thoroughly confusing.
+- **Frame delta does not measure streaming, and the first profiler said so loudly.** It
+  reported mean, p50, p95, p99 and max all within 0.05 ms of each other — not uniform work,
+  but a main loop paced by something that is not us, with our costs invisible inside it.
+  Replaced with direct timing around `ChunkPipeline.Update` and the free queue, which is the
+  number that actually predicts stutter.
+
+### The honest limit of this measurement
+
+**The free queue's benefit cannot be demonstrated headlessly**, because headless Godot has
+no renderer and therefore no deferred Vulkan deallocation to spread out. What the runs do
+show is that the budget is not itself a bottleneck: peak queue depth never exceeded 27 in
+any configuration, so nothing backs up. The queue is justified by the mechanism and by
+godot_voxel's experience of the same problem, not by a number produced here. Confirming it
+needs a windowed run, and belongs with the next visual check.
+
+### Suggested view-distance presets
+
+Grounded in the table above, at walking speed, and headless — so these carry no rendering
+cost yet:
+
+| Preset | Radii | Chunks | Memory |
+|---|---|---|---|
+| Low | r4h/2v | 1,521 | ~32 MiB |
+| Medium | r8h/4v | 5,733 | ~60 MiB |
+| High | r10h/5v | 9,375 | ~87 MiB |
+| Ultra | r12h/6v | 14,297 | ~122 MiB |
+
 ## 2026-08-27 — M2c-2: wiring streaming to the scheduler
 
 261 tests passing, up from 254. **M2 now runs end to end**: terrain streams around the
@@ -130,6 +236,11 @@ pipeline's own cost — but it is a real one: at radius 16 the loaded volume goe
 33³ = 35,937 chunks to 37³ = 50,653, **41% more**. Made a constructor parameter rather than
 a constant, because while stage 2 places nothing a margin of 1 gives identical terrain for
 30% fewer chunks, and M2d should measure that rather than guess.
+
+> **Corrected the next day — see the M2d-1 entry.** M2d measured it, and there was no 30%
+> saving to take: the barrier applies whether or not stage 2 places anything, so margin 1 at
+> a given radius is exactly margin 2 at one radius less. Left standing here as what was
+> believed at the time, which is the point of a worklog.
 
 ### The barrier turned out to make a second refcount unnecessary
 

@@ -50,9 +50,16 @@ public sealed class ChunkStreamer
     /// <para>
     /// It is not free: at a 16-chunk radius the loaded volume goes from 33³ = 35,937 chunks
     /// to 37³ = 50,653, or 41% more. That is the honest price of seamless cross-chunk
-    /// features, it is worth measuring at M2d, and it is why this is a constructor
-    /// parameter rather than a constant — while <see cref="GenerationStage.Features"/>
-    /// places nothing, a margin of 1 produces identical terrain for 30% fewer chunks.
+    /// features.
+    /// </para>
+    /// <para>
+    /// <b>Do not treat this as a tuning knob — measured at M2d, it is not one.</b> Lowering
+    /// the margin by one does not buy cheaper terrain; it shrinks the <em>meshable</em>
+    /// radius by one on every axis, because the barrier above is enforced whether or not
+    /// stage 2 actually places anything. Margin 1 at r4h/2v measured identical to margin 2
+    /// at r3h/1v on every number collected — 847 chunks tracked, 97 drawn, 1.37% of a core.
+    /// The knob a player wants is view distance, and it already exists. This stays a
+    /// parameter only so tests can set it to 0 and reason about a single shell.
     /// </para>
     /// </remarks>
     public const int DefaultLoadMargin = 2;
