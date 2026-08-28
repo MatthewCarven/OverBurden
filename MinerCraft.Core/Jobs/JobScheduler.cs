@@ -41,6 +41,7 @@ public sealed class JobScheduler : IDisposable
     private readonly SemaphoreSlim _workAvailable = new(0);
     private readonly CancellationTokenSource _shutdown = new();
 
+    private int _pendingResults;
     private bool _disposed;
 
     /// <summary>
@@ -111,13 +112,43 @@ public sealed class JobScheduler : IDisposable
     }
 
     /// <summary>
+    /// Finished jobs not yet handed back to the sim thread.
+    /// </summary>
+    /// <remarks>
+    /// Worth watching now that applying results is budgeted: a figure that climbs and does
+    /// not come back down means work is finishing faster than the budget applies it, which
+    /// is a backlog rather than a stutter and wants a different fix.
+    /// </remarks>
+    public int PendingResults => Volatile.Read(ref _pendingResults);
+
+    /// <summary>
+    /// Takes one finished job if there is one. Sim thread only.
+    /// </summary>
+    /// <remarks>
+    /// Exposed one at a time so the caller can stop partway. Applying a result is not free —
+    /// a finished mesh becomes an <c>ArrayMesh</c> inside the callback — so who decides when
+    /// to stop belongs with whoever knows what the frame budget is, which is not the
+    /// scheduler.
+    /// </remarks>
+    public bool TryTakeResult(out JobResult result)
+    {
+        if (!_results.Reader.TryRead(out result))
+        {
+            return false;
+        }
+
+        Interlocked.Decrement(ref _pendingResults);
+        return true;
+    }
+
+    /// <summary>
     /// Hands every finished job to <paramref name="handler"/> and returns how many there
     /// were. Call once per frame from the sim thread.
     /// </summary>
     public int DrainResults(Action<JobResult> handler)
     {
         int count = 0;
-        while (_results.Reader.TryRead(out JobResult result))
+        while (TryTakeResult(out JobResult result))
         {
             handler(result);
             count++;
@@ -221,7 +252,15 @@ public sealed class JobScheduler : IDisposable
         Post(new JobResult(entry.Job, outcome, error));
     }
 
-    private void Post(JobResult result) => _results.Writer.TryWrite(result);
+    private void Post(JobResult result)
+    {
+        // Counted by hand because the channel will not do it: a single-reader unbounded
+        // channel is the fastest shape for this direction and is exactly the one whose
+        // reader has no Count. Incremented before the write so the figure is never lower
+        // than the truth, which is the safe direction for something read as a backlog.
+        Interlocked.Increment(ref _pendingResults);
+        _results.Writer.TryWrite(result);
+    }
 
     private static int ComputeDefaultThreadCount()
     {

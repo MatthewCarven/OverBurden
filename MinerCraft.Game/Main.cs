@@ -51,6 +51,7 @@ public partial class Main : Node3D
     private StreamingProfiler? _profiler;
     private float _flySpeed;
     private int? _caveLatticeStep;
+    private TimeSpan? _applyBudget;
 
     public GameContent Content { get; } = new();
 
@@ -80,7 +81,8 @@ public partial class Main : Node3D
             onMeshReady: OnMeshReady,
             onMeshDiscarded: OnMeshDiscarded,
             onJobFaulted: (position, error) => GD.PushError($"Chunk job failed at {position}: {error}"),
-            loadMargin: margin);
+            loadMargin: margin,
+            resultBudget: _applyBudget);
 
         PlaceCameraAboveTerrain(_generator);
 
@@ -94,8 +96,9 @@ public partial class Main : Node3D
     }
 
     /// <summary>
-    /// Reads <c>--radius</c>, <c>--vradius</c>, <c>--margin</c>, <c>--speed</c> and
-    /// <c>--profile</c> from the command line, after a bare <c>--</c>.
+    /// Reads <c>--profile</c>, <c>--radius</c>, <c>--vradius</c>, <c>--margin</c>,
+    /// <c>--speed</c>, <c>--warmup</c>, <c>--measure</c>, <c>--cavestep</c> and
+    /// <c>--applybudget</c> from the command line, after a bare <c>--</c>.
     /// </summary>
     /// <remarks>
     /// Configurable from outside so a sweep is one shell loop rather than five edit-rebuild
@@ -146,6 +149,12 @@ public partial class Main : Node3D
                 // bought in the real streaming loop rather than only on the bench.
                 case "cavestep" when int.TryParse(value, out int step):
                     _caveLatticeStep = step;
+                    break;
+
+                // Also a test seam. A budget large enough to never bind reproduces the
+                // unbudgeted behaviour, which is the A/B this was built to settle.
+                case "applybudget" when double.TryParse(value, out double budgetMillis):
+                    _applyBudget = TimeSpan.FromMilliseconds(budgetMillis);
                     break;
 
                 case "profile":
@@ -262,6 +271,8 @@ public partial class Main : Node3D
             $"{_instances.Count} drawn\n" +
             $"jobs      {_pipeline.CompletedJobs} done / {_pipeline.DroppedJobs} dropped / " +
             $"{_pipeline.FaultedJobs} faulted\n" +
+            $"applying  {_pipeline.AppliedResults} applied, {_pipeline.PendingResults} still " +
+            $"waiting at the end of the run\n" +
             $"freeing   {_freeQueue.TotalFreed} released, peak queue {_freeQueue.PeakPending}\n" +
             $"{StreamingProfiler.RenderLine()}\n" +
             $"{StreamingProfiler.MemoryLine()}\n");
@@ -352,7 +363,8 @@ public partial class Main : Node3D
         GD.Print(
             $"M2c: {streamer.ViewedCount} viewed ({streamer.TrackedCount} tracked), " +
             $"{_instances.Count} drawn, {_pipeline.JobsInFlight} in flight, " +
-            $"{_pipeline.WorkListCount} queued, {_freeQueue.PendingCount} to free | " +
+            $"{_pipeline.WorkListCount} queued, {_pipeline.PendingResults} to apply, " +
+            $"{_freeQueue.PendingCount} to free | " +
             $"jobs {_pipeline.CompletedJobs} done / " +
             $"{_pipeline.DroppedJobs} dropped / {_pipeline.FaultedJobs} faulted");
     }

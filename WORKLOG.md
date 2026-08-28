@@ -1,5 +1,74 @@
 # MinerCraft — Worklog
 
+## 2026-08-29 — The mesh-apply budget, and the spike that wasn't
+
+277 tests passing, up from 274. This closes the last thing M2-PLAN.md specified and M2d
+did not build.
+
+### Built
+
+`ChunkPipeline.Update` now applies finished jobs under a time budget — 2 ms by default —
+and leaves the rest in the scheduler's channel for the next frame. Supporting it:
+`JobScheduler.TryTakeResult` so the caller can stop partway, `PendingResults` on both so a
+backlog is visible, an injectable clock so the budget is tested deterministically rather
+than raced, and `--applybudget=<ms>` for the A/B.
+
+**Time-sliced here, counted in the free path, and the asymmetry is the point.** Applying a
+mesh builds an `ArrayMesh` inside our call, so a stopwatch around it measures the real work.
+Freeing one does not, because Godot defers the deallocation — which is why `MeshFreeQueue`
+counts instead of timing. Two budgets, two mechanisms, for a reason worth not collapsing.
+
+The budget is checked *after* applying a result, never before. A result costing more than the
+whole budget would otherwise be deferred forever and take the queue behind it — a livelock
+that would look like the world quietly stopping.
+
+### Measured — r12h/6v, 40 m/s, 8 workers, three runs per default arm
+
+```
+budget        update p99   update max   pending at end   frame max
+1000 ms       2.04–2.46      3.74–3.91         9–30       6.9–13.1
+   2 ms       1.87–2.14      3.28–4.50          8–15      6.9–12.4
+ 0.5 ms            1.95           4.53             57           7.3
+ 0.2 ms            2.11           4.68            475          32.3
+```
+
+1000 ms is "unbudgeted" — a number large enough never to bind, rather than a special case in
+the code.
+
+### Findings
+
+- **The budget binds, and the instrumentation catches it binding.** At 0.2 ms the backlog
+  reaches 475 results and `tracked` runs ahead of `viewed` — 14,564 against 14,297 — because
+  chunks are being retained waiting for results that have not landed. That is exactly the gap
+  CLAUDE.md says never to ignore, appearing on demand. At the 2 ms default the backlog stays
+  under 30 and the gap never opens.
+- **A time slice cannot bound the tail below the cost of one item, and this is the honest
+  limit of the whole approach.** Update max sits at 3.3–4.7 ms in *every* arm, including at
+  0.2 ms. One mesh conversion is atomic; no budget subdivides it. So the budget bounds the
+  frame's *average* work and its p99, and the true worst case is set by the largest single
+  mesh. Bounding that would mean capping mesh size or splitting the conversion, which is not
+  worth doing on this evidence.
+- **The 27.6 ms frame from yesterday does not reproduce, and it is not mesh application.**
+  Across six runs the frame max ranged 6.9–13.1 ms with no relation to the budget, and the
+  single worst frame measured all session — 32.3 ms — appeared in the *most tightly budgeted*
+  arm. Yesterday's entry already flagged that sample as outside the instrumented section;
+  this settles it. **Frame time in headless is the wrong instrument** — M2d-1 found the same
+  thing and it is worth writing down twice.
+- **So this is a null result on the motivation and a pass on the specification.** The change
+  does not fix a stutter, because there is no reproducible stutter here to fix. What it does
+  is put a bound on a genuinely unbounded cost, at no measurable price: mean update time,
+  main-thread share and drawn counts are indistinguishable between the 2 ms and 1000 ms arms.
+  The bound is worth having before M3 makes remeshing continuous rather than after.
+
+### Honest limits
+
+- **The default of 2 ms is a judgement, not a measurement.** Applying results averages 0.44 ms
+  and reaches 2.26 ms at p99 unbudgeted, so 2 ms clips roughly the worst 1% of frames and
+  leaves everything else alone. That is where a safety rail belongs, but nothing measured
+  says 2 rather than 3.
+- **Nothing here was measured windowed.** Whether any of this is visible to a player still
+  needs the windowed run that M1d's draw-call questions have been waiting on since M2d-1.
+
 ## 2026-08-28 — M2d-2: the cave optimisation, and a three-times-wrong baseline
 
 274 tests passing, up from 261. M2 is done.

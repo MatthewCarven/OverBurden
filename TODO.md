@@ -422,14 +422,26 @@ r12h/6v    14297    2245      1.42 ms   2.97%     5244   122.1 MiB   at 6 m/s
 - [ ] Still open from M1d: `RenderingServer` direct vs `MeshInstance3D`, and whether meshing
       2×2×2 chunks into one surface cuts draw calls enough to be worth it. Both need the
       windowed draw-call counter, which `StreamingProfiler.RenderLine` already prints.
-- [ ] **Applying mesh results is not budgeted, and M2-PLAN.md specified that it would be.**
-      ⬅️ **start here.** `ChunkPipeline.Update` bounds *submissions* per frame but not how
-      many finished meshes it turns into `ArrayMesh`es, so a hundred completing at once all
-      land in one frame. This wants the **time-sliced** budget (a few ms), unlike the free
-      path, because the cost *is* spent inside our call and can be measured as we go.
-      **M2d-2 promoted this from "recorded" to "next":** with generation 4.7× faster, the
-      same r12h/6v flythrough now hands back 2.6× as many finished meshes per second, update
-      p99 went 1.14 → 2.04 ms, and one frame hit 27.6 ms where the old build's worst was 6.9.
+- [x] **Applying mesh results is now budgeted — done 2026-08-29.** `ChunkPipeline.Update`
+      applies finished jobs under a 2 ms time slice and leaves the rest for the next frame.
+      Time-sliced rather than counted, unlike the free path, because the cost *is* spent
+      inside our call. `PendingResults` makes a backlog visible, and `--applybudget=<ms>`
+      does the A/B.
+- [x] **The 27.6 ms frame M2d-2 saw was not mesh application.** Six runs at r12h/6v and
+      40 m/s put frame max between 6.9 and 13.1 ms with no relation to the budget, and the
+      worst frame measured all session — 32.3 ms — came from the *most tightly budgeted* arm.
+      Frame time in headless is paced by something that is not us; M2d-1 said so and it needed
+      saying twice. Use `update ms`, which times `ChunkPipeline.Update` directly.
+- [ ] **A time slice cannot bound the tail below the cost of one item.** Update max stays at
+      3.3–4.7 ms whether the budget is 0.2 ms or 1000 ms, because one mesh conversion is
+      atomic and no budget subdivides it. Bounding the true worst case means capping mesh size
+      or splitting the conversion across frames. **Not worth doing on current evidence** —
+      recorded so the limitation is known rather than rediscovered. Revisit if a windowed run
+      shows the single-mesh cost as a visible hitch, or if M3's incremental remesh makes large
+      single meshes common.
+- [ ] The 2 ms default is a judgement, not a measurement: applying results averages 0.44 ms
+      and hits 2.26 ms at p99 unbudgeted, so 2 ms clips about the worst 1% of frames. Nothing
+      measured argues for 2 over 3.
 
 #### M2d-2 — Cave optimisation ✅ done 2026-08-28, 274 tests passing
 

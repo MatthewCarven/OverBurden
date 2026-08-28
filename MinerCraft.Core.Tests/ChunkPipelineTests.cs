@@ -218,6 +218,69 @@ public class ChunkPipelineTests
         Assert.Equal(live, harness.MeshesDelivered - harness.MeshesDiscarded);
     }
 
+    [Fact]
+    public void ApplyingResultsStopsAtTheFrameBudget()
+    {
+        // A clock that advances a millisecond every time it is read, so "5 ms of budget"
+        // means exactly five results and the assertion is arithmetic rather than a race
+        // against a real one.
+        long millisecondTicks = Stopwatch.Frequency / 1000;
+        long now = 0;
+
+        using var harness = new PipelineHarness(
+            resultBudget: TimeSpan.FromMilliseconds(5),
+            nowTicks: () => now += millisecondTicks);
+
+        harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 2, 2);
+        harness.Pipeline.Update();
+        harness.WaitForPendingResults(20);
+
+        int before = harness.Pipeline.AppliedResults;
+        harness.Pipeline.Update();
+
+        Assert.Equal(5, harness.Pipeline.AppliedResults - before);
+        Assert.True(harness.Pipeline.PendingResults > 0, "the rest should still be waiting, not lost");
+    }
+
+    [Fact]
+    public void AFrameAlwaysAppliesAtLeastOneResult()
+    {
+        // Budget zero, and a clock already overrun by the time it is read a second time.
+        // Checking the deadline *after* applying rather than before is what stops a result
+        // costlier than the whole budget from being deferred forever — and the queue behind
+        // it with it, which would be a livelock that looks like the world quietly stopping.
+        long now = 0;
+        using var harness = new PipelineHarness(
+            resultBudget: TimeSpan.Zero,
+            nowTicks: () => now += Stopwatch.Frequency);
+
+        harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 2, 2);
+        harness.Pipeline.Update();
+        harness.WaitForPendingResults(10);
+
+        int before = harness.Pipeline.AppliedResults;
+        harness.Pipeline.Update();
+
+        Assert.Equal(1, harness.Pipeline.AppliedResults - before);
+    }
+
+    [Fact]
+    public void TheTightestPossibleBudgetStillReachesTheSameWorld()
+    {
+        // One result per frame — the most restrictive budget there is — and the pipeline must
+        // still converge on exactly the world an unbudgeted one produces. Deferring is not
+        // dropping: a result that never lands leaves its chunk flagged work-in-progress
+        // forever, and nothing else would ever notice.
+        using var harness = new PipelineHarness(resultBudget: TimeSpan.Zero);
+        harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+
+        Assert.Equal(Box(ChunkPos.Zero, 1).ToHashSet(), harness.MeshedPositions.ToHashSet());
+        Assert.Equal(0, harness.Pipeline.PendingResults);
+        Assert.Equal(0, harness.Pipeline.JobsInFlight);
+        Assert.Equal(0, harness.Pipeline.FaultedJobs);
+    }
+
     private static IEnumerable<ChunkPos> Box(ChunkPos centre, int radius)
     {
         var positions = new List<ChunkPos>();
@@ -238,7 +301,10 @@ internal sealed class PipelineHarness : IDisposable
 
     private readonly JobScheduler _scheduler;
 
-    public PipelineHarness(int loadMargin = ChunkStreamer.DefaultLoadMargin)
+    public PipelineHarness(
+        int loadMargin = ChunkStreamer.DefaultLoadMargin,
+        TimeSpan? resultBudget = null,
+        Func<long>? nowTicks = null)
     {
         var viewers = new ViewerSet();
         _scheduler = new JobScheduler(viewers, threadCount: 4, sweepInterval: TimeSpan.FromMilliseconds(5));
@@ -259,7 +325,9 @@ internal sealed class PipelineHarness : IDisposable
                 MeshedPositions.Remove(position);
             },
             onJobFaulted: (position, error) => Faults.Add($"{position}: {error}"),
-            loadMargin: loadMargin);
+            loadMargin: loadMargin,
+            resultBudget: resultBudget,
+            nowTicks: nowTicks);
     }
 
     public ChunkPipeline Pipeline { get; }
@@ -282,6 +350,26 @@ internal sealed class PipelineHarness : IDisposable
     /// quiescence rather than a snapshot. The timeout exists to fail loudly instead of
     /// hanging the suite if the work list ever stops converging.
     /// </remarks>
+    /// <summary>
+    /// Blocks until at least <paramref name="atLeast"/> finished jobs are queued but not yet
+    /// applied, so a budget test has something to be budgeted.
+    /// </summary>
+    public void WaitForPendingResults(int atLeast, int timeoutMillis = 30_000)
+    {
+        var clock = Stopwatch.StartNew();
+
+        while (Pipeline.PendingResults < atLeast)
+        {
+            if (clock.ElapsedMilliseconds > timeoutMillis)
+            {
+                throw new TimeoutException(
+                    $"only {Pipeline.PendingResults} results arrived, wanted {atLeast}");
+            }
+
+            Thread.Sleep(1);
+        }
+    }
+
     public void Settle(int timeoutMillis = 60_000)
     {
         var clock = Stopwatch.StartNew();

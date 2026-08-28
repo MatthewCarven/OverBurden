@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using MinerCraft.Core.Content;
 using MinerCraft.Core.Jobs;
@@ -27,6 +28,17 @@ namespace MinerCraft.Core.Streaming;
 /// </remarks>
 public sealed class ChunkPipeline : IDisposable
 {
+    /// <summary>How long one frame may spend applying finished jobs.</summary>
+    /// <remarks>
+    /// A frame at 60 Hz is 16.7 ms and the apply pass averages well under one, so this is
+    /// not a throttle on normal operation — it clips the tail. Measured before it existed,
+    /// applying results sat at 0.42 ms mean and 2.04 ms p99 while a single frame reached
+    /// 27.6 ms, and that one frame is the entire problem.
+    /// </remarks>
+    public static readonly TimeSpan DefaultResultBudget = TimeSpan.FromMilliseconds(2.0);
+
+    private static readonly double TicksPerMillisecond = Stopwatch.Frequency / 1000.0;
+
     private readonly ChunkStreamer _streamer;
     private readonly JobScheduler _scheduler;
     private readonly WorldGenerator _generator;
@@ -37,6 +49,8 @@ public sealed class ChunkPipeline : IDisposable
 
     private readonly Queue<ChunkPos> _workList = new();
     private readonly List<(IJob Job, CancellationToken Cancellation, bool Serial)> _batch = [];
+    private readonly Func<long> _nowTicks;
+    private readonly long _resultBudgetTicks;
     private bool _disposed;
 
     /// <param name="onMeshReady">
@@ -49,6 +63,16 @@ public sealed class ChunkPipeline : IDisposable
     /// later.
     /// </param>
     /// <param name="onJobFaulted">A job threw. Reported rather than swallowed.</param>
+    /// <param name="resultBudget">
+    /// How long one <see cref="Update"/> may spend applying finished jobs before leaving the
+    /// rest for the next frame. Defaults to <see cref="DefaultResultBudget"/>. There is no
+    /// "unbounded" value on purpose — pass something large if that is genuinely wanted, so
+    /// it reads as a number someone chose.
+    /// </param>
+    /// <param name="nowTicks">
+    /// Injectable clock in <see cref="Stopwatch"/> ticks. Tests drive the budget
+    /// deterministically rather than racing a real one.
+    /// </param>
     public ChunkPipeline(
         WorldGenerator generator,
         MaterialTable materials,
@@ -57,7 +81,9 @@ public sealed class ChunkPipeline : IDisposable
         Action<StreamedChunk, ChunkMesh>? onMeshReady = null,
         Action<ChunkPos>? onMeshDiscarded = null,
         Action<ChunkPos, Exception>? onJobFaulted = null,
-        int loadMargin = ChunkStreamer.DefaultLoadMargin)
+        int loadMargin = ChunkStreamer.DefaultLoadMargin,
+        TimeSpan? resultBudget = null,
+        Func<long>? nowTicks = null)
     {
         _generator = generator;
         _materials = materials;
@@ -65,6 +91,9 @@ public sealed class ChunkPipeline : IDisposable
         _onMeshReady = onMeshReady;
         _onMeshDiscarded = onMeshDiscarded;
         _onJobFaulted = onJobFaulted;
+        _nowTicks = nowTicks ?? Stopwatch.GetTimestamp;
+        _resultBudgetTicks =
+            (long)((resultBudget ?? DefaultResultBudget).TotalMilliseconds * TicksPerMillisecond);
 
         _streamer = new ChunkStreamer(
             priorityViewers,
@@ -95,9 +124,22 @@ public sealed class ChunkPipeline : IDisposable
     /// <summary>Jobs that threw. Should be zero; anything else is a bug worth chasing.</summary>
     public int FaultedJobs { get; private set; }
 
+    /// <summary>Results handed back to their chunks since this pipeline was built.</summary>
+    public int AppliedResults { get; private set; }
+
     /// <summary>
-    /// One frame of pipeline work: apply everything the workers finished, then submit what
-    /// the chunks need next.
+    /// Results finished but not yet applied, because a frame ran out of budget.
+    /// </summary>
+    /// <remarks>
+    /// The number that says whether the budget is right, the same way
+    /// <c>MeshFreeQueue.PeakPending</c> does for the free path. A few deep during a fast
+    /// flight is the budget working; a figure that climbs and stays up is a backlog.
+    /// </remarks>
+    public int PendingResults => _scheduler.PendingResults;
+
+    /// <summary>
+    /// One frame of pipeline work: apply what the workers finished, up to this frame's
+    /// budget, then submit what the chunks need next.
     /// </summary>
     /// <remarks>
     /// Results first, deliberately. Applying them advances states and frees chunks, which
@@ -119,60 +161,91 @@ public sealed class ChunkPipeline : IDisposable
     }
 
     /// <summary>
-    /// Hands every finished job back to the chunk that asked for it.
+    /// Hands finished jobs back to the chunks that asked for them, for as long as this
+    /// frame's budget lasts.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Time-sliced, unlike the free path, because here the cost really is spent inside
+    /// the call.</b> Applying a finished mesh builds an <c>ArrayMesh</c> in the callback, and
+    /// a stopwatch around that measures the actual work. Freeing one does not — Godot defers
+    /// the deallocation — which is why <c>MeshFreeQueue</c> counts instead of timing. Two
+    /// budgets, two mechanisms, for a reason worth not collapsing.
+    /// </para>
+    /// <para>
+    /// Whatever is left stays in the scheduler's channel and lands next frame. Nothing is
+    /// dropped: the results are already paid for, and a result that never arrives leaves its
+    /// chunk flagged as work-in-progress forever.
+    /// </para>
+    /// </remarks>
     private void ApplyResults()
     {
-        _scheduler.DrainResults(result =>
+        long deadline = _nowTicks() + _resultBudgetTicks;
+
+        while (_scheduler.TryTakeResult(out JobResult result))
         {
-            JobsInFlight--;
+            Apply(result);
 
-            ChunkPos position = result.Job.Position;
-            if (!_streamer.TryGet(position, out StreamedChunk chunk))
+            // Checked after applying and never before, so every frame makes progress. A
+            // result costing more than the whole budget would otherwise be deferred forever,
+            // and the queue behind it with it.
+            if (_nowTicks() >= deadline)
             {
-                // The chunk was forgotten before this landed. Only reachable if something
-                // dropped a chunk with a job in flight, which ChunkStreamer.Unview exists to
-                // prevent — so this is a guard, not a path.
-                return;
+                break;
             }
+        }
+    }
 
-            chunk.OutstandingJobs--;
-            chunk.Cancellation?.Dispose();
-            chunk.Cancellation = null;
+    private void Apply(JobResult result)
+    {
+        JobsInFlight--;
+        AppliedResults++;
 
-            switch (result.Outcome)
-            {
-                case JobOutcome.Completed:
-                    CompletedJobs++;
-                    Complete(chunk, result.Job);
-                    break;
+        ChunkPos position = result.Job.Position;
+        if (!_streamer.TryGet(position, out StreamedChunk chunk))
+        {
+            // The chunk was forgotten before this landed. Only reachable if something
+            // dropped a chunk with a job in flight, which ChunkStreamer.Unview exists to
+            // prevent — so this is a guard, not a path.
+            return;
+        }
 
-                case JobOutcome.Faulted:
-                    // Reported and not retried. A fault is a bug in worldgen or meshing, and
-                    // bugs are deterministic, so retrying converts one exception into a spin
-                    // that saturates every worker. The chunk steps back, sits out of the work
-                    // list and renders as a hole — a visible hole plus a reported exception
-                    // beats a hung frame. Leaving and returning forgets and retries it.
-                    FaultedJobs++;
-                    _onJobFaulted?.Invoke(position, result.Exception!);
-                    StepBack(chunk, retry: false);
-                    break;
+        chunk.OutstandingJobs--;
+        chunk.Cancellation?.Dispose();
+        chunk.Cancellation = null;
 
-                default:
-                    // Dropped. Cancellation is not deletion — the chunk still needs the work
-                    // doing if anyone still wants it.
-                    DroppedJobs++;
-                    StepBack(chunk, retry: true);
-                    break;
-            }
+        switch (result.Outcome)
+        {
+            case JobOutcome.Completed:
+                CompletedJobs++;
+                Complete(chunk, result.Job);
+                break;
 
-            // A chunk retained past its last viewer purely so this result had somewhere to
-            // land is now safe to release.
-            if (!chunk.HasJobInFlight)
-            {
-                _streamer.ForgetIfUnwanted(position);
-            }
-        });
+            case JobOutcome.Faulted:
+                // Reported and not retried. A fault is a bug in worldgen or meshing, and
+                // bugs are deterministic, so retrying converts one exception into a spin
+                // that saturates every worker. The chunk steps back, sits out of the work
+                // list and renders as a hole — a visible hole plus a reported exception
+                // beats a hung frame. Leaving and returning forgets and retries it.
+                FaultedJobs++;
+                _onJobFaulted?.Invoke(position, result.Exception!);
+                StepBack(chunk, retry: false);
+                break;
+
+            default:
+                // Dropped. Cancellation is not deletion — the chunk still needs the work
+                // doing if anyone still wants it.
+                DroppedJobs++;
+                StepBack(chunk, retry: true);
+                break;
+        }
+
+        // A chunk retained past its last viewer purely so this result had somewhere to
+        // land is now safe to release.
+        if (!chunk.HasJobInFlight)
+        {
+            _streamer.ForgetIfUnwanted(position);
+        }
     }
 
     private void Complete(StreamedChunk chunk, IJob job)

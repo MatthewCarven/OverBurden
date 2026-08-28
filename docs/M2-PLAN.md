@@ -315,13 +315,18 @@ Two main-thread budgets, and they are not the same mechanism:
 - **"N per frame until drained"** for freeing RIDs, where we *cannot* measure it, because
   the cost isn't spent inside our call.
 
-**Of those two budgets, only the second was built at M2d-1.** Applying mesh results is
-still unbounded: if a hundred chunks finish meshing in one frame, a hundred `ArrayMesh`es
-get built in that frame. Recorded rather than quietly dropped — and **M2d-2 collected on it**:
-with generation 4.7× faster the same flythrough hands back 2.6× as many finished meshes,
-update p99 went 1.14 → 2.04 ms, and one frame hit 27.6 ms against a previous worst of 6.9.
-It stayed invisible only while generation was slow enough to meter it. This is now the next
-thing to build.
+**Both budgets now exist** — the free path at M2d-1, the apply path on 2026-08-29. Applying
+mesh results is time-sliced at 2 ms per frame, with whatever is left staying in the
+scheduler's channel until the next one.
+
+Two things the measurement corrected about this plan's own reasoning. **A time slice cannot
+bound the tail below the cost of one item:** update max sits at 3.3–4.7 ms whether the budget
+is 0.2 ms or effectively infinite, because one mesh conversion is atomic. The budget bounds
+the average and the p99, not the worst case, and this document implied otherwise. And **the
+frame spike that motivated the urgency was not mesh application at all** — it does not
+reproduce, and the worst frame measured came from the most tightly budgeted run. The change
+is still right, on the grounds that an unbounded cost should be bounded before M3 makes
+remeshing continuous; it is just not the stutter fix it was written up as.
 
 ### Split into M2d-1 and M2d-2
 

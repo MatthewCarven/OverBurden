@@ -80,8 +80,9 @@ quits by itself when it is done, so no `--quit-after` is needed:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path MinerCraft.Game --headless -- --profile --radius=12 --vradius=6 --speed=40
 ```
 
-Also `--margin=`, `--warmup=`, `--measure=` and `--cavestep=` (1 restores per-voxel cave
-evaluation, for A/B against the lattice).
+Also `--margin=`, `--warmup=`, `--measure=`, `--cavestep=` (1 restores per-voxel cave
+evaluation, for A/B against the lattice) and `--applybudget=<ms>` (a large value such as 1000
+is the unbudgeted arm; there is no "off").
 
 If Godot has never opened the project, run once with `--headless --import` first.
 
@@ -101,7 +102,7 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1 and **all of M2** are done — **274 tests passing**. Terrain streams around the
+M0, all of M1 and **all of M2** are done — **277 tests passing**. Terrain streams around the
 flycam: worldgen and greedy meshing run on worker threads over palette-compressed storage,
 with materials loaded from JSON, and chunks load and unload as the viewer moves.
 
@@ -212,12 +213,26 @@ Four things about it that are easy to undo by accident:
   where flattening at lattice points is the point; as a resampling kernel it is a
   first-order error where plain linear is second-order.
 
-**Next is the mesh-apply budget**, which M2d-2 promoted from "recorded" to "the bottleneck":
-`ChunkPipeline.Update` bounds submissions per frame but not how many finished meshes it turns
-into `ArrayMesh`es. Two things stay open: whether the free budget actually removes the stutter
-cannot be shown headlessly (no renderer, so no deferred deallocation), and M1d's
-`RenderingServer` vs `MeshInstance3D` and 2×2×2 mesh-block questions need the windowed
-draw-call counter that `StreamingProfiler.RenderLine` already prints.
+**Mesh-apply budget: done 2026-08-29.** `ChunkPipeline.Update` applies finished jobs under a
+2 ms time slice and leaves the rest for the next frame — the second of the two budgets
+M2-PLAN specified. Time-sliced rather than counted, because unlike freeing, the cost is spent
+inside our call and can be measured as we go.
+
+Read the worklog before touching it, because the measurement said two awkward things:
+
+- **A time slice cannot bound the tail below the cost of one item.** Update max stays at
+  3.3–4.7 ms whether the budget is 0.2 ms or effectively infinite — one mesh conversion is
+  atomic. The budget bounds the average and the p99, not the worst case.
+- **The 27.6 ms frame that motivated it was not mesh application**, does not reproduce, and
+  the worst frame measured came from the *most* tightly budgeted run. **Frame time in
+  headless is the wrong instrument** — use `update ms`, which times the call directly. This
+  is the second time that trap has been walked into.
+
+**Next is M3, mining** — the first thing that is fun. Three things stay open, all of them
+needing a windowed run rather than a headless one: whether the free budget actually removes
+the stutter (headless has no deferred deallocation), and M1d's `RenderingServer` vs
+`MeshInstance3D` and 2×2×2 mesh-block questions, which need the windowed draw-call counter
+that `StreamingProfiler.RenderLine` already prints.
 
 The licence is settled: [PolyForm Noncommercial 1.0.0](LICENSE.md), source-available. It
 can be loosened to MIT any time; it cannot be tightened after the first outside PR is
