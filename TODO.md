@@ -421,6 +421,12 @@ r12h/6v    14297    2245      1.42 ms   2.97%     5244   122.1 MiB   at 6 m/s
 - [ ] Still open from M1d: `RenderingServer` direct vs `MeshInstance3D`, and whether meshing
       2×2×2 chunks into one surface cuts draw calls enough to be worth it. Both need the
       windowed draw-call counter, which `StreamingProfiler.RenderLine` already prints.
+- [ ] **Applying mesh results is not budgeted, and M2-PLAN.md specified that it would be.**
+      `ChunkPipeline.Update` bounds *submissions* per frame but not how many finished meshes
+      it turns into `ArrayMesh`es, so a hundred completing at once all land in one frame.
+      This wants the **time-sliced** budget (a few ms), unlike the free path, because the
+      cost *is* spent inside our call and can be measured as we go. Not yet a problem —
+      update p99 is 1.2–1.7 ms — but the 9.2 ms spike at r12h/6v is almost certainly this.
 
 #### M2d-2 — Cave optimisation ⬅️ **start here**
 

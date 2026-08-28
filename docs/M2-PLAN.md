@@ -315,16 +315,40 @@ Two main-thread budgets, and they are not the same mechanism:
 - **"N per frame until drained"** for freeing RIDs, where we *cannot* measure it, because
   the cost isn't spent inside our call.
 
-### Finally answerable measurements
+**Of those two budgets, only the second was built at M2d-1.** Applying mesh results is
+still unbounded: if a hundred chunks finish meshing in one frame, a hundred `ArrayMesh`es
+get built in that frame. It has not bitten yet — update p99 sits near 1.2–1.7 ms — but the
+9.2 ms spike measured at r12h/6v is almost certainly exactly this, and it is the obvious
+next thing to bound. Recorded rather than quietly dropped.
+
+### Split into M2d-1 and M2d-2
+
+- **M2d-1 — unload path and measurement.** Done 2026-08-27. `MeshFreeQueue`, the profiler,
+  the scripted flythrough, and the sweep. Results below.
+- **M2d-2 — the cave optimisation** deferred from M2b. M2d-1 raised its priority from
+  tidy-up to the highest-value item in M2, because generation throughput is what caps
+  sustainable view distance and caves are 80% of it.
+
+### Finally answerable measurements — and what they answered
 
 M1d deliberately left these open because one chunk proves nothing:
 
-- `RenderingServer` direct versus `MeshInstance3D` at real chunk counts.
-- Whether meshing 2×2×2 chunks into one surface cuts draw calls enough to be worth it —
-  mesh blocks need not equal storage blocks.
-- Memory and frame time at target view distance, and while flying fast enough to force
-  continuous load and unload. Flying fast is the test; standing still proves nothing about
-  a streaming system.
+- ~~Memory and frame time at target view distance, and while flying fast enough to force
+  continuous load and unload.~~ **Answered at M2d-1**, swept r2 to r12; table in
+  WORKLOG.md. Main-thread cost plateaus near 3% of one core from r6 up, bounded by worker
+  hand-back rate rather than box size. Memory is mesh-dominated at ~46 KiB per drawn chunk
+  against ~2 KB of voxel storage, which makes horizontal radius expensive and vertical
+  nearly free — the measured argument for the separate radii this document asked for on
+  instinct.
+- **Still open, and both need a windowed run** rather than a headless one, because they are
+  rendering questions and headless has no renderer:
+  - `RenderingServer` direct versus `MeshInstance3D` at real chunk counts.
+  - Whether meshing 2×2×2 chunks into one surface cuts draw calls enough to be worth it —
+    mesh blocks need not equal storage blocks. This only pays if draw calls rather than
+    primitives are the cost, which is why `StreamingProfiler.RenderLine` prints both.
+  - Whether the free budget actually removes the stutter. Headless has no deferred
+    deallocation to spread, so M2d-1 could only show that the budget is not itself a
+    bottleneck — peak queue depth stayed under 27 everywhere.
 
 ---
 
