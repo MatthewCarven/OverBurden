@@ -67,8 +67,21 @@ Verify headlessly — no display needed, catches scene and script errors and pri
 diagnostics:
 
 ```bash
-../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path MinerCraft.Game --headless --quit-after 60
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path MinerCraft.Game --headless --quit-after 900
 ```
+
+**`--quit-after` counts frames, not seconds** — 900 is about 15 s, and the streaming report
+only prints every 5 s, so a small number exits before there is anything to see.
+
+Profile a flythrough. The flags go after a bare `--`, as `name=value`, and the profiler
+quits by itself when it is done, so no `--quit-after` is needed:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path MinerCraft.Game --headless -- --profile --radius=12 --vradius=6 --speed=40
+```
+
+Also `--margin=`, `--warmup=`, `--measure=` and `--cavestep=` (1 restores per-voxel cave
+evaluation, for A/B against the lattice).
 
 If Godot has never opened the project, run once with `--headless --import` first.
 
