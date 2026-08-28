@@ -317,17 +317,30 @@ Two main-thread budgets, and they are not the same mechanism:
 
 **Of those two budgets, only the second was built at M2d-1.** Applying mesh results is
 still unbounded: if a hundred chunks finish meshing in one frame, a hundred `ArrayMesh`es
-get built in that frame. It has not bitten yet — update p99 sits near 1.2–1.7 ms — but the
-9.2 ms spike measured at r12h/6v is almost certainly exactly this, and it is the obvious
-next thing to bound. Recorded rather than quietly dropped.
+get built in that frame. Recorded rather than quietly dropped — and **M2d-2 collected on it**:
+with generation 4.7× faster the same flythrough hands back 2.6× as many finished meshes,
+update p99 went 1.14 → 2.04 ms, and one frame hit 27.6 ms against a previous worst of 6.9.
+It stayed invisible only while generation was slow enough to meter it. This is now the next
+thing to build.
 
 ### Split into M2d-1 and M2d-2
 
 - **M2d-1 — unload path and measurement.** Done 2026-08-27. `MeshFreeQueue`, the profiler,
   the scripted flythrough, and the sweep. Results below.
-- **M2d-2 — the cave optimisation** deferred from M2b. M2d-1 raised its priority from
-  tidy-up to the highest-value item in M2, because generation throughput is what caps
-  sustainable view distance and caves are 80% of it.
+- **M2d-2 — the cave optimisation** deferred from M2b. Done 2026-08-28. A world-anchored
+  lattice sampled every 4 voxels and interpolated between, so a chunk costs 729 fBm
+  evaluations instead of 32,768: generation went 2.23 → 0.47 ms/chunk in Release, and the
+  same r12h/6v flythrough at 40 m/s drew 731 chunks against 145. M2d-1 had raised this from
+  tidy-up to the highest-value item in M2, on the grounds that generation throughput caps
+  sustainable view distance — which is exactly what the A/B then showed.
+
+  Two things it taught that the plan did not anticipate. **The accuracy cost is not where
+  you look for it:** coarsening only ever *loses* caves, because linear interpolation cannot
+  exceed its endpoints and the threshold selects precisely the peaks that get clipped, so
+  the step is a cave-volume knob and judging it by voxel disagreement picks the wrong
+  default. And **the baseline the priority was argued from was a Debug number** — 6.55
+  ms/chunk against 2.23 in Release. The argument survived because the 80% cave share was
+  scale-free, but that was luck, not method. See WORKLOG.md.
 
 ### Finally answerable measurements — and what they answered
 

@@ -1,5 +1,118 @@
 # MinerCraft — Worklog
 
+## 2026-08-28 — M2d-2: the cave optimisation, and a three-times-wrong baseline
+
+274 tests passing, up from 261. M2 is done.
+
+### Built
+
+Cave noise is now sampled on a lattice every `CaveLatticeStep` voxels (default 4) and
+interpolated in between, so a chunk costs 729 fBm evaluations instead of 32,768. Also
+`MinerCraft.Bench`, a repeatable worldgen harness over the same 2,048-chunk region M2b
+measured, and `--cavestep=N` on the game so the same A/B runs inside the streaming loop.
+
+Three design points worth not undoing:
+
+- **One definition of the field.** `IsCaveAt` was rewritten to resample the same lattice
+  rather than keeping per-voxel evaluation beside it as "the exact one". The generator reads
+  a buffered lattice and the query interpolates eight fresh corners, and they agree *bit for
+  bit* — same operations in the same order, which is why the test is an equality and not a
+  tolerance. Two definitions of the same field drift, and the symptom is mining a wall that
+  is already air.
+- **The step must be a power of two dividing 32.** That is what makes a chunk boundary a
+  lattice point, and therefore what makes independently generated neighbours interpolate
+  from the same corners. Nothing detects a violation at runtime — the damage is a seam — so
+  the constructor throws.
+- **Linear interpolation, not the quintic fade from `GradientNoise`.** The fade exists to
+  shape a field out of gradients, where flattening at lattice points is the whole point.
+  Reusing it to *resample* an already-smooth field is a first-order error, because smoothstep
+  is flat where the true field is not; plain linear is second-order.
+
+### Measured — Release, 2,048 chunks, best of 5
+
+```
+config       ms/chunk   caves   storage  uniform    carved      lost    gained
+caves off        0.38       —   2.7 MiB      82%         —         —         —
+step 1 (exact)   2.23    83 %   3.9 MiB      68%   1.444 %         —         —
+step 2           0.68    44 %   3.9 MiB      68%   1.412 %   0.033 %   0.001 %
+step 4           0.47    20 %   3.9 MiB      69%   1.292 %   0.153 %   0.001 %
+step 8           0.43    13 %   3.8 MiB      70%   0.903 %   0.544 %   0.003 %
+step 16          0.42     9 %   3.4 MiB      74%   0.245 %   1.207 %   0.007 %
+```
+
+`carved` is the fraction of rock removed; `lost` is rock the exact field carved and this step
+left solid; `gained` is the reverse.
+
+### And in the game — r12h/6v, +2 margin, 8 workers
+
+```
+speed    step   drawn   jobs done   dropped    main    update p99   memory
+40 m/s      1     145      19,738    30,792   2.19%       1.14 ms   30.6 MiB
+40 m/s      4     731      52,120    16,188   6.13%       2.04 ms   54.7 MiB
+
+ 6 m/s      1    1594      20,524     4,674   3.64%       1.83 ms   91.9 MiB
+ 6 m/s      4    2247      30,113     1,301   4.68%       2.12 ms  118.1 MiB
+```
+
+The 6 m/s pair is the median of three runs each. Spread was tight: step 1 gave 1594/1562/1592
+drawn, step 4 gave 2247 three times.
+
+### Findings
+
+- **M2b's headline `6.55 ms/chunk` was a Debug number, and nothing recorded that.** Debug
+  today measures 7.88 with caves and 1.22 without; Release measures 2.23 and 0.38. The *cave
+  share* M2b reported — 80% — reproduces in both builds, so the finding it drove was sound
+  and only the scale was wrong by roughly 3×. The game project builds Debug, so every
+  streaming profile in this worklog is Debug and self-consistent; it was only the generation
+  figure that was quoted as if it were the shipped cost. The bench now prints a loud banner
+  when built Debug, because a Debug number is worse than no number: it looks like a
+  measurement.
+- **Interpolation only ever removes caves — never invents one.** Predicted from the
+  mechanism, then measured rather than assumed. Linear interpolation between two samples
+  cannot exceed the larger of them, so a noise peak sitting inside a lattice cell gets
+  clipped, and the cave threshold sits near p95 — it selects exactly the peaks that get
+  clipped. The `gained` column is 0.001–0.007% at every step, i.e. nothing. The whole
+  disagreement is one-directional.
+- **So the step is a cave-volume knob, not an accuracy knob, and reading it as accuracy would
+  have picked the wrong default.** By voxel disagreement, step 8 looks nearly free at 0.54%.
+  By cave volume it removes 37% of the caves (1.444% of rock carved, down to 0.903%). Step 16
+  removes 83%. Step 4 costs 10%, which is the trade actually taken. The two columns exist in
+  the bench because the first one alone is misleading.
+- **Five times as much terrain on screen at 40 m/s**, at the same view distance and speed.
+  Jobs completed went up 2.6× and jobs dropped nearly halved. This is M2d-1's prediction
+  landing: it said generation throughput, not box size, caps sustainable view distance.
+- **Main-thread cost went *up*, and that is the confirmation rather than a regression.**
+  2.19% → 6.13% of one core at 40 m/s. Nothing about the box changed; the main thread was
+  idle waiting for workers and is now applying 2.6× more results. M2d-1 measured main-thread
+  cost as "bounded by worker hand-back rate, not box size" and this is the same statement
+  from the other side — feed it faster and it rises.
+- **At walking speed the win is a different shape: it removes marginality rather than adding
+  chunks.** Step 4 draws 2,247 in all three runs — the same number every time, which is what
+  saturation looks like: every chunk in the visible box that has a mesh has one. Step 1 sits
+  at ~1,580 and does not saturate. Notably M2d-1 recorded 2,245 drawn and 122.1 MiB for this
+  config, which matches *step 4* today, not step 1 — so 6 m/s was already on the boundary for
+  per-voxel caves, and which side a run landed on depended on what else the machine was
+  doing. Step 4 is comfortably clear of it.
+- **The next bottleneck moved, and it is the one already written down.** Update p99 went
+  1.14 → 2.04 ms and one frame hit 27.6 ms where the old build's worst frame was 6.9. Applying
+  finished meshes is still unbudgeted — `ChunkPipeline.Update` bounds submissions, not
+  `ArrayMesh` construction — and it only stayed invisible while generation was slow enough to
+  meter it. That TODO item goes from "recorded" to "next".
+
+### Honest limits
+
+- **The 27.6 ms frame is one sample and lands outside the instrumented section** — update max
+  was 5.43 ms in the same run. It is consistent with unbudgeted mesh application plus the GC
+  churn behind it, but headless has no renderer, so attributing it properly needs the windowed
+  run that M1d's draw-call questions are already waiting on.
+- **The threshold was tuned at M2b against the exact field and has not been re-tuned.** Step 4
+  carves ~10% less than the value 0.42 was chosen to produce. Fixing that means nudging
+  `CaveThreshold` down, which is a worldgen tuning decision; bundling it into an optimisation
+  would have meant neither was measured. Recorded in TODO.md instead.
+- **Cross-session absolute numbers are not comparable** — the r12h/6v figures here differ from
+  M2d-1's for the same nominal config. Within a session the spread is about 2%. Every claim
+  above is an A/B taken back to back.
+
 ## 2026-08-27 — M2d-1: the unload path, and measurement that corrected a decision
 
 261 tests passing, unchanged — this part is a Godot-layer change plus instrumentation.

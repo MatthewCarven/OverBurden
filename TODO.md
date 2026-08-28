@@ -271,17 +271,18 @@ Split into four sessions. Full reasoning in [docs/M1-PLAN.md](docs/M1-PLAN.md).
 ```
 4.0 MiB total, mean ~2 KB/chunk, against 128 MiB naive — 32× better
 68% of chunks uniform (803 air, 541 solid), 704 palettised, 0 direct
-6.55 ms/chunk with caves, 1.35 ms without — caves are 80% of generation
+6.55 ms/chunk with caves, 1.35 ms without — caves are 80% of generation   ← Debug build
 ```
 
-- [ ] **Cave generation is the bottleneck and needs another pass — deferred to M2d.**
-      Two free wins already taken (one avalanche round instead of four chained; 16-entry
-      gradient table indexed by `& 15` instead of a 64-bit `% 12`), which took it from
-      9.48 to 6.55 ms/chunk. What remains is inherent to evaluating 3D fBm per voxel:
-      ~256,000 hash-and-dot operations per chunk. The real fix is to sample cave noise on
-      a coarser lattice and interpolate, since at frequency 0.02 the field barely varies
-      across a 32-voxel chunk anyway. Not urgent — across ~6 workers this is ~1.1 ms of
-      wall clock per chunk — but it wants doing before shipping.
+- [x] **Cave generation was the bottleneck — done at M2d-2, 2026-08-28.** Two free wins were
+      taken here at M2b (one avalanche round instead of four chained; 16-entry gradient table
+      indexed by `& 15` instead of a 64-bit `% 12`), 9.48 → 6.55 ms/chunk. The rest was
+      inherent to evaluating 3D fBm per voxel — ~256,000 hash-and-dot operations per chunk —
+      and went at M2d-2 with a coarse lattice and interpolation.
+- [x] **That 6.55 ms/chunk was a Debug measurement and nothing said so.** Re-measured on the
+      same code: Debug 7.88 / 1.22, Release 2.23 / 0.38. The 80% cave share was right in both,
+      so the finding held and only the scale was wrong. `MinerCraft.Bench` now prints a loud
+      warning when built Debug. **Quote a generation figure with its build or not at all.**
 - [ ] Caves are blobby pockets rather than connected tunnels, which is what thresholding
       fBm gives you. Connected systems want ridged or worm noise, and are a stage-2
       feature once the pipeline can place things across chunk boundaries.
@@ -422,19 +423,41 @@ r12h/6v    14297    2245      1.42 ms   2.97%     5244   122.1 MiB   at 6 m/s
       2×2×2 chunks into one surface cuts draw calls enough to be worth it. Both need the
       windowed draw-call counter, which `StreamingProfiler.RenderLine` already prints.
 - [ ] **Applying mesh results is not budgeted, and M2-PLAN.md specified that it would be.**
-      `ChunkPipeline.Update` bounds *submissions* per frame but not how many finished meshes
-      it turns into `ArrayMesh`es, so a hundred completing at once all land in one frame.
-      This wants the **time-sliced** budget (a few ms), unlike the free path, because the
-      cost *is* spent inside our call and can be measured as we go. Not yet a problem —
-      update p99 is 1.2–1.7 ms — but the 9.2 ms spike at r12h/6v is almost certainly this.
+      ⬅️ **start here.** `ChunkPipeline.Update` bounds *submissions* per frame but not how
+      many finished meshes it turns into `ArrayMesh`es, so a hundred completing at once all
+      land in one frame. This wants the **time-sliced** budget (a few ms), unlike the free
+      path, because the cost *is* spent inside our call and can be measured as we go.
+      **M2d-2 promoted this from "recorded" to "next":** with generation 4.7× faster, the
+      same r12h/6v flythrough now hands back 2.6× as many finished meshes per second, update
+      p99 went 1.14 → 2.04 ms, and one frame hit 27.6 ms where the old build's worst was 6.9.
 
-#### M2d-2 — Cave optimisation ⬅️ **start here**
+#### M2d-2 — Cave optimisation ✅ done 2026-08-28, 274 tests passing
 
-- [ ] The pass deferred from M2b — coarser cave lattice with interpolation. Do not treat it
-      as a streaming problem when it surfaces. **M2d-1 raised its priority**: caves are 80%
-      of the 6.55 ms/chunk generation cost, and generation throughput is what caps
-      sustainable view distance at speed. This is the change that buys a bigger view
-      distance, not a tidy-up.
+- [x] **Coarse cave lattice with trilinear interpolation.** `CaveLatticeStep` (default 4)
+      samples cave fBm every 4 voxels and interpolates between, so a chunk costs 729 noise
+      evaluations instead of 32,768. Release, 2,048 chunks: **2.23 → 0.47 ms/chunk**, caves
+      from 83% of generation down to 20%.
+- [x] **One definition of the field.** `IsCaveAt` resamples the same lattice rather than
+      keeping an "exact" path beside it, and agrees with `GenerateTerrain` bit for bit.
+      Two definitions drift, and the symptom is mining a wall that is already air.
+- [x] **The step must be a power of two dividing the chunk size**, so a chunk boundary is a
+      lattice point and independently generated neighbours interpolate from the same corners.
+      The constructor throws otherwise — the damage is a seam, which nothing detects at
+      runtime.
+- [x] **Measured in the game, not just on the bench.** r12h/6v at 40 m/s: 145 → 731 chunks
+      drawn, jobs done 19,738 → 52,120, dropped 30,792 → 16,188.
+- [x] `MinerCraft.Bench` — repeatable worldgen harness over the same 2,048-chunk region M2b
+      used, reporting time *and* accuracy, because a speed number without an accuracy number
+      is half a trade. `--cavestep=N` on the game does the same A/B in the streaming loop.
+- [ ] **The cave threshold has not been re-tuned for the lattice, and should be.**
+      Interpolation only ever *removes* caves (measured: voxels gained ≈ 0.001%), because
+      linear interpolation cannot exceed its endpoints and the threshold at p95 selects
+      exactly the peaks that get clipped. Step 4 costs ~10% of cave volume — 1.444% of rock
+      carved down to 1.292%. Recovering it means nudging `CaveThreshold` below 0.42, which is
+      a worldgen tuning decision and was deliberately not bundled into an optimisation.
+- [ ] Steps 8 and 16 are **not** free lunches despite tiny voxel-disagreement figures (0.54%,
+      1.21%): they cost 37% and 83% of cave volume respectively. If the step is ever raised,
+      judge it on the `carved` column, not the `lost` column.
 
 #### Settings
 
@@ -442,8 +465,10 @@ r12h/6v    14297    2245      1.42 ms   2.97%     5244   122.1 MiB   at 6 m/s
       handles radius changes by box difference, and there is a test for it, so the mechanism
       exists. Presets grounded in the M2d-1 sweep, at walking speed and **excluding rendering
       cost**: Low r4h/2v (1,521 chunks, ~32 MiB), Medium r8h/4v (5,733), High r10h/5v
-      (9,375, ~87 MiB), Ultra r12h/6v (14,297, ~122 MiB). Re-check after the cave pass, which
-      moves the ceiling.
+      (9,375, ~87 MiB), Ultra r12h/6v (14,297, ~122 MiB). The chunk counts are geometry and
+      still hold after M2d-2; what moved is how much of the box actually gets *drawn* while
+      moving, which is where the memory figures come from. Re-sweep before writing the
+      presets into a settings menu.
 
 ### M3 — Mining ← first fun moment
 

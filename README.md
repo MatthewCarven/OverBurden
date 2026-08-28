@@ -13,15 +13,24 @@ No mobs, no combat. The mine is the antagonist.
 
 ## Status
 
-**M0 and all of M1 done**, 154 tests passing. A chunk of generated terrain renders
-through a greedy mesher, drawn via `RenderingServer` with a texture array, over
-palette-compressed storage, with every material loaded from `mods/minercraft/*.json`
-exactly the way a third-party mod would load its own.
+**M0, M1 and M2 done**, 274 tests passing. Terrain streams around the camera without end:
+worldgen and greedy meshing run on worker threads over palette-compressed storage, drawn
+via `RenderingServer` with a texture array, with every material loaded from
+`mods/minercraft/*.json` exactly the way a third-party mod would load its own. Chunks load
+and unload as you move, on a scheduler that reprioritises queued work and cancels what went
+stale before a thread was free to run it.
 
-On that test chunk: **8,208 bytes** for 32,768 voxels, and 196,608 naive faces reduced to
-**850 quads** — 7.2× better than culled meshing, 231× better than naive.
+Some numbers it is built on:
 
-M2, chunk streaming and infinite terrain, is next.
+- **8,208 bytes** for a 32,768-voxel chunk, and 196,608 naive faces reduced to **850
+  quads** — 7.2× better than culled meshing, 231× better than naive.
+- **0.47 ms** to generate a chunk, of which caves are a fifth. They were four fifths until
+  the noise moved onto a coarse lattice, which bought five times as much terrain on screen
+  while flying.
+- **~46 KiB per drawn chunk**, mesh-dominated against ~2 KB of voxel storage — which is why
+  view distance is a horizontal radius and a vertical one, not a single number.
+
+M3, mining, is next. It is the first thing that will be fun.
 
 ## Run it
 
@@ -35,6 +44,13 @@ Esc to release the mouse.
 
 ```
 dotnet test MinerCraft.slnx
+```
+
+Worldgen has a benchmark. Run it in Release — Debug is about three times slower and the
+number looks just as real:
+
+```
+dotnet run --project MinerCraft.Bench -c Release
 ```
 
 ## The shape of it

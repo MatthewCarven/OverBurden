@@ -14,7 +14,7 @@ public class WorldGeneratorTests
     private static StrataTable Strata() =>
         new([new StrataLayer(Grass, 1), new StrataLayer(Dirt, 3)], Stone);
 
-    private static WorldGenSettings Settings(bool caves = true) => new()
+    private static WorldGenSettings Settings(bool caves = true, int latticeStep = 4) => new()
     {
         Seed = 0x5EEDUL,
         SeaLevelVoxels = 0,
@@ -22,9 +22,11 @@ public class WorldGeneratorTests
         SurfaceFrequency = 0.004f,
         SurfaceOctaves = 4,
         CavesEnabled = caves,
+        CaveLatticeStep = latticeStep,
     };
 
-    private static WorldGenerator Generator(bool caves = true) => new(Settings(caves), Strata());
+    private static WorldGenerator Generator(bool caves = true, int latticeStep = 4) =>
+        new(Settings(caves, latticeStep), Strata());
 
     [Fact]
     public void TheSameChunkGeneratesIdenticallyEveryTime()
@@ -267,6 +269,149 @@ public class WorldGeneratorTests
         generator.ApplyFeatures(position, chunk);
 
         AssertSameContent(reference, chunk);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-4)]
+    [InlineData(3)]
+    [InlineData(6)]
+    [InlineData(64)]
+    public void ALatticeStepThatDoesNotDivideTheChunkRefusesToConstruct(int step)
+    {
+        // A step that does not divide the chunk size leaves chunk boundaries between lattice
+        // points, so the per-chunk lattice stops coinciding with the global one and two
+        // neighbours interpolate from different corners. Nothing throws at the time and the
+        // damage is a crack in the terrain, so the constructor is the only place to catch it.
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => new WorldGenerator(Settings(latticeStep: step), Strata()));
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(4)]
+    [InlineData(8)]
+    [InlineData(16)]
+    [InlineData(32)]
+    public void ACoarseLatticeIsExactOnItsOwnPoints(int step)
+    {
+        // Every step samples the same underlying field, so a coarse lattice must agree with
+        // per-voxel evaluation exactly wherever it has a sample — no tolerance, the same
+        // fBm call with the same arguments. This is what makes chunk boundaries seamless:
+        // they are multiples of 32, therefore lattice points at every legal step.
+        var reference = new WorldGenerator(Settings(latticeStep: 1), Strata());
+        var coarse = new WorldGenerator(Settings(latticeStep: step), Strata());
+
+        var seen = new HashSet<float>();
+
+        for (int i = -3; i <= 3; i++)
+        {
+            for (int j = -3; j <= 3; j++)
+            {
+                int x = i * step;
+                int y = j * step;
+                int z = (i - j) * step;
+
+                float expected = reference.CaveNoiseAt(x, y, z);
+                Assert.Equal(expected, coarse.CaveNoiseAt(x, y, z));
+                seen.Add(expected);
+            }
+        }
+
+        Assert.True(seen.Count > 1, "the field returned one constant, so agreeing about it proves nothing");
+    }
+
+    [Fact]
+    public void IsCaveAtAgreesWithTheChunkItGenerated()
+    {
+        // One definition of the cave field, not two. GenerateTerrain reads a buffered
+        // lattice and IsCaveAt resamples eight fresh corners; the moment those disagree, a
+        // query says "rock" where the player is standing in open air. Negative chunk
+        // coordinates are in here on purpose — an index or a floor-division bug agrees
+        // happily around the origin and drifts everywhere else.
+        WorldGenerator carved = Generator(caves: true);
+        WorldGenerator solid = Generator(caves: false);
+
+        ChunkPos[] positions = [new(0, -3, 0), new(-1, -3, 2), new(3, -4, -5), new(-7, -2, -9)];
+        int carvedVoxels = 0;
+
+        foreach (ChunkPos position in positions)
+        {
+            VoxelChunk withCaves = carved.GenerateTerrain(position);
+            VoxelChunk withoutCaves = solid.GenerateTerrain(position);
+            int chunkMinY = position.Y << VoxelConstants.ChunkSizeLog2;
+            int originX = position.X << VoxelConstants.ChunkSizeLog2;
+            int originZ = position.Z << VoxelConstants.ChunkSizeLog2;
+
+            for (int lz = 0; lz < Size; lz++)
+            {
+                for (int lx = 0; lx < Size; lx++)
+                {
+                    int surface = carved.SurfaceHeightAt(originX + lx, originZ + lz);
+
+                    for (int ly = 0; ly < Size; ly++)
+                    {
+                        // Only voxels that would have been solid without caves say anything
+                        // about caves; the rest is sky either way.
+                        if (withoutCaves.Get(lx, ly, lz) == MaterialIds.AirNumericId)
+                        {
+                            continue;
+                        }
+
+                        bool carvedHere = withCaves.Get(lx, ly, lz) == MaterialIds.AirNumericId;
+                        bool queried = carved.IsCaveAt(
+                            originX + lx, chunkMinY + ly, originZ + lz, surface);
+
+                        Assert.Equal(carvedHere, queried);
+
+                        if (carvedHere)
+                        {
+                            carvedVoxels++;
+                        }
+                    }
+                }
+            }
+        }
+
+        Assert.True(carvedVoxels > 0, "nothing was carved, so agreeing about caves proves nothing");
+    }
+
+    [Fact]
+    public void CoarseningTheLatticeBarelyChangesTheTerrain()
+    {
+        // The accuracy half of M2d-2, pinned so a later change to the noise or the step
+        // cannot quietly wreck it. These chunks sit well below the surface, so every voxel
+        // compared is underground and cave-eligible rather than sky agreeing with sky.
+        // The bound is deliberately loose against the measured figure in WORKLOG.md: this
+        // is a regression alarm, not the measurement.
+        var exact = new WorldGenerator(Settings(latticeStep: 1), Strata());
+        var coarse = new WorldGenerator(Settings(latticeStep: 4), Strata());
+
+        int compared = 0;
+        int differing = 0;
+
+        for (int cx = -1; cx <= 1; cx++)
+        {
+            for (int cz = -1; cz <= 1; cz++)
+            {
+                var position = new ChunkPos(cx, -3, cz);
+                VoxelChunk a = exact.GenerateTerrain(position);
+                VoxelChunk b = coarse.GenerateTerrain(position);
+
+                for (int i = 0; i < VoxelConstants.ChunkVolume; i++)
+                {
+                    compared++;
+                    if (a.GetAt(i) != b.GetAt(i))
+                    {
+                        differing++;
+                    }
+                }
+            }
+        }
+
+        double fraction = (double)differing / compared;
+        Assert.True(fraction < 0.02, $"step 4 moved {fraction:P2} of voxels, expected well under 2%");
     }
 
     private static int Sample(VoxelChunk chunk, int lx, int worldY, int lz, int chunkMinY) =>

@@ -89,7 +89,7 @@ public sealed record WorldGenSettings
     public float CaveThreshold { get; init; } = 0.42f;
 
     /// <summary>
-    /// Caves are suppressed within this many voxels of the surface, fading in below it.
+    /// Caves are suppressed within this many voxels of the surface.
     /// </summary>
     /// <remarks>
     /// Without it, cave noise crossing the threshold near the surface bites craters out of
@@ -97,4 +97,30 @@ public sealed record WorldGenSettings
     /// Entrances still form where a cave runs close to the surface from underneath.
     /// </remarks>
     public int CaveSurfaceMarginVoxels { get; init; } = 8;
+
+    /// <summary>
+    /// Cave noise is evaluated every this many voxels and interpolated in between.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Must be a power of two that divides the chunk size.</b> The lattice is anchored in
+    /// world space, so two chunks meeting at a seam interpolate from the same corners and
+    /// agree exactly; that only holds if a chunk boundary is itself a lattice point.
+    /// <see cref="WorldGenerator"/> throws otherwise rather than generating a world with
+    /// invisible seams in it.
+    /// </para>
+    /// <para>
+    /// Evaluating 3D fBm per voxel is what made caves 80% of generation cost: 32,768 voxels
+    /// times two octaves times eight lattice corners is a quarter of a million hash-and-dot
+    /// operations for one chunk. At <see cref="CaveFrequency"/> 0.02 the field's smallest
+    /// octave has a 25-voxel period, so sampling every 4 voxels and interpolating loses very
+    /// little — measured, see WORKLOG.md — for a 45× cut in noise evaluations.
+    /// </para>
+    /// <para>
+    /// <b>1 means no interpolation</b> and reproduces per-voxel evaluation exactly, because
+    /// every interpolation weight is then zero. It exists as the reference the coarser steps
+    /// are measured against, not as a setting to ship.
+    /// </para>
+    /// </remarks>
+    public int CaveLatticeStep { get; init; } = 4;
 }

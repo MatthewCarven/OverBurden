@@ -57,6 +57,12 @@ Run the game:
 start.cmd
 ```
 
+Measure worldgen — **Release, always; Debug is ~3× slower and reads like a real number**:
+
+```bash
+dotnet run --project MinerCraft.Bench -c Release
+```
+
 Verify headlessly — no display needed, catches scene and script errors and prints the
 diagnostics:
 
@@ -82,19 +88,19 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, and **all of M2 except M2d** are done — **261 tests passing**. Terrain
-streams around the flycam: worldgen and greedy meshing run on worker threads over
-palette-compressed storage, with materials loaded from JSON, and chunks load and unload as
-the viewer moves.
+M0, all of M1 and **all of M2** are done — **274 tests passing**. Terrain streams around the
+flycam: worldgen and greedy meshing run on worker threads over palette-compressed storage,
+with materials loaded from JSON, and chunks load and unload as the viewer moves.
 
 Headless from a standing start, r4h/2v + 2 margin on 8 workers:
 
 ```
-1521 viewed (1521 tracked), 166 drawn, 0 in flight, 0 queued
+1521 viewed (1521 tracked), 165 drawn, 0 in flight, 0 queued
 1926 jobs done / 0 dropped / 0 faulted   — settled inside 5 s
 ```
 
-1926 = 1521 generates + 405 meshes, and 405 is exactly the 9×5×9 visible box.
+1926 = 1521 generates + 405 meshes, and 405 is exactly the 9×5×9 visible box. Drawn was 166
+before M2d-2; the cave lattice carves marginally less, so one chunk now meshes to nothing.
 
 M2 is split into four parts in [docs/M2-PLAN.md](docs/M2-PLAN.md). The prerequisite
 reading of godot_voxel is done and paid for itself: it caught that the job queue had been
@@ -110,9 +116,12 @@ flagged as work-in-progress forever. Nothing submits jobs yet; streaming at M2c 
 
 **M2b — worldgen: done 2026-08-27.** `MinerCraft.Core/Worldgen/` holds splitmix64, gradient
 noise, a data-driven strata table, and a generator that is a pure function of seed and
-position. Measured over 2,048 chunks: 4.0 MiB against 128 MiB naive, 68% of chunks uniform,
-6.55 ms/chunk. Caves are 80% of that and want one more optimisation pass, deferred to M2d
-with the analysis in TODO.md — do not treat it as a streaming problem when it surfaces.
+position. Measured over 2,048 chunks: 4.0 MiB against 128 MiB naive, 68% of chunks uniform.
+
+**M2b's `6.55 ms/chunk` was a Debug number** and said so nowhere — M2d-2 re-measured the same
+code at 2.23 ms/chunk in Release. The cave share it reported (80%) was right; only the scale
+was wrong. The game project builds Debug, so the streaming profiles are Debug too and are
+consistent with each other — but never quote a generation figure without its build.
 
 **M2c-1 — streaming policy: done 2026-08-27.** `MinerCraft.Core/Streaming/` holds `ChunkBox`
 (six-way box difference, fuzzed against brute force for disjointness *and* exactness),
@@ -165,14 +174,37 @@ What the numbers changed:
   for separate radii.
 - **Caves cap sustainable view distance.** r12 draws 205 chunks at 40 m/s and 2,245 at 6 m/s
   — a speed effect, not a radius ceiling — and the constraint is generation throughput, of
-  which caves are 80%.
+  which caves are 80%. M2d-2 acted on this and confirmed it.
 
-**Next step is M2d-2, the cave optimisation** deferred from M2b: a coarser cave lattice with
-interpolation. M2d-1 raised its priority — it is what buys a larger view distance rather than
-a tidy-up. Two things stay open: whether the free budget actually removes the stutter cannot
-be shown headlessly (no renderer, so no deferred deallocation), and M1d's `RenderingServer`
-vs `MeshInstance3D` and 2×2×2 mesh-block questions need the windowed draw-call counter that
-`StreamingProfiler.RenderLine` already prints.
+**M2d-2 — cave optimisation: done 2026-08-28.** Cave noise is sampled on a world-anchored
+lattice every `CaveLatticeStep` voxels (default 4) and interpolated in between, so a chunk
+costs 729 fBm evaluations instead of 32,768. Generation went **2.23 → 0.47 ms/chunk** in
+Release, and caves fell from 83% of generation to 20%. `MinerCraft.Bench` is the repeatable
+harness that measured it; `--cavestep=1` restores per-voxel evaluation for A/B runs.
+
+Four things about it that are easy to undo by accident:
+
+- **`IsCaveAt` and `GenerateTerrain` share one definition of the field.** The query
+  interpolates eight fresh corners, the generator reads a buffered lattice, and they agree
+  bit for bit — same operations in the same order, pinned by an equality test. Two
+  definitions would drift, and the symptom is mining a wall that is already air.
+- **The step must be a power of two dividing 32.** That is what makes a chunk boundary a
+  lattice point, which is what makes independently generated neighbours agree. The
+  constructor throws otherwise; a seam is invisible until it is in a screenshot.
+- **Interpolation only ever removes caves, never invents one** — measured, not assumed.
+  Linear interpolation cannot exceed its endpoints, so peaks inside a cell get clipped, and
+  a threshold at p95 selects exactly those peaks. So **the step is a cave-volume knob**: step
+  4 costs 10% of cave volume, step 8 costs 37%. Voxel disagreement alone hides this.
+- **Linear interpolation, not the quintic fade.** The fade belongs inside gradient noise
+  where flattening at lattice points is the point; as a resampling kernel it is a
+  first-order error where plain linear is second-order.
+
+**Next is the mesh-apply budget**, which M2d-2 promoted from "recorded" to "the bottleneck":
+`ChunkPipeline.Update` bounds submissions per frame but not how many finished meshes it turns
+into `ArrayMesh`es. Two things stay open: whether the free budget actually removes the stutter
+cannot be shown headlessly (no renderer, so no deferred deallocation), and M1d's
+`RenderingServer` vs `MeshInstance3D` and 2×2×2 mesh-block questions need the windowed
+draw-call counter that `StreamingProfiler.RenderLine` already prints.
 
 The licence is settled: [PolyForm Noncommercial 1.0.0](LICENSE.md), source-available. It
 can be loosened to MIT any time; it cannot be tightened after the first outside PR is

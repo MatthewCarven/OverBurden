@@ -50,6 +50,7 @@ public partial class Main : Node3D
 
     private StreamingProfiler? _profiler;
     private float _flySpeed;
+    private int? _caveLatticeStep;
 
     public GameContent Content { get; } = new();
 
@@ -63,6 +64,10 @@ public partial class Main : Node3D
         int margin = ApplyCommandLineOverrides();
 
         var settings = new WorldGenSettings { Seed = 0x4D494E455243UL };
+        if (_caveLatticeStep is int caveStep)
+        {
+            settings = settings with { CaveLatticeStep = caveStep };
+        }
         _generator = new WorldGenerator(settings, BuildStrata());
 
         var viewers = new ViewerSet();
@@ -134,6 +139,13 @@ public partial class Main : Node3D
 
                 case "measure" when double.TryParse(value, out double seconds):
                     measure = seconds;
+                    break;
+
+                // A test seam, not a setting. Step 1 is per-voxel cave evaluation — the way
+                // generation worked before M2d-2 — so a sweep can measure what the lattice
+                // bought in the real streaming loop rather than only on the bench.
+                case "cavestep" when int.TryParse(value, out int step):
+                    _caveLatticeStep = step;
                     break;
 
                 case "profile":
