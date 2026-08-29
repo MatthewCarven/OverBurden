@@ -103,7 +103,7 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1 and **all of M2** are done — **364 tests passing**, and M3a/M3b/M3c with them.
+M0, all of M1, **all of M2 and all of M3** are done — **367 tests passing**.
 Terrain streams around the flycam: worldgen and greedy meshing run on worker threads over palette-compressed storage,
 with materials loaded from JSON, and chunks load and unload as the viewer moves.
 
@@ -308,14 +308,53 @@ pipeline test whose *comment* claimed it caught the border rule — reducing `Ch
 owner-only left it green, because the writes already span eight chunks by themselves. Break
 the code on purpose, and check the comment too.
 
-**M3d, binding and feel, is next.** The plan is [docs/M3-PLAN.md](docs/M3-PLAN.md). It is the
-milestone's real question — does a pick swing fit inside a frame? — and the clone rate M3a
-guessed at is finally measurable now that something drives it.
+**M3d — binding, feel and measurement: done 2026-08-29.** Left mouse mines on the flycam,
+number keys pick a tier, and a wireframe `VoxelHighlight` outlines the target.
+`MiningController` is Godot-free, so `--mine` drives a whole profile window headlessly.
 
-Three things stay open, all needing a windowed run rather than a headless one: whether the
-free budget actually removes the stutter (headless has no deferred deallocation), and M1d's
-`RenderingServer` vs `MeshInstance3D` and 2×2×2 mesh-block questions, which need the windowed
-draw-call counter that `StreamingProfiler.RenderLine` already prints.
+**The milestone's real question is answered: yes, a pick swing fits inside a frame, with two
+orders of magnitude to spare.** Mining continuously at five swings a second while flying
+r6h/3v at 8 m/s:
+
+```
+                     streaming only     + continuous mining
+update ms  p99            0.910               1.038
+           max            2.036               2.118
+main thread               0.80%               1.02%  of one core
+```
+
+Against a 16.7 ms frame. **Do not build** M3-PLAN's fallbacks — dirty-region meshing, smaller
+mesh blocks, latency hiding — until something asks for them.
+
+Three things about M3d that are easy to undo by accident:
+
+- **A swing is centred on the hit voxel's *centre*, not on the ray's entry point.** The entry
+  point lies exactly on a face, so half the sphere starts in air, and how much of it does
+  depends on the angle of incidence — a radius written in a mod's JSON would mean something
+  different on every swing. `Carve.SwingCentre` holds the decision, in Core, because where a
+  swing lands is a game rule a multiplayer server would need.
+- **M3a's clone estimate is settled: right per chunk, 7× pessimistic per swing.** Measured 1.2
+  clones and 2.4 KiB per swing against a guessed 8 chunks and ~16 KB. Eight is the worst case
+  at a chunk corner, not the typical one.
+- **Reach is the player's, not the tool's.** 5 m on `MiningController`, and it belongs to M4's
+  controller. A tier says how big a bite it takes and what it is hard enough to take; how far
+  an arm reaches is not that, and putting it in the tool JSON now would guess a field into a
+  format mods have written against.
+
+**The headless frame-time trap appeared a third time** and was not believed: a mining run
+reported `frame ms` max 19.6 ms against a 6.9 ms control, while `update ms` max moved 0.13 ms
+and the spike did not reproduce in two further runs. `update ms` times our own work directly.
+
+**M4, the player, is next** — AABB against the voxel grid, axis-separated resolution, gravity
+and step-up. It has no plan document yet; M1-PLAN and M3-PLAN are the worked examples of how
+one gets written before any code.
+
+Four things stay open, all needing a windowed run rather than a headless one: whether
+`VoxelHighlight` actually draws where it should (headless has no renderer, so only its
+construction is proven), whether the free budget removes the stutter (headless has no deferred
+deallocation), and M1d's `RenderingServer` vs `MeshInstance3D` and 2×2×2 mesh-block questions,
+which need the windowed draw-call counter that `StreamingProfiler.RenderLine` already prints.
+`start.cmd`, then hold the left mouse button.
 
 The licence is settled: [PolyForm Noncommercial 1.0.0](LICENSE.md), source-available. It
 can be loosened to MIT any time; it cannot be tightened after the first outside PR is

@@ -1,5 +1,108 @@
 # MinerCraft — Worklog
 
+## 2026-08-29 — M3d: mining is bound, and a pick swing fits in a frame with room to spare
+
+367 tests passing, up from 364. **M3 is done.** You can hold the left mouse button and
+dig.
+
+### Built
+
+`MiningController` casts every frame, outlines what it finds, and swings when the button
+is down and the tier has cooled down. `VoxelHighlight` draws a wireframe box around the
+target through the `RenderingServer`, one instance moved rather than churned.
+`Carve.SwingCentre` and a `Carve.Swing(hit, tool)` overload put the centring decision in
+Core. Number keys pick a tier; `--mine` holds the button for a whole profile window.
+
+### The answer to the question M3 was really asking
+
+**Yes, comfortably.** Mining continuously — five swings a second, the tool's own cooldown
+— while flying at 8 m/s with r6h/3v:
+
+```
+                     streaming only     + continuous mining
+update ms  mean           0.055               0.070
+           p99            0.910               1.038
+           max            2.036               2.118
+main thread               0.80%               1.02%  of one core
+```
+
+A frame at 60 Hz is 16.7 ms. Mining adds about a fifth of a percent of one core and moves
+the p99 by a tenth of a millisecond. M3-PLAN's ordered list of answers for if it did not
+fit — mesh only the dirty region, then smaller mesh blocks, then accept a frame of latency
+— is not needed, and should stay unbuilt until something asks for it.
+
+**The swing itself was never going to be the cost.** Raycast plus carve is 0.044 ms mean
+and 0.17 ms max on the sim thread. Everything expensive is the remesh, which runs on a
+worker, and the only part of that on the main thread is turning the result into an
+`ArrayMesh` — which is `update ms`, already budgeted since M2d.
+
+### M3a's clone estimate: right per chunk, seven times pessimistic per swing
+
+M3-PLAN guessed "roughly one 2 KB clone per chunk per edit-and-remesh cycle" and, from
+that, "a swing touching eight chunks is about 16 KB of gen0 garbage". Measured over 111
+swings: **1.2 clones and 2.4 KiB per swing**, and 1.3 chunk remeshes per swing.
+
+The per-chunk figure was right. The per-swing one was wrong because eight chunks is the
+*worst* case — a swing landing exactly on the corner where eight meet — and not the
+typical one. A 0.5 m sphere centred on a voxel centre is four voxels across in a 32-voxel
+chunk, so it usually stays inside one. The estimate deserved its label; this is what
+settling one looks like.
+
+### Centred on the voxel's centre, and that belongs in Core
+
+The open question from M3c, decided. The alternative was the point where the ray entered
+the voxel, and it loses on two counts: that point lies exactly on a face, so half the
+sphere is in air before the swing starts, and how much of it is depends on the angle of
+incidence — so a radius written in a mod's JSON would mean something different on every
+swing. The voxel centre is grid-aligned, identical from every angle, and identical between
+two swings at the same target.
+
+The cost is real and small: aim near the edge of a voxel and the hole is centred up to an
+eighth of a metre from the crosshair. With a highlight box drawn around the target, that
+is a discrepancy the player can see the reason for — which is most of why the highlight is
+not polish.
+
+`Carve.SwingCentre` rather than one line in a Godot file, because where a swing lands is a
+game rule and a multiplayer server would need it. Measured, for the record: 11 of 33
+candidates per swing were already air, mining downward into a surface. Entry-point
+centring would push that toward half.
+
+**Watching the test fail taught something about the test.** Two swings at the same voxel
+from different entry points agreeing is a *weak* claim: `VoxelHit` does not carry the ray,
+so `Carve.Swing(hit, ...)` cannot centre on the entry point — the type makes the wrong
+answer inexpressible, and any voxel-derived centre passes. Moving the centre to the
+voxel's min corner left it green. The assertion with teeth is that the removed set is
+**symmetric about the hit voxel**, which separates the centre from the corner. Four for
+four now.
+
+### The headless frame-time trap, for the third time
+
+The first mining run reported `frame ms` max 19.555 against the control's 6.944, which
+looks like a stutter caused by mining. It is not: `update ms` max moved 2.036 → 2.165 in
+the same pair, a tenth of a millisecond, and two repeat runs came back at 7.073 and 6.944
+with no spike at all. **Frame time in a headless run is the wrong instrument**, recorded
+twice before and now walked into a third time. `update ms` times our own work directly;
+use it.
+
+### Smaller things
+
+- **The tier list comes out of the registry**, so the number keys are load order and a mod
+  that adds a tier appears at the end. Nothing in the Godot layer knows a tool by name.
+- **The strongest tier is selected at startup**, not the weakest. A truer tutorial would
+  start on `hand_pick`, but the first swing at stone would then do nothing and read as a
+  broken build. Press 1 to feel the gate; the tier and its numbers print when you switch.
+- **Reach is the player's, not the tool's** — 5 m, on `MiningController`, and it belongs
+  to M4's controller when there is one. A tool tier says how big a bite it takes and what
+  it is hard enough to take; how far an arm reaches is not that.
+- **Esc stops mining as well as looking.** Without gating on the flycam's capture state,
+  clicking on something else while the window has focus digs a hole.
+- **`--mine` aims straight down** from a camera four metres above the surface. Aiming
+  along the flight path would spend the run pointing at sky, and a measurement of mining
+  that mostly misses is not one.
+- **The highlight is not visually verified.** Headless has no renderer, so all that is
+  proven is that it constructs and does not throw. It wants a windowed run, alongside the
+  three render questions already waiting for one.
+
 ## 2026-08-29 — M3c: the carve, and tools that arrive from JSON
 
 364 tests passing, up from 307. A swing now takes a sphere of material out of the world,

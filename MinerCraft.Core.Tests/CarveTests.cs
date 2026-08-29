@@ -467,6 +467,94 @@ public class CarveTests
         Assert.Equal(result.Candidates, result.TooHard);
     }
 
+    [Fact]
+    public void ASwingLandsOnTheHitVoxelsCentreRatherThanWhereTheRayEnteredIt()
+    {
+        // The M3d decision, pinned. The entry point lies on a voxel face, so a sphere centred
+        // there is half air before it starts and its reach depends on the angle of incidence.
+        var world = new FakeEditor { DefaultMaterial = Air };
+        world.Set(new VoxelPos(0, 0, 0), Dirt);
+
+        // Enters the -X face well off centre, at (0.0, 0.19, 0.19).
+        RayOutcome outcome = VoxelRay.Cast(
+            world,
+            new Vector3(-1.0f, 0.19f, 0.19f),
+            new Vector3(1f, 0f, 0f),
+            5f,
+            out VoxelHit hit);
+
+        Assert.Equal(RayOutcome.Hit, outcome);
+        Assert.Equal(new VoxelPos(0, 0, 0), hit.Voxel);
+
+        (float cx, float cy, float cz) = hit.Voxel.CentreMetres;
+        Assert.Equal(new Vector3(cx, cy, cz), Carve.SwingCentre(hit));
+
+        // And it is genuinely a different point from where the ray came in, or this test
+        // would pass whichever choice the code made.
+        Vector3 entry = new Vector3(-1.0f, 0.19f, 0.19f) + (new Vector3(1f, 0f, 0f) * hit.DistanceMetres);
+        Assert.NotEqual(entry, Carve.SwingCentre(hit));
+    }
+
+    [Fact]
+    public void TwoSwingsAtTheSameVoxelTakeTheSameMaterialWhereverTheRayEnteredIt()
+    {
+        // The property the voxel centre was chosen for, and the one the entry point cannot
+        // have: a tool's radius means the same thing however you were looking when you
+        // clicked. Both rays here hit the same voxel, one through the middle of its top face
+        // and one through a corner of it.
+        //
+        // Agreement alone is a weak claim, and watching it fail showed why: VoxelHit does not
+        // carry the ray, so Carve.Swing(hit, ...) *cannot* centre on the entry point — the
+        // type makes the wrong answer inexpressible, and any voxel-derived centre agrees.
+        // The symmetry assertion below is the one with teeth, because it separates the voxel's
+        // centre from its corner, which is what a sloppier "close enough" version would use.
+        var tool = Tool("pick", radius: 0.5f, threshold: 1.0f);
+
+        HashSet<VoxelPos> middle = SwingDownAt(0.125f, 0.125f, out VoxelHit a, out Vector3 entryA);
+        HashSet<VoxelPos> corner = SwingDownAt(0.005f, 0.005f, out VoxelHit b, out Vector3 entryB);
+
+        Assert.Equal(a.Voxel, b.Voxel);
+
+        // The rays fall the same distance, so it is the entry *point* that has to differ for
+        // this to be testing anything: one comes in through the middle of the top face and
+        // one through a corner of it.
+        Assert.NotEqual(entryA, entryB);
+        Assert.NotEmpty(middle);
+        Assert.Equal(middle, corner);
+
+        // The bite is centred on the voxel the player aimed at: mirroring it through that
+        // voxel on X and on Z maps the removed set onto itself. Y is left out because the
+        // fixture is a half-space and the sphere is clipped by the surface, not by the shape.
+        foreach (VoxelPos voxel in middle)
+        {
+            Assert.Contains(
+                new VoxelPos((2 * a.Voxel.X) - voxel.X, voxel.Y, (2 * a.Voxel.Z) - voxel.Z),
+                middle);
+        }
+
+        HashSet<VoxelPos> SwingDownAt(float x, float z, out VoxelHit hit, out Vector3 entry)
+        {
+            var world = new FakeEditor { DefaultMaterial = Air };
+            for (int vx = -6; vx <= 6; vx++)
+            for (int vy = -6; vy <= -1; vy++)
+            for (int vz = -6; vz <= 6; vz++)
+            {
+                world.Set(new VoxelPos(vx, vy, vz), Dirt);
+            }
+
+            var origin = new Vector3(x, 1.0f, z);
+            var direction = new Vector3(0f, -1f, 0f);
+
+            RayOutcome outcome = VoxelRay.Cast(world, origin, direction, 5f, out hit);
+
+            Assert.Equal(RayOutcome.Hit, outcome);
+            entry = origin + (direction * hit.DistanceMetres);
+            Accounted(Carve.Swing(world, Materials(), hit, tool));
+
+            return world.WrittenVoxels;
+        }
+    }
+
     private static void Accounted(CarveResult result) =>
         Assert.True(result.IsAccounted, $"unaccounted candidates: {result}");
 

@@ -26,6 +26,16 @@ public partial class FlyCam : Camera3D
     private float _pitch;
     private bool _mouseCaptured;
 
+    /// <summary>
+    /// Whether the mouse belongs to the game right now.
+    /// </summary>
+    /// <remarks>
+    /// Mining polls the left button, and Esc releasing the mouse has to stop that as well as
+    /// stop looking around — otherwise clicking on something else while the window has focus
+    /// digs a hole in the world.
+    /// </remarks>
+    public bool MouseCaptured => _mouseCaptured;
+
     public override void _Ready()
     {
         if (!GlobalPosition.IsEqualApprox(InitialTarget))
@@ -44,6 +54,7 @@ public partial class FlyCam : Camera3D
             $"MinerCraft — voxel {VoxelConstants.VoxelSize} m, " +
             $"chunk {VoxelConstants.ChunkSize}³ ({VoxelConstants.ChunkSizeMetres} m)\n" +
             "  WASD move, Space/Ctrl up-down, Shift sprint, Alt crawl\n" +
+            "  Left mouse mines, number keys pick a tier\n" +
             "  Esc releases the mouse, click to recapture");
     }
 

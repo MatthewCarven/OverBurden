@@ -137,6 +137,17 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// </remarks>
     public int ChunkClones { get; private set; }
 
+    /// <summary>Mesh jobs submitted because an edit invalidated a chunk, not because a
+    /// viewer moved.</summary>
+    /// <remarks>
+    /// Remeshes per swing is the number M3d is really asking about — one carve dirties up to
+    /// eight chunks, and each is a full 32³ sweep that has to finish between the click and
+    /// the eye noticing. Counted here rather than derived from
+    /// <see cref="CompletedJobs"/> because the two kinds of mesh job are indistinguishable
+    /// once they are done, and only this one is on the critical path.
+    /// </remarks>
+    public int EditRemeshes { get; private set; }
+
     /// <summary>Reads one voxel, or reports that its chunk is not there to read.</summary>
     /// <remarks>
     /// Delegated straight to the streamer, which is where the chunks live. It is on the
@@ -501,6 +512,11 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         // stays on screen while the horizon loads.
         bool urgent = chunk.NeedsRemesh;
         chunk.NeedsRemesh = false;
+
+        if (urgent)
+        {
+            EditRemeshes++;
+        }
 
         chunk.TransitionTo(ChunkState.Meshing);
         Submit(

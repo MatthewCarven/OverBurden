@@ -120,6 +120,17 @@ public sealed class StreamingProfiler
     /// </remarks>
     public SampleSeries MeshFree { get; } = new();
 
+    /// <summary>
+    /// Sim-thread time for one swing: the raycast plus the carve.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="PipelineUpdate"/> on purpose. This is what the click costs
+    /// directly; the remeshes it causes come back through the pipeline a frame or more later
+    /// and land in <c>update ms</c>. M3's question is about the second number, and this
+    /// series exists to show it is not the first.
+    /// </remarks>
+    public SampleSeries Swing { get; } = new();
+
     /// <summary>Seconds of settling to discard before measuring.</summary>
     /// <remarks>
     /// Without it the report is dominated by the initial fill — a thousand chunks generated

@@ -576,19 +576,32 @@ worker thread, not a wrong voxel.
 - [ ] Not measured yet: the clone rate under a held button. `ChunkPipeline.ChunkClones` counts
       it and a carve finally drives it, but nothing holds the button — that is M3d.
 
-#### M3d — Binding, feel, measurement ⬅️ **start here**
+#### M3d — Binding, feel, measurement ✅ done 2026-08-29, 367 tests passing
 
-- [ ] Mouse button on the flycam. **M3 does not need M4**; waiting for a player controller
-      would put the first fun moment behind a milestone that is not about fun.
-- [ ] Wireframe highlight on the targeted voxel. Not polish — aiming at 0.25 m voxels without
-      it makes every judgement about feel unreliable.
-- [ ] Measure under a held button, not per swing: chunks dirtied, remesh jobs per second,
-      `update ms`, and the clone rate M3a only guessed at (~2 KB per chunk per cycle).
-- [ ] **The question M3 is really asking: does a pick swing fit in a frame?** If not, the
-      ordered answers are — mesh only the dirty region, then smaller mesh blocks, then accept
-      a frame of latency and hide it. Not locks.
+- [x] Left mouse mines on the flycam, number keys pick a tier, Esc stops both looking and
+      mining. `MiningController` is Godot-free so `--mine` can drive it headlessly.
+- [x] Wireframe highlight on the targeted voxel, one `RenderingServer` instance moved rather
+      than churned. **Not visually verified** — headless has no renderer, so all that is
+      proven is that it constructs. See the windowed list below.
+- [x] **The swing is centred on the hit voxel's centre**, not the ray's entry point. The
+      entry point lies on a face, so half the sphere starts in air and the reach depends on
+      the angle of incidence — a radius in a mod's JSON would mean something different every
+      swing. `Carve.SwingCentre`, in Core, because where a swing lands is a game rule.
+- [x] **Answered: yes, a pick swing fits in a frame, with room to spare.** Mining
+      continuously at 5 swings/s while flying r6h/3v at 8 m/s moves `update ms` p99 from
+      0.910 to 1.038 ms and the main thread from 0.80% to 1.02% of one core, against a
+      16.7 ms frame. **Do not build** the dirty-region mesher, smaller mesh blocks, or a
+      latency-hiding scheme until something asks for them.
+- [x] **M3a's clone estimate settled: right per chunk, 7× pessimistic per swing.** Measured
+      1.2 clones and 2.4 KiB per swing against a guess of 8 chunks and ~16 KB. Eight chunks
+      is the worst case, at a corner; a 0.5 m sphere usually stays inside one.
+- [x] The raycast and carve themselves are 0.044 ms mean / 0.17 ms max. The cost is all in
+      the remesh, which is on workers, and its apply is already budgeted.
+- [x] **The headless frame-time trap, third time.** A mining run showed `frame ms` max
+      19.6 ms against a 6.9 ms control while `update ms` max moved 0.13 ms, and it did not
+      reproduce twice. Use `update ms`.
 
-#### Surfaced, not M3c's
+#### Surfaced, not M3c's or M3d's
 
 - [ ] `JobSchedulerTests.AThrowingJobFaultsWithoutTakingTheWorkerDownWithIt` failed once under
       heavy machine load and passes otherwise. It is a one-worker scheduler test with a
@@ -601,10 +614,14 @@ worker thread, not a wrong voxel.
 
 #### Open decisions
 
-- [ ] **Instant removal or progressive damage?** M3 ships instantaneous with a cooldown.
-      Progressive needs per-voxel damage state, which chunk storage has nowhere to put, so it
-      wants its own design pass rather than a field bolted on. Decide after M3d, with the
-      thing in hand.
+- [ ] **Instant removal or progressive damage?** M3 ships instantaneous with a per-tier
+      cooldown, and the thing is now in hand — so this is answerable by playing it, which is
+      Matthew's call rather than a measurement. Progressive needs per-voxel damage state,
+      which chunk storage has nowhere to put, so it wants its own design pass rather than a
+      field bolted on. `ToolDefinition.CooldownSeconds` already exists either way.
+- [ ] **Is the bite the right size, and does the hardness gate read?** `hand_pick` (0.4 m,
+      leaves stone) against `steel_pick` (0.5 m, takes it). Numbers, not code — they are two
+      JSON files, so tuning them needs no rebuild.
 - [ ] **Where is the swing centred — the ray's entry point, or the hit voxel's centre?** The
       entry point lies exactly on a voxel face, so about half the sphere lands in air and the
       effective reach depends on the incidence angle; the voxel centre is grid-aligned and
@@ -615,7 +632,7 @@ worker thread, not a wrong voxel.
       enough erases the mine. Acceptable until M6, recorded so it is not filed as an edit-path
       bug.
 
-### M4 — Player
+### M4 — Player ⬅️ **start here**
 
 - [ ] AABB vs voxel grid, **axis-separated** resolution (X, then Y, then Z)
 - [ ] Gravity, jump, step-up

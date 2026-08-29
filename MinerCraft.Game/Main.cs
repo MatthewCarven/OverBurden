@@ -5,6 +5,7 @@ using Godot;
 using MinerCraft.Core.Content;
 using MinerCraft.Core.Jobs;
 using MinerCraft.Core.Meshing;
+using MinerCraft.Core.Mining;
 using MinerCraft.Core.Streaming;
 using MinerCraft.Core.Voxels;
 using MinerCraft.Core.Worldgen;
@@ -48,10 +49,15 @@ public partial class Main : Node3D
     private ChunkPos _lastViewerChunk;
     private double _sinceReport;
 
+    private MiningController? _mining;
+    private VoxelHighlight? _highlight;
+    private readonly List<ToolDefinition> _tiers = [];
+
     private StreamingProfiler? _profiler;
     private float _flySpeed;
     private int? _caveLatticeStep;
     private TimeSpan? _applyBudget;
+    private bool _mineWhileProfiling;
 
     public GameContent Content { get; } = new();
 
@@ -89,6 +95,8 @@ public partial class Main : Node3D
         _lastViewerChunk = ViewerChunk();
         _viewer = _pipeline.Streamer.AddViewer(
             _lastViewerChunk, ViewDistanceHorizontal, ViewDistanceVertical);
+
+        SetUpMining();
 
         GD.Print(
             $"M2c: streaming r{ViewDistanceHorizontal}h/{ViewDistanceVertical}v " +
@@ -160,6 +168,13 @@ public partial class Main : Node3D
                 case "profile":
                     profile = true;
                     break;
+
+                // Holds the button down for the whole measured window. M3-PLAN asks for the
+                // cost of mining *continuously*, not of one swing, and a person holding a
+                // mouse is not a repeatable measurement.
+                case "mine":
+                    _mineWhileProfiling = true;
+                    break;
             }
         }
 
@@ -185,6 +200,7 @@ public partial class Main : Node3D
         }
 
         AdvanceFlythrough(delta);
+        UpdateMining(delta);
 
         // The viewer only moves in whole chunks. Comparing first means a camera drifting
         // inside one chunk never touches the streaming policy at all.
@@ -219,6 +235,132 @@ public partial class Main : Node3D
 
     private static double Milliseconds(long from, long to) =>
         (to - from) * 1000.0 / Stopwatch.Frequency;
+
+    /// <summary>
+    /// Builds the mining controller and the target highlight, and lists the tiers.
+    /// </summary>
+    /// <remarks>
+    /// The tiers come out of the registry in numeric-ID order, which is load order, so the
+    /// number keys are stable between runs and a mod that adds a tier simply appears at the
+    /// end. Nothing here knows a tool by name.
+    /// </remarks>
+    private void SetUpMining()
+    {
+        foreach ((_, _, ToolDefinition tier) in Content.Tools.Entries())
+        {
+            _tiers.Add(tier);
+        }
+
+        if (_tiers.Count == 0)
+        {
+            GD.PushWarning("MinerCraft: no tool tiers loaded, so there is nothing to mine with.");
+            return;
+        }
+
+        // The strongest tier by default. Starting on the weakest would be a truer tutorial,
+        // but the first swing at stone would then do nothing and read as a broken build.
+        ToolDefinition strongest = _tiers[0];
+        foreach (ToolDefinition tier in _tiers)
+        {
+            if (tier.HardnessThreshold > strongest.HardnessThreshold)
+            {
+                strongest = tier;
+            }
+        }
+
+        _mining = new MiningController(_pipeline!, MaterialTable.From(Content.Materials), strongest);
+        _highlight = new VoxelHighlight(GetWorld3D());
+
+        var names = new List<string>();
+        for (int i = 0; i < _tiers.Count; i++)
+        {
+            names.Add($"{i + 1}:{_tiers[i].Id.Path}");
+        }
+
+        GD.Print($"M3d: mining with {strongest.Id} — tiers {string.Join(", ", names)}");
+    }
+
+    /// <summary>
+    /// One frame of mining: aim, outline the target, and swing if the button is down.
+    /// </summary>
+    /// <remarks>
+    /// The swing is timed separately from <see cref="ChunkPipeline.Update"/> because they are
+    /// different costs answering different questions. This is the carve itself on the sim
+    /// thread; <c>update ms</c> is where the remeshes it caused come back and get turned into
+    /// meshes, a frame or more later. M3's real question — does a pick swing fit inside a
+    /// frame? — is about the second number, and this one is here to prove it is not the
+    /// first.
+    /// </remarks>
+    private void UpdateMining(double delta)
+    {
+        if (_mining is null || _camera is null)
+        {
+            return;
+        }
+
+        SelectTier();
+
+        Vector3 origin = _camera.GlobalPosition;
+        Vector3 forward = -_camera.GlobalTransform.Basis.Z;
+        bool mining = _camera.MouseCaptured && Input.IsMouseButtonPressed(MouseButton.Left);
+
+        if (_mineWhileProfiling)
+        {
+            // Straight down from a camera four metres above the surface. Aiming along the
+            // flight path would spend most of the run pointing at sky, and a measurement of
+            // mining that mostly misses is not one.
+            forward = Vector3.Down;
+            mining = true;
+        }
+
+        long before = Stopwatch.GetTimestamp();
+
+        bool swung = _mining.Update(
+            delta,
+            new System.Numerics.Vector3(origin.X, origin.Y, origin.Z),
+            new System.Numerics.Vector3(forward.X, forward.Y, forward.Z),
+            mining);
+
+        if (swung && _profiler is { Warm: true })
+        {
+            _profiler.Swing.Add(Milliseconds(before, Stopwatch.GetTimestamp()));
+        }
+
+        if (_highlight is null)
+        {
+            return;
+        }
+
+        if (_mining.HasTarget)
+        {
+            _highlight.ShowAt(_mining.Hit.Voxel);
+        }
+        else
+        {
+            _highlight.Hide();
+        }
+    }
+
+    private void SelectTier()
+    {
+        if (_mining is null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < _tiers.Count && i < 9; i++)
+        {
+            if (!Input.IsKeyPressed(Key.Key1 + i) || ReferenceEquals(_mining.Tool, _tiers[i]))
+            {
+                continue;
+            }
+
+            _mining.Tool = _tiers[i];
+            GD.Print(
+                $"M3d: {_tiers[i].Id} — radius {_tiers[i].RadiusMetres:F2} m, " +
+                $"takes hardness <= {_tiers[i].HardnessThreshold:F1}");
+        }
+    }
 
     /// <summary>
     /// Drives the camera along a fixed path during a profile run, hugging the surface.
@@ -261,7 +403,8 @@ public partial class Main : Node3D
             $"\n=== MinerCraft streaming profile ===\n" +
             $"config    r{ViewDistanceHorizontal}h/{ViewDistanceVertical}v " +
             $"+{streamer.LoadMargin} margin, {_scheduler!.ThreadCount} workers, " +
-            $"{_flySpeed:F0} m/s\n" +
+            $"{_flySpeed:F0} m/s" +
+            (_mining is null ? "\n" : $", {_mining.Tool.Id}\n") +
             $"{_profiler.PipelineUpdate.Line("update ms")}\n" +
             $"{_profiler.MeshFree.Line("free ms")}   (deferred by Godot — see MeshFreeQueue)\n" +
             $"{_profiler.Frame.Line("frame ms")}\n" +
@@ -274,8 +417,39 @@ public partial class Main : Node3D
             $"applying  {_pipeline.AppliedResults} applied, {_pipeline.PendingResults} still " +
             $"waiting at the end of the run\n" +
             $"freeing   {_freeQueue.TotalFreed} released, peak queue {_freeQueue.PeakPending}\n" +
+            MiningLines() +
             $"{StreamingProfiler.RenderLine()}\n" +
             $"{StreamingProfiler.MemoryLine()}\n");
+    }
+
+    /// <summary>
+    /// The mining half of the profile: what a held button actually cost.
+    /// </summary>
+    /// <remarks>
+    /// Per swing rather than per second, because a swing is the unit the player experiences
+    /// and the cooldown makes the per-second figure a statement about the cooldown. The clone
+    /// rate is here because M3-PLAN guessed at it — "roughly one 2 KB clone per chunk per
+    /// edit-and-remesh cycle" — and said M3d would settle it.
+    /// </remarks>
+    private string MiningLines()
+    {
+        if (_mining is null || _mining.Swings == 0)
+        {
+            return string.Empty;
+        }
+
+        double swings = _mining.Swings;
+
+        return
+            $"{_profiler!.Swing.Line("swing ms")}   (raycast + carve, sim thread)\n" +
+            $"mining    {_mining.Swings} swings, {_mining.VoxelsRemoved / swings:F0} removed / " +
+            $"{_mining.VoxelsRefused / swings:F0} too hard / " +
+            $"{_mining.VoxelsAlreadyAir / swings:F0} already air per swing\n" +
+            $"remesh    {_pipeline!.EditRemeshes / swings:F1} chunks per swing, " +
+            $"{_pipeline.EditRemeshes / Math.Max(_profiler.MeasuredSeconds, 0.001):F1}/s\n" +
+            $"clones    {_pipeline.ChunkClones / swings:F1} per swing " +
+            $"({_pipeline.ChunkClones * 2.0 / swings:F1} KiB at ~2 KiB each)\n" +
+            $"clipped   {_mining.ClippedSwings} swing(s) reached past the loaded world\n";
     }
 
     /// <summary>
@@ -394,6 +568,9 @@ public partial class Main : Node3D
         // renderer a mesh for a chunk that has just been torn down.
         _pipeline?.Dispose();
         _scheduler?.Dispose();
+
+        _highlight?.Dispose();
+        _highlight = null;
 
         // Budget ignored here: a stutter during teardown costs nothing and a leak would not.
         _freeQueue.DrainAll();

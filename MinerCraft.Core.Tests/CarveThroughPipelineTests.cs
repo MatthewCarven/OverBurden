@@ -99,6 +99,31 @@ public class CarveThroughPipelineTests
         Assert.All(remeshed.Values, count => Assert.Equal(1, count));
     }
 
+    [Fact]
+    public void OnlyEditRemeshesAreCountedAsEditRemeshes()
+    {
+        // Remeshes per swing is the number M3d is asking about, so it must not quietly
+        // include the streaming meshes that fill the view in the first place — which
+        // outnumber it by a hundred to one on any real run.
+        using var harness = new PipelineHarness();
+        harness.Pipeline.Streamer.AddViewer(Deep, 1, 1);
+        harness.Settle();
+
+        Assert.True(harness.MeshesDelivered > 0, "the view must have meshed something first");
+        Assert.Equal(0, harness.Pipeline.EditRemeshes);
+
+        var centre = new Vector3(
+            Deep.OriginVoxel.X * VoxelConstants.VoxelSize,
+            Deep.OriginVoxel.Y * VoxelConstants.VoxelSize,
+            Deep.OriginVoxel.Z * VoxelConstants.VoxelSize);
+
+        Carve.Sphere(harness.Pipeline, PipelineHarness.Materials(), centre, 0.5f, 3.5f);
+        harness.Settle();
+
+        // The eight chunks the corner swing touched, and nothing else.
+        Assert.Equal(8, harness.Pipeline.EditRemeshes);
+    }
+
     /// <summary>How many extra meshes each chunk has been handed since <paramref name="before"/>.</summary>
     private static Dictionary<ChunkPos, int> Remeshes(
         PipelineHarness harness, Dictionary<ChunkPos, int> before) =>

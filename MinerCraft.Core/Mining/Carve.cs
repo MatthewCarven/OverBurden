@@ -93,6 +93,50 @@ public static class Carve
         return Sphere(world, materials, centreMetres, tool.RadiusMetres, tool.HardnessThreshold);
     }
 
+    /// <summary>Swings <paramref name="tool"/> at what a raycast found.</summary>
+    /// <remarks>
+    /// The overload that exists so the centring decision lives in one place rather than at
+    /// every call site. See <see cref="SwingCentre"/> for which point it picks and why.
+    /// </remarks>
+    public static CarveResult Swing(
+        IVoxelEditor world,
+        MaterialTable materials,
+        in VoxelHit hit,
+        ToolDefinition tool) =>
+        Swing(world, materials, SwingCentre(hit), tool);
+
+    /// <summary>
+    /// Where a swing lands, given what the player is pointing at: <b>the centre of the hit
+    /// voxel</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The alternative was <see cref="VoxelHit.DistanceMetres"/> along the ray — the point
+    /// where it entered the voxel. That point lies exactly on a voxel face, so roughly half
+    /// the sphere lands in air already, and how much of it does depends on the angle of
+    /// incidence: the same tool takes a visibly bigger bite square-on than at a glance. A
+    /// radius written in a mod file would mean something different on every swing.
+    /// </para>
+    /// <para>
+    /// The voxel centre is grid-aligned, so the bite is the size the JSON says, it is the
+    /// same from every angle, and swinging twice at the same voxel does the same thing twice.
+    /// The cost is honest and small: aim near the edge of a voxel and the hole is centred a
+    /// little off where the crosshair sat, up to an eighth of a metre. At 0.25 m voxels with
+    /// a highlight box drawn around the target, that is a discrepancy the player can see the
+    /// reason for.
+    /// </para>
+    /// <para>
+    /// Recorded rather than tuned: <see cref="CarveResult.AlreadyAir"/> against
+    /// <see cref="CarveResult.Candidates"/> is the number that would argue for the other
+    /// choice, and it is reported on every swing.
+    /// </para>
+    /// </remarks>
+    public static Vector3 SwingCentre(in VoxelHit hit)
+    {
+        (float x, float y, float z) = hit.Voxel.CentreMetres;
+        return new Vector3(x, y, z);
+    }
+
     /// <summary>
     /// Removes every voxel whose <b>centre</b> lies within <paramref name="radiusMetres"/> of
     /// <paramref name="centreMetres"/> and whose material is soft enough for

@@ -13,12 +13,12 @@ No mobs, no combat. The mine is the antagonist.
 
 ## Status
 
-**M0, M1 and M2 done**, and M3 is nearly there — 364 tests passing. Terrain streams around the
-camera without end: worldgen and greedy meshing run on worker threads over
-palette-compressed storage, drawn via `RenderingServer` with a texture array, with every
-material loaded from `mods/minercraft/*.json` exactly the way a third-party mod would load
-its own. Chunks load and unload as you move, on a scheduler that reprioritises queued work
-and cancels what went stale before a thread was free to run it.
+**M0, M1, M2 and M3 done** — 367 tests passing. Terrain streams around the camera without
+end: worldgen and greedy meshing run on worker threads over palette-compressed storage,
+drawn via `RenderingServer` with a texture array, with every material loaded from
+`mods/minercraft/*.json` exactly the way a third-party mod would load its own. Chunks load
+and unload as you move, on a scheduler that reprioritises queued work and cancels what
+went stale before a thread was free to run it.
 
 Some numbers it is built on:
 
@@ -30,16 +30,18 @@ Some numbers it is built on:
 - **~46 KiB per drawn chunk**, mesh-dominated against ~2 KB of voxel storage — which is why
   view distance is a horizontal radius and a vertical one, not a single number.
 
-M3 is mining — the first thing that will be fun. Most of it exists: voxels can be written
-while worker threads read them, a DDA raycast says which one you are pointing at, and a swing
-takes a sphere of material out of the world, gated per voxel by hardness. Swing a `hand_pick`
-at a dirt bank with a stone seam through it and the dirt goes while the seam stands — no
-special case, no "you cannot mine this" message, just the shape of the hole telling you what
-your tool is for. Tool tiers are content, loading from `mods/minercraft/tools/*.json` through
-the same loader materials use.
+**M3 is mining, and you can do it.** Hold the left mouse button and a sphere of material
+comes out of the world, gated per voxel by hardness. Swing a `hand_pick` at a dirt bank with
+a stone seam through it and the dirt goes while the seam stands — no special case, no "you
+cannot mine this" message, just the shape of the hole telling you what your tool is for. Tool
+tiers are content, loading from `mods/minercraft/tools/*.json` through the same loader
+materials use; the number keys switch between them.
 
-What is left is binding it to a mouse button, drawing a highlight on the targeted voxel, and
-measuring whether a pick swing fits inside a frame.
+The milestone's question was whether a pick swing fits inside a frame. Mining continuously
+while flying costs **a fifth of a percent of one core** and moves the pipeline's p99 from
+0.91 ms to 1.04 ms, against a 16.7 ms frame. It fits.
+
+M4 is the player: an AABB against the voxel grid, gravity, and step-up.
 
 ## Run it
 
@@ -49,7 +51,7 @@ start.cmd
 
 Needs Godot 4.7.1-stable **mono**, either vendored at `./Godot_v4.7.1-stable_mono_win64/`
 or shared from `../GAME/`. WASD to move, Space/Ctrl for up and down, Shift to sprint,
-Esc to release the mouse.
+Esc to release the mouse. Left mouse mines; 1 and 2 pick a tool tier.
 
 ```
 dotnet test MinerCraft.slnx
