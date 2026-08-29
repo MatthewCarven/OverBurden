@@ -103,7 +103,7 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1 and **all of M2** are done — **294 tests passing**, and M3a with them. Terrain streams around the
+M0, all of M1 and **all of M2** are done — **307 tests passing**, and M3a/M3b with them. Terrain streams around the
 flycam: worldgen and greedy meshing run on worker threads over palette-compressed storage,
 with materials loaded from JSON, and chunks load and unload as the viewer moves.
 
@@ -247,7 +247,22 @@ Three things about it that are easy to undo by accident:
   from the pre-edit snapshot, so `Complete` pushes the chunk again — nothing else would, because
   `Advance` refuses a chunk with a job in flight.
 
-**M3b, the raycast, is next.** The plan is [docs/M3-PLAN.md](docs/M3-PLAN.md).
+**M3b — the raycast: done 2026-08-29.** `VoxelRay.Cast` (Amanatides & Woo) over `IVoxelWorld`,
+which `ChunkStreamer` implements. Returns the hit voxel, the face normal, the entry distance
+and the last empty voxel before it — the last one is where M6's placement goes.
+
+- **`Blocked` is not `Missed`.** An unloaded voxel is an unknown, not an empty one. Collapsing
+  them lets the player aim through the edge of the loaded world at a chunk that does not exist,
+  where the edit vanishes with nothing to report.
+- **Its fuzz is a ray/AABB slab test, not a sampler, and that was a correction.** A sampler is
+  less exact than the DDA — a ray can clip a voxel corner for less than one sample step — so
+  the first version failed on the code being right.
+
+**A working rule this milestone earned twice: watch a fuzz test fail before trusting it.**
+M3a's hung instead of failing; M3b's first oracle was wrong in the subject's favour. Neither
+would have shown up in a green run. Both now say in a comment what breaks them and how fast.
+
+**M3c, the carve, is next.** The plan is [docs/M3-PLAN.md](docs/M3-PLAN.md).
 
 Three things stay open, all needing a windowed run rather than a headless one: whether the
 free budget actually removes the stutter (headless has no deferred deallocation), and M1d's

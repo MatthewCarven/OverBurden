@@ -1,5 +1,60 @@
 # MinerCraft — Worklog
 
+## 2026-08-29 — M3b: the raycast, and an oracle that was worse than the code
+
+307 tests passing, up from 294.
+
+### Built
+
+`VoxelRay.Cast` — Amanatides & Woo — plus `IVoxelWorld`, which `ChunkStreamer` now
+implements. It returns the hit voxel, the face normal, the entry distance, and the last empty
+voxel before the hit; that last one is where a placement goes at M6, so returning it now costs
+nothing and saves reopening this.
+
+`RayOutcome` has three values, not two. **`Blocked` is separate from `Missed`** because an
+unloaded voxel is an unknown rather than an empty one — collapsing them would let the player
+aim through the edge of the loaded world at a voxel in a chunk that does not exist, where the
+edit then vanishes with nothing to report.
+
+### The finding: a sampled reference is not an oracle
+
+The plan said to fuzz against a brute-force reference, the way `ChunkBox` was fuzzed. The
+obvious reference is a sampler — step along the ray far finer than a voxel and report the
+first solid one. Written that way, the fuzz **failed on the DDA being right**.
+
+A ray can clip the corner of a voxel and stay inside it for a shorter distance than the sample
+step, so the sampler misses voxels the DDA correctly reports. With 4,000 rays and a step of
+1/64 of a voxel that is not rare at all. **The reference was less exact than the thing it was
+testing**, which makes it not a reference.
+
+Replaced with a ray/AABB slab test against every solid voxel, keeping the nearest entry. That
+is exact, and it is a genuinely different algorithm — intersect each box, versus walk the grid
+incrementally — which is what makes agreement worth anything. Sharing reasoning with the
+subject is the other way an oracle quietly stops testing.
+
+### Watched it fail, deliberately, before trusting it
+
+The M3a lesson applied on the next part rather than filed and forgotten. Flipping
+`FirstBoundary` to use the near corner for positive directions breaks the fuzz in **7 ms**,
+so it has teeth. Both facts are in the test's comment, because the next person to touch it
+should not have to redo the experiment to know it was done.
+
+Two for two now: M3a's fuzz hung instead of failing and had to be fixed, and M3b's first
+oracle was wrong in the subject's favour. **Neither would have been noticed by a green test
+run.**
+
+### Smaller things
+
+- **Axis-parallel rays work by arithmetic rather than by special case.** An axis the ray does
+  not move along gets an infinite `tMax`, so the nearest-axis comparison can never choose it.
+  There is a test for it, and its failure mode is the suite hanging rather than failing —
+  hence the deliberately short range.
+- **A zero direction throws** rather than looping forever, which is the same failure wearing a
+  friendlier hat.
+- **Stops at the first non-air voxel.** Fluids arrive at M8, at which point "solid" and "not
+  air" stop meaning the same thing and this wants a stop predicate. Recorded as a trigger in
+  the class remarks rather than guessed at now.
+
 ## 2026-08-29 — M3a: the edit path, and a fuzz test that hung instead of failing
 
 294 tests passing, up from 277. Voxels can be written while workers read them, which is the

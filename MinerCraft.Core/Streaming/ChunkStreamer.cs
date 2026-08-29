@@ -1,3 +1,4 @@
+using MinerCraft.Core.Content;
 using MinerCraft.Core.Jobs;
 using MinerCraft.Core.Voxels;
 using MinerCraft.Core.Worldgen;
@@ -19,7 +20,7 @@ namespace MinerCraft.Core.Streaming;
 /// renderer and without threads.
 /// </para>
 /// </remarks>
-public sealed class ChunkStreamer
+public sealed class ChunkStreamer : IVoxelWorld
 {
     /// <summary>
     /// How many chunks are loaded beyond what a viewer can actually see.
@@ -191,6 +192,27 @@ public sealed class ChunkStreamer
 
     public StreamedChunk? Get(ChunkPos position) =>
         _chunks.TryGetValue(position, out StreamedChunk? chunk) ? chunk : null;
+
+    /// <summary>Reads one voxel, if the chunk holding it exists and has generated.</summary>
+    /// <remarks>
+    /// False means "not loaded", which a caller must not read as "air" — see
+    /// <see cref="RayOutcome.Blocked"/>. A chunk that is tracked but still
+    /// <see cref="ChunkState.Generating"/> answers false for the same reason: it has no
+    /// voxels yet, and guessing at them is how a ray walks through terrain that is about to
+    /// exist.
+    /// </remarks>
+    public bool TryGetMaterial(VoxelPos voxel, out int materialId)
+    {
+        if (!_chunks.TryGetValue(voxel.Chunk, out StreamedChunk? chunk) || chunk.Voxels is null)
+        {
+            materialId = MaterialIds.AirNumericId;
+            return false;
+        }
+
+        (int localX, int localY, int localZ) = voxel.Local;
+        materialId = chunk.Voxels.Get(localX, localY, localZ);
+        return true;
+    }
 
     /// <summary>Whether a record exists — viewed, or retained for a job in flight.</summary>
     public bool IsTracked(ChunkPos position) => _chunks.ContainsKey(position);

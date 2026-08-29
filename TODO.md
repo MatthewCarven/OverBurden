@@ -516,19 +516,23 @@ worker thread, not a wrong voxel.
       drives it until there is a carve. M3-PLAN's "~2 KB per chunk per cycle" is still an
       estimate; M3d settles it.
 
-#### M3b — The raycast ⬅️ **start here**
+#### M3b — The raycast ✅ done 2026-08-29, 307 tests passing
 
-- [ ] Amanatides & Woo voxel DDA. Returns hit voxel, face normal, entry distance, and the
+- [x] Amanatides & Woo voxel DDA. Returns hit voxel, face normal, entry distance, and the
       last empty voxel before the hit — which is where M6's placement goes, so returning it
       now avoids revisiting.
-- [ ] Fuzz against a fine-step reference sampler, the way `ChunkBox` was fuzzed against brute
-      force. Hand-written cases miss sign errors in the negative octants.
-- [ ] **An unloaded chunk must stop the ray, not read as air.** Otherwise the player targets
+- [x] Fuzzed against brute force the way `ChunkBox` was — but **not** against the fine-step
+      sampler this plan called for. A sampler is *less exact than the DDA*: a ray can clip a
+      voxel corner for less than one sample step, so it misses voxels the walk correctly
+      reports, and the first version of this fuzz failed on the code being right. Replaced
+      with an exact ray/AABB slab test, which is also a genuinely different algorithm.
+- [x] Watched fail before being trusted: flipping the boundary calculation breaks it in 7 ms.
+- [x] **An unloaded chunk must stop the ray, not read as air.** Otherwise the player targets
       a voxel in a chunk that does not exist and the edit vanishes with nothing to report.
-- [ ] Ray starting inside solid material returns that voxel with no normal, or the first
+- [x] Ray starting inside solid material returns that voxel with no normal, or the first
       swing mines whatever the camera is embedded in.
 
-#### M3c — The carve
+#### M3c — The carve ⬅️ **start here**
 
 - [ ] Sphere by voxel-centre distance test, radius in metres from the tool.
       **"Sub-voxel" means the voxel is small, not partly full** — partial occupancy is the
