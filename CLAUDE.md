@@ -489,8 +489,10 @@ was mechanical; both things nothing caught were in the world rules that went int
   `_PhysicsProcess` and the rest in `_Process`, and Godot runs a frame's physics ticks first.
 - **Reach moved to the player and deliberately did not change.** Still 5 m;
   `MiningController.ReachMetres` is now `required` and defaultless so there is no second literal.
-  M4-PLAN's table says 3.5 m and the play-test says 5 m reads long — both are feel, and **M4d
-  settles it by playing**. Retuning in the same pass as the move would confuse the two changes.
+  M4-PLAN's table said 3.5 m and the M3 play-test said 5 m read long — both were feel, and
+  retuning in the same pass as the move would have confused the two changes. **Settled by play
+  2026-08-30: 5 m stays**, generous on purpose, with **a survival mode as the recorded trigger**
+  to shorten it to 3 m or 2 m. The plan's 3.5 m was an estimate and was never shipped.
 
 **M4 has been played, twice, and the headline question is answered: 0.25 m ground walks like
 ground.** "Walking uphill occurred naturally, I did not need to jump" — which is DESIGN's claim
@@ -538,7 +540,9 @@ pairs rather than fights — and the swap is one line. Left on Ctrl pending a pl
 **M3 has been played, and it feels good** — the verdict the milestone was actually waiting on,
 since it is the first whose output was a feeling rather than a number. `VoxelHighlight` is
 verified windowed. One note came out of it: **reach reads a little long at 5 m**, which is
-twenty voxels. Unchanged, because it is fine for a creative-mode flycam and because reach is
+twenty voxels. **M4d settled it 2026-08-30 and 5 m stayed** — generous, and generous is the
+right way to be wrong in a sandbox. Unchanged, because it is fine for a creative-mode flycam and
+because reach is
 the *player's* rather than the tool's — M4 is where something exists to own it, which is the
 same argument that kept it out of the tool JSON.
 

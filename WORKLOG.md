@@ -1,5 +1,46 @@
 # MinerCraft — Worklog
 
+## 2026-08-30 — Settled: reach stays at 5 m, and two things now want game modes
+
+**"Generous but I'll allow."** That closes the last of M4d's feel questions, and it closes it in
+the right direction: over-reach costs a slightly floaty crosshair, under-reach costs not being
+able to touch the thing you are looking at, so **generous is the right way to be wrong in a
+sandbox**.
+
+M4-PLAN's constants table guessed **3.5 m** and it was never shipped — the estimate has been
+struck through rather than quietly deleted, because a guessed number that was overruled by play
+is more useful in the record than absent. Every copy of "M4d settles it" is now resolved: the
+plan's table, its M4c and M4d sections, two TODO entries, two CLAUDE.md passages and
+`PlayerController.ReachMetres`' own doc comment.
+
+**Recorded revisit trigger: a survival mode wants 3 m or 2 m.** Not a tuning note. The number is
+right for *this* mode and wrong for one that does not exist, so it changes when the mode does.
+
+### The count worth noticing: two things now wait on a game-mode concept
+
+- **Reach** — 5 m creative, 2–3 m survival.
+- **The precision mining modifier** — whether Ctrl+chip should be creative-only, which was the
+  original shape of the 2026-08-30 mining proposal before it became a pure modifier.
+
+Neither justifies building game modes on its own, and both were deliberately deferred for the
+same reason: M4c made fly mode a *measurement instrument*, so there is nothing honest to gate on
+today. **Two is where the shape of the thing starts being knowable**; a third would make it
+overdue. Written down so the count is visible rather than rediscovered one requirement at a time.
+
+### Where M4 stands
+
+**M4a, M4b and M4c are done, and M4d's entire playable half is answered:** the jump feels
+natural, 0.25 m ground walks like ground with no jumping needed uphill, you "sortof" fit down a
+tunnel you carve exactly as the arithmetic predicted, and reach stays at 5 m. **No constant
+measured in M4a or M4b was overturned by playing.**
+
+What is left of M4d is the measurement half, untouched: fall mode in the profiler, substeps and
+voxel queries per step, ground-state flicker, collider cost timed directly — and *steps spent
+held*, which still needs the signal M4b deliberately did not build, because `MoveResult` cannot
+tell "stopped by rock" from "stopped by an unloaded chunk". That is the number that picks
+terminal velocity, and it is the last open question in the milestone.
+
+
 ## 2026-08-30 — Two mining shapes: the sphere keeps the click, Ctrl takes one voxel
 
 Decided and built. `Carve.Chip` and `Carve.Voxel` join `Carve.Swing` and `Carve.Sphere`; the

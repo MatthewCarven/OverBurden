@@ -206,7 +206,7 @@ between them are right, and M4d replaces them by playing.
 | Sprint | 7.0 m/s | Below the 15 m/s tunnelling threshold with room to spare |
 | Terminal | 40 m/s | **Set by streaming, not by realism** — see below |
 | Step height | 0.5 m | 2 voxels. **One constant, used by step-up and step-down both** |
-| Reach | 3.5 m | **Not M4b's after all** — not a body dimension, so it stayed on `MiningController` for M4c |
+| Reach | ~~3.5 m~~ → **5 m** | **Not M4b's after all** — not a body dimension, so it moved to `PlayerController` at M4c. **Settled by play 2026-08-30: 5 m stays.** The 3.5 m in this row was the estimate and was never shipped |
 
 **Terminal velocity is a streaming parameter wearing a physics costume.** The vertical view
 radius is 2–3 chunks, so there is 16–24 m of loaded world beneath the player. At 40 m/s that
@@ -354,6 +354,12 @@ M3d put `ReachMetres` on `MiningController` with a comment saying it belongs to 
 when one exists. One exists now. The field moves, and the play-test's note — "reads a little
 long at 5 m, which is twenty voxels" — becomes M4d's to settle.
 
+**Settled 2026-08-30: 5 m stays.** Judged generous rather than wrong, and generous is the right
+error for a sandbox. **Recorded revisit trigger: a survival mode, where it wants 3 m or 2 m** —
+which is now the *second* thing waiting on a game-mode concept, alongside whether the precision
+mining modifier should be gated. Two is worth noticing; it is the argument for when modes should
+exist rather than a reason to build them now.
+
 ### Spawn, which is the cycle at its worst
 
 At the first frame nothing is loaded, so every voxel is solid, so the player cannot move. Three
@@ -458,7 +464,7 @@ to expect the fourth encounter to look different.
   this and neither can be judged from a number.
 - **Is the jump right?** Height, gravity, and whether coyote time and jump buffering are
   needed at all.
-- **Is 3.5 m the right reach**, now that there is a body for it to belong to.
+- ~~Is 3.5 m the right reach~~ — **answered 2026-08-30: 5 m stays**, generous and deliberately so. Survival mode is the recorded trigger to revisit it at 3 m or 2 m.
 - **Does the box fit the world?** Specifically: walking down a tunnel dug with the starting
   pick, which is the coupling M4b names.
 

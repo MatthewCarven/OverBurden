@@ -87,15 +87,24 @@ public sealed class PlayerController
     /// How far the player can reach, in metres.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>The player's, not the tool's</b> — M3d put it on <see cref="MiningController"/> with a
     /// comment saying it belonged here as soon as a player existed, and one does. A tier says
     /// how big a bite it takes and what it is hard enough to take it out of; how far an arm
     /// reaches is a property of the arm.
+    /// </para>
     /// <para>
-    /// Still 5 m, which is what M3d shipped and played. M4-PLAN's constants table says 3.5 m and
-    /// the play-test note says 5 m "reads a little long, which is twenty voxels" — both are
-    /// opinions about feel, and M4d settles them by playing. Moving the field and re-tuning the
-    /// number in the same pass would make it impossible to tell which change did what.
+    /// <b>5 m, settled by play at M4d on 2026-08-30 and deliberately generous.</b> M4-PLAN's
+    /// constants table guessed 3.5 m and it was never shipped; the M3 play-test called 5 m "a
+    /// little long, which is twenty voxels", and playing it with a body decided that generous is
+    /// the right way to be wrong in a sandbox — over-reach costs a slightly floaty crosshair,
+    /// under-reach costs not being able to touch what you are looking at.
+    /// </para>
+    /// <para>
+    /// <b>Recorded revisit trigger: a survival mode, which wants 3 m or 2 m.</b> The number is
+    /// right for this mode and wrong for one that does not exist yet, so it changes when the mode
+    /// does. It is the second thing waiting on a game-mode concept, after whether the precision
+    /// mining modifier should be gated to creative.
     /// </para>
     /// </remarks>
     public float ReachMetres { get; init; } = DefaultReachMetres;

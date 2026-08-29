@@ -678,8 +678,9 @@ worker thread, not a wrong voxel.
 - [ ] **Reach reads a little long at 5 m**, which is twenty voxels. Fine for a creative-mode
       flycam, so unchanged {D} but **reach is the player's, not the tool's**, and M4 is where
       something exists to own it. A survival reach wants to be shorter. **M4c moved it to
-      `PlayerController.ReachMetres`** — still 5 m, still deliberately not in the tool JSON, and
-      **M4d settles the number by playing.**
+      `PlayerController.ReachMetres`** — still 5 m and still deliberately not in the tool JSON.
+      **Settled by play 2026-08-30: 5 m stays**, with survival mode as the recorded trigger to
+      shorten it to 3 m or 2 m.
 - [ ] **Is the bite the right size, and does the hardness gate read?** `hand_pick` (0.4 m,
       leaves stone) against `steel_pick` (0.5 m, takes it). Numbers, not code — they are two
       JSON files, so tuning them needs no rebuild.
@@ -899,9 +900,10 @@ out of the world and accelerates away from anything that could stop them.
 - [x] **`ReachMetres` moved to `PlayerController`**, closing M3d's recorded item.
       `MiningController.ReachMetres` is now `required` and defaultless, so there is no second
       number to drift — `PlayerController.DefaultReachMetres` is the only literal.
-      **Deliberately still 5 m**: the plan's table says 3.5 m and the play-test says 5 m reads
-      long, both are feel, and **M4d settles it**. Moving the field and retuning it in one pass
-      would make it impossible to tell which change did what.
+      **Settled at 5 m by play 2026-08-30**, so the plan's 3.5 m estimate was never shipped.
+      At the time of the move it was deliberately left alone: the plan's table said 3.5 m and the
+      M3 play-test said 5 m read long, both were feel, and retuning in the same pass as the move
+      would have made it impossible to tell which change did what. Play decided it a day later.
 - [x] **Spawn is the cycle at its worst**, and the order is **gate, then unstick, then step**.
       `PlayerSpawn.IsWorldReadyFor` checks every chunk the box overlaps *and the chunk beneath
       each of them*; `FeetOnSurface` places the feet on the row above the surface voxel;
@@ -1009,7 +1011,18 @@ out of the world and accelerates away from anything that could stop them.
       either side. It is **one number in one JSON file and needs no rebuild**, which is what M3c
       made tool tiers content for. Widening the *player* instead is the move M4-PLAN warns
       against, because width is the half of the coupling that is not free.
-- [ ] Needs a human, still: is **5 m** the right reach now something owns it.
+- [x] **Played 2026-08-30: 5 m of reach stays.** "Generous but I'll allow" — and generous is
+      the right direction to err in a creative sandbox, where the cost of over-reach is a
+      slightly floaty crosshair and the cost of under-reach is not being able to touch what you
+      are looking at. **This closes the last of M4d's feel questions.**
+- [ ] **Revisit trigger: a survival mode wants 3 m or 2 m** {D}. Not a tuning note — the number
+      is right for *this* mode and wrong for a mode that does not exist yet, so it changes when
+      the mode does, not before.
+- [ ] **Two things now wait on a game-mode concept**, and that is the interesting part: reach
+      (5 m creative / 2–3 m survival) and whether the precision mining modifier should be gated
+      to creative at all. Neither justifies building modes on its own; **two is when the shape of
+      the thing starts being knowable**, and a third would make it overdue. Recorded so the count
+      is visible rather than rediscovered.
 
 #### Deliberately not in M4
 
