@@ -1,5 +1,36 @@
 # MinerCraft — Worklog
 
+## 2026-08-29 — M3 played, and the first milestone judged by feel passes
+
+Matthew ran it. **The highlight draws correctly and mining feels good.** That closes M3
+for real: it is the first milestone whose output was a feeling rather than a number, and
+the number half — a pick swing costing a fifth of a percent of one core — was never going
+to settle it on its own.
+
+### Two outcomes worth keeping
+
+**The highlight is verified.** It was the one M3d deliverable a headless run could not
+check, since there is no renderer to draw into; all the profile proved was that it
+constructs without throwing. It draws where it should, which also means the wireframe box
+is inflated by the right amount — coplanar lines would have z-fought into a moving dashed
+mess and been reported as a rendering bug.
+
+**Reach reads a little long at 5 m.** Called fine for a creative-mode flycam, and it is,
+so the number is unchanged. It is recorded rather than tuned because **reach is the
+player's, not the tool's**, and M4 is where a player exists to own it — that is the same
+argument that kept it out of the tool JSON in the first place. A survival reach wants to
+be shorter; at 0.25 m voxels, 5 m is twenty of them.
+
+### What that leaves open
+
+Three windowed questions, down from four, and none of them M3's: whether the free budget
+removes the stutter, and M1d's `RenderingServer` versus `MeshInstance3D` and 2×2×2
+mesh-block questions, which want the draw-call counter `StreamingProfiler.RenderLine`
+already prints.
+
+Instant versus progressive break damage stays open and is now answerable by playing rather
+than by measuring, which is the state it was meant to reach.
+
 ## 2026-08-29 — M3d: mining is bound, and a pick swing fits in a frame with room to spare
 
 367 tests passing, up from 364. **M3 is done.** You can hold the left mouse button and

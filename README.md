@@ -37,6 +37,9 @@ cannot mine this" message, just the shape of the hole telling you what your tool
 tiers are content, loading from `mods/minercraft/tools/*.json` through the same loader
 materials use; the number keys switch between them.
 
+It has been played, and it feels good — which was the actual bar, this being the first
+milestone whose output is a feeling rather than a number.
+
 The milestone's question was whether a pick swing fits inside a frame. Mining continuously
 while flying costs **a fifth of a percent of one core** and moves the pipeline's p99 from
 0.91 ms to 1.04 ms, against a 16.7 ms frame. It fits.

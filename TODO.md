@@ -581,8 +581,8 @@ worker thread, not a wrong voxel.
 - [x] Left mouse mines on the flycam, number keys pick a tier, Esc stops both looking and
       mining. `MiningController` is Godot-free so `--mine` can drive it headlessly.
 - [x] Wireframe highlight on the targeted voxel, one `RenderingServer` instance moved rather
-      than churned. **Not visually verified** — headless has no renderer, so all that is
-      proven is that it constructs. See the windowed list below.
+      than churned. **Verified in a windowed run 2026-08-29** {D} it draws where it should, so
+      the inflation is enough to keep the lines off the faces they outline.
 - [x] **The swing is centred on the hit voxel's centre**, not the ray's entry point. The
       entry point lies on a face, so half the sphere starts in air and the reach depends on
       the angle of incidence — a radius in a mod's JSON would mean something different every
@@ -619,6 +619,12 @@ worker thread, not a wrong voxel.
       Matthew's call rather than a measurement. Progressive needs per-voxel damage state,
       which chunk storage has nowhere to put, so it wants its own design pass rather than a
       field bolted on. `ToolDefinition.CooldownSeconds` already exists either way.
+- [x] **Played 2026-08-29: mining feels good.** The verdict M3 was actually waiting on, and
+      the one no profile could give.
+- [ ] **Reach reads a little long at 5 m**, which is twenty voxels. Fine for a creative-mode
+      flycam, so unchanged {D} but **reach is the player's, not the tool's**, and M4 is where
+      something exists to own it. A survival reach wants to be shorter. It lives on
+      `MiningController.ReachMetres`, deliberately not in the tool JSON.
 - [ ] **Is the bite the right size, and does the hardness gate read?** `hand_pick` (0.4 m,
       leaves stone) against `steel_pick` (0.5 m, takes it). Numbers, not code — they are two
       JSON files, so tuning them needs no rebuild.

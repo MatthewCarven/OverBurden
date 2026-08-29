@@ -349,12 +349,17 @@ and the spike did not reproduce in two further runs. `update ms` times our own w
 and step-up. It has no plan document yet; M1-PLAN and M3-PLAN are the worked examples of how
 one gets written before any code.
 
-Four things stay open, all needing a windowed run rather than a headless one: whether
-`VoxelHighlight` actually draws where it should (headless has no renderer, so only its
-construction is proven), whether the free budget removes the stutter (headless has no deferred
-deallocation), and M1d's `RenderingServer` vs `MeshInstance3D` and 2×2×2 mesh-block questions,
-which need the windowed draw-call counter that `StreamingProfiler.RenderLine` already prints.
-`start.cmd`, then hold the left mouse button.
+**M3 has been played, and it feels good** — the verdict the milestone was actually waiting on,
+since it is the first whose output was a feeling rather than a number. `VoxelHighlight` is
+verified windowed. One note came out of it: **reach reads a little long at 5 m**, which is
+twenty voxels. Unchanged, because it is fine for a creative-mode flycam and because reach is
+the *player's* rather than the tool's — M4 is where something exists to own it, which is the
+same argument that kept it out of the tool JSON.
+
+Three things stay open, all needing a windowed run rather than a headless one: whether the
+free budget removes the stutter (headless has no deferred deallocation), and M1d's
+`RenderingServer` vs `MeshInstance3D` and 2×2×2 mesh-block questions, which need the windowed
+draw-call counter that `StreamingProfiler.RenderLine` already prints.
 
 The licence is settled: [PolyForm Noncommercial 1.0.0](LICENSE.md), source-available. It
 can be loosened to MIT any time; it cannot be tightened after the first outside PR is
