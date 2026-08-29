@@ -843,6 +843,24 @@ out of the world and accelerates away from anything that could stop them.
 - [ ] Not a bug, and will be reported as one: walking into your own tunnel is walking into the
       dark until M5.
 
+##### What M4b hands M4c, so it isn't rediscovered at the binding
+
+- [ ] **`PlayerState.AtFeet` is deliberately *not* grounded.** Nothing has looked yet; the first
+      step's gravity finds the floor and says so. A spawn that hands back `Grounded: true` lets
+      step-down fire before the body has ever been anywhere.
+- [ ] **Spawn and the fly→walk toggle both place the feet exactly on a voxel plane**, because
+      neither goes through a resolve that would add the contact epsilon. That is the exact case
+      `ALiftOfExactlyTheStepHeightClearsALipOfExactlyTheStepHeight` pins — so do not nudge the
+      spawn by an epsilon to make it look tidy, and do not be alarmed that the first step settles
+      by 0.1 mm.
+- [ ] **The camera and the mining ray share one origin:** `PlayerState.EyePosition(config)`.
+      Bind both from that call rather than deriving the offset twice, which is how a half-height
+      goes missing in one of them.
+- [ ] **`dt` comes from `_PhysicsProcess`; Core does not know the rate.** `project.godot` sets no
+      `physics_ticks_per_second`, so it is Godot's default 60 Hz, which is what M4b's constants
+      were measured at. **Changing it changes the jump height** — the apex overshoot is
+      `v·dt/2`, so a 30 Hz tick jumps 6 cm higher. Leave it alone or re-measure.
+
 #### M4d — Feel and measurement
 
 - [ ] **The question M4 is really asking: can the player outrun the streamer, and what does it
