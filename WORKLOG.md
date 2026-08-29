@@ -1,5 +1,67 @@
 # MinerCraft — Worklog
 
+## 2026-08-30 — Raised: single-voxel mining, and which way the modifier should point
+
+A design decision arrived from the play-test rather than from the plan: **mining one voxel at a
+time as the default, with the sphere carve kept under a modifier** — Ctrl, because Shift is
+sprint — for the person building something precise. Recorded, not built. Four things it touches,
+one of which is a locked decision.
+
+### It reverses a DESIGN line, and the reversal has a price tag
+
+DESIGN, under *Mining and placement — decoupled granularity*: **"Mining is sculpting: a pick
+swing removes a sphere or cone of material."** Changing which one a bare click does is a change
+to that line, and DESIGN is the document that exists so decisions are not quietly reversed.
+
+The price is measurable rather than aesthetic. `hand_pick`'s 0.4 m sphere takes roughly **17
+voxels**; a single-voxel swing takes one. So the default becomes about **17× slower to
+excavate** with the starting pick — and DESIGN's stated argument for volumetric inventory is
+that it "makes big excavations meaningfully productive", in a game whose premise is a mining
+operation fighting water and gravity. **The Taj Mahal case and the mining-operation case want
+opposite defaults**, which is the actual tension and is not resolved by picking a key.
+
+**Recommendation: keep the sphere on the bare click and put the single voxel on the modifier.**
+Identical capabilities, identical one modifier, no DESIGN reversal, and the productive action
+stays the default in the game about being productive. Precision becomes opt-in for the person
+who has already decided to build something — who is exactly the person willing to hold a key.
+
+### Volumetric inventory is safe either way, and that is worth writing down
+
+"One block at a time into inventory" reads at first like a contradiction of DESIGN's **"inventory
+is volumetric — litres of stone, not '3 stone blocks'"**. It is not. A voxel is 0.25³ m³ =
+**15.625 litres**. *Mining granularity* and *inventory unit* are independent: a single-voxel
+swing deposits 15.6 L of stone, a sphere deposits ~268 L, and the inventory never counts blocks
+in either case. Recorded so it does not get re-litigated as a conflict.
+
+### Ctrl is already bound, in exactly the mode that wants it
+
+`FlyCam` binds **Ctrl to descend** and **Alt to crawl**, both fly-only. So Ctrl and Alt are free
+in **walk** mode and taken in **fly** mode — the exact inverse of "multiblock in creative/fly
+under Ctrl". Ctrl+click while flying would sink and carve at once. Shift is sprint and stays
+sprint, which was the right call and is confirmed by play. Either accept the overlap, move
+fly-descend, or use a non-modifier binding alongside the tier number keys.
+
+### Fly mode is a measurement instrument, not a creative mode
+
+M4c deliberately made fly the thing `--profile` implies and the thing the walk toggle refuses to
+leave mid-run. Gating a gameplay privilege on it would tie a game rule to a profiling flag, and
+there is no creative/survival concept in the project to gate on instead. **Make it a modifier
+now**; add a mode gate if and when game modes exist. That is one line later and no lines now.
+
+### Two smaller consequences
+
+- **`radiusMetres` changes meaning if the default flips** — from "what a swing takes" to "what
+  the modifier swing takes". It is a live field in `mods/minercraft/tools/*.json` and
+  non-negotiable 5 says the base game is a mod, so that is a format change rather than a rename.
+- **`--mine` must keep profiling the sphere** whichever way the default goes. M3d's baseline is
+  the *worst* case; a profile that silently switched to single-voxel would report a cheaper
+  number under the same label and read as an improvement.
+
+Inventory itself is M6 — "SQLite save/load, brush placement, volumetric inventory" — and is
+genuinely later. The mining-mode split is small and could land any time: `Carve` already gates
+per voxel, so it is a mode on `MiningController` and a modifier read in `Main`.
+
+
 ## 2026-08-30 — Played: 0.25 m ground walks like ground
 
 **"Walking uphill occurred naturally, I did not need to jump."** That is the question M4d exists

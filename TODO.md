@@ -24,6 +24,46 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
             [docs/M2-REFERENCE-NOTES.md](docs/M2-REFERENCE-NOTES.md).
       - [ ] Revisit trigger: M1c or M2 exceeding ~3 sessions each
       - [ ] Revisit trigger: M13 distance LOD, where their advantage is largest
+- [ ] **Mining granularity: single voxel vs sphere, and which one is the default.** Raised
+      2026-08-30. The capability is not in question — both exist and the modifier is the
+      mechanism. **What is in question is which one a bare click does**, and it is an *economy*
+      decision rather than a control one:
+      - **It reverses a DESIGN line.** "Mining is sculpting: a pick swing removes a sphere or
+        cone of material" — DESIGN.md, *Mining and placement — decoupled granularity*. Changing
+        the default is a change to that, and DESIGN is where locked decisions live, so it wants
+        a deliberate edit rather than a drift.
+      - **The cost is ~17× excavation throughput with the starting pick.** `hand_pick`'s 0.4 m
+        sphere is about 17 voxels; one voxel is one voxel. DESIGN's own argument for volumetric
+        inventory is that it "makes big excavations meaningfully productive", and this game's
+        premise is a *mining operation* fighting water and gravity. **The Taj Mahal case and the
+        mining-operation case want opposite defaults.**
+      - **Recommendation: keep the sphere as the bare click and put the single voxel on the
+        modifier.** Same two capabilities, same one modifier, no DESIGN reversal, and the
+        expensive-by-default action stays the one the premise is built on. Precision is then
+        opt-in for the person who has decided to build something, which is the person who will
+        happily hold a key.
+      - **No conflict with volumetric inventory** — that one is safe either way. A voxel is
+        0.25³ m³ = **15.625 litres**, so "one block at a time" is a *mining granularity* and
+        litres-not-counts is an *inventory unit*. Two separate decisions; neither constrains the
+        other.
+- [ ] **The modifier key itself: Ctrl is already taken in the mode that wants it** {D}. `FlyCam`
+      binds Ctrl to descend and Alt to crawl, both fly-only — so in **walk** mode Ctrl and Alt
+      are free, and in **fly** mode both are taken. That is the exact inverse of "multiblock in
+      creative/fly under Ctrl". Shift is sprint and stays sprint. Options: accept the overlap
+      (Ctrl+click while flying descends *and* carves), move fly-descend off Ctrl, or pick a
+      non-modifier binding such as a toggle key next to the tier numbers.
+- [ ] **Do not gate it on fly mode** {D}, recommended. M4c made fly a *measurement instrument* —
+      `--profile` implies it and refuses the walk toggle mid-run — so hanging a gameplay
+      privilege on it ties a game rule to a profiling flag. There is no creative/survival concept
+      in the project yet. Make it a modifier now; add a mode gate if and when game modes exist.
+- [ ] **`radiusMetres` changes meaning if the default flips**, from "what a swing takes" to "what
+      the modifier swing takes". That is a live field in `mods/minercraft/tools/*.json`, and
+      non-negotiable 5 says the base game is a mod — so it is a format change, not a rename.
+      Decide whether the field keeps its name with a documented meaning or gains a sibling.
+- [ ] **Keep `--mine` on the sphere path whichever default wins.** M3d's baseline — 1.2 clones
+      and 2.4 KiB per swing, swing cost two orders of magnitude inside a frame — measures the
+      *worst* case, and a profile that quietly switched to single-voxel would report a cheaper
+      number for the same label and look like an improvement.
 - [ ] Collapse debris: loose re-settling rubble vs rigid falling chunks — decide at M9
 - [ ] Power model complexity — decide at M10
 - [ ] Name check: "MinerCraft" — keeping it?
