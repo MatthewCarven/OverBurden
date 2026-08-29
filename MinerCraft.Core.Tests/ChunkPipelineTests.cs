@@ -281,6 +281,221 @@ public class ChunkPipelineTests
         Assert.Equal(0, harness.Pipeline.FaultedJobs);
     }
 
+    [Fact]
+    public void AnEditIsWrittenAndTheChunkIsRemeshed()
+    {
+        using var harness = new PipelineHarness();
+        harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+
+        // Somewhere buried, so removing a voxel actually opens a cavity and the mesh has to
+        // grow rather than the change being invisible on a surface it was already drawing.
+        VoxelPos target = FindSolidInterior(harness, ChunkPos.Zero);
+        int before = harness.Deliveries[ChunkPos.Zero];
+        int indicesBefore = harness.LastMesh[ChunkPos.Zero].Opaque.IndexCount;
+
+        Assert.True(harness.Pipeline.SetVoxel(target, MaterialIds.AirNumericId));
+        harness.Settle();
+
+        (int lx, int ly, int lz) = target.Local;
+        Assert.Equal(
+            MaterialIds.AirNumericId,
+            harness.Pipeline.Streamer.Get(ChunkPos.Zero)!.Voxels!.Get(lx, ly, lz));
+
+        Assert.Equal(before + 1, harness.Deliveries[ChunkPos.Zero]);
+        Assert.True(
+            harness.LastMesh[ChunkPos.Zero].Opaque.IndexCount > indicesBefore,
+            "carving a cavity out of solid rock should add faces to the mesh");
+        Assert.True(harness.Pipeline.Streamer.Get(ChunkPos.Zero)!.HasEdits);
+    }
+
+    [Fact]
+    public void EditingAChunkHandedToAJobLeavesThatJobsSnapshotAlone()
+    {
+        // Copy-on-write, at the level the pipeline is responsible for: once a mesh job has
+        // captured the reference, the instance it captured stops changing and a fresh one
+        // takes its place.
+        using var harness = new PipelineHarness();
+        harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+
+        StreamedChunk chunk = harness.Pipeline.Streamer.Get(ChunkPos.Zero)!;
+        VoxelChunk handedOut = chunk.Voxels!;
+        Assert.True(chunk.VoxelsSharedWithJob, "meshing should have marked the voxels shared");
+
+        VoxelPos target = FindSolidInterior(harness, ChunkPos.Zero);
+        (int lx, int ly, int lz) = target.Local;
+        int original = handedOut.Get(lx, ly, lz);
+
+        harness.Pipeline.SetVoxel(target, MaterialIds.AirNumericId);
+
+        Assert.NotSame(handedOut, chunk.Voxels);
+        Assert.Equal(original, handedOut.Get(lx, ly, lz));
+        Assert.Equal(MaterialIds.AirNumericId, chunk.Voxels!.Get(lx, ly, lz));
+        Assert.Equal(1, harness.Pipeline.ChunkClones);
+    }
+
+    [Fact]
+    public void ManyEditsInOneFrameCostOneCloneAndOneRemesh()
+    {
+        // Coalescing, and the reason the dirty set is drained in Update rather than acted on
+        // per write: a carve writes hundreds of voxels, and remeshing per write would rebuild
+        // work the next write invalidates.
+        using var harness = new PipelineHarness();
+        harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+
+        int before = harness.Deliveries[ChunkPos.Zero];
+
+        // Interior only, so this stays one chunk's business and the remesh count is exact.
+        VoxelChunk voxels = harness.Pipeline.Streamer.Get(ChunkPos.Zero)!.Voxels!;
+        var targets = new List<VoxelPos>();
+
+        for (int ly = 1; ly < VoxelConstants.ChunkSize - 1 && targets.Count < 200; ly++)
+        for (int lz = 1; lz < VoxelConstants.ChunkSize - 1 && targets.Count < 200; lz++)
+        for (int lx = 1; lx < VoxelConstants.ChunkSize - 1 && targets.Count < 200; lx++)
+        {
+            if (voxels.Get(lx, ly, lz) != MaterialIds.AirNumericId)
+            {
+                targets.Add(VoxelPos.FromChunkLocal(ChunkPos.Zero, lx, ly, lz));
+            }
+        }
+
+        Assert.True(targets.Count > 20, "the test needs a decent number of real edits to be meaningful");
+
+        foreach (VoxelPos target in targets)
+        {
+            Assert.True(harness.Pipeline.SetVoxel(target, MaterialIds.AirNumericId));
+        }
+        Assert.Equal(1, harness.Pipeline.ChunkClones);
+
+        harness.Settle();
+        Assert.Equal(before + 1, harness.Deliveries[ChunkPos.Zero]);
+    }
+
+    [Fact]
+    public void AnEditOnAChunkBoundaryRemeshesTheNeighbourToo()
+    {
+        // The border rule arriving through the pipeline rather than in isolation. Without it
+        // the neighbour keeps drawing a face against material that is no longer there.
+        using var harness = new PipelineHarness();
+        harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+
+        var owner = ChunkPos.Zero;
+        var neighbour = new ChunkPos(-1, 0, 0);
+        VoxelPos target = FindSolidOnFace(harness, owner);
+
+        int ownerBefore = harness.Deliveries[owner];
+        int neighbourBefore = harness.Deliveries[neighbour];
+
+        Assert.True(harness.Pipeline.SetVoxel(target, MaterialIds.AirNumericId));
+        harness.Settle();
+
+        Assert.Equal(ownerBefore + 1, harness.Deliveries[owner]);
+        Assert.Equal(neighbourBefore + 1, harness.Deliveries[neighbour]);
+    }
+
+    [Fact]
+    public void AnEditRemeshOutranksStreamingWork()
+    {
+        // Band3, which M2a reserved and nothing has used until now. Same chunk position, so
+        // the distance band is identical and only the override separates them.
+        var viewers = new ViewerSet();
+        viewers.UpdateSingle(ChunkPos.Zero);
+
+        var neighbourhood = new VoxelChunk?[PaddedChunk.NeighbourhoodSize];
+        var materials = MaterialTable.ForTesting([false, true], [false, false], [0, 1]);
+
+        JobPriority streaming = JobPriority.Evaluate(
+            JobKind.Mesh,
+            ChunkPos.Zero,
+            viewers,
+            new MeshChunkJob(ChunkPos.Zero, neighbourhood, materials).Urgency);
+
+        JobPriority edit = JobPriority.Evaluate(
+            JobKind.Mesh,
+            new ChunkPos(40, 0, 0),
+            viewers,
+            new MeshChunkJob(new ChunkPos(40, 0, 0), neighbourhood, materials, urgent: true).Urgency);
+
+        // The edit is 40 chunks further away and still wins, which is the whole point.
+        Assert.True(edit > streaming);
+        Assert.Equal(0, streaming.Band3);
+        Assert.Equal(MeshChunkJob.EditUrgency, edit.Band3);
+    }
+
+    [Fact]
+    public void EditingAChunkThatDoesNotExistReportsFailureRatherThanDroppingTheWrite()
+    {
+        // A carve reaching past the loaded region has to be told it was clipped. Returning
+        // void here would make the difference between "mined" and "silently ignored"
+        // invisible to the caller.
+        using var harness = new PipelineHarness();
+        harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+
+        VoxelPos far = VoxelPos.FromChunkLocal(new ChunkPos(500, 0, 500), 1, 1, 1);
+
+        Assert.False(harness.Pipeline.SetVoxel(far, MaterialIds.AirNumericId));
+        Assert.Equal(0, harness.Pipeline.EditedVoxels);
+    }
+
+    [Fact]
+    public void WritingTheMaterialThatIsAlreadyThereChangesNothing()
+    {
+        // A sphere carve rewrites air as air across most of its bounding box. Treating those
+        // as edits would clone a chunk and dirty its neighbours for no reason at all.
+        using var harness = new PipelineHarness();
+        harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+
+        VoxelPos target = FindSolidInterior(harness, ChunkPos.Zero);
+        (int lx, int ly, int lz) = target.Local;
+        int existing = harness.Pipeline.Streamer.Get(ChunkPos.Zero)!.Voxels!.Get(lx, ly, lz);
+
+        Assert.True(harness.Pipeline.SetVoxel(target, existing));
+
+        Assert.Equal(0, harness.Pipeline.EditedVoxels);
+        Assert.Equal(0, harness.Pipeline.ChunkClones);
+        Assert.False(harness.Pipeline.Streamer.Get(ChunkPos.Zero)!.HasEdits);
+    }
+
+    /// <summary>A solid voxel away from every face, so an edit stays one chunk's business.</summary>
+    private static VoxelPos FindSolidInterior(PipelineHarness harness, ChunkPos chunk)
+    {
+        VoxelChunk voxels = harness.Pipeline.Streamer.Get(chunk)!.Voxels!;
+
+        for (int ly = 1; ly < VoxelConstants.ChunkSize - 1; ly++)
+        for (int lz = 1; lz < VoxelConstants.ChunkSize - 1; lz++)
+        for (int lx = 1; lx < VoxelConstants.ChunkSize - 1; lx++)
+        {
+            if (voxels.Get(lx, ly, lz) != MaterialIds.AirNumericId)
+            {
+                return VoxelPos.FromChunkLocal(chunk, lx, ly, lz);
+            }
+        }
+
+        throw new InvalidOperationException($"{chunk} has no solid interior voxel to carve.");
+    }
+
+    /// <summary>A solid voxel on the −X face, which belongs to the neighbour's mesh too.</summary>
+    private static VoxelPos FindSolidOnFace(PipelineHarness harness, ChunkPos chunk)
+    {
+        VoxelChunk voxels = harness.Pipeline.Streamer.Get(chunk)!.Voxels!;
+
+        for (int ly = 0; ly < VoxelConstants.ChunkSize; ly++)
+        for (int lz = 0; lz < VoxelConstants.ChunkSize; lz++)
+        {
+            if (voxels.Get(0, ly, lz) != MaterialIds.AirNumericId)
+            {
+                return VoxelPos.FromChunkLocal(chunk, 0, ly, lz);
+            }
+        }
+
+        throw new InvalidOperationException($"{chunk} has no solid voxel on its −X face.");
+    }
+
     private static IEnumerable<ChunkPos> Box(ChunkPos centre, int radius)
     {
         var positions = new List<ChunkPos>();
@@ -314,10 +529,12 @@ internal sealed class PipelineHarness : IDisposable
             Materials(),
             _scheduler,
             viewers,
-            onMeshReady: (chunk, _) =>
+            onMeshReady: (chunk, mesh) =>
             {
                 MeshesDelivered++;
                 MeshedPositions.Add(chunk.Position);
+                Deliveries[chunk.Position] = Deliveries.GetValueOrDefault(chunk.Position) + 1;
+                LastMesh[chunk.Position] = mesh;
             },
             onMeshDiscarded: position =>
             {
@@ -338,6 +555,12 @@ internal sealed class PipelineHarness : IDisposable
 
     /// <summary>Positions currently holding a delivered mesh, from the renderer's point of view.</summary>
     public HashSet<ChunkPos> MeshedPositions { get; } = [];
+
+    /// <summary>How many times each chunk has been meshed. Remeshes show up here.</summary>
+    public Dictionary<ChunkPos, int> Deliveries { get; } = [];
+
+    /// <summary>The most recent mesh handed over for each chunk.</summary>
+    public Dictionary<ChunkPos, ChunkMesh> LastMesh { get; } = [];
 
     public List<string> Faults { get; } = [];
 

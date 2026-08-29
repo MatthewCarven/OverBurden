@@ -488,28 +488,35 @@ Planned 2026-08-29 and split into four parts in [docs/M3-PLAN.md](docs/M3-PLAN.m
 it before starting** — M3a is a concurrency part and the failure it prevents is a crash on a
 worker thread, not a wrong voxel.
 
-#### M3a — The edit path ⬅️ **start here**
+#### M3a — The edit path ✅ done 2026-08-29, 294 tests passing
 
-- [ ] **Copy-on-write on `VoxelChunk`.** A chunk instance handed to a job is immutable from
+- [x] **Copy-on-write on `VoxelChunk`.** A chunk instance handed to a job is immutable from
       then on; an edit clones it and installs the clone. `ChunkPipeline.Neighbourhood()`
       already captures references on the sim thread, so the worker's snapshot stays valid
       with no lock anywhere on the read path.
-- [ ] This closes **both** recorded revisit triggers: M1b's "no concurrent writer until M3"
+- [x] This closes **both** recorded revisit triggers: M1b's "no concurrent writer until M3"
       and M2a's "the worker-side padded copy is safe because nothing writes yet".
-- [ ] Dirty chunks coalesce into a set drained once per frame — never a remesh per voxel.
-- [ ] Border rule: an edited voxel at local 0 or 31 on any axis dirties the neighbour on that
+- [x] Dirty chunks coalesce into a set drained once per frame — never a remesh per voxel.
+- [x] Border rule: an edited voxel at local 0 or 31 on any axis dirties the neighbour on that
       axis too, up to seven of them at a corner. Getting it wrong leaves stale geometry along
       chunk seams, which is where you mine most.
-- [ ] **Use `band3` of the job priority** for edit remeshes — the band M2a reserved for
+- [x] **Use `band3` of the job priority** for edit remeshes — the band M2a reserved for
       exactly this. Without it the rock you just mined stays on screen while the horizon
       loads.
-- [ ] Set a `HasEdits` flag on first write. One bit, free now, and it is exactly the set M6
+- [x] Set a `HasEdits` flag on first write. One bit, free now, and it is exactly the set M6
       has to save.
-- [ ] The fuzz that matters: rewrite every voxel to version *k+1* per edit, so any snapshot a
+- [x] The fuzz that matters: rewrite every voxel to version *k+1* per edit, so any snapshot a
       worker takes must be **uniform**. A torn read shows two versions and the assertion is
       one line.
+- [x] **That fuzz hung instead of failing the first time it was checked**, because its readers
+      stopped draining on the first mismatch and deadlocked the writer against a bounded queue.
+      Now records and continues, and fails in 356 ms. **Watch a fuzz test fail before trusting
+      it** — the same applies to whatever M3b writes against a brute-force reference.
+- [ ] Not yet measured: the clone rate. `ChunkPipeline.ChunkClones` counts it, but nothing
+      drives it until there is a carve. M3-PLAN's "~2 KB per chunk per cycle" is still an
+      estimate; M3d settles it.
 
-#### M3b — The raycast
+#### M3b — The raycast ⬅️ **start here**
 
 - [ ] Amanatides & Woo voxel DDA. Returns hit voxel, face normal, entry distance, and the
       last empty voxel before the hit — which is where M6's placement goes, so returning it

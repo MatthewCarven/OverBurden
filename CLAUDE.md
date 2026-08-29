@@ -103,7 +103,7 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1 and **all of M2** are done — **277 tests passing**. Terrain streams around the
+M0, all of M1 and **all of M2** are done — **294 tests passing**, and M3a with them. Terrain streams around the
 flycam: worldgen and greedy meshing run on worker threads over palette-compressed storage,
 with materials loaded from JSON, and chunks load and unload as the viewer moves.
 
@@ -229,13 +229,25 @@ Read the worklog before touching it, because the measurement said two awkward th
   headless is the wrong instrument** — use `update ms`, which times the call directly. This
   is the second time that trap has been walked into.
 
-**M3 — mining — is planned and not started.** Four parts in
-[docs/M3-PLAN.md](docs/M3-PLAN.md), and **M3a is a concurrency part**: it closes both
-recorded revisit triggers at once (M1b's "no concurrent writer until M3" and M2a's
-"the worker-side padded copy is safe because nothing writes yet"). The failure it prevents is
-a `NullReferenceException` on a worker thread, because `VoxelChunk.Set` can promote the
-representation out from under a reader — not a stale voxel that the following remesh would
-fix. Start there, not at the raycast.
+**M3a — the edit path: done 2026-08-29.** `ChunkPipeline.SetVoxel` writes a voxel, clones the
+chunk first if a job holds it, and marks every chunk whose mesh that invalidates. This closed
+both recorded revisit triggers at once — M1b's "no concurrent writer until M3" and M2a's "the
+worker-side padded copy is safe because nothing writes yet".
+
+Three things about it that are easy to undo by accident:
+
+- **A `VoxelChunk` handed to a job is immutable from then on.** `Neighbourhood()` marks all 27,
+  and an edit finding the flag set clones instead of writing. Mutating in place would not show
+  a worker a stale voxel — `VoxelChunk.Set` can promote the representation and swap the backing
+  arrays under a reader mid-copy, which is a `NullReferenceException` on a worker thread.
+- **`SetVoxel` returns early when the material is already there.** That is not a micro-
+  optimisation: a sphere carve rewrites air as air across most of its bounding box, and each
+  one would otherwise clone a chunk and dirty up to eight neighbours.
+- **`NeedsRemesh` survives a mesh completing.** An edit that lands mid-job produces a mesh built
+  from the pre-edit snapshot, so `Complete` pushes the chunk again — nothing else would, because
+  `Advance` refuses a chunk with a job in flight.
+
+**M3b, the raycast, is next.** The plan is [docs/M3-PLAN.md](docs/M3-PLAN.md).
 
 Three things stay open, all needing a windowed run rather than a headless one: whether the
 free budget actually removes the stutter (headless has no deferred deallocation), and M1d's

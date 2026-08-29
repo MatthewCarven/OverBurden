@@ -89,7 +89,7 @@ public sealed class JobQueue
 
     public void Enqueue(IJob job, CancellationToken cancellation = default, bool serial = false)
     {
-        var entry = new Entry(job, cancellation, serial, JobPriority.Evaluate(job.Kind, job.Position, _viewers));
+        var entry = new Entry(job, cancellation, serial, JobPriority.Evaluate(job.Kind, job.Position, _viewers, job.Urgency));
         lock (_gate)
         {
             _entries.Add(entry);
@@ -119,7 +119,7 @@ public sealed class JobQueue
 
     /// <summary>Builds an entry with its priority evaluated, for batching.</summary>
     public Entry MakeEntry(IJob job, CancellationToken cancellation = default, bool serial = false) =>
-        new(job, cancellation, serial, JobPriority.Evaluate(job.Kind, job.Position, _viewers));
+        new(job, cancellation, serial, JobPriority.Evaluate(job.Kind, job.Position, _viewers, job.Urgency));
 
     /// <summary>
     /// Takes the highest-priority runnable entry, sweeping first if one is due.
@@ -237,7 +237,8 @@ public sealed class JobQueue
 
             _entries[i] = entry with
             {
-                Priority = JobPriority.Evaluate(entry.Job.Kind, entry.Job.Position, _viewers),
+                Priority = JobPriority.Evaluate(
+                    entry.Job.Kind, entry.Job.Position, _viewers, entry.Job.Urgency),
             };
         }
 

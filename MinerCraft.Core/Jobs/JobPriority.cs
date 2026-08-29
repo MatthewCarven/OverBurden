@@ -27,7 +27,7 @@ public enum JobKind : byte
 /// band3 precedence over band2 over band1 over band0:
 /// </para>
 /// <list type="table">
-///   <item><term>band3</term><description>overrides — reserved for "the player is standing on it"</description></item>
+///   <item><term>band3</term><description>overrides, from <see cref="IJob.Urgency"/> — a remesh the player is waiting on</description></item>
 ///   <item><term>band2</term><description>job class, from <see cref="JobKind"/></description></item>
 ///   <item><term>band1</term><description>unused until M13 LOD</description></item>
 ///   <item><term>band0</term><description>distance to the nearest viewer, decreasing</description></item>
@@ -63,11 +63,12 @@ public readonly record struct JobPriority(uint Packed) : IComparable<JobPriority
     /// every job is equally unimportant, and something is wrong with the view distance
     /// anyway.
     /// </remarks>
-    public static JobPriority Evaluate(JobKind kind, ChunkPos position, ViewerSet viewers)
+    public static JobPriority Evaluate(
+        JobKind kind, ChunkPos position, ViewerSet viewers, byte urgency = 0)
     {
         int distance = viewers.NearestChebyshevDistance(position);
         byte band0 = (byte)(255 - Math.Clamp(distance, 0, 255));
-        return FromBands(band0, band1: 0, band2: (byte)kind, band3: 0);
+        return FromBands(band0, band1: 0, band2: (byte)kind, band3: urgency);
     }
 
     public int CompareTo(JobPriority other) => Packed.CompareTo(other.Packed);

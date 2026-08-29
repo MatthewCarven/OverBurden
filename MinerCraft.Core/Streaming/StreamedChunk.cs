@@ -80,6 +80,45 @@ public sealed class StreamedChunk
     public bool HasVoxels => Voxels is not null;
 
     /// <summary>
+    /// The current <see cref="Voxels"/> instance has been handed to a job, so it must not be
+    /// written to again.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Set when a mesh job captures the reference — for this chunk and for all 26 of its
+    /// neighbours, since a mesh reads a 3×3×3 neighbourhood. An edit that finds this true
+    /// clones the chunk, writes to the clone and installs it, leaving the worker's reference
+    /// pointing at something nobody will write to again.
+    /// </para>
+    /// <para>
+    /// It is never cleared while a job is outstanding — only by installing a fresh instance —
+    /// so a stale <c>true</c> costs one unnecessary clone and a stale <c>false</c> is
+    /// impossible. That asymmetry is deliberate: the cheap failure is the one that can happen.
+    /// </para>
+    /// </remarks>
+    public bool VoxelsSharedWithJob { get; internal set; }
+
+    /// <summary>The mesh no longer matches the voxels, because something edited them.</summary>
+    /// <remarks>
+    /// Survives a mesh completing, because an edit that lands <em>while</em> a mesh job is in
+    /// flight produces a mesh built from the pre-edit snapshot. Clearing this on completion
+    /// rather than on submission would leave that stale mesh on screen with nothing left to
+    /// trigger a rebuild.
+    /// </remarks>
+    public bool NeedsRemesh { get; internal set; }
+
+    /// <summary>
+    /// This chunk has been edited, so regenerating it from the seed would not reproduce it.
+    /// </summary>
+    /// <remarks>
+    /// Nothing reads this yet. It is exactly the set of chunks M6 has to persist, it costs one
+    /// bit, and it cannot be reconstructed afterwards — a chunk that has already been unloaded
+    /// and regenerated looks untouched. Until M6 an edited chunk that unloads loses its edits;
+    /// see docs/M3-PLAN.md, where that is a recorded limitation rather than a bug.
+    /// </remarks>
+    public bool HasEdits { get; internal set; }
+
+    /// <summary>
     /// How many submitted jobs have yet to report a result for this chunk.
     /// </summary>
     /// <remarks>

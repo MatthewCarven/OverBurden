@@ -148,6 +148,53 @@ public sealed class VoxelChunk
         }
     }
 
+    /// <summary>An independent copy sharing no mutable state with this one.</summary>
+    /// <remarks>
+    /// <para>
+    /// This is what makes editing safe while a worker is reading. A mesh job captures a
+    /// <see cref="VoxelChunk"/> <em>reference</em> on the sim thread and copies out of it
+    /// later on its own thread; an edit that mutated that instance in place would not merely
+    /// show the worker a stale voxel, it would rewrite the representation underneath it —
+    /// <see cref="Set"/> can promote uniform to palettised to direct, swapping the backing
+    /// arrays and the width fields together. Cloning instead, and installing the clone,
+    /// leaves the worker holding something nobody will ever write to again.
+    /// </para>
+    /// <para>
+    /// Roughly 2 KB for a typical palettised chunk and nothing at all for a uniform one, so
+    /// the cost is a gen0 allocation per chunk per edit-and-remesh cycle. See
+    /// docs/M3-PLAN.md for why this beats a lock or a cancel-and-retry.
+    /// </para>
+    /// </remarks>
+    public VoxelChunk Clone()
+    {
+        var copy = new VoxelChunk
+        {
+            _kind = _kind,
+            _uniformValue = _uniformValue,
+            _bitsPerIndex = _bitsPerIndex,
+            _bitsLog2 = _bitsLog2,
+            _entriesPerWordLog2 = _entriesPerWordLog2,
+            _entriesPerWordMask = _entriesPerWordMask,
+            _valueMask = _valueMask,
+            _words = _words?.ToArray(),
+            _direct = _direct?.ToArray(),
+            _palette = _palette is null ? null : [.. _palette],
+        };
+
+        // Rebuilt rather than copied: it is a pure index of _palette, and reconstructing it
+        // cannot drift out of step with the list the way a shallow copy of both could.
+        if (copy._palette is not null)
+        {
+            copy._paletteLookup = new Dictionary<int, int>(copy._palette.Count);
+            for (int i = 0; i < copy._palette.Count; i++)
+            {
+                copy._paletteLookup[copy._palette[i]] = i;
+            }
+        }
+
+        return copy;
+    }
+
     /// <summary>Resets the whole chunk to one material, releasing any allocation.</summary>
     public void Fill(int materialId)
     {

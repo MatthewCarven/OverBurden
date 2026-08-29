@@ -16,6 +16,19 @@ public interface IJob
     ChunkPos Position { get; }
 
     /// <summary>
+    /// Band3 of this job's priority: an override that outranks distance and job class
+    /// together.
+    /// </summary>
+    /// <remarks>
+    /// Zero for everything streaming submits, which is why it is defaulted here rather than
+    /// added to every implementer. It exists for work the player is waiting on personally —
+    /// a remesh after mining — where losing the race against terrain loading in the distance
+    /// means the rock you just broke stays on screen. Read fresh on every sweep, so a job
+    /// carries its own urgency rather than having it stamped on at enqueue time.
+    /// </remarks>
+    byte Urgency => 0;
+
+    /// <summary>
     /// Does the work. Long jobs should poll <paramref name="cancellation"/> and may throw
     /// <see cref="OperationCanceledException"/>, which is reported as
     /// <see cref="JobOutcome.Dropped"/> rather than as a fault.

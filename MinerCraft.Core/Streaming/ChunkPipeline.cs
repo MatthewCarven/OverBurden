@@ -127,6 +127,87 @@ public sealed class ChunkPipeline : IDisposable
     /// <summary>Results handed back to their chunks since this pipeline was built.</summary>
     public int AppliedResults { get; private set; }
 
+    /// <summary>Voxels written through <see cref="SetVoxel"/> that landed.</summary>
+    public int EditedVoxels { get; private set; }
+
+    /// <summary>Chunks cloned so a worker's snapshot stayed valid.</summary>
+    /// <remarks>
+    /// The cost of copy-on-write, counted rather than assumed. M3-PLAN estimated one ~2 KB
+    /// clone per chunk per edit-and-remesh cycle; this is how that estimate gets checked.
+    /// </remarks>
+    public int ChunkClones { get; private set; }
+
+    /// <summary>
+    /// Writes one voxel and marks every chunk whose mesh it invalidates for a rebuild.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Copy-on-write.</b> If the chunk's voxels have been handed to a job, they are cloned
+    /// first and the clone is installed — see <see cref="StreamedChunk.VoxelsSharedWithJob"/>.
+    /// Mutating in place would not merely show a worker a stale voxel: <see cref="VoxelChunk.Set"/>
+    /// can promote the representation and swap the backing arrays under a reader mid-copy.
+    /// </para>
+    /// <para>
+    /// <b>Remeshing is deferred to <see cref="Update"/>, not done here.</b> A carve writes
+    /// hundreds of voxels across several chunks, and each one would otherwise queue a rebuild
+    /// of work the next write invalidates again.
+    /// </para>
+    /// </remarks>
+    /// <returns>
+    /// False when the voxel is in a chunk that does not exist or has not generated yet. The
+    /// caller is told rather than the write being dropped silently — a carve reaching past the
+    /// loaded region needs to know it was clipped.
+    /// </returns>
+    public bool SetVoxel(VoxelPos voxel, int materialId)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        if (!_streamer.TryGet(voxel.Chunk, out StreamedChunk chunk) || chunk.Voxels is null)
+        {
+            return false;
+        }
+
+        (int localX, int localY, int localZ) = voxel.Local;
+        if (chunk.Voxels.Get(localX, localY, localZ) == materialId)
+        {
+            // Nothing changed, so nothing is stale. Worth checking because a sphere carve
+            // rewrites air as air across most of its bounding box, and every one of those
+            // would otherwise clone a chunk and dirty its neighbours for no reason.
+            return true;
+        }
+
+        if (chunk.VoxelsSharedWithJob)
+        {
+            chunk.Voxels = chunk.Voxels.Clone();
+            chunk.VoxelsSharedWithJob = false;
+            ChunkClones++;
+        }
+
+        chunk.Voxels.Set(localX, localY, localZ, materialId);
+        chunk.HasEdits = true;
+        EditedVoxels++;
+
+        Span<ChunkPos> dirty = stackalloc ChunkPos[ChunkEdits.MaxDirtyChunks];
+        int count = ChunkEdits.DirtyChunks(voxel, dirty);
+        for (int i = 0; i < count; i++)
+        {
+            MarkForRemesh(dirty[i]);
+        }
+
+        return true;
+    }
+
+    private void MarkForRemesh(ChunkPos position)
+    {
+        if (!_streamer.TryGet(position, out StreamedChunk chunk))
+        {
+            return;
+        }
+
+        chunk.NeedsRemesh = true;
+        Push(position);
+    }
+
     /// <summary>
     /// Results finished but not yet applied, because a frame ran out of budget.
     /// </summary>
@@ -269,6 +350,15 @@ public sealed class ChunkPipeline : IDisposable
                     _onMeshReady?.Invoke(chunk, mesh.Result);
                 }
 
+                // An edit that landed while this job was running built its mesh from the
+                // pre-edit snapshot, so what just arrived is already stale. Nothing else
+                // would push this chunk again — Advance refused it the whole time a job was
+                // in flight — and it would sit drawn and wrong until something else moved.
+                if (chunk.NeedsRemesh)
+                {
+                    Push(chunk.Position);
+                }
+
                 break;
         }
     }
@@ -367,10 +457,28 @@ public sealed class ChunkPipeline : IDisposable
                 break;
 
             case ChunkState.Generated when _streamer.CanMesh(chunk.Position):
-                chunk.TransitionTo(ChunkState.Meshing);
-                Submit(chunk, new MeshChunkJob(chunk.Position, Neighbourhood(chunk.Position), _materials));
+
+            // The edit path's re-entry point, and the reason Meshed → Meshing is a legal
+            // edge. A chunk that is already drawn goes round again when something it can see
+            // changes — its own voxels, or a neighbour's within one voxel of the boundary.
+            case ChunkState.Meshed when chunk.NeedsRemesh && _streamer.CanMesh(chunk.Position):
+                SubmitMesh(chunk);
                 break;
         }
+    }
+
+    private void SubmitMesh(StreamedChunk chunk)
+    {
+        // Urgent exactly when an edit caused this. Streaming meshes are ordered by distance
+        // and can wait; a remesh the player is looking at cannot, or the rock they just broke
+        // stays on screen while the horizon loads.
+        bool urgent = chunk.NeedsRemesh;
+        chunk.NeedsRemesh = false;
+
+        chunk.TransitionTo(ChunkState.Meshing);
+        Submit(
+            chunk,
+            new MeshChunkJob(chunk.Position, Neighbourhood(chunk.Position), _materials, urgent));
     }
 
     /// <summary>
@@ -385,8 +493,16 @@ public sealed class ChunkPipeline : IDisposable
         for (int dx = -1; dx <= 1; dx++)
         for (int dy = -1; dy <= 1; dy++)
         {
-            neighbourhood[PaddedChunk.NeighbourIndex(dx, dy, dz)] =
-                _streamer.Get(centre.Offset(dx, dy, dz))?.Voxels;
+            StreamedChunk? neighbour = _streamer.Get(centre.Offset(dx, dy, dz));
+            neighbourhood[PaddedChunk.NeighbourIndex(dx, dy, dz)] = neighbour?.Voxels;
+
+            // The moment these instances stop being the sim thread's to write to. Every one
+            // of the 27, not just the centre, because the worker copies a one-voxel border
+            // out of each neighbour and an edit there would change what it reads.
+            if (neighbour is not null)
+            {
+                neighbour.VoxelsSharedWithJob = true;
+            }
         }
 
         return neighbourhood;

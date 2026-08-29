@@ -1,5 +1,62 @@
 # MinerCraft — Worklog
 
+## 2026-08-29 — M3a: the edit path, and a fuzz test that hung instead of failing
+
+294 tests passing, up from 277. Voxels can be written while workers read them, which is the
+thing every other part of M3 sits on.
+
+### Built
+
+`ChunkPipeline.SetVoxel` writes one voxel, clones the chunk first if a job holds it, and
+marks every chunk whose mesh that invalidates. `VoxelChunk.Clone`, `ChunkEdits.DirtyChunks`,
+three flags on `StreamedChunk` (`VoxelsSharedWithJob`, `NeedsRemesh`, `HasEdits`), and
+`IJob.Urgency` feeding band3 of the priority.
+
+**Copy-on-write, and the existing structure did most of the work.** `Neighbourhood()` already
+captured `VoxelChunk` *references* on the sim thread — a worker holds a chunk rather than
+looking one up — so the whole change is: mark those 27 instances as handed out, and have an
+edit clone rather than mutate when it finds the flag set. No lock anywhere on the read path.
+
+### Findings
+
+- **The fuzz test hung on the bug it was written to catch, which is worse than not having
+  it.** Deliberately deleting the clone to check the test could fail produced a 10-minute
+  timeout, not a failure. Cause: readers bailed out with `return` on the first mismatch, so
+  they stopped draining, and the writer blocked forever against a bounded queue. Fixed by
+  recording failures and continuing, plus a `try`/`catch` around the copy — because the
+  failure that matters most throws rather than returning bad data. It now fails in **356 ms**
+  with `snapshot of version 2 held 3`. **A fuzz test nobody has watched fail is a fuzz test
+  that might not be testing anything**, and this one had to be watched twice before it was
+  worth keeping.
+- **Making every edit rewrite the whole chunk is what makes the assertion sharp.** Each round
+  fills the chunk with version *k*, so any snapshot must hold exactly one value throughout —
+  a torn read shows two, and the check is a comparison rather than a guess about which voxel
+  should have changed. `Compact()` at the end of each round demotes back to uniform so the
+  next round promotes uniform → palettised again, which is the dangerous churn: it swaps the
+  backing arrays and the width fields together, not just a voxel.
+- **The no-op guard is not an optimisation, it is most of the work.** `SetVoxel` returns early
+  when the material is already there. A sphere carve rewrites air as air across most of its
+  bounding box, and without the guard every one of those would clone a chunk and dirty up to
+  eight neighbours for nothing.
+- **The border rule is fuzzed against its definition rather than a second implementation.** A
+  chunk's mesh reads voxels −1..32 of its own space, so the chunks an edit makes stale are
+  exactly those whose padded region contains it. The test computes that directly and compares,
+  including at negative chunk coordinates where a floor or sign error would hide.
+- **Band3 finally has a user.** M2a reserved the top priority band and left it unused through
+  all of M2. An edit remesh 40 chunks away now outranks a streaming mesh at the viewer's feet,
+  which is the inversion it was reserved to allow. Set to 128 rather than 255, so later work —
+  a chunk the player is standing inside — still has headroom above it.
+
+### Honest limits
+
+- **Nothing has been measured.** The clone rate is counted (`ChunkClones`) but no carve exists
+  to drive it, so M3-PLAN's "roughly 2 KB per chunk per edit-and-remesh cycle" is still an
+  estimate. M3d measures it.
+- **A dropped mesh job loses its urgency.** If an urgent remesh is cancelled, the chunk steps
+  back to `Generated` and is resubmitted without band3. The mesh is still correct and still
+  happens; only the priority is lost, and only for a chunk that was being unviewed anyway.
+  Left alone deliberately rather than adding state to carry it.
+
 ## 2026-08-29 — M3 planned: mining, and the concurrency bill coming due
 
 No code. [docs/M3-PLAN.md](docs/M3-PLAN.md), split M3a–M3d, following the pattern that made

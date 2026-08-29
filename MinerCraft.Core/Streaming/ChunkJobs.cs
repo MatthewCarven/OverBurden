@@ -63,7 +63,16 @@ public sealed class MeshChunkJob : IJob
     private readonly VoxelChunk?[] _neighbourhood;
     private readonly MaterialTable _materials;
 
-    public MeshChunkJob(ChunkPos position, VoxelChunk?[] neighbourhood, MaterialTable materials)
+    /// <param name="urgent">
+    /// A remesh the player is waiting on, rather than one the streamer asked for. Raises
+    /// band3 so it outranks every distance-ordered job in the queue — see
+    /// <see cref="IJob.Urgency"/>.
+    /// </param>
+    public MeshChunkJob(
+        ChunkPos position,
+        VoxelChunk?[] neighbourhood,
+        MaterialTable materials,
+        bool urgent = false)
     {
         if (neighbourhood.Length != PaddedChunk.NeighbourhoodSize)
         {
@@ -75,11 +84,22 @@ public sealed class MeshChunkJob : IJob
         Position = position;
         _neighbourhood = neighbourhood;
         _materials = materials;
+        Urgency = urgent ? EditUrgency : (byte)0;
     }
+
+    /// <summary>Band3 for a remesh caused by an edit.</summary>
+    /// <remarks>
+    /// Not <c>byte.MaxValue</c>: later work — a chunk the player is standing inside, say —
+    /// will want to outrank even this, and leaving headroom above is free now and awkward to
+    /// find later.
+    /// </remarks>
+    public const byte EditUrgency = 128;
 
     public JobKind Kind => JobKind.Mesh;
 
     public ChunkPos Position { get; }
+
+    public byte Urgency { get; }
 
     /// <summary>The built mesh. Read by the sim thread once the result arrives.</summary>
     public ChunkMesh? Result { get; private set; }
