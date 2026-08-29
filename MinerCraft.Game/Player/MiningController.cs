@@ -36,15 +36,16 @@ public sealed class MiningController(
     public ToolDefinition Tool { get; set; } = tool;
 
     /// <summary>
-    /// How far the player can reach, in metres.
+    /// How far the player can reach, in metres. Supplied by the player, who owns it.
     /// </summary>
     /// <remarks>
-    /// The player's, not the tool's. A tool tier says how big a bite it takes and what it is
-    /// hard enough to take it out of; how far an arm reaches is a property of the arm, and it
-    /// belongs to M4's player controller when there is one. Putting it in the tool JSON now
-    /// would be guessing a field into a format mods have already written against.
+    /// <b><c>required</c> and defaultless on purpose.</b> The value moved to
+    /// <see cref="PlayerController.ReachMetres"/> at M4c — a tool tier says how big a bite it
+    /// takes and what it is hard enough to take it out of, and how far an arm reaches is a
+    /// property of the arm. Leaving a default here would leave two numbers that agree until one
+    /// of them is tuned, which is the one thing M4d is going to do to it.
     /// </remarks>
-    public float ReachMetres { get; init; } = 5.0f;
+    public required float ReachMetres { get; init; }
 
     /// <summary>What the last cast found. Drives the highlight.</summary>
     public RayOutcome Outcome { get; private set; } = RayOutcome.Missed;

@@ -6,6 +6,7 @@ using MinerCraft.Core.Content;
 using MinerCraft.Core.Jobs;
 using MinerCraft.Core.Meshing;
 using MinerCraft.Core.Mining;
+using MinerCraft.Core.Physics;
 using MinerCraft.Core.Streaming;
 using MinerCraft.Core.Voxels;
 using MinerCraft.Core.Worldgen;
@@ -53,6 +54,10 @@ public partial class Main : Node3D
     private VoxelHighlight? _highlight;
     private readonly List<ToolDefinition> _tiers = [];
 
+    private PlayerController? _player;
+    private MaterialTable? _materials;
+    private bool _announcedSpawn;
+
     private StreamingProfiler? _profiler;
     private float _flySpeed;
     private int? _caveLatticeStep;
@@ -76,12 +81,13 @@ public partial class Main : Node3D
             settings = settings with { CaveLatticeStep = caveStep };
         }
         _generator = new WorldGenerator(settings, BuildStrata());
+        _materials = MaterialTable.From(Content.Materials);
 
         var viewers = new ViewerSet();
         _scheduler = new JobScheduler(viewers);
         _pipeline = new ChunkPipeline(
             _generator,
-            MaterialTable.From(Content.Materials),
+            _materials,
             _scheduler,
             viewers,
             onMeshReady: OnMeshReady,
@@ -90,7 +96,7 @@ public partial class Main : Node3D
             loadMargin: margin,
             resultBudget: _applyBudget);
 
-        PlaceCameraAboveTerrain(_generator);
+        SetUpPlayer(_generator);
 
         _lastViewerChunk = ViewerChunk();
         _viewer = _pipeline.Streamer.AddViewer(
@@ -101,6 +107,59 @@ public partial class Main : Node3D
         GD.Print(
             $"M2c: streaming r{ViewDistanceHorizontal}h/{ViewDistanceVertical}v " +
             $"+{_pipeline.Streamer.LoadMargin} margin on {_scheduler.ThreadCount} worker(s)");
+    }
+
+    /// <summary>
+    /// Builds the player body and puts the camera where its eyes will be.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A profile run starts in fly mode, and that is the whole of M4c's contract with
+    /// M2d and M3d.</b> <c>--profile</c> assigns the camera's position directly and
+    /// <see cref="AdvanceFlythrough"/> snaps it to the surface every frame; a body that also
+    /// moved the camera would fight both. In fly mode the body is inert, so every number M2d
+    /// and M3d produced stays comparable with M4d's.
+    /// </para>
+    /// <para>
+    /// The camera is placed at the spawn <em>eye</em> rather than left where the scene put it,
+    /// so walk mode opens with no snap on the frame the world finishes loading. The spawn
+    /// column comes from <c>SurfaceHeightAt</c>, which is a pure function of the generator and
+    /// needs no chunk to have loaded — which is the only reason there is a sensible place to
+    /// point the camera before the streamer has produced anything.
+    /// </para>
+    /// </remarks>
+    private void SetUpPlayer(WorldGenerator generator)
+    {
+        if (_camera is null)
+        {
+            return;
+        }
+
+        // Flying is a measurement instrument, so a profile run is not allowed to walk.
+        PlayerMode mode = _profiler is null && _flySpeed <= 0f ? PlayerMode.Walk : PlayerMode.Fly;
+
+        Vector3 scenePosition = _camera.GlobalPosition;
+        VoxelPos column = VoxelPos.FromMetres(scenePosition.X, scenePosition.Y, scenePosition.Z);
+        System.Numerics.Vector3 feet = PlayerSpawn.FeetOnSurface(
+            generator.SurfaceHeightAt(column.X, column.Z), scenePosition.X, scenePosition.Z);
+
+        var config = PlayerMotionConfig.Default;
+        _player = new PlayerController(config, feet, mode);
+
+        if (mode == PlayerMode.Walk)
+        {
+            _camera.FlightEnabled = false;
+            _camera.GlobalPosition = ToGodot(_player.EyePosition);
+        }
+        else
+        {
+            PlaceCameraAboveTerrain(generator);
+        }
+
+        GD.Print(
+            $"M4c: {mode.ToString().ToLowerInvariant()} mode, body {config.WidthMetres:F2} x " +
+            $"{config.HeightMetres:F2} m, eye {config.EyeHeightMetres:F2} m, " +
+            $"spawn feet {feet.Y:F2} m");
     }
 
     /// <summary>
@@ -192,6 +251,112 @@ public partial class Main : Node3D
         return margin;
     }
 
+    /// <summary>
+    /// One fixed-step solve of the player body, and the camera moved onto its eyes.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Here rather than in <see cref="_Process"/> because the step length has to be
+    /// constant.</b> M4b's <c>Step</c> takes <c>dt</c> as an argument precisely so Godot owns
+    /// the rate, and Godot's physics accumulator is the thing that already does fixed-step
+    /// work. A jump apex that changed with the frame rate would get diagnosed as a physics bug.
+    /// </para>
+    /// <para>
+    /// <b>The order M4-PLAN specifies is player → viewer → pipeline</b>, and it holds because
+    /// Godot runs every physics tick of a frame before that frame's <c>_Process</c>. So the
+    /// body is solved against the freshest world the streamer has managed, and the viewer that
+    /// decides what loads next is placed from where the body actually ended up. Running the
+    /// pipeline first would solve the player against a world one frame staler than necessary,
+    /// on the frame where being current is the entire point.
+    /// </para>
+    /// </remarks>
+    public override void _PhysicsProcess(double delta)
+    {
+        if (_player is null || _pipeline is null || _materials is null || _camera is null)
+        {
+            return;
+        }
+
+        if (!_player.TryStep(_pipeline.Streamer, _materials, ReadIntent(), (float)delta))
+        {
+            return;
+        }
+
+        if (!_announcedSpawn)
+        {
+            _announcedSpawn = true;
+            GD.Print(
+                $"M4c: spawned at {_player.FeetCentre} after {_player.StepsHeldForWorld} " +
+                "step(s) held for the world");
+        }
+
+        _camera.GlobalPosition = ToGodot(_player.EyePosition);
+    }
+
+    /// <summary>
+    /// Turns the keyboard and the camera's yaw into a <see cref="MoveIntent"/>.
+    /// </summary>
+    /// <remarks>
+    /// The only place in the project that reads a key and means "walk". Direction comes from
+    /// the camera flattened to the ground plane — see <see cref="FlyCam.WalkForward"/> for why
+    /// it is normalised after flattening and not before — and the speed comes from the config,
+    /// so M4d can retune walking without touching a binding.
+    /// </remarks>
+    private MoveIntent ReadIntent()
+    {
+        if (_camera is null || !_camera.MouseCaptured)
+        {
+            // Esc released the mouse. Stopping the walk as well as the look, for the reason
+            // FlyCam.MouseCaptured gives about mining: clicking on another window should not
+            // also march the player off a cliff.
+            return MoveIntent.Still;
+        }
+
+        Vector3 direction = Vector3.Zero;
+        if (Input.IsKeyPressed(Key.W)) direction += _camera.WalkForward;
+        if (Input.IsKeyPressed(Key.S)) direction -= _camera.WalkForward;
+        if (Input.IsKeyPressed(Key.D)) direction += _camera.WalkRight;
+        if (Input.IsKeyPressed(Key.A)) direction -= _camera.WalkRight;
+
+        return new MoveIntent(
+            new System.Numerics.Vector3(direction.X, direction.Y, direction.Z),
+            Jump: Input.IsKeyPressed(Key.Space),
+            Sprint: Input.IsKeyPressed(Key.Shift));
+    }
+
+    /// <summary>The walk/fly toggle. Everything else about input belongs to its own node.</summary>
+    /// <remarks>
+    /// On a key-down edge rather than polled, because a toggle read every frame flips sixty
+    /// times a second. <c>FlyCam</c> sees the event first and does not consume F.
+    /// </remarks>
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (_player is null || _camera is null
+            || @event is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.F })
+        {
+            return;
+        }
+
+        if (_profiler is not null || _flySpeed > 0f)
+        {
+            // A scripted flythrough owns the camera. Handing it to a body mid-run would
+            // invalidate the measurement rather than produce an interesting one.
+            GD.Print("M4c: walk mode is unavailable during a profile run.");
+            return;
+        }
+
+        var eye = new System.Numerics.Vector3(
+            _camera.GlobalPosition.X, _camera.GlobalPosition.Y, _camera.GlobalPosition.Z);
+
+        _player.ToggleMode(eye);
+        _camera.FlightEnabled = _player.Mode == PlayerMode.Fly;
+        _announcedSpawn = _player.Mode == PlayerMode.Fly;
+
+        GD.Print($"M4c: {_player.Mode.ToString().ToLowerInvariant()} mode");
+    }
+
+    private static Vector3 ToGodot(System.Numerics.Vector3 v) => new(v.X, v.Y, v.Z);
+
     public override void _Process(double delta)
     {
         if (_pipeline is null)
@@ -268,7 +433,13 @@ public partial class Main : Node3D
             }
         }
 
-        _mining = new MiningController(_pipeline!, MaterialTable.From(Content.Materials), strongest);
+        // Reach comes from the player, who owns it as of M4c. Nothing here has a default to
+        // fall back on, which is the point — MiningController.ReachMetres is `required`.
+        _mining = new MiningController(_pipeline!, _materials!, strongest)
+        {
+            ReachMetres = _player?.ReachMetres ?? PlayerController.DefaultReachMetres,
+        };
+
         _highlight = new VoxelHighlight(GetWorld3D());
 
         var names = new List<string>();

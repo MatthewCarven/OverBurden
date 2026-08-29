@@ -43,6 +43,51 @@ public partial class FlyCam : Camera3D
     /// </remarks>
     public bool MouseCaptured => _mouseCaptured;
 
+    /// <summary>
+    /// Whether WASD drives the camera directly.
+    /// </summary>
+    /// <remarks>
+    /// False in walk mode, where <see cref="PlayerController"/> owns the position and
+    /// <c>Main</c> assigns the camera to the body's eye every physics step. <b>Only the
+    /// movement is switched off — mouse-look stays live in both modes</b>, because looking
+    /// around is the same act whichever body you are, and because walking needs a yaw to walk
+    /// along. Toggling this is what makes the mode switch one line rather than a reparent.
+    /// </remarks>
+    public bool FlightEnabled { get; set; } = true;
+
+    /// <summary>Which way the camera is looking, flattened to the ground plane.</summary>
+    /// <remarks>
+    /// <b>Normalised after flattening, not before.</b> Dropping the Y component of a pitched
+    /// forward vector shortens it — looking down 60° leaves 0.5 units — and
+    /// <c>MoveIntent</c> clamps intent to unit length without ever scaling it up, so the
+    /// un-normalised version would walk at half speed for looking at your feet.
+    /// </remarks>
+    public Vector3 WalkForward
+    {
+        get
+        {
+            Vector3 forward = -GlobalTransform.Basis.Z;
+            forward.Y = 0f;
+            return forward.LengthSquared() > 0f ? forward.Normalized() : -Vector3.Forward;
+        }
+    }
+
+    /// <summary>The camera's right, on the ground plane.</summary>
+    /// <remarks>
+    /// Horizontal already — pitch rotates about this axis, so it cannot tilt it — but flattened
+    /// anyway rather than assumed, because the assumption is a property of the rotation order
+    /// and would go quiet if a roll were ever added.
+    /// </remarks>
+    public Vector3 WalkRight
+    {
+        get
+        {
+            Vector3 right = GlobalTransform.Basis.X;
+            right.Y = 0f;
+            return right.LengthSquared() > 0f ? right.Normalized() : Vector3.Right;
+        }
+    }
+
     public override void _Ready()
     {
         if (!GlobalPosition.IsEqualApprox(InitialTarget))
@@ -61,6 +106,7 @@ public partial class FlyCam : Camera3D
             $"MinerCraft — voxel {VoxelConstants.VoxelSize} m, " +
             $"chunk {VoxelConstants.ChunkSize}³ ({VoxelConstants.ChunkSizeMetres} m)\n" +
             "  WASD move, Space/Ctrl up-down, Shift sprint, Alt crawl\n" +
+            "  F toggles walk and fly — walking, Space jumps and Shift sprints\n" +
             "  Left mouse mines, number keys pick a tier\n" +
             "  Esc releases the mouse, click to recapture");
     }
@@ -89,6 +135,11 @@ public partial class FlyCam : Camera3D
 
     public override void _Process(double delta)
     {
+        if (!FlightEnabled)
+        {
+            return;
+        }
+
         var direction = Vector3.Zero;
 
         // Basis columns rather than named axes: movement follows where we are looking,

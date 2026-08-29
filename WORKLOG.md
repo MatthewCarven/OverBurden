@@ -1,5 +1,138 @@
 # MinerCraft — Worklog
 
+## 2026-08-29 — M4c: binding, and the two recipes that came back green
+
+The player is bound. `MinerCraft.Core/Physics/PlayerSpawn.cs` holds the three world rules —
+where a spawn lands, whether the world is ready to receive a body, and what to do about a body
+inside rock — and `MinerCraft.Game/Player/PlayerController.cs` holds the session: which of the
+two bodies is driving, and the gate the body waits behind. 17 new tests; the suite is
+**435 → 452**.
+
+Headless from a standing start, walk mode, the default r4h/2v:
+
+```
+M4c: walk mode, body 0.50 x 1.80 m, eye 1.65 m, spawn feet 1.25 m
+M4c: spawned at <15, 1.2501, 15> after 14 step(s) held for the world   (13 on a re-run)
+1521 viewed (1521 tracked), 165 drawn, 0 in flight, 0 queued
+1926 jobs done / 0 dropped / 0 faulted
+```
+
+**1521 / 165 / 1926 are the recorded M2d numbers, unchanged to the digit.** That is the whole
+of M4c's contract with the previous two milestones: adding a player did not move streaming.
+`--profile --radius=6 --vradius=3 --speed=8` still flies, still reports, and lands at 0.64% of
+one core against M3d's 0.80% at the same configuration.
+
+### The flycam was not deleted, and the toggle is one flag
+
+`FlyCam` gains `FlightEnabled`. False in walk mode, and **only the movement is switched off —
+mouse-look stays live in both modes**, because looking around is the same act whichever body
+you are and because walking needs a yaw to walk along. No reparenting, no physics body node,
+no second camera. `--profile` and a non-zero `--speed` both force fly mode at startup and both
+refuse the F key mid-run, because handing a scripted flythrough's camera to a body would
+invalidate the measurement rather than produce an interesting one.
+
+`FlyCam.WalkForward` normalises **after** flattening, not before. Dropping the Y component of a
+pitched forward vector shortens it — looking down 60° leaves 0.5 units — and `MoveIntent`
+clamps intent to unit length without ever scaling it up, so the naive version walks at half
+speed for looking at your feet.
+
+### 13–14 steps held for the world, and that number is the reason the gate exists
+
+At frame zero nothing is loaded, every unloaded voxel is solid, and a body dropped in is sealed
+in rock in every direction. `PlayerController` holds it inert — not stepped at all — until
+`PlayerSpawn.IsWorldReadyFor` says the chunks are there. **13 or 14 physics steps, about
+0.22 s** — it varies run to run with worker scheduling, so it is a scale rather than a
+constant.
+
+**The order is gate, then unstick, then step, and it is not interchangeable.** Unsticking
+against an unloaded world finds solid at every candidate height, runs to its 4 m lift bound,
+fails, and reports a body stuck in open sky — which reads as the spawn being broken rather than
+as the world not having arrived. `UnstickFailsAgainstAnUnloadedWorld` pins it.
+
+The gate checks every chunk the box overlaps **and the chunk beneath each of them**. The box's
+own because an unloaded one is solid and would pin the body; the layer below because that is
+the floor, and standing on an unloaded chunk is standing on something that will not be there —
+the body holds, then drops the moment the chunk arrives and turns out to be air.
+
+A switch into walk mode re-enters through that same gate rather than placing the body directly.
+Toggling into a wall and spawning into a cave mouth are the same event, and a second copy of
+the decision is a second copy to drift.
+
+### Six break-recipes, two green, and they are two different things
+
+| Break | Caught by |
+|---|---|
+| The readiness gate always says yes | 3 |
+| The gate drops the chunk beneath the feet | 1, and nothing else |
+| Unstick accepts the first candidate blindly | 5 |
+| `FeetOnSurface` uses the surface row, not the row above | 3 |
+| **Unstick starts at the box's own row instead of one above** | **nothing — a real hole** |
+| **Unstick translates instead of rebuilding the box** | **nothing — a documentation correction** |
+
+**The hole.** Every buried-body test placed the feet on a voxel plane already, so the extra
+downward candidate was the box itself and overlapped by construction. Off a plane, with a body
+whose *head* is what is stuck, the lower candidate can be clear — and the rule silently becomes
+"move to the nearest free plane" instead of "lift". `UnstickNeverMovesABodyDownward` was
+written for it, watched fail on it, and is the only test that catches it.
+
+That test also records a decision rather than a consequence: **a body with its head in a
+ceiling is pushed up through the ceiling and onto the roof, not down out of it.** Up is the
+only direction whose answer does not depend on which face happened to be overlapping, and a
+body that can be pushed down by material appearing above it can be pushed into the floor.
+**Recorded for M6**, which is the first system that puts a block at the player's head
+deliberately.
+
+**The correction.** Rebuilding the lifted box from the untouched `Min.X`, `Min.Z` and `Size`
+rather than calling `Aabb.Translated` with a computed delta is M4a's corner-and-size rule, and
+after trying to construct a failing case there is none: `Min.Y + (y − Min.Y)` is exact for every
+pair a 4 m lift can produce inside the few-kilometre world M4a's float analysis allows, and the
+horizontal `+ 0.0f` is exact for every float except `−0.0f`, which `Aabb.FromFeet` cannot
+produce. Kept because it makes the lift obviously vertical, **not** because a test can tell.
+Same shape as M4a's "`ContactEpsilonMetres` can be zeroed with the suite green".
+
+### Feet exactly on a voxel plane is a state that survives exactly one step
+
+The end-to-end spawn test was written expecting the first step to be bitwise identity and it
+was wrong: the step lifts the body by exactly `ContactEpsilonMetres`. Gravity pushes it a
+fraction into the floor and the −Y resolve places it the epsilon clear — 1.25 m becomes
+1.2501 m, which is the number the headless run above prints.
+
+So **feet exactly on a plane exists only at the spawn and at a mode toggle**, and one step of
+anything at all is a tenth of a millimetre above it. That is why M4b's
+`ALiftOfExactlyTheStepHeightClearsALipOfExactlyTheStepHeight` constructs the position by hand
+instead of walking a body into it, and it is the thing to check before writing any other
+bitwise assertion about a resting body. The second step is bitwise identical to the first, so
+the resting position is stable — which is what M4a's corner-and-size storage exists to give.
+
+### Reach moved, and deliberately did not change
+
+`ReachMetres` is `PlayerController`'s now, closing M3d's recorded item. `MiningController`'s is
+`required` and defaultless, so there is no second number to drift from the first —
+`PlayerController.DefaultReachMetres` is the only literal.
+
+**Still 5 m.** M4-PLAN's constants table says 3.5 m and the play-test note says 5 m reads a
+little long at twenty voxels; both are opinions about feel and **M4d settles them by playing**.
+Moving the field and retuning the number in the same pass would make it impossible to tell
+which change did what.
+
+### The step runs in `_PhysicsProcess`, and the order M4-PLAN asked for holds
+
+Player → viewer → pipeline. Godot runs every physics tick of a frame before that frame's
+`_Process`, so the body is solved against the freshest world the streamer has managed, and the
+viewer that decides what loads next is placed from where the body actually ended up.
+
+The camera and the mining ray share one origin without deriving it twice: `_PhysicsProcess`
+assigns the camera from `PlayerState.EyePosition`, and `UpdateMining` reads the camera. In fly
+mode the camera is the only truth and nothing changes.
+
+### Still open, and it is the half that has to be played
+
+M4c is verified headless — it spawns, it holds, it does not perturb streaming. **Nothing here
+has confirmed that walking feels like anything**, because headless has no keyboard. Whether
+0.25 m ground walks like ground or like a staircase, whether the jump is right, whether 5 m of
+reach is too much, and whether the box fits down a `hand_pick` tunnel are all M4d's, and all
+need a windowed run with a person at it.
+
 ## 2026-08-29 — M4b: motion, and the snap that keeps M4a's epsilon claim true
 
 `MinerCraft.Core/Physics/` gains `PlayerMotion` and `PlayerMotionConfig`. Gravity, jump,

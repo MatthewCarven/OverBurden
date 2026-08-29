@@ -623,8 +623,9 @@ worker thread, not a wrong voxel.
       the one no profile could give.
 - [ ] **Reach reads a little long at 5 m**, which is twenty voxels. Fine for a creative-mode
       flycam, so unchanged {D} but **reach is the player's, not the tool's**, and M4 is where
-      something exists to own it. A survival reach wants to be shorter. It lives on
-      `MiningController.ReachMetres`, deliberately not in the tool JSON.
+      something exists to own it. A survival reach wants to be shorter. **M4c moved it to
+      `PlayerController.ReachMetres`** — still 5 m, still deliberately not in the tool JSON, and
+      **M4d settles the number by playing.**
 - [ ] **Is the bite the right size, and does the hardness gate read?** `hand_pick` (0.4 m,
       leaves stone) against `steel_pick` (0.5 m, takes it). Numbers, not code — they are two
       JSON files, so tuning them needs no rebuild.
@@ -638,7 +639,7 @@ worker thread, not a wrong voxel.
       enough erases the mine. Acceptable until M6, recorded so it is not filed as an edit-path
       bug.
 
-### M4 — Player ⬅️ **in progress: M4a and M4b done, M4c next**
+### M4 — Player ⬅️ **in progress: M4a, M4b and M4c done, M4d next**
 
 Planned 2026-08-29 and split into four parts in [docs/M4-PLAN.md](docs/M4-PLAN.md). **Read it
 before starting.** The structural point: until now the viewer's position was an *input* and
@@ -822,26 +823,69 @@ out of the world and accelerates away from anything that could stop them.
       answers *air **and** false*; a second copy that drifted would let a body which ignores the
       return value pass its own suite.
 
-#### M4c — Binding
+#### M4c — Binding ✅ **done 2026-08-29**
 
-- [ ] **Do not delete the flycam.** `FlyCam`'s own comment says M4 replaces it; that comment
+- [x] **Do not delete the flycam.** `FlyCam`'s own comment says M4 replaces it; that comment
       is wrong and following it destroys the measurement apparatus M2d and M3d were built to
       create. `--profile` assigns `GlobalPosition` directly and `AdvanceFlythrough` snaps the
       camera every frame; a camera parented to a physics body cannot do either.
-- [ ] Walk/fly toggle on a key, **`--profile` implies fly**, body inert in fly mode. Keeps
-      every existing measurement comparable against M3d's.
-- [ ] Order within a step: **player → viewer → pipeline**. Pipeline first would solve the
-      player against a world one frame staler than necessary.
-- [ ] Move `ReachMetres` from `MiningController` to the player, closing M3d's recorded item.
-- [ ] **Spawn is the cycle at its worst** — nothing is loaded, so everything is solid, so the
-      player cannot move. Gate the body on the spawn chunk and the one below it having
-      terrain; place with `SurfaceHeightAt`; **unstick upward** if the box starts inside solid
-      rather than locking, because locking reads as a broken game.
-- [ ] Mining the floor from under yourself works for free and is correct. **Recorded revisit
+      `FlyCam.FlightEnabled` is the whole of it: false in walk mode, and **only the movement
+      is switched off — mouse-look stays live in both modes**, because looking around is the
+      same act whichever body you are and because walking needs a yaw to walk along.
+- [x] Walk/fly toggle on **F**, **`--profile` implies fly**, body inert in fly mode. A profile
+      run also *refuses* the toggle mid-run, because handing a scripted flythrough's camera to
+      a body invalidates the measurement rather than producing an interesting one. Verified:
+      the default headless run reports **1521 viewed / 165 drawn / 1926 jobs**, M2d's recorded
+      numbers unchanged to the digit.
+- [x] Order within a step: **player → viewer → pipeline**. The step is in `_PhysicsProcess` and
+      the rest in `_Process`; Godot runs every physics tick of a frame before that frame's
+      `_Process`, so the order holds without a manual ordering.
+- [x] **`ReachMetres` moved to `PlayerController`**, closing M3d's recorded item.
+      `MiningController.ReachMetres` is now `required` and defaultless, so there is no second
+      number to drift — `PlayerController.DefaultReachMetres` is the only literal.
+      **Deliberately still 5 m**: the plan's table says 3.5 m and the play-test says 5 m reads
+      long, both are feel, and **M4d settles it**. Moving the field and retuning it in one pass
+      would make it impossible to tell which change did what.
+- [x] **Spawn is the cycle at its worst**, and the order is **gate, then unstick, then step**.
+      `PlayerSpawn.IsWorldReadyFor` checks every chunk the box overlaps *and the chunk beneath
+      each of them*; `FeetOnSurface` places the feet on the row above the surface voxel;
+      `TryUnstick` lifts plane by plane to a 4 m bound. Measured: **13–14 steps held for the
+      world**, about 0.22 s, on the default headless run — it moves run to run with worker
+      scheduling, so it is a scale and not a constant.
+- [x] **Unsticking before the gate is the unrecoverable order.** Against an unloaded world every
+      candidate is solid, the search runs to its bound, and a body standing in open sky is
+      reported stuck. `UnstickFailsAgainstAnUnloadedWorld` pins it.
+- [x] **An unstick lifts and never drops** — a body with its head in a ceiling goes up through
+      it and onto the roof, not down out of it. Up is the only direction whose answer does not
+      depend on which face was overlapping, and a body that can be pushed down by material
+      above it can be pushed into the floor. **Caught by nothing until a test was written for
+      it**; see the two green recipes below.
+- [x] Mining the floor from under yourself works for free and is correct. **Recorded revisit
       trigger:** material appearing *inside* the box has no answer at M4 — M6's placement can
-      do it deliberately, M9's collapse by accident — and the unstick rule is its seed.
+      do it deliberately, M9's collapse by accident — and `PlayerSpawn.TryUnstick` is its seed,
+      including its up-only decision.
 - [ ] Not a bug, and will be reported as one: walking into your own tunnel is walking into the
       dark until M5.
+
+##### Six break-recipes, two green, and they are two different things
+
+- [x] Caught: the gate always saying yes (3 tests), the gate dropping the chunk beneath (1, and
+      nothing else), unstick accepting the first candidate blindly (5), `FeetOnSurface` using
+      the surface row rather than the row above (3).
+- [x] **Green, and a real hole: unstick starting at the box's own voxel row.** Every buried-body
+      test placed the feet on a plane already, so the extra downward candidate was the box
+      itself and overlapped by construction. `UnstickNeverMovesABodyDownward` closes it.
+- [x] **Green, and a documentation correction: `Aabb.Translated` instead of rebuilding the
+      box.** No failing case exists — `Min.Y + (y − Min.Y)` is exact for every pair a 4 m lift
+      can produce inside the few-kilometre world M4a's float analysis allows, and the horizontal
+      `+ 0.0f` is exact for every float except `−0.0f`, which `Aabb.FromFeet` cannot produce.
+      Kept for rule-consistency with M4a's corner-and-size storage, **not** because a test can
+      tell. Same shape as M4a's zeroable epsilon.
+- [x] **Feet exactly on a voxel plane survives exactly one step.** The end-to-end spawn test was
+      written expecting bitwise identity and was wrong: the first −Y resolve places the body
+      `ContactEpsilonMetres` clear, so 1.25 m becomes 1.2501 m — the number the headless run
+      prints. The state exists only at spawn and at a mode toggle, which is why M4b's lift test
+      constructs it by hand. The *second* step is bitwise identical, so rest is stable.
 
 ##### What M4b hands M4c, so it isn't rediscovered at the binding
 

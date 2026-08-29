@@ -104,8 +104,8 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2 and all of M3** are done, and **M4a and M4b** with them — **435
-tests passing**.
+M0, all of M1, **all of M2 and all of M3** are done, and **M4a, M4b and M4c** with them —
+**452 tests passing**. The player walks.
 Terrain streams around the flycam: worldgen and greedy meshing run on worker threads over palette-compressed storage,
 with materials loaded from JSON, and chunks load and unload as the viewer moves.
 
@@ -338,17 +338,18 @@ Three things about M3d that are easy to undo by accident:
 - **M3a's clone estimate is settled: right per chunk, 7× pessimistic per swing.** Measured 1.2
   clones and 2.4 KiB per swing against a guessed 8 chunks and ~16 KB. Eight is the worst case
   at a chunk corner, not the typical one.
-- **Reach is the player's, not the tool's.** 5 m on `MiningController`, and it belongs to M4's
-  controller. A tier says how big a bite it takes and what it is hard enough to take; how far
-  an arm reaches is not that, and putting it in the tool JSON now would guess a field into a
-  format mods have written against.
+- **Reach is the player's, not the tool's.** 5 m, and a tier says how big a bite it takes and
+  what it is hard enough to take, not how far an arm stretches — putting it in the tool JSON
+  would guess a field into a format mods have written against. **M4c moved it off
+  `MiningController` onto `PlayerController`**, where it now lives; the value is unchanged.
 
 **The headless frame-time trap appeared a third time** and was not believed: a mining run
 reported `frame ms` max 19.6 ms against a 6.9 ms control, while `update ms` max moved 0.13 ms
 and the spike did not reproduce in two further runs. `update ms` times our own work directly.
 
 **M4, the player, is under way** — [docs/M4-PLAN.md](docs/M4-PLAN.md), split into M4a the
-collider (**done**), M4b motion (**done**), M4c binding, M4d feel and measurement. Five things
+collider (**done**), M4b motion (**done**), M4c binding (**done**), M4d feel and measurement.
+Five things
 from the planning pass that are expensive to rediscover:
 
 - **The viewer's position stops being an input.** Until now the flycam was told where to go
@@ -449,6 +450,45 @@ no momentum, full air control — because acceleration, air control and ground f
 separate feel decisions and M4d is where a person makes them. Reach stayed on `MiningController`:
 it is not a body dimension. Eye height *is* in the config, because it is the third dimension of
 the same body.
+
+**M4c — binding: done 2026-08-29.** `PlayerSpawn` in Core holds the three world rules — where a
+spawn lands, whether the world is ready, what to do about a body inside rock — and
+`PlayerController` in Game holds the session: which body is driving, and the gate the other one
+waits behind. `FlyCam` gains `FlightEnabled`; there is no physics body node and no reparenting.
+**F toggles walk and fly.** Suite 435 → 452.
+
+**The prediction was that M4c would be where the surprises were, and it was not.** The binding
+was mechanical; both things nothing caught were in the world rules that went into Core.
+
+- **The flycam kept every number, which was the entire contract.** The default headless run
+  reports **1521 viewed / 165 drawn / 1926 jobs** — M2d's recorded figures unchanged to the
+  digit — so M4d's measurements stay comparable with M3d's. `--profile` and a non-zero
+  `--speed` force fly mode *and refuse the F key mid-run*, because handing a scripted
+  flythrough's camera to a body invalidates the run rather than making it interesting.
+- **Gate, then unstick, then step. The reverse order is the unrecoverable one.** Against an
+  unloaded world every unstick candidate is solid, the search runs to its 4 m bound, and a body
+  standing in open sky is reported *stuck*. The gate checks every chunk the box overlaps **and
+  the chunk beneath each of them** — the layer below because standing on an unloaded chunk is
+  standing on something that will not be there. Measured: **13–14 steps, about 0.22 s, held
+  for the world** at r4h/2v — it moves run to run with worker scheduling.
+- **An unstick lifts and never drops, and that is a decision rather than a consequence.** A body
+  with its head in a ceiling goes up through it onto the roof. **Caught by nothing** — every
+  buried-body test placed the feet on a plane already, where the downward candidate is the box
+  itself and overlaps by construction. `UnstickNeverMovesABodyDownward` closes it, and this is
+  the rule M6's placement inherits, up-only included.
+- **`Aabb.Translated` versus rebuilding the lifted box is undetectable, and is kept anyway.** No
+  failing case exists inside the few-kilometre world M4a's float analysis allows. A
+  documentation correction, not a caught bug — the same shape as M4a's zeroable epsilon.
+- **Feet exactly on a voxel plane survives exactly one step.** The first −Y resolve places the
+  body `ContactEpsilonMetres` clear, so the spawn's 1.25 m is 1.2501 m by the next frame. The
+  state exists *only* at the spawn and at a mode toggle, which is why M4b's lift test constructs
+  it by hand. Check this before writing any bitwise assertion about a resting body.
+- **Order within a step came for free.** Player → viewer → pipeline holds because the step is in
+  `_PhysicsProcess` and the rest in `_Process`, and Godot runs a frame's physics ticks first.
+- **Reach moved to the player and deliberately did not change.** Still 5 m;
+  `MiningController.ReachMetres` is now `required` and defaultless so there is no second literal.
+  M4-PLAN's table says 3.5 m and the play-test says 5 m reads long — both are feel, and **M4d
+  settles it by playing**. Retuning in the same pass as the move would confuse the two changes.
 
 **M3 has been played, and it feels good** — the verdict the milestone was actually waiting on,
 since it is the first whose output was a feeling rather than a number. `VoxelHighlight` is

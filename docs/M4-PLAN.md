@@ -25,7 +25,7 @@ consequence is unrecoverable instead of merely confusing.
 |---|---|---|
 | **M4a** The collider ✅ | AABB vs voxel grid, axis-separated, substepped | Falling through the floor, snagging on flat walls, jittering at rest |
 | **M4b** Motion ✅ | Gravity, jump, ground state, step-up and step-down | A controller that is correct and horrible to use |
-| **M4c** Binding | Player node, camera, walk/fly toggle, spawn | Deleting the flycam and taking every measurement built in M2d and M3d with it |
+| **M4c** Binding ✅ | Player node, camera, walk/fly toggle, spawn | Deleting the flycam and taking every measurement built in M2d and M3d with it |
 | **M4d** Feel and measurement | Can the player outrun the streamer, and does 0.25 m ground walk like ground | Constants guessed once and never questioned |
 
 **M4c is the part most likely to surprise**, which is not where the surprise usually is. M4a
@@ -325,7 +325,7 @@ is a number waiting to be believed.
 
 ---
 
-## M4c — Binding
+## M4c — Binding — done 2026-08-29
 
 ### The flycam does not get deleted, and this is the part with the trap in it
 
@@ -381,6 +381,46 @@ the player's position needs a policy, and the unstick rule above is the obvious 
 
 There is no block light until M5. This will be reported as a bug the first time somebody digs
 a tunnel and walks in. It is not one, and writing it down here is cheaper than diagnosing it.
+
+### What building it settled
+
+**The part most likely to surprise did not.** The prediction at the top of this document was
+that M4a and M4b would be tractable and M4c would be where the trouble was. It was the other
+way round: the binding was mechanical, and the two things nothing caught were both in the
+world rules that went into Core.
+
+- **The flycam kept every number.** `FlyCam.FlightEnabled` is the whole toggle — movement off,
+  mouse-look on, no reparent and no second camera. The default headless run reports **1521
+  viewed / 165 drawn / 1926 jobs**, M2d's recorded figures unchanged to the digit, so M4d's
+  numbers are comparable against M3d's exactly as intended. A profile run also refuses the
+  toggle mid-run rather than merely starting in fly mode.
+- **The order came for free.** Player → viewer → pipeline holds because the step is in
+  `_PhysicsProcess` and the rest in `_Process`, and Godot runs every physics tick of a frame
+  before that frame's `_Process`. Nothing had to be sequenced by hand.
+- **Gate, then unstick, then step — and the reverse order is the unrecoverable one.** Against an
+  unloaded world every unstick candidate is solid, the search runs to its 4 m bound, and a body
+  standing in open sky is reported stuck. Measured: **13–14 steps, about 0.22 s, held for the
+  world** at the default view distance — it moves run to run with worker scheduling.
+- **An unstick lifts and never drops, and that is a decision rather than a consequence.** A body
+  with its head in a ceiling is pushed up through it and onto the roof. Up is the only direction
+  whose answer does not depend on which face was overlapping, and a body that can be pushed down
+  by material appearing above it can be pushed into the floor. **Caught by nothing** — every
+  buried-body test placed the feet on a plane already, where the downward candidate is the box
+  itself. This is the seed M6's placement inherits, up-only decision included.
+- **`Aabb.Translated` versus rebuilding the box is undetectable, and is kept anyway.** No
+  failing case exists inside the few-kilometre world M4a's float analysis allows. Recorded as a
+  documentation correction rather than as a caught bug — the same shape as M4a's zeroable
+  contact epsilon.
+- **Feet exactly on a voxel plane survives exactly one step.** The first −Y resolve places the
+  body `ContactEpsilonMetres` clear, so the spawn's 1.25 m is 1.2501 m by the next frame. The
+  state exists only at the spawn and at a mode toggle, which is why M4b's lift test constructs
+  it by hand rather than walking a body into it.
+- **Reach moved and deliberately did not change.** Still 5 m. The table below says 3.5 m and the
+  play-test says 5 m reads long; both are feel, and settling them is M4d's. Moving the field and
+  retuning the number in one pass would make it impossible to tell which change did what.
+
+**What M4c did not verify, and could not:** whether any of it feels like anything. Headless has
+no keyboard. That is M4d's half, unchanged.
 
 ---
 
