@@ -13,12 +13,12 @@ No mobs, no combat. The mine is the antagonist.
 
 ## Status
 
-**M0, M1 and M2 done**, and M3 is underway — 307 tests passing. Terrain streams around the camera without end:
-worldgen and greedy meshing run on worker threads over palette-compressed storage, drawn
-via `RenderingServer` with a texture array, with every material loaded from
-`mods/minercraft/*.json` exactly the way a third-party mod would load its own. Chunks load
-and unload as you move, on a scheduler that reprioritises queued work and cancels what went
-stale before a thread was free to run it.
+**M0, M1 and M2 done**, and M3 is underway — 307 tests passing. Terrain streams around the
+camera without end: worldgen and greedy meshing run on worker threads over
+palette-compressed storage, drawn via `RenderingServer` with a texture array, with every
+material loaded from `mods/minercraft/*.json` exactly the way a third-party mod would load
+its own. Chunks load and unload as you move, on a scheduler that reprioritises queued work
+and cancels what went stale before a thread was free to run it.
 
 Some numbers it is built on:
 
