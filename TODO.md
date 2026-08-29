@@ -797,6 +797,8 @@ out of the world and accelerates away from anything that could stop them.
       in one step — 0.075 m of walking against a 0.5 m body cannot, so the test uses a 45 m/s
       body and says why.
 - [ ] **Recorded cost: step-up's "fully succeed" guard makes wall-hugging stop you dead.**
+      *Not encountered in the 2026-08-30 play-test, but that test walked up hills rather than
+      into corners — the case needs provoking deliberately and has not been.*
       Walking diagonally into a corner where one axis is a climbable lip and the other is a tall
       wall refuses the climb, because the lifted re-attempt is still blocked on the wall. That is
       the plan's specified behaviour and it is safe. **If M4d finds it reads as stuck, the
@@ -931,9 +933,29 @@ out of the world and accelerates away from anything that could stop them.
         fields and no more" comment anticipates exactly this, and `Step` stays a pure function
         with a fourth. It does not disturb step-down's non-upward guard, which already refuses
         while the body is rising.
-- [ ] Needs a human, still: does 0.25 m ground walk like ground or like a staircase; is **5 m**
-      the right reach now something owns it; does the box fit down a tunnel dug with the
-      starting pick.
+- [x] **Played 2026-08-30: 0.25 m ground walks like ground.** "Walking uphill occurred
+      naturally, I did not need to jump." This is the question M4d existed to ask and the one no
+      profile could answer — DESIGN's claim that step-up is *not* a convenience here but the
+      difference between walking on the ground and not is confirmed by a person. **Step height
+      stays 0.5 m.**
+- [ ] **Two step-up/step-down corner cases are still unjudged, and ordinary walking cannot reach
+      them.** Neither was reported, which is silence rather than evidence:
+      - **Guard 3's wall-hug** needs walking *diagonally* into a corner where one axis is a
+        climbable lip and the other a tall wall. It is the case that would read as stuck, and it
+        will not turn up by walking up a hill.
+      - **Step-down's 0.5 m instant drop** needs a lip walked *off*, not up. The revisit trigger
+        was always "does the drop jolt where the matching rise does not".
+- [x] **Played 2026-08-30: you "sortof" fit down a tunnel you carve.** The coupling M4-PLAN named
+      holds, and the hedge is exactly what its arithmetic predicts: `hand_pick`'s 0.4 m radius
+      leaves a 0.75 m bore, a 0.5 m box passes with **0.125 m either side — half a voxel**, and
+      consecutive swings centred on different voxel centres wander the bore's axis by more than
+      nothing. So it fits on paper and scrapes in practice.
+- [ ] **If the tunnel wants to feel roomier, the cheap lever is the tool, not the player** {D}.
+      `hand_pick`'s `radiusMetres` 0.4 → 0.5 makes the bore five voxels, 1.25 m, clearing 0.375 m
+      either side. It is **one number in one JSON file and needs no rebuild**, which is what M3c
+      made tool tiers content for. Widening the *player* instead is the move M4-PLAN warns
+      against, because width is the half of the coupling that is not free.
+- [ ] Needs a human, still: is **5 m** the right reach now something owns it.
 
 #### Deliberately not in M4
 

@@ -438,7 +438,9 @@ Six things about it that are easy to undo by accident:
 - **Step-up's "the re-attempt must fully succeed" guard has a recorded feel cost.** Hugging a
   wall while walking up a slope stops you dead, because the lifted re-attempt is still blocked
   on the wall. Specified behaviour, safe, and **if M4d says it reads as stuck the relaxation is
-  one line** — require the re-attempt to be blocked on no axis the original move was not.
+  one line** — require the re-attempt to be blocked on no axis the original move was not. **Not
+  encountered in the 2026-08-30 play-test**, which walked up hills rather than into corners; the
+  case needs provoking deliberately, so that is silence and not evidence.
 - **M4d needs a signal that does not exist:** `MoveResult` cannot tell "stopped by rock" from
   "stopped by an unloaded chunk", which is exactly *steps spent held*, the number meant to pick
   terminal velocity. A flag on `IsSolidUncounted` and a field on `MoveResult` — deliberately not
@@ -489,6 +491,23 @@ was mechanical; both things nothing caught were in the world rules that went int
   `MiningController.ReachMetres` is now `required` and defaultless so there is no second literal.
   M4-PLAN's table says 3.5 m and the play-test says 5 m reads long — both are feel, and **M4d
   settles it by playing**. Retuning in the same pass as the move would confuse the two changes.
+
+**M4 has been played, twice, and the headline question is answered: 0.25 m ground walks like
+ground.** "Walking uphill occurred naturally, I did not need to jump" — which is DESIGN's claim
+that step-up is not a convenience in a quarter-metre world but the difference between walking on
+the ground and not, confirmed by a person rather than argued. **Step height stays 0.5 m and the
+jump constants stand.** Two things came with it:
+
+- **You "sortof" fit down a tunnel you carve**, and the hedge is exactly what M4-PLAN's
+  arithmetic predicts. `hand_pick`'s 0.4 m radius leaves a 0.75 m bore and a 0.5 m box passes
+  with **0.125 m either side — half a voxel** — while consecutive swings centred on different
+  voxel centres wander the bore's axis. Fits on paper, scrapes in practice. **The cheap lever is
+  the tool, not the player:** `radiusMetres` 0.4 → 0.5 gives a five-voxel bore and 0.375 m of
+  clearance, and it is one number in one JSON file with no rebuild — which is what M3c made
+  tiers content for. Widening the player is the move the plan warns against.
+- **Two corner cases stayed unjudged and ordinary walking cannot reach them:** step-up guard 3's
+  diagonal wall-hug, and step-down's 0.5 m instant drop. Neither was reported, which is silence
+  rather than evidence.
 
 **M3 has been played, and it feels good** — the verdict the milestone was actually waiting on,
 since it is the first whose output was a feeling rather than a number. `VoxelHighlight` is

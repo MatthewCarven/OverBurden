@@ -1,5 +1,59 @@
 # MinerCraft — Worklog
 
+## 2026-08-30 — Played: 0.25 m ground walks like ground
+
+**"Walking uphill occurred naturally, I did not need to jump."** That is the question M4d exists
+to ask, and the one no profile could ever have answered.
+
+DESIGN argued that step-up is not a convenience in a quarter-metre world the way it is in a
+one-metre-block game — terrain from a heightmap steps by whole voxels, which at 0.25 m is seven
+steps per metre of slope, and without step-up every one of them is a wall you have to jump. That
+was an argument. It is now a verdict. **Step height stays 0.5 m**, and the "one constant serves
+both directions" decision keeps its single knob.
+
+The jump was judged natural in the same session, so **M4b's constants stand as measured**:
+7.5 m/s against 25 m/s², apex 1.1875 m.
+
+### What the play-test did *not* touch, and why that is silence rather than evidence
+
+Two recorded feel costs are still unjudged, and **ordinary uphill walking cannot reach either**:
+
+- **Step-up guard 3's wall-hug.** It needs walking *diagonally* into a corner where one axis is a
+  climbable lip and the other a tall wall; the lifted re-attempt is still blocked on the wall, so
+  the climb is refused and the player stops dead. Walking up a hill will not produce it. If it
+  ever reads as stuck the relaxation is still one line — require the re-attempt to be blocked on
+  no axis the original move was not.
+- **Step-down's 0.5 m instant drop.** That needs a lip walked *off*, not up. The trigger was
+  always "does the drop jolt where the matching rise does not".
+
+Not reported is not the same as not there, and both of these are the kind of thing a person
+walks past for an hour and then hits once.
+
+### You "sortof" fit down a tunnel you carve
+
+The hedge is worth more than a yes would have been, because it is **precisely what M4-PLAN's
+arithmetic predicts**. `hand_pick` has a 0.4 m radius; a swing centred on a voxel centre takes
+every voxel whose centre is within it, which along any axis through the centre is three voxels,
+a 0.75 m free bore. A 0.5 m box passes with **0.125 m either side — half a voxel**. And a tunnel
+is not one swing: consecutive swings centre on different voxel centres, so the bore's axis
+wanders by more than nothing. It fits on paper and it scrapes in practice.
+
+**The cheap lever is the tool, not the player.** `hand_pick`'s `radiusMetres` from 0.4 to 0.5
+makes the bore five voxels, 1.25 m, clearing 0.375 m either side — **one number in one JSON file,
+no rebuild**, which is exactly what M3c made tool tiers content for. Widening the *player* is the
+move M4-PLAN warns against: the player's width and the weakest tool's bite are coupled and the
+width is the half that is not free, because it is also the collider, the eye offset, and every
+number M4a measured. Unchanged pending a decision — a tunnel that scrapes may well be the
+intended feel for the starting pick.
+
+### What is left of M4d
+
+The playable half is nearly done: **jump ✅, uphill walking ✅, tunnel fit ✅ (hedged)**. Reach at
+5 m is the last one needing a person. The measurement half — fall mode in the profiler, steps
+spent held, ground-state flicker, collider cost per step — is entirely unbuilt, and *steps spent
+held* still needs the signal M4b deliberately did not add.
+
+
 ## 2026-08-30 — Played: the jump feels good
 
 M4b's constants get their first verdict from a person rather than a number, and it lands on the
