@@ -163,7 +163,12 @@ visible here.
 - Storage is 0.25 m, but the player never places single sub-voxels; that would be
   miserable.
 - **Mining is sculpting**: a pick swing removes a sphere or cone of material. Tool
-  tier sets radius and hardness threshold.
+  tier sets radius and hardness threshold. **Confirmed 2026-08-30, against the
+  alternative**: a single-voxel default was proposed and rejected, because `hand_pick`'s
+  sphere is ~17 voxels and the default would have been ~17× slower to excavate with the
+  starting tool — in a game about a mining operation, and against the volumetric-inventory
+  argument two lines below. **Single-voxel mining exists as `Carve.Chip`, held under Ctrl**,
+  because precision is what a builder wants and a builder will hold a key.
 - **Placement uses brushes**: 1 m cube, slab, ramp, sphere. Fine detail comes from
   carving, not from placing.
 - **Inventory is volumetric** — litres of stone, not "3 stone blocks". Falls out of

@@ -1,5 +1,92 @@
 # MinerCraft — Worklog
 
+## 2026-08-30 — Two mining shapes: the sphere keeps the click, Ctrl takes one voxel
+
+Decided and built. `Carve.Chip` and `Carve.Voxel` join `Carve.Swing` and `Carve.Sphere`; the
+bare left click still removes the tool's sphere and **Ctrl+left takes exactly the highlighted
+voxel**. 9 new tests, suite **452 → 461**, six break-recipes and all six caught.
+
+### The proposal arrived inverted, and the inversion had a price tag
+
+The ask was single-voxel as the default with the sphere hidden under a modifier, for the person
+building something precise. Both capabilities are right; **which one the bare click does turned
+out to be an economy decision rather than a control one.**
+
+`hand_pick`'s 0.4 m sphere takes roughly **17 voxels**. A single-voxel default is therefore about
+**17× slower to excavate** with the starting tool — in a game whose premise is a mining
+operation fighting water and gravity, and against DESIGN's own stated argument that volumetric
+inventory exists to make big excavations meaningfully productive. It also reverses a DESIGN
+line: *"Mining is sculpting: a pick swing removes a sphere or cone of material."*
+
+So the modifier points the other way: **sphere on the click, precision on Ctrl.** Identical
+capabilities, identical one modifier, no DESIGN reversal, and the productive action stays the
+default in the game about being productive. DESIGN's line now records that the alternative was
+considered and why it lost, which is what that document is for.
+
+**A quiet dividend:** `radiusMetres` keeps meaning "what a swing takes". Flipping the default
+would have made it "what the *modifier* swing takes" — a change to a live field in
+`mods/minercraft/tools/*.json`, and non-negotiable 5 says the base game is a mod, so that is a
+format change and not a rename.
+
+### What Chip actually does, and the two exemptions it does not get
+
+**It takes `hit.Voxel` itself, with no `SwingCentre`.** A sphere is centred on the hit voxel's
+centre because a radius has to mean the same thing from every angle; a chip is the voxel. Which
+means **`VoxelHighlight`'s outline stops being an indication of roughly where the bite lands and
+becomes literally the thing about to be removed** — that is the whole reason precision reads as
+precise.
+
+**Same hardness gate and same cooldown.** Precision changes how much a swing takes, never what
+it is strong enough to take, and never how fast it fires. Exempt it from hardness and the
+modifier becomes a way to mine anything one voxel at a time, making M3's entire progression
+advisory. Exempt it from cooldown and it becomes the *efficient* way to mine as well as the
+accurate one, and the sphere stops being the default in practice while still being it in code.
+
+### The refactor is load-bearing, and one recipe proves it
+
+The per-voxel gate — unloaded, already air, too hard, taken — moved out of `Sphere`'s inner loop
+into a private `Carve.Take` that both shapes share. Not tidiness: **removing the hardness check
+from it fails 9 tests, seven of them pre-existing sphere tests.** One edit breaking both shapes
+is exactly what a second copy would not do, and it is the same argument `WorldGenerator` makes
+about `IsCaveAt` and `GenerateTerrain` sharing one definition of the cave field.
+
+### Six recipes, six caught — and that is worth saying out loud
+
+| Break | Caught by |
+|---|---|
+| `Chip` spheres instead of taking the hit voxel | 2 |
+| Hardness gate removed from the shared `Take` | **9**, seven of them sphere tests |
+| `Voxel` miscounts `Candidates` on a refusal | 2 |
+| Unreachable reported as `TooHard` | 3 |
+| Air identity check dropped | 6 |
+| `Chip` ignores the tier threshold | 1, and only 1 |
+
+Nothing came back green, which is unusual here and is stated rather than assumed to mean the
+battery was easy: the shape has no geometry to get wrong, which is most of the explanation. The
+last row is the thin one — a single test stands between precision and ignoring tiers entirely.
+
+One documentation correction on the way: the test file first claimed recipe 3 was caught by the
+`IsAccounted` assertion. It is caught by the exact-`CarveResult` comparisons, which fire first;
+`IsAccounted` fails too but is not what the run reports. Fixed, because a test file that
+misattributes its own coverage is how a redundant assertion gets deleted later.
+
+### Known and unfixed: Ctrl is also FlyCam's descend
+
+Shipped on Ctrl as asked, and it is fine in **walk** mode, where Ctrl is free. The cost is **fly**
+mode: holding Ctrl descends at `MoveSpeed`, so at the default 6 m/s and `hand_pick`'s 0.3 s
+cooldown a builder sinks about **1.8 m between chips**. Alt is free in walk mode and means
+*crawl* in fly mode, so "slow down to do fine work" pairs rather than fights — **Alt is the
+better key and the swap is one line.** Left on Ctrl pending a play-test rather than changed
+unasked.
+
+### Not built, and still M6's
+
+Inventory. `CarveResult.Removed` is the number it will read as a volume, and it is already
+correct for both shapes: a chip deposits one voxel, **15.625 litres**, and a `hand_pick` sphere
+about 268. *Mining granularity* and *inventory unit* stay independent decisions — volumetric
+inventory needed no adjustment for either shape.
+
+
 ## 2026-08-30 — Raised: single-voxel mining, and which way the modifier should point
 
 A design decision arrived from the play-test rather than from the plan: **mining one voxel at a

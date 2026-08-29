@@ -107,7 +107,8 @@ public partial class FlyCam : Camera3D
             $"chunk {VoxelConstants.ChunkSize}³ ({VoxelConstants.ChunkSizeMetres} m)\n" +
             "  WASD move, Space/Ctrl up-down, Shift sprint, Alt crawl\n" +
             "  F toggles walk and fly — walking, Space jumps and Shift sprints\n" +
-            "  Left mouse mines, number keys pick a tier\n" +
+            "  Left mouse mines a sphere, Ctrl+left takes one voxel\n" +
+            "  Number keys pick a tier\n" +
             "  Esc releases the mouse, click to recapture");
     }
 

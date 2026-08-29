@@ -106,6 +106,85 @@ public static class Carve
         Swing(world, materials, SwingCentre(hit), tool);
 
     /// <summary>
+    /// Takes <b>exactly the voxel the ray hit</b> with <paramref name="tool"/>, and nothing
+    /// else.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The precision counterpart to <see cref="Swing"/>, and deliberately <em>not</em> the
+    /// default. DESIGN's "mining is sculpting" holds: a bare swing still removes a sphere,
+    /// because this is a game about a mining operation and <c>hand_pick</c>'s sphere is about
+    /// seventeen voxels against this one — a single-voxel default would be roughly 17× slower
+    /// to excavate with the starting tool. Precision is what you reach for when you have
+    /// decided to build something, and is worth a held key at that point.
+    /// </para>
+    /// <para>
+    /// <b>The hardness gate is identical, which is what keeps tiers meaningful.</b> A
+    /// <c>hand_pick</c> cannot chip a voxel of stone any more than it can sphere one out;
+    /// precision changes how much a swing takes, never what it is strong enough to take.
+    /// Cooldown is the tool's too — same swing, different shape.
+    /// </para>
+    /// <para>
+    /// <b>No <see cref="SwingCentre"/> here, and that is the point.</b> A sphere is centred on
+    /// the hit voxel's centre because a radius has to mean the same thing from every angle;
+    /// this takes the hit voxel itself, so <c>VoxelHighlight</c>'s outline stops being an
+    /// indication of roughly where the bite lands and becomes literally the thing that is
+    /// about to be removed.
+    /// </para>
+    /// </remarks>
+    public static CarveResult Chip(
+        IVoxelEditor world,
+        MaterialTable materials,
+        in VoxelHit hit,
+        ToolDefinition tool)
+    {
+        ArgumentNullException.ThrowIfNull(tool);
+
+        return Voxel(world, materials, hit.Voxel, tool.HardnessThreshold);
+    }
+
+    /// <summary>
+    /// Removes one voxel, if it is there and soft enough for
+    /// <paramref name="hardnessThreshold"/>.
+    /// </summary>
+    /// <remarks>
+    /// A shape like <see cref="Sphere"/> is, of exactly one voxel, and it shares
+    /// <see cref="Take"/> with it rather than restating the gate. The four buckets still add
+    /// up to <see cref="CarveResult.Candidates"/> — one — so
+    /// <see cref="CarveResult.IsAccounted"/> and <see cref="CarveResult.Complete"/> mean the
+    /// same things here as everywhere else and a caller can total the two shapes together.
+    /// </remarks>
+    public static CarveResult Voxel(
+        IVoxelEditor world,
+        MaterialTable materials,
+        VoxelPos voxel,
+        float hardnessThreshold)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(materials);
+
+        if (float.IsNaN(hardnessThreshold))
+        {
+            // The same failure-open trap Sphere documents: every comparison with NaN is false,
+            // so `hardness > threshold` never holds and the gate inverts from "takes nothing"
+            // to "takes anything", bedrock included.
+            throw new ArgumentOutOfRangeException(
+                nameof(hardnessThreshold),
+                hardnessThreshold,
+                "A hardness threshold of NaN would compare false against every material and "
+                + "so remove all of them. Use float.NegativeInfinity for a tool that takes nothing.");
+        }
+
+        return Take(world, materials, voxel, hardnessThreshold) switch
+        {
+            Bucket.Removed => new CarveResult(1, 1, 0, 0, 0),
+            Bucket.TooHard => new CarveResult(1, 0, 1, 0, 0),
+            Bucket.AlreadyAir => new CarveResult(1, 0, 0, 1, 0),
+            _ => new CarveResult(1, 0, 0, 0, 1),
+        };
+    }
+
+    /// <summary>
     /// Where a swing lands, given what the player is pointing at: <b>the centre of the hit
     /// voxel</b>.
     /// </summary>
@@ -248,38 +327,67 @@ public static class Carve
             // would stop meaning anything.
             candidates++;
 
-            if (!world.TryGetMaterial(voxel, out int material))
+            switch (Take(world, materials, voxel, hardnessThreshold))
             {
-                unreachable++;
-                continue;
+                case Bucket.Removed: removed++; break;
+                case Bucket.TooHard: tooHard++; break;
+                case Bucket.AlreadyAir: alreadyAir++; break;
+                default: unreachable++; break;
             }
-
-            if (material == MaterialIds.AirNumericId)
-            {
-                alreadyAir++;
-                continue;
-            }
-
-            if (materials.Hardness(material) > hardnessThreshold)
-            {
-                tooHard++;
-                continue;
-            }
-
-            if (!world.SetVoxel(voxel, MaterialIds.AirNumericId))
-            {
-                // Should not happen: a read that succeeded means the chunk is loaded and
-                // generated, which is the same condition the write tests. Counted rather than
-                // ignored so that an editor whose two halves ever disagree reports the voxel
-                // instead of losing it.
-                unreachable++;
-                continue;
-            }
-
-            removed++;
         }
 
         return new CarveResult(candidates, removed, tooHard, alreadyAir, unreachable);
+    }
+
+    /// <summary>Which bucket one voxel landed in.</summary>
+    private enum Bucket
+    {
+        Removed,
+        TooHard,
+        AlreadyAir,
+        Unreachable,
+    }
+
+    /// <summary>
+    /// Tries to take one voxel, and says which of the four things happened.
+    /// </summary>
+    /// <remarks>
+    /// <b>One definition of the gate, shared by every shape.</b> <see cref="Sphere"/> and
+    /// <see cref="Voxel"/> differ only in which voxels they offer up; what happens to a voxel
+    /// once offered — unloaded, already air, too hard, taken — is this, and a second copy is a
+    /// second thing to drift. It is the same argument <c>WorldGenerator</c> makes about
+    /// <c>IsCaveAt</c> and <c>GenerateTerrain</c> sharing one definition of the cave field.
+    /// </remarks>
+    private static Bucket Take(
+        IVoxelEditor world,
+        MaterialTable materials,
+        VoxelPos voxel,
+        float hardnessThreshold)
+    {
+        if (!world.TryGetMaterial(voxel, out int material))
+        {
+            return Bucket.Unreachable;
+        }
+
+        // By numeric identity, never by hardness: air's hardness is 0 and so passes every
+        // threshold there is. Counting it as removed would roughly double what a swing
+        // reports, and Removed is the number M6's inventory reads as a volume.
+        if (material == MaterialIds.AirNumericId)
+        {
+            return Bucket.AlreadyAir;
+        }
+
+        if (materials.Hardness(material) > hardnessThreshold)
+        {
+            return Bucket.TooHard;
+        }
+
+        // Should not happen: a read that succeeded means the chunk is loaded and generated,
+        // which is the same condition the write tests. Reported rather than ignored so that an
+        // editor whose two halves ever disagree surfaces the voxel instead of losing it.
+        return world.SetVoxel(voxel, MaterialIds.AirNumericId)
+            ? Bucket.Removed
+            : Bucket.Unreachable;
     }
 
     /// <summary>Whether <paramref name="voxel"/>'s centre is inside the sphere. The definition.</summary>

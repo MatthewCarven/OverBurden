@@ -78,10 +78,36 @@ public sealed class MiningController(
     public int ClippedSwings { get; private set; }
 
     /// <summary>
+    /// Of <see cref="Swings"/>, how many were single-voxel rather than a sphere.
+    /// </summary>
+    /// <remarks>
+    /// Counted because the two shapes cost very different amounts and share one
+    /// <c>swing ms</c> line. A profile whose swings were mostly chips would report a cheap
+    /// number under a label that means "a pick swing", which is how M3d's baseline stops being
+    /// comparable without anything looking wrong. <c>--mine</c> holds no modifier, so this is
+    /// zero on every profile run, and a non-zero value in one is the thing to notice.
+    /// </remarks>
+    public int PreciseSwings { get; private set; }
+
+    /// <summary>
     /// Casts, and swings if the button is held and the tier has cooled down.
     /// </summary>
+    /// <param name="precise">
+    /// Take only the voxel under the crosshair, instead of the tool's sphere.
+    /// </param>
     /// <returns>True on a frame where a swing actually happened.</returns>
-    public bool Update(double delta, Vector3 originMetres, Vector3 direction, bool mining)
+    /// <remarks>
+    /// <b>The shape is a per-frame input, not a mode the controller remembers.</b> Which is
+    /// what makes it a held modifier rather than a toggle, and what keeps the decision in the
+    /// binding where the key lives. Core owns both shapes because what a swing does to the
+    /// world is a game rule a server would have to agree with; which key picks one is not.
+    /// </remarks>
+    public bool Update(
+        double delta,
+        Vector3 originMetres,
+        Vector3 direction,
+        bool mining,
+        bool precise = false)
     {
         _cooldown = Math.Max(0.0, _cooldown - delta);
 
@@ -95,10 +121,21 @@ public sealed class MiningController(
             return false;
         }
 
-        CarveResult result = Carve.Swing(pipeline, materials, hit, Tool);
+        CarveResult result = precise
+            ? Carve.Chip(pipeline, materials, hit, Tool)
+            : Carve.Swing(pipeline, materials, hit, Tool);
 
+        // The tool's cooldown either way. A chip is a different shape of the same swing, not a
+        // faster one — letting precision fire quicker would make it the efficient way to mine
+        // as well as the accurate one, and the sphere would stop being the default in practice.
         _cooldown = Tool.CooldownSeconds;
         Swings++;
+
+        if (precise)
+        {
+            PreciseSwings++;
+        }
+
         VoxelsRemoved += result.Removed;
         VoxelsRefused += result.TooHard;
         VoxelsAlreadyAir += result.AlreadyAir;

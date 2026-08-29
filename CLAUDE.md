@@ -509,6 +509,32 @@ jump constants stand.** Two things came with it:
   diagonal wall-hug, and step-down's 0.5 m instant drop. Neither was reported, which is silence
   rather than evidence.
 
+**Mining has two shapes as of 2026-08-30: `Carve.Swing` spheres on a bare click, `Carve.Chip`
+takes one voxel under Ctrl.** DESIGN's "mining is sculpting" line stands and now records why:
+a single-voxel *default* was proposed and rejected, because `hand_pick`'s sphere is ~17 voxels
+and the default would have been **~17× slower to excavate** with the starting tool — in a game
+about a mining operation, and against DESIGN's own argument that volumetric inventory exists to
+make big excavations productive. Precision is the exception, and an exception is worth a held
+key. Four things about it that are easy to undo by accident:
+
+- **`Chip` takes `hit.Voxel` itself, not a sphere centred on it.** So `VoxelHighlight`'s outline
+  is literally the voxel about to be removed, rather than the centre of a bite extending past
+  it. That is the whole reason precision reads as precise.
+- **Same hardness gate, same cooldown.** Precision changes how much a swing takes, never what it
+  is strong enough to take, and never how fast it fires. Either exemption would make the
+  modifier the *efficient* way to mine as well as the accurate one, and the sphere would stop
+  being the default in practice while still being it in the code.
+- **One `Carve.Take` holds the gate for both shapes, and that is load-bearing.** Removing the
+  hardness check from it fails **9** tests, **seven of them pre-existing sphere tests** — one
+  edit breaking both shapes is exactly what a forked copy would not do.
+- **`radiusMetres` did not change meaning**, which is the quiet dividend of keeping the sphere
+  as the default: the tool JSON is untouched and no format mods write against moved.
+
+**Known and unfixed: Ctrl is also FlyCam's descend.** Fine in walk mode where Ctrl is free; in
+fly mode a builder sinks ~1.8 m between chips at the default speed and `hand_pick`'s cooldown.
+**Alt is the better key** — free in walk, and *crawl* in fly, so "slow down to do fine work"
+pairs rather than fights — and the swap is one line. Left on Ctrl pending a play-test.
+
 **M3 has been played, and it feels good** — the verdict the milestone was actually waiting on,
 since it is the first whose output was a feeling rather than a number. `VoxelHighlight` is
 verified windowed. One note came out of it: **reach reads a little long at 5 m**, which is

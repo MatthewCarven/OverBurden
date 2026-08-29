@@ -24,8 +24,10 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
             [docs/M2-REFERENCE-NOTES.md](docs/M2-REFERENCE-NOTES.md).
       - [ ] Revisit trigger: M1c or M2 exceeding ~3 sessions each
       - [ ] Revisit trigger: M13 distance LOD, where their advantage is largest
-- [ ] **Mining granularity: single voxel vs sphere, and which one is the default.** Raised
-      2026-08-30. The capability is not in question — both exist and the modifier is the
+- [x] **Mining granularity: sphere on the bare click, single voxel under Ctrl.** Raised and
+      decided 2026-08-30; built the same day as `Carve.Chip` / `Carve.Voxel`, 9 tests, six
+      break-recipes all caught. DESIGN's "mining is sculpting" line stands and now records that
+      the alternative was considered and why it lost. The reasoning, kept: The capability is not in question — both exist and the modifier is the
       mechanism. **What is in question is which one a bare click does**, and it is an *economy*
       decision rather than a control one:
       - **It reverses a DESIGN line.** "Mining is sculpting: a pick swing removes a sphere or
@@ -37,30 +39,42 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
         inventory is that it "makes big excavations meaningfully productive", and this game's
         premise is a *mining operation* fighting water and gravity. **The Taj Mahal case and the
         mining-operation case want opposite defaults.**
-      - **Recommendation: keep the sphere as the bare click and put the single voxel on the
-        modifier.** Same two capabilities, same one modifier, no DESIGN reversal, and the
-        expensive-by-default action stays the one the premise is built on. Precision is then
-        opt-in for the person who has decided to build something, which is the person who will
-        happily hold a key.
+      - **Decided: the sphere is the bare click and the single voxel is the modifier.** Same
+        two capabilities, same one modifier, no DESIGN reversal, and the productive action stays
+        the default in the game about being productive. Precision is opt-in for the person who
+        has decided to build something, which is the person who will happily hold a key.
       - **No conflict with volumetric inventory** — that one is safe either way. A voxel is
         0.25³ m³ = **15.625 litres**, so "one block at a time" is a *mining granularity* and
         litres-not-counts is an *inventory unit*. Two separate decisions; neither constrains the
         other.
-- [ ] **The modifier key itself: Ctrl is already taken in the mode that wants it** {D}. `FlyCam`
+- [x] **Built: `Carve.Chip` takes `hit.Voxel` itself, not a sphere centred on it.** So
+      `VoxelHighlight`'s outline stops being an indication of roughly where the bite lands and
+      becomes literally the voxel about to be removed. Same hardness gate and same cooldown as
+      the sphere — **precision changes how much a swing takes, never what it is strong enough
+      to take**, or the modifier would become a way to mine anything one voxel at a time and
+      M3's whole progression would be advisory.
+- [x] **The shared `Take` is the evidence the gate was unified rather than forked.** Removing
+      the hardness check from it fails **9** tests, **seven of them pre-existing sphere tests**.
+      One edit breaks both shapes, which is exactly what a second copy would not do.
+- [ ] **The modifier key: Ctrl is bound to descend in the mode a builder is most likely in** {D}. `FlyCam`
       binds Ctrl to descend and Alt to crawl, both fly-only — so in **walk** mode Ctrl and Alt
-      are free, and in **fly** mode both are taken. That is the exact inverse of "multiblock in
-      creative/fly under Ctrl". Shift is sprint and stays sprint. Options: accept the overlap
-      (Ctrl+click while flying descends *and* carves), move fly-descend off Ctrl, or pick a
-      non-modifier binding such as a toggle key next to the tier numbers.
-- [ ] **Do not gate it on fly mode** {D}, recommended. M4c made fly a *measurement instrument* —
+      are free, and in **fly** mode both are taken. Shift is sprint and stays sprint. **Shipped
+      on Ctrl as asked, and it is fine in walk mode where Ctrl is free.** The cost is fly mode:
+      holding Ctrl descends at `MoveSpeed`, so at the default 6 m/s and `hand_pick`'s 0.3 s
+      cooldown a builder sinks **~1.8 m between chips**. **Alt is the better key and the swap is
+      one line** — it is free in walk mode and means *crawl* in fly mode, so "slow down to do
+      fine work" pairs rather than fights. Left as Ctrl pending a play-test rather than changed
+      unasked.
+- [x] **Not gated on fly mode**, decided 2026-08-30. A pure modifier, live in both modes. M4c made fly a *measurement instrument* —
       `--profile` implies it and refuses the walk toggle mid-run — so hanging a gameplay
       privilege on it ties a game rule to a profiling flag. There is no creative/survival concept
       in the project yet. Make it a modifier now; add a mode gate if and when game modes exist.
-- [ ] **`radiusMetres` changes meaning if the default flips**, from "what a swing takes" to "what
-      the modifier swing takes". That is a live field in `mods/minercraft/tools/*.json`, and
-      non-negotiable 5 says the base game is a mod — so it is a format change, not a rename.
-      Decide whether the field keeps its name with a documented meaning or gains a sibling.
-- [ ] **Keep `--mine` on the sphere path whichever default wins.** M3d's baseline — 1.2 clones
+- [x] **`radiusMetres` keeps its meaning exactly**, which is the quiet dividend of leaving the
+      sphere as the default: it is still "what a swing takes", the tool JSON is unchanged, and
+      no format mods have written against moved. A single-voxel default would have made it "what
+      the *modifier* swing takes", which is a format change and not a rename.
+- [x] **`--mine` is pinned to the sphere path**, stated in code rather than left to fall out of
+      "no key is held". M3d's baseline — 1.2 clones
       and 2.4 KiB per swing, swing cost two orders of magnitude inside a frame — measures the
       *worst* case, and a profile that quietly switched to single-voxel would report a cheaper
       number for the same label and look like an improvement.

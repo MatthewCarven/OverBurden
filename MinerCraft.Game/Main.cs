@@ -475,6 +475,16 @@ public partial class Main : Node3D
         Vector3 forward = -_camera.GlobalTransform.Basis.Z;
         bool mining = _camera.MouseCaptured && Input.IsMouseButtonPressed(MouseButton.Left);
 
+        // Ctrl takes exactly the highlighted voxel instead of the tool's sphere. A held
+        // modifier rather than a toggle, because it is the exception and not the mode: the
+        // sphere is what mining *is* here, and precision is for the person who has stopped
+        // excavating and started building.
+        //
+        // Ctrl is free in walk mode. In fly mode it is also FlyCam's descend, so precision
+        // mining while flying sinks — see the M4d note in TODO.md; swapping to Alt is one line
+        // if that reads badly.
+        bool precise = mining && Input.IsKeyPressed(Key.Ctrl);
+
         if (_mineWhileProfiling)
         {
             // Straight down from a camera four metres above the surface. Aiming along the
@@ -482,6 +492,13 @@ public partial class Main : Node3D
             // mining that mostly misses is not one.
             forward = Vector3.Down;
             mining = true;
+
+            // Spheres, always, and stated rather than left to fall out of "no key is held".
+            // M3d's baseline — 1.2 clones and 2.4 KiB per swing, two orders of magnitude
+            // inside a frame — measures the sphere, which is the expensive shape. A profile
+            // that quietly chipped would report a cheaper number under the same label and
+            // read as an improvement.
+            precise = false;
         }
 
         long before = Stopwatch.GetTimestamp();
@@ -490,7 +507,8 @@ public partial class Main : Node3D
             delta,
             new System.Numerics.Vector3(origin.X, origin.Y, origin.Z),
             new System.Numerics.Vector3(forward.X, forward.Y, forward.Z),
-            mining);
+            mining,
+            precise);
 
         if (swung && _profiler is { Warm: true })
         {
