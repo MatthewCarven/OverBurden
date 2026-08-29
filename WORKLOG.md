@@ -1,5 +1,63 @@
 # MinerCraft — Worklog
 
+## 2026-08-29 — M3 planned: mining, and the concurrency bill coming due
+
+No code. [docs/M3-PLAN.md](docs/M3-PLAN.md), split M3a–M3d, following the pattern that made
+M2c tractable — split the risky part out *before* starting rather than halfway through.
+
+### The decision that shapes the milestone
+
+**M3a is a concurrency part, and it closes two recorded revisit triggers at once.** M1b said
+"no concurrent writer until M3"; M2a said taking the padded copy on the worker thread is safe
+"because at M2 nothing writes". Both come due on the same line.
+
+The failure is worse than the obvious one. A torn voxel read would be survivable — the remesh
+that follows the edit corrects it. But `VoxelChunk.Set` can **promote the representation**,
+uniform to palettised to direct, replacing `_words`, `_palette` and `_direct` wholesale along
+with the width and mask fields. A worker part way through `CopyTo` can see `_kind ==
+Palettised` against a null `_words`. That is a `NullReferenceException` on a background
+thread, so "mostly fine, the remesh fixes it" was never on the table.
+
+**The answer is copy-on-write, and the existing structure already implements most of it.**
+`ChunkPipeline.Neighbourhood()` captures `VoxelChunk` *references* on the sim thread at submit
+time — a worker never looks a chunk up, it holds one. Add one rule and it becomes a snapshot
+scheme: an instance handed to a job is immutable from then on, so an edit clones it and
+installs the clone. The worker's reference stays valid and nothing takes a lock. This is the
+same shape as M2a's finding that C# references already solve the *lifetime* half for free; it
+turns out they nearly solve the mutation half too, given one flag.
+
+Rejected in the plan with reasons: a per-chunk lock (27 chunks per mesh job, held across a
+34³ copy, and it gives back exactly the "worker owns its data outright" property M2a paid
+for), cancel-and-retry (starves worse the harder the player mines), and a version stamp
+validated after copying (the copy itself is what crashes).
+
+### Smaller things worth having decided before starting
+
+- **`band3` of the job priority finally gets used.** M2a reserved the top band for "the player
+  is standing on it" overrides and nothing has needed it until now. An edit remesh must
+  outrank streaming or the rock you just mined stays on screen while the horizon loads.
+- **The border rule is wider than it looks.** A padded copy reaches one voxel into each
+  neighbour, so an edit at local 0 or 31 dirties the neighbour on that axis — up to seven at a
+  corner. Get it wrong and stale geometry appears along chunk seams, which is exactly where
+  mining happens.
+- **"Sub-voxel" means the voxel is small, not partly full.** Worth writing down because the
+  phrase invites the other reading, and partial occupancy is the two-representations decision
+  DESIGN already rejected, arrived at sideways.
+- **Edits are lost on unload until M6.** Named loudly so it is not filed as an edit-path bug,
+  with a one-bit `HasEdits` flag set now because it is exactly what M6 has to save and is
+  awkward to reconstruct later.
+- **M3 does not need M4.** Mining binds to the flycam. Putting the first fun moment behind a
+  player controller would be sequencing by category rather than by value.
+
+### The question M3 is actually asking
+
+**Does a pick swing fit inside a frame?** M1c measured one chunk meshing in isolation and M2
+measured meshing that runs ahead of the player with a streaming system's slack to hide in.
+Mining is the first remesh that has to land between the click and the eye noticing. The plan
+records the ordered answers if it does not fit — mesh only the dirty region, then smaller mesh
+blocks, then accept a frame of latency and hide it — so that "add a lock" does not get
+reinvented under pressure.
+
 ## 2026-08-29 — The mesh-apply budget, and the spike that wasn't
 
 277 tests passing, up from 274. This closes the last thing M2-PLAN.md specified and M2d

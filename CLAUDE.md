@@ -12,7 +12,8 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/DESIGN.md](docs/DESIGN.md) | Locked decisions, the five non-negotiables, per-system architecture, milestones, **and a list of rejected alternatives so they don't get re-litigated** |
 | [docs/M1-PLAN.md](docs/M1-PLAN.md) | Worked example of how a milestone gets planned before it gets built |
 | [docs/M2-REFERENCE-NOTES.md](docs/M2-REFERENCE-NOTES.md) | What reading godot_voxel's scheduler and streaming taught us, and what it changed in the M2 plan. **Read before building the job queue.** |
-| [docs/M2-PLAN.md](docs/M2-PLAN.md) | The current milestone, split into M2a–M2d with per-part design and tests. **This is what to work from.** |
+| [docs/M2-PLAN.md](docs/M2-PLAN.md) | M2, split into M2a–M2d with per-part design and tests. Done, kept for the reasoning. |
+| [docs/M3-PLAN.md](docs/M3-PLAN.md) | The current milestone — mining, split into M3a–M3d. **This is what to work from.** |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
 | [TODO.md](TODO.md) | Milestones as checkable tasks, and the decisions still open |
 | [WORKLOG.md](WORKLOG.md) | What happened and why, newest first. Findings worth keeping live here. |
@@ -228,11 +229,18 @@ Read the worklog before touching it, because the measurement said two awkward th
   headless is the wrong instrument** — use `update ms`, which times the call directly. This
   is the second time that trap has been walked into.
 
-**Next is M3, mining** — the first thing that is fun. Three things stay open, all of them
-needing a windowed run rather than a headless one: whether the free budget actually removes
-the stutter (headless has no deferred deallocation), and M1d's `RenderingServer` vs
-`MeshInstance3D` and 2×2×2 mesh-block questions, which need the windowed draw-call counter
-that `StreamingProfiler.RenderLine` already prints.
+**M3 — mining — is planned and not started.** Four parts in
+[docs/M3-PLAN.md](docs/M3-PLAN.md), and **M3a is a concurrency part**: it closes both
+recorded revisit triggers at once (M1b's "no concurrent writer until M3" and M2a's
+"the worker-side padded copy is safe because nothing writes yet"). The failure it prevents is
+a `NullReferenceException` on a worker thread, because `VoxelChunk.Set` can promote the
+representation out from under a reader — not a stale voxel that the following remesh would
+fix. Start there, not at the raycast.
+
+Three things stay open, all needing a windowed run rather than a headless one: whether the
+free budget actually removes the stutter (headless has no deferred deallocation), and M1d's
+`RenderingServer` vs `MeshInstance3D` and 2×2×2 mesh-block questions, which need the windowed
+draw-call counter that `StreamingProfiler.RenderLine` already prints.
 
 The licence is settled: [PolyForm Noncommercial 1.0.0](LICENSE.md), source-available. It
 can be loosened to MIT any time; it cannot be tightened after the first outside PR is

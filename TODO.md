@@ -484,10 +484,76 @@ r12h/6v    14297    2245      1.42 ms   2.97%     5244   122.1 MiB   at 6 m/s
 
 ### M3 — Mining ← first fun moment
 
-- [ ] Amanatides & Woo voxel DDA raycast, returns hit face normal
-- [ ] Sub-voxel sphere/cone carve, radius and hardness threshold from tool tier
-- [ ] Incremental remesh on edit, budgeted
-- [ ] Dirty-neighbour handling at chunk borders
+Planned 2026-08-29 and split into four parts in [docs/M3-PLAN.md](docs/M3-PLAN.md). **Read
+it before starting** — M3a is a concurrency part and the failure it prevents is a crash on a
+worker thread, not a wrong voxel.
+
+#### M3a — The edit path ⬅️ **start here**
+
+- [ ] **Copy-on-write on `VoxelChunk`.** A chunk instance handed to a job is immutable from
+      then on; an edit clones it and installs the clone. `ChunkPipeline.Neighbourhood()`
+      already captures references on the sim thread, so the worker's snapshot stays valid
+      with no lock anywhere on the read path.
+- [ ] This closes **both** recorded revisit triggers: M1b's "no concurrent writer until M3"
+      and M2a's "the worker-side padded copy is safe because nothing writes yet".
+- [ ] Dirty chunks coalesce into a set drained once per frame — never a remesh per voxel.
+- [ ] Border rule: an edited voxel at local 0 or 31 on any axis dirties the neighbour on that
+      axis too, up to seven of them at a corner. Getting it wrong leaves stale geometry along
+      chunk seams, which is where you mine most.
+- [ ] **Use `band3` of the job priority** for edit remeshes — the band M2a reserved for
+      exactly this. Without it the rock you just mined stays on screen while the horizon
+      loads.
+- [ ] Set a `HasEdits` flag on first write. One bit, free now, and it is exactly the set M6
+      has to save.
+- [ ] The fuzz that matters: rewrite every voxel to version *k+1* per edit, so any snapshot a
+      worker takes must be **uniform**. A torn read shows two versions and the assertion is
+      one line.
+
+#### M3b — The raycast
+
+- [ ] Amanatides & Woo voxel DDA. Returns hit voxel, face normal, entry distance, and the
+      last empty voxel before the hit — which is where M6's placement goes, so returning it
+      now avoids revisiting.
+- [ ] Fuzz against a fine-step reference sampler, the way `ChunkBox` was fuzzed against brute
+      force. Hand-written cases miss sign errors in the negative octants.
+- [ ] **An unloaded chunk must stop the ray, not read as air.** Otherwise the player targets
+      a voxel in a chunk that does not exist and the edit vanishes with nothing to report.
+- [ ] Ray starting inside solid material returns that voxel with no normal, or the first
+      swing mines whatever the camera is embedded in.
+
+#### M3c — The carve
+
+- [ ] Sphere by voxel-centre distance test, radius in metres from the tool.
+      **"Sub-voxel" means the voxel is small, not partly full** — partial occupancy is the
+      rejected two-representations decision arriving sideways.
+- [ ] Hardness gates removal per voxel, so a weak tool carves dirt out from around a stone
+      seam and leaves it standing. `MaterialDefinition.Hardness` already loads from mod JSON;
+      `MaterialTable` just does not project it yet.
+- [ ] Tool tiers load from `mods/minercraft/tools/*.json` through the materials loader —
+      non-negotiable 5. If M3c runs long, cut the JSON and keep the interface, never the
+      reverse.
+
+#### M3d — Binding, feel, measurement
+
+- [ ] Mouse button on the flycam. **M3 does not need M4**; waiting for a player controller
+      would put the first fun moment behind a milestone that is not about fun.
+- [ ] Wireframe highlight on the targeted voxel. Not polish — aiming at 0.25 m voxels without
+      it makes every judgement about feel unreliable.
+- [ ] Measure under a held button, not per swing: chunks dirtied, remesh jobs per second,
+      `update ms`, and the clone rate M3a only guessed at (~2 KB per chunk per cycle).
+- [ ] **The question M3 is really asking: does a pick swing fit in a frame?** If not, the
+      ordered answers are — mesh only the dirty region, then smaller mesh blocks, then accept
+      a frame of latency and hide it. Not locks.
+
+#### Open decisions
+
+- [ ] **Instant removal or progressive damage?** M3 ships instantaneous with a cooldown.
+      Progressive needs per-voxel damage state, which chunk storage has nowhere to put, so it
+      wants its own design pass rather than a field bolted on. Decide after M3d, with the
+      thing in hand.
+- [ ] **Edits are lost on unload at M3** — a chunk regenerates from the seed, so flying far
+      enough erases the mine. Acceptable until M6, recorded so it is not filed as an edit-path
+      bug.
 
 ### M4 — Player
 
