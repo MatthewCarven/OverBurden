@@ -503,6 +503,16 @@ public class VoxelColliderTests
         // box's minimum face sits exactly on the floor's top plane, so the floor voxel must not
         // be in VoxelBounds — make the test inclusive at both ends and every horizontal move
         // collides with the ground the box is standing on.
+        //
+        // **This test looks trivial and is one of only three that catch the rule breaking.**
+        // Swapping LastIndex's `ceil − 1` for a `floor` fails exactly this, the exact-width
+        // shaft, and the box that starts inside a wall — the three situations where a face
+        // lands exactly on a voxel plane. Not one of the ordinary walking-and-falling tests
+        // notices, because the contact epsilon stops every resolved face a tenth of a
+        // millimetre off the plane, so in ordinary motion a face is never exactly on one and
+        // the two forms agree. The epsilon masks the rule it is a second belt for. Deleting
+        // this as a restatement of the type's remarks would take real coverage with it, which
+        // is why the coverage is written down here rather than left to be rediscovered.
         var box = new Aabb(new Vector3(1.0f, 1.0f, 1.0f), new Vector3(0.5f, 0.5f, 0.5f));
         (VoxelPos min, VoxelPos max) = box.VoxelBounds;
 

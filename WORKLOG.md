@@ -23,6 +23,19 @@ applied to the finished code and the suite re-run each time:
 | Cancel every axis when any one is blocked | the corner-snag test, as designed |
 | **Layer taken from "one past where the box was"** | **nothing** |
 
+One row of that table is worth reading twice. The closed-interval break is caught by three
+tests, and every one of them is a situation where a face lands exactly on a voxel plane: the
+direct geometry test, the exact-width shaft, and the box that starts inside a wall. **Not one
+of the ordinary walking-and-falling tests notices** — the contact epsilon stops every resolved
+face a tenth of a millimetre off the plane, so in ordinary motion a face is never exactly on
+one and the two forms agree. *The epsilon masks the rule it is a second belt for.* The
+geometry test in particular reads as a restatement of the type's doc comment and is not; it
+now says so, so it does not get deleted for looking redundant.
+
+(That count was written as "two" first, from an earlier run, and was already stale by the time
+it was typed — the third catching test had been added in between. Re-running the recipe caught
+it. The rule about verifying a claim in a comment applies to comments about *coverage* too.)
+
 The last one was a hole, and it was a hole in exactly the shape M3c warned about: a paragraph
 of doc comment claiming a design choice was load-bearing, with no test that could tell the two
 choices apart.
