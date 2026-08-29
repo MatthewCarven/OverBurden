@@ -1,5 +1,106 @@
 # MinerCraft — Worklog
 
+## 2026-08-29 — M4a: the collider, and the four ways it was broken on purpose
+
+`MinerCraft.Core/Physics/` holds `Aabb` and `VoxelCollider.Move(world, materials, box,
+displacement)`. Axis-separated resolve, substepped, with an unloaded voxel treated as solid.
+33 new tests; the suite is **367 → 400**.
+
+It is a pure function of a box, a displacement and a world — no gravity, no input, no state
+between calls — which is why M4a came first and why every one of its tests runs headless in
+milliseconds.
+
+### Watched to fail, and one of the four was not caught
+
+The rule M3 earned three times is that a green run is not evidence. So four break-recipes were
+applied to the finished code and the suite re-run each time:
+
+| Break | Caught by |
+|---|---|
+| `MaxSubstepMetres` 0.2 → 1000 | **14 of 33**, the sealed-room fuzz among them |
+| Unloaded voxel reads as air | the unloaded-chunk test, alone |
+| `LastIndex` uses `floor` instead of `ceil − 1` | the half-open geometry test and the shaft test |
+| Cancel every axis when any one is blocked | the corner-snag test, as designed |
+| **Layer taken from "one past where the box was"** | **nothing** |
+
+The last one was a hole, and it was a hole in exactly the shape M3c warned about: a paragraph
+of doc comment claiming a design choice was load-bearing, with no test that could tell the two
+choices apart.
+
+**`ResolveAxis` takes its voxel layer from the *moved* box, never from "the layer one past
+where the box already was".** While the box is outside the wall those are the same layer, so
+nothing in the suite could distinguish them. Once the box is *inside* one — a mode toggle in a
+wall, M6's placement, the knife edge below — the second form finds no new layer ahead and waves
+the move straight through, walking the box out the far side in about ten steps. A test that
+deliberately violates the precondition (start overlapping, push further in, assert it never
+gets deeper) now catches it in one run.
+
+A fifth recipe was run and **passed**, which is the useful half of this exercise.
+
+### The epsilon is not the thing that makes resting contact work
+
+M4-PLAN specified both belts: *resolve to the contact face minus an epsilon*, **and** *treat
+exact touching as not overlapping*. Setting `ContactEpsilonMetres` to zero leaves the whole
+suite green, so the second belt is the load-bearing one. A face lying exactly on a voxel plane
+is touching rather than inside, voxel planes are exact in binary because 0.25 m is a power of
+two, so the snap is exact and needs no margin at all.
+
+The epsilon is kept — it is what covers a voxel size that is not a power of two, or coordinates
+too large for a plane to be exactly representable — but it is now documented as belt and braces
+with a measurement behind the claim rather than as the mechanism.
+
+**It has an honest cost, which is why this was worth checking.** A gap exactly the box's width
+has nowhere for that margin to come from, so a 0.5 m box pushed sideways in a 0.5 m corridor
+ends 0.1 mm inside the far wall. It cannot pass through either side, and a straight drop down
+such a shaft is exact — an axis with no displacement is never resolved at all — and both are
+pinned by tests. Zero epsilon would remove the knife edge and remove the defence with it.
+
+### `Aabb` stores a corner and a size, and that is what makes standing still stable
+
+The obvious representation is two corners. It creeps. A resolve places one face from the
+blocking voxel's index and derives the other from the size, so if the size is itself recomputed
+as `Max − Min` every step it rounds differently each time and a resting player drifts by a ULP
+per frame forever.
+
+Stored as `Min` + `Size`, a resolve is a pure function of the blocking voxel's index and the
+constants — literally `(k + 1) × VoxelSize + epsilon` — so the same contact produces bitwise
+the same box every step. 10,000 steps of gravity into a floor: one settle of 0.1 mm on the
+first step, then not one bit changes, and `grounded` never flickers.
+
+The other half of that is `ResolveAxis` returning early on a zero delta rather than translating
+by zero. Adding `0.0f` is exact for every float except `-0.0f`, and "except" is how a drift test
+starts passing for the wrong reason.
+
+### The query-cost guess was pessimistic, and M4d does not need to check it
+
+M4-PLAN guessed ~400 `TryGetMaterial` calls per step, from 32 voxels of box × 3 axes × 4
+substeps, and named memoising the chunk across a scan as the fix if it mattered.
+
+**Measured: a walking step costs 41.** A resolve reads one voxel *layer* — the one the leading
+face ends in — rather than the whole box, and walking is one substep. The worst alignment is 63
+per substep, so 252 at a four-substep terminal-velocity fall. Nothing needs memoising and
+nothing needs a spatial structure.
+
+One detail from the measurement that the arithmetic in the plan missed, and that will bite
+again: the layers are not the 16 + 4 + 16 the box's nominal 2 × 8 × 2 suggests. **A 0.5 m box
+that is not grid-aligned straddles three voxel columns, not two.** The first horizontal resolve
+puts it off-grid, so the second one costs half as much again.
+
+### Recorded, not solved
+
+- **Float positions cap the usable world at a few kilometres**, long before `VoxelPos`'s `int`
+  does — one ULP passes the contact epsilon around ±800 m. **Revisit trigger:** a world meant
+  to be walked further wants a *floating origin*, which is what every large-world engine ends
+  up building, not a wider float that `VoxelPos` would outrun anyway.
+- **A displacement needing more than 1,024 substeps is refused.** 204 m in one step is a
+  velocity that has blown up, not a fast body, and the alternative is a loop long enough to
+  look like a freeze. Same class of bound as `ToolDefinition.MaxRadiusMetres`, and an estimate
+  labelled as one.
+- **`VoxelCollider.OverlapsSolid` is public** because M4c's unstick rule needs exactly it and
+  so does every motion test's postcondition. `ResolveAxis` already gives *partial* unstick — it
+  clears the layer the leading face is in, which is what the fifth break-recipe now tests — but
+  not the full rule, which stays M4c's.
+
 ## 2026-08-29 — M4 planned: the milestone where the world starts deciding where the player is
 
 No code. [docs/M4-PLAN.md](docs/M4-PLAN.md) splits the player into M4a–M4d the way M1 and M3

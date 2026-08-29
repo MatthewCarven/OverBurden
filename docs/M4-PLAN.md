@@ -23,7 +23,7 @@ consequence is unrecoverable instead of merely confusing.
 
 | Part | What it is | The risk it removes |
 |---|---|---|
-| **M4a** The collider | AABB vs voxel grid, axis-separated, substepped | Falling through the floor, snagging on flat walls, jittering at rest |
+| **M4a** The collider ✅ | AABB vs voxel grid, axis-separated, substepped | Falling through the floor, snagging on flat walls, jittering at rest |
 | **M4b** Motion | Gravity, jump, ground state, step-up and step-down | A controller that is correct and horrible to use |
 | **M4c** Binding | Player node, camera, walk/fly toggle, spawn | Deleting the flycam and taking every measurement built in M2d and M3d with it |
 | **M4d** Feel and measurement | Can the player outrun the streamer, and does 0.25 m ground walk like ground | Constants guessed once and never questioned |
@@ -35,7 +35,7 @@ all built assuming the camera goes wherever it is put.
 
 ---
 
-## M4a — The collider
+## M4a — The collider — done 2026-08-29
 
 ### The problem
 
@@ -130,14 +130,22 @@ player may stand is a world rule and a multiplayer server has to agree about it,
 Core is where it can be fuzzed against a dictionary of voxels with no Godot, no threads and no
 world generator. `System.Numerics.Vector3`, as `MiningController` already uses.
 
-### Query cost, named now so M4d can check it
+### Query cost — guessed here, and measured while building it
 
-A 0.5 × 1.8 × 0.5 m box spans 2 × 8 × 2 = 32 voxels. Three axis resolves per substep, up to
-four substeps, is up to ~400 `TryGetMaterial` calls per step and ~24,000 per second — each one
-a dictionary lookup on `ChunkPos` plus a `VoxelChunk.Get`. That is probably nothing next to a
-2 ms mesh budget, and it is a guess. If it turns out to matter, the fix is memoising the
-chunk across a scan — the box spans at most 2×2×2 chunks and usually one or two — and **not**
-a spatial structure. Measure before building either.
+The guess: a 0.5 × 1.8 × 0.5 m box spans 2 × 8 × 2 = 32 voxels, three axis resolves per
+substep, up to four substeps — so up to ~400 `TryGetMaterial` calls per step and ~24,000 per
+second, each a dictionary lookup on `ChunkPos` plus a `VoxelChunk.Get`. The named fix if it
+mattered was memoising the chunk across a scan, and **not** a spatial structure.
+
+**Measured: a walking step costs 41, and the worst alignment is 63 per substep** — 252 at a
+four-substep terminal-velocity fall. The guess assumed each resolve scans the whole box; it
+scans one voxel *layer*, the one the leading face ends in. **Do not build the memoisation**,
+and M4d does not have to re-check this.
+
+One detail the arithmetic above got wrong, recorded because it will come up again: a 0.5 m box
+that is not grid-aligned straddles **three** voxel columns, not two. The layer costs are
+16 + 1 + 24 for a walking step, not the 16 + 4 + 16 that "2 × 8 × 2" suggests — the first
+horizontal resolve puts the box off-grid and the second one then costs half as much again.
 
 ### Tests
 
@@ -333,7 +341,9 @@ the first motion profile that can genuinely arrive somewhere before the world do
 The answer is a measurement and the harness is nearly built. Add a fall mode to the profiler
 the way `--mine` was added, and report:
 
-- **Voxel queries per step and substeps per step** — checking M4a's guess.
+- **Substeps per step.** Voxel queries per step is already answered — M4a measured 41 for a
+  walking step against a guessed ~400 — so `MoveResult.VoxelQueries` is a regression
+  detector here rather than an open question.
 - **Steps spent held**, waiting on an unloaded chunk beneath the player, and the longest such
   stall. This is the number that picks terminal velocity.
 - **Ground-state flicker count** — a resting-contact regression detector that costs one

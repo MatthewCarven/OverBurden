@@ -104,7 +104,8 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2 and all of M3** are done — **367 tests passing**.
+M0, all of M1, **all of M2 and all of M3** are done, and **M4a** with them — **400 tests
+passing**.
 Terrain streams around the flycam: worldgen and greedy meshing run on worker threads over palette-compressed storage,
 with materials loaded from JSON, and chunks load and unload as the viewer moves.
 
@@ -346,8 +347,8 @@ Three things about M3d that are easy to undo by accident:
 reported `frame ms` max 19.6 ms against a 6.9 ms control, while `update ms` max moved 0.13 ms
 and the spike did not reproduce in two further runs. `update ms` times our own work directly.
 
-**M4, the player, is next and is planned** — [docs/M4-PLAN.md](docs/M4-PLAN.md), split into
-M4a the collider, M4b motion, M4c binding, M4d feel and measurement. Five things from the
+**M4, the player, is under way** — [docs/M4-PLAN.md](docs/M4-PLAN.md), split into M4a the
+collider (**done**), M4b motion, M4c binding, M4d feel and measurement. Five things from the
 planning pass that are expensive to rediscover:
 
 - **The viewer's position stops being an input.** Until now the flycam was told where to go
@@ -372,6 +373,39 @@ planning pass that are expensive to rediscover:
 - **The trap is in M4c, not in the physics.** M4a and M4b are deterministic, headless and
   fuzzable — the collider's oracle is "seal the player in a room and try to shake them out",
   which is a boolean with no reference implementation and no tolerance.
+
+**M4a — the collider: done 2026-08-29.** `MinerCraft.Core/Physics/` holds `Aabb` and
+`VoxelCollider.Move(world, materials, box, displacement)` — axis-separated resolve, substepped
+at 0.2 m, an unloaded voxel treated as solid, `grounded` falling out of the −Y resolve. A pure
+function of a box, a displacement and a world.
+
+Five things about it that are easy to undo by accident:
+
+- **The voxel layer is taken from the *moved* box, never from "one past where the box was".**
+  The two are the same layer while the box is outside a wall, so nothing distinguished them
+  until a test was added for a box that *starts* inside one. The second form finds no new layer
+  ahead of an already-overlapping box and waves the move through, walking it out the far side in
+  about ten steps. It also cannot teleport the box forward past what the move asked for. This
+  was a real hole — four break-recipes were caught by the suite and this fifth one was not.
+- **`Aabb` stores a corner and a size, not two corners, and that is what makes standing still
+  bitwise stable.** A resolve places one face from the blocking voxel's index and carries the
+  size across untouched; recomputing the size as `Max − Min` every step rounds it differently
+  each time and a resting player creeps. Same reason `ResolveAxis` returns early on a zero delta
+  instead of translating by zero — adding `0.0f` is exact for every float *except* `-0.0f`.
+- **The contact epsilon is belt and braces; the half-open interval is the load-bearing part.**
+  Setting `ContactEpsilonMetres` to zero leaves the whole suite green, because a face exactly on
+  a voxel plane is touching rather than inside and voxel planes are exact in binary. It is kept
+  for a voxel size that is not a power of two, and its honest cost is a **knife edge at a gap
+  exactly the box's width** — 0.1 mm of the trailing face inside the far wall. The box still
+  cannot pass through, and a straight drop down such a shaft is exact.
+- **The query-cost guess was pessimistic and needs no follow-up.** M4-PLAN guessed ~400
+  `TryGetMaterial` calls per step; measured, a walking step costs **41**, and the worst
+  alignment is 63 per substep — 252 at a four-substep fall. **Do not build** the chunk
+  memoisation the plan named as the fix. One detail the plan's arithmetic missed: a 0.5 m box
+  that is not grid-aligned straddles **three** voxel columns, not two.
+- **Float positions cap the usable world at a few kilometres**, long before `VoxelPos`'s `int`
+  does — one ULP passes the contact epsilon around ±800 m. **Revisit trigger:** a floating
+  origin, not a wider float.
 
 **M3 has been played, and it feels good** — the verdict the milestone was actually waiting on,
 since it is the first whose output was a feeling rather than a number. `VoxelHighlight` is

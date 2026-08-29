@@ -638,7 +638,7 @@ worker thread, not a wrong voxel.
       enough erases the mine. Acceptable until M6, recorded so it is not filed as an edit-path
       bug.
 
-### M4 — Player ⬅️ **start here**
+### M4 — Player ⬅️ **in progress: M4a done, M4b next**
 
 Planned 2026-08-29 and split into four parts in [docs/M4-PLAN.md](docs/M4-PLAN.md). **Read it
 before starting.** The structural point: until now the viewer's position was an *input* and
@@ -646,44 +646,90 @@ the streamer followed it. From M4 the position is an *output* of a query against
 chunks the viewer decides to load, and an unloaded voxel read as air means the player falls
 out of the world and accelerates away from anything that could stop them.
 
-#### M4a — The collider
+#### M4a — The collider ✅ **done 2026-08-29**
 
-- [ ] AABB vs voxel grid, **axis-separated** resolution (X, then Y, then Z). A combined sweep
+`MinerCraft.Core/Physics/` holds `Aabb` and `VoxelCollider`. 33 new tests, suite 367 → 400.
+
+- [x] AABB vs voxel grid, **axis-separated** resolution (X, then Y, then Z). A combined sweep
       snags on every voxel boundary of a flat wall; axis separation makes sliding the default.
-- [ ] Do **not** use Godot physics for terrain (`ConcavePolygonShape3D` is a trap)
-- [ ] **Substep so no substep exceeds 0.2 m**, under one voxel. Move-then-resolve is exact
+- [x] Do **not** use Godot physics for terrain (`ConcavePolygonShape3D` is a trap)
+- [x] **Substep so no substep exceeds 0.2 m**, under one voxel. Move-then-resolve is exact
       below 15 m/s (0.25 m ÷ 1/60 s) and silently tunnels above it — so **walking never
       tunnels and falling always does**, which is the worst possible shape for a bug.
-- [ ] The substep cap is on **displacement, not the box's dimensions**. A 0.25 m floor is
-      thinner than the player.
-- [ ] **An unloaded voxel is solid.** `ChunkStreamer.TryGetMaterial` hands back air *and*
+- [x] The substep cap is on **displacement, not the box's dimensions**. A 0.25 m floor is
+      thinner than the player. On the vector's *magnitude*, not per axis — 0.2 m on each of
+      three axes is 0.35 m of travel, and there is a test for exactly that.
+- [x] **An unloaded voxel is solid.** `ChunkStreamer.TryGetMaterial` hands back air *and*
       false; a caller that ignores the return value gets the unrecoverable failure. Same
       distinction as `RayOutcome.Blocked` vs `Missed`, worse consequence.
-- [ ] Solidity is a predicate — `id != air && !IsFluid(id)` — not a comparison against air.
+- [x] Solidity is a predicate — `id != air && !IsFluid(id)` — not a comparison against air.
       `MaterialTable.IsFluid` already exists, so this is correct now *and* at M8, and needs no
       revisit trigger the way `VoxelRay` did.
-- [ ] `grounded` is an **output of the solve** ("the −Y resolve fired"), not a separate probe.
+- [x] `grounded` is an **output of the solve** ("the −Y resolve fired"), not a separate probe.
       One step of latency for step-up, against ~40 extra voxel reads per step to remove it.
-- [ ] **Resting contact:** resolve to the face minus an epsilon, overlap is a strict
+      `MoveResult.Grounded`, plus `HitCeiling` and `BlockedHorizontally` for M4b.
+- [x] **Resting contact:** resolve to the face minus an epsilon, overlap is a strict
       inequality. The bug that survives into shipped games is a millimetre of jitter with
       `grounded` flickering and jump misfiring — not tunnelling.
-- [ ] Lives in `MinerCraft.Core/Physics/`, `System.Numerics`. Where a player may stand is a
+- [x] **Which of those two is load-bearing was measured, and it is the strict inequality.**
+      Setting `ContactEpsilonMetres` to zero leaves the whole suite green: a face exactly on a
+      voxel plane is touching, not overlapping, and voxel planes are exact in binary. The
+      epsilon is kept as belt and braces, and its honest cost is recorded below.
+- [x] **`Aabb` stores a minimum corner and a size, not two corners**, and that is what makes
+      standing still bitwise stable. A resolve places one face from the blocking voxel's index
+      and carries the size across untouched; deriving the size as `Max − Min` every step would
+      round it differently each time and a resting player would creep.
+- [x] Lives in `MinerCraft.Core/Physics/`, `System.Numerics`. Where a player may stand is a
       world rule a multiplayer server must agree about.
-- [ ] **The fuzz with the sharp oracle: seal the player in a room** of solid voxels and apply
+- [x] **The fuzz with the sharp oracle: seal the player in a room** of solid voxels and apply
       thousands of random displacements, including magnitudes far past terminal velocity.
-      Escaping is a boolean — no reference implementation, no tolerance. **Watch it fail:**
-      removing the substep cap must break it almost immediately, or the displacements are too
-      small.
-- [ ] Corner-snag test: sliding diagonally along a flat wall travels the full tangential
-      component. Fails if someone "simplifies" the resolve back into one pass.
-- [ ] Shared postcondition asserted in *every* motion test, not only the fuzz: the box never
-      ends a step overlapping solid.
-- [ ] Standing still for 10,000 steps does not drift and `grounded` never flickers.
-- [ ] Determinism: identical input sequence, bitwise-identical trajectory. The whole of the
-      multiplayer claim, and cheap now.
-- [ ] Guessed and needing M4d: ~400 `TryGetMaterial` calls per step, ~24k/s. If it matters the
-      fix is memoising the chunk across a scan (the box spans 1–2 chunks), **not** a spatial
-      structure.
+      Escaping is a boolean — no reference implementation, no tolerance. **Watched to fail:**
+      raising `MaxSubstepMetres` to 1.0 m fails 14 of the 33 tests, the fuzz among them.
+- [x] Corner-snag test: sliding diagonally along a flat wall travels the full tangential
+      component. Fails if someone "simplifies" the resolve back into one pass — watched, by
+      cancelling every axis when any one is blocked.
+- [x] Shared postcondition asserted in *every* motion test, not only the fuzz: the box never
+      ends a step overlapping solid. Lives in the `Step()` helper, so it cannot be forgotten.
+- [x] Standing still for 10,000 steps does not drift and `grounded` never flickers. One
+      settle of 0.1 mm on the first step, then bitwise nothing.
+- [x] Determinism: identical input sequence, bitwise-identical trajectory. The whole of the
+      multiplayer claim, and cheap now. Compared through `SingleToInt32Bits`, not `==`.
+- [x] **Measured, so M4d does not have to: a walking step costs 41 `TryGetMaterial` calls**,
+      not the guessed ~400, and the worst alignment is 63 per substep — 252 at a four-substep
+      terminal-velocity fall. A resolve reads one voxel *layer*, not the whole box. **No
+      memoisation, no spatial structure**; the guess was pessimistic and the fix it proposed is
+      not needed.
+      - The layer counts are not the 16 + 4 + 16 the box's nominal 2 × 8 × 2 suggests: a 0.5 m
+        box that is not grid-aligned straddles **three** voxel columns, not two.
+
+##### Found while building it, and worth keeping
+
+- [x] **The voxel layer is taken from the *moved* box, never from "one past where the box
+      was".** The two are the same layer while the box is outside the wall, so nothing in the
+      suite could tell them apart — until a test was added for a box that *starts* inside one.
+      The second form finds no new layer ahead of an already-overlapping box and waves the move
+      straight through, walking it out the far side of the wall in about ten steps. It also
+      cannot teleport the box forward past what the move asked for.
+- [ ] **Knife edge: a gap exactly the box's width.** The resolve stops the leading face an
+      epsilon short of contact, so a 0.5 m box in a 0.5 m gap has nowhere for that margin to
+      come from and the trailing face ends 0.1 mm inside the far wall. It cannot pass through
+      either side, and a straight drop down such a shaft is exact because an axis with no
+      displacement is never resolved — both pinned by tests. Only reachable if a corridor is
+      dug to precisely the player's width; `hand_pick` leaves 0.75 m. Setting the epsilon to
+      zero would remove it, at the cost of the defence it exists to provide.
+- [ ] **Float positions cap the usable world at a few kilometres**, long before `VoxelPos`'s
+      `int` does. One float ULP passes the contact epsilon around ±800 m. **Revisit trigger:**
+      a world meant to be walked further than that wants a *floating origin*, which is what
+      every large-world engine ends up building — not a wider float, which `VoxelPos` would
+      outrun anyway.
+- [x] **A displacement needing more than 1,024 substeps is refused**, the same class of bound
+      as `ToolDefinition.MaxRadiusMetres`. 204 m in one step is a velocity that has blown up,
+      not a fast body, and the alternative is a loop long enough to look like a freeze. An
+      estimate, and labelled one: it bounds a failure, it does not describe a limit.
+- [x] **`VoxelCollider.OverlapsSolid` is public**, because M4c's unstick rule needs exactly it
+      and so does every motion test's postcondition. `ResolveAxis` already gives partial
+      unstick — it clears the layer the leading face is in — but not the full rule, which
+      stays M4c's.
 
 #### M4b — Motion
 
