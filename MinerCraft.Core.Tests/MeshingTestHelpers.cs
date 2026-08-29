@@ -28,7 +28,11 @@ internal static class MeshingTestHelpers
         //             air    stone  dirt   water  glass
         isOpaque: [false, true, true, false, false],
         isFluid: [false, false, false, true, false],
-        textureLayer: [0, 7, 8, 9, 10]);
+        textureLayer: [0, 7, 8, 9, 10],
+        // Meshing has no use for hardness. Spelled out rather than defaulted, because an
+        // optional argument here would let a carve test forget it and pass for the wrong
+        // reason — zero hardness means "any tool mines this".
+        hardness: [0f, 3.0f, 0.8f, 0f, 1.0f]);
 
     /// <summary>
     /// Independent reference implementation of face visibility, deliberately written out

@@ -119,6 +119,20 @@ public sealed class StreamedChunk
     public bool HasEdits { get; internal set; }
 
     /// <summary>
+    /// The renderer has been handed a mesh for this chunk and has not been told to drop it.
+    /// </summary>
+    /// <remarks>
+    /// A flag rather than an inference from <see cref="State"/>, because the inference stopped
+    /// working at M3. Before the <see cref="ChunkState.Meshed"/> — <see cref="ChunkState.Meshing"/>
+    /// edge existed, a chunk that was <see cref="ChunkState.Meshing"/> had never delivered
+    /// anything, so "has a live mesh" and "is Meshed" were the same question. With re-meshing
+    /// they are not: a viewer leaving while an edit remesh is in flight would find the chunk
+    /// in <see cref="ChunkState.Meshing"/>, skip the discard, and leave the pre-edit geometry
+    /// drawn for terrain that has been unloaded — until the player happens to come back.
+    /// </remarks>
+    public bool HasLiveMesh { get; internal set; }
+
+    /// <summary>
     /// How many submitted jobs have yet to report a result for this chunk.
     /// </summary>
     /// <remarks>

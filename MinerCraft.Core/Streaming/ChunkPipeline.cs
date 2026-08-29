@@ -26,7 +26,7 @@ namespace MinerCraft.Core.Streaming;
 /// touch happens in <see cref="Update"/>.
 /// </para>
 /// </remarks>
-public sealed class ChunkPipeline : IDisposable
+public sealed class ChunkPipeline : IVoxelEditor, IDisposable
 {
     /// <summary>How long one frame may spend applying finished jobs.</summary>
     /// <remarks>
@@ -137,6 +137,22 @@ public sealed class ChunkPipeline : IDisposable
     /// </remarks>
     public int ChunkClones { get; private set; }
 
+    /// <summary>Reads one voxel, or reports that its chunk is not there to read.</summary>
+    /// <remarks>
+    /// Delegated straight to the streamer, which is where the chunks live. It is on the
+    /// pipeline as well so that <see cref="IVoxelEditor"/>'s read and write halves come from
+    /// one object — a carve that read through <see cref="Streamer"/> and wrote through here
+    /// would be two views of the world that a future change could let disagree.
+    /// </remarks>
+    public bool TryGetMaterial(VoxelPos voxel, out int materialId)
+    {
+        // Checked here as well as in SetVoxel. One interface whose two halves disagree about
+        // whether they are still usable is worse than either answer.
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        return _streamer.TryGetMaterial(voxel, out materialId);
+    }
+
     /// <summary>
     /// Writes one voxel and marks every chunk whose mesh it invalidates for a rebuild.
     /// </summary>
@@ -170,9 +186,12 @@ public sealed class ChunkPipeline : IDisposable
         (int localX, int localY, int localZ) = voxel.Local;
         if (chunk.Voxels.Get(localX, localY, localZ) == materialId)
         {
-            // Nothing changed, so nothing is stale. Worth checking because a sphere carve
-            // rewrites air as air across most of its bounding box, and every one of those
-            // would otherwise clone a chunk and dirty its neighbours for no reason.
+            // Nothing changed, so nothing is stale. M3-PLAN justified this by "a sphere
+            // carve rewrites air as air across most of its bounding box", which stopped
+            // being true at M3c: Carve skips air itself before it ever reaches here. Keep it
+            // anyway. It is what protects the *next* writer, and M6's placement is exactly
+            // the shape of caller that rewrites what is already there. Deleting it because
+            // it no longer fires would be measuring one caller.
             return true;
         }
 
@@ -348,6 +367,14 @@ public sealed class ChunkPipeline : IDisposable
                 if (mesh.Result is not null && chunk.ViewCount > 0)
                 {
                     _onMeshReady?.Invoke(chunk, mesh.Result);
+                    chunk.HasLiveMesh = true;
+                }
+                else if (chunk.HasLiveMesh)
+                {
+                    // A remesh whose chunk lost its last viewer while it ran. Nothing else
+                    // will take the old mesh down: Advance refuses a chunk nobody views, and
+                    // the record is about to be forgotten entirely.
+                    Discard(chunk);
                 }
 
                 // An edit that landed while this job was running built its mesh from the
@@ -535,11 +562,22 @@ public sealed class ChunkPipeline : IDisposable
         // under continuous movement it never drains.
         chunk.Cancellation?.Cancel();
 
-        if (chunk.State == ChunkState.Meshed)
+        // Not "is it Meshed?". A chunk part way through an *edit* remesh is Meshing and has
+        // had a mesh drawn for it since before the edit, and that mesh is exactly the one
+        // nothing else would ever take down.
+        Discard(chunk);
+    }
+
+    /// <summary>Tells the renderer to drop this chunk's mesh, if it was ever handed one.</summary>
+    private void Discard(StreamedChunk chunk)
+    {
+        if (!chunk.HasLiveMesh)
         {
-            _onMeshDiscarded?.Invoke(chunk.Position);
+            return;
         }
 
+        chunk.HasLiveMesh = false;
+        _onMeshDiscarded?.Invoke(chunk.Position);
     }
 
     private void Push(ChunkPos position)

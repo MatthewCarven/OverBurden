@@ -103,8 +103,8 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1 and **all of M2** are done — **307 tests passing**, and M3a/M3b with them. Terrain streams around the
-flycam: worldgen and greedy meshing run on worker threads over palette-compressed storage,
+M0, all of M1 and **all of M2** are done — **364 tests passing**, and M3a/M3b/M3c with them.
+Terrain streams around the flycam: worldgen and greedy meshing run on worker threads over palette-compressed storage,
 with materials loaded from JSON, and chunks load and unload as the viewer moves.
 
 Headless from a standing start, r4h/2v + 2 margin on 8 workers:
@@ -262,7 +262,55 @@ and the last empty voxel before it — the last one is where M6's placement goes
 M3a's hung instead of failing; M3b's first oracle was wrong in the subject's favour. Neither
 would have shown up in a green run. Both now say in a comment what breaks them and how fast.
 
-**M3c, the carve, is next.** The plan is [docs/M3-PLAN.md](docs/M3-PLAN.md).
+**M3c — the carve: done 2026-08-29.** `MinerCraft.Core/Mining/Carve.cs` takes a sphere of
+material out of the world, gated per voxel by hardness; `ToolDefinition` and
+`mods/minercraft/tools/*.json` make a tier content rather than a constant; `MaterialTable`
+finally projects `Hardness`, which `MaterialDefinition` has carried unread since M1.
+`IVoxelEditor` is `IVoxelWorld` plus a write, and `ChunkPipeline` implements it.
+
+Four things about it that are easy to undo by accident:
+
+- **The distance test is the definition; the bounding box is only an optimisation.** The box
+  is derived exactly and then widened by one voxel on each side, so float error in the
+  derivation can never be what excludes a voxel the predicate would keep. Tightening it
+  "because the slack is wasteful" trades a correctness guarantee for a handful of iterations.
+- **The carve skips air before it ever calls `SetVoxel`.** Air's hardness is 0, so it passes
+  every threshold there is; without the skip a swing would report roughly double what it took.
+  This does **not** replace M3a's "material is already there" early-out — that one now
+  protects the next writer, which is M6's placement. Both belong.
+- **A tool radius is a denial-of-service vector, and a NaN threshold is worse.** The scan is
+  cubic, so `"radiusMetres": 1000` in a mod file freezes the game inside a loop rather than
+  carving a crater; `ToolDefinition.MaxRadiusMetres` bounds it at load *and* in `Carve.Sphere`,
+  because the loader is not the only caller. 4 m, and **labelled an estimate** — 16 m was the
+  first answer and did not bound the failure its own comment named. A NaN threshold fails the
+  other way, *open*: every comparison with NaN is false, so `hardness > threshold` never holds
+  and the gate inverts from "takes nothing" to "takes everything".
+- **A viewer leaving mid-remesh used to strand the mesh on screen.** `Meshed → Meshing` is an
+  M3 edge, and before it a chunk that was `Meshing` had never delivered anything — so
+  `OnChunkUnviewed`'s "is it `Meshed`?" test was equivalent to "does it have a live mesh?" and
+  stopped being. `StreamedChunk.HasLiveMesh` is now the flag, and the old geometry no longer
+  keeps drawing for terrain that has been unloaded. Mine something, fly away, and it was
+  still there.
+- **`Unreachable` is not `TooHard`**, the same way `RayOutcome.Blocked` is not `Missed`. A
+  swing at a wall and a swing off the edge of the loaded world leave the same-looking hole and
+  are not the same event.
+
+**The base game's own files are finally loaded by a test.** `ShippedContentTests` reads
+`MinerCraft.Game/mods/` from disk, rather than the `InMemoryContentSource` fixture every other
+content test builds — which had already drifted (it has no grass). It also checks the shipped
+*numbers*: that some tier leaves the hardest material standing and some tier can take it,
+because the hardness gate is a property of the content and no amount of testing the code
+finds a JSON file that has been edited to make it meaningless.
+
+**The working rule is three for three now: a green run is not evidence.** M3a's fuzz hung
+instead of failing, M3b's first oracle was wrong in the subject's favour, and M3c had a
+pipeline test whose *comment* claimed it caught the border rule — reducing `ChunkEdits` to
+owner-only left it green, because the writes already span eight chunks by themselves. Break
+the code on purpose, and check the comment too.
+
+**M3d, binding and feel, is next.** The plan is [docs/M3-PLAN.md](docs/M3-PLAN.md). It is the
+milestone's real question — does a pick swing fit inside a frame? — and the clone rate M3a
+guessed at is finally measurable now that something drives it.
 
 Three things stay open, all needing a windowed run rather than a headless one: whether the
 free budget actually removes the stutter (headless has no deferred deallocation), and M1d's

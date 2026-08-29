@@ -1,5 +1,174 @@
 # MinerCraft — Worklog
 
+## 2026-08-29 — M3c: the carve, and tools that arrive from JSON
+
+364 tests passing, up from 307. A swing now takes a sphere of material out of the world,
+and what it will and will not take comes from a mod file rather than from C#.
+
+### Built
+
+`MinerCraft.Core/Mining/Carve.cs` — `Carve.Sphere` walks the voxels whose **centres** lie
+within a radius in metres, removes those whose hardness is at or below the tool's
+threshold, and returns a `CarveResult` of three counts. `Carve.Swing` is the same thing
+reading its two numbers off a `ToolDefinition`.
+
+`ToolDefinition` plus `tools/*.json` in the loader, `GameContent.Tools`, and two tiers
+shipped in `mods/minercraft/tools/`. `MaterialTable` finally projects `Hardness`, which
+`MaterialDefinition` has carried since M1 with nothing reading it. `IVoxelEditor` is
+`IVoxelWorld` plus a write, and `ChunkPipeline` implements it.
+
+### The mechanic is one comparison, and it explains itself
+
+`hand_pick` has a threshold of 1.0; dirt is 0.8 and stone is 3.0. Swung at a dirt bank
+with a stone seam through it, the swing takes the dirt and leaves the seam standing proud.
+No special case, no "you cannot mine this" message — **the shape of the hole tells the
+player what their tool is for**. That is the whole reason hardness is checked per voxel
+rather than per swing, and it is why the base game ships two tiers rather than the one M3
+strictly needs: one tier cannot demonstrate a gate.
+
+### Three findings worth keeping
+
+**The distance test is the definition; the bounding box is only an optimisation.** One
+rule decides membership, and it is the one the tests check. The box is
+`VoxelPos.FromMetres(c ± r)` — the sphere's bounding box in metres, floored into voxel
+coordinates. That is provably sufficient: a candidate's centre lies inside the box,
+`FromMetres` floors and is monotone, and a centre at `(i + 0.5) × VoxelSize` can never sit
+on a voxel boundary, so the rounding would have to be wrong by half a voxel to drop
+anything.
+
+The first version hand-derived the tight bound and then widened it a voxel each side as
+insurance against float error. Both halves were wrong to keep. The widening defended
+against nothing measurable, and the hand-rolled derivation was a *second* flooring
+primitive that had to be got right for negative coordinates all over again — when
+`VoxelPos.FromMetres` already is, and is already pinned by its own tests. It was also
+unfalsifiable in the obvious place: swapping its `Math.Ceiling`/`Math.Floor` for casts can
+only ever *widen* the box, because truncation moves toward zero and both ends move outward
+when it does. A break-recipe that cannot fail is exactly what this milestone keeps
+learning to distrust.
+
+**M3a's "already there" early-out is no longer what protects the carve, and both belong.**
+M3-PLAN justified it by "a sphere carve rewrites air as air across most of its bounding
+box". The carve now skips air before it ever calls `SetVoxel`, so that path is not reached
+from here. Keep both: the carve's skip is what stops it *counting* air as removed — air's
+hardness is 0, so without it every threshold would pass and every swing would report
+roughly double what it took — and the pipeline's early-out is what protects the next
+writer, which is M6's placement.
+
+**A tool radius is a denial-of-service vector, and the loader is where to stop it.** The
+scan is cubic, so `"radiusMetres": 1000` does not carve a crater — it stops the game
+inside a loop of half a trillion iterations, several layers from the file that caused it.
+Rejected at load against `ToolDefinition.MaxRadiusMetres`, and re-checked in
+`Carve.Sphere` because the loader is not the only caller. Clamping instead would have
+hidden the typo. The bound is 4 m and is **labelled an estimate**; the first number
+written there was wrong, and is below.
+
+### Watched them fail, again, and one comment was overclaiming
+
+Every behaviour here was mutation-checked before being trusted, across both passes. The
+final set, all confirmed to break the suite: the bounding box narrowed a voxel on the min
+side, the radius boundary excluded (`<=` → `<`), the zero-radius early return removed, the
+NaN-threshold rejection removed, the air skip removed, unreachable voxels no longer
+counted, `Discard` reverted to the pre-M3 "is it `Meshed`?" test, and — not code at all —
+the shipped `hand_pick` threshold raised past stone.
+
+The one that earned its keep was on the *pipeline* test. Its comment claimed the "eight
+chunks remeshed, once each" assertion caught the border rule failing. Reducing
+`ChunkEdits.DirtyChunks` to owner-only left it **green** — the writes already span eight
+chunks by themselves, so the border rule was never load-bearing there. Fixed by saying
+what the test actually proves (coalescing, and no outward spill) and adding a corner test
+that writes a *single* voxel — which does fail when the rule is reduced. **Three for three
+now: a green test is not evidence that its comment is true either.**
+
+### A second pass caught three defects the first one shipped
+
+The implementation was reviewed by an independent panel working from M3-PLAN and the code,
+which found three things a green suite had not.
+
+**`ToolDefinition.Unknown` was not inert, and its own doc comment said it was.** Radius 0
+with no early return still met the distance test whenever a swing landed exactly on a
+voxel centre, and a threshold of 0 then took anything of hardness 0 — which is air today
+and fluids from M8. The test that was supposed to pin this passed for the wrong reason: it
+swung at `Vector3.Zero`, which is a voxel *corner*, so voxel 0's centre was 0.216 m away
+and nothing was ever in range. Now inert twice over — a non-positive radius returns early,
+and the threshold is negative infinity — and the test aims at a voxel centre.
+
+**`MaxRadiusMetres` did not bound the failure its own comment named.** 16 m is a 64-voxel
+radius: ~2.2 million box iterations and up to 729 chunk clones, which turns a hang into a
+repeated multi-hundred-millisecond freeze rather than preventing one. The comment also
+called it "two chunks across" while stating the radius, and a chunk is 8 m, so 16 m is
+four chunks of diameter. Now 4 m, **labelled an estimate** rather than written as a fact,
+with M3d's held-button measurement named as what should set it.
+
+**`MaterialTable.ForTesting` had a fail-open default.** An optional `hardness` array
+defaulting to all zeros means "any tool mines this", so a carve test that forgot the
+argument would pass for the wrong reason. Required now; three call sites say what they
+mean.
+
+### Then the review found a bug the carve only made reachable
+
+**A viewer leaving while an edit remesh is in flight stranded the mesh on screen.**
+`OnChunkUnviewed` discarded a chunk's mesh when its state was `Meshed`. That was
+equivalent to "does the renderer hold a mesh for this?" until M3a added the `Meshed →
+Meshing` edge — before it, a chunk that was `Meshing` had never delivered anything. After
+it, a chunk part way through a *re*-mesh has had a mesh drawn since before the edit, and
+that is exactly the one nothing else would ever take down: `Advance` refuses a chunk
+nobody views, and `Complete` skips delivery when the view count is zero. Mine something,
+fly away while the remesh runs, and the pre-edit geometry keeps drawing for terrain that
+has been unloaded.
+
+Fixed with `StreamedChunk.HasLiveMesh` — a flag on the thing it describes, the same shape
+as `InWorkList` — rather than by widening the state test, because widening would call the
+"a chunk that had a mesh is gone" callback for chunks that never had one.
+
+**Also: `hardness > NaN` is false, so a NaN threshold inverts the gate** from "takes
+nothing" to "takes everything, bedrock included". The loader already rejected non-finite
+thresholds, but the loader is not the only caller, so `Carve.Sphere` rejects it too and
+the message names `float.NegativeInfinity` as the supported way to say "takes nothing".
+
+### The base game's own files are finally loaded by a test
+
+Every content test until now built an `InMemoryContentSource`, so the files the game
+actually ships had never been read by one — the wrong gap to have under non-negotiable 5,
+where the whole claim is that the base game is a mod. `ShippedContentTests` reads
+`MinerCraft.Game/mods/` from disk and checks the *numbers*: that some shipped tier leaves
+the hardest material standing and some tier can take it. The hardness gate is a property
+of the content, and no amount of testing the code finds a JSON file edited to make it
+meaningless.
+
+The fixture had already drifted, incidentally — `TestContent.BaseGame()` has no grass.
+That is now written down as deliberate rather than left to look like an oversight: the
+fixture is minimal so `IdStabilityTests`' numeric assignment stays stable, and the shipped
+content has its own test.
+
+### One flake, not ours
+
+`JobSchedulerTests.AThrowingJobFaultsWithoutTakingTheWorkerDownWithIt` failed once while
+about thirty review agents were saturating the machine, and passes every time since. It is
+a one-worker scheduler test with a wall-clock `Patience`, so it is load-sensitive by
+construction. Recorded in TODO rather than fixed — it is not M3c's, and a timeout that
+only fires under a fully loaded box is a real if minor trap for CI later.
+
+### Smaller things
+
+- **`CarveResult.Unreachable` is separate from `TooHard`** for the same reason
+  `RayOutcome` keeps `Blocked` separate from `Missed`. A swing at a wall and a swing off
+  the edge of the loaded world produce the same-looking hole and are not the same event.
+- **`ToolDefinition.Unknown` is inert where `MaterialDefinition.Unknown` is solid.**
+  Opposite choices, one rule: pick the failure that cannot destroy a world. A missing
+  material must stay solid so the ground does not vanish; a missing tool must carve
+  nothing so a save cannot be hollowed out by numbers nobody has any more.
+- **A hole in the material table now gets `UnknownHardness` rather than 0.** It was
+  already forced opaque; leaving hardness at zero would have made a removed mod's blocks
+  the easiest thing in the world to tunnel through.
+- **`CooldownSeconds` is on the tool with nothing reading it.** M3d binds the mouse and
+  will want it, and adding a field to a format mods have written against is a migration —
+  the same argument `MaterialDefinition`'s unused fields already make.
+- **No `savedToolIds` seeding.** A material's numeric ID is baked into every stored voxel;
+  a tool's is referenced by nothing on disk yet. M6's inventory is when that changes, and
+  it will be the same three lines.
+- Headless from a standing start is unchanged — `1 mod(s), 4 material(s), 2 tool(s), 0
+  error(s)`, then 1926 jobs done, 165 drawn.
+
 ## 2026-08-29 — M3b: the raycast, and an oracle that was worse than the code
 
 307 tests passing, up from 294.
@@ -7,13 +176,14 @@
 ### Built
 
 `VoxelRay.Cast` — Amanatides & Woo — plus `IVoxelWorld`, which `ChunkStreamer` now
-implements. It returns the hit voxel, the face normal, the entry distance, and the last empty
-voxel before the hit; that last one is where a placement goes at M6, so returning it now costs
-nothing and saves reopening this.
+implements. It returns the hit voxel, the face normal, the entry distance, and the last
+empty voxel before the hit; that last one is where a placement goes at M6, so returning it
+now costs nothing and saves reopening this.
 
 `RayOutcome` has three values, not two. **`Blocked` is separate from `Missed`** because an
-unloaded voxel is an unknown rather than an empty one — collapsing them would let the player
-aim through the edge of the loaded world at a voxel in a chunk that does not exist, where the
+unloaded voxel is an unknown rather than an empty one — collapsing them would let the
+player aim through the edge of the loaded world at a voxel in a chunk that does not exist,
+where the
 edit then vanishes with nothing to report.
 
 ### The finding: a sampled reference is not an oracle

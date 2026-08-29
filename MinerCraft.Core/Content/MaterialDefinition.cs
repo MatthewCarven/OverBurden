@@ -58,6 +58,17 @@ public sealed class MaterialDefinition
     public bool IsAir => Id == MaterialIds.Air;
 
     /// <summary>
+    /// Hardness given to a material whose defining mod is not installed.
+    /// </summary>
+    /// <remarks>
+    /// Harder than stone, so a removed mod's blocks resist an ordinary tool, but finite —
+    /// a player who has walled themselves in behind a mod they uninstalled can still dig
+    /// out. Named because <see cref="MaterialTable"/> needs the same number for the holes
+    /// that have no identifier left at all.
+    /// </remarks>
+    public const float UnknownHardness = 5f;
+
+    /// <summary>
     /// The placeholder for a missing mod. Solid and opaque on purpose: silently turning
     /// a removed mod's blocks into air would let the world quietly collapse into holes.
     /// </summary>
@@ -65,7 +76,7 @@ public sealed class MaterialDefinition
     {
         Id = id,
         IsUnknown = true,
-        Hardness = 5f,
+        Hardness = UnknownHardness,
         SupportDistance = 8,
         Permeability = 0f,
         Density = 2000f,

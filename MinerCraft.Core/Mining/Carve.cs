@@ -1,0 +1,278 @@
+using System.Numerics;
+using MinerCraft.Core.Content;
+using MinerCraft.Core.Voxels;
+
+namespace MinerCraft.Core.Mining;
+
+/// <summary>What one swing did, with every voxel it looked at accounted for.</summary>
+/// <param name="Candidates">
+/// Voxels inside the shape. The sum of the four counts below, always — see
+/// <see cref="IsAccounted"/>.
+/// </param>
+/// <param name="Removed">Voxels that came away.</param>
+/// <param name="TooHard">
+/// Voxels the tool could not take. Not a failure — it is the mechanic: the stone seam left
+/// standing proud of the dirt bank is this number.
+/// </param>
+/// <param name="AlreadyAir">
+/// Voxels inside the shape that were empty. A sphere centred on a surface is roughly half
+/// air, so this is large and normal; it is separate from <see cref="Removed"/> because
+/// <see cref="Removed"/> is the volume M6's inventory will read, and air is not volume.
+/// </param>
+/// <param name="Unreachable">
+/// Voxels inside the shape whose chunk is not loaded, or is loaded but has not generated.
+/// <b>An unknown, not a refusal</b> — some of these may have been air. It is separate from
+/// <see cref="TooHard"/> for the reason <see cref="RayOutcome.Blocked"/> is separate from
+/// <see cref="RayOutcome.Missed"/>.
+/// </param>
+public readonly record struct CarveResult(
+    int Candidates,
+    int Removed,
+    int TooHard,
+    int AlreadyAir,
+    int Unreachable)
+{
+    /// <summary>The whole shape was inside loaded, generated terrain.</summary>
+    /// <remarks>
+    /// False is the case worth surfacing at M3d: a swing at the edge of the loaded world
+    /// silently did less than it looked like it did, and the player has no way to tell from
+    /// the hole. Reporting it beats dropping it.
+    /// </remarks>
+    public bool Complete => Unreachable == 0;
+
+    /// <summary>Every candidate landed in exactly one bucket.</summary>
+    /// <remarks>
+    /// Asserted by every carve test rather than by one, because the failure it catches is a
+    /// <c>continue</c> added later that is counted nowhere: the report stays plausible and
+    /// quietly loses voxels. A total that has to add up is the cheapest way to make that
+    /// impossible to add by accident.
+    /// </remarks>
+    public bool IsAccounted => Candidates == Removed + TooHard + AlreadyAir + Unreachable;
+
+    public override string ToString() =>
+        $"{Candidates} candidate(s): removed {Removed}, too hard {TooHard}, " +
+        $"already air {AlreadyAir}, unreachable {Unreachable}";
+}
+
+/// <summary>
+/// Removing material in a shape, gated per voxel by what the tool is hard enough to take.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>"Sub-voxel" means the voxel is small, not that it is partly full.</b> Worth saying
+/// plainly because the phrase invites the other reading. A voxel is one material or another;
+/// the feeling of carving rather than deleting cubes comes from the 0.25 m grid, where a
+/// 0.5 m pick is a bite four voxels across. Partial occupancy would be the two-world-
+/// representations decision DESIGN already rejected, arrived at sideways.
+/// </para>
+/// <para>
+/// Shapes are methods on this class rather than an <c>IShape</c> the caller supplies. Cones
+/// and other tiers are later work and will be <c>Carve.Cone</c> with the same signature
+/// shape; there is no second implementer yet, and a cone wants an angle and a length rather
+/// than a radius, so the interface they would share is not yet knowable.
+/// </para>
+/// <para>
+/// <b>Anything that is not air is removable, which stops being true at M8.</b> When fluids
+/// exist, a carve through water would turn it into air instead of letting it flow, and this
+/// wants a removability predicate rather than a comparison against
+/// <see cref="MaterialIds.AirNumericId"/>. That is the recorded revisit trigger, and it is
+/// the same one <see cref="VoxelRay"/> already carries for its stop test.
+/// </para>
+/// </remarks>
+public static class Carve
+{
+    /// <summary>Swings <paramref name="tool"/> at <paramref name="centreMetres"/>.</summary>
+    public static CarveResult Swing(
+        IVoxelEditor world,
+        MaterialTable materials,
+        Vector3 centreMetres,
+        ToolDefinition tool)
+    {
+        ArgumentNullException.ThrowIfNull(tool);
+
+        return Sphere(world, materials, centreMetres, tool.RadiusMetres, tool.HardnessThreshold);
+    }
+
+    /// <summary>
+    /// Removes every voxel whose <b>centre</b> lies within <paramref name="radiusMetres"/> of
+    /// <paramref name="centreMetres"/> and whose material is soft enough for
+    /// <paramref name="hardnessThreshold"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Hardness gates removal per voxel, and that is the interesting behaviour.</b> An
+    /// early pick swung at a dirt bank with a stone seam through it takes the dirt and leaves
+    /// the stone standing. No special case, no "you cannot mine this" message — the shape of
+    /// the hole tells the player what their tool is for. The comparison is "at or below": a
+    /// tier written to mine stone whose threshold is stone's hardness must mine stone, or
+    /// every number in every mod's JSON is a lie by an epsilon.
+    /// </para>
+    /// <para>
+    /// <b>Air is skipped by numeric identity, never by hardness.</b> Air's hardness is 0, so
+    /// it passes every threshold there is, and a sphere centred on a surface is roughly half
+    /// air. Counting it as removed would make every swing report about double what it took —
+    /// and <see cref="CarveResult.Removed"/> is the number M6 reads as a volume.
+    /// </para>
+    /// <para>
+    /// <b><see cref="Contains"/> is the definition; <see cref="Bounds"/> is only an
+    /// optimisation.</b> One predicate decides membership, and it is the one the tests check.
+    /// </para>
+    /// </remarks>
+    /// <param name="radiusMetres">
+    /// Metres, never voxels — DESIGN specifies tools in metres, and converting at each call
+    /// site is how the two units drift apart. Zero or less takes nothing; NaN or past
+    /// <see cref="ToolDefinition.MaxRadiusMetres"/> throws. That last one is re-checked here
+    /// rather than trusted from the loader, because the loader is not the only caller and a
+    /// cubic scan is not a failure worth discovering by watching the game stop.
+    /// </param>
+    public static CarveResult Sphere(
+        IVoxelEditor world,
+        MaterialTable materials,
+        Vector3 centreMetres,
+        float radiusMetres,
+        float hardnessThreshold)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(materials);
+
+        if (float.IsNaN(radiusMetres)
+            || radiusMetres < 0.0f
+            || radiusMetres > ToolDefinition.MaxRadiusMetres)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(radiusMetres),
+                radiusMetres,
+                $"A carve radius must be a number within 0..{ToolDefinition.MaxRadiusMetres} m.");
+        }
+
+        if (!float.IsFinite(centreMetres.X)
+            || !float.IsFinite(centreMetres.Y)
+            || !float.IsFinite(centreMetres.Z))
+        {
+            throw new ArgumentException("A carve needs a finite centre.", nameof(centreMetres));
+        }
+
+        if (float.IsNaN(hardnessThreshold))
+        {
+            // Not pedantry, and the one unusable value that fails *open*. Every comparison
+            // with NaN is false, so `hardness > threshold` never holds and the gate inverts:
+            // a NaN threshold does not mine nothing, it mines everything, bedrock included.
+            // The loader rejects non-finite thresholds, but the loader is not the only caller.
+            throw new ArgumentOutOfRangeException(
+                nameof(hardnessThreshold),
+                hardnessThreshold,
+                "A hardness threshold of NaN would compare false against every material and "
+                + "so remove all of them. Use float.NegativeInfinity for a tool that takes nothing.");
+        }
+
+        if (radiusMetres == 0.0f)
+        {
+            // A no-op rather than a throw, because a tool with no reach is a legal if useless
+            // tier — a negative one is a bug and threw above. And a *clean* no-op rather than
+            // the knife edge the geometry gives on its own: at exactly zero the test reads
+            // "distance 0 ≤ 0", so a swing aimed at precisely a voxel centre would take one
+            // voxel while a swing a nanometre away took none. Nothing should ever turn on
+            // which side of that a float lands, and ToolDefinition.Unknown is a radius of
+            // exactly zero aimed by whatever M3d decides to aim it with.
+            return default;
+        }
+
+        (VoxelPos min, VoxelPos max) = Bounds(centreMetres, radiusMetres);
+        float radiusSquared = radiusMetres * radiusMetres;
+
+        int candidates = 0;
+        int removed = 0;
+        int tooHard = 0;
+        int alreadyAir = 0;
+        int unreachable = 0;
+
+        // Z outer and Y inner, matching the [z][x][y] storage order the writes land in.
+        for (int z = min.Z; z <= max.Z; z++)
+        for (int x = min.X; x <= max.X; x++)
+        for (int y = min.Y; y <= max.Y; y++)
+        {
+            var voxel = new VoxelPos(x, y, z);
+            if (!Contains(voxel, centreMetres, radiusSquared))
+            {
+                continue;
+            }
+
+            // Counted here and nowhere else, so that every path below has to land in exactly
+            // one bucket. Counting over the box instead would be worse than untidy: the box
+            // corners reach r(√3 − 1) further out than the sphere ever does, so Unreachable
+            // would be non-zero for most swings anywhere near the loaded edge and Complete
+            // would stop meaning anything.
+            candidates++;
+
+            if (!world.TryGetMaterial(voxel, out int material))
+            {
+                unreachable++;
+                continue;
+            }
+
+            if (material == MaterialIds.AirNumericId)
+            {
+                alreadyAir++;
+                continue;
+            }
+
+            if (materials.Hardness(material) > hardnessThreshold)
+            {
+                tooHard++;
+                continue;
+            }
+
+            if (!world.SetVoxel(voxel, MaterialIds.AirNumericId))
+            {
+                // Should not happen: a read that succeeded means the chunk is loaded and
+                // generated, which is the same condition the write tests. Counted rather than
+                // ignored so that an editor whose two halves ever disagree reports the voxel
+                // instead of losing it.
+                unreachable++;
+                continue;
+            }
+
+            removed++;
+        }
+
+        return new CarveResult(candidates, removed, tooHard, alreadyAir, unreachable);
+    }
+
+    /// <summary>Whether <paramref name="voxel"/>'s centre is inside the sphere. The definition.</summary>
+    private static bool Contains(VoxelPos voxel, Vector3 centreMetres, float radiusSquared)
+    {
+        (float x, float y, float z) = voxel.CentreMetres;
+
+        float dx = x - centreMetres.X;
+        float dy = y - centreMetres.Y;
+        float dz = z - centreMetres.Z;
+
+        return ((dx * dx) + (dy * dy) + (dz * dz)) <= radiusSquared;
+    }
+
+    /// <summary>
+    /// The smallest voxel box that certainly contains every voxel <see cref="Contains"/>
+    /// would keep. An optimisation, and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The sphere's axis-aligned bounding box in metres is <c>centre ± radius</c>, and a
+    /// candidate's centre lies inside it, so flooring both ends into voxel coordinates is
+    /// sufficient: <see cref="VoxelPos.FromMetres"/> floors and is monotone, and a voxel
+    /// centre at <c>(i + 0.5) × VoxelSize</c> can never sit exactly on a voxel boundary, so
+    /// the rounding would have to be wrong by half a voxel to drop a candidate.
+    /// </para>
+    /// <para>
+    /// <b>Reusing <see cref="VoxelPos.FromMetres"/> rather than deriving the tight bound is
+    /// the point.</b> A hand-rolled <c>ceil((c − r)/s − 0.5)</c> is a second flooring
+    /// primitive that has to be got right for negative coordinates all over again, and — this
+    /// was measured — the obvious mutation of it, swapping <c>Math.Ceiling</c>/<c>Math.Floor</c>
+    /// for casts, can only ever <em>widen</em> the box, so it is a break-recipe that cannot
+    /// fail a test. This version is falsifiable: narrowing either end by one voxel breaks the
+    /// membership fuzz within milliseconds, at negative coordinates first.
+    /// </para>
+    /// </remarks>
+    private static (VoxelPos Min, VoxelPos Max) Bounds(Vector3 centre, float radius) => (
+        VoxelPos.FromMetres(centre.X - radius, centre.Y - radius, centre.Z - radius),
+        VoxelPos.FromMetres(centre.X + radius, centre.Y + radius, centre.Z + radius));
+}

@@ -1,0 +1,6 @@
+{
+  "id": "hand_pick",
+  "radiusMetres": 0.4,
+  "hardnessThreshold": 1.0,
+  "cooldownSeconds": 0.30
+}

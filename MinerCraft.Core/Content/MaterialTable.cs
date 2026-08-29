@@ -14,12 +14,14 @@ public sealed class MaterialTable
     private readonly bool[] _isOpaque;
     private readonly bool[] _isFluid;
     private readonly int[] _textureLayer;
+    private readonly float[] _hardness;
 
-    private MaterialTable(bool[] isOpaque, bool[] isFluid, int[] textureLayer)
+    private MaterialTable(bool[] isOpaque, bool[] isFluid, int[] textureLayer, float[] hardness)
     {
         _isOpaque = isOpaque;
         _isFluid = isFluid;
         _textureLayer = textureLayer;
+        _hardness = hardness;
     }
 
     public int Count => _isOpaque.Length;
@@ -29,6 +31,14 @@ public sealed class MaterialTable
     public bool IsFluid(int materialId) => _isFluid[materialId];
 
     public int TextureLayer(int materialId) => _textureLayer[materialId];
+
+    /// <summary>Relative effort to mine. A carve removes a voxel only when a tool's
+    /// threshold reaches this.</summary>
+    /// <remarks>
+    /// Here rather than through the registry for the same reason the other three are: the
+    /// sphere carve asks it once per candidate voxel, and a swing has thousands of those.
+    /// </remarks>
+    public float Hardness(int materialId) => _hardness[materialId];
 
     public static MaterialTable From(Registry<MaterialDefinition> materials)
     {
@@ -43,14 +53,18 @@ public sealed class MaterialTable
         var isOpaque = new bool[count];
         var isFluid = new bool[count];
         var textureLayer = new int[count];
+        var hardness = new float[count];
 
         for (int id = 0; id < count; id++)
         {
             if (!materials.GetIdentifier(id).IsValid)
             {
                 // A hole left by a removed mod whose identifier is no longer known. Treat
-                // it as solid so the world does not develop gaps where it used to be.
+                // it as solid so the world does not develop gaps where it used to be, and
+                // as hard as the named placeholder so a hole is not quietly the easiest
+                // thing in the world to mine through.
                 isOpaque[id] = true;
+                hardness[id] = MaterialDefinition.UnknownHardness;
                 continue;
             }
 
@@ -58,12 +72,23 @@ public sealed class MaterialTable
             isOpaque[id] = definition.IsOpaque;
             isFluid[id] = definition.IsFluid;
             textureLayer[id] = definition.TextureLayer;
+            hardness[id] = definition.Hardness;
         }
 
-        return new MaterialTable(isOpaque, isFluid, textureLayer);
+        return new MaterialTable(isOpaque, isFluid, textureLayer, hardness);
     }
 
     /// <summary>Builds a table directly, for tests and tools that have no registry.</summary>
-    internal static MaterialTable ForTesting(bool[] isOpaque, bool[] isFluid, int[] textureLayer) =>
-        new(isOpaque, isFluid, textureLayer);
+    /// <param name="hardness">
+    /// Required, not optional. An omitted array would default every material to zero, which
+    /// is "any tool mines this", so a carve test that forgot the argument would pass for the
+    /// wrong reason. Fail-open defaults in a test helper are how a suite quietly stops
+    /// testing; a test with no interest in mining passes zeros and says so.
+    /// </param>
+    internal static MaterialTable ForTesting(
+        bool[] isOpaque,
+        bool[] isFluid,
+        int[] textureLayer,
+        float[] hardness) =>
+        new(isOpaque, isFluid, textureLayer, hardness);
 }

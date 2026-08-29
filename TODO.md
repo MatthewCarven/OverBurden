@@ -512,9 +512,9 @@ worker thread, not a wrong voxel.
       stopped draining on the first mismatch and deadlocked the writer against a bounded queue.
       Now records and continues, and fails in 356 ms. **Watch a fuzz test fail before trusting
       it** — the same applies to whatever M3b writes against a brute-force reference.
-- [ ] Not yet measured: the clone rate. `ChunkPipeline.ChunkClones` counts it, but nothing
-      drives it until there is a carve. M3-PLAN's "~2 KB per chunk per cycle" is still an
-      estimate; M3d settles it.
+- [x] `ChunkPipeline.ChunkClones` counts the clone rate. M3c gave it something to count; the
+      number itself is still unmeasured and M3d settles it, so it is tracked there rather
+      than here.
 
 #### M3b — The raycast ✅ done 2026-08-29, 307 tests passing
 
@@ -532,19 +532,51 @@ worker thread, not a wrong voxel.
 - [x] Ray starting inside solid material returns that voxel with no normal, or the first
       swing mines whatever the camera is embedded in.
 
-#### M3c — The carve ⬅️ **start here**
+#### M3c — The carve ✅ done 2026-08-29, 364 tests passing
 
-- [ ] Sphere by voxel-centre distance test, radius in metres from the tool.
-      **"Sub-voxel" means the voxel is small, not partly full** — partial occupancy is the
-      rejected two-representations decision arriving sideways.
-- [ ] Hardness gates removal per voxel, so a weak tool carves dirt out from around a stone
-      seam and leaves it standing. `MaterialDefinition.Hardness` already loads from mod JSON;
-      `MaterialTable` just does not project it yet.
-- [ ] Tool tiers load from `mods/minercraft/tools/*.json` through the materials loader —
-      non-negotiable 5. If M3c runs long, cut the JSON and keep the interface, never the
-      reverse.
+- [x] Sphere by voxel-centre distance test, radius in metres from the tool. `Carve.Sphere`
+      in `MinerCraft.Core/Mining/`, with `Carve.Swing` reading its two numbers off a
+      `ToolDefinition`. **"Sub-voxel" means the voxel is small, not partly full.**
+- [x] **The distance test is the definition; the bounding box is only an optimisation.** The
+      box is `VoxelPos.FromMetres(c ± r)` — provably sufficient, correct at negative
+      coordinates for free, and reusing a flooring primitive that is already pinned. Do not
+      replace it with a hand-derived tight bound: the first version was one, and its obvious
+      break-recipe (floor → cast) can only *widen* the box, so it could never fail a test.
+- [x] Hardness gates removal per voxel. `MaterialTable.Hardness` projects it now, and the two
+      shipped tiers straddle dirt and stone so the gate is visible: `hand_pick` leaves a stone
+      seam standing in a dirt bank, `steel_pick` takes it.
+- [x] Tool tiers load from `mods/minercraft/tools/*.json` through the same loader materials
+      use — non-negotiable 5. The JSON was not cut; two tiers ship, because **one tier cannot
+      demonstrate a gate**.
+- [x] `CarveResult` reports removed, too-hard and unreachable separately. **Unreachable is not
+      too-hard**, for the same reason `RayOutcome.Blocked` is not `Missed`.
+- [x] **A tool radius is a denial-of-service vector, and a NaN threshold is worse.** The scan
+      is cubic, so `"radiusMetres": 1000` freezes the game rather than carving a crater;
+      `ToolDefinition.MaxRadiusMetres` bounds it at load *and* in the carve. It is **4 m and
+      an estimate** — 16 m was the first answer and did not bound the failure its own comment
+      named. A NaN threshold fails the other way, *open*: `hardness > NaN` is false, so the
+      gate inverts from "takes nothing" to "takes everything".
+- [x] **`ToolDefinition.Unknown` is inert twice over**, and was inert zero times when first
+      written. Radius 0 still met the distance test on a swing landing exactly on a voxel
+      centre, and threshold 0 took anything of hardness 0. The test that should have caught
+      it swung at a voxel *corner*. Non-positive radius now returns early, and the threshold
+      is negative infinity.
+- [x] **A viewer leaving mid-remesh stranded the mesh on screen.** `Meshed → Meshing` is an
+      M3 edge; before it, "is it `Meshed`?" and "does the renderer hold a mesh?" were the same
+      question. `StreamedChunk.HasLiveMesh` is the flag now. Mine, fly away, and the pre-edit
+      geometry used to keep drawing for unloaded terrain.
+- [x] **The base game's own files are loaded by a test at last.** `ShippedContentTests` reads
+      `MinerCraft.Game/mods/` from disk — every other content test builds a fixture, which had
+      already drifted. It checks the shipped *numbers* too, because the hardness gate is a
+      property of the content and no code test finds a JSON file edited to make it pointless.
+- [x] Eight mutations watched to fail before the tests were trusted. One of them exposed a
+      *comment* that overclaimed: the pipeline test's "eight chunks remeshed" does not catch
+      the border rule failing, because the writes span eight chunks by themselves. Split out a
+      one-voxel corner test that does. **A green test is not evidence its comment is true.**
+- [ ] Not measured yet: the clone rate under a held button. `ChunkPipeline.ChunkClones` counts
+      it and a carve finally drives it, but nothing holds the button — that is M3d.
 
-#### M3d — Binding, feel, measurement
+#### M3d — Binding, feel, measurement ⬅️ **start here**
 
 - [ ] Mouse button on the flycam. **M3 does not need M4**; waiting for a player controller
       would put the first fun moment behind a milestone that is not about fun.
@@ -556,12 +588,29 @@ worker thread, not a wrong voxel.
       ordered answers are — mesh only the dirty region, then smaller mesh blocks, then accept
       a frame of latency and hide it. Not locks.
 
+#### Surfaced, not M3c's
+
+- [ ] `JobSchedulerTests.AThrowingJobFaultsWithoutTakingTheWorkerDownWithIt` failed once under
+      heavy machine load and passes otherwise. It is a one-worker scheduler test with a
+      wall-clock `Patience`, so it is load-sensitive by construction — worth knowing before
+      it fires in CI and gets read as a real fault.
+- [ ] `MaterialTable` indexes raw, so a material ID past its `Count` throws
+      `IndexOutOfRangeException`. The mesher has the same exposure and would hit it first, but
+      the carve is the first consumer a *player* triggers, so the same latent bug becomes a
+      crash on click rather than at load. The fix is validating chunk contents at load: M6.
+
 #### Open decisions
 
 - [ ] **Instant removal or progressive damage?** M3 ships instantaneous with a cooldown.
       Progressive needs per-voxel damage state, which chunk storage has nowhere to put, so it
       wants its own design pass rather than a field bolted on. Decide after M3d, with the
       thing in hand.
+- [ ] **Where is the swing centred — the ray's entry point, or the hit voxel's centre?** The
+      entry point lies exactly on a voxel face, so about half the sphere lands in air and the
+      effective reach depends on the incidence angle; the voxel centre is grid-aligned and
+      stable under repeated swings but makes the crosshair feel like it lies near a voxel
+      edge. **`CarveResult.AlreadyAir` against `Candidates` is the number that settles it**,
+      which is why both are reported. M3d decides, with the thing in hand.
 - [ ] **Edits are lost on unload at M3** — a chunk regenerates from the seed, so flying far
       enough erases the mine. Acceptable until M6, recorded so it is not filed as an edit-path
       bug.

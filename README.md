@@ -13,7 +13,7 @@ No mobs, no combat. The mine is the antagonist.
 
 ## Status
 
-**M0, M1 and M2 done**, and M3 is underway — 307 tests passing. Terrain streams around the
+**M0, M1 and M2 done**, and M3 is nearly there — 364 tests passing. Terrain streams around the
 camera without end: worldgen and greedy meshing run on worker threads over
 palette-compressed storage, drawn via `RenderingServer` with a texture array, with every
 material loaded from `mods/minercraft/*.json` exactly the way a third-party mod would load
@@ -30,9 +30,16 @@ Some numbers it is built on:
 - **~46 KiB per drawn chunk**, mesh-dominated against ~2 KB of voxel storage — which is why
   view distance is a horizontal radius and a vertical one, not a single number.
 
-M3 is mining — the first thing that will be fun. Half of it exists: voxels can now be
-written while worker threads read them, and a DDA raycast says which one you are pointing at.
-What is left is the carve itself and binding it to a mouse button.
+M3 is mining — the first thing that will be fun. Most of it exists: voxels can be written
+while worker threads read them, a DDA raycast says which one you are pointing at, and a swing
+takes a sphere of material out of the world, gated per voxel by hardness. Swing a `hand_pick`
+at a dirt bank with a stone seam through it and the dirt goes while the seam stands — no
+special case, no "you cannot mine this" message, just the shape of the hole telling you what
+your tool is for. Tool tiers are content, loading from `mods/minercraft/tools/*.json` through
+the same loader materials use.
+
+What is left is binding it to a mouse button, drawing a highlight on the targeted voxel, and
+measuring whether a pick swing fits inside a frame.
 
 ## Run it
 

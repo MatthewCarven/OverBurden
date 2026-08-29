@@ -405,7 +405,8 @@ public class ChunkPipelineTests
         viewers.UpdateSingle(ChunkPos.Zero);
 
         var neighbourhood = new VoxelChunk?[PaddedChunk.NeighbourhoodSize];
-        var materials = MaterialTable.ForTesting([false, true], [false, false], [0, 1]);
+        var materials = MaterialTable.ForTesting(
+            [false, true], [false, false], [0, 1], hardness: [0f, 0f]);
 
         JobPriority streaming = JobPriority.Evaluate(
             JobKind.Mesh,
@@ -630,11 +631,16 @@ internal sealed class PipelineHarness : IDisposable
         },
         new StrataTable([new StrataLayer(Grass, 1), new StrataLayer(Dirt, 3)], Stone));
 
-    private static MaterialTable Materials() => MaterialTable.ForTesting(
+    /// <summary>
+    /// The base game's own hardnesses, so a carve driven through this harness gates the same
+    /// way the shipped content does.
+    /// </summary>
+    public static MaterialTable Materials() => MaterialTable.ForTesting(
         //             air    grass dirt  stone
         isOpaque: [false, true, true, true],
         isFluid: [false, false, false, false],
-        textureLayer: [0, 1, 2, 3]);
+        textureLayer: [0, 1, 2, 3],
+        hardness: [0f, 0.9f, 0.8f, 3.0f]);
 
     public void Dispose()
     {

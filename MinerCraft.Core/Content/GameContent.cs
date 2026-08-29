@@ -14,6 +14,16 @@ public sealed class GameContent
     public Registry<MaterialDefinition> Materials { get; } =
         new("materials", MaterialDefinition.Unknown);
 
+    /// <summary>Mining tool tiers.</summary>
+    /// <remarks>
+    /// No <c>savedToolIds</c> counterpart to <see cref="Load"/>, and that is not an
+    /// oversight. A material's numeric ID is baked into every stored voxel, so it has to
+    /// survive a change of mod set; a tool's is referenced by nothing that is written to
+    /// disk yet. When M6's inventory starts saving a held tool, that is the moment this
+    /// registry needs seeding too — and it will be the same three lines.
+    /// </remarks>
+    public Registry<ToolDefinition> Tools { get; } = new("tools", ToolDefinition.Unknown);
+
     /// <summary>
     /// Loads content from <paramref name="source"/>, optionally restoring a world's saved
     /// numeric ID assignment first.
@@ -30,6 +40,6 @@ public sealed class GameContent
             Materials.SeedIdTable(savedMaterialIds);
         }
 
-        return new ContentLoader().Load(source, Materials);
+        return new ContentLoader().Load(source, Materials, Tools);
     }
 }
