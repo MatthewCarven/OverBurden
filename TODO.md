@@ -640,9 +640,122 @@ worker thread, not a wrong voxel.
 
 ### M4 — Player ⬅️ **start here**
 
-- [ ] AABB vs voxel grid, **axis-separated** resolution (X, then Y, then Z)
-- [ ] Gravity, jump, step-up
+Planned 2026-08-29 and split into four parts in [docs/M4-PLAN.md](docs/M4-PLAN.md). **Read it
+before starting.** The structural point: until now the viewer's position was an *input* and
+the streamer followed it. From M4 the position is an *output* of a query against the very
+chunks the viewer decides to load, and an unloaded voxel read as air means the player falls
+out of the world and accelerates away from anything that could stop them.
+
+#### M4a — The collider
+
+- [ ] AABB vs voxel grid, **axis-separated** resolution (X, then Y, then Z). A combined sweep
+      snags on every voxel boundary of a flat wall; axis separation makes sliding the default.
 - [ ] Do **not** use Godot physics for terrain (`ConcavePolygonShape3D` is a trap)
+- [ ] **Substep so no substep exceeds 0.2 m**, under one voxel. Move-then-resolve is exact
+      below 15 m/s (0.25 m ÷ 1/60 s) and silently tunnels above it — so **walking never
+      tunnels and falling always does**, which is the worst possible shape for a bug.
+- [ ] The substep cap is on **displacement, not the box's dimensions**. A 0.25 m floor is
+      thinner than the player.
+- [ ] **An unloaded voxel is solid.** `ChunkStreamer.TryGetMaterial` hands back air *and*
+      false; a caller that ignores the return value gets the unrecoverable failure. Same
+      distinction as `RayOutcome.Blocked` vs `Missed`, worse consequence.
+- [ ] Solidity is a predicate — `id != air && !IsFluid(id)` — not a comparison against air.
+      `MaterialTable.IsFluid` already exists, so this is correct now *and* at M8, and needs no
+      revisit trigger the way `VoxelRay` did.
+- [ ] `grounded` is an **output of the solve** ("the −Y resolve fired"), not a separate probe.
+      One step of latency for step-up, against ~40 extra voxel reads per step to remove it.
+- [ ] **Resting contact:** resolve to the face minus an epsilon, overlap is a strict
+      inequality. The bug that survives into shipped games is a millimetre of jitter with
+      `grounded` flickering and jump misfiring — not tunnelling.
+- [ ] Lives in `MinerCraft.Core/Physics/`, `System.Numerics`. Where a player may stand is a
+      world rule a multiplayer server must agree about.
+- [ ] **The fuzz with the sharp oracle: seal the player in a room** of solid voxels and apply
+      thousands of random displacements, including magnitudes far past terminal velocity.
+      Escaping is a boolean — no reference implementation, no tolerance. **Watch it fail:**
+      removing the substep cap must break it almost immediately, or the displacements are too
+      small.
+- [ ] Corner-snag test: sliding diagonally along a flat wall travels the full tangential
+      component. Fails if someone "simplifies" the resolve back into one pass.
+- [ ] Shared postcondition asserted in *every* motion test, not only the fuzz: the box never
+      ends a step overlapping solid.
+- [ ] Standing still for 10,000 steps does not drift and `grounded` never flickers.
+- [ ] Determinism: identical input sequence, bitwise-identical trajectory. The whole of the
+      multiplayer claim, and cheap now.
+- [ ] Guessed and needing M4d: ~400 `TryGetMaterial` calls per step, ~24k/s. If it matters the
+      fix is memoising the chunk across a scan (the box spans 1–2 chunks), **not** a spatial
+      structure.
+
+#### M4b — Motion
+
+- [ ] Gravity, jump, terminal velocity, step-up **and step-down**
+- [ ] **60 Hz fixed step, which is not the 20 Hz sim tick.** 20 Hz is 50 ms of input latency.
+      Machines are simulated; the player is driven. Core's step takes `dt` so a test or a
+      headless profile can drive it.
+- [ ] Constants, **all estimates**, replaced by playing at M4d: box 0.5 × 1.8 × 0.5 m, eye
+      1.65 m, gravity 25 m/s², jump 7.5 m/s (→ 1.125 m apex, clears a 4-voxel ledge), walk
+      4.5 m/s, sprint 7 m/s, terminal 40 m/s, step-up 0.5 m, reach 3.5 m.
+- [ ] **Terminal velocity is a streaming parameter in a physics costume.** 16–24 m of loaded
+      world below the player is crossed in 0.4–0.6 s at 40 m/s. M4d measures what the streamer
+      can actually deliver and that picks the number.
+- [ ] **The player must fit down their own tunnel.** `hand_pick` (0.4 m) leaves a 0.75 m free
+      bore; a 0.5 m box passes with 0.125 m either side. **Player width and the weakest tool's
+      bite are coupled** and neither can be changed alone.
+- [ ] Step-up is not a convenience at 0.25 m — heightmap terrain steps 7 times per metre of
+      slope, so without it every slope is a wall. Four guards, each its own test: grounded
+      only, non-upward only, the horizontal re-attempt must **fully** succeed, and the whole
+      box needs headroom at the lifted position.
+- [ ] Step-down is the half people forget: without it a downhill slope makes the player
+      airborne every few steps and the camera bobs continuously.
+- [ ] Coyote time, jump buffering and variable jump height are M4d's and are additive — the
+      model does not change to accept them.
+
+#### M4c — Binding
+
+- [ ] **Do not delete the flycam.** `FlyCam`'s own comment says M4 replaces it; that comment
+      is wrong and following it destroys the measurement apparatus M2d and M3d were built to
+      create. `--profile` assigns `GlobalPosition` directly and `AdvanceFlythrough` snaps the
+      camera every frame; a camera parented to a physics body cannot do either.
+- [ ] Walk/fly toggle on a key, **`--profile` implies fly**, body inert in fly mode. Keeps
+      every existing measurement comparable against M3d's.
+- [ ] Order within a step: **player → viewer → pipeline**. Pipeline first would solve the
+      player against a world one frame staler than necessary.
+- [ ] Move `ReachMetres` from `MiningController` to the player, closing M3d's recorded item.
+- [ ] **Spawn is the cycle at its worst** — nothing is loaded, so everything is solid, so the
+      player cannot move. Gate the body on the spawn chunk and the one below it having
+      terrain; place with `SurfaceHeightAt`; **unstick upward** if the box starts inside solid
+      rather than locking, because locking reads as a broken game.
+- [ ] Mining the floor from under yourself works for free and is correct. **Recorded revisit
+      trigger:** material appearing *inside* the box has no answer at M4 — M6's placement can
+      do it deliberately, M9's collapse by accident — and the unstick rule is its seed.
+- [ ] Not a bug, and will be reported as one: walking into your own tunnel is walking into the
+      dark until M5.
+
+#### M4d — Feel and measurement
+
+- [ ] **The question M4 is really asking: can the player outrun the streamer, and what does it
+      feel like when they do?** M2d measured a horizontal flythrough at constant height. A
+      fall is vertical, fast, and against the *small* radius.
+- [ ] Add a fall mode to the profiler the way `--mine` was added. Report voxel queries and
+      substeps per step, **steps spent held** on an unloaded chunk and the longest such stall,
+      ground-state flicker count, and collider cost per step.
+- [ ] **Time it directly; do not read `frame ms`.** The headless frame-time trap has been
+      walked into three times — M2d-1, the mesh-apply budget, M3d — and each time the spike
+      did not reproduce while the directly-timed number moved a tenth of a millisecond.
+- [ ] Needs a human: does 0.25 m ground walk like ground or like a staircase; is the jump
+      right; is 3.5 m the right reach now something owns it; does the box fit down a tunnel dug
+      with the starting pick.
+
+#### Deliberately not in M4
+
+- [ ] Swimming and fluid drag — M8. The solidity predicate already reads `IsFluid`, so wading
+      is the default rather than a special case.
+- [ ] Falling damage — M11, where health is. Dropped items — M6, and DESIGN is explicit that
+      Godot physics is fine for those.
+- [ ] Placement colliding with the player — M6, using M4c's unstick rule.
+- [ ] Non-cube collision shapes (slabs, ramps, ladders) — all "a voxel is one material or
+      another" violations wearing different hats; M3c already argued that one.
+- [ ] `PlayerTick` on the event bus, and multiplayer prediction. A fixed-step solve in Core
+      with a determinism test is the whole of what M4 owes them.
 
 ### M5 — Lighting
 

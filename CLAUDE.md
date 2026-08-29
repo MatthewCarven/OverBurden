@@ -13,7 +13,8 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/M1-PLAN.md](docs/M1-PLAN.md) | Worked example of how a milestone gets planned before it gets built |
 | [docs/M2-REFERENCE-NOTES.md](docs/M2-REFERENCE-NOTES.md) | What reading godot_voxel's scheduler and streaming taught us, and what it changed in the M2 plan. **Read before building the job queue.** |
 | [docs/M2-PLAN.md](docs/M2-PLAN.md) | M2, split into M2a–M2d with per-part design and tests. Done, kept for the reasoning. |
-| [docs/M3-PLAN.md](docs/M3-PLAN.md) | The current milestone — mining, split into M3a–M3d. **This is what to work from.** |
+| [docs/M3-PLAN.md](docs/M3-PLAN.md) | M3, mining, split into M3a–M3d. Done, kept for the reasoning. |
+| [docs/M4-PLAN.md](docs/M4-PLAN.md) | The current milestone — the player, split into M4a–M4d. **This is what to work from.** |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
 | [TODO.md](TODO.md) | Milestones as checkable tasks, and the decisions still open |
 | [WORKLOG.md](WORKLOG.md) | What happened and why, newest first. Findings worth keeping live here. |
@@ -345,9 +346,32 @@ Three things about M3d that are easy to undo by accident:
 reported `frame ms` max 19.6 ms against a 6.9 ms control, while `update ms` max moved 0.13 ms
 and the spike did not reproduce in two further runs. `update ms` times our own work directly.
 
-**M4, the player, is next** — AABB against the voxel grid, axis-separated resolution, gravity
-and step-up. It has no plan document yet; M1-PLAN and M3-PLAN are the worked examples of how
-one gets written before any code.
+**M4, the player, is next and is planned** — [docs/M4-PLAN.md](docs/M4-PLAN.md), split into
+M4a the collider, M4b motion, M4c binding, M4d feel and measurement. Five things from the
+planning pass that are expensive to rediscover:
+
+- **The viewer's position stops being an input.** Until now the flycam was told where to go
+  and the streamer followed. From M4 the position is an *output* of a query against the very
+  chunks the player decides to load. The cycle is broken by solving step *N* against the world
+  as loaded at step *N*−1, and by treating **an unloaded voxel as solid**.
+  `ChunkStreamer.TryGetMaterial` returns air *and* false, so ignoring the return value is the
+  unrecoverable version of M3b's `Blocked`-is-not-`Missed`: the player leaves the loaded world
+  and accelerates away from anything that could stop them.
+- **Walking never tunnels and falling always does.** Move-then-resolve is exact below 15 m/s
+  — one voxel, 0.25 m, over a 1/60 s step — so the bug cannot appear while movement is being
+  tested. Substep at 0.2 m, capped on **displacement, not the box's dimensions**, because a
+  0.25 m floor is thinner than the player.
+- **Terminal velocity is a streaming parameter in a physics costume**, and **the player's
+  width is coupled to the weakest tool's bite**. There is 16–24 m of loaded world below the
+  player; `hand_pick` leaves a 0.75 m bore and a 0.5 m box passes with 0.125 m either side.
+  Widen the player and the first tunnel a new player digs is one they cannot walk down.
+- **Do not delete the flycam**, whatever its own doc comment says. `--profile` assigns
+  `GlobalPosition` directly and `AdvanceFlythrough` snaps the camera every frame; a camera
+  parented to a physics body does neither, and every measurement M2d and M3d built would go
+  with it. Walk/fly toggle, `--profile` implies fly.
+- **The trap is in M4c, not in the physics.** M4a and M4b are deterministic, headless and
+  fuzzable — the collider's oracle is "seal the player in a room and try to shake them out",
+  which is a boolean with no reference implementation and no tolerance.
 
 **M3 has been played, and it feels good** — the verdict the milestone was actually waiting on,
 since it is the first whose output was a feeling rather than a number. `VoxelHighlight` is

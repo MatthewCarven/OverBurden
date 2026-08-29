@@ -1,5 +1,99 @@
 # MinerCraft — Worklog
 
+## 2026-08-29 — M4 planned: the milestone where the world starts deciding where the player is
+
+No code. [docs/M4-PLAN.md](docs/M4-PLAN.md) splits the player into M4a–M4d the way M1 and M3
+were split before anything was built, and the planning pass turned up more than expected.
+
+### The structural thing, which is not the collision
+
+Every milestone so far has taken the viewer's position as an **input**. The flycam is told
+where to go by the keyboard, the streamer follows, and the world is whatever finished loading
+by the time the camera arrived. M4 inverts it: the player's position becomes an **output of a
+query against the very chunks the player decides to load**. That is a cycle, and how it is
+broken is the decision the milestone turns on.
+
+It is broken twice. The player is solved at step *N* against the world as loaded at step
+*N*−1; and an unloaded voxel is **solid**, so a cycle that cannot close leaves the player
+stopped at the edge of the loaded world rather than outside it.
+
+`ChunkStreamer.TryGetMaterial` sets `materialId` to air *and* returns false, so a caller who
+ignores the return value gets exactly the wrong answer. This is M3b's `Blocked`-is-not-`Missed`
+at a layer where the consequence does not merely confuse: the player falls out of the world
+and accelerates away from every chunk that could have stopped them.
+
+### Walking never tunnels and falling always does
+
+The number that made this concrete: move-then-resolve is exact below **15 m/s**, because the
+thinnest obstacle is one voxel (0.25 m) and a step is 1/60 s. A sprint is under that; a fall
+passes it in well under a second.
+
+That is the worst possible shape for a bug — it cannot appear while you are testing movement,
+only later, once gravity has had two seconds to work. The fix is substepping at 0.2 m, capped
+on **displacement rather than the box's dimensions**, since a 0.25 m floor is thinner than the
+player. Four substeps at terminal velocity, one whenever walking. A swept AABB is the exact
+alternative and is rejected with a named trigger — something moving the player at 100 m/s —
+because sweeping is precisely what DESIGN rejected for snagging on flat walls.
+
+### Two couplings that were not visible before writing it down
+
+**Terminal velocity is a streaming parameter wearing a physics costume.** There is 16–24 m of
+loaded world beneath the player, which 40 m/s crosses in 0.4–0.6 s. How fast the player may
+fall is a statement about how fast chunks arrive underneath them, so M4d measures the streamer
+and the measurement picks the constant.
+
+**The player's width and the weakest tool's bite are coupled, and neither can move alone.**
+`hand_pick`'s 0.4 m radius removes every voxel whose centre is within 0.4 m — three voxels
+along any axis through the centre, a 0.75 m free bore. A 0.5 m box passes with 0.125 m either
+side. Widen the player past 0.75 m and the first thing a new player does — dig into a hillside
+with the starting pick — produces a tunnel they cannot walk down.
+
+### The trap is in the binding, not the physics
+
+M4a and M4b are deterministic, headless and fuzzable. M4c is where a player controller meets a
+streaming system, a profiler and a scripted flythrough that were all built assuming the camera
+goes where it is put.
+
+`FlyCam`'s own doc comment says it is "replaced by a real player controller with AABB
+collision at M4". **That comment is wrong and following it would destroy the measurement
+apparatus M2d and M3d exist to provide** — `--profile` assigns `GlobalPosition` directly,
+`AdvanceFlythrough` snaps the camera every frame, and neither works on a camera parented to a
+physics body. So M4 adds a walk/fly toggle with `--profile` implying fly, which also keeps
+M4d's numbers comparable against M3d's.
+
+### The fuzz oracle, found before the code exists this time
+
+Seal the player inside a closed shell of solid voxels and apply thousands of random
+displacements, including magnitudes far past terminal velocity. Escaping a sealed room is a
+**boolean** — no reference implementation, no sampling, no tolerance, which is what M3b's
+first oracle failed to be. Removing the substep cap must break it almost immediately; if it
+does not, the displacements are too small.
+
+The working rule that is four for four — watch a fuzz test fail before trusting it — is now
+being applied at planning time rather than after a green run.
+
+### Smaller decisions worth keeping
+
+- **`grounded` is an output of the solve**, not a probe: "the −Y resolve fired this step".
+  Gravity applies every step, so a standing player always resolves against the floor. It
+  cannot disagree with the collision that just happened, and it costs nothing.
+- **60 Hz for the player, not the 20 Hz sim tick** DESIGN specifies for machines. 20 Hz is
+  50 ms of input latency. Machines are simulated; the player is driven.
+- **Solidity is a predicate — `id != air && !IsFluid(id)`.** `MaterialTable.IsFluid` is already
+  projected, so this is correct today and still correct at M8, and unlike `VoxelRay` it needs
+  no recorded revisit trigger.
+- **Resting contact, not tunnelling, is what kills hand-rolled colliders** in practice: a
+  millimetre of jitter with `grounded` flickering and jump misfiring. Its test is standing
+  still for 10,000 steps, which no fuzz would have found.
+- **Step-up is load-bearing at 0.25 m**, not a convenience. Heightmap terrain steps seven times
+  per metre of slope, so without it every slope is a wall. Step-down is the half people forget,
+  and its absence is a camera that bobs continuously downhill.
+- **Recorded trigger:** material appearing *inside* the player's box has no answer at M4. M6's
+  placement can do it deliberately and M9's collapse by accident; M4c's unstick rule is the
+  seed of the policy.
+- Walking into your own tunnel is walking into the dark until M5. Written down because it will
+  otherwise be reported as a bug.
+
 ## 2026-08-29 — M3 played, and the first milestone judged by feel passes
 
 Matthew ran it. **The highlight draws correctly and mining feels good.** That closes M3
