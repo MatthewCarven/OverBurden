@@ -916,9 +916,24 @@ out of the world and accelerates away from anything that could stop them.
 - [ ] **Time it directly; do not read `frame ms`.** The headless frame-time trap has been
       walked into three times — M2d-1, the mesh-apply budget, M3d — and each time the spike
       did not reproduce while the directly-timed number moved a tenth of a millisecond.
-- [ ] Needs a human: does 0.25 m ground walk like ground or like a staircase; is the jump
-      right; is 3.5 m the right reach now something owns it; does the box fit down a tunnel dug
-      with the starting pick.
+- [x] **Played 2026-08-30: the jump feels good.** The first of M4b's constants to get a verdict
+      from a person rather than a number, and it is the one the plan was least sure of. 7.5 m/s
+      against 25 m/s² stands, and the 1.1875 m apex is a keeper.
+- [ ] **Jump height may become an option, possibly with optional double jump** {D}. Two notes so
+      neither is re-derived:
+      - **A "jump height" setting is not `JumpSpeedMetresPerSecond` under a different name.**
+        Inverting the apex needs the *discrete* answer, `v²/2g + v·dt/2`, not the continuous
+        `v²/2g` — and the second term is rate-dependent, so a height expressed in metres is only
+        honest at a stated tick rate. Solve for `v` with the overshoot in, or the setting reads
+        6 cm short at 60 Hz and 12 cm short at 30.
+      - **Double jump is additive and cheap: one counter on `PlayerState`.** It is the same
+        category M4b already named for coyote time and jump buffering — `PlayerState`'s "three
+        fields and no more" comment anticipates exactly this, and `Step` stays a pure function
+        with a fourth. It does not disturb step-down's non-upward guard, which already refuses
+        while the body is rising.
+- [ ] Needs a human, still: does 0.25 m ground walk like ground or like a staircase; is **5 m**
+      the right reach now something owns it; does the box fit down a tunnel dug with the
+      starting pick.
 
 #### Deliberately not in M4
 

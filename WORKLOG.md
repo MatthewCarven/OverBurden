@@ -1,5 +1,33 @@
 # MinerCraft — Worklog
 
+## 2026-08-30 — Played: the jump feels good
+
+M4b's constants get their first verdict from a person rather than a number, and it lands on the
+one the plan was least sure of. **7.5 m/s against 25 m/s² stands.** The 1.1875 m apex — the
+measured one, not the analytic 1.125 m — is a keeper.
+
+Two things may follow: a jump-height option, and optional double jump. Neither is built, and
+both are recorded now so they are not re-derived later.
+
+**A "jump height" setting is not `JumpSpeedMetresPerSecond` wearing a different name.** Turning
+a height in metres back into a launch speed needs the *discrete* apex, `v²/2g + v·dt/2`, not
+the continuous `v²/2g` — a jump replaces its step's gravity rather than being reduced by it,
+so the rise overshoots by half a step of launch speed. Invert the continuous form instead and
+the setting reads 6 cm short at 60 Hz, and **12 cm short at 30**, because the overshoot term is
+rate-dependent. A height offered to a player is only honest at a stated tick rate.
+
+**Double jump is additive and costs one counter on `PlayerState`.** It is the same category M4b
+already named for coyote time and jump buffering, and `PlayerState`'s "three fields and no more,
+which is what makes `Step` a pure function" comment anticipates precisely this — a fourth field
+does not change that. It also does not disturb step-down's non-upward guard, which already
+refuses to fire while the body is rising; removing that guard is the break-recipe that fails six
+tests and stops jumping working at all.
+
+Still unplayed and still M4d's: whether 0.25 m ground walks like ground or like a staircase,
+whether 5 m of reach is too much now something owns it, and whether the box fits down a tunnel
+dug with the starting pick.
+
+
 ## 2026-08-29 — M4c: binding, and the two recipes that came back green
 
 The player is bound. `MinerCraft.Core/Physics/PlayerSpawn.cs` holds the three world rules —
