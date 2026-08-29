@@ -44,7 +44,10 @@ The milestone's question was whether a pick swing fits inside a frame. Mining co
 while flying costs **a fifth of a percent of one core** and moves the pipeline's p99 from
 0.91 ms to 1.04 ms, against a 16.7 ms frame. It fits.
 
-M4 is the player: an AABB against the voxel grid, gravity, and step-up.
+M4 is the player — an AABB against the voxel grid, gravity and step-up — and it is planned in
+[docs/M4-PLAN.md](docs/M4-PLAN.md). It is the milestone where the viewer's position stops being
+an input and becomes the answer to a query against the chunks that same viewer decides to
+load.
 
 ## Run it
 

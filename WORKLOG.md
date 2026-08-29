@@ -94,6 +94,14 @@ being applied at planning time rather than after a green run.
 - Walking into your own tunnel is walking into the dark until M5. Written down because it will
   otherwise be reported as a bug.
 
+### One thing acted on rather than planned
+
+**`FlyCam`'s own doc comment has been corrected**, because leaving it would have been leaving a
+loaded instruction next to the code. It said the class was "replaced by a real player controller
+with AABB collision at M4" — a fair guess when it was written at M0, and by now the opposite of
+what M4 should do. A stale claim in a `.md` gets re-litigated; a stale comment sitting beside the
+code gets *followed*. The new comment says what supersedes it and why, and points at M4c.
+
 ## 2026-08-29 — M3 played, and the first milestone judged by feel passes
 
 Matthew ran it. **The highlight draws correctly and mining feels good.** That closes M3

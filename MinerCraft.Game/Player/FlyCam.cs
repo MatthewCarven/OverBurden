@@ -4,9 +4,16 @@ using MinerCraft.Core.Voxels;
 namespace MinerCraft.Game.Player;
 
 /// <summary>
-/// Debug free camera. Replaced by a real player controller with AABB collision at M4;
-/// until then this is how we look at the world.
+/// Free camera. <b>Not</b> replaced by the M4 player controller — it becomes fly mode
+/// alongside it, and stays the instrument every profile run is driven through.
 /// </summary>
+/// <remarks>
+/// This comment used to say M4 would replace it, which was a reasonable guess at M0 and is
+/// wrong now. Acting on it would take the measurement apparatus with it: <c>--profile</c>
+/// assigns <see cref="Node3D.GlobalPosition"/> directly and <c>Main.AdvanceFlythrough</c>
+/// snaps the camera to the surface every frame, and neither works on a camera parented to a
+/// physics body. See docs/M4-PLAN.md, M4c.
+/// </remarks>
 public partial class FlyCam : Camera3D
 {
     /// <summary>Metres per second. Deliberately in metres, not voxels — a walking pace
