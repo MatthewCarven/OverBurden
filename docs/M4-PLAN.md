@@ -24,7 +24,7 @@ consequence is unrecoverable instead of merely confusing.
 | Part | What it is | The risk it removes |
 |---|---|---|
 | **M4a** The collider ✅ | AABB vs voxel grid, axis-separated, substepped | Falling through the floor, snagging on flat walls, jittering at rest |
-| **M4b** Motion | Gravity, jump, ground state, step-up and step-down | A controller that is correct and horrible to use |
+| **M4b** Motion ✅ | Gravity, jump, ground state, step-up and step-down | A controller that is correct and horrible to use |
 | **M4c** Binding | Player node, camera, walk/fly toggle, spawn | Deleting the flycam and taking every measurement built in M2d and M3d with it |
 | **M4d** Feel and measurement | Can the player outrun the streamer, and does 0.25 m ground walk like ground | Constants guessed once and never questioned |
 
@@ -172,7 +172,7 @@ horizontal resolve puts the box off-grid and the second one then costs half as m
 
 ---
 
-## M4b — Motion
+## M4b — Motion — done 2026-08-29
 
 ### The problem
 
@@ -201,12 +201,12 @@ between them are right, and M4d replaces them by playing.
 | Box | 0.5 × 1.8 × 0.5 m | 2 × 7.2 × 2 voxels — see the tunnel check below |
 | Eye height | 1.65 m | Human-ish, and it is the mining ray's origin |
 | Gravity | 25 m/s² | Real 9.81 reads as floaty; games run 2–3× |
-| Jump | 7.5 m/s initial | → 1.125 m apex, clearing a 1 m (4-voxel) ledge with 0.125 m spare |
+| Jump | 7.5 m/s initial | → 1.125 m analytic apex. **Measured: 1.1875 m** — see below |
 | Walk | 4.5 m/s | 1.4 m/s is a real walking pace and is glacial in a game |
 | Sprint | 7.0 m/s | Below the 15 m/s tunnelling threshold with room to spare |
 | Terminal | 40 m/s | **Set by streaming, not by realism** — see below |
-| Step-up | 0.5 m | 2 voxels |
-| Reach | 3.5 m | Down from M3d's 5 m, which the play-test recorded as reading long |
+| Step height | 0.5 m | 2 voxels. **One constant, used by step-up and step-down both** |
+| Reach | 3.5 m | **Not M4b's after all** — not a body dimension, so it stayed on `MiningController` for M4c |
 
 **Terminal velocity is a streaming parameter wearing a physics costume.** The vertical view
 radius is 2–3 chunks, so there is 16–24 m of loaded world beneath the player. At 40 m/s that
@@ -221,6 +221,16 @@ a 0.75 m free bore. A 0.5 m box passes with 0.125 m either side. Widen the playe
 and the first thing a new player does, digging into a hillside with the starting pick,
 produces a tunnel they cannot walk down. **The player's width and the weakest tool's bite are
 coupled**, and neither can be changed alone.
+
+**Measured while building it: the apex is 1.1875 m, not 1.125 m.** `v²/2g` is the continuous
+answer and the discrete integration does not land on it. A jump *replaces* its step's gravity
+rather than being reduced by it — the body leaves at exactly the launch speed — so the first
+step travels `v·dt` where the continuous solution travels the average over that step, and the
+rise overshoots by exactly half a step of launch speed, `v·dt/2` = 0.0625 m at 60 Hz. So the
+clearance over a four-voxel ledge is **0.1875 m rather than the 0.125 m this table originally
+claimed**, and it is **rate-dependent** — the same constants at 30 Hz overshoot twice as far.
+Nothing depends on that today because the player runs at one rate; it is recorded because a
+jump height that changes with the tick rate gets diagnosed as a physics bug.
 
 ### Step-up is what makes 0.25 m terrain walkable at all
 
@@ -246,6 +256,32 @@ on any downhill slope. The guard is the mirror of step-up's: only when grounded 
 of the step, and only when ground is found within the step height — so walking off an actual
 ledge still falls.
 
+**Three things building it settled, and one it did not:**
+
+- **Guard 4 is structural rather than a separate check.** The lift and the re-attempt are both
+  real `VoxelCollider.Move` calls, and a `Move` that did not start overlapping cannot end
+  overlapping — so a ceiling stops the lift short, and a low ceiling over the destination blocks
+  the re-attempt against the ceiling voxel itself. Tested anyway, because a guarantee that comes
+  from somewhere else is the kind that quietly stops holding.
+- **The lift is placed at its exact target, not at accumulated substeps** — and *that* is what
+  keeps M4a's recorded "`ContactEpsilonMetres` can be zeroed with the suite green" claim true.
+  With the epsilon in place the snap changes no outcome; with the epsilon zeroed and the lift
+  accumulated, four tests fail. A finding in the previous milestone was one line from going
+  stale silently.
+- **The settle drops by exactly what the lift achieved**, so a step-up is a climb and never a
+  fall. What that protects is step-down's distance limit: a settle that could go further gives
+  the same rule two answers depending on whether the body happened to climb something first.
+- **Not settled — guard 3 has a feel cost.** Walking diagonally into a corner where one axis is
+  a climbable lip and the other is a tall wall refuses the climb, because the lifted re-attempt
+  is still blocked on the wall: a player hugging a wall while walking up a slope stops dead. If
+  M4d finds that reads as stuck, the relaxation is one line — require the re-attempt to be
+  blocked on no axis the original move was not already blocked on.
+
+**One constant serves both directions.** Step-down triggers "within the step height", and
+stepping down a lip you just stepped up should not behave differently, so there is a single
+`StepHeightMetres` rather than two knobs. Revisit at M4d if the instant 0.5 m drop reads as a
+jolt where the matching rise does not.
+
 ### Jump feel is deliberately not tuned here
 
 Coyote time, jump buffering, and variable jump height from how long the button is held are all
@@ -265,6 +301,27 @@ model above does not have to change to accept any of them.
   no headroom. Three separate tests, because these are three separate ways to climb a wall.
 - Step-down holds the player on a 1-voxel drop and lets them fall off a 10-voxel one.
 - Determinism again, at this layer: an input sequence replays identically.
+
+**All of the above exist, plus 27 more — and ten break-recipes were run against the finished
+code.** Eight were caught. The two that were not are the interesting half:
+
+- **Lift accumulated instead of snapped to its target** — caught by nothing, because the contact
+  epsilon masks it. Chased down to the cross-milestone claim above and now pinned by a test that
+  places the feet exactly on a voxel plane, which is what M4c's spawn and a fly toggle both do.
+- **Step-up settles further than it lifted** — caught by nothing, because reaching it needs a
+  body that clears what it just climbed in a single step. Walking cannot: 0.075 m of travel
+  against a body 0.5 m wide. The test uses a 45 m/s body and says why.
+
+The one worth noticing among the eight: removing step-down's non-upward guard fails **six**
+tests, every jump test among them. That is the shape of the bug rather than redundancy — the
+step-down probe finds the floor the jump just left and snaps the body back onto it, so jumping
+does nothing at all.
+
+**A signal M4d needs that does not exist yet:** `MoveResult` cannot distinguish "stopped by
+rock" from "stopped by an unloaded chunk", which is exactly M4d's *steps spent held* — the
+number meant to pick terminal velocity. It is a flag on `IsSolidUncounted` and a field on
+`MoveResult`, deliberately not built at M4b because an unread flag with no profiler consuming it
+is a number waiting to be believed.
 
 ---
 

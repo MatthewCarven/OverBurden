@@ -638,7 +638,7 @@ worker thread, not a wrong voxel.
       enough erases the mine. Acceptable until M6, recorded so it is not filed as an edit-path
       bug.
 
-### M4 — Player ⬅️ **in progress: M4a done, M4b next**
+### M4 — Player ⬅️ **in progress: M4a and M4b done, M4c next**
 
 Planned 2026-08-29 and split into four parts in [docs/M4-PLAN.md](docs/M4-PLAN.md). **Read it
 before starting.** The structural point: until now the viewer's position was an *input* and
@@ -731,29 +731,96 @@ out of the world and accelerates away from anything that could stop them.
       unstick — it clears the layer the leading face is in — but not the full rule, which
       stays M4c's.
 
-#### M4b — Motion
+#### M4b — Motion ✅ **done 2026-08-29**
 
-- [ ] Gravity, jump, terminal velocity, step-up **and step-down**
-- [ ] **60 Hz fixed step, which is not the 20 Hz sim tick.** 20 Hz is 50 ms of input latency.
+`MinerCraft.Core/Physics/` gains `PlayerMotion` and `PlayerMotionConfig`. 35 new tests, suite
+400 → 435.
+
+- [x] Gravity, jump, terminal velocity, step-up **and step-down**. `PlayerMotion.Step` is a pure
+      function of a state, an intent and a world — no clock, no accumulator, no field.
+- [x] **60 Hz fixed step, which is not the 20 Hz sim tick.** 20 Hz is 50 ms of input latency.
       Machines are simulated; the player is driven. Core's step takes `dt` so a test or a
-      headless profile can drive it.
-- [ ] Constants, **all estimates**, replaced by playing at M4d: box 0.5 × 1.8 × 0.5 m, eye
-      1.65 m, gravity 25 m/s², jump 7.5 m/s (→ 1.125 m apex, clears a 4-voxel ledge), walk
-      4.5 m/s, sprint 7 m/s, terminal 40 m/s, step-up 0.5 m, reach 3.5 m.
+      headless profile can drive it, and nothing in Core knows the rate.
+- [x] Constants, **all estimates and labelled so in their own remarks**, replaced by playing at
+      M4d: box 0.5 × 1.8 × 0.5 m, eye 1.65 m, gravity 25 m/s², jump 7.5 m/s, walk 4.5 m/s,
+      sprint 7 m/s, terminal 40 m/s, step height 0.5 m.
+- [x] **The apex is 1.1875 m, not the 1.125 m the plan derived** — measured to four decimals.
+      `v²/2g` is the continuous answer; a jump that *replaces* its step's gravity rather than
+      being reduced by it overshoots by exactly half a step of launch speed, `v·dt/2` = 0.0625 m.
+      So the clearance over a four-voxel ledge is **0.1875 m**, half again what the plan claimed
+      — and it is **rate-dependent**, twice as much at 30 Hz. The apex test asserts one-sided,
+      because the direction is a design claim rather than an accident.
+- [x] **Reach did not move here.** The plan's table lists it under M4b; it is not a body
+      dimension, it is what an arm does, and it stays on `MiningController` until M4c has a
+      player to own it. `EyeHeightMetres` *is* in the config, because it is the third dimension
+      of the same body — splitting those across two files is how one goes missing.
 - [ ] **Terminal velocity is a streaming parameter in a physics costume.** 16–24 m of loaded
-      world below the player is crossed in 0.4–0.6 s at 40 m/s. M4d measures what the streamer
-      can actually deliver and that picks the number.
-- [ ] **The player must fit down their own tunnel.** `hand_pick` (0.4 m) leaves a 0.75 m free
+      world below the player is crossed in 0.4–0.6 s at 40 m/s. Still M4d's to pick, and see the
+      missing signal below.
+- [x] **The player must fit down their own tunnel.** `hand_pick` (0.4 m) leaves a 0.75 m free
       bore; a 0.5 m box passes with 0.125 m either side. **Player width and the weakest tool's
-      bite are coupled** and neither can be changed alone.
-- [ ] Step-up is not a convenience at 0.25 m — heightmap terrain steps 7 times per metre of
-      slope, so without it every slope is a wall. Four guards, each its own test: grounded
-      only, non-upward only, the horizontal re-attempt must **fully** succeed, and the whole
-      box needs headroom at the lifted position.
-- [ ] Step-down is the half people forget: without it a downhill slope makes the player
-      airborne every few steps and the camera bobs continuously.
-- [ ] Coyote time, jump buffering and variable jump height are M4d's and are additive — the
-      model does not change to accept them.
+      bite are coupled** and neither can be changed alone. Written into `WidthMetres`'s remarks
+      where a person changing it will read it.
+- [x] Step-up, with all four guards and a test each: grounded only, non-upward only, the
+      horizontal re-attempt must **fully** succeed, and the whole box needs headroom at the
+      lifted position. **The refusal tests change exactly one thing** against a climb that
+      succeeds — a refusal test that builds its own scenario proves the body did not climb, not
+      that the guard is why.
+- [x] The headroom guard is **structural rather than a separate check**: the lift and the
+      re-attempt are real `Move` calls and a `Move` that did not start overlapping cannot end
+      overlapping. Tested anyway, because a guarantee that comes from somewhere else is the kind
+      that quietly stops holding.
+- [x] Step-down, the half people forget: without it a downhill slope makes the player airborne
+      every few steps and the camera bobs continuously. Guards mirror step-up's, and a staircase
+      of single voxels is now walked up **and back down** without ever leaving the ground.
+- [x] Coyote time, jump buffering and variable jump height are M4d's and are additive — the
+      model does not change to accept them. Jump is level-triggered for now, so holding the
+      control bounces; edge-triggering needs the previous frame's button in `PlayerState`, which
+      is jump buffering's field.
+
+##### Found while building it, and worth keeping
+
+- [x] **The lift snap is what keeps M4a's epsilon claim true, and nothing caught removing it.**
+      An unobstructed lift is placed at its exact target rather than at accumulated substeps.
+      With `ContactEpsilonMetres` in place that changes no outcome — a resting body floats 0.1 mm
+      up and that swamps a few ULP. But M4a *recorded* that the epsilon can be set to zero with
+      the suite green, and with the lift accumulated instead of snapped, zeroing it **fails four
+      tests**. A documented finding in the previous milestone was one line away from going stale
+      with nothing failing to say so. Now caught without touching the epsilon, by a test that
+      places the feet exactly on a voxel plane — which is what M4c's spawn and a fly toggle both
+      do.
+- [x] **A step-up settles by exactly what it lifted**, so it is a climb and never a fall. What
+      that protects is step-down's distance limit: a settle that could go further would give the
+      same rule two answers depending on whether the body happened to climb something first.
+      Nothing caught it either, because reaching it needs a body that clears what it just climbed
+      in one step — 0.075 m of walking against a 0.5 m body cannot, so the test uses a 45 m/s
+      body and says why.
+- [ ] **Recorded cost: step-up's "fully succeed" guard makes wall-hugging stop you dead.**
+      Walking diagonally into a corner where one axis is a climbable lip and the other is a tall
+      wall refuses the climb, because the lifted re-attempt is still blocked on the wall. That is
+      the plan's specified behaviour and it is safe. **If M4d finds it reads as stuck, the
+      relaxation is one line:** require the re-attempt to be blocked on no axis the original move
+      was not already blocked on. Pinned by a test either way.
+- [ ] **M4d needs a signal that does not exist: `MoveResult` cannot tell "stopped by rock" from
+      "stopped by an unloaded chunk".** That is exactly *steps spent held*, the number meant to
+      pick terminal velocity. It is a flag on `IsSolidUncounted` and a field on `MoveResult`,
+      deliberately not built now — an unread flag with no profiler consuming it is a number
+      waiting to be believed.
+- [x] **One `StepHeightMetres` for both directions**, because stepping down a lip you just
+      stepped up should not behave differently. **Revisit trigger:** M4d, if a 0.5 m instant drop
+      reads as a jolt where the matching rise does not. The split is one field and one call site.
+- [x] **Horizontal velocity is replaced from intent every step, not accelerated.** No friction,
+      no momentum, full air control — the snappiest model and the one whose faults are easiest to
+      judge by playing. Acceleration, air control and ground friction are three separate feel
+      decisions and a person makes them. The blocked-axis zeroing is currently only honest
+      reporting and is kept because it stops being cosmetic the moment M4d adds acceleration.
+- [x] Cost, as a regression detector rather than a measurement: a walking step is **one `Move`**
+      and M4a's ~41 voxel reads; a successful step-up is **four** — the failed attempt, the lift,
+      the re-attempt, the settle.
+- [x] `TestWorld` moved out of `VoxelColliderTests` into a shared `PhysicsTestHelpers`, for the
+      reason `ShippedContentTests` exists. The property it preserves is that an unloaded chunk
+      answers *air **and** false*; a second copy that drifted would let a body which ignores the
+      return value pass its own suite.
 
 #### M4c — Binding
 

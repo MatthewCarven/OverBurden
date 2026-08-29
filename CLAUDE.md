@@ -104,8 +104,8 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2 and all of M3** are done, and **M4a** with them — **400 tests
-passing**.
+M0, all of M1, **all of M2 and all of M3** are done, and **M4a and M4b** with them — **435
+tests passing**.
 Terrain streams around the flycam: worldgen and greedy meshing run on worker threads over palette-compressed storage,
 with materials loaded from JSON, and chunks load and unload as the viewer moves.
 
@@ -348,8 +348,8 @@ reported `frame ms` max 19.6 ms against a 6.9 ms control, while `update ms` max 
 and the spike did not reproduce in two further runs. `update ms` times our own work directly.
 
 **M4, the player, is under way** — [docs/M4-PLAN.md](docs/M4-PLAN.md), split into M4a the
-collider (**done**), M4b motion, M4c binding, M4d feel and measurement. Five things from the
-planning pass that are expensive to rediscover:
+collider (**done**), M4b motion (**done**), M4c binding, M4d feel and measurement. Five things
+from the planning pass that are expensive to rediscover:
 
 - **The viewer's position stops being an input.** Until now the flycam was told where to go
   and the streamer followed. From M4 the position is an *output* of a query against the very
@@ -406,6 +406,49 @@ Five things about it that are easy to undo by accident:
 - **Float positions cap the usable world at a few kilometres**, long before `VoxelPos`'s `int`
   does — one ULP passes the contact epsilon around ±800 m. **Revisit trigger:** a floating
   origin, not a wider float.
+
+**M4b — motion: done 2026-08-29.** `PlayerMotion` and `PlayerMotionConfig` add gravity, jump,
+terminal velocity, step-up and step-down on top of the collider. `Step(world, materials, state,
+intent, config, dt)` is a pure function — no clock, no accumulator, no field — and the step
+length is an argument, so 60 Hz is Godot's business rather than Core's. Suite 400 → 435.
+
+Six things about it that are easy to undo by accident:
+
+- **The lift is snapped to its exact target, and that is what keeps M4a's epsilon claim true.**
+  Nothing caught removing it, because a resting body floats 0.1 mm up and that swamps a few ULP
+  of substep accumulation. But M4a *recorded* that `ContactEpsilonMetres` can be set to zero
+  with the suite green — and with the lift accumulated instead, zeroing it fails four tests. A
+  finding in the previous milestone was one line from going stale with nothing failing to say
+  so. Now pinned by a test that places the feet **exactly** on a voxel plane, which is what
+  M4c's spawn and a fly-mode toggle both do.
+- **The jump apex is 1.1875 m, not the plan's 1.125 m** — `v²/2g` is the continuous answer. A
+  jump *replaces* its step's gravity rather than being reduced by it, so the rise overshoots by
+  exactly half a step of launch speed. Clearance over a four-voxel ledge is 0.1875 m, and it is
+  **rate-dependent**: twice as much at 30 Hz. The apex test asserts one-sided, because the
+  direction is the design claim.
+- **A step-up settles by exactly what it lifted**, so it is a climb and never a fall. What that
+  protects is step-down's distance limit — a settle that could go further gives the same rule
+  two answers depending on whether the body happened to climb something first. Also caught by
+  nothing until a test was written for it, because walking cannot reach it: 0.075 m of travel
+  against a body 0.5 m wide.
+- **Removing step-down's non-upward guard breaks jumping entirely**, not subtly: the probe finds
+  the floor the jump just left and snaps the body back onto it. Six tests fail. Ground state is
+  read from the *previous* step throughout, which is M4a's stated cost, not a bug.
+- **Step-up's "the re-attempt must fully succeed" guard has a recorded feel cost.** Hugging a
+  wall while walking up a slope stops you dead, because the lifted re-attempt is still blocked
+  on the wall. Specified behaviour, safe, and **if M4d says it reads as stuck the relaxation is
+  one line** — require the re-attempt to be blocked on no axis the original move was not.
+- **M4d needs a signal that does not exist:** `MoveResult` cannot tell "stopped by rock" from
+  "stopped by an unloaded chunk", which is exactly *steps spent held*, the number meant to pick
+  terminal velocity. A flag on `IsSolidUncounted` and a field on `MoveResult` — deliberately not
+  built yet, because an unread flag with no profiler consuming it is a number waiting to be
+  believed.
+
+Horizontal velocity is **replaced from intent every step rather than accelerated** — no friction,
+no momentum, full air control — because acceleration, air control and ground friction are three
+separate feel decisions and M4d is where a person makes them. Reach stayed on `MiningController`:
+it is not a body dimension. Eye height *is* in the config, because it is the third dimension of
+the same body.
 
 **M3 has been played, and it feels good** — the verdict the milestone was actually waiting on,
 since it is the first whose output was a feeling rather than a number. `VoxelHighlight` is

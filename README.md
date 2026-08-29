@@ -13,12 +13,15 @@ No mobs, no combat. The mine is the antagonist.
 
 ## Status
 
-**M0, M1, M2 and M3 done** — 367 tests passing. Terrain streams around the camera without
-end: worldgen and greedy meshing run on worker threads over palette-compressed storage,
-drawn via `RenderingServer` with a texture array, with every material loaded from
+**M0, M1, M2 and M3 done, and M4 under way** — 435 tests passing. Terrain streams around the
+camera without end: worldgen and greedy meshing run on worker threads over palette-compressed
+storage, drawn via `RenderingServer` with a texture array, with every material loaded from
 `mods/minercraft/*.json` exactly the way a third-party mod would load its own. Chunks load
 and unload as you move, on a scheduler that reprioritises queued work and cancels what
-went stale before a thread was free to run it.
+went stale before a thread was free to run it. A pick swing carves a sphere out of the world,
+gated by tool tier against material hardness. The player's collider and motion — gravity,
+jump, step-up, step-down — exist and are tested headlessly; binding them to a body and a
+camera is next.
 
 Some numbers it is built on:
 
