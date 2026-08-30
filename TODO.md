@@ -133,9 +133,9 @@ comes first.
       UV2.y shade channel.
 - [ ] Ambient fill is low — faces angled away from the sun go nearly black. Cosmetic
       only, and M5 lighting replaces this shading path entirely, so not worth tuning
-      the Environment now. **Owned by M5c**, whose proposal is to drop the directional
-      light altogether and let the grid be the light — which also retires the terracing
-      slivers below, since those are the sun hitting integer heightmap risers.
+      the Environment now. **Owned by M5c, and settled 2026-08-30: the directional light
+      goes and the grid is the light** — which also retires the terracing slivers below,
+      since those are the sun hitting integer heightmap risers.
 - [x] **Streamed terrain confirmed on screen 2026-08-27.** Continuous rolling terrain, no
       seams at chunk boundaries, camera lands above ground. The visible bright and dark
       slivers follow terrain **contours, not the chunk grid** — that is what rules out a
@@ -1096,12 +1096,29 @@ the margin must go to 4 chunks.
       as a corner and one that reads as a smudge.
 - [ ] **`PaddedChunk.CopyFrom`'s 26 neighbours were gathered for exactly this** and nothing
       about the gather changes. M1c's comment says so in as many words.
-- [ ] **Merge key `(Material, uint CornerShade)`** — four corner shade bytes, packed. Two faces
-      merge iff all four match, and when they do the merged quad's interpolation is **identical**
-      to the separate quads'. Merging stays exact; it is not an approximation.
-- [ ] **The vertex format does not change.** `AddQuad` takes four shade values instead of one;
-      `ChunkMeshConverter` and `Voxel.gdshader` are untouched. This is the payoff for reserving
-      the UV2.y channel at M0 (non-negotiable #4).
+- [ ] **Two light channels, not one, and DESIGN forces it.** With the directional light gone
+      the grid is the only light, and DESIGN's M7 needs skylight *on its own*: "wet-surface
+      shader term driven by skylight × recent rainfall". A term that multiplies by skylight
+      cannot be handed `sky × block × AO` pre-multiplied. So the vertex carries
+      `shadeSky = skylight × AO` and `shadeBlock = blocklight × AO`, 8 bits each.
+- [ ] **AO multiplies into both**, because AO is geometric darkening and geometry does not care
+      where the photon came from. That keeps AO out of the shader and out of any later day/night
+      uniform — and it means **a diurnal cycle is a uniform on `shadeSky` and costs no
+      repropagation.** Scaling the seed and reflooding would relight the world every frame;
+      recorded now so nobody builds it that way.
+- [ ] **Verify where the two bytes live before writing the mesher.** Default: Godot's vertex
+      `COLOR` array — four 8-bit normalised channels by definition, no packing, no precision
+      question, 4 bytes per vertex (+8.7% on a quad's ~184 bytes). The alternative packs both
+      into UV2.y as `sky × 256 + block`, exact in float32 and **not** in float16 — and
+      `ChunkMeshConverter` calls `AddSurfaceFromArrays` with no flags, so whatever Godot 4.7
+      compresses UV2 to is what it gets. Packing failing is a silently wrong colour ramp, not an
+      error. Either way non-negotiable #4 holds and the M0 reservation did its job: nothing
+      downstream assumed the channel, so moving it is one line in two files.
+- [ ] **Merge key `(Material, ulong CornerShade)`** — four corner `(shadeSky, shadeBlock)` pairs,
+      two bytes each. Two faces merge iff all four match, and when they do the merged quad's
+      interpolation is **identical** to the separate quads'. Merging stays exact; it is not an
+      approximation. At M5a `shadeSky` is full and `shadeBlock` zero everywhere, so only AO
+      varies — the same "in the key from the start" pattern M1c used.
 - [ ] **The diagonal flip**: when `ao[0] + ao[2] > ao[1] + ao[3]`, split the quad the other way,
       or every lit floor carries a visible crease. Must not disturb
       `EveryQuadIsWoundConsistentlyWithItsNormal`.
@@ -1143,6 +1160,18 @@ the margin must go to 4 chunks.
       horizontally**, so it survives the vertical unloading that happens constantly while
       descending. Lifetime matches edited chunks' — lost on horizontal unload today, persisted
       at M6, consistent with M3's recorded limitation.
+- [ ] **Confirmed for M5b 2026-08-30, split across two parts.** The structure and its rules —
+      seed, lower, query — are a pure function and belong here. Its **lifetime** is not: a
+      horizontal refcount that survives vertical unload is streaming state and goes in M5c.
+      Keeping them together would put the one mutable, lifetime-bound thing in M5 inside the part
+      whose whole value is being a pure function with a sharp oracle.
+- [ ] **It is a second refcount, on a different axis and a different object**, and M2c's "don't
+      add a second refcount to fix the margin" is not this. It is a column-lifetime problem the
+      chunk refcount cannot express, because the point is surviving the vertical unload the chunk
+      refcount performs. Said out loud so the two are not confused later.
+- [ ] **The oracle has to reach it:** the incremental-equals-from-scratch fuzz must include edits
+      that break through a column's topmost opaque voxel, or the sky-height path is never
+      exercised and the comparison passes for the wrong reason.
 - [ ] **This is the structure M7's rain occlusion needs**, built a milestone early because
       skylight cannot be correct without it.
 - [ ] Skylight rule: **full value straight down through open cells with no attenuation**, −1 per
@@ -1202,10 +1231,21 @@ the margin must go to 4 chunks.
       remeshes at a rate mining can sustain. Not built first because it contradicts a DESIGN line,
       needs a material per drawn chunk or a clipmap volume, and every named fallback in this
       project so far has proved unnecessary when measured.
-- [ ] **The shader and the sun.** Proposed: drop the directional light, let the grid be the
-      light — per-face constant tint × light × AO, unshaded. That also retires the open
-      "ambient fill is low" item and the terracing slivers M1's screenshots recorded, which are
-      the sun hitting integer heightmap risers. Judged at M5d.
+- [ ] **The directional light goes — settled 2026-08-30. The grid is the light.**
+      `Voxel.gdshader` renders `unshaded`:
+      `ALBEDO = tex * faceTint(NORMAL) * (shadeSky*skyTint*skyBrightness + shadeBlock*blockTint)`.
+- [ ] **The face tint is computed in the shader from `NORMAL`, not baked into the vertex** — top
+      brightest, sides middling, bottom darkest, the cheap fake every voxel game uses. Keeping it
+      in the shader keeps a *look* constant that will certainly be tuned out of the merge key,
+      and it costs nothing because a quad has exactly one normal.
+- [ ] **`skyBrightness` is a uniform with no day/night cycle behind it yet.** It exists because
+      the alternative — scaling the skylight seed and reflooding — relights the world every
+      frame.
+- [ ] **This retires two long-standing open items**: the low ambient fill, and the bright and
+      dark slivers following terrain contours. Both are the sun hitting the integer heightmap's
+      risers; with no sun the terracing goes back to being geometry rather than a lighting
+      artefact. What stays a look question for M5d is whether the face-tint constants are right,
+      not whether the sun goes.
 - [ ] Tests: the barrier holds a chunk until its 26 neighbours are lit; **exact remesh scope,
       asserted in both directions** (over-marking is a performance bug that hides correctness
       bugs); unload releases the grid and revival recomputes it; an edit landing mid-mesh
@@ -1225,28 +1265,34 @@ the margin must go to 4 chunks.
 - [ ] **Do not read `frame ms`.** The headless frame-time trap has been walked into four times
       and the directly-timed number moved by a tenth of a millisecond every time.
 - [ ] Played: does a mine read as a mine? Is 1 m too coarse down a `hand_pick` tunnel whose bore
-      is narrower than one cell? Does rock beside a lit tunnel glow? Does AO earn its quads —
-      DESIGN calls it "the single biggest visual payoff" and that is a claim, not a measurement?
-      Does the sun going away improve or flatten the look? Can you mine by torchlight?
+      is narrower than one cell — this is the play that would reopen the settled 1 m? Does rock
+      beside a lit tunnel glow? Does AO earn its quads — DESIGN calls it "the single biggest
+      visual payoff" and that is a claim, not a measurement? Are the face-tint constants right
+      now the sun is gone? Can you mine by torchlight?
 
-#### Open decisions
+#### Decisions, all four settled 2026-08-30 before any code
 
-- [ ] **{D} Light cell size: 1 m (DESIGN) or 0.5 m.** DESIGN reasons in metres — "light is
-      low-frequency, nobody sees the difference, 64× cheaper" — and the number that matters is in
-      voxels: a 1 m cell is **64 voxels**, and the tunnels this game is about are 0.75–1.25 m
-      across. 0.5 m costs 4 KB per chunk against 512 bytes, still nothing beside a 46 KiB mesh,
-      and 8× the propagation. Ships as DESIGN's 1 m with `--lightcell` as the flag, so M5d
-      answers it with a screenshot. **If 0.5 m wins, DESIGN's line changes.**
-- [ ] **{D} Does `SkyColumn` belong in M5 or M7?** ~150 lines, and it is the difference between
-      "dig a shaft and daylight follows you down" being true and being a limitation. The plan
-      builds it at M5b. The alternative ships M5 with a stated limitation: a shaft goes dark
-      16–24 m above the player at the top of the vertical window, and the boundary moves as they
-      descend.
-- [ ] **{D} Does the directional light survive?** Proposed: no. Judged at M5d.
-- [ ] **{D} Emission range 0..15** matches the field exactly and needs no scaling — but it also
-      means the brightest possible lamp reaches 15 m, which is a **game-balance number wearing a
-      storage costume**, the same shape as terminal velocity being a streaming parameter in a
-      physics costume. Worth noticing before a mod author builds against it.
+- [x] **Light cell size: 1 m. DESIGN's number stands.** The `--lightcell` A/B flag is therefore
+      **not built** — it existed to answer a question and the question is answered. **Revisit
+      trigger:** M5d plays a `hand_pick` tunnel and the light reads blobby across a bore narrower
+      than one cell; 0.5 m then costs 4 KB per chunk against 512 bytes and 8× the propagation,
+      and `LightCellSize` already permits it. Worth restating why it was a question: DESIGN
+      reasons in **metres** — "light is low-frequency, nobody sees the difference, 64× cheaper" —
+      and the number that decides whether it *looks* right is in **voxels**. A 1 m cell is 64
+      voxels and the tunnels are 0.75–1.25 m across, so the cell is wider than the corridor.
+      That is why the trigger is a play rather than a number.
+- [x] **`SkyColumn` is M5b**, with its lifetime in M5c. See the split recorded under M5b.
+- [x] **The directional light goes.** The grid is the light. See M5c.
+- [x] **Emission range 0..15**, matching the field with no scaling. **Revisit trigger, in
+      Matthew's words: "unless we come up with better lighting later"** — a wider field or
+      coloured light would take the range with it. Recorded because 0..15 means the brightest
+      lamp any mod can define reaches exactly 15 m, and it reaches it for a *storage* reason
+      rather than a design one: a **game-balance number wearing a storage costume**, the same
+      shape as terminal velocity being a streaming parameter in a physics costume.
+- [x] **One of the four moved work earlier rather than removing it.** Settling the directional
+      light meant the grid is the only light, and DESIGN's M7 wet-surface term needs skylight on
+      its own — so the vertex carries two channels rather than one pre-multiplied value, and
+      that lands in **M5a**, not M5c. See M5a.
 
 #### Deliberately not in M5
 

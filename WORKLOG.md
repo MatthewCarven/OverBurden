@@ -1,5 +1,99 @@
 # MinerCraft — Worklog
 
+## 2026-08-30 — M5's four decisions settled, and one of them moved work earlier
+
+All four open decisions from yesterday's plan are closed **before any code**, which is the point
+of having planned them. Three cost nothing; the fourth turned out to change what M5a builds.
+
+| | Settled | Revisit trigger |
+|---|---|---|
+| Light cell size | **1 m.** DESIGN's number stands | M5d plays a `hand_pick` tunnel and it reads blobby across a bore narrower than one cell |
+| `SkyColumn` | **M5b**, split: rules in M5b, lifetime in M5c | — |
+| Directional light | **Gone.** The grid is the light | — |
+| Emission range | **0..15**, matching the field with no scaling | *"unless we come up with better lighting later"* |
+
+### The one that was not free
+
+**Settling the directional light forced a second light channel into the vertex, and that lands
+in M5a rather than M5c.**
+
+With no sun, the grid is the only light. And DESIGN's M7 already needs skylight *on its own* —
+*"wet-surface shader term driven by skylight × recent rainfall"*. A term that multiplies by
+skylight cannot be handed `sky × block × AO` pre-multiplied; the skylight is gone by then. So the
+vertex carries two values:
+
+```
+shadeSky   = skylight   × AO        // 8 bits
+shadeBlock = blocklight × AO        // 8 bits
+```
+
+**AO multiplies into both**, because AO is geometric darkening and geometry does not care where
+the photon came from. Two dividends fall out of that shape:
+
+- **A diurnal cycle is a uniform on `shadeSky` and costs no repropagation.** The alternative —
+  scaling the skylight seed and reflooding — relights the world every frame. Nothing asks for
+  day and night yet; this is recorded so nobody builds it the expensive way when something does.
+- **AO never reaches the shader as its own term**, so no later lighting change can accidentally
+  apply it twice.
+
+The merge key becomes `(Material, ulong CornerShade)` — four corner pairs at two bytes each. At
+M5a `shadeSky` is full and `shadeBlock` zero everywhere, so only AO varies, which is the same
+"in the key from the start" pattern M1c used for light and AO in the first place.
+
+**One thing to verify before writing the mesher, and it is a real trap.** Default home for the two
+bytes is Godot's vertex `COLOR` array — four 8-bit normalised channels by definition, no packing,
+no precision question, 4 bytes per vertex against a quad's ~184. The alternative packs both into
+UV2.y as `sky × 256 + block`, which is exact in float32 and **not** in float16 — and
+`ChunkMeshConverter` calls `AddSurfaceFromArrays` with no flags, so whatever Godot 4.7 compresses
+UV2 to is what it gets. Packing failing is a silently wrong colour ramp rather than an error.
+Either way non-negotiable #4 holds, and the M0 reservation did exactly its job: nothing
+downstream assumed the channel, so moving it is one line in two files.
+
+### The other three
+
+**Light cells stay at 1 m, so `--lightcell` is not built.** Same rule as every named fallback
+here: the flag existed to answer a question and the question is answered. `LightCellSize` keeps
+its power-of-two-dividing-32 constraint, which is correctness rather than tuning — a chunk
+boundary must be a cell boundary or independently lit neighbours disagree. Worth restating why it
+was a question at all: DESIGN reasons in **metres** — *"light is low-frequency, nobody sees the
+difference, 64× cheaper"* — and the number that decides whether it *looks* right is in **voxels**.
+A 1 m cell is 64 voxels, the tunnels are 0.75–1.25 m across, and the cell is therefore wider than
+the corridor. That is why the trigger is a play rather than a number.
+
+**`SkyColumn` is confirmed for M5b, and split across two parts rather than one.** Its rules —
+seed from the heightmap, lower on an edit, query a column — are a pure function and belong with
+M5b's fuzzable half. Its *lifetime* is not: a horizontal refcount that survives vertical unload is
+streaming state, and it goes in M5c. Keeping them together would put the one mutable,
+lifetime-bound thing in M5 inside the part whose whole value is being a pure function with a sharp
+oracle. Two notes came with the confirmation:
+
+- **It is a second refcount, on a different axis and a different object.** M2c recorded "don't add
+  a second refcount to fix the margin"; this is not that. It is a column-lifetime problem the
+  chunk refcount cannot express, because the entire point is surviving the vertical unload the
+  chunk refcount performs.
+- **The oracle has to reach it.** The incremental-equals-from-scratch fuzz must include edits that
+  break through a column's topmost opaque voxel, or the sky-height path never runs and the
+  comparison passes for the wrong reason. That is the "instrument with denominators" failure mode
+  in a different costume — a green test from a path that was never taken.
+
+**Emission stays 0..15.** It matches the field exactly and needs no scaling, and the cost is that
+the brightest lamp any mod can define reaches exactly 15 m — for a *storage* reason rather than a
+design one. A game-balance number wearing a storage costume, the same shape as terminal velocity
+being a streaming parameter in a physics costume. The trigger is Matthew's own: better lighting
+later, meaning a wider field or coloured light, takes the range with it.
+
+### What closed elsewhere
+
+The directional light going retires two items that have been open since M0 and M1: **"ambient fill
+is low — faces angled away from the sun go nearly black"**, and the **bright and dark slivers
+following terrain contours** in M1's screenshots. Both are the sun striking the integer heightmap's
+risers. With no sun the terracing goes back to being geometry rather than a lighting artefact, and
+what stays a look question for M5d is whether the face-tint constants that replace directional
+shading are right — not whether the sun goes.
+
+DESIGN's Lighting section carries all of it now, because it is a renderer decision and not a
+milestone detail.
+
 ## 2026-08-30 — M5 planned: the first thing here that is not a function of one chunk
 
 [docs/M5-PLAN.md](docs/M5-PLAN.md), split M5a–M5d, nothing built. Every job this engine runs is

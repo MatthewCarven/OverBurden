@@ -122,6 +122,19 @@ simulation, not enemies.
   is built. See [M5-PLAN.md](M5-PLAN.md).
 - 4 bits skylight + 4 bits blocklight, BFS flood fill, incremental re-propagation.
 - Vertex AO computed at mesh time — cheap, and the single biggest visual payoff.
+- **No directional light. The grid is the light** — settled 2026-08-30, planning M5. The
+  renderer is `unshaded`, with a per-face tint computed from the normal standing in for
+  directional shading. That is what makes a cave dark rather than blue-dark, and it retires
+  the low-ambient-fill and terrain-terracing artefacts M0–M1 recorded, both of which are the
+  sun striking the integer heightmap's risers.
+- **Skylight and blocklight reach the shader separately**, rather than pre-multiplied into
+  one shade value. Not a speculation about day and night: the **wet-surface term below needs
+  skylight on its own**. A diurnal cycle then falls out as a uniform on the sky channel and
+  costs no repropagation — scaling the seed and reflooding would relight the world every
+  frame.
+- **Skylight is seeded analytically, not flooded from the top of the world**, because the
+  vertical view radius means there is no top of the world. `SurfaceHeightAt` supplies it for
+  unedited terrain and a per-column sky-height map carries what edits change.
 
 ### Fluid — three-tier hybrid
 

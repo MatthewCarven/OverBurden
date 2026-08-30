@@ -617,8 +617,15 @@ neighbour. Five things from the planning pass that are expensive to rediscover:
   four corners.** So two faces merge iff all four corner shades match — exact when they do, and
   where light varies the quads stop merging. That price is what M5a and M5c measure. The named
   fallback is a per-chunk 3D texture sampled in the fragment shader, where **a light change costs
-  no remesh at all**; **do not build it** before the number says so. The reserved UV2.y channel
-  means the vertex format does not change either way, because AO is per-vertex regardless.
+  no remesh at all**; **do not build it** before the number says so.
+- **The vertex carries two light channels, not one, and DESIGN is what forces it.** With the
+  directional light gone (settled 2026-08-30) the grid is the only light, and DESIGN's M7 needs
+  skylight *on its own* — "wet-surface shader term driven by skylight × recent rainfall" — which
+  a pre-multiplied `sky × block × AO` cannot supply. So `shadeSky` and `shadeBlock` are separate,
+  AO multiplies into both, and **a diurnal cycle is then a uniform costing no repropagation**.
+  Default home is Godot's vertex `COLOR` array; packing both into UV2.y is exact in float32 and
+  not in float16, and `AddSurfaceFromArrays` is called with no flags — **verify before relying
+  on it.**
 - **A 1 m light cell holds 64 voxels and `hand_pick`'s bore is 0.75 m** — the tunnels this game
   is about are narrower than one cell. So opacity is a property of the cell **face**, not the
   cell: light crosses iff some voxel pair across the shared 4×4 boundary is open on both sides.
@@ -630,7 +637,15 @@ neighbour. Five things from the planning pass that are expensive to rediscover:
   lighting structure M6 must persist.
 - **The oracle is the sharpest available: incremental light == from-scratch light, cell for
   cell.** No reference implementation to get wrong; from-scratch *is* the definition, just too
-  slow per frame. Same category as M4a's sealed room.
+  slow per frame. Same category as M4a's sealed room. Its fuzz must include edits that break
+  through a column's topmost opaque voxel, or the sky-height path never runs and it passes for
+  the wrong reason.
+
+**All four of M5's open decisions were settled 2026-08-30, before any code.** Light cells stay at
+DESIGN's **1 m** (revisit trigger: M5d plays a `hand_pick` tunnel and it reads blobby);
+**`SkyColumn` is built at M5b** with its lifetime in M5c; **the directional light goes**; and
+**emission stays 0..15** — which means the brightest lamp any mod can define reaches exactly
+15 m for a storage reason rather than a design one.
 
 Three things stay open, all needing a windowed run rather than a headless one: whether the
 free budget removes the stutter (headless has no deferred deallocation), and M1d's
