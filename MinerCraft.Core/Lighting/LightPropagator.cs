@@ -51,10 +51,44 @@ public sealed class LightPropagator
     private ChunkLight? _cachedLight;
     private bool _hasCache;
 
+    private Func<long>? _nowTicks;
+    private long _deadlineTicks;
+    private int _sinceClockCheck;
+    private bool _outOfBudget;
+
     public LightPropagator(ILightChunks chunks) => _chunks = chunks;
 
     /// <summary>Cell visits across every drain so far. The denominator M5d reports against.</summary>
     public long CellsVisited { get; private set; }
+
+    /// <summary>
+    /// Where every cell whose value actually moved is appended, or null to record nothing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>That set is the exact remesh scope</b>, and it is the same shape of contract
+    /// <see cref="ChunkLight.BuildDerived"/> uses for the derived side: the collection belongs to
+    /// the caller, so the caller decides how often it is cleared. Null costs nothing, which is
+    /// what a test doing a from-scratch reflood wants.
+    /// </para>
+    /// <para>
+    /// <b>The caller must clear it each cycle, and the drain budget is what bounds it.</b> A
+    /// budgeted drain writes at most one frame's worth of cells, so the set stays a few tens of
+    /// thousands of entries however large the world is. Left to accumulate across an unbudgeted
+    /// flood of a streaming world it would reach one entry per cell per chunk, which is where the
+    /// memory would go.
+    /// </para>
+    /// </remarks>
+    public ICollection<LightCellPos>? Changes { get; set; }
+
+    /// <summary>Cell visits between clock reads while draining under a deadline.</summary>
+    /// <remarks>
+    /// A visit is a queue pop and up to six neighbour tests — tens of nanoseconds. Reading the
+    /// clock per visit would be a large fraction of the work being measured, and 512 visits is
+    /// well under a millisecond, so the overshoot past the deadline is smaller than the jitter
+    /// on the deadline itself.
+    /// </remarks>
+    private const int BudgetCheckInterval = 512;
 
     public bool HasWork =>
         _add[0].Count > 0 || _add[1].Count > 0 || _remove[0].Count > 0 || _remove[1].Count > 0;
@@ -125,6 +159,77 @@ public sealed class LightPropagator
     }
 
     /// <summary>
+    /// Re-spreads from every cell that touches <paramref name="chunk"/> from outside it, without
+    /// disturbing any of their values.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Call this whenever a chunk's grid comes into existence, and the failure it prevents is
+    /// ordering-dependent.</b> This BFS pushes rather than pulls, and a push into a chunk with no
+    /// grid is silently dropped — correct while that chunk will never exist, and a lost update
+    /// the moment it turns up a few frames later. Nothing else would put it back: the neighbour
+    /// that tried has long since left both queues, and the new chunk seeding its own sources says
+    /// nothing about light arriving from outside.
+    /// </para>
+    /// <para>
+    /// The symptom is a chunk lit by whichever of its neighbours happened to be derived after it
+    /// and dark towards the ones derived before — so it moves with worker scheduling, and a chunk
+    /// under a lit shaft is exactly where it shows.
+    /// </para>
+    /// <para>
+    /// <b>Six face layers, not the whole shell.</b> Light crosses faces only, so the twelve edges
+    /// and eight corners of the surrounding shell cannot conduct into this chunk at all: 384
+    /// cells rather than 488, and the difference is a statement about the model rather than a
+    /// saving.
+    /// </para>
+    /// </remarks>
+    public void SpreadInto(ChunkPos chunk)
+    {
+        const int size = LightCellPos.CellsPerChunk;
+
+        for (int face = 0; face < VoxelFace.Count; face++)
+        {
+            int axis = VoxelFace.Axis[face];
+            int outward = VoxelFace.Direction[face] > 0 ? size : -1;
+
+            int uAxis = axis == 0 ? 1 : 0;
+            int vAxis = axis == 2 ? 1 : 2;
+
+            Span<int> local = stackalloc int[3];
+
+            for (int v = 0; v < size; v++)
+            for (int u = 0; u < size; u++)
+            {
+                local[axis] = outward;
+                local[uAxis] = u;
+                local[vAxis] = v;
+
+                Respread(LightCellPos.FromChunkLocal(chunk, local[0], local[1], local[2]));
+            }
+        }
+    }
+
+    /// <summary>Queues a cell to spread again, leaving its value exactly as it is.</summary>
+    /// <remarks>
+    /// Deliberately <em>not</em> <see cref="Darken"/>: that resets a cell to its own source and
+    /// runs the un-light walk, which is the right repair for derived data that moved and pure
+    /// waste for a cell whose value is already correct and merely needs re-announcing. The add
+    /// pass only writes where it is strictly brighter, so re-spreading is idempotent.
+    /// </remarks>
+    private void Respread(LightCellPos cell)
+    {
+        ChunkLight? light = Light(cell.Chunk);
+        if (light is null) return;
+
+        int index = cell.LocalIndex;
+
+        foreach (LightChannel channel in Channels)
+        {
+            if (light.Get(index, channel) > 0) _add[(int)channel].Enqueue(cell);
+        }
+    }
+
+    /// <summary>
     /// Drops a cell back to its own source value and queues the walk that clears whatever it lit.
     /// </summary>
     private void Darken(LightCellPos cell)
@@ -144,7 +249,11 @@ public sealed class LightPropagator
             // was lighting; *rising* needs nothing but the spread — and forgetting that second
             // case is why a freshly placed lamp lit nothing at all: its emission was in the
             // derived data and its value was still the zero it had as empty air.
-            if (value != source) light.Set(index, channel, source);
+            if (value != source)
+            {
+                light.Set(index, channel, source);
+                Changes?.Add(cell);
+            }
 
             if (value > source) _remove[(int)channel].Enqueue((cell, value));
 
@@ -165,18 +274,70 @@ public sealed class LightPropagator
     /// invisible until somebody breaks a wall in exactly the wrong place. It is what
     /// <c>DroppingTheReseedStep</c> in the break-recipes removes.
     /// </remarks>
-    public long Drain()
+    public long Drain() => Drain(nowTicks: null, deadlineTicks: 0);
+
+    /// <summary>
+    /// Runs both passes until the fixpoint or the deadline, whichever comes first. Returns the
+    /// cells visited.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Resuming is free because the queues are fields.</b> Stopping mid-pass leaves the
+    /// frontier exactly where it was and the next call carries on; there is no checkpoint to
+    /// build and no partial state to reconstruct.
+    /// </para>
+    /// <para>
+    /// <b>A partially drained field is wrong, and nothing may mesh from it</b> — which is what
+    /// <see cref="Worldgen.GenerationStage.Lit"/> requiring <see cref="HasWork"/> to be false
+    /// enforces. That is the whole reason the barrier carries a global term.
+    /// </para>
+    /// <para>
+    /// <b>Time-sliced rather than counted, and the precedent is the mesh-apply budget rather than
+    /// the mesh-free one.</b> Freeing is counted because Godot defers the deallocation and a
+    /// stopwatch around the call measures nothing; this is our own CPU work start to finish, so
+    /// it can be measured as it is spent.
+    /// </para>
+    /// </remarks>
+    /// <param name="nowTicks">
+    /// <see cref="System.Diagnostics.Stopwatch"/>-tick clock, or null to run to the fixpoint with
+    /// no deadline at all. Injectable so a test drives the budget rather than racing a real one.
+    /// </param>
+    public long Drain(Func<long>? nowTicks, long deadlineTicks)
     {
+        _nowTicks = nowTicks;
+        _deadlineTicks = deadlineTicks;
+        _sinceClockCheck = 0;
+        _outOfBudget = false;
+
         long visited = 0;
 
         foreach (LightChannel channel in Channels)
         {
+            // Removal before addition within a channel, which is the algorithm — see Drain's
+            // remarks. Bailing between the two is safe for the same reason bailing anywhere is:
+            // the queues keep the frontier and the next call resumes it.
             visited += Remove(channel);
+            if (_outOfBudget) break;
+
             visited += Add(channel);
+            if (_outOfBudget) break;
         }
 
+        _nowTicks = null;
         CellsVisited += visited;
         return visited;
+    }
+
+    /// <summary>Whether the deadline has passed, checked one time in every 512 visits.</summary>
+    private bool OutOfBudget()
+    {
+        if (_nowTicks is null) return false;
+
+        if (++_sinceClockCheck < BudgetCheckInterval) return false;
+
+        _sinceClockCheck = 0;
+        _outOfBudget = _nowTicks() >= _deadlineTicks;
+        return _outOfBudget;
     }
 
     private long Remove(LightChannel channel)
@@ -187,6 +348,8 @@ public sealed class LightPropagator
 
         while (queue.Count > 0)
         {
+            if (OutOfBudget()) break;
+
             (LightCellPos cell, int old) = queue.Dequeue();
             visited++;
 
@@ -219,6 +382,7 @@ public sealed class LightPropagator
                     // stops the walk erasing the lamp it is walking away from.
                     int source = neighbour.Source(nextIndex, channel);
                     neighbour.Set(nextIndex, channel, source);
+                    Changes?.Add(next);
                     queue.Enqueue((next, value));
 
                     if (source > 0) reseeds.Enqueue(next);
@@ -242,6 +406,8 @@ public sealed class LightPropagator
 
         while (queue.Count > 0)
         {
+            if (OutOfBudget()) break;
+
             LightCellPos cell = queue.Dequeue();
             visited++;
 
@@ -272,6 +438,7 @@ public sealed class LightPropagator
                 if (carried <= neighbour.Get(nextIndex, channel)) continue;
 
                 neighbour.Set(nextIndex, channel, carried);
+                Changes?.Add(next);
                 queue.Enqueue(next);
             }
         }

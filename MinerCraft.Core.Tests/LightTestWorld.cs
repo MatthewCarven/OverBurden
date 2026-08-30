@@ -186,6 +186,38 @@ internal sealed class LightTestWorld : ILightChunks, IVoxelWorld
         return changed;
     }
 
+    /// <summary>Takes a chunk's grid away, as a horizontal unload does. Voxels stay.</summary>
+    public void DropLight(ChunkPos chunk)
+    {
+        _light.Remove(chunk);
+        Propagator.ForgetCache();
+    }
+
+    /// <summary>
+    /// Gives a chunk a fresh grid and wires it in exactly the way M5c's pipeline does.
+    /// </summary>
+    /// <remarks>
+    /// <b><see cref="LightPropagator.SpreadInto"/> is the step that is easy to leave out</b>, and
+    /// leaving it out is invisible in a fixture that builds every grid before lighting anything —
+    /// which is what this one does everywhere else, and what M5b never had reason not to do. The
+    /// pipeline cannot: chunks arrive one at a time in whatever order the workers finish, so a
+    /// neighbour routinely floods light at a chunk whose grid does not exist yet.
+    /// </remarks>
+    public void RestoreLight(ChunkPos chunk)
+    {
+        if (!_voxels.ContainsKey(chunk)) return;
+
+        _light[chunk] = new ChunkLight();
+        Propagator.ForgetCache();
+        Propagator.SpreadInto(chunk);
+
+        var changed = new List<LightCellPos>();
+        BuildDerived(chunk, changed);
+        foreach (LightCellPos cell in changed) Propagator.Invalidate(cell);
+
+        Propagator.Drain();
+    }
+
     private void BuildDerived(ChunkPos position, ICollection<LightCellPos>? changed)
     {
         if (!_light.TryGetValue(position, out ChunkLight? light)) return;

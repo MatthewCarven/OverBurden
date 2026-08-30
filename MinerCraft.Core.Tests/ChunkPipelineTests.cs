@@ -30,7 +30,9 @@ public class ChunkPipelineTests
         {
             StreamedChunk chunk = harness.Pipeline.Streamer.Get(position)!;
             Assert.Equal(ChunkState.Meshed, chunk.State);
-            Assert.Equal(GenerationStage.Features, chunk.Stage);
+            // Lit, not Features: a drawn chunk is one whose light has settled, which since M5c
+            // is the last rung of the barrier rather than the second.
+            Assert.Equal(GenerationStage.Lit, chunk.Stage);
             Assert.True(chunk.HasVoxels);
         }
     }
@@ -539,10 +541,24 @@ internal sealed class PipelineHarness : IDisposable
 
     private readonly JobScheduler _scheduler;
 
+    /// <summary>
+    /// A light slice wide enough that this suite never pays for it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The production default is 2 ms and these tests are about the state machine, not the
+    /// budget.</b> Deriving a chunk's light is ~0.27 ms in Release and several times that in the
+    /// Debug build the suite runs, and <see cref="Settle"/> sleeps a millisecond per pass — so a
+    /// realistic slice turns every pipeline test into a few hundred extra round trips. Measured:
+    /// the whole suite went 8 s → 83 s at 1 ms, and back again with this. A test that actually
+    /// wants a starved light budget passes its own.
+    /// </remarks>
+    public static readonly TimeSpan GenerousLightBudget = TimeSpan.FromMilliseconds(500);
+
     public PipelineHarness(
         int loadMargin = ChunkStreamer.DefaultLoadMargin,
         TimeSpan? resultBudget = null,
-        Func<long>? nowTicks = null)
+        Func<long>? nowTicks = null,
+        TimeSpan? lightBudget = null)
     {
         var viewers = new ViewerSet();
         _scheduler = new JobScheduler(viewers, threadCount: 4, sweepInterval: TimeSpan.FromMilliseconds(5));
@@ -567,7 +583,8 @@ internal sealed class PipelineHarness : IDisposable
             onJobFaulted: (position, error) => Faults.Add($"{position}: {error}"),
             loadMargin: loadMargin,
             resultBudget: resultBudget,
-            nowTicks: nowTicks);
+            nowTicks: nowTicks,
+            lightBudget: lightBudget ?? GenerousLightBudget);
     }
 
     public ChunkPipeline Pipeline { get; }
@@ -623,7 +640,7 @@ internal sealed class PipelineHarness : IDisposable
         while (true)
         {
             Pipeline.Update();
-            if (Pipeline.JobsInFlight == 0 && Pipeline.WorkListCount == 0)
+            if (Pipeline.IsQuiescent)
             {
                 Assert.Empty(Faults);
                 return;
@@ -633,7 +650,9 @@ internal sealed class PipelineHarness : IDisposable
             {
                 throw new TimeoutException(
                     $"Pipeline did not settle: {Pipeline.JobsInFlight} in flight, " +
-                    $"{Pipeline.WorkListCount} queued, {Pipeline.FaultedJobs} faulted.");
+                    $"{Pipeline.WorkListCount} queued, {Pipeline.FaultedJobs} faulted, " +
+                    $"light {(Pipeline.LightInFlight ? "in flight" : "settled")} " +
+                    $"with {Pipeline.LightBuildBacklog} derives queued.");
             }
 
             Thread.Sleep(1);
@@ -653,16 +672,20 @@ internal sealed class PipelineHarness : IDisposable
         },
         new StrataTable([new StrataLayer(Grass, 1), new StrataLayer(Dirt, 3)], Stone));
 
+    /// <summary>An opaque, full-strength emitter. Nothing generates it; tests place it.</summary>
+    public const int Lamp = 4;
+
     /// <summary>
     /// The base game's own hardnesses, so a carve driven through this harness gates the same
     /// way the shipped content does.
     /// </summary>
     public static MaterialTable Materials() => MaterialTable.ForTesting(
-        //             air    grass dirt  stone
-        isOpaque: [false, true, true, true],
-        isFluid: [false, false, false, false],
-        textureLayer: [0, 1, 2, 3],
-        hardness: [0f, 0.9f, 0.8f, 3.0f]);
+        //             air    grass dirt  stone lamp
+        isOpaque: [false, true, true, true, true],
+        isFluid: [false, false, false, false, false],
+        textureLayer: [0, 1, 2, 3, 4],
+        hardness: [0f, 0.9f, 0.8f, 3.0f, 0.5f],
+        lightEmission: [0, 0, 0, 0, 15]);
 
     public void Dispose()
     {

@@ -221,6 +221,13 @@ public class ChunkStreamerTests
         {
         }
 
+        // Stage 3. Every chunk that reached Features can reach Lit — deriving a chunk's light
+        // needs its neighbours' *voxels*, and reaching Features already required all 26 of them
+        // to have terrain. That is precisely why light adds no ring to the load margin, and it
+        // is what this test would notice stopping being true: a third ring would show up here as
+        // the meshable set falling one chunk short of the visible box on every axis.
+        AdvanceLitEverywhere(streamer);
+
         var meshable = streamer.Chunks
             .Where(c => streamer.CanMesh(c.Position))
             .Select(c => c.Position)
@@ -335,5 +342,28 @@ public class ChunkStreamerTests
         }
 
         return ready.Count;
+    }
+
+    /// <summary>
+    /// The light stage, as the pipeline reaches it: every chunk at
+    /// <see cref="GenerationStage.Features"/> goes to <see cref="GenerationStage.Lit"/>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Unlike the two below it, this rung has no neighbour condition</b>, and that is the
+    /// decision it encodes rather than an omission. A chunk derives its light cells from voxels
+    /// — its own and its neighbours' — and every neighbour of a chunk at
+    /// <see cref="GenerationStage.Features"/> already has terrain by that stage's own barrier.
+    /// The condition the real pipeline adds is that the global propagation has settled, which is
+    /// not a property of any chunk and so has nothing to say here.
+    /// </remarks>
+    private static void AdvanceLitEverywhere(ChunkStreamer streamer)
+    {
+        foreach (StreamedChunk chunk in streamer.Chunks)
+        {
+            if (chunk.Stage == GenerationStage.Features)
+            {
+                chunk.Stage = GenerationStage.Lit;
+            }
+        }
     }
 }

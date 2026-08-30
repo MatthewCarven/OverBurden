@@ -1,3 +1,4 @@
+using MinerCraft.Core.Lighting;
 using MinerCraft.Core.Voxels;
 using MinerCraft.Core.Worldgen;
 
@@ -98,14 +99,93 @@ public sealed class StreamedChunk
     /// </remarks>
     public bool VoxelsSharedWithJob { get; internal set; }
 
-    /// <summary>The mesh no longer matches the voxels, because something edited them.</summary>
+    /// <summary>The mesh no longer matches what it was built from.</summary>
     /// <remarks>
+    /// <para>
     /// Survives a mesh completing, because an edit that lands <em>while</em> a mesh job is in
     /// flight produces a mesh built from the pre-edit snapshot. Clearing this on completion
     /// rather than on submission would leave that stale mesh on screen with nothing left to
     /// trigger a rebuild.
+    /// </para>
+    /// <para>
+    /// <b>Staleness only. Whether the player is waiting on it is <see cref="RemeshUrgent"/>.</b>
+    /// This flag carried both meanings until M5c, which was right while an edit was the only
+    /// thing that could invalidate a mesh — light changing is the second thing, and it is the
+    /// one that is stale without being urgent.
+    /// </para>
     /// </remarks>
     public bool NeedsRemesh { get; internal set; }
+
+    /// <summary>The player is waiting on the rebuild, so it outranks the streaming queue.</summary>
+    /// <remarks>
+    /// <para>
+    /// Set by an edit and never by a relight. Rock the player just broke has to come off the
+    /// screen now; light that is 100 ms stale is invisible, and M5-PLAN names ordinary priority
+    /// for relights as the cheap mitigation to try before anything structural.
+    /// </para>
+    /// <para>
+    /// <b>A separate flag rather than an inference, because during the initial fill every chunk's
+    /// light changes.</b> Deriving urgency from "the light moved" arrives the entire
+    /// distance-ordered streaming queue at band3, and M2a's ordering is silently gone — nothing
+    /// looks broken, the world just loads in the wrong order.
+    /// </para>
+    /// </remarks>
+    public bool RemeshUrgent { get; internal set; }
+
+    /// <summary>
+    /// This chunk's light cells, once anything has built them. Null until then.
+    /// </summary>
+    /// <remarks>
+    /// <b>Owned here and mutated in place by the sim thread's propagator</b>, which is why it is
+    /// never handed to a worker: unlike <see cref="Voxels"/> there is no copy-on-write, so a mesh
+    /// job gets a 1,000-byte padded copy taken at submission instead. See docs/M5-PLAN.md.
+    /// </remarks>
+    public ChunkLight? Light { get; internal set; }
+
+    /// <summary>
+    /// The 32×32 column of sky heights this chunk sits in, shared with every chunk above and
+    /// below it.
+    /// </summary>
+    /// <remarks>
+    /// Refcounted separately from the chunk, on a different axis and over a different object —
+    /// it has to survive the vertical unload the chunk refcount performs as the player descends.
+    /// The streamer owns the count; this is the cached reference so lighting a chunk is not a
+    /// dictionary lookup.
+    /// </remarks>
+    public SkyColumn? Sky { get; internal set; }
+
+    /// <summary>
+    /// Which of the 27 neighbourhood slots had voxels when this chunk's derived light data was
+    /// last built, or 0 if it never has been.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Derived light data is built from voxels, not from a stage, and that is what keeps light
+    /// off the load margin.</b> Requiring a further stage barrier would add a third margin ring;
+    /// reading what voxels exist means the outermost loaded ring builds its data, participates in
+    /// propagation, and never meshes — which is exactly the arrangement that makes light exact
+    /// inside the visible box at a 2-chunk margin.
+    /// </para>
+    /// <para>
+    /// <b>The rebuild trigger is a neighbour <em>gained</em>, never one lost</b>, and the
+    /// asymmetry is the point. A neighbour that appears where this chunk assumed air can seal a
+    /// face that was recorded as conducting, and nothing else would ever notice — the symptom is
+    /// light leaking through a wall at wherever the load margin happened to be. A neighbour that
+    /// goes away takes its light grid with it, so propagation stops at that face whatever the
+    /// conductance bit says, and rebuilding for it would only thrash the boundary as a viewer
+    /// moves back and forth.
+    /// </para>
+    /// <para>
+    /// <b>Recorded from M5c-1's break-recipe battery: weakening this to <c>present != …</c> is
+    /// currently unreachable, and nothing catches it.</b> Nothing pushes a chunk when a
+    /// neighbour unloads — <c>OnChunkUnviewed</c> cancels and discards, and <c>Forget</c> does
+    /// not push either — so the loss case never reaches this line. The gain case does, because a
+    /// neighbour arriving finishes a generate and that pushes all 26. Kept in this form anyway,
+    /// because it states the intent and because anything that later pushes a chunk after an
+    /// unload makes the difference real. Same shape as M4a's zeroable contact epsilon.
+    /// </para>
+    /// </remarks>
+    internal uint LightNeighbours { get; set; }
 
     /// <summary>
     /// This chunk has been edited, so regenerating it from the seed would not reproduce it.
@@ -173,6 +253,25 @@ public sealed class StreamedChunk
     /// frame and each of its neighbours once per touched face.
     /// </remarks>
     internal bool InWorkList { get; set; }
+
+    /// <summary>Whether this chunk is already sitting in the pipeline's light-build queue.</summary>
+    /// <remarks>
+    /// The same dedup device as <see cref="InWorkList"/>, and it matters for the same reason one
+    /// resolution up: a single carve writes hundreds of voxels into the same handful of chunks,
+    /// and each write would otherwise queue another ~120k-read rebuild of data the next write
+    /// invalidates again.
+    /// </remarks>
+    internal bool LightBuildQueued { get; set; }
+
+    /// <summary>
+    /// This chunk has everything it needs to be <see cref="GenerationStage.Lit"/> except a
+    /// settled propagation.
+    /// </summary>
+    /// <remarks>
+    /// A flag rather than a set membership, on the thing it describes — godot_voxel's
+    /// <c>is_in_update_list</c> argument, and the same one <see cref="InWorkList"/> makes.
+    /// </remarks>
+    internal bool AwaitingLight { get; set; }
 
     /// <summary>Whether <see cref="TransitionTo"/> would accept <paramref name="next"/>.</summary>
     public bool CanTransitionTo(ChunkState next) => IsLegalTransition(State, next);

@@ -62,6 +62,7 @@ public partial class Main : Node3D
     private float _flySpeed;
     private int? _caveLatticeStep;
     private TimeSpan? _applyBudget;
+    private TimeSpan? _lightBudget;
     private bool _mineWhileProfiling;
     private bool _fallProfile;
     private bool _ambientOcclusion = true;
@@ -102,7 +103,8 @@ public partial class Main : Node3D
             onJobFaulted: (position, error) => GD.PushError($"Chunk job failed at {position}: {error}"),
             loadMargin: margin,
             resultBudget: _applyBudget,
-            ambientOcclusion: _ambientOcclusion);
+            ambientOcclusion: _ambientOcclusion,
+            lightBudget: _lightBudget);
 
         SetUpPlayer(_generator);
 
@@ -196,7 +198,7 @@ public partial class Main : Node3D
     /// <summary>
     /// Reads <c>--profile</c>, <c>--radius</c>, <c>--vradius</c>, <c>--margin</c>,
     /// <c>--speed</c>, <c>--warmup</c>, <c>--measure</c>, <c>--cavestep</c>,
-    /// <c>--applybudget</c> and <c>--ao</c> from the command line, after a bare
+    /// <c>--applybudget</c>, <c>--lightbudget</c> and <c>--ao</c> from the command line, after a bare
     /// <c>--</c>.
     /// </summary>
     /// <remarks>
@@ -254,6 +256,15 @@ public partial class Main : Node3D
                 // unbudgeted behaviour, which is the A/B this was built to settle.
                 case "applybudget" when double.TryParse(value, out double budgetMillis):
                     _applyBudget = TimeSpan.FromMilliseconds(budgetMillis);
+                    break;
+
+                // The fourth seam of the same shape, and the one M5c-1 needed the moment it
+                // existed: light derives and propagates on the sim thread, and how much of a
+                // frame it may take is the whole of how long a standing start waits before it
+                // can draw anything. Sweepable rather than rebuilt, for the same reason the
+                // three above are.
+                case "lightbudget" when double.TryParse(value, out double lightMillis):
+                    _lightBudget = TimeSpan.FromMilliseconds(lightMillis);
                     break;
 
                 // The third test seam of the same shape, and the one M5a exists to read.
@@ -1020,6 +1031,35 @@ public partial class Main : Node3D
             $"jobs {_pipeline.CompletedJobs} done / " +
             $"{_pipeline.DroppedJobs} dropped / {_pipeline.FaultedJobs} faulted | " +
             QuadSummary());
+
+        GD.Print($"M5c: {LightSummary()}");
+    }
+
+    /// <summary>
+    /// The light stage's own numbers, printed beside the streaming ones.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every counter has its denominator next to it</b>, which this project has had to learn
+    /// twice. "Derives" against tracked chunks says whether the rebuild rule is thrashing;
+    /// "uniform" against derives is the closed form's coverage, which was 12% in the all-surface
+    /// test world and needs a real one; and relight remeshes against drawn chunks is half of
+    /// M5's fragment-shader trigger. A backlog that climbs and stays up means the 2 ms slice is
+    /// too small, the same way <c>PeakPending</c> reads for the free path.
+    /// </remarks>
+    private string LightSummary()
+    {
+        ChunkStreamer streamer = _pipeline!.Streamer;
+        int derives = _pipeline.LightBuilds;
+        int uniform = _pipeline.UniformLightBuilds;
+
+        string uniformShare = derives > 0 ? $"{100.0 * uniform / derives:F0}%" : "n/a";
+
+        return $"{derives} derives / {streamer.TrackedCount} tracked ({uniform} uniform, "
+               + $"{uniformShare}), {_pipeline.LightCellsVisited} cells visited, "
+               + $"{streamer.SkyColumnCount} sky columns, "
+               + $"{_pipeline.RelightRemeshes} relight remeshes, "
+               + $"{_pipeline.LightBuildBacklog} queued, "
+               + $"light {(_pipeline.LightInFlight ? "in flight" : "settled")}";
     }
 
     private void LoadContent()

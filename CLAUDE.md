@@ -85,8 +85,10 @@ quits by itself when it is done, so no `--quit-after` is needed:
 
 Also `--margin=`, `--warmup=`, `--measure=`, `--cavestep=` (1 restores per-voxel cave
 evaluation, for A/B against the lattice), `--applybudget=<ms>` (a large value such as 1000
-is the unbudgeted arm; there is no "off") and `--ao=0` (restores the pre-M5a
-constant-brightness merge key, for the vertex-AO A/B).
+is the unbudgeted arm; there is no "off"), `--lightbudget=<ms>` (how much of a frame light
+derivation and propagation may take; **swept at M5c-1 and 4 ms is the knee** — below it the
+world has generated but cannot draw, because nothing meshes until its neighbourhood is lit)
+and `--ao=0` (restores the pre-M5a constant-brightness merge key, for the vertex-AO A/B).
 
 **A profile run quits by itself, so it needs no `--quit-after` — and passing one usually
 truncates the run**, because 900 frames at ~145 fps is 6 s and the default window is 18.
@@ -132,9 +134,11 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2, all of M3, all of M4, M5a and M5b** are done — **518 tests
+M0, all of M1, **all of M2, all of M3, all of M4, M5a, M5b and M5c-1** are done — **540 tests
 passing**. The player walks, falls, and cannot outrun the streamer, voxels have ambient
-occlusion, and there is a light grid — not yet wired into the pipeline, which is M5c.
+occlusion, and the light grid is now built, propagated and repaired by the pipeline — but
+nothing samples it yet, so **a lamp is still a pale block that does not glow. That is M5c-2**,
+which owns the trilinear sample, the shader and the sun going away.
 Terrain streams around the flycam: worldgen and greedy meshing run on worker threads over palette-compressed storage,
 with materials loaded from JSON, and chunks load and unload as the viewer moves.
 
@@ -143,10 +147,20 @@ Headless from a standing start, r4h/2v + 2 margin on 8 workers:
 ```
 1521 viewed (1521 tracked), 165 drawn, 0 in flight, 0 queued
 1926 jobs done / 0 dropped / 0 faulted   — settled inside 5 s
+quads 81331 (492 per drawn chunk, AO on)
+1521 derives / 1521 tracked (299 uniform, 20%), 585k cells visited,
+169 sky columns, 0 relight remeshes, light settled
 ```
 
 1926 = 1521 generates + 405 meshes, and 405 is exactly the 9×5×9 visible box. Drawn was 166
 before M2d-2; the cave lattice carves marginally less, so one chunk now meshes to nothing.
+
+**M5c-1 left every one of those numbers unchanged**, which was the point — light joined the
+barrier without moving the streaming contract, so M5d stays comparable with M2d and M3d.
+"Settled inside 5 s" is only still true because the light budget was raised from 2 ms to 4 ms;
+at 2 ms the world had generated at 5 s and drawn nothing. One derive per chunk means the rebuild
+rule is not thrashing, and 0 relight remeshes during the fill means the priority ordering is
+intact.
 
 M2 is split into four parts in [docs/M2-PLAN.md](docs/M2-PLAN.md). The prerequisite
 reading of godot_voxel is done and paid for itself: it caught that the job queue had been
@@ -788,6 +802,72 @@ where the wrong answer sat.
   actually drawn something — otherwise the initial fill, where every chunk's light changes,
   arrives the whole distance-ordered queue at band3 and M2a's ordering is silently gone. Nothing
   looks broken; the world just loads in the wrong order.
+
+**M5c is split M5c-1 / M5c-2**, on the grounds M2c and M2d were split: M5c-1 is verifiable
+headlessly and M5c-2 — the trilinear sample, the shader, the sun going away — is not.
+
+**M5c-1 — the stage, the lifetime and the relight: done 2026-08-30.** Suite **518 → 542**.
+`GenerationStage.Lit` is a third rung on the barrier, `ChunkStreamer` implements `ILightChunks`
+and owns a `ChunkLight` per chunk plus a refcounted `SkyColumn` per (x, z), the propagation
+drains on the sim thread under a 4 ms slice, and an edit updates the sky column, queues a derive
+and marks exactly the drawn chunks whose sampled light moved. **A lamp still does not glow —
+that is M5c-2.** Six things that are expensive to rediscover:
+
+- **Light needs no third margin ring, and it was one decision away from needing one.** The
+  mechanical ladder — mesh at R needs R+1 `Lit`, `Lit` at R+1 needs R+2 at `Features`, `Features`
+  at R+2 needs R+3 — grows the margin from 2 to 3, **+17% chunks on top of M2c's +41%**. It is
+  avoidable because **deriving a chunk's light asks for voxels, not for a stage**: the outermost
+  loaded ring derives and joins the propagation while never reaching `Lit` and never meshing,
+  which is exactly what the margin's third load-bearing reason already describes. **Revisit
+  trigger: when `ApplyFeatures` starts placing anything it must route through the relight path
+  the way `SetVoxel` does.**
+- **An untracked neighbour is skipped and a tracked one without voxels blocks**, and the
+  difference is whether it will ever contradict the assumption. Not loaded reads as air and has
+  no grid, so propagation stops there anyway; loaded-but-generating *will* have voxels shortly,
+  and a face recorded as conducting against air it is about to fill is a wall that leaks light.
+- **The propagation pushes rather than pulls, so a push into a chunk with no grid is dropped and
+  nothing remembers having tried.** `LightPropagator.SpreadInto` re-spreads the **six adjacent
+  face layers** when a grid comes into existence — six, not the whole 488-cell shell, because
+  light crosses faces only. **M5b could not have found this**: its fixtures build every grid
+  before lighting any, which the streamer cannot do. It appeared as a one-in-six flake.
+- **The first deterministic test for that bug passed on broken code** — it dropped the chunk
+  under a *sky shaft*, where every cell is its own full sky source and relights itself. A lamp in
+  the neighbouring chunk, underground, is the shape that separates the arms. Fourth outing for
+  the "watch it fail" rule and a new variety: **the trap was the fixture, not the assertion.**
+- **M5-PLAN costed the wrong half of M5.** It estimated propagation (~779k cell visits, ~15 ms)
+  and said nothing about deriving, which is the larger half. Measured in Release: **0.245 ms
+  surface / 0.327 deep / 0.204 open sky per chunk, ~0.41 s for the whole 1,521-chunk fill** —
+  against generation's 0.47 ms a chunk on eight workers, where this is one sim thread. Its
+  propagation estimate was actually good — **585k visits measured against 779k predicted**, which
+  sharpens the finding: the half it got right was not the half that mattered. **The lever is
+  `PaddedChunk.CopyFrom`, which is 60–75% of it, and it is named and deliberately not built** —
+  raising the budget bought back the whole regression. It would speed up meshing too.
+- **The light budget is 4 ms and a standing-start sweep is what says so.** Light delays the
+  *first draw*, since nothing meshes until its neighbourhood is lit. At the 5 s report: 1 ms →
+  857/1521 derived and **0 drawn**; 2 ms → 1467/1521 and **0 drawn**; **4 ms → settled, 165
+  drawn**; 8 ms identical. **2 ms was a real regression and invisible in the tests**, which pass
+  their own generous budget — `--lightbudget=` is the seam that found it. A ceiling, not a
+  reservation: once the world is lit nothing is queued and the step costs nothing.
+- **A uniform neighbourhood has a closed form that skips the copy entirely**, pinned against the
+  general path cell for cell — the `IsCaveAt`/`GenerateTerrain` shape of test. **Coverage is 20%
+  in the real world** and 12% in the all-surface test world; M2b's 68% is about chunks alone and
+  this needs the six face neighbours uniform *and equal*. Related and worth keeping: **light's
+  dependency set is the six face neighbours, not the mesher's twenty-six** — nothing in the
+  derivation looks at an edge or a corner.
+- **The break-recipe battery found three holes and no two were the same kind.** Nothing asserted
+  the two-flag split, only the counters' *sign*; the gain-only derive rule had a scenario where
+  both arms agree (and weakening it is in fact **unreachable** — nothing pushes a chunk when a
+  neighbour unloads, so the rule never runs, which is M4a's zeroable-epsilon category); and the
+  shaft test dug a **one-voxel bore**, which is never a sky *source*, because a cell is open to
+  the sky only when all sixteen of its columns are. Its light came by free fall, so the
+  sky-height rebuild never mattered to it. **M5-PLAN warned about this exact case and the
+  warning was not enough — a warning about which code path runs is not a warning about which
+  property is checked.**
+
+Two smaller ones: **a derive happens off the work list, so `BuildLight` has to push the chunk
+back** or the pipeline stalls with every grid built and nothing meshing (M2c-2's rule again);
+and **`IsQuiescent` moved onto the pipeline**, because a caller testing only jobs and the work
+list saw quiescence while every chunk sat one stage short of meshing.
 
 Three things stay open, all needing a windowed run rather than a headless one: whether the
 free budget removes the stutter (headless has no deferred deallocation), and M1d's

@@ -199,6 +199,166 @@ public class LightingTests
         world.AssertFixpoint();
     }
 
+    /// <summary>
+    /// A grid that comes into existence after its neighbours were lit still receives their light.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The propagation pushes rather than pulls, so a push into a chunk with no grid is
+    /// dropped</b> — correct while that chunk will never exist, and a lost update the moment it
+    /// arrives a few frames later. Nothing else puts it back: the neighbour that tried has long
+    /// since left both queues, and a new chunk seeding its own sources says nothing about light
+    /// arriving from outside it.
+    /// </para>
+    /// <para>
+    /// <b>M5b could not have found this and M5c found it as a one-in-six flake.</b> Every fixture
+    /// here builds all its grids before lighting any of them, which is a luxury the streamer does
+    /// not have — chunks arrive in whatever order the workers finish. The symptom was a chunk lit
+    /// towards the neighbours derived after it and dark towards those derived before, so it moved
+    /// with thread scheduling. This states it deterministically.
+    /// </para>
+    /// <para>
+    /// <b>The scenario has to be a chunk with no source of its own, and the first attempt at this
+    /// test was not.</b> It dropped the chunk under a sky shaft — where every cell is itself a
+    /// full sky source, so rebuilding the derived data re-seeds the whole chunk and it relights
+    /// with no help from anyone. It passed with <see cref="LightPropagator.SpreadInto"/> disabled.
+    /// A lamp in the <em>neighbouring</em> chunk is the shape that separates the two: the restored
+    /// chunk has nothing intrinsic anywhere in it, so every lit cell in it arrived from outside.
+    /// </para>
+    /// <para>
+    /// <b>Break-recipe: make <see cref="LightPropagator.SpreadInto"/> do nothing.</b> The restored
+    /// chunk comes back completely dark and the from-scratch comparison fails outright.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void AGridThatArrivesAfterItsNeighboursWereLitStillReceivesTheirLight()
+    {
+        // No sky anywhere in this fixture, so a lamp is the only source in the world and the
+        // chunk next door has nothing of its own to relight itself with.
+        LightTestWorld world = Underground();
+        world.Edit(new VoxelPos(0, 0, 0), Lamp);
+
+        var next = new ChunkPos(1, 0, 0);
+        var probe = new LightCellPos(LightCellPos.CellsPerChunk, 0, 0);
+        int lit = world.Block(probe);
+        Assert.True(lit > 0, "the lamp should reach into the neighbouring chunk");
+
+        Dictionary<ChunkPos, byte[]> expected = world.Snapshot();
+
+        // The chunk unloads and comes back, which is ordinary streamer behaviour and the cheapest
+        // deterministic form of "this grid did not exist when its neighbour spread into it".
+        world.DropLight(next);
+        world.RestoreLight(next);
+
+        Assert.Equal(lit, world.Block(probe));
+        Assert.Equal(expected, world.Snapshot(), new GridComparer());
+        world.AssertFixpoint();
+    }
+
+    /// <summary>
+    /// The closed form for a uniform neighbourhood agrees with the general derivation, cell for
+    /// cell and face for face.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Two derivations of one field is two derivations that can drift</b>, which is exactly
+    /// the trap <c>IsCaveAt</c> and <c>GenerateTerrain</c> are pinned against — and the symptom
+    /// there was mining a wall that was already air. Here it would be a seam wherever a uniform
+    /// chunk meets a mixed one, which is every cave mouth and every cliff.
+    /// </para>
+    /// <para>
+    /// The fast path exists because it is <b>60–75% of the derive cost</b>: it skips the 34³
+    /// voxel copy entirely, and the copy is the larger half. Both opaque and non-opaque, and both
+    /// emitting and not, because the closed form states conductance and emission separately and a
+    /// mistake in either is invisible in the other.
+    /// </para>
+    /// <para>
+    /// <b>The surface runs through the middle of the chunk on purpose.</b> The sky flag is the
+    /// one part the two paths genuinely share, so a fixture with uniform sky would agree even if
+    /// the sharing were broken.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(Air)]
+    [InlineData(Stone)]
+    [InlineData(Glass)]
+    [InlineData(Lamp)]
+    public void TheUniformClosedFormAgreesWithTheGeneralDerivation(int material)
+    {
+        MaterialTable materials = Materials();
+        var position = new ChunkPos(0, 0, 0);
+
+        // Half the chunk open to the sky, so the sky flag varies from cell to cell.
+        var sky = new SkyColumn(0, 0);
+        sky.Seed(new FlatSurface(VoxelConstants.ChunkSize / 2));
+
+        var padded = new PaddedChunk();
+        padded.Fill(material);
+
+        var general = new ChunkLight();
+        general.BuildDerived(padded, materials, position, sky);
+
+        var closedForm = new ChunkLight();
+        closedForm.BuildDerivedUniform(material, materials, position, sky);
+
+        for (int index = 0; index < LightCellPos.Volume; index++)
+        {
+            Assert.Equal(
+                general.Source(index, LightChannel.Sky),
+                closedForm.Source(index, LightChannel.Sky));
+
+            Assert.Equal(
+                general.Source(index, LightChannel.Block),
+                closedForm.Source(index, LightChannel.Block));
+
+            for (int face = 0; face < 6; face++)
+            {
+                Assert.Equal(general.Conducts(index, face), closedForm.Conducts(index, face));
+            }
+        }
+
+        // Not vacuous: this material's cells actually do something, and the sky flag really varies.
+        bool conducts = !materials.IsOpaque(material);
+        Assert.Equal(conducts, closedForm.Conducts(0, 0));
+        Assert.Contains(
+            Enumerable.Range(0, LightCellPos.Volume),
+            i => closedForm.Source(i, LightChannel.Sky) == ChunkLight.MaxLevel);
+        Assert.Contains(
+            Enumerable.Range(0, LightCellPos.Volume),
+            i => closedForm.Source(i, LightChannel.Sky) == 0);
+    }
+
+    /// <summary>
+    /// Both build paths report the same cells as changed, which is what the repair scope is.
+    /// </summary>
+    /// <remarks>
+    /// The values agreeing is not enough on its own: <c>changed</c> is the contract the
+    /// propagation depends on, and a fast path that computed the right word but reported the
+    /// wrong set would leave cells un-repaired with every value looking correct at the moment it
+    /// was written.
+    /// </remarks>
+    [Fact]
+    public void BothBuildPathsReportTheSameChangedCells()
+    {
+        MaterialTable materials = Materials();
+        var position = new ChunkPos(1, 0, -2);
+
+        var sky = new SkyColumn(1, -2);
+        sky.Seed(new FlatSurface(VoxelConstants.ChunkSize / 2));
+
+        var padded = new PaddedChunk();
+        padded.Fill(Lamp);
+
+        var generalChanges = new List<LightCellPos>();
+        new ChunkLight().BuildDerived(padded, materials, position, sky, generalChanges);
+
+        var closedFormChanges = new List<LightCellPos>();
+        new ChunkLight().BuildDerivedUniform(Lamp, materials, position, sky, closedFormChanges);
+
+        Assert.NotEmpty(generalChanges);
+        Assert.Equal(generalChanges, closedFormChanges);
+    }
+
     [Fact]
     public void AShaftStaysFullyLitHoweverDeepItGoes()
     {

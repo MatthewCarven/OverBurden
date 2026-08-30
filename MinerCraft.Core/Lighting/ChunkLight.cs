@@ -125,21 +125,89 @@ public sealed class ChunkLight
         for (int cx = 0; cx < LightCellPos.CellsPerChunk; cx++)
         for (int cy = 0; cy < LightCellPos.CellsPerChunk; cy++)
         {
-            int index = LightCellPos.Index(cx, cy, cz);
-            var cell = LightCellPos.FromChunkLocal(position, cx, cy, cz);
-
-            int value = Conductance(voxels, materials, cx, cy, cz)
-                        | (Emission(voxels, materials, cx, cy, cz) << EmissionShift);
-
-            if (sky.IsCellOpenToSky(cell)) value |= SkySourceBit;
-
-            if (changed is not null && _derived[index] != (ushort)value) changed.Add(cell);
-
-            _derived[index] = (ushort)value;
+            Store(
+                position,
+                cx, cy, cz,
+                Conductance(voxels, materials, cx, cy, cz)
+                    | (Emission(voxels, materials, cx, cy, cz) << EmissionShift),
+                sky,
+                changed);
         }
 
         HasDerived = true;
     }
+
+    /// <summary>
+    /// The same derivation for a chunk whose voxels and whose six face neighbours' voxels are
+    /// all one material — which has a closed form and needs no voxel copy at all.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Light's dependency set is the six face neighbours, not the mesher's twenty-six.</b>
+    /// Conductance reads one voxel layer across each cell face and emission reads only the
+    /// chunk's own interior, so nothing here ever looks at an edge or a corner. That is what
+    /// makes the uniform case checkable at all: seven chunk headers rather than twenty-seven.
+    /// </para>
+    /// <para>
+    /// <b>Uniform storage is 68% of chunks, measured at M2b</b> — solid rock below and open air
+    /// above — and the general path costs ~120k voxel reads against this one's 512 cells. The
+    /// closed form is small enough to state in one line each: every face conducts iff the
+    /// material is not opaque, and every cell emits whatever the material emits.
+    /// </para>
+    /// <para>
+    /// <b>Two derivations of one field is two derivations that can drift</b>, which is the
+    /// <c>IsCaveAt</c>/<c>GenerateTerrain</c> problem again, so they share <see cref="Store"/>
+    /// and an equality test pins them together against a fresh <see cref="PaddedChunk"/>.
+    /// </para>
+    /// </remarks>
+    public void BuildDerivedUniform(
+        int material,
+        MaterialTable materials,
+        ChunkPos position,
+        SkyColumn sky,
+        ICollection<LightCellPos>? changed = null)
+    {
+        int conductance = materials.IsOpaque(material) ? 0 : ConductanceMask;
+        int emission = Math.Min(materials.LightEmission(material), MaxLevel);
+        int value = conductance | (emission << EmissionShift);
+
+        for (int cz = 0; cz < LightCellPos.CellsPerChunk; cz++)
+        for (int cx = 0; cx < LightCellPos.CellsPerChunk; cx++)
+        for (int cy = 0; cy < LightCellPos.CellsPerChunk; cy++)
+        {
+            Store(position, cx, cy, cz, value, sky, changed);
+        }
+
+        HasDerived = true;
+    }
+
+    /// <summary>
+    /// Writes one cell's derived word, adds the sky flag, and reports it if it moved.
+    /// </summary>
+    /// <remarks>
+    /// Shared by both build paths on purpose. The <paramref name="changed"/> contract — that the
+    /// reported set is the exact repair scope — is the thing the propagation depends on, and it
+    /// is worth exactly one implementation.
+    /// </remarks>
+    private void Store(
+        ChunkPos position,
+        int cx,
+        int cy,
+        int cz,
+        int value,
+        SkyColumn sky,
+        ICollection<LightCellPos>? changed)
+    {
+        int index = LightCellPos.Index(cx, cy, cz);
+        var cell = LightCellPos.FromChunkLocal(position, cx, cy, cz);
+
+        if (sky.IsCellOpenToSky(cell)) value |= SkySourceBit;
+
+        if (changed is not null && _derived[index] != (ushort)value) changed.Add(cell);
+
+        _derived[index] = (ushort)value;
+    }
+
 
     /// <summary>
     /// Which of a cell's six faces light crosses.

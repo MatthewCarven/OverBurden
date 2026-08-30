@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using MinerCraft.Core.Content;
 using MinerCraft.Core.Jobs;
+using MinerCraft.Core.Lighting;
 using MinerCraft.Core.Meshing;
 using MinerCraft.Core.Voxels;
 using MinerCraft.Core.Worldgen;
@@ -37,6 +38,53 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// </remarks>
     public static readonly TimeSpan DefaultResultBudget = TimeSpan.FromMilliseconds(2.0);
 
+    /// <summary>How long one frame may spend deriving and propagating light.</summary>
+    /// <remarks>
+    /// <para>
+    /// The third of the pipeline's budgets, and the one the plan under-estimated. M5-PLAN costed
+    /// only the propagation — ~779k cell visits, ~15 ms for the initial fill at r4h/2v — and
+    /// <b>deriving is the larger half by an order of magnitude</b>.
+    /// </para>
+    /// <para>
+    /// <b>Measured in Release, per chunk</b>, against the shipped seed with caves on:
+    /// </para>
+    /// <code>
+    ///              copy      derive    total
+    ///   surface    0.189     0.056     0.245 ms
+    ///   deep       0.177     0.150     0.327 ms
+    ///   open sky   0.155     0.049     0.204 ms
+    /// </code>
+    /// <para>
+    /// So ~0.27 ms a chunk and ~0.41 s for the whole 1,521-chunk fill — against generation's
+    /// 0.47 ms a chunk, except that this is one sim thread rather than eight workers.
+    /// </para>
+    /// <para>
+    /// <b>4 ms because the standing start says so, swept headlessly at r4h/2v.</b> The question
+    /// is when the world can first draw anything, since nothing meshes until its neighbourhood is
+    /// lit. At the 5 s report:
+    /// </para>
+    /// <code>
+    ///   1 ms    857 / 1521 derived, 664 queued,   0 drawn
+    ///   2 ms   1467 / 1521 derived,  54 queued,   0 drawn
+    ///   4 ms   1521 / 1521 derived,   0 queued, 165 drawn, settled
+    ///   8 ms   identical to 4 ms
+    /// </code>
+    /// <para>
+    /// So 4 ms restores the pre-M5c "settled inside 5 s" and 8 ms buys nothing, because light
+    /// has stopped being the constraint. <b>It is a ceiling and not a reservation</b>: once the
+    /// world is lit there is nothing queued and the step costs nothing, so the 24% of a 60 Hz
+    /// frame this permits is spent during a load and never afterwards.
+    /// </para>
+    /// <para>
+    /// <b>The lever, if M5d wants one, is <see cref="PaddedChunk.CopyFrom"/> and not the
+    /// derivation</b> — the copy is 60–75% of every row above, and it recomputes the neighbour
+    /// index per voxel where 27 block copies would do. That would speed up meshing too, since a
+    /// mesh job builds one of these per chunk as well. <b>Not built yet, because raising the
+    /// budget already bought back the whole regression.</b>
+    /// </para>
+    /// </remarks>
+    public static readonly TimeSpan DefaultLightBudget = TimeSpan.FromMilliseconds(4.0);
+
     private static readonly double TicksPerMillisecond = Stopwatch.Frequency / 1000.0;
 
     private readonly ChunkStreamer _streamer;
@@ -51,8 +99,59 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     private readonly List<(IJob Job, CancellationToken Cancellation, bool Serial)> _batch = [];
     private readonly Func<long> _nowTicks;
     private readonly long _resultBudgetTicks;
+    private readonly long _lightBudgetTicks;
     private readonly bool _ambientOcclusion;
     private bool _disposed;
+
+    private readonly LightPropagator _propagator;
+
+    /// <summary>Chunks whose derived light data needs building or rebuilding.</summary>
+    /// <remarks>
+    /// Separate from <see cref="_workList"/> because it is budgeted separately: one derive is
+    /// ~120k voxel reads, and a swing that dirties eight chunks would otherwise spend most of a
+    /// frame inside the pump. The dedup flag lives on the chunk, the same as
+    /// <see cref="StreamedChunk.InWorkList"/> and for the same reason.
+    /// </remarks>
+    private readonly Queue<ChunkPos> _lightBuilds = new();
+
+    /// <summary>
+    /// Chunks that have everything they need to be <see cref="GenerationStage.Lit"/> except a
+    /// settled propagation.
+    /// </summary>
+    /// <remarks>
+    /// <b>They cannot simply be re-examined when the drain finishes, because nothing would push
+    /// them</b> — the work list is fed by things happening to a chunk, and "a global queue
+    /// somewhere else became empty" happens to no chunk in particular. Scanning every chunk
+    /// instead is the O(n)-per-frame sweep the work list exists to avoid.
+    /// </remarks>
+    private readonly List<ChunkPos> _awaitingLight = [];
+
+    /// <summary>Cells the propagator moved this frame, and the chunks that sample them.</summary>
+    /// <remarks>
+    /// Both cleared every frame, which is what bounds them: a budgeted drain writes at most one
+    /// frame's worth of cells however large the world is. The chunk set is a set rather than a
+    /// list because a changed cell expands to ~2 chunks on average and the same chunk comes up
+    /// again and again — deduping here turns tens of thousands of dictionary lookups into one
+    /// per chunk actually touched.
+    /// </remarks>
+    private readonly List<LightCellPos> _lightChanges = [];
+
+    private readonly HashSet<ChunkPos> _relitChunks = [];
+
+    /// <summary>Cells whose derived data moved during one rebuild.</summary>
+    private readonly List<LightCellPos> _derivedChanges = [];
+
+    /// <summary>
+    /// The 34³ voxel copy the derive reads, and its 27 references. Reused rather than allocated.
+    /// </summary>
+    /// <remarks>
+    /// 157 KB allocated once. The first version of M5b's test fixture allocated one per chunk per
+    /// edit and that was most of why a single test could run the host out of memory; the fixture
+    /// records the lesson and this is where it is spent.
+    /// </remarks>
+    private readonly PaddedChunk _lightPadded = new();
+
+    private readonly VoxelChunk?[] _lightNeighbourhood = new VoxelChunk?[PaddedChunk.NeighbourhoodSize];
 
     /// <param name="onMeshReady">
     /// A chunk's mesh is built and ready to draw. The Godot layer turns it into an
@@ -89,7 +188,8 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         int loadMargin = ChunkStreamer.DefaultLoadMargin,
         TimeSpan? resultBudget = null,
         Func<long>? nowTicks = null,
-        bool ambientOcclusion = true)
+        bool ambientOcclusion = true,
+        TimeSpan? lightBudget = null)
     {
         _generator = generator;
         _materials = materials;
@@ -101,12 +201,20 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         _ambientOcclusion = ambientOcclusion;
         _resultBudgetTicks =
             (long)((resultBudget ?? DefaultResultBudget).TotalMilliseconds * TicksPerMillisecond);
+        _lightBudgetTicks =
+            (long)((lightBudget ?? DefaultLightBudget).TotalMilliseconds * TicksPerMillisecond);
 
         _streamer = new ChunkStreamer(
             priorityViewers,
             onChunkViewed: OnChunkViewed,
             onChunkUnviewed: OnChunkUnviewed,
-            loadMargin);
+            loadMargin,
+            // The generator is already ISurfaceHeights, and the skylight seed has to agree with
+            // the terrain bit for bit — the same argument that keeps IsCaveAt and GenerateTerrain
+            // reading one definition of the cave field.
+            heights: generator);
+
+        _propagator = new LightPropagator(_streamer);
     }
 
     /// <summary>The streaming policy. Viewers are added and moved through here.</summary>
@@ -154,6 +262,62 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// once they are done, and only this one is on the critical path.
     /// </remarks>
     public int EditRemeshes { get; private set; }
+
+    /// <summary>Mesh jobs submitted because light moved under an already-drawn chunk.</summary>
+    /// <remarks>
+    /// <b>The number that decides M5's fragment-shader fallback, alongside the quad count.</b>
+    /// The recorded trigger is breaking into a lit space costing more than ~16 chunk remeshes at
+    /// a rate mining can sustain. Counted apart from <see cref="EditRemeshes"/> because a relight
+    /// remesh is not urgent and the two would otherwise be indistinguishable once done.
+    /// </remarks>
+    public int RelightRemeshes { get; private set; }
+
+    /// <summary>Chunks whose derived light data has been built or rebuilt.</summary>
+    /// <remarks>
+    /// Above the chunk count means rebuilds are happening — a neighbour appearing where this
+    /// chunk had assumed air, which is the load frontier moving outward. A ratio that climbs is
+    /// the signal that <see cref="StreamedChunk.LightNeighbours"/>'s gain-only rule has stopped
+    /// being enough.
+    /// </remarks>
+    public int LightBuilds { get; private set; }
+
+    /// <summary>How many of those took the closed form rather than reading voxels.</summary>
+    /// <remarks>
+    /// The coverage of the uniform fast path, which M2b's "68% of chunks are uniform" predicts
+    /// but does not settle — this one needs the six face neighbours uniform <em>and equal</em>,
+    /// which is strictly rarer. Solid rock below and open sky above are the two places it pays,
+    /// and they are most of a mining game's world.
+    /// </remarks>
+    public int UniformLightBuilds { get; private set; }
+
+    /// <summary>Cells the propagator has visited. Its own running total, surfaced here.</summary>
+    public long LightCellsVisited => _propagator.CellsVisited;
+
+    /// <summary>Chunks waiting for a derived light build.</summary>
+    public int LightBuildBacklog => _lightBuilds.Count;
+
+    /// <summary>Whether the light field is still being repaired.</summary>
+    /// <remarks>
+    /// False is the condition a chunk needs to reach <see cref="GenerationStage.Lit"/> — see
+    /// that stage's remarks for why it is global.
+    /// </remarks>
+    public bool LightInFlight => _propagator.HasWork || _lightBuilds.Count > 0;
+
+    /// <summary>
+    /// Nothing is in flight, nothing is queued, and the light field has settled — the only
+    /// moment the pipeline's state is worth asserting on.
+    /// </summary>
+    /// <remarks>
+    /// <b>Owned here rather than assembled by callers, because M5c added two queues to it.</b>
+    /// A caller testing only the job count and the work list would see quiescence while every
+    /// chunk still sat one stage short of meshing, which is not a wrong answer so much as an
+    /// out-of-date one — and it is exactly what a stalled light stage looks like from outside.
+    /// </remarks>
+    public bool IsQuiescent =>
+        JobsInFlight == 0
+        && _workList.Count == 0
+        && !LightInFlight
+        && _awaitingLight.Count == 0;
 
     /// <summary>Reads one voxel, or reports that its chunk is not there to read.</summary>
     /// <remarks>
@@ -224,6 +388,8 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         chunk.HasEdits = true;
         EditedVoxels++;
 
+        RelightAfterEdit(chunk, voxel);
+
         Span<ChunkPos> dirty = stackalloc ChunkPos[ChunkEdits.MaxDirtyChunks];
         int count = ChunkEdits.DirtyChunks(voxel, dirty);
         for (int i = 0; i < count; i++)
@@ -234,6 +400,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         return true;
     }
 
+    /// <summary>Marks a chunk stale <em>and</em> urgent, which is what an edit is.</summary>
     private void MarkForRemesh(ChunkPos position)
     {
         if (!_streamer.TryGet(position, out StreamedChunk chunk))
@@ -242,7 +409,54 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         }
 
         chunk.NeedsRemesh = true;
+        chunk.RemeshUrgent = true;
         Push(position);
+    }
+
+    /// <summary>
+    /// Brings the light bookkeeping up to date after one voxel changed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The sky column is updated here, per voxel; the derived rebuild is queued, not done.</b>
+    /// A carve writes hundreds of voxels across a handful of chunks and each rebuild is ~120k
+    /// voxel reads — doing one per write would spend a swing's whole frame budget re-deriving
+    /// data the next write invalidates. The column update is a single index and at worst one
+    /// downward scan, so it stays inline where it can answer whether the scope widens.
+    /// </para>
+    /// <para>
+    /// Exactly the sequence M5b's <c>LightTestWorld.Edit</c> spells out, which is what that
+    /// fixture was written to be: write the voxel, update the sky column, rebuild the affected
+    /// chunks collecting the cells that actually moved, invalidate those, drain. If the
+    /// incremental result ever disagrees with a from-scratch flood, this is the sequence that is
+    /// wrong.
+    /// </para>
+    /// </remarks>
+    private void RelightAfterEdit(StreamedChunk chunk, VoxelPos voxel)
+    {
+        if (chunk.Sky is null)
+        {
+            return;
+        }
+
+        // The streamer is the world here, so an unloaded voxel reads as opaque and bounds the
+        // scan — the same rule the collider uses, and for the same reason.
+        bool skyMoved = chunk.Sky.OnVoxelChanged(voxel, _streamer, _materials);
+
+        // Conductance reaches this chunk plus a neighbour across whichever faces the voxel
+        // touches. That is the same eight-chunk rule the mesh border uses, because both ask the
+        // same question: whose view of this voxel changed?
+        Span<ChunkPos> dirty = stackalloc ChunkPos[ChunkEdits.MaxDirtyChunks];
+        int count = ChunkEdits.DirtyChunks(voxel, dirty);
+        for (int i = 0; i < count; i++)
+        {
+            QueueLightBuild(dirty[i]);
+        }
+
+        if (skyMoved)
+        {
+            QueueColumnLightBuild(voxel.Chunk);
+        }
     }
 
     /// <summary>
@@ -275,7 +489,319 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         ApplyResults();
+        StepLight();
         return Pump(maxSubmissions);
+    }
+
+    /// <summary>
+    /// One frame of light: derive what is waiting, propagate what that queued, and hand the
+    /// chunks it settled back to the pump.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Between the applies and the pump, and both placements matter.</b> After the applies
+    /// because that is where chunks are forgotten, and the propagator's chunk cache must not
+    /// survive a grid disappearing underneath it — clearing it once here is sufficient precisely
+    /// because nothing between this point and the end of <see cref="Update"/> adds or removes a
+    /// chunk record. Before the pump so a chunk this frame settled can be meshed in the same
+    /// frame rather than the next, which is the same reason the applies come first.
+    /// </para>
+    /// <para>
+    /// <b>Derive before propagate, under one shared slice.</b> A grid that does not exist cannot
+    /// propagate, so spending the whole budget on the walk while chunks queue up waiting to be
+    /// derived would be the barrier holding on work that is not being done.
+    /// </para>
+    /// </remarks>
+    private void StepLight()
+    {
+        _propagator.ForgetCache();
+
+        long deadline = _nowTicks() + _lightBudgetTicks;
+
+        // Collecting from before the first derive, not just across the drain. A rebuild's
+        // Invalidate resets cells to their own source, and a cell that drops on the spot and is
+        // never touched again by the walk would otherwise move with nothing reporting it.
+        _lightChanges.Clear();
+        _propagator.Changes = _lightChanges;
+
+        // Checked after building and never before, so every frame makes progress — the same
+        // shape as ApplyResults, and for the same reason: one derive costing more than the whole
+        // budget would otherwise be deferred forever and the queue behind it with it.
+        while (_lightBuilds.Count > 0)
+        {
+            BuildLight(_lightBuilds.Dequeue());
+            if (_nowTicks() >= deadline) break;
+        }
+
+        _propagator.Drain(_nowTicks, deadline);
+        _propagator.Changes = null;
+
+        MarkRelitChunks();
+        ReleaseLightWaiters();
+    }
+
+    /// <summary>
+    /// Rebuilds one chunk's conductance, emission and sky flags, and queues a repair for every
+    /// cell that moved.
+    /// </summary>
+    private void BuildLight(ChunkPos position)
+    {
+        if (!_streamer.TryGet(position, out StreamedChunk chunk))
+        {
+            return;
+        }
+
+        chunk.LightBuildQueued = false;
+
+        // Re-checked rather than trusted from when it was queued. A neighbour can have been
+        // forgotten in between, and deriving against a chunk that has since gone would record
+        // conductance against voxels nobody can see.
+        if (chunk.Sky is null || !_streamer.TryLightNeighbours(position, out uint present))
+        {
+            return;
+        }
+
+        bool fresh = chunk.Light is null;
+        chunk.Light ??= new ChunkLight();
+
+        if (fresh)
+        {
+            // A grid appearing where there was none invalidates whatever the cache is holding.
+            _propagator.ForgetCache();
+
+            // And its neighbours have to push into it again. Everything they sent while it had
+            // no grid was dropped on the floor, and nothing else remembers having tried.
+            _propagator.SpreadInto(position);
+        }
+
+        _derivedChanges.Clear();
+
+        if (TryUniformNeighbourhood(position, out int uniform))
+        {
+            chunk.Light.BuildDerivedUniform(
+                uniform, _materials, position, chunk.Sky, _derivedChanges);
+            UniformLightBuilds++;
+        }
+        else
+        {
+            for (int dz = -1; dz <= 1; dz++)
+            for (int dx = -1; dx <= 1; dx++)
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                _lightNeighbourhood[PaddedChunk.NeighbourIndex(dx, dy, dz)] =
+                    _streamer.Get(position.Offset(dx, dy, dz))?.Voxels;
+            }
+
+            // Air for a missing neighbour, matching the mesh job. It cannot matter here: a chunk
+            // that is not loaded has no light grid either, so the propagation stops at that face
+            // whatever its conductance bit says.
+            _lightPadded.CopyFrom(_lightNeighbourhood, MaterialIds.AirNumericId);
+
+            chunk.Light.BuildDerived(
+                _lightPadded, _materials, position, chunk.Sky, _derivedChanges);
+        }
+
+        chunk.LightNeighbours = present;
+        LightBuilds++;
+
+        // Every cell BuildDerived reported, and only those. Its contract is that the set is the
+        // exact repair scope — conductance, emission and the sky flag all reach the propagation
+        // the same way, so one list covers a tunnel opening, a lamp being placed and a shaft
+        // breaking through to daylight with no case analysis. A face closing needs no expansion
+        // to the six neighbours because conductance is recorded on both cells of a face, so a
+        // changed face always reports both.
+        foreach (LightCellPos cell in _derivedChanges)
+        {
+            _propagator.Invalidate(cell);
+        }
+
+        // Nothing else would look at this chunk again. A derive happens off the work list, on
+        // its own budgeted queue, so the chunk it just made eligible for GenerationStage.Lit has
+        // to be handed back — miss this and the pipeline stalls with every grid built, the
+        // propagator idle and no chunk ever meshing.
+        Push(position);
+    }
+
+    /// <summary>
+    /// Whether this chunk and the six across its faces are all one uniform material.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Six, not twenty-six, and that is a property of light rather than an approximation.</b>
+    /// Conductance reads one voxel layer across each cell face and emission reads only the
+    /// chunk's own interior — nothing in the derivation ever looks at an edge or a corner. The
+    /// mesher needs all 26 because vertex AO samples diagonally; light does not.
+    /// </para>
+    /// <para>
+    /// A missing neighbour disqualifies rather than being treated as air, which costs the fast
+    /// path at the very edge of the loaded region and keeps this a pure optimisation: the two
+    /// build paths must agree, and "absent counts as air" is a rule only one of them would know.
+    /// </para>
+    /// </remarks>
+    private bool TryUniformNeighbourhood(ChunkPos centre, out int material)
+    {
+        material = MaterialIds.AirNumericId;
+
+        VoxelChunk? own = _streamer.Get(centre)?.Voxels;
+        if (own is not { IsUniform: true })
+        {
+            return false;
+        }
+
+        material = own.UniformValue;
+
+        for (int face = 0; face < VoxelFace.Count; face++)
+        {
+            int[] offset = VoxelFace.Offset[face];
+            VoxelChunk? neighbour =
+                _streamer.Get(centre.Offset(offset[0], offset[1], offset[2]))?.Voxels;
+
+            if (neighbour is not { IsUniform: true } || neighbour.UniformValue != material)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Marks for rebuild every already-drawn chunk that samples a cell the drain moved.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The owner plus, for a cell on a boundary, its neighbours</b> — because a mesh samples
+    /// light from a padded grid reaching one cell past each face. Marking only the owner is the
+    /// break-recipe and the symptom is a light seam on the chunk grid.
+    /// </para>
+    /// <para>
+    /// The expansion is ~2 chunks per changed cell on average, not 8: an 8³ chunk is 42%
+    /// interior, and an interior cell expands to itself alone.
+    /// </para>
+    /// </remarks>
+    private void MarkRelitChunks()
+    {
+        if (_lightChanges.Count == 0)
+        {
+            return;
+        }
+
+        _relitChunks.Clear();
+        Span<ChunkPos> dirty = stackalloc ChunkPos[ChunkEdits.MaxDirtyChunks];
+
+        foreach (LightCellPos cell in _lightChanges)
+        {
+            int count = ChunkEdits.DirtyChunks(cell, dirty);
+            for (int i = 0; i < count; i++)
+            {
+                _relitChunks.Add(dirty[i]);
+            }
+        }
+
+        foreach (ChunkPos position in _relitChunks)
+        {
+            MarkForRelight(position);
+        }
+    }
+
+    /// <summary>
+    /// A chunk whose sampled light moved needs a new mesh — but only if it has drawn one.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not urgent, and only for a chunk that has actually drawn something.</b> A chunk that
+    /// has never meshed is held by the barrier until its light exists and will read the current
+    /// grid when it does, so marking it buys nothing and costs the priority ordering: during the
+    /// initial fill every chunk's light changes, and an urgency inferred from that arrives the
+    /// whole distance-ordered queue at band3. Nothing looks broken; the world loads in the wrong
+    /// order.
+    /// </remarks>
+    private void MarkForRelight(ChunkPos position)
+    {
+        if (!_streamer.TryGet(position, out StreamedChunk chunk))
+        {
+            return;
+        }
+
+        // Meshing counts as drawn: a chunk part-way through a mesh is about to be, from a grid
+        // that has since moved. Same shape as NeedsRemesh surviving a mesh completing.
+        if (!chunk.HasLiveMesh && chunk.State != ChunkState.Meshing)
+        {
+            return;
+        }
+
+        if (!chunk.NeedsRemesh)
+        {
+            RelightRemeshes++;
+        }
+
+        chunk.NeedsRemesh = true;
+        Push(position);
+    }
+
+    /// <summary>
+    /// Hands back the chunks that were waiting only on the propagation, once it has settled.
+    /// </summary>
+    private void ReleaseLightWaiters()
+    {
+        if (_awaitingLight.Count == 0 || LightInFlight)
+        {
+            return;
+        }
+
+        foreach (ChunkPos position in _awaitingLight)
+        {
+            if (_streamer.TryGet(position, out StreamedChunk chunk))
+            {
+                chunk.AwaitingLight = false;
+            }
+
+            Push(position);
+        }
+
+        _awaitingLight.Clear();
+    }
+
+    /// <summary>Queues a derived light build, at most once per chunk per build.</summary>
+    private void QueueLightBuild(ChunkPos position)
+    {
+        if (!_streamer.TryGet(position, out StreamedChunk chunk) || chunk.LightBuildQueued)
+        {
+            return;
+        }
+
+        chunk.LightBuildQueued = true;
+        _lightBuilds.Enqueue(position);
+    }
+
+    /// <summary>
+    /// Queues a derived rebuild for every chunk in one chunk column, for a sky height that moved.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The two rebuild scopes after an edit are different shapes, and conflating them costs
+    /// ~40×.</b> Conductance reaches only the edited chunk plus a neighbour across whichever
+    /// faces the voxel actually touches — an interior voxel, 30 in 32, is one chunk. A change to
+    /// the column's <em>sky height</em> is not local at all: it moves the sky flag the whole way
+    /// up and down that chunk column, and nowhere else.
+    /// </para>
+    /// <para>
+    /// <b>Walking outward until the column stops being tracked is exact, gaps included.</b> With
+    /// one viewer the loaded region is a box and the column is contiguous. With two viewers at
+    /// different heights it may have a hole — and stopping at the hole is right rather than a
+    /// limitation, because a chunk with no light grid is where propagation stops anyway.
+    /// </para>
+    /// </remarks>
+    private void QueueColumnLightBuild(ChunkPos origin)
+    {
+        for (int y = origin.Y; _streamer.IsTracked(new ChunkPos(origin.X, y, origin.Z)); y++)
+        {
+            QueueLightBuild(new ChunkPos(origin.X, y, origin.Z));
+        }
+
+        for (int y = origin.Y - 1; _streamer.IsTracked(new ChunkPos(origin.X, y, origin.Z)); y--)
+        {
+            QueueLightBuild(new ChunkPos(origin.X, y, origin.Z));
+        }
     }
 
     /// <summary>
@@ -476,6 +1002,12 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
             return;
         }
 
+        // Ahead of the state machine, because light is a stage rather than a state: it has no
+        // job, so it is not one of the things a chunk can be doing instead of something else.
+        // A chunk with voxels derives them whatever state it is in, the outermost load ring
+        // included — see AdvanceLight.
+        AdvanceLight(chunk);
+
         switch (chunk.State)
         {
             case ChunkState.Queued:
@@ -512,13 +1044,80 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         }
     }
 
+    /// <summary>
+    /// Everything light-related a chunk might be ready for: deriving its cells, and the stage
+    /// that lets its neighbours mesh.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Deriving asks for voxels, not for a stage, and that is what keeps light off the load
+    /// margin.</b> Gating it behind <see cref="GenerationStage.Features"/> everywhere would add a
+    /// third rung to the ladder that sets the margin and push it from 2 to 3. Instead the
+    /// outermost loaded ring derives its cells and joins the propagation while never reaching
+    /// <see cref="GenerationStage.Lit"/> and never meshing — which is exactly the arrangement
+    /// that makes light exact inside the visible box at a 2-chunk margin.
+    /// </para>
+    /// <para>
+    /// <b>Revisit trigger, and it is a real one: when <c>ApplyFeatures</c> starts placing
+    /// anything, it must route through the relight path the way <see cref="SetVoxel"/> does.</b>
+    /// Deriving at <see cref="GenerationStage.Terrain"/> is sound today only because the feature
+    /// stage writes nothing; a feature that writes into a neighbour is an edit by another name,
+    /// and the machinery to repair it already exists.
+    /// </para>
+    /// </remarks>
+    private void AdvanceLight(StreamedChunk chunk)
+    {
+        if (!_streamer.TryLightNeighbours(chunk.Position, out uint present))
+        {
+            return;
+        }
+
+        // Never built, or built against a neighbour that was missing and has since arrived.
+        // Gain only: a neighbour that goes away takes its grid with it, so propagation stops at
+        // that face whatever the conductance bit says, and rebuilding for it would thrash the
+        // boundary as a viewer moves back and forth.
+        if (chunk.Light is null || (present & ~chunk.LightNeighbours) != 0)
+        {
+            QueueLightBuild(chunk.Position);
+            return;
+        }
+
+        if (chunk.Stage != GenerationStage.Features || !chunk.Light.HasDerived)
+        {
+            return;
+        }
+
+        if (LightInFlight)
+        {
+            // Parked rather than dropped: nothing pushes a chunk when a queue somewhere else
+            // goes empty, so without this it would wait for the next unrelated thing to happen
+            // to it — which for an interior chunk of a stationary world is never.
+            if (!chunk.AwaitingLight)
+            {
+                chunk.AwaitingLight = true;
+                _awaitingLight.Add(chunk.Position);
+            }
+
+            return;
+        }
+
+        chunk.Stage = GenerationStage.Lit;
+
+        // M2c-2's rule, and light is the case it was written for: light arriving may be the last
+        // thing this whole neighbourhood was waiting on before it can mesh. Miss this push and
+        // the pipeline stalls silently with everything idle and nothing obviously wrong.
+        PushWithNeighbours(chunk.Position);
+    }
+
     private void SubmitMesh(StreamedChunk chunk)
     {
-        // Urgent exactly when an edit caused this. Streaming meshes are ordered by distance
-        // and can wait; a remesh the player is looking at cannot, or the rock they just broke
-        // stays on screen while the horizon loads.
-        bool urgent = chunk.NeedsRemesh;
+        // Urgent exactly when an edit caused this — never when light merely moved. Streaming
+        // meshes are ordered by distance and can wait; a remesh the player is looking at cannot,
+        // or the rock they just broke stays on screen while the horizon loads. Light that is
+        // 100 ms stale is invisible, which is why a relight does not claim the same band.
+        bool urgent = chunk.RemeshUrgent;
         chunk.NeedsRemesh = false;
+        chunk.RemeshUrgent = false;
 
         if (urgent)
         {

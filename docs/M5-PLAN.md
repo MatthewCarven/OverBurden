@@ -71,6 +71,14 @@ visits**. At a guessed ~20 ns per visit that is ~15 ms of work, spread across fr
 budget — a quarter of a second to light a world from a standing start, against the ~0.22 s the
 player already waits for the spawn gate. Both numbers are estimates and M5d measures the first.
 
+> **Superseded at M5c-1, and the correction is not the one this paragraph expects.** The
+> propagation estimate was good — **585k visits measured against 779k predicted**. What it
+> costed is not what dominates: **deriving** each chunk's conductance, emission and sky flags is
+> the larger half by an order of magnitude, at **0.20–0.33 ms a chunk in Release** and ~0.41 s
+> for the whole fill, of which `PaddedChunk.CopyFrom` is 60–75%. The light budget is 4 ms a
+> frame, swept against when the world can first *draw* rather than against throughput. See the
+> 2026-08-30 M5c-1 worklog entry.
+
 ### 2. Light is sampled per vertex, and that puts it in the merge key
 
 DESIGN says *"sample trilinearly at mesh time"*, and the vertex channel has been reserved for it
@@ -529,6 +537,17 @@ A chunk's light is final when two separate things hold, and only one of them is 
 So: **a chunk advances to `Lit` when its derived data is built and the propagator has no work
 outstanding.** A per-chunk stage whose condition carries one global term.
 
+> **Built at M5c-1, with one thing this section did not foresee: the two halves must be gated
+> separately or the load margin grows from 2 to 3.** Following the ladder mechanically — mesh at
+> R needs R+1 `Lit`, `Lit` at R+1 needs R+2 at `Features`, `Features` at R+2 needs R+3 — adds a
+> third ring, **+17% chunks on top of M2c's +41%**, permanently and on every axis. It is
+> avoidable because **deriving asks for voxels, not for a stage**: the outermost loaded ring
+> derives its cells and joins the propagation while never reaching `Lit` and never meshing, which
+> is exactly the arrangement the margin's third load-bearing reason already describes.
+> **Revisit trigger: when `ApplyFeatures` starts placing anything it must route through the
+> relight path the way `SetVoxel` does**, since deriving at `Terrain` is sound today only
+> because the feature stage writes nothing.
+
 **Rejected: a per-chunk count of how many of its cells are queued.** It looks like the way to
 make the temporal half local, and it is wrong in the direction that does not show up in testing —
 a chunk with no queued cells of its own can still have a neighbour's frontier one step from
@@ -667,6 +686,19 @@ What remains a *look* question for M5d is whether it reads better, not whether i
 - **The no-chunk-left-waiting fuzz, extended.** It exists, it runs against a real scheduler on
   real threads, and a light stage is exactly the kind of addition that can leave a chunk waiting
   on something that already happened.
+
+> **M5c-1 correction to the sky-height warning above.** M5b's oracle section says the fuzz "must
+> include edits that break through a column's topmost opaque voxel, or the sky-height path never
+> runs and it passes for the wrong reason". The first shaft test here *did* break through, the
+> column *did* move, and it still passed on code that rebuilt only the edited chunk — because a
+> **one-voxel bore is never a sky source**. A cell is open to the sky only when all sixteen of
+> its voxel columns are, so the bore's light arrived by free fall from above, which conductance
+> alone gives and takes away. Only a **cell-wide** shaft makes the cells below sources in their
+> own right, and only then does clearing the flag in an unedited chunk matter.
+>
+> **A warning about which code path runs is not a warning about which property is checked** —
+> and the same trap caught the first deterministic test for `SpreadInto`, where a sky shaft's
+> cells relit themselves. Both times the fixture was the flaw, not the assertion.
 
 ---
 

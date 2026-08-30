@@ -1,5 +1,6 @@
 using MinerCraft.Core.Content;
 using MinerCraft.Core.Jobs;
+using MinerCraft.Core.Lighting;
 using MinerCraft.Core.Voxels;
 using MinerCraft.Core.Worldgen;
 
@@ -20,7 +21,7 @@ namespace MinerCraft.Core.Streaming;
 /// renderer and without threads.
 /// </para>
 /// </remarks>
-public sealed class ChunkStreamer : IVoxelWorld
+public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
 {
     /// <summary>
     /// How many chunks are loaded beyond what a viewer can actually see.
@@ -67,13 +68,32 @@ public sealed class ChunkStreamer : IVoxelWorld
 
     private readonly Dictionary<ChunkPos, StreamedChunk> _chunks = [];
     private readonly Dictionary<ViewerId, Viewer> _viewers = [];
+    private readonly Dictionary<(int X, int Z), SkyColumnEntry> _columns = [];
     private readonly ViewerSet? _priorityViewers;
+    private readonly ISurfaceHeights? _heights;
     private readonly Action<StreamedChunk>? _onChunkViewed;
     private readonly Action<StreamedChunk>? _onChunkUnviewed;
     private readonly int _loadMargin;
 
     private int _nextViewerId = 1;
     private int _viewedCount;
+
+    /// <summary>
+    /// A sky column and how many tracked chunks share it.
+    /// </summary>
+    /// <remarks>
+    /// <b>A second refcount, on a different axis and over a different object</b>, and M2c's
+    /// recorded "don't add a second refcount to fix the margin" is emphatically not this. A
+    /// column spans every chunk Y at one (x, z), so it has to survive the vertical unload the
+    /// chunk refcount performs as the player descends — which is precisely the thing a per-chunk
+    /// count cannot express.
+    /// </remarks>
+    private sealed class SkyColumnEntry(SkyColumn column)
+    {
+        public SkyColumn Column { get; } = column;
+
+        public int RefCount { get; set; }
+    }
 
     /// <param name="priorityViewers">
     /// Kept in step with the registered viewers, so job priority and streaming decisions
@@ -90,11 +110,17 @@ public sealed class ChunkStreamer : IVoxelWorld
     /// immediately afterwards unless a worker still owes it a result.
     /// </param>
     /// <param name="loadMargin">See <see cref="DefaultLoadMargin"/>.</param>
+    /// <param name="heights">
+    /// Seeds each chunk column's skylight analytically. Optional, because most of the streaming
+    /// policy has nothing to do with light and its tests should not have to supply a world
+    /// generator; a streamer without one hands out no sky columns and lights nothing.
+    /// </param>
     public ChunkStreamer(
         ViewerSet? priorityViewers = null,
         Action<StreamedChunk>? onChunkViewed = null,
         Action<StreamedChunk>? onChunkUnviewed = null,
-        int loadMargin = DefaultLoadMargin)
+        int loadMargin = DefaultLoadMargin,
+        ISurfaceHeights? heights = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(loadMargin);
 
@@ -102,6 +128,7 @@ public sealed class ChunkStreamer : IVoxelWorld
         _onChunkViewed = onChunkViewed;
         _onChunkUnviewed = onChunkUnviewed;
         _loadMargin = loadMargin;
+        _heights = heights;
     }
 
     public int ViewerCount => _viewers.Count;
@@ -264,8 +291,72 @@ public sealed class ChunkStreamer : IVoxelWorld
     public bool CanMesh(ChunkPos position)
     {
         StreamedChunk? chunk = Get(position);
-        return chunk is { Stage: GenerationStage.Features }
-               && AllNeighboursAtLeast(position, GenerationStage.Features);
+        return chunk is { Stage: GenerationStage.Lit }
+               && AllNeighboursAtLeast(position, GenerationStage.Lit);
+    }
+
+    /// <summary>This chunk's light cells, or null if it is not loaded or not yet lit.</summary>
+    /// <remarks>
+    /// <b>A null grid stops propagation, and that is correct rather than a fallback</b> — light
+    /// reaches 15 m and the margin is 16 m, so a source outside the loaded region cannot
+    /// contribute inside the visible box. See <see cref="ChunkLight.MaxLevel"/>.
+    /// </remarks>
+    public ChunkLight? LightAt(ChunkPos chunk) => Get(chunk)?.Light;
+
+    /// <summary>How many sky columns are alive. The refcount's observable side.</summary>
+    public int SkyColumnCount => _columns.Count;
+
+    /// <summary>
+    /// Whether <paramref name="position"/>'s derived light data can be built now, and from which
+    /// of the 27 neighbourhood slots.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Voxels, not a stage — and that is what keeps light off the load margin.</b> Gating this
+    /// behind <see cref="GenerationStage.Features"/> for all 26 neighbours would put a third rung
+    /// on the ladder that sets the margin, and the margin would have to grow from 2 to 3. Reading
+    /// what voxels exist instead means the outermost loaded ring builds its data and joins the
+    /// propagation while never reaching <see cref="GenerationStage.Lit"/> and never meshing.
+    /// </para>
+    /// <para>
+    /// <b>An untracked neighbour is skipped; a tracked one without voxels blocks.</b> The
+    /// difference is whether it will ever contradict what we assumed. A chunk that is not loaded
+    /// reads as air and has no light grid either, so propagation stops at that face whatever the
+    /// conductance bit says — harmless, and it is what lets the outermost ring proceed. A chunk
+    /// that is loaded but still generating <em>will</em> have voxels shortly, and recording a
+    /// face as conducting against air it is about to fill is a wall that leaks light for as long
+    /// as it exists.
+    /// </para>
+    /// </remarks>
+    /// <param name="present">
+    /// Bit <c>PaddedChunk.NeighbourIndex(dx, dy, dz)</c> set for each slot that had voxels.
+    /// Stored on the chunk so that a neighbour appearing later triggers exactly one rebuild —
+    /// see <see cref="StreamedChunk.LightNeighbours"/>.
+    /// </param>
+    public bool TryLightNeighbours(ChunkPos position, out uint present)
+    {
+        present = 0;
+
+        for (int dz = -1; dz <= 1; dz++)
+        for (int dx = -1; dx <= 1; dx++)
+        for (int dy = -1; dy <= 1; dy++)
+        {
+            StreamedChunk? neighbour = Get(position.Offset(dx, dy, dz));
+            if (neighbour is null)
+            {
+                continue;
+            }
+
+            if (!neighbour.HasVoxels)
+            {
+                return false;
+            }
+
+            present |= 1u << PaddedChunk.NeighbourIndex(dx, dy, dz);
+        }
+
+        // The centre is one of the 27, so this also covers "this chunk has no voxels yet".
+        return (present & (1u << PaddedChunk.NeighbourIndex(0, 0, 0))) != 0;
     }
 
     /// <summary>True when all 26 surrounding chunks are loaded and have reached <paramref name="stage"/>.</summary>
@@ -319,7 +410,7 @@ public sealed class ChunkStreamer : IVoxelWorld
     {
         if (!_chunks.TryGetValue(position, out StreamedChunk? chunk))
         {
-            chunk = new StreamedChunk(position);
+            chunk = new StreamedChunk(position) { Sky = RetainColumn(position) };
             _chunks[position] = chunk;
         }
 
@@ -382,6 +473,59 @@ public sealed class ChunkStreamer : IVoxelWorld
 
         chunk.Cancellation?.Dispose();
         chunk.Cancellation = null;
+
+        // The light grid goes with the chunk rather than being kept warm for a revival. A
+        // returning chunk regenerates its voxels from the seed, so keeping light derived from
+        // the previous ones would be keeping the one thing guaranteed to be re-derived anyway —
+        // and a stale grid is indistinguishable from a fresh one, which is the bad direction.
+        chunk.Light = null;
+        chunk.LightNeighbours = 0;
+        chunk.Sky = null;
+        ReleaseColumn(chunk.Position);
+    }
+
+    /// <summary>The sky column for a chunk's (x, z), created and seeded on first use.</summary>
+    private SkyColumn? RetainColumn(ChunkPos position)
+    {
+        if (_heights is null)
+        {
+            return null;
+        }
+
+        (int X, int Z) key = (position.X, position.Z);
+
+        if (!_columns.TryGetValue(key, out SkyColumnEntry? entry))
+        {
+            var column = new SkyColumn(position.X, position.Z);
+
+            // 1,024 surface evaluations, once per column rather than once per chunk — the
+            // vertical radius is what makes that ratio worth having. M5d measures it.
+            column.Seed(_heights);
+
+            entry = new SkyColumnEntry(column);
+            _columns[key] = entry;
+        }
+
+        entry.RefCount++;
+        return entry.Column;
+    }
+
+    private void ReleaseColumn(ChunkPos position)
+    {
+        (int X, int Z) key = (position.X, position.Z);
+
+        if (!_columns.TryGetValue(key, out SkyColumnEntry? entry))
+        {
+            return;
+        }
+
+        if (--entry.RefCount <= 0)
+        {
+            // Dropped with the last chunk of the column, which loses any edited sky heights —
+            // consistent with M3's recorded limitation that an unloaded edited chunk loses its
+            // edits. M6 persists both, and it is the same decision for both.
+            _columns.Remove(key);
+        }
     }
 
     /// <summary>

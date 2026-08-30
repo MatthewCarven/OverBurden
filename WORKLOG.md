@@ -1,5 +1,219 @@
 # MinerCraft — Worklog
 
+## 2026-08-30 — M5c-1: the light stage, and light turns out to need no margin ring
+
+Done. Suite **518 → 542**. `GenerationStage.Lit` is a third rung on the barrier;
+`ChunkStreamer` implements `ILightChunks` and owns a `ChunkLight` per chunk plus a `SkyColumn`
+per (x, z) with its own refcount; the propagation drains on the sim thread under a time slice;
+and an edit updates the sky column, queues a derive, and marks for remesh exactly the drawn
+chunks whose sampled light moved.
+
+**M5c was split M5c-1 / M5c-2** on the same grounds M2c and M2d were split: everything here is
+verifiable headlessly, and nothing in the other half — the trilinear sample, the shader, the
+sun going away — is. **A lamp still does not glow. That is M5c-2.**
+
+### Light needs no third margin ring, and it was one decision away from needing one
+
+Following the existing ladder mechanically: a chunk meshes when its neighbours are `Lit`; a
+chunk is `Lit` when its neighbours are at `Features`; a chunk reaches `Features` when *its*
+neighbours have terrain. Three rungs, so the load margin grows from 2 to 3 — **+17% chunks on
+top of M2c's +41%**, paid on every axis, forever.
+
+It is avoidable because **deriving a chunk's light asks for voxels, not for a stage.** The
+outermost loaded ring derives its cells and joins the propagation while never reaching `Lit` and
+never meshing — which is not a workaround but exactly the arrangement the margin's third
+load-bearing reason already describes. `TryLightNeighbours` reads what voxels exist: an
+*untracked* neighbour is skipped (it reads as air, it has no grid, so propagation stops at that
+face whatever the conductance bit says), and a *tracked* one without voxels blocks (it will have
+voxels shortly, and recording a face as conducting against air it is about to fill is a wall
+that leaks light for as long as it exists).
+
+**Revisit trigger, and it is a real one: when `ApplyFeatures` starts placing anything, it must
+route through the relight path the way `SetVoxel` does.** Deriving at `Terrain` is sound today
+only because the feature stage writes nothing. A feature that writes into a neighbour is an edit
+by another name, and the machinery to repair it already exists.
+
+### The bug M5b could not have found: a push into a chunk that does not exist yet
+
+The propagation **pushes rather than pulls**, so a push into a chunk with no grid is dropped.
+That is correct while the chunk will never exist, and a lost update the moment it arrives three
+frames later — and **nothing remembered having tried**. The neighbour that pushed left both
+queues long ago, and a new chunk seeding its own sources says nothing about light arriving from
+outside it.
+
+The symptom is a chunk lit towards whichever neighbours were derived after it and dark towards
+those derived before, so it **moves with worker scheduling**: it showed up as a one-in-six flake
+in `UnloadingReleasesTheLightGridAndReturningRebuildsIt`, reported by the fixpoint oracle as
+`Cell(11, -1, -8) Sky: holds 14, neighbours and its own source say 15`.
+
+**M5b could not have found it.** Every fixture there builds all of its grids before lighting any
+of them, which is a luxury the streamer does not have — chunks arrive in whatever order eight
+workers finish. `LightPropagator.SpreadInto` re-spreads from the **six adjacent face layers**
+whenever a grid comes into existence; not the whole 488-cell shell, because light crosses faces
+only and the twelve edges and eight corners cannot conduct into the chunk at all. Re-spreading
+without darkening, because the add pass only writes where it is strictly brighter, so it is
+idempotent.
+
+### The first deterministic test for it passed on broken code
+
+A one-in-six detector is not a detector, so the bug was pinned deterministically at the
+propagator level. The first attempt dropped the grid of a chunk under a **sky shaft** — and
+every cell of an open shaft is *itself* a full sky source, so rebuilding the derived data
+re-seeds the whole chunk and it relights with no help from anyone. It passed with `SpreadInto`
+disabled.
+
+The shape that separates the arms is **a lamp in the neighbouring chunk, underground**: the
+restored chunk then has nothing intrinsic anywhere in it, so every lit cell in it arrived from
+outside. Catches the defect in 207 ms, every time.
+
+**Fourth time this project's rule has earned itself, and a new variety of it.** M3a's fuzz hung
+instead of failing; M3b's first oracle was wrong in the subject's favour; M3c had a test whose
+comment claimed a coverage it did not have; this one was **a scenario that made both arms
+agree** — the trap is not the assertion, it is the fixture.
+
+### The plan costed the wrong half of M5, by an order of magnitude
+
+M5-PLAN estimated the initial fill at ~779k cell visits and ~15 ms, and said nothing at all
+about **deriving**, which is the larger half. Measured in Release against the shipped seed with
+caves on:
+
+```
+             copy      derive    total
+ surface     0.189     0.056     0.245 ms
+ deep        0.177     0.150     0.327 ms
+ open sky    0.155     0.049     0.204 ms
+```
+
+So ~0.27 ms a chunk and **~0.41 s for the whole 1,521-chunk fill** — against generation's
+0.47 ms a chunk, except that this is one sim thread rather than eight workers. The budget is
+2 ms a frame, matching the result budget: ~200 frames to light the world, comfortably inside the
+load it accompanies.
+
+**The lever, if M5d wants one, is `PaddedChunk.CopyFrom` and not the derivation.** The copy is
+60–75% of every row above, and it recomputes the neighbour index per voxel where 27 block copies
+would do — which would speed up meshing too, since a mesh job builds one of these per chunk as
+well. **Named and deliberately not built**, because raising the budget bought back the whole
+regression on its own.
+
+### The budget is 4 ms, and the standing start is what says so
+
+Light delays the *first draw*, because nothing meshes until its neighbourhood is lit — so the
+number that matters is not throughput but when the world can show anything. Swept headlessly at
+r4h/2v, read at the 5 s report:
+
+```
+  1 ms    857 / 1521 derived, 664 queued,   0 drawn
+  2 ms   1467 / 1521 derived,  54 queued,   0 drawn
+  4 ms   1521 / 1521 derived,   0 queued, 165 drawn, settled
+  8 ms   identical to 4 ms
+```
+
+**2 ms was a real regression and it was invisible in the tests**, which pass their own generous
+budget. 4 ms restores M2d's recorded "settled inside 5 s"; 8 ms buys nothing, because light has
+stopped being the constraint. It is **a ceiling and not a reservation** — once the world is lit
+nothing is queued and the step costs nothing, so the 24% of a 60 Hz frame it permits is spent
+during a load and never afterwards. `--lightbudget=` makes the sweep a shell loop, the fourth
+seam of that shape after `--cavestep`, `--applybudget` and `--ao`.
+
+**With it, the headless contract is unchanged to the digit:** 1521 viewed (1521 tracked), 165
+drawn, 1926 jobs, 492 quads per drawn chunk. M2d's and M5a's figures, with light now in the
+barrier — which is what keeps M5d's measurements comparable with everything before them.
+
+The real-world light numbers, which the test world got wrong in both directions:
+
+```
+1521 derives / 1521 tracked (299 uniform, 20%), 585,012 cells visited,
+169 sky columns, 0 relight remeshes, light settled
+```
+
+- **Exactly one derive per chunk**, in the real world and not just the fixture.
+- **The uniform closed form covers 20%**, against 12% measured in the all-surface test world and
+  M2b's 68% for chunks considered alone. Requiring the six face neighbours uniform *and equal* is
+  what costs the difference.
+- **585k cell visits against M5-PLAN's estimated 779k.** The plan's propagation arithmetic was
+  good — 25% high — which sharpens the finding rather than softening it: **the estimate it got
+  right was not the one that mattered.**
+- **Zero relight remeshes during the fill**, which is the priority ordering staying intact. A
+  relight that marked undrawn chunks would show up here as a large number and as the whole
+  distance-ordered queue arriving at band3.
+
+One optimisation *was* built, because it removes the copy rather than making it faster: **a
+uniform neighbourhood has a closed form** — every face conducts iff the material is not opaque,
+every cell emits what the material emits — and it needs no voxel copy at all. It is pinned
+against the general path cell for cell and face for face, the `IsCaveAt`/`GenerateTerrain` shape
+of test, because two derivations of one field is two derivations that can drift.
+
+**Its coverage measured at only 12% in the test world**, which is all surface. M2b's "68% of
+chunks are uniform" is about chunks alone; this needs the chunk *and its six face neighbours*
+uniform and equal, which is strictly rarer. **A real-world coverage number is an M5d
+measurement.** Also worth recording: **light's dependency set is the six face neighbours, not
+the mesher's twenty-six** — conductance reads one voxel layer across each cell face and emission
+reads only the chunk's own interior, so nothing in the derivation ever looks at an edge or a
+corner. That is what makes the uniform case checkable at all: seven chunk headers, not
+twenty-seven.
+
+### The break-recipe battery found three holes, and each was a different kind
+
+Twelve recipes, one decision each, against the whole suite. Nine were caught — some loudly:
+**"advancing to `Lit` does not push its 26 neighbours" fails 14 tests**, which is M2c-2's rule
+being load-bearing in a new place. Three were caught by nothing, and the interesting part is
+that no two were the same kind of gap.
+
+**1. `bool urgent = chunk.NeedsRemesh` put back into `SubmitMesh` — 0 failed.** The two-flag
+split is the entire mitigation M5-PLAN names, and nothing asserted it. Both existing tests
+checked the *sign* of the counters, and with the mutation the relight remeshes merely got counted
+as edit remeshes as well, so both stayed non-zero. `OnlyTheChunkHoldingTheLampIsUrgent` asserts
+the number: a lamp in the interior of a chunk dirties exactly one chunk by voxels, so
+`EditRemeshes` must be exactly 1 however many chunks the light reached.
+
+**2. `(present & ~chunk.LightNeighbours) != 0` weakened to `present != …` — 0 failed.** A
+scenario that makes both arms agree: on a still world the mask never moves and the two rules are
+the identity. Two overlapping viewers is the shape that separates them — removing the second
+unloads its exclusive chunks, so every chunk left standing near that boundary *loses* a
+neighbour and none gains one. `LosingANeighbourReDerivesNothing`.
+
+**3. `QueueColumnLightBuild` reduced to the edited chunk alone — 0 failed, and `AShaftDugFromTheSurfaceCarriesDaylightToItsFloor` did not notice.** This one is the subtlest.
+That test digs a **one-voxel bore**, and a one-voxel bore never makes any cell a sky source,
+because a cell is open to the sky only when **all sixteen** of its voxel columns are. Its light
+arrives by free fall from above instead — which conductance alone can give and take away, so the
+sky-height half of the rebuild never mattered to it.
+
+A **cell-wide** shaft is the shape that separates them: every cell down it is a sky source in its
+own right, so capping the top has to clear the source flag in chunks nobody edited. Rebuild only
+the edited chunk and the shaft below sits at full daylight with a rock cap over it.
+`CappingACellWideShaftPutsTheDarkBackInChunksTheCapIsNotIn` asserts the deep cell is in a
+different chunk from the cap, so it cannot quietly stop covering the thing it exists for.
+
+**M5-PLAN warned about exactly this and the warning was not enough.** It says the fuzz "must
+include edits that break through a column's topmost opaque voxel, or the sky-height path never
+runs and it passes for the wrong reason". The path *did* run — the column moved, the sky flags
+were rebuilt — and the test still passed for the wrong reason, because the flags it rebuilt were
+never the ones carrying the light. **A warning about which code path runs is not a warning about
+which property is being checked.**
+
+One recipe's patch string did not match and was re-run separately. And
+`JobSchedulerTests.AThrowingJobFaultsWithoutTakingTheWorkerDownWithIt` failed in one arm and
+passes on a clean tree — M2a's known flake, already recorded, not M5's.
+
+### Two smaller things worth not rediscovering
+
+**A derive happens off the work list, so it has to hand the chunk back.** `BuildLight` runs from
+its own budgeted queue and the chunk it just made eligible for `Lit` is not otherwise looked at
+again. Missing that push stalls the pipeline with every grid built, the propagator idle, and no
+chunk ever meshing — M2c-2's rule in a new costume.
+
+**`IsQuiescent` moved onto the pipeline**, because M5c added two queues to the definition. The
+test harness settled on "no jobs, empty work list", which after this change reported quiescence
+while every chunk sat one stage short of meshing. Not a wrong answer so much as an out-of-date
+one — and it is exactly what a stalled light stage looks like from outside.
+
+**The suite went 8 s → 83 s → 16 s.** Deriving is real work and `Settle` sleeps a millisecond a
+pass, so a production-sized light slice turned every pipeline test into a few hundred extra
+round trips. `PipelineHarness.GenerousLightBudget` is the fix, and a test that actually wants a
+starved budget passes its own. The cheap-fixtures rule, paid again.
+
+---
+
 ## 2026-08-30 — Settle three things M5c's plan stopped one step short of
 
 No code. Three decisions recorded before M5c starts, in the same shape as the four settled

@@ -34,6 +34,34 @@ public enum GenerationStage : byte
     /// <see cref="Terrain"/>. Places nothing yet.
     /// </summary>
     Features = 2,
+
+    /// <summary>
+    /// This chunk's light values are final: its derived data is built and the propagation has
+    /// settled. A chunk may mesh once all 26 of its neighbours are here.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A stage rather than a <c>ChunkState</c>, because light is a barrier and not a job</b> —
+    /// no new job kind, no new transition, no new way to get stuck mid-pipeline.
+    /// </para>
+    /// <para>
+    /// <b>Its condition carries one global term, and that is forced: a global BFS has no
+    /// per-chunk completion event.</b> Two things must hold and only one of them is per chunk —
+    /// every chunk within light's reach has derived data, and the propagation has actually run.
+    /// The second is global because the queue is. See docs/M5-PLAN.md, where the local-looking
+    /// substitute (counting a chunk's own queued cells) is rejected: a chunk with none of its own
+    /// queued can still have a neighbour's frontier one step from spilling in, so the count reads
+    /// settled while the light is still moving.
+    /// </para>
+    /// <para>
+    /// <b>Building derived data is a different question from reaching this stage, and conflating
+    /// them would cost a third margin ring.</b> Derived data needs <em>voxels</em>, not a stage,
+    /// so the outermost loaded ring builds it and participates in propagation while never
+    /// reaching <see cref="Lit"/> and never meshing — which is exactly what keeps light inside
+    /// the visible box exact at a 2-chunk margin.
+    /// </para>
+    /// </remarks>
+    Lit = 3,
 }
 
 /// <summary>
