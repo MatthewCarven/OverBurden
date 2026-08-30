@@ -453,11 +453,13 @@ Six things about it that are easy to undo by accident:
   one line** — require the re-attempt to be blocked on no axis the original move was not. **Not
   encountered in the 2026-08-30 play-test**, which walked up hills rather than into corners; the
   case needs provoking deliberately, so that is silence and not evidence.
-- **M4d needs a signal that does not exist:** `MoveResult` cannot tell "stopped by rock" from
-  "stopped by an unloaded chunk", which is exactly *steps spent held*, the number meant to pick
-  terminal velocity. A flag on `IsSolidUncounted` and a field on `MoveResult` — deliberately not
-  built yet, because an unread flag with no profiler consuming it is a number waiting to be
-  believed.
+- **M4d needed a signal M4b deliberately did not build, and the deferral was right.**
+  `MoveResult` could not tell "stopped by rock" from "stopped by an unloaded chunk" — exactly
+  *steps spent held*, the number that picks terminal velocity. It was left out because an unread
+  flag with no profiler consuming it is a number waiting to be believed. **Built at M4d as
+  `MoveResult.BlockedByUnloaded`, alongside the profiler that reads it**, and it was right first
+  time — while the counter written *without* a consumer in mind, M4d's ground-flicker detector,
+  was wrong twice.
 
 Horizontal velocity is **replaced from intent every step rather than accelerated** — no friction,
 no momentum, full air control — because acceleration, air control and ground friction are three

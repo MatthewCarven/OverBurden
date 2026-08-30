@@ -323,6 +323,11 @@ number meant to pick terminal velocity. It is a flag on `IsSolidUncounted` and a
 `MoveResult`, deliberately not built at M4b because an unread flag with no profiler consuming it
 is a number waiting to be believed.
 
+> **Built at M4d as `MoveResult.BlockedByUnloaded`**, a subset of `Blocked` by construction so
+> it can never contradict it. The deferral was the right call: built alongside its consumer it
+> was correct on the first attempt, while M4d's ground-flicker counter — written without one in
+> mind — was wrong twice.
+
 ---
 
 ## M4c — Binding — done 2026-08-29

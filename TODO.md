@@ -859,11 +859,12 @@ out of the world and accelerates away from anything that could stop them.
       the plan's specified behaviour and it is safe. **If M4d finds it reads as stuck, the
       relaxation is one line:** require the re-attempt to be blocked on no axis the original move
       was not already blocked on. Pinned by a test either way.
-- [ ] **M4d needs a signal that does not exist: `MoveResult` cannot tell "stopped by rock" from
-      "stopped by an unloaded chunk".** That is exactly *steps spent held*, the number meant to
-      pick terminal velocity. It is a flag on `IsSolidUncounted` and a field on `MoveResult`,
-      deliberately not built now — an unread flag with no profiler consuming it is a number
-      waiting to be believed.
+- [x] **Built at M4d: `MoveResult.BlockedByUnloaded`**, the signal telling "stopped by rock"
+      from "stopped by an unloaded chunk" — exactly *steps spent held*, the number that picks
+      terminal velocity. **Deferring it at M4b was right:** an unread flag with no profiler
+      consuming it is a number waiting to be believed, and built alongside its consumer it was
+      correct first time, while M4d's ground-flicker counter — written with no consumer in mind
+      — was wrong twice.
 - [x] **One `StepHeightMetres` for both directions**, because stepping down a lip you just
       stepped up should not behave differently. **Revisit trigger:** M4d, if a 0.5 m instant drop
       reads as a jolt where the matching rise does not. The split is one field and one call site.
