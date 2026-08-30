@@ -1597,23 +1597,39 @@ nothing in it can be answered without a window and a person.
       a real clock too. Broken by "time the drain from `entered` rather than `derived`", which
       double-counts the derive. Carries the loop-ran companion assertion.
 
-##### M5d-2 — the played half — **Matthew's, not yet done**
+##### M5d-2 — the played half — **mostly answered 2026-08-31**
 
-Nothing here is answerable headlessly. `--skybrightness=0 --debuglamp` now produces a warm pool
-about 15 m across fading to true black, which is the first time that shot has been worth looking
-at, because until the fog fix the black was grey.
+Played with the entangled miner. **"Looks good to me."**
 
-- [ ] Does a mine read as a mine? First milestone whose output is darkness.
-- [ ] **Is 1 m too coarse down a `hand_pick` tunnel** whose bore is narrower than one cell —
-      the play that would reopen the settled 1 m. 0.5 m costs 4 KB per chunk and 8× the
-      propagation, and the propagation is the cheap half, so the real cost is the derive.
-- [ ] Does rock beside a lit tunnel glow? The known cost of a per-cell value, half-mitigated by
-      the half-cell normal offset.
-- [ ] Does AO earn its quads? DESIGN calls it "the single biggest visual payoff", which is a
-      claim and not a measurement — and it is now known to cost +6.3 MiB and +87% quads on its
-      own, while the shipped AO+light arm costs less than AO alone.
-- [ ] Are the face-tint constants right now the sun is gone? Four numbers in `Voxel.gdshader`,
-      deliberately kept out of the merge key so retuning needs no remesh.
+- [x] **Does a mine read as a mine? Yes.** One chamber runs from lit rock to *actual black*
+      across its width and the falloff reads as depth; another shot is near-total darkness with
+      a few faces catching a little light. **Darkness is real** — the thing M5 exists to supply
+      and M13 turns into a hazard, and the first time in this project that a screenshot of
+      nothing is a pass. **The fog fix is load-bearing for this**: before it, that black was the
+      fog's grey-blue and the gradient was distance rather than light.
+- [x] **Does AO earn its quads? Yes.** Visible on every block edge and corner, and it is what
+      makes the excavation read as sculpted rather than as a pile of cubes. DESIGN's "single
+      biggest visual payoff" was a claim and is now a verdict.
+- [x] **Are the face-tint constants right now the sun is gone? Yes — not raised.** Top, side and
+      bottom faces stay distinguishable in the dark, which is the job they took over from the
+      directional light. They live in the shader and not the merge key, so a retune whenever it
+      comes costs no remesh.
+- [x] **Does rock beside a lit tunnel glow? Not raised.** The transition to black reads clean —
+      the known cost of a per-cell value, apparently mitigated enough by the half-cell normal
+      offset.
+- [ ] **Is 1 m too coarse down a `hand_pick` tunnel?** **Still open, and the entangled miner is
+      the wrong instrument for it** — it digs chambers, and a chamber is many cells wide, which
+      is the case the grid is good at. The bore is 0.75 m against a 1 m cell, so the cell is
+      wider than the corridor. This is the play that would reopen the settled 1 m; 0.5 m costs
+      4 KB per chunk and 8× the propagation, and since M5d-1 the propagation is known to be the
+      *cheap* half, so the real cost is the derive.
+- [ ] **Can you mine by torchlight?** Still open — no lamp in any shot. `L` places one.
+- [ ] **Is the third shot's cavern legitimately lit, or is skylight leaking?** A large cavern
+      lit fairly evenly with one small sky opening visible. Skylight falls free straight down but
+      attenuates 1 per metre horizontally, so one hole should light ~15 m and no more. Either the
+      ceiling is thin and perforated out of frame — legitimate — or the cell-open-to-sky test or
+      conductance is leaking. **The other two shots argue against a leak**, since an enclosed
+      space in the same session went properly black.
 - [ ] Can you mine by torchlight?
 - [ ] **New: does the 12–20 m/s cliff read as a bug at the flycam's normal 6 m/s?** The numbers
       say 35% of one core and a 3.8 s fill there. Whether that is *felt* is a different question

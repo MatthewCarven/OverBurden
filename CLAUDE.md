@@ -157,9 +157,14 @@ copy in `../GAME/`.
 M0, all of M1, **all of M2, all of M3, all of M4, M5a–M5c and M5d-1** are done — **559 tests
 passing**. The player walks, falls, and cannot outrun the streamer; voxels have ambient
 occlusion; and **lighting is end to end — the sun is gone, the grid is the light, and a lamp
-glows.** **M5d-2 is what remains, and it is Matthew's**: the look questions, which need a window
-and a person. M5d-1 measured everything that could be measured and found one thing the plan did
-not predict — see below.
+glows.** **M5d-2 is played and mostly answered (2026-08-31): a mine reads as a mine, and AO earns its
+quads** — one chamber runs from lit rock to *actual black* and the falloff reads as depth, which
+is DESIGN's "single biggest visual payoff" confirmed by eye rather than argued. **The fog fix is
+load-bearing for that verdict**: before it, the black was the fog's grey-blue and the gradient
+was distance rather than light. Two questions stay open and both need a *narrow* bore rather than
+a chamber — whether a 1 m cell is too coarse for a 0.75 m `hand_pick` tunnel, and whether you can
+mine by torchlight. M5d-1 measured everything that could be measured and found one thing the plan
+did not predict — see below.
 Terrain streams around the flycam: worldgen and greedy meshing run on worker threads over palette-compressed storage,
 with materials loaded from JSON, and chunks load and unload as the viewer moves.
 

@@ -1,5 +1,60 @@
 # MinerCraft — Worklog
 
+## 2026-08-31 — M5d-2, played: a mine reads as a mine, and AO earns its quads
+
+Matthew dug a chamber with the entangled miner and looked at it. **"Looks good to me."** Four of
+M5d-2's six questions are answered by eye, which is the only way they could be answered:
+
+- **Does a mine read as a mine? Yes.** One chamber runs from lit rock to *actual black* across
+  its width, and the falloff reads as depth rather than as a rendering artefact. A second shot
+  is near-total darkness with a handful of faces catching a little light. **Darkness is real**,
+  which is the thing M5 exists to supply and M13 turns into a hazard — and it is the first time
+  in this project that a screenshot of nothing is a pass.
+- **Does AO earn its quads? Yes.** Visible on every block edge and corner, and it is what makes
+  the excavation read as sculpted rather than as a pile of cubes. DESIGN calls it *"the single
+  biggest visual payoff"*; that was a claim, and it is now a person's verdict. It costs **+87%
+  quads and +6.3 MiB on its own** (M5d-1), and the shipped AO+light arm costs less than AO
+  alone, so the price was already known to be worth paying arithmetically. Now it is worth
+  paying visually.
+- **Are the face-tint constants right now the sun is gone? Yes, not raised as a problem.** Top,
+  side and bottom faces are distinguishable in the dark chamber, which is the whole job they
+  took over from the directional light. No retune asked for. They live in `Voxel.gdshader` and
+  deliberately not in the merge key, so retuning them costs no remesh whenever it happens.
+- **Does rock beside a lit tunnel glow? Not raised.** The transition to black reads clean. This
+  was the known cost of a per-cell value, half-mitigated by the half-cell normal offset, and it
+  appears to have been mitigated enough.
+
+**The fog fix is load-bearing for all of the above.** Every one of these shots would have been a
+legible grey-blue landscape before it — the "black" would have been the fog's colour, and the
+gradient that reads as depth would have been distance, not light.
+
+### Two still open, and both need a *narrow* bore rather than a chamber
+
+The entangled miner digs chambers, which is what it was built for and is why the questions above
+got answered. It is the wrong instrument for the two that remain, because **both are about
+tunnels narrower than one light cell**:
+
+- **Is 1 m too coarse down a `hand_pick` tunnel?** The bore is 0.75 m and the cell is 1 m, so the
+  cell is wider than the corridor. **This is the play that would reopen the settled 1 m**, and a
+  chamber cannot ask it — a chamber is many cells wide, which is the case the grid is good at.
+- **Can you mine by torchlight?** No lamp in any shot. `L` places one.
+
+### One thing I could not settle from a picture
+
+The third shot is a large cavern lit fairly evenly, with a single small sky opening visible at
+the top — grass and a sliver of sky. Skylight falls free at full strength straight *down* but
+attenuates 1 per metre *horizontally*, so one small hole should light a pool about 15 m across
+and no more. Either that ceiling is thin and perforated out of frame, in which case the cavern is
+lit legitimately, **or skylight is spreading further than the model allows**, which would be a
+leak in the cell-open-to-sky test or in conductance.
+
+**The other two shots are the evidence that it is probably not a leak**: an enclosed space in the
+same session goes properly black, so darkness is not being flooded generally. Asked rather than
+assumed. Recorded here because a "looks good" that quietly included a leak would be the most
+expensive kind of pass.
+
+---
+
 ## 2026-08-31 — The entangled miner goes to eight a second, and the raise inverts a caveat
 
 One constant, `MiningController.EntangledCooldownSeconds` 0.25 → 0.125. Recorded separately
