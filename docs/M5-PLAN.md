@@ -512,6 +512,41 @@ chunk must push its 26 neighbours. Light reaching a chunk may be the last thing 
 neighbourhood was waiting on, and missing that push stalls the pipeline silently with everything
 idle and nothing obviously wrong.
 
+#### What sets the stage — settled 2026-08-30
+
+The paragraph above says light is a barrier and stops there, and the thing it skips is that **a
+global BFS has no per-chunk completion event**. `Features` is set by the sim thread finishing a
+call for that chunk; there is no equivalent moment for light, because the queue is one queue over
+the whole loaded region and a frontier crosses chunk boundaries without noticing them.
+
+A chunk's light is final when two separate things hold, and only one of them is per chunk:
+
+- **Structural** — every chunk whose light can reach it has derived data. Light reaches 15 cells,
+  just under two chunks, so that is the chunks within two. Inside the visible box the load margin
+  already guarantees it; this is the *third* load-bearing reason for the margin cashed in.
+- **Temporal** — the propagation has actually run. That one is global, because the queue is.
+
+So: **a chunk advances to `Lit` when its derived data is built and the propagator has no work
+outstanding.** A per-chunk stage whose condition carries one global term.
+
+**Rejected: a per-chunk count of how many of its cells are queued.** It looks like the way to
+make the temporal half local, and it is wrong in the direction that does not show up in testing —
+a chunk with no queued cells of its own can still have a neighbour's frontier one step from
+spilling into it, so the count reads settled while the light is still moving.
+
+**The global term is not the stall it looks like**, and the arithmetic is already in this
+document: the initial fill at r4h/2v is ~779k cell visits, estimated at ~15 ms of work, which
+under a 1 ms frame budget is ~15 frames — a quarter of a second, against the ~0.22 s the spawn
+gate costs anyway. In flight a new chunk column is a few chunks of light; a mining swing is a
+handful of cells, and most swings change none at all. **M5d measures the first of those; all
+three are estimates.**
+
+**What makes the coarseness safe is that being wrong is recoverable by the path that already has
+to exist.** If light changes in an already-meshed chunk — a chunk loads two away, or the player
+breaks through — the drain reports which cells moved and every chunk whose padded grid holds one
+is marked for a remesh. That is the same mechanism as the edit path below, so streaming and
+mining share it with no case analysis, and neither is a special case of the other.
+
 ### The padded light grid
 
 Trilinear sampling at a vertex needs the eight cell *centres* around it. A vertex at the chunk's
@@ -519,8 +554,27 @@ far corner sits at cell coordinate 8.0; the interior centres run 0.5…7.5; so i
 and 8, and cell 8 belongs to the neighbour. A vertex at 0.0 needs cells −1 and 0.
 
 **10³ = 1,000 bytes, covering −1…8** — exactly the shape `PaddedChunk` has for voxels, gathered
-from the same 27 references the mesh job already captures. `MeshChunkJob` takes a second
-neighbourhood array; nothing else about it changes.
+from the same 27 references the mesh job already captures.
+
+#### It is gathered on the sim thread, unlike the voxel copy — settled 2026-08-30
+
+The sentence that used to close this section said `MeshChunkJob` takes a second neighbourhood
+array and nothing else changes. **It cannot: a `ChunkLight` reference is not safe to hand a
+worker.**
+
+Holding 27 `VoxelChunk` references is safe for one specific reason, and it is M3a's rather than
+M2a's — **voxels are copy-on-write.** A chunk handed to a job is immutable from then on, and an
+edit that finds the flag set clones instead of writing. Light has no such rule and cannot cheaply
+have one: the propagator writes into these 512-byte arrays continuously and in place, including
+while a mesh job is running, and giving light copy-on-write would mean a clone every time a drain
+touched a chunk — thousands per drain — against **one 1,000-byte copy per mesh job**.
+
+So the padded light grid is built at submission, on the sim thread, and the job carries a value
+instead of references. 1,000 bytes against the 157 KB padded voxel copy the worker still builds
+for itself: **0.6%**, and it buys the race away entirely.
+
+**Recorded because it reads as an inconsistency with `PaddedChunk` and invites being "fixed".**
+The two are built in different places for reasons that do not transfer in either direction.
 
 ### Re-light on edit, and the number that decides M5's fallback
 
@@ -550,9 +604,25 @@ mining at five swings a second**. Predict it, then measure it, and if it exceeds
 recorded above, move light out of the vertex.
 
 **The cheap mitigation before the expensive one:** a light-only remesh does not need to be
-urgent. `SubmitMesh` already distinguishes an edit remesh (band3, outranks everything) from a
-streaming one; a relight remesh can be ordinary priority, and light that is 100 ms stale is
-invisible. That is one line, and it should be tried before anything structural.
+urgent. A relight remesh can be ordinary priority, and light that is 100 ms stale is invisible.
+
+#### It is two flags, not one line — settled 2026-08-30
+
+This was written as "`SubmitMesh` already distinguishes an edit remesh (band3) from a streaming
+one, so it is one line". **It does not.** `StreamedChunk.NeedsRemesh` carries both meanings at
+once — *the mesh is stale* and *the player is waiting on it* — and `SubmitMesh` reads the single
+flag for both, which is exactly right while an edit is the only thing that can invalidate a mesh
+and stops being right here.
+
+So `NeedsRemesh` keeps the first meaning and a new `RemeshUrgent` carries the second. An edit
+sets both, a relight sets only the first, and `SubmitMesh` clears both.
+
+**And a relight only marks a chunk that has actually drawn something.** A chunk that has never
+meshed needs no marking: the barrier already holds it until its light exists, and marking it
+would make its *first* mesh an urgent one. During the initial fill every chunk's light changes,
+so that inverts the whole priority ordering — the distance-ordered streaming queue would arrive
+uniformly at band3 and the ordering that M2a exists to provide would be silently gone. Nothing
+would look broken; the world would just load in the wrong order.
 
 ### The shader and the sun
 
@@ -693,6 +763,22 @@ no sun, the grid is the only light, and DESIGN's M7 wet-surface term needs **sky
 in the fragment shader. So the vertex carries two channels rather than one pre-multiplied value.
 See M5a above — it is the only place a settled decision moved work earlier rather than removing
 it.
+
+### Three more, settled before M5c's code
+
+Found by reading M5b's `LightTestWorld` next to `ChunkPipeline`, which is the pairing M5b built
+the fixture for. Each is written up in full in the M5c section above; this is the index.
+
+| | Settled | Why it was not obvious |
+|---|---|---|
+| **What sets `Lit`** | Derived data built **and** the propagator drained. A per-chunk stage with one global term | A global BFS has no per-chunk completion event, and the local-looking substitute — counting a chunk's queued cells — reads settled while a neighbour's frontier is one step away |
+| **Where the padded light grid is built** | **Sim thread, at submission.** 1,000 bytes copied, not 27 references | The voxel copy goes on the worker because voxels are copy-on-write since M3a. Light is not, and giving it copy-on-write costs thousands of clones per drain against one 1 KB copy per job |
+| **Remesh urgency** | Two flags. `NeedsRemesh` is *stale*, `RemeshUrgent` is *the player is waiting* | One flag carried both meanings, which was right while an edit was the only way to invalidate a mesh. A relight is the second way |
+
+**None of the three is a reversal** — they are places the plan stopped one step short, and the
+step it stopped short of had a wrong answer sitting in plain sight. That is the shape M5a's
+UV2 packing had too: the plan stated a preference, and the reason it was impossible was one
+level below where the plan stopped looking.
 
 ---
 

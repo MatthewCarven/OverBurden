@@ -767,6 +767,28 @@ Seven things about it that are expensive to rediscover:
 predicted. The M3a lesson again — a break-recipe battery has to treat a timeout as its own
 outcome or it reads as infrastructure trouble.
 
+**Three more M5c decisions were settled 2026-08-30, before its code**, all found by reading
+`LightTestWorld` against `ChunkPipeline` — the pairing M5b wrote that fixture to invite. None is
+a reversal; each is a place the plan stated something confidently and stopped one level above
+where the wrong answer sat.
+
+- **What sets the `Lit` stage: derived data built *and* the propagator drained.** A global BFS
+  has no per-chunk completion event, so `Lit` is a per-chunk stage with one global term.
+  **Rejected: a per-chunk count of queued cells** — the obvious way to localise it, and wrong in
+  the direction testing does not show, because a chunk with no queued cells of its own can have a
+  neighbour's frontier one step from spilling in. Safe to be this coarse only because the drain's
+  changed-cell set marks a remesh, which streaming and mining then share.
+- **The padded light grid is built on the sim thread at submission, not on the worker.** The
+  27-reference gather is safe for voxels because **M3a made voxels copy-on-write**; light is not,
+  and the propagator writes into those 512-byte arrays in place while a mesh job runs. One
+  1,000-byte copy per job against thousands of clones per drain — 0.6% of the padded voxel copy.
+  **It reads as an inconsistency with `PaddedChunk` and invites being "fixed" back.**
+- **`NeedsRemesh` means both "stale" and "urgent", and a relight is the first thing that is one
+  without the other.** `RemeshUrgent` splits them. A relight also only marks a chunk that has
+  actually drawn something — otherwise the initial fill, where every chunk's light changes,
+  arrives the whole distance-ordered queue at band3 and M2a's ordering is silently gone. Nothing
+  looks broken; the world just loads in the wrong order.
+
 Three things stay open, all needing a windowed run rather than a headless one: whether the
 free budget removes the stutter (headless has no deferred deallocation), and M1d's
 `RenderingServer` vs `MeshInstance3D` and 2×2×2 mesh-block questions, which need the windowed

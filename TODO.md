@@ -1260,12 +1260,38 @@ the margin must go to 4 chunks.
       condition); a worker with a lock held for the whole job.
 - [ ] **A third `GenerationStage`, not a new `ChunkState`.** Light is a barrier, not a job, so
       `CanMesh` gains one clause and nothing about the job pipeline changes.
+- [x] **What sets it — settled 2026-08-30: derived data built *and* the propagator drained.** A
+      per-chunk stage whose condition carries one global term, because **a global BFS has no
+      per-chunk completion event**. Two things have to hold and only one is per chunk: every
+      chunk within light's ~2-chunk reach has derived data (the margin's third load-bearing
+      reason, cashed in), and the propagation has actually run (global, because the queue is).
+- [x] **Rejected: a per-chunk count of queued cells.** It is the obvious way to make the temporal
+      half local and it is wrong in the direction testing does not show — a chunk with no queued
+      cells of its own can have a neighbour's frontier one step from spilling in, so the count
+      reads settled while the light is still moving.
+- [x] **The global term is not a stall at any rate this game reaches**, estimated: ~779k cell
+      visits for the initial fill at r4h/2v, ~15 ms, ~15 frames under a 1 ms budget — against the
+      ~0.22 s the spawn gate already costs. A new chunk column in flight is a few chunks; a swing
+      is a handful of cells. **All estimates; M5d measures the first.**
+- [x] **Being wrong is recoverable by the path that has to exist anyway.** Light changing in an
+      already-meshed chunk — a chunk loads two away, or the player breaks through — is caught by
+      the drain's changed-cell set marking a remesh. Streaming and mining share one mechanism, and
+      that is what lets the global term be as coarse as it is.
 - [ ] **Advancing one chunk must push its 26 neighbours** — M2c-2's rule, and light arriving may
       be the last thing a neighbourhood was waiting on. Miss it and the pipeline stalls silently
       with everything idle.
 - [ ] Padded light grid **10³ = 1,000 bytes, covering −1…8**: a vertex at the far corner sits at
       cell coordinate 8.0 and the interior centres run 0.5…7.5, so it needs cell 8 from the
-      neighbour. Gathered from the same 27 references `MeshChunkJob` already captures.
+      neighbour.
+- [x] **Built on the sim thread at submission, not on the worker — settled 2026-08-30, and this
+      corrects the plan.** A `ChunkLight` reference is not safe to hand a worker. Holding 27
+      `VoxelChunk` references is safe because **voxels are copy-on-write since M3a**; light is
+      not, and the propagator writes into these 512-byte arrays in place while a mesh job runs.
+      Copy-on-write for light means thousands of clones per drain against **one 1,000-byte copy
+      per mesh job** — 0.6% of the 157 KB padded voxel copy the worker still builds itself.
+- [x] **Recorded because it reads as an inconsistency with `PaddedChunk` and invites being
+      "fixed".** The two are built in different places for reasons that do not transfer either
+      way.
 - [ ] Trilinear sample per vertex, multiplied into AO to form the corner shade byte. Light and AO
       differing but their product matching merges anyway — harmless and slightly beneficial.
 - [ ] **Re-light on edit marks every chunk whose padded light grid holds a changed cell** — the
@@ -1276,7 +1302,17 @@ the margin must go to 4 chunks.
       cell face. Mining is not a relighting storm; breaking *through* is. A light placed in open
       air is the 125-chunk case and is a one-off.
 - [ ] **Try the cheap mitigation first:** a light-only remesh does not need band3 urgency. Light
-      100 ms stale is invisible, and `SubmitMesh` already distinguishes the two. One line.
+      100 ms stale is invisible.
+- [x] **It is two flags, not one line — settled 2026-08-30, and this corrects the plan.**
+      `NeedsRemesh` carries both *the mesh is stale* and *the player is waiting on it*, and
+      `SubmitMesh` reads the one flag for both — right while an edit is the only thing that can
+      invalidate a mesh, and a relight is the second thing. `NeedsRemesh` keeps the first meaning,
+      a new `RemeshUrgent` carries the second; an edit sets both, a relight sets only the first.
+- [x] **A relight only marks a chunk that has actually drawn something.** A chunk that has never
+      meshed needs no marking — the barrier already holds it until its light exists, and marking
+      it would make its *first* mesh urgent. During the initial fill every chunk's light changes,
+      so the whole distance-ordered queue would arrive at band3 and M2a's ordering would be
+      silently gone. Nothing looks broken; the world just loads in the wrong order.
 - [ ] **Revisit trigger for moving light out of the vertex entirely** (per-chunk 3D texture,
       hardware trilinear, *no remesh on a light change*): light in the merge key costs more than
       **2×** the quads of AO alone, **or** breaking into a lit space costs more than ~16 chunk

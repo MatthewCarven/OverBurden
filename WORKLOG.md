@@ -1,5 +1,98 @@
 # MinerCraft — Worklog
 
+## 2026-08-30 — Settle three things M5c's plan stopped one step short of
+
+No code. Three decisions recorded before M5c starts, in the same shape as the four settled
+before M5a. All three were found by reading M5b's `LightTestWorld` next to `ChunkPipeline`,
+which is the pairing that fixture was written to invite — its doc comment says outright that its
+edit path *"is deliberately the one M5c has to implement"*.
+
+**None of the three is a reversal.** Each is a place the plan stated something confidently and
+stopped one level above where the wrong answer was sitting. Same shape as M5a's UV2 packing:
+the plan expressed a preference, and the reason it was impossible lived one level below where
+the plan had looked.
+
+### 1. Nothing said what sets the `Lit` stage, and the obvious answer is wrong
+
+The plan says light is a third `GenerationStage` and `CanMesh` gains one clause. What it skips
+is that **a global BFS has no per-chunk completion event.** `Features` is set by the sim thread
+finishing a call for that chunk; light has no equivalent moment, because the queue is one queue
+over the loaded region and a frontier crosses chunk boundaries without noticing them.
+
+A chunk's light is final when two things hold, and only one is per chunk:
+
+- **Structural** — every chunk within light's reach has derived data. 15 cells is just under two
+  chunks, so that is the chunks within two, which inside the visible box is exactly what the load
+  margin guarantees. **The margin's third load-bearing reason, cashed in.**
+- **Temporal** — the propagation has actually run. Global, because the queue is.
+
+**Settled: a chunk advances to `Lit` when its derived data is built and the propagator has no
+work outstanding** — a per-chunk stage with one global term in its condition.
+
+**Rejected: a per-chunk count of how many of its cells are queued.** It is the obvious way to
+make the temporal half local, and it is wrong in the direction that does not show up in testing —
+a chunk with no queued cells of its own can have a neighbour's frontier one step from spilling
+in, so the count reads settled while the light is still moving. It would have passed every test
+worth writing and produced a dark seam that moved with the player.
+
+The global term is not the stall it looks like. Estimated, and all three numbers are estimates:
+~779k cell visits for the initial fill at r4h/2v, ~15 ms, ~15 frames under a 1 ms budget, against
+the ~0.22 s the spawn gate already costs. In flight a new chunk column is a few chunks of light;
+a swing is a handful of cells, and most swings change none at all. **M5d measures the first.**
+
+**What makes the coarseness safe is that being wrong is recoverable by a path that has to exist
+anyway.** Light changing in an already-meshed chunk is caught by the drain's changed-cell set
+marking a remesh — the same mechanism the edit path needs, so streaming and mining share it and
+neither is a special case of the other.
+
+### 2. The padded light grid cannot be gathered the way the padded voxel copy is
+
+The plan says `MeshChunkJob` "takes a second neighbourhood array; nothing else about it changes".
+**It cannot: a `ChunkLight` reference is not safe to hand a worker.**
+
+Holding 27 `VoxelChunk` references is safe for a reason that is M3a's rather than M2a's —
+**voxels are copy-on-write.** A chunk handed to a job is immutable from then on, and an edit that
+finds the flag set clones instead of writing. Light has no such rule and cannot cheaply have one:
+the propagator writes into these 512-byte arrays continuously and in place, *including while a
+mesh job is running*, and giving light copy-on-write would mean a clone every time a drain
+touched a chunk — thousands per drain — against one 1,000-byte copy per mesh job.
+
+**Settled: the padded light grid is built at submission, on the sim thread**, and the job carries
+a value instead of references. 1,000 bytes against the 157 KB padded voxel copy the worker still
+builds for itself — **0.6%**, and it removes the race rather than managing it.
+
+Recorded prominently because it reads as an inconsistency with `PaddedChunk` and invites being
+"fixed" back. The two are built in different places for reasons that do not transfer either way.
+
+### 3. `NeedsRemesh` means two things, and M5c is what makes them come apart
+
+The plan's cheap mitigation — a light-only remesh at ordinary priority — is written as "one
+line, `SubmitMesh` already distinguishes the two". **It does not.**
+`StreamedChunk.NeedsRemesh` carries both *the mesh is stale* and *the player is waiting on it*,
+and `SubmitMesh` reads the single flag for both. That is exactly right while an edit is the only
+thing that can invalidate a mesh, and it stops being right the moment a relight is the second
+thing that can.
+
+**Settled: `NeedsRemesh` keeps the first meaning and a new `RemeshUrgent` carries the second.**
+An edit sets both, a relight sets only the first, `SubmitMesh` clears both.
+
+**And a relight only marks a chunk that has actually drawn something.** A chunk that has never
+meshed needs no marking: the barrier already holds it until its light exists, and marking it
+would make its *first* mesh an urgent one. During the initial fill every chunk's light changes,
+so that arrives the entire distance-ordered streaming queue at band3 and M2a's ordering is
+silently gone. **Nothing would look broken — the world would just load in the wrong order**,
+which is the failure mode this project has learned to distrust most.
+
+### The pattern worth keeping
+
+All three came from the same act: reading the test fixture from the previous part against the
+production code it was modelled on. M5b wrote `LightTestWorld` as a statement of what M5c has to
+build and said so in a comment. Doing that reading *before* writing M5c's code, rather than
+discovering the mismatches one compile error at a time, is what turned three defects into three
+paragraphs.
+
+---
+
 ## 2026-08-30 — M5b: the light grid, and an oracle sharper than the one the plan named
 
 Done. Suite **496 → 518**. `MinerCraft.Core/Lighting/` holds `LightCellPos`, `ChunkLight` with
