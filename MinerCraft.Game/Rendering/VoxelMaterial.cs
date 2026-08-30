@@ -12,6 +12,7 @@ public enum PlaceholderLayer
     Stone = 0,
     Dirt = 1,
     Grass = 2,
+    Lamp = 3,
 }
 
 /// <summary>
@@ -40,6 +41,10 @@ public static class VoxelMaterial
             Speckled(new Color(0.50f, 0.50f, 0.52f), 0.08f, seed: 1),
             Speckled(new Color(0.42f, 0.30f, 0.20f), 0.12f, seed: 2),
             Speckled(new Color(0.28f, 0.55f, 0.24f), 0.10f, seed: 3),
+
+            // M5b's lamp. Pale and near-white so it reads as a source rather than as a
+            // yellow block, and so the block light it emits is what colours the room.
+            Speckled(new Color(0.96f, 0.92f, 0.78f), 0.04f, seed: 4),
         };
 
         var array = new Texture2DArray();

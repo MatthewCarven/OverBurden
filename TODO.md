@@ -1164,66 +1164,89 @@ the margin must go to 4 chunks.
       must stay distinct, because they are the merge key. `screenshot.gd` makes the A/B
       repeatable; M5d judges it.
 
-#### M5b — The light grid, propagation, and the un-light pass
+#### M5b — The light grid, propagation, and the un-light pass — **done 2026-08-30**
 
-- [ ] `ChunkLight`: 8³ = 512 cells per chunk at 1 m, 4-bit sky + 4-bit block, **512 bytes** —
-      against ~2 KB of voxels and ~46 KiB of mesh. Light is not where the memory goes.
-- [ ] **`[z][x][y]`, Y contiguous**, and this is the case that most deserves it: skylight
-      propagates straight down, so the game's most common propagation walks Y.
-- [ ] `LightCellSize` a **power of two dividing 32**, same constraint as `CaveLatticeStep` and
-      for the same reason — a chunk boundary must be a cell boundary or independently lit
-      neighbours disagree. Constructor throws otherwise.
-- [ ] **Conductance is a property of the cell *face*, not the cell.** A 1 m cell holds 64 voxels
-      and `hand_pick`'s bore is 0.75 m, so the tunnels this game is about are narrower than one
-      cell. "Any opaque → opaque" means torches light nothing; "any air → open" means a 0.25 m
-      wall leaks. Six bits per cell: light crosses a face iff some voxel pair across the shared
-      4×4 boundary is non-opaque on both sides.
-- [ ] **Recorded cost:** the *value* is still per cell, so rock within 1 m of a lit tunnel glows
-      slightly. Sample half a cell along the face normal to hide most of it; the lever if it
-      reads badly is `--lightcell=2`.
-- [ ] **Skylight is seeded analytically, because there is no top of the world to flood from** —
-      the vertical radius is 16–24 m. `WorldGenerator.SurfaceHeightAt` is already pure and
-      already gives the answer for unedited terrain.
-- [ ] `SkyColumn` per chunk column `(cx, cz)`: 32×32 "Y above which this column is open",
-      seeded from the heightmap, lowered by edits. ~2 KB per column, 338 KB at r6h. **Refcounted
-      horizontally**, so it survives the vertical unloading that happens constantly while
-      descending. Lifetime matches edited chunks' — lost on horizontal unload today, persisted
-      at M6, consistent with M3's recorded limitation.
-- [ ] **Confirmed for M5b 2026-08-30, split across two parts.** The structure and its rules —
-      seed, lower, query — are a pure function and belong here. Its **lifetime** is not: a
-      horizontal refcount that survives vertical unload is streaming state and goes in M5c.
-      Keeping them together would put the one mutable, lifetime-bound thing in M5 inside the part
-      whose whole value is being a pure function with a sharp oracle.
-- [ ] **It is a second refcount, on a different axis and a different object**, and M2c's "don't
-      add a second refcount to fix the margin" is not this. It is a column-lifetime problem the
-      chunk refcount cannot express, because the point is surviving the vertical unload the chunk
-      refcount performs. Said out loud so the two are not confused later.
-- [ ] **The oracle has to reach it:** the incremental-equals-from-scratch fuzz must include edits
-      that break through a column's topmost opaque voxel, or the sky-height path is never
-      exercised and the comparison passes for the wrong reason.
-- [ ] **This is the structure M7's rain occlusion needs**, built a milestone early because
-      skylight cannot be correct without it.
-- [ ] Skylight rule: **full value straight down through open cells with no attenuation**, −1 per
-      metre horizontally. Without the first half a shaft dies 15 m down.
-- [ ] `MaterialDefinition.LightEmission` (0..15), projected into `MaterialTable` beside
-      `Hardness`. One emissive material shipped in `mods/minercraft/`, because the base game is a
-      mod and a light source is content.
-- [ ] **Nothing can place a light source until M6.** Debug bind on `SetVoxel`: one key, one
-      material, no inventory, and it should stay embarrassing enough that nobody mistakes it for
-      the feature.
-- [ ] `ShippedContentTests` gains the numeric check — some shipped material emits, in 1..15.
-      A format having a field is not the content using it meaningfully.
-- [ ] **The un-light pass, which is the fiddly one.** Two queues: zero every cell whose value is
-      exactly one less than the cell it came from; collect neighbours with a value ≥ the
-      propagating one as re-seeds; run the add-BFS from those. **Miss the re-seed and light does
-      not come back where two sources overlapped** — the dark patch nobody can explain.
-- [ ] **The oracle: incremental == from-scratch, cell for cell, after any edit sequence.** No
-      reference implementation to get wrong — from-scratch *is* the definition, just too slow to
-      run per frame. Same category as M4a's sealed room. **Watch it fail** by dropping the
-      re-seed step; if it survives, the fuzz is not overlapping its sources.
-- [ ] Tests: analytic falloff (`15 − Manhattan distance`, an equality); a 0.25 m wall blocks and
-      a 0.75 m tunnel conducts, one test each for the two wrong conductance rules; an open column
-      is full sky to the surface and dark one cell below; determinism, bitwise.
+- [x] `ChunkLight`: 8³ = 512 cells per chunk at 1 m, 4-bit sky + 4-bit block, **512 bytes** of
+      propagated values. **The derived side is 1.5 KB, not the planned 1 KB**, and the extra is
+      not optional: the sky-source bit and the emission nibble are what let the un-light walk
+      zero a cell without erasing the lamp it is walking away from. Still nothing against ~46 KiB
+      of mesh.
+- [x] **`[z][x][y]`, Y contiguous** — `LightCellPos.Index`, the same shape as `VoxelPos.Index`.
+- [x] `VoxelsPerCell` a **power of two dividing 32**, checked in a static constructor *and*
+      asserted by a test, because a constant that is currently right still needs the rule written
+      where it can be read.
+- [x] **Conductance is a property of the cell *face*.** Light crosses iff some voxel pair across
+      the shared 4×4 boundary is non-opaque on both sides. Both wrong rules have a test each and
+      both were run as break-recipes: "any opaque → cell opaque" fails 13 tests, "any air → face
+      open" fails 3.
+- [x] **Recorded cost stands**: the value is still per cell, so rock within a metre of a lit
+      tunnel glows slightly. The lever if M5d says it reads badly is a 0.5 m cell, which
+      `LightCellPos` already permits.
+- [x] **Skylight seeded analytically** from `ISurfaceHeights.SurfaceHeightAt`, which
+      `WorldGenerator` now implements. The interface exists so a test can state a flat world in
+      one line rather than reverse-engineer a seed that produces one.
+- [x] `SkyColumn` per chunk column, 32×32 `short`, seeded from the heightmap and lowered by
+      edits. **Its downward scan is bounded by the loaded region rather than by its own limit**,
+      because an unloaded voxel reads as opaque — the collider's rule, for the collider's reason.
+      `MaxScanVoxels` is a backstop for a fixture that answers "air" forever and says so.
+- [x] **A cell is a sky source only if *every* one of its sixteen columns is open, not any.**
+      Under-seeding is recoverable — the cell above is a source, the face between them conducts
+      through the open half, and full skylight falls through it for nothing — so a cliff face is
+      lit by propagation anyway. Over-seeding is not: the value is per cell, so a mostly-solid
+      cell declared a source pushes daylight into the rock through its own faces. Breaking it to
+      "any" fails 3 tests.
+- [x] **The lifetime half stays in M5c**, as split. What is here is the rules, which are pure.
+- [x] **The oracle reached the sky-height path**, and the fuzz asserts it did: `breakthroughs > 4`
+      printed beside the result, because a sequence that stayed underground would pass for the
+      wrong reason.
+- [x] Skylight rule: **full value straight down with no attenuation**, −1 per metre otherwise.
+      **The free fall is restricted to full brightness**, and that restriction needed a test
+      shape nothing else in the suite had — see the break-recipe note below.
+- [x] `MaterialDefinition.LightEmission` (0..15), projected into `MaterialTable`, **refused
+      rather than clamped at load** exactly as an out-of-range tool radius is, and clamped again
+      in the table because the loader is not the only way a definition arrives.
+      `mods/minercraft/materials/lamp.json` ships at 15.
+- [x] **Debug bind: L places a lamp** in the empty voxel in front of the crosshair, on a key-down
+      edge. One key, one material, no inventory, no cooldown. `Hit.Previous` is what M3b built
+      and labelled "where M6's placement goes"; this is its first caller. Resolved by identifier
+      and disabled if the base game does not ship a lamp — *not* falling back to air, which would
+      carve a hole out of whatever the player was pointing at.
+- [x] `ShippedContentTests.SomethingShippedActuallyEmitsLight` — something emits, in 1..15,
+      nothing emissive is air, and something reaches the top of the range so the 0..15 decision
+      is exercised by the content rather than only by the format.
+- [x] **The un-light pass**, two queues, with the re-seed step. Dropping the re-seed fails 7
+      tests including the oracle, which is exactly what M5-PLAN said to check.
+- [x] **A better oracle than the one planned, and by a category.** "Incremental equals
+      from-scratch" runs the *same add pass* as the subject, so it can only independently catch
+      the un-light pass. The propagation invariant
+      `V = max(S, max over conducting neighbours (V(n) − attenuation))` has a **unique** fixpoint,
+      so checking it cell by cell is complete correctness with no propagation in the check at all
+      — same category as M4a's sealed room. Both are asserted, plus a third that fell out free:
+      incrementally maintained sky heights must equal a fresh downward scan of the voxels.
+- [x] Tests: analytic falloff as an equality; a 0.25 m wall blocks and a 0.75 m bore conducts;
+      an open column is full sky to the surface and dark below; a shaft stays lit however deep;
+      cross-chunk propagation with no seam; determinism, bitwise. 496 → 518.
+- [x] **Break-recipes: twelve run, ten bit, and the two that did not were different problems.**
+      - **The six-neighbour expansion in `Invalidate` was provably dead work.** It existed for
+        the closing-face case, and removing it fails nothing — because conductance is recorded on
+        *both* cells of a face, so a face that changes always reports both in `BuildDerived`'s
+        changed set. Deleted, the caller's contract written into the doc comment, and the
+        property pinned by `SealingAFaceReportsBothOfItsCells`. Breaking the reporting instead
+        fails 11 tests, which is what makes the one-cell version safe rather than lucky.
+      - **"Any skylight value falls unattenuated" was a genuine hole.** A shaft straight down from
+        the surface carries *full* skylight, which falls free under both rules, so it cannot tell
+        them apart. The shape that can is a horizontal branch off the shaft with a **second shaft
+        dropping from its far end**, fed at 10 rather than 15. Built, and the recipe now fails.
+      - **One recipe hangs rather than failing:** dropping the "only if greater" guard in the add
+        pass, exactly as predicted. The battery treats a timeout as its own outcome so it does
+        not read as infrastructure trouble.
+- [x] **The test fixture was half the problem and its shape is M5c's.** The first run took 4.5
+      minutes and crashed the test host; it is 6 s now. Three causes, and the third is a design
+      finding rather than a test one: **the rebuild scope is two different shapes.** A voxel's
+      *conductance* reaches only its own chunk plus a neighbour across whichever faces it
+      actually touches — an interior voxel, 30 in 32, rebuilds exactly one chunk. A change to the
+      column's *sky height* is not local at all: it moves the sky flag the whole way up and down
+      that chunk column and nowhere else. **M5c should implement exactly those two scopes.**
 
 #### M5c — The pipeline: the stage, the sample, and the relight
 
@@ -1322,6 +1345,14 @@ the margin must go to 4 chunks.
       light meant the grid is the only light, and DESIGN's M7 wet-surface term needs skylight on
       its own — so the vertex carries two channels rather than one pre-multiplied value, and
       that lands in **M5a**, not M5c. See M5a.
+
+#### Surfaced elsewhere
+
+- [ ] **`JobSchedulerTests.AThrowingJobFaultsWithoutTakingTheWorkerDownWithIt` is intermittent.**
+      It failed in 2 of M5b's 12 break-recipe runs and passes on a clean tree. M2a's, not M5's —
+      but **a flaky test is worse than a missing one during a mutation battery**, because
+      "1 failed" reads as "the recipe was caught" and it took reading the failure names to see
+      that no lighting test had failed at all. Worth pinning down before the next battery.
 
 #### Deliberately not in M5
 

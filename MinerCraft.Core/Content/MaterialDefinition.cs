@@ -36,6 +36,21 @@ public sealed class MaterialDefinition
     public int TextureLayer { get; init; }
 
     /// <summary>
+    /// How brightly this material glows, 0 (dark) to <see cref="MaxLightEmission"/>.
+    /// </summary>
+    /// <remarks>
+    /// <b>0..15 matches the propagated field with no scaling</b>, which means the brightest lamp
+    /// any mod can define reaches exactly 15 m — a game-balance number wearing a storage costume,
+    /// the same shape as terminal velocity being a streaming parameter in a physics one. Settled
+    /// 2026-08-30 with a revisit trigger in Matthew's words: <i>"unless we come up with better
+    /// lighting later"</i>. A wider field or coloured light would take the range with it.
+    /// </remarks>
+    public int LightEmission { get; init; }
+
+    /// <summary>The brightest a material may be. Matches the 4-bit light field exactly.</summary>
+    public const int MaxLightEmission = 15;
+
+    /// <summary>
     /// Whether this material hides the faces behind it. The mesher's face-culling test
     /// is exactly this, so it is the single most performance-relevant flag here.
     /// </summary>

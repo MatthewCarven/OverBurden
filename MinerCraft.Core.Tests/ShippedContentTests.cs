@@ -107,6 +107,37 @@ public class ShippedContentTests
         }
     }
 
+    [Fact]
+    public void SomethingShippedActuallyEmitsLight()
+    {
+        // The format having a `lightEmission` field is not the same claim as the content using
+        // it. With nothing emitting, every block-light test in the suite passes against a world
+        // that can never be lit, and the first person to notice is whoever plays M5d in a cave.
+        var content = new GameContent();
+        content.Load(new DirectoryContentSource(ModsDirectory()));
+
+        var emitters = content.Materials.Entries()
+            .Select(entry => entry.Value)
+            .Where(material => material.LightEmission > 0)
+            .ToList();
+
+        Assert.True(emitters.Count > 0, "nothing the base game ships emits any light");
+
+        foreach (var emitter in emitters)
+        {
+            Assert.InRange(emitter.LightEmission, 1, MaterialDefinition.MaxLightEmission);
+
+            // An emitter that is not opaque would be a light you can see through, which is fine
+            // — but one that is *air* is a light with no block to place, and the debug bind
+            // would place nothing at all.
+            Assert.False(emitter.IsAir, $"{emitter.Id} emits light and is air");
+        }
+
+        // ...and something reaches the top of the range, or the 0..15 decision is untested by
+        // the content and the brightest lamp anyone can build is dimmer than the format allows.
+        Assert.Contains(emitters, e => e.LightEmission == MaterialDefinition.MaxLightEmission);
+    }
+
     /// <summary>
     /// The <c>mods/</c> directory the game runs against, found by walking up to the solution.
     /// </summary>

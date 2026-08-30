@@ -1,5 +1,6 @@
 using System.Numerics;
 using MinerCraft.Core.Content;
+using MinerCraft.Core.Lighting;
 using MinerCraft.Core.Voxels;
 
 namespace MinerCraft.Core.Worldgen;
@@ -28,7 +29,7 @@ namespace MinerCraft.Core.Worldgen;
 /// substituting anything for it.
 /// </para>
 /// </remarks>
-public sealed class WorldGenerator
+public sealed class WorldGenerator : ISurfaceHeights
 {
     private const int Size = VoxelConstants.ChunkSize;
 

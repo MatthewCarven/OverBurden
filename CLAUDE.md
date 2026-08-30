@@ -132,8 +132,9 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2, all of M3, all of M4 and M5a** are done — **496 tests passing**.
-The player walks, falls, and cannot outrun the streamer, and voxels have ambient occlusion.
+M0, all of M1, **all of M2, all of M3, all of M4, M5a and M5b** are done — **518 tests
+passing**. The player walks, falls, and cannot outrun the streamer, voxels have ambient
+occlusion, and there is a light grid — not yet wired into the pipeline, which is M5c.
 Terrain streams around the flycam: worldgen and greedy meshing run on worker threads over palette-compressed storage,
 with materials loaded from JSON, and chunks load and unload as the viewer moves.
 
@@ -616,8 +617,8 @@ because reach is
 the *player's* rather than the tool's — M4 is where something exists to own it, which is the
 same argument that kept it out of the tool JSON.
 
-**M5, lighting, is planned — [docs/M5-PLAN.md](docs/M5-PLAN.md), split M5a–M5d. M5a is
-built; M5b is next.** The structural point: **light is the first thing here that is not a function of one
+**M5, lighting, is planned — [docs/M5-PLAN.md](docs/M5-PLAN.md), split M5a–M5d. M5a and M5b
+are built; M5c is next.** The structural point: **light is the first thing here that is not a function of one
 chunk.** Worldgen is pure per chunk, meshing takes a padded copy, a carve is local — light
 propagates arbitrarily far, and removing one voxel can change light in a chunk that is not a
 neighbour. Five things from the planning pass that are expensive to rediscover:
@@ -711,6 +712,60 @@ voxel in scan order — which has air on three sides, so carving it removes thre
 three: **a change of exactly zero quads**. It passed anyway until M5a shifted the surrounding
 merges and the two totals came out equal. Same shape as M3c's test whose comment claimed it
 caught the border rule.
+
+**M5b — the light grid, propagation and the un-light pass: done 2026-08-30.**
+`MinerCraft.Core/Lighting/` holds `LightCellPos`, `ChunkLight` with cell-face conductance,
+`SkyColumn`, and `LightPropagator`. `MaterialDefinition.LightEmission` is projected into
+`MaterialTable`, `mods/minercraft/materials/lamp.json` ships a full-strength emitter, and **L**
+places one. Suite 496 → 518. **Nothing is wired into the pipeline — a lamp placed today is a
+pale block that does not glow. That is M5c.**
+
+Seven things about it that are expensive to rediscover:
+
+- **The oracle is better than the one M5-PLAN named, and by a category.** "Incremental equals
+  from-scratch" runs the *same add pass* as the subject, so it can only independently catch the
+  un-light pass. The propagation invariant
+  `V = max(S, max over conducting neighbours (V(n) − attenuation))` has a **unique** fixpoint —
+  a cycle of equal values would need zero attenuation all the way round, and the only
+  zero-attenuation step is full skylight falling downward, which strictly decreases Y — so
+  checking it cell by cell is complete correctness with no propagation in the check at all. Same
+  category as M4a's sealed room. Both are asserted, plus a third that fell out free: the
+  incrementally maintained sky heights must equal a fresh downward scan of the voxels.
+- **The defect that cost seven tests was a missing half of a symmetry.** `Darken` reset a cell to
+  its own source and queued the un-light walk when the value had *fallen*, and did nothing when
+  it had *risen* — so a placed lamp wrote emission 15 into the derived data and left the cell's
+  value at the zero it held as air. The rule is symmetric: **the cell's value ends at its own
+  source whichever way it moved.**
+- **`Invalidate` is one cell, not seven, and there is a contract behind that.** The caller must
+  invalidate every cell `BuildDerived` reported as changed. The case that looks like it needs
+  more is a face closing — a walk from A never examines B once the face stops conducting — but
+  **conductance is recorded on both cells of a face**, so a changed face always reports both.
+  An earlier six-neighbour expansion was provably dead work: removing it failed nothing and
+  could not. `SealingAFaceReportsBothOfItsCells` pins the property, and breaking the reporting
+  instead fails 11 tests.
+- **The skylight free fall is restricted to full brightness, and only one test shape can tell.**
+  A shaft straight down from the surface carries *full* skylight, which falls free under both
+  rules. The shape that separates them is a horizontal branch off the shaft with a **second
+  shaft dropping from its far end**, fed at 10 rather than 15. Without it, every dimly lit patch
+  in the world would hang a column of its own light down to bedrock and nothing would fail.
+- **A cell is a sky source only if *every* one of its sixteen voxel columns is open, not any.**
+  Under-seeding is recoverable — the cell above is a source, the face between them conducts
+  through the open half, and full skylight falls through for nothing, so a cliff face is lit by
+  propagation anyway. Over-seeding is not: the value is per cell, so a mostly-solid cell declared
+  a source pushes daylight into the rock through its own faces.
+- **The derived side is 1.5 KB per chunk, not the planned 1 KB, and the extra is not optional.**
+  The sky-source bit and the emission nibble are what let the un-light walk zero a cell without
+  erasing the lamp it is walking away from.
+- **The rebuild scope after an edit is two different shapes, and conflating them costs ~40×.**
+  A voxel's *conductance* reaches only its own chunk plus a neighbour across whichever faces it
+  actually touches — an interior voxel, 30 in 32, rebuilds exactly one chunk. A change to the
+  column's *sky height* is not local at all: it moves the sky flag the whole way up and down that
+  chunk column, and nowhere else. **M5c should implement exactly those two scopes**;
+  `LightTestWorld` is deliberately written as the thing M5c has to build.
+
+**Dropping the "only if greater" guard in the add pass hangs rather than fails**, as M5-PLAN
+predicted. The M3a lesson again — a break-recipe battery has to treat a timeout as its own
+outcome or it reads as infrastructure trouble.
 
 Three things stay open, all needing a windowed run rather than a headless one: whether the
 free budget removes the stutter (headless has no deferred deallocation), and M1d's

@@ -227,6 +227,20 @@ public sealed class ContentLoader
                 continue;
             }
 
+            int emission = dto.LightEmission ?? 0;
+
+            // Refused rather than clamped, exactly as an out-of-range tool radius is. A lamp
+            // whose JSON says 30 was written by someone who believed the range was wider, and
+            // silently giving them 15 hides the misunderstanding until they wonder why two
+            // different lamps look identical.
+            if (emission < 0 || emission > MaterialDefinition.MaxLightEmission)
+            {
+                errors.Add(
+                    $"{manifest.Id}/{path}: lightEmission must be within "
+                    + $"0..{MaterialDefinition.MaxLightEmission}.");
+                continue;
+            }
+
             var definition = new MaterialDefinition
             {
                 Id = id,
@@ -235,6 +249,7 @@ public sealed class ContentLoader
                 Permeability = dto.Permeability ?? 0f,
                 Density = dto.Density ?? 1000f,
                 TextureLayer = dto.TextureLayer ?? 0,
+                LightEmission = emission,
                 IsOpaque = dto.Opaque ?? true,
                 IsFluid = dto.Fluid ?? false,
                 IsReplaceable = dto.Replaceable ?? false,
@@ -365,6 +380,7 @@ public sealed class ContentLoader
         public float? Permeability { get; set; }
         public float? Density { get; set; }
         public int? TextureLayer { get; set; }
+        public int? LightEmission { get; set; }
         public bool? Opaque { get; set; }
         public bool? Fluid { get; set; }
         public bool? Replaceable { get; set; }

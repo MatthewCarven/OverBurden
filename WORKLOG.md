@@ -1,5 +1,133 @@
 # MinerCraft — Worklog
 
+## 2026-08-30 — M5b: the light grid, and an oracle sharper than the one the plan named
+
+Done. Suite **496 → 518**. `MinerCraft.Core/Lighting/` holds `LightCellPos`, `ChunkLight` with
+cell-face conductance, `SkyColumn`, and `LightPropagator` — the add pass, the un-light pass and
+one invalidation that repairs any edit. `MaterialDefinition.LightEmission` is projected into
+`MaterialTable`, `mods/minercraft/materials/lamp.json` ships a full-strength emitter, and **L**
+places one.
+
+Nothing is wired into the pipeline yet — that is M5c. A lamp placed today is a pale block that
+does not glow.
+
+### The oracle is better than "incremental equals from-scratch", and by a category
+
+M5-PLAN's oracle is that after any edit sequence the maintained grid equals a from-scratch
+flood. That is a good test and it is here. But it **runs the same add pass as the thing it
+checks**, so the only thing it can independently catch is the un-light pass.
+
+The invariant is checkable *locally*:
+
+```
+V(cell) = max( S(cell), max over conducting neighbours n of ( V(n) − attenuation(n → cell) ) )
+```
+
+That fixpoint is **unique** — a cycle of equal values would need zero attenuation all the way
+round, and the only zero-attenuation step is full skylight falling downward, which strictly
+decreases Y — so satisfying it cell by cell *is* correctness, with no propagation anywhere in
+the check. `LightTestWorld.AssertFixpoint` walks every cell of every chunk and re-derives the
+attenuation rule from scratch rather than calling the propagator's.
+
+Same category as M4a's sealed room, and found the same way: by asking what property of this is
+a boolean over a constructed situation rather than an agreement between two implementations.
+A third one fell out for free — **the incrementally maintained sky heights must equal a fresh
+downward scan of the voxels** — which is what `AssertSkyHeightsMatchAScan` checks.
+
+### The defect, and it explains seven failures at once
+
+`Darken` reset a cell to its own source value and queued the un-light walk when the value had
+*fallen*. It did nothing when the value had **risen**. So placing a lamp wrote emission 15 into
+the derived data, and left the cell's propagated value at the zero it held as empty air — a lamp
+that lit nothing, a shaft that stayed dark on breakthrough, and the from-scratch oracle
+disagreeing on every seed. One line, seven tests.
+
+Worth naming because the shape recurs: the invalidation is symmetric in intent — *the cell's
+value must end at its own source, whichever way it moved* — and the code had only written the
+half that the un-light pass made obvious.
+
+### Two break-recipes came back green, and they were different problems
+
+Twelve recipes run. Ten bit. The two that did not were both real, and neither was a missing test
+in the ordinary sense.
+
+**The six-neighbour expansion in `Invalidate` was provably dead work.** It existed for the
+closing-face case: when the face between A and B closes, a walk starting at A never examines B,
+because the face it would cross no longer conducts, so B keeps light nothing will remove.
+Removing the expansion failed nothing — and cannot, because **conductance is recorded on both
+cells of a face**, so a face that changes always reports *both* of them in
+`BuildDerived`'s changed set. The far side is already invalidated by the caller's ordinary
+discipline. Deleted, the contract written into `Invalidate`'s doc comment, and the property it
+depends on pinned by `SealingAFaceReportsBothOfItsCells` — because nothing else would notice it
+stopping being true. Breaking the reporting instead fails 11 tests, which is what makes the
+one-cell version safe rather than lucky. This is the fourth resolution from M4c/M4d: *impossible
+by construction, because something elsewhere already rules the case out.*
+
+**"Let any skylight value fall unattenuated" was a genuine hole**, and the reason is worth
+keeping. `AShaftStaysFullyLitHoweverDeepItGoes` could not distinguish the two rules, because a
+shaft straight down from the surface carries *full* skylight, which falls free under both. The
+case that separates them needs light that is already dim: a horizontal branch off the shaft (10
+at its far end) with a **second shaft dropping from there**. Correct rule, it attenuates 10 → 9 →
+8; broken rule, 10 forever, and every dimly lit patch in the world hangs a column of its own
+light down to bedrock. The test now builds that shape and the recipe fails.
+
+**And one recipe hangs rather than failing.** Dropping the "only if greater" guard in the add
+pass lets a cell be re-enqueued at an equal value, and the queue never drains — exactly what
+M5-PLAN predicted, and exactly the M3a lesson about a test that deadlocks on the bug it exists
+to catch. The battery treats a timeout as a distinct outcome so it reads as "caught" rather than
+as infrastructure trouble.
+
+### The test fixture was the other half of the problem, and its shape is M5c's
+
+The first run took **4.5 minutes and ended with the test host crashing**. None of that was the
+engine:
+
+- `LightingTests.Wall` built a world-spanning plane with 16,384 single-voxel *incremental* edits,
+  each repairing the light around itself. Setup is now written raw and the incremental
+  wall-closing test seals a corridor instead — sixteen voxels rather than sixteen thousand.
+- `LightTestWorld` allocated a fresh `PaddedChunk` — 34³ ints, 157 KB — per chunk per edit. Now
+  one reused buffer. That was most of the memory pressure behind the crash.
+- **The rebuild scope was the union of two different shapes, and separating them is a ~40×
+  saving.** A voxel's *conductance* reaches only its own chunk, plus a neighbour across whichever
+  faces it actually touches — so an interior voxel, 30 in 32, rebuilds exactly one chunk. A
+  change to the column's *sky height* is not local at all: it moves the sky flag on cells the
+  whole way up and down that chunk column, and nowhere else. The first version rebuilt the 3×3
+  horizontal footprint over the full loaded height every time.
+
+Six seconds now. **M5c should implement exactly those two scopes** — the fixture is deliberately
+written as the thing M5c has to build.
+
+### Smaller things worth keeping
+
+- **The derived side is 1.5 KB per chunk, not M5-PLAN's 1 KB**, and the extra is not optional.
+  The plan budgeted 512 bytes of values plus 512 of conductance; the two *intrinsic source*
+  fields — the sky-source bit and the emission nibble — are what let the un-light walk zero a
+  cell without erasing the lamp it is walking away from. Still nothing against ~46 KiB of mesh.
+- **A cell is seeded with skylight only if *every* one of its sixteen voxel columns is open**,
+  not any. Under-seeding is recoverable — the cell above is a source, the face between them
+  conducts through the open half, and full skylight falls through it for nothing — so a cliff
+  face is lit by propagation anyway. Over-seeding is not recoverable: the value is per cell, so
+  a mostly-solid cell declared a source pushes daylight into the rock through its own faces. On
+  flat and terraced ground the two rules agree to within a voxel.
+- **`ISurfaceHeights` exists so a test can state a flat world in one line** rather than reverse
+  engineer a seed that produces one. `WorldGenerator` implements it and nothing else does.
+- **`SkyColumn`'s downward scan is bounded by the loaded region, not by its own limit**, because
+  an unloaded voxel reads as opaque — the same rule the collider uses, for the same reason. The
+  explicit `MaxScanVoxels` is a backstop for a fixture that answers "air" forever, and it is
+  labelled as such rather than as a correctness bound.
+- **`Conducts` uses `VoxelFace`'s table rather than restating the six directions.** Conductance
+  *is* a statement about voxel faces, and two tables of the same six directions is two tables
+  that can disagree. Lighting now depends on the meshing namespace for that one table; if that
+  ever reads badly the fix is to promote `VoxelFace` to `Voxels`, not to copy it.
+
+### Noticed in passing, not fixed
+
+`JobSchedulerTests.AThrowingJobFaultsWithoutTakingTheWorkerDownWithIt` failed in **two** of the
+twelve break-recipe runs and passes on the clean tree. It is intermittent, it is M2a's, and it
+made two recipe results ambiguous until the lighting failures were read separately from it. **A
+flaky test is worse than a missing one during a mutation battery**, because "1 failed" reads as
+"caught". On the TODO.
+
 ## 2026-08-30 — M5a: vertex AO, the four-corner merge key, and the number it was built to take
 
 Done. Suite **468 → 496**. Per-corner ambient occlusion from the padded chunk, two shade

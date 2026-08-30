@@ -109,6 +109,7 @@ public partial class FlyCam : Camera3D
             "  F toggles walk and fly — walking, Space jumps and Shift sprints\n" +
             "  Left mouse mines a sphere, Ctrl+left takes one voxel\n" +
             "  Number keys pick a tier\n" +
+            "  L places a lamp — a debug bind, not M6's placement\n" +
             "  Esc releases the mouse, click to recapture");
     }
 

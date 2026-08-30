@@ -15,13 +15,20 @@ public sealed class MaterialTable
     private readonly bool[] _isFluid;
     private readonly int[] _textureLayer;
     private readonly float[] _hardness;
+    private readonly byte[] _lightEmission;
 
-    private MaterialTable(bool[] isOpaque, bool[] isFluid, int[] textureLayer, float[] hardness)
+    private MaterialTable(
+        bool[] isOpaque,
+        bool[] isFluid,
+        int[] textureLayer,
+        float[] hardness,
+        byte[] lightEmission)
     {
         _isOpaque = isOpaque;
         _isFluid = isFluid;
         _textureLayer = textureLayer;
         _hardness = hardness;
+        _lightEmission = lightEmission;
     }
 
     public int Count => _isOpaque.Length;
@@ -40,6 +47,14 @@ public sealed class MaterialTable
     /// </remarks>
     public float Hardness(int materialId) => _hardness[materialId];
 
+    /// <summary>How brightly this material glows, 0..15.</summary>
+    /// <remarks>
+    /// Projected here for the same reason <see cref="Hardness"/> is: the light build asks it
+    /// once per voxel across a whole chunk, and that is 32,768 registry lookups a chunk would
+    /// not survive. Stored as a byte because the field it feeds is four bits wide.
+    /// </remarks>
+    public int LightEmission(int materialId) => _lightEmission[materialId];
+
     public static MaterialTable From(Registry<MaterialDefinition> materials)
     {
         if (!materials.IsFrozen)
@@ -54,6 +69,7 @@ public sealed class MaterialTable
         var isFluid = new bool[count];
         var textureLayer = new int[count];
         var hardness = new float[count];
+        var lightEmission = new byte[count];
 
         for (int id = 0; id < count; id++)
         {
@@ -73,9 +89,15 @@ public sealed class MaterialTable
             isFluid[id] = definition.IsFluid;
             textureLayer[id] = definition.TextureLayer;
             hardness[id] = definition.Hardness;
+
+            // Clamped as well as validated at load, because the loader is not the only way a
+            // definition gets here — the same belt-and-braces argument as the carve radius.
+            // A value past 15 would otherwise overflow the nibble and wrap a lamp to darkness.
+            lightEmission[id] = (byte)Math.Clamp(
+                definition.LightEmission, 0, MaterialDefinition.MaxLightEmission);
         }
 
-        return new MaterialTable(isOpaque, isFluid, textureLayer, hardness);
+        return new MaterialTable(isOpaque, isFluid, textureLayer, hardness, lightEmission);
     }
 
     /// <summary>Builds a table directly, for tests and tools that have no registry.</summary>
@@ -85,10 +107,18 @@ public sealed class MaterialTable
     /// wrong reason. Fail-open defaults in a test helper are how a suite quietly stops
     /// testing; a test with no interest in mining passes zeros and says so.
     /// </param>
+    /// <param name="lightEmission">
+    /// Optional, unlike <paramref name="hardness"/>, and the asymmetry is deliberate. Zero
+    /// emission is "this material does not glow", which is the honest default for the hundred
+    /// tests that predate lighting; zero hardness is "any tool mines this", which is a
+    /// fail-<em>open</em> default a carve test could pass under for the wrong reason.
+    /// </param>
     internal static MaterialTable ForTesting(
         bool[] isOpaque,
         bool[] isFluid,
         int[] textureLayer,
-        float[] hardness) =>
-        new(isOpaque, isFluid, textureLayer, hardness);
+        float[] hardness,
+        byte[]? lightEmission = null) =>
+        new(isOpaque, isFluid, textureLayer, hardness,
+            lightEmission ?? new byte[isOpaque.Length]);
 }

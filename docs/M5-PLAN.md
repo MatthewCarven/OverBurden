@@ -294,6 +294,10 @@ it is half of the fragment-shader decision and it is available a week early.
 
 ## M5b — The light grid, propagation, and the un-light pass
 
+> **Built 2026-08-30.** Four things below were settled differently by contact with the code and
+> are annotated inline: the storage budget, the oracle, what `Invalidate` has to touch, and which
+> test shape can actually catch the skylight rule. Suite 496 → 518.
+
 ### Storage
 
 A `ChunkLight`: 8×8×8 = **512 cells per chunk**, one byte each, 4 bits skylight and 4 bits
@@ -329,6 +333,12 @@ So opacity is not a property of the cell. It is a property of the **face between
 
 > For each cell and each of its 6 neighbours, light crosses iff some voxel pair across the shared
 > 4×4 voxel boundary is non-opaque on both sides.
+
+> **Corrected 2026-08-30: the derived side is 1.5 KB per chunk, not 512 bytes.** Conductance is
+> six bits as planned, but the un-light walk also needs each cell's **intrinsic source** — the
+> sky-source bit and the emission nibble — or it erases the lamp it is walking away from and only
+> a from-scratch flood could put it back. Eleven bits, stored as a `ushort`. Still nothing
+> against ~46 KiB of mesh.
 
 Six bits per cell, another 512 bytes per chunk, derived from the voxels at light-build time from
 the same padded copy meshing already takes. A 0.75 m tunnel conducts along its axis; a 0.25 m
@@ -388,6 +398,10 @@ Skylight's propagation rule is the standard pair: **full value straight down thr
 with no attenuation**, −1 per metre horizontally. The no-attenuation-downward rule is what makes
 a shaft a shaft rather than a 15 m-deep glow.
 
+> **One word added 2026-08-30: at *full* brightness.** The free fall applies only to a value of
+> 15. An already-attenuated value falling for free would hang a lit column under every dim patch
+> in the world — a tunnel lit to 9 painting 9 straight down to bedrock.
+
 ### Block light, and the fact that nothing emits yet
 
 `MaterialDefinition` has no emission field, and **nothing in the game can place a light source
@@ -424,6 +438,16 @@ wrong place.
 > **After any sequence of edits, the incrementally maintained grid must equal a from-scratch
 > propagation, cell for cell.**
 
+> **Bettered 2026-08-30, and the difference is a category rather than a degree.** The above runs
+> the *same add pass* as the subject, so the only thing it can independently catch is the
+> un-light pass. The propagation invariant
+> `V = max(S, max over conducting neighbours (V(n) − attenuation))` has a **unique** fixpoint — a
+> cycle of equal values would need zero attenuation all the way round, and the only such step is
+> full skylight falling downward, which strictly decreases Y. So it can be checked **locally,
+> cell by cell, with no propagation in the check at all**, which is M4a's sealed room rather than
+> an agreement between two implementations. Both are asserted, plus a third that fell out free:
+> the incrementally maintained sky heights must equal a fresh downward scan of the voxels.
+
 No reference implementation to get wrong — from-scratch propagation *is* the definition, it is
 just too slow to run every frame. No tolerance, no sampling: it is an array comparison. This is
 the same category as M4a's sealed room, and it is the reason M5b is genuinely tractable despite
@@ -444,6 +468,25 @@ not, the fuzz is not placing overlapping sources and needs to be told to.
   terminate); zero unconditionally in the removal pass (fails the oracle); attenuate skylight
   going down (a shaft dies at 15 m); make conductance symmetric-by-assumption rather than
   derived per face.
+
+> **Run 2026-08-30: twelve recipes, ten bit, and the two that did not were different problems.**
+>
+> - **The six-neighbour expansion in `Invalidate` was provably dead work.** Written for the
+>   closing-face case — a walk from A never examines B once the face stops conducting — but
+>   conductance is recorded on **both** cells of a face, so a changed face always reports both in
+>   `BuildDerived`'s changed set. Removing it fails nothing and cannot. Deleted, the caller's
+>   contract documented, and the property pinned by `SealingAFaceReportsBothOfItsCells`; breaking
+>   the *reporting* instead fails 11 tests.
+> - **"Any skylight value falls unattenuated" was a genuine hole**, because a shaft straight down
+>   from the surface carries *full* skylight, which falls free under both rules. The shape that
+>   separates them is a branch off the shaft with a **second shaft dropping from its far end**,
+>   fed at 10 rather than 15.
+> - **The "only if greater" recipe hangs rather than failing**, exactly as predicted above. A
+>   battery has to treat a timeout as its own outcome or it reads as infrastructure trouble.
+>
+> **And the plan's "no attenuation straight down" needs one word added: at full brightness.**
+> Letting an already-attenuated value fall for free hangs a lit column under every dim patch in
+> the world.
 
 ---
 

@@ -147,4 +147,28 @@ public sealed class MiningController(
 
         return true;
     }
+
+    /// <summary>Debug placement of one material, in the empty voxel in front of the target.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>M5b needs something in the world that emits light, and nothing can place anything
+    /// until M6.</b> So this is one key and one material with no inventory, no cooldown and no
+    /// tier — deliberately embarrassing enough that nobody mistakes it for the feature. M6's
+    /// placement is a different thing that will replace it outright.
+    /// </para>
+    /// <para>
+    /// <c>Hit.Previous</c> is the empty voxel the ray was in immediately before the one it hit,
+    /// which M3b built and labelled "where M6's placement goes". This is the first caller.
+    /// </para>
+    /// </remarks>
+    public bool TryPlaceDebug(int materialId)
+    {
+        if (Outcome != RayOutcome.Hit) return false;
+
+        DebugPlacements++;
+        return pipeline.SetVoxel(Hit.Previous, materialId);
+    }
+
+    /// <summary>Voxels placed by the debug bind. Zero on every profile run.</summary>
+    public int DebugPlacements { get; private set; }
 }

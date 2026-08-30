@@ -112,6 +112,12 @@ public partial class Main : Node3D
 
         SetUpMining();
 
+        // Not MaterialId(), which falls back to air: placing air where a missing mod's lamp
+        // should go would carve a hole out of whatever the player was pointing at.
+        _lampMaterialId = Content.Materials.TryGetNumericId(Identifier.Parse(LampId), out int lamp)
+            ? lamp
+            : -1;
+
         GD.Print(
             $"M2c: streaming r{ViewDistanceHorizontal}h/{ViewDistanceVertical}v " +
             $"+{_pipeline.Streamer.LoadMargin} margin on {_scheduler.ThreadCount} worker(s), " +
@@ -695,6 +701,8 @@ public partial class Main : Node3D
             _profiler.Swing.Add(Milliseconds(before, Stopwatch.GetTimestamp()));
         }
 
+        PlaceDebugLamp();
+
         if (_highlight is null)
         {
             return;
@@ -709,6 +717,49 @@ public partial class Main : Node3D
             _highlight.Hide();
         }
     }
+
+    /// <summary>
+    /// L places one lamp in the empty voxel in front of the crosshair.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>M5b needs a light source in the world and M6 owns placement.</b> So: one key, one
+    /// material, no inventory, no cooldown, no tier — the smallest thing that makes M5d
+    /// playable, and small enough that nobody mistakes it for the feature.
+    /// </para>
+    /// <para>
+    /// On a key-down edge rather than polled, for the reason the walk/fly toggle is: a placement
+    /// read every frame lays sixty lamps a second. Nothing happens visually until M5c wires
+    /// light into the pipeline — the lamp is a pale block that does not yet glow.
+    /// </para>
+    /// </remarks>
+    private void PlaceDebugLamp()
+    {
+        if (_mining is null || _camera is null || !_camera.MouseCaptured) return;
+
+        bool pressed = Input.IsKeyPressed(Key.L);
+        bool edge = pressed && !_lampKeyHeld;
+        _lampKeyHeld = pressed;
+
+        if (!edge || _lampMaterialId < 0) return;
+
+        if (_mining.TryPlaceDebug(_lampMaterialId))
+        {
+            GD.Print($"M5b: placed {LampId} at {_mining.Hit.Previous}");
+        }
+    }
+
+    /// <summary>The material the debug bind places, or −1 if the base game does not ship one.</summary>
+    /// <remarks>
+    /// Resolved once and by identifier, not baked in as a number: material IDs come from the
+    /// world's table and a mod that is not installed leaves a hole. A missing lamp disables the
+    /// bind rather than placing whatever happens to hold that slot.
+    /// </remarks>
+    private int _lampMaterialId = -1;
+
+    private bool _lampKeyHeld;
+
+    private const string LampId = "minercraft:lamp";
 
     private void SelectTier()
     {
