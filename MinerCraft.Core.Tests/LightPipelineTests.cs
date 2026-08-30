@@ -1,4 +1,5 @@
 using MinerCraft.Core.Lighting;
+using MinerCraft.Core.Meshing;
 using MinerCraft.Core.Streaming;
 using MinerCraft.Core.Voxels;
 using MinerCraft.Core.Worldgen;
@@ -345,6 +346,58 @@ public class LightPipelineTests
 
         Assert.Equal(before, harness.Pipeline.LightBuilds);
         AssertFixpoint(harness);
+    }
+
+    /// <summary>
+    /// A lamp puts block light into the vertices of a mesh the pipeline actually delivered.
+    /// </summary>
+    /// <remarks>
+    /// <b>Written because the break-recipe battery caught nothing when <c>SubmitMesh</c> was made
+    /// to hand the job <c>null</c> instead of a gathered light grid.</b> The whole of M5c-2's
+    /// vertex-light suite calls <c>GreedyMesher.Build</c> directly, and the whole of M5c-1's
+    /// pipeline suite checks states, counters and quiescence — so the pipeline could have stopped
+    /// passing light to the mesher entirely and 556 tests would have stayed green while the world
+    /// rendered at a flat full brightness.
+    /// <para>
+    /// The same shape of gap M5c-1 found between Core-level correctness and the wiring, one layer
+    /// further out: <b>every part of the path was tested and the join was not.</b> Asserted on
+    /// the bytes of a delivered <c>ChunkMesh</c>, which is the last thing Core owns before Godot.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void ALampPutsBlockLightIntoADeliveredMeshsVertices()
+    {
+        using var harness = new PipelineHarness();
+        harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+
+        // Nothing emits yet, so no delivered vertex may carry any block light at all.
+        Assert.False(AnyDeliveredMeshHasBlockLight(harness), "block light before any emitter");
+
+        harness.Pipeline.SetVoxel(new VoxelPos(16, 16, 16), PipelineHarness.Lamp);
+        harness.Settle();
+
+        Assert.True(
+            AnyDeliveredMeshHasBlockLight(harness),
+            "a lamp lit nothing that reached a vertex — the pipeline is not handing the mesher "
+            + "its light grid");
+    }
+
+    private static bool AnyDeliveredMeshHasBlockLight(PipelineHarness harness)
+    {
+        foreach (ChunkMesh mesh in harness.LastMesh.Values)
+        {
+            foreach (MeshBuffer buffer in new[] { mesh.Opaque, mesh.Transparent })
+            {
+                // Sky is byte 0 of each pair and block is byte 1 — see MeshBuffer.AddQuad.
+                for (int vertex = 0; vertex < buffer.VertexCount; vertex++)
+                {
+                    if (buffer.Shades[(vertex * 2) + 1] > 0) return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

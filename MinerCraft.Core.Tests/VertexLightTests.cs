@@ -122,11 +122,15 @@ public class VertexLightTests
     /// Every sample a mesh sweep can ask for lands inside the grid, the far face included.
     /// </summary>
     /// <remarks>
-    /// <b>The reason the grid is 11³ and not the 10³ the plan derived.</b> A vertex at the
-    /// chunk's far corner is at cell coordinate 8.0, and the half-cell normal offset takes the
-    /// sample to 8.5 — which reaches cell 9. Cell 9's interpolation weight there is exactly
-    /// zero, so its <em>value</em> never matters; the index still has to exist. This walks every
-    /// face of every boundary voxel rather than reasoning about it.
+    /// <b>This does not catch shrinking the grid to the 10³ the plan derived, and an M5c-2
+    /// break-recipe proved it: <see cref="PaddedLight.Sample"/> skips zero-weight terms, so the
+    /// out-of-range index is never even formed.</b> The outermost ring is belt and braces —
+    /// M4a's contact-epsilon category, kept because dropping it silently promotes that
+    /// <c>continue</c> from an optimisation to a bounds check.
+    /// <para>
+    /// What this test does still hold is the pairing: it walks every face of every boundary
+    /// voxel, so it fails the moment the ring and the zero-weight skip are <em>both</em> gone.
+    /// </para>
     /// </remarks>
     [Fact]
     public void EverySampleAMeshSweepCanAskForIsInsideTheGrid()
@@ -198,7 +202,56 @@ public class VertexLightTests
         }
     }
 
+    /// <summary>
+    /// Each of a face's four corners samples at its <em>own</em> vertex, not at one shared point.
+    /// </summary>
+    /// <remarks>
+    /// <b>Written because the break-recipe battery caught nothing when all four corners were made
+    /// to sample the same vertex</b> — and that is the difference between per-vertex light and
+    /// per-face light, which is to say between a smooth gradient across a surface and flat-shaded
+    /// facets. Every other test in this file passed: the merge tests still saw shades varying
+    /// from face to face, the flat-floor test had uniform light so all corners agreed anyway, and
+    /// the constant-shade-along-a-merged-run test is satisfied trivially when a quad's corners
+    /// are all equal.
+    /// <para>
+    /// A gradient along X and a +Y face: corners 0 and 3 differ in X — see
+    /// <c>VoxelFace.VAxis[2]</c> — so they must carry different shades.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void EachCornerSamplesItsOwnVertexRatherThanOneSharedPoint()
+    {
+        PaddedChunk voxels = MeshingTestHelpers.EmptyChunk();
+        for (int x = 0; x < VoxelConstants.ChunkSize; x++)
+        for (int z = 0; z < VoxelConstants.ChunkSize; z++)
+        {
+            voxels[x, 0, z] = Stone;
+        }
+
+        var light = new PaddedLight();
+        for (int z = PaddedLight.Low; z <= PaddedLight.High; z++)
+        for (int x = PaddedLight.Low; x <= PaddedLight.High; x++)
+        for (int y = PaddedLight.Low; y <= PaddedLight.High; y++)
+        {
+            light.Set(x, y, z, sky: Math.Clamp(x * 2, 0, ChunkLight.MaxLevel), block: 0);
+        }
+
+        CornerShade shade = AmbientOcclusion.ShadeFor(
+            voxels, Materials(), light, face: 2, x: 4, y: 0, z: 4);
+
+        // Corner 0 sits at the low X end of this face and corner 3 at the high end, so a
+        // gradient along X has to separate them. One shared sample point makes all four equal.
+        Assert.NotEqual(shade.Sky(0), shade.Sky(3));
+    }
+
     /// <summary>Occlusion scales the light rather than replacing it, in both channels.</summary>
+    /// <remarks>
+    /// <b>Recorded from the battery: rounding versus truncating in <c>Scale</c> is caught by
+    /// nothing, and no test here should try to.</b> The two differ by at most 1 in 255, which is
+    /// below the resolution of every look question and every merge in this suite — it can shift
+    /// the odd quad count by a hair and cannot shift anything a person sees. Rounding is kept as
+    /// the honest conversion, not as a defended property.
+    /// </remarks>
     [Theory]
     [InlineData(15, 0, 255, 0)]
     [InlineData(0, 15, 0, 255)]

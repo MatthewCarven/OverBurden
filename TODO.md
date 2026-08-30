@@ -1483,6 +1483,22 @@ nothing in the second half is. M5c-1 done 2026-08-30, suite 518 → 542.**
 - [ ] **For M5d: the fog ignores the light grid.** At `--skybrightness=0` the horizon is
       fog-coloured while the ground is black. Fine against a lit world, wrong the first time
       somebody stands in a big unlit cavern.
+- [x] **Break-recipe battery: 13 recipes, 9 caught, and both real holes were *joins*.** Nothing
+      checked that each corner samples its own vertex (per-vertex light versus per-face light —
+      smooth gradient versus flat-shaded facets), and nothing checked that the pipeline hands the
+      mesher any light at all: replacing `GatherLight(...)` with `null` at the submission site
+      left 556 tests green. **Every part of the path was tested and the wire between them was
+      not**, which is the same shape M5c-1 found one layer in. Closed by
+      `EachCornerSamplesItsOwnVertexRatherThanOneSharedPoint` and
+      `ALampPutsBlockLightIntoADeliveredMeshsVertices`. Suite 556 → 558.
+- [x] **Standing habit from it: put a recipe on every *call site* that passes data between
+      layers, not only on the logic at each end.**
+- [x] **Two uncaught recipes that are not holes.** Shrinking the grid to the plan's 10³ leaves
+      everything green, because `Sample` skips zero-weight terms and never forms the out-of-range
+      index — so the ring is belt and braces, M4a's contact-epsilon category, and the reason to
+      keep it is that **the ring and the zero-weight `continue` are safe only together**: drop
+      the ring and deleting that `continue` as tidying walks off the array. And truncating rather
+      than rounding in `Scale` differs by at most 1 in 255, below the resolution of anything here.
 - [x] **A test whose "not vacuous" guard was the entire test.**
       `AMergedQuadStillHasConstantShadeAlongEveryAxisItMergedOn` first used per-cell random
       light: every face differed, **nothing merged**, and every assertion passed vacuously. Only

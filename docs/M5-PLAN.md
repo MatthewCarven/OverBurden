@@ -507,6 +507,12 @@ not, the fuzz is not placing overlapping sources and needs to be told to.
 
 ## M5c — The pipeline: the stage, the sample, and the relight
 
+> **Built as two parts, 2026-08-30, on the grounds M2c and M2d were split — everything in the
+> first half is verifiable headlessly and nothing in the second half is.**
+> **M5c-1** took the stage, the grids' lifetime and the relight; **M5c-2** took the padded
+> sample, the shader and the sun. The block quotes through this section are the corrections each
+> part made to what is written here; TODO.md has the full tick-list and WORKLOG.md the reasoning.
+
 ### The problem
 
 Fitting a not-per-chunk algorithm into a per-chunk pipeline, without either stalling the barrier

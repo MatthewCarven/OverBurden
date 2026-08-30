@@ -137,7 +137,7 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2, all of M3, all of M4, and M5a–M5c** are done — **556 tests
+M0, all of M1, **all of M2, all of M3, all of M4, and M5a–M5c** are done — **558 tests
 passing**. The player walks, falls, and cannot outrun the streamer; voxels have ambient
 occlusion; and **lighting is end to end — the sun is gone, the grid is the light, and a lamp
 glows.** M5d is what remains: feel, and the measurements that need a person.
@@ -835,6 +835,17 @@ the scene. Four things worth keeping:
   terrain contours (the sun on the integer heightmap's risers) and the low ambient fill. The face
   tint lives **in the shader, not the vertex** — a quad has one normal so it is free, and baking
   it would put a look constant into the merge key, where retuning means remeshing the world.
+- **The M5c-2 battery's two real holes were both *joins*, and that is the shape to watch.**
+  Nothing checked that each corner samples its own vertex — per-vertex light versus per-*face*
+  light, a smooth gradient versus flat-shaded facets — and nothing checked that the pipeline
+  hands the mesher any light at all: replacing `GatherLight(...)` with `null` at the submission
+  site left 556 tests green, because the vertex suite calls the mesher directly and the pipeline
+  suite checks only states and counters. **Every part of the path was tested and the wire between
+  them was not.** M5c-1 found the same shape one layer in, so the habit is: **put a recipe on
+  every call site that passes data between layers**, not only on the logic at each end. Two other
+  uncaught recipes are *not* holes — the grid's outermost ring is belt and braces (M4a's
+  contact-epsilon category, and the ring and `Sample`'s zero-weight `continue` are safe only
+  together), and rounding versus truncating in `Scale` is below the resolution of anything here.
 - **Three screenshots, because one would have proved less.** Daylight; `--skybrightness=0`, where
   the terrain renders *pure black* (the sky channel is what lights the world, block light really
   is zero, and darkness has no accidental ambient); and `--skybrightness=0 --debuglamp`, a warm

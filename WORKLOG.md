@@ -98,6 +98,46 @@ light, so at `--skybrightness=0` the horizon is fog-coloured while the ground is
 lit world that reads fine; against a dark one it does not, and a fog that ignores the light grid
 will look wrong the first time somebody stands in a big unlit cavern.
 
+### The battery: 13 recipes, 9 caught, and the two real holes were both *joins*
+
+Run after the fact rather than before, which is worth noting because it found things the tests
+written alongside the code did not.
+
+**Hole 1 — nothing checked that each corner samples its own vertex.** Making all four corners
+sample one shared point left the whole suite green. That is the difference between per-vertex
+light and per-*face* light — between a smooth gradient across a surface and flat-shaded facets —
+and every existing test survived it: the merge tests still saw shades varying face to face, the
+flat-floor test had uniform light so the corners agreed anyway, and the constant-shade-along-a-
+merged-run test is satisfied *trivially* when all of a quad's corners are equal.
+`EachCornerSamplesItsOwnVertexRatherThanOneSharedPoint` uses a gradient along X against a +Y
+face, where corners 0 and 3 must differ.
+
+**Hole 2 — nothing checked that the pipeline hands the mesher any light at all.** Replacing
+`GatherLight(chunk.Position)` with `null` at the submission site left 556 tests green. M5c-2's
+vertex-light suite calls `GreedyMesher.Build` directly; M5c-1's pipeline suite checks states,
+counters and quiescence. **Every part of the path was tested and the join was not**, so the world
+could have rendered at flat full brightness with nothing failing.
+`ALampPutsBlockLightIntoADeliveredMeshsVertices` asserts on the bytes of a delivered `ChunkMesh`,
+which is the last thing Core owns before Godot.
+
+Both holes are the same shape and it is the shape to watch for: **a unit-tested producer, a
+unit-tested consumer, and an untested wire between them.** M5c-1 found the same thing one layer
+in. Worth a standing habit — when a battery is written, put a recipe on every *call site* that
+passes data between layers, not only on the logic at each end.
+
+**Two recipes were caught by nothing and are not holes:**
+
+- **Shrinking the grid to the plan's 10³ leaves everything green**, because `Sample` skips
+  zero-weight terms and so never forms the out-of-range index. So the outermost ring is belt and
+  braces, M4a's contact-epsilon category — and the honest reason to keep it is that **the two
+  mechanisms together are what make this safe**: drop the ring and the zero-weight `continue`
+  silently stops being an optimisation and becomes a bounds check, so deleting it as tidying
+  walks off the end of the array. The comment claiming the index "still has to exist" was wrong
+  and is corrected.
+- **Truncating instead of rounding in `Scale` changes nothing measurable.** The two differ by at
+  most 1 in 255, below the resolution of every look question and every merge here. Recorded
+  rather than defended with a test.
+
 ### A test whose guard was the only thing that noticed it
 
 `AMergedQuadStillHasConstantShadeAlongEveryAxisItMergedOn` first used a per-cell pseudo-random

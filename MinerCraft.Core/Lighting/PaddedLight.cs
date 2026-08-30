@@ -23,11 +23,21 @@ namespace MinerCraft.Core.Lighting;
 /// pushes the far face's sample to 8.5, which reaches cell 9.
 /// </para>
 /// <para>
-/// <b>Cell 9's weight is always exactly zero, and it is stored anyway.</b> The offset sample
+/// <b>Cell 9's weight is always exactly zero, so the outermost ring is belt and braces — no test
+/// can tell it from a 10³ grid, and that was measured rather than assumed.</b> The offset sample
 /// along the face axis is <c>plane / 4 ± 0.5</c> with <c>plane</c> an integer, so at the one
-/// place cell 9 is reached — <c>plane == 32</c> — the interpolation weight is 8.0 − 8 = 0,
-/// exactly, in binary. Clamping the index instead would be correct today and silently wrong the
-/// first time the cell size or the offset changes, for 331 bytes.
+/// place cell 9 is reached — <c>plane == 32</c> — the weight is 8.0 − 8 = 0, exactly, in binary.
+/// <see cref="Sample"/> skips zero-weight terms, so the index is never even formed: shrinking
+/// this to the 10³ the plan derived leaves the whole suite green, which an M5c-2 break-recipe
+/// confirmed.
+/// </para>
+/// <para>
+/// <b>It is kept because the two mechanisms together are what make this safe, and either alone
+/// is one edit from being wrong.</b> Drop the ring and the zero-weight <c>continue</c> stops
+/// being an optimisation and becomes a bounds check, so deleting it — which reads as tidying —
+/// walks off the end of the array. Drop the <c>continue</c> and the ring is what saves it. Same
+/// shape as M4a's contact epsilon, which can also be set to zero with the suite green and is
+/// also kept: 331 bytes against a failure mode nothing would catch.
 /// </para>
 /// </remarks>
 public sealed class PaddedLight
