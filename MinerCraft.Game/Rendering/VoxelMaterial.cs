@@ -27,7 +27,13 @@ public static class VoxelMaterial
 {
     private const int TextureSize = 16;
 
-    public static ShaderMaterial Create()
+    /// <param name="skyBrightness">
+    /// Scales the sky channel only. <b>1 is daylight and 0 is the middle of the night</b>, with
+    /// nothing driving it yet — it exists so a diurnal cycle can be a uniform rather than a
+    /// reason to reflood the light grid every frame, and it doubles as the A/B that isolates
+    /// block light from skylight without a rebuild.
+    /// </param>
+    public static ShaderMaterial Create(float skyBrightness = 1f)
     {
         var shader = GD.Load<Shader>("res://Rendering/Voxel.gdshader");
         if (shader is null)
@@ -52,6 +58,7 @@ public static class VoxelMaterial
 
         var material = new ShaderMaterial { Shader = shader };
         material.SetShaderParameter("albedo", array);
+        material.SetShaderParameter("sky_brightness", skyBrightness);
         return material;
     }
 

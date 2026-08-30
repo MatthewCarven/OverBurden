@@ -112,6 +112,13 @@ costs more than **2×** the quads of AO alone, *or* a single swing into a lit sp
 than ~16 chunk remeshes at a rate mining can sustain. Either one and light moves to the fragment
 shader.
 
+> **Measured at M5c-2, and the first half of the trigger is retired rather than deferred: light
+> in the merge key makes quads *cheaper*.** 262 with neither, 492 with AO alone, 283 with light
+> alone, **404 with both** — 0.82× the AO-alone baseline against a threshold of ~984. The shade
+> is `occlusion × light`, so where the light is zero the product is zero whatever the occlusion
+> was, and faces that could not merge under AO alone merge freely in the dark — which is most of
+> a mine's surface area. The merge stays exact. The remesh half of the trigger is still M5d's.
+
 ---
 
 ## M5a — Vertex AO and the merge key
@@ -574,6 +581,14 @@ and 8, and cell 8 belongs to the neighbour. A vertex at 0.0 needs cells −1 and
 
 **10³ = 1,000 bytes, covering −1…8** — exactly the shape `PaddedChunk` has for voxels, gathered
 from the same 27 references the mesh job already captures.
+
+> **Superseded at M5c-2: it is 11³ over −1…9, 1,331 bytes.** This derivation is right for a
+> sample taken *at* the vertex, and the sample is taken **half a cell along the face normal** —
+> which is not a refinement but the thing that stops a flat, fully lit floor rendering at 7.5 of
+> 15 everywhere, since a face sits exactly on the boundary between a lit cell and dark rock. The
+> offset takes the far face's sample to 8.5, which reaches cell 9. Cell 9's weight there is
+> exactly zero in binary; clamping the index instead would be right today and silently wrong the
+> first time the cell size or the offset changes.
 
 #### It is gathered on the sim thread, unlike the voxel copy — settled 2026-08-30
 

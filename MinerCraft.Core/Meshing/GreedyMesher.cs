@@ -1,4 +1,5 @@
 using MinerCraft.Core.Content;
+using MinerCraft.Core.Lighting;
 using MinerCraft.Core.Voxels;
 
 namespace MinerCraft.Core.Meshing;
@@ -54,21 +55,32 @@ public sealed class GreedyMesher
         public bool HasFace => Material != MaterialIds.AirNumericId;
     }
 
-    public void Build(PaddedChunk voxels, MaterialTable materials, ChunkMesh output)
+    /// <param name="light">
+    /// The chunk's light cells with a border of its neighbours'. Null restores the pre-M5c shade
+    /// — full skylight everywhere and no block light — which is the arm of M5d's measurement
+    /// that says what putting light in the merge key costs in quads.
+    /// </param>
+    public void Build(
+        PaddedChunk voxels, MaterialTable materials, ChunkMesh output, PaddedLight? light = null)
     {
         output.Reset();
 
         for (int face = 0; face < VoxelFace.Count; face++)
         {
-            SweepFace(face, voxels, materials, output);
+            SweepFace(face, voxels, materials, light, output);
         }
     }
 
-    private void SweepFace(int face, PaddedChunk voxels, MaterialTable materials, ChunkMesh output)
+    private void SweepFace(
+        int face,
+        PaddedChunk voxels,
+        MaterialTable materials,
+        PaddedLight? light,
+        ChunkMesh output)
     {
         for (int slice = 0; slice < Size; slice++)
         {
-            if (BuildMask(face, slice, voxels, materials))
+            if (BuildMask(face, slice, voxels, materials, light))
             {
                 MergeAndEmit(face, slice, materials, output);
             }
@@ -76,7 +88,8 @@ public sealed class GreedyMesher
     }
 
     /// <summary>Marks which faces on this slice are visible. Returns false if none are.</summary>
-    private bool BuildMask(int face, int slice, PaddedChunk voxels, MaterialTable materials)
+    private bool BuildMask(
+        int face, int slice, PaddedChunk voxels, MaterialTable materials, PaddedLight? light)
     {
         int axis = VoxelFace.Axis[face];
         int uAxis = VoxelFace.UAxis[face];
@@ -106,7 +119,7 @@ public sealed class GreedyMesher
                 // padded-chunk reads on top of the two visibility already did, and most
                 // positions in a slice have no face at all.
                 _mask[v * Size + u] = visible
-                    ? new FaceKey(here, ShadeFor(face, position, voxels, materials))
+                    ? new FaceKey(here, ShadeFor(face, position, voxels, materials, light))
                     : default;
 
                 any |= visible;
@@ -116,12 +129,30 @@ public sealed class GreedyMesher
         return any;
     }
 
+    /// <summary>
+    /// The four corner shades this face contributes to the merge key — two independent switches,
+    /// so M5d can price occlusion and light apart rather than only together.
+    /// </summary>
     private CornerShade ShadeFor(
-        int face, ReadOnlySpan<int> position, PaddedChunk voxels, MaterialTable materials) =>
-        _ambientOcclusion
-            ? AmbientOcclusion.ShadeFor(
-                voxels, materials, face, position[0], position[1], position[2])
-            : CornerShade.FullSky;
+        int face,
+        ReadOnlySpan<int> position,
+        PaddedChunk voxels,
+        MaterialTable materials,
+        PaddedLight? light)
+    {
+        if (light is null)
+        {
+            return _ambientOcclusion
+                ? AmbientOcclusion.ShadeFor(
+                    voxels, materials, face, position[0], position[1], position[2])
+                : CornerShade.FullSky;
+        }
+
+        return AmbientOcclusion.ShadeFor(
+            voxels, materials, light, face,
+            position[0], position[1], position[2],
+            occlude: _ambientOcclusion);
+    }
 
     /// <summary>
     /// Whether the face of <paramref name="here"/> looking towards

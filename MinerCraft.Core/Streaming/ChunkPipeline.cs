@@ -101,6 +101,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     private readonly long _resultBudgetTicks;
     private readonly long _lightBudgetTicks;
     private readonly bool _ambientOcclusion;
+    private readonly bool _light;
     private bool _disposed;
 
     private readonly LightPropagator _propagator;
@@ -153,6 +154,9 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
 
     private readonly VoxelChunk?[] _lightNeighbourhood = new VoxelChunk?[PaddedChunk.NeighbourhoodSize];
 
+    /// <summary>The 27 grids a mesh submission copies from. Reused; the copy is immediate.</summary>
+    private readonly ChunkLight?[] _lightGrids = new ChunkLight?[PaddedChunk.NeighbourhoodSize];
+
     /// <param name="onMeshReady">
     /// A chunk's mesh is built and ready to draw. The Godot layer turns it into an
     /// <c>ArrayMesh</c> here; Core never sees a renderer.
@@ -189,7 +193,8 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         TimeSpan? resultBudget = null,
         Func<long>? nowTicks = null,
         bool ambientOcclusion = true,
-        TimeSpan? lightBudget = null)
+        TimeSpan? lightBudget = null,
+        bool light = true)
     {
         _generator = generator;
         _materials = materials;
@@ -199,6 +204,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         _onJobFaulted = onJobFaulted;
         _nowTicks = nowTicks ?? Stopwatch.GetTimestamp;
         _ambientOcclusion = ambientOcclusion;
+        _light = light;
         _resultBudgetTicks =
             (long)((resultBudget ?? DefaultResultBudget).TotalMilliseconds * TicksPerMillisecond);
         _lightBudgetTicks =
@@ -1132,7 +1138,45 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
                 Neighbourhood(chunk.Position),
                 _materials,
                 urgent,
-                _ambientOcclusion));
+                _ambientOcclusion,
+                GatherLight(chunk.Position)));
+    }
+
+    /// <summary>
+    /// Copies the chunk's light cells and a border of its neighbours' for a mesh job.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A copy taken here, on the sim thread, and not 27 references the worker resolves
+    /// later.</b> The voxel neighbourhood can be references because M3a made voxels
+    /// copy-on-write; light has no such rule and cannot cheaply have one, since the propagator
+    /// writes into those 512-byte arrays in place and carries on doing it while the job runs.
+    /// One 1,331-byte copy per job against a clone per chunk per drain.
+    /// </para>
+    /// <para>
+    /// Allocated fresh rather than taken from a reused buffer, because the worker owns it until
+    /// the job completes. That is 1,331 bytes against the 157 KB padded voxel copy the worker
+    /// still builds for itself — <b>0.8%</b>.
+    /// </para>
+    /// </remarks>
+    private PaddedLight? GatherLight(ChunkPos centre)
+    {
+        if (!_light)
+        {
+            return null;
+        }
+
+        for (int dz = -1; dz <= 1; dz++)
+        for (int dx = -1; dx <= 1; dx++)
+        for (int dy = -1; dy <= 1; dy++)
+        {
+            _lightGrids[PaddedChunk.NeighbourIndex(dx, dy, dz)] =
+                _streamer.Get(centre.Offset(dx, dy, dz))?.Light;
+        }
+
+        var padded = new PaddedLight();
+        padded.CopyFrom(_lightGrids);
+        return padded;
     }
 
     /// <summary>

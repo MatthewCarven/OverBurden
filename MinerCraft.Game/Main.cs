@@ -66,6 +66,8 @@ public partial class Main : Node3D
     private bool _mineWhileProfiling;
     private bool _fallProfile;
     private bool _ambientOcclusion = true;
+    private bool _lightInMergeKey = true;
+    private float _skyBrightness = 1f;
     private float _fallHeightMetres = 600f;
     private int _restingSteps;
     private int _restedSteps;
@@ -79,9 +81,11 @@ public partial class Main : Node3D
         LoadContent();
 
         _camera = GetNodeOrNull<FlyCam>("FlyCam");
-        _material = VoxelMaterial.Create();
 
         int margin = ApplyCommandLineOverrides();
+
+        // After the overrides, not before: --skybrightness is a shader uniform set at build.
+        _material = VoxelMaterial.Create(_skyBrightness);
 
         var settings = new WorldGenSettings { Seed = 0x4D494E455243UL };
         if (_caveLatticeStep is int caveStep)
@@ -104,7 +108,8 @@ public partial class Main : Node3D
             loadMargin: margin,
             resultBudget: _applyBudget,
             ambientOcclusion: _ambientOcclusion,
-            lightBudget: _lightBudget);
+            lightBudget: _lightBudget,
+            light: _lightInMergeKey);
 
         SetUpPlayer(_generator);
 
@@ -123,7 +128,8 @@ public partial class Main : Node3D
         GD.Print(
             $"M2c: streaming r{ViewDistanceHorizontal}h/{ViewDistanceVertical}v " +
             $"+{_pipeline.Streamer.LoadMargin} margin on {_scheduler.ThreadCount} worker(s), " +
-            $"vertex AO {(_ambientOcclusion ? "on" : "off")}");
+            $"vertex AO {(_ambientOcclusion ? "on" : "off")}, " +
+            $"light in merge key {(_lightInMergeKey ? "on" : "off")}");
     }
 
     /// <summary>
@@ -274,6 +280,27 @@ public partial class Main : Node3D
                 // decision, and it is available a milestone before the decision is due.
                 case "ao" when int.TryParse(value, out int ao):
                     _ambientOcclusion = ao != 0;
+                    break;
+
+                // The other half of the same A/B, and the two are deliberately independent.
+                // M5-PLAN asks for AO off / AO on / AO+light on; having both switches gives the
+                // fourth arm free, which is light with no occlusion — the only way to price
+                // light in the merge key on its own rather than on top of AO.
+                case "light" when int.TryParse(value, out int light):
+                    _lightInMergeKey = light != 0;
+                    break;
+
+                // Scales the sky channel in the shader and nothing else. 0 leaves only block
+                // light, which is what says the two channels really are independent all the way
+                // to the screen rather than only in the mesher.
+                case "skybrightness" when float.TryParse(value, out float brightness):
+                    _skyBrightness = brightness;
+                    break;
+
+                // Places one lamp where the crosshair points, so a screenshot can show block
+                // light without anybody pressing L. See PlaceScriptedLamp.
+                case "debuglamp":
+                    _debugLamp = true;
                     break;
 
                 case "profile":
@@ -744,8 +771,39 @@ public partial class Main : Node3D
     /// light into the pipeline — the lamp is a pale block that does not yet glow.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Places one lamp where the crosshair is pointing, once, without a keypress.
+    /// </summary>
+    /// <remarks>
+    /// <b>Exists because a screenshot cannot press L, and "does block light reach the screen" is
+    /// a look question.</b> With <c>--skybrightness=0</c> the lamp is the only light in the
+    /// world, so the shot answers the one link the sky channel cannot: that
+    /// <c>COLOR.g</c> carries block light and is tinted separately. Fired once and only once —
+    /// the same edge-triggering the L key needs, for the same reason M5b recorded, since a
+    /// per-frame read lays sixty lamps a second.
+    /// </remarks>
+    private void PlaceScriptedLamp()
+    {
+        if (!_debugLamp || _scriptedLampPlaced || _mining is null || _lampMaterialId < 0) return;
+
+        // Nothing to place against until the world under the crosshair has actually loaded.
+        if (!_mining.HasTarget) return;
+
+        _scriptedLampPlaced = _mining.TryPlaceDebug(_lampMaterialId);
+
+        if (_scriptedLampPlaced)
+        {
+            GD.Print($"M5c: scripted lamp at {_mining.Hit.Previous}");
+        }
+    }
+
+    private bool _debugLamp;
+    private bool _scriptedLampPlaced;
+
     private void PlaceDebugLamp()
     {
+        PlaceScriptedLamp();
+
         if (_mining is null || _camera is null || !_camera.MouseCaptured) return;
 
         bool pressed = Input.IsKeyPressed(Key.L);
@@ -916,7 +974,8 @@ public partial class Main : Node3D
         foreach (VoxelRenderInstance instance in _instances.Values) quads += instance.QuadCount;
 
         return $"quads {quads} ({quads / Math.Max(_instances.Count, 1)} per drawn chunk, "
-               + $"AO {(_ambientOcclusion ? "on" : "off")})";
+               + $"AO {(_ambientOcclusion ? "on" : "off")}, "
+               + $"light {(_lightInMergeKey ? "on" : "off")})";
     }
 
     private string GeometryLine()

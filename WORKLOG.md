@@ -1,5 +1,116 @@
 # MinerCraft — Worklog
 
+## 2026-08-30 — M5c-2: the sample, the sun goes, and light in the merge key makes quads *cheaper*
+
+Done. Suite **542 → 556**. `PaddedLight` is gathered on the sim thread at submission; the mesher
+samples it trilinearly per vertex and multiplies occlusion into both channels;
+`Voxel.gdshader` renders `unshaded` with a `NORMAL`-derived face tint and a `sky_brightness`
+uniform; and the `DirectionalLight3D` is out of `Main.tscn`. **Lighting is now end to end — a
+lamp glows.**
+
+### The headline number is the opposite of what the plan expected
+
+M5-PLAN's recorded trigger for abandoning per-vertex light was *"light in the merge key costs
+more than **2×** the quads of AO alone"* — against M5a's measured 492, a threshold of ~984.
+Measured headlessly at r4h/2v, from a standing start:
+
+```
+                     quads per drawn chunk
+  AO off, light off          262      the M1c constant-shade baseline
+  AO on,  light off          492      the M5a baseline
+  AO off, light on           283
+  AO on,  light on           404      <- the number that decides it
+```
+
+**404 is 0.82× the AO-alone baseline. Light in the merge key does not cost quads; it saves 18%
+of them**, and mesh memory follows quads.
+
+The mechanism is the shade being `occlusion × light` rather than occlusion beside light — which
+`CornerShade` argues for on rendering grounds (AO is geometric darkening, so it multiplies into
+both channels and stays out of the shader). **Where the light is zero the product is zero
+whatever the occlusion was**, so faces that could not merge under AO alone merge freely in the
+dark — and the dark is most of a mine's surface area. The merge stays *exact*: the shades really
+are equal and the faces really do render identically.
+
+So **the fragment-shader fallback is not merely unnecessary, it is backwards**, and the trigger
+that would have reopened it can be retired rather than left pending. That makes it the fifth
+named fallback in this project to be dissolved by measurement, and the first to be dissolved in
+the wrong direction. `InDarknessEveryOcclusionLevelCollapsesToTheSameShade` pins the mechanism,
+because the quad measurement now depends on it and an ambient floor added to the shade *byte* —
+rather than to the shader, where it belongs — would silently undo it.
+
+### The plan's 10³ grid is one ring short, and the reason is load-bearing
+
+M5-PLAN derives the padded light grid as **10³ over −1…8**: a vertex at the chunk's far corner
+sits at cell coordinate 8.0, interior centres run 0.5…7.5, so it needs cells 7 and 8. That is
+right for a sample taken *at* the vertex — and the sample is taken **half a cell along the face
+normal**, which pushes the far face to 8.5 and reaches cell 9.
+
+**The offset is not a refinement.** A face sits exactly on the boundary between a solid voxel and
+an open one, so a vertex on it interpolates equally between the lit cell and the dark rock: a
+flat, fully lit floor would render at **7.5 of 15, everywhere**, and would look like a deliberate
+art choice rather than a bug. `ChunkLight` recorded the offset at M5b as the mitigation for rock
+near a lit tunnel glowing; what it did not do was feed it back into the grid size.
+
+So **11³ = 1,331 bytes**, and cell 9's interpolation weight there is exactly zero — the sample
+along the face axis is `plane / 4 ± 0.5` with `plane` an integer, so at `plane == 32` the weight
+is 8.0 − 8 = 0, exactly, in binary. Clamping the index instead would be correct today and
+silently wrong the first time the cell size or the offset changes, for 331 bytes.
+
+### The sun is gone, and it retired two open items at once
+
+`Voxel.gdshader` renders `unshaded`; there is no directional light and no Lambert term. Verified
+by screenshot, which is the only instrument that works — headless has no renderer, so a shader
+error does not even surface there.
+
+- **The bright and dark slivers following terrain contours are gone.** They were the sun hitting
+  the integer heightmap's risers, recorded as an open look question since M1. With no sun the
+  terracing reads as geometry, which is what it is.
+- **The low ambient fill is gone with it.** Faces angled away from the sun no longer go nearly
+  black; a face's brightness is now the light that reaches it times a `NORMAL`-derived face tint
+  — top 1.0, ±Z 0.8, ±X 0.65, bottom 0.5, the cheap fake every voxel game uses.
+
+The face tint is computed in the shader rather than baked into the vertex, and that is a
+decision: a quad has exactly one normal so it costs nothing worth counting, while baking it would
+put a *look* constant into the merge key, where retuning it means remeshing the world.
+
+### Three screenshots, because one would have proved less
+
+`--skybrightness=` scales the sky channel alone and `--debuglamp` places one lamp without a
+keypress, so the look questions are repeatable rather than a person's recollection.
+
+- **Daylight** — skylight, AO and the face tint all read correctly, no slivers.
+- **`--skybrightness=0`** — the terrain renders *pure black*. That is three things at once: the
+  sky channel is what lights the world, block light really is zero where nothing emits, and
+  darkness renders as darkness with no accidental ambient anywhere.
+- **`--skybrightness=0 --debuglamp`** — a warm pool falling off over ~15 m across the terraces,
+  and nothing else lit. **This is the only shot that can prove `COLOR.g` carries block light and
+  is tinted separately**, since every other test in the milestone would pass identically if the
+  two channels had been written into the same byte. The gradient is smooth, with no visible
+  cell-blockiness at that range — a good early sign for the 1 m cell, which M5d judges properly.
+
+**No ambient floor**: an unlit cave is black, which is DESIGN's intent — M5 supplies the darkness
+and M13 is what makes it a hazard. If M5d says it is unusable rather than dark, the lever is one
+added constant in the shader, not a change to the grid.
+
+**One thing the shots raise for M5d:** the Environment's fog greys distant terrain regardless of
+light, so at `--skybrightness=0` the horizon is fog-coloured while the ground is black. Against a
+lit world that reads fine; against a dark one it does not, and a fog that ignores the light grid
+will look wrong the first time somebody stands in a big unlit cavern.
+
+### A test whose guard was the only thing that noticed it
+
+`AMergedQuadStillHasConstantShadeAlongEveryAxisItMergedOn` first used a per-cell pseudo-random
+light field. Every face then had a different shade, **nothing merged at all**, and the property
+under test was never exercised once — the assertions all passed vacuously. Only
+`Assert.True(merged > 0)` failed. Replaced with two flat regions and one boundary.
+
+That is the same lesson as M5c-1's two fixture traps, arriving from the third direction: **the
+"this test was not vacuous" guard is not decoration, and on this occasion it was the entire
+test.**
+
+---
+
 ## 2026-08-30 — M5c-1: the light stage, and light turns out to need no margin ring
 
 Done. Suite **518 → 542**. `GenerationStage.Lit` is a third rung on the barrier;

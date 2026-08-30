@@ -1437,6 +1437,57 @@ nothing in the second half is. M5c-1 done 2026-08-30, suite 518 → 542.**
       bugs); unload releases the grid and revival recomputes it; an edit landing mid-mesh
       re-marks; the no-chunk-left-waiting fuzz extended over the new stage.
 
+##### M5c-2 — the sample, the shader, and the sun — **done 2026-08-30**
+
+- [x] `PaddedLight` gathered on the sim thread at submission; trilinear sample per vertex;
+      occlusion multiplied into both channels; `Voxel.gdshader` `unshaded` with a
+      `NORMAL`-derived face tint and a `sky_brightness` uniform; `DirectionalLight3D` removed
+      from `Main.tscn`. Suite 542 → 556. **Lighting is end to end — a lamp glows.**
+- [x] **The headline number is the opposite of what the plan expected.** Quads per drawn chunk at
+      r4h/2v: **262** (AO off, light off) / **492** (AO on, light off — the M5a baseline) /
+      **283** (AO off, light on) / **404** (AO on, light on). **Light in the merge key does not
+      cost quads, it saves 18% of them**, and mesh memory follows quads.
+- [x] **The mechanism: the shade is `occlusion × light`, so where light is zero the product is
+      zero whatever the occlusion was.** Faces that could not merge under AO alone merge freely
+      in the dark, which is most of a mine's surface area. The merge stays exact — the shades
+      really are equal. Pinned by `InDarknessEveryOcclusionLevelCollapsesToTheSameShade`, because
+      the quad measurement now depends on it and an ambient floor added to the shade *byte*
+      rather than to the shader would silently undo it.
+- [x] **So the fragment-shader fallback is retired, not deferred.** Its trigger was ">2× the
+      quads of AO alone", i.e. ~984; measured 404, which is **0.82×**. Fifth named fallback in
+      this project dissolved by measurement, and the first dissolved in the wrong direction.
+- [x] **The plan's 10³ padded grid is one ring short: it is 11³ over −1…9.** The derivation is
+      right for a sample taken *at* the vertex, and the sample is taken **half a cell along the
+      face normal**, which pushes the far face to 8.5. **The offset is not a refinement** — a
+      face sits on the boundary between solid and open, so without it a flat fully lit floor
+      renders at 7.5 of 15 everywhere and looks like an art choice. `ChunkLight` recorded the
+      offset at M5b and nothing fed it back into the grid size.
+- [x] Cell 9's interpolation weight is **exactly zero** — the face-axis sample is `plane / 4 ± 0.5`
+      with `plane` an integer, so at `plane == 32` the weight is 8.0 − 8 = 0 in binary. Clamping
+      the index instead would be right today and silently wrong the first time the cell size or
+      the offset changes, for 331 bytes.
+- [x] **The sun going retired two long-standing open items**: the bright and dark slivers
+      following terrain contours (the sun on the integer heightmap's risers), and the low ambient
+      fill. Face tint is top 1.0 / ±Z 0.8 / ±X 0.65 / bottom 0.5, **in the shader and not the
+      vertex** — a quad has one normal so it is free, and baking it would put a look constant
+      into the merge key where retuning it means remeshing the world.
+- [x] **Three screenshots, because one would have proved less.** Daylight (skylight, AO, tint, no
+      slivers); `--skybrightness=0` (terrain **pure black** — sky is what lights the world, block
+      light is genuinely zero, and darkness has no accidental ambient); and
+      `--skybrightness=0 --debuglamp` (a warm pool over ~15 m and nothing else lit). **Only the
+      third can prove `COLOR.g` carries block light and is tinted separately** — every other test
+      in the milestone would pass identically if both channels went into one byte.
+- [x] `--skybrightness=` and `--debuglamp` are the new seams, so the look questions are
+      repeatable rather than a recollection. No ambient floor: an unlit cave is black, which is
+      DESIGN's intent; the lever if M5d disagrees is one constant in the shader.
+- [ ] **For M5d: the fog ignores the light grid.** At `--skybrightness=0` the horizon is
+      fog-coloured while the ground is black. Fine against a lit world, wrong the first time
+      somebody stands in a big unlit cavern.
+- [x] **A test whose "not vacuous" guard was the entire test.**
+      `AMergedQuadStillHasConstantShadeAlongEveryAxisItMergedOn` first used per-cell random
+      light: every face differed, **nothing merged**, and every assertion passed vacuously. Only
+      `Assert.True(merged > 0)` failed. Third fixture trap in M5c, from a new direction.
+
 #### M5d — Feel and measurement
 
 - [ ] **Quads per chunk: AO off / AO on / AO+light on.** Three numbers, one flag each, and they

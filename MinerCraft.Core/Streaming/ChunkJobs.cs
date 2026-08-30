@@ -1,4 +1,5 @@
 using MinerCraft.Core.Content;
+using MinerCraft.Core.Lighting;
 using MinerCraft.Core.Jobs;
 using MinerCraft.Core.Meshing;
 using MinerCraft.Core.Voxels;
@@ -63,6 +64,7 @@ public sealed class MeshChunkJob : IJob
     private readonly VoxelChunk?[] _neighbourhood;
     private readonly MaterialTable _materials;
     private readonly bool _ambientOcclusion;
+    private readonly PaddedLight? _light;
 
     /// <param name="urgent">
     /// A remesh the player is waiting on, rather than one the streamer asked for. Raises
@@ -73,12 +75,18 @@ public sealed class MeshChunkJob : IJob
     /// Off restores the constant-brightness merge key, for the A/B that says what per-vertex
     /// AO costs in quads. See <see cref="GreedyMesher"/>.
     /// </param>
+    /// <param name="light">
+    /// The chunk's light cells and a border of its neighbours', <b>copied on the sim thread
+    /// before this job was submitted</b> rather than referenced. Null restores the pre-M5c
+    /// shade, for the A/B that prices light in the merge key.
+    /// </param>
     public MeshChunkJob(
         ChunkPos position,
         VoxelChunk?[] neighbourhood,
         MaterialTable materials,
         bool urgent = false,
-        bool ambientOcclusion = true)
+        bool ambientOcclusion = true,
+        PaddedLight? light = null)
     {
         if (neighbourhood.Length != PaddedChunk.NeighbourhoodSize)
         {
@@ -91,6 +99,7 @@ public sealed class MeshChunkJob : IJob
         _neighbourhood = neighbourhood;
         _materials = materials;
         _ambientOcclusion = ambientOcclusion;
+        _light = light;
         Urgency = urgent ? EditUrgency : (byte)0;
     }
 
@@ -123,7 +132,7 @@ public sealed class MeshChunkJob : IJob
         cancellation.ThrowIfCancellationRequested();
 
         var mesh = new ChunkMesh();
-        new GreedyMesher(_ambientOcclusion).Build(padded, _materials, mesh);
+        new GreedyMesher(_ambientOcclusion).Build(padded, _materials, mesh, _light);
         Result = mesh;
     }
 }

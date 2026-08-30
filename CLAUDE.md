@@ -87,8 +87,11 @@ Also `--margin=`, `--warmup=`, `--measure=`, `--cavestep=` (1 restores per-voxel
 evaluation, for A/B against the lattice), `--applybudget=<ms>` (a large value such as 1000
 is the unbudgeted arm; there is no "off"), `--lightbudget=<ms>` (how much of a frame light
 derivation and propagation may take; **swept at M5c-1 and 4 ms is the knee** — below it the
-world has generated but cannot draw, because nothing meshes until its neighbourhood is lit)
-and `--ao=0` (restores the pre-M5a constant-brightness merge key, for the vertex-AO A/B).
+world has generated but cannot draw, because nothing meshes until its neighbourhood is lit),
+`--ao=0` and `--light=0` (the two halves of the shade, switchable independently — see the quad
+table below), `--skybrightness=<0..2>` (scales the sky channel alone; 0 leaves only block light)
+and `--debuglamp` (places one lamp where the crosshair points, so a screenshot can show block
+light without a keypress).
 
 **A profile run quits by itself, so it needs no `--quit-after` — and passing one usually
 truncates the run**, because 900 frames at ~145 fps is 6 s and the default window is 18.
@@ -134,11 +137,10 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2, all of M3, all of M4, M5a, M5b and M5c-1** are done — **540 tests
-passing**. The player walks, falls, and cannot outrun the streamer, voxels have ambient
-occlusion, and the light grid is now built, propagated and repaired by the pipeline — but
-nothing samples it yet, so **a lamp is still a pale block that does not glow. That is M5c-2**,
-which owns the trilinear sample, the shader and the sun going away.
+M0, all of M1, **all of M2, all of M3, all of M4, and M5a–M5c** are done — **556 tests
+passing**. The player walks, falls, and cannot outrun the streamer; voxels have ambient
+occlusion; and **lighting is end to end — the sun is gone, the grid is the light, and a lamp
+glows.** M5d is what remains: feel, and the measurements that need a person.
 Terrain streams around the flycam: worldgen and greedy meshing run on worker threads over palette-compressed storage,
 with materials loaded from JSON, and chunks load and unload as the viewer moves.
 
@@ -147,7 +149,7 @@ Headless from a standing start, r4h/2v + 2 margin on 8 workers:
 ```
 1521 viewed (1521 tracked), 165 drawn, 0 in flight, 0 queued
 1926 jobs done / 0 dropped / 0 faulted   — settled inside 5 s
-quads 81331 (492 per drawn chunk, AO on)
+quads 66704 (404 per drawn chunk, AO on, light on)
 1521 derives / 1521 tracked (299 uniform, 20%), 585k cells visited,
 169 sky columns, 0 relight remeshes, light settled
 ```
@@ -805,6 +807,41 @@ where the wrong answer sat.
 
 **M5c is split M5c-1 / M5c-2**, on the grounds M2c and M2d were split: M5c-1 is verifiable
 headlessly and M5c-2 — the trilinear sample, the shader, the sun going away — is not.
+
+**M5c-2 — the sample, the shader and the sun: done 2026-08-30.** Suite **542 → 556**.
+`PaddedLight` is gathered on the sim thread at submission, the mesher samples it trilinearly per
+vertex and multiplies occlusion into both channels, `Voxel.gdshader` renders `unshaded` with a
+`NORMAL`-derived face tint and a `sky_brightness` uniform, and the `DirectionalLight3D` is out of
+the scene. Four things worth keeping:
+
+- **The headline number is the opposite of what the plan expected.** Quads per drawn chunk at
+  r4h/2v: **262** AO off + light off, **492** AO on + light off (M5a's baseline), **283** AO off
+  + light on, **404** AO on + light on. **Light in the merge key does not cost quads, it saves
+  18% of them.** The mechanism is the shade being `occlusion × light`: where light is zero the
+  product is zero whatever the occlusion was, so faces that could not merge under AO alone merge
+  freely in the dark — which is most of a mine. The merge stays exact. **So M5's fragment-shader
+  fallback is retired rather than deferred** — its trigger was ">2× AO alone", i.e. ~984, and
+  404 is 0.82×. Fifth named fallback dissolved by measurement here, and the first dissolved in
+  the wrong direction. `InDarknessEveryOcclusionLevelCollapsesToTheSameShade` pins it, because an
+  ambient floor added to the shade *byte* rather than to the shader would silently undo it.
+- **The plan's 10³ padded light grid is one ring short — it is 11³ over −1…9.** The derivation is
+  right for a sample taken *at* the vertex, and the sample is taken **half a cell along the face
+  normal**, which pushes the far face to 8.5. **That offset is not a refinement:** a face sits on
+  the boundary between solid and open, so without it a flat, fully lit floor renders at 7.5 of 15
+  everywhere and looks like an art choice. Cell 9's weight there is exactly zero in binary;
+  clamping instead would be right today and silently wrong the first time the cell size or the
+  offset changes, for 331 bytes.
+- **The sun going retired two long-standing open items**: the bright and dark slivers following
+  terrain contours (the sun on the integer heightmap's risers) and the low ambient fill. The face
+  tint lives **in the shader, not the vertex** — a quad has one normal so it is free, and baking
+  it would put a look constant into the merge key, where retuning means remeshing the world.
+- **Three screenshots, because one would have proved less.** Daylight; `--skybrightness=0`, where
+  the terrain renders *pure black* (the sky channel is what lights the world, block light really
+  is zero, and darkness has no accidental ambient); and `--skybrightness=0 --debuglamp`, a warm
+  pool over ~15 m and nothing else. **Only the third can prove `COLOR.g` carries block light and
+  is tinted separately** — every other test in the milestone would pass identically if both
+  channels went into one byte. **Open for M5d: the fog ignores the light grid**, so a dark world
+  still has a fog-coloured horizon.
 
 **M5c-1 — the stage, the lifetime and the relight: done 2026-08-30.** Suite **518 → 542**.
 `GenerationStage.Lit` is a third rung on the barrier, `ChunkStreamer` implements `ILightChunks`

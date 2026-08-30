@@ -1,4 +1,5 @@
 using MinerCraft.Core.Content;
+using MinerCraft.Core.Lighting;
 using MinerCraft.Core.Voxels;
 
 namespace MinerCraft.Core.Meshing;
@@ -96,10 +97,10 @@ public static class AmbientOcclusion
         }
     }
 
-    /// <summary>The four corner shades of one voxel face, sky channel only.</summary>
+    /// <summary>The four corner shades of one voxel face, occlusion only and full skylight.</summary>
     /// <remarks>
-    /// Block light is zero until something can emit it, which is M5b. The channel is written
-    /// anyway so the vertex format and the merge key are final now rather than at M5c.
+    /// The M5a shade, kept for the light-off arm of M5d's three-way quad measurement and for the
+    /// tests that are about occlusion rather than about lighting.
     /// </remarks>
     public static CornerShade ShadeFor(
         PaddedChunk voxels, MaterialTable materials, int face, int x, int y, int z)
@@ -118,6 +119,105 @@ public static class AmbientOcclusion
 
         return CornerShade.FromCorners(sky, block);
     }
+
+    /// <summary>
+    /// The four corner shades of one voxel face: occlusion multiplied into each light channel.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Occlusion multiplies into <em>both</em> channels rather than being a third.</b> AO is
+    /// geometric darkening and geometry does not care where the photon came from — which is what
+    /// keeps AO out of the shader entirely, and is why a diurnal cycle can be a uniform scaling
+    /// the sky channel rather than a reason to reflood the light grid every frame. See
+    /// <see cref="CornerShade"/>.
+    /// </para>
+    /// <para>
+    /// <b>Each corner samples at its own vertex, offset half a cell along the face normal.</b>
+    /// The corners are the same four this file's <see cref="LevelsFor"/> uses and in the same
+    /// order, derived from the same sign tables, because a shade whose occlusion and light came
+    /// from different corners of the same quad is wrong in a way nothing would report.
+    /// </para>
+    /// </remarks>
+    /// <param name="occlude">
+    /// Off leaves every corner fully open, so the shade is light alone. The other arm of M5d's
+    /// measurement: light's cost in quads separated from occlusion's, which needs the two to be
+    /// switchable independently rather than only together.
+    /// </param>
+    public static CornerShade ShadeFor(
+        PaddedChunk voxels,
+        MaterialTable materials,
+        PaddedLight light,
+        int face,
+        int x,
+        int y,
+        int z,
+        bool occlude = true)
+    {
+        Span<int> levels = stackalloc int[CornerShade.Corners];
+
+        if (occlude)
+        {
+            LevelsFor(voxels, materials, face, x, y, z, levels);
+        }
+        else
+        {
+            levels.Fill(MaxLevel);
+        }
+
+        int axis = VoxelFace.Axis[face];
+        int uAxis = VoxelFace.UAxis[face];
+        int vAxis = VoxelFace.VAxis[face];
+
+        // A +facing quad sits on the far side of its voxel, a -facing one on the near side —
+        // the same plane EmitQuad places the geometry on, and it has to be, or the light would
+        // be sampled somewhere the quad is not.
+        Span<int> plane = [x, y, z];
+        plane[axis] += VoxelFace.Direction[face] > 0 ? 1 : 0;
+
+        float offset = VoxelFace.Direction[face] * PaddedLight.NormalOffsetCells;
+
+        Span<byte> sky = stackalloc byte[CornerShade.Corners];
+        Span<byte> block = stackalloc byte[CornerShade.Corners];
+        Span<float> at = stackalloc float[3];
+
+        for (int corner = 0; corner < CornerShade.Corners; corner++)
+        {
+            // A vertex sits at the far end of the face along an axis when that axis's sign is
+            // positive — p, p+du, p+du+dv, p+dv in EmitQuad's order.
+            at[0] = plane[0];
+            at[1] = plane[1];
+            at[2] = plane[2];
+            at[uAxis] += SignU[corner] > 0 ? 1 : 0;
+            at[vAxis] += SignV[corner] > 0 ? 1 : 0;
+
+            for (int a = 0; a < 3; a++)
+            {
+                at[a] /= LightCellPos.VoxelsPerCell;
+            }
+
+            at[axis] += offset;
+
+            light.Sample(at[0], at[1], at[2], out float sampledSky, out float sampledBlock);
+
+            byte occlusion = ShadeFor(levels[corner]);
+            sky[corner] = Scale(occlusion, sampledSky);
+            block[corner] = Scale(occlusion, sampledBlock);
+        }
+
+        return CornerShade.FromCorners(sky, block);
+    }
+
+    /// <summary>
+    /// Occlusion times light, rounded to the byte the vertex actually carries.
+    /// </summary>
+    /// <remarks>
+    /// <b>Rounded here and not in the shader, because this byte is the merge key.</b> Two faces
+    /// merge iff their four corner shades match, so the quantisation has to happen before the
+    /// comparison — otherwise two faces differing by a thousandth of a level would fail to merge
+    /// and render identically, which is the worst of both.
+    /// </remarks>
+    private static byte Scale(byte occlusion, float light) =>
+        (byte)Math.Clamp((int)MathF.Round(occlusion * light), 0, byte.MaxValue);
 
     private static bool IsOpaque(
         PaddedChunk voxels,

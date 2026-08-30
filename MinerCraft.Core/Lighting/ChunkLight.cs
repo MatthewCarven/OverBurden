@@ -64,6 +64,15 @@ public sealed class ChunkLight
     public int Get(int cellIndex, LightChannel channel) =>
         (_light[cellIndex] >> Shift(channel)) & LevelMask;
 
+    /// <summary>Both channels as the stored byte — low nibble sky, high nibble block.</summary>
+    /// <remarks>
+    /// For <see cref="PaddedLight"/>, which copies whole cells rather than reading channels: one
+    /// byte moved instead of two shifts and two masks, across 1,331 cells per mesh submission.
+    /// The packing is this type's, so the accessor is too — a caller reconstructing it from two
+    /// <see cref="Get"/> calls would be a second copy of the layout.
+    /// </remarks>
+    public byte Packed(int cellIndex) => _light[cellIndex];
+
     public void Set(int cellIndex, LightChannel channel, int level)
     {
         int shift = Shift(channel);
