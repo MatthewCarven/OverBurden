@@ -1,5 +1,76 @@
 # MinerCraft — Worklog
 
+## 2026-08-31 — M5 is done: "happy with the current state"
+
+Lighting is finished, end to end and judged by a person. **559 tests.** M5a vertex AO, M5b the
+light grid and propagation, M5c the pipeline and the shader, M5d-1 the measurements and M5d-2 the
+play.
+
+### The last open question closes by default, and the distinction matters
+
+**Light cell size stays 1 m.** The recorded revisit trigger was *"M5d plays a `hand_pick` tunnel
+and the light reads blobby across a bore narrower than one cell"*. That specific play — a 0.75 m
+bore, isolated, walked down — **was not done**: the play used the entangled miner, which digs
+chambers, and a chamber is many cells wide, which is the case a 1 m grid is good at.
+
+What did happen is a lot of play across lit chambers, dark chambers and torchlit ones, ending in
+"happy with the current state", with light quality never raised. **So 1 m stands because nobody
+reopened it, not because the narrow case was probed and passed.** That is silence rather than
+evidence, and it is the same shape M4d recorded for step-up guard 3's diagonal wall-hug — worth
+the distinction, because "tested and fine" and "never provoked" decay differently.
+
+**The trigger therefore stays live rather than being retired**, unlike M5's fragment-shader
+fallback, which was retired properly by measurement in both halves. If a `hand_pick` bore ever
+reads blobby, 0.5 m cells cost 4 KB per chunk and 8× the propagation — **and since M5d-1 the
+propagation is known to be the cheap half**, so the real bill is the derive, which is already the
+thing under pressure.
+
+### What M5 leaves behind
+
+Six things are recorded and unbuilt, none of them blocking:
+
+- **Two levers on the derive**, measured not named: `PaddedChunk.CopyFrom` at 59% of it (~1.7×),
+  and re-derives at 2.4–6.0 per chunk (~2.4×, the bigger prize). Together they would move the
+  12–20 m/s draw cliff past the flycam's 30 m/s sprint.
+- **A local lighting flicker on a chunk boundary**, seen and deliberately not chased —
+  *"rotating back and forth on a specific angle, but it was negligible"*. **The reason not to
+  chase it is recorded, and it is not "it is small":** the fix would mean complicating the
+  lighting maths, and this milestone is already balancing a 1 m grid against 0.25 m voxels, two
+  channels in a merge key, a sim-thread budget, and a derive cost that turned out to be the
+  binding constraint. **A negligible artefact does not earn a new term in the most delicately
+  balanced system in the project.**
+
+  One hypothesis is eliminated in the record, and it is the obvious one: it **cannot** be the
+  viewer chunk oscillating at the boundary, because `FlyCam`'s mouse-look assigns `Rotation` and
+  never `Position`, so rotating cannot move the viewer between chunks and nothing in the
+  streaming or relight path is reachable by rotation alone. That leaves render-side causes —
+  most likely coincident faces across the boundary resolving differently by angle, which would
+  be *geometry* wearing a lighting costume. **Revisit trigger: when it stops being negligible**,
+  or when anyone reports a dark patch that does not go away — which is the classic voxel bug
+  M5-PLAN opens the milestone by naming, so this sighting is filed in the right family even
+  though it is harmless today. The repro is the expensive half of any future investigation and
+  it already exists.
+- **Whether the big evenly-lit cavern's ceiling was perforated** or skylight is leaking. The
+  enclosed spaces in the same session went properly black, which argues against a leak.
+- **Whether the 12–20 m/s cliff is felt at the flycam's normal 6 m/s.**
+- **15 m of light is 60 voxels** — an observation, with a one-number content lever if it ever
+  stops looking good.
+- **`screenshot.gd`'s 8 s settle** predates light and comes back empty at r10.
+
+### The milestone's own verdict on itself
+
+M5 set out to answer whether a 1 m light grid is enough resolution for a 0.25 m world and whether
+AO makes voxels read as sculpted rather than as cubes. **Both are yes**, one of them provisional
+in the way described above. And the milestone dissolved its **sixth** named fallback by
+measurement — the fragment-shader path, killed in both halves, the first one ever dissolved in
+the wrong direction (light in the merge key makes quads *cheaper*).
+
+The one thing it got wrong was its own cost model: it costed the propagation, said nothing about
+the derive, and the derive turned out to be the whole of the expense. **Ask what the plan put no
+number against at all** is the lesson, and it is now the second milestone to teach it.
+
+---
+
 ## 2026-08-31 — Hand mining one block at a time: deferred, and the entangled miner is why
 
 Raised again after the entangled miner landed: *"For hand mining I was going to make you do it

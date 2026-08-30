@@ -1102,7 +1102,7 @@ out of the world and accelerates away from anything that could stop them.
 - [ ] `PlayerTick` on the event bus, and multiplayer prediction. A fixed-step solve in Core
       with a determinism test is the whole of what M4 owes them.
 
-### M5 — Lighting
+### M5 — Lighting ✅ **done 2026-08-31**
 
 Planned 2026-08-30 and split into four parts in [docs/M5-PLAN.md](docs/M5-PLAN.md). **Read it
 before starting.** The structural point: light is the **first thing in this engine that is not a
@@ -1641,12 +1641,19 @@ Played with the entangled miner. **"Looks good to me."**
 - [x] **Does rock beside a lit tunnel glow? Not raised.** The transition to black reads clean —
       the known cost of a per-cell value, apparently mitigated enough by the half-cell normal
       offset.
-- [ ] **Is 1 m too coarse down a `hand_pick` tunnel?** **Still open, and the entangled miner is
-      the wrong instrument for it** — it digs chambers, and a chamber is many cells wide, which
-      is the case the grid is good at. The bore is 0.75 m against a 1 m cell, so the cell is
-      wider than the corridor. This is the play that would reopen the settled 1 m; 0.5 m costs
-      4 KB per chunk and 8× the propagation, and since M5d-1 the propagation is known to be the
-      *cheap* half, so the real cost is the derive.
+- [x] **Is 1 m too coarse down a `hand_pick` tunnel? Closed by default — 1 m stands.** Lots of
+      play across lit, dark and torchlit chambers ending in "happy with the current state", with
+      light quality never raised. **But the specific play was not done**: the entangled miner
+      digs chambers, and a chamber is many cells wide, which is the case the grid is good at. So
+      **1 m stands because nobody reopened it, not because the narrow case was probed and
+      passed** — silence rather than evidence, the same shape as M4d's unjudged step-up
+      wall-hug, and worth the distinction because "tested and fine" and "never provoked" decay
+      differently.
+      - [ ] **The trigger therefore stays live** rather than being retired, unlike the
+            fragment-shader fallback which was retired properly in both halves. A 0.75 m bore
+            that reads blobby reopens it; 0.5 m cells then cost 4 KB per chunk and 8× the
+            propagation — **and since M5d-1 the propagation is the cheap half**, so the real bill
+            is the derive, which is already the thing under pressure.
 - [x] **Can you mine by torchlight? Yes, and it is warm.** One lamp underground lights the
       chamber in a distinctly yellow cast. **This is the only test in the milestone that could
       have proved the two channels are independent all the way to the screen** — M5c-2 recorded
@@ -1736,6 +1743,50 @@ Played with the entangled miner. **"Looks good to me."**
 - [x] **Refused during a hand-toggled profile run**, the same as walk mode, because `--mine` is
       pinned to the un-entangled sphere so M3d's baseline stays comparable. The report says
       outright when a run is not comparable.
+
+##### Local lighting flicker on a chunk boundary — recorded, deliberately not chased
+
+- [ ] **Symptom and repro, in Matthew's words:** *"I could get local lighting to flicker by being
+      on a boundary and rotating back and forth on a specific angle, but it was negligible."*
+      Stand on a chunk boundary, rotate the view back and forth through one particular angle,
+      and nearby lighting flickers. Seen once during M5d-2's play; play continued and ended
+      "happy with the current state".
+- [x] **Decided 2026-08-31: do not chase it.** Not because it is not real, but because
+      **the fix would mean complicating the lighting maths**, and this milestone is already
+      balancing a 1 m grid against 0.25 m voxels, two channels in a merge key, a sim-thread
+      budget, and a derive cost that M5d-1 found to be the binding constraint. **A negligible
+      artefact is not worth adding a term to a system that is already the most delicately
+      balanced thing in the project.** Recorded rather than fixed, which is the whole point of
+      recording it.
+- [x] **One hypothesis is already eliminated, and it is the obvious one.** *"The viewer chunk
+      oscillates at the boundary, so chunks at the far edge unload and reload and their light is
+      rebuilt."* **It cannot be that**: `FlyCam`'s mouse-look assigns `Rotation` only and never
+      touches `Position`, and `ViewerChunk()` reads `GlobalPosition` — so **rotating cannot move
+      the viewer between chunks**, and nothing in the streaming or relight path is reachable by
+      rotation alone. Worth having written down, because it is the first thing anyone will
+      assume and it would cost a session to rule out from scratch.
+- [ ] **What that leaves is render-side**, since neither the light grid nor the camera position
+      changes when you rotate. Candidates, in rough order of likelihood, for whoever picks it up:
+      - **Coincident or near-coincident faces across the boundary**, where the depth test
+        resolves differently by angle — reads as flicker, would actually be *geometry*, and only
+        looks like a lighting bug because adjacent faces carry different shades. A mesh built
+        from a padded copy that disagreed with its neighbour at the moment it was built is how
+        two chunks end up both emitting a face on the shared plane.
+      - **Frustum culling** popping a chunk in and out at the exact angle where its bounds cross
+        the frustum plane.
+      - Anything that makes one chunk's mesh momentarily stale relative to its neighbour's.
+      - `--skybrightness=0` isolates the channel: an artefact that survives it is block-light or
+        geometry rather than skylight.
+- [ ] **Revisit trigger: when it stops being negligible.** Specifically — if it becomes visible
+      without deliberately provoking it, or if anyone reports a dark patch that does not go away.
+      That second one is the classic voxel bug **M5-PLAN opens the whole milestone by naming** —
+      *"a dark patch that nobody can explain, does not go away, and only fixes itself when the
+      chunk happens to unload and come back"* — so this sighting is filed in the right family
+      even though it is currently harmless. The repro above is the expensive half of any future
+      investigation and it already exists.
+- [ ] **Separately, and not this: a tunnel that partly vanished is not a bug.** An edited chunk
+      that unloads loses its edits and regenerates from seed. Known since M3, and **M6's SQLite
+      save/load is the fix.**
 
 ##### Surfaced by M5d-1, not built — each wants its own planning pass
 

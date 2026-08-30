@@ -15,7 +15,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/M2-PLAN.md](docs/M2-PLAN.md) | M2, split into M2a–M2d with per-part design and tests. Done, kept for the reasoning. |
 | [docs/M3-PLAN.md](docs/M3-PLAN.md) | M3, mining, split into M3a–M3d. Done, kept for the reasoning. |
 | [docs/M4-PLAN.md](docs/M4-PLAN.md) | M4, the player, split into M4a–M4d. Done, kept for the reasoning. |
-| [docs/M5-PLAN.md](docs/M5-PLAN.md) | The current milestone — lighting and AO, split into M5a–M5d. All built except **M5d-2, the played half**. **This is what to work from.** |
+| [docs/M5-PLAN.md](docs/M5-PLAN.md) | M5, lighting and AO, split into M5a–M5d. Done 2026-08-31, kept for the reasoning. |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
 | [TODO.md](TODO.md) | Milestones as checkable tasks, and the decisions still open |
 | [WORKLOG.md](WORKLOG.md) | What happened and why, newest first. Findings worth keeping live here. |
@@ -154,17 +154,25 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2, all of M3, all of M4, M5a–M5c and M5d-1** are done — **559 tests
-passing**. The player walks, falls, and cannot outrun the streamer; voxels have ambient
+M0, all of M1, **all of M2, all of M3, all of M4 and all of M5** are done — **559 tests
+passing**. **M6 is next: SQLite save/load, brush placement, volumetric inventory — v0.1 playable
+sandbox**, and it is what fixes the one thing play kept running into, that an edited chunk which
+unloads loses its edits. The player walks, falls, and cannot outrun the streamer; voxels have ambient
 occlusion; and **lighting is end to end — the sun is gone, the grid is the light, and a lamp
-glows.** **M5d-2 is played and mostly answered (2026-08-31): a mine reads as a mine, and AO earns its
-quads** — one chamber runs from lit rock to *actual black* and the falloff reads as depth, which
+glows.** **M5d-2 is played and M5 is done (2026-08-31) — "happy with the current state": a mine reads
+as a mine, and AO earns its quads** — one chamber runs from lit rock to *actual black* and the falloff reads as depth, which
 is DESIGN's "single biggest visual payoff" confirmed by eye rather than argued. **The fog fix is
 load-bearing for that verdict**: before it, the black was the fog's grey-blue and the gradient
-was distance rather than light. Two questions stay open and both need a *narrow* bore rather than
-a chamber — whether a 1 m cell is too coarse for a 0.75 m `hand_pick` tunnel, and whether you can
-mine by torchlight. M5d-1 measured everything that could be measured and found one thing the plan
-did not predict — see below.
+was distance rather than light. **Torchlight works and is warm**, which is the only test in the milestone that
+could prove the two light channels stay independent all the way to the screen — every other one
+passes identically with both packed into one byte.
+
+**The light cell stays 1 m, closed by default rather than probed.** The recorded trigger was a
+`hand_pick` bore reading blobby, and that specific play never happened — the entangled miner digs
+chambers, and a chamber is many cells wide, which is the case a 1 m grid is good at. So 1 m
+stands because nobody reopened it, which is **silence rather than evidence**, and the trigger
+stays live. M5d-1 measured everything that could be measured and found one thing the plan did not
+predict — see below.
 Terrain streams around the flycam: worldgen and greedy meshing run on worker threads over palette-compressed storage,
 with materials loaded from JSON, and chunks load and unload as the viewer moves.
 
