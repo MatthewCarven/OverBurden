@@ -26,7 +26,7 @@ consequence is unrecoverable instead of merely confusing.
 | **M4a** The collider ✅ | AABB vs voxel grid, axis-separated, substepped | Falling through the floor, snagging on flat walls, jittering at rest |
 | **M4b** Motion ✅ | Gravity, jump, ground state, step-up and step-down | A controller that is correct and horrible to use |
 | **M4c** Binding ✅ | Player node, camera, walk/fly toggle, spawn | Deleting the flycam and taking every measurement built in M2d and M3d with it |
-| **M4d** Feel and measurement | Can the player outrun the streamer, and does 0.25 m ground walk like ground | Constants guessed once and never questioned |
+| **M4d** Feel and measurement ✅ | Can the player outrun the streamer, and does 0.25 m ground walk like ground | Constants guessed once and never questioned |
 
 **M4c is the part most likely to surprise**, which is not where the surprise usually is. M4a
 and M4b are deterministic, headless and fuzzable — genuinely tractable. M4c is where the
@@ -430,7 +430,17 @@ no keyboard. That is M4d's half, unchanged.
 
 ---
 
-## M4d — Feel and measurement
+## M4d — Feel and measurement — done 2026-08-30
+
+> **Answered: no, the player cannot outrun the streamer at any shipped setting.** Terminal
+> 40 m/s holds with `held 0` at every configuration tried up to r12h/3v, and r6h/3v survives
+> 90 m/s. It first loses at r12h/3v @ 90 m/s (3 held steps, longest 17 ms) and r16h/3v @ 120 m/s
+> (12 steps, longest 83 ms) — well past anything shipped. **The constant stands with 2.25× of
+> measured margin.** A falling step costs **16 voxel reads against M4a's predicted 252**, because
+> `ResolveAxis` returns early on the two axes with zero displacement. Collider cost is
+> 0.013 ms mean against a 16.7 ms frame. Full numbers and the two flicker-counter artefacts are
+> in the worklog.
+
 
 ### The question this milestone is really asking
 

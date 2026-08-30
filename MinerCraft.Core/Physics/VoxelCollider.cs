@@ -35,12 +35,48 @@ public enum BlockedFaces
 /// M4a guessed this number (~400 per step) and M4d is supposed to check the guess; counting
 /// it at the only place it can be counted is cheaper than inferring it later from a profile.
 /// </param>
+/// <param name="BlockedByUnloaded">
+/// Of <paramref name="Blocked"/>, the faces stopped by a voxel whose <b>chunk had not
+/// loaded</b> rather than by actual material. Always a subset of <paramref name="Blocked"/>.
+/// </param>
+/// <remarks>
+/// <para>
+/// <b><paramref name="BlockedByUnloaded"/> is the signal M4b deliberately did not build.</b>
+/// It was left out then because an unread flag with no profiler consuming it is a number
+/// waiting to be believed; M4d's fall profile is that consumer. "Stopped by rock" and "stopped
+/// by a chunk that has not arrived" look identical to a player and are opposite events — the
+/// first is the world working, the second is the player outrunning the streamer, and only the
+/// second argues about terminal velocity.
+/// </para>
+/// <para>
+/// A subset rather than a separate answer, so it cannot contradict
+/// <paramref name="Blocked"/>: it is aggregated with OR across substeps at the same place and
+/// only ever on a face that was already recorded as blocked. A face can appear in
+/// <paramref name="Blocked"/> and not here — stopped by rock — but never the reverse.
+/// </para>
+/// </remarks>
 public readonly record struct MoveResult(
     Aabb Box,
     BlockedFaces Blocked,
     int Substeps,
-    int VoxelQueries)
+    int VoxelQueries,
+    BlockedFaces BlockedByUnloaded = BlockedFaces.None)
 {
+    /// <summary>
+    /// The body is standing on a chunk that has not loaded, rather than on ground.
+    /// </summary>
+    /// <remarks>
+    /// <b>M4d's <i>steps spent held</i>, at the layer that knows.</b> The body is suspended
+    /// over world that does not exist yet — it will keep falling once the chunk arrives, and if
+    /// this is true for long the player is descending faster than the streamer can produce the
+    /// world beneath them. That is the measurement terminal velocity is supposed to be chosen
+    /// from.
+    /// </remarks>
+    public bool HeldByUnloadedFloor => (BlockedByUnloaded & BlockedFaces.NegativeY) != 0;
+
+    /// <summary>Any face was stopped by unloaded world rather than by material.</summary>
+    public bool HeldByUnloadedWorld => BlockedByUnloaded != BlockedFaces.None;
+
     /// <summary>
     /// The −Y resolve fired this step, so the box is resting on something.
     /// </summary>
@@ -63,7 +99,8 @@ public readonly record struct MoveResult(
                     | BlockedFaces.NegativeZ | BlockedFaces.PositiveZ)) != 0;
 
     public override string ToString() =>
-        $"{Box} blocked {Blocked} over {Substeps} substep(s), {VoxelQueries} voxel read(s)";
+        $"{Box} blocked {Blocked} over {Substeps} substep(s), {VoxelQueries} voxel read(s)"
+        + (BlockedByUnloaded == BlockedFaces.None ? "" : $", unloaded on {BlockedByUnloaded}");
 }
 
 /// <summary>
@@ -202,7 +239,7 @@ public static class VoxelCollider
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(materials);
 
-        return IsSolidUncounted(world, materials, voxel);
+        return IsSolidUncounted(world, materials, voxel, out _);
     }
 
     /// <summary>Whether any voxel the box overlaps is solid.</summary>
@@ -222,7 +259,7 @@ public static class VoxelCollider
         for (int x = min.X; x <= max.X; x++)
         for (int y = min.Y; y <= max.Y; y++)
         {
-            if (IsSolidUncounted(world, materials, new VoxelPos(x, y, z)))
+            if (IsSolidUncounted(world, materials, new VoxelPos(x, y, z), out _))
             {
                 return true;
             }
@@ -286,18 +323,19 @@ public static class VoxelCollider
         Vector3 step = substeps == 1 ? displacementMetres : displacementMetres / substeps;
 
         var blocked = BlockedFaces.None;
+        var byUnloaded = BlockedFaces.None;
         int queries = 0;
 
         for (int i = 0; i < substeps; i++)
         {
             // X, then Y, then Z. The order is DESIGN's, and M4b's step-up reads the ground
             // state this leaves behind — so reordering it silently changes step-up's latency.
-            box = ResolveAxis(world, materials, box, 0, step.X, ref blocked, ref queries);
-            box = ResolveAxis(world, materials, box, 1, step.Y, ref blocked, ref queries);
-            box = ResolveAxis(world, materials, box, 2, step.Z, ref blocked, ref queries);
+            box = ResolveAxis(world, materials, box, 0, step.X, ref blocked, ref byUnloaded, ref queries);
+            box = ResolveAxis(world, materials, box, 1, step.Y, ref blocked, ref byUnloaded, ref queries);
+            box = ResolveAxis(world, materials, box, 2, step.Z, ref blocked, ref byUnloaded, ref queries);
         }
 
-        return new MoveResult(box, blocked, substeps, queries);
+        return new MoveResult(box, blocked, substeps, queries, byUnloaded);
     }
 
     /// <summary>
@@ -350,6 +388,7 @@ public static class VoxelCollider
         int axis,
         float delta,
         ref BlockedFaces blocked,
+        ref BlockedFaces byUnloaded,
         ref int queries)
     {
         if (delta == 0.0f)
@@ -377,33 +416,56 @@ public static class VoxelCollider
         for (int a = minA; a <= maxA; a++)
         {
             queries++;
-            if (!IsSolidUncounted(world, materials, Compose(axis, layer, a, b)))
+            if (!IsSolidUncounted(world, materials, Compose(axis, layer, a, b), out bool unloaded))
             {
                 continue;
             }
 
-            if (forward)
+            // Recorded on the face that actually stopped the box, so BlockedByUnloaded stays a
+            // subset of Blocked by construction rather than by agreement between two places.
+            BlockedFaces face = forward ? PositiveFace(axis) : NegativeFace(axis);
+            blocked |= face;
+            if (unloaded)
             {
-                blocked |= PositiveFace(axis);
-                return box.WithMaxOn(
-                    axis, (layer * VoxelConstants.VoxelSize) - ContactEpsilonMetres);
+                byUnloaded |= face;
             }
 
-            blocked |= NegativeFace(axis);
-            return box.WithMinOn(
-                axis, ((layer + 1) * VoxelConstants.VoxelSize) + ContactEpsilonMetres);
+            return forward
+                ? box.WithMaxOn(axis, (layer * VoxelConstants.VoxelSize) - ContactEpsilonMetres)
+                : box.WithMinOn(axis, ((layer + 1) * VoxelConstants.VoxelSize) + ContactEpsilonMetres);
         }
 
         return moved;
     }
 
-    private static bool IsSolidUncounted(IVoxelWorld world, MaterialTable materials, VoxelPos voxel)
+    /// <summary>
+    /// Whether the voxel stops a body, and whether it does so only because its chunk is
+    /// missing.
+    /// </summary>
+    /// <param name="unloaded">
+    /// True when the answer is "solid" purely because the chunk has not loaded. <b>Only
+    /// meaningful when this returns true</b>, and false for every voxel that is genuinely
+    /// material.
+    /// </param>
+    /// <remarks>
+    /// The two cases were indistinguishable until M4d needed them apart. They still produce
+    /// the <i>same</i> collision — an unloaded voxel is solid, which is the decision the whole
+    /// milestone turns on — and differ only in what they mean: one is the world working, the
+    /// other is the player having arrived somewhere before the world did.
+    /// </remarks>
+    private static bool IsSolidUncounted(
+        IVoxelWorld world,
+        MaterialTable materials,
+        VoxelPos voxel,
+        out bool unloaded)
     {
         if (!world.TryGetMaterial(voxel, out int material))
         {
+            unloaded = true;
             return true;
         }
 
+        unloaded = false;
         return material != MaterialIds.AirNumericId && !materials.IsFluid(material);
     }
 

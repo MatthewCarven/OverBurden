@@ -1,5 +1,140 @@
 # MinerCraft — Worklog
 
+## 2026-08-30 — M4d: the measurement half, and the answer is no
+
+**Can the player outrun the streamer? No — not at any shipped setting, with 2.25× of measured
+headroom.** That is the question M4 has been asking since it was planned, and it now has a
+number instead of an argument. M4 is done.
+
+`--fall` drops the body from height and measures what falling costs; `--terminal` and
+`--fallheight` make the sweep a shell loop. `MoveResult.BlockedByUnloaded` is the signal M4b
+deliberately did not build, built now that there is a profiler to consume it. Suite **461 → 468**.
+
+### The headline, measured
+
+Terminal 40 m/s, 250 m falls that actually land, 20 s window:
+
+```
+                        r4h/2v            r6h/3v
+update ms  p99           1.047             1.541
+           max           4.568             5.502
+main thread              1.14%             2.27%   of one core
+step ms    mean          0.015             0.013
+           max           0.347             0.570
+substeps / step          3.42              3.41
+voxel reads / step       13.3              13.3
+held on unloaded world   0 (0.00%)         0 (0.00%)
+ground flickers          0 / 120 resting   0 / 120 resting
+```
+
+**Zero steps held, at every shipped configuration.** The player never once stood on a chunk that
+had not arrived. At r6h/3v the fall survives **20, 40, 60 and 90 m/s** with `held 0`, so the
+40 m/s constant M4-PLAN guessed has at least 2.25× of margin at that view distance.
+
+### Where it does break, because "never happened" is not a measurement
+
+| Configuration | Held steps | Longest run |
+|---|---|---|
+| r6h/3v @ 40 m/s (shipped) | 0 | — |
+| r6h/3v @ 90 m/s | 0 | — |
+| r12h/3v @ 40 m/s | 0 | — |
+| **r12h/3v @ 90 m/s** | **3 (0.42%)** | 1 step, 17 ms |
+| **r16h/3v @ 120 m/s** | **12 (1.67%)** | 5 steps, 83 ms |
+
+So the signal does fire, and it fires where the arithmetic says it should. Descending one chunk
+row at r6 asks for 13×13 = **169 new chunks**, and at 40 m/s a row is crossed every 0.2 s —
+which 8 workers clear with room to spare. At r16 the row is 33×33 = 1,089 chunks and 120 m/s
+crosses one every 0.067 s, and *there* the streamer loses. **Terminal velocity is a streaming
+parameter in a physics costume, and the costume fits: 40 m/s stands, unchanged.**
+
+Worth noticing in the same runs: **31,421 and 47,478 dropped jobs** at r12 and r16. That is the
+M2a scheduler cancelling stale work as the viewer outruns it, doing exactly the job a
+`System.Threading.Channels` FIFO could not — the design decision M2's reference reading bought,
+being exercised for the first time by something that genuinely moves faster than the world.
+
+### A falling step costs 16 voxel reads, not the 252 M4a predicted
+
+M4a measured a walking step at 41 reads and computed a four-substep fall at **252**, worst
+alignment. Measured, a fall at 40 m/s is **16.0**, and the shape is exact:
+
+```
+20 m/s → 2.00 substeps,  8.0 reads
+40 m/s → 4.00 substeps, 16.0 reads
+60 m/s → 5.00 substeps, 20.0 reads
+90 m/s → 7.93 substeps, 31.7 reads
+```
+
+Four reads per substep, every time. **The reason is `ResolveAxis`'s zero-delta early-out** — a
+pure fall has exactly zero X and Z displacement, so two of the three axes return before querying
+anything and only the Y layer is scanned, 2×2 voxels under the box. That early-out was added in
+M4a for a completely different reason: an axis with no displacement must be left *bitwise* alone
+so a resting body does not creep. It turns out to make falling an order of magnitude cheaper than
+the plan's worst case. **A decision made for numerical stability paid off as a performance one**,
+which is worth recording because the temptation later will be to "simplify" it away.
+
+M4a's guess was pessimistic in the same direction as its ~400-per-step guess for walking, and by
+about the same factor. **Do not build any of the query memoisation M4-PLAN named as the fix.**
+
+### The collider is three orders of magnitude inside a frame
+
+`step ms` mean **0.013–0.015 ms**, max **0.57 ms**, against a 16.7 ms frame. The whole
+solve — gravity, substeps, three axis resolves, step-up and step-down probes — is noise. Nothing
+in M4 needs optimising, and the fall profile exists now as a regression detector rather than as
+an open question.
+
+### The flicker detector produced two artefacts before it was worth anything
+
+**This is the process finding, and it is the one worth carrying forward.** The
+ground-state flicker counter is one integer, and it was wrong twice — both times reporting a
+small non-zero number that would have read as a real defect.
+
+1. **It counted landings.** The first version compared ground state between consecutive at-rest
+   steps. But the landing step *is* the first at-rest step and the step before it was a fall, so
+   every landing scored a flicker. The first fall profile reported `1 flicker` and it was the one
+   landing in the run. Fixed by making the test asymmetric — *was at rest, and is now not
+   grounded* — which a landing cannot satisfy.
+2. **It counted held steps.** A body standing on an unloaded chunk is grounded with its velocity
+   zeroed by the contact, so it satisfied "at rest"; the step where the chunk arrived and proved
+   to be air was then a textbook was-at-rest-now-airborne. The r16/120 sweep reported **5 flickers
+   over 28 resting steps**, every one of them the held-then-released pattern `StepsHeld` was
+   already counting in the next column. Fixed by excluding held steps from *at rest*.
+
+Both were caught by reading a non-zero number and refusing to believe it. After both fixes every
+shipped-configuration run reports **0 flickers over 120 resting steps**, and the two broken
+configurations report 0 as well.
+
+`RestingSteps` is printed next to the flicker count precisely because of this: a fall that never
+lands has nothing at rest, and `0 flickers` on its own would read as a clean bill of health for a
+detector that never ran. The report says so explicitly when it happens.
+
+### The headless frame-time trap, a fourth time, and it did not catch anyone
+
+`frame ms` across every run above sits at mean 6.90 and max 7.48 — a main loop paced by something
+that is not us — while the directly-timed `update ms` max ranges from 1.1 ms to 9.3 ms across the
+same runs. The two numbers have nothing to do with each other. Every player number in this
+milestone is a stopwatch around the call.
+
+### What the fall profile does *not* measure, stated so it is not over-read
+
+**A falling player falls through air, so the profile exercises generation and not meshing.**
+Every fall run reports `0 drawn`: at altitude there is no terrain in the visible box, and the
+250 m runs only meet terrain in the last seconds of each fall. So these numbers are the
+streamer's *generation* throughput under vertical motion, which is the half that can starve a
+falling body — but a player falling down a shaft they dug would have terrain in the box on all
+sides, and that case is not covered here.
+
+The nearest available approximation is the 250 m configuration, which lands three times in a
+20 s window and is the one the shipped-constant table above uses.
+
+### M4 is done
+
+M4a the collider, M4b motion, M4c binding, M4d feel and measurement. **Nothing measured in M4a
+or M4b was overturned**, by playing or by profiling; two guesses were beaten in the safe
+direction (query counts, twice) and one constant was confirmed with headroom (terminal velocity).
+The playable half was answered by a person — jump natural, uphill walks like ground, the tunnel
+fit as tight as predicted, reach generous and kept at 5 m.
+
+
 ## 2026-08-30 — Settled: reach stays at 5 m, and two things now want game modes
 
 **"Generous but I'll allow."** That closes the last of M4d's feel questions, and it closes it in

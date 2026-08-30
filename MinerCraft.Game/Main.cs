@@ -63,6 +63,12 @@ public partial class Main : Node3D
     private int? _caveLatticeStep;
     private TimeSpan? _applyBudget;
     private bool _mineWhileProfiling;
+    private bool _fallProfile;
+    private float _fallHeightMetres = 600f;
+    private int _restingSteps;
+    private int _restedSteps;
+    private int _falls;
+    private float? _terminalSpeed;
 
     public GameContent Content { get; } = new();
 
@@ -135,15 +141,31 @@ public partial class Main : Node3D
             return;
         }
 
-        // Flying is a measurement instrument, so a profile run is not allowed to walk.
-        PlayerMode mode = _profiler is null && _flySpeed <= 0f ? PlayerMode.Walk : PlayerMode.Fly;
+        // Flying is a measurement instrument, so a profile run is not allowed to walk — except
+        // the fall profile, where walking (falling, specifically) is the thing being measured.
+        PlayerMode mode = _fallProfile || (_profiler is null && _flySpeed <= 0f)
+            ? PlayerMode.Walk
+            : PlayerMode.Fly;
 
         Vector3 scenePosition = _camera.GlobalPosition;
         VoxelPos column = VoxelPos.FromMetres(scenePosition.X, scenePosition.Y, scenePosition.Z);
         System.Numerics.Vector3 feet = PlayerSpawn.FeetOnSurface(
             generator.SurfaceHeightAt(column.X, column.Z), scenePosition.X, scenePosition.Z);
 
-        var config = PlayerMotionConfig.Default;
+        if (_fallProfile)
+        {
+            // Spawned high rather than teleported up once the window opens. A teleport of
+            // several hundred metres moves the viewer dozens of chunks and reloads the whole
+            // box, and that spike would land inside the measured window and be reported as the
+            // cost of falling. Spawning high puts the reload in the warmup instead, where the
+            // initial fill already lives.
+            feet.Y += _fallHeightMetres;
+        }
+
+        PlayerMotionConfig config = _terminalSpeed is float terminal
+            ? PlayerMotionConfig.Default with { TerminalSpeedMetresPerSecond = terminal }
+            : PlayerMotionConfig.Default;
+
         _player = new PlayerController(config, feet, mode);
 
         if (mode == PlayerMode.Walk)
@@ -234,15 +256,40 @@ public partial class Main : Node3D
                 case "mine":
                     _mineWhileProfiling = true;
                     break;
+
+                // The fall profile. M2d measured a viewer flying horizontally at a constant
+                // height, which is the one motion the flythrough was built to produce and is
+                // nothing like a player falling down a shaft: a fall is vertical, it is fast,
+                // and the vertical view radius is the small one. It is the first motion that
+                // can genuinely arrive somewhere before the world does.
+                case "fall":
+                    _fallProfile = true;
+                    profile = true;
+                    break;
+
+                case "fallheight" when float.TryParse(value, out float height):
+                    _fallHeightMetres = height;
+                    break;
+
+                // Terminal velocity from outside, because it is the constant this whole profile
+                // exists to pick and sweeping it by rebuilding is how a sweep does not get done.
+                // Same argument as --radius. M4-PLAN: "terminal velocity is a streaming
+                // parameter in a physics costume".
+                case "terminal" when float.TryParse(value, out float terminal):
+                    _terminalSpeed = terminal;
+                    break;
             }
         }
 
         if (profile)
         {
-            // Flying is the test. Standing still measures a system that has stopped doing
-            // the thing being measured.
             _profiler = new StreamingProfiler { WarmupSeconds = warmup, MeasureSeconds = measure };
-            if (_flySpeed <= 0f)
+
+            // Flying is the test for the streaming profile. Standing still measures a system
+            // that has stopped doing the thing being measured. The *fall* profile is the
+            // exception: there the body is the motion, so the scripted flythrough must stay off
+            // or it would assign the camera out from under the player every frame.
+            if (_flySpeed <= 0f && !_fallProfile)
             {
                 _flySpeed = 40f;
             }
@@ -277,10 +324,17 @@ public partial class Main : Node3D
             return;
         }
 
-        if (!_player.TryStep(_pipeline.Streamer, _materials, ReadIntent(), (float)delta))
+        long before = Stopwatch.GetTimestamp();
+        bool stepped = _player.TryStep(_pipeline.Streamer, _materials, ReadIntent(), (float)delta);
+        double stepMillis = Milliseconds(before, Stopwatch.GetTimestamp());
+
+        if (!stepped)
         {
             return;
         }
+
+        RecordPlayerStep(stepMillis);
+        AdvanceFallProfile();
 
         if (!_announcedSpawn)
         {
@@ -356,6 +410,119 @@ public partial class Main : Node3D
     }
 
     private static Vector3 ToGodot(System.Numerics.Vector3 v) => new(v.X, v.Y, v.Z);
+
+    /// <summary>Feeds one solved step to the profiler.</summary>
+    /// <remarks>
+    /// <b>The step is timed directly, not read off <c>frame ms</c>.</b> That trap has been walked
+    /// into three times — M2d-1, the mesh-apply budget and M3d — and every time the spike failed
+    /// to reproduce while the directly-timed number moved a tenth of a millisecond. This is a
+    /// stopwatch around <c>TryStep</c> and nothing else.
+    /// </remarks>
+    private void RecordPlayerStep(double milliseconds)
+    {
+        if (_profiler is not { Warm: true } || _player is null)
+        {
+            return;
+        }
+
+        PlayerStepResult step = _player.LastStep;
+
+        // "At rest" is grounded, barely moving, and standing on something that actually
+        // exists. All three matter, and the third was learned the hard way: a body held on an
+        // unloaded chunk is grounded with its velocity zeroed by the contact, so it looked like
+        // rest — and the step where the chunk arrived and turned out to be air then scored a
+        // ground-state flicker. The r16/120 sweep reported 5 "flickers" over 28 "resting" steps
+        // that were entirely the held-then-released pattern StepsHeld already counts.
+        bool atRest = step.Grounded
+            && !step.HeldByUnloadedFloor
+            && step.Velocity.LengthSquared() < RestingSpeedSquared;
+
+        if (atRest)
+        {
+            _restingSteps++;
+        }
+
+        _profiler.AddPlayerStep(
+            milliseconds,
+            step.Substeps,
+            step.VoxelQueries,
+            step.Grounded,
+            step.HeldByUnloadedFloor,
+            atRest);
+    }
+
+    /// <summary>0.01 m²/s² — a tenth of a metre per second, squared.</summary>
+    private const float RestingSpeedSquared = 0.01f;
+
+    /// <summary>Steps to stand still at the bottom of a fall before launching the next one.</summary>
+    /// <remarks>
+    /// One second at 60 Hz, and it is not padding: a fall profile that relaunched the instant it
+    /// landed would never put the body at rest, so the ground-flicker detector would never run
+    /// and its zero would mean nothing. This is what gives that counter something to count.
+    /// </remarks>
+    private const int RestStepsBeforeRelaunch = 60;
+
+    /// <summary>
+    /// Drops the body again once it has landed and rested, so a long window measures falling.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Each launch moves horizontally past the loaded box</b>, because a second fall down the
+    /// same column would descend through chunks that are already resident and measure nothing.
+    /// The stride is the full box plus a margin, so every fall meets fresh terrain.
+    /// </para>
+    /// <para>
+    /// The cost is honest and is reported: the horizontal jump reloads the whole box, and that
+    /// spike lands inside the measured window. One fall is the clean measurement; the fall count
+    /// in the report is what says how much of the window was one.
+    /// </para>
+    /// </remarks>
+    private void AdvanceFallProfile()
+    {
+        if (!_fallProfile || _player is null || _generator is null)
+        {
+            return;
+        }
+
+        if (!_player.State.Grounded)
+        {
+            _restedSteps = 0;
+            return;
+        }
+
+        // Only rest that is actually rest. A body held on an unloaded chunk is "grounded" and is
+        // the opposite of landed — relaunching there would cut the measurement short at exactly
+        // the moment it was producing the number the profile exists for.
+        if (_player.LastStep.HeldByUnloadedFloor)
+        {
+            _restedSteps = 0;
+            return;
+        }
+
+        if (++_restedSteps < RestStepsBeforeRelaunch)
+        {
+            return;
+        }
+
+        _restedSteps = 0;
+        _falls++;
+
+        float stride = ((2 * ViewDistanceHorizontal) + 4) * VoxelConstants.ChunkSizeMetres;
+        System.Numerics.Vector3 feet = _player.FeetCentre;
+        float x = feet.X + stride;
+
+        VoxelPos column = VoxelPos.FromMetres(x, 0f, feet.Z);
+        System.Numerics.Vector3 launch = PlayerSpawn.FeetOnSurface(
+            _generator.SurfaceHeightAt(column.X, column.Z), x, feet.Z);
+        launch.Y += _fallHeightMetres;
+
+        _player.Teleport(launch);
+        _announcedSpawn = true;
+
+        // A relaunch is a body at rest becoming a body in mid-air, which is the exact shape of
+        // the thing the flicker counter looks for. Tell it this one was deliberate.
+        _profiler?.ForgetGroundState();
+    }
 
     public override void _Process(double delta)
     {
@@ -592,7 +759,10 @@ public partial class Main : Node3D
             $"\n=== MinerCraft streaming profile ===\n" +
             $"config    r{ViewDistanceHorizontal}h/{ViewDistanceVertical}v " +
             $"+{streamer.LoadMargin} margin, {_scheduler!.ThreadCount} workers, " +
-            $"{_flySpeed:F0} m/s" +
+            (_fallProfile
+                ? $"falling from {_fallHeightMetres:F0} m, terminal "
+                  + $"{_player!.Config.TerminalSpeedMetresPerSecond:F0} m/s, {_falls + 1} fall(s)"
+                : $"{_flySpeed:F0} m/s") +
             (_mining is null ? "\n" : $", {_mining.Tool.Id}\n") +
             $"{_profiler.PipelineUpdate.Line("update ms")}\n" +
             $"{_profiler.MeshFree.Line("free ms")}   (deferred by Godot — see MeshFreeQueue)\n" +
@@ -607,6 +777,7 @@ public partial class Main : Node3D
             $"waiting at the end of the run\n" +
             $"freeing   {_freeQueue.TotalFreed} released, peak queue {_freeQueue.PeakPending}\n" +
             MiningLines() +
+            _profiler.PlayerLines(_profiler.MeasuredSeconds) +
             $"{StreamingProfiler.RenderLine()}\n" +
             $"{StreamingProfiler.MemoryLine()}\n");
     }

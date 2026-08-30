@@ -121,6 +121,11 @@ public readonly record struct PlayerState(
 /// would make a refused step-up look free.
 /// </param>
 /// <param name="VoxelQueries">Total voxel reads this step cost, on the same basis.</param>
+/// <param name="BlockedByUnloaded">
+/// Of <paramref name="Blocked"/>, the faces stopped by a chunk that has not loaded rather than
+/// by material — on the same "path that was kept" basis as <paramref name="Blocked"/>, so a
+/// rejected step-up probe's contact with unloaded world is not in here.
+/// </param>
 public readonly record struct PlayerStepResult(
     PlayerState State,
     BlockedFaces Blocked,
@@ -128,7 +133,8 @@ public readonly record struct PlayerStepResult(
     bool SteppedUp,
     bool SteppedDown,
     int Substeps,
-    int VoxelQueries)
+    int VoxelQueries,
+    BlockedFaces BlockedByUnloaded = BlockedFaces.None)
 {
     /// <summary>Where the body ended up.</summary>
     public Aabb Box => State.Box;
@@ -147,11 +153,23 @@ public readonly record struct PlayerStepResult(
         (Blocked & (BlockedFaces.NegativeX | BlockedFaces.PositiveX
                     | BlockedFaces.NegativeZ | BlockedFaces.PositiveZ)) != 0;
 
+    /// <summary>
+    /// The body is standing on world that has not loaded — <b>M4d's <i>step spent held</i></b>.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Grounded"/> is true and this is true at the same time, and that is not a
+    /// contradiction: the body <em>is</em> resting on something, and that something is going to
+    /// stop existing. Counting steps where both hold is how fast the player is outrunning the
+    /// streamer, which is the measurement terminal velocity is picked from.
+    /// </remarks>
+    public bool HeldByUnloadedFloor => (BlockedByUnloaded & BlockedFaces.NegativeY) != 0;
+
     public override string ToString() =>
         $"{Box} v{Velocity}{(Grounded ? " grounded" : string.Empty)}"
         + $"{(SteppedUp ? " stepped-up" : string.Empty)}"
         + $"{(SteppedDown ? " stepped-down" : string.Empty)}"
-        + $" blocked {Blocked}, {Substeps} substep(s), {VoxelQueries} voxel read(s)";
+        + $" blocked {Blocked}, {Substeps} substep(s), {VoxelQueries} voxel read(s)"
+        + (BlockedByUnloaded == BlockedFaces.None ? "" : $", unloaded on {BlockedByUnloaded}");
 }
 
 /// <summary>
@@ -252,6 +270,7 @@ public static class PlayerMotion
 
         Aabb box = moved.Box;
         BlockedFaces blocked = moved.Blocked;
+        BlockedFaces blockedByUnloaded = moved.BlockedByUnloaded;
         bool steppedUp = false;
 
         // Step-up, and its first two guards are here rather than inside TryStepUp because they
@@ -270,10 +289,12 @@ public static class PlayerMotion
 
             if (TryStepUp(
                     world, materials, state.Box, horizontalOnly, config,
-                    out Aabb lifted, out BlockedFaces liftedBlocked, ref substeps, ref queries))
+                    out Aabb lifted, out BlockedFaces liftedBlocked,
+                    out BlockedFaces liftedByUnloaded, ref substeps, ref queries))
             {
                 box = lifted;
                 blocked = liftedBlocked;
+                blockedByUnloaded = liftedByUnloaded;
                 steppedUp = true;
             }
         }
@@ -301,6 +322,18 @@ public static class PlayerMotion
             {
                 box = probe.Box;
                 blocked |= BlockedFaces.NegativeY;
+
+                // Written as the literal face, mirroring the line above, rather than as a mask
+                // over probe.BlockedByUnloaded. A break-recipe proved the mask was redundant
+                // *by construction*: the probe is a purely vertical move, and ResolveAxis
+                // returns early on a zero delta — M4a's bitwise-stability early-out — so the
+                // probe cannot block on X or Z and its unloaded set can only ever contain
+                // NegativeY. Masking would have been dead code documenting a worry that cannot
+                // happen; this states the actual claim.
+                if (probe.HeldByUnloadedFloor)
+                {
+                    blockedByUnloaded |= BlockedFaces.NegativeY;
+                }
                 grounded = true;
                 steppedDown = true;
             }
@@ -313,7 +346,8 @@ public static class PlayerMotion
             steppedUp,
             steppedDown,
             substeps,
-            queries);
+            queries,
+            blockedByUnloaded);
     }
 
     /// <summary>
@@ -413,11 +447,13 @@ public static class PlayerMotion
         PlayerMotionConfig config,
         out Aabb result,
         out BlockedFaces blocked,
+        out BlockedFaces blockedByUnloaded,
         ref int substeps,
         ref int queries)
     {
         result = box;
         blocked = BlockedFaces.None;
+        blockedByUnloaded = BlockedFaces.None;
 
         if (config.StepHeightMetres <= 0.0f)
         {
@@ -473,6 +509,10 @@ public static class PlayerMotion
 
         result = settle.Box;
         blocked = retry.Blocked | settle.Blocked;
+
+        // The same two moves, so the subset invariant survives the composition: a face can only
+        // appear here if the move that contributed it also contributed the face to `blocked`.
+        blockedByUnloaded = retry.BlockedByUnloaded | settle.BlockedByUnloaded;
         return true;
     }
 }

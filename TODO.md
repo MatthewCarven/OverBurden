@@ -694,7 +694,7 @@ worker thread, not a wrong voxel.
       enough erases the mine. Acceptable until M6, recorded so it is not filed as an edit-path
       bug.
 
-### M4 — Player ⬅️ **in progress: M4a, M4b and M4c done, M4d next**
+### M4 — Player ✅ **done 2026-08-30**
 
 Planned 2026-08-29 and split into four parts in [docs/M4-PLAN.md](docs/M4-PLAN.md). **Read it
 before starting.** The structural point: until now the viewer's position was an *input* and
@@ -963,17 +963,52 @@ out of the world and accelerates away from anything that could stop them.
       were measured at. **Changing it changes the jump height** — the apex overshoot is
       `v·dt/2`, so a 30 Hz tick jumps 6 cm higher. Leave it alone or re-measure.
 
-#### M4d — Feel and measurement
+#### M4d — Feel and measurement ✅ **done 2026-08-30**
 
-- [ ] **The question M4 is really asking: can the player outrun the streamer, and what does it
-      feel like when they do?** M2d measured a horizontal flythrough at constant height. A
-      fall is vertical, fast, and against the *small* radius.
-- [ ] Add a fall mode to the profiler the way `--mine` was added. Report voxel queries and
-      substeps per step, **steps spent held** on an unloaded chunk and the longest such stall,
-      ground-state flicker count, and collider cost per step.
-- [ ] **Time it directly; do not read `frame ms`.** The headless frame-time trap has been
-      walked into three times — M2d-1, the mesh-apply budget, M3d — and each time the spike
-      did not reproduce while the directly-timed number moved a tenth of a millisecond.
+- [x] **Answered: no, the player cannot outrun the streamer — not at any shipped setting.**
+      `held 0` at terminal 40 m/s at r4h/2v, r6h/1v, r6h/2v, r6h/3v and r12h/3v, and at r6h/3v
+      it survives **20, 40, 60 and 90 m/s** with zero held steps. **Terminal velocity stays
+      40 m/s**, now with at least 2.25× of measured margin rather than an estimate.
+- [x] **And where it *does* break, because "never happened" is not a measurement.** r12h/3v at
+      90 m/s holds for 3 steps (0.42%, longest run 17 ms); r16h/3v at 120 m/s for 12 (1.67%,
+      longest 83 ms). The arithmetic agrees: one chunk row at r6 is 13×13 = 169 chunks crossed
+      every 0.2 s at 40 m/s, and at r16 it is 33×33 = 1,089 crossed every 0.067 s at 120 m/s.
+- [x] `--fall`, `--fallheight` and `--terminal` added. **`--terminal` because sweeping the
+      constant the profile exists to pick should not need a rebuild** — same argument as
+      `--radius`.
+- [x] **`MoveResult.BlockedByUnloaded` built**, the signal M4b deliberately deferred. A subset
+      of `Blocked` by construction, so it cannot contradict it. 7 tests, five break-recipes,
+      four caught.
+- [x] **A falling step costs 16 voxel reads, not M4a's predicted 252** — and the reason is
+      `ResolveAxis`'s zero-delta early-out, which M4a added so a resting body would not creep by
+      a rounding error. A pure fall has exactly zero X and Z displacement, so two axes return
+      before querying and only the Y layer is scanned: 2×2 voxels × 4 substeps. **A decision made
+      for numerical stability turned out to be a performance one**, so do not "simplify" it away.
+      Exact across the sweep: 8.0 reads at 20 m/s, 16.0 at 40, 20.0 at 60, 31.7 at 90.
+- [x] **Collider cost is three orders of magnitude inside a frame**: `step ms` mean 0.013–0.015,
+      max 0.57, against 16.7 ms. **Do not build** the query memoisation M4-PLAN named.
+- [x] **Time it directly; do not read `frame ms`.** Fourth confirmation: `frame ms` sat at mean
+      6.90 / max 7.48 across every run while directly-timed `update ms` max ranged 1.1–9.3 ms.
+      The two numbers are unrelated.
+- [x] **The flicker detector produced two artefacts before it was worth anything**, and both
+      reported a small non-zero number that would have read as a real defect:
+      - **It counted landings.** The landing step *is* the first at-rest step and the one before
+        it was a fall. Fixed by making the test asymmetric — *was at rest, and is now not
+        grounded*, which a landing cannot satisfy.
+      - **It counted held steps.** A body on an unloaded chunk is grounded with velocity zeroed,
+        so it looked like rest; the step where the chunk arrived and proved to be air was then a
+        textbook flicker. The r16/120 run reported 5 over 28 "resting" steps, every one of them
+        the held-then-released pattern the *next column* was already counting.
+      Both found by reading a non-zero number and refusing to believe it. `RestingSteps` is now
+      printed beside the flicker count, and the report says outright when the detector never ran.
+- [ ] **Recorded limitation: the fall profile measures generation, not meshing.** A falling
+      player falls through *air*, so every run reports `0 drawn`. The 250 m configuration lands
+      three times and is the closest available to a player falling down a shaft they dug, where
+      terrain would be in the box on all sides. **Revisit if meshing under vertical motion ever
+      matters** — it would need a dug shaft, not a drop from altitude.
+- [x] **Dropped jobs are the M2a scheduler working**: 31,421 at r12 and 47,478 at r16, cancelling
+      stale work as the viewer outruns it. First time anything has moved fast enough to exercise
+      the argument M2's reference reading bought against a FIFO.
 - [x] **Played 2026-08-30: the jump feels good.** The first of M4b's constants to get a verdict
       from a person rather than a number, and it is the one the plan was least sure of. 7.5 m/s
       against 25 m/s² stands, and the 1.1875 m apex is a keeper.

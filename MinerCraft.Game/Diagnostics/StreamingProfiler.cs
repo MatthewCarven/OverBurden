@@ -131,6 +131,170 @@ public sealed class StreamingProfiler
     /// </remarks>
     public SampleSeries Swing { get; } = new();
 
+    /// <summary>
+    /// Main-thread time for one <c>PlayerController.TryStep</c>: the whole collider solve.
+    /// </summary>
+    /// <remarks>
+    /// <b>Timed directly, and this is the fourth time that has had to be said.</b> The headless
+    /// frame-time trap has been walked into at M2d-1, at the mesh-apply budget and at M3d, and
+    /// every time the spike did not reproduce while the directly-timed number moved by a tenth
+    /// of a millisecond. <c>frame ms</c> in a headless run is a main loop paced by something
+    /// that is not us; this is a stopwatch around the call.
+    /// </remarks>
+    public SampleSeries PlayerStep { get; } = new();
+
+    /// <summary>Player steps that actually ran during the measured window.</summary>
+    public int Steps { get; private set; }
+
+    /// <summary>Total substeps across those steps, including rejected step-up probes.</summary>
+    public long Substeps { get; private set; }
+
+    /// <summary>Total <c>TryGetMaterial</c> calls across those steps, on the same basis.</summary>
+    public long VoxelQueries { get; private set; }
+
+    /// <summary>Steps standing on a chunk that had not loaded.</summary>
+    /// <remarks>
+    /// <b>The number terminal velocity is supposed to be picked from.</b> The body is grounded
+    /// and the ground is about to stop existing — it is the player having arrived somewhere
+    /// before the world did. A run where this is zero says the streamer kept up at that speed.
+    /// </remarks>
+    public int StepsHeld { get; private set; }
+
+    /// <summary>The longest unbroken run of held steps.</summary>
+    /// <remarks>
+    /// Separate from <see cref="StepsHeld"/> because they answer different questions. A hundred
+    /// scattered single-step holds is the streamer keeping up with a frame to spare; one
+    /// hundred-step stall is a second and a half of standing on nothing, and only the second is
+    /// something a player would notice.
+    /// </remarks>
+    public int LongestHold { get; private set; }
+
+    /// <summary>A body that was standing still stopped being on the ground.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A resting-contact regression detector that costs one counter.</b> A body standing
+    /// still on a floor must report grounded every step forever; anything else means the −Y
+    /// resolve is not firing reliably, which reads in game as the camera twitching.
+    /// </para>
+    /// <para>
+    /// <b>The first version counted landings.</b> It compared ground state between consecutive
+    /// steps whenever the body was at rest — but the landing step <em>is</em> the first at-rest
+    /// step, and the one before it was a fall, so every landing scored a flicker. The first fall
+    /// profile duly reported "1 flicker" and it was an artefact. The test is now one-directional
+    /// and asymmetric: <b>was at rest, and is now not grounded</b>. A landing cannot satisfy it,
+    /// a jump cannot (nothing asks the profiled body to jump), and a deliberate relaunch is
+    /// excluded through <see cref="ForgetGroundState"/>.
+    /// </para>
+    /// <para>
+    /// <b>Then it counted held steps, which was the second artefact.</b> A body standing on a
+    /// chunk that has not loaded is grounded with its velocity zeroed by the contact, so it
+    /// satisfied "at rest" — and the step where the chunk arrived and proved to be air was a
+    /// textbook was-at-rest-now-airborne. The r16h/3v at 120 m/s sweep duly reported 5 flickers
+    /// over 28 resting steps, every one of them the held-then-released pattern
+    /// <see cref="StepsHeld"/> already counts. <b>The caller must exclude held steps from
+    /// <c>atRest</c></b>, which is why that parameter is the caller's to compute and not
+    /// derived here from <c>grounded</c>.
+    /// </para>
+    /// </remarks>
+    public int GroundFlickers { get; private set; }
+
+    /// <summary>Steps the body spent standing still.</summary>
+    /// <remarks>
+    /// Reported next to <see cref="GroundFlickers"/> so a zero is interpretable. A fall profile
+    /// that never lands has nothing at rest to flicker, and "0 flickers" would otherwise read
+    /// as a clean bill of health for a detector that never ran.
+    /// </remarks>
+    public int RestingSteps { get; private set; }
+
+    private int _currentHold;
+    private bool _lastAtRest;
+
+    /// <summary>Records one player step.</summary>
+    /// <param name="milliseconds">Directly measured cost of the step.</param>
+    /// <param name="substeps">Substeps the step took.</param>
+    /// <param name="voxelQueries">Voxel reads the step cost.</param>
+    /// <param name="grounded">Whether the step ended on something.</param>
+    /// <param name="heldByUnloaded">Whether that something was an unloaded chunk.</param>
+    /// <param name="atRest">
+    /// Whether the body is standing still, which is the only situation in which a ground-state
+    /// change is a flicker rather than an event.
+    /// </param>
+    public void AddPlayerStep(
+        double milliseconds,
+        int substeps,
+        int voxelQueries,
+        bool grounded,
+        bool heldByUnloaded,
+        bool atRest)
+    {
+        PlayerStep.Add(milliseconds);
+        Steps++;
+        Substeps += substeps;
+        VoxelQueries += voxelQueries;
+
+        if (heldByUnloaded)
+        {
+            StepsHeld++;
+            _currentHold++;
+            if (_currentHold > LongestHold)
+            {
+                LongestHold = _currentHold;
+            }
+        }
+        else
+        {
+            _currentHold = 0;
+        }
+
+        // Asymmetric on purpose — see GroundFlickers. A body that was standing still and is
+        // suddenly airborne is the defect; a body that was airborne and is now standing still
+        // is a landing.
+        if (_lastAtRest && !grounded)
+        {
+            GroundFlickers++;
+        }
+
+        if (atRest)
+        {
+            RestingSteps++;
+        }
+
+        _lastAtRest = atRest;
+    }
+
+    /// <summary>
+    /// Forgets the resting state, so a deliberate reposition is not scored as a flicker.
+    /// </summary>
+    /// <remarks>
+    /// Called when the fall profile relaunches the body. Without it every relaunch would report
+    /// a flicker, because the body was at rest and the next step is several hundred metres up in
+    /// mid-air — which is exactly the pattern the detector is looking for, and exactly not a bug.
+    /// </remarks>
+    public void ForgetGroundState() => _lastAtRest = false;
+
+    /// <summary>The player half of the report, or nothing if no step ran.</summary>
+    public string PlayerLines(double measuredSeconds)
+    {
+        if (Steps == 0)
+        {
+            return string.Empty;
+        }
+
+        double steps = Steps;
+
+        return
+            $"{PlayerStep.Line("step ms")}   (collider solve, timed directly)\n"
+            + $"player    {Steps} steps in {measuredSeconds:F1} s, "
+            + $"{Substeps / steps:F2} substeps and {VoxelQueries / steps:F1} voxel reads per step\n"
+            + $"held      {StepsHeld} step(s) on unloaded world "
+            + $"({StepsHeld / steps * 100.0:F2}%), longest run {LongestHold} "
+            + $"({LongestHold / 60.0 * 1000.0:F0} ms at 60 Hz)\n"
+            + $"contact   {GroundFlickers} ground-state flicker(s) over {RestingSteps} "
+            + "resting step(s)"
+            + (RestingSteps == 0 ? "   (nothing rested — the detector did not run)" : string.Empty)
+            + "\n";
+    }
+
     /// <summary>Seconds of settling to discard before measuring.</summary>
     /// <remarks>
     /// Without it the report is dominated by the initial fill — a thousand chunks generated

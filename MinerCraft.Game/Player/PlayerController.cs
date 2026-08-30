@@ -116,11 +116,12 @@ public sealed class PlayerController
     /// Steps refused because the world under the body had not loaded.
     /// </summary>
     /// <remarks>
-    /// The spawn gate's own counter, and <b>not</b> M4d's <i>steps spent held</i>: that one is
-    /// about a body that is being stepped and stopped by an unloaded chunk mid-fall, which
-    /// needs a flag on the collider that does not exist yet. This one is about a body that is
-    /// not being stepped at all. Reported at the moment of spawn, so it is a number somebody
-    /// reads rather than one waiting to be believed.
+    /// The spawn gate's own counter, and <b>not</b> M4d's <i>steps spent held</i>, which is now
+    /// <see cref="PlayerStepResult.HeldByUnloadedFloor"/>. The distinction survives the two
+    /// existing: that one counts a body that <em>is</em> being stepped and is standing on a
+    /// chunk that has not arrived; this one counts a body that is not being stepped at all,
+    /// because it has never been admitted. Reported at the moment of spawn, so it is a number
+    /// somebody reads rather than one waiting to be believed.
     /// </remarks>
     public int StepsHeldForWorld { get; private set; }
 
@@ -189,13 +190,27 @@ public sealed class PlayerController
             return;
         }
 
-        State = PlayerState.AtFeet(
-            new Vector3(
-                eyePositionMetres.X,
-                eyePositionMetres.Y - _config.EyeHeightMetres,
-                eyePositionMetres.Z),
-            _config);
+        PlaceAtFeet(new Vector3(
+            eyePositionMetres.X,
+            eyePositionMetres.Y - _config.EyeHeightMetres,
+            eyePositionMetres.Z));
+    }
 
+    /// <summary>
+    /// Puts the body somewhere else, at rest, and makes it re-enter through the spawn gate.
+    /// </summary>
+    /// <remarks>
+    /// The same door a spawn and a mode toggle use, exposed because M4d's fall profile relaunches
+    /// the body and M6's save/load will need to place it. <b>Not a free teleport:</b> the body is
+    /// held inert until the chunks around the destination exist, and is shoved clear if it
+    /// arrives inside rock — which is the whole point of routing it through here rather than
+    /// assigning the box.
+    /// </remarks>
+    public void Teleport(Vector3 feetCentreMetres) => PlaceAtFeet(feetCentreMetres);
+
+    private void PlaceAtFeet(Vector3 feetCentreMetres)
+    {
+        State = PlayerState.AtFeet(feetCentreMetres, _config);
         Spawned = false;
         StepsHeldForWorld = 0;
     }

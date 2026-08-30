@@ -86,6 +86,19 @@ Also `--margin=`, `--warmup=`, `--measure=`, `--cavestep=` (1 restores per-voxel
 evaluation, for A/B against the lattice) and `--applybudget=<ms>` (a large value such as 1000
 is the unbudgeted arm; there is no "off").
 
+Profile a **fall** — the vertical motion profile M2d's horizontal flythrough could not produce,
+and the one that can arrive somewhere before the world does. `--fall` implies `--profile` and
+forces walk mode, so the scripted flythrough stays off:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path MinerCraft.Game --headless -- --fall --radius=6 --vradius=3 --terminal=40 --fallheight=250 --measure=20
+```
+
+`--terminal=` sets terminal velocity and `--fallheight=` the drop, both so the constant this
+profile exists to pick can be swept without a rebuild. **A fall height large enough not to land
+inside the window measures nothing at rest** — the ground-flicker detector needs landings, and
+the report says when it did not run.
+
 If Godot has never opened the project, run once with `--headless --import` first.
 
 Godot 4.7.1-stable **mono** is not vendored here; `start.cmd` falls back to the shared
@@ -104,8 +117,8 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2 and all of M3** are done, and **M4a, M4b and M4c** with them —
-**452 tests passing**. The player walks.
+M0, all of M1, **all of M2, all of M3 and all of M4** are done — **468 tests passing**. The
+player walks, falls, and cannot outrun the streamer.
 Terrain streams around the flycam: worldgen and greedy meshing run on worker threads over palette-compressed storage,
 with materials loaded from JSON, and chunks load and unload as the viewer moves.
 
@@ -347,9 +360,8 @@ Three things about M3d that are easy to undo by accident:
 reported `frame ms` max 19.6 ms against a 6.9 ms control, while `update ms` max moved 0.13 ms
 and the spike did not reproduce in two further runs. `update ms` times our own work directly.
 
-**M4, the player, is under way** — [docs/M4-PLAN.md](docs/M4-PLAN.md), split into M4a the
-collider (**done**), M4b motion (**done**), M4c binding (**done**), M4d feel and measurement.
-Five things
+**M4, the player, is done** — [docs/M4-PLAN.md](docs/M4-PLAN.md), all four parts: M4a the
+collider, M4b motion, M4c binding, M4d feel and measurement. Five things
 from the planning pass that are expensive to rediscover:
 
 - **The viewer's position stops being an input.** Until now the flycam was told where to go
@@ -493,6 +505,47 @@ was mechanical; both things nothing caught were in the world rules that went int
   retuning in the same pass as the move would have confused the two changes. **Settled by play
   2026-08-30: 5 m stays**, generous on purpose, with **a survival mode as the recorded trigger**
   to shorten it to 3 m or 2 m. The plan's 3.5 m was an estimate and was never shipped.
+
+**M4d — feel and measurement: done 2026-08-30. The milestone's question is answered: no, the
+player cannot outrun the streamer.** `--fall` drops the body from height and measures it;
+`--terminal` and `--fallheight` make the sweep a shell loop. Suite 461 → 468.
+
+```
+terminal 40 m/s, 250 m falls, 20 s     r4h/2v      r6h/3v
+update ms p99 / max                 1.05 / 4.57  1.54 / 5.50
+main thread                            1.14%        2.27%   of one core
+step ms mean / max                 0.015 / 0.35 0.013 / 0.57
+substeps / voxel reads per step      3.42 / 13.3  3.41 / 13.3
+held on unloaded world                    0            0
+```
+
+Five things from it that are easy to undo by accident:
+
+- **Terminal velocity 40 m/s stands, with 2.25× measured margin.** `held 0` at r4h/2v, r6h/1v,
+  r6h/2v, r6h/3v and r12h/3v — and r6h/3v survives **90 m/s** with zero held steps. It first
+  loses at r12h/3v @ 90 m/s (3 steps, longest 17 ms) and r16h/3v @ 120 m/s (12 steps, 83 ms).
+  The arithmetic agrees: a chunk row at r6 is 169 chunks crossed every 0.2 s; at r16 it is 1,089
+  crossed every 0.067 s.
+- **A falling step costs 16 voxel reads, not M4a's predicted 252**, because `ResolveAxis` returns
+  early on the two axes with zero displacement — an early-out added in M4a so a resting body
+  would not creep by a rounding error. **A numerical-stability decision that turned out to be a
+  performance one**; do not "simplify" it away. **Do not build** M4-PLAN's query memoisation.
+- **The flicker detector was wrong twice before it was worth anything**, both times reporting a
+  small non-zero number that read as a real defect: it counted **landings** (the landing step
+  *is* the first at-rest step), then it counted **held steps** (a body on an unloaded chunk is
+  grounded with velocity zeroed, so it looks like rest). `RestingSteps` is printed beside it now,
+  and the report says outright when the detector never ran.
+- **`MoveResult.BlockedByUnloaded` is a subset of `Blocked` by construction**, so it can never
+  contradict it — recorded only on the face that actually stopped the box. Step-down writes the
+  literal `NegativeY` rather than masking the probe's set, because a purely vertical probe cannot
+  block horizontally at all: `ResolveAxis` returns early on a zero delta. A break-recipe proved
+  the mask was dead code.
+- **Recorded limitation: the fall profile measures generation, not meshing.** A falling player
+  falls through air, so every run reports `0 drawn`. Falling down a shaft you dug — terrain on
+  all sides — is not covered, and would need a dug shaft rather than a drop from altitude.
+
+**The headless frame-time trap, a fourth time:** `frame ms` sat at mean 6.90 / max 7.48 across
+every run while directly-timed `update ms` max ranged 1.1–9.3 ms. Unrelated numbers.
 
 **M4 has been played, twice, and the headline question is answered: 0.25 m ground walks like
 ground.** "Walking uphill occurred naturally, I did not need to jump" — which is DESIGN's claim
