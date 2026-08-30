@@ -6,7 +6,10 @@ shader_type spatial;
 // nearly black, and the sun picked out bright and dark slivers along the integer heightmap's
 // risers. With no sun there are no slivers, and the terracing goes back to being geometry
 // rather than a lighting artefact.
-render_mode cull_back, unshaded;
+//
+// FOG IS OURS, not the environment's — see fog() below for why one that ignores the light grid
+// cannot be right in a game about going underground.
+render_mode cull_back, unshaded, fog_disabled;
 
 // Texture ARRAY, never an atlas. Greedy meshing tiles UVs beyond 0..1 to cover a
 // merged quad, which an atlas cannot express. See docs/DESIGN.md non-negotiable #3.
@@ -36,6 +39,11 @@ uniform vec3 sky_tint : source_color = vec3(1.0, 1.0, 1.0);
 // Warm, so a lamp reads as a lamp against daylight rather than as a brighter patch of it.
 uniform vec3 block_tint : source_color = vec3(1.0, 0.86, 0.66);
 
+// Distance fade, moved out of the WorldEnvironment and into here at M5d. Same density and the
+// same colour Godot's fog was configured with, so a daylit surface looks exactly as it did.
+uniform float fog_density : hint_range(0.0, 0.05) = 0.004;
+uniform vec3 fog_colour : source_color = vec3(0.65, 0.7, 0.78);
+
 void vertex() {
 	layer = UV2.x;
 	shade = COLOR.rg;
@@ -58,11 +66,31 @@ float face_tint(vec3 n) {
 	return abs(n.x) > 0.5 ? 0.65 : 0.8;
 }
 
+// Fog is in-scattered light along the view ray, so in a dark place there is none to scatter.
+//
+// WHY THIS IS NOT THE ENVIRONMENT'S FOG. Godot's WorldEnvironment fog is one colour for the
+// whole world, and it was still that colour a hundred metres underground: distant tunnel walls
+// faded towards daylight blue, which lights the dark with the one thing M5 exists to remove. The
+// fix is to scale the fog by the fragment's own sky exposure, which is already in COLOR.r. Then
+// a lit hillside hazes exactly as before and a mine fades to black — and both fade, so the edge
+// of the loaded world still has something to hide behind.
+//
+// Sky exposure, not total light: a lamp is a metre away and does not scatter across the room.
+// Multiplying by sky_brightness as well keeps the fog on the diurnal uniform, so night fades to
+// black without reflooding anything.
+vec3 fog(vec3 colour, float depth, float sky) {
+	float amount = 1.0 - exp(-fog_density * depth);
+	return mix(colour, fog_colour * sky_brightness * sky, amount);
+}
+
 void fragment() {
 	vec3 lit = shade.x * sky_tint * sky_brightness + shade.y * block_tint;
 
 	// No ambient floor. An unlit cave is black, which is DESIGN's intent — M5 supplies the
 	// darkness and M13 is what makes it a hazard. If M5d says it is unusable rather than dark,
 	// the lever is one added constant here, not a change to the grid.
-	ALBEDO = texture(albedo, vec3(UV, layer)).rgb * face_tint(NORMAL) * lit;
+	vec3 surface = texture(albedo, vec3(UV, layer)).rgb * face_tint(NORMAL) * lit;
+
+	// VERTEX is view space in a fragment shader, so its length is the distance to the eye.
+	ALBEDO = fog(surface, length(VERTEX), shade.x);
 }

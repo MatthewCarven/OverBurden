@@ -15,7 +15,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/M2-PLAN.md](docs/M2-PLAN.md) | M2, split into M2a–M2d with per-part design and tests. Done, kept for the reasoning. |
 | [docs/M3-PLAN.md](docs/M3-PLAN.md) | M3, mining, split into M3a–M3d. Done, kept for the reasoning. |
 | [docs/M4-PLAN.md](docs/M4-PLAN.md) | M4, the player, split into M4a–M4d. Done, kept for the reasoning. |
-| [docs/M5-PLAN.md](docs/M5-PLAN.md) | The current milestone — lighting and AO, split into M5a–M5d. **This is what to work from.** |
+| [docs/M5-PLAN.md](docs/M5-PLAN.md) | The current milestone — lighting and AO, split into M5a–M5d. All built except **M5d-2, the played half**. **This is what to work from.** |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
 | [TODO.md](TODO.md) | Milestones as checkable tasks, and the decisions still open |
 | [WORKLOG.md](WORKLOG.md) | What happened and why, newest first. Findings worth keeping live here. |
@@ -66,6 +66,16 @@ Measure worldgen — **Release, always; Debug is ~3× slower and reads like a re
 dotnet run --project MinerCraft.Bench -c Release
 ```
 
+Measure **lighting** on the same harness. Also Release-only, and here the Debug penalty is worse
+— **5.9× on the derive, ~10× on the walk** — so a Debug figure is not a measurement at all:
+
+```bash
+dotnet run --project MinerCraft.Bench -c Release -- --light
+```
+
+It loads `mods/minercraft/` through the real loader, because conductance is a function of which
+materials are opaque and a fixture would measure a made-up world.
+
 Verify headlessly — no display needed, catches scene and script errors and prints the
 diagnostics:
 
@@ -92,6 +102,12 @@ world has generated but cannot draw, because nothing meshes until its neighbourh
 table below), `--skybrightness=<0..2>` (scales the sky channel alone; 0 leaves only block light)
 and `--debuglamp` (places one lamp where the crosshair points, so a screenshot can show block
 light without a keypress).
+
+**`--speed=0` means a standing start and is distinct from omitting `--speed`**, which defaults a
+profile to 40 m/s. That distinction was added at M5d-1, because the standing start is the only
+arm in which the chunk set at a fixed radius is deterministic — so AO on against AO off compares
+two numbers rather than two samples of a moving camera — and it was the one arm that could not
+be asked for.
 
 **A profile run quits by itself, so it needs no `--quit-after` — and passing one usually
 truncates the run**, because 900 frames at ~145 fps is 6 s and the default window is 18.
@@ -137,10 +153,12 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2, all of M3, all of M4, and M5a–M5c** are done — **558 tests
+M0, all of M1, **all of M2, all of M3, all of M4, M5a–M5c and M5d-1** are done — **559 tests
 passing**. The player walks, falls, and cannot outrun the streamer; voxels have ambient
 occlusion; and **lighting is end to end — the sun is gone, the grid is the light, and a lamp
-glows.** M5d is what remains: feel, and the measurements that need a person.
+glows.** **M5d-2 is what remains, and it is Matthew's**: the look questions, which need a window
+and a person. M5d-1 measured everything that could be measured and found one thing the plan did
+not predict — see below.
 Terrain streams around the flycam: worldgen and greedy meshing run on worker threads over palette-compressed storage,
 with materials loaded from JSON, and chunks load and unload as the viewer moves.
 
@@ -163,6 +181,27 @@ barrier without moving the streaming contract, so M5d stays comparable with M2d 
 at 2 ms the world had generated at 5 s and drawn nothing. One derive per chunk means the rebuild
 rule is not thrashing, and 0 relight remeshes during the fill means the priority ordering is
 intact.
+
+**That paragraph is true of a standing start and false the moment the viewer moves, which is
+M5d-1's finding.** Light derives on **one sim thread** against generation's eight workers, and a
+chunk that is not lit does not mesh — so the symptom is not a frame spike, it is `drawn` going
+to **zero**. At r4h/2v in Debug, which is the build `start.cmd` runs:
+
+```
+speed   drawn   first draw   main thread   derives/tracked
+ 6 m/s    160      3.83 s        35.5%          2.8x
+12 m/s    188      5.21 s        60.5%          4.4x
+20 m/s      0      never         76.6%          6.0x
+40 m/s      0      never         76.2%          4.4x
+```
+
+**The cliff is 12–20 m/s and the flycam's sprint is 6 × 5 = 30 m/s**, so holding Shift in fly
+mode stops the world drawing. M3d's streaming-only control at r6h/3v and 8 m/s was **0.80% of
+one core**; the same configuration today is **69.5%**. Light being on the sim thread is a
+deliberate and well-argued M5 decision, so the *kind* of cost is by design — the *size* is not,
+because M5-PLAN costed the propagation and said nothing about the derive, and the derive is the
+whole of it. **~12% in Release**, so the cliff is a Debug cliff in a build people play. **Two
+levers are measured and neither is built** — see TODO.
 
 M2 is split into four parts in [docs/M2-PLAN.md](docs/M2-PLAN.md). The prerequisite
 reading of godot_voxel is done and paid for itself: it caught that the job queue had been
@@ -633,8 +672,8 @@ because reach is
 the *player's* rather than the tool's — M4 is where something exists to own it, which is the
 same argument that kept it out of the tool JSON.
 
-**M5, lighting, is planned — [docs/M5-PLAN.md](docs/M5-PLAN.md), split M5a–M5d. M5a and M5b
-are built; M5c is next.** The structural point: **light is the first thing here that is not a function of one
+**M5, lighting — [docs/M5-PLAN.md](docs/M5-PLAN.md), split M5a–M5d. M5a, M5b, M5c and M5d-1
+are built; M5d-2 is the played half and is Matthew's.** The structural point: **light is the first thing here that is not a function of one
 chunk.** Worldgen is pure per chunk, meshing takes a padded copy, a carve is local — light
 propagates arbitrarily far, and removing one voxel can change light in a chunk that is not a
 neighbour. Five things from the planning pass that are expensive to rediscover:
@@ -851,8 +890,13 @@ the scene. Four things worth keeping:
   is zero, and darkness has no accidental ambient); and `--skybrightness=0 --debuglamp`, a warm
   pool over ~15 m and nothing else. **Only the third can prove `COLOR.g` carries block light and
   is tinted separately** — every other test in the milestone would pass identically if both
-  channels went into one byte. **Open for M5d: the fog ignores the light grid**, so a dark world
-  still has a fog-coloured horizon.
+  channels went into one byte. **Closed at M5d-1, and it was worse than this line said**: the
+  environment fog blends the *final* colour toward one constant, so against correctly-black
+  terrain the fog was 100% of what you saw — the whole landscape read as a legible grey-blue
+  hillside in a world with no light in it. The voxel material now opts out with `fog_disabled`
+  and fogs toward `fog_colour × sky_brightness × COLOR.r` instead. **Leave `fog_enabled` on in
+  `Main.tscn`**: it still fogs the *sky*, and removing it exposes the procedural sky's dark
+  ground hemisphere as a black band along the horizon.
 
 **M5c-1 — the stage, the lifetime and the relight: done 2026-08-30.** Suite **518 → 542**.
 `GenerationStage.Lit` is a third rung on the barrier, `ChunkStreamer` implements `ILightChunks`

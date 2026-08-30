@@ -245,6 +245,62 @@ public class ChunkPipelineTests
     }
 
     [Fact]
+    public void TheLightStepsTwoHalvesAreContainedInItsWhole()
+    {
+        // M5d needed light timed directly — M5-PLAN says so, and the headless frame-time trap
+        // has been walked into four times — and a stopwatch is exactly the kind of addition that
+        // nothing would ever fail on. What is pinned here is not a duration: it is that the
+        // three brackets enclose the regions they claim to. Deriving and propagating are
+        // disjoint, both sit inside the step, and what neither covers is the bookkeeping after
+        // the drain.
+        //
+        // A clock that advances a millisecond per read, the same seam ApplyingResultsStopsAtThe-
+        // FrameBudget uses, so the arithmetic is arithmetic rather than a race against a real
+        // one. Monotonic is all the invariant needs, which is why it holds under a fake clock
+        // and under a real one alike.
+        //
+        // BREAK IT BY: timing the drain from `entered` instead of from `derived`, which
+        // double-counts the derive and makes the halves exceed the whole; or by swapping
+        // `derived` and `drained`, which makes one half negative.
+        long millisecondTicks = Stopwatch.Frequency / 1000;
+        long now = 0;
+
+        using var harness = new PipelineHarness(nowTicks: () => now += millisecondTicks);
+        harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+
+        double totalDerive = 0.0;
+        var clock = Stopwatch.StartNew();
+
+        while (!harness.Pipeline.IsQuiescent && clock.ElapsedMilliseconds < 60_000)
+        {
+            double beforeDerive = harness.Pipeline.LightDeriveMillis;
+            double beforePropagate = harness.Pipeline.LightPropagateMillis;
+
+            harness.Pipeline.Update();
+
+            double derive = harness.Pipeline.LightDeriveMillis - beforeDerive;
+            double propagate = harness.Pipeline.LightPropagateMillis - beforePropagate;
+
+            Assert.True(derive >= 0.0, $"deriving went backwards by {-derive} ms");
+            Assert.True(propagate >= 0.0, $"propagating went backwards by {-propagate} ms");
+            Assert.True(
+                derive + propagate <= harness.Pipeline.LastLightStepMillis,
+                $"{derive} + {propagate} ms of halves exceeds a "
+                + $"{harness.Pipeline.LastLightStepMillis} ms step");
+
+            totalDerive += derive;
+            Thread.Sleep(1);
+        }
+
+        // The companion assertion, because every one above is inside a loop and a loop that
+        // never ran passes all of them. This is the third outing for that rule in M5.
+        Assert.True(
+            harness.Pipeline.LightBuilds > 0,
+            "no light was derived, so every assertion above passed vacuously");
+        Assert.True(totalDerive > 0.0, "deriving cost nothing at all, which cannot be right");
+    }
+
+    [Fact]
     public void AFrameAlwaysAppliesAtLeastOneResult()
     {
         // Budget zero, and a clock already overrun by the time it is read a second time.

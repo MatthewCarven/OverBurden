@@ -299,6 +299,37 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// <summary>Cells the propagator has visited. Its own running total, surfaced here.</summary>
     public long LightCellsVisited => _propagator.CellsVisited;
 
+    /// <summary>What the last <see cref="Update"/>'s light step cost, in milliseconds.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A stopwatch around the call, and that is the fifth time this project has had to say
+    /// so.</b> The headless frame-time trap has been walked into at M2d-1, at the mesh-apply
+    /// budget, at M3d and at M4d, and every time the directly-timed number moved by a tenth of a
+    /// millisecond while <c>frame ms</c> reported a spike that did not reproduce. Light is the
+    /// first sim-thread cost since meshing that is large enough to be worth confusing with a
+    /// frame, so it gets its own number rather than a share of somebody else's.
+    /// </para>
+    /// <para>
+    /// Read off the same injectable clock the budget uses, so a run under
+    /// <c>--lightbudget</c> is measuring the thing it is bounding. In a test with a fake clock
+    /// this is a fake number; nothing asserts on it.
+    /// </para>
+    /// </remarks>
+    public double LastLightStepMillis { get; private set; }
+
+    /// <summary>Total milliseconds spent deriving conductance, emission and sky flags.</summary>
+    /// <remarks>
+    /// <b>Split from the walk because M5-PLAN costed the wrong half.</b> It estimated the
+    /// propagation at ~779k cell visits and said nothing about deriving, and M5c-1 measured
+    /// deriving as the larger of the two by an order of magnitude. One accumulator each is what
+    /// makes that statement checkable in a real world rather than on a bench, and it is what
+    /// would show <c>PaddedChunk.CopyFrom</c> being fixed.
+    /// </remarks>
+    public double LightDeriveMillis { get; private set; }
+
+    /// <summary>Total milliseconds spent in the propagation walk.</summary>
+    public double LightPropagateMillis { get; private set; }
+
     /// <summary>Chunks waiting for a derived light build.</summary>
     public int LightBuildBacklog => _lightBuilds.Count;
 
@@ -522,7 +553,8 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     {
         _propagator.ForgetCache();
 
-        long deadline = _nowTicks() + _lightBudgetTicks;
+        long entered = _nowTicks();
+        long deadline = entered + _lightBudgetTicks;
 
         // Collecting from before the first derive, not just across the drain. A rebuild's
         // Invalidate resets cells to their own source, and a cell that drops on the spot and is
@@ -539,11 +571,25 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
             if (_nowTicks() >= deadline) break;
         }
 
+        long derived = _nowTicks();
+
         _propagator.Drain(_nowTicks, deadline);
         _propagator.Changes = null;
 
+        long drained = _nowTicks();
+
         MarkRelitChunks();
         ReleaseLightWaiters();
+
+        long left = _nowTicks();
+
+        // Two halves and a total, and the two halves deliberately do not add up to it. What is
+        // left over is marking the relit chunks and releasing the waiters, which is bookkeeping
+        // proportional to the changed set rather than work belonging to either half — folding it
+        // into the walk would inflate exactly the number M5-PLAN already overestimated.
+        LightDeriveMillis += (derived - entered) / TicksPerMillisecond;
+        LightPropagateMillis += (drained - derived) / TicksPerMillisecond;
+        LastLightStepMillis = (left - entered) / TicksPerMillisecond;
     }
 
     /// <summary>

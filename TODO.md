@@ -1340,14 +1340,18 @@ nothing in the second half is. M5c-1 done 2026-08-30, suite 518 → 542.**
 - [x] **`PaddedChunk.CopyFrom` is 60–75% of that, not the derivation** — it recomputes the
       neighbour index per voxel where 27 block copies would do. **Named as the lever and
       deliberately not built**, per the rule; it would speed up meshing too, since a mesh job
-      builds one per chunk as well. M5d decides.
+      builds one per chunk as well. **M5d-1 measured it at 59%** — the bottom of this estimate —
+      **and says build it**, because the budget cannot buy back a cost that exceeds the frame.
 - [x] **A uniform neighbourhood has a closed form and skips the copy entirely** — every face
       conducts iff the material is not opaque, every cell emits what the material emits. Pinned
       against the general path cell for cell and face for face, the `IsCaveAt`/`GenerateTerrain`
       shape of test, because two derivations of one field is two derivations that can drift.
       **Coverage measured at only 12% in the test world**, which is all surface; M2b's 68% uniform
       figure is for chunks alone and this needs the six face neighbours uniform *and equal*.
-      **A real-world coverage number is an M5d measurement.**
+      **Measured at M5d-1, and it is not one number:** 20% at a standing start, 14% over the
+      bench's fixed region, and **5–21% in motion** — falling through mostly-uniform air reaches
+      55%. The coverage is a property of where the viewer is, which is why a single figure was
+      never going to be the answer.
 - [x] **The suite went 8 s → 83 s and back to 16 s.** Deriving is real work and `Settle` sleeps a
       millisecond a pass, so a production-sized light slice turned every pipeline test into a few
       hundred extra round trips. `PipelineHarness.GenerousLightBudget` is the fix; a test that
@@ -1480,9 +1484,11 @@ nothing in the second half is. M5c-1 done 2026-08-30, suite 518 → 542.**
 - [x] `--skybrightness=` and `--debuglamp` are the new seams, so the look questions are
       repeatable rather than a recollection. No ambient floor: an unlit cave is black, which is
       DESIGN's intent; the lever if M5d disagrees is one constant in the shader.
-- [ ] **For M5d: the fog ignores the light grid.** At `--skybrightness=0` the horizon is
-      fog-coloured while the ground is black. Fine against a lit world, wrong the first time
-      somebody stands in a big unlit cavern.
+- [x] **The fog ignored the light grid, and M5d-1 fixed it — but this entry understated it.**
+      Not "the horizon is fog-coloured": Godot's `WorldEnvironment` fog blends the *final* colour
+      toward one constant, so against terrain the grid correctly rendered black **the fog was
+      100% of what you saw**. The before shot at `--skybrightness=0` is a fully readable
+      grey-blue landscape in a world with no light in it at all. See M5d-1.
 - [x] **Break-recipe battery: 13 recipes, 9 caught, and both real holes were *joins*.** Nothing
       checked that each corner samples its own vertex (per-vertex light versus per-face light —
       smooth gradient versus flat-shaded facets), and nothing checked that the pipeline hands the
@@ -1506,22 +1512,136 @@ nothing in the second half is. M5c-1 done 2026-08-30, suite 518 → 542.**
 
 #### M5d — Feel and measurement
 
-- [ ] **Quads per chunk: AO off / AO on / AO+light on.** Three numbers, one flag each, and they
-      are the whole of the fragment-shader decision.
-- [ ] Mesh memory, which follows quads and is the M2d finding this milestone most disturbs.
-- [ ] Light propagation cost per frame, **timed directly**, with cells visited and the
-      denominator printed beside it.
-- [ ] Remeshes per swing, mining normally and mining through into a lit space, at five swings a
-      second — against M3d's control of 1.04% of one core.
-- [ ] Initial fill from a standing start, against the estimated ~0.25 s (779k cell visits at
-      r4h/2v, ~20 ns each — both figures guesses).
-- [ ] **Do not read `frame ms`.** The headless frame-time trap has been walked into four times
-      and the directly-timed number moved by a tenth of a millisecond every time.
-- [ ] Played: does a mine read as a mine? Is 1 m too coarse down a `hand_pick` tunnel whose bore
-      is narrower than one cell — this is the play that would reopen the settled 1 m? Does rock
-      beside a lit tunnel glow? Does AO earn its quads — DESIGN calls it "the single biggest
-      visual payoff" and that is a claim, not a measurement? Are the face-tint constants right
-      now the sun is gone? Can you mine by torchlight?
+**Split M5d-1 (measured, done 2026-08-31) / M5d-2 (played, Matthew's).** The measured half is
+headless and repeatable; the played half is the one this milestone was really waiting on, and
+nothing in it can be answered without a window and a person.
+
+##### M5d-1 — the measured half — **done 2026-08-31**
+
+- [x] **Quads per chunk: AO off / AO on / AO+light on.** 263 / 493 / 404 per drawn chunk at
+      r4h/2v from a standing start, all four arms drawing the identical 165 chunks —
+      M5c-2's figures reproduced exactly on a different harness.
+- [x] **Mesh memory, and it follows quads including downwards.** 32.8 / 39.1 / 33.5 / 37.9 MiB
+      static for the four arms. AO costs +6.3 MiB and adding light *on top of* AO gives back
+      1.2 MiB, at ~174 bytes per quad. M2d's "memory is mesh-dominated" survives M5 with the
+      shipped arm cheaper than the AO-alone arm in both quads and bytes.
+- [x] **Light cost, timed directly, with its denominator.** `ChunkPipeline` exposes
+      `LastLightStepMillis` and a derive/propagate split off the same injectable clock the
+      budget uses; `light ms` is a profiler series; `cells` prints visits, rate and ns/cell.
+      **The two halves deliberately do not sum to the whole** — the leftover is marking relit
+      chunks and releasing waiters, and folding it into the walk would inflate the one number
+      M5-PLAN already overestimated.
+- [x] **Remeshes per swing, and the second half of the fragment-shader trigger is retired.**
+      **1.0 relight + 0.5 edit per swing** at r6h/3v and 8 m/s, 87 swings, digging straight down
+      from open sky — which is breaking into a lit space five times a second. Against a recorded
+      trigger of ~16. **Sixth named fallback dissolved by measurement, none built.**
+- [x] **Initial fill from a standing start: 3.4–3.8 s in Debug**, ~1.6 s projected in Release,
+      against M5-PLAN's estimated ~0.25 s. Recorded as three moments — first draw, light
+      settled, all settled — because M5 moved the first one and the plan estimated the second.
+- [x] **`--speed=0` is askable now.** A profile defaulted to 40 m/s whenever speed was zero *or
+      unset*, so the standing start the fill measurement needs was the one arm that could not be
+      requested. `_speedGiven` is the distinction.
+- [x] **`MinerCraft.Bench --light`**, the same instrument M2d-2 used for caves pointed at the
+      other half of the pipeline. Loads `mods/minercraft/` through the real loader, because
+      conductance is a function of which materials are opaque and a fixture measures a made-up
+      world. **Release: derive 0.241 ms/chunk, `CopyFrom` 59% of it, drain 47 ns/cell.**
+- [x] **`frame ms` ignored, and it was worth the warning a fifth time.** The fall profile
+      reported `frame ms` max **55.168** against a directly-timed `update ms` max of **9.038**.
+
+- [x] **THE FINDING: light bounds how fast you can move, and the symptom is `drawn` going to
+      zero rather than a frame spike.** Light derives on one sim thread against generation's
+      eight workers, and a chunk that is not lit does not mesh. At r4h/2v in Debug:
+
+      | speed | drawn | first draw | main thread | derives/tracked |
+      |---|---|---|---|---|
+      | 6 m/s | 160 | 3.83 s | 35.5% | 2.8x |
+      | 12 m/s | 188 | 5.21 s | 60.5% | 4.4x |
+      | 20 m/s | **0** | never | 76.6% | 6.0x |
+      | 40 m/s | **0** | never | 76.2% | 4.4x |
+
+      **The cliff is 12–20 m/s and the flycam's sprint is 6 × 5 = 30 m/s**, so holding Shift in
+      fly mode stops the world drawing in the Debug build `start.cmd` runs. M3d's streaming-only
+      control at r6h/3v and 8 m/s was **0.80% of one core**; the same config today is **69.5%**.
+      Light on the sim thread is a deliberate M5 decision, so the *kind* of cost is by design —
+      its *size* is not, because M5-PLAN costed the propagation and said nothing about the
+      derive, and the derive is the whole of this. **~12% in Release**, so the cliff is a Debug
+      cliff in a build people play.
+- [x] **M4d's headline claim survives, and for a reason worth stating.** The fall profile with
+      light in the loop still reports `held 0` and `0 flickers over 120 resting steps` at
+      terminal 40 m/s. The collider asks for voxels and the barrier gates meshes, so **light
+      bounds what you can see, not what you can stand on.**
+- [x] **M5-PLAN's propagation estimate was good and M5c-1 only checked half of why.** M5c-1
+      checked the visit *count* (585k against 779k). The other factor — ~20 ns per visit — had
+      never been checked: it is **47 ns** in Release, so 15 ms predicted against 25 ms measured,
+      1.7x out. **Caveat that invalidates any single ns/cell figure:** the fall profile reports
+      50 ns/cell in Debug where the standing start reports 460 in the same build, because a
+      falling player propagates mostly full-skylight free fall. **The per-cell cost is a property
+      of the mix.** Quote it with its scenario or not at all.
+- [x] **`PaddedChunk.CopyFrom` is 59% of the derive** — measured, where M5c-1 estimated 60–75%
+      and published no measurement. At the bottom of its own estimate.
+- [x] **The fog was not "ignoring the light grid" — it was the brightest thing in a dark
+      world.** Godot's `WorldEnvironment` fog blends the *final* colour toward one constant, so
+      against terrain the grid correctly rendered black the fog was 100% of what you saw: at
+      `--skybrightness=0` the before shot is a fully readable grey-blue landscape in a world
+      with no light in it. Fixed with `render_mode fog_disabled` on the voxel material plus our
+      own exponential fog fading toward `fog_colour × sky_brightness × COLOR.r` — the fragment's
+      own **sky** exposure, because fog is in-scattered daylight and a lamp a metre away does
+      not scatter across a room. Daylight is pixel-for-pixel unchanged, verified with a pair.
+      - [x] **The environment fog stays enabled and only the material opts out.** Removing
+            `fog_enabled` from `Main.tscn` also un-fogs the **sky**, exposing the procedural
+            sky's dark ground hemisphere as a black band along the horizon. That is what
+            `fog_disabled` being per-material is for. Caught by a screenshot and nothing else.
+- [x] **One test, and it was watched failing.** `TheLightStepsTwoHalvesAreContainedInItsWhole`
+      pins that the three brackets enclose the regions they claim to, under a fake clock
+      advancing a millisecond per read — an invariant rather than a duration, so it holds under
+      a real clock too. Broken by "time the drain from `entered` rather than `derived`", which
+      double-counts the derive. Carries the loop-ran companion assertion.
+
+##### M5d-2 — the played half — **Matthew's, not yet done**
+
+Nothing here is answerable headlessly. `--skybrightness=0 --debuglamp` now produces a warm pool
+about 15 m across fading to true black, which is the first time that shot has been worth looking
+at, because until the fog fix the black was grey.
+
+- [ ] Does a mine read as a mine? First milestone whose output is darkness.
+- [ ] **Is 1 m too coarse down a `hand_pick` tunnel** whose bore is narrower than one cell —
+      the play that would reopen the settled 1 m. 0.5 m costs 4 KB per chunk and 8× the
+      propagation, and the propagation is the cheap half, so the real cost is the derive.
+- [ ] Does rock beside a lit tunnel glow? The known cost of a per-cell value, half-mitigated by
+      the half-cell normal offset.
+- [ ] Does AO earn its quads? DESIGN calls it "the single biggest visual payoff", which is a
+      claim and not a measurement — and it is now known to cost +6.3 MiB and +87% quads on its
+      own, while the shipped AO+light arm costs less than AO alone.
+- [ ] Are the face-tint constants right now the sun is gone? Four numbers in `Voxel.gdshader`,
+      deliberately kept out of the merge key so retuning needs no remesh.
+- [ ] Can you mine by torchlight?
+- [ ] **New: does the 12–20 m/s cliff read as a bug at the flycam's normal 6 m/s?** The numbers
+      say 35% of one core and a 3.8 s fill there. Whether that is *felt* is a different question
+      from whether it is measurable, and it decides how urgent the two levers below are.
+- [ ] **Still unjudged from M4d, and ordinary play cannot reach them:** step-up guard 3's
+      diagonal wall-hug, and step-down's 0.5 m instant drop.
+- [ ] **Still unjudged from M3d/M4d: Ctrl vs Alt for precision mining.** Alt is the better key —
+      free in walk, *crawl* in fly, so "slow down to do fine work" pairs rather than fights —
+      and the swap is one line. Left on Ctrl pending exactly this play-test.
+
+##### Surfaced by M5d-1, not built — each wants its own planning pass
+
+- [ ] **Lever 1: `PaddedChunk.CopyFrom`, 59% of the derive** (measured). It recomputes the
+      neighbour index per voxel where 27 block copies would do, and it would speed up **meshing**
+      too, since a mesh job builds one per chunk as well. Ceiling ~1.7×. Named at M5c-1 and
+      deliberately not built there on the grounds that raising the budget bought back the whole
+      regression — **the budget cannot buy this one back**, because at 20 m/s the work exceeds
+      the frame however it is sliced.
+- [ ] **Lever 2: re-derives, 2.4–6.0 per chunk against 1.0 at a standing start.** A chunk
+      re-derives every time a neighbour appears where it had assumed air. M5c-1 wrote the trigger
+      in advance — *"a ratio that climbs is the signal that `LightNeighbours`'s gain-only rule has
+      stopped being enough"* — and it climbs monotonically with speed. Ceiling ~2.4×, **larger
+      than the copy, and not where M5c-1's attention was pointing.**
+- [ ] Together ~4×, which would put the Debug game near 17% of one core at 8 m/s and move the
+      cliff past the flycam's 30 m/s sprint.
+- [ ] **`screenshot.gd`'s 8 s settle was tuned before light existed.** At r10 nothing has drawn
+      by then and the shot comes back empty sky. Either raise it or have it wait on
+      `IsQuiescent` rather than on a clock.
 
 #### Decisions, all four settled 2026-08-30 before any code
 

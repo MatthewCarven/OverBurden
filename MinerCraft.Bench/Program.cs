@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using MinerCraft.Core.Content;
+using MinerCraft.Core.Lighting;
 using MinerCraft.Core.Voxels;
 using MinerCraft.Core.Worldgen;
 
@@ -42,6 +43,7 @@ internal static class Program
           --steps 1,2,4,8,16   cave lattice steps to measure (default 1,2,4,8,16)
           --seed  <ulong>      world seed (default: the game's own)
           --repeat <n>         timed passes per configuration, best wins (default 3)
+          --light              time light derivation and propagation instead of worldgen
         """;
 
     private static int Main(string[] args)
@@ -49,6 +51,7 @@ internal static class Program
         ulong seed = 0x4D494E455243UL;
         int[] steps = [1, 2, 4, 8, 16];
         int repeat = 3;
+        bool light = false;
 
         try
         {
@@ -67,6 +70,9 @@ internal static class Program
                         break;
                     case "--repeat":
                         repeat = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--light":
+                        light = true;
                         break;
                     case "--help" or "-h":
                         Console.WriteLine(Usage);
@@ -94,6 +100,11 @@ internal static class Program
 
         ChunkPos[] region = Region();
         var strata = new StrataTable([new StrataLayer(Grass, 1), new StrataLayer(Dirt, 3)], Stone);
+
+        if (light)
+        {
+            return LightBench(seed, repeat);
+        }
 
         Console.WriteLine(
             $"Worldgen bench — {region.Length} chunks "
@@ -354,6 +365,243 @@ internal static class Program
 
     private static string Next(string[] args, ref int index) =>
         ++index < args.Length ? args[index] : throw new ArgumentException($"'{args[index - 1]}' needs a value");
+
+
+    // ---------------------------------------------------------------- the light bench
+    //
+    // WHY THIS EXISTS, AND WHY IT LOADS THE REAL MODS. M5c-1 costed light derivation in Release
+    // and M5d then measured it inside the game, which builds Debug — and the two numbers differ
+    // by nearly 6x, which is exactly the trap M2b fell into when it published a Debug
+    // "6.55 ms/chunk" with no build beside it. A game-side figure alone cannot say whether light
+    // is expensive or whether Debug is. This is the same instrument M2d-2 used to settle caves,
+    // pointed at the other half of the pipeline.
+    //
+    // Opacity and emission come from mods/minercraft/ through the real loader rather than from a
+    // fixture, because conductance is a function of which materials are opaque and a made-up
+    // table would measure a made-up world.
+
+    /// <summary>Times light derivation and propagation over the same fixed region.</summary>
+    private static int LightBench(ulong seed, int repeat)
+    {
+        var content = new GameContent();
+        LoadResult loaded = content.Load(new DirectoryContentSource(ModsDirectory()));
+        if (!loaded.Success)
+        {
+            Console.Error.WriteLine($"content: {string.Join("; ", loaded.Errors)}");
+            return 1;
+        }
+
+        MaterialTable materials = MaterialTable.From(content.Materials);
+
+        // The shipped strata, by identifier, so the bench lights the material the game lights.
+        var strata = new StrataTable(
+            [
+                new StrataLayer(content.Materials.GetNumericId(Identifier.Parse("minercraft:grass")), 1),
+                new StrataLayer(content.Materials.GetNumericId(Identifier.Parse("minercraft:dirt")), 3),
+            ],
+            content.Materials.GetNumericId(Identifier.Parse("minercraft:stone")));
+
+        var generator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
+        ChunkPos[] region = Region();
+
+        Console.WriteLine(
+            $"Light bench — {region.Length} chunks, seed {seed}, best of {repeat}, "
+            + $"{content.Materials.Count} material(s)");
+        if (IsDebug())
+        {
+            Console.WriteLine("*** DEBUG BUILD — these timings are meaningless. Re-run with -c Release. ***");
+        }
+
+        Console.WriteLine();
+
+        var world = new BenchLightWorld();
+        foreach (ChunkPos position in region)
+        {
+            world.Voxels[position] = generator.GenerateTerrain(position);
+        }
+
+        // One sky column per (cx, cz), seeded analytically off the generator — the same seeding
+        // the streamer does, and the reason there is no top of the world to flood down from.
+        foreach (ChunkPos position in region)
+        {
+            var key = (position.X, position.Z);
+            if (world.Sky.ContainsKey(key)) continue;
+
+            var column = new SkyColumn(position.X, position.Z);
+            column.Seed(generator);
+            world.Sky[key] = column;
+        }
+
+        double bestDerive = double.MaxValue;
+        double bestCopy = double.MaxValue;
+        double bestDrain = double.MaxValue;
+        long cells = 0;
+        int uniform = 0;
+
+        // Warm the JIT first, for the reason Measure gives: tiered compilation makes the first
+        // pass a measurement of the interpreter.
+        for (int pass = -1; pass < repeat; pass++)
+        {
+            world.Light.Clear();
+            var propagator = new LightPropagator(world);
+
+            var padded = new PaddedChunk();
+            var neighbourhood = new VoxelChunk?[PaddedChunk.NeighbourhoodSize];
+            var changed = new List<LightCellPos>();
+
+            double copyMillis = 0.0;
+            int uniformThisPass = 0;
+
+            long deriveStart = Stopwatch.GetTimestamp();
+
+            foreach (ChunkPos position in region)
+            {
+                var light = new ChunkLight();
+                world.Light[position] = light;
+                SkyColumn sky = world.Sky[(position.X, position.Z)];
+
+                changed.Clear();
+
+                if (world.TryUniformNeighbourhood(position, out int material))
+                {
+                    light.BuildDerivedUniform(material, materials, position, sky, changed);
+                    uniformThisPass++;
+                    continue;
+                }
+
+                for (int dz = -1; dz <= 1; dz++)
+                for (int dx = -1; dx <= 1; dx++)
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    neighbourhood[PaddedChunk.NeighbourIndex(dx, dy, dz)] =
+                        world.Voxels.GetValueOrDefault(position.Offset(dx, dy, dz));
+                }
+
+                // Timed inside the derive rather than beside it, because the question M5c-1 left
+                // open is what share of a derive the copy is — it named 60-75% and did not
+                // publish the measurement that would let anyone check it later.
+                long copyStart = Stopwatch.GetTimestamp();
+                padded.CopyFrom(neighbourhood, MaterialIds.AirNumericId);
+                copyMillis += (Stopwatch.GetTimestamp() - copyStart) * 1000.0 / Stopwatch.Frequency;
+
+                light.BuildDerived(padded, materials, position, sky, changed);
+            }
+
+            double deriveMillis =
+                (Stopwatch.GetTimestamp() - deriveStart) * 1000.0 / Stopwatch.Frequency;
+
+            foreach (ChunkPos position in region)
+            {
+                propagator.SeedSources(position);
+            }
+
+            long drainStart = Stopwatch.GetTimestamp();
+            long visited = propagator.Drain();
+            double drainMillis =
+                (Stopwatch.GetTimestamp() - drainStart) * 1000.0 / Stopwatch.Frequency;
+
+            if (pass < 0) continue;   // the warm-up pass measures the JIT
+
+            if (deriveMillis < bestDerive)
+            {
+                bestDerive = deriveMillis;
+                bestCopy = copyMillis;
+                uniform = uniformThisPass;
+            }
+
+            if (drainMillis < bestDrain)
+            {
+                bestDrain = drainMillis;
+            }
+
+            cells = propagator.CellsVisited;
+        }
+
+        double chunks = region.Length;
+
+        Console.WriteLine($"derive    {bestDerive:F0} ms total, {bestDerive / chunks:F3} ms/chunk");
+        Console.WriteLine(
+            $"  copy    {bestCopy:F0} ms of that ({100.0 * bestCopy / bestDerive:F0}% of the derive), "
+            + $"{bestCopy / chunks:F3} ms/chunk");
+        Console.WriteLine(
+            $"  uniform {uniform} / {region.Length} chunks took the closed form "
+            + $"({100.0 * uniform / chunks:F0}%), skipping the copy entirely");
+        Console.WriteLine(
+            $"drain     {bestDrain:F0} ms total over {cells} cell visit(s), "
+            + $"{(cells > 0 ? bestDrain * 1e6 / cells : 0.0):F0} ns/cell");
+        Console.WriteLine(
+            $"together  {(bestDerive + bestDrain) / chunks:F3} ms/chunk on one thread");
+        Console.WriteLine();
+        Console.WriteLine("derive  — conductance, emission and sky flags, the sim-thread half M5-PLAN did not cost");
+        Console.WriteLine("copy    — PaddedChunk.CopyFrom, the lever M5c-1 named and deliberately did not build");
+        Console.WriteLine("drain   — the BFS, which M5-PLAN costed at ~20 ns/cell");
+
+        return 0;
+    }
+
+    /// <summary>Where the shipped mods live, relative to this repository.</summary>
+    private static string ModsDirectory()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            string candidate = Path.Combine(directory.FullName, "MinerCraft.Game", "mods");
+            if (Directory.Exists(candidate)) return candidate;
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException("could not find MinerCraft.Game/mods");
+    }
+
+    /// <summary>
+    /// The chunks the light bench owns, in the shape <see cref="LightPropagator"/> wants.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not the streamer. The streamer is a thread pool, a refcount and a job queue,
+    /// and a bench that dragged them in would be measuring them — the same argument that keeps
+    /// worldgen's bench out of the game.
+    /// </remarks>
+    private sealed class BenchLightWorld : ILightChunks
+    {
+        public Dictionary<ChunkPos, VoxelChunk> Voxels { get; } = [];
+
+        public Dictionary<ChunkPos, ChunkLight> Light { get; } = [];
+
+        public Dictionary<(int X, int Z), SkyColumn> Sky { get; } = [];
+
+        public ChunkLight? LightAt(ChunkPos chunk) => Light.GetValueOrDefault(chunk);
+
+        /// <summary>
+        /// The chunk and its six face neighbours all one material — light's dependency set, which
+        /// is the faces and not the mesher's twenty-six.
+        /// </summary>
+        public bool TryUniformNeighbourhood(ChunkPos position, out int material)
+        {
+            material = 0;
+
+            if (!Voxels.TryGetValue(position, out VoxelChunk? self) || !self.IsUniform)
+            {
+                return false;
+            }
+
+            material = self.UniformValue;
+
+            foreach ((int dx, int dy, int dz) in Faces)
+            {
+                if (!Voxels.TryGetValue(position.Offset(dx, dy, dz), out VoxelChunk? neighbour)
+                    || !neighbour.IsUniform
+                    || neighbour.UniformValue != material)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static readonly (int X, int Y, int Z)[] Faces =
+            [(-1, 0, 0), (1, 0, 0), (0, -1, 0), (0, 1, 0), (0, 0, -1), (0, 0, 1)];
+    }
 
     private static bool IsDebug()
     {

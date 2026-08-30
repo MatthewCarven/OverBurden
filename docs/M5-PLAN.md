@@ -725,6 +725,30 @@ What remains a *look* question for M5d is whether it reads better, not whether i
 
 ## M5d — Feel and measurement
 
+> **Split M5d-1 (measured, done 2026-08-31) / M5d-2 (played, Matthew's).** M5d-1 answered every
+> question below that a machine can answer, and found one this section did not ask: **light
+> bounds how fast the viewer can move**, because it derives on one sim thread against
+> generation's eight workers and a chunk that is not lit does not mesh. At r4h/2v in Debug the
+> world draws 160 chunks at 6 m/s, 188 at 12 m/s and **nothing at all at 20 m/s and above** —
+> and the flycam's sprint is 30 m/s. Main-thread cost at M3d's own control config went from
+> **0.80% to 69.5% of one core**, ~12% in Release. **The kind of cost is by design** — this
+> document argues for the sim thread and the argument stands — **the size is not**, because the
+> section below costs the propagation and never costs the derive, and the derive is the whole of
+> it. Two levers are measured and neither is built; see the worklog and TODO.
+>
+> Three smaller corrections to this section:
+>
+> - **The fill is 3.4–3.8 s in Debug** (~1.6 s projected in Release), against the ~0.25 s
+>   estimated above.
+> - **The propagation estimate was good after all, and on both factors.** M5c-1 checked the
+>   visit count; M5d-1 checked the per-visit cost, which is **47 ns in Release** against the
+>   guessed 20 — 15 ms predicted, 25 ms measured. **But the per-cell figure is a property of the
+>   scenario, not of the code**: a falling player propagates mostly full-skylight free fall and
+>   prices at 50 ns/cell in *Debug*, where a standing start prices at 460 in the same build.
+> - **The remesh half of the fragment-shader trigger is retired.** 1.0 relight remesh per swing
+>   against a threshold of ~16, so both halves are now closed and the fallback is dead rather
+>   than deferred.
+
 ### The question this milestone is really asking
 
 **Is a 1 m light grid enough resolution for a 0.25 m world, and does AO make voxels read as

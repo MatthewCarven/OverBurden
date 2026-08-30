@@ -74,6 +74,35 @@ public partial class Main : Node3D
     private int _falls;
     private float? _terminalSpeed;
 
+    /// <summary>Whether <c>--speed</c> was given, as opposed to left at its default.</summary>
+    /// <remarks>
+    /// <b>Needed so that <c>--speed=0</c> can mean nought rather than "unset".</b> A profile
+    /// defaults to 40 m/s because a stationary streaming measurement measures a system that has
+    /// stopped doing the thing being measured — but M5d's fill measurement is a
+    /// <em>standing start</em> by definition, and without this the one arm it needs is the one
+    /// arm that cannot be asked for.
+    /// </remarks>
+    private bool _speedGiven;
+
+    /// <summary>When streaming started, for the standing-start fill measurements.</summary>
+    private long _fillStartedTicks;
+
+    /// <summary>Seconds from the first frame to the first chunk on screen, or −1.</summary>
+    /// <remarks>
+    /// <b>The number the light budget was swept against at M5c-1, and the one M5 moved.</b>
+    /// Nothing meshes until its whole neighbourhood is lit, so light does not delay drawing a
+    /// little — at too small a budget it delays it entirely, and the 5 s report showed a world
+    /// fully generated with nothing drawn at all. Recorded beside the settle time because the
+    /// two answer different questions: this one is what a player waits for.
+    /// </remarks>
+    private double _firstDrawSeconds = -1.0;
+
+    /// <summary>Seconds until the light field first settled, or −1.</summary>
+    private double _lightSettledSeconds = -1.0;
+
+    /// <summary>Seconds until nothing at all was outstanding, or −1.</summary>
+    private double _settledSeconds = -1.0;
+
     public GameContent Content { get; } = new();
 
     public override void _Ready()
@@ -124,6 +153,10 @@ public partial class Main : Node3D
         _lampMaterialId = Content.Materials.TryGetNumericId(Identifier.Parse(LampId), out int lamp)
             ? lamp
             : -1;
+
+        // Last, so the fill measurement starts where streaming does rather than where content
+        // loading does. Loading the mods is a fixed cost that is not what M5d is asking about.
+        _fillStartedTicks = Stopwatch.GetTimestamp();
 
         GD.Print(
             $"M2c: streaming r{ViewDistanceHorizontal}h/{ViewDistanceVertical}v " +
@@ -241,6 +274,7 @@ public partial class Main : Node3D
 
                 case "speed" when float.TryParse(value, out float speed):
                     _flySpeed = speed;
+                    _speedGiven = true;
                     break;
 
                 case "warmup" when double.TryParse(value, out double seconds):
@@ -346,7 +380,7 @@ public partial class Main : Node3D
             // that has stopped doing the thing being measured. The *fall* profile is the
             // exception: there the body is the motion, so the scripted flythrough must stay off
             // or it would assign the camera out from under the player every frame.
-            if (_flySpeed <= 0f && !_fallProfile)
+            if (_flySpeed <= 0f && !_fallProfile && !_speedGiven)
             {
                 _flySpeed = 40f;
             }
@@ -610,7 +644,14 @@ public partial class Main : Node3D
         {
             _profiler.PipelineUpdate.Add(Milliseconds(before, afterUpdate));
             _profiler.MeshFree.Add(Milliseconds(afterUpdate, afterFree));
+
+            // From the pipeline's own clock rather than a stopwatch out here, because the light
+            // step is nested inside the update and timing it from the caller would have to
+            // bracket the whole thing. It is already counted in update ms; see Light's remarks.
+            _profiler.Light.Add(_pipeline.LastLightStepMillis);
         }
+
+        RecordFillMilestones();
 
         if (_profiler is not null && _profiler.Tick(delta))
         {
@@ -624,6 +665,105 @@ public partial class Main : Node3D
 
     private static double Milliseconds(long from, long to) =>
         (to - from) * 1000.0 / Stopwatch.Frequency;
+
+    /// <summary>
+    /// Notes when the world first drew, when light first settled, and when everything did.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Three moments rather than one, because M5 moved the first and M5-PLAN estimated the
+    /// second.</b> The plan put ~0.25 s against the propagation and nothing against the derive,
+    /// which M5c-1 then measured as the larger half — so "how long does a standing start take to
+    /// light" needs the light's own answer and the player's answer side by side.
+    /// </para>
+    /// <para>
+    /// <b>Latched once each and never reset.</b> A flythrough crosses chunk boundaries forever,
+    /// so light goes in and out of flight all run; only the first settle is the fill. Reading a
+    /// later one would report how long the last chunk column took and label it the world.
+    /// </para>
+    /// <para>
+    /// Recorded on every run, not only a profile, so the periodic report can print them from a
+    /// plain headless run with no window and no measured window.
+    /// </para>
+    /// </remarks>
+    private void RecordFillMilestones()
+    {
+        if (_pipeline is null)
+        {
+            return;
+        }
+
+        if (_firstDrawSeconds < 0.0 && _instances.Count > 0)
+        {
+            _firstDrawSeconds = FillSeconds();
+        }
+
+        if (_lightSettledSeconds < 0.0 && _pipeline.LightBuilds > 0 && !_pipeline.LightInFlight)
+        {
+            _lightSettledSeconds = FillSeconds();
+        }
+
+        // Guarded on having drawn something as well as on being quiescent: the very first frame
+        // is quiescent by construction — nothing has been asked for yet — and would latch a
+        // settle time of zero for a world that had not started.
+        if (_settledSeconds < 0.0 && _instances.Count > 0 && _pipeline.IsQuiescent)
+        {
+            _settledSeconds = FillSeconds();
+        }
+    }
+
+    private double FillSeconds() =>
+        (Stopwatch.GetTimestamp() - _fillStartedTicks) / (double)Stopwatch.Frequency;
+
+    /// <summary>The standing-start fill, as one line.</summary>
+    /// <remarks>
+    /// Each figure prints "not yet" rather than a zero when its moment has not arrived. A
+    /// flythrough at 40 m/s never settles, and "0.00 s" for that would read as instantaneous
+    /// rather than as never — the same trap the ground-flicker detector fell into twice.
+    /// </remarks>
+    private string FillLine()
+    {
+        static string Seconds(double value) => value < 0.0 ? "not yet" : $"{value:F2} s";
+
+        return $"fill      first draw {Seconds(_firstDrawSeconds)}, "
+               + $"light settled {Seconds(_lightSettledSeconds)}, "
+               + $"all settled {Seconds(_settledSeconds)}\n";
+    }
+
+    /// <summary>What the light step cost, with every total's denominator beside it.</summary>
+    /// <remarks>
+    /// <b>The derive/propagate split is the point.</b> M5-PLAN costed the walk at ~779k visits
+    /// and ~15 ms and said nothing about the derive; M5c-1 measured the derive as the larger
+    /// half by an order of magnitude. Printing them apart is what keeps that statement true or
+    /// catches it going stale, and it is the number <c>PaddedChunk.CopyFrom</c> would move.
+    /// </remarks>
+    private string LightLines()
+    {
+        if (_pipeline is null || _profiler is null)
+        {
+            return string.Empty;
+        }
+
+        double seconds = Math.Max(_profiler.MeasuredSeconds, 0.001);
+        double derive = _pipeline.LightDeriveMillis;
+        double propagate = _pipeline.LightPropagateMillis;
+        long cells = _pipeline.LightCellsVisited;
+
+        // Per-cell cost against the walk alone, not against the whole step. M5-PLAN's ~20 ns
+        // guess is a guess about a cell visit, and dividing by the derive as well would compare
+        // it against a different quantity and call the difference a prediction error.
+        string perCell = cells > 0 ? $"{propagate * 1e6 / cells:F0} ns/cell" : "no cells";
+
+        return $"{_profiler.Light.Line("light ms")}   (inside update ms, not beside it)\n"
+               + $"lighting  {derive:F0} ms deriving / {propagate:F0} ms propagating "
+               + $"over the whole run\n"
+               + $"cells     {cells} visited, {cells / seconds:F0}/s over the "
+               + $"{seconds:F1} s window, {perCell}\n"
+               + $"derives   {_pipeline.LightBuilds} / {_pipeline.Streamer.TrackedCount} tracked, "
+               + $"{_pipeline.UniformLightBuilds} uniform "
+               + $"({(_pipeline.LightBuilds > 0 ? $"{100.0 * _pipeline.UniformLightBuilds / _pipeline.LightBuilds:F0}%" : "n/a")}), "
+               + $"{_pipeline.RelightRemeshes} relight remesh(es)\n";
+    }
 
     /// <summary>
     /// Builds the mining controller and the target highlight, and lists the tiers.
@@ -910,6 +1050,8 @@ public partial class Main : Node3D
             $"applying  {_pipeline.AppliedResults} applied, {_pipeline.PendingResults} still " +
             $"waiting at the end of the run\n" +
             $"freeing   {_freeQueue.TotalFreed} released, peak queue {_freeQueue.PeakPending}\n" +
+            FillLine() +
+            LightLines() +
             MiningLines() +
             _profiler.PlayerLines(_profiler.MeasuredSeconds) +
             $"{StreamingProfiler.RenderLine()}\n" +
@@ -940,7 +1082,9 @@ public partial class Main : Node3D
             $"{_mining.VoxelsRefused / swings:F0} too hard / " +
             $"{_mining.VoxelsAlreadyAir / swings:F0} already air per swing\n" +
             $"remesh    {_pipeline!.EditRemeshes / swings:F1} chunks per swing, " +
-            $"{_pipeline.EditRemeshes / Math.Max(_profiler.MeasuredSeconds, 0.001):F1}/s\n" +
+            $"{_pipeline.EditRemeshes / Math.Max(_profiler.MeasuredSeconds, 0.001):F1}/s" +
+            $" | relight {_pipeline.RelightRemeshes / swings:F1} per swing, " +
+            $"{_pipeline.RelightRemeshes} total\n" +
             $"clones    {_pipeline.ChunkClones / swings:F1} per swing " +
             $"({_pipeline.ChunkClones * 2.0 / swings:F1} KiB at ~2 KiB each)\n" +
             $"clipped   {_mining.ClippedSwings} swing(s) reached past the loaded world\n";
@@ -1092,6 +1236,7 @@ public partial class Main : Node3D
             QuadSummary());
 
         GD.Print($"M5c: {LightSummary()}");
+        GD.Print($"M5d: {FillLine().TrimEnd()}");
     }
 
     /// <summary>
@@ -1113,7 +1258,9 @@ public partial class Main : Node3D
 
         string uniformShare = derives > 0 ? $"{100.0 * uniform / derives:F0}%" : "n/a";
 
-        return $"{derives} derives / {streamer.TrackedCount} tracked ({uniform} uniform, "
+        return $"{_pipeline.LightDeriveMillis:F0} ms deriving / "
+               + $"{_pipeline.LightPropagateMillis:F0} ms propagating, "
+               + $"{derives} derives / {streamer.TrackedCount} tracked ({uniform} uniform, "
                + $"{uniformShare}), {_pipeline.LightCellsVisited} cells visited, "
                + $"{streamer.SkyColumnCount} sky columns, "
                + $"{_pipeline.RelightRemeshes} relight remeshes, "

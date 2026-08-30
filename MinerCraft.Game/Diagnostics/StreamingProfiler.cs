@@ -121,6 +121,26 @@ public sealed class StreamingProfiler
     public SampleSeries MeshFree { get; } = new();
 
     /// <summary>
+    /// Sim-thread time for one frame's light step: deriving, propagating and marking.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A subset of <see cref="PipelineUpdate"/>, not a sibling of it.</b> <c>StepLight</c> is
+    /// called from inside <c>ChunkPipeline.Update</c>, so this time is already counted in
+    /// <c>update ms</c>; it is broken out because light is the one part of the update whose cost
+    /// is bounded by a budget of its own, and the budget was swept at M5c-1 against when the
+    /// world could first draw rather than against throughput. Adding the two together
+    /// double-counts.
+    /// </para>
+    /// <para>
+    /// M5-PLAN asks for this timed directly and with its denominator beside it, which is the
+    /// pair this project has had to learn twice — cells visited is a total, and a total with no
+    /// seconds under it is not a rate.
+    /// </para>
+    /// </remarks>
+    public SampleSeries Light { get; } = new();
+
+    /// <summary>
     /// Sim-thread time for one swing: the raycast plus the carve.
     /// </summary>
     /// <remarks>
