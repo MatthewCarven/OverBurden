@@ -78,6 +78,30 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
       and 2.4 KiB per swing, swing cost two orders of magnitude inside a frame — measures the
       *worst* case, and a profile that quietly switched to single-voxel would report a cheaper
       number for the same label and look like an improvement.
+- [ ] **Hand mining one block at a time — raised again 2026-08-31, deferred to the tools-and-
+      tiers discussion.** The sphere stays the bare click for now. **What changed** since the
+      2026-08-30 decision is that the entangled miner exists: "the starting tool is slow" is
+      *tedium* when it is the only tool and *progression* when there is a ladder, and yesterday
+      there was no top of the ladder. **What is still missing is the middle** — `hand_pick` and
+      `steel_pick` are two rungs 0.1 m of radius apart, and then a cliff to a tool that eats the
+      world at 60 voxels of reach. **So the entangled miner exposed that the missing piece is the
+      ladder, not the granularity**, and the granularity question is downstream of it: answering
+      it first sets early-game pacing before the thing that would relieve it exists. **Crafting
+      is M11**, which is where a ladder becomes content rather than two JSON files.
+      - [ ] **A number the original decision did not have.** 17× was per *voxel removed*. Per
+            *metre of walkable tunnel* it is worse, because a single-voxel tool clears a
+            cross-section rather than a bore: the player is 0.5 m wide and 1.8 m tall, so ~2×8
+            voxels — **16 chips per 0.25 m of advance, 64 per metre, ~19 s per metre** at
+            `hand_pick`'s cooldown, over three minutes for a 10 m tunnel. **Estimate, not a
+            measurement** — arithmetic off M4a's box and M4b's step height, nobody has dug it.
+            Right order, and it says the honest cost is nearer **40× than 17×** for the thing a
+            player actually does.
+      - [ ] **Deferring is free, which is the whole argument.** `Carve.Chip` and `Carve.Swing`
+            both exist and share one hardness gate; which one a bare click calls is **one line in
+            `MiningController`**, and `radiusMetres` is content. Cheap late, expensive early.
+      - [ ] **Revisit trigger, in Matthew's words: "then we would need to discuss tools and tiers
+            etc."** M11 at the latest, sooner if wanted since tools are already JSON. The
+            single-voxel default belongs on that agenda rather than settled separately.
 - [ ] Collapse debris: loose re-settling rubble vs rigid falling chunks — decide at M9
 - [ ] Power model complexity — decide at M10
 - [ ] Name check: "MinerCraft" — keeping it?
@@ -1623,7 +1647,22 @@ Played with the entangled miner. **"Looks good to me."**
       wider than the corridor. This is the play that would reopen the settled 1 m; 0.5 m costs
       4 KB per chunk and 8× the propagation, and since M5d-1 the propagation is known to be the
       *cheap* half, so the real cost is the derive.
-- [ ] **Can you mine by torchlight?** Still open — no lamp in any shot. `L` places one.
+- [x] **Can you mine by torchlight? Yes, and it is warm.** One lamp underground lights the
+      chamber in a distinctly yellow cast. **This is the only test in the milestone that could
+      have proved the two channels are independent all the way to the screen** — M5c-2 recorded
+      that the merge key, the trilinear sample, the quad counts and the shader would all pass
+      identically with both channels packed into one byte. It is also the receipt for the
+      two-channel decision M5a paid for in vertex bytes, since DESIGN's M7 wet-surface term needs
+      skylight on its own.
+      - [ ] **Observation, not a defect: 15 m of light is *sixty* voxels.** `lightEmission: 15`
+            and 1 per 1 m cell, in a game whose corridors are three to five voxels wide — so one
+            lamp lights a whole working, and the relative reach is 4× what a 1 m-block game gets
+            from the same number. **The same trap the cell size already carries**, one level
+            along: TODO calls 0..15 "a game-balance number wearing a storage costume" but never
+            said what it looks like in voxels. **The lever is one number in one JSON file with no
+            rebuild** — `lightEmission` in `lamp.json`, the same shape as `radiusMetres` for the
+            bore. Halving to 8 gives a 32-voxel pool. Left at 15 because it looks good and
+            nobody has complained.
 - [ ] **Is the third shot's cavern legitimately lit, or is skylight leaking?** A large cavern
       lit fairly evenly with one small sky opening visible. Skylight falls free straight down but
       attenuates 1 per metre horizontally, so one hole should light ~15 m and no more. Either the

@@ -1,5 +1,108 @@
 # MinerCraft — Worklog
 
+## 2026-08-31 — Hand mining one block at a time: deferred, and the entangled miner is why
+
+Raised again after the entangled miner landed: *"For hand mining I was going to make you do it
+one block at a time... then we would need to discuss tools and tiers etc, but having said this I
+suppose you can draw conclusions."*
+
+**Conclusion drawn: don't change the default now.** The sphere stays the bare click. Not because
+the idea is wrong — it is a better *game* — but because it is the second half of a change whose
+first half does not exist yet, and shipping the second half alone buys the tedium without the
+progression.
+
+### What actually changed since the decision, and it is not nothing
+
+The decision was made 2026-08-30 on the grounds that a single-voxel default is **~17× slower to
+excavate with the starting pick**, in a game about a mining operation, against DESIGN's own
+argument that volumetric inventory exists to make big excavations productive.
+
+**The entangled miner moves that argument's premise.** "The starting tool is slow" is *tedium*
+when it is the only tool and *progression* when there is a ladder — and yesterday there was no
+top of the ladder, so slow meant slow forever. Now there is a top.
+
+What there is not is a **middle**:
+
+```
+hand_pick     radius 0.40 m   hardness 1.0   cooldown 0.30
+steel_pick    radius 0.50 m   hardness 3.5   cooldown 0.20
+   ...        nothing
+entangled     the whole world, 8/s, 60 voxels of reach
+```
+
+Two rungs 0.1 m apart, then a cliff. **So the thing the entangled miner exposed is that the
+missing piece is the ladder, not the granularity** — the granularity question is downstream of
+it, and answering it first fixes the early game's pacing before the thing that would relieve it
+exists.
+
+**Crafting is M11.** That is where a tier ladder becomes real content rather than two JSON files,
+and it is the earliest point at which "the starting pick is slow" is a design statement instead
+of an apology.
+
+### A number the original decision did not have
+
+17× was measured per **voxel removed**. Per **metre of walkable tunnel** it is worse, because a
+single-voxel tool has to clear a cross-section rather than a bore:
+
+- The player is 0.5 m wide and 1.8 m tall, so a walkable tunnel is at least 2 voxels across and
+  ~8 tall — **16 chips per 0.25 m of advance, 64 per metre.** At `hand_pick`'s 0.30 s cooldown
+  that is **~19 s per metre**, so a 10 m tunnel is over three minutes of clicking.
+- The sphere clears the same metre in roughly one or two swings.
+
+**Estimate, not a measurement** — the cross-section is arithmetic off M4a's box and M4b's step
+height, not something anyone has dug. It is the right order, and it says the honest cost is
+nearer **40× than 17× for the thing a player actually does**, which is advance a tunnel rather
+than remove a voxel.
+
+### Why deferring is free
+
+`Carve.Chip` and `Carve.Swing` both exist and share one hardness gate; which one a bare click
+calls is **one line in `MiningController`**, and `radiusMetres` is content. So the decision costs
+nothing to make later and quite a lot to make now. That is the whole shape of it: **cheap late,
+expensive early.**
+
+**Revisit trigger, in Matthew's words: "then we would need to discuss tools and tiers etc."**
+When that discussion happens — M11 at the latest, and it can happen sooner since tools are
+already JSON — the single-voxel default should be on its agenda rather than settled separately.
+
+---
+
+## 2026-08-31 — M5d-2: torchlight, and 15 m of light is *sixty voxels*
+
+**"OOhhhh ahhhhhh Torchlight! Yellow coloured too."** One lamp, underground, and the chamber is
+warm. That is **five of M5d-2's six questions answered**, and only "is 1 m too coarse down a
+`hand_pick` bore" remains — which needs a narrow tunnel and cannot be asked of a chamber.
+
+**It is the only test in the whole milestone that could have proved this.** M5c-2 recorded that
+every other check would pass identically if both light channels were packed into one byte: the
+merge key, the trilinear sample, the quad counts, the shader — all of them. Only a **warm pool
+in a dark room** shows that `COLOR.g` carries block light, is tinted separately from `COLOR.r`,
+and survives the whole path from `MaterialDefinition.LightEmission` to a fragment. It is also
+what DESIGN's M7 wet-surface term depends on — *"skylight × recent rainfall"* needs skylight on
+its own — so this shot is the receipt for the two-channel decision that M5a paid for in vertex
+bytes.
+
+### The observation worth keeping: the reach is right in metres and enormous in voxels
+
+`lightEmission: 15`, attenuation 1 per 1 m cell, so a lamp reaches **15 m — which is 60 voxels**.
+In a game whose corridors are three to five voxels wide, one lamp lights a whole working.
+
+**This is the same trap the cell size already carries, one level along.** M5-PLAN records it for
+the grid: *"DESIGN reasons in metres — light is low-frequency, nobody sees the difference — and
+the number that decides whether it looks right is in voxels."* The emission range has the
+identical shape and it was not written down: TODO already calls 0..15 **"a game-balance number
+wearing a storage costume"** and notes the brightest lamp reaches 15 m *for a storage reason
+rather than a design one* — what it does not say is that 15 m at a 0.25 m voxel is four times the
+relative reach a 1 m-block game gets from the same number.
+
+Not filed as a defect. It is exactly what the numbers say should happen, it looks good, and
+nobody has complained. Recorded because **the lever is one number in one JSON file with no
+rebuild** — `lightEmission` in `mods/minercraft/materials/lamp.json`, the same shape of content
+lever `radiusMetres` is for the bore — and because a future "why does one lamp light everything"
+should find this entry rather than rediscover it. Halving it to 8 gives a 32-voxel pool.
+
+---
+
 ## 2026-08-31 — M5d-2, played: a mine reads as a mine, and AO earns its quads
 
 Matthew dug a chamber with the entangled miner and looked at it. **"Looks good to me."** Four of
