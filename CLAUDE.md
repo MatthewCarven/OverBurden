@@ -675,7 +675,7 @@ same argument that kept it out of the tool JSON.
 
 **The entangled miner is a debug bind, built 2026-08-31 to dig M5d-2's test volume.** **Q**
 toggles it: point at anything, hold left click, and it eats what it is pointed at however far
-away, at 4 swings a second. Three things about it that are easy to undo by accident:
+away, at **8 swings a second**. Three things about it that are easy to undo by accident:
 
 - **It is deliberately not a tool tier, and that is the design decision rather than laziness.**
   *Reach is the player's, not the tool's* is locked twice — M3d, restated at M4c — because
@@ -696,6 +696,13 @@ away, at 4 swings a second. Three things about it that are easy to undo by accid
   away is not a different cost from carving at arm's length. `MaxReachMetres` exists because
   swing and voxel counts are identical whether the cast ran 5 m or 90, which is M5c-2's shape of
   hole.
+- **At 8/s the tier's cooldown no longer bounds anything while entangled**, which the 4/s
+  version's own comment said the opposite of — `steel_pick` cools in 0.20 s, so entangled was
+  once the slower of the two. Nothing shipped is balanced by its rate today; the note is for when
+  something is. Doubling the rate cost nothing measurable and made swings *cheaper*
+  (0.072 ms against 0.139), because consecutive swings chew the previous bite — and **relight
+  remeshes per swing halved to 0.5**, so M5d-1's 1.0 is an upper bound that improves under
+  sustained digging.
 
 **M5, lighting — [docs/M5-PLAN.md](docs/M5-PLAN.md), split M5a–M5d. M5a, M5b, M5c and M5d-1
 are built; M5d-2 is the played half and is Matthew's.** The structural point: **light is the first thing here that is not a function of one

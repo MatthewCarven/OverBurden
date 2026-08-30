@@ -89,15 +89,28 @@ public sealed class MiningController(
     /// </remarks>
     public const float EntangledReachMetres = 512f;
 
-    /// <summary>Four swings a second, fixed, whatever tier is selected.</summary>
+    /// <summary>Eight swings a second, fixed, whatever tier is selected.</summary>
     /// <remarks>
-    /// <b>Fixed rather than the tier's, and that is not strictly an upgrade</b> — <c>steel_pick</c>
-    /// alone cools down in 0.20 s, so entangled mode is marginally *slower* per swing than it is.
-    /// The upgrade is the range. A predictable rate is worth more than an optimal one in a thing
-    /// whose whole job is to excavate a comparable test volume, since otherwise the dig rate
-    /// depends on which number key was pressed last.
+    /// <para>
+    /// <b>Fixed rather than the tier's</b>, because otherwise the dig rate depends on which
+    /// number key was pressed last, and this thing exists to excavate a <em>comparable</em> test
+    /// volume for M5d-2's look questions.
+    /// </para>
+    /// <para>
+    /// <b>Raised from 0.25 s at Matthew's request, and the raise inverted a recorded caveat.</b>
+    /// At four a second this was marginally *slower* than <c>steel_pick</c>'s own 0.20 s and the
+    /// only upgrade was the range. At eight it is faster than every shipped tier, so the mode is
+    /// now a strict upgrade on both axes — which is what an endgame tool ought to be, and worth
+    /// saying out loud because it means <b>the tier's cooldown no longer bounds anything while
+    /// entangled</b>. A tier balanced by its rate would be balanced by nothing here.
+    /// </para>
+    /// <para>
+    /// Not a DoS the way a radius is: the cost per swing is a bounded cast plus a bounded carve,
+    /// and doubling the rate doubles a number M3d measured at two orders of magnitude inside a
+    /// frame. Re-measured at eight rather than assumed — see the worklog.
+    /// </para>
     /// </remarks>
-    public const float EntangledCooldownSeconds = 0.25f;
+    public const float EntangledCooldownSeconds = 0.125f;
 
     private float EffectiveReachMetres => Entangled ? EntangledReachMetres : ReachMetres;
 

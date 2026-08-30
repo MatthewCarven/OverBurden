@@ -1,5 +1,48 @@
 # MinerCraft — Worklog
 
+## 2026-08-31 — The entangled miner goes to eight a second, and the raise inverts a caveat
+
+One constant, `MiningController.EntangledCooldownSeconds` 0.25 → 0.125. Recorded separately
+from the entry below because it **invalidates a claim that entry makes**, and a superseded claim
+left standing is worse than no claim.
+
+**At four a second the mode was not strictly an upgrade**: `steel_pick` alone cools down in
+0.20 s, so entangled was marginally *slower* per swing and the only upgrade was the range. **At
+eight it is faster than every shipped tier**, so it is now a strict upgrade on both axes — which
+is what an endgame tool ought to be, and worth saying out loud because it means **the tier's
+cooldown no longer bounds anything while entangled**. A tier balanced by its rate would be
+balanced by nothing here. Nothing shipped is balanced that way today; the note is for when
+something is.
+
+Re-measured rather than assumed, same configuration as the four-a-second run:
+
+```
+                        4/s run        8/s run
+swings                     69            134      almost exactly double
+swing ms mean           0.139          0.072      cheaper per swing
+remesh per swing          0.7            0.7      unchanged
+        per second        3.4            6.3      doubled, as it should
+relight per swing         0.9            0.5      halved
+        total              61             72      barely moved
+main thread             76.5%          75.9%      unchanged
+```
+
+**Doubling the rate cost nothing measurable**, and two of those rows are worth keeping:
+
+- **Swings got cheaper, not dearer.** Consecutive swings land closer together, so more of each
+  sphere is already air — 13 already-air voxels per swing against 11, and 20 removed against 22.
+  A faster tool does *less* work per swing because it is chewing its own previous bite.
+- **Relight remeshes per swing halved.** Same mechanism: consecutive swings repair light in a
+  region the previous swing already repaired. The absolute total barely moved despite twice the
+  swings. So M5d-1's "1.0 relight remesh per swing" is an upper bound that gets *better* under
+  sustained digging, which is the direction that matters — the fragment-shader trigger it
+  retired was about a rate mining can sustain.
+
+The sim thread stayed at ~76% because it is dominated by light *derivation* from streaming, not
+by mining, which is M5d-1's finding holding under a doubled edit rate.
+
+---
+
 ## 2026-08-31 — The entangled miner, a debug bind for digging a test volume
 
 Asked for mid-play-test and built the same day: **point at anything, hold left click, it eats

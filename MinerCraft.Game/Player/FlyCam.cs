@@ -110,7 +110,7 @@ public partial class FlyCam : Camera3D
             "  Left mouse mines a sphere, Ctrl+left takes one voxel\n" +
             "  Number keys pick a tier\n" +
             "  L places a lamp — a debug bind, not M6's placement\n" +
-            "  Q toggles the entangled miner — unlimited reach, 4 swings/s, also a debug bind\n" +
+            "  Q toggles the entangled miner — unlimited reach, 8 swings/s, also a debug bind\n" +
             "  Esc releases the mouse, click to recapture");
     }
 

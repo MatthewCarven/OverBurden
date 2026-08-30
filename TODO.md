@@ -1627,7 +1627,8 @@ at, because until the fog fix the black was grey.
 ##### The entangled miner — built 2026-08-31, as a debug bind
 
 - [x] **Point at anything, hold left click, it eats what it is pointed at however far away.**
-      4 swings a second, **Q** toggles it, no visual effect. Built as an instrument for M5d-2:
+      **8 swings a second** (raised from 4 on 2026-08-31), **Q** toggles it, no visual effect.
+      Built as an instrument for M5d-2:
       every question in that list is about what a *large* excavation looks like, and digging one
       by hand at 5 m of reach is why they are still open.
 - [x] **Deliberately not a tool tier, and that is the whole design decision.** *Reach is the
@@ -1661,10 +1662,20 @@ at, because until the fog fix the black was grey.
       - [x] **The longer cast costs 0.139 ms a swing against 0.083** — 1.7×, two orders of
             magnitude inside a frame. **Relight remeshes are 0.9 per swing against 1.0**, so
             carving a hundred metres away is not a different cost from carving at arm's length.
-- [x] **The rate is fixed at 4/s and is not strictly an upgrade** — `steel_pick` alone cools
-      down in 0.20 s, so entangled is marginally slower per swing; the upgrade is the range. A
-      predictable rate beats an optimal one in a thing whose job is excavating a comparable test
-      volume, since otherwise the dig rate depends on which number key was pressed last.
+- [x] **The rate is fixed at 8/s, and raising it from 4 inverted a recorded caveat.** At 4/s
+      entangled was marginally *slower* than `steel_pick`'s own 0.20 s and the only upgrade was
+      the range; at 8/s it beats every shipped tier, so **the tier's cooldown no longer bounds
+      anything while entangled**. Nothing shipped is balanced by its rate today — the note is for
+      when something is. Fixed rather than the tier's because otherwise the dig rate depends on
+      which number key was pressed last, and this exists to excavate a *comparable* test volume.
+      - [x] **Doubling the rate cost nothing measurable**: 134 swings against 69, `swing ms` mean
+            **0.072 against 0.139**, remesh per swing unchanged at 0.7, main thread 75.9% against
+            76.5%. Swings got *cheaper* because consecutive ones chew the previous bite — 13
+            already-air voxels per swing against 11.
+      - [x] **Relight remeshes per swing halved, 0.9 → 0.5**, same mechanism: consecutive swings
+            repair light a previous swing already repaired. So M5d-1's 1.0 per swing is an upper
+            bound that *improves* under sustained digging, which is the direction that matters,
+            since the trigger it retired was about a rate mining can sustain.
 - [x] **Q rather than F12**, asked for and agreed: free (WASD leaves QE alone), mnemonic, and
       under the left hand for a toggle used mid-dig. F12 is the Steam overlay's screenshot key.
 - [x] **Refused during a hand-toggled profile run**, the same as walk mode, because `--mine` is
