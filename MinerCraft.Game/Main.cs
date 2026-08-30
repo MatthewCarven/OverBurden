@@ -64,6 +64,7 @@ public partial class Main : Node3D
     private TimeSpan? _applyBudget;
     private bool _mineWhileProfiling;
     private bool _fallProfile;
+    private bool _ambientOcclusion = true;
     private float _fallHeightMetres = 600f;
     private int _restingSteps;
     private int _restedSteps;
@@ -100,7 +101,8 @@ public partial class Main : Node3D
             onMeshDiscarded: OnMeshDiscarded,
             onJobFaulted: (position, error) => GD.PushError($"Chunk job failed at {position}: {error}"),
             loadMargin: margin,
-            resultBudget: _applyBudget);
+            resultBudget: _applyBudget,
+            ambientOcclusion: _ambientOcclusion);
 
         SetUpPlayer(_generator);
 
@@ -112,7 +114,8 @@ public partial class Main : Node3D
 
         GD.Print(
             $"M2c: streaming r{ViewDistanceHorizontal}h/{ViewDistanceVertical}v " +
-            $"+{_pipeline.Streamer.LoadMargin} margin on {_scheduler.ThreadCount} worker(s)");
+            $"+{_pipeline.Streamer.LoadMargin} margin on {_scheduler.ThreadCount} worker(s), " +
+            $"vertex AO {(_ambientOcclusion ? "on" : "off")}");
     }
 
     /// <summary>
@@ -186,8 +189,9 @@ public partial class Main : Node3D
 
     /// <summary>
     /// Reads <c>--profile</c>, <c>--radius</c>, <c>--vradius</c>, <c>--margin</c>,
-    /// <c>--speed</c>, <c>--warmup</c>, <c>--measure</c>, <c>--cavestep</c> and
-    /// <c>--applybudget</c> from the command line, after a bare <c>--</c>.
+    /// <c>--speed</c>, <c>--warmup</c>, <c>--measure</c>, <c>--cavestep</c>,
+    /// <c>--applybudget</c> and <c>--ao</c> from the command line, after a bare
+    /// <c>--</c>.
     /// </summary>
     /// <remarks>
     /// Configurable from outside so a sweep is one shell loop rather than five edit-rebuild
@@ -244,6 +248,15 @@ public partial class Main : Node3D
                 // unbudgeted behaviour, which is the A/B this was built to settle.
                 case "applybudget" when double.TryParse(value, out double budgetMillis):
                     _applyBudget = TimeSpan.FromMilliseconds(budgetMillis);
+                    break;
+
+                // The third test seam of the same shape, and the one M5a exists to read.
+                // --ao=0 restores the constant-brightness merge key every mesh used before
+                // M5a, so the geometry line of one run against another is exactly what
+                // per-vertex AO costs in quads. That is half of M5's fragment-shader
+                // decision, and it is available a milestone before the decision is due.
+                case "ao" when int.TryParse(value, out int ao):
+                    _ambientOcclusion = ao != 0;
                     break;
 
                 case "profile":
@@ -771,6 +784,7 @@ public partial class Main : Node3D
             $"of one core, streaming on the main thread\n" +
             $"chunks    {streamer.ViewedCount} viewed / {streamer.TrackedCount} tracked / " +
             $"{_instances.Count} drawn\n" +
+            GeometryLine() +
             $"jobs      {_pipeline.CompletedJobs} done / {_pipeline.DroppedJobs} dropped / " +
             $"{_pipeline.FaultedJobs} faulted\n" +
             $"applying  {_pipeline.AppliedResults} applied, {_pipeline.PendingResults} still " +
@@ -813,6 +827,55 @@ public partial class Main : Node3D
     }
 
     /// <summary>
+    /// What the drawn geometry costs, and the AO A/B M5a exists to read.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Quads per drawn chunk is the number, not total quads.</b> Two runs at the same
+    /// radius do not draw the same number of chunks — the cave lattice decides whether a
+    /// given chunk meshes to nothing — so a total compares two things at once. The
+    /// denominator is printed beside it for the reason every counter here prints its own.
+    /// </para>
+    /// <para>
+    /// Mesh memory follows quads, at M2d's measured ~46 KiB per drawn chunk. Vertices are
+    /// four per quad by construction and printed anyway, because the vertex count is what
+    /// M5a's added <c>COLOR</c> channel multiplies against.
+    /// </para>
+    /// </remarks>
+    /// <summary>The geometry half of the periodic report, compact.</summary>
+    /// <remarks>
+    /// Here as well as in the profile because a <b>standing start</b> is the exact A/B: the
+    /// chunk set at a fixed radius is deterministic, so AO on against AO off compares two
+    /// numbers rather than two samples of a moving flythrough.
+    /// </remarks>
+    private string QuadSummary()
+    {
+        long quads = 0;
+        foreach (VoxelRenderInstance instance in _instances.Values) quads += instance.QuadCount;
+
+        return $"quads {quads} ({quads / Math.Max(_instances.Count, 1)} per drawn chunk, "
+               + $"AO {(_ambientOcclusion ? "on" : "off")})";
+    }
+
+    private string GeometryLine()
+    {
+        long quads = 0;
+        long vertices = 0;
+
+        foreach (VoxelRenderInstance instance in _instances.Values)
+        {
+            quads += instance.QuadCount;
+            vertices += instance.VertexCount;
+        }
+
+        double drawn = Math.Max(_instances.Count, 1);
+
+        return $"geometry  {quads} quads / {vertices} vertices over {_instances.Count} drawn "
+               + $"chunk(s) — {quads / drawn:F0} quads per chunk, "
+               + $"AO {(_ambientOcclusion ? "on" : "off")}\n";
+    }
+
+    /// <summary>
     /// A chunk's mesh is ready. Runs on the main thread inside
     /// <see cref="ChunkPipeline.Update"/>, so touching the RenderingServer here is safe.
     /// </summary>
@@ -830,7 +893,11 @@ public partial class Main : Node3D
 
         var (x, y, z) = chunk.Position.OriginMetres;
         _instances[chunk.Position] = new VoxelRenderInstance(
-            GetWorld3D(), arrayMesh, new Transform3D(Basis.Identity, new Vector3(x, y, z)));
+            GetWorld3D(),
+            arrayMesh,
+            new Transform3D(Basis.Identity, new Vector3(x, y, z)),
+            mesh.QuadCount,
+            mesh.Opaque.VertexCount + mesh.Transparent.VertexCount);
     }
 
     /// <summary>
@@ -900,7 +967,8 @@ public partial class Main : Node3D
             $"{_pipeline.WorkListCount} queued, {_pipeline.PendingResults} to apply, " +
             $"{_freeQueue.PendingCount} to free | " +
             $"jobs {_pipeline.CompletedJobs} done / " +
-            $"{_pipeline.DroppedJobs} dropped / {_pipeline.FaultedJobs} faulted");
+            $"{_pipeline.DroppedJobs} dropped / {_pipeline.FaultedJobs} faulted | " +
+            QuadSummary());
     }
 
     private void LoadContent()

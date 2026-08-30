@@ -1,5 +1,152 @@
 # MinerCraft — Worklog
 
+## 2026-08-30 — M5a: vertex AO, the four-corner merge key, and the number it was built to take
+
+Done. Suite **468 → 496**. Per-corner ambient occlusion from the padded chunk, two shade
+channels in the vertex, `CornerShade` in the merge key, and the diagonal flip. `--ao=0` restores
+the pre-M5a constant key, which is the A/B this part exists to produce.
+
+### The number
+
+From a **standing start**, so the chunk set is deterministic and the two runs compare two
+numbers rather than two samples of a moving flythrough:
+
+```
+r4h/2v, 1521 viewed, 165 drawn        AO off      AO on     ratio
+quads                                  43 340     81 331
+quads per drawn chunk                     262        492    1.88x
+
+r12h/3v @ 6 m/s, 1543 drawn           AO off      AO on
+quads per drawn chunk                     253        472    1.87x
+static memory                         94.8 MiB  150.4 MiB   1.59x
+update ms  p99 / max                1.39 / 2.32  2.05 / 3.77
+main thread                             1.26%      1.66%    of one core
+```
+
+**Measured 1.88x, against a plan that predicted 2–4x.** The estimate ran pessimistic, which is
+now the standing pattern for every guess in this project. Two things follow:
+
+- **The AO-alone baseline for M5's fragment-shader trigger is 492 quads per drawn chunk** at
+  r4h/2v. The recorded trigger is light in the merge key costing more than **2x the quads of AO
+  alone**, so M5c must stay under ~984. That number was not available until now and is half of
+  the decision a milestone early, exactly as planned.
+- **Mesh memory grew 1.59x, not 1.88x**, because a chunk's memory is not all mesh. Solving the
+  two r12 runs for a constant baseline gives **~42 KiB of mesh per drawn chunk with AO off**,
+  which independently reproduces M2d's separately measured ~46 KiB, and ~79 KiB with it on.
+  Extrapolated to r12's 2,245-chunk case that is ~205 MiB against the plan's 200–400 MiB
+  estimate — the low end was right.
+
+Streaming is unchanged where it should be: **1521 viewed / 165 drawn / 1926 jobs**, M2d's
+recorded figures to the digit, and 174 drawn on the 40 m/s flythrough both ways.
+
+### Where the two bytes live, and the plan's reason for choosing was not the real one
+
+M5-PLAN said to verify before writing the mesher: the default was Godot's vertex `COLOR` array,
+the alternative packing both bytes into UV2.y as `sky x 256 + block`, "exact in float32 and
+**not** exact in float16". Two probes were run against Godot 4.7.1 rather than assumed:
+
+- `AddSurfaceFromArrays` with no flags produces a surface **without**
+  `ARRAY_FLAG_COMPRESS_ATTRIBUTES`. UV2 stays float32 and the packed value round-trips exactly.
+  Colours round-trip exactly at 8 bits too.
+- A render probe — two quads under one `ShaderMaterial`, one taking `ALBEDO` from `COLOR` and one
+  from `UV2.y`, carrying the same value — came back one output byte apart. That is 8-bit
+  quantisation of the stored value, not an sRGB decode, which would have been ~0.23 apart. **No
+  colour-space conversion is applied to `COLOR` under a `ShaderMaterial`.**
+
+So both options worked on precision, and the plan's stated tie-break said to pack and save four
+bytes per vertex. **Packing is wrong anyway, for a reason precision does not reach: the hardware
+interpolates the packed number.** `unpack(lerp(pack(a), pack(b)))` is not `lerp(a, b)` — the
+fractional part of an interpolated sky channel lands in the block channel's byte, so two corners
+one sky level apart sweep block light through its entire range in between. Per-vertex shade
+exists *to be interpolated*; a packed pair of independently varying channels cannot be. Four
+8-bit channels in an attribute have no such coupling.
+
+**`COLOR` it is** — `R = shadeSky`, `G = shadeBlock`, two spare — and the decision is now
+structural rather than a four-byte trade.
+
+The probe that nearly lied is worth recording: the first render probe sampled pixels at x=16 and
+x=48 of a 64x32 viewport and reported "COLOR is not a passthrough". A Camera3D's orthogonal
+`size` is its **height**, so the two 1-unit quads only covered the middle half and one sample
+landed on Godot's default background — which is ~0.298, close enough to a real answer to be
+believed. Watch the probe fail too, not just the test.
+
+### The flip compares total shade, not AO
+
+M5-PLAN states the rule as `ao[0] + ao[2] > ao[1] + ao[3]`. Implemented on the **sum of both
+shade channels**, which is the identical rule at M5a — block light is zero and the sky channel is
+AO-monotone — and the right one afterwards. At M5c a flat floor with a torch on it has constant
+AO and a varying shade gradient, and an AO-only test would never fire on the surface most likely
+to show the crease the flip exists to remove. The comparison stays a pure function of the merge
+key either way, so every face merged into a quad agrees on which diagonal that quad takes.
+
+### Merging is exact, and there is a sharper way to say it than the plan had
+
+The plan's claim is that two faces merge iff all four corner shades match, and that the merge is
+then exact rather than approximate. The mechanism is worth writing down because it is what makes
+the claim *checkable*: adjacent faces share two corners, and an independently derived shade at a
+shared corner is the same number by definition — so `A.corner1 == B.corner0` holds for free, and
+requiring `A.corner0 == B.corner0` therefore **forces `A.corner0 == A.corner1`**. Key equality
+does not merely permit a constant shade along the run, it implies one. A merged quad interpolates
+exactly what the separate quads would have, with nothing left to approximate.
+
+That gives a test the plan did not name and which is stronger than an assertion:
+`AMergedQuadHasConstantShadeAlongEveryAxisItMergedOn`.
+
+### Break-recipes, and the two that were not what the plan expected
+
+Seven mutations applied and the suite run against each:
+
+| Recipe | Tests failed |
+|---|---|
+| Swap `side1` and `side2` | **0** |
+| Swap the corner sign table (relabels corners 1 and 3) | 8 |
+| Drop the `corner` term | 4 |
+| Drop the `side1 && side2` case | 5 |
+| Sample the diagonal on one axis only | 6 |
+| Remove `CornerShade` from the merge key | 8 |
+| Force the diagonal flip off | 6 |
+| Wind the flipped triangles backwards | 2 |
+
+**The plan's "swap `side1`/`side2`" recipe is a no-op, not a hole.** `(s1 && s2) ? 0 : 3 - (s1 +
+s2 + c)` is symmetric in its two sides — both `&&` and `+` commute — so the mutation cannot
+change any output. The meaningful version of that recipe is mislabelling *which corner* gets
+which sample, which is what swapping the sign table does, and 8 tests catch it. This is the third
+category the working rule names: unreachable at these parameters rather than untested.
+
+`Wind the flipped triangles backwards` was added because the existing
+`EveryQuadIsWoundConsistentlyWithItsNormal` reads vertex **positions** only, so the flip — which
+changes indices and nothing else — structurally cannot make it fail. M5-PLAN says "if that test
+can be made to fail by the flip, the flip is wrong", and it cannot be, which is the right answer
+for that test and a hole for the flip. `BothTrianglesOfEveryQuadFaceOutwardsInEitherFlipState`
+walks the actual indices and asserts a flipped quad was seen, so the branch cannot go untested.
+
+### A test whose comment had never been true
+
+`ChunkPipelineTests.AnEditIsWrittenAndTheChunkIsRemeshed` failed, and the pipeline was fine.
+Its comment said the carve target was "somewhere buried, so removing a voxel actually opens a
+cavity" — but `FindSolidInterior` meant "not on the chunk boundary" and returned the first solid
+voxel in scan order, which sits at a terrain-or-cave boundary with air on three sides. Carving it
+removes three of its own faces and exposes three on its neighbours: **a change of exactly zero
+quads.** The face-count assertion passed anyway until M5a shifted how the surrounding quads
+merged and the two totals came out equal at 1,320 indices.
+
+`FindSolidInterior` now checks all six neighbours. Same shape as M3c's pipeline test whose comment
+claimed it caught the border rule — **the fixture had never set up the situation it described**,
+and only an unrelated change made it say so.
+
+### Verified on screen
+
+Headless has no renderer, so a shader error would not have surfaced. A windowed profile run
+reports **209 draw calls, 186,728 primitives** with no shader errors, and `screenshot.gd` — kept,
+because M5d's questions are look questions and this makes them repeatable — captures the real
+scene from the real spawn. The A/B is unambiguous: with AO off the heightmap's terraces read as
+faint colour bands; with it on each riser has a dark contact line at its base and the terracing
+reads as geometry. Whether the ramp is *right* is still Matthew's call.
+
+One more datum for a long-open question, taken in passing rather than acted on: windowed
+`frame ms` came back at mean 6.939 against headless 6.900 — the same paced main loop, this time
+paced by vsync. The headless frame-time trap, fifth sighting.
+
 ## 2026-08-30 — M5's four decisions settled, and one of them moved work earlier
 
 All four open decisions from yesterday's plan are closed **before any code**, which is the point

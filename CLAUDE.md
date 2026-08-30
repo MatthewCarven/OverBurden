@@ -84,8 +84,22 @@ quits by itself when it is done, so no `--quit-after` is needed:
 ```
 
 Also `--margin=`, `--warmup=`, `--measure=`, `--cavestep=` (1 restores per-voxel cave
-evaluation, for A/B against the lattice) and `--applybudget=<ms>` (a large value such as 1000
-is the unbudgeted arm; there is no "off").
+evaluation, for A/B against the lattice), `--applybudget=<ms>` (a large value such as 1000
+is the unbudgeted arm; there is no "off") and `--ao=0` (restores the pre-M5a
+constant-brightness merge key, for the vertex-AO A/B).
+
+**A profile run quits by itself, so it needs no `--quit-after` — and passing one usually
+truncates the run**, because 900 frames at ~145 fps is 6 s and the default window is 18.
+
+Take a screenshot of the real scene, which is the only way to answer a look question — headless
+has no renderer, so a shader error does not even surface there:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path MinerCraft.Game --script res://screenshot.gd -- C:/tmp/shot.png
+```
+
+It instances `Main.tscn`, waits 8 s for terrain, saves a PNG and quits. Extra arguments after
+the path are passed through to the game, so `-- shot.png --ao=0` gives the other arm of an A/B.
 
 Profile a **fall** — the vertical motion profile M2d's horizontal flythrough could not produce,
 and the one that can arrive somewhere before the world does. `--fall` implies `--profile` and
@@ -118,8 +132,8 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2, all of M3 and all of M4** are done — **468 tests passing**. The
-player walks, falls, and cannot outrun the streamer.
+M0, all of M1, **all of M2, all of M3, all of M4 and M5a** are done — **496 tests passing**.
+The player walks, falls, and cannot outrun the streamer, and voxels have ambient occlusion.
 Terrain streams around the flycam: worldgen and greedy meshing run on worker threads over palette-compressed storage,
 with materials loaded from JSON, and chunks load and unload as the viewer moves.
 
@@ -602,8 +616,8 @@ because reach is
 the *player's* rather than the tool's — M4 is where something exists to own it, which is the
 same argument that kept it out of the tool JSON.
 
-**M5, lighting, is planned — [docs/M5-PLAN.md](docs/M5-PLAN.md), split M5a–M5d. Nothing is
-built yet.** The structural point: **light is the first thing here that is not a function of one
+**M5, lighting, is planned — [docs/M5-PLAN.md](docs/M5-PLAN.md), split M5a–M5d. M5a is
+built; M5b is next.** The structural point: **light is the first thing here that is not a function of one
 chunk.** Worldgen is pure per chunk, meshing takes a padded copy, a carve is local — light
 propagates arbitrarily far, and removing one voxel can change light in a chunk that is not a
 neighbour. Five things from the planning pass that are expensive to rediscover:
@@ -647,10 +661,63 @@ DESIGN's **1 m** (revisit trigger: M5d plays a `hand_pick` tunnel and it reads b
 **emission stays 0..15** — which means the brightest lamp any mod can define reaches exactly
 15 m for a storage reason rather than a design one.
 
+**M5a — vertex AO and the merge key: done 2026-08-30.** Per-corner AO from the padded chunk,
+two shade channels in the vertex, `CornerShade` in the merge key, the diagonal flip, and `--ao=0`
+to turn it all off. Suite 468 → 496.
+
+**The number M5a existed to take: AO costs 1.88× the quads**, against a 2–4× estimate — 262 → 492
+per drawn chunk at r4h/2v from a standing start, 253 → 472 at r12h/3v, and static memory 94.8 →
+150.4 MiB at r12. **So the AO-alone baseline for M5's fragment-shader trigger is 492 quads per
+drawn chunk, and M5c must stay under ~984.** Streaming is untouched: 1521 viewed / 165 drawn /
+1926 jobs, M2d's figures to the digit.
+
+Six things about it that are easy to undo by accident:
+
+- **The two shade bytes live in the vertex `COLOR` array, and packing them into UV2.y is not a
+  precision question — it is structurally impossible.** Godot 4.7 leaves UV2 at float32
+  (`AddSurfaceFromArrays` with no flags sets no `ARRAY_FLAG_COMPRESS_ATTRIBUTES`) and applies no
+  sRGB conversion to `COLOR` under a `ShaderMaterial` — both probed, not assumed — so the plan's
+  stated tie-break said to pack and save four bytes. **But the hardware interpolates the packed
+  number**, and the fractional part of an interpolated sky channel lands in the block channel's
+  byte: two corners one sky level apart sweep block light through its whole range in between.
+  Per-vertex shade exists to be interpolated; a packed pair of independently varying channels
+  cannot be.
+- **Key equality does not permit a constant shade along a merged run, it forces one.** Adjacent
+  faces *share* two corners, and an independently derived shade at a shared corner is the same
+  number by definition — so `A.corner1 == B.corner0` for free, and requiring `A.corner0 ==
+  B.corner0` therefore implies `A.corner0 == A.corner1`. That is why "merging is exact" is a
+  testable property rather than an assertion, and it is what
+  `AMergedQuadHasConstantShadeAlongEveryAxisItMergedOn` checks.
+- **The diagonal flip compares the total shade, not AO.** Identical at M5a and different at M5c:
+  a flat floor with a torch on it has constant AO and a varying gradient, so an AO-only test
+  would never fire on the surface most likely to show the crease the flip removes.
+- **`EveryQuadIsWoundConsistentlyWithItsNormal` cannot be broken by the flip**, and M5-PLAN asked
+  for it as a guard. It reads vertex *positions*; the flip changes *indices*. Right answer for
+  that test, hole for the flip — hence
+  `BothTrianglesOfEveryQuadFaceOutwardsInEitherFlipState`, which walks the indices and asserts a
+  flipped quad was actually seen.
+- **The plan's "swap `side1`/`side2`" break-recipe is a no-op**, because
+  `(s1 && s2) ? 0 : 3 − (s1 + s2 + c)` is symmetric in its two sides. The meaningful mutation is
+  mislabelling *which corner* gets which sample, and that one fails 8 tests. Green run, third
+  category: unreachable rather than untested.
+- **`AmbientOcclusion.LevelShade` is a feel constant and its distinctness is not.** The ramp
+  `[102, 153, 204, 255]` is taste and M5d judges it; the four values being *different* is the
+  merge key, and collapsing two would silently merge visibly different faces.
+
+**A test whose comment had never been true, found by M5a and not caused by it.**
+`ChunkPipelineTests.AnEditIsWrittenAndTheChunkIsRemeshed` said its carve target was "somewhere
+buried", but `FindSolidInterior` meant "not on the chunk boundary" and returned the first solid
+voxel in scan order — which has air on three sides, so carving it removes three faces and exposes
+three: **a change of exactly zero quads**. It passed anyway until M5a shifted the surrounding
+merges and the two totals came out equal. Same shape as M3c's test whose comment claimed it
+caught the border rule.
+
 Three things stay open, all needing a windowed run rather than a headless one: whether the
 free budget removes the stutter (headless has no deferred deallocation), and M1d's
 `RenderingServer` vs `MeshInstance3D` and 2×2×2 mesh-block questions, which need the windowed
-draw-call counter that `StreamingProfiler.RenderLine` already prints.
+draw-call counter that `StreamingProfiler.RenderLine` already prints. **A first reading of that
+counter came out of M5a's windowed check and was not acted on: 209 draw calls and 186,728
+primitives for 193 drawn chunks at r4h/2v.**
 
 The licence is settled: [PolyForm Noncommercial 1.0.0](LICENSE.md), source-available. It
 can be loosened to MIT any time; it cannot be tightened after the first outside PR is

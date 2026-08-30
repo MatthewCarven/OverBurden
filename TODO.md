@@ -130,7 +130,7 @@ comes first.
       angles: grass top, dirt sides, stone underneath, solid convex silhouette. Godot's
       clockwise front-face convention is as documented, so no flip was needed. The
       screenshots also confirmed texture-array indexing, per-vertex normals, and the
-      UV2.y shade channel.
+      UV2.y shade channel — which M5a moved to `COLOR`, see M0 above.
 - [ ] Ambient fill is low — faces angled away from the sun go nearly black. Cosmetic
       only, and M5 lighting replaces this shading path entirely, so not worth tuning
       the Environment now. **Owned by M5c, and settled 2026-08-30: the directional light
@@ -159,7 +159,11 @@ comes first.
 - [x] `VoxelPos` / `ChunkPos` — floor-based chunk/local decomposition via shift and
       mask, correct for negative coordinates. 43 tests, all passing.
 - [x] `Texture2DArray` + `Voxel.gdshader` — layer index in UV2.x, light/AO in UV2.y
-      (constant 1.0 until M5, but the channel exists now)
+      (constant 1.0 until M5, but the channel exists now). **Superseded at M5a**: the shade
+      needs two independently interpolated channels, so it moved to the vertex `COLOR` array
+      and UV2.y is now spare. The M0 reservation still did its job — nothing downstream had
+      assumed the channel, and moving it was one line in `ChunkMeshConverter` and one in the
+      shader, exactly as predicted.
 - [x] Culled block mesh via `RenderingServer`, no `MeshInstance3D`. A 4³ block emits
       192 triangles against 768 naive.
 - [x] Flycam — WASD/Space/Ctrl, sprint and crawl, mouse capture
@@ -1089,51 +1093,76 @@ inside the drawn one. **The margin now has a third load-bearing reason** (mesher
 stage, light reach) and it is the tightest of the three. If light ever goes to 5 bits — 31 m —
 the margin must go to 4 chunks.
 
-#### M5a — Vertex AO and the merge key
+#### M5a — Vertex AO and the merge key — **done 2026-08-30**
 
-- [ ] Per-corner AO from the padded chunk's diagonals: `(side1 && side2) ? 0 : 3 - (side1 +
+- [x] Per-corner AO from the padded chunk's diagonals: `(side1 && side2) ? 0 : 3 - (side1 +
       side2 + corner)`. The `side1 && side2` case is the difference between a corner that reads
-      as a corner and one that reads as a smudge.
-- [ ] **`PaddedChunk.CopyFrom`'s 26 neighbours were gathered for exactly this** and nothing
-      about the gather changes. M1c's comment says so in as many words.
-- [ ] **Two light channels, not one, and DESIGN forces it.** With the directional light gone
-      the grid is the only light, and DESIGN's M7 needs skylight *on its own*: "wet-surface
-      shader term driven by skylight × recent rainfall". A term that multiplies by skylight
-      cannot be handed `sky × block × AO` pre-multiplied. So the vertex carries
-      `shadeSky = skylight × AO` and `shadeBlock = blocklight × AO`, 8 bits each.
-- [ ] **AO multiplies into both**, because AO is geometric darkening and geometry does not care
-      where the photon came from. That keeps AO out of the shader and out of any later day/night
-      uniform — and it means **a diurnal cycle is a uniform on `shadeSky` and costs no
-      repropagation.** Scaling the seed and reflooding would relight the world every frame;
-      recorded now so nobody builds it that way.
-- [ ] **Verify where the two bytes live before writing the mesher.** Default: Godot's vertex
-      `COLOR` array — four 8-bit normalised channels by definition, no packing, no precision
-      question, 4 bytes per vertex (+8.7% on a quad's ~184 bytes). The alternative packs both
-      into UV2.y as `sky × 256 + block`, exact in float32 and **not** in float16 — and
-      `ChunkMeshConverter` calls `AddSurfaceFromArrays` with no flags, so whatever Godot 4.7
-      compresses UV2 to is what it gets. Packing failing is a silently wrong colour ramp, not an
-      error. Either way non-negotiable #4 holds and the M0 reservation did its job: nothing
-      downstream assumed the channel, so moving it is one line in two files.
-- [ ] **Merge key `(Material, ulong CornerShade)`** — four corner `(shadeSky, shadeBlock)` pairs,
-      two bytes each. Two faces merge iff all four match, and when they do the merged quad's
-      interpolation is **identical** to the separate quads'. Merging stays exact; it is not an
-      approximation. At M5a `shadeSky` is full and `shadeBlock` zero everywhere, so only AO
-      varies — the same "in the key from the start" pattern M1c used.
-- [ ] **The diagonal flip**: when `ao[0] + ao[2] > ao[1] + ao[3]`, split the quad the other way,
-      or every lit floor carries a visible crease. Must not disturb
-      `EveryQuadIsWoundConsistentlyWithItsNormal`.
-- [ ] Only `IsOpaque` materials occlude. Water darkening a corner is an M8 question and the
-      predicate is already shaped for it.
-- [ ] **`--ao=0` A/B, and take the quad-count number before M5b starts.** It is half of the
-      fragment-shader decision and it is available a week early.
-- [ ] **Estimate, labelled: 2–4× the quads.** Mesh memory follows at ~46 KiB per drawn chunk, so
-      r4h/2v's 7.4 MiB becomes 15–30 MiB and r12's 100 MiB becomes 200–400 MiB. r12 is where
-      this stops being free.
-- [ ] Tests: **merge exactness** (re-derive every covered face's AO and assert it matches the
-      quad's four-tuple — nothing else catches a merge that averaged a corner away); a solid
-      chunk in open air still emits 6 quads; inside corner reads 0; the flip is symmetric.
-- [ ] Break-recipes to watch fail: swap `side1`/`side2`; drop `corner`; drop the `side1 &&
-      side2` case; remove `CornerShade` from the key; force the flip off.
+      as a corner and one that reads as a smudge. `MinerCraft.Core/Meshing/AmbientOcclusion.cs`.
+- [x] **`PaddedChunk.CopyFrom`'s 26 neighbours were gathered for exactly this** and nothing
+      about the gather changed. Every diagonal sample lands inside −1..32 by construction: the
+      axis coordinate is the neighbour's, and the two in-plane coordinates move ±1 from 0..31.
+- [x] **Two light channels, not one, and DESIGN forces it.** `CornerShade` carries
+      `shadeSky = skylight × AO` and `shadeBlock = blocklight × AO`, 8 bits each, four corners
+      packed into one `ulong`.
+- [x] **AO multiplies into both**, so a diurnal cycle stays a uniform on `shadeSky` and costs no
+      repropagation.
+- [x] **Verified where the two bytes live, against Godot 4.7.1 rather than assumed — and the
+      answer is `COLOR` for a stronger reason than the plan had.** Two probes: (1)
+      `AddSurfaceFromArrays` with no flags produces a surface **without**
+      `ARRAY_FLAG_COMPRESS_ATTRIBUTES`, so UV2 stays float32 and the packed value round-trips
+      exactly; colours round-trip exactly at 8 bits too. (2) A render probe shows **no sRGB
+      conversion is applied to `COLOR` under a `ShaderMaterial`** — the two paths differ by one
+      output byte, which is 8-bit quantisation, where a decode would be ~0.23 apart.
+      **So precision does not decide it, and packing is wrong anyway: the hardware interpolates
+      the packed number.** The fractional part of an interpolated sky channel lands in the block
+      channel's byte, so two corners one sky level apart sweep block light through its whole
+      range in between. Per-vertex shade exists *to be interpolated*; a packed pair of
+      independently varying channels cannot be. `R = shadeSky`, `G = shadeBlock`, two spare.
+- [x] **Merge key `(Material, CornerShade)`**, and a sharper statement of why merging is exact
+      than the plan had: adjacent faces **share** two corners, and an independently derived shade
+      at a shared corner is the same number by definition — so key equality does not merely
+      permit a constant shade along a merged run, it **implies** one. Pinned by
+      `AMergedQuadHasConstantShadeAlongEveryAxisItMergedOn`.
+- [x] **The diagonal flip**, implemented on the **sum of both shade channels** rather than on AO
+      alone. Identical at M5a (block light is zero, sky is AO-monotone) and correct afterwards: a
+      flat floor with a torch has constant AO and a shade gradient, and an AO-only test would
+      never fire on the surface most likely to show the crease. Still a pure function of the
+      merge key, so every face merged into a quad agrees which diagonal it takes.
+- [x] Only `IsOpaque` materials occlude, so water is still an M8 question.
+- [x] **`--ao=0` A/B taken, from a standing start so the chunk set is deterministic.**
+      r4h/2v, 165 drawn: **262 → 492 quads per chunk, 1.88×**. r12h/3v @ 6 m/s, 1543 drawn:
+      253 → 472, **1.87×**, static memory 94.8 → 150.4 MiB and `update ms` p99 1.39 → 2.05.
+      Streaming unchanged: 1521 viewed / 165 drawn / 1926 jobs, M2d's figures to the digit.
+- [x] **The 2–4× estimate ran pessimistic, as every estimate here has.** Measured 1.88×. Mesh
+      memory grew 1.59× rather than 1.88× because a chunk's memory is not all mesh; solving the
+      two r12 runs for a constant baseline gives **~42 KiB of mesh per drawn chunk with AO off**,
+      independently reproducing M2d's ~46 KiB, and ~79 KiB with it on. Extrapolated to r12's
+      2,245-chunk case that is ~205 MiB against the estimated 200–400 MiB.
+- [x] **The AO-alone baseline for M5's fragment-shader trigger is 492 quads per drawn chunk**
+      at r4h/2v. The trigger is light in the merge key costing more than 2× the quads of AO
+      alone, so M5c must stay under ~984.
+- [x] Tests: merge exactness against an independently written AO oracle, the constant-shade
+      property, a solid chunk still emitting 6 quads, the inside corner reading 0, the complete
+      occlusion truth table, and both triangles facing outwards in either flip state. 468 → 496.
+- [x] **Break-recipes run, and two were not what the plan expected.** Swap corner sign table 8
+      failed, drop `corner` 4, drop the `side1 && side2` case 5, sample the diagonal on one axis
+      6, remove `CornerShade` from the key 8, force the flip off 6, wind the flipped triangles
+      backwards 2. But: **swapping `side1`/`side2` is a no-op, not a hole** — the rule is
+      symmetric in its two sides, since both `&&` and `+` commute. The meaningful version is
+      mislabelling *which corner* gets which sample. And the plan's "the flip must not disturb
+      `EveryQuadIsWoundConsistentlyWithItsNormal`" is structurally unfalsifiable: that test reads
+      vertex positions and the flip changes indices only, so
+      `BothTrianglesOfEveryQuadFaceOutwardsInEitherFlipState` was added to walk the indices.
+- [x] **`ChunkPipelineTests.AnEditIsWrittenAndTheChunkIsRemeshed` had a comment that was never
+      true.** "Somewhere buried" meant "not on the chunk boundary", and the first solid voxel in
+      scan order has air on three sides — carving it is a change of exactly zero quads. It passed
+      until M5a shifted the surrounding merges and the two totals came out equal.
+      `FindSolidInterior` now checks all six neighbours.
+- [ ] **Needs a human eye: is the AO ramp right?** `AmbientOcclusion.LevelShade` is a linear
+      ramp bottoming at 0.4 — `[102, 153, 204, 255]` — chosen for being obvious rather than
+      measured, and labelled a feel constant. The only part that is not taste: the four values
+      must stay distinct, because they are the merge key. `screenshot.gd` makes the A/B
+      repeatable; M5d judges it.
 
 #### M5b — The light grid, propagation, and the un-light pass
 

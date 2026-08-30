@@ -288,8 +288,8 @@ public class ChunkPipelineTests
         harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
         harness.Settle();
 
-        // Somewhere buried, so removing a voxel actually opens a cavity and the mesh has to
-        // grow rather than the change being invisible on a surface it was already drawing.
+        // Somewhere genuinely buried — see FindSolidInterior for why that word had to start
+        // being enforced rather than asserted in a comment.
         VoxelPos target = FindSolidInterior(harness, ChunkPos.Zero);
         int before = harness.Deliveries[ChunkPos.Zero];
         int indicesBefore = harness.LastMesh[ChunkPos.Zero].Opaque.IndexCount;
@@ -463,6 +463,18 @@ public class ChunkPipelineTests
     }
 
     /// <summary>A solid voxel away from every face, so an edit stays one chunk's business.</summary>
+    /// <summary>
+    /// A solid voxel whose six neighbours are all solid too, so carving it opens a cavity.
+    /// </summary>
+    /// <remarks>
+    /// <b>"Interior" used to mean "not on the chunk boundary", and the caller's comment
+    /// claimed it meant buried.</b> The first solid voxel in scan order sits at a
+    /// terrain-or-cave boundary and typically has air on three sides, so carving it removes
+    /// three of its own faces and exposes three on its neighbours — a change of exactly zero
+    /// quads. The face-count assertion passed anyway until M5a's merge key shifted how the
+    /// surrounding quads merged and the two numbers came out equal. Nothing was wrong with the
+    /// pipeline; the fixture had never set up the situation its own comment described.
+    /// </remarks>
     private static VoxelPos FindSolidInterior(PipelineHarness harness, ChunkPos chunk)
     {
         VoxelChunk voxels = harness.Pipeline.Streamer.Get(chunk)!.Voxels!;
@@ -471,14 +483,24 @@ public class ChunkPipelineTests
         for (int lz = 1; lz < VoxelConstants.ChunkSize - 1; lz++)
         for (int lx = 1; lx < VoxelConstants.ChunkSize - 1; lx++)
         {
-            if (voxels.Get(lx, ly, lz) != MaterialIds.AirNumericId)
+            if (Buried(voxels, lx, ly, lz))
             {
                 return VoxelPos.FromChunkLocal(chunk, lx, ly, lz);
             }
         }
 
-        throw new InvalidOperationException($"{chunk} has no solid interior voxel to carve.");
+        throw new InvalidOperationException($"{chunk} has no buried voxel to carve.");
     }
+
+    /// <summary>Solid, and solid on all six sides. Every material here but air is opaque.</summary>
+    private static bool Buried(VoxelChunk voxels, int x, int y, int z) =>
+        voxels.Get(x, y, z) != MaterialIds.AirNumericId
+        && voxels.Get(x - 1, y, z) != MaterialIds.AirNumericId
+        && voxels.Get(x + 1, y, z) != MaterialIds.AirNumericId
+        && voxels.Get(x, y - 1, z) != MaterialIds.AirNumericId
+        && voxels.Get(x, y + 1, z) != MaterialIds.AirNumericId
+        && voxels.Get(x, y, z - 1) != MaterialIds.AirNumericId
+        && voxels.Get(x, y, z + 1) != MaterialIds.AirNumericId;
 
     /// <summary>A solid voxel on the −X face, which belongs to the neighbour's mesh too.</summary>
     private static VoxelPos FindSolidOnFace(PipelineHarness harness, ChunkPos chunk)

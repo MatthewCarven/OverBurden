@@ -13,6 +13,18 @@ namespace MinerCraft.Game.Rendering;
 /// <see cref="MeshBuffer"/>'s arrays safe, since Godot copies out of them here rather
 /// than holding onto them.
 /// </remarks>
+/// <remarks>
+/// <para>
+/// <b>The two shade channels live in the vertex <c>COLOR</c> array, and M5a verified that
+/// against Godot 4.7 rather than assuming it.</b> <c>AddSurfaceFromArrays</c> is called with
+/// no flags and the resulting surface does <em>not</em> carry
+/// <c>ARRAY_FLAG_COMPRESS_ATTRIBUTES</c>, so UV2 stays float32 and colours round-trip exactly
+/// at 8 bits; a render probe confirmed no sRGB conversion is applied to <c>COLOR</c> under a
+/// <c>ShaderMaterial</c>. Both storage options therefore worked, and COLOR was chosen for a
+/// reason precision does not reach: two channels sharing one interpolated float cannot be
+/// unpacked after interpolation. See <see cref="MeshBuffer.Shades"/>.
+/// </para>
+/// </remarks>
 public static class ChunkMeshConverter
 {
     /// <summary>
@@ -43,6 +55,7 @@ public static class ChunkMeshConverter
         var normals = new Vector3[vertexCount];
         var uvs = new Vector2[vertexCount];
         var uv2s = new Vector2[vertexCount];
+        var colors = new Color[vertexCount];
 
         for (int i = 0; i < vertexCount; i++)
         {
@@ -58,6 +71,12 @@ public static class ChunkMeshConverter
 
             uvs[i] = new Vector2(buffer.Uvs[i * 2 + 0], buffer.Uvs[i * 2 + 1]);
             uv2s[i] = new Vector2(buffer.Uv2s[i * 2 + 0], buffer.Uv2s[i * 2 + 1]);
+
+            colors[i] = new Color(
+                buffer.Shades[i * 2 + 0] / 255f,
+                buffer.Shades[i * 2 + 1] / 255f,
+                0f,
+                1f);
         }
 
         var arrays = new Godot.Collections.Array();
@@ -66,6 +85,7 @@ public static class ChunkMeshConverter
         arrays[(int)Mesh.ArrayType.Normal] = normals;
         arrays[(int)Mesh.ArrayType.TexUV] = uvs;
         arrays[(int)Mesh.ArrayType.TexUV2] = uv2s;
+        arrays[(int)Mesh.ArrayType.Color] = colors;
         arrays[(int)Mesh.ArrayType.Index] = buffer.Indices[..buffer.IndexCount];
 
         target.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);

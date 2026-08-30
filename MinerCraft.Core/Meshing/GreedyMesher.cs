@@ -19,18 +19,36 @@ public sealed class GreedyMesher
 {
     private const int Size = VoxelConstants.ChunkSize;
 
-    /// <summary>
-    /// Full brightness. Light and ambient occlusion arrive at M5; until then these are
-    /// constant, but they are <b>in the merge key from the start</b> — two faces may only
-    /// merge if their lighting matches as well as their material, and discovering that at
-    /// M5 would mean rewriting the sweep.
-    /// </summary>
-    private const byte FullBright = 255;
-
     private readonly FaceKey[] _mask = new FaceKey[Size * Size];
+    private readonly bool _ambientOcclusion;
+
+    /// <param name="ambientOcclusion">
+    /// Off restores the constant-brightness key M1c shipped, which is the A/B that says what
+    /// per-vertex AO costs in quads. A test seam, not a setting — the same shape as
+    /// <c>--cavestep=1</c> restoring per-voxel cave evaluation.
+    /// </param>
+    public GreedyMesher(bool ambientOcclusion = true)
+    {
+        _ambientOcclusion = ambientOcclusion;
+    }
 
     /// <summary>What must match for two adjacent faces to merge into one quad.</summary>
-    private readonly record struct FaceKey(int Material, byte Light, byte Ao)
+    /// <remarks>
+    /// <para>
+    /// <b>Two faces merge iff all four corner shades match, and when they do the merge is
+    /// exact rather than an approximation.</b> A merged quad only interpolates between its own
+    /// four corners, so a quad spanning three different shades would ignore the middle one —
+    /// but it cannot arise. Adjacent faces share two corners, and an independently computed
+    /// shade at a shared corner is the same number by definition; so requiring all four to
+    /// match forces the shade to be constant along whichever axis the run grew. Where light or
+    /// occlusion varies, quads simply stop merging, and that is the price M5d measures.
+    /// </para>
+    /// <para>
+    /// The AO channel and the light channel have been in this key since M1c, when both were
+    /// constant, for exactly this reason: adding them later would mean rewriting the sweep.
+    /// </para>
+    /// </remarks>
+    private readonly record struct FaceKey(int Material, CornerShade Shade)
     {
         /// <summary>Air never produces a face, so the zero value doubles as "empty".</summary>
         public bool HasFace => Material != MaterialIds.AirNumericId;
@@ -83,8 +101,12 @@ public sealed class GreedyMesher
                     position[2] + offset[2]];
 
                 bool visible = IsFaceVisible(here, there, materials);
+
+                // Only sampled for a face that will actually be emitted: AO costs twelve
+                // padded-chunk reads on top of the two visibility already did, and most
+                // positions in a slice have no face at all.
                 _mask[v * Size + u] = visible
-                    ? new FaceKey(here, FullBright, FullBright)
+                    ? new FaceKey(here, ShadeFor(face, position, voxels, materials))
                     : default;
 
                 any |= visible;
@@ -93,6 +115,13 @@ public sealed class GreedyMesher
 
         return any;
     }
+
+    private CornerShade ShadeFor(
+        int face, ReadOnlySpan<int> position, PaddedChunk voxels, MaterialTable materials) =>
+        _ambientOcclusion
+            ? AmbientOcclusion.ShadeFor(
+                voxels, materials, face, position[0], position[1], position[2])
+            : CornerShade.FullSky;
 
     /// <summary>
     /// Whether the face of <paramref name="here"/> looking towards
@@ -207,6 +236,6 @@ public sealed class GreedyMesher
             width,
             height,
             materials.TextureLayer(key.Material),
-            key.Light / 255f * (key.Ao / 255f));
+            key.Shade);
     }
 }

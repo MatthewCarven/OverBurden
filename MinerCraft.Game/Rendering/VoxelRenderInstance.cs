@@ -25,14 +25,33 @@ public sealed class VoxelRenderInstance : IDisposable
     /// </summary>
     private readonly ArrayMesh _mesh;
 
-    public VoxelRenderInstance(World3D world, ArrayMesh mesh, Transform3D transform)
+    /// <param name="quadCount">
+    /// Quads in the mesh behind this instance, carried so the profile can report drawn
+    /// geometry without walking Godot's surface arrays back out. The AO A/B is a comparison
+    /// of this number, summed.
+    /// </param>
+    /// <param name="vertexCount">Vertices in the same mesh. Four per quad, by construction.</param>
+    public VoxelRenderInstance(
+        World3D world,
+        ArrayMesh mesh,
+        Transform3D transform,
+        int quadCount = 0,
+        int vertexCount = 0)
     {
         _mesh = mesh;
+        QuadCount = quadCount;
+        VertexCount = vertexCount;
         _instance = RenderingServer.InstanceCreate();
         RenderingServer.InstanceSetScenario(_instance, world.Scenario);
         RenderingServer.InstanceSetBase(_instance, mesh.GetRid());
         RenderingServer.InstanceSetTransform(_instance, transform);
     }
+
+    /// <summary>Quads in this instance's mesh.</summary>
+    public int QuadCount { get; }
+
+    /// <summary>Vertices in this instance's mesh.</summary>
+    public int VertexCount { get; }
 
     public void SetTransform(Transform3D transform)
     {

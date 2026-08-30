@@ -51,6 +51,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     private readonly List<(IJob Job, CancellationToken Cancellation, bool Serial)> _batch = [];
     private readonly Func<long> _nowTicks;
     private readonly long _resultBudgetTicks;
+    private readonly bool _ambientOcclusion;
     private bool _disposed;
 
     /// <param name="onMeshReady">
@@ -73,6 +74,10 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// Injectable clock in <see cref="Stopwatch"/> ticks. Tests drive the budget
     /// deterministically rather than racing a real one.
     /// </param>
+    /// <param name="ambientOcclusion">
+    /// Off restores the constant-brightness merge key every mesh used before M5a. A test seam
+    /// for the quad-count A/B, carried here because the mesher is built inside the job.
+    /// </param>
     public ChunkPipeline(
         WorldGenerator generator,
         MaterialTable materials,
@@ -83,7 +88,8 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         Action<ChunkPos, Exception>? onJobFaulted = null,
         int loadMargin = ChunkStreamer.DefaultLoadMargin,
         TimeSpan? resultBudget = null,
-        Func<long>? nowTicks = null)
+        Func<long>? nowTicks = null,
+        bool ambientOcclusion = true)
     {
         _generator = generator;
         _materials = materials;
@@ -92,6 +98,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         _onMeshDiscarded = onMeshDiscarded;
         _onJobFaulted = onJobFaulted;
         _nowTicks = nowTicks ?? Stopwatch.GetTimestamp;
+        _ambientOcclusion = ambientOcclusion;
         _resultBudgetTicks =
             (long)((resultBudget ?? DefaultResultBudget).TotalMilliseconds * TicksPerMillisecond);
 
@@ -521,7 +528,12 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         chunk.TransitionTo(ChunkState.Meshing);
         Submit(
             chunk,
-            new MeshChunkJob(chunk.Position, Neighbourhood(chunk.Position), _materials, urgent));
+            new MeshChunkJob(
+                chunk.Position,
+                Neighbourhood(chunk.Position),
+                _materials,
+                urgent,
+                _ambientOcclusion));
     }
 
     /// <summary>

@@ -108,6 +108,11 @@ shader.
 
 ## M5a — Vertex AO and the merge key
 
+> **Built 2026-08-30.** Four things below were settled differently by contact with the code and
+> are annotated inline: where the two bytes live and why, what the flip compares, what a face
+> against a flat plane actually reads, and which break-recipes are reachable. Measured cost:
+> **1.88× the quads**, against the 2–4× predicted here. See the worklog.
+
 ### The problem
 
 Give each face vertex a darkening value derived from the solid voxels touching that corner, and
@@ -169,6 +174,17 @@ with no flags, so whatever Godot 4.7 compresses UV2 to is what it gets. **Check 
 UV2 survives at full precision the packing saves the 4 bytes, and if it does not, packing is a
 silently wrong colour ramp rather than an error.
 
+> **Settled 2026-08-30 by two probes against Godot 4.7.1, and the tie-break above is not the
+> reason.** `AddSurfaceFromArrays` with no flags produces a surface *without*
+> `ARRAY_FLAG_COMPRESS_ATTRIBUTES` — UV2 stays float32 and the packed value round-trips
+> exactly — and a render probe shows no sRGB conversion is applied to `COLOR` under a
+> `ShaderMaterial`. So precision does not decide it. **Packing is wrong regardless, because the
+> hardware interpolates the packed number:** `unpack(lerp(pack(a), pack(b)))` is not
+> `lerp(a, b)`, since the fractional part of an interpolated sky channel lands in the block
+> channel's byte. Two corners one sky level apart sweep block light through its entire range in
+> between. Per-vertex shade exists *to be interpolated*; a packed pair of independently varying
+> channels cannot be. **`COLOR`, and the choice is structural rather than a four-byte trade.**
+
 Either way non-negotiable #4 is satisfied and the M0 reservation did its job: nothing downstream
 assumed the channel, so moving it is one line in `ChunkMeshConverter` and one in the shader.
 
@@ -199,6 +215,21 @@ the other diagonal.
 still pass afterwards — the flip changes which diagonal, never which way the triangles face. If
 that test can be made to fail by the flip, the flip is wrong.
 
+> **Two corrections from building it, 2026-08-30.**
+>
+> **The flip compares the total shade, not AO alone.** Identical at M5a — block light is zero
+> and the sky channel is AO-monotone — and correct afterwards: at M5c a flat floor with a torch
+> on it has *constant AO* and a varying shade gradient, so an AO-only test would never fire on
+> the surface most likely to show the crease the flip exists to remove. It stays a pure function
+> of the merge key either way, so every face merged into a quad agrees which diagonal it takes.
+>
+> **"If that test can be made to fail by the flip, the flip is wrong" is unfalsifiable.** That
+> test reads vertex *positions*; the flip changes *indices* and nothing else, so it cannot fail
+> — which is the right answer for that test and a hole for the flip. Winding the flipped
+> triangles backwards is caught by two tests only because
+> `BothTrianglesOfEveryQuadFaceOutwardsInEitherFlipState` was added to walk the emitted indices
+> and to assert a flipped quad was actually seen.
+
 ### What it costs, guessed here and measured before M5b starts
 
 **Estimate, and it is a guess:** AO varies at every convex and concave edge, so flat terrain
@@ -211,6 +242,25 @@ which is the configuration where this stops being free.
 The A/B is one flag — `--ao=0` restores the constant-brightness key, exactly as `--cavestep=1`
 restores per-voxel cave evaluation. **Take the number before building anything in M5b**, because
 it is half of the fragment-shader decision and it is available a week early.
+
+> **Taken 2026-08-30, from a standing start so the chunk set is deterministic and the comparison
+> is two numbers rather than two samples of a moving flythrough.**
+>
+> | | AO off | AO on | |
+> |---|---|---|---|
+> | r4h/2v, 165 drawn — quads per chunk | 262 | **492** | 1.88× |
+> | r12h/3v @ 6 m/s, 1543 drawn — quads per chunk | 253 | 472 | 1.87× |
+> | r12h/3v — static memory | 94.8 MiB | 150.4 MiB | 1.59× |
+> | r12h/3v — `update ms` p99 | 1.39 | 2.05 | |
+>
+> **1.88×, against the 2–4× predicted here** — the estimate ran pessimistic, as every estimate in
+> this project has. Mesh memory grew by less than the quads because a chunk's memory is not all
+> mesh: solving the two r12 runs for a constant baseline gives ~42 KiB of mesh per drawn chunk
+> with AO off, which independently reproduces M2d's ~46 KiB, and ~79 KiB with it on. r12's
+> 2,245-chunk case extrapolates to ~205 MiB, the low end of the 200–400 MiB guessed above.
+>
+> **So the AO-alone baseline for the trigger below is 492 quads per drawn chunk at r4h/2v, and
+> M5c must stay under ~984.**
 
 ### Tests
 
@@ -227,6 +277,18 @@ it is half of the fragment-shader decision and it is available a week early.
   `side1 && side2` case; remove `CornerShade` from the merge key; force the flip off. The one
   that comes back green is a hole, a documentation correction, or unreachable at these
   parameters — and this project has hit all three.
+
+> **Run 2026-08-30. One came back green and it is the third category.** Swapping `side1` and
+> `side2` is a **no-op**: `(s1 && s2) ? 0 : 3 − (s1 + s2 + c)` is symmetric in its two sides,
+> because both `&&` and `+` commute, so the mutation cannot change any output. The meaningful
+> version is mislabelling *which corner* gets which sample — swap the corner sign table — and 8
+> tests catch that. The others: drop `corner` 4, drop the `side1 && side2` case 5, sample the
+> diagonal on one axis 6, remove `CornerShade` from the key 8, force the flip off 6, wind the
+> flipped triangles backwards 2.
+>
+> **"A face against a flat plane reads 2 along the contact edge" reads 1.** A continuous plane
+> fills the diagonal corner voxel as well as the side one. Two is what a *lone* side voxel with
+> an open corner gives, and both rows are now asserted.
 
 ---
 

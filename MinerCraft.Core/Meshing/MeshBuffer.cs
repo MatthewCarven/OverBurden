@@ -21,8 +21,37 @@ public sealed class MeshBuffer
     public float[] Normals { get; private set; } = new float[InitialQuads * 4 * 3];
     public float[] Uvs { get; private set; } = new float[InitialQuads * 4 * 2];
 
-    /// <summary>Per-vertex (texture array layer, light × ambient occlusion).</summary>
+    /// <summary>
+    /// Per-vertex (texture array layer, spare).
+    /// </summary>
+    /// <remarks>
+    /// UV2.y carried <c>light × AO</c> until M5a moved the shade into <see cref="Shades"/>.
+    /// It is left as a written zero rather than removed because Godot's UV2 is a
+    /// <c>Vector2</c> either way, so the component costs nothing to keep and is the obvious
+    /// home for the next per-vertex scalar that turns up.
+    /// </remarks>
     public float[] Uv2s { get; private set; } = new float[InitialQuads * 4 * 2];
+
+    /// <summary>
+    /// Per-vertex (skylight × AO, blocklight × AO), one byte each.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Two independent channels, and they cannot share one interpolated scalar.</b>
+    /// Packing them as <c>sky × 256 + block</c> is exact in float32 — verified against Godot
+    /// 4.7, which leaves UV2 uncompressed — and still wrong, because the hardware interpolates
+    /// the <em>packed</em> number: the fractional part of an interpolated sky channel lands in
+    /// the block channel's byte. Two corners one sky level apart sweep block light through its
+    /// whole range in between. Bytes in a four-channel attribute have no such coupling.
+    /// </para>
+    /// <para>
+    /// Bytes rather than floats because that is what the GPU stores — the Godot bridge writes
+    /// these into the vertex <c>COLOR</c> array, which is RGBA8 by definition. Keeping the CPU
+    /// side the same width means the value in this array is exactly the value the shader
+    /// reads, with no quantisation step hiding in the conversion.
+    /// </para>
+    /// </remarks>
+    public byte[] Shades { get; private set; } = new byte[InitialQuads * 4 * 2];
 
     public int[] Indices { get; private set; } = new int[InitialQuads * 6];
 
@@ -47,13 +76,18 @@ public sealed class MeshBuffer
     /// <param name="uExtent">Quad width in voxels — becomes the U texture coordinate, so
     /// a merged quad tiles rather than stretching. This is the part an atlas cannot do.</param>
     /// <param name="vExtent">Quad height in voxels.</param>
+    /// <param name="shade">
+    /// Per-corner light and ambient occlusion, in the same corner order as
+    /// <paramref name="corners"/>. Also decides which diagonal splits the quad — see
+    /// <see cref="CornerShade.FlipDiagonal"/>.
+    /// </param>
     public void AddQuad(
         ReadOnlySpan<float> corners,
         ReadOnlySpan<float> normal,
         float uExtent,
         float vExtent,
         float layer,
-        float shade)
+        CornerShade shade)
     {
         EnsureCapacity();
 
@@ -79,19 +113,37 @@ public sealed class MeshBuffer
             Uvs[v2 + i * 2 + 1] = vs[i];
 
             Uv2s[v2 + i * 2 + 0] = layer;
-            Uv2s[v2 + i * 2 + 1] = shade;
+            Uv2s[v2 + i * 2 + 1] = 0f;
+
+            Shades[v2 + i * 2 + 0] = shade.Sky(i);
+            Shades[v2 + i * 2 + 1] = shade.Block(i);
         }
 
         VertexCount += 4;
 
-        // Reverses the counter-clockwise corner order into Godot's clockwise front-face
-        // convention — the same mapping M0 used and that was verified on screen.
-        Indices[IndexCount + 0] = baseVertex + 0;
-        Indices[IndexCount + 1] = baseVertex + 2;
-        Indices[IndexCount + 2] = baseVertex + 1;
-        Indices[IndexCount + 3] = baseVertex + 0;
-        Indices[IndexCount + 4] = baseVertex + 3;
-        Indices[IndexCount + 5] = baseVertex + 2;
+        // Both branches reverse the counter-clockwise corner order into Godot's clockwise
+        // front-face convention — the same mapping M0 used and that was verified on screen.
+        // They differ only in which diagonal splits the quad, never in which way the
+        // triangles face, which is why the flip cannot disturb the winding test.
+        if (shade.FlipDiagonal)
+        {
+            Indices[IndexCount + 0] = baseVertex + 1;
+            Indices[IndexCount + 1] = baseVertex + 3;
+            Indices[IndexCount + 2] = baseVertex + 2;
+            Indices[IndexCount + 3] = baseVertex + 1;
+            Indices[IndexCount + 4] = baseVertex + 0;
+            Indices[IndexCount + 5] = baseVertex + 3;
+        }
+        else
+        {
+            Indices[IndexCount + 0] = baseVertex + 0;
+            Indices[IndexCount + 1] = baseVertex + 2;
+            Indices[IndexCount + 2] = baseVertex + 1;
+            Indices[IndexCount + 3] = baseVertex + 0;
+            Indices[IndexCount + 4] = baseVertex + 3;
+            Indices[IndexCount + 5] = baseVertex + 2;
+        }
+
         IndexCount += 6;
     }
 
@@ -106,6 +158,7 @@ public sealed class MeshBuffer
         Normals = Grow(Normals, VertexCount * 3);
         Uvs = Grow(Uvs, VertexCount * 2);
         Uv2s = Grow(Uv2s, VertexCount * 2);
+        Shades = Grow(Shades, VertexCount * 2);
         Indices = Grow(Indices, IndexCount);
     }
 

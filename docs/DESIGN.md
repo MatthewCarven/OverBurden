@@ -115,7 +115,9 @@ simulation, not enemies.
   **Two consequences noticed while planning M5, neither of which reverses this:**
   a per-vertex sample puts light in the greedy merge key, and a merged quad only
   interpolates its four corners — so faces merge iff all four corner shades match, which
-  is exact but costs quads wherever light varies. And a 1 m cell holds **64 voxels**, which
+  is exact but costs quads wherever light varies — **AO alone measured 1.88× the quads at M5a,
+  against a 2–4× guess**, so the half of that cost which is already spent is known. And a 1 m
+  cell holds **64 voxels**, which
   is wider than the tunnels this game is about, so opacity has to be a property of the cell
   *face* rather than the cell. The named fallback — sampling light in the fragment shader
   from a small 3D texture, which costs no remesh on a light change — is measured before it

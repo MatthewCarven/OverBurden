@@ -195,7 +195,13 @@ public class GreedyMesherTests
         for (int i = 0; i < mesh.Opaque.VertexCount; i++)
         {
             Assert.Equal(8f, mesh.Opaque.Uv2s[i * 2 + 0]);
-            Assert.Equal(1f, mesh.Opaque.Uv2s[i * 2 + 1]); // full bright until M5
+
+            // UV2.y carried light x AO until M5a moved the shade into its own byte pair.
+            // A lone voxel is unoccluded, so the sky channel is full and block light is zero
+            // because nothing emits any until M5b.
+            Assert.Equal(0f, mesh.Opaque.Uv2s[i * 2 + 1]);
+            Assert.Equal(255, mesh.Opaque.Shades[i * 2 + 0]);
+            Assert.Equal(0, mesh.Opaque.Shades[i * 2 + 1]);
         }
     }
 
@@ -307,21 +313,4 @@ public class GreedyMesherTests
         Assert.Equal(Size * Size, culled);
     }
 
-    private static PaddedChunk RandomChunk(int seed, double density)
-    {
-        var rng = new Random(seed);
-        var voxels = new PaddedChunk();
-        int[] palette = [Air, Stone, Dirt, Water, Glass];
-
-        for (int z = -1; z <= Size; z++)
-        for (int x = -1; x <= Size; x++)
-        for (int y = -1; y <= Size; y++)
-        {
-            voxels[x, y, z] = rng.NextDouble() < density
-                ? palette[rng.Next(1, palette.Length)]
-                : Air;
-        }
-
-        return voxels;
-    }
 }

@@ -62,17 +62,23 @@ public sealed class MeshChunkJob : IJob
 {
     private readonly VoxelChunk?[] _neighbourhood;
     private readonly MaterialTable _materials;
+    private readonly bool _ambientOcclusion;
 
     /// <param name="urgent">
     /// A remesh the player is waiting on, rather than one the streamer asked for. Raises
     /// band3 so it outranks every distance-ordered job in the queue — see
     /// <see cref="IJob.Urgency"/>.
     /// </param>
+    /// <param name="ambientOcclusion">
+    /// Off restores the constant-brightness merge key, for the A/B that says what per-vertex
+    /// AO costs in quads. See <see cref="GreedyMesher"/>.
+    /// </param>
     public MeshChunkJob(
         ChunkPos position,
         VoxelChunk?[] neighbourhood,
         MaterialTable materials,
-        bool urgent = false)
+        bool urgent = false,
+        bool ambientOcclusion = true)
     {
         if (neighbourhood.Length != PaddedChunk.NeighbourhoodSize)
         {
@@ -84,6 +90,7 @@ public sealed class MeshChunkJob : IJob
         Position = position;
         _neighbourhood = neighbourhood;
         _materials = materials;
+        _ambientOcclusion = ambientOcclusion;
         Urgency = urgent ? EditUrgency : (byte)0;
     }
 
@@ -116,7 +123,7 @@ public sealed class MeshChunkJob : IJob
         cancellation.ThrowIfCancellationRequested();
 
         var mesh = new ChunkMesh();
-        new GreedyMesher().Build(padded, _materials, mesh);
+        new GreedyMesher(_ambientOcclusion).Build(padded, _materials, mesh);
         Result = mesh;
     }
 }
