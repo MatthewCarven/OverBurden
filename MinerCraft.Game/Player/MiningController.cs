@@ -47,6 +47,86 @@ public sealed class MiningController(
     /// </remarks>
     public required float ReachMetres { get; init; }
 
+    /// <summary>
+    /// The entangled miner: unlimited reach and a fixed rate, on a debug bind.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>An endgame tool sketched as a debug mode, and the distinction is deliberate.</b> The
+    /// fiction is that entanglement is not distance-sensitive, so the arm stops being what
+    /// limits the bite. That is a direct reversal of a decision locked twice — <b>reach is the
+    /// player's, not the tool's</b> (M3d, restated at M4c) — and the reversal is *correct* for
+    /// this one tool, because its whole concept is that the reach is a property of the
+    /// mechanism rather than of the body holding it.
+    /// </para>
+    /// <para>
+    /// So it is <b>not</b> a tool tier and there is no <c>reachMetres</c> in the tool JSON. Once
+    /// a field like that exists, every mod writes against it and the locked decision is gone for
+    /// every tool rather than for this one. This is a mode on the controller, on Q, in the
+    /// same spirit as the L lamp bind: the smallest thing that makes the milestone playable,
+    /// left obviously not-the-feature. <b>Making it real content is the moment to settle whether
+    /// <c>ToolDefinition</c> gains an optional reach</b>, and that wants its own planning pass.
+    /// </para>
+    /// <para>
+    /// Composes with the number keys rather than replacing them: it changes how far and how
+    /// fast, never how big a bite or what the bite is hard enough to take. Both of those stay
+    /// the tier's, which is what keeps <see cref="Carve"/>'s hardness gate the only gate.
+    /// </para>
+    /// </remarks>
+    public bool Entangled { get; set; }
+
+    /// <summary>
+    /// The entangled reach. A backstop, not the real limit — the world is.
+    /// </summary>
+    /// <remarks>
+    /// <b>What actually stops the ray is the edge of the loaded region</b>, where an unloaded
+    /// voxel returns <see cref="RayOutcome.Blocked"/> and the swing is refused. Entanglement may
+    /// not be distance-sensitive but the streamer is, so the honest reach is "as far as the
+    /// world exists", which at r16 is about 144 m. This constant only has to exceed that, and it
+    /// bounds the DDA in the pathological case for the same reason
+    /// <see cref="ToolDefinition.MaxRadiusMetres"/> bounds the carve: a loop whose length comes
+    /// from outside needs a ceiling that does not.
+    /// </remarks>
+    public const float EntangledReachMetres = 512f;
+
+    /// <summary>Four swings a second, fixed, whatever tier is selected.</summary>
+    /// <remarks>
+    /// <b>Fixed rather than the tier's, and that is not strictly an upgrade</b> — <c>steel_pick</c>
+    /// alone cools down in 0.20 s, so entangled mode is marginally *slower* per swing than it is.
+    /// The upgrade is the range. A predictable rate is worth more than an optimal one in a thing
+    /// whose whole job is to excavate a comparable test volume, since otherwise the dig rate
+    /// depends on which number key was pressed last.
+    /// </remarks>
+    public const float EntangledCooldownSeconds = 0.25f;
+
+    private float EffectiveReachMetres => Entangled ? EntangledReachMetres : ReachMetres;
+
+    private float EffectiveCooldownSeconds =>
+        Entangled ? EntangledCooldownSeconds : Tool.CooldownSeconds;
+
+    /// <summary>Of <see cref="Swings"/>, how many were fired entangled.</summary>
+    /// <remarks>
+    /// Counted for the reason <see cref="PreciseSwings"/> is: an entangled swing carves at
+    /// arbitrary distance from the viewer, which is a different cost from one at 5 m and shares
+    /// the same <c>swing ms</c> line. <c>--mine</c> never entangles, so a non-zero value in a
+    /// profile means the run is not comparable with M3d's baseline.
+    /// </remarks>
+    public int EntangledSwings { get; private set; }
+
+    /// <summary>How far this swing actually reached, for the report.</summary>
+    public float LastReachMetres { get; private set; }
+
+    /// <summary>The furthest any swing has reached, and the total, for a mean.</summary>
+    /// <remarks>
+    /// <b>The only thing that can show the entangled reach is actually reaching.</b> Swing count
+    /// and voxel count are identical whether the cast ran to 5 m or to 90 — which is the
+    /// M5c-2 shape of hole, where every layer was tested and the wire between them was not. A
+    /// mean of 4 m under an "unlimited reach" label is the failure this catches.
+    /// </remarks>
+    public float MaxReachMetres { get; private set; }
+
+    public double TotalReachMetres { get; private set; }
+
     /// <summary>What the last cast found. Drives the highlight.</summary>
     public RayOutcome Outcome { get; private set; } = RayOutcome.Missed;
 
@@ -113,7 +193,8 @@ public sealed class MiningController(
 
         // Cast every frame regardless of the button, because the highlight has to follow the
         // crosshair and not only the swings.
-        Outcome = VoxelRay.Cast(pipeline, originMetres, direction, ReachMetres, out VoxelHit hit);
+        Outcome = VoxelRay.Cast(
+            pipeline, originMetres, direction, EffectiveReachMetres, out VoxelHit hit);
         Hit = hit;
 
         if (!mining || _cooldown > 0.0 || Outcome != RayOutcome.Hit)
@@ -125,15 +206,28 @@ public sealed class MiningController(
             ? Carve.Chip(pipeline, materials, hit, Tool)
             : Carve.Swing(pipeline, materials, hit, Tool);
 
-        // The tool's cooldown either way. A chip is a different shape of the same swing, not a
-        // faster one — letting precision fire quicker would make it the efficient way to mine
+        // The same cooldown for both shapes. A chip is a different shape of the same swing, not
+        // a faster one — letting precision fire quicker would make it the efficient way to mine
         // as well as the accurate one, and the sphere would stop being the default in practice.
-        _cooldown = Tool.CooldownSeconds;
+        // Entangled changes the rate, and it changes it for both shapes, for that same reason.
+        _cooldown = EffectiveCooldownSeconds;
         Swings++;
+        LastReachMetres = hit.DistanceMetres;
+        TotalReachMetres += hit.DistanceMetres;
+
+        if (hit.DistanceMetres > MaxReachMetres)
+        {
+            MaxReachMetres = hit.DistanceMetres;
+        }
 
         if (precise)
         {
             PreciseSwings++;
+        }
+
+        if (Entangled)
+        {
+            EntangledSwings++;
         }
 
         VoxelsRemoved += result.Removed;

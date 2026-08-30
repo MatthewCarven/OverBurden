@@ -1,5 +1,96 @@
 # MinerCraft — Worklog
 
+## 2026-08-31 — The entangled miner, a debug bind for digging a test volume
+
+Asked for mid-play-test and built the same day: **point at anything, hold left click, it eats
+what it is pointed at however far away**, because entanglement is not distance-sensitive. Fires
+at 4 swings a second. **Q** toggles it. No visual effect — the existing wireframe highlight
+already follows the crosshair to arbitrary range, which turns out to be all the aiming aid it
+needs.
+
+It exists because M5d-2's questions are all about what a *large* excavation looks like — does a
+mine read as a mine, is a 1 m light cell too coarse for a bore narrower than one cell, does rock
+beside a lit tunnel glow — and digging that by hand at 5 m of reach is why they are still open.
+
+### It brushes a decision locked twice, and does not reverse it
+
+**Reach is the player's, not the tool's** — settled at M3d, restated at M4c, and argued both
+times on the grounds that putting it in the tool JSON would *"guess a field into a format mods
+have written against"*. A tool whose defining property is unlimited reach is exactly the case
+that decision did not anticipate, and for this one tool the reversal is arguably right: the
+reach really is a property of the mechanism rather than of the arm holding it.
+
+**So it is deliberately not a tool tier.** No `reachMetres` in the JSON, no format change, no
+new `ToolDefinition` field. It is a mode on `MiningController`, on a debug bind, in the same
+spirit as the L lamp: once that field exists every mod writes against it and the locked decision
+is gone for *every* tool rather than for this one. **Making the entangled miner real content is
+the moment to settle that**, and it wants its own planning pass. Recorded in TODO rather than
+decided here.
+
+It **composes with the number keys** rather than replacing them: it changes how far and how
+fast, never how big a bite or what the bite is hard enough to take. Both of those stay the
+tier's, which keeps `Carve.Take`'s hardness gate the only gate — the property M3c pinned with
+nine tests.
+
+### What "no matter how far away" actually means, and it is not 512 m
+
+The constant is 512 m and it is a backstop, not the limit. **What stops the ray is the edge of
+the loaded region**, where an unloaded voxel returns `RayOutcome.Blocked` and the swing is
+refused — M3b's `Blocked`-is-not-`Missed`, doing exactly the job it was built for. Entanglement
+is not distance-sensitive but **the streamer is**, so the honest reach is "as far as the world
+exists", about 144 m at r16. The constant only has to exceed that and bound the DDA if it ever
+does not, the same shape as `ToolDefinition.MaxRadiusMetres` bounding the carve.
+
+Aiming at sky costs nothing: the cast returns `Missed` or `Blocked`, the button does nothing,
+and no cooldown is spent.
+
+### Measured, because a bind nobody has run is a bind that does not work
+
+F12 cannot be pressed headlessly, so `--entangle` is the sixth `--` seam of this shape. With
+`--mine` it aims **along the flight path** rather than straight down, which is the one thing
+that needed the flag: pointing along the path was rejected for `--mine` in the first place
+because at 5 m of reach it *"would spend most of the run pointing at sky"*, and with the reach
+bounded by the world instead it finally hits the hillside ahead.
+
+```
+mining    69 swings, 22 removed / 0 too hard / 11 already air per swing
+remesh    0.7 chunks per swing, 3.4/s | relight 0.9 per swing, 61 total
+entangled 69 swing(s) — NOT comparable with M3d's baseline
+reach     11.1 m mean, 18.9 m furthest
+clipped   0 swing(s) reached past the loaded world
+swing ms  mean 0.139  p50 0.074  p95 0.274  p99 0.708  max 2.802
+```
+
+**18.9 m against the player's 5 m is the wire proven**, and it is limited by terrain rather than
+by reach — the flythrough camera sits 4 m above a hilly surface, so the next hillside arrives
+long before the loaded edge does. The bite is unchanged at 22 voxels, `0 too hard` says the
+hardness gate still runs, and `clipped 0` says nothing was refused for range.
+
+The longer cast costs **0.139 ms a swing against 0.083 un-entangled** — 1.7×, and still two
+orders of magnitude inside a frame. Relight remeshes are **0.9 per swing against 1.0**, so
+carving a hundred metres away is not a different cost from carving at arm's length. That was
+the thing worth checking, since M5d-1 had just measured the near-field number.
+
+**`MaxReachMetres` and `TotalReachMetres` exist only because nothing else could see this.** Swing
+count and voxel count are byte-identical whether the cast ran to 5 m or to 90 — the M5c-2 shape
+of hole, where every layer is tested and the wire between them is not. A mean of 4 m under an
+"unlimited reach" label is the failure those two counters catch.
+
+### Two small ones
+
+- **Q rather than F12**, asked for and agreed. Q is free (WASD leaves QE alone), mnemonic, and
+  under the left hand already, which matters for a toggle used mid-dig rather than once at
+  startup. F12 is also the Steam overlay's screenshot key, a bad neighbour for a play bind.
+- **The rate is fixed at 4/s and is not strictly an upgrade.** `steel_pick` alone cools down in
+  0.20 s, so entangled is marginally *slower* per swing than it is; the upgrade is the range. A
+  predictable rate is worth more in a thing whose job is excavating a comparable test volume,
+  since otherwise the dig rate depends on which number key was pressed last.
+- **Refused during a profile run** when toggled by hand, the same as walk mode, because `--mine`
+  is pinned to the un-entangled sphere so M3d's baseline stays comparable. `--entangle` is the
+  deliberate opt-in, and the report says outright that such a run is not comparable.
+
+---
+
 ## 2026-08-31 — M5d-1: the measured half, and light turns out to bound how fast you can move
 
 Done, and it is the measurement half only — **the played half is Matthew's and is listed at the

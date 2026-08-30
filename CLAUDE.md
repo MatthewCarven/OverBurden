@@ -100,8 +100,9 @@ derivation and propagation may take; **swept at M5c-1 and 4 ms is the knee** —
 world has generated but cannot draw, because nothing meshes until its neighbourhood is lit),
 `--ao=0` and `--light=0` (the two halves of the shade, switchable independently — see the quad
 table below), `--skybrightness=<0..2>` (scales the sky channel alone; 0 leaves only block light)
-and `--debuglamp` (places one lamp where the crosshair points, so a screenshot can show block
-light without a keypress).
+`--debuglamp` (places one lamp where the crosshair points, so a screenshot can show block
+light without a keypress) and `--entangle` (the entangled miner, which with `--mine` aims along
+the flight path rather than straight down — see below).
 
 **`--speed=0` means a standing start and is distinct from omitting `--speed`**, which defaults a
 profile to 40 m/s. That distinction was added at M5d-1, because the standing start is the only
@@ -671,6 +672,30 @@ right way to be wrong in a sandbox. Unchanged, because it is fine for a creative
 because reach is
 the *player's* rather than the tool's — M4 is where something exists to own it, which is the
 same argument that kept it out of the tool JSON.
+
+**The entangled miner is a debug bind, built 2026-08-31 to dig M5d-2's test volume.** **Q**
+toggles it: point at anything, hold left click, and it eats what it is pointed at however far
+away, at 4 swings a second. Three things about it that are easy to undo by accident:
+
+- **It is deliberately not a tool tier, and that is the design decision rather than laziness.**
+  *Reach is the player's, not the tool's* is locked twice — M3d, restated at M4c — because
+  putting it in the tool JSON would guess a field into a format mods have written against. A
+  tool whose defining property is unlimited reach is the case that decision did not anticipate,
+  and for this one tool the reversal is arguably right. So it is a mode on `MiningController`
+  with **no `reachMetres` in the JSON and no `ToolDefinition` field**: once that field exists,
+  every mod writes against it and the decision is gone for *every* tool. **Making it real
+  content is the moment to settle that**, and it wants its own planning pass.
+- **"However far away" means "as far as the world exists", about 144 m at r16.** What stops the
+  ray is `RayOutcome.Blocked` at the edge of the loaded region — entanglement is not
+  distance-sensitive but **the streamer is**. The 512 m constant is a backstop bounding the DDA,
+  the same shape as `MaxRadiusMetres` bounding the carve. Aiming at sky costs no swing.
+- **It composes with the number keys** — it changes how far and how fast, never how big a bite
+  or what the bite is hard enough to take, so `Carve.Take`'s hardness gate stays the only gate.
+  Measured at **11.1 m mean / 18.9 m furthest reach**, 0.139 ms a swing against 0.083
+  un-entangled, and **0.9 relight remeshes per swing against 1.0** — carving a hundred metres
+  away is not a different cost from carving at arm's length. `MaxReachMetres` exists because
+  swing and voxel counts are identical whether the cast ran 5 m or 90, which is M5c-2's shape of
+  hole.
 
 **M5, lighting — [docs/M5-PLAN.md](docs/M5-PLAN.md), split M5a–M5d. M5a, M5b, M5c and M5d-1
 are built; M5d-2 is the played half and is Matthew's.** The structural point: **light is the first thing here that is not a function of one

@@ -1624,6 +1624,53 @@ at, because until the fog fix the black was grey.
       free in walk, *crawl* in fly, so "slow down to do fine work" pairs rather than fights —
       and the swap is one line. Left on Ctrl pending exactly this play-test.
 
+##### The entangled miner — built 2026-08-31, as a debug bind
+
+- [x] **Point at anything, hold left click, it eats what it is pointed at however far away.**
+      4 swings a second, **Q** toggles it, no visual effect. Built as an instrument for M5d-2:
+      every question in that list is about what a *large* excavation looks like, and digging one
+      by hand at 5 m of reach is why they are still open.
+- [x] **Deliberately not a tool tier, and that is the whole design decision.** *Reach is the
+      player's, not the tool's* is locked twice (M3d, restated M4c) on the grounds that putting
+      it in the tool JSON would "guess a field into a format mods have written against". A tool
+      whose defining property is unlimited reach is the case that decision did not anticipate,
+      and for this one tool the reversal is arguably right — the reach really is a property of
+      the mechanism rather than the arm. So: a mode on `MiningController`, no `reachMetres` in
+      the JSON, no `ToolDefinition` field, same spirit as the L lamp bind.
+- [ ] **Decide before it becomes real content: does `ToolDefinition` gain an optional reach?**
+      Once that field exists every mod writes against it and the locked decision is gone for
+      *every* tool rather than for this one. Wants its own planning pass. Until then the
+      entangled miner stays a debug bind and stays obviously not-the-feature.
+- [x] **"However far away" means "as far as the world exists", ~144 m at r16.** What stops the
+      ray is `RayOutcome.Blocked` at the edge of the loaded region — M3b's Blocked-is-not-Missed
+      doing its job. Entanglement is not distance-sensitive but **the streamer is**. The 512 m
+      constant is a backstop bounding the DDA, the same shape as `MaxRadiusMetres` bounding the
+      carve. Aiming at sky costs no swing and no cooldown.
+- [x] **Composes with the number keys.** It changes how far and how fast, never how big a bite
+      or what the bite is hard enough to take — both stay the tier's, which keeps `Carve.Take`'s
+      hardness gate the only gate. `radiusMetres` in the tool JSON is still the one-number lever
+      for a wider bore, unchanged since M4d named it.
+- [x] **Measured, because a bind nobody has run is a bind that does not work.** `--entangle` is
+      the sixth `--` seam of this shape; with `--mine` it aims along the flight path rather than
+      down, which is the one thing that needed the flag. **69 swings, 11.1 m mean and 18.9 m
+      furthest reach against the player's 5 m** — terrain-limited, not reach-limited. Bite
+      unchanged at 22 voxels, `0 too hard`, `clipped 0`.
+      - [x] **`MaxReachMetres` exists only because nothing else could see this.** Swing count and
+            voxel count are identical whether the cast ran to 5 m or 90 — the M5c-2 shape of
+            hole, where every layer is tested and the wire between them is not.
+      - [x] **The longer cast costs 0.139 ms a swing against 0.083** — 1.7×, two orders of
+            magnitude inside a frame. **Relight remeshes are 0.9 per swing against 1.0**, so
+            carving a hundred metres away is not a different cost from carving at arm's length.
+- [x] **The rate is fixed at 4/s and is not strictly an upgrade** — `steel_pick` alone cools
+      down in 0.20 s, so entangled is marginally slower per swing; the upgrade is the range. A
+      predictable rate beats an optimal one in a thing whose job is excavating a comparable test
+      volume, since otherwise the dig rate depends on which number key was pressed last.
+- [x] **Q rather than F12**, asked for and agreed: free (WASD leaves QE alone), mnemonic, and
+      under the left hand for a toggle used mid-dig. F12 is the Steam overlay's screenshot key.
+- [x] **Refused during a hand-toggled profile run**, the same as walk mode, because `--mine` is
+      pinned to the un-entangled sphere so M3d's baseline stays comparable. The report says
+      outright when a run is not comparable.
+
 ##### Surfaced by M5d-1, not built — each wants its own planning pass
 
 - [ ] **Lever 1: `PaddedChunk.CopyFrom`, 59% of the derive** (measured). It recomputes the

@@ -64,6 +64,7 @@ public partial class Main : Node3D
     private TimeSpan? _applyBudget;
     private TimeSpan? _lightBudget;
     private bool _mineWhileProfiling;
+    private bool _entangleWhileProfiling;
     private bool _fallProfile;
     private bool _ambientOcclusion = true;
     private bool _lightInMergeKey = true;
@@ -348,6 +349,15 @@ public partial class Main : Node3D
                     _mineWhileProfiling = true;
                     break;
 
+                // The entangled miner from the command line, because F12 cannot be pressed
+                // headlessly and a debug bind nobody has run is a debug bind that does not work.
+                // The sixth seam of this shape. It deliberately does NOT imply --mine: on its
+                // own it only proves the cast reaches, which is the half that has no other
+                // witness.
+                case "entangle":
+                    _entangleWhileProfiling = true;
+                    break;
+
                 // The fall profile. M2d measured a viewer flying horizontally at a constant
                 // height, which is the one motion the flythrough was built to produce and is
                 // nothing like a player falling down a shaft: a fall is vertical, it is fast,
@@ -476,8 +486,18 @@ public partial class Main : Node3D
     /// </remarks>
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (_player is null || _camera is null
-            || @event is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.F })
+        if (@event is not InputEventKey { Pressed: true, Echo: false } key)
+        {
+            return;
+        }
+
+        if (key.Keycode == Key.Q)
+        {
+            ToggleEntangledMiner();
+            return;
+        }
+
+        if (_player is null || _camera is null || key.Keycode != Key.F)
         {
             return;
         }
@@ -498,6 +518,54 @@ public partial class Main : Node3D
         _announcedSpawn = _player.Mode == PlayerMode.Fly;
 
         GD.Print($"M4c: {_player.Mode.ToString().ToLowerInvariant()} mode");
+    }
+
+    /// <summary>
+    /// Q turns the entangled miner on and off.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A debug bind for excavating a test volume, not a feature.</b> M5d-2 is the played half
+    /// of lighting and its questions are all about what a <em>large</em> excavation looks like —
+    /// whether a mine reads as a mine, whether a 1 m light cell is too coarse for a tunnel
+    /// narrower than one cell, whether rock beside a lit tunnel glows. Digging that by hand at
+    /// 5 m of reach is the reason those questions have not been answered yet.
+    /// </para>
+    /// <para>
+    /// On a key-down edge rather than polled, the same as F and L, because a toggle read every
+    /// frame flips sixty times a second. <b>Q rather than a function key</b>: it is free — WASD
+    /// leaves the whole of QE alone — it is mnemonic, and it is under the left hand already,
+    /// which matters for something toggled mid-dig rather than once at startup. F12 is also the
+    /// Steam overlay's screenshot key, which is a bad neighbour for a bind used while playing.
+    /// </para>
+    /// <para>
+    /// <b>Refused during a profile run</b>, for exactly the reason walk mode is: <c>--mine</c>
+    /// is pinned to the un-entangled sphere so that M3d's baseline stays comparable, and a run
+    /// that quietly switched to arbitrary-range swings would report a different measurement
+    /// under the same label. See <see cref="MiningController.EntangledSwings"/>.
+    /// </para>
+    /// </remarks>
+    private void ToggleEntangledMiner()
+    {
+        if (_mining is null)
+        {
+            return;
+        }
+
+        if (_profiler is not null)
+        {
+            GD.Print("M5d: the entangled miner is unavailable during a profile run.");
+            return;
+        }
+
+        _mining.Entangled = !_mining.Entangled;
+
+        GD.Print(_mining.Entangled
+            ? $"M5d: entangled miner ON — reach unlimited (bounded by the loaded world), "
+              + $"{1.0f / MiningController.EntangledCooldownSeconds:F0} swings/s, "
+              + $"still {_mining.Tool.Id.Path}'s bite and hardness gate"
+            : "M5d: entangled miner OFF — reach back to "
+              + $"{_player?.ReachMetres ?? PlayerController.DefaultReachMetres:F1} m");
     }
 
     private static Vector3 ToGodot(System.Numerics.Vector3 v) => new(v.X, v.Y, v.Z);
@@ -812,6 +880,8 @@ public partial class Main : Node3D
             names.Add($"{i + 1}:{_tiers[i].Id.Path}");
         }
 
+        _mining.Entangled = _entangleWhileProfiling;
+
         GD.Print($"M3d: mining with {strongest.Id} — tiers {string.Join(", ", names)}");
     }
 
@@ -854,7 +924,14 @@ public partial class Main : Node3D
             // Straight down from a camera four metres above the surface. Aiming along the
             // flight path would spend most of the run pointing at sky, and a measurement of
             // mining that mostly misses is not one.
-            forward = Vector3.Down;
+            //
+            // ENTANGLED IS THE EXCEPTION, and it is the whole reason the flag exists: with the
+            // reach bounded by the loaded world rather than by an arm, aiming along the flight
+            // path finally hits the hillside ahead instead of nothing. Pointing at sky still
+            // costs no swing — the cast returns Missed or Blocked and the button does nothing —
+            // so the run measures fewer swings that each reach much further, which is exactly
+            // the claim being checked.
+            forward = _mining.Entangled ? forward : Vector3.Down;
             mining = true;
 
             // Spheres, always, and stated rather than left to fall out of "no key is held".
@@ -1087,7 +1164,11 @@ public partial class Main : Node3D
             $"{_pipeline.RelightRemeshes} total\n" +
             $"clones    {_pipeline.ChunkClones / swings:F1} per swing " +
             $"({_pipeline.ChunkClones * 2.0 / swings:F1} KiB at ~2 KiB each)\n" +
-            $"clipped   {_mining.ClippedSwings} swing(s) reached past the loaded world\n";
+            $"clipped   {_mining.ClippedSwings} swing(s) reached past the loaded world\n" +
+            (_mining.EntangledSwings > 0
+                ? $"entangled {_mining.EntangledSwings} swing(s) — NOT comparable with M3d's baseline\n"
+                  + $"reach     {_mining.TotalReachMetres / swings:F1} m mean, {_mining.MaxReachMetres:F1} m furthest\n"
+                : string.Empty);
     }
 
     /// <summary>
