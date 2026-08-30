@@ -133,7 +133,9 @@ comes first.
       UV2.y shade channel.
 - [ ] Ambient fill is low — faces angled away from the sun go nearly black. Cosmetic
       only, and M5 lighting replaces this shading path entirely, so not worth tuning
-      the Environment now.
+      the Environment now. **Owned by M5c**, whose proposal is to drop the directional
+      light altogether and let the grid be the light — which also retires the terracing
+      slivers below, since those are the sun hitting integer heightmap risers.
 - [x] **Streamed terrain confirmed on screen 2026-08-27.** Continuous rolling terrain, no
       seams at chunk boundaries, camera lands above ground. The visible bright and dark
       slivers follow terrain **contours, not the chunk grid** — that is what rules out a
@@ -1074,14 +1076,203 @@ out of the world and accelerates away from anything that could stop them.
 
 ### M5 — Lighting
 
-- [ ] Coarse 1 m light grid, 4-bit sky + 4-bit block
-- [ ] BFS flood fill, incremental re-propagation on edit (un-light pass is the fiddly one)
-- [ ] Trilinear sample at mesh time
-- [ ] Vertex AO at mesh time
+Planned 2026-08-30 and split into four parts in [docs/M5-PLAN.md](docs/M5-PLAN.md). **Read it
+before starting.** The structural point: light is the **first thing in this engine that is not a
+function of one chunk**. Worldgen is pure per chunk, meshing takes a padded copy, a carve is
+local — light propagates arbitrarily far, and removing one voxel can change light in a chunk
+that is not a neighbour.
+
+**The constant that makes it tractable, and it is exact rather than lucky:** 4-bit light reaches
+15 m; the load margin is 2 chunks, 16 m. A source outside the loaded region contributes
+`max(0, 15 − 16) = 0` at the visible box, so light computed over the loaded region is *exact*
+inside the drawn one. **The margin now has a third load-bearing reason** (mesher ring, feature
+stage, light reach) and it is the tightest of the three. If light ever goes to 5 bits — 31 m —
+the margin must go to 4 chunks.
+
+#### M5a — Vertex AO and the merge key
+
+- [ ] Per-corner AO from the padded chunk's diagonals: `(side1 && side2) ? 0 : 3 - (side1 +
+      side2 + corner)`. The `side1 && side2` case is the difference between a corner that reads
+      as a corner and one that reads as a smudge.
+- [ ] **`PaddedChunk.CopyFrom`'s 26 neighbours were gathered for exactly this** and nothing
+      about the gather changes. M1c's comment says so in as many words.
+- [ ] **Merge key `(Material, uint CornerShade)`** — four corner shade bytes, packed. Two faces
+      merge iff all four match, and when they do the merged quad's interpolation is **identical**
+      to the separate quads'. Merging stays exact; it is not an approximation.
+- [ ] **The vertex format does not change.** `AddQuad` takes four shade values instead of one;
+      `ChunkMeshConverter` and `Voxel.gdshader` are untouched. This is the payoff for reserving
+      the UV2.y channel at M0 (non-negotiable #4).
+- [ ] **The diagonal flip**: when `ao[0] + ao[2] > ao[1] + ao[3]`, split the quad the other way,
+      or every lit floor carries a visible crease. Must not disturb
+      `EveryQuadIsWoundConsistentlyWithItsNormal`.
+- [ ] Only `IsOpaque` materials occlude. Water darkening a corner is an M8 question and the
+      predicate is already shaped for it.
+- [ ] **`--ao=0` A/B, and take the quad-count number before M5b starts.** It is half of the
+      fragment-shader decision and it is available a week early.
+- [ ] **Estimate, labelled: 2–4× the quads.** Mesh memory follows at ~46 KiB per drawn chunk, so
+      r4h/2v's 7.4 MiB becomes 15–30 MiB and r12's 100 MiB becomes 200–400 MiB. r12 is where
+      this stops being free.
+- [ ] Tests: **merge exactness** (re-derive every covered face's AO and assert it matches the
+      quad's four-tuple — nothing else catches a merge that averaged a corner away); a solid
+      chunk in open air still emits 6 quads; inside corner reads 0; the flip is symmetric.
+- [ ] Break-recipes to watch fail: swap `side1`/`side2`; drop `corner`; drop the `side1 &&
+      side2` case; remove `CornerShade` from the key; force the flip off.
+
+#### M5b — The light grid, propagation, and the un-light pass
+
+- [ ] `ChunkLight`: 8³ = 512 cells per chunk at 1 m, 4-bit sky + 4-bit block, **512 bytes** —
+      against ~2 KB of voxels and ~46 KiB of mesh. Light is not where the memory goes.
+- [ ] **`[z][x][y]`, Y contiguous**, and this is the case that most deserves it: skylight
+      propagates straight down, so the game's most common propagation walks Y.
+- [ ] `LightCellSize` a **power of two dividing 32**, same constraint as `CaveLatticeStep` and
+      for the same reason — a chunk boundary must be a cell boundary or independently lit
+      neighbours disagree. Constructor throws otherwise.
+- [ ] **Conductance is a property of the cell *face*, not the cell.** A 1 m cell holds 64 voxels
+      and `hand_pick`'s bore is 0.75 m, so the tunnels this game is about are narrower than one
+      cell. "Any opaque → opaque" means torches light nothing; "any air → open" means a 0.25 m
+      wall leaks. Six bits per cell: light crosses a face iff some voxel pair across the shared
+      4×4 boundary is non-opaque on both sides.
+- [ ] **Recorded cost:** the *value* is still per cell, so rock within 1 m of a lit tunnel glows
+      slightly. Sample half a cell along the face normal to hide most of it; the lever if it
+      reads badly is `--lightcell=2`.
+- [ ] **Skylight is seeded analytically, because there is no top of the world to flood from** —
+      the vertical radius is 16–24 m. `WorldGenerator.SurfaceHeightAt` is already pure and
+      already gives the answer for unedited terrain.
+- [ ] `SkyColumn` per chunk column `(cx, cz)`: 32×32 "Y above which this column is open",
+      seeded from the heightmap, lowered by edits. ~2 KB per column, 338 KB at r6h. **Refcounted
+      horizontally**, so it survives the vertical unloading that happens constantly while
+      descending. Lifetime matches edited chunks' — lost on horizontal unload today, persisted
+      at M6, consistent with M3's recorded limitation.
+- [ ] **This is the structure M7's rain occlusion needs**, built a milestone early because
+      skylight cannot be correct without it.
+- [ ] Skylight rule: **full value straight down through open cells with no attenuation**, −1 per
+      metre horizontally. Without the first half a shaft dies 15 m down.
+- [ ] `MaterialDefinition.LightEmission` (0..15), projected into `MaterialTable` beside
+      `Hardness`. One emissive material shipped in `mods/minercraft/`, because the base game is a
+      mod and a light source is content.
+- [ ] **Nothing can place a light source until M6.** Debug bind on `SetVoxel`: one key, one
+      material, no inventory, and it should stay embarrassing enough that nobody mistakes it for
+      the feature.
+- [ ] `ShippedContentTests` gains the numeric check — some shipped material emits, in 1..15.
+      A format having a field is not the content using it meaningfully.
+- [ ] **The un-light pass, which is the fiddly one.** Two queues: zero every cell whose value is
+      exactly one less than the cell it came from; collect neighbours with a value ≥ the
+      propagating one as re-seeds; run the add-BFS from those. **Miss the re-seed and light does
+      not come back where two sources overlapped** — the dark patch nobody can explain.
+- [ ] **The oracle: incremental == from-scratch, cell for cell, after any edit sequence.** No
+      reference implementation to get wrong — from-scratch *is* the definition, just too slow to
+      run per frame. Same category as M4a's sealed room. **Watch it fail** by dropping the
+      re-seed step; if it survives, the fuzz is not overlapping its sources.
+- [ ] Tests: analytic falloff (`15 − Manhattan distance`, an equality); a 0.25 m wall blocks and
+      a 0.75 m tunnel conducts, one test each for the two wrong conductance rules; an open column
+      is full sky to the surface and dark one cell below; determinism, bitwise.
+
+#### M5c — The pipeline: the stage, the sample, and the relight
+
+- [ ] **Light propagates on the sim thread under a time budget**, one global cell queue writing
+      into the streamer's grids. Cross-chunk propagation then needs no special case, because the
+      algorithm has no per-chunk boundary. Same precedent and same recorded reason as
+      `ApplyFeatures`.
+- [ ] Rejected: a light job over a 3×3×3 snapshot (half-width 12 m against a 15 m reach — a
+      source 14 m out is silently missed, and the seam appears only near light sources); 5×5×5
+      (125 references per job); per-chunk iterative boundary exchange (data-dependent stopping
+      condition); a worker with a lock held for the whole job.
+- [ ] **A third `GenerationStage`, not a new `ChunkState`.** Light is a barrier, not a job, so
+      `CanMesh` gains one clause and nothing about the job pipeline changes.
+- [ ] **Advancing one chunk must push its 26 neighbours** — M2c-2's rule, and light arriving may
+      be the last thing a neighbourhood was waiting on. Miss it and the pipeline stalls silently
+      with everything idle.
+- [ ] Padded light grid **10³ = 1,000 bytes, covering −1…8**: a vertex at the far corner sits at
+      cell coordinate 8.0 and the interior centres run 0.5…7.5, so it needs cell 8 from the
+      neighbour. Gathered from the same 27 references `MeshChunkJob` already captures.
+- [ ] Trilinear sample per vertex, multiplied into AO to form the corner shade byte. Light and AO
+      differing but their product matching merges anyway — harmless and slightly beneficial.
+- [ ] **Re-light on edit marks every chunk whose padded light grid holds a changed cell** — the
+      owner plus, on a boundary, its neighbour. Marking only the owner is the break-recipe and
+      the symptom is a light seam on the chunk grid. M3a's `Neighbourhood()` marks all 27 for the
+      analogous reason.
+- [ ] **Most swings change no light at all** — a 0.4 m sphere inside a 1 m cell does not open a
+      cell face. Mining is not a relighting storm; breaking *through* is. A light placed in open
+      air is the 125-chunk case and is a one-off.
+- [ ] **Try the cheap mitigation first:** a light-only remesh does not need band3 urgency. Light
+      100 ms stale is invisible, and `SubmitMesh` already distinguishes the two. One line.
+- [ ] **Revisit trigger for moving light out of the vertex entirely** (per-chunk 3D texture,
+      hardware trilinear, *no remesh on a light change*): light in the merge key costs more than
+      **2×** the quads of AO alone, **or** breaking into a lit space costs more than ~16 chunk
+      remeshes at a rate mining can sustain. Not built first because it contradicts a DESIGN line,
+      needs a material per drawn chunk or a clipmap volume, and every named fallback in this
+      project so far has proved unnecessary when measured.
+- [ ] **The shader and the sun.** Proposed: drop the directional light, let the grid be the
+      light — per-face constant tint × light × AO, unshaded. That also retires the open
+      "ambient fill is low" item and the terracing slivers M1's screenshots recorded, which are
+      the sun hitting integer heightmap risers. Judged at M5d.
+- [ ] Tests: the barrier holds a chunk until its 26 neighbours are lit; **exact remesh scope,
+      asserted in both directions** (over-marking is a performance bug that hides correctness
+      bugs); unload releases the grid and revival recomputes it; an edit landing mid-mesh
+      re-marks; the no-chunk-left-waiting fuzz extended over the new stage.
+
+#### M5d — Feel and measurement
+
+- [ ] **Quads per chunk: AO off / AO on / AO+light on.** Three numbers, one flag each, and they
+      are the whole of the fragment-shader decision.
+- [ ] Mesh memory, which follows quads and is the M2d finding this milestone most disturbs.
+- [ ] Light propagation cost per frame, **timed directly**, with cells visited and the
+      denominator printed beside it.
+- [ ] Remeshes per swing, mining normally and mining through into a lit space, at five swings a
+      second — against M3d's control of 1.04% of one core.
+- [ ] Initial fill from a standing start, against the estimated ~0.25 s (779k cell visits at
+      r4h/2v, ~20 ns each — both figures guesses).
+- [ ] **Do not read `frame ms`.** The headless frame-time trap has been walked into four times
+      and the directly-timed number moved by a tenth of a millisecond every time.
+- [ ] Played: does a mine read as a mine? Is 1 m too coarse down a `hand_pick` tunnel whose bore
+      is narrower than one cell? Does rock beside a lit tunnel glow? Does AO earn its quads —
+      DESIGN calls it "the single biggest visual payoff" and that is a claim, not a measurement?
+      Does the sun going away improve or flatten the look? Can you mine by torchlight?
+
+#### Open decisions
+
+- [ ] **{D} Light cell size: 1 m (DESIGN) or 0.5 m.** DESIGN reasons in metres — "light is
+      low-frequency, nobody sees the difference, 64× cheaper" — and the number that matters is in
+      voxels: a 1 m cell is **64 voxels**, and the tunnels this game is about are 0.75–1.25 m
+      across. 0.5 m costs 4 KB per chunk against 512 bytes, still nothing beside a 46 KiB mesh,
+      and 8× the propagation. Ships as DESIGN's 1 m with `--lightcell` as the flag, so M5d
+      answers it with a screenshot. **If 0.5 m wins, DESIGN's line changes.**
+- [ ] **{D} Does `SkyColumn` belong in M5 or M7?** ~150 lines, and it is the difference between
+      "dig a shaft and daylight follows you down" being true and being a limitation. The plan
+      builds it at M5b. The alternative ships M5 with a stated limitation: a shaft goes dark
+      16–24 m above the player at the top of the vertical window, and the boundary moves as they
+      descend.
+- [ ] **{D} Does the directional light survive?** Proposed: no. Judged at M5d.
+- [ ] **{D} Emission range 0..15** matches the field exactly and needs no scaling — but it also
+      means the brightest possible lamp reaches 15 m, which is a **game-balance number wearing a
+      storage costume**, the same shape as terminal velocity being a streaming parameter in a
+      physics costume. Worth noticing before a mod author builds against it.
+
+#### Deliberately not in M5
+
+- [ ] Coloured light — three channels, three BFS passes, 12 bits per corner in the merge key.
+      Nothing in DESIGN asks for it.
+- [ ] Directional or cone lights. A headlamp is a shader effect, not a propagated field, and it
+      would be M10's machine content anyway.
+- [ ] Attenuation through translucent materials — water is the only candidate and it is M8. The
+      conductance derivation is the right place and the predicate is already shaped for it.
+- [ ] Placement of light sources through a real UI — M6.
+- [ ] Persisting light. It is derived data: 512 bytes recomputed in microseconds against a chunk
+      blob of kilobytes. M6 persists *edits* and the light follows. **`SkyColumn` is the
+      exception** and is genuinely edit-derived, so it goes on M6's list.
+- [ ] Distance LOD interacting with lighting — M13, and the coarse grid is already most of the
+      answer: a 1 m light field downsamples where a voxel field does not.
+- [ ] Darkness as a hazard — M13. M5 supplies the darkness and nothing that punishes it.
+- [ ] Baking AO into the light grid. Different frequencies — AO is a 0.25 m effect and the grid
+      is 1 m — and merging them loses exactly the detail AO exists to add.
 
 ### M6 — v0.1 playable sandbox
 
 - [ ] SQLite persistence, `(cx, cy, cz) → blob`, palette in the world file
+- [ ] **`SkyColumn` persists too, and it is the one lighting structure that must.** Light
+      itself is derived data — 512 bytes recomputed in microseconds — but a column's sky
+      height is edit-derived and cannot be recovered from the seed once a shaft exists. M5b
+      builds it; M6 is where it stops being lost on horizontal unload.
 - [ ] Brush placement: 1 m cube, slab, ramp, sphere
 - [ ] Volumetric inventory — litres, not block counts
 - [ ] Hotbar / material selection UI

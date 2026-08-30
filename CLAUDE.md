@@ -14,7 +14,8 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/M2-REFERENCE-NOTES.md](docs/M2-REFERENCE-NOTES.md) | What reading godot_voxel's scheduler and streaming taught us, and what it changed in the M2 plan. **Read before building the job queue.** |
 | [docs/M2-PLAN.md](docs/M2-PLAN.md) | M2, split into M2a–M2d with per-part design and tests. Done, kept for the reasoning. |
 | [docs/M3-PLAN.md](docs/M3-PLAN.md) | M3, mining, split into M3a–M3d. Done, kept for the reasoning. |
-| [docs/M4-PLAN.md](docs/M4-PLAN.md) | The current milestone — the player, split into M4a–M4d. **This is what to work from.** |
+| [docs/M4-PLAN.md](docs/M4-PLAN.md) | M4, the player, split into M4a–M4d. Done, kept for the reasoning. |
+| [docs/M5-PLAN.md](docs/M5-PLAN.md) | The current milestone — lighting and AO, split into M5a–M5d. **This is what to work from.** |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
 | [TODO.md](TODO.md) | Milestones as checkable tasks, and the decisions still open |
 | [WORKLOG.md](WORKLOG.md) | What happened and why, newest first. Findings worth keeping live here. |
@@ -600,6 +601,36 @@ right way to be wrong in a sandbox. Unchanged, because it is fine for a creative
 because reach is
 the *player's* rather than the tool's — M4 is where something exists to own it, which is the
 same argument that kept it out of the tool JSON.
+
+**M5, lighting, is planned — [docs/M5-PLAN.md](docs/M5-PLAN.md), split M5a–M5d. Nothing is
+built yet.** The structural point: **light is the first thing here that is not a function of one
+chunk.** Worldgen is pure per chunk, meshing takes a padded copy, a carve is local — light
+propagates arbitrarily far, and removing one voxel can change light in a chunk that is not a
+neighbour. Five things from the planning pass that are expensive to rediscover:
+
+- **4-bit light and the 2-chunk margin are exactly compatible, and that binds them.** Light
+  reaches 15 m; the margin is 16 m; a source outside the loaded region contributes
+  `max(0, 15 − 16) = 0` at the visible box. So light computed over the loaded region is **exact**
+  inside the drawn one, and **the margin now has a third load-bearing reason** — the tightest of
+  the three. **Revisit trigger: 5-bit light (31 m) needs a 4-chunk margin.**
+- **Sampling light per vertex puts it in the merge key, and a merged quad only interpolates its
+  four corners.** So two faces merge iff all four corner shades match — exact when they do, and
+  where light varies the quads stop merging. That price is what M5a and M5c measure. The named
+  fallback is a per-chunk 3D texture sampled in the fragment shader, where **a light change costs
+  no remesh at all**; **do not build it** before the number says so. The reserved UV2.y channel
+  means the vertex format does not change either way, because AO is per-vertex regardless.
+- **A 1 m light cell holds 64 voxels and `hand_pick`'s bore is 0.75 m** — the tunnels this game
+  is about are narrower than one cell. So opacity is a property of the cell **face**, not the
+  cell: light crosses iff some voxel pair across the shared 4×4 boundary is open on both sides.
+  "Any opaque → opaque" means torches light nothing; "any air → open" means a 0.25 m wall leaks,
+  and 0.25 m is a normal wall here.
+- **The vertical radius means there is no top of the world to flood skylight down from.**
+  Seeding is analytic off `WorldGenerator.SurfaceHeightAt`, plus a per-column `SkyColumn` map
+  that edits lower — which is also exactly the structure M7's rain occlusion needs, and the one
+  lighting structure M6 must persist.
+- **The oracle is the sharpest available: incremental light == from-scratch light, cell for
+  cell.** No reference implementation to get wrong; from-scratch *is* the definition, just too
+  slow per frame. Same category as M4a's sealed room.
 
 Three things stay open, all needing a windowed run rather than a headless one: whether the
 free budget removes the stutter (headless has no deferred deallocation), and M1d's

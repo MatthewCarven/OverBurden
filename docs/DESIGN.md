@@ -1,7 +1,8 @@
 # MinerCraft — Design Document
 
-> Status: planning. No code yet.
-> Last updated: 2026-08-23
+> Status: M0–M4 built, M5 planned. Locked decisions here; per-milestone plans in
+> `M*-PLAN.md`.
+> Last updated: 2026-08-30
 
 ## One-line pitch
 
@@ -92,6 +93,12 @@ simulation, not enemies.
   **Not a tuning knob** — measured at M2d, lowering it shrinks the meshable radius by one
   rather than buying anything, because the barrier applies whether or not stage 2 places
   something. View distance is the knob.
+- **A third reason arrived with M5, and it is the tightest: light reach.** 4-bit light
+  reaches 15 m and the margin is 16 m, so a source outside the loaded region contributes
+  `max(0, 15 − 16) = 0` at the visible box — light computed over the loaded region is
+  *exact* inside the drawn one, with 1 m to spare. **5-bit light would reach 31 m and need a
+  4-chunk margin.** The two constants live in different files and nothing would fail to
+  connect them, so they are recorded on both sides.
 - **View distance costs memory through meshes, not through chunks** — ~46 KiB per drawn
   chunk against ~2 KB of voxel storage. So horizontal radius is expensive and vertical
   radius is nearly free, since extra vertical chunks are sky and buried rock that mesh to
@@ -105,6 +112,14 @@ simulation, not enemies.
 - **Propagate on a coarse 1 m grid, sample trilinearly at mesh time.** Light is
   low-frequency; nobody sees the difference and it is 64x cheaper than propagating
   at voxel resolution. This is a mesher + shader decision, so it is made up front.
+  **Two consequences noticed while planning M5, neither of which reverses this:**
+  a per-vertex sample puts light in the greedy merge key, and a merged quad only
+  interpolates its four corners — so faces merge iff all four corner shades match, which
+  is exact but costs quads wherever light varies. And a 1 m cell holds **64 voxels**, which
+  is wider than the tunnels this game is about, so opacity has to be a property of the cell
+  *face* rather than the cell. The named fallback — sampling light in the fragment shader
+  from a small 3D texture, which costs no remesh on a light change — is measured before it
+  is built. See [M5-PLAN.md](M5-PLAN.md).
 - 4 bits skylight + 4 bits blocklight, BFS flood fill, incremental re-propagation.
 - Vertex AO computed at mesh time — cheap, and the single biggest visual payoff.
 

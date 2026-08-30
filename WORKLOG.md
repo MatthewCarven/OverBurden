@@ -1,5 +1,139 @@
 # MinerCraft — Worklog
 
+## 2026-08-30 — M5 planned: the first thing here that is not a function of one chunk
+
+[docs/M5-PLAN.md](docs/M5-PLAN.md), split M5a–M5d, nothing built. Every job this engine runs is
+a pure function of one chunk and its immediate neighbours — worldgen of seed and position,
+meshing of a 34³ padded copy, a carve of a sphere smaller than a chunk. **Light is the first
+thing that is not.** It propagates arbitrarily far, and removing one voxel can change light in a
+chunk that is not a neighbour. That is not a mesh job's shape, and pretending it is produces the
+classic voxel bug: a dark patch nobody can explain, that only fixes itself when the chunk
+happens to unload and come back.
+
+### The number that makes it tractable, and it is exact rather than lucky
+
+4-bit light is 0..15, minus one per metre, so it reaches **15 m**. The load margin is 2 chunks,
+which is **16 m**. A source outside the loaded region is at least 16 m from the visible box and
+contributes `max(0, 15 − 16) = 0`.
+
+So light computed over the loaded region is **exact** inside the drawn one — not approximate,
+exact, with 1 m to spare. Three consequences worth recording before anything is built:
+
+- **The margin now has a third load-bearing reason** — the mesher's padded ring, the cross-chunk
+  feature stage, and light reach — and light is the tightest of the three. M2d already
+  established the margin is not a tuning knob; it is now less of one.
+- **Revisit trigger: 5-bit light reaches 31 m and would need a 4-chunk margin.** Written down
+  because the two numbers live in different files and nothing would fail to connect them.
+- The margin also happens to be the right region to *compute* light over. Not the visible box —
+  light flows inward from up to 15 m outside it.
+
+### Where the parts split, and why AO goes first
+
+| Part | What it is | The risk it removes |
+|---|---|---|
+| M5a | Vertex AO and the merge key | Greedy meshing collapsing towards culled meshing, found later when AO and light are both suspects |
+| M5b | The light grid, propagation, the un-light pass | An incremental update that disagrees with a from-scratch one |
+| M5c | The pipeline: light stage, mesh-time sampling, relight on edit | A swing that relights and remeshes 64 chunks, five times a second |
+| M5d | Feel and measurement | 1 m cells being too coarse for a 0.75 m tunnel, found after everything is built on them |
+
+**DESIGN lists lighting before AO and the plan reverses it.** AO is derived from voxel geometry
+alone, needs nothing from the light grid, and `PaddedChunk.CopyFrom` was built to feed it — M1c's
+comment says so in as many words. It also forces the one structurally expensive edit in the
+milestone, the merge key. Doing it alone means the quad-count measurement has **exactly one
+cause**, and that measurement is half of the biggest decision M5 makes, available a week early.
+
+**M5c is where the surprises are**, and unlike M4 that is also where they are expected: a
+not-per-chunk algorithm meeting a per-chunk pipeline, a job scheduler and an edit path that
+fires five times a second.
+
+### Four findings from the planning pass
+
+**Sampling light per vertex puts it in the merge key, and a merged quad only interpolates its
+four corners.** A quad spanning three light cells ignores the middle one. So the rule is: two
+faces merge iff all four corner shades match — and when they do, the merged quad's interpolation
+is *identical* to the separate quads'. Merging stays exact. Where light varies, quads stop
+merging, and that price is what M5a and M5c measure. The named fallback is a per-chunk 3D
+texture sampled in the fragment shader, where **a light change costs no remesh at all** — the
+expensive coupling, removed. It is deliberately not built first: it contradicts a DESIGN line
+that has held since week one, it needs a material per drawn chunk or a clipmap volume, and every
+named fallback in this project so far has proved unnecessary when measured. **Trigger: light in
+the key costs more than 2× the quads of AO alone, or breaking into a lit space costs more than
+~16 remeshes at a rate mining can sustain.** The reserved UV2.y channel means the vertex format
+does not change either way, because AO is per-vertex regardless.
+
+**A 1 m light cell holds 64 voxels, and `hand_pick`'s bore is 0.75 m.** The tunnels this game is
+about are *narrower than one light cell*, which means "is this cell opaque" has no good binary
+answer. Any-opaque-wins and torches light nothing; any-air-wins and a 0.25 m wall leaks, and
+0.25 m is a normal wall thickness here. So opacity is a property of the cell **face**, not the
+cell: light crosses iff some voxel pair across the shared 4×4 voxel boundary is open on both
+sides. Six bits per cell, derived once from the same padded copy meshing already takes. The
+honest residue is that the *value* is still per cell, so rock within 1 m of a lit tunnel glows
+slightly; sampling half a cell along the normal hides most of it.
+
+**The vertical radius means there is no top of the world to flood skylight down from.** Every
+voxel game that propagates skylight from above loads full columns; this one loads 16–24 m
+vertically, and that is a measured, locked decision. Seeding is analytic instead, off
+`WorldGenerator.SurfaceHeightAt` — already pure, already exact for unedited terrain — plus a
+per-column `SkyColumn` map that edits lower, refcounted on the *horizontal* footprint so it
+survives the vertical unloading that happens constantly while descending. ~2 KB per column,
+338 KB at r6h. It is also exactly the structure M7's rain occlusion needs, and the one lighting
+structure M6 must persist, because light itself is derived data and a column's sky height is
+not.
+
+**The oracle is the sharpest available in this milestone: incremental == from-scratch, cell for
+cell, after any edit sequence.** No reference implementation to get wrong — from-scratch
+propagation *is* the definition, it is merely too slow to run per frame. No tolerance, no
+sampling, just an array comparison. Same category as M4a's sealed room, and the reason the
+algorithmically fiddliest thing in the project so far is genuinely tractable. **Watch it fail**
+by dropping the re-seed step of the removal pass; if it survives, the fuzz is not overlapping
+its sources.
+
+### Costs and estimates, all labelled
+
+| | | |
+|---|---|---|
+| Light grid | 512 cells/chunk at 1 m, **512 bytes** | against ~2 KB voxels, ~46 KiB mesh |
+| Conductance | another 512 bytes/chunk | 49,152 pair tests per chunk, once |
+| `SkyColumn` | ~2 KB per column, 338 KB at r6h | horizontal refcount |
+| Padded light grid | 10³ = 1,000 bytes | −1…8, because a corner vertex sits at cell 8.0 |
+| Initial fill | 779k cell visits at r4h/2v | **guess** ~20 ns each → ~15 ms → ~0.25 s budgeted |
+| AO quad count | **guess** 2–4× | mesh memory follows; r12's 100 MiB → 200–400 MiB |
+
+The quad-count guess is the one that matters and it is the first thing M5a measures. Every
+guessed number in this project so far has run pessimistic, so the honest expectation is that it
+comes in low — but AO varies at every edge and the integer heightmap's terracing puts an edge
+every few voxels, which is the terrain that would make it come in high instead.
+
+### Four open decisions, recorded rather than settled
+
+- **Light cell size: 1 m (DESIGN) or 0.5 m.** DESIGN reasons in metres — "light is
+  low-frequency, nobody sees the difference, 64× cheaper" — and the number that matters is in
+  *voxels*: a 1 m cell is 64 voxels, and the tunnels are 0.75–1.25 m across. 0.5 m costs 4 KB
+  per chunk against 512 bytes, still nothing beside a 46 KiB mesh, and 8× the propagation. Ships
+  as DESIGN's 1 m with `--lightcell` as the flag, so M5d answers it with a screenshot rather
+  than an argument. If 0.5 m wins, DESIGN's line changes and the plan is where the reason lives.
+- **`SkyColumn` in M5 or M7.** ~150 lines, and it is the difference between "dig a shaft and
+  daylight follows you down" being true and being a limitation. The plan builds it at M5b.
+- **Does the directional light survive?** Proposed: no — per-face constant tint × light × AO,
+  unshaded, which is also what retires the open "ambient fill is low" item and the terracing
+  slivers M1's screenshots recorded, since those are the sun hitting integer heightmap risers.
+  Judged at M5d.
+- **Emission range 0..15** matches the field exactly and needs no scaling, but it also means the
+  brightest possible lamp reaches 15 m — a **game-balance number wearing a storage costume**,
+  the same shape as terminal velocity being a streaming parameter in a physics costume. Worth
+  noticing before a mod author builds against it.
+
+### One scoping fact that shapes M5d
+
+**Nothing in the game can place a light source until M6's placement exists.** So M5b adds
+`MaterialDefinition.LightEmission`, one emissive material in `mods/minercraft/` — because the
+base game is a mod and a light source is content — and a debug bind on the existing `SetVoxel`.
+One key, one material, no inventory, and it should stay embarrassing enough that nobody mistakes
+it for the feature.
+
+`ShippedContentTests` gains the matching numeric check, on the M3c principle that a format
+having a field is not the same as the content using it meaningfully.
+
 ## 2026-08-30 — M4d: the measurement half, and the answer is no
 
 **Can the player outrun the streamer? No — not at any shipped setting, with 2.25× of measured
