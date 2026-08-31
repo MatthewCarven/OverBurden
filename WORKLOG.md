@@ -148,7 +148,16 @@ warm. That is **five of M5d-2's six questions answered**, and only "is 1 m too c
 every other check would pass identically if both light channels were packed into one byte: the
 merge key, the trilinear sample, the quad counts, the shader — all of them. Only a **warm pool
 in a dark room** shows that `COLOR.g` carries block light, is tinted separately from `COLOR.r`,
-and survives the whole path from `MaterialDefinition.LightEmission` to a fragment. It is also
+and survives the whole path from `MaterialDefinition.LightEmission` to a fragment.
+
+**And then a second shot went one better: one lamp in a skylit cavern, both channels in the same
+frame.** The cavern is cool grey — `COLOR.r` through `sky_tint` — with a golden pool around the
+lamp — `COLOR.g` through `block_tint` — and a clean spatial boundary between them. The first
+shot proved block light exists and is warm. **This one proves the two channels do not contaminate
+each other**: the additive composite `shade.x * sky_tint * sky_brightness + shade.y * block_tint`
+blends two differently-coloured fields into something that reads as one lit space rather than as
+a muddy average. That is the whole return on the vertex bytes M5a spent keeping them apart, and
+it is the picture to point at when somebody asks why they were not packed into one. It is also
 what DESIGN's M7 wet-surface term depends on — *"skylight × recent rainfall"* needs skylight on
 its own — so this shot is the receipt for the two-channel decision that M5a paid for in vertex
 bytes.

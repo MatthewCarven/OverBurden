@@ -1661,6 +1661,13 @@ Played with the entangled miner. **"Looks good to me."**
       identically with both channels packed into one byte. It is also the receipt for the
       two-channel decision M5a paid for in vertex bytes, since DESIGN's M7 wet-surface term needs
       skylight on its own.
+      - [x] **A second shot went one better: one lamp in a *skylit* cavern, both channels in the
+            same frame.** Cool grey from `COLOR.r` through `sky_tint`, a golden pool from
+            `COLOR.g` through `block_tint`, and a clean boundary between them. The first shot
+            proved block light exists and is warm; **this one proves the two channels do not
+            contaminate each other** — the additive composite blends two differently-coloured
+            fields into one lit space rather than a muddy average. The picture to point at when
+            somebody asks why they were not packed into one byte.
       - [ ] **Observation, not a defect: 15 m of light is *sixty* voxels.** `lightEmission: 15`
             and 1 per 1 m cell, in a game whose corridors are three to five voxels wide — so one
             lamp lights a whole working, and the relative reach is 4× what a 1 m-block game gets
