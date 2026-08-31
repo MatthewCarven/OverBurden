@@ -100,6 +100,17 @@ public sealed class PlaceController(
     /// <summary>The cell the next brush would fill. Only meaningful while <see cref="HasTarget"/>.</summary>
     public BrushCell TargetCell { get; private set; }
 
+    /// <summary>The single voxel a precise placement would fill.</summary>
+    public VoxelPos TargetVoxel { get; private set; }
+
+    /// <summary>Of <see cref="Placements"/>, how many were one voxel rather than a brush.</summary>
+    /// <remarks>
+    /// Counted for the reason <see cref="MiningController.PreciseSwings"/> is: the two shapes cost
+    /// sixty-four times different amounts and share one <c>place ms</c> line, so a run that was
+    /// mostly precise would report a cheap number under a label that means "a brush".
+    /// </remarks>
+    public int PrecisePlacements { get; private set; }
+
     /// <summary>Which way a ramp would rise, from where the player is looking.</summary>
     public BrushFacing Facing { get; private set; }
 
@@ -137,12 +148,19 @@ public sealed class PlaceController(
     /// refuse voxels around a position the player is no longer at.
     /// </param>
     /// <returns>True on a frame where a placement actually happened.</returns>
+    /// <param name="precise">
+    /// Fill only the voxel under the crosshair instead of the whole brush. <b>A per-frame input,
+    /// not a mode this remembers</b> — the same shape as mining's, and for the same reason: it is
+    /// the exception rather than the mode, so it belongs to the key that is held rather than to
+    /// state that has to be toggled back.
+    /// </param>
     public bool Update(
         double delta,
         Vector3 originMetres,
         Vector3 direction,
         Aabb? body,
-        bool placing)
+        bool placing,
+        bool precise = false)
     {
         _cooldown = Math.Max(0.0, _cooldown - delta);
         RanOutThisFrame = false;
@@ -155,6 +173,7 @@ public sealed class PlaceController(
         if (Outcome == RayOutcome.Hit)
         {
             TargetCell = Place.TargetCell(hit);
+            TargetVoxel = Place.TargetVoxel(hit);
             Facing = Place.FacingFrom(direction);
         }
 
@@ -171,7 +190,9 @@ public sealed class PlaceController(
             return false;
         }
 
-        PlaceResult result = Brush switch
+        PlaceResult result = precise
+            ? Place.Voxel(pipeline, materials, TargetVoxel, MaterialId, body, inventory)
+            : Brush switch
         {
             BrushShape.Cube => Place.Cube(pipeline, materials, TargetCell, MaterialId, body, inventory),
             BrushShape.Slab => Place.Slab(pipeline, materials, TargetCell, MaterialId, body, inventory),
@@ -181,8 +202,16 @@ public sealed class PlaceController(
                 pipeline, materials, TargetCell, SphereRadiusMetres, MaterialId, body, inventory),
         };
 
+        // The same cooldown for both shapes, exactly as mining does it. Letting precision fire
+        // faster would make it the efficient way to build as well as the accurate one, and the
+        // brushes would stop being the default in practice while still being it in the code.
         _cooldown = CooldownSeconds;
         Placements++;
+
+        if (precise)
+        {
+            PrecisePlacements++;
+        }
         VoxelsPlaced += result.Placed;
         VoxelsOccupied += result.Occupied;
         VoxelsInsidePlayer += result.InsidePlayer;

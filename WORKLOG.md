@@ -1,5 +1,62 @@
 # MinerCraft — Worklog
 
+## 2026-08-31 — M6d-1: one voxel at a time, and one key that means precision
+
+`Place.Voxel` is the mirror of `Carve.Voxel`, and **Alt is now the precision modifier for both
+verbs**: Alt+left takes one voxel, Alt+right places one. Suite **724 → 727**.
+
+### Why this is M6d's first part rather than its last
+
+M6d's own play item asks *"whether four shapes are the right four"*, and M6c's play answered it
+early: cube stairs cannot be walked up — a riser is a metre against M4b's half-metre step —
+and the ramp brush buys exactly one metre of rise, so a flight of stairs means aiming at the top
+face of the last ramp, a metre at a time. **Judging feel on a verb that is knowingly incomplete
+spends the play re-discovering something already written down.** So the fifth shape came first,
+and the measurement and the play now happen once, over a finished tool.
+
+### The key swap closes a note recorded at M3d
+
+Ctrl+left has been precision mining since M3c, and TODO has said since M3d that **Alt is the
+better key** — Ctrl is also FlyCam's descend, so precision mining while flying sank the builder
+about 1.8 m between chips, and Alt is *crawl* in fly mode, so "slow down to do fine work" pairs
+with the modifier rather than fighting it. It was left *"pending a play-test"* for two
+milestones. **M6c's play was that play-test, arriving from the other verb**, and the swap now buys
+a third thing neither note anticipated: one modifier meaning precision across mining *and*
+building, learned once rather than per verb.
+
+### The number, and it is the opposite way round
+
+```
+--place         place ms  mean 0.040  max 0.177     23 voxels placed per click
+--preciseplace  place ms  mean 0.077  max 1.101      1 voxel  placed per click
+```
+
+**Precision costs about twice as much per click while doing a sixty-fourth of the writes.** So it
+is inefficient in a second way beyond the click count, which strengthens rather than weakens
+M3c's argument for keeping the brushes as the default: a wall built voxel by voxel is 64× the
+clicks *and* each click is dearer.
+
+**The cause is inferred and not measured**, which is M6d-2's to settle: the per-placement cost is
+presumably dominated by the raycast and by the edit's clone-and-relight marking rather than by the
+writes, so one voxel dropped into fresh air pays a full chunk clone for a single change while
+sixty-four in one cell amortise it. Written down as a hypothesis with the number beside it.
+
+### The wire, tested rather than assumed
+
+Every layer of precision placement has a Core test and **the join between the held key and
+`Place.Voxel` has none** — which is exactly M5c-2's shape of hole, where replacing a gather with
+`null` left 556 tests green. So `--preciseplace` exists: it drives the modifier headlessly, and
+the run above reports *1 placed / 0 occupied* per click against the brush arm's *23 / 41*. The
+report also names the shape actually used rather than the brush selected, because a precise run
+under a label reading "cube brush" is M3d's chips-sharing-the-swing-line trap repeated.
+
+### And the outline follows the key
+
+`VoxelHighlight` takes its size per show rather than per instance, so the placement outline is one
+metre normally and one voxel while Alt is held — one outline changing scale rather than a third
+RenderingServer instance. Without it the player cannot see what precision would do until after
+they have done it.
+
 ## 2026-08-31 — A saved flying player came back at the origin, underground
 
 Reported as *"after I hit the b key it went into fly no clipping mode"*, and B was not it — B

@@ -187,8 +187,28 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2, all of M3, all of M4, all of M5, M6a, all of M6b and all of M6c** are
-built — **724 tests passing**. M6c's play-test is Matthew's and is the only thing left in it. **M6 is planned (2026-08-31) and under way: SQLite save/load, brush placement,
+M0, all of M1, **all of M2, all of M3, all of M4, all of M5, M6a, all of M6b, all of M6c and
+M6d-1** are done — **727 tests passing**. **M6d is split three ways; M6d-2 is the measurement
+half and is next.**
+
+**M6d-1 — precision placement and the modifier keys: done 2026-08-31.** `Place.Voxel` mirrors
+`Carve.Voxel`, and **Alt is the precision modifier for both verbs** — Alt+left takes one voxel,
+Alt+right places one. Suite 724 → 727. Four things worth keeping:
+
+- **It went first rather than last, because M6c's play answered M6d's own question early.** That
+  play item asks *"whether four shapes are the right four"*, and cube stairs cannot be walked up:
+  a riser is a metre against M4b's half-metre step. Judging feel on a knowingly incomplete verb
+  spends the play re-finding something already written down.
+- **The key swap closes a note recorded at M3d and left pending for two milestones.** Ctrl is also
+  FlyCam's descend, so precision mining while flying sank the builder ~1.8 m between chips; Alt is
+  *crawl* in fly mode, so "slow down to do fine work" pairs rather than fights. The third thing
+  neither note anticipated: **one modifier meaning precision across both verbs.**
+- **Precision costs about twice as much per click while doing a sixty-fourth of the writes** —
+  0.077 ms mean against the brush's 0.040. Inefficient in a second way beyond the click count,
+  which strengthens M3c's argument for the brushes staying the default. **The cause is inferred
+  and is M6d-2's to settle.**
+- **`--preciseplace` exists to test the wire.** Every layer had a Core test and the join between
+  the held key and `Place.Voxel` had none, which is M5c-2's hole exactly. **M6 is planned (2026-08-31) and under way: SQLite save/load, brush placement,
 volumetric inventory — v0.1 playable sandbox**, and it is what fixes the one thing play kept
 running into, that an edited chunk which unloads loses its edits. See
 [docs/M6-PLAN.md](docs/M6-PLAN.md), split M6a–M6d. **The game saves as of M6b-3 (2026-08-31),

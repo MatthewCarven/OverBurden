@@ -2499,7 +2499,56 @@ predicted in its own remarks. M6c-3 is the binding and the play.
             direction if precision becomes the default. Precision is the exception and the
             exception is worth a held key.
 
-#### M6d — Selection, feel and measurement
+#### M6d — Selection, feel and measurement ← **split three ways 2026-08-31, before any code**
+
+**Split on M6b's and M6c's grounds, and the order is not the plan's.** The plan says
+measure first; the play-test of M6c changed that, because it found the brush set missing
+its precision shape and **M6d's own play item asks "whether four shapes are the right
+four"**. Judging feel on a verb that is knowingly incomplete spends the play
+re-discovering something already written down. So: build the fifth shape, then measure
+everything once, then play once.
+
+##### M6d-1 — Precision placement, and the modifier keys ✅ **done 2026-08-31, 727 tests passing**
+
+- [x] **`Place.Voxel`, the mirror of `Carve.Voxel`.** `Put` already holds the gate, the
+      buckets and the inventory debit, so this is a shape and a call site rather than a
+      mechanism. It takes `VoxelHit.Previous` — the empty voxel before the surface — for
+      the reason `Carve.Chip` takes `hit.Voxel`: the outline then *is* the thing about to
+      change, rather than the centre of something extending past it.
+- [x] **The precision modifier moves from Ctrl to Alt, for both verbs.** Three things fall
+      out at once and they have been recorded separately since M3d:
+      - [x] **It closes the known Ctrl clash.** Ctrl is also FlyCam's descend, so precision
+            mining while flying sinks the builder ~1.8 m between chips. TODO has named Alt
+            as the better key since M3d and left it *"pending a play-test"*; M6c's play is
+            that play-test, arriving from the other verb.
+      - [x] **Alt is *crawl* in fly mode**, so "slow down to do fine work" pairs rather
+            than fights — the argument that made it the better key in the first place.
+      - [x] **One modifier meaning "precision" across mining and building** is worth more
+            than either fix alone: Alt+left takes one voxel, Alt+right places one.
+- [x] **The highlight has to follow the modifier**, or the player cannot see what precision
+      would do. Holding it shows a voxel-sized box at the voxel that would be filled,
+      instead of the metre-sized cell. `VoxelHighlight` takes its size per show rather than
+      per instance, so this is one outline changing scale rather than a third RID.
+- [x] **It does not retire the brushes, and M3c's argument transfers exactly.** A voxel is
+      1/64th of a cube, so a wall built voxel by voxel is 64× the clicks, and DESIGN's
+      *"fine detail comes from carving, not from placing"* becomes false in the other
+      direction if precision becomes the default. Precision is the exception and the
+      exception is worth a held key.
+- [x] **Measured, and it is the opposite way round: precision costs about twice as much per click
+      while doing a sixty-fourth of the writes.** `--place` is 0.040 ms mean and places 23 voxels a
+      click; `--preciseplace` is 0.077 ms mean and places 1. So precision is inefficient in a
+      *second* way beyond the click count, which strengthens the argument for keeping the brushes
+      as the default. **The cause is inferred and not measured** — presumably the raycast and the
+      edit's clone-and-relight marking dominating, so one voxel in fresh air pays a whole chunk
+      clone while sixty-four in a cell amortise it. **M6d-2's to settle.**
+- [x] **`--preciseplace` exists to test the wire, not to be a feature.** Every layer of precision
+      placement has a Core test and the join between the held key and `Place.Voxel` had none,
+      which is M5c-2's shape of hole exactly. The report names the shape actually used rather than
+      the brush selected, because a precise run labelled "cube brush" is M3d's
+      chips-sharing-the-swing-line trap repeated.
+
+##### M6d-2 — Measurement
+
 
 - [ ] **Measure first: time to enter a heavily-dug world against generating the same box.** The
       prediction is that loading can be *slower*, which is the surprising direction.
@@ -2508,6 +2557,8 @@ predicted in its own remarks. M6c-3 is the binding and the play.
       placement cost per brush against a swing's measured 0.083–0.139 ms.
 - [ ] **Use `update ms`, not `frame ms`.** The headless frame-time trap has appeared four times
       across M2d, M3d and M4d and been believed at least once each.
+##### M6d-3 — The play, and the first real UI
+
 - [ ] **Play: dig a tunnel, fly away until it unloads, come back.** The milestone's whole reason
       for existing, the thing M5d-2's play kept running into, and a yes/no no test produces.
 - [ ] **Play: quit and reopen.** Same tunnel, same inventory, same place.

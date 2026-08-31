@@ -368,6 +368,76 @@ public class PlaceTests
         Assert.Equal(expected, Place.FacingFrom(new Vector3(dx, -0.9f, dz)));
     }
 
+    // --------------------------------------------------------------- one voxel at a time
+
+    [Fact]
+    public void APreciseePlacementFillsTheVoxelBeforeTheSurfaceAndNothingElse()
+    {
+        // The mirror of Carve.Chip, and the same reason for taking hit.Previous rather than a
+        // shape centred on it: the outline the player is looking at *is* the thing about to
+        // change, which is the whole of why precision reads as precise.
+        TestWorld world = new() { Background = v => v.Y <= 3 ? Stone : Air };
+        var surface = new VoxelPos(4, 3, 4);
+        var above = surface.Offset(0, 1, 0);
+        var hit = new VoxelHit(surface, above, (0, 1, 0), 2.0f);
+
+        Assert.Equal(above, Place.TargetVoxel(hit));
+
+        PlaceResult result = Accounted(
+            Place.Voxel(world, Table, Place.TargetVoxel(hit), Dirt));
+
+        Assert.Equal(1, result.Candidates);
+        Assert.Equal(1, result.Placed);
+        Assert.Equal([above], world.WrittenVoxels);
+    }
+
+    [Fact]
+    public void OneVoxelIsSixtyFourTimesLessThanACubeAndThatIsThePoint()
+    {
+        // Stated as a test because it is the argument for keeping the brushes rather than a
+        // remark: a wall built voxel by voxel is 64x the clicks, so precision has to stay the
+        // exception. M3c made the same argument for mining and it transfers without a change.
+        TestWorld world = new();
+        var cell = new BrushCell(0, 0, 0);
+
+        PlaceResult cube = Accounted(Place.Cube(world, Table, cell, Stone));
+
+        TestWorld other = new();
+        PlaceResult one = Accounted(Place.Voxel(other, Table, cell.VoxelAt(0, 0, 0), Stone));
+
+        Assert.Equal(64, cube.Placed);
+        Assert.Equal(1, one.Placed);
+    }
+
+    [Fact]
+    public void ThePreciseShapeSharesEveryRuleWithTheBrushes()
+    {
+        // One gate, not two. M3c measured what this is worth on the mining side: removing the
+        // hardness check from Carve.Take failed nine tests across both shapes, which a forked copy
+        // in each shape would not have done.
+        TestWorld world = new() { Background = _ => Stone };
+        var voxel = new VoxelPos(4, 4, 4);
+
+        // Only air is replaceable.
+        Assert.Equal(1, Accounted(Place.Voxel(world, Table, voxel, Dirt)).Occupied);
+
+        // Air is refused as a material, and so is one the table does not have.
+        TestWorld empty = new();
+        Assert.Throws<ArgumentOutOfRangeException>(() => Place.Voxel(empty, Table, voxel, Air));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Place.Voxel(empty, Table, voxel, Table.Count));
+
+        // The body is refused, and the inventory is charged.
+        Aabb body = Aabb.FromFeet(new Vector3(1.125f, 1.0f, 1.125f), 0.5f, 1.8f);
+        (VoxelPos min, _) = body.VoxelBounds;
+        Assert.Equal(1, Accounted(Place.Voxel(empty, Table, min, Stone, body)).InsidePlayer);
+
+        var inventory = new MinerCraft.Core.Inventory.VolumetricInventory();
+        inventory.Add(Stone, 1);
+        Assert.Equal(1, Accounted(Place.Voxel(empty, Table, voxel, Stone, null, inventory)).Placed);
+        Assert.Equal(0, inventory.Voxels(Stone));
+        Assert.Equal(1, Accounted(Place.Voxel(empty, Table, voxel.Offset(1, 0, 0), Stone, null, inventory)).OutOfStock);
+    }
+
     // ------------------------------------------------------------------------ does it walk?
 
     [Fact]

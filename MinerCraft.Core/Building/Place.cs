@@ -136,6 +136,58 @@ public static class Place
             ? direction.X >= 0.0f ? BrushFacing.PositiveX : BrushFacing.NegativeX
             : direction.Z >= 0.0f ? BrushFacing.PositiveZ : BrushFacing.NegativeZ;
 
+    /// <summary>
+    /// Fills <b>exactly the one voxel</b> a placement would land in, and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The precision counterpart to the brushes, and the mirror of <c>Carve.Voxel</c> — the same
+    /// pairing mining has had since M3c, arriving for building a milestone later because M6c's
+    /// play found the brush set the wrong granularity for a staircase. A cube riser is a metre and
+    /// M4b's step height is half of one, so cube stairs cannot be walked up by arithmetic; the
+    /// ramp brush buys exactly one metre of rise and stacking it means aiming at the top face of
+    /// the last one, a metre at a time.
+    /// </para>
+    /// <para>
+    /// <b>Deliberately not the default</b>, and M3c's argument transfers without changing a word.
+    /// A voxel is 1/64th of a cube, so a wall built this way is sixty-four times the clicks, and
+    /// DESIGN's <i>"fine detail comes from carving, not from placing"</i> would become false in
+    /// the other direction if precision became the ordinary way to build. Precision is the
+    /// exception, and the exception is worth a held key.
+    /// </para>
+    /// <para>
+    /// <b>Same gate, same buckets.</b> It shares <see cref="Put"/> with every brush rather than
+    /// restating the rules, so only-air-is-replaceable, the body refusal and the inventory debit
+    /// are one definition — the argument M3c measured for <c>Carve.Take</c>, where removing the
+    /// hardness check failed nine tests across both shapes because there was only one copy of it.
+    /// </para>
+    /// </remarks>
+    public static PlaceResult Voxel(
+        IVoxelEditor world,
+        MaterialTable materials,
+        VoxelPos voxel,
+        int materialId,
+        Aabb? body = null,
+        VolumetricInventory? from = null)
+    {
+        (VoxelPos Min, VoxelPos Max)? bodyVoxels = Validate(world, materials, materialId, body);
+
+        var tally = default(Tally);
+        tally.Candidate();
+        tally.Add(Put(world, voxel, materialId, bodyVoxels, from));
+
+        return tally.ToResult();
+    }
+
+    /// <summary>Which voxel a precise placement fills: <b>the empty one before the surface</b>.</summary>
+    /// <remarks>
+    /// <see cref="VoxelHit.Previous"/>, for the reason <c>Carve.Chip</c> takes
+    /// <see cref="VoxelHit.Voxel"/>: the outline the player is looking at then <em>is</em> the
+    /// thing about to change, rather than the centre of something that extends past it. That is
+    /// the whole of why precision reads as precise.
+    /// </remarks>
+    public static VoxelPos TargetVoxel(in VoxelHit hit) => hit.Previous;
+
     /// <summary>Fills a whole cell — 4×4×4 voxels, one cubic metre.</summary>
     public static PlaceResult Cube(
         IVoxelEditor world,

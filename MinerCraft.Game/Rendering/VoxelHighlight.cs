@@ -36,9 +36,9 @@ public sealed class VoxelHighlight : IDisposable
 
     private readonly ArrayMesh _mesh;
     private readonly StandardMaterial3D _material;
-    private readonly float _sizeMetres;
+    private readonly float _defaultSizeMetres;
     private Rid _instance;
-    private Vector3? _shown;
+    private (Vector3 Corner, float Size)? _shown;
 
     /// <summary>The 0.25 m outline around the voxel a swing would take.</summary>
     public VoxelHighlight(World3D world)
@@ -57,7 +57,7 @@ public sealed class VoxelHighlight : IDisposable
     /// </remarks>
     public VoxelHighlight(World3D world, float sizeMetres, Color colour)
     {
-        _sizeMetres = sizeMetres;
+        _defaultSizeMetres = sizeMetres;
 
         _material = new StandardMaterial3D
         {
@@ -81,27 +81,38 @@ public sealed class VoxelHighlight : IDisposable
     }
 
     /// <summary>The minimum corner currently outlined, or null when nothing is targeted.</summary>
-    public Vector3? Target => _shown;
+    public Vector3? Target => _shown?.Corner;
 
-    /// <summary>Outlines one voxel. Only meaningful on a voxel-sized highlight.</summary>
+    /// <summary>Outlines one voxel.</summary>
     public void ShowAt(VoxelPos voxel)
     {
         (float x, float y, float z) = voxel.MinCornerMetres;
-        ShowAt(new Vector3(x, y, z));
+        ShowAt(new Vector3(x, y, z), VoxelConstants.VoxelSize);
     }
 
-    /// <summary>Outlines the box of this highlight's size with its minimum corner here.</summary>
-    public void ShowAt(Vector3 minCornerMetres)
+    /// <summary>Outlines a box of this highlight's default size with its minimum corner here.</summary>
+    public void ShowAt(Vector3 minCornerMetres) => ShowAt(minCornerMetres, _defaultSizeMetres);
+
+    /// <summary>
+    /// Outlines a box of <paramref name="sizeMetres"/> with its minimum corner here.
+    /// </summary>
+    /// <remarks>
+    /// <b>The size is per show rather than per instance</b>, because the placement outline changes
+    /// size with a held key: precision fills one voxel and a brush fills a metre, and the player
+    /// has to be able to see which before committing. One outline changing scale beats a second
+    /// RenderingServer instance to switch between — see the class remarks about RID churn.
+    /// </remarks>
+    public void ShowAt(Vector3 minCornerMetres, float sizeMetres)
     {
-        if (_shown == minCornerMetres)
+        if (_shown == (minCornerMetres, sizeMetres))
         {
             return;
         }
 
-        _shown = minCornerMetres;
+        _shown = (minCornerMetres, sizeMetres);
 
-        float size = _sizeMetres * Inflation;
-        float offset = (size - _sizeMetres) * 0.5f;
+        float size = sizeMetres * Inflation;
+        float offset = (size - sizeMetres) * 0.5f;
 
         RenderingServer.InstanceSetTransform(
             _instance,

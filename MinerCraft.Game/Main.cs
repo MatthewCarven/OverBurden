@@ -63,6 +63,7 @@ public partial class Main : Node3D
     private VoxelHighlight? _cellHighlight;
     private readonly VolumetricInventory _inventory = new();
     private bool _placeWhileProfiling;
+    private bool _precisePlaceWhileProfiling;
     private long _startingStock;
     private BrushShape _startingBrush = BrushShape.Cube;
 
@@ -531,6 +532,16 @@ public partial class Main : Node3D
                 // measurement.
                 case "place":
                     _placeWhileProfiling = true;
+                    break;
+
+                // The precise arm of --place, and the only way to exercise the modifier without a
+                // keyboard. **The wire is what this is for**: every layer of precision placement
+                // has a test and the join between the held key and Place.Voxel has none, which is
+                // exactly the shape of hole M5c-2 found by replacing a gather with null and
+                // watching 556 tests stay green.
+                case "preciseplace":
+                    _placeWhileProfiling = true;
+                    _precisePlaceWhileProfiling = true;
                     break;
 
                 // Seeds the inventory, because --place has nothing to place otherwise and mining
@@ -1217,12 +1228,22 @@ public partial class Main : Node3D
         Vector3 forward = -_camera.GlobalTransform.Basis.Z;
         bool placing = _camera.MouseCaptured && Input.IsMouseButtonPressed(MouseButton.Right);
 
+        // The same modifier as mining, deliberately: Alt+left takes one voxel and Alt+right
+        // places one, so "precision" is a thing the player learns once rather than per verb.
+        bool precise = placing && Input.IsKeyPressed(Key.Alt);
+
         if (_placeWhileProfiling)
         {
             // Along the look direction rather than straight down, which is what --mine does. A
             // brush aimed at the ground under the camera lands in the cell the player is standing
             // in, where the body refusal eats most of it — so the run would measure the refusal.
             placing = true;
+
+            // Brushes unless the precise arm was asked for, and stated rather than left to fall
+            // out of "no key is held" — the same argument --mine makes. A voxel is 1/64th of a
+            // cube, so a profile that quietly went precise would report a number 64 times cheaper
+            // under the same label, which is why the report names the arm as well.
+            precise = _precisePlaceWhileProfiling;
         }
 
         // Null while flying: the body is inert in fly mode and sits wherever the last F left it,
@@ -1237,7 +1258,8 @@ public partial class Main : Node3D
             new System.Numerics.Vector3(origin.X, origin.Y, origin.Z),
             new System.Numerics.Vector3(forward.X, forward.Y, forward.Z),
             body,
-            placing);
+            placing,
+            precise);
 
         if (placed && _profiler is { Warm: true })
         {
@@ -1258,15 +1280,23 @@ public partial class Main : Node3D
 
         if (_cellHighlight is null) return;
 
-        if (_place.HasTarget)
-        {
-            (float x, float y, float z) = _place.TargetCell.OriginVoxel.MinCornerMetres;
-            _cellHighlight.ShowAt(new Vector3(x, y, z));
-        }
-        else
+        if (!_place.HasTarget)
         {
             _cellHighlight.Hide();
+            return;
         }
+
+        // The outline follows the modifier, or the player cannot see what precision would do
+        // until after they have done it. One voxel while Alt is held, one metre otherwise.
+        bool preciseNow = precise || (_camera.MouseCaptured && Input.IsKeyPressed(Key.Alt));
+
+        (float x, float y, float z) = preciseNow
+            ? _place.TargetVoxel.MinCornerMetres
+            : _place.TargetCell.OriginVoxel.MinCornerMetres;
+
+        _cellHighlight.ShowAt(
+            new Vector3(x, y, z),
+            preciseNow ? VoxelConstants.VoxelSize : BrushCell.SizeMetres);
     }
 
     private bool _announcedEmpty;
@@ -1284,15 +1314,16 @@ public partial class Main : Node3D
         Vector3 forward = -_camera.GlobalTransform.Basis.Z;
         bool mining = _camera.MouseCaptured && Input.IsMouseButtonPressed(MouseButton.Left);
 
-        // Ctrl takes exactly the highlighted voxel instead of the tool's sphere. A held
-        // modifier rather than a toggle, because it is the exception and not the mode: the
-        // sphere is what mining *is* here, and precision is for the person who has stopped
-        // excavating and started building.
+        // Alt takes exactly the highlighted voxel instead of the tool's sphere, and holds the
+        // same meaning for the other button: **one modifier means precision across both verbs.**
+        // A held modifier rather than a toggle, because it is the exception and not the mode.
         //
-        // Ctrl is free in walk mode. In fly mode it is also FlyCam's descend, so precision
-        // mining while flying sinks — see the M4d note in TODO.md; swapping to Alt is one line
-        // if that reads badly.
-        bool precise = mining && Input.IsKeyPressed(Key.Ctrl);
+        // **Moved off Ctrl at M6d-1, closing a note recorded at M3d.** Ctrl is free in walk mode
+        // but is also FlyCam's descend, so precision mining while flying sank the builder about
+        // 1.8 m between chips. Alt is free in walk and is *crawl* in fly, so "slow down to do
+        // fine work" pairs with the modifier rather than fighting it — which is the argument
+        // that named Alt as the better key a milestone before anything needed it.
+        bool precise = mining && Input.IsKeyPressed(Key.Alt);
 
         if (_mineWhileProfiling)
         {
@@ -1564,15 +1595,25 @@ public partial class Main : Node3D
 
         double placements = _place.Placements;
 
+        // Named for the shape actually used rather than for the brush selected, because a run
+        // that went precise did 1/64th the work under a label that says "cube" — the same trap
+        // M3d records for chips sharing the swing line.
+        string shape = _place.PrecisePlacements == _place.Placements
+            ? "one voxel at a time"
+            : $"the {_place.Brush.ToString().ToLowerInvariant()} brush";
+
         return
             $"{_profiler!.Place.Line("place ms")}   (raycast + brush, sim thread)\n" +
-            $"building  {_place.Placements} placement(s) with the " +
-            $"{_place.Brush.ToString().ToLowerInvariant()} brush, " +
+            $"building  {_place.Placements} placement(s) with {shape}, " +
             $"{_place.VoxelsPlaced / placements:F0} placed / " +
             $"{_place.VoxelsOccupied / placements:F0} occupied / " +
             $"{_place.VoxelsInsidePlayer / placements:F0} inside the player / " +
             $"{_place.VoxelsOutOfStock / placements:F0} unaffordable per placement\n" +
             $"carrying  {_inventory.TotalLitres:F0} L across {_inventory.MaterialCount} material(s)\n" +
+            (_place.PrecisePlacements > 0
+                ? $"precise   {_place.PrecisePlacements} of {_place.Placements} placement(s) were "
+                  + "one voxel — NOT comparable with a brush baseline\n"
+                : string.Empty) +
             $"clipped   {_place.ClippedPlacements} placement(s) reached past the loaded world\n";
     }
 
