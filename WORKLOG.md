@@ -1,5 +1,216 @@
 # MinerCraft — Worklog
 
+## 2026-08-31 — M6 planned: the milestone where unloading becomes a write
+
+[docs/M6-PLAN.md](docs/M6-PLAN.md), split M6a–M6d. No code. **559 tests, unchanged.**
+
+### The structural point, and it is not "saving is hard"
+
+Every chunk in this world has been recoverable from nothing. Worldgen is a pure function of seed
+and position, light is derived in microseconds, a mesh is thrown away as a matter of routine. That
+is why `ChunkStreamer.Forget` can delete a chunk record inside a tight sweep over a thousand-chunk
+shell and nothing anywhere has to think about it.
+
+**M6 is the first milestone that creates state whose only copy is on disk, and the consequence is
+that `Forget` becomes a write** — on the sim thread, inside `ChunkBox.ForEachDifference`, which at
+r16 hands it a 37×37 shell in a single frame. That inverts the failure model the project has been
+built under. A meshing bug shows on screen; a physics bug is felt within a second; a persistence
+bug destroys work that cannot be recreated, surfaces a session later, and by then the evidence is
+gone. **This is the first milestone where the tests are the only thing between a defect and
+permanent data loss**, and the split is organised around that rather than around the feature list.
+
+The second change is smaller and sharper: **a chunk gains a third possible source of voxels.** It
+was memory falling back to the seed; it becomes memory, then disk, then the seed — and the only
+failure that matters is consulting them in the wrong order, because regenerating a chunk that had
+a blob is a silent, total loss of everything in it.
+
+### Three decisions settled before any code
+
+**SQLite goes in a new `MinerCraft.Persistence` assembly, not in Core.** Core has **no NuGet
+dependency at all** after five milestones. That is not an accident of scope — it is what makes
+non-negotiable 1's multiplayer seam more than a slogan, because a dedicated server is `dotnet run`
+against Core and nothing else. `Microsoft.Data.Sqlite` would be its first and carries native
+binaries that have to survive a Godot export with `EnableDynamicLoading`. So `IChunkStore` lives in
+Core with an in-memory implementation, which is **M1's `IContentSource` / `DirectoryContentSource`
+/ `InMemoryContentSource` shape exactly**, built then for the same reason and in the same words.
+`ChunkPipeline` takes an `IChunkStore?` and null means no persistence, so **all 559 existing tests
+keep passing unedited** — a test suite edited in the same pass as the feature it guards has stopped
+guarding it. No ADR: DESIGN already locks SQLite over region files, so this is where it lands, not
+whether. Had the recommendation been to put the package *in* Core, that would have earned one.
+
+**Saving is a job on the serial lane, and the argument that put light on the sim thread does not
+transfer.** M2a built that lane for exactly this and said so; the flag has been `false` at every
+submission site since. Light went to the sim thread because a BFS whose frontier crosses chunks has
+no per-chunk window that is correct. A chunk blob is a pure function of one chunk, which is
+`MeshChunkJob`'s shape precisely, and `fsync` on the sim thread is the textbook frame hitch. **The
+argument was made fresh rather than inherited, and it came out the other way, which is the point of
+making it fresh.**
+
+**The ID table lives in the same database as the chunks, in the same transaction.** The obvious
+layout — a JSON world file beside a SQLite chunk DB — is the one arrangement that can
+desynchronise: a crash between the two leaves blobs full of numeric IDs whose meaning is a version
+behind. Atomicity is most of what DESIGN is paying SQLite for. M6 is also where `ExportIdTable` and
+`SeedIdTable`, built at M1 and **never called by anything**, get their first caller, and where
+**non-negotiable 2 gets its first real test in five milestones**: save with a mod installed, remove
+it, reopen, and the blocks must be placeholders retaining their identifiers rather than
+reinterpreted as whatever now holds those numbers.
+
+### Two exceptions to pipeline-wide rules, and both lose data if missed
+
+Every race in M6b already has a documented answer in `ChunkPipeline`, written for meshes. That is
+the good news and the trap together: each one has to be transferred across deliberately, and where
+a mesh race leaves stale geometry on screen, the same race on the save path loses a tunnel.
+
+- **`OnChunkUnviewed` must not cancel a save, and `Dispose` must not drop one.** Every other job in
+  this engine is cancelled the instant nobody wants its chunk, and that is right for work whose only
+  product is rebuildable. A cancelled save is a deleted tunnel. `JobResult`'s contract says *"a job
+  still queued at shutdown reports Dropped"*, so **quitting the game with saves queued loses them.**
+  This is the single most likely way to ship a data-loss bug in M6 and it is one line of `Dispose`.
+- **A save job must set `VoxelsSharedWithJob`**, as `Neighbourhood()` does for all 27 of a mesh
+  job's — not because a chunk being unloaded is normally written to, but because it can be
+  **revived and then mined while the serialiser is mid-copy**, and M3a records that this is not a
+  stale voxel but `VoxelChunk.Set` swapping the backing arrays under a reader.
+
+**And `DirtySinceSave` is the `NeedsRemesh` problem a third time.** `HasEdits` keeps meaning
+"differs from the seed" and is never cleared; the new flag means "differs from what is on disk",
+clears **at submission** because `SetVoxel` will set it again if an edit lands during the job, and
+must be **restored by `StepBack`** if the job drops or faults. Conflating them loses exactly the
+last edits before an unload — the most recent work, and only sometimes.
+
+### The half the plan is most likely to have got wrong, named for that reason
+
+Every milestone here has costed one half and been silent about the other. M5-PLAN costed
+propagation well (585k visits measured against 779k predicted) and said nothing at all about the
+derive, which turned out to be the binding constraint. The candidate for M6 is **the read side**,
+because "persistence" reads as "saving" and that is where attention goes.
+
+Generation fills r4h/2v in **~89 ms of wall clock** — 1,521 chunks × 0.47 ms measured, across eight
+workers. Loads replace generates one for one, but the serial lane runs them **one at a time**:
+
+| per-load cost | loads before the serial lane exceeds the generate path it replaced |
+|---|---|
+| 0.1 ms | ~890 of 1,521 |
+| 0.3 ms | ~300 of 1,521 |
+
+**So a world the player has dug into heavily can be slower to enter than one generated from
+scratch**, and the crossover is well inside what a real base would produce. Batched loads — one
+job, one query, many chunks, since SQLite's per-statement overhead dominates a 16 KB blob read —
+are the named lever and are deliberately not built. The other lever, parallel reads under WAL, is
+the *worse* one: it contends for the eight workers generation already saturates and reopens a
+decision M2a made with its reasons written down.
+
+The save side, by contrast, is arithmetic that says stop worrying: a 4-bit palettised chunk is
+16,384 B plus palette, deflate on voxel data is an estimated 10–50×, so ~1 KB a chunk and a few
+hundred KB a session. **Doing that arithmetic before building anything is what moved the nerves to
+the read side.**
+
+### Two things found by reading the code that the handover did not have
+
+**`VoxelChunk.Compact()` has existed since M1 with the comment "this runs on serialisation" and has
+never had a caller.** That sentence is a **prediction, not a decision**, and M6 is where it either
+becomes true or gets retired. It costs a full 32,768-voxel scan through `GetAt` plus a repack
+(~0.13 ms a chunk, estimated) and buys a 2× blob saving in the realistic worst case — which deflate
+mostly eats anyway. Measure it at M6a and either keep it or correct the comment; same family as
+M4a's zeroable contact epsilon, a claim that was never wrong, never checked, and one line from
+going stale.
+
+**The column restore cannot go where the column is created.** `RetainColumn` runs inside `View`
+inside `ForEachDifference`. A one-chunk horizontal step at r16 creates ~37 new columns; at an
+estimated 20 µs per 2 KB read that is ~0.74 ms of I/O in a single frame, unamortised, against a
+main-thread streaming budget M2d measured plateauing near 3% of a core. That is a spike, not a
+cost. Recommended instead: seed analytically as now, queue a restore, and call
+`QueueColumnLightBuild` when it lands — machinery M5c-1 built for exactly *"this column's sky
+heights moved"*. The price is a one-or-two-frame window where a reloaded shaft is lit wrong.
+
+### One correction to the handover, and it matters for what gets checked
+
+The handover said *"M5c-1's recorded revisit trigger fires in M6, not later"* — the trigger being
+*"when `ApplyFeatures` starts placing anything it must route through the relight path the way
+`SetVoxel` does."* **It does not fire.** `ApplyFeatures` still places nothing, and brush placement
+is a different route entirely.
+
+The *risk* is the same one and is worth stating in full, which is what the plan does: a 1 m cube
+brush is 4×4×4 = 64 voxels, and writing them straight into `chunk.Voxels` is faster, obvious, and
+skips **four** things at once, all silently — the sky-column update, the light rebuild queue, the
+eight-chunk border dirty rule, and `HasEdits`, which at M6 means the placement is never saved. So
+`Place.*` calls `IVoxelEditor.SetVoxel` per voxel exactly as `Carve` does. But the distinction is
+worth keeping: **a warning about which code path runs is not a warning about which property is
+checked**, which is the lesson M5c-1 recorded about its own shaft test.
+
+`SetVoxel`'s "material is already there" early-out finally earns its keep, exactly as its own
+comment predicted: *"M6's placement is exactly the shape of caller that rewrites what is already
+there."*
+
+### Three placement decisions, recommended rather than settled
+
+- **Brushes are staircases, not slopes.** M4d's deliberately-not list rules out non-cube collision
+  shapes as *"a voxel is one material or another" violations wearing different hats*, so a "ramp
+  brush" can only mean an **arrangement of 0.25 m cubes inside a 1 m cell** — a four-step
+  staircase. That is M3c's *"sub-voxel means the voxel is small, not that it is partly full"*
+  restated for the placement half, and it lands well: 0.25 m is comfortably inside M4b's 0.5 m step
+  height, so a placed ramp is walkable by physics that already exists, with no new collision shape
+  and no new anything. **A ramp's orientation is the first brush parameter that is not a scalar,
+  and the first thing in this game with a rotation at all.**
+- **Snap brushes to the world 1 m lattice.** Not because the cube wants it but because **the slab
+  and the ramp only make sense on a lattice** — a ramp that is not grid-aligned cannot be tiled
+  into stairs. The lattice is what makes the brush *set* coherent, and DESIGN's *"fine detail comes
+  from carving, not from placing"* is the argument. Goes in Core on M3d's grounds, as the
+  counterpart to `Carve.SwingCentre`. Revisit trigger: M6d plays it and it reads as unresponsive.
+- **Material inside the player: refuse the overlapping voxels and place the rest.** Least
+  surprising, and pillar-jumping still works because mid-jump the cell below is not overlapping.
+  **It does not retire `PlayerSpawn.TryUnstick`** — M9's collapse puts material inside the player by
+  accident and has no alternative — it stops placement being a second, *deliberate* caller of a rule
+  whose only honest home is "something went wrong". `PlaceResult` takes `CarveResult`'s four-bucket
+  `IsAccounted` shape for the reason that struct records: a `continue` added later and counted
+  nowhere.
+
+### Inventory, with its cost stated
+
+**Unbounded at M6.** Bounding it now — no containers, no conveyors, no crafting — means the player
+fills up and stops, a constraint with nothing on the other side of it. **The honest cost is that M6
+then cannot answer whether volume is a real constraint**, so DESIGN's *"volumetric inventory makes
+big excavations meaningfully productive"* stays argued rather than played. Revisit trigger: M10's
+containers or M11's crafting, whichever gives capacity somewhere to go.
+
+The arithmetic is pleasant enough to record: a 0.25 m voxel is **15.625 litres**, and a 1 m brush
+cube is 64 voxels = **1,000 litres = 1 m³**. That round number is most of why the unit is worth
+having. `CarveResult.Removed` is already documented as the number to convert.
+
+### Order, and why persistence goes first
+
+**M6a → M6b → M6c → M6d**, with persistence before placement despite placement being the more
+enjoyable half and independent of it. The reason is the milestone's own headline: **play currently
+loses its results, so every hour of play before persistence lands is an hour thrown away —
+including the play that would judge placement.** Placement built second is placement built on a
+world that keeps it, and M6c's "go and build a room" test is only meaningful once the room survives
+being flown away from.
+
+M6a before M6b for the reason M5b came before M5c: a pure function with a sharp oracle and no
+threads, fuzzable in milliseconds, so a bug found in M6b is unambiguously an integration bug. It is
+also the only part of M6 whose decisions cannot be cheaply undone — a format cannot be changed once
+anybody has a saved world, and the person who will have one first is Matthew, mid-milestone.
+
+### The oracle, and its limit stated rather than trusted
+
+Round-trip identity, **voxel for voxel and not representation for representation** — a compacted
+chunk may legally come back uniform, and asserting on `Kind` would fail on working code, which is
+M3b's shape of an oracle wrong in the subject's favour.
+
+**Its limit: a round trip runs the same writer and the same reader, so a symmetric bug passes.** A
+field written to the wrong offset and read from the wrong offset agrees with itself perfectly. The
+complement is a hand-constructed blob asserted byte for byte, one per storage kind — small, and the
+only thing that pins the format rather than the pair. The break-recipe battery includes **writing
+the palette as per-chunk indices rather than world IDs**, which the type system cannot prevent and
+which round-trips flawlessly within one session.
+
+### The one thing the plan deliberately did not cost, and says so
+
+**How long a human tolerates between pressing play and standing in their own base.** Every number
+above is throughput. M5c-1 found that the metric that mattered was not throughput but *time to
+first draw*, and it found it by sweeping a budget against when the world could first be seen rather
+than against how fast it worked. The equivalent sweep here has no obvious knob to turn, which is
+exactly why it is the thing to watch for.
+
 ## 2026-08-31 — M5 is done: "happy with the current state"
 
 Lighting is finished, end to end and judged by a person. **559 tests.** M5a vertex AO, M5b the

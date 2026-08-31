@@ -1864,49 +1864,234 @@ Played with the entangled miner. **"Looks good to me."**
 - [ ] Baking AO into the light grid. Different frequencies — AO is a 0.25 m effect and the grid
       is 1 m — and merging them loses exactly the detail AO exists to add.
 
-### M6 — v0.1 playable sandbox ← **next, and it needs a planning pass before any code**
+### M6 — v0.1 playable sandbox ← **next. Planned 2026-08-31, not started.**
 
-**Start here.** Every milestone from M2 on has been planned into sub-parts *before* code, and
-each time the planning pass caught something the code would have discovered expensively — M2's
-caught that a FIFO job queue cannot reprioritise, M5's settled four decisions before a line was
-written and still costed the wrong half. **Write `docs/M6-PLAN.md` first**, split M6a–M6d, on the
-model of [docs/M5-PLAN.md](docs/M5-PLAN.md).
+Planned into four parts in [docs/M6-PLAN.md](docs/M6-PLAN.md). **Read it before starting.** The
+structural point: every chunk so far has been recoverable from nothing, so `Forget` could delete
+a record inside a thousand-chunk sweep and nothing had to think about it. **M6 is the first
+milestone that creates state whose only copy is on disk, which means the unload path becomes a
+write** — and a persistence bug destroys work that cannot be recreated, usually a session later,
+by which time the evidence is gone. This is the first milestone where the tests are the only
+thing between a defect and permanent data loss.
 
-Four things that pass will need, which this session established and which are easy to miss:
+The second structural change: **a chunk gains a third possible source of voxels.** Memory, then
+disk, then the seed — and the only failure that matters is consulting them in the wrong order,
+because regenerating a chunk that had a blob is a silent, total loss of everything in it.
 
-- **M6 is what makes play stop losing work.** An edited chunk that unloads regenerates from seed,
-  so a tunnel you dug and flew away from is solid rock when you come back. That is the single
-  most-felt limitation left, it was hit repeatedly during M5d-2's play, and it is what "v0.1
-  playable sandbox" actually means here.
-- **`SkyColumn` is the one lighting structure that must persist**, and it is already below.
-  Light itself is derived — 512 bytes recomputed in microseconds — but a column's sky height is
-  edit-derived and unrecoverable from the seed once a shaft exists.
-- **M5c-1's recorded revisit trigger fires in M6, not later:** *"when `ApplyFeatures` starts
-  placing anything it must route through the relight path the way `SetVoxel` does."* Brush
-  placement is the first thing since M3 that writes voxels by a route that is not `SetVoxel`, so
-  the plan should say explicitly which write path it uses.
-- **Placement inherits M4c's unstick rule, up-only included** — recorded at M4c as the rule M6
-  would inherit. A body with its head in a ceiling goes up through it, never down.
+#### The three decisions that set the shape, all settled in the plan before code
 
-Two structural questions worth settling in the plan rather than in the code, since both are the
-shape that has bitten before:
+- [x] **The store is an interface in Core; SQLite lives in a new `MinerCraft.Persistence`
+      assembly.** Core has **no NuGet dependency at all** after five milestones, which is what
+      makes non-negotiable 1's multiplayer seam more than a slogan.
+      `Microsoft.Data.Sqlite` would be its first and carries native binaries.
+      `IChunkStore` + an in-memory implementation is the same shape as M1's `IContentSource` /
+      `DirectoryContentSource` / `InMemoryContentSource`, built then for the same stated reason.
+      **`ChunkPipeline` takes an `IChunkStore?` and null means no persistence**, so all 559
+      existing tests keep passing unedited. **No ADR** — DESIGN already locks SQLite over region
+      files; this is where it lands, not whether.
+- [x] **Saving is a job on the serial lane** — M2a built that lane for this and said so, and the
+      flag has been `false` at every submission site since. **The argument that put light on the
+      sim thread does not transfer**: a blob is a pure function of one chunk, which is
+      `MeshChunkJob`'s shape exactly, and `fsync` on the sim thread is the textbook frame hitch.
+- [x] **The ID table lives in the same database as the chunks, in the same transaction.** The
+      obvious layout — JSON world file beside a SQLite chunk DB — is the one arrangement that can
+      desynchronise, leaving blobs whose numeric IDs mean something a version out of date.
 
-- **What a save file is keyed on.** Content IDs are namespaced strings resolved through a table
-  **the world owns**; the palette goes in the world file (below). A save that stored numeric IDs
-  without its own palette would break the moment a mod load order changed, which is exactly the
-  failure non-negotiable 2 exists to prevent.
-- **Whether persistence is a job or sim-thread work.** Light chose the sim thread for a
-  well-argued reason and M5d-1 measured what that cost; SQLite writes are I/O rather than CPU, so
-  the argument does not transfer and should be made fresh rather than inherited.
+#### Two exceptions to pipeline-wide rules, and both lose data if missed
 
-- [ ] SQLite persistence, `(cx, cy, cz) → blob`, palette in the world file
-- [ ] **`SkyColumn` persists too, and it is the one lighting structure that must.** Light
-      itself is derived data — 512 bytes recomputed in microseconds — but a column's sky
-      height is edit-derived and cannot be recovered from the seed once a shaft exists. M5b
-      builds it; M6 is where it stops being lost on horizontal unload.
-- [ ] Brush placement: 1 m cube, slab, ramp, sphere
-- [ ] Volumetric inventory — litres, not block counts
-- [ ] Hotbar / material selection UI
+- [ ] **A save job must set `VoxelsSharedWithJob`**, as `Neighbourhood()` does for all 27 of a
+      mesh job's. Not because a chunk being unloaded is normally written to, but because it can
+      be **revived and then mined while the serialiser is mid-copy** — and M3a records that this
+      is not a stale voxel but `VoxelChunk.Set` swapping the backing arrays under a reader.
+- [ ] **`OnChunkUnviewed` must not cancel it and `Dispose` must not drop it.** Every other job is
+      cancelled the moment nobody wants its chunk, which is right for work we can rebuild. A
+      cancelled save is a deleted tunnel. `JobResult`'s contract says a job still queued at
+      shutdown reports Dropped, so **quitting with saves queued loses them** — the shutdown path
+      has to drain the serial lane. **The single most likely way to ship a data-loss bug in M6,
+      and it is one line of `Dispose`.**
+- [ ] **`DirtySinceSave` is a second flag, and it is the `NeedsRemesh` problem a third time.**
+      `HasEdits` keeps meaning "differs from the seed" and is never cleared; `DirtySinceSave`
+      means "differs from what is on disk", is cleared **at submission** (because `SetVoxel` will
+      set it again if an edit lands during the job), and must be **restored by `StepBack` if the
+      job drops or faults**. Conflating them loses exactly the last edits before an unload —
+      the most recent work, and only sometimes.
+
+#### M6a — The blob and the world file
+
+- [ ] `VoxelChunk` ⇄ bytes across all three storage kinds. Pure Core, no SQLite, no file.
+- [ ] **A version byte first, and an unknown version refused rather than read.** Everything else
+      in M6 is rewritable in an afternoon; a format is not, once anybody has a saved world — and
+      the person who has one first is Matthew, mid-milestone.
+- [ ] **The palette is written as world numeric IDs, not per-chunk indices.** That mistake
+      round-trips perfectly within one session and the type system cannot prevent it, so it goes
+      on the break-recipe list.
+- [ ] **Deflate, BCL only, so not a dependency.** A 4-bit palettised chunk is 16,384 B + palette;
+      direct is 64 KB and should never occur. **Estimate, labelled: 10–50× on this data, ~1 KB a
+      chunk, a few hundred KB a session** — which says the save file is not the thing to be
+      nervous about, so the nerves belong on the read side.
+- [ ] **`Compact()` gets its first caller ever, and nobody has costed it.** Its comment has said
+      *"this runs on serialisation"* since M1 with nothing calling it: a **prediction, not a
+      decision**. ~0.13 ms a chunk estimated, against a 2× blob saving that deflate mostly eats
+      anyway. **Measure it at M6a and either keep it or correct the comment** — M4a's
+      zeroable-epsilon family.
+- [ ] **`SkyColumn` ⇄ bytes, and the argument is not size.** 2,048 B a column. A column's open
+      height is the topmost opaque voxel **across all Y**, so re-deriving it needs chunks the
+      2–3 chunk vertical radius does not load — **the only derived data here that genuinely
+      cannot be re-derived**. Skipped, a reloaded shaft seeds from the *pre-dig* surface, every
+      cell fails `IsCellOpenToSky`, and the shaft is dark for a reason nothing on screen explains.
+      **Loading a chunk without its column is worse than loading neither.**
+- [ ] **A column needs its own dirty bit**, the mirror of `HasEdits`. `OnVoxelChanged` returning
+      true is the exact test — it returns true only when the height actually moved, so a column
+      dug below its top is unchanged from its analytic seed and correctly not written.
+- [ ] **The column save hook is `ReleaseColumn`, not `Forget`** — two hooks on two lifetimes,
+      because a column is refcounted on (x, z) and survives the vertical unload.
+- [ ] Refuse, don't repair: unknown version, truncated blob, **material ID past `MaterialTable`'s
+      `Count`** (M3c's recorded item, *"the fix is validating chunk contents at load: M6"*), and
+      **an ID table whose entry 0 is not `minercraft:air`** — non-negotiable 3 is a constant the
+      whole engine assumes, and a world file where it is false makes it a lie.
+- [ ] **Oracle: round-trip identity, voxel for voxel — not representation for representation.** A
+      compacted chunk may legally come back uniform, and asserting on `Kind` would fail on working
+      code (M3b's shape, an oracle wrong in the subject's favour). **Its limit: the same writer
+      and reader agree with themselves, so a symmetric offset bug passes.** The complement is a
+      hand-constructed blob asserted byte for byte, one per storage kind.
+
+#### M6b — The store, the lifetime, and the load path ← **where the surprises are**
+
+- [ ] Every race below already has a documented answer in `ChunkPipeline`, written for meshes.
+      That is the good news and the trap together: each has to be transferred across on purpose,
+      and where a mesh race leaves stale geometry the same race loses a tunnel.
+- [ ] **An in-memory index of saved chunk keys, read once at world open.** "Does this chunk have
+      a blob?" is asked on the sim thread once per chunk entering the load box — a 37×37 shell at
+      r16 — so it must be answerable without I/O. ~5 MB at 100,000 edited chunks. **Rejected:
+      asking the DB per chunk**, which is 1,521 point queries down one serial lane to fill
+      r4h/2v, nearly all answering no. Revisit trigger: ~10⁶ saved chunks.
+- [ ] **Consultation order: memory → index → seed.** The whole correctness question.
+- [ ] **The number this plan is most likely to have got wrong is the read side**, and it is named
+      for that reason: generation fills r4h/2v in ~89 ms of wall clock (1,521 × 0.47 ms measured
+      ÷ 8 workers), but loads run **one at a time** on the serial lane. At 0.1 ms a load the
+      crossover is ~890 chunks; at 0.3 ms it is ~300. **So a world dug into heavily can be slower
+      to enter than one generated from scratch**, and the crossover is well inside what a real
+      base produces. First thing to measure at M6d.
+- [ ] **Named and not built: batched loads** — one job, one query, many chunks, since SQLite's
+      per-statement overhead dominates a 16 KB blob read. The other lever, parallel reads under
+      WAL, is the worse one: it contends for the eight workers generation already saturates and
+      reopens M2a's decision. Standing rule — measure before building the named fallback.
+- [ ] **The column restore cannot go where the column is created.** `RetainColumn` runs inside
+      `View` inside `ForEachDifference`; a one-chunk step at r16 creates ~37 new columns, ~0.74 ms
+      of I/O in one frame, unamortised, against a main-thread budget M2d measured plateauing near
+      3% of a core. **Recommended: seed analytically as now, queue a restore, and call
+      `QueueColumnLightBuild` when it lands** — M5c-1 built that for exactly "this column's sky
+      heights moved". Price: a one-or-two-frame window where a reloaded shaft is lit wrong.
+- [ ] **Save on unload, from `Forget`'s caller rather than `Forget`.** M2c-2's retention
+      machinery is already exactly right — `OutstandingJobs > 0` retains past the last viewer and
+      `ForgetIfUnwanted` collects — so **the async save needs no new lifetime concept.**
+- [ ] **Plus a periodic flush of the dirty set**, because unload-only loses everything for a
+      player who digs in one spot for an hour. Tens of chunks at ~1 KB; the argument is purely
+      crash safety. **Plus on quit, synchronously.**
+- [ ] **The mod-set round trip is non-negotiable 2's first real test in five milestones.** Save
+      with a mod installed, remove it, reopen — placeholders retaining their identifiers, not
+      reinterpreted. Reinstall, reopen — exactly as it was. `Registry` has promised this since M1
+      and nothing has ever asked it to deliver.
+- [ ] **Startup reorders**: open world → read ID table → `Load(source, savedIds)` → `Freeze` →
+      construct the streamer. `Main.cs` passes `null` today. `SeedIdTable` throws if anything
+      registered first, which is the right failure and a loud one.
+- [ ] **Break-recipes on the call sites, not only the logic** — M5c-2's two real holes were both
+      joins, and replacing `GatherLight(...)` with `null` left 556 tests green. The equivalents:
+      never calling the store from `Forget`'s path, and clearing `DirtySinceSave` on completion
+      rather than at submission. Both leave a green suite and lose data in play.
+
+#### M6c — Placement and volumetric inventory
+
+- [ ] **`Place.*` calls `IVoxelEditor.SetVoxel` per voxel, exactly as `Carve` does.** A 1 m cube
+      is 64 voxels and writing them straight into `chunk.Voxels` is faster, obvious, and skips
+      **four** things silently: the sky-column update, the light rebuild queue, the eight-chunk
+      border rule, and `HasEdits` — which at M6 means the placement is not saved.
+      **Correction to the handover: M5c-1's trigger is about `ApplyFeatures`, which still places
+      nothing, so M6 does not fire it.** The risk is the same one; the trigger is not.
+- [ ] `SetVoxel`'s "material is already there" early-out finally earns its keep, exactly as its
+      comment predicted: *"M6's placement is exactly the shape of caller that rewrites what is
+      already there."*
+- [ ] **The brushes are staircases, not slopes.** M4d's deliberately-not list rules out non-cube
+      collision shapes as *"a voxel is one material or another" violations wearing different
+      hats*, so a ramp brush is an **arrangement of 0.25 m cubes inside a 1 m cell** — a
+      four-step staircase. M3c's *"sub-voxel means the voxel is small, not partly full"* restated
+      for placement, and it lands well: 0.25 m is comfortably inside M4b's 0.5 m step height, so
+      a placed ramp is walkable by physics that already exists. A slab is 4×2×4, 0.5 m thick.
+- [ ] Brushes are **methods, not an `IShape`**, following `Carve`'s recorded argument: no second
+      implementer, and a ramp wants an orientation where a sphere wants a radius. **A ramp's
+      orientation is the first brush parameter that is not a scalar** and the first thing in this
+      game with a rotation at all — from the raycast face normal plus the player's facing.
+- [ ] **Brush anchoring: snap to the world 1 m lattice** (recommended, Matthew's to overrule).
+      Brushes tile with no seams and no one-voxel gaps, and **the slab and ramp only make sense on
+      a lattice at all** — a ramp that is not grid-aligned cannot be tiled into stairs. So the
+      lattice is what makes the brush *set* coherent, not just the cube; DESIGN's *"fine detail
+      comes from carving, not from placing"* is the argument. **Goes in Core** on M3d's grounds,
+      as the counterpart to `Carve.SwingCentre`. **Revisit trigger: M6d plays it and
+      lattice-snapping reads as unresponsive.**
+- [ ] **Material inside the player: refuse the overlapping voxels and place the rest**
+      (recommended). Least surprising; pillar-jumping still works because mid-jump the cell below
+      is not overlapping. **It does not retire `TryUnstick`** — M9's collapse puts material inside
+      the player by accident and has no alternative — it stops placement being a second,
+      deliberate caller of a rule whose only honest home is "something went wrong". `PlaceResult`
+      takes `CarveResult`'s four-bucket shape with `IsAccounted`, for the reason that struct
+      records: a `continue` added later and counted nowhere.
+- [ ] **Volumetric inventory in litres.** A 0.25 m voxel is 15.625 L; a 1 m brush cube is 64
+      voxels = **1,000 L = 1 m³**, the round number that makes the unit worth having.
+      `CarveResult.Removed` is already documented as the number to convert.
+- [ ] **Unbounded at M6** (recommended). Bounding it with no containers, conveyors or crafting
+      means the player fills up and stops — a constraint with nothing on the other side. **Honest
+      cost: M6 then cannot answer whether volume is a real constraint**, so DESIGN's *"makes big
+      excavations meaningfully productive"* stays argued rather than played. **Revisit trigger:
+      M10 containers or M11 crafting, whichever gives capacity somewhere to go.**
+- [ ] Placement consumes it; a short inventory places what it can, in another bucket.
+- [ ] **The inventory persists in the world file keyed by numeric material ID**, safe for exactly
+      the reason the blobs are — same database, same table. Anywhere else and it has the identical
+      mod-load-order failure with no fix. If the held tool is saved, `GameContent.Tools` has
+      already written down the cost: *"it will be the same three lines."*
+
+#### M6d — Selection, feel and measurement
+
+- [ ] **Measure first: time to enter a heavily-dug world against generating the same box.** The
+      prediction is that loading can be *slower*, which is the surprising direction.
+- [ ] `Compact()`'s cost per save and its saving after deflate; compression ratio and total save
+      size after a real session; sim-thread cost of the save burst when a shell unloads at speed;
+      placement cost per brush against a swing's measured 0.083–0.139 ms.
+- [ ] **Use `update ms`, not `frame ms`.** The headless frame-time trap has appeared four times
+      across M2d, M3d and M4d and been believed at least once each.
+- [ ] **Play: dig a tunnel, fly away until it unloads, come back.** The milestone's whole reason
+      for existing, the thing M5d-2's play kept running into, and a yes/no no test produces.
+- [ ] **Play: quit and reopen.** Same tunnel, same inventory, same place.
+- [ ] **Play: build a room** — walls, floor, and a ramp down into it. Not "place a block". That is
+      what says whether the 1 m lattice is right, whether four shapes are the right four, and
+      whether carving-for-detail and placing-for-bulk actually divides the way DESIGN claims.
+- [ ] **Hotbar / material selection UI**, deliberately last. The number keys pick tool tiers
+      today, so material is a second axis and this is the project's first real UI — most likely
+      to be redone, least likely to be wrong in a way that costs anything.
+
+#### The one thing the plan deliberately did not cost, and says so
+
+- [ ] **How long a human tolerates between pressing play and standing in their own base.** Every
+      number in the plan is throughput. M5c-1 found the metric that mattered was *time to first
+      draw* rather than throughput, and found it by sweeping a budget against when the world could
+      first be seen. **The equivalent sweep here has no obvious knob**, which is exactly why it is
+      the thing to watch for.
+
+#### Deliberately not in M6
+
+- [ ] Region files. DESIGN records the decision and its reasoning; nothing here reopens it.
+- [ ] Migration between format versions. The version byte is the whole of what M6 owes it.
+- [ ] `VACUUM`, save-file compaction, a free list. Revisit when a save file's size is surprising.
+- [ ] **Multiple worlds, a world-select screen, or naming.** One world at a fixed path. The moment
+      there are two, the ID table's per-world ownership becomes *visible* rather than merely
+      correct, and that wants its own pass.
+- [ ] Persisting light, or the mesh — the mesh is larger than the voxels it came from (~46 KiB a
+      drawn chunk against ~2 KB) and cheaper to rebuild than to read.
+- [ ] **Dropped items.** DESIGN puts them here and is explicit that Godot physics is fine for
+      them, but they are an entity system and M6 has no entities.
+- [ ] **Undo.** A sandbox invites it and it is a different data structure — a journal, not a
+      snapshot. Cheaper to add on top of a working save than to build into one.
+- [ ] The entangled miner becoming real content — recorded at M5d-2 as wanting its own pass,
+      because *reach is the player's, not the tool's* is locked twice.
 
 ---
 

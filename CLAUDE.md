@@ -16,8 +16,9 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/M3-PLAN.md](docs/M3-PLAN.md) | M3, mining, split into M3a–M3d. Done, kept for the reasoning. |
 | [docs/M4-PLAN.md](docs/M4-PLAN.md) | M4, the player, split into M4a–M4d. Done, kept for the reasoning. |
 | [docs/M5-PLAN.md](docs/M5-PLAN.md) | M5, lighting and AO, split into M5a–M5d. Done 2026-08-31, kept for the reasoning. |
+| [docs/M6-PLAN.md](docs/M6-PLAN.md) | **M6, persistence, placement and inventory, split into M6a–M6d. Planned 2026-08-31, not started. Read before writing any of it.** |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
-| [TODO.md](TODO.md) | Milestones as checkable tasks, and the decisions still open. **M6 is next and its section says what a planning pass needs before any code.** |
+| [TODO.md](TODO.md) | Milestones as checkable tasks, and the decisions still open. **M6's section is the plan as a checklist.** |
 | [WORKLOG.md](WORKLOG.md) | What happened and why, newest first. Findings worth keeping live here. |
 
 ## Non-negotiables
@@ -155,9 +156,51 @@ copy in `../GAME/`.
 ## Where things stand
 
 M0, all of M1, **all of M2, all of M3, all of M4 and all of M5** are done — **559 tests
-passing**. **M6 is next: SQLite save/load, brush placement, volumetric inventory — v0.1 playable
-sandbox**, and it is what fixes the one thing play kept running into, that an edited chunk which
-unloads loses its edits. The player walks, falls, and cannot outrun the streamer; voxels have ambient
+passing**. **M6 is planned (2026-08-31) and not started: SQLite save/load, brush placement,
+volumetric inventory — v0.1 playable sandbox**, and it is what fixes the one thing play kept
+running into, that an edited chunk which unloads loses its edits. See
+[docs/M6-PLAN.md](docs/M6-PLAN.md), split M6a–M6d.
+
+**M6's structural point: every chunk so far has been recoverable from nothing, so `Forget` could
+delete a record inside a thousand-chunk sweep and nothing had to think about it. M6 is the first
+milestone that creates state whose only copy is on disk — so the unload path becomes a write**, and
+it runs on the sim thread inside `ChunkBox.ForEachDifference`, which at r16 hands it a 37×37 shell
+in one frame. A persistence bug destroys work that cannot be recreated and usually surfaces a
+session later, so this is the first milestone where the tests are the only thing between a defect
+and permanent data loss. Second change: **a chunk gains a third source of voxels — memory, then
+disk, then the seed — and the only failure that matters is consulting them in the wrong order.**
+
+Six things the planning pass settled or found, each expensive to rediscover:
+
+- **SQLite goes in a new `MinerCraft.Persistence` assembly, not in Core.** Core has **no NuGet
+  dependency at all** after five milestones, which is what makes non-negotiable 1's multiplayer
+  seam more than a slogan. `IChunkStore` in Core plus an in-memory implementation is M1's
+  `IContentSource` shape exactly. **`ChunkPipeline` takes an `IChunkStore?`, null meaning no
+  persistence, so all 559 existing tests keep passing unedited.**
+- **Saving is a job on the serial lane M2a built for it and nothing has ever used** — and it is
+  **the one job that must not be cancelled**. `OnChunkUnviewed` cancels every job whose chunk
+  nobody wants, which is right for work we can rebuild; a cancelled save is a deleted tunnel.
+  `JobResult` reports a job still queued at shutdown as Dropped, so **quitting with saves queued
+  loses them, and that is one line of `Dispose`.** A save job must also set `VoxelsSharedWithJob`,
+  because a chunk can be revived and mined while the serialiser is mid-copy.
+- **`DirtySinceSave` is a second flag and it is the `NeedsRemesh` problem a third time.**
+  `HasEdits` means "differs from the seed" and is never cleared; the new one means "differs from
+  disk", clears at *submission*, and must be restored by `StepBack` on a drop. Conflating them
+  loses exactly the last edits before an unload.
+- **The ID table goes in the same database as the chunks, in the same transaction.** The obvious
+  layout — a JSON world file beside the chunk DB — is the one arrangement that can desynchronise.
+  M6 is where `ExportIdTable`/`SeedIdTable`, built at M1 and never called, get their first caller,
+  and where **non-negotiable 2 gets its first real test in five milestones**.
+- **The read side is the half most likely to have been costed wrong, and it is named for that
+  reason.** Generation fills r4h/2v in ~89 ms of wall clock across eight workers; loads run **one
+  at a time** on the serial lane, so at 0.1–0.3 ms a load the crossover is 300–890 chunks. **A
+  world dug into heavily can be slower to enter than one generated from scratch.** Batched loads
+  are the named lever and deliberately not built.
+- **`Compact()` gets its first caller ever and nobody has costed it.** Its comment has said "this
+  runs on serialisation" since M1 with nothing calling it — a **prediction, not a decision**.
+  Measure it at M6a, then keep it or correct the comment.
+
+The player walks, falls, and cannot outrun the streamer; voxels have ambient
 occlusion; and **lighting is end to end — the sun is gone, the grid is the light, and a lamp
 glows.** **M5d-2 is played and M5 is done (2026-08-31) — "happy with the current state": a mine reads
 as a mine, and AO earns its quads** — one chamber runs from lit rock to *actual black* and the falloff reads as depth, which

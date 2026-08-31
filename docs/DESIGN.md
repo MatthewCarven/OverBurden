@@ -201,6 +201,15 @@ visible here.
   because precision is what a builder wants and a builder will hold a key.
 - **Placement uses brushes**: 1 m cube, slab, ramp, sphere. Fine detail comes from
   carving, not from placing.
+  - **A "ramp" is an arrangement of 0.25 m cubes, not a sloped block** — clarified while planning
+    M6, because the word invites the other reading and the other reading is a rejected
+    alternative. A sloped block is a "a voxel is one material or another" violation wearing a
+    different hat, which M3c and M4d have each already argued. So a 1 m ramp brush is a four-step
+    staircase, a slab is 4×2×4 voxels at 0.5 m thick, and both are walkable by M4b's 0.5 m
+    step-up with no new collision shape.
+  - **Brushes snap to the world 1 m lattice**, because the slab and the ramp only make sense on
+    one — a ramp that is not grid-aligned cannot be tiled into stairs. The lattice is what makes
+    the brush *set* coherent rather than just the cube. Recommended at M6c, judged by play at M6d.
 - **Inventory is volumetric** — litres of stone, not "3 stone blocks". Falls out of
   sub-voxel mining, makes crafting costs continuous, makes big excavations
   meaningfully productive.
@@ -242,6 +251,13 @@ decoupled from render framerate. Keeps it deterministic for possible multiplayer
 
 SQLite, `(cx, cy, cz) → blob`. Region files are the "proper" answer; SQLite is the
 pragmatic one for a solo project. World file carries the string→int ID palette.
+
+**"World file" means a table in the same database, not a sidecar** — settled while planning M6,
+because the obvious layout (JSON beside the chunk DB) is the one arrangement that can
+desynchronise: a crash between the two leaves blobs full of numeric IDs whose meaning is a version
+behind, which is the exact failure non-negotiable 2 exists to prevent. Atomicity is most of what
+SQLite is being paid for here. Any write that allocates a new numeric ID commits in the same
+transaction as the blob that first used it. See [M6-PLAN.md](M6-PLAN.md).
 
 ---
 
