@@ -1864,7 +1864,40 @@ Played with the entangled miner. **"Looks good to me."**
 - [ ] Baking AO into the light grid. Different frequencies — AO is a 0.25 m effect and the grid
       is 1 m — and merging them loses exactly the detail AO exists to add.
 
-### M6 — v0.1 playable sandbox
+### M6 — v0.1 playable sandbox ← **next, and it needs a planning pass before any code**
+
+**Start here.** Every milestone from M2 on has been planned into sub-parts *before* code, and
+each time the planning pass caught something the code would have discovered expensively — M2's
+caught that a FIFO job queue cannot reprioritise, M5's settled four decisions before a line was
+written and still costed the wrong half. **Write `docs/M6-PLAN.md` first**, split M6a–M6d, on the
+model of [docs/M5-PLAN.md](docs/M5-PLAN.md).
+
+Four things that pass will need, which this session established and which are easy to miss:
+
+- **M6 is what makes play stop losing work.** An edited chunk that unloads regenerates from seed,
+  so a tunnel you dug and flew away from is solid rock when you come back. That is the single
+  most-felt limitation left, it was hit repeatedly during M5d-2's play, and it is what "v0.1
+  playable sandbox" actually means here.
+- **`SkyColumn` is the one lighting structure that must persist**, and it is already below.
+  Light itself is derived — 512 bytes recomputed in microseconds — but a column's sky height is
+  edit-derived and unrecoverable from the seed once a shaft exists.
+- **M5c-1's recorded revisit trigger fires in M6, not later:** *"when `ApplyFeatures` starts
+  placing anything it must route through the relight path the way `SetVoxel` does."* Brush
+  placement is the first thing since M3 that writes voxels by a route that is not `SetVoxel`, so
+  the plan should say explicitly which write path it uses.
+- **Placement inherits M4c's unstick rule, up-only included** — recorded at M4c as the rule M6
+  would inherit. A body with its head in a ceiling goes up through it, never down.
+
+Two structural questions worth settling in the plan rather than in the code, since both are the
+shape that has bitten before:
+
+- **What a save file is keyed on.** Content IDs are namespaced strings resolved through a table
+  **the world owns**; the palette goes in the world file (below). A save that stored numeric IDs
+  without its own palette would break the moment a mod load order changed, which is exactly the
+  failure non-negotiable 2 exists to prevent.
+- **Whether persistence is a job or sim-thread work.** Light chose the sim thread for a
+  well-argued reason and M5d-1 measured what that cost; SQLite writes are I/O rather than CPU, so
+  the argument does not transfer and should be made fresh rather than inherited.
 
 - [ ] SQLite persistence, `(cx, cy, cz) → blob`, palette in the world file
 - [ ] **`SkyColumn` persists too, and it is the one lighting structure that must.** Light

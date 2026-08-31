@@ -17,7 +17,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/M4-PLAN.md](docs/M4-PLAN.md) | M4, the player, split into M4a–M4d. Done, kept for the reasoning. |
 | [docs/M5-PLAN.md](docs/M5-PLAN.md) | M5, lighting and AO, split into M5a–M5d. Done 2026-08-31, kept for the reasoning. |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
-| [TODO.md](TODO.md) | Milestones as checkable tasks, and the decisions still open |
+| [TODO.md](TODO.md) | Milestones as checkable tasks, and the decisions still open. **M6 is next and its section says what a planning pass needs before any code.** |
 | [WORKLOG.md](WORKLOG.md) | What happened and why, newest first. Findings worth keeping live here. |
 
 ## Non-negotiables
