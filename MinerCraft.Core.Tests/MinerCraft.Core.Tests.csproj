@@ -22,6 +22,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MinerCraft.Core\MinerCraft.Core.csproj" />
+
+    <!-- The SQLite store, so the contract suite can run against the real implementation
+         rather than only the in-memory stand-in. M1's InMemoryContentSource drifted from
+         the shipped content and nothing said so until M3c wrote ShippedContentTests; a
+         store that drifts would make every M6b-2 pipeline test a fiction. -->
+    <ProjectReference Include="..\MinerCraft.Persistence\MinerCraft.Persistence.csproj" />
   </ItemGroup>
 
 </Project>

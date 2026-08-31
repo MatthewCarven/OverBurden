@@ -3,6 +3,7 @@ using System.Globalization;
 using MinerCraft.Core.Content;
 using MinerCraft.Core.Lighting;
 using MinerCraft.Core.Persistence;
+using MinerCraft.Persistence;
 using MinerCraft.Core.Voxels;
 using MinerCraft.Core.Worldgen;
 
@@ -46,6 +47,7 @@ internal static class Program
           --repeat <n>         timed passes per configuration, best wins (default 3)
           --light              time light derivation and propagation instead of worldgen
           --blob               time chunk serialisation, and price Compact() on save
+          --store              time the SQLite read path against the generation it replaces
         """;
 
     private static int Main(string[] args)
@@ -55,6 +57,7 @@ internal static class Program
         int repeat = 3;
         bool light = false;
         bool blob = false;
+        bool store = false;
 
         try
         {
@@ -79,6 +82,9 @@ internal static class Program
                         break;
                     case "--blob":
                         blob = true;
+                        break;
+                    case "--store":
+                        store = true;
                         break;
                     case "--help" or "-h":
                         Console.WriteLine(Usage);
@@ -115,6 +121,11 @@ internal static class Program
         if (blob)
         {
             return BlobBench(seed, repeat);
+        }
+
+        if (store)
+        {
+            return StoreBench(seed, repeat);
         }
 
         Console.WriteLine(
@@ -905,4 +916,175 @@ internal static class Program
         double StoredBytes,
         int Uniform,
         double VariedBytes);
+
+    // ---------------------------------------------------------------------------------------
+    // The half of M6's headline worry that M6-PLAN could only guess at.
+    //
+    // The plan's crossover table says a heavily-dug world could be *slower* to enter than one
+    // generated from scratch, because loads run one at a time on the serial lane while
+    // generation runs on eight workers. It assumed 0.1-0.3 ms a load. M6a measured the
+    // deserialise half at 21 us; this measures the other half, which is SQLite's.
+    //
+    // Reference: generation fills r4h/2v in ~89 ms of wall clock (1,521 chunks x 0.47 ms
+    // measured, across eight workers).
+    // ---------------------------------------------------------------------------------------
+
+    private const int FillChunks = 1521;
+
+    /// <summary>Times the store's read path against the generation it would replace.</summary>
+    private static int StoreBench(ulong seed, int repeat)
+    {
+        var content = new GameContent();
+        LoadResult loaded = content.Load(new DirectoryContentSource(ModsDirectory()));
+        if (!loaded.Success)
+        {
+            Console.Error.WriteLine($"content: {string.Join("; ", loaded.Errors)}");
+            return 1;
+        }
+
+        MaterialTable materials = MaterialTable.From(content.Materials);
+
+        var strata = new StrataTable(
+            [
+                new StrataLayer(content.Materials.GetNumericId(Identifier.Parse("minercraft:grass")), 1),
+                new StrataLayer(content.Materials.GetNumericId(Identifier.Parse("minercraft:dirt")), 3),
+            ],
+            content.Materials.GetNumericId(Identifier.Parse("minercraft:stone")));
+
+        var generator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
+
+        string directory = Path.Combine(Path.GetTempPath(), "minercraft-bench", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        string path = Path.Combine(directory, "world.db");
+
+        Console.WriteLine($"Store bench — {FillChunks} chunks, seed {seed}, best of {repeat}");
+        if (IsDebug())
+        {
+            Console.WriteLine("*** DEBUG BUILD — these timings are meaningless. Re-run with -c Release. ***");
+        }
+
+        Console.WriteLine($"world: {path}");
+        Console.WriteLine();
+
+        try
+        {
+            // A dug-in world: every chunk edited, which is the case the crossover is about. An
+            // unedited chunk is never stored, so filling with pristine terrain would measure a
+            // world that cannot exist.
+            var positions = new ChunkPos[FillChunks];
+            var blobs = new (ChunkPos, byte[])[FillChunks];
+            var random = new Random(20260831);
+
+            for (int i = 0; i < FillChunks; i++)
+            {
+                var position = new ChunkPos((i % 39) - 19, ((i / 39) % 9) - 4, (i / 351) - 2);
+                positions[i] = position;
+
+                VoxelChunk chunk = generator.GenerateTerrain(position);
+                int cx = random.Next(8, 24), cy = random.Next(8, 24), cz = random.Next(8, 24);
+                for (int z = cz - 4; z <= cz + 4; z++)
+                for (int x = cx - 4; x <= cx + 4; x++)
+                for (int y = cy - 4; y <= cy + 4; y++)
+                {
+                    int dx = x - cx, dy = y - cy, dz = z - cz;
+                    if ((dx * dx) + (dy * dy) + (dz * dz) <= 16)
+                    {
+                        chunk.Set(x, y, z, MaterialIds.AirNumericId);
+                    }
+                }
+
+                blobs[i] = (position, ChunkBlob.Write(position, chunk));
+            }
+
+            long bytes;
+            double writeMillis;
+
+            using (var store = new SqliteWorldStore(path))
+            {
+                long start = Stopwatch.GetTimestamp();
+                store.Write(blobs, []);
+                store.Flush();
+                writeMillis = Micros(start, Stopwatch.GetTimestamp()) / 1000.0;
+            }
+
+            bytes = new FileInfo(path).Length;
+
+            double bestOpen = double.MaxValue;
+            double bestIndex = double.MaxValue;
+            double bestRead = double.MaxValue;
+            double bestReadAndDecode = double.MaxValue;
+
+            for (int pass = -1; pass < repeat; pass++)
+            {
+                long openStart = Stopwatch.GetTimestamp();
+                using var store = new SqliteWorldStore(path);
+                long opened = Stopwatch.GetTimestamp();
+
+                IReadOnlyCollection<ChunkPos> index = store.LoadChunkIndex();
+                var set = new HashSet<ChunkPos>(index);
+                long indexed = Stopwatch.GetTimestamp();
+
+                long total = 0;
+                foreach (ChunkPos position in positions)
+                {
+                    total += store.ReadChunk(position)!.Length;
+                }
+
+                long read = Stopwatch.GetTimestamp();
+
+                foreach (ChunkPos position in positions)
+                {
+                    ChunkBlob.Read(store.ReadChunk(position)!, position, materials);
+                }
+
+                long decoded = Stopwatch.GetTimestamp();
+
+                if (pass < 0) continue;
+                if (total == 0 || set.Count != FillChunks) throw new InvalidOperationException("bad fill");
+
+                bestOpen = Math.Min(bestOpen, Micros(openStart, opened) / 1000.0);
+                bestIndex = Math.Min(bestIndex, Micros(opened, indexed) / 1000.0);
+                bestRead = Math.Min(bestRead, Micros(indexed, read) / FillChunks);
+                bestReadAndDecode = Math.Min(bestReadAndDecode, Micros(read, decoded) / FillChunks);
+            }
+
+            Console.WriteLine($"file on disk              {bytes / 1024.0,10:F0} KiB  ({(double)bytes / FillChunks,0:F0} B a chunk)");
+            Console.WriteLine($"write {FillChunks} chunks       {writeMillis,10:F1} ms");
+            Console.WriteLine();
+            Console.WriteLine($"open the world            {bestOpen,10:F2} ms");
+            Console.WriteLine($"load the chunk index      {bestIndex,10:F2} ms   ({FillChunks} keys)");
+            Console.WriteLine($"read one blob             {bestRead,10:F1} µs");
+            Console.WriteLine($"read + deserialise one    {bestReadAndDecode,10:F1} µs");
+            Console.WriteLine();
+
+            // The comparison the plan asked for, in the plan's own terms.
+            const double GenerateWallMillis = 89.0;
+            double serialMillis = bestReadAndDecode * FillChunks / 1000.0;
+
+            Console.WriteLine(
+                $"Loading all {FillChunks} on one serial lane: {serialMillis:F0} ms, "
+                + $"against ~{GenerateWallMillis:F0} ms to generate the same box on eight workers.");
+
+            double crossover = GenerateWallMillis * 1000.0 / bestReadAndDecode;
+            Console.WriteLine(
+                crossover >= FillChunks
+                    ? $"Crossover is {crossover:F0} chunks, past the whole {FillChunks}-chunk fill — "
+                      + "loading never loses to generating at this radius."
+                    : $"Crossover is {crossover:F0} of {FillChunks} chunks — past that, loading is "
+                      + "the slower path.");
+
+            return 0;
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+            catch (IOException)
+            {
+                Console.Error.WriteLine($"could not remove {directory}");
+            }
+        }
+    }
 }

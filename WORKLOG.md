@@ -1,5 +1,114 @@
 # MinerCraft — Worklog
 
+## 2026-08-31 — M6b-1: the store, and M6's headline worry dissolves backwards
+
+`IWorldStore` and `InMemoryWorldStore` in Core; `MinerCraft.Persistence` and `SqliteWorldStore`
+beside it. Nothing is wired into the pipeline yet — a chunk still does not save. Suite
+**614 → 650**.
+
+**M6b is split**, on the grounds M2c and M5c were: M6b-1 is the store, verifiable on its own with
+no threads and no pipeline; **M6b-2 is the lifetime** — the save job, the flags, the load path, the
+column restore and the four races; **M6b-3 is the session** — the startup reorder, autosave and the
+quit drain. Splitting up front rather than halfway through is the whole reason M2c went smoothly.
+
+### The number the plan was most worried about, measured — and it is the other way round
+
+M6-PLAN's crossover table is the milestone's headline concern: loads run **one at a time** on the
+serial lane while generation runs on eight workers, so *"a world the player has dug into heavily
+can be slower to enter than one generated from scratch"*. It assumed 0.1–0.3 ms a load and put the
+crossover at 300–890 of the 1,521-chunk fill. `dotnet run --project MinerCraft.Bench -c Release --
+--store`, over a world where **every** chunk has been edited:
+
+```
+file on disk                     248 KiB  (167 B a chunk)
+write 1521 chunks             13.4 ms
+
+open the world                  0.74 ms
+load the chunk index            0.85 ms   (1521 keys)
+read one blob                    6.0 µs
+read + deserialise one          35.5 µs
+
+Loading all 1521 on one serial lane: 54 ms, against ~89 ms to generate the same box on
+eight workers. Crossover is 2505 chunks, past the whole 1521-chunk fill.
+```
+
+**A SQLite point query is 6 µs, not the 100–300 the plan guessed** — a prepared statement against
+a page already in cache is barely more than a hash lookup. So loading a fully dug-in world is
+**1.6× faster than generating it**, one serial lane against eight workers, and the crossover sits
+past the entire fill.
+
+Two consequences, and the second is the one to hold onto:
+
+- **Batched loads are retired rather than deferred.** M6-PLAN named them as the lever and said
+  *"do not build it before the number says so"*. The number says do not build it. Same for
+  parallel reads under WAL, which was already the worse option.
+- **This is the second fallback dissolved in the *wrong direction*** — M5c-2's was the first, where
+  light in the merge key turned out to make quads cheaper rather than dearer. The plan did not
+  merely overestimate a cost; it had the sign of the comparison wrong. Worth noting because the
+  project's standing rule is "measure before building the named fallback", and the reason that rule
+  keeps paying is not that estimates are pessimistic — it is that they are **guesses about the
+  wrong quantity**. Here the guessed quantity was per-load latency; the thing that actually decided
+  it was that a prepared statement amortises to nothing.
+
+### Renamed from the plan: `IWorldStore`, not `IChunkStore`
+
+The plan called it `IChunkStore`, which was accurate until it turned out to own three things —
+chunk blobs, sky columns, and the world header carrying the ID table. A store that holds the
+material table is not a chunk store. One-line correction, made now rather than lived with.
+
+### The interface decisions, and the one that is a correctness requirement
+
+- **It deals in bytes, not in `VoxelChunk`s.** Storage and format stay separable: `ChunkBlob` owns
+  what the bytes mean, and `SqliteWorldStore` knows nothing about voxels, palettes or light. That
+  is what lets the SQLite implementation live in its own assembly at all.
+- **Chunks and columns are written in one call, in one transaction, and that is not tidiness.** A
+  shaft's chunks stored without the column recording how far the sky now reaches down it reload
+  with the column seeded analytically — from the *pre-dig* surface — so every cell in the shaft
+  fails `IsCellOpenToSky` and the shaft is dark for a reason nothing on screen can explain.
+  **Two separate calls would make that state reachable by a crash between them.**
+- **The header is written at open, before any chunk, and that ordering replaces a transaction.**
+  M6-PLAN asked for the ID table to commit *"in the same transaction as the blob that first used
+  it"*. It does not need to: numeric IDs are only ever allocated during content load, which happens
+  once at open, so by the time any chunk is written the table it references is already on disk.
+  Ordering delivers the same guarantee for free.
+- **Not thread-safe, as a contract rather than an omission.** One connection, prepared statements
+  held for the store's lifetime and reused. Every call arrives on M2a's serial lane, which runs one
+  at a time — and that reuse is most of why a read is 6 µs rather than dominated by statement
+  preparation.
+
+### The contract suite, and why the fake gets tested against the real
+
+`InMemoryWorldStore` exists so M6b-2's pipeline tests need no disk. **That is exactly what makes it
+dangerous.** M1 built `InMemoryContentSource` for the same reason and it drifted — M3c found it had
+no grass, so a pile of content tests had been passing against a world the game does not ship, and
+nothing said so until `ShippedContentTests` was written to read the real files.
+
+So there is one abstract `WorldStoreContractTests` and both implementations run it. A behaviour
+only the fake has is a fake that has stopped predicting the real thing, and the tests it would
+quietly invalidate are the ones standing between a defect and permanent data loss.
+
+Two details in it worth keeping:
+
+- **`AStoredBlobIsNotAliasedToTheCallersArray`** is the specific way an in-memory store diverges. A
+  fake that handed back the caller's own array would pass every round-trip test while letting a
+  later edit silently rewrite history.
+- **`SurvivesAReopen` says out loud that the in-memory store cannot.** A skipped test that reads as
+  coverage is what this suite exists to avoid, so the base case asserts the store is not a durable
+  one rather than quietly passing.
+
+Also pinned: **negative coordinates are distinct keys.** Half the world has them, and a key built
+by packing three ints with a bad shift collapses one chunk onto another — the symptom being terrain
+appearing where it does not belong, a long way from the cause.
+
+### Two things the build tripped over, both worth knowing
+
+- **`Microsoft.Data.Sqlite` is pinned at 10.0.11 rather than floating.** The 10.x line resolves by
+  default against a net8.0 target and works, but a save format's dependency is not somewhere to
+  take whatever the feed offers that day.
+- **An XML comment cannot contain `--`**, so documenting the `--store` flag inside a `.csproj`
+  comment is an MSBuild parse error rather than a warning. Trivial, and it costs a confusing
+  build failure the first time.
+
 ## 2026-08-31 — M6a done: the blob, the world file, and a comment that had been wrong since M1
 
 `MinerCraft.Core/Persistence/` holds `ChunkBlob`, `SkyColumnBlob`, `WorldHeader` and the shared

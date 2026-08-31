@@ -81,6 +81,13 @@ only, same as the others:
 dotnet run --project MinerCraft.Bench -c Release -- --blob
 ```
 
+Measure the **SQLite read path** against the generation it replaces — the number M6's crossover
+worry turned on:
+
+```bash
+dotnet run --project MinerCraft.Bench -c Release -- --store
+```
+
 It reports write, read, raw and stored bytes across six arms — generated, carved and *stripped*
 chunks, each with and without `Compact`. **The stripped arm exists because the carved one cannot
 benefit**: carving air into a chunk that already holds air leaves the palette untouched, so
@@ -167,11 +174,11 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2, all of M3, all of M4, all of M5 and M6a** are done — **614 tests
-passing**. **M6 is planned (2026-08-31) and under way: SQLite save/load, brush placement,
+M0, all of M1, **all of M2, all of M3, all of M4, all of M5, M6a and M6b-1** are done —
+**650 tests passing**. **M6 is planned (2026-08-31) and under way: SQLite save/load, brush placement,
 volumetric inventory — v0.1 playable sandbox**, and it is what fixes the one thing play kept
 running into, that an edited chunk which unloads loses its edits. See
-[docs/M6-PLAN.md](docs/M6-PLAN.md), split M6a–M6d. **M6b is next.**
+[docs/M6-PLAN.md](docs/M6-PLAN.md), split M6a–M6d. **M6b-2 is next.**
 
 **M6a — the blob and the world file: done 2026-08-31.** `MinerCraft.Core/Persistence/` holds
 `ChunkBlob`, `SkyColumnBlob`, `WorldHeader` and the shared frame. No SQLite, no file, no pipeline.

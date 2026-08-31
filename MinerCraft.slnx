@@ -2,6 +2,7 @@
   <Project Path="MinerCraft.Bench/MinerCraft.Bench.csproj" />
   <Project Path="MinerCraft.Core/MinerCraft.Core.csproj" />
   <Project Path="MinerCraft.Core.Tests/MinerCraft.Core.Tests.csproj" />
+  <Project Path="MinerCraft.Persistence/MinerCraft.Persistence.csproj" />
   <Project Path="MinerCraft.Game/MinerCraft.Game.csproj">
     <BuildType Project="Debug" />
   </Project>

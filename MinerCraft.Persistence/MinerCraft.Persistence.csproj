@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>MinerCraft.Persistence</RootNamespace>
+
+    <!-- This project exists so that MinerCraft.Core does not have to hold this package.
+         Core has had no NuGet dependency at all for five milestones, and that absence is what
+         makes non-negotiable 1's multiplayer seam more than a slogan: a dedicated server is
+         `dotnet run` against Core and nothing else. Microsoft.Data.Sqlite would have been its
+         first, and it drags in SQLitePCLRaw's native binaries, which have to ship beside the
+         assembly and survive a Godot export with EnableDynamicLoading.
+
+         Core owns IWorldStore and an in-memory implementation; this owns the one that touches
+         a disk. Exactly the shape M1 used for IContentSource / DirectoryContentSource. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Pinned rather than floating. The 10.x line resolves by default against a net8.0 target
+         and works, but a save format's dependency is not somewhere to accept whatever the feed
+         happens to offer on the day. -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MinerCraft.Core\MinerCraft.Core.csproj" />
+  </ItemGroup>
+
+</Project>

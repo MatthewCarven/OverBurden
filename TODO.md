@@ -1864,7 +1864,7 @@ Played with the entangled miner. **"Looks good to me."**
 - [ ] Baking AO into the light grid. Different frequencies — AO is a 0.25 m effect and the grid
       is 1 m — and merging them loses exactly the detail AO exists to add.
 
-### M6 — v0.1 playable sandbox ← **M6a done 2026-08-31. M6b is next.**
+### M6 — v0.1 playable sandbox ← **M6a and M6b-1 done 2026-08-31. M6b-2 is next.**
 
 Planned into four parts in [docs/M6-PLAN.md](docs/M6-PLAN.md). **Read it before starting.** The
 structural point: every chunk so far has been recoverable from nothing, so `Forget` could delete
@@ -2031,6 +2031,65 @@ straightforward are written up below because neither was a plain pass.
       the honest recipe; re-run that way it fails 5, including the corruption test.
 
 #### M6b — The store, the lifetime, and the load path ← **where the surprises are**
+
+**Split three ways, on the grounds M2c and M5c were.** M6b-1 is the store, verifiable alone with
+no threads and no pipeline. M6b-2 is the lifetime — the save job, the flags, the load path, the
+column restore and the races. M6b-3 is the session — the startup reorder, autosave and the quit
+drain. Splitting up front rather than halfway through is why M2c went smoothly.
+
+##### M6b-1 — The store ✅ **done 2026-08-31, 650 tests passing**
+
+- [x] **`IWorldStore`, not `IChunkStore` — a one-line correction to the plan.** It owns three
+      things: chunk blobs, sky columns, and the world header carrying the ID table. A store that
+      holds the material table is not a chunk store.
+- [x] **It deals in bytes, not `VoxelChunk`s**, so `SqliteWorldStore` knows nothing about voxels,
+      palettes or light — which is what lets it live in its own assembly at all.
+- [x] **`MinerCraft.Persistence`, a new assembly**, with `Microsoft.Data.Sqlite` **pinned at
+      10.0.11** rather than floating. Core still has no NuGet dependency at all.
+- [x] **Chunks and columns write in one call, in one transaction, and that is a correctness
+      requirement.** A shaft's chunks stored without its column reload with the column seeded
+      analytically — from the *pre-dig* surface — so every cell fails `IsCellOpenToSky` and the
+      shaft is dark for a reason nothing on screen explains. **Two calls would make that state
+      reachable by a crash between them.**
+- [x] **The header is written at open, before any chunk, and the ordering replaces a transaction.**
+      The plan asked for the ID table to commit "in the same transaction as the blob that first
+      used it"; it does not need to, because numeric IDs are only allocated during content load,
+      which happens once at open.
+- [x] **Not thread-safe, as a contract.** One connection, prepared statements reused for the
+      store's lifetime. M2a's serial lane is what makes that safe — and the reuse is most of why a
+      read is 6 µs rather than statement preparation.
+- [x] WAL, `synchronous = NORMAL`, `STRICT` tables, and a schema `user_version` **distinct from any
+      blob's format version** — they change for unrelated reasons. A newer schema is refused.
+- [x] **One contract suite, run against both implementations.** `InMemoryWorldStore` exists so
+      M6b-2's pipeline tests need no disk, and **that is exactly what makes it dangerous**: M1's
+      `InMemoryContentSource` drifted from the shipped content and nothing said so until M3c wrote
+      `ShippedContentTests`. A store that drifts would quietly invalidate the tests standing
+      between a defect and permanent data loss.
+      - [x] `AStoredBlobIsNotAliasedToTheCallersArray` — the specific way a fake diverges: handing
+            back the caller's own array passes every round-trip test while letting a later edit
+            rewrite history.
+      - [x] `SurvivesAReopen` **says out loud that the in-memory store cannot**, rather than
+            skipping and reading as coverage.
+      - [x] **Negative coordinates are distinct keys.** Half the world has them, and a key packed
+            with a bad shift collapses one chunk onto another — terrain appearing where it does not
+            belong, a long way from the cause.
+
+##### The plan's headline worry is measured and it dissolves — backwards
+
+- [x] **A SQLite point query is 6.0 µs, not the 0.1–0.3 ms the crossover table assumed.**
+      Read plus deserialise is **35.5 µs**. Over a world where *every* chunk is edited: loading all
+      1,521 on one serial lane is **54 ms against ~89 ms to generate the same box on eight
+      workers**, and the crossover sits at **2,505 chunks — past the entire fill**. So loading a
+      dug-in world is **1.6× faster** than generating it. `--store` in the bench.
+- [x] **Batched loads are retired rather than deferred**, per the standing rule — the plan said
+      "do not build it before the number says so" and the number says do not. Parallel reads under
+      WAL likewise, and that was already the worse option.
+- [ ] **Second fallback dissolved in the *wrong direction*** (M5c-2's quad count was the first).
+      Worth keeping because it sharpens why the rule pays: estimates are not merely pessimistic,
+      they are **guesses about the wrong quantity**. Here the guess was per-load latency; what
+      actually decided it was a prepared statement amortising to nothing.
+- [ ] **An XML comment cannot contain `--`**, so documenting a `--flag` inside a `.csproj` comment
+      is an MSBuild parse error rather than a warning.
 
 - [ ] Every race below already has a documented answer in `ChunkPipeline`, written for meshes.
       That is the good news and the trap together: each has to be transferred across on purpose,

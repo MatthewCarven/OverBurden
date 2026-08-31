@@ -10,6 +10,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MinerCraft.Core\MinerCraft.Core.csproj" />
+
+    <!-- For the store bench, which measures the half of M6's load-path crossover that the
+         plan could only guess at: SQLite's per-query overhead beside the deserialise cost. -->
+    <ProjectReference Include="..\MinerCraft.Persistence\MinerCraft.Persistence.csproj" />
   </ItemGroup>
 
 </Project>
