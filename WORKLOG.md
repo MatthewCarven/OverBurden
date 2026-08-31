@@ -1,5 +1,72 @@
 # MinerCraft — Worklog
 
+## 2026-08-31 — Ctrl and Shift had been swapped since M2, and sneak is a rule not a key
+
+Raised in conversation: *"I think I may have suggested something wrong, and would prefer to
+maintain accuracy to minecraft like, ctrl was crouch."* The key is **Shift**, not Ctrl —
+Minecraft Java is Sneak = Left Shift, Sprint = Left Ctrl, and in creative flight Shift descends
+while Ctrl flies faster. But the instinct was right and pointed at something real:
+
+| | MinerCraft, M2 to M6d-1 | Minecraft |
+|---|---|---|
+| Sprint | **Shift** | Ctrl |
+| Descend while flying | **Ctrl** | Shift |
+
+**The two were exactly swapped, and had been since M2.** Muscle memory for these keys is decades
+old against this project's one day, so accuracy wins. Suite **727 → 734**.
+
+It also explains a note that had been open since M3d from the other direction: Ctrl-as-descend is
+what made precision mining sink the builder ~1.8 m between chips. **M6d-1 moved precision to Alt
+to dodge that; the swap removes the cause.** Both are still worth having — Alt now means
+precision on either mouse button, and Ctrl means sprint, which would have been a worse pairing
+for fine work than crawl.
+
+### Sneak is a physics rule, and that is the half that is not a keybinding
+
+While grounded and not rising, a horizontal move that would leave the body unsupported is refused
+— **per axis**, so walking diagonally at a drop carries you along the lip instead of stopping
+you dead. In a game about standing on ledges over shafts you dug yourself, that is the difference
+between building at the edge and falling down your own mine.
+
+**"Supported" is step-down's own probe, called the same way, and the shared definition is the
+load-bearing part.** Step-down catches a body that walks off a lip up to the step height; if sneak
+asked a stricter question it would refuse moves step-down would have caught, and the player would
+be stopped at the top of a staircase they could safely have walked down — which is exactly the
+frustration sneak exists to prevent. One definition of *the ground will catch me*, for the reason
+`WorldGenerator` keeps one definition of the cave field.
+
+Sneak beats sprint when both are held, which is not merely convention here: sprinting off a ledge
+you were carefully sneaking along is the accident the whole rule exists to prevent.
+
+### The battery found two holes, and both were the test finishing before its own case
+
+Five recipes, three caught immediately.
+
+- **"sneak applies in mid-air too" was not caught**, and the obvious test cannot catch it: the rule
+  only ever trims *horizontal* movement, so removing the grounded guard does not stop a fall.
+  **What the guards actually protect is air control** — the launch frame is grounded but rising,
+  every frame after is airborne, so an unguarded rule zeroes the horizontal component of a jump and
+  the body goes straight up and lands back on the lip. The test is now that property directly.
+- **"only the combined move is tested, never per axis" was not caught**, because the slide test
+  walked one metre of Z and reached the lip at the same moment — it finished its travel before
+  reaching the case it was named for. Now it runs long enough that most of the sliding must happen
+  after the edge.
+
+### Two fixtures that were wrong about the physics rather than the reverse
+
+Worth recording because both are behaviours somebody will otherwise file as bugs:
+
+- **A sneaking body hangs most of itself over the drop.** Support is "some voxel under the
+  footprint is solid", so the body walks out until its *minimum* corner reaches the edge. The first
+  assertion checked the far face and failed at 2.49 m; the invariant is about the near one. That is
+  Minecraft's behaviour too, and it is what makes sneak useful for building a wall from outside it.
+- **A gap exactly the body's width is walked across while sneaking, no jump needed**, because one
+  end is always over solid ground. A jump test built on a 0.5 m gap therefore tested nothing.
+
+**Three fixture failures this session have now had the same shape: the scenario ended before it
+reached the case the test is named after.** Different from a scenario where both arms agree —
+this one never gets there at all.
+
 ## 2026-08-31 — M6d-1: one voxel at a time, and one key that means precision
 
 `Place.Voxel` is the mirror of `Carve.Voxel`, and **Alt is now the precision modifier for both

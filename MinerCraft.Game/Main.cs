@@ -657,10 +657,16 @@ public partial class Main : Node3D
         if (Input.IsKeyPressed(Key.D)) direction += _camera.WalkRight;
         if (Input.IsKeyPressed(Key.A)) direction -= _camera.WalkRight;
 
+        // Ctrl sprints and Shift sneaks, matching Minecraft rather than the arrangement this
+        // project carried from M2 to M6d-1, which had the two swapped. **Sneak is a game rule and
+        // not only a speed**: PlayerMotion refuses a step that would walk a grounded body off an
+        // edge, which in a game about standing on ledges above shafts you dug yourself is the
+        // difference between building at the lip and falling down your own mine.
         return new MoveIntent(
             new System.Numerics.Vector3(direction.X, direction.Y, direction.Z),
             Jump: Input.IsKeyPressed(Key.Space),
-            Sprint: Input.IsKeyPressed(Key.Shift));
+            Sprint: Input.IsKeyPressed(Key.Ctrl),
+            Sneak: Input.IsKeyPressed(Key.Shift));
     }
 
     /// <summary>The walk/fly toggle. Everything else about input belongs to its own node.</summary>

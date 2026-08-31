@@ -24,7 +24,16 @@ namespace MinerCraft.Core.Physics;
 /// get the first right and the second wrong.
 /// </para>
 /// </remarks>
-public readonly record struct MoveIntent(Vector3 WalkDirection, bool Jump, bool Sprint)
+/// <param name="Sneak">
+/// Crouching: slower, and <b>refuses a step that would walk off an edge</b>. See
+/// <see cref="PlayerMotion.BackOffFromEdge"/> for the rule, which is a game rule rather than a
+/// control preference and so lives in Core.
+/// </param>
+public readonly record struct MoveIntent(
+    Vector3 WalkDirection,
+    bool Jump,
+    bool Sprint,
+    bool Sneak = false)
 {
     /// <summary>Standing still, hands off every control.</summary>
     public static MoveIntent Still => default;
@@ -35,8 +44,14 @@ public readonly record struct MoveIntent(Vector3 WalkDirection, bool Jump, bool 
     /// <summary>Sprinting the given way.</summary>
     public static MoveIntent Sprinting(Vector3 direction) => new(direction, false, true);
 
+    /// <summary>Sneaking the given way.</summary>
+    public static MoveIntent Sneaking(Vector3 direction) => new(direction, false, false, true);
+
     /// <summary>This intent with the jump control held.</summary>
     public MoveIntent WithJump() => this with { Jump = true };
+
+    /// <summary>This intent with the sneak control held.</summary>
+    public MoveIntent WithSneak() => this with { Sneak = true };
 
     /// <summary>The horizontal velocity this intent asks for, in metres per second.</summary>
     internal Vector3 HorizontalVelocity(PlayerMotionConfig config)
@@ -48,9 +63,14 @@ public readonly record struct MoveIntent(Vector3 WalkDirection, bool Jump, bool 
             return Vector3.Zero;
         }
 
-        float speed = Sprint
-            ? config.SprintSpeedMetresPerSecond
-            : config.WalkSpeedMetresPerSecond;
+        // Sneak beats sprint when both are held, which is what every game that has both does —
+        // and here it is not merely a convention: sprinting off a ledge you were carefully
+        // sneaking along is the exact accident sneak exists to prevent.
+        float speed = Sneak
+            ? config.WalkSpeedMetresPerSecond * config.SneakSpeedFraction
+            : Sprint
+                ? config.SprintSpeedMetresPerSecond
+                : config.WalkSpeedMetresPerSecond;
 
         return length > 1.0f ? flat * (speed / length) : flat * speed;
     }
@@ -261,12 +281,23 @@ public static class PlayerMotion
         Vector3 horizontal = intent.HorizontalVelocity(config);
         float verticalSpeed = VerticalSpeed(state, intent, config, deltaSeconds, out bool jumped);
 
+        int sneakQueries = 0;
+
+        // Sneak, and its guards are step-down's exactly: only from the ground, and only while not
+        // rising. A body already falling cannot sneak its way back onto a ledge, and one that has
+        // just jumped must not be held over the edge it launched from.
+        if (intent.Sneak && state.Grounded && verticalSpeed <= 0.0f)
+        {
+            horizontal = BackOffFromEdge(
+                world, materials, state.Box, horizontal, config, deltaSeconds, ref sneakQueries);
+        }
+
         var velocity = new Vector3(horizontal.X, verticalSpeed, horizontal.Z);
         Vector3 displacement = velocity * deltaSeconds;
 
         MoveResult moved = VoxelCollider.Move(world, materials, state.Box, displacement);
         int substeps = moved.Substeps;
-        int queries = moved.VoxelQueries;
+        int queries = moved.VoxelQueries + sneakQueries;
 
         Aabb box = moved.Box;
         BlockedFaces blocked = moved.Blocked;
@@ -439,6 +470,93 @@ public static class PlayerMotion
     /// which is stepping over rather than up, and gravity has the next word.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Trims a sneaking body's horizontal move so that it never leaves the ground.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Per axis, so you slide along an edge rather than sticking to it.</b> Walking diagonally
+    /// at a straight drop should carry you along the lip, which is what makes sneak usable for
+    /// building a wall from the outside rather than a mechanism that stops you dead. The combined
+    /// move is tried first because two components that are each safe alone can be unsafe together
+    /// at an inside corner.
+    /// </para>
+    /// <para>
+    /// <b>"Supported" is step-down's own test, called the same way</b>, and that shared definition
+    /// is the load-bearing part. Step-down catches a body that walks off a lip up to the step
+    /// height; if sneak used a stricter rule it would refuse moves step-down would have caught,
+    /// and the player would be stopped at the top of a staircase they could safely have walked
+    /// down. One definition of <i>the ground will catch me</i>, for the reason
+    /// <c>WorldGenerator</c> keeps one definition of the cave field.
+    /// </para>
+    /// <para>
+    /// <b>The candidate is the unresolved translation, not a resolved move</b>, which is how
+    /// Minecraft does it and is a deliberate imprecision: a candidate that a wall would have
+    /// stopped anyway can be judged unsupported and refused. The cost of being wrong there is a
+    /// step you could not have taken; the cost of resolving properly is three more collider
+    /// passes per sneaking step. Revisit if hugging a wall at a ledge reads as sticky.
+    /// </para>
+    /// <para>
+    /// <b>An unloaded voxel counts as support</b>, because <see cref="VoxelCollider"/> treats it
+    /// as solid — so a body at the edge of the loaded world is held rather than released, which is
+    /// the safe direction and the same one every other rule here takes.
+    /// </para>
+    /// </remarks>
+    internal static Vector3 BackOffFromEdge(
+        IVoxelWorld world,
+        MaterialTable materials,
+        Aabb box,
+        Vector3 horizontal,
+        PlayerMotionConfig config,
+        float deltaSeconds,
+        ref int queries)
+    {
+        if (horizontal.X == 0.0f && horizontal.Z == 0.0f)
+        {
+            return horizontal;
+        }
+
+        float dx = horizontal.X * deltaSeconds;
+        float dz = horizontal.Z * deltaSeconds;
+
+        if (Supported(world, materials, box, dx, dz, config, ref queries))
+        {
+            return horizontal;
+        }
+
+        if (dz != 0.0f && Supported(world, materials, box, dx, 0.0f, config, ref queries))
+        {
+            return horizontal with { Z = 0.0f };
+        }
+
+        if (dx != 0.0f && Supported(world, materials, box, 0.0f, dz, config, ref queries))
+        {
+            return horizontal with { X = 0.0f };
+        }
+
+        return Vector3.Zero;
+    }
+
+    /// <summary>Whether a body moved by this much would still have ground under it.</summary>
+    private static bool Supported(
+        IVoxelWorld world,
+        MaterialTable materials,
+        Aabb box,
+        float dx,
+        float dz,
+        PlayerMotionConfig config,
+        ref int queries)
+    {
+        MoveResult probe = VoxelCollider.Move(
+            world,
+            materials,
+            box.Translated(new Vector3(dx, 0.0f, dz)),
+            new Vector3(0.0f, -config.StepHeightMetres, 0.0f));
+
+        queries += probe.VoxelQueries;
+        return probe.Grounded;
+    }
+
     private static bool TryStepUp(
         IVoxelWorld world,
         MaterialTable materials,

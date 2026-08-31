@@ -105,8 +105,9 @@ public partial class FlyCam : Camera3D
         GD.Print(
             $"MinerCraft — voxel {VoxelConstants.VoxelSize} m, " +
             $"chunk {VoxelConstants.ChunkSize}³ ({VoxelConstants.ChunkSizeMetres} m)\n" +
-            "  WASD move, Space/Ctrl up-down, Shift sprint, Alt crawl\n" +
-            "  F toggles walk and fly — walking, Space jumps and Shift sprints\n" +
+            "  WASD move, Space/Shift up-down, Ctrl faster, Alt crawl\n" +
+            "  F toggles walk and fly — walking, Space jumps, Ctrl sprints, Shift sneaks\n" +
+            "  Sneaking will not walk you off an edge\n" +
             "  Left mouse mines a sphere, right mouse places a brush\n" +
             "  Alt+click is precision on either button: one voxel taken, one voxel placed\n" +
             "  B cycles the brush, V cycles the material you are placing\n" +
@@ -155,13 +156,17 @@ public partial class FlyCam : Camera3D
         if (Input.IsKeyPressed(Key.D)) direction += Basis.X;
 
         // Vertical stays world-aligned — pitched up/down movement would be disorienting.
+        // Shift descends and Ctrl hurries, which is Minecraft's arrangement and was this
+        // project's the other way round from M2 until M6d-1. Muscle memory for these two keys is
+        // decades old and a day old respectively, so accuracy wins — and the swap frees Ctrl from
+        // being descend, which is what made precision mining while flying sink the builder.
         if (Input.IsKeyPressed(Key.Space)) direction += Vector3.Up;
-        if (Input.IsKeyPressed(Key.Ctrl)) direction -= Vector3.Up;
+        if (Input.IsKeyPressed(Key.Shift)) direction -= Vector3.Up;
 
         if (direction == Vector3.Zero) return;
 
         float speed = MoveSpeed;
-        if (Input.IsKeyPressed(Key.Shift)) speed *= SprintMultiplier;
+        if (Input.IsKeyPressed(Key.Ctrl)) speed *= SprintMultiplier;
         if (Input.IsKeyPressed(Key.Alt)) speed *= CrawlMultiplier;
 
         GlobalPosition += direction.Normalized() * speed * (float)delta;

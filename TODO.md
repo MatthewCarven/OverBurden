@@ -2541,6 +2541,32 @@ everything once, then play once.
       as the default. **The cause is inferred and not measured** — presumably the raycast and the
       edit's clone-and-relight marking dominating, so one voxel in fresh air pays a whole chunk
       clone while sixty-four in a cell amortise it. **M6d-2's to settle.**
+- [x] **Amended 2026-08-31 after a conversation about Minecraft accuracy: Ctrl and Shift had been
+      swapped since M2.** Minecraft is Sneak = Shift, Sprint = Ctrl, and in flight Shift descends
+      while Ctrl hurries; this project had the two the other way round. Muscle memory for these
+      keys is decades old against this project's one day, so accuracy wins. **It also removes the
+      cause of the M3d note rather than dodging it** — Ctrl-as-descend is what made precision
+      mining sink the builder — and Alt stays precision, because Ctrl-as-sprint would have been a
+      worse pairing for fine work than crawl.
+      - [x] **Sneak is a physics rule, not a keybinding.** While grounded and not rising, a
+            horizontal move that would leave the body unsupported is refused, **per axis** so that
+            walking diagonally at a drop slides along the lip rather than stopping dead. In a game
+            about standing on ledges over shafts you dug yourself, that is the difference between
+            building at the edge and falling down your own mine.
+      - [x] **"Supported" is step-down's own probe, called the same way**, and the shared
+            definition is the load-bearing part: a stricter test would refuse moves step-down would
+            have caught, stopping the player at the top of a staircase they could safely walk down.
+      - [x] **Sneak beats sprint when both are held**, and not by convention here: sprinting off a ledge
+            you were carefully sneaking along is the accident the rule exists to prevent.
+      - [x] **Five break-recipes, two of which needed the test fixed.** Both were the scenario
+            ending before it reached the case: the mid-air guard cannot be caught by "does not stop
+            a fall", because the rule only trims horizontal movement — what it protects is *air
+            control*, and an unguarded rule eats a jump. And the per-axis slide test finished its
+            travel at the moment it reached the lip.
+      - [x] **Two fixtures were wrong about the physics rather than the reverse**, and both are
+            behaviours somebody would otherwise file as bugs: a sneaking body **hangs most of
+            itself over the drop** (support is "some voxel under the footprint"), and **a gap
+            exactly the body's width is walked across while sneaking**, no jump needed.
 - [x] **`--preciseplace` exists to test the wire, not to be a feature.** Every layer of precision
       placement has a Core test and the join between the held key and `Place.Voxel` had none,
       which is M5c-2's shape of hole exactly. The report names the shape actually used rather than

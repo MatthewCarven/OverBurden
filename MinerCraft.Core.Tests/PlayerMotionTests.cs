@@ -844,4 +844,189 @@ public class PlayerMotionTests
 
         return state;
     }
+
+    // ------------------------------------------------------------------------------- sneak
+
+    /// <summary>
+    /// Ground everywhere with x &lt;= 7, and a sheer drop past it. The lip is at x = 2.0 m.
+    /// </summary>
+    /// <remarks>
+    /// A drop rather than a step, so that step-down cannot rescue the body: sneak has to be what
+    /// stops it, or the test passes for the wrong reason.
+    /// </remarks>
+    private static TestWorld Ledge() => new() { Background = v => v.X <= 7 && v.Y <= 3 ? Dirt : Air };
+
+    [Fact]
+    public void SneakingAtALedgeNeverLeavesTheGround()
+    {
+        // The oracle, and it is a boolean with no reference implementation: walk at a drop with
+        // the modifier held and the body must still be standing at the end of every step. Same
+        // category as M4a's sealed room.
+        TestWorld world = Ledge();
+        PlayerState state = Standing(world, new Vector3(1.0f, 1.0f, 1.0f));
+
+        for (int i = 0; i < 120; i++)
+        {
+            state = Step(world, state, MoveIntent.Sneaking(East)).State;
+
+            Assert.True(state.Grounded, $"left the ground on step {i} at {state.Box.Min}");
+            Assert.InRange(state.Box.Min.Y, 1.0f, 1.0f + Contact);
+        }
+
+        // And it really did reach the lip, or the assertions above are about a body that stopped
+        // somewhere harmless.
+        //
+        // **The invariant is about the near face, not the far one**, and the first version of this
+        // assertion had it backwards. Support is "some voxel under the footprint is solid", so a
+        // sneaking body walks out over the drop until its *minimum* corner reaches the edge and
+        // hangs most of itself over nothing — which is exactly what sneaking over a ledge looks
+        // like in the game this idiom is borrowed from.
+        Assert.InRange(state.Box.Min.X, 1.9f, 2.0f);
+    }
+
+    [Fact]
+    public void NotSneakingWalksOffTheSameLedge()
+    {
+        // The control. Without it the sneak test passes just as well on a body that cannot move.
+        TestWorld world = Ledge();
+        PlayerState state = Standing(world, new Vector3(1.0f, 1.0f, 1.0f));
+
+        for (int i = 0; i < 120; i++)
+        {
+            state = Step(world, state, MoveIntent.Walking(East)).State;
+        }
+
+        Assert.True(state.Box.Min.Y < 0.0f, $"the body should have fallen, but is at {state.Box.Min}");
+    }
+
+    [Fact]
+    public void SneakingSlidesAlongAnEdgeRatherThanStickingToIt()
+    {
+        // Per-axis, which is what makes sneak usable for building a wall from the outside: walking
+        // diagonally at a drop carries you along the lip instead of stopping you dead.
+        TestWorld world = Ledge();
+        PlayerState state = Standing(world, new Vector3(1.0f, 1.0f, 1.0f));
+
+        var diagonal = new Vector3(1.0f, 0.0f, 1.0f);
+        float startZ = state.Box.Min.Z;
+
+        // **Long enough that most of the Z travel has to happen after the lip.** The first version
+        // ran 120 steps and asserted one metre of Z, which the body covered on its way *to* the
+        // edge — so testing only the combined move, never per axis, passed it. The battery found
+        // that: the scenario finished before it reached the case it was named for.
+        for (int i = 0; i < 300; i++)
+        {
+            state = Step(world, state, MoveIntent.Sneaking(diagonal)).State;
+            Assert.True(state.Grounded, $"left the ground on step {i}");
+        }
+
+        Assert.InRange(state.Box.Min.X, 1.9f, 2.0f);
+        Assert.True(
+            state.Box.Min.Z > startZ + 2.5f,
+            $"the body should have slid along the edge; Z moved {state.Box.Min.Z - startZ:F2} m");
+    }
+
+    [Fact]
+    public void SneakingDoesNotStopABodyThatIsAlreadyFalling()
+    {
+        // No hovering: the rule trims horizontal movement and never touches gravity.
+        TestWorld world = Ledge();
+        PlayerState state = PlayerState.AtFeet(new Vector3(5.0f, 6.0f, 1.0f), Config);
+
+        for (int i = 0; i < 30; i++)
+        {
+            state = Step(world, state, MoveIntent.Sneaking(East)).State;
+        }
+
+        Assert.True(state.Box.Min.Y < 6.0f, "gravity should still apply while sneaking");
+    }
+
+    [Fact]
+    public void SneakJumpingCarriesTheBodyPastTheLipItWasHeldAt()
+    {
+        // **What the grounded and not-rising guards actually protect, and the battery is what said
+        // so.** The obvious test — "sneaking does not stop a fall" — cannot catch their removal,
+        // because the rule only ever trims *horizontal* movement. What removing them breaks is air
+        // control: the launch frame is still grounded but rising, and every frame after it is
+        // airborne, so an unguarded rule would zero the horizontal component of a jump and the
+        // body would go straight up and come back down on the lip it was standing on.
+        //
+        // Asserted as the property rather than as a gap to clear, and two earlier versions are
+        // why. The first asked a sneaking body to jump a full metre, which at 1.35 m/s it cannot
+        // and should not; the second used a gap exactly the body's width, which a sneaking body
+        // walks straight across without jumping at all, because one end is always over solid
+        // ground. Both were the fixture being wrong about the physics rather than the reverse.
+        TestWorld world = Ledge();
+        PlayerState state = Standing(world, new Vector3(1.0f, 1.0f, 1.0f));
+
+        for (int i = 0; i < 120; i++)
+        {
+            state = Step(world, state, MoveIntent.Sneaking(East)).State;
+        }
+
+        // Parked at the lip, held there by the rule under test.
+        Assert.InRange(state.Box.Min.X, 1.9f, 2.0f);
+
+        state = Step(world, state, MoveIntent.Sneaking(East).WithJump()).State;
+
+        float furthest = state.Box.Min.X;
+        for (int i = 0; i < 60; i++)
+        {
+            state = Step(world, state, MoveIntent.Sneaking(East)).State;
+            furthest = MathF.Max(furthest, state.Box.Min.X);
+        }
+
+        // Past the lip, which it can only be by moving horizontally while off the ground —
+        // sneak pins it at 2.0 m for as long as it is standing.
+        Assert.True(
+            furthest > 2.0f,
+            $"the jump should have carried the body past the lip; furthest was {furthest:F3}");
+    }
+
+    [Fact]
+    public void SneakingStillWalksDownAStepItWouldHaveWalkedDown()
+    {
+        // The shared definition, and the reason it is shared. Step-down catches a body that walks
+        // off a lip up to the step height; sneak asks the same question with the same call. A
+        // stricter test here would stop the player at the top of a staircase they could safely
+        // have walked down, which is precisely the frustration sneak is supposed to prevent.
+        TestWorld world = Terrain((x, _) => x <= 7 ? 3 : 2);
+        PlayerState state = Standing(world, new Vector3(1.0f, 1.0f, 1.0f));
+
+        for (int i = 0; i < 120; i++)
+        {
+            state = Step(world, state, MoveIntent.Sneaking(East)).State;
+            Assert.True(state.Grounded, $"left the ground on step {i}");
+        }
+
+        Assert.True(state.Box.Min.X > 2.0f, $"sneak refused a safe step down; stopped at {state.Box.Min.X}");
+        Assert.InRange(state.Box.Min.Y, 0.75f, 0.75f + Contact);
+    }
+
+    [Fact]
+    public void SneakingIsSlowerThanWalking()
+    {
+        TestWorld world = FlatGround();
+
+        PlayerState sneaked = Standing(world, new Vector3(1.0f, 1.0f, 1.0f));
+        PlayerState walked = sneaked;
+
+        for (int i = 0; i < 30; i++)
+        {
+            sneaked = Step(world, sneaked, MoveIntent.Sneaking(East)).State;
+            walked = Step(world, walked, MoveIntent.Walking(East)).State;
+        }
+
+        Assert.True(sneaked.Box.Min.X < walked.Box.Min.X);
+
+        // And sneak beats sprint when both are held, which is not merely a convention: sprinting
+        // off a ledge you were carefully sneaking along is the accident sneak exists to prevent.
+        PlayerState both = Standing(world, new Vector3(1.0f, 1.0f, 1.0f));
+        for (int i = 0; i < 30; i++)
+        {
+            both = Step(world, both, MoveIntent.Sprinting(East).WithSneak()).State;
+        }
+
+        Assert.Equal(sneaked.Box.Min.X, both.Box.Min.X, 4);
+    }
 }

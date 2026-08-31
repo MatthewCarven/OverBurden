@@ -188,7 +188,7 @@ copy in `../GAME/`.
 ## Where things stand
 
 M0, all of M1, **all of M2, all of M3, all of M4, all of M5, M6a, all of M6b, all of M6c and
-M6d-1** are done — **727 tests passing**. **M6d is split three ways; M6d-2 is the measurement
+M6d-1** are done — **734 tests passing**. **M6d is split three ways; M6d-2 is the measurement
 half and is next.**
 
 **M6d-1 — precision placement and the modifier keys: done 2026-08-31.** `Place.Voxel` mirrors
@@ -208,7 +208,15 @@ Alt+right places one. Suite 724 → 727. Four things worth keeping:
   which strengthens M3c's argument for the brushes staying the default. **The cause is inferred
   and is M6d-2's to settle.**
 - **`--preciseplace` exists to test the wire.** Every layer had a Core test and the join between
-  the held key and `Place.Voxel` had none, which is M5c-2's hole exactly. **M6 is planned (2026-08-31) and under way: SQLite save/load, brush placement,
+  the held key and `Place.Voxel` had none, which is M5c-2's hole exactly.
+- **Amended the same day: Ctrl and Shift had been swapped from Minecraft since M2.** It is now
+  Shift = sneak / descend and Ctrl = sprint / fly faster, which **removes the cause** of the M3d
+  note rather than dodging it. **Sneak is a physics rule, not a keybinding**: a grounded move that
+  would leave the body unsupported is refused, per axis so you slide along a lip rather than
+  sticking to it, and "supported" is step-down's own probe called the same way — a stricter
+  test would stop the player at the top of a staircase they could safely walk down. Two fixtures
+  in its battery were wrong about the physics rather than the reverse: a sneaking body **hangs
+  most of itself over the drop**, and **a gap exactly the body's width is walked across**. **M6 is planned (2026-08-31) and under way: SQLite save/load, brush placement,
 volumetric inventory — v0.1 playable sandbox**, and it is what fixes the one thing play kept
 running into, that an edited chunk which unloads loses its edits. See
 [docs/M6-PLAN.md](docs/M6-PLAN.md), split M6a–M6d. **The game saves as of M6b-3 (2026-08-31),

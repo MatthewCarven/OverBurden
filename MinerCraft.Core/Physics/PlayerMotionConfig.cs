@@ -162,6 +162,17 @@ public sealed record PlayerMotionConfig
     /// </remarks>
     public float StepHeightMetres { get; init; } = 0.5f;
 
+    /// <summary>
+    /// How much of the walking speed a sneaking body keeps.
+    /// </summary>
+    /// <remarks>
+    /// <b>0.3, which is Minecraft's number</b>, and the reason to copy it rather than pick one is
+    /// that sneak is a borrowed idiom: a player who has ever crouched at the edge of a drop knows
+    /// what it should feel like, and a different value reads as the control being wrong rather
+    /// than as this game having its own opinion. A feel constant, so M6d-3 is where it is judged.
+    /// </remarks>
+    public float SneakSpeedFraction { get; init; } = 0.3f;
+
     /// <summary>A body of these dimensions standing with its feet at the given point.</summary>
     public Aabb BoxAtFeet(Vector3 feetCentreMetres) =>
         Aabb.FromFeet(feetCentreMetres, WidthMetres, HeightMetres);
@@ -193,6 +204,7 @@ public sealed record PlayerMotionConfig
         Finite(WalkSpeedMetresPerSecond, nameof(WalkSpeedMetresPerSecond), strictlyPositive: false);
         Finite(SprintSpeedMetresPerSecond, nameof(SprintSpeedMetresPerSecond), strictlyPositive: false);
         Finite(StepHeightMetres, nameof(StepHeightMetres), strictlyPositive: false);
+        Finite(SneakSpeedFraction, nameof(SneakSpeedFraction), strictlyPositive: false);
 
         if (EyeHeightMetres > HeightMetres)
         {
