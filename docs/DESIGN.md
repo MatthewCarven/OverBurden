@@ -33,6 +33,31 @@ simulation, not enemies.
 | Scope target | Survival, **no mobs** | Replaced by flooding / collapse / automation |
 | Mod support | **Data mods from M1, Lua (MoonSharp) at M12** | Registry discipline costs ~15% up front, ~300% to retrofit |
 | Multiplayer | **Not now, but don't design it out** | Headless sim core + event bus keeps the seam open |
+| Borrowed idioms | **Match Minecraft unless there is a stated reason not to** | Settled 2026-08-31. Where a control or a behaviour is one players already know, muscle memory is decades old and this project's is days old, so the burden of proof is on deviating |
+
+### Borrowed idioms, and where the line is
+
+Where this game does something Minecraft also does, **it should do it the same way unless there is
+a recorded reason.** Settled after M6c's play found the movement keys had been mirror-imaged since
+M2 — sprint on Shift and descend on Ctrl, where Minecraft is Sneak = Shift and Sprint = Ctrl.
+Nobody had noticed for four milestones because each key was individually defensible.
+
+The rule cuts both ways and the second half matters more:
+
+- **A borrowed control keeps its meaning.** Shift sneaks and descends; Ctrl sprints and hurries;
+  Space jumps and rises. A player who has crouched at the edge of a drop before knows what should
+  happen, and a different answer reads as this game being broken rather than as it having its own
+  opinion.
+- **A borrowed control brings its behaviour with it.** Sneak is not a speed modifier with a
+  familiar key — it stops you walking off an edge, and that is the whole reason anybody presses
+  it. Taking the key without the rule is the worse half of both options.
+- **Where this game is genuinely different, deviate and say why.** Voxels are 0.25 m rather than
+  1 m, mining is a sphere rather than a block, and placement is brushes on a metre lattice; none of
+  those has a Minecraft answer to borrow. **Alt is precision on both mouse buttons** and Minecraft
+  has no equivalent at all, so it is chosen on its own merits.
+
+The trap this closes: a binding that is individually reasonable can still be wrong, because what
+makes it wrong is a convention held somewhere other than in this repository.
 
 ---
 

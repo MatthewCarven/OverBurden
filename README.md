@@ -13,7 +13,7 @@ No mobs, no combat. The mine is the antagonist.
 
 ## Status
 
-**M0 through M5 done, and M6 under way** — 670 tests passing. Terrain streams around the
+**M0 through M5 done, and M6 under way** — 734 tests passing. Terrain streams around the
 camera without end: worldgen and greedy meshing run on worker threads over palette-compressed
 storage, drawn via `RenderingServer` with a texture array, with every material loaded from
 `mods/minercraft/*.json` exactly the way a third-party mod would load its own. Chunks load
@@ -23,7 +23,10 @@ gated by tool tier against material hardness. You walk it — an AABB against th
 gravity, jump, step-up — and you cannot outrun the streamer falling 250 m at terminal
 velocity. There is no sun: the voxel grid is the light, skylight and lamplight are separate
 channels, and a mine runs from lit rock to actual black. **And it saves** — dig a tunnel, fly
-away, quit, come back, and the tunnel is still there.
+away, quit, come back, and the tunnel is still there, along with what you were carrying and where
+you were standing. **You can build, too**: brushes place a cube, a slab, a four-step ramp or a
+sphere on a one-metre lattice, out of the volume you mined, and Alt makes either mouse button
+work one voxel at a time.
 
 Some numbers it is built on:
 
@@ -65,9 +68,12 @@ start.cmd
 ```
 
 Needs Godot 4.7.1-stable **mono**, either vendored at `./Godot_v4.7.1-stable_mono_win64/`
-or shared from `../GAME/`. WASD to move, Space/Ctrl for up and down, Shift to sprint,
-Esc to release the mouse. **F toggles walking and flying** — walking, Space jumps. Left mouse
-mines a sphere and Ctrl+left takes a single voxel; 1 and 2 pick a tool tier.
+or shared from `../GAME/`. Bindings follow Minecraft where the idiom is borrowed: WASD to move,
+Space and Shift for up and down, Ctrl to sprint or fly faster, Esc to release the mouse.
+**F toggles walking and flying**; walking, Space jumps and **Shift sneaks, which will not let you
+walk off an edge**. Left mouse mines a sphere, right mouse places a brush, and **Alt+click is
+precision on either** — one voxel taken, one voxel placed. B cycles the brush, V cycles the
+material, and 1 and 2 pick a tool tier.
 
 Your world is written to `user://worlds/default/world.db` — on Windows,
 `%APPDATA%/Godot/app_userdata/MinerCraft/worlds/`. It saves as chunks unload, every thirty

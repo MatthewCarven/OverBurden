@@ -2573,16 +2573,29 @@ everything once, then play once.
       the brush selected, because a precise run labelled "cube brush" is M3d's
       chips-sharing-the-swing-line trap repeated.
 
-##### M6d-2 — Measurement
+##### M6d-2 — Measurement ← **next, and the specifics a fresh session would rediscover**
 
+**Everything it measures already exists and runs.** The bench has `--store`; the game has
+`--profile`, `--place`, `--preciseplace`, `--stock=`, `--brush=`, `--world=` and `--nosave`. No new
+mechanism is needed for any line below, which is why this part is measurement rather than work.
 
-- [ ] **Measure first: time to enter a heavily-dug world against generating the same box.** The
-      prediction is that loading can be *slower*, which is the surprising direction.
+- [ ] **The headline, and it is the one M6 has been carrying since its plan: time to enter a
+      heavily-dug world against generating the same box.** Half-answered twice already and both
+      halves say the worry dissolves — deserialise is 21 µs a chunk (M6a) and a SQLite point
+      query is 6.0 µs (M6b-1), giving a crossover at 2,505 chunks, past the whole 1,521-chunk
+      fill. **What is missing is the end-to-end number in the game**, which is the only one that
+      includes the serial lane's ordering against eight generating workers. `--world=` a dug world
+      and read `first draw` from the fill line.
+- [ ] **Why precision placement costs more per click than a brush.** Measured at M6d-1: 0.077 ms
+      against 0.040, while doing 1/64th of the writes. **The hypothesis is written down and not
+      tested** — that the raycast and the edit's clone-and-relight marking dominate, so one voxel
+      in fresh air pays a whole chunk clone while sixty-four in one cell amortise it. `ChunkClones`
+      per placement is already counted and is the number that would settle it.
 - [ ] `Compact()`'s cost per save and its saving after deflate; compression ratio and total save
-      size after a real session; sim-thread cost of the save burst when a shell unloads at speed;
-      placement cost per brush against a swing's measured 0.083–0.139 ms.
+      size after a real session; sim-thread cost of the save burst when a shell unloads at speed.
 - [ ] **Use `update ms`, not `frame ms`.** The headless frame-time trap has appeared four times
       across M2d, M3d and M4d and been believed at least once each.
+
 ##### M6d-3 — The play, and the first real UI
 
 - [ ] **Play: dig a tunnel, fly away until it unloads, come back.** The milestone's whole reason
