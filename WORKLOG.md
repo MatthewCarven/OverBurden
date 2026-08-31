@@ -1,5 +1,168 @@
 # MinerCraft — Worklog
 
+## 2026-08-31 — M6b-2: the lifetime, and the milestone's sentence comes true
+
+`ChunkPipeline` takes an `IWorldStore`, an edited chunk that unloads is written, and one that comes
+back is read rather than regenerated. **The sentence M6 exists for is now a passing test:** dig a
+tunnel, fly far enough that the chunk unloads, come back, and the tunnel is still there. Suite
+**650 → 665**.
+
+### The oracle
+
+```csharp
+int[] expected = Excavate(pipeline, target);
+streamer.MoveViewer(viewer, FarAway);   // far enough that nothing of the old box survives
+Assert.False(streamer.IsTracked(target));
+streamer.MoveViewer(viewer, target);
+AssertSame(expected, Snapshot(pipeline, target));
+```
+
+No reference implementation to get wrong, the same category as M4a's sealed room. Its sibling does
+the other half a moving viewer cannot reach — tear the whole pipeline down and build a new one on
+the same store, which is quitting the game and starting it again.
+
+### The defect the tests found, and where it was matters more than what it was
+
+**`SkyColumn` needed the two-flag split and did not have it.** `StreamedChunk` got
+`HasEdits` (permanent — "cannot come from the seed") and `DirtySinceSave` (transient — "does not
+match disk") deliberately, argued in the plan, with a comment explaining why one flag cannot carry
+both meanings. Columns were then gated on `HasEdits` alone.
+
+`HasEdits` is permanent, so it can never say "already written" — every save would rewrite every
+edited column, for the lifetime of the world. `SaveAllIsIdempotentAndCheapWhenNothingIsDirty`
+caught it on the second call returning `(0, 1)`.
+
+**The lesson is not the bug, it is the location.** The conflation was reasoned about carefully in
+one file and reintroduced one file away, in the half nobody was looking at. That is the third time
+this exact shape has appeared — `NeedsRemesh`/`RemeshUrgent` at M5c, `HasEdits`/`DirtySinceSave`
+here, and now the column — and the first time it appeared *inside* the change that was fixing it.
+
+### Two tests that were asserting on states lasting less than a frame
+
+Both failed, both were wrong, and both were wrong the same way: `ApplySave` runs inside
+`ApplyResults` and `SubmitSaves` runs later in the **same** `Update`, so anything that is briefly
+true between them is never observable from outside.
+
+- "A failed save puts its work back on the queue" — by the time the test looks, the retry is
+  already in flight. Replaced by the end state that actually matters: **a store that fails and then
+  recovers ends up holding the data**, with nothing re-dirtying the chunk in between.
+- "The index does not claim a chunk that never reached disk" — same window. And the claim turns out
+  to be safe for a reason worth recording; see below.
+
+### Why the optimistic index claim is safe, and it is the serial lane
+
+`SubmitSaves` adds a chunk to the saved-chunk index at **submission**, before the bytes are on
+disk. A chunk revived in that window would consult the index, find the claim, and submit a load for
+a blob that is not there yet.
+
+It cannot happen, and the reason is structural rather than lucky: **both jobs are on the serial
+lane, which runs one at a time in priority order, and `JobKind.Save` (30) outranks `JobKind.Load`
+(20).** The write always completes before the read that would observe it.
+
+So `Save`'s priority band is about **correctness**, not only about the starvation argument it was
+introduced for. Worth stating plainly, because "saves rank highest so they do not starve" reads
+like tuning, and lowering it would look harmless.
+
+### The decisions this part had to make
+
+- **A loaded chunk comes back at `GenerationStage.Features`, not `Terrain`**, so `ApplyFeatures`
+  does not run over it twice. **Revisit trigger, and it becomes real the moment the feature stage
+  places anything:** a chunk that A's features wrote into, but which was never itself edited, is
+  not stored — so it regenerates from seed and loses what A gave it, while A comes back at
+  `Features` and never re-runs. Re-running is not the fix either, because a feature re-applied over
+  material the player has since mined would undo their edit. The candidates are saving
+  feature-affected neighbours, or recording per chunk which features have run, and **neither can be
+  chosen against a stage that currently places nothing**.
+- **A blob the index claims and the store lacks falls back to generating; a blob that exists and
+  will not parse faults.** The difference is whether the world is telling us something. Silently
+  regenerating over a corrupt base would replace it with untouched hillside and report nothing,
+  which is this milestone's failure mode arriving as a well-meant recovery.
+- **A failed save is re-queued, which is the opposite of what a faulted generate does.** M2a's rule
+  — a fault is a deterministic bug and retrying turns one exception into a spin — is right when the
+  lost work is a mesh that can be rebuilt. A lost save is gone. Retried once per frame, and
+  reported every time rather than counted quietly.
+- **`Dispose` saves synchronously before it cancels anything.** `JobResult`'s contract is that a
+  job still queued at shutdown reports `Dropped`, so a world left to the normal path at quit loses
+  whatever had not been picked up. The plan named this as the single most likely way to ship a
+  data-loss bug in M6, and it is one line.
+- **The save job needs no chunk retention at all**, which was not obvious. A `VoxelChunk` is an
+  ordinary object: once the job holds a reference the streamer may forget the record freely.
+  What protects a chunk that stays *live* is `VoxelsSharedWithJob`, set before submission, so an
+  edit clones rather than mutating the arrays the serialiser is reading — M3a's copy-on-write
+  reached by a route it was not written for.
+- **The column restore is applied by copying into the live object, never by replacing it.** Every
+  `StreamedChunk.Sky` in the column caches that instance, so installing a different one would leave
+  already-loaded chunks pointing at the old heights — a shaft lit correctly at the bottom and from
+  the pre-dig surface at the top.
+
+### The battery: 19 recipes, 12 caught, and the seven green ones are five different things
+
+Two were **real holes and are now closed**: making either the save job or the load job non-serial
+failed nothing, which meant the correctness argument written into `SubmitSaves` was unbacked.
+`TheSerialLaneKeepsALoadBehindTheSaveItWouldRace` closes both — a store that parks a writer inside
+`Write` while the player returns, which is the revive-during-save window the plan asked for.
+
+One is a **comment that overclaimed, now corrected**. Lowering `JobKind.Save` below `Generate`
+failed nothing, and the reason is that it is not a correctness property: when both jobs sit queued
+the higher band means the write goes first, but if it did not, the load would read nothing, fall
+back to generating, and the chunk would be regenerated **for this session while the save still
+lands** — wrong on screen, recoverable on disk. The mutual exclusion is the load-bearing half; the
+priority is not, and the comment now says so.
+
+One is **unreachable until the feature stage does something**. A loaded chunk coming back at
+`Terrain` rather than `Features` re-runs `ApplyFeatures`, which places nothing, so the two arms
+agree exactly. That does not weaken the recorded trigger — it is the trigger, restated as a
+mutation nothing can catch yet.
+
+One is a **field that still has no reader**. Not setting `HasEdits` on a loaded chunk breaks
+nothing, because every gate in the save path is `DirtySinceSave`. `HasEdits` has now survived from
+M3a to M6b-2 documented as *"exactly the set M6 has to persist"* and **has never been read by
+anything** — the set that actually decides is the other flag. Kept, because it is one bit and it
+states a property the store's bookkeeping does not, but recorded as unread rather than assumed
+load-bearing.
+
+One is **provably redundant**. Removing `PendingSaves` from `IsQuiescent` fails nothing, and it
+cannot: `SubmitSaves` runs inside `Update`, so a non-empty pending list after an `Update` implies a
+save is in flight, which implies `JobsInFlight > 0`. Kept because it states the intent and because
+the implication breaks the moment `SubmitSaves` gains an early-out.
+
+And one is **belt and braces against an ordering the serial lane makes rare**, which took two
+attempts to establish. Removing `QueueColumnLightBuild` from the restore path fails nothing, and
+the obvious test for it — hold the column read, let the chunks load and light themselves against
+the pre-dig surface, then release — **cannot be written**, because a column read and a chunk load
+are on the same serial lane, so holding one holds the other. The column job is submitted during the
+streamer's box sweep and a chunk's load job later in the same `Update`'s pump, so the restore is
+already running or already queued ahead by the time any chunk of that column can ask for voxels.
+
+That is M4a's zeroable contact epsilon again, with a twist worth keeping: **the mechanism a test
+would have to defeat is the same mechanism that makes the case rare.** The attempt was not wasted —
+`ASlowColumnReadHoldsTheChunkLoadsBehindIt` now pins the structural property directly, which is
+what makes "restore before derive" an argument rather than an observation about timing.
+
+### A fixture trap that cost four failures
+
+`SomeVoxelIn` reached for voxel (16, 16, 16), which in this generator is **often already air** — and
+`SetVoxel` correctly returns early when the material is already there, so four tests were making no
+edit at all and failing on the fixture rather than the code.
+
+Fixed by placing a **lamp**, which nothing generates, and by having the fixture itself assert that
+the chunk came out dirty. That assertion is the part worth keeping: without it the next fixture
+that stops editing anything would make its tests pass vacuously rather than fail loudly. Same
+family as M6a's `Compact` measurement, where the carved-chunk arm could not benefit and said
+"saves 0" anyway.
+
+### An incidental confirmation, a milestone early
+
+Placing an opaque block **above** the surface closes the sky column down to it and marks the column
+edited — so a built roof persists its lighting exactly as a dug shaft does. That is M6c's placement
+case arriving early, and it fell out of a failing assertion rather than being designed for.
+
+### Still outstanding: M6b-3, the session
+
+Nothing in `MinerCraft.Game` is wired yet. The startup reorder — open world, read the ID table,
+`Load(source, savedIds)`, freeze, then construct the streamer — and the autosave timer and the quit
+drain are M6b-3. **`Main.cs` still calls `Content.Load` with no saved table and still hardcodes the
+seed**, so the game as it runs today saves nothing: all of the above is exercised by tests only.
 ## 2026-08-31 — M6b-1: the store, and M6's headline worry dissolves backwards
 
 `IWorldStore` and `InMemoryWorldStore` in Core; `MinerCraft.Persistence` and `SqliteWorldStore`

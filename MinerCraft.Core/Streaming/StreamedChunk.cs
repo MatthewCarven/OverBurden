@@ -191,12 +191,36 @@ public sealed class StreamedChunk
     /// This chunk has been edited, so regenerating it from the seed would not reproduce it.
     /// </summary>
     /// <remarks>
-    /// Nothing reads this yet. It is exactly the set of chunks M6 has to persist, it costs one
-    /// bit, and it cannot be reconstructed afterwards — a chunk that has already been unloaded
-    /// and regenerated looks untouched. Until M6 an edited chunk that unloads loses its edits;
-    /// see docs/M3-PLAN.md, where that is a recorded limitation rather than a bug.
+    /// <para>
+    /// Set on the first write and <b>never cleared</b>. It cannot be reconstructed afterwards — a
+    /// chunk that has already been unloaded and regenerated looks untouched — and it is what says
+    /// this chunk must come from the store rather than from the seed.
+    /// </para>
+    /// <para>
+    /// <b>"Differs from the seed" and "differs from disk" are two questions, and this answers only
+    /// the first.</b> See <see cref="DirtySinceSave"/>.
+    /// </para>
     /// </remarks>
     public bool HasEdits { get; internal set; }
+
+    /// <summary>This chunk no longer matches what is stored for it.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The second flag, and the <see cref="NeedsRemesh"/> problem for a third time.</b>
+    /// <see cref="HasEdits"/> means "differs from the seed" and is permanent;  this means "differs
+    /// from what is on disk" and is transient. One flag carrying both meanings would have to be
+    /// cleared on save, and clearing it would then say the chunk matches the seed — so the next
+    /// unload would skip it and the edits would go. Where conflating stale and urgent cost a
+    /// stale mesh at M5c, conflating these costs a tunnel.
+    /// </para>
+    /// <para>
+    /// <b>Cleared at submission, not on completion, and restored if the job does not land.</b>
+    /// Clearing at submission is what makes an edit arriving <em>during</em> the save re-dirty the
+    /// chunk — the same reasoning that makes <see cref="NeedsRemesh"/> survive a mesh completing.
+    /// Clearing on completion instead would swallow exactly those edits.
+    /// </para>
+    /// </remarks>
+    public bool DirtySinceSave { get; internal set; }
 
     /// <summary>
     /// The renderer has been handed a mesh for this chunk and has not been told to drop it.

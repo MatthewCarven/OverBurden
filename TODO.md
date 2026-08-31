@@ -1864,7 +1864,7 @@ Played with the entangled miner. **"Looks good to me."**
 - [ ] Baking AO into the light grid. Different frequencies — AO is a 0.25 m effect and the grid
       is 1 m — and merging them loses exactly the detail AO exists to add.
 
-### M6 — v0.1 playable sandbox ← **M6a and M6b-1 done 2026-08-31. M6b-2 is next.**
+### M6 — v0.1 playable sandbox ← **M6a, M6b-1 and M6b-2 done 2026-08-31. M6b-3 is next.**
 
 Planned into four parts in [docs/M6-PLAN.md](docs/M6-PLAN.md). **Read it before starting.** The
 structural point: every chunk so far has been recoverable from nothing, so `Forget` could delete
@@ -2074,6 +2074,42 @@ drain. Splitting up front rather than halfway through is why M2c went smoothly.
             with a bad shift collapses one chunk onto another — terrain appearing where it does not
             belong, a long way from the cause.
 
+##### M6b-2 — The lifetime ✅ **done 2026-08-31, 668 tests passing**
+
+**The milestone's sentence is now a passing test:** dig a tunnel, fly far enough that the chunk
+unloads, come back, and the tunnel is still there. Plus the half a moving viewer cannot reach —
+tear the pipeline down and build a new one on the same store, which is quitting and restarting.
+
+- [x] `ChunkPipeline` takes an `IWorldStore?`; save on unview, load before generate, the in-memory
+      index, the column restore, `SaveAll`, and a synchronous save in `Dispose`.
+- [x] **Defect found by the tests: `SkyColumn` needed the two-flag split and did not have it.**
+      Chunks got `HasEdits`/`DirtySinceSave` deliberately and argued; columns were then gated on
+      `HasEdits` alone, which is permanent — so every save would rewrite every edited column for
+      the life of the world. **The lesson is the location, not the bug:** the conflation was
+      reasoned about carefully in one file and reintroduced one file away, in the half nobody was
+      looking at. Third outing for this shape, and the first *inside* the change that was fixing it.
+- [x] **Two tests were asserting on states that last less than a frame**, both the same way:
+      `ApplySave` runs inside `ApplyResults` and `SubmitSaves` runs later in the *same* `Update`.
+      Replaced by end states — a store that fails and then recovers ends up holding the data.
+- [x] **A fixture trap cost four failures.** The tests reached for voxel (16, 16, 16), which is
+      often *already air*, so `SetVoxel` correctly early-outed and no edit was made. Fixed by
+      placing a lamp — nothing generates one — and by having the fixture itself assert the chunk
+      came out dirty, so the next fixture that stops editing fails loudly instead of going vacuous.
+- [x] **Incidental, a part early: placing an opaque block above the surface closes the sky column**
+      and marks it edited, so a built roof persists its lighting exactly as a dug shaft does. That
+      is M6c's placement case, and it fell out of a failing assertion rather than being designed for.
+- [ ] **Revisit trigger, real the moment `ApplyFeatures` places anything:** a loaded chunk comes
+      back at `Features` so features do not re-run over it. A chunk that A's features wrote into,
+      but which was never itself edited, is not stored — so it regenerates from seed and loses what
+      A gave it, while A never re-runs. Re-running is not the fix either: a feature re-applied over
+      material the player has since mined would undo their edit. Candidates are saving
+      feature-affected neighbours, or recording per chunk which features have run. **Neither can be
+      chosen against a stage that places nothing.**
+- [ ] **`HasEdits` has still never been read by anything**, from M3a to here, despite being
+      documented as "exactly the set M6 has to persist". Every gate in the save path is
+      `DirtySinceSave`. Kept — one bit, and it states a property the store's bookkeeping does not —
+      but recorded as unread rather than assumed load-bearing.
+
 ##### The plan's headline worry is measured and it dissolves — backwards
 
 - [x] **A SQLite point query is 6.0 µs, not the 0.1–0.3 ms the crossover table assumed.**
@@ -2139,6 +2175,17 @@ drain. Splitting up front rather than halfway through is why M2c went smoothly.
       joins, and replacing `GatherLight(...)` with `null` left 556 tests green. The equivalents:
       never calling the store from `Forget`'s path, and clearing `DirtySinceSave` on completion
       rather than at submission. Both leave a green suite and lose data in play.
+
+##### M6b-3 — The session ← **next**
+
+- [ ] **The startup reorder**: open world → read the ID table → `Load(source, savedIds)` →
+      `Freeze` → construct the streamer. `Main.cs` still calls `Content.Load` with no saved table
+      and still hardcodes the seed, so **the game as it runs today saves nothing** — everything in
+      M6b-1 and M6b-2 is exercised by tests only.
+- [ ] Where the world file lives, and `WriteWorldHeader` at open before any chunk can be written.
+- [ ] The autosave timer, and `SaveAll` on quit through Godot's shutdown.
+- [ ] Headless verification that the streaming figures are unchanged — the M2d numbers this project
+      has quoted since, which M5c-1 also had to preserve.
 
 #### M6c — Placement and volumetric inventory
 

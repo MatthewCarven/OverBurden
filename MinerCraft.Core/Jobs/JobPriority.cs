@@ -15,6 +15,25 @@ public enum JobKind : byte
 {
     Mesh = 10,
     Generate = 20,
+
+    /// <summary>Reading a stored chunk instead of generating it. M6b.</summary>
+    /// <remarks>
+    /// Level with <see cref="Generate"/> deliberately: it is the same step of the same pipeline
+    /// taking a different route, and a chunk that loads is one that would otherwise generate. A
+    /// different band would make the world fill in a different order depending on how much of it
+    /// the player happened to have dug, which is a difference nobody wants to debug.
+    /// </remarks>
+    Load = 20,
+
+    /// <summary>Writing the dirty set to the store. M6b.</summary>
+    /// <remarks>
+    /// <b>Above everything, and starvation is why.</b> The queue is a flat list re-sorted on a
+    /// timer and workers take the best entry; under continuous flight it never empties, so a save
+    /// ranked below generation would wait for a quiet moment that never comes. The cost of ranking
+    /// it top is nil — saves are batched, rare, and about 10 µs a chunk — and the cost of getting
+    /// it wrong is losing the work the whole milestone exists to keep.
+    /// </remarks>
+    Save = 30,
 }
 
 /// <summary>

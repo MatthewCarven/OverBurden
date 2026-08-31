@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using MinerCraft.Core.Content;
 using MinerCraft.Core.Jobs;
 using MinerCraft.Core.Lighting;
+using MinerCraft.Core.Persistence;
 using MinerCraft.Core.Meshing;
 using MinerCraft.Core.Voxels;
 using MinerCraft.Core.Worldgen;
@@ -106,6 +107,45 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
 
     private readonly LightPropagator _propagator;
 
+    /// <summary>Where saved chunks live, or null for a world that is never written.</summary>
+    /// <remarks>
+    /// <b>Nullable, and that is what keeps every pre-M6 test passing unedited.</b> Six hundred of
+    /// them construct a pipeline with no store, and a suite edited in the same pass as the feature
+    /// it guards has stopped guarding it.
+    /// </remarks>
+    private readonly IWorldStore? _store;
+
+    /// <summary>
+    /// Which chunks had a stored blob when the world opened, plus everything written since.
+    /// </summary>
+    /// <remarks>
+    /// <b>In memory, read once, because "does this chunk have a blob?" is asked on the sim thread
+    /// once per chunk entering the load box</b> — a 37×37 shell at r16. ~5 MB at 100,000 edited
+    /// chunks. The rejected alternative is a point query per chunk: 1,521 of them down one serial
+    /// lane to fill r4h/2v, nearly all answering no.
+    /// </remarks>
+    private readonly HashSet<ChunkPos> _savedChunks = [];
+
+    /// <summary>Which sky columns had a stored blob. Same argument as <see cref="_savedChunks"/>.</summary>
+    private readonly HashSet<(int X, int Z)> _savedColumns = [];
+
+    /// <summary>Chunks serialised and written by the next save job.</summary>
+    /// <remarks>
+    /// <b>Holds the <see cref="VoxelChunk"/> itself, not the chunk's position.</b> A chunk queued
+    /// here may be forgotten before the job runs — that is the normal case, since this is filled
+    /// on unview — and holding the object keeps it alive without any of the retention machinery a
+    /// per-chunk job needs.
+    /// </remarks>
+    private readonly List<(ChunkPos Position, VoxelChunk Voxels)> _pendingChunkSaves = [];
+
+    private readonly List<(int X, int Z, SkyColumn Column)> _pendingColumnSaves = [];
+
+    /// <summary>Columns whose stored heights have been asked for but not yet applied.</summary>
+    private readonly HashSet<(int X, int Z)> _columnRestoresInFlight = [];
+
+    /// <summary>At most one save job at a time, so batches are as large as they can be.</summary>
+    private bool _saveInFlight;
+
     /// <summary>Chunks whose derived light data needs building or rebuilding.</summary>
     /// <remarks>
     /// Separate from <see cref="_workList"/> because it is budgeted separately: one derive is
@@ -194,7 +234,8 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         Func<long>? nowTicks = null,
         bool ambientOcclusion = true,
         TimeSpan? lightBudget = null,
-        bool light = true)
+        bool light = true,
+        IWorldStore? store = null)
     {
         _generator = generator;
         _materials = materials;
@@ -210,6 +251,8 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         _lightBudgetTicks =
             (long)((lightBudget ?? DefaultLightBudget).TotalMilliseconds * TicksPerMillisecond);
 
+        _store = store;
+
         _streamer = new ChunkStreamer(
             priorityViewers,
             onChunkViewed: OnChunkViewed,
@@ -218,10 +261,56 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
             // The generator is already ISurfaceHeights, and the skylight seed has to agree with
             // the terrain bit for bit — the same argument that keeps IsCaveAt and GenerateTerrain
             // reading one definition of the cave field.
-            heights: generator);
+            heights: generator,
+            onColumnCreated: OnColumnCreated,
+            onColumnReleased: OnColumnReleased);
 
         _propagator = new LightPropagator(_streamer);
+
+        if (_store is not null)
+        {
+            // Read once, at construction, before a single viewer exists. Everything after this
+            // point asks the sets rather than the disk.
+            foreach (ChunkPos position in _store.LoadChunkIndex()) _savedChunks.Add(position);
+            foreach ((int X, int Z) key in _store.LoadColumnIndex()) _savedColumns.Add(key);
+        }
     }
+
+    /// <summary>How many chunks the store held when this pipeline opened, plus any written since.</summary>
+    public int SavedChunkCount => _savedChunks.Count;
+
+    /// <summary>How many sky columns the store holds.</summary>
+    public int SavedColumnCount => _savedColumns.Count;
+
+    /// <summary>Chunks read from the store rather than generated.</summary>
+    public int ChunksLoaded { get; private set; }
+
+    /// <summary>Chunk blobs handed to the store.</summary>
+    public int ChunksSaved { get; private set; }
+
+    /// <summary>Sky column blobs handed to the store.</summary>
+    public int ColumnsSaved { get; private set; }
+
+    /// <summary>Sky columns whose stored heights were applied over the analytic seed.</summary>
+    public int ColumnsRestored { get; private set; }
+
+    /// <summary>Bytes the store has been given. Not the file size — blobs replace each other.</summary>
+    public long BytesSaved { get; private set; }
+
+    /// <summary>
+    /// Save jobs that did not land, whose work was put back on the queue.
+    /// </summary>
+    /// <remarks>
+    /// <b>Re-queued rather than dropped, and that is the opposite of what a faulted generate
+    /// does.</b> M2a's rule is that a fault is a deterministic bug and retrying turns one
+    /// exception into a spin — true, and the right call when the lost work is a mesh that can be
+    /// rebuilt. A dropped save is a deleted tunnel. So this retries, at most once per frame
+    /// because saves submit once per frame, and reports every time rather than going quiet.
+    /// </remarks>
+    public int FailedSaves { get; private set; }
+
+    /// <summary>Chunks and columns waiting for a save job.</summary>
+    public int PendingSaves => _pendingChunkSaves.Count + _pendingColumnSaves.Count;
 
     /// <summary>The streaming policy. Viewers are added and moved through here.</summary>
     public ChunkStreamer Streamer => _streamer;
@@ -354,7 +443,13 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         JobsInFlight == 0
         && _workList.Count == 0
         && !LightInFlight
-        && _awaitingLight.Count == 0;
+        && _awaitingLight.Count == 0
+
+        // M6b adds a third queue to this, for the reason M5c added the first two: a caller that
+        // asked only about jobs and the work list would see quiescence with a chunk's bytes still
+        // sitting in the pending batch, and a test that settled there would be asserting about a
+        // world that had not finished being written.
+        && PendingSaves == 0;
 
     /// <summary>Reads one voxel, or reports that its chunk is not there to read.</summary>
     /// <remarks>
@@ -422,7 +517,12 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         }
 
         chunk.Voxels.Set(localX, localY, localZ, materialId);
+
+        // Two flags, and they answer different questions — see StreamedChunk.DirtySinceSave.
+        // HasEdits is permanent and says this chunk cannot come from the seed; DirtySinceSave is
+        // transient and says it does not match what is on disk.
         chunk.HasEdits = true;
+        chunk.DirtySinceSave = true;
         EditedVoxels++;
 
         RelightAfterEdit(chunk, voxel);
@@ -527,6 +627,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
 
         ApplyResults();
         StepLight();
+        SubmitSaves();
         return Pump(maxSubmissions);
     }
 
@@ -897,6 +998,21 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         JobsInFlight--;
         AppliedResults++;
 
+        // Ahead of the chunk lookup, because neither of these is *about* one chunk. A save spans a
+        // batch and a column spans every chunk Y, so decrementing OutstandingJobs on whatever
+        // record their nominal Position happens to name would corrupt the accounting that keeps a
+        // chunk from being forgotten with a worker still holding it.
+        switch (result.Job)
+        {
+            case SaveWorldJob save:
+                ApplySave(save, result.Outcome, result.Exception);
+                return;
+
+            case LoadColumnJob column:
+                ApplyColumnRestore(column, result.Outcome);
+                return;
+        }
+
         ChunkPos position = result.Job.Position;
         if (!_streamer.TryGet(position, out StreamedChunk chunk))
         {
@@ -958,6 +1074,44 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
                 PushWithNeighbours(chunk.Position);
                 break;
 
+            case LoadChunkJob load:
+                if (load.Result is null)
+                {
+                    // The index promised a blob and the store had none. Drop the claim and let the
+                    // next pass generate — the only honest recovery, and distinct from a blob that
+                    // exists and will not parse, which faults rather than quietly becoming
+                    // hillside where a base used to be.
+                    _savedChunks.Remove(chunk.Position);
+                    chunk.TransitionTo(ChunkState.Queued);
+                    Push(chunk.Position);
+                    break;
+                }
+
+                chunk.Voxels = load.Result;
+                ChunksLoaded++;
+
+                // It came from the store, so by definition it does not match the seed — but it
+                // does match the disk, so it is not dirty.
+                chunk.HasEdits = true;
+                chunk.DirtySinceSave = false;
+
+                // Features, not Terrain, so ApplyFeatures does not run over it a second time.
+                //
+                // Revisit trigger, and it is real the moment the feature stage places anything:
+                // a chunk that A's features wrote into, but which was never itself edited, is not
+                // stored — so it regenerates from seed and loses what A gave it, while A comes
+                // back at Features and never re-runs. Re-running instead is not the fix either,
+                // because a feature re-applied over material the player has since mined would
+                // undo their edit, which is the failure this whole milestone exists to prevent.
+                // The two candidate answers are saving feature-affected neighbours, or recording
+                // per chunk which features have run; neither can be chosen against a stage that
+                // currently places nothing.
+                chunk.Stage = GenerationStage.Features;
+                chunk.TransitionTo(ChunkState.Generated);
+
+                PushWithNeighbours(chunk.Position);
+                break;
+
             case MeshChunkJob mesh:
                 chunk.TransitionTo(ChunkState.Meshed);
                 if (mesh.Result is not null && chunk.ViewCount > 0)
@@ -994,6 +1148,8 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     {
         ChunkState back = chunk.State switch
         {
+            // A dropped load returns to Queued exactly as a dropped generate does — both leave the
+            // chunk needing its voxels from somewhere, and Advance re-decides which route.
             ChunkState.Generating => ChunkState.Queued,
 
             // Only as far as Generated: a dropped mesh has not touched the voxels.
@@ -1064,7 +1220,22 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         {
             case ChunkState.Queued:
                 chunk.TransitionTo(ChunkState.Generating);
-                Submit(chunk, new GenerateChunkJob(_generator, chunk.Position));
+
+                // Memory, then the index, then the seed. Getting this order wrong is the only
+                // failure in the load path that matters: regenerating a chunk that had a blob is a
+                // silent, total loss of everything in it.
+                if (_store is not null && _savedChunks.Contains(chunk.Position))
+                {
+                    Submit(
+                        chunk,
+                        new LoadChunkJob(_store, _materials, chunk.Position),
+                        serial: true);
+                }
+                else
+                {
+                    Submit(chunk, new GenerateChunkJob(_generator, chunk.Position));
+                }
+
                 break;
 
             case ChunkState.Generated when chunk.Stage == GenerationStage.Terrain:
@@ -1252,12 +1423,12 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         return neighbourhood;
     }
 
-    private void Submit(StreamedChunk chunk, IJob job)
+    private void Submit(StreamedChunk chunk, IJob job, bool serial = false)
     {
         var cancellation = new CancellationTokenSource();
         chunk.Cancellation = cancellation;
         chunk.OutstandingJobs++;
-        _batch.Add((job, cancellation.Token, false));
+        _batch.Add((job, cancellation.Token, serial));
     }
 
     private void OnChunkViewed(StreamedChunk chunk)
@@ -1274,6 +1445,11 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
 
     private void OnChunkUnviewed(StreamedChunk chunk)
     {
+        // Before the cancel, because this is the last moment the chunk is guaranteed to hold its
+        // voxels. ChunkStreamer.Forget runs immediately after unless a worker still owes a result,
+        // and a chunk that reached that point unsaved has lost whatever the player did to it.
+        QueueSave(chunk);
+
         // Stop the work rather than merely stop wanting it. Without this, running somewhere
         // and turning around leaves the queue full of terrain nobody will ever see, and
         // under continuous movement it never drains.
@@ -1321,11 +1497,272 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         }
     }
 
+
+    // ---------------------------------------------------------------------------------------
+    // Persistence. Everything here is M6b-2, and every race it handles already had a documented
+    // answer in this file written for meshes — the work was transferring each one across on
+    // purpose, because where a mesh race leaves stale geometry the same race loses a tunnel.
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>Queues a chunk for the next save batch, if it has anything worth writing.</summary>
+    private void QueueSave(StreamedChunk chunk)
+    {
+        if (_store is null || !chunk.DirtySinceSave || chunk.Voxels is null)
+        {
+            return;
+        }
+
+        // The moment these voxels stop being the sim thread's to write to — the same flag and the
+        // same reason as a mesh job's 27-chunk gather. A chunk queued here is usually about to be
+        // forgotten, but it can be revived and mined before the job runs, and VoxelChunk.Set can
+        // promote the representation and swap the backing arrays under the serialiser.
+        chunk.VoxelsSharedWithJob = true;
+
+        // Cleared here rather than when the job lands. An edit arriving while the save is in
+        // flight sets it again and the chunk is written a second time; clearing on completion
+        // would swallow exactly those edits. Same shape as NeedsRemesh surviving a mesh.
+        chunk.DirtySinceSave = false;
+
+        _pendingChunkSaves.Add((chunk.Position, chunk.Voxels));
+    }
+
+    /// <summary>Queues a sky column, if its heights have moved off the analytic seed.</summary>
+    private void QueueSave(SkyColumn column)
+    {
+        // DirtySinceSave, not HasEdits. HasEdits is permanent — it says this column cannot be
+        // rebuilt from the seed — so gating on it would rewrite every edited column on every
+        // save, forever. Chunks got this split deliberately; columns got it after a test.
+        if (_store is null || !column.DirtySinceSave)
+        {
+            return;
+        }
+
+        column.MarkSaved();
+        _pendingColumnSaves.Add((column.ChunkX, column.ChunkZ, column));
+    }
+
+    /// <summary>
+    /// Hands the pending batch to a worker, at most one batch in flight at a time.
+    /// </summary>
+    /// <remarks>
+    /// <b>One at a time so batches grow rather than multiply.</b> The serial lane would run them
+    /// sequentially anyway; letting several queue up would only turn one transaction into several
+    /// for the same bytes.
+    /// </remarks>
+    private void SubmitSaves()
+    {
+        if (_store is null || _saveInFlight) return;
+        if (_pendingChunkSaves.Count == 0 && _pendingColumnSaves.Count == 0) return;
+
+        var job = new SaveWorldJob(
+            _store,
+            [.. _pendingChunkSaves],
+            [.. _pendingColumnSaves]);
+
+        // Claimed at submission rather than on completion, which looks optimistic. A chunk
+        // revived before its save lands consults this index and submits a load, and the two are
+        // kept apart by the *serial lane*: both are serial, so they cannot overlap, and a load
+        // issued while the save is running waits for it. That is the load-bearing half, and
+        // TheSerialLaneKeepsALoadBehindTheSaveItWouldRace pins it.
+        //
+        // Priority is the weaker half and is deliberately not claimed as correctness: when both
+        // sit queued, Save's higher band means the write goes first, but if it did not the load
+        // would read nothing, fall back to generating, and the chunk would be regenerated for
+        // this session while the save still lands — wrong on screen, recoverable on disk.
+        foreach ((ChunkPos position, _) in _pendingChunkSaves) _savedChunks.Add(position);
+        foreach ((int x, int z, _) in _pendingColumnSaves) _savedColumns.Add((x, z));
+
+        _pendingChunkSaves.Clear();
+        _pendingColumnSaves.Clear();
+        _saveInFlight = true;
+
+        // CancellationToken.None, deliberately. Every other job here is cancelled the instant
+        // nobody wants its chunk; a cancelled save is a deleted tunnel. Serial, because it is disk
+        // work and contends on the one file — M2a's lane, unused until now.
+        _batch.Add((job, CancellationToken.None, true));
+        JobsInFlight++;
+        _scheduler.SubmitBatch(CollectionsMarshal.AsSpan(_batch)[^1..]);
+        _batch.RemoveAt(_batch.Count - 1);
+    }
+
+    private void ApplySave(SaveWorldJob job, JobOutcome outcome, Exception? error)
+    {
+        _saveInFlight = false;
+
+        if (outcome == JobOutcome.Completed)
+        {
+            ChunksSaved += job.Chunks.Count;
+            ColumnsSaved += job.Columns.Count;
+            BytesSaved += job.BytesWritten;
+            return;
+        }
+
+        // Faulted or dropped. Put the work back rather than losing it — the opposite of what a
+        // faulted generate does, and the asymmetry is the point: a lost mesh is rebuilt from data
+        // that still exists, and a lost save is gone. Reported every time, because a store that
+        // keeps failing is something the player has to be told about rather than a counter nobody
+        // reads.
+        FailedSaves++;
+
+        _pendingChunkSaves.AddRange(job.Chunks);
+        _pendingColumnSaves.AddRange(job.Columns);
+
+        // Put the columns' dirty flags back, so that a later SaveAll walking the live set finds
+        // them again rather than trusting the pending list alone.
+        foreach ((_, _, SkyColumn column) in job.Columns) column.MarkDirty();
+
+        // The index claimed these before the write; take the claim back, or a chunk that never
+        // reached disk would be loaded from a blob that is not there.
+        foreach ((ChunkPos position, _) in job.Chunks) _savedChunks.Remove(position);
+        foreach ((int x, int z, _) in job.Columns) _savedColumns.Remove((x, z));
+
+        if (error is not null)
+        {
+            _onJobFaulted?.Invoke(job.Position, error);
+        }
+    }
+
+    /// <summary>A column has come into existence; ask the store whether it has heights for it.</summary>
+    private void OnColumnCreated(SkyColumn column)
+    {
+        if (_store is null) return;
+
+        var key = (column.ChunkX, column.ChunkZ);
+        if (!_savedColumns.Contains(key) || !_columnRestoresInFlight.Add(key))
+        {
+            return;
+        }
+
+        // Submitted rather than read here. This runs inside ChunkStreamer's box-difference sweep,
+        // and a one-chunk step at r16 creates ~37 columns — reading them on the sim thread would
+        // put an estimated 0.74 ms of I/O in one frame, unamortised, against a streaming budget
+        // M2d measured plateauing near 3% of a core.
+        _scheduler.Submit(new LoadColumnJob(_store, column.ChunkX, column.ChunkZ), serial: true);
+        JobsInFlight++;
+    }
+
+    private void ApplyColumnRestore(LoadColumnJob job, JobOutcome outcome)
+    {
+        var key = (job.ChunkX, job.ChunkZ);
+        _columnRestoresInFlight.Remove(key);
+
+        if (outcome != JobOutcome.Completed || job.Result is null)
+        {
+            return;
+        }
+
+        SkyColumn? live = _streamer.ColumnAt(job.ChunkX, job.ChunkZ);
+        if (live is null)
+        {
+            // The column went away while the read was in flight. Nothing to correct, and the next
+            // time it is created the restore is asked for again.
+            return;
+        }
+
+        live.CopyFrom(job.Result);
+        ColumnsRestored++;
+
+        // The heights moved, so every chunk in this column has to re-derive its sky flags. Exactly
+        // what M5c-1 built this for — "this column's sky heights moved" — and the reason a
+        // reloaded shaft ends up lit rather than dark.
+        QueueColumnLightBuild(new ChunkPos(job.ChunkX, 0, job.ChunkZ));
+    }
+
+    /// <summary>A column's last chunk has gone. Its only chance to be written.</summary>
+    private void OnColumnReleased(SkyColumn column) => QueueSave(column);
+
+    /// <summary>
+    /// Writes everything dirty, synchronously, on the calling thread.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Not through the scheduler, because quitting is exactly when the scheduler stops.</b>
+    /// <see cref="Jobs.JobResult"/>'s contract is that a job still queued at shutdown reports
+    /// <see cref="JobOutcome.Dropped"/> — so a world left to the normal save path at quit loses
+    /// whatever had not yet been picked up. That is the single most likely way to ship a data-loss
+    /// bug in this milestone, and it is this method.
+    /// </para>
+    /// <para>
+    /// Safe to do inline: it is the sim thread, nothing else writes voxels from another thread,
+    /// and the whole 1,521-chunk fill measured 13 ms including serialisation.
+    /// </para>
+    /// </remarks>
+    /// <returns>How many chunks and columns were written.</returns>
+    public (int Chunks, int Columns) SaveAll()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        if (_store is null) return (0, 0);
+
+        // Everything still loaded and dirty, on top of whatever a failed or unsubmitted batch left
+        // behind. Walking the live set rather than trusting the pending list is what makes this a
+        // backstop rather than a second copy of the same bookkeeping.
+        foreach (StreamedChunk chunk in _streamer.Chunks) QueueSave(chunk);
+        foreach (SkyColumn column in _streamer.Columns) QueueSave(column);
+
+        if (_pendingChunkSaves.Count == 0 && _pendingColumnSaves.Count == 0)
+        {
+            _store.Flush();
+            return (0, 0);
+        }
+
+        var job = new SaveWorldJob(_store, [.. _pendingChunkSaves], [.. _pendingColumnSaves]);
+
+        foreach ((ChunkPos position, _) in _pendingChunkSaves) _savedChunks.Add(position);
+        foreach ((int x, int z, _) in _pendingColumnSaves) _savedColumns.Add((x, z));
+
+        int chunks = _pendingChunkSaves.Count;
+        int columns = _pendingColumnSaves.Count;
+
+        _pendingChunkSaves.Clear();
+        _pendingColumnSaves.Clear();
+
+        job.Run(CancellationToken.None);
+
+        ChunksSaved += chunks;
+        ColumnsSaved += columns;
+        BytesSaved += job.BytesWritten;
+
+        _store.Flush();
+        return (chunks, columns);
+    }
+
+    /// <summary>Writes the world header, which must happen before any chunk reaches the store.</summary>
+    /// <remarks>
+    /// Ordering is what makes the ID table safe without a world-spanning transaction: numeric IDs
+    /// are only allocated during content load, which happens once at open, so by the time any
+    /// chunk is written the table it references is already on disk. See <see cref="IWorldStore"/>.
+    /// </remarks>
+    public void WriteWorldHeader(WorldHeader header)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(header);
+
+        _store?.WriteWorldHeader(WorldHeaderBlob.Write(header));
+    }
+
     public void Dispose()
     {
         if (_disposed)
         {
             return;
+        }
+
+        // Before the flag, because SaveAll refuses a disposed pipeline — and before cancelling
+        // anything, because a save queued and not yet picked up reports Dropped at shutdown and
+        // would be lost. This is the one place the milestone's most likely data-loss bug lives.
+        if (_store is not null)
+        {
+            try
+            {
+                SaveAll();
+            }
+            catch (Exception error) when (error is not OutOfMemoryException)
+            {
+                // Reported, never rethrown. Dispose running during a crash must not replace the
+                // original exception with a storage one.
+                _onJobFaulted?.Invoke(ChunkPos.Zero, error);
+            }
         }
 
         _disposed = true;

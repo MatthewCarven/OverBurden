@@ -614,7 +614,8 @@ internal sealed class PipelineHarness : IDisposable
         int loadMargin = ChunkStreamer.DefaultLoadMargin,
         TimeSpan? resultBudget = null,
         Func<long>? nowTicks = null,
-        TimeSpan? lightBudget = null)
+        TimeSpan? lightBudget = null,
+        MinerCraft.Core.Persistence.IWorldStore? store = null)
     {
         var viewers = new ViewerSet();
         _scheduler = new JobScheduler(viewers, threadCount: 4, sweepInterval: TimeSpan.FromMilliseconds(5));
@@ -640,7 +641,8 @@ internal sealed class PipelineHarness : IDisposable
             loadMargin: loadMargin,
             resultBudget: resultBudget,
             nowTicks: nowTicks,
-            lightBudget: lightBudget ?? GenerousLightBudget);
+            lightBudget: lightBudget ?? GenerousLightBudget,
+            store: store);
     }
 
     public ChunkPipeline Pipeline { get; }

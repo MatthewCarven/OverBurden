@@ -100,13 +100,45 @@ public sealed class SkyColumn
     /// </remarks>
     public bool HasEdits { get; private set; }
 
+    /// <summary>This column no longer matches what is stored for it.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The same two-flag split <see cref="Streaming.StreamedChunk.DirtySinceSave"/> has, and it
+    /// was missing here until a test found it.</b> The chunk half was written deliberately; the
+    /// column half was not, and one flag doing both jobs meant every save rewrote every edited
+    /// column for the lifetime of the world — <c>HasEdits</c> is permanent, so it can never say
+    /// "already written". Harmless-looking, and it would have turned every autosave into a rewrite
+    /// of the whole edited column set.
+    /// </para>
+    /// <para>
+    /// The lesson is not the bug but where it was: the conflation was reasoned about carefully for
+    /// chunks and then reintroduced one file away, in the half nobody was looking at.
+    /// </para>
+    /// </remarks>
+    public bool DirtySinceSave { get; private set; }
+
     /// <summary>Marks this column as edit-derived. For M6's restore, which rebuilds one.</summary>
     /// <remarks>
     /// A restored column is edit-derived by definition — it was only written because it had
     /// moved — but it arrives through <see cref="SetOpenAboveY"/>, which is a plain setter used
     /// by tests as well and has no business inferring intent from being called.
     /// </remarks>
-    public void MarkEdited() => HasEdits = true;
+    public void MarkEdited()
+    {
+        HasEdits = true;
+        DirtySinceSave = true;
+    }
+
+    /// <summary>Records that this column's current heights have been handed to the store.</summary>
+    /// <remarks>
+    /// Called at submission rather than on completion, and <see cref="MarkDirty"/> puts it back if
+    /// the write does not land — the same lifecycle as a chunk's, and for the same reason: an edit
+    /// arriving during the write must re-dirty the column rather than be swallowed by it.
+    /// </remarks>
+    public void MarkSaved() => DirtySinceSave = false;
+
+    /// <summary>Puts a column back on the dirty list after a write that did not land.</summary>
+    public void MarkDirty() => DirtySinceSave = true;
 
     /// <summary>How deep an unsupported downward scan may go before giving up.</summary>
     /// <remarks>
@@ -143,6 +175,41 @@ public sealed class SkyColumn
     public void SetOpenAboveY(int localX, int localZ, int y) =>
         _openAboveY[Index(localX, localZ)] = checked((short)y);
 
+    /// <summary>Takes every height from <paramref name="source"/>, which must be the same column.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Copied into this instance rather than swapping the reference, and that is forced by who
+    /// holds it.</b> Every <see cref="Streaming.StreamedChunk.Sky"/> in the column caches this
+    /// object so that lighting a chunk is not a dictionary lookup, and the streamer's refcount
+    /// keys on it. Installing a different instance would leave every already-loaded chunk pointing
+    /// at the old one, so the restore would apply to whichever chunks happened to arrive after it
+    /// — a shaft lit correctly at the bottom and from the pre-dig surface at the top.
+    /// </para>
+    /// <para>
+    /// The identity check is not defensive tidying: a restore is addressed by (x, z) and applying
+    /// one to the wrong column writes another shaft's floor into this one, which reads as light
+    /// behaving oddly a long way from the mistake.
+    /// </para>
+    /// </remarks>
+    public void CopyFrom(SkyColumn source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+
+        if (source.ChunkX != ChunkX || source.ChunkZ != ChunkZ)
+        {
+            throw new ArgumentException(
+                $"Column ({source.ChunkX}, {source.ChunkZ}) cannot be copied into ({ChunkX}, {ChunkZ}).",
+                nameof(source));
+        }
+
+        source._openAboveY.CopyTo(_openAboveY, 0);
+
+        // Edit-derived, but *not* dirty: these heights came straight off the disk they would be
+        // written back to. Marking it dirty here would make every reload rewrite every restored
+        // column, which is the same waste the two flags exist to avoid.
+        HasEdits |= source.HasEdits;
+    }
+
     /// <summary>
     /// Re-derives one column's open height after the voxel at <paramref name="changed"/> became
     /// opaque or stopped being. Returns true if the height moved.
@@ -175,6 +242,7 @@ public sealed class SkyColumn
 
             _openAboveY[index] = checked((short)(changed.Y + 1));
             HasEdits = true;
+            DirtySinceSave = true;
             return true;
         }
 
@@ -194,6 +262,7 @@ public sealed class SkyColumn
         if (y == openAbove) return false;
 
         HasEdits = true;
+        DirtySinceSave = true;
         return true;
     }
 

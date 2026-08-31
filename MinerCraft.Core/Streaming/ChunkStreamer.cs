@@ -73,6 +73,8 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
     private readonly ISurfaceHeights? _heights;
     private readonly Action<StreamedChunk>? _onChunkViewed;
     private readonly Action<StreamedChunk>? _onChunkUnviewed;
+    private readonly Action<SkyColumn>? _onColumnCreated;
+    private readonly Action<SkyColumn>? _onColumnReleased;
     private readonly int _loadMargin;
 
     private int _nextViewerId = 1;
@@ -109,6 +111,17 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
     /// the job in flight and frees the mesh, and both need the chunk. It is dropped
     /// immediately afterwards unless a worker still owes it a result.
     /// </param>
+    /// <param name="onColumnCreated">
+    /// Fired once when a sky column comes into existence, already seeded analytically. M6b's
+    /// restore hangs off this: the stored heights are read on a worker and applied afterwards,
+    /// because this runs inside a box-difference sweep on the sim thread and a one-chunk step at
+    /// r16 creates ~37 columns.
+    /// </param>
+    /// <param name="onColumnReleased">
+    /// Fired when a column's last chunk goes, <em>before</em> it is dropped, so a caller can still
+    /// take a reference to it. This is a column's only chance to be written: unlike a chunk, whose
+    /// unview fires while it is still tracked, a column has no separate "nobody wants this" event.
+    /// </param>
     /// <param name="loadMargin">See <see cref="DefaultLoadMargin"/>.</param>
     /// <param name="heights">
     /// Seeds each chunk column's skylight analytically. Optional, because most of the streaming
@@ -120,13 +133,17 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
         Action<StreamedChunk>? onChunkViewed = null,
         Action<StreamedChunk>? onChunkUnviewed = null,
         int loadMargin = DefaultLoadMargin,
-        ISurfaceHeights? heights = null)
+        ISurfaceHeights? heights = null,
+        Action<SkyColumn>? onColumnCreated = null,
+        Action<SkyColumn>? onColumnReleased = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(loadMargin);
 
         _priorityViewers = priorityViewers;
         _onChunkViewed = onChunkViewed;
         _onChunkUnviewed = onChunkUnviewed;
+        _onColumnCreated = onColumnCreated;
+        _onColumnReleased = onColumnReleased;
         _loadMargin = loadMargin;
         _heights = heights;
     }
@@ -305,6 +322,13 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
 
     /// <summary>How many sky columns are alive. The refcount's observable side.</summary>
     public int SkyColumnCount => _columns.Count;
+
+    /// <summary>Every live sky column. What a full save has to walk.</summary>
+    public IEnumerable<SkyColumn> Columns => _columns.Values.Select(entry => entry.Column);
+
+    /// <summary>The live column at (x, z), or null.</summary>
+    public SkyColumn? ColumnAt(int chunkX, int chunkZ) =>
+        _columns.TryGetValue((chunkX, chunkZ), out SkyColumnEntry? entry) ? entry.Column : null;
 
     /// <summary>
     /// Whether <paramref name="position"/>'s derived light data can be built now, and from which
@@ -504,6 +528,12 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
 
             entry = new SkyColumnEntry(column);
             _columns[key] = entry;
+
+            // Announced after seeding and after the entry exists, so a handler is free to queue a
+            // restore against a column that is already usable. It stays usable meanwhile — lit
+            // against the unedited surface, which is wrong for a shaft and right for everywhere
+            // else, and is corrected when the restore lands.
+            _onColumnCreated?.Invoke(column);
         }
 
         entry.RefCount++;
@@ -521,9 +551,11 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
 
         if (--entry.RefCount <= 0)
         {
-            // Dropped with the last chunk of the column, which loses any edited sky heights —
-            // consistent with M3's recorded limitation that an unloaded edited chunk loses its
-            // edits. M6 persists both, and it is the same decision for both.
+            // Announced before the drop, because this is a column's only chance to be written.
+            // A chunk gets OnChunkUnviewed while it is still tracked; a column has no equivalent
+            // event, so a handler that needed one after the removal would be holding nothing.
+            _onColumnReleased?.Invoke(entry.Column);
+
             _columns.Remove(key);
         }
     }

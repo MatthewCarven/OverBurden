@@ -174,11 +174,13 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2, all of M3, all of M4, all of M5, M6a and M6b-1** are done —
-**650 tests passing**. **M6 is planned (2026-08-31) and under way: SQLite save/load, brush placement,
+M0, all of M1, **all of M2, all of M3, all of M4, all of M5, M6a, M6b-1 and M6b-2** are done —
+**668 tests passing**. **M6 is planned (2026-08-31) and under way: SQLite save/load, brush placement,
 volumetric inventory — v0.1 playable sandbox**, and it is what fixes the one thing play kept
 running into, that an edited chunk which unloads loses its edits. See
-[docs/M6-PLAN.md](docs/M6-PLAN.md), split M6a–M6d. **M6b-2 is next.**
+[docs/M6-PLAN.md](docs/M6-PLAN.md), split M6a–M6d. **M6b-3 is next — and until it lands the game
+as it runs saves nothing**, because `Main.cs` still loads content with no saved ID table. All of
+M6b works, and works only in tests.
 
 **M6a — the blob and the world file: done 2026-08-31.** `MinerCraft.Core/Persistence/` holds
 `ChunkBlob`, `SkyColumnBlob`, `WorldHeader` and the shared frame. No SQLite, no file, no pipeline.
