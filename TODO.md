@@ -2376,33 +2376,53 @@ predicted in its own remarks. M6c-3 is the binding and the play.
             instead of a predicate. Two doubles for one interface is the drift the project has
             already been bitten by twice; not urgent, and not M6c's job.
 
-##### M6c-2 — The inventory
+##### M6c-2 — The inventory ✅ **done 2026-08-31, 719 tests passing**
 
-- [ ] **Volumetric inventory in litres.** A 0.25 m voxel is 15.625 L; a 1 m brush cube is 64
+- [x] **Volumetric inventory in litres.** A 0.25 m voxel is 15.625 L; a 1 m brush cube is 64
       voxels = **1,000 L = 1 m³**, the round number that makes the unit worth having.
       `CarveResult.Removed` is already documented as the number to convert.
-- [ ] **Unbounded at M6** (recommended). Bounding it with no containers, conveyors or crafting
+- [x] **Unbounded at M6** (recommended). Bounding it with no containers, conveyors or crafting
       means the player fills up and stops — a constraint with nothing on the other side. **Honest
       cost: M6 then cannot answer whether volume is a real constraint**, so DESIGN's *"makes big
       excavations meaningfully productive"* stays argued rather than played. **Revisit trigger:
       M10 containers or M11 crafting, whichever gives capacity somewhere to go.**
-- [ ] Placement consumes it; a short inventory places what it can, in another bucket.
-- [ ] **The inventory persists in the world file keyed by numeric material ID**, safe for exactly
+- [x] Placement consumes it; a short inventory places what it can, in another bucket.
+- [x] **The inventory persists in the world file keyed by numeric material ID**, safe for exactly
       the reason the blobs are — same database, same table. Anywhere else and it has the identical
       mod-load-order failure with no fix. If the held tool is saved, `GameContent.Tools` has
       already written down the cost: *"it will be the same three lines."*
-- [ ] **This is the `WorldHeaderBlob.Version` bump its own remarks predicted**: *"Expect this to
+- [x] **This is the `WorldHeaderBlob.Version` bump its own remarks predicted**: *"Expect this to
       move during M6. M6c adds the player's position and volumetric inventory, and that is a layout
       change."* Two things follow. The version byte must actually move, and **an old world must be
       refused rather than read** — which is the trade the format is making, and the only person
       holding a saved world mid-milestone is Matthew.
-- [ ] **Open, and it is the only new question M6c raises: does the player's position go in too?**
-      The header's remark says yes and the plan's M6c section never lists it. It is small and it is
-      the difference between the *world* persisting and the *session* persisting — reopening at
-      spawn after building a base a hundred metres away is the kind of thing that reads as a bug.
-      It costs one `Vector3`, plus a decision about walk-versus-fly and the held tier. **Cheap now,
-      because the format version is already moving; a separate bump later.** Recommended: yes,
-      position and mode, not the tier.
+- [x] **Settled 2026-08-31: the player's position goes in, with the walk/fly mode, and not the
+      held tier or the facing.** Matthew's call on the recommendation. Both omissions are recorded
+      on `PlayerSave` with their cost, which is one more format version — mid-milestone, that is
+      the trade this format already makes. **Revisit trigger: M6d plays it and reopening
+      face-first into a wall reads as wrong.**
+- [x] **Stored as voxel counts and presented in litres.** A voxel is the only granularity anything
+      can enter or leave the world in, so counting is exact and every litre figure is a
+      presentation of an integer; litres in a float would drift across a session and "places what
+      it can" would stop having a clean answer. **Revisit trigger: the first thing that moves a
+      quantity which is not a whole number of voxels** — M8's volume-conserving fluids most
+      likely — at which point this wants fixed-point litres.
+- [x] **The credit is per material inside `Carve.Take`, after the write.** Not from
+      `CarveResult.Removed`, which is one number for a bite that can take two materials. **The
+      debit is inside `Place.Put`, after the write, with the stock consulted last** — charging
+      before the voxel is known to be fillable would make a wall built against a cliff cost the
+      volume of the cliff.
+- [x] **Version 1 is migrated rather than refused, and the policy is now stated: an additive
+      version migrates, a version that changes what a field means is refused.** A v1 header is a v2
+      header without its two trailing sections, so reading one supplies two defaults that are true
+      statements about it. **Verified against Matthew's own v1 world**, which opens, migrates and
+      loads its eight saved chunks.
+- [x] **Seventeen break-recipes, and four needed the test fixed rather than the code.** Three were
+      the same new variety — **a corruption test that throws from a different check than the one
+      it is named after**, because the header validates in layers and `Assert.Throws` cannot tell
+      which guard fired. The fourth was the familiar one, a fixture under which both arms agree.
+      The count check's "at or past the table size" arm is now recorded as belt and braces with no
+      test, because it is unreachable without also tripping a row check.
 
 ##### M6c-3 — The binding, and the play
 

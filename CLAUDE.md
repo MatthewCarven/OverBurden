@@ -182,13 +182,37 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2, all of M3, all of M4, all of M5, M6a, all of M6b and M6c-1** are done —
-**689 tests passing**. **M6 is planned (2026-08-31) and under way: SQLite save/load, brush placement,
+M0, all of M1, **all of M2, all of M3, all of M4, all of M5, M6a, all of M6b, M6c-1 and M6c-2** are
+done — **719 tests passing**. **M6 is planned (2026-08-31) and under way: SQLite save/load, brush placement,
 volumetric inventory — v0.1 playable sandbox**, and it is what fixes the one thing play kept
 running into, that an edited chunk which unloads loses its edits. See
 [docs/M6-PLAN.md](docs/M6-PLAN.md), split M6a–M6d. **The game saves as of M6b-3 (2026-08-31),
 played and confirmed** — closing the window and re-running loads the last world. **M6c is split
-three ways and M6c-1 is done; M6c-2, the inventory, is next.**
+three ways; M6c-1 and M6c-2 are done and M6c-3, the binding, is next — until it lands, placement
+and the inventory work only in tests.**
+
+**M6c-2 — the inventory: done 2026-08-31.** `MinerCraft.Core/Inventory/VolumetricInventory` holds
+what the player carries; `Carve` credits it per material as it removes, `Place` debits it per voxel
+as it fills, and the world header carries it across a quit with the player's position. Suite 689 →
+719. Four things worth keeping:
+
+- **Stored as voxel counts, presented in litres, and 64 voxels is exactly 1,000 L.** A voxel is the
+  only granularity anything can enter or leave the world in, so counting is exact; litres in a
+  float would drift and "places what it can" would stop having a clean answer. **Revisit trigger:
+  the first quantity that is not a whole number of voxels**, most likely M8's fluids.
+- **The credit is per material inside `Carve.Take` and the debit is inside `Place.Put`, both after
+  the write, with the stock consulted last.** A bite through dirt with a stone seam takes two
+  materials and `Removed` is one number, so crediting from the result would have to guess; and
+  charging before a voxel is known to be fillable would make a wall built against a cliff cost the
+  volume of the cliff.
+- **Header version 2, and version 1 is migrated rather than refused.** The policy: **an additive
+  version migrates, a version that changes what a field means is refused.** It is not what M6a
+  argued against — that was a reader defaulting a field the writer meant to write. **Verified
+  against the v1 world Matthew had been playing**, which opens, migrates and loads its chunks.
+- **Seventeen break-recipes, four of which needed the test fixed rather than the code, and three
+  were one new variety: a corruption test that throws from a different check than the one it
+  names.** The header validates in layers, so `Assert.Throws` is not evidence the layer you meant
+  was reached — only a battery says which guard fired.
 
 **M6c-1 — the brushes: done 2026-08-31.** `MinerCraft.Core/Building/` holds `BrushCell`,
 `BrushFacing`, `PlaceResult` and `Place` — cube, slab, ramp and sphere on the world's 1 m lattice,

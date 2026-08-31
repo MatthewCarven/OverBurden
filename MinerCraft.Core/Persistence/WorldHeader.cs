@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Numerics;
 using System.Text;
 using MinerCraft.Core.Content;
 using MinerCraft.Core.Worldgen;
@@ -38,7 +39,53 @@ public sealed record WorldHeader
     /// what makes stored numeric IDs mean the same thing across a change of mod set.
     /// </remarks>
     public required IReadOnlyList<Identifier> MaterialIdTable { get; init; }
+
+    /// <summary>
+    /// What the player is carrying, in voxels, by numeric material ID. Empty for a new world.
+    /// </summary>
+    /// <remarks>
+    /// <b>Here rather than in a file of its own, for the reason the ID table is here:</b> an
+    /// inventory keyed by numeric material ID is meaningless without the table that assigns those
+    /// numbers, and two files can desynchronise while one cannot. Ordered by ID, so the same
+    /// inventory always writes the same bytes.
+    /// </remarks>
+    public IReadOnlyList<InventoryEntry> Inventory { get; init; } = [];
+
+    /// <summary>Where the player was and how they were moving. Null for a world nobody has entered.</summary>
+    /// <remarks>
+    /// <b>Optional rather than defaulted to the origin</b>, because "no saved position" and
+    /// "saved at 0,0,0" are different facts and only the first should spawn a player at the
+    /// surface. A world written before M6c-2 reads as null, which is exactly what it is.
+    /// </remarks>
+    public PlayerSave? Player { get; init; }
 }
+
+/// <summary>One material's holding, in voxels rather than litres.</summary>
+/// <remarks>
+/// Voxels because that is what <see cref="Inventory.VolumetricInventory"/> counts, and counting is
+/// exact where a litre figure is a presentation of it. See that type for the whole argument and
+/// for the trigger that would change it.
+/// </remarks>
+public readonly record struct InventoryEntry(int MaterialId, long Voxels);
+
+/// <summary>Where the player was standing, and whether they were flying.</summary>
+/// <param name="FeetMetres">
+/// The point between the feet, not the centre of the body — the coordinate every other system in
+/// this game means by "where the player is", and the one <c>Aabb.FromFeet</c> and
+/// <c>PlayerState.AtFeet</c> both take. Naming the field for it is what stops a half-height offset
+/// going missing at one of the call sites.
+/// </param>
+/// <param name="Flying">
+/// Walk or fly. Saved because it is a mode rather than a position: reopening a world in the other
+/// one is the kind of thing that reads as the save having failed.
+/// </param>
+/// <remarks>
+/// <b>Deliberately not the facing, and not the held tier.</b> Both are cheap and neither was
+/// agreed; adding a field later costs one more format version, which mid-milestone is the trade
+/// this format already makes. <b>Revisit trigger: M6d plays it and reopening face-first into a
+/// wall reads as wrong.</b>
+/// </remarks>
+public readonly record struct PlayerSave(Vector3 FeetMetres, bool Flying);
 
 /// <summary>The <see cref="WorldHeader"/> as stored bytes, and back.</summary>
 /// <remarks>
@@ -60,14 +107,37 @@ public sealed record WorldHeader
 /// </remarks>
 public static class WorldHeaderBlob
 {
-    /// <summary>The only version this build writes or reads.</summary>
+    /// <summary>The version this build writes.</summary>
     /// <remarks>
-    /// <b>Expect this to move during M6.</b> M6c adds the player's position and volumetric
-    /// inventory, and that is a layout change. During a milestone the only person holding a saved
-    /// world is the one building it, and the version byte turns "my world went strange" into
-    /// "this build will not open that world" — which is the trade this whole format is making.
+    /// <b>Moved to 2 at M6c-2</b>, which is the change <see cref="Version"/>'s own remark
+    /// predicted at M6a: the player's position and the volumetric inventory are a layout change.
+    /// During a milestone the only person holding a saved world is the one building it.
     /// </remarks>
-    public const byte Version = 1;
+    public const byte Version = 2;
+
+    /// <summary>The oldest layout this build can still read.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Version 1 is migrated rather than refused, and the reason it is allowed to be is that
+    /// the change was strictly additive.</b> A v1 header is a v2 header without the two trailing
+    /// sections, so reading one means supplying two documented defaults — no inventory, no saved
+    /// player — and both are true statements about a world written before either existed.
+    /// </para>
+    /// <para>
+    /// <b>This is not the thing M6a argued against.</b> That was a reader filling in a field the
+    /// writer meant to write, which is how a defaulted <see cref="WorldGenSettings.CaveLatticeStep"/>
+    /// silently reshapes terrain. Here the reader knows exactly which layout it has and applies a
+    /// rule written for it. The distinction is the policy: <b>an additive version migrates, a
+    /// version that changes what a field means is refused.</b>
+    /// </para>
+    /// </remarks>
+    public const byte OldestVersion = 1;
+
+    /// <summary>Bytes one <see cref="InventoryEntry"/> occupies: an int32 ID and an int64 count.</summary>
+    private const int InventoryEntryBytes = sizeof(int) + sizeof(long);
+
+    /// <summary>Bytes a present <see cref="PlayerSave"/> occupies, after its presence byte.</summary>
+    private const int PlayerBytes = (sizeof(float) * 3) + 1;
 
     /// <summary>
     /// Bytes one <see cref="WorldGenSettings"/> occupies: 8 + 4×2 + 4×6 + 1 + 4×3.
@@ -108,8 +178,15 @@ public static class WorldHeaderBlob
                 nameof(header));
         }
 
+        IReadOnlyList<InventoryEntry> inventory = ValidatedInventory(header);
+
         var encoded = new byte[table.Count][];
-        int payloadLength = SettingsBytes + sizeof(int);
+        int payloadLength = SettingsBytes
+                            + sizeof(int)
+                            + sizeof(int)
+                            + (inventory.Count * InventoryEntryBytes)
+                            + 1
+                            + (header.Player is null ? 0 : PlayerBytes);
 
         for (int i = 0; i < table.Count; i++)
         {
@@ -143,6 +220,31 @@ public static class WorldHeaderBlob
             offset += encoded[i].Length;
         }
 
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(offset), inventory.Count);
+        offset += sizeof(int);
+
+        foreach (InventoryEntry entry in inventory)
+        {
+            BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(offset), entry.MaterialId);
+            offset += sizeof(int);
+            BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(offset), entry.Voxels);
+            offset += sizeof(long);
+        }
+
+        if (header.Player is PlayerSave player)
+        {
+            payload[offset++] = 1;
+            BinaryPrimitives.WriteSingleLittleEndian(payload.AsSpan(offset), player.FeetMetres.X);
+            BinaryPrimitives.WriteSingleLittleEndian(payload.AsSpan(offset + 4), player.FeetMetres.Y);
+            BinaryPrimitives.WriteSingleLittleEndian(payload.AsSpan(offset + 8), player.FeetMetres.Z);
+            payload[offset + 12] = player.Flying ? (byte)1 : (byte)0;
+            offset += PlayerBytes;
+        }
+        else
+        {
+            payload[offset++] = 0;
+        }
+
         byte[]? compressed = BlobFormat.TryCompress(payload);
         ReadOnlySpan<byte> stored = compressed ?? payload;
 
@@ -153,13 +255,72 @@ public static class WorldHeaderBlob
         return blob;
     }
 
+    /// <summary>
+    /// Checks the inventory against the table it is keyed by, and returns it in canonical order.
+    /// </summary>
+    /// <remarks>
+    /// <b>Refused at write as well as at read</b>, for the reason the air check gives: a bad
+    /// inventory reaching disk is a bug upstream, and catching it here names the session that
+    /// produced it rather than the one that later cannot open the world. Sorted here rather than
+    /// trusted from the caller, so that the same holding always produces the same bytes whatever
+    /// order it arrived in.
+    /// </remarks>
+    private static IReadOnlyList<InventoryEntry> ValidatedInventory(WorldHeader header)
+    {
+        IReadOnlyList<InventoryEntry> inventory = header.Inventory;
+        if (inventory.Count == 0) return inventory;
+
+        var sorted = new List<InventoryEntry>(inventory);
+        sorted.Sort(static (a, b) => a.MaterialId.CompareTo(b.MaterialId));
+
+        for (int i = 0; i < sorted.Count; i++)
+        {
+            InventoryEntry entry = sorted[i];
+
+            if (entry.MaterialId == MaterialIds.AirNumericId)
+            {
+                throw new ArgumentException(
+                    "The inventory holds air. Nothing can mine air, so a holding of it is a "
+                    + "bookkeeping bug rather than a quantity.",
+                    nameof(header));
+            }
+
+            if ((uint)entry.MaterialId >= (uint)header.MaterialIdTable.Count)
+            {
+                throw new ArgumentException(
+                    $"The inventory holds material ID {entry.MaterialId}, which the world's table "
+                    + $"of {header.MaterialIdTable.Count} does not have.",
+                    nameof(header));
+            }
+
+            if (entry.Voxels <= 0)
+            {
+                throw new ArgumentException(
+                    $"Material ID {entry.MaterialId} holds {entry.Voxels} voxels. A material at "
+                    + "zero is not held, and a negative holding is a bug.",
+                    nameof(header));
+            }
+
+            if (i > 0 && sorted[i - 1].MaterialId == entry.MaterialId)
+            {
+                // Two rows for one material would be summed by one reader and overwritten by
+                // another, and both are silent. Refuse instead of picking.
+                throw new ArgumentException(
+                    $"The inventory holds material ID {entry.MaterialId} twice.",
+                    nameof(header));
+            }
+        }
+
+        return sorted;
+    }
+
     /// <summary>Rebuilds a world header, refusing anything it cannot interpret exactly.</summary>
     public static WorldHeader Read(ReadOnlySpan<byte> blob)
     {
         const string What = "World header";
 
-        ReadOnlySpan<byte> payload =
-            BlobFormat.ReadPayload(blob, Version, BlobFormat.FrameBytes, What, out _);
+        ReadOnlySpan<byte> payload = BlobFormat.ReadPayload(
+            blob, OldestVersion, Version, BlobFormat.FrameBytes, What, out _, out byte version);
 
         if (payload.Length < SettingsBytes + sizeof(int))
         {
@@ -219,10 +380,22 @@ public static class WorldHeaderBlob
             offset += length;
         }
 
+        // Version 1 stopped here, so a world written before M6c-2 carries no inventory and no
+        // saved player — which is a true statement about it rather than a defaulted field. See
+        // OldestVersion for why this migration is allowed where a defaulted setting is not.
+        InventoryEntry[] inventory = [];
+        PlayerSave? player = null;
+
+        if (version >= 2)
+        {
+            inventory = ReadInventory(payload, count, ref offset);
+            player = ReadPlayer(payload, ref offset);
+        }
+
         if (offset != payload.Length)
         {
             throw new BlobFormatException(
-                $"{What}: {payload.Length - offset} bytes left over after the material table.");
+                $"{What}: {payload.Length - offset} bytes left over after the world header.");
         }
 
         if (table[0] != Air)
@@ -237,7 +410,135 @@ public static class WorldHeaderBlob
                 + "always. This world file was not written by this engine, or was edited by hand.");
         }
 
-        return new WorldHeader { Settings = settings, MaterialIdTable = table };
+        return new WorldHeader
+        {
+            Settings = settings,
+            MaterialIdTable = table,
+            Inventory = inventory,
+            Player = player,
+        };
+    }
+
+    /// <summary>Reads the inventory, checked against the table that gives its keys meaning.</summary>
+    private static InventoryEntry[] ReadInventory(
+        ReadOnlySpan<byte> payload, int materialCount, ref int offset)
+    {
+        const string What = "World header";
+
+        if (payload.Length - offset < sizeof(int))
+        {
+            throw new BlobFormatException($"{What}: ran out of bytes reading the inventory length.");
+        }
+
+        int count = BinaryPrimitives.ReadInt32LittleEndian(payload[offset..]);
+        offset += sizeof(int);
+
+        if (count < 0 || count >= materialCount)
+        {
+            // At most one row per material, and air can never be one of them — so a count at or
+            // past the table size is corrupt before a single entry is read.
+            throw new BlobFormatException(
+                $"{What}: inventory declares {count} entries against a table of {materialCount}.");
+        }
+
+        if (payload.Length - offset < count * InventoryEntryBytes)
+        {
+            throw new BlobFormatException(
+                $"{What}: inventory declares {count} entries but only {payload.Length - offset} "
+                + "bytes remain.");
+        }
+
+        var entries = new InventoryEntry[count];
+        int previous = -1;
+
+        for (int i = 0; i < count; i++)
+        {
+            int materialId = BinaryPrimitives.ReadInt32LittleEndian(payload[offset..]);
+            long voxels = BinaryPrimitives.ReadInt64LittleEndian(payload[(offset + sizeof(int))..]);
+            offset += InventoryEntryBytes;
+
+            if (materialId == MaterialIds.AirNumericId)
+            {
+                throw new BlobFormatException(
+                    $"{What}: the inventory holds air, which nothing can mine.");
+            }
+
+            if ((uint)materialId >= (uint)materialCount)
+            {
+                throw new BlobFormatException(
+                    $"{What}: the inventory holds material ID {materialId}, past the "
+                    + $"{materialCount} the table has.");
+            }
+
+            if (voxels <= 0)
+            {
+                throw new BlobFormatException(
+                    $"{What}: material ID {materialId} holds {voxels} voxels.");
+            }
+
+            // Strictly increasing, which is both the canonical order the writer produces and the
+            // check that no material appears twice — a duplicate would be summed by one reader
+            // and overwritten by another, and both silently.
+            if (materialId <= previous)
+            {
+                throw new BlobFormatException(
+                    $"{What}: inventory entries are out of order or duplicated at ID {materialId}.");
+            }
+
+            previous = materialId;
+            entries[i] = new InventoryEntry(materialId, voxels);
+        }
+
+        return entries;
+    }
+
+    /// <summary>Reads the saved player, if the world has one.</summary>
+    private static PlayerSave? ReadPlayer(ReadOnlySpan<byte> payload, ref int offset)
+    {
+        const string What = "World header";
+
+        if (payload.Length - offset < 1)
+        {
+            throw new BlobFormatException($"{What}: ran out of bytes reading the player flag.");
+        }
+
+        byte present = payload[offset++];
+        if (present > 1)
+        {
+            throw new BlobFormatException(
+                $"{What}: the player-present flag is {present}, which is neither 0 nor 1.");
+        }
+
+        if (present == 0) return null;
+
+        if (payload.Length - offset < PlayerBytes)
+        {
+            throw new BlobFormatException($"{What}: ran out of bytes reading the player.");
+        }
+
+        var feet = new Vector3(
+            BinaryPrimitives.ReadSingleLittleEndian(payload[offset..]),
+            BinaryPrimitives.ReadSingleLittleEndian(payload[(offset + 4)..]),
+            BinaryPrimitives.ReadSingleLittleEndian(payload[(offset + 8)..]));
+
+        byte flying = payload[offset + 12];
+        offset += PlayerBytes;
+
+        if (flying > 1)
+        {
+            throw new BlobFormatException(
+                $"{What}: the player's flying flag is {flying}, which is neither 0 nor 1.");
+        }
+
+        if (!float.IsFinite(feet.X) || !float.IsFinite(feet.Y) || !float.IsFinite(feet.Z))
+        {
+            // A non-finite spawn is unrecoverable in a way an absent one is not: the collider
+            // refuses a non-finite displacement by name, so the player would be stuck at the first
+            // step with nothing to say why.
+            throw new BlobFormatException($"{What}: the player's saved position is {feet}.");
+        }
+
+        return new PlayerSave(feet, flying != 0);
     }
 
     private static void WriteSettings(WorldGenSettings settings, Span<byte> destination)

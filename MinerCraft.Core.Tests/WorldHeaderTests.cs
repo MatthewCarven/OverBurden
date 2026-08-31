@@ -1,3 +1,4 @@
+using System.Numerics;
 using MinerCraft.Core.Content;
 using MinerCraft.Core.Persistence;
 using MinerCraft.Core.Worldgen;
@@ -263,6 +264,204 @@ public class WorldHeaderTests
         Assert.Equal(MaterialIds.AirNumericId, reopened.Materials.GetNumericId(MaterialIds.Air));
     }
 
+    // -------------------------------------------------------------------------------------
+    // M6c-2: the inventory and the player, and the version bump that carries them.
+    // -------------------------------------------------------------------------------------
+
+    /// <summary>Bytes one inventory row occupies in the payload: an int32 ID and an int64 count.</summary>
+    private const int EntryBytes = 12;
+
+    private static WorldHeader WithInventory(params (int MaterialId, long Voxels)[] entries) =>
+        Header(Air, Stone, Copper) with
+        {
+            Inventory = [.. entries.Select(e => new InventoryEntry(e.MaterialId, e.Voxels))],
+        };
+
+    [Fact]
+    public void TheInventoryAndThePlayerSurviveTheRoundTrip()
+    {
+        WorldHeader header = WithInventory((1, 64), (2, 1_500_000)) with
+        {
+            Player = new PlayerSave(new Vector3(12.5f, -3.25f, 900.75f), Flying: true),
+        };
+
+        WorldHeader read = WorldHeaderBlob.Read(WorldHeaderBlob.Write(header));
+
+        Assert.Equal(header.Inventory, read.Inventory);
+        Assert.Equal(header.Player, read.Player);
+    }
+
+    [Fact]
+    public void AWorldNobodyHasEnteredHasNoPlayerRatherThanOneAtTheOrigin()
+    {
+        // Two different facts, and only the first should spawn a player at the surface.
+        WorldHeader read = WorldHeaderBlob.Read(WorldHeaderBlob.Write(Header(Air, Stone)));
+
+        Assert.Null(read.Player);
+        Assert.Empty(read.Inventory);
+    }
+
+    [Fact]
+    public void TheInventoryIsWrittenInMaterialOrderWhateverOrderItArrivedIn()
+    {
+        // So the same holding always writes the same bytes. Otherwise "did this change?" is
+        // unanswerable in a test, in a diff and in a bug report alike.
+        byte[] ascending = WorldHeaderBlob.Write(WithInventory((1, 5), (2, 7)));
+        byte[] descending = WorldHeaderBlob.Write(WithInventory((2, 7), (1, 5)));
+
+        Assert.Equal(ascending, descending);
+    }
+
+    [Fact]
+    public void AWorldWrittenBeforeTheInventoryExistedStillOpens()
+    {
+        // The migration, and the reason it is allowed to be one: version 1 is version 2 without
+        // its two trailing sections, so reading one means supplying two defaults that are true
+        // statements about it — no inventory, no saved player. A version that *changed* what a
+        // field means would be refused instead; see WorldHeaderBlob.OldestVersion.
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone, Copper)));
+
+        // An empty inventory is a four-byte zero count, and no player is a single zero byte.
+        // Dropping exactly those five bytes is what a version 1 payload was.
+        byte[] older = payload[..^5];
+
+        WorldHeader read = WorldHeaderBlob.Read(Reframe(older, version: 1));
+
+        Assert.Equal([Air, Stone, Copper], read.MaterialIdTable);
+        Assert.Empty(read.Inventory);
+        Assert.Null(read.Player);
+    }
+
+    [Fact]
+    public void AVersionThisBuildDoesNotWriteYetIsStillRefused()
+    {
+        // Reading version 1 is a migration, not leniency: anything past what this build writes is
+        // a layout it has never seen, and guessing at it is the failure the version byte exists
+        // to prevent.
+        byte[] blob = WorldHeaderBlob.Write(Header(Air, Stone));
+        blob[0] = WorldHeaderBlob.Version + 1;
+
+        Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(blob));
+    }
+
+    [Fact]
+    public void AnInventoryHoldingAirIsRefusedOnWrite() =>
+        Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(WithInventory((0, 5))));
+
+    [Fact]
+    public void AnInventoryHoldingAMaterialTheTableLacksIsRefusedOnWrite() =>
+        Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(WithInventory((9, 5))));
+
+    [Fact]
+    public void AnInventoryRowAtZeroIsRefusedOnWrite() =>
+        // A material at zero is not held, so a row for it is a bookkeeping bug rather than a
+        // quantity — and a reader that accepted it would carry the row forever.
+        Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(WithInventory((1, 0))));
+
+    [Fact]
+    public void TheSameInventoryMaterialTwiceIsRefusedOnWrite() =>
+        Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(WithInventory((1, 5), (1, 7))));
+
+    [Fact]
+    public void AnInventoryHoldingAirIsRefusedOnRead()
+    {
+        // The reader checks what the writer checks, because a file can be edited by hand or
+        // damaged. **Row 0 rather than row 1**, so that the entries stay in ascending order and
+        // the ordering check cannot be what fires: the battery found this test passing for the
+        // wrong reason when it edited whichever row was convenient.
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((1, 5), (2, 7))));
+
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(
+            payload.AsSpan(payload.Length - 1 - (EntryBytes * 2)), 0);
+
+        Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
+    }
+
+    [Fact]
+    public void AnInventoryHoldingAMaterialTheTableLacksIsRefusedOnRead()
+    {
+        // **Row 1 rather than row 0**, for the mirror of the reason above: raising the last ID
+        // keeps the rows ascending, so the range check is the only one that can fire.
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((1, 5), (2, 7))));
+
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(
+            payload.AsSpan(payload.Length - 1 - EntryBytes), 9);
+
+        Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
+    }
+
+    [Fact]
+    public void DuplicateInventoryRowsAreRefusedOnRead()
+    {
+        // One reader would sum them and another would let the last win, and both silently. The
+        // strictly-increasing order the writer produces is what makes this checkable at all.
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((1, 5), (2, 7))));
+
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(
+            payload.AsSpan(payload.Length - 1 - EntryBytes), 1);
+
+        Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
+    }
+
+    [Fact]
+    public void APlayerPresentFlagThatIsNeitherZeroNorOneIsRefused()
+    {
+        // The same shape as CavesEnabled's check. A byte holding 2 means the writer and the
+        // reader disagree about the layout, which is the one thing this format refuses to guess at.
+        //
+        // **Written with a player present**, so there really are thirteen bytes behind the flag.
+        // Against a header with no player, removing the check leaves "ran out of bytes reading the
+        // player" to throw instead — which the battery caught: the test passed while covering
+        // nothing.
+        WorldHeader header = Header(Air, Stone) with
+        {
+            Player = new PlayerSave(new Vector3(1.0f, 2.0f, 3.0f), Flying: false),
+        };
+
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(header));
+        payload[^(PlayerPayloadBytes + 1)] = 2;
+
+        Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
+    }
+
+    /// <summary>Bytes a present player occupies after its flag: three floats and a bool.</summary>
+    private const int PlayerPayloadBytes = 13;
+
+    [Fact]
+    public void ANonFinitePlayerPositionIsRefused()
+    {
+        // Unrecoverable in a way an absent position is not: VoxelCollider refuses a non-finite
+        // displacement by name, so the player would be stuck on the first step with nothing on
+        // screen to say why.
+        WorldHeader header = Header(Air, Stone) with
+        {
+            Player = new PlayerSave(new Vector3(1.0f, float.NaN, 1.0f), Flying: false),
+        };
+
+        Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(WorldHeaderBlob.Write(header)));
+    }
+
+    [Fact]
+    public void AnInventoryCountWithNoRowsBehindItIsRefused()
+    {
+        // Caught by arithmetic before any row is read, which is the same argument the frame's
+        // stored length makes: a length that disagrees with the bytes is a truncation, and
+        // reading rows out of whatever follows would invent a holding.
+        //
+        // **The count's other arm — "at or past the table's size" — is belt and braces and has no
+        // test, deliberately.** It is unreachable in isolation: at most one row per material and
+        // never air, so any count large enough to trip it forces a payload whose rows are either
+        // duplicated, out of order or out of range, and one of those checks fires first. Removing
+        // it fails nothing, which is M4a's zeroable-contact-epsilon category rather than a hole.
+        // It is kept because it fails earlier and more cheaply than running out of bytes does.
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((1, 5))));
+
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(
+            payload.AsSpan(payload.Length - 1 - EntryBytes - sizeof(int)), 2);
+
+        Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
+    }
+
     /// <summary>The blob's payload, decompressed if it was compressed. BCL only.</summary>
     private static byte[] PayloadOf(byte[] blob)
     {
@@ -280,10 +479,10 @@ public class WorldHeaderTests
     }
 
     /// <summary>Wraps a payload back into a valid, uncompressed frame.</summary>
-    private static byte[] Reframe(byte[] payload)
+    private static byte[] Reframe(byte[] payload, byte version = WorldHeaderBlob.Version)
     {
         var blob = new byte[10 + payload.Length];
-        blob[0] = WorldHeaderBlob.Version;
+        blob[0] = version;
         blob[1] = 0x00;
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(blob.AsSpan(2), payload.Length);
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(blob.AsSpan(6), payload.Length);

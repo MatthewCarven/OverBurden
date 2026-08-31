@@ -1,5 +1,91 @@
 # MinerCraft — Worklog
 
+## 2026-08-31 — M6c-2: the inventory, and a format bump that did not strand the world
+
+`MinerCraft.Core/Inventory/VolumetricInventory` holds what the player is carrying; `Carve`
+credits it per material as it removes, `Place` debits it per voxel as it fills, and the world
+header carries it across a quit along with where the player was standing. Suite **689 → 719**.
+Nothing is wired into the game yet — that is M6c-3, the same shape as M6b-3.
+
+### The unit, and why it is stored as something else
+
+A 0.25 m voxel is 15.625 L, so a 1 m brush cube is 64 voxels = **exactly 1,000 litres, exactly one
+cubic metre**. That round number is the whole argument for the unit: a player can compare a hole
+with a stack without arithmetic.
+
+**It is stored as voxel counts and presented in litres, which is not a contradiction.** A voxel is
+the only granularity in which anything can currently enter or leave the world, so counting them is
+exact and every litre figure is a presentation of an integer. Litres in a float would drift across
+a session, and "a short inventory places what it can" would stop having a clean answer. **Revisit
+trigger: the first thing that moves a quantity which is not a whole number of voxels** — M8's
+volume-conserving fluids are the likely one, a crafting yield of "0.3 m³" would do it too — at
+which point this wants fixed-point litres and the conversion is the whole of the change.
+
+### Where the credit and the debit happen, and both are one line from being wrong
+
+- **The credit is inside `Carve.Take`, per voxel, after the write succeeds.** Not from
+  `CarveResult.Removed`, because a bite through a dirt bank with a stone seam in it takes two
+  materials and `Removed` is one number — anything crediting from the result would have to guess
+  which. Not before the write either: a write that fails must cost nothing.
+- **The debit is inside `Place.Put`, after the write, and the stock is consulted *last*.** Charging
+  before the voxel is known to be fillable would mean a wall built against a cliff cost the volume
+  of the cliff. The bucket order is body → unloaded → occupied → **stock** → write.
+- **A short inventory places what it can** and reports the rest as `OutOfStock`. A partial brush
+  rather than none: running out halfway through a wall leaves the part you could afford, and the
+  bucket itself says what you were short.
+
+### The format bump, and the policy it settles
+
+`WorldHeaderBlob.Version` is 2, which is the change its own remark predicted at M6a. It carries
+the inventory (ordered by material ID, so the same holding always writes the same bytes) and an
+optional `PlayerSave` — feet position and walk-or-fly, deliberately **not** the facing or the held
+tier, neither of which was agreed and both of which cost one more version to add.
+
+**Version 1 is migrated rather than refused, and the rule is worth stating because it looks like
+the thing M6a argued against.** M6a's argument was about a reader filling in a field the writer
+meant to write — a defaulted `CaveLatticeStep` silently reshapes terrain. Here the change is
+strictly additive: a v1 header is a v2 header without its two trailing sections, so reading one
+means supplying two defaults that are *true statements* about it — no inventory, no saved player.
+The policy: **an additive version migrates, a version that changes what a field means is refused.**
+
+That is not theoretical. Matthew has been playing a v1 world since this morning, and after the
+bump it opens, migrates and loads its eight saved chunks:
+
+```
+M6: opened .../worlds/default/world.db — seed 0x4D494E455243, 5 material id(s) restored
+M6: world written on quit — 8 loaded / 1521 tracked, 8 chunks in the world, 4 columns restored
+```
+
+### The batteries, and three tests that were throwing for the wrong reason
+
+Seventeen break-recipes across the two halves. Every one is caught now; four were not at first,
+and **three of those failures are the same new variety, which is worth naming: a corruption test
+that throws, but from a different check than the one it is named after.**
+
+The world header validates in layers — a length, then a count, then per-row rules, then ordering.
+A test that corrupts a byte and asserts `Throws<BlobFormatException>` looks like it covers the rule
+in its name, and can in fact be tripping an earlier guard entirely:
+
+- "an inventory holding a material the table lacks" edited **row 0** to an out-of-range ID, which
+  also made the rows descending — so the *ordering* check fired, and deleting the range check
+  changed nothing. Fixed by raising **row 1** instead, which keeps the rows ascending.
+- "a player-present flag that is neither 0 nor 1" was written against a header with **no player**,
+  so with the check deleted the reader ran out of bytes and threw anyway. Fixed by writing a header
+  *with* a player, so there really are thirteen bytes behind the flag.
+- "an inventory longer than the table could explain" was tripping the *length* check rather than
+  the count check. Renamed to what it actually covers — and the count's other arm is now recorded
+  as **belt and braces with no test, deliberately**: at most one row per material and never air, so
+  any count large enough to trip it forces a payload whose rows are duplicated, out of order or out
+  of range, and one of those fires first. M4a's zeroable-contact-epsilon category again.
+
+The fourth was in the placement half and is the familiar shape: **the fixture made both arms
+agree.** "Stock consulted before the occupied check" changes nothing when there is plenty in hand —
+the ordering only matters when the stock runs out *and* some voxels are occupied. The test now
+holds **exactly enough for the half that is air**, which is the only fixture that separates them.
+
+**The generalisation: with layered validation, `Assert.Throws` is not evidence that the layer you
+meant was reached.** Only a battery says which guard actually fired.
+
 ## 2026-08-31 — M6c-1: the brushes, and a ramp you can walk up
 
 `MinerCraft.Core/Building/` holds `BrushCell`, `BrushFacing`, `PlaceResult` and `Place` — cube,

@@ -1,5 +1,6 @@
 using System.Numerics;
 using MinerCraft.Core.Content;
+using MinerCraft.Core.Inventory;
 using MinerCraft.Core.Physics;
 using MinerCraft.Core.Voxels;
 
@@ -20,6 +21,12 @@ namespace MinerCraft.Core.Building;
 /// Voxels overlapping the body that asked for the placement. Refused so that nobody can build
 /// themselves into a wall; the rest of the brush still lands.
 /// </param>
+/// <param name="OutOfStock">
+/// Voxels the inventory could not pay for. <b>A partial brush is placed rather than none</b>:
+/// running out halfway through a wall leaves the part you could afford, which is both the less
+/// surprising behaviour and the one that lets the count itself tell you what you were short.
+/// Always zero for a placement with no inventory, which is what creative building is.
+/// </param>
 /// <param name="Unreachable">
 /// Voxels whose chunk is not loaded, or is loaded but has not generated. <b>An unknown, not a
 /// refusal</b> — the same distinction <see cref="CarveResult.Unreachable"/> draws, and the same
@@ -30,7 +37,8 @@ public readonly record struct PlaceResult(
     int Placed,
     int Occupied,
     int InsidePlayer,
-    int Unreachable)
+    int Unreachable,
+    int OutOfStock = 0)
 {
     /// <summary>The whole brush was inside loaded, generated terrain.</summary>
     public bool Complete => Unreachable == 0;
@@ -43,11 +51,11 @@ public readonly record struct PlaceResult(
     /// and quietly loses voxels.
     /// </remarks>
     public bool IsAccounted =>
-        Candidates == Placed + Occupied + InsidePlayer + Unreachable;
+        Candidates == Placed + Occupied + InsidePlayer + Unreachable + OutOfStock;
 
     public override string ToString() =>
         $"{Candidates} candidate(s): placed {Placed}, occupied {Occupied}, " +
-        $"inside player {InsidePlayer}, unreachable {Unreachable}";
+        $"inside player {InsidePlayer}, unreachable {Unreachable}, out of stock {OutOfStock}";
 }
 
 /// <summary>
@@ -108,7 +116,8 @@ public static class Place
         MaterialTable materials,
         BrushCell cell,
         int materialId,
-        Aabb? body = null)
+        Aabb? body = null,
+        VolumetricInventory? from = null)
     {
         (VoxelPos Min, VoxelPos Max)? bodyVoxels = Validate(world, materials, materialId, body);
         var tally = default(Tally);
@@ -118,7 +127,7 @@ public static class Place
         for (int ly = 0; ly < BrushCell.Voxels; ly++)
         {
             tally.Candidate();
-            tally.Add(Put(world, cell.VoxelAt(lx, ly, lz), materialId, bodyVoxels));
+            tally.Add(Put(world, cell.VoxelAt(lx, ly, lz), materialId, bodyVoxels, from));
         }
 
         return tally.ToResult();
@@ -138,7 +147,8 @@ public static class Place
         MaterialTable materials,
         BrushCell cell,
         int materialId,
-        Aabb? body = null)
+        Aabb? body = null,
+        VolumetricInventory? from = null)
     {
         (VoxelPos Min, VoxelPos Max)? bodyVoxels = Validate(world, materials, materialId, body);
         var tally = default(Tally);
@@ -148,7 +158,7 @@ public static class Place
         for (int ly = 0; ly < BrushCell.Voxels / 2; ly++)
         {
             tally.Candidate();
-            tally.Add(Put(world, cell.VoxelAt(lx, ly, lz), materialId, bodyVoxels));
+            tally.Add(Put(world, cell.VoxelAt(lx, ly, lz), materialId, bodyVoxels, from));
         }
 
         return tally.ToResult();
@@ -181,7 +191,8 @@ public static class Place
         BrushCell cell,
         int materialId,
         BrushFacing facing,
-        Aabb? body = null)
+        Aabb? body = null,
+        VolumetricInventory? from = null)
     {
         (VoxelPos Min, VoxelPos Max)? bodyVoxels = Validate(world, materials, materialId, body);
         var tally = default(Tally);
@@ -194,7 +205,7 @@ public static class Place
             for (int ly = 0; ly < height; ly++)
             {
                 tally.Candidate();
-                tally.Add(Put(world, cell.VoxelAt(lx, ly, lz), materialId, bodyVoxels));
+                tally.Add(Put(world, cell.VoxelAt(lx, ly, lz), materialId, bodyVoxels, from));
             }
         }
 
@@ -233,8 +244,9 @@ public static class Place
         BrushCell cell,
         float radiusMetres,
         int materialId,
-        Aabb? body = null) =>
-        Sphere(world, materials, cell.CentreMetres, radiusMetres, materialId, body);
+        Aabb? body = null,
+        VolumetricInventory? from = null) =>
+        Sphere(world, materials, cell.CentreMetres, radiusMetres, materialId, body, from);
 
     /// <summary>Fills a sphere at an arbitrary centre. The lattice-free overload, for tests.</summary>
     public static PlaceResult Sphere(
@@ -243,7 +255,8 @@ public static class Place
         Vector3 centreMetres,
         float radiusMetres,
         int materialId,
-        Aabb? body = null)
+        Aabb? body = null,
+        VolumetricInventory? from = null)
     {
         (VoxelPos Min, VoxelPos Max)? bodyVoxels = Validate(world, materials, materialId, body);
 
@@ -293,7 +306,7 @@ public static class Place
             // anywhere near the loaded edge, since the corners reach r(√3 − 1) further out than
             // the sphere ever does.
             tally.Candidate();
-            tally.Add(Put(world, voxel, materialId, bodyVoxels));
+            tally.Add(Put(world, voxel, materialId, bodyVoxels, from));
         }
 
         return tally.ToResult();
@@ -316,6 +329,7 @@ public static class Place
         Occupied,
         InsidePlayer,
         Unreachable,
+        OutOfStock,
     }
 
     /// <summary>
@@ -331,7 +345,8 @@ public static class Place
         IVoxelEditor world,
         VoxelPos voxel,
         int materialId,
-        in (VoxelPos Min, VoxelPos Max)? bodyVoxels)
+        in (VoxelPos Min, VoxelPos Max)? bodyVoxels,
+        VolumetricInventory? from)
     {
         // The body first, before the read. It is the cheaper test, and it is true regardless of
         // what is in the voxel — "we will not build that inside you" does not depend on whether
@@ -360,10 +375,28 @@ public static class Place
             return Bucket.Occupied;
         }
 
+        // Last of the refusals, and last on purpose: the stock is only consulted once the voxel
+        // is known to be one this brush would actually fill. Checking it earlier would charge for
+        // voxels that turn out to be Occupied or inside the player, so a wall built against a
+        // cliff would cost the volume of the cliff.
+        if (from is not null && !from.Has(materialId))
+        {
+            return Bucket.OutOfStock;
+        }
+
         // Should not happen: a read that succeeded means the chunk is loaded and generated, which
         // is the same condition the write tests. Reported rather than ignored so that an editor
         // whose two halves ever disagree surfaces the voxel instead of losing it.
-        return world.SetVoxel(voxel, materialId) ? Bucket.Placed : Bucket.Unreachable;
+        if (!world.SetVoxel(voxel, materialId))
+        {
+            return Bucket.Unreachable;
+        }
+
+        // Debited after the write rather than before it, so that a write which fails costs
+        // nothing. Checked-then-debited rather than taken-then-refunded because the sim thread is
+        // the only writer here, so nothing can come between the two.
+        from?.Take(materialId, 1);
+        return Bucket.Placed;
     }
 
     /// <summary>
@@ -421,6 +454,7 @@ public static class Place
         private int _occupied;
         private int _insidePlayer;
         private int _unreachable;
+        private int _outOfStock;
 
         /// <summary>One voxel is inside the brush. Called by the shape, before the gate.</summary>
         public void Candidate() => _candidates++;
@@ -433,11 +467,12 @@ public static class Place
                 case Bucket.Placed: _placed++; break;
                 case Bucket.Occupied: _occupied++; break;
                 case Bucket.InsidePlayer: _insidePlayer++; break;
+                case Bucket.OutOfStock: _outOfStock++; break;
                 default: _unreachable++; break;
             }
         }
 
         public readonly PlaceResult ToResult() =>
-            new(_candidates, _placed, _occupied, _insidePlayer, _unreachable);
+            new(_candidates, _placed, _occupied, _insidePlayer, _unreachable, _outOfStock);
     }
 }

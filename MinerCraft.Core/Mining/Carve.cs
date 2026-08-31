@@ -1,5 +1,6 @@
 using System.Numerics;
 using MinerCraft.Core.Content;
+using MinerCraft.Core.Inventory;
 using MinerCraft.Core.Voxels;
 
 namespace MinerCraft.Core.Mining;
@@ -82,15 +83,24 @@ public readonly record struct CarveResult(
 public static class Carve
 {
     /// <summary>Swings <paramref name="tool"/> at <paramref name="centreMetres"/>.</summary>
+    /// <param name="into">
+    /// Credited one voxel per material actually removed, or null to mine into nothing.
+    /// <b>Per material rather than per swing</b>, because a bite through a dirt bank with a stone
+    /// seam in it takes two materials and <see cref="CarveResult.Removed"/> is one number —
+    /// crediting from the result would have to guess which. Defaulting to null is what keeps
+    /// every pre-M6c caller and test compiling unedited, the same shape as
+    /// <c>ChunkPipeline</c>'s optional store.
+    /// </param>
     public static CarveResult Swing(
         IVoxelEditor world,
         MaterialTable materials,
         Vector3 centreMetres,
-        ToolDefinition tool)
+        ToolDefinition tool,
+        VolumetricInventory? into = null)
     {
         ArgumentNullException.ThrowIfNull(tool);
 
-        return Sphere(world, materials, centreMetres, tool.RadiusMetres, tool.HardnessThreshold);
+        return Sphere(world, materials, centreMetres, tool.RadiusMetres, tool.HardnessThreshold, into);
     }
 
     /// <summary>Swings <paramref name="tool"/> at what a raycast found.</summary>
@@ -102,8 +112,9 @@ public static class Carve
         IVoxelEditor world,
         MaterialTable materials,
         in VoxelHit hit,
-        ToolDefinition tool) =>
-        Swing(world, materials, SwingCentre(hit), tool);
+        ToolDefinition tool,
+        VolumetricInventory? into = null) =>
+        Swing(world, materials, SwingCentre(hit), tool, into);
 
     /// <summary>
     /// Takes <b>exactly the voxel the ray hit</b> with <paramref name="tool"/>, and nothing
@@ -136,11 +147,12 @@ public static class Carve
         IVoxelEditor world,
         MaterialTable materials,
         in VoxelHit hit,
-        ToolDefinition tool)
+        ToolDefinition tool,
+        VolumetricInventory? into = null)
     {
         ArgumentNullException.ThrowIfNull(tool);
 
-        return Voxel(world, materials, hit.Voxel, tool.HardnessThreshold);
+        return Voxel(world, materials, hit.Voxel, tool.HardnessThreshold, into);
     }
 
     /// <summary>
@@ -158,7 +170,8 @@ public static class Carve
         IVoxelEditor world,
         MaterialTable materials,
         VoxelPos voxel,
-        float hardnessThreshold)
+        float hardnessThreshold,
+        VolumetricInventory? into = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(materials);
@@ -175,7 +188,7 @@ public static class Carve
                 + "so remove all of them. Use float.NegativeInfinity for a tool that takes nothing.");
         }
 
-        return Take(world, materials, voxel, hardnessThreshold) switch
+        return Take(world, materials, voxel, hardnessThreshold, into) switch
         {
             Bucket.Removed => new CarveResult(1, 1, 0, 0, 0),
             Bucket.TooHard => new CarveResult(1, 0, 1, 0, 0),
@@ -253,7 +266,8 @@ public static class Carve
         MaterialTable materials,
         Vector3 centreMetres,
         float radiusMetres,
-        float hardnessThreshold)
+        float hardnessThreshold,
+        VolumetricInventory? into = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(materials);
@@ -327,7 +341,7 @@ public static class Carve
             // would stop meaning anything.
             candidates++;
 
-            switch (Take(world, materials, voxel, hardnessThreshold))
+            switch (Take(world, materials, voxel, hardnessThreshold, into))
             {
                 case Bucket.Removed: removed++; break;
                 case Bucket.TooHard: tooHard++; break;
@@ -362,7 +376,8 @@ public static class Carve
         IVoxelEditor world,
         MaterialTable materials,
         VoxelPos voxel,
-        float hardnessThreshold)
+        float hardnessThreshold,
+        VolumetricInventory? into)
     {
         if (!world.TryGetMaterial(voxel, out int material))
         {
@@ -385,9 +400,16 @@ public static class Carve
         // Should not happen: a read that succeeded means the chunk is loaded and generated,
         // which is the same condition the write tests. Reported rather than ignored so that an
         // editor whose two halves ever disagree surfaces the voxel instead of losing it.
-        return world.SetVoxel(voxel, MaterialIds.AirNumericId)
-            ? Bucket.Removed
-            : Bucket.Unreachable;
+        if (!world.SetVoxel(voxel, MaterialIds.AirNumericId))
+        {
+            return Bucket.Unreachable;
+        }
+
+        // Credited here and only here, after the write succeeded. Crediting from the bucket count
+        // afterwards would pay for voxels that turned out to be unreachable, and crediting before
+        // the write would pay for a hole that was never made.
+        into?.Add(material, 1);
+        return Bucket.Removed;
     }
 
     // The membership predicate and the bounding box moved to VoxelSphere at M6c-1, because

@@ -166,8 +166,40 @@ internal static class BlobFormat
         byte expectedVersion,
         int headerBytes,
         string what,
-        out byte[] owner)
+        out byte[] owner) =>
+        ReadPayload(blob, expectedVersion, expectedVersion, headerBytes, what, out owner, out _);
+
+    /// <summary>
+    /// The same, for a reader that understands a <em>range</em> of versions.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Only for a change that is strictly additive, and the distinction is the whole of the
+    /// policy.</b> A version that appended a section can be read by supplying documented defaults
+    /// for what is missing — a world written before the inventory existed comes back carrying
+    /// nothing, which is exactly what it was. A version that <em>changed</em> the meaning of a
+    /// field cannot: that is the silent world-reshaping the explicit binary layout exists to
+    /// prevent, and it must be refused.
+    /// </para>
+    /// <para>
+    /// So this is not "be lenient". It is: name the older versions you can still interpret, and
+    /// hand the reader the version it got so the defaults are chosen deliberately rather than by
+    /// a field simply being absent.
+    /// </para>
+    /// </remarks>
+    /// <param name="oldestVersion">The oldest layout this reader can still interpret.</param>
+    /// <param name="newestVersion">The version this build writes.</param>
+    /// <param name="version">Which version the blob actually turned out to be.</param>
+    internal static ReadOnlySpan<byte> ReadPayload(
+        ReadOnlySpan<byte> blob,
+        byte oldestVersion,
+        byte newestVersion,
+        int headerBytes,
+        string what,
+        out byte[] owner,
+        out byte version)
     {
+        version = 0;
         if (blob.Length < headerBytes)
         {
             owner = [];
@@ -175,12 +207,17 @@ internal static class BlobFormat
                 $"{what}: {blob.Length} bytes is shorter than the {headerBytes}-byte header.");
         }
 
-        byte version = blob[0];
-        if (version != expectedVersion)
+        version = blob[0];
+        if (version < oldestVersion || version > newestVersion)
         {
             owner = [];
+
+            string reads = oldestVersion == newestVersion
+                ? $"version {newestVersion}"
+                : $"versions {oldestVersion} to {newestVersion}";
+
             throw new BlobFormatException(
-                $"{what}: format version {version}, but this build reads version {expectedVersion}. "
+                $"{what}: format version {version}, but this build reads {reads}. "
                 + "Refusing rather than guessing at the layout.");
         }
 
