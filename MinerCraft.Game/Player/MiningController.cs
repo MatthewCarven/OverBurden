@@ -35,6 +35,15 @@ public sealed class MiningController(
     /// <summary>The tier being swung. Switched from the number keys.</summary>
     public ToolDefinition Tool { get; set; } = tool;
 
+    /// <summary>Where the material goes, or null to mine into nothing.</summary>
+    /// <remarks>
+    /// <b>Optional, because a profile run that is measuring the carve does not need one</b> and
+    /// because every caller before M6c had none. <c>Carve</c> credits it per material as it
+    /// removes rather than from the result, since a bite through a dirt bank with a stone seam in
+    /// it takes two materials and <c>Removed</c> is one number.
+    /// </remarks>
+    public MinerCraft.Core.Inventory.VolumetricInventory? Inventory { get; init; }
+
     /// <summary>
     /// How far the player can reach, in metres. Supplied by the player, who owns it.
     /// </summary>
@@ -216,8 +225,8 @@ public sealed class MiningController(
         }
 
         CarveResult result = precise
-            ? Carve.Chip(pipeline, materials, hit, Tool)
-            : Carve.Swing(pipeline, materials, hit, Tool);
+            ? Carve.Chip(pipeline, materials, hit, Tool, Inventory)
+            : Carve.Swing(pipeline, materials, hit, Tool, Inventory);
 
         // The same cooldown for both shapes. A chip is a different shape of the same swing, not
         // a faster one — letting precision fire quicker would make it the efficient way to mine

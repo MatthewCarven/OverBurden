@@ -352,6 +352,22 @@ public class PlaceTests
         Assert.Equal(0, result.Placed);
     }
 
+    [Theory]
+    [InlineData(1.0f, 0.1f, BrushFacing.PositiveX)]
+    [InlineData(-1.0f, 0.1f, BrushFacing.NegativeX)]
+    [InlineData(0.1f, 1.0f, BrushFacing.PositiveZ)]
+    [InlineData(0.1f, -1.0f, BrushFacing.NegativeZ)]
+    [InlineData(0.7f, 0.71f, BrushFacing.PositiveZ)]
+    public void ARampRisesAwayFromWhoeverPlacedIt(float dx, float dz, BrushFacing expected)
+    {
+        // Away rather than toward, so walking forward onto a ramp climbs it. Both readings are
+        // natural and the wrong one builds every staircase backwards.
+        //
+        // The Y component is ignored on purpose: a ramp rising along Y is a wall, and what
+        // somebody looking down at a step wants is the step going away from them.
+        Assert.Equal(expected, Place.FacingFrom(new Vector3(dx, -0.9f, dz)));
+    }
+
     // ------------------------------------------------------------------------ does it walk?
 
     [Fact]

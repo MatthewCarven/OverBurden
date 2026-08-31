@@ -110,6 +110,32 @@ public static class Place
     /// </remarks>
     public static BrushCell TargetCell(in VoxelHit hit) => BrushCell.FromVoxel(hit.Previous);
 
+    /// <summary>
+    /// Which way a ramp rises, given where the player is looking: <b>away from them</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Away rather than toward, so that walking forward onto a ramp climbs it.</b> Both
+    /// readings of "facing" are natural and the wrong one builds every staircase backwards, which
+    /// is why <see cref="BrushFacing"/> says in its own remarks which end it names.
+    /// </para>
+    /// <para>
+    /// Snapped to the dominant horizontal axis, ignoring Y: a ramp rising along Y is a wall, and
+    /// what someone looking down at a step wants is the step going away from them rather than
+    /// under them.
+    /// </para>
+    /// <para>
+    /// <b>In Core beside <see cref="TargetCell"/>, on M3d's grounds.</b> Where a brush lands is a
+    /// game rule a multiplayer server would need to agree about, and which way it faces is the
+    /// same category — a staircase that points one way on the client and the other on the server
+    /// is the same bug as one that lands a metre off.
+    /// </para>
+    /// </remarks>
+    public static BrushFacing FacingFrom(Vector3 direction) =>
+        MathF.Abs(direction.X) >= MathF.Abs(direction.Z)
+            ? direction.X >= 0.0f ? BrushFacing.PositiveX : BrushFacing.NegativeX
+            : direction.Z >= 0.0f ? BrushFacing.PositiveZ : BrushFacing.NegativeZ;
+
     /// <summary>Fills a whole cell — 4×4×4 voxels, one cubic metre.</summary>
     public static PlaceResult Cube(
         IVoxelEditor world,

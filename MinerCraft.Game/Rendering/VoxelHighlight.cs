@@ -36,15 +36,33 @@ public sealed class VoxelHighlight : IDisposable
 
     private readonly ArrayMesh _mesh;
     private readonly StandardMaterial3D _material;
+    private readonly float _sizeMetres;
     private Rid _instance;
-    private VoxelPos? _shown;
+    private Vector3? _shown;
 
+    /// <summary>The 0.25 m outline around the voxel a swing would take.</summary>
     public VoxelHighlight(World3D world)
+        : this(world, VoxelConstants.VoxelSize, new Color(0.02f, 0.02f, 0.03f, 0.85f))
     {
+    }
+
+    /// <summary>
+    /// An outline of any size, so that placement can show the metre it would fill.
+    /// </summary>
+    /// <remarks>
+    /// <b>The brush cell needs its own box or the player cannot see the lattice they are building
+    /// on.</b> A brush lands on the 1 m grid wherever inside a cell you pointed, so without an
+    /// outline of the cell itself the snap reads as the game ignoring the aim — which is exactly
+    /// the thing M6d has to judge, and it cannot be judged if it is invisible.
+    /// </remarks>
+    public VoxelHighlight(World3D world, float sizeMetres, Color colour)
+    {
+        _sizeMetres = sizeMetres;
+
         _material = new StandardMaterial3D
         {
             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-            AlbedoColor = new Color(0.02f, 0.02f, 0.03f, 0.85f),
+            AlbedoColor = colour,
             Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
 
             // Off, because the box is drawn around the *targeted* voxel and the useful case
@@ -62,28 +80,34 @@ public sealed class VoxelHighlight : IDisposable
         RenderingServer.InstanceSetVisible(_instance, false);
     }
 
-    /// <summary>The voxel currently outlined, or null when nothing is targeted.</summary>
-    public VoxelPos? Target => _shown;
+    /// <summary>The minimum corner currently outlined, or null when nothing is targeted.</summary>
+    public Vector3? Target => _shown;
 
+    /// <summary>Outlines one voxel. Only meaningful on a voxel-sized highlight.</summary>
     public void ShowAt(VoxelPos voxel)
     {
-        if (_shown == voxel)
+        (float x, float y, float z) = voxel.MinCornerMetres;
+        ShowAt(new Vector3(x, y, z));
+    }
+
+    /// <summary>Outlines the box of this highlight's size with its minimum corner here.</summary>
+    public void ShowAt(Vector3 minCornerMetres)
+    {
+        if (_shown == minCornerMetres)
         {
             return;
         }
 
-        _shown = voxel;
+        _shown = minCornerMetres;
 
-        const float size = VoxelConstants.VoxelSize * Inflation;
-        const float offset = (size - VoxelConstants.VoxelSize) * 0.5f;
-
-        (float x, float y, float z) = voxel.MinCornerMetres;
+        float size = _sizeMetres * Inflation;
+        float offset = (size - _sizeMetres) * 0.5f;
 
         RenderingServer.InstanceSetTransform(
             _instance,
             new Transform3D(
                 Basis.Identity.Scaled(new Vector3(size, size, size)),
-                new Vector3(x - offset, y - offset, z - offset)));
+                minCornerMetres - new Vector3(offset, offset, offset)));
 
         RenderingServer.InstanceSetVisible(_instance, true);
     }

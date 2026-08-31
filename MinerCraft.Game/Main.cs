@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using Godot;
+using MinerCraft.Core.Building;
 using MinerCraft.Core.Content;
+using MinerCraft.Core.Inventory;
 using MinerCraft.Core.Jobs;
 using MinerCraft.Core.Meshing;
 using MinerCraft.Core.Mining;
@@ -56,6 +59,13 @@ public partial class Main : Node3D
     private VoxelHighlight? _highlight;
     private readonly List<ToolDefinition> _tiers = [];
 
+    private PlaceController? _place;
+    private VoxelHighlight? _cellHighlight;
+    private readonly VolumetricInventory _inventory = new();
+    private bool _placeWhileProfiling;
+    private long _startingStock;
+    private BrushShape _startingBrush = BrushShape.Cube;
+
     private PlayerController? _player;
     private MaterialTable? _materials;
     private bool _announcedSpawn;
@@ -67,6 +77,12 @@ public partial class Main : Node3D
     /// before a single material registers. Disposed after the pipeline, which writes through it.
     /// </remarks>
     private IWorldStore? _store;
+
+    /// <summary>What the world file said the player was doing, or null for a new world.</summary>
+    private PlayerSave? _savedPlayer;
+
+    /// <summary>The settings this world regenerates unstored terrain from. Written back on save.</summary>
+    private WorldGenSettings _settings;
 
     private string _worldName = DefaultWorldName;
     private bool _worldNamed;
@@ -173,6 +189,7 @@ public partial class Main : Node3D
             return;
         }
 
+        _settings = settings;
         _generator = new WorldGenerator(settings, BuildStrata());
         _materials = MaterialTable.From(Content.Materials);
 
@@ -193,17 +210,17 @@ public partial class Main : Node3D
             light: _lightInMergeKey,
             store: _store);
 
+        // Whatever the world remembered the player carrying. Before the first swing, so that a
+        // reopened world can place from what it was already holding.
+        _inventory.Reset(_restoredInventory.Select(entry => (entry.MaterialId, entry.Voxels)));
+
         // Before any chunk can be written, which is what replaces a world-spanning transaction:
         // numeric IDs are only allocated during content load, so the table on disk is already the
         // one every blob written after this points at. Rewritten on every open rather than only
         // for a new world, because installing a mod extends the table with entries the stored
         // header does not have — and a blob referring to an ID the header has never heard of is
         // exactly the desynchronisation the single-file layout exists to prevent.
-        _pipeline.WriteWorldHeader(new WorldHeader
-        {
-            Settings = settings,
-            MaterialIdTable = Content.Materials.ExportIdTable(),
-        });
+        _pipeline.WriteWorldHeader(CurrentHeader());
 
         SetUpPlayer(_generator);
 
@@ -212,6 +229,7 @@ public partial class Main : Node3D
             _lastViewerChunk, ViewDistanceHorizontal, ViewDistanceVertical);
 
         SetUpMining();
+        SetUpPlacement();
 
         // Not MaterialId(), which falls back to air: placing air where a missing mod's lamp
         // should go would carve a hole out of whatever the player was pointing at.
@@ -267,6 +285,16 @@ public partial class Main : Node3D
         System.Numerics.Vector3 feet = PlayerSpawn.FeetOnSurface(
             generator.SurfaceHeightAt(column.X, column.Z), scenePosition.X, scenePosition.Z);
 
+        // A world you have been in puts you back where you were — but never during a profile,
+        // where the spawn is a measurement input and a run that started somewhere else is not
+        // comparable with the one before it.
+        bool restored = _profiler is null && _savedPlayer is not null;
+        if (restored && _savedPlayer is PlayerSave saved)
+        {
+            feet = saved.FeetMetres;
+            mode = saved.Flying ? PlayerMode.Fly : PlayerMode.Walk;
+        }
+
         if (_fallProfile)
         {
             // Spawned high rather than teleported up once the window opens. A teleport of
@@ -288,6 +316,12 @@ public partial class Main : Node3D
             _camera.FlightEnabled = false;
             _camera.GlobalPosition = ToGodot(_player.EyePosition);
         }
+        else if (restored)
+        {
+            // The camera is where the player is in fly mode, so a restored flying player has to
+            // put it back rather than being dropped above the terrain like a new one.
+            _camera.GlobalPosition = ToGodot(_player.EyePosition);
+        }
         else
         {
             PlaceCameraAboveTerrain(generator);
@@ -296,7 +330,7 @@ public partial class Main : Node3D
         GD.Print(
             $"M4c: {mode.ToString().ToLowerInvariant()} mode, body {config.WidthMetres:F2} x " +
             $"{config.HeightMetres:F2} m, eye {config.EyeHeightMetres:F2} m, " +
-            $"spawn feet {feet.Y:F2} m");
+            $"spawn feet {feet.Y:F2} m{(restored ? ", restored from the world file" : "")}");
     }
 
     /// <summary>
@@ -472,6 +506,23 @@ public partial class Main : Node3D
                 case "autosave" when double.TryParse(value, out double autosave):
                     _autosaveSeconds = autosave;
                     break;
+
+                // Holds the other button down for the whole measured window, the counterpart to
+                // --mine and for the same reason: a person holding a mouse is not a repeatable
+                // measurement.
+                case "place":
+                    _placeWhileProfiling = true;
+                    break;
+
+                // Seeds the inventory, because --place has nothing to place otherwise and mining
+                // first would measure the carve as well as the brush.
+                case "stock" when long.TryParse(value, out long stock):
+                    _startingStock = stock;
+                    break;
+
+                case "brush" when Enum.TryParse(value, ignoreCase: true, out BrushShape brush):
+                    _startingBrush = brush;
+                    break;
             }
         }
 
@@ -600,6 +651,18 @@ public partial class Main : Node3D
             return;
         }
 
+        if (key.Keycode == Key.B)
+        {
+            CycleBrush();
+            return;
+        }
+
+        if (key.Keycode == Key.V)
+        {
+            CycleMaterial();
+            return;
+        }
+
         if (_player is null || _camera is null || key.Keycode != Key.F)
         {
             return;
@@ -648,6 +711,31 @@ public partial class Main : Node3D
     /// under the same label. See <see cref="MiningController.EntangledSwings"/>.
     /// </para>
     /// </remarks>
+    /// <summary>B cycles the brush, V cycles the material. Both print, because there is no HUD.</summary>
+    /// <remarks>
+    /// <b>B and V rather than more number keys</b>, which are the tool tiers and stay the tool
+    /// tiers: the tier decides what a swing can take and the brush decides what a placement fills,
+    /// and putting both on one row would make them look like one selection.
+    /// </remarks>
+    private void CycleBrush()
+    {
+        if (_place is null) return;
+
+        GD.Print($"M6c: brush is now {_place.NextBrush().ToString().ToLowerInvariant()}");
+    }
+
+    private void CycleMaterial()
+    {
+        if (_place is null) return;
+
+        int materialId = _place.NextMaterial();
+
+        GD.Print(materialId < 0
+            ? "M6c: carrying nothing — mine something first"
+            : $"M6c: placing {Content.Materials.GetIdentifier(materialId)} "
+              + $"({_inventory.Litres(materialId):F0} L held)");
+    }
+
     private void ToggleEntangledMiner()
     {
         if (_mining is null)
@@ -795,6 +883,7 @@ public partial class Main : Node3D
 
         AdvanceFlythrough(delta);
         UpdateMining(delta);
+        UpdatePlacement(delta);
 
         // The viewer only moves in whole chunks. Comparing first means a camera drifting
         // inside one chunk never touches the streaming policy at all.
@@ -865,6 +954,12 @@ public partial class Main : Node3D
         _sinceAutosave = 0.0;
 
         long before = Stopwatch.GetTimestamp();
+
+        // The header first, because it carries the inventory and the player — the session state
+        // that no chunk holds. Writing only the chunks would save the tunnel and forget what the
+        // player was carrying when they dug it.
+        _pipeline.WriteWorldHeader(CurrentHeader());
+
         (int chunks, int columns) = _pipeline.SaveAll();
 
         // Only when it did something. A line every thirty seconds saying nothing happened is how
@@ -1015,6 +1110,7 @@ public partial class Main : Node3D
         // fall back on, which is the point — MiningController.ReachMetres is `required`.
         _mining = new MiningController(_pipeline!, _materials!, strongest)
         {
+            Inventory = _inventory,
             ReachMetres = _player?.ReachMetres ?? PlayerController.DefaultReachMetres,
         };
 
@@ -1042,6 +1138,112 @@ public partial class Main : Node3D
     /// frame? — is about the second number, and this one is here to prove it is not the
     /// first.
     /// </remarks>
+    /// <summary>Builds the placement controller and the outline that shows where a brush lands.</summary>
+    private void SetUpPlacement()
+    {
+        if (_pipeline is null || _materials is null || _player is null)
+        {
+            return;
+        }
+
+        _place = new PlaceController(_pipeline, _materials, _inventory)
+        {
+            Brush = _startingBrush,
+            // The player's reach, the same number mining uses. A brush is not a tool and does not
+            // get to reach further than an arm — M3d's decision, restated at M4c.
+            ReachMetres = _player.ReachMetres,
+        };
+
+        // A second outline, a metre across and in a different colour, because the brush lands on
+        // the lattice rather than on the voxel under the crosshair. Without it the snap reads as
+        // the game ignoring the aim, which is precisely what M6d has to judge.
+        _cellHighlight = new VoxelHighlight(
+            GetWorld3D(), BrushCell.SizeMetres, new Color(0.95f, 0.85f, 0.25f, 0.55f));
+
+        if (_startingStock > 0)
+        {
+            // A profile seam, not a gift: --place has to have something to place, and mining
+            // first would measure the carve as well as the brush.
+            foreach ((int numericId, _, _) in Content.Materials.Entries())
+            {
+                if (numericId != MaterialIds.AirNumericId)
+                {
+                    _inventory.Add(numericId, _startingStock);
+                }
+            }
+        }
+
+        GD.Print(
+            $"M6c: placing with the {_place.Brush.ToString().ToLowerInvariant()} brush — "
+            + "right mouse places, B cycles the brush, V cycles the material");
+    }
+
+    /// <summary>Casts for the brush, places if the button is held, and moves the cell outline.</summary>
+    private void UpdatePlacement(double delta)
+    {
+        if (_place is null || _camera is null || _player is null)
+        {
+            return;
+        }
+
+        Vector3 origin = _camera.GlobalPosition;
+        Vector3 forward = -_camera.GlobalTransform.Basis.Z;
+        bool placing = _camera.MouseCaptured && Input.IsMouseButtonPressed(MouseButton.Right);
+
+        if (_placeWhileProfiling)
+        {
+            // Along the look direction rather than straight down, which is what --mine does. A
+            // brush aimed at the ground under the camera lands in the cell the player is standing
+            // in, where the body refusal eats most of it — so the run would measure the refusal.
+            placing = true;
+        }
+
+        // Null while flying: the body is inert in fly mode and sits wherever the last F left it,
+        // so passing it would refuse voxels around a position the player is no longer at.
+        MinerCraft.Core.Physics.Aabb? body =
+            _player.Mode == PlayerMode.Walk && _player.Spawned ? _player.State.Box : null;
+
+        long before = Stopwatch.GetTimestamp();
+
+        bool placed = _place.Update(
+            delta,
+            new System.Numerics.Vector3(origin.X, origin.Y, origin.Z),
+            new System.Numerics.Vector3(forward.X, forward.Y, forward.Z),
+            body,
+            placing);
+
+        if (placed && _profiler is { Warm: true })
+        {
+            _profiler.Place.Add(Milliseconds(before, Stopwatch.GetTimestamp()));
+        }
+
+        if (placed && _place.RanOutThisFrame && !_announcedEmpty)
+        {
+            // Once, until something is placed successfully again. There is no HUD until M6d, so
+            // the log is the only feedback there is — and a line every frame is not feedback.
+            _announcedEmpty = true;
+            GD.Print("M6c: out of material — mine some more, or press V for something else");
+        }
+        else if (placed && !_place.RanOutThisFrame)
+        {
+            _announcedEmpty = false;
+        }
+
+        if (_cellHighlight is null) return;
+
+        if (_place.HasTarget)
+        {
+            (float x, float y, float z) = _place.TargetCell.OriginVoxel.MinCornerMetres;
+            _cellHighlight.ShowAt(new Vector3(x, y, z));
+        }
+        else
+        {
+            _cellHighlight.Hide();
+        }
+    }
+
+    private bool _announcedEmpty;
+
     private void UpdateMining(double delta)
     {
         if (_mining is null || _camera is null)
@@ -1276,6 +1478,7 @@ public partial class Main : Node3D
             FillLine() +
             LightLines() +
             MiningLines() +
+            PlacementLines() +
             _profiler.PlayerLines(_profiler.MeasuredSeconds) +
             $"{StreamingProfiler.RenderLine()}\n" +
             $"{StreamingProfiler.MemoryLine()}\n");
@@ -1315,6 +1518,35 @@ public partial class Main : Node3D
                 ? $"entangled {_mining.EntangledSwings} swing(s) — NOT comparable with M3d's baseline\n"
                   + $"reach     {_mining.TotalReachMetres / swings:F1} m mean, {_mining.MaxReachMetres:F1} m furthest\n"
                 : string.Empty);
+    }
+
+    /// <summary>What a brush costs, beside what mining costs.</summary>
+    /// <remarks>
+    /// <b>Its own series rather than folded into <c>swing ms</c></b>, because the two shapes are
+    /// not the same size: <c>hand_pick</c>'s sphere is about seventeen voxels and a cube brush is
+    /// sixty-four, so one line would report whichever the run happened to do more of. Occupied
+    /// against placed is the number that says whether the lattice is landing where the aim
+    /// suggests — a placement that is nearly all occupied was aimed into a cell already full.
+    /// </remarks>
+    private string PlacementLines()
+    {
+        if (_place is null || _place.Placements == 0)
+        {
+            return string.Empty;
+        }
+
+        double placements = _place.Placements;
+
+        return
+            $"{_profiler!.Place.Line("place ms")}   (raycast + brush, sim thread)\n" +
+            $"building  {_place.Placements} placement(s) with the " +
+            $"{_place.Brush.ToString().ToLowerInvariant()} brush, " +
+            $"{_place.VoxelsPlaced / placements:F0} placed / " +
+            $"{_place.VoxelsOccupied / placements:F0} occupied / " +
+            $"{_place.VoxelsInsidePlayer / placements:F0} inside the player / " +
+            $"{_place.VoxelsOutOfStock / placements:F0} unaffordable per placement\n" +
+            $"carrying  {_inventory.TotalLitres:F0} L across {_inventory.MaterialCount} material(s)\n" +
+            $"clipped   {_place.ClippedPlacements} placement(s) reached past the loaded world\n";
     }
 
     /// <summary>
@@ -1469,6 +1701,8 @@ public partial class Main : Node3D
         {
             GD.Print($"M6: {StoreSummary()}");
         }
+
+        GD.Print($"M6c: {InventorySummary()}");
     }
 
     /// <summary>What the store has done this session, each counter beside its denominator.</summary>
@@ -1489,6 +1723,25 @@ public partial class Main : Node3D
                + $"{_pipeline.SavedChunkCount} chunks in the world, "
                + $"{_pipeline.ColumnsRestored} columns restored, "
                + $"{_pipeline.PendingSaves} pending, {_pipeline.FailedSaves} failed";
+    }
+
+    /// <summary>What has been dug up and what has been built with it.</summary>
+    /// <remarks>
+    /// <b>Litres carried beside voxels placed</b>, because the pair is the loop this milestone is
+    /// for: mining fills the first and building empties it. A session where one moves and the
+    /// other does not is a wire that is not connected.
+    /// </remarks>
+    private string InventorySummary()
+    {
+        string held = _inventory.MaterialCount == 0
+            ? "carrying nothing"
+            : $"{_inventory.TotalLitres:F0} L across {_inventory.MaterialCount} material(s)";
+
+        if (_place is null) return held;
+
+        return $"{held} | {_place.Placements} placement(s), {_place.VoxelsPlaced} voxel(s) placed, "
+               + $"{_place.VoxelsOccupied} occupied, {_place.VoxelsInsidePlayer} inside the player, "
+               + $"{_place.VoxelsOutOfStock} unaffordable";
     }
 
     /// <summary>
@@ -1574,6 +1827,8 @@ public partial class Main : Node3D
 
             WorldHeader world = WorldHeaderBlob.Read(header);
             settings = world.Settings;
+            _restoredInventory = world.Inventory;
+            _savedPlayer = world.Player;
 
             if (_caveLatticeStep is not null)
             {
@@ -1589,7 +1844,9 @@ public partial class Main : Node3D
 
             GD.Print(
                 $"M6: opened {path} — seed 0x{settings.Seed:X}, "
-                + $"{world.MaterialIdTable.Count} material id(s) restored");
+                + $"{world.MaterialIdTable.Count} material id(s) restored, "
+                + $"{world.Inventory.Count} material(s) carried, "
+                + (world.Player is null ? "no saved player" : "player restored"));
 
             return true;
         }
@@ -1605,6 +1862,49 @@ public partial class Main : Node3D
 
             return false;
         }
+    }
+
+    /// <summary>What the world file said was being carried. Applied once the registry is loaded.</summary>
+    private IReadOnlyList<InventoryEntry> _restoredInventory = [];
+
+    /// <summary>
+    /// The world as it stands right now: its settings, its ID table, and the session.
+    /// </summary>
+    /// <remarks>
+    /// <b>Rebuilt on every save rather than mutated</b>, because the ID table has to go with the
+    /// inventory that is keyed by it — writing the two at different moments is the one arrangement
+    /// that can desynchronise, which is the whole reason they share a blob.
+    /// </remarks>
+    private WorldHeader CurrentHeader() => new()
+    {
+        Settings = _settings,
+        MaterialIdTable = Content.Materials.ExportIdTable(),
+        Inventory = [.. _inventory.Entries().Select(e => new InventoryEntry(e.MaterialId, e.Voxels))],
+        Player = SavedPlayer(),
+    };
+
+    /// <summary>Where the player is, for the world file — or null if there is no body yet.</summary>
+    /// <remarks>
+    /// <b>The camera decides while flying and the body decides while walking</b>, and they are not
+    /// interchangeable: in fly mode the body is inert and sits wherever the last F left it, so
+    /// saving it would put the player back somewhere they flew away from ten minutes ago.
+    /// </remarks>
+    private PlayerSave? SavedPlayer()
+    {
+        if (_player is not { Spawned: true }) return null;
+
+        bool flying = _player.Mode == PlayerMode.Fly;
+
+        if (!flying || _camera is null)
+        {
+            return new PlayerSave(_player.FeetCentre, flying);
+        }
+
+        Vector3 eye = _camera.GlobalPosition;
+        return new PlayerSave(
+            new System.Numerics.Vector3(
+                eye.X, eye.Y - _player.Config.EyeHeightMetres, eye.Z),
+            Flying: true);
     }
 
     /// <summary>Where this run's world file lives. See <see cref="DefaultWorldName"/>.</summary>
@@ -1662,6 +1962,20 @@ public partial class Main : Node3D
         // scheduler first would drop whatever was queued on that lane, and JobResult's contract
         // says a dropped job reports Dropped rather than running — which for a save is a deleted
         // tunnel. This is the single most likely way to ship a data-loss bug in M6.
+        // Before the dispose, because Dispose writes the chunks and this writes the session. Both
+        // are the same quit and losing either half is the same bug.
+        if (_store is not null && _pipeline is not null)
+        {
+            try
+            {
+                _pipeline.WriteWorldHeader(CurrentHeader());
+            }
+            catch (Exception error) when (error is not OutOfMemoryException)
+            {
+                GD.PushError($"M6: could not write the world header on quit — {error.Message}");
+            }
+        }
+
         _pipeline?.Dispose();
         _scheduler?.Dispose();
 
@@ -1675,6 +1989,11 @@ public partial class Main : Node3D
 
         _highlight?.Dispose();
         _highlight = null;
+
+        // The cell outline is a second RenderingServer instance and leaks exactly as loudly as
+        // the first would: Godot names the RID at exit and says nothing about which one.
+        _cellHighlight?.Dispose();
+        _cellHighlight = null;
 
         // Budget ignored here: a stutter during teardown costs nothing and a leak would not.
         _freeQueue.DrainAll();

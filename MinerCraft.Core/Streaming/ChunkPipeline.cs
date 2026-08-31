@@ -1867,12 +1867,31 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// are only allocated during content load, which happens once at open, so by the time any
     /// chunk is written the table it references is already on disk. See <see cref="IWorldStore"/>.
     /// </remarks>
-    public void WriteWorldHeader(WorldHeader header)
+    /// <returns>False when the lane could not be drained, so nothing was written.</returns>
+    public bool WriteWorldHeader(WorldHeader header)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(header);
 
-        _store?.WriteWorldHeader(WorldHeaderBlob.Write(header));
+        if (_store is null) return false;
+
+        // The same wait SaveAll does, and for the same reason: this is a sim-thread caller of a
+        // store whose contract is one caller at a time. It was safe without it while the only
+        // call was at open, before a single job existed — and M6c-3 gives it a second caller, on
+        // the autosave timer, where a chunk load is very likely to be on the lane.
+        if (!DrainStoreLane())
+        {
+            FailedSaves++;
+            _onJobFaulted?.Invoke(
+                ChunkPos.Zero,
+                new TimeoutException(
+                    $"The store's serial lane still had {_storeJobsInFlight} job(s) after "
+                    + $"{DrainTimeoutSeconds:F0} s, so the world header was not written."));
+            return false;
+        }
+
+        _store.WriteWorldHeader(WorldHeaderBlob.Write(header));
+        return true;
     }
 
     public void Dispose()

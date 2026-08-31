@@ -1,5 +1,91 @@
 # MinerCraft — Worklog
 
+## 2026-08-31 — M6c-3: the binding, and building is a thing you can do
+
+Right mouse places, B cycles the brush, V cycles the material, the inventory fills as you mine
+and empties as you build, and all three survive a quit. `PlaceController` is Godot-free for the
+reason `MiningController` is, so `--place` drives a whole profile window headlessly. Suite
+**719 → 724**; the five are the ramp-facing rule, which moved into Core on the way past.
+
+### What a brush costs
+
+```
+place ms  mean 0.038  p50 0.015  p95 0.110  p99 0.186  max 0.186   (raycast + brush, sim thread)
+building  34 placement(s) with the cube brush, 20 placed / 44 occupied / 0 inside the player
+```
+
+Against a 16.7 ms frame, and against mining's 0.086 ms mean for a sphere half the size. **Do not
+build anything to make placement cheaper.** Streaming is untouched: 1521 viewed / 165 drawn /
+1926 jobs at 404 quads, which is M2d's line that M5c-1, M5d and M6b-3 have each had to preserve.
+
+### The round trip, end to end through the real game
+
+```
+run 1  --world=build --profile --speed=0 --place --stock=2000
+       24 placement(s), 680 voxel(s) placed
+run 2  --world=build
+       M6: opened ... 4 material(s) carried, no saved player
+       M6c: 114375 L across 4 material(s)          <- exactly what run 1 was left holding
+       M6: 1 loaded / 1521 tracked, 1 columns restored
+run 3  --world=build
+       M6: opened ... 4 material(s) carried, player restored
+       M4c: walk mode, spawn feet 4.00 m, restored from the world file
+```
+
+Three things fall out of that. The inventory survives to the litre. **A profile run saves no
+player**, because the body never spawns in fly mode — which is right: a measurement should not
+move where you live. And run 2 spawned at **4.00 m** rather than the usual 1.25 m, because run 1
+had built a cube where the spawn column is — the structure came back and the player stood on it,
+which nothing was asserting and is the most convincing evidence in the set.
+
+### Both outlines, and why there are two
+
+A brush lands on the 1 m lattice wherever inside a cell you pointed. Without an outline of the
+cell itself that snap reads as the game ignoring the aim — which is exactly what M6d has to judge,
+and it cannot be judged if it is invisible. So `VoxelHighlight` gained a size and a colour, and
+there are two instances: the 0.25 m dark box around the voxel a swing would take, and a 1 m yellow
+box around the metre a brush would fill. In a screenshot they nest, and read as *this voxel / this
+metre*.
+
+**Headless cannot answer that question** — no renderer, so a highlight that scaled wrongly or
+never showed would look identical in the logs. A screenshot is the only instrument, which is the
+M5c-2 lesson about shader errors not surfacing headlessly, one layer out.
+
+### Three decisions the binding forced
+
+- **The body is passed while walking and not while flying.** In fly mode the body is inert and
+  sits wherever the last F left it, so passing it would refuse voxels around a position the player
+  is no longer at — a placement failing for a reason that is nowhere near the crosshair.
+- **The material selects itself when nothing is selected**, taking the largest holding, so that
+  mining a first bite and then reaching for the other mouse button works with no key press in
+  between. Cycling stays the player's. −1 means "carrying nothing" rather than air, because air is
+  a legal ID that `Place` refuses, and using it as the empty sentinel would turn an empty
+  inventory into an exception rather than a no-op.
+- **`Place.FacingFrom` moved into Core** beside `TargetCell`, on M3d's grounds: which way a ramp
+  rises is a game rule a server would have to agree about, exactly as where the brush lands is. It
+  rises **away** from whoever placed it, so walking forward onto it climbs it — both readings of
+  "facing" are natural and the wrong one builds every staircase backwards.
+
+### Two defects the wiring found
+
+- **`ChunkPipeline.WriteWorldHeader` was a second sim-thread caller of the store with no drain.**
+  M6b-3 gave `SaveAll` one and left this alone, correctly, because at that point the only call was
+  at open — before a single job existed. M6c-3 puts it on the autosave timer, where a chunk load
+  is very likely to be on the lane. It now drains like `SaveAll` and returns whether it wrote.
+  **Third time this milestone that a safety argument turned out to be about the caller rather than
+  the code.**
+- **The cell outline leaked its RID at exit**, which Godot reports as *"1 RID allocation of type
+  'InstanceE' was leaked"* and does not say which one. `_ExitTree` disposed the first highlight
+  and knew nothing about the second.
+
+### And a self-inflicted one worth recording
+
+Four C# string literals ended up with real newlines in them because a `\n` written inside a bash
+heredoc arrived at Python already unescaped. The memory note says *any heredoc breaks on a long
+payload — write the script to a file, then run it*, and this session had been getting away with
+heredocs for short patches all day. **The failure is not length, it is escapes**: a payload
+containing backslashes is the one that breaks, at any size. Write it with the file tool.
+
 ## 2026-08-31 — M6c-2: the inventory, and a format bump that did not strand the world
 
 `MinerCraft.Core/Inventory/VolumetricInventory` holds what the player is carrying; `Carve`

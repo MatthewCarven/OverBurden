@@ -152,6 +152,16 @@ public sealed class StreamingProfiler
     public SampleSeries Swing { get; } = new();
 
     /// <summary>
+    /// Sim-thread time for one placement: the raycast plus the brush.
+    /// </summary>
+    /// <remarks>
+    /// Beside <see cref="Swing"/> rather than folded into it, because the two shapes are not the
+    /// same size — <c>hand_pick</c>'s sphere is about seventeen voxels and a cube brush is
+    /// sixty-four — so one series would report whichever the run happened to do more of.
+    /// </remarks>
+    public SampleSeries Place { get; } = new();
+
+    /// <summary>
     /// Main-thread time for one <c>PlayerController.TryStep</c>: the whole collider solve.
     /// </summary>
     /// <remarks>

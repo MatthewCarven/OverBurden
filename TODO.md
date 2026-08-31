@@ -2424,16 +2424,47 @@ predicted in its own remarks. M6c-3 is the binding and the play.
       The count check's "at or past the table size" arm is now recorded as belt and braces with no
       test, because it is unreachable without also tripping a row check.
 
-##### M6c-3 — The binding, and the play
+##### M6c-3 — The binding, and the play ✅ **built 2026-08-31, 724 tests passing — the play is Matthew’s**
 
-- [ ] Right mouse places, a key cycles the brush, a key picks the material. `VoxelHighlight` shows
-      the **brush cell** rather than the hit voxel, or the player cannot see the lattice they are
-      building on — which is also how M6d judges whether snapping reads as unresponsive.
-- [ ] `PlaceController` is Godot-free for the reason `MiningController` is: `--place` has to drive
+- [x] Right mouse places, **B** cycles the brush, **V** cycles the material. `VoxelHighlight` gained
+      a size and a colour, and there are now **two**: the 0.25 m dark box around the voxel a swing
+      would take, and a 1 m yellow box around the metre a brush would fill. In a screenshot they
+      nest and read as *this voxel / this metre*. **Confirmed by screenshot, which is the only
+      instrument that can** — headless has no renderer, so a highlight that scaled wrongly or never
+      showed would look identical in the logs.
+      - [x] **The body is passed while walking and not while flying.** In fly mode the body is inert
+            and sits wherever the last F left it, so passing it would refuse voxels around a
+            position the player is no longer at.
+      - [x] **The material selects itself when nothing is selected**, taking the largest holding, so
+            mining a bite and then reaching for the other button needs no key press in between.
+            −1 means "carrying nothing" rather than air, because air is a legal ID that `Place`
+            refuses and the sentinel would turn an empty inventory into an exception.
+      - [x] **`Place.FacingFrom` moved into Core** beside `TargetCell`, on M3d's grounds: which way
+            a ramp rises is a game rule a server would have to agree about. It rises **away** from
+            whoever placed it, so walking forward onto it climbs it.
+- [x] `PlaceController` is Godot-free for the reason `MiningController` is: `--place` has to drive
       a headless profile, because a debug bind nobody has run headlessly is a bind that does not
-      work.
+      work. `--stock=` seeds the inventory so the run measures the brush rather than the carve,
+      and `--brush=` picks the shape.
+      - [x] **Measured: `place ms` mean 0.038, max 0.186** against a 16.7 ms frame, and against
+            mining's 0.086 mean for a sphere half the size. **Do not build anything to make
+            placement cheaper.** Streaming untouched: 1521 / 165 / 1926 at 404 quads.
+      - [x] **The round trip works end to end**: build, quit, reopen, and the inventory comes back
+            to the litre, the structure loads, and the player is put back where they were. Run 2
+            spawned at **4.00 m instead of 1.25 m** because run 1 had built a cube on the spawn
+            column — nothing was asserting that, and it is the most convincing evidence in the set.
+      - [x] **A profile run saves no player**, because the body never spawns in fly mode. Right: a
+            measurement should not move where you live.
+- [x] **Two defects the wiring found.** `ChunkPipeline.WriteWorldHeader` was a second sim-thread
+      caller of the store with no drain — correct while the only call was at open, before a single
+      job existed, and wrong the moment M6c-3 put it on the autosave timer. **Third time this
+      milestone that a safety argument turned out to be about the caller rather than the code.** And
+      the cell outline leaked its RID at exit, which Godot reports without saying which one.
 - [ ] **Then play it.** Build a wall, a staircase and a floor; walk up the staircase without
       jumping, which is what says the four-step ramp is a real ramp rather than a shape.
+      **Matthew's, and the only thing left in M6c.** A Core test already walks a body up a placed
+      ramp; what it cannot say is whether the lattice snap reads as the wall lining up or as the
+      game ignoring the aim, which is the M6d question this play is the first look at.
 
 #### M6d — Selection, feel and measurement
 

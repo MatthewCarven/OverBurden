@@ -124,6 +124,11 @@ table below), `--skybrightness=<0..2>` (scales the sky channel alone; 0 leaves o
 light without a keypress) and `--entangle` (the entangled miner, which with `--mine` aims along
 the flight path rather than straight down — see below).
 
+**Building is bound to the right mouse button**, `B` cycles the brush (cube, slab, ramp, sphere),
+and `V` cycles the material among what you are carrying. `--place` holds the button for a whole
+profile window, `--stock=<voxels>` seeds the inventory so such a run measures the brush rather
+than the carve, and `--brush=<name>` picks the shape.
+
 **The world file lives at `user://worlds/<name>/world.db`** — on Windows,
 `%APPDATA%/Godot/app_userdata/MinerCraft/worlds/`. `--world=<name>` picks one, `--nosave` opens
 none at all, and `--autosave=<seconds>` moves the 30 s flush. **A run that is a measurement or a
@@ -182,14 +187,34 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2, all of M3, all of M4, all of M5, M6a, all of M6b, M6c-1 and M6c-2** are
-done — **719 tests passing**. **M6 is planned (2026-08-31) and under way: SQLite save/load, brush placement,
+M0, all of M1, **all of M2, all of M3, all of M4, all of M5, M6a, all of M6b and all of M6c** are
+built — **724 tests passing**. M6c's play-test is Matthew's and is the only thing left in it. **M6 is planned (2026-08-31) and under way: SQLite save/load, brush placement,
 volumetric inventory — v0.1 playable sandbox**, and it is what fixes the one thing play kept
 running into, that an edited chunk which unloads loses its edits. See
 [docs/M6-PLAN.md](docs/M6-PLAN.md), split M6a–M6d. **The game saves as of M6b-3 (2026-08-31),
 played and confirmed** — closing the window and re-running loads the last world. **M6c is split
-three ways; M6c-1 and M6c-2 are done and M6c-3, the binding, is next — until it lands, placement
-and the inventory work only in tests.**
+three ways and all three are built: the brushes, the inventory, and the binding. **Right mouse
+places, B cycles the brush, V cycles the material, and what you mine is what you build with.**
+
+**M6c-3 — the binding: built 2026-08-31.** `PlaceController` is Godot-free for the reason
+`MiningController` is, so `--place` drives a whole profile window headlessly; `--stock=` seeds the
+inventory and `--brush=` picks the shape. Suite 719 → 724. Four things worth keeping:
+
+- **A brush costs `place ms` mean 0.038, max 0.186**, against a 16.7 ms frame and against mining's
+  0.086 mean for a sphere half the size. **Do not build anything to make placement cheaper.**
+  Streaming is untouched: 1521 / 165 / 1926 at 404 quads.
+- **The round trip works end to end.** Build, quit, reopen: the inventory comes back to the litre,
+  the structure loads, and the player is put back where they were. The reopened run spawned at
+  **4.00 m instead of 1.25 m**, because the previous one had built a cube on the spawn column —
+  nothing was asserting that, and it is the most convincing evidence in the set.
+- **Two outlines, and the second one needs a screenshot to verify.** A brush lands on the 1 m
+  lattice wherever inside a cell you pointed, so without an outline of the cell the snap reads as
+  the game ignoring the aim. Headless has no renderer, so a highlight that scaled wrongly would
+  look identical in the logs — the M5c-2 lesson one layer out.
+- **`WriteWorldHeader` was a second sim-thread caller of the store with no drain.** Correct while
+  the only call was at open, before a single job existed; wrong the moment it went on the autosave
+  timer. **Third time this milestone that a safety argument turned out to be about the caller
+  rather than the code.**
 
 **M6c-2 — the inventory: done 2026-08-31.** `MinerCraft.Core/Inventory/VolumetricInventory` holds
 what the player carries; `Carve` credits it per material as it removes, `Place` debits it per voxel
