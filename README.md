@@ -13,15 +13,17 @@ No mobs, no combat. The mine is the antagonist.
 
 ## Status
 
-**M0, M1, M2 and M3 done, and M4 under way** — 435 tests passing. Terrain streams around the
+**M0 through M5 done, and M6 under way** — 670 tests passing. Terrain streams around the
 camera without end: worldgen and greedy meshing run on worker threads over palette-compressed
 storage, drawn via `RenderingServer` with a texture array, with every material loaded from
 `mods/minercraft/*.json` exactly the way a third-party mod would load its own. Chunks load
 and unload as you move, on a scheduler that reprioritises queued work and cancels what
 went stale before a thread was free to run it. A pick swing carves a sphere out of the world,
-gated by tool tier against material hardness. The player's collider and motion — gravity,
-jump, step-up, step-down — exist and are tested headlessly; binding them to a body and a
-camera is next.
+gated by tool tier against material hardness. You walk it — an AABB against the voxel grid,
+gravity, jump, step-up — and you cannot outrun the streamer falling 250 m at terminal
+velocity. There is no sun: the voxel grid is the light, skylight and lamplight are separate
+channels, and a mine runs from lit rock to actual black. **And it saves** — dig a tunnel, fly
+away, quit, come back, and the tunnel is still there.
 
 Some numbers it is built on:
 
@@ -32,6 +34,9 @@ Some numbers it is built on:
   while flying.
 - **~46 KiB per drawn chunk**, mesh-dominated against ~2 KB of voxel storage — which is why
   view distance is a horizontal radius and a vertical one, not a single number.
+- **189 bytes** to store an edited chunk, and **35 µs** to read one back and rebuild it —
+  which turned out to make a dug-in world *faster* to enter than a fresh one, because loading
+  1,521 chunks beats generating them.
 
 **M3 is mining, and you can do it.** Hold the left mouse button and a sphere of material
 comes out of the world, gated per voxel by hardness. Swing a `hand_pick` at a dirt bank with
@@ -47,10 +52,11 @@ The milestone's question was whether a pick swing fits inside a frame. Mining co
 while flying costs **a fifth of a percent of one core** and moves the pipeline's p99 from
 0.91 ms to 1.04 ms, against a 16.7 ms frame. It fits.
 
-M4 is the player — an AABB against the voxel grid, gravity and step-up — and it is planned in
-[docs/M4-PLAN.md](docs/M4-PLAN.md). It is the milestone where the viewer's position stops being
-an input and becomes the answer to a query against the chunks that same viewer decides to
-load.
+M6 is persistence, placement and volumetric inventory, planned in
+[docs/M6-PLAN.md](docs/M6-PLAN.md). Its structural point: every chunk until now was recoverable
+from nothing, so unloading one was free. M6 is the first milestone that creates state whose only
+copy is on disk — which makes the unload path a write, and a bug there destroys work that cannot
+be rebuilt. Save and load are done; brush placement and the inventory are next.
 
 ## Run it
 
@@ -60,7 +66,12 @@ start.cmd
 
 Needs Godot 4.7.1-stable **mono**, either vendored at `./Godot_v4.7.1-stable_mono_win64/`
 or shared from `../GAME/`. WASD to move, Space/Ctrl for up and down, Shift to sprint,
-Esc to release the mouse. Left mouse mines; 1 and 2 pick a tool tier.
+Esc to release the mouse. **F toggles walking and flying** — walking, Space jumps. Left mouse
+mines a sphere and Ctrl+left takes a single voxel; 1 and 2 pick a tool tier.
+
+Your world is written to `user://worlds/default/world.db` — on Windows,
+`%APPDATA%/Godot/app_userdata/MinerCraft/worlds/`. It saves as chunks unload, every thirty
+seconds, and on quit.
 
 ```
 dotnet test MinerCraft.slnx
