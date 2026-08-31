@@ -2276,7 +2276,7 @@ predicted in its own remarks. M6c-3 is the binding and the play.
 
 ##### What the planning pass settled before any code
 
-- [ ] **Only air is replaceable, and the argument is the hardness gate rather than taste.** A
+- [x] **Only air is replaceable, and the argument is the hardness gate rather than taste.** A
       brush that overwrites existing material is a way to delete anything without mining it: place
       dirt into a bedrock voxel, then mine the dirt with a `hand_pick`, and bedrock is gone. That
       makes `Carve.Take`'s gate — the mechanic M3c exists for — bypassable by the *other* verb.
@@ -2285,7 +2285,7 @@ predicted in its own remarks. M6c-3 is the binding and the play.
       replacing something **replaceable**"; at M6 replaceable means air, and **M8 is where the
       word earns its generality**, because water should be displaceable and rock should not. Same
       revisit trigger `VoxelRay` and `Carve` already carry.
-- [ ] **A consequence, and it corrects this plan: `SetVoxel`'s "material is already there"
+- [x] **A consequence, and it corrects this plan: `SetVoxel`'s "material is already there"
       early-out still has no caller that fires it.** M3-PLAN justified it by the carve rewriting
       air as air; M3c made `Carve.Take` skip air first, and the comment was updated to predict
       that *"M6's placement is exactly the shape of caller that rewrites what is already there"*.
@@ -2293,63 +2293,88 @@ predicted in its own remarks. M6c-3 is the binding and the play.
       never offers the write. **Keep the early-out and say plainly that it is unreachable by
       design** — M4a's zeroable-contact-epsilon category, third outing — rather than deleting it
       or contriving a caller for it.
-- [ ] **The brush lattice is its own constant and deliberately *not* `LightCellPos`.** Both are
+- [x] **The brush lattice is its own constant and deliberately *not* `LightCellPos`.** Both are
       1 m and share an origin, so reusing the light cell would work today and be free. It is a
       trap: **the 1 m light cell has a live revisit trigger** (M5d: a `hand_pick` tunnel reading
       blobby), and shrinking it to 0.5 m would silently halve the brush lattice — changing where
       every brush lands, in a milestone that has nothing to do with lighting. Two things that are
       the same size for unrelated reasons want two constants.
-- [ ] **The anchor is the 1 m cell containing `VoxelHit.Previous`**, the last empty voxel before
+- [x] **The anchor is the 1 m cell containing `VoxelHit.Previous`**, the last empty voxel before
       the surface — the point M3b built and recorded as *"where M6's placement goes"*. Snapping is
       an arithmetic right shift, not a division, for the reason `VoxelPos` gives about negative
       coordinates.
-- [ ] **`PlaceResult` takes `CarveResult`'s shape**: `Candidates` = `Placed` + `Occupied` +
+- [x] **`PlaceResult` takes `CarveResult`'s shape**: `Candidates` = `Placed` + `Occupied` +
       `InsidePlayer` + `Unreachable`, with `IsAccounted` asserted by every test, for the reason
       that struct records — *"a `continue` added later that is counted nowhere"*. M6c-2 adds a
       fifth bucket for a short inventory; it is deliberately **not** added now, because a counter
       built before its consumer is a number waiting to be believed.
-- [ ] **The player's box is a parameter, not a lookup.** Core has no player, and the brush needs
+- [x] **The player's box is a parameter, not a lookup.** Core has no player, and the brush needs
       only an `Aabb`; `Aabb.VoxelBounds` already answers "which voxels does this body overlap"
       under the half-open rule. Null means no body, which is what the tests and any future
       non-player placer use.
-- [ ] **A ramp's orientation is a parameter of the brush, computed by the caller.** M6c-1 takes a
+- [x] **A ramp's orientation is a parameter of the brush, computed by the caller.** M6c-1 takes a
       facing; M6c-3 derives it from the face normal and the player's yaw. That keeps the first
       non-scalar brush parameter out of Core's business while leaving *where a brush lands* — the
       lattice — in Core, which is M3d's rule about a game rule a multiplayer server would need.
 
-##### M6c-1 — The brushes ← **next**
+##### M6c-1 — The brushes ✅ **done 2026-08-31, 689 tests passing**
 
-- [ ] **`Place.*` calls `IVoxelEditor.SetVoxel` per voxel, exactly as `Carve` does.** A 1 m cube
+- [x] **`Place.*` calls `IVoxelEditor.SetVoxel` per voxel, exactly as `Carve` does.** A 1 m cube
       is 64 voxels and writing them straight into `chunk.Voxels` is faster, obvious, and skips
       **four** things silently: the sky-column update, the light rebuild queue, the eight-chunk
       border rule, and `HasEdits` — which at M6 means the placement is not saved.
       **Correction to the handover: M5c-1's trigger is about `ApplyFeatures`, which still places
       nothing, so M6 does not fire it.** The risk is the same one; the trigger is not.
-- [ ] **One shared `Put` gate for every brush**, the counterpart to `Carve.Take` and load-bearing
+- [x] **One shared `Put` gate for every brush**, the counterpart to `Carve.Take` and load-bearing
       for the same reason: M3c measured that removing the hardness check from `Take` failed nine
       tests across both shapes, which a forked copy would not have done.
-- [ ] **The brushes are staircases, not slopes.** M4d's deliberately-not list rules out non-cube
+- [x] **The brushes are staircases, not slopes.** M4d's deliberately-not list rules out non-cube
       collision shapes as *"a voxel is one material or another" violations wearing different
       hats*, so a ramp brush is an **arrangement of 0.25 m cubes inside a 1 m cell** — a
       four-step staircase. M3c's *"sub-voxel means the voxel is small, not partly full"* restated
       for placement, and it lands well: 0.25 m is comfortably inside M4b's 0.5 m step height, so
       a placed ramp is walkable by physics that already exists. A slab is 4×2×4, 0.5 m thick.
-- [ ] Brushes are **methods, not an `IShape`**, following `Carve`'s recorded argument: no second
+- [x] Brushes are **methods, not an `IShape`**, following `Carve`'s recorded argument: no second
       implementer, and a ramp wants an orientation where a sphere wants a radius. **A ramp's
       orientation is the first brush parameter that is not a scalar** and the first thing in this
       game with a rotation at all — from the raycast face normal plus the player's facing.
-- [ ] **Brush anchoring: snap to the world 1 m lattice** (recommended, Matthew's to overrule).
+- [x] **Brush anchoring: snap to the world 1 m lattice** (recommended, Matthew's to overrule).
       Brushes tile with no seams and no one-voxel gaps, and **the slab and ramp only make sense on
       a lattice at all** — a ramp that is not grid-aligned cannot be tiled into stairs. So the
       lattice is what makes the brush *set* coherent, not just the cube; DESIGN's *"fine detail
       comes from carving, not from placing"* is the argument. **Goes in Core** on M3d's grounds,
       as the counterpart to `Carve.SwingCentre`. **Revisit trigger: M6d plays it and
       lattice-snapping reads as unresponsive.**
-- [ ] **Material inside the player: refuse the overlapping voxels and place the rest**
+- [x] **Material inside the player: refuse the overlapping voxels and place the rest**
       (recommended). Least surprising; pillar-jumping still works because mid-jump the cell below
       is not overlapping. **It does not retire `TryUnstick`** — M9's collapse puts material inside
       the player by accident and has no alternative — it stops placement being a second,
       deliberate caller of a rule whose only honest home is "something went wrong".
+- [x] **A placed ramp is walked up by the physics that already exists — tested, not argued.**
+      Two ramps and a landing, 180 steps of walking east, no jump ever. It failed the first time
+      and the failure was the test: the body climbed both flights, walked off the end of the
+      landing and fell back to the floor, reporting feet at 1.0 m — which reads exactly like
+      "it never climbed".
+- [x] **`VoxelSphere` extracted from `Carve` so both verbs share one membership test.** A sphere
+      carved and a sphere placed at the same radius have to be the same voxels, or filling in a
+      hole leaves a rind. **And the recipe that means anything against a shared definition is the
+      one that *un*-shares it** — mutating `VoxelSphere` itself moves both sides together and the
+      congruence test still passes, which is M6a's writer/reader-pair lesson in a third shape.
+- [x] **`IsAccounted` was one line from being true by construction.** The first tally computed
+      `Candidates` as the sum of its own buckets, so the invariant could never fail and every test
+      asserting it would have passed forever. `Tally.Candidate()` is now a separate call from
+      `Tally.Add(bucket)`: the shape counts, the gate decides, and a `continue` between them fails
+      eight tests.
+- [x] **Nine break-recipes, eight caught outright.** The hole was a fixture: the sphere congruence
+      test used an arbitrary centre and radius, under which no voxel centre lands at exactly the
+      radius, so `<` and `<=` agree everywhere and a divergent private copy passed. Re-fixtured
+      onto a voxel centre with a whole-voxel radius, and **the fixture now asserts it reached the
+      boundary case** rather than leaving that to luck.
+- [x] **`TestWorld` gained the write half** so a placement and a walk happen in one world rather
+      than in two doubles that agree with each other.
+      - [ ] **Tidy: merge `CarveTests.FakeEditor` into `TestWorld`.** Same idea, uniform background
+            instead of a predicate. Two doubles for one interface is the drift the project has
+            already been bitten by twice; not urgent, and not M6c's job.
 
 ##### M6c-2 — The inventory
 

@@ -66,7 +66,25 @@ public class JobSchedulerTests
         scheduler.Submit(thrower);
         scheduler.Submit(survivor);
 
-        Assert.True(survivorRan.Wait(Patience), "the worker thread died with the exception");
+        if (!survivorRan.Wait(Patience))
+        {
+            // This wait has expired twice under load — during M6b-3 and again during M6c-1 — and
+            // both times the run recorded nothing but the test's name, which is not enough to say
+            // whether it is a starved thread or a real hole in the exactly-once invariant.
+            //
+            // Shutting down and draining separates them: JobScheduler.Dispose joins the workers,
+            // so a survivor that was merely never scheduled comes back **Completed** afterwards,
+            // while one whose worker really died with the exception is still queued and comes back
+            // **Dropped** from the shutdown sweep. Report which, rather than asserting again.
+            string outcomes = string.Join(
+                ", ",
+                RunToCompletion(scheduler).Select(r => $"{r.Job.Position} {r.Outcome}"));
+
+            Assert.Fail(
+                $"the survivor did not run within {Patience.TotalSeconds:F0} s. After shutdown: "
+                + $"[{outcomes}] — Completed means a starved thread, Dropped means the worker died.");
+        }
+
         List<JobResult> results = RunToCompletion(scheduler);
 
         JobResult faulted = Assert.Single(results, r => ReferenceEquals(r.Job, thrower));

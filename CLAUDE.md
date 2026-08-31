@@ -182,12 +182,44 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2, all of M3, all of M4, all of M5, M6a and all of M6b** are done —
-**670 tests passing**. **M6 is planned (2026-08-31) and under way: SQLite save/load, brush placement,
+M0, all of M1, **all of M2, all of M3, all of M4, all of M5, M6a, all of M6b and M6c-1** are done —
+**689 tests passing**. **M6 is planned (2026-08-31) and under way: SQLite save/load, brush placement,
 volumetric inventory — v0.1 playable sandbox**, and it is what fixes the one thing play kept
 running into, that an edited chunk which unloads loses its edits. See
-[docs/M6-PLAN.md](docs/M6-PLAN.md), split M6a–M6d. **The game saves as of M6b-3 (2026-08-31) —
-M6c is next.** The one thing outstanding on M6b is a play-test, which is Matthew's.
+[docs/M6-PLAN.md](docs/M6-PLAN.md), split M6a–M6d. **The game saves as of M6b-3 (2026-08-31),
+played and confirmed** — closing the window and re-running loads the last world. **M6c is split
+three ways and M6c-1 is done; M6c-2, the inventory, is next.**
+
+**M6c-1 — the brushes: done 2026-08-31.** `MinerCraft.Core/Building/` holds `BrushCell`,
+`BrushFacing`, `PlaceResult` and `Place` — cube, slab, ramp and sphere on the world's 1 m lattice,
+writing through `IVoxelEditor.SetVoxel` one voxel at a time exactly as `Carve` does. Suite 670 →
+689. Five things worth keeping:
+
+- **A placed ramp is walked up by the physics that already exists, and that is a test rather than
+  an argument.** A step rises 0.25 m against M4b's 0.5 m step height, so a staircase needs no new
+  collision shape — both halves are pure Core, so it costs a test rather than a play-test. **It
+  failed first and the failure was the test**: the body climbed, walked off the end of the landing
+  and fell back to the floor, reporting feet at 1.0 m, which reads exactly like "it never climbed".
+- **Only air is replaceable, and the argument is the hardness gate rather than taste.** A brush
+  that overwrote material would delete anything without mining it — place dirt into a bedrock
+  voxel, mine the dirt with a `hand_pick`, and the bedrock is gone, which makes M3c's gate
+  bypassable by the other verb. Placing air is refused outright for the same reason. **Consequence
+  that corrects a source comment: placement never reaches `SetVoxel`'s "material is already there"
+  early-out**, which that comment predicted it would, so the early-out now has no caller that fires
+  it at all — M4a's zeroable-epsilon category, third outing.
+- **`IsAccounted` was one line from being true by construction.** The first tally derived
+  `Candidates` from the sum of its own buckets, so the invariant could never fail and every test
+  asserting it would have passed forever. The shape counts a candidate, the gate decides about it,
+  and a `continue` between them now fails eight tests.
+- **Nine break-recipes, eight caught; the hole was a fixture.** The test that exists to catch a
+  divergent copy of the sphere used an arbitrary centre and radius — under which no voxel centre
+  lands at exactly the radius, so `<` and `<=` agree everywhere. **And mutating the shared
+  `VoxelSphere` is invisible to that test by construction**: both sides move together and still
+  agree, so the only recipe that means anything against a shared definition is the one that
+  *un*-shares it.
+- **`BrushCell` is deliberately not `LightCellPos`**, which is also 1 m and shares its origin.
+  The 1 m light cell has a live M5 revisit trigger, and halving it would silently halve the brush
+  lattice — moving where every brush in the game lands, from inside a change about lighting.
 
 **M6b-3 — the session: done 2026-08-31.** `Main.cs` opens a world, seeds the registry from its ID
 table, hands the store to the pipeline, autosaves every 30 s and writes on quit. Suite 668 → 670.

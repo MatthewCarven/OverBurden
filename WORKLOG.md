@@ -1,5 +1,113 @@
 # MinerCraft — Worklog
 
+## 2026-08-31 — M6c-1: the brushes, and a ramp you can walk up
+
+`MinerCraft.Core/Building/` holds `BrushCell`, `BrushFacing`, `PlaceResult` and `Place` — cube,
+slab, ramp and sphere, on the world's 1 m lattice, writing through `IVoxelEditor.SetVoxel` one
+voxel at a time exactly as `Carve` does. Pure Core: no inventory, no Godot, no threads. Suite
+**670 → 689**.
+
+### The headline is that the physics already handles it, and it is a test rather than an argument
+
+The staircase-not-slope decision rests on one number: a ramp step rises 0.25 m and M4b's step
+height is 0.5 m, so a placed ramp needs no new collision shape and no new anything. That is
+arithmetic until a body walks up one — and both halves are pure Core, so it costs a test rather
+than a play-test:
+
+```csharp
+Place.Ramp(world, Table, new BrushCell(2, 1, 0), Stone, BrushFacing.PositiveX);
+Place.Ramp(world, Table, new BrushCell(3, 2, 0), Stone, BrushFacing.PositiveX);
+Place.Cube(world, Table, new BrushCell(4, 2, 0), Stone);       // a landing
+// ...180 steps of MoveIntent.Walking(East). No jump, ever.
+Assert.InRange(state.Box.Min.Y, 3.0f, 3.0f + contact);
+```
+
+**It failed the first time, and the failure was the test rather than the ramp**: the body climbed
+both flights, strolled off the end of the landing and fell back to the floor, so the assertion
+reported feet at 1.0 m and read exactly like "it never climbed at all". A wall at the top fixes
+it, and the peak height is now carried into the failure message so the next version of that
+mistake says which it was.
+
+Note the second ramp sits one cell higher than the first. That is how a staircase actually tiles,
+and it is a second reason the brush set only makes sense on a lattice.
+
+### The break-recipe battery: nine recipes, eight caught, and the hole was a fixture
+
+The one that was not caught: **give `Place` its own private copy of the sphere membership test
+with `<` instead of `<=`.** `APlacedSphereExactlyRefillsACarvedOneOfTheSameRadius` exists
+precisely to catch a divergent copy, and it did not, because the fixture used an arbitrary centre
+and radius — under which **no voxel centre lands at exactly the radius, so `<` and `<=` agree
+everywhere**. The scenario made both arms the same answer.
+
+Fixed by choosing a fixture where the boundary case is reachable: centre on a voxel centre, radius
+a whole number of voxels, so the voxels along each axis sit exactly on the surface. The fixture
+now **asserts that it reached that case** — the voxel exactly a radius away must be in the carved
+set — so if it ever stops being reachable, the fixture says so instead of going quiet.
+
+Worth stating separately, because it is a rule and not a one-off: **mutating the shared
+`VoxelSphere` is invisible to that test by construction.** Both sides move together and still
+agree. The only recipe that means anything against a shared definition is the one that
+*un*-shares it. That is the writer/reader-pair lesson from M6a in a third shape.
+
+### An invariant that would have been true by construction
+
+`PlaceResult.IsAccounted` — candidates equal the sum of the buckets — is copied from
+`CarveResult`, where it is documented as catching "a `continue` added later that is counted
+nowhere". The first version of the tally computed `Candidates` as the sum of its own four
+counters. Every test would have passed, forever, including the ones asserting the invariant.
+
+So `Tally.Candidate()` is a separate call from `Tally.Add(bucket)`: the shape counts a voxel, then
+the gate decides about it, and a `continue` between them fails eight tests. Verified as a recipe
+rather than assumed — it is the third entry in the battery.
+
+### What the brushes actually do
+
+- **Only air is replaceable**, and the argument is the hardness gate rather than taste: a brush
+  that overwrote material would delete anything without mining it — place dirt into a bedrock
+  voxel, mine the dirt with a `hand_pick`, and the bedrock is gone, which makes M3c's gate
+  bypassable by the other verb. A non-air voxel is `Occupied` and is not written. **Placing air is
+  refused outright** for the same reason, more directly: it is a carve with no tool and no gate.
+- **A consequence, and it corrects the plan and a source comment:** placement never reaches
+  `SetVoxel`'s "material is already there" early-out, which that comment predicted it would.
+  Placement decides its bucket from a read it has to do anyway and never offers the write. So the
+  early-out now has **no caller that fires it at all** — M4a's zeroable-contact-epsilon category,
+  third outing — and is kept for the reason it was kept last time: it protects the next writer.
+- **The lattice is `BrushCell`, deliberately not `LightCellPos`**, which is also 1 m and shares
+  this origin. Reusing it would work today and cost nothing, and the 1 m light cell carries a live
+  M5 revisit trigger: halving it would silently halve the brush lattice and move where every brush
+  in the game lands, from inside a change about lighting. Two things that are the same size for
+  unrelated reasons want two constants.
+- **The snap is a right shift, never a division.** `VoxelPos` records that truncating division
+  puts voxel −1 in chunk 0 beside voxel 0; the same mistake here would put two adjacent metres of
+  wall in one brick. Half the world has negative coordinates, and the recipe catches it there
+  first.
+- **Voxels overlapping the player's box are refused into their own bucket** and the rest of the
+  brush still lands. The body is a parameter rather than a lookup, because Core has no player and
+  `Aabb.VoxelBounds` already answers the question.
+
+### Two things that moved
+
+- **`VoxelSphere` is extracted from `Carve` into `Core/Voxels`**, so a sphere carved and a sphere
+  placed at the same radius are the same set of voxels. Filling in a hole you just made and being
+  left with a rind of stragglers is the failure, and it is invisible until somebody tries it. The
+  membership fuzz that has covered `Carve` since M3c now covers both callers.
+- **`TestWorld` gained the write half** and is now an `IVoxelEditor`, so a placement and a walk
+  happen in one world rather than in two doubles that agree with each other. Its older twin,
+  `CarveTests.FakeEditor`, is the same idea with a uniform background; merging them is a one-time
+  tidy and is on the TODO.
+
+### The scheduler flake now leaves a diagnosis
+
+`JobSchedulerTests.AThrowingJobFaultsWithoutTakingTheWorkerDownWithIt` expired its ten-second wait
+a second time, again during a full-suite run under load, and again recorded nothing but the test's
+name. Three consecutive clean full runs afterwards, and eight clean runs of that class alone.
+
+Rather than guess, the wait now **shuts the scheduler down and reports what came back**, because
+that separates the two candidate causes: `JobScheduler.Dispose` joins its workers, so a survivor
+that was merely never scheduled comes back **Completed**, while one whose worker actually died
+with the exception is still queued and comes back **Dropped** from the shutdown sweep. The next
+occurrence says which. Left as a known flake with its evidence, not as a fixed bug.
+
 ## 2026-08-31 — M6b-3: the session, and the game finally saves
 
 `Main.cs` opens a world, seeds the registry from its ID table, hands the store to the pipeline and

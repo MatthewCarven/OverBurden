@@ -300,7 +300,7 @@ public static class Carve
             return default;
         }
 
-        (VoxelPos min, VoxelPos max) = Bounds(centreMetres, radiusMetres);
+        (VoxelPos min, VoxelPos max) = VoxelSphere.Bounds(centreMetres, radiusMetres);
         float radiusSquared = radiusMetres * radiusMetres;
 
         int candidates = 0;
@@ -315,7 +315,7 @@ public static class Carve
         for (int y = min.Y; y <= max.Y; y++)
         {
             var voxel = new VoxelPos(x, y, z);
-            if (!Contains(voxel, centreMetres, radiusSquared))
+            if (!VoxelSphere.Contains(voxel, centreMetres, radiusSquared))
             {
                 continue;
             }
@@ -390,41 +390,8 @@ public static class Carve
             : Bucket.Unreachable;
     }
 
-    /// <summary>Whether <paramref name="voxel"/>'s centre is inside the sphere. The definition.</summary>
-    private static bool Contains(VoxelPos voxel, Vector3 centreMetres, float radiusSquared)
-    {
-        (float x, float y, float z) = voxel.CentreMetres;
-
-        float dx = x - centreMetres.X;
-        float dy = y - centreMetres.Y;
-        float dz = z - centreMetres.Z;
-
-        return ((dx * dx) + (dy * dy) + (dz * dz)) <= radiusSquared;
-    }
-
-    /// <summary>
-    /// The smallest voxel box that certainly contains every voxel <see cref="Contains"/>
-    /// would keep. An optimisation, and nothing else.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The sphere's axis-aligned bounding box in metres is <c>centre ± radius</c>, and a
-    /// candidate's centre lies inside it, so flooring both ends into voxel coordinates is
-    /// sufficient: <see cref="VoxelPos.FromMetres"/> floors and is monotone, and a voxel
-    /// centre at <c>(i + 0.5) × VoxelSize</c> can never sit exactly on a voxel boundary, so
-    /// the rounding would have to be wrong by half a voxel to drop a candidate.
-    /// </para>
-    /// <para>
-    /// <b>Reusing <see cref="VoxelPos.FromMetres"/> rather than deriving the tight bound is
-    /// the point.</b> A hand-rolled <c>ceil((c − r)/s − 0.5)</c> is a second flooring
-    /// primitive that has to be got right for negative coordinates all over again, and — this
-    /// was measured — the obvious mutation of it, swapping <c>Math.Ceiling</c>/<c>Math.Floor</c>
-    /// for casts, can only ever <em>widen</em> the box, so it is a break-recipe that cannot
-    /// fail a test. This version is falsifiable: narrowing either end by one voxel breaks the
-    /// membership fuzz within milliseconds, at negative coordinates first.
-    /// </para>
-    /// </remarks>
-    private static (VoxelPos Min, VoxelPos Max) Bounds(Vector3 centre, float radius) => (
-        VoxelPos.FromMetres(centre.X - radius, centre.Y - radius, centre.Z - radius),
-        VoxelPos.FromMetres(centre.X + radius, centre.Y + radius, centre.Z + radius));
+    // The membership predicate and the bounding box moved to VoxelSphere at M6c-1, because
+    // Building.Place needs the same sphere: one carved and one placed at the same radius have to
+    // be the same voxels, or filling in a hole you just made leaves a rind. The reasoning that
+    // was here went with the code.
 }

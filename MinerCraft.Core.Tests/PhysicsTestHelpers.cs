@@ -86,21 +86,59 @@ internal static class PhysicsTestHelpers
 
 /// <summary>
 /// A world that is air unless <see cref="Background"/> says otherwise, with named chunks that
-/// answer "not loaded".
+/// answer "not loaded" — and, separately, named chunks that read but refuse to be written.
 /// </summary>
 /// <remarks>
+/// <para>
 /// <see cref="Background"/> is a predicate rather than a filled region because a floor that has
 /// to extend ten metres in every direction is 65,000 dictionary entries, and the tests that
 /// need one are the long ones.
+/// </para>
+/// <para>
+/// <b>It gained the write half at M6c-1</b>, so that a placement and a walk can happen in one
+/// world: <c>APlacedRampIsWalkedUpByThePhysicsThatAlreadyExists</c> builds a staircase with
+/// <c>Place.Ramp</c> and then walks a body up it, and splitting that across two doubles would
+/// have been testing that two fixtures agree rather than that the ramp is walkable.
+/// </para>
+/// <para>
+/// <b>Its older twin is <c>CarveTests.FakeEditor</c></b>, which is the same idea with a uniform
+/// background instead of a predicate. Merging them is a one-time tidy and is on the TODO; until
+/// then, a behaviour added to one belongs in both — an unloaded chunk answering <i>air <b>and</b>
+/// false</i> most of all.
+/// </para>
 /// </remarks>
-internal sealed class TestWorld : IVoxelWorld
+internal sealed class TestWorld : IVoxelEditor
 {
     private readonly Dictionary<VoxelPos, int> _voxels = [];
     private readonly HashSet<ChunkPos> _unloaded = [];
+    private readonly HashSet<ChunkPos> _writeRefused = [];
 
     public Func<VoxelPos, int> Background { get; init; } = _ => PhysicsTestHelpers.Air;
 
+    /// <summary>Every write that was accepted, in order and including any duplicates.</summary>
+    public List<(VoxelPos Voxel, int Material)> Writes { get; } = [];
+
+    public HashSet<VoxelPos> WrittenVoxels => Writes.Select(write => write.Voxel).ToHashSet();
+
+    public int this[VoxelPos voxel] =>
+        _voxels.TryGetValue(voxel, out int material) ? material : Background(voxel);
+
     public void Set(VoxelPos voxel, int material) => _voxels[voxel] = material;
+
+    /// <summary>Reads fine, refuses writes — the two halves of the interface disagreeing.</summary>
+    public void RefuseWrites(ChunkPos chunk) => _writeRefused.Add(chunk);
+
+    public bool SetVoxel(VoxelPos voxel, int materialId)
+    {
+        if (_unloaded.Contains(voxel.Chunk) || _writeRefused.Contains(voxel.Chunk))
+        {
+            return false;
+        }
+
+        Writes.Add((voxel, materialId));
+        _voxels[voxel] = materialId;
+        return true;
+    }
 
     /// <summary>Fills an inclusive voxel box, in voxel indices.</summary>
     public void Fill(VoxelPos min, VoxelPos max, int material)
@@ -126,7 +164,7 @@ internal sealed class TestWorld : IVoxelWorld
             return false;
         }
 
-        materialId = _voxels.TryGetValue(voxel, out int material) ? material : Background(voxel);
+        materialId = this[voxel];
         return true;
     }
 }
