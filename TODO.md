@@ -1889,6 +1889,17 @@ because regenerating a chunk that had a blob is a silent, total loss of everythi
       **`ChunkPipeline` takes an `IChunkStore?` and null means no persistence**, so all 559
       existing tests keep passing unedited. **No ADR** — DESIGN already locks SQLite over region
       files; this is where it lands, not whether.
+      - [x] **Probed 2026-08-31, so M6b's first step is not a risk.** `Microsoft.Data.Sqlite`
+            **10.0.11** restores against a `net8.0` project under the 10.0.302 SDK and is now in
+            the local NuGet cache, so **M6b needs no network**. The native `e_sqlite3` loads
+            (SQLite **3.53.3**), a 16 KB blob round-trips byte for byte, and `journal_mode=WAL`
+            engages. `SQLitePCLRaw.bundle_e_sqlite3` does come along as predicted, so the Godot
+            export question is real and still unanswered — **that is the part to check, not the
+            restore.** Pin the version explicitly rather than taking the 10.x default against a
+            net8.0 target.
+      - [ ] **In WAL mode the main `.db` file stays at 4,096 bytes until a checkpoint** — the
+            probe wrote 16 KB and the file did not grow, because the data was in the `-wal`
+            sidecar. Worth knowing before an hour is spent on "my saves are not being written".
 - [x] **Saving is a job on the serial lane** — M2a built that lane for this and said so, and the
       flag has been `false` at every submission site since. **The argument that put light on the
       sim thread does not transfer**: a blob is a pure function of one chunk, which is

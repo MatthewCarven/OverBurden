@@ -211,6 +211,36 @@ first draw*, and it found it by sweeping a budget against when the world could f
 than against how fast it worked. The equivalent sweep here has no obvious knob to turn, which is
 exactly why it is the thing to watch for.
 
+### Addendum: the dependency was probed rather than left as a flag
+
+The session handed over "M6b will need a network restore" as an open risk, which was both badly
+worded and easy to close, so it was closed. A throwaway console project outside the repo:
+
+```
+Microsoft.Data.Sqlite 10.0.11 restores against net8.0 under the 10.0.302 SDK
+sqlite version : 3.53.3          — the native e_sqlite3 loads
+blob round trip: 16384 bytes, identical = True
+journal mode   : wal
+db on disk     : 4096 bytes
+```
+
+Three things worth keeping:
+
+- **M6b needs no network.** The package and its dependency chain are in the local NuGet cache now.
+- **`SQLitePCLRaw.bundle_e_sqlite3` does come along**, as the plan predicted. So the native-binary
+  question is real — but it is a **Godot export** question, not a restore question, and it is still
+  unanswered. That is the part to check, and checking it needs an export rather than a probe. Also
+  worth pinning the version explicitly rather than taking the 10.x default against a net8.0 target.
+- **In WAL mode the main `.db` file stayed at 4,096 bytes** after a 16 KB blob was committed,
+  because the data was in the `-wal` sidecar until a checkpoint. Harmless and completely standard,
+  and exactly the observation that otherwise costs an hour of "my saves are not being written".
+
+**The wording of the original flag is the lesson, not the result.** "Will need a network
+`dotnet restore`" reads as an action to take, and `dotnet restore` cannot take a package name — it
+restores what the `.csproj` files already list, and nothing lists SQLite because
+`MinerCraft.Persistence` does not exist yet. The command is `dotnet add package`, against a project
+M6b creates. A flag that names a command the reader cannot yet run is worse than no flag.
+
 ## 2026-08-31 — M5 is done: "happy with the current state"
 
 Lighting is finished, end to end and judged by a person. **559 tests.** M5a vertex AO, M5b the
