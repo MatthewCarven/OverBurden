@@ -681,6 +681,97 @@ public class PersistenceTests
     }
 
     [Fact]
+    public void SaveAllWaitsForTheSerialLaneRatherThanEnteringTheStoreBesideIt()
+    {
+        // M6b-1 wrote IWorldStore's "one caller at a time" contract and justified it by every call
+        // arriving on the serial lane. SaveAll is the second caller, and M6b-3's autosave timer is
+        // what turns the overlap from theoretical into ordinary: a timer firing while the player
+        // walks back into a region they dug, which is one chunk load per chunk. Against SQLite an
+        // overlap is two threads binding parameters on one shared prepared statement, so the
+        // failure is the file rather than a stale read.
+        var store = new ConcurrencyWatchingStore();
+        using var harness = new PipelineHarness(store: store);
+
+        var target = ChunkPos.Zero;
+        ViewerId viewer = harness.Pipeline.Streamer.AddViewer(target, 1, 1);
+        harness.Settle();
+
+        Excavate(harness.Pipeline, target);
+        harness.Settle();
+
+        // Away and back, so that coming back is a *load* rather than a generate — the load is what
+        // puts the serial lane inside the store while the sim thread is free to call SaveAll.
+        harness.Pipeline.Streamer.MoveViewer(viewer, FarAway);
+        harness.Settle();
+
+        store.HoldReads();
+        harness.Pipeline.Streamer.MoveViewer(viewer, target);
+
+        for (int i = 0; i < 500 && !store.IsReading; i++)
+        {
+            harness.Pipeline.Update();
+            Thread.Sleep(1);
+        }
+
+        Assert.True(store.IsReading, "a chunk load should be parked inside the store");
+
+        // Something dirty for SaveAll to write, in a chunk that generated rather than loaded —
+        // otherwise the call has nothing to do and would pass without ever reaching the store.
+        var neighbour = new ChunkPos(1, 0, 0);
+        for (int i = 0; i < 500 && harness.Pipeline.Streamer.Get(neighbour)?.Voxels is null; i++)
+        {
+            harness.Pipeline.Update();
+            Thread.Sleep(1);
+        }
+
+        EditOneVoxel(harness.Pipeline, neighbour);
+
+        // Released from another thread, because SaveAll is supposed to block until the lane is
+        // clear — so the test has to be the thing that lets it go.
+        var releaser = new Thread(() =>
+        {
+            Thread.Sleep(100);
+            store.ReleaseReads();
+        });
+
+        releaser.Start();
+
+        (int chunks, _) = harness.Pipeline.SaveAll();
+        releaser.Join();
+
+        Assert.True(chunks > 0, "the save should have written once the lane was clear");
+        Assert.False(store.SawOverlap, "SaveAll entered the store beside the serial lane");
+    }
+
+    [Fact]
+    public void ASynchronousSaveThatThrowsKeepsTheWorkRatherThanMarkingItSaved()
+    {
+        // The asynchronous twin has restored a failed batch since M6b-2 and this path had not,
+        // which matters because this is the path an autosave timer and a quit both take. The
+        // dirty flags clear *before* the write — deliberately, so an edit arriving during it is
+        // not swallowed — so a throw after that point left the world marked saved and unwritten.
+        var store = new ThrowingWorldStore();
+        using var harness = new PipelineHarness(store: store);
+
+        harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+        EditOneVoxel(harness.Pipeline, ChunkPos.Zero);
+
+        Assert.Equal((0, 0), harness.Pipeline.SaveAll());
+        Assert.Equal(1, harness.Pipeline.FailedSaves);
+        Assert.Empty(store.LoadChunkIndex());
+
+        // Nothing re-dirties the chunk, so the only way this can land is if the failed batch was
+        // kept — the same end-state oracle as the asynchronous twin, for the same reason.
+        store.Recover();
+
+        (int chunks, _) = harness.Pipeline.SaveAll();
+
+        Assert.Equal(1, chunks);
+        Assert.Single(store.LoadChunkIndex());
+    }
+
+    [Fact]
     public void AFailedSaveIsRetriedUntilItLands()
     {
         // The opposite of what a faulted generate does, and the asymmetry is the point: a lost
@@ -770,6 +861,79 @@ public class PersistenceTests
         {
             if (_broken) throw new IOException("the disk is on fire");
             base.Write(chunks, columns);
+        }
+    }
+
+    /// <summary>Notices two callers inside the store at once, and can park a reader there.</summary>
+    /// <remarks>
+    /// <b>The overlap is recorded rather than inferred from a crash</b>, because the in-memory
+    /// store's dictionaries only sometimes notice being used by two threads — and "sometimes"
+    /// is what a race looks like right up until it is a corrupt world file.
+    /// </remarks>
+    private sealed class ConcurrencyWatchingStore : InMemoryWorldStoreBase
+    {
+        private readonly ManualResetEventSlim _reads = new(initialState: true);
+        private int _inside;
+
+        /// <summary>Whether two callers were ever inside this store at the same moment.</summary>
+        public volatile bool SawOverlap;
+
+        /// <summary>True while a reader is parked inside <see cref="ReadChunk"/>.</summary>
+        public volatile bool IsReading;
+
+        public void HoldReads() => _reads.Reset();
+
+        public void ReleaseReads() => _reads.Set();
+
+        public override byte[]? ReadChunk(ChunkPos position) =>
+            Guarded(() =>
+            {
+                IsReading = true;
+                try
+                {
+                    _reads.Wait(TimeSpan.FromSeconds(10));
+                    return base.ReadChunk(position);
+                }
+                finally
+                {
+                    IsReading = false;
+                }
+            });
+
+        public override byte[]? ReadColumn(int chunkX, int chunkZ) =>
+            Guarded(() => base.ReadColumn(chunkX, chunkZ));
+
+        public override void Write(
+            IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,
+            IReadOnlyList<(int X, int Z, byte[] Blob)> columns) =>
+            Guarded<object?>(() =>
+            {
+                base.Write(chunks, columns);
+                return null;
+            });
+
+        public override void Flush() =>
+            Guarded<object?>(() =>
+            {
+                base.Flush();
+                return null;
+            });
+
+        private T Guarded<T>(Func<T> body)
+        {
+            if (Interlocked.Increment(ref _inside) > 1)
+            {
+                SawOverlap = true;
+            }
+
+            try
+            {
+                return body();
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _inside);
+            }
         }
     }
 

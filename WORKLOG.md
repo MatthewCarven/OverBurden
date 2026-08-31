@@ -1,5 +1,129 @@
 # MinerCraft — Worklog
 
+## 2026-08-31 — M6b-3: the session, and the game finally saves
+
+`Main.cs` opens a world, seeds the registry from its ID table, hands the store to the pipeline and
+writes on a timer and at quit. **M6b-1 and M6b-2 were exercised by tests only; this is the part
+that turns a green suite into play that stops losing work.** Suite **668 → 670**.
+
+The verification is a dig, a quit, and a reopen, headless:
+
+```
+run 1  --world=verify --profile --speed=0 --mine --entangle --measure=6 --autosave=3
+       52 swings, 26 voxels removed per swing
+       M6: autosaved 5 chunk(s) and 1 column(s) in 13.4 ms
+       M6: autosaved 5 chunk(s) and 0 column(s) in 4.3 ms
+       M6: world written on quit — 11 chunks + 1 columns saved, 9 chunks in the world
+
+run 2  --world=verify
+       M6: opened .../worlds/verify/world.db — seed 0x4D494E455243, 5 material id(s) restored
+       M6: 9 loaded / 1521 tracked, 1 columns restored
+       414 quads per drawn chunk    (against a pristine 404)
+```
+
+**The excavation comes back in the geometry, not only in a counter.** A longer dig moves `drawn`
+too — a twelve-second run took it to 166 against M2d's 165, because a chunk that meshed to nothing
+now has a face. And the default run is unchanged to the digit: **1521 viewed / 165 drawn / 1926
+jobs** at 404 quads, which is M2d's line that M5c-1 also had to preserve. A world with nothing
+saved takes the generate path throughout, so any movement there would have been a regression
+rather than persistence doing its job.
+
+### The finding: the store's contract had a second caller, and the loads are the common case
+
+M6b-1 wrote `IWorldStore` as **not thread-safe, as a contract**, and justified it by *every call
+arriving on the serial lane*. M6b-2 then added `SaveAll`, which runs on the sim thread, and
+justified it by *quitting being exactly when the scheduler stops*. Both are reasonable and
+together they are false the moment `SaveAll` is called anywhere else — which is precisely what an
+autosave timer is.
+
+The obvious version of the hazard is a save in flight. **The real one is a load**: three job types
+touch the store, and `LoadChunkJob` is submitted once per stored chunk entering the box. Walking
+back into a region you dug queues one per chunk, so "is the lane inside the store right now?" is
+usually *yes* while the player is moving. Against SQLite an overlap is not a stale read — it is two
+threads binding parameters on **one shared prepared statement inside one connection**, which is the
+file rather than the frame.
+
+`ChunkPipeline` now counts store jobs in flight and `SaveAll` drains the lane before it writes:
+
+- **The counter comes down on every outcome, not only on success.** A dropped load has left the
+  store as surely as a completed one, and a counter that only fell on completion would wedge the
+  drain for its whole timeout at every quit.
+- **The drain terminates because nothing it does submits.** Applying a result can push a chunk onto
+  the work list or queue a light build; jobs only ever reach the scheduler from `Pump`,
+  `SubmitSaves` and `OnColumnCreated`, none of which runs from there.
+- **Its bound is wall clock rather than `_nowTicks`**, which tests inject and which is free never
+  to advance. It is a safety valve against a wedged lane, not a budget, and the wait it exists for
+  is one job of a few microseconds.
+- **`_ExitTree` keeps its existing order — pipeline, then scheduler — and that is now load-bearing
+  for a second reason.** Disposing the scheduler first would drop whatever was queued on the lane,
+  and `JobResult`'s contract says a dropped job reports Dropped rather than running. For a mesh
+  that is nothing; for a save it is a deleted tunnel.
+
+`SaveAllWaitsForTheSerialLaneRatherThanEnteringTheStoreBesideIt` pins it with a store that
+**records an overlap rather than crashing on one** — the in-memory dictionaries only sometimes
+notice two threads, and "sometimes" is what a race looks like right up until it is a corrupt world
+file. Removing the drain makes it fail.
+
+### The second defect: the synchronous save had no fault path
+
+`ApplySave` has restored a failed batch since M6b-2 — pending lists, column dirty bits, index
+claims. `SaveAll` had none of it, and it clears the flags **before** the write (deliberately, so an
+edit arriving during it is not swallowed). So a store that threw left the world marked saved and
+never written, silently, and the next call had nothing left to do.
+
+Reachable only through the synchronous path — which is to say through the autosave timer and
+through quit, the two callers M6b-3 adds. Same family as the races M6b-2 had to transfer across on
+purpose, one layer further down: **the answer existed, in the twin of the method that needed it.**
+
+### The decisions that were open, and where they landed
+
+- **The world file is `user://worlds/<name>/world.db`.** `user://` is Godot's per-user data
+  directory and was never in doubt; the argued part is the extra path segment. A second world — a
+  scratch arm, a new game, a backup — is then a directory beside the first rather than a migration
+  of a file at the root, and **moving a world file later strands the world in it**. WAL leaves
+  `-wal` and `-shm` sidecars next to the database anyway.
+- **A measurement or a screenshot prop does not open the played world.** `--profile`, `--fall` and
+  `--debuglamp` leave persistence off unless `--world=` names one; `--nosave` turns it off
+  outright. Two separate reasons: `--mine` would carve up the world somebody plays, and **a run
+  that loads what an earlier one saved is not comparable with M2d's figures**, because the
+  streaming shape changes when generates become serial reads. `--world=` is the explicit opt back
+  in, which is how M6d will measure the load path.
+- **An unopenable world refuses to start.** Loud and fatal, rather than carrying on with
+  persistence quietly off — that failure is an hour of digging lost to a line in the log, which is
+  the whole thing this milestone is about. Reading a world written by a newer format is the case
+  that reaches it.
+- **An existing world's `--cavestep` is ignored, with a warning.** The header is what the stored
+  chunks were generated against.
+- **Autosave is 30 s and synchronous.** Measured against real SQLite: **13.9 ms** for the first
+  write of 5 chunks and a column, then **3.6–4.3 ms** for 4–5 chunks. The asynchronous path exists
+  and is what an unload uses; a timer that hands work to a queue leaves the crash window it was
+  built to close still open.
+
+### What is verified and what is not
+
+- **`_ExitTree` is reached on quit** — it prints, and the print carries the figures from after the
+  write rather than before it. `--quit-after` uses `SceneTree::quit()`, which is the same teardown
+  a window close takes with `auto_accept_quit` on, so **the windowed close is verified by proxy and
+  not by hand**. It is the first thing the play-test should watch.
+- **SQLite loads under Godot's `AssemblyLoadContext`.** The native `e_sqlite3` resolves through the
+  generated `.deps.json` with `EnableDynamicLoading`, without a `RuntimeIdentifier`. **An export is
+  still unverified** — that was M6b-1's recorded worry and it stays open.
+- The five-second drain timeout has **no test**, deliberately: exercising it costs five seconds of
+  suite time to prove a branch that only runs when something else is already broken.
+
+### One unreproduced failure, recorded rather than left in scrollback
+
+`JobSchedulerTests.AThrowingJobFaultsWithoutTakingTheWorkerDownWithIt` failed **once**, in a
+full-suite run made while a headless Godot run was competing for the machine, and has passed
+everything since: two clean full suites and eight consecutive runs of the scheduler suite alone.
+Nothing in M6b-3 touches `JobScheduler`.
+
+Its first assertion is a **10 s** wait for a single worker thread, which is a long time to be
+starved but not impossible on a saturated box. The alternative reading is that M2a's exactly-once
+invariant has a rare hole, and **that would matter a great deal** — which is why this is written
+down rather than treated as noise. If it recurs, capture the assertion message: the failing run
+recorded only the test name.
+
 ## 2026-08-31 — M6b-2: the lifetime, and the milestone's sentence comes true
 
 `ChunkPipeline` takes an `IWorldStore`, an edited chunk that unloads is written, and one that comes

@@ -22,6 +22,12 @@ namespace MinerCraft.Persistence;
 /// the per-read cost can be kept near the deserialise cost rather than dominated by statement
 /// preparation.
 /// </para>
+/// <para>
+/// <b>Two callers here would not be a stale read — they would be two threads binding parameters on
+/// one shared <c>SqliteCommand</c> inside one connection.</b> That is why the one caller that is
+/// not on the lane, <see cref="MinerCraft.Core.Streaming.ChunkPipeline.SaveAll"/>, waits for the
+/// lane to empty first. See <see cref="IWorldStore"/>.
+/// </para>
 /// </remarks>
 public sealed class SqliteWorldStore : IWorldStore
 {

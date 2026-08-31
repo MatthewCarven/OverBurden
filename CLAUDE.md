@@ -124,6 +124,14 @@ table below), `--skybrightness=<0..2>` (scales the sky channel alone; 0 leaves o
 light without a keypress) and `--entangle` (the entangled miner, which with `--mine` aims along
 the flight path rather than straight down — see below).
 
+**The world file lives at `user://worlds/<name>/world.db`** — on Windows,
+`%APPDATA%/Godot/app_userdata/MinerCraft/worlds/`. `--world=<name>` picks one, `--nosave` opens
+none at all, and `--autosave=<seconds>` moves the 30 s flush. **A run that is a measurement or a
+screenshot prop does not open the played world**: `--profile`, `--fall` and `--debuglamp` leave
+persistence off unless `--world=` names one, because `--mine` would carve up the world somebody
+plays and because a run that *loads* what an earlier one saved is not comparable with M2d's
+figures. Naming a world is the explicit opt back in, and it is how M6d measures the load path.
+
 **`--speed=0` means a standing start and is distinct from omitting `--speed`**, which defaults a
 profile to 40 m/s. That distinction was added at M5d-1, because the standing start is the only
 arm in which the chunk set at a fixed radius is deterministic — so AO on against AO off compares
@@ -174,13 +182,42 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2, all of M3, all of M4, all of M5, M6a, M6b-1 and M6b-2** are done —
-**668 tests passing**. **M6 is planned (2026-08-31) and under way: SQLite save/load, brush placement,
+M0, all of M1, **all of M2, all of M3, all of M4, all of M5, M6a and all of M6b** are done —
+**670 tests passing**. **M6 is planned (2026-08-31) and under way: SQLite save/load, brush placement,
 volumetric inventory — v0.1 playable sandbox**, and it is what fixes the one thing play kept
 running into, that an edited chunk which unloads loses its edits. See
-[docs/M6-PLAN.md](docs/M6-PLAN.md), split M6a–M6d. **M6b-3 is next — and until it lands the game
-as it runs saves nothing**, because `Main.cs` still loads content with no saved ID table. All of
-M6b works, and works only in tests.
+[docs/M6-PLAN.md](docs/M6-PLAN.md), split M6a–M6d. **The game saves as of M6b-3 (2026-08-31) —
+M6c is next.** The one thing outstanding on M6b is a play-test, which is Matthew's.
+
+**M6b-3 — the session: done 2026-08-31.** `Main.cs` opens a world, seeds the registry from its ID
+table, hands the store to the pipeline, autosaves every 30 s and writes on quit. Suite 668 → 670.
+**It was wiring, and the wiring found two defects in Core** — both on the synchronous save path,
+which nothing had run outside a test:
+
+- **`IWorldStore`'s "one caller at a time" contract had a second caller.** M6b-1 justified the
+  contract by *every call arriving on the serial lane*; M6b-2 added `SaveAll` on the sim thread and
+  justified it by *quitting being when the scheduler stops*. Both are reasonable and together they
+  are false the moment `SaveAll` runs anywhere else — which is what an autosave timer is. **The
+  obvious hazard is a save in flight; the real one is a load**: three job types touch the store and
+  `LoadChunkJob` is submitted once per stored chunk entering the box, so the lane is usually inside
+  the store while the player moves. Against SQLite an overlap is two threads binding parameters on
+  one shared prepared statement. `SaveAll` now drains the lane first, and **`_ExitTree`'s order —
+  pipeline, then scheduler — is load-bearing twice**, because disposing the scheduler first would
+  drop a queued save and a dropped save is a deleted tunnel.
+- **The synchronous save had no fault path.** `ApplySave` has restored a failed batch since M6b-2;
+  `SaveAll` had none of it while clearing the dirty flags *before* the write, so a store that threw
+  left the world marked saved and never written. **The answer existed, in the twin of the method
+  that needed it.**
+
+The verification is a dig, a quit and a reopen, headless: **9 chunks loaded, 1 column restored,
+414 quads per drawn chunk against a pristine 404** — the excavation comes back in the geometry
+rather than only in a counter, and a longer dig moves `drawn` from 165 to 166 as well. The default
+run is unchanged to the digit (**1521 viewed / 165 drawn / 1926 jobs** at 404 quads), because a
+world with nothing saved takes the generate path throughout. Autosave measured against real SQLite
+at **13.4 ms** for the first write of five chunks and a column, then **3.6–4.3 ms**. Two things stay open: **the windowed close is verified by proxy**
+(`--quit-after` is `SceneTree::quit()`, the same teardown), and **the Godot export with
+SQLitePCLRaw's natives is still unverified** — running resolves `e_sqlite3` through the generated
+`.deps.json` under `EnableDynamicLoading`, which is not the same question.
 
 **M6a — the blob and the world file: done 2026-08-31.** `MinerCraft.Core/Persistence/` holds
 `ChunkBlob`, `SkyColumnBlob`, `WorldHeader` and the shared frame. No SQLite, no file, no pipeline.

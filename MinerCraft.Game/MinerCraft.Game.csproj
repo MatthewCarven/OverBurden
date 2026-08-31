@@ -7,5 +7,13 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\MinerCraft.Core\MinerCraft.Core.csproj" />
+
+    <!-- The Godot half is the only assembly that names a concrete store. Core owns IWorldStore
+         and an in-memory implementation; this reference is what brings the SQLite one, and with
+         it SQLitePCLRaw's native e_sqlite3. EnableDynamicLoading above is what makes that
+         resolvable at run time - Godot loads this assembly through an AssemblyLoadContext driven
+         by the generated .deps.json, which is also what carries the runtimes/win-x64/native
+         entry. An export is the case still unverified. -->
+    <ProjectReference Include="..\MinerCraft.Persistence\MinerCraft.Persistence.csproj" />
   </ItemGroup>
 </Project>

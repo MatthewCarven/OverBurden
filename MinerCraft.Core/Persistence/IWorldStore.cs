@@ -24,6 +24,15 @@ namespace MinerCraft.Core.Persistence;
 /// because disk work contends on the same file anyway. An implementation is free to hold prepared
 /// statements and reuse buffers on that basis.
 /// </para>
+/// <para>
+/// <b>There is exactly one caller that is not on that lane, and M6b-3 is where it arrived.</b>
+/// <see cref="Streaming.ChunkPipeline.SaveAll"/> writes inline on the sim thread — for an autosave
+/// timer and for quit — so it waits for the lane to come out of the store before it touches it.
+/// The reason that wait is not decorative is the <em>load</em> rather than the save: a chunk load
+/// is submitted once per stored chunk entering the view box, so walking back into a region that
+/// has been dug means the lane is usually inside the store. Anything else that ever calls a store
+/// from off the lane has to do the same.
+/// </para>
 /// </remarks>
 public interface IWorldStore : IDisposable
 {

@@ -1864,7 +1864,7 @@ Played with the entangled miner. **"Looks good to me."**
 - [ ] Baking AO into the light grid. Different frequencies — AO is a 0.25 m effect and the grid
       is 1 m — and merging them loses exactly the detail AO exists to add.
 
-### M6 — v0.1 playable sandbox ← **M6a, M6b-1 and M6b-2 done 2026-08-31. M6b-3 is next.**
+### M6 — v0.1 playable sandbox ← **all of M6b done 2026-08-31. M6c is next.**
 
 Planned into four parts in [docs/M6-PLAN.md](docs/M6-PLAN.md). **Read it before starting.** The
 structural point: every chunk so far has been recoverable from nothing, so `Forget` could delete
@@ -1910,17 +1910,17 @@ because regenerating a chunk that had a blob is a silent, total loss of everythi
 
 #### Two exceptions to pipeline-wide rules, and both lose data if missed
 
-- [ ] **A save job must set `VoxelsSharedWithJob`**, as `Neighbourhood()` does for all 27 of a
+- [x] **A save job must set `VoxelsSharedWithJob`**, as `Neighbourhood()` does for all 27 of a
       mesh job's. Not because a chunk being unloaded is normally written to, but because it can
       be **revived and then mined while the serialiser is mid-copy** — and M3a records that this
       is not a stale voxel but `VoxelChunk.Set` swapping the backing arrays under a reader.
-- [ ] **`OnChunkUnviewed` must not cancel it and `Dispose` must not drop it.** Every other job is
+- [x] **`OnChunkUnviewed` must not cancel it and `Dispose` must not drop it.** Every other job is
       cancelled the moment nobody wants its chunk, which is right for work we can rebuild. A
       cancelled save is a deleted tunnel. `JobResult`'s contract says a job still queued at
       shutdown reports Dropped, so **quitting with saves queued loses them** — the shutdown path
       has to drain the serial lane. **The single most likely way to ship a data-loss bug in M6,
       and it is one line of `Dispose`.**
-- [ ] **`DirtySinceSave` is a second flag, and it is the `NeedsRemesh` problem a third time.**
+- [x] **`DirtySinceSave` is a second flag, and it is the `NeedsRemesh` problem a third time.**
       `HasEdits` keeps meaning "differs from the seed" and is never cleared; `DirtySinceSave`
       means "differs from what is on disk", is cleared **at submission** (because `SetVoxel` will
       set it again if an edit lands during the job), and must be **restored by `StepBack` if the
@@ -2058,6 +2058,10 @@ drain. Splitting up front rather than halfway through is why M2c went smoothly.
 - [x] **Not thread-safe, as a contract.** One connection, prepared statements reused for the
       store's lifetime. M2a's serial lane is what makes that safe — and the reuse is most of why a
       read is 6 µs rather than statement preparation.
+      - [x] **M6b-3 found the one caller that is not on the lane**, `SaveAll`, and made it wait for
+            the lane before touching the store. The premise "every call arrives on the serial lane"
+            was true when it was written and stopped being true one part later, in the same
+            milestone.
 - [x] WAL, `synchronous = NORMAL`, `STRICT` tables, and a schema `user_version` **distinct from any
       blob's format version** — they change for unrelated reasons. A newer schema is refused.
 - [x] **One contract suite, run against both implementations.** `InMemoryWorldStore` exists so
@@ -2127,16 +2131,16 @@ tear the pipeline down and build a new one on the same store, which is quitting 
 - [ ] **An XML comment cannot contain `--`**, so documenting a `--flag` inside a `.csproj` comment
       is an MSBuild parse error rather than a warning.
 
-- [ ] Every race below already has a documented answer in `ChunkPipeline`, written for meshes.
+- [x] Every race below already has a documented answer in `ChunkPipeline`, written for meshes.
       That is the good news and the trap together: each has to be transferred across on purpose,
       and where a mesh race leaves stale geometry the same race loses a tunnel.
-- [ ] **An in-memory index of saved chunk keys, read once at world open.** "Does this chunk have
+- [x] **An in-memory index of saved chunk keys, read once at world open.** "Does this chunk have
       a blob?" is asked on the sim thread once per chunk entering the load box — a 37×37 shell at
       r16 — so it must be answerable without I/O. ~5 MB at 100,000 edited chunks. **Rejected:
       asking the DB per chunk**, which is 1,521 point queries down one serial lane to fill
       r4h/2v, nearly all answering no. Revisit trigger: ~10⁶ saved chunks.
-- [ ] **Consultation order: memory → index → seed.** The whole correctness question.
-- [ ] **The number this plan is most likely to have got wrong is the read side**, and it is named
+- [x] **Consultation order: memory → index → seed.** The whole correctness question.
+- [x] **The number this plan is most likely to have got wrong is the read side**, and it is named
       for that reason: generation fills r4h/2v in ~89 ms of wall clock (1,521 × 0.47 ms measured
       ÷ 8 workers), but loads run **one at a time** on the serial lane. At 0.1 ms a load the
       crossover is ~890 chunks; at 0.3 ms it is ~300. **So a world dug into heavily can be slower
@@ -2148,71 +2152,118 @@ tear the pipeline down and build a new one on the same store, which is quitting 
             moves past the whole 1,521-chunk fill and the worry dissolves — but **it is not
             settled either way until the other half exists**, so do not retire the concern on one
             number.
-- [ ] **Named and not built: batched loads** — one job, one query, many chunks, since SQLite's
+- [x] **Named and not built: batched loads** — one job, one query, many chunks, since SQLite's
       per-statement overhead dominates a 16 KB blob read. The other lever, parallel reads under
       WAL, is the worse one: it contends for the eight workers generation already saturates and
       reopens M2a's decision. Standing rule — measure before building the named fallback.
-- [ ] **The column restore cannot go where the column is created.** `RetainColumn` runs inside
+- [x] **The column restore cannot go where the column is created.** `RetainColumn` runs inside
       `View` inside `ForEachDifference`; a one-chunk step at r16 creates ~37 new columns, ~0.74 ms
       of I/O in one frame, unamortised, against a main-thread budget M2d measured plateauing near
       3% of a core. **Recommended: seed analytically as now, queue a restore, and call
       `QueueColumnLightBuild` when it lands** — M5c-1 built that for exactly "this column's sky
       heights moved". Price: a one-or-two-frame window where a reloaded shaft is lit wrong.
-- [ ] **Save on unload, from `Forget`'s caller rather than `Forget`.** M2c-2's retention
+- [x] **Save on unload, from `Forget`'s caller rather than `Forget`.** M2c-2's retention
       machinery is already exactly right — `OutstandingJobs > 0` retains past the last viewer and
       `ForgetIfUnwanted` collects — so **the async save needs no new lifetime concept.**
-- [ ] **Plus a periodic flush of the dirty set**, because unload-only loses everything for a
+- [x] **Plus a periodic flush of the dirty set**, because unload-only loses everything for a
       player who digs in one spot for an hour. Tens of chunks at ~1 KB; the argument is purely
-      crash safety. **Plus on quit, synchronously.**
-- [ ] **The mod-set round trip is non-negotiable 2's first real test in five milestones.** Save
+      crash safety. **Plus on quit, synchronously.** Built at M6b-3: 30 s, `--autosave=` to sweep
+      it, and **measured against real SQLite at 13.4 ms for the first write of five chunks and a
+      column, then 3.6–4.3 ms** — a frame's worth, once, every thirty seconds.
+- [x] **The mod-set round trip is non-negotiable 2's first real test in five milestones.** Save
       with a mod installed, remove it, reopen — placeholders retaining their identifiers, not
       reinterpreted. Reinstall, reopen — exactly as it was. `Registry` has promised this since M1
       and nothing has ever asked it to deliver.
-- [ ] **Startup reorders**: open world → read ID table → `Load(source, savedIds)` → `Freeze` →
-      construct the streamer. `Main.cs` passes `null` today. `SeedIdTable` throws if anything
-      registered first, which is the right failure and a loud one.
-- [ ] **Break-recipes on the call sites, not only the logic** — M5c-2's two real holes were both
+- [x] **Startup reorders**: open world → read ID table → `Load(source, savedIds)` → `Freeze` →
+      construct the streamer. Done at M6b-3, and the real game reports `5 material id(s) restored`
+      on reopening a world. `SeedIdTable` throws if anything registered first, which is the right
+      failure and a loud one.
+- [x] **Break-recipes on the call sites, not only the logic** — M5c-2's two real holes were both
       joins, and replacing `GatherLight(...)` with `null` left 556 tests green. The equivalents:
       never calling the store from `Forget`'s path, and clearing `DirtySinceSave` on completion
       rather than at submission. Both leave a green suite and lose data in play.
 
-##### M6b-3 — The session ← **next, and it is the smallest part of M6b**
+##### M6b-3 — The session ✅ **done 2026-08-31, 670 tests passing**
 
-**Everything it needs already exists in Core and is tested; this part is wiring.** The whole of
-M6b-1 and M6b-2 is exercised by tests only, so **the game as it runs today still saves nothing** —
-which means M6b-3 is what turns a green suite into play that stops losing work.
+**It was wiring, and the wiring found two defects in Core.** M6b-1 and M6b-2 were exercised by
+tests only; this is the part that turns a green suite into play that stops losing work. The
+verification is a dig, a quit and a reopen, headless — **9 chunks loaded, 1 column restored, and
+414 quads per drawn chunk against a pristine 404**, so the excavation comes back in the geometry
+rather than only in a counter. A longer dig moves `drawn` as well, 165 → 166.
 
-The four pieces, with the specifics a fresh session would otherwise have to rediscover:
-
-- [ ] **The startup reorder, and it is the only part with an ordering trap.** `Main.cs:1355` does
-      `Content.Load(new DirectoryContentSource(modsPath))` with **no saved table**, and
-      `Main.cs:120` hardcodes `Seed = 0x4D494E455243UL`. It has to become: open the store →
-      `ReadWorldHeader()` → if null this is a new world, else `WorldHeaderBlob.Read` →
-      `Content.Load(source, header.MaterialIdTable)` → `Freeze` → build `MaterialTable` →
-      construct `ChunkPipeline` with `store:`. **`SeedIdTable` throws if anything registered
-      first**, which is the right failure and a loud one.
-- [ ] **`WriteWorldHeader` at open, before any chunk can be written** — that ordering is what
+- [x] **The startup reorder, and it was the only part with an ordering trap.** `Main.OpenWorld`
+      now does: open the store → `ReadWorldHeader()` → null means a new world, else
+      `WorldHeaderBlob.Read` → `Content.Load(source, header.MaterialIdTable)` → `Freeze` (inside
+      the loader) → build `MaterialTable` → construct `ChunkPipeline` with `store:`.
+      **`SeedIdTable` throws if anything registered first**, which is the right failure and a loud
+      one. Content loading moved after the command-line pass, because `--world=` and `--nosave`
+      decide which table seeds it.
+- [x] **`WriteWorldHeader` at open, before any chunk can be written** — that ordering is what
       replaces a world-spanning transaction, because numeric IDs are only allocated during content
-      load. `ChunkPipeline.WriteWorldHeader(WorldHeader)` already exists and takes the record.
-      For a **new** world the seed is whatever `Main` chooses; for an existing one the header's
-      `Settings` must be used **in place of** the hardcoded settings, or the unstored terrain comes
-      back a different shape around the saved chunks. That is the whole reason the header carries
-      all thirteen `WorldGenSettings` fields.
-- [ ] **Where the world file lives.** Undecided. `user://` is Godot's per-user data directory and
-      is the conventional answer; `ProjectSettings.GlobalizePath("user://world.db")` gives
-      `SqliteWorldStore` a real path. Worth settling explicitly rather than defaulting, because
-      moving it later strands worlds.
-- [ ] **The autosave timer and the quit drain.** `SaveAll()` is synchronous and safe on the sim
-      thread — measured at 13 ms for 1,521 chunks including serialisation, and a real dirty set is
-      tens of chunks. `ChunkPipeline.Dispose` already calls it, so the question is only whether
-      Godot's shutdown reaches `Dispose` — check `_ExitTree`/`NotificationWMCloseRequest` in
-      `Main.cs`. **This is the single most likely way to ship a data-loss bug in M6.**
-- [ ] **Headless verification that the streaming figures are unchanged.** The default run should
+      load. Rewritten on **every** open rather than only for a new world, because installing a mod
+      extends the table with entries the stored header does not have. For a new world the seed is
+      `Main.NewWorldSeed`; for an existing one the header's `Settings` replace it rather than
+      sitting beside it, or the unstored terrain comes back a different shape around the saved
+      chunks. That is the whole reason the header carries all thirteen `WorldGenSettings` fields.
+- [x] **Where the world file lives: `user://worlds/<name>/world.db`.** `user://` was never in
+      doubt; the argued part is the extra path segment. A second world — a scratch arm, a new game,
+      a backup — is then a directory beside the first rather than a migration of a file at the
+      root, and **moving a world file later strands the world in it**. WAL leaves `-wal` and `-shm`
+      sidecars next to the database anyway.
+      - [x] **A measurement or a screenshot prop does not open the played world.** `--profile`,
+            `--fall` and `--debuglamp` leave persistence off unless `--world=` names one, and
+            `--nosave` turns it off outright. Two separate reasons: `--mine` would carve up the
+            world somebody plays, and **a run that loads what an earlier one saved is not
+            comparable with M2d's figures**, because the streaming shape changes when generates
+            become serial reads. `--world=` is the explicit opt back in, and it is how M6d
+            measures the load path.
+      - [x] **An unopenable world refuses to start**, loudly, rather than playing on with
+            persistence quietly off — that failure is an hour of digging lost to a line in the log.
+            An existing world's `--cavestep` is ignored with a warning, because the header is what
+            the stored chunks were generated against.
+- [x] **The autosave timer and the quit drain**, and **`SaveAll` was not safe on the sim thread
+      after all** — see the two defects below. `_ExitTree` *is* reached: it prints, and the print
+      carries the figures from after the write. `--quit-after` uses `SceneTree::quit()`, the same
+      teardown a window close takes with `auto_accept_quit` on, so **the windowed close is verified
+      by proxy and not by hand** — the first thing the play-test should watch.
+- [x] **Headless verification that the streaming figures are unchanged.** The default run should
       still report **1521 viewed / 165 drawn / 1926 jobs** — M2d's numbers, which M5c-1 also had to
       preserve. A world with nothing saved takes the generate path throughout, so any movement in
-      those figures is a regression rather than persistence doing its job.
+      those figures is a regression rather than persistence doing its job. **Confirmed to the
+      digit.**
 - [ ] **Then play it.** Dig a tunnel, fly away, come back. Quit and reopen. That is the milestone's
-      actual verdict and no test produces it.
+      actual verdict and no test produces it. **Matthew's, and the one thing M6b-3 cannot do for
+      itself** — watch the window close in particular.
+
+###### The two defects the wiring found, both in Core, both on the synchronous save path
+
+- [x] **`IWorldStore`'s "one caller at a time" contract had a second caller.** M6b-1 justified the
+      contract by *every call arriving on the serial lane*; M6b-2 added `SaveAll` on the sim thread
+      and justified it by *quitting being when the scheduler stops*. Both are reasonable and
+      together they are false the moment `SaveAll` runs anywhere else, which is what an autosave
+      timer is. **The obvious hazard is a save in flight; the real one is a load** — three job
+      types touch the store and `LoadChunkJob` is submitted once per stored chunk entering the box,
+      so walking back into a region you dug means the lane is usually inside the store. Against
+      SQLite an overlap is two threads binding parameters on one shared prepared statement.
+      `ChunkPipeline` now counts store jobs in flight and `SaveAll` drains the lane first.
+      - [x] **The counter comes down on every outcome, not only on success**, or a dropped load
+            wedges the drain for its whole timeout at every quit.
+      - [x] **The drain terminates because nothing it does submits** — jobs only reach the
+            scheduler from `Pump`, `SubmitSaves` and `OnColumnCreated`, none of which runs there.
+      - [x] **`_ExitTree`'s order — pipeline, then scheduler — is now load-bearing twice.**
+            Disposing the scheduler first would drop whatever was queued on the lane, and a dropped
+            save is a deleted tunnel.
+      - [ ] **No test for the five-second drain timeout**, deliberately: it costs five seconds of
+            suite time to prove a branch that only runs when something else is already broken.
+- [x] **The synchronous save had no fault path.** `ApplySave` has restored a failed batch since
+      M6b-2 — pending lists, column dirty bits, index claims — and `SaveAll` had none of it, while
+      clearing the flags *before* the write. A store that threw left the world marked saved and
+      never written. **The answer existed, in the twin of the method that needed it**, which is
+      M6b-2's "every race already has a documented answer" one layer further down.
+- [ ] **The Godot export with SQLitePCLRaw's natives is still unverified.** Running works: the
+      native `e_sqlite3` resolves through the generated `.deps.json` under `EnableDynamicLoading`
+      with no `RuntimeIdentifier`. M6b-1 recorded the export as the part to check and it is still
+      the part to check.
 
 #### M6c — Placement and volumetric inventory
 

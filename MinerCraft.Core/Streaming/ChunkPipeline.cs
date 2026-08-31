@@ -86,6 +86,18 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// </remarks>
     public static readonly TimeSpan DefaultLightBudget = TimeSpan.FromMilliseconds(4.0);
 
+    /// <summary>
+    /// How long <see cref="SaveAll"/> will wait for the serial lane to come out of the store.
+    /// </summary>
+    /// <remarks>
+    /// A safety valve rather than a budget: the wait it exists for is a single job of a few
+    /// microseconds, and anything approaching this number means the lane is wedged. Deliberately
+    /// long enough that no ordinary run reaches it, and there is no test for the expiry because
+    /// exercising it costs five seconds of suite time to prove a branch that only runs when
+    /// something else is already broken.
+    /// </remarks>
+    private const double DrainTimeoutSeconds = 5.0;
+
     private static readonly double TicksPerMillisecond = Stopwatch.Frequency / 1000.0;
 
     private readonly ChunkStreamer _streamer;
@@ -145,6 +157,25 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
 
     /// <summary>At most one save job at a time, so batches are as large as they can be.</summary>
     private bool _saveInFlight;
+
+    /// <summary>Jobs on the serial lane that are inside the store, queued or running.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The store belongs to the serial lane, and this is what lets the sim thread know when
+    /// the lane is out of it.</b> <see cref="IWorldStore"/>'s contract is one caller at a time,
+    /// argued at M6b-1 from every call arriving on that lane — and <see cref="SaveAll"/> is the
+    /// one caller that does not. Three job types touch the store: the save, the chunk load and
+    /// the column load. <b>The loads are the common case rather than the rare one</b>: re-entering
+    /// a dug-in region queues one per chunk, so "is anything in the store right now?" is usually
+    /// yes while the player is moving.
+    /// </para>
+    /// <para>
+    /// A plain <c>int</c> and not interlocked, because both ends are the sim thread: submission
+    /// happens in <see cref="Pump"/>, <see cref="SubmitSaves"/> and <see cref="OnColumnCreated"/>,
+    /// and the decrement happens in <see cref="Apply"/>.
+    /// </para>
+    /// </remarks>
+    private int _storeJobsInFlight;
 
     /// <summary>Chunks whose derived light data needs building or rebuilding.</summary>
     /// <remarks>
@@ -998,6 +1029,14 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         JobsInFlight--;
         AppliedResults++;
 
+        // Whatever the outcome. A dropped load has left the store exactly as surely as a
+        // completed one, and a counter that only came down on success would wedge DrainStoreLane
+        // for its whole timeout at every quit.
+        if (result.Job is SaveWorldJob or LoadChunkJob or LoadColumnJob)
+        {
+            _storeJobsInFlight--;
+        }
+
         // Ahead of the chunk lookup, because neither of these is *about* one chunk. A save spans a
         // batch and a column spans every chunk Y, so decrementing OutstandingJobs on whatever
         // record their nominal Position happens to name would corrupt the accounting that keeps a
@@ -1230,6 +1269,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
                         chunk,
                         new LoadChunkJob(_store, _materials, chunk.Position),
                         serial: true);
+                    _storeJobsInFlight++;
                 }
                 else
                 {
@@ -1581,6 +1621,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         // work and contends on the one file — M2a's lane, unused until now.
         _batch.Add((job, CancellationToken.None, true));
         JobsInFlight++;
+        _storeJobsInFlight++;
         _scheduler.SubmitBatch(CollectionsMarshal.AsSpan(_batch)[^1..]);
         _batch.RemoveAt(_batch.Count - 1);
     }
@@ -1639,6 +1680,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         // M2d measured plateauing near 3% of a core.
         _scheduler.Submit(new LoadColumnJob(_store, column.ChunkX, column.ChunkZ), serial: true);
         JobsInFlight++;
+        _storeJobsInFlight++;
     }
 
     private void ApplyColumnRestore(LoadColumnJob job, JobOutcome outcome)
@@ -1672,6 +1714,58 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     private void OnColumnReleased(SkyColumn column) => QueueSave(column);
 
     /// <summary>
+    /// Waits until nothing on the serial lane is inside the store.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Because <see cref="SaveAll"/> is a sim-thread caller of a store whose contract says one
+    /// caller at a time.</b> M6b-1 stated that contract and justified it by the lane; M6b-3 is
+    /// where the second caller arrives, and the overlap it can produce is not a stale read — it is
+    /// two threads binding parameters on one shared prepared statement inside one SQLite
+    /// connection. The most likely moment is the most ordinary one: an autosave firing while the
+    /// player walks back into a region they dug, which is a chunk load per chunk.
+    /// </para>
+    /// <para>
+    /// <b>This terminates because nothing it does submits.</b> Applying a result can push a chunk
+    /// onto the work list or queue a light build; jobs only ever reach the scheduler from
+    /// <see cref="Pump"/>, <see cref="SubmitSaves"/> and <see cref="OnColumnCreated"/>, and none
+    /// of those runs from here. So the lane empties and stays empty.
+    /// </para>
+    /// <para>
+    /// <b>Bounded on wall clock rather than on <c>_nowTicks</c></b>, which is injected by tests
+    /// and is free never to advance. This is a safety valve against a wedged lane rather than a
+    /// budget, and the wait it is actually built for is one job of a few microseconds.
+    /// </para>
+    /// </remarks>
+    /// <returns>Whether the lane really is clear. False means the timeout expired.</returns>
+    private bool DrainStoreLane()
+    {
+        if (_storeJobsInFlight == 0) return true;
+
+        long deadline = Stopwatch.GetTimestamp() + (long)(DrainTimeoutSeconds * Stopwatch.Frequency);
+
+        while (_storeJobsInFlight > 0)
+        {
+            if (_scheduler.TryTakeResult(out JobResult result))
+            {
+                Apply(result);
+                continue;
+            }
+
+            if (Stopwatch.GetTimestamp() > deadline)
+            {
+                return false;
+            }
+
+            // Yield rather than sleep: the job being waited on is microseconds long, and a
+            // Sleep(1) here would cost a frame to save a few spins.
+            Thread.Yield();
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Writes everything dirty, synchronously, on the calling thread.
     /// </summary>
     /// <remarks>
@@ -1683,8 +1777,10 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// bug in this milestone, and it is this method.
     /// </para>
     /// <para>
-    /// Safe to do inline: it is the sim thread, nothing else writes voxels from another thread,
-    /// and the whole 1,521-chunk fill measured 13 ms including serialisation.
+    /// Safe to do inline once the lane is clear: nothing else writes voxels from another thread,
+    /// and the whole 1,521-chunk fill measured 13 ms including serialisation. <b>The lane being
+    /// clear is not free, though</b> — see <see cref="DrainStoreLane"/>, which this waits on
+    /// first and which is the reason this can be called from an autosave timer at all.
     /// </para>
     /// </remarks>
     /// <returns>How many chunks and columns were written.</returns>
@@ -1693,6 +1789,21 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         if (_store is null) return (0, 0);
+
+        if (!DrainStoreLane())
+        {
+            // Refused rather than written beside whatever is in there. What giving up costs is
+            // this session's unsaved edits; what writing anyway costs is the file. A lane that has
+            // not moved in five seconds is a bug somewhere else, and it is reported as one.
+            FailedSaves++;
+            _onJobFaulted?.Invoke(
+                ChunkPos.Zero,
+                new TimeoutException(
+                    $"The store's serial lane still had {_storeJobsInFlight} job(s) after "
+                    + $"{DrainTimeoutSeconds:F0} s, so nothing was written. The store takes one "
+                    + "caller at a time."));
+            return (0, 0);
+        }
 
         // Everything still loaded and dirty, on top of whatever a failed or unsubmitted batch left
         // behind. Walking the live set rather than trusting the pending list is what makes this a
@@ -1717,7 +1828,30 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         _pendingChunkSaves.Clear();
         _pendingColumnSaves.Clear();
 
-        job.Run(CancellationToken.None);
+        try
+        {
+            job.Run(CancellationToken.None);
+        }
+        catch (Exception error)
+        {
+            // The same restore ApplySave does for the asynchronous twin, and it was missing here.
+            // The flags and the pending lists are cleared before the write — deliberately, so an
+            // edit arriving during it is not swallowed — so a throw after that point would have
+            // left the world marked as saved and never written. The synchronous path is the one
+            // an autosave timer and a quit both go through, which is where it would have shown.
+            FailedSaves++;
+
+            _pendingChunkSaves.AddRange(job.Chunks);
+            _pendingColumnSaves.AddRange(job.Columns);
+
+            foreach ((_, _, SkyColumn column) in job.Columns) column.MarkDirty();
+
+            foreach ((ChunkPos position, _) in job.Chunks) _savedChunks.Remove(position);
+            foreach ((int x, int z, _) in job.Columns) _savedColumns.Remove((x, z));
+
+            _onJobFaulted?.Invoke(ChunkPos.Zero, error);
+            return (0, 0);
+        }
 
         ChunksSaved += chunks;
         ColumnsSaved += columns;

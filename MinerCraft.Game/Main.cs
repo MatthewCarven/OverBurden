@@ -6,6 +6,7 @@ using MinerCraft.Core.Content;
 using MinerCraft.Core.Jobs;
 using MinerCraft.Core.Meshing;
 using MinerCraft.Core.Mining;
+using MinerCraft.Core.Persistence;
 using MinerCraft.Core.Physics;
 using MinerCraft.Core.Streaming;
 using MinerCraft.Core.Voxels;
@@ -13,6 +14,7 @@ using MinerCraft.Core.Worldgen;
 using MinerCraft.Game.Diagnostics;
 using MinerCraft.Game.Player;
 using MinerCraft.Game.Rendering;
+using MinerCraft.Persistence;
 
 namespace MinerCraft.Game;
 
@@ -57,6 +59,20 @@ public partial class Main : Node3D
     private PlayerController? _player;
     private MaterialTable? _materials;
     private bool _announcedSpawn;
+
+    /// <summary>The world file, or null for a run that saves nothing.</summary>
+    /// <remarks>
+    /// <b>Owned here rather than by the pipeline</b>, because it is read before the pipeline can
+    /// exist: the header carries the ID table, and the table has to be seeded into the registry
+    /// before a single material registers. Disposed after the pipeline, which writes through it.
+    /// </remarks>
+    private IWorldStore? _store;
+
+    private string _worldName = DefaultWorldName;
+    private bool _worldNamed;
+    private bool _persist = true;
+    private double _autosaveSeconds = DefaultAutosaveSeconds;
+    private double _sinceAutosave;
 
     private StreamingProfiler? _profiler;
     private float _flySpeed;
@@ -104,12 +120,40 @@ public partial class Main : Node3D
     /// <summary>Seconds until nothing at all was outstanding, or −1.</summary>
     private double _settledSeconds = -1.0;
 
+    /// <summary>The world a run opens when nothing says otherwise.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A directory per world under <c>user://worlds/</c>, settled here rather than defaulted.</b>
+    /// <c>user://</c> is Godot's per-user data directory and is the conventional answer; the extra
+    /// path segment is the part worth arguing. A second world — M6d's scratch arm, a "new game", a
+    /// backup — is then a new directory beside this one rather than a migration of a file sitting
+    /// at the root, and moving a world file later strands the world that was in it. WAL leaves
+    /// <c>-wal</c> and <c>-shm</c> sidecars next to the database, so a directory is what they
+    /// wanted anyway.
+    /// </para>
+    /// </remarks>
+    private const string DefaultWorldName = "default";
+
+    /// <summary>How often the dirty set is written even though nothing has unloaded.</summary>
+    /// <remarks>
+    /// <b>Unload is the write path and this is the backstop.</b> A player digging in one spot
+    /// never unloads the chunks they are digging, so without this the only writes are at quit and
+    /// a crash costs the session. Thirty seconds against <see cref="ChunkPipeline.SaveAll"/>
+    /// measured at 13 ms for the whole 1,521-chunk fill, where a real dirty set is tens of chunks.
+    /// </remarks>
+    private const double DefaultAutosaveSeconds = 30.0;
+
+    /// <summary>The seed a brand new world is created with.</summary>
+    /// <remarks>
+    /// Only ever used once per world. After that the world's own header decides, because an
+    /// unedited chunk is regenerated rather than stored — see <see cref="OpenWorld"/>.
+    /// </remarks>
+    private const ulong NewWorldSeed = 0x4D494E455243UL;
+
     public GameContent Content { get; } = new();
 
     public override void _Ready()
     {
-        LoadContent();
-
         _camera = GetNodeOrNull<FlyCam>("FlyCam");
 
         int margin = ApplyCommandLineOverrides();
@@ -117,11 +161,18 @@ public partial class Main : Node3D
         // After the overrides, not before: --skybrightness is a shader uniform set at build.
         _material = VoxelMaterial.Create(_skyBrightness);
 
-        var settings = new WorldGenSettings { Seed = 0x4D494E455243UL };
-        if (_caveLatticeStep is int caveStep)
+        // Before the generator and before content, because an existing world decides both. Its
+        // header carries the settings the unstored terrain has to keep regenerating from, and its
+        // ID table has to reach the registry before a single material registers.
+        if (!OpenWorld(out WorldGenSettings settings))
         {
-            settings = settings with { CaveLatticeStep = caveStep };
+            // Refused rather than played without saving. Carrying on with persistence quietly off
+            // is an hour of digging lost to a line in the log, which is the failure this whole
+            // milestone is about.
+            GetTree().Quit(1);
+            return;
         }
+
         _generator = new WorldGenerator(settings, BuildStrata());
         _materials = MaterialTable.From(Content.Materials);
 
@@ -139,7 +190,20 @@ public partial class Main : Node3D
             resultBudget: _applyBudget,
             ambientOcclusion: _ambientOcclusion,
             lightBudget: _lightBudget,
-            light: _lightInMergeKey);
+            light: _lightInMergeKey,
+            store: _store);
+
+        // Before any chunk can be written, which is what replaces a world-spanning transaction:
+        // numeric IDs are only allocated during content load, so the table on disk is already the
+        // one every blob written after this points at. Rewritten on every open rather than only
+        // for a new world, because installing a mod extends the table with entries the stored
+        // header does not have — and a blob referring to an ID the header has never heard of is
+        // exactly the desynchronisation the single-file layout exists to prevent.
+        _pipeline.WriteWorldHeader(new WorldHeader
+        {
+            Settings = settings,
+            MaterialIdTable = Content.Materials.ExportIdTable(),
+        });
 
         SetUpPlayer(_generator);
 
@@ -379,7 +443,46 @@ public partial class Main : Node3D
                 case "terminal" when float.TryParse(value, out float terminal):
                     _terminalSpeed = terminal;
                     break;
+
+                // Which world under user://worlds/ this run opens. Naming one is also what puts
+                // persistence back on for a profile run, which is how M6d measures the load path
+                // without a measurement digging up the world somebody plays.
+                case "world":
+                    if (IsUsableWorldName(value))
+                    {
+                        _worldName = value;
+                        _worldNamed = true;
+                    }
+                    else
+                    {
+                        // Said out loud rather than fallen back from quietly: opening the default
+                        // world when a scratch one was asked for is how a measurement run digs up
+                        // the world somebody plays.
+                        GD.PushError($"--world='{value}' is not a usable directory name; ignored.");
+                    }
+
+                    break;
+
+                // No world file at all: the pipeline takes a null store, every chunk comes from
+                // the seed, and nothing is written. The world M2d and M5d measured.
+                case "nosave":
+                    _persist = false;
+                    break;
+
+                case "autosave" when double.TryParse(value, out double autosave):
+                    _autosaveSeconds = autosave;
+                    break;
             }
+        }
+
+        // A run whose purpose is a measurement or a screenshot prop does not open the played
+        // world. Two reasons and they are separate: --mine would carve it up, and a run that
+        // *loads* what an earlier one saved is not comparable with M2d's figures — the whole
+        // streaming shape changes when 1,521 generates become 1,521 serial reads. --world= is the
+        // opt back in, deliberately explicit.
+        if ((profile || _debugLamp) && !_worldNamed)
+        {
+            _persist = false;
         }
 
         if (profile)
@@ -728,7 +831,50 @@ public partial class Main : Node3D
             return;
         }
 
+        Autosave(delta);
         Report(delta);
+    }
+
+    /// <summary>Writes the dirty set on a timer, so a crash costs a minute rather than a session.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Synchronous, on the sim thread, deliberately.</b> <see cref="ChunkPipeline.SaveAll"/>
+    /// waits for the serial lane to come out of the store first and then writes inline; the
+    /// asynchronous path exists and is what an unload uses, but a timer that hands work to a queue
+    /// leaves the crash window it was built to close still open.
+    /// </para>
+    /// <para>
+    /// Nothing here is conditional on having edited: <c>SaveAll</c> with a clean world walks two
+    /// lists and writes nothing, which is what
+    /// <c>SaveAllIsIdempotentAndCheapWhenNothingIsDirty</c> pins.
+    /// </para>
+    /// </remarks>
+    private void Autosave(double delta)
+    {
+        if (_pipeline is null || _store is null || _autosaveSeconds <= 0.0)
+        {
+            return;
+        }
+
+        _sinceAutosave += delta;
+        if (_sinceAutosave < _autosaveSeconds)
+        {
+            return;
+        }
+
+        _sinceAutosave = 0.0;
+
+        long before = Stopwatch.GetTimestamp();
+        (int chunks, int columns) = _pipeline.SaveAll();
+
+        // Only when it did something. A line every thirty seconds saying nothing happened is how
+        // a log stops being read.
+        if (chunks > 0 || columns > 0)
+        {
+            GD.Print(
+                $"M6: autosaved {chunks} chunk(s) and {columns} column(s) in "
+                + $"{Milliseconds(before, Stopwatch.GetTimestamp()):F1} ms");
+        }
     }
 
     private static double Milliseconds(long from, long to) =>
@@ -1318,6 +1464,31 @@ public partial class Main : Node3D
 
         GD.Print($"M5c: {LightSummary()}");
         GD.Print($"M5d: {FillLine().TrimEnd()}");
+
+        if (_store is not null)
+        {
+            GD.Print($"M6: {StoreSummary()}");
+        }
+    }
+
+    /// <summary>What the store has done this session, each counter beside its denominator.</summary>
+    /// <remarks>
+    /// <b>"Loaded" against tracked is the number M6b's crossover worry turns on</b>, and it is the
+    /// only one that says whether this run took the load path at all — a world with nothing saved
+    /// generates throughout and reports zero, which is a pass rather than a silence. Pending and
+    /// failed are the pair that says a store is in trouble: pending that climbs and stays up is a
+    /// lane that is not keeping up, and failed is a disk that is refusing.
+    /// </remarks>
+    private string StoreSummary()
+    {
+        ChunkStreamer streamer = _pipeline!.Streamer;
+
+        return $"{_pipeline.ChunksLoaded} loaded / {streamer.TrackedCount} tracked, "
+               + $"{_pipeline.ChunksSaved} chunks + {_pipeline.ColumnsSaved} columns saved "
+               + $"({_pipeline.BytesSaved / 1024.0:F0} KiB), "
+               + $"{_pipeline.SavedChunkCount} chunks in the world, "
+               + $"{_pipeline.ColumnsRestored} columns restored, "
+               + $"{_pipeline.PendingSaves} pending, {_pipeline.FailedSaves} failed";
     }
 
     /// <summary>
@@ -1349,10 +1520,123 @@ public partial class Main : Node3D
                + $"light {(_pipeline.LightInFlight ? "in flight" : "settled")}";
     }
 
-    private void LoadContent()
+    /// <summary>
+    /// Opens the world file, restores what it remembers, and loads content against it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The one ordering trap in M6b-3.</b> Open the store, read the header, load content seeded
+    /// with its ID table, and only then let anything register a material.
+    /// <see cref="Registry{T}.SeedIdTable"/> throws if anything registered first, which is the
+    /// right failure and a loud one — the alternative is numeric IDs handed out against a
+    /// different table from the one every stored blob was written with, and stone-coloured air.
+    /// </para>
+    /// <para>
+    /// <b>An existing world's settings replace the defaults rather than sitting beside them.</b>
+    /// An unedited chunk is regenerated rather than stored, and it regenerates from all thirteen
+    /// fields — so a world reopened by a build whose defaults have moved comes back as different
+    /// terrain wrapped around the saved chunks. That is the whole reason the header carries the
+    /// record rather than the seed.
+    /// </para>
+    /// </remarks>
+    /// <returns>False if the world could not be opened, in which case the run is refused.</returns>
+    private bool OpenWorld(out WorldGenSettings settings)
+    {
+        settings = NewWorldSettings();
+
+        if (!_persist)
+        {
+            LoadContent(null);
+            GD.Print("M6: no world file — nothing this run does will be saved");
+            return true;
+        }
+
+        string path = WorldPath();
+
+        try
+        {
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
+
+            var store = new SqliteWorldStore(path);
+            _store = store;
+
+            byte[]? header = store.ReadWorldHeader();
+
+            // Null is how "new world" is detected, and it is the only place that question is
+            // asked. A world file that exists but holds no header is a world that was created and
+            // never written to, which is the same thing.
+            if (header is null)
+            {
+                LoadContent(null);
+                GD.Print($"M6: new world at {path}, seed 0x{settings.Seed:X}");
+                return true;
+            }
+
+            WorldHeader world = WorldHeaderBlob.Read(header);
+            settings = world.Settings;
+
+            if (_caveLatticeStep is not null)
+            {
+                // Ignored rather than applied, because the header is what the stored chunks were
+                // generated against. --cavestep is an A/B seam and belongs to a run with its own
+                // world or none at all.
+                GD.PushWarning(
+                    "--cavestep is ignored for an existing world: its header decides how the "
+                    + "unstored terrain regenerates. Use --world=<name> for a scratch world.");
+            }
+
+            LoadContent(world.MaterialIdTable);
+
+            GD.Print(
+                $"M6: opened {path} — seed 0x{settings.Seed:X}, "
+                + $"{world.MaterialIdTable.Count} material id(s) restored");
+
+            return true;
+        }
+        catch (Exception error)
+        {
+            // Loud, and fatal. A world that cannot be opened is not a world that should be played
+            // beside: generating over the top of it and saving nothing would look like a fresh
+            // start and read, on the next successful open, as a world that lost a session.
+            GD.PushError($"M6: cannot open the world at {path} — {error.Message}");
+
+            _store?.Dispose();
+            _store = null;
+
+            return false;
+        }
+    }
+
+    /// <summary>Where this run's world file lives. See <see cref="DefaultWorldName"/>.</summary>
+    private string WorldPath() =>
+        ProjectSettings.GlobalizePath($"user://worlds/{_worldName}/world.db");
+
+    /// <summary>Whether <paramref name="name"/> can be a directory under <c>user://worlds/</c>.</summary>
+    /// <remarks>
+    /// <b>Not a security boundary — a single-player game's own command line is not an attacker.</b>
+    /// It is there because the failure it prevents is silent: a name carrying a separator puts the
+    /// world somewhere other than where the next run will look for it, and the symptom is a world
+    /// that opens empty rather than an error.
+    /// </remarks>
+    private static bool IsUsableWorldName(string name) =>
+        name.Length > 0
+        && name.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) < 0
+        && name is not "." and not "..";
+
+    /// <summary>The settings a world is created with, before it has a header of its own.</summary>
+    private WorldGenSettings NewWorldSettings()
+    {
+        var settings = new WorldGenSettings { Seed = NewWorldSeed };
+
+        return _caveLatticeStep is int step
+            ? settings with { CaveLatticeStep = step }
+            : settings;
+    }
+
+    private void LoadContent(IReadOnlyList<Identifier>? savedMaterialIds)
     {
         string modsPath = ProjectSettings.GlobalizePath("res://mods");
-        var result = Content.Load(new DirectoryContentSource(modsPath));
+        var result = Content.Load(new DirectoryContentSource(modsPath), savedMaterialIds);
 
         foreach (string error in result.Errors)
         {
@@ -1372,8 +1656,22 @@ public partial class Main : Node3D
         // Order matters: stop the pipeline submitting, then stop the workers, then release
         // the RIDs. Freeing instances while a mesh result could still arrive would hand the
         // renderer a mesh for a chunk that has just been torn down.
+        //
+        // The pipeline first is also what saves the world: Dispose waits for the serial lane to
+        // come out of the store and then writes everything dirty, synchronously. Disposing the
+        // scheduler first would drop whatever was queued on that lane, and JobResult's contract
+        // says a dropped job reports Dropped rather than running — which for a save is a deleted
+        // tunnel. This is the single most likely way to ship a data-loss bug in M6.
         _pipeline?.Dispose();
         _scheduler?.Dispose();
+
+        // After the dispose rather than before it, so the figures are what was actually written
+        // rather than what was about to be. Printed at all because "did the quit path run?" is the
+        // question this milestone most needs answered from a log a day later.
+        if (_store is not null && _pipeline is not null)
+        {
+            GD.Print($"M6: world written on quit — {StoreSummary()}");
+        }
 
         _highlight?.Dispose();
         _highlight = null;
@@ -1389,5 +1687,9 @@ public partial class Main : Node3D
         _instances.Clear();
         _pipeline = null;
         _scheduler = null;
+
+        // Last, and after the pipeline, which writes through it.
+        _store?.Dispose();
+        _store = null;
     }
 }
