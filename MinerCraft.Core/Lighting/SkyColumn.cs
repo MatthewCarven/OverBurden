@@ -73,6 +73,41 @@ public sealed class SkyColumn
 
     public int ChunkZ { get; }
 
+    /// <summary>
+    /// At least one column's open height has moved away from its analytic seed, so this
+    /// structure can no longer be reconstructed from the world seed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The mirror of <see cref="Streaming.StreamedChunk.HasEdits"/>, and exactly the set M6
+    /// has to write. <b>Set inside <see cref="OnVoxelChanged"/> rather than by its caller</b>,
+    /// because a caller that forgets loses a shaft's lighting with nothing failing to say so —
+    /// the same argument that puts <c>HasEdits</c> inside <c>SetVoxel</c>.
+    /// </para>
+    /// <para>
+    /// <b>Its test is "the height moved", not "a voxel changed", and that is the tight one.</b>
+    /// <see cref="OnVoxelChanged"/> returns true only when the open height actually shifts, so a
+    /// column dug out well below its top is still identical to what <see cref="Seed"/> would
+    /// produce and is correctly never written. Digging is most of this game, so that distinction
+    /// is most of the columns.
+    /// </para>
+    /// <para>
+    /// Never cleared here. Whether this column is in step with what is on disk is the store's
+    /// question and a different flag, for the reason M6-PLAN records: one flag carrying both
+    /// "differs from the seed" and "differs from disk" loses exactly the last edits before an
+    /// unload.
+    /// </para>
+    /// </remarks>
+    public bool HasEdits { get; private set; }
+
+    /// <summary>Marks this column as edit-derived. For M6's restore, which rebuilds one.</summary>
+    /// <remarks>
+    /// A restored column is edit-derived by definition — it was only written because it had
+    /// moved — but it arrives through <see cref="SetOpenAboveY"/>, which is a plain setter used
+    /// by tests as well and has no business inferring intent from being called.
+    /// </remarks>
+    public void MarkEdited() => HasEdits = true;
+
     /// <summary>How deep an unsupported downward scan may go before giving up.</summary>
     /// <remarks>
     /// <b>Not a correctness bound — the loaded region already is one</b>, because an unloaded
@@ -139,6 +174,7 @@ public sealed class SkyColumn
             if (changed.Y < openAbove) return false;
 
             _openAboveY[index] = checked((short)(changed.Y + 1));
+            HasEdits = true;
             return true;
         }
 
@@ -154,7 +190,11 @@ public sealed class SkyColumn
         }
 
         _openAboveY[index] = checked((short)y);
-        return y != openAbove;
+
+        if (y == openAbove) return false;
+
+        HasEdits = true;
+        return true;
     }
 
     /// <summary>

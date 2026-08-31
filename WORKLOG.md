@@ -1,5 +1,175 @@
 # MinerCraft — Worklog
 
+## 2026-08-31 — M6a done: the blob, the world file, and a comment that had been wrong since M1
+
+`MinerCraft.Core/Persistence/` holds `ChunkBlob`, `SkyColumnBlob`, `WorldHeader` and the shared
+frame. Suite **559 → 614**. No SQLite, no file, no pipeline — bytes in, bytes out, which is the
+whole point of doing this part first.
+
+### The defect the truncation test found, and it was real
+
+`ATruncatedColumnIsRefused` cuts a blob to every possible length and expects a refusal at each.
+Two of them passed the blob through: **exactly the last five bytes removed, in both the column and
+the world header.**
+
+The mechanism is worth keeping. Raw deflate carries **no integrity check at all**. Cut a stream
+after the last byte the decompressor actually needed — the four-byte Adler and the byte carrying
+the end-of-stream marker — and the inflater has already emitted every byte it was going to, so it
+reports a clean end of stream and *every* check passes. Removing **fewer** bytes is caught, because
+the trailer is then present and wrong. The failure was non-monotonic in the truncation length,
+which is why a spot check would have missed it and the exhaustive loop did not.
+
+The fix is two things, and they are complementary rather than alternatives:
+
+- **The frame now declares the stored length as well as the uncompressed one**, so truncation is
+  caught by arithmetic before decompression starts. The class comment already claimed truncation
+  was *"caught by arithmetic rather than by a decompressor error that could mean anything"* — it
+  was only true on the uncompressed branch.
+- **zlib rather than raw deflate**, for six bytes, so an Adler-32 covers bit-rot in the middle of
+  an intact blob, which no length can catch.
+
+**And the battery's own recipe for the second one was mis-designed**, which is worth recording
+because it read as a pass. Swapping only the *reader* to raw deflate fails 17 tests — but that
+proves the two halves agree, not that the checksum does anything, because `DeflateStream` cannot
+read a zlib header at all. The honest recipe swaps **both** sides, leaving the format
+self-consistent and removing only the integrity check. Re-run that way it fails 5, including
+`CorruptionInsideAnIntactBlobIsRefused` — a test added specifically because, with the stored-length
+check in place, nothing else would have failed and the six bytes would have been decorative.
+
+### `Compact()` is retired from the save path, and M1's comment is corrected
+
+`VoxelChunk.Compact` has carried *"this runs on serialisation"* since M1 **with no caller at all**.
+M6-PLAN flagged it as a prediction rather than a decision and said to measure it. Measured over
+2,048 real chunks in Release, `dotnet run --project MinerCraft.Bench -c Release -- --blob`:
+
+```
+arm                     write µs   read µs     raw B  stored B   ratio  uniform  B/varied
+generated, compact         146.2      13.7      1980        90    21.9     1404       229
+generated, verbatim         14.7      11.8      1980        90    21.9     1404       229
+carved, compact            269.1      21.3      3170       124    25.6      827       189
+carved, verbatim            19.9      21.3      3170       124    25.6      827       189
+stripped, compact          111.2       6.7      1323        60    22.0     1689       216
+stripped, verbatim          11.5      11.4      2014        65    31.0     1404       148
+```
+
+- **On a carved chunk — the typical save — Compact costs 13× the entire write and saves nothing.**
+- **On the case it exists for, 10× the write for 7.5%** of a blob already compressed 22×. Roughly
+  100 µs of CPU for five bytes.
+
+So `ChunkBlob.Write` defaults to `compact: false`, the flag stays as the bench's A/B arm, and
+`Compact`'s doc comment now says what was measured instead of what was predicted. **Revisit
+trigger** recorded on it: a chunk edited across enough sessions to accumulate dead palette entries
+and widen its packing — the palette never shrinks on its own and 256 entries converts it to 64 KB
+of direct storage. Unreachable with five shipped materials; a heavily modded world is where it
+would first bite.
+
+**The first measurement of this was wrong, and the fixture was the trap.** The original edit pass
+carved spheres of air, and carving air into a chunk that already holds air **leaves the palette
+exactly as it was** — so there were no dead entries to drop and the bench reported "saves 0" from a
+fixture that could not have saved anything. A dead entry appears only when the last voxel of some
+material leaves the chunk, which is what the `stripped` arm now does to 644 of the 2,048. Same
+family as M5c-1's shaft test, which dug a one-voxel bore that was never a sky source: **the
+scenario made both arms agree, and the numbers themselves could not show it.**
+
+### Two numbers M6b should read against its plan
+
+- **A save file is much smaller than the plan estimated: 189 B per varied chunk**, so 185 KiB per
+  1,000 stored chunks and **18 MiB per 100,000**. M6-PLAN guessed ~1 KB a chunk, so it was 5×
+  pessimistic — and it was pessimistic about the half it costed, which is the usual direction.
+- **Deserialisation is 21 µs a chunk, not the 0.1–0.3 ms the plan's crossover table assumed.**
+  That table is M6's headline worry — that a heavily-dug world could be slower to enter than a
+  generated one — and it is now half-measured. The remaining half is SQLite's per-query overhead,
+  which is M6b's to take. If that lands near 30 µs the crossover moves past the whole 1,521-chunk
+  fill and the worry dissolves; the plan should not be treated as settled either way until the
+  other half exists.
+
+### The world header carries thirteen fields, and a reflection test guards them
+
+`WorldGenSettings` is not a seed — it is thirteen properties, and an unedited chunk is not stored
+but **regenerated from all of them**. Change the default `CaveLatticeStep` in a later build and the
+unstored terrain around a saved base comes back a different shape with the saved chunks hanging in
+it. All thirteen are written explicitly.
+
+**Explicit binary rather than JSON, and the failure mode is the reason.** A JSON reader given a
+document missing a field fills in the default and carries on, which is precisely the silent
+world-reshaping above. A length-checked binary layout refuses instead.
+
+`TheSettingsLayoutCoversEveryPropertyOnTheRecord` counts the record's properties by reflection
+against the constant the serialiser was written to. Adding a fourteenth field and forgetting to
+write it would otherwise leave the round trip **green** — record equality would be comparing a
+default against a default — while every reload silently reset it.
+
+### Non-negotiable 2 is tested through bytes for the first time in five milestones
+
+`Registry.ExportIdTable` and `SeedIdTable` were built at M1, documented as *"the ID table to write
+into the world file"*, and had never had a caller. `AWorldSurvivesAModBeingRemovedAndReinstalled`
+now runs the whole loop through serialised bytes: save with a mod installed, remove it, reopen from
+the bytes alone — placeholders retaining their identifiers — reinstall, reopen, exactly as it was.
+
+Non-negotiable 3 gets a guard rather than an assumption: **entry 0 must be `minercraft:air`**,
+refused at read *and* at write. Two things depend on air being 0 — a zero-initialised array being a
+valid empty chunk, and the uniform fast path testing emptiness against a constant — so a world file
+where it is false does not make the world wrong, it makes a constant the whole engine assumes into
+a lie. Refused at write as well, because a table that wrong reaching disk is a bug upstream and
+catching it there names the session that produced it rather than the one that later failed to open
+the world.
+
+M3c's recorded item is closed at the same time: *"`MaterialTable` indexes raw, so a material ID
+past its `Count` throws `IndexOutOfRangeException`… the fix is validating chunk contents at load:
+M6."* `ChunkBlob.Read` takes the table and validates every material in all three storage kinds —
+**required, not a separate call the caller might skip**, which is the M5c-2 shape of hole.
+
+### The oracle, and the two things that break its symmetry
+
+Round-trip identity, **voxel for voxel and not representation for representation** — a compacted
+chunk may legally come back uniform, and asserting on `Kind` would fail on working code.
+
+Its limit is stated rather than trusted: **a round trip runs the same writer and the same reader,
+so a symmetric bug passes.** A field written to the wrong offset and read from the wrong offset
+agrees with itself perfectly. So two tests share no code with the half they check — a written blob
+decoded by hand with BCL only, and a hand-built blob handed to the reader. The first is what pins
+the one mistake the type system cannot prevent: **writing the palette as per-chunk indices rather
+than world material IDs**, which round-trips flawlessly inside one session and decodes to the wrong
+materials the moment a mod moves.
+
+One thing that fell out of writing it: **`Compact` reorders the palette into scan order**, so air
+moves from entry 0 to last. That is the observable difference between the two arms and is now
+pinned, because it is what makes "the oracle is the voxels" a claim with teeth rather than a
+slogan.
+
+### The battery: 19 recipes, and the two that were not straightforward catches
+
+- **18 caught outright**, most by exactly the test written for them.
+- **One green: the packing-width check in `VoxelChunk.FromPalettised`.** `ChunkBlob.ReadPalettised`
+  validates the width before calling, so the factory's own check is unreachable through the blob
+  path — the M4a zeroable-contact-epsilon category, belt and braces rather than a hole. **Both are
+  kept**, because a validating factory for untrusted bytes must not depend on its caller having
+  checked, and it is not decorative: `SetWidth(3)` computes `TrailingZeroCount(3) = 0` and a value
+  mask of 7, which is a silently wrong packing rather than a crash. Four tests now reach
+  `FromPalettised` directly, which turns an unreachable duplicate into a tested one — and re-running
+  the recipe now fails.
+- **One mis-designed**, described above.
+
+### Also
+
+- **`SkyColumn` gains `HasEdits`, set inside `OnVoxelChanged` rather than by its caller** — a caller
+  that forgets loses a shaft's lighting with nothing failing to say so, the same argument that puts
+  `HasEdits` inside `SetVoxel`. Its test is *"the height moved"*, not *"a voxel changed"*, which is
+  the tight one: a column dug out well below its top is still identical to what `Seed` produces and
+  is correctly never written. Digging is most of this game, so that is most of the columns.
+- **A restored column comes back already marked edited.** It was only written because its heights
+  moved, so coming back pristine would mean being dropped unwritten on the next unload — losing the
+  shaft on the *second* visit rather than the first, which is a much worse bug to be handed.
+- **Blobs carry their own position and it is checked on read**, so a blob filed under the wrong key
+  is a loud refusal instead of terrain appearing somewhere it does not belong. Twelve bytes, and it
+  makes a blob self-describing under `sqlite3` on the command line — which is half of why DESIGN
+  calls SQLite the pragmatic choice.
+- **`JobSchedulerTests.AThrowingJobFaultsWithoutTakingTheWorkerDownWithIt` flaked once more** during
+  this work and passed on every rerun. Third recorded sighting. It is load-sensitive by
+  construction — one worker, a wall-clock `Patience` — and during a mutation battery it is actively
+  harmful, because "1 failed" reads as "the recipe was caught". Still worth pinning down before the
+  next one.
+
 ## 2026-08-31 — M6 planned: the milestone where unloading becomes a write
 
 [docs/M6-PLAN.md](docs/M6-PLAN.md), split M6a–M6d. No code. **559 tests, unchanged.**

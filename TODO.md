@@ -1864,7 +1864,7 @@ Played with the entangled miner. **"Looks good to me."**
 - [ ] Baking AO into the light grid. Different frequencies — AO is a 0.25 m effect and the grid
       is 1 m — and merging them loses exactly the detail AO exists to add.
 
-### M6 — v0.1 playable sandbox ← **next. Planned 2026-08-31, not started.**
+### M6 — v0.1 playable sandbox ← **M6a done 2026-08-31. M6b is next.**
 
 Planned into four parts in [docs/M6-PLAN.md](docs/M6-PLAN.md). **Read it before starting.** The
 structural point: every chunk so far has been recoverable from nothing, so `Forget` could delete
@@ -1927,44 +1927,108 @@ because regenerating a chunk that had a blob is a silent, total loss of everythi
       job drops or faults**. Conflating them loses exactly the last edits before an unload —
       the most recent work, and only sometimes.
 
-#### M6a — The blob and the world file
+#### M6a — The blob and the world file ✅ **done 2026-08-31, 614 tests passing**
 
-- [ ] `VoxelChunk` ⇄ bytes across all three storage kinds. Pure Core, no SQLite, no file.
-- [ ] **A version byte first, and an unknown version refused rather than read.** Everything else
+`MinerCraft.Core/Persistence/` — `ChunkBlob`, `SkyColumnBlob`, `WorldHeader`, `BlobFormat`.
+Suite 559 → 614. Nineteen break-recipes, eighteen caught outright; the two that were not
+straightforward are written up below because neither was a plain pass.
+
+- [x] `VoxelChunk` ⇄ bytes across all three storage kinds. Pure Core, no SQLite, no file.
+- [x] **A version byte first, and an unknown version refused rather than read.** Everything else
       in M6 is rewritable in an afternoon; a format is not, once anybody has a saved world — and
       the person who has one first is Matthew, mid-milestone.
-- [ ] **The palette is written as world numeric IDs, not per-chunk indices.** That mistake
+- [x] **The palette is written as world numeric IDs, not per-chunk indices.** That mistake
       round-trips perfectly within one session and the type system cannot prevent it, so it goes
       on the break-recipe list.
-- [ ] **Deflate, BCL only, so not a dependency.** A 4-bit palettised chunk is 16,384 B + palette;
-      direct is 64 KB and should never occur. **Estimate, labelled: 10–50× on this data, ~1 KB a
-      chunk, a few hundred KB a session** — which says the save file is not the thing to be
-      nervous about, so the nerves belong on the read side.
-- [ ] **`Compact()` gets its first caller ever, and nobody has costed it.** Its comment has said
-      *"this runs on serialisation"* since M1 with nothing calling it: a **prediction, not a
-      decision**. ~0.13 ms a chunk estimated, against a 2× blob saving that deflate mostly eats
-      anyway. **Measure it at M6a and either keep it or correct the comment** — M4a's
-      zeroable-epsilon family.
-- [ ] **`SkyColumn` ⇄ bytes, and the argument is not size.** 2,048 B a column. A column's open
+- [x] **zlib, BCL only, so not a dependency — and zlib rather than raw deflate, which a truncation
+      test is what said.** Raw deflate carries **no integrity check at all**: cut a blob after the
+      last byte the decompressor needed — the four-byte Adler and the byte holding the
+      end-of-stream marker — and it inflates to exactly the declared length and reports a clean
+      end, so every check passes. Removing *fewer* bytes is caught. **Non-monotonic in the
+      truncation length, which is why the exhaustive loop found it and a spot check would not.**
+- [x] **The frame declares the stored length as well as the uncompressed one.** That is what
+      actually catches truncation, before decompression starts. The two mechanisms are
+      complementary: the length catches truncation, the Adler-32 catches bit-rot inside an intact
+      blob. `CorruptionInsideAnIntactBlobIsRefused` exists because with the length check in place
+      nothing else would have failed and the six bytes would have been decorative.
+- [x] **Measured, and the plan was 5× pessimistic: 189 B per varied chunk**, so 185 KiB per 1,000
+      stored chunks and **18 MiB per 100,000**. Compression 22–26×. The plan estimated ~1 KB a
+      chunk. **So the save file really is not the thing to be nervous about** — see the read-side
+      number now recorded under M6b.
+- [x] **`Compact()` is measured, and it does not run on serialisation. The M1 comment is
+      corrected.** On a carved chunk — the typical save — it costs **13× the entire write and
+      saves nothing**, because carving air into a chunk that already holds air leaves the palette
+      exactly as it was. On the case it exists for, a chunk that has lost the last voxel of some
+      material, **10× the write for 7.5%** of a blob already compressed 22×: about 100 µs for five
+      bytes. `ChunkBlob.Write` defaults to `compact: false`; the flag stays as the bench's A/B arm.
+      - [x] **The first measurement was wrong and the fixture was the trap.** The edit pass carved
+            spheres of air, which cannot create a dead palette entry, so the bench reported
+            "saves 0" from a fixture that could not have saved anything. The `stripped` arm now
+            removes a material outright from 644 of 2,048 chunks. **Same family as M5c-1's
+            one-voxel bore: the scenario made both arms agree and the numbers could not show it.**
+      - [ ] **Revisit trigger on `Compact`:** a chunk edited across enough sessions to accumulate
+            dead palette entries and widen its packing. The palette never shrinks on its own and
+            256 entries converts a chunk to 64 KB of direct storage. Unreachable with five shipped
+            materials; a heavily modded world is where it would first bite.
+- [x] **`Compact` reorders the palette into scan order**, so air moves from entry 0 to last. The
+      observable difference between the two arms, and now pinned — it is what gives "the oracle is
+      the voxels, not the representation" teeth rather than leaving it a slogan.
+- [x] **`SkyColumn` ⇄ bytes, and the argument is not size.** 2,048 B a column. A column's open
       height is the topmost opaque voxel **across all Y**, so re-deriving it needs chunks the
       2–3 chunk vertical radius does not load — **the only derived data here that genuinely
       cannot be re-derived**. Skipped, a reloaded shaft seeds from the *pre-dig* surface, every
       cell fails `IsCellOpenToSky`, and the shaft is dark for a reason nothing on screen explains.
       **Loading a chunk without its column is worse than loading neither.**
-- [ ] **A column needs its own dirty bit**, the mirror of `HasEdits`. `OnVoxelChanged` returning
+- [x] **A column needs its own dirty bit**, the mirror of `HasEdits`. Built, and **set inside
+      `OnVoxelChanged` rather than by its caller** — a caller that forgets loses a shaft's
+      lighting with nothing failing to say so. A restored column comes back already marked,
+      because coming back pristine would drop it unwritten on the next unload and lose the
+      shaft on the *second* visit rather than the first. `OnVoxelChanged` returning
       true is the exact test — it returns true only when the height actually moved, so a column
       dug below its top is unchanged from its analytic seed and correctly not written.
-- [ ] **The column save hook is `ReleaseColumn`, not `Forget`** — two hooks on two lifetimes,
+- [ ] M6b: **the column save hook is `ReleaseColumn`, not `Forget`** — two hooks on two lifetimes,
       because a column is refcounted on (x, z) and survives the vertical unload.
-- [ ] Refuse, don't repair: unknown version, truncated blob, **material ID past `MaterialTable`'s
+- [x] Refuse, don't repair: unknown version, truncated blob, **material ID past `MaterialTable`'s
       `Count`** (M3c's recorded item, *"the fix is validating chunk contents at load: M6"*), and
       **an ID table whose entry 0 is not `minercraft:air`** — non-negotiable 3 is a constant the
       whole engine assumes, and a world file where it is false makes it a lie.
-- [ ] **Oracle: round-trip identity, voxel for voxel — not representation for representation.** A
+- [x] **Oracle: round-trip identity, voxel for voxel — not representation for representation.** A
       compacted chunk may legally come back uniform, and asserting on `Kind` would fail on working
       code (M3b's shape, an oracle wrong in the subject's favour). **Its limit: the same writer
       and reader agree with themselves, so a symmetric offset bug passes.** The complement is a
       hand-constructed blob asserted byte for byte, one per storage kind.
+
+##### What M6a settled that M6b should read first
+
+- [x] **Non-negotiable 2 is tested through bytes for the first time in five milestones.**
+      `ExportIdTable` / `SeedIdTable` were built at M1 and had never had a caller; the whole loop
+      now runs through serialised bytes — save with a mod, remove it, reopen from the bytes alone,
+      reinstall, reopen, exactly as it was.
+- [x] **Non-negotiable 3 gets a guard: entry 0 must be `minercraft:air`, refused at read *and* at
+      write.** Refusing at write too, because a table that wrong reaching disk is a bug upstream,
+      and catching it there names the session that produced it rather than the one that later
+      failed to open the world.
+- [x] **`WorldGenSettings` is thirteen properties, not a seed, and all thirteen are written.** An
+      unedited chunk is not stored but *regenerated* from all of them; change the default
+      `CaveLatticeStep` in a later build and the unstored terrain around a saved base comes back a
+      different shape. **Explicit binary rather than JSON, and the failure mode is the reason** — a
+      JSON reader given a missing field fills in the default and carries on, which is exactly that
+      silent reshaping. A reflection test counts the record's properties against the constant the
+      serialiser was written to, because adding a fourteenth field and forgetting it would leave
+      the round trip **green**: record equality would compare a default against a default.
+- [x] **Blobs carry their own position and it is checked on read**, so a blob filed under the wrong
+      key is a loud refusal rather than terrain appearing somewhere it does not belong.
+- [x] **The battery's one green recipe is belt-and-braces, not a hole.** `ChunkBlob.ReadPalettised`
+      validates the packing width before calling `VoxelChunk.FromPalettised`, so the factory's own
+      check is unreachable through the blob path — M4a's zeroable-epsilon category. **Both kept**,
+      because a validating factory for untrusted bytes must not depend on its caller, and it is not
+      decorative: `SetWidth(3)` computes `TrailingZeroCount(3) = 0` and a value mask of 7, a
+      silently wrong packing rather than a crash. Four tests now reach the factory directly, which
+      turns an unreachable duplicate into a tested one.
+- [x] **One battery recipe was mis-designed and read as a pass.** Swapping only the *reader* to raw
+      deflate fails 17 tests — but that proves the halves agree, not that the checksum does
+      anything, since `DeflateStream` cannot read a zlib header at all. Swapping **both** sides is
+      the honest recipe; re-run that way it fails 5, including the corruption test.
 
 #### M6b — The store, the lifetime, and the load path ← **where the surprises are**
 
@@ -1983,6 +2047,12 @@ because regenerating a chunk that had a blob is a silent, total loss of everythi
       crossover is ~890 chunks; at 0.3 ms it is ~300. **So a world dug into heavily can be slower
       to enter than one generated from scratch**, and the crossover is well inside what a real
       base produces. First thing to measure at M6d.
+      - [x] **Half-measured at M6a, and in the reassuring direction: deserialisation is 21 µs a
+            chunk, not the 0.1–0.3 ms this table assumed.** The remaining half is SQLite's
+            per-query overhead, which is M6b's to take. If that lands near 30 µs the crossover
+            moves past the whole 1,521-chunk fill and the worry dissolves — but **it is not
+            settled either way until the other half exists**, so do not retire the concern on one
+            number.
 - [ ] **Named and not built: batched loads** — one job, one query, many chunks, since SQLite's
       per-statement overhead dominates a 16 KB blob read. The other lever, parallel reads under
       WAL, is the worse one: it contends for the eight workers generation already saturates and

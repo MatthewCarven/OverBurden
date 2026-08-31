@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using MinerCraft.Core.Content;
 
 namespace MinerCraft.Core.Voxels;
@@ -240,9 +241,29 @@ public sealed class VoxelChunk
     /// only one material survives.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Never called from an edit.</b> Detecting that a material has left a chunk needs a
-    /// full 32,768-voxel scan, and a pick swing must not pay for that. This runs on
-    /// serialisation, or when something explicitly asks.
+    /// full 32,768-voxel scan, and a pick swing must not pay for that.
+    /// </para>
+    /// <para>
+    /// <b>And not called from serialisation either, which this comment claimed until M6a
+    /// measured it.</b> "This runs on serialisation" stood here from M1 with nothing calling it
+    /// at all — a prediction rather than a decision, and the prediction was wrong. Measured over
+    /// 2,048 real chunks in Release: on a carved chunk it costs <b>13× the whole write</b> and
+    /// saves <b>zero</b> bytes, because carving air into a chunk that already holds air leaves the
+    /// palette untouched. On the case it actually exists for — a chunk that has lost the last
+    /// voxel of some material — it costs <b>10× the write</b> and saves <b>7.5%</b> of a blob that
+    /// already compresses 22×. So <see cref="Persistence.ChunkBlob.Write"/> defaults to leaving
+    /// storage alone.
+    /// </para>
+    /// <para>
+    /// It stays public because it is still the right thing for a caller that explicitly wants
+    /// the smallest representation, and because it is the A/B arm the bench measures.
+    /// <b>Revisit trigger:</b> a chunk edited across enough sessions to accumulate dead palette
+    /// entries and widen its packing — the palette never shrinks on its own, and reaching 256
+    /// entries converts it to 64 KB of direct storage. Unreachable with five shipped materials;
+    /// a heavily modded world is where it would first bite.
+    /// </para>
     /// </remarks>
     public void Compact()
     {
@@ -288,6 +309,149 @@ public sealed class VoxelChunk
         {
             WriteIndexRaw(i, used[materials[i]]);
         }
+    }
+
+    // ---------------------------------------------------------------------------------
+    // Serialisation surface. M6a's ChunkBlob is the only caller.
+    //
+    // Internal rather than public, and the representation stays private behind it, for the
+    // same reason the packing widths are: promoting storage internals to public API just to
+    // be reachable is how a compression device becomes a contract. What ChunkBlob needs is
+    // the packed form verbatim — it is 4× smaller than the voxels before compression and
+    // needs no per-voxel loop on either side — so it gets read-only views and validating
+    // factories, and the *format* knowledge stays in ChunkBlob where it belongs.
+    // ---------------------------------------------------------------------------------
+
+    /// <summary>The palette, in index order. Empty unless <see cref="StorageKind.Palettised"/>.</summary>
+    /// <remarks>
+    /// <b>These are world numeric IDs, not palette indices</b>, and writing them as anything
+    /// else is the mistake this whole surface exists to make hard. A blob whose palette held
+    /// 0,1,2,… would round-trip flawlessly within one session and decode to the wrong
+    /// materials the moment the mod set changed — which is precisely the failure
+    /// non-negotiable 2 exists to prevent, arriving through the one door that bypasses it.
+    /// </remarks>
+    internal ReadOnlySpan<int> PaletteEntries =>
+        _palette is null ? default : CollectionsMarshal.AsSpan(_palette);
+
+    /// <summary>The bit-packed indices. Empty unless <see cref="StorageKind.Palettised"/>.</summary>
+    internal ReadOnlySpan<ulong> PackedWords => _words is null ? default : _words;
+
+    /// <summary>The raw voxels. Empty unless <see cref="StorageKind.Direct"/>.</summary>
+    internal ReadOnlySpan<ushort> DirectVoxels => _direct is null ? default : _direct;
+
+    /// <summary>Packing width in bits. Meaningful only when <see cref="StorageKind.Palettised"/>.</summary>
+    internal int BitsPerIndex => _bitsPerIndex;
+
+    /// <summary>Words a palettised chunk needs at <paramref name="bits"/> per index.</summary>
+    internal static int WordsFor(int bits) => WordCount(bits);
+
+    /// <summary>Rebuilds a palettised chunk from a blob, validating every field it was given.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Everything here arrives from a file, so nothing is trusted.</b> The expensive check is
+    /// the last one: a width wide enough for the palette can still <em>represent</em> indices
+    /// past its end — a palette of 5 at 4 bits leaves 5..15 addressable — and reading one is an
+    /// <see cref="IndexOutOfRangeException"/> from inside the mesher on a worker thread, which is
+    /// the same latent shape M3c recorded for <see cref="Content.MaterialTable"/> indexing raw.
+    /// Scanning 32,768 indices costs microseconds against a disk read, and it runs on every load
+    /// rather than on a rarely-taken branch.
+    /// </para>
+    /// <para>
+    /// The width is required to be <em>sufficient</em> rather than exactly
+    /// <see cref="BitsForPaletteSize"/>. Today the two always agree, because
+    /// <see cref="Widen"/> repacks to the exact width on every growth — but pinning the format
+    /// to an internal invariant means a later change to when repacking happens would start
+    /// refusing worlds this version wrote.
+    /// </para>
+    /// </remarks>
+    internal static VoxelChunk FromPalettised(
+        ReadOnlySpan<int> palette, int bitsPerIndex, ReadOnlySpan<ulong> words)
+    {
+        if (palette.Length is < 1 or > MaxPaletteSize)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(palette), palette.Length,
+                $"Palette holds {palette.Length} entries; 1..{MaxPaletteSize} is representable.");
+        }
+
+        if (bitsPerIndex is not (1 or 2 or 4 or 8))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(bitsPerIndex), bitsPerIndex, "Packing width must be 1, 2, 4 or 8 bits.");
+        }
+
+        if (bitsPerIndex < BitsForPaletteSize(palette.Length))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(bitsPerIndex), bitsPerIndex,
+                $"{bitsPerIndex} bits cannot index a palette of {palette.Length}.");
+        }
+
+        if (words.Length != WordCount(bitsPerIndex))
+        {
+            throw new ArgumentException(
+                $"Expected {WordCount(bitsPerIndex)} words at {bitsPerIndex} bits, got {words.Length}.",
+                nameof(words));
+        }
+
+        foreach (int material in palette)
+        {
+            ValidateMaterial(material);
+        }
+
+        var chunk = new VoxelChunk();
+        chunk._kind = StorageKind.Palettised;
+        chunk._palette = [.. palette];
+        chunk._paletteLookup = new Dictionary<int, int>(palette.Length);
+        for (int i = 0; i < palette.Length; i++)
+        {
+            // A duplicate entry is not corrupt storage — every index still resolves — but it
+            // would desync the lookup from the list and make the next write reuse the wrong
+            // slot. Refused rather than tolerated, because it cannot arise from a real chunk.
+            if (!chunk._paletteLookup.TryAdd(palette[i], i))
+            {
+                throw new ArgumentException(
+                    $"Palette entry {palette[i]} appears twice, at {chunk._paletteLookup[palette[i]]} and {i}.",
+                    nameof(palette));
+            }
+        }
+
+        chunk.SetWidth(bitsPerIndex);
+        chunk._words = words.ToArray();
+
+        for (int i = 0; i < VoxelConstants.ChunkVolume; i++)
+        {
+            int word = i >> chunk._entriesPerWordLog2;
+            int shift = (i & chunk._entriesPerWordMask) << chunk._bitsLog2;
+            int index = (int)((chunk._words[word] >> shift) & chunk._valueMask);
+
+            if (index >= palette.Length)
+            {
+                throw new ArgumentException(
+                    $"Voxel {i} holds palette index {index}, past the {palette.Length}-entry palette.",
+                    nameof(words));
+            }
+        }
+
+        return chunk;
+    }
+
+    /// <summary>Rebuilds a direct-storage chunk from a blob.</summary>
+    internal static VoxelChunk FromDirect(ReadOnlySpan<ushort> voxels)
+    {
+        if (voxels.Length != VoxelConstants.ChunkVolume)
+        {
+            throw new ArgumentException(
+                $"Expected {VoxelConstants.ChunkVolume} voxels, got {voxels.Length}.", nameof(voxels));
+        }
+
+        var chunk = new VoxelChunk
+        {
+            _kind = StorageKind.Direct,
+            _direct = voxels.ToArray(),
+        };
+
+        return chunk;
     }
 
     private void PromoteToPalettised(int newMaterial)

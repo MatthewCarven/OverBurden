@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using MinerCraft.Core.Content;
 using MinerCraft.Core.Lighting;
+using MinerCraft.Core.Persistence;
 using MinerCraft.Core.Voxels;
 using MinerCraft.Core.Worldgen;
 
@@ -44,6 +45,7 @@ internal static class Program
           --seed  <ulong>      world seed (default: the game's own)
           --repeat <n>         timed passes per configuration, best wins (default 3)
           --light              time light derivation and propagation instead of worldgen
+          --blob               time chunk serialisation, and price Compact() on save
         """;
 
     private static int Main(string[] args)
@@ -52,6 +54,7 @@ internal static class Program
         int[] steps = [1, 2, 4, 8, 16];
         int repeat = 3;
         bool light = false;
+        bool blob = false;
 
         try
         {
@@ -73,6 +76,9 @@ internal static class Program
                         break;
                     case "--light":
                         light = true;
+                        break;
+                    case "--blob":
+                        blob = true;
                         break;
                     case "--help" or "-h":
                         Console.WriteLine(Usage);
@@ -104,6 +110,11 @@ internal static class Program
         if (light)
         {
             return LightBench(seed, repeat);
+        }
+
+        if (blob)
+        {
+            return BlobBench(seed, repeat);
         }
 
         Console.WriteLine(
@@ -620,4 +631,278 @@ internal static class Program
 
     private sealed record Row(
         string Label, Measurement Run, double Carved, double? Lost, double? Gained);
+
+    // ---------------------------------------------------------------------------------------
+    // M6a's one measurement, and it exists to settle a comment rather than to tune anything.
+    //
+    // VoxelChunk.Compact has said "this runs on serialisation" since M1 and has never had a
+    // caller. That is a prediction, not a decision, so M6-PLAN put it on the list: measure it,
+    // then keep it or correct the comment. What it costs is a full 32,768-voxel scan and a
+    // repack per save; what it buys is dropped palette entries and a narrower packing width,
+    // on a payload that is about to be compressed anyway.
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>Times chunk serialisation over the same fixed region, with and without Compact.</summary>
+    private static int BlobBench(ulong seed, int repeat)
+    {
+        var content = new GameContent();
+        LoadResult loaded = content.Load(new DirectoryContentSource(ModsDirectory()));
+        if (!loaded.Success)
+        {
+            Console.Error.WriteLine($"content: {string.Join("; ", loaded.Errors)}");
+            return 1;
+        }
+
+        // The real table, through the real loader, for the reason the light bench gives: a
+        // fixture would measure a made-up world, and here the material *count* is what decides
+        // whether a chunk is palettised at all.
+        MaterialTable materials = MaterialTable.From(content.Materials);
+
+        var strata = new StrataTable(
+            [
+                new StrataLayer(content.Materials.GetNumericId(Identifier.Parse("minercraft:grass")), 1),
+                new StrataLayer(content.Materials.GetNumericId(Identifier.Parse("minercraft:dirt")), 3),
+            ],
+            content.Materials.GetNumericId(Identifier.Parse("minercraft:stone")));
+
+        var generator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
+        ChunkPos[] region = Region();
+
+        Console.WriteLine(
+            $"Blob bench — {region.Length} chunks, seed {seed}, best of {repeat}, "
+            + $"{content.Materials.Count} material(s)");
+
+        if (IsDebug())
+        {
+            Console.WriteLine("*** DEBUG BUILD — these timings are meaningless. Re-run with -c Release. ***");
+        }
+
+        Console.WriteLine();
+
+        // Generated once and reused. Every arm below clones before writing, because Compact
+        // mutates and an arm that ran second would otherwise measure an already-compacted chunk.
+        var chunks = new VoxelChunk[region.Length];
+        for (int i = 0; i < region.Length; i++)
+        {
+            chunks[i] = generator.GenerateTerrain(region[i]);
+        }
+
+        // A pass of edits, because an untouched generated chunk is not what gets saved — only an
+        // edited one is. A carve leaves exactly the dead palette entries Compact exists to drop,
+        // so measuring pristine chunks would price Compact's best case and call it typical.
+        var edited = new VoxelChunk[region.Length];
+        var random = new Random(20260831);
+        int airId = MaterialIds.AirNumericId;
+        for (int i = 0; i < region.Length; i++)
+        {
+            VoxelChunk chunk = chunks[i].Clone();
+
+            // A rough sphere, the shape a swing actually leaves.
+            int cx = random.Next(8, 24), cy = random.Next(8, 24), cz = random.Next(8, 24);
+            for (int z = cz - 4; z <= cz + 4; z++)
+            for (int x = cx - 4; x <= cx + 4; x++)
+            for (int y = cy - 4; y <= cy + 4; y++)
+            {
+                int dx = x - cx, dy = y - cy, dz = z - cz;
+                if ((dx * dx) + (dy * dy) + (dz * dz) <= 16) chunk.Set(x, y, z, airId);
+            }
+
+            edited[i] = chunk;
+        }
+
+        // Compact's actual best case, and the carve above is *not* it — carving air into a chunk
+        // that already has air leaves the palette exactly as it was. A dead entry appears only
+        // when the last voxel of some material leaves the chunk, so this arm strips one outright.
+        // Without it the bench prices Compact against a fixture that could not benefit, which is
+        // a fixture degenerate in a way the numbers themselves cannot show.
+        var stripped = new VoxelChunk[region.Length];
+        int strippedChunks = 0;
+        for (int i = 0; i < region.Length; i++)
+        {
+            VoxelChunk chunk = chunks[i].Clone();
+
+            int victim = -1;
+            for (int v = 0; v < VoxelConstants.ChunkVolume && victim < 0; v++)
+            {
+                if (chunk.GetAt(v) != airId) victim = chunk.GetAt(v);
+            }
+
+            if (victim >= 0 && !chunk.IsUniform)
+            {
+                for (int v = 0; v < VoxelConstants.ChunkVolume; v++)
+                {
+                    if (chunk.GetAt(v) == victim) chunk.SetAt(v, airId);
+                }
+
+                strippedChunks++;
+            }
+
+            stripped[i] = chunk;
+        }
+
+        var arms = new List<BlobRow>
+        {
+            MeasureBlobs("generated, compact", chunks, region, materials, repeat, compact: true),
+            MeasureBlobs("generated, verbatim", chunks, region, materials, repeat, compact: false),
+            MeasureBlobs("carved, compact", edited, region, materials, repeat, compact: true),
+            MeasureBlobs("carved, verbatim", edited, region, materials, repeat, compact: false),
+            MeasureBlobs("stripped, compact", stripped, region, materials, repeat, compact: true),
+            MeasureBlobs("stripped, verbatim", stripped, region, materials, repeat, compact: false),
+        };
+
+        Console.WriteLine(
+            $"{"arm",-22}{"write µs",10}{"read µs",10}{"raw B",10}{"stored B",10}"
+            + $"{"ratio",8}{"uniform",9}{"B/varied",10}");
+        Console.WriteLine(new string('-', 89));
+
+        foreach (BlobRow row in arms)
+        {
+            Console.WriteLine(
+                $"{row.Label,-22}"
+                + $"{row.WriteMicros,10:F1}"
+                + $"{row.ReadMicros,10:F1}"
+                + $"{row.RawBytes,10:F0}"
+                + $"{row.StoredBytes,10:F0}"
+                + $"{row.RawBytes / Math.Max(1.0, row.StoredBytes),8:F1}"
+                + $"{row.Uniform,9}"
+                + $"{row.VariedBytes,10:F0}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine($"{strippedChunks} of {region.Length} chunks had a material stripped out.");
+        Console.WriteLine();
+
+        Report("carved", arms[2], arms[3]);
+        Report("stripped", arms[4], arms[5]);
+        Console.WriteLine();
+
+        // The number a save file is actually sized by: only edited chunks are stored, and an
+        // edited chunk is usually not uniform.
+        double perVaried = arms[2].VariedBytes;
+        Console.WriteLine(
+            $"At {perVaried:F0} B a varied chunk: 1,000 stored chunks is {perVaried * 1000 / 1024:F0} KiB, "
+            + $"100,000 is {perVaried * 100000 / (1024 * 1024):F1} MiB.");
+
+        return 0;
+
+        static void Report(string what, BlobRow compacted, BlobRow verbatim)
+        {
+            double cost = compacted.WriteMicros - verbatim.WriteMicros;
+            double saving = verbatim.StoredBytes - compacted.StoredBytes;
+
+            Console.WriteLine(
+                $"Compact on a {what} chunk costs {cost:F1} µs "
+                + $"({cost / Math.Max(0.001, verbatim.WriteMicros):P0} of the write) "
+                + $"and saves {saving:F1} stored bytes "
+                + $"({saving / Math.Max(1.0, verbatim.StoredBytes):P1}).");
+        }
+    }
+
+    private static BlobRow MeasureBlobs(
+        string label,
+        VoxelChunk[] source,
+        ChunkPos[] region,
+        MaterialTable materials,
+        int repeat,
+        bool compact)
+    {
+        double bestWrite = double.MaxValue;
+        double bestRead = double.MaxValue;
+        long stored = 0;
+        long raw = 0;
+        int uniform = 0;
+        double varied = 0.0;
+
+        // Pass -1 warms the JIT, for the reason the rest of this file gives: tiered compilation
+        // makes the first pass a measurement of the interpreter.
+        for (int pass = -1; pass < repeat; pass++)
+        {
+            var copies = new VoxelChunk[source.Length];
+            for (int i = 0; i < source.Length; i++) copies[i] = source[i].Clone();
+
+            var blobs = new byte[source.Length][];
+
+            long writeStart = Stopwatch.GetTimestamp();
+            for (int i = 0; i < copies.Length; i++)
+            {
+                blobs[i] = ChunkBlob.Write(region[i], copies[i], compact);
+            }
+
+            long writeEnd = Stopwatch.GetTimestamp();
+
+            for (int i = 0; i < blobs.Length; i++)
+            {
+                ChunkBlob.Read(blobs[i], region[i], materials);
+            }
+
+            long readEnd = Stopwatch.GetTimestamp();
+
+            if (pass < 0) continue;
+
+            double writeMicros = Micros(writeStart, writeEnd) / source.Length;
+            double readMicros = Micros(writeEnd, readEnd) / source.Length;
+
+            if (writeMicros < bestWrite)
+            {
+                bestWrite = writeMicros;
+                stored = blobs.Sum(b => (long)b.Length);
+                raw = copies.Sum(c => (long)PayloadSize(c));
+
+                // Counted from the *written* chunk, so compaction demoting one to uniform shows
+                // up here rather than being invisible.
+                uniform = copies.Count(c => c.IsUniform);
+
+                long variedBytes = 0;
+                int variedCount = 0;
+                for (int i = 0; i < copies.Length; i++)
+                {
+                    if (copies[i].IsUniform) continue;
+                    variedBytes += blobs[i].Length;
+                    variedCount++;
+                }
+
+                varied = variedCount == 0 ? 0.0 : (double)variedBytes / variedCount;
+            }
+
+            bestRead = Math.Min(bestRead, readMicros);
+        }
+
+        return new BlobRow(
+            label,
+            bestWrite,
+            bestRead,
+            (double)raw / source.Length,
+            (double)stored / source.Length,
+            uniform,
+            varied);
+    }
+
+    /// <summary>What the payload would be before compression. Mirrors ChunkBlob's layout.</summary>
+    private static int PayloadSize(VoxelChunk chunk) => chunk.Kind switch
+    {
+        VoxelChunk.StorageKind.Uniform => 5,
+        VoxelChunk.StorageKind.Palettised =>
+            4 + (chunk.PaletteSize * 4) + (VoxelConstants.ChunkVolume / (64 / BitsOf(chunk)) * 8),
+        _ => 1 + (VoxelConstants.ChunkVolume * 2),
+    };
+
+    private static int BitsOf(VoxelChunk chunk) => chunk.PaletteSize switch
+    {
+        <= 2 => 1,
+        <= 4 => 2,
+        <= 16 => 4,
+        _ => 8,
+    };
+
+    private static double Micros(long from, long to) =>
+        (to - from) * 1_000_000.0 / Stopwatch.Frequency;
+
+    private sealed record BlobRow(
+        string Label,
+        double WriteMicros,
+        double ReadMicros,
+        double RawBytes,
+        double StoredBytes,
+        int Uniform,
+        double VariedBytes);
 }

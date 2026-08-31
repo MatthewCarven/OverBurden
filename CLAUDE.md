@@ -74,6 +74,18 @@ Measure **lighting** on the same harness. Also Release-only, and here the Debug 
 dotnet run --project MinerCraft.Bench -c Release -- --light
 ```
 
+Measure **chunk serialisation**, which is what settled whether `Compact()` runs on save. Release
+only, same as the others:
+
+```bash
+dotnet run --project MinerCraft.Bench -c Release -- --blob
+```
+
+It reports write, read, raw and stored bytes across six arms — generated, carved and *stripped*
+chunks, each with and without `Compact`. **The stripped arm exists because the carved one cannot
+benefit**: carving air into a chunk that already holds air leaves the palette untouched, so
+measuring only that prices `Compact` against a fixture with nothing to gain.
+
 It loads `mods/minercraft/` through the real loader, because conductance is a function of which
 materials are opaque and a fixture would measure a made-up world.
 
@@ -155,11 +167,49 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2, all of M3, all of M4 and all of M5** are done — **559 tests
-passing**. **M6 is planned (2026-08-31) and not started: SQLite save/load, brush placement,
+M0, all of M1, **all of M2, all of M3, all of M4, all of M5 and M6a** are done — **614 tests
+passing**. **M6 is planned (2026-08-31) and under way: SQLite save/load, brush placement,
 volumetric inventory — v0.1 playable sandbox**, and it is what fixes the one thing play kept
 running into, that an edited chunk which unloads loses its edits. See
-[docs/M6-PLAN.md](docs/M6-PLAN.md), split M6a–M6d.
+[docs/M6-PLAN.md](docs/M6-PLAN.md), split M6a–M6d. **M6b is next.**
+
+**M6a — the blob and the world file: done 2026-08-31.** `MinerCraft.Core/Persistence/` holds
+`ChunkBlob`, `SkyColumnBlob`, `WorldHeader` and the shared frame. No SQLite, no file, no pipeline.
+Suite 559 → 614. Six things worth keeping:
+
+- **A truncation test found a real defect, and it was non-monotonic.** Raw deflate carries **no
+  integrity check at all**: cut a blob after the last byte the decompressor needed — the four-byte
+  Adler and the byte holding the end-of-stream marker — and it inflates to exactly the declared
+  length and reports a clean end, so every check passes. Removing *fewer* bytes is caught. The fix
+  is two complementary things: **the frame now declares the stored length as well as the
+  uncompressed one** (catches truncation, by arithmetic, before decompression), and **zlib rather
+  than raw deflate** (catches bit-rot inside an intact blob).
+- **`Compact()` does not run on serialisation, and the M1 comment saying it does is corrected.**
+  Measured over 2,048 real chunks in Release: on a carved chunk it costs **13× the entire write and
+  saves nothing**; on the case it exists for, **10× the write for 7.5%** of a blob already
+  compressed 22×. `ChunkBlob.Write` defaults to `compact: false`. **The first measurement of this
+  was wrong and the fixture was the trap** — carving air cannot create a dead palette entry, so the
+  bench priced a fixture that could not benefit. Same family as M5c-1's one-voxel bore.
+- **The save file is 5× smaller than the plan estimated: 189 B per varied chunk**, 18 MiB per
+  100,000 stored chunks. And **deserialisation is 21 µs a chunk against the plan's assumed
+  0.1–0.3 ms**, which half-answers M6's headline worry about entering a dug-in world — the other
+  half is SQLite's per-query overhead and is M6b's. Do not retire the concern on one number.
+- **`WorldGenSettings` is thirteen properties, not a seed, and all thirteen are written**, because
+  an unedited chunk is *regenerated* rather than stored. **Explicit binary rather than JSON,
+  because a JSON reader fills in a missing field's default and carries on** — which is exactly the
+  silent world-reshaping this prevents. A reflection test counts the record's properties against
+  the constant the serialiser was written to, since a forgotten fourteenth field would leave the
+  round trip green.
+- **Non-negotiables 2 and 3 are tested rather than promised.** `ExportIdTable`/`SeedIdTable`,
+  built at M1 and never called, now round-trip through bytes across a mod being removed and
+  reinstalled; entry 0 must be `minercraft:air`, refused at read *and* write. M3c's recorded
+  "validate chunk contents at load: M6" is closed — `ChunkBlob.Read` takes the `MaterialTable` and
+  validates all three storage kinds, **required rather than a skippable second call**.
+- **The oracle is voxels, not representation, and its limit is stated: a round trip runs the same
+  writer and reader, so a symmetric bug passes.** Two tests share no code with the half they check
+  — a written blob decoded by hand, and a hand-built blob given to the reader. The first pins the
+  one mistake the type system cannot prevent: writing the palette as per-chunk indices rather than
+  world material IDs, which round-trips perfectly inside one session.
 
 **M6's structural point: every chunk so far has been recoverable from nothing, so `Forget` could
 delete a record inside a thousand-chunk sweep and nothing had to think about it. M6 is the first
