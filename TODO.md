@@ -2460,11 +2460,32 @@ predicted in its own remarks. M6c-3 is the binding and the play.
       job existed, and wrong the moment M6c-3 put it on the autosave timer. **Third time this
       milestone that a safety argument turned out to be about the caller rather than the code.** And
       the cell outline leaked its RID at exit, which Godot reports without saying which one.
-- [ ] **Then play it.** Build a wall, a staircase and a floor; walk up the staircase without
-      jumping, which is what says the four-step ramp is a real ramp rather than a shape.
-      **Matthew's, and the only thing left in M6c.** A Core test already walks a body up a placed
-      ramp; what it cannot say is whether the lattice snap reads as the wall lining up or as the
-      game ignoring the aim, which is the M6d question this play is the first look at.
+- [x] **Played 2026-08-31, and the verdict is that the brush set is the wrong granularity for
+      stairs.** *"Nah doesn't auto climb but later when we place blocks one at a time this will
+      work better."* Built with cubes, and **a cube riser is 1 m, exactly twice M4b's 0.5 m step
+      height** — so cube stairs can never be walkable, by arithmetic rather than by defect. The
+      ramp brush is the walkable one and its Core test still holds; what the play showed is that
+      **one ramp buys exactly one metre of rise**, and a staircase taller than that means placing
+      each successive ramp a cell higher, aimed at the top face of the last. Fiddly enough that
+      nobody will do it.
+      - [x] **The lattice snap itself drew no complaint**, which is the question this play was
+            staged to answer. Recorded as silence rather than approval — the objection was
+            about brush *size*, so the snap was never really under test. **The M5d-shaped
+            distinction: probed and passed, versus never provoked.** The revisit trigger stays live
+            for M6d.
+- [ ] **Single-voxel placement, and it is the gap the play found.** Mining has two shapes —
+      `Carve.Swing`'s sphere and `Carve.Chip`'s one voxel on a held modifier — and M3c argued the
+      precision one exists *"for the person who has stopped excavating and started building"*.
+      Building itself has only the bulk tool. `Place.Voxel` is the mirror: the gate, the buckets
+      and the inventory debit already exist in `Put`, so it is a shape rather than a mechanism.
+      - [ ] **The key is the open question, and Ctrl is already spoken for.** Ctrl+left is the
+            mining chip, and TODO already records that Ctrl doubles as FlyCam's descend, with Alt
+            named as the better key. Deciding both at once is worth one pass rather than two.
+      - [ ] **It does not retire the brushes.** M3c's argument transfers exactly: a single voxel is
+            1/64th of a cube, so a wall built voxel by voxel is 64x the clicks, and DESIGN's
+            *"fine detail comes from carving, not from placing"* becomes false in the other
+            direction if precision becomes the default. Precision is the exception and the
+            exception is worth a held key.
 
 #### M6d — Selection, feel and measurement
 

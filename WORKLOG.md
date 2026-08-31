@@ -1,5 +1,36 @@
 # MinerCraft — Worklog
 
+## 2026-08-31 — M6c is played, and the brush set is the wrong granularity for stairs
+
+*"Nah doesn't auto climb but later when we place blocks one at a time this will work better."*
+
+Built with cube brushes, and **a cube riser is 1 m against M4b's 0.5 m step height** — so it
+cannot climb, by arithmetic rather than by defect. The ramp brush is the walkable one and
+`APlacedRampIsWalkedUpByThePhysicsThatAlreadyExists` still holds.
+
+**But the verdict is right about the thing that matters, and the test does not catch it.** That
+test builds two ramps in cells one apart *and one higher*, which is what a staircase actually is
+— and a player has to produce that arrangement by aiming at the top face of the previous ramp,
+a metre at a time. One ramp buys one metre of rise. Nobody is going to build a flight of stairs
+that way, so the brush that passes its test is still the wrong tool for the job the test is named
+after.
+
+**The gap is single-voxel placement, and it is a shape rather than a mechanism.** Mining has had
+two shapes since M3c — a sphere on the button and one voxel on a held modifier — and the
+argument recorded for the precision one is *"for the person who has stopped excavating and started
+building"*. Building then shipped with only the bulk tool. `Place.Voxel` is the mirror of
+`Carve.Voxel`: `Put` already holds the gate, the buckets and the inventory debit, so the whole of
+it is a call site and a key.
+
+M3c's argument about which is the default transfers exactly and is worth restating before it is
+built: a voxel is 1/64th of a cube, so a wall built voxel by voxel is 64x the clicks. Precision
+stays the exception, and the exception is worth a held key.
+
+**One thing this play did not test, and recording that is the point.** The lattice snap drew no
+complaint — but the objection was about brush *size*, so the snap was never really under test.
+That is silence rather than evidence, the M5d light-cell shape again, and its revisit trigger
+stays live for M6d.
+
 ## 2026-08-31 — M6c-3: the binding, and building is a thing you can do
 
 Right mouse places, B cycles the brush, V cycles the material, the inventory fills as you mine
