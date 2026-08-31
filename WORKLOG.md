@@ -103,8 +103,9 @@ purpose, one layer further down: **the answer existed, in the twin of the method
 
 - **`_ExitTree` is reached on quit** — it prints, and the print carries the figures from after the
   write rather than before it. `--quit-after` uses `SceneTree::quit()`, which is the same teardown
-  a window close takes with `auto_accept_quit` on, so **the windowed close is verified by proxy and
-  not by hand**. It is the first thing the play-test should watch.
+  a window close takes with `auto_accept_quit` on, so the windowed close was verified by proxy.
+  **Closed by hand the same day: *"I closed it and re-ran it and it loaded the last world I was
+  in."*** No `NotificationWMCloseRequest` handler is needed, and M6b is done.
 - **SQLite loads under Godot's `AssemblyLoadContext`.** The native `e_sqlite3` resolves through the
   generated `.deps.json` with `EnableDynamicLoading`, without a `RuntimeIdentifier`. **An export is
   still unverified** — that was M6b-1's recorded worry and it stays open.

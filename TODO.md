@@ -2030,7 +2030,7 @@ straightforward are written up below because neither was a plain pass.
       anything, since `DeflateStream` cannot read a zlib header at all. Swapping **both** sides is
       the honest recipe; re-run that way it fails 5, including the corruption test.
 
-#### M6b — The store, the lifetime, and the load path ← **where the surprises are**
+#### M6b — The store, the lifetime, and the load path ✅ **done and played 2026-08-31**
 
 **Split three ways, on the grounds M2c and M5c were.** M6b-1 is the store, verifiable alone with
 no threads and no pipeline. M6b-2 is the lifetime — the save job, the flags, the load path, the
@@ -2224,16 +2224,18 @@ rather than only in a counter. A longer dig moves `drawn` as well, 165 → 166.
 - [x] **The autosave timer and the quit drain**, and **`SaveAll` was not safe on the sim thread
       after all** — see the two defects below. `_ExitTree` *is* reached: it prints, and the print
       carries the figures from after the write. `--quit-after` uses `SceneTree::quit()`, the same
-      teardown a window close takes with `auto_accept_quit` on, so **the windowed close is verified
-      by proxy and not by hand** — the first thing the play-test should watch.
+      teardown a window close takes with `auto_accept_quit` on, which made the windowed close
+      verified by proxy — **closed by hand 2026-08-31: closing the window and re-running loaded
+      the world back.** No `NotificationWMCloseRequest` handler is needed.
 - [x] **Headless verification that the streaming figures are unchanged.** The default run should
       still report **1521 viewed / 165 drawn / 1926 jobs** — M2d's numbers, which M5c-1 also had to
       preserve. A world with nothing saved takes the generate path throughout, so any movement in
       those figures is a regression rather than persistence doing its job. **Confirmed to the
       digit.**
-- [ ] **Then play it.** Dig a tunnel, fly away, come back. Quit and reopen. That is the milestone's
-      actual verdict and no test produces it. **Matthew's, and the one thing M6b-3 cannot do for
-      itself** — watch the window close in particular.
+- [x] **Played 2026-08-31, and the verdict is yes.** *"I closed it and re-ran it and it loaded the
+      last world I was in."* That is the milestone's sentence confirmed by a person rather than by
+      a counter, and it closes the one thing M6b-3 could not do for itself — the windowed close,
+      which every headless run could only reach by proxy.
 
 ###### The two defects the wiring found, both in Core, both on the synchronous save path
 
@@ -2265,7 +2267,57 @@ rather than only in a counter. A longer dig moves `drawn` as well, 165 → 166.
       with no `RuntimeIdentifier`. M6b-1 recorded the export as the part to check and it is still
       the part to check.
 
-#### M6c — Placement and volumetric inventory
+#### M6c — Placement and volumetric inventory ← **split three ways 2026-08-31, before any code**
+
+**Split up front on M6b's grounds**, which is what M2c and M6b both record as the reason they went
+smoothly. M6c-1 is the brushes — pure Core, no inventory, no Godot, no threads. M6c-2 is the
+inventory and its persistence, which is the world-header format bump `WorldHeaderBlob.Version`
+predicted in its own remarks. M6c-3 is the binding and the play.
+
+##### What the planning pass settled before any code
+
+- [ ] **Only air is replaceable, and the argument is the hardness gate rather than taste.** A
+      brush that overwrites existing material is a way to delete anything without mining it: place
+      dirt into a bedrock voxel, then mine the dirt with a `hand_pick`, and bedrock is gone. That
+      makes `Carve.Take`'s gate — the mechanic M3c exists for — bypassable by the *other* verb.
+      So a voxel that is not air lands in an `Occupied` bucket and is not written.
+      `IVoxelEditor`'s own comment has said since M3a that placement "will need to know it is
+      replacing something **replaceable**"; at M6 replaceable means air, and **M8 is where the
+      word earns its generality**, because water should be displaceable and rock should not. Same
+      revisit trigger `VoxelRay` and `Carve` already carry.
+- [ ] **A consequence, and it corrects this plan: `SetVoxel`'s "material is already there"
+      early-out still has no caller that fires it.** M3-PLAN justified it by the carve rewriting
+      air as air; M3c made `Carve.Take` skip air first, and the comment was updated to predict
+      that *"M6's placement is exactly the shape of caller that rewrites what is already there"*.
+      Refusing non-air means placement decides the bucket from a read it has to do anyway and
+      never offers the write. **Keep the early-out and say plainly that it is unreachable by
+      design** — M4a's zeroable-contact-epsilon category, third outing — rather than deleting it
+      or contriving a caller for it.
+- [ ] **The brush lattice is its own constant and deliberately *not* `LightCellPos`.** Both are
+      1 m and share an origin, so reusing the light cell would work today and be free. It is a
+      trap: **the 1 m light cell has a live revisit trigger** (M5d: a `hand_pick` tunnel reading
+      blobby), and shrinking it to 0.5 m would silently halve the brush lattice — changing where
+      every brush lands, in a milestone that has nothing to do with lighting. Two things that are
+      the same size for unrelated reasons want two constants.
+- [ ] **The anchor is the 1 m cell containing `VoxelHit.Previous`**, the last empty voxel before
+      the surface — the point M3b built and recorded as *"where M6's placement goes"*. Snapping is
+      an arithmetic right shift, not a division, for the reason `VoxelPos` gives about negative
+      coordinates.
+- [ ] **`PlaceResult` takes `CarveResult`'s shape**: `Candidates` = `Placed` + `Occupied` +
+      `InsidePlayer` + `Unreachable`, with `IsAccounted` asserted by every test, for the reason
+      that struct records — *"a `continue` added later that is counted nowhere"*. M6c-2 adds a
+      fifth bucket for a short inventory; it is deliberately **not** added now, because a counter
+      built before its consumer is a number waiting to be believed.
+- [ ] **The player's box is a parameter, not a lookup.** Core has no player, and the brush needs
+      only an `Aabb`; `Aabb.VoxelBounds` already answers "which voxels does this body overlap"
+      under the half-open rule. Null means no body, which is what the tests and any future
+      non-player placer use.
+- [ ] **A ramp's orientation is a parameter of the brush, computed by the caller.** M6c-1 takes a
+      facing; M6c-3 derives it from the face normal and the player's yaw. That keeps the first
+      non-scalar brush parameter out of Core's business while leaving *where a brush lands* — the
+      lattice — in Core, which is M3d's rule about a game rule a multiplayer server would need.
+
+##### M6c-1 — The brushes ← **next**
 
 - [ ] **`Place.*` calls `IVoxelEditor.SetVoxel` per voxel, exactly as `Carve` does.** A 1 m cube
       is 64 voxels and writing them straight into `chunk.Voxels` is faster, obvious, and skips
@@ -2273,9 +2325,9 @@ rather than only in a counter. A longer dig moves `drawn` as well, 165 → 166.
       border rule, and `HasEdits` — which at M6 means the placement is not saved.
       **Correction to the handover: M5c-1's trigger is about `ApplyFeatures`, which still places
       nothing, so M6 does not fire it.** The risk is the same one; the trigger is not.
-- [ ] `SetVoxel`'s "material is already there" early-out finally earns its keep, exactly as its
-      comment predicted: *"M6's placement is exactly the shape of caller that rewrites what is
-      already there."*
+- [ ] **One shared `Put` gate for every brush**, the counterpart to `Carve.Take` and load-bearing
+      for the same reason: M3c measured that removing the hardness check from `Take` failed nine
+      tests across both shapes, which a forked copy would not have done.
 - [ ] **The brushes are staircases, not slopes.** M4d's deliberately-not list rules out non-cube
       collision shapes as *"a voxel is one material or another" violations wearing different
       hats*, so a ramp brush is an **arrangement of 0.25 m cubes inside a 1 m cell** — a
@@ -2297,9 +2349,10 @@ rather than only in a counter. A longer dig moves `drawn` as well, 165 → 166.
       (recommended). Least surprising; pillar-jumping still works because mid-jump the cell below
       is not overlapping. **It does not retire `TryUnstick`** — M9's collapse puts material inside
       the player by accident and has no alternative — it stops placement being a second,
-      deliberate caller of a rule whose only honest home is "something went wrong". `PlaceResult`
-      takes `CarveResult`'s four-bucket shape with `IsAccounted`, for the reason that struct
-      records: a `continue` added later and counted nowhere.
+      deliberate caller of a rule whose only honest home is "something went wrong".
+
+##### M6c-2 — The inventory
+
 - [ ] **Volumetric inventory in litres.** A 0.25 m voxel is 15.625 L; a 1 m brush cube is 64
       voxels = **1,000 L = 1 m³**, the round number that makes the unit worth having.
       `CarveResult.Removed` is already documented as the number to convert.
@@ -2313,6 +2366,29 @@ rather than only in a counter. A longer dig moves `drawn` as well, 165 → 166.
       the reason the blobs are — same database, same table. Anywhere else and it has the identical
       mod-load-order failure with no fix. If the held tool is saved, `GameContent.Tools` has
       already written down the cost: *"it will be the same three lines."*
+- [ ] **This is the `WorldHeaderBlob.Version` bump its own remarks predicted**: *"Expect this to
+      move during M6. M6c adds the player's position and volumetric inventory, and that is a layout
+      change."* Two things follow. The version byte must actually move, and **an old world must be
+      refused rather than read** — which is the trade the format is making, and the only person
+      holding a saved world mid-milestone is Matthew.
+- [ ] **Open, and it is the only new question M6c raises: does the player's position go in too?**
+      The header's remark says yes and the plan's M6c section never lists it. It is small and it is
+      the difference between the *world* persisting and the *session* persisting — reopening at
+      spawn after building a base a hundred metres away is the kind of thing that reads as a bug.
+      It costs one `Vector3`, plus a decision about walk-versus-fly and the held tier. **Cheap now,
+      because the format version is already moving; a separate bump later.** Recommended: yes,
+      position and mode, not the tier.
+
+##### M6c-3 — The binding, and the play
+
+- [ ] Right mouse places, a key cycles the brush, a key picks the material. `VoxelHighlight` shows
+      the **brush cell** rather than the hit voxel, or the player cannot see the lattice they are
+      building on — which is also how M6d judges whether snapping reads as unresponsive.
+- [ ] `PlaceController` is Godot-free for the reason `MiningController` is: `--place` has to drive
+      a headless profile, because a debug bind nobody has run headlessly is a bind that does not
+      work.
+- [ ] **Then play it.** Build a wall, a staircase and a floor; walk up the staircase without
+      jumping, which is what says the four-step ramp is a real ramp rather than a shape.
 
 #### M6d — Selection, feel and measurement
 
