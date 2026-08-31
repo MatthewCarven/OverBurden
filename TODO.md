@@ -2473,6 +2473,18 @@ predicted in its own remarks. M6c-3 is the binding and the play.
             about brush *size*, so the snap was never really under test. **The M5d-shaped
             distinction: probed and passed, versus never provoked.** The revisit trigger stays live
             for M6d.
+- [x] **Fixed 2026-08-31: a saved flying player came back at the origin, underground.**
+      `SavedPlayer()` asked the live camera for the eye, which is true during a frame and not
+      during teardown — and `_ExitTree` is when it was asked. **The rule: state that has to
+      survive a quit must be captured while the frame is alive.** The eye is cached every
+      `_Process` while flying and the save reads the cache. The walking half never had the problem
+      because it reads plain C# state.
+      - [x] **A second bug beside it**: the open-time header write happens before the body exists,
+            so `SavedPlayer()` returned null and **cleared the saved position on every launch**,
+            leaving it cleared until the first autosave. It now falls back to what the world was
+            opened with. Pinned by a run that quits at frame 2.
+      - [x] **The quit prints what it saved**, because a wrong position is invisible until the next
+            launch puts you somewhere strange.
 - [ ] **Single-voxel placement, and it is the gap the play found.** Mining has two shapes —
       `Carve.Swing`'s sphere and `Carve.Chip`'s one voxel on a held modifier — and M3c argued the
       precision one exists *"for the person who has stopped excavating and started building"*.

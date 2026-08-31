@@ -1,5 +1,45 @@
 # MinerCraft — Worklog
 
+## 2026-08-31 — A saved flying player came back at the origin, underground
+
+Reported as *"after I hit the b key it went into fly no clipping mode"*, and B was not it — B
+cycles the brush and returns before the mode key. Reading the played world's header settled it:
+
+```
+PLAYER: feet (0.000, -1.650, 0.000), flying = 1
+```
+
+Fly mode at the world origin, 1.65 m below zero, which is inside the ground; the noclip is fly
+mode doing what fly mode does. **And it is self-perpetuating** — the next launch restores that
+position, and the next quit writes it back.
+
+**The mode change was probably the F key** (*"maybe i hit f"*). Nothing explains the *position*,
+and that is the bug: he was flying above a structure and the file recorded the scene origin.
+
+### Two bugs in one method, and both are the same mistake
+
+`SavedPlayer()` asked the live camera for the eye position, because in fly mode the camera is
+where the player is. That is true during a frame and **not true during teardown**, which is when
+`_ExitTree` calls it. The walking half never had the problem, because it reads
+`PlayerController.FeetCentre` — plain C# state that does not care whether a node is still in a
+tree.
+
+**The rule: state that has to survive a quit must be captured while the frame is alive.** The eye
+is now cached every `_Process` while flying, and the save reads the cache. If no frame has run in
+fly mode there is nothing honest to say, so the previous answer stands rather than an invented one.
+
+The second bug was next to it and would have bitten later. `CurrentHeader()` is written at open,
+before the body exists — so `SavedPlayer()` returned null and **the saved position was cleared
+on every launch**, staying cleared until the first autosave. A crash in that window lost it. It
+now falls back to what the world was opened with. Verified by a run that quits at frame 2, before
+the body spawns: the position survives, where it used to be wiped.
+
+### And the diagnosis is now printed
+
+Quitting says what it wrote — `M6c: saved the player at <15, 1.2501, 15>, walking`. A wrong
+position is invisible until the next launch puts you somewhere strange, and the log was the only
+place that could have said so earlier. Same instrument as the scheduler flake's shutdown report.
+
 ## 2026-08-31 — M6c is played, and the brush set is the wrong granularity for stairs
 
 *"Nah doesn't auto climb but later when we place blocks one at a time this will work better."*

@@ -81,6 +81,25 @@ public partial class Main : Node3D
     /// <summary>What the world file said the player was doing, or null for a new world.</summary>
     private PlayerSave? _savedPlayer;
 
+    /// <summary>Where the camera was on the last live frame, while flying.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Cached every frame rather than read when the world is written, and that is a bug fix
+    /// rather than a tidy-up.</b> In fly mode the camera is where the player is, so the save has
+    /// to ask the camera — but the save also runs from <see cref="_ExitTree"/>, during teardown,
+    /// and a played world came back with the player at <c>(0, -1.65, 0)</c> flying: the eye read
+    /// as the scene origin. <b>Underground and noclipping, and self-perpetuating</b>, because the
+    /// next launch restores that position and writes it back.
+    /// </para>
+    /// <para>
+    /// The rule this is an instance of: <b>state that has to survive a quit must be captured while
+    /// the frame is alive.</b> A Godot node during teardown is not a source of truth, and the
+    /// walking half of this method never had the problem because it reads
+    /// <c>PlayerController.FeetCentre</c>, which is plain C# state.
+    /// </para>
+    /// </remarks>
+    private System.Numerics.Vector3? _flyingEye;
+
     /// <summary>The settings this world regenerates unstored terrain from. Written back on save.</summary>
     private WorldGenSettings _settings;
 
@@ -882,6 +901,14 @@ public partial class Main : Node3D
         }
 
         AdvanceFlythrough(delta);
+
+        // Before anything can quit, and only while flying: see _flyingEye.
+        if (_camera is not null && _player is { Mode: PlayerMode.Fly })
+        {
+            Vector3 eye = _camera.GlobalPosition;
+            _flyingEye = new System.Numerics.Vector3(eye.X, eye.Y, eye.Z);
+        }
+
         UpdateMining(delta);
         UpdatePlacement(delta);
 
@@ -1891,19 +1918,24 @@ public partial class Main : Node3D
     /// </remarks>
     private PlayerSave? SavedPlayer()
     {
-        if (_player is not { Spawned: true }) return null;
+        // Nothing live to ask yet — at open, before the body exists — so keep what the world
+        // already remembered. Returning null here would clear the saved position on every launch
+        // and leave it cleared until the first autosave, which is a crash away from losing it.
+        if (_player is not { Spawned: true }) return _savedPlayer;
 
         bool flying = _player.Mode == PlayerMode.Fly;
 
-        if (!flying || _camera is null)
+        if (!flying)
         {
             return new PlayerSave(_player.FeetCentre, flying);
         }
 
-        Vector3 eye = _camera.GlobalPosition;
+        // The cached eye, never the live node. If no frame has run in fly mode there is nothing
+        // honest to say, so the previous answer stands rather than an invented one.
+        if (_flyingEye is not System.Numerics.Vector3 eye) return _savedPlayer;
+
         return new PlayerSave(
-            new System.Numerics.Vector3(
-                eye.X, eye.Y - _player.Config.EyeHeightMetres, eye.Z),
+            eye - new System.Numerics.Vector3(0.0f, _player.Config.EyeHeightMetres, 0.0f),
             Flying: true);
     }
 
@@ -1985,6 +2017,13 @@ public partial class Main : Node3D
         if (_store is not null && _pipeline is not null)
         {
             GD.Print($"M6: world written on quit — {StoreSummary()}");
+
+            // Printed because a wrong one is invisible until the next launch puts the player
+            // somewhere strange, and the log is then the only record of what was written.
+            GD.Print(SavedPlayer() is PlayerSave saved
+                ? $"M6c: saved the player at {saved.FeetMetres}, "
+                  + (saved.Flying ? "flying" : "walking")
+                : "M6c: no player position saved");
         }
 
         _highlight?.Dispose();
