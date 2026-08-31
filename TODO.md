@@ -2176,16 +2176,43 @@ tear the pipeline down and build a new one on the same store, which is quitting 
       never calling the store from `Forget`'s path, and clearing `DirtySinceSave` on completion
       rather than at submission. Both leave a green suite and lose data in play.
 
-##### M6b-3 — The session ← **next**
+##### M6b-3 — The session ← **next, and it is the smallest part of M6b**
 
-- [ ] **The startup reorder**: open world → read the ID table → `Load(source, savedIds)` →
-      `Freeze` → construct the streamer. `Main.cs` still calls `Content.Load` with no saved table
-      and still hardcodes the seed, so **the game as it runs today saves nothing** — everything in
-      M6b-1 and M6b-2 is exercised by tests only.
-- [ ] Where the world file lives, and `WriteWorldHeader` at open before any chunk can be written.
-- [ ] The autosave timer, and `SaveAll` on quit through Godot's shutdown.
-- [ ] Headless verification that the streaming figures are unchanged — the M2d numbers this project
-      has quoted since, which M5c-1 also had to preserve.
+**Everything it needs already exists in Core and is tested; this part is wiring.** The whole of
+M6b-1 and M6b-2 is exercised by tests only, so **the game as it runs today still saves nothing** —
+which means M6b-3 is what turns a green suite into play that stops losing work.
+
+The four pieces, with the specifics a fresh session would otherwise have to rediscover:
+
+- [ ] **The startup reorder, and it is the only part with an ordering trap.** `Main.cs:1355` does
+      `Content.Load(new DirectoryContentSource(modsPath))` with **no saved table**, and
+      `Main.cs:120` hardcodes `Seed = 0x4D494E455243UL`. It has to become: open the store →
+      `ReadWorldHeader()` → if null this is a new world, else `WorldHeaderBlob.Read` →
+      `Content.Load(source, header.MaterialIdTable)` → `Freeze` → build `MaterialTable` →
+      construct `ChunkPipeline` with `store:`. **`SeedIdTable` throws if anything registered
+      first**, which is the right failure and a loud one.
+- [ ] **`WriteWorldHeader` at open, before any chunk can be written** — that ordering is what
+      replaces a world-spanning transaction, because numeric IDs are only allocated during content
+      load. `ChunkPipeline.WriteWorldHeader(WorldHeader)` already exists and takes the record.
+      For a **new** world the seed is whatever `Main` chooses; for an existing one the header's
+      `Settings` must be used **in place of** the hardcoded settings, or the unstored terrain comes
+      back a different shape around the saved chunks. That is the whole reason the header carries
+      all thirteen `WorldGenSettings` fields.
+- [ ] **Where the world file lives.** Undecided. `user://` is Godot's per-user data directory and
+      is the conventional answer; `ProjectSettings.GlobalizePath("user://world.db")` gives
+      `SqliteWorldStore` a real path. Worth settling explicitly rather than defaulting, because
+      moving it later strands worlds.
+- [ ] **The autosave timer and the quit drain.** `SaveAll()` is synchronous and safe on the sim
+      thread — measured at 13 ms for 1,521 chunks including serialisation, and a real dirty set is
+      tens of chunks. `ChunkPipeline.Dispose` already calls it, so the question is only whether
+      Godot's shutdown reaches `Dispose` — check `_ExitTree`/`NotificationWMCloseRequest` in
+      `Main.cs`. **This is the single most likely way to ship a data-loss bug in M6.**
+- [ ] **Headless verification that the streaming figures are unchanged.** The default run should
+      still report **1521 viewed / 165 drawn / 1926 jobs** — M2d's numbers, which M5c-1 also had to
+      preserve. A world with nothing saved takes the generate path throughout, so any movement in
+      those figures is a regression rather than persistence doing its job.
+- [ ] **Then play it.** Dig a tunnel, fly away, come back. Quit and reopen. That is the milestone's
+      actual verdict and no test produces it.
 
 #### M6c — Placement and volumetric inventory
 
