@@ -1,5 +1,47 @@
 # MinerCraft — Worklog
 
+## 2026-09-01 — The HUD is played, and one screenshot closes several open questions
+
+Matthew played the build and sent a screenshot from inside a large excavated chamber:
+*"Working very well!"* It is one image and it settles more than the whole M6d-3 test suite,
+because every item below is a join between layers rather than a layer.
+
+**What the screenshot is evidence of:**
+
+- **The HUD renders in the real windowed game**, not only under `screenshot.gd`. Three slots
+  filled — dirt 78,031 L, grass 23,562 L, stone 1,352,672 L — a gold border on slot 3, and the
+  crosshair present at centre.
+- **The number row works and the selection is visible.** Slot 3 is stone and stone is what the
+  border is on. That is the whole M6d-3 key decision, confirmed by eye.
+- **The precision modifier's readout works, and it is the one thing here with no other witness.**
+  The status line reads `ONE VOXEL (Alt)` rather than `cube brush (B)`, so a held key is reaching
+  the HUD and changing what it says. Every headless run and every screenshot so far has caught the
+  unmodified branch only.
+- **The swatches match their blocks.** Grey stone swatch against grey stone walls, brown dirt
+  against the dirt seam visible in the far wall. That is `VoxelMaterial.LayerColour` being one
+  definition rather than two, seen rather than argued.
+- **The litres are real and they are large.** 1,352,672 L of stone is ~86,570 voxels, about
+  1,352 m³. **DESIGN's claim that volumetric inventory makes big excavations productive is
+  visible in the number** for the first time — and the inventory being unbounded at M6 is what
+  lets that number simply be large rather than a management problem, which was the recorded cost
+  of that decision and now reads as the right call.
+- **The 20/s entangled rate produces the chamber it was raised to produce**, which is what the
+  rate exists for: M5d-2's look questions need a test volume, and this is one.
+- **M5's lighting holds at chamber scale.** Lit rock in the foreground running to *actual black*
+  in the far openings, with the dirt seam still legibly brown where light reaches it. That is
+  M5d-2's verdict re-confirmed in a space several times larger than the one that produced it.
+
+**What it is not evidence of, and the honest list matters as much:**
+
+- **The three play items are still open.** Nothing here shows a tunnel surviving an unload and a
+  return, a quit and reopen, or a room built with walls, a floor and a ramp. This is a dig.
+- **The hotbar's known cost was not exercised.** Three materials, all acquired before the shot,
+  so no slot moved under anyone's fingers. `MaterialInSlot`'s revisit trigger is untouched — that
+  is silence, not evidence, the same way M5's 1 m light cell stands by nobody having reopened it.
+- **No lamp is carried and none is placed**, so the block-light channel is not in this frame. The
+  black is skylight running out, which is the sky channel.
+
+
 ## 2026-09-01 — The entangled miner goes to 20 a second, and faster is cheaper again
 
 Raised at Matthew's request — *"bump the quantum miner to 20x a second"* — from 0.125 s to
