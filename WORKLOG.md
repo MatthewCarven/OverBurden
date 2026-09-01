@@ -1,5 +1,57 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-01 — The lamp lights the sealed room, and turning your head changes the shade
+
+Two screenshots of the sealed room with a lamp on the wall, a few degrees of yaw apart. Both
+carry something.
+
+**The lamp closes M6's last play item, and only half of what that item claimed.** The room was
+confirmed black on 2026-09-01 and it is now lit, with falloff into the corners — so **`COLOR.g`
+reaches the screen**, since the sky channel is zero in a sealed room by construction and something
+is lighting it. **What the frame cannot show is the warm half**, because the room is dirt:
+`block_tint` is `(1.0, 0.86, 0.66)`, and warm light on brown rock looks like white light on brown
+rock. **The fixture is degenerate in exactly the way the assertion cannot see** — the same
+category as M5c-1's one-voxel bore and M6a's carved-chunk `Compact` measurement. The sharp version
+is a room in stone, and 2.1 million litres of it are carried. Also worth noting so a later reader
+does not over-read the picture: **the lamp on that wall is M5b's `L` debug bind, not a placement
+from the hotbar** — slot 3 still reads 16 L.
+
+### The brightness that moves when you turn, and why it is not filed as a bug
+
+*"if i turn slightly left it gets brighter... its a minor cosmetic and i kind like it now
+anyways."* Not chased, at Matthew's instruction. But it is **not the artefact already recorded**,
+and the recorded one's candidate list is missing what is probably the cause of both.
+
+Two explanations fit the frames:
+
+- **Benign composition.** `face_tint` gives ±X walls 0.65 and ±Z walls 0.8 — two adjacent walls of
+  a room differ by 23% *by design*. Turning changes how much of each fills the frame, so the
+  average brightness of the picture moves while every face keeps its own shade.
+- **A view-space normal, which would be a one-line defect.** In a Godot 4 spatial shader `NORMAL`
+  inside `fragment()` is in **view space** — the convention `Voxel.gdshader` already notes for
+  `VERTEX`, two comments below the one in question. `face_tint(NORMAL)` would then be grading a
+  face by its orientation *relative to the camera*, and yaw would carry a wall across the
+  `abs(n.x) > 0.5` threshold, stepping the wall itself between 0.65 and 0.8.
+
+**The discriminating test takes two seconds and needs no instrument: point at one wall and pitch
+up and down.** Composition cannot change one wall's own brightness. A view-space normal, pitched
+far enough, gives a vertical wall `n.y > 0.5` and renders it at the **top-face** value 1.0 — a
+wall lighting up like a floor.
+
+**If it is the view-space normal, it is a better candidate for M5d-2's rotation flicker than any
+of the three recorded against it.** That list is coincident faces, frustum culling and staleness;
+this is none of them, and it is **reachable by rotation alone**, which is the one property that
+repro turns on — the entry itself says *"what that leaves is render-side, since neither the light
+grid nor the camera position changes when you rotate"*, and then lists three things that are
+harder to reach than the one sitting in the fragment shader.
+
+**Deliberately not fixed.** The fix is `face_tint((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz)`, and
+it is **a look change as much as a correctness one** — the shader's stated intent is that *a box
+reads as a box*, and under a camera-relative tint two opposite walls can take the same shade at
+some yaws, which is the case that intent exists to prevent. Matthew likes the current behaviour,
+so this is an A/B for a person rather than a defect to repair quietly.
+
+
 ## 2026-09-01 — Bricked in, and it goes actually black
 
 Matthew sealed himself into the room he had just built — *"I will actually brick myself in so I

@@ -201,9 +201,10 @@ carve-for-detail / place-for-bulk split unamended, with stairs on the *place* si
 walls-and-floor half is answered too (2026-09-01): a room with walls, a floor, a ceiling and a
 broad flight of stairs down into it, ~3,360 voxels placed** — so the 1 m lattice, the four shapes
 and the carve/place divide are judged rather than argued. **All three of M6's play items are
-ticked**, and the one check still open was surfaced by the play rather than scheduled: **placing
-the lamp in the sealed room**, the only test that proves the two light channels stay independent
-all the way to the screen.
+ticked**, and the check the play surfaced is answered too: **the lamp lights the sealed room**,
+which puts block light on the screen with the sky channel zero by construction. **Half of that
+assertion is confounded by the fixture** — the room is dirt, so warm light on brown rock cannot be
+told from white light on brown rock; the sharp version is the same room built in stone.
 
 **M6d-3 — the first real UI: built 2026-09-01.** `MinerCraft.Game/Ui/Hud.cs` — a nine-slot hotbar
 with a swatch, name and litres per slot, a crosshair, and a status line. Suite 734 → 739. Six

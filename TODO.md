@@ -1,4 +1,4 @@
-﻿# MinerCraft — TODO
+# MinerCraft — TODO
 
 See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
 
@@ -1809,6 +1809,40 @@ Played with the entangled miner. **"Looks good to me."**
       that unloads loses its edits and regenerates from seed. Known since M3, and **M6's SQLite
       save/load is the fix.**
 
+##### Rotating changes how bright the room is — sighted 2026-09-01, and the list above is missing the likely cause
+
+- [ ] **Symptom, in Matthew's words:** *"if i turn slightly left it gets brighter... its a minor
+      cosmetic and i kind like it now anyways."* Two screenshots of the same sealed room a few
+      degrees of yaw apart, the second visibly brighter overall. **Not chased, at his instruction**
+      — and the second half of that sentence is why this is recorded as *a question about intent*
+      rather than as a defect awaiting repair: **he likes it.** A camera-relative shade is a look
+      some voxel games choose on purpose.
+- [ ] **Two explanations fit those frames and they are not the same event.**
+      - **Benign composition.** `face_tint` gives ±X walls 0.65 and ±Z walls 0.8, so two adjacent
+        walls of a room differ by 23% *by design*. Turning changes how much of each fills the
+        frame, so the average brightness of the picture moves while every face keeps its own
+        shade. Nothing is wrong; the constant is doing exactly what its comment says.
+      - **A view-space normal, which would be a one-line defect.** In a Godot 4 spatial shader
+        `NORMAL` inside `fragment()` is in **view space** — the same convention `Voxel.gdshader`
+        already notes for `VERTEX` two comments further down. `face_tint(NORMAL)` would then be
+        classifying a face by its orientation *relative to the camera*: yaw carries a wall's
+        normal across the `abs(n.x) > 0.5` threshold and the wall itself steps between 0.65
+        and 0.8.
+- [ ] **The discriminating test takes two seconds and needs no instrument: point at one wall and
+      pitch up and down.** Under composition a single wall's own brightness cannot change. Under a
+      view-space normal, pitching far enough gives a vertical wall `n.y > 0.5` and it renders at
+      the **top-face** value of 1.0 — a wall lighting up like a floor.
+- [ ] **If it is the view-space normal it is a better candidate for the flicker above than any of
+      the three recorded there**, and the same family: rotation changing what is drawn while
+      neither the light grid nor the viewer moves. That list is coincident faces, frustum culling
+      and staleness; none of them is this, and this one is **reachable by rotation alone**, which
+      is the property that repro turns on.
+- [ ] **The fix, if it is ever wanted, is one line:**
+      `face_tint((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz)`. **It is a look change as much as a
+      correctness one.** The shader's stated intent is that *a box reads as a box*; under a
+      camera-relative tint two opposite walls can take the same shade at some yaws, which is the
+      case that intent exists to prevent. So it is an A/B for a person, not a bug to fix quietly.
+
 ##### Surfaced by M5d-1, not built — each wants its own planning pass
 
 - [ ] **Lever 1: `PaddedChunk.CopyFrom`, 59% of the derive** (measured). It recomputes the
@@ -2837,10 +2871,21 @@ the report it prints.
             deliberate, with the recorded cost that M6 cannot say whether volume is a real
             constraint; the recorded triggers were M10 containers and M11 crafting, and **an
             inventory screen is a third and earlier candidate.**
-- [ ] **Place the lamp in a sealed room.** 16 L — one voxel — is carried. **The only test that
-      proves the two light channels stay independent all the way to the screen**; every other one
-      passes with `shadeSky` and `shadeBlock` packed into a single byte. A warm pool rather than a
-      grey one is the assertion. The sealed room itself is already confirmed black.
+- [x] **Place the lamp in a sealed room — done 2026-09-01, and half the assertion is confounded
+      by the fixture.** A lamp on the wall of the sealed room lights it, with falloff into the
+      corners, in a room that was **confirmed black** without it. **So `COLOR.g` reaches the
+      screen: the sky channel is zero in there by construction, and something is lighting it.**
+      - [ ] **The other half — a warm pool rather than a grey one — this frame cannot show, because
+            the room is dirt.** `block_tint` is `(1.0, 0.86, 0.66)`, and warm light on brown rock
+            looks like white light on brown rock. **The fixture is degenerate in the way the
+            assertion cannot see**, which is the category the break-recipe habit exists to catch.
+            **The sharp version is one room away: build it in stone** — 2.1 million litres are
+            carried — where a warm pool on grey is unambiguous. M5c-2's `--skybrightness=0
+            --debuglamp` screenshot already carries this claim; what is missing is the play-level
+            confirmation in a room a person built.
+      - [ ] **The lamp on that wall did not come out of the inventory** — slot 3 still reads 16 L,
+            so it is M5b's `L` debug bind. Identical light either way; noted so nobody reads the
+            screenshot as evidence that placing a lamp *from the hotbar* has been exercised.
 
 #### Deliberately not in M6
 
