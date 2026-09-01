@@ -2816,6 +2816,29 @@ the report it prints.
       first be seen. **The equivalent sweep here has no obvious knob**, which is exactly why it is
       the thing to watch for.
 
+#### Surfaced by M6's play, not scheduled
+
+- [ ] **An inventory screen, and slots that stay put.** Matthew, asked whether the ID-order shift
+      bothered him: *"Didn't care but do want to adjust it so slots stay put, when we do the
+      inventory screen etc, I was going to allow you to carry more than what is on the hotbar
+      maybe?"* **The framing is the design.** Today the hotbar is a *projection* of the inventory
+      and is fully determined by it; the moment you can carry more than the row shows, **the
+      hotbar becomes an assignment** — which slot holds which material — and that is a different
+      object:
+      - [ ] It is **state the player authors**, so it must survive a quit: a world-header field
+            and a version bump v2 → v3, under M6c-2's policy that **an additive version migrates**.
+      - [ ] It **makes slots stay put by construction** rather than by a cleverer sort, so
+            `MaterialInSlot`'s revisit trigger is **answered by scheduling, not by reversal**:
+            ID order was right for a row that is a projection.
+      - [ ] It is where **inventory capacity finally gets somewhere to go**. Unbounded at M6 was
+            deliberate, with the recorded cost that M6 cannot say whether volume is a real
+            constraint; the recorded triggers were M10 containers and M11 crafting, and **an
+            inventory screen is a third and earlier candidate.**
+- [ ] **Place the lamp in a sealed room.** 16 L — one voxel — is carried. **The only test that
+      proves the two light channels stay independent all the way to the screen**; every other one
+      passes with `shadeSky` and `shadeBlock` packed into a single byte. A warm pool rather than a
+      grey one is the assertion. The sealed room itself is already confirmed black.
+
 #### Deliberately not in M6
 
 - [ ] Region files. DESIGN records the decision and its reasoning; nothing here reopens it.

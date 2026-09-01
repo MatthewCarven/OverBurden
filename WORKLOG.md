@@ -1,4 +1,55 @@
-# MinerCraft — Worklog
+﻿# MinerCraft — Worklog
+
+## 2026-09-01 — Bricked in, and it goes actually black
+
+Matthew sealed himself into the room he had just built — *"I will actually brick myself in so I
+can see it go black"* — and it went black. Not dark grey: a frame containing the HUD, the brush
+outline, and nothing else.
+
+**This is the strongest confirmation M5's lighting has had, and it is a different test from the
+one M5c-2 ran.** Those screenshots used `--skybrightness=0`, which scales the sky channel to zero
+globally — it proves the sky channel is what lights the world, but it proves it by turning a
+uniform down. **Sealing a room proves light runs out**: the sky is at full strength and simply
+cannot reach, which is the mechanism the whole grid exists to model and the thing a mining game
+is about.
+
+**It is only possible because of M5d-1's fog fix, and that is worth restating.** Before it the
+environment fog blended the *final* colour toward one constant, so against correctly-black terrain
+the fog was 100% of what you saw and a lightless room rendered as a legible grey-blue box. A test
+this sharp would have silently reported the opposite of the truth.
+
+**Still not done: the lamp.** 16 L of lamp — one voxel — is sitting on slot 3. Placing it in a
+sealed room is **the only test in the milestone that proves the two light channels stay
+independent all the way to the screen**; every other test passes identically with `shadeSky` and
+`shadeBlock` packed into one byte. A warm pool rather than a grey one is the whole assertion.
+
+### The hotbar's future is an inventory screen, and that changes what a slot is
+
+Asked whether the ID-order slot shift actually bothered him: *"Didn't care but do want to adjust
+it so slots stay put, when we do the inventory screen etc, I was going to allow you to carry more
+than what is on the hotbar maybe?"*
+
+**So the fix is scheduled rather than declined, and the framing changes the design.** Today the
+hotbar is a *projection*: nine slots showing the first nine materials you carry, in ID order, and
+the row is fully determined by the inventory. The moment you can carry more than the row shows,
+**the hotbar becomes an assignment** — which slot holds which material — and that is a different
+object with different requirements:
+
+- It is **state the player authors**, so it has to survive a quit. That is a world-header field
+  and a header format version bump, v2 → v3, under M6c-2's recorded policy: *an additive version
+  migrates, a version that changes what a field means is refused.* Adding a slot map is additive.
+- **It makes slots stay put by construction**, which is the ask, rather than by a cleverer sort.
+  `MaterialInSlot`'s revisit trigger is therefore **answered by scheduling rather than by
+  reversal**: ID order was the right rule for a row that is a projection, and it stops being the
+  question the moment the row is an assignment.
+- It is also where **inventory capacity finally gets somewhere to go**. `VolumetricInventory` is
+  unbounded at M6 deliberately, with the recorded cost that *M6 cannot answer whether volume is a
+  real constraint*, and the recorded trigger was M10's containers or M11's crafting. **An
+  inventory screen is a third candidate and an earlier one.**
+
+Not built, not scheduled to a milestone yet, and recorded here so the next person planning one
+starts from the four sentences above rather than from the hotbar.
+
 
 ## 2026-09-01 — M6's headline question is answered by a person: the work is still there
 
