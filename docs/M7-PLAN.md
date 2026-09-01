@@ -228,7 +228,18 @@ the saddle; above it the surplus is the merge tree's problem.
 Memory: a 1,000-sample basin costs ~12 KB of sorted elevations and sums. Tens of basins in a
 window, so tens of megabytes is not a risk and a knotted 32-point approximation is **not** needed.
 
-### The number this part is most likely to have got wrong
+### The number this part is most likely to have got wrong — measured 2026-09-01
+
+**Answered, and the answer settles it: a 1,024 m window costs 19.9 ms**, 3.64 ms sampling plus
+16.30 ms flooding, Release, one thread. Under the 50 ms line below, **so no incremental watershed
+is ever built** — the window is re-analysed wholesale on a worker when the player leaves the centre
+box.
+
+**The estimate below was inside its range and wrong about which half.** Sampling measured at
+**55 ns/sample**, two to four times cheaper than assumed, and the flood is **82% of the total**.
+The range was right for a reason that was not, which matters because the *lever* moved:
+`SurfaceHeightAt` is not where this spends its time. The original reasoning is kept below because
+being wrong in this particular way is the thing worth recognising next time.
 
 **How long the analysis takes, and therefore whether it ever needs to be incremental.**
 
@@ -266,6 +277,21 @@ The oracle is invariants, not a reference implementation — no second priority-
   index; tie-break pits by heap order; forget `cellArea` in the volume sum; sort descending.
 
 ---
+
+### Split into M7a-1 and M7a-2, on the evidence
+
+**M7a-1 — the flood, the curves and the measurement — is done (2026-09-01).** M7a-2 is the merge
+tree, and it was separated for a reason that only appeared while building: **the leaf spill graph
+has two-cycles by construction.** A crossing costs the higher of the two samples it joins, so it is
+symmetric — two basins with no cheaper exit are each other's lowest crossing, and surplus routed
+around the leaves ping-pongs forever. The merge tree is what resolves it, and **1,336 of the 1,376
+basins in a 1 km window spill into another basin rather than out of the world**, so it is the
+common case rather than an edge case.
+
+One number from M7a-1 belongs to M7b rather than to M7a: **every basin in a 1 km window full to its
+own saddle is 54.7 ML, which is 5.2 cm of water spread flat over the square kilometre**, and the
+mean basin is 40 m³. Basins are shallow relative to rain and most of them are puddles — which is
+what the rainfall rate should be set against, and it predicts ponds appearing within minutes.
 
 ## M7b — The clock, the weather and the accumulator
 

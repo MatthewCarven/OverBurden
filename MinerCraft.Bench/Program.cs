@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using MinerCraft.Core.Content;
+using MinerCraft.Core.Hydrology;
 using MinerCraft.Core.Lighting;
 using MinerCraft.Core.Persistence;
 using MinerCraft.Persistence;
@@ -48,6 +49,7 @@ internal static class Program
           --light              time light derivation and propagation instead of worldgen
           --blob               time chunk serialisation, and price Compact() on save
           --store              time the SQLite read path against the generation it replaces
+          --watershed          time the M7 watershed analysis over a sweep of window sizes
         """;
 
     private static int Main(string[] args)
@@ -58,6 +60,7 @@ internal static class Program
         bool light = false;
         bool blob = false;
         bool store = false;
+        bool watershed = false;
 
         try
         {
@@ -86,6 +89,9 @@ internal static class Program
                     case "--store":
                         store = true;
                         break;
+                    case "--watershed":
+                        watershed = true;
+                        break;
                     case "--help" or "-h":
                         Console.WriteLine(Usage);
                         return 0;
@@ -112,6 +118,11 @@ internal static class Program
 
         ChunkPos[] region = Region();
         var strata = new StrataTable([new StrataLayer(Grass, 1), new StrataLayer(Dirt, 3)], Stone);
+
+        if (watershed)
+        {
+            return WatershedBench(seed, repeat);
+        }
 
         if (light)
         {
@@ -1086,5 +1097,112 @@ internal static class Program
                 Console.Error.WriteLine($"could not remove {directory}");
             }
         }
+    }
+
+    // ------------------------------------------------------------ the watershed bench
+    //
+    // WHY THIS EXISTS. M7-PLAN names one number as the one most likely to have been got wrong:
+    // how long a window analysis takes, and therefore whether an incremental watershed ever has
+    // to be built. The estimate written into the plan was ~10-30 ms for a 1 km window at 4 m,
+    // from 65,536 samples at an assumed 0.1-0.2 us each plus the flood. Under ~50 ms the question
+    // is settled forever and the window is simply re-analysed wholesale when the player moves;
+    // over ~200 ms and M7b's dependency on it needs rethinking before it is written.
+    //
+    // Sampling and analysis are timed apart, because the estimate assumed sampling dominates and
+    // an estimate that is right in total for the wrong reason is the kind that misleads later.
+
+    /// <summary>Times <see cref="HeightField.Sample"/> and <see cref="Watershed.Analyse"/>.</summary>
+    private static int WatershedBench(ulong seed, int repeat)
+    {
+        var strata = new StrataTable([new StrataLayer(Grass, 1), new StrataLayer(Dirt, 3)], Stone);
+        var generator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
+
+        int cell = HeightField.DefaultCellVoxels;
+        int[] pitches = [64, 128, 256, 512];
+
+        Console.WriteLine(
+            $"Watershed bench — seed {seed}, {cell / VoxelConstants.VoxelsPerMetre} m cells, "
+            + $"best of {repeat}");
+        if (IsDebug())
+        {
+            Console.WriteLine("*** DEBUG BUILD — these timings are meaningless. Re-run with -c Release. ***");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine(
+            "  window   samples   sample ms   flood ms   total ms   ns/sample   basins   "
+            + "held ML   spilling");
+        Console.WriteLine(
+            "  ------   -------   ---------   --------   --------   ---------   ------   "
+            + "-------   --------");
+
+        foreach (int pitch in pitches)
+        {
+            int samples = pitch * pitch;
+            int metres = pitch * cell / VoxelConstants.VoxelsPerMetre;
+            double bestSample = double.MaxValue;
+            double bestFlood = double.MaxValue;
+            int basins = 0;
+            long held = 0;
+            int spilling = 0;
+
+            // WARM UP BY CALL COUNT, NOT BY ONE PASS, and the difference showed up as a fake
+            // finding. Tiered compilation promotes a method after about thirty calls, or sooner
+            // through on-stack replacement if a loop inside it runs long enough. A 256 m window
+            // floods in two milliseconds, so one warm-up pass leaves it in tier-0 code while the
+            // 1 km window is promoted mid-flood by OSR — which reported small windows at 685
+            // ns/sample against large ones at 303 and read as a cache effect. It was the JIT.
+            int warmups = 0;
+            var warmClock = Stopwatch.StartNew();
+            while (warmups < 32 && warmClock.ElapsedMilliseconds < 250)
+            {
+                Watershed.Analyse(HeightField.Sample(generator, 0, 0, pitch, cell));
+                warmups++;
+            }
+
+            for (int pass = 0; pass < repeat; pass++)
+            {
+                var clock = Stopwatch.StartNew();
+                HeightField field = HeightField.Sample(generator, 0, 0, pitch, cell);
+                double sampleMillis = clock.Elapsed.TotalMilliseconds;
+
+                clock.Restart();
+                Watershed analysed = Watershed.Analyse(field);
+                double floodMillis = clock.Elapsed.TotalMilliseconds;
+
+                bestSample = Math.Min(bestSample, sampleMillis);
+                bestFlood = Math.Min(bestFlood, floodMillis);
+
+                basins = analysed.Basins.Count;
+                held = 0;
+                spilling = 0;
+                foreach (Basin basin in analysed.Basins)
+                {
+                    held += basin.CapacityLitres;
+                    if (basin.SpillTo != Watershed.Outlet)
+                    {
+                        spilling++;
+                    }
+                }
+            }
+
+            double total = bestSample + bestFlood;
+            Console.WriteLine(
+                $"  {metres,4} m   {samples,7}   {bestSample,9:F2}   {bestFlood,8:F2}   "
+                + $"{total,8:F2}   {total * 1_000_000 / samples,9:F0}   {basins,6}   "
+                + $"{held / 1_000_000.0,7:F1}   {spilling,8}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine(
+            "  'held' is what every basin in the window would contain at its own saddle — the "
+            + "capacity M7b fills, not");
+        Console.WriteLine(
+            "  a prediction of what will be in it. 'spilling' counts basins whose overflow goes "
+            + "to another basin rather");
+        Console.WriteLine(
+            "  than out of the window, which is the share of the work M7a-2's merge tree will "
+            + "have to route.");
+        return 0;
     }
 }

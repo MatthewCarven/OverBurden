@@ -98,6 +98,19 @@ measuring only that prices `Compact` against a fixture with nothing to gain.
 It loads `mods/minercraft/` through the real loader, because conductance is a function of which
 materials are opaque and a fixture would measure a made-up world.
 
+Measure the **M7 watershed** — the number that decided whether an incremental watershed ever has to
+be built. Release only, and it sweeps window sizes at the 4 m cell:
+
+```bash
+dotnet run --project MinerCraft.Bench -c Release -- --watershed
+```
+
+**Sampling and flooding are timed apart**, because M7-PLAN's estimate assumed sampling dominated
+and it does not — it is 18% of the cost. **It warms up by call count rather than by one pass**, and
+that is not fussiness: one warm-up pass leaves a small window in tier-0 code while a large one is
+promoted mid-flood by OSR, which reported the 1 km window at 47 ms instead of 20 and looked exactly
+like a memory-locality finding.
+
 Verify headlessly — no display needed, catches scene and script errors and prints the
 diagnostics:
 
@@ -191,7 +204,17 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-**M7 is planned (2026-09-01) and not started** — watershed basins, Tier A rain accumulation, the
+**M7 is under way: M7a-1 is built (2026-09-01), M7a-2 — the merge tree — is next.**
+`MinerCraft.Core/Hydrology/` holds the flood, the basins and the volume→level curves; **a 1,024 m
+window costs 19.9 ms**, under the plan's 50 ms line, **so no incremental watershed is ever built.**
+Three things from it that are expensive to rediscover: **flat ground is the defect that matters**
+(a flat shelf's corner has no lower neighbour, so a per-cell sweep declares it a pit, and integer
+heights sampled every 4 m tie constantly); **the leaf spill graph has two-cycles by construction**,
+because a crossing costs the higher of the two samples it joins and is therefore symmetric — which
+is what M7a-2's merge tree resolves; and **the estimate was right in range and wrong about which
+half**, sampling being 55 ns/sample against an assumed 100–200 and the flood being 82% of the cost.
+
+**M7 was planned 2026-09-01** — watershed basins, Tier A rain accumulation, the
 rain itself, the wet-surface term and a water surface you can watch rise. See
 [docs/M7-PLAN.md](docs/M7-PLAN.md), split M7a–M7d, and read [docs/SCALE.md](docs/SCALE.md) before
 it. Four things from the planning pass that are expensive to rediscover:

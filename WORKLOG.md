@@ -1,5 +1,116 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-01 — M7a-1: the watershed, and an estimate that was right for the wrong reason
+
+`MinerCraft.Core/Hydrology/` holds `HeightField`, `Watershed`, `Basin` and `VolumeCurve` —
+priority-flood over the analytic surface, one basin per depression with its pit, saddle, spill
+target and catchment, and a volume→level curve that inverts. Suite **739 → 756**. No Godot, no
+chunks, no streaming: the analysis takes `ISurfaceHeights` and returns plain data.
+
+**The measurement the plan called its first job, taken first: a 1,024 m window at 4 m costs
+19.9 ms** — 3.64 ms sampling, 16.30 ms flooding — on one thread in Release. The plan's threshold
+was *under ~50 ms settles it forever*, so **no incremental watershed is ever built**: the window is
+re-analysed wholesale on a worker when the player leaves the centre box, and a whole category of
+complexity is deleted before anything was written against it.
+
+### The estimate was inside its range and wrong about which half
+
+M7-PLAN guessed 10–30 ms, arrived at as *65,536 samples at 0.1–0.2 µs each, plus the flood*.
+Measured, **sampling is 55 ns/sample** — two to four times cheaper than assumed — and **the flood
+is 82% of the total**. So the range was right for a reason that was not.
+
+That matters more than being wrong by a factor would, because the *lever* moved: if this ever
+needs to be faster, `SurfaceHeightAt` is not where the time is, and the plan implied it was. Same
+shape as M5-PLAN costing propagation and saying nothing about the derive, which turned out to be
+the larger half.
+
+| window | samples | sample ms | flood ms | total | ns/sample | basins | held | spilling |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 256 m | 4,096 | 0.43 | 2.33 | 2.76 | 675 | 69 | 2.9 ML | 61 |
+| 512 m | 16,384 | 1.11 | 4.09 | 5.20 | 318 | 325 | 11.4 ML | 303 |
+| **1,024 m** | **65,536** | **3.64** | **16.30** | **19.94** | **304** | **1,376** | **54.7 ML** | **1,336** |
+| 2,048 m | 262,144 | 14.59 | 70.82 | 85.41 | 326 | 5,668 | 211.4 ML | 5,601 |
+
+The 256 m row is still an outlier at 675 ns/sample and is left standing rather than explained
+away: at 4,096 samples the per-basin work and the allocations are a larger share, and 2.3 ms is
+not a number any decision turns on.
+
+### The trap, and it produced a fake finding before it was caught
+
+The first run reported the 1 km window at **47.2 ms** and a per-sample cost that fell from 731 ns
+at 256 m to 337 ns at 2 km — which reads as a cache or a memory-locality effect and is a
+completely believable thing to write down. **It was the JIT.** One warm-up pass leaves a 2 ms
+flood in tier-0 code, while the 1 km flood is promoted mid-run by on-stack replacement; the
+bench was measuring which rows had been compiled. Warming up by **call count** — 32 calls or
+250 ms, whichever comes first — moved the 1 km window from 47.2 ms to 19.9 ms and the 512 m one
+from 10.1 to 4.1.
+
+**This is the headless-frame-time family again**: a measurement artefact that arrives looking like
+a finding, with a plausible mechanism already attached. The tell was that the discontinuity sat
+between two adjacent rows rather than spreading across them.
+
+### Flat ground was the defect that mattered, and a fixture found it rather than theory
+
+The first design labelled cells in one sweep, taking each cell's label from its lowest neighbour.
+Correct on a slope, and wrong the moment two neighbours are equal: **the corner of a flat shelf has
+no strictly lower neighbour at all**, so it is declared a pit. Voxel heights are integers sampled
+every 4 m, so ties are ordinary rather than exotic — real terrain would have filled with basins
+that hold nothing, each stealing catchment from the real one.
+
+The fix is Barnes' flat resolution in the one place this needs it: sweep a **tier** at a time — one
+run of equal (filled, height) — seed it from whatever lower ground already touches it, and spread
+the label across the flat. Only what the spread cannot reach is a pit. It is one extra queue and
+the same O(n log n).
+
+**And it was found by writing the fixture, not by reasoning about the algorithm.** The stepped tank
+exists to check arithmetic; it happens to have four shelf corners.
+
+### Two more things about the shape, both worth keeping
+
+- **The sweep needs a global sort; the flood's own pop order is not enough.** The flood enters a
+  depression from the rim and works inward, so the first cell of a descending corridor is popped
+  while the deeper ones are not yet in the heap — label as you flood and that first cell becomes
+  the pit, and the real one never does.
+- **The leaf spill graph has two-cycles by construction.** A crossing costs the higher of the two
+  samples it joins, so it is symmetric: two basins with no cheaper exit are each other's lowest
+  crossing, and surplus routed around the leaves would ping-pong forever. That is not a defect to
+  fix here — it is exactly what a merge tree resolves, and it is now a test
+  (`TwoSiblingBasinsSpillIntoEachOtherAndThatIsWhyTheMergeTreeExists`) so that building the tree
+  has something to change.
+
+### Ten break-recipes, eight caught, and the two green ones are documentation corrections
+
+Caught: edge as a wall; the curve not capped at the saddle; a pit keyed by sample index rather than
+world column; pits tie-broken by index rather than depth; no flat resolution; volume forgetting the
+cell area; the curve sorted descending; the flood pushing the neighbour's own height.
+
+Green, and neither is a hole:
+
+- **The saddle's explicit tie-break is belt and braces.** Replacing it with `crossing <= saddle`
+  leaves the suite green, because the scan is row-major and row-major (z, x) order already survives
+  translation — both rules are stable, they simply keep a different one of two equal crossings.
+  Kept because it states the property as a rule rather than as a consequence of the loop's shape,
+  and a tiled or parallel scan would make it the only thing holding that property up.
+- **The `key < own` guard in the seeding pass is unreachable**, because every neighbour labelled at
+  that moment already has a lower key. **The battery corrected a comment written an hour earlier**,
+  which had claimed the guard became load-bearing once flats were handled. It did not.
+
+Both are M4a's zeroable-epsilon category, and this is the fourth and fifth time it has come up.
+
+### Two numbers that are for M7b rather than for M7a
+
+- **1,376 basins in a 1 km window, and 1,336 of them spill into another basin rather than out of
+  the world.** The merge tree is the common case, not an edge case — and M7b has fourteen hundred
+  accumulators in view, not ten. Still trivial against SCALE.md's yardstick (a float each), but the
+  plan's mental image of "a few lakes" is wrong and the tuning follows from the real number.
+- **Every basin in that window full to its own saddle is 54.7 ML, which is 5.2 cm of water spread
+  flat over the square kilometre.** Basins are shallow relative to rain, and the mean is 40 m³ —
+  **most of them are puddles**. That is the number M7b's rainfall rate should be set against, and
+  it says ponds ought to appear within minutes, which is what Matthew asked for out loud.
+  **A minimum capacity below which a basin is not tracked is the obvious knob**, named here and
+  deliberately not built.
+
+
 ## 2026-09-01 — M7 planned: the first system with no bound, and the world gets a clock
 
 [docs/M7-PLAN.md](docs/M7-PLAN.md), split M7a–M7d, nothing written yet. Three decisions were put

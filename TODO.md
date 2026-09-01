@@ -2980,38 +2980,76 @@ and so does everything after it. Additive, so header **v2 → v3 migrates**.
 - [x] **The code lives in `MinerCraft.Core/Hydrology/`**, no Godot, per non-negotiable 1.
       `MinerCraft.Persistence` gains one table.
 
-#### M7a — The watershed
+#### M7a — The watershed ← **split in two 2026-09-01. M7a-1 is done; M7a-2 is the merge tree.**
 
-- [ ] Priority-flood (Barnes, Lehman & Mulla 2014) over the window: pits, saddles, catchments and
-      basin labels in one pass.
-- [ ] **The merge tree, built up front by sorting saddles and union-find.** A filling basin walks
-      *up a tree* rather than routing around a graph, which is what makes cascading overflow
-      **acyclic by construction** rather than by a loop guard.
-- [ ] **The volume→level curve: sorted elevations plus a prefix sum**, so `volume(L)` is a binary
+Split while building, on the evidence rather than up front: the flood and the curves are one
+self-contained thing that the plan's own first job (the measurement) needed in order to exist, and
+the merge tree is a second thing with its own hazard — see the two-cycle below.
+
+##### M7a-1 — The flood, the curves and the measurement ✅ **done 2026-09-01, 756 tests passing**
+
+- [x] Priority-flood (Barnes, Lehman & Mulla 2014) over the window: pits, saddles, catchments and
+      basin labels. `MinerCraft.Core/Hydrology/` — `HeightField`, `Watershed`, `Basin`,
+      `VolumeCurve`. No Godot, no chunks, no streaming.
+- [x] **The measurement, taken first as the plan asked: a 1,024 m window costs 19.9 ms** — 3.64 ms
+      sampling, 16.30 ms flooding, Release, one thread. Under the 50 ms line, so **no incremental
+      watershed is ever built**; the window is re-analysed wholesale on a worker.
+      - [x] **The estimate was inside its range and wrong about which half.** It assumed sampling
+            at 0.1–0.2 µs dominating; measured, **sampling is 55 ns/sample** and **the flood is 82%
+            of the total**. The range was right for a reason that was not — and the *lever* moved,
+            which is what matters: `SurfaceHeightAt` is not where the time is.
+      - [x] **A JIT warm-up artefact produced a fake finding first.** One warm-up pass left small
+            windows in tier-0 while the 1 km flood was promoted mid-run by OSR, reporting 47.2 ms
+            and a per-sample cost that fell with window size — which reads as memory locality and
+            is a believable thing to write down. Warming up by **call count** moved 1 km from 47.2
+            to 19.9 ms. **The headless-frame-time family again**; the tell was a discontinuity
+            between two adjacent rows rather than a trend across them.
+- [x] **Flat ground was the defect that mattered, and a fixture found it rather than theory.** The
+      corner of a flat shelf has no strictly lower neighbour, so a per-cell sweep declares it a
+      pit — and voxel heights sampled every 4 m tie constantly, so real terrain would fill with
+      basins that hold nothing, each stealing catchment from the real one. Fixed by sweeping a
+      **tier** of equal (filled, height) at a time, seeding it from lower ground and spreading the
+      label across the flat: Barnes' flat resolution in the one place this needs it.
+- [x] **The sweep needs a global sort; the flood's own pop order is not enough.** The flood enters
+      a depression from the rim inward, so labelling during it makes the first cell of a descending
+      corridor the pit and the real pit never becomes one.
+- [x] **Ten break-recipes, eight caught, two documentation corrections.** The saddle's explicit
+      tie-break is belt and braces (row-major scan is already translation-stable), and the
+      `key < own` guard in the seeding pass is unreachable — **which corrected a comment written an
+      hour earlier** claiming it had become load-bearing. M4a's zeroable-epsilon category, fourth
+      and fifth outings.
+- [x] **Two independent oracles, and they are the two that matter.** A stepped tank whose volume is
+      arithmetic done on paper, and the filled heights recomputed by repeated flood fill at rising
+      thresholds — a different algorithm, hopeless on a real window and exactly right on a
+      twelve-sample one.
+
+##### M7a-2 — The merge tree ← **next**
+
+- [ ] **The two-cycle is why this exists, and it is now a test rather than an argument.** A
+      crossing costs the higher of the two samples it joins, so it is **symmetric**: two basins
+      with no cheaper exit are each other's lowest crossing, and surplus routed around the leaves
+      ping-pongs forever. `TwoSiblingBasinsSpillIntoEachOtherAndThatIsWhyTheMergeTreeExists` fails
+      to be interesting the day the tree lands, which is the point of writing it now.
+- [ ] **Built up front by sorting saddles and union-find.** A filling basin walks *up a tree*
+      rather than routing around a graph, which is what makes cascading overflow **acyclic by
+      construction** rather than by a loop guard.
+- [ ] **1,336 of 1,376 basins in a 1 km window spill into another basin rather than out of the
+      world**, so this is the common case and not an edge case. Measured at M7a-1.
+- [ ] **Composite curves lazily, and this is a real decision.** A composite's cells are the union
+      of its children's, so building every level eagerly is O(n log n) elevations — about 4 MB for
+      a 1 km window — for lakes that will almost never fill that high. Build on demand, cache.
+- [x] **The volume→level curve: sorted elevations plus a prefix sum**, so `volume(L)` is a binary
       search and `level(V)` is the same search inverted. Exact, monotonic, invertible — the level
       is *solved, not simulated*. Capped at the saddle.
-- [ ] **The number this part is most likely to have got wrong: how long the analysis takes.**
-      Estimate — *estimate, not measurement* — 65,536 samples at ~0.1–0.2 µs each plus the flood,
-      so **~10–30 ms on a worker, once per window move.** **If it holds, no incremental watershed
-      is ever built**; the window is re-analysed wholesale with hysteresis, as `ChunkBox` already
-      does. Measure it first thing. Under ~50 ms settles it forever; over 200 ms and M7b's
-      dependency needs rethinking before it is written.
-- [ ] Tests, invariants rather than a second flood to get wrong:
-      - [ ] `volume(level(v)) == v` and `level(volume(L)) == L`.
-      - [ ] **A conic bowl checked against calculus** — three lines through `ISurfaceHeights`, and
-            the closed form shares no code with the subject. **The one genuinely independent
-            oracle in the part.**
-      - [ ] Spill level ≥ own elevation everywhere; spill targets strictly increase, so the tree
-            is acyclic. Fuzzed over random heightmaps.
-      - [ ] Absurd volume pins at the saddle and hands the remainder upward.
-      - [ ] Two bowls and a ridge: known saddle, known merge level.
-      - [ ] A tilted plane has no basins and loses every drop through the edge.
-      - [ ] **The same terrain analysed through two different window origins returns the same pits
-            and catchments where the windows overlap** — the test that would have caught keying a
-            basin by index.
-      - [ ] Break-recipes to script and watch fail: edge as wall; `>` for `>=` at the saddle; drop
-            the saddle cap; key by index; tie-break by heap order; drop `cellArea`; sort
-            descending.
+- [x] Tests, invariants rather than a second flood to get wrong. Built at M7a-1:
+      `volume(level(v)) == v` both ways; a stepped tank checked against arithmetic done on paper;
+      a conic bowl within a few per cent of `πr²h/3`, the tolerance being discretisation rather
+      than slack; filled ≥ ground everywhere; absurd volume pinning at the saddle; a tilted plane
+      with no basins; **the same pits through a translated window**; and the flood checked against
+      a brute-force minimax that shares no code with it.
+- [ ] **Still open from M7a-1, and named rather than assumed:** the spill *target*'s stability
+      across a window move is asserted only for the case where it is `Outlet`. A fixture with two
+      equal crossings to two different basins would pin the rest. Cheap, and it did not block.
 
 #### M7b — The clock, the weather and the accumulator
 
