@@ -1,4 +1,4 @@
-using Godot;
+﻿using Godot;
 using MinerCraft.Core.Voxels;
 
 namespace MinerCraft.Game.Player;
@@ -110,8 +110,8 @@ public partial class FlyCam : Camera3D
             "  Sneaking will not walk you off an edge\n" +
             "  Left mouse mines a sphere, right mouse places a brush\n" +
             "  Alt+click is precision on either button: one voxel taken, one voxel placed\n" +
-            "  B cycles the brush, V cycles the material you are placing\n" +
-            "  Number keys pick a tier\n" +
+            "  1-9 pick a material from the hotbar, V cycles to the next one\n" +
+            "  B cycles the brush, T cycles the tool tier\n" +
             "  L places a lamp — a debug bind, superseded by the brushes\n" +
             "  Q toggles the entangled miner — unlimited reach, 8 swings/s, also a debug bind\n" +
             "  Esc releases the mouse, click to recapture");

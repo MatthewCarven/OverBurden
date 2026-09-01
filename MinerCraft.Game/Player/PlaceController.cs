@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Numerics;
 using MinerCraft.Core.Building;
@@ -254,6 +254,29 @@ public sealed class PlaceController(
         }
 
         return MaterialId = held[0].MaterialId;
+    }
+
+    /// <summary>
+    /// Selects the material in hotbar slot <paramref name="slot"/>, zero-based.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>An empty slot changes nothing rather than deselecting.</b> Pressing 4 while carrying
+    /// three materials is a miss, and a miss that emptied the hand would mean the next click
+    /// placed nothing — punishing a mistyped key with a lost placement. The same reasoning as
+    /// <see cref="MaterialId"/> being −1 rather than air: the failure has to be a no-op.
+    /// </para>
+    /// <para>
+    /// The ordering the slot indexes into is <c>VolumetricInventory.MaterialInSlot</c>'s, and it
+    /// is documented there together with the cost of it — acquiring a new material shifts the
+    /// slots above it.
+    /// </para>
+    /// </remarks>
+    /// <returns>The material now selected, or −1 if nothing is.</returns>
+    public int SelectSlot(int slot)
+    {
+        int materialId = inventory.MaterialInSlot(slot);
+        return materialId < 0 ? MaterialId : MaterialId = materialId;
     }
 
     /// <summary>The material there is most of, or −1 for an empty inventory.</summary>

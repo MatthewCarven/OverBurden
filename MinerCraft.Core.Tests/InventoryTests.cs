@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using MinerCraft.Core.Building;
 using MinerCraft.Core.Inventory;
 using MinerCraft.Core.Mining;
@@ -284,6 +284,98 @@ public class InventoryTests
 
         Assert.Equal(64, refilled.Placed);
         Assert.Equal(0, inventory.TotalVoxels);
+    }
+
+    // ------------------------------------------------------------------ the hotbar (M6d-3)
+
+    [Fact]
+    public void AnEmptyInventoryHasNoSlots()
+    {
+        var inventory = new VolumetricInventory();
+
+        Assert.Equal(-1, inventory.MaterialInSlot(0));
+        Assert.Equal(-1, inventory.MaterialInSlot(8));
+    }
+
+    [Fact]
+    public void SlotsAreTheCarriedMaterialsInAscendingIdOrder()
+    {
+        var inventory = new VolumetricInventory();
+
+        // Added out of order on purpose: the row must not depend on acquisition order, because
+        // a restored inventory has no acquisition order to depend on.
+        inventory.Add(Stone, 10);
+        inventory.Add(Dirt, 5);
+
+        Assert.Equal(Dirt, inventory.MaterialInSlot(0));
+        Assert.Equal(Stone, inventory.MaterialInSlot(1));
+        Assert.Equal(-1, inventory.MaterialInSlot(2));
+    }
+
+    /// <summary>
+    /// A slot past the end, and a negative slot, are empty rather than an exception.
+    /// </summary>
+    /// <remarks>
+    /// The caller is a key press. Pressing 9 while carrying two materials is an ordinary thing a
+    /// player does, not a caller error, and a throw there would take the frame down.
+    /// </remarks>
+    [Fact]
+    public void ASlotOutsideTheRowIsEmptyRatherThanAThrow()
+    {
+        var inventory = new VolumetricInventory();
+        inventory.Add(Stone, 1);
+
+        Assert.Equal(-1, inventory.MaterialInSlot(1));
+        Assert.Equal(-1, inventory.MaterialInSlot(-1));
+        Assert.Equal(-1, inventory.MaterialInSlot(int.MaxValue));
+    }
+
+    /// <summary>
+    /// Spending the last of a material closes its slot up, and the row above it shifts down.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asserted rather than left implied, because it is the documented cost of the ID-order
+    /// rule.</b> The same shift happens in reverse when a material is acquired — mine your first
+    /// dirt and the stone on slot 1 becomes slot 2 under your hand. If this test is ever
+    /// "fixed" to assert stability instead, the rule has changed and
+    /// <see cref="VolumetricInventory.MaterialInSlot"/>'s revisit trigger has fired.
+    /// </remarks>
+    [Fact]
+    public void EmptyingAMaterialShiftsEverySlotAboveIt()
+    {
+        var inventory = new VolumetricInventory();
+        inventory.Add(Dirt, 1);
+        inventory.Add(Stone, 1);
+
+        Assert.Equal(Stone, inventory.MaterialInSlot(1));
+
+        inventory.Take(Dirt, 1);
+
+        Assert.Equal(Stone, inventory.MaterialInSlot(0));
+        Assert.Equal(-1, inventory.MaterialInSlot(1));
+    }
+
+    /// <summary>
+    /// The row survives a save and reload, which is the whole reason it is ID order.
+    /// </summary>
+    /// <remarks>
+    /// The rejected alternative — first-acquired order — passes every test above and fails this
+    /// one, because <see cref="VolumetricInventory.Reset"/> replays entries in the order the
+    /// header stored them and a session's acquisition order is not written down anywhere.
+    /// </remarks>
+    [Fact]
+    public void TheRowIsUnchangedAcrossASaveAndReload()
+    {
+        var played = new VolumetricInventory();
+        played.Add(Stone, 10);
+        played.Add(Dirt, 5);
+
+        int[] before = [played.MaterialInSlot(0), played.MaterialInSlot(1)];
+
+        var reopened = new VolumetricInventory();
+        reopened.Reset(played.Entries());
+
+        Assert.Equal(before, [reopened.MaterialInSlot(0), reopened.MaterialInSlot(1)]);
     }
 
     private static TestWorld SolidStone() => new() { Background = _ => Stone };

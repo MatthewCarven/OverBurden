@@ -125,7 +125,9 @@ light without a keypress) and `--entangle` (the entangled miner, which with `--m
 the flight path rather than straight down — see below).
 
 **Building is bound to the right mouse button**, `B` cycles the brush (cube, slab, ramp, sphere),
-and `V` cycles the material among what you are carrying. `--place` holds the button for a whole
+and **`1`–`9` pick a material from the hotbar** (`V` still cycles to the next one). **`T` cycles
+the tool tier** — it was the number row until M6d-3, and the row went to materials because that is
+where a hand expects to find what it builds with. `--place` holds the button for a whole
 profile window, `--stock=<voxels>` seeds the inventory so such a run measures the brush rather
 than the carve, and `--brush=<name>` picks the shape.
 
@@ -187,9 +189,49 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2, all of M3, all of M4, all of M5, M6a, all of M6b, all of M6c, M6d-1
-and M6d-2** are done — **734 tests passing**. **M6d-3 — the play and the first real UI — is next,
-and it is the last part of M6.**
+M0, all of M1, **all of M2, all of M3, all of M4, all of M5, M6a, all of M6b, all of M6c, M6d-1,
+M6d-2 and M6d-3's UI** are done — **739 tests passing**. **What is left of M6 is the play, and it
+is Matthew's**: dig a tunnel and fly away until it unloads and come back; quit and reopen; build a
+room with walls, a floor and a ramp down into it. A sandbox cannot be judged by the person who
+built it out of the report it prints.
+
+**M6d-3 — the first real UI: built 2026-09-01.** `MinerCraft.Game/Ui/Hud.cs` — a nine-slot hotbar
+with a swatch, name and litres per slot, a crosshair, and a status line. Suite 734 → 739. Six
+things worth keeping:
+
+- **The number row moved to materials and the tool tiers moved to `T`.** M6d's TODO named the
+  collision and left it open; both want 1–9 and only one is what a hand expects to find there.
+  **The same muscle-memory argument that swapped Ctrl and Shift on 2026-08-31.** Two picks ship,
+  so the tiers traded one press for one press — **and if a mod ever ships eight picks that trade
+  inverts.** `SelectTier` also stopped being polled every frame and became an event on the key,
+  which removed a `ReferenceEquals` guard that existed only to stop it announcing 60 times a
+  second.
+- **`VolumetricInventory.MaterialInSlot` is the row: carried materials in ascending ID order**, and
+  **the cost is stated rather than hidden — acquiring a new material shifts every slot above it.**
+  Accepted because the fix is a player-arranged slot assignment that has to survive a quit, which
+  is a header field and a format version. **ID order beat first-acquired order on the one case
+  that separates them**: acquisition order is stable within a session and loses across a quit,
+  because `Reset` replays the header's entries and acquisition order is written down nowhere. A
+  rule that is always the same beats one that is usually better and occasionally lies.
+- **It gave `Entries()`' sort a second and louder dependant.** That sort exists so the same
+  inventory writes the same bytes; it is now what a number key *means*. A shuffled save is
+  unanswerable, a shuffled hotbar moves materials mid-build. Removing it breaks two unrelated-
+  looking things.
+- **`VoxelMaterial.LayerColour` is one definition of what stone looks like**, shared by the block
+  textures and the hotbar swatches. A palette in the HUD would be two definitions that agree the
+  day they are written — the `IsCaveAt`/`GenerateTerrain` argument.
+- **A material's label is derived from its identifier's path and deliberately not a JSON field.**
+  **Mods write against a format the moment it exists**, and an authorable name is a name that
+  wants translating. This is the one part of M6d-3 that would have been expensive to get wrong.
+  **Revisit trigger: the first material whose ID is not a sensible label, or the first request to
+  run the game in another language.**
+- **The screenshot found two defects the logs could not have, and manufactured a third.** Headless
+  has no renderer, so a layout error looks identical to a correct layout in every log this project
+  prints — the crosshair's vertical bar rendered as a line most of the screen tall
+  (`SetAnchorsPreset` plus a `Size`, recomputed from the anchors next layout pass) and the litres
+  label was clipped off the bottom edge. **A pale line at screen-centre then read as a third
+  defect and was not**: a pixel sample gave (238, 229, 88), the yellow cell outline's own back
+  edge misread against green. Eyeballing a screenshot is a measurement too.
 
 **M6d-2 — measurement: done 2026-09-01.** Five questions, five answers, and **the two that
 mattered were not the two the plan expected.** Suite unchanged; the default headless run unchanged
@@ -701,7 +743,8 @@ owner-only left it green, because the writes already span eight chunks by themse
 the code on purpose, and check the comment too.
 
 **M3d — binding, feel and measurement: done 2026-08-29.** Left mouse mines on the flycam,
-number keys pick a tier, and a wireframe `VoxelHighlight` outlines the target.
+number keys picked a tier (**they pick a material from M6d-3; the tier is `T`**), and a
+wireframe `VoxelHighlight` outlines the target.
 `MiningController` is Godot-free, so `--mine` drives a whole profile window headlessly.
 
 **The milestone's real question is answered: yes, a pick swing fits inside a frame, with two

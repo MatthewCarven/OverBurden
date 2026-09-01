@@ -1,4 +1,134 @@
-﻿# MinerCraft — Worklog
+# MinerCraft — Worklog
+
+## 2026-09-01 — M6d-3: the number row goes where the hand expects it, and the game gets a face
+
+The buildable half of M6d-3. `MinerCraft.Game/Ui/Hud.cs` is a hotbar, a crosshair and a status
+line; **1–9 select a material and T cycles the tool tier**, which is the two axes swapping places.
+Suite **734 → 739**. **The three play items are Matthew's and are not done** — they are the point
+of the part and no amount of code closes them.
+
+### The number row was on the wrong axis, and the argument is four days old
+
+M6d's own TODO named the collision and did not settle it: *"the number keys pick tool tiers today,
+so material selection is a second axis."* Both want 1–9, and only one of them is what a hand
+expects to find there — Minecraft's number row is the hotbar and it holds **what you build with**.
+**This is the same argument that swapped Ctrl and Shift back on 2026-08-31**, decades of muscle
+memory against this project's few days, and it was Matthew's call again.
+
+The tiers lost almost nothing by moving: **two picks ship**, so a cycle key on `T` is one press
+where the number row was one press. **If a mod ever ships eight picks, that trade inverts** — the
+tiers want the row back and the materials want somewhere else to go, and that is the shape of the
+decision when it arrives rather than a problem now.
+
+`SelectTier` was polled every frame from `UpdateMining` and is now an event on the key. That is
+not tidying: the poll compared against `ReferenceEquals(_mining.Tool, _tiers[i])` to avoid
+re-announcing sixty times a second, which is a guard that exists only because the input was being
+read in the wrong place.
+
+### A hotbar slot must not move under the player's fingers, and one rule buys that at a price
+
+`VolumetricInventory.MaterialInSlot` is the row: **the carried materials in ascending ID order.**
+Three properties, and the third is why it won:
+
+- **The hotbar is what you are carrying, not what exists.** Same argument `NextMaterial` already
+  made — a slot offering a material you have none of is a selection that cannot be acted on, and
+  with five shipped materials most of the row would be that.
+- **The cost is stated rather than hidden: picking up a material you did not have shifts every
+  slot above it.** Mine your first dirt and the stone on 1 may become 2 while your hand is on the
+  key. Accepted at M6 because the fix — a slot assignment the player arranges — is state that has
+  to survive a quit, which is a header field and a format version, in the part of M6 most likely
+  to be redone. **Revisit trigger: the play reports a slot moving under their fingers.**
+- **ID order beat first-acquired order on the one case that separates them.** Acquisition order is
+  stable *within* a session and loses across a quit: `Reset` replays the header's entries and a
+  session's acquisition order is written down nowhere, so the row a player learned in one session
+  would be a different row in the next. **A rule that is always the same beats one that is usually
+  better and occasionally lies.** `TheRowIsUnchangedAcrossASaveAndReload` is the test that fails
+  for the rejected alternative and passes for every other test in the group.
+
+**And it gave an existing guarantee a second, louder dependant.** `Entries()` has sorted by ID
+since M6c-2 *so that the same inventory always writes the same bytes* — a save-determinism
+argument. The hotbar now means that sort is what a number key **means**, and where a shuffled save
+is merely unanswerable, a shuffled hotbar moves the player's materials mid-build. Recorded in the
+remarks, because removing the sort now breaks two things that look unrelated.
+
+**Four break-recipes, four caught** — dropping the sort (2 tests), dropping the negative-slot
+guard (1), off-by-one on the upper bound (4), and a lookup that ignores its own slot argument (3).
+
+### One definition of what stone looks like
+
+The HUD needs a colour per material and the obvious way to get one is a short palette in the HUD,
+which is **two definitions of what stone looks like**: they agree the day they are written and
+drift the first time either is retuned, and the symptom is a swatch that no longer matches the
+block it places. So `VoxelMaterial.LayerColour` is now the shared array the block textures are
+speckled from *and* the swatches are filled from. Same argument as `IsCaveAt` and
+`GenerateTerrain` sharing one definition of the cave field.
+
+The jitter stayed beside it rather than folded into it — the HUD wants the flat colour and the
+block wants the speckle, and they are the same decision only as far as the hue.
+
+### A material's label is derived and not authored, which is the one thing here that is expensive to get wrong
+
+A `displayName` in the material JSON is the obvious answer and it is the costly one: **mods write
+against a format the moment it exists**, and a name that can be authored is a name that wants
+translating, which is a localisation system this project has no other reason to grow. The
+identifier's path is already a human word — the base game ships `stone`, `dirt`, `grass`, `lamp` —
+and it exists for every material including a placeholder standing in for a removed mod. **Revisit
+trigger: the first material whose ID is not a sensible label, or the first request to run the game
+in another language.**
+
+This is the whole of M6d-3 that could have been an expensive mistake. The rest of the UI is
+pixels, and TODO's own note is right that it is the part most likely to be redone.
+
+### There was no crosshair, in a game whose two verbs are both "what am I pointing at"
+
+The wireframe target box has been standing in for one since M3d. That works while you are aiming
+at a surface and **vanishes the moment you point at sky**, so the player lost the centre of the
+screen exactly when they were hunting for it. Two `ColorRect` bars, no binary asset for a plus
+sign.
+
+### The screenshot found both defects and the logs could not have
+
+**Headless has no renderer, so a layout error looks identical to a correct layout in every log
+this project prints.** The HUD is instantiated in a plain headless run deliberately — that is the
+cheapest thing that executes the whole file and catches a script error, and a UI nobody has ever
+constructed headlessly is M5c-2's shape of hole one layer out — but it proves nothing about where
+anything lands. Two defects, both invisible to it:
+
+- **The crosshair's vertical bar rendered as a line most of the screen tall.** `SetAnchorsPreset`
+  writes offsets, the following assignment to `Size` writes them again, and the next layout pass
+  recomputes the rect from the anchors — so the assignment survived for one bar and not the other.
+  Anchors and offsets are now set directly and never through a preset plus a size.
+- **The litres label was clipped off the bottom edge**, because the row reserved 92 px for
+  something needing about 90 including its status line.
+
+**And one thing that looked like a third defect and was not.** A pale vertical line at exactly
+screen-centre *x* read as a stray wireframe edge; colouring the crosshair red isolated it, and
+sampling the pixels gave **(238, 229, 88)** — the yellow cell outline's own back vertical edge,
+spanning exactly the box's height, misread as white against green. **Worth recording because the
+instinct that found the two real defects also manufactured a third**, and the pixel sample is what
+separated them. Eyeballing a screenshot is a measurement too.
+
+### The HUD is told and never asked
+
+Every value it draws is read from the controller that owns it — the selection and brush from
+`PlaceController`, the tier from `MiningController`, the litres from `VolumetricInventory`. A HUD
+holding its own copy of the selection would be a second answer to *what am I holding*, and the two
+would disagree exactly when it mattered: the frame after a material ran out and the controller
+re-selected without being asked.
+
+**Not created during a profile run**, because the profile reports draw calls and primitives and
+M1d's deferred 2×2×2 mesh-block question turns on that counter — UI quads in a number that means
+terrain. Verified: `--profile` reports **1521 viewed / 165 drawn / 1926 jobs at 404 quads**,
+unchanged to the digit, and the plain headless run reports the same.
+
+### What is left, and it is the part that matters
+
+**The three play items are not done and cannot be done here.** Dig a tunnel and fly away until it
+unloads and come back; quit and reopen; build a room with walls, a floor and a ramp down into it.
+M6's whole reason for existing is the first of those, and DESIGN's claim that carving-for-detail
+and placing-for-bulk divides cleanly is the third. **A sandbox cannot be judged by the person who
+built it out of the report it prints.**
+
 
 ## 2026-09-01 — M6d-2: the worry dissolves, and the cost was somewhere nobody was looking
 

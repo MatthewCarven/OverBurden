@@ -1,4 +1,4 @@
-using MinerCraft.Core.Content;
+﻿using MinerCraft.Core.Content;
 using MinerCraft.Core.Voxels;
 
 namespace MinerCraft.Core.Inventory;
@@ -148,9 +148,17 @@ public sealed class VolumetricInventory
     /// Everything held, ordered by numeric material ID. The form the world file stores.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Ordered, so that the same inventory always writes the same bytes.</b> A dictionary's
     /// enumeration order is not a contract, and a save whose bytes shuffle between runs makes
     /// every "did this change?" question — in a test, in a diff, in a bug report — unanswerable.
+    /// </para>
+    /// <para>
+    /// <b>M6d-3 gave that guarantee a second dependant, and it is a louder one.</b>
+    /// <see cref="MaterialInSlot"/> is the hotbar, so this ordering is now what a number key
+    /// means — and where a shuffled save is merely unanswerable, a shuffled hotbar moves the
+    /// player's materials under their fingers mid-build. The sort is not an implementation
+    /// detail of the writer any more. Removing it now breaks two things that look unrelated.
     /// </remarks>
     public IReadOnlyList<(int MaterialId, long Voxels)> Entries()
     {
@@ -163,6 +171,44 @@ public sealed class VolumetricInventory
 
         entries.Sort(static (a, b) => a.MaterialId.CompareTo(b.MaterialId));
         return entries;
+    }
+
+    /// <summary>
+    /// The material in hotbar slot <paramref name="slot"/>, zero-based, or −1 if empty.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The hotbar is what you are carrying, not what exists.</b> Same argument as
+    /// <c>PlaceController.NextMaterial</c> cycling the inventory rather than the material table:
+    /// a slot offering a material you have none of is a selection that cannot be acted on, and
+    /// with five shipped materials most of the row would be that.
+    /// </para>
+    /// <para>
+    /// <b>Slots are carried materials in ascending ID order, and the cost of that is stated
+    /// rather than hidden: picking up a material you did not have shifts every slot after it.</b>
+    /// Mine your first dirt and the stone you had on 1 may become 2 while your hand is on the
+    /// key. It is accepted at M6 because the alternative — an explicit slot assignment the
+    /// player arranges — is state that has to survive a quit, which is a world-header field and
+    /// a format version, and this is the part of M6 most likely to be redone. <b>Revisit
+    /// trigger: the play reports a slot moving under their fingers</b>, or the first player who
+    /// wants to arrange the row.
+    /// </para>
+    /// <para>
+    /// <b>Ascending ID and not first-acquired order</b>, which was the other candidate and is
+    /// stable within a session. It loses across a quit: the restored inventory comes back in ID
+    /// order, so the row a player learned in one session would be a different row in the next.
+    /// A rule that is always the same beats one that is usually better and occasionally lies.
+    /// </para>
+    /// </remarks>
+    public int MaterialInSlot(int slot)
+    {
+        if (slot < 0)
+        {
+            return -1;
+        }
+
+        IReadOnlyList<(int MaterialId, long Voxels)> held = Entries();
+        return slot < held.Count ? held[slot].MaterialId : -1;
     }
 
     /// <summary>Replaces everything held with <paramref name="entries"/>. The load path.</summary>

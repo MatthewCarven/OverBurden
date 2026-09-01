@@ -17,6 +17,7 @@ using MinerCraft.Core.Worldgen;
 using MinerCraft.Game.Diagnostics;
 using MinerCraft.Game.Player;
 using MinerCraft.Game.Rendering;
+using MinerCraft.Game.Ui;
 using MinerCraft.Persistence;
 
 namespace MinerCraft.Game;
@@ -60,6 +61,8 @@ public partial class Main : Node3D
     private readonly List<ToolDefinition> _tiers = [];
 
     private PlaceController? _place;
+
+    private Hud? _hud;
     private VoxelHighlight? _cellHighlight;
     private readonly VolumetricInventory _inventory = new();
     private bool _placeWhileProfiling;
@@ -250,6 +253,7 @@ public partial class Main : Node3D
 
         SetUpMining();
         SetUpPlacement();
+        SetUpHud();
 
         // Not MaterialId(), which falls back to air: placing air where a missing mod's lamp
         // should go would carve a hole out of whatever the player was pointing at.
@@ -699,6 +703,18 @@ public partial class Main : Node3D
             return;
         }
 
+        if (key.Keycode == Key.T)
+        {
+            CycleTier();
+            return;
+        }
+
+        if (key.Keycode >= Key.Key1 && key.Keycode <= Key.Key9)
+        {
+            SelectMaterialSlot((int)(key.Keycode - Key.Key1));
+            return;
+        }
+
         if (_player is null || _camera is null || key.Keycode != Key.F)
         {
             return;
@@ -758,6 +774,93 @@ public partial class Main : Node3D
         if (_place is null) return;
 
         GD.Print($"M6c: brush is now {_place.NextBrush().ToString().ToLowerInvariant()}");
+    }
+
+    /// <summary>Hands the HUD this frame's state to draw.</summary>
+    /// <remarks>
+    /// <b>The HUD is told, never asked.</b> Every value here is read from the controllers that
+    /// own it, so there is exactly one answer to "what am I holding" — see <c>Hud</c>'s remarks
+    /// for what a second copy would cost. The precision flag is recomputed here rather than
+    /// cached from <c>UpdatePlacement</c> because it is a held key and the answer belongs to the
+    /// frame, not to the last placement.
+    /// </remarks>
+    private void RefreshHud(double delta)
+    {
+        if (_hud is null || _place is null || _materials is null)
+        {
+            return;
+        }
+
+        bool precise = _camera is { MouseCaptured: true } && Input.IsKeyPressed(Key.Alt);
+
+        _hud.Refresh(delta, _inventory, _materials, Content.Materials, _place, _mining, precise);
+    }
+
+    /// <summary>Builds the hotbar, unless this run is a measurement.</summary>
+    /// <remarks>
+    /// <b>Skipped during a profile and only during a profile.</b> The profile reports draw calls
+    /// and primitives, and M1d's deferred 2x2x2 mesh-block question turns on that counter — a
+    /// hotbar drawing into the same frame would put UI quads into a number that is supposed to
+    /// be terrain. A plain headless run <em>does</em> build it, deliberately: instantiating every
+    /// node in that file is the cheapest thing that would catch a script error in it, and a UI
+    /// nobody has ever constructed headlessly is M5c-2's shape of hole one layer out.
+    /// </remarks>
+    private void SetUpHud()
+    {
+        if (_profiler is not null)
+        {
+            return;
+        }
+
+        _hud = new Hud { Name = "Hud" };
+        AddChild(_hud);
+    }
+
+    /// <summary>Selects a hotbar slot from a number key.</summary>
+    /// <remarks>
+    /// <b>The number row moved here from the tool tiers at M6d-3, and the tiers moved to T.</b>
+    /// Both wanted 1-9 and only one of them is what a player's hand expects to find there:
+    /// Minecraft's number row is the hotbar, and it holds what you build with. The same
+    /// muscle-memory argument that swapped Ctrl and Shift back on 2026-08-31 — decades against
+    /// this project's few days. Two picks ship, so a cycle key costs the tiers almost nothing.
+    /// </remarks>
+    private void SelectMaterialSlot(int slot)
+    {
+        if (_place is null) return;
+
+        int before = _place.MaterialId;
+        int materialId = _place.SelectSlot(slot);
+
+        if (materialId < 0)
+        {
+            GD.Print("M6d: carrying nothing — mine something first");
+            return;
+        }
+
+        if (materialId == before) return;
+
+        GD.Print(
+            $"M6d: placing {Content.Materials.GetIdentifier(materialId)} " +
+            $"({_inventory.Litres(materialId):F0} L held)");
+    }
+
+    /// <summary>Moves to the next tool tier, wrapping.</summary>
+    /// <remarks>
+    /// A cycle rather than a key each, because the tiers are an ordered ladder and there are two
+    /// of them. If a mod ships eight picks this wants the number row back and the materials want
+    /// somewhere else to go, which is the shape of that decision when it arrives.
+    /// </remarks>
+    private void CycleTier()
+    {
+        if (_mining is null || _tiers.Count == 0) return;
+
+        int current = _tiers.IndexOf(_mining.Tool);
+        ToolDefinition next = _tiers[(current + 1) % _tiers.Count];
+
+        _mining.Tool = next;
+        GD.Print(
+            $"M3d: {next.Id} — radius {next.RadiusMetres:F2} m, " +
+            $"takes hardness <= {next.HardnessThreshold:F1}");
     }
 
     private void CycleMaterial()
@@ -966,6 +1069,7 @@ public partial class Main : Node3D
             _profiler.Light.Add(_pipeline.LastLightStepMillis);
         }
 
+        RefreshHud(delta);
         RecordFillMilestones();
 
         if (_profiler is not null && _profiler.Tick(delta))
@@ -1229,8 +1333,9 @@ public partial class Main : Node3D
         }
 
         GD.Print(
-            $"M6c: placing with the {_place.Brush.ToString().ToLowerInvariant()} brush — "
-            + "right mouse places, B cycles the brush, V cycles the material");
+            $"M6d: placing with the {_place.Brush.ToString().ToLowerInvariant()} brush — "
+            + "right mouse places, B cycles the brush, 1-9 pick a material (V cycles), "
+            + "T cycles the tool tier, Alt for one voxel");
     }
 
     /// <summary>Casts for the brush, places if the button is held, and moves the cell outline.</summary>
@@ -1324,8 +1429,6 @@ public partial class Main : Node3D
         {
             return;
         }
-
-        SelectTier();
 
         Vector3 origin = _camera.GlobalPosition;
         Vector3 forward = -_camera.GlobalTransform.Basis.Z;
@@ -1469,27 +1572,6 @@ public partial class Main : Node3D
     private bool _lampKeyHeld;
 
     private const string LampId = "minercraft:lamp";
-
-    private void SelectTier()
-    {
-        if (_mining is null)
-        {
-            return;
-        }
-
-        for (int i = 0; i < _tiers.Count && i < 9; i++)
-        {
-            if (!Input.IsKeyPressed(Key.Key1 + i) || ReferenceEquals(_mining.Tool, _tiers[i]))
-            {
-                continue;
-            }
-
-            _mining.Tool = _tiers[i];
-            GD.Print(
-                $"M3d: {_tiers[i].Id} — radius {_tiers[i].RadiusMetres:F2} m, " +
-                $"takes hardness <= {_tiers[i].HardnessThreshold:F1}");
-        }
-    }
 
     /// <summary>
     /// Drives the camera along a fixed path during a profile run, hugging the surface.
