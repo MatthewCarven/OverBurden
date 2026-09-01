@@ -2908,13 +2908,187 @@ the report it prints.
 
 ## Phase 2 — The loop
 
-### M7 — Rain
+### M7 — Rain ← **planned 2026-09-01, split M7a–M7d, not started**
 
-- [ ] Watershed analysis at worldgen: basins, outflow saddles, volume→level curves
-- [ ] Tier A basin accumulators, overflow routing downstream
-- [ ] Camera-locked instanced rain billboards, velocity-stretched
-- [ ] **Skylight-occlusion particle kill** so rain stops at the mine entrance
-- [ ] Wet-surface shader term (skylight × recent rainfall), splash particles
+Planned into four parts in [docs/M7-PLAN.md](docs/M7-PLAN.md). **Read it, and read
+[docs/SCALE.md](docs/SCALE.md) before it** — that file was written for this milestone.
+
+**The structural point: a watershed is the first thing in this project that cannot be made exact
+by choosing a big enough neighbourhood.** Light was the last thing that was not a function of one
+chunk, and arithmetic saved it — 15 m of reach against a 16 m margin. Where water goes from a
+column depends on terrain arbitrarily far away and there is no attenuation distance at all.
+
+**What makes it tractable is that the input is a pure function rather than the world.**
+`ISurfaceHeights.SurfaceHeightAt` is analytic, seeded, needs no chunk loaded and already has a
+test double. So the analysis needs **no streaming, no margin, no barrier and no stage** — it is
+not a chunk-shaped computation, and the instinct to make it one is the thing to resist.
+
+**Second structural change: the world gains a clock.** Nothing here has ever needed time —
+worldgen is timeless, light is a fixpoint, physics takes `dt` and remembers nothing. M7 needs one
+and so does everything after it. Additive, so header **v2 → v3 migrates**.
+
+#### The decisions settled before any code, three of them by Matthew on 2026-09-01
+
+- [x] **M7 renders standing water — Tier A gets a surface.** Two arguments: DESIGN's Tier B says
+      settled cells *merge into a Tier A body*, so this renderer is needed at M8 anyway and is
+      brought forward rather than duplicated; and without it M7 has no play verdict at all.
+      **M5b already ran that experiment** — a correct light grid that did not glow, unjudgeable
+      until M5c-2.
+      - [ ] **Known ugly part, accepted up front: the shoreline.** A surface on the 4 m grid
+            against 0.25 m terrain stair-steps at the water's edge, which is the most-looked-at
+            part of a pond. **M8's Tier B replaces it**, so refining the shore now is thrown-away
+            work. Lever if the play cannot bear it: re-sample the boundary ring at 1 m.
+- [x] **Rainfall is a seeded weather cycle, and the weather is analytic.** Rain rate is a pure
+      function of (seed, world time) — episodes hashed through `splitmix64`, so rainfall over any
+      interval is a closed-form sum. **That is what makes integrate-forward exact rather than
+      approximate**, it is server-authoritative for free per non-negotiable 1, and it is testable
+      without a clock. `--rain=<intensity>` overrides it, the seam `--lightbudget` occupies.
+      - [x] **Time advances only while the world is open.** Quitting for a week must not flood the
+            map, and an unbounded integration interval is the other half of the same problem.
+            **Revisit trigger: the first mechanic that wants the world to have moved on while you
+            were away** — crops, or an offline pump.
+- [x] **The watershed grid is 4 m** — half a chunk, 2×2 samples per chunk column, 16 m² of
+      catchment each. A 30 m pond is ~56 samples; a 1 km window is 62,500. **It sits between the
+      1 m light cell and the 8 m chunk column deliberately, so it borrows neither one's revisit
+      trigger** — the `BrushCell`-is-not-`LightCellPos` argument from M6c-1.
+      - [ ] **It is format-affecting**, because basin identity derives from it. Store
+            `WatershedCellMetres` in the header at v3, and **on mismatch discard stored volumes
+            rather than refuse the world** — they refill in minutes of rain, and refusing a world
+            over a derived quantity is the worse failure.
+- [x] **A basin is identified by its pit, in world coordinates — never by an array index.** The
+      window is player-centred, so every index renumbers when it moves and **persisted volume
+      keyed on an index silently reattaches to a different basin**: the lake drains, the valley
+      next door floods, nothing fails anywhere. Priority-flood already yields the pit, which is a
+      property of the terrain. **Non-negotiable 2's argument arriving somewhere nobody expected
+      to need it.**
+      - [ ] **Two pits can tie on elevation**, so the tie-break must be a total order on the world
+            coordinate — not "whichever the heap popped first", or the ID moves between runs on
+            identical terrain.
+- [x] **The window edge is an outlet, not a wall**, because the failure direction is the safe one:
+      under-filling means a lake that should exist does not, over-filling means water arriving
+      where the player built. It also keeps **rain in == stored + spilled** an exact assertion.
+      - [ ] **Recorded cost: a lake wider than the window fills only to the window's rim.**
+            **Revisit trigger: a body of water whose far shore the player can see.** At 1,024 m
+            the window is seven times the r16 view distance, so this should not fire; if it does,
+            the fix is a coarse second tier rather than a bigger window.
+- [x] **Edits do not change the watershed at M7, and the seam is named.** The analysis reads
+      unedited terrain, so a pit you dug does not fill. That is not a hole in the core loop:
+      **the mechanism that carries water into an excavation is Tier B, which is M8**, and shipping
+      half of it here would produce water teleporting into a hole rather than running into it.
+      **`SkyColumn` already holds edited height per voxel column and is already persisted** — that
+      is what the follow-up reads.
+- [x] **The code lives in `MinerCraft.Core/Hydrology/`**, no Godot, per non-negotiable 1.
+      `MinerCraft.Persistence` gains one table.
+
+#### M7a — The watershed
+
+- [ ] Priority-flood (Barnes, Lehman & Mulla 2014) over the window: pits, saddles, catchments and
+      basin labels in one pass.
+- [ ] **The merge tree, built up front by sorting saddles and union-find.** A filling basin walks
+      *up a tree* rather than routing around a graph, which is what makes cascading overflow
+      **acyclic by construction** rather than by a loop guard.
+- [ ] **The volume→level curve: sorted elevations plus a prefix sum**, so `volume(L)` is a binary
+      search and `level(V)` is the same search inverted. Exact, monotonic, invertible — the level
+      is *solved, not simulated*. Capped at the saddle.
+- [ ] **The number this part is most likely to have got wrong: how long the analysis takes.**
+      Estimate — *estimate, not measurement* — 65,536 samples at ~0.1–0.2 µs each plus the flood,
+      so **~10–30 ms on a worker, once per window move.** **If it holds, no incremental watershed
+      is ever built**; the window is re-analysed wholesale with hysteresis, as `ChunkBox` already
+      does. Measure it first thing. Under ~50 ms settles it forever; over 200 ms and M7b's
+      dependency needs rethinking before it is written.
+- [ ] Tests, invariants rather than a second flood to get wrong:
+      - [ ] `volume(level(v)) == v` and `level(volume(L)) == L`.
+      - [ ] **A conic bowl checked against calculus** — three lines through `ISurfaceHeights`, and
+            the closed form shares no code with the subject. **The one genuinely independent
+            oracle in the part.**
+      - [ ] Spill level ≥ own elevation everywhere; spill targets strictly increase, so the tree
+            is acyclic. Fuzzed over random heightmaps.
+      - [ ] Absurd volume pins at the saddle and hands the remainder upward.
+      - [ ] Two bowls and a ridge: known saddle, known merge level.
+      - [ ] A tilted plane has no basins and loses every drop through the edge.
+      - [ ] **The same terrain analysed through two different window origins returns the same pits
+            and catchments where the windows overlap** — the test that would have caught keying a
+            basin by index.
+      - [ ] Break-recipes to script and watch fail: edge as wall; `>` for `>=` at the saddle; drop
+            the saddle cap; key by index; tie-break by heap order; drop `cellArea`; sort
+            descending.
+
+#### M7b — The clock, the weather and the accumulator
+
+- [ ] **`WorldClock`, integer milliseconds**, not a `double` of seconds — a float clock drifts and
+      this one is the input to a determinism claim. Persisted in the header at v3.
+- [ ] `RainfallRate(seed, t)` and `RainfallOver(seed, t0, t1)`, the second closed form.
+- [ ] **Accumulator volumes in litres as integers**, M6c-2's precedent: a float accumulator drifts
+      and "how full is it" stops having one answer.
+- [ ] Overflow walks the merge tree; surplus at the window edge leaves and is counted.
+- [ ] A `basins` table keyed `(pitX, pitZ)`; zero-volume basins are simply absent.
+- [ ] **The oracle, and it is the same category as M5's:** integrating **600 s in one call must
+      equal 600 calls of one second, to the litre**. No tolerance — integers and a closed form are
+      either identical or one is wrong. **The assertion and the feature are the same statement**,
+      because that property *is* "flew away mid-fill and came back", and it is the cash value of
+      [slower than realtime is accuracy](#slower-than-realtime-is-accuracy-not-approximation--matthew-2026-09-01).
+- [ ] Also: store round trip; two-deep overflow conserving volume; a changed `WatershedCellMetres`
+      discarding rather than throwing; the clock not advancing while the world is closed.
+
+#### M7c — Rain you can see
+
+- [ ] Camera-locked box of GPU-instanced, velocity-stretched billboards. One draw call.
+- [ ] **The occlusion kill is a sky-height texture** sampled in the particle process shader, built
+      from `SkyColumn` — which is *edited* height, so rain falls down a shaft you dug.
+      - [ ] **Resolution is a real decision: 1 m would not register a `hand_pick` bore**, which is
+            0.75 m. **Recommend 0.5 m over 128 m** — 256×256, ~65k reads, ~0.25 ms on a chunk
+            crossing. **Revisit trigger: a shaft rain should fall into and does not.**
+- [ ] Splash particles at the kill point, which is also the ground.
+- [ ] **The wet-surface term is one uniform and zero remeshes**, and it is where M5's bill gets
+      collected: wetness is `recent rainfall × skylight`, skylight is already `COLOR.r`, rainfall
+      is global, so nothing enters the merge key. **DESIGN's stated reason for keeping the two
+      channels separate was this exact term.** Assert **0 remeshes during a storm**, the way
+      M5c-2 asserted a quad count.
+- [ ] **Overcast dims the sky through `sky_brightness`** — the uniform M5c-2 built with nothing
+      behind it, so a global light change costs no repropagation. First consumer.
+- [ ] **M7c is where the view-space `NORMAL` question stops being cosmetic.** A wet sheen is
+      view-dependent, and a sheen computed off a camera-relative normal slides across surfaces as
+      the player turns. Settle it here rather than discovering it in a screenshot.
+
+#### M7d — Standing water, measurement and play
+
+- [ ] One flat translucent surface per basin with volume, at the solved level. Depth-write off,
+      no sorting inside a basin because it is one plane. **M8 owns the real transparent pass.**
+- [ ] Measurement arms, named up front: analysis job ms (M7a's estimate confirmed or corrected);
+      `update ms` and `viewer ms` against a no-rain control; particle draw calls and primitives
+      from `StreamingProfiler.RenderLine`; **remeshes during a storm, which must be zero**; and
+      **litres per minute against wall clock**, so "slower than realtime" has a number.
+- [ ] Play, the questions no test answers:
+      - [ ] Does rain read as rain, and does a storm read as weather rather than as the renderer
+            breaking?
+      - [ ] **Does it stop at the mine entrance?** DESIGN calls this *the detail people notice*.
+      - [ ] Does a pond visibly rising over minutes feel right, or does it feel broken? **This is
+            the play that judges the project-level principle**, not just this milestone's tuning.
+      - [ ] Is the 4 m shoreline tolerable until M8?
+
+#### Order, and the case for a different one
+
+- [ ] **a → b → c → d.** M7b needs the curves; M7d needs a surface to draw; M7c needs only
+      `SkyColumn`.
+- [ ] **M7c could go first** — it is the part with something on screen, and M6d-1 set the
+      precedent that a later part goes first when it answers an earlier one's question. Not chosen
+      because the wet term's *recent rainfall* wants the weather function to exist, and stubbing
+      it writes the seam twice. **If the milestone starts to feel long with nothing visible,
+      reordering c ahead of b is the intended relief valve** and costs a debug slider.
+
+#### Deliberately not in M7
+
+- [ ] **Tier B and Tier C.** Moving water, seepage, water in your excavation, pumps — M8. M7's job
+      is to hand it a volume and a level.
+- [ ] **Edits changing the watershed.** The seam is `SkyColumn` and it is already persisted.
+- [ ] **Rivers.** Overflow between basins is arithmetic at M7; a visible stream is moving water,
+      which is Tier B.
+- [ ] Rain while the world is closed, and any offline progression.
+- [ ] **Erosion.** The terrain is a pure function of the seed and non-negotiably so.
+- [ ] **Audio.** The project has none, and rain is not the milestone to introduce a subsystem.
+- [ ] Snow, temperature, biomes, seasons — every one is a second output of a function that
+      currently returns an intensity.
+- [ ] A second coarse watershed tier for lakes larger than the window. Trigger named above.
 
 ### M8 — Water gets in
 
@@ -2932,7 +3106,8 @@ than realtime' because it does work like that, it usually takes a few minutes of
 lower levels of a large cave."*
 
 **This is a project-level principle rather than an M8 tuning note, and it should graduate to
-DESIGN.md at M7's planning pass.** The whole antagonist stack — rain, then water, then saturation,
+DESIGN.md at M7's planning pass.** — **done 2026-09-01: it is a locked decision in DESIGN.md, and
+M7b's oracle is its cash value.** The detail stays here; the one-line commitment lives there. The whole antagonist stack — rain, then water, then saturation,
 then loss of cohesion, then collapse — is made of processes that are slow *in the world*. A
 simulation that runs slower than the frame rate is not cutting a corner; it is matching the
 phenomenon. **Twice now the honest answer to "can we afford this?" has been that the expensive

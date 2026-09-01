@@ -1,5 +1,89 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-01 — M7 planned: the first system with no bound, and the world gets a clock
+
+[docs/M7-PLAN.md](docs/M7-PLAN.md), split M7a–M7d, nothing written yet. Three decisions were put
+to Matthew before any code and all three came back as the recommendation: **M7 renders standing
+water**, **rainfall is a seeded weather cycle**, and **the watershed grid is 4 m**.
+
+**The structural point, and it is a harder one than M5's.** Every milestone so far has had a bound
+that made a local computation exact — worldgen is per chunk, meshing is a chunk plus its padding, a
+carve is bounded by the tool radius, and light was saved by arithmetic: 15 m of reach against a
+16 m margin, so light computed over the loaded region is exact inside the drawn one. **A watershed
+has no such bound.** Where water goes from a column depends on terrain arbitrarily far away, and
+there is no attenuation distance and no margin that makes a window exact. This is the first system
+here that cannot be made correct by choosing a big enough neighbourhood, and every decision in M7a
+is downstream of accepting that.
+
+**What makes it tractable is that the input is a pure function rather than the world.**
+`ISurfaceHeights.SurfaceHeightAt` is analytic, seeded, needs no chunk loaded, and already has an
+interface with a test double — M5b built it so a `SkyColumn` test could state a flat world in one
+line. So the analysis needs **no streaming, no margin, no barrier, no stage**, runs at any
+resolution over any window on a worker, and is deterministic, so **only the water volume ever
+needs saving**. Written down because the instinct will be to make the watershed a chunk stage like
+everything else, and it is not one.
+
+### Four things the pass found that were not in the four-bullet sketch
+
+- **The world has no clock, and M7 needs one.** `WorldHeader` carries settings, the ID table, the
+  inventory and the player. Nothing in five milestones has needed time: worldgen is timeless,
+  light is a fixpoint, physics takes `dt` as an argument and remembers nothing. The accumulator's
+  integrate-forward needs it, "recent rainfall" needs it, and so do M8's fill-in-progress and M9's
+  collapse delay. **Additive, so v2 → v3 migrates** under M6c-2's policy.
+- **A basin's identity must be world-space.** The analysis window is player-centred, so every
+  array index renumbers when it moves — and persisted volume keyed on an index **silently
+  reattaches to a different basin**: the lake drains, the valley next door floods, and nothing
+  fails anywhere. Priority-flood already yields each depression's **pit**, which is a property of
+  the terrain. That is non-negotiable 2's argument — *identity is a name the world owns, not a
+  number the process assigned* — arriving somewhere nobody expected to need it. The tie-break
+  between two equal pits has to be a total order on the coordinate, or the ID moves between runs.
+- **The weather is analytic too, and that is what makes the deferred fill defensible.** Rainfall is
+  a pure function of (seed, world time) — episodes hashed through `splitmix64` — so rain over any
+  interval is a closed-form sum rather than something that has to be stepped. **Integrate-forward
+  then equals the stepped version exactly**, which is the difference between a seam and a cheat.
+  It is also server-authoritative for free, and testable without a clock.
+- **The wet term is free, and it is where M5's bill gets collected.** Wetness is
+  `recent rainfall × skylight`; skylight is already `COLOR.r` per vertex and rainfall is global, so
+  it is **one uniform, zero remeshes, zero vertex bytes**. DESIGN's stated reason for keeping the
+  two light channels separate rather than pre-multiplying them was this exact term, one milestone
+  ahead of it existing. `sky_brightness` — built at M5c-2 with nothing behind it — gets its first
+  consumer as overcast dimming, also with no repropagation.
+
+### The oracle, and why it is the same category as M5's
+
+**Integrating 600 s in one call must equal 600 calls of one second, to the litre.** Volumes are
+integers and the weather is closed form, so the two paths are either identical or one is wrong —
+no tolerance, no epsilon. **The assertion and the feature are the same statement**, because that
+property *is* "flew away mid-fill and came back", the same way M5b's *incremental == from-scratch*
+was both the test and the claim. It is also the cash value of *slower than realtime is accuracy,
+not approximation*, which **graduated to a locked decision in DESIGN.md in this pass**, as its
+note asked.
+
+M7a gets one genuinely independent oracle as well: a conic bowl stated through `ISurfaceHeights`
+in three lines, whose volume at a level has a closed form sharing no code with the subject.
+Everything else in the part checks the code against itself.
+
+### Two things deliberately accepted rather than solved
+
+- **The window edge is an outlet, not a wall.** A basin larger than the window cannot be modelled,
+  and the choice is between water pooling against nothing and water leaving the world. Outlet,
+  because under-filling means a lake that should exist does not, while over-filling means water
+  arriving where the player built — and in a game whose antagonist is water, the honest failure is
+  the one that does not drown a base for a reason nobody can see.
+- **Edits do not change the watershed at M7.** A pit you dug does not fill with rain. That looks
+  like a hole in the core loop and is not: **the mechanism that carries water into an excavation is
+  Tier B, which is M8 by design**, and shipping half of it here would produce water teleporting
+  into a hole rather than running into it. The structure the follow-up needs is `SkyColumn`, which
+  holds edited height per voxel column and has been persisted since M6a.
+
+### One thing this changes about a decision filed as cosmetic this morning
+
+The face tint reads `NORMAL` inside `fragment()`, which in Godot 4 is view space — left alone
+because Matthew likes it. **M7c adds a wet sheen, which is also view-dependent**, and a sheen
+computed off a camera-relative normal slides across surfaces as the player turns. So M7c is where
+that stops being an A/B and needs an answer.
+
+
 ## 2026-09-01 — The lamp lights the sealed room, and turning your head changes the shade
 
 Two screenshots of the sealed room with a lamp on the wall, a few degrees of yaw apart. Both

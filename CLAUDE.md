@@ -1,4 +1,4 @@
-﻿# MinerCraft — orientation
+# MinerCraft — orientation
 
 A voxel mining game in Godot 4 + C#. **You are a mining operation fighting water and
 gravity.** Rain fills basins, water finds your excavation, saturated rock loses cohesion
@@ -16,7 +16,8 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/M3-PLAN.md](docs/M3-PLAN.md) | M3, mining, split into M3a–M3d. Done, kept for the reasoning. |
 | [docs/M4-PLAN.md](docs/M4-PLAN.md) | M4, the player, split into M4a–M4d. Done, kept for the reasoning. |
 | [docs/M5-PLAN.md](docs/M5-PLAN.md) | M5, lighting and AO, split into M5a–M5d. Done 2026-08-31, kept for the reasoning. |
-| [docs/M6-PLAN.md](docs/M6-PLAN.md) | **M6, persistence, placement and inventory, split into M6a–M6d. Planned 2026-08-31, not started. Read before writing any of it.** |
+| [docs/M6-PLAN.md](docs/M6-PLAN.md) | M6, persistence, placement and inventory, split into M6a–M6d. Done and played 2026-09-01, kept for the reasoning. |
+| [docs/M7-PLAN.md](docs/M7-PLAN.md) | **M7, rain, split into M7a–M7d. Planned 2026-09-01, not started. Read before writing any of it — and read SCALE.md before it.** |
 | [docs/SCALE.md](docs/SCALE.md) | **How many voxels and cells exist at each view distance, what one full sweep costs, and what each system actually iterates.** Read before designing anything that wants to check the world periodically — M7, M8 and M9 all start here. |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
 | [TODO.md](TODO.md) | Milestones as checkable tasks, and the decisions still open. **M6's section is the plan as a checklist.** |
@@ -189,6 +190,24 @@ copy in `../GAME/`.
   against** (currently godot_voxel). Nothing in it belongs in a `.csproj`.
 
 ## Where things stand
+
+**M7 is planned (2026-09-01) and not started** — watershed basins, Tier A rain accumulation, the
+rain itself, the wet-surface term and a water surface you can watch rise. See
+[docs/M7-PLAN.md](docs/M7-PLAN.md), split M7a–M7d, and read [docs/SCALE.md](docs/SCALE.md) before
+it. Four things from the planning pass that are expensive to rediscover:
+
+- **A watershed is the first thing here that cannot be made exact by choosing a big enough
+  neighbourhood.** Light was the last thing that was not a function of one chunk and arithmetic
+  saved it — 15 m of reach against a 16 m margin. Water has no attenuation distance at all.
+- **But the input is a pure function rather than the world.** `ISurfaceHeights.SurfaceHeightAt` is
+  analytic, seeded and already has a test double, so the analysis needs **no streaming, no margin,
+  no barrier and no stage.** It is not a chunk-shaped computation and the instinct to make it one
+  is the thing to resist.
+- **The world gains a clock, and nothing here has ever needed time** — worldgen is timeless, light
+  is a fixpoint, physics takes `dt` and remembers nothing. Header v2 → v3, additive, migrates.
+- **A basin is identified by its pit in world coordinates, never by an array index**, because the
+  window is player-centred and renumbers when it moves. Non-negotiable 2's argument turning up
+  somewhere nobody expected to need it.
 
 M0, all of M1, **all of M2, all of M3, all of M4, all of M5 and all four parts of M6** are built,
 and M6 is played — **739 tests passing**. **M6's headline question is answered by play (2026-09-01):

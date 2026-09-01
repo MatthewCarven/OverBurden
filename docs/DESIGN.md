@@ -1,8 +1,8 @@
 # MinerCraft — Design Document
 
-> Status: M0–M4 built, M5 planned. Locked decisions here; per-milestone plans in
+> Status: M0–M6 built and played, M7 planned. Locked decisions here; per-milestone plans in
 > `M*-PLAN.md`.
-> Last updated: 2026-08-30
+> Last updated: 2026-09-01
 
 ## One-line pitch
 
@@ -34,6 +34,7 @@ simulation, not enemies.
 | Mod support | **Data mods from M1, Lua (MoonSharp) at M12** | Registry discipline costs ~15% up front, ~300% to retrofit |
 | Multiplayer | **Not now, but don't design it out** | Headless sim core + event bus keeps the seam open |
 | Borrowed idioms | **Match Minecraft unless there is a stated reason not to** | Settled 2026-08-31. Where a control or a behaviour is one players already know, muscle memory is decades old and this project's is days old, so the burden of proof is on deviating |
+| Simulation speed | **Slower than realtime, on purpose** | Settled 2026-09-01. Rain, water, saturation and collapse are slow *in the world*, so a sim that runs behind the frame rate matches the phenomenon rather than approximating it — and a late tick stops being a correctness failure. See below |
 
 ### Borrowed idioms, and where the line is
 
@@ -163,6 +164,33 @@ makes it wrong is a convention held somewhere other than in this repository.
   vertical view radius means there is no top of the world. `SurfaceHeightAt` supplies it for
   unedited terrain and a per-column sky-height map carries what edits change.
 
+### Slower than realtime is accuracy, not approximation
+
+Raised by Matthew on 2026-09-01, before M7 or M8 was planned: *"I'd be happy if water is 'less
+than realtime' because it does work like that, it usually takes a few minutes of rain to fill the
+lower levels of a large cave."*
+
+The whole antagonist stack — rain, then water, then saturation, then loss of cohesion, then
+collapse — is made of processes that are slow in the world. **A simulation that runs slower than
+the frame rate is not cutting a corner here; it is matching the phenomenon.**
+
+- **Falling behind stops being a correctness failure.** Every budget in this engine so far has had
+  to be argued against a correctness risk. If the water tick is allowed to be late, a skipped tick
+  means the water arrives a moment later — which is indistinguishable from the design.
+- **It licenses the analytic seam.** A slow process described by a rate can be **integrated
+  forward** when nobody is watching, so cells simulate in view and accumulators integrate out of
+  view. That reads as a cheat if water is supposed to be realtime and as the correct
+  implementation if it is not. **M7b's oracle is this claim made testable**: integrating 600 s in
+  one call must equal 600 one-second calls, to the litre.
+- **The same argument produced M9's leading candidate a milestone earlier.** Deferred collapse —
+  a random delay between *became possible* and *fell* — is the same structural win, and it is
+  what gives warning signs somewhere to live.
+
+**What it does not buy:** the active set is still the thing to engineer. The tick *rate* is what
+this licenses; the set *size* is still bounded by sleep/wake rules. And there is a perceptual
+floor near the player — a water surface two metres away that jumps once a second is not slow, it
+is broken, so Tier A carries a level the renderer can interpolate between ticks.
+
 ### Fluid — three-tier hybrid
 
 Minecraft's level 0-7 flow model is rejected: it does not conserve volume, never
@@ -192,7 +220,26 @@ visible here.
   so rain stops at the mine entrance. Nearly free, and it is the detail people
   notice.
 - Wet-surface shader term driven by skylight x recent rainfall. Splash particles on
-  impact. Rainfall feeds Tier A and Tier C.
+  impact. Rainfall feeds Tier A and Tier C. **The term costs one uniform and no remeshes** —
+  skylight is already per-vertex and rainfall is global — and it is the reason the two light
+  channels are kept separate rather than pre-multiplied.
+
+**Settled at M7's planning pass, 2026-09-01** — full reasoning in [M7-PLAN.md](M7-PLAN.md):
+
+- **The watershed grid is 4 m**, deliberately between the 1 m light cell and the 8 m chunk column
+  so it borrows neither one's revisit trigger.
+- **A basin is identified by the world coordinate of its pit, never by an array index.** The
+  analysis window is player-centred and renumbers when it moves; an index key silently reattaches
+  stored water to a different basin.
+- **The window edge is an outlet, not a wall**, because under-filling is the safe failure and
+  over-filling drowns a base for a reason the player cannot see.
+- **Rainfall is a pure function of (seed, world time)**, not a stepped state machine — which makes
+  integrate-forward exact and server-authoritative for free.
+- **The world gains a clock at M7** (header v2 → v3, additive, migrates), and time advances only
+  while the world is open.
+- **Edits do not change the watershed at M7.** Water reaching an excavation is Tier B, which is
+  M8; the seam for an edited-surface watershed is `SkyColumn`, which already exists and already
+  persists.
 
 ### Structural integrity
 
@@ -321,7 +368,7 @@ transaction as the blob that first used it. See [M6-PLAN.md](M6-PLAN.md).
 
 | | |
 |---|---|
-| M7 | Watershed basins, Tier A rain accumulation, rain particles, wet shader |
+| M7 | Watershed basins, Tier A rain accumulation, rain particles, wet shader, **a water surface you can watch rise** |
 | M8 | Tier B active fluid CA + Tier C groundwater seepage — *the mine floods* |
 | M9 | Structural integrity, collapse, saturation weakening — *the mine kills you* — **v0.5, the game exists** |
 
