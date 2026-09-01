@@ -215,6 +215,17 @@ bug destroys work that cannot be recreated and surfaces a session later — the 
 said the tests were the only thing between a defect and permanent data loss. The tests held, and
 the confirmation is a person finding their own chamber where they left it.
 
+### Addendum, later the same day — the better verdict
+
+*"I keep forgetting I can just quit now and come back to my save."*
+
+**That is a stronger statement than any of the three play items, and it is the one a persistence
+milestone is actually aiming at.** The three items each ask *does it work* and get a yes. This one
+says the feature has stopped being a feature: it has receded into the floor, and the habit it
+replaced — do not stop, you will lose the tunnel — is now the thing that feels out of date.
+**Nobody notices a save system that works**, which is why the evidence for one is almost always a
+test rather than a sentence. This is the sentence.
+
 **What is left of M6 is the walls-and-floor half of "build a room".** The stairs half is already
 answered: the ramp brush is the right tool and the fast path.
 
