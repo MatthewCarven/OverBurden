@@ -1,5 +1,44 @@
 # MinerCraft — Worklog
 
+## 2026-09-01 — The ramp brush earns its place, and the screenshot lied about how
+
+Matthew built a staircase down into the excavated chamber and the play answers M6d-1's open
+question: **the ramp brush is the right tool for stairs, and it is the fast path.** In his words —
+*"definitely using the ramp mode, honestly using the dig tool to get those kind of stairs would
+take me a lot longer."*
+
+**That validates building the fifth shape before the play rather than after.** M6c's play found
+cube stairs unwalkable — a 1 m riser against M4b's 0.5 m step height — M6d-1 went first in the
+split so the play would judge a finished tool, and the play now says the tool it added is the one
+people reach for. **DESIGN's carve-for-detail / place-for-bulk split stands unamended, with stairs
+on the *place* side**, which is where it always put them.
+
+### The screenshot gesture perturbs the thing the screenshot is evidence of
+
+**Every screenshot taken with `Alt`+PrintScreen shows `ONE VOXEL (Alt)` in the status line,
+whatever the player was actually doing**, because the HUD reports a held modifier and the
+screenshot gesture holds it. The behaviour is correct and is deliberately left alone at Matthew's
+instruction — *"don't change it"* — the HUD is answering the keyboard truthfully.
+
+**It was believed, and a wrong conclusion was built on it.** Two shots of a half-built staircase
+both read `ONE VOXEL (Alt)`, the inventory had gained ~48,000 voxels of stone between them, and
+the reading written down here was *"you're cutting the stairs, not placing them"* — complete with
+a proposed amendment to DESIGN that turns out not to be needed. The stone was the chamber being
+dug; the stairs were placed.
+
+**A new member of a family this project keeps rediscovering, and the first one where the
+instrument was a person.** The headless frame-time trap is a measurement that reports something
+adjacent to what you asked; M5c-1's shaft fixture is a scenario that passes for the wrong reason;
+this is **an observation whose method changes the observed state**. The tell was available and
+ignored: the status line is *live input state*, so it says what is true at the instant of capture
+rather than what was true while the work was done.
+
+**The practical consequence, worth knowing before reading any old screenshot from this project:**
+the status line's modifier reading is only trustworthy in a capture that did not use a modifier —
+`screenshot.gd`, or PrintScreen alone. Every other HUD element in the frame is honest, because
+none of the others are keyed off a key being down.
+
+
 ## 2026-09-01 — The HUD is played, and one screenshot closes several open questions
 
 Matthew played the build and sent a screenshot from inside a large excavated chamber:

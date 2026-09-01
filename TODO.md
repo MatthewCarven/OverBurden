@@ -2713,9 +2713,27 @@ the report it prints.
       **There is a dug world at `worlds/m6d2dug` from M6d-2 if a ready-made one helps; the played
       world at `worlds/default` was not touched by any measurement.**
 - [ ] **Play: quit and reopen.** Same tunnel, same inventory, same place.
-- [ ] **Play: build a room** — walls, floor, and a ramp down into it. Not "place a block". That is
-      what says whether the 1 m lattice is right, whether four shapes are the right four, and
+- [ ] **Play: build a room** — walls, floor, and a ramp down into it. Not "place a block". That
+      is what says whether the 1 m lattice is right, whether four shapes are the right four, and
       whether carving-for-detail and placing-for-bulk actually divides the way DESIGN claims.
+      - [x] **Part-answered 2026-09-01: the ramp brush is the right tool for stairs, and it is the
+            fast path.** In Matthew's words, *"definitely using the ramp mode, honestly using the
+            dig tool to get those kind of stairs would take me a lot longer"*. **That validates
+            M6d-1 going first in the split** — M6c found cube stairs unwalkable, M6d-1 added the
+            shape that fixes it, and the play says the fix is what people reach for. **DESIGN's
+            carve-for-detail / place-for-bulk split stands unamended, with stairs on the *place*
+            side**, which is where it always put them.
+      - [x] **Caveat for anyone reading this project's screenshots: Alt+PrintScreen holds Alt, so
+            the status line reads `ONE VOXEL (Alt)` whatever the player was doing.** The HUD is
+            answering the keyboard truthfully and is **deliberately left alone** at Matthew's
+            instruction. It was believed once and a wrong conclusion was built on it — *"you're
+            cutting the stairs, not placing them"*, with a proposed DESIGN amendment that turned
+            out not to be needed. **The first trap here where the instrument was a person**, and
+            the tell was available: the status line is live input state, so it says what is true
+            at the instant of capture rather than during the work. Every other element in the
+            frame is honest, because none of the others are keyed off a key being down.
+      - [ ] **The walls-and-floor half is still open**, as are the unload-and-return and the
+            quit-and-reopen.
 - [x] **Hotbar / material selection UI — built.** `MinerCraft.Game/Ui/Hud.cs`: a nine-slot row
       with a colour swatch, name and litres per slot, a crosshair, and a status line naming the
       brush, the tier and the keys.
