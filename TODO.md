@@ -2878,6 +2878,52 @@ the report it prints.
 - [ ] Seepage into excavations driven by saturation × material permeability
 - [ ] Transparent render pass, back-to-front sorting
 
+#### Slower than realtime is accuracy, not approximation — Matthew, 2026-09-01
+
+Raised before M7 or M8 is planned, and it is the same observation as
+[deferred collapse](#deferred-collapse) one milestone earlier: *"I'd be happy if water is 'less
+than realtime' because it does work like that, it usually takes a few minutes of rain to fill the
+lower levels of a large cave."*
+
+**This is a project-level principle rather than an M8 tuning note, and it should graduate to
+DESIGN.md at M7's planning pass.** The whole antagonist stack — rain, then water, then saturation,
+then loss of cohesion, then collapse — is made of processes that are slow *in the world*. A
+simulation that runs slower than the frame rate is not cutting a corner; it is matching the
+phenomenon. **Twice now the honest answer to "can we afford this?" has been that the expensive
+version was also the less accurate one.**
+
+What it buys, and the first one is again the reason:
+
+- **Falling behind stops being a correctness failure.** This is the same structural win deferred
+  collapse gets: if the water tick is allowed to be late, a skipped tick means the water arrives a
+  moment later, which is indistinguishable from the design. Every budget in this engine so far has
+  had to be argued against a correctness risk; here there is none to argue against.
+- **The tick rate can be far below the frame rate.** M10 already specifies a fixed 20 Hz sim tick
+  for machines; water wants something much slower again, and the tiered design in M8 was already
+  built for it — Tier B cells, Tier A bodies, Tier C a coarse field.
+- **It legitimises the seam M7 has already designed and M8 would otherwise have to defend.**
+  Tier A basin accumulators with **volume→level curves** are an *analytic* model: given a rate and
+  an elapsed time, the level is arithmetic. **A slow process described by a rate can be integrated
+  forward when nobody is watching**, so cells simulate in view and accumulators integrate out of
+  view — and a player who flies away mid-fill and returns finds the right water level without
+  minutes of simulation having run. That seam reads as a cheat if water is "supposed" to be
+  realtime and reads as the correct implementation if it is not.
+
+Three honest caveats, because the saving is not where it first appears:
+
+- [ ] **Slow is not free, and the active-cell set is still the thing to engineer.** A cave filling
+      over minutes has cells active for minutes. **The tick *rate* is what this observation buys;
+      the set *size* is still bounded by M8's sleep/wake rules**, and those do all the same work
+      they were always going to.
+- [ ] **There is a perceptual floor, and it is near the player.** Water filling a cave over
+      minutes is right; a water surface two metres away that visibly jumps once a second is not
+      slow, it is broken. **Tier A carries a level, so the renderer can interpolate between ticks
+      for nothing** — worth deciding at M8 rather than discovering.
+- [ ] **Water state now has to survive a quit, and M6 is why that is a real question.** A fill in
+      progress is state whose only copy is on disk. The analytic model above is also the cheap
+      answer here — store the accumulator and the timestamp, not the cells — but it wants saying
+      out loud, and it is a header field.
+
 ### M9 — v0.5, the game exists
 
 - [ ] Support BFS from anchored material, per-material support distance
