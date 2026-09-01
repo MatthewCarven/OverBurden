@@ -3075,14 +3075,44 @@ the merge tree is a second thing with its own hazard — see the two-cycle below
       across a window move is asserted only for the case where it is `Outlet`. A fixture with two
       equal crossings to two different basins would pin the rest. Cheap, and it did not block.
 
-#### M7b — The clock, the weather and the accumulator
+#### M7b — The clock, the weather and the accumulator ← **split in two. M7b-1 done; M7b-2 is persistence.**
 
-- [ ] **`WorldClock`, integer milliseconds**, not a `double` of seconds — a float clock drifts and
-      this one is the input to a determinism claim. Persisted in the header at v3.
-- [ ] `RainfallRate(seed, t)` and `RainfallOver(seed, t0, t1)`, the second closed form.
-- [ ] **Accumulator volumes in litres as integers**, M6c-2's precedent: a float accumulator drifts
-      and "how full is it" stops having one answer.
-- [ ] Overflow walks the merge tree; surplus at the window edge leaves and is counted.
+##### M7b-1 — The clock, the weather and the accumulator ✅ **done 2026-09-01, 778 tests passing**
+
+- [x] **`WorldClock`, integer milliseconds**, not a `double` of seconds — a float clock drifts and
+      this one is the input to a determinism claim. The fraction of a frame is carried, so 60 Hz
+      and 144 Hz reach the same time.
+- [x] `Weather.RateAt(seed, t)` and `DepthNanometresOver(seed, t0, t1)`, the second closed form
+      over the episodes it spans.
+- [x] **The unit chain is the design, chosen to make one multiplication exact.** A rate is
+      nanometres per millisecond (= µm/s = 3.6 mm/hour); depth is rate × milliseconds; and **a
+      nanometre of rain over a square metre is exactly one microlitre**, so the volume arriving in
+      a basin is an exact integer. Nothing rounds, which is what lets the oracle assert equality.
+- [x] **The sub-litre remainder is carried, not dropped.** Drop it and a drizzle rounds to zero
+      litres every step forever, so a basin never fills while the same hour integrated in one call
+      fills it properly.
+- [x] Overflow walks the merge tree; surplus at the window edge leaves and is counted.
+- [x] **The oracle passes with no tolerance: an hour in one call equals 3,600 calls of one second**,
+      basin for basin, remainder for remainder, spill for spill.
+- [x] **The pacing finding, which M7d has to react to: at real rainfall the median basin fills in
+      35 minutes of the heaviest weather this world can produce**, and with 55% of episodes dry the
+      honest expectation is hours. A filling pond rises well under a millimetre a minute — nobody
+      can judge that.
+      - [x] **`rainfallScale` is the honest knob**, and it is a scale rather than a fudged rate so
+            that `Weather` goes on stating real intensities for M7c's wet term and the overcast.
+            **M7d is where a person picks the number**, against the bench's new `fill min` column.
+            Matthew's *"a few minutes to fill the lower levels of a large cave"* implies 10–30x —
+            or it was about caves, which are M8 and much smaller.
+- [x] **Ten break-recipes, ten caught — after the green one exposed a fixture that could not
+      fail.** Reporting only the last call's spill left the suite green, because **at real rainfall
+      none of the fixtures ever overflows**, so every assertion about spilled water compared zero
+      with zero. Fixed with a fixture that drowns on purpose and asserts that it did.
+- [x] **The machine control validated itself**: 2.48x slower and 66.4 ms, then 1.08x and 29.9 ms,
+      which normalise to 26.8 and 27.7 — agreement to 3% across a machine that had changed speed
+      by a factor of two.
+
+##### M7b-2 — Persistence ← **next**
+
 - [ ] A `basins` table keyed `(pitX, pitZ)`; zero-volume basins are simply absent.
 - [ ] **The oracle, and it is the same category as M5's:** integrating **600 s in one call must
       equal 600 calls of one second, to the litre**. No tolerance — integers and a closed form are

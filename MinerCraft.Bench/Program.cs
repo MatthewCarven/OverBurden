@@ -1174,10 +1174,10 @@ internal static class Program
         Console.WriteLine();
         Console.WriteLine(
             "  window   samples   sample ms   flood ms   tree ms   total ms   ns/sample   "
-            + "basins   nodes   curves MB   held ML");
+            + "basins   nodes   curves MB   held ML   fill min");
         Console.WriteLine(
             "  ------   -------   ---------   --------   -------   --------   ---------   "
-            + "------   -----   ---------   -------");
+            + "------   -----   ---------   -------   --------");
 
         // PROMOTE THE CODE ONCE, ON A SMALL WINDOW, BEFORE ANY ROW IS TIMED — and the reason is a
         // trap this bench has now walked into twice. Tiered compilation promotes after about
@@ -1202,6 +1202,7 @@ internal static class Program
             int nodes = 0;
             long curveCells = 0;
             long held = 0;
+            double medianFillMinutes = 0;
 
             // Several untimed passes at THIS size, so the arrays a large window needs are already
             // on the heap when the clock starts. A PRECAUTION, NOT A DIAGNOSIS: it was added while
@@ -1246,10 +1247,22 @@ internal static class Program
                     curveCells += tree.Curve(node).CellCount;
                 }
 
+                // How long the median basin takes to fill at the heaviest weather this world
+                // has, with no rainfall scaling — the number M7d has to react to. A rate of
+                // nanometres per millisecond over a square metre is microlitres per millisecond,
+                // so the arithmetic is capacity / (rate x catchment) in the same units throughout.
+                var fillMinutes = new List<double>();
                 foreach (Basin basin in analysed.Basins)
                 {
                     held += basin.CapacityLitres;
+                    double microlitresPerMillisecond =
+                        (double)Weather.MaxRateNanometresPerMillisecond * basin.CatchmentSquareMetres;
+                    fillMinutes.Add(basin.CapacityLitres * 1_000_000.0 / microlitresPerMillisecond
+                        / 60_000.0);
                 }
+
+                fillMinutes.Sort();
+                medianFillMinutes = fillMinutes.Count == 0 ? 0 : fillMinutes[fillMinutes.Count / 2];
             }
 
             double total = bestSample + bestFlood + bestTree;
@@ -1257,7 +1270,7 @@ internal static class Program
                 $"  {metres,4} m   {samples,7}   {bestSample,9:F2}   {bestFlood,8:F2}   "
                 + $"{bestTree,7:F2}   {total,8:F2}   {total * 1_000_000 / samples,9:F0}   "
                 + $"{basins,6}   {nodes,5}   {curveCells * 4 / 1_000_000.0,9:F1}   "
-                + $"{held / 1_000_000.0,7:F1}");
+                + $"{held / 1_000_000.0,7:F1}   {medianFillMinutes,8:F0}");
         }
 
         Console.WriteLine();
@@ -1267,6 +1280,11 @@ internal static class Program
         Console.WriteLine(
             "  root of the tree and much larger. 'curves MB' is what eager composite curves cost, "
             + "against building them lazily.");
+        Console.WriteLine(
+            "  'fill min' is how long the MEDIAN basin takes to fill at this world's heaviest "
+            + "weather with no rainfall scaling —");
+        Console.WriteLine(
+            "  the number that says whether a pond filling can be watched or only inferred.");
         return 0;
     }
 }

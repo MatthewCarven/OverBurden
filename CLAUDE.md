@@ -210,8 +210,16 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-**M7 is under way: all of M7a is built (2026-09-01) — M7b, the clock and the accumulator, is
-next.** `MinerCraft.Core/Hydrology/` holds the flood, the basins, the volume→level curves, the
+**M7 is under way: all of M7a and M7b-1 are built (2026-09-01) — M7b-2, persistence, is next.**
+`WorldClock`, `Weather` and `BasinRainfall` give the world time, a forecast that is a pure function
+of the seed, and rain that lands on catchments. **The oracle passes with no tolerance: an hour in
+one call equals 3,600 calls of one second**, basin for basin. Two things from it:
+**the unit chain is the design** — a rate is nanometres per millisecond, depth is rate × ms, and a
+nanometre of rain over a square metre is exactly one microlitre, so nothing rounds — and **at real
+rainfall the median basin fills in 35 minutes of the heaviest possible weather**, which nobody can
+watch, so `rainfallScale` exists and **M7d is where a person picks it**.
+
+ `MinerCraft.Core/Hydrology/` holds the flood, the basins, the volume→level curves, the
 merge tree and the water in it. **A 1,024 m window costs 66 ms measured / 27 ms reference-
 equivalent**, on a worker, once per window move — **so no incremental watershed is ever built.**
 Four things from it that are expensive to rediscover:

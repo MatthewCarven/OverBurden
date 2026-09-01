@@ -1,5 +1,72 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-01 — M7b-1: the clock, the weather, and rain that is too slow to watch
+
+`WorldClock`, `Weather` and `BasinRainfall` — the world gains time, the sky gains a forecast that
+is a pure function of the seed, and a basin's catchment collects what falls on it. Suite
+**764 → 778**. No persistence yet; that is M7b-2.
+
+**The oracle passes with no tolerance at all: an hour integrated in one call equals 3,600 calls of
+one second**, basin for basin, including the sub-litre remainder each one is carrying, and
+including what left the world. That is the property "flew away mid-fill and came back" is made of,
+and it is the cash value of *slower than realtime is accuracy, not approximation* — a tick is only
+allowed to be late because arriving late and arriving on time compute the same number.
+
+### The unit chain is the design, and it was chosen to make one multiplication exact
+
+- A **rate** is nanometres of rain per millisecond of world time. That is also micrometres per
+  second, and 1 of it is 3.6 mm/hour.
+- **Depth over an interval is rate × milliseconds**, an exact integer, summed over the episodes the
+  interval spans — so splitting an interval splits the sum, exactly, which is the property
+  everything else rests on.
+- **A nanometre of rain over a square metre is exactly one microlitre.** So the volume arriving in
+  a basin is `depth × catchment`, integer, with nothing rounded away.
+
+Nothing in that chain rounds, which is what lets the oracle assert equality rather than closeness.
+**The one place a remainder appears is handed a carry rather than a rounding**: a catchment
+collects microlitres and only whole litres are given to the water. Drop the remainder instead and a
+drizzle rounds to zero litres *every step forever*, so a basin never fills while the same hour
+integrated in one call fills it properly — and the break-recipe battery confirms the oracle catches
+exactly that.
+
+### The pacing finding, and it is the one M7d has to react to
+
+**At real rainfall, the median basin in a 1 km window fills in 35 minutes of the heaviest weather
+this world can produce** — 43 mm/hour, already a downpour — and since 55% of episodes are dry and
+most of the rest are lighter, the honest expectation is *several hours*. A filling pond's surface
+then rises well under a millimetre a minute. **Nobody can judge that**, and M7's whole visible
+payoff is watching one fill.
+
+So `BasinRainfall` takes a **`rainfallScale`**, and the reason it is a scale rather than a fudged
+rate is worth keeping: `Weather` goes on stating real intensities, so M7c's wet-surface term and
+the overcast dimming still read a real storm, while the world receives more of it. **M7d is where a
+person picks the number**, and the watershed bench now prints a **`fill min`** column to pick it
+against. Matthew's *"a few minutes of rain to fill the lower levels of a large cave"* implies
+something like 10–30× — or it was about caves, which are M8 and far smaller than a basin's whole
+capacity. Recorded rather than guessed at.
+
+### The machine control validated itself the first time it was used in anger
+
+Same binary, hours apart: the control read **2.48x slower** and the 1 km window cost 66.4 ms; it now
+reads **1.08x** and the same window costs 29.9 ms. Normalising gives 26.8 and 27.7 — **the two
+agree to within 3%**, which is much better evidence that the instrument is right than either
+reading alone. A figure taken today can now be compared with one taken at M2d-2 without anybody
+having to remember what the machine was doing.
+
+### Ten break-recipes, ten caught — after the green one exposed a fixture that could not fail
+
+Making the accumulator report only its last call's spill left the whole suite green. **The reason
+is that at real rainfall none of the fixtures ever overflows**, so every assertion any of them made
+about spilled water was comparing zero with zero — including the oracle's. That is the
+degenerate-fixture category again, and the fix is a fixture that drowns on purpose: rainfall scaled
+500x for one test, which asserts it really overflowed before asserting anything else.
+
+Two of the caught ones are worth naming because they fail in the direction that hides: **the
+accumulator forgetting to advance its own clock** re-rains the same interval forever, and **a dry
+stretch returning before the clock moves** silently banks the dry time and delivers it as rain
+later.
+
+
 ## 2026-09-01 — M7a-2: the merge tree, and a control that says the machine was 2.5x faster this morning
 
 `MergeTree` builds the join tree of the terrain — every crossing sorted, union-find upward, so a
