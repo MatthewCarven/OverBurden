@@ -190,15 +190,20 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2, all of M3, all of M4, all of M5, M6a, all of M6b, all of M6c, M6d-1,
-M6d-2 and M6d-3's UI** are done — **739 tests passing**. **M6's headline question is answered by play (2026-09-01):
+M0, all of M1, **all of M2, all of M3, all of M4, all of M5 and all four parts of M6** are built,
+and M6 is played — **739 tests passing**. **M6's headline question is answered by play (2026-09-01):
 dig a tunnel, fly away until it unloads, come back — it works; quit and reopen — it works.** That
 is the thing the whole milestone exists for and the thing M5d-2's play kept running into, and it
 is now yes from a person rather than from a headless proxy. **The ramp brush is also confirmed as
 the right tool for stairs and the fast path** — *"using the dig tool to get those kind of stairs
 would take me a lot longer"* — which validates M6d-1 going first in the split and leaves DESIGN's
-carve-for-detail / place-for-bulk split unamended, with stairs on the *place* side. **What is left
-is the walls-and-floor half of "build a room".**
+carve-for-detail / place-for-bulk split unamended, with stairs on the *place* side. **And the
+walls-and-floor half is answered too (2026-09-01): a room with walls, a floor, a ceiling and a
+broad flight of stairs down into it, ~3,360 voxels placed** — so the 1 m lattice, the four shapes
+and the carve/place divide are judged rather than argued. **All three of M6's play items are
+ticked**, and the one check still open was surfaced by the play rather than scheduled: **placing
+the lamp in the sealed room**, the only test that proves the two light channels stay independent
+all the way to the screen.
 
 **M6d-3 — the first real UI: built 2026-09-01.** `MinerCraft.Game/Ui/Hud.cs` — a nine-slot hotbar
 with a swatch, name and litres per slot, a crosshair, and a status line. Suite 734 → 739. Six

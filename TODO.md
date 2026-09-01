@@ -1878,7 +1878,8 @@ Played with the entangled miner. **"Looks good to me."**
 - [ ] Baking AO into the light grid. Different frequencies — AO is a 0.25 m effect and the grid
       is 1 m — and merging them loses exactly the detail AO exists to add.
 
-### M6 — v0.1 playable sandbox ← **all of M6b done 2026-08-31. M6c is next.**
+### M6 — v0.1 playable sandbox ← **all four parts built, and played 2026-09-01. Every scheduled
+item is ticked; what is left was surfaced by the play rather than scheduled.**
 
 Planned into four parts in [docs/M6-PLAN.md](docs/M6-PLAN.md). **Read it before starting.** The
 structural point: every chunk so far has been recoverable from nothing, so `Forget` could delete
