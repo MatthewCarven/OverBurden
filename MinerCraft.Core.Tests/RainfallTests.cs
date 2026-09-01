@@ -198,6 +198,163 @@ public class RainfallTests
         Assert.True(heavy > 20, $"only {heavy} of 1000 episodes were a downpour");
     }
 
+    // ------------------------------------------------------- wetness and overcast
+
+    [Fact]
+    public void AtAnEpisodeBoundaryWetnessIsExactlyThatEpisodesShareOfTheMaximum()
+    {
+        // The soak window is one episode long, so a window ending on an episode boundary covers
+        // exactly one episode and nothing else. That makes the answer a rational number the test
+        // can state rather than approximate: wetness == rate / maxRate, for every episode.
+        //
+        // It is the tightest available assertion about the window's *length*. Widen or narrow
+        // SoakWindowMillis by a millisecond and this fails everywhere the two neighbouring
+        // episodes differ, which is most of them.
+        for (int episode = 1; episode < 400; episode++)
+        {
+            long boundary = (long)episode * Weather.EpisodeMillis;
+            float expected =
+                Weather.RateAt(Seed, boundary - 1) / (float)Weather.MaxRateNanometresPerMillisecond;
+
+            Assert.Equal(expected, Weather.WetnessAt(Seed, boundary), 6);
+        }
+    }
+
+    [Fact]
+    public void TheSkyDarkensBeforeTheFirstDropAndTheGroundIsStillDry()
+    {
+        // "Storm -> dark -> rain" is most of what makes weather legible, and it is the one
+        // property that separates the overcast window from the soak window. The shape that shows
+        // it is a dry episode followed by a wet one: at the boundary the ground has had nothing
+        // to soak it, so wetness is exactly zero, while the cloud for the episode about to start
+        // is already gathered.
+        long boundary = FirstDryToWetBoundary();
+
+        Assert.Equal(0f, Weather.WetnessAt(Seed, boundary));
+        Assert.True(
+            Weather.OvercastAt(Seed, boundary) > 0f,
+            "the sky was clear at the instant the rain started");
+    }
+
+    [Fact]
+    public void TheCloudIsStillThereAfterTheRainHasStopped()
+    {
+        // The other half of the same window, and the half a forward-only lead would fail. Clearing
+        // takes about as long as the ground takes to dry, which is why the window looks back a
+        // whole soak window rather than only forward.
+        long boundary = FirstWetToDryBoundary();
+
+        Assert.Equal(0, Weather.RateAt(Seed, boundary));
+        Assert.True(
+            Weather.OvercastAt(Seed, boundary) > 0f,
+            "the sky cleared the instant the rain stopped");
+    }
+
+    [Fact]
+    public void AWorldInItsFirstMomentsIsDryHoweverHardItIsRaining()
+    {
+        // The window is clamped at the start of time and the denominator deliberately is not, so
+        // thirty seconds of rain reads as thirty seconds of rain rather than as saturated ground.
+        // Normalising by the clamped span instead — the obvious "fix" — reports a fully soaked
+        // world one second after it is created, and this is the only test that would notice.
+        Assert.Equal(0f, Weather.WetnessAt(Seed, 0));
+
+        ulong pouring = SeedWhoseFirstEpisodeIsHeavy();
+        float early = Weather.WetnessAt(pouring, Weather.SoakWindowMillis / 4);
+
+        Assert.True(early > 0f, "a quarter of a window of heavy rain wet nothing at all");
+        Assert.True(early < 0.3f, $"a quarter of a window read as {early:F2} wet");
+    }
+
+    [Fact]
+    public void BothTermsUseTheWholeRangeAndNeverLeaveIt()
+    {
+        // A normalisation that was wrong by a constant factor would still be smooth, still be
+        // deterministic and still pass every identity above; what it would do is spend the whole
+        // world in the bottom tenth of the range or clip permanently at the top. So the range is
+        // the assertion: dry ground exists, saturated ground is reachable, and nothing escapes.
+        float wettest = 0f;
+        float cloudiest = 0f;
+        bool everBoneDry = false;
+
+        for (int episode = 1; episode < 20_000; episode++)
+        {
+            long boundary = (long)episode * Weather.EpisodeMillis;
+
+            float wet = Weather.WetnessAt(Seed, boundary);
+            float cloud = Weather.OvercastAt(Seed, boundary);
+
+            Assert.InRange(wet, 0f, 1f);
+            Assert.InRange(cloud, 0f, 1f);
+
+            wettest = Math.Max(wettest, wet);
+            cloudiest = Math.Max(cloudiest, cloud);
+            everBoneDry |= wet == 0f;
+        }
+
+        Assert.True(everBoneDry, "no instant in 20,000 episodes had dry ground");
+        Assert.True(wettest > 0.9f, $"the ground never got wetter than {wettest:F2}");
+        Assert.True(cloudiest > 0.9f, $"the sky never got darker than {cloudiest:F2}");
+    }
+
+    [Fact]
+    public void WetnessAndOvercastAreFunctionsOfSeedAndTimeAndNothingElse()
+    {
+        // The same argument as the rate's own determinism test: these feed a look rather than a
+        // volume, but a player who flies away through a downpour and comes back has to find the
+        // ground as wet as they left it, and that is this property rather than any stored state.
+        const long instant = 7 * Weather.EpisodeMillis / 3;
+
+        Assert.Equal(Weather.WetnessAt(Seed, instant), Weather.WetnessAt(Seed, instant));
+        Assert.Equal(Weather.OvercastAt(Seed, instant), Weather.OvercastAt(Seed, instant));
+
+        int differing = 0;
+        for (ulong other = Seed + 1; other <= Seed + 40; other++)
+        {
+            if (Weather.WetnessAt(other, instant) != Weather.WetnessAt(Seed, instant)) differing++;
+        }
+
+        Assert.True(differing > 20, $"only {differing} of 40 other seeds had different weather");
+    }
+
+    [Fact]
+    public void NeitherTermRunsBeforeTheWorldExisted()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => Weather.WetnessAt(Seed, -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Weather.OvercastAt(Seed, -1));
+    }
+
+    /// <summary>The first episode boundary at which a dry episode is followed by a wet one.</summary>
+    private static long FirstDryToWetBoundary() => FirstBoundaryWhere(dry: true);
+
+    /// <summary>The first episode boundary at which a wet episode is followed by a dry one.</summary>
+    private static long FirstWetToDryBoundary() => FirstBoundaryWhere(dry: false);
+
+    private static long FirstBoundaryWhere(bool dry)
+    {
+        for (int episode = 1; episode < 1000; episode++)
+        {
+            long boundary = (long)episode * Weather.EpisodeMillis;
+            bool before = Weather.RateAt(Seed, boundary - 1) == 0;
+            bool after = Weather.RateAt(Seed, boundary) == 0;
+
+            if (before == dry && after != dry) return boundary;
+        }
+
+        throw new InvalidOperationException("the forecast never changed in 1,000 episodes");
+    }
+
+    /// <summary>A seed whose very first episode is at or near the heaviest this world gets.</summary>
+    private static ulong SeedWhoseFirstEpisodeIsHeavy()
+    {
+        for (ulong seed = 1; seed < 10_000; seed++)
+        {
+            if (Weather.RateAt(seed, 0) == Weather.MaxRateNanometresPerMillisecond) return seed;
+        }
+
+        throw new InvalidOperationException("no seed in 10,000 opened with a downpour");
+    }
+
     // ------------------------------------------------------------ the accumulator
 
     [Fact]

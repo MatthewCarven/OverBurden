@@ -1,4 +1,4 @@
-# MinerCraft — TODO
+﻿# MinerCraft — TODO
 
 See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
 
@@ -1809,7 +1809,9 @@ Played with the entangled miner. **"Looks good to me."**
       that unloads loses its edits and regenerates from seed. Known since M3, and **M6's SQLite
       save/load is the fix.**
 
-##### Rotating changes how bright the room is — sighted 2026-09-01, and the list above is missing the likely cause
+##### Rotating changes how bright the room is — sighted 2026-09-01, diagnosed and fixed at M7c-1
+
+> **Answered 2026-09-02: it was the view-space normal, the second of the two explanations below.** The wet sheen is what forced it; the fix and its measurement are at the bottom of this section. Kept whole because the two-explanations pass is the reasoning, and because *which look is preferred* is still Matthew's and still open.
 
 - [ ] **Symptom, in Matthew's words:** *"if i turn slightly left it gets brighter... its a minor
       cosmetic and i kind like it now anyways."* Two screenshots of the same sealed room a few
@@ -1822,7 +1824,7 @@ Played with the entangled miner. **"Looks good to me."**
         walls of a room differ by 23% *by design*. Turning changes how much of each fills the
         frame, so the average brightness of the picture moves while every face keeps its own
         shade. Nothing is wrong; the constant is doing exactly what its comment says.
-      - **A view-space normal, which would be a one-line defect.** In a Godot 4 spatial shader
+      - **A view-space normal, which would be a one-line defect. ← this one.** In a Godot 4 spatial shader
         `NORMAL` inside `fragment()` is in **view space** — the same convention `Voxel.gdshader`
         already notes for `VERTEX` two comments further down. `face_tint(NORMAL)` would then be
         classifying a face by its orientation *relative to the camera*: yaw carries a wall's
@@ -1837,11 +1839,22 @@ Played with the entangled miner. **"Looks good to me."**
       neither the light grid nor the viewer moves. That list is coincident faces, frustum culling
       and staleness; none of them is this, and this one is **reachable by rotation alone**, which
       is the property that repro turns on.
-- [ ] **The fix, if it is ever wanted, is one line:**
-      `face_tint((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz)`. **It is a look change as much as a
-      correctness one.** The shader's stated intent is that *a box reads as a box*; under a
-      camera-relative tint two opposite walls can take the same shade at some yaws, which is the
-      case that intent exists to prevent. So it is an A/B for a person, not a bug to fix quietly.
+- [x] **Settled at M7c-1 (2026-09-02): it was the view-space normal, and it is fixed.** The wet
+      sheen is the second view-dependent term M7-PLAN said would turn this from a look preference
+      into a correctness question, and it did — with both terms sliding there is no way to tell the
+      one that is supposed to move from the one that is not.
+      - [x] **The predicted one-line fix was not what shipped, and the shipped one is cheaper.**
+            `face_tint((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz)` is a matrix multiply per
+            fragment; a `varying` set from `vertex()`'s `NORMAL` is exact and free, because a chunk
+            instance's transform is a pure translation (`Basis.Identity` — see `Main.OnMeshReady`),
+            so the model normal **is** the world normal. **If a chunk ever gains a rotation this
+            becomes `MODEL_NORMAL_MATRIX * NORMAL`**, and the shader says so.
+      - [x] Measured rather than argued: `riser face` (69,130,64) in both arms at yaw 0,
+            (59,128,54) against (53,116,50) at yaw 40 — **identical facing the default direction,
+            diverging once you turn**, which is the defect stated as a number.
+      - [ ] **Still an A/B for a person, as this item always said.** Correctness settled and world
+            space shipped; `--viewnormal=1` restores the old arm and `--yaw=` makes the two
+            comparable.
 
 ##### Surfaced by M5d-1, not built — each wants its own planning pass
 
@@ -3139,12 +3152,80 @@ the merge tree is a second thing with its own hazard — see the two-cycle below
       [slower than realtime is accuracy](#slower-than-realtime-is-accuracy-not-approximation--matthew-2026-09-01).
 - [x] Also: store round trip; a changed `WatershedCellMetres` discarding rather than throwing;
       header v3 migrating v1 and v2; a negative clock refused at write and at read.
-- [ ] **Still owed, and it belongs to the wiring rather than to the format: the clock not advancing
-      while the world is closed.** Core cannot test it — `WorldClock` only moves when something
-      calls `Advance` — so it is M7c/M7d's to demonstrate, and it is the kind of claim that is
-      true by construction right up until a session advances the clock from wall time.
+- [x] **Discharged at M7c-1: the clock does not advance while the world is closed.** Core cannot
+      test it — `WorldClock` only moves when something calls `Advance` — and the demonstration is a
+      pair of sessions: one ends at t ≈ 6 s, the next resumes at t = 11 s five minutes of wall
+      clock later.
 
-#### M7c — Rain you can see
+#### M7c — Rain you can see ← **split in two 2026-09-02. M7c-1 is done; M7c-2 is the rain itself.**
+
+Split on the seam M5c was split on — **what a headless run can verify and what needs a renderer.**
+M7-PLAN says "headless cannot verify any of this", which is true of the particles and false of the
+wet term: the zero-remesh assertion and the clock are both headless facts, and putting them in the
+same part as the billboards would have hidden them behind a screenshot.
+
+##### M7c-1 — The clock, the wet term and the overcast ✅ **done 2026-09-02, 804 tests passing**
+
+- [x] **`WorldClock` wired into the session**, advanced from `_Process`'s `delta` and from nowhere
+      else, restored from header v3 at open and written back on save.
+      - [x] **The demonstration M7b-2 said was still owed, and it is a pair of sessions**: one ends
+            at t ≈ 6 s, the next resumes at t = 11 s five minutes of wall clock later. *Time
+            advances only while the world is open*, observed rather than asserted — Core could
+            never test it, because `WorldClock` only moves when something calls `Advance`.
+- [x] **The wet-surface term is one uniform and zero remeshes, and it is now printed rather than
+      argued**: `weather 0 edit remesh(es) / 0 relight remesh(es) during the measured window — wet
+      ranged 0.00..0.67 over 1380 s of world time`. **Where M5's bill gets collected** — DESIGN's
+      reason for keeping the two light channels separate was this exact term.
+      - [x] **A difference, not a total, and printed with its denominator.** The fill is still
+            relighting through the warm-up, so a session total would read in the hundreds; and a
+            zero from a run that stayed dry is a detector that never fired.
+      - [x] **`--clockscale` is what makes fifteen seconds contain a storm.** Weather is a pure
+            function of time, so scaling the clock shows a whole episode without touching the
+            weather. **Deliberately not M7d's `rainfallScale`**, which leaves the sky honest and
+            speeds the water up; a run that uses this one is not comparable with one that does not.
+- [x] **`Weather.WetnessAt` and `Weather.OvercastAt` are box filters over `DepthNanometresOver`.**
+      The one primitive the milestone's exactness rests on is the only arithmetic in either, so
+      there is no second model of "recent rainfall" to drift from the first.
+      - [x] **The soak window is exactly one episode, which makes the answer statable**: on an
+            episode boundary wetness *is* `rate / maxRate`, a rational number a test asserts. The
+            tightest available assertion about the window's length.
+      - [x] **The overcast window straddles now** — back one soak window, forward half an episode —
+            so the sky gathers before the first drop and clears as the ground dries. Two tests
+            separate the halves.
+      - [x] **A new world reads dry in a downpour for two minutes and that is correct.** The window
+            clamps at the start of time and the denominator deliberately does not. Normalising by
+            the clamped span reports saturated ground one second after a world is created.
+      - [x] **This is where the integer rule stops, deliberately** — these feed a shader uniform,
+            are never stored, summed or compared, and an `int` here would be exactness cargo-culted
+            onto a look term. Said in the source, because the file's ethos argues the other way.
+      - [x] **Eight break-recipes, eight caught.**
+- [x] **Overcast dims through `sky_brightness` by multiplying `--skybrightness` rather than
+      replacing it**, which keeps M5c-2's A/B alive. **Verified rather than assumed**:
+      `--skybrightness=0` still renders the terrain pure black against a sky that is still there.
+- [x] **M7c is where the view-space `NORMAL` question stops being cosmetic — and it was a real
+      bug.** `face_tint` read `NORMAL` in `fragment()`, which in Godot 4 is view space, so the fake
+      directional shading rotated with the player. Fixed with a `varying` set from `vertex()`'s
+      `NORMAL`, which for a chunk instance **is** the world normal — the transform is a pure
+      translation, so it costs no matrix multiply.
+      - [x] Measured: `riser face` (69,130,64) in both arms at yaw 0, (59,128,54) against
+            (53,116,50) at yaw 40. **Identical facing the default direction, diverging once you
+            turn** — the bug stated as a measurement.
+      - [ ] **Which look Matthew prefers is still his.** Correctness settled and world space
+            shipped; `--viewnormal=1` is the other arm and `--yaw=` is what makes it comparable,
+            because a view-dependent artefact is invisible in one picture by definition.
+- [x] **The sky did not dim, and three plausible levers all silently did nothing.**
+      `Environment.BackgroundEnergyMultiplier`, `ProceduralSkyMaterial.EnergyMultiplier` and
+      scaling the dome's four colours were each confirmed *set* and each left the sky pixels
+      bit-identical to the clear arm — (200, 210, 225) in both.
+      - [x] **The cause was a note already in CLAUDE.md, one milestone old**: M5d left the
+            environment's fog on for the sky so the dome's ground hemisphere would not band the
+            horizon — so **most of the sky you can see is the fog**, at a fixed colour. Dimming
+            `Environment.FogLightColor` moves it to (83, 90, 101).
+      - [x] **Eyeballing a screenshot is a measurement too, second outing.** M6d-3's was a false
+            positive; this is the false negative of the same shape — a picture that looked right
+            while half the intended change did nothing. Sample named points; do not admire.
+
+##### M7c-2 — The rain itself ← **not started**
 
 - [ ] Camera-locked box of GPU-instanced, velocity-stretched billboards. One draw call.
 - [ ] **The occlusion kill is a sky-height texture** sampled in the particle process shader, built
@@ -3153,16 +3234,8 @@ the merge tree is a second thing with its own hazard — see the two-cycle below
             0.75 m. **Recommend 0.5 m over 128 m** — 256×256, ~65k reads, ~0.25 ms on a chunk
             crossing. **Revisit trigger: a shaft rain should fall into and does not.**
 - [ ] Splash particles at the kill point, which is also the ground.
-- [ ] **The wet-surface term is one uniform and zero remeshes**, and it is where M5's bill gets
-      collected: wetness is `recent rainfall × skylight`, skylight is already `COLOR.r`, rainfall
-      is global, so nothing enters the merge key. **DESIGN's stated reason for keeping the two
-      channels separate was this exact term.** Assert **0 remeshes during a storm**, the way
-      M5c-2 asserted a quad count.
-- [ ] **Overcast dims the sky through `sky_brightness`** — the uniform M5c-2 built with nothing
-      behind it, so a global light change costs no repropagation. First consumer.
-- [ ] **M7c is where the view-space `NORMAL` question stops being cosmetic.** A wet sheen is
-      view-dependent, and a sheen computed off a camera-relative normal slides across surfaces as
-      the player turns. Settle it here rather than discovering it in a screenshot.
+- [ ] **The sheen is barely visible on a hillside seen from above**, because the grazing term is
+      small there. Whether it reads at all wants a wall and a play-test, not another screenshot.
 
 #### M7d — Standing water, measurement and play
 

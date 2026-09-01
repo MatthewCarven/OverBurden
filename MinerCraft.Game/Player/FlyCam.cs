@@ -117,6 +117,19 @@ public partial class FlyCam : Camera3D
             "  Esc releases the mouse, click to recapture");
     }
 
+    /// <summary>Turns the camera about the world's vertical axis, keeping the mouse in step.</summary>
+    /// <remarks>
+    /// <b>Rotating the node directly would work and then snap back on the first mouse movement</b>,
+    /// because <c>_yaw</c> is seeded once in <see cref="_Ready"/> and driven from there afterwards.
+    /// Harmless in a screenshot run, which has no mouse, and exactly the kind of thing that is
+    /// discovered a milestone later by somebody using the seam for something else.
+    /// </remarks>
+    public void TurnBy(float radians)
+    {
+        _yaw += radians;
+        Rotation = new Vector3(_pitch, _yaw, 0);
+    }
+
     public override void _UnhandledInput(InputEvent @event)
     {
         switch (@event)

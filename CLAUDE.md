@@ -1,4 +1,4 @@
-# MinerCraft — orientation
+﻿# MinerCraft — orientation
 
 A voxel mining game in Godot 4 + C#. **You are a mining operation fighting water and
 gravity.** Rain fills basins, water finds your excavation, saturated rock loses cohesion
@@ -140,10 +140,24 @@ is the unbudgeted arm; there is no "off"), `--lightbudget=<ms>` (how much of a f
 derivation and propagation may take; **swept at M5c-1 and 4 ms is the knee** — below it the
 world has generated but cannot draw, because nothing meshes until its neighbourhood is lit),
 `--ao=0` and `--light=0` (the two halves of the shade, switchable independently — see the quad
-table below), `--skybrightness=<0..2>` (scales the sky channel alone; 0 leaves only block light)
+table below), `--skybrightness=<0..2>` (scales the sky channel alone; 0 leaves only block light —
+**the overcast multiplies this rather than replacing it, so the seam survives weather**),
 `--debuglamp` (places one lamp where the crosshair points, so a screenshot can show block
 light without a keypress) and `--entangle` (the entangled miner, which with `--mine` aims along
 the flight path rather than straight down — see below).
+
+M7c-1 adds four more, all seams rather than settings. **`--clock=<seconds>` starts the run
+somewhere in this world's forecast** — the weather is a pure function of (seed, time), so this is
+how a storm is asked for by name rather than waited for; a named world overrides it, because what
+that world remembers is the thing under test. **`--clockscale=<x>` makes world time run faster**,
+which is what puts a whole two-minute weather episode inside a fifteen-second profile window; it is
+**not** M7d's `rainfallScale`, which leaves the sky honest and speeds the water up, and a run using
+it is not comparable with one that does not. **`--weather=<0..1>` forces the sheen and the overcast
+without making it rain** — a look override, named for what it does to the screen, because a flag
+called `--weather` that silently failed to fill a basin would be the worse instrument. And
+**`--yaw=<degrees>` turns the camera at spawn**, which `screenshot.gd` has never been able to do —
+a view-dependent artefact is invisible in one picture by definition, so the face-tint A/B needs the
+same wall from two angles. `--viewnormal=1` is that A/B's other arm.
 
 **Building is bound to the right mouse button**, `B` cycles the brush (cube, slab, ramp, sphere),
 and **`1`–`9` pick a material from the hotbar** (`V` still cycles to the next one). **`T` cycles
@@ -210,10 +224,49 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-**M7 is under way: all of M7a and all of M7b are built (2026-09-02) — M7c, the rain you can see,
-is next. Nothing is wired into the game yet**, so the clock does not advance, no watershed is
-analysed around the player and no rain falls; M7c and M7d are the first point at which a person can
-see any of it. **Header v3** carries the world clock and the watershed lattice, a `basins` table
+**M7 is under way: all of M7a, all of M7b and M7c-1 are built (2026-09-02) — M7c-2, the rain you
+can actually see, is next.** The clock now advances, the ground goes wet in the rain and the sky
+goes dark with it; **what is still missing is the water and the particles** — no watershed is
+analysed around the player, no rain falls into a basin, and nothing falls out of the sky. M7c-2 and
+M7d are the first point at which a person can judge any of it.
+
+**M7c-1 — the clock, the wet term and the overcast: built 2026-09-02.** Suite 797 → 804, and
+streaming is untouched to the digit — 1521 viewed / 165 drawn / 1926 jobs at 404 quads. Six things
+worth keeping:
+
+- **A storm costs zero remeshes, and the profile prints it**: `weather 0 edit remesh(es) / 0
+  relight remesh(es) during the measured window — wet ranged 0.00..0.67`. **This is where M5's bill
+  gets collected** — wetness is `recent rainfall × skylight`, rainfall is one global uniform and
+  skylight is already `COLOR.r`, so nothing enters the merge key. DESIGN's stated reason for
+  keeping the two light channels separate was this exact term.
+- **A difference rather than a total, and printed with its denominator.** The fill is still
+  relighting through the warm-up, so a session total reads in the hundreds; and a zero from a run
+  that stayed dry is a detector that never fired.
+- **The clock advances only while the world is open, and that is now observed rather than
+  asserted.** One session ends at t ≈ 6 s, the next resumes at t = 11 s five minutes of wall clock
+  later. Core could never test it, because `WorldClock` only moves when something calls `Advance`.
+- **`WetnessAt` and `OvercastAt` are box filters over `DepthNanometresOver`** — the one primitive
+  the milestone's exactness rests on is the only arithmetic in either, so there is no second model
+  of "recent rainfall" to drift. The soak window is **exactly one episode**, which makes wetness on
+  an episode boundary *equal* `rate / maxRate` — a rational number a test asserts rather than
+  approximates. The overcast window straddles now, so the sky gathers before the first drop.
+  **This is also where the integer rule stops, deliberately**: these feed a uniform, are never
+  stored or compared, and an `int` here would be exactness cargo-culted onto a look term.
+- **The view-space `NORMAL` question is settled and it was a real bug.** `face_tint` read `NORMAL`
+  in `fragment()`, which in Godot 4 is view space, so the fake directional shading rotated with the
+  player. A `varying` from `vertex()`'s `NORMAL` fixes it for free — a chunk's transform is a pure
+  translation, so the model normal **is** the world normal. Measured: the two arms are identical
+  facing the default direction and diverge once you turn. **Which look Matthew prefers is still
+  his**; `--viewnormal=1` is the old arm.
+- **Three plausible ways to dim the sky all silently did nothing, and the cause was a note already
+  in this file.** `Environment.BackgroundEnergyMultiplier`, `ProceduralSkyMaterial.EnergyMultiplier`
+  and scaling the dome's colours were each confirmed *set* and each left the sky bit-identical to
+  the clear arm. M5d left the environment fog on for the sky so the dome's ground hemisphere would
+  not band the horizon — **so most of the sky you can see is the fog**, at a fixed colour.
+  `Environment.FogLightColor` is the lever. **Eyeballing a screenshot is a measurement too, second
+  outing**: M6d-3's was a false positive, this is the false negative of the same shape.
+
+**Header v3** carries the world clock and the watershed lattice, a `basins` table
 carries the water, and **`BasinLedger` holds the basins nobody is currently looking at** — which is
 the structural point, because a `BasinWater` only ever holds what is inside the analysis window.
 **A changed watershed lattice discards stored volumes rather than refusing the world**: a pit is a

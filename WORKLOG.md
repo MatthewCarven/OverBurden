@@ -1,5 +1,144 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-02 — M7c-1: the world gets a clock, and the rain gets a look before it gets particles
+
+**M7c is split in two, on the seam M5c was split on: what a headless run can verify and what needs
+a renderer.** M7c-1 is the clock wired into the session, the wet-surface term, the overcast, and
+the view-space `NORMAL` question settled. **M7c-2 is the rain itself** — instanced billboards, the
+sky-height occlusion texture, splashes — and it is screenshots only. M7-PLAN says "headless cannot
+verify any of this", which is true of the particles and not of the half below: the zero-remesh
+assertion and the clock are both headless facts.
+
+Suite **797 → 804**. Streaming is untouched to the digit: **1521 viewed / 165 drawn / 1926 jobs at
+404 quads per drawn chunk**, M2d's recorded figures, which is the contract every part of this
+project has to keep.
+
+### The headline: a storm costs zero remeshes, and that is now printed rather than argued
+
+```
+weather   0 edit remesh(es) / 0 relight remesh(es) during the measured window
+          — wet ranged 0.00..0.67 over 1380 s of world time
+```
+
+**This is where M5's bill gets collected.** Wetness is `recent rainfall × skylight`; rainfall is one
+global number and skylight is already `COLOR.r` per vertex, so a rainstorm changes **one uniform**
+and nothing enters the merge key. DESIGN's stated reason for keeping the two light channels
+separate rather than pre-multiplying them was this exact term, and it is the first thing to spend
+what M5a paid for in vertex bytes.
+
+**It is a difference rather than a total, and it is printed with its denominator.** The fill is
+still relighting through the warm-up, so a session total would read in the hundreds and say nothing
+about the storm; and a zero from a run that stayed dry is a detector that never fired, which this
+project has now shipped twice. The wetness *range* over the window is what says the weather
+happened. `--clockscale` is what makes fifteen seconds contain a storm — the weather is a pure
+function of time, so scaling the clock is the one knob that shows a whole episode without touching
+the weather at all. It is deliberately not M7d's `rainfallScale`, which leaves the sky honest and
+speeds the water up.
+
+### The clock, and the claim that was true by construction until something advanced it
+
+`WorldClock` is advanced from `_Process`'s `delta` and from nowhere else, restored from header v3
+at open and written back on save. **The demonstration TODO said was still owed is a pair of
+sessions**: one ends at t ≈ 6 s, the next resumes at t = 11 s five minutes of wall clock later. The
+world moved on by five seconds because five seconds were played, not because five minutes passed.
+That is *time advances only while the world is open*, observed rather than asserted — Core could
+never test it, because `WorldClock` only moves when something calls `Advance`.
+
+### Wetness and overcast are box filters, and the reuse is the design
+
+Both are `Weather.DepthNanometresOver` and a divide — **the one primitive whose exactness the whole
+milestone rests on is also the only arithmetic in either**, so there is no second model of "recent
+rainfall" to drift from the first. Three things fell out:
+
+- **The soak window is exactly one episode, and that makes the answer statable.** A window ending on
+  an episode boundary covers exactly one episode, so wetness there *is* `rate / maxRate` — a
+  rational number a test asserts rather than approximates, and the tightest available assertion
+  about the window's length. Widen it by a millisecond and it fails everywhere two neighbouring
+  episodes differ, which is most of them.
+- **The overcast window straddles now** — back one soak window, forward half an episode — so the sky
+  gathers before the first drop and clears at about the rate the ground dries. *Storm → dark → rain*
+  is most of what makes weather legible, and a sky that darkens on the same frame as the first drop
+  reads as a glitch. Two tests separate the halves: one asserts the ground is **exactly** dry while
+  the cloud is already up, the other that the cloud is still there after the rain has stopped.
+- **A new world reads dry in a downpour for its first two minutes, and that is correct.** The window
+  clamps at the start of time and the denominator deliberately does not: thirty seconds of rain has
+  genuinely only wet the ground for thirty seconds. Normalising by the clamped span — the obvious
+  "fix" — reports saturated ground one second after a world is created, and one test exists for it.
+
+**This is also where the integer rule stops, deliberately.** Everything above these two returns
+integers because it feeds a volume asserted to the litre. These feed a shader uniform, are never
+stored, summed or compared for equality, and an `int` here would be exactness cargo-culted onto a
+look term. Said in the source, because the file's own ethos argues the other way.
+
+**Eight break-recipes, eight caught.**
+
+### The view-space `NORMAL` question, settled — and it was a real bug
+
+`face_tint` asked "is this face pointing up?" of `NORMAL` inside `fragment()`, **which in Godot 4 is
+view space**. So the fake directional shading rotated with the player: the top of a block dimmed as
+you looked down at it. It read as a plausible lighting model right up until you turned, which is why
+five milestones went past without anybody filing it.
+
+**It stopped being cosmetic the moment the sheen arrived**, exactly as M7-PLAN predicted, because a
+sheen is *genuinely* view-dependent — with both terms sliding there is no way to tell the one that
+is supposed to move from the one that is not. The fix is a `varying` set from `vertex()`'s `NORMAL`,
+which for a chunk instance **is** the world normal, because the transform is a pure translation. It
+costs no matrix multiply.
+
+Measured, at yaw 0 and yaw 40, `--viewnormal=1` against the fix:
+
+```
+                 yaw 0                    yaw 40
+             world      view          world      view
+riser face  (69,130,64) (69,130,64)  (59,128,54) (53,116,50)
+```
+
+**Identical facing the default direction and diverging once you turn** — which is the bug stated as
+a measurement. `--viewnormal=1` keeps the old arm, because *which* look is preferred is Matthew's
+call and the old one is what shipped and was liked; `--yaw=` exists because a view-dependent
+artefact is invisible in one picture by definition, and `screenshot.gd` has never been able to turn
+the camera.
+
+### The sky did not dim, and three plausible levers all silently did nothing
+
+The storm looked convincing by eye — dark ground, hazy distance. **Sampling the two screenshots said
+the sky pixels were bit-identical to the clear arm: (200, 210, 225) in both.**
+
+`Environment.BackgroundEnergyMultiplier` does nothing to the drawn dome. Nor does
+`ProceduralSkyMaterial.EnergyMultiplier`. Nor does scaling the dome's four colours. All three were
+confirmed to be *set* — the material resolves, the property takes the value — and all three left
+the sky unchanged to the byte.
+
+**The cause is a note already in CLAUDE.md, one milestone old, read as a detail:** M5d turned the
+environment's fog off for the terrain and left it on for the *sky*, so the procedural sky's dark
+ground hemisphere does not show as a black band along the horizon. The consequence nobody had cause
+to notice is that **most of the sky you can see is the fog**, at a fixed colour. Dimming
+`Environment.FogLightColor` moves it: (200, 210, 225) → (83, 90, 101).
+
+Two things worth keeping from that:
+
+- **Eyeballing a screenshot is a measurement too, and this is the second time it has caught
+  something.** M6d-3's was a false positive — a yellow outline misread as a defect. This is the
+  false negative of the same shape: a picture that looks right while half the intended change did
+  nothing. The pair is the argument for sampling named points rather than admiring the image.
+- **A "why we keep this on" comment turned out to also be a "this is what paints the sky" comment**,
+  and nobody was going to read it that way until it mattered.
+
+Also recorded: the overcast dims the terrain through `sky_brightness` by **multiplying**
+`--skybrightness` rather than replacing it, which is what keeps M5c-2's A/B alive. Verified rather
+than assumed — `--skybrightness=0` still renders the terrain **pure black against a sky that is
+still there**, which is the whole point of that seam.
+
+### Still open, and handed to M7c-2
+
+- The rain itself: billboards, the sky-height occlusion texture at 0.5 m, splashes.
+- **Which face tint Matthew prefers.** The correctness argument is settled and world space shipped;
+  the look is his, and `--viewnormal=1` is how the other arm is seen.
+- The sheen is barely visible on a hillside seen from above, because the grazing term is small
+  there. Whether it reads at all wants a wall and a play-test, not another screenshot.
+
+---
+
 ## 2026-09-02 — M7b-2: water that outlives the window it was analysed in
 
 Header **v3** carries the world clock and the watershed lattice; a `basins` table carries the

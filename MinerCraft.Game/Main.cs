@@ -5,6 +5,7 @@ using System.Linq;
 using Godot;
 using MinerCraft.Core.Building;
 using MinerCraft.Core.Content;
+using MinerCraft.Core.Hydrology;
 using MinerCraft.Core.Inventory;
 using MinerCraft.Core.Jobs;
 using MinerCraft.Core.Meshing;
@@ -130,6 +131,81 @@ public partial class Main : Node3D
     private int _falls;
     private float? _terminalSpeed;
 
+    /// <summary>
+    /// How long this world has been running. <b>The first thing in the project that is a clock.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Advanced from <c>_Process</c>'s <c>delta</c> and from nowhere else, which is the whole of
+    /// "time advances only while the world is open" — <b>a claim that is true by construction here
+    /// and would stop being the moment anything set it from wall time.</b> Core cannot test it:
+    /// <see cref="WorldClock"/> only moves when something calls <c>Advance</c>, so the assertion
+    /// has always had to be about this line. What proves it is the world file, whose
+    /// <c>ElapsedMillis</c> is what the last session left rather than what the calendar says.
+    /// </para>
+    /// <para>
+    /// It is created before the world is opened and <em>replaced</em> once the header has been
+    /// read, rather than being advanced from zero and corrected. A clock that ran for a few frames
+    /// at the wrong time would rain the wrong weather onto the world for those frames, which is
+    /// exactly the class of bug this milestone's determinism claims exist to make impossible.
+    /// </para>
+    /// </remarks>
+    private WorldClock _clock = new();
+
+    /// <summary>Multiplies how fast world time runs. A debug seam, not a setting.</summary>
+    /// <remarks>
+    /// <b>Weather is a pure function of time, so scaling the clock is the one knob that makes a
+    /// whole storm visible inside a fifteen-second profile window without touching the weather at
+    /// all.</b> That is why it is here and not a change to <see cref="Weather.EpisodeMillis"/>,
+    /// which would rewrite every world's history. It is deliberately <em>not</em> M7d's
+    /// <c>rainfallScale</c>: that one leaves the sky honest and speeds the water up, this one
+    /// speeds the sky up too. A run that uses it is not comparable with one that does not.
+    /// </remarks>
+    private double _clockScale = 1.0;
+
+    /// <summary>Forces the two weather uniforms, for a screenshot that has to be reproducible.</summary>
+    /// <remarks>
+    /// <b>A look override and nothing more</b> — it does not touch <see cref="Weather"/>, so no
+    /// rain falls into any basin because of it and no volume is affected. Named for what it does
+    /// to the screen rather than for weather, because a flag called <c>--weather</c> that silently
+    /// failed to make it rain would be the worse kind of instrument. The alternative is hunting
+    /// for a stormy <c>--clock=</c>, which is a different seam and also exists.
+    /// </remarks>
+    private float? _forcedWeather;
+
+    /// <summary>Which way the camera faces at spawn, for a screenshot that needs an angle.</summary>
+    private float _spawnYawDegrees;
+
+    /// <summary>The old, camera-relative face tint. An A/B seam — see the shader.</summary>
+    private bool _tintInViewSpace;
+
+    /// <summary>The sky dome's material, so the overcast can reach the sky as well as the light.</summary>
+    private ProceduralSkyMaterial? _skyMaterial;
+
+    /// <summary>The dome's four colours as authored, so dimming scales them rather than compounds.</summary>
+    /// <remarks>
+    /// <b>Held because the dimming is applied to the material every frame</b>, and a factor applied
+    /// to whatever is already there decays the sky to black over a few seconds — a bug that would
+    /// look exactly like nightfall arriving and be blamed on the weather function.
+    /// </remarks>
+    private Color[] _skyColours = [];
+
+    /// <summary>The scene's environment, whose fog is most of what the sky actually looks like.</summary>
+    private Godot.Environment? _environment;
+
+    /// <summary>The authored fog colour, held for the same reason the dome's colours are.</summary>
+    private Color _baseFogColour = Colors.White;
+
+    /// <summary>Remeshes at the moment the measured window opened, for the zero-remesh claim.</summary>
+    /// <remarks>
+    /// <b>The assertion M7c exists to make is a difference, not a total</b>, because the fill is
+    /// still relighting and remeshing while the profiler warms up. Taken at the warm-up boundary
+    /// and subtracted at the end, so what is printed is what the storm cost rather than what the
+    /// session did.
+    /// </remarks>
+    private int _remeshesAtWarm = -1;
+    private int _relightsAtWarm = -1;
+
     /// <summary>Whether <c>--speed</c> was given, as opposed to left at its default.</summary>
     /// <remarks>
     /// <b>Needed so that <c>--speed=0</c> can mean nought rather than "unset".</b> A profile
@@ -194,11 +270,35 @@ public partial class Main : Node3D
     public override void _Ready()
     {
         _camera = GetNodeOrNull<FlyCam>("FlyCam");
+        _environment = GetNodeOrNull<WorldEnvironment>("WorldEnvironment")?.Environment;
+        _skyMaterial = _environment?.Sky?.SkyMaterial as ProceduralSkyMaterial;
+
+        if (_skyMaterial is not null)
+        {
+            _skyColours =
+            [
+                _skyMaterial.SkyTopColor,
+                _skyMaterial.SkyHorizonColor,
+                _skyMaterial.GroundHorizonColor,
+                _skyMaterial.GroundBottomColor,
+            ];
+        }
+
+        if (_environment is not null)
+        {
+            _baseFogColour = _environment.FogLightColor;
+        }
 
         int margin = ApplyCommandLineOverrides();
 
         // After the overrides, not before: --skybrightness is a shader uniform set at build.
         _material = VoxelMaterial.Create(_skyBrightness);
+        _material.SetShaderParameter("tint_in_view_space", _tintInViewSpace);
+
+        if (_spawnYawDegrees != 0f && _camera is not null)
+        {
+            _camera.TurnBy(Mathf.DegToRad(_spawnYawDegrees));
+        }
 
         // Before the generator and before content, because an existing world decides both. Its
         // header carries the settings the unstored terrain has to keep regenerating from, and its
@@ -452,6 +552,42 @@ public partial class Main : Node3D
                 // to the screen rather than only in the mesher.
                 case "skybrightness" when float.TryParse(value, out float brightness):
                     _skyBrightness = brightness;
+                    break;
+
+                // Where in this world's forecast the run starts. The weather is a pure function
+                // of (seed, time), so this is how a screenshot of a storm is asked for by name
+                // rather than waited for — and how the same storm is photographed twice.
+                //
+                // It sets the clock a run *starts* at, which for a run with no world file is the
+                // whole of it. A named world overrides it, because what that world remembers is
+                // the thing under test.
+                case "clock" when double.TryParse(value, out double seconds):
+                    _clock = new WorldClock((long)(seconds * 1000.0));
+                    break;
+
+                // Makes a fifteen-second window cover a whole weather episode. See _clockScale
+                // for why this is not the same knob as M7d's rainfallScale.
+                case "clockscale" when double.TryParse(value, out double scale):
+                    _clockScale = scale;
+                    break;
+
+                // Forces the sheen and the overcast without making it rain — see _forcedWeather.
+                case "weather" when float.TryParse(value, out float forced):
+                    _forcedWeather = Math.Clamp(forced, 0f, 1f);
+                    break;
+
+                // Turns the camera at spawn, which screenshot.gd has never been able to do.
+                // A view-dependent artefact is invisible in one picture by definition — what
+                // shows it is the same wall photographed from two yaws — so this is what makes
+                // the face-tint A/B a comparison rather than an assertion.
+                case "yaw" when float.TryParse(value, out float degrees):
+                    _spawnYawDegrees = degrees;
+                    break;
+
+                // Restores the pre-M7c face tint, which read the view-space NORMAL. See the
+                // shader's world_normal for what that did and why it stopped being cosmetic.
+                case "viewnormal" when int.TryParse(value, out int viewNormal):
+                    _tintInViewSpace = viewNormal != 0;
                     break;
 
                 // Places one lamp where the crosshair points, so a screenshot can show block
@@ -1020,6 +1156,11 @@ public partial class Main : Node3D
             return;
         }
 
+        // First, because everything that depends on when it is has to see one value of "now" for
+        // the whole frame — and because a storm must be on the uniforms before the frame that
+        // draws with them, not after it.
+        UpdateWeather(delta);
+
         AdvanceFlythrough(delta);
 
         // Before anything can quit, and only while flying: see _flyingEye.
@@ -1060,6 +1201,15 @@ public partial class Main : Node3D
 
         if (_profiler is { Warm: true })
         {
+            // The zero-remesh claim is a difference rather than a total: the fill is still
+            // relighting and remeshing through the warm-up, so a session total would report
+            // hundreds and say nothing about the storm. Taken once, on the first warm frame.
+            if (_remeshesAtWarm < 0)
+            {
+                _remeshesAtWarm = _pipeline.EditRemeshes;
+                _relightsAtWarm = _pipeline.RelightRemeshes;
+            }
+
             _profiler.PipelineUpdate.Add(Milliseconds(before, afterUpdate));
             _profiler.MeshFree.Add(Milliseconds(afterUpdate, afterFree));
 
@@ -1082,6 +1232,126 @@ public partial class Main : Node3D
         Autosave(delta);
         Report(delta);
     }
+
+    /// <summary>
+    /// Moves the world clock on by one frame and hands the shader what the sky is doing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Two <c>SetShaderParameter</c> calls a frame, on one material every chunk shares, and
+    /// that is the entire cost of weather.</b> Nothing is remeshed, nothing is repropagated,
+    /// nothing enters the merge key: wetness is global and the skylight it multiplies is already
+    /// in <c>COLOR.r</c> per vertex. This is the bill M5a paid for in vertex bytes being
+    /// collected, and <see cref="PrintProfile"/> asserts the zero by printing it.
+    /// </para>
+    /// <para>
+    /// <b>Overcast dims through <c>sky_brightness</c>, multiplying <see cref="_skyBrightness"/>
+    /// rather than replacing it</b>, which is what keeps M5c-2's A/B alive:
+    /// <c>--skybrightness=0</c> still renders the terrain pure black in any weather, so the
+    /// screenshot that proves block light is a separate channel is still available. Replacing it
+    /// would have quietly broken a recorded measurement seam and nothing would have failed.
+    /// </para>
+    /// <para>
+    /// <b>The dimming constant lives here rather than in <see cref="Weather"/>.</b> Core says how
+    /// much cloud there is; how dark a skyful of cloud makes the world is taste, and taste that
+    /// three other systems integrate against would be taste nobody could retune. Same split as
+    /// the face tint being in the shader rather than in the merge key.
+    /// </para>
+    /// </remarks>
+    private void UpdateWeather(double delta)
+    {
+        _clock.Advance(delta * _clockScale);
+
+        if (_material is null)
+        {
+            return;
+        }
+
+        long now = _clock.ElapsedMillis;
+        float wetness = _forcedWeather ?? Weather.WetnessAt(_settings.Seed, now);
+        float overcast = _forcedWeather ?? Weather.OvercastAt(_settings.Seed, now);
+
+        float dimming = 1f - (OvercastDimming * overcast);
+
+        _material.SetShaderParameter("wetness", wetness);
+        _material.SetShaderParameter("sky_brightness", _skyBrightness * dimming);
+
+        // The sky dome as well as the light, or a storm is a dark landscape under a bright sky
+        // and reads as the terrain shader having broken rather than as weather. The two are dimmed
+        // by the same factor so ground and horizon stay in step.
+        //
+        // ON THE SKY MATERIAL, NOT ON Environment.BackgroundEnergyMultiplier, which was tried
+        // first and does nothing to a drawn sky: with the multiplier at 0.4 the sky pixels came
+        // back bit-identical to the clear-weather arm — (200, 210, 225) in both. It is not a
+        // no-op in general, it just does not reach the dome. Sampling the screenshot is what said
+        // so; by eye the storm looked convincing enough to sign off.
+        //
+        // DELIBERATELY NOT SCALED BY _skyBrightness, which the terrain is. That flag scales the
+        // light grid's sky *channel* — it is the A/B that isolates block light — and the whole
+        // point of M5c-2's screenshot is terrain rendering pure black against a sky that is still
+        // there. Folding it in here would have made that arm a black rectangle, which proves
+        // nothing at all.
+        DimSkyDome(dimming);
+
+        // Only while the profiler is warm, so the range reported beside the remesh count is the
+        // weather the measurement actually saw rather than the weather the warm-up did.
+        // weather the measurement actually saw rather than the weather the warm-up did.
+        if (_profiler is { Warm: true })
+        {
+            _wettestSeen = Math.Max(_wettestSeen, wetness);
+            _driestSeen = Math.Min(_driestSeen, wetness);
+            _weatherSeen++;
+        }
+    }
+
+    /// <summary>Dims the sky dome to match the light, by scaling the colours it is drawn from.</summary>
+    /// <remarks>
+    /// <b>Two more obvious levers were tried first and neither reaches the drawn dome:</b>
+    /// <c>Environment.BackgroundEnergyMultiplier</c> and
+    /// <c>ProceduralSkyMaterial.EnergyMultiplier</c>. Both were confirmed to be set — the material
+    /// resolves, the property takes the value — and the sky pixels came back <i>bit-identical</i>
+    /// to the clear-weather arm either way. So the colours are scaled directly, which is the lever
+    /// that does work.
+    /// <para>
+    /// <b>Recorded because the failure mode is silent and would be tried again.</b> Both properties
+    /// are the ones a person reaches for, both look like they worked, and the only thing that says
+    /// otherwise is sampling two screenshots. Eyeballing was not enough: by eye the storm arm
+    /// looked convincingly stormy, because the terrain really had darkened and the sky above it
+    /// had not.
+    /// </para>
+    /// </remarks>
+    private void DimSkyDome(float dimming)
+    {
+        if (_skyMaterial is null || _skyColours.Length != 4)
+        {
+            return;
+        }
+
+        _skyMaterial.SkyTopColor = _skyColours[0] * dimming;
+        _skyMaterial.SkyHorizonColor = _skyColours[1] * dimming;
+        _skyMaterial.GroundHorizonColor = _skyColours[2] * dimming;
+        _skyMaterial.GroundBottomColor = _skyColours[3] * dimming;
+
+        // AND THE FOG, which is the half that was actually visible. M5d turned the environment's
+        // fog off for the terrain and left it on for the sky — deliberately, so the procedural
+        // sky's dark ground hemisphere does not show as a black band along the horizon. The
+        // consequence nobody had cause to notice until now is that most of the sky you can see
+        // IS the fog, at a fixed colour, which is why three attempts at dimming the dome itself
+        // changed nothing measurable.
+        if (_environment is not null)
+        {
+            _environment.FogLightColor = _baseFogColour * dimming;
+        }
+    }
+
+    /// <summary>How much of the daylight a full overcast takes away.</summary>
+    /// <remarks>
+    /// A feel constant, and M7d is where a person judges it. It is deliberately short of 1: a
+    /// storm should read as a storm rather than as nightfall, and the world going black under
+    /// cloud would be indistinguishable from the renderer having failed — which is the specific
+    /// thing M7d's play question about "weather rather than the renderer breaking" asks.
+    /// </remarks>
+    private const float OvercastDimming = 0.6f;
 
     /// <summary>Writes the dirty set on a timer, so a crash costs a minute rather than a session.</summary>
     /// <remarks>
@@ -1641,10 +1911,52 @@ public partial class Main : Node3D
             MiningLines() +
             PlacementLines() +
             PersistenceLines() +
+            WeatherLines() +
             _profiler.PlayerLines(_profiler.MeasuredSeconds) +
             $"{StreamingProfiler.RenderLine()}\n" +
             $"{StreamingProfiler.MemoryLine()}\n");
     }
+
+    /// <summary>
+    /// The weather half of the profile, and the number M7c exists to print.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Remeshes during the measured window, which must be zero.</b> That is the assertion, and
+    /// it is the same shape as M5c-2 asserting a quad count: the claim "the wet term is one
+    /// uniform" is not something the code can be read to establish, because the way it would fail
+    /// — wetness reaching the merge key, or the overcast reseeding skylight — looks fine at every
+    /// call site and shows up only as the world quietly remeshing itself while it rains.
+    /// </para>
+    /// <para>
+    /// <b>Printed with its denominator</b>, which here is the weather the window actually saw: a
+    /// zero from a run that stayed dry is a detector that never fired, not a pass. The range of
+    /// the wetness term across the window is what says the storm happened, and <c>--clockscale</c>
+    /// is how a fifteen-second window is made to contain one.
+    /// </para>
+    /// </remarks>
+    private string WeatherLines()
+    {
+        int edits = _remeshesAtWarm < 0 ? 0 : _pipeline!.EditRemeshes - _remeshesAtWarm;
+        int relights = _relightsAtWarm < 0 ? 0 : _pipeline!.RelightRemeshes - _relightsAtWarm;
+
+        string verdict = _weatherSeen switch
+        {
+            0 => "the weather never ran",
+            _ when _wettestSeen - _driestSeen < 0.01f =>
+                $"the weather did not move (wet stayed at {_wettestSeen:F2}) — nothing was tested",
+            _ => $"wet ranged {_driestSeen:F2}..{_wettestSeen:F2} over "
+                 + $"{_clock.ElapsedSeconds:F0} s of world time",
+        };
+
+        return $"weather   {edits} edit remesh(es) / {relights} relight remesh(es) during the "
+               + $"measured window — {verdict}\n";
+    }
+
+    /// <summary>The range the wet term covered while measuring, so a zero has a denominator.</summary>
+    private float _wettestSeen;
+    private float _driestSeen = 1f;
+    private int _weatherSeen;
 
     /// <summary>
     /// The mining half of the profile: what a held button actually cost.
@@ -1943,6 +2255,35 @@ public partial class Main : Node3D
         }
 
         GD.Print($"M6c: {InventorySummary()}");
+        GD.Print($"M7c: {WeatherSummary()}");
+    }
+
+    /// <summary>
+    /// What the sky is doing, and what it has cost the streamer to do it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The rate is printed beside the two terms derived from it</b>, because wetness and
+    /// overcast are integrals over windows that reach forwards and backwards — so "raining hard
+    /// and the ground still dry" and "dry and the ground still wet" are both correct readings, and
+    /// without the instantaneous rate next to them either one looks like a wire that came loose.
+    /// The clock is printed in world seconds rather than as a wall-clock time because it is not
+    /// one: it stops when the world closes.
+    /// </remarks>
+    private string WeatherSummary()
+    {
+        long now = _clock.ElapsedMillis;
+        int rate = Weather.RateAt(_settings.Seed, now);
+
+        float wetness = _forcedWeather ?? Weather.WetnessAt(_settings.Seed, now);
+        float overcast = _forcedWeather ?? Weather.OvercastAt(_settings.Seed, now);
+
+        string forced = _forcedWeather is null ? string.Empty : " (forced)";
+        string scaled = _clockScale == 1.0 ? string.Empty : $" at {_clockScale:F0}x";
+
+        return $"t {_clock.ElapsedSeconds:F0} s{scaled}, "
+               + $"rain {rate}/{Weather.MaxRateNanometresPerMillisecond} ({rate * 3.6:F0} mm/h), "
+               + $"wet {wetness:F2}, cloud {overcast:F2}{forced}, "
+               + $"sky {_skyBrightness * (1f - (OvercastDimming * overcast)):F2}";
     }
 
     /// <summary>What the store has done this session, each counter beside its denominator.</summary>
@@ -2070,6 +2411,12 @@ public partial class Main : Node3D
             _restoredInventory = world.Inventory;
             _savedPlayer = world.Player;
 
+            // The world's own clock replaces whatever --clock asked for, and that ordering is the
+            // point rather than a precedence rule: this is the line that makes "time advances only
+            // while the world is open" observable. Reopen a world an hour later and it resumes at
+            // the millisecond it was closed at, because nothing here consults the calendar.
+            _clock = new WorldClock(world.ElapsedMillis);
+
             if (_caveLatticeStep is not null)
             {
                 // Ignored rather than applied, because the header is what the stored chunks were
@@ -2120,6 +2467,7 @@ public partial class Main : Node3D
         Settings = _settings,
         MaterialIdTable = Content.Materials.ExportIdTable(),
         Inventory = [.. _inventory.Entries().Select(e => new InventoryEntry(e.MaterialId, e.Voxels))],
+        ElapsedMillis = _clock.ElapsedMillis,
         Player = SavedPlayer(),
     };
 

@@ -60,6 +60,28 @@ public static class Weather
     /// </remarks>
     public const int DryEpisodesPerHundred = 55;
 
+    /// <summary>How long ground stays wet after the rain that soaked it.</summary>
+    /// <remarks>
+    /// <b>Derived from <see cref="EpisodeMillis"/> rather than tuned to it</b>, and the equality is
+    /// what makes the number mean something: with the soak window exactly one episode long, a
+    /// single episode of the heaviest possible rain takes the ground from bone dry to fully
+    /// saturated and no further, and the two minutes after it dry the ground out again. Any other
+    /// value and full wetness is either unreachable or reached in the first few seconds of a
+    /// drizzle. <b>Revisit trigger: an episode length that is no longer a sensible drying time</b>
+    /// — they are the same number today because both are "how long a weather event lasts", and a
+    /// world with hour-long storms would want them separated.
+    /// </remarks>
+    public const int SoakWindowMillis = EpisodeMillis;
+
+    /// <summary>How far ahead of the rain the sky knows it is coming.</summary>
+    /// <remarks>
+    /// <b>Storm → dark → rain is most of what makes weather legible</b>, and a sky that darkens at
+    /// the same instant the first drop falls reads as a renderer glitch rather than as weather.
+    /// The overcast window therefore straddles now: it looks back one soak window, so the cloud
+    /// clears at about the rate the ground dries, and forward this far, so it gathers first.
+    /// </remarks>
+    public const int CloudLeadMillis = EpisodeMillis / 2;
+
     private const ulong Salt = 0x7A1_4EA7_4E5UL;
 
     /// <summary>Nanometres of rain per millisecond at this instant.</summary>
@@ -94,6 +116,79 @@ public static class Weather
         }
 
         return depth;
+    }
+
+    /// <summary>
+    /// How wet the open ground is, 0 for bone dry and 1 for as saturated as this world's weather
+    /// can make it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A box filter over the last <see cref="SoakWindowMillis"/>, which is to say
+    /// <see cref="DepthNanometresOver"/> and a divide.</b> That is the whole implementation and it
+    /// is deliberate: the one primitive whose exactness the milestone rests on is also the only
+    /// arithmetic here, so there is no second model of what "recent rainfall" means to drift from
+    /// the first. It rises linearly while it rains and falls linearly as the storm slides out of
+    /// the window — an exponential decay would be more physical, and the difference is invisible
+    /// because the tail of the fall is at the dry end where the term contributes nothing.
+    /// </para>
+    /// <para>
+    /// <b>Pure in (seed, time), like everything else here, and that is the point rather than a
+    /// nicety.</b> A player who flies away through a downpour and comes back finds the ground as
+    /// wet as it should be, with nothing having ticked and nothing stored — the same claim
+    /// <see cref="BasinRainfall"/> makes about volume, for free, because both are integrals of the
+    /// same function.
+    /// </para>
+    /// <para>
+    /// <b>A float, and this is where the integer rule stops.</b> Everything above returns integers
+    /// because it feeds a volume that is asserted to the litre; this feeds a shader uniform and is
+    /// never stored, never summed and never compared for equality. Computed by one IEEE division
+    /// of exact integers, so it is still the same number on every machine — but nothing downstream
+    /// needs it to be, and an int here would be exactness cargo-culted onto a look term.
+    /// </para>
+    /// <para>
+    /// <b>A world in its first two minutes reads dry even in a downpour</b>, because the window is
+    /// clamped at the start of time while the denominator is not. That is correct rather than an
+    /// edge case — thirty seconds of rain has genuinely only wet the ground for thirty seconds —
+    /// and normalising by the clamped span instead would report saturated ground one second after
+    /// a world is created.
+    /// </para>
+    /// </remarks>
+    public static float WetnessAt(ulong seed, long timeMillis)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(timeMillis);
+        return MeanRateOver(seed, timeMillis - SoakWindowMillis, timeMillis, SoakWindowMillis);
+    }
+
+    /// <summary>
+    /// How overcast the sky is, 0 for clear and 1 for as heavy as this world's weather can make it.
+    /// </summary>
+    /// <remarks>
+    /// The same box filter as <see cref="WetnessAt"/>, over a window shifted forward by
+    /// <see cref="CloudLeadMillis"/> so the cloud arrives before the rain does. <b>How dark that
+    /// makes the world is not decided here</b> — this says how much cloud there is, and what a
+    /// skyful of it does to the light is a look constant that lives with the other look constants
+    /// in the renderer. Keeping the two apart is what lets the dimming be retuned without touching
+    /// a function three other things integrate.
+    /// </remarks>
+    public static float OvercastAt(ulong seed, long timeMillis)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(timeMillis);
+        return MeanRateOver(
+            seed,
+            timeMillis - SoakWindowMillis,
+            timeMillis + CloudLeadMillis,
+            SoakWindowMillis + CloudLeadMillis);
+    }
+
+    /// <summary>
+    /// The mean rate over a window as a fraction of the heaviest possible, with the window clamped
+    /// at the start of time and the denominator deliberately not clamped with it.
+    /// </summary>
+    private static float MeanRateOver(ulong seed, long fromMillis, long toMillis, long spanMillis)
+    {
+        long depth = DepthNanometresOver(seed, Math.Max(0, fromMillis), toMillis);
+        return (float)((double)depth / (spanMillis * (double)MaxRateNanometresPerMillisecond));
     }
 
     /// <summary>The intensity of one episode. A hash, so it needs no state and no history.</summary>
