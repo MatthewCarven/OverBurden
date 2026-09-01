@@ -2499,7 +2499,8 @@ predicted in its own remarks. M6c-3 is the binding and the play.
             opened with. Pinned by a run that quits at frame 2.
       - [x] **The quit prints what it saved**, because a wrong position is invisible until the next
             launch puts you somewhere strange.
-- [ ] **Single-voxel placement, and it is the gap the play found.** Mining has two shapes —
+- [x] **Single-voxel placement, and it is the gap the play found.** ✅ **built at M6d-1** as
+      `Place.Voxel` on the Alt modifier. Mining has two shapes —
       `Carve.Swing`'s sphere and `Carve.Chip`'s one voxel on a held modifier — and M3c argued the
       precision one exists *"for the person who has stopped excavating and started building"*.
       Building itself has only the bulk tool. `Place.Voxel` is the mirror: the gate, the buckets
@@ -2714,7 +2715,8 @@ the report it prints.
 - [x] **Play: quit and reopen — it works.** Played 2026-09-01. Same world, same inventory, same
       place. Confirmed by proxy at M6b-3 with a headless dig-quit-reopen; **this is the first time
       a person has closed the window and found their own work still there.**
-- [ ] **Play: build a room** — walls, floor, and a ramp down into it. Not "place a block". That
+- [x] **Play: build a room — done 2026-09-01, and it reads as a room.** Walls, floor, ceiling
+      and a broad flight of stairs down into it. Not "place a block". That
       is what says whether the 1 m lattice is right, whether four shapes are the right four, and
       whether carving-for-detail and placing-for-bulk actually divides the way DESIGN claims.
       - [x] **Part-answered 2026-09-01: the ramp brush is the right tool for stairs, and it is the
