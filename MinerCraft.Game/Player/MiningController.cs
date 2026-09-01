@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Numerics;
 using MinerCraft.Core.Content;
 using MinerCraft.Core.Mining;
@@ -98,28 +98,39 @@ public sealed class MiningController(
     /// </remarks>
     public const float EntangledReachMetres = 512f;
 
-    /// <summary>Eight swings a second, fixed, whatever tier is selected.</summary>
+    /// <summary>Twenty swings a second, fixed, whatever tier is selected.</summary>
     /// <remarks>
     /// <para>
     /// <b>Fixed rather than the tier's</b>, because otherwise the dig rate depends on which
-    /// number key was pressed last, and this thing exists to excavate a <em>comparable</em> test
-    /// volume for M5d-2's look questions.
+    /// key was pressed last, and this thing exists to excavate a <em>comparable</em> test volume
+    /// for M5d-2's look questions.
     /// </para>
     /// <para>
-    /// <b>Raised from 0.25 s at Matthew's request, and the raise inverted a recorded caveat.</b>
-    /// At four a second this was marginally *slower* than <c>steel_pick</c>'s own 0.20 s and the
-    /// only upgrade was the range. At eight it is faster than every shipped tier, so the mode is
-    /// now a strict upgrade on both axes — which is what an endgame tool ought to be, and worth
-    /// saying out loud because it means <b>the tier's cooldown no longer bounds anything while
-    /// entangled</b>. A tier balanced by its rate would be balanced by nothing here.
+    /// <b>Raised twice at Matthew's request — 0.25 s to 0.125 s, then to 0.05 s — and the first
+    /// raise inverted a recorded caveat.</b> At four a second this was marginally *slower* than
+    /// <c>steel_pick</c>'s own 0.20 s and the only upgrade was the range. From eight onward it is
+    /// faster than every shipped tier, so the mode is a strict upgrade on both axes — which is
+    /// what an endgame tool ought to be, and worth saying out loud because it means <b>the tier's
+    /// cooldown no longer bounds anything while entangled</b>. A tier balanced by its rate would
+    /// be balanced by nothing here.
     /// </para>
     /// <para>
-    /// Not a DoS the way a radius is: the cost per swing is a bounded cast plus a bounded carve,
-    /// and doubling the rate doubles a number M3d measured at two orders of magnitude inside a
-    /// frame. Re-measured at eight rather than assumed — see the worklog.
+    /// <b>Three swings a frame at 60 Hz is the next thing this rate would run into, and 0.05 s is
+    /// not it.</b> One swing per frame arrives at 0.0167 s; below that the cooldown stops being
+    /// what paces the tool and the frame rate becomes the balance, which would make the dig rate
+    /// depend on the machine. There is a factor of three of headroom left and the ceiling has a
+    /// name.
+    /// </para>
+    /// <para>
+    /// Not a DoS the way a radius is: the cost per swing is a bounded cast plus a bounded carve.
+    /// <b>Re-measured at every rate rather than assumed, and the measurement keeps saying the
+    /// same surprising thing — faster is cheaper per swing.</b> Consecutive swings chew the
+    /// previous bite, so most of the sphere is already air: 0.139 ms a swing at four, 0.072 at
+    /// eight, and see the worklog for twenty. What rises is the <em>remesh</em> load, which is
+    /// per swing rather than per voxel and is the number to watch if this is ever raised again.
     /// </para>
     /// </remarks>
-    public const float EntangledCooldownSeconds = 0.125f;
+    public const float EntangledCooldownSeconds = 0.05f;
 
     private float EffectiveReachMetres => Entangled ? EntangledReachMetres : ReachMetres;
 

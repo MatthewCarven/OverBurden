@@ -1,5 +1,48 @@
 # MinerCraft — Worklog
 
+## 2026-09-01 — The entangled miner goes to 20 a second, and faster is cheaper again
+
+Raised at Matthew's request — *"bump the quantum miner to 20x a second"* — from 0.125 s to
+**0.05 s**, the second raise in two days. Re-measured rather than assumed, which the constant's own
+doc comment demanded, and the measurement said the same surprising thing it has said twice before.
+
+```
+60 s, r4h/2v, 6 m/s, entangled            8/s              20/s
+swings                                     485             1131   (~18.9/s effective)
+swing ms  mean / max                 0.100 / 1.198    0.070 / 0.944
+voxels removed / already air per swing    19 / 13          19 / 14
+relight remeshes per swing / total       1.4 / 697       1.2 / 1325
+edit remeshes per second                  13.9             32.3
+update ms mean / max                 3.245 / 11.725   3.651 / 10.651
+```
+
+**Faster is cheaper per swing for the third rate running** — 0.139 ms at four a second, 0.072 at
+eight, 0.070 at twenty. The mechanism is the same each time and it is worth restating because it
+is counter-intuitive: **consecutive swings chew the previous bite**, so at a high rate most of the
+sphere is air that `Carve` skips before it ever reaches `SetVoxel`. Voxels *removed* per swing is
+flat at 19 while voxels *already air* climbs, which is that mechanism visible in one line of the
+report.
+
+**What actually rises is the remesh load, and it rises because it is per swing rather than per
+voxel.** 32.3 edit remeshes a second against 13.9 — a 2.3× rise tracking the swing count exactly,
+not the volume dug. That is the number to watch if this is ever raised again, and it is the one
+the swing-cost figure hides. `update ms` mean moved 3.245 → 3.651, about 12%, and its **maximum
+went down**, which is a reminder that with 45 samples of a bursty series the max is a sample and
+not a bound.
+
+**The ceiling has a name now, which it did not before: one swing per frame, at 0.0167 s.** Below
+that the cooldown stops being what paces the tool and the frame rate becomes the balance, so the
+dig rate would depend on the machine — a debug bind that digs twice as fast on a better computer
+is not a comparable test volume, which is the whole reason the rate is fixed rather than the
+tier's. 0.05 s leaves a factor of three.
+
+**And that ceiling is already showing, harmlessly: a 60 s run lands at 1131 swings, ~18.9/s rather
+than 20**, because a swing can only fire on a frame boundary and 0.05 s is three frames at 60 Hz
+with jitter either side. Matthew's own note — *"it does not need be exact"* — settles that; it is
+recorded because the next person to divide 1131 by 60 and get 18.9 should find the reason rather
+than a bug.
+
+
 ## 2026-09-01 — M6d-3: the number row goes where the hand expects it, and the game gets a face
 
 The buildable half of M6d-3. `MinerCraft.Game/Ui/Hud.cs` is a hotbar, a crosshair and a status

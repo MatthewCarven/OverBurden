@@ -1697,7 +1697,20 @@ Played with the entangled miner. **"Looks good to me."**
 ##### The entangled miner — built 2026-08-31, as a debug bind
 
 - [x] **Point at anything, hold left click, it eats what it is pointed at however far away.**
-      **8 swings a second** (raised from 4 on 2026-08-31), **Q** toggles it, no visual effect.
+      **20 swings a second** (4 → 8 on 2026-08-31, 8 → 20 on 2026-09-01, both at Matthew's
+      request), **Q** toggles it, no visual effect.
+      - [x] **Re-measured at every rate rather than assumed, three times now, and the measurement
+            keeps saying the same surprising thing: faster is cheaper per swing.** 0.139 ms at
+            4/s, 0.072 at 8/s, **0.070 at 20/s** — consecutive swings chew the previous bite, so
+            most of the sphere is already air. **What rises is the remesh load, which is per swing
+            rather than per voxel**: 32.3 edit remeshes a second against 13.9, `update ms` mean
+            3.651 against 3.245 with its max *lower*. **That is the number to watch if it is
+            raised again**, not the swing cost.
+      - [x] **The ceiling has a name: one swing per frame, at 0.0167 s.** Below it the cooldown
+            stops pacing the tool and the frame rate becomes the balance, so the dig rate would
+            depend on the machine. 0.05 s leaves a factor of three, and a 60 s run already lands
+            at **~18.9 swings/s rather than 20** because a swing can only fire on a frame
+            boundary — the ceiling showing harmlessly.
       Built as an instrument for M5d-2:
       every question in that list is about what a *large* excavation looks like, and digging one
       by hand at 5 m of reach is why they are still open.

@@ -113,7 +113,7 @@ public partial class FlyCam : Camera3D
             "  1-9 pick a material from the hotbar, V cycles to the next one\n" +
             "  B cycles the brush, T cycles the tool tier\n" +
             "  L places a lamp — a debug bind, superseded by the brushes\n" +
-            "  Q toggles the entangled miner — unlimited reach, 8 swings/s, also a debug bind\n" +
+            "  Q toggles the entangled miner — unlimited reach, 20 swings/s, also a debug bind\n" +
             "  Esc releases the mouse, click to recapture");
     }
 
