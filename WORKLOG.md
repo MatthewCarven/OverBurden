@@ -1,5 +1,37 @@
 # MinerCraft — Worklog
 
+## 2026-09-01 — M6's headline question is answered by a person: the work is still there
+
+*"Quit and reopen works so does flying away."* Two of the three play items, and they are the two
+the milestone exists for.
+
+**This is the thing every previous milestone's play kept running into.** M5d-2 dug a chamber and
+lost it; the recorded reason M6 was scheduled at all is that *an edited chunk which unloads loses
+its edits*, so every hour of play before persistence landed was an hour thrown away — including
+the play that would judge placement. That is why M6-PLAN put persistence before the more enjoyable
+half. **The bet was that building second is building on a world that keeps it, and the bet is
+now paid.**
+
+Both halves were verified by proxy before today and neither proxy was the claim:
+
+- **Unload and return** was covered by tests and by M6d-2's arms — 71 chunks loaded, 44 columns
+  restored, `first draw` indistinguishable from generating. All of that says the *machinery*
+  works. **None of it says a person flew away from their own tunnel and found it when they came
+  back**, because a measurement re-flies a scripted path and does not care what is there.
+- **Quit and reopen** was verified at M6b-3 headlessly — dig, `--quit-after`, reopen, 9 chunks
+  loaded and 414 quads against a pristine 404 — and the worklog recorded that **the windowed close
+  was verified only by proxy**, `--quit-after` being the same `SceneTree::quit()` teardown. That
+  caveat has stood since M6b-3 and is now closed by somebody actually closing the window.
+
+**So the failure model M6 inverted has been checked in the direction that matters.** A persistence
+bug destroys work that cannot be recreated and surfaces a session later — the whole reason M6-PLAN
+said the tests were the only thing between a defect and permanent data loss. The tests held, and
+the confirmation is a person finding their own chamber where they left it.
+
+**What is left of M6 is the walls-and-floor half of "build a room".** The stairs half is already
+answered: the ramp brush is the right tool and the fast path.
+
+
 ## 2026-09-01 — The ramp brush earns its place, and the screenshot lied about how
 
 Matthew built a staircase down into the excavated chamber and the play answers M6d-1's open

@@ -2708,11 +2708,12 @@ only instruments, and the instruments are the thing that found the surprise.
 and no amount of code closes them — a sandbox cannot be judged by the person who built it out of
 the report it prints.
 
-- [ ] **Play: dig a tunnel, fly away until it unloads, come back.** The milestone's whole reason
-      for existing, the thing M5d-2's play kept running into, and a yes/no no test produces.
-      **There is a dug world at `worlds/m6d2dug` from M6d-2 if a ready-made one helps; the played
-      world at `worlds/default` was not touched by any measurement.**
-- [ ] **Play: quit and reopen.** Same tunnel, same inventory, same place.
+- [x] **Play: dig a tunnel, fly away until it unloads, come back — it works.** Played
+      2026-09-01. **This is the milestone's whole reason for existing**, the thing M5d-2's play
+      kept running into, and a yes/no no test produces. It is now yes.
+- [x] **Play: quit and reopen — it works.** Played 2026-09-01. Same world, same inventory, same
+      place. Confirmed by proxy at M6b-3 with a headless dig-quit-reopen; **this is the first time
+      a person has closed the window and found their own work still there.**
 - [ ] **Play: build a room** — walls, floor, and a ramp down into it. Not "place a block". That
       is what says whether the 1 m lattice is right, whether four shapes are the right four, and
       whether carving-for-detail and placing-for-bulk actually divides the way DESIGN claims.
