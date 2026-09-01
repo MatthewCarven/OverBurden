@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -935,7 +935,18 @@ public partial class Main : Node3D
         if (current != _lastViewerChunk)
         {
             _lastViewerChunk = current;
+
+            // Timed, and only from M6d-2. This call is where an unloading shell is swept, which
+            // is where Forget became a write — and it sits outside the update bracket below, so
+            // every profile before this one measured the pipeline and not the sweep.
+            long beforeMove = Stopwatch.GetTimestamp();
             _pipeline.Streamer.MoveViewer(_viewer, current);
+            long afterMove = Stopwatch.GetTimestamp();
+
+            if (_profiler is { Warm: true })
+            {
+                _profiler.ViewerMove.Add(Milliseconds(beforeMove, afterMove));
+            }
         }
 
         long before = Stopwatch.GetTimestamp();
@@ -1528,6 +1539,10 @@ public partial class Main : Node3D
             (_mining is null ? "\n" : $", {_mining.Tool.Id}\n") +
             $"{_profiler.PipelineUpdate.Line("update ms")}\n" +
             $"{_profiler.MeshFree.Line("free ms")}   (deferred by Godot — see MeshFreeQueue)\n" +
+            (_profiler.ViewerMove.Count > 0
+                ? $"{_profiler.ViewerMove.Line("viewer ms")}   (box difference, "
+                  + $"{_profiler.ViewerMove.Count} move(s), beside update ms not inside it)\n"
+                : "viewer ms  (the viewer never changed chunk — the sweep did not run)\n") +
             $"{_profiler.Frame.Line("frame ms")}\n" +
             $"main      {_profiler.PipelineUpdate.Total() / Math.Max(_profiler.MeasuredSeconds, 0.001) / 10.0:F2}% " +
             $"of one core, streaming on the main thread\n" +
@@ -1543,6 +1558,7 @@ public partial class Main : Node3D
             LightLines() +
             MiningLines() +
             PlacementLines() +
+            PersistenceLines() +
             _profiler.PlayerLines(_profiler.MeasuredSeconds) +
             $"{StreamingProfiler.RenderLine()}\n" +
             $"{StreamingProfiler.MemoryLine()}\n");
@@ -1586,6 +1602,13 @@ public partial class Main : Node3D
 
     /// <summary>What a brush costs, beside what mining costs.</summary>
     /// <remarks>
+    /// <b>Two decimal places on the per-placement voxel counts, and that is not cosmetic.</b> A
+    /// precise arm places about a fifth of a voxel a click once its target is mostly solid, and
+    /// <c>F0</c> renders that as <c>0</c> — which reads as "placed nothing" for an arm that was
+    /// placing, and cost a whole reading of the M6d-2 numbers before it was noticed. Same family
+    /// as every counter here printing its own denominator.
+    /// </para>
+    /// <para>
     /// <b>Its own series rather than folded into <c>swing ms</c></b>, because the two shapes are
     /// not the same size: <c>hand_pick</c>'s sphere is about seventeen voxels and a cube brush is
     /// sixty-four, so one line would report whichever the run happened to do more of. Occupied
@@ -1611,11 +1634,23 @@ public partial class Main : Node3D
         return
             $"{_profiler!.Place.Line("place ms")}   (raycast + brush, sim thread)\n" +
             $"building  {_place.Placements} placement(s) with {shape}, " +
-            $"{_place.VoxelsPlaced / placements:F0} placed / " +
-            $"{_place.VoxelsOccupied / placements:F0} occupied / " +
-            $"{_place.VoxelsInsidePlayer / placements:F0} inside the player / " +
-            $"{_place.VoxelsOutOfStock / placements:F0} unaffordable per placement\n" +
+            $"{_place.VoxelsPlaced / placements:F2} placed / " +
+            $"{_place.VoxelsOccupied / placements:F2} occupied / " +
+            $"{_place.VoxelsInsidePlayer / placements:F2} inside the player / " +
+            $"{_place.VoxelsOutOfStock / placements:F2} unaffordable per placement\n" +
             $"carrying  {_inventory.TotalLitres:F0} L across {_inventory.MaterialCount} material(s)\n" +
+            // The number M6d-1 named and did not take. Its recorded hypothesis is that
+            // precision placement costs twice a brush per click because one voxel dropped
+            // into fresh air pays a whole chunk clone and a whole relight marking, which
+            // sixty-four in one cell amortise. Clones and remeshes per placement say so.
+            $"clones    {_pipeline!.ChunkClones / placements:F2} per placement, " +
+            $"remesh {_pipeline.EditRemeshes / placements:F2} chunks, " +
+            $"relight {_pipeline.RelightRemeshes / placements:F2}" +
+            // ChunkClones is pipeline-wide and mining moves it too. A run that did both
+            // cannot attribute it, and saying so is cheaper than a counter nobody reads.
+            (_mining is { Swings: > 0 }
+                ? $"   (shared with {_mining.Swings} swing(s), not attributable)\n"
+                : "\n") +
             (_place.PrecisePlacements > 0
                 ? $"precise   {_place.PrecisePlacements} of {_place.Placements} placement(s) were "
                   + "one voxel — NOT comparable with a brush baseline\n"
@@ -1623,6 +1658,55 @@ public partial class Main : Node3D
             $"clipped   {_place.ClippedPlacements} placement(s) reached past the loaded world\n";
     }
 
+    /// <summary>What persistence cost, on each of the two threads that pay for it.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The sim-thread figure and the worker figure are printed together and never
+    /// summed.</b> M6-PLAN's headline risk is that unloading stopped being free, because
+    /// <c>Forget</c> is called synchronously from inside a box-difference sweep that at r16
+    /// hands over a 37x37 shell in one frame. The answer was to make the write a job, so the
+    /// sweep does a flag and a list append and the disk work happens elsewhere. Two numbers,
+    /// one near zero, is that answer holding; two similar ones is it having come undone, and
+    /// no other line in this report would change if it had.
+    /// </para>
+    /// <para>
+    /// <b>Bytes are per chunk and time is per batch, and they are labelled that way</b>
+    /// because they were not paid on the same denominator: a batch is the transaction and a
+    /// chunk is the blob. Quoting a per-chunk commit cost is the shape of error this project
+    /// has recorded against <c>Compact()</c> and against cave-lattice voxel disagreement.
+    /// </para>
+    /// </remarks>
+    private string PersistenceLines()
+    {
+        if (_pipeline is null)
+        {
+            return string.Empty;
+        }
+
+        if (_pipeline.SaveBatches == 0 && _pipeline.ChunksLoaded == 0)
+        {
+            // Not silence. A run with no world open reports zero saves for a reason that is
+            // not "saving is free", and a blank line there reads as the latter.
+            return "store     no world open, so nothing was read or written\n";
+        }
+
+        double batches = Math.Max(_pipeline.SaveBatches, 1);
+        double chunks = Math.Max(_pipeline.ChunksSaved, 1);
+
+        return
+            $"store     {_pipeline.ChunksLoaded} chunk(s) loaded, " +
+            $"{_pipeline.ColumnsRestored} column(s) restored, " +
+            $"of {_pipeline.SavedChunkCount} stored\n" +
+            $"saving    {_pipeline.ChunksSaved} chunk(s) + {_pipeline.ColumnsSaved} " +
+            $"column(s) in {_pipeline.SaveBatches} batch(es), " +
+            $"largest {_pipeline.LargestSaveBatch}, {_pipeline.FailedSaves} failed\n" +
+            $"savecost  sim {_pipeline.SaveQueueMillis:F3} ms total " +
+            $"({_pipeline.SaveQueueMillis / batches:F4} ms per batch) | " +
+            $"worker {_pipeline.SaveWriteMillis:F1} ms total " +
+            $"({_pipeline.SaveWriteMillis / batches:F2} ms per batch)\n" +
+            $"bytes     {_pipeline.BytesSaved} written, " +
+            $"{_pipeline.BytesSaved / chunks:F0} B per chunk blob\n";
+    }
     /// <summary>
     /// What the drawn geometry costs, and the AO A/B M5a exists to read.
     /// </summary>

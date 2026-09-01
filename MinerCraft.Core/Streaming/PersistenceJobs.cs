@@ -1,3 +1,5 @@
+﻿using System.Diagnostics;
+
 using MinerCraft.Core.Content;
 using MinerCraft.Core.Jobs;
 using MinerCraft.Core.Lighting;
@@ -174,11 +176,24 @@ public sealed class SaveWorldJob : IJob
 
     public int BytesWritten { get; private set; }
 
+    /// <summary>Milliseconds this job spent serialising and committing, on its worker.</summary>
+    /// <remarks>
+    /// <b>Recorded here rather than timed by the sim thread around the submission</b>, because
+    /// the sim thread never waits for this job and a stopwatch out there would measure the queue
+    /// depth. It is the counterpart to <c>ChunkPipeline.SaveQueueMillis</c>, and the pair is the
+    /// whole measurement: M6's headline risk is unloading stopping being free, and the answer was
+    /// to move the write off the sweep. Two numbers, one large and one near zero, is that answer
+    /// holding; two similar numbers is it having quietly come undone.
+    /// </remarks>
+    public double ElapsedMillis { get; private set; }
+
     public void Run(CancellationToken cancellation)
     {
         // Deliberately not checked. See the class remarks: a cancelled save is a deleted tunnel,
         // and the pipeline hands this None — the parameter exists because IJob has it.
         _ = cancellation;
+
+        long entered = Stopwatch.GetTimestamp();
 
         var chunks = new (ChunkPos, byte[])[_chunks.Length];
         var columns = new (int, int, byte[])[_columns.Length];
@@ -201,5 +216,7 @@ public sealed class SaveWorldJob : IJob
 
         _store.Write(chunks, columns);
         BytesWritten = bytes;
+
+        ElapsedMillis = (Stopwatch.GetTimestamp() - entered) * 1000.0 / Stopwatch.Frequency;
     }
 }

@@ -1,4 +1,4 @@
-# MinerCraft — TODO
+﻿# MinerCraft — TODO
 
 See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
 
@@ -2541,6 +2541,14 @@ everything once, then play once.
       as the default. **The cause is inferred and not measured** — presumably the raycast and the
       edit's clone-and-relight marking dominating, so one voxel in fresh air pays a whole chunk
       clone while sixty-four in a cell amortise it. **M6d-2's to settle.**
+      - [x] **Settled 2026-09-01, and the conclusion above is corrected: precision does not cost
+            more per click.** The 0.040-against-0.077 pair is a comparison of *means*, and over
+            seven reps precision's **median** click is 0.004-0.007 ms against the brush's
+            0.013-0.030 — two to four times cheaper, as the voxel count predicts. The mean is
+            dragged by a tail: precision's worst click is 200-300x its own median. **The
+            hypothesis's mechanism was right** — 0.19 clones and 0.06 relights per click while
+            placing 0.40 voxels, against the brush's 0.00 and 0.00 for 7.73 — **so the brushes
+            stay the default on amortised-clone grounds, not per-click ones.**
 - [x] **Amended 2026-08-31 after a conversation about Minecraft accuracy: Ctrl and Shift had been
       swapped since M2.** Minecraft is Sneak = Shift, Sprint = Ctrl, and in flight Shift descends
       while Ctrl hurries; this project had the two the other way round. Muscle memory for these
@@ -2573,28 +2581,112 @@ everything once, then play once.
       the brush selected, because a precise run labelled "cube brush" is M3d's
       chips-sharing-the-swing-line trap repeated.
 
-##### M6d-2 — Measurement ← **next, and the specifics a fresh session would rediscover**
+##### M6d-2 — Measurement ✅ **done 2026-09-01, 734 tests passing**
 
-**Everything it measures already exists and runs.** The bench has `--store`; the game has
-`--profile`, `--place`, `--preciseplace`, `--stock=`, `--brush=`, `--world=` and `--nosave`. No new
-mechanism is needed for any line below, which is why this part is measurement rather than work.
+**Everything it measured already existed and ran.** No new mechanism was needed for any line —
+only instruments, and the instruments are the thing that found the surprise.
 
-- [ ] **The headline, and it is the one M6 has been carrying since its plan: time to enter a
-      heavily-dug world against generating the same box.** Half-answered twice already and both
-      halves say the worry dissolves — deserialise is 21 µs a chunk (M6a) and a SQLite point
-      query is 6.0 µs (M6b-1), giving a crossover at 2,505 chunks, past the whole 1,521-chunk
-      fill. **What is missing is the end-to-end number in the game**, which is the only one that
-      includes the serial lane's ordering against eight generating workers. `--world=` a dug world
-      and read `first draw` from the fill line.
-- [ ] **Why precision placement costs more per click than a brush.** Measured at M6d-1: 0.077 ms
-      against 0.040, while doing 1/64th of the writes. **The hypothesis is written down and not
-      tested** — that the raycast and the edit's clone-and-relight marking dominate, so one voxel
-      in fresh air pays a whole chunk clone while sixty-four in one cell amortise it. `ChunkClones`
-      per placement is already counted and is the number that would settle it.
-- [ ] `Compact()`'s cost per save and its saving after deflate; compression ratio and total save
-      size after a real session; sim-thread cost of the save burst when a shell unloads at speed.
-- [ ] **Use `update ms`, not `frame ms`.** The headless frame-time trap has appeared four times
-      across M2d, M3d and M4d and been believed at least once each.
+- [x] **The headline is answered: entering a dug world is not slower than generating it, it is
+      indistinguishable.** Standing start at r4h/2v, two reps each: generate `first draw`
+      3.46 / 3.43 s and `all settled` 3.81 / 3.80; load with 19 stored chunks in the box
+      3.48 / 3.43 and 3.85 / 3.80. Moving at 6 m/s with **71 chunks loaded and 44 columns
+      restored**: 3.84 / 3.82 against 3.82 / 3.80, settling 4.62 / 4.61 against 4.64 / 4.62.
+      **The load-versus-generate gap is smaller than the rep-to-rep gap.**
+      - [x] **The limitation is stated rather than buried.** 176 stored chunks is the most this
+            world could be dug to, against 1,521 tracked, so the predicted 2,505-chunk crossover
+            is confirmed **in direction and not in fact**. The scripted flythrough is a straight
+            line along +X, so passes deepen one trench rather than covering ground: 99 → 104 →
+            112 → 123 → 176, plainly asymptotic. **The concern moves from "predicted to bite at
+            2,505" to "measured not to bite at 176"; it is not retired.**
+- [x] **The finding nobody was looking for: the box-difference sweep costs two to four times the
+      whole pipeline update, and no profile since M2d has measured it.** `MoveViewer` is called
+      from `_Process` *before* the bracket that produces `update ms`. Timed as `viewer ms`:
+
+      ```
+                                        tracked   viewer ms mean / max   update ms mean
+      r4h/2v   6 m/s  no world open        1521    7.09-9.02 / 15.3           2.34
+      r4h/2v   6 m/s  world open           1521    9.52-10.0 / 15.6           2.33
+      r6h/3v   6 m/s  no world open        3179   13.21      / 19.61          4.05
+      r4h/2v  40 m/s  world open + mining  1521    4.84      / 13.69          5.31
+      ```
+
+      - [x] **`main %` understates the main thread and always has** — it is computed from
+            `PipelineUpdate` alone.
+      - [x] **Sub-linear in radius**: 2.09x the tracked chunks for 1.47x the sweep, so it is not
+            purely per-chunk work.
+      - [ ] **What the sweep is actually spending is deliberately not chased.** M6d-2 is
+            measurement. Retaining and releasing light grids and sky columns is the obvious
+            suspect. **Wants its own pass, and the number to beat is 9 ms at r4h/2v.**
+- [x] **`Forget` becoming a write is a non-event, and it is the design answer that made it one.**
+      Measured on both threads, printed side by side and never summed: a 60 s dig at 6 m/s costs
+      **sim 2.4-3.6 ms in total** (0.07-0.11 ms a batch) against **worker 22.6-25.9 ms**; 15 s at
+      40 m/s costs **sim 2.829 ms** (0.0345 a batch) against **worker 37.4 ms**.
+      - [x] **The burst the plan feared never forms, and `SubmitSaves` running every frame with
+            one batch in flight is why.** Largest batch across every run measured is **6**, not a
+            37x37 shell. That comment was written as a transaction argument and turns out to be
+            the burst bound too.
+      - [x] **The control is the load-bearing half: `viewer ms` with no world open at all
+            overlaps the figure with one open**, so the sweep's cost predates M6 and belongs to
+            something else. If `SaveQueueMillis` and `SaveWriteMillis` ever converge, the write
+            has come back onto the sim thread and no other line in the report would change.
+- [x] **Why precision placement costs more per click than a brush: it does not, and M6d-1's
+      conclusion was read off the mean.** Seven reps each, standing start, r4h/2v:
+
+      ```
+                mean          p50           p95           max         clones remesh relight placed
+      brush   0.016-0.028   0.013-0.030   0.029-0.045   0.056-0.129    0.00   0.05   0.00    7.73
+      precise 0.027-0.058   0.004-0.007   0.059-0.103   0.883-1.790    0.19   0.20   0.06    0.40
+      ```
+
+      - [x] **Precision's median click is two to four times cheaper**, exactly as one voxel
+            against sixty-four predicts. The mean is twice the brush's because precision's worst
+            click is **200-300x its own median** against the brush's 2-5x, and one or two
+            outliers move an 88-sample mean by the whole reported difference — two reps disagreed
+            at 0.058 and 0.031 before five more were run.
+      - [x] **`SampleSeries`' own doc comment predicted this**: *"a mean hides exactly the thing
+            worth measuring."* Fifth outing, and the first time it caught a conclusion already
+            written into this file.
+      - [x] **The hypothesis's mechanism is exactly right and is what the tail is made of.**
+            Precision pays **0.19 clones, 0.20 edit remeshes and 0.06 relights per click while
+            placing 0.40 voxels** — about half a chunk clone per voxel. The brush places 7.73
+            voxels for **0.00 clones and no relights**, because they land in one already-cloned
+            chunk and its 56 refused voxels never reach `SetVoxel`. **M3c's argument for brushes
+            as the default survives, on amortised-clone grounds rather than per-click ones.**
+- [x] **`Compact()` stays off, re-measured rather than re-asserted.** On a carved chunk it costs
+      253.2 µs, **1,276% of the whole write, and saves 0.0%**; on a stripped chunk 100.8 µs, 888%,
+      for 7.5%. **Compression is 22-31x**, clear of the recorded ~3x revisit trigger.
+- [x] **Save size after a real session: the plan was pessimistic by about 2x, in the safe
+      direction.** Predicted ~1 KB a chunk and a few hundred KB a session; measured **480-515 B
+      per chunk blob**, the played world at **36 KiB** and a four-pass dug world at **96 KiB for
+      176 chunks and 80 columns**.
+      - [x] **189 B and ~500 B are two different quantities and neither is the other.** The
+            bench's 189 is the marginal cost of variedness; the game's ~500 is a whole stored
+            chunk with its sky column. Quoting either as the other is this project's recurring
+            denominator error.
+- [x] **Used `update ms`, not `frame ms`** — and `viewer ms` exists because `update ms` turned out
+      not to cover the sweep. The headless frame-time trap has now appeared four times across M2d,
+      M3d and M4d; **this is the first time the directly-timed number was itself incomplete**,
+      which is a different failure and worth keeping apart from it.
+- [x] **A reporting defect, found by being misled by it.** `PlacementLines` printed per-click
+      voxel counts at `F0`, so an arm placing 0.40 voxels a click rendered as `0 placed` — reading
+      as *the arm did nothing* for an arm that was working. Now `F2`. **First time this project's
+      print-the-denominator habit has produced a wrong reading through its absence rather than an
+      unreadable one.**
+- [x] **And a fixture trap, caught by the numbers refusing to make sense.** The placement arms run
+      at 6 m/s placed *nothing at all*: `--place` aims along the look direction, deliberately, and
+      the flythrough holds the camera 4 m above the surface looking level at sky. **A moving
+      placement profile is not a thing this instrument can produce.** Zero placements is a loud
+      failure; the quiet version was the standing-start run before it, where both arms spent most
+      of their clicks refusing into a cell they had already filled.
+- [x] **Instruments built, because the measurement needed them.** `SaveBatches`,
+      `LargestSaveBatch`, `SaveQueueMillis` and `SaveWriteMillis` on `ChunkPipeline`;
+      `SaveWorldJob.ElapsedMillis`; a `ViewerMove` series on the profiler; `PersistenceLines()` in
+      the report. **`SaveQueueMillis` is timed after `QueueSave`'s early-out on purpose** — most
+      of an unloading shell is untouched terrain leaving through that line, and folding it in
+      would price the burst at the cost of not saving.
+- [x] **The default headless run is unchanged to the digit** — 1521 viewed / 165 drawn / 1926 jobs
+      at 404 quads. An instrumentation pass has to prove that before any of its numbers are worth
+      reading.
 
 ##### M6d-3 — The play, and the first real UI
 

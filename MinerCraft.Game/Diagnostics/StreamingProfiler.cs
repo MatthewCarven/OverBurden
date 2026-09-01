@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Godot;
 
@@ -119,6 +119,31 @@ public sealed class StreamingProfiler
     /// "what we can see", not as what it costs.
     /// </remarks>
     public SampleSeries MeshFree { get; } = new();
+
+    /// <summary>
+    /// Sim-thread time for one <c>ChunkStreamer.MoveViewer</c>: the whole box-difference sweep.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A sibling of <see cref="PipelineUpdate"/>, not a subset of it</b> — unlike
+    /// <see cref="Light"/>. <c>MoveViewer</c> is called from <c>_Process</c> before
+    /// <c>ChunkPipeline.Update</c> and outside the bracket that times it, so until M6d-2 this
+    /// cost was measured by nothing at all. Adding the two together is correct here, and it is
+    /// the one place in this class where that is true.
+    /// </para>
+    /// <para>
+    /// <b>It is the series M6 has been owed since its plan.</b> The milestone's headline risk is
+    /// that <c>Forget</c> stopped being free: it is called synchronously, on the sim thread, from
+    /// inside <c>ChunkBox.ForEachDifference</c>, which at r16 hands it a 37x37 shell in one frame.
+    /// Every other number in the profile would look identical whether that answer worked or not.
+    /// </para>
+    /// <para>
+    /// Zero on most frames by construction — the viewer only moves in whole chunks — so read the
+    /// maximum and the sample count, not the mean. A mean over frames that mostly did nothing is
+    /// a statement about how often the camera crossed a boundary.
+    /// </para>
+    /// </remarks>
+    public SampleSeries ViewerMove { get; } = new();
 
     /// <summary>
     /// Sim-thread time for one frame's light step: deriving, propagating and marking.

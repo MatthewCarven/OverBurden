@@ -1,4 +1,4 @@
-# MinerCraft — orientation
+﻿# MinerCraft — orientation
 
 A voxel mining game in Godot 4 + C#. **You are a mining operation fighting water and
 gravity.** Rain fills basins, water finds your excavation, saturated rock loses cohesion
@@ -187,9 +187,49 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-M0, all of M1, **all of M2, all of M3, all of M4, all of M5, M6a, all of M6b, all of M6c and
-M6d-1** are done — **734 tests passing**. **M6d is split three ways; M6d-2 is the measurement
-half and is next.**
+M0, all of M1, **all of M2, all of M3, all of M4, all of M5, M6a, all of M6b, all of M6c, M6d-1
+and M6d-2** are done — **734 tests passing**. **M6d-3 — the play and the first real UI — is next,
+and it is the last part of M6.**
+
+**M6d-2 — measurement: done 2026-09-01.** Five questions, five answers, and **the two that
+mattered were not the two the plan expected.** Suite unchanged; the default headless run unchanged
+to the digit, which is what an instrumentation pass has to prove first. Five things worth keeping:
+
+- **The headline dissolves: entering a dug world is indistinguishable from generating it.** At a
+  standing start, `first draw` 3.48 / 3.43 s loading against 3.46 / 3.43 generating; moving at
+  6 m/s with 71 chunks loaded and 44 columns restored, 3.84 / 3.82 against 3.82 / 3.80. **The
+  load-versus-generate gap is smaller than the rep-to-rep gap.** But **176 stored chunks is the
+  most this world could be dug to** against 1,521 tracked, so the predicted 2,505-chunk crossover
+  is confirmed in *direction* and not in fact — the flythrough is a straight line, so passes
+  deepen one trench (99 → 104 → 112 → 123 → 176, asymptotic). **Do not retire the concern; it has
+  moved from "predicted to bite at 2,505" to "measured not to bite at 176".**
+- **The box-difference sweep costs two to four times the whole pipeline update, and no profile
+  since M2d has measured it.** `MoveViewer` is called from `_Process` *before* the bracket that
+  produces `update ms`. Now timed as **`viewer ms`**: 7.1–9.0 ms mean and 15.3 max at r4h/2v,
+  13.2 / 19.6 at r6h/3v, against `update ms` 2.3–4.1 mean and a 16.7 ms frame. **`main %`
+  understates the main thread and always has**, being computed from `PipelineUpdate` alone.
+  Sub-linear in radius — 2.09× the chunks for 1.47× the sweep. **What it is spending is
+  deliberately not chased; light grids and sky columns are the suspect and it wants its own pass.**
+- **`Forget` becoming a write is a non-event, and the design answer is why.** A 60 s dig costs the
+  sim thread **2.4–3.6 ms in total** against a worker's 22.6–25.9; at 40 m/s, 2.8 ms against 37.4.
+  **The burst the plan feared never forms** — largest batch across every run is **6**, not a 37×37
+  shell, because `SubmitSaves` runs every frame with one batch in flight. That comment was written
+  as a transaction argument and is the burst bound too. **The control is the load-bearing half:**
+  `viewer ms` with no world open overlaps the figure with one open, so the sweep predates M6.
+  `SaveQueueMillis` and `SaveWriteMillis` are printed side by side and **never summed** — if they
+  converge, the write has come back onto the sim thread and nothing else in the report would say so.
+- **`Compact()` stays off and the save file is half what the plan feared.** Re-measured: 1,276% of
+  the write for 0.0% on a carved chunk, 888% for 7.5% on a stripped one; compression **22–31×**,
+  clear of the ~3× revisit trigger. **480–515 B per chunk blob** against a predicted ~1 KB — the
+  played world is 36 KiB, a four-pass dug world 96 KiB. **189 B and ~500 B are different
+  quantities**: the bench's is the marginal cost of variedness, the game's a whole stored chunk
+  with its sky column.
+- **Two instrument defects, and one of them produced a wrong reading.** `PlacementLines` printed
+  per-click voxel counts at `F0`, so an arm placing 0.40 voxels a click rendered as `0 placed` —
+  the print-the-denominator habit failing by *absence* rather than by being unreadable. And the
+  placement arms run at 6 m/s placed nothing at all, because `--place` aims along the look
+  direction while the flythrough holds the camera level 4 m above the surface: **a moving placement
+  profile is not a thing this instrument can produce.**
 
 **M6d-1 — precision placement and the modifier keys: done 2026-08-31.** `Place.Voxel` mirrors
 `Carve.Voxel`, and **Alt is the precision modifier for both verbs** — Alt+left takes one voxel,
@@ -203,10 +243,14 @@ Alt+right places one. Suite 724 → 727. Four things worth keeping:
   FlyCam's descend, so precision mining while flying sank the builder ~1.8 m between chips; Alt is
   *crawl* in fly mode, so "slow down to do fine work" pairs rather than fights. The third thing
   neither note anticipated: **one modifier meaning precision across both verbs.**
-- **Precision costs about twice as much per click while doing a sixty-fourth of the writes** —
-  0.077 ms mean against the brush's 0.040. Inefficient in a second way beyond the click count,
-  which strengthens M3c's argument for the brushes staying the default. **The cause is inferred
-  and is M6d-2's to settle.**
+- **Corrected at M6d-2: precision does not cost more per click.** M6d-1 compared *means* — 0.077
+  against 0.040 — and over seven reps precision's **median** click is 0.004–0.007 ms against the
+  brush's 0.013–0.030, two to four times *cheaper*, as one voxel against sixty-four predicts. The
+  mean is a tail: precision's worst click runs **200–300× its own median** against the brush's
+  2–5×. **The inferred mechanism was right and is what the tail is made of** — 0.19 chunk clones
+  and 0.06 relights per click while placing 0.40 voxels, against the brush's 0.00 and 0.00 for
+  7.73. **So M3c's argument for the brushes staying the default survives, on amortised-clone
+  grounds rather than the per-click ones it was restated on.**
 - **`--preciseplace` exists to test the wire.** Every layer had a Core test and the join between
   the held key and `Place.Voxel` had none, which is M5c-2's hole exactly.
 - **Amended the same day: Ctrl and Shift had been swapped from Minecraft since M2.** It is now

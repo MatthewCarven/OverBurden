@@ -1,4 +1,181 @@
-# MinerCraft — Worklog
+﻿# MinerCraft — Worklog
+
+## 2026-09-01 — M6d-2: the worry dissolves, and the cost was somewhere nobody was looking
+
+M6d-2 is the measurement half, and everything it measures already ran. Five questions, five
+answers, and **the two that mattered were not the two the plan expected**. Suite unchanged at
+**734**; the default headless run is unchanged to the digit — 1521 viewed / 165 drawn / 1926 jobs
+at 404 quads — which is the thing an instrumentation pass has to prove before any of its numbers
+are worth reading.
+
+### 1. The headline: entering a dug world is not slower than generating it
+
+M6 has carried this since its plan. Half-answered twice — deserialise 21 µs a chunk at M6a, a
+SQLite point query 6.0 µs at M6b-1, crossover at 2,505 chunks — and what was missing was the
+end-to-end figure that includes the serial lane's ordering against eight generating workers.
+
+```
+r4h/2v, standing start (the deterministic arm)      first draw      all settled
+generate  --nosave                    rep1 / rep2   3.46 / 3.43     3.81 / 3.80
+load      19 stored chunks in the box rep1 / rep2   3.48 / 3.43     3.85 / 3.80
+
+r4h/2v, moving at 6 m/s
+generate  --nosave                                  3.82 / 3.80     4.64 / 4.62
+load      71 loaded + 44 columns restored           3.84 / 3.82     4.62 / 4.61
+```
+
+**Indistinguishable — the load-versus-generate gap is smaller than the rep-to-rep gap.** The
+standing start is used because M5d-1 established it as the only arm where the chunk set at a fixed
+radius is deterministic, so this compares two numbers rather than two samples of a moving camera.
+
+**The limitation is stated rather than buried: 176 stored chunks is the most this world could be
+dug to, against 1,521 tracked, so the 2,505-chunk crossover is confirmed in direction and not in
+fact.** The scripted flythrough is a straight line along +X, so repeated passes deepen one trench
+rather than covering new ground — five passes went 99 → 104 → 112 → 123 → 176 stored and were
+plainly asymptotic. A world dug past the crossover is not reachable with the instruments that
+exist, and building one is not M6d-2's job. **Nothing here retires the concern; it moves it from
+"predicted to bite at 2,505" to "measured not to bite at 176".**
+
+### 2. The finding nobody was looking for: the box-difference sweep costs more than the pipeline
+
+`ChunkStreamer.MoveViewer` is called from `_Process` **before** the bracket that produces
+`update ms`, so **every profile from M2d to M6d-1 measured the pipeline and not the sweep.**
+Timed for the first time today:
+
+```
+                                     tracked   viewer ms mean / p95 / max    update ms mean
+r4h/2v   6 m/s  no world open           1521    7.09–9.02 / 13.4–14.7 / 15.3      2.34
+r4h/2v   6 m/s  world open              1521    9.52–10.0 / 14.6–15.5 / 15.6      2.33
+r6h/3v   6 m/s  no world open           3179   13.21      / 19.32     / 19.61     4.05
+r4h/2v  40 m/s  world open + mining     1521    4.84      /  6.55     / 13.69     5.31
+```
+
+**Against a 16.7 ms frame, and two to four times the whole pipeline update.** It fires only when
+the viewer crosses a chunk boundary — 15 times in a 20 s run at 6 m/s — so it is a spike rather
+than a load, which is exactly the shape `SampleSeries`' own doc comment says a mean hides.
+
+Two consequences worth writing down:
+
+- **`main %` understates the main thread and always has.** It is computed from `PipelineUpdate`
+  alone. At r6h/3v the report says 31% of one core while the sweep is spending another 13.2 ms on
+  15 frames out of ~1,200.
+- **It is sub-linear in radius**: 2.09× the tracked chunks for 1.47× the sweep. So it is not
+  purely per-chunk work.
+
+**And it is not persistence**, which is the half M6 was actually worried about — see below.
+
+### 3. `Forget` becoming a write is a non-event, and the design answer is why
+
+M6-PLAN's headline structural risk: *"`ChunkStreamer.Forget` becomes a write … called
+synchronously, on the sim thread, from inside `ChunkBox.ForEachDifference`, which at r16 hands it
+a whole 37×37 shell in one frame."* The answer was to make the write a job, leaving the sweep a
+flag and a list append. Measured on both threads, which is the only way the claim is checkable:
+
+```
+dig 60 s @  6 m/s   97–101 chunks + 62–74 columns   34–35 batches, largest 6
+                    sim 2.4–3.6 ms total (0.07–0.11 ms/batch) | worker 22.6–25.9 ms (0.66–0.74)
+dig 15 s @ 40 m/s   127 chunks   + 76 columns       82 batches, largest 5
+                    sim 2.829 ms total (0.0345 ms/batch)      | worker 37.4 ms (0.46)
+```
+
+**The sim thread spends single-digit milliseconds on saving across an entire sixty-second digging
+run.** The two numbers are printed side by side and deliberately never summed: one is the sweep's
+thread and one is a worker's, and the whole claim being checked is that the second is large
+*because* the first is not. If they ever converge, the write has come back onto the sim thread and
+no other line in the report would change.
+
+**The burst the plan feared never forms, and the mechanism is `SubmitSaves` running every frame
+with one batch in flight.** The largest batch across every run measured is **6** — not a 37×37
+shell — because the sweep hands over a few dirty chunks and the next frame takes the next few.
+That "one at a time so batches grow rather than multiply" comment was written as a transaction
+argument; it turns out to be the burst bound as well.
+
+**The control is the load of it.** `viewer ms` with **no world open at all** is 7.09–9.02 mean
+against 9.52–10.0 with one open — overlapping. So the sweep's cost predates M6 and belongs to
+something else entirely; retaining and releasing light grids and sky columns is the obvious
+suspect and is deliberately not chased here. **Measurement, not repair.**
+
+### 4. Precision placement: M6d-1's conclusion was read off the wrong statistic
+
+M6d-1 recorded *"precision costs about twice as much per click while doing a sixty-fourth of the
+writes"* and hypothesised the clone-and-relight marking as the cause, explicitly leaving it to
+M6d-2. **The mechanism is confirmed and the conclusion is not.** Seven reps of each arm, standing
+start, r4h/2v:
+
+```
+          mean          p50           p95           max          clones  remesh  relight  placed
+brush   0.016–0.028   0.013–0.030   0.029–0.045   0.056–0.129     0.00    0.05    0.00      7.73
+precise 0.027–0.058   0.004–0.007   0.059–0.103   0.883–1.790     0.19    0.20    0.06      0.40
+```
+
+**Precision's median click is 0.004–0.007 ms against the brush's 0.013–0.030 — two to four times
+cheaper, exactly as one voxel against sixty-four predicts.** The mean is twice the brush's because
+the maximum is **0.88–1.79 ms against the brush's 0.056–0.129**: precision's worst click is
+200–300× its own median, the brush's is 2–5× its. One or two outliers in an 88-sample run move the
+mean by the entire reported difference, which is why two reps disagreed at 0.058 and 0.031 before
+the extra five were run.
+
+**So "twice as much per click" is true of the mean and false of the click**, and this project's own
+`SampleSeries` doc comment says why in as many words: *"a mean hides exactly the thing worth
+measuring."* Fifth outing for that warning and the first time it caught a conclusion already
+written into TODO.
+
+**The hypothesis's mechanism is exactly right and is what the tail is made of.** Precision pays
+**0.19 chunk clones, 0.20 edit remeshes and 0.06 relight remeshes per click while placing 0.40
+voxels** — about half a chunk clone per voxel placed. The brush places 7.73 voxels a click for
+**0.00 clones and no relights at all**, because its voxels land in one already-cloned chunk and its
+56 refused voxels never reach `SetVoxel` — M3c's air-skip and M3a's already-there early-out, both
+still doing their job one verb over. **M3c's argument for brushes staying the default survives, but
+on the amortised-clone ground rather than on the per-click one it was restated on.**
+
+### 5. `Compact()`, compression and what a session actually weighs
+
+```
+arm                  write µs   read µs   raw B   stored B   ratio   B/varied
+carved, compact         273.0      21.2    3170        124    25.6        189
+carved, verbatim         19.8      22.2    3170        124    25.6        189
+stripped, compact       112.2       6.8    1323         60    22.0        216
+stripped, verbatim       11.4      11.9    2014         65    31.0        148
+
+Compact on a carved chunk   costs 253.2 µs (1,276% of the write) and saves 0.0%
+Compact on a stripped chunk costs 100.8 µs (  888% of the write) and saves 7.5%
+```
+
+**M6a's decision to leave `Compact` off stands, re-measured rather than re-asserted.**
+Compression is 22–31×, comfortably clear of the recorded ~3× revisit trigger at which the CPU
+stops being worth the opacity.
+
+**Save size after a real session, which the plan predicted at ~1 KB a chunk and a few hundred KB:**
+the world Matthew has been playing is **36 KiB**; the four-pass dug world here is **96 KiB for 176
+stored chunks and 80 columns**, at **480–515 B per chunk blob** in the game against the bench's 189
+B per varied chunk. **The plan was pessimistic by about 2×, in the safe direction.** The gap
+between 189 and ~500 is that the game stores whole edited chunks including their sky columns, where
+the bench's figure is the marginal cost of variedness alone — two different quantities, and quoting
+either as the other is the denominator error this project keeps recording.
+
+### What was built, because measurement needed instruments
+
+Four counters on `ChunkPipeline` — `SaveBatches`, `LargestSaveBatch`, `SaveQueueMillis`,
+`SaveWriteMillis` — plus `SaveWorldJob.ElapsedMillis`, a `ViewerMove` series on the profiler, and
+`PersistenceLines()` in the report. **`SaveQueueMillis` is timed after `QueueSave`'s early-out on
+purpose**: the overwhelming majority of an unloading shell is untouched terrain that leaves through
+that line, and folding it in would price the burst at the cost of not saving.
+
+**One reporting defect found by being misled by it.** `PlacementLines` printed per-click voxel
+counts at `F0`, so an arm placing 0.40 voxels a click rendered as `0 placed` — which reads as *the
+arm did nothing* for an arm that was working, and cost a whole reading of these numbers before it
+was noticed. Now `F2`. Same family as every counter here printing its own denominator, and the
+first time that habit's absence has actively produced a wrong reading rather than an unreadable
+one.
+
+**And one fixture trap, caught by the numbers refusing to make sense.** The placement arms were
+first run at 6 m/s, where they placed *nothing at all*: `--place` aims along the look direction —
+deliberately, so the brush does not land in the cell the player is standing in — and the flythrough
+holds the camera 4 m above the surface looking level, at sky. A moving placement profile is not a
+thing this instrument can produce, and the standing start is the arm. **Zero placements is a loud
+failure; the quiet version was the standing-start run before it, where both arms spent most of
+their clicks refusing into a cell they had already filled.**
+
 
 ## 2026-08-31 — Ctrl and Shift had been swapped since M2, and sneak is a rule not a key
 
@@ -102,6 +279,12 @@ building, learned once rather than per verb.
 is inefficient in a second way beyond the click count, which strengthens rather than weakens
 M3c's argument for keeping the brushes as the default: a wall built voxel by voxel is 64× the
 clicks *and* each click is dearer.
+
+> **Corrected 2026-09-01 by M6d-2.** These are *means*, and over seven reps precision's **median**
+> click is 0.004-0.007 ms against the brush's 0.013-0.030 — two to four times *cheaper*, as the
+> voxel count predicts. The mean is a tail: precision's worst click runs 200-300x its own median
+> against the brush's 2-5x. **The mechanism guessed at below is right** and is what the tail is
+> made of; the direction of the conclusion is not.
 
 **The cause is inferred and not measured**, which is M6d-2's to settle: the per-placement cost is
 presumably dominated by the raycast and by the edit's clone-and-relight marking rather than by the

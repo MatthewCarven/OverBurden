@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
 using MinerCraft.Core.Content;
 using MinerCraft.Core.Jobs;
@@ -342,6 +342,51 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
 
     /// <summary>Chunks and columns waiting for a save job.</summary>
     public int PendingSaves => _pendingChunkSaves.Count + _pendingColumnSaves.Count;
+
+    /// <summary>Save batches handed to the serial lane.</summary>
+    /// <remarks>
+    /// <b>Batches rather than chunks, because the batch is the unit of transaction</b> — and
+    /// dividing <see cref="BytesSaved"/> by chunks while dividing the write time by batches is
+    /// how a per-chunk cost gets quoted for something that was never paid per chunk.
+    /// </remarks>
+    public int SaveBatches { get; private set; }
+
+    /// <summary>The most chunks and columns any one batch carried.</summary>
+    /// <remarks>
+    /// <b>This is the burst M6's plan was worried about.</b> <c>Forget</c> becoming a write runs
+    /// inside <c>ChunkBox.ForEachDifference</c>, which at r16 hands the sim thread a 37x37 shell
+    /// in one frame; the mean batch size says what a normal frame costs and only the maximum says
+    /// what the worst one did. Reporting the mean alone is the trap the streaming profiler
+    /// records for frame time.
+    /// </remarks>
+    public int LargestSaveBatch { get; private set; }
+
+    /// <summary>
+    /// Sim-thread milliseconds spent queueing and submitting saves, cumulative.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The number that says whether the design answer worked.</b> M6-PLAN's headline risk is
+    /// that unloading stopped being free: <c>Forget</c> is called synchronously on the sim thread
+    /// from inside a box-difference sweep. The answer was to make the write a job, leaving the sim
+    /// thread a flag and a list append per chunk — so this should stay near zero however large the
+    /// shell, and <see cref="SaveWriteMillis"/> should carry the whole of the cost. If the two ever
+    /// converge, the write has come back onto the sim thread.
+    /// </para>
+    /// <para>
+    /// Counted inside <see cref="Update"/>, so it is already part of <c>update ms</c> rather than
+    /// beside it — the same relationship <c>light ms</c> has, and adding them double-counts.
+    /// </para>
+    /// </remarks>
+    public double SaveQueueMillis { get; private set; }
+
+    /// <summary>Worker-thread milliseconds spent serialising and committing, cumulative.</summary>
+    /// <remarks>
+    /// Reported beside <see cref="SaveQueueMillis"/> and never added to it: this is time on a
+    /// worker and that is time on the sim thread. The pair is the measurement, because the whole
+    /// claim being checked is that the second is small <em>because</em> the first is not.
+    /// </remarks>
+    public double SaveWriteMillis { get; private set; }
 
     /// <summary>The streaming policy. Viewers are added and moved through here.</summary>
     public ChunkStreamer Streamer => _streamer;
@@ -1552,6 +1597,11 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
             return;
         }
 
+        // Timed after the early-out on purpose. The overwhelming majority of an unloading shell
+        // is untouched terrain that leaves through the line above, and folding those into the
+        // measurement would price the burst at the cost of not saving.
+        long entered = _nowTicks();
+
         // The moment these voxels stop being the sim thread's to write to — the same flag and the
         // same reason as a mesh job's 27-chunk gather. A chunk queued here is usually about to be
         // forgotten, but it can be revived and mined before the job runs, and VoxelChunk.Set can
@@ -1564,6 +1614,8 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         chunk.DirtySinceSave = false;
 
         _pendingChunkSaves.Add((chunk.Position, chunk.Voxels));
+
+        SaveQueueMillis += (_nowTicks() - entered) / TicksPerMillisecond;
     }
 
     /// <summary>Queues a sky column, if its heights have moved off the analytic seed.</summary>
@@ -1577,8 +1629,12 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
             return;
         }
 
+        long entered = _nowTicks();
+
         column.MarkSaved();
         _pendingColumnSaves.Add((column.ChunkX, column.ChunkZ, column));
+
+        SaveQueueMillis += (_nowTicks() - entered) / TicksPerMillisecond;
     }
 
     /// <summary>
@@ -1593,6 +1649,12 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     {
         if (_store is null || _saveInFlight) return;
         if (_pendingChunkSaves.Count == 0 && _pendingColumnSaves.Count == 0) return;
+
+        long entered = _nowTicks();
+
+        SaveBatches++;
+        int batch = _pendingChunkSaves.Count + _pendingColumnSaves.Count;
+        if (batch > LargestSaveBatch) LargestSaveBatch = batch;
 
         var job = new SaveWorldJob(
             _store,
@@ -1624,6 +1686,8 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         _storeJobsInFlight++;
         _scheduler.SubmitBatch(CollectionsMarshal.AsSpan(_batch)[^1..]);
         _batch.RemoveAt(_batch.Count - 1);
+
+        SaveQueueMillis += (_nowTicks() - entered) / TicksPerMillisecond;
     }
 
     private void ApplySave(SaveWorldJob job, JobOutcome outcome, Exception? error)
@@ -1635,6 +1699,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
             ChunksSaved += job.Chunks.Count;
             ColumnsSaved += job.Columns.Count;
             BytesSaved += job.BytesWritten;
+            SaveWriteMillis += job.ElapsedMillis;
             return;
         }
 
