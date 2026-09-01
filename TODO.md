@@ -2733,8 +2733,15 @@ the report it prints.
             the tell was available: the status line is live input state, so it says what is true
             at the instant of capture rather than during the work. Every other element in the
             frame is honest, because none of the others are keyed off a key being down.
-      - [ ] **The walls-and-floor half is still open**, as are the unload-and-return and the
-            quit-and-reopen.
+      - [x] **The walls-and-floor half is answered too: a room was built and it reads as a room.**
+            Played 2026-09-01 — walls, floor, ceiling and a broad flight of stairs down into it,
+            about 3,360 voxels placed (stone 2,194,047 to 2,141,516 L across the two shots).
+            **So M6 own play is complete**, and the 1 m lattice, the four shapes and the
+            carve/place divide are all judged rather than argued.
+      - [x] **And the ID-order slot cost fired in play, exactly as written down.** Acquiring 16 L
+            of lamp — one voxel — inserted a slot at 3 and pushed stone from **3 to 4** between
+            two screenshots. That is `MaterialInSlot`'s recorded revisit trigger, *"the play
+            reports a slot moving under their fingers"*, observed rather than predicted.
 - [x] **Hotbar / material selection UI — built.** `MinerCraft.Game/Ui/Hud.cs`: a nine-slot row
       with a colour swatch, name and litres per slot, a crosshair, and a status line naming the
       brush, the tier and the keys.
