@@ -230,10 +230,17 @@ window, so tens of megabytes is not a risk and a knotted 32-point approximation 
 
 ### The number this part is most likely to have got wrong — measured 2026-09-01
 
-**Answered, and the answer settles it: a 1,024 m window costs 19.9 ms**, 3.64 ms sampling plus
-16.30 ms flooding, Release, one thread. Under the 50 ms line below, **so no incremental watershed
-is ever built** — the window is re-analysed wholesale on a worker when the player leaves the centre
-box.
+**Answered, and the answer settles it — with a caveat about the instrument that is worth more
+than the number.** A 1,024 m window costs **66 ms measured on 2026-09-01 evening / 27 ms
+reference-equivalent**, sampling plus flooding plus M7a-2's merge tree. **No incremental watershed
+is ever built**: it runs on a worker, once per window move, and is well inside the 200 ms rethink
+line below.
+
+**The caveat: this machine was measured at 2.5x its own speed hours apart, with identical
+binaries.** M7a-1 first published 19.9 ms; the same build later reported 43 ms, and the worldgen
+bench — recorded at 0.47 ms/chunk since M2d-2 — reported 1.16 in the same session. The watershed
+bench now prints that control above its table, and **every figure here should be divided by it
+before being compared with anything in the worklog.**
 
 **The estimate below was inside its range and wrong about which half.** Sampling measured at
 **55 ns/sample**, two to four times cheaper than assumed, and the flood is **82% of the total**.
@@ -287,6 +294,10 @@ symmetric — two basins with no cheaper exit are each other's lowest crossing, 
 around the leaves ping-pongs forever. The merge tree is what resolves it, and **1,336 of the 1,376
 basins in a 1 km window spill into another basin rather than out of the world**, so it is the
 common case rather than an edge case.
+
+**M7a-2 is done (2026-09-01) and the lazy-curve question is closed by measurement**: building
+every composite's curve eagerly costs **0.8 MB at a 1 km window**, so it is built eagerly and the
+lazy alternative is retired rather than deferred.
 
 One number from M7a-1 belongs to M7b rather than to M7a: **every basin in a 1 km window full to its
 own saddle is 54.7 ML, which is 5.2 cm of water spread flat over the square kilometre**, and the

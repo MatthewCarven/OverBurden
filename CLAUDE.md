@@ -105,11 +105,17 @@ be built. Release only, and it sweeps window sizes at the 4 m cell:
 dotnet run --project MinerCraft.Bench -c Release -- --watershed
 ```
 
-**Sampling and flooding are timed apart**, because M7-PLAN's estimate assumed sampling dominated
-and it does not — it is 18% of the cost. **It warms up by call count rather than by one pass**, and
-that is not fussiness: one warm-up pass leaves a small window in tier-0 code while a large one is
-promoted mid-flood by OSR, which reported the 1 km window at 47 ms instead of 20 and looked exactly
-like a memory-locality finding.
+**Sampling, flooding and the merge tree are timed apart**, because M7-PLAN's estimate assumed
+sampling dominated and it does not — it is about an eighth of the cost. **It warms up by call count
+rather than by one pass**, because one warm-up pass leaves a small window in tier-0 code while a
+large one is promoted mid-flood by OSR, which reported the 1 km window at 47 ms instead of 20 and
+looked exactly like a memory-locality finding.
+
+**Read the machine-control line before quoting anything from it.** It times worldgen over 256
+chunks and prints the result against the 0.47 ms/chunk recorded at M2d-2 — **this machine has been
+measured at 2.5x that, hours apart, with identical binaries**, which is enough to move a figure
+across a decision threshold. Divide by the stated factor before comparing with any number in the
+worklog.
 
 Verify headlessly — no display needed, catches scene and script errors and prints the
 diagnostics:
@@ -204,15 +210,25 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-**M7 is under way: M7a-1 is built (2026-09-01), M7a-2 — the merge tree — is next.**
-`MinerCraft.Core/Hydrology/` holds the flood, the basins and the volume→level curves; **a 1,024 m
-window costs 19.9 ms**, under the plan's 50 ms line, **so no incremental watershed is ever built.**
-Three things from it that are expensive to rediscover: **flat ground is the defect that matters**
-(a flat shelf's corner has no lower neighbour, so a per-cell sweep declares it a pit, and integer
-heights sampled every 4 m tie constantly); **the leaf spill graph has two-cycles by construction**,
-because a crossing costs the higher of the two samples it joins and is therefore symmetric — which
-is what M7a-2's merge tree resolves; and **the estimate was right in range and wrong about which
-half**, sampling being 55 ns/sample against an assumed 100–200 and the flood being 82% of the cost.
+**M7 is under way: all of M7a is built (2026-09-01) — M7b, the clock and the accumulator, is
+next.** `MinerCraft.Core/Hydrology/` holds the flood, the basins, the volume→level curves, the
+merge tree and the water in it. **A 1,024 m window costs 66 ms measured / 27 ms reference-
+equivalent**, on a worker, once per window move — **so no incremental watershed is ever built.**
+Four things from it that are expensive to rediscover:
+
+- **Flat ground is the defect that matters.** A flat shelf's corner has no strictly lower
+  neighbour, so a per-cell sweep declares it a pit — and integer heights sampled every 4 m tie
+  constantly, so real terrain fills with basins that hold nothing. Fixed by sweeping a *tier* of
+  equal (filled, height) at a time and spreading the label across the flat.
+- **The leaf spill graph has two-cycles by construction**, because a crossing costs the higher of
+  the two samples it joins and is therefore symmetric. **The merge tree is what resolves it**, and
+  1,336 of 1,376 basins in a 1 km window spill into another basin rather than out of the world.
+- **The machine varies by 2.5x and nothing said so for six milestones.** The same binary reported
+  a 1 km window at 19.9 ms and at 43 ms hours apart; the worldgen bench, whose figure has been
+  recorded since M2d-2, was equally slower. **`--watershed` now prints a control line** — divide by
+  it before comparing anything with the worklog.
+- **The estimate was right in range and wrong about which half**: sampling is 55 ns/sample against
+  an assumed 100–200, and the flood plus the tree are the rest.
 
 **M7 was planned 2026-09-01** — watershed basins, Tier A rain accumulation, the
 rain itself, the wet-surface term and a water surface you can watch rise. See

@@ -2991,9 +2991,15 @@ the merge tree is a second thing with its own hazard — see the two-cycle below
 - [x] Priority-flood (Barnes, Lehman & Mulla 2014) over the window: pits, saddles, catchments and
       basin labels. `MinerCraft.Core/Hydrology/` — `HeightField`, `Watershed`, `Basin`,
       `VolumeCurve`. No Godot, no chunks, no streaming.
-- [x] **The measurement, taken first as the plan asked: a 1,024 m window costs 19.9 ms** — 3.64 ms
-      sampling, 16.30 ms flooding, Release, one thread. Under the 50 ms line, so **no incremental
-      watershed is ever built**; the window is re-analysed wholesale on a worker.
+- [x] **The measurement, taken first as the plan asked.** ⚠ **Corrected at M7a-2: the figure
+      below is a *reference-machine* number and the machine varies by 2.5x.** As first published:
+      a 1,024 m window at **19.9 ms**, 3.64 sampling and 16.30 flooding. The same binary hours
+      later: **43 ms**, with the worldgen control at 1.16 ms/chunk against M2d-2's recorded 0.47 —
+      a 2.48x factor that accounts for all of it. **Including M7a-2's tree the honest pair is
+      66.4 ms measured / 26.8 ms reference-equivalent.** The decision is unchanged — the analysis
+      runs on a worker once per window move, well inside the plan's 200 ms rethink line — but the
+      margin is **3x, not the 10x that 19.9 against 50 implied.** **The bench now prints the
+      control above its table**, so no future figure needs this footnote.
       - [x] **The estimate was inside its range and wrong about which half.** It assumed sampling
             at 0.1–0.2 µs dominating; measured, **sampling is 55 ns/sample** and **the flood is 82%
             of the total**. The range was right for a reason that was not — and the *lever* moved,
@@ -3023,21 +3029,39 @@ the merge tree is a second thing with its own hazard — see the two-cycle below
       thresholds — a different algorithm, hopeless on a real window and exactly right on a
       twelve-sample one.
 
-##### M7a-2 — The merge tree ← **next**
+##### M7a-2 — The merge tree ✅ **done 2026-09-01, 764 tests passing**
 
-- [ ] **The two-cycle is why this exists, and it is now a test rather than an argument.** A
-      crossing costs the higher of the two samples it joins, so it is **symmetric**: two basins
-      with no cheaper exit are each other's lowest crossing, and surplus routed around the leaves
-      ping-pongs forever. `TwoSiblingBasinsSpillIntoEachOtherAndThatIsWhyTheMergeTreeExists` fails
-      to be interesting the day the tree lands, which is the point of writing it now.
-- [ ] **Built up front by sorting saddles and union-find.** A filling basin walks *up a tree*
-      rather than routing around a graph, which is what makes cascading overflow **acyclic by
-      construction** rather than by a loop guard.
-- [ ] **1,336 of 1,376 basins in a 1 km window spill into another basin rather than out of the
-      world**, so this is the common case and not an edge case. Measured at M7a-1.
-- [ ] **Composite curves lazily, and this is a real decision.** A composite's cells are the union
-      of its children's, so building every level eagerly is O(n log n) elevations — about 4 MB for
-      a 1 km window — for lakes that will almost never fill that high. Build on demand, cache.
+- [x] **The two-cycle test flipped, which is what this part was for.** `MergeTree` sorts every
+      crossing and merges with union-find; `BasinWater` routes overflow strictly upward, so it
+      cannot loop. The same terrain that ping-pongs at leaf level now fills, spills into its
+      sibling, rises over the ridge as one lake and leaves the world.
+- [x] **Two defects, and the second was found by a test written to plug a hole left by the first
+      battery.**
+      - [x] **Two components that both already drain to the window edge met at a crossing and one
+            was re-closed at the higher height.** Every pair meets somewhere, so this was not an
+            edge case — it silently overwrote a spill height settled long before, and the symptom
+            would be a lake stopping at a height nothing explains. Caught by the test that says a
+            leaf's spill height is the saddle the watershed already found.
+      - [x] **The rolled-up free capacity went stale after a drop that fit in its own basin**, so a
+            merged lake would report a level computed from a volume last updated at the previous
+            overflow. **A new variety: the green recipe was about the roll-up, the test written to
+            plug it was about the roll-up, and the defect it found was somewhere else.** A green
+            recipe means *no test here*, and what the missing test catches need not be the mutation
+            that revealed it was missing.
+- [x] **Water is held in slabs, not piles** — a leaf up to its own rim, a composite only the volume
+      between its children's rims and its own. A subtree's water is then the sum of its nodes and
+      "how much is in this lake" is one subtraction.
+- [x] **Pouring fills the children before the parent's own slab, and that is physics rather than an
+      optimisation.** Fill the parent first and a brimming basin's overflow stands on the ground
+      between two lakes while one is still half empty.
+- [x] **Brim-full is not merged.** Two siblings are separate lakes until the water stands *above*
+      the ridge — which is exactly when the parent's slab starts to hold something.
+- [x] **Eager composite curves, and the lazy alternative is retired rather than deferred.**
+      Measured **0.8 MB at a 1 km window**, 5.9 MB at 2 km. Sixth named fallback dissolved by
+      measuring the thing it was afraid of.
+- [x] **Eleven break-recipes, ten caught.** The green one is a documentation correction: setting a
+      composite's children's parent before closing them is belt and braces, because `drained` is
+      only read through `Find`, which returns roots.
 - [x] **The volume→level curve: sorted elevations plus a prefix sum**, so `volume(L)` is a binary
       search and `level(V)` is the same search inverted. Exact, monotonic, invertible — the level
       is *solved, not simulated*. Capped at the saddle.

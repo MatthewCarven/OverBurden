@@ -1,5 +1,92 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-01 — M7a-2: the merge tree, and a control that says the machine was 2.5x faster this morning
+
+`MergeTree` builds the join tree of the terrain — every crossing sorted, union-find upward, so a
+basin that fills past its own rim becomes half of a larger lake rather than pouring sideways
+forever. `BasinWater` holds the water in it and routes overflow. Suite **756 → 764**.
+
+**The two-cycle test flipped, which is what this part was for.** M7a-1 recorded that the leaf spill
+graph cycles by construction — a crossing costs the higher of the two samples it joins, so it is
+symmetric, and two basins with no cheaper exit are each other's lowest crossing. The same terrain
+now fills, overflows into its sibling, rises over the ridge as one lake and finally leaves the
+world, in a routine that walks strictly upward and therefore cannot loop.
+
+### The measurement was wrong, and the thing that found it was a control rather than a mechanism
+
+**M7a-1 published a 1 km window at 19.9 ms. The same binary, unchanged, now reports 43 ms.**
+
+Two mechanisms were proposed and implemented before either was tested: a garbage collection landing
+inside the timed region, and a cold large-object heap after warming at a smaller window. **Neither
+was it.** The answer came from running the *worldgen* bench — whose Release figure has been in the
+worklog since M2d-2 — and finding it equally slower: **1.16 ms/chunk against 0.47 recorded**, a
+2.48x factor, which is exactly the factor every watershed column had moved.
+
+**So the machine was 2.5x faster this morning than it is this evening, and nothing in six
+milestones of published Release figures would have said so.** The bench now prints a control line
+above its table:
+
+```
+  machine control: worldgen 1.16 ms/chunk against 0.47 recorded at M2d-2 — this run is 2.48x
+  SLOWER than that reference. Divide the times below by that factor to compare them with any
+  figure in the worklog.
+```
+
+That is *print the denominator* arriving somewhere new: not the sample size this time but the
+speed of the machine the sample was taken on. **The lesson is the order of operations** — a control
+that already exists settles in one run what two plausible mechanisms could not, and both mechanisms
+were changes to the harness made on a hypothesis.
+
+**Corrected figures for M7a, stated both ways.** At 1 km, measured today: sample 8.08 ms, flood
+35.22, tree 23.11, **total 66.4 ms**; divided by the control's 2.48, **26.8 ms** on the machine
+M2d-2 and M7a-1 measured. **The decision stands and its margin is now honest**: the analysis runs
+on a worker once per window move, and even the slow figure is well inside the plan's 200 ms
+rethink line — but it is a 3x margin, not the 10x that 19.9 ms against 50 implied.
+
+### Two defects, and the second one was found by a test written to plug a hole in the first battery
+
+- **Two components that both already drain to the window edge met at a crossing, and one of them
+  was re-closed at the higher height.** Every pair of components meets somewhere eventually, so
+  this was not an edge case; it silently overwrote a spill height that had been settled long
+  before, and the symptom would have been a lake that stops filling at a height nothing explains.
+  **Caught by the test that says a leaf's spill height is the saddle the watershed already
+  computed** — two definitions of one number, the `IsCaveAt`-against-`GenerateTerrain` shape.
+- **The rolled-up free capacity went stale after a drop that fit in its own basin.** `Pour`
+  refreshes what it touches, which for a small add is one leaf, leaving every ancestor's subtree
+  total unchanged — and `LevelAt` asks a composite how much its subtree holds, so a merged lake
+  would have reported a level computed from a volume last updated at the previous overflow.
+  **A new variety for the break-recipe habit: the green recipe was about the roll-up, the test
+  written to plug it was about the roll-up, and the defect it actually found was somewhere else.**
+  A green recipe means *no test here*, and what the missing test catches need not be the mutation
+  that revealed it was missing.
+
+### Three things about the model that are easy to undo
+
+- **Water is held in slabs, not piles.** A leaf holds up to its own rim; a composite holds only the
+  volume between its children's rims and its own. So a subtree's water is the sum of its nodes and
+  "how much is in this lake" is one subtraction. It is also why `OwnCapacity` can never be negative
+  and why the invariant is checkable.
+- **Pouring fills the children before the parent's own slab, and that is physics rather than an
+  optimisation.** Water crossing a ridge runs downhill into whatever is on the other side. Fill the
+  parent first and a brimming basin's overflow stands on the ground between two lakes while one of
+  them is still half empty.
+- **Brim-full is not merged.** Two siblings are separate lakes until the water stands *above* the
+  ridge, which is exactly when the parent's slab starts to hold something. Climb on brim-full alone
+  and a full basin reports the combined lake's level while its neighbour is still filling.
+
+### The lazy-composite-curve question is answered by measurement, not deferred
+
+M7a-2's plan named lazy composite curves as the alternative to building them eagerly, on the
+grounds that the total is O(n log n) elevations. Measured: **0.8 MB at a 1 km window** and 5.9 MB
+at 2 km, for 2,204 and 9,589 nodes. **Eager, and the alternative is retired rather than deferred**
+— the sixth named fallback in this project dissolved by measuring the thing it was afraid of.
+
+**Eleven break-recipes, ten caught.** The one green is a documentation correction: setting a
+composite's children's parent before closing them is belt and braces, because the `drained` flag is
+only ever read through `Find`, which returns roots, and a node that has just been given a parent is
+never a root again.
+
+
 ## 2026-09-01 — M7a-1: the watershed, and an estimate that was right for the wrong reason
 
 `MinerCraft.Core/Hydrology/` holds `HeightField`, `Watershed`, `Basin` and `VolumeCurve` —

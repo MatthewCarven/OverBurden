@@ -1111,6 +1111,47 @@ internal static class Program
     // Sampling and analysis are timed apart, because the estimate assumed sampling dominates and
     // an estimate that is right in total for the wrong reason is the kind that misleads later.
 
+    /// <summary>
+    /// How fast this machine is today, against a figure the project already published.
+    /// </summary>
+    /// <remarks>
+    /// <b>Print the denominator.</b> M7a-1's watershed figures were taken on a machine running
+    /// 2.2x faster than the same machine an hour later — confirmed by running the worldgen bench,
+    /// whose Release figure has been recorded since M2d-2, and finding it equally slower. Without
+    /// a control in the same output, a reader cannot tell a regression from a warm afternoon, and
+    /// two numbers taken on different days cannot be compared at all.
+    /// </remarks>
+    private static string MachineControl(WorldGenerator generator)
+    {
+        const double recordedMillisPerChunk = 0.47;
+        ChunkPos[] control = Region().Take(256).ToArray();
+
+        double best = double.MaxValue;
+        for (int pass = -1; pass < 3; pass++)
+        {
+            var clock = Stopwatch.StartNew();
+            foreach (ChunkPos position in control)
+            {
+                generator.GenerateTerrain(position);
+            }
+
+            if (pass >= 0)
+            {
+                best = Math.Min(best, clock.Elapsed.TotalMilliseconds / control.Length);
+            }
+        }
+
+        double ratio = best / recordedMillisPerChunk;
+        string verdict = ratio >= 1
+            ? $"this run is {ratio:F2}x SLOWER than that reference"
+            : $"this run is {1 / ratio:F2}x faster than that reference";
+        return $"  machine control: worldgen {best:F2} ms/chunk against {recordedMillisPerChunk:F2} "
+            + $"recorded at M2d-2 — {verdict}."
+            + Environment.NewLine
+            + "  Divide the times below by that factor to compare them with any figure in the "
+            + "worklog.";
+    }
+
     /// <summary>Times <see cref="HeightField.Sample"/> and <see cref="Watershed.Analyse"/>.</summary>
     private static int WatershedBench(ulong seed, int repeat)
     {
@@ -1129,12 +1170,26 @@ internal static class Program
         }
 
         Console.WriteLine();
+        Console.WriteLine(MachineControl(generator));
+        Console.WriteLine();
         Console.WriteLine(
-            "  window   samples   sample ms   flood ms   total ms   ns/sample   basins   "
-            + "held ML   spilling");
+            "  window   samples   sample ms   flood ms   tree ms   total ms   ns/sample   "
+            + "basins   nodes   curves MB   held ML");
         Console.WriteLine(
-            "  ------   -------   ---------   --------   --------   ---------   ------   "
-            + "-------   --------");
+            "  ------   -------   ---------   --------   -------   --------   ---------   "
+            + "------   -----   ---------   -------");
+
+        // PROMOTE THE CODE ONCE, ON A SMALL WINDOW, BEFORE ANY ROW IS TIMED — and the reason is a
+        // trap this bench has now walked into twice. Tiered compilation promotes after about
+        // thirty calls, so a warm-up capped by TIME silently under-warms the moment the thing
+        // being measured gets slower: adding the merge tree to the warm-up loop cut it from a
+        // dozen calls to four and doubled every column, including the sampling stage, which the
+        // tree does not touch. Forty calls on a 64-sample window costs a tenth of a second and
+        // promotes the same methods every row runs.
+        for (int warm = 0; warm < 40; warm++)
+        {
+            MergeTree.Build(Watershed.Analyse(HeightField.Sample(generator, 0, 0, 64, cell)));
+        }
 
         foreach (int pitch in pitches)
         {
@@ -1142,21 +1197,21 @@ internal static class Program
             int metres = pitch * cell / VoxelConstants.VoxelsPerMetre;
             double bestSample = double.MaxValue;
             double bestFlood = double.MaxValue;
+            double bestTree = double.MaxValue;
             int basins = 0;
+            int nodes = 0;
+            long curveCells = 0;
             long held = 0;
-            int spilling = 0;
 
-            // WARM UP BY CALL COUNT, NOT BY ONE PASS, and the difference showed up as a fake
-            // finding. Tiered compilation promotes a method after about thirty calls, or sooner
-            // through on-stack replacement if a loop inside it runs long enough. A 256 m window
-            // floods in two milliseconds, so one warm-up pass leaves it in tier-0 code while the
-            // 1 km window is promoted mid-flood by OSR — which reported small windows at 685
-            // ns/sample against large ones at 303 and read as a cache effect. It was the JIT.
+            // Several untimed passes at THIS size, so the arrays a large window needs are already
+            // on the heap when the clock starts. A PRECAUTION, NOT A DIAGNOSIS: it was added while
+            // chasing a doubling that turned out to be the machine rather than the harness, and it
+            // did not move the numbers. Kept because it costs nothing and removes one variable.
             int warmups = 0;
             var warmClock = Stopwatch.StartNew();
-            while (warmups < 32 && warmClock.ElapsedMilliseconds < 250)
+            while (warmups < 8 && warmClock.ElapsedMilliseconds < 3000)
             {
-                Watershed.Analyse(HeightField.Sample(generator, 0, 0, pitch, cell));
+                MergeTree.Build(Watershed.Analyse(HeightField.Sample(generator, 0, 0, pitch, cell)));
                 warmups++;
             }
 
@@ -1170,39 +1225,48 @@ internal static class Program
                 Watershed analysed = Watershed.Analyse(field);
                 double floodMillis = clock.Elapsed.TotalMilliseconds;
 
+                clock.Restart();
+                MergeTree tree = MergeTree.Build(analysed);
+                double treeMillis = clock.Elapsed.TotalMilliseconds;
+
                 bestSample = Math.Min(bestSample, sampleMillis);
                 bestFlood = Math.Min(bestFlood, floodMillis);
+                bestTree = Math.Min(bestTree, treeMillis);
 
                 basins = analysed.Basins.Count;
+                nodes = tree.NodeCount;
+
+                // Curve cells is the eager-composite-curve cost the plan named lazy building
+                // against: every node keeps the elevations it can flood, so the total is O(n log n)
+                // rather than O(n). Reported so the decision is a number rather than a worry.
+                curveCells = 0;
                 held = 0;
-                spilling = 0;
+                for (int node = 0; node < tree.NodeCount; node++)
+                {
+                    curveCells += tree.Curve(node).CellCount;
+                }
+
                 foreach (Basin basin in analysed.Basins)
                 {
                     held += basin.CapacityLitres;
-                    if (basin.SpillTo != Watershed.Outlet)
-                    {
-                        spilling++;
-                    }
                 }
             }
 
-            double total = bestSample + bestFlood;
+            double total = bestSample + bestFlood + bestTree;
             Console.WriteLine(
                 $"  {metres,4} m   {samples,7}   {bestSample,9:F2}   {bestFlood,8:F2}   "
-                + $"{total,8:F2}   {total * 1_000_000 / samples,9:F0}   {basins,6}   "
-                + $"{held / 1_000_000.0,7:F1}   {spilling,8}");
+                + $"{bestTree,7:F2}   {total,8:F2}   {total * 1_000_000 / samples,9:F0}   "
+                + $"{basins,6}   {nodes,5}   {curveCells * 4 / 1_000_000.0,9:F1}   "
+                + $"{held / 1_000_000.0,7:F1}");
         }
 
         Console.WriteLine();
         Console.WriteLine(
-            "  'held' is what every basin in the window would contain at its own saddle — the "
-            + "capacity M7b fills, not");
+            "  'held' is what every LEAF basin would contain at its own saddle — not what the "
+            + "landscape holds, which is the");
         Console.WriteLine(
-            "  a prediction of what will be in it. 'spilling' counts basins whose overflow goes "
-            + "to another basin rather");
-        Console.WriteLine(
-            "  than out of the window, which is the share of the work M7a-2's merge tree will "
-            + "have to route.");
+            "  root of the tree and much larger. 'curves MB' is what eager composite curves cost, "
+            + "against building them lazily.");
         return 0;
     }
 }

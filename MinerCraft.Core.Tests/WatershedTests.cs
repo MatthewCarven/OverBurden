@@ -1,5 +1,4 @@
 using MinerCraft.Core.Hydrology;
-using MinerCraft.Core.Lighting;
 
 namespace MinerCraft.Core.Tests;
 
@@ -24,29 +23,6 @@ public class WatershedTests
 {
     private const int Cell = HeightField.DefaultCellVoxels;
 
-    /// <summary>Terrain from a literal grid of sample heights, indexed in absolute samples.</summary>
-    private sealed class Grid(int[,] samples, int outside) : ISurfaceHeights
-    {
-        public int SurfaceHeightAt(int worldX, int worldZ)
-        {
-            if (worldX % Cell != 0 || worldZ % Cell != 0)
-            {
-                throw new InvalidOperationException("the analysis sampled off its own lattice");
-            }
-
-            int sx = worldX / Cell;
-            int sz = worldZ / Cell;
-            bool inside = sx >= 0 && sz >= 0
-                && sz < samples.GetLength(0) && sx < samples.GetLength(1);
-            return inside ? samples[sz, sx] : outside;
-        }
-    }
-
-    private sealed class Analytic(Func<int, int, int> height) : ISurfaceHeights
-    {
-        public int SurfaceHeightAt(int worldX, int worldZ) => height(worldX, worldZ);
-    }
-
     /// <summary>A square pit with a shelf around it — the fixture VolumeCurveTests does by hand.</summary>
     private static int[,] SteppedTank() =>
         new[,]
@@ -63,7 +39,7 @@ public class WatershedTests
     [Fact]
     public void TheSteppedTankIsFoundWhereItIsAndHoldsWhatArithmeticSays()
     {
-        var field = HeightField.Sample(new Grid(SteppedTank(), outside: 10), 0, 0, pitch: 7);
+        var field = HeightField.Sample(new SampleGrid(SteppedTank(), outside: 10), 0, 0, pitch: 7);
         var watershed = Watershed.Analyse(field);
 
         var basin = Assert.Single(watershed.Basins);
@@ -85,20 +61,20 @@ public class WatershedTests
         // four neighbours are two shelf cells and two rim cells — so a sweep that looks only at
         // cells strictly below itself declares each of them a pit. The terrain then fills with
         // basins that hold nothing, and the real pit loses the catchment they stole.
-        var field = HeightField.Sample(new Grid(SteppedTank(), outside: 10), 0, 0, pitch: 7);
+        var field = HeightField.Sample(new SampleGrid(SteppedTank(), outside: 10), 0, 0, pitch: 7);
         var watershed = Watershed.Analyse(field);
 
         Assert.Single(watershed.Basins);
 
         // And a wholly flat world has none at all, rather than one per interior cell.
-        var flat = HeightField.Sample(new Analytic((_, _) => 12), 0, 0, pitch: 9);
+        var flat = HeightField.Sample(new AnalyticSurface((_, _) => 12), 0, 0, pitch: 9);
         Assert.Empty(Watershed.Analyse(flat).Basins);
     }
 
     [Fact]
     public void ATiltedPlaneHasNoBasinsAndEveryDropLeaves()
     {
-        var field = HeightField.Sample(new Analytic((x, _) => x / Cell), 0, 0, pitch: 12);
+        var field = HeightField.Sample(new AnalyticSurface((x, _) => x / Cell), 0, 0, pitch: 12);
         var watershed = Watershed.Analyse(field);
 
         Assert.Empty(watershed.Basins);
@@ -125,13 +101,13 @@ public class WatershedTests
 
         samples[3, 3] = 0;
         var inside = Watershed.Analyse(
-            HeightField.Sample(new Grid(samples, outside: 10), 0, 0, pitch: 7));
+            HeightField.Sample(new SampleGrid(samples, outside: 10), 0, 0, pitch: 7));
         Assert.Single(inside.Basins);
 
         samples[3, 3] = 10;
         samples[3, 0] = 0;
         var onEdge = Watershed.Analyse(
-            HeightField.Sample(new Grid(samples, outside: 10), 0, 0, pitch: 7));
+            HeightField.Sample(new SampleGrid(samples, outside: 10), 0, 0, pitch: 7));
         Assert.Empty(onEdge.Basins);
     }
 
@@ -156,7 +132,7 @@ public class WatershedTests
         };
 
         var watershed = Watershed.Analyse(
-            HeightField.Sample(new Grid(samples, outside: 20), 0, 0, pitch: 7));
+            HeightField.Sample(new SampleGrid(samples, outside: 20), 0, 0, pitch: 7));
 
         Assert.Equal(2, watershed.Basins.Count);
         var deep = watershed.Basins.Single(b => b.PitHeight == 0);
@@ -195,7 +171,7 @@ public class WatershedTests
         };
 
         var watershed = Watershed.Analyse(
-            HeightField.Sample(new Grid(samples, outside: 20), 0, 0, pitch: 7));
+            HeightField.Sample(new SampleGrid(samples, outside: 20), 0, 0, pitch: 7));
 
         Assert.Equal(2, watershed.Basins.Count);
         var left = watershed.Basins[0];
@@ -212,7 +188,7 @@ public class WatershedTests
     {
         // The test that would have caught keying a basin by array index. The window is centred on
         // the player, so it moves; a pit's world coordinate must not.
-        var terrain = new Grid(BowlAt(sampleX: 14, sampleZ: 13, radius: 4, depth: 8, plain: 30), 30);
+        var terrain = new SampleGrid(BowlAt(sampleX: 14, sampleZ: 13, radius: 4, depth: 8, plain: 30), 30);
 
         var near = Watershed.Analyse(HeightField.Sample(terrain, 0, 0, pitch: 32));
         var shifted = Watershed.Analyse(HeightField.Sample(terrain, 4 * Cell, 3 * Cell, pitch: 32));
@@ -244,7 +220,7 @@ public class WatershedTests
         const int depthVoxels = 80;
         const int radiusVoxels = 400;
 
-        var terrain = new Analytic((x, z) =>
+        var terrain = new AnalyticSurface((x, z) =>
         {
             double centreX = x - (64 * Cell);
             double centreZ = z - (64 * Cell);
@@ -287,7 +263,7 @@ public class WatershedTests
                 }
             }
 
-            var field = HeightField.Sample(new Grid(samples, outside: 6), 0, 0, pitch: 12);
+            var field = HeightField.Sample(new SampleGrid(samples, outside: 6), 0, 0, pitch: 12);
             var watershed = Watershed.Analyse(field);
             int[] expected = BruteForceFilled(field);
 
@@ -313,7 +289,7 @@ public class WatershedTests
                 }
             }
 
-            var field = HeightField.Sample(new Grid(samples, outside: 9), 0, 0, pitch: 24);
+            var field = HeightField.Sample(new SampleGrid(samples, outside: 9), 0, 0, pitch: 24);
             var watershed = Watershed.Analyse(field);
 
             for (int i = 0; i < field.SampleCount; i++)
