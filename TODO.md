@@ -2890,6 +2890,58 @@ the report it prints.
 
 ## Phase 3 — Depth
 
+
+#### Deferred collapse — Matthew's proposal, 2026-09-01, and the leading candidate
+
+Raised before M9 is planned: *"realtime collapse isn't necessarily required, like I'd be ok of a
+cavern or cave or overhang of too much collapsed at a random time after becoming a possibility
+like that way we can use it to damage your health so you always mine the overhangs etc."*
+
+**This is a better mechanic than continuous collapse and not merely a cheaper one, and it should
+be the starting point of M9's planning pass rather than a fallback in it.** Five reasons, and the
+first is the one that actually matters:
+
+- **A random delay decouples the collapse from the frame it became possible, which changes the
+  failure mode of the whole subsystem.** M9's own line already says *incremental, local, budgeted,
+  off-thread — never global*, and a budget that falls behind on a continuous solver produces
+  **wrong physics**: rock that should have fallen and did not. Under a deferred model a late
+  evaluation produces a **later collapse**, which is indistinguishable from the design. **The
+  system is allowed to be slow**, and that is worth more than any constant factor.
+- **It licenses coarse, lazy evaluation.** "Is this overhang at risk" is a regional judgement, so
+  it can run on a coarse grid, on a timer, sampled — rather than per-voxel on every edit. The
+  saving is in *promptness and resolution*, not in skipping the support analysis, and that is the
+  honest way to state it.
+- **A delay is what makes it a hazard rather than a puzzle.** Deterministic instant collapse
+  teaches the player to avoid an exact configuration; a delayed one teaches them **not to be
+  under it**. DESIGN says the mine is the antagonist, and an antagonist with an element of chance
+  reads as alive where a solver reads as a machine.
+- **It gives warning signs somewhere to live.** Under instant collapse a creak or a dust-fall has
+  no window to occupy. Under this one there is a natural interval between *became possible* and
+  *fell*, which is where the entire vocabulary of mining dread goes — and it is nearly free.
+- **It pairs with damage, which is what Matthew wants it for**, and M9 already lists
+  *damage/death from collapse*.
+
+**The one real objection, and it is a design problem rather than a technical one: a purely random
+collapse is not attributable.** For *"so you always mine the overhangs"* to be learned, the player
+has to connect the damage to the thing they failed to do. Damage arriving from an unannounced
+ceiling reads as arbitrary and teaches nothing. **So the warning signs are not polish — they are
+what makes the mechanic legible**, and they should be planned with it rather than after it.
+
+Three things to settle in M9's planning pass, all cheap now and expensive later:
+
+- [ ] **Does the at-risk state persist across a quit?** M6 made this a real question. Either the
+      timer is a stored field, or the at-risk set is recomputed at load and the delay re-rolled.
+      **Recomputing is cheaper and probably also better** — it means a save cannot be used to
+      freeze a ceiling indefinitely — but it needs saying out loud, because "my base collapsed the
+      moment I logged back in" is the version nobody wants.
+- [ ] **The randomness must be server-authoritative and seeded**, per non-negotiable 1: Core is
+      the multiplayer seam, and a per-client roll means two players see different ceilings.
+      Trivial to get right now, a protocol change later.
+- [ ] **What the delay is a function of.** A flat random interval is the simplest and probably
+      enough; making it shorter as support degrades is the obvious refinement and is what would
+      let **saturation degrading support distance** — M9's recorded keystone interaction — express
+      itself as *the ceiling starts creaking sooner* rather than as a step change.
+
 ### M10 — Fighting back
 
 - [ ] Machine framework registered through the public mod API (dogfood test:
