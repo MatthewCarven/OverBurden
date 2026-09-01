@@ -101,6 +101,34 @@ public interface IWorldStore : IDisposable
         IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,
         IReadOnlyList<(int X, int Z, byte[] Blob)> columns);
 
+    /// <summary>Every basin holding water, by the world coordinate of its pit.</summary>
+    /// <remarks>
+    /// Read once at open, like the chunk index and for the same reason: a basin's water is asked
+    /// for whenever the watershed window moves, which is far too often to be a query.
+    /// </remarks>
+    IReadOnlyList<StoredBasin> ReadBasins();
+
+    /// <summary>
+    /// Replaces every stored basin volume with <paramref name="basins"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A replacement rather than an upsert, and the cost is stated rather than hidden.</b> The
+    /// ledger in memory is the truth — it holds every basin the player has ever rained on, not
+    /// just the ones in view — so writing it whole is the shape that cannot desynchronise. It also
+    /// means an autosave rewrites rows that did not change: at 1,376 basins per square kilometre
+    /// explored, a heavily travelled world is tens of thousands of rows and tens of milliseconds.
+    /// <b>Revisit trigger: the basin write becomes visible next to M6b-3's 13 ms autosave.</b> The
+    /// fix is dirty-tracking in the ledger, which is why the ledger and not the store owns
+    /// identity.
+    /// </para>
+    /// <para>
+    /// Passing an empty list therefore <em>clears</em> the table, which is exactly what a world
+    /// opened with a different watershed lattice needs.
+    /// </para>
+    /// </remarks>
+    void WriteBasins(IReadOnlyList<StoredBasin> basins);
+
     /// <summary>
     /// Pushes everything written so far into the main file rather than leaving it in a sidecar.
     /// </summary>
@@ -113,6 +141,16 @@ public interface IWorldStore : IDisposable
     /// </remarks>
     void Flush();
 }
+
+/// <summary>One basin's stored water, keyed by the world coordinate of its pit.</summary>
+/// <remarks>
+/// <b>The pit rather than an index, and that is the whole reason this type exists.</b> The
+/// watershed window is centred on the player, so every basin's array position renumbers when they
+/// walk far enough; volume keyed on one would silently reattach to a different basin, draining a
+/// lake and flooding the valley next door with nothing failing anywhere. A pit is a property of
+/// the terrain — deterministic from the seed, identical across sessions and machines.
+/// </remarks>
+public readonly record struct StoredBasin(int PitX, int PitZ, long Litres);
 
 /// <summary>An <see cref="IWorldStore"/> that keeps everything in memory.</summary>
 /// <remarks>
@@ -132,6 +170,7 @@ public sealed class InMemoryWorldStore : IWorldStore
 {
     private readonly Dictionary<ChunkPos, byte[]> _chunks = [];
     private readonly Dictionary<(int X, int Z), byte[]> _columns = [];
+    private readonly Dictionary<(int X, int Z), long> _basins = [];
     private byte[]? _header;
 
     /// <summary>How many times <see cref="Write"/> has been called. For tests about batching.</summary>
@@ -143,6 +182,9 @@ public sealed class InMemoryWorldStore : IWorldStore
     /// <summary>How many column blobs have been written, counting rewrites.</summary>
     public int ColumnWrites { get; private set; }
 
+    /// <summary>How many times the basin table has been replaced.</summary>
+    public int BasinWrites { get; private set; }
+
     public int FlushCalls { get; private set; }
 
     public bool IsDisposed { get; private set; }
@@ -153,6 +195,21 @@ public sealed class InMemoryWorldStore : IWorldStore
     {
         ArgumentNullException.ThrowIfNull(blob);
         _header = Copy(blob);
+    }
+
+    public IReadOnlyList<StoredBasin> ReadBasins() =>
+        [.. _basins.Select(entry => new StoredBasin(entry.Key.X, entry.Key.Z, entry.Value))];
+
+    public void WriteBasins(IReadOnlyList<StoredBasin> basins)
+    {
+        ArgumentNullException.ThrowIfNull(basins);
+
+        BasinWrites++;
+        _basins.Clear();
+        foreach (StoredBasin basin in basins)
+        {
+            _basins[(basin.PitX, basin.PitZ)] = basin.Litres;
+        }
     }
 
     public IReadOnlyCollection<ChunkPos> LoadChunkIndex() => [.. _chunks.Keys];

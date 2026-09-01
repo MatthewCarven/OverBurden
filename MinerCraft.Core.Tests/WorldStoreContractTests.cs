@@ -308,6 +308,69 @@ public abstract class WorldStoreContractTests : IDisposable
     // -----------------------------------------------------------------------------------------
 
     [Fact]
+    public void BasinsRoundTrip()
+    {
+        IWorldStore store = Track(CreateStore());
+        Assert.Empty(store.ReadBasins());
+
+        store.WriteBasins(
+            [
+                new StoredBasin(16, -32, 4000),
+                new StoredBasin(-48, 96, 1),
+            ]);
+
+        Assert.Equal(
+            [
+                new StoredBasin(-48, 96, 1),
+                new StoredBasin(16, -32, 4000),
+            ],
+            store.ReadBasins().OrderBy(basin => basin.PitX).ToArray());
+    }
+
+    [Fact]
+    public void WritingBasinsReplacesRatherThanMerges()
+    {
+        // The ledger in memory is the truth, so a write is the whole of it. Merging instead would
+        // leave a basin that has drained holding water forever, and only on disk.
+        IWorldStore store = Track(CreateStore());
+
+        store.WriteBasins([new StoredBasin(0, 0, 1000), new StoredBasin(16, 0, 2000)]);
+        store.WriteBasins([new StoredBasin(16, 0, 500)]);
+
+        StoredBasin only = Assert.Single(store.ReadBasins());
+        Assert.Equal(new StoredBasin(16, 0, 500), only);
+    }
+
+    [Fact]
+    public void WritingNoBasinsClearsThem()
+    {
+        // Which is exactly what a world opened with a different watershed lattice asks for.
+        IWorldStore store = Track(CreateStore());
+
+        store.WriteBasins([new StoredBasin(32, 32, 9000)]);
+        store.WriteBasins([]);
+
+        Assert.Empty(store.ReadBasins());
+    }
+
+    [Fact]
+    public void ABasinSurvivesAReopen()
+    {
+        if (!CanReopen)
+        {
+            return;
+        }
+
+        IWorldStore store = Track(CreateStore());
+        store.WriteBasins([new StoredBasin(-16, 240, 123_456)]);
+        store.Flush();
+
+        IWorldStore reopened = Track(Reopen(store));
+        StoredBasin only = Assert.Single(reopened.ReadBasins());
+        Assert.Equal(new StoredBasin(-16, 240, 123_456), only);
+    }
+
+    [Fact]
     public void FlushIsSafeOnAnEmptyWorld() => Track(CreateStore()).Flush();
 
     [Fact]

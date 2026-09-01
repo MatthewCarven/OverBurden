@@ -1,5 +1,69 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-02 — M7b-2: water that outlives the window it was analysed in
+
+Header **v3** carries the world clock and the watershed lattice; a `basins` table carries the
+water; `BasinLedger` is the thing in the middle that knows about basins nobody is currently
+looking at. Suite **778 → 797**. Nothing is wired into the game yet — that is M7c and M7d.
+
+**The structural point, and it is why a ledger exists at all: a `BasinWater` only ever holds what
+is inside the analysis window.** Walk a kilometre and the watershed is redone somewhere else; the
+lake you left has no representation in memory at all. So the persistent thing cannot be the
+window's arrays — it has to be a map from *pit coordinate* to litres that outlives every analysis,
+and **that is the second time M7a-1's "identity is a world coordinate, not an array index"
+decision has paid for itself.**
+
+### Capture is exact, and the reason is a property rather than a mechanism
+
+`BasinWater.CaptureByBasin` attributes every node's water to a basin, and **pouring the result back
+into a fresh water over the same tree reproduces the state node for node** — slabs, free counts and
+levels. That works because fill-and-spill is **order-independent**: where water comes to rest is
+determined by how much entered at each basin, not by the order it arrived in. So a composite's slab
+— water standing above two basins' rims, belonging to neither — can be credited to either of them
+and poured back through the same cascade it came out of.
+
+**The battery proves the arbitrariness rather than the comment claiming it**: attributing
+composites to the *rightmost* basin instead of the leftmost leaves the whole suite green, while
+dropping composite slabs entirely fails two tests. One of those is a real difference and the other
+is not, and now the code says which is which.
+
+### Three decisions in the format, all of them about what happens when something is wrong
+
+- **Header v3 is additive, so v1 and v2 both migrate.** A v2 header is a v3 one without its clock
+  and lattice, and both defaults are true statements about such a world: it has never run for any
+  length of time, and it has no stored basins to be keyed on any lattice at all. Same policy M6c-2
+  wrote down, now used twice.
+- **A changed watershed lattice discards the volumes rather than refusing the world or
+  reinterpreting them.** A pit is a sample on the lattice, so changing it renames every basin in
+  the world; keeping the coordinates would land stored water on whatever pit happened to be
+  nearest, which is a lake appearing in the wrong valley with nothing failing anywhere. Refusing to
+  open is worse than losing rain that refills in minutes, because the chunks, the inventory and the
+  player's position are all still exactly right.
+- **`WriteBasins` replaces the table rather than merging into it, and the cost is stated.** The
+  ledger in memory is the truth, so writing it whole is the shape that cannot desynchronise — at
+  the price of rewriting rows that did not change. At 1,376 basins per square kilometre explored,
+  a well-travelled world is tens of thousands of rows. **Revisit trigger: the basin write becomes
+  visible next to M6b-3's 13 ms autosave**, and the fix is dirty-tracking in the ledger, which is
+  why the ledger and not the store owns identity.
+
+### Two smaller things worth keeping
+
+- **Absorb replaces; it does not add.** Getting that backwards would double a lake every time the
+  player crossed the same ground twice — a defect that only appears in a long session and looks
+  like the weather being generous.
+- **A basin that empties leaves no row behind**, because an absent pit already means "no water
+  here" and a zero row is a second way to say the same thing that the store would carry forever.
+
+**Ten break-recipes, nine caught**, the tenth being the attribution above. Adding the trailing
+twelve bytes also moved two existing corruption tests that count offsets back from the end of the
+payload — both now step over a named `ClockAndLatticeBytes` constant instead of a literal, so the
+next format change is one edit rather than a hunt.
+
+**What is left before M7 can be played: nothing in the game reads any of this yet.** The clock is
+not advanced by a frame, the watershed is not analysed around the player, and no rain falls. That
+wiring is M7c and M7d, and it is the first point at which a person can see whether any of it works.
+
+
 ## 2026-09-01 — M7b-1: the clock, the weather, and rain that is too slow to watch
 
 `WorldClock`, `Weather` and `BasinRainfall` — the world gains time, the sky gains a forecast that

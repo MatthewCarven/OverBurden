@@ -210,7 +210,17 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-**M7 is under way: all of M7a and M7b-1 are built (2026-09-01) — M7b-2, persistence, is next.**
+**M7 is under way: all of M7a and all of M7b are built (2026-09-02) — M7c, the rain you can see,
+is next. Nothing is wired into the game yet**, so the clock does not advance, no watershed is
+analysed around the player and no rain falls; M7c and M7d are the first point at which a person can
+see any of it. **Header v3** carries the world clock and the watershed lattice, a `basins` table
+carries the water, and **`BasinLedger` holds the basins nobody is currently looking at** — which is
+the structural point, because a `BasinWater` only ever holds what is inside the analysis window.
+**A changed watershed lattice discards stored volumes rather than refusing the world**: a pit is a
+sample on that lattice, so changing it renames every basin, and rain refills in minutes where a
+refused world helps nobody.
+
+
 `WorldClock`, `Weather` and `BasinRainfall` give the world time, a forecast that is a pure function
 of the seed, and rain that lands on catchments. **The oracle passes with no tolerance: an hour in
 one call equals 3,600 calls of one second**, basin for basin. Two things from it:

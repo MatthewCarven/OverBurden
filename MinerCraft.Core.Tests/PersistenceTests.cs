@@ -999,6 +999,11 @@ public class PersistenceTests
             IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,
             IReadOnlyList<(int X, int Z, byte[] Blob)> columns) => Inner.Write(chunks, columns);
 
+        public virtual IReadOnlyList<StoredBasin> ReadBasins() => Inner.ReadBasins();
+
+        public virtual void WriteBasins(IReadOnlyList<StoredBasin> basins) =>
+            Inner.WriteBasins(basins);
+
         public virtual void Flush() => Inner.Flush();
 
         public void Dispose() => Inner.Dispose();

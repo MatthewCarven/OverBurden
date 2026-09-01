@@ -38,8 +38,14 @@ public sealed class SqliteWorldStore : IWorldStore
     /// Two versions rather than one because they change for unrelated reasons: adding a table is
     /// not a statement about how a chunk packs its palette. Stored in SQLite's own
     /// <c>user_version</c> pragma, which costs no table and no row.
+    ///
+    /// <para>
+    /// <b>Moved to 2 at M7b-2</b> for the <c>basins</c> table. An older file gains it on open —
+    /// every statement here is <c>IF NOT EXISTS</c> — so the bump records what happened rather
+    /// than gating anything, and a file written by a <em>newer</em> build is still refused.
+    /// </para>
     /// </remarks>
-    public const int SchemaVersion = 1;
+    public const int SchemaVersion = 2;
 
     private const string HeaderKey = "header";
 
@@ -50,6 +56,7 @@ public sealed class SqliteWorldStore : IWorldStore
     private readonly SqliteCommand _readColumn;
     private readonly SqliteCommand _writeChunk;
     private readonly SqliteCommand _writeColumn;
+    private readonly SqliteCommand _writeBasin;
 
     private bool _disposed;
 
@@ -92,6 +99,10 @@ public sealed class SqliteWorldStore : IWorldStore
             "INSERT INTO columns (cx, cz, blob) VALUES ($x, $z, $blob) "
             + "ON CONFLICT(cx, cz) DO UPDATE SET blob = excluded.blob;",
             "$x", "$z", "$blob");
+
+        _writeBasin = Prepare(
+            "INSERT INTO basins (pit_x, pit_z, litres) VALUES ($x, $z, $litres);",
+            "$x", "$z", "$litres");
     }
 
     /// <summary>The file this store was opened on.</summary>
@@ -222,6 +233,62 @@ public sealed class SqliteWorldStore : IWorldStore
         }
     }
 
+    public IReadOnlyList<StoredBasin> ReadBasins()
+    {
+        ThrowIfDisposed();
+
+        var basins = new List<StoredBasin>();
+
+        using SqliteCommand command = _connection.CreateCommand();
+        command.CommandText = "SELECT pit_x, pit_z, litres FROM basins;";
+
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            basins.Add(new StoredBasin(
+                reader.GetInt32(0), reader.GetInt32(1), reader.GetInt64(2)));
+        }
+
+        return basins;
+    }
+
+    public void WriteBasins(IReadOnlyList<StoredBasin> basins)
+    {
+        ArgumentNullException.ThrowIfNull(basins);
+        ThrowIfDisposed();
+
+        // Delete and insert inside one transaction, so a world is never briefly a world with no
+        // water in it. The empty case still runs, because clearing is exactly what a world opened
+        // with a different watershed lattice asks for.
+        using SqliteTransaction transaction = _connection.BeginTransaction();
+
+        using (SqliteCommand clear = _connection.CreateCommand())
+        {
+            clear.Transaction = transaction;
+            clear.CommandText = "DELETE FROM basins;";
+            clear.ExecuteNonQuery();
+        }
+
+        _writeBasin.Transaction = transaction;
+
+        try
+        {
+            foreach (StoredBasin basin in basins)
+            {
+                _writeBasin.Parameters["$x"].Value = basin.PitX;
+                _writeBasin.Parameters["$z"].Value = basin.PitZ;
+                _writeBasin.Parameters["$litres"].Value = basin.Litres;
+                _writeBasin.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+        }
+        finally
+        {
+            _writeBasin.Transaction = null;
+        }
+    }
+
     public void Flush()
     {
         ThrowIfDisposed();
@@ -242,6 +309,7 @@ public sealed class SqliteWorldStore : IWorldStore
         _readColumn.Dispose();
         _writeChunk.Dispose();
         _writeColumn.Dispose();
+        _writeBasin.Dispose();
 
         // Checkpointed on the way out so the main file holds what was committed. Not required for
         // durability — the WAL is part of the database — but a .db that stays at its initial size
@@ -315,6 +383,13 @@ public sealed class SqliteWorldStore : IWorldStore
                 cz   INTEGER NOT NULL,
                 blob BLOB    NOT NULL,
                 PRIMARY KEY (cx, cz)
+            ) STRICT;
+
+            CREATE TABLE IF NOT EXISTS basins (
+                pit_x  INTEGER NOT NULL,
+                pit_z  INTEGER NOT NULL,
+                litres INTEGER NOT NULL,
+                PRIMARY KEY (pit_x, pit_z)
             ) STRICT;
             """;
 

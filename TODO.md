@@ -3111,16 +3111,38 @@ the merge tree is a second thing with its own hazard — see the two-cycle below
       which normalise to 26.8 and 27.7 — agreement to 3% across a machine that had changed speed
       by a factor of two.
 
-##### M7b-2 — Persistence ← **next**
+##### M7b-2 — Persistence ✅ **done 2026-09-02, 797 tests passing**
 
-- [ ] A `basins` table keyed `(pitX, pitZ)`; zero-volume basins are simply absent.
+- [x] A `basins` table keyed `(pitX, pitZ)`; zero-volume basins are simply absent. SQLite schema
+      version 1 → 2; an older file gains the table on open.
+- [x] **`BasinLedger` is the structural point: a `BasinWater` only ever holds what is inside the
+      analysis window.** Walk a kilometre and the lake you left has no representation in memory at
+      all, so the persistent thing has to be a map from *pit coordinate* to litres that outlives
+      every analysis. **Second time M7a-1's identity decision has paid for itself.**
+- [x] **Capture is exact, and the reason is a property rather than a mechanism.** Pouring
+      `CaptureByBasin`'s result back into a fresh water over the same tree reproduces the state
+      node for node, because fill-and-spill is **order-independent** — where water rests depends on
+      how much entered at each basin, not on the order.
+      - [x] **The battery proves the attribution is arbitrary rather than the comment claiming
+            it:** crediting composites to the rightmost basin instead of the leftmost leaves the
+            suite green, while dropping composite slabs fails two tests.
+- [x] **Absorb replaces, it does not add** — otherwise a lake doubles every time the player crosses
+      the same ground twice, which only shows up in a long session and reads as generous weather.
+- [x] **`WriteBasins` replaces the table rather than merging, and the cost is stated.** Tens of
+      thousands of rows for a well-travelled world. **Revisit trigger: the basin write becomes
+      visible next to M6b-3's 13 ms autosave**; the fix is dirty-tracking in the ledger.
+- [x] **Ten break-recipes, nine caught.**
 - [ ] **The oracle, and it is the same category as M5's:** integrating **600 s in one call must
       equal 600 calls of one second, to the litre**. No tolerance — integers and a closed form are
       either identical or one is wrong. **The assertion and the feature are the same statement**,
       because that property *is* "flew away mid-fill and came back", and it is the cash value of
       [slower than realtime is accuracy](#slower-than-realtime-is-accuracy-not-approximation--matthew-2026-09-01).
-- [ ] Also: store round trip; two-deep overflow conserving volume; a changed `WatershedCellMetres`
-      discarding rather than throwing; the clock not advancing while the world is closed.
+- [x] Also: store round trip; a changed `WatershedCellMetres` discarding rather than throwing;
+      header v3 migrating v1 and v2; a negative clock refused at write and at read.
+- [ ] **Still owed, and it belongs to the wiring rather than to the format: the clock not advancing
+      while the world is closed.** Core cannot test it — `WorldClock` only moves when something
+      calls `Advance` — so it is M7c/M7d's to demonstrate, and it is the kind of claim that is
+      true by construction right up until a session advances the clock from wall time.
 
 #### M7c — Rain you can see
 

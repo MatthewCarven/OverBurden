@@ -2,6 +2,8 @@ using System.Buffers.Binary;
 using System.Numerics;
 using System.Text;
 using MinerCraft.Core.Content;
+using MinerCraft.Core.Hydrology;
+using MinerCraft.Core.Voxels;
 using MinerCraft.Core.Worldgen;
 
 namespace MinerCraft.Core.Persistence;
@@ -50,6 +52,32 @@ public sealed record WorldHeader
     /// inventory always writes the same bytes.
     /// </remarks>
     public IReadOnlyList<InventoryEntry> Inventory { get; init; } = [];
+
+    /// <summary>
+    /// Simulated milliseconds this world has been running. Zero for a world nobody has entered.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nothing needed time for six milestones.</b> Worldgen is a pure function of position,
+    /// light is a fixpoint, physics takes <c>dt</c> and remembers nothing. M7's rainfall is a pure
+    /// function of (seed, time), so this field is half of what makes a fill resume where it left
+    /// off — and M8's water and M9's collapse delay both want it too. <b>It advances only while
+    /// the world is open</b>: see <see cref="WorldClock"/> for why, and for the trigger that would
+    /// change it.
+    /// </remarks>
+    public long ElapsedMillis { get; init; }
+
+    /// <summary>The watershed lattice this world's stored basin volumes are keyed on.</summary>
+    /// <remarks>
+    /// <b>A basin is identified by the world coordinate of its pit, and a pit is a sample on this
+    /// lattice</b> — so changing the lattice renames every basin in the world. Stored here so a
+    /// build that changes it can notice, rather than quietly reattaching stored water to whatever
+    /// pit happens to be nearest. <b>The policy is to discard the volumes rather than refuse the
+    /// world</b>: they refill in minutes of rain, and refusing to open a world over a derived
+    /// quantity is the worse failure. Defaulted from the lattice itself, so there is one
+    /// definition of what 4 m means.
+    /// </remarks>
+    public int WatershedCellMetres { get; init; } =
+        HeightField.DefaultCellVoxels / VoxelConstants.VoxelsPerMetre;
 
     /// <summary>Where the player was and how they were moving. Null for a world nobody has entered.</summary>
     /// <remarks>
@@ -109,19 +137,22 @@ public static class WorldHeaderBlob
 {
     /// <summary>The version this build writes.</summary>
     /// <remarks>
-    /// <b>Moved to 2 at M6c-2</b>, which is the change <see cref="Version"/>'s own remark
-    /// predicted at M6a: the player's position and the volumetric inventory are a layout change.
-    /// During a milestone the only person holding a saved world is the one building it.
+    /// <b>Moved to 2 at M6c-2</b> for the player's position and the volumetric inventory, and
+    /// <b>to 3 at M7b-2</b> for the world clock and the watershed lattice. Both are strictly
+    /// additive, so both migrate under the policy in <see cref="OldestVersion"/>. During a
+    /// milestone the only person holding a saved world is the one building it.
     /// </remarks>
-    public const byte Version = 2;
+    public const byte Version = 3;
 
     /// <summary>The oldest layout this build can still read.</summary>
     /// <remarks>
     /// <para>
-    /// <b>Version 1 is migrated rather than refused, and the reason it is allowed to be is that
-    /// the change was strictly additive.</b> A v1 header is a v2 header without the two trailing
-    /// sections, so reading one means supplying two documented defaults — no inventory, no saved
-    /// player — and both are true statements about a world written before either existed.
+    /// <b>Older versions are migrated rather than refused, and the reason they are allowed to be
+    /// is that every change so far has been strictly additive.</b> A v1 header is a v2 header
+    /// without its two trailing sections and a v2 header is a v3 one without its clock and
+    /// lattice, so reading either means supplying documented defaults — no inventory, no saved
+    /// player, no time elapsed — and all of them are true statements about a world written before
+    /// the field existed.
     /// </para>
     /// <para>
     /// <b>This is not the thing M6a argued against.</b> That was a reader filling in a field the
@@ -181,12 +212,30 @@ public static class WorldHeaderBlob
         IReadOnlyList<InventoryEntry> inventory = ValidatedInventory(header);
 
         var encoded = new byte[table.Count][];
+        if (header.ElapsedMillis < 0)
+        {
+            throw new ArgumentException(
+                $"A world has been running for {header.ElapsedMillis} ms, which is not a length of "
+                + "time. World time does not run backwards.",
+                nameof(header));
+        }
+
+        if (header.WatershedCellMetres < 1)
+        {
+            throw new ArgumentException(
+                $"A watershed cell of {header.WatershedCellMetres} m cannot hold a lattice, and "
+                + "every stored basin is keyed on one.",
+                nameof(header));
+        }
+
         int payloadLength = SettingsBytes
                             + sizeof(int)
                             + sizeof(int)
                             + (inventory.Count * InventoryEntryBytes)
                             + 1
-                            + (header.Player is null ? 0 : PlayerBytes);
+                            + (header.Player is null ? 0 : PlayerBytes)
+                            + sizeof(long)
+                            + sizeof(int);
 
         for (int i = 0; i < table.Count; i++)
         {
@@ -244,6 +293,11 @@ public static class WorldHeaderBlob
         {
             payload[offset++] = 0;
         }
+
+        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(offset), header.ElapsedMillis);
+        offset += sizeof(long);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(offset), header.WatershedCellMetres);
+        offset += sizeof(int);
 
         byte[]? compressed = BlobFormat.TryCompress(payload);
         ReadOnlySpan<byte> stored = compressed ?? payload;
@@ -392,6 +446,39 @@ public static class WorldHeaderBlob
             player = ReadPlayer(payload, ref offset);
         }
 
+        // Version 2 stopped here, so a world written before M7b-2 has never had a clock and never
+        // had a watershed. Zero elapsed is exactly true of it; the lattice default is the one this
+        // build uses, which is right because such a world has no stored basins to be keyed on
+        // anything else.
+        long elapsedMillis = 0;
+        int watershedCellMetres = HeightField.DefaultCellVoxels / VoxelConstants.VoxelsPerMetre;
+
+        if (version >= 3)
+        {
+            if (payload.Length - offset < sizeof(long) + sizeof(int))
+            {
+                throw new BlobFormatException(
+                    $"{What}: ran out of bytes reading the world clock and watershed lattice.");
+            }
+
+            elapsedMillis = BinaryPrimitives.ReadInt64LittleEndian(payload[offset..]);
+            offset += sizeof(long);
+            watershedCellMetres = BinaryPrimitives.ReadInt32LittleEndian(payload[offset..]);
+            offset += sizeof(int);
+
+            if (elapsedMillis < 0)
+            {
+                throw new BlobFormatException(
+                    $"{What}: the world clock reads {elapsedMillis} ms, which is not a length of time.");
+            }
+
+            if (watershedCellMetres < 1)
+            {
+                throw new BlobFormatException(
+                    $"{What}: a watershed cell of {watershedCellMetres} m cannot hold a lattice.");
+            }
+        }
+
         if (offset != payload.Length)
         {
             throw new BlobFormatException(
@@ -416,6 +503,8 @@ public static class WorldHeaderBlob
             MaterialIdTable = table,
             Inventory = inventory,
             Player = player,
+            ElapsedMillis = elapsedMillis,
+            WatershedCellMetres = watershedCellMetres,
         };
     }
 

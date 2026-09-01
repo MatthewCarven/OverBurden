@@ -158,6 +158,55 @@ public sealed class BasinWater
         }
     }
 
+    /// <summary>
+    /// The water in this tree, attributed to basins so it can be stored against something that
+    /// outlives the window.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Pouring the result back into a fresh <see cref="BasinWater"/> over the same tree
+    /// reproduces this state exactly</b>, which is what makes it a capture rather than a summary.
+    /// It works because fill-and-spill is order-independent: the resting place of the water is
+    /// determined by how much entered at each basin, not by the order it arrived in — so the
+    /// attribution below need only be conservative, not physical.
+    /// </para>
+    /// <para>
+    /// A composite's slab is water standing <i>above</i> two basins' rims and belongs to neither,
+    /// so it is attributed to the leftmost basin beneath it. Poured back, that basin fills, its
+    /// sibling fills from its own share, and the surplus lands in the composite's slab again —
+    /// exactly where it was. <b>The alternative, keying composites in the store, would need an
+    /// identity for a lake that only exists while the window holds both its halves.</b>
+    /// </para>
+    /// <para>
+    /// <b>Which basin gets the credit is arbitrary, and the break-recipe battery says so rather
+    /// than the comment claiming it:</b> attributing composites to the <i>rightmost</i> basin
+    /// instead leaves the whole suite green. That is the order-independence above, measured.
+    /// Dropping composite slabs entirely is a different matter and fails two tests, because that
+    /// water is simply lost.
+    /// </para>
+    /// </remarks>
+    public long[] CaptureByBasin()
+    {
+        var perBasin = new long[_tree.LeafCount];
+        for (int node = 0; node < _tree.NodeCount; node++)
+        {
+            if (_volume[node] == 0)
+            {
+                continue;
+            }
+
+            int leaf = node;
+            while (_tree.Left(leaf) != MergeTree.None)
+            {
+                leaf = _tree.Left(leaf);
+            }
+
+            perBasin[leaf] += _volume[node];
+        }
+
+        return perBasin;
+    }
+
     private long Pour(int node, long litres)
     {
         if (litres <= 0 || _free[node] == 0)

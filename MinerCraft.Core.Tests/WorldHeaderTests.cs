@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Numerics;
 using MinerCraft.Core.Content;
 using MinerCraft.Core.Persistence;
@@ -269,6 +270,12 @@ public class WorldHeaderTests
     // -------------------------------------------------------------------------------------
 
     /// <summary>Bytes one inventory row occupies in the payload: an int32 ID and an int64 count.</summary>
+    /// <summary>
+    /// The clock and the watershed lattice M7b-2 appended, which every offset counted back from
+    /// the end of the payload has to step over.
+    /// </summary>
+    private const int ClockAndLatticeBytes = sizeof(long) + sizeof(int);
+
     private const int EntryBytes = 12;
 
     private static WorldHeader WithInventory(params (int MaterialId, long Voxels)[] entries) =>
@@ -321,15 +328,80 @@ public class WorldHeaderTests
         // field means would be refused instead; see WorldHeaderBlob.OldestVersion.
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone, Copper)));
 
-        // An empty inventory is a four-byte zero count, and no player is a single zero byte.
-        // Dropping exactly those five bytes is what a version 1 payload was.
-        byte[] older = payload[..^5];
+        // An empty inventory is a four-byte zero count and no player is a single zero byte; the
+        // clock and the watershed lattice that M7b-2 appended are eight more and four more.
+        // Dropping exactly those seventeen bytes is what a version 1 payload was.
+        byte[] older = payload[..^17];
 
         WorldHeader read = WorldHeaderBlob.Read(Reframe(older, version: 1));
 
         Assert.Equal([Air, Stone, Copper], read.MaterialIdTable);
         Assert.Empty(read.Inventory);
         Assert.Null(read.Player);
+    }
+
+    [Fact]
+    public void AWorldWrittenBeforeTheClockExistedStillOpens()
+    {
+        // The second migration, under the same policy: version 2 is version 3 without its clock
+        // and its watershed lattice, and both defaults are true statements about such a world —
+        // it has never run for any length of time and has no stored basins to be keyed on any
+        // lattice at all.
+        var inventory = new[] { new InventoryEntry(1, 64) };
+        var player = new PlayerSave(new Vector3(1.5f, 70.25f, -3.5f), Flying: true);
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(
+            Header(Air, Stone, Copper) with { Inventory = inventory, Player = player }));
+
+        byte[] older = payload[..^12];
+        WorldHeader read = WorldHeaderBlob.Read(Reframe(older, version: 2));
+
+        Assert.Equal(0, read.ElapsedMillis);
+        Assert.Equal(4, read.WatershedCellMetres);
+        Assert.Equal(inventory, read.Inventory);
+        Assert.Equal(player, read.Player);
+    }
+
+    [Fact]
+    public void TheClockAndTheWatershedLatticeSurviveTheRoundTrip()
+    {
+        WorldHeader written = Header(Air, Stone) with
+        {
+            ElapsedMillis = 1_234_567_890,
+            WatershedCellMetres = 8,
+        };
+
+        WorldHeader read = WorldHeaderBlob.Read(WorldHeaderBlob.Write(written));
+
+        Assert.Equal(1_234_567_890, read.ElapsedMillis);
+        Assert.Equal(8, read.WatershedCellMetres);
+    }
+
+    [Fact]
+    public void AWorldClockThatRanBackwardsIsRefused()
+    {
+        Assert.Throws<ArgumentException>(
+            () => WorldHeaderBlob.Write(Header(Air, Stone) with { ElapsedMillis = -1 }));
+
+        // And on read, because a header can arrive from a file rather than from this process.
+        byte[] blob = WorldHeaderBlob.Write(Header(Air, Stone));
+        byte[] payload = PayloadOf(blob);
+        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(payload.Length - 12), -1);
+
+        Assert.Throws<BlobFormatException>(
+            () => WorldHeaderBlob.Read(Reframe(payload, WorldHeaderBlob.Version)));
+    }
+
+    [Fact]
+    public void AWatershedLatticeThatCannotHoldASampleIsRefused()
+    {
+        Assert.Throws<ArgumentException>(
+            () => WorldHeaderBlob.Write(Header(Air, Stone) with { WatershedCellMetres = 0 }));
+
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone)));
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - 4), 0);
+
+        Assert.Throws<BlobFormatException>(
+            () => WorldHeaderBlob.Read(Reframe(payload, WorldHeaderBlob.Version)));
     }
 
     [Fact]
@@ -419,7 +491,7 @@ public class WorldHeaderTests
         };
 
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(header));
-        payload[^(PlayerPayloadBytes + 1)] = 2;
+        payload[^(PlayerPayloadBytes + 1 + ClockAndLatticeBytes)] = 2;
 
         Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
     }
@@ -456,8 +528,10 @@ public class WorldHeaderTests
         // It is kept because it fails earlier and more cheaply than running out of bytes does.
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((1, 5))));
 
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(
-            payload.AsSpan(payload.Length - 1 - EntryBytes - sizeof(int)), 2);
+        BinaryPrimitives.WriteInt32LittleEndian(
+            payload.AsSpan(
+                payload.Length - ClockAndLatticeBytes - 1 - EntryBytes - sizeof(int)),
+            2);
 
         Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
     }
