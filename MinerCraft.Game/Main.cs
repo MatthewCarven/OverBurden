@@ -250,13 +250,20 @@ public partial class Main : Node3D
     /// <summary>Multiplies the rain reaching the ground. The knob M7b left for M7d to pick.</summary>
     /// <remarks>
     /// <para>
-    /// <b>Forty, and it is picked from two measurements rather than by feel.</b> The bench says the
-    /// median basin in a 512 m window fills in <b>32 minutes of this world's heaviest possible
-    /// weather</b> with no scaling; the game says a whole window reaches 10.2% of its leaf capacity
-    /// in 40 minutes of <em>ordinary</em> weather, which puts a full basin at about six and a half
-    /// hours. Nobody plays for six and a half hours to see a pond. At x40 that becomes roughly ten
-    /// minutes — long enough that filling is something you notice having happened rather than
-    /// something you watch, which is the feel DESIGN's core loop wants.
+    /// <b>Twenty, and it is the one number in M7 that a person picked rather than a measurement.</b>
+    /// The bench and the game between them bounded it: the median basin in a 512 m window fills in
+    /// <b>32 minutes of this world's heaviest possible weather</b> unscaled, and a whole window
+    /// reaches 10.2% of its leaf capacity in 40 minutes of <em>ordinary</em> weather — so a full
+    /// basin unscaled is about six and a half hours, which nobody plays to watch. That arithmetic
+    /// says the scale is somewhere in the tens; it cannot say where.
+    /// </para>
+    /// <para>
+    /// <b>x40 shipped at M7d-1 and the play moved it, 2026-09-02:</b> <em>"a little too fast, um
+    /// like you could half the fill speed, it would still work as well I reckon."</em> So a basin
+    /// now fills in roughly twenty minutes rather than ten — still something you notice having
+    /// happened rather than something you stand and watch, which is the feel DESIGN's core loop
+    /// wants, and further from reading as a tap. <b>This is what M7d-2's play existed to decide</b>,
+    /// and the halving is the only change it asked for.
     /// </para>
     /// <para>
     /// <b>It scales the depth applied to the world and nothing else</b>, so <see cref="Weather"/>
@@ -266,10 +273,12 @@ public partial class Main : Node3D
     /// it untouched.
     /// </para>
     /// <para>
-    /// <b>M7d-2's play is what confirms or moves this</b>, and <c>--rainscale=</c> is the sweep.
+    /// <b>Revisit trigger: a world whose basins are deeper than the spawn's.</b> The play that
+    /// picked this was on gently terraced terrain holding shallow ponds, and a lake ten times the
+    /// volume is ten times the wait at the same scale. <c>--rainscale=</c> stays the sweep.
     /// </para>
     /// </remarks>
-    private int _rainfallScale = 40;
+    private int _rainfallScale = 20;
 
     /// <summary>Suppresses the water entirely. The control arm for the measurement.</summary>
     private bool _noWater;

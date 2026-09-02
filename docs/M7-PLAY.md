@@ -23,7 +23,7 @@ The weather is a pure function of `(seed, world time)`, so a storm can be asked 
 |---|---|
 | `--clock=<seconds>` | Starts the run somewhere in this world's forecast. **`--clock=250` opens in a 36 mm/h downpour.** A named world overrides it, because what that world remembers is the thing under test. |
 | `--clockscale=<x>` | Makes world time run faster, so a whole two-minute weather episode fits in a short session. **Speeds the sky up too** — not the same knob as the one below. |
-| `--rainscale=<x>` | Multiplies the rain reaching the ground and leaves the sky honest. Ships at **×40**. |
+| `--rainscale=<x>` | Multiplies the rain reaching the ground and leaves the sky honest. Ships at **×20** — halved from ×40 by the play, 2026-09-02. |
 | `--weather=<0..1>` | Forces the sheen and the overcast without making it rain. A look override for screenshots. |
 | `--norain` / `--nowater` | The control arms. Everything else stays; only the particles or only the water go. |
 
@@ -69,13 +69,17 @@ silently produces particles that never appear.**
 **This is the question that judges the project-level principle**, not just this milestone's tuning
 — *slower than realtime is accuracy, not approximation*.
 
-It is also where **×40 is confirmed or moved**. The number came from two measurements rather than
+It is also where **×40 was confirmed or moved — and it was moved, to ×20**. The number came from two measurements rather than
 from feel: the bench says the median basin fills in **32 minutes of this world's heaviest possible
 weather** unscaled, and the game says a window reaches **10.2% of leaf capacity in 40 minutes of
-ordinary weather** — so a full basin unscaled is about six and a half hours. ×40 makes that roughly
-ten minutes.
+ordinary weather** — so a full basin unscaled is about six and a half hours. ×40 made that roughly
+ten minutes; the play said *"a little too fast, um like you could half the fill speed, it would
+still work as well I reckon"*, so **×20 ships and a basin fills in roughly twenty minutes**. The
+arithmetic could say the answer was somewhere in the tens and could never say where inside them —
+which is the whole reason this question is a play rather than a bench run.
 
-Sweep it with `--rainscale=10`, `40`, `100` and see which one reads as weather rather than as a tap.
+Sweep it with `--rainscale=10`, `20`, `40` and see which one reads as weather rather than as a tap.
+**Judged on the spawn's shallow terraced ponds; a deep valley is the recorded revisit trigger.**
 
 **Find water first.** The spawn's terrain is gently terraced, so its basins are shallow puddles
 rather than lakes — walk to a real valley. The `M7d:` log line every five seconds tells you what is
@@ -114,7 +118,7 @@ Every five seconds:
 
 ```
 M7c: t 280 s, rain 10/12 (36 mm/h), wet 0.28, cloud 0.46, sky 0.72 | field 3 rebuild(s) (2 moved / 1 dug), 0.96 ms, 0% unknown, ground -3.5..5.0 m, rain falling
-M7d: 2,822,142 L standing (25.3% of 11,136,000 L) in 346/346 basin(s), 346 basin(s) banked | window 512 m x1, 40.1 ms to analyse, scale x40 | surface 1009 quad(s) over 346 basin(s), 1.05 ms
+M7d: 2,822,142 L standing (25.3% of 11,136,000 L) in 346/346 basin(s), 346 basin(s) banked | window 512 m x1, 40.1 ms to analyse, scale x20 | surface 1009 quad(s) over 346 basin(s), 1.05 ms
 ```
 
 Two of those are worth knowing how to read:

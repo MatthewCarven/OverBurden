@@ -1,5 +1,44 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-02 — M7's play answers question 4, and halves the rainfall scale
+
+**The pond feels right, and the principle survives contact with a person watching one.** Play
+question 4 was the one that judged a project-level claim rather than this milestone's tuning —
+*slower than realtime is accuracy, not approximation* — and the verdict is *"in sealed ponds on the
+surface it works perfectly."* **Nothing about the pacing model changes. One number does.**
+
+### x40 → x20, and it is the one M7 number no measurement could ever have settled
+
+> *"A little too fast, um like you could half the fill speed, it would still work as well I
+> reckon."*
+
+`Main._rainfallScale` is now **20**. A basin fills in roughly twenty minutes rather than ten.
+
+**The two measurements bounded the answer and could not place it inside the bounds**, which is
+worth stating plainly because M7 has otherwise been a milestone of exact numbers:
+
+- The bench: the median basin in a 512 m window fills in **32 minutes of this world's heaviest
+  possible weather**, unscaled.
+- The game: a window reaches **10.2% of leaf capacity in 40 minutes of ordinary weather** — so a
+  full basin unscaled is about **six and a half hours**.
+
+Between them those say the scale is somewhere in the tens. They cannot say whether it is 20 or 40,
+because the question is whether a rising pond reads as *weather* or as *a tap*, and that is a
+sentence about a person rather than about litres. **This is exactly why M7d-2's play existed as a
+part rather than as a checklist item.**
+
+Nothing else moves. The scale multiplies the depth applied to the world and leaves `Weather`
+stating real intensities, so the sky, the wet term and the rain particles are untouched; and
+multiplication is integral, so every exactness claim in `BasinRainfall` — an hour in one call
+equalling 3,600 calls of one second, to the litre — survives it verbatim.
+
+**Revisit trigger, recorded with the change: a world whose basins are deeper than the spawn's.**
+The play that picked this was on gently terraced terrain holding shallow ponds. A lake ten times
+the volume is ten times the wait at the same scale, and **that is the same trigger the mountains
+ask lands on** — see the note in TODO, since taller terrain and deeper basins are one worldgen
+question wearing two hats.
+
+
 ## 2026-09-02 — M7's play, first sighting: sealed ponds fill, tunnels stay dry
 
 **Matthew, playing M7d-2:** *"water is working, um seems to get stuck sometimes... as I watched the

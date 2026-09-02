@@ -284,9 +284,13 @@ run is unchanged to the digit. Six things worth keeping:
   caught worldgen, the light derive and this.
 - **The water costs nothing measurable on the sim thread**, against `--nowater`: `update ms` 6.107
   against 6.064, `viewer ms` 10.845 against 11.125. A tick is one multiplication per basin.
-- **`rainfallScale` is x40, picked from two measurements** — the bench's 32-minute median fill at
-  the heaviest possible weather, and the game's 10.2% of capacity in 40 minutes of ordinary
-  weather. **M7d-2's play confirms or moves it**; `--rainscale=` is the sweep.
+- **`rainfallScale` shipped at x40 and the play halved it to x20 (2026-09-02)** — *"a little
+  too fast, um like you could half the fill speed, it would still work as well I reckon."* The
+  two measurements bounded it — the bench's 32-minute median fill at the heaviest possible
+  weather, and the game's 10.2% of capacity in 40 minutes of ordinary weather — but only a
+  person could place it inside that range. **A basin now fills in roughly twenty minutes.**
+  **Revisit trigger: a world whose basins are deeper than the spawn's**, since the play that
+  picked this was on shallow terraced ponds. `--rainscale=` stays the sweep.
 - **A first-draw regression that was the machine, and the control is what said so.** 7.2 s against
   3.4 s earlier the same day reads exactly like the analysis stealing time from the fill — and the
   `--nowater` control ran *slower*, at 8.65 s. **First time the machine-variance finding has been

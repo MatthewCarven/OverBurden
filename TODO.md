@@ -3325,12 +3325,20 @@ renderer and a person.
 - [x] **The water costs nothing measurable on the sim thread**, against `--nowater` at 40 m/s:
       `update ms` 6.107 against 6.064, `viewer ms` 10.845 against 11.125, `main` 83.55% against
       84.19%. The water arm is *lower* on two of three. A tick is one multiplication per basin.
-- [x] **`rainfallScale` is picked, and from numbers: x40.** The bench says the median basin in a
-      512 m window fills in **32 minutes of the heaviest possible weather** unscaled; the game says
-      a window reaches **10.2% of leaf capacity in 40 minutes of ordinary weather**, so a full basin
-      is ~6.5 hours. At x40 that is ~10 minutes, and measured in real time from a 36 mm/h downpour
-      the window took **25.3% of capacity in 35 wall-clock seconds**. **M7d-2's play confirms or
-      moves it**; `--rainscale=` is the sweep.
+- [x] **`rainfallScale` was bounded by numbers and placed by a person: x40, halved to x20.** The
+      bench says the median basin in a 512 m window fills in **32 minutes of the heaviest possible
+      weather** unscaled; the game says a window reaches **10.2% of leaf capacity in 40 minutes of
+      ordinary weather**, so a full basin is ~6.5 hours. At x40 that is ~10 minutes, and measured
+      in real time from a 36 mm/h downpour the window took **25.3% of capacity in 35 wall-clock
+      seconds**.
+      - [x] **Moved to x20 by the play, 2026-09-02**: *"a little too fast, um like you could half
+            the fill speed, it would still work as well I reckon."* **The arithmetic could say the
+            scale was somewhere in the tens and could not say where** — this is the one M7 number
+            no measurement was ever going to settle, which is why M7d-2's play existed. A basin
+            now fills in roughly twenty minutes. **Revisit trigger: a world whose basins are
+            deeper than the spawn's** — the play that picked it was on gently terraced terrain
+            holding shallow ponds, and a lake ten times the volume is ten times the wait.
+            `--rainscale=` stays the sweep.
 - [x] **A first-draw regression that was the machine, and the control is what said so.** 7.2 s
       against 3.4 s earlier the same day reads exactly like the analysis stealing thread-pool time
       from the fill — and **the `--nowater` control ran slower still, at 8.65 s**. **First time the
@@ -3407,9 +3415,13 @@ renderer and a person.
       - [ ] **Are splashes missed?** They are cut at M7c-2 and the rain lands on dry-looking ground
             with nothing to mark the impact. If the play does not notice, the four findings in
             M7c-2 can stay on the shelf; if it does, they are where a second attempt starts.
-      - [ ] Does a pond visibly rising over minutes feel right, or does it feel broken? **This is
-            the play that judges the project-level principle**, not just this milestone's tuning —
-            and **it is also where x40 is confirmed or moved**.
+      - [x] **Answered 2026-09-02: it feels right, and x40 was a little fast.** *"In sealed ponds
+            on the surface it works perfectly... a little too fast, um like you could half the
+            fill speed, it would still work as well I reckon."* **So the project-level principle
+            holds — *slower than realtime is accuracy, not approximation* survives contact with
+            a person watching a pond** — and the only correction asked for is the scale, now
+            **x20**. Note the judgement is on the spawn's shallow terraced ponds; a deep valley
+            is the recorded revisit trigger.
       - [ ] Is the 4 m shoreline tolerable until M8?
 
 #### Order, and the case for a different one
@@ -3558,6 +3570,41 @@ Three things to settle in M9's planning pass, all cheap now and expensive later:
       enough; making it shorter as support degrades is the obvious refinement and is what would
       let **saturation degrading support distance** — M9's recorded keystone interaction — express
       itself as *the ceiling starts creaking sooner* rather than as a step change.
+
+#### Mountains and rivers — Matthew's ask, 2026-09-02, and lakes are already done
+
+*"Eventually I'm going to ask for mountains, rivers and lakes like."* Recorded when it was said
+rather than when it is planned, because two of the three already have a home and the third has a
+trap in it.
+
+- **Lakes are done.** M7's Tier A is exactly this: a basin, a solved level, and a surface. What is
+  missing is not lakes but *deep* ones — the spawn's terrain is gently terraced, so this world's
+  basins are puddles. **That is a worldgen question, which makes it the same question as
+  mountains.**
+- **Mountains are worldgen and are the cheap one.** `SurfaceHeightAt` is analytic and seeded, and
+  three systems already read it — skylight seeding, the watershed's height field, and the rain
+  occlusion's fallback. **So taller terrain costs no new machinery.** What it does cost is stated
+  rather than assumed: more vertical chunks per column (vertical radius is the cheap axis, ~2 KB of
+  voxels against ~46 KiB of mesh per drawn chunk, so this is affordable), and **deeper basins,
+  which is already the recorded revisit trigger on `rainfallScale`** — a lake ten times the volume
+  is ten times the wait at the same scale. The two asks land on each other.
+- **Rivers are the trap, and they are M8 or later.** Overflow between basins is arithmetic at M7;
+  a *visible* stream is moving water, which is Tier B. **And a river is the worst case for Tier B's
+  sleep rules by construction** — DESIGN says *"sleeping is load-bearing, not an optimisation"*,
+  and a river is water that never settles, so a naive CA river is a permanently awake active set
+  the length of the map.
+      - **The likely answer is that a river is not Tier B at all**, but an analytic channel found
+        at worldgen — a chain of basins with a known flow between them, drawn as a Tier A body with
+        a current, with Tier B used only where the player *breaches* it. That is the same shape as
+        every other win in this project: the cheap version is also the more accurate one, because a
+        river's course is a property of the terrain rather than an emergent result of simulating
+        water on it. **It is a guess, labelled as one, and it is where a planning pass should
+        start rather than what it should conclude.**
+      - **Erosion stays out** regardless. The terrain is a pure function of the seed and
+        non-negotiably so, so a river carves its valley *at generation*, never over time.
+
+**None of this is scheduled.** M8 is water getting in; M9 is collapse. This is a note so that when
+the ask arrives, the answers that already exist are not re-derived.
 
 ### M10 — Fighting back
 
