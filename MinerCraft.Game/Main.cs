@@ -696,8 +696,10 @@ public partial class Main : Node3D
                 // rather than waited for — and how the same storm is photographed twice.
                 //
                 // It sets the clock a run *starts* at, which for a run with no world file is the
-                // whole of it. A named world overrides it, because what that world remembers is
-                // the thing under test.
+                // whole of it. An *existing* world overrides it — named or not, so the default
+                // world does too — because what that world remembers is the thing under test.
+                // So provoking weather in a world you have already played needs --nosave or a
+                // --world= name that does not exist yet; otherwise this silently does nothing.
                 case "clock" when double.TryParse(value, out double seconds):
                     _clock = new WorldClock((long)(seconds * 1000.0));
                     break;

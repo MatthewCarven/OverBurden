@@ -21,7 +21,7 @@ The weather is a pure function of `(seed, world time)`, so a storm can be asked 
 
 | Flag | What it does |
 |---|---|
-| `--clock=<seconds>` | Starts the run somewhere in this world's forecast. **`--clock=250` opens in a 36 mm/h downpour.** A named world overrides it, because what that world remembers is the thing under test. |
+| `--clock=<seconds>` | Starts the run somewhere in this world's forecast. **`--clock=250` opens in a 36 mm/h downpour.** **Any *existing* world overrides it — including the default one you have been playing** — because what that world remembers is the thing under test. So pair it with `--nosave`, or a `--world=` name that does not exist yet, otherwise the flag silently does nothing. |
 | `--clockscale=<x>` | Makes world time run faster, so a whole two-minute weather episode fits in a short session. **Speeds the sky up too** — not the same knob as the one below. |
 | `--rainscale=<x>` | Multiplies the rain reaching the ground and leaves the sky honest. Ships at **×20** — halved from ×40 by the play, 2026-09-02. |
 | `--weather=<0..1>` | Forces the sheen and the overcast without making it rain. A look override for screenshots. |
@@ -47,7 +47,7 @@ The detail of each is below, kept for the reasoning.
 
 ### 1. Does rain read as rain, and a storm as weather rather than as the renderer breaking?
 
-Stand outside in a storm (`--clock=250`). The things to judge: streak length and density, whether
+Stand outside in a storm (`start.cmd -- --clock=250 --nosave` — see the table: an existing world overrides the clock). The things to judge: streak length and density, whether
 the near-fade is enough or you still catch a drop right at the eye, and whether the sky going
 leaden reads as cloud or as something being wrong with the picture.
 
