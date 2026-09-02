@@ -3428,6 +3428,16 @@ renderer and a person.
             trigger: the first time rain landing on dry-looking ground is remarked on.** The
             four M7c-2 findings stay on the shelf, and the most useful is that a `texture()`
             call inside a particle `start()` silently yields particles that never appear.
+      - [ ] **Qualified the same day, and it weakens the answer above rather than overturning
+            it: *"what is a splash?"*** The null result came from an observer **who did not
+            have the concept**, which cuts both ways and both ways are worth stating. It is a
+            *stronger* null in that nothing was missed against a remembered feature from
+            another game — the absence was not felt by someone primed to feel it. It is a
+            *weaker* null in that a vague dissatisfaction could not have been named, so
+            "never mentioned" is not quite "looked for and not missed". **The cheap way to
+            settle it properly: stand in a storm on open ground and watch where the drops
+            meet it, now knowing what is absent.** Until then this is the softest of M7's
+            five answers and should be quoted as such.
       - [x] **Answered 2026-09-02: it feels right, and x40 was a little fast.** *"In sealed ponds
             on the surface it works perfectly... a little too fast, um like you could half the
             fill speed, it would still work as well I reckon."* **So the project-level principle

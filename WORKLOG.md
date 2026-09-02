@@ -35,6 +35,11 @@ one of them could have answered any of these five.**
   were never raised. **Still recorded as silence rather than as evidence**, which this project has
   been caught by before; the difference here is that the question named its own null result ahead
   of time. **Revisit trigger: the first time rain landing on dry-looking ground is remarked on.**
+  **Qualified within the hour by *"what is a splash?"*** — the null came from an observer who
+  did not have the concept. That cuts both ways: **stronger**, in that nothing was missed
+  against a remembered feature from another game; **weaker**, in that a vague dissatisfaction
+  could not have been named. **The softest of M7's five answers, and it should be quoted as
+  such** — settling it costs one storm on open ground with the concept in hand.
 
 ### What the play produced that the questions did not ask for
 

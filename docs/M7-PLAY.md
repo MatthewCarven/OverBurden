@@ -38,7 +38,7 @@ That is the design, not a fault — the wet term only means something against th
 |---|---|---|
 | 1 | Does rain read as rain? | **Yes**, and no knob was reached for. |
 | 2 | Does it stop at the mine entrance? | **Yes** — *the detail people notice*, noticed. |
-| 3 | Are splashes missed? | **Not mentioned** — this question's own stated criterion. |
+| 3 | Are splashes missed? | **Not mentioned** — the criterion, but see below: the softest of the five. |
 | 4 | Does a pond rising feel right? | **Yes**, and it moved `rainfallScale` ×40 → ×20. |
 | 5 | Is the 4 m shoreline tolerable? | **Yes**, explicitly not worth the work. |
 
@@ -68,6 +68,16 @@ bottom and look up. The field is built from **edited** sky heights at 0.5 m, so 
 **Revisit trigger, recorded: a shaft rain should fall into and does not.**
 
 ### 3. Are splashes missed?
+
+**What a splash is**, since the play asked and the question assumed it: the small impact effect
+where a drop lands — a brief puff of droplets or a ring on the surface, so rain visibly *hits*
+the ground rather than vanishing into it. A per-impact particle, unrelated to water volume.
+
+**Answered 2026-09-02 by silence, and qualified the same day.** Splashes were never raised
+across a play that reported on rain, occlusion, standing water, pacing and the shoreline — but
+the observer did not have the concept, so it is *stronger* as a null (nothing missed against a
+remembered feature) and *weaker* (a vague dissatisfaction could not have been named). **One
+storm on open ground, watching where the drops meet it, settles it properly.**
 
 **There are none** — they were cut at M7c-2 after two implementations drew nothing, and the rain
 currently lands on dry-looking ground with nothing to mark the impact. If you do not notice, the
