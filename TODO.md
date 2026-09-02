@@ -4173,11 +4173,15 @@ numbers; these are the tasks it surfaced.
 - [ ] **M9's planning pass must take the chunk bite as its worst case**, the way M8a took the
       lake-into-shaft. A bite makes an 8 m unsupported span in one frame at 4/s; a fill puts 512 m³
       in mid-air with nothing anchoring it, which under any support rule is rubble unless shored.
-- [ ] **The endgame gate is the third thing waiting on a game-mode concept**, and M4c's note said a
-      third would make it overdue. Matthew, 2026-09-02: the chunk bite is *"totally endgame like,
-      we're talking you've been to space and back."* DESIGN has no progression, unlock or research
-      system. It is also what keeps *the mine is the antagonist* true against a tool that deletes
-      512 m³ a click. Wants its own planning pass; not before M9.
+- [ ] **The gate that makes you earn it is the third thing waiting on a game-mode concept**, and
+      M4c's note said a third would make it overdue. Matthew, 2026-09-02: the chunk bite is
+      *"totally endgame like, we're talking you've been to space and back"* — **corrected
+      2026-09-03: *"space and back was like a figure of speech like I meant ima make you work to get
+      this."*** So a tool with a price rather than the last tier, and DESIGN has no progression,
+      unlock, research or cost system to charge it in until M11's crafting. It is also what keeps
+      *the mine is the antagonist* true against a tool that deletes 512 m³ a click. Wants its own
+      planning pass; not before M9. The obvious currency is the one the inventory already counts —
+      litres of something you have to go deep for.
 - [ ] **The hotbar's unit has been outgrown.** `1,767,903,281 L` in an 84 px slot, printed `N0`; the
       format was chosen for a 265 L swing and a bite is 512,000 L. A scaled unit — m³ past a
       thousand litres, or the chunk — and **the unit is Matthew's to pick.**

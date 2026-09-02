@@ -265,7 +265,8 @@ trigger moves to *thousands of non-uniform stored chunks*. Four things the play 
 plan, all recorded in TODO rather than built: **M8's cost model comes from tunnels and one bitten
 chunk under a lake is 32,768 cells of void** (a second `--fluid` fixture shape before M8b's budget);
 **M9 has no cost model and the chunk bite is its worst case** (a fill is 512 m³ in mid-air); **the
-endgame gate is the third thing waiting on a game-mode concept**, which M4c's note said would make it
+gate that makes you earn it is the third thing waiting on a game-mode concept** — Matthew: *"ima make
+you work to get this"*, a price rather than a last tier — which M4c's note said would make it
 overdue; and **the hotbar's litres have outgrown their unit** — `1,767,903,281 L` in an 84 px slot.
 Two instrument readings the played world breaks: `L per wall-clock minute` is a lifetime total over
 this run's seconds (313 ML/min on a reopened world), and a profile taken inside the void reports

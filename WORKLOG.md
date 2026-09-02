@@ -125,12 +125,17 @@ capacities summed against water standing in merged lakes above their saddles —
   times a second, and **a fill puts 512 m³ in mid-air with nothing anchoring it** — under any support
   rule that is rubble the moment it lands unless it is shored. M9's planning pass should take the
   chunk bite as its worst case the way M8a took the lake-into-shaft.
-- **The endgame gate is not on the plan at all.** Matthew, 2026-09-02: the chunk bite is *"totally
-  endgame like, we're talking you've been to space and back."* DESIGN has no progression, unlock or
-  research system; M4c's TODO note counts *two* things waiting on a game-mode concept (reach, and
-  gating the precision modifier) and says *"a third would make it overdue."* **This is the third.**
-  It is also what protects the premise: *the mine is the antagonist* is false against a tool that
-  deletes 512 m³ a click, and the gate is the only thing that makes it true again.
+- **The gate that makes you earn it is not on the plan at all.** Matthew, 2026-09-02: the chunk bite
+  is *"totally endgame like, we're talking you've been to space and back"* — **and the next day,
+  reading that back: *"space and back was like a figure of speech like I meant ima make you work to
+  get this."*** So not the last tier: a tool with a **price**, which is the sharper version, because
+  a price needs something to charge it in and DESIGN has no progression, unlock, research or cost
+  system until M11's crafting. M4c's TODO note counts *two* things waiting on a game-mode concept
+  (reach, and gating the precision modifier) and says *"a third would make it overdue."* **This is
+  the third.** It is also what protects the premise: *the mine is the antagonist* is false against a
+  tool that deletes 512 m³ a click, and the gate is the only thing that makes it true again. The
+  obvious currency is the one the inventory already counts — litres of something you have to go
+  deep for — but that is a planning pass, not a note.
 - **The inventory has outgrown its unit.** `1,767,903,281 L` in an 84 px hotbar slot, printed `N0`.
   The format was chosen for a 265 L swing; a bite is 512,000 L. Wants a scaled unit — m³ past a
   thousand litres, or the chunk itself — and the unit is Matthew's to pick.
