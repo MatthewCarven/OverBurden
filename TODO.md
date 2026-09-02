@@ -4030,6 +4030,35 @@ the same breath and unprompted, the constraint: *"but do not implement weight pl
       different chunk exactly when the hit is on a boundary — i.e. whenever you are looking at a
       wall.
 
+#### The draw distance goes to 48 m — Matthew’s request, 2026-09-03
+
+*"I want to expand the draw size in chunks, by two on each side"*, with *"dont expand the water
+distances please unless its tied."*
+
+- [x] **`ViewDistanceHorizontal` 4 → 6**, and **measured before changing** because this is the axis
+      M5d-1 found a cliff on. Debug, headless, 20 s, `--vradius=2`: at 6 m/s, **main 30.74% → 45.66%,
+      drawn 167 → 335, first draw 3.80 s → 6.66 s**; at 20 m/s **both radii draw zero** and r6 is
+      fractionally cheaper (74.16% vs 75.29%).
+- [x] **The headline is a null of the useful kind: it does not create a new failure mode.** The
+      20 m/s cliff is M5d-1’s, has been there since M5, and is light deriving on one sim thread
+      rather than anything about view distance. **The raise spends headroom that already existed** —
+      which is why the fast arm was worth running rather than only the flattering one.
+- [x] **No water distance moved, checked rather than assumed.** Watershed analysis 512 m
+      (`_waterPitch` 128 x 4 m), rain occlusion field 64 m (`SkyHeightField.SpanMetres`), rain box
+      48 m (`Rain.BoxHalfWidthMetres`) — all fixed constants, and `ViewDistanceHorizontal` has six
+      use sites of which none is hydrological. **Interaction, not coupling:** the drawn world now
+      reaches exactly as far as the rain box instead of stopping 16 m short; the 64 m field still
+      clears the 48 m box by 8 m a side.
+- [x] **The recorded baseline moves, and that is the expensive part.** New default **2601 viewed /
+      325 drawn / 3446 jobs at 411 quads**, settled ~8 s; **the historical 1521 / 165 / 1926 at 404
+      needs `--radius=4 --vradius=2`.** **Quote the radius with any streaming figure from here on.**
+- [ ] **Vertical stays 2** — a separate knob, and 2 → 4 would compound to ~2.5x the chunks rather
+      than 1.71x. Unmeasured, so unchanged. **Revisit trigger: wanting to see further down a shaft.**
+- [ ] **The 20 m/s cliff is now more visible, and is still M5d-1’s to fix.** Two levers were measured
+      at M5d-1 and neither is built (`PaddedChunk.CopyFrom`, 60–75% of the derive; and moving the
+      derive off the sim thread). **At r6 there is more world to catch up on when you stop**, so the
+      recovery is longer even though the cliff itself is unchanged.
+
 #### The entangled miner fills a chunk too — Matthew’s request, 2026-09-03
 
 *"How hard to add fill cluster to the quantum miner? Like if its easy just go ahead."* It was easy —

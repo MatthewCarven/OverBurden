@@ -1,5 +1,53 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-03 — The draw distance goes to 48 m, and the measurement says it spends headroom rather than crossing a line
+
+Matthew: *"I want to expand the draw size in chunks, by two on each side"* — and, unprompted and
+exactly right, *"dont expand the water distances please unless its tied."*
+
+`ViewDistanceHorizontal` 4 → 6. **Measured before it was changed, because this is the one axis
+M5d-1 found a cliff on.** Same session, Debug, headless, 20 s measured, `--vradius=2`:
+
+```
+                    r4 @ 6 m/s   r6 @ 6 m/s   r4 @ 20 m/s   r6 @ 20 m/s
+chunks viewed          1521         2601         1521          2601
+drawn                   167          335            0             0
+main                 30.74%       45.66%       75.29%        74.16%
+update ms mean        2.152        3.207        5.279         5.198
+light ms mean         2.079        3.095        5.236         5.141
+first draw            3.80 s       6.66 s       never         never
+all settled           4.63 s       7.69 s       never         never
+```
+
+- **The headline is a null, and it is the useful kind.** The 20 m/s arms draw nothing at *both*
+  radii, and r6 is fractionally *cheaper* there than r4 (74.16% against 75.29%, noise around "both
+  saturated"). **That cliff is M5d-1's, it has been there since M5, and it is a property of light
+  deriving on one sim thread rather than of the view distance.** So the raise spends headroom that
+  already existed instead of crossing a threshold — **which is the whole reason it was worth
+  measuring the fast arm rather than only the one that looks good.**
+- **The cost is real and is stated rather than buried**: first draw roughly doubles, 3.80 s → 6.66 s,
+  and the main thread goes 30.74% → 45.66% at walking speed. 2,601 chunks against 1,521 (1.71x),
+  335 drawn against 167 (2.01x). At ~46 KiB a drawn chunk that is ~15 MiB of mesh against ~8.
+- **Nothing about water moved, and Matthew's instinct to ask was the right one to have.** All three
+  windows are fixed constants deriving nothing from the view radius — watershed analysis
+  (`_waterPitch` 128 x 4 m = **512 m**), rain occlusion field (`SkyHeightField.SpanMetres` =
+  **64 m**), rain box (`Rain.BoxHalfWidthMetres` 24 = **48 m**). **Checked rather than assumed**,
+  and the check is cheap: `ViewDistanceHorizontal` has six use sites and none of them is
+  hydrological.
+  - **One interaction worth knowing and not a coupling:** the drawn world now reaches exactly as far
+    as the rain box, where before it stopped 16 m short of it. The 64 m occlusion field still clears
+    the 48 m box by 8 m a side, so M7c-2's sizing argument is untouched.
+- **The recorded baseline moves, and that is the expensive part of this change rather than the
+  frames.** *"The default headless run is unchanged to the digit"* has been the first regression
+  check of every milestone since M2d. The new default is **2601 viewed / 325 drawn / 3446 jobs at
+  411 quads**, settled in ~8 s rather than 5; **the historical 1521 / 165 / 1926 at 404 is now
+  reached only with `--radius=4 --vradius=2`**, and that is what keeps every figure from M2d to M8
+  comparable. **Quote the radius with any streaming figure from here on.**
+- **Not changed: the vertical radius stays 2.** *"Two on each side"* reads as the horizontal draw
+  distance, and vertical is a separate knob — going 2 → 4 would multiply layers 9 → 13 on top of
+  this, compounding to ~2.5x the chunks rather than 1.71x. **One knob at a time, and this one is
+  now measured.**
+
 ## 2026-09-03 — The entangled miner fills a chunk as well as taking one, and the fill is not the bite mirrored
 
 Matthew, the same day the bite shipped: *"How hard to add fill cluster to the quantum miner? Like

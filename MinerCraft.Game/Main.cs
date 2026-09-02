@@ -35,7 +35,51 @@ namespace MinerCraft.Game;
 /// </remarks>
 public partial class Main : Node3D
 {
-    [Export] public int ViewDistanceHorizontal { get; set; } = 4;
+    /// <summary>
+    /// Horizontal view radius in chunks. <b>6 since 2026-09-03 — 48 m of draw distance.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Raised from 4 on Matthew's request, and measured first because this is the axis M5d-1
+    /// found a cliff on. Same session, Debug, headless, 20 s measured, <c>--vradius=2</c>:
+    /// </para>
+    /// <code>
+    ///                     r4 @ 6 m/s   r6 @ 6 m/s   r4 @ 20 m/s   r6 @ 20 m/s
+    /// chunks viewed          1521         2601         1521          2601
+    /// drawn                   167          335            0             0
+    /// main                 30.74%       45.66%       75.29%        74.16%
+    /// update ms mean        2.152        3.207        5.279         5.198
+    /// light ms mean         2.079        3.095        5.236         5.141
+    /// first draw            3.80 s       6.66 s       never         never
+    /// all settled           4.63 s       7.69 s       never         never
+    /// </code>
+    /// <para>
+    /// <b>The headline is that it does not create a new failure mode.</b> The 20 m/s arms draw
+    /// nothing at <em>both</em> radii — that is M5d-1's recorded cliff, which has been there since
+    /// M5 and is a property of light deriving on one sim thread, not of the view distance. r6 is
+    /// fractionally <em>cheaper</em> there than r4 (74.16% against 75.29%), which is noise around
+    /// "both are saturated". <b>So this raise spends headroom that exists rather than crossing a
+    /// threshold.</b>
+    /// </para>
+    /// <para>
+    /// <b>What it does cost is stated plainly: first draw roughly doubles</b>, 3.80 s to 6.66 s,
+    /// and the main thread goes 30.74% to 45.66% at walking speed. 2,601 chunks loaded against
+    /// 1,521 (1.71x) and 335 drawn against 167 (2.01x) — the drawn figure is the one that prices
+    /// memory, at ~46 KiB a drawn chunk, so roughly 15 MiB of mesh against 8.
+    /// </para>
+    /// <para>
+    /// <b>Nothing about water moved, and that was checked rather than assumed.</b> The watershed
+    /// analysis window (512 m), the rain occlusion field (64 m) and the rain box (48 m) are all
+    /// fixed constants that derive nothing from this number. One interaction worth knowing: the
+    /// drawn world now reaches exactly as far as the rain box, where before it stopped 16 m short.
+    /// </para>
+    /// <para>
+    /// <b>Every streaming figure recorded before this date is at r4h/2v and stays reproducible
+    /// with <c>--radius=4 --vradius=2</c></b>, which is what keeps M2d's through M8's numbers
+    /// comparable with each other.
+    /// </para>
+    /// </remarks>
+    [Export] public int ViewDistanceHorizontal { get; set; } = 6;
 
     /// <summary>
     /// Separate from the horizontal radius on purpose — a mining game's content is below the

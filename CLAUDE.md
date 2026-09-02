@@ -975,7 +975,15 @@ predict — see below.
 Terrain streams around the flycam: worldgen and greedy meshing run on worker threads over palette-compressed storage,
 with materials loaded from JSON, and chunks load and unload as the viewer moves.
 
-Headless from a standing start, r4h/2v + 2 margin on 8 workers:
+**The default view radius is 6 as of 2026-09-03 — 48 m, raised from 4 on Matthew's request.** The
+new default headless baseline is **2601 viewed / 325 drawn / 3446 jobs at 411 quads**, settled in
+about 8 s rather than 5, and 3446 = 2601 generates + 845 meshes where 845 is exactly the 13×13×5
+visible box. **Every streaming figure recorded before that date is at r4h/2v and stays reproducible
+with `--radius=4 --vradius=2`** — which is the only reason M2d's through M8's numbers remain
+comparable with each other, so quote the radius with any figure from here on.
+
+Headless from a standing start, r4h/2v + 2 margin on 8 workers — **the historical baseline, now
+reached only by passing `--radius=4 --vradius=2`**:
 
 ```
 1521 viewed (1521 tracked), 165 drawn, 0 in flight, 0 queued
