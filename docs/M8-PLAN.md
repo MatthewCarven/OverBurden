@@ -1,0 +1,345 @@
+# M8 — Water gets in
+
+> Planned 2026-09-02, before any code. Split M8a–M8d.
+> **Read [SCALE.md](SCALE.md) first**, and read M7's play findings in [TODO.md](../TODO.md) —
+> two of them are inputs to this milestone rather than context for it.
+
+M7 built **Tier A**: analytic basins whose level is *solved, not simulated*. It fills the world's
+hollows and it deliberately cannot see your excavation. M8 is the second link of DESIGN's core
+loop — ***water finds your excavation*** — and it is where the mine starts to be the antagonist
+rather than the scenery.
+
+Three things ship: **Tier B**, a volume-conserving cellular automaton over an explicit active-cell
+set, for water that is actually moving; **Tier C**, a coarse groundwater saturation field that
+seeps into excavations; and the **transparent render pass** that Tier A's one-plane-per-basin
+surface was explicitly a placeholder for.
+
+---
+
+## The structural point
+
+Every milestone so far has produced state that is a **function of something**.
+
+- Worldgen is a pure function of the seed and a position.
+- Light is a **fixpoint** of the voxels — it has one correct value, and from-scratch *is* the
+  definition.
+- Physics takes `dt` and remembers nothing.
+- **Tier A water is a function of volume and terrain**: pour in *N* litres and the level is solved
+  by the volume→level curve, however the litres got there.
+
+**Tier B is the first state in this project that is a trajectory rather than a value.** Where the
+water is depends on where it came from and which way it went. There is no closed form to check it
+against, and "run it again from scratch" is not a definition of anything, because the from-scratch
+answer depends on the same history.
+
+That has one enormous consequence and it should shape the whole milestone:
+
+> **Tier B is a transient, and its correctness condition is that it terminates.** Every active cell
+> must eventually sleep and merge into a Tier A body. A CA that keeps 40,000 cells awake because
+> the water never quite settles is not slow — it is *wrong*, and it will look like a performance
+> problem right up until somebody realises it is a termination problem.
+
+DESIGN already says this — *"sleeping is load-bearing, not an optimisation"* — and the reason to
+restate it here is that **the natural failure mode is invisible in a short test and fatal in a long
+play.** A cell oscillating by one unit forever passes every volume-conservation assertion.
+
+### The second structural change: state that nothing can regenerate
+
+M6 was the first milestone where the only copy of something was on disk. **M8 is the first where
+the only copy of something is in RAM and nothing can recompute it** — an in-flight flood has no
+seed, no analytic form, and no fixpoint. M7's `BasinLedger` handles this for Tier A by banking
+*litres per pit*, which is a number that survives anything.
+
+So M8 needs a stated answer to *what happens to moving water when you fly away or quit*, and the
+answer that costs least is almost certainly **settle it rather than store it**: integrate the
+transient to its resting state and hand the volume to Tier A, whose ledger already persists. A
+transient nobody is watching has no observer to be wrong for. **This is a decision below, not an
+assumption.**
+
+---
+
+## The two questions M7's play handed this milestone
+
+Both came from play rather than from planning, and both are load-bearing here.
+
+### 1. The minimum drainable hole — this decides the CA's resolution
+
+> *"Unless I make a hole 4x4 it isn't going to drain into eventually?"*
+
+The 4 m grid is **Tier A's analysis resolution, not water's physics resolution**. If M8 implements
+"water gets in" by re-running the watershed off edited heights, the height field samples every 4 m,
+a 0.75 m `hand_pick` bore falls between samples, and **the minimum drainable hole really is 4 m
+across** — absurd in a game whose starting tool leaves a 0.75 m bore and whose player is 0.5 m
+wide.
+
+**M5b solved the identical problem and the answer transfers verbatim.** A 1 m light cell holds 64
+voxels and the tunnels this game is about are narrower than one cell, so opacity became a property
+of the cell **face**: light crosses iff *some voxel pair across the shared boundary* is open on
+both sides. The M8 rule is that sentence with "water" for "light".
+
+**Twice now the answer has been that the tunnels this game is about are narrower than a grid chosen
+for another reason.** That is now a standing caution rather than two anecdotes: a mining game's
+characteristic feature is roughly three voxels wide, and every coarse grid this engine adds will
+meet it.
+
+### 2. Water does not fall into what you dug — the thing the milestone exists to fix
+
+> *"The surface level was rising in sealed ponds like, but where I had tunnelled into the earth, it
+> did not fall in."*
+
+Recorded as the first play-confirmed motivation for Tier B. Worth keeping because it says which
+half of M8 is the headline: **not the CA, the seam.** A perfect CA that no basin ever hands water
+to changes nothing on screen.
+
+---
+
+## Decisions to settle before any code
+
+Seven, in the order they constrain each other. **Numbers marked *estimate* are estimates**; the
+measurement that replaces each is named.
+
+### 1. Tier B runs at voxel resolution — 0.25 m
+
+SCALE.md records this as open and warns it is a **64× swing**. Settling it toward voxels:
+
+- **It is forced by decision 2 below.** A cell coarser than the bore cannot represent the bore. A
+  1 m cell containing a 0.75 m tunnel is neither open nor closed, and every workaround for that is
+  a fractional-occupancy model — which is a worse CA, not a cheaper one.
+- **The cost is affordable and the arithmetic is in SCALE's own terms.** SCALE sizes a generous
+  cave at 30 × 30 × 10 m as ~900 cells of *waterline* at 1 m. Waterline is an area, so at 0.25 m it
+  is **16×, not 64× — ~14,400 cells**. At a 2 Hz tick that is **~28,800 cell visits per second,
+  about 5.5% of the ~520,000/s the light budget already licenses.** *(Derived from SCALE's
+  constants, not measured. The measurement that replaces it is M8a's.)*
+- **The 64× figure is about volume and the active set is not a volume.** That is the same
+  distinction SCALE was written to make, applied to the system SCALE flagged.
+
+**Revisit trigger: the first sustained flood whose active set exceeds ~50,000 cells**, which is
+where the estimate above stops having a factor of ten in hand.
+
+**And re-derive SCALE.md's "sizing the systems that do not exist yet" section once M8a measures
+this**, because that section says outright to.
+
+### 2. A breach is detected at voxel resolution, on the cell *face* — never by re-analysis
+
+The direct consequence of the play's question. Water leaves a Tier A body through a face iff **some
+voxel pair across that face is open on both sides**, exactly as light crosses a cell face.
+
+Both ends of this fail in ways worth naming, and they are the ends M5b already named:
+*any open voxel drains the lake* empties a basin through a hairline crack; *the whole cell must be
+open* means a pick drains nothing.
+
+**Tier A never learns the hole exists.** It loses volume to an adjacent active cell and re-solves
+its level from what remains, which is arithmetic it already does. **That is why this is cheap** —
+`BasinWater.Add` already routes and re-solves; M8 adds a `Remove` on the same curve.
+
+### 3. Tier C is integrated forward, not swept — M7's trick, reused
+
+DESIGN specifies a coarse per-1 m saturation field fed by rain and draining downhill. **A periodic
+sweep over it is exactly what SCALE.md exists to forbid**: 778,752 cells at r4h/2v is 0.36 s of one
+thread for a single pass.
+
+But saturation is a slow scalar driven by rainfall, and **rainfall is already a pure function of
+(seed, time)** — M7b's whole design. So a cell's saturation can be **evaluated on demand from the
+time it was last touched**, precisely as `BasinRainfall` integrates a basin forward. Nothing sweeps;
+a cell is computed when something asks.
+
+**What that costs, stated rather than hidden:** drainage downhill is a *coupling* between cells,
+and a coupled field has no per-cell closed form. The honest version is that **the analytic part is
+the rain input and the decay; the lateral drainage is not analytic** and needs either a coarse
+active set of its own or a deliberately crude approximation. **This is the part of M8 most likely
+to have been costed wrong**, and it is named here for that reason — M7a named its analysis cost the
+same way and was right to.
+
+### 4. Permeability is content, not a constant
+
+Seepage rate is *saturation × material permeability*, so permeability is a per-material number and
+belongs in `mods/minercraft/materials/*.json` beside `hardness` and `lightEmission` — both of which
+took this route. **Non-negotiable 5**: if it cannot be expressed the way a mod would express it,
+the format is wrong.
+
+**The trap M3c recorded applies unchanged**: a mod-authored rate is a denial-of-service vector, and
+a NaN fails *open*. Bound it at load and at use, and remember M3c's finding that the loader is not
+the only caller.
+
+### 5. Moving water is settled on unload, not stored
+
+Per the structural point. On a window move, a chunk unload or a quit, an active region **integrates
+to rest and its volume goes to the Tier A body**, whose `BasinLedger` already persists per pit.
+
+- **The safe failure is stated**: settling early makes water arrive at its resting place *sooner*
+  than a watched flood would. Under DESIGN's *slower than realtime is accuracy* that is a
+  deviation in the harmless direction, and it is the same argument that licensed integrate-forward.
+- **The unsafe alternative is a partial store**: an active set written to disk without the terrain
+  state it was computed against is a flood that resumes into a world that has changed.
+- **Header impact: none expected.** Tier C's saturation field is the one thing that may need
+  storing, and it is a candidate for being derived from (seed, time, edited heights) instead.
+  **Decide at M8c, and if it must be stored, that is v3 → v4 additive under M6c-2's policy.**
+
+### 6. Tier B water is not a voxel material
+
+It is tempting to make water a material and let the existing mesher draw it. **Rejected before it
+is proposed**, for three reasons that are each sufficient:
+
+- **It would put water in the merge key and remesh chunks as it moved.** M7c-1's headline was that
+  a whole storm costs *zero* remeshes; a CA writing voxels would cost thousands.
+- **`SetVoxel` is the edit path, and an edit clones a chunk if a job holds it.** Water moving at
+  2 Hz across a flooded network would clone chunks continuously — M3a's copy-on-write is sized for
+  a player's swings, not for a fluid.
+- **A voxel is 0/1 occupancy and water needs an amount.** DESIGN says cells hold 0–255.
+
+Water is its own grid, drawn by its own pass. **Same shape as the light grid**, which is also not
+voxels and also has its own storage.
+
+### 7. The code lives in `MinerCraft.Core/Fluid/`, beside `Hydrology/`
+
+`Hydrology/` is Tier A — analysis, basins, curves, the merge tree, the accumulator. Tier B and C
+are a different kind of thing (stateful, ticked, local) and share only the litre. Splitting them
+keeps M7's exactness claims legible and stops a CA's mutable arrays leaking into a module whose
+whole selling point is that it stores one number per basin.
+
+**Core, therefore Godot-free** — non-negotiable 1, and the same reason `MiningController` and
+`PlaceController` are: it makes the whole thing headlessly testable and server-authoritative.
+
+---
+
+## M8a — The cellular automaton and the active set
+
+**The CA itself, in Core, with nothing feeding it.** Cells at 0.25 m holding 0–255; push down where
+there is capacity, equalise sideways otherwise; sleep when stable; an explicit active set that is
+the only thing iterated.
+
+### The measurement to take first, before the design is trusted
+
+M7a's planning pass took its expensive number first and was right to — the estimate was in range
+and wrong about which half dominated. **M8a's equivalent: how large does the active set get during
+a real flood, and how long does it take to terminate?**
+
+The case to measure is **not** SCALE's settling cave. It is **a 9,000,000 L lake draining into a
+shaft** — which is the case the play will actually produce, is a sustained flow rather than a
+settling body, and could plausibly make an entire tunnel network active at once. *(Estimate: this
+is the number most likely to be an order of magnitude out, exactly as M7c-2's occlusion field was
+ten times its estimate.)*
+
+Report **peak active cells, cell visits per second, and time to quiescence**, and print them beside
+the light budget's ~520,000 visits/s so the comparison is in the report rather than in somebody's
+head.
+
+### The oracle — and it is two properties, not one
+
+- **Volume is conserved exactly, in integers.** M7 established that litres are integral and that
+  nanometres × square metres divide out exactly; the CA must not introduce a float. Total in minus
+  total out equals total held, with **no tolerance** — the same standard as M7b's *an hour in one
+  call equals 3,600 calls of one second, to the litre*.
+- **Every run terminates, and the resting state is level.** Water left alone reaches quiescence in
+  bounded steps, and no cell is left holding more than a neighbour it conducts to. **This is the
+  property a volume test cannot see**, and it is the one that fails in play rather than in CI.
+
+Both are booleans over a constructed situation with no reference implementation — the category M4a's
+sealed room and M5b's fixpoint established as the best available here.
+
+**Fuzz it against the thing that will actually break it:** irregular terrain generated from the real
+worldgen, not boxes. A hand-built basin is the fixture trap this project has been caught by five
+times.
+
+---
+
+## M8b — The seam: Tier A ↔ Tier B
+
+**The half the play asked for**, and structurally the harder one.
+
+- **A → B, the breach.** Face-level detection at voxel resolution (decision 2). The trigger already
+  exists and is already measured: `ChunkPipeline.SkyHeightChanges` is M7c-2's dig trigger and counts
+  height *moves*, and the rain occlusion field is built from edited heights **at 0.5 m and a 0.75 m
+  bore registers on it**. Whatever notices *daylight now reaches here* is close kin to whatever
+  notices *water now reaches here*.
+- **B → A, the settle.** A quiescent region becomes Tier A volume. **This is where volume is most
+  likely to be created or destroyed**, because it is a change of representation, and M6a's lesson
+  applies: mutate both halves of the pair or you only prove they agree.
+- **Unload and quit** (decision 5).
+
+### Why this might go first
+
+M6d-1 set the precedent that a later part goes first when it answers an earlier one's question, and
+the case here is real: **M8a's cell size is justified by M8b's requirement.** Not chosen, because a
+seam with nothing on the far side of it cannot be tested — but **if M8a's measurement comes back
+badly, this is the part that says whether the answer is a coarser grid or a smaller active set.**
+
+---
+
+## M8c — Tier C: groundwater and seepage
+
+The coarse saturation field, integrated forward (decision 3), fed by rain, draining downhill,
+seeping into excavations at *saturation × permeability* (decision 4).
+
+**This is what makes mining under a lake frightening, and it is the tier that gives pumps a job that
+never ends** — which is DESIGN's stated purpose for it. It is also the least specified of the three
+and the one whose cost is named as most likely wrong (decision 3).
+
+**One design question to settle inside it:** seepage is a *rate*, so it can be integrated forward
+like rainfall — but the moment it seeps into a space, that space is Tier B and Tier B is ticked.
+**The join between a lazily-evaluated source and an eagerly-ticked sink is the shape to get right**,
+and it is the same join M7b built between analytic rainfall and a stored accumulator.
+
+---
+
+## M8d — The transparent pass, measurement and play
+
+M7d-2 shipped one flat plane per basin, depth-tested but not depth-written, and said in its own
+source comment that **M8 owns the real transparent pass**. Tier B water has a surface that is not
+flat and not one plane, so this is a genuine renderer part rather than a polish pass.
+
+Split on the seam M5c, M7c and M7d were split on: **what a headless run can verify, and what needs a
+person.**
+
+The play questions, provisionally — they are the milestone's actual verdict:
+
+- **Does water finding your excavation read as dread or as an inconvenience?** DESIGN's whole claim
+  is that the mine is the antagonist.
+- **Is a flooded mine recoverable?** See the open decision below.
+- **Does water moving at a slow tick look like water, or like a spreadsheet?** DESIGN's *slower than
+  realtime* survived M7's play on a pond rising over minutes. **A pond is the easy case for that
+  claim and a waterfall is the hard one**, and there is a stated perceptual floor: *a water surface
+  two metres away that jumps once a second is not slow, it is broken.* **Tier A carries an
+  interpolable level for exactly this reason; Tier B needs the equivalent decided.**
+
+---
+
+## The open decision this plan cannot settle — Matthew's
+
+**M8 makes the mine floodable and nothing fights back until M10.**
+
+DESIGN's loop is *rain → water → saturation → collapse*, with **pumps and shoring as the answer**,
+and pumps are machines, which is M10. So on the current order there are two whole milestones —
+M8 and M9 — in which water can take your excavation and the only counter is to dig a drain or
+abandon it. M9 then adds collapse on top, which is *"the mine kills you"*.
+
+Three ways out, and this is a pacing judgement rather than a technical one:
+
+1. **Ship it as planned and let the play judge it.** A mine you can lose is the game DESIGN
+   describes, and digging a drain is a real answer that the terrain already supports. Cheapest,
+   and consistent with every milestone so far being judged by play.
+2. **Bring a hand-placed pump forward into M8d**, as a single placeable that removes litres at a
+   fixed rate with no power. Small — it is a `Place` verb and a subtraction — and it makes M8's play
+   ask *"is fighting the water fun?"* rather than *"is losing to it tolerable?"*.
+3. **Tune the seepage rate low enough that M8 is a nuisance rather than a defeat**, and let M10 turn
+   it up when the counter exists. Free, and reversible.
+
+**A recommendation, since it is asked for rather than assumed: 3 now, 2 if the play says the water
+is not scary enough.** It costs nothing, it keeps M8's scope honest, and *"the rate is a number"* is
+the same lever `rainfallScale` turned out to be — which the play has now moved once already.
+
+---
+
+## Deliberately not in M8
+
+- **Pumps with power, shoring, machines.** M10, unless the decision above moves one forward.
+- **Structural collapse and saturation weakening support.** M9 — though **M8c's saturation field is
+  the input M9 consumes**, and that is the recorded keystone interaction between them.
+- **Rivers.** A visible stream is moving water and would be permanently awake, which is the worst
+  case for decision 1's active set. The recorded guess is that a river is an *analytic channel*
+  found at worldgen, not Tier B at all. See TODO.
+- **Erosion.** The terrain is a pure function of the seed and non-negotiably so.
+- **Water pressure, flow velocity, anything a real fluid solver does.** DESIGN rejected
+  Minecraft's model for not conserving volume and never equalising; it did not ask for CFD.
+- **Swimming, drowning, buoyancy.** The player does not interact with water as a body at M8.
+  **Named because it is the first thing a play-test will try**, and it needs its own decision.

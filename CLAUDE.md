@@ -19,6 +19,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/M6-PLAN.md](docs/M6-PLAN.md) | M6, persistence, placement and inventory, split into M6a–M6d. Done and played 2026-09-01, kept for the reasoning. |
 | [docs/M7-PLAN.md](docs/M7-PLAN.md) | M7, rain, split into M7a–M7d. Planned 2026-09-01, **built and played 2026-09-02**. Kept for the reasoning; **read SCALE.md before it**. Two places it was overtaken: splashes were cut (M7c-2) and the occlusion field's cost estimate was ten times out (M7d-1). |
 | [docs/M7-PLAY.md](docs/M7-PLAY.md) | M7's play: five questions, **all five answered 2026-09-02**, the flags that provoke weather without waiting for it, and how to read the `M7c:`/`M7d:` log lines. Kept for the verdicts. |
+| [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **Planned 2026-09-02, not started.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it; carries **the one open decision that is Matthew’s** — M8 makes the mine floodable and nothing fights back until M10. |
 | [docs/SCALE.md](docs/SCALE.md) | **How many voxels and cells exist at each view distance, what one full sweep costs, and what each system actually iterates.** Read before designing anything that wants to check the world periodically — M7, M8 and M9 all start here. |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
 | [TODO.md](TODO.md) | Milestones as checkable tasks, and the decisions still open. **M6's section is the plan as a checklist.** |
@@ -256,6 +257,28 @@ rim does not drain either. **The shape still unconfirmed is the one that would r
 — an open pit inside a basin below the solved level should show the surface hanging in air
 over the hole, since the quad comes from the *unedited* height. The five play questions stand
 unanswered.
+
+**M8 is planned (2026-09-02) and not started** — see [docs/M8-PLAN.md](docs/M8-PLAN.md), split
+M8a–M8d. Four things from the planning pass that are expensive to rediscover:
+
+- **Tier B is the first state here that is a *trajectory* rather than a value.** Worldgen is a
+  function of the seed, light is a fixpoint, Tier A water is a function of volume and terrain. Where
+  moving water *is* depends on where it came from, so **its correctness condition is that it
+  terminates** — a CA that never sleeps is wrong rather than slow, and **a cell oscillating by one
+  unit forever passes every volume-conservation assertion.**
+- **SCALE’s open 64x question is answered: 0.25 m, and the cost is 16x rather than 64x**, because
+  the active set is a **waterline, which is an area**. ~14,400 cells for SCALE’s generous cave,
+  ~28,800 visits/s at 2 Hz, ~5.5% of what the light budget already licenses. *Derived, not
+  measured.* **M8a takes the real number first**, on the case the play will actually produce — a
+  9,000,000 L lake draining into a shaft, not a settling cave.
+- **The headline is the seam, not the CA.** A perfect CA no basin ever hands water to changes
+  nothing on screen. A breach is detected at voxel resolution on the cell **face** — M5b’s rule
+  with “water” for “light” — and **Tier A never learns the hole exists**, it loses volume and
+  re-solves its level.
+- **M8 is the first milestone whose only copy of something is in RAM and nothing can recompute it.**
+  An in-flight flood has no seed, no analytic form and no fixpoint. The planned answer is **settle
+  rather than store**: integrate the transient to rest on unload and hand the volume to Tier A,
+  whose ledger already persists.
 
 **M7 is DONE (2026-09-02): built and played — all four parts, eight sub-parts, five play questions.** The clock runs, it
 rains, the rain stops at the ground and at a roof, the ground goes wet, the sky goes dark, basins

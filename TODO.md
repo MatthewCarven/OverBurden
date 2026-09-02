@@ -3477,7 +3477,37 @@ renderer and a person.
       currently returns an intensity.
 - [ ] A second coarse watershed tier for lakes larger than the window. Trigger named above.
 
-### M8 — Water gets in
+### M8 — Water gets in ← **planned 2026-09-02, split M8a–M8d, not started**
+
+Planned in [docs/M8-PLAN.md](docs/M8-PLAN.md). **Read SCALE.md first**, and read M7’s two play
+findings — they are inputs to this milestone rather than context for it.
+
+**The structural point: Tier B is the first state in this project that is a *trajectory* rather
+than a value.** Worldgen is a function of the seed, light is a fixpoint of the voxels, Tier A
+water is a function of volume and terrain — pour in N litres and the level is solved however the
+litres got there. Where moving water *is* depends on where it came from. **So its correctness
+condition is that it terminates**: every active cell must eventually sleep and merge into a Tier A
+body, and a CA that keeps cells awake forever is not slow, it is *wrong* — and it will read as a
+performance problem until somebody notices it is a termination problem. **A cell oscillating by
+one unit forever passes every volume-conservation assertion.**
+
+Seven decisions are argued in the plan; the three that constrain the rest:
+
+- [ ] **Tier B runs at voxel resolution, 0.25 m.** SCALE records this as open and a 64x swing; it
+      is forced by the breach rule below, and **the cost is 16x rather than 64x because the active
+      set is a waterline, which is an area** — ~14,400 cells for SCALE’s generous cave, ~28,800
+      visits/s at 2 Hz, **about 5.5% of what the light budget already licenses**. *Derived from
+      SCALE’s constants, not measured.* **Revisit trigger: the first sustained flood whose active
+      set exceeds ~50,000 cells.** Re-derive SCALE’s sizing section after M8a — it asks for that
+      by name.
+- [ ] **A breach is detected at voxel resolution on the cell *face*, never by re-analysis** — the
+      answer to the play’s question, and M5b’s cell-face rule with “water” for “light”. **Tier A
+      never learns the hole exists**; it loses volume and re-solves its level, which is arithmetic
+      `BasinWater` already does.
+- [ ] **Tier C is integrated forward, not swept** — M7’s trick, because saturation is a slow scalar
+      driven by analytic rainfall. **The honest cost: lateral drainage couples cells and has no
+      per-cell closed form, so this is the part most likely to have been costed wrong**, and it is
+      named for that reason exactly as M7a named its analysis.
 
 - [ ] **The play has already asked for this, 2026-09-02** — a pond above a dug tunnel does
       not fall in, and a cut rim does not drain. **First user-facing consequence of "edits do
@@ -3488,6 +3518,18 @@ renderer and a person.
 - [ ] Tier C coarse groundwater saturation field, fed by rain, drains downhill
 - [ ] Seepage into excavations driven by saturation × material permeability
 - [ ] Transparent render pass, back-to-front sorting
+- [ ] **The open decision the plan cannot settle, and it is Matthew’s: M8 makes the mine floodable
+      and nothing fights back until M10.** Pumps are machines, so on the current order there are
+      two milestones — M8 and M9 — in which water can take your excavation and the only counter is
+      to dig a drain or leave. Three ways out: **(1)** ship it and let the play judge; **(2)** bring
+      a hand-placed unpowered pump forward into M8d, which is a `Place` verb and a subtraction;
+      **(3)** tune the seepage rate low so M8 is a nuisance rather than a defeat, and let M10 turn
+      it up when the counter exists. **Recommended: 3 now, 2 if the play says the water is not
+      scary enough** — it costs nothing, it is reversible, and *“the rate is a number”* is the same
+      lever `rainfallScale` turned out to be.
+- [ ] **Swimming, drowning and buoyancy are not in M8, and are named because they are the first
+      thing a play-test will try.** The player does not interact with water as a body at M8; that
+      wants its own decision.
 
 #### Slower than realtime is accuracy, not approximation — Matthew, 2026-09-01
 
