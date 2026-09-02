@@ -148,13 +148,23 @@ Every five seconds:
 
 ```
 M7c: t 280 s, rain 10/12 (36 mm/h), wet 0.28, cloud 0.46, sky 0.72 | field 3 rebuild(s) (2 moved / 1 dug), 0.96 ms, 0% unknown, ground -3.5..5.0 m, rain falling
-M7d: 2,822,142 L standing (25.3% of 11,136,000 L) in 346/346 basin(s), 346 basin(s) banked | window 512 m x1, 40.1 ms to analyse, scale x20 | surface 1009 quad(s) over 346 basin(s), 1.05 ms
+M7d: 2,822,142 L standing (25.3% of 11,136,000 L) in 346/346 basin(s), 346 basin(s) banked (... L), ... L spilled | window 512 m x1, 40.1 ms to analyse, scale x20 | surface 1009 quad(s) over 346 basin(s), 1.05 ms
 ```
 
 Two of those are worth knowing how to read:
 
 - **`(2 moved / 1 dug)`** — a *dug* rebuild means breaking through to daylight re-aimed the rain.
   If you dig a shaft and this does not move, that is the wire in question 2 being loose.
+- **`L spilled`** — water that reached a basin which spills **out of the analysis window** and
+  therefore left the world. **This is the number that tells a full lake apart from a stopped
+  one**: at equilibrium the level stops rising because every basin sits at its own spill
+  height, and rain arriving after that goes over the ridge, down the merge tree, and eventually
+  off the edge. **A rising `spilled` with a flat `standing` is the system working, not the rain
+  having stopped.** The window edge is an outlet rather than a wall, deliberately — DESIGN:
+  under-filling is the safe failure, and over-filling would drown a base for a reason the
+  player cannot see.
+  - The sample line above is **abridged** and was written before the banked-litres and spilled
+    fields were in it; the real line carries both.
 - **`0% unknown`** — the share of the occlusion field with no loaded column under it. Rises at
   small view distances and is a profiling artefact rather than a defect; at play distances it
   should be near zero.
