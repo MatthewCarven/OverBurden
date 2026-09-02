@@ -19,6 +19,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/M6-PLAN.md](docs/M6-PLAN.md) | M6, persistence, placement and inventory, split into M6a–M6d. Done and played 2026-09-01, kept for the reasoning. |
 | [docs/M7-PLAN.md](docs/M7-PLAN.md) | M7, rain, split into M7a–M7d. Planned 2026-09-01, **built and played 2026-09-02**. Kept for the reasoning; **read SCALE.md before it**. Two places it was overtaken: splashes were cut (M7c-2) and the occlusion field's cost estimate was ten times out (M7d-1). |
 | [docs/M7-PLAY.md](docs/M7-PLAY.md) | M7's play: five questions, **all five answered 2026-09-02**, the flags that provoke weather without waiting for it, and how to read the `M7c:`/`M7d:` log lines. Kept for the verdicts. |
+| [docs/M10-NOTES.md](docs/M10-NOTES.md) | **The quantum machine family** — Matthew’s proposal, 2026-09-02: a fluid pump that teleports to a wireless output, and a general machine programmer. Notes rather than a plan, on the deferred-collapse precedent. **Read before planning M10, and before shipping any machine — it names the entity-storage change that header v4 rides on.** |
 | [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **Planned 2026-09-02, not started.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it; carries **the one open decision that is Matthew’s** — M8 makes the mine floodable and nothing fights back until M10. |
 | [docs/SCALE.md](docs/SCALE.md) | **How many voxels and cells exist at each view distance, what one full sweep costs, and what each system actually iterates.** Read before designing anything that wants to check the world periodically — M7, M8 and M9 all start here. |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
@@ -257,6 +258,25 @@ rim does not drain either. **The shape still unconfirmed is the one that would r
 — an open pit inside a basin below the solved level should show the surface hanging in air
 over the hole, since the quad comes from the *unedited* height. The five play questions stand
 unanswered.
+
+**The quantum machine family is proposed and recorded (2026-09-02)** — a fluid pump that
+teleports water to a wireless output, several outputs selected round-robin or programmatically, and
+a **quantum machine programmer** that is a general config interface for any machine. See
+[docs/M10-NOTES.md](docs/M10-NOTES.md). Three things from it worth keeping:
+
+- **The structural reason it is good is not the one it looks like: teleport deletes pipes.** A
+  conventional pump implies a network to solve, junctions, invalidation on every edit, and **fluid
+  in transit** — more of exactly what M8 has to keep terminating. Teleport is a subtraction and an
+  addition. **Fourth outing for *the cheap version is also the more accurate one*.**
+- **A machine is the first *entity* this world has held.** Everything today is a voxel (a material
+  ID, regenerable) or an aggregate number (litres per basin, a sky height). A machine has identity,
+  position and **player-authored config** — so its own table, **header v3 → v4**, and M6’s
+  permanent-data-loss warning applies harder than it did to chunks, because a chunk can be re-dug
+  and a config cannot be guessed. **Bringing a pump forward to M8d drags v4 forward with it, and a
+  machine that does not survive a quit is worse than no machine.**
+- **It is the one subsystem whose worst case is knowable in advance**, being bounded by a placement
+  count rather than by terrain — which is why it stands even if M9’s structural work proves
+  unaffordable.
 
 **M8 is planned (2026-09-02) and not started** — see [docs/M8-PLAN.md](docs/M8-PLAN.md), split
 M8a–M8d. Four things from the planning pass that are expensive to rediscover:

@@ -3763,6 +3763,72 @@ the ask arrives, the answers that already exist are not re-derived.
 - [ ] Power: generation / consumption / storage network
 - [ ] Pumps, shoring/supports
 
+#### The quantum machine family — Matthew’s proposal, 2026-09-02
+
+A **quantum fluid pump**, a **quantum pump output** that it teleports water to wirelessly, several
+outputs selected randomly or programmatically, and eventually a **quantum machine programmer** — a
+general config interface mapping input numbers to output numbers, for any machine. Full reasoning
+and eight open pieces in [docs/M10-NOTES.md](docs/M10-NOTES.md). **Recorded the day it was raised,
+on the deferred-collapse precedent**, so M10’s planning pass starts from it rather than re-deriving
+it.
+
+- [ ] **The structural reason it is a good idea is not the one it looks like: teleport deletes
+      pipes.** A conventional pump implies a network to solve, junctions to split, invalidation on
+      every edit, and **fluid in transit** — which is more of exactly the thing M8 has to keep
+      terminating. Teleport is a subtraction and an addition: no transport, no graph, no in-flight
+      state. **Fourth outing for *the cheap version is also the more accurate one*** — a pipe
+      network approximates transport badly, a teleport declines to have any, which is a coherent
+      rule rather than a lossy one.
+- [ ] **It is the one subsystem whose worst case is knowable in advance**, which is the strongest
+      argument for building it early: M8’s active set is bounded by terrain and M9’s by the mine’s
+      shape, but **a machine layer is bounded by a placement count** — a number the player chooses
+      and the engine can cap. That is also why Matthew’s framing holds: *“if it’s proven that the
+      structural additions cannot be met due to CPU load, it is still going to work out great.”*
+- [ ] **The biggest thing in the proposal is not the fluid: a machine is the first *entity*.**
+      Everything the world holds today is either a voxel (a material ID, regenerable from the seed)
+      or an aggregate number (litres per basin, a sky height per column). A machine has an
+      identity, a position and **configuration the player authored**. So it needs its own table
+      beside `chunks` and `basins` — **header v3 → v4, additive, migrating under M6c-2’s policy** —
+      and **M6’s “the tests are the only thing between a defect and permanent data loss” applies
+      harder here than it did to chunks, because a chunk can be re-dug and a config cannot be
+      guessed.**
+- [ ] **Backpressure is the piece most likely to be got wrong, and it is not a detail**: M8’s
+      oracle is that volume is conserved with **no tolerance**, so a machine that quietly drops
+      litres breaks the property the whole fluid milestone is verified against — silently, because
+      a missing litre looks exactly like water that has not arrived yet. **Recommended: move
+      `min(available, acceptable)` and do nothing else.** No buffer, because a buffer is in-flight
+      fluid by another name; no spill, because that is a second invisible source of Tier B
+      activity. **The test belongs in M8’s volume oracle with machines running**, not in a machine
+      test.
+- [ ] **Random selection must be seeded and server-authoritative, or it is not an option** — the
+      rule M9’s deferred collapse already recorded, per non-negotiable 1. **Recommended:
+      round-robin as the default and weights via the programmer, with round-robin as the all-equal
+      case**, so there is one mechanism rather than two.
+- [ ] **Pairing by channel number, defaulting to 0.** It *is* the “input numbers to output numbers”
+      idea, so the programmer has a job on day one. **Rejected: an explicit stored link**, which
+      creates a reference that must survive one end being mined, a reload and a chunk unload.
+- [ ] **“Wireless” runs into the analysis window, and `BasinLedger` is already the answer** — a
+      teleport into an unloaded region credits the ledger exactly as a departing window does.
+      **Second time that design has paid off somewhere it was not written for.** The open
+      sub-question is whether an output in an unloaded chunk still exists, which is the entity
+      question above. Related: the entangled miner already recorded that *“however far away” means
+      “as far as the world exists”*, and that settling reach-as-content is due when it stops being
+      a debug bind.
+- [ ] **The programmer is a format, not a screen.** A machine declares its configurable ports in
+      its own JSON and the programmer renders what it finds — so a third-party machine gets a
+      config UI with no privileged path, which is **non-negotiable 5 stated as a test**.
+      M6d-3’s derived-label rule and M3c’s bound-every-mod-authored-number rule both apply
+      unchanged.
+- [ ] **Naming is free to change now and never again.** `minercraft:quantum_fluid_pump` is a
+      content ID, and non-negotiable 2 says IDs are never renumbered and a removed mod leaves a
+      hole that stays. **No objection to “quantum” is being raised** — this is only a flag that the
+      free moment is now.
+- [ ] **Interaction with M11’s “drills, pipes, conveyors”, which wants deciding rather than
+      drifting.** If teleport is the fluid answer, pipes are either redundant, or they become the
+      *cheap early-game* transport that quantum machines are the upgrade from. **The second reading
+      is better game design and costs nothing to adopt now**, but it means M11’s pipes are a
+      deliberate tier rather than the default way fluid moves.
+
 ### M11 — v1.0
 
 - [ ] Drills, pipes, conveyors
