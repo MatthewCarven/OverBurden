@@ -3646,6 +3646,9 @@ part is the automaton and its oracles, M8a-2 is the measurement.
       absolute: revisit when `PanelBytes` passes ~64 MiB in a played session.** A ratio a sparse
       world will always fail is not a trigger, it is a complaint.
 - [ ] Tier C coarse groundwater saturation field, fed by rain, drains downhill
+      - [ ] **Read `permeability` from the material JSON, per material.** It has been in the format
+            unread since M1, exactly as `hardness` was until M3c. A constant here ships green and
+            makes the field decorative — see [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md).
 - [ ] Seepage into excavations driven by saturation × material permeability
 - [ ] Transparent render pass, back-to-front sorting
 - [x] **Settled 2026-09-02: option 3.** *"Keep M8 clean, tune seepage low."* M8 makes the mine
@@ -3713,6 +3716,10 @@ Three honest caveats, because the saving is not where it first appears:
 ### M9 — v0.5, the game exists
 
 - [ ] Support BFS from anchored material, per-material support distance
+      - [ ] **`supportDistance` is already in the material JSON, unread since M1** — read it, and
+            make support-against-saturation a per-material curve rather than a global one. See
+            [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md), which also argues that solubility
+            (limestone, halite) wants its own pass *after* M9 rather than a seat in M8c.
 - [ ] Incremental, local, budgeted, off-thread — never global
 - [ ] Collapse into rubble
 - [ ] **Saturation degrades support distance** ← the keystone interaction
@@ -4297,6 +4304,10 @@ it.
 
 - [ ] Drills, pipes, conveyors
 - [ ] Crafting, health, hunger
+      - [ ] **Recipes are the chemistry set** — litres in, litres out, with power and time, on M10's
+            machine framework; the volumetric inventory makes stoichiometry a ratio rather than an
+            item count. The element table and the battery ladder (lead–acid → nickel–iron →
+            lithium from pumped brine) are in [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md).
 
 ### M12 — Modding tier 2
 

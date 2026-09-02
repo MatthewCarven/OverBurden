@@ -1,5 +1,27 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-03 — Brainstorm: elements, and whether to "just implement chemistry"
+
+Matthew: *"we could implement a chemistry set and just implement chemistry? IDK sounds too complex
+but it is something we could at least think about."* Recorded as [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md)
+on the M10-NOTES precedent — notes, not a plan. Three things from it worth keeping here:
+
+- **The recommendation is geology that reacts to water, with machine recipes as the chemistry
+  set.** *A voxel is one material* forbids mixtures at voxel scale, which bounds "chemistry" to
+  three shapes — recipes in machines, solids that respond to a field, a fluid that carries scalars
+  — and keeps it off the N² pairwise-reaction cliff. **The volumetric inventory gives stoichiometry
+  for free**, which DESIGN chose for continuous crafting costs and nobody planned for this.
+- **The format already carries it, unread.** `supportDistance`, `permeability` and `density` have
+  been in every material JSON since M1 and nothing reads them — `hardness`'s history until M3c. So
+  the first chemistry costs M8c and M9 *reading the field per material* rather than a constant; a
+  constant shipping green is the trap, and it is named in TODO under both milestones. Corrects what
+  the chat said first — "put them in the JSON" — they are in it; the risk is the other way round.
+- **Honest cost: two new behaviours beyond the plan, one hard.** Solubility (exact-milligram
+  oracle, own pass after M9) and granular flow (a second CA rule set, deferred). Twenty-two
+  materials against five is content. The battery ladder — lead–acid, nickel–iron, lithium from
+  pumped brine — is the chemistry that closes the loop, and depth as the ladder is what *"the game
+  never ends"* looks like structurally.
+
 ## 2026-09-03 — Five answers from the play: the lake overhangs the pit, 4/s stands, nothing ends, and the gate is a battery
 
 The three questions from the played-world check came back inside the hour, with two things nobody
