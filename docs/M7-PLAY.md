@@ -124,3 +124,28 @@ Two of those are worth knowing how to read:
 - **`0% unknown`** — the share of the occlusion field with no loaded column under it. Rises at
   small view distances and is a profiling artefact rather than a defect; at play distances it
   should be near zero.
+
+---
+
+## What the play has already found — a sixth thing, 2026-09-02
+
+> *"The surface level was rising in sealed ponds like, but where I had tunnelled into the earth, it
+> did not fall in."*
+
+**Correct, and recorded before it was seen.** `WaterSurface` sweeps `HeightField`, which is built
+from `ISurfaceHeights.SurfaceHeightAt` — analytic, seeded, **unedited**. DESIGN, settled at M7's
+planning pass: *"Edits do not change the watershed at M7. Water reaching an excavation is Tier B,
+which is M8; the seam is `SkyColumn`, which already exists and already persists."*
+
+An excavation is invisible to water in **both** directions, and only one half looks like a
+boundary: water cannot get *in* to a tunnel under a pond, and a cut through a basin's rim does not
+drain it *out* either.
+
+**One thing to look for while playing, because it is the shape that reads as broken rather than as
+missing:** dig an open pit *inside* a pond's footprint, below the water level. The quad is still
+emitted from the unedited height, so the surface should hang in the air over the hole with the
+pit's walls drawing through it. **If you see that, it is the one part of this worth a cosmetic
+guard before M8. If you do not, nothing here moves.**
+
+No stopgap is proposed. "Water finds your excavation" *is* Tier B, and every cheaper version is
+something M8 deletes.

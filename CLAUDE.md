@@ -235,6 +235,15 @@ copy in `../GAME/`.
 
 ## Where things stand
 
+**The play has begun, and its first finding is a sixth one (2026-09-02): a pond above a dug
+tunnel does not fall into it.** That is DESIGN's *"edits do not change the watershed at M7"*
+met by a person — **not a defect, and the first play-confirmed motivation for M8's Tier B.**
+An excavation is invisible to the analysis in both directions: water cannot get in, and a cut
+rim does not drain either. **The shape still unconfirmed is the one that would read as broken**
+— an open pit inside a basin below the solved level should show the surface hanging in air
+over the hole, since the quad comes from the *unedited* height. The five play questions stand
+unanswered.
+
 **M7 is code-complete (2026-09-02): all four parts, eight sub-parts, built.** The clock runs, it
 rains, the rain stops at the ground and at a roof, the ground goes wet, the sky goes dark, basins
 fill and survive a quit, **and the water is on the screen**. **What is left of M7 is a person** —

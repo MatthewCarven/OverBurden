@@ -1,5 +1,47 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-02 — M7's play, first sighting: sealed ponds fill, tunnels stay dry
+
+**Matthew, playing M7d-2:** *"water is working, um seems to get stuck sometimes... as I watched the
+surface level was rising in sealed ponds like, but where I had tunnelled into the earth, it did not
+fall in."*
+
+**This is not a defect. It is DESIGN's recorded M7 boundary, met by a person for the first time**,
+and it is the strongest evidence M8 could have been handed: the thing the play notices missing is
+exactly the thing M8 exists to build.
+
+`WaterSurface.EmitBasin` tests `level > field.HeightAt(sx, sz)`, and `HeightField` is built from
+`ISurfaceHeights.SurfaceHeightAt` — **analytic, seeded, unedited**. No excavation is anywhere in
+the analysis. DESIGN, settled at M7's planning pass:
+
+> **Edits do not change the watershed at M7.** Water reaching an excavation is Tier B, which is
+> M8; the seam for an edited-surface watershed is `SkyColumn`, which already exists and already
+> persists.
+
+So at M7, an excavation is invisible to water in **both** directions, and the asymmetry is worth
+naming because only one half looks like a boundary:
+
+- **Water cannot get in.** A pond above a tunnel keeps its level, the tunnel stays dry, and a
+  breach through the pond bed drains nothing. This reads as *incomplete*, which is honest.
+- **Water cannot get out either.** A cut through a basin's rim does not lower it, because the rim
+  the analysis knows about is the one the seed describes. This reads the same way, and is the half
+  that will matter for a base built below a lake.
+
+**The case to watch for, because it reads as broken rather than as missing:** dig an open pit
+*inside* a basin's footprint, below the solved level, and the quad is still emitted from the
+unedited height — a water plane hanging in air over an open hole, with the pit's walls drawing
+through it, since the surface is depth-tested but not depth-written. Not yet confirmed by eye, and
+it is the one shape of this boundary that might justify a cosmetic guard before M8.
+
+**No stopgap is proposed and that is the recommendation, not an omission.** "Water finds your
+excavation" is Tier B by definition; the cheap versions are all things M8 deletes, and the one
+seam that would be real work in the right direction — re-flooding the watershed off edited
+`SkyColumn` heights — is the M8 item already named. Nothing here moves.
+
+**What it does to M7's play:** this is a sixth finding rather than one of the five questions.
+Question 2 asks whether *rain particles* stop at the mine entrance; this is whether *standing
+water* enters it, and they are opposite ends of the same milestone. The five stand unanswered.
+
 ## 2026-09-02 — M7d-2: the water is on the screen, and M7 is built
 
 **M7 is code-complete.** The clock runs, it rains, the rain stops at the ground and at a roof, the

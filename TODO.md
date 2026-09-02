@@ -3387,6 +3387,16 @@ renderer and a person.
       no sorting inside a basin because it is one plane. **M8 owns the real transparent pass.**
       **The levels are already solved and `WaterSystem.LevelAt` returns them — nothing draws them**,
       which is exactly where M5b stood with a light grid that did not glow.
+- [x] **Sighted 2026-09-02, and it is a sixth finding rather than one of the five**: *"the surface
+      level was rising in sealed ponds like, but where I had tunnelled into the earth, it did not
+      fall in."* **Not a defect — it is the boundary two items below, met by a person.** An
+      excavation is invisible to the analysis in *both* directions: water cannot get into a tunnel
+      under a pond, and a cut through a basin's rim does not drain it either. **The half that reads
+      as broken rather than as missing is not yet confirmed by eye** — an open pit dug *inside* a
+      basin below the solved level still emits its quad from the unedited height, so the water
+      plane hangs in air over the hole with the pit walls drawing through it. **If the play sees
+      that, it is the one part of this worth a cosmetic guard before M8; if it does not, nothing
+      here moves.** The five questions below stand unanswered.
 - [ ] Play, the questions no test answers:
       - [ ] Does rain read as rain, and does a storm read as weather rather than as the renderer
             breaking?
@@ -3428,6 +3438,10 @@ renderer and a person.
 
 ### M8 — Water gets in
 
+- [ ] **The play has already asked for this, 2026-09-02** — a pond above a dug tunnel does
+      not fall in, and a cut rim does not drain. **First user-facing consequence of "edits do
+      not change the watershed at M7", reported unprompted**, so M8 has a play-confirmed
+      motivation rather than a designed one. The seam is still `SkyColumn`.
 - [ ] Tier B volume-conserving cellular automata over an active-cell set
 - [ ] Sleep/wake rules; settled cells merge into a Tier A body
 - [ ] Tier C coarse groundwater saturation field, fed by rain, drains downhill
