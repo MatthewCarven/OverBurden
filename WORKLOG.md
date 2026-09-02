@@ -1,5 +1,45 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-02 — M7's last question, re-asked properly, and a cosmetics pass gets a home
+
+**Question 3 was answered twice, and the second answer is a different kind of thing from the
+first.** The first was silence — splashes never raised across a play that reported on rain,
+occlusion, standing water, pacing and the shoreline. Then: *"What is a splash?"*
+
+**A null result from an observer who does not have the concept is not the same null as one from an
+observer who does, and finding that out cost one question.** It was re-run knowingly — a storm on
+open ground, watching where the drops meet it — and came back *"no, could not see"*, with a
+screenshot: streaks descending, a pond sitting there, nothing at all marking the impact. **That
+upgrades the answer from *not noticed* to *looked for and confirmed absent*.** Then the verdict that
+actually closes it: *"Nah like it's a cosmetic."*
+
+**So M7 closes on this question rather than around it.** All five answered, and none softly.
+
+### The cosmetics pass, which is a scheduling decision rather than a note about splashes
+
+> *"We can introduce a cosmetics pass if we find we haven't chewed all available CPU by the time we
+> get to the end of just what we like talked about in design."*
+
+Recorded in TODO under Phase 3. It gives every deferred cosmetic **one named home and one named
+gate**, instead of each being re-argued at the moment somebody notices it. The gate is headroom at
+the end of the DESIGN roadmap rather than a milestone — nothing in it is scheduled against M8, M9
+or M10, and that ordering matches DESIGN: the mine is the antagonist, and none of these items make
+it more so.
+
+**One correction, and it sharpens the gate rather than contradicting it: the resource named is CPU,
+and for the pass's first item it is the wrong one.** Splashes are particles, and M7c-2 measured the
+rain at **one draw call and 48,000 extra primitives**, with the sim-thread arms *lower* with rain on
+than off — everything a drop does is in the process shader. **So the pass wants two budgets checked
+separately**: CPU headroom for anything that thinks, GPU headroom and draw calls for anything that
+only draws. Several likely members fall in the second category, so a pass gated on CPU alone would
+green-light work the machine cannot actually afford.
+
+Two things are deferred into it so far — splashes, with M7c-2's four findings attached, and the 4 m
+shoreline if M8's Tier B has not already replaced it. **Revisit trigger for the pass itself: any
+cosmetic deferred into it being independently raised a second time.** One deferral is a judgement;
+two is a signal that it was never cosmetic.
+
+
 ## 2026-09-02 — M7 is done: five play questions, five answers
 
 > *"Yeah looks like rain to me when it's falling from the sky, and it does stop at the mine

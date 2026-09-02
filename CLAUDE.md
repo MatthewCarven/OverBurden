@@ -262,11 +262,16 @@ rains, the rain stops at the ground and at a roof, the ground goes wet, the sky 
 fill and survive a quit, **and the water is on the screen**. **The person has played it, and all
 five questions are answered:** rain reads as rain; **it stops at the mine entrance** — DESIGN's
 *the detail people notice*, noticed, and the one thing no screenshot could ever establish;
-splashes were never mentioned, which is that question's own stated criterion; a pond rising
+splashes were re-tested knowingly after the play asked *"what is a splash?"* and confirmed
+absent and **not missed** — *"nah like it's a cosmetic"*, which is a far stronger answer than
+the silence it replaced, and **the lesson generalises: a null from an observer without the
+concept is not the null you think you have**; a pond rising
 over minutes feels right, **which moved `rainfallScale` x40 → x20**; and the 4 m shoreline is
 tolerable. **The play also produced two things the questions did not ask for** — that a pond
 above a dug tunnel does not fall in (the first play-confirmed motivation for M8), and the
-minimum-drainable-hole question that decides an M8 design. **814 tests passing, and not one of
+minimum-drainable-hole question that decides an M8 design — plus **a cosmetics pass with one
+named home and one named gate** (headroom at the end of the DESIGN roadmap, and **it wants two
+budgets rather than one**: splashes cost GPU, not CPU). **814 tests passing, and not one of
 them could have answered any of the five.**
 
 Every claim M7 makes is either exact or measured: **a 1 km watershed at 26.4 ms

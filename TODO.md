@@ -3428,16 +3428,17 @@ renderer and a person.
             trigger: the first time rain landing on dry-looking ground is remarked on.** The
             four M7c-2 findings stay on the shelf, and the most useful is that a `texture()`
             call inside a particle `start()` silently yields particles that never appear.
-      - [ ] **Qualified the same day, and it weakens the answer above rather than overturning
-            it: *"what is a splash?"*** The null result came from an observer **who did not
-            have the concept**, which cuts both ways and both ways are worth stating. It is a
-            *stronger* null in that nothing was missed against a remembered feature from
-            another game — the absence was not felt by someone primed to feel it. It is a
-            *weaker* null in that a vague dissatisfaction could not have been named, so
-            "never mentioned" is not quite "looked for and not missed". **The cheap way to
-            settle it properly: stand in a storm on open ground and watch where the drops
-            meet it, now knowing what is absent.** Until then this is the softest of M7's
-            five answers and should be quoted as such.
+      - [x] **Re-tested and settled properly the same day, and it is no longer the soft one.**
+            The first null came from an observer who did not have the concept (*"what is a
+            splash?"*), so it was re-run knowingly: a storm on open ground, watching where the
+            drops meet it. *"No, could not see"* — **confirmed absent by a primed observer with
+            a screenshot**, which upgrades the answer from *not noticed* to *looked for*.
+            And the verdict on whether it matters: *"Nah like it's a cosmetic."*
+            **So M7 closes on this question rather than around it**, and the four M7c-2
+            findings go to the cosmetics pass below rather than back on an anonymous shelf.
+            **The general lesson is worth more than the answer: a null result from an
+            observer who lacks the concept is not the same null as one from an observer who
+            has it, and the difference costs one question to find out.**
       - [x] **Answered 2026-09-02: it feels right, and x40 was a little fast.** *"In sealed ponds
             on the surface it works perfectly... a little too fast, um like you could half the
             fill speed, it would still work as well I reckon."* **So the project-level principle
@@ -3598,6 +3599,36 @@ Three things to settle in M9's planning pass, all cheap now and expensive later:
       enough; making it shorter as support degrades is the obvious refinement and is what would
       let **saturation degrading support distance** — M9's recorded keystone interaction — express
       itself as *the ceiling starts creaking sooner* rather than as a step change.
+
+#### A cosmetics pass, gated on headroom — Matthew, 2026-09-02
+
+Raised while closing M7's play question 3: *"Nah like it's a cosmetic, we can introduce a cosmetics
+pass if we find we haven't chewed all available CPU by the time we get to the end of just what we
+like talked about in design."*
+
+**This is a scheduling decision rather than a note about splashes, and it should be recorded as
+one.** It gives every deferred cosmetic a single named home and a single named gate, instead of
+each one being re-argued on its own merits at the moment it is noticed.
+
+- [ ] **The gate is headroom at the end of the DESIGN roadmap**, not a milestone. Nothing here is
+      scheduled against M8, M9 or M10; the pass exists only if there is budget left when the
+      antagonist stack is finished. **That ordering is right and matches DESIGN**: the mine is the
+      antagonist, and none of these items make it more so.
+- [ ] **The resource named is CPU, and for the first item in the pass it is the wrong one — which
+      makes the gate sharper rather than wrong.** Splashes are particles: M7c-2 measured the rain
+      at **one draw call and 48,000 extra primitives**, with the sim-thread arms *lower* with rain
+      on than off, because everything a drop does is in the process shader. **So the pass wants two
+      budgets, checked separately** — CPU headroom for anything that thinks, GPU headroom and draw
+      calls for anything that only draws. Several likely members are in the second category.
+- [ ] **What is already deferred into it**, each with its own worklog entry to start from:
+      - [ ] **Splashes** — cut at M7c-2, four findings on the shelf, and the play looked for them
+            deliberately and did not mind their absence. The expensive knowledge is that a
+            `texture()` call inside a particle `start()` silently yields particles that never
+            appear: no log, no compile failure, and by eye identical to every other broken state.
+      - [ ] **The 4 m shoreline**, if M8's Tier B has not already replaced it. Judged tolerable by
+            the play; refining it before M8 would be building the thing M8 deletes.
+- [ ] **Revisit trigger for the pass itself: any cosmetic deferred here being independently raised
+      a second time.** One deferral is a judgement; two is a signal that it was not cosmetic.
 
 #### The minimum drainable hole — Matthew's question, 2026-09-02, and it decides an M8 design
 
