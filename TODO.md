@@ -3532,8 +3532,70 @@ Seven decisions are argued in the plan; the three that constrain the rest:
             the check pass. **Injected and removed litres are reported numbers**, and the oracle
             becomes `held == rained + injected − spilled − removed`. **Third outing for “print the
             denominator”**, and the first where the instrument itself moved it.
-- [ ] Tier B volume-conserving cellular automata over an active-cell set
-- [ ] Sleep/wake rules; settled cells merge into a Tier A body
+#### M8a-1 — the automaton and the active set ← **built 2026-09-02, suite 814 → 850**
+
+`MinerCraft.Core/Fluid/` holds `FluidConstants`, `IFluidTerrain`, `FluidGrid`, `FluidRules` and
+`FluidSimulation`. **Nothing feeds it — that is M8b.** Split M8a-1 / M8a-2 on the usual seam: this
+part is the automaton and its oracles, M8a-2 is the measurement.
+
+- [x] Tier B volume-conserving cellular automata over an active-cell set
+- [x] Sleep/wake rules
+- [ ] Settled cells merge into a Tier A body — **M8b**, and it is the half the play asked for
+- [x] **The unit is the millilitre, and it corrects DESIGN.** A 0.25 m cell is **15.625 L — not a
+      whole number** — so DESIGN's "amount 0-255" makes one unit 61.27 mL and every conversion
+      across the seam rounds, which a no-tolerance conservation oracle cannot survive. Capacity is
+      **15,625 mL, an exact integer division** of 1,000,000 mL/m³ by 4³ voxels; at three voxels per
+      metre it would truncate. Costs one byte per cell. DESIGN is amended in place.
+- [x] **The sideways divisor is fixed at five, and that is a correctness decision.** Dividing by
+      *eligible + 1* — the obvious rule — makes a cell's move depend on its neighbours' amounts
+      rather than on the pair, so **a neighbour gaining water can shrink the divisor and create a
+      move with nothing awake to take it.** Caught by `VerifyQuiescent` on its first run, with
+      four cells one millilitre out of level and every volume assertion green. The fixed divisor
+      makes the rule local to a pair, which is what lets the wake rule stay at one neighbourhood
+      per transfer. **Cost: levelling two cells takes ~16 ticks instead of 1; the frontier still
+      advances one cell per tick, which is what a person sees.**
+- [x] **Termination has a proof, not a hope** — a sideways move strictly decreases the sum of
+      squares (`(k+1−2d)Σt² ≤ −5Σt²` for `k ≤ 4`, `d = 5`), a vertical move strictly decreases
+      Σ(amount × Y) which is bounded below because an unloaded voxel is solid, and the pair
+      ordered lexicographically decreases on every move. **The proof also forbids the obvious
+      tuning**: a minimum transfer of one millilitre breaks `t ≤ (a−b)/d` and oscillates forever —
+      in the battery, and caught.
+- [ ] **A cell under one litre does not spread sideways, and the cost is stated.** Without the
+      floor, five litres reaches all 64 cells of an 8×8 floor at 78 mL each — a 1.25 mm film in a
+      250 mm voxel, every cell of it held, drawn and re-woken. One litre because that is the
+      smallest amount the Tier A seam can express. **Cost: a shallow spill settles in blotches
+      rather than a level sheet. Revisit trigger: M8d's transparent pass making that visible**, or
+      a play-test calling a puddle stuck.
+- [ ] **The resting surface is level to within four millilitres *per adjacent pair*, and that
+      accumulates along a path** — measured at 8 mL low across a three-cell join, with 12 mL left
+      standing a level above it. 6.4 mm across a hundred-cell tunnel. **Not** a global bound, and
+      the two tests that asserted one both failed.
+- [ ] **No pressure, therefore no siphons.** Water falls and spreads, never rises; a U-bend does
+      not fill its far arm. Filling a mine still works, because water arriving from above meets
+      each side passage at that passage's own height. **Named because it is the first thing that
+      will look like a bug and is not one**, and it is a test rather than a comment.
+- [ ] **Panels are dense and a flooded tunnel network is not.** One 64 KiB `ushort` panel per
+      chunk holding water, released when the last drop leaves; a chunk holding one cell costs the
+      same as one holding 32,768. `PanelCount` is printed beside the held-cell count so the
+      sparsity is visible. **Revisit trigger: panels averaging under ~1% full across a sustained
+      flood**, where a run-length or octree panel starts to pay for itself.
+- [ ] **`Wake(to)` is an identity today and is kept for the relay.** Every destination is a face
+      neighbour of the source, so removing it breaks nothing and cannot. **The debug relay is a
+      transfer between cells that are not adjacent**, and the moment it exists this line is the
+      only thing waking the far end. Named rather than deleted.
+- [ ] **`VoxelFluidTerrain` tests for air or an existing fluid, deliberately not for "not
+      opaque".** Glass is transparent and solid. **Revisit trigger: the first material that is
+      neither solid nor fluid** — a ladder, a rope, a grass tuft — which wants a real `IsSolid` on
+      `MaterialDefinition` rather than a second special case. M8c adds `permeability` to the same
+      file, which is the natural moment.
+
+#### M8a-2 — the measurement ← **next**
+
+- [ ] **Peak active cells, cell visits per second and time to quiescence for a 9,000,000 L lake
+      draining into a shaft**, printed beside the light budget's ~520,000 visits/s. Not SCALE's
+      settling cave: this is a sustained flow and is the case the play will produce.
+- [ ] **Re-derive SCALE.md's "sizing the systems that do not exist yet" section afterwards** — it
+      asks for that by name, and M8-PLAN's ~14,400-cell estimate is derived rather than measured.
 - [ ] Tier C coarse groundwater saturation field, fed by rain, drains downhill
 - [ ] Seepage into excavations driven by saturation × material permeability
 - [ ] Transparent render pass, back-to-front sorting

@@ -1,4 +1,4 @@
-# MinerCraft — Design Document
+﻿# MinerCraft — Design Document
 
 > Status: M0–M6 built and played, M7 planned. Locked decisions here; per-milestone plans in
 > `M*-PLAN.md`.
@@ -203,9 +203,16 @@ visible here.
   downstream. Costs a float per basin, scales to the whole world.
 - **Tier B — Active cellular automata.** Volume-conserving CA over an explicit
   **active-cell set**, for water that is actually moving (tunnel breach, waterfall,
-  pump outlet). Cells hold an amount 0-255; push down where there is capacity,
-  equalise sideways otherwise. Stable cells sleep and merge into a Tier A body.
-  Sleeping is load-bearing, not an optimisation.
+  pump outlet). Push down where there is capacity, equalise sideways otherwise. Stable
+  cells sleep and merge into a Tier A body. Sleeping is load-bearing, not an optimisation.
+  **Corrected at M8a-1, 2026-09-02: cells hold millilitres, capacity 15,625, not an
+  amount 0-255.** This line predates M7 and therefore predates litres being the currency
+  of water here. A 0.25 m cell is **15.625 litres — not a whole number** — so a 0..255
+  scale makes one unit 61.27 mL and every conversion across the Tier A ↔ Tier B seam
+  rounds, which M8's no-tolerance conservation oracle cannot survive. A litre is exactly
+  1,000 mL, so the seam is exact in both directions; the correction costs one byte per
+  cell. **1,000,000 mL per cubic metre over 4³ voxels is 15,625 exactly** — a division
+  that would truncate at any voxel scale that is not a power of two.
 - **Tier C — Groundwater saturation.** Coarse per-1 m scalar field. Rain feeds it,
   it drains downhill, and it seeps into excavations at a rate set by saturation and
   material permeability. This is what makes mining under a lake frightening and

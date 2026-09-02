@@ -1,5 +1,154 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-02 — M8a-1: the automaton, and the first thing it did was catch its own wake rule
+
+**M8's Tier B, in `MinerCraft.Core/Fluid/`** — `FluidConstants`, `IFluidTerrain`, `FluidGrid`,
+`FluidRules`, `FluidSimulation`. Volume-conserving water over an explicit active-cell set, at the
+0.25 m voxel resolution M8-PLAN's decision 1 settled. **Nothing feeds it yet — that is M8b.**
+Suite **814 → 850**.
+
+**Split M8a-1 / M8a-2 on the usual seam**: this part is the automaton and its oracles, and M8a-2
+is the measurement M8-PLAN names — peak active cells and time to quiescence for a 9,000,000 L lake
+draining into a shaft.
+
+### The unit is the millilitre, and that corrects DESIGN
+
+DESIGN says a Tier B cell holds "an amount 0-255", written before M7 existed and therefore before
+litres were the currency of water here. **A 0.25 m cell is 15.625 litres — not a whole number** —
+so a 0..255 scale makes one unit 61.27 mL and every conversion across the Tier A ↔ Tier B seam
+rounds. M8's oracle is volume conservation *with no tolerance*, the same standard as M7b's *an hour
+in one call equals 3,600 calls of one second, to the litre*, and a rounding seam cannot meet it.
+
+- **Millilitres make both directions exact by arithmetic.** A litre is exactly 1,000 mL, so
+  A → B never rounds at all; B → A hands over whole litres and the remainder is under one litre,
+  which is 6.4% of one cell — a *reported* number rather than an absorbed one.
+- **The capacity is an exact integer division and that is luck worth pinning.** 1,000,000 mL per
+  cubic metre over 4³ voxels is **15,625 exactly**. At three voxels per metre it would be
+  1,000,000/27, which truncates, so every cell in the world would silently lose a fraction of
+  itself. A test asserts the division rather than the constant.
+- **The cost of the correction is one byte per cell**: 15,625 does not fit in a `byte` and fits in
+  a `ushort` with room to spare.
+
+### The defect it opened with, and the oracle that caught it on its first run
+
+**The sideways rule originally divided the surplus by *eligible + 1* — the count of lower
+neighbours — which is the obvious rule, converges fastest, and is wrong.** It makes one cell's
+move depend on *its neighbours' amounts* rather than only on the pair, so **a neighbour *gaining*
+water can shrink the divisor and turn a transfer of zero into a transfer of one** — handing a cell
+a move it did not have a moment ago, with nothing awake to take it.
+
+- **Found by `VerifyQuiescent` the first time it was ever asked.** Five litres spilt on an 8×8
+  floor settled with **four cells one millilitre out of level**, and every volume assertion in the
+  file passed. That is the failure mode the whole check exists for: conservation holds by
+  construction whether or not the sleep rules are right.
+- **The fix is a fixed divisor of five** — one part for the cell and one for each of its four
+  horizontal neighbours — which makes the rule local to a pair, so a gaining cell can never create
+  a move for anything but itself. **The wake rule then only has to wake the neighbourhood it took
+  water out of**, rather than both endpoints' neighbourhoods.
+- **The cost is convergence speed and it is the cheapest thing available to spend**: levelling two
+  cells takes about sixteen ticks instead of one, because the difference decays by three fifths a
+  tick. **The frontier still advances one cell per tick**, which is what a person watching a flood
+  actually sees. DESIGN's *slower than realtime is accuracy* is the licence.
+
+### Termination is the correctness condition, and it has a proof rather than a hope
+
+**Tier B is the first state in this project that is a trajectory rather than a value**, so there is
+no closed form to check it against and *"a cell oscillating by one unit forever passes every
+volume-conservation assertion there is"*. The termination argument is written into `FluidRules`:
+
+- A sideways move strictly decreases the **sum of squares** over the cells it touches. With
+  `t = ⌊(a−b)/d⌋`, `(a−b) ≥ d·t` by the floor and `T² ≤ kΣt²` by Cauchy–Schwarz, the change is at
+  most `(k+1−2d)Σt²`, which for `k ≤ 4` and `d = 5` is at most `−5Σt²`.
+- A vertical move strictly decreases the **sum of amount × Y**, which is bounded below because an
+  unloaded voxel is solid.
+- Lexicographically ordered, the pair strictly decreases on every move the automaton can make.
+
+**The proof is also what forbids the obvious tuning.** Driving the residue to one by moving *at
+least* a millilitre whenever two cells differ by two or more breaks `t ≤ (a−b)/d`, and the way it
+fails is exactly the failure the milestone is defined against: a cell with four neighbours two
+millilitres below it gives one to each, drops four, becomes the low cell, and gets it all back next
+tick. **Forever.** It is in the battery below and it is caught.
+
+### Two decisions with their costs stated
+
+**A cell holding less than one litre does not spread sideways.** Without a floor, **five litres
+spilt on a cave floor reaches every one of 64 cells at 78 mL each** — a film 1.25 mm deep in a
+250 mm voxel — and every one of those cells is then held, drawn, stored and re-woken by any
+disturbance. That is the active set the whole tier exists to bound, spent on water nobody can see.
+**One litre because that is the smallest amount the Tier A seam can express**, so the rule costs
+nothing the rest of the system could have used. *Cost: a shallow spill settles in blotches rather
+than a level sheet.* **Revisit trigger: M8d's transparent pass making that visible.** Falling is
+never gated on it, or water would hang in the air.
+
+**The resting surface is level to within four millilitres per adjacent pair — and that bound
+accumulates along a path.** A difference below the divisor floors to a transfer of zero, so a chain
+of cells can each sit four millilitres below the last. Measured on a three-cell join: the far end
+settled **8 mL low with 12 mL left standing one level above it**, which is the same fact from the
+other side. At 0.026% of a cell per cell that is 6.4 mm across a hundred-cell tunnel — invisible,
+but **it is not the "within four millilitres" a first reading suggests, and the two tests that
+asserted a global bound both failed.**
+
+### No pressure, therefore no siphons — and it is a test rather than a comment
+
+Water falls and spreads; it never rises. DESIGN rules out *"water pressure, flow velocity, anything
+a real fluid solver does"*, so a U-bend does not fill its far arm. **Filling a mine still works**,
+because water arriving from above reaches each side passage at that passage's own height and
+spreads in there. **Named because it is the first thing that will look like a bug and is not one**,
+and `WaterDoesNotClimbIntoAConnectedShaftBecauseThereIsNoPressure` states it.
+
+### Conservation is by construction, not by assertion
+
+`FluidGrid.Transfer` is the only mutator the tick may call, and it subtracts and adds the same
+number through one private writer. There is no code path that can set a cell to an arbitrary value,
+so a drifting total would need the writer itself to be wrong rather than any of its callers. The
+oracle is then an arithmetic identity — `held == added − removed − displaced`, in integers, no
+tolerance — and **every term on the right is a reported number, including the one that destroys
+water**: `DisplacedMillilitres` is what a block placed into a sealed full pocket costs. **That is
+M8-PLAN's *print the denominator* rule arriving a milestone early**, before the debug relay that
+motivated it exists.
+
+### Storage: one panel per chunk, mirroring `ChunkLight`
+
+64 KiB of `ushort` allocated when the first drop enters a chunk and **released the moment the last
+one leaves**, so an unflooded world costs nothing. The tick asks about six neighbours and five of
+them share a chunk, which a one-entry cache turns into an array index; a `Dictionary<VoxelPos,int>`
+would have hashed all six and measured its own hash function rather than the automaton. **Named
+lever, deliberately not built: panels are dense and a flooded tunnel network is not** — a chunk
+holding one cell costs the same as one holding 32,768. `PanelCount` is printed beside the held-cell
+count so the sparsity is visible. *Revisit trigger: panels averaging under ~1% full across a
+sustained flood.*
+
+### Eighteen break-recipes, seventeen caught, and the three holes were all fixtures
+
+Every one of the three was a **scenario no test reached**, not a missing assertion:
+
+- **The one-entry cache is not invalidated when a panel is released.** Nothing in the suite emptied
+  a chunk and then came back to it, so the stale panel was never written through. Closed by
+  `AChunkThatEmptiesAndFillsAgainIsStillCountedOnce`.
+- **`VerifyQuiescent` stops checking for water inside rock.** `Displace` always drains whatever it
+  cannot push out, so **no run of the automaton can produce that state** — the clause is reachable
+  only by writing through the grid, which is what the new test does. Kept rather than deleted
+  because M8b's seam hands water to cells whose terrain it did not check.
+- **`VerifyQuiescent` stops checking for room below.** The existing "capable of failing" test fills
+  a cell in an open box, where the *sideways* clause fires too — so deleting the vertical clause
+  left everything green. **A 1×1 shaft is the only shape that can tell the two apart.** Third
+  outing for *the trap was the fixture, not the assertion*.
+
+**The eighteenth is an identity and is named as one.** `Wake(to)` cannot be broken today, because
+every destination is a face neighbour of the source and is already woken. **It is kept because the
+debug relay is a transfer between cells that are *not* adjacent** — the moment that exists, this
+line is the only thing waking the far end. M4a's zeroable-epsilon category, with a revisit trigger
+that is M8a-2's own next step.
+
+### The fuzz is real terrain, not a tank
+
+Five seeds through the real `WorldGenerator` — `SurfaceHeightAt` and `IsCaveAt` directly, no
+chunks, no pipeline — poured into whatever ledges, overhangs and cave networks the seed produced.
+**A hand-built basin makes the automaton's easy case its only case**, which is the fixture trap
+this project has now been caught by six times. Each seed asserts conservation, termination, and
+that quiescence is real; and it asserts that water was actually poured, because a run over solid
+rock would pass everything while testing nothing.
+
 ## 2026-09-02 — The entangled miner goes to 40/s, and two fixtures failed before one worked
 
 **Raised at Matthew’s request, third time**: *"Can we double the rate of the quantum miner? It’s
