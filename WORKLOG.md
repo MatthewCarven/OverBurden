@@ -1,5 +1,131 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-02 — M7d-1: rain reaches the basins, and a lake survives a quit
+
+**M7d is split in two on the seam M5c and M7c were split on**: this half is the wiring and the
+measurement, which a headless run can verify; M7d-2 is the water surface and the play, which needs
+a renderer and a person. Suite **804 → 814**. The default headless run is unchanged to the digit —
+**1521 viewed / 165 drawn / 1926 jobs at 404 quads**.
+
+`MinerCraft.Core/Hydrology/WaterSystem.cs` is the join the whole milestone was designed around: it
+owns the analysed window, the water in it and the ledger that outlives it, and it is deliberately
+Godot-free so the threading policy lives where the platform is.
+
+### The headline: a lake survives a quit, to the litre
+
+Session one rains into a named world and quits at **9,404,288 L**; session two opens it and reports
+**9,404,288 L standing, 346 basin(s) banked**. That is the round trip M7b-2's ledger was built for,
+now end to end through the store.
+
+The in-memory version of the same property is the suite's oracle,
+`WalkingAwayAndBackLosesNoWater`: a `BasinWater` only ever holds what is inside the analysed
+window, so **every window move is a chance to lose a lake**, and the assertion and the feature are
+the same statement.
+
+### Two measurements, and the first confirms M7a exactly
+
+```
+                     Release bench    in-game (Debug)
+512 m window            13.63 ms         53.1 ms warm / ~102 ms cold
+1024 m window           64.97 ms
+machine control          2.46x slower than the M2d-2 reference
+```
+
+**M7a's recorded "1 km window costs 66 ms measured / 27 ms reference-equivalent" is confirmed**:
+64.97 ÷ 2.46 = 26.4 ms. The shipped window is 512 m — **13.63 ms Release, 5.5 ms
+reference-equivalent** — analysed on a worker roughly once every 128 m of travel.
+
+**The new fact is the Debug penalty: ~3.9× warm.** The game project builds Debug, so the figure a
+profile prints is not the figure the bench prints, and the same trap has now caught worldgen (3×),
+the light derive (5.9×) and this. **Never quote an analysis figure without its build.**
+
+**The water costs nothing measurable on the sim thread**, against `--nowater` at 40 m/s:
+
+```
+                    water        no water
+update ms mean      6.107          6.064
+viewer ms mean     10.845         11.125
+main               83.55%         84.19%
+```
+
+The water arm is *lower* on two of the three, which is noise around zero. A tick is one
+multiplication per basin — not per cell, not per voxel — which is Tier A's whole claim.
+
+### `rainfallScale` is picked, and it is picked from numbers
+
+**Forty.** Two measurements decided it: the bench says the median basin in a 512 m window fills in
+**32 minutes of this world's heaviest possible weather** unscaled, and the game says a whole window
+reaches **10.2% of leaf capacity in 40 minutes of ordinary weather** — which puts a full basin at
+about six and a half hours. At ×40 that is roughly ten minutes, and measured in real time from a
+36 mm/h downpour the window took **25.3% of capacity in 35 seconds of wall clock**, 6.5 M litres a
+minute.
+
+It scales the depth applied to the world and nothing else, so `Weather` goes on stating real
+intensities and the sky, the wet term and the rain particles all still read a real storm.
+**M7d-2's play confirms or moves it**, and `--rainscale=` is the sweep.
+
+### A first-draw regression that was the machine, and the control is what said so
+
+`first draw` came out at 7.2 s against the 3.4 s recorded earlier the same day, which reads exactly
+like the analysis stealing thread-pool time from the fill. **The `--nowater` control ran *slower*
+still, at 8.65 s.** The machine had moved — the bench's own control line put this session at 2.46×
+the M2d-2 reference — and the water had nothing to do with it.
+
+**This is the first time the machine-variance finding has been applied to a streaming figure rather
+than a bench one**, and the lesson generalises: `first draw` is as machine-sensitive as
+`ms/chunk`, and a fill time quoted without a same-session control is not a measurement.
+
+### Four things the design turned on
+
+- **The analysis is a plain `Task`, not a job on the scheduler, and that is the decision rather
+  than laziness.** M7-PLAN is explicit that a watershed is not a chunk-shaped computation and that
+  the instinct to make it one is the thing to resist. `JobPriority` ranks work by distance from the
+  viewer in chunks, which says nothing about a window already centred on the viewer and analysed
+  once every few hundred metres; and there is no chunk to cancel it with. One at a time is enforced
+  by there being one slot.
+- **Absorb before seed, always.** The old window and the new one overlap almost entirely, so a
+  basin usually appears in both; seeding first would pour the ledger's stale figure into the new
+  water and then overwrite the ledger with it, losing everything that fell while the analysis ran.
+  A break-recipe for it was **not caught** until the fixture was rescaled — see below.
+- **The accumulator starts at what has been *delivered*, not at now.** Across a window move those
+  are the same instant; on the first window they differ by however long the analysis took, and the
+  rain from that interval lands rather than being lost. The mirror of that is the one that would be
+  unrecoverable: a reopened world must start at its own clock, or the first window to land pours
+  the whole of the world's history into basins the ledger has already filled.
+- **The window origin has a whole step of hysteresis.** It snaps to quarter-spans and only moves
+  when the quarter changes, so a player standing on a boundary cannot re-analyse every time they
+  shift their weight.
+
+### The break-recipe battery found the thing reading could not
+
+**Ten recipes, eight caught on the first pass and all ten after one fixture change.** The two
+misses were *both* the same trap and both were real defects: the fixture rained at a scale that
+filled every basin to the brim, so "the move dropped a step's rain" and "the move delivered it
+twice" produced the same brim-full number as correct code. **A test whose scenario makes both arms
+agree is worth nothing**, and this is the fourth outing for that specific failure in this project.
+
+Rescaling the fixture then exposed a genuine cost that the saturated one had been hiding: **a
+window move discards `BasinRainfall`'s pending sub-litre remainder**, because each move builds a
+fresh accumulator. `BasinRainfall`'s own remarks warn that dropping the remainder *every step*
+stops a drizzle ever accumulating; this drops it per *move*, which the hysteresis makes rare, so a
+drizzle still fills a basin between moves. **Bounded at under a litre per basin per move, asserted
+as a bound rather than waved at, and stated in the source with its revisit trigger** — anything
+that re-analyses often, where the fix is to carry the remainder keyed by pit exactly as the ledger
+carries litres.
+
+The test that found it is now written the other way round: a move may only *lose*, never invent,
+and by no more than the remainder can explain. That catches both original defects and prices the
+real one.
+
+### Still open, and M7d-2's
+
+- **The Tier A surface.** Nothing is drawn yet: the levels are solved and `LevelAt` returns them,
+  and no pixel says so. That is the same position M5b was in with a light grid that did not glow.
+- **The play**, all five questions, including whether ×40 is the right scale and whether the 4 m
+  shoreline is tolerable.
+
+---
+
 ## 2026-09-02 — M7c-2: rain you can see, and a splash system that was cut rather than shipped dead
 
 The rain falls, it is killed by the ground, and it stops at a roof. **Splashes are not delivered**

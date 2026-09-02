@@ -164,6 +164,11 @@ shot of rain going into a shaft has to look down it; and **`--norain`**, which l
 the weather in place and removes only the particles. That is the arm that priced them, and the
 particles are the only part of M7c that costs GPU time.
 
+M7d-1 adds **`--rainscale=<x>`**, which multiplies the depth applied to the world while leaving the
+sky honest — **not** `--clockscale`, which speeds the weather up too; **`--waterwindow=<samples>`**,
+the sweep seam for the analysis, whose cost is roughly quadratic in the span; and **`--nowater`**,
+the control arm that priced the whole system at nothing measurable.
+
 **Building is bound to the right mouse button**, `B` cycles the brush (cube, slab, ramp, sphere),
 and **`1`–`9` pick a material from the hotbar** (`V` still cycles to the next one). **`T` cycles
 the tool tier** — it was the number row until M6d-3, and the row went to materials because that is
@@ -229,11 +234,38 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-**M7 is under way: all of M7a, all of M7b and all of M7c are built (2026-09-02) — M7d, standing
-water and the play, is next.** The clock advances, it rains, the rain stops at the ground and at a
-roof, the ground goes wet and the sky goes dark. **What is still missing is the water**: no
-watershed is analysed around the player and no rain reaches a basin, so nothing fills. M7d is the
-first point at which a person can judge the milestone's core claim.
+**M7 is nearly done: all of M7a, M7b, M7c and M7d-1 are built (2026-09-02) — M7d-2, the water
+surface and the play, is what is left.** The clock advances, it rains, the rain stops at the ground
+and at a roof, the ground goes wet, the sky goes dark, **and basins around the player now fill and
+survive a quit**. **What is missing is a pixel**: the levels are solved and `WaterSystem.LevelAt`
+returns them, and nothing draws them — exactly where M5b stood with a light grid that did not glow.
+
+**M7d-1 — the wiring and the measurement: built 2026-09-02.** Suite 804 → 814; the default headless
+run is unchanged to the digit. Six things worth keeping:
+
+- **A lake survives a quit, to the litre.** One session quits at 9,404,288 L, the next opens and
+  reports 9,404,288 L across 346 banked basins. The in-memory twin is the suite's oracle,
+  `WalkingAwayAndBackLosesNoWater` — a `BasinWater` only ever holds what is in the analysed window,
+  so **every window move is a chance to lose a lake**.
+- **M7a's analysis estimate is confirmed exactly**: 1024 m at 64.97 ms Release against a 2.46x
+  machine control = 26.4 ms reference-equivalent, against M7a's recorded 27. The shipped window is
+  **512 m — 13.63 ms Release**, on a worker once every ~128 m of travel. **New fact: Debug is ~3.9x
+  slower** (53.1 ms in-game), so a profile figure is not a bench figure — the trap that has now
+  caught worldgen, the light derive and this.
+- **The water costs nothing measurable on the sim thread**, against `--nowater`: `update ms` 6.107
+  against 6.064, `viewer ms` 10.845 against 11.125. A tick is one multiplication per basin.
+- **`rainfallScale` is x40, picked from two measurements** — the bench's 32-minute median fill at
+  the heaviest possible weather, and the game's 10.2% of capacity in 40 minutes of ordinary
+  weather. **M7d-2's play confirms or moves it**; `--rainscale=` is the sweep.
+- **A first-draw regression that was the machine, and the control is what said so.** 7.2 s against
+  3.4 s earlier the same day reads exactly like the analysis stealing time from the fill — and the
+  `--nowater` control ran *slower*, at 8.65 s. **First time the machine-variance finding has been
+  applied to a streaming figure**: a fill time without a same-session control is not a measurement.
+- **Ten break-recipes, eight caught until one fixture was rescaled.** Both misses were the same
+  trap and both were real defects — the fixture filled every basin, so "dropped a step's rain" and
+  "delivered it twice" gave the same brim-full number as correct code. Rescaling then exposed a
+  genuine cost it had hidden: **a window move discards the pending sub-litre remainder**, bounded
+  at under a litre per basin per move and asserted as a bound.
 
 **M7c-2 — the rain itself: built 2026-09-02, and splashes were cut rather than shipped dead.**
 Suite unchanged at 804; the default headless run is untouched to the digit, because the rain is not

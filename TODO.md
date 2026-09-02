@@ -3302,14 +3302,66 @@ same part as the billboards would have hidden them behind a screenshot.
       question rather than a test** — a person standing at their own mine entrance answers it in a
       second.
 
-#### M7d — Standing water, measurement and play
+#### M7d — Standing water, measurement and play ← **split in two 2026-09-02. M7d-1 done; M7d-2 is the surface and the play.**
+
+Split on the seam M5c and M7c were split on: what a headless run can verify, and what needs a
+renderer and a person.
+
+##### M7d-1 — The wiring and the measurement ✅ **done 2026-09-02, 814 tests passing**
+
+- [x] **`MinerCraft.Core/Hydrology/WaterSystem.cs`** owns the analysed window, the water in it and
+      the ledger that outlives it. Godot-free, so the threading policy lives where the platform is.
+- [x] **A lake survives a quit, to the litre.** Session one quits at 9,404,288 L; session two opens
+      and reports 9,404,288 L standing across 346 banked basins. The in-memory twin is the suite's
+      oracle, `WalkingAwayAndBackLosesNoWater` — **every window move is a chance to lose a lake**,
+      so the assertion and the feature are the same statement.
+- [x] **M7a's analysis estimate is confirmed exactly.** Release bench: 1024 m at 64.97 ms against a
+      2.46x machine control = **26.4 ms reference-equivalent**, against M7a's recorded 27. The
+      shipped window is **512 m — 13.63 ms Release, 5.5 ms reference-equivalent**, on a worker once
+      every ~128 m of travel.
+      - [x] **New fact: the Debug penalty is ~3.9x warm** (53.1 ms in-game against 13.63 Release),
+            and ~102 ms cold. The game builds Debug, so a profile figure is not a bench figure —
+            the same trap that has now caught worldgen (3x), the light derive (5.9x) and this.
+- [x] **The water costs nothing measurable on the sim thread**, against `--nowater` at 40 m/s:
+      `update ms` 6.107 against 6.064, `viewer ms` 10.845 against 11.125, `main` 83.55% against
+      84.19%. The water arm is *lower* on two of three. A tick is one multiplication per basin.
+- [x] **`rainfallScale` is picked, and from numbers: x40.** The bench says the median basin in a
+      512 m window fills in **32 minutes of the heaviest possible weather** unscaled; the game says
+      a window reaches **10.2% of leaf capacity in 40 minutes of ordinary weather**, so a full basin
+      is ~6.5 hours. At x40 that is ~10 minutes, and measured in real time from a 36 mm/h downpour
+      the window took **25.3% of capacity in 35 wall-clock seconds**. **M7d-2's play confirms or
+      moves it**; `--rainscale=` is the sweep.
+- [x] **A first-draw regression that was the machine, and the control is what said so.** 7.2 s
+      against 3.4 s earlier the same day reads exactly like the analysis stealing thread-pool time
+      from the fill — and **the `--nowater` control ran slower still, at 8.65 s**. **First time the
+      machine-variance finding has been applied to a streaming figure rather than a bench one**: a
+      fill time quoted without a same-session control is not a measurement.
+- [x] **The analysis is a plain `Task`, not a job on the scheduler.** M7-PLAN is explicit that a
+      watershed is not chunk-shaped and that the instinct to make it one is the thing to resist:
+      `JobPriority` ranks by distance from the viewer in chunks, which says nothing about a window
+      already centred on the viewer, and there is no chunk to cancel it with.
+- [x] **Absorb before seed, always**; the accumulator starts at what has been **delivered** rather
+      than at now; and a reopened world starts at its own clock, or the first window to land pours
+      the whole of the world's history into basins the ledger has already filled.
+- [x] **The window origin has a whole step of hysteresis** — it snaps to quarter-spans — so a player
+      on a boundary cannot re-analyse every time they shift their weight.
+- [x] **Ten break-recipes, eight caught on the first pass and all ten after one fixture change.**
+      **Both misses were the same trap and both were real defects**: the fixture rained hard enough
+      to fill every basin, so "the move dropped a step's rain" and "the move delivered it twice"
+      produced the same brim-full number as correct code. Fourth outing for that failure here.
+      - [x] **Rescaling then exposed a genuine cost the saturated fixture had hidden**: a window
+            move discards `BasinRainfall`'s pending **sub-litre remainder**, because each move
+            builds a fresh accumulator. Bounded at under a litre per basin per move, **asserted as
+            a bound rather than waved at**, and stated in the source. **Revisit trigger: anything
+            that re-analyses often**; the fix is to carry the remainder keyed by pit exactly as the
+            ledger carries litres.
+
+##### M7d-2 — The surface and the play ← **not started**
 
 - [ ] One flat translucent surface per basin with volume, at the solved level. Depth-write off,
       no sorting inside a basin because it is one plane. **M8 owns the real transparent pass.**
-- [ ] Measurement arms, named up front: analysis job ms (M7a's estimate confirmed or corrected);
-      `update ms` and `viewer ms` against a no-rain control; particle draw calls and primitives
-      from `StreamingProfiler.RenderLine`; **remeshes during a storm, which must be zero**; and
-      **litres per minute against wall clock**, so "slower than realtime" has a number.
+      **The levels are already solved and `WaterSystem.LevelAt` returns them — nothing draws them**,
+      which is exactly where M5b stood with a light grid that did not glow.
 - [ ] Play, the questions no test answers:
       - [ ] Does rain read as rain, and does a storm read as weather rather than as the renderer
             breaking?
@@ -3321,7 +3373,8 @@ same part as the billboards would have hidden them behind a screenshot.
             with nothing to mark the impact. If the play does not notice, the four findings in
             M7c-2 can stay on the shelf; if it does, they are where a second attempt starts.
       - [ ] Does a pond visibly rising over minutes feel right, or does it feel broken? **This is
-            the play that judges the project-level principle**, not just this milestone's tuning.
+            the play that judges the project-level principle**, not just this milestone's tuning —
+            and **it is also where x40 is confirmed or moved**.
       - [ ] Is the 4 m shoreline tolerable until M8?
 
 #### Order, and the case for a different one

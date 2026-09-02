@@ -7,6 +7,7 @@ using MinerCraft.Core.Building;
 using MinerCraft.Core.Content;
 using MinerCraft.Core.Hydrology;
 using MinerCraft.Core.Inventory;
+using MinerCraft.Core.Lighting;
 using MinerCraft.Core.Jobs;
 using MinerCraft.Core.Meshing;
 using MinerCraft.Core.Mining;
@@ -199,6 +200,64 @@ public partial class Main : Node3D
     /// <summary>The authored fog colour, held for the same reason the dome's colours are.</summary>
     private Color _baseFogColour = Colors.White;
 
+    /// <summary>The standing water: which basins exist near the player and what is in them.</summary>
+    /// <remarks>
+    /// <b>Created after the world is open, because it needs the world's clock and its ledger.</b>
+    /// A fresh <c>WaterSystem</c> starting at zero on a world that is ten hours old would deliver
+    /// ten hours of rain the moment its first window landed, on top of a ledger that already holds
+    /// what fell in those hours - see the type's own <c>startMillis</c> remarks.
+    /// </remarks>
+    private WaterSystem? _water;
+
+    /// <summary>The analysis in flight, or null. One at a time, by construction.</summary>
+    /// <remarks>
+    /// <b>A plain task rather than a job on the scheduler, and that is the design decision rather
+    /// than laziness.</b> M7-PLAN is explicit that the watershed is not a chunk-shaped computation
+    /// and that the instinct to make it one is the thing to resist: <c>JobPriority</c> ranks work
+    /// by distance from the viewer in chunks, which says nothing about a window that is centred on
+    /// the viewer already and analysed once every few hundred metres. It also has no chunk to be
+    /// cancelled with. One at a time is enforced by this field being the only slot.
+    /// </remarks>
+    private System.Threading.Tasks.Task<WaterWindow>? _waterAnalysis;
+
+    /// <summary>Milliseconds the last completed analysis took on its worker.</summary>
+    private double _lastAnalysisMillis;
+
+    /// <summary>How many samples on a side the water window is analysed at.</summary>
+    /// <remarks>
+    /// 128 samples of 4 m is a 512 m window. M7a measured a 1,024 m window at 66 ms on this
+    /// machine and the cost is roughly quadratic in the span, so this is about a quarter of that -
+    /// and it is what <c>analysis ms</c> in the profile exists to confirm rather than assume.
+    /// </remarks>
+    private int _waterPitch = 128;
+
+    /// <summary>Multiplies the rain reaching the ground. The knob M7b left for M7d to pick.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Forty, and it is picked from two measurements rather than by feel.</b> The bench says the
+    /// median basin in a 512 m window fills in <b>32 minutes of this world's heaviest possible
+    /// weather</b> with no scaling; the game says a whole window reaches 10.2% of its leaf capacity
+    /// in 40 minutes of <em>ordinary</em> weather, which puts a full basin at about six and a half
+    /// hours. Nobody plays for six and a half hours to see a pond. At x40 that becomes roughly ten
+    /// minutes — long enough that filling is something you notice having happened rather than
+    /// something you watch, which is the feel DESIGN's core loop wants.
+    /// </para>
+    /// <para>
+    /// <b>It scales the depth applied to the world and nothing else</b>, so <see cref="Weather"/>
+    /// goes on stating real intensities and the sky, the wet term and the rain particles all still
+    /// read a real storm. That is what makes it an honest knob rather than a fudged rate, and
+    /// multiplication is integral so every exactness claim in <see cref="BasinRainfall"/> survives
+    /// it untouched.
+    /// </para>
+    /// <para>
+    /// <b>M7d-2's play is what confirms or moves this</b>, and <c>--rainscale=</c> is the sweep.
+    /// </para>
+    /// </remarks>
+    private int _rainfallScale = 40;
+
+    /// <summary>Suppresses the water entirely. The control arm for the measurement.</summary>
+    private bool _noWater;
+
     /// <summary>The rain, or null in a run that has no renderer to draw it with.</summary>
     private Rain? _rain;
 
@@ -359,6 +418,7 @@ public partial class Main : Node3D
 
         _settings = settings;
         _generator = new WorldGenerator(settings, BuildStrata());
+        SetUpWater();
         _materials = MaterialTable.From(Content.Materials);
 
         var viewers = new ViewerSet();
@@ -639,6 +699,29 @@ public partial class Main : Node3D
                 // shader's world_normal for what that did and why it stopped being cosmetic.
                 case "viewnormal" when int.TryParse(value, out int viewNormal):
                     _tintInViewSpace = viewNormal != 0;
+                    break;
+
+                // The knob M7b measured the need for and deliberately did not pick: at real
+                // rainfall the median basin fills in 35 minutes of the heaviest weather this world
+                // has, which nobody can watch. It multiplies the depth applied to the world and
+                // leaves Weather stating real intensities, so the sky and the wet term still read
+                // a real storm - see BasinRainfall for why multiplication keeps every exactness
+                // claim intact.
+                case "rainscale" when int.TryParse(value, out int scale):
+                    _rainfallScale = Math.Max(1, scale);
+                    break;
+
+                // Samples on a side of the analysed window. A sweep seam rather than a setting:
+                // the analysis is roughly quadratic in the span, and this is what prices it.
+                case "waterwindow" when int.TryParse(value, out int pitch):
+                    _waterPitch = Math.Max(2, pitch);
+                    break;
+
+                // The water's control arm, the same shape as --norain. The analysis is the only
+                // part of M7d that costs a worker anything, and one run with it and one without
+                // is what prices it against the streaming it shares a machine with.
+                case "nowater":
+                    _noWater = true;
                     break;
 
                 // The rain's own A/B arm: everything else about the weather, with no particles.
@@ -1327,6 +1410,7 @@ public partial class Main : Node3D
         }
 
         RefreshSkyHeights();
+        UpdateWater();
 
         long now = _clock.ElapsedMillis;
         float wetness = _forcedWeather ?? Weather.WetnessAt(_settings.Seed, now);
@@ -1431,6 +1515,135 @@ public partial class Main : Node3D
         }
     }
 
+    /// <summary>
+    /// Builds the water session against the world that has just been opened.
+    /// </summary>
+    /// <remarks>
+    /// <b>The ledger is loaded before the first window is analysed, and the order is what makes a
+    /// reopened world come back with its lakes.</b> The ledger is the persistent half; a window is
+    /// a view of the part of it the player is standing in. Analysing first and loading after would
+    /// seed the first window from an empty ledger and then bank that emptiness over the top.
+    /// </remarks>
+    private void SetUpWater()
+    {
+        if (_generator is null || _noWater)
+        {
+            return;
+        }
+
+        var ledger = new BasinLedger();
+
+        if (_store is not null)
+        {
+            // A changed lattice discards the volumes rather than refusing the world - the policy
+            // is BasinLedger.Load's, and it is the right one: a pit is a sample on the lattice, so
+            // changing it renames every basin, and rain refills in minutes where a refused world
+            // helps nobody.
+            bool kept = ledger.Load(
+                _store.ReadBasins(),
+                _restoredWatershedCellMetres,
+                HeightField.DefaultCellVoxels / VoxelConstants.VoxelsPerMetre);
+
+            if (!kept)
+            {
+                GD.PushWarning(
+                    "M7d: the watershed lattice has changed since this world was written, so its "
+                    + "stored water has been discarded. It refills.");
+            }
+        }
+
+        _water = new WaterSystem(
+            _generator,
+            _settings.Seed,
+            ledger,
+            _waterPitch,
+            HeightField.DefaultCellVoxels,
+            _rainfallScale,
+            _clock.ElapsedMillis);
+    }
+
+    /// <summary>
+    /// Keeps the analysed window under the player and rains into it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The analysis runs on a worker and is installed on the sim thread</b>, which is the whole
+    /// of the threading here. M7a measured a 1 km window at 66 ms; anything of that size on the
+    /// sim thread would be four frames dropped every time the player crossed a window boundary.
+    /// <c>WaterSystem.Analyse</c> is static and pure precisely so that this call is safe while the
+    /// old window is still being rained on.
+    /// </para>
+    /// <para>
+    /// <b>The clock advances whether or not a window has landed, and that is deliberate.</b>
+    /// <c>Advance</c> is called every frame including while an analysis is in flight; the rain
+    /// from that interval is delivered in one step when the window arrives, because the
+    /// accumulator is started from what has been delivered rather than from now.
+    /// </para>
+    /// </remarks>
+    private void UpdateWater()
+    {
+        if (_water is null || _generator is null)
+        {
+            return;
+        }
+
+        _water.Advance(_clock.ElapsedMillis);
+
+        if (_waterAnalysis is { IsCompleted: true })
+        {
+            System.Threading.Tasks.Task<WaterWindow> finished = _waterAnalysis;
+            _waterAnalysis = null;
+
+            if (finished.IsCompletedSuccessfully)
+            {
+                _water.Install(finished.Result);
+            }
+            else
+            {
+                // Loud rather than silent, and not fatal: the world is entirely playable with no
+                // standing water, and a run that quietly stopped analysing would look exactly like
+                // a dry spell.
+                GD.PushError($"M7d: the watershed analysis failed - {finished.Exception?.Message}");
+            }
+        }
+
+        if (_waterAnalysis is not null)
+        {
+            return;
+        }
+
+        VoxelPos here = PlayerVoxel();
+        if (!_water.NeedsWindowFor(here.X, here.Z))
+        {
+            return;
+        }
+
+        // Captured into locals before the closure, because every one of these is read on a worker
+        // and three of them are fields this class rewrites.
+        ISurfaceHeights heights = _generator;
+        (int originX, int originZ) = _water.WindowOriginFor(here.X, here.Z);
+        int pitch = _water.Pitch;
+        int cell = _water.CellVoxels;
+
+        _waterAnalysis = System.Threading.Tasks.Task.Run(() =>
+        {
+            long started = Stopwatch.GetTimestamp();
+            WaterWindow window = WaterSystem.Analyse(heights, originX, originZ, pitch, cell);
+            _lastAnalysisMillis = Milliseconds(started, Stopwatch.GetTimestamp());
+            return window;
+        });
+    }
+
+    /// <summary>Where the player is, in voxels. The camera while flying, the body while walking.</summary>
+    private VoxelPos PlayerVoxel()
+    {
+        Vector3 position = _player is { Mode: PlayerMode.Walk }
+            ? ToGodot(_player.FeetCentre)
+            : _camera?.GlobalPosition ?? Vector3.Zero;
+
+        return VoxelPos.FromMetres(position.X, position.Y, position.Z);
+    }
+
     /// <summary>Dims the sky dome to match the light, by scaling the colours it is drawn from.</summary>
     /// <remarks>
     /// <b>Two more obvious levers were tried first and neither reaches the drawn dome:</b>
@@ -1515,6 +1728,7 @@ public partial class Main : Node3D
         // that no chunk holds. Writing only the chunks would save the tunnel and forget what the
         // player was carrying when they dug it.
         _pipeline.WriteWorldHeader(CurrentHeader());
+        WriteBasins();
 
         (int chunks, int columns) = _pipeline.SaveAll();
 
@@ -2045,6 +2259,54 @@ public partial class Main : Node3D
     }
 
     /// <summary>
+    /// The standing water: how much there is, where it is being analysed, and what that costs.
+    /// </summary>
+    /// <remarks>
+    /// <b>Litres beside the wall clock is the measurement M7d exists to take</b>, because "slower
+    /// than realtime is accuracy, not approximation" has been a principle since M7a's planning and
+    /// has never had a number against it. A pond rising at a rate nobody can see is the thing
+    /// <c>rainfallScale</c> is for, and this line is what a person picks that scale against.
+    /// <para>
+    /// <b>Basins-with-water against basins-in-the-window is the denominator that matters.</b> Zero
+    /// litres and zero wet basins is a dry spell; zero litres and a window that has never been
+    /// analysed is a wire that came loose, and from outside they look identical.
+    /// </para>
+    /// </remarks>
+    private string WaterSummary()
+    {
+        WaterSystem water = _water!;
+
+        if (water.Window is null)
+        {
+            string queued = _waterAnalysis is null ? "none queued" : "one in flight";
+            return $"no window analysed yet ({queued})";
+        }
+
+        int basins = water.Window.Watershed.Basins.Count;
+        int wet = 0;
+        for (int basin = 0; basin < basins; basin++)
+        {
+            if (water.LevelAt(basin) is not null) wet++;
+        }
+
+        string overflow = water.SeedOverflowLitres > 0
+            ? $", {water.SeedOverflowLitres:N0} L would not fit back"
+            : string.Empty;
+
+        long capacity = water.WindowCapacityLitres;
+        string full = capacity > 0
+            ? $" ({100.0 * water.StoredLitres / capacity:F1}% of {capacity:N0} L)"
+            : string.Empty;
+
+        return $"{water.StoredLitres:N0} L standing{full} in {wet}/{basins} basin(s), "
+               + $"{water.Ledger.Count} basin(s) banked ({water.Ledger.TotalLitres:N0} L), "
+               + $"{water.SpilledLitres:N0} L spilled | "
+               + $"window {water.SpanMetres} m x{water.WindowsInstalled}, "
+               + $"{_lastAnalysisMillis:F1} ms to analyse, scale x{water.RainfallScale}"
+               + overflow;
+    }
+
+    /// <summary>
     /// The occlusion field's state, beside the weather that reads it.
     /// </summary>
     /// <remarks>
@@ -2113,7 +2375,37 @@ public partial class Main : Node3D
         return $"weather   {edits} edit remesh(es) / {relights} relight remesh(es) during the "
                + $"measured window — {verdict}\n"
                + $"rain      {SkyFieldSummary()}\n"
-               + field;
+               + field
+               + WaterLines();
+    }
+
+    /// <summary>
+    /// The water half of the profile, with litres against wall clock.
+    /// </summary>
+    /// <remarks>
+    /// <b>Litres per minute of <em>wall</em> clock, not of world time</b>, and the distinction is
+    /// the whole point: <c>--clockscale</c> and <c>--rainscale</c> both make a pond fill faster and
+    /// only one of them leaves the weather honest. A figure quoted per world-minute would read the
+    /// same under either, which is exactly the confusion this milestone must not hand to whoever
+    /// picks the scale.
+    /// </remarks>
+    private string WaterLines()
+    {
+        if (_water is null)
+        {
+            return "water     no water system (no world generator)\n";
+        }
+
+        double seconds = Math.Max(_profiler!.MeasuredSeconds, 0.001);
+        long held = _water.StoredLitres + _water.Ledger.TotalLitres;
+        string flight = _waterAnalysis is null ? string.Empty : ", one still in flight";
+
+        return $"water     {held:N0} L held, {_water.SpilledLitres:N0} L spilled, "
+               + $"{held * 60.0 / seconds:N0} L per wall-clock minute at scale "
+               + $"x{_water.RainfallScale}\n"
+               + $"analysis  {_lastAnalysisMillis:F1} ms for a {_water.SpanMetres} m window "
+               + $"({_water.Pitch}x{_water.Pitch} samples), {_water.WindowsInstalled} installed"
+               + $"{flight}\n";
     }
 
     /// <summary>The range the wet term covered while measuring, so a zero has a denominator.</summary>
@@ -2419,6 +2711,8 @@ public partial class Main : Node3D
 
         GD.Print($"M6c: {InventorySummary()}");
         GD.Print($"M7c: {WeatherSummary()}");
+
+        if (_water is not null) GD.Print($"M7d: {WaterSummary()}");
     }
 
     /// <summary>
@@ -2573,6 +2867,7 @@ public partial class Main : Node3D
             WorldHeader world = WorldHeaderBlob.Read(header);
             settings = world.Settings;
             _restoredInventory = world.Inventory;
+            _restoredWatershedCellMetres = world.WatershedCellMetres;
             _savedPlayer = world.Player;
 
             // The world's own clock replaces whatever --clock asked for, and that ordering is the
@@ -2618,6 +2913,14 @@ public partial class Main : Node3D
     /// <summary>What the world file said was being carried. Applied once the registry is loaded.</summary>
     private IReadOnlyList<InventoryEntry> _restoredInventory = [];
 
+    /// <summary>The lattice this world's stored basin volumes are keyed on.</summary>
+    /// <remarks>
+    /// Defaulted to the lattice this build uses, so a world with no header - a new one - matches
+    /// by construction and keeps nothing rather than discarding nothing.
+    /// </remarks>
+    private int _restoredWatershedCellMetres =
+        HeightField.DefaultCellVoxels / VoxelConstants.VoxelsPerMetre;
+
     /// <summary>
     /// The world as it stands right now: its settings, its ID table, and the session.
     /// </summary>
@@ -2634,6 +2937,32 @@ public partial class Main : Node3D
         ElapsedMillis = _clock.ElapsedMillis,
         Player = SavedPlayer(),
     };
+
+    /// <summary>Banks the analysed window's water and writes every basin the world knows about.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Bank first, always.</b> The ledger is the persistent thing and the installed window's
+    /// water is a view of the part of it the player is standing in — so writing without banking
+    /// saves the world as it was when they walked into this window rather than as it is, which
+    /// reads as a pond that stops filling whenever somebody stands still near it.
+    /// </para>
+    /// <para>
+    /// <b>Called from the same bracket as <c>SaveAll</c>, which is what keeps the store's "one
+    /// caller at a time" contract.</b> M6b-3 found that contract broken by exactly this shape of
+    /// addition: a sim-thread write while the serial lane is inside the store, and the lane is
+    /// almost continuously inside it while the player moves. <c>SaveAll</c> drains the lane first.
+    /// </para>
+    /// </remarks>
+    private void WriteBasins()
+    {
+        if (_store is null || _water is null)
+        {
+            return;
+        }
+
+        _water.Bank();
+        _store.WriteBasins(_water.Ledger.Entries());
+    }
 
     /// <summary>Where the player is, for the world file — or null if there is no body yet.</summary>
     /// <remarks>
@@ -2732,10 +3061,11 @@ public partial class Main : Node3D
             try
             {
                 _pipeline.WriteWorldHeader(CurrentHeader());
+                WriteBasins();
             }
             catch (Exception error) when (error is not OutOfMemoryException)
             {
-                GD.PushError($"M6: could not write the world header on quit — {error.Message}");
+                GD.PushError($"M6: could not write the world session on quit — {error.Message}");
             }
         }
 
