@@ -35,6 +35,7 @@ simulation, not enemies.
 | Multiplayer | **Not now, but don't design it out** | Headless sim core + event bus keeps the seam open |
 | Borrowed idioms | **Match Minecraft unless there is a stated reason not to** | Settled 2026-08-31. Where a control or a behaviour is one players already know, muscle memory is decades old and this project's is days old, so the burden of proof is on deviating |
 | Simulation speed | **Slower than realtime, on purpose** | Settled 2026-09-01. Rain, water, saturation and collapse are slow *in the world*, so a sim that runs behind the frame rate matches the phenomenon rather than approximating it — and a late tick stops being a correctness failure. See below |
+| End state | **None — the game never ends** | Settled 2026-09-03, Matthew: *"ideally this game will never end, it's more artistic endeavor."* Progression is capability gated by cost — a battery tier, a seam you have to go deep for — never a finish line. So nothing here is "endgame", because there is no end; a tool is *earned*, not unlocked at the end |
 
 ### Borrowed idioms, and where the line is
 
@@ -298,6 +299,12 @@ visible here.
 Every machine registers through the same public registry path a Lua mod would use.
 Machines are the dogfood test: if a pump cannot be built through the mod API, the
 API is wrong.
+
+**The first consumer is a hand tool — settled 2026-09-03.** The entangled miner draws stored
+energy, must be recharged, and battery tiers are the ladder: *"only once you have the latest tier
+battery will it be as effective as it is now."* That puts the one tool that could have exempted
+itself from the loop inside it — power needs mining — and makes storage a portable node as well as a
+placed one. Tiers are content, the way pick tiers are.
 
 Core set, each one existing to fight water or gravity:
 

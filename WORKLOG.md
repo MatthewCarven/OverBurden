@@ -1,5 +1,51 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-03 — Five answers from the play: the lake overhangs the pit, 4/s stands, nothing ends, and the gate is a battery
+
+The three questions from the played-world check came back inside the hour, with two things nobody
+asked for. In his words:
+
+- *"lakes overhanging yes."* **The shape M7's play left unconfirmed is confirmed** — a water surface
+  hanging in the air over a 64 m pit, drawn from the *unedited* height because DESIGN's *edits do
+  not change the watershed at M7*. Not a defect; the second play-confirmed motivation for M8b, after
+  the pond above a tunnel. A chunk-scale pit under a lake is now the breach case M8b has to make
+  fall, and unlike a bore it registers on the 4 m analysis grid.
+- *"um did not notice any falling."* The window-edge outlet's drop was not seen. **Silence rather
+  than evidence**: x20 rain refills a lake in minutes, the window moves only every 128 m, and the
+  4 ML the fall profile saw leave went on a 100 m teleport that no play makes. Recorded, not chased.
+- *"4s yeah feels fast enough."* **The trigger — *the first play that holds the button* — fired,
+  and 0.25 s stands.** The halving is closed rather than deferred.
+- *"Ideally this game will never end, it's more artistic endeavor."* **A locked decision, now in
+  DESIGN**: no end state. Progression is capability gated by cost, never a finish line — so nothing
+  is "endgame", because there is no end, and yesterday's misreading of "space and back" was wrong
+  twice over.
+- *"This tool will eventually have an energy cost and must be recharged and like only once you have
+  the latest tier battery will it be as effective as it is now."* **The gate has a mechanism, and it
+  is not a new system.** Three things about that worth keeping:
+
+**1. It attaches to M10, and the game-mode count goes back to two.** Yesterday's note made the gate
+the third thing waiting on a game-mode concept, which M4c's note said would make one overdue. A
+battery is M10's *storage* node made portable and the entangled miner is its first *consumer* — a
+hand tool rather than a placed machine — so the gate wants M10's power model, not a mode. Reach and
+the precision modifier are the two that still wait.
+
+**2. It puts the one tool that could have exempted itself from the loop inside it.** DESIGN's loop
+is *pumps and shoring need power, which needs more mining*; a tool that deletes 512 m³ a click for
+nothing stands outside that and makes *the mine is the antagonist* false. Charged from the same
+network, it is the loop's biggest customer instead. Battery tiers are content the way pick tiers are
+— non-negotiable 5 — so a mod can ship a better cell.
+
+**3. Recommendation, his to hand back: a tier scales *capacity and recharge*, never the 4/s or the
+bite.** The rate is the measured duty-cycle bound (one bite is a whole frame; M2d's rule) and he has
+just said it feels right, so a tier that raised it would reopen the measurement and one that lowered
+it would make the tool feel worse rather than scarcer. The whole chunk is the tool's identity. What a
+battery *is* is bites-per-charge, and rationing keeps the feel while making the top tier "as
+effective as it is now" in the sense that matters — how long you can keep going. Energy per bite
+proportional to voxels actually taken, which `CarveResult` already counts, so a bite into air is
+nearly free and a bite through a seam is not. **Cost stated**: one persisted number, the charge —
+the first per-player state beyond position and inventory — and it rides the header v4 that
+M10-NOTES already says machines bring. Planned at M10; nothing built before.
+
 ## 2026-09-03 — The played world: 4,584 stored chunks, and what they measure
 
 Matthew has been *"mining out huge chunks"* and asked for a check of *"what we are doing here that

@@ -104,6 +104,8 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
             single-voxel default belongs on that agenda rather than settled separately.
 - [ ] Collapse debris: loose re-settling rubble vs rigid falling chunks — decide at M9
 - [ ] Power model complexity — decide at M10
+      - **Its first consumer is known before it is, 2026-09-03: the entangled miner draws stored
+        energy, must be recharged, and battery tiers are the ladder.** See the M10 section.
 - [ ] Name check: "MinerCraft" — keeping it?
 
 ## Before the repo goes public
@@ -3891,6 +3893,12 @@ the ask arrives, the answers that already exist are not re-derived.
       if a pump can't be built through it, the API is wrong)
 - [ ] Fixed 20 Hz sim tick, spatially partitioned update list
 - [ ] Power: generation / consumption / storage network
+      - [ ] **The first consumer is a hand tool, settled 2026-09-03**: the entangled miner draws
+            stored energy, must be recharged, and battery tiers are the ladder — Matthew: *"only
+            once you have the latest tier battery will it be as effective as it is now."* Storage
+            made portable; tiers as content the way pick tiers are. **Recommendation, recorded with
+            the gate item under the chunk fill: a tier scales capacity and recharge, never the 4/s
+            or the bite.**
 - [ ] Pumps, shoring/supports
 
 #### The entangled miner at 40/s — raised 2026-09-02, third time
@@ -3982,7 +3990,7 @@ the same breath and unprompted, the constraint: *"but do not implement weight pl
             32,768 `SetVoxel` calls each doing all three. ~2 orders of magnitude. Not built
             because this is a debug bind and it would be a second write path beside the one thing
             M6 says must never be wrong. **Revisit trigger: the hitch reading as a stall in play.**
-- [ ] **0.25 s ships and halving is recorded rather than done — Matthew, 2026-09-03**: *"maybe halve
+- [x] **0.25 s ships and halving is recorded rather than done — Matthew, 2026-09-03**: *"maybe halve
       the mining rate, like, or even quarter… or not"*, then *"I don't want to adjust the goalpost
       mid run."* **The right shape is `rainfallScale`'s** — the measurement bounds the range and a
       person holding the thing picks inside it. `--chunkcooldown=` is the seam, and it is
@@ -3995,7 +4003,8 @@ the same breath and unprompted, the constraint: *"but do not implement weight pl
             time**, so "stop, that is enough" costs two chunks — 1,000 m³ — of overshoot.
       - [ ] Against it: 4/s clears M8's own 96 m × 96 m × 24 m bench mine in **1.8 minutes**
             against 3.6 at half and 7.2 at a quarter, and the tool exists to stop digging being a
-            chore. **Revisit trigger: the first play that holds the button.**
+            chore. **Revisit trigger: the first play that holds the button.** **Fired 2026-09-03,
+            holding it: *"4s yeah feels fast enough."* 0.25 s stands and the halving is closed.**
 - [x] **An instrument defect found by arithmetic, predating this change by six milestones.** The
       chunk arm reported **4.33 swings/s against a nominal 4.0**, and a cooldown that is *reset*
       rather than decremented can only deliver *fewer* than nominal — **a rate above its own
@@ -4173,15 +4182,22 @@ numbers; these are the tasks it surfaced.
 - [ ] **M9's planning pass must take the chunk bite as its worst case**, the way M8a took the
       lake-into-shaft. A bite makes an 8 m unsupported span in one frame at 4/s; a fill puts 512 m³
       in mid-air with nothing anchoring it, which under any support rule is rubble unless shored.
-- [ ] **The gate that makes you earn it is the third thing waiting on a game-mode concept**, and
-      M4c's note said a third would make it overdue. Matthew, 2026-09-02: the chunk bite is
-      *"totally endgame like, we're talking you've been to space and back"* — **corrected
-      2026-09-03: *"space and back was like a figure of speech like I meant ima make you work to get
-      this."*** So a tool with a price rather than the last tier, and DESIGN has no progression,
-      unlock, research or cost system to charge it in until M11's crafting. It is also what keeps
-      *the mine is the antagonist* true against a tool that deletes 512 m³ a click. Wants its own
-      planning pass; not before M9. The obvious currency is the one the inventory already counts —
-      litres of something you have to go deep for.
+- [ ] **The gate that makes you earn it is a battery, and it attaches to M10 rather than to a game
+      mode.** Matthew, 2026-09-02: the chunk bite is *"totally endgame like, we're talking you've
+      been to space and back"* — 2026-09-03: *"space and back was like a figure of speech like I
+      meant ima make you work to get this"* — and then the mechanism: *"this tool will eventually
+      have an energy cost and must be recharged and like only once you have the latest tier battery
+      will it be as effective as it is now."* **So not a third thing waiting on a game-mode concept
+      — that count goes back to two** — and not a currency to invent: it is M10's *storage* node made
+      portable, the first power consumer that is a hand tool rather than a placed machine, and
+      battery tiers are content the way pick tiers are (non-negotiable 5). It is also what keeps
+      *the mine is the antagonist* true against a tool that deletes 512 m³ a click, and it puts the
+      tool inside DESIGN's loop — *needs power, which needs more mining* — instead of exempt from it.
+      **Recommendation, his to hand back: a tier scales charge capacity and recharge rate, never the
+      4/s or the bite** — the rate is the measured duty-cycle bound and he says it feels right, the
+      whole chunk is the tool's identity, and bites-per-charge is what a battery *is*. Energy per
+      bite proportional to voxels actually taken, which `CarveResult` already counts. Costs one
+      persisted number, the charge, which rides M10-NOTES' header v4. Planned at M10, not before.
 - [ ] **The hotbar's unit has been outgrown.** `1,767,903,281 L` in an 84 px slot, printed `N0`; the
       format was chosen for a 265 L swing and a bite is 512,000 L. A scaled unit — m³ past a
       thousand litres, or the chunk — and **the unit is Matthew's to pick.**
@@ -4190,10 +4206,14 @@ numbers; these are the tasks it surfaced.
       outlet, and `Seed` leaves rather than carrying a debt — and zero in every test and both plays
       until a world had 92 ML banked. Symptom to ask about: a lake near a window boundary dropping
       when the player crosses one.
-- [ ] **Still unasked of the play, and only the play can answer:** whether a water surface hangs in
-      the air over the pit (the unconfirmed shape recorded at M7's play — a 64 m pit under 826
-      banked basins has almost certainly produced it); whether 4/s is the right rate now the button
-      has been held (the recorded trigger for the halving); and whether anything read as a stall.
+- [x] **Asked of the play and answered the same day, in his words.** The water surface over the pit:
+      *"lakes overhanging yes"* — the shape M7's play left unconfirmed, confirmed, and it reads as
+      DESIGN's *edits do not change the watershed at M7* rather than as a defect; **M8b's second
+      play-confirmed motivation**, after the pond above a tunnel. The rate: *"4s yeah feels fast
+      enough"* — 0.25 s stands, the halving is closed. A lake dropping at a window boundary: *"um
+      did not notice any falling"* — **silence rather than evidence**, since x20 rain refills it and
+      the window moves only every 128 m; the 4 ML the profile saw left on a 100 m teleport that no
+      play makes. Nothing was reported as a stall, and nothing was asked about one.
 
 #### The quantum machine family — Matthew’s proposal, 2026-09-02
 

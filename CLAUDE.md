@@ -265,14 +265,18 @@ trigger moves to *thousands of non-uniform stored chunks*. Four things the play 
 plan, all recorded in TODO rather than built: **M8's cost model comes from tunnels and one bitten
 chunk under a lake is 32,768 cells of void** (a second `--fluid` fixture shape before M8b's budget);
 **M9 has no cost model and the chunk bite is its worst case** (a fill is 512 m³ in mid-air); **the
-gate that makes you earn it is the third thing waiting on a game-mode concept** — Matthew: *"ima make
-you work to get this"*, a price rather than a last tier — which M4c's note said would make it
-overdue; and **the hotbar's litres have outgrown their unit** — `1,767,903,281 L` in an 84 px slot.
+gate that makes you earn it is a battery** — Matthew: *"ima make you work to get this … an energy cost
+and must be recharged … only once you have the latest tier battery will it be as effective as it is
+now"* — so it attaches to M10's power model, not to a game mode, and that count stays at two; and **the hotbar's litres have outgrown their unit** — `1,767,903,281 L` in an 84 px slot.
 Two instrument readings the played world breaks: `L per wall-clock minute` is a lifetime total over
 this run's seconds (313 ML/min on a reopened world), and a profile taken inside the void reports
 `first draw not yet` because 923 meshes were correctly empty — **`light settled` is the comparable
 number inside a mine.** And the window-edge outlet, designed and zero until now, moved 4.0 ML on one
-window move in a world with 92 ML banked.
+window move in a world with 92 ML banked. **The play answered the same day: *"lakes overhanging
+yes"* — M7's unconfirmed shape, now M8b's second play-confirmed motivation; *"4s yeah feels fast
+enough"* — the halving is closed; and no lake was seen to drop, which is silence rather than
+evidence. And a new locked decision in DESIGN: *"ideally this game will never end, it's more artistic
+endeavor"* — nothing is endgame, because there is no end.**
 
 **The entangled miner fills a chunk as well as taking one (2026-09-03). Suite 869 → 888.**
 `Place.Chunk` is a sixth shape sharing the same `Put`; while `Q` is on a bare **right** click fills
@@ -339,7 +343,7 @@ things worth keeping:
   world streams either way. **Per voxel the chunk bite is 4.3x cheaper than the sphere** (0.70 µs
   against 3.0) and the whole-run main thread went *down*, 65.95% → 52.53%, because an emptied
   chunk meshes to nothing — **stated with its confound**, the arms removed 66,560 m³ and ~333 m³.
-- **0.25 s ships and halving is recorded rather than done.** Matthew raised it and withdrew it —
+- **0.25 s ships, and the play settled it on 2026-09-03 — *"4s yeah feels fast enough."*** Matthew raised it and withdrew it —
   *"I don't want to adjust the goalpost mid run"* — so it takes `rainfallScale`'s shape: **the
   measurement bounds the range, a person holding the thing picks inside it.** `--chunkcooldown=`
   is the seam and is **not profile-only**, because `Q` is a play bind. The argument for halving
