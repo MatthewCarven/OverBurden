@@ -17,8 +17,8 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/M4-PLAN.md](docs/M4-PLAN.md) | M4, the player, split into M4a–M4d. Done, kept for the reasoning. |
 | [docs/M5-PLAN.md](docs/M5-PLAN.md) | M5, lighting and AO, split into M5a–M5d. Done 2026-08-31, kept for the reasoning. |
 | [docs/M6-PLAN.md](docs/M6-PLAN.md) | M6, persistence, placement and inventory, split into M6a–M6d. Done and played 2026-09-01, kept for the reasoning. |
-| [docs/M7-PLAN.md](docs/M7-PLAN.md) | M7, rain, split into M7a–M7d. Planned 2026-09-01, **code-complete 2026-09-02 — only the play is outstanding**. Kept for the reasoning; **read SCALE.md before it**. Two places it was overtaken: splashes were cut (M7c-2) and the occlusion field's cost estimate was ten times out (M7d-1). |
-| [docs/M7-PLAY.md](docs/M7-PLAY.md) | **The only outstanding part of M7: five play questions, the flags that provoke weather without waiting for it, and how to read the `M7c:`/`M7d:` log lines. Written for Matthew.** |
+| [docs/M7-PLAN.md](docs/M7-PLAN.md) | M7, rain, split into M7a–M7d. Planned 2026-09-01, **built and played 2026-09-02**. Kept for the reasoning; **read SCALE.md before it**. Two places it was overtaken: splashes were cut (M7c-2) and the occlusion field's cost estimate was ten times out (M7d-1). |
+| [docs/M7-PLAY.md](docs/M7-PLAY.md) | M7's play: five questions, **all five answered 2026-09-02**, the flags that provoke weather without waiting for it, and how to read the `M7c:`/`M7d:` log lines. Kept for the verdicts. |
 | [docs/SCALE.md](docs/SCALE.md) | **How many voxels and cells exist at each view distance, what one full sweep costs, and what each system actually iterates.** Read before designing anything that wants to check the world periodically — M7, M8 and M9 all start here. |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
 | [TODO.md](TODO.md) | Milestones as checkable tasks, and the decisions still open. **M6's section is the plan as a checklist.** |
@@ -257,10 +257,17 @@ rim does not drain either. **The shape still unconfirmed is the one that would r
 over the hole, since the quad comes from the *unedited* height. The five play questions stand
 unanswered.
 
-**M7 is code-complete (2026-09-02): all four parts, eight sub-parts, built.** The clock runs, it
+**M7 is DONE (2026-09-02): built and played — all four parts, eight sub-parts, five play questions.** The clock runs, it
 rains, the rain stops at the ground and at a roof, the ground goes wet, the sky goes dark, basins
-fill and survive a quit, **and the water is on the screen**. **What is left of M7 is a person** —
-the five play questions in TODO are the milestone's actual verdict and none of them is a test.
+fill and survive a quit, **and the water is on the screen**. **The person has played it, and all
+five questions are answered:** rain reads as rain; **it stops at the mine entrance** — DESIGN's
+*the detail people notice*, noticed, and the one thing no screenshot could ever establish;
+splashes were never mentioned, which is that question's own stated criterion; a pond rising
+over minutes feels right, **which moved `rainfallScale` x40 → x20**; and the 4 m shoreline is
+tolerable. **The play also produced two things the questions did not ask for** — that a pond
+above a dug tunnel does not fall in (the first play-confirmed motivation for M8), and the
+minimum-drainable-hole question that decides an M8 design. **814 tests passing, and not one of
+them could have answered any of the five.**
 
 Every claim M7 makes is either exact or measured: **a 1 km watershed at 26.4 ms
 reference-equivalent** so no incremental watershed is ever built; **an hour in one call equals 3,600

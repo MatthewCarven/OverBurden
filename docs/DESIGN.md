@@ -368,7 +368,7 @@ transaction as the blob that first used it. See [M6-PLAN.md](M6-PLAN.md).
 
 | | |
 |---|---|
-| M7 | Watershed basins, Tier A rain accumulation, rain particles, wet shader, **a water surface you can watch rise** |
+| M7 | ✅ **built and played 2026-09-02** — watershed basins, Tier A rain accumulation, rain particles, wet shader, **a water surface you can watch rise** |
 | M8 | Tier B active fluid CA + Tier C groundwater seepage — *the mine floods* |
 | M9 | Structural integrity, collapse, saturation weakening — *the mine kills you* — **v0.5, the game exists** |
 

@@ -2921,7 +2921,7 @@ the report it prints.
 
 ## Phase 2 — The loop
 
-### M7 — Rain ← **planned 2026-09-01, split M7a–M7d, not started**
+### M7 — Rain ✅ **built and played 2026-09-02. All four parts, eight sub-parts, five play questions.**
 
 Planned into four parts in [docs/M7-PLAN.md](docs/M7-PLAN.md). **Read it, and read
 [docs/SCALE.md](docs/SCALE.md) before it** — that file was written for this milestone.
@@ -3389,7 +3389,7 @@ renderer and a person.
       against a 512 m analysis window**, so most of the water is past the fog. **The play has
       neither limit** — a person walks to a valley and looks at it.
 
-##### M7d-2's play — **Matthew's, and all that is left of M7**
+##### M7d-2's play ✅ **done 2026-09-02 — five questions, five answers, and M7 with them**
 
 - [ ] One flat translucent surface per basin with volume, at the solved level. Depth-write off,
       no sorting inside a basin because it is one plane. **M8 owns the real transparent pass.**
@@ -3406,15 +3406,28 @@ renderer and a person.
       that, it is the one part of this worth a cosmetic guard before M8; if it does not, nothing
       here moves.** The five questions below stand unanswered.
 - [ ] Play, the questions no test answers:
-      - [ ] Does rain read as rain, and does a storm read as weather rather than as the renderer
-            breaking?
-      - [ ] **Does it stop at the mine entrance?** DESIGN calls this *the detail people notice*.
-            **M7c-2 could not photograph the positive case** — underground shots correctly show no
-            rain, but a picture of rain pouring *into* a hole needs a narrow shaft and a camera
-            outside it. A person at their own mine entrance answers this in a second.
-      - [ ] **Are splashes missed?** They are cut at M7c-2 and the rain lands on dry-looking ground
-            with nothing to mark the impact. If the play does not notice, the four findings in
-            M7c-2 can stay on the shelf; if it does, they are where a second attempt starts.
+      - [x] **Answered 2026-09-02: yes.** *"Looks like rain to me when it's falling from the
+            sky."* No knob was reached for — `drop_length`, `drop_width`, `alpha`, the near-fade
+            and `OvercastDimming` all ship as built. **The hedge in the wording is unexamined
+            rather than a reported fault**: the verdict is on rain seen falling from open sky,
+            and the guide's other half of question 1 — whether you still catch a drop right at
+            the eye — was not separately reported either way.
+      - [x] **Answered 2026-09-02: yes, it stops at the mine entrance.** *"It does stop at the
+            mine entrance."* **DESIGN's *the detail people notice*, noticed** — and it is the
+            one thing in M7c-2 that no screenshot could establish, because underground shots
+            show the negative case and a picture of rain pouring *into* a hole needs a narrow
+            shaft and a camera outside it. **So the whole M7c-2 occlusion chain is confirmed end
+            to end by a person**: `SkyHeightChanges` → field rebuild → `Rf` texture → the kill in
+            the process shader. The 64 m window and 0.5 m resolution stand as shipped.
+      - [x] **Answered by silence 2026-09-02, which is this question's own stated criterion.**
+            The guide says outright: *if the play does not notice, the four findings stay on the
+            shelf.* Across a play that reported on rain, occlusion, standing water, fill pacing
+            and the shoreline, **splashes were never mentioned.** **Recorded as silence rather
+            than as evidence**, per the habit this project has broken itself on before — but the
+            criterion was written in advance, so it is silence the question asked for. **Revisit
+            trigger: the first time rain landing on dry-looking ground is remarked on.** The
+            four M7c-2 findings stay on the shelf, and the most useful is that a `texture()`
+            call inside a particle `start()` silently yields particles that never appear.
       - [x] **Answered 2026-09-02: it feels right, and x40 was a little fast.** *"In sealed ponds
             on the surface it works perfectly... a little too fast, um like you could half the
             fill speed, it would still work as well I reckon."* **So the project-level principle

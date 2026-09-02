@@ -32,7 +32,18 @@ That is the design, not a fault — the wet term only means something against th
 
 ---
 
-## The five questions
+## The five questions — **all five answered 2026-09-02; M7 is done**
+
+| | Question | Answer |
+|---|---|---|
+| 1 | Does rain read as rain? | **Yes**, and no knob was reached for. |
+| 2 | Does it stop at the mine entrance? | **Yes** — *the detail people notice*, noticed. |
+| 3 | Are splashes missed? | **Not mentioned** — this question's own stated criterion. |
+| 4 | Does a pond rising feel right? | **Yes**, and it moved `rainfallScale` ×40 → ×20. |
+| 5 | Is the 4 m shoreline tolerable? | **Yes**, explicitly not worth the work. |
+
+The detail of each is below, kept for the reasoning.
+
 
 ### 1. Does rain read as rain, and a storm as weather rather than as the renderer breaking?
 

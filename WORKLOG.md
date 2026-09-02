@@ -1,5 +1,56 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-02 — M7 is done: five play questions, five answers
+
+> *"Yeah looks like rain to me when it's falling from the sky, and it does stop at the mine
+> entrance."*
+
+**That is questions 1 and 2, and with them the milestone.** M7 was code-complete on 2026-09-02 with
+a person as the only outstanding part; the person has now played it. **814 tests passing, and not
+one of them could have answered any of these five.**
+
+| | Question | Answer |
+|---|---|---|
+| 1 | Does rain read as rain? | **Yes**, and no knob was reached for. |
+| 2 | Does it stop at the mine entrance? | **Yes** — DESIGN's *the detail people notice*, noticed. |
+| 3 | Are splashes missed? | **Not mentioned**, which is this question's own stated criterion. |
+| 4 | Does a pond rising over minutes feel right? | **Yes**, and it moved `rainfallScale` x40 → x20. |
+| 5 | Is the 4 m shoreline tolerable? | **Yes**, explicitly as a cosmetic not worth the work. |
+
+### What each answer actually closes
+
+- **Question 2 is the one no screenshot could ever have taken.** M7c-2 could photograph the
+  negative case — underground shots correctly show no rain — and a picture of rain pouring *into* a
+  hole needs a narrow shaft and a camera outside it. So the whole occlusion chain is now confirmed
+  end to end by a person: `SkyHeightChanges` → field rebuild → the `Rf` texture → the kill in the
+  process shader. **The 64 m window and the 0.5 m resolution stand as shipped**, and the field's
+  own printed height range (`ground -3.5..5.0 m`) was what made a flat-plane kill distinguishable
+  from a real terrain in the first place.
+- **Question 4 was the only one judging a project-level claim** rather than this milestone's
+  tuning, and *slower than realtime is accuracy, not approximation* survives contact with a person
+  watching a pond. It cost one number: x40 → x20.
+- **Question 3 is answered by silence, and the criterion was written in advance.** The play guide
+  says outright *if the play does not notice, the four findings stay on the shelf* — and across a
+  play that reported on rain, occlusion, standing water, fill pacing and the shoreline, splashes
+  were never raised. **Still recorded as silence rather than as evidence**, which this project has
+  been caught by before; the difference here is that the question named its own null result ahead
+  of time. **Revisit trigger: the first time rain landing on dry-looking ground is remarked on.**
+
+### What the play produced that the questions did not ask for
+
+Two things, and both outlive the milestone:
+
+- **A pond above a dug tunnel does not fall in** — DESIGN's *edits do not change the watershed at
+  M7* met by a person, and the first play-confirmed motivation for M8's Tier B.
+- **"Unless I make a hole 4x4 it isn't going to drain into eventually?"** — which decides an M8
+  design rather than asking about one, and whose answer already existed in M5b's cell-face rule.
+  **Twice now the answer has been that the tunnels this game is about are narrower than a grid
+  chosen for a different reason.**
+
+**A milestone whose last part is a person produces findings its tests were not shaped to look for.
+That is the argument for the split, and it is now made twice — M6d and M7d.**
+
+
 ## 2026-09-02 — M7's play answers question 5, and asks the sharpest question of the milestone
 
 **The 4 m shoreline is tolerable**: *"it would be better to fill exactly but I honestly don't know
