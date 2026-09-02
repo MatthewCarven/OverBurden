@@ -332,8 +332,20 @@ public sealed partial class Hud : CanvasLayer
         // The modifier is reported as a state rather than as a hint while it is held, because
         // the outline changes size at the same moment and a player needs to know which of the
         // two things they are looking at.
-        return precise
-            ? $"ONE VOXEL  (Alt)   ·   {tier}  (T)   ·   1-9 material, V cycle"
-            : $"{brush} brush  (B)   ·   {tier}  (T)   ·   1-9 material, V cycle   ·   Alt: one voxel";
+        if (precise)
+        {
+            return $"ONE VOXEL  (Alt)   ·   {tier}  (T)   ·   1-9 material, V cycle";
+        }
+
+        // Same argument, one shape further along and with more riding on it: the outline has
+        // just become an 8 m cube and the next click removes 512 cubic metres. The tier still
+        // reads, because the tier still gates what comes away — which is the half of the mode
+        // that did not change.
+        if (mining?.TakesWholeChunk == true)
+        {
+            return $"WHOLE CHUNK  (Q)   ·   {tier} gate  (T)   ·   Alt: one voxel";
+        }
+
+        return $"{brush} brush  (B)   ·   {tier}  (T)   ·   1-9 material, V cycle   ·   Alt: one voxel";
     }
 }

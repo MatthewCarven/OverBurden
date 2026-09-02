@@ -161,7 +161,11 @@ table below), `--skybrightness=<0..2>` (scales the sky channel alone; 0 leaves o
 **the overcast multiplies this rather than replacing it, so the seam survives weather**),
 `--debuglamp` (places one lamp where the crosshair points, so a screenshot can show block
 light without a keypress) and `--entangle` (the entangled miner, which with `--mine` aims along
-the flight path rather than straight down — see below).
+the flight path rather than straight down — see below). **`--entanglesphere` restores its
+pre-2026-09-03 bite**, the tier's sphere instead of a whole chunk, and is the arm the chunk bite
+was priced against; **`--chunkcooldown=<seconds>` sweeps the chunk bite's rate and is deliberately
+not profile-only**, because `Q` is a play bind and a rate that only reached a profile run would be
+a seam for the one arm that cannot judge it.
 
 M7c-1 adds four more, all seams rather than settings. **`--clock=<seconds>` starts the run
 somewhere in this world's forecast** — the weather is a pure function of (seed, time), so this is
@@ -250,6 +254,45 @@ copy in `../GAME/`.
   against** (currently godot_voxel). Nothing in it belongs in a `.csproj`.
 
 ## Where things stand
+
+**The entangled miner takes a whole chunk (2026-09-03), and the change found an instrument defect
+six milestones old. Suite 850 → 869.** `Carve.Chunk` is a third shape beside `Sphere` and `Voxel`,
+sharing the same `Take`; while `Q` is on a bare click removes the 8 m chunk the ray hit. Five
+things worth keeping:
+
+- **It reverses half of a rule recorded twice, and the surviving half is the one that mattered.**
+  Entanglement "changes how far and how fast, **never how big a bite or what the bite is hard
+  enough to take**" — the bite clause is gone, **the hardness clause is untouched**, so a chunk
+  bite through bedrock leaves the bedrock standing and `Carve.Take` is still the only gate in the
+  game. Dropping it fails **11** tests, most of them pre-existing sphere and chip ones.
+- **No weight, recorded as a decision rather than left as an omission.** 512,000 L a click, no
+  carry limit, no encumbrance. Matthew's argument is the good version: the real-world answer to a
+  haulage limit is *"zip tie two shopping trolleys together and drag that sucker behind me"*, and
+  a player who cannot just walks back and forth — **patience taxed and called difficulty.**
+  **Revisit trigger: a survival mode**, already the trigger for shortening reach; one decision.
+- **One bite costs `swing ms` mean 16.9 / max 35.6 on the sim thread — one to two whole frames —
+  and no cooldown can bound it, because one bite is atomic.** M2d's mesh-apply finding a third
+  time. **So the rate chooses the duty cycle**: 6.6% of wall clock at 4/s, 2.7% at 2/s, and the
+  world streams either way. **Per voxel the chunk bite is 4.3x cheaper than the sphere** (0.70 µs
+  against 3.0) and the whole-run main thread went *down*, 65.95% → 52.53%, because an emptied
+  chunk meshes to nothing — **stated with its confound**, the arms removed 66,560 m³ and ~333 m³.
+- **0.25 s ships and halving is recorded rather than done.** Matthew raised it and withdrew it —
+  *"I don't want to adjust the goalpost mid run"* — so it takes `rainfallScale`'s shape: **the
+  measurement bounds the range, a person holding the thing picks inside it.** `--chunkcooldown=`
+  is the seam and is **not profile-only**, because `Q` is a play bind. The argument for halving
+  corrects a claim the measurement invited: *"the rate chooses the duty cycle and nothing else"*
+  is true of **cost** and false of **feel** — when one bite is a whole frame, **the duty cycle is
+  the felt smoothness**, and 250 ms is inside human reaction time so stopping costs 1,000 m³ of
+  overshoot.
+- **The profiler has been inflating every per-second figure with a counter numerator, by 10% at a
+  30 s window and 20% at the 15 s default.** Found by arithmetic, not by an assertion: the chunk
+  arm reported **4.33 swings/s against a nominal 4.0**, and a cooldown that is *reset* rather than
+  decremented can only deliver fewer than nominal — **a rate above its own ceiling has to be a
+  denominator.** `MeasuredSeconds` excludes the 3 s warm-up; the pipeline's counters do not.
+  **Per-swing figures were never affected and the histograms were always right**, so every
+  recorded *conclusion* stands — the miner's "1.98x" is a ratio of two identically inflated
+  numbers. Fixed as `StreamingProfiler.RunSeconds`. **Two kinds of number were sharing one
+  denominator and only one of them wanted it.**
 
 **M8a is built (2026-09-02) — Tier B's automaton and its measurement. Suite 814 → 850.** Water
 moves, conserves volume exactly in integers, terminates by proof, and is affordable at the 0.25 m
@@ -1403,7 +1446,9 @@ same argument that kept it out of the tool JSON.
 
 **The entangled miner is a debug bind, built 2026-08-31 to dig M5d-2's test volume.** **Q**
 toggles it: point at anything, hold left click, and it eats what it is pointed at however far
-away, at **20 swings a second**. Three things about it that are easy to undo by accident:
+away. **As of 2026-09-03 a bare click takes the whole 8 m chunk** — 32,768 voxels, 512 m³ — at
+**4 a second**; Alt still chips one voxel, at 40. Three things about it that are easy to undo by
+accident:
 
 - **It is deliberately not a tool tier, and that is the design decision rather than laziness.**
   *Reach is the player's, not the tool's* is locked twice — M3d, restated at M4c — because
@@ -1417,8 +1462,14 @@ away, at **20 swings a second**. Three things about it that are easy to undo by 
   ray is `RayOutcome.Blocked` at the edge of the loaded region — entanglement is not
   distance-sensitive but **the streamer is**. The 512 m constant is a backstop bounding the DDA,
   the same shape as `MaxRadiusMetres` bounding the carve. Aiming at sky costs no swing.
-- **It composes with the number keys** — it changes how far and how fast, never how big a bite
-  or what the bite is hard enough to take, so `Carve.Take`'s hardness gate stays the only gate.
+- **It composed with the number keys, and half of that stopped being true on 2026-09-03.** It
+  changed *how far* and *how fast*, **never how big a bite or what the bite is hard enough to
+  take** — and the bite clause is now gone, because a bare click takes a whole chunk. **The
+  hardness clause survives untouched and is the half that was load-bearing**: a chunk bite through
+  bedrock leaves the bedrock standing, so `Carve.Take`'s gate stays the only gate in the game
+  rather than something a keypress opts out of. Dropping it from `Take` fails **11** tests, most
+  of them pre-existing sphere and chip ones — one edit breaking three shapes is what a forked gate
+  would not do.
   Measured at **11.1 m mean / 18.9 m furthest reach**, 0.139 ms a swing against 0.083
   un-entangled, and **0.9 relight remeshes per swing against 1.0** — carving a hundred metres
   away is not a different cost from carving at arm's length. `MaxReachMetres` exists because

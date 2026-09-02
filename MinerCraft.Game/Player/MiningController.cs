@@ -77,12 +77,61 @@ public sealed class MiningController(
     /// <c>ToolDefinition</c> gains an optional reach</b>, and that wants its own planning pass.
     /// </para>
     /// <para>
-    /// Composes with the number keys rather than replacing them: it changes how far and how
-    /// fast, never how big a bite or what the bite is hard enough to take. Both of those stay
-    /// the tier's, which is what keeps <see cref="Carve"/>'s hardness gate the only gate.
+    /// <b>It used to compose with the number keys entirely — "how far and how fast, never how
+    /// big a bite or what the bite is hard enough to take". Half of that is now false</b>: see
+    /// <see cref="EntangledTakesChunk"/>, which makes the bite a whole chunk. <b>The hardness
+    /// half survives untouched and is the half that was load-bearing</b>, because it is what
+    /// keeps <see cref="Carve"/>'s gate the only gate in the game rather than something a
+    /// keypress opts out of.
     /// </para>
     /// </remarks>
     public bool Entangled { get; set; }
+
+    /// <summary>
+    /// While entangled, a swing takes the entire chunk it hit rather than the tier's sphere.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The fiction earns the mechanic rather than decorating it.</b> This is salvage from a
+    /// humanity that did not make it: superconducting coils, a quantum-vacuum tap for power, and
+    /// a mass measured in tons — a machine nobody would build to dig a tunnel, indexing matter
+    /// by the same lattice the world's storage is chunked on because that is the granularity its
+    /// entanglement register addresses. It does not take a bite the size of its head; it
+    /// resolves a cell of the lattice, and the cell is 8 m on a side.
+    /// </para>
+    /// <para>
+    /// <b>And it stays a debug bind, which is what the fiction buys.</b> A tool that removes 512
+    /// cubic metres a press is not balanceable against a <c>hand_pick</c> and is not trying to
+    /// be. What it is for is the same thing Q has always been for — excavating a test volume
+    /// large enough to judge something by eye — and <b>M8 needs a bigger one than M5d did</b>: a
+    /// mine worth flooding is tens of thousands of cubic metres, and the sphere digs a corridor.
+    /// </para>
+    /// <para>
+    /// <b>Explicitly not implemented, and recorded so nobody adds it as an obvious oversight:
+    /// weight.</b> A chunk of rock is 512,000 litres and there is no carry limit, no
+    /// encumbrance, and no penalty for holding it. Being over-encumbered has never been fun in
+    /// any game that has had it, and the real-world response to a haulage limit is to go and get
+    /// a bigger container — a player who cannot will simply walk back and forth, which is
+    /// patience taxed and called difficulty. <b>Revisit trigger: a survival mode</b>, which is
+    /// already the recorded trigger for shortening reach, and the two would be settled together.
+    /// </para>
+    /// <para>
+    /// On by default whenever <see cref="Entangled"/> is, because it is now what the mode means.
+    /// <c>--entanglesphere</c> restores the old bite, which is the A/B arm the cost of this was
+    /// measured against.
+    /// </para>
+    /// </remarks>
+    public bool EntangledTakesChunk { get; set; } = true;
+
+    /// <summary>Whether the next ordinary swing would take a whole chunk.</summary>
+    /// <remarks>
+    /// Exposed so the highlight can outline the cube rather than re-deriving the rule from
+    /// two flags. A chunk boundary is invisible in the world, so an outline of one voxel in
+    /// front of an 8 m bite is not a small inaccuracy — it is the player being shown the wrong
+    /// object. <b>Precision is not folded in here</b> because it is a per-frame held key rather
+    /// than controller state, and the caller that knows about the key is the caller that draws.
+    /// </remarks>
+    public bool TakesWholeChunk => Entangled && EntangledTakesChunk;
 
     /// <summary>
     /// The entangled reach. A backstop, not the real limit — the world is.
@@ -160,10 +209,106 @@ public sealed class MiningController(
     /// </remarks>
     public const float EntangledCooldownSeconds = 0.025f;
 
+    /// <summary>The rate a whole-chunk bite is paced at. Its own number, and measured.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The chunk bite cannot inherit 0.025 s, and the reason is arithmetic rather than
+    /// taste.</b> <c>hand_pick</c>'s sphere is about seventeen voxels; a chunk is 32,768, so the
+    /// bite went up by roughly <b>1,900×</b>. At forty a second that is 1.3 million voxel writes
+    /// a second and forty chunks of world removed — the streamer would be re-meshing and
+    /// re-lighting a moving 8 m hole faster than it can generate the terrain around it, and the
+    /// thing the mode exists for (looking at a large excavation) would be unwatchable while it
+    /// happened.
+    /// </para>
+    /// <para>
+    /// <b>Four a second, and the measurement says the rate is not what needs choosing.</b>
+    /// Same-session A/B at r4h/2v, 6 m/s, 30 s, Debug, against <c>--entanglesphere</c>:
+    /// <b>one chunk bite costs <c>swing ms</c> mean 16.9 / max 35.6 on the sim thread, against
+    /// the sphere's 0.054 / 2.48.</b> That is one to two whole frames, and <b>no cooldown can
+    /// bound it, because one bite is atomic</b> — M2d's mesh-apply finding a third time: a time
+    /// slice cannot bound the tail below the cost of one item. The rate therefore chooses the
+    /// <em>duty cycle</em> and nothing else. At 3.9/s delivered that is <b>6.6% of wall clock
+    /// spent inside the carve</b>, and the world still streams: 184 drawn against the sphere
+    /// arm's 194, first draw 5.12 s against 4.93 s.
+    /// </para>
+    /// <para>
+    /// <b>Per voxel it is 4.3× cheaper than the sphere</b> — 0.70 µs against 3.0 µs per voxel
+    /// removed — because one raycast, one remesh marking and one relight queueing amortise over
+    /// 23,964 voxels instead of eighteen. <b>Fifth outing for "the bigger arm is cheaper per
+    /// unit"</b>, and the reason the whole-run main thread went <em>down</em>, 65.95% to 52.53%:
+    /// an emptied chunk meshes to nothing, so the tool deletes the geometry that costs money
+    /// (73,714 quads against 83,004; 9,618 light derives against 13,679). <b>Stated with its
+    /// confound: the two arms removed 66,560 m³ and ~333 m³, so that is not "the chunk bite is
+    /// cheaper" — it is what these two rates cost.</b> The clean comparisons are per swing and
+    /// per voxel.
+    /// </para>
+    /// <para>
+    /// <b>Four a second ships and halving it is recorded rather than done, because the goalpost
+    /// does not move mid-run.</b> Matthew raised it — <em>"maybe halve the mining rate, like, or
+    /// even quarter… or not"</em> — and then withdrew it as exactly that. **The right shape is
+    /// `rainfallScale`'s**: the measurement bounds the range and a person holding the thing picks
+    /// inside it. <c>--chunkcooldown=</c> is the seam, so the next opinion costs a flag rather
+    /// than a rebuild.
+    /// </para>
+    /// <para>
+    /// <b>The argument for halving, kept because it corrects a claim this comment makes above.</b>
+    /// "The rate chooses the duty cycle and nothing else" is true of <em>cost</em> and false of
+    /// <em>feel</em>: when one bite is a whole frame, <b>the duty cycle is the felt smoothness</b>.
+    /// At 4/s two or three frames are lost every 250 ms with none clean in between, which reads as
+    /// a continuous stutter; at 2/s the hitch is identical but there are four clean frames around
+    /// it. <b>And 250 ms is inside human reaction time</b>, so "stop, that is enough" costs two
+    /// chunks of overshoot — 1,000 m³ that then has to be walked into to be seen. Against it:
+    /// 4/s is 2,048 m³/s and clears M8's own 96 m × 96 m × 24 m bench mine in <b>1.8 minutes</b>
+    /// against 3.6 at half and 7.2 at a quarter, and the tool exists to stop digging being a
+    /// chore. <b>Revisit trigger: the first play that holds the button.</b>
+    /// </para>
+    /// <para>
+    /// <b>Named lever, deliberately not built: a chunk-aware write path</b>
+    /// — fill the palette with air once, update the sky column once, mark the neighbourhood
+    /// once, instead of 32,768 <c>SetVoxel</c> calls each doing all three. Roughly two orders of
+    /// magnitude, and not built because this is a debug bind and it would be a second write path
+    /// beside the one thing M6 says must never be wrong. <b>Revisit trigger: the hitch reading
+    /// as a stall in play, or this bite becoming content.</b>
+    /// </para>
+    /// <para>
+    /// Well clear of the ceiling the sphere rate is close to: one swing per frame arrives at
+    /// 0.0167 s, and the sphere arm has a factor of 1.5 left where this has fifteen. The
+    /// quantisation that makes a nominal 40/s deliver 35.8 does not bite here — <b>3.9/s
+    /// delivered against 4.0 nominal</b>.
+    /// </para>
+    /// </remarks>
+    public const float DefaultEntangledChunkCooldownSeconds = 0.25f;
+
+    /// <summary>The live value, so <c>--chunkcooldown=</c> can sweep it without a rebuild.</summary>
+    /// <remarks>
+    /// A settable property rather than the constant, for the reason <c>rainfallScale</c> is one:
+    /// this is a feel number the measurement can only bound, so the person judging it has to be
+    /// able to move it. The constant stays as the shipped default and as the thing the doc
+    /// comment above argues about.
+    /// </remarks>
+    public float EntangledChunkCooldownSeconds { get; set; } = DefaultEntangledChunkCooldownSeconds;
+
     private float EffectiveReachMetres => Entangled ? EntangledReachMetres : ReachMetres;
 
-    private float EffectiveCooldownSeconds =>
-        Entangled ? EntangledCooldownSeconds : Tool.CooldownSeconds;
+    /// <summary>
+    /// The cooldown for the shape actually swung, which is a rule change worth naming.
+    /// </summary>
+    /// <remarks>
+    /// <b>The cooldown used to be per <em>mode</em>, and it is now per <em>shape</em>.</b> The
+    /// old rule — a chip pays the same cooldown as a sphere — existed so that precision could
+    /// not become the <em>efficient</em> way to excavate as well as the accurate one. That
+    /// argument does not reach the chunk bite: at 32,768 voxels a press, the chunk bite is
+    /// unambiguously the bulk method and nothing precision does at any rate competes with it.
+    /// Pacing a single-voxel chip to 0.25 s would therefore protect nothing, and it would cost
+    /// the case Matthew reported as load-bearing — fine work at range, the <c>L</c>+<c>Q</c>
+    /// pairing, where the whole point is placing and picking single things far away.
+    /// </remarks>
+    private float CooldownForShape(bool precise) => (Entangled, precise) switch
+    {
+        (true, false) when EntangledTakesChunk => EntangledChunkCooldownSeconds,
+        (true, _) => EntangledCooldownSeconds,
+        _ => Tool.CooldownSeconds,
+    };
 
     /// <summary>Of <see cref="Swings"/>, how many were fired entangled.</summary>
     /// <remarks>
@@ -173,6 +318,17 @@ public sealed class MiningController(
     /// profile means the run is not comparable with M3d's baseline.
     /// </remarks>
     public int EntangledSwings { get; private set; }
+
+    /// <summary>Of <see cref="Swings"/>, how many took a whole chunk.</summary>
+    /// <remarks>
+    /// <b>Counted because it is the denominator every other mining number here is now division
+    /// by.</b> A chunk bite and a sphere share the <c>swing ms</c>, <c>remesh per swing</c> and
+    /// <c>voxels removed per swing</c> lines while differing by three orders of magnitude, so a
+    /// run that mixed them would report a mean of two unrelated quantities — which is exactly
+    /// the trap <see cref="PreciseSwings"/> was added for, one shape further along. Zero on
+    /// every run that is not entangled.
+    /// </remarks>
+    public int ChunkSwings { get; private set; }
 
     /// <summary>How far this swing actually reached, for the report.</summary>
     public float LastReachMetres { get; private set; }
@@ -263,15 +419,17 @@ public sealed class MiningController(
             return false;
         }
 
+        // Precision wins over the chunk bite, and that ordering is the whole of why Alt still
+        // means what it meant. Q makes the bite enormous; Alt is how you put it down again
+        // without leaving the mode, which at unlimited reach is the only way to do fine work at
+        // the far end of a cave.
         CarveResult result = precise
             ? Carve.Chip(pipeline, materials, hit, Tool, Inventory)
-            : Carve.Swing(pipeline, materials, hit, Tool, Inventory);
+            : TakesWholeChunk
+                ? Carve.Chunk(pipeline, materials, hit, Tool, Inventory)
+                : Carve.Swing(pipeline, materials, hit, Tool, Inventory);
 
-        // The same cooldown for both shapes. A chip is a different shape of the same swing, not
-        // a faster one — letting precision fire quicker would make it the efficient way to mine
-        // as well as the accurate one, and the sphere would stop being the default in practice.
-        // Entangled changes the rate, and it changes it for both shapes, for that same reason.
-        _cooldown = EffectiveCooldownSeconds;
+        _cooldown = CooldownForShape(precise);
         Swings++;
         LastReachMetres = hit.DistanceMetres;
         TotalReachMetres += hit.DistanceMetres;
@@ -289,6 +447,11 @@ public sealed class MiningController(
         if (Entangled)
         {
             EntangledSwings++;
+        }
+
+        if (!precise && TakesWholeChunk)
+        {
+            ChunkSwings++;
         }
 
         VoxelsRemoved += result.Removed;

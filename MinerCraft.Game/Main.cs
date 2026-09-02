@@ -122,6 +122,10 @@ public partial class Main : Node3D
     private TimeSpan? _lightBudget;
     private bool _mineWhileProfiling;
     private bool _entangleWhileProfiling;
+
+    private bool _entangledSphereWhileProfiling;
+
+    private float _chunkCooldownSeconds = MiningController.DefaultEntangledChunkCooldownSeconds;
     private bool _fallProfile;
     private bool _ambientOcclusion = true;
     private bool _lightInMergeKey = true;
@@ -792,6 +796,24 @@ public partial class Main : Node3D
                     _entangleWhileProfiling = true;
                     break;
 
+                // The arm the chunk bite was priced against: entangled, but taking the tier's
+                // sphere the way Q did before. Named for the thing it restores rather than for
+                // the thing it disables, the same as --cavestep=1 and --viewnormal=1, because a
+                // flag that reads as "off" invites being thought of as the default.
+                case "entanglesphere":
+                    _entangledSphereWhileProfiling = true;
+                    break;
+
+                // The chunk bite's rate, as a seam rather than a constant, for the reason
+                // --rainscale is one: the measurement can only bound a feel number, and the
+                // person judging it has to be able to move it without a rebuild. Unlike most
+                // flags here it is NOT profile-only — Q is a play bind, so the value it sweeps
+                // has to reach a played session or the sweep is useless.
+                case "chunkcooldown" when float.TryParse(value, out float chunkCooldown)
+                                          && chunkCooldown > 0.0f:
+                    _chunkCooldownSeconds = chunkCooldown;
+                    break;
+
                 // The fall profile. M2d measured a viewer flying horizontally at a constant
                 // height, which is the one motion the flythrough was built to produce and is
                 // nothing like a player falling down a shaft: a fall is vertical, it is fast,
@@ -1202,12 +1224,26 @@ public partial class Main : Node3D
 
         _mining.Entangled = !_mining.Entangled;
 
-        GD.Print(_mining.Entangled
-            ? $"M5d: entangled miner ON — reach unlimited (bounded by the loaded world), "
+        if (!_mining.Entangled)
+        {
+            GD.Print("M5d: entangled miner OFF — reach back to "
+                + $"{_player?.ReachMetres ?? PlayerController.DefaultReachMetres:F1} m");
+            return;
+        }
+
+        // Says the bite out loud, because it is the one thing about this mode a player cannot
+        // see until they have already removed eight metres of world. The hardness clause is
+        // still printed: it is the half of the old rule that did not change, and the half that
+        // makes a bedrock floor survive being pointed at.
+        GD.Print(_mining.EntangledTakesChunk
+            ? "M5d: entangled miner ON — reach unlimited (bounded by the loaded world), "
+              + $"{1.0f / _mining.EntangledChunkCooldownSeconds:F1} swings/s, "
+              + $"and each one takes the WHOLE {VoxelConstants.ChunkSizeMetres:F0} m chunk "
+              + $"({VoxelConstants.ChunkVolume:N0} voxels) — still {_mining.Tool.Id.Path}'s "
+              + "hardness gate, so it leaves what the tier cannot take. Alt still chips one voxel."
+            : "M5d: entangled miner ON — reach unlimited (bounded by the loaded world), "
               + $"{1.0f / MiningController.EntangledCooldownSeconds:F0} swings/s, "
-              + $"still {_mining.Tool.Id.Path}'s bite and hardness gate"
-            : "M5d: entangled miner OFF — reach back to "
-              + $"{_player?.ReachMetres ?? PlayerController.DefaultReachMetres:F1} m");
+              + $"still {_mining.Tool.Id.Path}'s bite and hardness gate");
     }
 
     private static Vector3 ToGodot(System.Numerics.Vector3 v) => new(v.X, v.Y, v.Z);
@@ -1866,7 +1902,10 @@ public partial class Main : Node3D
             return string.Empty;
         }
 
-        double seconds = Math.Max(_profiler.MeasuredSeconds, 0.001);
+        // RunSeconds, not MeasuredSeconds: every counter below is a lifetime total on the
+        // pipeline that kept counting through the warm-up, so the window is the wrong
+        // denominator for it. See StreamingProfiler.RunSeconds.
+        double seconds = Math.Max(_profiler.RunSeconds, 0.001);
         double derive = _pipeline.LightDeriveMillis;
         double propagate = _pipeline.LightPropagateMillis;
         long cells = _pipeline.LightCellsVisited;
@@ -1925,6 +1964,11 @@ public partial class Main : Node3D
         {
             Inventory = _inventory,
             ReachMetres = _player?.ReachMetres ?? PlayerController.DefaultReachMetres,
+
+            // Set here rather than in the profile block, because Q is a play bind: a rate that
+            // only reached a profile run would be a sweep seam for the one arm that cannot
+            // judge it.
+            EntangledChunkCooldownSeconds = _chunkCooldownSeconds,
         };
 
         _highlight = new VoxelHighlight(GetWorld3D());
@@ -1936,6 +1980,7 @@ public partial class Main : Node3D
         }
 
         _mining.Entangled = _entangleWhileProfiling;
+        _mining.EntangledTakesChunk = !_entangledSphereWhileProfiling;
 
         GD.Print($"M3d: mining with {strongest.Id} — tiers {string.Join(", ", names)}");
     }
@@ -2143,13 +2188,26 @@ public partial class Main : Node3D
             return;
         }
 
-        if (_mining.HasTarget)
+        if (!_mining.HasTarget)
         {
-            _highlight.ShowAt(_mining.Hit.Voxel);
+            _highlight.Hide();
+            return;
+        }
+
+        // Outline what the swing will actually take. For a sphere that is still the target
+        // voxel — the bite is centred on it and roughly its own scale, so the box reads as
+        // "here". A chunk bite is 8 m of world whose boundary is drawn nowhere, so the same box
+        // would be showing the player the wrong object: aim a hand's width across an invisible
+        // seam and a different cube goes. Precision wins, because Alt takes exactly the voxel
+        // and that is the one case where the small box is the literal truth.
+        if (_mining.TakesWholeChunk && !precise)
+        {
+            (float cx, float cy, float cz) = _mining.Hit.Voxel.Chunk.OriginMetres;
+            _highlight.ShowAt(new Vector3(cx, cy, cz), VoxelConstants.ChunkSizeMetres);
         }
         else
         {
-            _highlight.Hide();
+            _highlight.ShowAt(_mining.Hit.Voxel);
         }
     }
 
@@ -2460,7 +2518,9 @@ public partial class Main : Node3D
             return "water     no water system (no world generator)\n";
         }
 
-        double seconds = Math.Max(_profiler!.MeasuredSeconds, 0.001);
+        // RunSeconds for the same reason the lighting line uses it: the litres are a lifetime
+        // total and the rain has been falling since the world opened.
+        double seconds = Math.Max(_profiler!.RunSeconds, 0.001);
         long held = _water.StoredLitres + _water.Ledger.TotalLitres;
         string flight = _waterAnalysis is null ? string.Empty : ", one still in flight";
 
@@ -2504,11 +2564,24 @@ public partial class Main : Node3D
 
         return
             $"{_profiler!.Swing.Line("swing ms")}   (raycast + carve, sim thread)\n" +
-            $"mining    {_mining.Swings} swings, {_mining.VoxelsRemoved / swings:F0} removed / " +
+            // The rate printed beside the count, because it is the thing a cooldown change is
+            // trying to move and nothing here has ever said it out loud — every previous raise
+            // was checked by dividing the swing count by the window in a worklog entry, which is
+            // where the 10% denominator error above went unnoticed for six milestones.
+            $"mining    {_mining.Swings} swings ({_mining.Swings / Math.Max(_profiler.RunSeconds, 0.001):F1}/s), " +
+            $"{_mining.VoxelsRemoved / swings:F0} removed / " +
             $"{_mining.VoxelsRefused / swings:F0} too hard / " +
-            $"{_mining.VoxelsAlreadyAir / swings:F0} already air per swing\n" +
+            $"{_mining.VoxelsAlreadyAir / swings:F0} already air per swing" +
+            // A gate that never fired is not a gate that passed. VoxelsRefused' own remarks say
+            // so; until now the report did not.
+            (_mining.VoxelsRefused == 0
+                ? $" — the hardness gate never fired, so {_mining.Tool.Id.Path} took everything "
+                  + "it was pointed at and the mechanic is untested by this run\n"
+                : "\n") +
             $"remesh    {_pipeline!.EditRemeshes / swings:F1} chunks per swing, " +
-            $"{_pipeline.EditRemeshes / Math.Max(_profiler.MeasuredSeconds, 0.001):F1}/s" +
+            // Per swing is safe on either denominator — both counts are lifetime and the
+            // warm-up cancels. The /s figure is not, and was ~10% high until 2026-09-03.
+            $"{_pipeline.EditRemeshes / Math.Max(_profiler.RunSeconds, 0.001):F1}/s" +
             $" | relight {_pipeline.RelightRemeshes / swings:F1} per swing, " +
             $"{_pipeline.RelightRemeshes} total\n" +
             $"clones    {_pipeline.ChunkClones / swings:F1} per swing " +
@@ -2517,6 +2590,20 @@ public partial class Main : Node3D
             (_mining.EntangledSwings > 0
                 ? $"entangled {_mining.EntangledSwings} swing(s) — NOT comparable with M3d's baseline\n"
                   + $"reach     {_mining.TotalReachMetres / swings:F1} m mean, {_mining.MaxReachMetres:F1} m furthest\n"
+                : string.Empty) +
+            // Printed with its denominator and with the mixture stated, because every per-swing
+            // mean above divides by a swing count in which a chunk bite and a sphere are one
+            // each while differing by ~1,900x in voxels. A mixed run's means are a blend of two
+            // unrelated quantities, and nothing else in this report would say so.
+            (_mining.ChunkSwings > 0
+                ? $"chunk     {_mining.ChunkSwings} of {_mining.Swings} swing(s) took a whole "
+                  + $"{VoxelConstants.ChunkSizeMetres:F0} m chunk "
+                  + $"({_mining.ChunkSwings * (double)VoxelConstants.ChunkVolume
+                        * VoxelConstants.VoxelSize * VoxelConstants.VoxelSize
+                        * VoxelConstants.VoxelSize:N0} m³ of world offered up)"
+                  + (_mining.ChunkSwings == _mining.Swings
+                      ? "\n"
+                      : " — MIXED with other shapes, so every per-swing mean above is a blend\n")
                 : string.Empty);
     }
 

@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using MinerCraft.Core.Content;
 using MinerCraft.Core.Inventory;
 using MinerCraft.Core.Voxels;
@@ -195,6 +195,126 @@ public static class Carve
             Bucket.AlreadyAir => new CarveResult(1, 0, 0, 1, 0),
             _ => new CarveResult(1, 0, 0, 0, 1),
         };
+    }
+
+    /// <summary>
+    /// Takes <b>the whole chunk</b> the ray hit — an 8 m cube, 32,768 voxels — gated per
+    /// voxel by the same hardness rule as every other shape.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The entangled miner's bite, and it is the first shape here that is not a shape.</b>
+    /// A sphere and a single voxel are both defined in metres about a point the player aimed
+    /// at; this one is defined by the world's own storage grid, which the player cannot see.
+    /// That is deliberate and it is the whole reason the mode is interesting to build: it is a
+    /// machine that resolves matter a *chunk* at a time because that is the unit its
+    /// entanglement lattice is indexed by, not a bigger pick.
+    /// </para>
+    /// <para>
+    /// <b>It reverses half of a rule recorded twice, and the surviving half is the important
+    /// one.</b> <c>MiningController.Entangled</c> has said since M5d that entanglement "changes
+    /// how far and how fast, never how big a bite or what the bite is hard enough to take". The
+    /// bite clause is now gone. <b>The hardness clause is not, and it is what stops this being a
+    /// delete key</b>: a chunk bite through a bedrock floor leaves the bedrock standing exactly
+    /// as a <c>hand_pick</c> leaves a stone seam, so tiers still mean what they mean and
+    /// <see cref="Take"/> is still the only gate in the game. A mode that bypassed it would make
+    /// M3c's whole argument bypassable by pressing Q.
+    /// </para>
+    /// <para>
+    /// <b>Which chunk is decided by <c>hit.Voxel</c>, never by a rounded centre.</b> A chunk
+    /// boundary is invisible in the world, so aiming a hand's width to the left of one takes the
+    /// cube on the left; there is no version of this that is not sometimes surprising, and the
+    /// answer is to <em>draw</em> the boundary rather than to soften the rule —
+    /// <c>VoxelHighlight</c> outlines the whole 8 m cube while this mode is armed, which is the
+    /// same argument M6c-3 made for outlining the brush cell.
+    /// </para>
+    /// <para>
+    /// <b>There is no weight, no encumbrance and no carry limit, and that is a decision rather
+    /// than an omission.</b> One chunk of solid rock is 512,000 litres into
+    /// <see cref="VolumetricInventory"/> — a number that in most games would exist to be a
+    /// problem. It is not one here: being over-encumbered has never been fun, and the honest
+    /// player response to a haulage limit is to go and find a bigger container rather than to
+    /// mine less, so the mechanic taxes patience and calls it difficulty. The inventory counts
+    /// in <c>long</c>, so the arithmetic does not care either. <b>Revisit trigger: a survival
+    /// mode</b>, which is already the recorded trigger for shortening reach — the two would be
+    /// decided together or not at all.
+    /// </para>
+    /// <para>
+    /// <b>Cost is bounded and known in advance, which a radius is not.</b> 32,768 candidates
+    /// exactly, whatever the aim, so unlike <see cref="Sphere"/> there is no argument to check
+    /// and nothing a mod file can write that makes the loop longer. What it is not is
+    /// <em>cheap</em> — see <c>MiningController.EntangledChunkCooldownSeconds</c>, which is the
+    /// rate this bite is paced at and is a measured number rather than the sphere's.
+    /// </para>
+    /// </remarks>
+    public static CarveResult Chunk(
+        IVoxelEditor world,
+        MaterialTable materials,
+        in VoxelHit hit,
+        ToolDefinition tool,
+        VolumetricInventory? into = null)
+    {
+        ArgumentNullException.ThrowIfNull(tool);
+
+        return Chunk(world, materials, hit.Voxel.Chunk, tool.HardnessThreshold, into);
+    }
+
+    /// <summary>Takes every voxel of <paramref name="chunk"/> the threshold allows.</summary>
+    /// <remarks>
+    /// The named-chunk overload, so that the decision about <em>which</em> chunk a hit maps to
+    /// lives in exactly one place above rather than at each call site — the same separation
+    /// <see cref="SwingCentre"/> gives the sphere.
+    /// </remarks>
+    public static CarveResult Chunk(
+        IVoxelEditor world,
+        MaterialTable materials,
+        ChunkPos chunk,
+        float hardnessThreshold,
+        VolumetricInventory? into = null)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(materials);
+
+        if (float.IsNaN(hardnessThreshold))
+        {
+            // The same failure-open trap Sphere and Voxel document, and it matters most here:
+            // every comparison with NaN is false, so the gate inverts from "takes nothing" to
+            // "takes everything" over 32,768 voxels at once rather than over seventeen.
+            throw new ArgumentOutOfRangeException(
+                nameof(hardnessThreshold),
+                hardnessThreshold,
+                "A hardness threshold of NaN would compare false against every material and "
+                + "so remove all of them. Use float.NegativeInfinity for a tool that takes nothing.");
+        }
+
+        VoxelPos origin = chunk.OriginVoxel;
+
+        int candidates = 0;
+        int removed = 0;
+        int tooHard = 0;
+        int alreadyAir = 0;
+        int unreachable = 0;
+
+        // Z outer and Y inner, matching the [z][x][y] storage order the writes land in. It is
+        // the same loop nest as Sphere's and for the same reason, and here it covers the array
+        // exactly once in its own order rather than approximately.
+        for (int z = 0; z < VoxelConstants.ChunkSize; z++)
+        for (int x = 0; x < VoxelConstants.ChunkSize; x++)
+        for (int y = 0; y < VoxelConstants.ChunkSize; y++)
+        {
+            var voxel = new VoxelPos(origin.X + x, origin.Y + y, origin.Z + z);
+            candidates++;
+
+            switch (Take(world, materials, voxel, hardnessThreshold, into))
+            {
+                case Bucket.Removed: removed++; break;
+                case Bucket.TooHard: tooHard++; break;
+                case Bucket.AlreadyAir: alreadyAir++; break;
+                default: unreachable++; break;
+            }
+        }
+
+        return new CarveResult(candidates, removed, tooHard, alreadyAir, unreachable);
     }
 
     /// <summary>

@@ -3930,6 +3930,106 @@ the ask arrives, the answers that already exist are not re-derived.
       whose value is the pairing rather than the bind.** **Revisit trigger: a placement verb that
       takes a reach argument**, which would make it expressible through the brushes and let it go.
 
+#### The entangled miner takes a whole chunk — Matthew’s request, 2026-09-03
+
+*"Adjust the quantum miner to take the whole chunk of the cell being mined. This is like, its got
+superconducting coils and quantum vacuum based power supply and the thing weight tons"* — and, in
+the same breath and unprompted, the constraint: *"but do not implement weight please."*
+
+- [x] **`Carve.Chunk`, a third shape beside `Sphere` and `Voxel`, sharing the same `Take`.** While
+      `Q` is on a bare click takes the whole 8 m chunk the ray hit — 32,768 voxels, 512 m³.
+      Suite **850 → 863**.
+- [x] **It reverses half of a rule recorded twice, and the surviving half is the one that
+      mattered.** `Entangled` has said since M5d that entanglement *“changes how far and how fast,
+      never how big a bite **or what the bite is hard enough to take**”*. The bite clause is gone;
+      **the hardness clause is untouched**, so a chunk bite through bedrock leaves the bedrock
+      standing and `Carve.Take` is still the only gate in the game. The source comment is corrected
+      in place rather than deleted, because which half survived is the finding.
+- [x] **No weight, and recorded as a decision so nobody adds it later as an obvious oversight.**
+      512,000 L a click, no carry limit, no encumbrance. Matthew’s reasoning is the good version of
+      the argument: the real-world answer to a haulage limit is *“zip tie two shopping trolleys
+      together and drag that sucker behind me”*, and a player who cannot just walks back and
+      forth — patience taxed and called difficulty. **Revisit trigger: a survival mode**, which is
+      already the trigger for shortening reach; same decision, taken together or not at all.
+- [x] **The cooldown stopped being per-*mode* and became per-*shape*, and the old argument does not
+      reach.** The rule that a chip pays the sphere’s cooldown existed so precision could not become
+      the *efficient* bulk method. Against 32,768 voxels a press nothing precision does competes, so
+      pacing Alt to the chunk rate would protect nothing **and would cost the `L`+`Q` pairing
+      reported load-bearing the day before**. Alt still chips at 40/s while `Q` is on.
+- [x] **The highlight had to change, and it is not cosmetic.** A chunk boundary is drawn nowhere, so
+      outlining the target voxel in front of an 8 m bite shows the player the wrong object — aim a
+      hand’s width across an invisible seam and a different cube goes. **M6c-3’s brush-cell argument
+      arriving a second time.** HUD says `WHOLE CHUNK (Q)` for the reason it says `ONE VOXEL (Alt)`.
+- [x] **The rate is measured, and the measurement says the rate is not what needs choosing.**
+      Same-session A/B at r4h/2v, 6 m/s, 30 s, Debug, against `--entanglesphere`: **one bite costs
+      `swing ms` mean 16.9 / max 35.6 on the sim thread against the sphere's 0.054 / 2.48** — one
+      to two whole frames — and **no cooldown can bound it, because one bite is atomic.** M2d's
+      mesh-apply finding a third time. At 3.9/s that is **6.6% of wall clock inside the carve**,
+      and the world still streams: 184 drawn against 194, first draw 5.12 s against 4.93 s.
+      - [x] **Per voxel the chunk bite is 4.3x cheaper** (0.70 µs against 3.0), because one
+            raycast, one remesh marking and one relight queueing amortise over 23,964 voxels
+            instead of eighteen. **Fifth outing for "the bigger arm is cheaper per unit."**
+      - [x] **The whole-run main thread went *down*, 65.95% → 52.53%**, because an emptied chunk
+            meshes to nothing — quads 83,004 → 73,714, derives 13,679 → 9,618. **Stated with its
+            confound: the arms removed 66,560 m³ and ~333 m³**, so this is what two rates cost
+            rather than evidence one shape is cheaper.
+      - [x] **`frame ms` told the truth for the first time in five outings**, and the rule sharpens
+            rather than reverses: max 38.5 is accounted for by a directly-timed `swing ms` max of
+            35.6, with the sphere arm's flat 7.9 as control. **Unreliable as a *detector*;
+            corroborating when a directly-timed number of the same magnitude exists.**
+      - [ ] **Named lever, deliberately not built: a chunk-aware write path** — fill the palette
+            with air once, update the sky column once, mark the neighbourhood once, rather than
+            32,768 `SetVoxel` calls each doing all three. ~2 orders of magnitude. Not built
+            because this is a debug bind and it would be a second write path beside the one thing
+            M6 says must never be wrong. **Revisit trigger: the hitch reading as a stall in play.**
+- [ ] **0.25 s ships and halving is recorded rather than done — Matthew, 2026-09-03**: *"maybe halve
+      the mining rate, like, or even quarter… or not"*, then *"I don't want to adjust the goalpost
+      mid run."* **The right shape is `rainfallScale`'s** — the measurement bounds the range and a
+      person holding the thing picks inside it. `--chunkcooldown=` is the seam, and it is
+      deliberately **not** profile-only, because `Q` is a play bind.
+      - [ ] **The argument for halving corrects a claim the measurement invited.** *"The rate
+            chooses the duty cycle and nothing else"* is true of **cost** and false of **feel**:
+            when one bite is a whole frame, **the duty cycle *is* the felt smoothness.** At 4/s
+            two or three frames go every 250 ms with none clean between; at 2/s the hitch is
+            identical with four clean frames around it. **And 250 ms is inside human reaction
+            time**, so "stop, that is enough" costs two chunks — 1,000 m³ — of overshoot.
+      - [ ] Against it: 4/s clears M8's own 96 m × 96 m × 24 m bench mine in **1.8 minutes**
+            against 3.6 at half and 7.2 at a quarter, and the tool exists to stop digging being a
+            chore. **Revisit trigger: the first play that holds the button.**
+- [x] **An instrument defect found by arithmetic, predating this change by six milestones.** The
+      chunk arm reported **4.33 swings/s against a nominal 4.0**, and a cooldown that is *reset*
+      rather than decremented can only deliver *fewer* than nominal — **a rate above its own
+      ceiling has to be a denominator.** `StreamingProfiler.MeasuredSeconds` excludes the 3 s
+      warm-up and the pipeline's counters do not.
+      - [x] **Every per-second figure with a *counter* numerator was high by
+            `(warmup + measure) / measure`** — **10% at the 30 s windows this project uses, 20% at
+            the 15 s default.** `63.9` remeshes/s and `54,514` cells/s in the worklog, among others.
+      - [x] **Per-swing and per-chunk figures were never affected** (both counts lifetime, warm-up
+            cancels), and **the histograms were always right** (`update ms`, `swing ms`, `light ms`
+            are sampled only while warm). **Two kinds of number shared one denominator and only one
+            of them wanted it. So every recorded *conclusion* stands** — the entangled miner's
+            "1.98x" is a ratio of two identically inflated numbers.
+      - [x] Fixed with `StreamingProfiler.RunSeconds` at the three counter sites. **The report now
+            prints swings/s beside the swing count**, because every previous cooldown raise was
+            checked by dividing by hand in a worklog entry — exactly where this went unnoticed.
+      - [x] **And it now says when the hardness gate never fired.** Both arms show `0 too hard`
+            because `steel_pick` takes everything in the spawn terrain: **a detector that did not
+            run, not a gate that passed.** `VoxelsRefused`' own remarks have said so since M3d
+            without the report ever saying it.
+- [ ] **Spotted and not chased**: the sphere arm reported `light settled 0.19 s` against
+      `first draw 4.93 s`, which is internally impossible — nothing meshes until its neighbourhood
+      is lit. Pre-existing, unrelated to this change, and **a reading not to quote** until someone
+      looks at the detector.
+- [ ] **A break-recipe that came back green and is an identity rather than a hole**: deriving the
+      chunk from `SwingCentre(hit)` instead of `hit.Voxel`. `SwingCentre` *is* the centre of
+      `hit.Voxel` and `FromMetres` floors back to it, so the mutation swaps a value for itself.
+      **Worth keeping because the identity is conditional on a decision with a live documented
+      alternative** — `SwingCentre`’s own remarks argue against the ray’s entry point, and if that
+      ever reverses this shape would be right by luck rather than on purpose. Fourth outing for the
+      zeroable-epsilon category. The recipe it was reaching for is `hit.Previous.Chunk`, which is a
+      different chunk exactly when the hit is on a boundary — i.e. whenever you are looking at a
+      wall.
+
 #### The quantum machine family — Matthew’s proposal, 2026-09-02
 
 A **quantum fluid pump**, a **quantum pump output** that it teleports water to wirelessly, several

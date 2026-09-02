@@ -379,7 +379,41 @@ public sealed class StreamingProfiler
     public bool Finished { get; private set; }
 
     /// <summary>Seconds actually measured, for turning totals into rates.</summary>
+    /// <remarks>
+    /// <b>The right denominator for anything sampled only while <see cref="Warm"/>, and the
+    /// wrong one for a lifetime counter</b> — see <see cref="RunSeconds"/>.
+    /// </remarks>
     public double MeasuredSeconds { get; private set; }
+
+    /// <summary>
+    /// Seconds the counters have actually been counting for: the warm-up plus the window.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Found 2026-09-03, and it had been quietly inflating every per-second figure whose
+    /// numerator is a counter on the pipeline rather than a sample on the profiler.</b> The
+    /// histograms — <c>update ms</c>, <c>swing ms</c>, <c>light ms</c> — are only fed while
+    /// <see cref="Warm"/>, so <see cref="MeasuredSeconds"/> is exactly right for them. But
+    /// <c>EditRemeshes</c>, <c>LightCellsVisited</c> and the water totals start at zero when the
+    /// world opens and keep counting through the warm-up, so dividing them by the window
+    /// overstates the rate by <c>(warmup + measure) / measure</c> — <b>10% at the 30 s windows
+    /// this project measures with, and 20% at the 15 s default.</b>
+    /// </para>
+    /// <para>
+    /// <b>Per-swing and per-chunk figures were never affected</b>, because there both the
+    /// numerator and the denominator are lifetime counts and the warm-up cancels. So the
+    /// recorded conclusions stand — <b>the entangled miner's "1.98x" is a ratio of two figures
+    /// inflated identically</b> — and it is the absolute rates in the worklog (<c>63.9</c>
+    /// remeshes/s, <c>54,514</c> cells/s) that were about a tenth high.
+    /// </para>
+    /// <para>
+    /// Found by an arithmetic disagreement rather than by an assertion: a chunk bite on a 0.25 s
+    /// cooldown reported <b>4.33 swings a second against a nominal 4.0</b>, and a cooldown that
+    /// is <em>reset</em> rather than decremented can only ever deliver <em>fewer</em> swings than
+    /// nominal. A rate above its own ceiling has to be a denominator.
+    /// </para>
+    /// </remarks>
+    public double RunSeconds => WarmupSeconds + MeasuredSeconds;
 
     /// <summary>Advances the clock. Returns true on the frame the window closes.</summary>
     public bool Tick(double delta)
