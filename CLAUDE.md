@@ -255,6 +255,48 @@ copy in `../GAME/`.
 
 ## Where things stand
 
+**The entangled miner fills a chunk as well as taking one (2026-09-03). Suite 869 → 888.**
+`Place.Chunk` is a sixth shape sharing the same `Put`; while `Q` is on a bare **right** click fills
+the 8 m chunk in front of the crosshair, at the same cooldown and the same reach as the bite.
+**It was easy because `Place` and `Carve` have been deliberate twins since M6c-1 — and the one
+place the mirror does not hold is the whole of getting it right.** Five things worth keeping:
+
+- **The bite and the fill name different chunks from the same aim.** `Carve.Chunk` takes
+  `hit.Voxel`'s chunk; `Place.Chunk` takes `hit.Previous`'s — the split that has separated
+  `Place.TargetVoxel` from `Carve.Chip` since M6d-1, one scale up. **Mining names the thing you
+  point at, building names the space in front of it.** Copying the mining half breaks the verb
+  *precisely where it is needed*: stand in a chunk you bit out and look at its far wall, and the
+  wall is the neighbouring chunk — so the fill would report **32,768 `Occupied` having written
+  nothing**, broken in the one situation it exists for and fine in open air where nobody needs it.
+  **Caught by 3, two of them scenario tests**, because a hit that does not straddle a boundary is a
+  hit at something other than a wall.
+- **Only air is replaceable, and at 512 m³ that stops being a tidiness rule.** M6c-1 argued it as a
+  hardness-gate defence; a fill that overwrote would be a key deleting half a thousand cubic metres
+  with no tool and no gate — **strictly worse than the bite, which at least still asks the tier.**
+  Dropping it fails **6**, three of them pre-existing brush tests. **The entanglement clause is now
+  symmetric across both verbs: the mode changes how far, how fast and how big, and never what a
+  verb may overwrite.**
+- **One genuine hole out of ten recipes, and the sibling battery had already pointed at it.**
+  **`TargetChunk` by truncating division was green**: every other test names its chunk directly and
+  both seam tests straddle a *positive* boundary, so **nothing exercised the one conversion that can
+  round — voxel → chunk.** The bite's battery recorded that exact asymmetry and *its* version of the
+  recipe was an identity; here the same reasoning found a live defect, **because the fill actually
+  calls the conversion.**
+- **`OutOfStock` stops being an edge case, and it is an unplanned balance mechanism.** A bite credits
+  512,000 L of *mixed* stone, dirt and seam; a fill spends 512,000 L of *one*, so **a chunk generally
+  cannot be put back with what taking it yielded.** No weight, no encumbrance — that ruling stands
+  untouched — but the fill is still bounded by having mined enough of one thing. **Recorded as an
+  observation rather than a decision, because nobody chose it. Revisit trigger: the first play that
+  finds the limit tedious rather than motivating.**
+- **The cost is not measured and the prediction is named as one.** By construction a fill is the same
+  32,768 `SetVoxel` calls as a bite, so expect the same ~17 ms atomic hitch and the same conclusion.
+  **But the cost profile is inverted**: a bite is cheapest into air and dearest into rock, a fill the
+  exact opposite, since `Occupied` costs a read and no write — **so a fill into a chunk you just
+  emptied is near its worst case, and that is the case the verb is for.** Do not quote a number until
+  a run with `--place` and `Q` armed exists. It also **closes a recorded revisit trigger**: entangled
+  placement reaches as far as the bite, which is *"a placement verb that takes a reach argument"* —
+  the condition the `L`+`Q` note named.
+
 **The entangled miner takes a whole chunk (2026-09-03), and the change found an instrument defect
 six milestones old. Suite 850 → 869.** `Carve.Chunk` is a third shape beside `Sphere` and `Voxel`,
 sharing the same `Take`; while `Q` is on a bare click removes the 8 m chunk the ray hit. Five
@@ -1447,8 +1489,9 @@ same argument that kept it out of the tool JSON.
 **The entangled miner is a debug bind, built 2026-08-31 to dig M5d-2's test volume.** **Q**
 toggles it: point at anything, hold left click, and it eats what it is pointed at however far
 away. **As of 2026-09-03 a bare click takes the whole 8 m chunk** — 32,768 voxels, 512 m³ — at
-**4 a second**; Alt still chips one voxel, at 40. Three things about it that are easy to undo by
-accident:
+**4 a second**; Alt still chips one voxel, at 40. **And a bare *right* click fills a whole chunk,
+same day, same rate, same reach** — so the bite has an undo at its own scale. Three things about it
+that are easy to undo by accident:
 
 - **It is deliberately not a tool tier, and that is the design decision rather than laziness.**
   *Reach is the player's, not the tool's* is locked twice — M3d, restated at M4c — because

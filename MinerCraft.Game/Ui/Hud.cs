@@ -343,7 +343,10 @@ public sealed partial class Hud : CanvasLayer
         // that did not change.
         if (mining?.TakesWholeChunk == true)
         {
-            return $"WHOLE CHUNK  (Q)   ·   {tier} gate  (T)   ·   Alt: one voxel";
+            // Both verbs named, because both changed scale at the same keypress and the fill is
+            // the one a player would not guess. "dig / fill" rather than "mine / place": the
+            // pairing is what makes the mode safe to use, since the bite now has an undo.
+            return $"WHOLE CHUNK  (Q)   ·   {tier} gate  (T)   ·   dig / fill   ·   Alt: one voxel";
         }
 
         return $"{brush} brush  (B)   ·   {tier}  (T)   ·   1-9 material, V cycle   ·   Alt: one voxel";

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -1224,6 +1224,14 @@ public partial class Main : Node3D
 
         _mining.Entangled = !_mining.Entangled;
 
+        // One mode, both verbs. Q is a single toggle, so a player who could bite at range but
+        // not fill at range would have half a tool — and the half they were missing is the one
+        // that puts back what the other half took.
+        if (_place is not null)
+        {
+            _place.Entangled = _mining.Entangled;
+        }
+
         if (!_mining.Entangled)
         {
             GD.Print("M5d: entangled miner OFF — reach back to "
@@ -1241,6 +1249,8 @@ public partial class Main : Node3D
               + $"and each one takes the WHOLE {VoxelConstants.ChunkSizeMetres:F0} m chunk "
               + $"({VoxelConstants.ChunkVolume:N0} voxels) — still {_mining.Tool.Id.Path}'s "
               + "hardness gate, so it leaves what the tier cannot take. Alt still chips one voxel."
+              + "\n      Right mouse FILLS the whole chunk in front of the crosshair, at the same "
+              + "rate — only air is replaceable, so it fills holes and never overwrites rock."
             : "M5d: entangled miner ON — reach unlimited (bounded by the loaded world), "
               + $"{1.0f / MiningController.EntangledCooldownSeconds:F0} swings/s, "
               + $"still {_mining.Tool.Id.Path}'s bite and hardness gate");
@@ -2010,6 +2020,14 @@ public partial class Main : Node3D
             // The player's reach, the same number mining uses. A brush is not a tool and does not
             // get to reach further than an arm — M3d's decision, restated at M4c.
             ReachMetres = _player.ReachMetres,
+            // Both halves of the mode move together, so an --entanglesphere A/B compares one tool
+            // against one tool rather than a chunk bite against a brush fill. Set here rather than
+            // beside the miner's own assignment because this controller is built after it, and a
+            // --entangle profile that armed the bite but not the fill would be an arm nobody asked
+            // for — the M5c-2 hole one layer out, in a seam rather than in the logic.
+            Entangled = _entangleWhileProfiling,
+            EntangledFillsChunk = !_entangledSphereWhileProfiling,
+            ChunkCooldownSeconds = _chunkCooldownSeconds,
         };
 
         // A second outline, a metre across and in a different colour, because the brush lands on
@@ -2110,6 +2128,17 @@ public partial class Main : Node3D
         // The outline follows the modifier, or the player cannot see what precision would do
         // until after they have done it. One voxel while Alt is held, one metre otherwise.
         bool preciseNow = precise || (_camera.MouseCaptured && Input.IsKeyPressed(Key.Alt));
+
+        // Three scales now, and the chunk one is not cosmetic for the reason the mining outline
+        // records: a chunk boundary is drawn nowhere, so a 1 m cell outline in front of an 8 m
+        // fill shows the player the wrong object. Precision still wins, because Alt fills exactly
+        // the voxel in the box.
+        if (_place.TakesWholeChunk && !preciseNow)
+        {
+            (float fx, float fy, float fz) = _place.TargetChunk.OriginMetres;
+            _cellHighlight.ShowAt(new Vector3(fx, fy, fz), VoxelConstants.ChunkSizeMetres);
+            return;
+        }
 
         (float x, float y, float z) = preciseNow
             ? _place.TargetVoxel.MinCornerMetres
@@ -2661,6 +2690,25 @@ public partial class Main : Node3D
             (_place.PrecisePlacements > 0
                 ? $"precise   {_place.PrecisePlacements} of {_place.Placements} placement(s) were "
                   + "one voxel — NOT comparable with a brush baseline\n"
+                : string.Empty) +
+            (_place.ChunkPlacements > 0
+                ? $"fill      {_place.ChunkPlacements} of {_place.Placements} placement(s) filled a "
+                  + $"whole {VoxelConstants.ChunkSizeMetres:F0} m chunk "
+                  + $"({_place.ChunkPlacements * (double)VoxelConstants.ChunkVolume
+                        * VoxelConstants.VoxelSize * VoxelConstants.VoxelSize
+                        * VoxelConstants.VoxelSize:N0} m³ offered, "
+                  + $"{_place.VoxelsPlaced * (double)VoxelConstants.VoxelSize
+                        * VoxelConstants.VoxelSize * VoxelConstants.VoxelSize:N0} m³ actually put "
+                  + "back)\n"
+                  // Occupied is the headline for a fill rather than a footnote: only air is
+                  // replaceable, so a fill aimed at rock is 32,768 refusals, and the ratio is
+                  // what says whether the aim is landing in the hole or on the wall behind it.
+                  + $"          {_place.VoxelsOccupied / (double)_place.ChunkPlacements:N0} "
+                  + "voxel(s) per fill were already solid and were left alone"
+                  + (_place.VoxelsOutOfStock > 0
+                      ? $", {_place.VoxelsOutOfStock / (double)_place.ChunkPlacements:N0} "
+                        + "unaffordable — the inventory is the real limit here\n"
+                      : "\n")
                 : string.Empty) +
             $"clipped   {_place.ClippedPlacements} placement(s) reached past the loaded world\n";
     }

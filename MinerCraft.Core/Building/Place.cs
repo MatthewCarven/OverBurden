@@ -188,6 +188,115 @@ public static class Place
     /// </remarks>
     public static VoxelPos TargetVoxel(in VoxelHit hit) => hit.Previous;
 
+    /// <summary>
+    /// Fills <b>a whole chunk</b> — 32×32×32 voxels, an 8 m cube, 512 m³.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The mirror of <c>Carve.Chunk</c>, and the reason it exists is that the bite needed an
+    /// undo.</b> A verb that removes 512 m³ a click and has no counterpart at the same scale
+    /// leaves the only way back a brush at 1 m³ — five hundred and twelve clicks to put back what
+    /// one took. The pairing is <c>Sphere</c>/<c>Sphere</c> and <c>Voxel</c>/<c>Voxel</c> arriving
+    /// at the third shape.
+    /// </para>
+    /// <para>
+    /// <b>It takes the chunk holding <see cref="VoxelHit.Previous"/>, where the bite takes the one
+    /// holding <see cref="VoxelHit.Voxel"/>, and the asymmetry is the whole of getting this
+    /// right.</b> It is the same split that separates <see cref="TargetVoxel"/> from
+    /// <c>Carve.Chip</c>, one scale up: mining names the thing you are pointing <em>at</em>,
+    /// building names the space <em>in front of</em> it. Taking <c>hit.Voxel.Chunk</c> here would
+    /// aim the fill at whatever is behind the surface — so pointing at the far wall of a hole you
+    /// just bit out would fill the wall's chunk, which is solid rock, and report 32,768
+    /// <see cref="PlaceResult.Occupied"/> having written nothing. <b>The verb would appear broken
+    /// in exactly the situation it was built for.</b> With <c>Previous</c>, that same aim fills
+    /// the hole.
+    /// </para>
+    /// <para>
+    /// <b>Only air is replaceable, unchanged — and here that stops being incidental and starts
+    /// being what makes the verb safe.</b> At brush scale the rule keeps a cube from eating a
+    /// hillside; at chunk scale it is the only thing standing between this and a key that
+    /// overwrites 512 m³ of terrain, hardness gate and all. A fill aimed into solid rock is 32,768
+    /// refusals and no writes. <b>It is not a chunk-shaped overwrite and must never become one</b>
+    /// — that would make M3c's gate bypassable by the building verb at the worst possible scale,
+    /// which is the exact argument <see cref="Place"/> records against overwriting in general.
+    /// </para>
+    /// <para>
+    /// <b>The body refusal earns its keep here rather than merely existing.</b> A 1 m brush can be
+    /// aimed away from yourself; an 8 m cube centred on the chunk you are standing in cannot, so
+    /// without it the ordinary use of this verb — refilling the hole you are stood in — would wall
+    /// the player in. It is the same <see cref="PlaceResult.InsidePlayer"/> hole the brushes leave,
+    /// and at this scale it is the difference between a fill and a burial.
+    /// </para>
+    /// <para>
+    /// <b><see cref="PlaceResult.OutOfStock"/> stops being an edge case.</b> One fill is 32,768
+    /// voxels — <b>512,000 litres</b> of a single material — so running out part-way through is
+    /// the ordinary outcome rather than the unusual one, and the partial-fill rule the brushes
+    /// established is what makes that bearable: you get what you could afford and the count says
+    /// what you were short. Filling a chunk you did not first take a chunk out of will almost
+    /// always run dry.
+    /// </para>
+    /// <para>
+    /// <b>Cost is bounded at 32,768 candidates whatever the aim</b>, the same as the bite, and for
+    /// the same reason: the shape is the storage grid, so there is no radius to get wrong and no
+    /// bounding box to derive. What varies is how many of them are air, because
+    /// <see cref="Bucket.Occupied"/> costs a read and no write — so a fill into a chunk that was
+    /// bitten out is near its worst case and a fill into rock is near its cheapest, which is the
+    /// exact inverse of how the bite's cost varies.
+    /// </para>
+    /// </remarks>
+    public static PlaceResult Chunk(
+        IVoxelEditor world,
+        MaterialTable materials,
+        in VoxelHit hit,
+        int materialId,
+        Aabb? body = null,
+        VolumetricInventory? from = null) =>
+        Chunk(world, materials, TargetChunk(hit), materialId, body, from);
+
+    /// <summary>Fills a chunk named directly. The aim-free overload, for tests.</summary>
+    public static PlaceResult Chunk(
+        IVoxelEditor world,
+        MaterialTable materials,
+        ChunkPos chunk,
+        int materialId,
+        Aabb? body = null,
+        VolumetricInventory? from = null)
+    {
+        (VoxelPos Min, VoxelPos Max)? bodyVoxels = Validate(world, materials, materialId, body);
+
+        VoxelPos origin = chunk.OriginVoxel;
+        var tally = default(Tally);
+
+        // Z outer and Y inner, matching the [z][x][y] storage order the writes land in — the same
+        // nest Carve.Chunk uses, and here too it covers the array exactly once in its own order
+        // rather than approximately.
+        for (int z = 0; z < VoxelConstants.ChunkSize; z++)
+        for (int x = 0; x < VoxelConstants.ChunkSize; x++)
+        for (int y = 0; y < VoxelConstants.ChunkSize; y++)
+        {
+            tally.Candidate();
+            tally.Add(Put(
+                world,
+                new VoxelPos(origin.X + x, origin.Y + y, origin.Z + z),
+                materialId,
+                bodyVoxels,
+                from));
+        }
+
+        return tally.ToResult();
+    }
+
+    /// <summary>
+    /// Which chunk a fill lands in: <b>the one holding the last empty voxel before the surface</b>.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="VoxelHit.Previous"/>, exactly as <see cref="TargetCell"/> and
+    /// <see cref="TargetVoxel"/> use it, so that all three placement scales name the space in front
+    /// of what you are pointing at rather than the thing itself. See <see cref="Chunk"/> for why
+    /// the mining half makes the opposite choice and why copying it here would break the verb.
+    /// </remarks>
+    public static ChunkPos TargetChunk(in VoxelHit hit) => hit.Previous.Chunk;
+
     /// <summary>Fills a whole cell — 4×4×4 voxels, one cubic metre.</summary>
     public static PlaceResult Cube(
         IVoxelEditor world,

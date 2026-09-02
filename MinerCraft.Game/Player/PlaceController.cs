@@ -59,6 +59,57 @@ public sealed class PlaceController(
     /// </remarks>
     public double CooldownSeconds { get; init; } = 0.2;
 
+    /// <summary>
+    /// Whether the player is entangled — the building half of <see cref="MiningController.Entangled"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Set from the miner rather than toggled separately, because <c>Q</c> is one mode and not
+    /// two.</b> A player who could mine at range but not build at range would have half a tool,
+    /// and the asymmetry would show up as the fill silently doing nothing at the distance the bite
+    /// works at.
+    /// </para>
+    /// <para>
+    /// It buys the same two things it buys the miner — <b>how far and how fast</b> — plus the
+    /// third the bite added: <see cref="TakesWholeChunk"/>. The clause that stays untouched is the
+    /// one that always mattered: <b>entanglement never changes what a placement is allowed to
+    /// overwrite.</b> Only air is replaceable at 512 m³ exactly as at one, so this cannot become a
+    /// way to delete terrain with the building verb.
+    /// </para>
+    /// <para>
+    /// <b>It also makes the <c>L</c>+<c>Q</c> pairing ordinary.</b> Matthew reported that pairing
+    /// as load-bearing in the M7 play — <i>"hitting Q then being able to place a light far off
+    /// into the distance has been useful"</i> — and the reason it was needed was that right mouse
+    /// was bounded by the player's reach while <c>L</c> was not. Alt+right at range is now that,
+    /// without the debug lamp. <b>The recorded revisit trigger for that note — <i>a placement verb
+    /// that takes a reach argument</i> — is hereby met</b>, and <c>L</c> keeps working.
+    /// </para>
+    /// </remarks>
+    public bool Entangled { get; set; }
+
+    /// <summary>Whether an entangled placement fills a whole chunk. Off restores the brushes.</summary>
+    /// <remarks>
+    /// The seam <c>--entanglesphere</c> drives, and it drives both halves together: an A/B that
+    /// changed the bite and left the fill at chunk scale would be comparing two different tools.
+    /// </remarks>
+    public bool EntangledFillsChunk { get; set; } = true;
+
+    /// <summary>A bare placement fills the whole 8 m chunk in front of the crosshair.</summary>
+    public bool TakesWholeChunk => Entangled && EntangledFillsChunk;
+
+    /// <summary>
+    /// How long between whole-chunk fills, in seconds.
+    /// </summary>
+    /// <remarks>
+    /// <b>The same number the bite uses, and deliberately the same flag.</b> One fill and one bite
+    /// are the same 32,768 <c>SetVoxel</c> calls, so they cost within a factor of each other and a
+    /// person tuning the felt rate of the mode is tuning one thing. <c>--chunkcooldown=</c> moves
+    /// both; splitting them would be two numbers for one feel, which is
+    /// <see cref="ReachMetres"/>'s own argument.
+    /// </remarks>
+    public float ChunkCooldownSeconds { get; set; } =
+        MiningController.DefaultEntangledChunkCooldownSeconds;
+
     private double _cooldown;
 
     /// <summary>The brush being placed. Cycled from a key.</summary>
@@ -102,6 +153,12 @@ public sealed class PlaceController(
 
     /// <summary>The single voxel a precise placement would fill.</summary>
     public VoxelPos TargetVoxel { get; private set; }
+
+    /// <summary>The whole chunk an entangled placement would fill. Drives the 8 m outline.</summary>
+    public ChunkPos TargetChunk { get; private set; }
+
+    /// <summary>Of <see cref="Placements"/>, how many filled a whole chunk.</summary>
+    public int ChunkPlacements { get; private set; }
 
     /// <summary>Of <see cref="Placements"/>, how many were one voxel rather than a brush.</summary>
     /// <remarks>
@@ -167,13 +224,15 @@ public sealed class PlaceController(
 
         // Cast every frame regardless of the button, because the cell highlight has to follow the
         // crosshair and not only the placements.
-        Outcome = VoxelRay.Cast(pipeline, originMetres, direction, ReachMetres, out VoxelHit hit);
+        Outcome = VoxelRay.Cast(
+            pipeline, originMetres, direction, EffectiveReachMetres, out VoxelHit hit);
         Hit = hit;
 
         if (Outcome == RayOutcome.Hit)
         {
             TargetCell = Place.TargetCell(hit);
             TargetVoxel = Place.TargetVoxel(hit);
+            TargetChunk = Place.TargetChunk(hit);
             Facing = Place.FacingFrom(direction);
         }
 
@@ -192,7 +251,9 @@ public sealed class PlaceController(
 
         PlaceResult result = precise
             ? Place.Voxel(pipeline, materials, TargetVoxel, MaterialId, body, inventory)
-            : Brush switch
+            : TakesWholeChunk
+                ? Place.Chunk(pipeline, materials, TargetChunk, MaterialId, body, inventory)
+                : Brush switch
         {
             BrushShape.Cube => Place.Cube(pipeline, materials, TargetCell, MaterialId, body, inventory),
             BrushShape.Slab => Place.Slab(pipeline, materials, TargetCell, MaterialId, body, inventory),
@@ -202,15 +263,16 @@ public sealed class PlaceController(
                 pipeline, materials, TargetCell, SphereRadiusMetres, MaterialId, body, inventory),
         };
 
-        // The same cooldown for both shapes, exactly as mining does it. Letting precision fire
-        // faster would make it the efficient way to build as well as the accurate one, and the
-        // brushes would stop being the default in practice while still being it in the code.
-        _cooldown = CooldownSeconds;
+        _cooldown = CooldownForShape(precise);
         Placements++;
 
         if (precise)
         {
             PrecisePlacements++;
+        }
+        else if (TakesWholeChunk)
+        {
+            ChunkPlacements++;
         }
         VoxelsPlaced += result.Placed;
         VoxelsOccupied += result.Occupied;
@@ -225,6 +287,42 @@ public sealed class PlaceController(
 
         return true;
     }
+
+    /// <summary>How far this placement may reach — the player's arm, or the whole loaded world.</summary>
+    /// <remarks>
+    /// <see cref="MiningController.EntangledReachMetres"/> rather than a second constant, for the
+    /// reason <see cref="ReachMetres"/> is <c>required</c> and defaultless: two numbers for one
+    /// reach are two things to drift, and a fill that could not reach as far as the bite would be
+    /// a mode that can dig a hole it cannot fill in.
+    /// </remarks>
+    private float EffectiveReachMetres =>
+        Entangled ? MiningController.EntangledReachMetres : ReachMetres;
+
+    /// <summary>
+    /// How long until the next placement, by the shape that was just placed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Per shape rather than per mode, and the old argument genuinely does not reach.</b> Until
+    /// now precision paid the brush's cooldown so that it could not become the <em>efficient</em>
+    /// way to build as well as the accurate one. Against a fill of 32,768 voxels that protects
+    /// nothing — the chunk fill is unambiguously the bulk method and no rate of single voxels
+    /// competes with it — while pacing Alt to the chunk rate would cost the case the mode is most
+    /// useful for, placing single things at range. <b>The mining half made exactly this change for
+    /// exactly this reason; the two verbs stay symmetrical.</b>
+    /// </para>
+    /// <para>
+    /// The rate chooses the duty cycle and nothing else, because one fill is atomic: a time slice
+    /// cannot bound a tail below the cost of one item. That is M2d's mesh-apply finding, and this
+    /// is its fourth outing.
+    /// </para>
+    /// </remarks>
+    private double CooldownForShape(bool precise) => (Entangled, precise) switch
+    {
+        (true, false) when EntangledFillsChunk => ChunkCooldownSeconds,
+        (true, _) => MiningController.EntangledCooldownSeconds,
+        _ => CooldownSeconds,
+    };
 
     /// <summary>Moves to the next brush in the cycle.</summary>
     public BrushShape NextBrush() =>

@@ -1,5 +1,131 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-03 — The entangled miner fills a chunk as well as taking one, and the fill is not the bite mirrored
+
+Matthew, the same day the bite shipped: *"How hard to add fill cluster to the quantum miner? Like
+if its easy just go ahead."* It was easy — `Place` and `Carve` have been deliberate twins since
+M6c-1, so `Place.Chunk` is `Carve.Chunk` with the gate pointing the other way. **The interesting
+part is the one place the mirror does not hold.**
+
+`Place.Chunk` joins `Cube`, `Slab`, `Ramp`, `Sphere` and `Voxel` as a sixth shape, sharing the same
+`Put`. While `Q` is on, a bare **right** click fills the entire 8 m chunk in front of the crosshair
+— 32,768 voxels, 512 m³, **512,000 litres** — at the same cooldown the bite uses.
+
+### The bite and the fill name different chunks from the same aim, and copying the bite breaks it
+
+`Carve.Chunk` takes the chunk holding `hit.Voxel`. **`Place.Chunk` takes the one holding
+`hit.Previous`** — the last empty voxel before the surface. That is not a refinement, it is the
+whole of getting the verb right, and it is the same split that has separated `Place.TargetVoxel`
+from `Carve.Chip` since M6d-1, one scale up: **mining names the thing you are pointing at, building
+names the space in front of it.**
+
+The consequence is sharp enough to be worth stating as a failure mode. Stand in a chunk you just
+bit out and look at its far wall. The wall is the *neighbouring* chunk. Taking `hit.Voxel.Chunk`
+would aim the fill at solid rock and report **32,768 `Occupied` having written nothing** — so the
+verb would appear completely broken in precisely the situation it was built for, while working fine
+in the open air where nobody needs it. With `Previous`, that same aim fills the hole.
+`AimingAtTheFarWallOfAChunkYouEmptiedRefillsThatChunk` is the test, and the break-recipe that makes
+this mistake is caught by three tests of which two are scenario tests rather than unit ones —
+because **a hit that does not straddle a chunk boundary is a hit at something other than a wall.**
+
+### Only air is replaceable, and at this scale that stops being a tidiness rule
+
+M6c-1 argued the rule as a hardness-gate defence: a brush that overwrote material would let you
+place dirt into bedrock, mine the dirt with a `hand_pick`, and delete the bedrock. **At 512 m³ a
+click that argument stops being theoretical.** A fill that overwrote would be a key that deletes
+half a thousand cubic metres of terrain with no tool and no gate — strictly worse than the bite,
+which at least still asks the tier whether it is hard enough.
+
+So a fill aimed into rock is 32,768 refusals and no writes, and **the entanglement clause that
+survives is the one that always mattered**: the mode changes *how far*, *how fast* and now *how
+big*, and **never what a verb is allowed to overwrite**. That is the bite's surviving hardness
+clause restated for the other verb, and the two are now symmetric in what they refuse.
+
+Dropping the rule fails **6**, three of them pre-existing brush tests — one edit breaking every
+placement shape is what a forked gate would not do, and the same evidence M3c took for `Carve.Take`.
+
+**The battery's one genuine hole was somewhere else entirely, and the sibling battery had already
+pointed at it.** `TargetChunk` by truncating division — voxel −1 landing in chunk 0 — came back
+**GREEN**. Every other test names its chunk directly and both seam tests straddle a *positive*
+boundary, so **nothing exercised the one conversion that can actually round: voxel → chunk.** The
+bite's battery recorded that exact asymmetry a day earlier and *its* version of the recipe was an
+identity; here the same reasoning found a live defect, **because the fill actually calls the
+conversion.** Closed by `AnAimBelowTheOriginNamesTheChunkBelowTheOriginRatherThanChunkZero`, after
+which it is caught by 2. **A recorded finding earning its keep one milestone later, in the sibling
+that reaches further.**
+
+**And the predictions written into the test file before the battery ran were wrong in both
+directions.** The shared `Put` is far better covered than guessed — 9, 7 and 6 against predicted
+2, 2 and 5 — and *placing air through the chunk overload*, predicted to be a hole, was already
+caught by two pre-existing `PlaceTests` cases. That test is belt and braces (**M4a's
+zeroable-epsilon category, not M5c-2's missing wire**) and is written down as such.
+
+### The body refusal earns its keep rather than merely existing
+
+A 1 m brush can be aimed away from yourself. **An 8 m cube centred on the chunk you are standing in
+cannot** — and the ordinary use of this verb is refilling the hole you are stood in. Without
+`InsidePlayer` the ordinary use would wall the player in. It is the same refusal the brushes have
+always had, and at this scale it is the difference between a fill and a burial. Given its own
+break-recipe rather than trusted to the shared `Put`, because nothing else in the file would have
+noticed it go.
+
+### `OutOfStock` stops being an edge case, and that is the real balance
+
+One fill is **512,000 litres of a single material**. The bite credits 512,000 L of *mixed* stone,
+dirt and whatever the seam held; the fill spends 512,000 L of *one*. **So a chunk cannot generally
+be put back with what taking it yielded, and running dry part-way is the ordinary outcome rather
+than the unusual one.** The partial-fill rule the brushes established is what makes that legible
+instead of baffling — you get what you could afford and the count says what you were short.
+
+**This is a balance mechanism that costs nothing and was not designed.** No weight, no encumbrance
+— Matthew ruled those out the day before and the ruling stands untouched — but a fill is still
+bounded by having mined enough of one material, which is the tax a mining game should charge.
+**Recorded as an observation rather than a decision**, because nobody chose it and a play could
+find it annoying rather than interesting. **Revisit trigger: the first play that tries to fill in a
+worked-out chamber and finds the limit tedious rather than motivating.**
+
+### The cooldown is one number for both verbs, deliberately
+
+`--chunkcooldown=` now paces the fill as well as the bite. One fill and one bite are the same 32,768
+`SetVoxel` calls, so they cost within a factor of each other and **a person tuning the felt rate of
+the mode is tuning one thing**. Splitting them would be two numbers for one feel, which is the
+argument `ReachMetres` already makes for being `required` and defaultless.
+
+The per-shape cooldown rule ported across unchanged, and so did the reason: **precision keeps its
+own fast rate.** The old argument — a chip pays the brush's cooldown so precision cannot become the
+efficient bulk method — does not reach a 32,768-voxel fill any more than it reached a 32,768-voxel
+bite.
+
+### It reaches as far as the bite, which closes a note from the M7 play
+
+Entangled placement uses `MiningController.EntangledReachMetres` rather than the player's arm. That
+was not the feature's point but it **meets a recorded revisit trigger head-on**: Matthew reported
+`L`+`Q` as load-bearing in the M7 play — *"hitting Q then being able to place a light far off into
+the distance has been useful during the debug"* — and the note said the pairing existed because
+**right mouse was bounded by the player's reach while `L` was not**, with the trigger being *"a
+placement verb that takes a reach argument"*. Alt+right at range is now that verb. `L` still works
+and is still the faster way to place a lamp; what has gone is the reason it was the *only* way.
+
+### The cost is not measured, and it is named rather than assumed
+
+**No profile run was taken.** By construction a fill is the same 32,768 `SetVoxel` calls as a bite,
+so the expectation is the same ~17 ms atomic hitch and the same conclusion — *the rate chooses the
+duty cycle and nothing else, because one item is atomic* (M2d's finding, fourth outing). **But the
+inverse cost profile is a real difference and it is a prediction, not a reading:** a bite is
+cheapest into air and dearest into rock, and **a fill is the exact opposite**, because `Occupied`
+costs a read and no write. So a fill into a chunk you just emptied is near its *worst* case, and
+that is the case the verb is for. **Flagged for the first profile run that includes `--place` with
+`Q` armed; do not quote a number for the fill until one exists.**
+
+### Deliberately not built, again
+
+The chunk-aware write path — fill the palette once, update the sky column once, mark the
+neighbourhood once, instead of 32,768 `SetVoxel` calls — **would now pay off twice rather than
+once.** Still not built, and the reason is unchanged and got stronger: it would be a second write
+path beside the one thing M6 says must never be wrong, and there are now two callers who would each
+need to be right about it. **Revisit trigger, unchanged: the hitch reading as a stall in play, or
+this becoming content rather than a debug bind.**
+
 ## 2026-09-03 — The entangled miner takes a whole chunk, and it reverses half of a rule recorded twice
 
 Matthew, on the fiction: *"its got superconducting coils and quantum vacuum based power supply and
