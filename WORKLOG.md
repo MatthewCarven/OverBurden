@@ -1,5 +1,87 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-02 — M7d-2: the water is on the screen, and M7 is built
+
+**M7 is code-complete.** The clock runs, it rains, the rain stops at the ground and at a roof, the
+ground goes wet, the sky goes dark, basins fill and survive a quit — **and now you can see the
+water**. Suite unchanged at **814**; the default headless run is unchanged to the digit, **1521
+viewed / 165 drawn / 1926 jobs at 404 quads**.
+
+**What is left of M7 is a person**, and it is deliberately all that is left: the five play questions
+in TODO are the milestone's actual verdict, and none of them is a test.
+
+### The surface, and what it cost
+
+`MinerCraft.Game/Rendering/WaterSurface.cs` sweeps the analysis grid and emits a horizontal quad
+wherever a terrain sample sits below its basin's solved level. Measured windowed on a flooded world:
+
+```
+surface   739 quad(s) over 255 basin(s), 0.67 ms to rebuild, 83 rebuild(s) in 15 s
+analysis  32.2 ms for a 512 m window, 2 installed
+update ms mean 2.709   viewer ms mean 4.831   main 38.34% of one core
+render    85 draw calls
+```
+
+**Nothing here iterates water.** It asks `WaterSystem.LevelAt` for one number per basin and
+compares it against a height per sample — DESIGN's Tier A claim that the level is *solved, not
+simulated*, reduced to a sweep and a comparison. That is why 739 quads cost 0.67 ms and why
+rebuilding them four times a second is not worth optimising.
+
+Three decisions in it:
+
+- **Runs merged along X, on `(basin, level)` rather than on wetness.** Two neighbouring basins at
+  different levels are two lakes, and a quad spanning both would be a surface at neither. Merging
+  costs one comparison per sample and removed roughly three quarters of the quads.
+- **Rebuilt on a 0.25 s timer, and the interval is picked against how fast water can move rather
+  than against a frame budget.** At the shipped scale a basin fills in about ten minutes, so a
+  level moves well under a millimetre between rebuilds — below a pixel from anywhere you can see
+  the pond. Every frame would be the same picture sixty times.
+- **Depth tested but not written.** Tested, so a ridge in front of a pond hides it; not written, so
+  the terrain *under* the water still draws and a shallow pond reads as shallow. One plane per
+  basin needs no sorting inside itself, which is the whole reason M8 can own the real transparent
+  pass later without this being in the way.
+
+### What the screenshots did and did not show
+
+Water renders and is visible. **A wide hero shot of a lake was not obtained**, and the reason is
+worth writing down because it is about this world rather than about the code: **the spawn's terrain
+is gently terraced, so its basins are shallow** — 346 of them holding 724 quads between them, which
+is a field of puddles rather than a lake. Flooding the world to 866% of leaf capacity merged them
+into bigger bodies, and the second limit then bit: **the default view radius is 32 m against a
+512 m analysis window**, so most of the water that exists is well past the fog.
+
+Both are framing limits, and **the play does not have either of them** — a person walks to a valley
+and looks at it. Recorded so the next person does not go looking for a bug.
+
+### M7 as a whole
+
+Four parts, eight sub-parts, and the through-line is that **every claim it makes is either exact or
+measured**:
+
+- **M7a** — the watershed. A 1 km window at 26.4 ms reference-equivalent, so no incremental
+  watershed is ever built. Flat ground was the defect that mattered.
+- **M7b** — the clock, the weather, the accumulator, the ledger. *An hour in one call equals 3,600
+  calls of one second*, to the litre.
+- **M7c** — the rain. A storm costs **zero remeshes**, which is M5's two-channel bill being
+  collected; one draw call for the particles; and the view-space `NORMAL` bug found and fixed.
+- **M7d** — standing water. A lake survives a quit **to the litre**, the water costs nothing
+  measurable on the sim thread, and `rainfallScale` is picked from two measurements rather than by
+  feel.
+
+**The one thing cut is splashes** (M7c-2), with four findings recorded against a second attempt.
+
+### Still open — and all of it is Matthew's
+
+- Does rain read as rain, and a storm as weather rather than as the renderer breaking?
+- **Does it stop at the mine entrance?** DESIGN's *detail people notice*.
+- Are splashes missed?
+- **Does a pond visibly rising over minutes feel right?** This is the play that judges the
+  project-level principle, not just this milestone — and it is where **×40 is confirmed or moved**.
+- Is the 4 m shoreline tolerable until M8?
+- The face-tint A/B from M7c-1: world space shipped, `--viewnormal=1` is the old look.
+
+---
+
 ## 2026-09-02 — M7d-1: rain reaches the basins, and a lake survives a quit
 
 **M7d is split in two on the seam M5c and M7c were split on**: this half is the wiring and the

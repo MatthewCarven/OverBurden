@@ -200,6 +200,22 @@ public partial class Main : Node3D
     /// <summary>The authored fog colour, held for the same reason the dome's colours are.</summary>
     private Color _baseFogColour = Colors.White;
 
+    /// <summary>This frame's delta, for the water surface's own rebuild timer.</summary>
+    /// <remarks>
+    /// Threaded through a field rather than an argument because <c>UpdateWater</c> is reached from
+    /// <c>UpdateWeather</c>, which already takes one delta and passes it to the clock. Two deltas
+    /// in one signature is how a caller ends up advancing the world twice.
+    /// </remarks>
+    private double _lastFrameSeconds;
+
+    /// <summary>The water surface, or null in a run with no renderer.</summary>
+    /// <remarks>
+    /// Created beside <see cref="_rain"/> and for the same reason: a headless run has nothing to
+    /// draw it with, and building meshes nobody can see would move every figure this project has
+    /// recorded since M2d.
+    /// </remarks>
+    private WaterSurface? _waterSurface;
+
     /// <summary>The standing water: which basins exist near the player and what is in them.</summary>
     /// <remarks>
     /// <b>Created after the world is open, because it needs the world's clock and its ledger.</b>
@@ -393,9 +409,16 @@ public partial class Main : Node3D
         // Not created in a headless run: there is no renderer, so every particle is a buffer
         // allocated to be stepped and never drawn. It also keeps the default headless profile
         // comparable with every one taken since M2d, which is the contract this project keeps.
-        if (!DisplayServer.GetName().Equals("headless", StringComparison.Ordinal) && !_noRain)
+        bool windowed = !DisplayServer.GetName().Equals("headless", StringComparison.Ordinal);
+
+        if (windowed && !_noRain)
         {
             _rain = new Rain(this);
+        }
+
+        if (windowed && !_noWater)
+        {
+            _waterSurface = new WaterSurface(GetWorld3D());
         }
 
         if (_camera is not null)
@@ -1410,6 +1433,8 @@ public partial class Main : Node3D
         }
 
         RefreshSkyHeights();
+
+        _lastFrameSeconds = delta;
         UpdateWater();
 
         long now = _clock.ElapsedMillis;
@@ -1451,6 +1476,8 @@ public partial class Main : Node3D
             _rain.Update(_camera.GlobalPosition, rate, _skyHeights);
             _rain.SetBrightness(dimming);
         }
+
+        _waterSurface?.SetBrightness(_skyBrightness * dimming);
 
         // Only while the profiler is warm, so the range reported beside the remesh count is the
         // weather the measurement actually saw rather than the weather the warm-up did.
@@ -1605,6 +1632,11 @@ public partial class Main : Node3D
                 // a dry spell.
                 GD.PushError($"M7d: the watershed analysis failed - {finished.Exception?.Message}");
             }
+        }
+
+        if (_waterSurface is not null && _water.Window is not null)
+        {
+            _waterSurface.Update(_lastFrameSeconds, _water);
         }
 
         if (_waterAnalysis is not null)
@@ -2303,7 +2335,11 @@ public partial class Main : Node3D
                + $"{water.SpilledLitres:N0} L spilled | "
                + $"window {water.SpanMetres} m x{water.WindowsInstalled}, "
                + $"{_lastAnalysisMillis:F1} ms to analyse, scale x{water.RainfallScale}"
-               + overflow;
+               + overflow
+               + (_waterSurface is null
+                   ? " | no surface drawn (headless or --nowater)"
+                   : $" | surface {_waterSurface.QuadCount} quad(s) over "
+                     + $"{_waterSurface.WetBasins} basin(s), {_waterSurface.LastRebuildMillis:F2} ms");
     }
 
     /// <summary>
@@ -2400,12 +2436,19 @@ public partial class Main : Node3D
         long held = _water.StoredLitres + _water.Ledger.TotalLitres;
         string flight = _waterAnalysis is null ? string.Empty : ", one still in flight";
 
+        string surface = _waterSurface is null
+            ? "surface   not drawn (headless or --nowater)\n"
+            : $"surface   {_waterSurface.QuadCount} quad(s) over {_waterSurface.WetBasins} basin(s), "
+              + $"{_waterSurface.LastRebuildMillis:F2} ms to rebuild, "
+              + $"{_waterSurface.Rebuilds} rebuild(s)\n";
+
         return $"water     {held:N0} L held, {_water.SpilledLitres:N0} L spilled, "
                + $"{held * 60.0 / seconds:N0} L per wall-clock minute at scale "
                + $"x{_water.RainfallScale}\n"
                + $"analysis  {_lastAnalysisMillis:F1} ms for a {_water.SpanMetres} m window "
                + $"({_water.Pitch}x{_water.Pitch} samples), {_water.WindowsInstalled} installed"
-               + $"{flight}\n";
+               + $"{flight}\n"
+               + surface;
     }
 
     /// <summary>The range the wet term covered while measuring, so a zero has a denominator.</summary>
@@ -3043,6 +3086,7 @@ public partial class Main : Node3D
         // it is deliberately outside the ordering argument that follows rather than an exception
         // to it.
         _rain?.Dispose();
+        _waterSurface?.Dispose();
         _skyHeights.Dispose();
 
         // Order matters: stop the pipeline submitting, then stop the workers, then release

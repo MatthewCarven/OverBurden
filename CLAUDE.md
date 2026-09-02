@@ -17,7 +17,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/M4-PLAN.md](docs/M4-PLAN.md) | M4, the player, split into M4a–M4d. Done, kept for the reasoning. |
 | [docs/M5-PLAN.md](docs/M5-PLAN.md) | M5, lighting and AO, split into M5a–M5d. Done 2026-08-31, kept for the reasoning. |
 | [docs/M6-PLAN.md](docs/M6-PLAN.md) | M6, persistence, placement and inventory, split into M6a–M6d. Done and played 2026-09-01, kept for the reasoning. |
-| [docs/M7-PLAN.md](docs/M7-PLAN.md) | **M7, rain, split into M7a–M7d. Planned 2026-09-01, not started. Read before writing any of it — and read SCALE.md before it.** |
+| [docs/M7-PLAN.md](docs/M7-PLAN.md) | M7, rain, split into M7a–M7d. Planned 2026-09-01, **code-complete 2026-09-02 — only the play is outstanding**. Kept for the reasoning; **read SCALE.md before it**. Two places it was overtaken: splashes were cut (M7c-2) and the occlusion field's cost estimate was ten times out (M7d-1). |
 | [docs/SCALE.md](docs/SCALE.md) | **How many voxels and cells exist at each view distance, what one full sweep costs, and what each system actually iterates.** Read before designing anything that wants to check the world periodically — M7, M8 and M9 all start here. |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
 | [TODO.md](TODO.md) | Milestones as checkable tasks, and the decisions still open. **M6's section is the plan as a checklist.** |
@@ -234,11 +234,31 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-**M7 is nearly done: all of M7a, M7b, M7c and M7d-1 are built (2026-09-02) — M7d-2, the water
-surface and the play, is what is left.** The clock advances, it rains, the rain stops at the ground
-and at a roof, the ground goes wet, the sky goes dark, **and basins around the player now fill and
-survive a quit**. **What is missing is a pixel**: the levels are solved and `WaterSystem.LevelAt`
-returns them, and nothing draws them — exactly where M5b stood with a light grid that did not glow.
+**M7 is code-complete (2026-09-02): all four parts, eight sub-parts, built.** The clock runs, it
+rains, the rain stops at the ground and at a roof, the ground goes wet, the sky goes dark, basins
+fill and survive a quit, **and the water is on the screen**. **What is left of M7 is a person** —
+the five play questions in TODO are the milestone's actual verdict and none of them is a test.
+
+Every claim M7 makes is either exact or measured: **a 1 km watershed at 26.4 ms
+reference-equivalent** so no incremental watershed is ever built; **an hour in one call equals 3,600
+calls of one second, to the litre**; **a storm costs zero remeshes** and the rain costs **one draw
+call**; **a lake survives a quit to the litre**. **The one thing cut is splashes** (M7c-2), with
+four findings recorded against a second attempt.
+
+**M7d-2 — the surface: built 2026-09-02.** `WaterSurface.cs` sweeps the analysis grid and emits a
+horizontal quad wherever a terrain sample sits below its basin's solved level — **739 quads over
+255 basins, 0.67 ms to rebuild**, four times a second. Three things worth keeping:
+
+- **Nothing iterates water.** One number per basin against one height per sample, which is DESIGN's
+  *solved, not simulated* reduced to a sweep and a comparison. That is why it is 0.67 ms.
+- **Runs merge along X on `(basin, level)`, not on wetness** — two neighbouring basins at different
+  levels are two lakes, and a quad spanning both is a surface at neither.
+- **Depth tested but not written**: a ridge hides a pond behind it, and the terrain under the water
+  still draws so a shallow pond reads as shallow. M8 owns the real transparent pass.
+
+**A wide shot of a lake was not obtained, and it is this world rather than the code**: the spawn's
+terrain is gently terraced so its basins are shallow, and the default view radius is 32 m against a
+512 m analysis window. The play has neither limit.
 
 **M7d-1 — the wiring and the measurement: built 2026-09-02.** Suite 804 → 814; the default headless
 run is unchanged to the digit. Six things worth keeping:

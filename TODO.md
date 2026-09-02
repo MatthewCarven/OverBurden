@@ -3302,7 +3302,7 @@ same part as the billboards would have hidden them behind a screenshot.
       question rather than a test** — a person standing at their own mine entrance answers it in a
       second.
 
-#### M7d — Standing water, measurement and play ← **split in two 2026-09-02. M7d-1 done; M7d-2 is the surface and the play.**
+#### M7d — Standing water, measurement and play ← **split in two 2026-09-02. Both parts built; the play is Matthew's and is all that is left of M7.**
 
 Split on the seam M5c and M7c were split on: what a headless run can verify, and what needs a
 renderer and a person.
@@ -3356,7 +3356,32 @@ renderer and a person.
             that re-analyses often**; the fix is to carry the remainder keyed by pit exactly as the
             ledger carries litres.
 
-##### M7d-2 — The surface and the play ← **not started**
+##### M7d-2 — The surface ✅ **built 2026-09-02, 814 tests passing. The play below is Matthew's.**
+
+- [x] **One flat translucent surface per basin with volume, at the solved level.**
+      `MinerCraft.Game/Rendering/WaterSurface.cs` sweeps the analysis grid and emits a horizontal
+      quad wherever a terrain sample sits below its basin's level. **Nothing iterates water** — it
+      is one number per basin against one height per sample, which is DESIGN's *solved, not
+      simulated* reduced to a sweep and a comparison.
+      - [x] Measured: **739 quads over 255 basins, 0.67 ms to rebuild**, 83 rebuilds in 15 s;
+            `update ms` 2.709 mean, `viewer ms` 4.831, `main` 38.34%, **85 draw calls**.
+      - [x] **Runs merged along X on `(basin, level)`, not on wetness** — two neighbouring basins at
+            different levels are two lakes, and a quad spanning both is a surface at neither.
+            Removed roughly three quarters of the quads for one comparison per sample.
+      - [x] **Rebuilt on a 0.25 s timer, picked against how fast water can move** rather than
+            against a frame budget: at the shipped scale a level moves well under a millimetre
+            between rebuilds, which is below a pixel from anywhere you can see the pond.
+      - [x] **Depth tested but not written.** Tested so a ridge hides a pond behind it; not written
+            so the terrain under the water still draws and a shallow pond reads as shallow. One
+            plane per basin needs no sorting inside itself. **M8 owns the real transparent pass.**
+- [x] **A wide hero shot of a lake was not obtained, and the reason is this world rather than the
+      code.** The spawn's terrain is gently terraced, so its basins are shallow — 346 of them
+      holding 724 quads between them, a field of puddles rather than a lake. Flooding to 866% of
+      leaf capacity merged them, and the second limit bit: **the default view radius is 32 m
+      against a 512 m analysis window**, so most of the water is past the fog. **The play has
+      neither limit** — a person walks to a valley and looks at it.
+
+##### M7d-2's play — **Matthew's, and all that is left of M7**
 
 - [ ] One flat translucent surface per basin with volume, at the solved level. Depth-write off,
       no sorting inside a basin because it is one plane. **M8 owns the real transparent pass.**
