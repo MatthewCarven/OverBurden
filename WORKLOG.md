@@ -1,5 +1,48 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-02 — M7's play answers question 5, and asks the sharpest question of the milestone
+
+**The 4 m shoreline is tolerable**: *"it would be better to fill exactly but I honestly don't know
+how to do it and I ain't gonna task you with doing it just to satisfy a base cosmetic."* M7d-2's
+one accepted cosmetic cost is accepted by the person who has to look at it, so refining shore cells
+stays the thing M8 deletes. **Four of the five play questions are now answered.**
+
+### The question that came out with it, which is worth more than the answer
+
+> *"But then I question like — unless I make a hole 4x4 it isn't going to drain into eventually?"*
+
+**It will drain, but only because of an M8 decision that has not been made yet, and this question
+is what makes that decision non-optional.** Recorded in TODO under Phase 3.
+
+**The 4 m grid is Tier A's analysis resolution, not water's physics resolution** — basins, curves
+and the surface sweep. A drain is a Tier B event, and DESIGN specifies Tier B as a CA over an
+active-cell set while **deliberately never stating a cell size**. So M8 can reach for either of two
+shapes, and one of them produces exactly the failure the question describes:
+
+- **Re-analyse the watershed from edited heights.** `SkyColumn` is the seam DESIGN names, it exists
+  and it persists — so this is the shape M8 will reach for by default. The height field samples
+  every 4 m, so **a 0.75 m `hand_pick` bore falls between samples and is invisible**, and the
+  minimum drainable hole becomes 4 m across. In a game whose starting tool leaves a 0.75 m bore and
+  whose player is 0.5 m wide, that is absurd — and it is the kind of thing a player finds long
+  before a test does.
+- **Breach at voxel resolution: Tier B sees the opening and pulls volume out of the Tier A body.**
+  Tier A never learns the hole exists; it has less water and re-solves its level from what is left.
+  `SkyColumn` is per voxel column (0.25 m in x and z) and `IVoxelWorld` is per voxel, so the fine
+  inputs already exist and are already persisted.
+
+**The second is right, and this project solved the identical problem one milestone ago.** M5b: *a
+1 m light cell holds 64 voxels and `hand_pick`'s bore is 0.75 m — the tunnels this game is about
+are narrower than one cell* — so opacity became a property of the cell **face**, tested voxel pair
+by voxel pair across the shared boundary. **The same sentence with "water" for "light" is the M8
+rule**, and it fails the same way at both ends: any-open-voxel empties a lake through a crack,
+whole-cell-open means a pick drains nothing.
+
+**Twice now the answer has been that the tunnels this game is about are narrower than the grid
+somebody chose for a different reason.** Worth stating as a general caution rather than as two
+coincidences: a mining game's characteristic feature is roughly the size of three voxels, and
+**every coarse grid this engine adds will meet it.**
+
+
 ## 2026-09-02 — M7's play answers question 4, and halves the rainfall scale
 
 **The pond feels right, and the principle survives contact with a person watching one.** Play

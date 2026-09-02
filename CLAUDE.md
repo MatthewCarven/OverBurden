@@ -235,6 +235,19 @@ copy in `../GAME/`.
 
 ## Where things stand
 
+**Four of M7's five play questions are answered (2026-09-02), and the sharpest thing the play
+produced is a question rather than an answer.** The pond pacing reads right — *"in sealed ponds
+on the surface it works perfectly"* — with `rainfallScale` **halved from x40 to x20** on the
+play's own wording; and the 4 m shoreline is **tolerable**. The question that came out with it:
+*"unless I make a hole 4x4 it isn't going to drain into eventually?"* — **and it decides an M8
+design.** The 4 m grid is Tier A's *analysis* resolution, not water's *physics* resolution, so a
+0.75 m bore drains **only if M8 treats the breach at voxel resolution** rather than re-analysing
+the watershed from edited heights, which is the shape `SkyColumn` invites and which would make
+the minimum drainable hole 4 m across. **M5b solved the identical problem** — a 1 m light cell
+against a 0.75 m bore, fixed by making opacity a property of the cell *face*. **Twice now the
+answer has been that the tunnels this game is about are narrower than a grid chosen for another
+reason; every coarse grid this engine adds will meet that.**
+
 **The play has begun, and its first finding is a sixth one (2026-09-02): a pond above a dug
 tunnel does not fall into it.** That is DESIGN's *"edits do not change the watershed at M7"*
 met by a person — **not a defect, and the first play-confirmed motivation for M8's Tier B.**

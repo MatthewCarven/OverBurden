@@ -93,6 +93,14 @@ it**; refining shore cells now would be building the thing M8 deletes.
 
 The question is only whether it is *tolerable in the meantime*, not whether it is good.
 
+**Answered 2026-09-02: tolerable.** *"It would be better to fill exactly but I honestly don't
+know how to do it and I ain't gonna task you with doing it just to satisfy a base cosmetic."*
+The question that came out with it — *"unless I make a hole 4x4 it isn't going to drain into
+eventually?"* — is now an M8 planning item, and the answer is that **the 4 m grid is Tier A's
+analysis resolution, not water's physics resolution**. A 0.75 m bore drains, provided M8 treats
+the breach at voxel resolution rather than re-analysing the watershed at 4 m. See TODO,
+*the minimum drainable hole*.
+
 ---
 
 ## The one A/B, which is taste rather than correctness

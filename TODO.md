@@ -3422,7 +3422,12 @@ renderer and a person.
             a person watching a pond** — and the only correction asked for is the scale, now
             **x20**. Note the judgement is on the spawn's shallow terraced ponds; a deep valley
             is the recorded revisit trigger.
-      - [ ] Is the 4 m shoreline tolerable until M8?
+      - [x] **Answered 2026-09-02: yes, tolerable.** *"The 4 m shoreline is ok, like it would be
+            better to fill exactly but I honestly don't know how to do it and I ain't gonna task
+            you with doing it just to satisfy a base cosmetic."* **So M7d-2's accepted cost is
+            accepted by the person who has to look at it**, and refining shore cells stays the
+            thing M8 deletes. **The same answer also carried the milestone's sharpest question
+            out with it** — see "the minimum drainable hole" under Phase 3.
 
 #### Order, and the case for a different one
 
@@ -3570,6 +3575,54 @@ Three things to settle in M9's planning pass, all cheap now and expensive later:
       enough; making it shorter as support degrades is the obvious refinement and is what would
       let **saturation degrading support distance** — M9's recorded keystone interaction — express
       itself as *the ceiling starts creaking sooner* rather than as a step change.
+
+#### The minimum drainable hole — Matthew's question, 2026-09-02, and it decides an M8 design
+
+Asked while answering play question 5, and it is the sharpest thing the play has produced:
+*"Unless I make a hole 4x4 it isn't going to drain into eventually?"*
+
+**The answer is no, it will drain — but only because of a decision M8 has not made yet, and this
+question is what makes that decision non-optional rather than a preference.**
+
+**The 4 m grid is Tier A's analysis resolution, not water's physics resolution.** It is where
+basins, volume→level curves and the surface sweep live. A drain is a Tier B event, and Tier B has
+no reason whatsoever to run at 4 m — DESIGN specifies it as a CA over an explicit active-cell set
+and **deliberately never states a cell size**.
+
+So M8 has two shapes available and they differ by more than cost:
+
+- **Re-analyse: rebuild the watershed from edited heights.** The seam DESIGN names is `SkyColumn`,
+  which already exists and already persists. **This is the one that produces Matthew's failure.**
+  The height field samples every 4 m, so a 0.75 m `hand_pick` bore is invisible to it — literally
+  between samples — and the minimum drainable hole becomes 4 m across. **In a game whose starting
+  tool leaves a 0.75 m bore and whose player is 0.5 m wide, that is absurd**, and it would be
+  discovered by a player long before it was discovered by a test.
+- **Breach: Tier B detects the opening at voxel resolution and pulls volume out of the Tier A
+  body.** Tier A never learns about the hole at all; it simply has less water, and its level is
+  re-solved from the volume it has left. **`SkyColumn` is per voxel column (32×32 per chunk
+  column, so 0.25 m in x and z), and `IVoxelWorld` is per voxel** — the fine-resolution inputs
+  already exist and are already persisted.
+
+**The second is right, and this project has already solved the identical problem once.** M5b:
+
+> A 1 m light cell holds 64 voxels and `hand_pick`'s bore is 0.75 m — **the tunnels this game is
+> about are narrower than one cell.** So opacity is a property of the cell **face**, not the cell:
+> light crosses iff some voxel pair across the shared 4×4 boundary is open on both sides.
+
+The same sentence with "water" for "light" is the M8 rule: **a basin loses water through a face if
+any voxel pair across that face is open, not if the 4 m cell is.** And the same failure mode
+applies at both ends — "any open voxel drains the lake" empties a basin through a crack, "the whole
+cell must be open" means a pick cannot drain anything.
+
+- [ ] **Settle this in M8's planning pass, and settle it first**, because the two shapes imply
+      different data structures rather than different constants.
+- [ ] **The check has a natural home already: the rain occlusion field is built from edited sky
+      heights at 0.5 m and a 0.75 m bore registers on it.** M7c-2 built that and measured it —
+      whatever detects "daylight now reaches here" is close kin to whatever detects "water now
+      reaches here", and `ChunkPipeline.SkyHeightChanges` is already the dig trigger.
+- [ ] **Recorded consequence for M7:** none. Nothing drains at M7 at any size, so this cannot be
+      half-shipped here. It is only a trap if M8 reaches for the re-analysis because `SkyColumn`
+      was named as the seam and the 4 m grid was already sitting there.
 
 #### Mountains and rivers — Matthew's ask, 2026-09-02, and lakes are already done
 
