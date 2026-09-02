@@ -2660,7 +2660,7 @@ only instruments, and the instruments are the thing that found the surprise.
             is confirmed **in direction and not in fact**. The scripted flythrough is a straight
             line along +X, so passes deepen one trench rather than covering ground: 99 → 104 →
             112 → 123 → 176, plainly asymptotic. **The concern moves from "predicted to bite at
-            2,505" to "measured not to bite at 176"; it is not retired.**
+            2,505" to "measured not to bite at 176"; it is not retired.** **Retired 2026-09-03 for the uniform shape, by the played world: 4,584 stored, 953 loaded at a standing start, light settled 5.97 s against 5.88 s generating, and `held 0` through 1,528 loads under a 40 m/s fall. The trigger is now thousands of *non-uniform* stored chunks.**
 - [x] **The finding nobody was looking for: the box-difference sweep costs two to four times the
       whole pipeline update, and no profile since M2d has measured it.** `MoveViewer` is called
       from `_Process` *before* the bracket that produces `update ms`. Timed as `viewer ms`:
@@ -4123,19 +4123,73 @@ hold is the whole of getting it right.**
       bounded by having mined enough of one thing, which is the tax a mining game should charge.
       **Revisit trigger: the first play that tries to fill in a worked-out chamber and finds the
       limit tedious rather than motivating.**
-- [ ] **The cost is not measured, and the prediction is named rather than assumed.** No profile run
-      was taken. By construction a fill is the same 32,768 `SetVoxel` calls as a bite, so the
-      expectation is the same ~17 ms atomic hitch and the same conclusion — *the rate chooses the
-      duty cycle and nothing else, because one item is atomic* (M2d, fourth outing). **But the cost
-      profile is inverted and that is a prediction, not a reading:** a bite is cheapest into air and
-      dearest into rock; **a fill is the exact opposite**, since `Occupied` costs a read and no
-      write — so a fill into a chunk you just emptied is near its *worst* case, and that is the case
-      the verb is for. **Do not quote a number for the fill until a run with `--place` and `Q` armed
-      exists.**
+- [x] **The cost is measured, 2026-09-03, and the prediction was right about the shape and wrong
+      about the size.** r4h/2v, spawn, `--place --entangle --stock=2000000 --pitch=-15`, Debug: 70
+      fills, the first putting 28,543 voxels into a chunk 87% air, the other 69 hitting the block it
+      made — 32,768 `Occupied` reads each. `place ms mean 3.434 p50 2.576 p95 7.033 max 8.234`.
+      **A fill into air ≈ 8.2 ms, a fill into solid ≈ 2.6 ms, against the bite's 16.9 / 35.6.** The
+      profile is inverted as predicted, **but the dear case is half a bite**: `Put` credits nothing
+      per voxel and asks no hardness, and the bite's per-voxel `Take` is the expensive half. The
+      standing arm is degenerate after its first fill for the reason the standing bite arm was — the
+      aim meets its own product.
+      - [ ] **The fill's loop order is the pessimal one for the sky column and the bite's is the
+            optimal one, and it is the same loop.** Y ascending, a bite moves each column's open
+            height once and a fill into air moves it 32 times — 32,768 `SkyHeightChanges` against
+            1,024, deduped at `QueueLightBuild` so the waste is lookups rather than rebuilds.
+            Descending Y in `Place.Chunk` is one line. **Not done: the number that would justify it
+            is a felt hitch and there is none.** The counter reads 32× high on a fill.
 - [ ] **The chunk-aware write path would now pay off twice rather than once, and is still not
       built.** Reason unchanged and stronger: a second write path beside the one thing M6 says must
       never be wrong, now with two callers who each have to be right about it. **Revisit trigger
       unchanged: the hitch reading as a stall in play, or this becoming content.**
+
+#### The played world — 2026-09-03, what 4,584 stored chunks measure and what is not on the plan
+
+Matthew: *"I've just been playing it mining out huge chunks … tell me if you can suggest anything
+about what we are doing here that is not on the plan."* Worklog entry of the same date has the
+numbers; these are the tasks it surfaced.
+
+- [x] **M6's load-path concern is retired for the shape the chunk miner produces.** 4,584 stored
+      chunks against M6d-2's 176 and the predicted 2,505 crossover. Standing start at the saved
+      position, r6h/2v, Debug: **953 serial loads, light settled 5.97 s against 5.88 s generating**;
+      falling 120 m at 40 m/s through it, **1,528 loads and `held 0`** in both arms. **Stated
+      caveat: every one is a 52–63 B uniform blob**, the cheapest deserialisation there is.
+      **Revisit trigger: thousands of *non-uniform* stored chunks**, which only partial edits at
+      scale produce.
+- [ ] **A profile taken inside the mine reads as a stall and is not one.** The load arm stood inside
+      ~100 m of bitten-out air; 923 meshes came back empty, so `first draw` never fired. The report
+      should say when every visible mesh was empty. `light settled` is the comparable number.
+- [ ] **`water … L per wall-clock minute` divides a lifetime total by this run's seconds** — printed
+      313,678,347 L/min on a world carrying 94 ML from five hours of earlier sessions. Its comment
+      says the rain has been falling "since the world opened", which is true of a new world only.
+      Wants the delta since open. Same family as the `RunSeconds` denominator.
+- [ ] **M8's cost model was derived from tunnels; the play has made chambers the normal case.**
+      M8-PLAN's ~14,400 cells and ~50,000-cell revisit trigger come from SCALE's cave, and M8a's
+      bench mine is `hand_pick` bores by construction. **One bitten chunk under a lake is 32,768
+      cells of void; this world has 4,562.** Before M8b settles a tick budget: a second `--fluid`
+      fixture shape — an 8 m cube, then 2 × 2 × 2 of them — and the settle on an 8 m × 8 m floor.
+      **The chunk bite is M8b's provocation instrument**: a pit under a lake is the breach test, and
+      at 8 m it registers on the 4 m grid where a bore cannot.
+- [ ] **M9's planning pass must take the chunk bite as its worst case**, the way M8a took the
+      lake-into-shaft. A bite makes an 8 m unsupported span in one frame at 4/s; a fill puts 512 m³
+      in mid-air with nothing anchoring it, which under any support rule is rubble unless shored.
+- [ ] **The endgame gate is the third thing waiting on a game-mode concept**, and M4c's note said a
+      third would make it overdue. Matthew, 2026-09-02: the chunk bite is *"totally endgame like,
+      we're talking you've been to space and back."* DESIGN has no progression, unlock or research
+      system. It is also what keeps *the mine is the antagonist* true against a tool that deletes
+      512 m³ a click. Wants its own planning pass; not before M9.
+- [ ] **The hotbar's unit has been outgrown.** `1,767,903,281 L` in an 84 px slot, printed `N0`; the
+      format was chosen for a 265 L swing and a bite is 512,000 L. A scaled unit — m³ past a
+      thousand litres, or the chunk — and **the unit is Matthew's to pick.**
+- [ ] **The window-edge outlet now moves millions of litres, and the magnitude is what is new.**
+      379,831 L and 4,027,831 L "would not fit back" on two window moves. Designed — the edge is an
+      outlet, and `Seed` leaves rather than carrying a debt — and zero in every test and both plays
+      until a world had 92 ML banked. Symptom to ask about: a lake near a window boundary dropping
+      when the player crosses one.
+- [ ] **Still unasked of the play, and only the play can answer:** whether a water surface hangs in
+      the air over the pit (the unconfirmed shape recorded at M7's play — a 64 m pit under 826
+      banked basins has almost certainly produced it); whether 4/s is the right rate now the button
+      has been held (the recorded trigger for the halving); and whether anything read as a stall.
 
 #### The quantum machine family — Matthew’s proposal, 2026-09-02
 

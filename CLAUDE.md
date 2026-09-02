@@ -255,6 +255,24 @@ copy in `../GAME/`.
 
 ## Where things stand
 
+**The played world (2026-09-03): 4,584 stored chunks, and M6's load-path concern is retired for the
+shape the chunk miner produces.** Matthew mined a 264 × 304 m region 64 m deep; 4,562 of its chunks
+are uniform 52–63 B blobs, the inventory holds 1.77 GL of stone, and the world has 5.3 h on its
+clock. Measured against a copy with its chunks deleted — same header, position and basins: **953
+serial loads, light settled 5.97 s against 5.88 s generating; 1,528 loads under a 40 m/s fall and
+`held 0` in both arms.** Caveat: uniform blobs are the cheapest deserialisation there is, so the
+trigger moves to *thousands of non-uniform stored chunks*. Four things the play put outside the
+plan, all recorded in TODO rather than built: **M8's cost model comes from tunnels and one bitten
+chunk under a lake is 32,768 cells of void** (a second `--fluid` fixture shape before M8b's budget);
+**M9 has no cost model and the chunk bite is its worst case** (a fill is 512 m³ in mid-air); **the
+endgame gate is the third thing waiting on a game-mode concept**, which M4c's note said would make it
+overdue; and **the hotbar's litres have outgrown their unit** — `1,767,903,281 L` in an 84 px slot.
+Two instrument readings the played world breaks: `L per wall-clock minute` is a lifetime total over
+this run's seconds (313 ML/min on a reopened world), and a profile taken inside the void reports
+`first draw not yet` because 923 meshes were correctly empty — **`light settled` is the comparable
+number inside a mine.** And the window-edge outlet, designed and zero until now, moved 4.0 ML on one
+window move in a world with 92 ML banked.
+
 **The entangled miner fills a chunk as well as taking one (2026-09-03). Suite 869 → 888.**
 `Place.Chunk` is a sixth shape sharing the same `Put`; while `Q` is on a bare **right** click fills
 the 8 m chunk in front of the crosshair, at the same cooldown and the same reach as the bite.
@@ -288,12 +306,14 @@ place the mirror does not hold is the whole of getting it right.** Five things w
   untouched — but the fill is still bounded by having mined enough of one thing. **Recorded as an
   observation rather than a decision, because nobody chose it. Revisit trigger: the first play that
   finds the limit tedious rather than motivating.**
-- **The cost is not measured and the prediction is named as one.** By construction a fill is the same
-  32,768 `SetVoxel` calls as a bite, so expect the same ~17 ms atomic hitch and the same conclusion.
-  **But the cost profile is inverted**: a bite is cheapest into air and dearest into rock, a fill the
-  exact opposite, since `Occupied` costs a read and no write — **so a fill into a chunk you just
-  emptied is near its worst case, and that is the case the verb is for.** Do not quote a number until
-  a run with `--place` and `Q` armed exists. It also **closes a recorded revisit trigger**: entangled
+- **The cost is measured (2026-09-03), and the prediction was right about the shape and wrong about
+  the size.** A fill into a chunk 87% air: **8.2 ms**; a fill into solid, 32,768 `Occupied` reads:
+  **2.6 ms**; against the bite's 16.9 mean / 35.6 max. The profile is inverted as predicted — into
+  air is the fill's dear case — **but the dear case is half a bite**, because `Put` credits nothing
+  per voxel and asks no hardness. **The fill's loop order is the pessimal one for the sky column**:
+  Y ascending, a bite moves each column's open height once and a fill into air moves it 32 times,
+  deduped at `QueueLightBuild` so it costs lookups rather than rebuilds. Descending Y is one line and
+  is not done until a fill hitch is felt. It also **closes a recorded revisit trigger**: entangled
   placement reaches as far as the bite, which is *"a placement verb that takes a reach argument"* —
   the condition the `L`+`Q` note named.
 
@@ -709,7 +729,7 @@ to the digit, which is what an instrumentation pass has to prove first. Five thi
   most this world could be dug to** against 1,521 tracked, so the predicted 2,505-chunk crossover
   is confirmed in *direction* and not in fact — the flythrough is a straight line, so passes
   deepen one trench (99 → 104 → 112 → 123 → 176, asymptotic). **Do not retire the concern; it has
-  moved from "predicted to bite at 2,505" to "measured not to bite at 176".**
+  moved from "predicted to bite at 2,505" to "measured not to bite at 176".** **Retired 2026-09-03 for the uniform shape**: the played world has 4,584 stored chunks, 953 loaded at a standing start with light settled 5.97 s against 5.88 s generating; the trigger is now thousands of *non-uniform* stored chunks.
 - **The box-difference sweep costs two to four times the whole pipeline update, and no profile
   since M2d has measured it.** `MoveViewer` is called from `_Process` *before* the bracket that
   produces `update ms`. Now timed as **`viewer ms`**: 7.1–9.0 ms mean and 15.3 max at r4h/2v,

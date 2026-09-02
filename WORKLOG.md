@@ -1,5 +1,142 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-03 — The played world: 4,584 stored chunks, and what they measure
+
+Matthew has been *"mining out huge chunks"* and asked for a check of *"what we are doing here that
+is not on the plan"*. **The world file answers half of that before any code does.** Read-only, from
+`worlds/default/world.db`:
+
+```
+stored chunks        4,584   — M6d-2's most-dug world: 176; the predicted crossover: 2,505
+  uniform (≤ 80 B)   4,562   — bitten to air or filled whole, 52–63 B each, 273 KB in all
+  footprint          cx −16..16, cy −7..0, cz −20..17  — 264 m × 304 m, 64 m deep
+stored columns       1,092
+basins banked          826   — 91.7 ML
+inventory            stone 1,767,903,281 L (3,453 chunks' worth) · dirt 52 ML · grass 17 ML · lamp 406 L
+world time           316.9 min
+player               feet (−5.9, −7.4, −18.4) — standing in the pit, 8 m below the old surface
+```
+
+**Every number below is Debug and headless**, against two copies of that world: `probe-load` as it
+is, and `probe-empty` with its `chunks` and `columns` rows deleted — **same header, same position,
+same clock, same 826 basins, nothing to load.** Both copies were deleted afterwards. The played world
+itself was never opened.
+
+### 1. M6's load-path concern is retired for the shape the chunk miner produces
+
+M6d-2 left it at *"measured not to bite at 176"* against a predicted crossover of 2,505. The play
+walked straight past both. Standing start at the saved position, r6h/2v, 12 s window:
+
+```
+                          probe-load         probe-empty
+stored → loaded          953 of 4,584       0 (generated)
+columns restored              289                 0
+light settled              5.97 s            5.88 s
+main                      18.26%            20.18%
+update ms mean / max   1.259 / 12.53      1.392 / 9.67
+drawn                           0               325
+```
+
+And falling into it — 120 m at 40 m/s, four falls, 15 s:
+
+```
+                          probe-load         probe-empty
+loaded during the run        1,528                 0
+update ms mean / max   5.097 / 11.78      5.150 / 9.77
+held on unloaded world           0                 0
+main                      72.53%            73.29%
+viewer ms p95               96.5              96.4    (the re-launch teleport's box sweep — both arms)
+```
+
+- **953 serial loads cost nothing the light barrier can see — 5.97 s against 5.88 — and 1,528 loads
+  under a 40 m/s fall held the body for zero steps.** M4d's *"cannot outrun the streamer"* was
+  measured against generation on eight workers; this is the same verdict against the serial lane.
+- **The `drawn 0` is the void, not the store, and it is a fixture trap I walked into.** The load arm
+  stood inside roughly 100 m of bitten-out air: 923 mesh jobs came back and every one was empty, so
+  `first draw` never fired and the report reads as a stall. **The comparable number is `light
+  settled`**, which every mesh waits behind. A profile taken inside the mine will always read this
+  way; see 4 below.
+- **Stated caveat: these are the cheapest blobs a chunk can be.** A uniform chunk is 52–63 B; a
+  *carved* one costs ~21 µs more to deserialise (M6a), so 953 of those would add ~20 ms in total.
+  **Revisit trigger moves to thousands of *non-uniform* stored chunks**, which only partial edits at
+  scale can produce — a shape neither the hand tools nor the chunk bite makes.
+
+### 2. The fill's number — right about the shape of the cost, wrong about its size
+
+r4h/2v, spawn, `--profile --speed=0 --place --entangle --stock=2000000 --pitch=-15`, 15 s. Seventy
+fills: **the first put 28,543 voxels into a chunk that was 87% air** (4,225 solid, left alone); the
+other 69 hit the block it had just made and were 32,768 `Occupied` reads each.
+
+```
+place ms   mean 3.434   p50 2.576   p95 7.033   p99 8.045   max 8.234     (Debug, sim thread)
+```
+
+- **A fill into air ≈ 8.2 ms; a fill into solid ≈ 2.6 ms; the bite is 16.9 mean / 35.6 max.** The
+  inverted profile is confirmed — into-air *is* the fill's dear case — **but the dear case is half a
+  bite**, because `Put` credits nothing per voxel and asks no hardness, and the bite's per-voxel
+  `Take` is the expensive half of a bite. The prediction *"expect the same ~17 ms"* is withdrawn.
+- **The standing fill arm is degenerate after its first fill, for the reason the standing bite arm
+  was**: the aim then meets its own product. It still measured both cases, which is more than the
+  bite's fixture did, but a 70-fill run is one fill and 69 controls.
+- **The fill's loop order is the pessimal one for the sky column, and the bite's is the optimal one
+  — it is the same loop.** `SkyColumn.OnVoxelChanged`: an opaque voxel at or above the open height
+  moves it; an air voxel moves it only if it was the topmost. Y ascending, a bite moves each column
+  **once** (the top voxel, scanning down through air it already made) and a fill into air moves each
+  column **32 times** — 32,768 `SkyHeightChanges` and `QueueColumnLightBuild` calls against 1,024.
+  `QueueLightBuild` dedupes per chunk, so the waste is dictionary lookups inside the 8.2 ms rather
+  than 32 rebuilds. **Descending Y in `Place.Chunk` is a one-line fix and is not done**, because the
+  number that would justify it is a felt hitch and there is none yet. Instrument note: **the counter
+  reads 32× high on a fill**, and it drives only the rain field's once-per-frame rebuild flag.
+
+### 3. Two instrument readings the played world breaks, and a fresh world could show neither
+
+- **`water … L per wall-clock minute` divides a lifetime total by this run's seconds.** It printed
+  **313,678,347 L per minute** on a world carrying 94 ML from five hours of earlier sessions. The
+  comment beside it says the rain *"has been falling since the world opened"* — true of a new world
+  and false of a reopened one. Same family as the `RunSeconds` denominator found on 2026-09-03 and
+  M7d-1's *"a fill time without a same-session control is not a measurement"*: a rate wants the delta
+  since open. Not fixed here; recorded in TODO.
+- **`fill first draw not yet` inside a void.** 923 meshes, all empty, is the *correct* result and
+  reads as the streamer failing. The report should say when every visible mesh was empty.
+
+### 4. The window-edge outlet now moves millions of litres
+
+**379,831 L and 4,027,831 L "would not fit back"** on the fall's second and third window moves.
+That is `BasinLedger.Seed`'s spill — a basin at the new window's edge has a smaller catchment than
+the one that banked its water, and the excess leaves. **Designed** (DESIGN: *the window edge is an
+outlet, not a wall*; `Seed`: *"leaves rather than being carried as an invisible debt"*), and **zero in
+every test and both plays until a world had 92 ML banked.** Not re-litigated; the magnitude is what
+is new. The symptom it predicts is a lake near a window boundary **dropping when the player crosses
+one**, and rain at x20 refilling it. The `438.9% of capacity` beside it is by construction — leaf
+capacities summed against water standing in merged lakes above their saddles — and is not a finding.
+
+### 5. What is not on the plan, and where each belongs
+
+- **M8's cost model was derived from tunnels and the play has made chambers the normal case.**
+  M8-PLAN sizes the active set from SCALE's 30 × 30 × 10 m cave (~14,400 cells) and names its
+  revisit trigger at ~50,000; M8a's bench mine is `hand_pick` bores *by construction*. **One bitten
+  chunk under a lake is 32,768 cells of void, and this world has 4,562 of them.** Before M8b settles
+  a tick budget, `--fluid` wants a second fixture shape — an 8 m cube, then a 2 × 2 × 2 of them —
+  and the settle finding (*the flood is affordable and the settle is not*) gets its worst case on an
+  8 m × 8 m floor. **The chunk bite is also M8b's provocation instrument**: a pit under a lake is the
+  breach test, and at 8 m it registers on the 4 m analysis grid where a bore cannot.
+- **M9 has no cost model and the play has just set its worst case.** DESIGN's support BFS runs
+  *"incrementally, locally, on a budget"*; a bite makes an 8 m unsupported span in one frame, four
+  times a second, and **a fill puts 512 m³ in mid-air with nothing anchoring it** — under any support
+  rule that is rubble the moment it lands unless it is shored. M9's planning pass should take the
+  chunk bite as its worst case the way M8a took the lake-into-shaft.
+- **The endgame gate is not on the plan at all.** Matthew, 2026-09-02: the chunk bite is *"totally
+  endgame like, we're talking you've been to space and back."* DESIGN has no progression, unlock or
+  research system; M4c's TODO note counts *two* things waiting on a game-mode concept (reach, and
+  gating the precision modifier) and says *"a third would make it overdue."* **This is the third.**
+  It is also what protects the premise: *the mine is the antagonist* is false against a tool that
+  deletes 512 m³ a click, and the gate is the only thing that makes it true again.
+- **The inventory has outgrown its unit.** `1,767,903,281 L` in an 84 px hotbar slot, printed `N0`.
+  The format was chosen for a 265 L swing; a bite is 512,000 L. Wants a scaled unit — m³ past a
+  thousand litres, or the chunk itself — and the unit is Matthew's to pick.
+- **`OutOfStock` is not binding at this scale for stone** — 3,453 chunks' worth in hand — and is
+  binding for grass at 34. The observation recorded with the fill stands; nothing here changes it.
+
 ## 2026-09-03 — The draw distance goes to 48 m, and the measurement says it spends headroom rather than crossing a line
 
 Matthew: *"I want to expand the draw size in chunks, by two on each side"* — and, unprompted and
