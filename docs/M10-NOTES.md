@@ -189,15 +189,32 @@ whatever it finds.** `hardness`, `lightEmission` and (at M8c) `permeability` all
   denial-of-service vector and a NaN fails *open*. Bound at load **and** at use, because the loader
   is not the only caller.
 
-### 8. Naming — cheap now, expensive later
+### 8. Naming — settled 2026-09-02: industrial, not physics
 
 `minercraft:quantum_fluid_pump` is a content ID, and **non-negotiable 2 says IDs are never
-renumbered and a removed mod leaves a hole that stays.** Renaming before anything ships costs
-nothing; renaming after a mod writes against it costs a compatibility shim forever.
+renumbered and a removed mod leaves a hole that stays** — so this was raised as the last free
+moment, and it was taken. **Matthew chose a mining-operation tone over a physics one.**
 
-**No objection to "quantum" is being raised** — it is evocative, it names the one thing that needs
-explaining, and the game has no established fiction it contradicts. **This is only a flag that the
-free moment to change your mind is now**, and it will not come round again.
+**Recommended set, and it is one word from Matthew to change until the first machine ships:**
+
+| | ID | why |
+|---|---|---|
+| Pump | `minercraft:relay_pump` | **A relay already means "sends onward with no physical path"**, which is the whole mechanic, and it is infrastructure vocabulary rather than physics vocabulary. |
+| Output | `minercraft:relay_outlet` | Pairs by reading rather than by convention. |
+| Programmer | `minercraft:machine_programmer` | **Deliberately not part of the family.** It configures *any* machine, so tying its name to the fluid pair would misdescribe the one component whose generality is the point. |
+
+**The strongest argument for `relay` is the channel number.** Radio relays have always had
+channels, so decision 1's pairing rule stops needing an explanation: a player who has seen the word
+knows what the number does before reading anything.
+
+**Alternates considered and why they lost:** `induction_pump` is the best real-engineering word for
+wireless transfer but implies *short* range, which is the opposite of the mechanic;
+`transfer_pump` is accurate and says nothing; `flux_pump` drifts back toward the physics register
+that was just rejected. **`entangled_pump` was the near miss** — it would have echoed the
+entangled miner, giving the game one coherent word for *acts at a distance* — but that is a
+physics word, and the entangled miner is a **debug bind** whose promotion to content is explicitly
+still an open decision. Naming shipped content after an unshipped debug tool binds the two before
+either decision is made.
 
 ---
 
@@ -224,11 +241,15 @@ M8-PLAN records that **M8 makes the mine floodable and nothing fights back until
 options and a recommendation of *(3) tune the seepage rate low, then (2) a pump if the play wants
 one*.
 
-**This proposal makes option 2 substantially more attractive than it was when it was written**,
-because the pump is no longer a throwaway stopgap — it is the first member of a family that was
-going to be built anyway, and building it early exercises the entity-storage question at the point
-where the suite is still small enough to be a pleasure to extend.
+**It was argued here that this made option 2 more attractive**, since the pump would no longer be
+a throwaway stopgap but the first member of a family that was going to be built anyway.
 
-**The recommendation is therefore updated: (3) still ships first because it is free and reversible,
-but (2) is now the expected follow-on rather than a contingency** — with the caveat in the table
-above that it drags header v4 forward with it.
+**Settled the other way, 2026-09-02: *"keep M8 clean, tune seepage low."*** Option 3, and the whole
+machine family lands together at M10. **The deciding cost is the one in the table above**: a pump in
+M8d drags an entity table and header v4 into the milestone whose oracle is exact volume
+conservation, and **two structural firsts in one milestone is how a defect hides behind a
+feature**. It also keeps M8d's play honest — *"is losing to the water tolerable?"* is the real
+question for a milestone with no counter in it.
+
+**So nothing in this document comes forward.** The table above is kept as the record of what was
+considered, and its M8d row is now the thing that was *not* done, and why.

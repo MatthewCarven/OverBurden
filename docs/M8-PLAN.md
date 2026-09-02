@@ -304,7 +304,7 @@ The play questions, provisionally — they are the milestone's actual verdict:
 
 ---
 
-## The open decision this plan cannot settle — Matthew's
+## The open decision — settled by Matthew, 2026-09-02: option 3
 
 **M8 makes the mine floodable and nothing fights back until M10.**
 
@@ -324,9 +324,23 @@ Three ways out, and this is a pacing judgement rather than a technical one:
 3. **Tune the seepage rate low enough that M8 is a nuisance rather than a defeat**, and let M10 turn
    it up when the counter exists. Free, and reversible.
 
-**A recommendation, since it is asked for rather than assumed: 3 now, 2 if the play says the water
-is not scary enough.** It costs nothing, it keeps M8's scope honest, and *"the rate is a number"* is
-the same lever `rainfallScale` turned out to be — which the play has now moved once already.
+**Settled 2026-09-02: option 3, and machines stay whole at M10.** *"Keep M8 clean, tune seepage
+low."* So M8 ships with **no machines at all**, and the seepage rate is set low enough that flooding
+is a nuisance rather than a defeat, with M10 turning it up once a counter exists.
+
+Two consequences worth stating, and the second is why this is the better answer:
+
+- **M8d's play question stays *"is losing to the water tolerable?"* rather than becoming *"is
+  fighting it fun?"***, and the first is the honest question for a milestone with no counter in it.
+  Judging a pump there would have judged M10 early and confounded two changes — the mistake M4c
+  avoided by refusing to retune reach in the same pass as the move.
+- **It keeps header v4 out of M8.** A machine is the first *entity* this world holds (see
+  [M10-NOTES.md](M10-NOTES.md)), so bringing a pump forward would have dragged an entity table and
+  a format version into the milestone whose oracle is exact volume conservation. **Two structural
+  firsts in one milestone is how a defect hides behind a feature.**
+
+**The rate is the lever, and it is the same shape as `rainfallScale`** — which the play has
+already moved once, from x40 to x20. Expect to tune it in M8d and again at M10.
 
 ---
 

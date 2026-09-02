@@ -299,6 +299,13 @@ M8a–M8d. Four things from the planning pass that are expensive to rediscover:
   An in-flight flood has no seed, no analytic form and no fixpoint. The planned answer is **settle
   rather than store**: integrate the transient to rest on unload and hand the volume to Tier A,
   whose ledger already persists.
+- **M8’s one open decision is settled by Matthew: option 3, keep M8 clean and tune the seepage
+  rate low.** No machines in M8; the family lands whole at M10. **The deciding cost was not the
+  pump but what it drags** — a machine is the first *entity* this world holds, so bringing one
+  forward would pull an entity table and **header v4** into the milestone whose oracle is exact
+  volume conservation, and **two structural firsts in one milestone is how a defect hides behind a
+  feature.** Naming is settled too: **`relay_pump` / `relay_outlet` / `machine_programmer`** —
+  industrial rather than physics, and *relay* carries the channel-number rule for free.
 
 **M7 is DONE (2026-09-02): built and played — all four parts, eight sub-parts, five play questions.** The clock runs, it
 rains, the rain stops at the ground and at a roof, the ground goes wet, the sky goes dark, basins

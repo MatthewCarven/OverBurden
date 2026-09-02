@@ -3518,15 +3518,17 @@ Seven decisions are argued in the plan; the three that constrain the rest:
 - [ ] Tier C coarse groundwater saturation field, fed by rain, drains downhill
 - [ ] Seepage into excavations driven by saturation × material permeability
 - [ ] Transparent render pass, back-to-front sorting
-- [ ] **The open decision the plan cannot settle, and it is Matthew’s: M8 makes the mine floodable
-      and nothing fights back until M10.** Pumps are machines, so on the current order there are
-      two milestones — M8 and M9 — in which water can take your excavation and the only counter is
-      to dig a drain or leave. Three ways out: **(1)** ship it and let the play judge; **(2)** bring
-      a hand-placed unpowered pump forward into M8d, which is a `Place` verb and a subtraction;
-      **(3)** tune the seepage rate low so M8 is a nuisance rather than a defeat, and let M10 turn
-      it up when the counter exists. **Recommended: 3 now, 2 if the play says the water is not
-      scary enough** — it costs nothing, it is reversible, and *“the rate is a number”* is the same
-      lever `rainfallScale` turned out to be.
+- [x] **Settled 2026-09-02: option 3.** *"Keep M8 clean, tune seepage low."* M8 makes the mine
+      floodable and nothing fights back until M10, since pumps are machines — so the seepage rate
+      ships low enough that flooding is a nuisance rather than a defeat, and M10 turns it up once
+      a counter exists. **The deciding cost was not the pump but what it drags with it**: a machine
+      is the first *entity* this world holds, so bringing one forward would have pulled an entity
+      table and **header v4** into the milestone whose oracle is exact volume conservation, and
+      **two structural firsts in one milestone is how a defect hides behind a feature.** It also
+      keeps M8d’s play honest — *"is losing to the water tolerable?"* is the real question for a
+      milestone with no counter in it, and judging a pump there would have judged M10 early.
+      **The rate is the lever, same shape as `rainfallScale`**, which the play has already moved
+      once.
 - [ ] **Swimming, drowning and buoyancy are not in M8, and are named because they are the first
       thing a play-test will try.** The player does not interact with water as a body at M8; that
       wants its own decision.
@@ -3819,10 +3821,20 @@ it.
       config UI with no privileged path, which is **non-negotiable 5 stated as a test**.
       M6d-3’s derived-label rule and M3c’s bound-every-mod-authored-number rule both apply
       unchanged.
-- [ ] **Naming is free to change now and never again.** `minercraft:quantum_fluid_pump` is a
-      content ID, and non-negotiable 2 says IDs are never renumbered and a removed mod leaves a
-      hole that stays. **No objection to “quantum” is being raised** — this is only a flag that the
-      free moment is now.
+- [x] **Naming settled 2026-09-02: industrial, not physics.** Raised as the last free moment,
+      because non-negotiable 2 says IDs are never renumbered and a removed mod leaves a hole that
+      stays. **Recommended set, and one word from Matthew to change until the first machine
+      ships**: `minercraft:relay_pump`, `minercraft:relay_outlet`, and `minercraft:machine_programmer`.
+      - [ ] **`relay` because a relay already means “sends onward with no physical path”**, which
+            is the whole mechanic, and because **radio relays have always had channels** — so the
+            channel-number pairing rule stops needing an explanation. **The programmer is
+            deliberately not part of the family**: it configures *any* machine, so a family name
+            would misdescribe the one component whose generality is the point.
+      - [ ] **`entangled_pump` was the near miss** — it would have given the game one coherent word
+            for *acts at a distance*, echoing the entangled miner. Rejected because it is a physics
+            word, and because **the entangled miner is a debug bind whose promotion to content is
+            still an open decision**: naming shipped content after an unshipped debug tool binds
+            the two before either decision is made.
 - [ ] **Interaction with M11’s “drills, pipes, conveyors”, which wants deciding rather than
       drifting.** If teleport is the fluid answer, pipes are either redundant, or they become the
       *cheap early-game* transport that quantum machines are the upgrade from. **The second reading
