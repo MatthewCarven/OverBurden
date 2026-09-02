@@ -130,6 +130,18 @@ public partial class FlyCam : Camera3D
         Rotation = new Vector3(_pitch, _yaw, 0);
     }
 
+    /// <summary>Aims the camera up or down, clamped the same way the mouse is.</summary>
+    /// <remarks>
+    /// The vertical half of <see cref="TurnBy"/>, and it exists for the same reason: a screenshot
+    /// of rain falling down a shaft has to look down the shaft, and nothing before M7c-2 could
+    /// point the camera anywhere.
+    /// </remarks>
+    public void AimBy(float radians)
+    {
+        _pitch = Mathf.Clamp(_pitch + radians, -PitchLimit, PitchLimit);
+        Rotation = new Vector3(_pitch, _yaw, 0);
+    }
+
     public override void _UnhandledInput(InputEvent @event)
     {
         switch (@event)

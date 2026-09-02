@@ -166,6 +166,19 @@ public sealed class StreamingProfiler
     public SampleSeries Light { get; } = new();
 
     /// <summary>
+    /// Sim-thread time to refill the rain's ground-height field.
+    /// </summary>
+    /// <remarks>
+    /// <b>M7c-2's estimate was ~0.25 ms on a chunk crossing, and it was an estimate.</b> It is
+    /// timed apart from <see cref="ViewerMove"/> even though both fire on a crossing, because
+    /// M6d-2's lesson was that a cost folded into a neighbour's bracket is a cost nobody measures
+    /// — the box-difference sweep went five milestones unmeasured that way. Sample count matters
+    /// as much as the mean here: this also fires when somebody digs through to daylight, and a run
+    /// where it fired once is a run that measured a chunk crossing and nothing else.
+    /// </remarks>
+    public SampleSeries SkyField { get; } = new();
+
+    /// <summary>
     /// Sim-thread time for one swing: the raycast plus the carve.
     /// </summary>
     /// <remarks>

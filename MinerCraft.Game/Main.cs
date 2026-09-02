@@ -176,6 +176,9 @@ public partial class Main : Node3D
     /// <summary>Which way the camera faces at spawn, for a screenshot that needs an angle.</summary>
     private float _spawnYawDegrees;
 
+    /// <summary>How far up or down it looks at spawn. Negative is down.</summary>
+    private float _spawnPitchDegrees;
+
     /// <summary>The old, camera-relative face tint. An A/B seam — see the shader.</summary>
     private bool _tintInViewSpace;
 
@@ -195,6 +198,39 @@ public partial class Main : Node3D
 
     /// <summary>The authored fog colour, held for the same reason the dome's colours are.</summary>
     private Color _baseFogColour = Colors.White;
+
+    /// <summary>The rain, or null in a run that has no renderer to draw it with.</summary>
+    private Rain? _rain;
+
+    /// <summary>Suppresses the particles while leaving the rest of the weather alone.</summary>
+    private bool _noRain;
+
+    /// <summary>Ground heights around the player, so the rain knows where to stop.</summary>
+    private readonly SkyHeightField _skyHeights = new();
+
+    /// <summary>The chunk the sky-height field was last centred on.</summary>
+    private ChunkPos _skyFieldCentre = new(int.MinValue, 0, int.MinValue);
+
+    /// <summary>What <see cref="ChunkPipeline.SkyHeightChanges"/> read at the last rebuild.</summary>
+    /// <remarks>
+    /// <b>The second of the field's two reasons to be stale, and the one that is not free to
+    /// notice.</b> The player crossing a chunk is a comparison this class already makes; somebody
+    /// digging through a roof is not, and without it rain keeps falling into a shaft that has been
+    /// filled in — or, worse and much more likely, refuses to fall into one that has just been
+    /// opened. That second case is the feature, so it is the one that has to work on the frame
+    /// after the last voxel comes out.
+    /// </remarks>
+    /// <remarks>
+    /// <b>Zero rather than −1, and that is an instrument fix.</b> A sentinel here makes the very
+    /// first refill compare unequal to <c>SkyHeightChanges</c>'s own zero and be attributed to
+    /// digging — so every run reported "1 dug" before anything had been dug, which is precisely
+    /// the false positive this counter exists to rule out.
+    /// </remarks>
+    private int _skyChangesAtRebuild;
+
+    /// <summary>Field refills caused by digging through to the sky, and by walking.</summary>
+    private int _skyFieldDigRebuilds;
+    private int _skyFieldMoveRebuilds;
 
     /// <summary>Remeshes at the moment the measured window opened, for the zero-remesh claim.</summary>
     /// <remarks>
@@ -295,9 +331,18 @@ public partial class Main : Node3D
         _material = VoxelMaterial.Create(_skyBrightness);
         _material.SetShaderParameter("tint_in_view_space", _tintInViewSpace);
 
-        if (_spawnYawDegrees != 0f && _camera is not null)
+        // Not created in a headless run: there is no renderer, so every particle is a buffer
+        // allocated to be stepped and never drawn. It also keeps the default headless profile
+        // comparable with every one taken since M2d, which is the contract this project keeps.
+        if (!DisplayServer.GetName().Equals("headless", StringComparison.Ordinal) && !_noRain)
         {
-            _camera.TurnBy(Mathf.DegToRad(_spawnYawDegrees));
+            _rain = new Rain(this);
+        }
+
+        if (_camera is not null)
+        {
+            if (_spawnYawDegrees != 0f) _camera.TurnBy(Mathf.DegToRad(_spawnYawDegrees));
+            if (_spawnPitchDegrees != 0f) _camera.AimBy(Mathf.DegToRad(_spawnPitchDegrees));
         }
 
         // Before the generator and before content, because an existing world decides both. Its
@@ -584,10 +629,24 @@ public partial class Main : Node3D
                     _spawnYawDegrees = degrees;
                     break;
 
+                // The vertical half of --yaw. Negative looks down, which is what a shot of rain
+                // going into a shaft needs.
+                case "pitch" when float.TryParse(value, out float pitchDegrees):
+                    _spawnPitchDegrees = pitchDegrees;
+                    break;
+
                 // Restores the pre-M7c face tint, which read the view-space NORMAL. See the
                 // shader's world_normal for what that did and why it stopped being cosmetic.
                 case "viewnormal" when int.TryParse(value, out int viewNormal):
                     _tintInViewSpace = viewNormal != 0;
+                    break;
+
+                // The rain's own A/B arm: everything else about the weather, with no particles.
+                // What it is for is the storm-versus-control measurement — the particles are the
+                // only part of M7c that costs GPU time, so a windowed run with and without them
+                // is what prices them, and a screenshot pair is what says they are what changed.
+                case "norain":
+                    _noRain = true;
                     break;
 
                 // Places one lamp where the crosshair points, so a screenshot can show block
@@ -1267,6 +1326,8 @@ public partial class Main : Node3D
             return;
         }
 
+        RefreshSkyHeights();
+
         long now = _clock.ElapsedMillis;
         float wetness = _forcedWeather ?? Weather.WetnessAt(_settings.Seed, now);
         float overcast = _forcedWeather ?? Weather.OvercastAt(_settings.Seed, now);
@@ -1293,14 +1354,80 @@ public partial class Main : Node3D
         // nothing at all.
         DimSkyDome(dimming);
 
+        // THE RAIN IS DRIVEN BY THE RATE, NOT BY THE WETNESS, and the two are genuinely different
+        // facts: you see drops while it is raining and you see wet ground for a while afterwards.
+        // Driving the particles off wetness would leave rain visibly falling out of a clear sky
+        // for two minutes after every shower.
+        float rate = _forcedWeather
+            ?? (Weather.RateAt(_settings.Seed, now)
+                / (float)Weather.MaxRateNanometresPerMillisecond);
+
+        if (_rain is not null && _camera is not null)
+        {
+            _rain.Update(_camera.GlobalPosition, rate, _skyHeights);
+            _rain.SetBrightness(dimming);
+        }
+
         // Only while the profiler is warm, so the range reported beside the remesh count is the
-        // weather the measurement actually saw rather than the weather the warm-up did.
         // weather the measurement actually saw rather than the weather the warm-up did.
         if (_profiler is { Warm: true })
         {
             _wettestSeen = Math.Max(_wettestSeen, wetness);
             _driestSeen = Math.Min(_driestSeen, wetness);
             _weatherSeen++;
+        }
+    }
+
+    /// <summary>
+    /// Rebuilds the rain's ground-height field when it has a reason to be stale, and not otherwise.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two triggers, and they are the complete set.</b> The field describes a fixed window of
+    /// ground heights: it goes stale when the window should be somewhere else, which is a chunk
+    /// crossing, or when a height inside it moved, which is
+    /// <see cref="ChunkPipeline.SkyHeightChanges"/>. Nothing else can change what it says.
+    /// <para>
+    /// <b>The dig trigger is the one that matters and it is the cheaper of the two by a mile</b>,
+    /// because the counter moves only when a column's open height actually shifts — a tunnel dug
+    /// underground never touches it. So the common case of mining rebuilds nothing at all, and the
+    /// uncommon case of breaking through to daylight rebuilds once.
+    /// </para>
+    /// </remarks>
+    private void RefreshSkyHeights()
+    {
+        // Nothing but the rain reads this field, so a run with no rain in it must not pay for one.
+        // Headless is that run, and it is also every profile figure this project has recorded
+        // since M2d — so without this guard a moving headless profile would quietly carry a
+        // millisecond per chunk crossing that no earlier run had.
+        if (_pipeline is null || _rain is null)
+        {
+            return;
+        }
+
+        ChunkPos centre = ViewerChunk();
+        bool moved = centre.X != _skyFieldCentre.X || centre.Z != _skyFieldCentre.Z;
+        bool dug = _pipeline.SkyHeightChanges != _skyChangesAtRebuild;
+
+        if (!moved && !dug)
+        {
+            return;
+        }
+
+        // Counted by cause, because the two are worth very different amounts. A crossing rebuild
+        // is bookkeeping; a dig rebuild is the feature, and it is the one link in the chain from
+        // "a voxel came out" to "rain falls in there" that no Core test can reach. A run that dug
+        // through to daylight and reports zero of these has a wire off — which is exactly the
+        // shape of hole M5c-2 found by replacing a call with null and watching nothing fail.
+        if (dug) _skyFieldDigRebuilds++;
+        if (moved) _skyFieldMoveRebuilds++;
+
+        _skyFieldCentre = centre;
+        _skyChangesAtRebuild = _pipeline.SkyHeightChanges;
+        _skyHeights.Rebuild(_pipeline.Streamer, centre);
+
+        if (_profiler is { Warm: true })
+        {
+            _profiler.SkyField.Add(_skyHeights.LastRebuildMillis);
         }
     }
 
@@ -1918,6 +2045,35 @@ public partial class Main : Node3D
     }
 
     /// <summary>
+    /// The occlusion field's state, beside the weather that reads it.
+    /// </summary>
+    /// <remarks>
+    /// <b>"Unknown" against the total is the load-bearing figure and the reason this is printed at
+    /// all.</b> Rain falling through the ground and a field that was never built look identical
+    /// from the outside, and so do "the rain stopped at the surface" and "there was no rain". A
+    /// large unknown share at a small view radius is the recorded artefact — the field is 128 m
+    /// and the loaded region is not — while the same share at r16 is a defect. Neither is
+    /// diagnosable from the picture.
+    /// </remarks>
+    private string SkyFieldSummary()
+    {
+        if (_rain is null)
+        {
+            return "no rain drawn (headless or --norain)";
+        }
+
+        double unknownShare =
+            100.0 * _skyHeights.UnknownTexels / (SkyHeightField.Size * SkyHeightField.Size);
+
+        return $"field {_skyHeights.Rebuilds} rebuild(s) "
+               + $"({_skyFieldMoveRebuilds} moved / {_skyFieldDigRebuilds} dug), "
+               + $"{_skyHeights.LastRebuildMillis:F2} ms, "
+               + $"{unknownShare:F0}% unknown, ground "
+               + $"{_skyHeights.LowestKnown:F1}..{_skyHeights.HighestKnown:F1} m, "
+               + $"rain {(_rain.Falling ? "falling" : "off")}";
+    }
+
+    /// <summary>
     /// The weather half of the profile, and the number M7c exists to print.
     /// </summary>
     /// <remarks>
@@ -1949,8 +2105,15 @@ public partial class Main : Node3D
                  + $"{_clock.ElapsedSeconds:F0} s of world time",
         };
 
+        string field = _profiler!.SkyField.Count > 0
+            ? _profiler.SkyField.Line("skyfield ms") + "   (occlusion field refills, "
+              + $"{_profiler.SkyField.Count} of them, beside viewer ms not inside it)\n"
+            : "skyfield ms  (never refilled in the window — no crossing and nothing dug)\n";
+
         return $"weather   {edits} edit remesh(es) / {relights} relight remesh(es) during the "
-               + $"measured window — {verdict}\n";
+               + $"measured window — {verdict}\n"
+               + $"rain      {SkyFieldSummary()}\n"
+               + field;
     }
 
     /// <summary>The range the wet term covered while measuring, so a zero has a denominator.</summary>
@@ -2283,7 +2446,8 @@ public partial class Main : Node3D
         return $"t {_clock.ElapsedSeconds:F0} s{scaled}, "
                + $"rain {rate}/{Weather.MaxRateNanometresPerMillisecond} ({rate * 3.6:F0} mm/h), "
                + $"wet {wetness:F2}, cloud {overcast:F2}{forced}, "
-               + $"sky {_skyBrightness * (1f - (OvercastDimming * overcast)):F2}";
+               + $"sky {_skyBrightness * (1f - (OvercastDimming * overcast)):F2} | "
+               + SkyFieldSummary();
     }
 
     /// <summary>What the store has done this session, each counter beside its denominator.</summary>
@@ -2546,6 +2710,12 @@ public partial class Main : Node3D
 
     public override void _ExitTree()
     {
+        // The rain first and on its own: it owns no chunk state and nothing below waits on it, so
+        // it is deliberately outside the ordering argument that follows rather than an exception
+        // to it.
+        _rain?.Dispose();
+        _skyHeights.Dispose();
+
         // Order matters: stop the pipeline submitting, then stop the workers, then release
         // the RIDs. Freeing instances while a mesh result could still arrive would hand the
         // renderer a mesh for a chunk that has just been torn down.

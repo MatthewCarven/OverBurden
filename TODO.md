@@ -3157,7 +3157,7 @@ the merge tree is a second thing with its own hazard — see the two-cycle below
       pair of sessions: one ends at t ≈ 6 s, the next resumes at t = 11 s five minutes of wall
       clock later.
 
-#### M7c — Rain you can see ← **split in two 2026-09-02. M7c-1 is done; M7c-2 is the rain itself.**
+#### M7c — Rain you can see ✅ **split in two 2026-09-02; both parts built. Splashes cut — see M7c-2.**
 
 Split on the seam M5c was split on — **what a headless run can verify and what needs a renderer.**
 M7-PLAN says "headless cannot verify any of this", which is true of the particles and false of the
@@ -3225,17 +3225,82 @@ same part as the billboards would have hidden them behind a screenshot.
             positive; this is the false negative of the same shape — a picture that looked right
             while half the intended change did nothing. Sample named points; do not admire.
 
-##### M7c-2 — The rain itself ← **not started**
+##### M7c-2 — The rain itself ✅ **done 2026-09-02, splashes cut — 804 tests passing**
 
-- [ ] Camera-locked box of GPU-instanced, velocity-stretched billboards. One draw call.
-- [ ] **The occlusion kill is a sky-height texture** sampled in the particle process shader, built
-      from `SkyColumn` — which is *edited* height, so rain falls down a shaft you dug.
-      - [ ] **Resolution is a real decision: 1 m would not register a `hand_pick` bore**, which is
-            0.75 m. **Recommend 0.5 m over 128 m** — 256×256, ~65k reads, ~0.25 ms on a chunk
-            crossing. **Revisit trigger: a shaft rain should fall into and does not.**
-- [ ] Splash particles at the kill point, which is also the ground.
-- [ ] **The sheen is barely visible on a hillside seen from above**, because the grazing term is
-      small there. Whether it reads at all wants a wall and a play-test, not another screenshot.
+- [x] **Camera-locked box of GPU-instanced, velocity-stretched billboards, one draw call — and the
+      draw call is measured rather than claimed.** Windowed r4h/2v at 8 m/s against `--norain`:
+      **85 draw calls against 84, 112,332 primitives against 64,332** — one call, and 48,000
+      primitives which is exactly 24,000 drops × 2 triangles.
+      - [x] **No measurable sim-thread cost**: `update ms` mean 2.696 with rain against 2.872
+            without, `main` 38.38% against 40.93%, frame ms identical. The rain arm is *lower*,
+            which is noise around zero — everything a drop does is in the process shader.
+      - [x] **Cylindrical rather than spherical billboarding**, or a falling drop tips over as you
+            look down at it and the streaks stop being parallel to their own fall.
+      - [x] **A near fade, found in the very first screenshot.** The box is centred on the camera,
+            so some drop is always beside the eye — a metre-long quad a few centimetres away, as a
+            bright wedge over a quarter of the screen. Unavoidable rather than a spawn bug.
+- [x] **The occlusion kill is a sky-height texture** built from `SkyColumn`, so it is *edited*
+      height and rain follows a shaft rather than a heightmap.
+      - [x] **0.5 m resolution as recommended, and each texel takes the minimum of its 2×2 voxel
+            columns** rather than point-sampling one. Point sampling works for a three-voxel bore
+            by a parity argument that breaks silently the first time the resolution moves; the
+            minimum is a guarantee that does not.
+      - [x] **The plan's ~0.25 ms estimate was ten times out.** At the recommended 128 m window the
+            refill measured **2.5 ms mean / 3.6 ms worst** on the sim thread, next to `viewer ms`'s
+            4.7 ms on the same crossing — so it roughly doubled the cost of a chunk crossing.
+      - [x] **The window is now 64 m and measures 0.98 ms / 1.60 ms.** Still 4× the estimate. 128 m
+            existed only so the box could be retuned without touching the field; 64 m clears the
+            48 m box by 8 m a side, and **the resolution the plan actually argued is untouched**.
+            Bonus: the "unknown" share at r4 went 34% → **0%**, because a 64 m window fits inside
+            the loaded region where a 128 m one does not.
+      - [x] **The field prints its own height range, and that check was not optional.** If the `Rf`
+            texture were clamped anywhere in the path the kill would be a flat plane — and *rain
+            stopping at a flat plane looks exactly like rain stopping at the ground* from anywhere
+            the ground is a metre below you. Every screenshot so far would have passed.
+            `ground -3.5..5.0 m` is what says it is a terrain. **Third outing for "eyeballing a
+            screenshot is a measurement too"**, and the first where the doubt arrived from an
+            unrelated failure.
+      - [x] **`ChunkPipeline.SkyHeightChanges` is the dig trigger, built with its consumer.** It
+            counts height *moves* rather than voxel writes, so a tunnel dug underground — most of
+            mining — rebuilds nothing at all. Rebuilds are reported split by cause
+            (`24 moved / 0 dug`) because a crossing is bookkeeping and a dig is the feature.
+      - [x] **The counter's own first reading was wrong**: `_skyChangesAtRebuild` started at −1, so
+            every run reported "1 dug" before anything had been dug — the exact false positive it
+            exists to rule out.
+      - [x] **Guarded behind the rain existing**, or a moving headless profile would carry a
+            millisecond per crossing that no run since M2d has carried.
+- [ ] **Splash particles: NOT DELIVERED, and cut rather than shipped dead.** Two implementations,
+      neither drew anything that survived scrutiny. A particle system that draws nothing is
+      indistinguishable from one that is working and subtle, so leaving it in would have read as
+      "splashes exist, they need tuning". **Each finding below is from counting pixels in a
+      forced-colour screenshot, not from looking:**
+      - [x] The splash draw pass and process shader **work** — 85 pixels self-emitting with the
+            sub-emitter link cut. Neither half was the problem.
+      - [x] **The sub-emitter link suppresses self-emission and delivers nothing in its place: 0
+            pixels**, with the emitter hitting the ground thousands of times a second.
+      - [x] Re-parenting the sub-emitter as a **child** of the emitter got particles out of it but
+            **all at a single point**, so `FLAG_EMIT_POSITION` was still not arriving.
+            (`EMIT_FLAG_POSITION`, the name that reads naturally, does not exist — and that one is
+            a compile error rather than a silence.)
+      - [x] **A `texture()` call inside a particle `start()` silently yields particles that never
+            appear.** Identical shader with the ground looked up in `start()`: 0 pixels; reading a
+            constant instead: drew immediately. Nothing logged, nothing fails to compile. **The
+            most valuable finding here**, and why any future attempt must look up in `process()`.
+      - [ ] Moving the lookup to `process()` did not on its own bring them back, so **at least one
+            more thing is wrong**. That is where it was left.
+      - [ ] **The alternative design is the right shape and is written up in the removed shader's
+            header**: a second emitter placing droplets on the same field rather than at the kill
+            point. The difference is invisible — nobody follows a drop at 22 m/s to its own splash
+            — and the one place it would matter is preserved, because the same field puts splashes
+            at the bottom of a dug shaft rather than on the roof around it.
+- [x] **Screenshot seams**: `--pitch=<degrees>` joins M7c-1's `--yaw`, because a shot of rain going
+      into a shaft has to look down it. `--norain` is the arm that priced the particles.
+- [ ] **A positive shaft photograph was not obtained.** Underground shots correctly show *no* rain,
+      which is the occlusion working in its negative form; a picture of rain pouring into a hole
+      needs a narrow shaft and a camera outside it, and the entangled miner digs broad chambers
+      while a reopened player falls to the bottom of whatever it dug. **This is M7d's play
+      question rather than a test** — a person standing at their own mine entrance answers it in a
+      second.
 
 #### M7d — Standing water, measurement and play
 
@@ -3249,6 +3314,12 @@ same part as the billboards would have hidden them behind a screenshot.
       - [ ] Does rain read as rain, and does a storm read as weather rather than as the renderer
             breaking?
       - [ ] **Does it stop at the mine entrance?** DESIGN calls this *the detail people notice*.
+            **M7c-2 could not photograph the positive case** — underground shots correctly show no
+            rain, but a picture of rain pouring *into* a hole needs a narrow shaft and a camera
+            outside it. A person at their own mine entrance answers this in a second.
+      - [ ] **Are splashes missed?** They are cut at M7c-2 and the rain lands on dry-looking ground
+            with nothing to mark the impact. If the play does not notice, the four findings in
+            M7c-2 can stay on the shelf; if it does, they are where a second attempt starts.
       - [ ] Does a pond visibly rising over minutes feel right, or does it feel broken? **This is
             the play that judges the project-level principle**, not just this milestone's tuning.
       - [ ] Is the 4 m shoreline tolerable until M8?

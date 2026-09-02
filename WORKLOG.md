@@ -1,5 +1,132 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-02 — M7c-2: rain you can see, and a splash system that was cut rather than shipped dead
+
+The rain falls, it is killed by the ground, and it stops at a roof. **Splashes are not delivered**
+— see the last section, which is the most useful part of this entry. Suite unchanged at **804**;
+the default headless run is unchanged to the digit — **1521 viewed / 165 drawn / 1926 jobs at 404
+quads** — because the rain is not created without a renderer.
+
+### It costs one draw call, and that is measured rather than claimed
+
+Windowed, r4h/2v at 8 m/s, storm forced, against the same run with `--norain`:
+
+```
+                    rain on        rain off
+draw calls             85              84
+primitives         112,332          64,332
+update ms mean      2.696           2.872
+main                38.38%          40.93%   of one core
+frame ms mean        7.025           7.018
+```
+
+**One draw call and 48,000 primitives**, which is exactly 24,000 drops × 2 triangles — the buffer,
+drawn once. The sim-thread arms are *lower* with rain on than off, which is noise around zero:
+everything a drop does happens in the process shader, so there is nothing on the main thread to
+measure. DESIGN's "camera-locked box of GPU-instanced billboards, one draw call" is now a number.
+
+### The occlusion field, and the estimate that was ten times out
+
+The kill is a texture of ground heights around the player, built from `SkyColumn` — *edited*
+height, which is what makes rain follow a shaft you dug rather than a heightmap you did not.
+
+**M7c-2's plan estimated ~0.25 ms to rebuild on a chunk crossing. At the recommended 128 m window
+it measured 2.5 ms mean / 3.6 ms worst**, on the sim thread, next to `viewer ms`'s 4.7 ms on the
+same crossing — so it roughly doubled the cost of crossing a chunk. **The window is now 64 m and
+it measures 0.98 ms mean / 1.60 ms worst**, still four times the estimate but no longer the largest
+thing on a crossing.
+
+**The resolution — the decision the plan actually argued — is untouched at 0.5 m.** 128 m was only
+chosen so the rain box could be retuned without touching the field, which is a convenience; 64 m
+still clears the 48 m box by 8 m a side. Two things fell out of shrinking it: the refill is 2.5×
+cheaper (not 4×, because the upload does not scale with area the way the reads do), and **the
+"unknown" share at r4 went from 34% to 0%**, because a 64 m window fits inside the loaded region
+where a 128 m one does not. That artefact was recorded as expected-at-small-radii and has simply
+gone away.
+
+Each texel takes the **minimum** of the 2×2 voxel columns it covers rather than point-sampling one
+of them. Point sampling would work for a `hand_pick` bore — three voxels always contains an even
+index — but that is a parity argument that breaks silently the first time the resolution moves,
+and the minimum is a guarantee that does not.
+
+### The field is a terrain, and that had to be checked rather than assumed
+
+Chasing the splashes turned up a real doubt about the main feature: if the `Rf` texture were being
+normalised or clamped anywhere in the path, the kill would be a **flat plane** a metre or two down
+— and *rain stopping at a flat plane looks exactly like rain stopping at the ground* from anywhere
+the ground happens to be a metre below you. Every screenshot taken so far would have passed.
+
+So the field now prints its own range: **`ground -3.5..5.0 m`** over the window. A spread is
+terrain; a spread of zero would have been the bug. **This is the third outing for "eyeballing a
+screenshot is a measurement too"** and the first where the doubt came from an unrelated failure.
+
+Two smaller instrument notes:
+
+- **The rebuild counter is split by cause — `24 moved / 0 dug`** — because a crossing rebuild is
+  bookkeeping and a dig rebuild is the feature. The dig path is the one link between "a voxel came
+  out" and "rain falls in there" that no Core test can reach, so a run that dug through to daylight
+  and reports zero has a wire off. `ChunkPipeline.SkyHeightChanges` was built for it, and it counts
+  height *moves* rather than voxel writes — so a tunnel dug underground, which is most of mining,
+  rebuilds nothing.
+- **The counter's own first reading was wrong.** `_skyChangesAtRebuild` started at −1, so the first
+  refill compared unequal to zero and was attributed to digging: every run reported "1 dug" before
+  anything had been dug, which is exactly the false positive the counter exists to rule out.
+- **The field is guarded behind the rain existing.** Without that a moving *headless* profile would
+  carry a millisecond per crossing that no run since M2d has carried, which is the comparability
+  contract this project keeps.
+
+### Splashes: not delivered, and what was established
+
+The plan asks for splashes at the kill point. Two implementations were built and neither drew
+anything that survived scrutiny. **Cut rather than shipped, because a particle system that draws
+nothing is indistinguishable from one that is working and subtle** — and leaving it in would have
+read as "splashes exist, they need tuning".
+
+What is now known, each from counting pixels in a forced-colour screenshot rather than from
+looking:
+
+- **The splash draw pass and process shader work.** Self-emitting with the sub-emitter link cut:
+  **85 pixels**. So neither half was the problem.
+- **The sub-emitter link suppresses self-emission and delivers nothing in its place: 0 pixels**,
+  with the emitter demonstrably hitting the ground thousands of times a second.
+- **Re-parenting the sub-emitter as a child of the emitter** — which is how Godot's own examples
+  wire it — got particles out of it, but **all at a single point**, so `FLAG_EMIT_POSITION` was
+  still not arriving. (`EMIT_FLAG_POSITION`, the name the docs suggest, does not exist; it is
+  `FLAG_EMIT_POSITION`, and that one *is* a compile error rather than a silence.)
+- **A `texture()` call inside a particle `start()` silently produces particles that never
+  appear.** Identical shader, ground looked up in `start()`: 0 pixels. Reading a constant instead:
+  drew immediately. Nothing is logged and nothing fails to compile. **This is the most valuable
+  thing in this entry** and it is why any future attempt must do the lookup in `process()`.
+- Moving the lookup to `process()` did not on its own bring them back, so there is at least one
+  more thing wrong. That is where it was left.
+
+The alternative design — a second emitter placing droplets on the same field rather than at the
+kill point — is written up in the removed shader's header and is the right shape: the difference
+from "at the kill point" is invisible, and **the one place it would have mattered is preserved**,
+because the same field means splashes land at the bottom of a dug shaft rather than on the roof
+around it.
+
+**Held rather than brute-forced**, per the working agreement: the two features the milestone is
+actually about both work and are measured, and this one had consumed more iterations than it was
+worth.
+
+### Screenshot seams added
+
+`--pitch=<degrees>` joins M7c-1's `--yaw`: a shot of rain going into a shaft has to look down it,
+and `screenshot.gd` could not point the camera anywhere until now. `--norain` is the A/B arm that
+priced the particles, and it is the only way to get the storm without them.
+
+### Still open
+
+- **Splashes**, with the four findings above as the starting point.
+- **A positive shaft photograph.** Underground shots correctly show *no* rain, which is the
+  occlusion working in its negative form; a picture of rain visibly pouring into a hole was not
+  obtained, because the entangled miner digs broad chambers rather than narrow shafts and the
+  reopened player falls to the bottom of whatever it dug. **This is M7d's play question**, not a
+  test, and a person standing next to their own mine entrance answers it in a second.
+
+---
+
 ## 2026-09-02 — M7c-1: the world gets a clock, and the rain gets a look before it gets particles
 
 **M7c is split in two, on the seam M5c was split on: what a headless run can verify and what needs

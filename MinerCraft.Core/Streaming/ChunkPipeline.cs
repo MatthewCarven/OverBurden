@@ -443,6 +443,25 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// </remarks>
     public int RelightRemeshes { get; private set; }
 
+    /// <summary>
+    /// Edits that moved a column's open-to-the-sky height — breaking into daylight, or sealing it
+    /// out again.
+    /// </summary>
+    /// <remarks>
+    /// <b>Built at M7c-2 with its consumer, which is the rain's occlusion field.</b> That field is
+    /// a texture of sky heights around the player, and it has exactly two reasons to be stale: the
+    /// player walked to a different chunk, or somebody dug through a roof. The first is already
+    /// observable; this is the second, and without it the alternative is rebuilding every frame or
+    /// rain that keeps falling into a shaft after it has been filled in.
+    /// <para>
+    /// <b>It counts height <i>moves</i>, not voxel writes</b>, which is most of the value:
+    /// <see cref="Lighting.SkyColumn.OnVoxelChanged"/> returns true only when the open height
+    /// actually shifts, so a tunnel dug well below the surface — most mining — never touches this
+    /// at all, and the field is not rebuilt for it.
+    /// </para>
+    /// </remarks>
+    public int SkyHeightChanges { get; private set; }
+
     /// <summary>Chunks whose derived light data has been built or rebuilt.</summary>
     /// <remarks>
     /// Above the chunk count means rebuilds are happening — a neighbour appearing where this
@@ -668,6 +687,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
 
         if (skyMoved)
         {
+            SkyHeightChanges++;
             QueueColumnLightBuild(voxel.Chunk);
         }
     }

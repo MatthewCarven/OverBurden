@@ -159,6 +159,11 @@ called `--weather` that silently failed to fill a basin would be the worse instr
 a view-dependent artefact is invisible in one picture by definition, so the face-tint A/B needs the
 same wall from two angles. `--viewnormal=1` is that A/B's other arm.
 
+M7c-2 adds **`--pitch=<degrees>`**, the vertical half of `--yaw` (negative looks down), because a
+shot of rain going into a shaft has to look down it; and **`--norain`**, which leaves the whole of
+the weather in place and removes only the particles. That is the arm that priced them, and the
+particles are the only part of M7c that costs GPU time.
+
 **Building is bound to the right mouse button**, `B` cycles the brush (cube, slab, ramp, sphere),
 and **`1`–`9` pick a material from the hotbar** (`V` still cycles to the next one). **`T` cycles
 the tool tier** — it was the number row until M6d-3, and the row went to materials because that is
@@ -224,11 +229,43 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-**M7 is under way: all of M7a, all of M7b and M7c-1 are built (2026-09-02) — M7c-2, the rain you
-can actually see, is next.** The clock now advances, the ground goes wet in the rain and the sky
-goes dark with it; **what is still missing is the water and the particles** — no watershed is
-analysed around the player, no rain falls into a basin, and nothing falls out of the sky. M7c-2 and
-M7d are the first point at which a person can judge any of it.
+**M7 is under way: all of M7a, all of M7b and all of M7c are built (2026-09-02) — M7d, standing
+water and the play, is next.** The clock advances, it rains, the rain stops at the ground and at a
+roof, the ground goes wet and the sky goes dark. **What is still missing is the water**: no
+watershed is analysed around the player and no rain reaches a basin, so nothing fills. M7d is the
+first point at which a person can judge the milestone's core claim.
+
+**M7c-2 — the rain itself: built 2026-09-02, and splashes were cut rather than shipped dead.**
+Suite unchanged at 804; the default headless run is untouched to the digit, because the rain is not
+created without a renderer. Five things worth keeping:
+
+- **It costs one draw call, measured against `--norain`**: 85 draw calls against 84, and 112,332
+  primitives against 64,332 — 48,000 more, which is exactly 24,000 drops × 2 triangles. Sim-thread
+  arms are *lower* with rain on than off, which is noise around zero: everything a drop does is in
+  the process shader.
+- **The occlusion field's estimate was ten times out, and the fix was the window rather than the
+  resolution.** M7c-2 planned ~0.25 ms per rebuild; at the recommended 128 m window it measured
+  **2.5 ms mean / 3.6 ms worst** on the sim thread, roughly doubling the cost of a chunk crossing.
+  **The window is now 64 m — 0.98 ms / 1.60 ms** — which still clears the 48 m rain box by 8 m a
+  side, and **0.5 m resolution, the decision the plan actually argued, is untouched**. It also took
+  the "unknown texel" share at r4 from 34% to 0%.
+- **The field prints its own height range, and that check was not optional.** If the `Rf` texture
+  were clamped anywhere the kill would be a flat plane — and *rain stopping at a flat plane looks
+  exactly like rain stopping at the ground* from anywhere the ground is a metre below you. Every
+  screenshot would have passed. `ground -3.5..5.0 m` is what says it is a terrain. **Third outing
+  for "eyeballing a screenshot is a measurement too"**, and the first where the doubt came from an
+  unrelated failure.
+- **`ChunkPipeline.SkyHeightChanges` is the dig trigger and counts height *moves*, not writes** —
+  so a tunnel dug underground, which is most of mining, rebuilds nothing. Rebuilds print split by
+  cause, because a crossing is bookkeeping and a dig is the feature; the counter's own first
+  reading was a false positive (it started at −1, so every run reported "1 dug" before anything was
+  dug).
+- **Splashes are not delivered, and the findings are worth more than the feature was.** The draw
+  pass and process shader work (85 pixels self-emitting); the sub-emitter link suppresses
+  self-emission and delivers nothing (0 pixels); re-parenting it as a child gets particles out but
+  all at one point; and **a `texture()` call inside a particle `start()` silently yields particles
+  that never appear** — nothing logged, nothing failing to compile. Every one of those states was
+  established by counting pixels in a forced-colour screenshot; by eye they are identical.
 
 **M7c-1 — the clock, the wet term and the overcast: built 2026-09-02.** Suite 797 → 804, and
 streaming is untouched to the digit — 1521 viewed / 165 drawn / 1926 jobs at 404 quads. Six things
