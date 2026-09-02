@@ -1,0 +1,126 @@
+# M7 — the play
+
+> Written 2026-09-02, when M7 went code-complete. **This is the only outstanding part of the
+> milestone.** Five questions, none of which a test can answer, plus one A/B that is a matter of
+> taste rather than correctness.
+
+Run it the ordinary way:
+
+```bash
+start.cmd
+```
+
+Everything below happens in a normal session with no flags. The flags are only for provoking a
+thing you would otherwise have to wait for.
+
+---
+
+## Getting weather without waiting for it
+
+The weather is a pure function of `(seed, world time)`, so a storm can be asked for by name:
+
+| Flag | What it does |
+|---|---|
+| `--clock=<seconds>` | Starts the run somewhere in this world's forecast. **`--clock=250` opens in a 36 mm/h downpour.** A named world overrides it, because what that world remembers is the thing under test. |
+| `--clockscale=<x>` | Makes world time run faster, so a whole two-minute weather episode fits in a short session. **Speeds the sky up too** — not the same knob as the one below. |
+| `--rainscale=<x>` | Multiplies the rain reaching the ground and leaves the sky honest. Ships at **×40**. |
+| `--weather=<0..1>` | Forces the sheen and the overcast without making it rain. A look override for screenshots. |
+| `--norain` / `--nowater` | The control arms. Everything else stays; only the particles or only the water go. |
+
+**55% of episodes are dry**, so a session started at t = 0 may see nothing for a couple of minutes.
+That is the design, not a fault — the wet term only means something against the quiet before it.
+
+---
+
+## The five questions
+
+### 1. Does rain read as rain, and a storm as weather rather than as the renderer breaking?
+
+Stand outside in a storm (`--clock=250`). The things to judge: streak length and density, whether
+the near-fade is enough or you still catch a drop right at the eye, and whether the sky going
+leaden reads as cloud or as something being wrong with the picture.
+
+**The knobs if it is off**: `drop_length`, `drop_width`, `alpha` and `near_fade_*` in
+`Rendering/RainDrop.gdshader`; `DropCount` and `BoxHalfWidthMetres` in `Rendering/Rain.cs`;
+`OvercastDimming` in `Main.cs` for how dark a full storm gets.
+
+### 2. Does it stop at the mine entrance?
+
+**DESIGN calls this *the detail people notice*, and it is the one M7c-2 could not photograph.**
+Underground shots correctly show no rain, which is the occlusion working in its negative form —
+what is missing is a picture of rain visibly pouring *into* a hole.
+
+Dig a shaft down from open ground, stand beside it in a storm and look in; then stand at the
+bottom and look up. The field is built from **edited** sky heights at 0.5 m, so a `hand_pick` bore
+(0.75 m, three voxels) should register.
+
+**Revisit trigger, recorded: a shaft rain should fall into and does not.**
+
+### 3. Are splashes missed?
+
+**There are none** — they were cut at M7c-2 after two implementations drew nothing, and the rain
+currently lands on dry-looking ground with nothing to mark the impact. If you do not notice, the
+four findings in that worklog entry stay on the shelf. If you do, they are where a second attempt
+starts, and the most useful of them is that **a `texture()` call inside a particle `start()`
+silently produces particles that never appear.**
+
+### 4. Does a pond visibly rising over minutes feel right, or does it feel broken?
+
+**This is the question that judges the project-level principle**, not just this milestone's tuning
+— *slower than realtime is accuracy, not approximation*.
+
+It is also where **×40 is confirmed or moved**. The number came from two measurements rather than
+from feel: the bench says the median basin fills in **32 minutes of this world's heaviest possible
+weather** unscaled, and the game says a window reaches **10.2% of leaf capacity in 40 minutes of
+ordinary weather** — so a full basin unscaled is about six and a half hours. ×40 makes that roughly
+ten minutes.
+
+Sweep it with `--rainscale=10`, `40`, `100` and see which one reads as weather rather than as a tap.
+
+**Find water first.** The spawn's terrain is gently terraced, so its basins are shallow puddles
+rather than lakes — walk to a real valley. The `M7d:` log line every five seconds tells you what is
+standing, as a percentage of capacity, so you can tell "no water here" from "no water at all".
+
+### 5. Is the 4 m shoreline tolerable until M8?
+
+The surface is emitted on the 4 m analysis grid against 0.25 m terrain, so it **stair-steps at the
+water's edge** — the most-looked-at part of a pond. Accepted for M7 because **M8's Tier B replaces
+it**; refining shore cells now would be building the thing M8 deletes.
+
+The question is only whether it is *tolerable in the meantime*, not whether it is good.
+
+---
+
+## The one A/B, which is taste rather than correctness
+
+M7c-1 found that `face_tint` was reading the **view-space** normal, so the fake directional shading
+rotated with the player — the top of a block dimmed as you looked down at it. It is fixed, and
+world space ships.
+
+**You had said you liked the old look**, so the old arm is still there:
+
+```bash
+start.cmd
+```
+then compare against a run with `--viewnormal=1`. The two are identical facing the default
+direction and diverge once you turn; measured on a riser face, (69,130,64) in both at yaw 0 and
+(59,128,54) against (53,116,50) at yaw 40.
+
+---
+
+## What the logs will tell you
+
+Every five seconds:
+
+```
+M7c: t 280 s, rain 10/12 (36 mm/h), wet 0.28, cloud 0.46, sky 0.72 | field 3 rebuild(s) (2 moved / 1 dug), 0.96 ms, 0% unknown, ground -3.5..5.0 m, rain falling
+M7d: 2,822,142 L standing (25.3% of 11,136,000 L) in 346/346 basin(s), 346 basin(s) banked | window 512 m x1, 40.1 ms to analyse, scale x40 | surface 1009 quad(s) over 346 basin(s), 1.05 ms
+```
+
+Two of those are worth knowing how to read:
+
+- **`(2 moved / 1 dug)`** — a *dug* rebuild means breaking through to daylight re-aimed the rain.
+  If you dig a shaft and this does not move, that is the wire in question 2 being loose.
+- **`0% unknown`** — the share of the occlusion field with no loaded column under it. Rises at
+  small view distances and is a profiling artefact rather than a defect; at play distances it
+  should be near zero.
