@@ -3513,6 +3513,25 @@ Seven decisions are argued in the plan; the three that constrain the rest:
       not fall in, and a cut rim does not drain. **First user-facing consequence of "edits do
       not change the watershed at M7", reported unprompted**, so M8 has a play-confirmed
       motivation rather than a designed one. The seam is still `SkyColumn`.
+- [ ] **Build the provocation seam first — a debug relay, and it is Matthew’s call, 2026-09-02:**
+      *“The teleport-level tech will be endgame, but for the purposes of testing? Invaluable.”*
+      **The hardest part of testing M8 is not the CA, it is getting water to move at all** — a
+      flood needs a full basin, a breach in the right place, and the patience for both. M7 hit the
+      same wall and answered it with seams (`--clock`, `--rainscale`, `--weather`, `--norain`,
+      `--nowater`), every one of which paid for itself.
+      - [ ] **It is also M8a’s measurement instrument**, since the number M8a exists to take is a
+            9,000,000 L lake draining into a shaft — set up in seconds rather than in a session.
+      - [ ] **A debug bind, not content: no material, no JSON, no ID.** The entangled miner’s rule,
+            second outing — M5d kept `reachMetres` out of `ToolDefinition` because *once that field
+            exists, every mod writes against it and the decision is gone for every tool*.
+            Non-negotiable 2 is the same trap one level up: **the moment `minercraft:relay_pump`
+            exists as a material the name is permanent, finished design or not.**
+      - [ ] **The trap it carries is the milestone’s own oracle.** A debug source creates litres
+            from nothing, which is exactly what volume-conservation-with-no-tolerance forbids — so
+            it **will** fail the check, or worse, be quietly subtracted from it by somebody making
+            the check pass. **Injected and removed litres are reported numbers**, and the oracle
+            becomes `held == rained + injected − spilled − removed`. **Third outing for “print the
+            denominator”**, and the first where the instrument itself moved it.
 - [ ] Tier B volume-conserving cellular automata over an active-cell set
 - [ ] Sleep/wake rules; settled cells merge into a Tier A body
 - [ ] Tier C coarse groundwater saturation field, fed by rain, drains downhill

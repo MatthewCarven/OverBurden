@@ -304,7 +304,14 @@ M8a–M8d. Four things from the planning pass that are expensive to rediscover:
   pump but what it drags** — a machine is the first *entity* this world holds, so bringing one
   forward would pull an entity table and **header v4** into the milestone whose oracle is exact
   volume conservation, and **two structural firsts in one milestone is how a defect hides behind a
-  feature.** Naming is settled too: **`relay_pump` / `relay_outlet` / `machine_programmer`** —
+  feature.** **But the relay comes back immediately as a *debug bind*** — Matthew: *“the
+  teleport-level tech will be endgame, but for the purposes of testing? Invaluable.”* **The hardest
+  part of testing M8 is not the CA, it is getting water to move at all**, and a keypress that moves
+  litres is the provocation seam for the whole milestone and M8a’s measurement instrument.
+  **No material, no JSON, no ID** — the entangled miner’s rule, second outing. **And it carries a
+  trap that is the milestone’s own oracle**: a debug source creates litres from nothing, so
+  injected and removed litres are *reported*, and the oracle becomes `held == rained + injected −
+  spilled − removed`. Naming is settled too: **`relay_pump` / `relay_outlet` / `machine_programmer`** —
   industrial rather than physics, and *relay* carries the channel-number rule for free.
 
 **M7 is DONE (2026-09-02): built and played — all four parts, eight sub-parts, five play questions.** The clock runs, it

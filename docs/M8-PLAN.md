@@ -202,6 +202,60 @@ whole selling point is that it stores one number per basin.
 
 ---
 
+## Provoking the thing under test — and the relay as a debug bind
+
+**The hardest part of testing M8 is not the CA, it is getting water to move at all.** A flood
+needs a full basin, a breach in the right place, and the patience to wait for both. M7 hit the
+same wall and solved it with seams rather than settings — `--clock=250` opens in a downpour,
+`--rainscale=` speeds the fill without lying about the sky, `--weather=` forces the look, and
+`--norain` / `--nowater` are the control arms. **Every one of those paid for itself, and M8 needs
+the equivalent before it needs anything else.**
+
+**Matthew's observation, 2026-09-02, and it is the right one:** *"The teleport-level tech will be
+endgame, but for the purposes of testing? Invaluable."* A pump that moves *n* litres from here to
+there on a keypress is **the provocation seam for the entire milestone**:
+
+- **It puts water where the test needs it, instantly** — no waiting for rain, no hunting for a
+  basin that happens to be full.
+- **It provokes the A — B seam on demand**, which is otherwise reachable only by digging into a
+  full basin and hoping.
+- **It is M8a's measurement instrument.** The number M8a exists to take is *a 9,000,000 L lake
+  draining into a shaft*, and this is how that case is set up in seconds rather than in a session.
+- **It resets a test without restarting the world**, which is the difference between an
+  afternoon of sweeps and three of them.
+
+### Build it as a debug bind, not as content — the entangled miner's rule, second outing
+
+**This is the one thing to get right and it is a naming decision rather than a code one.** M5d
+built the entangled miner as a debug bind on `MiningController` **with no `reachMetres` in any
+JSON and no `ToolDefinition` field**, and recorded why: *once that field exists, every mod writes
+against it and the decision is gone for every tool.* Non-negotiable 2 is the same trap one level
+up — **a content ID is never renumbered and a removed mod leaves a hole that stays**, so the
+moment `minercraft:relay_pump` exists as a material, the name is permanent whether or not the
+design behind it is finished.
+
+So: **a keypress and a flag, no material, no JSON, no ID.** The endgame machine reuses the
+arithmetic and is named when it is designed — which is M10, and which the M10 notes already
+record as *"burn that bridge when we get to it"*.
+
+### The trap this instrument carries, and it is the milestone's own oracle
+
+**A debug water source creates litres from nothing, which is precisely what M8's oracle forbids.**
+Volume conservation with no tolerance is the property the whole milestone is verified against, so
+an instrument that injects water **will make the conservation check fail, or worse, will be
+silently subtracted from it by somebody trying to make the check pass.**
+
+**So the injected total is a reported number, not a hidden one**: the profiler prints *litres
+injected* and *litres removed* beside *litres held*, and the oracle becomes `held == rained +
+injected — spilled — removed`. **Third outing for "print the denominator beside the
+number"** — and the first where the denominator exists because the instrument itself moved it.
+
+**Recommended shape**, matching M7's flags rather than inventing a new convention: a key that
+takes water from the basin under the crosshair, a key that dumps it at the crosshair, and
+`--injectlitres=<n>` for a headless run to do the same without a keyboard.
+
+---
+
 ## M8a — The cellular automaton and the active set
 
 **The CA itself, in Core, with nothing feeding it.** Cells at 0.25 m holding 0–255; push down where
