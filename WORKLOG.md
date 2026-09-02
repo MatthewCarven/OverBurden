@@ -1,5 +1,26 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-03 — The fluid-kind seam: three options, and a grid per kind is the recommendation
+
+Matthew asked for the options behind *"decide before M8b closes: Tier B is single-fluid"*, and
+said he would probably take the recommendation. Recorded in
+[docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) under the gases section; settles on his word.
+
+- **A kind byte per cell cannot express the case a gas exists for.** Two fluids in one cell —
+  gas in the room above half a cell of water, blackdamp creeping over a damp floor — and the
+  one-litre puddles `MinimumSpreadMillilitres` leaves would make every wet floor a wall. It also
+  puts a mini-enum in the cell, which is a second ID table or a cap of three.
+- **A grid per fluid kind, keyed by material ID, gets coexistence and the proof for free.** Room
+  for a fluid is capacity minus what denser fluids hold, so the densest settles as if alone and
+  each lighter one against a fixed field — M8a's termination proof per grid, ordered by density,
+  with *denser is solid* as *unloaded is solid* extended. `FluidGrid` and `Transfer` untouched,
+  conservation per grid by construction, no memory for a kind that is absent. **The grid order is
+  the JSON `density` field — the third material field unread since M1**, and the notes' lithium
+  brine is a second heavy fluid that sinks through water by the same rule.
+- **The seam today is two internal edits in one file, made as M8b's first commit**: gravity as
+  one `Down` field instead of six literal offsets, and room as a method that today returns
+  `FreeAt`. Nothing measurable moves, and `--fluid` is re-run to say so.
+
 ## 2026-09-03 — Brainstorm: elements, and whether to "just implement chemistry"
 
 Matthew: *"we could implement a chemistry set and just implement chemistry? IDK sounds too complex

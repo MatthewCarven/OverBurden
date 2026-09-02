@@ -3654,8 +3654,13 @@ part is the automaton and its oracles, M8a-2 is the measurement.
       - [ ] **Decide before M8b closes: Tier B is single-fluid, and a gas is a second fluid kind
             with gravity's sign flipped.** Heavy gas (CO₂, blackdamp) is water's rule verbatim;
             light gas is the inverse, dispersing at open sky — *"the reverse of rain"*, Matthew,
-            2026-09-03. Not a build: a seam — a fluid-kind byte per cell, or a layout where a second
-            grid is trivial. See [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md).
+            2026-09-03. **Recommended the same day: a grid per fluid kind, keyed by material ID,
+            ordered by the JSON `density` field** — not a kind byte per cell, which cannot put gas
+            in the room above half a cell of water. Options and reasoning in
+            [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md); settles on Matthew's word.
+            - [ ] The seam, as M8b's first commit: `FluidSimulation` reads gravity from one `Down`
+                  field rather than six literal offsets, and *room* is a method that today returns
+                  `FreeAt`. No grid, constructor, caller or test changes; re-run `--fluid` after.
 - [x] **Settled 2026-09-02: option 3.** *"Keep M8 clean, tune seepage low."* M8 makes the mine
       floodable and nothing fights back until M10, since pumps are machines — so the seepage rate
       ships low enough that flooding is a nuisance rather than a defeat, and M10 turns it up once

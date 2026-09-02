@@ -221,9 +221,52 @@ automaton before it. Two kinds, and the mine's real hazard is the boring one:
   particles killed where the sky is open, which is `SkyHeightField` read the other way up.
 
 **The one thing to decide before M8b closes: Tier B is single-fluid.** A cell holds millilitres of
-*water*; a gas needs the cell to say millilitres of *what*. Not a build — a seam: one byte of fluid
-kind per cell, or a layout in which a second grid is trivial. Named in TODO under M8 so the choice
-is made knowingly rather than inherited.
+*water*; a gas needs the cell to say millilitres of *what*. Not a build — a seam. Named in TODO
+under M8 so the choice is made knowingly rather than inherited.
+
+#### The seam, three ways — and the recommendation (2026-09-03)
+
+Matthew: *"talk to me about one decision to make, like what are the options? I'll probably roll
+with your recommendation here."* What M8a built, for reference: `FluidGrid` is one `ushort` per
+cell (millilitres, 0..15,625), one sparse 64 KiB panel per chunk, and `Transfer` is the only
+mutator; `FluidSimulation` owns one grid and reads gravity as the literal `(0, −1, 0)` in three
+places. Nothing in it is *named* water and everything in it *assumes* water.
+
+- **A. A kind per cell.** Each cell carries (kind, amount) in one grid — a parallel byte (+50% per
+  panel) or the `ushort`'s two spare bits (15,625 < 16,384, so three kinds and none, for free).
+  **What it cannot express is two fluids in one cell**, which is the exact case a gas is for: the
+  room above a half-full cell is *nothing* rather than gas, and a damp floor — one-litre puddles,
+  which is what `MinimumSpreadMillilitres` leaves — is a wall to blackdamp. Water entering a gas
+  cell must displace the gas in the same move or be refused, and `Displace` destroys what has
+  nowhere to go, so flooding a gallery would *delete* methane. And the kind is a mini-enum in the
+  cell: either a hard cap of three or a world-owned kind→material table to persist — non-negotiable
+  2's shape of problem, a second ID table.
+- **B. A grid per fluid kind, keyed by material ID.** `FluidGrid` stays exactly as it is; a second
+  fluid is a second grid in a dictionary keyed by the material's numeric ID, and the tick is
+  parameterised by two things — **which way gravity points, and how much room a cell has, which is
+  capacity minus what denser fluids already hold there.** Coexistence is exact for free: a cell 40%
+  water has 9,375 mL of room for gas, and gas creeps across a damp floor. **The termination proof
+  survives per grid, ordered by density**: the densest fluid never reads a lighter grid, so it
+  settles as if alone; the next settles against a fixed field, with *denser fluid is solid* being
+  M8a's *unloaded is solid* clause extended. Conservation stays by construction, per grid, with
+  `Transfer` untouched. An unused kind costs no memory. The kind *is* a material ID — no second
+  table, no cap, no renumbering — and **the order of the grids is the `density` field, the third
+  of the three material fields unread since M1.** It is not only gases: the notes' lithium brine is
+  a second *heavy* fluid, and it sinks through water by the same rule, denser ignoring lighter.
+- **C. Decide later.** M8b–M8d, the relay, the bench and thirty-two tests get written against the
+  simulation as it stands, and the choice is made by whoever is implementing gas under pressure —
+  which is how A gets picked, being the obvious one.
+
+**Recommendation: B, and the seam it needs today is two internal edits in one file that change
+nothing measurable.** Gravity becomes one `Down` field instead of six literal offsets, and
+*room* becomes a method that today returns `FreeAt` — the fall's transfer pre-clamped through it
+and `VerifyQuiescent` reading the same one. Neither touches `FluidGrid`, a constructor, a caller
+or a test; a second fluid is then a second `FluidSimulation` instance built with the other
+direction and a room function that subtracts the water grid. **Made as M8b's first commit rather
+than now**, with `--fluid` re-run to show the digit did not move. Everything else — the cross-grid
+wake when water shrinks a gas cell's room, the squeeze generalised from *the terrain stopped
+holding* to *the room shrank*, a rest store for a fluid Tier A never rained — is the gas
+milestone's, and none of it is made harder by waiting.
 
 ## Deliberately not here
 
