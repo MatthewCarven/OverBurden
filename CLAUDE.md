@@ -1373,6 +1373,28 @@ away, at **20 swings a second**. Three things about it that are easy to undo by 
   4/s version's own comment said the opposite of — `steel_pick` cools in 0.20 s, so entangled was
   once the slower of the two. Nothing shipped is balanced by its rate today; the note is for when
   something is.
+- **Raised to 40/s on 2026-09-02 (0.025 s), and the A/B took three fixtures to get right.**
+  Same session, r4h/2v, 6 m/s, 30 s, Debug, **both arms drawing**: 587 swings against 1164 —
+  **19.6/s against 38.8/s, a true 1.98x**, not the ~30/s the frame-boundary arithmetic predicts,
+  because headless frames are ~7.5 ms rather than 16.7 (**expect nearer 30 windowed at 60 fps**).
+  Remesh load doubled exactly — 31.5/s to 63.9/s at an unchanged 1.6 per swing — `update ms` mean
+  3.808 to 4.815 with the **max unchanged at ~19.9 ms**, and *faster is cheaper per swing* held a
+  fourth time (0.079 against the paired arm’s 0.089). **The number to watch has changed from remesh
+  load to the main thread: 54.21% to 68.47% of one core**, and the next raise must be measured in
+  Release before it is believed. **The named ceiling is now 1.5x away rather than 3x.**
+- **Two fixtures failed first and neither looked like a failure.** r6h/3v @ 8 m/s measured the rate
+  and **drew nothing**, so `remesh 0.0 per swing` was the absence of a measurement wearing the
+  costume of one — it would have been quoted as "the raise costs no remeshes". And **r4h/2v standing
+  reported 142 swings in *both* arms**: a stationary entangled miner bores one tunnel and then the
+  ray stops hitting anything, so it is **rate-starved rather than cooldown-limited** and the fixture
+  made both arms agree. **`--speed=0` exists because M5d-1 wanted the one deterministic arm, and
+  that determinism is exactly what makes it useless here** — a seam built to remove one variable
+  removed the variable under test.
+- **`L` + `Q` is a protected pairing as of 2026-09-02**, reported load-bearing in play: *"hitting Q
+  then being able to place a light far off into the distance has been useful during the debug."*
+  The old comment said "superseded by the brushes" and **that is false at range** — right mouse is
+  bounded by the player’s reach, and reach is deliberately the player’s rather than the tool’s.
+  **Revisit trigger: a placement verb that takes a reach argument.**
 - **Raised to 20/s on 2026-09-01, and re-measured rather than assumed for the third time.** The
   same surprising thing keeps happening: **faster is cheaper per swing** — 0.139 ms at 4/s, 0.072
   at 8/s, **0.070 at 20/s** — because consecutive swings chew the previous bite, so most of the

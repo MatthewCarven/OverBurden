@@ -2197,6 +2197,23 @@ public partial class Main : Node3D
     private bool _debugLamp;
     private bool _scriptedLampPlaced;
 
+    /// <summary>Places a lamp where the crosshair points. A debug bind, and a used one.</summary>
+    /// <remarks>
+    /// <b>Do not remove this because the brushes supersede it — they do not, at range.</b>
+    /// <c>TryPlaceDebug</c> places at <see cref="MiningController.Hit"/>, which respects the
+    /// <em>effective</em> reach, so with the entangled miner on (<c>Q</c>) this drops a lamp
+    /// anywhere in the loaded world. <b>Reported as load-bearing during the M7 play, 2026-09-02:</b>
+    /// <em>"hitting Q then being able to place a light far off into the distance has been useful
+    /// during the debug, and I don't want to lose the feature yet."</em> Right mouse cannot do it,
+    /// because placement is bounded by the player's reach and reach is deliberately the player's
+    /// rather than the tool's — locked at M3d and restated at M4c.
+    /// <para>
+    /// <b>So this is the second debug bind whose value is the pairing rather than the bind</b>, the
+    /// first being the entangled miner itself. Neither is content; both are how a dark cave gets
+    /// lit well enough to photograph. <b>Revisit trigger: a placement verb that takes a reach
+    /// argument</b>, which would make this expressible through the brushes and let it go.
+    /// </para>
+    /// </remarks>
     private void PlaceDebugLamp()
     {
         PlaceScriptedLamp();

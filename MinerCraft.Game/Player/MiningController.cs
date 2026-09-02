@@ -106,7 +106,8 @@ public sealed class MiningController(
     /// for M5d-2's look questions.
     /// </para>
     /// <para>
-    /// <b>Raised twice at Matthew's request — 0.25 s to 0.125 s, then to 0.05 s — and the first
+    /// <b>Raised three times at Matthew's request — 0.25 s to 0.125 s to 0.05 s to 0.025 s — and
+    /// the first
     /// raise inverted a recorded caveat.</b> At four a second this was marginally *slower* than
     /// <c>steel_pick</c>'s own 0.20 s and the only upgrade was the range. From eight onward it is
     /// faster than every shipped tier, so the mode is a strict upgrade on both axes — which is
@@ -115,22 +116,49 @@ public sealed class MiningController(
     /// be balanced by nothing here.
     /// </para>
     /// <para>
-    /// <b>Three swings a frame at 60 Hz is the next thing this rate would run into, and 0.05 s is
-    /// not it.</b> One swing per frame arrives at 0.0167 s; below that the cooldown stops being
-    /// what paces the tool and the frame rate becomes the balance, which would make the dig rate
-    /// depend on the machine. There is a factor of three of headroom left and the ceiling has a
-    /// name.
+    /// <b>The named ceiling is now close: one swing per frame arrives at 0.0167 s, and this is
+    /// 0.025 s.</b> Below the frame time the cooldown stops pacing the tool and the frame rate
+    /// becomes the balance, which would make the dig rate depend on the machine. The headroom was
+    /// a factor of three at 0.05 s and is <b>a factor of 1.5 now</b>, so this is the last doubling
+    /// that can be taken without changing how the cooldown works.
+    /// </para>
+    /// <para>
+    /// <b>And the quantisation is already biting, so the nominal rate is not the delivered one.</b>
+    /// <c>_cooldown</c> is <em>reset</em> to the full interval rather than decremented by it, so a
+    /// swing can only fire on a frame boundary: at 0.05 s a 60 s run landed at ~18.9 swings/s
+    /// against a nominal 20. At 0.025 s against a 16.7 ms frame the next eligible boundary is
+    /// 33.4 ms, so <b>the honest expectation is ~30/s at 60 fps rather than 40</b> — nearer 36 at
+    /// 144 fps. <b>Delivering a true 40 needs the cooldown to be subtracted rather than reset</b>,
+    /// which would let a swing catch up across a long frame; that is a pacing change for every
+    /// tool and is deliberately not made here.
     /// </para>
     /// <para>
     /// Not a DoS the way a radius is: the cost per swing is a bounded cast plus a bounded carve.
     /// <b>Re-measured at every rate rather than assumed, and the measurement keeps saying the
     /// same surprising thing — faster is cheaper per swing.</b> Consecutive swings chew the
     /// previous bite, so most of the sphere is already air: 0.139 ms a swing at four, 0.072 at
-    /// eight, and see the worklog for twenty. What rises is the <em>remesh</em> load, which is
-    /// per swing rather than per voxel and is the number to watch if this is ever raised again.
+    /// eight, 0.070 at twenty and <b>0.079 against the 0.05 arm’s 0.089 at forty</b>. What rises is
+    /// the <em>remesh</em> load, which is per swing rather than per voxel.
+    /// </para>
+    /// <para>
+    /// <b>Measured as a same-session A/B at r4h/2v, 6 m/s, 30 s, Debug — both arms drawing:</b>
+    /// 587 swings against 1164, so <b>19.6/s against 38.8/s, a true 1.98x</b> and not the ~30/s the
+    /// frame-boundary arithmetic predicts, because headless frames are ~7.5 ms rather than 16.7.
+    /// <b>A windowed run at 60 fps should expect nearer 30.</b> Remesh load doubled exactly as the
+    /// per-swing model says — <b>31.5/s to 63.9/s at an unchanged 1.6 chunks per swing</b> — and
+    /// clones held at 1.3 per swing. <c>update ms</c> mean went 3.808 to 4.815 (+26%) with the
+    /// <em>max</em> unchanged at ~19.9 ms, so the tail is not this. <b>Relight per swing fell again,
+    /// 1.2 to 1.0</b>, which every previous raise also did.
+    /// </para>
+    /// <para>
+    /// <b>The number to watch now is the main thread, not the remeshes: 54.21% of one core to
+    /// 68.47%</b> in Debug at r4h/2v. Release is roughly 8x cheaper on the light derive that
+    /// dominates it (M5d-1), so this is not a ceiling — but it is the first raise where a headline
+    /// percentage moved by more than a rounding error, and <b>the next one has to be measured in
+    /// Release before it is believed</b>.
     /// </para>
     /// </remarks>
-    public const float EntangledCooldownSeconds = 0.05f;
+    public const float EntangledCooldownSeconds = 0.025f;
 
     private float EffectiveReachMetres => Entangled ? EntangledReachMetres : ReachMetres;
 

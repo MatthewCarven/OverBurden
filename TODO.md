@@ -3784,6 +3784,43 @@ the ask arrives, the answers that already exist are not re-derived.
 - [ ] Power: generation / consumption / storage network
 - [ ] Pumps, shoring/supports
 
+#### The entangled miner at 40/s — raised 2026-09-02, third time
+
+- [x] **0.05 s → 0.025 s at Matthew’s request** — *"can we double the rate of the quantum miner?
+      It’s just I am building the Taj Mahal but underground."* Same-session A/B at r4h/2v, 6 m/s,
+      30 s, Debug, **both arms drawing**: 587 swings against 1164, **19.6/s against 38.8/s, a true
+      1.98x**. Suite unchanged at 814.
+      - [x] **Not the ~30/s the frame-boundary arithmetic predicts**, because headless frames are
+            ~7.5 ms rather than 16.7. `_cooldown` is *reset* rather than decremented, so a swing
+            fires only on a frame boundary — **expect nearer 30/s windowed at 60 fps.** A true 40+
+            needs the cooldown subtracted rather than reset, **which is a pacing change for every
+            tool and is deliberately not made.**
+      - [x] **Remesh load doubled exactly** (31.5/s → 63.9/s, per swing unchanged at 1.6), which is
+            the per-swing model being right rather than a surprise. *Faster is cheaper per swing*
+            held a fourth time. `update ms` max unchanged at ~19.9 ms — **the tail is not this.**
+      - [ ] **The number to watch has changed, and the source comment now says so: the main thread,
+            54.21% → 68.47% of one core.** Debug at r4h/2v, and Release is ~8x cheaper on the light
+            derive that dominates it — so not a ceiling, but **the first raise where a headline
+            percentage moved by more than a rounding error. The next raise must be measured in
+            Release before it is believed**, and the named ceiling is now 1.5x away rather than 3x.
+      - [x] **Two fixtures failed first and neither looked like a failure.** r6h/3v @ 8 m/s measured
+            the rate and **drew nothing**, so `remesh 0.0 per swing` was the absence of a
+            measurement wearing the costume of one — it would have been quoted as *"the raise costs
+            no remeshes"*. And **r4h/2v standing reported 142 swings in both arms**, identical to
+            the digit: a stationary miner bores one tunnel and the ray stops hitting anything, so it
+            is **rate-starved rather than cooldown-limited** and the fixture made both arms agree.
+            **`--speed=0` exists because M5d-1 wanted the one deterministic arm, and that
+            determinism is exactly what makes it useless here** — a seam built to remove one
+            variable removed the variable under test.
+- [x] **`L` + `Q` is protected in source, reported load-bearing by the play**: *"hitting Q then
+      being able to place a light far off into the distance has been useful during the debug and I
+      don’t want to lose the feature yet."* The doc comment said *"superseded by the brushes"* and
+      **that is false at range** — `TryPlaceDebug` places at `MiningController.Hit`, which respects
+      the *effective* reach, while right mouse is bounded by the player’s reach, and **reach is
+      deliberately the player’s rather than the tool’s** (M3d, restated M4c). **Second debug bind
+      whose value is the pairing rather than the bind.** **Revisit trigger: a placement verb that
+      takes a reach argument**, which would make it expressible through the brushes and let it go.
+
 #### The quantum machine family — Matthew’s proposal, 2026-09-02
 
 A **quantum fluid pump**, a **quantum pump output** that it teleports water to wirelessly, several

@@ -1,5 +1,77 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-02 — The entangled miner goes to 40/s, and two fixtures failed before one worked
+
+**Raised at Matthew’s request, third time**: *"Can we double the rate of the quantum miner? It’s
+just I am building the Taj Mahal but underground."* 0.05 s to **0.025 s**. Suite unchanged at 814.
+
+### The measurement, and it is a true doubling
+
+Same-session A/B at **r4h/2v, 6 m/s, 30 s, Debug, both arms drawing**:
+
+```
+                       0.05 s        0.025 s
+swings              587 (19.6/s)  1164 (38.8/s)   1.98x
+swing ms mean          0.089         0.079        cheaper again
+remesh /s              31.5          63.9         2.03x, per swing unchanged at 1.6
+relight per swing       1.2           1.0         fell again
+clones per swing        1.3           1.3
+update ms mean         3.808         4.815        +26%
+update ms max         19.833        19.899        unchanged — the tail is not this
+main                  54.21%        68.47%        of one core
+drawn                    193           194
+```
+
+- **38.8/s, not the ~30/s the frame-boundary arithmetic predicts.** `_cooldown` is *reset* to the
+full interval rather than decremented, so a swing can only fire on a frame boundary — but headless
+frames are ~7.5 ms, not 16.7. **A windowed run at 60 fps should expect nearer 30**, and that
+quantisation is now the reason the nominal rate and the delivered one differ at all.
+- **"Faster is cheaper per swing" holds a fourth time** — 0.139 ms at 4/s, 0.072 at 8, 0.070 at
+20, 0.079 here against the paired arm’s 0.089. Consecutive swings chew the previous bite.
+- **Remesh load doubled exactly**, which is the per-swing model being right rather than a surprise.
+- **The number to watch has changed.** The source comment has said since 8/s that remesh load is the
+thing to watch on a raise; it is now the **main thread**, 54.21% to 68.47%. Release is ~8x cheaper
+on the light derive that dominates it, so this is not a ceiling — but it is the first raise where
+a headline percentage moved by more than a rounding error, and **the next one has to be measured in
+Release before it is believed.**
+- **The named ceiling is close now.** One swing per frame arrives at 0.0167 s and this is 0.025 s:
+the headroom went from a factor of three to **1.5**. Below the frame time the cooldown stops pacing
+the tool and the machine does. **A true 40+ needs the cooldown subtracted rather than reset**, which
+is a pacing change for every tool and is deliberately not made.
+
+### Two fixtures failed first, in two different ways, and both are recorded shapes
+
+**Neither failure looked like a failure.** This is the third instrument in three milestones to
+produce a confident wrong reading.
+
+- **r6h/3v @ 8 m/s measured the rate (35.7/s over 60 s) and drew nothing.** `first draw not yet`, so
+  `remesh 0.0 per swing` was **the absence of a measurement wearing the costume of one** — the
+  exact shape of M7c-1’s *a zero from a run that stayed dry is a detector that never fired*. It
+  would have been quoted as "raising the rate costs no remeshes", which is the opposite of true.
+- **r4h/2v standing reported 142 swings in *both* arms.** Identical to the digit, along with reach
+  and voxels removed. A standing entangled miner bores one tunnel and then the ray stops hitting
+  anything, so it is **rate-starved rather than cooldown-limited**: 4.7/s, far below either arm’s
+  setting. **The fixture made both arms agree**, which is the category the testing notes call *ask
+  what the parameters make unreachable*.
+
+**The irony is worth keeping: `--speed=0` exists because M5d-1 needed the one arm where the chunk
+set is deterministic** — and that determinism is exactly what makes it useless for this, because a
+stationary miner runs out of rock. **A seam built to remove one variable removed the variable under
+test.** r4h/2v @ 6 m/s works because it is M5d-1’s measured "still draws in Debug" point *and*
+movement keeps fresh rock in front of the crosshair.
+
+### And the lamp bind is now protected in source
+
+Reported as load-bearing in the same message: *"hitting Q then being able to place a light far off
+into the distance has been useful during the debug, and I don’t want to lose the feature yet."*
+**The doc comment said "superseded by the brushes", and that is false at range** — `TryPlaceDebug`
+places at `MiningController.Hit`, which respects the *effective* reach, so `Q` + `L` drops a lamp
+anywhere in the loaded world and right-mouse cannot, because placement is bounded by the player’s
+reach and **reach is deliberately the player’s rather than the tool’s** (M3d, restated M4c).
+**Second debug bind whose value is the pairing rather than the bind.** Revisit trigger: a placement
+verb that takes a reach argument.
+
+
 ## 2026-09-02 — M7's last question, re-asked properly, and a cosmetics pass gets a home
 
 **Question 3 was answered twice, and the second answer is a different kind of thing from the

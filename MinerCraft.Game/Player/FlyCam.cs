@@ -112,8 +112,8 @@ public partial class FlyCam : Camera3D
             "  Alt+click is precision on either button: one voxel taken, one voxel placed\n" +
             "  1-9 pick a material from the hotbar, V cycles to the next one\n" +
             "  B cycles the brush, T cycles the tool tier\n" +
-            "  L places a lamp — a debug bind, superseded by the brushes\n" +
-            "  Q toggles the entangled miner — unlimited reach, 20 swings/s, also a debug bind\n" +
+            "  L places a lamp — a debug bind, and with Q the only way to place at range\n" +
+            "  Q toggles the entangled miner — unlimited reach, 40 swings/s, also a debug bind\n" +
             "  Esc releases the mouse, click to recapture");
     }
 

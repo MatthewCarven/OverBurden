@@ -131,6 +131,41 @@ the world exists"* — what stops it is the edge of the loaded region, not the m
 quantum machines are the same claim made into content**, and that entry says the moment to settle
 reach-as-content is when it stops being a debug bind.
 
+### 4b. Reach as a rule: **a visual lock**, not a radius — Matthew, 2026-09-02
+
+> *"The endgame-level tech will have a lot of very generous limits, so they can reach everything
+> from the quantum teleport miner if realistic — if you can get a visual lock on it you can
+> entangle with it."*
+
+**This is a better rule than a number, and it is already implemented.** `VoxelRay.Cast` walks the
+DDA until it hits something or leaves the loaded world; *an unobstructed ray reaches it* and
+*a visual lock* are the same computation. The entangled miner already behaves this way and M5d
+recorded the consequence: **"however far away" means "as far as the world exists"**, about 144 m
+at r16, because what stops the ray is `RayOutcome.Blocked` at the edge of the loaded region.
+
+Three reasons it beats a radius, and none of them is that it is cheaper:
+
+- **It costs nothing new.** The raycast is already the aiming mechanism for every verb in the game.
+- **It makes terrain matter.** A radius reaches through rock; a line of sight does not, so cover,
+  corners and shafts become part of how the tech is used — in a game whose entire subject is the
+  shape of the rock you have removed.
+- **It is self-limiting exactly where it should be.** Underground a tunnel bounds sight to a few
+  metres; on a hilltop it is generous. **That is "a lot of very generous limits" without a single
+  number being tuned**, and it means the same rule reads as powerful outdoors and disciplined in a
+  mine.
+
+**The honest caveat, and it is the M5d finding restated: the rule is bounded by the loaded world,
+not by sight.** Today those coincide. If view distance ever grows, reach grows with it and nobody
+will have decided that — so **whatever ships should bound the cast explicitly**, the way
+`MaxRadiusMetres` bounds a carve and the entangled miner's own 512 m backstop bounds its DDA.
+
+**And it retires the reach-as-content question rather than answering it.** M3d and M4c both locked
+*reach is the player's, not the tool's*, and M5d recorded that a tool whose defining property is
+unlimited reach is the case that decision did not anticipate. **A line-of-sight rule is not a reach
+field at all** — nothing goes into `ToolDefinition`, no format mods write against changes, and
+the locked decision survives intact. That is the cheapest possible resolution of a two-milestone
+open question.
+
 ### 5. Power, and whether the first version has any
 
 DESIGN's loop is that pumps need power, which needs mining. **But the first quantum pump does not
