@@ -159,12 +159,78 @@ is a hazard only once M9 exists to be undermined by it.
    quantity in the same milestone is two structural firsts at once, which is the rule M8's own
    planning pass wrote down.
 
+## The periodic table — data underneath, never blocks
+
+Matthew, later the same day: *"what if we used the periodic table for element types? Too many? A
+lot would be useless and writing shaders for some of them … excluding any gasses until we work out
+how to do volumetric 'gas', the reverse of rain, should be easier after we have stabilised water."*
+
+**Recommendation: ship the whole table as data, and never let an element be a voxel.** Four
+reasons, each of which also answers "too many?":
+
+- **Elements are the wrong axis for voxels and the right axis underneath them.** Nothing you dig is
+  an element except native gold, copper, sulphur and carbon. Granite is quartz, feldspar and mica;
+  limestone is CaCO₃; sand is SiO₂; bauxite is aluminium hydroxides. A world of pure sodium and
+  chlorine blocks is a chemistry set, not a mine. So **a material declares a composition** — element
+  mass-parts — and the table is what *recipes conserve*, not what the world is made of.
+- **All 118 cost nothing, because an element has no texture and no shader.** `elements.json`:
+  symbol, name, number, molar mass, density, state at STP. An afternoon, and it never changes. The
+  "useless" ones are not a cost as data; they would only be a cost as materials, and the material
+  test above (*does it do something to water, gravity, power or the ladder*) is what keeps them out.
+  `state at STP` also excludes gases from ever being a material for free.
+- **Shaders are per appearance class, not per material, and there are about five classes.**
+  Non-negotiable 4 puts every material through one voxel shader and a texture array; a new material
+  is one layer. The only things that cost shader work are *kinds* of look — metallic sheen,
+  translucency (glass, ice, crystal — which shares M8's transparent pass), emission (uranium glow,
+  the lamp already), wet sheen (M7, done). Five classes for 118 elements or for 22 materials alike.
+- **What the table actually buys is a conservation law for mods.** A recipe's inputs and outputs
+  can be checked at load for element balance — a mod that smelts iron out of nothing is refused, the
+  way `ShippedContentTests` already refuses a tool ladder with no top. **Stated limit: that check has
+  a tolerance, because atomic masses are not integers.** Exactness stays where it is — volume in
+  millilitres, mass in milligrams — and element balance is a content check like the hardness one,
+  not the engine's oracle.
+
+### The general extraction rule — the cheap version of "just implement chemistry"
+
+With compositions declared, most refining recipes need no authoring at all: **put a material in,
+name an element, take out its mass fraction times the machine's efficiency; the rest is slag.**
+Hematite (Fe 70% by mass) into a furnace with iron named yields iron, exactly, from the same numbers
+every mod's furnace would use. Alloys and compounds — bronze, cement, sulphuric acid, the three
+batteries — are the recipes that still want writing, and they are few.
+
+### The cost it carries, named: the inventory leaves whole voxels
+
+Mass balance means a recipe's outputs are not whole voxels. That is **M6c-2's recorded revisit
+trigger** — *"the first quantity that is not a whole number of voxels, most likely M8's fluids"* —
+arriving from crafting instead. The clean unit is the one water already uses: **millilitres.** A
+voxel is 15,625 mL exactly (M8a's cell capacity, the same division), so today's counts convert
+without rounding; density in kg/m³ is mg/mL, so mass in milligrams is an integer product. One
+header field changes meaning, which is the kind of change the format policy says is a refusal
+rather than a migration — **so it rides header v4 with the machines rather than shipping alone.**
+
+### Gases — agreed, after water, and the seam to leave open now
+
+Matthew's instinct is right and the reason is better than "later": **a gas is the water automaton
+with gravity's sign flipped**, so it costs almost nothing *after* M8 and would cost a second
+automaton before it. Two kinds, and the mine's real hazard is the boring one:
+
+- **Heavy gas** — CO₂, "blackdamp" — is water's rule verbatim: it pools at the bottom of a working,
+  spreads sideways, and drowns you without a splash. Tier B unchanged, with a different fluid in it.
+- **Light gas** — methane — is the rule inverted: push *up* where there is capacity, spread sideways
+  under a roof, disperse at open sky. And "the reverse of rain" is literally that on screen: rising
+  particles killed where the sky is open, which is `SkyHeightField` read the other way up.
+
+**The one thing to decide before M8b closes: Tier B is single-fluid.** A cell holds millilitres of
+*water*; a gas needs the cell to say millilitres of *what*. Not a build — a seam: one byte of fluid
+kind per cell, or a layout in which a second grid is trivial. Named in TODO under M8 so the choice
+is made knowingly rather than inherited.
+
 ## Deliberately not here
 
 - Real reaction chemistry — stoichiometry between arbitrary inputs, mixtures in a voxel. Off the
   cliff; route through machines.
-- Gases. Gas pockets are M13's, and a gas is a fluid with negative buoyancy in a CA that only ever
-  pushes down — a design question for M8's successor, not a material.
+- Gases as *materials*. As fluids they are the section above: water's rule with the sign flipped,
+  after M8, with the fluid-kind seam left open now.
 - Temperature as a field. Geothermal power is a good late-game reason; nothing before M10 needs it.
 - Weight. Density is in the format for M9's loads and for nothing to do with carrying — no
   encumbrance, ruled twice.

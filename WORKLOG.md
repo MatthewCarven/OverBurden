@@ -21,6 +21,15 @@ on the M10-NOTES precedent — notes, not a plan. Three things from it worth kee
   materials against five is content. The battery ladder — lead–acid, nickel–iron, lithium from
   pumped brine — is the chemistry that closes the loop, and depth as the ladder is what *"the game
   never ends"* looks like structurally.
+- **Then: *"what if we used the periodic table for element types?"* — data underneath, never
+  blocks.** Nothing you dig is an element, so materials declare a *composition* and the table is
+  what recipes conserve; all 118 are free as data because an element has no texture and no shader,
+  and shaders are per appearance class (about five) rather than per material. What it buys is a
+  load-time conservation check on every mod's recipes and a general extraction rule that makes most
+  refining need no recipe at all. **Cost named: the inventory leaves whole voxels for millilitres**,
+  M6c-2's own trigger, riding header v4. Gases: agreed, after water — a gas is the automaton with
+  gravity's sign flipped, heavy gas being water's rule verbatim — and the seam to leave open before
+  M8b closes is that Tier B is single-fluid.
 
 ## 2026-09-03 — Five answers from the play: the lake overhangs the pit, 4/s stands, nothing ends, and the gate is a battery
 

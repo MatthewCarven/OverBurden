@@ -3651,6 +3651,11 @@ part is the automaton and its oracles, M8a-2 is the measurement.
             makes the field decorative — see [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md).
 - [ ] Seepage into excavations driven by saturation × material permeability
 - [ ] Transparent render pass, back-to-front sorting
+      - [ ] **Decide before M8b closes: Tier B is single-fluid, and a gas is a second fluid kind
+            with gravity's sign flipped.** Heavy gas (CO₂, blackdamp) is water's rule verbatim;
+            light gas is the inverse, dispersing at open sky — *"the reverse of rain"*, Matthew,
+            2026-09-03. Not a build: a seam — a fluid-kind byte per cell, or a layout where a second
+            grid is trivial. See [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md).
 - [x] **Settled 2026-09-02: option 3.** *"Keep M8 clean, tune seepage low."* M8 makes the mine
       floodable and nothing fights back until M10, since pumps are machines — so the seepage rate
       ships low enough that flooding is a nuisance rather than a defeat, and M10 turns it up once
@@ -4308,6 +4313,13 @@ it.
             machine framework; the volumetric inventory makes stoichiometry a ratio rather than an
             item count. The element table and the battery ladder (lead–acid → nickel–iron →
             lithium from pumped brine) are in [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md).
+      - [ ] **The periodic table as data underneath, never as blocks** — Matthew, 2026-09-03. All
+            118 in `elements.json` (no texture, no shader, `state at STP` excludes gases for free);
+            a material declares a composition in element mass-parts; recipes are checked for
+            element balance at load, with a stated tolerance, the way the tool ladder is checked
+            today. A general *extract element X from material M* rule then covers most refining
+            without a recipe. **Cost named: the inventory leaves whole voxels for millilitres** —
+            M6c-2's revisit trigger, arriving from crafting — and rides header v4 with the machines.
 
 ### M12 — Modding tier 2
 
