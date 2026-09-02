@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 using MinerCraft.Core.Content;
 using MinerCraft.Core.Hydrology;
@@ -50,6 +50,13 @@ internal static class Program
           --blob               time chunk serialisation, and price Compact() on save
           --store              time the SQLite read path against the generation it replaces
           --watershed          time the M7 watershed analysis over a sweep of window sizes
+          --fluid              time M8's Tier B automaton draining a lake into a mine
+          --fluidlitres <n>    the lake, in litres (default 9,000,000)
+          --fluidticks  <n>    ticks of flow before the settle (default 2000)
+          --fluidbores  1,3,5  breach widths to sweep, in voxels (default 1,3,5,9)
+          --fluidspan   <m>    the mine's footprint, in metres (default 96)
+          --fluiddepth  <m>    how far under the surface it sits (default 24)
+          --fluidsettle <n>    tick budget for the settle after the flow (default 100000)
         """;
 
     private static int Main(string[] args)
@@ -61,6 +68,13 @@ internal static class Program
         bool blob = false;
         bool store = false;
         bool watershed = false;
+        bool fluid = false;
+        long fluidLitres = 9_000_000;
+        int fluidTicks = 2_000;
+        int[] fluidBores = [1, 3, 5, 9];
+        int fluidSpan = 96;
+        int fluidDepth = 24;
+        int fluidSettle = 100_000;
 
         try
         {
@@ -92,6 +106,30 @@ internal static class Program
                     case "--watershed":
                         watershed = true;
                         break;
+                    case "--fluid":
+                        fluid = true;
+                        break;
+                    case "--fluidlitres":
+                        fluidLitres = long.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--fluidticks":
+                        fluidTicks = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--fluidbores":
+                        fluidBores = Next(args, ref i)
+                            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                            .Select(part => int.Parse(part, CultureInfo.InvariantCulture))
+                            .ToArray();
+                        break;
+                    case "--fluidspan":
+                        fluidSpan = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--fluiddepth":
+                        fluidDepth = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--fluidsettle":
+                        fluidSettle = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
                     case "--help" or "-h":
                         Console.WriteLine(Usage);
                         return 0;
@@ -118,6 +156,21 @@ internal static class Program
 
         ChunkPos[] region = Region();
         var strata = new StrataTable([new StrataLayer(Grass, 1), new StrataLayer(Dirt, 3)], Stone);
+
+        if (fluid)
+        {
+            var fluidGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
+            return FluidBench.Run(
+                fluidGenerator,
+                MachineControl(fluidGenerator),
+                IsDebug(),
+                fluidLitres,
+                fluidTicks,
+                fluidBores,
+                fluidSpan,
+                fluidDepth,
+                fluidSettle);
+        }
 
         if (watershed)
         {

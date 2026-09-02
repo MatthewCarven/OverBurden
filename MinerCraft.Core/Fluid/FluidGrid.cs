@@ -1,4 +1,4 @@
-using MinerCraft.Core.Voxels;
+﻿using MinerCraft.Core.Voxels;
 
 namespace MinerCraft.Core.Fluid;
 
@@ -27,9 +27,18 @@ namespace MinerCraft.Core.Fluid;
 /// <b>The named lever, deliberately not built: panels are dense and a flooded tunnel network is
 /// not.</b> A chunk holding one cell of water costs the same 64 KiB as a chunk holding 32,768.
 /// <see cref="PanelCount"/> is printed beside the held-cell count so the sparsity is visible in
-/// the report rather than in somebody's head. <b>Revisit trigger: panels averaging under ~1% full
-/// across a sustained flood</b>, where a run-length or octree panel starts to pay for its own
-/// complexity.
+/// the report rather than in somebody's head.
+/// <para>
+/// <b>Measured at M8a-2, and the trigger this comment first carried — "panels averaging under ~1%
+/// full" — fired on the very first run.</b> A 96 m mine flooding through a 2.25 m breach held
+/// 17,738 cells across 68 panels: <b>0.80% occupancy</b>, and the smaller arms were 0.37%. That is
+/// not a surprise and it is not a defect — a tunnel grid is a sparse skeleton cut through solid
+/// rock, which is the geometry a dense panel is worst at. <b>What it cost was 4.2 MiB</b>, which
+/// is a twentieth of one drawn chunk's mesh budget at r12, so the occupancy trigger turned out to
+/// be measuring the wrong quantity. <b>Restated: revisit when <see cref="PanelBytes"/> passes
+/// ~64 MiB in a played session</b>, which is an absolute cost rather than a ratio that a sparse
+/// world will always fail.
+/// </para>
 /// </para>
 /// </remarks>
 public sealed class FluidGrid

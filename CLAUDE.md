@@ -20,7 +20,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/M7-PLAN.md](docs/M7-PLAN.md) | M7, rain, split into M7a–M7d. Planned 2026-09-01, **built and played 2026-09-02**. Kept for the reasoning; **read SCALE.md before it**. Two places it was overtaken: splashes were cut (M7c-2) and the occlusion field's cost estimate was ten times out (M7d-1). |
 | [docs/M7-PLAY.md](docs/M7-PLAY.md) | M7's play: five questions, **all five answered 2026-09-02**, the flags that provoke weather without waiting for it, and how to read the `M7c:`/`M7d:` log lines. Kept for the verdicts. |
 | [docs/M10-NOTES.md](docs/M10-NOTES.md) | **The quantum machine family** — Matthew’s proposal, 2026-09-02: a fluid pump that teleports to a wireless output, and a general machine programmer. Notes rather than a plan, on the deferred-collapse precedent. **Read before planning M10, and before shipping any machine — it names the entity-storage change that header v4 rides on.** |
-| [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **Planned 2026-09-02, not started.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it; carries **the one open decision that is Matthew’s** — M8 makes the mine floodable and nothing fights back until M10. |
+| [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **Planned 2026-09-02; M8a built the same day, M8b next.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it; carries **the one open decision that is Matthew’s** — M8 makes the mine floodable and nothing fights back until M10. |
 | [docs/SCALE.md](docs/SCALE.md) | **How many voxels and cells exist at each view distance, what one full sweep costs, and what each system actually iterates.** Read before designing anything that wants to check the world periodically — M7, M8 and M9 all start here. |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
 | [TODO.md](TODO.md) | Milestones as checkable tasks, and the decisions still open. **M6's section is the plan as a checklist.** |
@@ -113,6 +113,20 @@ sampling dominated and it does not — it is about an eighth of the cost. **It w
 rather than by one pass**, because one warm-up pass leaves a small window in tier-0 code while a
 large one is promoted mid-flood by OSR, which reported the 1 km window at 47 ms instead of 20 and
 looked exactly like a memory-locality finding.
+
+Measure **M8's Tier B automaton** — a lake draining into a mine, swept by breach width. Release
+only, and **the fixture bakes its terrain into a bitset before timing anything**, because the first
+version answered `CanHold` with `IsCaveAt` and reported 3.86 µs a visit against a true 0.2–0.3:
+
+```bash
+dotnet run --project MinerCraft.Bench -c Release -- --fluid
+```
+
+`--fluidbores=1,3,5,9` is the sweep (breach width in voxels), `--fluidspan`/`--fluiddepth` size the
+mine, `--fluidlitres` the lake, `--fluidticks` the flow window and `--fluidsettle` the tick budget
+for the settle afterwards. **The settle cap is a budget, not a correctness statement** — `FluidRules`
+carries a termination proof, so hitting it means levelling is diffusive rather than that it
+oscillates, and the row says how many cells were still awake.
 
 **Read the machine-control line before quoting anything from it.** It times worldgen over 256
 chunks and prints the result against the 0.47 ms/chunk recorded at M2d-2 — **this machine has been
@@ -236,6 +250,47 @@ copy in `../GAME/`.
   against** (currently godot_voxel). Nothing in it belongs in a `.csproj`.
 
 ## Where things stand
+
+**M8a is built (2026-09-02) — Tier B's automaton and its measurement. Suite 814 → 850.** Water
+moves, conserves volume exactly in integers, terminates by proof, and is affordable at the 0.25 m
+voxel M8-PLAN settled on. **Nothing feeds it yet — that is M8b, and the measurement is what says
+M8b is the milestone rather than the automaton.** Six things worth keeping:
+
+- **The unit is the millilitre, which corrects DESIGN.** A 0.25 m cell is **15.625 litres — not a
+  whole number** — so DESIGN's "amount 0-255" makes one unit 61.27 mL and every conversion across
+  the Tier A ↔ Tier B seam rounds, which a no-tolerance conservation oracle cannot survive.
+  Capacity is **15,625 mL, an exact integer division** of 1,000,000 mL/m³ by 4³ voxels; at three
+  voxels per metre it would truncate. One byte per cell, and the seam is exact both ways.
+- **The wake rule was wrong and `VerifyQuiescent` caught it on its first run.** Dividing the
+  sideways surplus by *eligible + 1* — the obvious rule — makes a cell's move depend on its
+  neighbours' amounts rather than on the pair, so **a neighbour *gaining* water can shrink the
+  divisor and create a move with nothing awake to take it.** Five litres on an 8×8 floor settled
+  with four cells one millilitre out of level and **every volume assertion green**. A fixed divisor
+  of five makes the rule local to a pair. **Conservation is structurally blind to this class of
+  defect; that is what the second oracle is for.**
+- **Termination has a proof rather than a hope**, in `FluidRules`: a sideways move strictly
+  decreases the sum of squares, a vertical move strictly decreases Σ(amount × Y) which is bounded
+  below because an unloaded voxel is solid. **The proof also forbids the obvious tuning** — a
+  minimum transfer of one millilitre oscillates forever, and it is in the break battery.
+- **The play's question is answered with a number, and the answer is no.** *"Unless I make a hole
+  4x4 it isn't going to drain into eventually?"* — **every** hole drains, down to one 0.25 m voxel,
+  at **30 L/s**; a `hand_pick` bore empties a 9,000,000 L lake in **38 hours of world time**. And
+  **the rate is linear in the bore's width, nowhere near its area** — 9× the width, 9.0× the rate,
+  81× the cross-section — so past the first voxel the constraint is the 0.75 m tunnels below.
+- **The flood is affordable and the settle is not.** Peak active **2,706–17,357 cells** against
+  M8-PLAN's derived ~14,400, and **26,701 visits/s at 2 Hz against the light budget's ~520,000 —
+  5.1%.** But **every 96 m arm hit a 41-minute budget with 9,000–21,000 cells still awake, more
+  than during the flood**, because water keeps spreading after the inflow stops. It terminates — a
+  16 m mine reached real rest in 11,071 ticks — but **it stayed at ~1,700 active for 10,992 of
+  those 11,071 ticks and collapsed in the last 79.** There is no cheap early exit. **DESIGN's
+  *sleeping is load-bearing* is now measured, and M8b's handoff to Tier A is load-bearing rather
+  than tidy.**
+- **Eighteen break-recipes, seventeen caught, and all three holes were fixtures rather than missing
+  assertions** — a chunk that empties and refills, water inside rock (unreachable by any run of the
+  automaton), and a 1×1 shaft, which is the only shape where the "room below" clause fires without
+  the sideways clause firing too. **The eighteenth is an identity and is named as one**: `Wake(to)`
+  cannot be broken today because every destination is a face neighbour of the source — and it is
+  kept because **the debug relay is a transfer between cells that are not adjacent.**
 
 **Four of M7's five play questions are answered (2026-09-02), and the sharpest thing the play
 produced is a question rather than an answer.** The pond pacing reads right — *"in sealed ponds

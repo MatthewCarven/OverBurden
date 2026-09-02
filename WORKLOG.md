@@ -1,5 +1,110 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-02 — M8a-2: the flood is affordable and the *settle* is not, and that decides M8b
+
+`dotnet run --project MinerCraft.Bench -c Release -- --fluid`. **Release, machine control 1.03x**,
+so these are within a rounding error of reference speed. Suite unchanged at 850 — this part adds
+an instrument, not a rule.
+
+**The fixture is the case M8-PLAN named**, and deliberately not a tank: a 96 m × 96 m grid of
+0.75 m tunnels 2 m high on an 8 m pitch, 24 m under real generated terrain, caves included, fed by
+one bore from a **9,000,000 L lake**. The lake pours in **as fast as the bore accepts it and no
+faster** — whatever the mouth refuses stays in the lake and is offered again next tick, which is
+what makes the achieved rate a measurement rather than a setting.
+
+### The sweep is the breach width, because the play asked
+
+*"Unless I make a hole 4x4 it isn't going to drain into eventually?"* — that question with numbers
+against it. Tunnels stay 0.75 m in every arm, so the breach is the only thing moving.
+
+```
+bore              L/tick   L/s   hours to   peak     visits/s   ms/tick   ms/tick   held    panels  MiB
+voxels (metres)                  drain 9M   active   @2Hz       mean      max       cells
+1  (0.25 m)        15.1     30     82.9      2,706     2,725     0.437     6.585     4,699    39   2.4
+3  (0.75 m)        32.9     66     38.0      4,234     5,439     0.607     1.798     6,587    51   3.2
+5  (1.25 m)        55.9    112     22.4      9,240    12,118     1.258     2.621    10,495    64   4.0
+9  (2.25 m)       136.2    272      9.2     17,357    26,701     2.712     4.076    17,738    68   4.2
+```
+
+Volume conserved **exactly** in every arm, over tens of millions of transfers.
+
+- **The answer to the play's question is no, and the instinct behind it was about speed rather than
+  possibility.** *Every* hole drains, down to a single 0.25 m voxel, at **30 litres a second**. The
+  4 m figure was Tier A's analysis lattice, and Tier B never sees it.
+- **The drain rate is close to linear in the bore's *width* and nowhere near its *area*.** Nine
+  times the width gives **9.0×** the rate while offering 81× the cross-section. So the shaft is not
+  the constraint past the first voxel — **the 0.75 m tunnels it empties into are**, which is the
+  same "the characteristic feature of this game is three voxels wide" fact showing up a third time.
+- **A `hand_pick` bore empties a 9,000,000 L lake in 38 hours of world time.** That is a pacing
+  number M8d and M10 will want, and it is the first one this project has for *how long losing a
+  mine takes*.
+
+### The number M8a existed to take, and M8-PLAN's estimate was the right order
+
+Peak active **2,706 to 17,357 cells** against the plan's derived **~14,400**, and **26,701 cell
+visits per second at 2 Hz against the ~520,000/s the light budget already licenses — 5.1% at the
+widest breach.** SCALE's ~50,000-cell revisit trigger is not reached. **Decision 1's 0.25 m cell
+is confirmed affordable, measured rather than derived.**
+
+Per tick the automaton costs **0.44 to 2.71 ms mean**, 1.8 to 6.6 ms worst, at 203–321 ns a visit.
+At 2 Hz that is half a percent of one core — but **2.7 ms is a sixth of a frame arriving all at
+once**, so the tick wants a time slice the way the light step has one. Named, not built.
+
+### The finding that changes M8b: it does not settle, and the active set does not decay
+
+**Every 96 m arm hit a 5,000-tick budget — 41.7 minutes of world time — with 9,000 to 21,000 cells
+still awake, more than were awake during the flood.** The water keeps spreading after the inflow
+stops, so the wetted area is still growing when the clock runs out.
+
+**It does terminate; a smaller arm proves it.** A 16 m mine taking 15,046 L reached full rest in
+**11,071 ticks — 92 minutes of world time — and `VerifyQuiescent` confirmed the rest was real.**
+The two points are consistent with **O(n²) in the length of a flooded corridor**: 96 m is six times
+16 m, 36× the ticks, ≈400,000 ticks ≈ 55 hours of world time.
+
+**And the decay-curve instrument returned the opposite of what it was built to show.** It was added
+to separate "the flood stops costing" from "every last millilitre is level", on the assumption the
+first happens quickly. It does not: **the 16 m arm stayed at ~1,700 active cells for 10,992 of its
+11,071 ticks and then collapsed in the last 79.** A flood keeps its *whole wetted area* awake until
+it is completely level. There is no cheap early exit hiding in the curve.
+
+- **So DESIGN's *sleeping is load-bearing, not an optimisation* is now measured rather than
+  asserted, and M8b's Tier B → Tier A handoff is load-bearing rather than tidy.** Without it a
+  flooded mine holds ~10,000–20,000 cells awake for hours of world time. **This is the measurement
+  that says the handoff is the milestone, not the CA.**
+- **The cost of not having it is bounded and small, and saying so is the honest half.** 21,000
+  cells at 2 Hz is 42,000 visits/s — 8% of the light budget. This is a *design* failure rather than
+  a performance emergency, which is exactly the distinction M8-PLAN warned would be hard to see:
+  *"it will look like a performance problem right up until somebody realises it is a termination
+  problem."* Here it looks like neither, which is worse.
+- **The named fallback, deliberately not built: a coarser rest tolerance.** Letting neighbours
+  differ by more than four millilitres before either of them moves would end the settle far sooner,
+  at the cost of a *visibly* tilted surface, since the residue accumulates along a path. **Do not
+  build it before M8b measures how much of this the handoff removes** — the whole point of the
+  three-tier design is that a settled body stops being Tier B's problem.
+
+### Two instrument defects, and the first one produced a wrong number
+
+- **The fixture measured itself.** The first version answered `CanHold` by calling
+  `WorldGenerator.IsCaveAt`, so each of six neighbour queries per visit evaluated eight octaves of
+  gradient noise: **3.86 µs a visit, against the light propagator's 0.457.** In the real world
+  `CanHold` is an index into a chunk's voxel array. Baking the terrain into a lazily-built bitset
+  column took it to **0.20–0.32 µs** and made the figure a measurement of the automaton.
+  **"Check whether observing changed what you observed", and the first reading was 12–19× the
+  truth.**
+- **Conservation and quiescence shared a column.** An arm whose settle hit its tick budget is not
+  quiescent, which made a perfectly conserved run print `*** NO ***` under a heading that said
+  `conserved`. Two properties, two columns. **Same family as M6d-2's `F0` voxel counts** — the
+  instrument was readable and wrong.
+
+### The panel trigger fired on its own first measurement, and it was the wrong trigger
+
+`FluidGrid`'s comment shipped this morning with *"revisit when panels average under ~1% full"*.
+Measured: **0.37% to 0.80%**, on every arm. That is not a surprise and not a defect — a tunnel grid
+is a sparse skeleton cut through solid rock, which is the geometry a dense panel is worst at.
+**What it actually cost was 4.2 MiB**, a twentieth of one drawn chunk's mesh budget at r12.
+**Restated as an absolute: revisit when `PanelBytes` passes ~64 MiB in a played session.** A ratio
+a sparse world will always fail is not a trigger, it is a complaint.
+
 ## 2026-09-02 — M8a-1: the automaton, and the first thing it did was catch its own wake rule
 
 **M8's Tier B, in `MinerCraft.Core/Fluid/`** — `FluidConstants`, `IFluidTerrain`, `FluidGrid`,

@@ -1,4 +1,4 @@
-# Scale — how big the world is, in the units each system iterates
+﻿# Scale — how big the world is, in the units each system iterates
 
 > Reference sheet. Written 2026-09-01, from measured runs plus arithmetic that is reproducible
 > from the constants below. **Every figure here is either measured and labelled as such, or
@@ -91,15 +91,37 @@ spends is affordable, and one wanting multiples of it is not.
 
 ## Sizing the systems that do not exist yet
 
-**M8's water.** The active set of a filling body is its **surface, not its volume**. A generous
-cave at 30 × 30 × 10 m is 9,000 cells of volume but roughly **900 cells of waterline**, and at a
-slow tick — 2 Hz, which [is accurate rather than approximate](../TODO.md) for a process that takes
-minutes in the world — that is **~1,800 cell visits per second**, about **0.3%** of what lighting
-is already licensed for.
+**M8's water — measured at M8a-2, 2026-09-02, and this section is the re-derivation it asked for.**
 
-**Caveat: water's cell size is not settled.** 1 m is used above because it is the light lattice,
-but M8's Tier B granularity is genuinely open and it is a **64× swing** against voxels. Re-derive
-this section once that is decided.
+The estimate below stood as written: *the active set of a filling body is its surface, not its
+volume*. A generous cave at 30 × 30 × 10 m is 9,000 cells of volume but roughly **900 cells of
+waterline** at 1 m, and M8-PLAN carried that to voxels as **16× rather than 64×, ~14,400 cells**,
+because a waterline is an area.
+
+**Measured, on a 96 m × 96 m mine flooding from a lake through breaches of four widths:**
+
+| breach | peak active cells | cell visits/s at 2 Hz | share of the light budget |
+|---|---|---|---|
+| 0.25 m | 2,706 | 2,725 | 0.5% |
+| 0.75 m | 4,234 | 5,439 | 1.0% |
+| 1.25 m | 9,240 | 12,118 | 2.3% |
+| 2.25 m | 17,357 | 26,701 | **5.1%** |
+
+**So the cell size is settled at 0.25 m and it is affordable**, the estimate was the right order,
+and the ~50,000-cell revisit trigger is not reached. The 64× caveat is closed.
+
+**But the estimate was right about the wrong phase, and that is the finding to carry forward.**
+Every figure above is the *flood*. When the inflow stops the water keeps spreading, the active set
+keeps **growing**, and a 96 m mine was still holding 9,000–21,000 cells awake after 41 minutes of
+world time. Levelling is diffusive — O(n²) in the length of a flooded corridor — and a 16 m mine
+that did run to completion took **11,071 ticks, 92 minutes of world time**, staying at ~1,700
+active for all but the last 79 of them.
+
+> **The rule this adds to the file: an active set can be small and still never empty.** Every
+> earlier system here goes quiet on its own — light reaches a fixpoint, streaming finishes a box
+> difference, a carve ends. Tier B is the first whose active set has no natural end, and the answer
+> is not a smaller set but a **handoff**: a settled body stops being Tier B's and becomes Tier A's.
+> That is M8b, and this measurement is why it is the milestone rather than the automaton.
 
 **M9's collapse.** Deferred rather than continuous (Matthew's proposal, recorded in TODO), so the
 eligibility test is allowed to be late — which means it can run coarse and sampled rather than

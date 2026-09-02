@@ -3589,13 +3589,60 @@ part is the automaton and its oracles, M8a-2 is the measurement.
       `MaterialDefinition` rather than a second special case. M8c adds `permeability` to the same
       file, which is the natural moment.
 
-#### M8a-2 — the measurement ← **next**
+#### M8a-2 — the measurement ← **done 2026-09-02, `--fluid` on the bench**
 
-- [ ] **Peak active cells, cell visits per second and time to quiescence for a 9,000,000 L lake
-      draining into a shaft**, printed beside the light budget's ~520,000 visits/s. Not SCALE's
-      settling cave: this is a sustained flow and is the case the play will produce.
-- [ ] **Re-derive SCALE.md's "sizing the systems that do not exist yet" section afterwards** — it
-      asks for that by name, and M8-PLAN's ~14,400-cell estimate is derived rather than measured.
+- [x] **Peak active cells, cell visits per second and time to quiescence for a 9,000,000 L lake
+      draining into a shaft**, printed beside the light budget's ~520,000 visits/s.
+- [x] **Re-derive SCALE.md's sizing section** — done in place; the 64x caveat is closed.
+- [x] **The play's question is answered with a number, and the answer is no.** *"Unless I make a
+      hole 4x4 it isn't going to drain into eventually?"* — **every** hole drains, down to a single
+      0.25 m voxel, at **30 litres a second**. The 4 m figure was Tier A's analysis lattice and
+      Tier B never sees it. **The drain rate is close to linear in the bore's width and nowhere
+      near its area** — 9x the width gives 9.0x the rate while offering 81x the cross-section, so
+      past the first voxel the constraint is the 0.75 m tunnels it empties into. Third outing for
+      *the characteristic feature of this game is three voxels wide*. **A `hand_pick` bore empties
+      a 9,000,000 L lake in 38 hours of world time**, which is the first number this project has
+      for how long losing a mine takes.
+- [x] **Decision 1 is confirmed by measurement: 0.25 m cells are affordable.** Peak active
+      2,706–17,357 against M8-PLAN's derived ~14,400; **26,701 visits/s at 2 Hz against the
+      ~520,000 the light budget licenses — 5.1% at the widest breach.** The ~50,000-cell revisit
+      trigger is not reached.
+- [ ] **The tick wants a time slice, the way the light step has one.** 0.44–2.71 ms mean per tick
+      is half a percent of one core at 2 Hz, but **2.7 ms is a sixth of a frame arriving at once**.
+      Named, not built.
+- [ ] **THE FINDING THAT DECIDES M8b: it does not settle, and the active set does not decay.**
+      Every 96 m arm hit a 5,000-tick budget — 41.7 min of world time — with **9,000 to 21,000
+      cells still awake, more than were awake during the flood**, because the water keeps
+      spreading after the inflow stops. It *does* terminate: a 16 m mine reached full rest in
+      **11,071 ticks, 92 min of world time**, with `VerifyQuiescent` confirming it. The two points
+      fit **O(n²) in the length of a flooded corridor** — 96 m extrapolates to ~55 hours.
+      - [ ] **The decay-curve instrument returned the opposite of what it was built to show.** It
+            assumed "the flood stops costing" happens long before "every millilitre is level". The
+            16 m arm stayed at ~1,700 active for **10,992 of its 11,071 ticks** and collapsed in
+            the last 79. **A flood keeps its whole wetted area awake until it is completely level;
+            there is no cheap early exit in the curve.**
+      - [ ] **So DESIGN's *sleeping is load-bearing, not an optimisation* is measured rather than
+            asserted, and M8b's Tier B → Tier A handoff is the milestone rather than the CA.**
+      - [ ] **The honest other half: the cost of not having it is bounded and small.** 21,000 cells
+            at 2 Hz is 8% of the light budget. **A design failure rather than a performance
+            emergency** — which is worse than what M8-PLAN warned about, since it looks like
+            neither.
+      - [ ] **Named fallback, deliberately not built: a coarser rest tolerance.** It would end the
+            settle far sooner at the cost of a *visibly* tilted surface, since the residue
+            accumulates along a path. **Do not build it before M8b measures how much the handoff
+            removes.**
+- [ ] **Two instrument defects, and the first produced a wrong number.** The fixture answered
+      `CanHold` by calling `IsCaveAt`, so six neighbour queries a visit each evaluated eight
+      octaves of noise: **3.86 µs a visit against the light propagator's 0.457.** Baking the
+      terrain into a bitset took it to 0.20–0.32 µs. *Check whether observing changed what you
+      observed* — the first reading was 12–19x the truth. And **conservation and quiescence shared
+      a column**, so an arm whose settle hit its budget printed `*** NO ***` under `conserved`.
+- [ ] **`FluidGrid`'s panel trigger fired on its own first measurement, and it was the wrong
+      trigger.** *"Revisit when panels average under ~1% full"* — measured at **0.37%–0.80% on
+      every arm**, because a tunnel grid is a sparse skeleton cut through solid rock. What it cost
+      was **4.2 MiB**, a twentieth of one drawn chunk's mesh budget at r12. **Restated as an
+      absolute: revisit when `PanelBytes` passes ~64 MiB in a played session.** A ratio a sparse
+      world will always fail is not a trigger, it is a complaint.
 - [ ] Tier C coarse groundwater saturation field, fed by rain, drains downhill
 - [ ] Seepage into excavations driven by saturation × material permeability
 - [ ] Transparent render pass, back-to-front sorting
