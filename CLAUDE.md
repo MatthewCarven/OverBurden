@@ -134,6 +134,15 @@ measured at 2.5x that, hours apart, with identical binaries**, which is enough t
 across a decision threshold. Divide by the stated factor before comparing with any number in the
 worklog.
 
+Measure against a **played** world without touching it — the recipe that retired M6's load-path
+concern on 2026-09-03. Copy `worlds/<name>/` to `worlds/probe-load/`, copy it again to
+`worlds/probe-empty/` and `delete from chunks; delete from columns` there (same header, position,
+clock and basins — nothing to load), then run both with `--profile --world=probe-load` /
+`--world=probe-empty` and delete both afterwards. **Stand where the player stood, and read `light
+settled` rather than `first draw`**: inside a mined-out void every mesh is correctly empty, so
+`first draw` never fires and the report reads as a stall. The world file is SQLite; count
+`chunks` rows and their `length(blob)` (uniform ≈ 52–63 B) before deciding what a run measured.
+
 Verify headlessly — no display needed, catches scene and script errors and prints the
 diagnostics:
 
@@ -246,14 +255,21 @@ copy in `../GAME/`.
 
 - Append findings and decisions to WORKLOG.md; tick and add tasks in TODO.md. Both as you
   go, not at the end.
-- Commit with a message that explains *why*, and end with
-  `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`.
+- Commit with a message that explains *why*, and end with the `Co-Authored-By:` line the harness
+  gives the model that wrote it — `Claude Opus 5 <noreply@anthropic.com>` through 2026-09-03,
+  `Claude Fable 5.1 <noreply@anthropic.com>` from then. Do not copy the line from an older commit.
 - Matthew runs `git init` and `git push` himself — flag when either is needed. Remote is
   `github.com/MatthewCarven/MinerCraft`, **private**, default branch `main`.
 - `reference/` is gitignored and holds third-party sources we **read but never build
   against** (currently godot_voxel). Nothing in it belongs in a `.csproj`.
 
 ## Where things stand
+
+**Pick up here (2026-09-03): M8b — the Tier A ↔ Tier B seam, the debug relay first** (see
+[docs/M8-PLAN.md](docs/M8-PLAN.md)); **and before its tick budget is settled, give `--fluid` a
+chunk-void shape**, because the play made 8 m chambers the normal case. The gate on the entangled
+miner is a battery and waits for M10. `git log origin/main..main` says what Matthew still has to
+push.
 
 **The played world (2026-09-03): 4,584 stored chunks, and M6's load-path concern is retired for the
 shape the chunk miner produces.** Matthew mined a 264 × 304 m region 64 m deep; 4,562 of its chunks

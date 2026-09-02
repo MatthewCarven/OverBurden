@@ -171,7 +171,10 @@ capacities summed against water standing in merged lakes above their saddles —
   times a second, and **a fill puts 512 m³ in mid-air with nothing anchoring it** — under any support
   rule that is rubble the moment it lands unless it is shored. M9's planning pass should take the
   chunk bite as its worst case the way M8a took the lake-into-shaft.
-- **The gate that makes you earn it is not on the plan at all.** Matthew, 2026-09-02: the chunk bite
+- **The gate that makes you earn it is not on the plan at all — SUPERSEDED the same day, see the
+  entry above: the gate is a battery, attaches to M10, and is not a third game-mode dependant.**
+  Matthew on this list: *"Like the 5 points too minus point 3"* — this was point 3. Kept for the
+  reasoning that led there. Matthew, 2026-09-02: the chunk bite
   is *"totally endgame like, we're talking you've been to space and back"* — **and the next day,
   reading that back: *"space and back was like a figure of speech like I meant ima make you work to
   get this."*** So not the last tier: a tool with a **price**, which is the sharper version, because

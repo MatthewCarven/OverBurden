@@ -4156,7 +4156,9 @@ hold is the whole of getting it right.**
 
 Matthew: *"I've just been playing it mining out huge chunks … tell me if you can suggest anything
 about what we are doing here that is not on the plan."* Worklog entry of the same date has the
-numbers; these are the tasks it surfaced.
+numbers; these are the tasks it surfaced. **Endorsed by Matthew the same day — *"Like the 5
+points too minus point 3"* — where point 3 was the gate as a game-mode dependant, since superseded
+by the battery item below. The rest are wanted, not merely suggested.**
 
 - [x] **M6's load-path concern is retired for the shape the chunk miner produces.** 4,584 stored
       chunks against M6d-2's 176 and the predicted 2,505 crossover. Standing start at the saved
