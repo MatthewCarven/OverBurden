@@ -71,6 +71,18 @@ and it looked exactly like the renderer failing. **It now takes `--settle=<ms>`*
 wait it used; the shots above are 24–45 s. Fourth outing for *eyeballing a screenshot is a
 measurement too*, and the first where the picture was correct and early.
 
+**Follow-up the same hour.** Matthew ran `start.cmd -- --lightbudget=16` and still saw no ground
+after flying up. `start.cmd` does forward `%*`, and a copy of the world taken from that session's
+autosave draws the floor with the flag — 12.99 s headless, and a 30 s windowed shot looking down
+is all stone — so the flag works at his position. What could not be checked is his run: the game
+printed nothing about which budget it was given, so a flag that did not arrive looked identical to
+one that did until first draw. **The `M2c: streaming` startup line now prints the light budget.**
+Two other readings from his screenshots: the voxel highlight was showing on the crosshair with
+nothing drawn, which is a `Hit` on a loaded, unlit, unmeshed voxel a metre away — the mechanism
+made visible; and the header position in the autosave had not moved from the earlier session's,
+which is either a session that was killed with its console window (no `_ExitTree`, no header) or
+something to look at in what `CurrentHeader()` samples while flying. Not chased.
+
 **Recommendation, Matthew's to take.** The fix that addresses the played-world case regardless
 of machine speed is the cheapest: **order `_lightBuilds` by distance to the viewer** the way the
 job list is, so the centre lights first and the ring lights while the person is already looking

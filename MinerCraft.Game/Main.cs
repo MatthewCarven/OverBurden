@@ -622,7 +622,10 @@ public partial class Main : Node3D
             $"M2c: streaming r{ViewDistanceHorizontal}h/{ViewDistanceVertical}v " +
             $"+{_pipeline.Streamer.LoadMargin} margin on {_scheduler.ThreadCount} worker(s), " +
             $"vertex AO {(_ambientOcclusion ? "on" : "off")}, " +
-            $"light in merge key {(_lightInMergeKey ? "on" : "off")}");
+            $"light in merge key {(_lightInMergeKey ? "on" : "off")}, " +
+            // Printed because a flag that silently did not arrive looks identical to one that
+            // did until first draw — the 2026-09-03 "ground is gone" session could not tell.
+            $"light budget {(_lightBudget ?? ChunkPipeline.DefaultLightBudget).TotalMilliseconds:F0} ms");
     }
 
     /// <summary>
