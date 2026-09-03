@@ -1,5 +1,20 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-03 — The game is Overburden
+
+Matthew: *"Overburden it is Claude."* From a shortlist of mining words — Overburden, Sump, Ingress,
+Adit, Seep, Shoring, Undercut — offered because "MinerCraft" was one letter from Mojang's mark and
+the name check had been open since the TODO was written. Recorded in DESIGN's locked decisions.
+
+**The rename is staged rather than done, and the reason is a non-negotiable.** 179 tracked files
+say the name; 152 of them are C# namespaces and are a sed. The one that is not a sed is the base
+mod's namespace: `Identifier.BaseNamespace` is `"minercraft"`, and non-negotiable 2 puts that
+string into every saved world's ID table as `minercraft:stone`. Editing the constant would open a
+played world to a table full of identifiers no mod defines — the "removed mod leaves a hole"
+case, for every material at once. So stage 3 is an alias at ID-table read, kept forever, tested
+against a real world file; and `config/name` moves the `user://` folder, so the played worlds need
+carrying across too. Stages in TODO; stage 4 (the GitHub repo and the folder) is Matthew's.
+
 ## 2026-09-03 — The retained-chunk cache is planned, and the comment it overturns is six milestones old
 
 Matthew asked whether there is a cache between the game and the database (there is none: `Forget`

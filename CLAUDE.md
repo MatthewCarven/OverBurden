@@ -287,6 +287,11 @@ copy in `../GAME/`.
 
 ## Where things stand
 
+**The game is Overburden as of 2026-09-03; the rename is staged in TODO and only stage 1, the
+decision, is done.** Everything in this file still says MinerCraft until stage 2 lands. **Stage 3
+is the dangerous one**: `minercraft:` is inside every saved world's ID table, so the base mod's
+namespace needs a read-time alias, never an edit.
+
 **Pick up here (2026-09-03): M8b-2 — A → B, the breach**, portals indexed by 4 m sample and
 `BasinWater.Remove` as `Pour` reversed (see [docs/M8-PLAN.md](docs/M8-PLAN.md), M8b's split);
 **and settle the tick budget as a slice before the breach can produce the roof-open case in play**

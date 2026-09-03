@@ -106,7 +106,26 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
 - [ ] Power model complexity — decide at M10
       - **Its first consumer is known before it is, 2026-09-03: the entangled miner draws stored
         energy, must be recharged, and battery tiers are the ladder.** See the M10 section.
-- [ ] Name check: "MinerCraft" — keeping it?
+- [x] Name check: "MinerCraft" — keeping it? **No. The game is Overburden, decided 2026-09-03**
+      (DESIGN, locked decisions). The rename is four stages, in order, each its own session:
+      - [x] **Stage 1 — the decision, recorded.** DESIGN, this list, the worklog, CLAUDE.md.
+      - [ ] **Stage 2 — code and projects.** `MinerCraft.slnx`, the five `.csproj`, the project
+            folders, `assembly_name`, and `namespace MinerCraft.*` across 152 files → `Overburden.*`.
+            Mechanical: one sed, one build, the whole suite, the default headless baseline
+            unchanged to the digit. `start.cmd` and `screenshot.gd` follow. Non-negotiable 1 keeps
+            its meaning with the new name — `Overburden.Core` never references Godot.
+      - [ ] **Stage 3 — the content namespace, and it is the one that can lose data.**
+            `Identifier.BaseNamespace` is `"minercraft"`, `mods/minercraft/` is the base mod, and
+            **every saved world's ID table holds `minercraft:stone` as a string** (non-negotiable 2).
+            Renaming to `overburden` needs an alias applied when a world's ID table is read — old
+            namespace → new, kept forever, tested against a real v3 world file — and a re-save
+            writes the new names. Non-negotiable 3 is restated as `overburden:air` is ID 0. Also
+            `config/name` in `project.godot`, which moves `user://` from
+            `app_userdata/MinerCraft/` to `app_userdata/Overburden/` and would make every played
+            world vanish: copy the old folder on first run if the new one is empty, or Matthew moves
+            it by hand — decide at the stage.
+      - [ ] **Stage 4 — Matthew's.** Rename the GitHub repo, rename the local folder, update the
+            remote URL, then the docs that name `github.com/MatthewCarven/MinerCraft`.
 
 ## Before the repo goes public
 

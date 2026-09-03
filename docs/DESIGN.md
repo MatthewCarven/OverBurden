@@ -61,6 +61,14 @@ The rule cuts both ways and the second half matters more:
 The trap this closes: a binding that is individually reasonable can still be wrong, because what
 makes it wrong is a convention held somewhere other than in this repository.
 
+**The game is called Overburden — decided 2026-09-03.** Matthew, from a shortlist drawn from what
+the game is: the rock you must move to reach what you want, and the weight above your head.
+"MinerCraft" was one letter from Mojang's trademark and had been an open item since the name
+check was written. The rename is staged in TODO rather than done in one pass, because one stage
+touches non-negotiable 2: the base mod's namespace, `minercraft:`, is written into every saved
+world's ID table, so it cannot simply be edited — it needs an alias at ID-table read that stays
+forever, the inverse of "a removed mod leaves a hole that stays".
+
 ---
 
 ## Non-negotiables (decided week one, murder to change later)
