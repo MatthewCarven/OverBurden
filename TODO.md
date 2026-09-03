@@ -3732,6 +3732,12 @@ finding without the coarser-tolerance fallback.
       the one that gives a single derive a frame. `--lightbudget=16` is the workaround until then.
       `PaddedChunk.CopyFrom` stays the named lever on the cost itself. Also recorded there as a
       question: the window holding 640.6% of its leaf capacity with 0 L spilled.
+- [ ] **The retained-chunk cache — planned 2026-09-03 on Matthew's "go", not started.** See
+      [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md). Two slices: voxels and sky columns
+      first, derived light second. The premise `ChunkStreamer.Forget`'s comment argues from — a
+      returning chunk regenerates from the seed — has been false since M6, and the comment is
+      corrected in the same pass. Needs `--turnaround=<seconds>` on the flythrough to measure.
+      Does nothing for a first fill; the distance-ordered derive queue above is still that fix.
 - [ ] **M8b-2 — A → B, the breach.** Portals (air at or below its surface with a neighbour above
       *its* surface), found at edit time and by a load-time scan of surface-band chunks, indexed by
       4 m sample so only wet samples are walked. `BasinWater.Remove` as `Pour` reversed. Oracle:

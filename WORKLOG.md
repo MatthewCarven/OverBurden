@@ -1,5 +1,32 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-03 — The retained-chunk cache is planned, and the comment it overturns is six milestones old
+
+Matthew asked whether there is a cache between the game and the database (there is none: `Forget`
+drops voxels, light and column, and the return is a serial load, a derive and a mesh) and whether
+the loader should be more proactive. The honest answer given: the loader is not what he is waiting
+on — the derive is — but a turnaround is as dear as arriving somewhere new, and that is the case a
+cache fixes. On his "go" it is planned as a slice: [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md).
+Three things from the planning pass:
+
+- **`Forget`'s argument against keeping light warm is stale.** It says a returning chunk
+  *regenerates from the seed*, so its derived light is guaranteed to be re-derived anyway. Since
+  M6 a returning chunk has the identical voxels whichever source it comes from — that is what
+  persistence means — so derived light is invalid only if a neighbour or the column changed while
+  it was out, and both of those already have a hook site. A comment that was right at M5c-1 and
+  nobody re-read at M6.
+- **The cache is a fourth source and goes second**, between memory and disk, and it never holds
+  the only copy: the save still runs at unview, so eviction is a free drop, with one dirty-on-evict
+  rule for a save `StepBack` restored. M6's ordering rule is the correctness argument.
+- **Propagated light values are never kept**, because a lamp removed while a chunk was cached
+  would leave a value nothing ever darkens; derived data is kept and invalidated by two pushes at
+  existing call sites. The load-bearing test is the M5b incremental-equals-from-scratch oracle with
+  the streamer cycling chunks and a lamp removed in the meantime — and the fixture has to assert
+  the far chunk was really cached, or it is the sky-shaft trap again.
+
+Stated plainly in the plan: it does nothing for the first fill Matthew actually saw. That fix is
+still the distance-ordered derive queue.
+
 ## 2026-09-03 — "The ground is gone": nothing is hidden, nothing has drawn, and the played world lights its own centre last
 
 Matthew's screenshot from the played world: rain, the hotbar, blue-grey "cloud" shapes near the
