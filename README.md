@@ -16,7 +16,7 @@ No mobs, no combat. The mine is the antagonist.
 **M0 through M5 done, and M6 under way** — 734 tests passing. Terrain streams around the
 camera without end: worldgen and greedy meshing run on worker threads over palette-compressed
 storage, drawn via `RenderingServer` with a texture array, with every material loaded from
-`mods/minercraft/*.json` exactly the way a third-party mod would load its own. Chunks load
+`mods/overburden/*.json` exactly the way a third-party mod would load its own. Chunks load
 and unload as you move, on a scheduler that reprioritises queued work and cancels what
 went stale before a thread was free to run it. A pick swing carves a sphere out of the world,
 gated by tool tier against material hardness. You walk it — an AABB against the voxel grid,
@@ -45,7 +45,7 @@ Some numbers it is built on:
 comes out of the world, gated per voxel by hardness. Swing a `hand_pick` at a dirt bank with
 a stone seam through it and the dirt goes while the seam stands — no special case, no "you
 cannot mine this" message, just the shape of the hole telling you what your tool is for. Tool
-tiers are content, loading from `mods/minercraft/tools/*.json` through the same loader
+tiers are content, loading from `mods/overburden/tools/*.json` through the same loader
 materials use; the number keys switch between them.
 
 It has been played, and it feels good — which was the actual bar, this being the first

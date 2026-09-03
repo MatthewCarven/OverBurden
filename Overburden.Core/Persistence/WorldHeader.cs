@@ -194,7 +194,7 @@ public static class WorldHeaderBlob
         if (table.Count == 0)
         {
             throw new ArgumentException(
-                "A world's material table cannot be empty; entry 0 is always minercraft:air.",
+                $"A world's material table cannot be empty; entry 0 is always {Air}.",
                 nameof(header));
         }
 
@@ -206,6 +206,14 @@ public static class WorldHeaderBlob
             throw new ArgumentException(
                 $"Material ID 0 is '{table[0]}', but {Air} is numeric ID 0 in every world, always. "
                 + "See MaterialIds.AirNumericId.",
+                nameof(header));
+        }
+
+        if (FindDuplicate(table) is var (firstId, secondId, twice))
+        {
+            throw new ArgumentException(
+                $"Material IDs {firstId} and {secondId} are both '{twice}'; a table names each "
+                + "material once.",
                 nameof(header));
         }
 
@@ -368,6 +376,28 @@ public static class WorldHeaderBlob
         return sorted;
     }
 
+    /// <summary>The first identifier that appears twice in <paramref name="table"/>, with both slots.</summary>
+    /// <remarks>Holes are not duplicates: <c>default</c> marks a removed mod, and several may be removed.</remarks>
+    private static (int First, int Second, Identifier Identifier)? FindDuplicate(IReadOnlyList<Identifier> table)
+    {
+        var seen = new Dictionary<Identifier, int>();
+
+        for (int i = 0; i < table.Count; i++)
+        {
+            Identifier id = table[i];
+            if (!id.IsValid) continue;
+
+            if (seen.TryGetValue(id, out int first))
+            {
+                return (first, i, id);
+            }
+
+            seen[id] = i;
+        }
+
+        return null;
+    }
+
     /// <summary>Rebuilds a world header, refusing anything it cannot interpret exactly.</summary>
     public static WorldHeader Read(ReadOnlySpan<byte> blob)
     {
@@ -432,6 +462,21 @@ public static class WorldHeaderBlob
             }
 
             offset += length;
+        }
+
+        if (FindDuplicate(table) is var (firstId, secondId, twice))
+        {
+            // Two entries meaning one material is what a build that predates a namespace alias
+            // leaves behind when it opens a newer world: it does not recognise the current
+            // spelling, registers its own under fresh numbers, and writes both on quit. The
+            // 2026-09-03 rename produced exactly this on its first run against a stale binary.
+            // Refused rather than repaired, because nothing here can know which number the
+            // chunks saved in that session used.
+            throw new BlobFormatException(
+                $"{What}: material IDs {firstId} and {secondId} are both '{twice}' once retired "
+                + "namespaces are applied. A world's table names each material once; this one was "
+                + "last opened by a build older than the alias it needs. Restore the header from "
+                + "before that session.");
         }
 
         // Version 1 stopped here, so a world written before M6c-2 carries no inventory and no

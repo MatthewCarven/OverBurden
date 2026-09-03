@@ -85,6 +85,18 @@ public sealed class Registry<T> where T : class
 
             if (identifier.IsValid)
             {
+                if (_idsByIdentifier.TryGetValue(identifier, out int first))
+                {
+                    // Two numbers for one identifier would leave every lookup by name pointing at
+                    // one of them and every stored voxel under the other. The way a saved table
+                    // gets here is a build that predates a namespace alias opening a newer world:
+                    // it does not recognise the current spelling, registers its own, and writes
+                    // both. See Identifier.RetiredNamespaces.
+                    throw new InvalidOperationException(
+                        $"Registry '{Name}': saved IDs {first} and {id} are both '{identifier}'. "
+                        + "A world's table names each material once.");
+                }
+
                 _idsByIdentifier[identifier] = id;
             }
         }

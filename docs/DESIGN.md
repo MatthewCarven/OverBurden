@@ -66,14 +66,17 @@ the game is: the rock you must move to reach what you want, and the weight above
 "MinerCraft" was one letter from Mojang's trademark and had been an open item since the name
 check was written. The rename is staged in TODO rather than done in one pass, because one stage
 touches non-negotiable 2: the base mod's namespace, `minercraft:`, is written into every saved
-world's ID table, so it cannot simply be edited — it needs an alias at ID-table read that stays
-forever, the inverse of "a removed mod leaves a hole that stays".
+world's ID table, so it cannot simply be edited — it needs an alias that stays forever, the
+inverse of "a removed mod leaves a hole that stays". **Done 2026-09-03, and the alias sits one
+level deeper than the read**: `Identifier` itself folds a retired namespace to the current one at
+construction, so `minercraft:stone` and `overburden:stone` are the same value wherever the string
+enters — a header, a mod's JSON, a command line — and no reader can forget it.
 
 ---
 
 ## Non-negotiables (decided week one, murder to change later)
 
-1. **Namespaced string IDs.** `minercraft:stone`, `mymod:copper_ore`. Resolved to
+1. **Namespaced string IDs.** `overburden:stone`, `mymod:copper_ore`. Resolved to
    numeric runtime IDs through a per-world palette that is **saved into the world
    file**. A hardcoded `enum BlockType` kills modding permanently and you won't
    notice for three months.

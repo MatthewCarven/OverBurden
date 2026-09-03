@@ -114,16 +114,21 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
             Mechanical: one sed, one build, the whole suite, the default headless baseline
             unchanged to the digit. `start.cmd` and `screenshot.gd` follow. Non-negotiable 1 keeps
             its meaning with the new name — `Overburden.Core` never references Godot.
-      - [ ] **Stage 3 — the content namespace, and it is the one that can lose data.**
-            `Identifier.BaseNamespace` is `"minercraft"`, `mods/minercraft/` is the base mod, and
-            **every saved world's ID table holds `minercraft:stone` as a string** (non-negotiable 2).
-            Renaming to `overburden` needs an alias applied when a world's ID table is read — old
-            namespace → new, kept forever, tested against a real v3 world file — and a re-save
-            writes the new names. Non-negotiable 3 is restated as `overburden:air` is ID 0. Also
-            `config/name` in `project.godot`, which moves `user://` from
-            `app_userdata/MinerCraft/` to `app_userdata/Overburden/` and would make every played
-            world vanish: copy the old folder on first run if the new one is empty, or Matthew moves
-            it by hand — decide at the stage.
+      - [x] **Stage 3 — the content namespace, and it is the one that can lose data.** Done
+            2026-09-03, suite 912 → 926. **The alias sits at `Identifier`'s constructor, not at
+            the header read**: `Identifier.RetiredNamespaces` folds `minercraft` to `overburden`
+            wherever a string enters — header, mod JSON, dependency list, command line — so the
+            two spellings are one value and no reader can forget it. Tested against the played
+            world's real v3 header (captured to `Fixtures/played-world-v3-header.bin` before the
+            change): the constant alone refuses the file, the alias reads it, and a re-save writes
+            the new names with every number kept. `mods/overburden/`, `config/name="Overburden"`,
+            `overburden:air` is ID 0. **The `user://` move was done by hand**: `worlds/` copied to
+            `app_userdata/Overburden/`, the `MinerCraft/` folder left as the backup — Matthew's to
+            delete once he has played the new one. **Two guards the stage found it needed**: a
+            table naming one material twice is refused at read, write and seed (the shape a build
+            older than the alias writes on quit — it happened, from a stale `.godot/mono` Core DLL,
+            and the artefact is `Fixtures/downgraded-world-v3-header.bin`), and a content error
+            now refuses the run instead of being played past.
       - [ ] **Stage 4 — Matthew's.** Rename the GitHub repo, rename the local folder, update the
             remote URL, then the docs that name `github.com/MatthewCarven/MinerCraft`.
             **Also the assistant's memory directory**, which is keyed on the working-directory

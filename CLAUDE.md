@@ -36,13 +36,16 @@ quietly reverse one.
 1. **`Overburden.Core` never references Godot.** That absence is the multiplayer seam.
    `Overburden.Core.Tests` exists partly to enforce it — if Core needs Godot, the tests
    stop compiling.
-2. **Content IDs are namespaced strings** (`minercraft:stone`), resolved to numeric IDs
+2. **Content IDs are namespaced strings** (`overburden:stone`), resolved to numeric IDs
    through a table the **world** owns, not the process. Never an enum. Never renumber,
-   never compact — a removed mod leaves a hole that stays.
-3. **`minercraft:air` is numeric ID 0**, always.
+   never compact — a removed mod leaves a hole that stays. **And a retired namespace is an
+   alias, forever**: `minercraft:` was the base game until 2026-09-03 and is inside every
+   world saved before then, so `Identifier` folds it to `overburden:` at construction. Never
+   remove an entry from `Identifier.RetiredNamespaces`.
+3. **`overburden:air` is numeric ID 0**, always.
 4. **Texture arrays, never an atlas.** Greedy meshing tiles UVs past 0..1 and an atlas
    cannot express that.
-5. **The base game is a mod.** It loads from `mods/minercraft/` through the identical
+5. **The base game is a mod.** It loads from `mods/overburden/` through the identical
    loader a third-party mod uses, with no privileged path. If something can't be
    expressed the way a mod would express it, the format is wrong.
 
@@ -107,7 +110,7 @@ chunks, each with and without `Compact`. **The stripped arm exists because the c
 benefit**: carving air into a chunk that already holds air leaves the palette untouched, so
 measuring only that prices `Compact` against a fixture with nothing to gain.
 
-It loads `mods/minercraft/` through the real loader, because conductance is a function of which
+It loads `mods/overburden/` through the real loader, because conductance is a function of which
 materials are opaque and a fixture would measure a made-up world.
 
 Measure the **M7 watershed** — the number that decided whether an incremental watershed ever has to
@@ -311,17 +314,17 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-**The game is Overburden as of 2026-09-03; stages 1 and 2 of the rename are done** — the
-decision, and the solution, projects, folders and namespaces. Godot's `config/name`, the window
-title and the `user://` folder still say MinerCraft, because that is stage 3's move. **Stage 3
-is the dangerous one**: `minercraft:` is inside every saved world's ID table, so the base mod's
-namespace needs a read-time alias, never an edit.
+**The game is Overburden as of 2026-09-03, and stages 1–3 of the rename are done** — the
+decision; the solution, projects, folders and namespaces; and the content namespace, the mod
+folder, `config/name` and the `user://` folder. **Stage 4 is Matthew's**: the GitHub repo, the
+local folder, the remote URL, and the assistant's memory directory (see TODO's name-check item).
+**The played worlds now live under `app_userdata/Overburden/`; the `MinerCraft/` folder beside it
+is the pre-rename backup and is Matthew's to delete.**
 
-**Pick up here (2026-09-03, late). Matthew agreed the order; the first is done.** (1) ~~the
-distance-ordered light derive queue~~ — **built**, see below; (2) **rename stage 3**, the
-content namespace alias and the `user://` carry-across, its own session because a test has to
-fail first (see TODO's name-check item); (3) **the retained-chunk cache, slice 2** — the derived
-light, with the two invalidation pushes and the incremental-equals-from-scratch oracle in
+**Pick up here (2026-09-03, late). Matthew agreed the order; two of three are done.** (1) ~~the
+distance-ordered light derive queue~~ — **built**; (2) ~~rename stage 3~~ — **built**, see the
+next paragraph; (3) **the retained-chunk cache, slice 2** — the derived light, with the two
+invalidation pushes and the incremental-equals-from-scratch oracle in
 [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md) §5 and test 7. Then the milestone work:
 **M8b-2 — A → B, the breach**, portals indexed by 4 m sample and
 `BasinWater.Remove` as `Pour` reversed (see [docs/M8-PLAN.md](docs/M8-PLAN.md), M8b's split);
@@ -329,6 +332,24 @@ light, with the two invalidation pushes and the incremental-equals-from-scratch 
 — a chunk bitten out from under a lake is a 73 ms tick in Release and ~0.7 s in Debug. The gate on
 the entangled miner is a battery and waits for M10. `git log origin/main..main` says what Matthew
 still has to push.
+
+**Rename stage 3 is built (2026-09-03). Suite 912 → 926.** `Identifier.RetiredNamespaces` folds
+`minercraft` to `overburden` **in the constructor**, so the two spellings are one value wherever a
+string enters — header, mod JSON, dependency list, command line — and no reader can forget the
+alias. Tested against the played world's real v3 header, captured before the change; the constant
+alone refuses that file, which is the failure the alias prevents. Four things worth keeping:
+
+- **After any Core change, `dotnet build Overburden.Game` before a headless run.** Godot runs the
+  DLL in `.godot/mono/temp/bin`, which `dotnet test` does not refresh. The stage's first run used
+  the stale Core, loaded `mods/overburden/` as a stranger, played past the content error and wrote
+  a header with two numbers for one material on quit. It hit the copy, not the original.
+- **A table naming one material twice is refused at read, write and seed**, with the cause named:
+  the only way a saved table repeats itself is a build older than the alias opening a newer world.
+  The real damaged header is `Fixtures/downgraded-world-v3-header.bin`.
+- **A content error refuses the run now.** M1 called air's absence a load error; `Main` had
+  printed it and carried on since then.
+- **A dependency on `minercraft` is satisfied by the base game; a mod's own ID is not aliased**,
+  because a mod's folder is its namespace and a folder called `minercraft` would read from nowhere.
 
 **The derive queue drains nearest-first (2026-09-03). Suite 910 → 912.** `ChunkPipeline`'s
 `_lightBuilds` was a FIFO, the one queue here without the job queue's distance rule; it is now a

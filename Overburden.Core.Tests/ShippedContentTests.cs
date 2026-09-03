@@ -4,7 +4,7 @@ using Overburden.Core.Voxels;
 namespace Overburden.Core.Tests;
 
 /// <summary>
-/// The real <c>mods/minercraft/</c> on disk, loaded through the real loader.
+/// The real <c>mods/overburden/</c> on disk, loaded through the real loader.
 /// </summary>
 /// <remarks>
 /// <para>

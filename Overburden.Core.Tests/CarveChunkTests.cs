@@ -94,7 +94,7 @@ public class CarveChunkTests
     /// <summary>A tier that takes dirt and not stone, as <c>hand_pick</c> does.</summary>
     private static ToolDefinition WeakPick() => new()
     {
-        Id = Identifier.Parse("minercraft:test_weak"),
+        Id = Identifier.Parse("overburden:test_weak"),
         RadiusMetres = 0.4f,
         HardnessThreshold = 1.0f,
         CooldownSeconds = 0.3f,
@@ -102,7 +102,7 @@ public class CarveChunkTests
 
     private static ToolDefinition StrongPick() => new()
     {
-        Id = Identifier.Parse("minercraft:test_strong"),
+        Id = Identifier.Parse("overburden:test_strong"),
         RadiusMetres = 0.5f,
         HardnessThreshold = 3.5f,
         CooldownSeconds = 0.2f,

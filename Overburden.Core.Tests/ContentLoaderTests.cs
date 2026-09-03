@@ -15,7 +15,7 @@ public class ContentLoaderTests
         Assert.True(result.Success, string.Join("\n", result.Errors));
         Assert.Equal(3, result.MaterialsLoaded); // air, dirt, stone
 
-        var stone = content.Materials.Get(Identifier.Parse("minercraft:stone"));
+        var stone = content.Materials.Get(Identifier.Parse("overburden:stone"));
         Assert.Equal(3.0f, stone.Hardness);
         Assert.Equal(30, stone.SupportDistance);
         Assert.Equal(0.02f, stone.Permeability);
@@ -44,26 +44,26 @@ public class ContentLoaderTests
         // Reserving air's number is separate from loading its definition, so its ID does
         // not depend on filename ordering.
         var source = TestContent.BaseGame()
-            .Add("minercraft", "materials/aaa_first.json", """{ "id": "aaa_first" }""");
+            .Add("overburden", "materials/aaa_first.json", """{ "id": "aaa_first" }""");
 
         var content = new GameContent();
         content.Load(source);
 
         Assert.Equal(0, content.Materials.GetNumericId(MaterialIds.Air));
-        Assert.NotEqual(0, content.Materials.GetNumericId(Identifier.Parse("minercraft:aaa_first")));
+        Assert.NotEqual(0, content.Materials.GetNumericId(Identifier.Parse("overburden:aaa_first")));
     }
 
     [Fact]
     public void MissingAirDefinitionIsAnError()
     {
         var source = new InMemoryContentSource()
-            .Add("minercraft", "mod.json", """{ "id": "minercraft", "name": "M", "version": "1" }""")
-            .Add("minercraft", "materials/stone.json", """{ "id": "stone" }""");
+            .Add("overburden", "mod.json", """{ "id": "overburden", "name": "M", "version": "1" }""")
+            .Add("overburden", "materials/stone.json", """{ "id": "stone" }""");
 
         var result = new GameContent().Load(source);
 
         Assert.False(result.Success);
-        Assert.Contains(result.Errors, e => e.Contains("minercraft:air"));
+        Assert.Contains(result.Errors, e => e.Contains("overburden:air"));
     }
 
     [Fact]
@@ -72,9 +72,9 @@ public class ContentLoaderTests
         var content = new GameContent();
         content.Load(TestContent.BaseGame().AddDeepDig());
 
-        // "copper_ore" in deepdig's files became deepdig:copper_ore, not minercraft:.
+        // "copper_ore" in deepdig's files became deepdig:copper_ore, not overburden:.
         Assert.True(content.Materials.Contains(Identifier.Parse("deepdig:copper_ore")));
-        Assert.False(content.Materials.Contains(Identifier.Parse("minercraft:copper_ore")));
+        Assert.False(content.Materials.Contains(Identifier.Parse("overburden:copper_ore")));
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public class ContentLoaderTests
         var content = new GameContent();
         content.Load(TestContent.BaseGame().AddDeepDig().AddAardvark());
 
-        int stone = content.Materials.GetNumericId(Identifier.Parse("minercraft:stone"));
+        int stone = content.Materials.GetNumericId(Identifier.Parse("overburden:stone"));
         int burrow = content.Materials.GetNumericId(Identifier.Parse("aardvark:burrow_dirt"));
 
         Assert.True(stone < burrow, "base game content must be numbered before third-party content");
@@ -104,7 +104,7 @@ public class ContentLoaderTests
         Assert.Contains(result.Errors, e => e.Contains("oops.json"));
 
         // ...and the base game still loaded.
-        Assert.True(content.Materials.Contains(Identifier.Parse("minercraft:stone")));
+        Assert.True(content.Materials.Contains(Identifier.Parse("overburden:stone")));
     }
 
     [Fact]
@@ -142,18 +142,38 @@ public class ContentLoaderTests
     }
 
     [Fact]
-    public void DuplicateDefinitionIsReported()
+    public void AModWrittenAgainstTheRetiredNamespaceStillLoads()
     {
-        // Two mods both claiming minercraft:stone is a conflict, not a silent override.
+        // A third-party mod from before the rename: it depends on "minercraft" and patches
+        // "minercraft:stone" by its old name. Both have to land on the base game as it is now,
+        // and the patch is a duplicate of overburden:stone rather than a definition in a
+        // namespace nothing reads.
         var source = TestContent.BaseGame()
-            .Add("rude", "mod.json", """{ "id": "rude", "name": "Rude", "version": "1" }""")
-            .Add("rude", "materials/stone.json", """{ "id": "minercraft:stone", "hardness": 999 }""");
+            .Add("oldtimer", "mod.json",
+                """{ "id": "oldtimer", "name": "Old", "version": "1", "dependencies": ["minercraft"] }""")
+            .Add("oldtimer", "materials/stone.json", """{ "id": "minercraft:stone", "hardness": 999 }""");
 
         var content = new GameContent();
         var result = content.Load(source);
 
-        Assert.Contains(result.Errors, e => e.Contains("minercraft:stone"));
-        Assert.Equal(3.0f, content.Materials.Get(Identifier.Parse("minercraft:stone")).Hardness);
+        Assert.DoesNotContain(result.Errors, e => e.Contains("requires"));
+        Assert.Contains(result.Errors, e => e.Contains("overburden:stone"));
+        Assert.Equal(3.0f, content.Materials.Get(Identifier.Parse("overburden:stone")).Hardness);
+    }
+
+    [Fact]
+    public void DuplicateDefinitionIsReported()
+    {
+        // Two mods both claiming overburden:stone is a conflict, not a silent override.
+        var source = TestContent.BaseGame()
+            .Add("rude", "mod.json", """{ "id": "rude", "name": "Rude", "version": "1" }""")
+            .Add("rude", "materials/stone.json", """{ "id": "overburden:stone", "hardness": 999 }""");
+
+        var content = new GameContent();
+        var result = content.Load(source);
+
+        Assert.Contains(result.Errors, e => e.Contains("overburden:stone"));
+        Assert.Equal(3.0f, content.Materials.Get(Identifier.Parse("overburden:stone")).Hardness);
     }
 
     [Fact]
@@ -169,12 +189,12 @@ public class ContentLoaderTests
     public void OmittedFieldsGetDefaults()
     {
         var source = TestContent.BaseGame()
-            .Add("minercraft", "materials/plain.json", """{ "id": "plain" }""");
+            .Add("overburden", "materials/plain.json", """{ "id": "plain" }""");
 
         var content = new GameContent();
         content.Load(source);
 
-        var plain = content.Materials.Get(Identifier.Parse("minercraft:plain"));
+        var plain = content.Materials.Get(Identifier.Parse("overburden:plain"));
         Assert.True(plain.IsOpaque);
         Assert.False(plain.IsFluid);
         Assert.False(plain.IsReplaceable);

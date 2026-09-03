@@ -10,7 +10,7 @@ namespace Overburden.Core.Content;
 /// tool table hardcoded in the engine is precisely the thing that makes a content format
 /// wrong — it is only discovered at M12, when the first mod wants a drill and finds there is
 /// nowhere to put one. So even the single tier M3 needs arrives from
-/// <c>mods/minercraft/tools/*.json</c>.
+/// <c>mods/overburden/tools/*.json</c>.
 /// </para>
 /// <para>
 /// The two fields that matter are deliberately the only two that matter. Radius decides how

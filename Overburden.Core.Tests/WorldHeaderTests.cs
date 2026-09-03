@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Numerics;
+using System.Text;
 using Overburden.Core.Content;
 using Overburden.Core.Persistence;
 using Overburden.Core.Worldgen;
@@ -16,8 +17,8 @@ namespace Overburden.Core.Tests;
 /// </remarks>
 public class WorldHeaderTests
 {
-    private static readonly Identifier Air = Identifier.Parse("minercraft:air");
-    private static readonly Identifier Stone = Identifier.Parse("minercraft:stone");
+    private static readonly Identifier Air = Identifier.Parse("overburden:air");
+    private static readonly Identifier Stone = Identifier.Parse("overburden:stone");
     private static readonly Identifier Copper = Identifier.Parse("deepdig:copper_ore");
 
     /// <summary>Every field distinct and none at its default, so a forgotten one shows up.</summary>
@@ -43,6 +44,99 @@ public class WorldHeaderTests
         Settings = UnusualSettings(),
         MaterialIdTable = table.Length == 0 ? [Air] : table,
     };
+
+    // -------------------------------------------------------------------------------------
+    // The retired namespace. The base mod was minercraft: until 2026-09-03 and every world saved
+    // before then carries that spelling in its ID table. Non-negotiable 2 says the table is never
+    // edited, so the rename is an alias at read: minercraft:stone *is* overburden:stone, forever.
+    // -------------------------------------------------------------------------------------
+
+    [Fact]
+    public void APlayedWorldSavedUnderTheOldNamespaceReadsUnderTheNewOne()
+    {
+        // The fixture is the real header of the world Matthew played on 2026-09-03, captured from
+        // its SQLite file before the rename - not a blob the current writer produced, because the
+        // current writer cannot spell the old name and a round trip would test nothing.
+        WorldHeader world = WorldHeaderBlob.Read(PlayedWorldV3Header());
+
+        Assert.Equal(MaterialIds.Air, world.MaterialIdTable[0]);
+        Assert.All(world.MaterialIdTable.Where(id => id.IsValid),
+            id => Assert.Equal(Identifier.BaseNamespace, id.Namespace));
+        Assert.Contains(new Identifier(Identifier.BaseNamespace, "stone"), world.MaterialIdTable);
+        Assert.True(world.MaterialIdTable.Count >= 4, "the played world carried more than air");
+    }
+
+    [Fact]
+    public void ReSavingAnOldWorldWritesTheNewNamesAndKeepsEveryNumber()
+    {
+        WorldHeader world = WorldHeaderBlob.Read(PlayedWorldV3Header());
+
+        byte[] rewritten = WorldHeaderBlob.Write(world);
+        WorldHeader again = WorldHeaderBlob.Read(rewritten);
+
+        // Same table, entry for entry: an alias renames and never renumbers, or every stored
+        // chunk's palette would point at the wrong material.
+        Assert.Equal(world.MaterialIdTable, again.MaterialIdTable);
+        Assert.Equal(world.Inventory, again.Inventory);
+        string text = Encoding.UTF8.GetString(Inflate(rewritten));
+        Assert.DoesNotContain("minercraft", text);
+        Assert.Contains("overburden:air", text);
+    }
+
+    /// <summary>The header's payload with the frame stripped and the zlib undone, as text.</summary>
+    private static byte[] Inflate(byte[] blob) =>
+        BlobFormat.ReadPayload(blob, WorldHeaderBlob.OldestVersion, WorldHeaderBlob.Version,
+            BlobFormat.FrameBytes, "test", out _, out _).ToArray();
+
+    [Fact]
+    public void AWorldLastOpenedByABuildOlderThanTheAliasIsRefusedByName()
+    {
+        // The real artefact of the rename's first run: a stale binary that still knew the base
+        // game as minercraft: opened the copied world, loaded mods/overburden/ as a stranger, gave
+        // its five materials fresh numbers 5-9, and wrote all ten on quit. Once the alias applies
+        // the table says overburden:air twice, and nothing can know which number that session's
+        // chunks used - so it is refused, and the refusal names the two slots and the cause.
+        var error = Assert.Throws<BlobFormatException>(
+            () => WorldHeaderBlob.Read(Fixture("downgraded-world-v3-header.bin")));
+
+        Assert.Contains("0 and 5", error.Message);
+        Assert.Contains("overburden:air", error.Message);
+        Assert.Contains("older than the alias", error.Message);
+    }
+
+    [Fact]
+    public void ATableNamingOneMaterialTwiceIsRefusedAtWrite()
+    {
+        // The two spellings are one value, so this table has stone at 1 and at 2.
+        var header = Header(Air, Stone, Identifier.Parse("minercraft:stone"));
+
+        var error = Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(header));
+
+        Assert.Contains("1 and 2", error.Message);
+    }
+
+    [Fact]
+    public void HolesAreNotDuplicates()
+    {
+        // Several removed mods leave several default entries, and that is a valid table.
+        WorldHeader restored = WorldHeaderBlob.Read(WorldHeaderBlob.Write(Header(Air, default, default, Stone)));
+
+        Assert.Equal(4, restored.MaterialIdTable.Count);
+        Assert.False(restored.MaterialIdTable[1].IsValid);
+        Assert.False(restored.MaterialIdTable[2].IsValid);
+    }
+
+    private static byte[] PlayedWorldV3Header() => Fixture("played-world-v3-header.bin");
+
+    private static byte[] Fixture(string name)
+    {
+        using Stream stream = typeof(WorldHeaderTests).Assembly.GetManifestResourceStream(
+            "Overburden.Core.Tests.Fixtures." + name)
+            ?? throw new InvalidOperationException("fixture missing: " + name);
+        using var buffer = new MemoryStream();
+        stream.CopyTo(buffer);
+        return buffer.ToArray();
+    }
 
     // -------------------------------------------------------------------------------------
     // Worldgen settings: all thirteen fields, because an unstored chunk regenerates from all
@@ -129,15 +223,15 @@ public class WorldHeaderTests
         // blob the way a hand-edited or damaged world file would be corrupt.
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone)));
 
-        byte[] needle = System.Text.Encoding.UTF8.GetBytes("minercraft:air");
+        byte[] needle = System.Text.Encoding.UTF8.GetBytes("overburden:air");
         int at = IndexOf(payload, needle);
         Assert.True(at >= 0, "the identifier should appear verbatim in the uncompressed payload");
 
         // Same length, so nothing else in the layout shifts.
-        System.Text.Encoding.UTF8.GetBytes("minercraft:foo").CopyTo(payload.AsSpan(at));
+        System.Text.Encoding.UTF8.GetBytes("overburden:foo").CopyTo(payload.AsSpan(at));
 
         var error = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
-        Assert.Contains("minercraft:air", error.Message);
+        Assert.Contains("overburden:air", error.Message);
     }
 
     [Fact]
@@ -147,7 +241,7 @@ public class WorldHeaderTests
         // finding it here names the session that produced it rather than the one that later
         // failed to open the world.
         var error = Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(Header(Stone, Air)));
-        Assert.Contains("minercraft:air", error.Message);
+        Assert.Contains("overburden:air", error.Message);
     }
 
     [Fact]

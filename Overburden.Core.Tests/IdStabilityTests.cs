@@ -9,7 +9,7 @@ namespace Overburden.Core.Tests;
 public class IdStabilityTests
 {
     private static readonly Identifier CopperOre = Identifier.Parse("deepdig:copper_ore");
-    private static readonly Identifier Stone = Identifier.Parse("minercraft:stone");
+    private static readonly Identifier Stone = Identifier.Parse("overburden:stone");
 
     [Fact]
     public void WithoutASavedTable_RemovingAModRenumbersEverythingAfterIt()

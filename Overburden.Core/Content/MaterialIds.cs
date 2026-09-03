@@ -23,7 +23,7 @@ public static class MaterialIds
     /// Two things depend on it: a zero-initialised array is a valid empty chunk with no
     /// fill step, and the uniform-chunk fast path can test emptiness against a constant.
     /// The number is reserved before content loads; the <i>definition</i> still has to
-    /// come from <c>mods/minercraft/materials/air.json</c> like anything else, so this
+    /// come from <c>mods/overburden/materials/air.json</c> like anything else, so this
     /// is not a privileged content path.
     /// </remarks>
     public const int AirNumericId = 0;

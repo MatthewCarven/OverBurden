@@ -1,5 +1,71 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-03 — Rename stage 3: the content namespace is an alias at the identity, and the stage found two guards it needed
+
+**The base mod is `overburden:` from today, and every world saved before today still opens.**
+Suite 912 → 926. `Identifier.BaseNamespace` is `"overburden"`, `mods/overburden/` is the base mod,
+`config/name` is `Overburden` so the window and the `user://` folder say so, and non-negotiable 3
+reads `overburden:air` is ID 0. The played world — 7,745 stored chunks, five materials, 5.3 h on its
+clock — opens headless under the new name with `0 error(s)`, `5 material id(s) restored`, 1,033
+loaded, `near lit` 0.89 s, and its header after that quit spells every entry `overburden:` with
+every number where it was. Six things worth keeping:
+
+- **The alias sits at `Identifier`'s constructor, one level below where TODO put it.** The plan
+  said "an alias applied when a world's ID table is read". A read-time alias has to be repeated at
+  every reader — the header, a mod's JSON, a dependency list, a command line, M12's scripts — and a
+  reader that forgets it turns every stored block into a placeholder without a test failing. So
+  `Identifier.RetiredNamespaces` folds `minercraft` to `overburden` inside the constructor, and
+  `TryParse` reaches it for free: **`minercraft:stone` and `overburden:stone` are the same value,
+  equal and hashing equal, wherever the string enters.** Nothing in memory can hold the old
+  spelling. Entries are only ever added; `TheAliasTableIsNeverEmptied` says so in a test.
+- **The test failed first, on the real file.** The played world's v3 header was captured from its
+  SQLite file *before* the change into `Fixtures/played-world-v3-header.bin`, because a round trip
+  through the current writer cannot spell the old name and would test nothing. Changing the
+  constant alone refuses it — *"material ID 0 is 'minercraft:air', but overburden:air is numeric ID
+  0 in every world, always. This world file was not written by this engine"* — which is precisely
+  the failure the alias exists to prevent, and eighteen other header tests went with it because
+  their fixtures spelled `Air` the old way.
+- **The stage's first headless run damaged a world, and it was the copy.** `dotnet test` on the
+  solution rebuilds Core into `Overburden.Core/bin`; Godot runs the DLL in `.godot/mono/temp/bin`,
+  which it does not refresh. The stale binary — base namespace still `minercraft` — found
+  `mods/overburden/`, loaded it as a *third-party* mod, failed to define `minercraft:air`, printed
+  the error, **played on**, gave the five materials fresh numbers 5–9, and wrote all ten to the
+  header on quit. The next run refused: *"'overburden:air' resolved to numeric ID 5, expected 0"*.
+  The original under `app_userdata/MinerCraft/` was untouched — **the by-hand copy doubled as the
+  backup**, which is the argument for a copy over a move. The damaged header is
+  `Fixtures/downgraded-world-v3-header.bin`; it is the real artefact of the real accident.
+- **Two guards from it.** A table naming one material twice is refused at read, at write and at
+  `SeedIdTable`, and the read's message names both slots and the cause — *"last opened by a build
+  older than the alias it needs"* — because that is the only way a saved table can repeat itself:
+  a saved table cannot hold one spelling twice, but it can hold two spellings that now mean one
+  thing. Refused rather than repaired, since nothing can know which number that session's chunks
+  used. Holes are not duplicates; several removed mods leave several. **And a content error is
+  fatal now.** M1 wrote *"its absence is a load error"* and `Main` printed it and carried on —
+  for six milestones, with nothing to provoke it. It refuses the run the way an unopenable world
+  does, inside the `try` so the store is disposed and never written on the way out.
+- **`ModManifest.Id` is deliberately not aliased; a dependency is.** A mod's folder is its
+  namespace, and a folder called `minercraft` would read its files from nowhere, so the base mod's
+  folder moved and a third-party mod cannot be called by the retired name. A dependency names a
+  namespace, so `"dependencies": ["minercraft"]` in a mod from before the rename is satisfied by
+  the base game as it is now — one test, `AModWrittenAgainstTheRetiredNamespaceStillLoads`, which
+  also has that mod patch `minercraft:stone` by its old name and lands it as a duplicate of
+  `overburden:stone` rather than as a definition nothing reads.
+- **The `user://` move was by hand and stays that way.** `worlds/` copied to
+  `app_userdata/Overburden/worlds/`; the seven worlds open; the `MinerCraft/` folder is the
+  backup and Matthew's to delete once he has played the new one. No first-run copy code, because
+  it would be a permanent path for one machine's one afternoon.
+
+**Battery: ten recipes, ten caught, control green.** Storing the namespace raw (11), emptying the
+alias table (13), pointing it at itself (13), not aliasing dependencies (**1** — the single loader
+test is the whole of that guard), `IsBaseGame` against the old name (2, one of them M1's load-order
+test), each duplicate check removed (1 each, by its own test), holes counted as duplicates (1), and
+the constant reverted to `minercraft` with the alias in place (**45**, because the alias is then the
+identity and every fixture spelling the new name lands nowhere). Nothing uncaught.
+
+Left as history: the lowercase `minercraft` now lives in the alias, its tests, the two fixtures and
+the milestone plans and worklog entries that were true when written. `M10-NOTES`' three machine
+names moved to `overburden:` because none has shipped.
+
 ## 2026-09-03 — The derive queue drains nearest-first: "the ground is gone" fixed
 
 **Postscript, the same evening: the same screenshot has a second cause, and it is not a defect.**

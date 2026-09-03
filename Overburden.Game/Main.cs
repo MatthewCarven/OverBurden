@@ -2529,7 +2529,7 @@ public partial class Main : Node3D
 
     private bool _lampKeyHeld;
 
-    private const string LampId = "minercraft:lamp";
+    private const string LampId = "overburden:lamp";
 
     /// <summary>
     /// Drives the camera along a fixed path during a profile run, hugging the surface.
@@ -2941,7 +2941,7 @@ public partial class Main : Node3D
     /// <remarks>
     /// <para>
     /// <b>No material, no JSON, no ID</b> — the entangled miner's rule, second outing, and M8-PLAN
-    /// says why: the moment <c>minercraft:relay_pump</c> exists as a material the name is permanent
+    /// says why: the moment <c>overburden:relay_pump</c> exists as a material the name is permanent
     /// whether or not the design behind it is finished. The endgame machine is M10's and reuses the
     /// arithmetic when it is designed.
     /// </para>
@@ -3439,10 +3439,10 @@ public partial class Main : Node3D
     /// <summary>Strata for the base game. Data already — moving it into mod JSON is on the TODO.</summary>
     private StrataTable BuildStrata() => new(
         [
-            new StrataLayer(MaterialId("minercraft:grass"), 1),
-            new StrataLayer(MaterialId("minercraft:dirt"), 3),
+            new StrataLayer(MaterialId("overburden:grass"), 1),
+            new StrataLayer(MaterialId("overburden:dirt"), 3),
         ],
-        MaterialId("minercraft:stone"));
+        MaterialId("overburden:stone"));
 
     private void Report(double delta)
     {
@@ -3612,7 +3612,12 @@ public partial class Main : Node3D
 
         if (!_persist)
         {
-            LoadContent(null);
+            if (!LoadContent(null))
+            {
+                GD.PushError("Content did not load cleanly; refusing the run.");
+                return false;
+            }
+
             GD.Print("M6: no world file — nothing this run does will be saved");
             return true;
         }
@@ -3633,7 +3638,11 @@ public partial class Main : Node3D
             // never written to, which is the same thing.
             if (header is null)
             {
-                LoadContent(null);
+                if (!LoadContent(null))
+                {
+                    throw new InvalidOperationException("the content did not load cleanly (see above)");
+                }
+
                 GD.Print($"M6: new world at {path}, seed 0x{settings.Seed:X}");
                 return true;
             }
@@ -3660,7 +3669,12 @@ public partial class Main : Node3D
                     + "unstored terrain regenerates. Use --world=<name> for a scratch world.");
             }
 
-            LoadContent(world.MaterialIdTable);
+            if (!LoadContent(world.MaterialIdTable))
+            {
+                // Inside the try on purpose: the catch disposes the store, and a world whose
+                // content failed against its table must not be written to on the way out.
+                throw new InvalidOperationException("the content did not load cleanly (see above)");
+            }
 
             GD.Print(
                 $"M6: opened {path} — seed 0x{settings.Seed:X}, "
@@ -3793,7 +3807,14 @@ public partial class Main : Node3D
             : settings;
     }
 
-    private void LoadContent(IReadOnlyList<Identifier>? savedMaterialIds)
+    /// <summary>Loads the mods against the world's table. False refuses the run.</summary>
+    /// <remarks>
+    /// A content error used to be printed and played past. On 2026-09-03 a stale binary opened
+    /// the played world, failed to define air, carried on, and wrote a header with two numbers for
+    /// one material on quit - so a content error is fatal for the reason an unopenable world is:
+    /// playing beside it writes something the next session cannot read.
+    /// </remarks>
+    private bool LoadContent(IReadOnlyList<Identifier>? savedMaterialIds)
     {
         string modsPath = ProjectSettings.GlobalizePath("res://mods");
         var result = Content.Load(new DirectoryContentSource(modsPath), savedMaterialIds);
@@ -3804,6 +3825,7 @@ public partial class Main : Node3D
         }
 
         GD.Print($"Content: {result}");
+        return result.Success;
     }
 
     private int MaterialId(string identifier) =>

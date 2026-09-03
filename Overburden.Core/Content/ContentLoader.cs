@@ -163,7 +163,10 @@ public sealed class ContentLoader
                 Id = dto.Id,
                 Name = dto.Name ?? dto.Id,
                 Version = dto.Version ?? "0.0.0",
-                Dependencies = dto.Dependencies ?? [],
+                // A dependency names a namespace, so a mod written when the base game was
+                // minercraft still finds it. The mod's own ID is not aliased: its folder is its
+                // namespace, and a folder called minercraft would read its files from nowhere.
+                Dependencies = (dto.Dependencies ?? []).Select(Identifier.CanonicalNamespace).ToList(),
             });
         }
 

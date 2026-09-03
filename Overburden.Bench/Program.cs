@@ -474,7 +474,7 @@ internal static class Program
     // is expensive or whether Debug is. This is the same instrument M2d-2 used to settle caves,
     // pointed at the other half of the pipeline.
     //
-    // Opacity and emission come from mods/minercraft/ through the real loader rather than from a
+    // Opacity and emission come from mods/overburden/ through the real loader rather than from a
     // fixture, because conductance is a function of which materials are opaque and a made-up
     // table would measure a made-up world.
 
@@ -494,10 +494,10 @@ internal static class Program
         // The shipped strata, by identifier, so the bench lights the material the game lights.
         var strata = new StrataTable(
             [
-                new StrataLayer(content.Materials.GetNumericId(Identifier.Parse("minercraft:grass")), 1),
-                new StrataLayer(content.Materials.GetNumericId(Identifier.Parse("minercraft:dirt")), 3),
+                new StrataLayer(content.Materials.GetNumericId(Identifier.Parse("overburden:grass")), 1),
+                new StrataLayer(content.Materials.GetNumericId(Identifier.Parse("overburden:dirt")), 3),
             ],
-            content.Materials.GetNumericId(Identifier.Parse("minercraft:stone")));
+            content.Materials.GetNumericId(Identifier.Parse("overburden:stone")));
 
         var generator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
         ChunkPos[] region = Region();
@@ -747,10 +747,10 @@ internal static class Program
 
         var strata = new StrataTable(
             [
-                new StrataLayer(content.Materials.GetNumericId(Identifier.Parse("minercraft:grass")), 1),
-                new StrataLayer(content.Materials.GetNumericId(Identifier.Parse("minercraft:dirt")), 3),
+                new StrataLayer(content.Materials.GetNumericId(Identifier.Parse("overburden:grass")), 1),
+                new StrataLayer(content.Materials.GetNumericId(Identifier.Parse("overburden:dirt")), 3),
             ],
-            content.Materials.GetNumericId(Identifier.Parse("minercraft:stone")));
+            content.Materials.GetNumericId(Identifier.Parse("overburden:stone")));
 
         var generator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
         ChunkPos[] region = Region();
@@ -1022,14 +1022,14 @@ internal static class Program
 
         var strata = new StrataTable(
             [
-                new StrataLayer(content.Materials.GetNumericId(Identifier.Parse("minercraft:grass")), 1),
-                new StrataLayer(content.Materials.GetNumericId(Identifier.Parse("minercraft:dirt")), 3),
+                new StrataLayer(content.Materials.GetNumericId(Identifier.Parse("overburden:grass")), 1),
+                new StrataLayer(content.Materials.GetNumericId(Identifier.Parse("overburden:dirt")), 3),
             ],
-            content.Materials.GetNumericId(Identifier.Parse("minercraft:stone")));
+            content.Materials.GetNumericId(Identifier.Parse("overburden:stone")));
 
         var generator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
 
-        string directory = Path.Combine(Path.GetTempPath(), "minercraft-bench", Guid.NewGuid().ToString("N"));
+        string directory = Path.Combine(Path.GetTempPath(), "overburden-bench", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         string path = Path.Combine(directory, "world.db");
 

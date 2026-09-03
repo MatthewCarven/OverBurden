@@ -21,6 +21,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Real world files, captured rather than written by the code under test. The header
+         fixture is the played world's v3 header as of 2026-09-03, written while the base mod
+         was still minercraft: - the alias in Identifier is tested against it, because a round
+         trip through the current writer can never contain the old spelling. -->
+    <EmbeddedResource Include="Fixtures\*.bin" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Overburden.Core\Overburden.Core.csproj" />
 
     <!-- The SQLite store, so the contract suite can run against the real implementation

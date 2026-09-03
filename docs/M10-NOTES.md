@@ -226,7 +226,7 @@ whatever it finds.** `hardness`, `lightEmission` and (at M8c) `permeability` all
 
 ### 8. Naming — settled 2026-09-02: industrial, not physics
 
-`minercraft:quantum_fluid_pump` is a content ID, and **non-negotiable 2 says IDs are never
+`overburden:quantum_fluid_pump` is a content ID, and **non-negotiable 2 says IDs are never
 renumbered and a removed mod leaves a hole that stays** — so this was raised as the last free
 moment, and it was taken. **Matthew chose a mining-operation tone over a physics one.**
 
@@ -234,9 +234,9 @@ moment, and it was taken. **Matthew chose a mining-operation tone over a physics
 
 | | ID | why |
 |---|---|---|
-| Pump | `minercraft:relay_pump` | **A relay already means "sends onward with no physical path"**, which is the whole mechanic, and it is infrastructure vocabulary rather than physics vocabulary. |
-| Output | `minercraft:relay_outlet` | Pairs by reading rather than by convention. |
-| Programmer | `minercraft:machine_programmer` | **Deliberately not part of the family.** It configures *any* machine, so tying its name to the fluid pair would misdescribe the one component whose generality is the point. |
+| Pump | `overburden:relay_pump` | **A relay already means "sends onward with no physical path"**, which is the whole mechanic, and it is infrastructure vocabulary rather than physics vocabulary. |
+| Output | `overburden:relay_outlet` | Pairs by reading rather than by convention. |
+| Programmer | `overburden:machine_programmer` | **Deliberately not part of the family.** It configures *any* machine, so tying its name to the fluid pair would misdescribe the one component whose generality is the point. |
 
 **The strongest argument for `relay` is the channel number.** Radio relays have always had
 channels, so decision 1's pairing rule stops needing an explanation: a player who has seen the word

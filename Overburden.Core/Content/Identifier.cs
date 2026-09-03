@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 namespace Overburden.Core.Content;
 
 /// <summary>
-/// A namespaced content ID — <c>minercraft:stone</c>, <c>deepdig:copper_ore</c>.
+/// A namespaced content ID — <c>overburden:stone</c>, <c>deepdig:copper_ore</c>.
 /// </summary>
 /// <remarks>
 /// This is the authoritative identity of everything in the game. It is what appears in
@@ -13,11 +13,37 @@ namespace Overburden.Core.Content;
 /// The namespace is what stops two mods that both define "copper_ore" from colliding,
 /// which is the entire reason a bare string or an enum will not do.
 /// </para>
+/// <para>
+/// <b>A retired namespace is an alias, forever.</b> The base game was <c>minercraft:</c> until
+/// 2026-09-03, and every world saved before then carries that spelling in its ID table.
+/// Non-negotiable 2 says a saved table is never edited and never renumbered, so the rename
+/// lives here instead: constructing an identifier in a retired namespace yields the current
+/// one, which makes <c>minercraft:stone</c> and <c>overburden:stone</c> the <em>same value</em>
+/// wherever the string enters — a world header, a mod's JSON, a command line. Put the alias
+/// at the identity rather than at each reader, because a reader that forgets it turns every
+/// stored block into a placeholder, and the list of readers only grows.
+/// </para>
 /// </remarks>
 public readonly struct Identifier : IEquatable<Identifier>
 {
     /// <summary>Namespace used when a mod's content omits one — the owning mod's ID.</summary>
-    public const string BaseNamespace = "minercraft";
+    public const string BaseNamespace = "overburden";
+
+    /// <summary>
+    /// Namespaces that once existed and now mean another. Entries are only ever added: removing
+    /// one silently orphans every world saved while it was current.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string> RetiredNamespaces =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["minercraft"] = BaseNamespace,
+        };
+
+    /// <summary>
+    /// The namespace <paramref name="namespace"/> means today — itself, unless it is retired.
+    /// </summary>
+    public static string CanonicalNamespace(string @namespace) =>
+        RetiredNamespaces.TryGetValue(@namespace, out string? current) ? current : @namespace;
 
     public string Namespace { get; }
     public string Path { get; }
@@ -41,7 +67,7 @@ public readonly struct Identifier : IEquatable<Identifier>
                 nameof(path));
         }
 
-        Namespace = @namespace;
+        Namespace = CanonicalNamespace(@namespace);
         Path = path;
     }
 

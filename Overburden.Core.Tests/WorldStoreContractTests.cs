@@ -422,7 +422,7 @@ public sealed class InMemoryWorldStoreTests : WorldStoreContractTests
 public sealed class SqliteWorldStoreTests : WorldStoreContractTests
 {
     private readonly string _directory =
-        Path.Combine(Path.GetTempPath(), "minercraft-tests", Guid.NewGuid().ToString("N"));
+        Path.Combine(Path.GetTempPath(), "overburden-tests", Guid.NewGuid().ToString("N"));
 
     private string WorldPath => Path.Combine(_directory, "world.db");
 
