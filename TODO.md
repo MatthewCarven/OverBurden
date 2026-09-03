@@ -3752,6 +3752,13 @@ finding without the coarser-tolerance fallback.
       and `first draw` was never going to be — inside a void nothing near the player draws.
 - [x] **`start.cmd` carries `-- --lightbudget=16`** (2026-09-03, Matthew: *"remember we need the
       lighting switch"*). The play launcher's setting, not the pipeline's default.
+- [ ] **Decided 2026-09-03: the light derive stays on the sim thread** — Matthew: *"skip
+      multithreading."* Proposed after he outran the derive at sprint speed (r6h/4v is 221 chunks a
+      step, ~660 derives a second at 16 ms in Debug, so walking keeps up and 30 m/s does not). The
+      shape was sound — a derive job like generate and mesh, voxels already copy-on-write, the sky
+      column snapshotted, only the apply and the propagation left on the sim thread — and it is
+      not built. The levers on the cliff stay as recorded: `PaddedChunk.CopyFrom` (60–75% of a
+      derive), a Release build, and the box size. Cache slice 2 keeps its point as a result.
 - [ ] **Should 16 ms be the Debug default rather than the launcher's flag?** Open. For: the build
       people play is Debug, and a budget is a ceiling, not a reservation — once lit it costs
       nothing. Against: every headless figure since M5c-1 was taken at 4 ms, and a default that
