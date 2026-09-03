@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Overburden.Bench</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Overburden.Core\Overburden.Core.csproj" />
+
+    <!-- For the store bench, which measures the half of M6's load-path crossover that the
+         plan could only guess at: SQLite's per-query overhead beside the deserialise cost. -->
+    <ProjectReference Include="..\Overburden.Persistence\Overburden.Persistence.csproj" />
+  </ItemGroup>
+
+</Project>

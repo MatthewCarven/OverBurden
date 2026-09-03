@@ -1,4 +1,4 @@
-﻿# MinerCraft — TODO
+﻿# Overburden — TODO
 
 See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
 
@@ -109,7 +109,7 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
 - [x] Name check: "MinerCraft" — keeping it? **No. The game is Overburden, decided 2026-09-03**
       (DESIGN, locked decisions). The rename is four stages, in order, each its own session:
       - [x] **Stage 1 — the decision, recorded.** DESIGN, this list, the worklog, CLAUDE.md.
-      - [ ] **Stage 2 — code and projects.** `MinerCraft.slnx`, the five `.csproj`, the project
+      - [x] **Stage 2 — code and projects.** Done 2026-09-03. `MinerCraft.slnx`, the five `.csproj`, the project
             folders, `assembly_name`, and `namespace MinerCraft.*` across 152 files → `Overburden.*`.
             Mechanical: one sed, one build, the whole suite, the default headless baseline
             unchanged to the digit. `start.cmd` and `screenshot.gd` follow. Non-negotiable 1 keeps
@@ -147,7 +147,7 @@ comes first.
             Right now every texture is procedural, so there is nothing to split.
       - [ ] Revisit trigger: if you ever want distro packaging or a real contributor
             community, that is the moment to go MIT or Apache-2.0 instead.
-      - [ ] Not covered by any licence: the **name**. If "MinerCraft" survives the name
+      - [ ] Not covered by any licence: the **name**. If "Overburden" survives the name
             check, the protection against someone shipping a clone is trademark and the
             content, not copyright on the engine.
 - [ ] **Decide whether commit authorship stays `matthewcarven@gmail.com`** — now the only
@@ -197,8 +197,8 @@ comes first.
 ### M0 — Skeleton ✅ done 2026-08-24, builds clean and runs headless
 
 - [x] Godot 4.7.1 mono project, net8.0, `.slnx` solution
-- [x] Project split: `MinerCraft.Core` (headless sim, no Godot reference — enforced by
-      having no Godot dependency at all) / `MinerCraft.Core.Tests` / `MinerCraft.Game`
+- [x] Project split: `Overburden.Core` (headless sim, no Godot reference — enforced by
+      having no Godot dependency at all) / `Overburden.Core.Tests` / `Overburden.Game`
       (Godot front end). The test project exists to prove Core stays headless.
 - [x] `VoxelConstants` — 0.25 m voxels, 32³ chunks, power-of-two shift/mask constants
 - [x] `VoxelPos` / `ChunkPos` — floor-based chunk/local decomposition via shift and
@@ -386,7 +386,7 @@ Split into four sessions. Full reasoning in [docs/M1-PLAN.md](docs/M1-PLAN.md).
       and went at M2d-2 with a coarse lattice and interpolation.
 - [x] **That 6.55 ms/chunk was a Debug measurement and nothing said so.** Re-measured on the
       same code: Debug 7.88 / 1.22, Release 2.23 / 0.38. The 80% cave share was right in both,
-      so the finding held and only the scale was wrong. `MinerCraft.Bench` now prints a loud
+      so the finding held and only the scale was wrong. `Overburden.Bench` now prints a loud
       warning when built Debug. **Quote a generation figure with its build or not at all.**
 - [ ] Caves are blobby pockets rather than connected tunnels, which is what thresholding
       fBm gives you. Connected systems want ridged or worm noise, and are a stage-2
@@ -563,7 +563,7 @@ r12h/6v    14297    2245      1.42 ms   2.97%     5244   122.1 MiB   at 6 m/s
       runtime.
 - [x] **Measured in the game, not just on the bench.** r12h/6v at 40 m/s: 145 → 731 chunks
       drawn, jobs done 19,738 → 52,120, dropped 30,792 → 16,188.
-- [x] `MinerCraft.Bench` — repeatable worldgen harness over the same 2,048-chunk region M2b
+- [x] `Overburden.Bench` — repeatable worldgen harness over the same 2,048-chunk region M2b
       used, reporting time *and* accuracy, because a speed number without an accuracy number
       is half a trade. `--cavestep=N` on the game does the same A/B in the streaming loop.
 - [ ] **The cave threshold has not been re-tuned for the lattice, and should be.**
@@ -640,7 +640,7 @@ worker thread, not a wrong voxel.
 #### M3c — The carve ✅ done 2026-08-29, 364 tests passing
 
 - [x] Sphere by voxel-centre distance test, radius in metres from the tool. `Carve.Sphere`
-      in `MinerCraft.Core/Mining/`, with `Carve.Swing` reading its two numbers off a
+      in `Overburden.Core/Mining/`, with `Carve.Swing` reading its two numbers off a
       `ToolDefinition`. **"Sub-voxel" means the voxel is small, not partly full.**
 - [x] **The distance test is the definition; the bounding box is only an optimisation.** The
       box is `VoxelPos.FromMetres(c ± r)` — provably sufficient, correct at negative
@@ -671,7 +671,7 @@ worker thread, not a wrong voxel.
       question. `StreamedChunk.HasLiveMesh` is the flag now. Mine, fly away, and the pre-edit
       geometry used to keep drawing for unloaded terrain.
 - [x] **The base game's own files are loaded by a test at last.** `ShippedContentTests` reads
-      `MinerCraft.Game/mods/` from disk — every other content test builds a fixture, which had
+      `Overburden.Game/mods/` from disk — every other content test builds a fixture, which had
       already drifted. It checks the shipped *numbers* too, because the hardness gate is a
       property of the content and no code test finds a JSON file edited to make it pointless.
 - [x] Eight mutations watched to fail before the tests were trusted. One of them exposed a
@@ -756,7 +756,7 @@ out of the world and accelerates away from anything that could stop them.
 
 #### M4a — The collider ✅ **done 2026-08-29**
 
-`MinerCraft.Core/Physics/` holds `Aabb` and `VoxelCollider`. 33 new tests, suite 367 → 400.
+`Overburden.Core/Physics/` holds `Aabb` and `VoxelCollider`. 33 new tests, suite 367 → 400.
 
 - [x] AABB vs voxel grid, **axis-separated** resolution (X, then Y, then Z). A combined sweep
       snags on every voxel boundary of a flat wall; axis separation makes sliding the default.
@@ -787,7 +787,7 @@ out of the world and accelerates away from anything that could stop them.
       standing still bitwise stable. A resolve places one face from the blocking voxel's index
       and carries the size across untouched; deriving the size as `Max − Min` every step would
       round it differently each time and a resting player would creep.
-- [x] Lives in `MinerCraft.Core/Physics/`, `System.Numerics`. Where a player may stand is a
+- [x] Lives in `Overburden.Core/Physics/`, `System.Numerics`. Where a player may stand is a
       world rule a multiplayer server must agree about.
 - [x] **The fuzz with the sharp oracle: seal the player in a room** of solid voxels and apply
       thousands of random displacements, including magnitudes far past terminal velocity.
@@ -841,7 +841,7 @@ out of the world and accelerates away from anything that could stop them.
 
 #### M4b — Motion ✅ **done 2026-08-29**
 
-`MinerCraft.Core/Physics/` gains `PlayerMotion` and `PlayerMotionConfig`. 35 new tests, suite
+`Overburden.Core/Physics/` gains `PlayerMotion` and `PlayerMotionConfig`. 35 new tests, suite
 400 → 435.
 
 - [x] Gravity, jump, terminal velocity, step-up **and step-down**. `PlayerMotion.Step` is a pure
@@ -1143,7 +1143,7 @@ the margin must go to 4 chunks.
 
 - [x] Per-corner AO from the padded chunk's diagonals: `(side1 && side2) ? 0 : 3 - (side1 +
       side2 + corner)`. The `side1 && side2` case is the difference between a corner that reads
-      as a corner and one that reads as a smudge. `MinerCraft.Core/Meshing/AmbientOcclusion.cs`.
+      as a corner and one that reads as a smudge. `Overburden.Core/Meshing/AmbientOcclusion.cs`.
 - [x] **`PaddedChunk.CopyFrom`'s 26 neighbours were gathered for exactly this** and nothing
       about the gather changed. Every diagonal sample lands inside −1..32 by construction: the
       axis coordinate is the neighbour's, and the two in-plane coordinates move ±1 from 0..31.
@@ -1587,7 +1587,7 @@ nothing in it can be answered without a window and a person.
 - [x] **`--speed=0` is askable now.** A profile defaulted to 40 m/s whenever speed was zero *or
       unset*, so the standing start the fill measurement needs was the one arm that could not be
       requested. `_speedGiven` is the distinction.
-- [x] **`MinerCraft.Bench --light`**, the same instrument M2d-2 used for caves pointed at the
+- [x] **`Overburden.Bench --light`**, the same instrument M2d-2 used for caves pointed at the
       other half of the pipeline. Loads `mods/minercraft/` through the real loader, because
       conductance is a function of which materials are opaque and a fixture measures a made-up
       world. **Release: derive 0.241 ms/chunk, `CopyFrom` 59% of it, drain 47 ns/cell.**
@@ -1963,7 +1963,7 @@ because regenerating a chunk that had a blob is a silent, total loss of everythi
 
 #### The three decisions that set the shape, all settled in the plan before code
 
-- [x] **The store is an interface in Core; SQLite lives in a new `MinerCraft.Persistence`
+- [x] **The store is an interface in Core; SQLite lives in a new `Overburden.Persistence`
       assembly.** Core has **no NuGet dependency at all** after five milestones, which is what
       makes non-negotiable 1's multiplayer seam more than a slogan.
       `Microsoft.Data.Sqlite` would be its first and carries native binaries.
@@ -2012,7 +2012,7 @@ because regenerating a chunk that had a blob is a silent, total loss of everythi
 
 #### M6a — The blob and the world file ✅ **done 2026-08-31, 614 tests passing**
 
-`MinerCraft.Core/Persistence/` — `ChunkBlob`, `SkyColumnBlob`, `WorldHeader`, `BlobFormat`.
+`Overburden.Core/Persistence/` — `ChunkBlob`, `SkyColumnBlob`, `WorldHeader`, `BlobFormat`.
 Suite 559 → 614. Nineteen break-recipes, eighteen caught outright; the two that were not
 straightforward are written up below because neither was a plain pass.
 
@@ -2127,7 +2127,7 @@ drain. Splitting up front rather than halfway through is why M2c went smoothly.
       holds the material table is not a chunk store.
 - [x] **It deals in bytes, not `VoxelChunk`s**, so `SqliteWorldStore` knows nothing about voxels,
       palettes or light — which is what lets it live in its own assembly at all.
-- [x] **`MinerCraft.Persistence`, a new assembly**, with `Microsoft.Data.Sqlite` **pinned at
+- [x] **`Overburden.Persistence`, a new assembly**, with `Microsoft.Data.Sqlite` **pinned at
       10.0.11** rather than floating. Core still has no NuGet dependency at all.
 - [x] **Chunks and columns write in one call, in one transaction, and that is a correctness
       requirement.** A shaft's chunks stored without its column reload with the column seeded
@@ -2813,7 +2813,7 @@ the report it prints.
             of lamp — one voxel — inserted a slot at 3 and pushed stone from **3 to 4** between
             two screenshots. That is `MaterialInSlot`'s recorded revisit trigger, *"the play
             reports a slot moving under their fingers"*, observed rather than predicted.
-- [x] **Hotbar / material selection UI — built.** `MinerCraft.Game/Ui/Hud.cs`: a nine-slot row
+- [x] **Hotbar / material selection UI — built.** `Overburden.Game/Ui/Hud.cs`: a nine-slot row
       with a colour swatch, name and litres per slot, a crosshair, and a status line naming the
       brush, the tier and the keys.
       - [x] **The number row moved to materials and the tiers moved to T**, which is the decision
@@ -3011,8 +3011,8 @@ and so does everything after it. Additive, so header **v2 → v3 migrates**.
       half of it here would produce water teleporting into a hole rather than running into it.
       **`SkyColumn` already holds edited height per voxel column and is already persisted** — that
       is what the follow-up reads.
-- [x] **The code lives in `MinerCraft.Core/Hydrology/`**, no Godot, per non-negotiable 1.
-      `MinerCraft.Persistence` gains one table.
+- [x] **The code lives in `Overburden.Core/Hydrology/`**, no Godot, per non-negotiable 1.
+      `Overburden.Persistence` gains one table.
 
 #### M7a — The watershed ← **split in two 2026-09-01. M7a-1 is done; M7a-2 is the merge tree.**
 
@@ -3023,7 +3023,7 @@ the merge tree is a second thing with its own hazard — see the two-cycle below
 ##### M7a-1 — The flood, the curves and the measurement ✅ **done 2026-09-01, 756 tests passing**
 
 - [x] Priority-flood (Barnes, Lehman & Mulla 2014) over the window: pits, saddles, catchments and
-      basin labels. `MinerCraft.Core/Hydrology/` — `HeightField`, `Watershed`, `Basin`,
+      basin labels. `Overburden.Core/Hydrology/` — `HeightField`, `Watershed`, `Basin`,
       `VolumeCurve`. No Godot, no chunks, no streaming.
 - [x] **The measurement, taken first as the plan asked.** ⚠ **Corrected at M7a-2: the figure
       below is a *reference-machine* number and the machine varies by 2.5x.** As first published:
@@ -3330,7 +3330,7 @@ renderer and a person.
 
 ##### M7d-1 — The wiring and the measurement ✅ **done 2026-09-02, 814 tests passing**
 
-- [x] **`MinerCraft.Core/Hydrology/WaterSystem.cs`** owns the analysed window, the water in it and
+- [x] **`Overburden.Core/Hydrology/WaterSystem.cs`** owns the analysed window, the water in it and
       the ledger that outlives it. Godot-free, so the threading policy lives where the platform is.
 - [x] **A lake survives a quit, to the litre.** Session one quits at 9,404,288 L; session two opens
       and reports 9,404,288 L standing across 346 banked basins. The in-memory twin is the suite's
@@ -3388,7 +3388,7 @@ renderer and a person.
 ##### M7d-2 — The surface ✅ **built 2026-09-02, 814 tests passing. The play below is Matthew's.**
 
 - [x] **One flat translucent surface per basin with volume, at the solved level.**
-      `MinerCraft.Game/Rendering/WaterSurface.cs` sweeps the analysis grid and emits a horizontal
+      `Overburden.Game/Rendering/WaterSurface.cs` sweeps the analysis grid and emits a horizontal
       quad wherever a terrain sample sits below its basin's level. **Nothing iterates water** — it
       is one number per basin against one height per sample, which is DESIGN's *solved, not
       simulated* reduced to a sweep and a comparison.
@@ -3555,7 +3555,7 @@ Seven decisions are argued in the plan; the three that constrain the rest:
             denominator”**, and the first where the instrument itself moved it.
 #### M8a-1 — the automaton and the active set ← **built 2026-09-02, suite 814 → 850**
 
-`MinerCraft.Core/Fluid/` holds `FluidConstants`, `IFluidTerrain`, `FluidGrid`, `FluidRules` and
+`Overburden.Core/Fluid/` holds `FluidConstants`, `IFluidTerrain`, `FluidGrid`, `FluidRules` and
 `FluidSimulation`. **Nothing feeds it — that is M8b.** Split M8a-1 / M8a-2 on the usual seam: this
 part is the automaton and its oracles, M8a-2 is the measurement.
 

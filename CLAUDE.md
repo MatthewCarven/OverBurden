@@ -1,4 +1,4 @@
-﻿# MinerCraft — orientation
+﻿# Overburden — orientation
 
 A voxel mining game in Godot 4 + C#. **You are a mining operation fighting water and
 gravity.** Rain fills basins, water finds your excavation, saturated rock loses cohesion
@@ -33,8 +33,8 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 Violating any of these is expensive to undo. They are argued for in DESIGN.md; don't
 quietly reverse one.
 
-1. **`MinerCraft.Core` never references Godot.** That absence is the multiplayer seam.
-   `MinerCraft.Core.Tests` exists partly to enforce it — if Core needs Godot, the tests
+1. **`Overburden.Core` never references Godot.** That absence is the multiplayer seam.
+   `Overburden.Core.Tests` exists partly to enforce it — if Core needs Godot, the tests
    stop compiling.
 2. **Content IDs are namespaced strings** (`minercraft:stone`), resolved to numeric IDs
    through a table the **world** owns, not the process. Never an enum. Never renumber,
@@ -59,7 +59,7 @@ Two more that are settled but easier to forget:
 Build and test:
 
 ```bash
-dotnet test MinerCraft.slnx
+dotnet test Overburden.slnx
 ```
 
 Run the game:
@@ -71,28 +71,28 @@ start.cmd
 Measure worldgen — **Release, always; Debug is ~3× slower and reads like a real number**:
 
 ```bash
-dotnet run --project MinerCraft.Bench -c Release
+dotnet run --project Overburden.Bench -c Release
 ```
 
 Measure **lighting** on the same harness. Also Release-only, and here the Debug penalty is worse
 — **5.9× on the derive, ~10× on the walk** — so a Debug figure is not a measurement at all:
 
 ```bash
-dotnet run --project MinerCraft.Bench -c Release -- --light
+dotnet run --project Overburden.Bench -c Release -- --light
 ```
 
 Measure **chunk serialisation**, which is what settled whether `Compact()` runs on save. Release
 only, same as the others:
 
 ```bash
-dotnet run --project MinerCraft.Bench -c Release -- --blob
+dotnet run --project Overburden.Bench -c Release -- --blob
 ```
 
 Measure the **SQLite read path** against the generation it replaces — the number M6's crossover
 worry turned on:
 
 ```bash
-dotnet run --project MinerCraft.Bench -c Release -- --store
+dotnet run --project Overburden.Bench -c Release -- --store
 ```
 
 It reports write, read, raw and stored bytes across six arms — generated, carved and *stripped*
@@ -107,7 +107,7 @@ Measure the **M7 watershed** — the number that decided whether an incremental 
 be built. Release only, and it sweeps window sizes at the 4 m cell:
 
 ```bash
-dotnet run --project MinerCraft.Bench -c Release -- --watershed
+dotnet run --project Overburden.Bench -c Release -- --watershed
 ```
 
 **Sampling, flooding and the merge tree are timed apart**, because M7-PLAN's estimate assumed
@@ -121,7 +121,7 @@ only, and **the fixture bakes its terrain into a bitset before timing anything**
 version answered `CanHold` with `IsCaveAt` and reported 3.86 µs a visit against a true 0.2–0.3:
 
 ```bash
-dotnet run --project MinerCraft.Bench -c Release -- --fluid
+dotnet run --project Overburden.Bench -c Release -- --fluid
 ```
 
 `--fluidbores 1,3,5,9` is the sweep (breach width in voxels), `--fluidspan`/`--fluiddepth` size the
@@ -154,7 +154,7 @@ Verify headlessly — no display needed, catches scene and script errors and pri
 diagnostics:
 
 ```bash
-../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path MinerCraft.Game --headless --quit-after 900
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless --quit-after 900
 ```
 
 **`--quit-after` counts frames, not seconds** — 900 is about 15 s, and the streaming report
@@ -164,7 +164,7 @@ Profile a flythrough. The flags go after a bare `--`, as `name=value`, and the p
 quits by itself when it is done, so no `--quit-after` is needed:
 
 ```bash
-../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path MinerCraft.Game --headless -- --profile --radius=12 --vradius=6 --speed=40
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=12 --vradius=6 --speed=40
 ```
 
 Also `--margin=`, `--warmup=`, `--measure=`, `--cavestep=` (1 restores per-voxel cave
@@ -226,7 +226,7 @@ profile window, `--stock=<voxels>` seeds the inventory so such a run measures th
 than the carve, and `--brush=<name>` picks the shape.
 
 **The world file lives at `user://worlds/<name>/world.db`** — on Windows,
-`%APPDATA%/Godot/app_userdata/MinerCraft/worlds/`. `--world=<name>` picks one, `--nosave` opens
+`%APPDATA%/Godot/app_userdata/Overburden/worlds/`. `--world=<name>` picks one, `--nosave` opens
 none at all, and `--autosave=<seconds>` moves the 30 s flush. **A run that is a measurement or a
 screenshot prop does not open the played world**: `--profile`, `--fall` and `--debuglamp` leave
 persistence off unless `--world=` names one, because `--mine` would carve up the world somebody
@@ -246,7 +246,7 @@ Take a screenshot of the real scene, which is the only way to answer a look ques
 has no renderer, so a shader error does not even surface there:
 
 ```bash
-../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path MinerCraft.Game --script res://screenshot.gd -- C:/tmp/shot.png
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --script res://screenshot.gd -- C:/tmp/shot.png
 ```
 
 It instances `Main.tscn`, waits 8 s for terrain, saves a PNG and quits. Extra arguments after
@@ -260,7 +260,7 @@ and the one that can arrive somewhere before the world does. `--fall` implies `-
 forces walk mode, so the scripted flythrough stays off:
 
 ```bash
-../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path MinerCraft.Game --headless -- --fall --radius=6 --vradius=3 --terminal=40 --fallheight=250 --measure=20
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --fall --radius=6 --vradius=3 --terminal=40 --fallheight=250 --measure=20
 ```
 
 `--terminal=` sets terminal velocity and `--fallheight=` the drop, both so the constant this
@@ -287,8 +287,9 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-**The game is Overburden as of 2026-09-03; the rename is staged in TODO and only stage 1, the
-decision, is done.** Everything in this file still says MinerCraft until stage 2 lands. **Stage 3
+**The game is Overburden as of 2026-09-03; stages 1 and 2 of the rename are done** — the
+decision, and the solution, projects, folders and namespaces. Godot's `config/name`, the window
+title and the `user://` folder still say MinerCraft, because that is stage 3's move. **Stage 3
 is the dangerous one**: `minercraft:` is inside every saved world's ID table, so the base mod's
 namespace needs a read-time alias, never an edit.
 
@@ -302,8 +303,9 @@ still has to push.
 **"The ground is gone" (2026-09-03) is not a renderer defect, and the first thing to check is
 `first draw`.** Nothing meshes until its neighbourhood is lit, the derive queue is FIFO, and in a
 played world the chunks around the player are the stored ones, which arrive last through the
-serial lane — so a mined-out region lights from the far ring inward, at one derive a frame once a
-Debug derive costs more than the 4 ms budget (it does at the machine's 2.3×). The "clouds" in
+serial lane — so a mined-out region lights from the far ring inward, at two to three derives a frame
+in Debug (1.37 ms each at 1.0×; the 2.3× recorded that morning was the game itself running beside
+the measurement). The "clouds" in
 such a shot are Tier A lake surfaces seen from below. `--lightbudget=16` is the proven workaround;
 a distance-ordered derive queue is the recommended fix, in TODO. See the worklog entry.
 
@@ -715,7 +717,7 @@ nanometre of rain over a square metre is exactly one microlitre, so nothing roun
 rainfall the median basin fills in 35 minutes of the heaviest possible weather**, which nobody can
 watch, so `rainfallScale` exists and **M7d is where a person picks it**.
 
- `MinerCraft.Core/Hydrology/` holds the flood, the basins, the volume→level curves, the
+ `Overburden.Core/Hydrology/` holds the flood, the basins, the volume→level curves, the
 merge tree and the water in it. **A 1,024 m window costs 66 ms measured / 27 ms reference-
 equivalent**, on a worker, once per window move — **so no incremental watershed is ever built.**
 Four things from it that are expensive to rediscover:
@@ -768,7 +770,7 @@ which puts block light on the screen with the sky channel zero by construction. 
 assertion is confounded by the fixture** — the room is dirt, so warm light on brown rock cannot be
 told from white light on brown rock; the sharp version is the same room built in stone.
 
-**M6d-3 — the first real UI: built 2026-09-01.** `MinerCraft.Game/Ui/Hud.cs` — a nine-slot hotbar
+**M6d-3 — the first real UI: built 2026-09-01.** `Overburden.Game/Ui/Hud.cs` — a nine-slot hotbar
 with a swatch, name and litres per slot, a crosshair, and a status line. Suite 734 → 739. Six
 things worth keeping:
 
@@ -903,7 +905,7 @@ inventory and `--brush=` picks the shape. Suite 719 → 724. Four things worth k
   timer. **Third time this milestone that a safety argument turned out to be about the caller
   rather than the code.**
 
-**M6c-2 — the inventory: done 2026-08-31.** `MinerCraft.Core/Inventory/VolumetricInventory` holds
+**M6c-2 — the inventory: done 2026-08-31.** `Overburden.Core/Inventory/VolumetricInventory` holds
 what the player carries; `Carve` credits it per material as it removes, `Place` debits it per voxel
 as it fills, and the world header carries it across a quit with the player's position. Suite 689 →
 719. Four things worth keeping:
@@ -926,7 +928,7 @@ as it fills, and the world header carries it across a quit with the player's pos
   names.** The header validates in layers, so `Assert.Throws` is not evidence the layer you meant
   was reached — only a battery says which guard fired.
 
-**M6c-1 — the brushes: done 2026-08-31.** `MinerCraft.Core/Building/` holds `BrushCell`,
+**M6c-1 — the brushes: done 2026-08-31.** `Overburden.Core/Building/` holds `BrushCell`,
 `BrushFacing`, `PlaceResult` and `Place` — cube, slab, ramp and sphere on the world's 1 m lattice,
 writing through `IVoxelEditor.SetVoxel` one voxel at a time exactly as `Carve` does. Suite 670 →
 689. Five things worth keeping:
@@ -987,7 +989,7 @@ at **13.4 ms** for the first write of five chunks and a column, then **3.6–4.3
 SQLitePCLRaw's natives is still unverified** — running resolves `e_sqlite3` through the generated
 `.deps.json` under `EnableDynamicLoading`, which is not the same question.
 
-**M6a — the blob and the world file: done 2026-08-31.** `MinerCraft.Core/Persistence/` holds
+**M6a — the blob and the world file: done 2026-08-31.** `Overburden.Core/Persistence/` holds
 `ChunkBlob`, `SkyColumnBlob`, `WorldHeader` and the shared frame. No SQLite, no file, no pipeline.
 Suite 559 → 614. Six things worth keeping:
 
@@ -1036,7 +1038,7 @@ disk, then the seed — and the only failure that matters is consulting them in 
 
 Six things the planning pass settled or found, each expensive to rediscover:
 
-- **SQLite goes in a new `MinerCraft.Persistence` assembly, not in Core.** Core has **no NuGet
+- **SQLite goes in a new `Overburden.Persistence` assembly, not in Core.** Core has **no NuGet
   dependency at all** after five milestones, which is what makes non-negotiable 1's multiplayer
   seam more than a slogan. `IChunkStore` in Core plus an in-memory implementation is M1's
   `IContentSource` shape exactly. **`ChunkPipeline` takes an `IChunkStore?`, null meaning no
@@ -1138,13 +1140,13 @@ specified as `System.Threading.Channels`, and a FIFO can neither reprioritise qu
 as the player moves nor drop work that went stale before it ran. See
 [docs/M2-REFERENCE-NOTES.md](docs/M2-REFERENCE-NOTES.md).
 
-**M2a — job scheduler: done 2026-08-27.** `MinerCraft.Core/Jobs/` holds a flat list
+**M2a — job scheduler: done 2026-08-27.** `Overburden.Core/Jobs/` holds a flat list
 re-sorted on a 200 ms timer, priority packed into one `uint` of four byte-bands, real
 cancellation tokens, and dedicated worker threads. Every submitted job reports exactly one
 result — that invariant is fuzzed, and a job that vanishes silently would leave its chunk
 flagged as work-in-progress forever. Nothing submits jobs yet; streaming at M2c feeds it.
 
-**M2b — worldgen: done 2026-08-27.** `MinerCraft.Core/Worldgen/` holds splitmix64, gradient
+**M2b — worldgen: done 2026-08-27.** `Overburden.Core/Worldgen/` holds splitmix64, gradient
 noise, a data-driven strata table, and a generator that is a pure function of seed and
 position. Measured over 2,048 chunks: 4.0 MiB against 128 MiB naive, 68% of chunks uniform.
 
@@ -1153,7 +1155,7 @@ code at 2.23 ms/chunk in Release. The cave share it reported (80%) was right; on
 was wrong. The game project builds Debug, so the streaming profiles are Debug too and are
 consistent with each other — but never quote a generation figure without its build.
 
-**M2c-1 — streaming policy: done 2026-08-27.** `MinerCraft.Core/Streaming/` holds `ChunkBox`
+**M2c-1 — streaming policy: done 2026-08-27.** `Overburden.Core/Streaming/` holds `ChunkBox`
 (six-way box difference, fuzzed against brute force for disjointness *and* exactness),
 `Viewer` with separate horizontal and vertical radii, a chunk state machine that throws on
 an illegal transition, and `ChunkStreamer` — refcounts across viewers, box difference on
@@ -1209,7 +1211,7 @@ What the numbers changed:
 **M2d-2 — cave optimisation: done 2026-08-28.** Cave noise is sampled on a world-anchored
 lattice every `CaveLatticeStep` voxels (default 4) and interpolated in between, so a chunk
 costs 729 fBm evaluations instead of 32,768. Generation went **2.23 → 0.47 ms/chunk** in
-Release, and caves fell from 83% of generation to 20%. `MinerCraft.Bench` is the repeatable
+Release, and caves fell from 83% of generation to 20%. `Overburden.Bench` is the repeatable
 harness that measured it; `--cavestep=1` restores per-voxel evaluation for A/B runs.
 
 Four things about it that are easy to undo by accident:
@@ -1277,7 +1279,7 @@ and the last empty voxel before it — the last one is where M6's placement goes
 M3a's hung instead of failing; M3b's first oracle was wrong in the subject's favour. Neither
 would have shown up in a green run. Both now say in a comment what breaks them and how fast.
 
-**M3c — the carve: done 2026-08-29.** `MinerCraft.Core/Mining/Carve.cs` takes a sphere of
+**M3c — the carve: done 2026-08-29.** `Overburden.Core/Mining/Carve.cs` takes a sphere of
 material out of the world, gated per voxel by hardness; `ToolDefinition` and
 `mods/minercraft/tools/*.json` make a tier content rather than a constant; `MaterialTable`
 finally projects `Hardness`, which `MaterialDefinition` has carried unread since M1.
@@ -1311,7 +1313,7 @@ Four things about it that are easy to undo by accident:
   are not the same event.
 
 **The base game's own files are finally loaded by a test.** `ShippedContentTests` reads
-`MinerCraft.Game/mods/` from disk, rather than the `InMemoryContentSource` fixture every other
+`Overburden.Game/mods/` from disk, rather than the `InMemoryContentSource` fixture every other
 content test builds — which had already drifted (it has no grass). It also checks the shipped
 *numbers*: that some tier leaves the hardest material standing and some tier can take it,
 because the hardness gate is a property of the content and no amount of testing the code
@@ -1388,7 +1390,7 @@ from the planning pass that are expensive to rediscover:
   fuzzable — the collider's oracle is "seal the player in a room and try to shake them out",
   which is a boolean with no reference implementation and no tolerance.
 
-**M4a — the collider: done 2026-08-29.** `MinerCraft.Core/Physics/` holds `Aabb` and
+**M4a — the collider: done 2026-08-29.** `Overburden.Core/Physics/` holds `Aabb` and
 `VoxelCollider.Move(world, materials, box, displacement)` — axis-separated resolve, substepped
 at 0.2 m, an unloaded voxel treated as solid, `grounded` falling out of the −Y resolve. A pure
 function of a box, a displacement and a world.
@@ -1770,7 +1772,7 @@ merges and the two totals came out equal. Same shape as M3c's test whose comment
 caught the border rule.
 
 **M5b — the light grid, propagation and the un-light pass: done 2026-08-30.**
-`MinerCraft.Core/Lighting/` holds `LightCellPos`, `ChunkLight` with cell-face conductance,
+`Overburden.Core/Lighting/` holds `LightCellPos`, `ChunkLight` with cell-face conductance,
 `SkyColumn`, and `LightPropagator`. `MaterialDefinition.LightEmission` is projected into
 `MaterialTable`, `mods/minercraft/materials/lamp.json` ships a full-strength emitter, and **L**
 places one. Suite 496 → 518. **Nothing is wired into the pipeline — a lamp placed today is a

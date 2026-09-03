@@ -1,0 +1,20 @@
+; Engine configuration file.
+; Godot 4.7.1-stable (.NET) — pinned, see docs/DESIGN.md.
+
+config_version=5
+
+[application]
+
+config/name="MinerCraft"
+run/main_scene="res://Main.tscn"
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+config/icon="res://icon.svg"
+
+[dotnet]
+
+project/assembly_name="Overburden.Game"
+
+[rendering]
+
+; Blocky by intent — no texture filtering anywhere in the voxel pipeline.
+textures/default_filters/use_nearest_mipmap_filter=true

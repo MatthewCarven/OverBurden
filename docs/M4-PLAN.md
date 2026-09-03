@@ -124,7 +124,7 @@ test — it is standing still for 10,000 steps and asserting the position never 
 
 ### Where it lives
 
-`MinerCraft.Core/Physics/` — an `Aabb` in metres and a `VoxelCollider.Move(world, box,
+`Overburden.Core/Physics/` — an `Aabb` in metres and a `VoxelCollider.Move(world, box,
 displacement)` returning the resolved box and which axes were blocked. Core, because where a
 player may stand is a world rule and a multiplayer server has to agree about it, and because
 Core is where it can be fuzzed against a dictionary of voxels with no Godot, no threads and no

@@ -11,7 +11,7 @@
 > `engine/voxel_engine.{h,cpp}`, `engine/voxel_engine_updater.cpp`,
 > `terrain/fixed_lod/voxel_terrain.cpp`, `terrain/voxel_viewer.h`, `terrain/free_mesh_task.h`.
 >
-> `fixed_lod` is the analogue to read, not `variable_lod` — MinerCraft has no LOD until M13.
+> `fixed_lod` is the analogue to read, not `variable_lod` — Overburden has no LOD until M13.
 
 ---
 
@@ -137,7 +137,7 @@ It exists purely so that freeing many meshes at once gets spread across ~500 ms 
 landing in one frame. Time-slicing cannot fix this, because the cost is not incurred inside
 your call — Vulkan defers it.
 
-**This applies to us directly and specifically.** MinerCraft draws through `RenderingServer`
+**This applies to us directly and specifically.** Overburden draws through `RenderingServer`
 with explicit RIDs (decided at M0), so unloading a chunk means `RenderingServer.FreeRid()`.
 When the player flies across the world and hundreds of chunks unload in one frame, we will
 hit exactly this, and we will misdiagnose it as a meshing problem because the stutter arrives
@@ -156,7 +156,7 @@ boundary is the naive version and is O(R³) per boundary crossing instead of O(R
 **Blocks are refcounted by viewer, not owned by "the player".** `view_mesh_block` /
 `unview_mesh_block` increment and decrement; a block unloads when its count reaches zero.
 `VoxelViewer` is a first-class node, and there can be several — which is how multiplayer
-works without a special case. This fits our `MinerCraft.Core`-has-no-Godot seam well: a
+works without a special case. This fits our `Overburden.Core`-has-no-Godot seam well: a
 viewer is a position and a radius, not a camera, and Core can own the streaming decision
 entirely. Worth building the refcount in at M2 even with exactly one viewer, because
 retrofitting it is a rewrite of the streaming policy.

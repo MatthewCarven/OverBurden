@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="Overburden.Bench/Overburden.Bench.csproj" />
+  <Project Path="Overburden.Core/Overburden.Core.csproj" />
+  <Project Path="Overburden.Core.Tests/Overburden.Core.Tests.csproj" />
+  <Project Path="Overburden.Persistence/Overburden.Persistence.csproj" />
+  <Project Path="Overburden.Game/Overburden.Game.csproj">
+    <BuildType Project="Debug" />
+  </Project>
+</Solution>

@@ -1,5 +1,39 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-03 — Rename stage 2: the solution, projects, folders and namespaces are Overburden
+
+Five `git mv` of the project folders and their `.csproj`, one of the solution, then a
+case-sensitive `MinerCraft` → `Overburden` over every tracked text file except `WORKLOG.md` (the
+chronicle keeps the old name), JSON, `.tscn`, `.uid` and `.import`, and only the
+`project/assembly_name` line of `project.godot`. **172 files rewritten, 180 renamed.** The
+lowercase `minercraft` — the content namespace, the mod folder, 167 occurrences — is untouched by
+construction, because the replacement is case-sensitive; `IdentifierTests`' deliberate bad input
+`Minercraft:stone` survives for the same reason. Seven sentences that named the old name on
+purpose (DESIGN's decision, TODO's name check, the GitHub remote) were put back by hand.
+
+- **Suite 895 → 895**, the Release bench runs through the renamed path, and the default headless
+  r6 control is **2601 viewed / 325 drawn / 3446 jobs at 411 quads — unchanged to the digit.**
+- **One trap, and it reads exactly like a code defect.** The first Godot run after the rename
+  failed with *"Cannot instantiate C# script because the associated class could not be found:
+  res://Main.cs"* — for every script. Nothing was wrong with any script: `dotnet test` had built
+  the renamed projects, but Godot loads `.godot/mono/temp/bin/Debug/<assembly_name>.dll`, and that
+  folder still held `MinerCraft.Game.dll` beside no `Overburden.Game.dll`. Delete the ignored
+  `.godot/mono` folder, `dotnet build` the game project, and it runs. **If a Godot run after a
+  project rename cannot find its classes, look in `.godot/mono` before looking in the code.**
+- **A correction to this morning's entry, found by accident.** The bench's 0.561 ms/chunk "machine
+  at 2.3×" was measured with Matthew's game running; with it closed the same bench reads
+  **0.239 ms/chunk — 1.0×** — and the played world lights in **7.00 s headless against the
+  14.09 s recorded**, with a Debug derive at **1.37 ms** (3,558 ms over 2,601), which is M5d-1's
+  1.41 exactly. So at the default budget it is two to three derives a frame, not one, and
+  windowed the played world lights in roughly 20 s rather than 45. **The FIFO ordering and the
+  stored-neighbourhood-last finding stand as written; the machine multiplier was the other Godot
+  process, which is a confound the control line cannot see.** The `--light` bench has no control
+  line of its own — `--watershed`'s does — and this is the case for giving it one.
+
+Still MinerCraft after this stage, by design: `config/name` and with it the window title and the
+`user://` folder, `mods/minercraft/`, `Identifier.BaseNamespace`, and the GitHub remote. Stages 3
+and 4.
+
 ## 2026-09-03 — The game is Overburden
 
 Matthew: *"Overburden it is Claude."* From a shortlist of mining words — Overburden, Sump, Ingress,
@@ -133,6 +167,11 @@ directly, `-- --lightbudget=16` reports `light budget 16 ms` and `--lightbudget=
 `--` without a word.** The game now warns at startup for any `--name=value` argument found on
 the engine's side, since Godot's own options never take that shape. PowerShell passes the `--`
 through, checked rather than assumed.
+
+**Corrected the same afternoon (see the stage-2 entry): the 2.3× was Matthew's own game running
+beside the measurements.** With it closed the bench reads 0.239 ms/chunk and this world lights in
+7.00 s headless with a 1.37 ms Debug derive — two to three a frame at 4 ms, not one. The ordering
+finding stands; the arithmetic below it is halved.
 
 **Recommendation, Matthew's to take.** The fix that addresses the played-world case regardless
 of machine speed is the cheapest: **order `_lightBuilds` by distance to the viewer** the way the

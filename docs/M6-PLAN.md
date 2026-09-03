@@ -49,7 +49,7 @@ the same race on the save path loses a tunnel.
 
 ### 1. The store is an interface in Core; SQLite lives in its own assembly
 
-`MinerCraft.Core` has **no NuGet dependency at all** today — not one, in five milestones. That is
+`Overburden.Core` has **no NuGet dependency at all** today — not one, in five milestones. That is
 not an accident of scope; it is what makes non-negotiable 1's multiplayer seam more than a
 slogan, because a dedicated server is `dotnet run` against Core and nothing else.
 `Microsoft.Data.Sqlite` would be Core's first, and it carries native binaries (`SQLitePCLRaw`)
@@ -59,8 +59,8 @@ that have to be shipped beside the assembly and survive a Godot export with
 So:
 
 - **`IChunkStore` in Core**, with an in-memory implementation for tests.
-- **`MinerCraft.Persistence`**, a new project referencing Core, holding the SQLite implementation
-  and the package reference. Core does not reference it. `MinerCraft.Game` and any future server
+- **`Overburden.Persistence`**, a new project referencing Core, holding the SQLite implementation
+  and the package reference. Core does not reference it. `Overburden.Game` and any future server
   host wire the two together.
 
 This is not a new pattern — it is exactly `IContentSource` / `DirectoryContentSource` /
@@ -526,7 +526,7 @@ they are marked.
 
 | | Recommended | Revisit trigger |
 |---|---|---|
-| **Where SQLite lives** | New `MinerCraft.Persistence` assembly; `IChunkStore` in Core; Core stays dependency-free | Core needing the store for a reason an interface cannot express |
+| **Where SQLite lives** | New `Overburden.Persistence` assembly; `IChunkStore` in Core; Core stays dependency-free | Core needing the store for a reason an interface cannot express |
 | **Save as a job** | Serial lane, per M2a's built-and-unused flag. Not cancellable, drained at shutdown | — |
 | **World file** | Same database as the chunks, same transaction as any ID it allocates | — |
 | **Compression** | Deflate, BCL only, on the worker | Measured ratio under ~3×, at which point the CPU is not worth the opacity |

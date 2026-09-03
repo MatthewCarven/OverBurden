@@ -1,4 +1,4 @@
-﻿# MinerCraft — Design Document
+﻿# Overburden — Design Document
 
 > Status: M0–M6 built and played, M7 planned. Locked decisions here; per-milestone plans in
 > `M*-PLAN.md`.

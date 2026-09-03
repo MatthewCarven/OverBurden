@@ -5,7 +5,7 @@
 
 ## Decision
 
-Build MinerCraft's voxel storage, meshing and streaming ourselves, and use
+Build Overburden's voxel storage, meshing and streaming ourselves, and use
 [Zylann/godot_voxel](https://github.com/Zylann/godot_voxel) as a **reference** — read its
 approaches, do not take the dependency.
 
@@ -28,7 +28,7 @@ That will stop being true once M1c lands, which is why it was worth deciding now
 
 Rejected, for four reasons in descending weight.
 
-**It would close the headless Core seam.** `MinerCraft.Core` deliberately has no Godot
+**It would close the headless Core seam.** `Overburden.Core` deliberately has no Godot
 reference — that is the "maybe someday multiplayer" decision from the design session, and
 the test project exists to enforce it. godot_voxel puts world storage inside the engine.
 Adopting it reverses an architectural decision rather than merely adding a library.

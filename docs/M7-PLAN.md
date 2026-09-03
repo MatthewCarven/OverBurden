@@ -178,11 +178,11 @@ the *edited* sky height per voxel column, refcounted per (x, z), saved at M6a. A
 watershed reads that instead of the analytic function, at 0.25 m rather than 4 m, over a much
 smaller window. Named, not built.
 
-### 7. The code lives in `MinerCraft.Core/Hydrology/`
+### 7. The code lives in `Overburden.Core/Hydrology/`
 
 No Godot, per non-negotiable 1. The analysis takes `ISurfaceHeights` and returns plain data; the
 accumulator takes a clock reading and returns levels. The renderer and the particles are Game.
-`MinerCraft.Persistence` gains one table.
+`Overburden.Persistence` gains one table.
 
 ---
 

@@ -1,4 +1,4 @@
-# MinerCraft
+# Overburden
 
 A voxel mining game where you are a mining operation fighting water and gravity.
 
@@ -76,18 +76,18 @@ precision on either** — one voxel taken, one voxel placed. B cycles the brush,
 material, and 1 and 2 pick a tool tier.
 
 Your world is written to `user://worlds/default/world.db` — on Windows,
-`%APPDATA%/Godot/app_userdata/MinerCraft/worlds/`. It saves as chunks unload, every thirty
+`%APPDATA%/Godot/app_userdata/Overburden/worlds/`. It saves as chunks unload, every thirty
 seconds, and on quit.
 
 ```
-dotnet test MinerCraft.slnx
+dotnet test Overburden.slnx
 ```
 
 Worldgen has a benchmark. Run it in Release — Debug is about three times slower and the
 number looks just as real:
 
 ```
-dotnet run --project MinerCraft.Bench -c Release
+dotnet run --project Overburden.Bench -c Release
 ```
 
 ## The shape of it

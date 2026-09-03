@@ -109,7 +109,7 @@ also a serial-lane saving.
 - No mesh cache. **Revisit trigger: slice 2 measured and the turnaround is mesh-bound.**
 - No batched or parallel loads. Their trigger is unchanged: thousands of *non-uniform* stored
   chunks.
-- Nothing in Godot. Every line is in `MinerCraft.Core`, and `Main` grows one flag.
+- Nothing in Godot. Every line is in `Overburden.Core`, and `Main` grows one flag.
 
 ## Split
 

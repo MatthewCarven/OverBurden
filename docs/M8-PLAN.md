@@ -190,7 +190,7 @@ is proposed**, for three reasons that are each sufficient:
 Water is its own grid, drawn by its own pass. **Same shape as the light grid**, which is also not
 voxels and also has its own storage.
 
-### 7. The code lives in `MinerCraft.Core/Fluid/`, beside `Hydrology/`
+### 7. The code lives in `Overburden.Core/Fluid/`, beside `Hydrology/`
 
 `Hydrology/` is Tier A — analysis, basins, curves, the merge tree, the accumulator. Tier B and C
 are a different kind of thing (stateful, ticked, local) and share only the litre. Splitting them

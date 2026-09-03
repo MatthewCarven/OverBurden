@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Overburden.Core</RootNamespace>
+
+    <!-- Core must never reference Godot. It is the headless simulation, and staying
+         Godot-free is what keeps a dedicated server possible later. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Storage internals (packing widths, representation transitions) are tested
+         directly rather than being promoted to public API just to be reachable. -->
+    <InternalsVisibleTo Include="Overburden.Core.Tests" />
+  </ItemGroup>
+
+</Project>
