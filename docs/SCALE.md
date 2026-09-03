@@ -98,14 +98,21 @@ volume*. A generous cave at 30 × 30 × 10 m is 9,000 cells of volume but roughl
 waterline** at 1 m, and M8-PLAN carried that to voxels as **16× rather than 64×, ~14,400 cells**,
 because a waterline is an area.
 
-**Measured, on a 96 m × 96 m mine flooding from a lake through breaches of four widths:**
+**Measured, on a 96 m × 96 m mine flooding from a lake through breaches of four widths** —
+re-taken 2026-09-03 from the committed code, which the M8a-2 table did not reproduce (2,000-tick
+flow window; the original was shorter and pre-commit):
 
 | breach | peak active cells | cell visits/s at 2 Hz | share of the light budget |
 |---|---|---|---|
-| 0.25 m | 2,706 | 2,725 | 0.5% |
-| 0.75 m | 4,234 | 5,439 | 1.0% |
-| 1.25 m | 9,240 | 12,118 | 2.3% |
-| 2.25 m | 17,357 | 26,701 | **5.1%** |
+| 0.25 m | 4,096 | 4,370 | 0.8% |
+| 0.75 m | 6,046 | 7,323 | 1.4% |
+| 1.25 m | 12,531 | 15,930 | 3.1% |
+| 2.25 m | 20,737 | 31,173 | **6.0%** |
+
+**And on bitten chunks, the shape the play made normal (M8b-1):** an 8 m void fed through a 0.75 m
+bore peaks at 4,914 cells and *settles*, in 1,915 ticks; **a chunk whose whole roof opens under a
+lake is 43,374 cells active in one tick, and a 2 × 2 × 2 block is 302,182 — 73.5 ms in Release**,
+six times the trigger below, in one tick. That is why the tick budget is a slice rather than a rate.
 
 **So the cell size is settled at 0.25 m and it is affordable**, the estimate was the right order,
 and the ~50,000-cell revisit trigger is not reached. The 64× caveat is closed.

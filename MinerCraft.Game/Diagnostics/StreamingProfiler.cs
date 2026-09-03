@@ -200,6 +200,18 @@ public sealed class StreamingProfiler
     public SampleSeries Place { get; } = new();
 
     /// <summary>
+    /// Sim-thread time for one Tier B tick.
+    /// </summary>
+    /// <remarks>
+    /// Timed directly, like everything else here. The tick runs at 2 Hz whatever the frame rate,
+    /// so its cost is a spike rather than a load: M8a measured 2.7 ms for the widest breach — a
+    /// sixth of a frame arriving at once — and named a time slice without building one. This is
+    /// the series that says whether it needs building, and it is empty in a run where nothing was
+    /// poured, which the report says rather than printing zeros.
+    /// </remarks>
+    public SampleSeries FluidTick { get; } = new();
+
+    /// <summary>
     /// Main-thread time for one <c>PlayerController.TryStep</c>: the whole collider solve.
     /// </summary>
     /// <remarks>

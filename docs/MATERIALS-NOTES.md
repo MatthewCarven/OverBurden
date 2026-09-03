@@ -257,8 +257,8 @@ places. Nothing in it is *named* water and everything in it *assumes* water.
   simulation as it stands, and the choice is made by whoever is implementing gas under pressure —
   which is how A gets picked, being the obvious one.
 
-**Recommendation: B, and the seam it needs today is two internal edits in one file that change
-nothing measurable.** Gravity becomes one `Down` field instead of six literal offsets, and
+**Recommendation: B — and settled the same day, Matthew: *"Ok lets continue."* The seam it needs
+today is two internal edits in one file that change nothing measurable.** Gravity becomes one `Down` field instead of six literal offsets, and
 *room* becomes a method that today returns `FreeAt` — the fall's transfer pre-clamped through it
 and `VerifyQuiescent` reading the same one. Neither touches `FluidGrid`, a constructor, a caller
 or a test; a second fluid is then a second `FluidSimulation` instance built with the other

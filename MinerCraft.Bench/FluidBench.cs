@@ -7,8 +7,7 @@ using MinerCraft.Core.Worldgen;
 namespace MinerCraft.Bench;
 
 /// <summary>
-/// Real terrain with a mine cut into it: one vertical bore from the surface down to a grid of
-/// tunnels.
+/// Real terrain with something dug into it, baked into a bitset before anything is timed.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -18,99 +17,74 @@ namespace MinerCraft.Bench;
 /// automaton's easy case its only case, which is the fixture trap this project keeps meeting.
 /// </para>
 /// <para>
-/// <b>The tunnels are 0.75 m bores because that is what <c>hand_pick</c> leaves</b>, and they stay
-/// that width in every arm so the only thing the sweep moves is the breach.
+/// <b>Two shapes, because the play changed what the normal excavation is.</b> <see cref="MineTerrain"/>
+/// is a grid of 0.75 m bores, which is what <c>hand_pick</c> leaves and what M8-PLAN's cost model
+/// was derived from. <see cref="ChamberTerrain"/> is a block of 8 m voids — bitten chunks — which is
+/// what the entangled miner leaves and what the played world of 2026-09-03 is made of: 4,562 of
+/// its 4,584 stored chunks are uniform air. One bitten chunk is 32,768 cells of void where a bore
+/// is a few hundred, and the tick budget M8b settles has to be priced against both.
+/// </para>
+/// <para>
+/// One bitset column per (x, z), built the first time anything asks about that column.
+/// <b>THE FIRST VERSION OF THIS FIXTURE ANSWERED CanHold BY CALLING IsCaveAt, AND IT MEASURED
+/// ITSELF.</b> A visit cost 3.86 microseconds against the light propagator's 0.457, because six
+/// neighbour queries a visit each evaluated eight octaves of gradient noise. In the real world
+/// CanHold is an index into a chunk's voxel array. Baking the terrain first is what makes the
+/// number below a measurement of the automaton rather than of the generator.
 /// </para>
 /// </remarks>
-internal sealed class MineTerrain : IFluidTerrain
+internal abstract class DugTerrain : IFluidTerrain
 {
     private readonly WorldGenerator _generator;
 
-    private readonly int _shaftX, _shaftZ, _shaftHalf;
-    private readonly int _floorY, _roofY;
-    private readonly int _halfSpan, _spacing, _bore;
     private readonly int _minX, _minY, _minZ;
     private readonly int _spanX, _spanY, _spanZ, _words;
 
-    // One bitset column per (x, z), built the first time anything asks about that column.
-    //
-    // THE FIRST VERSION OF THIS FIXTURE ANSWERED CanHold BY CALLING IsCaveAt, AND IT MEASURED
-    // ITSELF. A visit cost 3.86 microseconds against the light propagator's 0.457, because six
-    // neighbour queries a visit each evaluated eight octaves of gradient noise. In the real world
-    // CanHold is an index into a chunk's voxel array. Baking the terrain first is what makes the
-    // number below a measurement of the automaton rather than of the generator.
     private readonly ulong[] _open;
     private readonly bool[] _built;
 
-    public MineTerrain(
-        WorldGenerator generator,
-        int shaftX,
-        int shaftZ,
-        int shaftVoxels,
-        int depthMetres,
-        int spanMetres,
-        int spacingMetres,
-        int boreVoxels,
-        int tunnelHeightVoxels)
+    /// <param name="halfSpanVoxels">Half the footprint of the excavation, in voxels, around the centre.</param>
+    /// <param name="floorY">The lowest dug voxel. The bitset is sealed four voxels below it.</param>
+    protected DugTerrain(
+        WorldGenerator generator, int centreX, int centreZ, int halfSpanVoxels, int floorY)
     {
         _generator = generator;
-        _shaftX = shaftX;
-        _shaftZ = shaftZ;
-        _shaftHalf = shaftVoxels / 2;
-        _bore = boreVoxels / 2;
-        _halfSpan = spanMetres * VoxelConstants.VoxelsPerMetre / 2;
-        _spacing = spacingMetres * VoxelConstants.VoxelsPerMetre;
-
-        SurfaceY = generator.SurfaceHeightAt(shaftX, shaftZ);
-        _floorY = SurfaceY - (depthMetres * VoxelConstants.VoxelsPerMetre);
-        _roofY = _floorY + tunnelHeightVoxels - 1;
+        CentreX = centreX;
+        CentreZ = centreZ;
+        SurfaceY = generator.SurfaceHeightAt(centreX, centreZ);
 
         // Sealed above and below: an unloaded voxel is solid, which is the answer the real adapter
         // gives at the edge of the loaded world.
-        _minX = shaftX - _halfSpan - 4;
-        _minZ = shaftZ - _halfSpan - 4;
-        _minY = _floorY - 4;
-        _spanX = (2 * _halfSpan) + 9;
-        _spanZ = (2 * _halfSpan) + 9;
+        _minX = centreX - halfSpanVoxels - 4;
+        _minZ = centreZ - halfSpanVoxels - 4;
+        _minY = floorY - 4;
+        _spanX = (2 * halfSpanVoxels) + 9;
+        _spanZ = (2 * halfSpanVoxels) + 9;
         _spanY = SurfaceY + 4 - _minY + 1;
-        _words = ((_spanY + 63) / 64);
+        _words = (_spanY + 63) / 64;
 
         _open = new ulong[(long)_spanX * _spanZ * _words];
         _built = new bool[_spanX * _spanZ];
     }
 
-    /// <summary>Y of the surface over the shaft. The mouth sits at it.</summary>
+    public int CentreX { get; }
+
+    public int CentreZ { get; }
+
+    /// <summary>Y of the surface over the centre. The mouth sits at it.</summary>
     public int SurfaceY { get; }
 
+    /// <summary>One line saying what was dug, for the report.</summary>
+    public abstract string Describe();
+
     /// <summary>The cells a lake pours into: the top layer of the shaft.</summary>
-    public IEnumerable<VoxelPos> Mouth()
-    {
-        for (int dx = -_shaftHalf; dx <= _shaftHalf; dx++)
-        {
-            for (int dz = -_shaftHalf; dz <= _shaftHalf; dz++)
-            {
-                yield return new VoxelPos(_shaftX + dx, SurfaceY, _shaftZ + dz);
-            }
-        }
-    }
+    public abstract IEnumerable<VoxelPos> Mouth();
 
-    /// <summary>Cells the mine holds when flooded to the roof. The denominator.</summary>
-    public long TunnelCells()
-    {
-        long cells = 0;
-        for (int x = _shaftX - _halfSpan; x <= _shaftX + _halfSpan; x++)
-        {
-            for (int z = _shaftZ - _halfSpan; z <= _shaftZ + _halfSpan; z++)
-            {
-                if (InTunnelPlan(x, z))
-                {
-                    cells += _roofY - _floorY + 1;
-                }
-            }
-        }
+    /// <summary>Cells the excavation holds when flooded to its roof. The denominator.</summary>
+    public abstract long VoidCells();
 
-        return cells;
-    }
+    /// <summary>Whether this voxel was dug. The terrain's own openings are added on top.</summary>
+    protected abstract bool IsDug(int x, int y, int z);
 
     public bool CanHold(VoxelPos v)
     {
@@ -135,19 +109,13 @@ internal sealed class MineTerrain : IFluidTerrain
     private void Build(int worldX, int worldZ, int column)
     {
         int surface = _generator.SurfaceHeightAt(worldX, worldZ);
-        bool shaft = Math.Abs(worldX - _shaftX) <= _shaftHalf
-            && Math.Abs(worldZ - _shaftZ) <= _shaftHalf;
-        bool tunnel = Math.Abs(worldX - _shaftX) <= _halfSpan
-            && Math.Abs(worldZ - _shaftZ) <= _halfSpan
-            && InTunnelPlan(worldX, worldZ);
 
         long baseWord = (long)column * _words;
         for (int ly = 0; ly < _spanY; ly++)
         {
             int y = _minY + ly;
             bool open =
-                (shaft && y >= _floorY && y <= SurfaceY)
-                || (tunnel && y >= _floorY && y <= _roofY)
+                IsDug(worldX, y, worldZ)
                 || y > surface
                 || _generator.IsCaveAt(worldX, y, worldZ, surface);
 
@@ -160,14 +128,192 @@ internal sealed class MineTerrain : IFluidTerrain
         _built[column] = true;
     }
 
-    private bool InTunnelPlan(int x, int z) =>
-        Math.Abs(Mod(x - _shaftX + _bore, _spacing) - _bore) <= _bore
-        || Math.Abs(Mod(z - _shaftZ + _bore, _spacing) - _bore) <= _bore;
-
-    private static int Mod(int value, int modulus)
+    protected static int Mod(int value, int modulus)
     {
         int r = value % modulus;
         return r < 0 ? r + modulus : r;
+    }
+}
+
+/// <summary>
+/// One vertical bore from the surface down to a grid of tunnels.
+/// </summary>
+/// <remarks>
+/// <b>The tunnels are 0.75 m bores because that is what <c>hand_pick</c> leaves</b>, and they stay
+/// that width in every arm so the only thing the sweep moves is the breach.
+/// </remarks>
+internal sealed class MineTerrain : DugTerrain
+{
+    private readonly int _shaftHalf;
+    private readonly int _floorY, _roofY;
+    private readonly int _halfSpan, _spacing, _bore;
+    private readonly int _spanMetres, _depthMetres;
+
+    public MineTerrain(
+        WorldGenerator generator,
+        int shaftX,
+        int shaftZ,
+        int shaftVoxels,
+        int depthMetres,
+        int spanMetres,
+        int spacingMetres,
+        int boreVoxels,
+        int tunnelHeightVoxels)
+        : base(
+            generator,
+            shaftX,
+            shaftZ,
+            spanMetres * VoxelConstants.VoxelsPerMetre / 2,
+            generator.SurfaceHeightAt(shaftX, shaftZ) - (depthMetres * VoxelConstants.VoxelsPerMetre))
+    {
+        _shaftHalf = shaftVoxels / 2;
+        _bore = boreVoxels / 2;
+        _halfSpan = spanMetres * VoxelConstants.VoxelsPerMetre / 2;
+        _spacing = spacingMetres * VoxelConstants.VoxelsPerMetre;
+        _spanMetres = spanMetres;
+        _depthMetres = depthMetres;
+
+        _floorY = SurfaceY - (depthMetres * VoxelConstants.VoxelsPerMetre);
+        _roofY = _floorY + tunnelHeightVoxels - 1;
+    }
+
+    public override string Describe() =>
+        $"a {_spanMetres} m x {_spanMetres} m grid of 0.75 m tunnels 2 m high, on an 8 m pitch, "
+        + $"{_depthMetres} m under the surface";
+
+    public override IEnumerable<VoxelPos> Mouth()
+    {
+        for (int dx = -_shaftHalf; dx <= _shaftHalf; dx++)
+        {
+            for (int dz = -_shaftHalf; dz <= _shaftHalf; dz++)
+            {
+                yield return new VoxelPos(CentreX + dx, SurfaceY, CentreZ + dz);
+            }
+        }
+    }
+
+    public override long VoidCells()
+    {
+        long cells = 0;
+        for (int x = CentreX - _halfSpan; x <= CentreX + _halfSpan; x++)
+        {
+            for (int z = CentreZ - _halfSpan; z <= CentreZ + _halfSpan; z++)
+            {
+                if (InTunnelPlan(x, z))
+                {
+                    cells += _roofY - _floorY + 1;
+                }
+            }
+        }
+
+        return cells;
+    }
+
+    protected override bool IsDug(int x, int y, int z)
+    {
+        bool shaft = Math.Abs(x - CentreX) <= _shaftHalf && Math.Abs(z - CentreZ) <= _shaftHalf;
+        bool tunnel = Math.Abs(x - CentreX) <= _halfSpan
+            && Math.Abs(z - CentreZ) <= _halfSpan
+            && InTunnelPlan(x, z);
+
+        return (shaft && y >= _floorY && y <= SurfaceY)
+            || (tunnel && y >= _floorY && y <= _roofY);
+    }
+
+    private bool InTunnelPlan(int x, int z) =>
+        Math.Abs(Mod(x - CentreX + _bore, _spacing) - _bore) <= _bore
+        || Math.Abs(Mod(z - CentreZ + _bore, _spacing) - _bore) <= _bore;
+}
+
+/// <summary>
+/// A block of bitten chunks — <i>n</i> × <i>n</i> × <i>n</i> voids of 8 m — with a shaft from the
+/// surface into the middle of its roof.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The shape the play made normal and the cost model never priced.</b> M8-PLAN's ~14,400 cells
+/// and ~50,000-cell revisit trigger come from SCALE's cave; <see cref="MineTerrain"/> is bores by
+/// construction. One bitten chunk under a lake is 32,768 cells of void, and the entangled miner
+/// takes one every quarter of a second.
+/// </para>
+/// <para>
+/// <b>A shaft as wide as the block is the lake bed falling in.</b> Pass a bore of 32 voxels or
+/// more and the mouth is the whole roof — 1,024 cells per chunk of footprint — which is the case
+/// where a chunk is bitten out from directly under standing water. A narrow bore is the other
+/// case: a chamber dug from a tunnel and then breached.
+/// </para>
+/// </remarks>
+internal sealed class ChamberTerrain : DugTerrain
+{
+    private readonly int _chambers;
+    private readonly int _halfSpan;
+    private readonly int _shaftHalf;
+    private readonly int _floorY, _roofY;
+    private readonly int _depthMetres;
+
+    public ChamberTerrain(
+        WorldGenerator generator, int centreX, int centreZ, int shaftVoxels, int depthMetres, int chambers)
+        : base(
+            generator,
+            centreX,
+            centreZ,
+            chambers * VoxelConstants.ChunkSize / 2,
+            generator.SurfaceHeightAt(centreX, centreZ)
+                - (depthMetres * VoxelConstants.VoxelsPerMetre)
+                - (chambers * VoxelConstants.ChunkSize) + 1)
+    {
+        _chambers = chambers;
+        _halfSpan = chambers * VoxelConstants.ChunkSize / 2;
+        _shaftHalf = Math.Min(shaftVoxels, 2 * _halfSpan) / 2;
+        _depthMetres = depthMetres;
+
+        _roofY = SurfaceY - (depthMetres * VoxelConstants.VoxelsPerMetre);
+        _floorY = _roofY - (chambers * VoxelConstants.ChunkSize) + 1;
+    }
+
+    public override string Describe() =>
+        $"a {_chambers} x {_chambers} x {_chambers} block of bitten 8 m chunks "
+        + $"({_chambers * 8} m on a side), its roof {_depthMetres} m under the surface";
+
+    public override IEnumerable<VoxelPos> Mouth()
+    {
+        // The same footprint IsDug gives the shaft: the whole block when the roof is open, else
+        // the odd-width bore centred on the block.
+        int width = ShaftWidth;
+        int start = width == 2 * _halfSpan ? -_halfSpan : -(width / 2);
+        for (int dx = 0; dx < width; dx++)
+        {
+            for (int dz = 0; dz < width; dz++)
+            {
+                yield return new VoxelPos(CentreX + start + dx, SurfaceY, CentreZ + start + dz);
+            }
+        }
+    }
+
+    public override long VoidCells() =>
+        (long)_chambers * _chambers * _chambers * VoxelConstants.ChunkVolume
+        + ((long)ShaftWidth * ShaftWidth * (SurfaceY - _roofY));
+
+    /// <summary>Voxels across the shaft: odd for a bore, the block's full width for the open roof.</summary>
+    private int ShaftWidth => 2 * _shaftHalf + 1 == 2 * _halfSpan ? 2 * _halfSpan : (2 * _shaftHalf) + 1;
+
+    protected override bool IsDug(int x, int y, int z)
+    {
+        // The block is chunk-aligned in size, so it is [centre - half, centre + half) on each axis:
+        // exactly chambers * 32 voxels, never one more.
+        bool inBlock = x >= CentreX - _halfSpan && x < CentreX + _halfSpan
+            && z >= CentreZ - _halfSpan && z < CentreZ + _halfSpan
+            && y >= _floorY && y <= _roofY;
+        if (inBlock)
+        {
+            return true;
+        }
+
+        int half = ShaftWidth / 2;
+        bool inShaft = ShaftWidth == 2 * _halfSpan
+            ? x >= CentreX - half && x < CentreX + half && z >= CentreZ - half && z < CentreZ + half
+            : Math.Abs(x - CentreX) <= half && Math.Abs(z - CentreZ) <= half;
+        return inShaft && y > _roofY && y <= SurfaceY;
     }
 }
 
@@ -205,9 +351,21 @@ internal static class FluidBench
         int ticks,
         int[] bores,
         int spanMetres,
-        int depthMetres,
-        int settleCap)
+        int? depthMetres,
+        int settleCap,
+        string shape,
+        int chambers)
     {
+        // Each shape has its own sensible depth: a mine sits well under the surface, a bitten chunk
+        // under a lake has its roof a couple of metres down, so the lake bed is the thing that
+        // falls in rather than a bore.
+        int depth = depthMetres ?? (shape == "chamber" ? 2 : 24);
+        if (shape is not ("mine" or "chamber"))
+        {
+            Console.Error.WriteLine($"--fluidshape must be mine or chamber, not '{shape}'.");
+            return 2;
+        }
+
         Console.WriteLine(
             $"Fluid bench — Tier B, 0.25 m cells, {FluidConstants.CellCapacityMillilitres:N0} mL "
             + $"({FluidConstants.CellCapacityLitres:F3} L) per cell");
@@ -219,17 +377,16 @@ internal static class FluidBench
         Console.WriteLine();
         Console.WriteLine(machineControl);
         Console.WriteLine();
+        DugTerrain example = Make(generator, shape, bores[0], depth, spanMetres, chambers);
         Console.WriteLine(
-            $"  Fixture: a {spanMetres} m x {spanMetres} m grid of 0.75 m tunnels 2 m high, on an "
-            + $"8 m pitch, {depthMetres} m under the surface, fed by one bore from a "
-            + $"{lakeLitres:N0} L lake.");
+            $"  Fixture: {example.Describe()}, fed by one bore from a {lakeLitres:N0} L lake.");
         Console.WriteLine(
             $"  The lake pours in as fast as the bore accepts it; what the mouth refuses is offered "
             + $"again next tick. {ticks:N0} ticks of flow at {TicksPerSecond:F0} Hz, then settle.");
         Console.WriteLine();
 
         Console.WriteLine(
-            "  bore     tunnel   delivered   drained   L/tick   L/s     hours to   peak     "
+            "  bore     void     delivered   drained   L/tick   L/s     hours to   peak     "
             + "visits   visits/s   ms/tick   ms/tick   held      panels   MiB    settle   conserved");
         Console.WriteLine(
             "  voxels   cells    L           %         mean     mean    drain      active   /tick "
@@ -240,7 +397,9 @@ internal static class FluidBench
 
         foreach (int bore in bores)
         {
-            RunArm(generator, lakeLitres, ticks, bore, spanMetres, depthMetres, settleCap);
+            RunArm(
+                Make(generator, shape, bore, depth, spanMetres, chambers),
+                lakeLitres, ticks, bore, settleCap);
         }
 
         Console.WriteLine();
@@ -259,22 +418,26 @@ internal static class FluidBench
     private static string Ticks(int value) =>
         value < 0 ? "never" : value.ToString("N0", CultureInfo.InvariantCulture);
 
-    private static void RunArm(
-        WorldGenerator generator, long lakeLitres, int ticks, int bore, int spanMetres,
-        int depthMetres, int settleCap)
-    {
-        var terrain = new MineTerrain(
-            generator,
-            shaftX: 0,
-            shaftZ: 0,
-            shaftVoxels: bore,
-            depthMetres: depthMetres,
-            spanMetres: spanMetres,
-            spacingMetres: 8,
-            boreVoxels: 3,
-            tunnelHeightVoxels: 8);
+    private static DugTerrain Make(
+        WorldGenerator generator, string shape, int bore, int depth, int spanMetres, int chambers) =>
+        shape == "chamber"
+            ? new ChamberTerrain(
+                generator, centreX: 0, centreZ: 0, shaftVoxels: bore, depthMetres: depth,
+                chambers: chambers)
+            : new MineTerrain(
+                generator,
+                shaftX: 0,
+                shaftZ: 0,
+                shaftVoxels: bore,
+                depthMetres: depth,
+                spanMetres: spanMetres,
+                spacingMetres: 8,
+                boreVoxels: 3,
+                tunnelHeightVoxels: 8);
 
-        long tunnelCells = terrain.TunnelCells();
+    private static void RunArm(DugTerrain terrain, long lakeLitres, int ticks, int bore, int settleCap)
+    {
+        long tunnelCells = terrain.VoidCells();
         VoxelPos[] mouth = [.. terrain.Mouth()];
 
         var sim = new FluidSimulation(terrain);

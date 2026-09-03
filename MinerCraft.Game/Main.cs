@@ -5,6 +5,7 @@ using System.Linq;
 using Godot;
 using MinerCraft.Core.Building;
 using MinerCraft.Core.Content;
+using MinerCraft.Core.Fluid;
 using MinerCraft.Core.Hydrology;
 using MinerCraft.Core.Inventory;
 using MinerCraft.Core.Lighting;
@@ -273,6 +274,68 @@ public partial class Main : Node3D
     /// </remarks>
     private WaterSystem? _water;
 
+    // ---------------------------------------------------------------- M8b: Tier B in the loop
+
+    /// <summary>Tier B: the water that is actually moving, over the streamer, told about edits by the pipeline.</summary>
+    /// <remarks>
+    /// <b>Created with the pipeline rather than with the Tier A water</b>, because its terrain is
+    /// the streamer and its edits come through the pipeline's hook, both of which exist only once
+    /// the pipeline does. <c>--nowater</c> turns it off with Tier A: that flag means "no water at
+    /// all", and a control arm that left half the water in would price the wrong thing.
+    /// </remarks>
+    private FluidSimulation? _fluid;
+
+    private FluidSurface? _fluidSurface;
+
+    /// <summary>Wall-clock seconds since the last Tier B tick.</summary>
+    private double _fluidSinceTick;
+
+    /// <summary>Worst tick seen this session, for the summary a non-profile run prints.</summary>
+    private double _fluidWorstMillis;
+
+    /// <summary>The simulation's counters when the measured window opened, so the window's own figures can be reported.</summary>
+    private long _fluidVisitsAtWarm, _fluidTicksAtWarm;
+
+    private bool _fluidWarmSeen;
+
+    /// <summary>The tick interval: 2 Hz, the rate M8-PLAN costed the active set against and M8a measured at.</summary>
+    /// <remarks>
+    /// <b>The automaton is rate-free, so this is the caller's number and nothing in Core reads
+    /// it.</b> A tick that arrives late costs nothing — DESIGN's <i>slower than realtime is
+    /// accuracy</i> — which is why a stalled frame carries at most one tick of debt and never a
+    /// burst.
+    /// </remarks>
+    private const double FluidTickSeconds = 0.5;
+
+    /// <summary>Litres one press of the relay pours. Enough to see; not enough to flood a mine.</summary>
+    private const long RelayLitres = 10_000;
+
+    /// <summary>Radius Alt+R takes water from, in metres.</summary>
+    private const float TakeRadiusMetres = 2f;
+
+    /// <summary>Voxels of radius the current pour lands in. Sized to the litres — see <see cref="RadiusVoxelsFor"/>.</summary>
+    private int _relayRadiusVoxels;
+
+    /// <summary>Millilitres the relay still owes, offered again every tick until they fit.</summary>
+    /// <remarks>
+    /// The bench's rule: the lake pours in as fast as the mouth accepts and what is refused is
+    /// offered again next tick. What is <em>delivered</em> the simulation counts as injected; this
+    /// is the undelivered remainder, printed beside it, because a relay reporting 10,000 L put
+    /// while 9,900 were still pending would be lying by omission.
+    /// </remarks>
+    private long _relayPendingMillilitres;
+
+    private VoxelPos _relayAt;
+
+    private bool _relayKeyHeld;
+
+    /// <summary><c>--injectlitres</c>: litres poured at the player once the measured window opens.</summary>
+    private long _injectLitres;
+
+    private bool _injected;
+
+    private double _secondsSinceStart;
+
     /// <summary>The analysis in flight, or null. One at a time, by construction.</summary>
     /// <remarks>
     /// <b>A plain task rather than a job on the scheduler, and that is the design decision rather
@@ -516,7 +579,12 @@ public partial class Main : Node3D
             ambientOcclusion: _ambientOcclusion,
             lightBudget: _lightBudget,
             light: _lightInMergeKey,
-            store: _store);
+            store: _store,
+            // M8b: the fluid automaton cannot see edits, and this is how it is told. Wired before
+            // _fluid exists, so the null guard is what the first frames run on.
+            onVoxelChanged: (voxel, _) => _fluid?.Disturb(voxel));
+
+        SetUpFluid(windowed);
 
         // Whatever the world remembered the player carrying. Before the first swing, so that a
         // reopened world can place from what it was already holding.
@@ -804,6 +872,14 @@ public partial class Main : Node3D
                 // is what prices it against the streaming it shares a machine with.
                 case "nowater":
                     _noWater = true;
+                    break;
+
+                // The relay from the command line: litres poured at the player once the measured
+                // window opens. M8-PLAN's "--injectlitres", and the reason the fluid line prints
+                // injected beside held — a debug source creates litres from nothing, which is
+                // exactly what the milestone's oracle forbids, so it is a term rather than a secret.
+                case "injectlitres" when long.TryParse(value, out long inject) && inject > 0:
+                    _injectLitres = inject;
                     break;
 
                 // The rain's own A/B arm: everything else about the weather, with no particles.
@@ -1537,6 +1613,7 @@ public partial class Main : Node3D
 
         _lastFrameSeconds = delta;
         UpdateWater();
+        UpdateFluid(delta);
 
         long now = _clock.ElapsedMillis;
         float wetness = _forcedWeather ?? Weather.WetnessAt(_settings.Seed, now);
@@ -1579,6 +1656,7 @@ public partial class Main : Node3D
         }
 
         _waterSurface?.SetBrightness(_skyBrightness * dimming);
+        _fluidSurface?.SetBrightness(_skyBrightness * dimming);
 
         // Only while the profiler is warm, so the range reported beside the remesh count is the
         // weather the measurement actually saw rather than the weather the warm-up did.
@@ -2255,6 +2333,7 @@ public partial class Main : Node3D
         }
 
         PlaceDebugLamp();
+        RelayWater();
 
         if (_highlight is null)
         {
@@ -2571,7 +2650,8 @@ public partial class Main : Node3D
                + $"measured window — {verdict}\n"
                + $"rain      {SkyFieldSummary()}\n"
                + field
-               + WaterLines();
+               + WaterLines()
+               + FluidLines();
     }
 
     /// <summary>
@@ -2609,6 +2689,312 @@ public partial class Main : Node3D
                + $"analysis  {_lastAnalysisMillis:F1} ms for a {_water.SpanMetres} m window "
                + $"({_water.Pitch}x{_water.Pitch} samples), {_water.WindowsInstalled} installed"
                + $"{flight}\n"
+               + surface;
+    }
+
+    // ---------------------------------------------------------------- M8b: Tier B in the loop
+
+    private void SetUpFluid(bool windowed)
+    {
+        if (_pipeline is null || _noWater)
+        {
+            return;
+        }
+
+        _fluid = new FluidSimulation(new VoxelFluidTerrain(_pipeline.Streamer, _materials!));
+        if (windowed)
+        {
+            _fluidSurface = new FluidSurface(GetWorld3D());
+        }
+    }
+
+    /// <summary>Ticks Tier B at 2 Hz, pours what the relay still owes, and keeps the debug surface current.</summary>
+    private void UpdateFluid(double delta)
+    {
+        if (_fluid is null)
+        {
+            return;
+        }
+
+        _secondsSinceStart += delta;
+        InjectIfDue();
+
+        if (_profiler is { Warm: true } && !_fluidWarmSeen)
+        {
+            _fluidWarmSeen = true;
+            _fluidVisitsAtWarm = _fluid.CellVisits;
+            _fluidTicksAtWarm = _fluid.Ticks;
+        }
+
+        _fluidSinceTick += delta;
+        if (_fluidSinceTick >= FluidTickSeconds)
+        {
+            // At most one tick of debt after a stall: the remainder is kept, the burst is not.
+            _fluidSinceTick = Math.Min(_fluidSinceTick - FluidTickSeconds, FluidTickSeconds);
+
+            PourPending();
+
+            long before = Stopwatch.GetTimestamp();
+            _fluid.Step();
+            double millis = Milliseconds(before, Stopwatch.GetTimestamp());
+
+            _fluidWorstMillis = Math.Max(_fluidWorstMillis, millis);
+            if (_profiler is { Warm: true })
+            {
+                _profiler.FluidTick.Add(millis);
+            }
+        }
+
+        _fluidSurface?.Update(delta, _fluid);
+    }
+
+    /// <summary><c>--injectlitres</c>: the relay from the command line, so a headless run can flood something.</summary>
+    /// <remarks>
+    /// Fires when the measured window opens, so the whole pour is inside it, or three seconds in
+    /// when there is no profiler. At the player rather than the crosshair, because a headless
+    /// camera looks along the flight path and "the voxel in front of what you are looking at" is
+    /// sky.
+    /// </remarks>
+    private void InjectIfDue()
+    {
+        if (_injected || _injectLitres <= 0 || _fluid is null)
+        {
+            return;
+        }
+
+        bool due = _profiler is null ? _secondsSinceStart >= 3.0 : _profiler.Warm;
+        if (!due)
+        {
+            return;
+        }
+
+        // On the ground under the player rather than at the player: a flying camera is four
+        // metres up, the automaton falls one cell a tick, and a ball in mid-air drains from its
+        // bottom layer at one layer a tick — the first run delivered 15,871 of 50,000 L in its
+        // window, measuring the fall rather than the flood. The ball's centre sits one radius
+        // above the surface so the whole of it is open air.
+        VoxelPos here = PlayerVoxel();
+        int surface = _generator!.SurfaceHeightAt(here.X, here.Z);
+        long millilitres = _injectLitres * FluidConstants.MillilitresPerLitre;
+        int radius = RadiusVoxelsFor(millilitres);
+
+        _injected = true;
+        _relayAt = new VoxelPos(here.X, surface + 1 + radius, here.Z);
+        _relayRadiusVoxels = radius;
+        _relayPendingMillilitres += millilitres;
+        GD.Print(
+            $"M8b: injecting {_injectLitres:N0} L at {_relayAt}, a ball of radius {radius} voxels on "
+            + "the ground under the player (--injectlitres)");
+    }
+
+    /// <summary>
+    /// Voxels of radius a ball needs to hold this much, with a ring of slack for the cells that
+    /// turn out to be rock.
+    /// </summary>
+    /// <remarks>
+    /// <b>The pour is sized to the litres so that it lands in one tick, and the reason is what the
+    /// first two runs measured instead of a flood.</b> A fixed one-metre ball is a hose: the
+    /// automaton falls one cell a tick and spreads diffusively, so a ball in mid-air drains from its
+    /// bottom layer at one layer a tick (15,871 of 50,000 L delivered in a 15 s window) and a ball on
+    /// the ground drains only by its bottom layer spreading sideways (11,837 L). Either run measures
+    /// the hose. A ball big enough for the whole pour puts the water down at once, and what the run
+    /// then measures is the automaton spreading it, which is the thing under test.
+    /// </remarks>
+    private static int RadiusVoxelsFor(long millilitres)
+    {
+        double cells = millilitres / (double)FluidConstants.CellCapacityMillilitres;
+        double radius = Math.Cbrt(3.0 * cells / (4.0 * Math.PI));
+        return Math.Max(1, (int)Math.Ceiling(radius) + 1);
+    }
+
+    /// <summary>Offers what the relay still owes to every cell in its ball, as fast as they take it.</summary>
+    private void PourPending()
+    {
+        if (_fluid is null || _relayPendingMillilitres <= 0)
+        {
+            return;
+        }
+
+        int r = _relayRadiusVoxels;
+        int r2 = r * r;
+
+        // A fixed order, so the same pour lands the same way twice.
+        for (int dy = r; dy >= -r; dy--)
+        {
+            for (int dx = -r; dx <= r; dx++)
+            {
+                for (int dz = -r; dz <= r; dz++)
+                {
+                    if ((dx * dx) + (dy * dy) + (dz * dz) > r2)
+                    {
+                        continue;
+                    }
+
+                    _relayPendingMillilitres =
+                        _fluid.Add(_relayAt.Offset(dx, dy, dz), _relayPendingMillilitres);
+                    if (_relayPendingMillilitres == 0)
+                    {
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// The debug relay: R puts <see cref="RelayLitres"/> down at the crosshair as a ball sized to
+    /// hold them, Alt+R takes back everything within <see cref="TakeRadiusMetres"/> of it. M8-PLAN's provocation seam, built as a bind and not as
+    /// content.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>No material, no JSON, no ID</b> — the entangled miner's rule, second outing, and M8-PLAN
+    /// says why: the moment <c>minercraft:relay_pump</c> exists as a material the name is permanent
+    /// whether or not the design behind it is finished. The endgame machine is M10's and reuses the
+    /// arithmetic when it is designed.
+    /// </para>
+    /// <para>
+    /// <b>It creates litres from nothing, which is what the milestone's oracle forbids, so it is a
+    /// reported term rather than a hidden one</b>: injected and removed are printed beside held, and
+    /// the identity is <c>held == injected − removed − displaced</c>. The pour is a source offered
+    /// again every tick until it fits — the bench's rule — and the undelivered remainder is printed
+    /// too.
+    /// </para>
+    /// </remarks>
+    private void RelayWater()
+    {
+        if (_fluid is null || _mining is null || _camera is null || !_camera.MouseCaptured)
+        {
+            return;
+        }
+
+        bool pressed = Input.IsKeyPressed(Key.R);
+        bool edge = pressed && !_relayKeyHeld;
+        _relayKeyHeld = pressed;
+
+        if (!edge || !_mining.HasTarget)
+        {
+            return;
+        }
+
+        VoxelPos at = _mining.Hit.Previous;
+        if (Input.IsKeyPressed(Key.Alt))
+        {
+            long taken = TakeWaterAround(at);
+            _relayPendingMillilitres = 0;
+            GD.Print(
+                $"M8b: relay took {taken / (double)FluidConstants.MillilitresPerLitre:N0} L around {at}");
+            return;
+        }
+
+        _relayAt = at;
+        _relayPendingMillilitres += RelayLitres * FluidConstants.MillilitresPerLitre;
+        _relayRadiusVoxels = RadiusVoxelsFor(_relayPendingMillilitres);
+        GD.Print(
+            $"M8b: relay pouring {RelayLitres:N0} L at {at} in a ball of radius {_relayRadiusVoxels} voxels; "
+            + $"{_relayPendingMillilitres / (double)FluidConstants.MillilitresPerLitre:N0} L pending");
+    }
+
+    private long TakeWaterAround(VoxelPos centre)
+    {
+        if (_fluid is null)
+        {
+            return 0;
+        }
+
+        int r = (int)MathF.Ceiling(TakeRadiusMetres * VoxelConstants.VoxelsPerMetre);
+        int r2 = r * r;
+
+        long taken = 0;
+        for (int dy = -r; dy <= r; dy++)
+        {
+            for (int dx = -r; dx <= r; dx++)
+            {
+                for (int dz = -r; dz <= r; dz++)
+                {
+                    if ((dx * dx) + (dy * dy) + (dz * dz) > r2)
+                    {
+                        continue;
+                    }
+
+                    taken += _fluid.Remove(
+                        centre.Offset(dx, dy, dz), FluidConstants.CellCapacityMillilitres);
+                }
+            }
+        }
+
+        return taken;
+    }
+
+    /// <summary>The milestone's oracle, as a word: held equals injected less removed less displaced.</summary>
+    private string FluidIdentity()
+    {
+        FluidSimulation f = _fluid!;
+        bool exact = f.TotalMillilitres
+            == f.AddedMillilitres - f.RemovedMillilitres - f.DisplacedMillilitres;
+        return exact ? "exact" : "*** NO ***";
+    }
+
+    /// <summary>The Tier B line the periodic report prints.</summary>
+    /// <remarks>
+    /// <b>Every term of the identity, and the undelivered remainder beside them.</b> A held figure
+    /// on its own cannot say whether the relay lied, and "0 L moving" cannot say whether nothing
+    /// was poured or everything drained into an unloaded chunk; the terms beside it can.
+    /// </remarks>
+    private string FluidSummary()
+    {
+        FluidSimulation f = _fluid!;
+        const double litre = FluidConstants.MillilitresPerLitre;
+
+        string surface = _fluidSurface is null
+            ? " | no surface drawn (headless or --nowater)"
+            : $" | surface {_fluidSurface.QuadCount:N0} quad(s), "
+              + $"{_fluidSurface.LastRebuildMillis:F2} ms to rebuild";
+
+        return $"{f.TotalMillilitres / litre:N0} L moving in {f.Grid.HeldCellCount:N0} cell(s) over "
+               + $"{f.Grid.PanelCount} panel(s) ({f.Grid.PanelBytes / 1024.0 / 1024.0:F1} MiB); "
+               + $"injected {f.AddedMillilitres / litre:N0} L, removed {f.RemovedMillilitres / litre:N0} L, "
+               + $"displaced {f.DisplacedMillilitres / litre:N0} L — "
+               + $"held == injected − removed − displaced: {FluidIdentity()}; "
+               + $"{_relayPendingMillilitres / litre:N0} L still to pour | "
+               + $"{f.Ticks:N0} tick(s) at {1.0 / FluidTickSeconds:F0} Hz, {f.ActiveCellCount:N0} active, "
+               + $"peak {f.PeakActiveCells:N0}, {f.CellVisits:N0} visits, worst tick {_fluidWorstMillis:F2} ms"
+               + surface;
+    }
+
+    /// <summary>The Tier B half of the profile, with the measured window's own denominators.</summary>
+    private string FluidLines()
+    {
+        if (_fluid is null)
+        {
+            return "fluid     no fluid simulation (--nowater or no world)\n";
+        }
+
+        FluidSimulation f = _fluid;
+        const double litre = FluidConstants.MillilitresPerLitre;
+        double seconds = Math.Max(_profiler!.MeasuredSeconds, 0.001);
+        long visits = f.CellVisits - _fluidVisitsAtWarm;
+        long ticks = f.Ticks - _fluidTicksAtWarm;
+
+        string tick = _profiler.FluidTick.Count > 0
+            ? _profiler.FluidTick.Line("fluid ms") + "\n"
+            : "fluid ms  (no tick landed in the window)\n";
+
+        string surface = _fluidSurface is null
+            ? "fluidsurf not drawn (headless or --nowater)\n"
+            : $"fluidsurf {_fluidSurface.QuadCount:N0} quad(s), {_fluidSurface.LastRebuildMillis:F2} ms "
+              + $"to rebuild, {_fluidSurface.Rebuilds} rebuild(s)\n";
+
+        return $"fluid     {f.TotalMillilitres / litre:N0} L moving in {f.Grid.HeldCellCount:N0} cell(s) "
+               + $"over {f.Grid.PanelCount} panel(s) ({f.Grid.PanelBytes / 1024.0 / 1024.0:F1} MiB); "
+               + $"injected {f.AddedMillilitres / litre:N0} L, removed {f.RemovedMillilitres / litre:N0} L, "
+               + $"displaced {f.DisplacedMillilitres / litre:N0} L — "
+               + $"held == injected − removed − displaced: {FluidIdentity()}; "
+               + $"{_relayPendingMillilitres / litre:N0} L still to pour\n"
+               + $"fluidtick {ticks:N0} tick(s) in the window at {1.0 / FluidTickSeconds:F0} Hz, "
+               + $"{visits:N0} visits ({visits / seconds:N0}/s against the ~520,000/s the light "
+               + $"budget licenses), peak active {f.PeakActiveCells:N0}, {f.ActiveCellCount:N0} active at the end\n"
+               + tick
                + surface;
     }
 
@@ -2963,6 +3349,7 @@ public partial class Main : Node3D
         GD.Print($"M7c: {WeatherSummary()}");
 
         if (_water is not null) GD.Print($"M7d: {WaterSummary()}");
+        if (_fluid is not null) GD.Print($"M8b: {FluidSummary()}");
     }
 
     /// <summary>
@@ -3294,6 +3681,7 @@ public partial class Main : Node3D
         // to it.
         _rain?.Dispose();
         _waterSurface?.Dispose();
+        _fluidSurface?.Dispose();
         _skyHeights.Dispose();
 
         // Order matters: stop the pipeline submitting, then stop the workers, then release

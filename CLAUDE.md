@@ -123,9 +123,14 @@ version answered `CanHold` with `IsCaveAt` and reported 3.86 µs a visit against
 dotnet run --project MinerCraft.Bench -c Release -- --fluid
 ```
 
-`--fluidbores=1,3,5,9` is the sweep (breach width in voxels), `--fluidspan`/`--fluiddepth` size the
+`--fluidbores 1,3,5,9` is the sweep (breach width in voxels), `--fluidspan`/`--fluiddepth` size the
 mine, `--fluidlitres` the lake, `--fluidticks` the flow window and `--fluidsettle` the tick budget
-for the settle afterwards. **The settle cap is a budget, not a correctness statement** — `FluidRules`
+for the settle afterwards — **space-separated, not `=`, unlike the game's flags.** **`--fluidshape
+chamber --fluidchambers <n>` is the other fixture** (M8b-1): a block of bitten 8 m chunks with a
+shaft into its roof, and a bore of 32 or more opens the whole roof, which is a chunk bitten out from
+under a lake. **Quote the flow window with any L/tick**: the rate decays as the mine backs up, and
+the M8a-2 table was a shorter window than the default — it does not reproduce, and the committed
+code's figures (WORKLOG, M8b-1) are the baseline. **The settle cap is a budget, not a correctness statement** — `FluidRules`
 carries a termination proof, so hitting it means levelling is diffusive rather than that it
 oscillates, and the row says how many cells were still awake.
 
@@ -198,7 +203,19 @@ particles are the only part of M7c that costs GPU time.
 M7d-1 adds **`--rainscale=<x>`**, which multiplies the depth applied to the world while leaving the
 sky honest — **not** `--clockscale`, which speeds the weather up too; **`--waterwindow=<samples>`**,
 the sweep seam for the analysis, whose cost is roughly quadratic in the span; and **`--nowater`**,
-the control arm that priced the whole system at nothing measurable.
+the control arm that priced the whole system at nothing measurable — **and turns Tier B off with
+Tier A from M8b-1.**
+
+M8b-1 adds **`--injectlitres=<n>`**, the debug relay from the command line: a ball of water sized to
+hold the litres, put on the ground under the player when the measured window opens (three seconds in
+without a profiler). **Sized rather than fixed, because a fixed ball is a hose** — the automaton
+falls one cell a tick and spreads diffusively, so a source region drains only at its boundary's
+rate, and a run with one measures the hose rather than the flood. In play **`R` puts 10,000 L down
+at the crosshair and Alt+R takes back everything within 2 m**; no material, no JSON, no ID. The
+profile's `fluid` block prints every term of `held == injected − removed − displaced`, and **the
+bare default headless run is not a streaming control any more**: it opens the played world and
+stands in its void (198 drawn at 100 quads a chunk). **The r6 control is `--nosave --quit-after
+2400`** — 2601 / 325 / 3446 at 411 — because 900 frames is ~6 s and the r6 fill settles at ~7.
 
 **Building is bound to the right mouse button**, `B` cycles the brush (cube, slab, ramp, sphere),
 and **`1`–`9` pick a material from the hotbar** (`V` still cycles to the next one). **`T` cycles
@@ -266,11 +283,40 @@ copy in `../GAME/`.
 
 ## Where things stand
 
-**Pick up here (2026-09-03): M8b — the Tier A ↔ Tier B seam, the debug relay first** (see
-[docs/M8-PLAN.md](docs/M8-PLAN.md)); **and before its tick budget is settled, give `--fluid` a
-chunk-void shape**, because the play made 8 m chambers the normal case. The gate on the entangled
-miner is a battery and waits for M10. `git log origin/main..main` says what Matthew still has to
-push.
+**Pick up here (2026-09-03): M8b-2 — A → B, the breach**, portals indexed by 4 m sample and
+`BasinWater.Remove` as `Pour` reversed (see [docs/M8-PLAN.md](docs/M8-PLAN.md), M8b's split);
+**and settle the tick budget as a slice before the breach can produce the roof-open case in play**
+— a chunk bitten out from under a lake is a 73 ms tick in Release and ~0.7 s in Debug. The gate on
+the entangled miner is a battery and waits for M10. `git log origin/main..main` says what Matthew
+still has to push.
+
+**M8b-1 is built (2026-09-03): Tier B is in the game loop, with the relay, and the water is on the
+screen.** Suite 892 → 895. `R` puts 10,000 L down at the crosshair, Alt+R takes it back,
+`--injectlitres=<n>` does it headlessly, and a 50,000 L pour spreads eighteen metres downhill in
+five seconds against a `--nowater` arm that is all grass. Five things worth keeping:
+
+- **The seam edits moved no digit — and the recorded M8a-2 table does not reproduce.** With the
+  edits stashed the committed code gives the identical visits, to the visit; a 1,000-tick window
+  reproduces the table's L/tick and not its peaks. **The committed code is the baseline**: peak
+  4,096–20,737, **29 L/s** for a one-voxel hole, **51 h** for a `hand_pick` bore, **6.0%** of the
+  light budget at the widest breach. *"9× the width, 9.0× the rate"* is window-dependent — 6.3×
+  over 2,000 ticks, 10.5× over 1,000 — because **a mean rate is a property of its window.**
+- **An 8 m floor settles where a 96 m corridor does not** (1,915 ticks, rest real; 16 m in
+  4,936), so M8a's O(n²) is about length and a bitten chunk is wide. **But a roof falling in is
+  the largest tick there is: 43,374 cells for one chunk, 302,182 for 2 × 2 × 2, in one tick, 73.5 ms
+  in Release** — six times the 50,000-cell trigger, reached in a single step and collapsing after.
+  **The tick budget is a slice, not a rate; `Step` has to be resumable across frames.**
+- **The tick costs a frame and a half in the Debug build people play**: 17.7 ms mean / 25 max for
+  ~6,000 active cells, 2.9 µs a visit against Release's 0.2–0.3 — the light derive's Debug cliff
+  (M5d-1) a second time. Same slice question.
+- **`Disturb` wakes only cells that hold water, never the opened voxel**, and returns at once on an
+  empty grid — a chunk bite is 32,768 voxels, and waking each for an empty visit is 229,000 visits
+  in one tick. The pipeline's `onVoxelChanged` fires after the write and not on a no-op; both
+  tested, the hook on the call site (M5c-2's rule).
+- **The relay's ball is sized to its litres because a fixed one is a hose.** 15,871 of 50,000 L
+  delivered in mid-air, 11,837 on the ground: the automaton falls one cell a tick, **0.5 m/s at
+  2 Hz — four metres in eight seconds**, which is M8d's waterfall question with a number, and
+  spreads diffusively, so a source drains at its boundary's rate.
 
 **The played world (2026-09-03): 4,584 stored chunks, and M6's load-path concern is retired for the
 shape the chunk miner produces.** Matthew mined a 264 × 304 m region 64 m deep; 4,562 of its chunks
@@ -401,12 +447,15 @@ M8b is the milestone rather than the automaton.** Six things worth keeping:
   minimum transfer of one millilitre oscillates forever, and it is in the break battery.
 - **The play's question is answered with a number, and the answer is no.** *"Unless I make a hole
   4x4 it isn't going to drain into eventually?"* — **every** hole drains, down to one 0.25 m voxel,
-  at **30 L/s**; a `hand_pick` bore empties a 9,000,000 L lake in **38 hours of world time**. And
-  **the rate is linear in the bore's width, nowhere near its area** — 9× the width, 9.0× the rate,
-  81× the cross-section — so past the first voxel the constraint is the 0.75 m tunnels below.
-- **The flood is affordable and the settle is not.** Peak active **2,706–17,357 cells** against
-  M8-PLAN's derived ~14,400, and **26,701 visits/s at 2 Hz against the light budget's ~520,000 —
-  5.1%.** But **every 96 m arm hit a 41-minute budget with 9,000–21,000 cells still awake, more
+  at **29 L/s** (re-measured from the committed code at M8b-1; M8a-2's 30); a `hand_pick` bore
+  empties a 9,000,000 L lake in **51 hours of world time** as a 2,000-tick mean (M8a-2's 38 was a
+  shorter window). And **the rate grows with the bore's width, nowhere near its area** — 9× the
+  width, 6.3× the rate over 2,000 ticks and 10.5× over 1,000, 81× the cross-section — so past the
+  first voxel the constraint is the 0.75 m tunnels below, which back up.
+- **The flood is affordable and the settle is not.** Peak active **4,096–20,737 cells** against
+  M8-PLAN's derived ~14,400, and **31,173 visits/s at 2 Hz against the light budget's ~520,000 —
+  6.0%** (committed-code figures, M8b-1; M8a-2's table read 2,706–17,357 and 5.1% and does not
+  reproduce).** But **every 96 m arm hit a 41-minute budget with 9,000–21,000 cells still awake, more
   than during the flood**, because water keeps spreading after the inflow stops. It terminates — a
   16 m mine reached real rest in 11,071 ticks — but **it stayed at ~1,700 active for 10,992 of
   those 11,071 ticks and collapsed in the last 79.** There is no cheap early exit. **DESIGN's

@@ -297,7 +297,7 @@ times.
 
 ---
 
-## M8b — The seam: Tier A ↔ Tier B
+## M8b — The seam: Tier A ↔ Tier B ← **split four ways 2026-09-03, before any code**
 
 **The half the play asked for**, and structurally the harder one.
 
@@ -310,6 +310,80 @@ times.
   likely to be created or destroyed**, because it is a change of representation, and M6a's lesson
   applies: mutate both halves of the pair or you only prove they agree.
 - **Unload and quit** (decision 5).
+
+### The planning pass, 2026-09-03 — what M8a's code and measurement changed
+
+Three things, read against the automaton as built rather than as planned:
+
+- **Decision 2's cell-face rule is now trivial, because the cell is the voxel.** It was written
+  while the cell size was open; at 0.25 m a face between two voxels is one pair, so "some voxel
+  pair across the face is open on both sides" reduces to *both voxels are open*. What survives of
+  the decision is the other half — **Tier A never learns the hole exists**; it loses litres and
+  re-solves.
+- **A flooded mine has no Tier A body, and decision 5 assumed one.** *"An active region integrates
+  to rest and its volume goes to the Tier A body, whose ledger already persists per pit"* is true of
+  water that ends in a surface basin and false of water that ends in a tunnel — a tunnel is not a
+  pit on the 4 m lattice and never will be. So **resting Tier B water underground has to be
+  stored**, and *settle rather than store* becomes *settle, then store what settled*. That is a
+  store beside `columns`, not a header change; the first state here that is neither a seed function
+  nor a fixpoint nor a basin ledger.
+- **M8a's finding — the flood keeps its whole wetted area awake until it is level, O(n²) in the
+  corridor — means the settle is a solve, not a wait.** Tier A's *solved, not simulated* applied to
+  a Tier B region: flood-fill the connected open cells from the water, sort by Y, pour the region's
+  volume from the bottom up, write the cells, sleep them. O(n log n), exactly level, no diffusion.
+  **It is the same operation whether the trigger is an unload or a region that has stopped
+  receiving inflow**, and the plan's named fallback — a coarser rest tolerance — is not needed if
+  this exists.
+
+### The split — and each part's oracle
+
+**M8b-1 — the seam edits, the chamber fixture, and the tick in the game loop, with the relay.**
+Headless-verifiable. The two internal edits the fluid-kind decision needs (`Down` as one field;
+room as a method) with `--fluid` re-run to show no digit moved. **A second `--fluid` fixture shape,
+the bitten chunk** — an 8 m void under a lake, then 2 × 2 × 2 of them — because the play made
+chambers the normal case and the cost model was derived from bores; **this comes before the tick
+budget is settled, not after.** Then the wiring: `FluidSimulation` over `VoxelFluidTerrain` in
+`Main`, ticked at 2 Hz on the sim thread, told about edits through an optional
+`onVoxelChanged` on the pipeline — **and `Disturb` wakes only cells that hold water**, never the
+opened voxel itself, because a chunk bite is 32,768 opened voxels and waking each for a visit that
+finds nothing is 229,000 visits in one tick. The relay: **`R` puts litres at the crosshair, Alt+R
+takes them back, `--injectlitres=<n>` does the first headlessly**, no material, no JSON, no ID.
+The profile prints `held == injected − removed − displaced` with every term, plus active cells,
+visits per second against the light budget, and tick milliseconds. **And a debug surface**, the
+Tier A surface's shape over held cells, because a flood nobody can see cannot be judged and M8d's
+real pass is two parts away. **Oracle:** the identity above, exact; the streaming report unchanged
+to the digit with nothing injected; a screenshot with water in a dug hole.
+
+**M8b-2 — A → B, the breach.** A *portal* is an air voxel at or below its column's analytic
+surface with a face neighbour above *that* neighbour's surface — a hole in the analytic ground,
+whether dug from above (a pit floor) or from the side (a tunnel into a lake bank). Portals are
+found at edit time and, for chunks that arrive with edits, by a scan of any loaded chunk that
+straddles the surface band. **Indexed by the 4 m sample they sit under, and only wet samples are
+walked each tick**, so a dry excavation costs nothing however large. Where the neighbour is covered
+by Tier A — its basin's level stands above it — the portal draws whole litres from the basin into
+its own cell as fast as the cell has room, through a new `BasinWater.Remove` that is `Pour`
+reversed: from the merged lake's top slab down the path to the leaf, then `Refresh`. **Oracle:** an
+in-memory twin of both tiers — `A_held + B_held == rained − spilled + injected − removed −
+displaced`, exact; the level falling below the face stops the flow; a dug pit under a full basin
+fills and the basin drops by exactly what arrived.
+
+**M8b-3 — B → A, the handoff and the settle.** A resting cell *above* the analytic surface, in a
+basin's footprint, hands its whole litres to that basin and drains — DESIGN's *stable cells sleep
+and merge into a Tier A body*, literally, and the thing that stops a surface spill diffusing
+forever. **Measured first, because M8a's named fallback is waiting on this number**: how much of
+a spill's awake set does the handoff remove. Then the analytic settle above, as a method on the
+simulation, run on a region that has had no inflow for a stated interval and on unload. **Oracle:**
+volume exact across the representation change; `VerifyQuiescent` true after every settle; a
+settled region's surface level to within one cell of level everywhere.
+
+**M8b-4 — the store: unload, load and quit.** A `fluid` table beside `columns`, one blob per chunk
+holding the resting cells, written when a chunk with settled water unloads or the world saves, read
+when the chunk loads, never woken by the load itself. M6b's *one caller at a time* store contract
+and its `SaveAll` drain apply unchanged; **a fluid save is a save job on the serial lane and must
+not be cancelled**, for the reason a chunk save must not be. **Oracle:** the Tier B twin of
+`WalkingAwayAndBackLosesNoWater` — flood a mine, walk away until it unloads, walk back, quit,
+reopen: the same millilitres in the same cells. **This is the part where a defect is permanent
+data loss, so it is last and it is alone.**
 
 ### Why this might go first
 

@@ -80,6 +80,17 @@ public sealed class FluidSimulation
     private List<VoxelPos> _pending = [];
     private readonly HashSet<VoxelPos> _queued = [];
 
+    /// <summary>Which way this fluid falls, as a sign on Y. Water falls down.</summary>
+    /// <remarks>
+    /// <b>One field rather than six literal offsets, and it exists because of a decision rather than
+    /// a caller.</b> Tier B is one fluid per grid (settled 2026-09-03, see MATERIALS-NOTES): a second
+    /// fluid is a second <see cref="FluidSimulation"/> over its own <see cref="FluidGrid"/>, and a
+    /// lighter-than-air one is this automaton with this sign reversed — heavy gas is water's rule
+    /// verbatim. Nothing sets it today, because every caller constructs water; what it buys today is
+    /// that the tick has one notion of down instead of six copies to keep in agreement.
+    /// </remarks>
+    private readonly int _fallSign = -1;
+
     public FluidSimulation(IFluidTerrain terrain)
     {
         ArgumentNullException.ThrowIfNull(terrain);
@@ -143,7 +154,10 @@ public sealed class FluidSimulation
             return millilitres;
         }
 
-        long overflow = _grid.Fill(voxel, millilitres);
+        // Through RoomAt as well as through Fill's own clamp. For water the two are the same
+        // number; see RoomAt for the fluid they are not.
+        long offered = Math.Min(millilitres, RoomAt(voxel));
+        long overflow = millilitres - offered + _grid.Fill(voxel, offered);
         long accepted = millilitres - overflow;
         if (accepted > 0)
         {
@@ -170,17 +184,48 @@ public sealed class FluidSimulation
     }
 
     /// <summary>
-    /// Wakes a cell because the world around it changed — a voxel was dug or placed.
+    /// Wakes whatever water an edit at this voxel could have given something to do.
     /// </summary>
     /// <remarks>
-    /// The automaton cannot see edits, so whatever performs them has to say so. Waking the cell and
-    /// its six neighbours is the same contract <c>ChunkLight.Invalidate</c> puts on its caller, and
-    /// for the same reason: this is a push, and a cell nobody pushes never runs.
+    /// <para>
+    /// The automaton cannot see edits, so whatever performs them has to say so. It is the same
+    /// contract <c>ChunkLight.Invalidate</c> puts on its caller, and for the same reason: this is
+    /// a push, and a cell nobody pushes never runs.
+    /// </para>
+    /// <para>
+    /// <b>Only cells that hold water are woken — the edited voxel if it does, and each of its six
+    /// neighbours that does — never an empty opened voxel.</b> A voxel dug out of dry rock can only
+    /// receive water from a neighbour that has some, and waking that neighbour is what makes it
+    /// flow; waking the empty voxel as well costs a visit that finds nothing. Harmless at one voxel
+    /// a swing, and not at a chunk bite: 32,768 opened voxels times seven wakes is 229,000 visits
+    /// landing in one tick, nearly all of them dry rock nowhere near any water. A voxel that
+    /// becomes rock while holding water is woken so that <see cref="Visit"/> can displace it. And
+    /// a grid holding nothing at all returns before looking, because that is every edit in a world
+    /// that has not flooded yet.
+    /// </para>
     /// </remarks>
     public void Disturb(VoxelPos voxel)
     {
-        Wake(voxel);
-        WakeNeighboursOf(voxel);
+        if (_grid.HeldCellCount == 0)
+        {
+            return;
+        }
+
+        WakeIfHolding(voxel);
+        WakeIfHolding(Above(voxel));
+        WakeIfHolding(Below(voxel));
+        foreach ((int dx, int dz) in Sideways)
+        {
+            WakeIfHolding(voxel.Offset(dx, 0, dz));
+        }
+    }
+
+    private void WakeIfHolding(VoxelPos cell)
+    {
+        if (_grid.AmountAt(cell) > 0)
+        {
+            Wake(cell);
+        }
     }
 
     /// <summary>One tick over the active set, and nothing else.</summary>
@@ -267,8 +312,8 @@ public sealed class FluidSimulation
 
             int amount = _grid.AmountAt(cell);
 
-            VoxelPos below = cell.Offset(0, -1, 0);
-            if (_terrain.CanHold(below) && _grid.FreeAt(below) > 0)
+            VoxelPos below = Below(cell);
+            if (_terrain.CanHold(below) && RoomAt(below) > 0)
             {
                 return false;
             }
@@ -313,10 +358,10 @@ public sealed class FluidSimulation
 
         long moved = 0;
 
-        VoxelPos below = cell.Offset(0, -1, 0);
+        VoxelPos below = Below(cell);
         if (_terrain.CanHold(below))
         {
-            int fell = _grid.Transfer(cell, below, amount);
+            int fell = _grid.Transfer(cell, below, Math.Min(amount, RoomAt(below)));
             if (fell > 0)
             {
                 Record(cell, below);
@@ -356,7 +401,7 @@ public sealed class FluidSimulation
                 continue;
             }
 
-            int sideways = _grid.Transfer(cell, side, want);
+            int sideways = _grid.Transfer(cell, side, Math.Min(want, RoomAt(side)));
             if (sideways > 0)
             {
                 Record(cell, side);
@@ -374,7 +419,7 @@ public sealed class FluidSimulation
     {
         long moved = 0;
 
-        VoxelPos below = cell.Offset(0, -1, 0);
+        VoxelPos below = Below(cell);
         if (_terrain.CanHold(below))
         {
             moved += Squeeze(cell, below, ref amount);
@@ -394,7 +439,7 @@ public sealed class FluidSimulation
             }
         }
 
-        VoxelPos above = cell.Offset(0, 1, 0);
+        VoxelPos above = Above(cell);
         if (amount > 0 && _terrain.CanHold(above))
         {
             // The one place water goes up, and it is displacement rather than flow: something took
@@ -414,7 +459,7 @@ public sealed class FluidSimulation
 
     private int Squeeze(VoxelPos from, VoxelPos to, ref int amount)
     {
-        int shifted = _grid.Transfer(from, to, amount);
+        int shifted = _grid.Transfer(from, to, Math.Min(amount, RoomAt(to)));
         if (shifted > 0)
         {
             Record(from, to);
@@ -460,13 +505,31 @@ public sealed class FluidSimulation
 
     private void WakeNeighboursOf(VoxelPos cell)
     {
-        Wake(cell.Offset(0, 1, 0));
-        Wake(cell.Offset(0, -1, 0));
+        Wake(Above(cell));
+        Wake(Below(cell));
         foreach ((int dx, int dz) in Sideways)
         {
             Wake(cell.Offset(dx, 0, dz));
         }
     }
+
+    private VoxelPos Below(VoxelPos cell) => cell.Offset(0, _fallSign, 0);
+
+    private VoxelPos Above(VoxelPos cell) => cell.Offset(0, -_fallSign, 0);
+
+    /// <summary>Millilitres this cell could still take of <em>this</em> fluid.</summary>
+    /// <remarks>
+    /// <b>For water it is the grid's own free space, and the method exists for the fluid that is
+    /// not water.</b> Under one grid per fluid kind, a cell's room for a lighter fluid is its
+    /// capacity less what every denser fluid already holds there — which is what makes the densest
+    /// fluid settle as if alone and each lighter one settle against a fixed field, so
+    /// <see cref="FluidRules"/>' termination proof holds per grid, ordered by density. Every
+    /// transfer the tick makes is clamped through here as well as through
+    /// <see cref="FluidGrid.Transfer"/>'s own clamp. For water the two agree exactly, and a clamp
+    /// here that is wrong shows up as cells that will not fill — <c>AColumnFillsFromTheBottomUp</c>
+    /// is the test that sees it.
+    /// </remarks>
+    private int RoomAt(VoxelPos cell) => _grid.FreeAt(cell);
 
     private void Wake(VoxelPos cell)
     {

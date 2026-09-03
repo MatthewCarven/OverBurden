@@ -368,6 +368,39 @@ public class ChunkPipelineTests
     }
 
     [Fact]
+    public void AnEditIsReportedAfterItIsWrittenAndAnEditThatChangesNothingIsNot()
+    {
+        // The wire M8b hangs the fluid automaton on. Two things the subscriber needs and a
+        // reference implementation cannot give: that it is told AFTER the write, so reading the
+        // world back inside the callback sees the new voxel, and that a rewrite of what is already
+        // there is not an edit at all.
+        var reported = new List<(VoxelPos Voxel, int Material, int SeenInWorld)>();
+        ChunkPipeline? pipeline = null;
+
+        using var harness = new PipelineHarness(onVoxelChanged: (voxel, material) =>
+        {
+            pipeline!.Streamer.TryGetMaterial(voxel, out int seen);
+            reported.Add((voxel, material, seen));
+        });
+        pipeline = harness.Pipeline;
+
+        harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+
+        VoxelPos target = FindSolidInterior(harness, ChunkPos.Zero);
+        Assert.True(harness.Pipeline.SetVoxel(target, MaterialIds.AirNumericId));
+
+        (VoxelPos voxel, int material, int seen) = Assert.Single(reported);
+        Assert.Equal(target, voxel);
+        Assert.Equal(MaterialIds.AirNumericId, material);
+        Assert.Equal(MaterialIds.AirNumericId, seen);
+
+        // Air written over air: the pipeline's own early-out, and the subscriber hears nothing.
+        Assert.True(harness.Pipeline.SetVoxel(target, MaterialIds.AirNumericId));
+        Assert.Single(reported);
+    }
+
+    [Fact]
     public void EditingAChunkHandedToAJobLeavesThatJobsSnapshotAlone()
     {
         // Copy-on-write, at the level the pipeline is responsible for: once a mesh job has
@@ -615,7 +648,8 @@ internal sealed class PipelineHarness : IDisposable
         TimeSpan? resultBudget = null,
         Func<long>? nowTicks = null,
         TimeSpan? lightBudget = null,
-        MinerCraft.Core.Persistence.IWorldStore? store = null)
+        MinerCraft.Core.Persistence.IWorldStore? store = null,
+        Action<VoxelPos, int>? onVoxelChanged = null)
     {
         var viewers = new ViewerSet();
         _scheduler = new JobScheduler(viewers, threadCount: 4, sweepInterval: TimeSpan.FromMilliseconds(5));
@@ -642,7 +676,8 @@ internal sealed class PipelineHarness : IDisposable
             resultBudget: resultBudget,
             nowTicks: nowTicks,
             lightBudget: lightBudget ?? GenerousLightBudget,
-            store: store);
+            store: store,
+            onVoxelChanged: onVoxelChanged);
     }
 
     public ChunkPipeline Pipeline { get; }

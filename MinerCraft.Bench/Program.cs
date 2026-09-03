@@ -55,7 +55,9 @@ internal static class Program
           --fluidticks  <n>    ticks of flow before the settle (default 2000)
           --fluidbores  1,3,5  breach widths to sweep, in voxels (default 1,3,5,9)
           --fluidspan   <m>    the mine's footprint, in metres (default 96)
-          --fluiddepth  <m>    how far under the surface it sits (default 24)
+          --fluiddepth  <m>    how far under the surface it sits (default 24 for a mine, 2 for a chamber)
+          --fluidshape  <s>    mine (0.75 m bores) or chamber (bitten 8 m chunks; default mine)
+          --fluidchambers <n>  chambers per axis for --fluidshape=chamber (default 1)
           --fluidsettle <n>    tick budget for the settle after the flow (default 100000)
         """;
 
@@ -73,8 +75,10 @@ internal static class Program
         int fluidTicks = 2_000;
         int[] fluidBores = [1, 3, 5, 9];
         int fluidSpan = 96;
-        int fluidDepth = 24;
+        int? fluidDepth = null;
         int fluidSettle = 100_000;
+        string fluidShape = "mine";
+        int fluidChambers = 1;
 
         try
         {
@@ -130,6 +134,12 @@ internal static class Program
                     case "--fluidsettle":
                         fluidSettle = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
                         break;
+                    case "--fluidshape":
+                        fluidShape = Next(args, ref i);
+                        break;
+                    case "--fluidchambers":
+                        fluidChambers = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
                     case "--help" or "-h":
                         Console.WriteLine(Usage);
                         return 0;
@@ -169,7 +179,9 @@ internal static class Program
                 fluidBores,
                 fluidSpan,
                 fluidDepth,
-                fluidSettle);
+                fluidSettle,
+                fluidShape,
+                fluidChambers);
         }
 
         if (watershed)

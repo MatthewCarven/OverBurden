@@ -296,6 +296,52 @@ public class FluidSimulationTests
         FluidAssert.Conserves(sim);
     }
 
+    [Fact]
+    public void DiggingBesideRestingWaterWakesItAndDiggingDryRockWakesNothing()
+    {
+        // Water sealed in a one-cell pocket, with rock beside it that is about to be dug. The
+        // opened voxel is empty, so waking it would find nothing; the water next to it is what has
+        // to move, and it is asleep.
+        var open = new HashSet<VoxelPos> { new(0, 0, 0) };
+        var sim = new FluidSimulation(new PredicateTerrain(open.Contains));
+
+        sim.Add(new VoxelPos(0, 0, 0), 4_000);
+        FluidAssert.SettlesAndRests(sim);
+        Assert.Equal(0, sim.ActiveCellCount);
+
+        // A dig far from any water queues nothing at all.
+        open.Add(new VoxelPos(10, 0, 0));
+        sim.Disturb(new VoxelPos(10, 0, 0));
+        Assert.Equal(0, sim.ActiveCellCount);
+
+        // A dig beside the pocket wakes the water in it, and the water then spreads in.
+        open.Add(new VoxelPos(1, 0, 0));
+        sim.Disturb(new VoxelPos(1, 0, 0));
+        Assert.True(sim.ActiveCellCount > 0, "the resting water beside the dig should have been woken");
+        FluidAssert.SettlesAndRests(sim);
+
+        Assert.True(sim.Grid.AmountAt(new VoxelPos(1, 0, 0)) > 0, "water should have spread into the opened voxel");
+        Assert.Equal(4_000, sim.TotalMillilitres);
+        FluidAssert.Conserves(sim);
+    }
+
+    [Fact]
+    public void DisturbingADryWorldQueuesNothing()
+    {
+        // The case every edit is in until the first flood: the grid holds nothing, so an edit has
+        // nothing to wake, and the check has to cost less than a lookup per voxel because a chunk
+        // bite makes 32,768 of them.
+        var sim = new FluidSimulation(new PredicateTerrain(_ => true));
+
+        for (int x = 0; x < 32; x++)
+        {
+            sim.Disturb(new VoxelPos(x, 0, 0));
+        }
+
+        Assert.Equal(0, sim.ActiveCellCount);
+        Assert.Equal(0, sim.Grid.PanelCount);
+    }
+
     // ---------------------------------------------------------------- the active set
 
     [Fact]

@@ -3596,7 +3596,9 @@ part is the automaton and its oracles, M8a-2 is the measurement.
 - [x] **Peak active cells, cell visits per second and time to quiescence for a 9,000,000 L lake
       draining into a shaft**, printed beside the light budget's ~520,000 visits/s.
 - [x] **Re-derive SCALE.md's sizing section** — done in place; the 64x caveat is closed.
-- [x] **The play's question is answered with a number, and the answer is no.** *"Unless I make a
+- [x] **The play's question is answered with a number, and the answer is no.** *(Figures in this
+      block are the M8a-2 table's, which the committed code does not reproduce — see M8b-1 for the
+      baseline: 29 L/s, 51 h, 6.0%, peak 4,096–20,737. The conclusions stand.)* *"Unless I make a
       hole 4x4 it isn't going to drain into eventually?"* — **every** hole drains, down to a single
       0.25 m voxel, at **30 litres a second**. The 4 m figure was Tier A's analysis lattice and
       Tier B never sees it. **The drain rate is close to linear in the bore's width and nowhere
@@ -3651,13 +3653,14 @@ part is the automaton and its oracles, M8a-2 is the measurement.
             makes the field decorative — see [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md).
 - [ ] Seepage into excavations driven by saturation × material permeability
 - [ ] Transparent render pass, back-to-front sorting
-      - [ ] **Decide before M8b closes: Tier B is single-fluid, and a gas is a second fluid kind
+      - [x] **Decided 2026-09-03: a grid per fluid kind. Tier B was single-fluid, and a gas is a second fluid kind
             with gravity's sign flipped.** Heavy gas (CO₂, blackdamp) is water's rule verbatim;
             light gas is the inverse, dispersing at open sky — *"the reverse of rain"*, Matthew,
             2026-09-03. **Recommended the same day: a grid per fluid kind, keyed by material ID,
             ordered by the JSON `density` field** — not a kind byte per cell, which cannot put gas
             in the room above half a cell of water. Options and reasoning in
-            [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md); settles on Matthew's word.
+            [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md). **Settled 2026-09-03 — Matthew:
+            *"Ok lets continue"* on the recommendation.**
             - [ ] The seam, as M8b's first commit: `FluidSimulation` reads gravity from one `Down`
                   field rather than six literal offsets, and *room* is a method that today returns
                   `FreeAt`. No grid, constructor, caller or test changes; re-run `--fluid` after.
@@ -3675,6 +3678,59 @@ part is the automaton and its oracles, M8a-2 is the measurement.
 - [ ] **Swimming, drowning and buoyancy are not in M8, and are named because they are the first
       thing a play-test will try.** The player does not interact with water as a body at M8; that
       wants its own decision.
+
+#### M8b — the seam ← **split four ways 2026-09-03, before any code; see M8-PLAN's M8b section**
+
+Three things the planning pass changed, each of which the plan had stated one level above where the
+answer sat: **the cell-face rule is trivial at the voxel** (a face is one pair); **a flooded mine
+has no Tier A body**, so resting mine water is *stored*, in a `fluid` table beside `columns`, and
+decision 5 becomes *settle, then store what settled*; and **the settle is a solve rather than a
+wait** — flood-fill the region, sort by Y, pour from the bottom — which is what answers M8a's O(n²)
+finding without the coarser-tolerance fallback.
+
+- [x] **M8b-1 — the seam edits, the chamber fixture, the tick in the game loop, and the relay.
+      Built 2026-09-03, suite 892 → 895.**
+      - [x] `FluidSimulation`: `_fallSign` as one field, `RoomAt` as a method; two break recipes fail
+            six tests each. **`--fluid` re-run: no digit moves against the committed code — and the
+            committed code does not reproduce the M8a-2 table.** The control arm (edits stashed)
+            gives the identical visits; the table was a shorter window and a pre-commit automaton.
+            **Baseline is now the committed code's**: peak 4,096–20,737, 29 L/s at one voxel, 51 h
+            for a `hand_pick` bore, 6.0% of the light budget. *"9× width → 9.0× rate"* is
+            window-dependent (6.3× over 2,000 ticks, 10.5× over 1,000): **quote the window**.
+      - [x] `--fluidshape=chamber --fluidchambers=<n>`, a bore of 32+ opening the whole roof. **An
+            8 m floor settles (1,915 ticks, rest real) where a 96 m corridor does not; a roof falling
+            in is a one-tick spike of 43,374 cells for one chunk and 302,182 for 2×2×2 — 73.5 ms in
+            Release, ~0.7 s in Debug — six times the 50,000-cell trigger, in one tick.**
+      - [ ] **The tick budget, with its number attached: `Step` has to be resumable across frames.**
+            A roof-open bite is a 73 ms Release tick; the Debug build people play ticks at 17.7 ms
+            mean / 25 max for ~6,000 active cells (2.9 µs a visit, the light derive's Debug cliff).
+            M8a's "named, not built" time slice, now priced. Settle it before M8b-2's breach can
+            produce the roof-open case in play.
+      - [x] `ChunkPipeline.onVoxelChanged`, told after the write and silent on a no-op; `Main` ticks
+            at 2 Hz over `VoxelFluidTerrain`; `Disturb` wakes only cells holding water and returns
+            at once on an empty grid. Three tests.
+      - [x] The relay: `R` puts 10,000 L down at the crosshair in a ball sized to hold it, Alt+R takes
+            back 2 m of it, `--injectlitres=<n>` puts a sized ball on the ground under the player when
+            the measured window opens. **Sized, because a fixed 1 m ball is a hose**: the automaton
+            falls one cell a tick and spreads diffusively, so a source drains at its boundary's rate
+            — 15,871 of 50,000 L delivered mid-air, 11,837 on the ground. No material, no JSON, no ID.
+      - [x] The profile: `fluid` / `fluidtick` / `fluid ms` / `fluidsurf` lines and an `M8b:` line,
+            every term of the identity, the undelivered remainder, visits/s against the light budget.
+            **Streaming unchanged to the digit**: 1521 / 165 / 1926 at 404 with 50,000 L spreading;
+            2601 / 325 / 3446 at 411 for the r6 default. **The r6 control needs `--nosave` and
+            `--quit-after 2400`**: the bare run opens the played world and stands in its void.
+      - [x] `FluidSurface`: one quad per top cell, rebuilt on Tier A's timer when the water moved.
+            1,402 quads at 1.82 ms for a 50,000 L spill; screenshot against a `--nowater` arm.
+- [ ] **M8b-2 — A → B, the breach.** Portals (air at or below its surface with a neighbour above
+      *its* surface), found at edit time and by a load-time scan of surface-band chunks, indexed by
+      4 m sample so only wet samples are walked. `BasinWater.Remove` as `Pour` reversed. Oracle:
+      the two-tier identity, exact; flow stops when the level falls below the face.
+- [ ] **M8b-3 — B → A, the handoff and the settle.** Resting cells above the surface hand whole
+      litres to their basin; **measure how much of a spill's awake set that removes before building
+      anything else**; then the analytic settle on no-inflow regions and on unload.
+- [ ] **M8b-4 — the store.** `fluid` table, save job on the serial lane, never cancelled; loaded
+      cells are not woken. Oracle: flood, walk away, walk back, quit, reopen — the same millilitres
+      in the same cells. **Last and alone, because a defect here is permanent data loss.**
 
 #### Slower than realtime is accuracy, not approximation — Matthew, 2026-09-01
 
@@ -4191,7 +4247,9 @@ by the battery item below. The rest are wanted, not merely suggested.**
       313,678,347 L/min on a world carrying 94 ML from five hours of earlier sessions. Its comment
       says the rain has been falling "since the world opened", which is true of a new world only.
       Wants the delta since open. Same family as the `RunSeconds` denominator.
-- [ ] **M8's cost model was derived from tunnels; the play has made chambers the normal case.**
+- [x] **M8's cost model was derived from tunnels; the play has made chambers the normal case.
+      Measured 2026-09-03 at M8b-1 — see its block: the floor settles, the roof falling in is the
+      largest tick there is.**
       M8-PLAN's ~14,400 cells and ~50,000-cell revisit trigger come from SCALE's cave, and M8a's
       bench mine is `hand_pick` bores by construction. **One bitten chunk under a lake is 32,768
       cells of void; this world has 4,562.** Before M8b settles a tick budget: a second `--fluid`

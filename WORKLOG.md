@@ -1,5 +1,93 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-03 — M8b-1: Tier B is in the game loop, and the first thing the seam edits found was that the recorded table does not reproduce
+
+Suite **892 → 895**. `FluidSimulation` reads gravity from one `_fallSign` and room through one
+`RoomAt`; `ChunkPipeline` gains `onVoxelChanged`; `Main` ticks the automaton at 2 Hz over
+`VoxelFluidTerrain`, with **`R`** putting 10,000 L down at the crosshair, **Alt+R** taking 2 m of
+it back, `--injectlitres=<n>` doing the first headlessly, a `fluid` block in the profile and an
+`M8b:` line in the periodic report, and `FluidSurface` drawing a quad on every top cell. **The
+water is on the screen** — a 50,000 L pour spread eighteen metres downhill in five seconds, and
+the `--nowater` arm of the same camera is all grass.
+
+### The seam edits move no digit, and the control arm is what says so
+
+Two break recipes first: room halved fails **6** tests, gravity flipped fails **6** — so the clamp
+binds and the sign is read. Then `--fluid` in Release, and **it did not match the M8a-2 table**:
+bore 9 peak 20,737 against 17,357, 92.1 L/tick against 136.2. With the edits stashed, **the
+committed code gives the identical digits** — 39,809,482 and 111,222,865 visits, to the visit —
+so the edits and the fixture refactor moved nothing, and **it is the recorded table that does not
+reproduce.** A 1,000-tick flow window reproduces its L/tick, panels and MiB exactly and not its
+peaks, so the table was taken with a shorter window and a pre-commit state of the automaton.
+**The committed code is the baseline from here**, same fixture, 2,000-tick window, 5,000-tick
+settle cap, machine control 1.04x:
+
+```
+bore       L/tick   L/s   hours to   peak     visits/s   ms/tick   ms/tick   held     panels  MiB   awake at
+voxels                    drain 9M   active   @2Hz       mean      max       cells                  the cap
+1  (0.25 m)  14.3    29     87.4      4,096     4,370     0.483     1.795     5,872     51    3.2   11,017
+3  (0.75 m)  24.6    49     50.9      6,046     7,323     0.747     1.770     7,804     53    3.3   13,936
+5  (1.25 m)  39.6    79     31.6     12,531    15,930     1.461     3.229    12,131     64    4.0   16,699
+9  (2.25 m)  92.1   184     13.6     20,737    31,173     2.941     5.291    21,648     73    4.6   26,723
+```
+
+Every conclusion survives and three figures move: every hole drains, at **29 L/s** for a single
+voxel; the widest breach is **6.0%** of the light budget, not 5.1, with the 50,000-cell trigger
+still not reached; and a `hand_pick` bore empties the lake in **51 hours**, not 38. **The one
+claim that does not survive as stated is *"9× the width gives 9.0× the rate"*** — it is 6.3× over
+2,000 ticks and 10.5× over 1,000, because **the rate decays as the tunnels back up, so a mean rate
+is a property of its window.** Quote the window with any L/tick from here on; the report prints it.
+
+### The chamber fixture: an 8 m floor settles, and a roof falling in is the biggest tick there is
+
+`--fluidshape=chamber --fluidchambers=<n>`, a block of bitten chunks with a shaft into its roof,
+roof 2 m under the surface; a bore of 32 or more opens the whole roof, which is a chunk bitten out
+from under standing water. Same lake, same window:
+
+```
+block          bore    void      delivered   L/s   peak      visits/s  ms/tick    held      settle
+                       cells     L                 active    @2Hz      mean/max   cells     ticks
+1×1×1 (8 m)    3       32,840    264,105     264     4,914     9,089   0.88/6.5    17,408    1,915  rest is real
+1×1×1 (8 m)    32      41,480    668,606   ~inf    43,374     3,010   0.37/11.6   42,791        0  full in two ticks
+2×2×2 (16 m)   3      262,216    264,541     265    16,157    26,060   1.94/6.6    20,480    4,936  rest is real
+2×2×2 (16 m)   64     295,944  4,693,299   ~inf   302,182    36,443   4.55/73.5  300,375    2,558  rest is real
+```
+
+- **A chamber floor settles where a corridor does not.** An 8 m floor came to real rest in 1,915
+  ticks (16 min of world time) and a 16 m one in 4,936; the mine's 96 m corridors were still
+  spreading at the 5,000 cap. The O(n²) finding is about *length*, and a bitten chunk is wide.
+- **Through a bore, a chamber takes water 5.4× faster than the mine** (264 L/s against 49 through
+  the same 0.75 m hole), because there are no 0.75 m tunnels behind it to back up into.
+- **A roof falling in is a one-tick spike proportional to the void's cross-section, and it is the
+  biggest active set this project has seen: 302,182 cells in one tick, 73.5 ms in Release.** Six
+  times the ~50,000-cell revisit trigger — reached, but in one tick rather than sustained, and the
+  set then collapses as the block fills. In the Debug build people play that tick is ~0.7 s. **So
+  the tick budget is not a rate question but a slice question**: `Step` has to be resumable across
+  frames, which is the M8a "named, not built" item with its number attached.
+
+### The game: the identity holds, the digits hold, and the tick costs a frame in Debug
+
+- **Streaming unchanged to the digit with water pouring**: 1521 / 165 / 1926 at 404 quads standing
+  at r4h/2v with 50,000 L spreading, and 2601 / 325 / 3446 at 411 for the r6 default with the tick
+  running on nothing. `held == injected − removed − displaced` exact in every report.
+- **The tick is 17.7 ms mean / 25.0 max in Debug for ~6,000 active cells** — 2.9 µs a visit against
+  Release's 0.2–0.3, the light derive's Debug cliff again (M5d-1). At 2 Hz that is a frame and a
+  half twice a second in the build `start.cmd` runs. Part of the same slice question as above.
+- **The relay's ball is sized to its litres, and two runs said why.** A fixed 1 m ball delivered
+  15,871 of 50,000 L in the window in mid-air and 11,837 on the ground: the automaton falls one
+  cell a tick — 0.5 m/s at 2 Hz — and spreads diffusively, so a source region drains only at its
+  boundary's rate and the run measures the hose. A ball big enough for the pour lands in one tick
+  and the run measures the spread. **The fall speed is also M8d's waterfall question with a number
+  on it**: four metres takes eight seconds.
+- **`Disturb` wakes only cells holding water**, never the opened voxel — a chunk bite is 32,768
+  voxels and waking each for an empty visit is 229,000 visits in one tick — and returns at once on
+  a grid holding nothing, which is every edit before the first flood. Two tests, plus the pipeline
+  hook's own: told *after* the write, and not told at all when the material was already there.
+- **Two instrument traps.** The bare default headless run opens the *played* world, whose spawn is
+  inside the bitten-out void: 198 drawn at 100 quads a chunk, which reads as a regression and is a
+  fixture — **the streaming control is `--nosave`.** And `--quit-after 900` is ~6 s at headless
+  frame rates, before the r6 fill settles at ~7 s; 2400 is what reaches the report.
+
 ## 2026-09-03 — The fluid-kind seam: three options, and a grid per kind is the recommendation
 
 Matthew asked for the options behind *"decide before M8b closes: Tier B is single-fluid"*, and
@@ -593,6 +681,12 @@ faster** — whatever the mouth refuses stays in the lake and is offered again n
 what makes the achieved rate a measurement rather than a setting.
 
 ### The sweep is the breach width, because the play asked
+
+**Superseded 2026-09-03 — this table does not reproduce from the committed code.** It was taken
+with a shorter flow window and a pre-commit state of the automaton; the M8b-1 entry above carries
+the committed baseline (bore 1 peak 4,096, bore 9 peak 20,737, 29 L/s, 51 h for a `hand_pick`
+bore, 6.0% of the light budget). Every conclusion below survives; the *"9.0× the rate"* claim is
+window-dependent and is restated there. Kept for the reasoning.
 
 *"Unless I make a hole 4x4 it isn't going to drain into eventually?"* — that question with numbers
 against it. Tunnels stay 0.75 m in every arm, so the breach is the only thing moving.

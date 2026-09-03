@@ -107,6 +107,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     private readonly Action<StreamedChunk, ChunkMesh>? _onMeshReady;
     private readonly Action<ChunkPos>? _onMeshDiscarded;
     private readonly Action<ChunkPos, Exception>? _onJobFaulted;
+    private readonly Action<VoxelPos, int>? _onVoxelChanged;
 
     private readonly Queue<ChunkPos> _workList = new();
     private readonly List<(IJob Job, CancellationToken Cancellation, bool Serial)> _batch = [];
@@ -252,6 +253,14 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// Off restores the constant-brightness merge key every mesh used before M5a. A test seam
     /// for the quad-count A/B, carried here because the mesher is built inside the job.
     /// </param>
+    /// <param name="onVoxelChanged">
+    /// Called after a voxel has been written and its light bookkeeping done, with the material
+    /// now there. <b>A push, for the reason <c>ChunkLight.Invalidate</c> is one</b>: the fluid
+    /// automaton cannot see edits, and a cell nobody pushes never runs. Not called when the
+    /// material was already there, because then nothing changed and nothing has anything to do.
+    /// Called on the sim thread, once per voxel — a chunk bite is 32,768 calls, so the subscriber
+    /// has to be cheap when there is nothing near the voxel to wake.
+    /// </param>
     public ChunkPipeline(
         WorldGenerator generator,
         MaterialTable materials,
@@ -266,7 +275,8 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         bool ambientOcclusion = true,
         TimeSpan? lightBudget = null,
         bool light = true,
-        IWorldStore? store = null)
+        IWorldStore? store = null,
+        Action<VoxelPos, int>? onVoxelChanged = null)
     {
         _generator = generator;
         _materials = materials;
@@ -274,6 +284,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         _onMeshReady = onMeshReady;
         _onMeshDiscarded = onMeshDiscarded;
         _onJobFaulted = onJobFaulted;
+        _onVoxelChanged = onVoxelChanged;
         _nowTicks = nowTicks ?? Stopwatch.GetTimestamp;
         _ambientOcclusion = ambientOcclusion;
         _light = light;
@@ -628,6 +639,10 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         {
             MarkForRemesh(dirty[i]);
         }
+
+        // Last, so a subscriber that reads the world back sees the voxel it was told about. The
+        // fluid adapter's CanHold is exactly such a read.
+        _onVoxelChanged?.Invoke(voxel, materialId);
 
         return true;
     }
