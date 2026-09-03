@@ -126,6 +126,10 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
             it by hand — decide at the stage.
       - [ ] **Stage 4 — Matthew's.** Rename the GitHub repo, rename the local folder, update the
             remote URL, then the docs that name `github.com/MatthewCarven/MinerCraft`.
+            **Also the assistant's memory directory**, which is keyed on the working-directory
+            path and will not follow a folder rename — copy
+            `~/.claude/projects/C--Users-Admin-Desktop---Programming---MinerCraft/memory` to the
+            `...---Overburden` key, or the next session starts with none of it.
 
 ## Before the repo goes public
 
@@ -3751,6 +3755,10 @@ finding without the coarser-tolerance fallback.
       the one that gives a single derive a frame. `--lightbudget=16` is the workaround until then.
       `PaddedChunk.CopyFrom` stays the named lever on the cost itself. Also recorded there as a
       question: the window holding 640.6% of its leaf capacity with 0 L spilled.
+- [ ] **Give `--light` a machine-control line.** `--watershed` prints one; `--light` does not, and
+      on 2026-09-03 a 2.3× reading was Matthew's own game running beside the bench, which a control
+      line scales with and cannot separate. Print the worldgen control *and* say whether another
+      Godot process was found. Also check `tasklist` before any timing, as a habit.
 - [ ] **The retained-chunk cache — planned 2026-09-03 on Matthew's "go", not started.** See
       [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md). Two slices: voxels and sky columns
       first, derived light second. The premise `ChunkStreamer.Forget`'s comment argues from — a

@@ -293,7 +293,13 @@ title and the `user://` folder still say MinerCraft, because that is stage 3's m
 is the dangerous one**: `minercraft:` is inside every saved world's ID table, so the base mod's
 namespace needs a read-time alias, never an edit.
 
-**Pick up here (2026-09-03): M8b-2 — A → B, the breach**, portals indexed by 4 m sample and
+**Pick up here (2026-09-03, end of day). Three candidates, in the order recommended:** (1) the
+**distance-ordered light derive queue**, in TODO beside the M8b-2 item — the fix for the played
+world lighting its own centre last; (2) **rename stage 3**, the content namespace alias and the
+`user://` carry-across, its own session because a test has to fail first (see TODO's name-check
+item); (3) **the retained-chunk cache, slice 1**, planned in
+[docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md). Then the milestone work:
+**M8b-2 — A → B, the breach**, portals indexed by 4 m sample and
 `BasinWater.Remove` as `Pour` reversed (see [docs/M8-PLAN.md](docs/M8-PLAN.md), M8b's split);
 **and settle the tick budget as a slice before the breach can produce the roof-open case in play**
 — a chunk bitten out from under a lake is a 73 ms tick in Release and ~0.7 s in Debug. The gate on
