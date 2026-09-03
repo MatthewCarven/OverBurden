@@ -13,6 +13,8 @@ extends SceneTree
 ##
 ## GDScript rather than C# because `--script` wants a MainLoop and this needs no build.
 
+## `--settle=<ms>` overrides the wait. The played world takes ~14 s to light in Debug, so the
+## default 8 s shoots it before anything has drawn — which looks exactly like a renderer defect.
 const SETTLE_MILLISECONDS := 8000
 
 func _initialize() -> void:
@@ -26,8 +28,14 @@ func _initialize() -> void:
 
 	# `process_frame` carries no arguments, so it cannot be accumulated as a delta — the
 	# obvious `waited += await process_frame` adds null and spins forever.
+	var settle := SETTLE_MILLISECONDS
+	for argument in arguments:
+		if argument.begins_with("--settle="):
+			settle = int(argument.substr(9))
+	print("screenshot.gd: settling %d ms" % settle)
+
 	var start := Time.get_ticks_msec()
-	while Time.get_ticks_msec() - start < SETTLE_MILLISECONDS:
+	while Time.get_ticks_msec() - start < settle:
 		await process_frame
 
 	var image: Image = root.get_texture().get_image()

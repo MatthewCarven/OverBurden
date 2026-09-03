@@ -250,6 +250,9 @@ has no renderer, so a shader error does not even surface there:
 
 It instances `Main.tscn`, waits 8 s for terrain, saves a PNG and quits. Extra arguments after
 the path are passed through to the game, so `-- shot.png --ao=0` gives the other arm of an A/B.
+**`--settle=<ms>` overrides the 8 s, and the played world needs it**: it takes 14 s to light headless
+and longer windowed, so the default shoots a scene that has not drawn yet, which looks exactly
+like a renderer defect (2026-09-03).
 
 Profile a **fall** — the vertical motion profile M2d's horizontal flythrough could not produce,
 and the one that can arrive somewhere before the world does. `--fall` implies `--profile` and
@@ -289,6 +292,14 @@ copy in `../GAME/`.
 — a chunk bitten out from under a lake is a 73 ms tick in Release and ~0.7 s in Debug. The gate on
 the entangled miner is a battery and waits for M10. `git log origin/main..main` says what Matthew
 still has to push.
+
+**"The ground is gone" (2026-09-03) is not a renderer defect, and the first thing to check is
+`first draw`.** Nothing meshes until its neighbourhood is lit, the derive queue is FIFO, and in a
+played world the chunks around the player are the stored ones, which arrive last through the
+serial lane — so a mined-out region lights from the far ring inward, at one derive a frame once a
+Debug derive costs more than the 4 ms budget (it does at the machine's 2.3×). The "clouds" in
+such a shot are Tier A lake surfaces seen from below. `--lightbudget=16` is the proven workaround;
+a distance-ordered derive queue is the recommended fix, in TODO. See the worklog entry.
 
 **M8b-1 is built (2026-09-03): Tier B is in the game loop, with the relay, and the water is on the
 screen.** Suite 892 → 895. `R` puts 10,000 L down at the crosshair, Alt+R takes it back,

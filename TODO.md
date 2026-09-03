@@ -3721,6 +3721,17 @@ finding without the coarser-tolerance fallback.
             `--quit-after 2400`**: the bare run opens the played world and stands in its void.
       - [x] `FluidSurface`: one quad per top cell, rebuilt on Tier A's timer when the water moved.
             1,402 quads at 1.82 ms for a 50,000 L spill; screenshot against a `--nowater` arm.
+- [ ] **The played world lights its own centre last, and at today's machine speed nothing draws
+      for tens of seconds.** Found 2026-09-03 from Matthew's "the ground is gone" screenshot; the
+      worklog entry of that date has the table. `_lightBuilds` is FIFO, stored chunks arrive one at
+      a time on the serial lane after the generated ring, a mined-out region is stored chunks all
+      the way round the player, and a Debug derive at the machine's 2.3× (3.9 ms) exceeds the 4 ms
+      budget so it is one derive a frame. **Recommended fix: order the derive queue by distance to
+      the viewer**, on the scheduler's band and timer. Then measure `first draw` on `probe-load`
+      against the 14.09 s recorded, windowed as well as headless, because the windowed frame is
+      the one that gives a single derive a frame. `--lightbudget=16` is the workaround until then.
+      `PaddedChunk.CopyFrom` stays the named lever on the cost itself. Also recorded there as a
+      question: the window holding 640.6% of its leaf capacity with 0 L spilled.
 - [ ] **M8b-2 — A → B, the breach.** Portals (air at or below its surface with a neighbour above
       *its* surface), found at edit time and by a load-time scan of surface-band chunks, indexed by
       4 m sample so only wet samples are walked. `BasinWater.Remove` as `Pour` reversed. Oracle:

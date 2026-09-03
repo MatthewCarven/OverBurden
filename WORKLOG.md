@@ -1,5 +1,84 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-03 — "The ground is gone": nothing is hidden, nothing has drawn, and the played world lights its own centre last
+
+Matthew's screenshot from the played world: rain, the hotbar, blue-grey "cloud" shapes near the
+top of the frame, and a uniform fog colour everywhere the ground should be — *"the renderer does
+not show the ground anymore or it is hidden by fog or water like?"* Reproduced on a copy of the
+world (`probe-load`, the M6d recipe) with `screenshot.gd`, and **it is neither fog nor water: no
+chunk has meshed, because nothing meshes until its neighbourhood is lit, and in this world the
+player's neighbourhood is the last thing lit.** Three causes stacked, and each is measured.
+
+**What the shapes are.** The `--nowater` arm of the same shot has none of them. They are M7d-2's
+Tier A lake surfaces, seen from underneath: the player is at −12.4 m in the excavation and the
+analytic surface at that column is −2.25 m, so the basins' solved levels hang in the air over the
+pit — *"lakes overhanging yes"* from below. The report also says the window holds **640.6% of its
+leaf capacity with 0 L spilled**, which is recorded here as a question rather than a defect: the
+pit is invisible to the watershed by design, so capacity is the unedited terrain's, but six times
+it wants a look before M8b-2 starts moving litres out of these basins.
+
+**Why the ground is not there.** Same copy, headless, Debug, r6h/2v:
+
+```
+arm                                     light settled   first draw   drawn at the end
+default (4 ms light budget), headless        14.09 s       14.15 s      198 @ 100 quads
+--lightbudget=16, headless                   12.81 s       12.86 s      198 @ 100 quads
+default, windowed via screenshot.gd, 45 s    not yet       not yet      0   (1,333 / 2,601 derived, 1,268 queued)
+--lightbudget=16, windowed, 30 s             —             drew         floor fills the frame
+--radius=4 --vradius=2, windowed, 30 s       not yet       not yet      0
+fresh world (--nosave), headless             (0.49 s*)     12.73 s      307
+```
+
+\* the settle detector fired on an empty queue before the fill began; the first-draw figure is
+the one to read. Every arm was taken with Matthew's game running in the background (a 671 MB
+Godot process), so the absolute figures are inflated and the bench says by how much: `--light`
+reports **0.561 ms/chunk against the recorded 0.241 — the machine is at 2.3× today**, inside
+M7a's 2.5× band and the second time that finding has moved a play-facing figure.
+
+1. **A derive costs more than the whole light budget today.** 10,060 ms over 2,601 derives is
+   **3.9 ms per chunk** in Debug (the played world) and 3.45 ms in the fresh one — M5d-1's 1.41 ms
+   at the machine's 2.3–2.7×. `StepLight` checks the deadline *after* each derive so that every
+   frame makes progress, which is right — and its consequence is that at ≥ 4 ms a derive the
+   pipeline does **exactly one derive per frame**: 60 a second windowed, ~130 headless. 2,601
+   chunks is 43 s windowed on the best ordering, which is why the windowed r4 arm at 30 s and the
+   r6 arm at 45 s both drew nothing while headless settled at 14 s. **The 4 ms knee M5c-1 swept was
+   measured at 1.0× on a fresh world; at 2.3× the budget is below one unit of work and the knee
+   is a cliff.**
+2. **r6 doubled the queue the same day** — 2,601 chunks against 1,521. The b38cdb9 measurement
+   was honest about first draw doubling (3.80 → 6.66 s) and it was taken on a fresh world at ~1.0×;
+   both multipliers moved after it.
+3. **In a played world the derive order is the wrong way round, and this is the structural one.**
+   `_lightBuilds` is a FIFO `Queue`, so chunks derive in the order their voxels arrived. Generated
+   chunks arrive from eight workers in ~90 ms; **stored chunks arrive one at a time on the serial
+   lane** — 1,015 of them here — and in a mined-out region *every chunk around the player is a
+   stored one* (169/169 at the player's two layers). So the far ring is derived first, at one a
+   frame, and the centre — the only part that can mesh, and the only part the person is looking
+   at — is derived last. A fresh world hides this completely: nothing is stored, arrival order is
+   distance order by accident, and the centre lights first. **The screenshot is M5d-1's "drawn
+   goes to zero" cliff reached standing still, by a world rather than by a speed.**
+
+**What was not the cause, checked rather than assumed.** Not the fog: density 0.004 is 17% at
+48 m and the voxel shader fogs toward black where there is no skylight, so a fogged floor would
+be a gradient, not one flat colour. Not Tier B: `0 L moving`, and `FluidSurface` draws nothing on
+an empty grid. Not the vertical radius: the floor under the player is the top of generated rock
+at −16 m, 3.6 m under the feet, well inside 16 m — and `--vradius=10` (7,225 chunks) made it
+worse, for reason 1. Not persistence: 1,015 loaded, 0 failed, and with light given room the floor
+is stone and the excavation is there.
+
+**The instrument had the same defect as the symptom.** `screenshot.gd` waits 8 s, chosen when
+first draw was 3.4 s — every shot of this world was a picture of a scene that had not drawn yet,
+and it looked exactly like the renderer failing. **It now takes `--settle=<ms>`** and prints the
+wait it used; the shots above are 24–45 s. Fourth outing for *eyeballing a screenshot is a
+measurement too*, and the first where the picture was correct and early.
+
+**Recommendation, Matthew's to take.** The fix that addresses the played-world case regardless
+of machine speed is the cheapest: **order `_lightBuilds` by distance to the viewer** the way the
+job list is, so the centre lights first and the ring lights while the person is already looking
+at ground. A priority queue keyed on the same band the scheduler uses, re-sorted on the same
+200 ms timer. `PaddedChunk.CopyFrom` (59% of the derive, ~1.7×) is still the named lever and
+still not built. A Debug default above 4 ms is a play-feel decision rather than an engineering
+one and is deliberately not made here; `--lightbudget=16` is the proven workaround for tonight.
+
 ## 2026-09-03 — M8b-1: Tier B is in the game loop, and the first thing the seam edits found was that the recorded table does not reproduce
 
 Suite **892 → 895**. `FluidSimulation` reads gravity from one `_fallSign` and room through one
