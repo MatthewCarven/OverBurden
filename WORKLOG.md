@@ -2,6 +2,16 @@
 
 ## 2026-09-03 — The derive queue drains nearest-first: "the ground is gone" fixed
 
+**Postscript, the same evening: the same screenshot has a second cause, and it is not a defect.**
+Matthew, after the fix: *"I still cannot get it to render voxels with or without the switch."*
+Measured on a copy of his world at the saved position: r6h/2v loads 2,601 chunks, every mesh
+builds empty, `near lit` 0.55 s; r6h/6v draws 48 chunks at 10.9 s. He was in fly mode, more than
+16 m above the pit's floor and 48 m from its walls, so nothing inside the box had geometry — the
+lake surfaces that still drew come from the watershed, not from chunks. *"I was just up too high?
+Didn't think of toggling fly."* The vertical radius stays 2; a 64 m pit is the shape where ±16 m
+shows nothing, and `start.cmd --vradius=4` is the experiment if that shape recurs.
+
+
 The first of the three pick-up candidates, on Matthew's "yes to your recommended order". The
 morning's diagnosis stood: `_lightBuilds` was a FIFO, the stored chunks round the player arrive
 last through the serial lane, and nothing meshes until its neighbourhood is lit, so a mined-out room
