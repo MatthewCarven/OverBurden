@@ -731,6 +731,20 @@ public partial class Main : Node3D
         double measure = 15.0;
         bool profile = false;
 
+        // A game flag on the engine's side of the bare "--" is ignored by Godot without a word,
+        // and a run at the default budget looks identical to one at the requested budget until
+        // first draw — which is how "start.cmd --lightbudget=16" cost an evening on 2026-09-03.
+        // Godot's own options never take the name=value form, so that shape is ours.
+        foreach (string argument in OS.GetCmdlineArgs())
+        {
+            if (argument.StartsWith("--", StringComparison.Ordinal) && argument.Contains('='))
+            {
+                GD.PushWarning(
+                    $"MinerCraft: \"{argument}\" came before the bare \"--\" and the engine ignored it; "
+                    + "game flags go after it: ... -- " + argument);
+            }
+        }
+
         foreach (string argument in OS.GetCmdlineUserArgs())
         {
             string[] parts = argument.Split('=', 2);

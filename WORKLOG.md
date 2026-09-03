@@ -83,6 +83,15 @@ made visible; and the header position in the autosave had not moved from the ear
 which is either a session that was killed with its console window (no `_ExitTree`, no header) or
 something to look at in what `CurrentHeader()` samples while flying. Not chased.
 
+**And the flag never arrived — found from the shell history, not the code.** The only
+`start.cmd` on the machine is the repo's and it forwards `%*`. His last launch was
+`.\start.cmd --lightbudget=16`, without the bare `--`; tested from PowerShell 7 with the exe
+directly, `-- --lightbudget=16` reports `light budget 16 ms` and `--lightbudget=16` alone reports
+`4 ms` with no error, because **Godot ignores an option it does not know on its own side of the
+`--` without a word.** The game now warns at startup for any `--name=value` argument found on
+the engine's side, since Godot's own options never take that shape. PowerShell passes the `--`
+through, checked rather than assumed.
+
 **Recommendation, Matthew's to take.** The fix that addresses the played-world case regardless
 of machine speed is the cheapest: **order `_lightBuilds` by distance to the viewer** the way the
 job list is, so the centre lights first and the ring lights while the person is already looking
