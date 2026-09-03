@@ -5,6 +5,67 @@ milestone: it sits between `ChunkStreamer` and the store and changes nothing abo
 *is*. Read the 2026-09-03 worklog entries first — the case this exists for is a played world where
 every chunk round the player is a stored one.
 
+## Slice 1 — built 2026-09-03
+
+Suite 895 → 910; the standing-start r6 baseline is 2601 / 325 / 3446 at 411 in both arms. The
+design below was built as written except where this section says otherwise.
+
+**Measured**, r6h/2v, Debug, `--speed=6 --turnaround=5`, cache 64 MiB against 0:
+
+| | 6 m/s, seed world | 20 m/s, seed world | 6 m/s, played world |
+|---|---|---|---|
+| generated | 4599 → 3213 | 9539 → 4590 | 2266 → 1580 |
+| loaded | 0 → 0 | 0 → 0 | 2332 → 1633 |
+| from the cache | 0 → 1386 | 0 → 4960 | 0 → 1385 |
+| derives | 5233 → 5269 | 8958 → 8952 | 5395 → 5400 |
+| `viewer ms` mean / p50 | 6.58 / 6.07 → 0.91 / 0.33 | 6.08 / 6.08 → 1.05 / 0.29 | 6.76 / 6.12 → 0.95 / 0.34 |
+| cache held at the end | 612 chunks + 68 columns, 1.3 MiB | 1989 + 221, 4.2 MiB | 612 + 68, 1.8 MiB |
+
+The number the slice turns on came out as predicted: **loads and generates went to zero for the
+cached chunks and the derives did not move**, so slice 2 is what remains. At 20 m/s both arms still
+draw nothing — the M5d-1 cliff is a derive cliff, and the cache cannot touch it.
+
+**Where the build departs from the plan:**
+
+- **§6 is wrong as written: a dirty column is not cached.** A column released dirty is handed to
+  the save with no copy-on-write to protect it — a chunk has `VoxelsSharedWithJob`, a column has
+  nothing — so a revival could edit it under the serialiser. Only a column with nothing to write is
+  kept. In play that is nearly all of them, because the autosave marks the live set clean; the one
+  that is not is the column just dug, and it comes back through its restore as before. A restore
+  landing after its column was released and cached is copied into the cached object
+  (`ChunkStreamer.CachedColumnAt`), or the revival would hand back the analytic seed and never ask
+  again.
+- **§3's dirty-on-evict rule is belt and braces, and its premise was wrong.** `StepBack` does not
+  restore `DirtySinceSave` on a dropped save; `ApplySave` puts the bytes back on the pending list
+  and leaves the flag alone. Nothing today can dirty a cached chunk. The hook is kept and tested by
+  setting the flag by hand.
+- **Revival is a state-machine edge, `Unloaded → Generated`**, taken only when the chunk has
+  voxels; the stage drops from `Lit` to `Features` on cache entry, because the grid goes with the
+  chunk and `CanMesh` would otherwise mesh from a grid that does not exist. The pipeline's queue
+  flags are cleared on entry — every queue skips an untracked position on dequeue, so a stale
+  entry is harmless and a stale flag would strand the chunk.
+- **A hit pushes the chunk's 26 neighbours**, for the reason a load's completion does: nothing
+  else re-examines a neighbour that was waiting on it.
+- **§4's 3.5 KB was for slice 2.** Without the grid a cached seed chunk is ~2.0 KB and a played-
+  world chunk ~2.8 KB; 64 MiB is on the order of 25,000 chunks. Still an estimate, still Matthew's.
+- **A first draw after the turn was not measured**: the profile reports the run's first draw, and
+  a standing-start fill is identical in both arms. The `sources` line is the instrument.
+
+**Found, not planned: the box-difference sweep is mostly column seeding.** M6d-2 measured `viewer
+ms` at two to four times the pipeline update and chose not to chase it. A hit skips
+`SkyColumn.Seed` (1,024 surface evaluations per column) and the record allocation, and the mean
+drops seven-fold. Recorded in TODO as a question rather than acted on.
+
+**The battery**: seventeen recipes against tests 1–6 and 8 below, fourteen caught first time.
+Two were green until the tests were strengthened — a stage left at `Lit` meshes dark and is
+repaired before the settle returns (now: exactly one delivery, zero relights, across a
+turnaround), and a stale `InWorkList`/`LightBuildQueued` strands a revived chunk that quiescence
+cannot see (now: every tracked chunk derived and the centre at `Lit` after a mid-flight fuzz).
+One is the identity: pushing only the revived chunk, because reaching `Lit` pushes the 26 anyway.
+One stays green for a reason the fuzz does not reach: a stale `AwaitingLight` heals whenever a
+neighbour reaches `Lit`, and the stranding case is one chunk revived among already-lit neighbours.
+Test 7 is slice 2's.
+
 ## The question
 
 **Does a chunk that leaves the loaded box and comes back cost anything?** Today it costs

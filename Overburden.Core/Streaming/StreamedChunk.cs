@@ -367,6 +367,14 @@ public sealed class StreamedChunk
         return (from, to) switch
         {
             (ChunkState.Unloaded, ChunkState.Queued) => true,
+
+            // A cache hit. A chunk the streamer kept after its last viewer left still holds its
+            // voxels, so it re-enters the pipeline where a load or a generate would have put it
+            // rather than where a new record starts — see ChunkStreamer.Forget. The pipeline
+            // takes this edge only when HasVoxels is true, and it is the only way a chunk goes
+            // straight from Unloaded to having something to mesh.
+            (ChunkState.Unloaded, ChunkState.Generated) => true,
+
             (ChunkState.Queued, ChunkState.Generating) => true,
             (ChunkState.Generating, ChunkState.Generated) => true,
 

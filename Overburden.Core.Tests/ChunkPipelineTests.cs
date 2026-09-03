@@ -649,7 +649,8 @@ internal sealed class PipelineHarness : IDisposable
         Func<long>? nowTicks = null,
         TimeSpan? lightBudget = null,
         Overburden.Core.Persistence.IWorldStore? store = null,
-        Action<VoxelPos, int>? onVoxelChanged = null)
+        Action<VoxelPos, int>? onVoxelChanged = null,
+        long chunkCacheBytes = 0)
     {
         var viewers = new ViewerSet();
         _scheduler = new JobScheduler(viewers, threadCount: 4, sweepInterval: TimeSpan.FromMilliseconds(5));
@@ -677,7 +678,8 @@ internal sealed class PipelineHarness : IDisposable
             nowTicks: nowTicks,
             lightBudget: lightBudget ?? GenerousLightBudget,
             store: store,
-            onVoxelChanged: onVoxelChanged);
+            onVoxelChanged: onVoxelChanged,
+            chunkCacheBytes: chunkCacheBytes);
     }
 
     public ChunkPipeline Pipeline { get; }

@@ -111,9 +111,13 @@ public class LightPipelineTests
     /// than inheriting what it had.
     /// </summary>
     /// <remarks>
-    /// A revived chunk regenerates its voxels from the seed, so a kept grid would be the one
-    /// piece of state guaranteed to be re-derivable — and a stale grid is indistinguishable from
-    /// a fresh one, which is the direction that fails silently.
+    /// This used to argue that a revived chunk regenerates its voxels from the seed, so a kept
+    /// grid would be re-derivable anyway. That premise has been false since M6 — a returning chunk
+    /// has the identical voxels whichever source it comes from — and the reason the grid still
+    /// goes is that nothing yet invalidates it for a neighbour that changed while the chunk was
+    /// out. That is the retained-chunk cache's second slice (docs/CHUNK-CACHE-PLAN.md §5); until
+    /// it lands, a stale grid is indistinguishable from a fresh one, which is the direction that
+    /// fails silently. ChunkCacheTests re-asserts this with the cache on.
     /// </remarks>
     [Fact]
     public void UnloadingReleasesTheLightGridAndReturningRebuildsIt()
@@ -652,7 +656,7 @@ public class LightPipelineTests
         }
     }
 
-    private static int[] CellValues(ChunkLight light)
+    internal static int[] CellValues(ChunkLight light)
     {
         var values = new int[LightCellPos.Volume];
         for (int index = 0; index < LightCellPos.Volume; index++)
@@ -710,7 +714,7 @@ public class LightPipelineTests
     /// <c>LightTestWorld.AssertFixpoint</c> gives: a reference that shares reasoning with its
     /// subject proves nothing.
     /// </remarks>
-    private static void AssertFixpoint(PipelineHarness harness)
+    internal static void AssertFixpoint(PipelineHarness harness)
     {
         ChunkStreamer streamer = harness.Pipeline.Streamer;
 

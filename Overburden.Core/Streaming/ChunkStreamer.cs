@@ -75,10 +75,44 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
     private readonly Action<StreamedChunk>? _onChunkUnviewed;
     private readonly Action<SkyColumn>? _onColumnCreated;
     private readonly Action<SkyColumn>? _onColumnReleased;
+    private readonly Action<StreamedChunk>? _onChunkEvicted;
     private readonly int _loadMargin;
+
+    // The retained-chunk cache (docs/CHUNK-CACHE-PLAN.md). A chunk in _chunks is never in
+    // _cachedChunks, and a column in _columns is never in _cachedColumns; both dictionaries index
+    // one eviction list, oldest first, so the cap is one number over both kinds of entry.
+    private readonly Dictionary<ChunkPos, LinkedListNode<CacheEntry>> _cachedChunks = [];
+    private readonly Dictionary<(int X, int Z), LinkedListNode<CacheEntry>> _cachedColumns = [];
+    private readonly LinkedList<CacheEntry> _cacheOrder = new();
+    private readonly long _cacheCapacityBytes;
+    private long _cacheBytes;
 
     private int _nextViewerId = 1;
     private int _viewedCount;
+
+    /// <summary>
+    /// What a retained chunk or column is charged against the cap.
+    /// </summary>
+    /// <remarks>
+    /// <b>Estimates, and labelled as such.</b> A chunk's payload is exact
+    /// (<see cref="VoxelChunk.EstimatedBytes"/>) and a column's is exact (32 × 32 shorts); the
+    /// per-record constants stand in for the object headers, the dictionary slot and the list
+    /// node, which the runtime does not report. A uniform chunk has no payload at all, so the
+    /// record cost is what stops the cap from admitting an unbounded number of them.
+    /// </remarks>
+    private const int ChunkRecordOverheadBytes = 192;
+
+    private const int ColumnCacheBytes = VoxelConstants.ChunkSize * VoxelConstants.ChunkSize * sizeof(short) + 96;
+
+    /// <summary>One retained chunk or one retained column, and what it is charged.</summary>
+    private sealed class CacheEntry
+    {
+        public StreamedChunk? Chunk;
+
+        public SkyColumn? Column;
+
+        public long Bytes;
+    }
 
     /// <summary>
     /// A sky column and how many tracked chunks share it.
@@ -128,6 +162,18 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
     /// policy has nothing to do with light and its tests should not have to supply a world
     /// generator; a streamer without one hands out no sky columns and lights nothing.
     /// </param>
+    /// <param name="chunkCacheBytes">
+    /// How many bytes of forgotten chunks and columns to keep for a revival. <b>Zero is off</b>
+    /// and is the behaviour every milestone before the cache measured: a forgotten chunk is
+    /// dropped and comes back through a load or a generate. See <see cref="Forget"/>.
+    /// </param>
+    /// <param name="onChunkEvicted">
+    /// Fired when a cached chunk is dropped to make room while it still says
+    /// <see cref="StreamedChunk.DirtySinceSave"/>. Belt and braces: a chunk enters the cache
+    /// <em>after</em> its unview queued its save, so this fires only for a chunk that was marked
+    /// dirty again while cached, which nothing today does — but the one failure that rule guards
+    /// against is a deleted tunnel, and the hook costs a flag test.
+    /// </param>
     public ChunkStreamer(
         ViewerSet? priorityViewers = null,
         Action<StreamedChunk>? onChunkViewed = null,
@@ -135,17 +181,22 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
         int loadMargin = DefaultLoadMargin,
         ISurfaceHeights? heights = null,
         Action<SkyColumn>? onColumnCreated = null,
-        Action<SkyColumn>? onColumnReleased = null)
+        Action<SkyColumn>? onColumnReleased = null,
+        long chunkCacheBytes = 0,
+        Action<StreamedChunk>? onChunkEvicted = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(loadMargin);
+        ArgumentOutOfRangeException.ThrowIfNegative(chunkCacheBytes);
 
         _priorityViewers = priorityViewers;
         _onChunkViewed = onChunkViewed;
         _onChunkUnviewed = onChunkUnviewed;
         _onColumnCreated = onColumnCreated;
         _onColumnReleased = onColumnReleased;
+        _onChunkEvicted = onChunkEvicted;
         _loadMargin = loadMargin;
         _heights = heights;
+        _cacheCapacityBytes = chunkCacheBytes;
     }
 
     public int ViewerCount => _viewers.Count;
@@ -174,6 +225,67 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
 
     /// <summary>The margin this streamer was built with.</summary>
     public int LoadMargin => _loadMargin;
+
+    // ---------------------------------------------------------------------------------------
+    // The retained-chunk cache's observable side. Every number here is what the profiler prints
+    // and what the cache tests assert on; none of it is consulted by the streaming policy.
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>The cap the cache was built with. Zero means the cache is off.</summary>
+    public long CacheCapacityBytes => _cacheCapacityBytes;
+
+    /// <summary>Whether forgotten chunks are kept at all.</summary>
+    public bool CacheEnabled => _cacheCapacityBytes > 0;
+
+    /// <summary>What the cache currently holds, charged by <see cref="CachedBytesOf"/>.</summary>
+    public long CachedBytes => _cacheBytes;
+
+    public int CachedChunkCount => _cachedChunks.Count;
+
+    public int CachedColumnCount => _cachedColumns.Count;
+
+    /// <summary>Chunks that came back from the cache rather than from a load or a generate.</summary>
+    public long CacheHits { get; private set; }
+
+    /// <summary>Columns that came back from the cache rather than being seeded and restored.</summary>
+    public long ColumnCacheHits { get; private set; }
+
+    /// <summary>Chunks dropped from the cache to stay under the cap.</summary>
+    public long ChunkEvictions { get; private set; }
+
+    /// <summary>Columns dropped from the cache to stay under the cap.</summary>
+    public long ColumnEvictions { get; private set; }
+
+    /// <summary>Whether a forgotten chunk is being kept for a revival.</summary>
+    /// <remarks>
+    /// Never true for a tracked chunk: a chunk is in <see cref="Chunks"/> or in the cache, and
+    /// the tests fuzz that it is never both.
+    /// </remarks>
+    public bool IsCached(ChunkPos position) => _cachedChunks.ContainsKey(position);
+
+    public IEnumerable<ChunkPos> CachedPositions => _cachedChunks.Keys;
+
+    public IEnumerable<StreamedChunk> CachedChunks => _cachedChunks.Values.Select(node => node.Value.Chunk!);
+
+    public IEnumerable<SkyColumn> CachedColumns => _cachedColumns.Values.Select(node => node.Value.Column!);
+
+    /// <summary>A forgotten column being kept for a revival, or null.</summary>
+    /// <remarks>
+    /// The one caller that needs this is a column restore landing after the column's last chunk
+    /// left: the restore has to be copied into the cached object, or the revival would hand back
+    /// the analytic seed with no restore ever asked for again.
+    /// </remarks>
+    public SkyColumn? CachedColumnAt(int chunkX, int chunkZ) =>
+        _cachedColumns.TryGetValue((chunkX, chunkZ), out LinkedListNode<CacheEntry>? node)
+            ? node.Value.Column
+            : null;
+
+    /// <summary>What <paramref name="chunk"/> is charged against the cap. An estimate.</summary>
+    public static long CachedBytesOf(StreamedChunk chunk) =>
+        (chunk.Voxels?.EstimatedBytes ?? 0) + ChunkRecordOverheadBytes;
+
+    /// <summary>What one column is charged against the cap. An estimate.</summary>
+    public static long CachedBytesOfColumn => ColumnCacheBytes;
 
     public ViewerId AddViewer(Viewer viewer)
     {
@@ -434,7 +546,16 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
     {
         if (!_chunks.TryGetValue(position, out StreamedChunk? chunk))
         {
-            chunk = new StreamedChunk(position) { Sky = RetainColumn(position) };
+            // Memory, then the cache, then the store's index, then the seed. The cache goes
+            // second because a cached chunk is the very object that was saved — it can never be
+            // older than the disk — and because consulting it after the store would submit a
+            // load for a chunk whose bytes are already here.
+            if (!TryRevive(position, out chunk))
+            {
+                chunk = new StreamedChunk(position);
+            }
+
+            chunk.Sky = RetainColumn(position);
             _chunks[position] = chunk;
         }
 
@@ -498,14 +619,130 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
         chunk.Cancellation?.Dispose();
         chunk.Cancellation = null;
 
-        // The light grid goes with the chunk rather than being kept warm for a revival. A
-        // returning chunk regenerates its voxels from the seed, so keeping light derived from
-        // the previous ones would be keeping the one thing guaranteed to be re-derived anyway —
-        // and a stale grid is indistinguishable from a fresh one, which is the bad direction.
+        // The light grid goes with the chunk, cached or not. This comment used to argue that a
+        // returning chunk regenerates its voxels from the seed, so a kept grid would be the one
+        // thing guaranteed to be re-derived anyway — and that premise has been false since M6: a
+        // returning chunk has the identical voxels whether it comes from the cache, the store or
+        // the seed, so derived light is stale only if a *neighbour* or the column changed while
+        // it was out. Keeping it is the cache's second slice, which needs those two invalidation
+        // pushes first (docs/CHUNK-CACHE-PLAN.md, §5). Until then a stale grid would be
+        // indistinguishable from a fresh one, which is the bad direction, so it goes.
         chunk.Light = null;
         chunk.LightNeighbours = 0;
         chunk.Sky = null;
         ReleaseColumn(chunk.Position);
+
+        // Only a chunk with voxels is worth keeping: the whole saving is the load or generate
+        // that would otherwise produce them. A chunk forgotten between a viewer leaving and its
+        // generate landing has nothing, and would cost a record for a revival that still has to
+        // do all the work.
+        if (CacheEnabled && chunk.HasVoxels)
+        {
+            Retain(chunk);
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // The retained-chunk cache. Chunks and columns leaving the box are kept, capped by bytes and
+    // evicted least-recently-forgotten first, so that a turnaround costs no load and no generate.
+    // Nothing here is a source of truth: a chunk enters *after* its unview queued its save, so
+    // eviction is a free drop. docs/CHUNK-CACHE-PLAN.md has the argument.
+    // ---------------------------------------------------------------------------------------
+
+    private void Retain(StreamedChunk chunk)
+    {
+        // The pipeline's queue flags describe membership of queues this chunk may still be
+        // named in by position. Every one of those queues checks TryGet on dequeue and skips a
+        // position that is not tracked, so a stale entry is harmless — but a stale *flag* is not:
+        // Push and QueueLightBuild refuse a chunk whose flag is set, and a revived chunk carrying
+        // a set flag would never be looked at again. A queue that still names the position after
+        // the revival does one redundant, idempotent pass.
+        chunk.InWorkList = false;
+        chunk.LightBuildQueued = false;
+        chunk.AwaitingLight = false;
+        chunk.NeedsRemesh = false;
+        chunk.RemeshUrgent = false;
+
+        // Lit means "derived and the propagation settled", and the grid just went. Features is
+        // where a load lands a chunk, and it is where a revival has to land one too, or CanMesh
+        // would let it mesh from a grid that has not been built.
+        if (chunk.Stage == GenerationStage.Lit)
+        {
+            chunk.Stage = GenerationStage.Features;
+        }
+
+        // VoxelsSharedWithJob, HasEdits and DirtySinceSave are deliberately untouched. The first
+        // is what makes an edit after a revival clone rather than write under a save job still
+        // reading these voxels; the other two are the persistence flags, and the cache holds the
+        // object precisely so that they survive.
+        Insert(new CacheEntry { Chunk = chunk, Bytes = CachedBytesOf(chunk) }, _cachedChunks, chunk.Position);
+    }
+
+    private bool TryRevive(ChunkPos position, out StreamedChunk chunk)
+    {
+        if (!_cachedChunks.Remove(position, out LinkedListNode<CacheEntry>? node))
+        {
+            chunk = null!;
+            return false;
+        }
+
+        Remove(node);
+        chunk = node.Value.Chunk!;
+        CacheHits++;
+        return true;
+    }
+
+    private void Insert<TKey>(CacheEntry entry, Dictionary<TKey, LinkedListNode<CacheEntry>> index, TKey key)
+        where TKey : notnull
+    {
+        if (entry.Bytes > _cacheCapacityBytes)
+        {
+            // Would evict everything and still not fit. Dropped, as it would have been without a
+            // cache; a cap that small is a configuration, not an error.
+            return;
+        }
+
+        _cacheBytes += entry.Bytes;
+        index[key] = _cacheOrder.AddLast(entry);
+
+        // Oldest first, and never the entry just added: it fits on its own, so the total is
+        // under the cap by the time the walk could reach it.
+        while (_cacheBytes > _cacheCapacityBytes)
+        {
+            Evict(_cacheOrder.First!);
+        }
+    }
+
+    private void Remove(LinkedListNode<CacheEntry> node)
+    {
+        _cacheOrder.Remove(node);
+        _cacheBytes -= node.Value.Bytes;
+    }
+
+    private void Evict(LinkedListNode<CacheEntry> node)
+    {
+        Remove(node);
+        CacheEntry entry = node.Value;
+
+        if (entry.Chunk is { } chunk)
+        {
+            _cachedChunks.Remove(chunk.Position);
+            ChunkEvictions++;
+
+            // The one rule that keeps "eviction is a free drop" true: a chunk that was dirtied
+            // while it sat here has a copy nobody else holds, and dropping it is a deleted
+            // tunnel. Announced before the drop so the handler can still take the voxels.
+            if (chunk.DirtySinceSave)
+            {
+                _onChunkEvicted?.Invoke(chunk);
+            }
+        }
+        else
+        {
+            SkyColumn column = entry.Column!;
+            _cachedColumns.Remove((column.ChunkX, column.ChunkZ));
+            ColumnEvictions++;
+        }
     }
 
     /// <summary>The sky column for a chunk's (x, z), created and seeded on first use.</summary>
@@ -520,20 +757,34 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
 
         if (!_columns.TryGetValue(key, out SkyColumnEntry? entry))
         {
-            var column = new SkyColumn(position.X, position.Z);
+            if (_cachedColumns.Remove(key, out LinkedListNode<CacheEntry>? node))
+            {
+                // Neither seeded nor announced: the cached column already holds whatever the
+                // store had for it, and a restore in flight when it was released lands in it
+                // through CachedColumnAt. A column can only change through an edit to a loaded
+                // chunk in it, and none was loaded while it was here, so it is always valid.
+                Remove(node);
+                entry = new SkyColumnEntry(node.Value.Column!);
+                _columns[key] = entry;
+                ColumnCacheHits++;
+            }
+            else
+            {
+                var column = new SkyColumn(position.X, position.Z);
 
-            // 1,024 surface evaluations, once per column rather than once per chunk — the
-            // vertical radius is what makes that ratio worth having. M5d measures it.
-            column.Seed(_heights);
+                // 1,024 surface evaluations, once per column rather than once per chunk — the
+                // vertical radius is what makes that ratio worth having. M5d measures it.
+                column.Seed(_heights);
 
-            entry = new SkyColumnEntry(column);
-            _columns[key] = entry;
+                entry = new SkyColumnEntry(column);
+                _columns[key] = entry;
 
-            // Announced after seeding and after the entry exists, so a handler is free to queue a
-            // restore against a column that is already usable. It stays usable meanwhile — lit
-            // against the unedited surface, which is wrong for a shaft and right for everywhere
-            // else, and is corrected when the restore lands.
-            _onColumnCreated?.Invoke(column);
+                // Announced after seeding and after the entry exists, so a handler is free to
+                // queue a restore against a column that is already usable. It stays usable
+                // meanwhile — lit against the unedited surface, which is wrong for a shaft and
+                // right for everywhere else, and is corrected when the restore lands.
+                _onColumnCreated?.Invoke(column);
+            }
         }
 
         entry.RefCount++;
@@ -551,12 +802,27 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
 
         if (--entry.RefCount <= 0)
         {
+            // Read before the announcement, which is where a dirty column is handed to the save
+            // and marked clean. A column that was dirty here is about to be serialised on a
+            // worker with no copy-on-write to protect it — a revival could then edit it under
+            // the serialiser, which is the tear a chunk's VoxelsSharedWithJob exists to prevent
+            // and a column has no equivalent of. So a dirty column is dropped as it always was
+            // and comes back through its restore; only a column with nothing to write is kept.
+            // In play that is nearly all of them, because the autosave marks the live set clean
+            // every thirty seconds.
+            bool clean = !entry.Column.DirtySinceSave;
+
             // Announced before the drop, because this is a column's only chance to be written.
             // A chunk gets OnChunkUnviewed while it is still tracked; a column has no equivalent
             // event, so a handler that needed one after the removal would be holding nothing.
             _onColumnReleased?.Invoke(entry.Column);
 
             _columns.Remove(key);
+
+            if (CacheEnabled && clean)
+            {
+                Insert(new CacheEntry { Column = entry.Column, Bytes = ColumnCacheBytes }, _cachedColumns, key);
+            }
         }
     }
 

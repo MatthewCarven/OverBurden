@@ -276,7 +276,8 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         TimeSpan? lightBudget = null,
         bool light = true,
         IWorldStore? store = null,
-        Action<VoxelPos, int>? onVoxelChanged = null)
+        Action<VoxelPos, int>? onVoxelChanged = null,
+        long chunkCacheBytes = 0)
     {
         _generator = generator;
         _materials = materials;
@@ -305,7 +306,11 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
             // reading one definition of the cave field.
             heights: generator,
             onColumnCreated: OnColumnCreated,
-            onColumnReleased: OnColumnReleased);
+            onColumnReleased: OnColumnReleased,
+            // Zero by default, so every test written before the cache runs the code it was
+            // written against; Main passes the cap, and --chunkcache=0 is the control arm.
+            chunkCacheBytes: chunkCacheBytes,
+            onChunkEvicted: OnChunkEvicted);
 
         _propagator = new LightPropagator(_streamer);
 
@@ -326,6 +331,15 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
 
     /// <summary>Chunks read from the store rather than generated.</summary>
     public int ChunksLoaded { get; private set; }
+
+    /// <summary>Chunks whose voxels came from the seed.</summary>
+    /// <remarks>
+    /// The third source's counter, beside the store's, so that a turnaround can be read as
+    /// "how many chunks came back through the cache" by what the other two did <em>not</em> do.
+    /// Until the cache there was no third way for a chunk to acquire voxels, so the generate
+    /// count was <see cref="CompletedJobs"/> less the meshes and nobody needed it on its own.
+    /// </remarks>
+    public int ChunksGenerated { get; private set; }
 
     /// <summary>Chunk blobs handed to the store.</summary>
     public int ChunksSaved { get; private set; }
@@ -1187,6 +1201,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
                 chunk.Voxels = generate.Result;
                 chunk.Stage = GenerationStage.Terrain;
                 chunk.TransitionTo(ChunkState.Generated);
+                ChunksGenerated++;
 
                 // Terrain arriving here may be the last thing 26 neighbours were waiting on
                 // before they can run their own feature stage.
@@ -1557,11 +1572,39 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         // cancelled job left it in; the pump picks it up once that job reports.
         if (chunk.State == ChunkState.Unloaded)
         {
+            if (chunk.HasVoxels)
+            {
+                // A cache hit: the streamer kept this chunk after its last viewer left, voxels
+                // and persistence flags intact, so it re-enters where a load would have landed
+                // it. Its light is derived afresh; the streamer dropped the grid, and Retain put
+                // the stage back to Features so CanMesh waits for it.
+                //
+                // With its neighbours, for the reason a load's completion pushes them. Recorded
+                // from the break-recipe battery: pushing only the chunk itself is currently the
+                // identity, because reaching Lit pushes the 26 anyway and the ring's feature
+                // advance does too. Kept because it states the intent, and because anything that
+                // later lets a revived chunk skip the derive makes the difference real.
+                chunk.TransitionTo(ChunkState.Generated);
+                PushWithNeighbours(chunk.Position);
+                return;
+            }
+
             chunk.TransitionTo(ChunkState.Queued);
         }
 
         Push(chunk.Position);
     }
+
+    /// <summary>
+    /// A cached chunk is being dropped to make room while it still differs from the disk.
+    /// </summary>
+    /// <remarks>
+    /// Unreachable today, and kept because of what it guards. A chunk enters the cache after
+    /// its unview queued its save, and nothing edits a chunk that is not tracked — so the flag
+    /// cannot be set while cached. If anything ever does set it, this is the difference between
+    /// a cache and a place tunnels go to die.
+    /// </remarks>
+    private void OnChunkEvicted(StreamedChunk chunk) => QueueSave(chunk);
 
     private void OnChunkUnviewed(StreamedChunk chunk)
     {
@@ -1793,11 +1836,16 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
             return;
         }
 
-        SkyColumn? live = _streamer.ColumnAt(job.ChunkX, job.ChunkZ);
+        // Live first, then the cache. A column released while its read was in flight is kept
+        // by the streamer if it had nothing to write — which an unrestored column never has —
+        // and the revival hands that object back without asking for a restore, so the heights
+        // have to land in it here or the shaft comes back seeded from the pre-dig surface.
+        SkyColumn? live = _streamer.ColumnAt(job.ChunkX, job.ChunkZ)
+                          ?? _streamer.CachedColumnAt(job.ChunkX, job.ChunkZ);
         if (live is null)
         {
-            // The column went away while the read was in flight. Nothing to correct, and the next
-            // time it is created the restore is asked for again.
+            // The column went away while the read was in flight and was not kept. Nothing to
+            // correct, and the next time it is created the restore is asked for again.
             return;
         }
 

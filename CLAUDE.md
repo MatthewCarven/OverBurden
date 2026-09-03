@@ -22,7 +22,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/M10-NOTES.md](docs/M10-NOTES.md) | **The quantum machine family** — Matthew’s proposal, 2026-09-02: a fluid pump that teleports to a wireless output, and a general machine programmer. Notes rather than a plan, on the deferred-collapse precedent. **Read before planning M10, and before shipping any machine — it names the entity-storage change that header v4 rides on.** |
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | **Elements, and whether to "just implement chemistry"** — a brainstorm with Matthew, 2026-09-03. Notes rather than a plan. The recommendation is *geology that reacts to water, with machine recipes as the chemistry set*; the element table says why each material would exist. **Read before M8c reads `permeability` and before M9 reads `supportDistance` — both have been in the material JSON unread since M1, and the trap is a constant shipping green.** |
 | [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **Planned 2026-09-02; M8a built the same day; M8b split four ways and M8b-1 built 2026-09-03.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it. **Its M8b section records a gap the plan had**: a flooded mine has no Tier A body, so resting mine water is stored, and the settle is a solve. Read the tick-budget item in TODO before M8b-2. |
-| [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md) | **The retained-chunk cache**, planned 2026-09-03 and not started: chunks leaving the box keep their voxels, column and (slice 2) derived light in a byte-capped cache, so a turnaround costs no load, no generate and no derive. **Read before touching `ChunkStreamer.Forget` — its comment argues from a premise M6 made false.** |
+| [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md) | **The retained-chunk cache**, planned 2026-09-03 and **slice 1 built the same day**: chunks leaving the box keep their voxels and column in a byte-capped cache, so a turnaround costs no load and no generate. Slice 2, the derived light, is open and the measurement says it is what remains. **Its "Slice 1 — built" section records where the build departed from the plan**, including a column rule the plan did not have. |
 | [docs/SCALE.md](docs/SCALE.md) | **How many voxels and cells exist at each view distance, what one full sweep costs, and what each system actually iterates.** Read before designing anything that wants to check the world periodically — M7, M8 and M9 all start here. |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
 | [TODO.md](TODO.md) | Milestones as checkable tasks, and the decisions still open. **M6's section is the plan as a checklist.** |
@@ -218,6 +218,15 @@ bare default headless run is not a streaming control any more**: it opens the pl
 stands in its void (198 drawn at 100 quads a chunk). **The r6 control is `--nosave --quit-after
 2400`** — 2601 / 325 / 3446 at 411 — because 900 frames is ~6 s and the r6 fill settles at ~7.
 
+The retained-chunk cache adds two. **`--chunkcache=<MiB>` caps the cache, 64 by default, and 0 is
+off — the committed pre-cache behaviour and the control arm.** Not profile-only, because memory is
+something a play reports. **`--turnaround=<seconds>` reverses the scripted flythrough every N
+seconds**, which is the motion the cache exists for and the one M2d's straight line could never
+produce; the profile prints how many turns it made, and a `cache` line beside a `sources` line
+(generated / loaded / from the cache / derives), because a hit count is only legible against what
+it replaced. **The standing-start baseline is identical in both arms**, to the digit, because
+nothing leaves the box; the cache line reads `0 chunks` there and that is a pass, not a silence.
+
 **Building is bound to the right mouse button**, `B` cycles the brush (cube, slab, ramp, sphere),
 and **`1`–`9` pick a material from the hotbar** (`V` still cycles to the next one). **`T` cycles
 the tool tier** — it was the number row until M6d-3, and the row went to materials because that is
@@ -293,18 +302,64 @@ title and the `user://` folder still say MinerCraft, because that is stage 3's m
 is the dangerous one**: `minercraft:` is inside every saved world's ID table, so the base mod's
 namespace needs a read-time alias, never an edit.
 
-**Pick up here (2026-09-03, end of day). Three candidates, in the order recommended:** (1) the
+**Pick up here (2026-09-03, late). Three candidates, in the order recommended:** (1) the
 **distance-ordered light derive queue**, in TODO beside the M8b-2 item — the fix for the played
-world lighting its own centre last; (2) **rename stage 3**, the content namespace alias and the
-`user://` carry-across, its own session because a test has to fail first (see TODO's name-check
-item); (3) **the retained-chunk cache, slice 1**, planned in
-[docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md). Then the milestone work:
+world lighting its own centre last, and now also the fix for a turnaround, since the cache
+measured the derive as the whole of what a turnaround still costs; (2) **rename stage 3**, the
+content namespace alias and the `user://` carry-across, its own session because a test has to
+fail first (see TODO's name-check item); (3) **the retained-chunk cache, slice 2** — the derived
+light, with the two invalidation pushes and the incremental-equals-from-scratch oracle in
+[docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md) §5 and test 7. Then the milestone work:
 **M8b-2 — A → B, the breach**, portals indexed by 4 m sample and
 `BasinWater.Remove` as `Pour` reversed (see [docs/M8-PLAN.md](docs/M8-PLAN.md), M8b's split);
 **and settle the tick budget as a slice before the breach can produce the roof-open case in play**
 — a chunk bitten out from under a lake is a 73 ms tick in Release and ~0.7 s in Debug. The gate on
 the entangled miner is a battery and waits for M10. `git log origin/main..main` says what Matthew
 still has to push.
+
+**The retained-chunk cache, slice 1, is built (2026-09-03). Suite 895 → 910.** `ChunkStreamer`
+keeps a forgotten chunk's voxels and a released column in a byte-capped, least-recently-forgotten
+cache, and a chunk coming back enters the pipeline at `Generated` with its persistence flags intact.
+Memory, then the cache, then the store's index, then the seed. Measured at r6h/2v, Debug, turning
+every 5 s, cache 64 MiB against 0:
+
+```
+                          6 m/s, seed world   20 m/s, seed world   6 m/s, played world
+generated                  4599 → 3213         9539 → 4590          2266 → 1580
+loaded                        0 → 0               0 → 0             2332 → 1633
+from the cache                0 → 1386            0 → 4960             0 → 1385
+derives                    5233 → 5269         8958 → 8952          5395 → 5400
+viewer ms  mean / p50   6.58 / 6.07 → 0.91 / 0.33   6.08 / 6.08 → 1.05 / 0.29   6.76 / 6.12 → 0.95 / 0.34
+```
+
+Five things worth keeping:
+
+- **The loads and generates a turnaround costs went to the cache, to the chunk, and the derives
+  did not move.** That is the plan's prediction exactly, and it is the argument for slice 2: the
+  derive is now the whole of what a turnaround still costs on the sim thread, and at 20 m/s both
+  arms still draw nothing — M5d-1's cliff is a derive cliff and the cache cannot touch it.
+- **The box-difference sweep is mostly column seeding and record creation, and a hit skips both.**
+  M6d-2 measured `viewer ms` at two to four times the pipeline update and deliberately did not
+  chase it; a cache hit takes its mean from 6.6 ms to 0.9 ms and its median to 0.3. So the sweep's
+  cost was never the difference itself — it was `SkyColumn.Seed`'s 1,024 surface evaluations per
+  column and a record per chunk. **Recorded as a finding rather than acted on**: the p95 is
+  unchanged, because the first fill has nothing to hit.
+- **A dirty column is not cached, and the plan said every column was always valid.** A column
+  released dirty is handed to the save with no copy-on-write — a chunk has
+  `VoxelsSharedWithJob`, a column has nothing — so a revival could edit it under the serialiser.
+  Only a column with nothing to write is kept; in play that is nearly all of them, because the
+  autosave marks the live set clean every thirty seconds. **The one that is not is the column you
+  just dug**, and it comes back through its restore exactly as before.
+- **The dirty-on-evict rule is belt and braces, and the plan's premise for it was wrong.** It said
+  `StepBack` restores `DirtySinceSave` on a dropped save; it does not — `ApplySave` puts the bytes
+  back on the pending list and leaves the flag alone, so nothing today can dirty a cached chunk.
+  The hook is kept, tested by setting the flag by hand, because the failure it guards is a deleted
+  tunnel.
+- **~2.0 KB per cached seed chunk, ~2.8 KB in the played world, no light.** The plan's 3.5 KB
+  included 1.5 KB of grid; at 64 MiB that is on the order of 25,000 chunks. **The cap is an
+  estimate and is Matthew's to move.** A profile reports the run's first draw, not the first draw
+  after each turn, so the plan's "first draw after the turn" was not measured — the `sources` line
+  is what the slice turns on.
 
 **"The ground is gone" (2026-09-03) is not a renderer defect, and the first thing to check is
 `first draw`.** Nothing meshes until its neighbourhood is lit, the derive queue is FIFO, and in a

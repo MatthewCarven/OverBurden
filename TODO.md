@@ -3759,12 +3759,24 @@ finding without the coarser-tolerance fallback.
       on 2026-09-03 a 2.3× reading was Matthew's own game running beside the bench, which a control
       line scales with and cannot separate. Print the worldgen control *and* say whether another
       Godot process was found. Also check `tasklist` before any timing, as a habit.
-- [ ] **The retained-chunk cache — planned 2026-09-03 on Matthew's "go", not started.** See
-      [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md). Two slices: voxels and sky columns
-      first, derived light second. The premise `ChunkStreamer.Forget`'s comment argues from — a
-      returning chunk regenerates from the seed — has been false since M6, and the comment is
-      corrected in the same pass. Needs `--turnaround=<seconds>` on the flythrough to measure.
-      Does nothing for a first fill; the distance-ordered derive queue above is still that fix.
+- [x] **The retained-chunk cache, slice 1 — voxels and sky columns. Built 2026-09-03**, suite
+      895 → 910. See [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md), "Slice 1 — built".
+      `--chunkcache=<MiB>` (64, 0 off) and `--turnaround=<seconds>`. A turnaround's loads and
+      generates go to zero for the cached chunks and its derives do not move; `viewer ms` mean
+      6.6 → 0.9 ms because a hit skips the column seed. `Forget`'s stale comment is corrected.
+- [ ] **The retained-chunk cache, slice 2 — derived light.** The two invalidation pushes at the
+      existing hook sites (a face edit into a cached neighbour drops its grid; a moved sky height
+      drops every cached chunk in the column), propagated values reset to source on revival, and
+      the oracle: incremental == from-scratch with the box walking away and back, lamps placed
+      *and removed* while the far chunk is cached. The measurement says this is what remains:
+      derives 5,233 → 5,269 across a turnaround with slice 1 on. **Does nothing for a first fill;
+      the distance-ordered derive queue above is still that fix**, and after slice 1 it is also the
+      turnaround's fix, because the derive is now the whole of what a turnaround costs.
+- [ ] **`viewer ms` is column seeding, not the difference — decide whether to chase it.** Found by
+      the cache: a hit takes the sweep from 6.6 ms mean to 0.9, so `SkyColumn.Seed`'s 1,024
+      surface evaluations per column plus a record per chunk is most of what M6d-2 measured and
+      chose not to chase. The p95 is unchanged because the first fill has nothing to hit. The
+      lever would be seeding columns on a worker the way the restore already runs, or lazily.
 - [ ] **M8b-2 — A → B, the breach.** Portals (air at or below its surface with a neighbour above
       *its* surface), found at edit time and by a load-time scan of surface-band chunks, indexed by
       4 m sample so only wet samples are walked. `BasinWater.Remove` as `Pour` reversed. Oracle:

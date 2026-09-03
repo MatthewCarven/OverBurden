@@ -1,5 +1,79 @@
 ﻿# MinerCraft — Worklog
 
+## 2026-09-03 — The retained-chunk cache, slice 1: a turnaround costs no load and no generate
+
+Built from [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md) as planned that morning. Matthew's
+"Step 3" from the pick-up list. `ChunkStreamer.Forget` moves a chunk with voxels into a byte-capped
+cache instead of dropping it; `View` consults the cache before creating a record; a released column
+with nothing to write goes the same way; `ChunkPipeline.OnChunkViewed` takes a new `Unloaded →
+Generated` edge for a chunk that arrives with voxels. `--chunkcache=<MiB>` (64, 0 off) and
+`--turnaround=<seconds>` on the flythrough. **Suite 895 → 910; the standing-start r6 baseline is
+2601 / 325 / 3446 at 411 in both arms**, because nothing leaves the box.
+
+**Measured**, r6h/2v, Debug, 6 and 20 m/s, turning every 5 s, cache 64 MiB against 0 — three
+arms, and the played world by the `probe-load` recipe:
+
+| | 6 m/s, seed | 20 m/s, seed | 6 m/s, played world |
+|---|---|---|---|
+| generated | 4599 → 3213 | 9539 → 4590 | 2266 → 1580 |
+| loaded | 0 → 0 | 0 → 0 | 2332 → 1633 |
+| from the cache | 0 → 1386 | 0 → 4960 | 0 → 1385 |
+| derives | 5233 → 5269 | 8958 → 8952 | 5395 → 5400 |
+| `viewer ms` mean / p50 | 6.58 / 6.07 → 0.91 / 0.33 | 6.08 / 6.08 → 1.05 / 0.29 | 6.76 / 6.12 → 0.95 / 0.34 |
+| jobs done | 5926 → 4605 | 9539 → 4590 | 6290 → 4953 |
+| held at the end | 612 + 68, 1.3 MiB | 1989 + 221, 4.2 MiB | 612 + 68, 1.8 MiB |
+
+- **The prediction held to the chunk: the generates and loads a turnaround costs went to the cache
+  and the derives did not move.** 4599 − 3213 = 1386 = the hits. So the derive is now the whole of
+  what a turnaround still costs on the sim thread, which is the argument for slice 2 — and at
+  20 m/s both arms still draw nothing, because M5d-1's cliff is a derive cliff.
+- **The box-difference sweep is mostly column seeding, and that is a finding M6d-2 could not
+  make.** M6d-2 measured `viewer ms` at two to four times the pipeline update, named light grids
+  and sky columns as the suspect, and did not chase it. A cache hit skips `SkyColumn.Seed` (1,024
+  surface evaluations a column) and the record allocation, and the sweep's mean drops seven-fold
+  with the p95 untouched — the first fill has nothing to hit. Recorded in TODO as a question.
+- **§6 of the plan was wrong: a dirty column is not cached.** A column released dirty is handed to
+  the save with no copy-on-write — a chunk has `VoxelsSharedWithJob`, a column has nothing — so a
+  revival could edit it under the serialiser. Only a column with nothing to write is kept. In play
+  that is nearly all of them (the autosave marks the live set clean); the one that is not is the
+  column just dug, which comes back through its restore as before. **And a restore landing after
+  its column was released has to be copied into the cached object**, or the revival hands back the
+  analytic seed and never asks again — a dark shaft arriving only on a slow disk.
+- **§3's dirty-on-evict rule is belt and braces, and its premise was wrong.** `StepBack` does not
+  restore `DirtySinceSave` on a dropped save; `ApplySave` puts the bytes back on the pending list
+  and leaves the flag alone, so nothing today can dirty a cached chunk. Kept, tested with the flag
+  set by hand, because what it guards is a deleted tunnel.
+- **The pipeline's queue flags are cleared on cache entry, and the reason is a category worth
+  naming: quiescence cannot see a stranded chunk.** Every queue skips an untracked position on
+  dequeue, so a stale entry is harmless; a stale *flag* makes `Push` or `QueueLightBuild` refuse
+  the revived chunk, which then sits with no grid and no job while `IsQuiescent` reports the world
+  settled around it. The first fuzz asserted nothing about the end state and passed with the flags
+  left set. It now asserts every tracked chunk derived and the centre reached `Lit`.
+- **The stage drops from `Lit` to `Features` on cache entry, and the first test for it was green
+  on the broken code.** A chunk revived still at `Lit` passes `CanMesh` before its grid exists,
+  meshes dark, is relit and remeshed — and every assertion (same values, fixpoint, meshed) held,
+  because the settle waited for the repair. The test now counts deliveries and relight remeshes
+  across the turnaround: exactly one more mesh, zero relights.
+
+**Seventeen break-recipes, fourteen caught first time, two after the tests were strengthened as
+above, one identity.** The identity is pushing only the revived chunk rather than its 26
+neighbours: reaching `Lit` pushes them anyway, so the neighbour push at the hit is belt and braces
+and its comment says so. One more stays green for a reason the fuzz did not reach: a stale
+`AwaitingLight` heals whenever any neighbour reaches `Lit`, which in a walking box is always — the
+stranding case is one chunk revived among neighbours already lit, which no test builds. Recorded,
+not chased. **Two fixtures failed first and both were the assertion**: at margin 0 the ring never
+passes the feature barrier, so "every chunk reaches `Lit`" and "the centre meshes" were both
+unreachable by the fixture's own parameters — M5c-1's sky-shaft shape, twice in one test. **And
+the battery's `mv`-restore stale-binary trap, recorded at M4a, bit again**: the unmutated control
+run reported the previous recipe's failures, because the restored source carried the backup's
+older timestamp and MSBuild kept the mutated assembly. The final suite run was taken after
+touching the sources.
+
+**Memory: ~2.0 KB per cached seed chunk, ~2.8 KB in the played world, no light.** The plan's
+3.5 KB included 1.5 KB of grid. 64 MiB is on the order of 25,000 chunks and is Matthew's number to
+move. Not measured: first draw *after* a turn — the profile reports the run's first draw, and a
+standing-start fill is identical in both arms. The `sources` line is the instrument.
+
 ## 2026-09-03 — Rename stage 2: the solution, projects, folders and namespaces are Overburden
 
 Five `git mv` of the project folders and their `.csproj`, one of the solution, then a

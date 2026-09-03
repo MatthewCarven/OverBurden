@@ -162,6 +162,24 @@ public partial class Main : Node3D
 
     private StreamingProfiler? _profiler;
     private float _flySpeed;
+
+    /// <summary>The retained-chunk cache's cap, in MiB. Zero is off and is the control arm.</summary>
+    /// <remarks>
+    /// <b>64 MiB is an estimate, and it is Matthew's to move</b> — docs/CHUNK-CACHE-PLAN.md §4. At
+    /// a few KB per cached chunk that is on the order of 20,000 chunks, several times the r6
+    /// tracked box, so a turnaround of well over a minute at walking speed comes back from memory.
+    /// </remarks>
+    private long _chunkCacheMiB = 64;
+
+    /// <summary>
+    /// <c>--turnaround=&lt;seconds&gt;</c>: the scripted flythrough reverses every this many
+    /// seconds, which is the motion the cache exists for and the one no profile could produce.
+    /// </summary>
+    private double _turnaroundSeconds;
+    private double _sinceTurnaround;
+    private float _flyDirection = 1f;
+    private int _turnarounds;
+
     private int? _caveLatticeStep;
     private TimeSpan? _applyBudget;
     private TimeSpan? _lightBudget;
@@ -582,7 +600,8 @@ public partial class Main : Node3D
             store: _store,
             // M8b: the fluid automaton cannot see edits, and this is how it is told. Wired before
             // _fluid exists, so the null guard is what the first frames run on.
-            onVoxelChanged: (voxel, _) => _fluid?.Disturb(voxel));
+            onVoxelChanged: (voxel, _) => _fluid?.Disturb(voxel),
+            chunkCacheBytes: _chunkCacheMiB * 1024 * 1024);
 
         SetUpFluid(windowed);
 
@@ -996,6 +1015,21 @@ public partial class Main : Node3D
                 // the seed, and nothing is written. The world M2d and M5d measured.
                 case "nosave":
                     _persist = false;
+                    break;
+
+                // The retained-chunk cache's cap. Zero is the committed pre-cache behaviour and
+                // is the control arm; the default headless baseline has to come out identical in
+                // both, because nothing leaves the box at a standing start. Not profile-only,
+                // for the reason --chunkcooldown is not: memory is something a play reports.
+                case "chunkcache" when long.TryParse(value, out long cacheMiB) && cacheMiB >= 0:
+                    _chunkCacheMiB = cacheMiB;
+                    break;
+
+                // Reverses the flythrough every N seconds. A turnaround is the motion the cache
+                // exists for — the box re-enters chunks it just left — and the straight-line
+                // flythrough M2d built cannot produce it. Zero, the default, never turns.
+                case "turnaround" when double.TryParse(value, out double turnaround) && turnaround > 0:
+                    _turnaroundSeconds = turnaround;
                     break;
 
                 case "autosave" when double.TryParse(value, out double autosave):
@@ -2489,8 +2523,19 @@ public partial class Main : Node3D
             return;
         }
 
+        if (_turnaroundSeconds > 0.0)
+        {
+            _sinceTurnaround += delta;
+            if (_sinceTurnaround >= _turnaroundSeconds)
+            {
+                _sinceTurnaround -= _turnaroundSeconds;
+                _flyDirection = -_flyDirection;
+                _turnarounds++;
+            }
+        }
+
         Vector3 position = _camera.GlobalPosition;
-        position.X += _flySpeed * (float)delta;
+        position.X += _flyDirection * _flySpeed * (float)delta;
 
         VoxelPos voxel = VoxelPos.FromMetres(position.X, position.Y, position.Z);
         int surface = _generator.SurfaceHeightAt(voxel.X, voxel.Z);
@@ -2516,6 +2561,9 @@ public partial class Main : Node3D
                 ? $"falling from {_fallHeightMetres:F0} m, terminal "
                   + $"{_player!.Config.TerminalSpeedMetresPerSecond:F0} m/s, {_falls + 1} fall(s)"
                 : $"{_flySpeed:F0} m/s") +
+            (_turnaroundSeconds > 0.0
+                ? $", turning every {_turnaroundSeconds:F0} s ({_turnarounds} turn(s))"
+                : string.Empty) +
             (_mining is null ? "\n" : $", {_mining.Tool.Id}\n") +
             $"{_profiler.PipelineUpdate.Line("update ms")}\n" +
             $"{_profiler.MeshFree.Line("free ms")}   (deferred by Godot — see MeshFreeQueue)\n" +
@@ -2539,6 +2587,7 @@ public partial class Main : Node3D
             MiningLines() +
             PlacementLines() +
             PersistenceLines() +
+            CacheLines() +
             WeatherLines() +
             _profiler.PlayerLines(_profiler.MeasuredSeconds) +
             $"{StreamingProfiler.RenderLine()}\n" +
@@ -3178,6 +3227,41 @@ public partial class Main : Node3D
     /// has recorded against <c>Compact()</c> and against cave-lattice voxel disagreement.
     /// </para>
     /// </remarks>
+    /// <summary>What the retained-chunk cache held and did, beside the sources it stood in for.</summary>
+    /// <remarks>
+    /// <b>Hits are printed beside loads, generates and derives, because the hit count is only
+    /// legible against what it replaced.</b> A run that never turns round reports zero hits for a
+    /// reason that is not "the cache does nothing", and a run that turns round reports the loads
+    /// and generates that did <em>not</em> happen as the difference between arms. Derives are
+    /// there because slice 1 does not cache them: the number the second slice turns on.
+    /// </remarks>
+    private string CacheLines()
+    {
+        if (_pipeline is null)
+        {
+            return string.Empty;
+        }
+
+        ChunkStreamer streamer = _pipeline.Streamer;
+        const double MiB = 1024.0 * 1024.0;
+
+        string sources =
+            $"sources   {_pipeline.ChunksGenerated} generated, {_pipeline.ChunksLoaded} loaded, " +
+            $"{streamer.CacheHits} from the cache | {_pipeline.LightBuilds} derives\n";
+
+        if (!streamer.CacheEnabled)
+        {
+            return "cache     off (--chunkcache=0), the control arm\n" + sources;
+        }
+
+        return
+            $"cache     {streamer.CachedChunkCount} chunk(s) + {streamer.CachedColumnCount} column(s) held, " +
+            $"{streamer.CachedBytes / MiB:F1} of {streamer.CacheCapacityBytes / MiB:F0} MiB | " +
+            $"{streamer.CacheHits} chunk hit(s), {streamer.ColumnCacheHits} column hit(s), " +
+            $"{streamer.ChunkEvictions} + {streamer.ColumnEvictions} evicted\n" +
+            sources;
+    }
+
     private string PersistenceLines()
     {
         if (_pipeline is null)
@@ -3360,6 +3444,16 @@ public partial class Main : Node3D
         if (_store is not null)
         {
             GD.Print($"M6: {StoreSummary()}");
+        }
+
+        if (streamer.CacheEnabled)
+        {
+            GD.Print(
+                $"cache: {streamer.CachedChunkCount} chunks + {streamer.CachedColumnCount} columns " +
+                $"({streamer.CachedBytes / (1024.0 * 1024.0):F1} of " +
+                $"{streamer.CacheCapacityBytes / (1024.0 * 1024.0):F0} MiB), " +
+                $"{streamer.CacheHits} hits, {streamer.ChunkEvictions + streamer.ColumnEvictions} evicted | " +
+                $"{_pipeline.ChunksGenerated} generated, {_pipeline.ChunksLoaded} loaded");
         }
 
         GD.Print($"M6c: {InventorySummary()}");

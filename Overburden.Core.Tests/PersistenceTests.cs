@@ -824,7 +824,7 @@ public class PersistenceTests
     // -----------------------------------------------------------------------------------------
 
     /// <summary>Holds column reads open, so a restore can be made to land last.</summary>
-    private sealed class SlowColumnStore : InMemoryWorldStoreBase
+    internal sealed class SlowColumnStore : InMemoryWorldStoreBase
     {
         private readonly ManualResetEventSlim _gate = new(initialState: true);
 
@@ -937,7 +937,7 @@ public class PersistenceTests
         }
     }
 
-    private sealed class BlockingWorldStore : InMemoryWorldStoreBase
+    internal sealed class BlockingWorldStore : InMemoryWorldStoreBase
     {
         private readonly ManualResetEventSlim _gate = new(initialState: true);
 
@@ -979,7 +979,7 @@ public class PersistenceTests
     /// second implementation. A hand-rolled fake here would be a third thing to keep in step with
     /// the contract suite, and the whole reason that suite exists is that fakes drift.
     /// </remarks>
-    private abstract class InMemoryWorldStoreBase : IWorldStore
+    internal abstract class InMemoryWorldStoreBase : IWorldStore
     {
         protected readonly InMemoryWorldStore Inner = new();
 
