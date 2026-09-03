@@ -3750,6 +3750,13 @@ finding without the coarser-tolerance fallback.
       `light settled` unchanged (6.2–6.3 s) because the order moves nothing's total. `--derivefifo`
       restores the FIFO arm. Four break-recipes, four caught. `AllDerivedWithin` is the instrument
       and `first draw` was never going to be — inside a void nothing near the player draws.
+- [x] **`start.cmd` carries `-- --lightbudget=16`** (2026-09-03, Matthew: *"remember we need the
+      lighting switch"*). The play launcher's setting, not the pipeline's default.
+- [ ] **Should 16 ms be the Debug default rather than the launcher's flag?** Open. For: the build
+      people play is Debug, and a budget is a ceiling, not a reservation — once lit it costs
+      nothing. Against: every headless figure since M5c-1 was taken at 4 ms, and a default that
+      differs by build configuration is a seam nobody sees. Decide after a play at 16 with the
+      nearest-first queue, which may make 4 ms feel fine again.
 - [x] **The played world lights its own centre last, and at today's machine speed nothing draws
       for tens of seconds.** Found 2026-09-03 from Matthew's "the ground is gone" screenshot; the
       worklog entry of that date has the table. `_lightBuilds` is FIFO, stored chunks arrive one at

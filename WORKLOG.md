@@ -38,6 +38,13 @@ by the move test, which is what it is for.
 Cost: one sort of at most ~2,600 positions per frame during a fill, a viewer count of one inside
 the comparer, and the FIFO arm's front pop is O(n) because it is the control and not the product.
 
+**And the "lighting switch"** — Matthew, mid-turn: *"remember we need the lighting switch"*, which
+is `--lightbudget=16`, the flag that cost an evening when it sat on the engine's side of the bare
+`--`. `start.cmd` now passes `-- --lightbudget=16` itself, so the play build has it without anyone
+remembering; anything given to `start.cmd` lands after that `--` and a later `--lightbudget=` wins.
+The pipeline default stays 4 ms because every recorded figure was taken at it. Whether 16 becomes
+the Debug default is an open TODO item, to be decided after a play with the nearest-first queue.
+
 
 
 Built from [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md) as planned that morning. Matthew's

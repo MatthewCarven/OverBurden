@@ -17,5 +17,10 @@ if not exist "%EXE%" (
   exit /b 1
 )
 
-"%EXE%" --path Overburden.Game %*
+rem Everything after the bare "--" is a game flag; everything you pass to start.cmd lands there
+rem too, and a later --lightbudget= wins. The 16 ms light budget is the play setting for the
+rem Debug build this launches: a Debug derive is ~1.4 ms and the 4 ms default gives two or three
+rem a frame, which lit a mined-out room over tens of seconds on 2026-09-03. The default stays 4 ms
+rem because every recorded measurement was taken at it; this launcher is a play launcher.
+"%EXE%" --path Overburden.Game -- --lightbudget=16 %*
 pause

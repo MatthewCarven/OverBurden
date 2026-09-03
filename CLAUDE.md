@@ -68,6 +68,13 @@ Run the game:
 start.cmd
 ```
 
+**`start.cmd` passes `-- --lightbudget=16` itself as of 2026-09-03** — Matthew's "lighting
+switch". It launches the Debug build, where a derive is ~1.4 ms and the 4 ms default gives two or
+three a frame, which is what lit a mined-out room over tens of seconds. Anything you give
+`start.cmd` lands after that bare `--` as a game flag, and a later `--lightbudget=` wins. **The
+pipeline default stays 4 ms**, because every recorded measurement was taken at it and a profile
+run does not go through `start.cmd`.
+
 Measure worldgen — **Release, always; Debug is ~3× slower and reads like a real number**:
 
 ```bash
