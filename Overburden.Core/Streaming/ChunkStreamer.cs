@@ -304,6 +304,33 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
 
     public Viewer GetViewer(ViewerId id) => _viewers[id];
 
+    /// <summary>
+    /// Bumped every time a viewer is added, moved or removed. A consumer that ordered something
+    /// by distance to the viewers compares this to know whether its order has gone stale.
+    /// </summary>
+    public int ViewerVersion { get; private set; }
+
+    /// <summary>
+    /// Chebyshev distance in chunks from <paramref name="position"/> to the nearest viewer, or
+    /// <see cref="int.MaxValue"/> with no viewers — the same metric and the same "infinitely far"
+    /// answer the job queue's <see cref="ViewerSet"/> gives, so that the derive queue and the job
+    /// queue agree about what near means.
+    /// </summary>
+    public int NearestViewerDistance(ChunkPos position)
+    {
+        int nearest = int.MaxValue;
+        foreach (Viewer viewer in _viewers.Values)
+        {
+            int distance = position.ChebyshevDistanceTo(viewer.Position);
+            if (distance < nearest)
+            {
+                nearest = distance;
+            }
+        }
+
+        return nearest;
+    }
+
     public bool TryGetViewer(ViewerId id, out Viewer viewer) => _viewers.TryGetValue(id, out viewer);
 
     /// <summary>Moves a viewer, keeping its radii.</summary>
@@ -832,6 +859,8 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
     /// </summary>
     private void PublishViewerPositions()
     {
+        ViewerVersion++;
+
         if (_priorityViewers is null)
         {
             return;

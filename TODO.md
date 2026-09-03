@@ -3744,7 +3744,13 @@ finding without the coarser-tolerance fallback.
             `--quit-after 2400`**: the bare run opens the played world and stands in its void.
       - [x] `FluidSurface`: one quad per top cell, rebuilt on Tier A's timer when the water moved.
             1,402 quads at 1.82 ms for a 50,000 L spill; screenshot against a `--nowater` arm.
-- [ ] **The played world lights its own centre last, and at today's machine speed nothing draws
+- [x] **The derive queue drains nearest-first — built 2026-09-03, suite 910 → 912.** `near lit`
+      (every chunk within 2 of the viewer derived) on the played world at a standing start:
+      **5.14 s → 0.62 s windowed, 3.27 s → 0.56 s headless**; the seed world 2.24 s → 1.04 s;
+      `light settled` unchanged (6.2–6.3 s) because the order moves nothing's total. `--derivefifo`
+      restores the FIFO arm. Four break-recipes, four caught. `AllDerivedWithin` is the instrument
+      and `first draw` was never going to be — inside a void nothing near the player draws.
+- [x] **The played world lights its own centre last, and at today's machine speed nothing draws
       for tens of seconds.** Found 2026-09-03 from Matthew's "the ground is gone" screenshot; the
       worklog entry of that date has the table. `_lightBuilds` is FIFO, stored chunks arrive one at
       a time on the serial lane after the generated ring, a mined-out region is stored chunks all

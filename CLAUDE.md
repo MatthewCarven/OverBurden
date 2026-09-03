@@ -227,6 +227,14 @@ produce; the profile prints how many turns it made, and a `cache` line beside a 
 it replaced. **The standing-start baseline is identical in both arms**, to the digit, because
 nothing leaves the box; the cache line reads `0 chunks` there and that is a pass, not a silence.
 
+The distance-ordered derive queue adds one flag and one milestone. **`--derivefifo` restores the
+FIFO the queue was until 2026-09-03**, the arm "the ground is gone" was seen in, so the order is
+measured against it rather than remembered. **The `fill` line now prints `near lit`** — the moment
+every chunk within two of the viewer has derived light — because neither `first draw` nor `light
+settled` can see the player's own neighbourhood deriving last: inside a mined-out void nothing near
+the player has geometry, and `light settled` is the whole box. **Read `near lit` for the order
+and `light settled` for the total**; the order moves the first and cannot move the second.
+
 **Building is bound to the right mouse button**, `B` cycles the brush (cube, slab, ramp, sphere),
 and **`1`–`9` pick a material from the hotbar** (`V` still cycles to the next one). **`T` cycles
 the tool tier** — it was the number row until M6d-3, and the row went to materials because that is
@@ -302,10 +310,8 @@ title and the `user://` folder still say MinerCraft, because that is stage 3's m
 is the dangerous one**: `minercraft:` is inside every saved world's ID table, so the base mod's
 namespace needs a read-time alias, never an edit.
 
-**Pick up here (2026-09-03, late). Three candidates, in the order recommended:** (1) the
-**distance-ordered light derive queue**, in TODO beside the M8b-2 item — the fix for the played
-world lighting its own centre last, and now also the fix for a turnaround, since the cache
-measured the derive as the whole of what a turnaround still costs; (2) **rename stage 3**, the
+**Pick up here (2026-09-03, late). Matthew agreed the order; the first is done.** (1) ~~the
+distance-ordered light derive queue~~ — **built**, see below; (2) **rename stage 3**, the
 content namespace alias and the `user://` carry-across, its own session because a test has to
 fail first (see TODO's name-check item); (3) **the retained-chunk cache, slice 2** — the derived
 light, with the two invalidation pushes and the incremental-equals-from-scratch oracle in
@@ -316,6 +322,19 @@ light, with the two invalidation pushes and the incremental-equals-from-scratch 
 — a chunk bitten out from under a lake is a 73 ms tick in Release and ~0.7 s in Debug. The gate on
 the entangled miner is a battery and waits for M10. `git log origin/main..main` says what Matthew
 still has to push.
+
+**The derive queue drains nearest-first (2026-09-03). Suite 910 → 912.** `ChunkPipeline`'s
+`_lightBuilds` was a FIFO, the one queue here without the job queue's distance rule; it is now a
+list sorted farthest-first when something was added or a viewer moved
+(`ChunkStreamer.ViewerVersion`), popped from the end. **Measured on the played world at a standing
+start, `near lit` (every chunk within two of the viewer derived): 5.14 s → 0.62 s windowed, 3.27 s
+→ 0.56 s headless; the seed world 2.24 s → 1.04 s; `light settled` unchanged at 6.2–6.3 s**, because
+an order moves no total. The r6 baseline is unchanged to the digit. Four break-recipes (FIFO again,
+no re-sort on a move, the sort inverted, enqueue not marking the list stale), four caught, by a
+zero-budget oracle: a budget of zero derives exactly one chunk per update, so *the chunk derived
+this update is no farther than any chunk still waiting* is a boolean over the state once the queue
+is full. **`first draw` could never have measured this** — inside a void nothing near the player
+draws — which is why the `fill` line gained a milestone rather than the profile gaining a number.
 
 **The retained-chunk cache, slice 1, is built (2026-09-03). Suite 895 → 910.** `ChunkStreamer`
 keeps a forgotten chunk's voxels and a released column in a byte-capped, least-recently-forgotten
@@ -367,8 +386,9 @@ played world the chunks around the player are the stored ones, which arrive last
 serial lane — so a mined-out region lights from the far ring inward, at two to three derives a frame
 in Debug (1.37 ms each at 1.0×; the 2.3× recorded that morning was the game itself running beside
 the measurement). The "clouds" in
-such a shot are Tier A lake surfaces seen from below. `--lightbudget=16` is the proven workaround;
-a distance-ordered derive queue is the recommended fix, in TODO. See the worklog entry.
+such a shot are Tier A lake surfaces seen from below. **Fixed the same evening: the derive queue
+drains nearest-first** (see above — `near lit` 5.14 s → 0.62 s windowed), and `--lightbudget=16`
+is still the lever on the total. See the worklog entries.
 
 **M8b-1 is built (2026-09-03): Tier B is in the game loop, with the relay, and the water is on the
 screen.** Suite 892 → 895. `R` puts 10,000 L down at the crosshair, Alt+R takes it back,

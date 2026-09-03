@@ -185,7 +185,34 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// frame inside the pump. The dedup flag lives on the chunk, the same as
     /// <see cref="StreamedChunk.InWorkList"/> and for the same reason.
     /// </remarks>
-    private readonly Queue<ChunkPos> _lightBuilds = new();
+    /// <remarks>
+    /// <para>
+    /// <b>A list drained nearest-first, not a FIFO — the "ground is gone" fix (2026-09-03).</b> In
+    /// a played world the chunks round the player are the stored ones, and they arrive last: one
+    /// at a time through the serial lane, after the generated ring has landed from eight workers.
+    /// A FIFO then derives the far ring first and the player's own neighbourhood last, at two or
+    /// three derives a frame in Debug, and nothing meshes until its neighbourhood is lit — so the
+    /// centre of a mined-out room is the last thing to appear. Draining by distance to the
+    /// nearest viewer is the job queue's own rule, applied to the one queue that did not have it.
+    /// </para>
+    /// <para>
+    /// Sorted lazily: farthest first, so the nearest entry is popped from the end in O(1), and
+    /// re-sorted at the next step only when something was added or a viewer moved
+    /// (<see cref="ChunkStreamer.ViewerVersion"/>). The whole r6 box is ~2,600 entries, which
+    /// sorts in well under a millisecond, and during a fill the sort runs once a frame.
+    /// </para>
+    /// </remarks>
+    private readonly List<ChunkPos> _lightBuilds = [];
+
+    private bool _lightBuildsUnsorted;
+
+    private int _lightBuildsSortedAtViewerVersion = -1;
+
+    /// <summary>
+    /// False restores the FIFO the queue was until 2026-09-03 — the control arm for measuring
+    /// the order, the way <c>--cavestep=1</c> restores per-voxel caves. Not a setting.
+    /// </summary>
+    private readonly bool _distanceOrderedDerives;
 
     /// <summary>
     /// Chunks that have everything they need to be <see cref="GenerationStage.Lit"/> except a
@@ -277,8 +304,10 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         bool light = true,
         IWorldStore? store = null,
         Action<VoxelPos, int>? onVoxelChanged = null,
-        long chunkCacheBytes = 0)
+        long chunkCacheBytes = 0,
+        bool distanceOrderedDerives = true)
     {
+        _distanceOrderedDerives = distanceOrderedDerives;
         _generator = generator;
         _materials = materials;
         _scheduler = scheduler;
@@ -542,6 +571,33 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// <summary>Chunks waiting for a derived light build.</summary>
     public int LightBuildBacklog => _lightBuilds.Count;
 
+    /// <summary>
+    /// Whether every tracked chunk within <paramref name="radius"/> chunks (Chebyshev) of
+    /// <paramref name="centre"/> has derived light.
+    /// </summary>
+    /// <remarks>
+    /// The instrument for the derive order. <c>first draw</c> cannot see the player's own
+    /// neighbourhood deriving last — inside a mined-out void nothing near the player has geometry
+    /// — and <c>light settled</c> is the whole box. This is the moment the player's surroundings
+    /// are lit, whatever the rest of the box is doing. Untracked positions count as done, so a
+    /// viewer at the edge of the world is not waiting on chunks nobody asked for.
+    /// </remarks>
+    public bool AllDerivedWithin(ChunkPos centre, int radius)
+    {
+        for (int dz = -radius; dz <= radius; dz++)
+        for (int dx = -radius; dx <= radius; dx++)
+        for (int dy = -radius; dy <= radius; dy++)
+        {
+            if (_streamer.TryGet(centre.Offset(dx, dy, dz), out StreamedChunk chunk)
+                && chunk.Light is not { HasDerived: true })
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>Whether the light field is still being repaired.</summary>
     /// <remarks>
     /// False is the condition a chunk needs to reach <see cref="GenerationStage.Lit"/> — see
@@ -791,9 +847,20 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         // Checked after building and never before, so every frame makes progress — the same
         // shape as ApplyResults, and for the same reason: one derive costing more than the whole
         // budget would otherwise be deferred forever and the queue behind it with it.
+        // Nearest first. Sorted once here rather than per pop, and a build can queue nothing, so
+        // the order holds for the whole drain. The FIFO arm pops from the front of the unsorted
+        // list — O(n) a pop, and it is the control arm, so that is the cost of being comparable.
+        if (_distanceOrderedDerives)
+        {
+            SortLightBuilds();
+        }
+
         while (_lightBuilds.Count > 0)
         {
-            BuildLight(_lightBuilds.Dequeue());
+            int index = _distanceOrderedDerives ? _lightBuilds.Count - 1 : 0;
+            ChunkPos next = _lightBuilds[index];
+            _lightBuilds.RemoveAt(index);
+            BuildLight(next);
             if (_nowTicks() >= deadline) break;
         }
 
@@ -1048,7 +1115,28 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         }
 
         chunk.LightBuildQueued = true;
-        _lightBuilds.Enqueue(position);
+        _lightBuilds.Add(position);
+        _lightBuildsUnsorted = true;
+    }
+
+    /// <summary>
+    /// Puts the derive queue in farthest-first order, if anything has changed since it last was.
+    /// </summary>
+    private void SortLightBuilds()
+    {
+        int version = _streamer.ViewerVersion;
+        if (!_lightBuildsUnsorted && version == _lightBuildsSortedAtViewerVersion)
+        {
+            return;
+        }
+
+        // Descending, so the nearest is at the end and pops in O(1). Ties are left in whatever
+        // order the sort gives; nothing depends on the order within one distance.
+        _lightBuilds.Sort((a, b) =>
+            _streamer.NearestViewerDistance(b).CompareTo(_streamer.NearestViewerDistance(a)));
+
+        _lightBuildsUnsorted = false;
+        _lightBuildsSortedAtViewerVersion = version;
     }
 
     /// <summary>

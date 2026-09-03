@@ -176,6 +176,7 @@ public partial class Main : Node3D
     /// seconds, which is the motion the cache exists for and the one no profile could produce.
     /// </summary>
     private double _turnaroundSeconds;
+    private bool _deriveFifo;
     private double _sinceTurnaround;
     private float _flyDirection = 1f;
     private int _turnarounds;
@@ -481,6 +482,11 @@ public partial class Main : Node3D
     /// <summary>Seconds until the light field first settled, or −1.</summary>
     private double _lightSettledSeconds = -1.0;
 
+    /// <summary>When every chunk within <see cref="NearLitRadiusChunks"/> of the viewer had derived light.</summary>
+    private double _nearLitSeconds = -1.0;
+
+    private const int NearLitRadiusChunks = 2;
+
     /// <summary>Seconds until nothing at all was outstanding, or −1.</summary>
     private double _settledSeconds = -1.0;
 
@@ -601,7 +607,8 @@ public partial class Main : Node3D
             // M8b: the fluid automaton cannot see edits, and this is how it is told. Wired before
             // _fluid exists, so the null guard is what the first frames run on.
             onVoxelChanged: (voxel, _) => _fluid?.Disturb(voxel),
-            chunkCacheBytes: _chunkCacheMiB * 1024 * 1024);
+            chunkCacheBytes: _chunkCacheMiB * 1024 * 1024,
+            distanceOrderedDerives: !_deriveFifo);
 
         SetUpFluid(windowed);
 
@@ -1030,6 +1037,13 @@ public partial class Main : Node3D
                 // flythrough M2d built cannot produce it. Zero, the default, never turns.
                 case "turnaround" when double.TryParse(value, out double turnaround) && turnaround > 0:
                     _turnaroundSeconds = turnaround;
+                    break;
+
+                // Restores the FIFO derive queue, the arm "the ground is gone" was seen in, so the
+                // distance order can be measured against it rather than remembered. Named for
+                // what it restores, like --cavestep=1 and --entanglesphere.
+                case "derivefifo":
+                    _deriveFifo = true;
                     break;
 
                 case "autosave" when double.TryParse(value, out double autosave):
@@ -2044,6 +2058,17 @@ public partial class Main : Node3D
             _lightSettledSeconds = FillSeconds();
         }
 
+        // The instrument the distance-ordered derive queue is judged by. "The ground is gone"
+        // (2026-09-03) was the player's own neighbourhood deriving last, and neither first draw
+        // nor light settled can see that: inside a mined-out void nothing near the player has
+        // geometry to draw, and light settled is the whole box. Two chunks is 16 m, the far side
+        // of a mined-out room.
+        if (_nearLitSeconds < 0.0 && _pipeline.LightBuilds > 0
+            && _pipeline.AllDerivedWithin(ViewerChunk(), NearLitRadiusChunks))
+        {
+            _nearLitSeconds = FillSeconds();
+        }
+
         // Guarded on having drawn something as well as on being quiescent: the very first frame
         // is quiescent by construction — nothing has been asked for yet — and would latch a
         // settle time of zero for a world that had not started.
@@ -2067,6 +2092,7 @@ public partial class Main : Node3D
         static string Seconds(double value) => value < 0.0 ? "not yet" : $"{value:F2} s";
 
         return $"fill      first draw {Seconds(_firstDrawSeconds)}, "
+               + $"near lit {Seconds(_nearLitSeconds)} (within {NearLitRadiusChunks} chunks), "
                + $"light settled {Seconds(_lightSettledSeconds)}, "
                + $"all settled {Seconds(_settledSeconds)}\n";
     }

@@ -1,6 +1,44 @@
 ﻿# MinerCraft — Worklog
 
-## 2026-09-03 — The retained-chunk cache, slice 1: a turnaround costs no load and no generate
+## 2026-09-03 — The derive queue drains nearest-first: "the ground is gone" fixed
+
+The first of the three pick-up candidates, on Matthew's "yes to your recommended order". The
+morning's diagnosis stood: `_lightBuilds` was a FIFO, the stored chunks round the player arrive
+last through the serial lane, and nothing meshes until its neighbourhood is lit, so a mined-out room
+lit from the far ring inward. The fix is the job queue's own rule applied to the one queue that did
+not have it — a list sorted farthest-first, re-sorted only when something was added or a viewer
+moved (`ChunkStreamer.ViewerVersion`, bumped on every add/move/remove), popped from the end.
+`--derivefifo` restores the FIFO so the two are measured side by side. **Suite 910 → 912; the r6
+standing-start baseline is 2601 / 325 / 3446 at 411 in both arms.**
+
+**The instrument had to be built before the fix could be measured.** `first draw` cannot see the
+player's own neighbourhood deriving last — inside a void nothing near the player has geometry —
+and `light settled` is the whole box, which an order cannot move. The `fill` line now prints
+`near lit`: the moment every tracked chunk within two of the viewer has derived light
+(`ChunkPipeline.AllDerivedWithin`). Played world by the `probe-load` recipe, standing start:
+
+| `near lit` | FIFO | nearest-first |
+|---|---|---|
+| played world, windowed | 5.14 s | 0.62 s |
+| played world, headless | 3.27 s | 0.56 s |
+| seed world, headless | 2.24 s | 1.04 s |
+
+`light settled` is 6.2–6.3 s in every arm, as it must be. The windowed FIFO figure is the one
+Matthew saw: five seconds of nothing near him, in a build where a Debug derive is a frame.
+
+**The oracle is a boolean, and a zero light budget is what exposes it.** The light step checks its
+deadline after each build and never before, so a budget of zero derives exactly one chunk per
+update — and once every chunk has voxels, the only thing choosing the next derive is the queue.
+*The chunk derived this update is no farther from the viewer than any chunk still waiting* is then
+a property of the state, asserted after every update until the queue drains, and again after a
+viewer move across the box. Four break-recipes — FIFO again, no re-sort on a move, the sort
+inverted, enqueue not marking the list stale — and all four caught, with the move recipe caught only
+by the move test, which is what it is for.
+
+Cost: one sort of at most ~2,600 positions per frame during a fill, a viewer count of one inside
+the comparer, and the FIFO arm's front pop is O(n) because it is the control and not the product.
+
+
 
 Built from [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md) as planned that morning. Matthew's
 "Step 3" from the pick-up list. `ChunkStreamer.Forget` moves a chunk with voxels into a byte-capped
