@@ -346,7 +346,10 @@ budget is settled, not after.** Then the wiring: `FluidSimulation` over `VoxelFl
 `Main`, ticked at 2 Hz on the sim thread, told about edits through an optional
 `onVoxelChanged` on the pipeline — **and `Disturb` wakes only cells that hold water**, never the
 opened voxel itself, because a chunk bite is 32,768 opened voxels and waking each for a visit that
-finds nothing is 229,000 visits in one tick. The relay: **`R` puts litres at the crosshair, Alt+R
+finds nothing is 229,000 visits in one tick. **The tick budget followed on 2026-09-04, as its own
+slice**: the chamber fixture priced a roof falling in at 73.5 ms in Release and ~0.7 s in Debug for
+one tick, which no rate can bound, so `Step` became a cursor over its batch resumed each frame under
+`--fluidbudget=` — see the worklog entry of that date for the frames it costs. The relay: **`R` puts litres at the crosshair, Alt+R
 takes them back, `--injectlitres=<n>` does the first headlessly**, no material, no JSON, no ID.
 The profile prints `held == injected − removed − displaced` with every term, plus active cells,
 visits per second against the light budget, and tick milliseconds. **And a debug surface**, the

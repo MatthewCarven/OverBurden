@@ -188,7 +188,10 @@ the frame rate is not cutting a corner here; it is matching the phenomenon.**
 
 - **Falling behind stops being a correctness failure.** Every budget in this engine so far has had
   to be argued against a correctness risk. If the water tick is allowed to be late, a skipped tick
-  means the water arrives a moment later — which is indistinguishable from the design.
+  means the water arrives a moment later — which is indistinguishable from the design. **Built at
+  M8b-1's tick budget slice, 2026-09-04: a tick that does not fit a frame's budget resumes next
+  frame rather than being skipped, and the trajectory is identical sliced or whole** — so what
+  the budget moves is only when a tick ends, which is exactly the freedom this paragraph claims.
 - **It licenses the analytic seam.** A slow process described by a rate can be **integrated
   forward** when nobody is watching, so cells simulate in view and accumulators integrate out of
   view. That reads as a cheat if water is supposed to be realtime and as the correct

@@ -309,11 +309,37 @@ public partial class Main : Node3D
     /// <summary>Wall-clock seconds since the last Tier B tick.</summary>
     private double _fluidSinceTick;
 
-    /// <summary>Worst tick seen this session, for the summary a non-profile run prints.</summary>
+    /// <summary>The most fluid work one frame has paid this session, for the summary a non-profile run prints.</summary>
+    /// <remarks>
+    /// A frame's worth, not a tick's, since the tick budget slice: the budget bounds this number
+    /// at itself plus one granule, and a tick's own cost is spread over however many frames it
+    /// took. <see cref="_fluidLongestTickFrames"/> is the other half.
+    /// </remarks>
     private double _fluidWorstMillis;
+
+    /// <summary>
+    /// <c>--fluidbudget=&lt;ms&gt;</c>: how much of a frame Tier B's tick may take before it
+    /// yields and resumes next frame. <see cref="FluidSimulation.DefaultTickBudget"/> by default.
+    /// </summary>
+    /// <remarks>
+    /// The sibling of <c>--lightbudget</c> and <c>--applybudget</c>, and the seam the slice is
+    /// priced through. A budget of zero still visits one granule a frame, so the water still
+    /// moves — just slowly enough to watch the slicing itself.
+    /// </remarks>
+    private TimeSpan _fluidBudget = FluidSimulation.DefaultTickBudget;
+
+    private long _fluidBudgetTicks;
+
+    /// <summary>Frames the tick in progress has run over so far; the tick's span once it completes.</summary>
+    private int _fluidFramesThisTick;
+
+    /// <summary>The most frames one tick has needed, and how many ticks needed more than one.</summary>
+    private int _fluidLongestTickFrames, _fluidSlicedTicks;
 
     /// <summary>The simulation's counters when the measured window opened, so the window's own figures can be reported.</summary>
     private long _fluidVisitsAtWarm, _fluidTicksAtWarm;
+
+    private int _fluidSlicedAtWarm, _fluidLongestTickFramesInWindow;
 
     private bool _fluidWarmSeen;
 
@@ -923,6 +949,15 @@ public partial class Main : Node3D
                 // exactly what the milestone's oracle forbids, so it is a term rather than a secret.
                 case "injectlitres" when long.TryParse(value, out long inject) && inject > 0:
                     _injectLitres = inject;
+                    break;
+
+                // The fifth budget seam of the same shape: how much of a frame Tier B's tick may
+                // take before it yields and resumes next frame. Priced at M8b-1 — a roof falling
+                // in under a lake is a 73 ms tick in Release and ~0.7 s in Debug, and no tick
+                // rate can bound a tick that arrives whole — so the tick is sliced, and this is
+                // the sweep. Zero is not off: one granule a frame, so the water still moves.
+                case "fluidbudget" when double.TryParse(value, out double fluidMillis):
+                    _fluidBudget = TimeSpan.FromMilliseconds(Math.Max(0.0, fluidMillis));
                     break;
 
                 // The rain's own A/B arm: everything else about the weather, with no particles.
@@ -2794,13 +2829,26 @@ public partial class Main : Node3D
         }
 
         _fluid = new FluidSimulation(new VoxelFluidTerrain(_pipeline.Streamer, _materials!));
+        _fluidBudgetTicks = FluidSimulation.BudgetTicks(_fluidBudget);
         if (windowed)
         {
             _fluidSurface = new FluidSurface(GetWorld3D());
         }
     }
 
-    /// <summary>Ticks Tier B at 2 Hz, pours what the relay still owes, and keeps the debug surface current.</summary>
+    /// <summary>
+    /// Begins a Tier B tick at 2 Hz, runs it under the frame budget, resumes it next frame if it
+    /// did not finish, pours what the relay still owes at each tick boundary, and keeps the debug
+    /// surface current.
+    /// </summary>
+    /// <remarks>
+    /// <b>A tick that outlasts its half-second is not skipped, it is finished</b>, and the next one
+    /// begins at the next frame after that — so under a roof-open flood the water ticks as fast as
+    /// the budget allows and no faster, which is DESIGN's <i>slower than realtime is accuracy</i>
+    /// with a number on it. The timer keeps at most one tick of debt across the stall, as before.
+    /// The relay pours only at a boundary, so a tick in the game is the same tick the suite
+    /// asserts is identical sliced or whole.
+    /// </remarks>
     private void UpdateFluid(double delta)
     {
         if (_fluid is null)
@@ -2816,24 +2864,47 @@ public partial class Main : Node3D
             _fluidWarmSeen = true;
             _fluidVisitsAtWarm = _fluid.CellVisits;
             _fluidTicksAtWarm = _fluid.Ticks;
+            _fluidSlicedAtWarm = _fluidSlicedTicks;
         }
 
         _fluidSinceTick += delta;
-        if (_fluidSinceTick >= FluidTickSeconds)
+        bool begin = !_fluid.TickInProgress && _fluidSinceTick >= FluidTickSeconds;
+        if (begin)
         {
             // At most one tick of debt after a stall: the remainder is kept, the burst is not.
             _fluidSinceTick = Math.Min(_fluidSinceTick - FluidTickSeconds, FluidTickSeconds);
-
             PourPending();
+        }
 
+        if (begin || _fluid.TickInProgress)
+        {
             long before = Stopwatch.GetTimestamp();
-            _fluid.Step();
+            FluidTickResult? done = _fluid.Step(before + _fluidBudgetTicks);
             double millis = Milliseconds(before, Stopwatch.GetTimestamp());
 
+            _fluidFramesThisTick++;
             _fluidWorstMillis = Math.Max(_fluidWorstMillis, millis);
-            if (_profiler is { Warm: true })
+            bool warm = _profiler is { Warm: true };
+            if (warm)
             {
-                _profiler.FluidTick.Add(millis);
+                _profiler!.FluidTick.Add(millis);
+            }
+
+            if (done is not null)
+            {
+                if (_fluidFramesThisTick > 1)
+                {
+                    _fluidSlicedTicks++;
+                }
+
+                _fluidLongestTickFrames = Math.Max(_fluidLongestTickFrames, _fluidFramesThisTick);
+                if (warm)
+                {
+                    _fluidLongestTickFramesInWindow =
+                        Math.Max(_fluidLongestTickFramesInWindow, _fluidFramesThisTick);
+                }
+
+                _fluidFramesThisTick = 0;
             }
         }
 
@@ -3050,7 +3121,9 @@ public partial class Main : Node3D
                + $"held == injected − removed − displaced: {FluidIdentity()}; "
                + $"{_relayPendingMillilitres / litre:N0} L still to pour | "
                + $"{f.Ticks:N0} tick(s) at {1.0 / FluidTickSeconds:F0} Hz, {f.ActiveCellCount:N0} active, "
-               + $"peak {f.PeakActiveCells:N0}, {f.CellVisits:N0} visits, worst tick {_fluidWorstMillis:F2} ms"
+               + $"peak {f.PeakActiveCells:N0}, {f.CellVisits:N0} visits; budget "
+               + $"{_fluidBudget.TotalMilliseconds:F1} ms a frame, worst frame {_fluidWorstMillis:F2} ms, "
+               + $"{_fluidSlicedTicks:N0} tick(s) over more than one frame, longest {_fluidLongestTickFrames:N0}"
                + surface;
     }
 
@@ -3068,9 +3141,13 @@ public partial class Main : Node3D
         long visits = f.CellVisits - _fluidVisitsAtWarm;
         long ticks = f.Ticks - _fluidTicksAtWarm;
 
+        // Per frame, not per tick: what a frame paid, which is the number the budget bounds. The
+        // tick's own span is on the fluidtick line as frames.
         string tick = _profiler.FluidTick.Count > 0
-            ? _profiler.FluidTick.Line("fluid ms") + "\n"
-            : "fluid ms  (no tick landed in the window)\n";
+            ? _profiler.FluidTick.Line("fluid ms")
+              + $"  per frame the tick ran, budget {_fluidBudget.TotalMilliseconds:F1} ms\n"
+            : "fluid ms  (no tick ran in the window)\n";
+        int sliced = _fluidSlicedTicks - _fluidSlicedAtWarm;
 
         string surface = _fluidSurface is null
             ? "fluidsurf not drawn (headless or --nowater)\n"
@@ -3085,7 +3162,8 @@ public partial class Main : Node3D
                + $"{_relayPendingMillilitres / litre:N0} L still to pour\n"
                + $"fluidtick {ticks:N0} tick(s) in the window at {1.0 / FluidTickSeconds:F0} Hz, "
                + $"{visits:N0} visits ({visits / seconds:N0}/s against the ~520,000/s the light "
-               + $"budget licenses), peak active {f.PeakActiveCells:N0}, {f.ActiveCellCount:N0} active at the end\n"
+               + $"budget licenses), peak active {f.PeakActiveCells:N0}, {f.ActiveCellCount:N0} active at the end; "
+               + $"{sliced:N0} tick(s) took more than one frame, longest {_fluidLongestTickFramesInWindow:N0} frame(s)\n"
                + tick
                + surface;
     }

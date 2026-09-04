@@ -3639,9 +3639,9 @@ part is the automaton and its oracles, M8a-2 is the measurement.
       2,706–17,357 against M8-PLAN's derived ~14,400; **26,701 visits/s at 2 Hz against the
       ~520,000 the light budget licenses — 5.1% at the widest breach.** The ~50,000-cell revisit
       trigger is not reached.
-- [ ] **The tick wants a time slice, the way the light step has one.** 0.44–2.71 ms mean per tick
+- [x] **The tick wants a time slice, the way the light step has one.** 0.44–2.71 ms mean per tick
       is half a percent of one core at 2 Hz, but **2.7 ms is a sixth of a frame arriving at once**.
-      Named, not built.
+      Named 2026-09-02, **built 2026-09-04 as the tick budget slice** — see M8b-1's item below.
 - [ ] **THE FINDING THAT DECIDES M8b: it does not settle, and the active set does not decay.**
       Every 96 m arm hit a 5,000-tick budget — 41.7 min of world time — with **9,000 to 21,000
       cells still awake, more than were awake during the flood**, because the water keeps
@@ -3729,11 +3729,31 @@ finding without the coarser-tolerance fallback.
             8 m floor settles (1,915 ticks, rest real) where a 96 m corridor does not; a roof falling
             in is a one-tick spike of 43,374 cells for one chunk and 302,182 for 2×2×2 — 73.5 ms in
             Release, ~0.7 s in Debug — six times the 50,000-cell trigger, in one tick.**
-      - [ ] **The tick budget, with its number attached: `Step` has to be resumable across frames.**
-            A roof-open bite is a 73 ms Release tick; the Debug build people play ticks at 17.7 ms
-            mean / 25 max for ~6,000 active cells (2.9 µs a visit, the light derive's Debug cliff).
-            M8a's "named, not built" time slice, now priced. Settle it before M8b-2's breach can
-            produce the roof-open case in play.
+      - [x] **The tick budget, with its number attached: `Step` has to be resumable across frames.
+            Built 2026-09-04, suite 936 → 953.** `FluidSimulation.Resume(maxVisits)` is the cursor
+            over the batch, `Step(deadline)` resumes in granules of 64 visits against an injected
+            clock, checked after the granule and never before; `Main` begins at 2 Hz and resumes
+            every frame under `--fluidbudget=<ms>`, 2 ms by default (an estimate; the sweep is the
+            flag). **Sliced equals whole to the digit** — cell for cell over 400 ticks at four slice
+            sizes in the suite, and every bench figure identical between the arms. Release: the
+            302,182-cell roof-open tick is 38 slices at 2 ms instead of one 80 ms frame, bore 9
+            needs two slices for 436 of 500 ticks, and slicing costs nothing per tick. Debug: a
+            frame pays mean 2.00 / max 3.05 ms instead of 14–23, the longest ordinary tick is 17
+            frames, and the 2 Hz rate holds. Fourteen break-recipes, all caught after three fixture
+            repairs (a hang in Core's deadline loop under a frozen fake clock; a Settle recipe
+            unreachable by a falling fixture; a counter both arms of the comparison shared). The
+            worklog entry of that date has the tables.
+      - [ ] **`Begin()`'s `_queued.Clear()` is the overshoot at the largest active set — a lever,
+            not built.** The budget's bound is *budget plus one granule*, and the first granule of
+            a tick clears a `HashSet` proportional to its capacity: 0.9 ms over on the 302,182-cell
+            tick, 0.1 ms on the mine. Amortise it (swap two sets, or clear at `Complete`) only if a
+            play reports the roof-open frame; today it is one millisecond once per tick at a peak
+            nothing but a bitten chunk under a lake reaches.
+      - [ ] **Play question for the slice: does a roof-open flood read as water arriving or as the
+            game stalling?** In Debug at 2 ms a frame the 2 × 2 × 2 tick is ~400 frames — six or
+            seven seconds of a chunk filling from under a lake. DESIGN calls that accuracy; a person
+            holding the thing decides whether it is. `--fluidbudget=` is the lever, and M8b-2's
+            breach is what makes the case reachable in play.
       - [x] `ChunkPipeline.onVoxelChanged`, told after the write and silent on a no-op; `Main` ticks
             at 2 Hz over `VoxelFluidTerrain`; `Disturb` wakes only cells holding water and returns
             at once on an empty grid. Three tests.

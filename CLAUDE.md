@@ -228,6 +228,15 @@ bare default headless run is not a streaming control any more**: it opens the pl
 stands in its void (198 drawn at 100 quads a chunk). **The r6 control is `--nosave --quit-after
 2400`** — 2601 / 325 / 3446 at 411 — because 900 frames is ~6 s and the r6 fill settles at ~7.
 
+The tick budget slice (2026-09-04) adds **`--fluidbudget=<ms>`**, the fifth budget seam of the same
+shape as `--lightbudget`: how much of a frame Tier B's tick may take before it yields and resumes
+next frame, 2 ms by default. **Zero is not off** — one granule of 64 visits a frame, so the water
+still moves, slowly enough to watch the slicing. The `fluidtick` line prints how many ticks needed
+more than one frame and the longest, and **`fluid ms` is per frame now, not per tick** — the number
+the budget bounds. On the bench, `--fluidbudget <ms>` (space-separated, like its siblings) runs
+each flow tick as back-to-back slices and prints slices per tick and the worst slice, which is
+how the roof-open case was priced in frames.
+
 The retained-chunk cache adds two. **`--chunkcache=<MiB>` caps the cache, 64 by default, and 0 is
 off — the committed pre-cache behaviour and the control arm.** Not profile-only, because memory is
 something a play reports. **`--turnaround=<seconds>` reverses the scripted flythrough every N
@@ -324,15 +333,41 @@ local folder, the remote URL, and the assistant's memory directory (see TODO's n
 **The played worlds now live under `app_userdata/Overburden/`; the `MinerCraft/` folder beside it
 is the pre-rename backup and is Matthew's to delete.**
 
-**Pick up here (2026-09-04). Matthew agreed the order, and all three are done.** (1) ~~the
-distance-ordered light derive queue~~; (2) ~~rename stage 3~~; (3) ~~the retained-chunk cache,
-slice 2~~ — **built**, see the next paragraph. Next is the milestone work:
-**M8b-2 — A → B, the breach**, portals indexed by 4 m sample and
-`BasinWater.Remove` as `Pour` reversed (see [docs/M8-PLAN.md](docs/M8-PLAN.md), M8b's split);
-**and settle the tick budget as a slice before the breach can produce the roof-open case in play**
-— a chunk bitten out from under a lake is a 73 ms tick in Release and ~0.7 s in Debug. The gate on
-the entangled miner is a battery and waits for M10. `git log origin/main..main` says what Matthew
-still has to push.
+**Pick up here (2026-09-05).** The tick budget slice is built (next paragraph), which was the gate
+TODO put before the breach. Next is the milestone work: **M8b-2 — A → B, the breach**, portals
+indexed by 4 m sample and `BasinWater.Remove` as `Pour` reversed (see
+[docs/M8-PLAN.md](docs/M8-PLAN.md), M8b's split). The gate on the entangled miner is a battery and
+waits for M10. `git log origin/main..main` says what Matthew still has to push.
+
+**The tick budget slice is built (2026-09-04). Suite 936 → 953.** `FluidSimulation.Step` is a
+cursor over its batch: `Resume(maxVisits)` visits up to N cells and returns the tick's result only
+when the cursor reaches the end, `Step(deadline)` resumes in granules of 64 visits against an
+injected clock, checked after each granule and never before, and `Main` begins a tick at 2 Hz and
+resumes an unfinished one every frame under **`--fluidbudget=<ms>`, 2 ms by default**. Five things
+worth keeping:
+
+- **Slicing changes nothing but when a tick ends, and that holds to the digit in both
+  instruments.** Whole against sliced agree cell for cell after every one of 400 ticks at four
+  slice sizes in the suite, and every bench figure — litres, peak, visits, held — is identical
+  between the arms. The budget is a cost decision, not a physics one.
+- **The roof-open tick is 38 frames at 2 ms instead of one 80 ms frame in Release**, the single
+  bitten chunk 17, and **the ordinary widest breach needs two slices for most of its ticks**, so
+  the slice is not a one-case instrument. In Debug a frame pays mean 2.00 / max 3.05 ms instead of
+  14–23, the longest ordinary tick is 17 frames, and 2 Hz holds; the roof-open case there would be
+  ~400 frames of water arriving, which is DESIGN's *slower than realtime* and an open play question.
+- **The overshoot is one granule's *work*, not a constant**: 0.1 ms over on the mine, 0.9 ms on
+  the 302,182-cell tick, because a tick's first granule clears a `HashSet` proportional to its
+  capacity. Named lever in TODO, not built.
+- **Zero is a setting, not off** — one granule a frame — and the zero-budget headless arm is the
+  wire check the suite cannot run: nineteen completed ticks at ~1 Hz with the identity exact say
+  `Main` resumes an unfinished tick every frame rather than waiting on a timer that cannot fire.
+- **Three battery holes, three fixture shapes, and one was a hang in the subject.** Core's
+  deadline loop under a *frozen* fake clock is an infinite loop against any mutation that stops
+  the cursor, so the test clock counts now; a `Settle` recipe was unreachable by a falling fixture
+  because falling cells always wake something; and a counter both arms of the comparison share
+  was pinned directly. `VerifyQuiescent` refuses mid-tick rather than answering, and
+  `ActiveCellCount` counts the unvisited half of a tick in progress. The whole-tick path's own
+  overflow (`cursor + int.MaxValue`) was the first thing the new tests found.
 
 **Cache slice 2 is built (2026-09-04). Suite 926 → 936.** A chunk leaves the box with its derived
 light and comes back reseeded rather than derived: **derives 5,157 → 3,572 at 6 m/s, 8,454 → 5,611

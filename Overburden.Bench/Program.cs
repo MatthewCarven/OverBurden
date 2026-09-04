@@ -59,6 +59,7 @@ internal static class Program
           --fluidshape  <s>    mine (0.75 m bores) or chamber (bitten 8 m chunks; default mine)
           --fluidchambers <n>  chambers per axis for --fluidshape=chamber (default 1)
           --fluidsettle <n>    tick budget for the settle after the flow (default 100000)
+          --fluidbudget <ms>   slice each flow tick under a per-frame budget (default 0: whole ticks, the control)
         """;
 
     private static int Main(string[] args)
@@ -79,6 +80,7 @@ internal static class Program
         int fluidSettle = 100_000;
         string fluidShape = "mine";
         int fluidChambers = 1;
+        double fluidBudget = 0;
 
         try
         {
@@ -140,6 +142,9 @@ internal static class Program
                     case "--fluidchambers":
                         fluidChambers = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
                         break;
+                    case "--fluidbudget":
+                        fluidBudget = double.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
                     case "--help" or "-h":
                         Console.WriteLine(Usage);
                         return 0;
@@ -181,7 +186,8 @@ internal static class Program
                 fluidDepth,
                 fluidSettle,
                 fluidShape,
-                fluidChambers);
+                fluidChambers,
+                fluidBudget);
         }
 
         if (watershed)

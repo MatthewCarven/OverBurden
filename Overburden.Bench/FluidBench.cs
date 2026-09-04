@@ -354,7 +354,8 @@ internal static class FluidBench
         int? depthMetres,
         int settleCap,
         string shape,
-        int chambers)
+        int chambers,
+        double budgetMillis)
     {
         // Each shape has its own sensible depth: a mine sits well under the surface, a bitten chunk
         // under a lake has its roof a couple of metres down, so the lake bed is the thing that
@@ -383,6 +384,15 @@ internal static class FluidBench
         Console.WriteLine(
             $"  The lake pours in as fast as the bore accepts it; what the mouth refuses is offered "
             + $"again next tick. {ticks:N0} ticks of flow at {TicksPerSecond:F0} Hz, then settle.");
+        if (budgetMillis > 0)
+        {
+            Console.WriteLine(
+                $"  Each flow tick is sliced under a {budgetMillis:F2} ms budget, one slice per "
+                + "synthetic frame, back to back: slices/tick is the frames a tick would span in "
+                + "the game, and the worst slice is the budget plus at most one granule of "
+                + $"{FluidSimulation.VisitsPerDeadlineCheck} visits.");
+        }
+
         Console.WriteLine();
 
         Console.WriteLine(
@@ -399,7 +409,7 @@ internal static class FluidBench
         {
             RunArm(
                 Make(generator, shape, bore, depth, spanMetres, chambers),
-                lakeLitres, ticks, bore, settleCap);
+                lakeLitres, ticks, bore, settleCap, budgetMillis);
         }
 
         Console.WriteLine();
@@ -435,8 +445,13 @@ internal static class FluidBench
                 boreVoxels: 3,
                 tunnelHeightVoxels: 8);
 
-    private static void RunArm(DugTerrain terrain, long lakeLitres, int ticks, int bore, int settleCap)
+    private static void RunArm(
+        DugTerrain terrain, long lakeLitres, int ticks, int bore, int settleCap, double budgetMillis)
     {
+        long budgetTicks = budgetMillis > 0
+            ? FluidSimulation.BudgetTicks(TimeSpan.FromMilliseconds(budgetMillis))
+            : 0;
+
         long tunnelCells = terrain.VoidCells();
         VoxelPos[] mouth = [.. terrain.Mouth()];
 
@@ -464,6 +479,13 @@ internal static class FluidBench
         int peakActive = 0;
         int flowTicks = 0;
 
+        // The budgeted arm's own figures: how many slices the ticks needed and what the dearest
+        // slice cost, which is the overshoot the granule bounds.
+        long totalSlices = 0;
+        int longestTickSlices = 0;
+        int slicedTicks = 0;
+        double worstSliceMillis = 0;
+
         for (int tick = 0; tick < ticks && lake > 0; tick++)
         {
             long remaining = lake;
@@ -480,7 +502,38 @@ internal static class FluidBench
             lake = remaining;
 
             var clock = Stopwatch.StartNew();
-            FluidTickResult result = sim.Step();
+            FluidTickResult result;
+            if (budgetTicks > 0)
+            {
+                // Sliced the way Main slices it: one Step(deadline) per frame until the tick
+                // completes. No frame between slices here, so the tick's wall clock is the sum
+                // of its slices and the row's ms/tick stays comparable with the whole-tick arm.
+                FluidTickResult? done;
+                int slices = 0;
+                do
+                {
+                    long sliceStart = Stopwatch.GetTimestamp();
+                    done = sim.Step(sliceStart + budgetTicks);
+                    double sliceMillis =
+                        (Stopwatch.GetTimestamp() - sliceStart) * 1000.0 / Stopwatch.Frequency;
+                    worstSliceMillis = Math.Max(worstSliceMillis, sliceMillis);
+                    slices++;
+                }
+                while (done is null);
+
+                result = done.Value;
+                totalSlices += slices;
+                longestTickSlices = Math.Max(longestTickSlices, slices);
+                if (slices > 1)
+                {
+                    slicedTicks++;
+                }
+            }
+            else
+            {
+                result = sim.Step();
+            }
+
             double millis = clock.Elapsed.TotalMilliseconds;
 
             totalMillis += millis;
@@ -571,6 +624,15 @@ internal static class FluidBench
                 CultureInfo.InvariantCulture,
                 $"HIT THE CAP with {sim.ActiveCellCount:N0} still awake — diffusive levelling "
                 + $"rather than an oscillation; see FluidRules' termination proof.");
+
+        if (budgetTicks > 0)
+        {
+            Console.WriteLine(string.Create(
+                CultureInfo.InvariantCulture,
+                $"           slice:  {budgetMillis:F2} ms budget — {totalSlices:N0} slice(s) over "
+                + $"{flowTicks:N0} flow tick(s), {slicedTicks:N0} tick(s) needed more than one, "
+                + $"longest {longestTickSlices:N0} slice(s), worst slice {worstSliceMillis:F3} ms"));
+        }
 
         Console.WriteLine(string.Create(
             CultureInfo.InvariantCulture,

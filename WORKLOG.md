@@ -1,5 +1,142 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-04 — The tick budget slice: a tick is a cursor over its batch, the trajectory is unchanged, and a roof falling in is 38 frames instead of one
+
+**`FluidSimulation.Step` is resumable across frames.** Suite 936 → 953. The tick was the one
+unit of work here that arrived whole — M8b-1's chamber fixture priced a chunk bitten out from
+under a lake at 43,374 cells in one tick and a 2 × 2 × 2 block at 302,182, **73.5 ms in Release
+and ~0.7 s in the Debug build `start.cmd` runs**, and an ordinary 6,000-cell flood at 17.7 ms in
+Debug — and no tick *rate* can bound a tick that is atomic. So the tick is now a cursor over its
+batch. `Resume(maxVisits)` visits up to N cells of the tick in progress and returns its result only
+when the cursor reaches the end; `Step(deadline)` resumes in granules of 64 visits until the tick
+completes or the injected clock passes the deadline, **checked after each granule and never before**
+(the light and apply slices' rule, so a budget of zero still visits one granule a frame); the old
+`Step()` is `Resume(int.MaxValue)` and finishes a tick in progress rather than starting a new one.
+`Main` begins a tick at 2 Hz and resumes an unfinished one every frame under **`--fluidbudget=<ms>`,
+2 ms by default** — the mesh-apply budget's number, labelled an estimate — with the relay pouring
+only at a tick boundary. The profile's `fluid ms` is now per *frame*, the number the budget bounds,
+and `fluidtick` says how many ticks took more than one frame and the longest. The bench gained the
+same arm: `--fluidbudget <ms>` runs each flow tick as back-to-back slices and prints slices per tick
+and the worst slice. The timing runs below finished in the small hours of the 5th.
+
+**The claim the whole thing rests on is that slicing changes nothing but when a tick ends, and it
+holds to the digit in both instruments.** In the suite, a simulation stepped whole and one stepped
+in slices of 1, 7, 64 and 1,000 agree cell for cell after every one of 400 ticks on the fuzz's real
+terrain, and so do their tick results, visit counts and active sets. On the bench every figure the
+row prints — litres delivered, peak active, visits per tick, held cells — is identical between the
+whole-tick control and the sliced arm on all three fixtures. That is what makes the budget a cost
+decision rather than a physics one: the same cells are visited in the same order against the same
+live grid, and only the frame boundary moves.
+
+**Measured, Release, machine control 1.03–1.05× (divide before comparing), `--fluidsettle 0` so the
+settle column reads NEVER by choice — the settle is not what was under test:**
+
+```
+fixture                  peak      whole tick ms     sliced at 2 ms: tick ms   slices/tick   worst
+                         active    mean / max        mean / max                longest        slice
+2x2x2 chambers, roof     302,182   50.33 / 79.97     49.19 / 76.22             38             2.921 ms
+1x1x1 chamber, roof       43,374   (M8b-1: -/11.6)   10.89 / 34.52             17             2.351 ms
+mine, bore 9              13,347    2.53 /  4.06      2.55 /  3.95              2             2.109 ms
+mine, bore 1               1,091    0.49 /  1.86      0.48 /  1.82              1             1.822 ms
+mine, bore 9 at 0.5 ms    13,347                      2.92 / 11.02             18             0.997 ms
+```
+
+- **The roof falling in is 38 frames at 2 ms instead of one 80 ms frame, and the ordinary flood is
+  sliced too.** The 2 × 2 × 2 block's biggest tick spread over 38 slices; the single bitten chunk
+  over 17; and **the widest ordinary breach — bore 9, 13,347 active — needed two slices for 436 of
+  its 500 ticks in Release**, so the slice is not an instrument for one pathological case. In Debug,
+  where a visit is 2.9 µs, the same ticks are roughly ten times as many frames — the headless
+  figures below.
+- **Slicing costs nothing measurable per tick.** Whole against sliced: 50.3 / 80.0 against 49.2 /
+  76.2 ms on the roof-open block, 2.53 / 4.06 against 2.55 / 3.95 on bore 9. The 0.5 ms arm's mean
+  of 2.92 against 2.55 is one run inside the machine's own swing and is recorded rather than
+  believed; its 11 ms max is one tick and reads like a GC pause landing inside a slice.
+- **The overshoot past a deadline is bounded by one granule's *work*, and a granule's work is not
+  a constant.** Sixty-four visits is ~16 µs in Release, and the worst slice on the mine was 0.1 ms
+  over budget — but the roof-open block's worst slice was **2.92 ms on a 2 ms budget**. The first
+  granule of a tick pays `Begin()`, and `_queued.Clear()` on a `HashSet` holding 302,182 entries is
+  proportional to its capacity, not to the work of the slice: about a millisecond, once per tick,
+  at the largest active set this project has seen. Named as the lever and not built: the bound the
+  budget gives is *budget plus one granule*, and at 300,000 cells one granule is a millisecond.
+- **Debug is the build that needed this, and the bench cannot measure it** — see the headless
+  section below for the frames a Debug tick takes.
+
+**The suite's first run found a real defect, and it was in the whole-tick path.** `Step()` passed
+`int.MaxValue` into a slice bound computed as `Math.Min(count, cursor + max)`, which overflows
+negative the moment the cursor is past zero — so a whole-tick call that was *finishing* a sliced
+tick returned null, and `.Value` threw. Every existing test calls `Step()` from a boundary, where
+the cursor is zero and the sum is exact; only the new tests call it mid-tick. Fixed by taking the
+remaining count first (`Math.Min(count − cursor, max)`), and kept in the battery as recipe K, which
+fails five tests.
+
+**Fourteen break-recipes, eleven caught on the first run, and the three that were not were three
+different kinds of hole — all fixtures, none assertions.**
+
+- **Recipe B hung instead of failing, and the hang was in the subject, not the test.** Resetting
+  the cursor on every slice means a sliced tick never ends. The test loops were bounded after the
+  M3a lesson — but `ADeadlineNeverReachedCompletesTheTickInOneCall` drove `Step(deadline)` with a
+  clock frozen at zero, and *Core's* loop runs until the tick completes or the clock passes, so
+  against a slice that stops advancing it is an infinite loop no bound in the test can reach. **A
+  frozen fake clock is a hang waiting for a mutation.** It now counts, with a deadline further away
+  than a tick can need; the same claim, and recipe B fails five tests. The battery script gained a
+  per-recipe timeout that records HUNG as an outcome — the M3a lesson's third outing, and the
+  first where the timeout had to be on the harness rather than the test.
+- **Recipe F — `Settle` looping on the next tick's queue alone — was unreachable by the fixture.**
+  A falling sheet's first sliced cells always wake something, so the queue was never empty while
+  the batch still had cells, and the mutated loop ran the tick to completion anyway. The shape
+  that separates the arms is a body at rest whose disturbed cell has no move: visit it and the
+  queue stays empty with the tick half done. `SettleFinishesATickInProgressEvenWhenItsFirstSliceWokeNothing`.
+- **Recipe N — the tick's moved counters never reset — was invisible because both arms share the
+  mutation**, the M6a writer/reader trap in a new costume: sliced and whole are the same code, so
+  they accumulate identically and agree. And nothing in the game reads `MillilitresMoved`, which is
+  the counter-without-a-consumer category. Pinned directly by `ATicksFiguresAreItsOwnAndNotARunningTotal`.
+
+**Two fixtures were wrong about the physics, and both errors are in FluidRules already.** The upper
+of two layers at rest sits a residue or two under full — FluidRules' "12 mL left standing one level
+above" — so `== Cap` on it fails on correct code. And a full cell dropped at the top of a column
+falls *two* cells in its first tick, because the cell below it is woken into the same batch and
+visited after it; only from the second tick on does it fall one cell a tick. Neither is a defect;
+both are what the automaton does, and a test that asserts otherwise is asserting a different
+automaton.
+
+**Headless, Debug — the build that needed this — r4h/2v standing, 50,000 L poured when the window
+opens, the M8b-1 recipe, three budgets:**
+
+```
+arm                        fluid ms per frame                ticks in    took >1    longest
+                           mean / p50 / p95 / max            window      frame      frames
+whole (--fluidbudget=1000) 16.61 / 14.44 / 22.68 / 22.97       30          0          1
+2 ms (the default)          2.00 /  2.09 /  2.32 /  3.05       29         29         17
+0 ms (one granule a frame)  0.21 /  0.19 /  0.47 /  1.36       19         19        135
+```
+
+- **A Debug tick is a frame and a half whole and a tenth of a frame sliced, at the same tick
+  rate.** 14–23 ms a frame with the budget off, against M8b-1's 17.7 / 25; mean 2.00 / max 3.05
+  with it on, and 29 ticks in the window against 30 — the 2 Hz rate holds, because the longest
+  tick was 17 frames and a frame headless is ~7.5 ms. **At 60 fps windowed that longest tick is
+  280 ms, inside the half-second**, so an ordinary 8,600-cell flood does not slow the water in
+  Debug either. The roof-open case would: ~0.8 s of Debug work at 2 ms a frame is ~400 frames,
+  six or seven seconds of water arriving, which is the design and is the play question below.
+- **The zero-budget arm is the wire check.** One granule a frame makes an 8,606-cell tick 135
+  frames, so the tick rate fell to ~1 Hz — 19 ticks in the window — and **all 50,000 L still
+  arrived with the identity exact and 133,741 visits paid.** A `Main` that only began ticks on
+  the timer and never resumed one would have finished its first tick over 135 frames and then
+  stood still, because the timer cannot fire while a tick is in progress; nineteen completed ticks
+  say it resumes. That is the recipe the suite cannot run, and it is why zero is a real setting
+  rather than an off switch.
+- **Streaming is untouched to the digit in every arm**: 1521 / 165 / 1926 at 404 quads with the
+  water spreading, 2601 / 325 / 3446 at 411 for the r6 `--nosave` control, `near lit` 0.54–0.56 s
+  and `first draw` 3.50–3.55 s across the three budgets. `update ms` does not contain the tick and
+  did not move.
+
+**What is deliberately not done.** The tick rate is still 2 Hz and the budget does not adapt to
+the active set; a tick that outlasts its half-second simply ends late, and the next begins the
+frame after, which is DESIGN's *slower than realtime is accuracy* taken literally. **Revisit
+trigger: a play in which a roof-open flood reads as the game stalling rather than as water
+arriving** — the budget is the lever, and `--fluidbudget=` is how it is swept without a rebuild.
+M8b-2, the breach, is next; this was the slice TODO said had to come first, because the breach is
+what produces the roof-open case in play.
+
 ## 2026-09-04 — The retained-chunk cache, slice 2: the grid comes back with the chunk, and the walk that proved it found three older things
 
 **A turnaround costs no derive for a chunk that left with its grid, and the 20 m/s arm draws.**

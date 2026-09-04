@@ -112,7 +112,9 @@ flow window; the original was shorter and pre-commit):
 **And on bitten chunks, the shape the play made normal (M8b-1):** an 8 m void fed through a 0.75 m
 bore peaks at 4,914 cells and *settles*, in 1,915 ticks; **a chunk whose whole roof opens under a
 lake is 43,374 cells active in one tick, and a 2 × 2 × 2 block is 302,182 — 73.5 ms in Release**,
-six times the trigger below, in one tick. That is why the tick budget is a slice rather than a rate.
+six times the trigger below, in one tick. That is why the tick budget is a slice rather than a rate
+— **built 2026-09-04: the tick is a cursor over its batch, resumed each frame under a 2 ms budget
+(`--fluidbudget=`), and a tick that does not fit ends late rather than stalling the frame.**
 
 **So the cell size is settled at 0.25 m and it is affordable**, the estimate was the right order,
 and the ~50,000-cell revisit trigger is not reached. The 64× caveat is closed.

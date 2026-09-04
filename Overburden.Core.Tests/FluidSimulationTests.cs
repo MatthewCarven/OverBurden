@@ -434,6 +434,412 @@ public class FluidSimulationTests
         Assert.Equal(a.CellVisits, b.CellVisits);
     }
 
+    // ---------------------------------------------------------------- the slice: a tick resumable across frames
+
+    /// <summary>
+    /// A box with enough water falling in it that a tick's batch is several hundred cells: a
+    /// 16 × 16 sheet of full cells dropped high in a 24-cell box, two ticks in. The first version
+    /// was a 4 × 4 sheet in an 8-cell box and its batch was 64 — exactly one granule, which made
+    /// the deadline tests unreachable.
+    /// </summary>
+    private static FluidSimulation WithATickWorthSlicing(Func<long>? nowTicks = null)
+    {
+        var sim = new FluidSimulation(BoxTerrain.Cube(24), nowTicks);
+        for (int x = 4; x <= 19; x++)
+        {
+            for (int z = 4; z <= 19; z++)
+            {
+                sim.Add(new VoxelPos(x, 20, z), Cap);
+            }
+        }
+
+        // Two whole ticks so the batch is the falling sheet rather than the seeded one.
+        sim.Step();
+        sim.Step();
+        Assert.True(
+            sim.ActiveCellCount > 4 * FluidSimulation.VisitsPerDeadlineCheck,
+            $"the fixture's batch is only {sim.ActiveCellCount} cells");
+        return sim;
+    }
+
+    /// <summary>
+    /// Slices a tick to completion in pieces of <paramref name="sliceVisits"/>, and returns how many
+    /// slices it took.
+    /// </summary>
+    /// <remarks>
+    /// <b>Bounded, because the first battery hung instead of failing.</b> A cursor that resets on
+    /// every slice never reaches the end of its batch, and a <c>do … while (null)</c> loop spins
+    /// forever — which the M3a lesson says reads as infrastructure trouble rather than as a caught
+    /// recipe. A tick cannot need more slices than it has cells plus one, so past that the loop
+    /// is the slice failing to advance and the test says so.
+    /// </remarks>
+    private static (FluidTickResult Result, int Slices) SliceToCompletion(FluidSimulation sim, int sliceVisits)
+    {
+        int bound = sim.ActiveCellCount + 2;
+        int slices = 0;
+        FluidTickResult? done;
+        do
+        {
+            done = sim.Resume(sliceVisits);
+            slices++;
+            Assert.True(slices <= bound, $"{slices} slices of {sliceVisits} and the tick has not ended");
+        }
+        while (done is null);
+
+        return (done.Value, slices);
+    }
+
+    [Fact]
+    public void ASliceOfOneVisitsExactlyOneCell()
+    {
+        FluidSimulation sim = WithATickWorthSlicing();
+        int batch = sim.ActiveCellCount;
+        Assert.True(batch > 8, $"the fixture's batch is only {batch} cells");
+
+        long visitsBefore = sim.CellVisits;
+        long ticksBefore = sim.Ticks;
+
+        Assert.Null(sim.Resume(1));
+
+        Assert.True(sim.TickInProgress);
+        Assert.Equal(batch - 1, sim.RemainingInTick);
+        Assert.Equal(visitsBefore + 1, sim.CellVisits);
+        Assert.Equal(ticksBefore, sim.Ticks);
+    }
+
+    [Fact]
+    public void TicksCountCompletedTicksNotSlices()
+    {
+        FluidSimulation sim = WithATickWorthSlicing();
+        int batch = sim.ActiveCellCount;
+        long ticksBefore = sim.Ticks;
+
+        (FluidTickResult done, int slices) = SliceToCompletion(sim, 3);
+
+        Assert.True(slices > 1, "the batch fitted in one slice, so nothing was sliced");
+        Assert.Equal(ticksBefore + 1, sim.Ticks);
+        Assert.Equal(batch, done.CellsVisited);
+        Assert.False(sim.TickInProgress);
+        Assert.Equal(0, sim.RemainingInTick);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(7)]
+    [InlineData(64)]
+    [InlineData(1_000)]
+    public void ATickRunInSlicesLandsTheSameWaterInTheSameCellsAsATickRunWhole(int sliceVisits)
+    {
+        // The property the per-frame budget rests on. Both simulations see the same terrain and
+        // the same pours, in lockstep; one runs each tick whole and the other in slices of the
+        // given size. After every tick the grids must agree cell for cell, and so must the tick's
+        // own figures — a cursor that reset, a batch swapped mid-tick, or a queue cleared per slice
+        // would each show up here as a cell holding a different number.
+        var strata = new StrataTable([new StrataLayer(1, 1), new StrataLayer(2, 3)], 3);
+        var generator = new WorldGenerator(
+            new WorldGenSettings
+            {
+                Seed = 0xC0FFEEUL,
+                SeaLevelVoxels = 0,
+                SurfaceAmplitudeVoxels = 48.0f,
+                SurfaceFrequency = 0.004f,
+                SurfaceOctaves = 4,
+                CavesEnabled = true,
+                CaveLatticeStep = 4,
+            },
+            strata);
+        int surface = generator.SurfaceHeightAt(0, 0);
+        var terrain = new GeneratedTerrain(generator, -16, surface - 24, -16, 15, surface + 7, 15);
+
+        var whole = new FluidSimulation(terrain);
+        var sliced = new FluidSimulation(terrain);
+
+        var random = new Random(0xC0FFEE);
+        for (int drop = 0; drop < 24; drop++)
+        {
+            VoxelPos? top = terrain.TopOpening(random.Next(-16, 16), random.Next(-16, 16));
+            if (top is null)
+            {
+                continue;
+            }
+
+            whole.Add(top.Value, Cap);
+            sliced.Add(top.Value, Cap);
+        }
+
+        Assert.True(whole.AddedMillilitres > 0, "no water was ever poured");
+
+        int ticks = 0;
+        int slicedTicks = 0;
+        while (whole.ActiveCellCount > 0 && ticks < 400)
+        {
+            FluidTickResult expected = whole.Step();
+            ticks++;
+
+            (FluidTickResult actual, int slices) = SliceToCompletion(sliced, sliceVisits);
+            if (slices > 1)
+            {
+                slicedTicks++;
+            }
+
+            Assert.Equal(expected, actual);
+            Assert.Equal(whole.Ticks, sliced.Ticks);
+            Assert.Equal(whole.CellVisits, sliced.CellVisits);
+            Assert.Equal(whole.ActiveCellCount, sliced.ActiveCellCount);
+            AssertSameWater(whole, sliced);
+        }
+
+        Assert.True(ticks > 10, $"only {ticks} tick(s) — the fixture settled before it could slice");
+        if (sliceVisits < 64)
+        {
+            Assert.True(slicedTicks > 0, "no tick was ever split, so nothing was compared");
+        }
+    }
+
+    private static void AssertSameWater(FluidSimulation expected, FluidSimulation actual)
+    {
+        Assert.Equal(expected.TotalMillilitres, actual.TotalMillilitres);
+        Assert.Equal(expected.Grid.HeldCellCount, actual.Grid.HeldCellCount);
+        foreach (VoxelPos cell in expected.Grid.HeldCells())
+        {
+            Assert.True(
+                expected.Grid.AmountAt(cell) == actual.Grid.AmountAt(cell),
+                $"{cell}: whole {expected.Grid.AmountAt(cell)} against sliced {actual.Grid.AmountAt(cell)}");
+        }
+    }
+
+    [Fact]
+    public void StepFinishesTheTickInProgressRatherThanStartingANewOne()
+    {
+        FluidSimulation sim = WithATickWorthSlicing();
+        int batch = sim.ActiveCellCount;
+        long ticksBefore = sim.Ticks;
+
+        Assert.Null(sim.Resume(2));
+        FluidTickResult result = sim.Step();
+
+        // One tick, and its figure is the whole batch's — the two cells the slice took included.
+        Assert.Equal(ticksBefore + 1, sim.Ticks);
+        Assert.Equal(batch, result.CellsVisited);
+    }
+
+    [Fact]
+    public void SettleFinishesATickInProgressAndTheRestIsReal()
+    {
+        FluidSimulation sim = WithATickWorthSlicing();
+        Assert.Null(sim.Resume(2));
+        Assert.True(sim.TickInProgress);
+
+        FluidSettleResult result = FluidAssert.SettlesAndRests(sim);
+        FluidAssert.Conserves(sim);
+        Assert.True(result.Ticks > 0);
+    }
+
+    [Fact]
+    public void SettleFinishesATickInProgressEvenWhenItsFirstSliceWokeNothing()
+    {
+        // The battery's recipe F — Settle looping on the next tick's queue alone — passed the
+        // test above, because a falling sheet's first sliced cells always wake something, so the
+        // queue was never empty when it mattered. The shape that separates the arms is a body at
+        // rest whose disturbed cell has no move: visit it, and the queue for the next tick stays
+        // empty while the batch still has cells. A Settle that looked only at the queue would
+        // return at once with the tick half done.
+        var sim = new FluidSimulation(new BoxTerrain(0, 0, 0, 3, 3, 3));
+        for (int x = 0; x <= 3; x++)
+        {
+            for (int z = 0; z <= 3; z++)
+            {
+                sim.Add(new VoxelPos(x, 2, z), Cap);
+            }
+        }
+
+        FluidAssert.SettlesAndRests(sim);
+
+        sim.Disturb(new VoxelPos(1, 0, 1));
+        int batch = sim.ActiveCellCount;
+        Assert.True(batch > 1, $"the disturbance woke only {batch} cell(s)");
+
+        Assert.Null(sim.Resume(1));
+        Assert.Equal(batch - 1, sim.ActiveCellCount);
+
+        FluidSettleResult result = sim.Settle();
+        Assert.True(result.Settled);
+        Assert.Equal(1, result.Ticks);
+        Assert.False(sim.TickInProgress);
+        Assert.True(sim.VerifyQuiescent());
+    }
+
+    [Fact]
+    public void ATicksFiguresAreItsOwnAndNotARunningTotal()
+    {
+        // Recipe N — the tick's moved counters never reset — was invisible to the sliced-against-
+        // whole comparison because both arms share the mutation, and nothing in the game reads
+        // MillilitresMoved. So the figure is pinned directly. One full cell dropped at the top of
+        // a column falls two cells in its first tick (the cell below it is woken into the same
+        // batch and visited after it) and one cell in each tick after that, so the second and
+        // third ticks each move exactly one cell's worth, and the four falls sum to four cells.
+        var sim = new FluidSimulation(new BoxTerrain(0, 0, 0, 0, 5, 0));
+        sim.Add(new VoxelPos(0, 4, 0), Cap);
+
+        FluidTickResult first = sim.Step();
+        FluidTickResult second = sim.Step();
+        FluidTickResult third = sim.Step();
+
+        Assert.Equal(1, second.CellsMoved);
+        Assert.Equal(Cap, second.MillilitresMoved);
+        Assert.Equal(1, third.CellsMoved);
+        Assert.Equal(Cap, third.MillilitresMoved);
+        Assert.Equal(4L * Cap, first.MillilitresMoved + second.MillilitresMoved + third.MillilitresMoved);
+        Assert.Equal(Cap, sim.Grid.AmountAt(new VoxelPos(0, 0, 0)));
+    }
+
+    [Fact]
+    public void TheQuiescenceCheckRefusesToAnswerMidTick()
+    {
+        FluidSimulation sim = WithATickWorthSlicing();
+        Assert.Null(sim.Resume(1));
+
+        Assert.Throws<InvalidOperationException>(() => sim.VerifyQuiescent());
+
+        // And answers again at the boundary.
+        sim.Step();
+        _ = sim.VerifyQuiescent();
+    }
+
+    [Fact]
+    public void ActiveCellCountCountsTheUnvisitedHalfOfATickInProgress()
+    {
+        FluidSimulation sim = WithATickWorthSlicing();
+        int batch = sim.ActiveCellCount;
+
+        Assert.Null(sim.Resume(1));
+
+        // The one visited cell may have woken a few for the next tick, so the count cannot fall
+        // by more than one — and a count that reported only the next tick's queue would have
+        // fallen by nearly the whole batch.
+        Assert.True(
+            sim.ActiveCellCount >= batch - 1,
+            $"{batch} awake before the slice, {sim.ActiveCellCount} after visiting one cell");
+        Assert.Equal(batch - 1, sim.RemainingInTick);
+    }
+
+    [Fact]
+    public void ADeadlineAlreadyPastStillVisitsOneGranule()
+    {
+        // The light step's rule: checked after the work, never before, so a budget of zero makes
+        // progress and a tick dearer than the whole budget still ends. A clock that is always past
+        // any deadline is the sharpest form of that.
+        FluidSimulation sim = WithATickWorthSlicing(nowTicks: () => long.MaxValue);
+        int batch = sim.ActiveCellCount;
+        Assert.True(batch > FluidSimulation.VisitsPerDeadlineCheck, $"batch of {batch} fits in one granule");
+
+        long visitsBefore = sim.CellVisits;
+        Assert.Null(sim.Step(deadlineTicks: 0));
+
+        Assert.Equal(visitsBefore + FluidSimulation.VisitsPerDeadlineCheck, sim.CellVisits);
+        Assert.Equal(batch - FluidSimulation.VisitsPerDeadlineCheck, sim.RemainingInTick);
+    }
+
+    [Fact]
+    public void ADeadlineNeverReachedCompletesTheTickInOneCall()
+    {
+        // A counting clock with a deadline further away than the tick can possibly need — a tick
+        // reads the clock once per granule, and a granule is at least one cell — rather than a
+        // clock frozen at zero. The frozen clock was the first version, and against a slice that
+        // stops advancing (the battery's "cursor reset on every slice") Step(deadline) is then an
+        // infinite loop in the subject, which no bound in the test can reach. A clock that moves
+        // makes the same claim and turns that hang into a failure.
+        long now = 0;
+        FluidSimulation sim = WithATickWorthSlicing(nowTicks: () => ++now);
+        int batch = sim.ActiveCellCount;
+
+        FluidTickResult? done = sim.Step(deadlineTicks: batch + 2);
+
+        Assert.NotNull(done);
+        Assert.Equal(batch, done.Value.CellsVisited);
+        Assert.False(sim.TickInProgress);
+        Assert.True(now < batch, $"the tick read the clock {now} times for {batch} cells");
+    }
+
+    [Fact]
+    public void ADeadlineIsCheckedOncePerGranule()
+    {
+        // A clock that advances one tick per read against a deadline of three reads: exactly
+        // three granules, then it stops — which pins the granule as the unit of overshoot.
+        long now = 0;
+        FluidSimulation sim = WithATickWorthSlicing(nowTicks: () => ++now);
+        int batch = sim.ActiveCellCount;
+        Assert.True(batch > 4 * FluidSimulation.VisitsPerDeadlineCheck, $"batch of {batch} is too small");
+
+        long visitsBefore = sim.CellVisits;
+        Assert.Null(sim.Step(deadlineTicks: 3));
+
+        Assert.Equal(visitsBefore + (3 * FluidSimulation.VisitsPerDeadlineCheck), sim.CellVisits);
+    }
+
+    [Fact]
+    public void WaterAddedBetweenSlicesIsNeitherLostNorLeftAsleep()
+    {
+        // The game's case: the relay pours and edits land between frames, which is mid-tick now.
+        // Whatever arrives must be counted, must end up at rest, and the rest must be real.
+        FluidSimulation sim = WithATickWorthSlicing();
+        Assert.Null(sim.Resume(3));
+
+        // Into a corner of the box the sheet never reaches, and into a cell of the sheet's own
+        // batch — emptied when it fell, and on either side of the cursor depending on the order:
+        // both have to be revisited next tick.
+        var corner = new VoxelPos(0, 23, 0);
+        Assert.Equal(0, sim.Add(corner, Cap));
+        Assert.Equal(0, sim.Add(new VoxelPos(8, 20, 8), Cap / 2));
+
+        Assert.True(sim.TickInProgress);
+        FluidAssert.SettlesAndRests(sim);
+        FluidAssert.Conserves(sim);
+
+        // The corner's water fell: nothing is left where it was poured.
+        Assert.Equal(0, sim.Grid.AmountAt(corner));
+    }
+
+    [Fact]
+    public void RemovingWaterBetweenSlicesWakesWhatWasAboveIt()
+    {
+        // Two full layers at rest on a 4 x 4 floor. Wake the floor by disturbing it, slice into
+        // that tick, then drain a floor cell mid-tick: the cell above it has to notice and fall,
+        // so the drained cell is full again at rest.
+        var sim = new FluidSimulation(new BoxTerrain(0, 0, 0, 3, 5, 3));
+        for (int x = 0; x <= 3; x++)
+        {
+            for (int z = 0; z <= 3; z++)
+            {
+                sim.Add(new VoxelPos(x, 4, z), Cap);
+                sim.Add(new VoxelPos(x, 5, z), Cap);
+            }
+        }
+
+        FluidAssert.SettlesAndRests(sim);
+
+        // The upper layer rests a residue or two under full — FluidRules' "12 mL left standing
+        // one level above" — so the assertion is that it holds a layer, not that it is full.
+        int aboveBefore = sim.Grid.AmountAt(new VoxelPos(2, 1, 2));
+        Assert.True(aboveBefore > Cap / 2, $"the upper layer holds only {aboveBefore} mL");
+
+        sim.Disturb(new VoxelPos(1, 0, 1));
+        Assert.True(sim.ActiveCellCount > 1);
+        Assert.Null(sim.Resume(1));
+
+        Assert.Equal(Cap, sim.Remove(new VoxelPos(2, 0, 2), Cap));
+
+        FluidAssert.SettlesAndRests(sim);
+        FluidAssert.Conserves(sim);
+        Assert.Equal(31L * Cap, sim.TotalMillilitres);
+
+        // The cell above fell in and the floor neighbours topped it up to within a residue: a
+        // wake lost between the slices would have left it empty under a full cell, which is
+        // also what SettlesAndRests' quiescence check would have refused.
+        int refilled = sim.Grid.AmountAt(new VoxelPos(2, 0, 2));
+        Assert.True(refilled >= Cap - Residue, $"the drained cell refilled only to {refilled} mL");
+    }
+
     // ---------------------------------------------------------------- the fuzz
 
     [Theory]

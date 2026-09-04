@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Overburden.Core.Voxels;
 
 namespace Overburden.Core.Fluid;
@@ -59,10 +60,31 @@ public readonly record struct FluidSettleResult(
 /// like a bug and is not one.
 /// </para>
 /// <para>
-/// <b>Rate-free, exactly as <c>PlayerMotion.Step</c> is.</b> One call is one tick; how often ticks
-/// happen is the caller's business and is M8b's. DESIGN's <i>slower than realtime is accuracy</i>
-/// is what licenses that, and a tick that arrives late costs nothing here because nothing in this
-/// class reads a clock.
+/// <b>Rate-free, exactly as <c>PlayerMotion.Step</c> is.</b> <see cref="Step()"/> is one tick; how
+/// often ticks happen is the caller's business and is M8b's. DESIGN's <i>slower than realtime is
+/// accuracy</i> is what licenses that, and a tick that arrives late costs nothing here.
+/// </para>
+/// <para>
+/// <b>And a tick is resumable across frames, because one tick can be a whole second of CPU.</b>
+/// A chunk bitten out from under a lake wakes 43,374 cells in one tick and a 2 × 2 × 2 block
+/// 302,182 — 73.5 ms in Release and ~0.7 s in the Debug build people play (M8b-1's chamber
+/// fixture) — and an ordinary 6,000-cell flood ticks at 17.7 ms in Debug, a frame and a half twice
+/// a second. No tick <i>rate</i> bounds that, because one tick is the unit and it arrives whole.
+/// So the tick is a cursor over its batch: <see cref="Resume"/> visits up to N cells and stops,
+/// <see cref="Step(long)"/> resumes in granules until a deadline, and the tick completes when the
+/// cursor reaches the end, however many calls that took. <b>The trajectory is unchanged by the
+/// slicing</b> — the same cells are visited in the same order against the same live grid — which
+/// is asserted cell for cell, and which is what makes the per-frame budget a cost decision rather
+/// than a physics one. What slicing changes is only <i>when</i> a tick ends, and a tick ending
+/// late is the design (DESIGN, <i>slower than realtime is accuracy</i>).
+/// </para>
+/// <para>
+/// <b>Water may be added, removed or disturbed between slices, and that is the game's case</b>
+/// — the relay pours and edits land between frames. Every public mutator wakes into the
+/// <i>next</i> tick's set, so a cell touched mid-tick is revisited whether or not this tick
+/// already passed it, and conservation holds by construction as it always did. What is not
+/// allowed mid-tick is asking whether the automaton was right to stop: <see cref="VerifyQuiescent"/>
+/// refuses, because the question is about a stopped automaton.
 /// </para>
 /// </remarks>
 public sealed class FluidSimulation
@@ -70,8 +92,41 @@ public sealed class FluidSimulation
     // Order is fixed so a run is reproducible: +X, -X, +Z, -Z.
     private static readonly (int Dx, int Dz)[] Sideways = [(1, 0), (-1, 0), (0, 1), (0, -1)];
 
+    private static readonly double TicksPerMillisecond = Stopwatch.Frequency / 1000.0;
+
+    /// <summary>
+    /// How much of a frame the tick may take by default, when the caller slices it with
+    /// <see cref="Step(long)"/>: 2 ms, the mesh-apply budget's number.
+    /// </summary>
+    /// <remarks>
+    /// <b>An estimate, labelled as one, and <c>--fluidbudget=</c> is the sweep.</b> The arithmetic
+    /// that picked it: in Debug a visit is 2.9 µs, so 2 ms is ~690 visits a frame and ~41,000 a
+    /// second at 60 fps, which is the widest-breach flood's 20,737-cell peak still ticking at 2 Hz;
+    /// in Release (0.25 µs) it is ~480,000 a second, which is the whole light budget. The roof-open
+    /// case — 302,182 cells — then takes ~37 frames in Release and ~350 in Debug rather than
+    /// stalling one frame for 73 ms or 0.7 s: the water arrives over six seconds instead of the game
+    /// stopping. <b>A ceiling, not a reservation</b>: a tick that fits costs what it costs, and a
+    /// quiet grid costs nothing. Sibling of <c>ChunkPipeline.DefaultLightBudget</c> (4 ms) and the
+    /// mesh-apply budget (2 ms), and like them checked <i>after</i> a granule of work and never
+    /// before, so a budget of zero still visits one granule a frame and the tick still ends.
+    /// </remarks>
+    public static readonly TimeSpan DefaultTickBudget = TimeSpan.FromMilliseconds(2.0);
+
+    /// <summary>
+    /// Cells visited between two reads of the clock by <see cref="Step(long)"/>. The overshoot
+    /// past a deadline is bounded by one of these.
+    /// </summary>
+    /// <remarks>
+    /// Sixty-four visits is ~16 µs in Release and ~190 µs in Debug, so the worst overshoot is a
+    /// fifth of a millisecond in the build that needs the budget most, and the clock read is
+    /// amortised to under a nanosecond a visit. Per-visit checking would be a 10–15% tax in
+    /// Release for a guarantee nobody can see.
+    /// </remarks>
+    public const int VisitsPerDeadlineCheck = 64;
+
     private readonly IFluidTerrain _terrain;
     private readonly FluidGrid _grid = new();
+    private readonly Func<long> _nowTicks;
 
     // The active set, as a list for a deterministic visit order plus a set for deduplication.
     // A HashSet alone would work and would make the trajectory depend on hash ordering, which
@@ -79,6 +134,12 @@ public sealed class FluidSimulation
     private List<VoxelPos> _batch = [];
     private List<VoxelPos> _pending = [];
     private readonly HashSet<VoxelPos> _queued = [];
+
+    // The tick in progress: how far through its batch the cursor is, and what it has done so far.
+    // A batch with anything in it is a tick in progress; completing one empties it.
+    private int _cursor;
+    private int _tickCellsMoved;
+    private long _tickMillilitresMoved;
 
     /// <summary>Which way this fluid falls, as a sign on Y. Water falls down.</summary>
     /// <remarks>
@@ -91,16 +152,41 @@ public sealed class FluidSimulation
     /// </remarks>
     private readonly int _fallSign = -1;
 
-    public FluidSimulation(IFluidTerrain terrain)
+    /// <param name="terrain">The one question the automaton asks the world.</param>
+    /// <param name="nowTicks">
+    /// The clock <see cref="Step(long)"/> reads, in <see cref="Stopwatch"/> ticks. Injected the way
+    /// <c>ChunkPipeline</c> injects its own, so a test can drive a deadline deterministically; null
+    /// is <see cref="Stopwatch.GetTimestamp"/>. Nothing but the deadline check ever reads it.
+    /// </param>
+    public FluidSimulation(IFluidTerrain terrain, Func<long>? nowTicks = null)
     {
         ArgumentNullException.ThrowIfNull(terrain);
         _terrain = terrain;
+        _nowTicks = nowTicks ?? Stopwatch.GetTimestamp;
     }
+
+    /// <summary>Converts a budget to the clock's units, for a caller computing a deadline.</summary>
+    public static long BudgetTicks(TimeSpan budget) =>
+        (long)(budget.TotalMilliseconds * TicksPerMillisecond);
 
     public FluidGrid Grid => _grid;
 
-    /// <summary>Cells that will be examined on the next tick.</summary>
-    public int ActiveCellCount => _pending.Count;
+    /// <summary>
+    /// Cells still awake: those this tick has not yet visited, plus those queued for the next.
+    /// </summary>
+    /// <remarks>
+    /// At a tick boundary that is exactly the next tick's set, which is what every figure recorded
+    /// before the slice existed read. Mid-tick the unvisited half is counted too, because a report
+    /// taken between frames that showed only the next tick's queue would read a flood in progress
+    /// as nearly asleep.
+    /// </remarks>
+    public int ActiveCellCount => _pending.Count + RemainingInTick;
+
+    /// <summary>True between a tick beginning and its cursor reaching the end of its batch.</summary>
+    public bool TickInProgress => _batch.Count > 0;
+
+    /// <summary>Cells the tick in progress has still to visit. Zero at a tick boundary.</summary>
+    public int RemainingInTick => _batch.Count - _cursor;
 
     /// <summary>Millilitres held. The left-hand side of the conservation oracle.</summary>
     public long TotalMillilitres => _grid.TotalMillilitres;
@@ -228,39 +314,107 @@ public sealed class FluidSimulation
         }
     }
 
-    /// <summary>One tick over the active set, and nothing else.</summary>
-    public FluidTickResult Step()
+    /// <summary>
+    /// Visits up to <paramref name="maxVisits"/> cells of the tick in progress, beginning one if
+    /// none is. Returns the tick's result when this call completed it, and null while it has cells
+    /// left.
+    /// </summary>
+    /// <remarks>
+    /// <b>The deterministic primitive under both <see cref="Step()"/> overloads.</b> It reads no
+    /// clock, so <i>a tick run in slices lands the same water in the same cells as a tick run
+    /// whole</i> is a property a test can assert exactly rather than a claim about timing. A
+    /// slice that begins a tick swaps in the pending set as the batch and clears the queue, so
+    /// anything woken from here on is the <i>next</i> tick's business — including a cell of this
+    /// batch the cursor has not reached, which is then visited twice, as it always was when a
+    /// whole tick woke it.
+    /// </remarks>
+    public FluidTickResult? Resume(int maxVisits)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxVisits);
+
+        if (!TickInProgress)
+        {
+            Begin();
+        }
+
+        // Remaining first, then the minimum: Step() passes int.MaxValue, and adding that to a
+        // cursor past zero overflows negative — which returned null from a whole-tick call that
+        // was finishing a sliced tick, and the suite's first run is what said so.
+        int visited = Math.Min(_batch.Count - _cursor, maxVisits);
+        int end = _cursor + visited;
+        for (; _cursor < end; _cursor++)
+        {
+            long here = Visit(_batch[_cursor]);
+            if (here > 0)
+            {
+                _tickCellsMoved++;
+                _tickMillilitresMoved += here;
+            }
+        }
+
+        // Per slice rather than per tick, because a profile window can close mid-tick and the
+        // visits it paid for are the ones it should count.
+        CellVisits += visited;
+
+        return _cursor < _batch.Count ? null : Complete();
+    }
+
+    /// <summary>
+    /// Resumes the tick in progress, or begins one, and works on it until it completes or the
+    /// clock passes <paramref name="deadlineTicks"/>. Returns the result when the tick completed
+    /// in this call, null otherwise.
+    /// </summary>
+    /// <remarks>
+    /// <b>The deadline is checked after each granule of <see cref="VisitsPerDeadlineCheck"/>
+    /// visits and never before</b>, so every call makes progress and a deadline already in the
+    /// past — a budget of zero — still advances the tick by one granule. The same rule as
+    /// <c>ChunkPipeline</c>'s apply and light slices, for the same reason: a tick that costs more
+    /// than the whole budget would otherwise be deferred forever, and the water with it. The
+    /// overshoot past the deadline is bounded by one granule's cost.
+    /// </remarks>
+    public FluidTickResult? Step(long deadlineTicks)
+    {
+        while (true)
+        {
+            FluidTickResult? done = Resume(VisitsPerDeadlineCheck);
+            if (done is not null || _nowTicks() >= deadlineTicks)
+            {
+                return done;
+            }
+        }
+    }
+
+    /// <summary>One whole tick over the active set, and nothing else.</summary>
+    /// <remarks>
+    /// Finishes a tick in progress rather than starting a new one, so a caller that sliced and
+    /// then wants the boundary gets the boundary of the tick it was in.
+    /// </remarks>
+    public FluidTickResult Step() => Resume(int.MaxValue)!.Value;
+
+    private void Begin()
     {
         (_batch, _pending) = (_pending, _batch);
         _pending.Clear();
         _queued.Clear();
+        _cursor = 0;
+        _tickCellsMoved = 0;
+        _tickMillilitresMoved = 0;
 
         // Measured on the set actually visited rather than on the one left behind, because the
-        // peak is a cost figure and the cost was paid here.
+        // peak is a cost figure and the cost is paid here.
+        if (_batch.Count > PeakActiveCells)
+        {
+            PeakActiveCells = _batch.Count;
+        }
+    }
+
+    private FluidTickResult Complete()
+    {
         int visited = _batch.Count;
-        if (visited > PeakActiveCells)
-        {
-            PeakActiveCells = visited;
-        }
-
-        int cellsMoved = 0;
-        long moved = 0;
-
-        foreach (VoxelPos cell in _batch)
-        {
-            long here = Visit(cell);
-            if (here > 0)
-            {
-                cellsMoved++;
-                moved += here;
-            }
-        }
-
         _batch.Clear();
+        _cursor = 0;
         Ticks++;
-        CellVisits += visited;
-
-        return new FluidTickResult(visited, cellsMoved, moved, _pending.Count);
+        return new FluidTickResult(visited, _tickCellsMoved, _tickMillilitresMoved, _pending.Count);
     }
 
     /// <summary>
@@ -278,7 +432,9 @@ public sealed class FluidSimulation
         int ticks = 0;
         int peak = 0;
 
-        while (_pending.Count > 0 && ticks < maxTicks)
+        // A tick in progress is finished first and counts as one of the ticks: the bound is on
+        // ticks completed, and a caller that sliced before settling is still inside the first.
+        while ((TickInProgress || _pending.Count > 0) && ticks < maxTicks)
         {
             FluidTickResult tick = Step();
             ticks++;
@@ -288,7 +444,7 @@ public sealed class FluidSimulation
             }
         }
 
-        return new FluidSettleResult(ticks, _pending.Count == 0, peak, CellVisits - visitsBefore);
+        return new FluidSettleResult(ticks, ActiveCellCount == 0, peak, CellVisits - visitsBefore);
     }
 
     /// <summary>
@@ -303,6 +459,17 @@ public sealed class FluidSimulation
     /// </remarks>
     public bool VerifyQuiescent()
     {
+        if (TickInProgress)
+        {
+            // Not "false": a tick half-way through its batch has moves available by definition,
+            // and a caller asking here has confused a frame boundary with a tick boundary. That
+            // is a defect in the caller, and a boolean would let it read as a defect in the
+            // sleep rules.
+            throw new InvalidOperationException(
+                $"VerifyQuiescent asked mid-tick, with {RemainingInTick} cell(s) still to visit; "
+                + "finish the tick with Step() first.");
+        }
+
         foreach (VoxelPos cell in _grid.HeldCells())
         {
             if (!_terrain.CanHold(cell))
