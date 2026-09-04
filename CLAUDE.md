@@ -333,11 +333,14 @@ local folder, the remote URL, and the assistant's memory directory (see TODO's n
 **The played worlds now live under `app_userdata/Overburden/`; the `MinerCraft/` folder beside it
 is the pre-rename backup and is Matthew's to delete.**
 
-**Pick up here (2026-09-05).** The tick budget slice is built (next paragraph), which was the gate
-TODO put before the breach. Next is the milestone work: **M8b-2 — A → B, the breach**, portals
-indexed by 4 m sample and `BasinWater.Remove` as `Pour` reversed (see
-[docs/M8-PLAN.md](docs/M8-PLAN.md), M8b's split). The gate on the entangled miner is a battery and
-waits for M10. `git log origin/main..main` says what Matthew still has to push.
+**Pick up here (2026-09-05). M8b-2 is planned and not started** — see M8-PLAN's "M8b-2 — the
+planning pass" and TODO's three-way split (2a `Remove` and the height convention, 2b the portal
+index, 2c the draw and the play). **Two decisions are Matthew's before 2a begins**: whether a hole
+is only what was dug (recommended) and whether to fix Tier A's height convention now (recommended
+— `HeightField` samples the solid voxel's index, one slab under the plane the water stands on, and
+Tier B is where that stops being invisible). The tick budget slice that gated the breach is built
+(next paragraph). The gate on the entangled miner is a battery and waits for M10.
+`git log origin/main..main` says what Matthew still has to push.
 
 **The tick budget slice is built (2026-09-04). Suite 936 → 953.** `FluidSimulation.Step` is a
 cursor over its batch: `Resume(maxVisits)` visits up to N cells and returns the tick's result only

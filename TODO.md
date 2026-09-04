@@ -3827,10 +3827,29 @@ finding without the coarser-tolerance fallback.
       surface evaluations per column plus a record per chunk is most of what M6d-2 measured and
       chose not to chase. The p95 is unchanged because the first fill has nothing to hit. The
       lever would be seeding columns on a worker the way the restore already runs, or lazily.
-- [ ] **M8b-2 — A → B, the breach.** Portals (air at or below its surface with a neighbour above
-      *its* surface), found at edit time and by a load-time scan of surface-band chunks, indexed by
-      4 m sample so only wet samples are walked. `BasinWater.Remove` as `Pour` reversed. Oracle:
-      the two-tier identity, exact; flow stops when the level falls below the face.
+- [ ] **M8b-2 — A → B, the breach. Planned 2026-09-05, not started; see M8-PLAN's "M8b-2 — the
+      planning pass".** Split three ways, in order. **Two decisions are Matthew's before 2a**: what
+      counts as a hole (recommended: found through edits only), and whether to fix Tier A's height
+      convention now (recommended: yes — `HeightField` samples the solid voxel's index, one slab
+      under the plane the water stands on, and the seam is where that stops being invisible).
+      - [ ] **M8b-2a — `BasinWater.Remove` and the height convention.** `LevelAt`'s walk reversed:
+            from the lake's top slab down the path to the leaf, never a sibling, `Refresh` once.
+            Oracle: `Add(x)` then `Remove(x)` restores every slab; a merged lake's sibling drops to
+            the ridge and never below; `WalkingAwayAndBackLosesNoWater` gains a removal. Four
+            break-recipes named in the plan. Plus `SurfaceHeightAt + 1` with the first-litre test.
+      - [ ] **M8b-2b — the portal index.** `SkyColumn` keeps its seed heights (2 KB a column, never
+            persisted); `PortalIndex` in `Core/Fluid/` with `Scan`, `OnVoxelChanged`, `Forget`,
+            keyed by world-lattice sample. Oracle: incremental equals a from-scratch scan after any
+            sequence of scans, edits and forgets. A natural cave can only ever be a bank portal
+            (`CaveSurfaceMarginVoxels`). Time a bite's worth of edits against the ~3 ms estimate.
+      - [ ] **M8b-2c — the draw, the wiring, the profile, the play.** `onVoxelsReady` fired at
+            generate, load *and* cache revival, exactly once each; `DrawThroughPortals` at the tick
+            boundary; `drawn` on both tiers' profile lines; `--breach=<voxels>` bites a hole under
+            the player when the window opens. Oracle: the Core twin's two-tier identity, exact; flow
+            stops at the face; a pit under a full basin fills by exactly what the basin lost; the
+            streaming digits unchanged. Play: `Q` a chunk out from under the terrace pond.
+      - [ ] **Stated gap until M8b-4: a quit loses the pit's water.** The lake's loss persists via
+            the ledger; the pit's gain lives in RAM. Acceptable for the seam, not to ship.
 - [ ] **M8b-3 — B → A, the handoff and the settle.** Resting cells above the surface hand whole
       litres to their basin; **measure how much of a spill's awake set that removes before building
       anything else**; then the analytic settle on no-inflow regions and on unload.

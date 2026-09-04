@@ -1,5 +1,45 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-05 — M8b-2 planned, not started: the breach, read against the code, and Tier A has been one slab low since M7
+
+**A planning pass for M8b-2 before any code — Matthew: *"they like mean everything"* — recorded in
+M8-PLAN under "M8b-2 — the planning pass".** The plan's paragraph was read against `BasinWater`,
+`MergeTree`, `VolumeCurve`, `HeightField`, `Watershed`, `WaterSystem`, `SkyColumn`, `WaterSurface`,
+the pipeline's edit hook and the streamer's three arrival paths. Five findings, two decisions handed
+back, a three-way split. The things worth keeping:
+
+- **Tier A's height convention is the solid voxel's index, not the plane the water stands on.**
+  `HeightField.Sample` stores `SurfaceHeightAt`, the topmost *solid* voxel; the curve counts litres
+  from there; `WaterSurface` draws at `level × 0.25 m`, which for a level inside `(h, h+1]` is
+  inside the top ground voxel. A pond's first 4,000 L per sample have filled a phantom slab in the
+  rock and drawn nothing since M7d-2, and nobody could see it. Tier B puts water in real voxels, so
+  the seam is where the two conventions meet. **Recommended fix: sample `SurfaceHeightAt + 1`**,
+  the plane `SkyColumn.Seed` already uses; identity, capacities and stored litres unchanged, levels
+  up one voxel, one test. Matthew's call, because it moves what a played pond looks like.
+- **`Remove` is `LevelAt`'s walk reversed, not `Pour`'s.** Water leaving through a floor comes off
+  the top of the lake the basin is part of: up to the lake's top node, take from that slab, then
+  down the path to the leaf, never a sibling — once the shared slab is empty the other side is its
+  own lake, which is Tier B's *no siphons* rule arriving in Tier A. Four break-recipes named.
+- **The analytic surface the portal test needs is computed already and thrown away.**
+  `SkyColumn.Seed` evaluates it for all 1,024 columns and keeps only the edited height. Decided:
+  `SkyColumn` keeps its seed heights (2 KB a column), so the test at edit time is reads — and a
+  chunk bite is 32,768 edit-time calls, M8b-1's `Disturb` rule verbatim. M8c wants the same number.
+- **A natural cave can never be a pit-floor portal**, because worldgen keeps every cave
+  `CaveSurfaceMarginVoxels` below its own column's surface; only a cliff-face bank under a lake
+  could be one. That is most of the argument for finding portals through edits only (decision 1).
+- **Cache revival is a third arrival path** that goes through neither `Complete(Generate)` nor
+  `Complete(Load)`, so the load-time scan wants one pipeline callback, `onVoxelsReady`, with the
+  test that every arrival fires it exactly once.
+- **The chamber bench is already this seam's model** — a lake for a source, the top layer as the
+  portals — so its figures (43,374 cells for one bitten chunk, 302,182 for 2 × 2 × 2, sliced since
+  yesterday) stand as the prediction rather than a number to take.
+- **Until M8b-4 a quit loses a pit's water**: the ledger persists the lake's loss and RAM holds the
+  pit's gain. Stated in the plan and TODO rather than discovered in play.
+
+**Split**: M8b-2a `Remove` and the convention; M8b-2b the portal index, with the incremental-equals-
+from-scratch oracle; M8b-2c the draw, `onVoxelsReady`, `drawn` on both tiers' profile lines, and
+`--breach=<voxels>` as the headless seam in the shape `--injectlitres` has. Nothing built.
+
 ## 2026-09-04 — The tick budget slice: a tick is a cursor over its batch, the trajectory is unchanged, and a roof falling in is 38 frames instead of one
 
 **`FluidSimulation.Step` is resumable across frames.** Suite 936 → 953. The tick was the one

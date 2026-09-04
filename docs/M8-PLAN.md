@@ -388,6 +388,148 @@ not be cancelled**, for the reason a chunk save must not be. **Oracle:** the Tie
 reopen: the same millilitres in the same cells. **This is the part where a defect is permanent
 data loss, so it is last and it is alone.**
 
+### M8b-2 — the planning pass, 2026-09-05, before any code
+
+Read against `BasinWater`, `MergeTree`, `VolumeCurve`, `HeightField`, `Watershed`, `WaterSystem`,
+`SkyColumn`, `WaterSurface`, the pipeline's edit hook and the streamer's arrival paths. Five things
+the paragraph above stated one level above where the answer sits, then the decisions, the split,
+the oracles and the cost model.
+
+**1. Tier A's height convention is the solid voxel's index, not the plane the water stands on —
+and the seam is where that stops being cosmetic.** `HeightField.Sample` stores `SurfaceHeightAt`,
+which is the topmost *solid* voxel; `VolumeCurve` counts litres as `(level − h)` per cell; and
+`WaterSurface` draws the quad at `level × 0.25 m`, which for a level inside `(h, h+1]` is *inside*
+the top ground voxel, because voxel `h` occupies `[h, h+1)`. Tier A has been self-consistent and one
+slab low since M7: a pond's first 4,000 L per sample fill a phantom slab inside the rock and draw
+nothing, which nobody could see. Tier B puts water in real voxels, so the moment litres cross the
+seam the two conventions meet. **Recommendation: sample `SurfaceHeightAt + 1` — the plane
+`SkyColumn.Seed` already calls the sky's start — so a Tier A level is the plane the water stands
+on.** Basin identity is a pit's (x, z) and is untouched; capacities are differences of heights and
+are unchanged; stored litres are unchanged and their solved levels move up one voxel, which is where
+they always were. A pond then draws from its first litre. One line, one test (*a basin's first litre
+draws above the ground, not inside it*), and every M7 level figure in the worklog reads one voxel
+low from then on. **Matthew's decision**, because it moves what a played world's ponds look like.
+
+**2. `Remove` is not `Pour` reversed; it is `LevelAt`'s walk reversed.** `Pour` fills children before
+a parent's slab, bottom-up from the leaf. Water leaving through a hole in a basin's floor comes off
+the *top* of whatever lake that basin is part of: walk up from the leaf exactly as `LevelAt` does —
+while the node is brim-full and its parent's slab holds something — to the lake's top node, take
+from that slab, then from each node down the path to the leaf, and `Refresh(basin)` once. Never a
+sibling off the path: once the shared slab is empty the level is at the ridge and the other side is
+its own lake, which is Tier B's *no siphons* rule arriving in Tier A. Returns what it took, which may
+be less than asked. Break-recipes, each with its own test: take from the leaf first (a hole under a
+merged lake would empty its own basin while the lake stayed level — the wrong physics, visibly);
+take from a sibling; skip `Refresh` (the level is solved from a stale rolled-up count, which is
+exactly the defect M7's battery found in `Add`); and the identity `Add(x)` then `Remove(x)` restores
+every slab, to the litre. **The window twin**: a `Remove` is carried by `CaptureByBasin` → `Absorb`
+with nothing new to store, so `WalkingAwayAndBackLosesNoWater` gains a removal.
+
+**3. A portal is a property of a voxel and its six neighbours, and the analytic surface it needs is
+computed already and thrown away.** `SkyColumn.Seed` evaluates `SurfaceHeightAt` for all 1,024
+columns of a chunk column — the cost `viewer ms` turned out to be — and keeps only the edited
+open-above height. The portal test needs the *seed* height of the voxel's column and of its four
+neighbours' columns, at edit time and in the scan. **Decision: `SkyColumn` keeps its seed heights**
+(a second 2 KB `short` array, ~0.6 MB at r6, never persisted because it is analytic and re-derivable
+at `Seed`), so the test is array reads. That is also the number M8c's seepage wants — saturation
+against the ground surface — so it is built once. With it, the portal test for voxel `v` at `(x, y,
+z)` with seed surface `s`: `y > s` → not a portal; `y == s` → a *pit* portal iff `v` and `(x, s+1,
+z)` are holdable; `y < s` → a *bank* portal iff some horizontal neighbour column has `s' < y` and
+both `v` and that neighbour voxel are holdable. **A natural cave can never be a pit portal**, because
+worldgen keeps every cave `CaveSurfaceMarginVoxels` below its own column's surface; it can only be
+a bank portal, on a cliff whose neighbour column is lower by more than the margin, under a lake.
+
+**4. The edit-time hook is a chunk bite × 32,768, and the load-time scan has a third arrival
+path.** M8b-1's rule for `Disturb` applies verbatim: a bite is 32,768 `onVoxelChanged` calls, and
+anything per call is multiplied by that. With seed heights as reads the test is ~100 ns and a bite
+~3 ms *(estimate; measure)*. The scan runs when a chunk's voxels arrive — `Complete(Generate)`,
+`Complete(Load)`, and **a cache revival, which goes through neither** — so it wants one pipeline
+callback, `onVoxelsReady`, fired wherever `chunk.Voxels` is set on the sim thread, with the test
+that every arrival fires it exactly once. Per chunk the scan is per column: the surface voxel, plus
+the bank face `(s', s]` toward each lower neighbour — a few thousand reads, ~50 µs *(estimate)*.
+Portals leave the index when their chunk is forgotten, evicted or cached, or the index grows for
+ever and walks unloaded voxels.
+
+**5. Indexed by 4 m sample, walked per key, with the covered test on the *neighbour*.**
+`Dictionary<(sampleX, sampleZ), List<VoxelPos>>` keyed on the world lattice, which a window move
+does not rename. Each tick: per key, one label lookup through the current window's origin (a key
+outside the window or on an `Outlet` sample is skipped); per portal, covered iff
+`LevelAt(basin) > n.y` where `n` is the above-surface neighbour — for a bank portal `n`'s sample,
+not `v`'s, because that is where the water is. A covered portal draws `min(floor(room / 1000),
+what the path holds)` whole litres: `Remove` first, then `FluidSimulation.Add`, and the two must
+agree to the litre or the identity breaks. A full cell takes 15 L and then sits at 625 mL of room
+until it drains — "full to the litre", by design. So one portal voxel is 30 L/s at 2 Hz, which is
+M8a's measured 29; a bitten chunk under a lake is 1,024 portals in four samples, and its tick is
+the chamber fixture's 43,374-cell tick, **which the tick budget slice now bounds** — the bench's
+`--fluidshape chamber` is this seam's model with a lake for a source, so its figures stand as the
+prediction.
+
+**The one thing the seam does not persist, stated.** Until M8b-4, water drawn into a pit lives in
+RAM: the lake has lost its litres (the ledger persists that) and a quit loses the pit's. A quit
+deletes water. That is M8's known first — *the only copy of something is in RAM* — and it is why
+M8b-4 exists and is last; it is acceptable for the debug-stage seam and unacceptable to ship.
+
+**The Tier A surface over a draining pit** stays where it is: the pit's sample height is the
+*analytic* one, so the quad hangs at the lake level until the level falls under the sample, while
+Tier B's debug surface fills the pit below it. Two surfaces for one body of water, briefly. M8d
+owns the look; recorded here so the first screenshot is not read as a defect.
+
+#### The split — three, each headless-verifiable, in this order
+
+- **M8b-2a — `BasinWater.Remove` and the height convention.** Core only. The walk above, the four
+  break-recipes, the window twin, and — if Matthew agrees — `SurfaceHeightAt + 1` in
+  `HeightField.Sample` with the first-litre test. **Oracle**: `Add(x)` then `Remove(x)` is the
+  identity on every slab; a removal from a merged lake lowers the sibling's level to the ridge and
+  never below it; `LevelAt` after a removal equals the curve's level for what remains.
+- **M8b-2b — the portal index.** Core, in `Overburden.Core/Fluid/`, with nothing drawing yet:
+  `PortalIndex.Scan(chunk, heights, world)`, `OnVoxelChanged`, `Forget(chunk)`, and the seed heights
+  on `SkyColumn`. **Oracle**: after any sequence of scans, edits and forgets, the index equals a
+  from-scratch scan of every loaded chunk — M5b's incremental-equals-from-scratch, and here
+  from-scratch is cheap enough to *be* the definition. Break-recipes: skip the neighbours on an
+  edit; skip bank portals; skip the forget; a placed block that leaves its portal standing; a bite's
+  worth of edits timed, against the ~3 ms estimate.
+- **M8b-2c — the draw, the wiring, the profile and the play.** `onVoxelsReady` on the pipeline,
+  the index fed from it and from `onVoxelChanged` and the streamer's forget; `DrawThroughPortals`
+  at the tick boundary beside `PourPending`; `drawn` printed on *both* tiers' lines so each identity
+  stays exact alone and the two-tier one is their sum; **`--breach=<voxels>`** as the headless
+  provocation — a hole bitten under the player when the window opens, the shape `--injectlitres`
+  already has — because the hardest part of testing M8 is still getting water to move. **Oracle**:
+  a Core twin — `WaterSystem` over `AnalyticSurface`, `FluidSimulation` over a matching
+  `PredicateTerrain` with a pit, the index between them — holding
+  `A_held + B_held == rained − spilled + injected − removed − displaced` exactly across many ticks;
+  the flow stops when the level reaches the face and not before; a pit under a full basin fills and
+  the basin drops by exactly what arrived; the r4 and r6 streaming digits unchanged with nothing
+  breached. **Play**: bite a chunk under the terrace pond with `Q` and watch the pond drop.
+
+#### Decisions
+
+Settled in this pass: seed heights kept on `SkyColumn`; the portal test as written in 3; portals
+found through edits (below); `onVoxelsReady` as one callback for three arrival paths; the index
+keyed on the world lattice; `--breach=` as the seam.
+
+**For Matthew, two:**
+
+1. **What counts as a hole: only what was dug, or any air where the seed had rock?** The plan and
+   the play both framed the breach as *the excavation*. **Recommendation: found through edits** —
+   portals are looked for at edit time and by scanning chunks that arrive with edits, and nowhere
+   else. A natural cave mouth on a cliff face under a lake in an unedited chunk is then not a
+   portal, and the lake hangs over it as it does today. The alternative scans every surface-band
+   chunk and drains every lake that touches a cave mouth, at load, world-wide — a behaviour M7's
+   play never saw, with no cost model, from a milestone whose oracle is exact volume. It is a
+   one-line widening later (drop the edits filter). **Revisit trigger: the first play that finds a
+   lake overhanging a cave mouth and reads it as wrong.**
+2. **Fix Tier A's height convention now (finding 1)?** **Recommendation: yes, in M8b-2a**, because
+   the seam is where the one-slab offset stops being invisible, and it is cheaper to move before
+   the B→A handoff (M8b-3) is written against the old convention than after.
+
+#### Cost model, all estimates until M8b-2b and 2c measure them
+
+Per tick: one tree walk per sample holding portals, one room read per portal under a wet sample,
+and a `Remove` + `Add` per portal that draws — bounded by excavation under standing water, not by
+the world. Edit time: ~100 ns per edited voxel, ~3 ms per chunk bite. Arrival: ~50 µs per chunk
+in the surface band, once. Memory: 2 KB per sky column for the seed heights, ~0.6 MB at r6, plus
+the index, which is one `VoxelPos` per portal. The worst tick is the chamber fixture's, already
+measured and already sliced.
+
 ### Why this might go first
 
 M6d-1 set the precedent that a later part goes first when it answers an earlier one's question, and
