@@ -3817,6 +3817,18 @@ finding without the coarser-tolerance fallback.
 - [ ] **M8b-4 — the store.** `fluid` table, save job on the serial lane, never cancelled; loaded
       cells are not woken. Oracle: flood, walk away, walk back, quit, reopen — the same millilitres
       in the same cells. **Last and alone, because a defect here is permanent data loss.**
+- [ ] **M8d — the transparent pass has its first play verdict before it is planned (2026-09-04).**
+      Matthew, on the relay's water stepping down a terraced hillside: *"looks cool going down the
+      stairs"*, and then *"it would be nice if eventually it's a bit more 3D, like it's a very flat
+      affair right now, but I assumed this would happen in later steps."* It does: M8b-1's surface
+      is a debug surface, one flat quad per cell at its fill height, and M7d-2's lake is one plane
+      per basin — both drawn so the water could be *seen*, not so it could be looked at. What
+      "more 3D" wants from M8d, read off the screenshots: **the vertical faces where water meets
+      air on a step**, so a sheet has a lip and a fall has a front; depth in the colour, so a
+      puddle and a pool differ; and the waterfall question the plan already names, since a sheet
+      stepping down at 2 Hz is the case *slower than realtime* has to survive. Goes in beside M8d's
+      three play questions as the fourth. Not a request to start it — his words were "don't let
+      me stop you."
 
 #### Slower than realtime is accuracy, not approximation — Matthew, 2026-09-01
 

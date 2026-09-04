@@ -575,7 +575,13 @@ relay would be *"invaluable"* for testing — and 10,000 L a press went down the
 stair-stepped sheets, one 0.25 m layer a step. His verdict on the look: *"looks cool going down the
 stairs."* That is Tier B falling one cell a tick at 2 Hz on the integer heightmap's risers, and it
 is the first eye on M8d's waterfall question, ahead of the milestone that owns it. Not saved, so a
-quit clears it; Alt+R takes it back within 2 m; `--nowater` turns the tier off.
+quit clears it; Alt+R takes it back within 2 m; `--nowater` turns the tier off. **And a second
+remark, which is M8d's first requirement**: *"it would be nice if eventually it's a bit more 3D,
+like it's a very flat affair right now, but I assumed this would happen in later steps."* It does —
+what he is looking at is the debug surface, one flat quad per cell, drawn so the automaton could be
+seen at all — and the assumption is recorded in TODO against M8d, with what "more 3D" wants read off
+the screenshots: vertical faces where water meets air on a step, depth in the colour, and the
+waterfall look.
 
 ## 2026-09-03 — The fluid-kind seam: three options, and a grid per kind is the recommendation
 
