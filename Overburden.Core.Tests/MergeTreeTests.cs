@@ -16,7 +16,11 @@ public class MergeTreeTests
 {
     private const long PerVoxel = 4000;
 
-    /// <summary>Two equal pits either side of a ridge at 5, inside one rim at 20.</summary>
+    /// <summary>Two equal pits either side of a ridge at 5, inside one rim at 20 — planes 3, 6, 21.</summary>
+    /// <remarks>
+    /// Grid entries are solid voxels and the field samples the plane above each, so every height
+    /// and level asserted below reads one higher than the grid. See <c>SampleGrid</c>.
+    /// </remarks>
     private static int[,] TwoPitsOneRidge() =>
         new[,]
         {
@@ -50,9 +54,9 @@ public class MergeTreeTests
         Assert.Equal(3, tree.NodeCount);
         int composite = tree.Parent(0);
         Assert.Equal(composite, tree.Parent(1));
-        Assert.Equal(5, tree.SpillHeight(0));
-        Assert.Equal(5, tree.SpillHeight(1));
-        Assert.Equal(20, tree.SpillHeight(composite));
+        Assert.Equal(6, tree.SpillHeight(0));
+        Assert.Equal(6, tree.SpillHeight(1));
+        Assert.Equal(21, tree.SpillHeight(composite));
         Assert.True(tree.SpillsOut(composite));
 
         // Each pit holds three voxels of depth over one cell; the ground between them, filled from
@@ -81,29 +85,29 @@ public class MergeTreeTests
 
         // Exactly enough for the first pit: it is brim-full at the ridge and the other is dry.
         water.Add(0, 3 * PerVoxel);
-        Assert.Equal(5, water.LevelAt(0));
-        Assert.Equal(2, water.LevelAt(1));
+        Assert.Equal(6, water.LevelAt(0));
+        Assert.Equal(3, water.LevelAt(1));
         Assert.Equal(0, water.SlabLitres(composite));
 
         // The next drop crosses the ridge and runs downhill rather than standing on it.
         water.Add(0, 1 * PerVoxel);
         Assert.Equal(0, water.SlabLitres(composite));
         Assert.Equal(1 * PerVoxel, water.SlabLitres(1));
-        Assert.Equal(5, water.LevelAt(0));
-        Assert.InRange(water.LevelAt(1), 2.9, 3.1);
+        Assert.Equal(6, water.LevelAt(0));
+        Assert.InRange(water.LevelAt(1), 3.9, 4.1);
 
         // Only once both are brim-full does the surface rise into the ground between them — and
         // then it is one lake, so both basins report the same level.
         water.Add(0, 2 * PerVoxel);
-        Assert.Equal(5, water.LevelAt(0));
-        Assert.Equal(5, water.LevelAt(1));
+        Assert.Equal(6, water.LevelAt(0));
+        Assert.Equal(6, water.LevelAt(1));
 
         water.Add(0, 16 * PerVoxel);
         Assert.Equal(water.LevelAt(0), water.LevelAt(1));
 
-        // Three cells under water — the two pits at 2 and the ridge at 5 — so 22 voxels of depth
-        // stands at (22 + 9) / 3 = 10.33.
-        Assert.InRange(water.LevelAt(0), 10.3, 10.4);
+        // Three cells under water — the two pit planes at 3 and the ridge plane at 6 — so 22
+        // voxels of depth stands at (22 + 12) / 3 = 11.33.
+        Assert.InRange(water.LevelAt(0), 11.3, 11.4);
     }
 
     [Fact]

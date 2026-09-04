@@ -174,8 +174,10 @@ public sealed class WaterSurface
     /// <remarks>
     /// <b>Strictly under, so a basin whose water exactly reaches a sample's height draws no quad
     /// there.</b> Both sides are the same quantity — the level is in voxel Y and so is the sampled
-    /// height — and a surface flush with the ground is a surface nobody can see, drawn at exactly
-    /// the depth where it would z-fight with the terrain it sits on.
+    /// height, which since M8b-2a is the plane the ground's top face sits on rather than the solid
+    /// voxel's index — and a surface flush with the ground is a surface nobody can see, drawn at
+    /// exactly the depth where it would z-fight with the terrain it sits on. Before M8b-2a a basin
+    /// had to hold a whole slab per sample before this test passed anywhere.
     /// </remarks>
     private static bool IsWet(
         Watershed watershed,

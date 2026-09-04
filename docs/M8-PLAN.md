@@ -475,11 +475,13 @@ owns the look; recorded here so the first screenshot is not read as a defect.
 
 #### The split — three, each headless-verifiable, in this order
 
-- **M8b-2a — `BasinWater.Remove` and the height convention.** Core only. The walk above, the four
-  break-recipes, the window twin, and — if Matthew agrees — `SurfaceHeightAt + 1` in
-  `HeightField.Sample` with the first-litre test. **Oracle**: `Add(x)` then `Remove(x)` is the
-  identity on every slab; a removal from a merged lake lowers the sibling's level to the ridge and
-  never below it; `LevelAt` after a removal equals the curve's level for what remains.
+- **M8b-2a — `BasinWater.Remove` and the height convention. ✅ Built 2026-09-05; see "M8b-2a —
+  built" below.** Core only. The walk above, the four break-recipes, the window twin, and — if
+  Matthew agrees — `SurfaceHeightAt + 1` in `HeightField.Sample` with the first-litre test.
+  **Oracle**: `Add(x)` then `Remove(x)` is the identity on every slab *(corrected when built: it is
+  `Remove(x)` then `Add(what it took)` that is always the identity; the other holds only inside one
+  lake)*; a removal from a merged lake lowers the sibling's level to the ridge and never below it;
+  `LevelAt` after a removal equals the curve's level for what remains.
 - **M8b-2b — the portal index.** Core, in `Overburden.Core/Fluid/`, with nothing drawing yet:
   `PortalIndex.Scan(chunk, heights, world)`, `OnVoxelChanged`, `Forget(chunk)`, and the seed heights
   on `SkyColumn`. **Oracle**: after any sequence of scans, edits and forgets, the index equals a
@@ -506,7 +508,8 @@ Settled in this pass: seed heights kept on `SkyColumn`; the portal test as writt
 found through edits (below); `onVoxelsReady` as one callback for three arrival paths; the index
 keyed on the world lattice; `--breach=` as the seam.
 
-**For Matthew, two:**
+**For Matthew, two — both taken as recommended on 2026-09-05 (*"Lets continue"*): a hole is what
+was dug, and the convention is fixed in M8b-2a.**
 
 1. **What counts as a hole: only what was dug, or any air where the seed had rock?** The plan and
    the play both framed the breach as *the excavation*. **Recommendation: found through edits** —
@@ -529,6 +532,29 @@ the world. Edit time: ~100 ns per edited voxel, ~3 ms per chunk bite. Arrival: ~
 in the surface band, once. Memory: 2 KB per sky column for the seed heights, ~0.6 MB at r6, plus
 the index, which is one `VoxelPos` per portal. The worst tick is the chamber fixture's, already
 measured and already sliced.
+
+#### M8b-2a — built 2026-09-05
+
+Suite 953 → 963. What departed from the paragraph above, and what it found:
+
+- **The oracle was stated backwards.** `Add(x)` then `Remove(x)` is the identity only while the add
+  stays inside one lake; water that crossed a ridge into a neighbour with room is the neighbour's,
+  and a hole on this side comes back short. That is the no-siphons rule, not a defect. The identity
+  that always holds is `Remove(x)` then `Add(what it took)`, because every sibling along the walk
+  was full — fuzzed over random terrain, every slab and free count to the litre. Both are tests.
+- **`LevelAt` had a defect the planning pass did not see, and `Remove` inherits the walk that has
+  it fixed.** A composite closed at the same crossing height as its children has zero own capacity,
+  so "the parent's slab is empty" said nothing about whether the water stood above the ridge; three
+  pits on one flat shelf reported one lake at two heights, since M7a-2. `LakeTop` is now the one
+  walk both verbs use: through a zero-capacity parent when both children are full, stopping there
+  when the sibling is not. Caught by a three-pit fixture and by the random-terrain fuzz.
+- **The plane is pinned to the sky column.** `HeightField` and `SkyColumn.Seed` both store
+  `SurfaceHeightAt + 1`, asserted equal over sixteen columns of one analytic surface — because 2b's
+  portal test asks the sky column and Tier A asks the field, and a slab between them would have
+  been the seam's first defect. Every played pond's surface is one voxel higher than before.
+- **Thirteen break-recipes, thirteen caught**; the old walk by exactly the two tests written for
+  it, take-from-sibling by the ridge rule (invisible to capture-and-re-pour, since a drained sibling
+  is a reachable state), the sky column's +1 by the pin test alone. Nothing built on the Game side.
 
 ### Why this might go first
 

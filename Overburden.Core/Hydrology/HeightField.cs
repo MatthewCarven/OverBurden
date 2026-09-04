@@ -23,9 +23,20 @@ namespace Overburden.Core.Hydrology;
 /// basin with nothing failing anywhere.
 /// </para>
 /// <para>
-/// Heights are voxel Y, exactly as <see cref="ISurfaceHeights"/> reports them, because integers
-/// compare exactly and the flood is nothing but comparisons. Metres appear only where litres are
-/// computed.
+/// <b>A sample is the plane the water stands on, not the voxel under it.</b>
+/// <see cref="ISurfaceHeights.SurfaceHeightAt"/> reports the topmost <i>solid</i> voxel, which
+/// occupies <c>[h, h+1)</c>; the field stores <c>h + 1</c>, the first open voxel — the same plane
+/// <c>SkyColumn.Seed</c> calls the sky's start, and a test pins the two to each other. From M7
+/// until M8b-2a (2026-09-05) the field stored <c>h</c> itself: self-consistent, since every
+/// height moved together and a capacity is a difference of heights, and one slab low — a pond's
+/// first litres per sample filled a phantom slab inside the rock and drew nothing, which nobody
+/// could see until Tier B put water in real voxels and the two conventions met at the seam.
+/// Basin identity is a pit's (x, z) and is untouched; stored litres are untouched and their
+/// solved levels sit one voxel higher, which is where they always were.
+/// </para>
+/// <para>
+/// Heights stay integer voxel Y, because integers compare exactly and the flood is nothing but
+/// comparisons. Metres appear only where litres are computed.
 /// </para>
 /// </remarks>
 public sealed class HeightField
@@ -153,13 +164,15 @@ public sealed class HeightField
             int row = sz * pitch;
             for (int sx = 0; sx < pitch; sx++)
             {
-                int height = heights.SurfaceHeightAt(originX + (sx * cellVoxels), worldZ);
+                // One above the topmost solid voxel: the plane the water stands on. See the
+                // remarks — the field stored the solid voxel's own index from M7 to M8b-2a.
+                int height = heights.SurfaceHeightAt(originX + (sx * cellVoxels), worldZ) + 1;
                 if (height <= -MaxAbsoluteHeight || height >= MaxAbsoluteHeight)
                 {
                     throw new ArgumentOutOfRangeException(
                         nameof(heights),
                         height,
-                        $"Surface height is outside ±{MaxAbsoluteHeight} voxels, which the flood's "
+                        $"Surface plane is outside ±{MaxAbsoluteHeight} voxels, which the flood's "
                         + "packed sort key cannot carry.");
                 }
 

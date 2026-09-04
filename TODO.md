@@ -3827,16 +3827,21 @@ finding without the coarser-tolerance fallback.
       surface evaluations per column plus a record per chunk is most of what M6d-2 measured and
       chose not to chase. The p95 is unchanged because the first fill has nothing to hit. The
       lever would be seeding columns on a worker the way the restore already runs, or lazily.
-- [ ] **M8b-2 — A → B, the breach. Planned 2026-09-05, not started; see M8-PLAN's "M8b-2 — the
-      planning pass".** Split three ways, in order. **Two decisions are Matthew's before 2a**: what
-      counts as a hole (recommended: found through edits only), and whether to fix Tier A's height
-      convention now (recommended: yes — `HeightField` samples the solid voxel's index, one slab
-      under the plane the water stands on, and the seam is where that stops being invisible).
-      - [ ] **M8b-2a — `BasinWater.Remove` and the height convention.** `LevelAt`'s walk reversed:
-            from the lake's top slab down the path to the leaf, never a sibling, `Refresh` once.
-            Oracle: `Add(x)` then `Remove(x)` restores every slab; a merged lake's sibling drops to
-            the ridge and never below; `WalkingAwayAndBackLosesNoWater` gains a removal. Four
-            break-recipes named in the plan. Plus `SurfaceHeightAt + 1` with the first-litre test.
+- [ ] **M8b-2 — A → B, the breach. Planned 2026-09-05, 2a built the same day; see M8-PLAN's
+      "M8b-2 — the planning pass" and "M8b-2a — built".** Split three ways, in order. **Both
+      decisions taken as recommended (2026-09-05, *"Lets continue"*)**: a hole is what was dug —
+      portals are found through edits only, with the revisit trigger the plan names — and Tier A's
+      height convention is fixed.
+      - [x] **M8b-2a — `BasinWater.Remove` and the height convention. Built 2026-09-05, suite 953 →
+            963.** `LakeTop` is the one walk `LevelAt` and `Remove` share; `Remove` takes from the
+            top slab down the path, never a sibling, `Refresh` once, returns what it took.
+            **The oracle was stated backwards**: `Remove(x)` then `Add(what it took)` is always the
+            identity; `Add(x)` then `Remove(x)` only inside one lake — water that crossed a ridge is
+            the neighbour's. **And `LevelAt` reported one lake at two heights since M7a-2**: a
+            composite closed at its children's height has a slab that can never hold anything, and
+            the old walk stopped at it; three pits on a flat shelf is the fixture. `HeightField`
+            samples `SurfaceHeightAt + 1`, pinned to `SkyColumn.Seed`'s plane by a test; every
+            played pond's surface is one voxel higher. Thirteen break-recipes, thirteen caught.
       - [ ] **M8b-2b — the portal index.** `SkyColumn` keeps its seed heights (2 KB a column, never
             persisted); `PortalIndex` in `Core/Fluid/` with `Scan`, `OnVoxelChanged`, `Forget`,
             keyed by world-lattice sample. Oracle: incremental equals a from-scratch scan after any

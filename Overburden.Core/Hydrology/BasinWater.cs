@@ -25,6 +25,14 @@ namespace Overburden.Core.Hydrology;
 /// the ground between them.
 /// </para>
 /// <para>
+/// <b>Removing takes off the top of the lake, which is the opposite walk</b> — see
+/// <see cref="Remove"/>. Water leaving through a basin's floor lowers the surface of whatever lake
+/// that basin is part of, and the surface is the topmost slab on the path from the leaf up; it
+/// never reaches sideways into a sibling, because once the slab above a ridge is empty the other
+/// side is its own lake. Both verbs find "the lake this basin is part of" through one walk,
+/// <see cref="LakeTop"/>, which <see cref="LevelAt"/> uses too, so there is one definition of it.
+/// </para>
+/// <para>
 /// Litres are <c>long</c> and exact, per M6c-2's argument for the inventory: a float accumulator
 /// drifts and "how full is it" stops having one answer. M7b's integrate-forward oracle — 600 s in
 /// one call equalling 600 calls of one second, to the litre — rests on this staying integral.
@@ -36,6 +44,13 @@ public sealed class BasinWater
     private readonly long[] _volume;
     private readonly long[] _free;
 
+    /// <summary>Scratch for <see cref="LakeTop"/>: the nodes from a leaf up to its lake's top.</summary>
+    /// <remarks>
+    /// Sized to the node count because a merge tree can be a chain, and allocated once because a
+    /// removal runs per portal per tick once M8b-2c wires the seam.
+    /// </remarks>
+    private readonly int[] _path;
+
     public BasinWater(MergeTree tree)
     {
         ArgumentNullException.ThrowIfNull(tree);
@@ -43,6 +58,7 @@ public sealed class BasinWater
         _tree = tree;
         _volume = new long[tree.NodeCount];
         _free = new long[tree.NodeCount];
+        _path = new int[Math.Max(1, tree.NodeCount)];
         for (int node = 0; node < tree.NodeCount; node++)
         {
             _free[node] = tree.Capacity(node);
@@ -113,28 +129,113 @@ public sealed class BasinWater
     /// </summary>
     public double LevelAt(int basin)
     {
-        int node = basin;
-        while (_free[node] == 0)
-        {
-            if (_tree.SpillsOut(node))
-            {
-                return _tree.SpillHeight(node);
-            }
+        // A brim-full top — spilling out of the window, or waiting at its rim on a neighbour that
+        // has not filled — is at its spill height, and the curve says so on its own: a subtree
+        // holding its whole capacity is at its saddle, which Close fixed as the same number.
+        int top = LakeTop(basin, out _);
+        return _tree.Curve(top).LevelAt(StoredIn(top));
+    }
 
-            // Brim-full is not the same as merged. Two siblings are separate lakes until the water
-            // stands ABOVE the ridge between them, which is exactly when the parent's own slab
-            // starts to hold something — before that, this basin is simply full and its neighbour
-            // is at whatever level its own water reaches.
+    /// <summary>
+    /// Takes water out of the lake this basin is part of, through its floor, and returns what was
+    /// taken — less than asked when the lake runs out on the way down.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is <see cref="LevelAt"/>'s walk reversed, not <c>Pour</c>'s.</b> Water leaving
+    /// through a hole in a basin's floor comes off the <i>top</i> of whatever lake that basin is
+    /// part of, so the walk climbs exactly as <c>LevelAt</c> does — to the lake's top node — takes
+    /// from that slab, then from each node down the path to the leaf. Pouring runs the other way,
+    /// children before a parent's slab, because water arriving runs downhill; water leaving lowers
+    /// the surface, and the surface is the topmost slab that holds anything.
+    /// </para>
+    /// <para>
+    /// <b>Never a sibling off the path.</b> Once the shared slab above a ridge is empty the level
+    /// is at the ridge and the other side is its own lake; nothing over there can reach a hole over
+    /// here. That is Tier B's <i>no siphons</i> rule arriving in Tier A, and it is also what keeps
+    /// the water in a state a fill could have reached: a parent's slab holds something only while
+    /// both children are full, which <c>Pour</c> guarantees going in and taking top-down preserves
+    /// coming out. Taking from the leaf first would empty this pit while the shared slab still
+    /// stood above it — the wrong physics, and visibly so.
+    /// </para>
+    /// <para>
+    /// <b>Which identity holds, stated exactly, because M8-PLAN stated the other one.</b>
+    /// <c>Remove(x)</c> then <c>Add(what it took)</c> restores every slab, always: the removal
+    /// drains path slabs from the top, every sibling along the walk was full, and the add refills
+    /// the same slabs from the bottom. <c>Add(x)</c> then <c>Remove(x)</c> restores every slab
+    /// only while the add stays inside one lake — the moment it crosses a ridge into a neighbour
+    /// with room, the neighbour keeps its share and the removal comes back short. Correct physics,
+    /// not a defect, and both are tests.
+    /// </para>
+    /// </remarks>
+    public long Remove(int basin, long litres)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(litres);
+
+        LakeTop(basin, out int depth);
+
+        long removed = 0;
+        for (int i = depth - 1; i >= 0 && removed < litres; i--)
+        {
+            int node = _path[i];
+            long take = Math.Min(litres - removed, _volume[node]);
+            _volume[node] -= take;
+            removed += take;
+        }
+
+        // Same reason Add refreshes: every slab touched is on the path from this leaf to the root,
+        // and a stale rolled-up count would give LevelAt a volume the lake no longer holds.
+        if (removed > 0)
+        {
+            Refresh(basin);
+        }
+
+        return removed;
+    }
+
+    /// <summary>
+    /// The node whose slab is the surface of the lake this basin is part of, with the path from the
+    /// basin up to it left in <see cref="_path"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Climbs while the node is brim-full and the water stands above the ridge into its parent.
+    /// <b>Brim-full is not the same as merged.</b> Two siblings are separate lakes until the water
+    /// stands ABOVE the ridge between them, which is when the parent's own slab starts to hold
+    /// something — before that, this basin is simply full and its neighbour is at whatever level
+    /// its own water reaches.
+    /// </para>
+    /// <para>
+    /// <b>A parent whose slab cannot hold anything does not end the walk, and until M8b-2a it
+    /// did.</b> A composite closed at the same crossing height as its children has zero own
+    /// capacity — three pits merging across one flat shelf produce it, and on integer heights
+    /// sampled every 4 m that is the common case, not the corner. Its slab is empty for ever, so
+    /// "the parent's slab is empty" says nothing about whether the water has risen past the
+    /// ridge; the answer is one level up, and both children being full is what carries the walk
+    /// there. Stopping at it reported one lake at two heights — the pits on one side at the shelf,
+    /// the pit on the other at the true level — and it was found by building
+    /// <see cref="Remove"/>, which would have drained the wrong slab for the same reason.
+    /// </para>
+    /// </remarks>
+    private int LakeTop(int basin, out int depth)
+    {
+        int node = basin;
+        depth = 0;
+        _path[depth++] = node;
+
+        while (_free[node] == 0 && !_tree.SpillsOut(node))
+        {
             int parent = _tree.Parent(node);
-            if (_volume[parent] == 0)
+            if (_volume[parent] == 0 && (_tree.OwnCapacity(parent) > 0 || _free[parent] != 0))
             {
-                return _tree.SpillHeight(node);
+                break;
             }
 
             node = parent;
+            _path[depth++] = node;
         }
 
-        return _tree.Curve(node).LevelAt(StoredIn(node));
+        return node;
     }
 
     /// <summary>Rolls free capacity back up from a basin to the root.</summary>

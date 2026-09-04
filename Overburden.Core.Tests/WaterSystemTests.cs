@@ -81,6 +81,19 @@ public class WaterSystemTests
 
         long before = system.StoredLitres;
 
+        // M8b-2a: a removal rides the same absorb, with nothing new to store. Take half of the
+        // wettest basin through its floor before walking, and the world has to come back holding
+        // exactly what was left — a ledger that re-seeded from a stale figure would refill it.
+        int wettest = 0;
+        for (int basin = 1; basin < system.Window!.Watershed.Basins.Count; basin++)
+        {
+            if (system.Water!.StoredIn(basin) > system.Water.StoredIn(wettest)) wettest = basin;
+        }
+
+        long removed = system.Water!.Remove(wettest, Math.Max(1, system.Water.StoredIn(wettest) / 2));
+        Assert.True(removed > 0, "the removal took nothing, so the walk carried the water it always did");
+        before -= removed;
+
         // Far enough that the window origin actually changes, and back again.
         int far = system.SpanMetres * 4 * Overburden.Core.Voxels.VoxelConstants.VoxelsPerMetre;
         Assert.True(system.NeedsWindowFor(far, far), "the window did not move, so nothing was tested");
@@ -90,6 +103,36 @@ public class WaterSystemTests
         system.Install(system.AnalyseFor(0, 0));
 
         Assert.Equal(before, system.StoredLitres);
+    }
+
+    [Fact]
+    public void ABasinEmptiedThroughItsFloorLeavesTheLedger()
+    {
+        // The other half of "nothing new to store": a basin drained to nothing is absent from
+        // the ledger rather than banked as zero, so a walk away and back re-seeds it with nothing
+        // and the store never carries a row that means "no water here".
+        WaterSystem system = NewSystem();
+        system.Install(system.AnalyseFor(0, 0));
+        RainUntilWet(system);
+
+        Watershed watershed = system.Window!.Watershed;
+        int wet = Enumerable.Range(0, watershed.Basins.Count)
+            .First(basin => system.Water!.StoredIn(basin) > 0);
+        Basin pit = watershed.Basins[wet];
+
+        system.Bank();
+        Assert.True(system.Ledger.LitresAt(pit.PitX, pit.PitZ) > 0, "the fixture banked nothing");
+        int banked = system.Ledger.Count;
+
+        // Everything its lake holds on the path through this basin, however much that is.
+        long removed = system.Water!.Remove(wet, long.MaxValue / 2);
+        Assert.True(removed > 0);
+        Assert.Equal(0, system.Water.StoredIn(wet));
+
+        system.Bank();
+        Assert.Equal(0, system.Ledger.LitresAt(pit.PitX, pit.PitZ));
+        Assert.Equal(banked - 1, system.Ledger.Count);
+        Assert.Null(system.LevelAt(wet));
     }
 
     [Fact]

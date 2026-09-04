@@ -1,5 +1,73 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-05 — M8b-2a: water leaves Tier A off the top of its lake, the field samples the plane the water stands on, and a lake has had two heights since M7a-2
+
+**`BasinWater.Remove` is built, the height convention is fixed, and building the one found a defect
+in `LevelAt`.** Suite 953 → 963. Both decisions handed back by the morning's planning pass were
+taken as recommended — Matthew: *"Lets continue"* — so a hole is what was dug (M8b-2b's business;
+nothing built for it here) and `HeightField.Sample` stores `SurfaceHeightAt + 1`. Five things worth
+keeping:
+
+- **`Remove` is `LevelAt`'s walk reversed, and the two now share the walk.** `LakeTop(basin)`
+  climbs while the node is brim-full and the water stands above the ridge into its parent, leaving
+  the path in a scratch array allocated once; `LevelAt` solves the top node's curve at what the
+  top's subtree holds, and `Remove` takes from the top's slab down the path to the leaf, never a
+  sibling, then `Refresh` once, and returns what it took. One definition of "the lake this basin is
+  part of" — the `IsCaveAt` / `GenerateTerrain` argument, for a tree.
+- **The plan's identity was stated backwards, and the correct statement is the no-siphons rule.**
+  `Remove(x)` then `Add(what it took)` restores every slab and every free count, always: 10 random
+  terrains × 100 rounds, with the fixture asserting some removal reached a shared slab. `Add(x)`
+  then `Remove(x)` restores them only while the add stayed inside one lake; the moment it crosses a
+  ridge into a neighbour with room the neighbour keeps its share and the removal comes back short —
+  pour 3 then 2 slabs into pit 0 of the twin-pit fixture and two of them are in pit 1, where a hole
+  in pit 0 cannot reach them. Correct physics, not a defect; both arms are tests.
+- **`LevelAt` has reported one lake at two heights since M7a-2, on the commonest terrain there
+  is.** Its walk stopped at a parent whose slab was empty, on the argument that an empty parent
+  slab means the water has not risen past the ridge. But Kruskal closes a component at the *next*
+  crossing it takes part in, so a composite closed at the same height as its children has zero own
+  capacity and a slab that can never hold anything — three pits on one flat shelf produce it, and
+  on integer heights sampled every 4 m equal crossings are the norm. The water above such a shelf
+  lives in the grandparent's slab; the two pits under the composite reported the shelf and the
+  third the true level. `LakeTop` climbs through a zero-capacity parent when both its children are
+  full and stops there when the sibling is not. Found because `Remove` would have drained the wrong
+  slab for the same reason; caught by a three-pit fixture *and* by the random-terrain fuzz (the
+  state after a removal, captured and re-poured, must reproduce every level), so it was reachable
+  on random integer terrain rather than a corner. Nobody saw it in play because a wide shot of a
+  lake was never obtained — M7d-2's note, now with a consequence.
+- **The field samples the plane, and the sky column is the second definition of it.**
+  `SkyColumn.Seed` has stored `SurfaceHeightAt + 1` as where the sky starts since M5b;
+  `HeightField` now stores the same plane as where the water stands, pinned to it by a test over
+  sixteen columns of an analytic surface — and M8b-2b's portal test will ask the sky column while
+  Tier A's level asks the field, so the two disagreeing by a slab would have been the seam's first
+  defect. A basin's first litre now stands above the ground: empty, `LevelAt` equals the sample
+  (flush, and drawn nowhere by `WaterSurface`'s strictly-above test); one litre puts it above.
+  Identity, capacities and stored litres are unchanged, **and every played pond's surface is one
+  voxel higher than it was**, which is where the water always was. Every level figure in M7's
+  entries below reads one voxel low from here on; the litres and capacities in them do not move.
+- **The window twin gained its removal, and "absent rather than zero" got a second test.**
+  `WalkingAwayAndBackLosesNoWater` takes half the wettest basin through its floor before the walk
+  and comes back to exactly what was left; a basin drained to nothing leaves the ledger on the next
+  bank rather than being stored as a zero row.
+
+**Thirteen break-recipes, thirteen caught**, on the hydrology filter (68 tests): leaf-first,
+take-from-sibling, skip `Refresh`, never climb, the old walk, climb through every empty slab,
+report-asked-not-taken, drain-the-path-whole, refresh-from-the-top, both-children-full inverted,
+the field's +1 dropped, +2, and the sky column's own +1 dropped. Three things the battery said.
+**The old walk is caught by exactly two tests** — the three-pit fixture and the fuzz — so the
+finding above is measured against its own recipe rather than asserted. **Take-from-sibling is
+invisible to capture-and-re-pour**, because a sibling drained below its rim is a state a fill can
+reach; the ridge rule sees it — a removal never lowers a neighbour below the lesser of its level and
+the ridge it shares with the path — and the twin-pit scenario sees it by the litre. **The sky
+column's +1 is caught by the pin test alone** on this filter, which is what a two-definitions test
+is for.
+
+**Not built, on purpose**: `WaterSystem.Remove` and its `drawn` counter, which are M8b-2c's, because
+a counter without its consumer is a number waiting to be believed; the tests call
+`system.Water.Remove` directly. Nothing on the Game side changed but a comment on `WaterSurface`,
+and the headless r6 control (`--nosave --quit-after 2400`) is unchanged to the digit — 2601 / 325 /
+3446 at 411 quads, the 512 m window at 346 basins and 11,136,000 L of capacity, which is the
+arithmetic saying a capacity is a difference of heights.
+
 ## 2026-09-05 — M8b-2 planned, not started: the breach, read against the code, and Tier A has been one slab low since M7
 
 **A planning pass for M8b-2 before any code — Matthew: *"they like mean everything"* — recorded in

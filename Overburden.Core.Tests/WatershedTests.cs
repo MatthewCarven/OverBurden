@@ -45,8 +45,11 @@ public class WatershedTests
         var basin = Assert.Single(watershed.Basins);
         Assert.Equal(3 * Cell, basin.PitX);
         Assert.Equal(3 * Cell, basin.PitZ);
-        Assert.Equal(0, basin.PitHeight);
-        Assert.Equal(10, basin.SaddleHeight);
+        // The pit voxel is 0 and the shelf is 10; the field samples the plane above each, so the
+        // basin's floor is 1 and its saddle 11 (see SampleGrid). Capacity is a difference of
+        // heights and does not move.
+        Assert.Equal(1, basin.PitHeight);
+        Assert.Equal(11, basin.SaddleHeight);
         Assert.Equal(Watershed.Outlet, basin.SpillTo);
 
         // 74 voxels of depth over nine cells, 4,000 L each — the same number VolumeCurveTests
@@ -135,16 +138,18 @@ public class WatershedTests
             HeightField.Sample(new SampleGrid(samples, outside: 20), 0, 0, pitch: 7));
 
         Assert.Equal(2, watershed.Basins.Count);
-        var deep = watershed.Basins.Single(b => b.PitHeight == 0);
-        var shallow = watershed.Basins.Single(b => b.PitHeight == 2);
+        var deep = watershed.Basins.Single(b => b.PitHeight == 1);
+        var shallow = watershed.Basins.Single(b => b.PitHeight == 3);
 
-        // The deep hole's only way out is over the ridge at 4, into the shallow basin.
-        Assert.Equal(4, deep.SaddleHeight);
+        // The deep hole's only way out is over the ridge voxel at 4 — plane 5 — into the shallow
+        // basin.
+        Assert.Equal(5, deep.SaddleHeight);
         Assert.Equal(shallow.Index, deep.SpillTo);
         Assert.Equal(4 * 4000L, deep.CapacityLitres);
 
-        // The shallow one leaves the window at 3 rather than climbing back over the ridge.
-        Assert.Equal(3, shallow.SaddleHeight);
+        // The shallow one leaves the window over the 3 — plane 4 — rather than climbing back over
+        // the ridge.
+        Assert.Equal(4, shallow.SaddleHeight);
         Assert.Equal(Watershed.Outlet, shallow.SpillTo);
         Assert.Equal(1 * 4000L, shallow.CapacityLitres);
     }
@@ -179,8 +184,8 @@ public class WatershedTests
 
         Assert.Equal(right.Index, left.SpillTo);
         Assert.Equal(left.Index, right.SpillTo);
-        Assert.Equal(5, left.SaddleHeight);
-        Assert.Equal(5, right.SaddleHeight);
+        Assert.Equal(6, left.SaddleHeight);
+        Assert.Equal(6, right.SaddleHeight);
     }
 
     [Fact]
@@ -241,8 +246,40 @@ public class WatershedTests
             * litresPerCubicVoxel;
 
         Assert.InRange(bowl.CapacityLitres, expected * 0.9, expected * 1.1);
-        Assert.Equal(-depthVoxels, bowl.PitHeight);
-        Assert.Equal(0, bowl.SaddleHeight);
+        Assert.Equal(-depthVoxels + 1, bowl.PitHeight);
+        Assert.Equal(1, bowl.SaddleHeight);
+    }
+
+    [Fact]
+    public void ASampleIsThePlaneTheSkyColumnStartsAt()
+    {
+        // Two definitions of one plane. SkyColumn.Seed records the first open voxel above each
+        // column as where the sky starts; HeightField records the same voxel as where the water
+        // stands. Both read SurfaceHeightAt, the topmost solid voxel, and add one — and if either
+        // stopped, Tier B's portal test (which asks the sky column) and Tier A's level (which asks
+        // the field) would disagree by a slab about where the ground is. Same shape as IsCaveAt
+        // against GenerateTerrain: pinned rather than promised.
+        var surface = new AnalyticSurface((x, z) => 5 + (((x * 7) + (z * 3)) % 11));
+        var field = HeightField.Sample(surface, 0, 0, pitch: 4);
+
+        for (int chunkZ = 0; chunkZ < 2; chunkZ++)
+        {
+            for (int chunkX = 0; chunkX < 2; chunkX++)
+            {
+                var column = new Overburden.Core.Lighting.SkyColumn(chunkX, chunkZ);
+                column.Seed(surface);
+
+                foreach (int lz in new[] { 0, Cell })
+                {
+                    foreach (int lx in new[] { 0, Cell })
+                    {
+                        int sx = (chunkX * 2) + (lx / Cell);
+                        int sz = (chunkZ * 2) + (lz / Cell);
+                        Assert.Equal(column.OpenAboveY(lx, lz), field.HeightAt(sx, sz));
+                    }
+                }
+            }
+        }
     }
 
     [Fact]

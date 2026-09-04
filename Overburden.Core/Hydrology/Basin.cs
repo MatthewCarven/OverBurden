@@ -54,10 +54,13 @@ public sealed class Basin
     /// <summary>World voxel Z of the deepest sample. The other half.</summary>
     public int PitZ { get; }
 
-    /// <summary>Voxel Y of the deepest sample.</summary>
+    /// <summary>
+    /// Voxel Y of the deepest sample's ground plane — one above its topmost solid voxel, the level
+    /// an empty basin sits at. See <see cref="HeightField"/> for the convention.
+    /// </summary>
     public int PitHeight { get; }
 
-    /// <summary>Voxel Y this basin overtops at, on its own.</summary>
+    /// <summary>Voxel Y this basin overtops at, on its own. A plane, like <see cref="PitHeight"/>.</summary>
     public int SaddleHeight { get; }
 
     /// <summary>

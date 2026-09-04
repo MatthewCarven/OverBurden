@@ -5,9 +5,17 @@ namespace Overburden.Core.Tests;
 
 /// <summary>Terrain stated as a literal grid of sample heights, indexed in absolute samples.</summary>
 /// <remarks>
+/// <para>
 /// Absolute rather than window-relative, so terrain analysed through two different window origins
 /// is literally the same terrain. That is what the pit-identity test needs, and stating it any
 /// other way would make that test pass for the wrong reason.
+/// </para>
+/// <para>
+/// <b>A grid entry is the topmost solid voxel, exactly as <c>ISurfaceHeights</c> reports it, and
+/// the field samples the plane above.</b> So a pit written as 2 has a floor plane at 3, a ridge
+/// written as 5 is a ridge plane at 6, and every pit, saddle, spill height and level a test reads
+/// back is one higher than the grid. M8b-2a's convention; the helper deliberately does not hide it.
+/// </para>
 /// </remarks>
 internal sealed class SampleGrid(int[,] samples, int outside) : ISurfaceHeights
 {

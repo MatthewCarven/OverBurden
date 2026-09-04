@@ -215,7 +215,13 @@ visible here.
 - **Tier A — Analytic basins.** Watershed analysis at worldgen finds basins, their
   outflow saddles, and a precomputed volume→level curve. Rain adds volume to an
   accumulator; the surface level is *solved, not simulated*. Overflow routes
-  downstream. Costs a float per basin, scales to the whole world.
+  downstream. Costs a float per basin, scales to the whole world. **A basin's heights
+  are planes, not voxels (M8b-2a, 2026-09-05)**: `HeightField` samples
+  `SurfaceHeightAt + 1`, the first open voxel, so a level is the plane the water stands
+  on and a pond draws from its first litre. From M7 until then it sampled the solid
+  voxel's own index — self-consistent, and one slab low, with every pond's first
+  4,000 L per sample filling a phantom slab inside the rock. Tier B puts water in real
+  voxels, and the seam is where the two conventions would have met.
 - **Tier B — Active cellular automata.** Volume-conserving CA over an explicit
   **active-cell set**, for water that is actually moving (tunnel breach, waterfall,
   pump outlet). Push down where there is capacity, equalise sideways otherwise. Stable

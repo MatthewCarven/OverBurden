@@ -21,7 +21,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/M7-PLAY.md](docs/M7-PLAY.md) | M7's play: five questions, **all five answered 2026-09-02**, the flags that provoke weather without waiting for it, and how to read the `M7c:`/`M7d:` log lines. Kept for the verdicts. |
 | [docs/M10-NOTES.md](docs/M10-NOTES.md) | **The quantum machine family** — Matthew’s proposal, 2026-09-02: a fluid pump that teleports to a wireless output, and a general machine programmer. Notes rather than a plan, on the deferred-collapse precedent. **Read before planning M10, and before shipping any machine — it names the entity-storage change that header v4 rides on.** |
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | **Elements, and whether to "just implement chemistry"** — a brainstorm with Matthew, 2026-09-03. Notes rather than a plan. The recommendation is *geology that reacts to water, with machine recipes as the chemistry set*; the element table says why each material would exist. **Read before M8c reads `permeability` and before M9 reads `supportDistance` — both have been in the material JSON unread since M1, and the trap is a constant shipping green.** |
-| [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **Planned 2026-09-02; M8a built the same day; M8b split four ways and M8b-1 built 2026-09-03; M8b-2 planned 2026-09-05 with two decisions open.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it. **Its M8b section records a gap the plan had**: a flooded mine has no Tier A body, so resting mine water is stored, and the settle is a solve. Read the tick-budget item in TODO before M8b-2. |
+| [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **Planned 2026-09-02; M8a built the same day; M8b split four ways and M8b-1 built 2026-09-03; M8b-2 planned 2026-09-05 and 2a built the same day, both open decisions taken as recommended.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it. **Its M8b section records a gap the plan had**: a flooded mine has no Tier A body, so resting mine water is stored, and the settle is a solve. Read the tick-budget item in TODO before M8b-2. |
 | [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md) | **The retained-chunk cache**, planned 2026-09-03, **slice 1 built the same day and slice 2 on 2026-09-04**: chunks leaving the box keep their voxels, column and derived light in a byte-capped cache, so a turnaround costs no load, no generate and no derive. **Both "built" sections record where the build departed from the plan** — a column rule the plan did not have, a column push that became a check at revival, and the three older light defects slice 2's walk found. Read the slice 2 section before touching `LightPropagator`. |
 | [docs/SCALE.md](docs/SCALE.md) | **How many voxels and cells exist at each view distance, what one full sweep costs, and what each system actually iterates.** Read before designing anything that wants to check the world periodically — M7, M8 and M9 all start here. |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
@@ -333,14 +333,36 @@ local folder, the remote URL, and the assistant's memory directory (see TODO's n
 **The played worlds now live under `app_userdata/Overburden/`; the `MinerCraft/` folder beside it
 is the pre-rename backup and is Matthew's to delete.**
 
-**Pick up here (2026-09-05). M8b-2 is planned and not started** — see M8-PLAN's "M8b-2 — the
-planning pass" and TODO's three-way split (2a `Remove` and the height convention, 2b the portal
-index, 2c the draw and the play). **Two decisions are Matthew's before 2a begins**: whether a hole
-is only what was dug (recommended) and whether to fix Tier A's height convention now (recommended
-— `HeightField` samples the solid voxel's index, one slab under the plane the water stands on, and
-Tier B is where that stops being invisible). The tick budget slice that gated the breach is built
-(next paragraph). The gate on the entangled miner is a battery and waits for M10.
-`git log origin/main..main` says what Matthew still has to push.
+**Pick up here (2026-09-05). M8b-2a is built; M8b-2b, the portal index, is next** — see M8-PLAN's
+"M8b-2 — the planning pass" (finding 3 is the portal test, finding 4 the edit-time and arrival
+paths) and TODO's split. Both decisions were taken as recommended: a hole is what was dug, so
+portals are found at edit time and by scanning chunks that arrive with edits, nowhere else; and
+the height convention is fixed. 2b is Core only, in `Overburden.Core/Fluid/`, with `SkyColumn`
+keeping its seed heights and the incremental-equals-from-scratch oracle. The gate on the entangled
+miner is a battery and waits for M10. `git log origin/main..main` says what Matthew still has to
+push.
+
+**M8b-2a is built (2026-09-05). Suite 953 → 963.** `BasinWater.Remove` takes water off the top of
+the lake a basin is part of, down the path to the leaf and never a sibling; `HeightField` samples
+`SurfaceHeightAt + 1`, the plane the water stands on. Four things worth keeping:
+
+- **`LevelAt` and `Remove` share one walk, `LakeTop`, and building the second found a defect in
+  the first.** A composite closed at the same crossing height as its children has zero own
+  capacity, so "the parent's slab is empty" said nothing about whether the water stood above the
+  ridge, and three pits on one flat shelf reported one lake at two heights — since M7a-2, on the
+  commonest terrain integer 4 m samples produce. The walk now climbs through a zero-capacity
+  parent when both children are full. Caught by a three-pit fixture and by the random-terrain fuzz.
+- **The plan's oracle was backwards.** `Remove(x)` then `Add(what it took)` is always the identity;
+  `Add(x)` then `Remove(x)` only inside one lake, because water that crossed a ridge into a
+  neighbour with room is the neighbour's — the no-siphons rule arriving in Tier A. Both are tests.
+- **The plane is pinned to the sky column.** `SkyColumn.Seed` has called `SurfaceHeightAt + 1` the
+  sky's start since M5b; a test asserts the field's sample equals it, because 2b's portal test asks
+  the sky column and Tier A asks the field. A basin's first litre now draws above the ground, and
+  **every played pond's surface is one voxel higher than before** — M7's level figures read one
+  voxel low from here on, its litres and capacities do not.
+- **Thirteen break-recipes, thirteen caught.** Take-from-sibling is invisible to
+  capture-and-re-pour, since a drained sibling is a state a fill can reach; the ridge rule sees it.
+  `WaterSystem.Remove` and its `drawn` counter are deliberately 2c's.
 
 **The tick budget slice is built (2026-09-04). Suite 936 → 953.** `FluidSimulation.Step` is a
 cursor over its batch: `Resume(maxVisits)` visits up to N cells and returns the tick's result only

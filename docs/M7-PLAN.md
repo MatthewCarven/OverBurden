@@ -34,7 +34,10 @@ and every decision in M7a is downstream of accepting that.
 **What makes it tractable is that the input is a pure function rather than the world.**
 `ISurfaceHeights.SurfaceHeightAt(worldX, worldZ)` already exists, is analytic, is seeded, needs no
 chunk to be loaded or generated, and already has an interface with a test double — M5b built it so
-a `SkyColumn` test could state a flat world in one line. So the watershed analysis:
+a `SkyColumn` test could state a flat world in one line. (**Sampled as `SurfaceHeightAt + 1` since
+M8b-2a, 2026-09-05** — the plane the water stands on rather than the solid voxel under it; M7 as
+built sampled the voxel's own index and every level was one slab low. See M8-PLAN's M8b-2a.) So
+the watershed analysis:
 
 - needs **no streaming, no margin, no barrier, no stage** — it is not a chunk-shaped computation
   at all;
