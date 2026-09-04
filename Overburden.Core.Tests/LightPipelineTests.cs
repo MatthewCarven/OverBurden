@@ -334,6 +334,54 @@ public class LightPipelineTests
     /// the unload path would show up here immediately.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// A chunk that leaves takes back the light it gave its neighbours, so the tracked set stays
+    /// a fixpoint with one grid fewer.
+    /// </summary>
+    /// <remarks>
+    /// <b>Until cache slice 2 this was false, by design, and the walk that slice runs found where
+    /// the design stopped covering it.</b> A grid leaving stopped propagation at its faces and
+    /// left what it had already given — harmless at margin 2 while the chunk stayed away, wrong
+    /// once it came back with different sources, because the kept values then had no source
+    /// anywhere and the returning grid imported them. The lamp sits one voxel in from the face so
+    /// its light crosses into the neighbour and its removal by unloading is not an edit.
+    /// </remarks>
+    [Fact]
+    public void AChunkThatLeavesTakesBackTheLightItGaveItsNeighbours()
+    {
+        using var harness = new PipelineHarness(loadMargin: 0);
+        ChunkStreamer streamer = harness.Pipeline.Streamer;
+        ViewerId id = streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+
+        var lamp = new VoxelPos(-2, 24, 16);
+        var across = LightCellPos.FromVoxel(new VoxelPos(0, 24, 16));
+        Assert.Equal(new ChunkPos(-1, 0, 0), lamp.Chunk);
+        Assert.Equal(ChunkPos.Zero, across.Chunk);
+        Assert.True(
+            harness.Pipeline.TryGetMaterial(lamp, out int was) && was == Air,
+            "fixture: the lamp needs air around it to light anything");
+
+        Assert.True(harness.Pipeline.SetVoxel(lamp, PipelineHarness.Lamp));
+        harness.Settle();
+
+        ChunkLight grid = streamer.Get(ChunkPos.Zero)!.Light!;
+        Assert.True(
+            grid.Get(across.LocalIndex, LightChannel.Block) > 0,
+            "fixture: the lamp's light never crossed the face");
+        int retractions = harness.Pipeline.LightRetractions;
+
+        // x = −1 leaves; x = 0 stays, with the lamp's light in it and the lamp gone.
+        streamer.MoveViewer(id, new ChunkPos(1, 0, 0));
+        harness.Settle();
+        Assert.False(streamer.IsTracked(lamp.Chunk));
+        Assert.Same(grid, streamer.Get(ChunkPos.Zero)!.Light);
+
+        Assert.Equal(0, grid.Get(across.LocalIndex, LightChannel.Block));
+        Assert.Equal(retractions + 9, harness.Pipeline.LightRetractions);
+        AssertFixpoint(harness);
+    }
+
     [Fact]
     public void LosingANeighbourReDerivesNothing()
     {

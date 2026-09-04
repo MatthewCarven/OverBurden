@@ -3259,7 +3259,10 @@ public partial class Main : Node3D
     /// legible against what it replaced.</b> A run that never turns round reports zero hits for a
     /// reason that is not "the cache does nothing", and a run that turns round reports the loads
     /// and generates that did <em>not</em> happen as the difference between arms. Derives are
-    /// there because slice 1 does not cache them: the number the second slice turns on.
+    /// there because slice 1 did not cache them, and reseeds beside them because slice 2 does: a
+    /// chunk that comes back with its grid is reseeded instead of derived, and the hits that came
+    /// back lit say how many. The two ways a cached grid is dropped — an edit at its face, or its
+    /// column moving under it — are the hits that still cost a derive.
     /// </remarks>
     private string CacheLines()
     {
@@ -3273,7 +3276,8 @@ public partial class Main : Node3D
 
         string sources =
             $"sources   {_pipeline.ChunksGenerated} generated, {_pipeline.ChunksLoaded} loaded, " +
-            $"{streamer.CacheHits} from the cache | {_pipeline.LightBuilds} derives\n";
+            $"{streamer.CacheHits} from the cache ({streamer.CacheHitsWithLight} with their light) | " +
+            $"{_pipeline.LightBuilds} derives, {_pipeline.LightRevivals} reseeded\n";
 
         if (!streamer.CacheEnabled)
         {
@@ -3281,10 +3285,13 @@ public partial class Main : Node3D
         }
 
         return
-            $"cache     {streamer.CachedChunkCount} chunk(s) + {streamer.CachedColumnCount} column(s) held, " +
+            $"cache     {streamer.CachedChunkCount} chunk(s) ({streamer.CachedChunksWithLight} with light) + " +
+            $"{streamer.CachedColumnCount} column(s) held, " +
             $"{streamer.CachedBytes / MiB:F1} of {streamer.CacheCapacityBytes / MiB:F0} MiB | " +
             $"{streamer.CacheHits} chunk hit(s), {streamer.ColumnCacheHits} column hit(s), " +
-            $"{streamer.ChunkEvictions} + {streamer.ColumnEvictions} evicted\n" +
+            $"{streamer.ChunkEvictions} + {streamer.ColumnEvictions} evicted | " +
+            $"grids dropped: {streamer.CachedLightDroppedByEdit} by an edit, " +
+            $"{streamer.CachedLightDroppedByColumn} by the column\n" +
             sources;
     }
 
@@ -3478,8 +3485,10 @@ public partial class Main : Node3D
                 $"cache: {streamer.CachedChunkCount} chunks + {streamer.CachedColumnCount} columns " +
                 $"({streamer.CachedBytes / (1024.0 * 1024.0):F1} of " +
                 $"{streamer.CacheCapacityBytes / (1024.0 * 1024.0):F0} MiB), " +
-                $"{streamer.CacheHits} hits, {streamer.ChunkEvictions + streamer.ColumnEvictions} evicted | " +
-                $"{_pipeline.ChunksGenerated} generated, {_pipeline.ChunksLoaded} loaded");
+                $"{streamer.CacheHits} hits ({streamer.CacheHitsWithLight} lit), " +
+                $"{streamer.ChunkEvictions + streamer.ColumnEvictions} evicted | " +
+                $"{_pipeline.ChunksGenerated} generated, {_pipeline.ChunksLoaded} loaded, " +
+                $"{_pipeline.LightBuilds} derives, {_pipeline.LightRevivals} reseeded");
         }
 
         GD.Print($"M6c: {InventorySummary()}");

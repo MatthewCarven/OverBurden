@@ -229,7 +229,7 @@ public class ChunkCacheTests
         heights: withColumns ? new FlatSurface(40) : null,
         chunkCacheBytes: cap);
 
-    private static void AssertCacheConsistent(ChunkStreamer streamer)
+    internal static void AssertCacheConsistent(ChunkStreamer streamer)
     {
         long sum = 0;
         foreach (StreamedChunk chunk in streamer.CachedChunks)
@@ -500,60 +500,15 @@ public class ChunkCacheTests
     }
 
     // -----------------------------------------------------------------------------------------
-    // Light: slice 1 drops the grid and a revival derives afresh.
+    // Light. Slice 1 dropped the grid and a revival derived afresh; slice 2 keeps it, and its
+    // tests are ChunkCacheLightTests.
     // -----------------------------------------------------------------------------------------
-
-    [Fact]
-    public void ARevivedChunkIsRelitFromScratchToTheSameAnswer()
-    {
-        // LightPipelineTests.UnloadingReleasesTheLightGridAndReturningRebuildsIt with the cache
-        // on, plus the assertion that test cannot make: the chunk really went through the cache.
-        // Slice 1 keeps the voxels and not the grid, so the grid is a new object, derived, and at
-        // the fixpoint — and the stage went back to Features on the way through, or CanMesh
-        // would have let the chunk mesh from a grid that did not exist yet.
-        using var harness = new PipelineHarness(chunkCacheBytes: GenerousCap);
-        ChunkStreamer streamer = harness.Pipeline.Streamer;
-        ViewerId viewer = streamer.AddViewer(ChunkPos.Zero, 1, 1);
-        harness.Settle();
-
-        var probe = new ChunkPos(0, 0, 0);
-        ChunkLight before = streamer.Get(probe)!.Light!;
-        int[] valuesBefore = LightPipelineTests.CellValues(before);
-        int deliveredBefore = harness.Deliveries[probe];
-        int relightsBefore = harness.Pipeline.RelightRemeshes;
-
-        streamer.MoveViewer(viewer, new ChunkPos(40, 0, 40));
-        harness.Settle();
-        Assert.True(streamer.IsCached(probe), "the probe should be waiting in the cache");
-        StreamedChunk waiting = streamer.CachedChunks.Single(chunk => chunk.Position == probe);
-        Assert.Null(waiting.Light);
-        Assert.Equal(GenerationStage.Features, waiting.Stage);
-
-        streamer.MoveViewer(viewer, ChunkPos.Zero);
-        harness.Settle();
-
-        StreamedChunk revived = streamer.Get(probe)!;
-        Assert.True(streamer.CacheHits > 0);
-        Assert.NotSame(before, revived.Light);
-        Assert.True(revived.Light!.HasDerived);
-        Assert.Equal(GenerationStage.Lit, revived.Stage);
-        Assert.Equal(valuesBefore, LightPipelineTests.CellValues(revived.Light));
-        Assert.Contains(probe, harness.MeshedPositions);
-        LightPipelineTests.AssertFixpoint(harness);
-
-        // Exactly one more mesh, and no relight. The break-recipe battery found this pair
-        // missing: a chunk revived still at Lit passes CanMesh before its grid exists, meshes
-        // dark, and is then relit and remeshed — every assertion above still green, because the
-        // settle waits for the repair. A dark flash on every turnaround is what that costs.
-        Assert.Equal(deliveredBefore + 1, harness.Deliveries[probe]);
-        Assert.Equal(relightsBefore, harness.Pipeline.RelightRemeshes);
-    }
 
     // -----------------------------------------------------------------------------------------
     // Sky columns.
     // -----------------------------------------------------------------------------------------
 
-    private static (int WorldX, int WorldZ, int Dug) DigAShaft(PipelineHarness harness, ChunkPos target)
+    internal static (int WorldX, int WorldZ, int Dug) DigAShaft(PipelineHarness harness, ChunkPos target)
     {
         SkyColumn column = harness.Pipeline.Streamer.Get(target)!.Sky!;
         const int LocalX = 16;

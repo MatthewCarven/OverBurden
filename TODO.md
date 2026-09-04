@@ -3789,14 +3789,19 @@ finding without the coarser-tolerance fallback.
       `--chunkcache=<MiB>` (64, 0 off) and `--turnaround=<seconds>`. A turnaround's loads and
       generates go to zero for the cached chunks and its derives do not move; `viewer ms` mean
       6.6 → 0.9 ms because a hit skips the column seed. `Forget`'s stale comment is corrected.
-- [ ] **The retained-chunk cache, slice 2 — derived light.** The two invalidation pushes at the
-      existing hook sites (a face edit into a cached neighbour drops its grid; a moved sky height
-      drops every cached chunk in the column), propagated values reset to source on revival, and
-      the oracle: incremental == from-scratch with the box walking away and back, lamps placed
-      *and removed* while the far chunk is cached. The measurement says this is what remains:
-      derives 5,233 → 5,269 across a turnaround with slice 1 on. **Does nothing for a first fill;
-      the distance-ordered derive queue above is still that fix**, and after slice 1 it is also the
-      turnaround's fix, because the derive is now the whole of what a turnaround costs.
+- [x] **The retained-chunk cache, slice 2 — derived light. Built 2026-09-04**, suite 926 → 936.
+      See [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md), "Slice 2 — built". A face edit
+      drops a cached neighbour's grid; a moved, restored or replaced column is caught at revival by
+      `SkyColumn.Revision`; values are cleared on entry and reseeded in the light step. Derives
+      5,157 → 3,572 at 6 m/s, 8,454 → 5,611 at 20 m/s, and the 20 m/s turnaround arm draws where
+      the control never does. Still nothing for a first fill.
+- [x] **Three light repairs the slice 2 walk found, none of them the cache's (2026-09-04).** A
+      departed grid's light is retracted from its neighbours (`LightPropagator.RetractFrom`, the
+      inverse of `SpreadInto`) — the whole loaded set was never a fixpoint before; the un-light
+      walk reseeds past a cell that held 1 (a hole since M5b); and a face conducts only when both
+      cells say so (a stale one-sided bit leaked skylight into rock while a neighbour's gain
+      re-derive was pending). Each has a test in the suite; the cap-0 arm of the walk is the
+      control that attributed them.
 - [ ] **`viewer ms` is column seeding, not the difference — decide whether to chase it.** Found by
       the cache: a hit takes the sweep from 6.6 ms mean to 0.9, so `SkyColumn.Seed`'s 1,024
       surface evaluations per column plus a record per chunk is most of what M6d-2 measured and

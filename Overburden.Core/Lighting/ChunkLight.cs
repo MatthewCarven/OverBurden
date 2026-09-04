@@ -37,6 +37,13 @@ public sealed class ChunkLight
     /// </remarks>
     public const int MaxLevel = 15;
 
+    /// <summary>What one grid is charged against the retained-chunk cache's cap.</summary>
+    /// <remarks>
+    /// The two arrays are exact — 512 bytes of values and 1,024 of derived data — and the rest is
+    /// an estimate for three object headers, in the spirit of the cache's other charges.
+    /// </remarks>
+    public const int EstimatedBytes = (LightCellPos.Volume * (sizeof(byte) + sizeof(ushort))) + 72;
+
     private const int SkyShift = 0;
     private const int BlockShift = 4;
     private const int LevelMask = 0xF;
@@ -89,9 +96,16 @@ public sealed class ChunkLight
 
     /// <summary>Whether light crosses this cell's face in direction <paramref name="face"/>.</summary>
     /// <remarks>
+    /// <para>
     /// Faces are <see cref="VoxelFace"/>'s six, in its order. The table is shared rather than
     /// restated because conductance <em>is</em> a statement about voxel faces — two tables of
     /// the same six directions is two tables that can disagree.
+    /// </para>
+    /// <para>
+    /// <b>This cell's half of the answer.</b> The propagator crosses a face only when the cell on
+    /// the other side agrees, because the two halves are derived separately and can disagree for
+    /// a few frames after a neighbour arrives — see <see cref="LightPropagator"/>.
+    /// </para>
     /// </remarks>
     public bool Conducts(int cellIndex, int face) =>
         (_derived[cellIndex] & (1 << face)) != 0;

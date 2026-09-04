@@ -76,6 +76,7 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
     private readonly Action<SkyColumn>? _onColumnCreated;
     private readonly Action<SkyColumn>? _onColumnReleased;
     private readonly Action<StreamedChunk>? _onChunkEvicted;
+    private readonly Action<StreamedChunk>? _onChunkForgotten;
     private readonly int _loadMargin;
 
     // The retained-chunk cache (docs/CHUNK-CACHE-PLAN.md). A chunk in _chunks is never in
@@ -86,6 +87,7 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
     private readonly LinkedList<CacheEntry> _cacheOrder = new();
     private readonly long _cacheCapacityBytes;
     private long _cacheBytes;
+    private int _cachedChunksWithLight;
 
     private int _nextViewerId = 1;
     private int _viewedCount;
@@ -174,6 +176,13 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
     /// dirty again while cached, which nothing today does — but the one failure that rule guards
     /// against is a deleted tunnel, and the hook costs a flag test.
     /// </param>
+    /// <param name="onChunkForgotten">
+    /// Fired the moment a chunk stops being tracked, with its grid still on it. The pipeline's
+    /// light needs to know that a grid has left the field, whatever becomes of the chunk after —
+    /// cached or dropped — because the cells next door that the grid was lighting have to be
+    /// re-examined. Distinct from <paramref name="onChunkUnviewed"/>, which fires while the chunk
+    /// is still tracked and may precede the departure by a job's lifetime.
+    /// </param>
     public ChunkStreamer(
         ViewerSet? priorityViewers = null,
         Action<StreamedChunk>? onChunkViewed = null,
@@ -183,7 +192,8 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
         Action<SkyColumn>? onColumnCreated = null,
         Action<SkyColumn>? onColumnReleased = null,
         long chunkCacheBytes = 0,
-        Action<StreamedChunk>? onChunkEvicted = null)
+        Action<StreamedChunk>? onChunkEvicted = null,
+        Action<StreamedChunk>? onChunkForgotten = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(loadMargin);
         ArgumentOutOfRangeException.ThrowIfNegative(chunkCacheBytes);
@@ -194,6 +204,7 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
         _onColumnCreated = onColumnCreated;
         _onColumnReleased = onColumnReleased;
         _onChunkEvicted = onChunkEvicted;
+        _onChunkForgotten = onChunkForgotten;
         _loadMargin = loadMargin;
         _heights = heights;
         _cacheCapacityBytes = chunkCacheBytes;
@@ -256,6 +267,31 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
     /// <summary>Columns dropped from the cache to stay under the cap.</summary>
     public long ColumnEvictions { get; private set; }
 
+    // -----------------------------------------------------------------------------------------
+    // Slice 2: the derived light through the cache. docs/CHUNK-CACHE-PLAN.md, §5.
+    // -----------------------------------------------------------------------------------------
+
+    /// <summary>Cached chunks currently holding their derived light.</summary>
+    public int CachedChunksWithLight => _cachedChunksWithLight;
+
+    /// <summary>
+    /// Chunks that came back with their derived light intact — no derive owed, only a reseed.
+    /// </summary>
+    /// <remarks>
+    /// Beside <see cref="CacheHits"/>: the difference is the hits that still cost a derive,
+    /// because an edit reached their face or their column moved while they were out.
+    /// </remarks>
+    public long CacheHitsWithLight { get; private set; }
+
+    /// <summary>Cached grids dropped because a voxel at one of the chunk's faces changed.</summary>
+    public long CachedLightDroppedByEdit { get; private set; }
+
+    /// <summary>
+    /// Grids dropped at revival because the column was not the one they were derived against, or
+    /// not at the same <see cref="SkyColumn.Revision"/>.
+    /// </summary>
+    public long CachedLightDroppedByColumn { get; private set; }
+
     /// <summary>Whether a forgotten chunk is being kept for a revival.</summary>
     /// <remarks>
     /// Never true for a tracked chunk: a chunk is in <see cref="Chunks"/> or in the cache, and
@@ -281,8 +317,51 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
             : null;
 
     /// <summary>What <paramref name="chunk"/> is charged against the cap. An estimate.</summary>
+    /// <remarks>
+    /// The grid counts while the chunk holds one, and <see cref="DropCachedLight"/> gives the
+    /// charge back, so the total over the entries stays exact as grids come and go.
+    /// </remarks>
     public static long CachedBytesOf(StreamedChunk chunk) =>
-        (chunk.Voxels?.EstimatedBytes ?? 0) + ChunkRecordOverheadBytes;
+        (chunk.Voxels?.EstimatedBytes ?? 0)
+        + (chunk.Light is null ? 0 : ChunkLight.EstimatedBytes)
+        + ChunkRecordOverheadBytes;
+
+    /// <summary>
+    /// Drops the derived light of a cached chunk, because a voxel at one of its faces changed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The first of slice 2's two invalidations.</b> Conductance across a face is a function
+    /// of the voxels on both sides, so an edit in a loaded chunk against the face of a cached one
+    /// has changed what the cached grid says about that face — and the cached chunk cannot
+    /// rebuild, because it is not tracked. It comes back without a grid and derives, exactly as
+    /// it would have before the slice.
+    /// </para>
+    /// <para>
+    /// Called from the pipeline's rebuild queue for any position it finds untracked, which is the
+    /// same eight-chunk scope that queues a loaded neighbour's rebuild, from the same call — so
+    /// the two scopes cannot drift. A no-op for a position that is not cached or holds no grid,
+    /// and it is reached only for a face voxel with an untracked neighbour, so a chunk bite's
+    /// 32,768 interior writes never look here.
+    /// </para>
+    /// </remarks>
+    public void DropCachedLight(ChunkPos position)
+    {
+        if (!_cachedChunks.TryGetValue(position, out LinkedListNode<CacheEntry>? node)
+            || node.Value.Chunk is not { Light: not null } chunk)
+        {
+            return;
+        }
+
+        chunk.Light = null;
+        chunk.LightNeighbours = 0;
+        _cachedChunksWithLight--;
+        CachedLightDroppedByEdit++;
+
+        // Charged for the grid on the way in; the accounting is exact, so the charge goes back.
+        node.Value.Bytes -= ChunkLight.EstimatedBytes;
+        _cacheBytes -= ChunkLight.EstimatedBytes;
+    }
 
     /// <summary>What one column is charged against the cap. An estimate.</summary>
     public static long CachedBytesOfColumn => ColumnCacheBytes;
@@ -577,13 +656,20 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
             // second because a cached chunk is the very object that was saved — it can never be
             // older than the disk — and because consulting it after the store would submit a
             // load for a chunk whose bytes are already here.
-            if (!TryRevive(position, out chunk))
+            bool revived = TryRevive(position, out chunk);
+            if (!revived)
             {
                 chunk = new StreamedChunk(position);
             }
 
             chunk.Sky = RetainColumn(position);
             _chunks[position] = chunk;
+
+            // After the column is in hand, because that is what the kept grid is checked against.
+            if (revived)
+            {
+                ValidateRevivedLight(chunk);
+            }
         }
 
         chunk.ViewCount++;
@@ -636,6 +722,10 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
     {
         _chunks.Remove(chunk.Position);
 
+        // Untracked now, grid still on it: the one moment a listener can tell that a grid has
+        // left the field before the cache clears it or the drop nulls it.
+        _onChunkForgotten?.Invoke(chunk);
+
         // Guarded because self-transitions are rejected, and a chunk that was viewed and
         // released without ever being queued has sat in Unloaded the whole time.
         if (chunk.State != ChunkState.Unloaded)
@@ -646,16 +736,6 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
         chunk.Cancellation?.Dispose();
         chunk.Cancellation = null;
 
-        // The light grid goes with the chunk, cached or not. This comment used to argue that a
-        // returning chunk regenerates its voxels from the seed, so a kept grid would be the one
-        // thing guaranteed to be re-derived anyway — and that premise has been false since M6: a
-        // returning chunk has the identical voxels whether it comes from the cache, the store or
-        // the seed, so derived light is stale only if a *neighbour* or the column changed while
-        // it was out. Keeping it is the cache's second slice, which needs those two invalidation
-        // pushes first (docs/CHUNK-CACHE-PLAN.md, §5). Until then a stale grid would be
-        // indistinguishable from a fresh one, which is the bad direction, so it goes.
-        chunk.Light = null;
-        chunk.LightNeighbours = 0;
         chunk.Sky = null;
         ReleaseColumn(chunk.Position);
 
@@ -665,7 +745,21 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
         // do all the work.
         if (CacheEnabled && chunk.HasVoxels)
         {
+            // The grid goes with it — derived data only, see Retain. Until slice 2 it was
+            // dropped here unconditionally, on an argument that had been false since M6: that a
+            // returning chunk regenerates its voxels from the seed, so a kept grid would be the
+            // one thing re-derived anyway. A returning chunk has the identical voxels whichever
+            // source it comes from, so derived light is stale only if a face neighbour or the
+            // column changed while it was out — and those two are DropCachedLight and
+            // ValidateRevivedLight (docs/CHUNK-CACHE-PLAN.md, §5).
             Retain(chunk);
+        }
+        else
+        {
+            // Not kept, so neither is the grid. The committed pre-cache behaviour and the
+            // --chunkcache=0 control arm: a returning chunk derives afresh.
+            chunk.Light = null;
+            chunk.LightNeighbours = 0;
         }
     }
 
@@ -681,18 +775,32 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
         // The pipeline's queue flags describe membership of queues this chunk may still be
         // named in by position. Every one of those queues checks TryGet on dequeue and skips a
         // position that is not tracked, so a stale entry is harmless — but a stale *flag* is not:
-        // Push and QueueLightBuild refuse a chunk whose flag is set, and a revived chunk carrying
-        // a set flag would never be looked at again. A queue that still names the position after
-        // the revival does one redundant, idempotent pass.
+        // Push, QueueLightBuild and QueueLightRevival refuse a chunk whose flag is set, and a
+        // revived chunk carrying a set flag would never be looked at again. A queue that still
+        // names the position after the revival does one redundant, idempotent pass.
         chunk.InWorkList = false;
         chunk.LightBuildQueued = false;
+        chunk.LightRevivalQueued = false;
         chunk.AwaitingLight = false;
         chunk.NeedsRemesh = false;
         chunk.RemeshUrgent = false;
 
-        // Lit means "derived and the propagation settled", and the grid just went. Features is
+        // The derived data is kept and the propagated values are not. The derived side is a
+        // function of this chunk's voxels, its face neighbours' voxels and its column, and the two
+        // of those that can move while it is out each have an invalidation. The values are a
+        // function of everything within 15 m — a lamp placed or removed next door while this chunk
+        // was out would leave them wrong, and nothing would ever darken them, because the un-light
+        // walk runs in loaded chunks only. Cleared here rather than at revival so that the reseed
+        // sees zeros and queues no removal walk.
+        if (chunk.Light is not null)
+        {
+            chunk.Light.ClearLight();
+            _cachedChunksWithLight++;
+        }
+
+        // Lit means "derived and the propagation settled", and the values just went. Features is
         // where a load lands a chunk, and it is where a revival has to land one too, or CanMesh
-        // would let it mesh from a grid that has not been built.
+        // would let it mesh from a grid that has not been reseeded.
         if (chunk.Stage == GenerationStage.Lit)
         {
             chunk.Stage = GenerationStage.Features;
@@ -716,7 +824,45 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
         Remove(node);
         chunk = node.Value.Chunk!;
         CacheHits++;
+
+        if (chunk.Light is not null)
+        {
+            _cachedChunksWithLight--;
+        }
+
         return true;
+    }
+
+    /// <summary>
+    /// Keeps a revived chunk's derived light only if the column it has just been given is the
+    /// one it was derived against, at the same revision.
+    /// </summary>
+    /// <remarks>
+    /// <b>The second of slice 2's two invalidations, and it is a check at revival rather than a
+    /// push at the change</b> because a column can be <em>replaced</em> while the chunk is out —
+    /// released dirty, dropped, and re-seeded on return as a different object — and no push at
+    /// the change can name the chunks derived against an object that no longer exists. One
+    /// comparison covers that, an edit in a loaded chunk of the same column, and a restore landing
+    /// in a cached column, because <see cref="SkyColumn.Revision"/> moves for all three. The plan
+    /// wrote this as a push down the column; slice 1 finding that a dirty column is not cached is
+    /// what turned it into this.
+    /// </remarks>
+    private void ValidateRevivedLight(StreamedChunk chunk)
+    {
+        if (chunk.Light is null)
+        {
+            return;
+        }
+
+        if (chunk.Sky is not null && chunk.Sky.Revision == chunk.LightSkyRevision)
+        {
+            CacheHitsWithLight++;
+            return;
+        }
+
+        chunk.Light = null;
+        chunk.LightNeighbours = 0;
+        CachedLightDroppedByColumn++;
     }
 
     private void Insert<TKey>(CacheEntry entry, Dictionary<TKey, LinkedListNode<CacheEntry>> index, TKey key)
@@ -755,6 +901,11 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
         {
             _cachedChunks.Remove(chunk.Position);
             ChunkEvictions++;
+
+            if (chunk.Light is not null)
+            {
+                _cachedChunksWithLight--;
+            }
 
             // The one rule that keeps "eviction is a free drop" true: a chunk that was dirtied
             // while it sat here has a copy nobody else holds, and dropping it is a deleted

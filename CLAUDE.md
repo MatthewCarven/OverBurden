@@ -236,6 +236,9 @@ produce; the profile prints how many turns it made, and a `cache` line beside a 
 (generated / loaded / from the cache / derives), because a hit count is only legible against what
 it replaced. **The standing-start baseline is identical in both arms**, to the digit, because
 nothing leaves the box; the cache line reads `0 chunks` there and that is a pass, not a silence.
+**Since slice 2 the `sources` line also prints how many hits came back with their grid and how many
+reseeds stood in for derives**, and the `cache` line how many cached grids were dropped by an edit
+at their face or by their column moving — the hits that still cost a derive.
 
 The distance-ordered derive queue adds one flag and one milestone. **`--derivefifo` restores the
 FIFO the queue was until 2026-09-03**, the arm "the ground is gone" was seen in, so the order is
@@ -321,17 +324,44 @@ local folder, the remote URL, and the assistant's memory directory (see TODO's n
 **The played worlds now live under `app_userdata/Overburden/`; the `MinerCraft/` folder beside it
 is the pre-rename backup and is Matthew's to delete.**
 
-**Pick up here (2026-09-03, late). Matthew agreed the order; two of three are done.** (1) ~~the
-distance-ordered light derive queue~~ — **built**; (2) ~~rename stage 3~~ — **built**, see the
-next paragraph; (3) **the retained-chunk cache, slice 2** — the derived light, with the two
-invalidation pushes and the incremental-equals-from-scratch oracle in
-[docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md) §5 and test 7. Then the milestone work:
+**Pick up here (2026-09-04). Matthew agreed the order, and all three are done.** (1) ~~the
+distance-ordered light derive queue~~; (2) ~~rename stage 3~~; (3) ~~the retained-chunk cache,
+slice 2~~ — **built**, see the next paragraph. Next is the milestone work:
 **M8b-2 — A → B, the breach**, portals indexed by 4 m sample and
 `BasinWater.Remove` as `Pour` reversed (see [docs/M8-PLAN.md](docs/M8-PLAN.md), M8b's split);
 **and settle the tick budget as a slice before the breach can produce the roof-open case in play**
 — a chunk bitten out from under a lake is a 73 ms tick in Release and ~0.7 s in Debug. The gate on
 the entangled miner is a battery and waits for M10. `git log origin/main..main` says what Matthew
 still has to push.
+
+**Cache slice 2 is built (2026-09-04). Suite 926 → 936.** A chunk leaves the box with its derived
+light and comes back reseeded rather than derived: **derives 5,157 → 3,572 at 6 m/s, 8,454 → 5,611
+at 20 m/s, and the 20 m/s turnaround arm draws where the control never does** (r6h/2v, Debug,
+turning every 5 s). Two invalidations and nothing else: an edit at a cached chunk's face drops its
+grid (`QueueLightBuild`, for an untracked position), and a column that moved under it — by an
+edit, a restore, or being dropped and re-seeded as a new object — is caught at revival by
+`SkyColumn.Revision`. The propagated values are never kept. Five things worth keeping:
+
+- **The walk the plan asked for found three light defects that were not the cache's, and its cap-0
+  control arm is what said so.** A grid that leaves now takes back the light it gave its neighbours
+  (`LightPropagator.RetractFrom`, `SpreadInto`'s inverse — the whole loaded set was never a
+  fixpoint before, by an accepted M5c-1 argument that stopped holding when the chunk came back with
+  different sources); the un-light walk reseeds past a cell that held 1 (a hole since M5b); and
+  **a face conducts only when both cells say so**, because a chunk derived against an absent
+  neighbour reads air there and the stale bit leaked skylight into rock until the gain re-derive
+  ran. Each has its own test.
+- **A push cannot cover a replaced column.** The plan's second push walked the column; slice 1's
+  "a dirty column is not cached" means the column a chunk was derived against can be gone on
+  return, so the grid records the column's revision and the revival compares once. The sharp case
+  is a voxel *placed* above a cached chunk — digging down from above stops at the unloaded chunk.
+- **Test 7's oracle is derived data, not values.** M5b's fixpoint check takes sources and
+  conductance as given, and stale derived data satisfies it perfectly; `AssertDerivedFresh` rebuilds
+  every tracked chunk's derived data from the voxels and column as they are now, masking only faces
+  toward an unloaded neighbour. Both it and the whole-set fixpoint hold in both arms.
+- **The reseed is deferred to the light step**, because the changed-cell list is only collected
+  there, and a seeded boundary cell nobody recorded leaves a drawn neighbour sampling darkness.
+- **~3.4 KB per cached chunk with its grid** (4.4 KB in the played world), the plan's estimate
+  measured; 64 MiB ≈ 19,000 chunks and stays Matthew's number.
 
 **Rename stage 3 is built (2026-09-03). Suite 912 → 926.** `Identifier.RetiredNamespaces` folds
 `minercraft` to `overburden` **in the constructor**, so the two spellings are one value wherever a
@@ -2033,7 +2063,11 @@ that is M5c-2.** Six things that are expensive to rediscover:
   nothing remembers having tried.** `LightPropagator.SpreadInto` re-spreads the **six adjacent
   face layers** when a grid comes into existence — six, not the whole 488-cell shell, because
   light crosses faces only. **M5b could not have found this**: its fixtures build every grid
-  before lighting any, which the streamer cannot do. It appeared as a one-in-six flake.
+  before lighting any, which the streamer cannot do. It appeared as a one-in-six flake. **Its
+  inverse, `RetractFrom`, arrived with cache slice 2 (2026-09-04)**: a grid that leaves takes back
+  the light it was the only justification for, so the loaded set is a fixpoint with one grid fewer
+  — which until then it was not, by design, and the design stopped covering it the moment a chunk
+  came back with different sources.
 - **The first deterministic test for that bug passed on broken code** — it dropped the chunk
   under a *sky shaft*, where every cell is its own full sky source and relights itself. A lamp in
   the neighbouring chunk, underground, is the shape that separates the arms. Fourth outing for

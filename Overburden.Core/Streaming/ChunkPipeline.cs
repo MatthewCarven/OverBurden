@@ -226,6 +226,28 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// </remarks>
     private readonly List<ChunkPos> _awaitingLight = [];
 
+    /// <summary>
+    /// Chunks back from the cache with their derived light, waiting to have their values reseeded.
+    /// </summary>
+    /// <remarks>
+    /// Served at the start of <see cref="StepLight"/> rather than at the hit, because the reseed
+    /// reports every cell that rose and the changed-cell list is only collected there — a seeded
+    /// boundary cell nobody recorded leaves a drawn neighbour sampling darkness where the grid
+    /// used to be, which is a seam on the chunk grid. Counted in <see cref="LightInFlight"/>, so
+    /// a chunk cannot reach <see cref="GenerationStage.Lit"/> and mesh from zeros in between.
+    /// </remarks>
+    private readonly List<ChunkPos> _lightRevivals = [];
+
+    /// <summary>
+    /// Chunks whose grid has left the field, and whose neighbours have not yet been re-examined.
+    /// </summary>
+    /// <remarks>
+    /// Served first in <see cref="StepLight"/>, before a revival spreads its neighbours' values
+    /// back into a returning chunk — those values are exactly the ones that may need taking back.
+    /// See <see cref="LightPropagator.RetractFrom"/>.
+    /// </remarks>
+    private readonly List<ChunkPos> _lightDepartures = [];
+
     /// <summary>Cells the propagator moved this frame, and the chunks that sample them.</summary>
     /// <remarks>
     /// Both cleared every frame, which is what bounds them: a budgeted drain writes at most one
@@ -339,7 +361,8 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
             // Zero by default, so every test written before the cache runs the code it was
             // written against; Main passes the cap, and --chunkcache=0 is the control arm.
             chunkCacheBytes: chunkCacheBytes,
-            onChunkEvicted: OnChunkEvicted);
+            onChunkEvicted: OnChunkEvicted,
+            onChunkForgotten: OnChunkForgotten);
 
         _propagator = new LightPropagator(_streamer);
 
@@ -534,6 +557,19 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// </remarks>
     public int UniformLightBuilds { get; private set; }
 
+    /// <summary>
+    /// Chunks that came back from the cache with their derived light and were reseeded rather
+    /// than derived.
+    /// </summary>
+    /// <remarks>
+    /// Beside <see cref="LightBuilds"/>: this is the number cache slice 2 turns on. A derive is
+    /// ~120k voxel reads on the sim thread; a reseed is a few hundred queue entries.
+    /// </remarks>
+    public int LightRevivals { get; private set; }
+
+    /// <summary>Grids that left the field and had the light they gave their neighbours re-examined.</summary>
+    public int LightRetractions { get; private set; }
+
     /// <summary>Cells the propagator has visited. Its own running total, surfaced here.</summary>
     public long LightCellsVisited => _propagator.CellsVisited;
 
@@ -603,7 +639,11 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// False is the condition a chunk needs to reach <see cref="GenerationStage.Lit"/> — see
     /// that stage's remarks for why it is global.
     /// </remarks>
-    public bool LightInFlight => _propagator.HasWork || _lightBuilds.Count > 0;
+    public bool LightInFlight =>
+        _propagator.HasWork
+        || _lightBuilds.Count > 0
+        || _lightRevivals.Count > 0
+        || _lightDepartures.Count > 0;
 
     /// <summary>
     /// Nothing is in flight, nothing is queued, and the light field has settled — the only
@@ -762,7 +802,8 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
 
         // Conductance reaches this chunk plus a neighbour across whichever faces the voxel
         // touches. That is the same eight-chunk rule the mesh border uses, because both ask the
-        // same question: whose view of this voxel changed?
+        // same question: whose view of this voxel changed? A neighbour that is cached rather than
+        // loaded cannot rebuild, so the queue drops its grid instead — see QueueLightBuild.
         Span<ChunkPos> dirty = stackalloc ChunkPos[ChunkEdits.MaxDirtyChunks];
         int count = ChunkEdits.DirtyChunks(voxel, dirty);
         for (int i = 0; i < count; i++)
@@ -843,6 +884,13 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         // never touched again by the walk would otherwise move with nothing reporting it.
         _lightChanges.Clear();
         _propagator.Changes = _lightChanges;
+
+        // Departures, then revivals, then derives. Departures first because a revival spreads its
+        // neighbours' boundary values back into the returning chunk, and those are the values a
+        // departure may have to take back. Both unbudgeted: a retraction is 384 cells of mostly
+        // one-read answers, a revival a few hundred queue entries, and neither reads a voxel.
+        RetractDepartures();
+        ReviveLight();
 
         // Checked after building and never before, so every frame makes progress — the same
         // shape as ApplyResults, and for the same reason: one derive costing more than the whole
@@ -947,6 +995,9 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         }
 
         chunk.LightNeighbours = present;
+
+        // What the sky flags were derived against, for the cache to check at revival.
+        chunk.LightSkyRevision = chunk.Sky.Revision;
         LightBuilds++;
 
         // Every cell BuildDerived reported, and only those. Its contract is that the set is the
@@ -1106,10 +1157,128 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         _awaitingLight.Clear();
     }
 
+    /// <summary>A chunk has stopped being tracked. If it had a grid, its neighbours are owed a look.</summary>
+    /// <remarks>
+    /// Whether the chunk is cached or dropped makes no difference here: either way the field has
+    /// one grid fewer, and either way what it gave the cells next door is no longer justified by
+    /// anything the propagator can see.
+    /// </remarks>
+    private void OnChunkForgotten(StreamedChunk chunk)
+    {
+        if (chunk.Light is not null)
+        {
+            _lightDepartures.Add(chunk.Position);
+        }
+    }
+
+    /// <summary>
+    /// Takes back, from the neighbours of every grid that left since the last frame, the light
+    /// that grid was the only justification for.
+    /// </summary>
+    /// <remarks>
+    /// Run whether or not the chunk has since come back: a returning grid holds zeros until its
+    /// reseed, so it contributes nothing to the check either way, and the reseed that follows
+    /// puts back exactly what its sources justify. The one-entry cache was cleared at the top of
+    /// <see cref="StepLight"/>, so a departed chunk answers null rather than its old grid.
+    /// </remarks>
+    private void RetractDepartures()
+    {
+        if (_lightDepartures.Count == 0)
+        {
+            return;
+        }
+
+        foreach (ChunkPos position in _lightDepartures)
+        {
+            _propagator.RetractFrom(position);
+            LightRetractions++;
+        }
+
+        _lightDepartures.Clear();
+    }
+
+    /// <summary>Queues a chunk that came back from the cache with its grid for a reseed.</summary>
+    private void QueueLightRevival(StreamedChunk chunk)
+    {
+        if (chunk.LightRevivalQueued)
+        {
+            return;
+        }
+
+        chunk.LightRevivalQueued = true;
+        _lightRevivals.Add(chunk.Position);
+    }
+
+    /// <summary>
+    /// Puts every chunk that came back from the cache with its derived light back into the field.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Exactly what <see cref="BuildLight"/> does for a fresh grid, minus the derive: the
+    /// neighbours spread into it again, because everything they sent while it had no grid was
+    /// dropped on the floor, and every cell is invalidated so that it rises to its own source and
+    /// spreads from there. The values were cleared on cache entry, so the invalidation queues no
+    /// removal walk — it is the seed pass with the changed cells reported, which is what a drawn
+    /// neighbour needs to be told to sample the boundary again.
+    /// </para>
+    /// <para>
+    /// <b>The values are never kept, and this is where that rule is enforced.</b> A lamp placed or
+    /// removed ten metres away while the chunk was out leaves what it held wrong, and the un-light
+    /// walk that would have repaired it ran in loaded chunks only.
+    /// </para>
+    /// </remarks>
+    private void ReviveLight()
+    {
+        if (_lightRevivals.Count == 0)
+        {
+            return;
+        }
+
+        foreach (ChunkPos position in _lightRevivals)
+        {
+            if (!_streamer.TryGet(position, out StreamedChunk chunk) || !chunk.LightRevivalQueued)
+            {
+                // Left again before this frame, and Retain cleared the flag; a later revival
+                // queues it afresh and this entry is the stale one.
+                continue;
+            }
+
+            chunk.LightRevivalQueued = false;
+
+            if (chunk.Light is null)
+            {
+                // Nothing today reaches this: a grid is only dropped while cached, and a revival
+                // without one is not queued. Kept so that anything which later drops a tracked
+                // grid leaves the chunk to AdvanceLight's derive rather than reseeding nothing.
+                continue;
+            }
+
+            _propagator.ForgetCache();
+            _propagator.SpreadInto(position);
+            _propagator.InvalidateChunk(position);
+            LightRevivals++;
+        }
+
+        _lightRevivals.Clear();
+    }
+
     /// <summary>Queues a derived light build, at most once per chunk per build.</summary>
+    /// <remarks>
+    /// Or, for a position that is not tracked, drops the grid the cache may be holding for it.
+    /// This is slice 2's face push, and it lives here rather than at the edit because "the
+    /// derived data at this position is stale" is what every caller of this method means — and
+    /// the edit's eight-chunk scope then reaches a cached neighbour through the same call that
+    /// reaches a loaded one, so the two cannot drift. Free for a tracked position.
+    /// </remarks>
     private void QueueLightBuild(ChunkPos position)
     {
-        if (!_streamer.TryGet(position, out StreamedChunk chunk) || chunk.LightBuildQueued)
+        if (!_streamer.TryGet(position, out StreamedChunk chunk))
+        {
+            _streamer.DropCachedLight(position);
+            return;
+        }
+
+        if (chunk.LightBuildQueued)
         {
             return;
         }
@@ -1664,15 +1833,23 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
             {
                 // A cache hit: the streamer kept this chunk after its last viewer left, voxels
                 // and persistence flags intact, so it re-enters where a load would have landed
-                // it. Its light is derived afresh; the streamer dropped the grid, and Retain put
-                // the stage back to Features so CanMesh waits for it.
-                //
-                // With its neighbours, for the reason a load's completion pushes them. Recorded
-                // from the break-recipe battery: pushing only the chunk itself is currently the
-                // identity, because reaching Lit pushes the 26 anyway and the ring's feature
-                // advance does too. Kept because it states the intent, and because anything that
-                // later lets a revived chunk skip the derive makes the difference real.
+                // it. Retain put the stage back to Features so CanMesh waits for the light.
                 chunk.TransitionTo(ChunkState.Generated);
+
+                if (chunk.Light is not null)
+                {
+                    // Slice 2: the streamer kept the derived data and vouched for it against the
+                    // column. What it did not keep is the values, so the grid is reseeded from
+                    // its own sources and its neighbours spread into it again — the fresh-grid
+                    // path minus the derive. A chunk without a grid here lost it to a face edit
+                    // or a moved column while it was out, and AdvanceLight derives it as before.
+                    QueueLightRevival(chunk);
+                }
+
+                // With its neighbours, for the reason a load's completion pushes them. Recorded
+                // from slice 1's break-recipe battery as the identity then, because reaching Lit
+                // pushed the 26 anyway; a revived chunk that skips the derive still reaches Lit
+                // through the same push, so it stays the identity and stays.
                 PushWithNeighbours(chunk.Position);
                 return;
             }

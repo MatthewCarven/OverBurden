@@ -477,6 +477,43 @@ public class LightingTests
         world.AssertFixpoint();
     }
 
+    /// <summary>
+    /// Removing a source re-lights the cells at the very edge of its reach from whatever else
+    /// reaches them.
+    /// </summary>
+    /// <remarks>
+    /// <b>Found by cache slice 2's walk, in its control arm, and it is this suite's walk that
+    /// should have found it.</b> The un-light pass skipped every face through which a zeroed cell
+    /// could have given nothing — a cell that held 1 — and with it the reseeding of any neighbour
+    /// on the far side. Two lamps whose reach meets at one cell are the shape: the cell holds 1
+    /// from each; removing one zeroes it as that lamp's, and the neighbour one step toward the
+    /// other lamp, at 2, was never asked to light it again.
+    /// </remarks>
+    [Fact]
+    public void RemovingASourceReLightsTheEdgeOfItsReachFromTheOther()
+    {
+        LightTestWorld world = Surface(surfaceY: 8, radius: 3);
+
+        // Cells (−14, 3, 0) and (14, 3, 0), in open air; their reach meets at cell (0, 3, 0),
+        // which holds 1 from each, and cell (1, 3, 0) is 13 from the second lamp and 15 from the
+        // first — beyond the first's walk, and the only thing that justifies its neighbour at 1.
+        var first = new VoxelPos(-54, 13, 1);
+        var second = new VoxelPos(58, 13, 1);
+        var meeting = LightCellPos.FromVoxel(new VoxelPos(1, 13, 1));
+        var beyond = LightCellPos.FromVoxel(new VoxelPos(5, 13, 1));
+
+        world.Edit(first, Lamp);
+        world.Edit(second, Lamp);
+        Assert.Equal(1, world.Block(meeting));
+        Assert.Equal(2, world.Block(beyond));
+
+        world.Edit(first, Air);
+
+        Assert.Equal(1, world.Block(meeting));
+        Assert.Equal(2, world.Block(beyond));
+        world.AssertFixpoint();
+    }
+
     [Fact]
     public void RemovingOneOfTwoOverlappingSourcesLeavesTheOther()
     {

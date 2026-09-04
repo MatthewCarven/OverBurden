@@ -36,6 +36,19 @@ public interface ILightChunks
 /// <em>locally</em>, cell by cell, with no second propagation to get wrong. M5-PLAN's oracle was
 /// "incremental equals from-scratch"; this is stronger and shares no code with the subject.
 /// </para>
+/// <para>
+/// <b>A face conducts only when both of its cells say so</b>, and that is one rule in three
+/// places (<see cref="Add"/>, <see cref="Remove"/>, <see cref="Rejustify"/>). The two
+/// derivations see the same voxels and agree by construction — except in one transient: a chunk
+/// derived while a neighbour was absent read air across that face, and when the neighbour
+/// arrives holding rock its own bit says closed while the stale one says open, until the gain
+/// re-derive runs. In the frames between, a one-sided check pushed skylight into rock through the
+/// stale bit, and nothing ever took it back: the re-derive reports only its own cells as changed,
+/// and the rock cell's word had been right all along. Cache slice 2 made that window a
+/// certainty — a revived grid spreads a frame before its neighbours re-derive — and its walk found
+/// a rock cell holding 14. Requiring both bits costs one read the neighbour's byte was fetched
+/// for anyway.
+/// </para>
 /// </remarks>
 public sealed class LightPropagator
 {
@@ -183,7 +196,39 @@ public sealed class LightPropagator
     /// saving.
     /// </para>
     /// </remarks>
-    public void SpreadInto(ChunkPos chunk)
+    public void SpreadInto(ChunkPos chunk) => ForEachCellAround(chunk, Respread);
+
+    /// <summary>
+    /// Re-examines every cell that touches <paramref name="chunk"/> from outside it, for a grid
+    /// that has just gone, and darkens any that grid was the only justification for.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The inverse of <see cref="SpreadInto"/>, and until cache slice 2 it did not exist.</b> A
+    /// grid leaving stops propagation at its faces, but the light it had already given its
+    /// neighbours stayed: a top-layer cell under a vanished chunk kept the skylight that fell into
+    /// it, a tunnel cell kept a lamp that left. M5c-1 accepted that, because at margin 2 such
+    /// light cannot reach the visible box. What that did not cover is the chunk coming back with
+    /// different sources — its column moved while it was out — when the neighbours' kept values
+    /// have no source anywhere, the fresh or reseeded grid imports them through
+    /// <see cref="SpreadInto"/>, and the chunk is drawn wrong once the box moves on. Slice 2's walk
+    /// found it, in the cache arm and the control arm both.
+    /// </para>
+    /// <para>
+    /// <b>Only a cell that is unjustified is darkened, which is what keeps this from being the
+    /// boundary thrash M5c-1 refused.</b> Each cell is held to the fixpoint rule with the departed
+    /// grid contributing nothing. A rock cell answers in one read and a sky source in two, and most
+    /// of a boundary is one or the other; a cell that fails is darkened, which runs the un-light
+    /// walk from it and reseeds what survives — the repair an edit gets. Nothing is derived.
+    /// </para>
+    /// </remarks>
+    public void RetractFrom(ChunkPos chunk) => ForEachCellAround(chunk, Rejustify);
+
+    /// <summary>
+    /// The six face layers of cells around a chunk — 384, not the 488 of the whole shell, because
+    /// light crosses faces only and the edges and corners cannot conduct into it at all.
+    /// </summary>
+    private static void ForEachCellAround(ChunkPos chunk, Action<LightCellPos> visit)
     {
         const int size = LightCellPos.CellsPerChunk;
 
@@ -204,8 +249,51 @@ public sealed class LightPropagator
                 local[uAxis] = u;
                 local[vAxis] = v;
 
-                Respread(LightCellPos.FromChunkLocal(chunk, local[0], local[1], local[2]));
+                visit(LightCellPos.FromChunkLocal(chunk, local[0], local[1], local[2]));
             }
+        }
+    }
+
+    /// <summary>
+    /// Darkens a cell whose value nothing around it justifies any more, and leaves alone one that
+    /// something does.
+    /// </summary>
+    /// <remarks>
+    /// The fixpoint rule evaluated once, locally, from the cell's own source and its conducting
+    /// neighbours' current values — a grid that has gone answers null and contributes nothing.
+    /// Written against the neighbour's <em>opposite</em> face, because that is the face the light
+    /// crosses on its way in, and it is the face that decides whether full skylight falls for free.
+    /// </remarks>
+    private void Rejustify(LightCellPos cell)
+    {
+        ChunkLight? light = Light(cell.Chunk);
+        if (light is null) return;
+
+        int index = cell.LocalIndex;
+
+        foreach (LightChannel channel in Channels)
+        {
+            int value = light.Get(index, channel);
+            int justified = light.Source(index, channel);
+            if (value <= justified) continue;
+
+            for (int face = 0; face < VoxelFace.Count && justified < value; face++)
+            {
+                if (!light.Conducts(index, face)) continue;
+
+                int[] offset = VoxelFace.Offset[face];
+                var next = cell.Offset(offset[0], offset[1], offset[2]);
+
+                ChunkLight? neighbour = Light(next.Chunk);
+                if (neighbour is null || !neighbour.Conducts(next.LocalIndex, face ^ 1)) continue;
+
+                int given = neighbour.Get(next.LocalIndex, channel);
+                int carried = given - Attenuation(channel, face ^ 1, given);
+                if (carried > justified) justified = carried;
+            }
+
+            // Light(next.Chunk) moved the one-entry cache; the cell's own grid is still `light`.
+            if (value > justified) Darken(light, index, cell, channel);
         }
     }
 
@@ -241,26 +329,31 @@ public sealed class LightPropagator
 
         foreach (LightChannel channel in Channels)
         {
-            int value = light.Get(index, channel);
-            int source = light.Source(index, channel);
-
-            // The cell ends at its own source either way, and which direction it moved decides
-            // what has to be queued. Dropping needs the un-light walk to clear what this cell
-            // was lighting; *rising* needs nothing but the spread — and forgetting that second
-            // case is why a freshly placed lamp lit nothing at all: its emission was in the
-            // derived data and its value was still the zero it had as empty air.
-            if (value != source)
-            {
-                light.Set(index, channel, source);
-                Changes?.Add(cell);
-            }
-
-            if (value > source) _remove[(int)channel].Enqueue((cell, value));
-
-            // Queued even when nothing changed: a face that just opened has to be spread
-            // through, and the value that spreads is whatever the cell already holds.
-            if (light.Get(index, channel) > 0) _add[(int)channel].Enqueue(cell);
+            Darken(light, index, cell, channel);
         }
+    }
+
+    private void Darken(ChunkLight light, int index, LightCellPos cell, LightChannel channel)
+    {
+        int value = light.Get(index, channel);
+        int source = light.Source(index, channel);
+
+        // The cell ends at its own source either way, and which direction it moved decides what
+        // has to be queued. Dropping needs the un-light walk to clear what this cell was
+        // lighting; *rising* needs nothing but the spread — and forgetting that second case is
+        // why a freshly placed lamp lit nothing at all: its emission was in the derived data and
+        // its value was still the zero it had as empty air.
+        if (value != source)
+        {
+            light.Set(index, channel, source);
+            Changes?.Add(cell);
+        }
+
+        if (value > source) _remove[(int)channel].Enqueue((cell, value));
+
+        // Queued even when nothing changed: a face that just opened has to be spread through,
+        // and the value that spreads is whatever the cell already holds.
+        if (light.Get(index, channel) > 0) _add[(int)channel].Enqueue(cell);
     }
 
     /// <summary>
@@ -363,7 +456,6 @@ public sealed class LightPropagator
                 if (!light.Conducts(index, face)) continue;
 
                 int expected = old - Attenuation(channel, face, old);
-                if (expected <= 0) continue;
 
                 int[] offset = VoxelFace.Offset[face];
                 var next = cell.Offset(offset[0], offset[1], offset[2]);
@@ -372,10 +464,12 @@ public sealed class LightPropagator
                 if (neighbour is null) continue;
 
                 int nextIndex = next.LocalIndex;
+                if (!neighbour.Conducts(nextIndex, face ^ 1)) continue;
+
                 int value = neighbour.Get(nextIndex, channel);
                 if (value == 0) continue;
 
-                if (value == expected)
+                if (expected > 0 && value == expected)
                 {
                     // Exactly what this cell was giving it, so this cell is why it is lit.
                     // Falling back to the neighbour's own source rather than to zero is what
@@ -390,7 +484,11 @@ public sealed class LightPropagator
                 else
                 {
                     // Lit by something else, so it survives — and it is exactly what re-fills
-                    // the hole this walk is making.
+                    // the hole this walk is making. That includes every lit neighbour of a
+                    // cell that held 1, which could have given nothing: an earlier version
+                    // skipped those faces entirely, and the cell it had just zeroed stayed dark
+                    // beside a neighbour at 2 that justified it. Found by cache slice 2's walk,
+                    // in the arm with no cache.
                     reseeds.Enqueue(next);
                 }
             }
@@ -432,6 +530,7 @@ public sealed class LightPropagator
                 if (neighbour is null) continue;
 
                 int nextIndex = next.LocalIndex;
+                if (!neighbour.Conducts(nextIndex, face ^ 1)) continue;
 
                 // "Only if greater" is what makes this terminate: a value can rise at most
                 // fifteen times, so the queue drains however tangled the cave is.

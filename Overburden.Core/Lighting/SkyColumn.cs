@@ -74,6 +74,32 @@ public sealed class SkyColumn
     public int ChunkZ { get; }
 
     /// <summary>
+    /// Changes whenever any height in this column changes, and never repeats across columns.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>What a cached chunk's derived light is checked against on revival.</b> A chunk's
+    /// sky-source bits are a function of this column's heights at the moment they were derived
+    /// (<see cref="Streaming.StreamedChunk.LightSkyRevision"/>). While the chunk sits in the
+    /// retained-chunk cache the column can move under it — an edit in a loaded chunk of the same
+    /// column, a restore landing, or the column being dropped and re-seeded as a new object — and
+    /// the chunk is not tracked, so no rebuild reaches it. One comparison at revival is what makes
+    /// the kept data safe: equal means nothing moved, anything else means derive again.
+    /// </para>
+    /// <para>
+    /// <b>Drawn from a process-wide counter rather than counted per column</b>, so that two
+    /// column objects can never carry the same number. A chunk revived under a column that was
+    /// dropped and recreated compares against a value the old object never had — the case a
+    /// per-column counter starting at zero would get wrong exactly once, the first time.
+    /// </para>
+    /// </remarks>
+    public long Revision { get; private set; } = NextRevision();
+
+    private static long s_lastRevision;
+
+    private static long NextRevision() => Interlocked.Increment(ref s_lastRevision);
+
+    /// <summary>
     /// At least one column's open height has moved away from its analytic seed, so this
     /// structure can no longer be reconstructed from the world seed.
     /// </summary>
@@ -166,14 +192,22 @@ public sealed class SkyColumn
                     checked((short)(heights.SurfaceHeightAt(originX + lx, originZ + lz) + 1));
             }
         }
+
+        Revision = NextRevision();
     }
 
     /// <summary>The Y above which this column is open, in world voxel coordinates.</summary>
     public int OpenAboveY(int localX, int localZ) => _openAboveY[Index(localX, localZ)];
 
     /// <summary>Sets a column's open height directly. For tests and for M6's restore.</summary>
-    public void SetOpenAboveY(int localX, int localZ, int y) =>
-        _openAboveY[Index(localX, localZ)] = checked((short)y);
+    public void SetOpenAboveY(int localX, int localZ, int y)
+    {
+        short value = checked((short)y);
+        if (_openAboveY[Index(localX, localZ)] == value) return;
+
+        _openAboveY[Index(localX, localZ)] = value;
+        Revision = NextRevision();
+    }
 
     /// <summary>Takes every height from <paramref name="source"/>, which must be the same column.</summary>
     /// <remarks>
@@ -203,6 +237,11 @@ public sealed class SkyColumn
         }
 
         source._openAboveY.CopyTo(_openAboveY, 0);
+
+        // Unconditionally, whether or not a height differed: the caller re-derives every loaded
+        // chunk in the column unconditionally too, and a cached chunk under a restore that changed
+        // nothing costs one derive on revival rather than a comparison here.
+        Revision = NextRevision();
 
         // Edit-derived, but *not* dirty: these heights came straight off the disk they would be
         // written back to. Marking it dirty here would make every reload rewrite every restored
@@ -243,6 +282,7 @@ public sealed class SkyColumn
             _openAboveY[index] = checked((short)(changed.Y + 1));
             HasEdits = true;
             DirtySinceSave = true;
+            Revision = NextRevision();
             return true;
         }
 
@@ -263,6 +303,7 @@ public sealed class SkyColumn
 
         HasEdits = true;
         DirtySinceSave = true;
+        Revision = NextRevision();
         return true;
     }
 

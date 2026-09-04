@@ -136,9 +136,17 @@ public sealed class StreamedChunk
     /// This chunk's light cells, once anything has built them. Null until then.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Owned here and mutated in place by the sim thread's propagator</b>, which is why it is
     /// never handed to a worker: unlike <see cref="Voxels"/> there is no copy-on-write, so a mesh
     /// job gets a 1,000-byte padded copy taken at submission instead. See docs/M5-PLAN.md.
+    /// </para>
+    /// <para>
+    /// <b>Survives the retained-chunk cache with its derived data and without its values.</b> The
+    /// derived side is a function of this chunk's voxels, its face neighbours' voxels and its
+    /// column, and the streamer invalidates it when either of the last two moves while the chunk
+    /// is out; the values are a function of everything within 15 m, and are reseeded on revival.
+    /// </para>
     /// </remarks>
     public ChunkLight? Light { get; internal set; }
 
@@ -173,7 +181,9 @@ public sealed class StreamedChunk
     /// light leaking through a wall at wherever the load margin happened to be. A neighbour that
     /// goes away takes its light grid with it, so propagation stops at that face whatever the
     /// conductance bit says, and rebuilding for it would only thrash the boundary as a viewer
-    /// moves back and forth.
+    /// moves back and forth. <b>What it does not take with it is the light it gave this chunk,
+    /// and since cache slice 2 that is retracted rather than kept</b> — see
+    /// <c>LightPropagator.RetractFrom</c>; a retraction is not a derive, so this rule is untouched.
     /// </para>
     /// <para>
     /// <b>Recorded from M5c-1's break-recipe battery: weakening this to <c>present != …</c> is
@@ -186,6 +196,28 @@ public sealed class StreamedChunk
     /// </para>
     /// </remarks>
     internal uint LightNeighbours { get; set; }
+
+    /// <summary>
+    /// <see cref="SkyColumn.Revision"/> of the column this chunk's derived light was built
+    /// against, or 0 if it never has been.
+    /// </summary>
+    /// <remarks>
+    /// The sky-source bits in <see cref="Light"/> are a function of the column's heights. While
+    /// the chunk is tracked a moved height reaches it through the column rebuild; while it sits in
+    /// the retained-chunk cache nothing reaches it, so the revival compares this against the column
+    /// it is given and drops the grid on a mismatch. See docs/CHUNK-CACHE-PLAN.md, slice 2.
+    /// </remarks>
+    internal long LightSkyRevision { get; set; }
+
+    /// <summary>
+    /// This chunk came back from the cache with its derived light and is waiting for the pipeline
+    /// to reseed its values and spread its neighbours into it again.
+    /// </summary>
+    /// <remarks>
+    /// The same dedup device as <see cref="LightBuildQueued"/>, cleared on cache entry the same
+    /// way, because a chunk can leave again before the frame that would have served it.
+    /// </remarks>
+    internal bool LightRevivalQueued { get; set; }
 
     /// <summary>
     /// This chunk has been edited, so regenerating it from the seed would not reproduce it.

@@ -1,4 +1,109 @@
-﻿# MinerCraft — Worklog
+﻿# Overburden — Worklog
+
+## 2026-09-04 — The retained-chunk cache, slice 2: the grid comes back with the chunk, and the walk that proved it found three older things
+
+**A turnaround costs no derive for a chunk that left with its grid, and the 20 m/s arm draws.**
+Suite 926 → 936. `ChunkStreamer.Retain` keeps the derived light and clears the values;
+`ValidateRevivedLight` checks the grid against the column it is given; `QueueLightBuild` drops a
+cached neighbour's grid where it would rebuild a loaded one; `ChunkPipeline.ReviveLight` reseeds a
+returning grid in the light step. Built from [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md)
+§5, which now has a "Slice 2 — built" section beside slice 1's.
+
+**Measured**, r6h/2v, Debug, turning every 5 s, cache 64 MiB against 0, the slice 1 recipe:
+
+| | 6 m/s, seed world | 20 m/s, seed world | 6 m/s, played world |
+|---|---|---|---|
+| generated | 4599 → 3213 | 9510 → 4590 | 2219 → 1543 |
+| loaded | 0 → 0 | 0 → 0 | 2380 → 1670 |
+| from the cache (with their grid) | 0 → 1377 (918) | 0 → 4812 (3261) | 0 → 1386 (919) |
+| derives | 5157 → 3572 | 8454 → 5611 | 5094 → 3568 |
+| reseeded instead | 0 → 918 | 0 → 3261 | 0 → 919 |
+| `viewer ms` mean / p50 | 6.69 / 6.11 → 1.06 / 0.50 | 6.11 / 6.07 → 1.21 / 0.36 | 6.80 / 6.22 → 1.00 / 0.37 |
+| `update ms` mean | 3.40 → 2.36 | 5.30 → 4.20 | 2.96 → 2.06 |
+| main thread | 46.4% → 31.4% | 74.9% → 56.4% | 40.1% → 27.6% |
+| first draw / light settled | 6.61 / 6.59 → 6.58 / 6.55 s | never → 12.20 / 12.17 s | 7.34 / 6.42 → 6.44 / 6.37 s |
+| held at the end | 612 (482 lit) + 68, 2.0 MiB | 1989 (1525 lit) + 221, 6.5 MiB | 612 (494 lit) + 68, 2.6 MiB |
+
+- **A third of the derives went where the loads and generates went.** 5,157 → 3,572 at 6 m/s,
+  8,454 → 5,611 at 20 m/s, 5,094 → 3,568 in the played world. Every hit that came back with its
+  grid was reseeded instead of derived; the 459 that did not, at 6 m/s, left during the first fill
+  before they had derived — the fill has nothing to keep as well as nothing to hit. The main thread
+  follows: 46% → 31%, 75% → 56%, 40% → 28% of one core.
+- **The 20 m/s arm draws, and slice 1 said the cache could not touch that.** It said M5d-1's cliff
+  is a derive cliff, which is true; what slice 2 changes is that after the first turn the box
+  retraces chunks that are lit already, the derive queue empties enough for the drawn box to
+  settle, and `first draw` lands at 12.2 s where the control arm never lands. **The turnaround
+  shape only**: arriving somewhere new at 20 m/s is the cliff it was, and TODO's levers on it are
+  unchanged.
+- **The plan's column push became a check at revival, and slice 1 is why.** A dirty column is not
+  cached, so a column can be *replaced* while a chunk is out — dropped and re-seeded on return as a
+  different object — and no push at the change can name the chunks derived against an object that
+  is gone. `SkyColumn.Revision` moves with every height and never repeats across columns (a
+  process-wide counter, so two objects can never carry one number); a grid records the revision it
+  was derived against; the revival compares once. Three cases, three tests: an edit under the same
+  column, a restore landing in a cached column (the chunk is *generated* so it does not wait behind
+  the parked read, and derives against the seed before the restore lands), and the replacement. **The
+  sharp direction is a voxel placed above a cached chunk** — digging down from above stops at the
+  unloaded chunk and cannot change its flags, so the fresh-derivation oracle is what says the
+  re-derive was necessary rather than conservative.
+- **Test 7 found three things, and its cap-0 control arm said none was the cache's.** Each is a
+  Core repair with its own test:
+  - *The whole loaded set was never a fixpoint.* A grid that left stopped propagation at its faces
+    and kept what it had given the cells next door; M5c-1 accepted that because at margin 2 such
+    light cannot reach the visible box, and the walk found where that stops covering it — the
+    chunk comes back with different sources, the kept values have no source anywhere, and the
+    returning grid imports them. `LightPropagator.RetractFrom` is `SpreadInto`'s inverse: 384 cells
+    held to the fixpoint rule with the departed grid contributing nothing, only the unjustified ones
+    darkened. Not the boundary thrash M5c-1 refused, because a rock cell answers in one read and a
+    sky source in two, and nothing is derived.
+  - *The un-light walk had a hole at value 1, since M5b.* It skipped every face through which a
+    zeroed cell could have given nothing — and with it the reseeding of a neighbour at 2 that still
+    justified the cell at 1. Two lamps whose reach meets at one cell; M5b's fuzz placed lamps and
+    seldom removed one, and never there.
+  - *A face conducted on one cell's word, and skylight leaked into rock through it.* A chunk
+    derived against an absent neighbour read air; the neighbour arrived holding rock; until its gain
+    re-derive ran, the stale bit was open from one side. The revival's spread ran a frame before
+    that re-derive every time, which is what made a latent race a certainty — and the control arm
+    has the same window whenever the derive budget splits the two builds. A face now conducts only
+    when both cells say so, in all three passes: a no-op in the steady state, the fresh answer in
+    the transient, one read of a byte already fetched. The probe that found it was a rock cell with
+    no conducting face holding 14.
+- **The oracle is two checks and a control.** Every tracked chunk's derived data equals a fresh
+  derivation from the voxels and column as they are now, with faces toward an unloaded neighbour
+  masked (the gain-only rule's own blind spot, harmless because a missing grid stops propagation
+  whatever the bit says); the whole tracked set is at the fixpoint; and the same walk at cap 0.
+  **The first version asserted the fixpoint over the visible box only, on the argument that the
+  margin's stale light was by design** — and that would have been narrowing the assertion round a
+  defect. Both arms passing over the whole set is the statement the plan wrote.
+- **Memory: ~3.4 KB per cached seed chunk with its grid, ~4.4 KB in the played world.** The plan's
+  3.5 KB, now measured; 64 MiB is on the order of 19,000 chunks and stays Matthew's number.
+
+**The battery: twenty-one recipes, fifteen caught, six green — and each green one has a name.**
+Caught: the face push skipped (2 — the face test and the walk), the revision check skipped (4 —
+all three column tests and the walk), the revision not bumped when a height closes down (1), not
+bumped by a restore (1), the values kept on cache entry (2), no reseed at revival (6), no re-spread
+at revival (1, the walk alone), a revival left at `Lit` (1), `LightNeighbours` zeroed on entry (1 —
+the plan named it the oracle's identity, and it is; the cost assertion is what catches it), a
+dropped grid's bytes not given back (2), the revision not recorded at the derive (7), departures
+not retracted (2), a face crossed on one cell's word (1, the walk alone), and the un-light walk's
+reseed hole (2). Green: **the revision not bumped when a height opens further** — unreachable for
+a cached chunk, because the downward scan stops at it and cannot open its cells, so that bump is
+belt and braces beside its sibling, which is not; **`LightInFlight` ignoring pending revivals, and
+pending departures** — identities by ordering, since both are served at the top of the light step
+and the pump that could mark a chunk `Lit` runs after it, kept because a budgeted reseed would make
+them load-bearing; **the retraction trusting the cell's own word for a face** — an identity at
+settle, where the two words agree, and the oracle reads the cell's word too; **the column check
+dropping the grid but not `LightNeighbours`** — a null grid derives regardless; and **the retraction
+running before the propagator forgets its one-entry cache** — the pre-existing guard at the top of
+`StepLight`, green because the cache would have to be pointing at the departed chunk, which is a
+flake by nature and M5c-1's category. The walk caught nine of the fifteen and two on its own; the
+unmutated control run was green.
+
+Left recorded rather than built: the reseed runs unbudgeted in `StepLight` (a few hundred queue
+entries a chunk, and a chunk left pending would be one `AdvanceLight` cannot tell from a lit one);
+and the retraction's `Changes` are recorded, so a drawn chunk adjacent to a departing grid would
+relight — which at margin 2 with one viewer and one-chunk steps cannot happen, and with a teleport
+costs one mesh.
 
 ## 2026-09-03 — Rename stage 3: the content namespace is an alias at the identity, and the stage found two guards it needed
 
@@ -121,7 +226,7 @@ remembering; anything given to `start.cmd` lands after that `--` and a later `--
 The pipeline default stays 4 ms because every recorded figure was taken at it. Whether 16 becomes
 the Debug default is an open TODO item, to be decided after a play with the nearest-first queue.
 
-
+## 2026-09-03 — The retained-chunk cache, slice 1: a turnaround costs no load and no generate
 
 Built from [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md) as planned that morning. Matthew's
 "Step 3" from the pick-up list. `ChunkStreamer.Forget` moves a chunk with voxels into a byte-capped
