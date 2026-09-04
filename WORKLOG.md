@@ -569,6 +569,14 @@ block          bore    void      delivered   L/s   peak      visits/s  ms/tick  
   fixture — **the streaming control is `--nosave`.** And `--quit-after 900` is ~6 s at headless
   frame rates, before the r6 fill settles at ~7 s; 2400 is what reaches the report.
 
+**Play note (2026-09-04): the relay met by accident, and the water read well.** Matthew pressed
+`R` without remembering it was bound — it went in the day before, on his own M8 wording that the
+relay would be *"invaluable"* for testing — and 10,000 L a press went down the terraced hillside as
+stair-stepped sheets, one 0.25 m layer a step. His verdict on the look: *"looks cool going down the
+stairs."* That is Tier B falling one cell a tick at 2 Hz on the integer heightmap's risers, and it
+is the first eye on M8d's waterfall question, ahead of the milestone that owns it. Not saved, so a
+quit clears it; Alt+R takes it back within 2 m; `--nowater` turns the tier off.
+
 ## 2026-09-03 — The fluid-kind seam: three options, and a grid per kind is the recommendation
 
 Matthew asked for the options behind *"decide before M8b closes: Tier B is single-fluid"*, and
