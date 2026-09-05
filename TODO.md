@@ -3861,10 +3861,13 @@ finding without the coarser-tolerance fallback.
             the water line's `held` double-counted in-window basins since M7d-1 (fixed), and a
             dead-end one-voxel shaft takes ~1 L a tick after the first (the automaton's throughput,
             recorded for M8d).**
-      - [ ] **M8b-2c play — Matthew's.** `Q` a chunk out from under the terrace pond and watch the
-            pond drop; a tunnel driven into a lake bank; and whether the pond's surface hanging over
-            the hole (Tier A's quad stays at the lake level while Tier B fills below it — two
-            surfaces for one body of water, briefly) reads as wrong before M8d owns the look.
+      - [x] **M8b-2c play — Matthew's, 2026-09-05: *"I am loving this water … all in all i really
+            like it."*** He opened the played world and watched its lakes drain into the mine — the
+            flood on open, seen and liked, which is the verdict for the seam. The pond's surface
+            hanging over a hole was on screen in his second shot and not remarked on: silence
+            rather than evidence, so M8d still owns the look. Not yet played: a tunnel driven into
+            a lake bank on purpose, and the relay's water soaking into a hillside (the hand-off's
+            own decision).
       - [ ] **Stated gap until M8b-4: a quit loses the pit's water.** The lake's loss persists via
             the ledger; the pit's gain lives in RAM. Acceptable for the seam, not to ship. **And
             until M8b-3 a chamber that fills under a lake holds its water for ever** — no B → A
@@ -3906,10 +3909,17 @@ finding without the coarser-tolerance fallback.
             control.** `default` has 116 ML banked over a mine of 4,562 bitten chunks; with M8b-2c's
             seam its dug chunks file portals on arrival and the terrace ponds drain into the mine at
             ~58 kL a tick — 465,036 L in the first four seconds, 110,792 cells active by nine, ticks
-            of 87–188 frames in Debug. The seam as built, on the world it was built for. **For the
-            play**: is that the flood DESIGN describes, and does the mine reading as lost on open
-            need a warning, a slower seep, or nothing? **For M8b-4**: that water has to survive a
-            quit, and its first save is half a million litres.
+            of 87–188 frames in Debug. The seam as built, on the world it was built for. **The
+            play answered the same day: nothing** — he likes it. **For M8b-4**: that water has to
+            survive a quit, and its first save is half a million litres.
+      - [ ] **"It is going to take a long time for my world to settle" — Matthew, 2026-09-05, and
+            it is M8b-3b's case with a number.** The mine is 4,562 chunks over 264 × 304 m; in
+            Debug a tick at 110,000 active cells is ~190 frames, so water moves a cell every three
+            seconds and ~116 ML of lakes take hours of wall clock to drain in; then the waterline
+            of that floor is a sheet of up to ~1.3 million cells, and diffusive levelling across it
+            is *never*. One solve over it is ~0.3 s Release, a few seconds Debug, once. **3b is
+            priced against this world, not the chamber fixture**, and a Release build matters to
+            this world before M9 does.
       - [ ] **The r6 control's command is quoted verbatim now.** `--nosave` on the engine's side of
             the bare `--` is dropped without a word, Main's warning covers only `name=value` flags,
             and the run opens the played world and reads as a flood. `--headless --quit-after 2400

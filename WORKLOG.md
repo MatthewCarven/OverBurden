@@ -1,5 +1,39 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-05 — The play: the mine floods and it reads right — "I am loving this water"
+
+**Matthew opened the played world after M8b-3a and sent two shots.** The first looks along the
+terraces from the cliff the mine cuts into them: the terrace ponds as Tier A planes, Tier B's
+patches in the pits between them, rain falling. The second looks down into the void — grey chunk
+walls sixty metres down, blue Tier B clusters arriving on the ledges and the floor, and flat Tier A
+quads hanging at terrace height over bitten chunks with nothing under them. His words: *"I am
+loving this water, um, it is going to take a long time for my world to 'settle' but all in all i
+really like it."* Three things it answers, and one it prices:
+
+- **The flood on open is the game, not a defect.** The finding the mis-invoked control turned up
+  is what he saw and liked — DESIGN's *water finds your excavation*, on the excavation. Recorded as
+  the play verdict for M8b-2 and 3a together.
+- **"Two surfaces for one body of water" was on screen and not remarked on.** The second shot has
+  Tier A's quads at the analytic surface over holes the water has already left through, which is
+  the shape M8b-2's planning pass said would look wrong first. Silence rather than evidence, by the
+  project's own rule; the question stays open for M8d, but it did not read as broken to the one
+  person who has looked.
+- **The hand-off's decision is not answered by this play.** A spill soaking into the ground needs
+  the relay on a hillside, which these shots do not show. Still open, still recommended shipped.
+- **"A long time to settle" is his wording for M8b-3b, and it has a number.** The played world's
+  mine is 4,562 bitten chunks, 264 × 304 m; the lakes over it are ~116 ML; the draw runs at
+  40–58 kL a tick and decays as the mine backs up. In the Debug build a tick at 110,000 active
+  cells is ~190 frames — about three seconds — so water moves a cell every three seconds and the
+  lakes take on the order of hours of wall clock to drain in. Then the waterline of a mine that
+  size is a sheet of up to ~1.3 million cells, and the automaton's diffusive levelling across it
+  is M8a's O(n²) at forty times the chamber fixture's scale: *never*, in practice. That is exactly
+  the case the settle is designed for, and the case it must be priced against — one solve over a
+  million-cell sheet is ~0.3 s in Release and a few seconds in Debug, once, against a tick that
+  never ends. **Recorded under M8b-3b as the sheet it has to level, and as the reason a Release
+  build matters to this world before M9.**
+
+Nothing built; the verdict and the number are in TODO.
+
 ## 2026-09-05 — M8b-3 planned and M8b-3a built: water resting on the ground is the lake's, the hand-off removes 99.5% of a spill's visits, and the settle is a solve of sheets
 
 **A planning pass for M8b-3 read against the automaton, `BasinRainfall`, `WaterSystem`,
