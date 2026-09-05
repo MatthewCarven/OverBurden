@@ -50,6 +50,7 @@ internal static class Program
           --blob               time chunk serialisation, and price Compact() on save
           --store              time the SQLite read path against the generation it replaces
           --watershed          time the M7 watershed analysis over a sweep of window sizes
+          --portal             time M8b-2b's portal index over a chunk bite, array seed against analytic
           --fluid              time M8's Tier B automaton draining a lake into a mine
           --fluidlitres <n>    the lake, in litres (default 9,000,000)
           --fluidticks  <n>    ticks of flow before the settle (default 2000)
@@ -72,6 +73,7 @@ internal static class Program
         bool store = false;
         bool watershed = false;
         bool fluid = false;
+        bool portal = false;
         long fluidLitres = 9_000_000;
         int fluidTicks = 2_000;
         int[] fluidBores = [1, 3, 5, 9];
@@ -114,6 +116,9 @@ internal static class Program
                         break;
                     case "--fluid":
                         fluid = true;
+                        break;
+                    case "--portal":
+                        portal = true;
                         break;
                     case "--fluidlitres":
                         fluidLitres = long.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
@@ -188,6 +193,12 @@ internal static class Program
                 fluidShape,
                 fluidChambers,
                 fluidBudget);
+        }
+
+        if (portal)
+        {
+            var portalGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
+            return PortalBench.Run(portalGenerator, MachineControl(portalGenerator), IsDebug());
         }
 
         if (watershed)

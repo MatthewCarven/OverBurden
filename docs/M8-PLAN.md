@@ -482,9 +482,9 @@ owns the look; recorded here so the first screenshot is not read as a defect.
   `Remove(x)` then `Add(what it took)` that is always the identity; the other holds only inside one
   lake)*; a removal from a merged lake lowers the sibling's level to the ridge and never below it;
   `LevelAt` after a removal equals the curve's level for what remains.
-- **M8b-2b — the portal index.** Core, in `Overburden.Core/Fluid/`, with nothing drawing yet:
-  `PortalIndex.Scan(chunk, heights, world)`, `OnVoxelChanged`, `Forget(chunk)`, and the seed heights
-  on `SkyColumn`. **Oracle**: after any sequence of scans, edits and forgets, the index equals a
+- **M8b-2b — the portal index. ✅ Built 2026-09-05; see "M8b-2b — built" below.** Core, in
+  `Overburden.Core/Fluid/`, with nothing drawing yet: `PortalIndex.Scan(chunk, heights, world)`,
+  `OnVoxelChanged`, `Forget(chunk)`, and the seed heights on `SkyColumn`. **Oracle**: after any sequence of scans, edits and forgets, the index equals a
   from-scratch scan of every loaded chunk — M5b's incremental-equals-from-scratch, and here
   from-scratch is cheap enough to *be* the definition. Break-recipes: skip the neighbours on an
   edit; skip bank portals; skip the forget; a placed block that leaves its portal standing; a bite's
@@ -555,6 +555,34 @@ Suite 953 → 963. What departed from the paragraph above, and what it found:
 - **Thirteen break-recipes, thirteen caught**; the old walk by exactly the two tests written for
   it, take-from-sibling by the ridge rule (invisible to capture-and-re-pour, since a drained sibling
   is a reachable state), the sky column's +1 by the pin test alone. Nothing built on the Game side.
+
+#### M8b-2b — built 2026-09-05
+
+Suite 963 → 974. `PortalIndex` in `Overburden.Core/Fluid/`, `SkyColumn.SeedSurfaceY`, and a
+`--portal` bench arm. What departed from findings 3–5, and what it found:
+
+- **A portal is a pair, filed under the outside's sample.** `Portal(Inside, Outside)` — the
+  holdable voxel at or below its seed surface and the face neighbour above *its own* surface — so
+  the covered test in finding 5 has the voxel it asks about in hand, and a bank breach under a
+  ridge is walked when the *lake's* sample is wet rather than the hillside's. `IsPit` is
+  `Outside.Y == Inside.Y + 1`.
+- **A scan takes pairs touching the chunk from either side**, because a pit under a chunk
+  boundary has its halves in two chunks and the second to arrive must find it; `Forget` removes
+  pairs with either half in the chunk. Finding 4's "the surface voxel plus the bank face toward
+  each lower neighbour" is the candidate set, over the footprint and its one-voxel ring.
+- **The edit hook is ten pair evaluations with the five seed surfaces read once**, geometry
+  before terrain. Measured in Release: **a bite is 1.249 ms with the seed as array reads and
+  10.293 ms with the analytic function** — the ~3 ms estimate holds only with the arrays, which
+  is why `SkyColumn` keeps them (2 KB a column, never persisted, left alone by `CopyFrom`, and a
+  throw when unseeded). A deep bite is 0.904 ms of geometric exits. Lever, not built: a chunk
+  wholly below its footprint's surface band skips the hook.
+- **The natural-cave fixture had no caves.** The shipped threshold is never reached in the test
+  region, so the first version of *a natural cave is never a pit* scanned solid rock and the
+  margin recipe passed. The fixture now asserts 2,005 columns with a cave directly under the
+  margin, and the recipe fails. **Fourteen break-recipes, fourteen caught** after that repair.
+- **Not built, and 2c's**: the streamer-backed `ISurfaceHeights`, `onVoxelsReady`, the forget
+  hook, the dug-chunks-only filter at the scan's call site, `DrawThroughPortals`, `--breach=`,
+  and the profile lines. The index does not know what an edit is; decision 1 is the caller's.
 
 ### Why this might go first
 

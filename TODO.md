@@ -3842,11 +3842,15 @@ finding without the coarser-tolerance fallback.
             the old walk stopped at it; three pits on a flat shelf is the fixture. `HeightField`
             samples `SurfaceHeightAt + 1`, pinned to `SkyColumn.Seed`'s plane by a test; every
             played pond's surface is one voxel higher. Thirteen break-recipes, thirteen caught.
-      - [ ] **M8b-2b — the portal index.** `SkyColumn` keeps its seed heights (2 KB a column, never
-            persisted); `PortalIndex` in `Core/Fluid/` with `Scan`, `OnVoxelChanged`, `Forget`,
-            keyed by world-lattice sample. Oracle: incremental equals a from-scratch scan after any
-            sequence of scans, edits and forgets. A natural cave can only ever be a bank portal
-            (`CaveSurfaceMarginVoxels`). Time a bite's worth of edits against the ~3 ms estimate.
+      - [x] **M8b-2b — the portal index. Built 2026-09-05, suite 963 → 974.** A portal is a pair
+            `(Inside, Outside)` filed under the *outside's* sample, because that is where the lake
+            is; a scan takes pairs touching the chunk from either side (a pit under a chunk
+            boundary); an edit re-evaluates ten pairs with the seed surfaces read once.
+            `SkyColumn.SeedSurfaceY` measured as the difference between **1.2 ms and 10.3 ms a
+            bite** in Release (`--portal`). The natural-cave fixture had no caves at the shipped
+            threshold and was repaired to assert 2,005 columns with one under the margin. Fourteen
+            break-recipes, fourteen caught. **Lever, not built: a chunk wholly below its surface
+            band skips the hook.** The dug-chunks-only rule is 2c's call-site filter.
       - [ ] **M8b-2c — the draw, the wiring, the profile, the play.** `onVoxelsReady` fired at
             generate, load *and* cache revival, exactly once each; `DrawThroughPortals` at the tick
             boundary; `drawn` on both tiers' profile lines; `--breach=<voxels>` bites a hole under

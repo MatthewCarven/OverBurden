@@ -62,6 +62,49 @@ public sealed class SkyColumn
     /// </remarks>
     private readonly short[] _openAboveY = new short[Size * Size];
 
+    /// <summary>
+    /// Per (x, z): the topmost solid voxel of the unedited column, exactly as
+    /// <see cref="ISurfaceHeights.SurfaceHeightAt"/> reported it at <see cref="Seed"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Kept because it is computed already and was thrown away.</b> <see cref="Seed"/>
+    /// evaluates the analytic surface for all 1,024 columns — the cost M6d-2's <c>viewer ms</c>
+    /// turned out to be — and until M8b-2b kept only the open height. The portal test
+    /// (<c>Fluid.PortalIndex</c>) asks for the seed surface of a voxel's column and of its four
+    /// neighbours' columns at edit time, and a chunk bite is 32,768 edit-time calls, so five
+    /// analytic evaluations per call would be tens of milliseconds a bite where five array reads
+    /// are nothing. M8c's seepage wants the same number, saturation against the ground surface,
+    /// so it is built once.
+    /// </para>
+    /// <para>
+    /// <b>Never persisted and never copied.</b> It is a pure function of the seed, so
+    /// <see cref="CopyFrom"/> leaves it alone and a restored column keeps what its own
+    /// <c>Seed</c> produced. Another 2 KB a column, ~0.6 MB at r6.
+    /// </para>
+    /// </remarks>
+    private readonly short[] _seedSurfaceY = new short[Size * Size];
+
+    /// <summary>Whether <see cref="Seed"/> has run, which is what makes <see cref="SeedSurfaceY"/> answerable.</summary>
+    public bool IsSeeded { get; private set; }
+
+    /// <summary>The topmost solid voxel of the unedited column at (x, z), in world voxel Y.</summary>
+    /// <exception cref="InvalidOperationException">
+    /// The column was never seeded — a blob-read temporary, or a test that set heights by hand.
+    /// Loud rather than zero, because a zero here is a surface at sea level that every portal
+    /// test would believe.
+    /// </exception>
+    public int SeedSurfaceY(int localX, int localZ)
+    {
+        if (!IsSeeded)
+        {
+            throw new InvalidOperationException(
+                $"Column ({ChunkX}, {ChunkZ}) was never seeded, so it has no seed surface to report.");
+        }
+
+        return _seedSurfaceY[Index(localX, localZ)];
+    }
+
     /// <param name="chunkX">Chunk X of the column. Chunk Y is deliberately absent.</param>
     public SkyColumn(int chunkX, int chunkZ)
     {
@@ -188,11 +231,14 @@ public sealed class SkyColumn
             for (int lx = 0; lx < Size; lx++)
             {
                 // SurfaceHeightAt is the topmost *solid* voxel, so the sky starts one above it.
-                _openAboveY[Index(lx, lz)] =
-                    checked((short)(heights.SurfaceHeightAt(originX + lx, originZ + lz) + 1));
+                // The solid voxel itself is kept too — see _seedSurfaceY.
+                short surface = checked((short)heights.SurfaceHeightAt(originX + lx, originZ + lz));
+                _seedSurfaceY[Index(lx, lz)] = surface;
+                _openAboveY[Index(lx, lz)] = checked((short)(surface + 1));
             }
         }
 
+        IsSeeded = true;
         Revision = NextRevision();
     }
 

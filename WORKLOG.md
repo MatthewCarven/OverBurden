@@ -1,5 +1,66 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-05 — M8b-2b: the portal index — a hole in the analytic ground is a pair, filed where the water is, and a bite costs 1.2 ms
+
+**`PortalIndex` is built in `Overburden.Core/Fluid/`, `SkyColumn` keeps its seed surface, and
+nothing draws yet.** Suite 963 → 974. Both halves of the same-day session were "Lets continue";
+this is the second. Six things worth keeping:
+
+- **A portal is a pair, not a voxel, and it is filed under the outside's sample.** `Portal(Inside,
+  Outside)`: the holdable voxel at or below its column's seed surface, and the face neighbour above
+  <i>its own</i> column's surface that it opens onto — upward for a pit floor, sideways for a bank.
+  The plan said "indexed by the 4 m sample they sit under" and finding 5 already had the covered
+  test on the neighbour; the index resolves that: a tunnel driven under a ridge into a lake has its
+  inside under the dry hillside's sample and its outside under the lake's, and the tick walks wet
+  samples first, so filing by the inside would skip the one portal a bank breach is. Two faces of
+  one dug voxel are two portals, because they can open onto two basins.
+- **A scan takes every pair touching the chunk from either side.** A pit whose mouth is the top row
+  of one chunk opens onto the bottom row of the chunk above; an unloaded voxel is solid, so the
+  pair is a portal only while both halves are loaded, and whichever arrives second has to find it.
+  `Forget` removes pairs with either half in the chunk for the same reason. Tested in both arrival
+  orders, and the break-recipe that scans insides only fell to it.
+- **An edit re-evaluates ten pairs, geometry before terrain.** A change at `p` can open or close a
+  portal with `p` inside (five outsides) or with `p` outside (the voxel below and the four beside
+  it). The five seed surfaces are read once per call, and a voxel above its surface is never inside
+  while one at or below it is never outside, so a deep bite is 32,768 geometric exits. **The edit
+  path is deliberately a second copy of the geometry**, cost-shaped rather than a call to the
+  definition — and that redundancy is what let the fuzz catch a mutation *in the definition*: the
+  two disagreed. One function would have made that mutation invisible to the oracle.
+- **The seed surface on `SkyColumn` is an eight-fold decision, measured.** `--portal` in Release,
+  control 1.05×: a bite costs **1.249 ms** with the seed as array reads and **10.293 ms** with the
+  analytic function (deep chunk 0.904 against 9.981; a scan 0.075 against 0.456). The plan's ~3 ms
+  estimate holds with the arrays and fails without them by 3×, and in the Debug build people play
+  the analytic arm would be ~30 ms a bite. `SeedSurfaceY` throws when unseeded rather than reading
+  zero, is never persisted and is left alone by `CopyFrom`, so a restored column keeps its own.
+  **Lever, not built: a chunk wholly below its footprint's surface band can skip the hook.**
+- **The natural-cave fixture had no caves, and its zero was silence.** The test that says *a
+  natural cave is never a pit portal* scanned 64 unedited chunks and found 0 pits — and 0 banks,
+  and, when the margin recipe passed, a probe found the cave field's surface maximum over the whole
+  region was 0.361 against the 0.42 threshold, with not one cave twelve voxels down either. Solid
+  rock, scanned. The threshold is lowered in the fixture until 2,005 columns have a cave directly
+  under the margin, asserted, and the margin recipe now fails at `Voxel(-24, 6, -64)`. **Ask what
+  a fixture's parameters make unreachable, sixth outing**; 0 banks stays, because this terrain's
+  slope never reaches the nine-voxel step a cave mouth needs, and it is printed rather than
+  asserted.
+- **The oracle is the definition over every voxel of every scanned chunk and its shell**, kept
+  where a pair touches the chunk — 90 checks over three terraced-and-cliffed terrains, 76 with pits,
+  76 with banks, 29 non-empty after a forget, every filed entry under its outside's sample.
+  Cheap enough to be the definition, as the plan said, and it is.
+
+**Fourteen break-recipes, fourteen caught after the one fixture repair**: an edit ignoring its
+outside role, no banks in the definition, forget removing nothing, a closed portal never removed,
+touching-means-inside-only, filed under the inside's sample, scan of the surface voxel only, the
+bank face off by one, pit geometry at-or-below, the row under the chunk floor skipped, the voxel
+below ignored, the sky column seeding the plane, the cave margin removed, and the ring columns
+skipped. The restore was by writing content this time, and no stale binary followed it.
+
+**Not built, on purpose, all M8b-2c's**: the `ISurfaceHeights` over the streamer's columns that
+reads `SeedSurfaceY` and falls back to the generator; the `onVoxelsReady` callback for the three
+arrival paths and the forget hook; the dug-chunks-only filter at the scan's call site;
+`DrawThroughPortals`; `--breach=`; and the profile lines. The index does not know what an edit is
+— a scanned chunk with a natural cave mouth on a cliff will file it — and "a hole is what was dug"
+is the caller's filter, stated in the type's remarks so 2c cannot forget it.
+
 ## 2026-09-05 — M8b-2a: water leaves Tier A off the top of its lake, the field samples the plane the water stands on, and a lake has had two heights since M7a-2
 
 **`BasinWater.Remove` is built, the height convention is fixed, and building the one found a defect
