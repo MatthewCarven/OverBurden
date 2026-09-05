@@ -275,6 +275,11 @@ internal sealed class ChamberTerrain : DugTerrain
         $"a {_chambers} x {_chambers} x {_chambers} block of bitten 8 m chunks "
         + $"({_chambers * 8} m on a side), its roof {_depthMetres} m under the surface";
 
+    /// <summary>The Y of the block's floor, and half its width in voxels: the lake arm's sheet.</summary>
+    public int FloorY => _floorY;
+
+    public int HalfSpan => _halfSpan;
+
     public override IEnumerable<VoxelPos> Mouth()
     {
         // The same footprint IsDug gives the shaft: the whole block when the roof is open, else
@@ -356,7 +361,8 @@ internal static class FluidBench
         string shape,
         int chambers,
         double budgetMillis,
-        string solve)
+        string solve,
+        int settleShare)
     {
         if (solve is not ("wait" or "solve" or "both"))
         {
@@ -404,7 +410,9 @@ internal static class FluidBench
         {
             Console.WriteLine(
                 "  The 'solve' arm runs M8b-3b's sheet solve at every tick boundary of the settle "
-                + "(--settleafter=0's case): the flow is identical, the settle is what changes.");
+                + "(--settleafter=0's case): the flow is identical, the settle is what changes. "
+                + $"A sheet is re-levelled with one cell in {settleShare} unsettled"
+                + (settleShare == 0 ? " (no threshold: the pre-slice arm)." : ", or a step in it."));
         }
 
         Console.WriteLine();
@@ -425,14 +433,14 @@ internal static class FluidBench
             {
                 RunArm(
                     Make(generator, shape, bore, depth, spanMetres, chambers),
-                    lakeLitres, ticks, bore, settleCap, budgetMillis, solve: false);
+                    lakeLitres, ticks, bore, settleCap, budgetMillis, solve: false, settleShare);
             }
 
             if (solve != "wait")
             {
                 RunArm(
                     Make(generator, shape, bore, depth, spanMetres, chambers),
-                    lakeLitres, ticks, bore, settleCap, budgetMillis, solve: true);
+                    lakeLitres, ticks, bore, settleCap, budgetMillis, solve: true, settleShare);
             }
         }
 
@@ -447,6 +455,139 @@ internal static class FluidBench
             "  Tier B's condition is that it terminates, so a run that never settles is wrong "
             + "rather than slow.");
         return 0;
+    }
+
+    /// <summary>
+    /// The share slice's own arm: the play's shape, which no draining fixture reproduces. A lake
+    /// at rest — a chamber block's floor filled level and asleep — with a few litres a tick drawn
+    /// off one edge, the way the loaded edge of the played world's mine drains into the unloaded
+    /// world. The settle at no threshold re-levels the whole lake at every boundary for that
+    /// edge; at the share it stops its flood at the edge's disturbance. Both arms print what a
+    /// pass costs, which is the number the play reported as a quarter-second hitch twice a second.
+    /// </summary>
+    internal static int RunLake(
+        WorldGenerator generator, string machineControl, bool isDebug, int chambers, int ticks, int settleShare)
+    {
+        var example = new ChamberTerrain(generator, 0, 0, shaftVoxels: 1, depthMetres: 2, chambers);
+        int cells = (2 * example.HalfSpan) * (2 * example.HalfSpan);
+        Console.WriteLine("Lake bench — the settle's share against a lake at rest with a draining edge");
+        if (isDebug)
+        {
+            Console.WriteLine("*** DEBUG BUILD — these timings are meaningless. Re-run with -c Release. ***");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine(machineControl);
+        Console.WriteLine();
+        Console.WriteLine(
+            $"  Fixture: the floor of {example.Describe()} — one sheet of {cells:N0} cells, filled level "
+            + $"at 8,000 mL a cell and asleep; {LakeDrainCells} cells along its west edge each give up "
+            + $"{LakeDrainMillilitres} mL a tick ({LakeDrainCells * LakeDrainMillilitres / 1000.0:F1} L a tick), "
+            + $"for {ticks:N0} ticks at {TicksPerSecond:F0} Hz. The settle runs at the game's interval "
+            + $"({SheetSettle.DefaultSettleAfterTicks} quiet ticks; a draw is not inflow).");
+        Console.WriteLine();
+        Console.WriteLine(
+            "  share    passes   levelled   under    stepped   visited      visited    written      written    longest   solve     automaton   awake");
+        Console.WriteLine(
+            "                               share              cells        /pass      cells        /pass      pass ms   ms/tick   visits      mean");
+        Console.WriteLine(
+            "  ------   ------   --------   ------   -------   ----------   --------   ----------   --------   -------   -------   ---------   -------");
+
+        // Warm by call count, on a small lake, both paths: the first pass over a 147,456-cell lake
+        // otherwise runs in tier-0 code being promoted mid-flood, and read 1,411 ms against a
+        // warm 24 — the watershed bench's finding, on the solve.
+        foreach (int share in new[] { 0, settleShare })
+        {
+            RunLakeArm(new ChamberTerrain(generator, 0, 0, shaftVoxels: 1, depthMetres: 2, chambers: 2), 40, share, print: false);
+        }
+
+        foreach (int share in settleShare == 0 ? [0] : new[] { 0, settleShare })
+        {
+            RunLakeArm(new ChamberTerrain(generator, 0, 0, shaftVoxels: 1, depthMetres: 2, chambers), ticks, share, print: true);
+        }
+
+        Console.WriteLine();
+        Console.WriteLine(
+            "  'visited' is the cells the solve read; at no threshold it is the lake at every pass, and "
+            + "at the share it is the share times the edge's disturbance. 'solve ms/tick' is the pass "
+            + "cost averaged over every tick, passes or not.");
+        return 0;
+    }
+
+    private const int LakeDrainCells = 10;
+    private const int LakeDrainMillilitres = 800;
+
+    private static void RunLakeArm(ChamberTerrain terrain, int ticks, int share, bool print)
+    {
+        var sim = new FluidSimulation(terrain);
+        int half = terrain.HalfSpan;
+        int floorY = terrain.FloorY;
+        for (int x = -half; x < half; x++)
+        {
+            for (int z = -half; z < half; z++)
+            {
+                sim.Grid.Fill(new VoxelPos(x, floorY, z), 8_000);
+            }
+        }
+
+        // Bake every column the flood will read before anything is timed — the floor and the
+        // ring of wall around it, which the flood asks about from the floor's edge. The fixture
+        // evaluates the cave field for every voxel of a column on its first CanHold, and the first
+        // pass over the lake otherwise pays for the columns inside the pass: 1,385 ms with none
+        // baked and 480 ms with the ring left out, both reading as the solve's longest pass.
+        for (int x = -half - 1; x <= half; x++)
+        {
+            for (int z = -half - 1; z <= half; z++)
+            {
+                terrain.CanHold(new VoxelPos(x, floorY, z));
+            }
+        }
+
+        var settle = new SheetSettle(sim, SheetSettle.DefaultSettleAfterTicks, share);
+        long visits = 0;
+        long awake = 0;
+        var clock = new Stopwatch();
+        double tickMillis = 0;
+        var firstPasses = new List<double>();
+        for (int tick = 0; tick < ticks; tick++)
+        {
+            for (int i = 0; i < LakeDrainCells; i++)
+            {
+                sim.Remove(new VoxelPos(-half, floorY, -LakeDrainCells / 2 + i), LakeDrainMillilitres);
+            }
+
+            clock.Restart();
+            FluidTickResult result = sim.Step();
+            long passesBefore = settle.Settles;
+            settle.AtBoundary();
+            tickMillis += clock.Elapsed.TotalMilliseconds;
+            visits += result.CellsVisited;
+            awake += result.ActiveAfter;
+            if (settle.Settles > passesBefore && firstPasses.Count < 5)
+            {
+                firstPasses.Add(settle.LastMillis);
+            }
+        }
+
+        if (!print)
+        {
+            return;
+        }
+
+        // The first passes by name, because the first one over a lake pays for what it grows
+        // into and a "longest pass" column cannot say whether that is the solve or a one-off.
+        Console.WriteLine(string.Create(
+            CultureInfo.InvariantCulture,
+            $"           first passes: {string.Join(", ", firstPasses.Select(ms => ms.ToString("F2", CultureInfo.InvariantCulture)))} ms"));
+
+        Console.WriteLine(string.Create(
+            CultureInfo.InvariantCulture,
+            $"  {share,6}   {settle.Settles,6:N0}   {settle.SheetsLevelled,8:N0}   {settle.SheetsUnderShare,6:N0}   "
+            + $"{settle.SheetsStepped,7:N0}   {settle.CellsVisited,10:N0}   "
+            + $"{(settle.Settles == 0 ? 0 : settle.CellsVisited / (double)settle.Settles),8:N0}   "
+            + $"{settle.CellsWritten,10:N0}   "
+            + $"{(settle.Settles == 0 ? 0 : settle.CellsWritten / (double)settle.Settles),8:N0}   "
+            + $"{settle.LongestMillis,7:F2}   {settle.TotalMillis / ticks,7:F3}   {visits,9:N0}   {awake / (double)ticks,7:N0}"));
     }
 
     private static string Ticks(int value) =>
@@ -471,7 +612,7 @@ internal static class FluidBench
 
     private static void RunArm(
         DugTerrain terrain, long lakeLitres, int ticks, int bore, int settleCap, double budgetMillis,
-        bool solve)
+        bool solve, int settleShare)
     {
         long budgetTicks = budgetMillis > 0
             ? FluidSimulation.BudgetTicks(TimeSpan.FromMilliseconds(budgetMillis))
@@ -592,7 +733,7 @@ internal static class FluidBench
 
         // The analytic arm: the sheet solve at every boundary, which is --settleafter=0 with no
         // inflow, and the settle phase has none. Same sim, same state at the end of the flow.
-        SheetSettle? sheets = solve ? new SheetSettle(sim, settleAfterTicks: 0) : null;
+        SheetSettle? sheets = solve ? new SheetSettle(sim, settleAfterTicks: 0, settleShare) : null;
 
         var settleClock = Stopwatch.StartNew();
         while (sim.ActiveCellCount > 0 && settleTicks < settleCap)
@@ -676,9 +817,12 @@ internal static class FluidBench
         {
             Console.WriteLine(string.Create(
                 CultureInfo.InvariantCulture,
-                $"           solve:  {sheets.Settles:N0} pass(es), {sheets.SheetsLevelled:N0} levelled / "
-                + $"{sheets.SheetsPacked:N0} packed / {sheets.SheetsSkipped:N0} left alone, "
-                + $"{sheets.CellsWritten:N0} cells written, {sheets.CellsWoken:N0} woken, largest sheet "
+                $"           solve:  {sheets.Settles:N0} pass(es) at share 1 in {sheets.SettleShare}, "
+                + $"{sheets.SheetsLevelled:N0} levelled / "
+                + $"{sheets.SheetsPacked:N0} packed / {sheets.SheetsSkipped:N0} left alone / "
+                + $"{sheets.SheetsUnderShare:N0} left under share / {sheets.SheetsStepped:N0} levelled for a step, "
+                + $"{sheets.CellsVisited:N0} cells visited, "
+                + $"{sheets.CellsWritten:N0} written, {sheets.CellsWoken:N0} woken, largest sheet "
                 + $"{sheets.LargestSheet:N0} cells, longest pass {sheets.LongestMillis:F2} ms, "
                 + $"{sheets.TotalMillis:F0} ms in all"));
         }

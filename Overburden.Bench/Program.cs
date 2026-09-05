@@ -62,6 +62,10 @@ internal static class Program
           --fluidsettle <n>    tick budget for the settle after the flow (default 100000)
           --fluidbudget <ms>   slice each flow tick under a per-frame budget (default 0: whole ticks, the control)
           --fluidsolve  <arm>  wait (the automaton alone, default), solve (M8b-3b's sheet solve at every settle boundary), or both
+          --settleshare <n>    the solve re-levels a sheet with one cell in n unsettled (default 8; 0 is no threshold, the pre-slice arm); --fluid's solve arm, --spill's settle arm and --lake
+          --lake               the share slice: a lake at rest with a draining edge, the settle priced at no threshold against --settleshare
+          --lakechambers <n>   chambers per axis for the lake's floor (default 12: a 96 m floor, 147,456 cells)
+          --laketicks <n>      ticks to run the lake for (default 60)
           --spill              M8b-3: a spill on real ground with and without the B -> A hand-off
           --spilllitres a,b    the spills to sweep, in litres (default 10000,50000)
           --spillticks <n>     tick cap per arm (default 20000)
@@ -88,6 +92,10 @@ internal static class Program
         int fluidChambers = 1;
         double fluidBudget = 0;
         string fluidSolve = "wait";
+        int settleShare = Overburden.Core.Fluid.SheetSettle.DefaultSettleShare;
+        bool lake = false;
+        int lakeChambers = 12;
+        int lakeTicks = 60;
         bool spill = false;
         long[] spillLitres = [10_000, 50_000];
         int spillTicks = 20_000;
@@ -161,6 +169,18 @@ internal static class Program
                     case "--fluidsolve":
                         fluidSolve = Next(args, ref i);
                         break;
+                    case "--settleshare":
+                        settleShare = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--lake":
+                        lake = true;
+                        break;
+                    case "--lakechambers":
+                        lakeChambers = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--laketicks":
+                        lakeTicks = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
                     case "--spill":
                         spill = true;
                         break;
@@ -200,6 +220,13 @@ internal static class Program
         ChunkPos[] region = Region();
         var strata = new StrataTable([new StrataLayer(Grass, 1), new StrataLayer(Dirt, 3)], Stone);
 
+        if (lake)
+        {
+            var lakeGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
+            return FluidBench.RunLake(
+                lakeGenerator, MachineControl(lakeGenerator), IsDebug(), lakeChambers, lakeTicks, settleShare);
+        }
+
         if (fluid)
         {
             var fluidGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
@@ -216,7 +243,8 @@ internal static class Program
                 fluidShape,
                 fluidChambers,
                 fluidBudget,
-                fluidSolve);
+                fluidSolve,
+                settleShare);
         }
 
         if (portal)
@@ -229,7 +257,8 @@ internal static class Program
         {
             var spillGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
             return SpillBench.Run(
-                spillGenerator, MachineControl(spillGenerator), IsDebug(), seed, spillLitres, spillTicks);
+                spillGenerator, MachineControl(spillGenerator), IsDebug(), seed, spillLitres, spillTicks,
+                settleShare);
         }
 
         if (watershed)

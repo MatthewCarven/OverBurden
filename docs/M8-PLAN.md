@@ -890,6 +890,113 @@ Every arm reaches rest and `VerifyQuiescent` says the rest is real; volume exact
 The r6 control is 2601 / 325 / 3446 at 411 with zero passes. How the soak reads with the settle in
 front of it is deferred to M8c with the hand-off's own decision.
 
+#### M8b-3b — the share slice, built 2026-09-05
+
+Finding 2's lever, built the day the play fired it. `FluidSimulation.LevelSheets(share)`: a sheet
+with a move inside it is re-levelled only when at least one cell in *share* of it is unsettled —
+has a transferable pair inside the sheet — or a step stands in it; `SheetSettle` carries the
+share, `--settleshare=<n>` is the sweep, **8 by default, an estimate**, zero no threshold and the
+control arm. The `settle` line prints sheets left under the share, sheets levelled for a step and
+the cells the passes visited, which is the number the share bounds. On the bench `--settleshare <n>`
+applies to `--fluid`'s solve arm, `--spill`'s settle arm and **`--lake`, the slice's own arm**: a
+chamber block's floor filled level and asleep, with eight litres a tick drawn off ten cells of one
+edge — the played world's lake with its loaded edge draining into the unloaded world, which no
+draining fixture reproduces. Suite 1,032 → 1,040; ten recipes, eight caught, two findings.
+
+**The TODO's one line — "re-level only when more than one cell in n of it is unsettled" — needed
+two things it did not say, and both are the slice:**
+
+1. **The share cannot be read off the flood, because the flood is the cost.** Half of the 275 ms
+   the play paid was finding the 162,572-cell sheet, and a rule that floods a sheet in order to
+   leave it alone halves the bill and keeps the hitch. The wake rule is what makes the decision
+   cheap: a transfer wakes both of its cells and every neighbour of the source, a draw wakes the
+   cell and its neighbours, so at a boundary **every cell with a move is an awake cell or beside
+   one**. The flood therefore runs from every seed of one Y at once, layer by layer; after layer 1
+   it has met every unsettled cell of every sheet and from there the count only grows, so a sheet
+   whose count reaches *share* × its unsettled cells is under the share whatever the rest holds
+   and its flood is **frozen** there, its frontier kept. Floods that meet are one sheet
+   (union-find, smaller into larger); a live flood reaching a frozen one thaws it and the joined
+   sheet is judged on the joined counts — and the frontier has to go back into the layer, because
+   a discovered cell never examined has no front flag and a raised edge cell would not be woken.
+   The bound is exactly as sound as the wake rule. **A caller with hand-picked seeds — M8b-4's
+   unload method — must pass a share of zero**: one named cell of a sheet does not neighbour every
+   unsettled cell of it.
+2. **A step between two levelled puddles is the disturbance that is narrow and not local.** Two
+   puddles levelled apart at different heights creep and meet along a line: a few cells of a big
+   sheet, under any share, and left alone the band widens as √t — minutes for a lake, the O(n²)
+   the settle exists against. The settled cells bordering the disturbance tell a merge from a
+   creep: a creeping edge is bordered on one side by an interior that agrees about the level, a
+   merge on both sides by interiors that do not. A sheet whose bordering settled cells span more
+   than `StepMillilitres` — 32, eight resting pairs' worth, an estimate — is levelled whole
+   whatever its share. The border is read from whichever cell of a pair is examined second, so
+   the order two neighbours are reached in cannot lose one.
+
+**Measured, Release, control 1.03–1.04×:**
+
+```
+--lake: 12 chambers, one 147,456-cell sheet, 8 L a tick off one edge, 60 ticks at the game's interval
+share   passes   levelled   under share   visited/pass   written/pass   steady pass   solve ms/tick   automaton visits   awake mean
+  0        59        59          0           144,194         8,199        20.5 ms        21.4             44,238            154
+  4        59         0         59             1,469             0        0.05 ms         0.19            47,581            812
+  8        59         0         59             2,911             0        0.08 ms         0.31            47,581            812
+ 16        59         0         59             5,801             0        0.15 ms         0.56            47,581            812
+
+--fluid, mine 96 m at bore 9, the solve arm (finding 2's arm)
+share   ticks to rest   settle CPU   solve visited   solve written   solve ms   levelled   under share   stepped
+  0         4,243         21.2 s        118.6 M         44.8 M        20,386     18,290          0           0
+  4         9,901         10.8 s         32.9 M         19.0 M         9,346     17,604     39,521         851
+  8         9,896         12.0 s         44.8 M         19.6 M        10,465     21,311     34,173         749
+ 16        10,023         14.8 s         69.1 M         19.6 M        13,184     21,905     28,331         619
+
+--fluid, chamber 4 at bore 3:  share 0  151 ticks, 569 ms of solve, 2.53 M visited;  share 8  294 ticks, 561 ms, 2.49 M
+--spill:  18 and 29 ticks to rest at share 0 and at share 8 alike, every litre the basin's in both
+```
+
+Every arm reaches a rest that is real and a volume that is exact. Seven things:
+
+1. **On the play's shape the pass goes from 20 ms to 0.08 ms and the visits from 144,194 to
+   2,911** — 250× and 50× — and the cost is linear in the share, as the bound says. The solve
+   writes nothing at all there; the automaton takes the edge's levelling with 812 cells awake
+   instead of 154, at 7.5% more visits.
+2. **On the mine the CPU halves and the ticks to rest double, and the doubled half is free.** The
+   sheets left under the share rest by diffusion — 9,900 ticks against 4,243 — but the tail is
+   under 64 awake cells for its last 6,000. Rest is a correctness figure and every arm has it;
+   the world time is the lever's price, stated.
+3. **The chamber floor does not move, and that is the rule working.** A front spreading over dry
+   floor thins the whole sheet behind it, which is a wide disturbance, so the 16,548-cell sheet is
+   worth a solve at nearly every pass in both arms (907 levelled against 936); 294 ticks to rest
+   against 151.
+4. **The pass is 0.14 µs a cell in Release, not finding 3's 1–3 µs, and the instrument was the
+   fixture both times.** `DugTerrain` bakes a column on its first `CanHold`, evaluating the cave
+   field for every voxel in it, and the first flood over a lake pays for every column it reads:
+   1,385 ms with none baked, 480 ms with the floor baked and not the ring of wall around it, 90 ms
+   with both — which is the pass's own growth — then 20 ms steady. Finding 3's figure was taken
+   over a mine whose columns the flow had baked unevenly. By this figure the played world's
+   162,572-cell floor is ~23 ms a pass in Release; the play's 275 ms is the Debug build.
+5. **The share-0 arm reproduces the M8b-3b table to within the remainder.** 4,243 ticks against
+   4,242 and 4,567,464 visits against 4,564,143: the multi-source flood orders a sheet's cells
+   differently and the spare millilitres land on other cells. The wait arm is untouched.
+6. **The battery's first run put the pre-slice code back.** It restored the subject with a git
+   checkout and the subject was uncommitted, so recipe 1 mutated the new solve, the restore
+   installed the old one, and nine recipes reported their pattern matched nowhere; the harness
+   copies now. Of the ten — no freeze, an exclusive share, no step, no thaw, a one-sided border,
+   a union losing its counts, the frozen check dropped, a zero step tolerance, freezing before the
+   border is complete, the border read from the wrong cell — eight were caught. The no-thaw recipe
+   only after its test asserted the intermediate (every front cell pending after the solve),
+   because a lost front flag is woken a tick later by its neighbour's spread and rest-and-verify
+   cannot see when; the zero tolerance only after the creep fixture carried the four-millilitre
+   tilt rest allows; the frozen check only once `LargestSheet`, which counts whole sheets, was
+   pinned, since a frozen sheet fails the share test it was frozen for anyway. **Two are
+   findings**: freezing before the border is complete is unreachable under the wake rule, which
+   puts every border cell at layer one (the gate at layer three has a layer of slack, kept); and
+   recording the unsettled cell's own amount as the border is within four millilitres of the
+   identity, because that branch fires only for a pair settled against each other.
+7. **Eight is a guess inside a measured range.** Four to sixteen are all negligible on the lake
+   and all halve the mine; a smaller share waits for a wider disturbance before solving, a larger
+   one floods more per pass. **Revisit trigger: a play that sees a poured mound or a merge line
+   sit unlevelled for longer than reads right** — the merge is the step detector's case, the
+   mound is the share's — or a `settle` line whose visited cells are a share of the tick's.
+
 ### Why this might go first
 
 M6d-1 set the precedent that a later part goes first when it answers an earlier one's question, and

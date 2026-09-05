@@ -7,13 +7,24 @@ namespace Overburden.Core.Fluid;
 /// <param name="Levelled">Sheets distributed evenly, to within a millilitre a pair.</param>
 /// <param name="Packed">Sheets whose share was under a litre a cell, packed into as few cells as hold it.</param>
 /// <param name="Skipped">Sheets with no move available inside them, left exactly as they were.</param>
-/// <param name="LargestSheet">Cells in the largest sheet found. The cost figure.</param>
+/// <param name="UnderShare">
+/// Sheets with a move inside them but fewer unsettled cells than one in <i>share</i>, left to the
+/// automaton — most of them without their flood finished. The lever's own count.
+/// </param>
+/// <param name="Stepped">
+/// Sheets levelled for a step between settled plateaus although they were under the share.
+/// </param>
+/// <param name="LargestSheet">Cells in the largest sheet found whole. The cost of one solve.</param>
+/// <param name="CellsVisited">
+/// Cells the pass read, over every sheet it found, whole or not. The cost of the pass, and the
+/// number the share bounds.
+/// </param>
 /// <param name="CellsWritten">Cells whose contents changed.</param>
 /// <param name="MillilitresMoved">Millilitres transferred between cells of a sheet. Not a change in the world's water.</param>
 /// <param name="CellsWoken">Cells queued for the next tick because the solve gave them something to do.</param>
 public readonly record struct SheetLevelResult(
-    int Sheets, int Levelled, int Packed, int Skipped, int LargestSheet,
-    int CellsWritten, long MillilitresMoved, int CellsWoken)
+    int Sheets, int Levelled, int Packed, int Skipped, int UnderShare, int Stepped, int LargestSheet,
+    int CellsVisited, int CellsWritten, long MillilitresMoved, int CellsWoken)
 {
     /// <summary>A pass that found nothing to change.</summary>
     public bool Idle => CellsWritten == 0;
@@ -69,6 +80,48 @@ public readonly record struct SheetLevelResult(
 /// is complete.
 /// </para>
 /// <para>
+/// <b>A sheet with a move inside it is re-levelled only when the disturbance is a share of it, and
+/// that is the lever the first play fired.</b> The played world's mine became one 162,572-cell
+/// lake, and its edge — a few hundred cells draining into the unloaded world — made one pair
+/// unsettled at every boundary, for which the whole sheet was flooded and written twice a second
+/// for as long as the edge crept. The automaton levels a local disturbance itself: a transfer
+/// wakes its neighbourhood, the wave inward decays by a fifth a cell and dies within five, and
+/// nothing behind it is woken. What diffusion cannot do in reasonable time is a disturbance that
+/// is <i>wide</i>, and width is what the share measures — a sheet is worth a solve when at least
+/// one cell in <i>share</i> of it is unsettled, meaning it has a transferable pair inside the
+/// sheet. Zero is no threshold, the behaviour before the lever and the control arm.
+/// </para>
+/// <para>
+/// <b>The share is decided without flooding the sheet, and the wake rule is why that is
+/// sound.</b> A transfer wakes both of its cells and every neighbour of the source
+/// (<see cref="Record"/>), a draw wakes the cell and its neighbours (<see cref="Take"/>), and a
+/// pour wakes what it lands on — so at a tick boundary every cell with a move has an awake cell
+/// beside it or is one. The seeds are the awake cells; a flood from all of them at once has met
+/// every unsettled cell of every sheet by its second layer, and from there the unsettled count
+/// only stands still while the cell count grows. A sheet whose count has reached <i>share</i>
+/// times its unsettled cells is under the share whatever the rest of it holds, and its flood is
+/// stopped there — <b>frozen</b>, its frontier kept — so the cost of leaving a lake alone is
+/// <i>share</i> times its disturbance rather than the lake. Two floods that meet are one sheet:
+/// they are joined, a frozen one is thawed and expanded again, and the joined sheet is judged
+/// on the joined counts. The bound is exactly as sound as the wake rule; the one thing that
+/// would break it is an unsettled cell no awake cell neighbours, which is the defect
+/// <see cref="VerifyQuiescent"/> exists to catch and would then miss a solve rather than water.
+/// <b>Hand-picked seeds do not carry that guarantee</b> — a caller naming one cell of a sheet
+/// (M8b-4's unload method) must pass a share of zero and take the whole flood.
+/// </para>
+/// <para>
+/// <b>A step between two settled plateaus is levelled whatever the share, because it is the one
+/// disturbance that is narrow and not local.</b> Two puddles levelled apart, at different
+/// heights, creep and meet along a line — a few cells of a big sheet, and the cell share would
+/// leave it to diffuse for minutes, the O(n²) the settle exists against. The settled cells that
+/// border the disturbance tell the two cases apart: a creeping edge is bordered on one side by an
+/// interior that agrees about the level, and a merge is bordered on both sides by interiors that
+/// do not. A sheet whose bordering settled cells span more than
+/// <see cref="StepMillilitres"/> is levelled whole. That constant is an estimate: at rest two
+/// neighbours differ by at most four millilitres, so eight pairs' worth is far more than any
+/// resting tilt across the width of a disturbance and far less than any step a person could see.
+/// </para>
+/// <para>
 /// <b>Bottom-up, because levelling a lower sheet can unsupport a higher one.</b> Seeds are taken in
 /// ascending Y, so a sheet at Y is found against the grid as the sheets below it left it: a cell
 /// whose floor was drawn down is not supported any more, is left out, and falls next tick. Volume
@@ -78,19 +131,74 @@ public readonly record struct SheetLevelResult(
 /// </remarks>
 public sealed partial class FluidSimulation
 {
-    // Scratch for the solve, kept across passes so a pass over a flooded mine allocates nothing.
-    private readonly HashSet<VoxelPos> _sheetVisited = [];
+    /// <summary>The most a packed cell holds: one millilitre under the spread threshold.</summary>
+    public const int PackedCellMillilitres = FluidConstants.MinimumSpreadMillilitres - 1;
+
+    /// <summary>
+    /// How far the settled cells bordering a disturbance may disagree before the sheet is
+    /// levelled for the step whatever its share. Eight resting pairs' worth; an estimate.
+    /// </summary>
+    public const int StepMillilitres = 8 * (FluidConstants.SpreadDivisor - 1);
+
+    private const byte CellPopped = 1;
+    private const byte CellUnsettled = 2;
+    private const byte CellFront = 4;
+
+    // One record per cell a pass reads, in discovery order, kept across passes so a pass over a
+    // flooded mine allocates nothing. A sheet holds indices into these.
+    private VoxelPos[] _cellPos = new VoxelPos[256];
+    private int[] _cellAmount = new int[256];
+    private int[] _cellSheet = new int[256];
+    private int[] _cellTarget = new int[256];
+    private byte[] _cellFlags = new byte[256];
+    private int _cellCount;
+    private readonly Dictionary<VoxelPos, int> _cellIndex = [];
+
+    private readonly List<Sheet> _sheets = [];
+    private int _sheetCount;
+    private List<int> _layer = [];
+    private List<int> _nextLayer = [];
     private readonly List<VoxelPos> _sheetSeeds = [];
-    private readonly List<VoxelPos> _sheet = [];
-    private readonly List<int> _sheetAmounts = [];
-    private readonly List<int> _sheetTargets = [];
     private readonly List<int> _sheetOrder = [];
-    private readonly List<bool> _sheetIsFront = [];
     private readonly List<int> _sheetGivers = [];
     private readonly List<int> _sheetTakers = [];
 
-    /// <summary>The most a packed cell holds: one millilitre under the spread threshold.</summary>
-    public const int PackedCellMillilitres = FluidConstants.MinimumSpreadMillilitres - 1;
+    /// <summary>
+    /// One flood's bookkeeping. <see cref="Parent"/> is union-find: a sheet whose parent is not
+    /// itself was joined to another and its lists are empty.
+    /// </summary>
+    private sealed class Sheet
+    {
+        public int Parent;
+        public readonly List<int> Cells = [];
+        public readonly List<int> Frontier = [];
+        public long Total;
+        public int Unsettled;
+        public bool Frozen;
+        public int BorderLow;
+        public int BorderHigh;
+
+        public void Reset(int index)
+        {
+            Parent = index;
+            Cells.Clear();
+            Frontier.Clear();
+            Total = 0;
+            Unsettled = 0;
+            Frozen = false;
+            BorderLow = int.MaxValue;
+            BorderHigh = int.MinValue;
+        }
+
+        public bool Stepped => BorderLow != int.MaxValue && BorderHigh - BorderLow > StepMillilitres;
+
+        /// <summary>Notes a settled cell bordering the disturbance.</summary>
+        public void Border(int amount)
+        {
+            BorderLow = Math.Min(BorderLow, amount);
+            BorderHigh = Math.Max(BorderHigh, amount);
+        }
+    }
 
     /// <summary>
     /// Cells queued for the next tick. Valid at a tick boundary, which is the only time the
@@ -99,7 +207,8 @@ public sealed partial class FluidSimulation
     public IReadOnlyList<VoxelPos> Pending => _pending;
 
     /// <summary>
-    /// Levels every sheet the active set touches. At a tick boundary only.
+    /// Levels every sheet the active set touches whose disturbance is at least one cell in
+    /// <paramref name="share"/> of it, or a step. At a tick boundary only. Zero is no threshold.
     /// </summary>
     /// <remarks>
     /// Seeded from <see cref="Pending"/> rather than from every held cell, because a sheet with no
@@ -108,19 +217,23 @@ public sealed partial class FluidSimulation
     /// cells found from a few hundred seeds; a flooded mine's floor is one sheet found from its
     /// front.
     /// </remarks>
-    public SheetLevelResult LevelSheets() => LevelSheets(_pending);
+    public SheetLevelResult LevelSheets(int share = 0) => LevelSheets(_pending, share);
 
     /// <summary>
-    /// Levels every sheet reachable from the given cells. At a tick boundary only.
+    /// Levels every sheet reachable from the given cells, under the same share rule. At a tick
+    /// boundary only.
     /// </summary>
     /// <remarks>
     /// The unload-time method: M8b-4 runs it over the cells of a departing chunk so that what the
     /// store writes is at rest. A seed that holds nothing, cannot hold, or has room below is not a
-    /// sheet cell and starts nothing.
+    /// sheet cell and starts nothing. <b>With seeds that are not the awake set, pass a share of
+    /// zero</b>: the early stop assumes every unsettled cell neighbours a seed, which only the
+    /// wake rule guarantees.
     /// </remarks>
-    public SheetLevelResult LevelSheets(IReadOnlyList<VoxelPos> seeds)
+    public SheetLevelResult LevelSheets(IReadOnlyList<VoxelPos> seeds, int share = 0)
     {
         ArgumentNullException.ThrowIfNull(seeds);
+        ArgumentOutOfRangeException.ThrowIfNegative(share);
         if (TickInProgress)
         {
             throw new InvalidOperationException(
@@ -135,48 +248,88 @@ public sealed partial class FluidSimulation
         _sheetSeeds.AddRange(seeds);
         _sheetSeeds.Sort(static (a, b) =>
             a.Y != b.Y ? a.Y.CompareTo(b.Y) : a.X != b.X ? a.X.CompareTo(b.X) : a.Z.CompareTo(b.Z));
-        _sheetVisited.Clear();
 
-        int sheets = 0, levelled = 0, packed = 0, skipped = 0, largest = 0, written = 0, woken = 0;
+        int sheets = 0, levelled = 0, packed = 0, skipped = 0, underShare = 0, stepped = 0;
+        int largest = 0, visited = 0, written = 0, woken = 0;
         long moved = 0;
 
-        foreach (VoxelPos seed in _sheetSeeds)
+        // One flood per Y, bottom-up: the seeds of a higher sheet are tested as sheet cells only
+        // after every sheet below has been applied.
+        int groupStart = 0;
+        while (groupStart < _sheetSeeds.Count)
         {
-            if (_sheetVisited.Contains(seed) || !IsSheetCell(seed))
+            int y = _sheetSeeds[groupStart].Y;
+            int groupEnd = groupStart;
+            while (groupEnd < _sheetSeeds.Count && _sheetSeeds[groupEnd].Y == y)
             {
-                continue;
+                groupEnd++;
             }
 
-            long total = Flood(seed, out bool unsettled);
-            sheets++;
-            int count = _sheet.Count;
-            largest = Math.Max(largest, count);
+            Flood(groupStart, groupEnd, share);
+            visited += _cellCount;
 
-            if (count == 1 || !unsettled)
+            for (int s = 0; s < _sheetCount; s++)
             {
-                skipped++;
-                continue;
+                Sheet sheet = _sheets[s];
+                if (sheet.Parent != s)
+                {
+                    continue;
+                }
+
+                sheets++;
+                int count = sheet.Cells.Count;
+                if (sheet.Frozen)
+                {
+                    underShare++;
+                    continue;
+                }
+
+                largest = Math.Max(largest, count);
+                if (count == 1 || sheet.Unsettled == 0)
+                {
+                    skipped++;
+                    continue;
+                }
+
+                bool wideEnough = WorthLevelling(share, count, sheet.Unsettled);
+                if (!wideEnough && !sheet.Stepped)
+                {
+                    underShare++;
+                    continue;
+                }
+
+                if (!wideEnough)
+                {
+                    stepped++;
+                }
+
+                if (sheet.Total <= (long)PackedCellMillilitres * count)
+                {
+                    PackTargets(sheet);
+                    packed++;
+                }
+                else
+                {
+                    LevelTargets(sheet);
+                    levelled++;
+                }
+
+                moved += Apply(sheet, out int cellsWritten);
+                written += cellsWritten;
+                woken += WakeAfterSolve(sheet);
+                ListRested(sheet);
             }
 
-            if (total <= (long)PackedCellMillilitres * count)
-            {
-                PackTargets(total);
-                packed++;
-            }
-            else
-            {
-                LevelTargets(total);
-                levelled++;
-            }
-
-            moved += Apply(out int cellsWritten);
-            written += cellsWritten;
-            woken += WakeAfterSolve();
-            ListRested();
+            groupStart = groupEnd;
         }
 
-        return new SheetLevelResult(sheets, levelled, packed, skipped, largest, written, moved, woken);
+        return new SheetLevelResult(
+            sheets, levelled, packed, skipped, underShare, stepped, largest, visited, written, moved, woken);
     }
+
+    /// <summary>The share rule, in one place: at least one cell in <paramref name="share"/> unsettled.</summary>
+    private static bool WorthLevelling(int share, int count, int unsettled) =>
+        share == 0 || (long)unsettled * share >= count;
 
     /// <summary>Wet, holdable, and standing on something: a cell a sheet can be made of.</summary>
     private bool IsSheetCell(VoxelPos cell) =>
@@ -189,76 +342,260 @@ public sealed partial class FluidSimulation
     }
 
     /// <summary>
-    /// Fills <see cref="_sheet"/>, <see cref="_sheetAmounts"/> and <see cref="_sheetIsFront"/>
-    /// from one seed, and returns the sheet's total. <paramref name="unsettled"/> is whether any
-    /// pair inside it could still transfer — the automaton's own rule, asked of every edge once.
+    /// Floods, layer by layer, from every seed of one Y at once, freezing a sheet the moment it
+    /// is known to be under the share and joining floods that meet. Fills the records and the
+    /// sheets for <see cref="LevelSheets(IReadOnlyList{VoxelPos}, int)"/> to judge.
     /// </summary>
-    private long Flood(VoxelPos seed, out bool unsettled)
+    private void Flood(int seedStart, int seedEnd, int share)
     {
-        _sheet.Clear();
-        _sheetAmounts.Clear();
-        _sheetIsFront.Clear();
-        _sheet.Add(seed);
-        _sheetVisited.Add(seed);
+        _cellCount = 0;
+        _cellIndex.Clear();
+        _sheetCount = 0;
+        _layer.Clear();
+        _nextLayer.Clear();
 
-        long total = 0;
-        unsettled = false;
-
-        for (int i = 0; i < _sheet.Count; i++)
+        for (int i = seedStart; i < seedEnd; i++)
         {
-            VoxelPos cell = _sheet[i];
-            int amount = _grid.AmountAt(cell);
-            _sheetAmounts.Add(amount);
-            total += amount;
-
-            bool front = false;
-            foreach ((int dx, int dz) in Sideways)
+            VoxelPos seed = _sheetSeeds[i];
+            if (_cellIndex.ContainsKey(seed) || !IsSheetCell(seed))
             {
-                VoxelPos side = cell.Offset(dx, 0, dz);
-                int beside = _grid.AmountAt(side);
-
-                if (_sheetVisited.Contains(side))
-                {
-                    // A member found from another cell, or this cell's own discoverer. Same sheet
-                    // either way: two sheets at one Y that touch are one sheet.
-                    unsettled |= CanTransfer(amount, beside);
-                    continue;
-                }
-
-                if (beside > 0 && IsSheetCell(side))
-                {
-                    _sheet.Add(side);
-                    _sheetVisited.Add(side);
-                    unsettled |= CanTransfer(amount, beside);
-                }
-                else if (_terrain.CanHold(side))
-                {
-                    // Dry, or wet and falling: not the sheet's, but somewhere this cell could
-                    // spread once it holds more — the front.
-                    front = true;
-                }
+                continue;
             }
 
-            _sheetIsFront.Add(front);
+            int sheet = NewSheet();
+            _layer.Add(Discover(seed, sheet));
         }
 
-        return total;
+        int layer = 0;
+        while (_layer.Count > 0)
+        {
+            _nextLayer.Clear();
+            foreach (int record in _layer)
+            {
+                Pop(record);
+            }
+
+            layer++;
+
+            // Layers 0 and 1 hold every unsettled cell and layer 2 every settled cell bordering
+            // one, so from here a sheet's unsettled count and its border are final and only its
+            // size grows. A frontier that belongs to a sheet under the share is held rather than
+            // expanded, and given back if a live flood reaches the sheet.
+            if (share > 0 && layer >= 3)
+            {
+                int kept = 0;
+                for (int i = 0; i < _nextLayer.Count; i++)
+                {
+                    int record = _nextLayer[i];
+                    Sheet sheet = _sheets[Find(_cellSheet[record])];
+                    if (!sheet.Frozen && !sheet.Stepped
+                        && !WorthLevelling(share, sheet.Cells.Count, sheet.Unsettled))
+                    {
+                        sheet.Frozen = true;
+                    }
+
+                    if (sheet.Frozen)
+                    {
+                        sheet.Frontier.Add(record);
+                    }
+                    else
+                    {
+                        _nextLayer[kept++] = record;
+                    }
+                }
+
+                _nextLayer.RemoveRange(kept, _nextLayer.Count - kept);
+            }
+
+            (_layer, _nextLayer) = (_nextLayer, _layer);
+        }
+    }
+
+    /// <summary>
+    /// Examines one discovered cell: joins it to any sheet it touches, discovers its unvisited
+    /// sheet neighbours into the next layer, and settles its own flags.
+    /// </summary>
+    private void Pop(int record)
+    {
+        VoxelPos cell = _cellPos[record];
+        int amount = _cellAmount[record];
+        int root = Find(_cellSheet[record]);
+        bool unsettled = false;
+        bool front = false;
+        Span<int> sides = stackalloc int[4];
+
+        for (int k = 0; k < Sideways.Length; k++)
+        {
+            (int dx, int dz) = Sideways[k];
+            VoxelPos side = cell.Offset(dx, 0, dz);
+            if (_cellIndex.TryGetValue(side, out int sideRecord))
+            {
+                // A member found from another cell, or this cell's own discoverer. Same sheet
+                // either way: two floods at one Y that touch are one sheet.
+                int sideRoot = Find(_cellSheet[sideRecord]);
+                if (sideRoot != root)
+                {
+                    root = Union(root, sideRoot);
+                }
+
+                unsettled |= CanTransfer(amount, _cellAmount[sideRecord]);
+                sides[k] = sideRecord;
+                continue;
+            }
+
+            sides[k] = -1;
+            int beside = _grid.AmountAt(side);
+            if (beside > 0 && IsSheetCell(side))
+            {
+                _nextLayer.Add(Discover(side, root));
+                unsettled |= CanTransfer(amount, beside);
+            }
+            else if (_terrain.CanHold(side))
+            {
+                // Dry, or wet and falling: not the sheet's, but somewhere this cell could
+                // spread once it holds more — the front.
+                front = true;
+            }
+        }
+
+        byte flags = CellPopped;
+        if (unsettled)
+        {
+            flags |= CellUnsettled;
+        }
+
+        if (front)
+        {
+            flags |= CellFront;
+        }
+
+        _cellFlags[record] = flags;
+        Sheet sheet = _sheets[root];
+        if (unsettled)
+        {
+            sheet.Unsettled++;
+        }
+
+        // The settled cells bordering the disturbance, seen from whichever side of a pair was
+        // examined second, so the order two neighbours are reached in cannot lose one.
+        for (int k = 0; k < 4; k++)
+        {
+            int sideRecord = sides[k];
+            if (sideRecord < 0 || (_cellFlags[sideRecord] & CellPopped) == 0)
+            {
+                continue;
+            }
+
+            bool sideUnsettled = (_cellFlags[sideRecord] & CellUnsettled) != 0;
+            if (unsettled && !sideUnsettled)
+            {
+                sheet.Border(_cellAmount[sideRecord]);
+            }
+            else if (!unsettled && sideUnsettled)
+            {
+                sheet.Border(amount);
+            }
+        }
+    }
+
+    private int Discover(VoxelPos cell, int sheet)
+    {
+        if (_cellCount == _cellPos.Length)
+        {
+            int size = _cellCount * 2;
+            Array.Resize(ref _cellPos, size);
+            Array.Resize(ref _cellAmount, size);
+            Array.Resize(ref _cellSheet, size);
+            Array.Resize(ref _cellTarget, size);
+            Array.Resize(ref _cellFlags, size);
+        }
+
+        int record = _cellCount++;
+        int amount = _grid.AmountAt(cell);
+        _cellPos[record] = cell;
+        _cellAmount[record] = amount;
+        _cellSheet[record] = sheet;
+        _cellFlags[record] = 0;
+        _cellIndex[cell] = record;
+
+        Sheet owner = _sheets[sheet];
+        owner.Cells.Add(record);
+        owner.Total += amount;
+        return record;
+    }
+
+    private int NewSheet()
+    {
+        if (_sheetCount == _sheets.Count)
+        {
+            _sheets.Add(new Sheet());
+        }
+
+        _sheets[_sheetCount].Reset(_sheetCount);
+        return _sheetCount++;
+    }
+
+    private int Find(int sheet)
+    {
+        int root = sheet;
+        while (_sheets[root].Parent != root)
+        {
+            root = _sheets[root].Parent;
+        }
+
+        while (_sheets[sheet].Parent != root)
+        {
+            int next = _sheets[sheet].Parent;
+            _sheets[sheet].Parent = root;
+            sheet = next;
+        }
+
+        return root;
+    }
+
+    /// <summary>
+    /// Joins two sheets, the smaller into the larger, and returns the survivor. A frozen sheet
+    /// that is reached by a live flood is thawed: its held frontier goes back into the next
+    /// layer, and the joined sheet is judged again on the joined counts.
+    /// </summary>
+    private int Union(int a, int b)
+    {
+        if (_sheets[a].Cells.Count < _sheets[b].Cells.Count)
+        {
+            (a, b) = (b, a);
+        }
+
+        Sheet big = _sheets[a];
+        Sheet small = _sheets[b];
+        small.Parent = a;
+        big.Cells.AddRange(small.Cells);
+        big.Total += small.Total;
+        big.Unsettled += small.Unsettled;
+        big.BorderLow = Math.Min(big.BorderLow, small.BorderLow);
+        big.BorderHigh = Math.Max(big.BorderHigh, small.BorderHigh);
+        _nextLayer.AddRange(big.Frontier);
+        _nextLayer.AddRange(small.Frontier);
+        big.Frontier.Clear();
+        small.Cells.Clear();
+        small.Frontier.Clear();
+        big.Frozen = false;
+        return a;
     }
 
     private static bool CanTransfer(int a, int b) =>
         FluidRules.HorizontalTransfer(a, b) > 0 || FluidRules.HorizontalTransfer(b, a) > 0;
 
     /// <summary>Even shares in flood order, the remainder one millilitre each to the first cells.</summary>
-    private void LevelTargets(long total)
+    private void LevelTargets(Sheet sheet)
     {
-        int count = _sheet.Count;
-        int share = (int)(total / count);
-        int remainder = (int)(total % count);
+        List<int> cells = sheet.Cells;
+        int count = cells.Count;
+        int share = (int)(sheet.Total / count);
+        int remainder = (int)(sheet.Total % count);
 
-        _sheetTargets.Clear();
         for (int i = 0; i < count; i++)
         {
-            _sheetTargets.Add(share + (i < remainder ? 1 : 0));
+            _cellTarget[cells[i]] = share + (i < remainder ? 1 : 0);
         }
     }
 
@@ -266,10 +603,11 @@ public sealed partial class FluidSimulation
     /// As few cells as hold the total at <see cref="PackedCellMillilitres"/> each, the cells that
     /// held most first, the last of them taking what is left.
     /// </summary>
-    private void PackTargets(long total)
+    private void PackTargets(Sheet sheet)
     {
-        int count = _sheet.Count;
-        int cells = (int)((total + PackedCellMillilitres - 1) / PackedCellMillilitres);
+        List<int> cells = sheet.Cells;
+        int count = cells.Count;
+        int packedCells = (int)((sheet.Total + PackedCellMillilitres - 1) / PackedCellMillilitres);
 
         // Stable: by amount descending, then by flood order, so a sheet already packed maps to
         // itself and the choice does not depend on the caller.
@@ -279,21 +617,22 @@ public sealed partial class FluidSimulation
             _sheetOrder.Add(i);
         }
 
-        List<int> amounts = _sheetAmounts;
+        int[] amounts = _cellAmount;
         _sheetOrder.Sort((a, b) =>
-            amounts[a] != amounts[b] ? amounts[b].CompareTo(amounts[a]) : a.CompareTo(b));
+            amounts[cells[a]] != amounts[cells[b]]
+                ? amounts[cells[b]].CompareTo(amounts[cells[a]])
+                : a.CompareTo(b));
 
-        _sheetTargets.Clear();
         for (int i = 0; i < count; i++)
         {
-            _sheetTargets.Add(0);
+            _cellTarget[cells[i]] = 0;
         }
 
-        long left = total;
-        for (int rank = 0; rank < cells; rank++)
+        long left = sheet.Total;
+        for (int rank = 0; rank < packedCells; rank++)
         {
             int target = (int)Math.Min(PackedCellMillilitres, left);
-            _sheetTargets[_sheetOrder[rank]] = target;
+            _cellTarget[cells[_sheetOrder[rank]]] = target;
             left -= target;
         }
     }
@@ -302,20 +641,21 @@ public sealed partial class FluidSimulation
     /// Moves water from the cells above their target to the cells below it, through
     /// <see cref="FluidGrid.Transfer"/> only. Returns the millilitres moved.
     /// </summary>
-    private long Apply(out int cellsWritten)
+    private long Apply(Sheet sheet, out int cellsWritten)
     {
+        List<int> cells = sheet.Cells;
         _sheetGivers.Clear();
         _sheetTakers.Clear();
-        for (int i = 0; i < _sheet.Count; i++)
+        foreach (int record in cells)
         {
-            int delta = _sheetAmounts[i] - _sheetTargets[i];
+            int delta = _cellAmount[record] - _cellTarget[record];
             if (delta > 0)
             {
-                _sheetGivers.Add(i);
+                _sheetGivers.Add(record);
             }
             else if (delta < 0)
             {
-                _sheetTakers.Add(i);
+                _sheetTakers.Add(record);
             }
         }
 
@@ -328,7 +668,7 @@ public sealed partial class FluidSimulation
         while (g < _sheetGivers.Count && t < _sheetTakers.Count)
         {
             int amount = Math.Min(give, take);
-            int shifted = _grid.Transfer(_sheet[_sheetGivers[g]], _sheet[_sheetTakers[t]], amount);
+            int shifted = _grid.Transfer(_cellPos[_sheetGivers[g]], _cellPos[_sheetTakers[t]], amount);
             if (shifted != amount)
             {
                 // Cannot happen: a giver holds its surplus and a taker's target is at most a
@@ -356,26 +696,26 @@ public sealed partial class FluidSimulation
         return moved;
     }
 
-    private int Surplus(int i) => _sheetAmounts[i] - _sheetTargets[i];
+    private int Surplus(int record) => _cellAmount[record] - _cellTarget[record];
 
-    private int Deficit(int i) => _sheetTargets[i] - _sheetAmounts[i];
+    private int Deficit(int record) => _cellTarget[record] - _cellAmount[record];
 
     /// <summary>
     /// Wakes what the solve gave a move: the front, and the water above every cell drawn down.
     /// </summary>
-    private int WakeAfterSolve()
+    private int WakeAfterSolve(Sheet sheet)
     {
         int woken = 0;
-        for (int i = 0; i < _sheet.Count; i++)
+        foreach (int record in sheet.Cells)
         {
-            if (_sheetIsFront[i] && Wake(_sheet[i]))
+            if ((_cellFlags[record] & CellFront) != 0 && Wake(_cellPos[record]))
             {
                 woken++;
             }
 
-            if (_sheetTargets[i] < _sheetAmounts[i])
+            if (_cellTarget[record] < _cellAmount[record])
             {
-                VoxelPos above = Above(_sheet[i]);
+                VoxelPos above = Above(_cellPos[record]);
                 if (_grid.AmountAt(above) > 0 && Wake(above))
                 {
                     woken++;
@@ -403,13 +743,14 @@ public sealed partial class FluidSimulation
     /// left off, because it holds no water to rest. Valid until the next tick begins, like the
     /// rest of the list, which is why the settle runs before the hand-off at the boundary.
     /// </remarks>
-    private void ListRested()
+    private void ListRested(Sheet sheet)
     {
-        for (int i = 0; i < _sheet.Count; i++)
+        foreach (int record in sheet.Cells)
         {
-            if (_sheetTargets[i] != _sheetAmounts[i] && _sheetTargets[i] > 0 && !_sheetIsFront[i])
+            if (_cellTarget[record] != _cellAmount[record] && _cellTarget[record] > 0
+                && (_cellFlags[record] & CellFront) == 0)
             {
-                _rested.Add(_sheet[i]);
+                _rested.Add(_cellPos[record]);
             }
         }
     }

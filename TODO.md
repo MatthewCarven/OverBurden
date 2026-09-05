@@ -3917,7 +3917,7 @@ finding without the coarser-tolerance fallback.
             (`--settleafter=`, 2 by default, 0 under inflow). **The chamber's 1,915-tick settle is
             38 ticks, the 16 m mine's 11,130 is 136, the 96 m mine's *never* is 258** — every rest
             real, every litre exact, visits down 50–200×. 23 recipes applied, 22 caught, one identity.
-            - [ ] **"A handful of ticks" is hundreds, and a pass per boundary is O(sheet) per tick
+            - [x] **"A handful of ticks" is hundreds, and a pass per boundary is O(sheet) per tick
                   while a front creeps.** The solve levels; the front and the falls take the ticks.
                   At bore 9 on the 96 m mine each new front cell re-levels a 28,000-cell sheet —
                   44.7 M cell writes over 4,241 passes, 17 of the arm's 18 s, 1.8× cheaper than
@@ -3931,6 +3931,21 @@ finding without the coarser-tolerance fallback.
                   **Next slice**: re-level a sheet only when more than one cell in *n* of it is
                   unsettled (small sheets always), `--settleshare=` the sweep; the automaton
                   levels a creeping edge locally within five cells and wakes nothing behind it.
+                  **Built the same day as the share slice — see M8-PLAN's "M8b-3b — the share
+                  slice".** `--settleshare=<n>`, 8 by default and an estimate, 0 the control; the
+                  share is decided without flooding the sheet (the wake rule puts every unsettled
+                  cell beside an awake one, so a flood from every seed at once knows the count by
+                  its second layer and stops when the count reaches *n* times it), and a step
+                  between two levelled puddles — narrow, not local — is levelled whatever the
+                  share. **On the play's shape (`--lake`, a 147,456-cell sheet draining at one
+                  edge) a pass is 20 ms → 0.08 ms Release and visits 144,194 → 2,911; on the 96 m
+                  bore-9 mine the CPU halves and the ticks to rest double, the doubled half under
+                  64 awake cells.** Suite 1,032 → 1,040.
+                  - [ ] **Play: does a poured mound on the lake, or two puddles meeting, sit
+                        unlevelled for longer than reads right?** The merge is the step detector's
+                        case (32 mL, an estimate), the mound is the share's; `--settleshare=` is
+                        the sweep and 0 is how it looked before. Read `left under share` and
+                        `levelled for a step` on the `M8b:` line.
             - [ ] **The pass is atomic, 1–3 µs a cell in Release, and the played world's floor is a
                   ~1.3 million-cell sheet.** Seconds a pass in Release, tens in Debug, in one frame,
                   once the flood stops and *K* ticks pass. Not met yet — the play drained the lakes
@@ -3939,7 +3954,11 @@ finding without the coarser-tolerance fallback.
                   play that hitches when a flood stops. **Met the same evening**: 275.6 ms over
                   162,572 cells in Debug (1.7 µs a cell in the game, under the bench's figure),
                   once per merge of the lake's sheets; a quarter-second hitch each time, and the
-                  per-boundary repeat above is the larger cost.
+                  per-boundary repeat above is the larger cost. **Re-measured with the share
+                  slice's `--lake` arm the same evening: 0.14 µs a cell in Release** — the 1–3 µs
+                  carried the bench fixture's lazy column bake inside the timed pass — so the
+                  played floor is ~23 ms a pass Release, and the slice's trigger stands for the
+                  Debug build people play.
             - [ ] **Play: does a tunnel floor levelling itself in one tick behind a creeping front
                   read right, and does *K* = 0's flat stream?** `--settleafter=` is the sweep; the
                   soak's look is deferred to M8c with the hand-off's decision.
@@ -3974,7 +3993,9 @@ finding without the coarser-tolerance fallback.
       cells are not woken. Oracle: flood, walk away, walk back, quit, reopen — the same millilitres
       in the same cells. **Last and alone, because a defect here is permanent data loss.** The
       unload-time settle exists: `FluidSimulation.LevelSheets(seeds)` over a departing chunk's
-      cells, at a tick boundary, is the method the plan named.
+      cells, at a tick boundary, is the method the plan named — **with a share of zero**, because
+      the share slice's early stop assumes every unsettled cell neighbours a seed, which the wake
+      rule guarantees for the active set and nothing guarantees for a chunk's cells.
       - [ ] **A walk deletes the flood's awake water — read off the 2026-09-05 play log: 2,924,347 L
             displaced of 7,163,284 L drawn in one session, 41%.** An unloaded voxel is solid, so an
             awake cell in a chunk that leaves the box is displaced on its next visit into neighbours

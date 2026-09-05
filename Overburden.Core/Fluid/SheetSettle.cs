@@ -24,6 +24,14 @@ namespace Overburden.Core.Fluid;
 /// repeating one at each boundary costs what the sheets cost and moves the front on each time.
 /// </para>
 /// <para>
+/// <b>What a pass levels is the solve's decision, under the share this carries</b>: a sheet is
+/// re-levelled when at least one cell in <see cref="SettleShare"/> of it is unsettled, or when a
+/// step stands in it, and is otherwise left to the automaton with its flood stopped early. The
+/// first play fired that lever — a 162,572-cell lake re-levelled twice a second for its creeping
+/// edge — and <c>--settleshare=</c> is its sweep; the rule and its bound are in
+/// <see cref="FluidSimulation.LevelSheets(int)"/>.
+/// </para>
+/// <para>
 /// Sibling of <see cref="SurfaceHandoff"/> and <see cref="PortalDrain"/> at the boundary, and
 /// deliberately outside the automaton for the reason they are: the tick has no opinion about
 /// when it is worth solving what it would otherwise diffuse to.
@@ -34,23 +42,41 @@ public sealed class SheetSettle
     /// <summary>The trigger interval the game ships with: two ticks, one second at 2 Hz. An estimate.</summary>
     public const int DefaultSettleAfterTicks = 2;
 
+    /// <summary>
+    /// The share the game ships with: a sheet is re-levelled when at least one cell in eight of it
+    /// is unsettled. Picked on the bench (M8-PLAN, the share slice); <c>--settleshare=</c> is the
+    /// sweep and zero is no threshold.
+    /// </summary>
+    public const int DefaultSettleShare = 8;
+
     private readonly FluidSimulation _fluid;
     private long _addedSeen;
     private long _disturbedSeen;
 
-    public SheetSettle(FluidSimulation fluid, int settleAfterTicks = DefaultSettleAfterTicks)
+    public SheetSettle(
+        FluidSimulation fluid,
+        int settleAfterTicks = DefaultSettleAfterTicks,
+        int settleShare = DefaultSettleShare)
     {
         ArgumentNullException.ThrowIfNull(fluid);
         ArgumentOutOfRangeException.ThrowIfNegative(settleAfterTicks);
+        ArgumentOutOfRangeException.ThrowIfNegative(settleShare);
 
         _fluid = fluid;
         SettleAfterTicks = settleAfterTicks;
+        SettleShare = settleShare;
         _addedSeen = fluid.AddedMillilitres;
         _disturbedSeen = fluid.DisturbedCells;
     }
 
     /// <summary>Ticks with no inflow before a pass runs. Zero runs one at every boundary with anything awake.</summary>
     public int SettleAfterTicks { get; }
+
+    /// <summary>
+    /// One cell in this many unsettled before a sheet is re-levelled; zero levels any sheet with a
+    /// move in it. See <see cref="FluidSimulation.LevelSheets(int)"/>.
+    /// </summary>
+    public int SettleShare { get; }
 
     /// <summary>Consecutive ticks with no inflow, as of the last boundary.</summary>
     public int QuietTicks { get; private set; }
@@ -68,6 +94,15 @@ public sealed class SheetSettle
     public long SheetsPacked { get; private set; }
 
     public long SheetsSkipped { get; private set; }
+
+    /// <summary>Sheets with a move in them left to the automaton for being under the share.</summary>
+    public long SheetsUnderShare { get; private set; }
+
+    /// <summary>Sheets under the share levelled anyway, for a step between settled plateaus.</summary>
+    public long SheetsStepped { get; private set; }
+
+    /// <summary>Cells the passes read — the cost the share bounds.</summary>
+    public long CellsVisited { get; private set; }
 
     public long CellsWritten { get; private set; }
 
@@ -108,7 +143,7 @@ public sealed class SheetSettle
     public SheetLevelResult Run()
     {
         long before = Stopwatch.GetTimestamp();
-        SheetLevelResult result = _fluid.LevelSheets();
+        SheetLevelResult result = _fluid.LevelSheets(SettleShare);
         double millis = (Stopwatch.GetTimestamp() - before) * 1000.0 / Stopwatch.Frequency;
 
         Settles++;
@@ -121,6 +156,9 @@ public sealed class SheetSettle
         SheetsLevelled += result.Levelled;
         SheetsPacked += result.Packed;
         SheetsSkipped += result.Skipped;
+        SheetsUnderShare += result.UnderShare;
+        SheetsStepped += result.Stepped;
+        CellsVisited += result.CellsVisited;
         CellsWritten += result.CellsWritten;
         MillilitresMoved += result.MillilitresMoved;
         CellsWoken += result.CellsWoken;

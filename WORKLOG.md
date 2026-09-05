@@ -1,5 +1,50 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-05 — The share slice: the lake's edge is the automaton's, and a pass is 0.08 ms instead of 20
+
+**Matthew: "Please continue"** — the lever the play fired that afternoon, built the same evening.
+`FluidSimulation.LevelSheets(share)`: a sheet with a move inside it is re-levelled only when at
+least one cell in *share* of it is unsettled, or a step stands in it; `--settleshare=` is the
+sweep, 8 the default and an estimate, 0 no threshold and the control. Suite 1,032 → 1,040; ten
+recipes, eight caught, two findings; the r6 control unchanged at 2601 / 325 / 3446 at 411 with zero
+passes. The design and the tables are in M8-PLAN's "M8b-3b — the share slice". Five things worth
+keeping:
+
+- **The TODO's one line needed two things it did not say.** The flood was half the bill, so the
+  share is decided without it: the wake rule puts every unsettled cell beside an awake one, a
+  flood from every seed at once has met them all by its second layer, and a sheet whose count
+  reaches *share* times that is frozen there with its frontier kept — thawed if a live flood
+  reaches it, because a discovered cell never examined has no front flag. And a step between two
+  levelled puddles is narrow and not local — the cell share alone would leave it to diffuse for
+  minutes — so a sheet whose bordering settled cells disagree by more than 32 mL is levelled
+  whatever its share. Hand-picked seeds, M8b-4's, must pass a share of zero.
+- **On the play's shape — a 147,456-cell lake at rest draining eight litres a tick off one edge,
+  the new `--lake` arm — the pass is 20 ms → 0.08 ms in Release and the visits 144,194 → 2,911.**
+  The solve writes nothing; the automaton takes the edge with 812 cells awake instead of 154, at
+  7.5% more visits. On the 96 m bore-9 mine the CPU halves and the ticks to rest double, the
+  doubled half under 64 awake cells; the chamber floor's spreading front is a wide disturbance
+  and is levelled in both arms, which is the rule working; the spill arm is unchanged to the tick.
+- **The instrument was wrong twice before the number was right, and both were the fixture.**
+  `DugTerrain` bakes a column's cave field on its first `CanHold`, and the first flood over the
+  lake paid for every column it read inside the timed pass: 1,385 ms, then 480 with the floor
+  baked and the wall ring not, then 90 with both — the pass's own growth — and 20 ms steady. So
+  the pass is 0.14 µs a cell in Release, not the 1–3 µs recorded this morning, which carried the
+  same bake over a mine the flow had baked unevenly. The played floor is ~23 ms a pass Release;
+  the play's 275 ms is Debug.
+- **The battery's first run installed the old solve.** It restored the subject with a git
+  checkout and the subject was uncommitted: recipe 1 was caught, the restore put the pre-slice
+  file back, and nine recipes matched nowhere. Restore from a copy. Of the recipes proper,
+  no-thaw fell only once the test asserted every front cell pending after the solve — a lost
+  front flag is woken a tick later by its neighbour's spread, and rest-and-verify cannot see
+  *when* — and the zero step tolerance only once the creep fixture carried the four-millilitre
+  tilt rest allows. Two are findings rather than holes: freezing before the border is complete is
+  unreachable under the wake rule, and reading the wrong cell's amount as the border is within
+  four millilitres of the identity.
+- **Eight is a guess inside a measured range**, four to sixteen all negligible on the lake and
+  all halving the mine. What a person judges is a poured mound or a merge line sitting
+  unlevelled: the merge is the step detector's, the mound is the share's, and `--settleshare=0` is
+  how it looked before.
+
 ## 2026-09-05 — The play: the mine is a lake — "Ahh what monster have I unleashed?"
 
 **Matthew opened the played world with M8b-3b in it and sent two shots from the floor of the

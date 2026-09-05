@@ -431,6 +431,13 @@ public partial class Main : Node3D
     /// </summary>
     private int _settleAfterTicks = SheetSettle.DefaultSettleAfterTicks;
 
+    /// <summary>
+    /// <c>--settleshare=&lt;n&gt;</c>: a sheet is re-levelled when at least one cell in n of it is
+    /// unsettled. <see cref="SheetSettle.DefaultSettleShare"/> by default; zero is no threshold,
+    /// the behaviour before the share slice and the control arm.
+    /// </summary>
+    private int _settleShare = SheetSettle.DefaultSettleShare;
+
     private long _settlesAtWarm;
 
     /// <summary>The analysis in flight, or null. One at a time, by construction.</summary>
@@ -1038,6 +1045,14 @@ public partial class Main : Node3D
                 // rise as a flat sheet instead of flowing; it exists so both can be seen.
                 case "settleafter" when int.TryParse(value, out int settleAfter):
                     _settleAfterTicks = Math.Max(0, settleAfter);
+                    break;
+
+                // The share slice: a sheet with a move in it is re-levelled only when at least one
+                // cell in n of it is unsettled, or a step stands in it. Zero is no threshold — the
+                // pre-slice behaviour, which re-levelled a 162,572-cell lake twice a second for
+                // its creeping edge — and the control arm.
+                case "settleshare" when int.TryParse(value, out int settleShare):
+                    _settleShare = Math.Max(0, settleShare);
                     break;
 
                 // The rain's own A/B arm: everything else about the weather, with no particles.
@@ -2935,7 +2950,7 @@ public partial class Main : Node3D
 
         // M8b-3b: the settle. Needs no Tier A, because a flooded mine has no Tier A body — the
         // sheets it levels are the ones the hand-off cannot reach.
-        _settle = new SheetSettle(_fluid, _settleAfterTicks);
+        _settle = new SheetSettle(_fluid, _settleAfterTicks, _settleShare);
         if (windowed)
         {
             _fluidSurface = new FluidSurface(GetWorld3D());
@@ -3353,9 +3368,12 @@ public partial class Main : Node3D
 
         string settle = _settle is null
             ? string.Empty
-            : $" | settle {_settle.Settles:N0} pass(es) after {_settle.SettleAfterTicks} quiet tick(s): "
+            : $" | settle {_settle.Settles:N0} pass(es) after {_settle.SettleAfterTicks} quiet tick(s), "
+              + $"share 1 in {_settle.SettleShare}: "
               + $"{_settle.SheetsLevelled:N0} levelled / {_settle.SheetsPacked:N0} packed / "
-              + $"{_settle.SheetsSkipped:N0} left, {_settle.CellsWritten:N0} cells written, "
+              + $"{_settle.SheetsSkipped:N0} left / {_settle.SheetsUnderShare:N0} left under share / "
+              + $"{_settle.SheetsStepped:N0} levelled for a step, {_settle.CellsVisited:N0} cells visited, "
+              + $"{_settle.CellsWritten:N0} written, "
               + $"largest sheet {_settle.LargestSheet:N0}, longest pass {_settle.LongestMillis:F1} ms";
 
         long drawn = _drain?.DrawnMillilitres ?? 0;
@@ -3423,9 +3441,12 @@ public partial class Main : Node3D
         string settle = _settle is null
             ? "settle    no sheet solve (--nowater)\n"
             : $"settle    {_settle.Settles - _settlesAtWarm:N0} pass(es) in the window, {_settle.Settles:N0} in all, "
-              + $"after {_settle.SettleAfterTicks} quiet tick(s); {_settle.SheetsLevelled:N0} levelled / "
-              + $"{_settle.SheetsPacked:N0} packed / {_settle.SheetsSkipped:N0} left alone, "
-              + $"{_settle.CellsWritten:N0} cells written, {_settle.CellsWoken:N0} woken, largest sheet "
+              + $"after {_settle.SettleAfterTicks} quiet tick(s), share 1 in {_settle.SettleShare}; "
+              + $"{_settle.SheetsLevelled:N0} levelled / "
+              + $"{_settle.SheetsPacked:N0} packed / {_settle.SheetsSkipped:N0} left alone / "
+              + $"{_settle.SheetsUnderShare:N0} left under share / {_settle.SheetsStepped:N0} levelled for a step, "
+              + $"{_settle.CellsVisited:N0} cells visited, "
+              + $"{_settle.CellsWritten:N0} written, {_settle.CellsWoken:N0} woken, largest sheet "
               + $"{_settle.LargestSheet:N0} cells, longest pass {_settle.LongestMillis:F2} ms, "
               + $"{_settle.TotalMillis:F1} ms in all\n";
 

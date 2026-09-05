@@ -103,7 +103,8 @@ internal static class SpillBench
     private static readonly int[] Checkpoints = [1, 5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000];
 
     internal static int Run(
-        WorldGenerator generator, string machineControl, bool isDebug, ulong seed, long[] litresArms, int tickCap)
+        WorldGenerator generator, string machineControl, bool isDebug, ulong seed, long[] litresArms, int tickCap,
+        int settleShare)
     {
         Console.WriteLine("Spill bench — M8b-3: the B → A hand-off against a spill on real ground");
         if (isDebug)
@@ -159,7 +160,9 @@ internal static class SpillBench
         {
             foreach ((bool handoff, bool settle) in new[] { (false, false), (true, false), (true, true) })
             {
-                RunArm(generator, seed, centreX, centreZ, halfSpan, lowest - 8, highest + 64, litres, handoff, settle, tickCap);
+                RunArm(
+                    generator, seed, centreX, centreZ, halfSpan, lowest - 8, highest + 64, litres, handoff, settle,
+                    tickCap, settleShare);
             }
 
             Console.WriteLine();
@@ -173,7 +176,7 @@ internal static class SpillBench
 
     private static void RunArm(
         WorldGenerator generator, ulong seed, int centreX, int centreZ, int halfSpan, int minY, int maxY,
-        long litres, bool withHandoff, bool withSettle, int tickCap)
+        long litres, bool withHandoff, bool withSettle, int tickCap, int settleShare)
     {
         var terrain = new SurfaceTerrain(generator, centreX, centreZ, halfSpan, minY, maxY);
         var water = new WaterSystem(generator, seed, new BasinLedger(), Pitch);
@@ -183,7 +186,7 @@ internal static class SpillBench
 
         // M8b-3b's settle beside the hand-off, at the game's default interval and in the game's
         // order at the boundary: settle, then absorb what it listed as resting, then pour.
-        SheetSettle? settle = withSettle ? new SheetSettle(sim) : null;
+        SheetSettle? settle = withSettle ? new SheetSettle(sim, settleShare: settleShare) : null;
 
         int surface = generator.SurfaceHeightAt(centreX, centreZ);
         long pending = litres * FluidConstants.MillilitresPerLitre;
@@ -292,9 +295,11 @@ internal static class SpillBench
         if (settle is not null)
         {
             Console.WriteLine(
-                $"           settle: {settle.Settles:N0} pass(es) after {settle.SettleAfterTicks} quiet tick(s), "
-                + $"{settle.SheetsLevelled:N0} levelled / {settle.SheetsPacked:N0} packed / {settle.SheetsSkipped:N0} left alone, "
-                + $"{settle.CellsWritten:N0} cells written, {settle.CellsWoken:N0} woken, largest sheet {settle.LargestSheet:N0}, "
+                $"           settle: {settle.Settles:N0} pass(es) after {settle.SettleAfterTicks} quiet tick(s) at share 1 in {settle.SettleShare}, "
+                + $"{settle.SheetsLevelled:N0} levelled / {settle.SheetsPacked:N0} packed / {settle.SheetsSkipped:N0} left alone / "
+                + $"{settle.SheetsUnderShare:N0} left under share / {settle.SheetsStepped:N0} levelled for a step, "
+                + $"{settle.CellsVisited:N0} cells visited, "
+                + $"{settle.CellsWritten:N0} written, {settle.CellsWoken:N0} woken, largest sheet {settle.LargestSheet:N0}, "
                 + $"longest pass {settle.LongestMillis:F2} ms, {settle.TotalMillis:F0} ms in all");
         }
     }

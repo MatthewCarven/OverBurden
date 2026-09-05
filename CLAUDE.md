@@ -285,6 +285,23 @@ deterministic, so the two rows start from the same water:
 dotnet run --project Overburden.Bench -c Release -- --fluid --fluidshape chamber --fluidbores 3 --fluidsolve both
 ```
 
+The settle's share slice (2026-09-05) adds **`--settleshare=<n>`**: a sheet with a move in it is
+re-levelled only when at least one cell in *n* of it is unsettled, or a step stands in it; 8 by
+default, an estimate, and **0 is no threshold** — the pre-slice behaviour, which re-levelled a
+162,572-cell lake twice a second for its creeping edge, and the control arm. The `settle` line prints
+sheets left under the share, sheets levelled for a step, and the cells the passes visited, which is
+the number the share bounds. On the bench **`--settleshare <n>`** (space-separated) applies to
+`--fluid`'s solve arm, to `--spill`'s settle arm and to **`--lake`, the slice's own arm** — a chamber
+block's floor filled level and asleep with eight litres a tick drawn off one edge, the played lake's
+shape, priced at no threshold against the share (`--lakechambers`, default 12 for a 147,456-cell
+sheet; `--laketicks`, default 60). **It bakes every column the flood reads before timing anything**,
+because the fixture bakes a column's cave field on its first `CanHold` and the first pass otherwise
+reads as 1,385 ms; and it prints its first five passes by name, because the first pays for growth:
+
+```bash
+dotnet run --project Overburden.Bench -c Release -- --lake --settleshare 8
+```
+
 The tick budget slice (2026-09-04) adds **`--fluidbudget=<ms>`**, the fifth budget seam of the same
 shape as `--lightbudget`: how much of a frame Tier B's tick may take before it yields and resumes
 next frame, 2 ms by default. **Zero is not off** — one granule of 64 visits a frame, so the water
@@ -390,13 +407,18 @@ local folder, the remote URL, and the assistant's memory directory (see TODO's n
 **The played worlds now live under `app_userdata/Overburden/`; the `MinerCraft/` folder beside it
 is the pre-rename backup and is Matthew's to delete.**
 
-**Pick up here (2026-09-05). M8b-3 is built: the hand-off and the settle — and the settle's first
-play fired the lever the plan named.** The played world's mine became one 162,572-cell lake, the
-active set fell from 160,000 cells to 1,600, and then the lake was re-levelled at every boundary
-for its creeping edge: ~130,000 cells written a pass, up to 275 ms in Debug, twice a second, for as
-long as the edge creeps. **The next slice is that lever** — re-level a sheet only when more than one
-cell in *n* of it is unsettled, `--settleshare=` the sweep — priced against `--fluid`'s 96 m bore-9
-arm, which is the same shape; see TODO under M8b-3b. After it, **M8b-4, the store** — read the
+**Pick up here (2026-09-05, evening). M8b-3 is built — the hand-off, the settle, and the settle's
+share slice, which is the lever the settle's first play fired.** That play made the played world's
+mine one 162,572-cell lake, the active set fell from 160,000 cells to 1,600, and then the lake was
+re-levelled at every boundary for its creeping edge: ~130,000 cells written a pass, up to 275 ms in
+Debug, twice a second, for as long as the edge crept. **The share slice is that lever, built and
+measured the same evening**: a sheet with a move in it is re-levelled only when at least one cell in
+*n* of it is unsettled or a step stands in it, `--settleshare=<n>` the sweep, 8 the default and an
+estimate, 0 the control; on the play's shape (`--lake`) a pass is 20 ms → 0.08 ms Release and the
+visits 144,194 → 2,911, and the flood is not paid to decide, because the wake rule lets it stop at
+*n* times the disturbance. Read M8-PLAN's "M8b-3b — the share slice" before touching
+`FluidSimulation.Sheets.cs` — the union-find flood, the freeze, the thaw and the step detector are
+each one recipe from wrong, and the plan says which. **Next is M8b-4, the store** — read the
 plan's M8b-4 paragraph, the walk-away finding below (75% of the drawn water again in that play),
 and 3b's `LevelSheets(seeds)`, which is the unload-time method the plan named; it wants its own
 planning pass first, and it is last and alone because a defect there is permanent data loss. Two things
