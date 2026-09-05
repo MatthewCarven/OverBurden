@@ -135,6 +135,9 @@ public sealed class FluidSimulation
     private List<VoxelPos> _pending = [];
     private readonly HashSet<VoxelPos> _queued = [];
 
+    // Cells the tick in progress visited and found nothing to do for. See Rested.
+    private readonly List<VoxelPos> _rested = [];
+
     // The tick in progress: how far through its batch the cursor is, and what it has done so far.
     // A batch with anything in it is a tick in progress; completing one empties it.
     private int _cursor;
@@ -205,6 +208,15 @@ public sealed class FluidSimulation
     /// <summary>Millilitres taken out through <see cref="Remove"/>.</summary>
     public long RemovedMillilitres { get; private set; }
 
+    /// <summary>Millilitres taken out through <see cref="HandOff"/> — water that became Tier A's.</summary>
+    /// <remarks>
+    /// A term of its own rather than part of <see cref="RemovedMillilitres"/>, because the two
+    /// answer different questions: removed water left the world through the relay, handed water
+    /// is still in the world as litres in a basin, and Tier A's <c>received</c> has to equal this
+    /// to the litre. The B → A seam reported from Tier B's end, as <c>drawn</c> is A → B's.
+    /// </remarks>
+    public long HandedMillilitres { get; private set; }
+
     /// <summary>
     /// Millilitres destroyed because the voxel holding them stopped being able to hold them and
     /// no neighbour had room.
@@ -258,16 +270,64 @@ public sealed class FluidSimulation
     /// <summary>Takes water out of a voxel. Returns what was actually removed.</summary>
     public long Remove(VoxelPos voxel, long millilitres)
     {
+        long taken = Take(voxel, millilitres);
+        RemovedMillilitres += taken;
+        return taken;
+    }
+
+    /// <summary>
+    /// Takes water out of a voxel on Tier A's behalf — the B → A seam. Returns what was taken,
+    /// which the caller must deliver to a basin or the two tiers' identities stop agreeing.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Remove"/> with a different counter and nothing else: the water is not gone, it
+    /// has changed representation, and <see cref="HandedMillilitres"/> is the number a Tier A
+    /// <c>received</c> has to match. Which cells hand off, and when, is the seam's decision
+    /// (<see cref="SurfaceHandoff"/>) and not the automaton's, for the reason the portal index
+    /// does not know what an edit is: the automaton has no opinion about the analytic ground.
+    /// </remarks>
+    public long HandOff(VoxelPos voxel, long millilitres)
+    {
+        long taken = Take(voxel, millilitres);
+        HandedMillilitres += taken;
+        return taken;
+    }
+
+    private long Take(VoxelPos voxel, long millilitres)
+    {
         long taken = _grid.Drain(voxel, millilitres);
         if (taken > 0)
         {
-            RemovedMillilitres += taken;
             Wake(voxel);
             WakeNeighboursOf(voxel);
         }
 
         return taken;
     }
+
+    /// <summary>
+    /// The cells the last completed tick visited and found nothing to do for — resting water, as
+    /// far as one tick can see it. Valid from a tick's completion until the next tick begins.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A rested cell holds water, could hold it, and could neither fall nor spread when it was
+    /// visited.</b> That is the automaton's own definition of rest — the visit that found no move
+    /// is the visit that would have made one — and it is what DESIGN's <i>stable cells sleep and
+    /// merge into a Tier A body</i> needs: the sleep is this list, and the merge is
+    /// <see cref="SurfaceHandoff"/>'s pass over it at the tick boundary, with the analytic ground
+    /// as the test the automaton cannot make.
+    /// </para>
+    /// <para>
+    /// <b>A cell that rested early in the tick and was given water by a later visit is still
+    /// listed</b>, because the list is a record of visits and not a promise about the state at the
+    /// boundary; the consumer re-reads what a cell holds. It is a list rather than a set for the
+    /// reason the active set is, and it is cleared when a tick begins, so a consumer that wants it
+    /// reads it between <c>Complete</c> and the next <c>Begin</c> — which in the game is the tick
+    /// boundary, before the next <c>Step</c>.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<VoxelPos> Rested => _rested;
 
     /// <summary>
     /// Wakes whatever water an edit at this voxel could have given something to do.
@@ -344,11 +404,18 @@ public sealed class FluidSimulation
         int end = _cursor + visited;
         for (; _cursor < end; _cursor++)
         {
-            long here = Visit(_batch[_cursor]);
+            VoxelPos cell = _batch[_cursor];
+            long here = Visit(cell);
             if (here > 0)
             {
                 _tickCellsMoved++;
                 _tickMillilitresMoved += here;
+            }
+            else if (_grid.AmountAt(cell) > 0)
+            {
+                // Held water with no move: at rest, by the automaton's own test. An empty cell
+                // visited is not resting water, and a cell Displace emptied is not either.
+                _rested.Add(cell);
             }
         }
 
@@ -396,6 +463,7 @@ public sealed class FluidSimulation
         (_batch, _pending) = (_pending, _batch);
         _pending.Clear();
         _queued.Clear();
+        _rested.Clear();
         _cursor = 0;
         _tickCellsMoved = 0;
         _tickMillilitresMoved = 0;

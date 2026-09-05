@@ -621,6 +621,183 @@ between them. What departed from the paragraph above, and what it found:
   deep-chunk hook skip named at 2b. **The play is Matthew's**: `Q` a chunk out from under the
   terrace pond and watch the pond drop.
 
+### M8b-3 — the planning pass, 2026-09-05, and the measurement it asked for
+
+Read against `FluidSimulation`, `FluidRules`, `FluidGrid`, `BasinWater`, `BasinRainfall`,
+`WaterSystem`, `PortalDrain` and `Main`'s tick boundary. The paragraph above says *measure first*,
+and the measurement needs the hand-off to exist, so M8b-3a — the hand-off — was built as the
+instrument and measured in the same pass; the settle is designed here and not built. Five things the
+paragraph stated one level above where the answer sits, then the number, the settle, the decisions
+and the split.
+
+**1. Water on the analytic ground is already Tier A's, by Tier A's own model — the hand-off is
+`BasinRainfall`'s delivery with a different source.** Rain landing anywhere on a catchment is litres
+in that catchment's basin the moment it lands; Tier A never represents water *on* a hillside, only
+water *in* a pit. So a Tier B cell resting on the plane the ground stands on — `SurfaceHeightAt +
+1`, the plane 2a pinned — is rain that has landed, and handing it to the basin under its sample is
+the delivery the accumulator makes. The spill soaks into the ground where it stops moving and stands
+up again as the lake's level. Three things follow. **A cell on an outlet sample leaves the world**,
+as rain on an outlet catchment does, counted on `received` *and* `spilled`; kept in Tier B it would
+sleep on the ground for ever, since nothing wakes a cell with no move. **A tank whose floor is the
+natural ground leaks into the basin**, exactly as rain inside its walls would — Tier A has no
+representation of a walled patch of catchment — and a tank on a placed floor does not, because the
+seam reads the *seed* surface and a cell on a block is not on the plane. Stated and pinned by a test
+rather than hidden; revisit trigger: the first play that builds one and reads the leak as wrong.
+**And the cell above a handed cell falls into the space it left and hands off in turn**: one cell a
+tick a column, the automaton's own rate, so only the cell on the plane is ever tested.
+
+**2. "Resting" is the automaton's own visit that found no move, and it needs no new state.** A
+visit that could neither fall nor spread is the visit that would have moved the water if it could —
+that is the definition of rest the sleep rule already uses. `FluidSimulation` now records the cells
+each tick visited and found nothing to do for (`Rested`, cleared when the next tick begins), and the
+hand-off is a pass over that list at the tick boundary, beside `PortalDrain.Draw`. The automaton
+stays ignorant of the analytic surface for the reason the portal index is ignorant of what an edit
+is. **The plan's *resting cell above the surface* is therefore only the cell on the plane**, and
+water in motion stays Tier B — a pour is seen spreading before it merges, which is DESIGN's
+*stable* cells and the difference between a spill that soaks away and a spill that vanishes where
+it lands.
+
+**3. Whole litres cross; the remainder must be carried, and it is carried per pit.** A cell holds
+15,625 mL and Tier A counts litres, so either a hand-off leaves up to 999 mL in every ground cell —
+a film over every cell a spill touched, held, drawn, stored and never moving, the exact cost
+`MinimumSpreadMillilitres` exists to prevent — or the seam keeps a sub-litre remainder somewhere. It
+is kept in `SurfaceHandoff`, keyed by the basin's pit in world coordinates (the identity a window
+move does not rename, non-negotiable 2 again), delivered as whole litres the moment it makes one,
+and under a litre per basin that has ever received. Taking the whole cell is what makes a spill on
+natural ground end with Tier B holding *nothing*, which is the end state the awake set is measured
+against. Lost at quit like the rain accumulator's remainder, under a litre a basin, reported as
+`pending` on the profile.
+
+**4. The number: the hand-off removes 99.3–99.5% of a surface spill's visits and turns "never rests"
+into rest in minutes of world time.** `--spill`, Release, machine control 1.07×, the relay's ball on
+the ground at the bench's origin with a 256 m window of 83 basins installed around it:
+
+```
+pour       hand-off   rested after            visits        peak     ended
+10,000 L   off        9,111 ticks (76 min)    25,022,162    5,775    4,541 cells held for ever
+10,000 L   on           170 ticks (1.4 min)      181,674    2,172    Tier B empty; 9,999 L in 2 basins, 1,000 mL pending
+50,000 L   off        never (cap 20,000)      189,876,378   12,420   11,498 cells, 6,634 still awake
+50,000 L   on           314 ticks (2.6 min)      939,219    8,700    Tier B empty; 49,999 L in 2 basins, 1,000 mL pending
+```
+
+Both tiers' identities, the seam's (`received × 1,000 + pending == handed`) and the whole world's
+are exact in every arm. The pass costs 0.8 µs a hand-off with the analytic seed function (8 ms over
+9,618); in the game it reads a column. **So M8a's named fallback — a coarser rest tolerance — is
+dead for the surface**, where the hand-off is the settle; and it removes *nothing* from a mine
+flood, where no cell is on the plane, which is what the analytic settle below is for. `--fluid`
+re-run with the rested list collected: every digit of the M8b-1 table reproduces, to the visit.
+
+**5. The settle is a solve of *sheets*, not of the region — and the plan's flood-fill would
+teleport water.** "Flood-fill the connected open cells from the water, sort by Y, pour from the
+bottom up" fills the lowest reachable cells first regardless of which water can reach them: two
+pockets fed from one junction, the lower half full and the higher half full, would have the higher
+one's water moved into the lower — across a mine, through rock, with no path the automaton could
+take, and visibly. The no-siphons rule is the constraint. What the automaton converges to, and what
+M8a's O(n²) is spent on, is a **sheet**: the wet cells at one Y that are sideways-connected through
+holdable cells and each supported (the cell below full or unholdable). A sheet's rest state is
+level to within four millilitres a pair; the solve is to distribute the sheet's total evenly across
+its cells — exact to a millilitre, quiescent by `FluidRules` since no pair differs by five — which
+moves water only along paths the sideways rule already uses. Components are found by a flood over
+wet cells at the same Y, O(n) per sheet, no sort. Two rules inside it: **the sheet is the wet cells
+only, not the dry cells it could still spread into**, so a settle never snaps water across a floor
+the frontier had not reached — the frontier keeps creeping at the automaton's pace and the sheet
+behind it is level at once, and a settle that fires again a few ticks later pumps the front forward
+two cells a time; and **a sheet whose even share would be under a litre a cell is packed, not
+spread** — its water into as few of its own cells as possible at 999 mL each, the cells that held
+most first — because an even film over every cell is the puddle regime `MinimumSpreadMillilitres`
+was designed against, and the automaton's own answer there is a puddle.
+
+**When it runs, stated as an estimate with the sweep beside it.** At a tick boundary, when the last
+*K* ticks had no inflow — no `Add`, no portal draw, no `Disturb` — and the active set is not empty;
+then again at every boundary while that holds, until the automaton is quiescent, because each pass
+is O(sheet) and each moves the front. *K* = 2 ticks (one second) is the estimate; `--settleafter=
+<ticks>` is the sweep and `0` settles under inflow too, which is the arm that would make a stream
+down a tunnel rise uniformly instead of flowing, and is there so a person can see both. And on
+unload, as a method the store's caller runs on the sheets touching the departing chunk, which is
+M8b-4's call site. **Oracle**: `VerifyQuiescent` true after a settle on a fully-wetted region;
+volume exact to the millilitre across every settle; every pair in a settled sheet within one
+millilitre; and the two bench figures — the chamber's 1,915-tick settle and the corridor's *never*
+— each becoming one solve and a handful of ticks.
+
+#### The split — two, in this order
+
+- **M8b-3a — the hand-off, built in this pass.** `FluidSimulation.Rested` and `HandOff` (a
+  `Remove` with its own counter, `HandedMillilitres`), `WaterSystem.Receive` and `ReceivedLitres`,
+  `SurfaceHandoff` in `Overburden.Core/Fluid/` beside `PortalDrain`, wired at `Main`'s tick boundary
+  before the draw, `handed` and `received` on both tiers' lines with a `handoff` line between them,
+  and `--spill` on the bench. **Oracle**: the Core twin — the bowl with a ramp, the relay's ball on
+  the ramp, and Tier B holding nothing when the automaton stops, with both identities, the seam's
+  and the whole world's exact after every boundary; the sub-litre remainder; the placed block, the
+  tank, the outlet, the window move, the missing window; the real-terrain fuzz ending with Tier B
+  empty; `--fluid` unchanged to the visit.
+- **M8b-3b — the settle.** `FluidSimulation.LevelSheets()` (or a name that says *solve*), the
+  no-inflow trigger with `--settleafter=`, the unload-time method, the `settle` line on the profile
+  (settles run, sheets levelled, cells written, the longest), and `--fluidsettle` on the bench
+  gaining an analytic arm beside the wait. **Not built until Matthew has seen the hand-off in play**
+  — see the decisions.
+
+#### Decisions
+
+Settled in this pass: the hand-off tests the plane cell only; resting is the automaton's own
+no-move visit; the remainder is kept per pit and taken whole; an outlet cell spills; a cell on the
+ground before the first window is woken rather than skipped; the settle is per sheet, wet cells
+only, packed under a litre a cell.
+
+**For Matthew, two:**
+
+1. **Does a spill soaking into the ground read right?** With the hand-off, the relay's water on a
+   hillside runs down, pools where it rests, and each pooled cell drains into the basin the tick it
+   stops — the puddle disappears from where it lay and the lake at the pit rises by what it held.
+   Physically it is water finding its level; on screen it is water vanishing into grass and
+   reappearing at the bottom of the valley, which M7's *"lakes overhanging yes"* play may or may
+   not read as wrong. **Recommendation: ship it and let the play judge**, because the alternative
+   — leaving surface water in Tier B until it is level — is the state the measurement shows never
+   arriving, and the lever if it reads wrong is a delay rather than a redesign (hand off a cell
+   only after it has rested *n* boundaries in a row, which costs a small dictionary). Revisit
+   trigger: the play calling it a leak.
+2. **The settle's trigger interval, and whether it fires under inflow.** *K* = 2 ticks is an
+   estimate; `--settleafter=` is the sweep; 0 is the arm that levels a flowing stream. **Recommend
+   building 3b after the hand-off has been played**, so the settle's look question — a tunnel
+   floor levelling itself in one tick behind a creeping front — is judged against a seam the play
+   has already accepted, and so 3b can take the hand-off's interval (if decision 1 wants one) for
+   free.
+
+#### Cost model, one estimate left
+
+Per tick: one `AmountAt` per no-move visit for the rested list (measured: no digit of `--fluid`
+moved, and its `ms/tick` inside the machine's noise), and at the boundary one seed read and one
+label lookup per rested cell — under a microsecond each with the analytic function, less with the
+columns. A flood underground pays the seed read for every resting visit and hands off nothing;
+**the lever, if a profile ever shows it, is the one 2b named: a chunk wholly below its footprint's
+surface band skips the test.** Memory: one `VoxelPos` per rested cell per tick, and a dictionary
+entry per basin that has ever received. The settle *(estimate)*: O(wet cells) per pass, a pass per
+boundary while the no-inflow condition holds, so the corridor that stayed awake for 55 hours is a
+few passes of a few thousand cells.
+
+#### M8b-3a — built 2026-09-05, in the pass
+
+Suite 989 → 1,006. `FluidSimulation.Rested` and `HandOff` with `HandedMillilitres`,
+`WaterSystem.Receive` with `ReceivedLitres`, `SurfaceHandoff`, the wiring at `Main`'s boundary
+before the draw, `handed` and `received` on the profile with a `handoff` line, and `--spill`. What
+departed from the paragraph above, and what it found:
+
+- **In the game, r4h/2v standing, 50,000 L from the relay, headless**: 10,558 L handed over 1,677
+  hand-offs in the window, 711 mL pending, `received == handed` and both identities exact, the water
+  line's `held` equal to Tier B's `handed` to the litre; the breach run unchanged with 0 handed and
+  its 9 rested cells all in the shaft; the r6 control 2601 / 325 / 3446 at 411 with every new term
+  zero. The 15 s window ends with the ball still draining, as the bench's 85 s says it should.
+- **The played world floods on open.** A mis-invoked control (`--nosave` on the engine's side of
+  the bare `--`, dropped silently) opened `default`: 465,036 L drawn into the mine in four seconds
+  through the portals its 4,562 dug chunks file on arrival, 110,792 cells active, ticks of 87–188
+  frames in Debug. The seam working as built, seen for the first time; recorded for the play and
+  for M8b-4.
+- **Eighteen break-recipes, one hole**: listing moving cells as rested passed every hand-off test,
+  because a spill handed off mid-flow still ends in the basin — the mutation moved *when*, and no
+  end-state assertion sees when. The rested-list test asserts a spreading cell is not listed and
+  the twin asserts nothing is handed on a pour's first boundary. Five simulation recipes did not
+  apply until the harness matched CRLF.
+- **Not built**: the settle (3b), with the two decisions above open.
+
 ### Why this might go first
 
 M6d-1 set the precedent that a later part goes first when it answers an earlier one's question, and

@@ -21,7 +21,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/M7-PLAY.md](docs/M7-PLAY.md) | M7's play: five questions, **all five answered 2026-09-02**, the flags that provoke weather without waiting for it, and how to read the `M7c:`/`M7d:` log lines. Kept for the verdicts. |
 | [docs/M10-NOTES.md](docs/M10-NOTES.md) | **The quantum machine family** — Matthew’s proposal, 2026-09-02: a fluid pump that teleports to a wireless output, and a general machine programmer. Notes rather than a plan, on the deferred-collapse precedent. **Read before planning M10, and before shipping any machine — it names the entity-storage change that header v4 rides on.** |
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | **Elements, and whether to "just implement chemistry"** — a brainstorm with Matthew, 2026-09-03. Notes rather than a plan. The recommendation is *geology that reacts to water, with machine recipes as the chemistry set*; the element table says why each material would exist. **Read before M8c reads `permeability` and before M9 reads `supportDistance` — both have been in the material JSON unread since M1, and the trap is a constant shipping green.** |
-| [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **Planned 2026-09-02; M8a built the same day; M8b split four ways and M8b-1 built 2026-09-03; M8b-2 planned 2026-09-05 and all three parts built the same day, both open decisions taken as recommended — water crosses the seam in the game; the play is Matthew's; M8b-3 next.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it. **Its M8b section records a gap the plan had**: a flooded mine has no Tier A body, so resting mine water is stored, and the settle is a solve. Read the tick-budget item in TODO before M8b-2. |
+| [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **Planned 2026-09-02; M8a built the same day; M8b split four ways and M8b-1 built 2026-09-03; M8b-2 planned 2026-09-05 and all three parts built the same day, both open decisions taken as recommended — water crosses the seam in the game; M8b-3 planned the same day, its hand-off (3a) built and measured, its settle (3b) designed with two decisions open for Matthew and waiting on a play.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it. **Its M8b section records a gap the plan had**: a flooded mine has no Tier A body, so resting mine water is stored, and the settle is a solve. Read the tick-budget item in TODO before M8b-2. |
 | [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md) | **The retained-chunk cache**, planned 2026-09-03, **slice 1 built the same day and slice 2 on 2026-09-04**: chunks leaving the box keep their voxels, column and derived light in a byte-capped cache, so a turnaround costs no load, no generate and no derive. **Both "built" sections record where the build departed from the plan** — a column rule the plan did not have, a column push that became a check at revival, and the three older light defects slice 2's walk found. Read the slice 2 section before touching `LightPropagator`. |
 | [docs/SCALE.md](docs/SCALE.md) | **How many voxels and cells exist at each view distance, what one full sweep costs, and what each system actually iterates.** Read before designing anything that wants to check the world periodically — M7, M8 and M9 all start here. |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
@@ -233,8 +233,16 @@ rate, and a run with one measures the hose rather than the flood. In play **`R` 
 at the crosshair and Alt+R takes back everything within 2 m**; no material, no JSON, no ID. The
 profile's `fluid` block prints every term of `held == injected − removed − displaced`, and **the
 bare default headless run is not a streaming control any more**: it opens the played world and
-stands in its void (198 drawn at 100 quads a chunk). **The r6 control is `--nosave --quit-after
-2400`** — 2601 / 325 / 3446 at 411 — because 900 frames is ~6 s and the r6 fill settles at ~7.
+stands in its void (198 drawn at 100 quads a chunk). **The r6 control is, verbatim,**
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless --quit-after 2400 -- --nosave
+```
+
+— 2601 / 325 / 3446 at 411 — because 900 frames is ~6 s and the r6 fill settles at ~7. **`--nosave`
+goes after the bare `--` or the engine drops it without a word** (Main's warning covers only
+`name=value` flags), and the run then opens the played world, which as of M8b-3a floods on open and
+reads nothing like a control.
 
 M8b-2c adds the seam's two provocations, which go together. **`--fillbasin=<litres>` is the Tier A
 relay**: litres poured into the basin under the player when the measured window opens, reported
@@ -246,6 +254,21 @@ go to the nearest basin's pit instead**, and the run says so. The profile's `bre
 portals filed, samples wet and portals covered on the last pass, litres drawn in the window and in
 all, and whether Tier A's `drawn` equals Tier B's; both tiers' lines carry `drawn` so each identity
 stays exact alone. A breach with no lake over it measures nothing, which is why the pour comes with it.
+
+M8b-3a adds no flag and one bench arm. **`--spill` measures the B → A hand-off**: the relay's ball on
+real ground with a 256 m window analysed around it, with and without the hand-off, printing the
+active set's decay, ticks to rest, the visits paid and where every litre ended, with both tiers'
+identities, the seam's and the whole world's checked. Release only; `--spilllitres a,b` sweeps the
+pour and `--spillticks` caps an arm:
+
+```bash
+dotnet run --project Overburden.Bench -c Release -- --spill
+```
+
+The profile's `handoff` line prints cells rested and on the ground on the last pass, litres handed
+in the window and in all, millilitres pending and in how many basins, and whether Tier A's
+`received` equals Tier B's `handed`; both tiers' lines carry the term, and the water line's `held`
+now includes what Tier B handed over.
 
 The tick budget slice (2026-09-04) adds **`--fluidbudget=<ms>`**, the fifth budget seam of the same
 shape as `--lightbudget`: how much of a frame Tier B's tick may take before it yields and resumes
@@ -352,17 +375,48 @@ local folder, the remote URL, and the assistant's memory directory (see TODO's n
 **The played worlds now live under `app_userdata/Overburden/`; the `MinerCraft/` folder beside it
 is the pre-rename backup and is Matthew's to delete.**
 
-**Pick up here (2026-09-05). All of M8b-2 is built and water crosses the seam in the game; the
-play is Matthew's, and M8b-3 — B → A, the handoff and the settle — is next.** Before building
-anything of M8b-3, **measure first, as its paragraph says**: how much of a spill's awake set the
-handoff removes, because M8a's named fallback is waiting on that number. Two things the seam's
-build left that M8b-3 walks into: **a dead-end one-voxel shaft takes about a litre a tick after
-the first**, so the automaton's throughput into a column is far below the 30 L/s per portal the
-plan assumed and the settle's cost model should not assume it either; and **a chamber that fills
-under a lake holds its water for ever until the handoff exists**. The play items are in TODO under
-M8b-2c: `Q` a chunk out from under the terrace pond, a tunnel into a lake bank, and whether two
-surfaces for one body of water reads as wrong. The gate on the entangled miner is a battery and
-waits for M10. `git log origin/main..main` says what Matthew still has to push.
+**Pick up here (2026-09-05). M8b-3 is planned and its first half, the hand-off, is built and
+measured; the settle (M8b-3b) is designed and waits on two decisions and a play.** The decisions
+are in TODO under M8b-3 and in M8-PLAN's "M8b-3 — the planning pass": whether a spill soaking into
+the ground reads right (recommendation: ship it, let the play judge), and the settle's trigger
+interval. **Build 3b after the hand-off has been played**, and read the plan's finding 5 first —
+the settle is a solve of *sheets*, not the flood-fill the paragraph named, because the flood-fill
+teleports water. Two things this pass found that the next session walks into: **the played world
+floods the moment it opens** — 465,036 L into the mine in four seconds, 110,792 cells active,
+ticks of 188 frames in Debug — which is the seam working on the world it was built for and is now
+the play's first fact and M8b-4's first save; and **the r6 control must be invoked verbatim**, with
+`--nosave` after the bare `--`, or it opens that world and reads as a flood. The M8b-2c play items
+still stand: `Q` a chunk out from under the terrace pond, a tunnel into a lake bank, two surfaces
+for one body of water; and now the relay's water on a hillside soaking away into the lake at the
+pit. The gate on the entangled miner is a battery and waits for M10. `git log origin/main..main`
+says what Matthew still has to push.
+
+**M8b-3a is built (2026-09-05). Suite 989 → 1,006.** `FluidSimulation.Rested` is the cells a tick
+visited and found nothing to do for; `SurfaceHandoff` walks it at the boundary and hands every cell
+standing on the analytic ground to the basin under its sample, whole litres crossing and the
+remainder carried per pit; `WaterSystem.Receive` is the Tier A half; `handed` and `received` are on
+both tiers' lines with a `handoff` line between them. **Measured (`--spill`, Release): the hand-off
+removes 99.3–99.5% of a surface spill's visits** — 10,000 L rests in 170 ticks instead of 9,111,
+50,000 L in 314 instead of never, Tier B empty in both — **so M8a's coarser-tolerance fallback is
+dead for the surface**, and it removes nothing from a mine, which is the settle's case. Five things
+worth keeping:
+
+- **Water on the analytic ground is already Tier A's, by Tier A's own model.** The hand-off is
+  `BasinRainfall`'s delivery with a different source. An outlet cell leaves the world, counted on
+  both terms; a tank on natural ground leaks as rain inside it would, a tank on a placed floor
+  holds (the seam reads the *seed* surface) — pinned, revisit trigger the first play that reads
+  the leak as wrong; only the cell on the plane is tested, the one above falls and follows.
+- **Resting is the automaton's own no-move visit, and the automaton gained no opinion about the
+  ground.** The list is a record of visits, cleared at the next tick; DESIGN's *stable* cells
+  merge is that word, and a pour is seen spreading before anything is handed.
+- **The one battery hole moved *when*, not *whether*.** Listing moving cells as rested passed every
+  hand-off test, because a spill handed off mid-flow still ends in the basin with every identity
+  exact. The tests assert a spreading cell is not listed and nothing is handed on a pour's first
+  boundary. Eighteen recipes; five did not apply until the harness matched CRLF.
+- **The settle is designed and not built (M8b-3b).** Sheets, wet cells only, packed under a litre
+  a cell, on *K* ticks of no inflow with `--settleafter=` as the sweep; see the plan.
+- **`--fluid` reproduces the M8b-1 table to the visit with the rested list collected**, and the r6
+  control, invoked verbatim, is 2601 / 325 / 3446 at 411 with every new term zero.
 
 **M8b-2c is built (2026-09-05). Suite 974 → 989.** `PortalDrain` draws whole litres out of Tier A
 into Tier B at each tick boundary; `PortalTracker` feeds the index from the pipeline's three

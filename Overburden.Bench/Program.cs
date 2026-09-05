@@ -61,6 +61,9 @@ internal static class Program
           --fluidchambers <n>  chambers per axis for --fluidshape=chamber (default 1)
           --fluidsettle <n>    tick budget for the settle after the flow (default 100000)
           --fluidbudget <ms>   slice each flow tick under a per-frame budget (default 0: whole ticks, the control)
+          --spill              M8b-3: a spill on real ground with and without the B -> A hand-off
+          --spilllitres a,b    the spills to sweep, in litres (default 10000,50000)
+          --spillticks <n>     tick cap per arm (default 20000)
         """;
 
     private static int Main(string[] args)
@@ -83,6 +86,9 @@ internal static class Program
         string fluidShape = "mine";
         int fluidChambers = 1;
         double fluidBudget = 0;
+        bool spill = false;
+        long[] spillLitres = [10_000, 50_000];
+        int spillTicks = 20_000;
 
         try
         {
@@ -150,6 +156,18 @@ internal static class Program
                     case "--fluidbudget":
                         fluidBudget = double.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
                         break;
+                    case "--spill":
+                        spill = true;
+                        break;
+                    case "--spilllitres":
+                        spillLitres = Next(args, ref i)
+                            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                            .Select(part => long.Parse(part, CultureInfo.InvariantCulture))
+                            .ToArray();
+                        break;
+                    case "--spillticks":
+                        spillTicks = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
                     case "--help" or "-h":
                         Console.WriteLine(Usage);
                         return 0;
@@ -199,6 +217,13 @@ internal static class Program
         {
             var portalGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
             return PortalBench.Run(portalGenerator, MachineControl(portalGenerator), IsDebug());
+        }
+
+        if (spill)
+        {
+            var spillGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
+            return SpillBench.Run(
+                spillGenerator, MachineControl(spillGenerator), IsDebug(), seed, spillLitres, spillTicks);
         }
 
         if (watershed)

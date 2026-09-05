@@ -3873,9 +3873,48 @@ finding without the coarser-tolerance fallback.
             the cell under the mouth empties.** M8a's 29 L/s was a bore into a mine with tunnels. If
             M8d's waterfall wants a column to carry a cell a tick, the automaton's visit order (or a
             bottom-up pass down a column) is the lever; measure before building.
-- [ ] **M8b-3 — B → A, the handoff and the settle.** Resting cells above the surface hand whole
-      litres to their basin; **measure how much of a spill's awake set that removes before building
-      anything else**; then the analytic settle on no-inflow regions and on unload.
+- [ ] **M8b-3 — B → A, the handoff and the settle. Planned 2026-09-05 and 3a built in the pass; see
+      M8-PLAN's "M8b-3 — the planning pass".** The measurement came first, as the plan said, and
+      the hand-off was built as its instrument.
+      - [x] **M8b-3a — the hand-off. Built 2026-09-05, suite 989 → 1,006.** A cell the automaton
+            found at rest on the analytic ground (`SurfaceHeightAt + 1`) hands its whole contents to
+            the basin under its sample — `BasinRainfall`'s delivery with a different source — with
+            the sub-litre remainder carried per pit and delivered when it makes a litre. **Measured
+            (`--spill`, Release): the hand-off removes 99.3–99.5% of a surface spill's visits**;
+            10,000 L rests in 170 ticks instead of 9,111, 50,000 L in 314 instead of never, Tier B
+            empty in both. **M8a's coarser-tolerance fallback is dead for the surface.** An outlet
+            cell spills; a tank on natural ground leaks as rain would (pinned; revisit trigger: a
+            play reading it as wrong); a tank on a placed floor holds. Eighteen break-recipes, one
+            hole — moving cells listed as rested passed every end-state test, because what it moved
+            was *when*. `--fluid` unchanged to the visit; the r6 control unchanged to the digit.
+      - [ ] **Decision for Matthew: does a spill soaking into the ground read right?** With the
+            hand-off the relay's water runs down a hillside, pools where it rests, and each pooled
+            cell drains into the basin the tick it stops — vanishing into grass and reappearing as
+            the lake at the pit. Recommendation: ship it and let the play judge; the lever if it
+            reads wrong is a delay (hand off after *n* rested boundaries), not a redesign.
+      - [ ] **M8b-3b — the settle, designed and not built.** A solve of *sheets* — wet cells at one
+            Y, sideways-connected, each supported — levelled evenly, exact and quiescent, moving
+            water only along paths the sideways rule already uses; **not the plan's flood-fill,
+            which would teleport water between pockets through rock.** Wet cells only (no snap
+            across a dry floor); packed rather than spread under a litre a cell. Trigger: *K* ticks
+            of no inflow, K = 2 as an estimate, `--settleafter=` the sweep, 0 the arm that levels a
+            flowing stream. **Build after the hand-off has been played**, so its look question is
+            judged against a seam the play has accepted. Oracle: `VerifyQuiescent` after a settle on
+            a wetted region; volume exact; every pair within a millilitre; the chamber's 1,915-tick
+            settle and the corridor's *never* each one solve.
+      - [ ] **The played world floods the moment it opens — found 2026-09-05 by a mis-invoked
+            control.** `default` has 116 ML banked over a mine of 4,562 bitten chunks; with M8b-2c's
+            seam its dug chunks file portals on arrival and the terrace ponds drain into the mine at
+            ~58 kL a tick — 465,036 L in the first four seconds, 110,792 cells active by nine, ticks
+            of 87–188 frames in Debug. The seam as built, on the world it was built for. **For the
+            play**: is that the flood DESIGN describes, and does the mine reading as lost on open
+            need a warning, a slower seep, or nothing? **For M8b-4**: that water has to survive a
+            quit, and its first save is half a million litres.
+      - [ ] **The r6 control's command is quoted verbatim now.** `--nosave` on the engine's side of
+            the bare `--` is dropped without a word, Main's warning covers only `name=value` flags,
+            and the run opens the played world and reads as a flood. `--headless --quit-after 2400
+            -- --nosave` is the control. Consider extending Main's warning to any `--flag` it knows
+            the name of.
 - [ ] **M8b-4 — the store.** `fluid` table, save job on the serial lane, never cancelled; loaded
       cells are not woken. Oracle: flood, walk away, walk back, quit, reopen — the same millilitres
       in the same cells. **Last and alone, because a defect here is permanent data loss.**

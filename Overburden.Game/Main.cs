@@ -410,6 +410,13 @@ public partial class Main : Node3D
 
     private long _drawnAtWarm;
 
+    // ------------------------------------------------------------ M8b-3a: the B → A seam
+
+    /// <summary>Hands what came to rest on the analytic ground to the basin under it, at each tick boundary.</summary>
+    private SurfaceHandoff? _handoff;
+
+    private long _handedAtWarm;
+
     /// <summary>The analysis in flight, or null. One at a time, by construction.</summary>
     /// <remarks>
     /// <b>A plain task rather than a job on the scheduler, and that is the design decision rather
@@ -2747,7 +2754,7 @@ public partial class Main : Node3D
         return $"{water.StoredLitres:N0} L standing{full} in {wet}/{basins} basin(s), "
                + $"{water.Ledger.Count} basin(s) banked ({water.Ledger.TotalLitres:N0} L), "
                + $"{water.SpilledLitres:N0} L spilled, {water.InjectedLitres:N0} L injected, "
-               + $"{water.DrawnLitres:N0} L drawn into Tier B | "
+               + $"{water.DrawnLitres:N0} L drawn into Tier B, {water.ReceivedLitres:N0} L received from it | "
                + $"window {water.SpanMetres} m x{water.WindowsInstalled}, "
                + $"{_lastAnalysisMillis:F1} ms to analyse, scale x{water.RainfallScale}"
                + overflow
@@ -2868,6 +2875,7 @@ public partial class Main : Node3D
 
         return $"water     {held:N0} L held, {_water.SpilledLitres:N0} L spilled, "
                + $"{_water.InjectedLitres:N0} L injected, {_water.DrawnLitres:N0} L drawn into Tier B, "
+               + $"{_water.ReceivedLitres:N0} L received from it, "
                + $"{held * 60.0 / seconds:N0} L per wall-clock minute at scale "
                + $"x{_water.RainfallScale}\n"
                + $"analysis  {_lastAnalysisMillis:F1} ms for a {_water.SpanMetres} m window "
@@ -2896,6 +2904,10 @@ public partial class Main : Node3D
         _portals = new PortalIndex(_seedHeights, terrain);
         _portalTracker = new PortalTracker(_portals);
         _drain = _water is null ? null : new PortalDrain(_portals, _water, _fluid);
+
+        // M8b-3a: the other direction. Water resting on the seed ground is the basin's, by the
+        // rain model; measured to remove 99.3–99.5% of a surface spill's visits (--spill).
+        _handoff = _water is null ? null : new SurfaceHandoff(_seedHeights, _water, _fluid);
         if (windowed)
         {
             _fluidSurface = new FluidSurface(GetWorld3D());
@@ -2933,6 +2945,7 @@ public partial class Main : Node3D
             _fluidTicksAtWarm = _fluid.Ticks;
             _fluidSlicedAtWarm = _fluidSlicedTicks;
             _drawnAtWarm = _drain?.DrawnMillilitres ?? 0;
+            _handedAtWarm = _handoff?.HandedMillilitres ?? 0;
         }
 
         _fluidSinceTick += delta;
@@ -2943,7 +2956,9 @@ public partial class Main : Node3D
             _fluidSinceTick = Math.Min(_fluidSinceTick - FluidTickSeconds, FluidTickSeconds);
 
             // The seam, at the boundary and only there — like the relay, so the tick that follows
-            // is the same tick the suite asserts is identical sliced or whole.
+            // is the same tick the suite asserts is identical sliced or whole. B → A first, so
+            // what rested on the ground last tick is in the lake before the lake is drawn from.
+            _handoff?.Absorb();
             _drain?.Draw();
             PourPending();
         }
@@ -3265,12 +3280,25 @@ public partial class Main : Node3D
         return taken;
     }
 
-    /// <summary>The milestone's oracle, as a word: held equals injected less removed less displaced.</summary>
+    /// <summary>The milestone's oracle, as a word: held equals added less removed less displaced less handed.</summary>
     private string FluidIdentity()
     {
         FluidSimulation f = _fluid!;
         bool exact = f.TotalMillilitres
-            == f.AddedMillilitres - f.RemovedMillilitres - f.DisplacedMillilitres;
+            == f.AddedMillilitres - f.RemovedMillilitres - f.DisplacedMillilitres - f.HandedMillilitres;
+        return exact ? "exact" : "*** NO ***";
+    }
+
+    /// <summary>The B → A seam from both ends: Tier A's received equals Tier B's handed, whole litres, with the remainder pending.</summary>
+    private string HandoffIdentity()
+    {
+        if (_handoff is null || _water is null)
+        {
+            return "no hand-off";
+        }
+
+        bool exact = (_water.ReceivedLitres * FluidConstants.MillilitresPerLitre) + _handoff.PendingMillilitres
+            == _fluid!.HandedMillilitres;
         return exact ? "exact" : "*** NO ***";
     }
 
@@ -3294,8 +3322,10 @@ public partial class Main : Node3D
         return $"{f.TotalMillilitres / litre:N0} L moving in {f.Grid.HeldCellCount:N0} cell(s) over "
                + $"{f.Grid.PanelCount} panel(s) ({f.Grid.PanelBytes / 1024.0 / 1024.0:F1} MiB); "
                + $"injected {(f.AddedMillilitres - drawn) / litre:N0} L, drawn {drawn / litre:N0} L, "
-               + $"removed {f.RemovedMillilitres / litre:N0} L, displaced {f.DisplacedMillilitres / litre:N0} L — "
-               + $"held == injected + drawn − removed − displaced: {FluidIdentity()}; "
+               + $"removed {f.RemovedMillilitres / litre:N0} L, displaced {f.DisplacedMillilitres / litre:N0} L, "
+               + $"handed {f.HandedMillilitres / litre:N0} L to Tier A — "
+               + $"held == injected + drawn − removed − displaced − handed: {FluidIdentity()}, "
+               + $"received == handed: {HandoffIdentity()}; "
                + $"{_relayPendingMillilitres / litre:N0} L still to pour | "
                + $"{f.Ticks:N0} tick(s) at {1.0 / FluidTickSeconds:F0} Hz, {f.ActiveCellCount:N0} active, "
                + $"peak {f.PeakActiveCells:N0}, {f.CellVisits:N0} visits; budget "
@@ -3341,13 +3371,23 @@ public partial class Main : Node3D
               + $"all over {_drain.Draws:N0} draw(s) — Tier A drawn == Tier B drawn: "
               + $"{(drawnA == drawn ? "exact" : "*** NO ***")}\n";
 
+        long handed = f.HandedMillilitres;
+        string handoff = _handoff is null
+            ? "handoff   no hand-off (--nowater)\n"
+            : $"handoff   {_handoff.RestedLastPass:N0} rested and {_handoff.OnGroundLastPass:N0} on the ground on the "
+              + $"last pass; handed {(handed - _handedAtWarm) / litre:N0} L in the window, {handed / litre:N0} L in "
+              + $"all over {_handoff.Handoffs:N0} hand-off(s), {_handoff.PendingMillilitres:N0} mL pending in "
+              + $"{_handoff.PendingBasins:N0} basin(s) — Tier A received == Tier B handed: {HandoffIdentity()}\n";
+
         return $"fluid     {f.TotalMillilitres / litre:N0} L moving in {f.Grid.HeldCellCount:N0} cell(s) "
                + $"over {f.Grid.PanelCount} panel(s) ({f.Grid.PanelBytes / 1024.0 / 1024.0:F1} MiB); "
                + $"injected {(f.AddedMillilitres - drawn) / litre:N0} L, drawn {drawn / litre:N0} L, "
-               + $"removed {f.RemovedMillilitres / litre:N0} L, displaced {f.DisplacedMillilitres / litre:N0} L — "
-               + $"held == injected + drawn − removed − displaced: {FluidIdentity()}; "
+               + $"removed {f.RemovedMillilitres / litre:N0} L, displaced {f.DisplacedMillilitres / litre:N0} L, "
+               + $"handed {handed / litre:N0} L — "
+               + $"held == injected + drawn − removed − displaced − handed: {FluidIdentity()}; "
                + $"{_relayPendingMillilitres / litre:N0} L still to pour\n"
                + breach
+               + handoff
                + $"fluidtick {ticks:N0} tick(s) in the window at {1.0 / FluidTickSeconds:F0} Hz, "
                + $"{visits:N0} visits ({visits / seconds:N0}/s against the ~520,000/s the light "
                + $"budget licenses), peak active {f.PeakActiveCells:N0}, {f.ActiveCellCount:N0} active at the end; "

@@ -158,6 +158,16 @@ public sealed class WaterSystem
     /// </remarks>
     public long DrawnLitres { get; private set; }
 
+    /// <summary>Litres handed to basins by Tier B through <see cref="Receive"/> — the B → A seam.</summary>
+    /// <remarks>
+    /// The other half of <see cref="DrawnLitres"/>' argument: Tier B's <c>handed</c> has to equal
+    /// this to the litre, and Tier A's identity is <c>held == rained + injected + received −
+    /// spilled − drawn</c>. Litres received on an outlet sample count here <i>and</i> in
+    /// <see cref="SpilledLitres"/>, because they arrived and then left the world, which is what
+    /// rain on an outlet catchment does.
+    /// </remarks>
+    public long ReceivedLitres { get; private set; }
+
     /// <summary>Litres put into basins by <see cref="Inject"/>, the debug pour for Tier A.</summary>
     /// <remarks>
     /// M8-PLAN's rule for the relay, applied to this tier: a debug source creates litres from
@@ -359,6 +369,32 @@ public sealed class WaterSystem
         long drawn = Water.Remove(basin, litres);
         DrawnLitres += drawn;
         return drawn;
+    }
+
+    /// <summary>
+    /// Takes whole litres from Tier B into the lake this basin is part of, or out of the world
+    /// when the basin is <see cref="Watershed.Outlet"/>. Returns what spilled. The B → A half of
+    /// the seam.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="BasinWater.Add"/> with the counter the profile prints, and the same rule rain
+    /// has for a catchment that drains off the window: the litres leave. A resting cell on an
+    /// outlet sample is water on ground that Tier A says drains out of the world, and keeping it
+    /// in Tier B instead would leave it asleep there for ever, since nothing wakes a cell that has
+    /// nowhere to go.
+    /// </remarks>
+    public long Receive(int basin, long litres)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(litres);
+        if (Water is null)
+        {
+            throw new InvalidOperationException("No window is installed, so there is no basin to receive into.");
+        }
+
+        ReceivedLitres += litres;
+        long spilled = basin == Watershed.Outlet ? litres : Water.Add(basin, litres);
+        SpilledLitres += spilled;
+        return spilled;
     }
 
     /// <summary>Pours litres into a basin from nothing — the debug seam for Tier A. Returns what spilled.</summary>

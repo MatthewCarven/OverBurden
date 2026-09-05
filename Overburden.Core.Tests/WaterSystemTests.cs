@@ -136,6 +136,40 @@ public class WaterSystemTests
     }
 
     [Fact]
+    public void ReceivingCountsOnItsOwnTermAndAnOutletReceiptLeavesTheWorld()
+    {
+        // The B → A seam's Tier A half. A receipt into a basin is an Add with the counter the
+        // profile prints; a receipt on the outlet is counted as received and as spilled, which
+        // is what rain on an outlet catchment does, so the identity
+        // held == rained + injected + received − spilled − drawn holds either way.
+        WaterSystem system = NewSystem();
+        system.Install(system.AnalyseFor(0, 0));
+        int basin = system.BasinAtSample(0, 0);
+        Assert.NotEqual(Watershed.Outlet, basin);
+
+        Assert.Equal(0, system.Receive(basin, 7));
+        Assert.Equal(7, system.ReceivedLitres);
+        Assert.Equal(7, system.StoredLitres);
+        Assert.Equal(0, system.SpilledLitres);
+        Assert.NotNull(system.LevelAt(basin));
+
+        Assert.Equal(3, system.Receive(Watershed.Outlet, 3));
+        Assert.Equal(10, system.ReceivedLitres);
+        Assert.Equal(3, system.SpilledLitres);
+        Assert.Equal(7, system.StoredLitres);
+
+        // And more than the basin's whole tree holds: the surplus spills, and is counted once.
+        long capacity = system.Water!.Tree.Capacity(basin);
+        long spilled = system.Receive(basin, capacity + 5);
+        Assert.True(spilled >= 5);
+        Assert.Equal(3 + spilled, system.SpilledLitres);
+        Assert.Equal(
+            system.ReceivedLitres + system.InjectedLitres - system.SpilledLitres - system.DrawnLitres,
+            system.StoredLitres);
+        Assert.Throws<InvalidOperationException>(() => NewSystem().Receive(0, 1));
+    }
+
+    [Fact]
     public void WaterLeftBehindIsStillInTheLedgerWhileNobodyIsLookingAtIt()
     {
         // The structural point stated as an assertion: a lake outside the window has no
