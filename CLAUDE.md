@@ -418,10 +418,15 @@ estimate, 0 the control; on the play's shape (`--lake`) a pass is 20 ms → 0.08
 visits 144,194 → 2,911, and the flood is not paid to decide, because the wake rule lets it stop at
 *n* times the disturbance. Read M8-PLAN's "M8b-3b — the share slice" before touching
 `FluidSimulation.Sheets.cs` — the union-find flood, the freeze, the thaw and the step detector are
-each one recipe from wrong, and the plan says which. **Next is M8b-4, the store** — read the
-plan's M8b-4 paragraph, the walk-away finding below (75% of the drawn water again in that play),
-and 3b's `LevelSheets(seeds)`, which is the unload-time method the plan named; it wants its own
-planning pass first, and it is last and alone because a defect there is permanent data loss. Two things
+each one recipe from wrong, and the plan says which. **M8b-4 is planned (2026-09-06) and not
+started — read M8-PLAN's "M8b-4 — the planning pass" before it.** Three of the part's assumptions
+were not so: a walk deletes *awake* water only (the grid's panel stays in RAM; the awake cell is
+displaced into "solid" unloaded neighbours), so the walk's fix is a **pause** at unload and a wake
+at arrival, not a settle; the store is a mirror of RAM before it replaces it, read whole at open
+into paused panels; and the played lake is 78 MiB of panels, over the 64 MiB trigger, so releasing
+panels with their chunk is the third slice rather than a someday lever. **Split 4a pause / 4b
+store / 4c release, in that order; the decisions are handed back with recommendations, and the
+store slice is last and alone because a defect there is permanent data loss.** Two things
 are Matthew's: whether a spill soaking into the ground reads right — **deferred to M8c, "when we
 have something for it to seep into"; the hand-off and the settle ship as recommended meanwhile**
 — and the settle's interval, `--settleafter=`, two ticks as an estimate and zero the arm that

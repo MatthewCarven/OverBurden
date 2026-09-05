@@ -1004,6 +1004,106 @@ the case here is real: **M8a's cell size is justified by M8b's requirement.** No
 seam with nothing on the far side of it cannot be tested — but **if M8a's measurement comes back
 badly, this is the part that says whether the answer is a coarser grid or a smaller active set.**
 
+### M8b-4 — the planning pass, 2026-09-06, before any code
+
+The part as written above — *a `fluid` table, one blob per chunk holding the resting cells, written
+when a chunk with settled water unloads, read when it loads, never woken by the load* — was read
+against the grid, the pipeline's unload and save path, the store contract and the play's two
+findings, and three things it assumed are not so. Each moves the design, and the third splits it.
+
+**1. Water in an unloaded chunk is not deleted today — awake water is.** `FluidGrid` keeps a panel
+per chunk and nothing releases it on unload: the streamer's forget does not reach the grid, so a
+sleeping cell in a chunk that left the box sits in RAM and is there when the chunk comes back.
+What the play's 75% was is the *awake* cells: a cell mid-flow is visited next tick, its chunk is
+gone, the terrain adapter answers "solid" for an unloaded voxel (M4a's rule, and the right one for
+*flow*), so `Visit` displaces it into neighbours that are unloaded too and drains it. Unloaded is
+not rock. For water that is *already there*, the honest answer is neither "solid" nor "air" but
+*unknown*, and the honest response to unknown is to stop. **So the walk's fix is a pause, not a
+settle**: a visited cell whose chunk is unloaded goes to sleep in place and is remembered as paused;
+when the chunk arrives — generated, loaded, or back from the cache, the one `onVoxelsReady` hook
+M8b-2c already routes all three through — its paused cells are woken, and so is every held cell on
+its six faces and every held cell of a loaded neighbour that touches those faces, because an edit
+at the boundary on either side while the chunk was away is the one thing a pause cannot have seen.
+`IFluidTerrain` gains `IsLoaded`, asked only on the branch where a visited cell cannot hold, so the
+tick's hot path pays nothing; `VerifyQuiescent` skips unloaded cells, because paused is not a move.
+No water moves, so the twin oracle — *the same millilitres in the same cells* — holds by
+construction for the walk, before any disk exists. This departs from decision 5 and from 3b's
+"unload-time method": a settle cannot run over a chunk the terrain calls solid, running it before
+the forget needs a hook inside the box sweep the streamer does not have, and a pause is exact where
+a settle moves water along paths that may cross into other chunks that are also leaving.
+`LevelSheets(seeds, share: 0)` stays as the API; nothing in this part calls it.
+
+**2. The store is a mirror of RAM, not a replacement for it — at first.** With panels never
+released, "read when the chunk loads" has nothing to do: at open every stored panel is read into the
+grid and is *paused* by finding 1's rule, and the arrival hook wakes it exactly as it wakes a chunk
+back from the cache. One mechanism for revival and for load, and the plan's "never woken by the
+load itself" becomes "woken by the arrival, like everything else". The blob therefore carries the
+awake cells as well as the resting ones — a paused flood resumes when its chunk returns, and a
+stored one must too — as a list of cell indices beside the sparse cells. The cost of the mirror
+is stated: the played world's mine floor is ~1,254 chunks of lake at 64 KiB a panel, **78 MiB of
+panels, over the 64 MiB trigger `FluidGrid` recorded at M8a-2, on the first lake the store meets.**
+That is the third slice's number, not the second's.
+
+**3. The three concerns are three slices, ordered by what a defect costs.**
+
+- **M8b-4a — the pause and the arrival.** Core only, no disk: `IsLoaded` on the terrain, the
+  paused list, the wake rule at arrival, `paused` on the `M8b:` line beside `displaced`. Oracle:
+  M5's lifecycle fuzz for water — random floods in a box whose chunks a test toggles loaded and
+  unloaded, with a control arm that never unloads — asserting no cell in an unloaded chunk changes
+  while it is unloaded, displaced litres are zero when nothing turns to rock, and with everything
+  back `VerifyQuiescent` holds after the settle. The play's number is the oracle's other half:
+  `displaced` on the `M8b:` line stays at zero across a walk. **Break-recipes to file before
+  writing it**: pause without remembering (paused cells never wake), wake the paused cells and not
+  the faces (a boundary dig is missed), wake this side's faces and not the neighbour's, treat
+  unloaded as air (a flood leaks into the void), and `VerifyQuiescent` still reading unloaded
+  cells (every fuzz round false for the wrong reason).
+- **M8b-4b — the store.** `FluidPanelBlob` in `Overburden.Core/Persistence/` on the sky column's
+  frame: cx, cy, cz, then the held cells as (index, millilitres) pairs ascending, then the paused
+  indices, zlib through `BlobFormat.TryCompress`; the reader validates every index and amount and
+  that the paused set is a subset of the held set, the way `ChunkBlob.Read` validates against the
+  material table. A `fluid` table beside `columns`, schema 2 → 3 additive (`CREATE TABLE IF NOT
+  EXISTS`, the existing stamp), header version unchanged. **The fluid blob rides the chunk batch as
+  a third list on `IWorldStore.Write`**, for the reason a column rides it: a chunk's voxels written
+  in one transaction and its water in another is, after a crash between them, water inside rock or
+  rock over a hole — M6a's argument a second time. Dirtiness is a bit per panel set by the grid's
+  one private writer (`FluidGrid.Write`, the same place conservation lives) and cleared at
+  submission, `DirtySinceSave`'s rule; the sparse pairs are extracted on the sim thread when the
+  panel is queued, because the tick writes the panel while the serial lane would be serialising
+  it — the `VoxelsSharedWithJob` problem with no copy-on-write to lean on, answered by copying the
+  ~4 KB that matter. Written at unload with the chunk, at autosave and at quit through `SaveAll`'s
+  walk; read whole at open. A `loaded` term joins the identity (`held == injected + drawn + loaded
+  − removed − displaced − handed`). Oracle: the Tier B twin of `WalkingAwayAndBackLosesNoWater` —
+  flood, walk away, walk back, quit, reopen, the same millilitres in the same cells and the same
+  cells awake; the blob's own battery in M6a's shape (a hand-decoded write, a hand-built read,
+  truncation, both halves of the pair mutated); the contract suite extended for the third list
+  and the atomicity; and the wire — a headless `--injectlitres` run that quits and reopens, with
+  the `M8b:` line's `held` equal across the quit. **Last and alone, because a defect here is
+  permanent data loss.** Measure the blob (a lake chunk against a tunnel chunk, bytes and
+  microseconds) on `--blob` before deciding whether the sparse form is worth its second code path
+  against the 64 KiB panel through zlib — the estimate is 4 KB against 64 KB raw and near-equal
+  compressed, and it is an estimate.
+- **M8b-4c — the panel leaves RAM with its chunk.** The 78 MiB. A panel whose chunk is forgotten
+  is written and released; a chunk arriving with a stored panel and no panel in RAM submits a
+  `LoadFluidJob` on the serial lane, or its `LoadChunkJob` reads both rows in one trip — decide on
+  the load bench, since M6's crossover worry was per-query overhead and a second query per chunk
+  doubles it. A chunk the cache retains keeps its panel, in the sparse form and under the cache's
+  byte cap, so a turnaround costs no fluid load. **Priced before built**: a `--fluid` arm that
+  walks the box across the flooded mine and prints panels written, read, bytes and lane
+  milliseconds; the revisit trigger it answers is `PanelBytes` past 64 MiB in a play, which the
+  first lake will fire.
+
+**What is not in this part, stated.** The settle's unload method (3b) is not called and its share
+rule is unchanged. Tier A's window-edge loss — 1,855,295 L "would not fit back" in the same play — is
+Tier A's and stays in TODO under M7. The surface's `HeldCells()` scan is untouched; it draws paused
+water as it draws sleeping water, which is right.
+
+**The decisions handed back, with the recommendation first:** pause rather than settle on unload
+(recommended, for the three reasons under finding 1); three slices in the order above
+(recommended — 4a is the play's number and needs no disk, 4b is the data-loss part and goes alone,
+4c is the memory lever and wants its own bench arm); the fluid blob on the chunk batch rather than
+its own call (recommended, M6a's argument); and the blob's sparse form against the raw panel, which
+the bench decides.
+
 ---
 
 ## M8c — Tier C: groundwater and seepage

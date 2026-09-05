@@ -3989,13 +3989,42 @@ finding without the coarser-tolerance fallback.
             and the run opens the played world and reads as a flood. `--headless --quit-after 2400
             -- --nosave` is the control. Consider extending Main's warning to any `--flag` it knows
             the name of.
-- [ ] **M8b-4 — the store.** `fluid` table, save job on the serial lane, never cancelled; loaded
-      cells are not woken. Oracle: flood, walk away, walk back, quit, reopen — the same millilitres
-      in the same cells. **Last and alone, because a defect here is permanent data loss.** The
-      unload-time settle exists: `FluidSimulation.LevelSheets(seeds)` over a departing chunk's
-      cells, at a tick boundary, is the method the plan named — **with a share of zero**, because
-      the share slice's early stop assumes every unsettled cell neighbours a seed, which the wake
-      rule guarantees for the active set and nothing guarantees for a chunk's cells.
+- [ ] **M8b-4 — the store. Planned 2026-09-06, split three ways; see M8-PLAN's "M8b-4 — the
+      planning pass".** Three things the plan's paragraph assumed are not so: water in an unloaded
+      chunk is not deleted today, only *awake* water is (the grid's panel stays in RAM and the
+      awake cell is displaced into "solid" unloaded neighbours); the store is a mirror of RAM
+      before it is a replacement for it; and the played lake is 78 MiB of panels, over the 64 MiB
+      trigger, on the first lake the store meets. **Decisions handed back, recommendation first**:
+      pause rather than settle on unload; the three slices below in order; the fluid blob on the
+      chunk batch as a third list on `IWorldStore.Write`; the blob's sparse form against the raw
+      panel, which `--blob` decides.
+      - [ ] **M8b-4a — the pause and the arrival.** Core, no disk. `IFluidTerrain.IsLoaded`, asked
+            only where a visited cell cannot hold; a cell whose chunk is unloaded sleeps in place
+            and is remembered as paused; at arrival (`onVoxelsReady`, all three paths) the paused
+            cells wake, and so do the held cells on the chunk's six faces and the loaded
+            neighbours' cells touching them, because a boundary edit while the chunk was away is
+            what a pause cannot see. `VerifyQuiescent` skips unloaded cells. `paused` on the
+            `M8b:` line; the play's oracle is `displaced` at zero across a walk. Lifecycle fuzz
+            with a control arm that never unloads. Recipes to file first are in the plan.
+      - [ ] **M8b-4b — the store.** `FluidPanelBlob` on the sky column's frame — cx, cy, cz, the
+            held cells as ascending (index, mL) pairs, the paused indices, zlib — validated at
+            read; a `fluid` table, schema 2 → 3 additive, header unchanged; the blob rides the
+            chunk batch; a dirty bit per panel set by `FluidGrid.Write`, cleared at submission,
+            the sparse pairs copied on the sim thread when queued; written at unload, autosave
+            and quit, read whole at open into paused panels; `loaded` joins the identity. Oracle:
+            the twin of `WalkingAwayAndBackLosesNoWater` across a quit, the blob battery in M6a's
+            shape with both halves mutated, the contract suite's third list and its atomicity,
+            and a headless `--injectlitres` quit-and-reopen with `held` equal across it. **Last
+            and alone, because a defect here is permanent data loss.**
+      - [ ] **M8b-4c — the panel leaves RAM with its chunk.** Written and released at forget, read
+            back on arrival through the serial lane (its own job, or the chunk load reading both
+            rows — the load bench decides), retained with a cached chunk under the cache's cap.
+            Priced first on a `--fluid` arm that walks the box across the flooded mine. Revisit
+            trigger: `PanelBytes` past 64 MiB in a play, which the first lake will fire.
+      - [ ] The unload-time settle is not called by any of the three. `LevelSheets(seeds, share:
+            0)` stays as the API — with a share of zero, because the share slice's early stop
+            assumes every unsettled cell neighbours a seed, which the wake rule guarantees for the
+            active set and nothing guarantees for a chunk's cells.
       - [ ] **A walk deletes the flood's awake water — read off the 2026-09-05 play log: 2,924,347 L
             displaced of 7,163,284 L drawn in one session, 41%.** An unloaded voxel is solid, so an
             awake cell in a chunk that leaves the box is displaced on its next visit into neighbours

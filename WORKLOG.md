@@ -1,5 +1,44 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-06 — M8b-4 planned: the walk's fix is a pause, the store is a mirror first, and the lake is 78 MiB
+
+**Matthew: "M8b-4 planning pass please."** The plan's paragraph — *a `fluid` table, one blob per
+chunk holding the resting cells, written when a chunk with settled water unloads, read when it
+loads, never woken by the load* — read against `FluidGrid`, the pipeline's unload and save path,
+`IWorldStore` and the play's two findings. Three of its assumptions are not so, and the third
+splits the part; the section is in M8-PLAN under "M8b-4 — the planning pass", the decisions are
+handed back, and no code was written. Four things worth keeping:
+
+- **A walk does not delete water; it deletes *awake* water, and the fix is a pause.** The grid
+  keeps a panel per chunk and nothing releases it on unload — the streamer's forget never reaches
+  the grid — so a sleeping cell in a departed chunk sits in RAM and is there when the chunk
+  returns. The play's 75% was the cells mid-flow: visited, their chunk gone, the adapter answering
+  "solid" for unloaded (right for flow, wrong for water already there), displaced into unloaded
+  neighbours and drained. Unloaded is not rock; for water that is there it is *unknown*, and the
+  response to unknown is to stop. So: a visited cell whose chunk is unloaded sleeps in place and is
+  remembered; at arrival, through the one `onVoxelsReady` hook all three paths share, it wakes
+  along with every held cell on the chunk's faces and the loaded neighbours' cells touching them,
+  since a boundary edit while it was away is the one thing a pause cannot have seen. No water
+  moves, so *the same millilitres in the same cells* holds by construction, with no disk. This
+  departs from decision 5 and 3b's unload method: a settle cannot run over a chunk the terrain
+  calls solid, and a pause is exact where a settle moves water along paths into chunks that are
+  also leaving.
+- **The store is a mirror of RAM before it is a replacement for it.** With panels never released,
+  "read when the chunk loads" has nothing to do: read every panel at open, and each is paused by
+  the same rule until its chunk arrives — one mechanism for revival and for load, and the blob
+  carries the awake cells' indices so a stored flood resumes as a paused one does. The fluid blob
+  rides the chunk batch as a third list on `Write`, M6a's argument again: voxels in one transaction
+  and water in another is, after a crash between them, water inside rock.
+- **The played lake is ~1,254 chunks of floor at 64 KiB a panel — 78 MiB, over the 64 MiB trigger
+  `FluidGrid` recorded at M8a-2, on the first lake the store meets.** So releasing a panel with its
+  chunk and reading it back through the serial lane is not a someday lever; it is the third slice,
+  priced first on a bench arm that walks the box across the flooded mine.
+- **Three slices, by what a defect costs**: 4a the pause and the arrival (Core, no disk, the
+  play's `displaced` at zero across a walk is the oracle, a lifecycle fuzz with a control arm);
+  4b the store (last and alone — permanent data loss — with the blob battery in M6a's shape, the
+  contract suite's third list, and a headless quit-and-reopen with `held` equal across it); 4c
+  the panel leaving RAM. Recipes for 4a are filed in the plan before its code exists.
+
 ## 2026-09-05 — The share slice: the lake's edge is the automaton's, and a pass is 0.08 ms instead of 20
 
 **Matthew: "Please continue"** — the lever the play fired that afternoon, built the same evening.
