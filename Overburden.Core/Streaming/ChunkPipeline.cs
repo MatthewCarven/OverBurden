@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Overburden.Core.Content;
 using Overburden.Core.Jobs;
@@ -108,6 +108,20 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     private readonly Action<ChunkPos>? _onMeshDiscarded;
     private readonly Action<ChunkPos, Exception>? _onJobFaulted;
     private readonly Action<VoxelPos, int>? _onVoxelChanged;
+
+    /// <summary>
+    /// A chunk's voxels have arrived on the sim thread — generated, loaded, or back from the
+    /// cache — with whether it arrived edited. Exactly once per arrival, on all three paths.
+    /// </summary>
+    /// <remarks>
+    /// M8b-2's finding 4: the portal scan wants one callback for the three arrival paths, because
+    /// a cache revival goes through neither <c>Complete</c> branch and a scan wired to those two
+    /// alone would miss every chunk that came back from a turnaround.
+    /// </remarks>
+    private readonly Action<ChunkPos, bool>? _onVoxelsReady;
+
+    /// <summary>A chunk has stopped being tracked, cached or dropped. Fired after the light has been told.</summary>
+    private readonly Action<ChunkPos>? _onChunkForgottenExternal;
 
     private readonly Queue<ChunkPos> _workList = new();
     private readonly List<(IJob Job, CancellationToken Cancellation, bool Serial)> _batch = [];
@@ -327,7 +341,9 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         IWorldStore? store = null,
         Action<VoxelPos, int>? onVoxelChanged = null,
         long chunkCacheBytes = 0,
-        bool distanceOrderedDerives = true)
+        bool distanceOrderedDerives = true,
+        Action<ChunkPos, bool>? onVoxelsReady = null,
+        Action<ChunkPos>? onChunkForgotten = null)
     {
         _distanceOrderedDerives = distanceOrderedDerives;
         _generator = generator;
@@ -337,6 +353,8 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         _onMeshDiscarded = onMeshDiscarded;
         _onJobFaulted = onJobFaulted;
         _onVoxelChanged = onVoxelChanged;
+        _onVoxelsReady = onVoxelsReady;
+        _onChunkForgottenExternal = onChunkForgotten;
         _nowTicks = nowTicks ?? Stopwatch.GetTimestamp;
         _ambientOcclusion = ambientOcclusion;
         _light = light;
@@ -1169,6 +1187,8 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         {
             _lightDepartures.Add(chunk.Position);
         }
+
+        _onChunkForgottenExternal?.Invoke(chunk.Position);
     }
 
     /// <summary>
@@ -1459,6 +1479,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
                 chunk.Stage = GenerationStage.Terrain;
                 chunk.TransitionTo(ChunkState.Generated);
                 ChunksGenerated++;
+                _onVoxelsReady?.Invoke(chunk.Position, chunk.HasEdits);
 
                 // Terrain arriving here may be the last thing 26 neighbours were waiting on
                 // before they can run their own feature stage.
@@ -1485,6 +1506,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
                 // does match the disk, so it is not dirty.
                 chunk.HasEdits = true;
                 chunk.DirtySinceSave = false;
+                _onVoxelsReady?.Invoke(chunk.Position, chunk.HasEdits);
 
                 // Features, not Terrain, so ApplyFeatures does not run over it a second time.
                 //
@@ -1835,6 +1857,11 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
                 // and persistence flags intact, so it re-enters where a load would have landed
                 // it. Retain put the stage back to Features so CanMesh waits for the light.
                 chunk.TransitionTo(ChunkState.Generated);
+
+                // The third arrival path. The voxels never left the object, but they left the
+                // field — the forget fired when the chunk went out — so to anything watching
+                // arrivals this is one, and it is the path a scan wired to Complete would miss.
+                _onVoxelsReady?.Invoke(chunk.Position, chunk.HasEdits);
 
                 if (chunk.Light is not null)
                 {

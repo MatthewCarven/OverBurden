@@ -1,5 +1,93 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-05 — M8b-2c: water crosses the seam — a lake drains into a hole in the game, both tiers say so to the litre, and a dead-end shaft takes a litre a tick
+
+**The A → B seam is wired end to end and the water is in the game.** Suite 974 → 989. `PortalDrain`
+draws whole litres out of Tier A into Tier B at every tick boundary; `PortalTracker` feeds the index
+from the pipeline's three arrival paths, its edit hook and the streamer's forget, and owns decision
+1; `StreamerSeedHeights` reads the seed surface off the loaded columns; `--fillbasin=<litres>` and
+`--breach=<voxels>` are the headless provocation. **First run at r4h/2v, standing, 20 s: 200,000 L
+poured into the basin under the spawn, a 3 × 3 shaft eight deep bitten at its pit, 7 portals filed
+and 7 covered, 1,117 L drawn over 144 draws, held == injected + drawn − removed − displaced exact
+on Tier B, held == injected − spilled − drawn exact on Tier A, and Tier A's drawn equal to Tier
+B's** — the shaft's 72 cells ending full to the litre. The r6 control with nothing breached is
+unchanged to the digit, 2601 / 325 / 3446 at 411, with the new terms printing as zeros. Seven
+things worth keeping:
+
+- **The covered test is on the outside voxel, re-read per portal, and the flow stops at the face
+  and not before.** The Core twin — `WaterSystem` over an analytic bowl, `FluidSimulation` over a
+  dug terrain, the index between them — drives a tunnel into the bowl's wall at Y 35 under a lake
+  standing at 35.375 and asserts the lake stops within one draw of the face's own volume, with the
+  chamber behind the tunnel half empty; a tunnel at 38 under the same lake draws nothing until the
+  lake is raised past it. Both identities and the seam's equality are asserted after every tick.
+- **The first breach was under the player and drew nothing, and that was the geometry, not the
+  seam.** The spawn's sample belongs to a basin whose pit is elsewhere; 200,000 L raised the lake
+  to −10 against a floor at −12 and the player's sample sits well above that, so the profile read
+  "1 wet, 0 covered" — the detector fired and said the lake was not over the hole. **The breach now
+  goes at the basin's pit**, which is where a pour covers first and where a real breach drains a
+  lake from, and when the player's sample drains off the window it takes the nearest basin's pit
+  and says so. A provocation that can land somewhere its own instrument reports as dry is not a
+  provocation.
+- **A dead-end one-voxel shaft takes water at about a litre a tick, not fifteen.** The first tick
+  draws a full cell; after that the mouth cell passes down only what the cell under it had room for
+  when the mouth was visited, and with the column filling from the bottom that is the ~625 mL its
+  own last push freed. The window-move twin asserted a draw on every tick and failed on tick four
+  with the mouth holding 14 L; it now asserts over a run of twenty. **This is the automaton's
+  throughput, and it is M8d's waterfall question with a second number**: the 3 × 3 breach in the
+  game filled its 72-cell shaft at 56 L/s over the window, where 7 portals at 30 L/s each would be
+  210. M8a's 29 L/s for a one-voxel hole was into a mine with tunnels below, where the cell under
+  the bore empties sideways. Recorded, not acted on: a shaft into a chamber behaves as M8a
+  measured, and a dead-end bore is the pathological shape.
+- **Decision 1 needed one more rule than the plan wrote, and the tracker owns it.** A pit whose
+  mouth is the top row of a dug chunk opens onto the bottom row of the chunk above; if that chunk
+  arrives second and unedited, "scan dug chunks only" never files the pair. An unedited chunk
+  arriving beside a dug one re-scans the dug one, which takes every pair touching it against the
+  terrain as it is now and files nothing wholly inside the unedited chunk. And the first edit in a
+  chunk scans it, because a natural bank on its cliff joins the set the moment the chunk counts as
+  dug. The tracker's fuzz holds it to *the definition over every pair touching a dug, loaded chunk*,
+  with natural caves scattered in so that "touches a dug chunk" and "was dug" differ, and the
+  natural-bank scenario says the decision's exact shape: not a portal until its chunk is dug.
+- **The third arrival path was already distinguishable, so `onVoxelsReady` cost one callback and
+  three call sites.** `OnChunkViewed` has told a cache hit from a fresh chunk since slice 1
+  (`Unloaded` with voxels); the invoke sits there beside the two `Complete` branches, and the
+  forget is forwarded from the light's own departure hook. Tested through the real pipeline in
+  both directions: generated, cached and revived fires `[false, true]` on the edited chunk with
+  no generate and no load; dropped and loaded from the store fires the same with a load. **The
+  first version of both tests wrote air into a voxel that was already air**, which the pipeline
+  correctly does not count as an edit, so the chunk came back pristine — the fixture asserts the
+  chunk is dirty now.
+- **The profile's `held` on the water line counted every in-window basin twice, since M7d-1.**
+  Window plus ledger, where the ledger is the truth and the window a view of part of it. Found
+  while adding the seam's terms; it banks first and reads the ledger now. The litres-per-minute
+  figure was inflated with it. Every M7 conclusion that used the periodic `M7d:` line, which
+  prints standing and banked separately, stands.
+- **Cost, headless, Debug**: the seam's draw is inside a `fluid ms` of mean 0.14 / max 0.62 per
+  frame with 24–79 cells active, and the edit-time index is the 1.2 ms a bite 2b measured. Nothing
+  else moved.
+
+**Fifteen break-recipes, fifteen caught after three fixture repairs and one recipe re-aimed.** The
+drain: the covered test off by one, the room ignored, drawn not counted, dry basins not skipped.
+The water system: draw not counted, the window origin ignored, the pour's spill not counted. The
+tracker: no re-scan of a dug neighbour, no scan on first edit, every arrival scanned (decision 1
+inverted), forget keeping a chunk dug. The pipeline: revival, load and forget each not fired. The
+seed surface never reading a column. Four things the battery said. **The covered test's off-by-one
+hid behind a one-draw tolerance**: the bank test allowed the lake to end within one draw of the
+face, which is exactly where a `<` in place of `<=` lands, and its draws are not whole cells so
+it never sat on the plane; a lake constructed exactly at the face, asserted to draw nothing and to
+draw at one litre more, is the sharp case. **The origin mutation landed on the bowl's own
+catchment**, because a flat plateau drains into the bowl and the lookup two samples over read the
+same label; the mapping test now checks every world sample of a moved window against the window's
+own labels and asserts some pair two apart differ. **No test had ever overfilled a basin**, so the
+spill counter had nothing to count. **And the spill recipe's two-line pattern first matched the
+rain's identical spill accounting**, earlier in the file, so it mutated `Advance` and the pour's
+test could not see it — a recipe is only as good as its pattern's uniqueness, and the harness now
+asserts a count of one.
+
+**Not built, and stated**: nothing drawn through a portal persists — a quit loses the pit's water
+and the lake's loss stays banked (M8b-4); no Tier B → Tier A handoff, so a breach that fills a
+chamber under a lake holds it there for ever (M8b-3); the deep-chunk hook skip named at 2b; and
+the play — *bite a chunk under the terrace pond with `Q` and watch the pond drop* — is Matthew's.
+
 ## 2026-09-05 — M8b-2b: the portal index — a hole in the analytic ground is a pair, filed where the water is, and a bite costs 1.2 ms
 
 **`PortalIndex` is built in `Overburden.Core/Fluid/`, `SkyColumn` keeps its seed surface, and

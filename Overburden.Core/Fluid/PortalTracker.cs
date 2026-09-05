@@ -1,0 +1,119 @@
+using Overburden.Core.Voxels;
+
+namespace Overburden.Core.Fluid;
+
+/// <summary>
+/// Feeds a <see cref="PortalIndex"/> from the pipeline's three arrival paths, its edit hook and
+/// the streamer's forget — and owns the one rule the index deliberately does not: <b>a hole is
+/// only what was dug</b>.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>M8b-2's decision 1, as code.</b> Portals are looked for in chunks that have edits — at
+/// arrival, when a chunk arrives with them, and at the first edit that gives a chunk any — and
+/// nowhere else. A natural cave mouth on a cliff under a lake in an unedited chunk is not a portal,
+/// and the lake hangs over it as it did before M8. Revisit trigger, recorded in M8-PLAN: the first
+/// play that finds that lake overhanging and reads it as wrong; the widening is to scan every
+/// arriving chunk, which is one line here.
+/// </para>
+/// <para>
+/// <b>An unedited chunk arriving beside an edited one re-scans the edited one.</b> A pit whose
+/// mouth is the top row of a dug chunk opens onto the bottom row of the chunk above; if that chunk
+/// arrives second and unedited, filtering it out would leave the pair unfound for ever. The edited
+/// neighbour's scan takes every pair touching it, evaluated against the terrain as it is now, so
+/// re-scanning it is what finds the pair — and it files nothing that lies wholly inside the
+/// unedited chunk, which keeps decision 1 intact. Idempotent and ~0.1 ms, so six of them on an
+/// arrival is nothing.
+/// </para>
+/// <para>
+/// <b>The invariant the fuzz holds this to:</b> the index equals the definition over every pair
+/// that touches an edited, loaded chunk and whose both halves hold now. The first edit in a chunk
+/// scans it, because pairs that touched it before the edit — a natural bank on its cliff, or an
+/// outside voxel in it that a neighbour's dug mouth opens onto — become part of that set the moment
+/// the chunk counts as dug.
+/// </para>
+/// </remarks>
+public sealed class PortalTracker
+{
+    private static readonly (int X, int Y, int Z)[] Faces =
+    [
+        (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1),
+    ];
+
+    private readonly HashSet<ChunkPos> _loaded = [];
+    private readonly HashSet<ChunkPos> _edited = [];
+
+    public PortalTracker(PortalIndex index)
+    {
+        ArgumentNullException.ThrowIfNull(index);
+        Index = index;
+    }
+
+    public PortalIndex Index { get; }
+
+    /// <summary>Chunks whose voxels are here.</summary>
+    public int LoadedCount => _loaded.Count;
+
+    /// <summary>Chunks that count as dug: arrived with edits, or edited since.</summary>
+    public int EditedCount => _edited.Count;
+
+    /// <summary>Scans run, including re-scans of an edited neighbour.</summary>
+    public long Scans { get; private set; }
+
+    public bool IsLoaded(ChunkPos chunk) => _loaded.Contains(chunk);
+
+    public bool IsEdited(ChunkPos chunk) => _edited.Contains(chunk);
+
+    /// <summary>
+    /// A chunk's voxels are here — generated, loaded, or back from the cache. Exactly once per
+    /// arrival, and the caller says whether it arrived with edits.
+    /// </summary>
+    public void OnVoxelsReady(ChunkPos chunk, bool hasEdits)
+    {
+        _loaded.Add(chunk);
+        if (hasEdits)
+        {
+            _edited.Add(chunk);
+            Scan(chunk);
+        }
+
+        foreach ((int dx, int dy, int dz) in Faces)
+        {
+            var neighbour = new ChunkPos(chunk.X + dx, chunk.Y + dy, chunk.Z + dz);
+            if (_edited.Contains(neighbour) && _loaded.Contains(neighbour))
+            {
+                Scan(neighbour);
+            }
+        }
+    }
+
+    /// <summary>A voxel was written. The chunk counts as dug from now on.</summary>
+    public void OnVoxelChanged(VoxelPos voxel)
+    {
+        ChunkPos chunk = voxel.Chunk;
+        bool newlyEdited = _edited.Add(chunk);
+        if (newlyEdited && _loaded.Contains(chunk))
+        {
+            // Newly dug: everything that touched it before the edit joins the set the invariant
+            // names, and the scan sees the edited voxel too, so the per-pair reconcile below is
+            // then a no-op for it. Cheaper to let both run than to reason about which.
+            Scan(chunk);
+        }
+
+        Index.OnVoxelChanged(voxel);
+    }
+
+    /// <summary>A chunk has stopped being tracked — dropped or cached, it makes no difference here.</summary>
+    public void OnChunkForgotten(ChunkPos chunk)
+    {
+        _loaded.Remove(chunk);
+        _edited.Remove(chunk);
+        Index.Forget(chunk);
+    }
+
+    private void Scan(ChunkPos chunk)
+    {
+        Index.Scan(chunk);
+        Scans++;
+    }
+}

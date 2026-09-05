@@ -3851,14 +3851,28 @@ finding without the coarser-tolerance fallback.
             threshold and was repaired to assert 2,005 columns with one under the margin. Fourteen
             break-recipes, fourteen caught. **Lever, not built: a chunk wholly below its surface
             band skips the hook.** The dug-chunks-only rule is 2c's call-site filter.
-      - [ ] **M8b-2c — the draw, the wiring, the profile, the play.** `onVoxelsReady` fired at
-            generate, load *and* cache revival, exactly once each; `DrawThroughPortals` at the tick
-            boundary; `drawn` on both tiers' profile lines; `--breach=<voxels>` bites a hole under
-            the player when the window opens. Oracle: the Core twin's two-tier identity, exact; flow
-            stops at the face; a pit under a full basin fills by exactly what the basin lost; the
-            streaming digits unchanged. Play: `Q` a chunk out from under the terrace pond.
+      - [x] **M8b-2c — the draw, the wiring, the profile. Built 2026-09-05, suite 974 → 989.**
+            `PortalDrain` at the tick boundary, `PortalTracker` owning decision 1 (plus the rule the
+            plan missed: an unedited chunk arriving beside a dug one re-scans the dug one, and a
+            chunk's first edit scans it), `StreamerSeedHeights`, `onVoxelsReady` on all three arrival
+            paths and the forwarded forget, `--fillbasin=` (the Tier A relay the plan did not have)
+            and `--breach=` at the basin's pit. First run: 200,000 L poured, 7 portals, 1,117 L drawn,
+            both identities exact, Tier A drawn == Tier B drawn, the r6 control unchanged. **Found:
+            the water line's `held` double-counted in-window basins since M7d-1 (fixed), and a
+            dead-end one-voxel shaft takes ~1 L a tick after the first (the automaton's throughput,
+            recorded for M8d).**
+      - [ ] **M8b-2c play — Matthew's.** `Q` a chunk out from under the terrace pond and watch the
+            pond drop; a tunnel driven into a lake bank; and whether the pond's surface hanging over
+            the hole (Tier A's quad stays at the lake level while Tier B fills below it — two
+            surfaces for one body of water, briefly) reads as wrong before M8d owns the look.
       - [ ] **Stated gap until M8b-4: a quit loses the pit's water.** The lake's loss persists via
-            the ledger; the pit's gain lives in RAM. Acceptable for the seam, not to ship.
+            the ledger; the pit's gain lives in RAM. Acceptable for the seam, not to ship. **And
+            until M8b-3 a chamber that fills under a lake holds its water for ever** — no B → A
+            handoff exists yet.
+      - [ ] **A dead-end shaft's throughput is ~1 L a tick, and the plan's 30 L/s per portal assumes
+            the cell under the mouth empties.** M8a's 29 L/s was a bore into a mine with tunnels. If
+            M8d's waterfall wants a column to carry a cell a tick, the automaton's visit order (or a
+            bottom-up pass down a column) is the lever; measure before building.
 - [ ] **M8b-3 — B → A, the handoff and the settle.** Resting cells above the surface hand whole
       litres to their basin; **measure how much of a spill's awake set that removes before building
       anything else**; then the analytic settle on no-inflow regions and on unload.

@@ -1,4 +1,4 @@
-﻿using Overburden.Core.Lighting;
+using Overburden.Core.Lighting;
 using Overburden.Core.Voxels;
 
 namespace Overburden.Core.Hydrology;
@@ -149,6 +149,21 @@ public sealed class WaterSystem
 
     /// <summary>Litres that have left the world through an outlet since this session began.</summary>
     public long SpilledLitres { get; private set; }
+
+    /// <summary>Litres taken out of basins through portals into Tier B — see <see cref="Draw"/>.</summary>
+    /// <remarks>
+    /// A term in Tier A's own identity, <c>held == rained + injected − spilled − drawn</c>, and
+    /// the number Tier B's <c>drawn</c> has to equal to the litre: the two tiers report the seam
+    /// from both ends so that a leak between them has nowhere to hide.
+    /// </remarks>
+    public long DrawnLitres { get; private set; }
+
+    /// <summary>Litres put into basins by <see cref="Inject"/>, the debug pour for Tier A.</summary>
+    /// <remarks>
+    /// M8-PLAN's rule for the relay, applied to this tier: a debug source creates litres from
+    /// nothing, so it is a reported term rather than something subtracted out.
+    /// </remarks>
+    public long InjectedLitres { get; private set; }
 
     /// <summary>Windows installed this session. One is a session that never moved.</summary>
     public int WindowsInstalled { get; private set; }
@@ -325,6 +340,73 @@ public sealed class WaterSystem
         return Water.StoredIn(basin) > 0 ? Water.LevelAt(basin) : null;
     }
 
+    /// <summary>
+    /// Takes up to <paramref name="litres"/> out of the lake this basin is part of, through its
+    /// floor, and returns what was taken. The A → B half of the breach.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="BasinWater.Remove"/> with the counter the profile prints. Whole litres, because
+    /// the seam is exact both ways only in whole litres: a Tier B cell holds 15,625 mL and a litre
+    /// is 1,000, so the caller asks for what fits and never rounds.
+    /// </remarks>
+    public long Draw(int basin, long litres)
+    {
+        if (Water is null)
+        {
+            return 0;
+        }
+
+        long drawn = Water.Remove(basin, litres);
+        DrawnLitres += drawn;
+        return drawn;
+    }
+
+    /// <summary>Pours litres into a basin from nothing — the debug seam for Tier A. Returns what spilled.</summary>
+    public long Inject(int basin, long litres)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(litres);
+        if (Water is null)
+        {
+            throw new InvalidOperationException("No window is installed, so there is no basin to pour into.");
+        }
+
+        InjectedLitres += litres;
+        long spilled = Water.Add(basin, litres);
+        SpilledLitres += spilled;
+        return spilled;
+    }
+
+    /// <summary>The world-lattice sample a voxel column sits in, on the same lattice the window uses.</summary>
+    public (int X, int Z) SampleOf(int voxelX, int voxelZ) =>
+        (FloorDiv(voxelX, CellVoxels), FloorDiv(voxelZ, CellVoxels));
+
+    /// <summary>
+    /// The basin under a world-lattice sample in the installed window, or
+    /// <see cref="Watershed.Outlet"/> when the sample is outside the window or drains off its edge.
+    /// </summary>
+    /// <remarks>
+    /// <b>Keyed on the world lattice, which a window move does not rename</b>, so a portal index
+    /// keyed the same way survives a move with no re-keying: only the label it maps to changes,
+    /// and that is looked up here every tick rather than stored.
+    /// </remarks>
+    public int BasinAtSample(int worldSampleX, int worldSampleZ)
+    {
+        if (Window is null)
+        {
+            return Watershed.Outlet;
+        }
+
+        HeightField field = Window.Watershed.Field;
+        int sx = worldSampleX - (field.OriginX / field.CellVoxels);
+        int sz = worldSampleZ - (field.OriginZ / field.CellVoxels);
+        if (sx < 0 || sz < 0 || sx >= field.Pitch || sz >= field.Pitch)
+        {
+            return Watershed.Outlet;
+        }
+
+        return Window.Watershed.LabelAt(sx, sz);
+    }
+
     /// <summary>Litres standing in the installed window right now.</summary>
     public long StoredLitres => Water?.TotalStoredLitres ?? 0;
 
@@ -358,4 +440,6 @@ public sealed class WaterSystem
         int remainder = value % step;
         return remainder < 0 ? value - remainder - step : value - remainder;
     }
+
+    private static int FloorDiv(int value, int divisor) => FloorTo(value, divisor) / divisor;
 }

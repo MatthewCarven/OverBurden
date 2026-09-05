@@ -650,7 +650,9 @@ internal sealed class PipelineHarness : IDisposable
         TimeSpan? lightBudget = null,
         Overburden.Core.Persistence.IWorldStore? store = null,
         Action<VoxelPos, int>? onVoxelChanged = null,
-        long chunkCacheBytes = 0)
+        long chunkCacheBytes = 0,
+        Action<ChunkPos, bool>? onVoxelsReady = null,
+        Action<ChunkPos>? onChunkForgotten = null)
     {
         var viewers = new ViewerSet();
         _scheduler = new JobScheduler(viewers, threadCount: 4, sweepInterval: TimeSpan.FromMilliseconds(5));
@@ -679,7 +681,9 @@ internal sealed class PipelineHarness : IDisposable
             lightBudget: lightBudget ?? GenerousLightBudget,
             store: store,
             onVoxelChanged: onVoxelChanged,
-            chunkCacheBytes: chunkCacheBytes);
+            chunkCacheBytes: chunkCacheBytes,
+            onVoxelsReady: onVoxelsReady,
+            onChunkForgotten: onChunkForgotten);
     }
 
     public ChunkPipeline Pipeline { get; }

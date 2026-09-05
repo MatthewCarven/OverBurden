@@ -21,7 +21,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/M7-PLAY.md](docs/M7-PLAY.md) | M7's play: five questions, **all five answered 2026-09-02**, the flags that provoke weather without waiting for it, and how to read the `M7c:`/`M7d:` log lines. Kept for the verdicts. |
 | [docs/M10-NOTES.md](docs/M10-NOTES.md) | **The quantum machine family** — Matthew’s proposal, 2026-09-02: a fluid pump that teleports to a wireless output, and a general machine programmer. Notes rather than a plan, on the deferred-collapse precedent. **Read before planning M10, and before shipping any machine — it names the entity-storage change that header v4 rides on.** |
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | **Elements, and whether to "just implement chemistry"** — a brainstorm with Matthew, 2026-09-03. Notes rather than a plan. The recommendation is *geology that reacts to water, with machine recipes as the chemistry set*; the element table says why each material would exist. **Read before M8c reads `permeability` and before M9 reads `supportDistance` — both have been in the material JSON unread since M1, and the trap is a constant shipping green.** |
-| [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **Planned 2026-09-02; M8a built the same day; M8b split four ways and M8b-1 built 2026-09-03; M8b-2 planned 2026-09-05 and 2a and 2b built the same day, both open decisions taken as recommended; 2c next.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it. **Its M8b section records a gap the plan had**: a flooded mine has no Tier A body, so resting mine water is stored, and the settle is a solve. Read the tick-budget item in TODO before M8b-2. |
+| [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **Planned 2026-09-02; M8a built the same day; M8b split four ways and M8b-1 built 2026-09-03; M8b-2 planned 2026-09-05 and all three parts built the same day, both open decisions taken as recommended — water crosses the seam in the game; the play is Matthew's; M8b-3 next.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it. **Its M8b section records a gap the plan had**: a flooded mine has no Tier A body, so resting mine water is stored, and the settle is a solve. Read the tick-budget item in TODO before M8b-2. |
 | [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md) | **The retained-chunk cache**, planned 2026-09-03, **slice 1 built the same day and slice 2 on 2026-09-04**: chunks leaving the box keep their voxels, column and derived light in a byte-capped cache, so a turnaround costs no load, no generate and no derive. **Both "built" sections record where the build departed from the plan** — a column rule the plan did not have, a column push that became a check at revival, and the three older light defects slice 2's walk found. Read the slice 2 section before touching `LightPropagator`. |
 | [docs/SCALE.md](docs/SCALE.md) | **How many voxels and cells exist at each view distance, what one full sweep costs, and what each system actually iterates.** Read before designing anything that wants to check the world periodically — M7, M8 and M9 all start here. |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
@@ -236,6 +236,17 @@ bare default headless run is not a streaming control any more**: it opens the pl
 stands in its void (198 drawn at 100 quads a chunk). **The r6 control is `--nosave --quit-after
 2400`** — 2601 / 325 / 3446 at 411 — because 900 frames is ~6 s and the r6 fill settles at ~7.
 
+M8b-2c adds the seam's two provocations, which go together. **`--fillbasin=<litres>` is the Tier A
+relay**: litres poured into the basin under the player when the measured window opens, reported
+as `injected` on the water line for the reason `--injectlitres` is on the fluid line. **`--breach=<voxels>`
+bites a square shaft that wide (at least 8 deep) under the player at the same moment**, through the
+pipeline's own edit path so the portal tracker and the automaton are told the way a swing tells
+them. **If the player's sample drains off the window — a slope, which the spawn usually is — both
+go to the nearest basin's pit instead**, and the run says so. The profile's `breach` line prints
+portals filed, samples wet and portals covered on the last pass, litres drawn in the window and in
+all, and whether Tier A's `drawn` equals Tier B's; both tiers' lines carry `drawn` so each identity
+stays exact alone. A breach with no lake over it measures nothing, which is why the pour comes with it.
+
 The tick budget slice (2026-09-04) adds **`--fluidbudget=<ms>`**, the fifth budget seam of the same
 shape as `--lightbudget`: how much of a frame Tier B's tick may take before it yields and resumes
 next frame, 2 ms by default. **Zero is not off** — one granule of 64 visits a frame, so the water
@@ -341,19 +352,45 @@ local folder, the remote URL, and the assistant's memory directory (see TODO's n
 **The played worlds now live under `app_userdata/Overburden/`; the `MinerCraft/` folder beside it
 is the pre-rename backup and is Matthew's to delete.**
 
-**Pick up here (2026-09-05). M8b-2a and 2b are built; M8b-2c — the draw, the wiring, the profile
-and the play — is next**, and it is the first of the three that touches the Game. See M8-PLAN's
-"M8b-2 — the planning pass" (finding 4 for the three arrival paths, finding 5 for the covered
-test and the draw), its two "built" sections for what 2a and 2b left for 2c, and TODO's split.
-What 2c builds, in order: an `ISurfaceHeights` over the streamer's columns that reads
-`SkyColumn.SeedSurfaceY` and falls back to the generator; `onVoxelsReady` on the pipeline, fired
-at generate, load *and* cache revival, exactly once each, with the dug-chunks-only filter at the
-scan's call site (decision 1); the forget hook; `DrawThroughPortals` at the tick boundary beside
-`PourPending`, `WaterSystem.Remove` with a `drawn` counter, and `drawn` on both tiers' profile
-lines; `--breach=<voxels>` as the headless provocation; and the Core twin holding the two-tier
-identity. **Nothing drawn through a portal persists until M8b-4** — a quit loses the pit's water,
-stated in the plan. The gate on the entangled miner is a battery and waits for M10.
-`git log origin/main..main` says what Matthew still has to push.
+**Pick up here (2026-09-05). All of M8b-2 is built and water crosses the seam in the game; the
+play is Matthew's, and M8b-3 — B → A, the handoff and the settle — is next.** Before building
+anything of M8b-3, **measure first, as its paragraph says**: how much of a spill's awake set the
+handoff removes, because M8a's named fallback is waiting on that number. Two things the seam's
+build left that M8b-3 walks into: **a dead-end one-voxel shaft takes about a litre a tick after
+the first**, so the automaton's throughput into a column is far below the 30 L/s per portal the
+plan assumed and the settle's cost model should not assume it either; and **a chamber that fills
+under a lake holds its water for ever until the handoff exists**. The play items are in TODO under
+M8b-2c: `Q` a chunk out from under the terrace pond, a tunnel into a lake bank, and whether two
+surfaces for one body of water reads as wrong. The gate on the entangled miner is a battery and
+waits for M10. `git log origin/main..main` says what Matthew still has to push.
+
+**M8b-2c is built (2026-09-05). Suite 974 → 989.** `PortalDrain` draws whole litres out of Tier A
+into Tier B at each tick boundary; `PortalTracker` feeds the index from the pipeline's three
+arrival paths, the edit hook and the forget, and owns "a hole is only what was dug";
+`StreamerSeedHeights` reads the seed surface off the loaded columns; `--fillbasin=` and
+`--breach=` are the provocation. **First run: 200,000 L poured, a 3 × 3 shaft at the basin's pit,
+7 portals covered, 1,117 L drawn, both identities exact and Tier A's drawn equal to Tier B's, the
+r6 control unchanged to the digit.** Five things worth keeping:
+
+- **The breach goes at the basin's pit, not under the player.** The first run bit under the
+  spawn and drew nothing — "1 wet, 0 covered" — because the spawn's sample belongs to a basin
+  whose pit is elsewhere and sits above the lake. A pour covers the pit first; a real breach
+  drains a lake from its bed. `--fillbasin` exists because a breach under a dry basin measures
+  nothing, and it is a reported term.
+- **Decision 1 needed a rule the plan did not write.** An unedited chunk arriving beside a dug
+  one re-scans the dug one, or a pit whose mouth is the top row of the dug chunk is never found;
+  and a chunk's first edit scans it. The tracker's fuzz holds the index to *the definition over
+  every pair touching a dug, loaded chunk*, with natural caves in the fixture so that "touches a
+  dug chunk" and "was dug" differ.
+- **A dead-end one-voxel shaft takes ~1 L a tick after the first**, because the mouth passes
+  down only the room the cell under it had when visited. The automaton's throughput, not the
+  seam's; M8d's waterfall question with a second number, recorded in TODO.
+- **The water line's `held` double-counted every in-window basin since M7d-1** — window plus
+  ledger, where the ledger is the truth. It banks and reads the ledger now. The periodic `M7d:`
+  line was always right.
+- **Two fixtures passed for the wrong reason before the battery.** The pipeline tests wrote air
+  into air, which the pipeline correctly does not count as an edit; and the covered test's
+  off-by-one hid behind a one-draw tolerance until a lake was constructed exactly at the face.
 
 **M8b-2b is built (2026-09-05). Suite 963 → 974.** `PortalIndex` in `Overburden.Core/Fluid/`
 holds every hole in the analytic ground as a pair — the holdable voxel at or below its seed

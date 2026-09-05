@@ -381,6 +381,35 @@ public partial class Main : Node3D
 
     private double _secondsSinceStart;
 
+    /// <summary><c>--fillbasin</c>: litres poured into the basin under the player once the measured window opens.</summary>
+    /// <remarks>
+    /// The Tier A relay. A breach under a dry basin measures nothing, and waiting for rain to
+    /// fill one is not a provocation seam; this is <c>--injectlitres</c> for the other tier, and
+    /// it is a reported term for the same reason.
+    /// </remarks>
+    private long _fillBasinLitres;
+
+    /// <summary><c>--breach</c>: the side, in voxels, of the square shaft bitten under the player once the window opens.</summary>
+    private int _breachVoxels;
+
+    private bool _breached;
+
+    // ------------------------------------------------------------ M8b-2c: the A → B seam
+
+    /// <summary>The seed surface as the loaded columns hold it — five reads per edited voxel.</summary>
+    private StreamerSeedHeights? _seedHeights;
+
+    /// <summary>Every hole in the analytic ground, filed under the sample its outside sits in.</summary>
+    private PortalIndex? _portals;
+
+    /// <summary>Feeds the index from the three arrival paths, the edit hook and the forget — dug chunks only.</summary>
+    private PortalTracker? _portalTracker;
+
+    /// <summary>Draws whole litres out of Tier A into Tier B at each tick boundary.</summary>
+    private PortalDrain? _drain;
+
+    private long _drawnAtWarm;
+
     /// <summary>The analysis in flight, or null. One at a time, by construction.</summary>
     /// <remarks>
     /// <b>A plain task rather than a job on the scheduler, and that is the design decision rather
@@ -631,10 +660,19 @@ public partial class Main : Node3D
             light: _lightInMergeKey,
             store: _store,
             // M8b: the fluid automaton cannot see edits, and this is how it is told. Wired before
-            // _fluid exists, so the null guard is what the first frames run on.
-            onVoxelChanged: (voxel, _) => _fluid?.Disturb(voxel),
+            // _fluid exists, so the null guard is what the first frames run on. M8b-2c: the
+            // portal tracker is told the same way, after the write and never on a no-op.
+            onVoxelChanged: (voxel, _) =>
+            {
+                _fluid?.Disturb(voxel);
+                _portalTracker?.OnVoxelChanged(voxel);
+            },
             chunkCacheBytes: _chunkCacheMiB * 1024 * 1024,
-            distanceOrderedDerives: !_deriveFifo);
+            distanceOrderedDerives: !_deriveFifo,
+            // The three arrival paths — generate, load, cache revival — through one callback, and
+            // the forget, so the index never walks a chunk that is not here.
+            onVoxelsReady: (position, hasEdits) => _portalTracker?.OnVoxelsReady(position, hasEdits),
+            onChunkForgotten: position => _portalTracker?.OnChunkForgotten(position));
 
         SetUpFluid(windowed);
 
@@ -949,6 +987,17 @@ public partial class Main : Node3D
                 // exactly what the milestone's oracle forbids, so it is a term rather than a secret.
                 case "injectlitres" when long.TryParse(value, out long inject) && inject > 0:
                     _injectLitres = inject;
+                    break;
+
+                // M8b-2c's two seams. --fillbasin is the Tier A relay: litres into the basin
+                // under the player when the window opens, reported as injected on the water line.
+                // --breach bites a square shaft that wide under the player at the same moment, so
+                // a headless run has a lake, a hole under it, and both identities to read.
+                case "fillbasin" when long.TryParse(value, out long fill) && fill > 0:
+                    _fillBasinLitres = fill;
+                    break;
+                case "breach" when int.TryParse(value, out int breach) && breach > 0:
+                    _breachVoxels = breach;
                     break;
 
                 // The fifth budget seam of the same shape: how much of a frame Tier B's tick may
@@ -2697,7 +2746,8 @@ public partial class Main : Node3D
 
         return $"{water.StoredLitres:N0} L standing{full} in {wet}/{basins} basin(s), "
                + $"{water.Ledger.Count} basin(s) banked ({water.Ledger.TotalLitres:N0} L), "
-               + $"{water.SpilledLitres:N0} L spilled | "
+               + $"{water.SpilledLitres:N0} L spilled, {water.InjectedLitres:N0} L injected, "
+               + $"{water.DrawnLitres:N0} L drawn into Tier B | "
                + $"window {water.SpanMetres} m x{water.WindowsInstalled}, "
                + $"{_lastAnalysisMillis:F1} ms to analyse, scale x{water.RainfallScale}"
                + overflow
@@ -2801,7 +2851,13 @@ public partial class Main : Node3D
         // RunSeconds for the same reason the lighting line uses it: the litres are a lifetime
         // total and the rain has been falling since the world opened.
         double seconds = Math.Max(_profiler!.RunSeconds, 0.001);
-        long held = _water.StoredLitres + _water.Ledger.TotalLitres;
+
+        // Banked first, then the ledger alone. The ledger is the truth and the window is a view
+        // of part of it, so window plus ledger counted every in-window basin twice — this line
+        // read 2x on a world with one lake since M7d-1, and the L-per-minute figure with it.
+        // Found at M8b-2c while adding the seam's terms.
+        _water.Bank();
+        long held = _water.Ledger.TotalLitres;
         string flight = _waterAnalysis is null ? string.Empty : ", one still in flight";
 
         string surface = _waterSurface is null
@@ -2811,6 +2867,7 @@ public partial class Main : Node3D
               + $"{_waterSurface.Rebuilds} rebuild(s)\n";
 
         return $"water     {held:N0} L held, {_water.SpilledLitres:N0} L spilled, "
+               + $"{_water.InjectedLitres:N0} L injected, {_water.DrawnLitres:N0} L drawn into Tier B, "
                + $"{held * 60.0 / seconds:N0} L per wall-clock minute at scale "
                + $"x{_water.RainfallScale}\n"
                + $"analysis  {_lastAnalysisMillis:F1} ms for a {_water.SpanMetres} m window "
@@ -2828,8 +2885,17 @@ public partial class Main : Node3D
             return;
         }
 
-        _fluid = new FluidSimulation(new VoxelFluidTerrain(_pipeline.Streamer, _materials!));
+        var terrain = new VoxelFluidTerrain(_pipeline.Streamer, _materials!);
+        _fluid = new FluidSimulation(terrain);
         _fluidBudgetTicks = FluidSimulation.BudgetTicks(_fluidBudget);
+
+        // M8b-2c: the seam. The seed surface off the columns (1.2 ms a bite against 10.3 with the
+        // function), the index over the same holdability the automaton uses, the tracker that
+        // keeps it to dug chunks, and the drain that connects it to Tier A once a tick.
+        _seedHeights = new StreamerSeedHeights(_pipeline.Streamer, _generator!);
+        _portals = new PortalIndex(_seedHeights, terrain);
+        _portalTracker = new PortalTracker(_portals);
+        _drain = _water is null ? null : new PortalDrain(_portals, _water, _fluid);
         if (windowed)
         {
             _fluidSurface = new FluidSurface(GetWorld3D());
@@ -2858,6 +2924,7 @@ public partial class Main : Node3D
 
         _secondsSinceStart += delta;
         InjectIfDue();
+        BreachIfDue();
 
         if (_profiler is { Warm: true } && !_fluidWarmSeen)
         {
@@ -2865,6 +2932,7 @@ public partial class Main : Node3D
             _fluidVisitsAtWarm = _fluid.CellVisits;
             _fluidTicksAtWarm = _fluid.Ticks;
             _fluidSlicedAtWarm = _fluidSlicedTicks;
+            _drawnAtWarm = _drain?.DrawnMillilitres ?? 0;
         }
 
         _fluidSinceTick += delta;
@@ -2873,6 +2941,10 @@ public partial class Main : Node3D
         {
             // At most one tick of debt after a stall: the remainder is kept, the burst is not.
             _fluidSinceTick = Math.Min(_fluidSinceTick - FluidTickSeconds, FluidTickSeconds);
+
+            // The seam, at the boundary and only there — like the relay, so the tick that follows
+            // is the same tick the suite asserts is identical sliced or whole.
+            _drain?.Draw();
             PourPending();
         }
 
@@ -2948,6 +3020,110 @@ public partial class Main : Node3D
         GD.Print(
             $"M8b: injecting {_injectLitres:N0} L at {_relayAt}, a ball of radius {radius} voxels on "
             + "the ground under the player (--injectlitres)");
+    }
+
+    /// <summary>
+    /// <c>--fillbasin</c> and <c>--breach</c>: a lake under the player, and a hole under the lake,
+    /// when the measured window opens.
+    /// </summary>
+    /// <remarks>
+    /// <b>The hardest part of testing M8 is still getting water to move at all.</b> A breach under
+    /// a dry basin draws nothing and proves nothing, so the Tier A relay comes with it: litres into
+    /// whichever basin the player stands over, reported as <c>injected</c> on the water line for
+    /// the reason the Tier B relay is. The shaft is square, that many voxels a side, from the seed
+    /// surface down, through the pipeline's own edit path so the tracker and the automaton are
+    /// told the way a swing tells them. Waits for the window to be installed, because a basin is
+    /// an index into one.
+    /// </remarks>
+    private void BreachIfDue()
+    {
+        if (_breached || (_fillBasinLitres <= 0 && _breachVoxels <= 0) || _water is null || _pipeline is null)
+        {
+            return;
+        }
+
+        bool due = _profiler is null ? _secondsSinceStart >= 3.0 : _profiler.Warm;
+        if (!due || _water.Window is null)
+        {
+            return;
+        }
+
+        _breached = true;
+        VoxelPos player = PlayerVoxel();
+        (int sampleX, int sampleZ) = _water.SampleOf(player.X, player.Z);
+        int basin = _water.BasinAtSample(sampleX, sampleZ);
+
+        // The basin under the player, or the nearest one when the player's sample drains off the
+        // window — a slope, which the spawn usually is. Either way the breach goes at the basin's
+        // PIT, not under the player: a pour covers the pit first and a hillside sample last, and
+        // the first run bit a shaft under a player standing 200,000 L above the lake's level
+        // ("1 wet, 0 covered"). A real breach drains a lake from its bed, so that is the shape.
+        if (basin == Watershed.Outlet)
+        {
+            long nearest = long.MaxValue;
+            foreach (Basin candidate in _water.Window.Watershed.Basins)
+            {
+                long dx = candidate.PitX - player.X;
+                long dz = candidate.PitZ - player.Z;
+                long distance = (dx * dx) + (dz * dz);
+                if (distance < nearest)
+                {
+                    nearest = distance;
+                    basin = candidate.Index;
+                }
+            }
+
+            if (basin == Watershed.Outlet)
+            {
+                GD.Print("M8b: the window has no basin at all, so --fillbasin and --breach have nowhere to go");
+                return;
+            }
+
+            GD.Print(
+                $"M8b: the player stands over no basin at sample ({sampleX}, {sampleZ}); using basin "
+                + $"{basin}, whose pit is {Math.Sqrt(nearest) * VoxelConstants.VoxelSize:F0} m away");
+        }
+
+        Basin target = _water.Window.Watershed.Basins[basin];
+        var here = new VoxelPos(
+            target.PitX + (HeightField.DefaultCellVoxels / 2),
+            player.Y,
+            target.PitZ + (HeightField.DefaultCellVoxels / 2));
+
+        if (_fillBasinLitres > 0)
+        {
+            long spilled = _water.Inject(basin, _fillBasinLitres);
+            GD.Print(
+                $"M8b: poured {_fillBasinLitres:N0} L into basin {basin}, {spilled:N0} L spilled, "
+                + $"level now {_water.LevelAt(basin):F2} against a floor at {_water.Window.Watershed.Basins[basin].PitHeight} "
+                + "(--fillbasin)");
+        }
+
+        if (_breachVoxels > 0)
+        {
+            int surface = _generator!.SurfaceHeightAt(here.X, here.Z);
+            int depth = Math.Max(_breachVoxels, 8);
+            int half = _breachVoxels / 2;
+            int removed = 0;
+            for (int y = surface; y > surface - depth; y--)
+            {
+                for (int dz = -half; dz < _breachVoxels - half; dz++)
+                {
+                    for (int dx = -half; dx < _breachVoxels - half; dx++)
+                    {
+                        if (_pipeline.SetVoxel(new VoxelPos(here.X + dx, y, here.Z + dz), MaterialIds.AirNumericId))
+                        {
+                            removed++;
+                        }
+                    }
+                }
+            }
+
+            GD.Print(
+                $"M8b: bit a {_breachVoxels}x{_breachVoxels} shaft {depth} deep under the player at "
+                + $"({here.X}, {here.Z}), surface {surface}: {removed:N0} voxel(s) removed, "
+                + $"{_portals?.Count ?? 0} portal(s) filed (--breach)");
+        }
     }
 
     /// <summary>
@@ -3114,11 +3290,12 @@ public partial class Main : Node3D
             : $" | surface {_fluidSurface.QuadCount:N0} quad(s), "
               + $"{_fluidSurface.LastRebuildMillis:F2} ms to rebuild";
 
+        long drawn = _drain?.DrawnMillilitres ?? 0;
         return $"{f.TotalMillilitres / litre:N0} L moving in {f.Grid.HeldCellCount:N0} cell(s) over "
                + $"{f.Grid.PanelCount} panel(s) ({f.Grid.PanelBytes / 1024.0 / 1024.0:F1} MiB); "
-               + $"injected {f.AddedMillilitres / litre:N0} L, removed {f.RemovedMillilitres / litre:N0} L, "
-               + $"displaced {f.DisplacedMillilitres / litre:N0} L — "
-               + $"held == injected − removed − displaced: {FluidIdentity()}; "
+               + $"injected {(f.AddedMillilitres - drawn) / litre:N0} L, drawn {drawn / litre:N0} L, "
+               + $"removed {f.RemovedMillilitres / litre:N0} L, displaced {f.DisplacedMillilitres / litre:N0} L — "
+               + $"held == injected + drawn − removed − displaced: {FluidIdentity()}; "
                + $"{_relayPendingMillilitres / litre:N0} L still to pour | "
                + $"{f.Ticks:N0} tick(s) at {1.0 / FluidTickSeconds:F0} Hz, {f.ActiveCellCount:N0} active, "
                + $"peak {f.PeakActiveCells:N0}, {f.CellVisits:N0} visits; budget "
@@ -3154,12 +3331,23 @@ public partial class Main : Node3D
             : $"fluidsurf {_fluidSurface.QuadCount:N0} quad(s), {_fluidSurface.LastRebuildMillis:F2} ms "
               + $"to rebuild, {_fluidSurface.Rebuilds} rebuild(s)\n";
 
+        long drawn = _drain?.DrawnMillilitres ?? 0;
+        long drawnA = (_water?.DrawnLitres ?? 0) * FluidConstants.MillilitresPerLitre;
+        string breach = _drain is null || _portals is null
+            ? "breach    no portal index (--nowater)\n"
+            : $"breach    {_portals.Count:N0} portal(s) under {_portals.SampleCount:N0} sample(s), "
+              + $"{_drain.WetSamplesLastPass:N0} wet and {_drain.CoveredPortalsLastPass:N0} covered on the "
+              + $"last pass; drawn {(drawn - _drawnAtWarm) / litre:N0} L in the window, {drawn / litre:N0} L in "
+              + $"all over {_drain.Draws:N0} draw(s) — Tier A drawn == Tier B drawn: "
+              + $"{(drawnA == drawn ? "exact" : "*** NO ***")}\n";
+
         return $"fluid     {f.TotalMillilitres / litre:N0} L moving in {f.Grid.HeldCellCount:N0} cell(s) "
                + $"over {f.Grid.PanelCount} panel(s) ({f.Grid.PanelBytes / 1024.0 / 1024.0:F1} MiB); "
-               + $"injected {f.AddedMillilitres / litre:N0} L, removed {f.RemovedMillilitres / litre:N0} L, "
-               + $"displaced {f.DisplacedMillilitres / litre:N0} L — "
-               + $"held == injected − removed − displaced: {FluidIdentity()}; "
+               + $"injected {(f.AddedMillilitres - drawn) / litre:N0} L, drawn {drawn / litre:N0} L, "
+               + $"removed {f.RemovedMillilitres / litre:N0} L, displaced {f.DisplacedMillilitres / litre:N0} L — "
+               + $"held == injected + drawn − removed − displaced: {FluidIdentity()}; "
                + $"{_relayPendingMillilitres / litre:N0} L still to pour\n"
+               + breach
                + $"fluidtick {ticks:N0} tick(s) in the window at {1.0 / FluidTickSeconds:F0} Hz, "
                + $"{visits:N0} visits ({visits / seconds:N0}/s against the ~520,000/s the light "
                + $"budget licenses), peak active {f.PeakActiveCells:N0}, {f.ActiveCellCount:N0} active at the end; "

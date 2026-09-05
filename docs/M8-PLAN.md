@@ -489,7 +489,8 @@ owns the look; recorded here so the first screenshot is not read as a defect.
   from-scratch is cheap enough to *be* the definition. Break-recipes: skip the neighbours on an
   edit; skip bank portals; skip the forget; a placed block that leaves its portal standing; a bite's
   worth of edits timed, against the ~3 ms estimate.
-- **M8b-2c — the draw, the wiring, the profile and the play.** `onVoxelsReady` on the pipeline,
+- **M8b-2c — the draw, the wiring, the profile and the play. ✅ Built 2026-09-05; see "M8b-2c —
+  built" below. The play is Matthew's.** `onVoxelsReady` on the pipeline,
   the index fed from it and from `onVoxelChanged` and the streamer's forget; `DrawThroughPortals`
   at the tick boundary beside `PourPending`; `drawn` printed on *both* tiers' lines so each identity
   stays exact alone and the two-tier one is their sum; **`--breach=<voxels>`** as the headless
@@ -583,6 +584,42 @@ Suite 963 → 974. `PortalIndex` in `Overburden.Core/Fluid/`, `SkyColumn.SeedSur
 - **Not built, and 2c's**: the streamer-backed `ISurfaceHeights`, `onVoxelsReady`, the forget
   hook, the dug-chunks-only filter at the scan's call site, `DrawThroughPortals`, `--breach=`,
   and the profile lines. The index does not know what an edit is; decision 1 is the caller's.
+
+#### M8b-2c — built 2026-09-05
+
+Suite 974 → 989. `PortalDrain`, `PortalTracker`, `StreamerSeedHeights`, `WaterSystem.Draw` /
+`Inject` / `BasinAtSample`, `onVoxelsReady` and `onChunkForgotten` on the pipeline, the wiring in
+`Main`, `--fillbasin=` and `--breach=`, and `drawn` on both tiers' lines with a `breach` line
+between them. What departed from the paragraph above, and what it found:
+
+- **The seam works in the game on its first run at a pit**: 200,000 L poured, a 3 × 3 shaft eight
+  deep under it, 7 portals covered, 1,117 L drawn over 144 draws in 20 s, both identities exact and
+  Tier A's drawn equal to Tier B's, the shaft full to the litre. The r6 control with nothing
+  breached is unchanged to the digit. **The first run bit the shaft under the player and drew
+  nothing** — the spawn's sample belongs to a basin whose pit is elsewhere and sits above the lake
+  — so the breach goes at the basin's pit, which is where a real breach drains a lake from.
+- **`--fillbasin=` was not in the plan and the plan's `--breach=` measures nothing without it.** A
+  breach under a dry basin is a hole in dry ground; the Tier A relay comes with it, reported as
+  `injected` on the water line for the reason the Tier B relay is on the fluid line.
+- **Decision 1 needed a rule the plan did not write.** "Scan chunks that arrive with edits" never
+  files a pit whose mouth is the top row of a dug chunk when the chunk above arrives second and
+  unedited. `PortalTracker` re-scans a dug neighbour on an unedited arrival and scans a chunk on
+  its first edit; its fuzz holds the index to *the definition over every pair touching a dug, loaded
+  chunk*. A natural bank in an unedited chunk stays unfiled until that chunk is dug — the decision's
+  exact shape, as a test.
+- **A dead-end one-voxel shaft takes about a litre a tick after the first**, because the mouth
+  passes down only the room the cell under it had when visited. Not the seam's; the automaton's
+  throughput, and M8d's waterfall question with a second number (the 3 × 3 breach drew 56 L/s
+  against 210 nominal). Recorded, not acted on.
+- **The profile's `held` on the water line counted every in-window basin twice since M7d-1**
+  (window plus ledger, where the ledger is the truth). Banks first and reads the ledger now.
+- **Battery**: see the worklog entry. Three of the first battery's misses were fixture holes — a
+  one-draw tolerance hiding the covered test's off-by-one, a window-origin mutation landing on the
+  bowl's own catchment because the whole plateau drains into it, and no test that ever overfilled
+  a basin — each now a sharp case.
+- **Not built, and stated**: nothing drawn persists (M8b-4); no B → A handoff (M8b-3); the
+  deep-chunk hook skip named at 2b. **The play is Matthew's**: `Q` a chunk out from under the
+  terrace pond and watch the pond drop.
 
 ### Why this might go first
 
