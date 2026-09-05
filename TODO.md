@@ -3902,6 +3902,12 @@ finding without the coarser-tolerance fallback.
             cell drains into the basin the tick it stops — vanishing into grass and reappearing as
             the lake at the pit. Recommendation: ship it and let the play judge; the lever if it
             reads wrong is a delay (hand off after *n* rested boundaries), not a redesign.
+            **Deferred by Matthew, 2026-09-05: *"Give me some time with the seepage metric, can we
+            revisit the question when we have something for it to seep into."*** The hand-off ships
+            as recommended and the question is parked until M8c gives the ground `permeability`,
+            so that "soaking in" is a rate through rock rather than a hand-off at the plane. The HUD
+            readout waits with it. Revisit trigger: M8c's planning pass, or a play that calls the
+            vanishing a leak before then. **3b's gate is now the settle interval and his word.**
       - [ ] **M8b-3b — the settle, designed and not built.** A solve of *sheets* — wet cells at one
             Y, sideways-connected, each supported — levelled evenly, exact and quiescent, moving
             water only along paths the sideways rule already uses; **not the plan's flood-fill,

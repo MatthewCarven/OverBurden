@@ -754,7 +754,11 @@ only, packed under a litre a cell.
    — leaving surface water in Tier B until it is level — is the state the measurement shows never
    arriving, and the lever if it reads wrong is a delay rather than a redesign (hand off a cell
    only after it has rested *n* boundaries in a row, which costs a small dictionary). Revisit
-   trigger: the play calling it a leak.
+   trigger: the play calling it a leak. **Deferred by Matthew the same evening** — *"Give me some
+   time with the seepage metric, can we revisit the question when we have something for it to
+   seep into"* — so the hand-off ships as recommended and the question is parked until M8c gives
+   the ground `permeability`, when "soaking in" becomes a rate through rock rather than a hand-off
+   at the plane. The HUD readout for `handed` / `received` waits with it.
 2. **The settle's trigger interval, and whether it fires under inflow.** *K* = 2 ticks is an
    estimate; `--settleafter=` is the sweep; 0 is the arm that levels a flowing stream. **Recommend
    building 3b after the hand-off has been played**, so the settle's look question — a tunnel

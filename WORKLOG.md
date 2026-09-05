@@ -37,6 +37,13 @@ lakes merge, right as litres, left as a TODO note.
 **The number exists and nothing on screen shows it.** A `handed` / `received` readout on the HUD is
 the missing instrument for the hand-off's own decision, and it is offered rather than built.
 
+**Matthew's answer, the same evening: *"Give me some time with the seepage metric, can we revisit
+the question when we have something for it to seep into."*** So the hand-off's decision is deferred
+rather than taken: it ships as recommended, and the question of whether water vanishing into grass
+reads right is parked until M8c gives the ground `permeability` and "soaking in" is a rate through
+rock rather than a hand-off at the plane. The HUD readout waits with it. That leaves 3b gated on the
+settle interval and his word, since the play it was waiting for has happened.
+
 ## 2026-09-05 — The play: the mine floods and it reads right — "I am loving this water"
 
 **Matthew opened the played world after M8b-3a and sent two shots.** The first looks along the

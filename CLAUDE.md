@@ -376,10 +376,11 @@ local folder, the remote URL, and the assistant's memory directory (see TODO's n
 is the pre-rename backup and is Matthew's to delete.**
 
 **Pick up here (2026-09-05). M8b-3 is planned and its first half, the hand-off, is built and
-measured; the settle (M8b-3b) is designed and waits on two decisions and a play.** The decisions
-are in TODO under M8b-3 and in M8-PLAN's "M8b-3 — the planning pass": whether a spill soaking into
-the ground reads right (recommendation: ship it, let the play judge), and the settle's trigger
-interval. **Build 3b after the hand-off has been played**, and read the plan's finding 5 first —
+measured; the settle (M8b-3b) is designed and waits on one decision and Matthew's word.** The
+decisions are in TODO under M8b-3 and in M8-PLAN's "M8b-3 — the planning pass": whether a spill
+soaking into the ground reads right — **deferred by Matthew on 2026-09-05 to M8c, "when we have
+something for it to seep into"; the hand-off ships as recommended meanwhile** — and the settle's
+trigger interval. **Build 3b after the hand-off has been played**, and read the plan's finding 5 first —
 the settle is a solve of *sheets*, not the flood-fill the paragraph named, because the flood-fill
 teleports water. Two things this pass found that the next session walks into: **the played world
 floods the moment it opens** — 465,036 L into the mine in four seconds, 110,792 cells active,
