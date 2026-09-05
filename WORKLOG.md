@@ -9,7 +9,7 @@ share is under a litre into as few of its cells as hold it at 999 mL, through `F
 only, bottom-up, waking the front and the water above every drawn-down cell and nothing else.
 `SheetSettle` fires it at a tick boundary after *K* ticks with no inflow (`--settleafter=`, 2 by
 default, 0 settles under inflow), then at every boundary until nothing is awake. Suite 1,006 →
-1,032. 24 break-recipes applied, 23 caught; the miss is an identity. `--fluidsolve both` is the bench arm
+1,032. 23 break-recipes applied, 22 caught; the miss is an identity. `--fluidsolve both` is the bench arm
 and `--spill` has the settle as a third. Seven things worth keeping, with the table in M8-PLAN's
 "M8b-3b — built":
 

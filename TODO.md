@@ -3916,7 +3916,7 @@ finding without the coarser-tolerance fallback.
             cell and listing the rest as resting; `SheetSettle` fires it after *K* quiet ticks
             (`--settleafter=`, 2 by default, 0 under inflow). **The chamber's 1,915-tick settle is
             38 ticks, the 16 m mine's 11,130 is 136, the 96 m mine's *never* is 258** — every rest
-            real, every litre exact, visits down 50–200×. 24 recipes applied, 23 caught, one identity.
+            real, every litre exact, visits down 50–200×. 23 recipes applied, 22 caught, one identity.
             - [ ] **"A handful of ticks" is hundreds, and a pass per boundary is O(sheet) per tick
                   while a front creeps.** The solve levels; the front and the falls take the ticks.
                   At bore 9 on the 96 m mine each new front cell re-levels a 28,000-cell sheet —

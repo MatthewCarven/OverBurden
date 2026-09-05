@@ -817,7 +817,7 @@ settle runs *before* the hand-off at the boundary (see finding 6). `SheetSettle`
 wet water (`DisturbedCells`, new) — with the counters the profile's `settle` line prints;
 `--settleafter=<ticks>` is the sweep, 2 the default. `--fluidsolve wait|solve|both` is the bench's
 analytic arm, and `--spill` gained a third arm with the settle beside the hand-off. Suite 1,006 →
-1,032; 24 recipes applied, 23 caught, the one miss an identity (each edge of a sheet is examined from both
+1,032; 23 recipes applied, 22 caught, the one miss an identity (each edge of a sheet is examined from both
 of its ends, so testing one direction of a pair is enough).
 
 **Measured, Release, control 1.02–1.05×, `--fluidsolve both` where the wait arm was affordable

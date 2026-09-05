@@ -441,7 +441,7 @@ is 136, and the 96 m mine's *never* is 258 — every rest real, every litre exac
   `--spill`'s third arm rests in 29 ticks against 314 and the relay's whole 50,000 L is the basin's
   inside the profile window, Tier B empty: a spill soaks away in twelve seconds, not minutes.
 - **The fixtures put water down asleep** through `FluidGrid.Fill`, the state diffusion leaves for
-  thousands of ticks, so whatever is awake after a solve is what the solve woke; 24 recipes applied, 23
+  thousands of ticks, so whatever is awake after a solve is what the solve woke; 23 recipes applied, 22
   caught, and both fixtures that were wrong first are recorded in the plan.
 
 **M8b-3a is built (2026-09-05). Suite 989 → 1,006.** `FluidSimulation.Rested` is the cells a tick
