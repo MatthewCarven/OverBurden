@@ -3924,13 +3924,22 @@ finding without the coarser-tolerance fallback.
                   waiting against hundreds of times elsewhere. **Lever, not built**: re-level only
                   when the unsettled pairs are more than a fraction of the sheet, or top up the
                   front from the interior. Revisit trigger: a `settle` line whose `ms in all` is a
-                  noticeable share of a session.
+                  noticeable share of a session. **Fired on the first play, 2026-09-05**: the
+                  played world's mine became one 162,572-cell lake and was re-levelled at every
+                  boundary for its creeping edge — 120,000–133,000 cells written a pass, 41.6 M
+                  in ten minutes, the longest 275.6 ms in Debug, twice a second, in one frame.
+                  **Next slice**: re-level a sheet only when more than one cell in *n* of it is
+                  unsettled (small sheets always), `--settleshare=` the sweep; the automaton
+                  levels a creeping edge locally within five cells and wakes nothing behind it.
             - [ ] **The pass is atomic, 1–3 µs a cell in Release, and the played world's floor is a
                   ~1.3 million-cell sheet.** Seconds a pass in Release, tens in Debug, in one frame,
                   once the flood stops and *K* ticks pass. Not met yet — the play drained the lakes
                   and the flood on open is 91 kL in 29 ticks now. **The slice is the lever**: a
                   cursor over sheets like the tick's over its batch. Revisit trigger: the first
-                  play that hitches when a flood stops.
+                  play that hitches when a flood stops. **Met the same evening**: 275.6 ms over
+                  162,572 cells in Debug (1.7 µs a cell in the game, under the bench's figure),
+                  once per merge of the lake's sheets; a quarter-second hitch each time, and the
+                  per-boundary repeat above is the larger cost.
             - [ ] **Play: does a tunnel floor levelling itself in one tick behind a creeping front
                   read right, and does *K* = 0's flat stream?** `--settleafter=` is the sweep; the
                   soak's look is deferred to M8c with the hand-off's decision.
@@ -3975,7 +3984,9 @@ finding without the coarser-tolerance fallback.
             unload — **the settle (3b) is what makes an unload a hand-off rather than a deletion, so
             its unload method is on this item's path, not beside it.** Tier A dropped 1,855,295 L
             "would not fit back" over the same six window moves, the first time that figure has
-            read above zero.
+            read above zero. **Again in the M8b-3b play the same evening: 1,865,495 L of
+            2,494,274 L drawn, 75%, over 44 window moves** — and 40 L a report with the player
+            standing still, the awake cells at the loaded edge.
       - [ ] **The water line's `% of capacity` sums leaf basins, so a merged lake reads over 100%
             (525% on the played world).** A label, not the litres; fix the denominator to the
             tree's capacity or drop the percentage before anyone reads it as a defect.

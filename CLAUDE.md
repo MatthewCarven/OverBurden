@@ -390,10 +390,16 @@ local folder, the remote URL, and the assistant's memory directory (see TODO's n
 **The played worlds now live under `app_userdata/Overburden/`; the `MinerCraft/` folder beside it
 is the pre-rename backup and is Matthew's to delete.**
 
-**Pick up here (2026-09-05). M8b-3 is built: the hand-off and the settle.** The next build is
-**M8b-4, the store** — read the plan's M8b-4 paragraph, the walk-away finding below, and 3b's
-`LevelSheets(seeds)`, which is the unload-time method the plan named; it wants its own planning
-pass first, and it is last and alone because a defect there is permanent data loss. Two things
+**Pick up here (2026-09-05). M8b-3 is built: the hand-off and the settle — and the settle's first
+play fired the lever the plan named.** The played world's mine became one 162,572-cell lake, the
+active set fell from 160,000 cells to 1,600, and then the lake was re-levelled at every boundary
+for its creeping edge: ~130,000 cells written a pass, up to 275 ms in Debug, twice a second, for as
+long as the edge creeps. **The next slice is that lever** — re-level a sheet only when more than one
+cell in *n* of it is unsettled, `--settleshare=` the sweep — priced against `--fluid`'s 96 m bore-9
+arm, which is the same shape; see TODO under M8b-3b. After it, **M8b-4, the store** — read the
+plan's M8b-4 paragraph, the walk-away finding below (75% of the drawn water again in that play),
+and 3b's `LevelSheets(seeds)`, which is the unload-time method the plan named; it wants its own
+planning pass first, and it is last and alone because a defect there is permanent data loss. Two things
 are Matthew's: whether a spill soaking into the ground reads right — **deferred to M8c, "when we
 have something for it to seep into"; the hand-off and the settle ship as recommended meanwhile**
 — and the settle's interval, `--settleafter=`, two ticks as an estimate and zero the arm that

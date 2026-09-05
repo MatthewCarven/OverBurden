@@ -1,5 +1,46 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-05 — The play: the mine is a lake — "Ahh what monster have I unleashed?"
+
+**Matthew opened the played world with M8b-3b in it and sent two shots from the floor of the
+mine.** A flat blue plane to the horizon at knee height, sixty metres down, with the bitten cliff
+and its green terrace staircase running into it and a spit of stone floor standing proud under the
+player; the pale shapes in the sky above are the terrace ponds' Tier A surfaces seen from below.
+His words: *"Ahh what monster have I unleashed? :-{D"*. The live log, read while he was still in
+the world, says what happened and what it cost — the `settle` line on the periodic report is the
+instrument this slice added, and it earned its place on its first play:
+
+- **The lake is the settle.** 2,494,274 L drained into the mine and stopped (the lakes over it
+  emptied, or he flew off them — the window moved 44 times); 635,000 L is standing in 174,910
+  cells. While the drain ran the settle fired three passes in all, as designed, and the active
+  set sat at 100,000–160,000 cells with ticks of 200–275 frames. When it stopped, the passes
+  began and the sheets merged: largest 13,917 cells, then 86,095, 132,293, 162,572 — and the
+  active set went **103,189 → 72,978 → 3,254 → 1,600**. That is the number the slice was
+  built for, on the world it was built for: the tick is cheap again.
+- **And then it never stops, which is the lever the plan named firing on the first play.** In the
+  steady state ten passes per five-second report, ten sheets levelled, and 120,000–133,000 cells
+  written per pass, growing: the one big sheet is re-levelled at every boundary because its edge
+  creeps a cell a tick into dry floor and one new front cell makes it unsettled. 41.6 M cells
+  written over 509 passes in ten minutes; the longest pass 275.6 ms, in the Debug build he plays,
+  in one frame, twice a second, for as long as the edge creeps. **The `--fluid` bench's 96 m
+  bore-9 arm was this exact shape at a sixth of the size.** The fix is the lever as written:
+  re-level a sheet only when more than a fraction of it is unsettled — a creeping edge on a lake
+  is a few hundred cells against 160,000, and the automaton's own diffusion levels an edge
+  locally within five cells and a handful of ticks, waking nothing behind it. Recommended as the
+  next slice, with `--settleshare=` as its sweep; offered, not built.
+- **The pass is 1.7 µs a cell in Debug** (275.6 ms over 162,572), faster than the bench's Release
+  figure of 1–3 µs, because the game's `CanHold` reads a chunk and the bench's real-terrain arms
+  evaluated the cave field; the slice lever stands for the one-off full pass, which is a
+  quarter-second hitch once per merge.
+- **The walk deleted 1,865,495 L of the 2,494,274 L drawn — 75% — before any of this.** The
+  M8b-4 finding again, with the settle in the same session; a whole lake's worth went into
+  unloaded chunks and out of the world while he flew the 44 windows. And it dribbles: 40 L a
+  report with him standing still, the ~1,600 awake cells at the loaded edge.
+
+What he saw is DESIGN's thesis on screen: water finds your excavation, and a mine sixty metres
+below a set of lakes is a lake. Nothing here is a fix for that — the pumps are M10's, and the
+debug relay's Alt+R takes back two metres of it. The soak's look and the interval are still his.
+
 ## 2026-09-05 — M8b-3b built: the settle is a solve of sheets, and "never" is now 258 ticks
 
 **Matthew: "M8b-3b please Claude."** The settle designed in the M8b-3 planning pass is built:
