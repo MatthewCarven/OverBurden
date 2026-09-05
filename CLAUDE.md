@@ -385,7 +385,12 @@ teleports water. Two things this pass found that the next session walks into: **
 floods the moment it opens** — 465,036 L into the mine in four seconds, 110,792 cells active,
 ticks of 188 frames in Debug — which is the seam working on the world it was built for and is now
 the play's first fact and M8b-4's first save; and **the r6 control must be invoked verbatim**, with
-`--nosave` after the bare `--`, or it opens that world and reads as a flood. The M8b-2c play items
+`--nosave` after the bare `--`, or it opens that world and reads as a flood. **And a walk deletes
+the flood's awake water** — read off the play log the same evening: 2.9 ML `displaced` of 7.2 ML
+drawn in one session, because an unloaded voxel is solid and an awake cell in a chunk that leaves
+the box is drained on its next visit — which is M8b-4's case with a number and puts the settle's
+unload method on M8b-4's path. How a spill's soak is measured in play is in TODO under M8b-3a
+(`handed` on the `M8b:` line, `received` on `M7d:`), and the HUD shows neither. The M8b-2c play items
 still stand: `Q` a chunk out from under the terrace pond, a tunnel into a lake bank, two surfaces
 for one body of water; and now the relay's water on a hillside soaking away into the lake at the
 pit. The gate on the entangled miner is a battery and waits for M10. `git log origin/main..main`

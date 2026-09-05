@@ -3868,6 +3868,13 @@ finding without the coarser-tolerance fallback.
             rather than evidence, so M8d still owns the look. Not yet played: a tunnel driven into
             a lake bank on purpose, and the relay's water soaking into a hillside (the hand-off's
             own decision).
+      - [ ] **How to measure a spill in play — asked 2026-09-05: "IDK how much water is seeping
+            into the hillside".** `handed` on the `M8b:` line and `received` on the `M7d:` line,
+            every 5 s in the console behind the game and in `user://logs/godot.log`; press `R`, read
+            `handed` before and after. **Nothing on screen shows it** — a `handed` / `received`
+            readout on the HUD is the missing instrument for this decision, and is offered rather
+            than built. Measure it on a fresh world (`start.cmd --nosave`): on the played world a
+            tick is 1,267 frames, so a spill there moves a cell every twenty seconds.
       - [ ] **Stated gap until M8b-4: a quit loses the pit's water.** The lake's loss persists via
             the ledger; the pit's gain lives in RAM. Acceptable for the seam, not to ship. **And
             until M8b-3 a chamber that fills under a lake holds its water for ever** — no B → A
@@ -3928,6 +3935,19 @@ finding without the coarser-tolerance fallback.
 - [ ] **M8b-4 — the store.** `fluid` table, save job on the serial lane, never cancelled; loaded
       cells are not woken. Oracle: flood, walk away, walk back, quit, reopen — the same millilitres
       in the same cells. **Last and alone, because a defect here is permanent data loss.**
+      - [ ] **A walk deletes the flood's awake water — read off the 2026-09-05 play log: 2,924,347 L
+            displaced of 7,163,284 L drawn in one session, 41%.** An unloaded voxel is solid, so an
+            awake cell in a chunk that leaves the box is displaced on its next visit into neighbours
+            that are unloaded too, and drained; every jump in `displaced` landed on a window move,
+            with zero placements in the run. A sleeping cell survives and comes back with its chunk;
+            a flood is awake. The plan stated the quit and wrote "a chunk with settled water" on
+            unload — **the settle (3b) is what makes an unload a hand-off rather than a deletion, so
+            its unload method is on this item's path, not beside it.** Tier A dropped 1,855,295 L
+            "would not fit back" over the same six window moves, the first time that figure has
+            read above zero.
+      - [ ] **The water line's `% of capacity` sums leaf basins, so a merged lake reads over 100%
+            (525% on the played world).** A label, not the litres; fix the denominator to the
+            tree's capacity or drop the percentage before anyone reads it as a defect.
 - [ ] **M8d — the transparent pass has its first play verdict before it is planned (2026-09-04).**
       Matthew, on the relay's water stepping down a terraced hillside: *"looks cool going down the
       stairs"*, and then *"it would be nice if eventually it's a bit more 3D, like it's a very flat

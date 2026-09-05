@@ -1,5 +1,42 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-05 — "How do I measure how much is seeping into the hillside?" — the log already does, and it had two numbers nobody asked for
+
+**Matthew asked how to measure a spill soaking in.** The answer is the `M8b:` line the game prints
+every five seconds — `handed N L to Tier A` — and its twin on the `M7d:` line, `N L received from
+it`; `start.cmd` runs the console build, so both are in the console window behind the game and in
+`user://logs/godot.log`. Press `R`, read `handed` before and after, and the difference is what soaked
+in; `received` says the pit's basin got it. Reading the log of his last play (16:51, the session
+with the two shots) to give the answer with his own numbers turned up two things the report prints
+and nothing had read:
+
+- **Walking away deletes the flood's awake water, and it was 41% of the drawn litres.** `displaced`
+  is the term for water in a cell that can no longer hold it, and an unloaded voxel is solid: an
+  awake cell in a chunk that leaves the box is visited next tick, finds itself and every neighbour
+  unholdable, and is drained — counted, identity exact, gone. In that session 7,163,284 L were drawn
+  into the mine and 2,924,347 L were displaced, every jump landing on a window move, with zero
+  placements in the run and no other way to make a voxel unholdable. A sleeping cell survives —
+  nothing visits it — and comes back with its chunk; in a flood nearly everything is awake. The
+  plan's M8b-4 says a *quit* deletes water and writes "a chunk with settled water" on unload; the
+  play says a walk deletes it, before any settle exists to write. **M8b-4's first fact, and the
+  settle's unload case with a number** — 3b's unload method is on M8b-4's path rather than beside
+  it. Tier A lost its own share on the same moves: 1,855,295 L "would not fit back" over six window
+  moves, which is `SeedOverflowLitres`' documented cost of a window smaller than the terrain and
+  had never read above zero before the mine existed.
+- **The tick reached 1,267 frames with 648,204 cells active** — twenty-one seconds a tick at 60 fps
+  in Debug — so a spill poured on a hillside in that world moves a cell every twenty seconds and
+  the hand-off runs once every twenty seconds. The played world is the wrong instrument for the
+  hand-off's decision until the settle exists. The bench's `--spill` is the clean measurement (all
+  10,000 L in the basin after 170 ticks, Tier B empty), and a fresh world under `--nosave` is the
+  play version.
+
+One instrument label: the water line's `% of capacity` reads 525% because `WindowCapacityLitres`
+sums leaf basins only and a merged lake stands above their ridges. Wrong as a label the moment
+lakes merge, right as litres, left as a TODO note.
+
+**The number exists and nothing on screen shows it.** A `handed` / `received` readout on the HUD is
+the missing instrument for the hand-off's own decision, and it is offered rather than built.
+
 ## 2026-09-05 — The play: the mine floods and it reads right — "I am loving this water"
 
 **Matthew opened the played world after M8b-3a and sent two shots.** The first looks along the
