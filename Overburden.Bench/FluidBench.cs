@@ -355,8 +355,15 @@ internal static class FluidBench
         int settleCap,
         string shape,
         int chambers,
-        double budgetMillis)
+        double budgetMillis,
+        string solve)
     {
+        if (solve is not ("wait" or "solve" or "both"))
+        {
+            Console.Error.WriteLine($"--fluidsolve must be wait, solve or both, not '{solve}'.");
+            return 2;
+        }
+
         // Each shape has its own sensible depth: a mine sits well under the surface, a bitten chunk
         // under a lake has its roof a couple of metres down, so the lake bed is the thing that
         // falls in rather than a bore.
@@ -393,23 +400,40 @@ internal static class FluidBench
                 + $"{FluidSimulation.VisitsPerDeadlineCheck} visits.");
         }
 
+        if (solve != "wait")
+        {
+            Console.WriteLine(
+                "  The 'solve' arm runs M8b-3b's sheet solve at every tick boundary of the settle "
+                + "(--settleafter=0's case): the flow is identical, the settle is what changes.");
+        }
+
         Console.WriteLine();
 
         Console.WriteLine(
             "  bore     void     delivered   drained   L/tick   L/s     hours to   peak     "
-            + "visits   visits/s   ms/tick   ms/tick   held      panels   MiB    settle   conserved");
+            + "visits   visits/s   ms/tick   ms/tick   held      panels   MiB    settle   conserved   arm");
         Console.WriteLine(
             "  voxels   cells    L           %         mean     mean    drain      active   /tick "
             + "   @2Hz       mean      max       cells                    ticks");
         Console.WriteLine(
             "  ------   ------   ---------   -------   ------   -----   --------   ------   "
-            + "------   --------   -------   -------   -------   ------   ----   ------   ---------");
+            + "------   --------   -------   -------   -------   ------   ----   ------   ---------   -----");
 
         foreach (int bore in bores)
         {
-            RunArm(
-                Make(generator, shape, bore, depth, spanMetres, chambers),
-                lakeLitres, ticks, bore, settleCap, budgetMillis);
+            if (solve != "solve")
+            {
+                RunArm(
+                    Make(generator, shape, bore, depth, spanMetres, chambers),
+                    lakeLitres, ticks, bore, settleCap, budgetMillis, solve: false);
+            }
+
+            if (solve != "wait")
+            {
+                RunArm(
+                    Make(generator, shape, bore, depth, spanMetres, chambers),
+                    lakeLitres, ticks, bore, settleCap, budgetMillis, solve: true);
+            }
         }
 
         Console.WriteLine();
@@ -446,7 +470,8 @@ internal static class FluidBench
                 tunnelHeightVoxels: 8);
 
     private static void RunArm(
-        DugTerrain terrain, long lakeLitres, int ticks, int bore, int settleCap, double budgetMillis)
+        DugTerrain terrain, long lakeLitres, int ticks, int bore, int settleCap, double budgetMillis,
+        bool solve)
     {
         long budgetTicks = budgetMillis > 0
             ? FluidSimulation.BudgetTicks(TimeSpan.FromMilliseconds(budgetMillis))
@@ -565,10 +590,15 @@ internal static class FluidBench
         long settleVisits = 0;
         int settlePeak = 0;
 
+        // The analytic arm: the sheet solve at every boundary, which is --settleafter=0 with no
+        // inflow, and the settle phase has none. Same sim, same state at the end of the flow.
+        SheetSettle? sheets = solve ? new SheetSettle(sim, settleAfterTicks: 0) : null;
+
         var settleClock = Stopwatch.StartNew();
         while (sim.ActiveCellCount > 0 && settleTicks < settleCap)
         {
             FluidTickResult tick = sim.Step();
+            sheets?.AtBoundary();
             settleTicks++;
             settleVisits += tick.CellsVisited;
             settlePeak = Math.Max(settlePeak, tick.CellsVisited);
@@ -616,7 +646,7 @@ internal static class FluidBench
             + $"{sim.Grid.HeldCellCount,7:N0}   {sim.Grid.PanelCount,6:N0}   "
             + $"{sim.Grid.PanelBytes / 1024.0 / 1024.0,4:F1}   "
             + $"{(settled.Settled ? settled.Ticks.ToString("N0", CultureInfo.InvariantCulture) : "NEVER"),6}   "
-            + $"{(conserved ? "exact" : "*** NO ***"),9}"));
+            + $"{(conserved ? "exact" : "*** NO ***"),9}   {(solve ? "solve" : "wait")}"));
 
         string verdict = settled.Settled
             ? (sim.VerifyQuiescent() ? "reached rest, and the rest is real." : "*** STOPPED WITH MOVES AVAILABLE ***")
@@ -641,5 +671,16 @@ internal static class FluidBench
             + $"{settled.Ticks:N0} ticks total "
             + $"({settled.Ticks / TicksPerSecond / 60.0:F1} min of world time), "
             + $"{settleMillis:F0} ms of CPU, {settled.CellVisits:N0} visits — {verdict}"));
+
+        if (sheets is not null)
+        {
+            Console.WriteLine(string.Create(
+                CultureInfo.InvariantCulture,
+                $"           solve:  {sheets.Settles:N0} pass(es), {sheets.SheetsLevelled:N0} levelled / "
+                + $"{sheets.SheetsPacked:N0} packed / {sheets.SheetsSkipped:N0} left alone, "
+                + $"{sheets.CellsWritten:N0} cells written, {sheets.CellsWoken:N0} woken, largest sheet "
+                + $"{sheets.LargestSheet:N0} cells, longest pass {sheets.LongestMillis:F2} ms, "
+                + $"{sheets.TotalMillis:F0} ms in all"));
+        }
     }
 }

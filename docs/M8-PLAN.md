@@ -802,6 +802,94 @@ departed from the paragraph above, and what it found:
   apply until the harness matched CRLF.
 - **Not built**: the settle (3b), with the two decisions above open.
 
+#### M8b-3b — built 2026-09-05
+
+`FluidSimulation.LevelSheets()` in `FluidSimulation.Sheets.cs` (a partial, because the solve wakes
+through the automaton's own private bookkeeping and an outside class waking cells would be a new
+public mutator with a contract): a flood over wet, holdable, supported cells at one Y from each
+seed, ascending Y; a sheet with no transferable pair inside it left alone; otherwise the total
+distributed evenly in flood order, or packed at 999 mL into the cells that held most when the
+share is under that; every move a `FluidGrid.Transfer` between two cells of one sheet; then the
+front and the water above every drawn-down cell woken, and nothing else, and every other written
+cell listed in `Rested` — the one thing besides a visit that appends to it, and the reason the
+settle runs *before* the hand-off at the boundary (see finding 6). `SheetSettle` is the trigger —
+*K* quiet ticks measured boundary to boundary, inflow being an `Add` or a `Disturb` that touched
+wet water (`DisturbedCells`, new) — with the counters the profile's `settle` line prints;
+`--settleafter=<ticks>` is the sweep, 2 the default. `--fluidsolve wait|solve|both` is the bench's
+analytic arm, and `--spill` gained a third arm with the settle beside the hand-off. Suite 1,006 →
+1,032; 24 recipes applied, 23 caught, the one miss an identity (each edge of a sheet is examined from both
+of its ends, so testing one direction of a pair is enough).
+
+**Measured, Release, control 1.02–1.05×, `--fluidsolve both` where the wait arm was affordable
+(the 96 m wait arms are M8b-1's recorded 41-minute cap); ticks and visits reproduce to the digit
+across three runs, the milliseconds within noise:**
+
+```
+fixture             bore   wait: ticks to rest   CPU        visits         solve: ticks   CPU       visits       passes   largest sheet   longest pass
+chamber 8 m           3        1,915             549 ms     5,574,306          38          95 ms     105,063         37       1,024          10.4 ms
+mine 16 m             1       11,130           2,478 ms    26,147,469         136         134 ms     126,142        135         861           5.6 ms
+mine 16 m             9       48,153          31,539 ms   238,190,977         683       1,794 ms   4,270,698        682       1,040           9.4 ms
+mine 96 m             1        never (cap 100,000, 41 min)                    258       3,983 ms     403,453        257      25,223          72.6 ms
+mine 96 m             9        never                                        4,242      17,938 ms   4,564,143      4,241      28,277          28.1 ms
+```
+
+Every arm reaches rest and `VerifyQuiescent` says the rest is real; volume exact in all. Five things:
+
+1. **"A handful of ticks" was the estimate and the number is hundreds, because the solve levels
+   and the ticks after it are spent on what it cannot do.** A front creeps a cell a tick and water
+   falls a cell a tick, by design (wet cells only, no siphons); the solve makes each sheet level
+   the moment it is found and the automaton still has to carry the water to the next sheet. What
+   collapsed is the visits — 53× on the chamber, 207× and 56× on the 16 m mine — and the world
+   time: 93 minutes to one, 401 to six, *never* to two. The bore-9 96 m arm's 4,242 ticks are
+   2,073 → 64 active over 4,000 ticks of water trickling through 0.75 m dead ends at the ~1 L a
+   tick 2c measured, which no solve reaches.
+2. **A pass per boundary is O(sheet) per tick while a front creeps, and on the 96 m mine that is
+   the whole of the cost.** Each new front cell makes one pair unsettled and the whole 28,000-cell
+   sheet is re-levelled for it: 44.7 M cell writes over 4,241 passes at bore 9, 17 s of the
+   arm's 17.9. Net CPU against the wait arm is 1.8× better there and hundreds of times better
+   everywhere else. **Lever, named and not built**: re-level only when the sheet's unsettled pairs
+   are more than a fraction of it, or top up the front from the interior instead of re-solving
+   the sheet. Revisit trigger: a `settle` line whose `ms in all` is a noticeable share of a
+   session.
+3. **The pass is atomic, and a floor-sized sheet is seconds.** 1–3 µs a cell in Release (72.6 ms
+   over 25,223; 28.1 over 28,277), so the played world's ~1.3 million-cell floor is 1.5–4 s a
+   pass in Release and ten times that in Debug, in one frame, once the flood stops and *K* ticks
+   pass. Not met yet — the world's lakes were drained by the play and its flood on open is now
+   91 kL in the first 29 ticks — and **the slice is the lever**: a cursor over sheets like the
+   tick's over its batch. Recorded in TODO with that trigger.
+4. **On the played world the default does nothing during the flood and zero costs 12 ms a tick.**
+   Copies of `default`, headless, Debug, 29 ticks: *K* = 2 fired no pass, because the drain is
+   inflow every tick; *K* = 0 fired 29, largest sheet 169 cells, longest pass 12.6 ms, and the
+   active set was 21,697 against 21,448 — the early flood is falls and fronts, not sheets. The
+   settle is for the end of a flood, which is what it was designed for.
+5. **Two fixtures were wrong before the battery, and one was the design's own rule.** The
+   packing fixture was five cells each under a litre — at rest already, by `CanSpread` — and the
+   skip rule correctly left it; packing is for a sheet that has a move and a share under a litre,
+   and a film that is already still stays still. And `DisturbedCells` first counted only cells
+   newly queued, so an edit under moving water was not inflow; it counts wet cells touched now.
+   The fixtures put water down through `FluidGrid.Fill`, asleep and unlevel — the state diffusion
+   leaves for thousands of ticks — so what is awake after a solve is what the solve woke.
+6. **The solve and the hand-off had a seam, and the first fix for it was the wrong one.** The
+   relay's 50,000 L on the spawn's ground, Debug profile: 10,558 L handed in the window with the
+   settle off, 4,178 with it on. The hand-off reads the tick's record of no-move visits, and a
+   sheet the solve levels is asleep without one — its interior is level, still, on the ground, and
+   would never be the basin's, which is the puddle held for ever the hand-off exists against.
+   Waking every written cell for the visit that would list it fixed the sealed-box test and not
+   the number (4,117 L), and cost ten times the visits on the 96 m mine (47.8 M against 4.6 M at
+   bore 9) — under it the spill still rested sooner (164 ticks against 314) because levelling
+   moves water from the resting interior to the moving edge every boundary, which slows the
+   first thirty ticks and hastens the end; the visit came a tick late, every tick. The fix that
+   stands is the precise one: the solve lists what it levelled and left with no move as resting,
+   because a visit would find exactly that, and the settle runs before the hand-off at the
+   boundary. Fronts are not listed (they have a move and are woken for it); cells packed to
+   nothing are not (nothing rests there). **With it, `--spill` rests in 18 and 29 ticks against
+   170 and 314, every litre in the basins, and the relay's whole 50,000 L is the basin's inside
+   the profile window with Tier B empty** — against 10,558 L with the settle off. Three recipes
+   pin it.
+
+The r6 control is 2601 / 325 / 3446 at 411 with zero passes. How the soak reads with the settle in
+front of it is deferred to M8c with the hand-off's own decision.
+
 ### Why this might go first
 
 M6d-1 set the precedent that a later part goes first when it answers an earlier one's question, and

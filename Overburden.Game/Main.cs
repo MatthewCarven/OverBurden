@@ -417,6 +417,22 @@ public partial class Main : Node3D
 
     private long _handedAtWarm;
 
+    // ------------------------------------------------------------ M8b-3b: the settle
+
+    /// <summary>
+    /// Levels the sheets the active set touches — what the automaton would diffuse to in O(n²)
+    /// ticks, solved at a tick boundary after <see cref="_settleAfterTicks"/> quiet ones.
+    /// </summary>
+    private SheetSettle? _settle;
+
+    /// <summary>
+    /// <c>--settleafter=&lt;ticks&gt;</c>: ticks with no inflow before the sheet solve runs.
+    /// <see cref="SheetSettle.DefaultSettleAfterTicks"/> by default; zero settles under inflow too.
+    /// </summary>
+    private int _settleAfterTicks = SheetSettle.DefaultSettleAfterTicks;
+
+    private long _settlesAtWarm;
+
     /// <summary>The analysis in flight, or null. One at a time, by construction.</summary>
     /// <remarks>
     /// <b>A plain task rather than a job on the scheduler, and that is the design decision rather
@@ -1014,6 +1030,14 @@ public partial class Main : Node3D
                 // the sweep. Zero is not off: one granule a frame, so the water still moves.
                 case "fluidbudget" when double.TryParse(value, out double fluidMillis):
                     _fluidBudget = TimeSpan.FromMilliseconds(Math.Max(0.0, fluidMillis));
+                    break;
+
+                // M8b-3b: how many ticks with nothing arriving before the sheet solve levels what
+                // is still awake. Two — one second — is an estimate, and this is the sweep. Zero
+                // settles under inflow as well, which is the arm that makes a stream down a tunnel
+                // rise as a flat sheet instead of flowing; it exists so both can be seen.
+                case "settleafter" when int.TryParse(value, out int settleAfter):
+                    _settleAfterTicks = Math.Max(0, settleAfter);
                     break;
 
                 // The rain's own A/B arm: everything else about the weather, with no particles.
@@ -2908,6 +2932,10 @@ public partial class Main : Node3D
         // M8b-3a: the other direction. Water resting on the seed ground is the basin's, by the
         // rain model; measured to remove 99.3–99.5% of a surface spill's visits (--spill).
         _handoff = _water is null ? null : new SurfaceHandoff(_seedHeights, _water, _fluid);
+
+        // M8b-3b: the settle. Needs no Tier A, because a flooded mine has no Tier A body — the
+        // sheets it levels are the ones the hand-off cannot reach.
+        _settle = new SheetSettle(_fluid, _settleAfterTicks);
         if (windowed)
         {
             _fluidSurface = new FluidSurface(GetWorld3D());
@@ -2946,6 +2974,7 @@ public partial class Main : Node3D
             _fluidSlicedAtWarm = _fluidSlicedTicks;
             _drawnAtWarm = _drain?.DrawnMillilitres ?? 0;
             _handedAtWarm = _handoff?.HandedMillilitres ?? 0;
+            _settlesAtWarm = _settle?.Settles ?? 0;
         }
 
         _fluidSinceTick += delta;
@@ -2956,8 +2985,12 @@ public partial class Main : Node3D
             _fluidSinceTick = Math.Min(_fluidSinceTick - FluidTickSeconds, FluidTickSeconds);
 
             // The seam, at the boundary and only there — like the relay, so the tick that follows
-            // is the same tick the suite asserts is identical sliced or whole. B → A first, so
-            // what rested on the ground last tick is in the lake before the lake is drawn from.
+            // is the same tick the suite asserts is identical sliced or whole. The settle first,
+            // because it lists what it levelled as resting and the hand-off reads that list; it
+            // reads the ticks since the last inflow before this boundary pours any, so the tick
+            // after a draw is never a quiet one. Then B → A, so what rests on the ground is in the
+            // lake before the lake is drawn from.
+            _settle?.AtBoundary();
             _handoff?.Absorb();
             _drain?.Draw();
             PourPending();
@@ -3318,6 +3351,13 @@ public partial class Main : Node3D
             : $" | surface {_fluidSurface.QuadCount:N0} quad(s), "
               + $"{_fluidSurface.LastRebuildMillis:F2} ms to rebuild";
 
+        string settle = _settle is null
+            ? string.Empty
+            : $" | settle {_settle.Settles:N0} pass(es) after {_settle.SettleAfterTicks} quiet tick(s): "
+              + $"{_settle.SheetsLevelled:N0} levelled / {_settle.SheetsPacked:N0} packed / "
+              + $"{_settle.SheetsSkipped:N0} left, {_settle.CellsWritten:N0} cells written, "
+              + $"largest sheet {_settle.LargestSheet:N0}, longest pass {_settle.LongestMillis:F1} ms";
+
         long drawn = _drain?.DrawnMillilitres ?? 0;
         return $"{f.TotalMillilitres / litre:N0} L moving in {f.Grid.HeldCellCount:N0} cell(s) over "
                + $"{f.Grid.PanelCount} panel(s) ({f.Grid.PanelBytes / 1024.0 / 1024.0:F1} MiB); "
@@ -3331,6 +3371,7 @@ public partial class Main : Node3D
                + $"peak {f.PeakActiveCells:N0}, {f.CellVisits:N0} visits; budget "
                + $"{_fluidBudget.TotalMilliseconds:F1} ms a frame, worst frame {_fluidWorstMillis:F2} ms, "
                + $"{_fluidSlicedTicks:N0} tick(s) over more than one frame, longest {_fluidLongestTickFrames:N0}"
+               + settle
                + surface;
     }
 
@@ -3379,6 +3420,15 @@ public partial class Main : Node3D
               + $"all over {_handoff.Handoffs:N0} hand-off(s), {_handoff.PendingMillilitres:N0} mL pending in "
               + $"{_handoff.PendingBasins:N0} basin(s) — Tier A received == Tier B handed: {HandoffIdentity()}\n";
 
+        string settle = _settle is null
+            ? "settle    no sheet solve (--nowater)\n"
+            : $"settle    {_settle.Settles - _settlesAtWarm:N0} pass(es) in the window, {_settle.Settles:N0} in all, "
+              + $"after {_settle.SettleAfterTicks} quiet tick(s); {_settle.SheetsLevelled:N0} levelled / "
+              + $"{_settle.SheetsPacked:N0} packed / {_settle.SheetsSkipped:N0} left alone, "
+              + $"{_settle.CellsWritten:N0} cells written, {_settle.CellsWoken:N0} woken, largest sheet "
+              + $"{_settle.LargestSheet:N0} cells, longest pass {_settle.LongestMillis:F2} ms, "
+              + $"{_settle.TotalMillis:F1} ms in all\n";
+
         return $"fluid     {f.TotalMillilitres / litre:N0} L moving in {f.Grid.HeldCellCount:N0} cell(s) "
                + $"over {f.Grid.PanelCount} panel(s) ({f.Grid.PanelBytes / 1024.0 / 1024.0:F1} MiB); "
                + $"injected {(f.AddedMillilitres - drawn) / litre:N0} L, drawn {drawn / litre:N0} L, "
@@ -3388,6 +3438,7 @@ public partial class Main : Node3D
                + $"{_relayPendingMillilitres / litre:N0} L still to pour\n"
                + breach
                + handoff
+               + settle
                + $"fluidtick {ticks:N0} tick(s) in the window at {1.0 / FluidTickSeconds:F0} Hz, "
                + $"{visits:N0} visits ({visits / seconds:N0}/s against the ~520,000/s the light "
                + $"budget licenses), peak active {f.PeakActiveCells:N0}, {f.ActiveCellCount:N0} active at the end; "

@@ -87,7 +87,7 @@ public readonly record struct FluidSettleResult(
 /// refuses, because the question is about a stopped automaton.
 /// </para>
 /// </remarks>
-public sealed class FluidSimulation
+public sealed partial class FluidSimulation
 {
     // Order is fixed so a run is reproducible: +X, -X, +Z, -Z.
     private static readonly (int Dx, int Dz)[] Sideways = [(1, 0), (-1, 0), (0, 1), (0, -1)];
@@ -231,6 +231,19 @@ public sealed class FluidSimulation
     /// </remarks>
     public long DisplacedMillilitres { get; private set; }
 
+    /// <summary>
+    /// Cells holding water that an edit touched through <see cref="Disturb"/>, over the lifetime.
+    /// </summary>
+    /// <remarks>
+    /// The terrain-changed half of "inflow" for <see cref="SheetSettle"/>: a dig into standing
+    /// water gives the automaton work the way a pour does, and a settle that fired on the tick
+    /// after it would level a sheet whose floor was still moving. Counts wet cells touched rather
+    /// than calls, because a chunk bite far from any water is 32,768 calls and no work; and
+    /// counts them whether or not they were already awake, because an edit under moving water
+    /// is a disturbance too.
+    /// </remarks>
+    public long DisturbedCells { get; private set; }
+
     /// <summary>Ticks run.</summary>
     public long Ticks { get; private set; }
 
@@ -324,7 +337,10 @@ public sealed class FluidSimulation
     /// boundary; the consumer re-reads what a cell holds. It is a list rather than a set for the
     /// reason the active set is, and it is cleared when a tick begins, so a consumer that wants it
     /// reads it between <c>Complete</c> and the next <c>Begin</c> — which in the game is the tick
-    /// boundary, before the next <c>Step</c>.
+    /// boundary, before the next <c>Step</c>. <b>One thing other than a visit appends to it</b>:
+    /// <see cref="LevelSheets()"/>, at that same boundary, lists the cells it levelled and left
+    /// with no move, because a visit to any of them would find exactly that and the hand-off
+    /// would otherwise never see a levelled sheet — so the settle runs before the hand-off.
     /// </para>
     /// </remarks>
     public IReadOnlyList<VoxelPos> Rested => _rested;
@@ -370,7 +386,10 @@ public sealed class FluidSimulation
     {
         if (_grid.AmountAt(cell) > 0)
         {
+            // Counted whether or not the cell was already awake: an edit under water that is
+            // still moving is as much a disturbance as one under water at rest.
             Wake(cell);
+            DisturbedCells++;
         }
     }
 
@@ -766,18 +785,22 @@ public sealed class FluidSimulation
     /// </remarks>
     private int RoomAt(VoxelPos cell) => _grid.FreeAt(cell);
 
-    private void Wake(VoxelPos cell)
+    /// <summary>Queues a cell for the next tick. True when it was not queued already.</summary>
+    private bool Wake(VoxelPos cell)
     {
         // A cell that can hold water is worth a visit; so is one that cannot but still contains
         // some, because that is the only path by which displaced water gets out of new rock.
         if (!_terrain.CanHold(cell) && _grid.AmountAt(cell) == 0)
         {
-            return;
+            return false;
         }
 
         if (_queued.Add(cell))
         {
             _pending.Add(cell);
+            return true;
         }
+
+        return false;
     }
 }

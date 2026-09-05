@@ -61,6 +61,7 @@ internal static class Program
           --fluidchambers <n>  chambers per axis for --fluidshape=chamber (default 1)
           --fluidsettle <n>    tick budget for the settle after the flow (default 100000)
           --fluidbudget <ms>   slice each flow tick under a per-frame budget (default 0: whole ticks, the control)
+          --fluidsolve  <arm>  wait (the automaton alone, default), solve (M8b-3b's sheet solve at every settle boundary), or both
           --spill              M8b-3: a spill on real ground with and without the B -> A hand-off
           --spilllitres a,b    the spills to sweep, in litres (default 10000,50000)
           --spillticks <n>     tick cap per arm (default 20000)
@@ -86,6 +87,7 @@ internal static class Program
         string fluidShape = "mine";
         int fluidChambers = 1;
         double fluidBudget = 0;
+        string fluidSolve = "wait";
         bool spill = false;
         long[] spillLitres = [10_000, 50_000];
         int spillTicks = 20_000;
@@ -156,6 +158,9 @@ internal static class Program
                     case "--fluidbudget":
                         fluidBudget = double.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
                         break;
+                    case "--fluidsolve":
+                        fluidSolve = Next(args, ref i);
+                        break;
                     case "--spill":
                         spill = true;
                         break;
@@ -210,7 +215,8 @@ internal static class Program
                 fluidSettle,
                 fluidShape,
                 fluidChambers,
-                fluidBudget);
+                fluidBudget,
+                fluidSolve);
         }
 
         if (portal)

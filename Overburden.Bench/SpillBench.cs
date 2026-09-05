@@ -157,9 +157,9 @@ internal static class SpillBench
 
         foreach (long litres in litresArms)
         {
-            foreach (bool handoff in new[] { false, true })
+            foreach ((bool handoff, bool settle) in new[] { (false, false), (true, false), (true, true) })
             {
-                RunArm(generator, seed, centreX, centreZ, halfSpan, lowest - 8, highest + 64, litres, handoff, tickCap);
+                RunArm(generator, seed, centreX, centreZ, halfSpan, lowest - 8, highest + 64, litres, handoff, settle, tickCap);
             }
 
             Console.WriteLine();
@@ -173,13 +173,17 @@ internal static class SpillBench
 
     private static void RunArm(
         WorldGenerator generator, ulong seed, int centreX, int centreZ, int halfSpan, int minY, int maxY,
-        long litres, bool withHandoff, int tickCap)
+        long litres, bool withHandoff, bool withSettle, int tickCap)
     {
         var terrain = new SurfaceTerrain(generator, centreX, centreZ, halfSpan, minY, maxY);
         var water = new WaterSystem(generator, seed, new BasinLedger(), Pitch);
         water.Install(water.AnalyseFor(centreX, centreZ));
         var sim = new FluidSimulation(terrain);
         SurfaceHandoff? handoff = withHandoff ? new SurfaceHandoff(generator, water, sim) : null;
+
+        // M8b-3b's settle beside the hand-off, at the game's default interval and in the game's
+        // order at the boundary: settle, then absorb what it listed as resting, then pour.
+        SheetSettle? settle = withSettle ? new SheetSettle(sim) : null;
 
         int surface = generator.SurfaceHeightAt(centreX, centreZ);
         long pending = litres * FluidConstants.MillilitresPerLitre;
@@ -209,6 +213,8 @@ internal static class SpillBench
             // The boundary: the hand-off first, as Main runs it. A hand-off wakes the neighbours
             // of what it took, so "at rest" is a boundary that handed nothing with nothing awake
             // and nothing left to pour — not an active set of zero on its own.
+            settle?.AtBoundary();
+
             long handed = 0;
             if (handoff is not null)
             {
@@ -259,7 +265,7 @@ internal static class SpillBench
             == sim.AddedMillilitres - sim.RemovedMillilitres - sim.DisplacedMillilitres;
 
         Console.WriteLine(
-            $"  {litres:N0} L, hand-off {(withHandoff ? "ON " : "off")}: ball radius {radius}, delivered by tick "
+            $"  {litres:N0} L, hand-off {(withHandoff ? "ON " : "off")}{(withSettle ? " + settle" : string.Empty)}: ball radius {radius}, delivered by tick "
             + $"{(deliveredAtTick < 0 ? "never" : deliveredAtTick.ToString("N0", CultureInfo.InvariantCulture))}; "
             + $"{(rested ? $"rested after {ticks:N0} ticks" : $"HIT THE CAP at {ticks:N0} ticks with {sim.ActiveCellCount:N0} awake")}"
             + $" ({ticks / TicksPerSecond / 60.0:F1} min of world time); "
@@ -282,6 +288,15 @@ internal static class SpillBench
             $"           identities: Tier B {(bIdentity ? "exact" : "*** NO ***")}, Tier A {(aIdentity ? "exact" : "*** NO ***")}, "
             + $"seam received×1000 + pending == handed {(seam ? "exact" : "*** NO ***")}, "
             + $"whole world {(whole ? "exact" : "*** NO ***")}");
+
+        if (settle is not null)
+        {
+            Console.WriteLine(
+                $"           settle: {settle.Settles:N0} pass(es) after {settle.SettleAfterTicks} quiet tick(s), "
+                + $"{settle.SheetsLevelled:N0} levelled / {settle.SheetsPacked:N0} packed / {settle.SheetsSkipped:N0} left alone, "
+                + $"{settle.CellsWritten:N0} cells written, {settle.CellsWoken:N0} woken, largest sheet {settle.LargestSheet:N0}, "
+                + $"longest pass {settle.LongestMillis:F2} ms, {settle.TotalMillis:F0} ms in all");
+        }
     }
 
     private static long Pour(FluidSimulation sim, VoxelPos at, int r, long pending)

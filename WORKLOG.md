@@ -1,5 +1,63 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-05 — M8b-3b built: the settle is a solve of sheets, and "never" is now 258 ticks
+
+**Matthew: "M8b-3b please Claude."** The settle designed in the M8b-3 planning pass is built:
+`FluidSimulation.LevelSheets()` levels every sheet the active set touches — the wet, holdable,
+supported cells at one Y, sideways-connected — to within a millilitre, or packs a sheet whose
+share is under a litre into as few of its cells as hold it at 999 mL, through `FluidGrid.Transfer`
+only, bottom-up, waking the front and the water above every drawn-down cell and nothing else.
+`SheetSettle` fires it at a tick boundary after *K* ticks with no inflow (`--settleafter=`, 2 by
+default, 0 settles under inflow), then at every boundary until nothing is awake. Suite 1,006 →
+1,032. 24 break-recipes applied, 23 caught; the miss is an identity. `--fluidsolve both` is the bench arm
+and `--spill` has the settle as a third. Seven things worth keeping, with the table in M8-PLAN's
+"M8b-3b — built":
+
+- **The chamber's 1,915-tick settle is 38 ticks, the 16 m mine's 11,130 is 136, and the 96 m
+  mine's *never* is 258** — all reaching a rest `VerifyQuiescent` calls real, all exact. The
+  visits fell 53×, 207× and 56× where the wait arm could be run at all. The plan said "one solve
+  and a handful of ticks" and the handful is hundreds, because the solve levels a sheet and the
+  ticks after are the front creeping and water falling a cell a tick — what a settle that moves
+  water only along the automaton's own paths cannot shorten, by the no-siphons rule.
+- **A pass per boundary is O(sheet) per tick while a front creeps.** On the 96 m mine at bore 9
+  each new front cell makes one pair unsettled and the 28,000-cell sheet is re-levelled for it —
+  44.7 M cell writes over 4,241 passes, 17 of the arm's 18 s — so that arm is only 1.8× cheaper
+  than waiting, against hundreds of times elsewhere. Lever named in TODO, not built.
+- **The pass is atomic and 1–3 µs a cell in Release.** The played world's ~1.3 million-cell mine
+  floor is seconds a pass, once, in one frame, when its flood stops; the slice is the lever and
+  is recorded with that trigger. Not met: the play drained the lakes, and the flood on open is
+  now 91 kL in 29 ticks. On copies of that world the default fired no pass in the flood (the
+  drain is inflow every tick) and zero fired 29 at 12 ms each in Debug for no change in the
+  active set — the early flood is falls, not sheets.
+- **The skip rule is what makes the solve safe to repeat.** A sheet with no transferable pair
+  inside it — the automaton's own rest within four millilitres, or a film every cell of which is
+  under the threshold — is written nowhere and woken nowhere. A second pass over a levelled
+  sheet is a no-op, and a still puddle stays still. Packing applies to a sheet that *has* a move.
+- **The wake set is exactly what `VerifyQuiescent` checks, and four recipes say so.** Not waking
+  the front, not waking the water above a drawn-down cell, waking the front only when a cell
+  rose, and waking above only when a cell emptied were each caught — by fixtures that put water
+  down through `FluidGrid.Fill`, asleep and unlevel, so that whatever is awake after a solve is
+  what the solve woke. Bottom-up order has its own fixture (a levelled floor unsupporting the
+  sheet above it) and both order recipes were caught by it.
+- **Two fixtures were wrong first.** The packing test was five cells each under a litre, which
+  is at rest already, and the skip rule left it — right; the fixture now has a cell that can
+  spread. And `DisturbedCells` counted only cells newly woken, so an edit under moving water was
+  not inflow; it counts wet cells touched. The r6 control is unchanged to the digit.
+- **The solve and the hand-off had a seam, the first fix was wrong, and the control arm is what
+  said so.** The relay's spill handed 10,558 L in the window with the settle off and 4,178 L with
+  it on. The hand-off reads the record of no-move visits, and a levelled sheet is asleep without
+  one — level, still, on the ground, and never the basin's: the held-for-ever puddle again. Waking
+  every written cell for its visit fixed the sealed-box test, left the number at 4,117 L, and
+  cost ten times the visits on the 96 m mine — the visit came a tick late, every tick. So the
+  solve now lists what it levelled and left with no move as resting, which is what a visit would
+  find, and runs before the hand-off. **With that, `--spill`'s new third arm rests in 18 and 29
+  ticks against 170 and 314, every litre in the basins, and the relay's whole 50,000 L is the
+  basin's inside the profile window, Tier B empty** — a spill soaks away in twelve seconds
+  instead of minutes, which is the settle and the hand-off doing together what neither did alone.
+
+The look question — a tunnel floor levelling itself in one tick behind a creeping front, and
+*K* = 0's flat stream — is Matthew's to judge in play; `--settleafter=` is the sweep.
+
 ## 2026-09-05 — "How do I measure how much is seeping into the hillside?" — the log already does, and it had two numbers nobody asked for
 
 **Matthew asked how to measure a spill soaking in.** The answer is the `M8b:` line the game prints

@@ -3908,16 +3908,38 @@ finding without the coarser-tolerance fallback.
             so that "soaking in" is a rate through rock rather than a hand-off at the plane. The HUD
             readout waits with it. Revisit trigger: M8c's planning pass, or a play that calls the
             vanishing a leak before then. **3b's gate is now the settle interval and his word.**
-      - [ ] **M8b-3b — the settle, designed and not built.** A solve of *sheets* — wet cells at one
-            Y, sideways-connected, each supported — levelled evenly, exact and quiescent, moving
-            water only along paths the sideways rule already uses; **not the plan's flood-fill,
-            which would teleport water between pockets through rock.** Wet cells only (no snap
-            across a dry floor); packed rather than spread under a litre a cell. Trigger: *K* ticks
-            of no inflow, K = 2 as an estimate, `--settleafter=` the sweep, 0 the arm that levels a
-            flowing stream. **Build after the hand-off has been played**, so its look question is
-            judged against a seam the play has accepted. Oracle: `VerifyQuiescent` after a settle on
-            a wetted region; volume exact; every pair within a millilitre; the chamber's 1,915-tick
-            settle and the corridor's *never* each one solve.
+      - [x] **M8b-3b — the settle. Built 2026-09-05, suite 1,006 → 1,032; see M8-PLAN's "M8b-3b —
+            built".** `FluidSimulation.LevelSheets()` levels every sheet the active set touches —
+            wet, holdable, supported cells at one Y, sideways-connected — to within a millilitre,
+            or packs a sheet whose share is under a litre into as few cells as hold it at 999 mL,
+            bottom-up, through `Transfer` only, waking the front and the water above a drawn-down
+            cell and listing the rest as resting; `SheetSettle` fires it after *K* quiet ticks
+            (`--settleafter=`, 2 by default, 0 under inflow). **The chamber's 1,915-tick settle is
+            38 ticks, the 16 m mine's 11,130 is 136, the 96 m mine's *never* is 258** — every rest
+            real, every litre exact, visits down 50–200×. 24 recipes applied, 23 caught, one identity.
+            - [ ] **"A handful of ticks" is hundreds, and a pass per boundary is O(sheet) per tick
+                  while a front creeps.** The solve levels; the front and the falls take the ticks.
+                  At bore 9 on the 96 m mine each new front cell re-levels a 28,000-cell sheet —
+                  44.7 M cell writes over 4,241 passes, 17 of the arm's 18 s, 1.8× cheaper than
+                  waiting against hundreds of times elsewhere. **Lever, not built**: re-level only
+                  when the unsettled pairs are more than a fraction of the sheet, or top up the
+                  front from the interior. Revisit trigger: a `settle` line whose `ms in all` is a
+                  noticeable share of a session.
+            - [ ] **The pass is atomic, 1–3 µs a cell in Release, and the played world's floor is a
+                  ~1.3 million-cell sheet.** Seconds a pass in Release, tens in Debug, in one frame,
+                  once the flood stops and *K* ticks pass. Not met yet — the play drained the lakes
+                  and the flood on open is 91 kL in 29 ticks now. **The slice is the lever**: a
+                  cursor over sheets like the tick's over its batch. Revisit trigger: the first
+                  play that hitches when a flood stops.
+            - [ ] **Play: does a tunnel floor levelling itself in one tick behind a creeping front
+                  read right, and does *K* = 0's flat stream?** `--settleafter=` is the sweep; the
+                  soak's look is deferred to M8c with the hand-off's decision.
+            - [x] **The solve and the hand-off had a seam.** A levelled sheet was asleep without a
+                  visit and the hand-off reads visits: 10,558 L handed in the relay's window with
+                  the settle off against 4,178 with it on. The solve lists what it levelled and
+                  left with no move as resting and runs before the hand-off; with that, `--spill`'s
+                  new third arm rests in 29 ticks against 314 and the relay's whole 50,000 L is the
+                  basin's inside the profile window, Tier B empty.
       - [ ] **The played world floods the moment it opens — found 2026-09-05 by a mis-invoked
             control.** `default` has 116 ML banked over a mine of 4,562 bitten chunks; with M8b-2c's
             seam its dug chunks file portals on arrival and the terrace ponds drain into the mine at
@@ -3932,7 +3954,8 @@ finding without the coarser-tolerance fallback.
             of that floor is a sheet of up to ~1.3 million cells, and diffusive levelling across it
             is *never*. One solve over it is ~0.3 s Release, a few seconds Debug, once. **3b is
             priced against this world, not the chamber fixture**, and a Release build matters to
-            this world before M9 does.
+            this world before M9 does. **Priced 2026-09-05 with 3b built: 1–3 µs a cell in Release,
+            so that floor is seconds a pass and the pass is one frame — see 3b's slice item.**
       - [ ] **The r6 control's command is quoted verbatim now.** `--nosave` on the engine's side of
             the bare `--` is dropped without a word, Main's warning covers only `name=value` flags,
             and the run opens the played world and reads as a flood. `--headless --quit-after 2400
@@ -3940,7 +3963,9 @@ finding without the coarser-tolerance fallback.
             the name of.
 - [ ] **M8b-4 — the store.** `fluid` table, save job on the serial lane, never cancelled; loaded
       cells are not woken. Oracle: flood, walk away, walk back, quit, reopen — the same millilitres
-      in the same cells. **Last and alone, because a defect here is permanent data loss.**
+      in the same cells. **Last and alone, because a defect here is permanent data loss.** The
+      unload-time settle exists: `FluidSimulation.LevelSheets(seeds)` over a departing chunk's
+      cells, at a tick boundary, is the method the plan named.
       - [ ] **A walk deletes the flood's awake water — read off the 2026-09-05 play log: 2,924,347 L
             displaced of 7,163,284 L drawn in one session, 41%.** An unloaded voxel is solid, so an
             awake cell in a chunk that leaves the box is displaced on its next visit into neighbours
