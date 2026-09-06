@@ -4500,15 +4500,21 @@ distances please unless its tied."*
             the 16 ms budget, 10 under the 4 ms default — and r2, r3 and r6 draw nothing at any
             budget**, the derive exceeding a whole thread. Halving the radius buys nothing; the
             27-chunk floor is a cliff edge.
-      - [ ] **Adaptive view radius — Matthew's proposal, 2026-09-06, recommended and not built.**
-            A pure policy in Core, applied by Main through `ChunkStreamer.UpdateViewer`: shrink one
-            ring a frame toward the floor while the derive backlog stands, grow one ring at a time
-            while the viewer's chunk has not changed for a few seconds and the backlog is empty.
-            Seams `--minradius=`, `--adaptive=0`; the `fill` line prints the radius trajectory;
-            priced on the corridor above. **Decisions handed back**: the floor (r1h/1v as Matthew
-            said — 16 m ahead is half a second at 30 m/s; r2h/1v does not draw at 30 m/s), and
-            whether the third-ring lever below goes first. Needs a derive-backlog count on the
-            pipeline, which nothing exposes today.
+      - [ ] **Adaptive view radius — Matthew's proposal, 2026-09-06; planned the same day, not
+            built. See [docs/ADAPTIVE-RADIUS-PLAN.md](docs/ADAPTIVE-RADIUS-PLAN.md).** A pure
+            policy in Core (`ViewRadiusPolicy`), applied by Main through `ChunkStreamer.UpdateViewer`,
+            which already takes a new radius: shrink one ring a frame while *moving* and the derive
+            backlog (`ChunkPipeline.LightBuildBacklog`, which exists) exceeds two slabs of the
+            current box; grow one ring at a time while *dwelling* and the backlog is empty.
+            Hysteresis is structural — the two rules are disjoint — and is an oracle. Seams
+            `--adaptive=1` (default off, `start.cmd` passes it), `--minradius=`, `--shrinkslabs=`,
+            `--growafter=`, and `--sprintfor=` for the hanging-around arm; the profile gains a
+            `radius` line and `grown` on the fill line; the HUD shows the radius. Twelve oracles
+            with their recipes and six measurement arms are in the plan. **Six decisions handed
+            back with recommendations**: floor 1h/1v; backlog over speed; off by default; spawn at
+            the floor so the fill is a growth (first draw ~1.5 s for roughly double the fill's
+            derives, one-step grow the fallback); this before the third-ring lever; the two
+            thresholds as estimates.
       - [ ] **A third, voxels-only margin ring — the largest lever the corridor found, and a
             planning pass before it is believed.** Every chunk derives ~1.8 times while moving
             (1.71 at r6/7 m/s, 1.95 at r1/30 m/s; exactly 1.0 standing): the leading slab derives

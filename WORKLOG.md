@@ -1,5 +1,32 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-06 — The adaptive view radius: planned, and the plan's shape comes from the cliff
+
+**Matthew: "lets plan the implementation please Claude?"** — and, unprompted, *"It's always circular
+trees … and golden ratio spirals :-{D But don't necessarily apply this logic."* Not applied, and
+half of it is already true: both queues are nearest-first, which on a chunk grid is a discrete
+spiral, and growing a ring at a time is concentric shells. The plan is
+[docs/ADAPTIVE-RADIUS-PLAN.md](docs/ADAPTIVE-RADIUS-PLAN.md). Four things the pass settled that
+the corridor entry below did not:
+
+- **The corridor's result dictates the policy's shape.** Because r2h/1v is as dark as r6 at
+  30 m/s, "scale the radius with load" has no slope to ride; the policy is *fall to the floor
+  while moving with a derive backlog, climb back while dwelling with none*. Two disjoint rules,
+  so hysteresis is structural: a grow's own backlog cannot trigger a shrink (needs a move), and a
+  shrink cannot trigger a grow (needs a dwell). That is a fuzzed oracle, not a tuning.
+- **The signal exists already**: `ChunkPipeline.LightBuildBacklog`, in slabs of the current box so
+  the threshold scales itself, chosen over speed (build-dependent, and this machine swings 2.5×)
+  and over light-step saturation (fires throughout a fill at rest). And `ChunkStreamer.UpdateViewer`
+  already takes a radius, so the whole of the wiring is one call beside `MoveViewer`.
+- **Spawn at the floor makes the fill a growth, and the cost is the double derive at every ring
+  boundary**: the shells from `1h/1v` to `6h/2v` sum to ~2,640 chunks, roughly doubling the fill's
+  derive count for a first draw at ~1.5 s instead of 7.3 — because nothing meshes until the
+  propagator's global drain, so at r6 the near neighbourhood is lit at 1.1 s and drawn at 7.3.
+  Recommended with the one-step grow as fallback; the third-ring lever would erase the cost.
+- **The hanging-around arm does not exist.** `--turnaround` reverses and `--speed=0` never moves,
+  so `--sprintfor=<s>` — move, then stop — is the slice's first line, because the grow-back is the
+  half of the feature a profile cannot see today.
+
 ## 2026-09-06 — The sprint corridor: 30 chunks at 7 and 30 m/s, and the 27-chunk floor is a cliff edge, not a slope
 
 **Matthew: "run a 'running' test where the player sprints forward down a narrow corridor for 30
