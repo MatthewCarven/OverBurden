@@ -67,6 +67,17 @@ standing start (4 ms budget)       325 drawn, first draw 6.65 s  325 drawn, firs
   ring reaches one chunk further back than the box that just forgot it. Nothing was designed for
   that; it is slice 2 doing its job.
 
+**Played 2026-09-07 — Matthew: *"fly holding ctrl is the only way I can beat the loader/generator
+now, and honestly I am happy with that."*** Two sessions on the played world, read off their logs:
+r3 by the first 5 s report, r4 at 20 s, r5 at 30 s, r6 from 35 s; `grown 30.56 s` in the session
+that flooded on open and `grown 14.67 s` in the one that restored its water paused, against the
+14.45 s standing start above. The deepest shrink the 5 s report sampled was r5, with 271 and 628
+chunks in flight, and the box was back at r6 within two reports; at a 2 s cadence a floor visit
+under ten seconds of Ctrl is between samples by construction. **The 30 m/s sprint outrunning the
+world is accepted, not a defect** — the floor is the cliff edge, chosen. Whether a grow-back reads
+as filling in or as popping went unremarked, which is silence and leaves the first revisit
+trigger live.
+
 The plan below is kept as written. Its design section §1 describes the dwell rule this build
 replaced.
 

@@ -1274,6 +1274,18 @@ in Release by the bench's read figures, so the played lake's 1,254 panels are on
 and Matthew's play is where it gets a number; the lever if it hitches is a dense copy (one 64 KiB
 `memcpy`) with the sparse extraction on the lane. The settle's unload method is still not called.
 
+**Played 2026-09-07, on the played world, read off the logs.** The first open at schema 2 read
+`loaded 0 L`; the mine flooded; the quit wrote 3,435 panels (12.3 MiB) with `at quit — 2,216,035 L
+in 220,333 cell(s), 212,621 awake or paused`; the next open `restored 2,216,035 L in 167 panel(s)
+(119 empty row(s)), 212,621 cell(s)` in 114.6 ms, identity exact from its first line, the arrivals
+resuming 348,611. Exact to the litre and the cell, and the 3,435-written / 286-read gap is the
+drained-panel rule doing its job. **The copy is priced and the estimate above was low by a
+build**: in Debug the autosave line read 72–100 ms for 105–197 panels (0.5 ms a panel) and
+399 ms on the first autosave after the restore, with every restored cell awake. The `memcpy`
+lever stands and is not built; Matthew did not report the hitch. The larger stall the same log
+showed is not the store's: the Tier B surface mesh at 144,559 quads took 119.7 ms on the main
+thread four times a second while the flood ran — recorded in TODO under M8b.
+
 ---
 
 

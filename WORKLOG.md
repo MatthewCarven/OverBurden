@@ -1,5 +1,49 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-07 — The adaptive radius and the store, played: "fly holding ctrl is the only way I can beat the loader/generator now, and honestly I am happy with that"
+
+**Matthew's verdict on the adaptive view radius, and it closes the play check.** Both unplayed
+slices from the morning were played in two sessions on the played world (the 15-minute one at
+03:11 and a two-minute one after it), and the verdicts are read off their logs rather than
+re-run. Four things worth keeping:
+
+- **The box does what the plan said, at the reporting cadence that can see it.** Opened into the
+  played world's void it stood at r3 by the first 5 s report, r4 at 20 s, r5 at 30 s and r6 from
+  35 s — `grown 30.56 s` in the session that flooded on open (789 water ticks over a frame, the
+  longest 293), `grown 14.67 s` in the one that restored its water paused, against the plan's
+  14.45 s standing start. **The deepest shrink either report sampled was r5**, with 271 and 628
+  chunks in flight, and the box was back at r6 within two reports — the periodic line is every
+  5 s and the cadence is 2 s, so a floor visit under ten seconds of sustained Ctrl is between
+  samples by construction. The verdict is the person's: **only the 30 m/s sprint outruns the
+  world now, and that is accepted** — DESIGN's cliff edge, chosen rather than fallen off.
+  Whether the fill-in reads as popping went unremarked, which is silence rather than evidence
+  and stays the plan's first revisit trigger.
+- **Water survived a quit on the played world, to the litre and the cell.** The first open at
+  schema 2 read `loaded 0 L` as predicted, the mine flooded, and the quit wrote 3,435 fluid
+  panels (12.3 MiB) with `at quit — 2,216,035 L in 220,333 cell(s), 212,621 awake or paused`;
+  the next open printed `restored 2,216,035 L in 167 panel(s) (119 empty row(s)), 212,621
+  cell(s) … in 114.6 ms`, identity exact from its first line, and the arrivals resumed 348,611.
+  3,435 rows written and 167 read back is the drained-panel rule at work: a panel the flood
+  passed through writes itself empty, and 119 of the 286 rows read were those. That session
+  quit at 2,994,149 L in 310,829 cells, 763 panels.
+- **The sim-thread copy is priced now, and it hitches.** The autosave line brackets the header,
+  the basins and `SaveAll`'s copy — the write itself is on the lane — and in Debug it read
+  **72–100 ms for 105–197 panels** across 31 autosaves (0.5 ms a panel), and **399 ms on the
+  first autosave after the restore**, 167 panels with every one of their 212,621 cells awake.
+  Six to twenty-four frames, twice a minute. The plan's estimate was 50–75 ms Release at a quit
+  on 1,254 panels; the play's number is Debug and on fewer panels, so the estimate was low by a
+  build and the lever stands: copy the 64 KiB panel whole on the sim thread and extract on the
+  lane. Not built; Matthew did not report the hitch.
+- **The bigger stall is one nobody priced: the Tier B surface mesh.** `FluidSurface` rebuilds
+  on the main thread every 0.25 s while the water has moved, and the flood on open rebuilt
+  **144,559 quads in 119.7 ms** — seven frames, four times a second, for as long as the flood
+  ran; 38,990 quads at 37.9 ms in the longer session. M7d-2's 0.67 ms was Tier A's 739 quads;
+  this is Tier B's, and it scales with the wet surface. Recorded in TODO under M8b as the play's
+  first stall with a number; the settle's 231.7 ms longest pass is the known atomic cost beside
+  it (M8b-3b said "seconds in one frame once its flood stops", and it is a quarter of one).
+
+Nothing built. M8b-4c is next as planned.
+
 ## 2026-09-07 — The water thread, planned: near water at 2 Hz, far water as available, the tick off the sim thread
 
 **Matthew: "are we running the water sim on the main thread like if I were willing to put up

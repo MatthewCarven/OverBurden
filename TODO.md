@@ -4068,16 +4068,26 @@ finding without the coarser-tolerance fallback.
             panel writes itself empty. Wire: 7,144 L / 1,894 awake at the quit, 7,144 L / 1,894
             paused at the reopen, identity exact; r6 control unchanged. 26 recipes, 25 caught, 1
             identity. Suite 1,073 → 1,134.**
-            - [ ] **Play check**: open the played world. It is schema 2 and gains the table on
-                  open; the first `M8b:` line reads `loaded 0 L` because nothing was stored before
-                  this build, and the first quit's `M8b: at quit` line should match the next
-                  open's `M8b: restored` line to the litre and the cell. Then read the autosave
-                  line — it names fluid panels now — for a hitch while the mine's lake is moving:
-                  the sim-thread copy is unpriced on 1,254 panels (estimate 50–75 ms at a quit,
-                  Release), and the lever is a dense `memcpy` snapshot.
+            - [x] **Play check ✅ 2026-09-07, read off the logs**: the played world opened at
+                  schema 2 with `loaded 0 L`, flooded, and quit at `2,216,035 L in 220,333
+                  cell(s), 212,621 awake or paused` (3,435 panels, 12.3 MiB written); the next
+                  open `restored 2,216,035 L in 167 panel(s) (119 empty row(s)), 212,621 cell(s)`
+                  in 114.6 ms, identity exact from its first line. **The autosave copy is priced
+                  and it hitches, in Debug**: 72–100 ms for 105–197 panels across 31 autosaves,
+                  and 399 ms on the first autosave after the restore with all 212,621 cells
+                  awake — six to twenty-four frames twice a minute. Not reported by Matthew.
             - [ ] **Lever, not built**: the snapshot copies the held cells as pairs on the sim
-                  thread, one panel scan each; if the autosave hitches on the played lake, copy
-                  the 64 KiB panel whole and extract on the lane.
+                  thread, one panel scan each — 0.5 ms a panel in Debug, measured above. Copy the
+                  64 KiB panel whole and extract on the lane. Build when the hitch is reported.
+            - [ ] **The Tier B surface mesh is the play's largest stall, and nobody priced it.**
+                  `FluidSurface` rebuilds on the main thread every 0.25 s while the water has
+                  moved: **144,559 quads in 119.7 ms** on the flood after the restore, seven
+                  frames four times a second for as long as the flood ran; 38,990 quads at
+                  37.9 ms in the 15-minute session. M7d-2's 0.67 ms was Tier A's 739 quads, and
+                  this scales with the wet surface. Levers, none built: rebuild only the panels
+                  whose water moved (per-chunk surface meshes, the terrain's own shape), or build
+                  the arrays on a worker and apply under the mesh-apply budget. Wants its own
+                  measurement arm before either — the bare number is from a play log.
       - [ ] **The water thread — planned 2026-09-07 with Matthew, placed after 4c and before M8c;
             see [docs/WATER-THREAD-PLAN.md](docs/WATER-THREAD-PLAN.md).** Three slices, each
             useful alone: (1) the order — near cells (5×5 chunks, full height) visited every tick,
@@ -4554,11 +4564,14 @@ distances please unless its tied."*
             against 0; 7 m/s ends identical to fixed with first draw 0.81 s against 6.47; a
             standing start draws at 1.00 s against 6.65 and is grown at 14.5 s for +69% derives;
             sprint-and-stop is grown nine seconds after the stop.**
-            - [ ] **Play check**: `start.cmd`, fly, hold Ctrl, read `view rNh/Nv` on the status
-                  line fall to r1 and the world stay drawn; stop, read it climb a ring every few
-                  seconds and the rings fill in. Then walk and sprint on foot: it should never
-                  leave r6. Whether the fill-in reads as filling in or as popping is the plan's
-                  first revisit trigger.
+            - [x] **Play check ✅ 2026-09-07 — Matthew: *"fly holding ctrl is the only way I can
+                  beat the loader/generator now, and honestly I am happy with that."*** The logs:
+                  r3 by the first 5 s report, r6 from 35 s, `grown 30.56 s` with the flood on open
+                  and `grown 14.67 s` with the water restored paused; the deepest sampled shrink
+                  was r5 (271 and 628 chunks in flight), back at r6 within two 5 s reports — a
+                  floor visit under ten seconds of Ctrl falls between samples. The 30 m/s sprint
+                  outrunning the world is accepted rather than fixed. Whether the fill-in reads as
+                  popping went unremarked — silence, and still the plan's first revisit trigger.
             - [ ] **The ring sweep is 22–29 ms in one frame** (576 records at r5 → r6, columns
                   seeded), five per fill. Lever: stage a grow one face per frame, or seed columns
                   on a worker — the cache slice 1 finding that the sweep is mostly `SkyColumn.Seed`.

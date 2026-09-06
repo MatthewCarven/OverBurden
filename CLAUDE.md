@@ -441,10 +441,25 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-07). M8b-4b is built — water survives a quit — and unplayed, as is the
+**Pick up here (2026-09-07, evening). Both play checks are done and M8b-4c — the panel leaves
+RAM with its chunk — is next to build; the water thread (WATER-THREAD-PLAN.md) follows 4c, its
+first slice — the near/far order — needing no thread at all.** The adaptive radius is played and
+accepted — Matthew: *"fly holding ctrl is the only way I can beat the loader/generator now, and
+honestly I am happy with that"* — so the 30 m/s sprint outrunning the world is a chosen cliff
+edge, not a defect; the logs show r6 from 35 s after an open, `grown` at 14.7–30.6 s, and the
+deepest sampled shrink r5. The store is played on the played world: `at quit — 2,216,035 L in
+220,333 cell(s)` and `restored 2,216,035 L … 212,621 cell(s)` at the next open, exact. **Two
+stalls came out of the logs with numbers, neither reported by the player and neither built
+against**: the autosave's sim-thread panel copy is 72–100 ms in Debug and 399 ms on the first
+autosave after a restore (the `memcpy` lever, TODO under M8b-4b); and the Tier B surface mesh
+rebuilds 144,559 quads in 119.7 ms on the main thread four times a second while a flood runs
+(TODO under M8b-4b, wants its own measurement arm). The paragraph below is the morning's
+state, kept for the reasoning.
+
+**Where the morning of 2026-09-07 left off.** M8b-4b is built — water survives a quit — and unplayed, as is the
 adaptive view radius; the play checks are the first thing to do, M8b-4c (the panel leaves RAM
 with its chunk) is next to build, and the water thread (WATER-THREAD-PLAN.md) is planned to follow
-4c, its first slice — the near/far order — needing no thread at all.** Read M8-PLAN's "M8b-4b — built" before 4c. `FluidPanelBlob` on
+4c, its first slice — the near/far order — needing no thread at all. Read M8-PLAN's "M8b-4b — built" before 4c. `FluidPanelBlob` on
 the column's frame, a `fluid` table at schema 3 (a schema-2 world opens and gains it), panels
 riding the chunk batch as a third list on `IWorldStore.Write`, snapshotted at unview / autosave /
 quit and read whole at open into paused panels the arrivals wake; `loaded` is on the `M8b:` line
