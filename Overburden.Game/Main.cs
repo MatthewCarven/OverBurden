@@ -700,8 +700,13 @@ public partial class Main : Node3D
             chunkCacheBytes: _chunkCacheMiB * 1024 * 1024,
             distanceOrderedDerives: !_deriveFifo,
             // The three arrival paths — generate, load, cache revival — through one callback, and
-            // the forget, so the index never walks a chunk that is not here.
-            onVoxelsReady: (position, hasEdits) => _portalTracker?.OnVoxelsReady(position, hasEdits),
+            // the forget, so the index never walks a chunk that is not here. M8b-4a: the automaton
+            // takes the same hook, to wake what the chunk's absence paused and the faces beside it.
+            onVoxelsReady: (position, hasEdits) =>
+            {
+                _portalTracker?.OnVoxelsReady(position, hasEdits);
+                _fluid?.ChunkArrived(position);
+            },
             onChunkForgotten: position => _portalTracker?.OnChunkForgotten(position));
 
         SetUpFluid(windowed);
@@ -3384,7 +3389,9 @@ public partial class Main : Node3D
                + $"handed {f.HandedMillilitres / litre:N0} L to Tier A — "
                + $"held == injected + drawn − removed − displaced − handed: {FluidIdentity()}, "
                + $"received == handed: {HandoffIdentity()}; "
-               + $"{_relayPendingMillilitres / litre:N0} L still to pour | "
+               + $"{_relayPendingMillilitres / litre:N0} L still to pour; "
+               + $"paused {f.PausedCellCount:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
+               + $"{f.ResumedCells:N0} resumed, {f.FaceWakes:N0} face wake(s) | "
                + $"{f.Ticks:N0} tick(s) at {1.0 / FluidTickSeconds:F0} Hz, {f.ActiveCellCount:N0} active, "
                + $"peak {f.PeakActiveCells:N0}, {f.CellVisits:N0} visits; budget "
                + $"{_fluidBudget.TotalMilliseconds:F1} ms a frame, worst frame {_fluidWorstMillis:F2} ms, "
@@ -3456,7 +3463,9 @@ public partial class Main : Node3D
                + $"removed {f.RemovedMillilitres / litre:N0} L, displaced {f.DisplacedMillilitres / litre:N0} L, "
                + $"handed {handed / litre:N0} L — "
                + $"held == injected + drawn − removed − displaced − handed: {FluidIdentity()}; "
-               + $"{_relayPendingMillilitres / litre:N0} L still to pour\n"
+               + $"{_relayPendingMillilitres / litre:N0} L still to pour; "
+               + $"paused {f.PausedCellCount:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
+               + $"{f.ResumedCells:N0} resumed, {f.FaceWakes:N0} face wake(s)\n"
                + breach
                + handoff
                + settle

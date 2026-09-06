@@ -407,7 +407,46 @@ local folder, the remote URL, and the assistant's memory directory (see TODO's n
 **The played worlds now live under `app_userdata/Overburden/`; the `MinerCraft/` folder beside it
 is the pre-rename backup and is Matthew's to delete.**
 
-**Pick up here (2026-09-05, evening). M8b-3 is built — the hand-off, the settle, and the settle's
+**Pick up here (2026-09-06). M8b-4a is built — the pause and the arrival — and M8b-4b, the store,
+is next and goes alone, because a defect there is permanent data loss.** Read M8-PLAN's "M8b-4 —
+the planning pass" and its "M8b-4a — built" section before 4b. A walk no longer deletes awake
+water: a visited cell whose chunk is not loaded sleeps in place and is remembered per chunk
+(`IFluidTerrain.IsLoaded`, asked only where `CanHold` has already said no), and the chunk's arrival
+— the pipeline's one `onVoxelsReady` hook, all three paths, beside the portal tracker — wakes it
+through `FluidSimulation.ChunkArrived` with the held cells on either side of the chunk's six faces.
+**Measured in the same headless run with the pause taken out: `displaced` 188,866 L → 0 L of a
+200,000 L pour, handed to Tier A 11,134 L → 195,981 L** (r4h/2v, 12 m/s, turning every 10 s).
+The `M8b:` line prints `paused N cell(s) in M chunk(s), R resumed, F face wake(s)` beside
+`displaced`; in play `displaced` at zero across a walk is the oracle, and `paused` should read zero
+whenever every chunk is home. **A quit still loses paused water, and that is 4b.** The wire check,
+verbatim — the flags go after the bare `--`:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
+```
+
+**M8b-4a is built (2026-09-06). Suite 1,040 → 1,053.** Five things worth keeping:
+
+- **Nineteen litres in twenty, with the identity exact in both arms.** The pre-4a arm balances
+  perfectly while destroying the water, which is the whole argument for `displaced` being a
+  reported term rather than a tolerance. The last periodic line with the pause on reads `0 active,
+  paused 1,629 cell(s) in 6 chunk(s)` — the automaton asleep with water waiting in chunks the
+  player left, the state 4b stores.
+- **Coordinate zero is a chunk face layer.** Three of the first run's failures were a corridor at
+  y = 0, z = 0, which the face wake reached in every cell; the fixtures sit at y = 8, z = 5 now.
+  And one `Step` drops a poured cell two voxels, not one, because a cell woken beside the source
+  is visited later in the same tick.
+- **Both halves of the face wake are load-bearing** and each has a test that fails without it:
+  the neighbour's for water that rested against the absent chunk as a wall; the chunk's own for
+  the sheet solve, which writes a levelled cell beside a non-holdable neighbour without waking
+  across, because such a neighbour is not a front. 406 face wakes over 3,761 arrivals.
+- **Paused is not rested** — the hand-off reads `Rested`, and a paused cell there would be handed
+  to a basin under ground the world cannot answer for.
+- **Fourteen recipes, thirteen caught; the miss is an identity.** `IsLoaded` before `CanHold`
+  changes nothing because *not loaded implies cannot hold* everywhere; the order is a cost claim.
+  `IsLoaded` defaults to `true` on the interface, so the eleven predicate terrains are untouched.
+
+**Where 2026-09-05 left off. M8b-3 is built — the hand-off, the settle, and the settle's
 share slice, which is the lever the settle's first play fired.** That play made the played world's
 mine one 162,572-cell lake, the active set fell from 160,000 cells to 1,600, and then the lake was
 re-levelled at every boundary for its creeping edge: ~130,000 cells written a pass, up to 275 ms in
@@ -418,8 +457,8 @@ estimate, 0 the control; on the play's shape (`--lake`) a pass is 20 ms → 0.08
 visits 144,194 → 2,911, and the flood is not paid to decide, because the wake rule lets it stop at
 *n* times the disturbance. Read M8-PLAN's "M8b-3b — the share slice" before touching
 `FluidSimulation.Sheets.cs` — the union-find flood, the freeze, the thaw and the step detector are
-each one recipe from wrong, and the plan says which. **M8b-4 is planned (2026-09-06) and not
-started — read M8-PLAN's "M8b-4 — the planning pass" before it.** Three of the part's assumptions
+each one recipe from wrong, and the plan says which. **M8b-4 was planned the morning of
+2026-09-06 and 4a built the same day — read M8-PLAN's "M8b-4 — the planning pass" before 4b.** Three of the part's assumptions
 were not so: a walk deletes *awake* water only (the grid's panel stays in RAM; the awake cell is
 displaced into "solid" unloaded neighbours), so the walk's fix is a **pause** at unload and a wake
 at arrival, not a settle; the store is a mirror of RAM before it replaces it, read whole at open

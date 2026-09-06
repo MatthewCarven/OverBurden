@@ -1104,6 +1104,77 @@ water as it draws sleeping water, which is right.
 its own call (recommended, M6a's argument); and the blob's sparse form against the raw panel, which
 the bench decides.
 
+### M8b-4a — built, 2026-09-06
+
+**Built as the pass wrote it, and nothing in the design moved.** `IFluidTerrain.IsLoaded` is a
+second question with a default of `true` — a terrain with no notion of loading is fully loaded,
+which is what the eleven predicate terrains in the tests and benches always meant, so none of them
+changed; `VoxelFluidTerrain` answers it with the streamer's own `TryGetMaterial` boolean, so a
+chunk still generating is "not loaded" as it is "cannot hold". `Visit` asks it only on the branch
+where `CanHold` has already said no, and a cell the world cannot answer for is put in a per-chunk
+set and neither moved nor listed as rested. `FluidSimulation.ChunkArrived(ChunkPos)` is the other
+half, wired beside the portal tracker on the pipeline's `onVoxelsReady`: the chunk's paused set is
+dropped and its cells woken; then, for each of the six faces, every held cell in the chunk's own
+face layer and every held cell in the *loaded* neighbour's facing layer, through a new
+`FluidGrid.HeldCellsOnFace` that reads one 32 × 32 layer with a fixed local coordinate rather than
+scanning the panel. `VerifyQuiescent` skips a held cell that cannot hold *and* is not loaded, and
+still fails on one that cannot hold and is. The `M8b:` line and the profile's `fluid` line carry
+`paused N cell(s) in M chunk(s), R resumed, F face wake(s)` beside `displaced`.
+
+**Measured in the same headless instrument with the pause taken out** — r4h/2v, 12 m/s, turning
+every 10 s for three turns, a 200,000 L relay pour under the player, Debug — which is the play's
+walk with the play's number:
+
+```
+                                 pause off (pre-4a)     pause on
+displaced                            188,866 L               0 L
+handed to Tier A                      11,134 L         195,981 L
+resumed at an arrival                        0            20,159 cells
+face wakes                                 406               406
+identities                               exact             exact
+```
+
+Nineteen litres in twenty deleted by the walk, with both identities exact in both arms — the
+argument for `displaced` being a reported term. With the pause, the last periodic line reads
+`0 active, paused 1,629 cell(s) in 6 chunk(s)`: 4,922 L asleep in chunks the player left, the
+state 4b will store. Suite 1,040 → 1,053; the r6 control unchanged to the digit with every new
+term zero.
+
+**The battery: fourteen recipes, thirteen caught.** The five the pass filed — pause without
+remembering, wake the paused and not the chunk's own faces, wake this side's faces and not the
+neighbour's, treat unloaded as air, `VerifyQuiescent` still reading unloaded cells — each fail one
+named test; the others caught were the pause gone (displace as before), a paused cell listed as
+rested, a paused cell re-queued for ever, the arrival forgetting to drop the chunk's set, the face
+layer read from the wrong side, the face's axis mislabelled, an unloaded neighbour's cells woken
+anyway, and the adapter calling everything loaded. **The miss is an identity**: asking `IsLoaded`
+before `CanHold` changes no answer, because *not loaded implies cannot hold* for every terrain, and
+"the hot path pays nothing" is a cost claim the suite cannot see. Three things the build found
+that the pass did not say:
+
+- **Coordinate zero is a chunk face layer.** The first fixtures put a corridor at y = 0, z = 0 —
+  the chunk's −Y and −Z faces — so the face wake reached every cell in it: nine wakes where the
+  boundary has two, and the mid-air cell "only the paused list can reach" reachable by the faces.
+  Three of the first run's failures were this and none was the code. The fixtures sit at y = 8,
+  z = 5. A cell woken beside the source is also visited later in the same tick, so one `Step`
+  drops a poured cell two voxels; the test reads where the water is.
+- **The chunk's own face wake has one real case, and it is the sheet solve.** Every other change
+  a loaded neighbour can make — a pour, a draw, a dig, a flow — wakes across the boundary already,
+  and the woken cell is paused and remembered. `LevelSheets` writes a levelled cell beside a
+  neighbour that cannot hold without waking across it, because such a neighbour is not a front,
+  so the cell across gains a move with nobody to say so. The test removes a litre from the far
+  end of a sheet, levels it with the east chunk away, asserts the paused list is empty and the
+  east edge has a move, and then that the arrival finds it.
+- **Paused is not rested.** `Rested` is the hand-off's input; a paused cell listed there would be
+  handed to the basin under ground the world cannot answer for. One assertion, one recipe.
+
+**Not built, stated**: nothing persists — a quit still loses paused water (4b); the panels stay in
+RAM (4c); the settle's unload method is not called. The lifecycle fuzz — eighty rounds of pours,
+digs, ticks and sheet solves over real terrain across four chunk columns, chunks taken away and
+brought back at random against a twin that never loses one — asserts that not a millilitre in an
+absent chunk moves, that nothing is displaced in either arm, and that with everything back both
+rest and the rest is real. It is the fixture 4b's twin of `WalkingAwayAndBackLosesNoWater` extends
+across a quit.
+
 ---
 
 ## M8c — Tier C: groundwater and seepage

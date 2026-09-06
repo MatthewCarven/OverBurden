@@ -86,6 +86,18 @@ public readonly record struct FluidSettleResult(
 /// allowed mid-tick is asking whether the automaton was right to stop: <see cref="VerifyQuiescent"/>
 /// refuses, because the question is about a stopped automaton.
 /// </para>
+/// <para>
+/// <b>And a cell whose chunk is not loaded is paused, not displaced (M8b-4a).</b> The terrain
+/// answers "cannot hold" for an unloaded voxel, which is right for flow — water must not enter a
+/// chunk that does not exist — and was, until this slice, also what a visited cell got when its
+/// own chunk left the box: squeezed into neighbours that were unloaded too, and drained as
+/// displaced. A visit now asks <see cref="IFluidTerrain.IsLoaded"/> second, on that branch only,
+/// and a cell the world cannot answer for sleeps in place and is remembered; its chunk arriving
+/// wakes it through <see cref="ChunkArrived"/>, with the held cells on either side of the chunk's
+/// faces. No water moves while a chunk is away, so <i>the same millilitres in the same cells</i>
+/// holds by construction across a walk, and <c>displaced</c> on the <c>M8b:</c> line is the
+/// play's oracle: it stays at zero while nothing turns to rock.
+/// </para>
 /// </remarks>
 public sealed partial class FluidSimulation
 {
@@ -137,6 +149,12 @@ public sealed partial class FluidSimulation
 
     // Cells the tick in progress visited and found nothing to do for. See Rested.
     private readonly List<VoxelPos> _rested = [];
+
+    // Cells visited while their chunk was not loaded, asleep in place until it arrives. Keyed by
+    // chunk because an arrival is what wakes them, and a set per chunk because a loaded neighbour
+    // moving water beside the boundary wakes the same paused cell again every tick it does.
+    private readonly Dictionary<ChunkPos, HashSet<VoxelPos>> _paused = [];
+    private int _pausedCells;
 
     // The tick in progress: how far through its batch the cursor is, and what it has done so far.
     // A batch with anything in it is a tick in progress; completing one empties it.
@@ -243,6 +261,33 @@ public sealed partial class FluidSimulation
     /// is a disturbance too.
     /// </remarks>
     public long DisturbedCells { get; private set; }
+
+    /// <summary>
+    /// Cells asleep in place because their chunk is not loaded, remembered so that its arrival
+    /// can wake them. The number the <c>M8b:</c> line prints beside <c>displaced</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Paused is not resting and not displaced.</b> A paused cell holds water the world cannot
+    /// answer for — its chunk left the box, or has not generated yet — and the automaton neither
+    /// moves it nor lists it as rested, because a cell the hand-off cannot see the ground under
+    /// is not a cell the hand-off may take. Before M8b-4a such a cell was displaced into
+    /// neighbours that were unloaded too, and drained: 2.9 ML of 7.2 ML drawn in one played
+    /// session, every jump of it on a window move. A figure here that never comes down in a run
+    /// where chunks are arriving is a chunk whose arrival nobody announced.
+    /// </remarks>
+    public int PausedCellCount => _pausedCells;
+
+    /// <summary>Chunks with at least one paused cell.</summary>
+    public int PausedChunkCount => _paused.Count;
+
+    /// <summary>Paused cells woken by their chunk arriving, over the lifetime.</summary>
+    public long ResumedCells { get; private set; }
+
+    /// <summary>
+    /// Held cells woken at an arrival for standing on one of its faces, on either side, over the
+    /// lifetime. The cost of the boundary rule, printed so the pause and the faces can be told apart.
+    /// </summary>
+    public long FaceWakes { get; private set; }
 
     /// <summary>Ticks run.</summary>
     public long Ticks { get; private set; }
@@ -424,16 +469,18 @@ public sealed partial class FluidSimulation
         for (; _cursor < end; _cursor++)
         {
             VoxelPos cell = _batch[_cursor];
-            long here = Visit(cell);
+            long here = Visit(cell, out bool paused);
             if (here > 0)
             {
                 _tickCellsMoved++;
                 _tickMillilitresMoved += here;
             }
-            else if (_grid.AmountAt(cell) > 0)
+            else if (!paused && _grid.AmountAt(cell) > 0)
             {
                 // Held water with no move: at rest, by the automaton's own test. An empty cell
-                // visited is not resting water, and a cell Displace emptied is not either.
+                // visited is not resting water, a cell Displace emptied is not either, and a
+                // paused cell is not — the hand-off reads this list, and water whose ground the
+                // world cannot answer for is not the basin's.
                 _rested.Add(cell);
             }
         }
@@ -561,6 +608,14 @@ public sealed partial class FluidSimulation
         {
             if (!_terrain.CanHold(cell))
             {
+                if (!_terrain.IsLoaded(cell))
+                {
+                    // Paused, or asleep in a chunk that left: the world cannot answer for it, so
+                    // neither can this check. Whether it has a move is its chunk's arrival's
+                    // question, and reading it here would fail every walk for the wrong reason.
+                    continue;
+                }
+
                 return false;
             }
 
@@ -595,9 +650,13 @@ public sealed partial class FluidSimulation
         return true;
     }
 
-    /// <summary>Moves what this cell can move, and returns how much that was.</summary>
-    private long Visit(VoxelPos cell)
+    /// <summary>
+    /// Moves what this cell can move, and returns how much that was. <paramref name="paused"/>
+    /// is true when the cell was neither moved nor rested but put to sleep in an unloaded chunk.
+    /// </summary>
+    private long Visit(VoxelPos cell, out bool paused)
     {
+        paused = false;
         int amount = _grid.AmountAt(cell);
         if (amount == 0)
         {
@@ -607,6 +666,15 @@ public sealed partial class FluidSimulation
 
         if (!_terrain.CanHold(cell))
         {
+            if (!_terrain.IsLoaded(cell))
+            {
+                // Unknown rather than rock: the chunk left the box or has not generated yet.
+                // Asked second, so the hot path — a held cell in a loaded chunk — never asks it.
+                Pause(cell);
+                paused = true;
+                return 0;
+            }
+
             return Displace(cell, amount);
         }
 
@@ -756,6 +824,94 @@ public sealed partial class FluidSimulation
         Wake(to);
         WakeNeighboursOf(from);
     }
+
+    private void Pause(VoxelPos cell)
+    {
+        if (!_paused.TryGetValue(cell.Chunk, out HashSet<VoxelPos>? cells))
+        {
+            cells = [];
+            _paused[cell.Chunk] = cells;
+        }
+
+        if (cells.Add(cell))
+        {
+            _pausedCells++;
+        }
+    }
+
+    /// <summary>
+    /// A chunk's voxels are here — generated, loaded, or back from the cache. Wakes what its
+    /// absence paused, and everything on either side of its six faces that holds water.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The other half of the pause, and the pipeline's <c>onVoxelsReady</c> is the one caller</b>
+    /// — the same hook the portal tracker takes all three arrival paths from, so a chunk that
+    /// re-enters from the cache announces itself here as a generated one does. A paused cell is
+    /// woken as any cell is: into the next tick's set, where its visit finds the chunk loaded and
+    /// moves what it can, or displaces it if an edit before the chunk left turned its voxel to
+    /// rock and the tick never reached it — which is what would have happened had the chunk stayed.
+    /// </para>
+    /// <para>
+    /// <b>The faces are woken too, held cells only, on both sides, because a boundary change while
+    /// the chunk was away is the one thing a pause cannot have seen.</b> On the neighbour's side
+    /// the case is plain: a cell that rested against the missing chunk found it solid, and nothing
+    /// tells it the wall has become an opening — without this wake it stays asleep beside an empty
+    /// holdable cell, which <see cref="VerifyQuiescent"/> calls a defect. On the arriving chunk's
+    /// own side the case is the sheet solve: <see cref="LevelSheets()"/> writes a levelled cell
+    /// beside an unloaded neighbour without waking anything across the boundary, since a neighbour
+    /// that cannot hold is not a front, so the cell across it can gain a move with nobody to tell
+    /// it. Every other change a neighbour can make — a pour, a draw, a dig, a flow — wakes across
+    /// the boundary already and the woken cell is paused and remembered; the face wake is the
+    /// belt to that brace, and each half has a test that fails without it. Bounded by six layers of
+    /// 1,024 cells, held cells only, through <see cref="FluidGrid.HeldCellsOnFace"/>, so a chunk
+    /// arriving in dry rock costs six dictionary lookups; a neighbour that is itself not loaded is
+    /// left alone, because waking its cells would only pause them again.
+    /// </para>
+    /// </remarks>
+    public void ChunkArrived(ChunkPos chunk)
+    {
+        if (_paused.Remove(chunk, out HashSet<VoxelPos>? cells))
+        {
+            foreach (VoxelPos cell in cells)
+            {
+                Wake(cell);
+            }
+
+            _pausedCells -= cells.Count;
+            ResumedCells += cells.Count;
+        }
+
+        if (_grid.HeldCellCount == 0)
+        {
+            return;
+        }
+
+        foreach ((int dx, int dy, int dz) in Faces)
+        {
+            foreach (VoxelPos cell in _grid.HeldCellsOnFace(chunk, (dx, dy, dz)))
+            {
+                if (Wake(cell))
+                {
+                    FaceWakes++;
+                }
+            }
+
+            ChunkPos neighbour = chunk.Offset(dx, dy, dz);
+            foreach (VoxelPos cell in _grid.HeldCellsOnFace(neighbour, (-dx, -dy, -dz)))
+            {
+                if (_terrain.IsLoaded(cell) && Wake(cell))
+                {
+                    FaceWakes++;
+                }
+            }
+        }
+    }
+
+    private static readonly (int X, int Y, int Z)[] Faces =
+    [
+        (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1),
+    ];
 
     private void WakeNeighboursOf(VoxelPos cell)
     {

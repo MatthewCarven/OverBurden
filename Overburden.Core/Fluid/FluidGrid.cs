@@ -220,6 +220,54 @@ public sealed class FluidGrid
         }
     }
 
+    /// <summary>
+    /// Every voxel holding anything in one face layer of a chunk: the 32 × 32 cells whose local
+    /// coordinate on the axis of <paramref name="face"/> is 0 on the negative side and 31 on the
+    /// positive. Exactly one component of <paramref name="face"/> is non-zero.
+    /// </summary>
+    /// <remarks>
+    /// <b>For the arrival wake (M8b-4a), and bounded by a face rather than a chunk for the reason
+    /// <c>Disturb</c> wakes only cells that hold water.</b> A chunk arriving beside a lake has
+    /// at most six layers of 1,024 cells that could have gained a move while it was away, and a
+    /// chunk with no panel costs one dictionary lookup — waking every cell of the chunk would be
+    /// the 32,768-visit trap a chunk bite already met once. A layer is read with a fixed local
+    /// coordinate and two loops, so the cost is the scan and not a <see cref="HeldCells"/> over
+    /// the whole panel.
+    /// </remarks>
+    public IEnumerable<VoxelPos> HeldCellsOnFace(ChunkPos chunk, (int X, int Y, int Z) face)
+    {
+        int axes = Math.Abs(face.X) + Math.Abs(face.Y) + Math.Abs(face.Z);
+        if (axes != 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(face), face, "a face is one unit along one axis");
+        }
+
+        Panel? panel = Find(chunk);
+        if (panel is null || panel.Held == 0)
+        {
+            yield break;
+        }
+
+        VoxelPos origin = chunk.OriginVoxel;
+        int fixedAt = face.X + face.Y + face.Z > 0 ? VoxelConstants.ChunkMask : 0;
+        for (int a = 0; a < VoxelConstants.ChunkSize; a++)
+        {
+            for (int b = 0; b < VoxelConstants.ChunkSize; b++)
+            {
+                // Which two axes vary depends on which one the face fixes.
+                (int lx, int ly, int lz) = face.X != 0 ? (fixedAt, a, b)
+                    : face.Y != 0 ? (a, fixedAt, b)
+                    : (a, b, fixedAt);
+                if (panel.Cells[VoxelPos.Index(lx, ly, lz)] == 0)
+                {
+                    continue;
+                }
+
+                yield return new VoxelPos(origin.X + lx, origin.Y + ly, origin.Z + lz);
+            }
+        }
+    }
+
     private void Write(ChunkPos chunk, Panel panel, int index, int amount)
     {
         int previous = panel.Cells[index];

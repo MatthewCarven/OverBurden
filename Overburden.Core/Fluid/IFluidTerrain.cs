@@ -20,11 +20,36 @@ namespace Overburden.Core.Fluid;
 /// loaded world and resumes when the world catches up — under-filling rather than leaking, which
 /// is the direction M7 chose for its window edge too.
 /// </para>
+/// <para>
+/// <b>But solid is the right answer for <i>flow</i> and the wrong one for water that is already
+/// there</b> — M8b-4's finding, read off a play log: 2.9 ML of 7.2 ML drawn in one session was
+/// "displaced", every jump of it on a window move, because an awake cell whose chunk had left the
+/// box was visited, found itself unable to hold, and was squeezed into neighbours that were
+/// unloaded too. For water in an unloaded voxel the honest answer is neither solid nor air but
+/// <i>unknown</i>, and the response to unknown is to stop. <see cref="IsLoaded"/> is that second
+/// question, asked only on the branch where a visited cell cannot hold — so the tick's hot path
+/// pays nothing for it — and answered "not loaded" it pauses the cell in place rather than
+/// displacing it. A chunk arriving wakes what it paused; see
+/// <see cref="FluidSimulation.ChunkArrived"/>.
+/// </para>
 /// </remarks>
 public interface IFluidTerrain
 {
     /// <summary>True when Tier B water may occupy this voxel.</summary>
     bool CanHold(VoxelPos voxel);
+
+    /// <summary>
+    /// True when the world can answer for this voxel at all. False is <i>unknown</i>, not solid:
+    /// water already there is paused, never displaced.
+    /// </summary>
+    /// <remarks>
+    /// <b>Defaults to true, because a terrain with no notion of loading is fully loaded</b> — which
+    /// is exactly what every fixture and bench that answers <see cref="CanHold"/> from a predicate
+    /// meant before this method existed, and what keeps their recorded figures reproducible. Only
+    /// a terrain that can lose a chunk overrides it. Asked only where <see cref="CanHold"/> has
+    /// already said no, and only by <c>Visit</c>, <c>VerifyQuiescent</c> and the arrival wake.
+    /// </remarks>
+    bool IsLoaded(VoxelPos voxel) => true;
 }
 
 /// <summary>
@@ -60,4 +85,11 @@ public sealed class VoxelFluidTerrain(IVoxelWorld world, MaterialTable materials
 
         return materialId == MaterialIds.AirNumericId || _materials.IsFluid(materialId);
     }
+
+    /// <summary>
+    /// The streamer's own answer: a chunk that is tracked and has voxels. A chunk still
+    /// generating answers false here as it does in <see cref="CanHold"/>, and for the same
+    /// reason — its water is paused until the voxels exist, and the arrival wakes it.
+    /// </summary>
+    public bool IsLoaded(VoxelPos voxel) => _world.TryGetMaterial(voxel, out _);
 }

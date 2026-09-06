@@ -1,5 +1,73 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-06 — M8b-4a: the pause — a walk that deleted 94% of a pour now deletes nothing
+
+**Matthew: "4a please Claude."** Built as the planning pass wrote it: `IFluidTerrain.IsLoaded`,
+asked only on the branch where a visited cell cannot hold; a cell whose chunk is not loaded sleeps
+in place and is remembered per chunk; `FluidSimulation.ChunkArrived`, on the pipeline's one
+`onVoxelsReady` hook beside the portal tracker, wakes what the chunk's absence paused and every
+held cell on either side of its six faces; `VerifyQuiescent` skips a cell the world cannot answer
+for; and `paused N cell(s) in M chunk(s), R resumed, F face wake(s)` sits beside `displaced` on the
+`M8b:` line and the profile's `fluid` line. Suite 1,040 → 1,053; the r6 control unchanged to the
+digit — 2601 / 325 / 3446 at 411 — with every new term zero. **Measured in the same headless
+instrument with the pause taken out** (r4h/2v, 12 m/s, turning every 10 s for three turns, a
+200,000 L relay pour under the player, Debug):
+
+```
+                                 pause off (pre-4a)     pause on
+displaced                            188,866 L               0 L
+handed to Tier A                      11,134 L         195,981 L
+resumed at an arrival                        0            20,159 cells
+face wakes                                 406               406
+held == injected − displaced − handed    exact             exact
+```
+
+Six things worth keeping:
+
+- **The play's 41% was a mine; a pour on a hillside with the player driving away and back loses
+  94% of itself to the walk, and the pause returns all of it.** Nineteen litres in twenty deleted,
+  with the identity exact in both arms — which is the whole argument for `displaced` being a
+  *reported* term rather than a tolerance: the pre-4a arm balances perfectly while destroying
+  the water. With the pause, 195,981 of 200,000 L reach the basin under the hill, and the last
+  periodic line reads `0 active, paused 1,629 cell(s) in 6 chunk(s)`: the automaton asleep with
+  4,922 L waiting in chunks the player left, which is exactly the state 4b stores.
+- **Three of the first run's failures were the fixture, and the trap has a name: coordinate zero
+  is a face layer.** The corridor sat at y = 0, z = 0, which are the chunk's −Y and −Z face
+  layers, so the face wake reached every cell in it — nine wakes where the boundary has two, and
+  "only the paused list can reach this cell" false in the fixture rather than the code. Moved to
+  y = 8, z = 5. A second assumption fell in the same test: a cell woken beside the source is
+  visited later in the *same* tick, so one `Step` drops the water two cells, not one; the test now
+  reads where the water is instead of naming the cell.
+- **The face wake's two halves are each load-bearing, and each has the test that fails without
+  it.** The neighbour's side is plain: water that rested against the absent chunk as a wall has
+  nothing to tell it the wall is an opening. The arriving chunk's own side is the sheet solve —
+  `LevelSheets` writes a levelled cell beside a neighbour that cannot hold without waking across
+  the boundary, because a neighbour that cannot hold is not a front — so the cell across gains a
+  move with nobody to say so. Every other change a neighbour can make (a pour, a draw, a dig, a
+  flow) wakes across already and lands the woken cell in the paused list; the face wake is belt to
+  that brace. Cost: six layers of 1,024 held-cell reads a side, 406 wakes over 3,761 arrivals.
+- **Paused is not rested.** `Rested` is what the hand-off reads, and a paused cell listed there
+  would have its water handed to the basin under ground the world cannot answer for. Recipe R7,
+  caught by one assertion.
+- **Fourteen recipes, thirteen caught, and the miss is an identity.** Asking `IsLoaded` before
+  `CanHold` changes nothing, because *not loaded implies cannot hold* for every terrain here —
+  the order is a cost claim, and a cost claim is not a property the suite can see. `IsLoaded`
+  defaults to `true` on the interface, so the eleven implementers that answer from a predicate are
+  untouched: a terrain with no notion of loading is fully loaded, which is what they always meant.
+- **The lifecycle fuzz is M5's for water**: eighty rounds of pours, digs, ticks and sheet solves over
+  real terrain straddling four chunk columns, chunks taken away and brought back at random
+  (leaning toward the wet ones), against a twin driven identically that never loses one. Not a
+  millilitre in an absent chunk moves, nothing is displaced in either arm, and with everything
+  back both rest and the rest is real. Five seeds, ~200 ms each.
+
+**Not built, stated**: nothing persists — a quit still loses paused water, and that is 4b, last and
+alone. The panels stay in RAM (4c). The wire check, verbatim, because a flag before the bare `--`
+is dropped silently:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
+```
+
 ## 2026-09-06 — M8b-4 planned: the walk's fix is a pause, the store is a mirror first, and the lake is 78 MiB
 
 **Matthew: "M8b-4 planning pass please."** The plan's paragraph — *a `fluid` table, one blob per

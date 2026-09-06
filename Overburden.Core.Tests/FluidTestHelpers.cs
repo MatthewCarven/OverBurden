@@ -85,6 +85,46 @@ internal sealed class GeneratedTerrain : IFluidTerrain
     }
 }
 
+/// <summary>
+/// A terrain whose chunks a test can take away and bring back, and whose rock it can dig — the
+/// lifecycle M5's light fuzz added to its oracle, here for water (M8b-4a).
+/// </summary>
+/// <remarks>
+/// <b>An unloaded chunk answers "cannot hold" and "not loaded", exactly as
+/// <see cref="VoxelFluidTerrain"/> does over a streamer that has forgotten the chunk.</b>
+/// Bringing a chunk back does <i>not</i> announce it: the test calls
+/// <see cref="FluidSimulation.ChunkArrived"/> itself, the way the pipeline's <c>onVoxelsReady</c>
+/// does, so a test that forgets is the recipe "a chunk whose arrival nobody announced" rather than
+/// a fixture that hides it. Digging is allowed only in a loaded chunk, because that is the only
+/// place an edit can happen.
+/// </remarks>
+internal sealed class LoadableTerrain(IFluidTerrain inner) : IFluidTerrain
+{
+    private readonly HashSet<ChunkPos> _unloaded = [];
+    private readonly HashSet<VoxelPos> _dug = [];
+
+    public bool CanHold(VoxelPos v) => IsLoaded(v) && (_dug.Contains(v) || inner.CanHold(v));
+
+    public bool IsLoaded(VoxelPos v) => !_unloaded.Contains(v.Chunk);
+
+    public bool IsChunkLoaded(ChunkPos chunk) => !_unloaded.Contains(chunk);
+
+    public void Unload(ChunkPos chunk) => _unloaded.Add(chunk);
+
+    public void Load(ChunkPos chunk) => _unloaded.Remove(chunk);
+
+    /// <summary>Opens a voxel. True when it was rock before.</summary>
+    public bool Dig(VoxelPos v)
+    {
+        if (!IsLoaded(v))
+        {
+            throw new InvalidOperationException($"{v} is in an unloaded chunk and cannot be edited");
+        }
+
+        return _dug.Add(v);
+    }
+}
+
 internal static class FluidAssert
 {
     /// <summary>

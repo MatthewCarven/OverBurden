@@ -3998,7 +3998,7 @@ finding without the coarser-tolerance fallback.
       pause rather than settle on unload; the three slices below in order; the fluid blob on the
       chunk batch as a third list on `IWorldStore.Write`; the blob's sparse form against the raw
       panel, which `--blob` decides.
-      - [ ] **M8b-4a — the pause and the arrival.** Core, no disk. `IFluidTerrain.IsLoaded`, asked
+      - [x] **M8b-4a — the pause and the arrival. ✅ Built 2026-09-06.** Core, no disk. `IFluidTerrain.IsLoaded`, asked
             only where a visited cell cannot hold; a cell whose chunk is unloaded sleeps in place
             and is remembered as paused; at arrival (`onVoxelsReady`, all three paths) the paused
             cells wake, and so do the held cells on the chunk's six faces and the loaded
@@ -4006,6 +4006,24 @@ finding without the coarser-tolerance fallback.
             what a pause cannot see. `VerifyQuiescent` skips unloaded cells. `paused` on the
             `M8b:` line; the play's oracle is `displaced` at zero across a walk. Lifecycle fuzz
             with a control arm that never unloads. Recipes to file first are in the plan.
+            **Built as written; suite 1,040 → 1,053. Measured in the same headless run with the
+            pause taken out (r4h/2v, 12 m/s, turning every 10 s, a 200,000 L relay pour):
+            displaced 188,866 L → 0, handed to Tier A 11,134 L → 195,981 L, 20,159 cells resumed
+            over 3,761 arrivals, 406 face wakes.** Fourteen recipes, thirteen caught; the miss —
+            `IsLoaded` asked before `CanHold` — is an identity, since *not loaded implies cannot
+            hold* for every terrain, and the order is a cost claim the suite cannot see. Fixture
+            trap for the record: **coordinate zero is a chunk face layer**, so a corridor at
+            y = 0, z = 0 was reached by the face wake in every cell. The face wake's two halves
+            each have a test that fails without it — the neighbour's for water rested against the
+            absent chunk, the chunk's own for the sheet solve, which writes a levelled cell beside
+            a non-holdable neighbour without waking across. **A quit still loses paused water:
+            4b.** The `M8b:` line's `paused` should read zero whenever every chunk is home; a
+            figure that never comes down in a run where chunks are arriving is an arrival nobody
+            announced.
+            - [ ] **Play check**: walk away from the flooded mine and back, and read `displaced`
+                  on the `M8b:` line across the window moves — it should not move at all now, where
+                  the 2026-09-05 play read 2.9 ML. `paused` rises as you leave and falls as you
+                  return; `resumed` climbs.
       - [ ] **M8b-4b — the store.** `FluidPanelBlob` on the sky column's frame — cx, cy, cz, the
             held cells as ascending (index, mL) pairs, the paused indices, zlib — validated at
             read; a `fluid` table, schema 2 → 3 additive, header unchanged; the blob rides the
@@ -4025,7 +4043,9 @@ finding without the coarser-tolerance fallback.
             0)` stays as the API — with a share of zero, because the share slice's early stop
             assumes every unsettled cell neighbours a seed, which the wake rule guarantees for the
             active set and nothing guarantees for a chunk's cells.
-      - [ ] **A walk deletes the flood's awake water — read off the 2026-09-05 play log: 2,924,347 L
+      - [x] **A walk deletes the flood's awake water — closed by M8b-4a on 2026-09-06: displaced
+            188,866 L → 0 L of a 200,000 L pour in the headless turnaround, and the quit's loss is
+            4b's. Read off the 2026-09-05 play log: 2,924,347 L
             displaced of 7,163,284 L drawn in one session, 41%.** An unloaded voxel is solid, so an
             awake cell in a chunk that leaves the box is displaced on its next visit into neighbours
             that are unloaded too, and drained; every jump in `displaced` landed on a window move,
