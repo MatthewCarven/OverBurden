@@ -4078,6 +4078,16 @@ finding without the coarser-tolerance fallback.
             - [ ] **Lever, not built**: the snapshot copies the held cells as pairs on the sim
                   thread, one panel scan each; if the autosave hitches on the played lake, copy
                   the 64 KiB panel whole and extract on the lane.
+      - [ ] **The water thread — planned 2026-09-07 with Matthew, placed after 4c and before M8c;
+            see [docs/WATER-THREAD-PLAN.md](docs/WATER-THREAD-PLAN.md).** Three slices, each
+            useful alone: (1) the order — near cells (5×5 chunks, full height) visited every tick,
+            far cells on what the budget leaves with a one-in-eight floor, `--fluidnear=` /
+            `--fluidfarshare=` the sweeps, 0 the control, judged in play first; (2) the readable
+            terrain — a copy-on-write holdability bitset per chunk, ~10 MiB at r6, priced on the
+            sim thread before any thread; (3) the tick as a scheduler job per boundary, mutations
+            landing at the next boundary, a slow tick lowering the rate, ~8× the Debug throughput.
+            All eight decisions taken as recommended. Build (3) when the play reads the flood on
+            open as hurting rather than slow. Not started.
       - [ ] **M8b-4c — the panel leaves RAM with its chunk.** Written and released at forget, read
             back on arrival through the serial lane (its own job, or the chunk load reading both
             rows — the load bench decides), retained with a cached chunk under the cache's cap.

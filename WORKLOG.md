@@ -1,5 +1,29 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-07 — The water thread, planned: near water at 2 Hz, far water as available, the tick off the sim thread
+
+**Matthew: "are we running the water sim on the main thread like if I were willing to put up
+with the delay could we do water on a seperate thread, with locally (say like the surrounding 5x5
+chunk grid) running at 2hz while distant water was done on an as available basis like?"** — then
+*"Plan with me"*, and on placement, *"or wherever you please"*. Planned, not built; see
+[docs/WATER-THREAD-PLAN.md](docs/WATER-THREAD-PLAN.md). Three things worth keeping from the pass:
+
+- **It is two changes and only one needs the thread.** Near-at-2-Hz, far-as-available is an
+  ordering rule on the tick's batch, which today has no order — a tick visits every awake cell
+  before it ends, which is why the flood on open took 188 frames a tick. Bucket by chunk ring, let
+  the budget lapse on the far half with a floor so far water still rests; conservation is in the
+  transfer and termination is per move, so both survive. That is slice 1 and goes first, on the
+  sim thread, with today's behaviour as its control.
+- **The thread's real cost is a terrain the worker can read**, not the thread: every worker job
+  here takes an immutable copy of its inputs and the water cannot. A copy-on-write holdability
+  bitset (4 KiB a chunk, ~10 MiB at r6) is slice 2, and it is priced on the sim thread first,
+  because the bench that measured 0.25 µs a visit was already reading one.
+- **Slice 3 is the first ongoing state on a worker** — a scheduler job per tick, mutations landing
+  at the next boundary, a slow tick lowering the rate, ~8× the Debug throughput — and it waits
+  for M8b-4c, because a worker holding a panel the unload wants to release is the race M3a solved
+  for voxels. Placed after 4c and before M8c, so seepage is built on the tick's final home. All
+  eight decisions taken as recommended.
+
 ## 2026-09-07 — M8b-4b: the store — water survives a quit, and the bench's crossover was time, not bytes
 
 **Matthew: "M8b-4b please Claude, also do not fear data loss of water, like I am not going to cry
