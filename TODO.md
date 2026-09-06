@@ -4500,21 +4500,32 @@ distances please unless its tied."*
             the 16 ms budget, 10 under the 4 ms default — and r2, r3 and r6 draw nothing at any
             budget**, the derive exceeding a whole thread. Halving the radius buys nothing; the
             27-chunk floor is a cliff edge.
-      - [ ] **Adaptive view radius — Matthew's proposal, 2026-09-06; planned the same day, not
-            built. See [docs/ADAPTIVE-RADIUS-PLAN.md](docs/ADAPTIVE-RADIUS-PLAN.md).** A pure
-            policy in Core (`ViewRadiusPolicy`), applied by Main through `ChunkStreamer.UpdateViewer`,
-            which already takes a new radius: shrink one ring a frame while *moving* and the derive
-            backlog (`ChunkPipeline.LightBuildBacklog`, which exists) exceeds two slabs of the
-            current box; grow one ring at a time while *dwelling* and the backlog is empty.
-            Hysteresis is structural — the two rules are disjoint — and is an oracle. Seams
-            `--adaptive=1` (default off, `start.cmd` passes it), `--minradius=`, `--shrinkslabs=`,
-            `--growafter=`, and `--sprintfor=` for the hanging-around arm; the profile gains a
-            `radius` line and `grown` on the fill line; the HUD shows the radius. Twelve oracles
-            with their recipes and six measurement arms are in the plan. **Six decisions handed
-            back with recommendations**: floor 1h/1v; backlog over speed; off by default; spawn at
-            the floor so the fill is a growth (first draw ~1.5 s for roughly double the fill's
-            derives, one-step grow the fallback); this before the third-ring lever; the two
-            thresholds as estimates.
+      - [x] **Adaptive view radius — Matthew's proposal, 2026-09-06; planned and ✅ built the same
+            day, all six decisions as recommended. See [docs/ADAPTIVE-RADIUS-PLAN.md](docs/ADAPTIVE-RADIUS-PLAN.md),
+            "Built".** `ViewRadiusPolicy` in Core, applied by Main through `UpdateViewer`; shrink a
+            ring while moving with the derive backlog over two slabs of the current box; **grow a
+            ring while the backlog is empty and the light step's averaged share of its budget is
+            under 0.5** — not the plan's dwell, which the 7 m/s corridor broke on its first run (a
+            walker crosses a chunk every 1.1 s and never dwells: 20 drawn against 344); a grace of
+            one cadence after any change. Seams `--adaptive=1` (default off, `start.cmd` passes it),
+            `--minradius=`, `--shrinkslabs=`, `--growbelow=`, `--cadence=`, `--sprintfor=`. Suite
+            1,058 → 1,073, six recipes caught. **Measured: 30 m/s draws 25 of 27 at the floor
+            against 0; 7 m/s ends identical to fixed with first draw 0.81 s against 6.47; a
+            standing start draws at 1.00 s against 6.65 and is grown at 14.5 s for +69% derives;
+            sprint-and-stop is grown nine seconds after the stop.**
+            - [ ] **Play check**: `start.cmd`, fly, hold Ctrl, read `view rNh/Nv` on the status
+                  line fall to r1 and the world stay drawn; stop, read it climb a ring every few
+                  seconds and the rings fill in. Then walk and sprint on foot: it should never
+                  leave r6. Whether the fill-in reads as filling in or as popping is the plan's
+                  first revisit trigger.
+            - [ ] **The ring sweep is 22–29 ms in one frame** (576 records at r5 → r6, columns
+                  seeded), five per fill. Lever: stage a grow one face per frame, or seed columns
+                  on a worker — the cache slice 1 finding that the sweep is mostly `SkyColumn.Seed`.
+                  Not built until a play feels the hitch.
+            - [ ] **`--growbelow=0.5` is conservative in the 0.5–0.78 load band**: the 20 m/s
+                  turnaround at a 4 ms budget stopped at r5 (load 0.81) where fixed r6 keeps up at
+                  44%. At play's 16 ms budget the same arm grows to r6. Sweep in play if the box
+                  reads as smaller than the machine can afford.
       - [ ] **A third, voxels-only margin ring — the largest lever the corridor found, and a
             planning pass before it is believed.** Every chunk derives ~1.8 times while moving
             (1.71 at r6/7 m/s, 1.95 at r1/30 m/s; exactly 1.0 standing): the leading slab derives

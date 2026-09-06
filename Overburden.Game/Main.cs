@@ -181,6 +181,35 @@ public partial class Main : Node3D
     private float _flyDirection = 1f;
     private int _turnarounds;
 
+    /// <summary>
+    /// The flythrough moves for this many seconds and then stops — the "hanging around" arm,
+    /// which <c>--turnaround</c> (reverses) and <c>--speed=0</c> (never moves) cannot produce,
+    /// and the case the adaptive radius's grow-back exists for. Zero, the default, never stops.
+    /// </summary>
+    private double _sprintForSeconds;
+    private double _flownSeconds;
+
+    // The adaptive view radius (docs/ADAPTIVE-RADIUS-PLAN.md). Off by default so every recorded
+    // streaming figure stays reproducible with no flag; start.cmd opts in, as it does for the
+    // light budget. Off, the state sits at the ceiling and the policy is never stepped.
+    private bool _adaptiveRadius;
+    private int _minRadius = ViewRadiusConfig.DefaultFloor;
+    private int _shrinkSlabs = ViewRadiusConfig.DefaultShrinkSlabs;
+    private double _growBelowLoad = ViewRadiusConfig.DefaultGrowBelowLoad;
+    private double _cadenceSeconds = ViewRadiusConfig.DefaultCadenceSeconds;
+    private ViewRadiusConfig _radiusConfig;
+    private ViewRadiusState _radiusState;
+    private int _radiusShrinks;
+    private int _radiusGrows;
+    private int _smallestRadius;
+    private double[] _secondsAtRadius = [];
+    private double _grownSeconds = -1.0;
+    private int _backlogPeak;
+    private long _backlogSum;
+    private int _backlogSamples;
+    private double _loadPeak;
+    private double _loadSum;
+
     private int? _caveLatticeStep;
     private TimeSpan? _applyBudget;
     private TimeSpan? _lightBudget;
@@ -734,8 +763,29 @@ public partial class Main : Node3D
         SetUpPlayer(_generator);
 
         _lastViewerChunk = ViewerChunk();
+
+        // The configured radii are the ceiling. Adaptive, the session starts at the floor so the
+        // fill is a growth (decision 4 of the plan): the near box draws in about a second and a
+        // half instead of waiting for the whole box's derive, at the cost of the double derive at
+        // every ring boundary, which the radius line prices.
+        _radiusConfig = new ViewRadiusConfig(
+            _minRadius, _minRadius, ViewDistanceHorizontal, ViewDistanceVertical,
+            _pipeline.Streamer.LoadMargin, _shrinkSlabs, _growBelowLoad, _cadenceSeconds);
+        if (_adaptiveRadius)
+        {
+            _radiusConfig.Validate();
+            _radiusState = ViewRadiusState.AtFloor(_radiusConfig);
+        }
+        else
+        {
+            _radiusState = ViewRadiusState.AtCeiling(_radiusConfig);
+        }
+
+        _smallestRadius = _radiusState.Horizontal;
+        _secondsAtRadius = new double[ViewDistanceHorizontal + 1];
+
         _viewer = _pipeline.Streamer.AddViewer(
-            _lastViewerChunk, ViewDistanceHorizontal, ViewDistanceVertical);
+            _lastViewerChunk, _radiusState.Horizontal, _radiusState.Vertical);
 
         SetUpMining();
         SetUpPlacement();
@@ -1189,6 +1239,38 @@ public partial class Main : Node3D
                     _deriveFifo = true;
                     break;
 
+                // The adaptive view radius and its three estimates. --adaptive alone is on;
+                // --adaptive=0 is the fixed radius, which is also the default, so a profile that
+                // names neither is the arm every recorded figure was taken in.
+                case "adaptive":
+                    _adaptiveRadius = value.Length == 0 || value != "0";
+                    break;
+
+                case "minradius" when int.TryParse(value, out int minRadius) && minRadius >= 1:
+                    _minRadius = minRadius;
+                    break;
+
+                case "shrinkslabs" when int.TryParse(value, out int slabs) && slabs >= 0:
+                    _shrinkSlabs = slabs;
+                    break;
+
+                // The cadence: least seconds between radius changes, the grace after a grow, and
+                // the load average's time constant. Was --growafter, a dwell, until the 7 m/s
+                // corridor showed a walker never dwells.
+                case "cadence" when double.TryParse(value, out double cadence) && cadence >= 0.0:
+                    _cadenceSeconds = cadence;
+                    break;
+
+                // The light step's averaged share of its budget below which one more ring fits.
+                case "growbelow" when double.TryParse(value, out double growBelow) && growBelow >= 0.0:
+                    _growBelowLoad = growBelow;
+                    break;
+
+                // Moves for N seconds and then stands still: the arm the grow-back is judged in.
+                case "sprintfor" when double.TryParse(value, out double sprintFor) && sprintFor > 0.0:
+                    _sprintForSeconds = sprintFor;
+                    break;
+
                 case "autosave" when double.TryParse(value, out double autosave):
                     _autosaveSeconds = autosave;
                     break;
@@ -1455,7 +1537,9 @@ public partial class Main : Node3D
 
         bool precise = _camera is { MouseCaptured: true } && Input.IsKeyPressed(Key.Alt);
 
-        _hud.Refresh(delta, _inventory, _materials, Content.Materials, _place, _mining, precise);
+        _hud.Refresh(
+            delta, _inventory, _materials, Content.Materials, _place, _mining, precise,
+            _adaptiveRadius ? $"r{_radiusState.Horizontal}h/{_radiusState.Vertical}v" : null);
     }
 
     /// <summary>Builds the hotbar, unless this run is a measurement.</summary>
@@ -1726,15 +1810,35 @@ public partial class Main : Node3D
         // The viewer only moves in whole chunks. Comparing first means a camera drifting
         // inside one chunk never touches the streaming policy at all.
         ChunkPos current = ViewerChunk();
-        if (current != _lastViewerChunk)
-        {
-            _lastViewerChunk = current;
+        bool moved = current != _lastViewerChunk;
+        _lastViewerChunk = current;
 
+        // The adaptive radius steps every frame, moving or not, because a grow is a thing that
+        // happens while nothing else does. Off, the state sits at the ceiling and is never
+        // stepped, so the call below is exactly the MoveViewer it was.
+        ViewRadiusChange radiusChange = ViewRadiusChange.None;
+        if (_adaptiveRadius)
+        {
+            // The light step's share of its budget is the fact "is the derive keeping up", on any
+            // build and any machine: a share is a share whether a derive costs 0.24 ms or 1.4.
+            int backlog = _pipeline.LightBuildBacklog;
+            double budgetMillis = (_lightBudget ?? ChunkPipeline.DefaultLightBudget).TotalMilliseconds;
+            double lightLoad = budgetMillis > 0.0 ? _pipeline.LastLightStepMillis / budgetMillis : 0.0;
+            _radiusState = ViewRadiusPolicy.Step(
+                _radiusState, moved, backlog, lightLoad, delta, _radiusConfig, out radiusChange);
+            RecordRadius(radiusChange, backlog, delta);
+        }
+
+        if (moved || radiusChange != ViewRadiusChange.None)
+        {
             // Timed, and only from M6d-2. This call is where an unloading shell is swept, which
             // is where Forget became a write — and it sits outside the update bracket below, so
-            // every profile before this one measured the pipeline and not the sweep.
+            // every profile before this one measured the pipeline and not the sweep. A radius
+            // change is the same box difference a move is, and one call covers both when they
+            // land on the same frame, so a ring is never swept twice.
             long beforeMove = Stopwatch.GetTimestamp();
-            _pipeline.Streamer.MoveViewer(_viewer, current);
+            _pipeline.Streamer.UpdateViewer(
+                _viewer, new Viewer(current, _radiusState.Horizontal, _radiusState.Vertical));
             long afterMove = Stopwatch.GetTimestamp();
 
             if (_profiler is { Warm: true })
@@ -2213,6 +2317,16 @@ public partial class Main : Node3D
             _nearLitSeconds = FillSeconds();
         }
 
+        // The adaptive radius's own milestone: the first moment the box stood at its ceiling with
+        // the light settled. Under a growth the milestones above read whichever box existed when
+        // they fired — first draw is the floor's — and this is the one comparable with a fixed
+        // arm's light settled. With the radius fixed the two coincide.
+        if (_grownSeconds < 0.0 && _radiusState.Horizontal >= ViewDistanceHorizontal
+            && _pipeline.LightBuilds > 0 && !_pipeline.LightInFlight)
+        {
+            _grownSeconds = FillSeconds();
+        }
+
         // Guarded on having drawn something as well as on being quiescent: the very first frame
         // is quiescent by construction — nothing has been asked for yet — and would latch a
         // settle time of zero for a world that had not started.
@@ -2238,7 +2352,74 @@ public partial class Main : Node3D
         return $"fill      first draw {Seconds(_firstDrawSeconds)}, "
                + $"near lit {Seconds(_nearLitSeconds)} (within {NearLitRadiusChunks} chunks), "
                + $"light settled {Seconds(_lightSettledSeconds)}, "
-               + $"all settled {Seconds(_settledSeconds)}\n";
+               + $"all settled {Seconds(_settledSeconds)}"
+               + (_adaptiveRadius ? $", grown {Seconds(_grownSeconds)} (at r{ViewDistanceHorizontal}h with light settled)" : string.Empty)
+               + "\n";
+    }
+
+    /// <summary>Counts what the policy did this frame, for the radius line and the periodic report.</summary>
+    private void RecordRadius(ViewRadiusChange change, int backlog, double delta)
+    {
+        switch (change)
+        {
+            case ViewRadiusChange.Shrank:
+                _radiusShrinks++;
+                break;
+            case ViewRadiusChange.Grew:
+                _radiusGrows++;
+                break;
+        }
+
+        _smallestRadius = Math.Min(_smallestRadius, _radiusState.Horizontal);
+        if (_radiusState.Horizontal < _secondsAtRadius.Length)
+        {
+            _secondsAtRadius[_radiusState.Horizontal] += delta;
+        }
+
+        if (_profiler is { Warm: true })
+        {
+            _backlogPeak = Math.Max(_backlogPeak, backlog);
+            _backlogSum += backlog;
+            _backlogSamples++;
+            _loadPeak = Math.Max(_loadPeak, _radiusState.LightLoad);
+            _loadSum += _radiusState.LightLoad;
+        }
+    }
+
+    /// <summary>
+    /// The adaptive radius's account of itself: what it did, where it spent the run, and the
+    /// backlog it was reading. The time at each radius is the whole run, because a shrink in the
+    /// warm-up is still where the box was; the backlog figures are the window.
+    /// </summary>
+    private string RadiusLines()
+    {
+        if (!_adaptiveRadius)
+        {
+            return string.Empty;
+        }
+
+        var spent = new List<string>();
+        for (int h = _radiusConfig.FloorHorizontal; h < _secondsAtRadius.Length; h++)
+        {
+            if (_secondsAtRadius[h] > 0.0)
+            {
+                spent.Add($"r{h} {_secondsAtRadius[h]:F1} s");
+            }
+        }
+
+        string signals = _backlogSamples > 0
+            ? $"derive backlog peak {_backlogPeak:N0}, mean {(double)_backlogSum / _backlogSamples:F0}; " +
+              $"light load peak {_loadPeak:F2}, mean {_loadSum / _backlogSamples:F2} of the budget, over {_backlogSamples:N0} frame(s)"
+            : "signals not sampled (the window never opened)";
+
+        bool atCeiling = _radiusState.Horizontal >= ViewDistanceHorizontal;
+        return
+            $"radius    {_radiusShrinks} shrink(s), {_radiusGrows} grow(s), smallest r{_smallestRadius}h, " +
+            $"ending r{_radiusState.Horizontal}h/{_radiusState.Vertical}v {(atCeiling ? "at" : "below")} the ceiling | " +
+            $"time at each radius (whole run): {string.Join(", ", spent)} | {signals} | " +
+            $"floor r{_radiusConfig.FloorHorizontal}h/{_radiusConfig.FloorVertical}v, " +
+            $"{_radiusConfig.ShrinkSlabs} slab(s) to shrink, grow below {_radiusConfig.GrowBelowLoad:F2} load, " +
+            $"{_radiusConfig.CadenceSeconds:F1} s cadence\n";
     }
 
     /// <summary>What the light step cost, with every total's denominator beside it.</summary>
@@ -2693,6 +2874,18 @@ public partial class Main : Node3D
             return;
         }
 
+        // The hanging-around arm: fly for N seconds, then stand. Counted from the first frame the
+        // flythrough moves, warm-up included, so a run's "stopped at" is a time on the same clock
+        // as its milestones.
+        if (_sprintForSeconds > 0.0)
+        {
+            _flownSeconds += delta;
+            if (_flownSeconds >= _sprintForSeconds)
+            {
+                return;
+            }
+        }
+
         if (_turnaroundSeconds > 0.0)
         {
             _sinceTurnaround += delta;
@@ -2734,6 +2927,10 @@ public partial class Main : Node3D
             (_turnaroundSeconds > 0.0
                 ? $", turning every {_turnaroundSeconds:F0} s ({_turnarounds} turn(s))"
                 : string.Empty) +
+            (_sprintForSeconds > 0.0 ? $", stopping after {_sprintForSeconds:F0} s" : string.Empty) +
+            (_adaptiveRadius
+                ? $", adaptive from r{_radiusConfig.FloorHorizontal}h/{_radiusConfig.FloorVertical}v"
+                : string.Empty) +
             (_mining is null ? "\n" : $", {_mining.Tool.Id}\n") +
             $"{_profiler.PipelineUpdate.Line("update ms")}\n" +
             $"{_profiler.MeshFree.Line("free ms")}   (deferred by Godot — see MeshFreeQueue)\n" +
@@ -2754,6 +2951,7 @@ public partial class Main : Node3D
             SweepLines() +
             $"freeing   {_freeQueue.TotalFreed} released, peak queue {_freeQueue.PeakPending}\n" +
             FillLine() +
+            RadiusLines() +
             LightLines() +
             MiningLines() +
             PlacementLines() +
@@ -3899,7 +4097,8 @@ public partial class Main : Node3D
         ChunkStreamer streamer = _pipeline.Streamer;
 
         GD.Print(
-            $"M2c: {streamer.ViewedCount} viewed ({streamer.TrackedCount} tracked), " +
+            $"M2c: r{_radiusState.Horizontal}h/{_radiusState.Vertical}v, " +
+            $"{streamer.ViewedCount} viewed ({streamer.TrackedCount} tracked), " +
             $"{_instances.Count} drawn, {_pipeline.JobsInFlight} in flight, " +
             $"{_pipeline.WorkListCount} queued, {_pipeline.PendingResults} to apply, " +
             $"{_freeQueue.PendingCount} to free | " +

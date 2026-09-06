@@ -255,7 +255,8 @@ public sealed partial class Hud : CanvasLayer
         Registry<MaterialDefinition> definitions,
         PlaceController place,
         MiningController? mining,
-        bool precise)
+        bool precise,
+        string? radius = null)
     {
         _sinceRefresh += delta;
         bool refreshText = _sinceRefresh >= RefreshSeconds;
@@ -283,7 +284,11 @@ public sealed partial class Hud : CanvasLayer
 
         if (refreshText || _status.Text.Length == 0)
         {
-            _status.Text = StatusText(place, mining, precise);
+            // The adaptive radius, when it is on, is the play's oracle for the whole feature —
+            // fly, sprint, watch the number fall and the world stay drawn; stop, watch it climb —
+            // and it costs nothing to show, so it rides on the status line's own refresh.
+            string text = StatusText(place, mining, precise);
+            _status.Text = radius is null ? text : $"{text}   ·   view {radius}";
         }
     }
 

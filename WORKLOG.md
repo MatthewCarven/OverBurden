@@ -1,5 +1,46 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-06 — The adaptive view radius: built, and the 7 m/s corridor broke the plan's rule on its first run
+
+**Matthew: "ok lets continue, all six as recommended please Claude :-{D"** — and, on working this
+way: *"I really enjoy being able to work like this just focusing on the abstraction without getting
+stuck into the details."* Built as planned in every part but one: `ViewRadiusPolicy` in Core, a
+pure step with no clock and no Godot; `Main` applies it through `ChunkStreamer.UpdateViewer`, one
+call for a move and a radius change together so a ring is never swept twice; `--adaptive=1` off by
+default and passed by `start.cmd`; `--minradius=`, `--shrinkslabs=`, `--growbelow=`, `--cadence=`,
+`--sprintfor=`; a `radius` line, `grown` on the fill line, the radius on the `M2c:` line and the
+HUD. Suite 1,058 → 1,073; six recipes on the policy, six caught; the r6 control unchanged to the
+digit. The table is in the plan's "Built" section. Five things worth keeping:
+
+- **The plan's grow rule was a dwell, and a walker never dwells.** "Grow while the viewer's chunk
+  has not changed for two seconds" reads as *hanging around* and means *never on foot*: at 7 m/s a
+  chunk is crossed every 1.1 s, so the box started at the floor and stayed there — **20 drawn
+  against the fixed arm's 344**, in the very arm the plan said must equal fixed to the digit. The
+  measurement arm existed for exactly this and fired on its first run. What distinguishes the
+  walker from the flyer is whether the derive keeps up, and `LastLightStepMillis` over the budget
+  is that fact directly: **grow when the backlog is empty and the averaged light load is under
+  0.5; shrink as planned; a grace of one cadence after any change.** The disjointness argument
+  survives as the grace, and the fuzz pins it. Rebuilt, the 7 m/s arm draws at 0.81 s, is at r6
+  from 17 s and ends at 344; the 30 m/s arm sits at the floor at load 0.82 and draws 25 of 27.
+- **Half is arithmetic.** A ring adds at most 29% to a slab, so a grow under 0.5 lands under 0.65
+  and the box cannot breathe. The price is the 0.5–0.78 band: at a 4 ms budget the 20 m/s
+  turnaround stopped at r5 (load 0.81) where fixed r6 keeps up at 44%. The load is a share of the
+  budget, so a larger budget is a larger box — at play's 16 ms the same arm grows to r6.
+- **The fill is a growth and it costs 69% more derives, not the estimated 100%**: first draw
+  1.00 s against 6.65, grown at 14.5 s against light settled at 7.5, 4,403 derives against 2,601,
+  because only chunks whose neighbour set changed re-derive. And **a ring's sweep is 22–29 ms in
+  one frame** — 576 records with their columns seeded — five times per fill. Lever named, not
+  built: stage a grow a face per frame, or seed columns on a worker.
+- **The hanging-around arm works, and the seam that shows it is `--sprintfor=`**: 30 m/s for 10 s
+  at the floor, then r6 with light settled nine seconds after the stop, 245 of the ring's chunks
+  back from the cache with their light. A grow while walking hits the cache too — 481 in the 7 m/s
+  arm — because each ring reaches one chunk further back than the box that just forgot it.
+- **Two fixtures were wrong before the policy was**, and both were the memory's shapes: five grows
+  at a two-second cadence in 600 frames of 1/60 s is 9.9999 s in floats, one frame short; and a
+  flyer fixture built fresh carries no load, so its average had not reached the threshold when
+  the first grace ended and the box grew once — which is real behaviour, one breath at spawn, and
+  the fixture now models a flyer that has been flying.
+
 ## 2026-09-06 — The adaptive view radius: planned, and the plan's shape comes from the cliff
 
 **Matthew: "lets plan the implementation please Claude?"** — and, unprompted, *"It's always circular

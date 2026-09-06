@@ -3,8 +3,72 @@
 Planned 2026-09-06, on Matthew's proposal from the sprint corridor: *"ideally as you started
 sprinting you would lower the draw distance by up to 50% depending on load, and just fill in the
 further details as the player starts hanging around … under load i'd be happy if we just maintain
-the 27 chunks we have to for a complete box."* **Not built.** Read the 2026-09-06 worklog entry
-"The sprint corridor" before this; every number below comes from it.
+the 27 chunks we have to for a complete box."* **Built the same afternoon, all six decisions as
+recommended — see "Built" directly below, which records where the build departed from the plan.**
+Read the 2026-09-06 worklog entry "The sprint corridor" before this; every number in the plan
+comes from it.
+
+## Built — 2026-09-06
+
+`ViewRadiusPolicy` in `Overburden.Core/Streaming/`, applied from `Main._Process` through
+`ChunkStreamer.UpdateViewer`; `--adaptive=1` (off by default, `start.cmd` passes it),
+`--minradius=`, `--shrinkslabs=`, `--growbelow=`, `--cadence=`, `--sprintfor=`; a `radius` line on
+the profile, `grown` on the fill line, the radius on the periodic `M2c:` line and the HUD's status
+line. Suite 1,058 → 1,073; six break-recipes on the policy, six caught; the r6 control is
+unchanged to the digit, because off is the ceiling and `UpdateViewer` with the same radii is the
+`MoveViewer` it replaced. Debug, headless, `--lightbudget=7` standing in for play's 16 ms at 60 fps
+unless stated:
+
+```
+arm                                fixed r6                      adaptive from r1h/1v
+30 m/s corridor                    0 drawn, main 96%             25 drawn, r1 throughout, main 71%, load 0.82
+7 m/s corridor                     344 drawn, first draw 6.47 s  344 drawn, first draw 0.81 s, r6 from 17 s, 0 shrinks
+standing start (4 ms budget)       325 drawn, first draw 6.65 s  325 drawn, first draw 1.00 s, grown 14.45 s
+                                   2,601 derives                 4,403 derives (+69%), ring sweep 22–29 ms
+30 m/s for 10 s, then stop         —                             r1 for 11 s, grown 9 s after the stop, 318 drawn
+20 m/s turning every 5 s (4 ms)    393 drawn, main 44%           200 drawn, ends r5, load 0.81, 1 shrink / 5 grows
+```
+
+**Where the build departed from the plan, and the first one is the whole of it:**
+
+- **The dwell rule was wrong, and the 7 m/s corridor broke it on its first run.** "Grow only
+  while the viewer's chunk has not changed for two seconds" means "never while walking": a chunk
+  is crossed every 1.1 s at 7 m/s, so the box started at the floor and stayed there for the whole
+  run — **20 drawn against the fixed arm's 344.** What separates a walker from a flyer is not
+  whether the chunk changes but whether the derive keeps up, and the light step's share of its
+  budget is that fact directly, on any build. **The grow rule is now: backlog empty and the
+  averaged light load under `--growbelow=` (0.5).** The shrink rule is as planned. Both get a
+  **grace of one cadence** after any change, which is what lets a grow put a ring's derives on the
+  backlog without the shrink rule reading them as an overload — the structural-hysteresis
+  argument survives in that form, and the fuzz pins it: no change inside a cadence, no grow over
+  the load, no shrink under the threshold or at rest. `--growafter=` became `--cadence=`, because
+  the one knob is now the least time between changes, the grace, the load's time constant and
+  the definition of moving.
+- **Half load is arithmetic, not taste.** One ring out adds at most 29% to a slab (r1 → r2), so a
+  grow taken under 0.5 lands under 0.65 and keeps up, and the box cannot breathe at a boundary.
+  **The cost is the 0.5–0.78 band**: the 20 m/s turnaround at a 4 ms budget ran at load 0.81 and
+  stopped at r5 where the fixed r6 keeps up at 44% of a core. The load is a share of the
+  *budget*, so a larger budget is a larger box — at play's 16 ms the same arm is at ~0.2 and grows
+  to r6 — which is the right coupling: the budget is the play's own statement of what it can
+  afford. `--growbelow=` is the sweep.
+- **A fresh state breathes once.** The load average starts at zero, so a box that starts at the
+  floor under a heavy load grows one ring at the first cadence before the average has caught up,
+  and shrinks it back at the next. One breath at spawn, by design; it did not show in the 30 m/s
+  arm because the load reached 0.57 inside the first two seconds.
+- **The ring sweep is 22–29 ms in one frame**, the plan's named cost measured: a ring at r5 → r6
+  is 576 new records with their column seeding, at rest, with nothing else in the frame. Five of
+  them per fill, on a 16.7 ms frame. **Lever, not built: stage a grow one face per frame, or seed
+  columns on a worker** — the cache slice 1 finding that the sweep is mostly `SkyColumn.Seed`
+  applies here unchanged.
+- **The grow-back pays 69% more derives, not the estimated 100%**, because only the chunks whose
+  neighbour set changed re-derive, not the whole shell. The fill draws at 1.0 s instead of 6.65
+  and completes at 14.5 s instead of 7.5. The third-ring lever would erase the 69%.
+- **A grow while moving hits the cache**: 481 hits with their light in the 7 m/s arm, because each
+  ring reaches one chunk further back than the box that just forgot it. Nothing was designed for
+  that; it is slice 2 doing its job.
+
+The plan below is kept as written. Its design section §1 describes the dwell rule this build
+replaced.
 
 ## The question
 

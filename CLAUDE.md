@@ -22,7 +22,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/M10-NOTES.md](docs/M10-NOTES.md) | **The quantum machine family** — Matthew’s proposal, 2026-09-02: a fluid pump that teleports to a wireless output, and a general machine programmer. Notes rather than a plan, on the deferred-collapse precedent. **Read before planning M10, and before shipping any machine — it names the entity-storage change that header v4 rides on.** |
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | **Elements, and whether to "just implement chemistry"** — a brainstorm with Matthew, 2026-09-03. Notes rather than a plan. The recommendation is *geology that reacts to water, with machine recipes as the chemistry set*; the element table says why each material would exist. **Read before M8c reads `permeability` and before M9 reads `supportDistance` — both have been in the material JSON unread since M1, and the trap is a constant shipping green.** |
 | [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **Planned 2026-09-02; M8a built the same day; M8b split four ways and M8b-1 built 2026-09-03; M8b-2 planned 2026-09-05 and all three parts built the same day, both open decisions taken as recommended — water crosses the seam in the game; M8b-3 planned and built the same day: the hand-off (3a) measured, the settle (3b) built and priced against the chamber, both mines and the played world, the spill's look deferred to M8c and the settle's interval an estimate with `--settleafter=` as the sweep.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it. **Its M8b section records a gap the plan had**: a flooded mine has no Tier A body, so resting mine water is stored, and the settle is a solve. Read the tick-budget item in TODO before M8b-2. |
-| [docs/ADAPTIVE-RADIUS-PLAN.md](docs/ADAPTIVE-RADIUS-PLAN.md) | **The adaptive view radius**, Matthew's proposal from the sprint corridor, planned 2026-09-06 and **not built**: fall to the 27-chunk floor while moving with a derive backlog, climb back a ring at a time while dwelling. Six decisions handed back with recommendations, twelve oracles, six measurement arms. **Read the 2026-09-06 corridor worklog entry before it** — the floor is a cliff edge, not a slope, and that is why the policy has the shape it has. |
+| [docs/ADAPTIVE-RADIUS-PLAN.md](docs/ADAPTIVE-RADIUS-PLAN.md) | **The adaptive view radius**, Matthew's proposal from the sprint corridor, planned and **built 2026-09-06**: fall to the 27-chunk floor while moving with a derive backlog, climb back a ring at a time while the derive is idle enough for one more. **Its "Built" section records that the plan's grow rule — a dwell — was wrong, and the 7 m/s corridor said so on its first run**; the rule is the light step's share of its budget now. Read the corridor worklog entry before it: the floor is a cliff edge, not a slope. |
 | [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md) | **The retained-chunk cache**, planned 2026-09-03, **slice 1 built the same day and slice 2 on 2026-09-04**: chunks leaving the box keep their voxels, column and derived light in a byte-capped cache, so a turnaround costs no load, no generate and no derive. **Both "built" sections record where the build departed from the plan** — a column rule the plan did not have, a column push that became a check at revival, and the three older light defects slice 2's walk found. Read the slice 2 section before touching `LightPropagator`. |
 | [docs/SCALE.md](docs/SCALE.md) | **How many voxels and cells exist at each view distance, what one full sweep costs, and what each system actually iterates.** Read before designing anything that wants to check the world periodically — M7, M8 and M9 all start here. |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
@@ -72,8 +72,8 @@ Run the game:
 start.cmd
 ```
 
-**`start.cmd` passes `-- --lightbudget=16` itself as of 2026-09-03** — Matthew's "lighting
-switch". It launches the Debug build, where a derive is ~1.4 ms and the 4 ms default gives two or
+**`start.cmd` passes `-- --lightbudget=16 --adaptive=1` itself** — the first since 2026-09-03,
+Matthew's "lighting switch", and the second since 2026-09-06, the adaptive view radius. It launches the Debug build, where a derive is ~1.4 ms and the 4 ms default gives two or
 three a frame, which is what lit a mined-out room over tens of seconds. Anything you give
 `start.cmd` lands after that bare `--` as a game flag, and a later `--lightbudget=` wins. **The
 pipeline default stays 4 ms**, because every recorded measurement was taken at it and a profile
@@ -312,6 +312,19 @@ the budget bounds. On the bench, `--fluidbudget <ms>` (space-separated, like its
 each flow tick as back-to-back slices and prints slices per tick and the worst slice, which is
 how the roof-open case was priced in frames.
 
+The adaptive view radius (2026-09-06) adds six. **`--adaptive=1` turns it on; off is the default
+and the arm every recorded streaming figure was taken in, and `start.cmd` passes it on** the way
+it passes the light budget. The box starts at the floor, falls a ring at a time while the viewer
+is moving with a derive backlog over `--shrinkslabs=` (2) slabs of the current box, and climbs a
+ring at a time while the backlog is empty and the light step's averaged share of its budget is
+under `--growbelow=` (0.5); `--cadence=` (2 s) is the least time between changes, the grace after a
+grow and the load's time constant; `--minradius=` (1) is the floor. **`--sprintfor=<s>` moves the
+flythrough for that many seconds and then stops** — the hanging-around arm, which `--turnaround`
+(reverses) and `--speed=0` (never moves) cannot produce. The profile's `radius` line prints shrinks
+and grows, seconds at each radius, the backlog and load it read, and the `fill` line gains `grown`,
+the first moment the box stood at its ceiling with light settled — **the figure comparable with a
+fixed arm's `light settled`; under a growth the other milestones read the floor's box.**
+
 The retained-chunk cache adds two. **`--chunkcache=<MiB>` caps the cache, 64 by default, and 0 is
 off — the committed pre-cache behaviour and the control arm.** Not profile-only, because memory is
 something a play reports. **`--turnaround=<seconds>` reverses the scripted flythrough every N
@@ -408,7 +421,7 @@ local folder, the remote URL, and the assistant's memory directory (see TODO's n
 **The played worlds now live under `app_userdata/Overburden/`; the `MinerCraft/` folder beside it
 is the pre-rename backup and is Matthew's to delete.**
 
-**Pick up here (2026-09-06). M8b-4a is built — the pause and the arrival — and M8b-4b, the store,
+**Where the morning of 2026-09-06 left off. M8b-4a is built — the pause and the arrival — and M8b-4b, the store,
 is next and goes alone, because a defect there is permanent data loss.** Read M8-PLAN's "M8b-4 —
 the planning pass" and its "M8b-4a — built" section before 4b. A walk no longer deletes awake
 water: a visited cell whose chunk is not loaded sleeps in place and is remembered per chunk
@@ -426,15 +439,22 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**The adaptive view radius is planned (2026-09-06, the afternoon) and not built — read
-[docs/ADAPTIVE-RADIUS-PLAN.md](docs/ADAPTIVE-RADIUS-PLAN.md) before writing a line of it.** The
-policy is a pure Core function with two disjoint rules (shrink a ring a frame while moving with a
-backlog over two slabs; grow a ring while dwelling with an empty backlog), so hysteresis is an
-oracle rather than a tuning; Main applies it through `UpdateViewer`, which already takes a radius.
-**Six decisions are Matthew's, recommendations given**: floor `1h/1v`, backlog over speed, off by
-default with `start.cmd` opting in, spawn at the floor so the fill is a growth (first draw ~1.5 s
-for roughly double the fill's derives), this slice before the third-ring lever, and two threshold
-estimates. Building it starts with `--sprintfor=`, because the hanging-around arm does not exist.
+**Pick up here (2026-09-06, evening). The adaptive view radius is built and unplayed — `start.cmd`
+passes `--adaptive=1`, and the play check is the first thing to do.** Fly, hold Ctrl, read
+`view rNh/Nv` on the status line fall to r1 with the world still drawn; stop and read it climb a
+ring every few seconds; walk and sprint on foot and it should never leave r6. Suite 1,058 → 1,073.
+**The plan's grow rule was wrong and its own measurement arm said so on the first run**: "grow
+while the viewer's chunk has not changed for two seconds" is *never while walking* — a chunk every
+1.1 s at 7 m/s — and the box sat at the floor for the whole corridor, 20 drawn against 344. The
+rule is now *grow when the backlog is empty and the light step's averaged share of its budget is
+under 0.5*, with a grace of one cadence after any change; half is arithmetic (a ring adds at most
+29% to a slab), and the load being a share of the budget means a bigger budget is a bigger box.
+**Measured**: 30 m/s draws 25 of 27 at the floor against 0 fixed; 7 m/s ends identical to fixed
+with first draw 0.81 s against 6.47; a standing start draws at 1.00 s against 6.65 and is grown at
+14.5 s for +69% derives; sprint-and-stop is grown nine seconds after the stop. **Two costs stated
+and not paid**: a ring's sweep is 22–29 ms in one frame, five per fill (stage a face per frame, or
+seed columns on a worker); and the 0.5 threshold leaves the 0.5–0.78 load band unused at small
+budgets. M8b-4b, the store, is still next after the play check.
 
 **The sprint corridor is measured (2026-09-06), and an adaptive view radius is recommended and not
 built.** Thirty chunks of on-foot sprint (7 m/s) at r6 is 152 generates, 260 derives, 52 meshes
