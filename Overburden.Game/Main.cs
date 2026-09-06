@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -747,6 +747,7 @@ public partial class Main : Node3D
             onChunkForgotten: position => _portalTracker?.OnChunkForgotten(position));
 
         SetUpFluid(windowed);
+        RestoreFluid();
 
         // Whatever the world remembered the player carrying. Before the first swing, so that a
         // reopened world can place from what it was already holding.
@@ -2254,14 +2255,16 @@ public partial class Main : Node3D
         _pipeline.WriteWorldHeader(CurrentHeader());
         WriteBasins();
 
+        int panelsBefore = _pipeline.PanelsSaved;
         (int chunks, int columns) = _pipeline.SaveAll();
+        int panels = _pipeline.PanelsSaved - panelsBefore;
 
         // Only when it did something. A line every thirty seconds saying nothing happened is how
         // a log stops being read.
-        if (chunks > 0 || columns > 0)
+        if (chunks > 0 || columns > 0 || panels > 0)
         {
             GD.Print(
-                $"M6: autosaved {chunks} chunk(s) and {columns} column(s) in "
+                $"M6: autosaved {chunks} chunk(s), {columns} column(s) and {panels} fluid panel(s) in "
                 + $"{Milliseconds(before, Stopwatch.GetTimestamp()):F1} ms");
         }
     }
@@ -3138,6 +3141,47 @@ public partial class Main : Node3D
 
     // ---------------------------------------------------------------- M8b: Tier B in the loop
 
+    /// <summary>Puts the world file's water back into the grid, asleep, before the first chunk arrives.</summary>
+    /// <remarks>
+    /// <b>Read whole at open, into paused panels</b> — M8b-4b. Until the panel leaves RAM with its
+    /// chunk (4c) the store is a mirror of the grid, so every row comes back now and the chunk
+    /// arrivals wake what each row said was awake, through the same hook that wakes a paused
+    /// flood. A row the reader refuses is fatal for the same reason a corrupt chunk blob is:
+    /// playing beside water the file says is there and the grid does not would look like a
+    /// fresh lake and read, on the next open, as a world that lost one.
+    /// </remarks>
+    private void RestoreFluid()
+    {
+        if (_store is null || _fluid is null)
+        {
+            return;
+        }
+
+        long before = Stopwatch.GetTimestamp();
+        IReadOnlyList<(ChunkPos Position, byte[] Blob)> rows = _store.ReadFluid();
+        int empty = 0;
+        foreach ((ChunkPos position, byte[] blob) in rows)
+        {
+            FluidPanelSnapshot panel = FluidPanelBlob.Read(blob, position);
+            if (panel.Cells.Length == 0)
+            {
+                empty++;
+                continue;
+            }
+
+            _fluid.Restore(panel);
+        }
+
+        if (rows.Count > 0)
+        {
+            GD.Print(
+                $"M8b: restored {_fluid.LoadedMillilitres / (double)FluidConstants.MillilitresPerLitre:N0} L in "
+                + $"{_fluid.RestoredPanels:N0} panel(s) ({empty} empty row(s)), "
+                + $"{_fluid.PausedCellCount:N0} cell(s) stored awake and paused for their chunks, in "
+                + $"{Milliseconds(before, Stopwatch.GetTimestamp()):F1} ms");
+        }
+    }
+
     private void SetUpFluid(bool windowed)
     {
         if (_pipeline is null || _noWater)
@@ -3148,6 +3192,11 @@ public partial class Main : Node3D
         var terrain = new VoxelFluidTerrain(_pipeline.Streamer, _materials!);
         _fluid = new FluidSimulation(terrain);
         _fluidBudgetTicks = FluidSimulation.BudgetTicks(_fluidBudget);
+
+        // M8b-4b: the save path takes its panels from here. After construction because the
+        // terrain above is the pipeline's own streamer, which is the whole reason it is a
+        // property.
+        _pipeline.Fluid = _fluid;
 
         // M8b-2c: the seam. The seed surface off the columns (1.2 ms a bite against 10.3 with the
         // function), the index over the same holdability the automaton uses, the tracker that
@@ -3546,7 +3595,8 @@ public partial class Main : Node3D
     {
         FluidSimulation f = _fluid!;
         bool exact = f.TotalMillilitres
-            == f.AddedMillilitres - f.RemovedMillilitres - f.DisplacedMillilitres - f.HandedMillilitres;
+            == f.AddedMillilitres + f.LoadedMillilitres
+               - f.RemovedMillilitres - f.DisplacedMillilitres - f.HandedMillilitres;
         return exact ? "exact" : "*** NO ***";
     }
 
@@ -3593,9 +3643,10 @@ public partial class Main : Node3D
         return $"{f.TotalMillilitres / litre:N0} L moving in {f.Grid.HeldCellCount:N0} cell(s) over "
                + $"{f.Grid.PanelCount} panel(s) ({f.Grid.PanelBytes / 1024.0 / 1024.0:F1} MiB); "
                + $"injected {(f.AddedMillilitres - drawn) / litre:N0} L, drawn {drawn / litre:N0} L, "
+               + $"loaded {f.LoadedMillilitres / litre:N0} L from {f.RestoredPanels:N0} panel(s), "
                + $"removed {f.RemovedMillilitres / litre:N0} L, displaced {f.DisplacedMillilitres / litre:N0} L, "
                + $"handed {f.HandedMillilitres / litre:N0} L to Tier A — "
-               + $"held == injected + drawn − removed − displaced − handed: {FluidIdentity()}, "
+               + $"held == injected + drawn + loaded − removed − displaced − handed: {FluidIdentity()}, "
                + $"received == handed: {HandoffIdentity()}; "
                + $"{_relayPendingMillilitres / litre:N0} L still to pour; "
                + $"paused {f.PausedCellCount:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
@@ -3668,9 +3719,10 @@ public partial class Main : Node3D
         return $"fluid     {f.TotalMillilitres / litre:N0} L moving in {f.Grid.HeldCellCount:N0} cell(s) "
                + $"over {f.Grid.PanelCount} panel(s) ({f.Grid.PanelBytes / 1024.0 / 1024.0:F1} MiB); "
                + $"injected {(f.AddedMillilitres - drawn) / litre:N0} L, drawn {drawn / litre:N0} L, "
+               + $"loaded {f.LoadedMillilitres / litre:N0} L from {f.RestoredPanels:N0} panel(s), "
                + $"removed {f.RemovedMillilitres / litre:N0} L, displaced {f.DisplacedMillilitres / litre:N0} L, "
                + $"handed {handed / litre:N0} L — "
-               + $"held == injected + drawn − removed − displaced − handed: {FluidIdentity()}; "
+               + $"held == injected + drawn + loaded − removed − displaced − handed: {FluidIdentity()}; "
                + $"{_relayPendingMillilitres / litre:N0} L still to pour; "
                + $"paused {f.PausedCellCount:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
                + $"{f.ResumedCells:N0} resumed, {f.FaceWakes:N0} face wake(s)\n"
@@ -4191,7 +4243,8 @@ public partial class Main : Node3D
         ChunkStreamer streamer = _pipeline!.Streamer;
 
         return $"{_pipeline.ChunksLoaded} loaded / {streamer.TrackedCount} tracked, "
-               + $"{_pipeline.ChunksSaved} chunks + {_pipeline.ColumnsSaved} columns saved "
+               + $"{_pipeline.ChunksSaved} chunks + {_pipeline.ColumnsSaved} columns + "
+               + $"{_pipeline.PanelsSaved} fluid panels saved "
                + $"({_pipeline.BytesSaved / 1024.0:F0} KiB), "
                + $"{_pipeline.SavedChunkCount} chunks in the world, "
                + $"{_pipeline.ColumnsRestored} columns restored, "
@@ -4525,6 +4578,16 @@ public partial class Main : Node3D
             {
                 GD.PushError($"M6: could not write the world session on quit — {error.Message}");
             }
+        }
+
+        // The water as it stands at the instant it is written, because the periodic line is up to
+        // five seconds stale and the hand-off keeps draining a spill between the two — the
+        // figure the next open's "restored" line has to equal is this one.
+        if (_fluid is not null && _store is not null)
+        {
+            GD.Print(
+                $"M8b: at quit — {_fluid.TotalMillilitres / (double)FluidConstants.MillilitresPerLitre:N0} L in "
+                + $"{_fluid.Grid.HeldCellCount:N0} cell(s), {_fluid.AwakeHeldCells().Count():N0} awake or paused");
         }
 
         _pipeline?.Dispose();

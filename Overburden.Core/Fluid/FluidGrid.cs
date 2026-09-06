@@ -52,9 +52,20 @@ public sealed class FluidGrid
 
         /// <summary>Cells holding anything at all, which is what decides when to release it.</summary>
         public int Held;
+
+        /// <summary>Written since the last snapshot. Set by the one writer, cleared by <see cref="TakeSnapshot"/>.</summary>
+        public bool Dirty;
+
+        /// <summary>Snapshotted at least once, so a row on disk may exist for it and must be emptied if this panel is.</summary>
+        public bool Stored;
     }
 
     private readonly Dictionary<ChunkPos, Panel> _panels = [];
+
+    // Chunks whose panel was released after being snapshotted: the row on disk still holds water
+    // that has since drained away, and the next save writes it empty. A panel released before it
+    // was ever snapshotted has no row and is not remembered.
+    private readonly HashSet<ChunkPos> _emptied = [];
 
     // A one-entry cache, because the tick walks six neighbours of one cell and five of them share
     // its chunk. Invalidated by hand wherever a panel is released — a stale entry here would hand
@@ -268,10 +279,116 @@ public sealed class FluidGrid
         }
     }
 
+    // ---------------------------------------------------------------------------------------
+    // Persistence (M8b-4b). A panel is dirty from its first write until it is snapshotted, and a
+    // snapshot is a copy of the held cells the save path owns from then on.
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>Whether a save would write this chunk: its panel was written since the last snapshot, or released since.</summary>
+    public bool IsDirty(ChunkPos chunk) =>
+        (_panels.TryGetValue(chunk, out Panel? panel) && panel.Dirty) || _emptied.Contains(chunk);
+
+    /// <summary>Every chunk <see cref="IsDirty"/> is true for. A copy, so the caller may snapshot while iterating.</summary>
+    public List<ChunkPos> DirtyChunks()
+    {
+        var dirty = new List<ChunkPos>();
+        foreach ((ChunkPos chunk, Panel panel) in _panels)
+        {
+            if (panel.Dirty) dirty.Add(chunk);
+        }
+
+        foreach (ChunkPos chunk in _emptied)
+        {
+            if (!_panels.ContainsKey(chunk)) dirty.Add(chunk);
+        }
+
+        return dirty;
+    }
+
+    /// <summary>
+    /// Copies the held cells of one chunk as ascending (index, millilitres) pairs and marks the
+    /// panel clean. An empty array for a chunk with no panel, which is what a released one writes.
+    /// </summary>
+    /// <remarks>
+    /// <b>Clears the dirty bit here, at the copy, and not when the bytes land</b> — a write
+    /// arriving while the save is in flight sets it again and the panel is written a second
+    /// time; clearing on completion would swallow exactly those writes. The same rule as the
+    /// pipeline's <c>DirtySinceSave</c>. The copy is one scan of the panel, so it costs the same
+    /// for a chunk holding one cell as for a full one; what varies is the array.
+    /// </remarks>
+    public (ushort Index, ushort Millilitres)[] TakeSnapshot(ChunkPos chunk)
+    {
+        _emptied.Remove(chunk);
+
+        Panel? panel = Find(chunk);
+        if (panel is null || panel.Held == 0)
+        {
+            return [];
+        }
+
+        var cells = new (ushort, ushort)[panel.Held];
+        int at = 0;
+        for (int index = 0; index < panel.Cells.Length && at < cells.Length; index++)
+        {
+            ushort amount = panel.Cells[index];
+            if (amount != 0)
+            {
+                cells[at++] = ((ushort)index, amount);
+            }
+        }
+
+        panel.Dirty = false;
+        panel.Stored = true;
+        return cells;
+    }
+
+    /// <summary>
+    /// Puts a stored panel back, whole. The chunk must hold nothing yet; returns the millilitres restored.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not a write, by the dirty bit's rule</b>: what comes off the disk is what is on the disk,
+    /// so the restored panel is clean and marked stored, and a restore that changed nothing costs
+    /// no row at the next save. Every cell goes through <see cref="Write"/> so the totals are the
+    /// writer's; only the flags are set by hand afterwards. It refuses a chunk that already holds
+    /// water rather than adding to it, because the only caller is the open and the grid is empty
+    /// then — a second restore over the first would double the water and pass the identity, since
+    /// <c>loaded</c> would double with it.
+    /// </remarks>
+    public long Restore(ChunkPos chunk, ReadOnlySpan<(ushort Index, ushort Millilitres)> cells)
+    {
+        if (Find(chunk) is not null)
+        {
+            throw new InvalidOperationException($"{chunk} already holds water; a panel is restored once, into an empty grid.");
+        }
+
+        if (cells.Length == 0)
+        {
+            return 0;
+        }
+
+        Panel panel = Obtain(chunk);
+        long restored = 0;
+        foreach ((ushort index, ushort millilitres) in cells)
+        {
+            if (index >= panel.Cells.Length || millilitres == 0 || millilitres > FluidConstants.CellCapacityMillilitres)
+            {
+                throw new ArgumentOutOfRangeException(nameof(cells), $"cell {index} holds {millilitres} mL");
+            }
+
+            Write(chunk, panel, index, millilitres);
+            restored += millilitres;
+        }
+
+        panel.Dirty = false;
+        panel.Stored = true;
+        return restored;
+    }
+
     private void Write(ChunkPos chunk, Panel panel, int index, int amount)
     {
         int previous = panel.Cells[index];
         panel.Cells[index] = (ushort)amount;
+        panel.Dirty = true;
 
         int delta = amount - previous;
         panel.Total += delta;
@@ -332,6 +449,11 @@ public sealed class FluidGrid
         }
 
         _panels.Remove(chunk);
+        if (panel.Stored)
+        {
+            _emptied.Add(chunk);
+        }
+
         if (_cacheValid && _cachedKey == chunk)
         {
             _cacheValid = false;

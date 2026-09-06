@@ -1,4 +1,5 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
+using Overburden.Core.Persistence;
 using Overburden.Core.Voxels;
 
 namespace Overburden.Core.Fluid;
@@ -99,7 +100,7 @@ public readonly record struct FluidSettleResult(
 /// play's oracle: it stays at zero while nothing turns to rock.
 /// </para>
 /// </remarks>
-public sealed partial class FluidSimulation
+public sealed partial class FluidSimulation : IFluidPersistence
 {
     // Order is fixed so a run is reproducible: +X, -X, +Z, -Z.
     private static readonly (int Dx, int Dz)[] Sideways = [(1, 0), (-1, 0), (0, 1), (0, -1)];
@@ -155,6 +156,12 @@ public sealed partial class FluidSimulation
     // moving water beside the boundary wakes the same paused cell again every tick it does.
     private readonly Dictionary<ChunkPos, HashSet<VoxelPos>> _paused = [];
     private int _pausedCells;
+
+    // Chunks whose row on disk lists awake cells, as of the last snapshot of each. A cell that
+    // rests without a write leaves its panel clean and its row saying "awake", and a row that is
+    // never rewritten would wake those cells on every open — the played lake, a million visits
+    // a session, for ever. So a save rewrites such a row once, with the list it has now.
+    private readonly HashSet<ChunkPos> _storedAwake = [];
 
     // The tick in progress: how far through its batch the cursor is, and what it has done so far.
     // A batch with anything in it is a tick in progress; completing one empties it.
@@ -282,6 +289,15 @@ public sealed partial class FluidSimulation
 
     /// <summary>Paused cells woken by their chunk arriving, over the lifetime.</summary>
     public long ResumedCells { get; private set; }
+
+    /// <summary>
+    /// Millilitres put back from the world file at open, through <see cref="Restore"/>. A term of
+    /// the identity: held equals added plus loaded, less removed, displaced and handed.
+    /// </summary>
+    public long LoadedMillilitres { get; private set; }
+
+    /// <summary>Panels restored from the world file at open.</summary>
+    public int RestoredPanels { get; private set; }
 
     /// <summary>
     /// Held cells woken at an arrival for standing on one of its faces, on either side, over the
@@ -837,6 +853,156 @@ public sealed partial class FluidSimulation
         {
             _pausedCells++;
         }
+    }
+
+    /// <summary>
+    /// Puts a stored panel back, asleep, with its awake cells on the paused list for the chunk's
+    /// arrival to wake. The open's one call per row of the <c>fluid</c> table.
+    /// </summary>
+    /// <remarks>
+    /// <b>Restored water is paused water, and that is what makes one mechanism serve the load and
+    /// the revival.</b> At open no chunk is loaded, so a restored cell is in exactly the state a
+    /// cell whose chunk left the box is in: held, asleep, in a chunk the world cannot answer for.
+    /// The awake list goes on the paused list, and <see cref="ChunkArrived"/> wakes it through
+    /// the same hook it wakes a paused flood through when the chunk generates, loads, or comes
+    /// back from the cache. Nothing is woken here — waking a cell in an unloaded chunk would only
+    /// pause it again at its next visit, at the cost of the visit. The millilitres are counted on
+    /// <see cref="LoadedMillilitres"/> and nowhere else, so the identity stays exact from the first
+    /// frame: the water was not added, it was already there.
+    /// </remarks>
+    public void Restore(FluidPanelSnapshot panel)
+    {
+        ArgumentNullException.ThrowIfNull(panel);
+
+        long restored = _grid.Restore(panel.Chunk, panel.Cells);
+        LoadedMillilitres += restored;
+        if (restored == 0)
+        {
+            return;
+        }
+
+        RestoredPanels++;
+
+        if (panel.Awake.Length > 0)
+        {
+            _storedAwake.Add(panel.Chunk);
+        }
+
+        VoxelPos origin = panel.Chunk.OriginVoxel;
+        foreach (ushort index in panel.Awake)
+        {
+            (int lx, int ly, int lz) = VoxelPos.FromIndex(index);
+            Pause(new VoxelPos(origin.X + lx, origin.Y + ly, origin.Z + lz));
+        }
+    }
+
+    /// <inheritdoc />
+    public FluidPanelSnapshot? TakeDirty(ChunkPos chunk)
+    {
+        if (!_grid.IsDirty(chunk))
+        {
+            return null;
+        }
+
+        (ushort, ushort)[] cells = _grid.TakeSnapshot(chunk);
+        ushort[] awake = _paused.TryGetValue(chunk, out HashSet<VoxelPos>? paused)
+            ? AwakeIndices(paused.Select(cell => (ushort)cell.LocalIndex))
+            : [];
+
+        NoteStoredAwake(chunk, awake);
+        return new FluidPanelSnapshot(chunk, cells, awake);
+    }
+
+    private void NoteStoredAwake(ChunkPos chunk, ushort[] awake)
+    {
+        if (awake.Length > 0) _storedAwake.Add(chunk);
+        else _storedAwake.Remove(chunk);
+    }
+
+    /// <summary>
+    /// Every held cell that is not asleep: paused, queued for the next tick, or not yet visited
+    /// by the tick in progress. A cell can be more than one of those; it is yielded once.
+    /// </summary>
+    /// <remarks>
+    /// <b>What the world file lists as awake, and the one walk of the active set a save makes.</b>
+    /// Only held cells, because an awake cell in the blob is a held cell: the automaton queues
+    /// holdable empty cells too, and those are woken again by whatever fills them. O(paused +
+    /// active), so a report or a save may call it and the tick never does.
+    /// </remarks>
+    public IEnumerable<VoxelPos> AwakeHeldCells()
+    {
+        var seen = new HashSet<VoxelPos>();
+
+        foreach ((_, HashSet<VoxelPos> cells) in _paused)
+        {
+            foreach (VoxelPos cell in cells)
+            {
+                if (_grid.AmountAt(cell) > 0 && seen.Add(cell)) yield return cell;
+            }
+        }
+
+        foreach (VoxelPos cell in _queued)
+        {
+            if (_grid.AmountAt(cell) > 0 && seen.Add(cell)) yield return cell;
+        }
+
+        for (int i = _cursor; i < _batch.Count; i++)
+        {
+            VoxelPos cell = _batch[i];
+            if (_grid.AmountAt(cell) > 0 && seen.Add(cell)) yield return cell;
+        }
+    }
+
+    /// <inheritdoc />
+    public void TakeAllDirty(List<FluidPanelSnapshot> into)
+    {
+        ArgumentNullException.ThrowIfNull(into);
+
+        // Every awake held cell grouped by chunk, in one walk, plus every dirty panel: a panel
+        // with an awake cell in it is a panel whose row is stale even if nothing in it moved
+        // since the last snapshot, because the awake list is state.
+        var awakeByChunk = new Dictionary<ChunkPos, List<ushort>>();
+
+        foreach (VoxelPos cell in AwakeHeldCells()) Note(cell);
+
+        var chunks = new HashSet<ChunkPos>(_grid.DirtyChunks());
+        chunks.UnionWith(awakeByChunk.Keys);
+        chunks.UnionWith(_storedAwake);
+
+        foreach (ChunkPos chunk in chunks)
+        {
+            (ushort, ushort)[] cells = _grid.TakeSnapshot(chunk);
+            ushort[] awake = awakeByChunk.TryGetValue(chunk, out List<ushort>? indices)
+                ? AwakeIndices(indices)
+                : [];
+            NoteStoredAwake(chunk, awake);
+            into.Add(new FluidPanelSnapshot(chunk, cells, awake));
+        }
+
+        void Note(VoxelPos cell)
+        {
+            if (!awakeByChunk.TryGetValue(cell.Chunk, out List<ushort>? list))
+            {
+                list = [];
+                awakeByChunk[cell.Chunk] = list;
+            }
+
+            list.Add((ushort)cell.LocalIndex);
+        }
+    }
+
+    /// <summary>Ascending and without repeats, which is what the blob requires.</summary>
+    /// <remarks>
+    /// The <c>Distinct</c> is belt and braces: both callers already hand over a set — the paused
+    /// set itself, or <see cref="AwakeHeldCells"/>, which deduplicates a cell that is both paused
+    /// and queued — so removing it is an identity today (M8b-4b's battery, one recipe green). It
+    /// stays because the blob reader refuses a repeat, and a third caller would find out on disk.
+    /// </remarks>
+    private static ushort[] AwakeIndices(IEnumerable<ushort> indices)
+    {
+        ushort[] sorted = [.. indices.Distinct()];
+        Array.Sort(sorted);
+        return sorted;
     }
 
     /// <summary>

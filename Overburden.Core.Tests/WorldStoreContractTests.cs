@@ -1,4 +1,4 @@
-using Overburden.Core.Content;
+﻿using Overburden.Core.Content;
 using Overburden.Core.Lighting;
 using Overburden.Core.Persistence;
 using Overburden.Core.Voxels;
@@ -304,6 +304,108 @@ public abstract class WorldStoreContractTests : IDisposable
     }
 
     // -----------------------------------------------------------------------------------------
+    // The third list: fluid panels (M8b-4b).
+    // -----------------------------------------------------------------------------------------
+
+    [Fact]
+    public void ANewWorldHasNoFluid() => Assert.Empty(Track(CreateStore()).ReadFluid());
+
+    [Fact]
+    public void FluidPanelsRoundTripWholeAndKeyedByChunk()
+    {
+        IWorldStore store = Track(CreateStore());
+
+        store.Write([], [], [(A, Bytes(1, 2, 3)), (B, Bytes(4))]);
+
+        List<(ChunkPos Position, byte[] Blob)> rows = [.. store.ReadFluid().OrderBy(r => r.Position.X)];
+        Assert.Equal(2, rows.Count);
+        Assert.Equal(B, rows[0].Position);
+        Assert.Equal(Bytes(4), rows[0].Blob);
+        Assert.Equal(A, rows[1].Position);
+        Assert.Equal(Bytes(1, 2, 3), rows[1].Blob);
+    }
+
+    [Fact]
+    public void WritingTheSameFluidKeyTwiceReplaces()
+    {
+        IWorldStore store = Track(CreateStore());
+
+        store.Write([], [], [(A, Bytes(1))]);
+        store.Write([], [], [(A, Bytes(2, 2))]);
+
+        (ChunkPos position, byte[] blob) = Assert.Single(store.ReadFluid());
+        Assert.Equal(A, position);
+        Assert.Equal(Bytes(2, 2), blob);
+    }
+
+    [Fact]
+    public void AStoredFluidBlobIsNotAliasedToTheCallersArray()
+    {
+        IWorldStore store = Track(CreateStore());
+
+        byte[] blob = Bytes(9, 9);
+        store.Write([], [], [(A, blob)]);
+        blob[0] = 0;
+
+        Assert.Equal(Bytes(9, 9), Assert.Single(store.ReadFluid()).Blob);
+    }
+
+    [Fact]
+    public void AllThreeListsLandInOneWrite()
+    {
+        IWorldStore store = Track(CreateStore());
+
+        store.Write([(A, Bytes(1))], [(1, 2, Bytes(2))], [(A, Bytes(3))]);
+
+        Assert.Equal(Bytes(1), store.ReadChunk(A));
+        Assert.Equal(Bytes(2), store.ReadColumn(1, 2));
+        Assert.Equal(Bytes(3), Assert.Single(store.ReadFluid()).Blob);
+    }
+
+    [Fact]
+    public void AWriteThatFailsOnItsFluidLeavesNoChunkBehind()
+    {
+        // The reason the fluid rides the chunk batch at all: a chunk written and its water not
+        // is, after a crash between them, rock over a hole or water inside rock. A null blob is
+        // the one bad entry both stores refuse — a NOT NULL column in SQLite, a check up front in
+        // memory — and the chunk that went in ahead of it must not be there afterwards.
+        IWorldStore store = Track(CreateStore());
+
+        Assert.ThrowsAny<Exception>(() => store.Write([(A, Bytes(1))], [(1, 2, Bytes(2))], [(B, null!)]));
+
+        Assert.Null(store.ReadChunk(A));
+        Assert.Null(store.ReadColumn(1, 2));
+        Assert.Empty(store.ReadFluid());
+    }
+
+    [Fact]
+    public void AFluidPanelSurvivesAReopen()
+    {
+        if (!CanReopen) return;
+
+        IWorldStore store = Track(CreateStore());
+        store.Write([], [], [(A, Bytes(5, 6, 7))]);
+
+        IWorldStore reopened = Track(Reopen(store));
+        (ChunkPos position, byte[] blob) = Assert.Single(reopened.ReadFluid());
+        Assert.Equal(A, position);
+        Assert.Equal(Bytes(5, 6, 7), blob);
+    }
+
+    [Fact]
+    public void ARealPanelSurvivesTheStore()
+    {
+        IWorldStore store = Track(CreateStore());
+
+        var panel = new FluidPanelSnapshot(A, [(10, 100), (11, 15625), (4000, 3)], [11]);
+        store.Write([], [], [(A, FluidPanelBlob.Write(panel))]);
+
+        FluidPanelSnapshot restored = FluidPanelBlob.Read(Assert.Single(store.ReadFluid()).Blob, A);
+        Assert.Equal(panel.Cells, restored.Cells);
+        Assert.Equal(panel.Awake, restored.Awake);
+    }
+
+    // -----------------------------------------------------------------------------------------
     // Lifetime.
     // -----------------------------------------------------------------------------------------
 
@@ -479,6 +581,54 @@ public sealed class SqliteWorldStoreTests : WorldStoreContractTests
     }
 
     [Fact]
+    public void ASchemaTwoWorldOpensAndGainsTheFluidTable()
+    {
+        // The world Matthew plays is schema 2 — chunks, columns, basins, no fluid — and the
+        // upgrade is additive: open it, find the table, stamp 3, lose nothing. Built the way the
+        // old build built it, with the tables it had and the version it stamped.
+        Directory.CreateDirectory(_directory);
+
+        using (var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={WorldPath}"))
+        {
+            connection.Open();
+            using Microsoft.Data.Sqlite.SqliteCommand command = connection.CreateCommand();
+            command.CommandText =
+                """
+                CREATE TABLE world (key TEXT NOT NULL PRIMARY KEY, value BLOB NOT NULL) STRICT;
+                CREATE TABLE chunks (cx INTEGER NOT NULL, cy INTEGER NOT NULL, cz INTEGER NOT NULL,
+                    blob BLOB NOT NULL, PRIMARY KEY (cx, cy, cz)) STRICT;
+                CREATE TABLE columns (cx INTEGER NOT NULL, cz INTEGER NOT NULL, blob BLOB NOT NULL,
+                    PRIMARY KEY (cx, cz)) STRICT;
+                CREATE TABLE basins (pit_x INTEGER NOT NULL, pit_z INTEGER NOT NULL, litres INTEGER NOT NULL,
+                    PRIMARY KEY (pit_x, pit_z)) STRICT;
+                INSERT INTO chunks VALUES (1, 2, 3, X'AB');
+                INSERT INTO basins VALUES (4, 5, 6000);
+                PRAGMA user_version = 2;
+                """;
+            command.ExecuteNonQuery();
+        }
+
+        using (var store = new SqliteWorldStore(WorldPath))
+        {
+            Assert.Empty(store.ReadFluid());
+            Assert.Equal([new ChunkPos(1, 2, 3)], store.LoadChunkIndex().ToArray());
+            Assert.Equal(6000L, Assert.Single(store.ReadBasins()).Litres);
+            store.Write([], [], [(new ChunkPos(7, 8, 9), [1, 2])]);
+        }
+
+        using (var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={WorldPath}"))
+        {
+            connection.Open();
+            using Microsoft.Data.Sqlite.SqliteCommand command = connection.CreateCommand();
+            command.CommandText = "PRAGMA user_version;";
+            Assert.Equal(3L, (long)command.ExecuteScalar()!);
+        }
+
+        using var again = new SqliteWorldStore(WorldPath);
+        Assert.Single(again.ReadFluid());
+    }
+
+    [Fact]
     public void TheWorldIsOneFileAndItSurvivesBeingReopenedRepeatedly()
     {
         // Reopening is what a player does every session, and each open runs EnsureSchema against
@@ -489,7 +639,7 @@ public sealed class SqliteWorldStoreTests : WorldStoreContractTests
         for (int session = 0; session < 4; session++)
         {
             using var store = new SqliteWorldStore(WorldPath);
-            store.Write([(new ChunkPos(session, 0, 0), [(byte)session])], []);
+            store.Write([(new ChunkPos(session, 0, 0), [(byte)session])], [], []);
         }
 
         using var final = new SqliteWorldStore(WorldPath);
@@ -505,6 +655,6 @@ public sealed class SqliteWorldStoreTests : WorldStoreContractTests
 
         Assert.Throws<ObjectDisposedException>(() => store.ReadWorldHeader());
         Assert.Throws<ObjectDisposedException>(() => store.ReadChunk(new ChunkPos(0, 0, 0)));
-        Assert.Throws<ObjectDisposedException>(() => store.Write([], []));
+        Assert.Throws<ObjectDisposedException>(() => store.Write([], [], []));
     }
 }

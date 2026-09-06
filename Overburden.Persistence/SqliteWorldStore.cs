@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+﻿using Microsoft.Data.Sqlite;
 using Overburden.Core.Persistence;
 using Overburden.Core.Voxels;
 
@@ -45,7 +45,7 @@ public sealed class SqliteWorldStore : IWorldStore
     /// than gating anything, and a file written by a <em>newer</em> build is still refused.
     /// </para>
     /// </remarks>
-    public const int SchemaVersion = 2;
+    public const int SchemaVersion = 3;
 
     private const string HeaderKey = "header";
 
@@ -56,6 +56,7 @@ public sealed class SqliteWorldStore : IWorldStore
     private readonly SqliteCommand _readColumn;
     private readonly SqliteCommand _writeChunk;
     private readonly SqliteCommand _writeColumn;
+    private readonly SqliteCommand _writeFluid;
     private readonly SqliteCommand _writeBasin;
 
     private bool _disposed;
@@ -99,6 +100,11 @@ public sealed class SqliteWorldStore : IWorldStore
             "INSERT INTO columns (cx, cz, blob) VALUES ($x, $z, $blob) "
             + "ON CONFLICT(cx, cz) DO UPDATE SET blob = excluded.blob;",
             "$x", "$z", "$blob");
+
+        _writeFluid = Prepare(
+            "INSERT INTO fluid (cx, cy, cz, blob) VALUES ($x, $y, $z, $blob) "
+            + "ON CONFLICT(cx, cy, cz) DO UPDATE SET blob = excluded.blob;",
+            "$x", "$y", "$z", "$blob");
 
         _writeBasin = Prepare(
             "INSERT INTO basins (pit_x, pit_z, litres) VALUES ($x, $z, $litres);",
@@ -183,15 +189,37 @@ public sealed class SqliteWorldStore : IWorldStore
         return _readColumn.ExecuteScalar() as byte[];
     }
 
+    public IReadOnlyList<(ChunkPos Position, byte[] Blob)> ReadFluid()
+    {
+        ThrowIfDisposed();
+
+        var panels = new List<(ChunkPos, byte[])>();
+
+        using SqliteCommand command = _connection.CreateCommand();
+        command.CommandText = "SELECT cx, cy, cz, blob FROM fluid;";
+
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            panels.Add((
+                new ChunkPos(reader.GetInt32(0), reader.GetInt32(1), reader.GetInt32(2)),
+                (byte[])reader.GetValue(3)));
+        }
+
+        return panels;
+    }
+
     public void Write(
         IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,
-        IReadOnlyList<(int X, int Z, byte[] Blob)> columns)
+        IReadOnlyList<(int X, int Z, byte[] Blob)> columns,
+        IReadOnlyList<(ChunkPos Position, byte[] Blob)> fluid)
     {
         ArgumentNullException.ThrowIfNull(chunks);
         ArgumentNullException.ThrowIfNull(columns);
+        ArgumentNullException.ThrowIfNull(fluid);
         ThrowIfDisposed();
 
-        if (chunks.Count == 0 && columns.Count == 0)
+        if (chunks.Count == 0 && columns.Count == 0 && fluid.Count == 0)
         {
             // An empty flush is the common case on a quiet frame, and an empty transaction still
             // costs a commit.
@@ -204,6 +232,7 @@ public sealed class SqliteWorldStore : IWorldStore
 
         _writeChunk.Transaction = transaction;
         _writeColumn.Transaction = transaction;
+        _writeFluid.Transaction = transaction;
 
         try
         {
@@ -224,12 +253,22 @@ public sealed class SqliteWorldStore : IWorldStore
                 _writeColumn.ExecuteNonQuery();
             }
 
+            foreach ((ChunkPos position, byte[] blob) in fluid)
+            {
+                _writeFluid.Parameters["$x"].Value = position.X;
+                _writeFluid.Parameters["$y"].Value = position.Y;
+                _writeFluid.Parameters["$z"].Value = position.Z;
+                _writeFluid.Parameters["$blob"].Value = blob;
+                _writeFluid.ExecuteNonQuery();
+            }
+
             transaction.Commit();
         }
         finally
         {
             _writeChunk.Transaction = null;
             _writeColumn.Transaction = null;
+            _writeFluid.Transaction = null;
         }
     }
 
@@ -309,6 +348,7 @@ public sealed class SqliteWorldStore : IWorldStore
         _readColumn.Dispose();
         _writeChunk.Dispose();
         _writeColumn.Dispose();
+        _writeFluid.Dispose();
         _writeBasin.Dispose();
 
         // Checkpointed on the way out so the main file holds what was committed. Not required for
@@ -383,6 +423,14 @@ public sealed class SqliteWorldStore : IWorldStore
                 cz   INTEGER NOT NULL,
                 blob BLOB    NOT NULL,
                 PRIMARY KEY (cx, cz)
+            ) STRICT;
+
+            CREATE TABLE IF NOT EXISTS fluid (
+                cx   INTEGER NOT NULL,
+                cy   INTEGER NOT NULL,
+                cz   INTEGER NOT NULL,
+                blob BLOB    NOT NULL,
+                PRIMARY KEY (cx, cy, cz)
             ) STRICT;
 
             CREATE TABLE IF NOT EXISTS basins (

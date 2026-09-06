@@ -92,8 +92,9 @@ Measure **lighting** on the same harness. Also Release-only, and here the Debug 
 dotnet run --project Overburden.Bench -c Release -- --light
 ```
 
-Measure **chunk serialisation**, which is what settled whether `Compact()` runs on save. Release
-only, same as the others:
+Measure **chunk serialisation**, which is what settled whether `Compact()` runs on save — **and,
+since M8b-4b, the fluid panel blob in both its forms on three shapes**, which is what put the
+writer's sparse/dense threshold at 1,024 cells. Release only, same as the others:
 
 ```bash
 dotnet run --project Overburden.Bench -c Release -- --blob
@@ -439,8 +440,21 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-06, evening). The adaptive view radius is built and unplayed — `start.cmd`
-passes `--adaptive=1`, and the play check is the first thing to do.** Fly, hold Ctrl, read
+**Pick up here (2026-09-07). M8b-4b is built — water survives a quit — and unplayed, as is the
+adaptive view radius; the play checks are the first thing to do, and M8b-4c (the panel leaves RAM
+with its chunk) is next to build.** Read M8-PLAN's "M8b-4b — built" before 4c. `FluidPanelBlob` on
+the column's frame, a `fluid` table at schema 3 (a schema-2 world opens and gains it), panels
+riding the chunk batch as a third list on `IWorldStore.Write`, snapshotted at unview / autosave /
+quit and read whole at open into paused panels the arrivals wake; `loaded` is on the `M8b:` line
+and in the identity, `M8b: at quit` prints the water at the instant it is written and `M8b:
+restored` what the next open put back — **the two should agree to the litre and the cell, and did
+(7,144 L / 1,894 awake) in the headless wire check**. `--blob` prices the panel blob: the dense form
+is smaller at every shape and the sparse one cheaper only under ~1,000 cells, so the writer
+switches at 1,024, an estimate; an all-lake panel would have been 6.4 ms as pairs. Suite 1,073 →
+1,134; 26 recipes, 25 caught, one identity. **Unpriced: the sim-thread copy at an autosave on the
+played lake's 1,254 panels** (estimate 50–75 ms at a quit, Release), which the play reads off the
+autosave line, now naming fluid panels. **The adaptive view radius is also still unplayed** — `start.cmd`
+passes `--adaptive=1`, and that play check is the other first thing to do. Fly, hold Ctrl, read
 `view rNh/Nv` on the status line fall to r1 with the world still drawn; stop and read it climb a
 ring every few seconds; walk and sprint on foot and it should never leave r6. Suite 1,058 → 1,073.
 **The plan's grow rule was wrong and its own measurement arm said so on the first run**: "grow

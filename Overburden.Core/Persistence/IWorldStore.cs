@@ -1,4 +1,4 @@
-using Overburden.Core.Voxels;
+﻿using Overburden.Core.Voxels;
 
 namespace Overburden.Core.Persistence;
 
@@ -99,7 +99,29 @@ public interface IWorldStore : IDisposable
     /// </remarks>
     void Write(
         IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,
-        IReadOnlyList<(int X, int Z, byte[] Blob)> columns);
+        IReadOnlyList<(int X, int Z, byte[] Blob)> columns,
+        IReadOnlyList<(ChunkPos Position, byte[] Blob)> fluid);
+
+    /// <summary>Chunks and columns with no fluid, for a caller that has none.</summary>
+    /// <remarks>
+    /// <b>The fluid rides the chunk batch as a third list rather than its own call, for the reason
+    /// the column does (M8b-4b)</b>: a chunk's voxels written in one transaction and its water in
+    /// another is, after a crash between them, water inside rock or rock over a hole. This
+    /// overload exists so a caller with nothing wet — the store bench, most tests — does not
+    /// have to say so, and it is the three-list write underneath.
+    /// </remarks>
+    void Write(
+        IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,
+        IReadOnlyList<(int X, int Z, byte[] Blob)> columns) => Write(chunks, columns, []);
+
+    /// <summary>Every stored fluid panel, whole.</summary>
+    /// <remarks>
+    /// Read once at open, like the basins and for a stronger reason: until the panel leaves RAM
+    /// with its chunk (M8b-4c) the store is a mirror of the grid, and the grid is filled from it
+    /// before the first chunk arrives. A row is one chunk's held cells; an empty row is a chunk
+    /// whose water drained after it was first written, kept so the row says so.
+    /// </remarks>
+    IReadOnlyList<(ChunkPos Position, byte[] Blob)> ReadFluid();
 
     /// <summary>Every basin holding water, by the world coordinate of its pit.</summary>
     /// <remarks>
@@ -170,6 +192,7 @@ public sealed class InMemoryWorldStore : IWorldStore
 {
     private readonly Dictionary<ChunkPos, byte[]> _chunks = [];
     private readonly Dictionary<(int X, int Z), byte[]> _columns = [];
+    private readonly Dictionary<ChunkPos, byte[]> _fluid = [];
     private readonly Dictionary<(int X, int Z), long> _basins = [];
     private byte[]? _header;
 
@@ -181,6 +204,9 @@ public sealed class InMemoryWorldStore : IWorldStore
 
     /// <summary>How many column blobs have been written, counting rewrites.</summary>
     public int ColumnWrites { get; private set; }
+
+    /// <summary>How many fluid panel blobs have been written, counting rewrites.</summary>
+    public int FluidWrites { get; private set; }
 
     /// <summary>How many times the basin table has been replaced.</summary>
     public int BasinWrites { get; private set; }
@@ -222,12 +248,24 @@ public sealed class InMemoryWorldStore : IWorldStore
     public byte[]? ReadColumn(int chunkX, int chunkZ) =>
         _columns.TryGetValue((chunkX, chunkZ), out byte[]? blob) ? Copy(blob) : null;
 
+    public IReadOnlyList<(ChunkPos Position, byte[] Blob)> ReadFluid() =>
+        [.. _fluid.Select(entry => (entry.Key, Copy(entry.Value)!))];
+
     public void Write(
         IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,
-        IReadOnlyList<(int X, int Z, byte[] Blob)> columns)
+        IReadOnlyList<(int X, int Z, byte[] Blob)> columns,
+        IReadOnlyList<(ChunkPos Position, byte[] Blob)> fluid)
     {
         ArgumentNullException.ThrowIfNull(chunks);
         ArgumentNullException.ThrowIfNull(columns);
+        ArgumentNullException.ThrowIfNull(fluid);
+
+        // Every blob checked before any is kept, so a bad entry in the third list leaves the
+        // first two unwritten — the atomicity the SQLite store gets from its transaction, and
+        // the contract suite asks both for it.
+        foreach ((_, byte[] blob) in chunks) ArgumentNullException.ThrowIfNull(blob, nameof(chunks));
+        foreach ((_, _, byte[] blob) in columns) ArgumentNullException.ThrowIfNull(blob, nameof(columns));
+        foreach ((_, byte[] blob) in fluid) ArgumentNullException.ThrowIfNull(blob, nameof(fluid));
 
         WriteCalls++;
 
@@ -241,6 +279,12 @@ public sealed class InMemoryWorldStore : IWorldStore
         {
             _columns[(x, z)] = Copy(blob)!;
             ColumnWrites++;
+        }
+
+        foreach ((ChunkPos position, byte[] blob) in fluid)
+        {
+            _fluid[position] = Copy(blob)!;
+            FluidWrites++;
         }
     }
 

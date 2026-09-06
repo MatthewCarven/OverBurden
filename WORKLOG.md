@@ -1,5 +1,66 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-07 — M8b-4b: the store — water survives a quit, and the bench's crossover was time, not bytes
+
+**Matthew: "M8b-4b please Claude, also do not fear data loss of water, like I am not going to cry
+if I have to wait until it rains again in my test world."** Built to the plan's standard anyway —
+the tests were cheap and a defect here shows a session later. `FluidPanelBlob` in
+`Overburden.Core/Persistence/` on the sky column's frame, keyed by chunk, validated at read the
+way `ChunkBlob` is; a `fluid` table beside `columns`, schema 2 → 3 additive, and a hand-built
+schema-2 file opens, keeps its rows, gains the table and is stamped; the panels ride the chunk
+batch as a third list on `IWorldStore.Write`, with a two-list overload for callers with nothing
+wet; a dirty bit per panel set by the grid's one writer and cleared at the copy; snapshots at
+unview, at autosave and at quit through `SaveAll`'s walk; every row read at open into paused
+panels, woken by the arrivals; `loaded` on the `M8b:` line and in the identity; `M8b: at quit`
+prints the water at the instant it is written. Suite 1,073 → 1,134. Five things worth keeping:
+
+- **The wire check is exact to the litre and the cell.** A 50,000 L relay pour on the ground, a
+  quit at 1,800 frames: `at quit — 7,144 L in 1,900 cell(s), 1,894 awake or paused`; the reopen:
+  `restored 7,144 L in 4 panel(s), 1,894 cell(s) stored awake and paused`, identity exact from the
+  first line, 1,894 resumed by the arrivals. The rest of the pour had soaked into the basin, whose
+  table has carried Tier A's half since M7d. The r6 control is 2601 / 325 / 3446 at 411 with every
+  fluid term zero.
+- **The plan's sparse-against-dense question turned on the wrong quantity.** It said bytes — four
+  a pair against two a cell — so pairs below half full. `--blob` says zlib takes the whole panel
+  to 320–690 bytes at every shape, smaller than the pairs even for a 1% tunnel, and that the
+  pairs' compression cost grows with the count: an all-lake panel is 6.4 ms as pairs and 0.08 ms
+  whole, and the played lake is 1,254 of them — eight seconds at a quit against a tenth of one.
+  Both forms ship, the reader takes both, the writer switches at 1,024 cells, an estimate off the
+  table in the plan. Sixth outing for *measure before believing the named quantity*, and the
+  first where the plan had the right two arms and compared them on the wrong axis.
+- **A row that lists awake cells must be rewritten once they rest.** The fuzz found it on its
+  first run: 33 paused where 19 were awake. A cell listed awake at one quit, restored, woken at
+  its arrival and found at rest writes nothing, so its panel is clean while its row still says
+  awake — harmless per open, one visit each, and the played lake would pay a million visits every
+  session for ever. The simulation remembers which rows list awake cells and the save rewrites
+  those too, so the rows list exactly what is awake now. The fuzz asserts the paused count after
+  every reopen equals the awake count before the quit, and the battery has the recipe.
+- **A drained panel writes itself empty, which the plan did not say.** The grid releases an
+  empty panel, and a row written while the lake was there would put it back at the next open —
+  water from nothing, invisible to the identity because `loaded` rises with `held`. A panel that
+  has been snapshotted is remembered on release and written as an empty row. The fuzz drains one
+  stored chunk dry and quits at the end of every run, because one seed went eighty rounds without
+  doing it by chance and the guard on the dice failed.
+- **26 recipes, 25 caught, one identity.** The identity is the `Distinct` in the awake-index
+  sort — both callers hand over a set already — and it stays as belt and braces with the label.
+  Four fixtures were wrong first: a cell at x = 35 in a test about the west chunk; a "lake at
+  rest" on a corridor that ran into the next chunk; four cells' worth poured into one cell; and
+  the dice guard above. **Not priced: the sim-thread copy at a save on the played world**, ~30–60
+  µs a full panel by the bench's read figures, 50–75 ms for the lake at a quit as an estimate;
+  the play is where it gets a number, and the lever is a dense `memcpy` with the extraction on
+  the lane.
+
+**Handed back on the same message: the fall rule.** Matthew asked what it would cost to let water
+fall 2, 4, 8, 16 cells a tick when the cells below are vacant. Answered in the reply, not built:
+the visit already reads the cell below; reading up to sixteen is bounded at 16 reads a falling
+cell and falling cells are a column, not the waterline, so the CPU is a rounding error on the
+budget. What it changes is not cost but the termination proof's vertical term (still monotone —
+a longer fall lowers Σ(amount × Y) by more), the wake rule (the cells passed through are empty and
+need no wake; the landing's neighbours do), and the hand-off, which reads rest and is untouched.
+The per-cell *acceleration* reading — first tick one, next two — needs a velocity byte a cell,
+which doubles the panel, and the cheap version is "fall as far as is vacant, up to N", which is
+terminal velocity from the first tick. Recorded in TODO under M8d's waterfall question.
+
 ## 2026-09-06 — The adaptive view radius: built, and the 7 m/s corridor broke the plan's rule on its first run
 
 **Matthew: "ok lets continue, all six as recommended please Claude :-{D"** — and, on working this

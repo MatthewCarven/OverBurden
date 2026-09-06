@@ -145,18 +145,22 @@ public sealed class SaveWorldJob : IJob
     private readonly IWorldStore _store;
     private readonly (ChunkPos Position, VoxelChunk Voxels)[] _chunks;
     private readonly (int X, int Z, SkyColumn Column)[] _columns;
+    private readonly FluidPanelSnapshot[] _fluid;
 
     public SaveWorldJob(
         IWorldStore store,
         (ChunkPos Position, VoxelChunk Voxels)[] chunks,
-        (int X, int Z, SkyColumn Column)[] columns)
+        (int X, int Z, SkyColumn Column)[] columns,
+        FluidPanelSnapshot[]? fluid = null)
     {
         _store = store;
         _chunks = chunks;
         _columns = columns;
+        _fluid = fluid ?? [];
 
         Position = chunks.Length > 0 ? chunks[0].Position
             : columns.Length > 0 ? new ChunkPos(columns[0].X, 0, columns[0].Z)
+            : _fluid.Length > 0 ? _fluid[0].Chunk
             : ChunkPos.Zero;
     }
 
@@ -173,6 +177,9 @@ public sealed class SaveWorldJob : IJob
 
     /// <summary>Which columns this job was asked to write.</summary>
     public IReadOnlyList<(int X, int Z, SkyColumn Column)> Columns => _columns;
+
+    /// <summary>The fluid panels this batch carries — copies, so the tick may write the live ones meanwhile.</summary>
+    public IReadOnlyList<FluidPanelSnapshot> Fluid => _fluid;
 
     public int BytesWritten { get; private set; }
 
@@ -197,6 +204,7 @@ public sealed class SaveWorldJob : IJob
 
         var chunks = new (ChunkPos, byte[])[_chunks.Length];
         var columns = new (int, int, byte[])[_columns.Length];
+        var fluid = new (ChunkPos, byte[])[_fluid.Length];
 
         int bytes = 0;
 
@@ -214,7 +222,14 @@ public sealed class SaveWorldJob : IJob
             bytes += blob.Length;
         }
 
-        _store.Write(chunks, columns);
+        for (int i = 0; i < _fluid.Length; i++)
+        {
+            byte[] blob = FluidPanelBlob.Write(_fluid[i]);
+            fluid[i] = (_fluid[i].Chunk, blob);
+            bytes += blob.Length;
+        }
+
+        _store.Write(chunks, columns, fluid);
         BytesWritten = bytes;
 
         ElapsedMillis = (Stopwatch.GetTimestamp() - entered) * 1000.0 / Stopwatch.Frequency;

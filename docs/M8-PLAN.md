@@ -1,4 +1,4 @@
-# M8 — Water gets in
+﻿# M8 — Water gets in
 
 > Planned 2026-09-02, before any code. Split M8a–M8d.
 > **Read [SCALE.md](SCALE.md) first**, and read M7's play findings in [TODO.md](../TODO.md) —
@@ -162,6 +162,15 @@ a NaN fails *open*. Bound it at load and at use, and remember M3c's finding that
 the only caller.
 
 ### 5. Moving water is settled on unload, not stored
+
+**Superseded by M8b-4a and M8b-4b (2026-09-06 / 2026-09-07): moving water is *paused* on unload and
+*stored* — awake cells listed as such — rather than settled.** The planning pass for M8b-4 records
+why: a settle cannot run over a chunk the terrain calls solid, running it before the forget needs a
+hook the streamer does not have, and a pause is exact where a settle moves water along paths that
+may cross into other chunks that are also leaving. The "unsafe alternative" below — a flood resuming
+into a world that has changed — is answered by the arrival wake rather than avoided: the chunk's
+own voxels are stored with its water in one transaction, and an edit at a boundary while the chunk
+was away wakes the faces on both sides. The text is kept as written for the reasoning.
 
 Per the structural point. On a window move, a chunk unload or a quit, an active region **integrates
 to rest and its volume goes to the Tier A body**, whose `BasinLedger` already persists per pit.
@@ -1175,7 +1184,98 @@ absent chunk moves, that nothing is displaced in either arm, and that with every
 rest and the rest is real. It is the fixture 4b's twin of `WalkingAwayAndBackLosesNoWater` extends
 across a quit.
 
+### M8b-4b — built, 2026-09-07
+
+**Built as the pass wrote it — the blob on the sky column's frame, the `fluid` table at schema 3,
+the panels riding the chunk batch as a third list on `IWorldStore.Write`, a dirty bit per panel
+set by the grid's one writer and cleared at the copy, read whole at open into paused panels,
+`loaded` in the identity — and three things the pass did not say.** Matthew's brief for the slice:
+*"do not fear data loss of water, like I am not going to cry if I have to wait until it rains
+again"*; it was built to the plan's standard anyway, because the tests were cheap and a defect
+here is the kind that shows a session later. Suite 1,073 → 1,134.
+
+- **The sparse form against the raw panel — the bench decided, and the plan's crossover was the
+  wrong quantity.** The pass said four bytes a pair against two bytes a cell, so pairs below half
+  full. `--blob` (Release) says zlib takes the whole panel to 320–690 bytes at *every* shape —
+  smaller than the pairs even for a 1% tunnel — and that the pairs' compression cost grows with
+  the cell count while the panel's is flat:
+
+  ```
+  shape         form       cells  write µs   read µs   stored B
+  tunnel, 1%    sparse       316      30.2      18.4        430
+  tunnel, 1%    dense        316      82.0     111.9        319
+  tunnel, 3%    sparse     1,024      90.8      43.4      2,028
+  tunnel, 3%    dense      1,024     154.6     118.0        762
+  half full     sparse    16,384   2,379.4     233.7     22,729
+  half full     dense     16,384     166.9     106.9        688
+  all lake      sparse    32,768   6,418.4     402.9     45,391
+  all lake      dense     32,768      82.6     105.8        336
+  ```
+
+  An all-lake panel is 6.4 ms as pairs and 0.08 ms as a panel, and the played lake is 1,254 of
+  them — eight seconds at a quit against a tenth of one. Both forms ship, the reader takes both,
+  and **the writer's threshold is 1,024 held cells, an estimate from the rows above** (sparse ≈
+  20 µs + 0.14 µs a cell, dense ≈ 120–170 µs flat); it can move without a format version.
+- **A row that lists awake cells has to be rewritten once they rest, or every open wakes them
+  again.** The fuzz's first run said so: a cell listed awake at one quit, restored, woken at its
+  arrival and found at rest writes nothing, so its panel is clean while its row still says awake,
+  and the next open paused 33 cells where 19 were awake. Harmless per open — one visit each —
+  and the played lake would pay a million such visits every session for ever. The simulation
+  remembers which chunks' rows list awake cells and `TakeAllDirty` rewrites those too, so after
+  any save the rows list exactly the cells that are awake now. Caught by the fuzz's exact
+  paused-count assertion; one recipe in the battery.
+- **A drained panel writes itself empty.** The grid releases a panel when its last drop leaves,
+  and a row written while the lake was there would put the lake back at the next open — water
+  from nothing, and the identity blind to it because `loaded` rises with `held`. A panel that
+  has been snapshotted is remembered on release and written as an empty row; one that came and
+  went between two saves has no row and is not.
+- **The unview snapshot lists only the paused cells and the save's walk is exact.** Finding a
+  leaving chunk's queued cells means walking the whole active set, once per chunk of a shell;
+  the queued cells are paused by the next tick and listed by the next `SaveAll`, which walks the
+  active set once for every panel — so the row can under-list for at most one autosave interval,
+  the window the autosave already accepts.
+- **`IFluidPersistence` is a property on the pipeline, not a constructor argument**, because the
+  simulation's terrain is the pipeline's own streamer and cannot exist first.
+
+**Measured — the wire, headless, a scratch world, a 50,000 L relay pour on the ground under the
+player, quit at 1,800 frames and reopen:**
+
+```
+at quit     7,144 L in 1,900 cell(s), 1,894 awake or paused — 4 panels, 9 KiB written
+at reopen   restored 7,144 L in 4 panel(s), 1,894 cell(s) stored awake and paused, in 8.1 ms
+            identity exact from the first line (loaded 7,144 L); the arrivals resumed 1,894
+```
+
+The pour is on the analytic ground, so the hand-off soaks it into the basin across both sessions
+(25,957 L handed by the first run's ten-second line, 6,497 L more in the second's) — the basin
+table carries Tier A's half of it, as it has since M7d. **The r6 control, invoked verbatim, is
+2601 / 325 / 3446 at 411 with every fluid term zero.** A schema-2 world file built by hand — the
+played world's shape — opens, keeps its chunks and basins, gains the table and is stamped 3.
+
+**The battery: 26 recipes, 25 caught, 1 identity.** The grid's dirty bit unset, uncleared, or
+blind to a released panel; a restore that dirties, that counts as added, that pauses nothing, or
+that is not refused over water; the awake walk forgetting any one of its three sources; the save
+skipping clean panels with awake cells or rows that list rested ones; the unview queueing no
+panel; `SaveAll` taking none; either save path dropping its panels on a failure; the job not
+handing the list to the store; the reader skipping the subset check or the capacity check; the
+writer's threshold inverted; the dense writer one index off; the in-memory store writing its
+first list before checking its third; the schema not stamped. **The identity is the `Distinct`
+in the awake-index sort**: both callers already hand over a set, so it is belt and braces, and it
+is now labelled as such. Four fixtures were wrong before the code was: a cell at x = 35 in a test
+about the west chunk (x = 35 is the east chunk); a "lake at rest" on a corridor that ran on into
+the next chunk, which made it a wall of water; a pour of four cells' worth into one cell; and a
+coverage guard on the dice — *some* quit must drain a stored panel — that one seed never rolled,
+replaced by a deterministic drain-and-quit at the end of every run.
+
+**Not built, stated.** The panels stay in RAM (4c). **The sim-thread copy at a save is unpriced on
+the played world**: a snapshot scans the panel and copies its held cells, ~30–60 µs a full panel
+in Release by the bench's read figures, so the played lake's 1,254 panels are on the order of
+50–75 ms at a quit and an autosave mid-flood copies every panel the flood touched — an estimate,
+and Matthew's play is where it gets a number; the lever if it hitches is a dense copy (one 64 KiB
+`memcpy`) with the sparse extraction on the lane. The settle's unload method is still not called.
+
 ---
+
 
 ## M8c — Tier C: groundwater and seepage
 

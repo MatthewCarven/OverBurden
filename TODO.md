@@ -3888,14 +3888,28 @@ finding without the coarser-tolerance fallback.
             readout on the HUD is the missing instrument for this decision, and is offered rather
             than built. Measure it on a fresh world (`start.cmd --nosave`): on the played world a
             tick is 1,267 frames, so a spill there moves a cell every twenty seconds.
-      - [ ] **Stated gap until M8b-4: a quit loses the pit's water.** The lake's loss persists via
-            the ledger; the pit's gain lives in RAM. Acceptable for the seam, not to ship. **And
+      - [x] **Stated gap until M8b-4: a quit loses the pit's water. Closed by M8b-4b, 2026-09-07:**
+            the pit's water is stored per chunk beside the lake's ledger, awake cells listed, and
+            comes back to the litre and the cell. **And
             until M8b-3 a chamber that fills under a lake holds its water for ever** — no B → A
-            handoff exists yet.
+            handoff exists yet (closed by M8b-3a).
       - [ ] **A dead-end shaft's throughput is ~1 L a tick, and the plan's 30 L/s per portal assumes
             the cell under the mouth empties.** M8a's 29 L/s was a bore into a mine with tunnels. If
             M8d's waterfall wants a column to carry a cell a tick, the automaton's visit order (or a
             bottom-up pass down a column) is the lever; measure before building.
+      - [ ] **Matthew's fall rule (2026-09-07): let a cell fall 2, 4, 8, 16 cells a tick when the
+            cells below are vacant, so falling water is not 0.5 m/s.** Priced on paper, not
+            built: the visit already reads the cell below, so probing up to sixteen is at most 16
+            reads a *falling* cell, and falling cells are a column where the active set is an
+            area — a 1,000-cell fall front is 32,000 reads a second at 2 Hz, ~6 ms a second in
+            Release, a rounding error on the 2 ms-a-frame budget. The termination proof survives
+            (a longer fall lowers Σ(amount × Y) by more); the cells passed through are empty and
+            need no wake, the landing's neighbours do; the hand-off reads rest and is untouched.
+            **Two versions**: "fall as far as is vacant, up to N" needs no state and is terminal
+            velocity from the first tick (4 m a tick at N = 16, 8 m/s); true acceleration —
+            one, then two, then four — needs a velocity byte a cell, which doubles the panel
+            (78 MiB → 156 MiB on the played lake, M8b-4c's number). Recommend the stateless one,
+            swept by a flag, judged in play; it belongs with M8d's waterfall question.
 - [ ] **M8b-3 — B → A, the handoff and the settle. Planned 2026-09-05 and 3a built in the pass; see
       M8-PLAN's "M8b-3 — the planning pass".** The measurement came first, as the plan said, and
       the hand-off was built as its instrument.
@@ -4037,7 +4051,7 @@ finding without the coarser-tolerance fallback.
                   on the `M8b:` line across the window moves — it should not move at all now, where
                   the 2026-09-05 play read 2.9 ML. `paused` rises as you leave and falls as you
                   return; `resumed` climbs.
-      - [ ] **M8b-4b — the store.** `FluidPanelBlob` on the sky column's frame — cx, cy, cz, the
+      - [x] **M8b-4b — the store. ✅ Built 2026-09-07.** `FluidPanelBlob` on the sky column's frame — cx, cy, cz, the
             held cells as ascending (index, mL) pairs, the paused indices, zlib — validated at
             read; a `fluid` table, schema 2 → 3 additive, header unchanged; the blob rides the
             chunk batch; a dirty bit per panel set by `FluidGrid.Write`, cleared at submission,
@@ -4046,7 +4060,24 @@ finding without the coarser-tolerance fallback.
             the twin of `WalkingAwayAndBackLosesNoWater` across a quit, the blob battery in M6a's
             shape with both halves mutated, the contract suite's third list and its atomicity,
             and a headless `--injectlitres` quit-and-reopen with `held` equal across it. **Last
-            and alone, because a defect here is permanent data loss.**
+            and alone, because a defect here is permanent data loss.** **Built as written, with
+            three things the plan did not say — see M8-PLAN's "M8b-4b — built": the bench's
+            crossover is time not bytes (an all-lake panel is 6.4 ms as pairs, 0.08 ms whole; both
+            forms ship, the writer switches at 1,024 cells, an estimate); a row listing awake cells
+            is rewritten once they rest, or every open re-wakes them (the fuzz found it); a drained
+            panel writes itself empty. Wire: 7,144 L / 1,894 awake at the quit, 7,144 L / 1,894
+            paused at the reopen, identity exact; r6 control unchanged. 26 recipes, 25 caught, 1
+            identity. Suite 1,073 → 1,134.**
+            - [ ] **Play check**: open the played world. It is schema 2 and gains the table on
+                  open; the first `M8b:` line reads `loaded 0 L` because nothing was stored before
+                  this build, and the first quit's `M8b: at quit` line should match the next
+                  open's `M8b: restored` line to the litre and the cell. Then read the autosave
+                  line — it names fluid panels now — for a hitch while the mine's lake is moving:
+                  the sim-thread copy is unpriced on 1,254 panels (estimate 50–75 ms at a quit,
+                  Release), and the lever is a dense `memcpy` snapshot.
+            - [ ] **Lever, not built**: the snapshot copies the held cells as pairs on the sim
+                  thread, one panel scan each; if the autosave hitches on the played lake, copy
+                  the 64 KiB panel whole and extract on the lane.
       - [ ] **M8b-4c — the panel leaves RAM with its chunk.** Written and released at forget, read
             back on arrival through the serial lane (its own job, or the chunk load reading both
             rows — the load bench decides), retained with a cached chunk under the cache's cap.

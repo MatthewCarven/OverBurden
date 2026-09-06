@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Overburden.Core.Content;
 using Overburden.Core.Jobs;
@@ -166,6 +166,9 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     private readonly List<(ChunkPos Position, VoxelChunk Voxels)> _pendingChunkSaves = [];
 
     private readonly List<(int X, int Z, SkyColumn Column)> _pendingColumnSaves = [];
+
+    /// <summary>Fluid panels copied for the next save job. See <see cref="Fluid"/>.</summary>
+    private readonly List<FluidPanelSnapshot> _pendingFluidSaves = [];
 
     /// <summary>Columns whose stored heights have been asked for but not yet applied.</summary>
     private readonly HashSet<(int X, int Z)> _columnRestoresInFlight = [];
@@ -435,8 +438,25 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// </remarks>
     public int FailedSaves { get; private set; }
 
-    /// <summary>Chunks and columns waiting for a save job.</summary>
-    public int PendingSaves => _pendingChunkSaves.Count + _pendingColumnSaves.Count;
+    /// <summary>Chunks, columns and fluid panels waiting for a save job.</summary>
+    public int PendingSaves => _pendingChunkSaves.Count + _pendingColumnSaves.Count + _pendingFluidSaves.Count;
+
+    /// <summary>Fluid panel blobs handed to the store.</summary>
+    public int PanelsSaved { get; private set; }
+
+    /// <summary>
+    /// Where the water comes from when the world is written — M8b-4b. Null means no Tier B, and
+    /// nothing wet is ever written.
+    /// </summary>
+    /// <remarks>
+    /// <b>A property rather than a constructor argument, because the simulation cannot exist
+    /// first</b>: its terrain is this pipeline's own streamer. Set once, after construction, by
+    /// whoever builds the automaton; read at every save. The fluid rides the chunk batch — a
+    /// panel snapshotted at unview goes with the chunk's blob, and <see cref="SaveAll"/> takes
+    /// every panel worth writing beside every dirty chunk — so a chunk's voxels and its water
+    /// reach the store in one transaction, for the reason its column does.
+    /// </remarks>
+    public IFluidPersistence? Fluid { get; set; }
 
     /// <summary>Save batches handed to the serial lane.</summary>
     /// <remarks>
@@ -1904,6 +1924,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         // voxels. ChunkStreamer.Forget runs immediately after unless a worker still owes a result,
         // and a chunk that reached that point unsaved has lost whatever the player did to it.
         QueueSave(chunk);
+        QueueFluidSave(chunk.Position);
 
         // Stop the work rather than merely stop wanting it. Without this, running somewhere
         // and turning around leaves the queue full of terrain nobody will ever see, and
@@ -2007,6 +2028,27 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         SaveQueueMillis += (_nowTicks() - entered) / TicksPerMillisecond;
     }
 
+    /// <summary>Copies a chunk's fluid panel for the next batch, if the water in it has changed.</summary>
+    /// <remarks>
+    /// The panel stays in RAM either way until M8b-4c; what leaves with the chunk is a copy of
+    /// what has changed, so a crash after the unview costs at most one autosave interval of this
+    /// chunk's water, the same window its voxels have. One dictionary lookup for a dry chunk.
+    /// </remarks>
+    private void QueueFluidSave(ChunkPos position)
+    {
+        if (_store is null || Fluid is null) return;
+
+        long entered = _nowTicks();
+
+        FluidPanelSnapshot? panel = Fluid.TakeDirty(position);
+        if (panel is not null)
+        {
+            _pendingFluidSaves.Add(panel);
+        }
+
+        SaveQueueMillis += (_nowTicks() - entered) / TicksPerMillisecond;
+    }
+
     /// <summary>
     /// Hands the pending batch to a worker, at most one batch in flight at a time.
     /// </summary>
@@ -2018,18 +2060,19 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     private void SubmitSaves()
     {
         if (_store is null || _saveInFlight) return;
-        if (_pendingChunkSaves.Count == 0 && _pendingColumnSaves.Count == 0) return;
+        if (_pendingChunkSaves.Count == 0 && _pendingColumnSaves.Count == 0 && _pendingFluidSaves.Count == 0) return;
 
         long entered = _nowTicks();
 
         SaveBatches++;
-        int batch = _pendingChunkSaves.Count + _pendingColumnSaves.Count;
+        int batch = _pendingChunkSaves.Count + _pendingColumnSaves.Count + _pendingFluidSaves.Count;
         if (batch > LargestSaveBatch) LargestSaveBatch = batch;
 
         var job = new SaveWorldJob(
             _store,
             [.. _pendingChunkSaves],
-            [.. _pendingColumnSaves]);
+            [.. _pendingColumnSaves],
+            [.. _pendingFluidSaves]);
 
         // Claimed at submission rather than on completion, which looks optimistic. A chunk
         // revived before its save lands consults this index and submits a load, and the two are
@@ -2046,6 +2089,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
 
         _pendingChunkSaves.Clear();
         _pendingColumnSaves.Clear();
+        _pendingFluidSaves.Clear();
         _saveInFlight = true;
 
         // CancellationToken.None, deliberately. Every other job here is cancelled the instant
@@ -2068,6 +2112,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         {
             ChunksSaved += job.Chunks.Count;
             ColumnsSaved += job.Columns.Count;
+            PanelsSaved += job.Fluid.Count;
             BytesSaved += job.BytesWritten;
             SaveWriteMillis += job.ElapsedMillis;
             return;
@@ -2082,6 +2127,11 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
 
         _pendingChunkSaves.AddRange(job.Chunks);
         _pendingColumnSaves.AddRange(job.Columns);
+
+        // The fluid snapshots too. They are copies, so nothing needs marking dirty: the copy is
+        // the state, and re-queueing it is the whole of the retry. A later snapshot of the same
+        // chunk is newer and lands after this one in the batch, so the row ends up current.
+        _pendingFluidSaves.AddRange(job.Fluid);
 
         // Put the columns' dirty flags back, so that a later SaveAll walking the live set finds
         // them again rather than trusting the pending list alone.
@@ -2251,22 +2301,29 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         foreach (StreamedChunk chunk in _streamer.Chunks) QueueSave(chunk);
         foreach (SkyColumn column in _streamer.Columns) QueueSave(column);
 
-        if (_pendingChunkSaves.Count == 0 && _pendingColumnSaves.Count == 0)
+        // Every panel worth writing, loaded chunk or not, with the awake list exact. This is the
+        // one walk of the active set a save makes, and it is why the unview path may under-list
+        // awake cells: whatever it missed is listed here within one autosave interval.
+        Fluid?.TakeAllDirty(_pendingFluidSaves);
+
+        if (_pendingChunkSaves.Count == 0 && _pendingColumnSaves.Count == 0 && _pendingFluidSaves.Count == 0)
         {
             _store.Flush();
             return (0, 0);
         }
 
-        var job = new SaveWorldJob(_store, [.. _pendingChunkSaves], [.. _pendingColumnSaves]);
+        var job = new SaveWorldJob(_store, [.. _pendingChunkSaves], [.. _pendingColumnSaves], [.. _pendingFluidSaves]);
 
         foreach ((ChunkPos position, _) in _pendingChunkSaves) _savedChunks.Add(position);
         foreach ((int x, int z, _) in _pendingColumnSaves) _savedColumns.Add((x, z));
 
         int chunks = _pendingChunkSaves.Count;
         int columns = _pendingColumnSaves.Count;
+        int panels = _pendingFluidSaves.Count;
 
         _pendingChunkSaves.Clear();
         _pendingColumnSaves.Clear();
+        _pendingFluidSaves.Clear();
 
         try
         {
@@ -2283,6 +2340,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
 
             _pendingChunkSaves.AddRange(job.Chunks);
             _pendingColumnSaves.AddRange(job.Columns);
+            _pendingFluidSaves.AddRange(job.Fluid);
 
             foreach ((_, _, SkyColumn column) in job.Columns) column.MarkDirty();
 
@@ -2295,6 +2353,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
 
         ChunksSaved += chunks;
         ColumnsSaved += columns;
+        PanelsSaved += panels;
         BytesSaved += job.BytesWritten;
 
         _store.Flush();

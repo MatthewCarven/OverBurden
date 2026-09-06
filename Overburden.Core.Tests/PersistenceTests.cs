@@ -1,4 +1,4 @@
-using Overburden.Core.Content;
+﻿using Overburden.Core.Content;
 using Overburden.Core.Lighting;
 using Overburden.Core.Persistence;
 using Overburden.Core.Streaming;
@@ -335,7 +335,7 @@ public class PersistenceTests
         harness.Settle();
 
         // Rewrite the stored blob as nonsense, keeping the key.
-        store.Write([(target, [ChunkBlob.Version, 0, 0, 0, 0, 0, 0, 0, 0, 0])], []);
+        store.Write([(target, [ChunkBlob.Version, 0, 0, 0, 0, 0, 0, 0, 0, 0])], [], []);
 
         harness.Pipeline.Streamer.MoveViewer(viewer, target);
 
@@ -857,10 +857,11 @@ public class PersistenceTests
 
         public override void Write(
             IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,
-            IReadOnlyList<(int X, int Z, byte[] Blob)> columns)
+            IReadOnlyList<(int X, int Z, byte[] Blob)> columns,
+            IReadOnlyList<(ChunkPos Position, byte[] Blob)> fluid)
         {
             if (_broken) throw new IOException("the disk is on fire");
-            base.Write(chunks, columns);
+            base.Write(chunks, columns, fluid);
         }
     }
 
@@ -905,10 +906,11 @@ public class PersistenceTests
 
         public override void Write(
             IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,
-            IReadOnlyList<(int X, int Z, byte[] Blob)> columns) =>
+            IReadOnlyList<(int X, int Z, byte[] Blob)> columns,
+            IReadOnlyList<(ChunkPos Position, byte[] Blob)> fluid) =>
             Guarded<object?>(() =>
             {
-                base.Write(chunks, columns);
+                base.Write(chunks, columns, fluid);
                 return null;
             });
 
@@ -955,13 +957,14 @@ public class PersistenceTests
 
         public override void Write(
             IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,
-            IReadOnlyList<(int X, int Z, byte[] Blob)> columns)
+            IReadOnlyList<(int X, int Z, byte[] Blob)> columns,
+            IReadOnlyList<(ChunkPos Position, byte[] Blob)> fluid)
         {
             IsWriting = true;
             try
             {
                 _gate.Wait(TimeSpan.FromSeconds(10));
-                base.Write(chunks, columns);
+                base.Write(chunks, columns, fluid);
             }
             finally
             {
@@ -997,7 +1000,10 @@ public class PersistenceTests
 
         public virtual void Write(
             IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,
-            IReadOnlyList<(int X, int Z, byte[] Blob)> columns) => Inner.Write(chunks, columns);
+            IReadOnlyList<(int X, int Z, byte[] Blob)> columns,
+            IReadOnlyList<(ChunkPos Position, byte[] Blob)> fluid) => Inner.Write(chunks, columns, fluid);
+
+        public virtual IReadOnlyList<(ChunkPos Position, byte[] Blob)> ReadFluid() => Inner.ReadFluid();
 
         public virtual IReadOnlyList<StoredBasin> ReadBasins() => Inner.ReadBasins();
 

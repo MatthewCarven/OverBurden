@@ -1,4 +1,4 @@
-using Overburden.Core.Fluid;
+﻿using Overburden.Core.Fluid;
 using Overburden.Core.Voxels;
 using Overburden.Core.Worldgen;
 
@@ -138,8 +138,10 @@ internal static class FluidAssert
     /// </remarks>
     public static void Conserves(FluidSimulation sim, long rejected = 0)
     {
+        // Loaded joins the identity at M8b-4b: water put back from the world file was neither
+        // added nor moved, it was already there.
         Assert.Equal(
-            sim.AddedMillilitres - sim.RemovedMillilitres - sim.DisplacedMillilitres,
+            sim.AddedMillilitres + sim.LoadedMillilitres - sim.RemovedMillilitres - sim.DisplacedMillilitres,
             sim.TotalMillilitres);
 
         // Belt and braces on the grid's own total, which is maintained separately from the

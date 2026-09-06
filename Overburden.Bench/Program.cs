@@ -3,6 +3,7 @@ using System.Globalization;
 using Overburden.Core.Content;
 using Overburden.Core.Hydrology;
 using Overburden.Core.Lighting;
+using Overburden.Core.Fluid;
 using Overburden.Core.Persistence;
 using Overburden.Persistence;
 using Overburden.Core.Voxels;
@@ -947,6 +948,9 @@ internal static class Program
             $"At {perVaried:F0} B a varied chunk: 1,000 stored chunks is {perVaried * 1000 / 1024:F0} KiB, "
             + $"100,000 is {perVaried * 100000 / (1024 * 1024):F1} MiB.");
 
+        Console.WriteLine();
+        FluidBlobBench(repeat);
+
         return 0;
 
         static void Report(string what, BlobRow compacted, BlobRow verbatim)
@@ -960,6 +964,112 @@ internal static class Program
                 + $"and saves {saving:F1} stored bytes "
                 + $"({saving / Math.Max(1.0, verbatim.StoredBytes):P1}).");
         }
+    }
+
+    /// <summary>
+    /// M8b-4b: one chunk's water as bytes, three shapes by two forms. The number the plan asked
+    /// for before deciding whether the sparse form is worth a second code path against the raw
+    /// panel: a tunnel chunk (~1% held, the M8a-2 occupancy), a half-full one, and a chunk that is
+    /// all lake, each written as (index, mL) pairs and as the whole 32³ panel.
+    /// </summary>
+    private static void FluidBlobBench(int repeat)
+    {
+        const int cap = FluidConstants.CellCapacityMillilitres;
+        var at = new ChunkPos(3, -2, 7);
+
+        var shapes = new List<(string Label, FluidPanelSnapshot Panel)>();
+
+        // A tunnel: one layer, a few lanes, a level sheet with a creeping edge — 328 cells.
+        var tunnel = new List<(ushort, ushort)>();
+        var tunnelAwake = new List<ushort>();
+        for (int x = 0; x < 32; x++)
+        {
+            for (int z = 10; z < 20; z++)
+            {
+                if ((x * 3 + z) % 97 == 0) continue;
+                int index = VoxelPos.Index(x, 8, z);
+                tunnel.Add(((ushort)index, (ushort)(x < 30 ? cap : 700 + x)));
+                if (x >= 30) tunnelAwake.Add((ushort)index);
+            }
+        }
+
+        tunnel.Sort();
+        tunnelAwake.Sort();
+        shapes.Add(("tunnel, 1%", new FluidPanelSnapshot(at, [.. tunnel], [.. tunnelAwake])));
+
+        // A wetter tunnel, a thousand cells: the writer's crossover, by the bench that placed it.
+        var wetter = new List<(ushort, ushort)>();
+        for (int x = 0; x < 32; x++)
+        {
+            for (int z = 4; z < 28; z++)
+            {
+                if ((x + z) % 3 == 0) continue;
+                wetter.Add(((ushort)VoxelPos.Index(x, 8, z), (ushort)cap));
+                wetter.Add(((ushort)VoxelPos.Index(x, 9, z), (ushort)(200 + x)));
+            }
+        }
+
+        wetter.Sort();
+        shapes.Add(("tunnel, 3%", new FluidPanelSnapshot(at, [.. wetter], [])));
+
+        // Half a chunk: the lower sixteen layers full, the surface layer levelled.
+        var half = new List<(ushort, ushort)>();
+        for (int index = 0; index < VoxelConstants.ChunkVolume; index++)
+        {
+            (int x, int y, int z) = VoxelPos.FromIndex(index);
+            if (y < 15) half.Add(((ushort)index, (ushort)cap));
+            else if (y == 15) half.Add(((ushort)index, (ushort)(9_000 + ((x + z) & 7))));
+        }
+
+        half.Sort();
+        shapes.Add(("half full", new FluidPanelSnapshot(at, [.. half], [])));
+
+        // All lake: every cell full, which is the played world's mine floor.
+        var lake = new (ushort, ushort)[VoxelConstants.ChunkVolume];
+        for (int index = 0; index < lake.Length; index++) lake[index] = ((ushort)index, (ushort)cap);
+        shapes.Add(("all lake", new FluidPanelSnapshot(at, lake, [])));
+
+        Console.WriteLine("Fluid panel blobs (M8b-4b) — sparse pairs against the dense panel, best of " + repeat + ":");
+        Console.WriteLine(
+            $"{"shape",-14}{"form",-8}{"cells",8}{"write µs",10}{"read µs",10}{"raw B",10}{"stored B",10}{"ratio",8}");
+        Console.WriteLine(new string('-', 78));
+
+        foreach ((string label, FluidPanelSnapshot panel) in shapes)
+        {
+            foreach (bool dense in new[] { false, true })
+            {
+                double bestWrite = double.MaxValue, bestRead = double.MaxValue;
+                int stored = 0;
+                int raw = dense
+                    ? 1 + (VoxelConstants.ChunkVolume * 2) + 4 + (panel.Awake.Length * 2)
+                    : 1 + 4 + (panel.Cells.Length * 4) + 4 + (panel.Awake.Length * 2);
+
+                for (int pass = -1; pass < repeat; pass++)
+                {
+                    long start = Stopwatch.GetTimestamp();
+                    byte[] blob = FluidPanelBlob.Write(panel, dense);
+                    long mid = Stopwatch.GetTimestamp();
+                    FluidPanelSnapshot back = FluidPanelBlob.Read(blob, at);
+                    long end = Stopwatch.GetTimestamp();
+
+                    if (back.Cells.Length != panel.Cells.Length) throw new InvalidOperationException("round trip lost cells");
+                    if (pass < 0) continue;
+
+                    bestWrite = Math.Min(bestWrite, Micros(start, mid));
+                    bestRead = Math.Min(bestRead, Micros(mid, end));
+                    stored = blob.Length;
+                }
+
+                Console.WriteLine(
+                    $"{label,-14}{(dense ? "dense" : "sparse"),-8}{panel.Cells.Length,8}"
+                    + $"{bestWrite,10:F1}{bestRead,10:F1}{raw,10}{stored,10}{raw / Math.Max(1.0, stored),8:F1}");
+            }
+        }
+
+        Console.WriteLine();
+        Console.WriteLine(
+            $"The writer picks dense above {FluidPanelBlob.DenseAbove:N0} held cells, which is where four bytes a pair "
+            + "is where the pairs' compression cost passes the panel's.");
     }
 
     private static BlobRow MeasureBlobs(
@@ -1155,7 +1265,7 @@ internal static class Program
             using (var store = new SqliteWorldStore(path))
             {
                 long start = Stopwatch.GetTimestamp();
-                store.Write(blobs, []);
+                store.Write(blobs, [], []);
                 store.Flush();
                 writeMillis = Micros(start, Stopwatch.GetTimestamp()) / 1000.0;
             }
