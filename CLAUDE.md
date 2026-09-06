@@ -425,6 +425,16 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
+**The queue's "200 ms re-sort" is measured (2026-09-06), and there is no timer. Suite 1,053 →
+1,058.** The sweep runs inside a worker's `TryTake` once the interval has elapsed; it fired
+4.6–5.0 times a second in every arm — standing, 12 m/s turning, 40 m/s — with the longest gap 304 ms,
+because `IdleWaitMillis` has eight idle workers polling ~80 times a second. At rest 590 of 597
+sweeps are over an empty list at 2–5 µs; the fill's first sweep is the only cost, 1,600–1,950
+entries at 2.7–3.5 ms once. `JobScheduler.Sweeps` is the snapshot, `sweeps` the profile line,
+`M2a:` the periodic one. **A five-milestone-old flake was diagnosed with a control and fixed the
+same pass**: before a sweep the queue pops newest-first, so the scheduler's throwing-job test ran
+its survivor first and disposed with the thrower still queued.
+
 **M8b-4a is built (2026-09-06). Suite 1,040 → 1,053.** Five things worth keeping:
 
 - **Nineteen litres in twenty, with the identity exact in both arms.** The pre-4a arm balances
@@ -1593,7 +1603,10 @@ as the player moves nor drop work that went stale before it ran. See
 [docs/M2-REFERENCE-NOTES.md](docs/M2-REFERENCE-NOTES.md).
 
 **M2a — job scheduler: done 2026-08-27.** `Overburden.Core/Jobs/` holds a flat list
-re-sorted on a 200 ms timer, priority packed into one `uint` of four byte-bands, real
+re-sorted at most once per 200 ms by whichever worker takes next — **not a timer: measured
+2026-09-06 at 4.6–5.0 sweeps/s in every arm with the longest gap under 305 ms, because idle workers
+poll every 100 ms; the profile's `sweeps` line and the periodic `M2a:` line say so** — priority
+packed into one `uint` of four byte-bands, real
 cancellation tokens, and dedicated worker threads. Every submitted job reports exactly one
 result — that invariant is fuzzed, and a job that vanishes silently would leave its chunk
 flagged as work-in-progress forever. Nothing submits jobs yet; streaming at M2c feeds it.

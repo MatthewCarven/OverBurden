@@ -219,4 +219,140 @@ public class JobQueueTests
         Assert.True(queue.TryTake(out JobQueue.Entry sorted));
         Assert.Same(near, sorted.Job);
     }
+
+    // --- The sweep's account of itself: how often "every 200 ms" actually fires. ---
+    //
+    // The interval is a floor and not a schedule — the sweep runs inside a worker's take — so
+    // the only way to know how often it fired is to have counted, and these pin the count.
+
+    [Fact]
+    public void ADueSweepCountsItselfAndWhatItTouched()
+    {
+        long clock = 0;
+        JobQueue queue = JobTestHelpers.QueueWithClock(JobTestHelpers.ViewerAt(0), () => clock);
+
+        using var cts = new CancellationTokenSource();
+        queue.Enqueue(JobTestHelpers.At(1));
+        queue.Enqueue(JobTestHelpers.At(2), cts.Token);
+        queue.Enqueue(JobTestHelpers.At(3));
+        cts.Cancel();
+
+        Assert.Equal(0, queue.Statistics.Sweeps);
+
+        clock = 200;
+        Assert.True(queue.TryTake(out _));
+
+        SweepStatistics stats = queue.Statistics;
+        Assert.Equal(1, stats.Sweeps);
+        Assert.Equal(0, stats.ForcedSweeps);
+        Assert.Equal(0, stats.EmptySweeps);
+
+        // The cancelled entry is dropped, not re-evaluated; the peak counts it, because it was
+        // in the list the sweep walked.
+        Assert.Equal(2, stats.EntriesReevaluated);
+        Assert.Equal(1, stats.EntriesDropped);
+        Assert.Equal(3, stats.MostEntriesInOneSweep);
+
+        Assert.Equal(1, stats.TakeCalls);
+        Assert.Equal(1, stats.TakesThatFoundWork);
+        Assert.Equal(200, stats.GapMillisTotal);
+        Assert.Equal(200, stats.GapMillisMax);
+        Assert.True(stats.SweepMillisTotal >= stats.SweepMillisMax);
+    }
+
+    [Fact]
+    public void ATakeInsideTheIntervalIsAChanceThatDidNotFire()
+    {
+        // TakeCalls is the denominator: every take is a chance for a sweep, and a run where the
+        // count is high and the sweeps are few is workers polling a queue that is not due.
+        long clock = 0;
+        JobQueue queue = JobTestHelpers.QueueWithClock(JobTestHelpers.ViewerAt(0), () => clock);
+        queue.Enqueue(JobTestHelpers.At(1));
+        queue.Enqueue(JobTestHelpers.At(2));
+
+        clock = 199;
+        Assert.True(queue.TryTake(out _));
+        Assert.True(queue.TryTake(out _));
+        Assert.False(queue.TryTake(out _));
+
+        SweepStatistics stats = queue.Statistics;
+        Assert.Equal(0, stats.Sweeps);
+        Assert.Equal(3, stats.TakeCalls);
+        Assert.Equal(2, stats.TakesThatFoundWork);
+    }
+
+    [Fact]
+    public void AForcedSweepIsCountedAsForcedAndAnEmptyOneAsEmpty()
+    {
+        // An empty sweep is a real event — it took the lock and moved the clock — and it is
+        // what eight idle workers polling every 100 ms produce all day. Counting it apart from
+        // the ones that did work is what lets a rate be read as cost.
+        long clock = 0;
+        JobQueue queue = JobTestHelpers.QueueWithClock(JobTestHelpers.ViewerAt(0), () => clock);
+
+        queue.Sweep();
+        clock = 200;
+        Assert.False(queue.TryTake(out _));
+
+        SweepStatistics stats = queue.Statistics;
+        Assert.Equal(2, stats.Sweeps);
+        Assert.Equal(1, stats.ForcedSweeps);
+        Assert.Equal(2, stats.EmptySweeps);
+        Assert.Equal(0, stats.EntriesReevaluated);
+        Assert.Equal(0, stats.MostEntriesInOneSweep);
+    }
+
+    [Fact]
+    public void TheLongestGapIsReadOffTheQueuesOwnClock()
+    {
+        // The gap is how stale priorities were allowed to go, and it can exceed the interval by
+        // any amount: nothing sweeps until something takes.
+        long clock = 0;
+        JobQueue queue = JobTestHelpers.QueueWithClock(JobTestHelpers.ViewerAt(0), () => clock);
+        queue.Enqueue(JobTestHelpers.At(1));
+        queue.Enqueue(JobTestHelpers.At(2));
+        queue.Enqueue(JobTestHelpers.At(3));
+
+        clock = 250;
+        Assert.True(queue.TryTake(out _));
+        clock = 300;
+        Assert.True(queue.TryTake(out _));
+        clock = 1000;
+        Assert.True(queue.TryTake(out _));
+
+        SweepStatistics stats = queue.Statistics;
+        Assert.Equal(2, stats.Sweeps);
+        Assert.Equal(1000, stats.GapMillisTotal);
+        Assert.Equal(750, stats.GapMillisMax);
+        Assert.Equal(500.0, stats.MeanGapMillis);
+    }
+
+    [Fact]
+    public void SinceSubtractsTheCountsAndCarriesThePeaks()
+    {
+        // A profile window is the difference of two snapshots, and a peak has no window: the
+        // sweep that saw the most entries is the fill's first, and it is wanted whichever window
+        // is being read.
+        long clock = 0;
+        JobQueue queue = JobTestHelpers.QueueWithClock(JobTestHelpers.ViewerAt(0), () => clock);
+        queue.Enqueue(JobTestHelpers.At(1));
+        queue.Enqueue(JobTestHelpers.At(2));
+        queue.Enqueue(JobTestHelpers.At(3));
+
+        clock = 200;
+        Assert.True(queue.TryTake(out _));
+        SweepStatistics earlier = queue.Statistics;
+
+        clock = 400;
+        Assert.True(queue.TryTake(out _));
+        SweepStatistics window = queue.Statistics.Since(earlier);
+
+        Assert.Equal(1, window.Sweeps);
+        Assert.Equal(2, window.EntriesReevaluated);
+        Assert.Equal(1, window.TakeCalls);
+        Assert.Equal(1, window.TakesThatFoundWork);
+        Assert.Equal(200, window.GapMillisTotal);
+        Assert.Equal(3, window.MostEntriesInOneSweep);
+        Assert.Equal(200, window.GapMillisMax);
+    }
 }

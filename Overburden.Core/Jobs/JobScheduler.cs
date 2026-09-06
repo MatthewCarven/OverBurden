@@ -160,6 +160,13 @@ public sealed class JobScheduler : IDisposable
     /// <summary>Forces a priority recompute now instead of waiting for the timer.</summary>
     public void SweepNow() => _queue.Sweep();
 
+    /// <summary>
+    /// What the queue's sweeps have done so far. Any thread; a consistent snapshot, and the only
+    /// way to learn how often the "every 200 ms" re-sort actually fires — see
+    /// <see cref="SweepStatistics"/> for why that is not a function of the interval.
+    /// </summary>
+    public SweepStatistics Sweeps => _queue.Statistics;
+
     public void Dispose()
     {
         if (_disposed)

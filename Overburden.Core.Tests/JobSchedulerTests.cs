@@ -85,6 +85,15 @@ public class JobSchedulerTests
                 + $"[{outcomes}] — Completed means a starved thread, Dropped means the worker died.");
         }
 
+        // Both results, not only the survivor's event. Before its first sweep the queue pops
+        // newest-first, so the survivor usually runs *before* the thrower, and disposing on its
+        // event alone races the worker's next take against the shutdown: the thrower comes back
+        // Dropped from DropAll with the worker alive and well. Two runs in five on 2026-09-06,
+        // with the change under test stashed. If the worker really died the survivor ran first
+        // and the thrower never posts, so this wait expires and the assertion below reads
+        // Dropped — which is still the right verdict for a dead worker.
+        SpinWait.SpinUntil(() => scheduler.PendingResults == 2, Patience);
+
         List<JobResult> results = RunToCompletion(scheduler);
 
         JobResult faulted = Assert.Single(results, r => ReferenceEquals(r.Job, thrower));

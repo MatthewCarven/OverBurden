@@ -325,6 +325,19 @@ Split into four sessions. Full reasoning in [docs/M1-PLAN.md](docs/M1-PLAN.md).
       spill into two sessions. The bullets below are grouped by part in that document.
 #### M2a — Job scheduler ✅ done 2026-08-27, 186 tests passing
 
+- [x] **How often the "200 ms re-sort" fires — measured 2026-09-06, and there is no timer.** The
+      sweep runs inside a worker's `TryTake` once the interval has elapsed, so its rate is the
+      workers' wake pattern: 4.6–5.0 sweeps/s in every arm (standing, 12 m/s turning, 40 m/s),
+      longest gap 304 ms, because `IdleWaitMillis` (100) has idle workers polling ~80 times a
+      second. At rest 590 of 597 sweeps are over an empty list at 2–5 µs; the fill's first sweep
+      is the cost, 1,600–1,950 entries at 2.7–3.5 ms once; in-window lock time 0.002–0.010% of a
+      worker. `SweepStatistics` under the queue's lock, `sweeps` on the profile, `M2a:` on the
+      periodic report. **Revisit trigger: the idle wait changing** — the sweep's rate at rest is
+      that number, not the interval.
+      - [x] `AThrowingJobFaultsWithoutTakingTheWorkerDownWithIt` diagnosed with a control (2 in 5
+            failing with the change stashed) and fixed: newest-first before a sweep runs the
+            survivor first, and the test disposed on its event with the thrower still queued.
+
 - [x] ~~`System.Threading.Channels` job queue for gen + mesh~~ **Corrected and built.**
       Channels is FIFO, and a FIFO cannot reprioritise queued work as the player moves,
       nor drop work that became irrelevant before it ran. A priority heap is also wrong,

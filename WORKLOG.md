@@ -1,5 +1,63 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-06 — How often the queue's "200 ms re-sort" fires: 4.6–5.0 a second, and there is no timer
+
+**Matthew: "lets profile how often 'scheduler re-sorts every 200 ms by distance to the viewer'
+fires."** The question exposed a piece of folklore: CLAUDE.md, the M2a paragraph and the queue's
+own summary all said "re-sorted on a 200 ms timer", and there is no timer. `JobQueue.SweepIfDueLocked`
+runs inside a worker's `TryTake`, so a sweep happens when a worker asks for work *and* the interval
+has elapsed since the last one — the interval is a floor, not a schedule, and a queue nobody takes
+from is never swept. So how often it fires is a fact about when workers wake, and only a count
+could say. Counters under the queue's lock (`SweepStatistics`, `JobQueue.Statistics`,
+`JobScheduler.Sweeps`), a `sweeps` line on the profile (the window's counts, the run's peaks) and a
+periodic `M2a:` line (the delta since the last report). Suite 1,053 → 1,058; five break-recipes,
+five caught. Headless, Debug, r6h/2v, 8 workers:
+
+```
+arm                              sweeps/s  mean gap  longest  empty     entries/sweep  sweep ms mean / max  TryTake  took a job
+standing, 30 s window              4.63     216 ms   289 ms   133/139        18          0.012 / 2.706       3,810       845
+standing, 120 s                    4.97     201 ms   224 ms   590/597         5          0.005 / 2.869      11,132       845
+12 m/s, turning every 10 s, 30 s   4.47     223 ms   304 ms   112/134        32          0.016 / 3.120      11,410     4,821
+12 m/s, turning every 10 s, 120 s  4.60     218 ms   292 ms   475/552        13          0.011 / 3.024      33,033    12,799
+40 m/s, 30 s                       5.00     200 ms   272 ms     0/150        63          0.021 / 3.459      47,704    23,256
+```
+
+Five things worth keeping:
+
+- **It fires 4.5–5.0 times a second whether the world is moving or not, and the longest gap in
+  five arms is 304 ms — so "every 200 ms" is true in practice, for a reason that is not the
+  interval.** `JobScheduler.IdleWaitMillis` is 100: an idle worker's semaphore wait times out and
+  loops through `TryTake`, so eight idle workers poll the queue about 80 times a second (400 takes
+  per 5 s at rest, exactly 8 × 10) and the first poll after the interval elapses sweeps. That is why
+  the gap at rest is 201–216 ms rather than 200, and why the longest is always under 300: the
+  interval plus at most one idle wait. Set the idle wait to a second and the same code would sweep
+  at 200 ms while flying and at up to 1.2 s while standing still.
+- **At rest 590 of 597 sweeps found nothing queued.** Sweeping an empty list is the lock and two
+  timestamps, 2–5 µs. DESIGN's "sorting a few thousand entries five times a second costs nothing"
+  was right about the rate and never said the five are usually over nothing.
+- **The cost is entirely where the list is, and that is the fill's first sweeps.** 1,639–1,956
+  entries, 2.7–3.5 ms, once — the lock held while every other worker waits on it. Inside any of the
+  five windows the sweep held the lock for 0.002–0.010% of a worker's time. Nothing to build.
+- **At 40 m/s the list at sweep time is 63 entries, not thousands**, because `MaxSubmissionsPerFrame`
+  (64) bounds what enters per frame and eight workers drain faster than that: 47,704 takes in 30 s,
+  23,256 of which found a job, so the workers spend half their takes finding nothing at the very
+  speed the world stops drawing at. The 40 m/s cliff is the sim thread (main 83.89%, 0 drawn), not
+  the queue — M5d-1's finding restated from the workers' side.
+- **`SweepNow` has had no caller since M2a**: 0 forced in every arm. The instrument counts them
+  because a re-sort asked for by name would be a change of design, and it would show here first.
+
+**And a test flake five milestones old was diagnosed with a control, and fixed.**
+`JobSchedulerTests.AThrowingJobFaultsWithoutTakingTheWorkerDownWithIt` failed in the first suite
+run of the change, then 3 in 5 alone; with the change stashed and the tests rebuilt, 2 in 5 — so
+today's machine exposes a race the test has always had, not one the counters added. The
+mechanism, read off the code: before its first sweep the queue pops newest-first (the documented
+contract, `BeforeAnySweepTheQueueIsInArrivalOrder`), so the *survivor* runs before the thrower; the
+test disposes on the survivor's event, and the thrower still queued comes back `Dropped` from
+`DropAll` with the worker alive and well. The test's comment assumed a FIFO. It now waits for both
+results before disposing: 10 of 10 after. The five earlier flakes recorded a different symptom, the
+ten-second wait expiring, which this race cannot produce — that one is the test's own starved-thread
+branch, and stays as recorded.
+
 ## 2026-09-06 — M8b-4a: the pause — a walk that deleted 94% of a pour now deletes nothing
 
 **Matthew: "4a please Claude."** Built as the planning pass wrote it: `IFluidTerrain.IsLoaded`,

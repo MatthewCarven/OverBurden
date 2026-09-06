@@ -541,6 +541,14 @@ public partial class Main : Node3D
     private int _remeshesAtWarm = -1;
     private int _relightsAtWarm = -1;
 
+    /// <summary>
+    /// The queue's sweep account at the first warm frame and at the last periodic report, so the
+    /// profile's line is the window and the periodic line is the delta — the same reason the
+    /// remesh counters above are differences and not totals.
+    /// </summary>
+    private SweepStatistics _sweepsAtWarm;
+    private SweepStatistics _sweepsAtReport;
+
     /// <summary>Whether <c>--speed</c> was given, as opposed to left at its default.</summary>
     /// <remarks>
     /// <b>Needed so that <c>--speed=0</c> can mean nought rather than "unset".</b> A profile
@@ -1750,6 +1758,7 @@ public partial class Main : Node3D
             {
                 _remeshesAtWarm = _pipeline.EditRemeshes;
                 _relightsAtWarm = _pipeline.RelightRemeshes;
+                _sweepsAtWarm = _scheduler!.Sweeps;
             }
 
             _profiler.PipelineUpdate.Add(Milliseconds(before, afterUpdate));
@@ -2742,6 +2751,7 @@ public partial class Main : Node3D
             $"{_pipeline.FaultedJobs} faulted\n" +
             $"applying  {_pipeline.AppliedResults} applied, {_pipeline.PendingResults} still " +
             $"waiting at the end of the run\n" +
+            SweepLines() +
             $"freeing   {_freeQueue.TotalFreed} released, peak queue {_freeQueue.PeakPending}\n" +
             FillLine() +
             LightLines() +
@@ -3651,6 +3661,44 @@ public partial class Main : Node3D
     /// back lit say how many. The two ways a cached grid is dropped — an edit at its face, or its
     /// column moving under it — are the hits that still cost a derive.
     /// </remarks>
+    /// <summary>
+    /// How often the queue's "every 200 ms" re-sort actually fired in the window, and what each
+    /// one cost.
+    /// </summary>
+    /// <remarks>
+    /// The interval is a floor, not a schedule: the sweep runs inside a worker's take, so the
+    /// mean gap is what the workers' wake pattern made of it and the longest gap is how stale
+    /// priorities were allowed to go. The counts are the measured window; the three peaks are
+    /// the whole run, because the fill's first sweep is the largest and is wanted regardless.
+    /// The TryTake count is the denominator — every take is a chance the sweep had — and the
+    /// worker share is the lock held, which every other worker waits on.
+    /// </remarks>
+    private string SweepLines()
+    {
+        if (_scheduler is null || _profiler is null)
+        {
+            return string.Empty;
+        }
+
+        SweepStatistics window = _scheduler.Sweeps.Since(_sweepsAtWarm);
+        double seconds = Math.Max(_profiler.MeasuredSeconds, 0.001);
+        if (window.Sweeps == 0)
+        {
+            return $"sweeps    none in the window, over {window.TakeCalls:N0} TryTake call(s) — " +
+                   "no worker took from the queue with the interval elapsed\n";
+        }
+
+        return
+            $"sweeps    {window.Sweeps:N0} in the window = {window.Sweeps / seconds:F2}/s, one every " +
+            $"{window.MeanGapMillis:F0} ms mean (longest gap {window.GapMillisMax:N0} ms, whole run), " +
+            $"{window.ForcedSweeps:N0} forced, {window.EmptySweeps:N0} found nothing queued | " +
+            $"{window.EntriesReevaluated:N0} priorities re-evaluated, {window.MeanEntriesPerSweep:F0} a sweep mean, " +
+            $"{window.MostEntriesInOneSweep:N0} most (whole run), {window.EntriesDropped:N0} dropped | " +
+            $"sweep ms mean {window.MeanSweepMillis:F3} / max {window.SweepMillisMax:F3} (whole run), " +
+            $"{window.SweepMillisTotal / seconds / 10.0:F3}% of one worker with the lock held | " +
+            $"{window.TakeCalls:N0} TryTake call(s), {window.TakesThatFoundWork:N0} took a job\n";
+    }
+
     private string CacheLines()
     {
         if (_pipeline is null)
@@ -3846,6 +3894,7 @@ public partial class Main : Node3D
             return;
         }
 
+        double reportSeconds = _sinceReport;
         _sinceReport = 0.0;
         ChunkStreamer streamer = _pipeline.Streamer;
 
@@ -3857,6 +3906,22 @@ public partial class Main : Node3D
             $"jobs {_pipeline.CompletedJobs} done / " +
             $"{_pipeline.DroppedJobs} dropped / {_pipeline.FaultedJobs} faulted | " +
             QuadSummary());
+
+        if (_scheduler is not null)
+        {
+            // The delta since the last report, so the line reads as a rate; the peaks are the
+            // run's, as on the profile's sweeps line.
+            SweepStatistics all = _scheduler.Sweeps;
+            SweepStatistics since = all.Since(_sweepsAtReport);
+            _sweepsAtReport = all;
+            GD.Print(
+                $"M2a: sweeps {since.Sweeps:N0} in {reportSeconds:F1} s = {since.Sweeps / Math.Max(reportSeconds, 0.001):F1}/s, " +
+                $"every {since.MeanGapMillis:F0} ms mean (longest {since.GapMillisMax:N0} ms, run), " +
+                $"{since.EmptySweeps:N0} empty | {since.EntriesReevaluated:N0} re-evaluated " +
+                $"({since.MeanEntriesPerSweep:F0} a sweep, most {since.MostEntriesInOneSweep:N0}, run), " +
+                $"{since.EntriesDropped:N0} dropped | sweep ms {since.MeanSweepMillis:F3} mean / " +
+                $"{since.SweepMillisMax:F3} max (run) | {since.TakeCalls:N0} takes, {since.TakesThatFoundWork:N0} took a job");
+        }
 
         GD.Print($"M5c: {LightSummary()}");
         GD.Print($"M5d: {FillLine().TrimEnd()}");

@@ -3,7 +3,10 @@ using System.Diagnostics;
 namespace Overburden.Core.Jobs;
 
 /// <summary>
-/// The pending-job list: a flat array re-sorted on a timer, popped from the back.
+/// The pending-job list: a flat array popped from the back and re-sorted at most once per
+/// interval, by whichever worker takes next once the interval has elapsed. Not a timer —
+/// measured 2026-09-06 at 4.6–5.0 sweeps a second in every arm, because idle workers poll
+/// every 100 ms; see <see cref="SweepStatistics"/>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -53,6 +56,21 @@ public sealed class JobQueue
     private long _lastSweepMillis;
     private bool _serialRunning;
 
+    // The sweep's own account of itself; see SweepStatistics for why it is kept. All written
+    // under _gate, in the sweep or the take that could have swept, so a snapshot is consistent.
+    private long _sweeps;
+    private long _forcedSweeps;
+    private long _emptySweeps;
+    private long _entriesReevaluated;
+    private long _entriesDropped;
+    private long _mostEntriesInOneSweep;
+    private long _takeCalls;
+    private long _takesThatFoundWork;
+    private double _sweepMillisTotal;
+    private double _sweepMillisMax;
+    private long _gapMillisTotal;
+    private long _gapMillisMax;
+
     /// <param name="viewers">Read during each sweep to recompute distance-based priority.</param>
     /// <param name="sweepInterval">
     /// How often priorities are recomputed. godot_voxel uses 200 ms; the cost is a full
@@ -83,6 +101,32 @@ public sealed class JobQueue
             lock (_gate)
             {
                 return _entries.Count;
+            }
+        }
+    }
+
+    /// <summary>
+    /// What the sweeps have done so far. Any thread; one consistent picture, taken under the lock.
+    /// </summary>
+    public SweepStatistics Statistics
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return new SweepStatistics(
+                    _sweeps,
+                    _forcedSweeps,
+                    _emptySweeps,
+                    _entriesReevaluated,
+                    _entriesDropped,
+                    _mostEntriesInOneSweep,
+                    _takeCalls,
+                    _takesThatFoundWork,
+                    _sweepMillisTotal,
+                    _sweepMillisMax,
+                    _gapMillisTotal,
+                    _gapMillisMax);
             }
         }
     }
@@ -138,6 +182,7 @@ public sealed class JobQueue
         lock (_gate)
         {
             dropped = SweepIfDueLocked();
+            _takeCalls++;
 
             // Highest priority sits at the end. Serial entries are skipped while another
             // serial entry runs, so this is not always the very last element — but serial
@@ -158,6 +203,7 @@ public sealed class JobQueue
 
                 taken = entry;
                 found = true;
+                _takesThatFoundWork++;
                 break;
             }
         }
@@ -184,7 +230,7 @@ public sealed class JobQueue
         List<Entry>? dropped;
         lock (_gate)
         {
-            dropped = SweepLocked();
+            dropped = SweepLocked(forced: true);
         }
 
         ReportDropped(dropped);
@@ -214,13 +260,20 @@ public sealed class JobQueue
             return null;
         }
 
-        return SweepLocked();
+        return SweepLocked(forced: false);
     }
 
-    private List<Entry>? SweepLocked()
+    private List<Entry>? SweepLocked(bool forced)
     {
-        _lastSweepMillis = _nowMillis();
+        // The gap is on the queue's own clock, so a test can read it; the duration is on the
+        // Stopwatch, because the queue's clock is whole milliseconds and a sweep is usually less.
+        long now = _nowMillis();
+        long gap = now - _lastSweepMillis;
+        _lastSweepMillis = now;
+        long started = Stopwatch.GetTimestamp();
 
+        int seen = _entries.Count;
+        int reevaluated = 0;
         List<Entry>? dropped = null;
 
         // Walk backwards so removal does not disturb the indices still to be visited.
@@ -240,9 +293,31 @@ public sealed class JobQueue
                 Priority = JobPriority.Evaluate(
                     entry.Job.Kind, entry.Job.Position, _viewers, entry.Job.Urgency),
             };
+            reevaluated++;
         }
 
         _entries.Sort(ByAscendingPriority);
+
+        _sweeps++;
+        if (forced)
+        {
+            _forcedSweeps++;
+        }
+
+        if (seen == 0)
+        {
+            _emptySweeps++;
+        }
+
+        _entriesReevaluated += reevaluated;
+        _entriesDropped += dropped?.Count ?? 0;
+        _mostEntriesInOneSweep = Math.Max(_mostEntriesInOneSweep, seen);
+        _gapMillisTotal += gap;
+        _gapMillisMax = Math.Max(_gapMillisMax, gap);
+
+        double millis = (Stopwatch.GetTimestamp() - started) * 1000.0 / Stopwatch.Frequency;
+        _sweepMillisTotal += millis;
+        _sweepMillisMax = Math.Max(_sweepMillisMax, millis);
         return dropped;
     }
 
