@@ -1,5 +1,72 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-06 — The sprint corridor: 30 chunks at 7 and 30 m/s, and the 27-chunk floor is a cliff edge, not a slope
+
+**Matthew: "run a 'running' test where the player sprints forward down a narrow corridor for 30
+chunks and how many updates are run … ideally as you started sprinting you would lower the draw
+distance by up to 50% depending on load, and just fill in the further details as the player starts
+hanging around … under load i'd be happy if we just maintain the 27 chunks we have to for a
+complete box."** Measured with the existing flythrough — a straight line 4 m over the surface,
+which is the dearer case, since a corridor underground is uniform rock with closed-form derives and
+empty meshes — a 12 s warm-up so the initial fill is out of the count, and the window sized to
+thirty chunks of travel: 34 s at the on-foot sprint of 7 m/s, 8 s at the flycam's 30. Debug,
+headless, 8 workers. Per chunk of travel, from the run totals less the standing fill:
+
+```
+                              r6h/2v @ 7 m/s   r3h/2v @ 7 m/s   r1h/1v @ 30 m/s
+chunks generated                   152               98               49
+derives                            260              185               95
+meshes                              52               33               ~9
+box sweep, viewer ms mean        9.8 ms           5.8 ms           3.5 ms
+sim thread                         56%              35%              75%
+drawn at the window's end          344              106      10 (4 ms) / 25 (7 or 16 ms)
+```
+
+So thirty chunks of on-foot sprint at the default radius is ~4,560 generates, ~7,800 derives,
+~1,560 meshes and 30 box sweeps across ~4,900 pipeline updates, with the world drawing the whole
+way: **sprinting on foot is not a case that needs adapting for.** The flycam's sprint is:
+
+```
+30 m/s                light budget 4 ms    7 ms (≈ 16 ms at 60 fps)   16 ms (unbudgeted headless)
+r6h/2v                0 drawn, 82%         —                          0 drawn, 96%
+r3h/2v                0 drawn, 78%         0 drawn, 97%               0 drawn, 97%
+r2h/1v                0 drawn, 79%         —                          —
+r1h/1v, 27 visible    10 of 27, 76%        25 of 27, 74%              25 of 27, 75%
+```
+
+Four things worth keeping:
+
+- **The 27-chunk floor works, at the budget the game is played at, and nothing wider does at any
+  budget.** r1h/1v at 30 m/s draws 25 of 27 with light settled in 1.2–1.5 s under `start.cmd`'s
+  16 ms budget or its 60 fps equivalent, and 10 of 27 under the pipeline's 4 ms default. r2h/1v,
+  r3 and r6 draw nothing however much budget they are given, because the derive demand exceeds a
+  whole sim thread — 17–18 s of deriving inside a 20 s run, 96–97% of a core. **Halving the radius,
+  the proposal's "up to 50%", buys nothing at 30 m/s: r3 is as dark as r6.** The floor is a cliff
+  edge rather than a slope, and it sits exactly where the mid-turn refinement put it.
+- **Every chunk is derived twice while moving, at every radius.** 1.71 derives per generated
+  chunk at r6/7 m/s, 1.89 at r3, 1.95 at r1/30 m/s, against exactly 1.0 at a standing start. The
+  leading slab derives against an absent forward neighbour, read as air, and derives again when
+  that neighbour's voxels arrive — cache slice 2's "stale bit leaked skylight into rock until the
+  gain re-derive ran", paid on purpose, once per chunk, whichever way you travel. **That is the
+  largest lever in the table and it is not the radius.** A third margin ring that generates and
+  never derives would let ring 2 derive once, with every neighbour's voxels present: +37%
+  generation per chunk of travel (a 19 × 11 slab against 17 × 9) on workers that spend half their
+  takes finding nothing (this morning's sweep count), for −45% derives on the thread that is the
+  cliff, and exact in the visible box by the 15 m against 16 m argument that already carries the
+  margin. **Not built** — M5c-1 argued a third ring away for the barrier ladder, and the two
+  arguments have to be read together in a planning pass before this one is believed.
+- **The box difference is not the cost**: 9.8 ms a move at r6 against 3.5 at r1, thirty times in
+  the window, beside a sim thread that is 56–97% derive.
+- **Recommendation: build the adaptive radius as described, and small.** `ChunkStreamer.UpdateViewer`
+  already takes a new radius, so Core gains a pure policy and Main applies it. Shrink toward the
+  floor while the derive backlog stands — the thing "0 drawn" is made of — one ring a frame so the
+  box difference is never one 2,258-record frame; grow one ring at a time while the viewer's chunk
+  has not changed for a few seconds and the backlog is empty, which is "hanging around" and is
+  what keeps the two signals from fighting. `--minradius=` and `--adaptive=0` as seams, the `fill`
+  line printing the radius trajectory, priced on this corridor. **Two decisions handed back**: the
+  floor (r1h/1v as said, 16 m ahead being half a second at 30 m/s), and whether the third-ring
+  lever goes first, since it halves the moving cost at every radius including the floor.
+
 ## 2026-09-06 — How often the queue's "200 ms re-sort" fires: 4.6–5.0 a second, and there is no timer
 
 **Matthew: "lets profile how often 'scheduler re-sorts every 200 ms by distance to the viewer'

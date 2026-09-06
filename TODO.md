@@ -4494,6 +4494,33 @@ distances please unless its tied."*
       at M5d-1 and neither is built (`PaddedChunk.CopyFrom`, 60–75% of the derive; and moving the
       derive off the sim thread). **At r6 there is more world to catch up on when you stop**, so the
       recovery is longer even though the cliff itself is unchanged.
+      - [x] **The sprint corridor, measured 2026-09-06** (worklog, same date): thirty chunks at the
+            on-foot 7 m/s draws throughout at r6 (152 generates / 260 derives / 52 meshes a chunk
+            of travel, 56% of a core); at the flycam's 30 m/s **only r1h/1v draws — 25 of 27 under
+            the 16 ms budget, 10 under the 4 ms default — and r2, r3 and r6 draw nothing at any
+            budget**, the derive exceeding a whole thread. Halving the radius buys nothing; the
+            27-chunk floor is a cliff edge.
+      - [ ] **Adaptive view radius — Matthew's proposal, 2026-09-06, recommended and not built.**
+            A pure policy in Core, applied by Main through `ChunkStreamer.UpdateViewer`: shrink one
+            ring a frame toward the floor while the derive backlog stands, grow one ring at a time
+            while the viewer's chunk has not changed for a few seconds and the backlog is empty.
+            Seams `--minradius=`, `--adaptive=0`; the `fill` line prints the radius trajectory;
+            priced on the corridor above. **Decisions handed back**: the floor (r1h/1v as Matthew
+            said — 16 m ahead is half a second at 30 m/s; r2h/1v does not draw at 30 m/s), and
+            whether the third-ring lever below goes first. Needs a derive-backlog count on the
+            pipeline, which nothing exposes today.
+      - [ ] **A third, voxels-only margin ring — the largest lever the corridor found, and a
+            planning pass before it is believed.** Every chunk derives ~1.8 times while moving
+            (1.71 at r6/7 m/s, 1.95 at r1/30 m/s; exactly 1.0 standing): the leading slab derives
+            against an absent forward neighbour read as air, then again when its voxels arrive —
+            the gain re-derive cache slice 2 relies on. A ring that generates and never derives
+            lets ring 2 derive once with every neighbour present: **+37% generation per chunk of
+            travel on workers that spend half their takes finding nothing, for −45% derives on the
+            thread that is the cliff**, exact in the visible box by the margin's own 15 m against
+            16 m argument. Tracked chunks +53% (3,971 against 2,601 at r6), ~2 KB each, no grids.
+            **Read M5c-1's "light needs no third margin ring" first**: that argument was about the
+            barrier ladder and a ring that *does* derive; this ring would not, and the two have to
+            be shown compatible before a line is written.
 
 #### The entangled miner fills a chunk too — Matthew’s request, 2026-09-03
 

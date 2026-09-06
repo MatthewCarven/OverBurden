@@ -425,6 +425,19 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
+**The sprint corridor is measured (2026-09-06), and an adaptive view radius is recommended and not
+built.** Thirty chunks of on-foot sprint (7 m/s) at r6 is 152 generates, 260 derives, 52 meshes
+and a 9.8 ms box sweep per chunk of travel, drawing throughout — nothing to adapt for. At the
+flycam's 30 m/s **only the 27-chunk box (r1h/1v) draws, 25 of 27 under `start.cmd`'s 16 ms budget,
+and nothing wider draws at any budget** — r3 is as dark as r6, so "halve the radius" buys nothing
+and the floor is a cliff edge. **Every chunk is derived twice while moving, at every radius**
+(1.7–1.95 derives per generated chunk against 1.0 standing): the leading slab derives against an
+absent neighbour and again when it arrives. A third, voxels-only margin ring would make that once
+for +37% generation on half-idle workers; **named in TODO under M5d-1's levers, and it wants a
+planning pass against M5c-1's no-third-ring argument before it is believed.** The adaptive radius
+itself is a Main-side policy on `ChunkStreamer.UpdateViewer`: shrink a ring a frame on derive
+backlog, grow a ring on dwell. Its floor and its order against the third-ring lever are Matthew's.
+
 **The queue's "200 ms re-sort" is measured (2026-09-06), and there is no timer. Suite 1,053 →
 1,058.** The sweep runs inside a worker's `TryTake` once the interval has elapsed; it fired
 4.6–5.0 times a second in every arm — standing, 12 m/s turning, 40 m/s — with the longest gap 304 ms,
