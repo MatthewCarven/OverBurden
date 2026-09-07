@@ -4098,11 +4098,22 @@ finding without the coarser-tolerance fallback.
             landing at the next boundary, a slow tick lowering the rate, ~8× the Debug throughput.
             All eight decisions taken as recommended. Build (3) when the play reads the flood on
             open as hurting rather than slow. Not started.
-      - [ ] **M8b-4c — the panel leaves RAM with its chunk.** Written and released at forget, read
-            back on arrival through the serial lane (its own job, or the chunk load reading both
-            rows — the load bench decides), retained with a cached chunk under the cache's cap.
-            Priced first on a `--fluid` arm that walks the box across the flooded mine. Revisit
-            trigger: `PanelBytes` past 64 MiB in a play, which the first lake will fire.
+      - [ ] **M8b-4c — the panel leaves RAM with its chunk. Planned 2026-09-07, not built; see
+            M8-PLAN's "M8b-4c — the planning pass".** Five things the paragraph assumed were not
+            so, two of them the whole slice: **the panel lingers one tick after the forget**, so
+            the tick pauses the chunk's queued cells and the row lists them (released at the mark,
+            a flood front inside a leaving chunk is stranded on every walk); and **a chunk whose
+            row is still to be read is not loaded, to the water** — a `FluidPending` flag the
+            fluid terrain reads through the streamer, the restore as a chunk-slot job on the
+            serial lane for all three arrival paths, and `ChunkArrived` moved to a new
+            `onFluidReady` that fires after the restore. Memory, the evicting set, the snapshots
+            not yet written, then the store's index — the wrong order restores the past and the
+            identity cannot see it. `evicted` joins the identity; `_storedAwake` must forget an
+            evicted chunk or the next autosave deletes the lake; nothing in the cache (a hit costs
+            one 0.1 ms lane read; the blob is the lever). Priced on a `--evict` bench arm over the
+            lake fixture and the turnaround on a played-world copy; `PanelBytes` falls from the
+            world's wet chunks to the box's. Six decisions handed back, all with recommendations.
+            Revisit trigger stands: `PanelBytes` past 64 MiB in a play.
       - [ ] The unload-time settle is not called by any of the three. `LevelSheets(seeds, share:
             0)` stays as the API — with a share of zero, because the share slice's early stop
             assumes every unsettled cell neighbours a seed, which the wake rule guarantees for the

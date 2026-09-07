@@ -1,5 +1,39 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-07 — M8b-4c planned: the panel lingers one tick, the chunk is not loaded to the water until its row is read, and the cache keeps nothing
+
+**Matthew: "M8b-4c please Claude also" — then "Oh just plan if we dont have one."** It had a
+paragraph in the M8b-4 pass and no pass of its own, so this is the pass: the paragraph read
+against the grid, the pause, the pipeline's three arrival paths and save queue, the cache and the
+store. Planned, not built; see M8-PLAN's "M8b-4c — the planning pass". Four things worth keeping:
+
+- **"Written and released at forget" strands a flood front on every walk.** The row lists the
+  chunk's *paused* cells; its *queued* cells — a front inside a chunk that just left — are found
+  only by walking the active set, which 4b refused per chunk of a shell. Released at once, those
+  cells are visited, read an empty panel and sleep unlisted; the arrival's face wake cannot reach
+  an interior. So the panel stays one tick: the 4a pause visits and lists every queued cell for
+  free, the snapshot at the boundary that completes the first tick begun after the mark is exact,
+  and what a neighbour wakes into the chunk meanwhile is a face cell by construction.
+- **The chunk arrives before its water in all three paths, and the gate is "not loaded, to the
+  water".** A neighbour's flow into the chunk's air before the row is read meets `Restore`'s
+  throw, which stays as the tripwire. A `FluidPending` flag on the record, read by the fluid
+  terrain through the streamer beside `TryGetMaterial` so the hot path pays nothing new; the
+  restore as a chunk-slot job on the serial lane so cancellation, retention and revival are M2c-2's
+  and M6b's machinery; `ChunkArrived` on a new `onFluidReady` after the restore. Reading the row
+  inside `LoadChunkJob` is rejected as one path of three — a never-edited chunk whose cave flooded
+  has a row and no blob.
+- **A load must not race a save, and the chunks' answer (the lane and a priority band) is not
+  needed**: the snapshot the pipeline holds until its batch reports is the newest state, so the
+  sources are memory, the evicting set, the unwritten snapshots, then the store's index. The wrong
+  order restores the past with the identity exact; the twin sees it.
+- **Two silent deletions named as recipes**: `_storedAwake` not forgetting an evicted chunk makes
+  the next autosave write its row empty — *the lake deleted by the save*; `_emptied` gaining it
+  does the same by another route. And `held` now leaves RAM, so `evicted` joins the identity.
+
+The cache keeps no panel — `--blob` already said the plan's sparse form is the largest of the
+three, and a hit's fluid load is 0.1 ms Release for a lake panel. Six decisions handed back with
+recommendations; a `--evict` bench arm and the turnaround on a played-world copy price it.
+
 ## 2026-09-07 — The adaptive radius and the store, played: "fly holding ctrl is the only way I can beat the loader/generator now, and honestly I am happy with that"
 
 **Matthew's verdict on the adaptive view radius, and it closes the play check.** Both unplayed

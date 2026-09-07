@@ -441,9 +441,16 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-07, evening). Both play checks are done and M8b-4c — the panel leaves
-RAM with its chunk — is next to build; the water thread (WATER-THREAD-PLAN.md) follows 4c, its
-first slice — the near/far order — needing no thread at all.** The adaptive radius is played and
+**Pick up here (2026-09-07, evening). Both play checks are done, and M8b-4c — the panel leaves
+RAM with its chunk — is planned and not built: read M8-PLAN's "M8b-4c — the planning pass"
+before it, and build it once Matthew has answered its six decisions (all recommended). The water
+thread (WATER-THREAD-PLAN.md) follows 4c, its first slice — the near/far order — needing no
+thread at all.** The pass's two load-bearing findings: the panel lingers one tick after the
+forget so the tick itself lists the chunk's queued cells (released at once, a flood front inside
+a leaving chunk is stranded on every walk), and a chunk whose row is still to be read is *not
+loaded, to the water* — a `FluidPending` flag, the restore as a chunk-slot job on the serial
+lane, `ChunkArrived` moved to an `onFluidReady` after it. `evicted` joins the identity, and
+`_storedAwake` must forget an evicted chunk or the next autosave deletes the lake. The adaptive radius is played and
 accepted — Matthew: *"fly holding ctrl is the only way I can beat the loader/generator now, and
 honestly I am happy with that"* — so the 30 m/s sprint outrunning the world is a chosen cliff
 edge, not a defect; the logs show r6 from 35 s after an open, `grown` at 14.7–30.6 s, and the

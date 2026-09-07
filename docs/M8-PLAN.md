@@ -1286,6 +1286,162 @@ lever stands and is not built; Matthew did not report the hitch. The larger stal
 showed is not the store's: the Tier B surface mesh at 144,559 quads took 119.7 ms on the main
 thread four times a second while the flood ran — recorded in TODO under M8b.
 
+### M8b-4c — the planning pass, 2026-09-07, before any code
+
+The paragraph above — *a panel whose chunk is forgotten is written and released; a chunk arriving
+with a stored panel submits a `LoadFluidJob` on the lane or its `LoadChunkJob` reads both rows; a
+cached chunk keeps its panel in the sparse form under the cache's cap* — was read against the grid,
+the simulation's pause, the pipeline's three arrival paths and its save queue, the streamer's
+cache and the store. Five things it assumed are not so, and the second and third are the whole of
+the slice.
+
+**1. After 4a, the tick never writes a panel whose chunk is not loaded, and that is the invariant
+4c stands on.** A cell in an absent chunk is paused rather than moved; water cannot be moved *into*
+one because `CanHold` is false there; the sheet solve floods holdable cells only; the hand-off
+reads rested cells only; and `Wake` refuses a cell that can neither hold nor holds. So a panel
+whose chunk has left the box is inert in every direction, and the only things that still read it
+are the surface's `HeldCells()` scan, `VerifyQuiescent` (which skips it) and the arrival's face
+wake on the *neighbour's* side. Releasing it changes no trajectory. **The surface stops drawing
+water in unloaded chunks**, which is right — the terrain there is not drawn either — and it is
+where the 119.7 ms rebuild the play found may lose most of its quads: the scan is over every
+panel in RAM, and after 4c that is the box, not the world. Measured after, not assumed.
+
+**2. "Written and released at forget" is one tick too early, and the loss is in RAM, not on
+disk.** The chunk's *paused* cells are listed by `TakeDirty`; its *queued* cells — a flood front
+inside a chunk that has just left — are not, because finding them means walking the active set
+per chunk of a shell (4b's reason). With the panel released the instant the chunk goes, those
+queued cells are visited next tick, read `AmountAt == 0`, and sleep — not paused, not listed,
+forgotten. When the chunk returns, the arrival's face wake covers its six face layers and the
+row's awake list covers what was paused, and the interior front stays asleep with a move
+available: **a stranded front on every walk across a flood, and `VerifyQuiescent` false after
+it.** The 4a lifecycle fuzz extended with eviction will show it in one round. The fix is to let
+the tick do the walk it already does: **a forgotten chunk is marked evicting and its panel stays
+one tick more**; every one of its queued cells is visited in that tick, finds the chunk absent
+and is paused — the 4a rule doing 4c's bookkeeping — and at the boundary that completes the
+first tick *begun after the mark*, the panel is snapshotted with the paused list now exact and
+released. Cells woken *into* the evicting chunk during that tick by a neighbour's flow are face
+cells by construction — nothing else can reach an untracked chunk — and the face wake covers
+them at arrival. So the row under-lists nothing the arrival cannot repair, in RAM and across a
+quit alike, which is a stronger statement than 4b's "at most one autosave interval". The cost is
+a panel lingering half a second (or one sliced tick) after its chunk, reported on the `M8b:` line
+as `evicting N panel(s)`; a chunk re-viewed inside that window keeps its panel and needs no load,
+which is a *fourth* source, ahead of the other three.
+
+**3. The chunk arrives before its water, and the gap is where a defect would hide.** A revived
+chunk is `Generated` on the sim thread the frame it is viewed; a loaded one lands whole from its
+job; a generated one likewise — and in all three the voxels are in the streamer before any row
+could be read, so a neighbour's water flows into the chunk's air, and the restore then meets a
+panel that holds water. `FluidGrid.Restore` throws on exactly that, and **the throw stays: it is
+the tripwire for a hole in the gate**, not a case to merge around (merging would double the
+water and pass the identity, since `loaded` doubles with it). The gate is: **a chunk whose row
+is still to be read is not loaded, to the water.** Not a new concept in the simulation — 4a's
+pause already handles a chunk the world cannot answer for, and its fixtures already toggle
+chunks loaded and unloaded — but a flag on `StreamedChunk` (`FluidPending`) that the fluid
+terrain adapter reads through a streamer method beside `TryGetMaterial`, so the hot path pays
+the one dictionary lookup it pays today and nothing more. Light, mesh and physics do not see the
+flag; only the water does. The arrival hook splits in two: `onVoxelsReady` stays the portal
+tracker's, and a new `onFluidReady` fires `ChunkArrived` — synchronously at voxels-ready for a
+chunk with no row, and after the restore lands for one with a row — so the face wake on the
+chunk's own side sees the restored cells, and the neighbour's paused cells wake into a chunk
+that can now answer. **The restore itself goes through the chunk's job slot**, on the serial
+lane, between voxels-ready and mesh, for all three paths: one mechanism, and cancellation,
+retention past the unview and revival with the flag intact all come from machinery M2c-2 and
+M6b built. Reading the row inside `LoadChunkJob` is rejected because it covers one path of
+three — a never-edited chunk whose cave flooded has a row and no chunk blob, and a cache hit
+reads no blob at all. What it would have saved is one lane query per *loaded* wet chunk, 6 µs
+by M6b-1's measurement against a 0.1 ms read of a lake panel; the bench cannot decide a
+structural question and the number it can give is already known. **The stated cost: a wet
+chunk's first draw waits one lane trip**, bounded by the loads ahead of it in the lane, which
+under a fill is the same backlog its own load sat in; the profile's `sources` line prints
+fluid loads and their lane milliseconds so it is read rather than argued.
+
+**4. A load can race a save, and the chunks' answer does not transfer — a better one does.** A
+chunk revived before its save lands is kept behind the write by the serial lane and a priority
+band, and the pipeline's comment calls the band the weaker half. For panels there is no need to
+race at all: the snapshot taken at eviction is a *copy* the pipeline holds until its batch
+reports, and it is the newest state of that chunk's water by construction. So the pipeline
+keeps every snapshot not yet on disk in a dictionary by chunk — pending and in flight — and a
+chunk arriving whose position is in it is restored from memory on the sim thread, no job, no
+lane. **Memory, then the evicting set, then the snapshots not yet written, then the store's
+index, then nothing**: the chunk's own order with two sources more, and for the chunk's own
+reason — consulting them in the wrong order is the only failure here that matters, and the
+wrong one restores *the past*: an older row over a newer copy, water reappearing where it had
+drained, with the identity exact because `loaded` counts whatever came back. The twin oracle
+sees it; the identity cannot. A `_savedFluid` index loaded at open beside `_savedChunks`, claimed
+at submission and unclaimed on a failed batch the way the chunk index is. Empty rows stay in the
+index and in the table: a load of one restores nothing, clears the flag, and costs 6 µs once;
+deleting them at the writer is a tidy for later and is not a format change.
+
+**5. `held` leaves RAM now, so the identity gains a term.** `held == injected + drawn + loaded −
+removed − displaced − handed` was exact because nothing left the grid but water; a released panel
+takes its millilitres with it, to disk. **`evicted` joins the line: millilitres released with
+their chunk**, and `loaded` keeps counting every restore, so `loaded − evicted` is the net on
+disk and both stay visible. The at-quit / restored equality the 4b play check read is gone as
+an oracle — the open reads an index, not the water — and its replacement is the fuzz's twin and
+the walk arm's identity; in play, the `M6:` line prints the index's row count beside the
+chunks', which is the number `held` is bounded by.
+
+Two things the eviction must clear and one it must not touch, each a recipe: **`_storedAwake`
+must forget an evicted chunk**, or the next `TakeAllDirty` snapshots it with no panel and
+writes its row empty — *the lake is deleted by the autosave, silently, with the identity exact*;
+**`_emptied` must not gain it** — an unload is not a drain, and the row on disk is the truth;
+and the paused set is dropped with the panel, because after release nothing in that chunk can
+be woken. `FluidGrid.Evict(chunk)` is the third way a panel goes, beside drain and never, and it
+is the one that does not mark the row stale.
+
+**What the cache keeps: nothing.** The plan said the sparse form under the cap. `--blob`
+already said the sparse form of a lake panel is 128 KiB as pairs against 64 KiB dense, so the
+form the plan named is the largest of the three; dense is the 78 MiB the slice exists to remove
+and would evict terrain to hold water; and the compressed blob (336 B) is produced on the lane
+after the forget, so caching it means compressing on the sim thread at every forget of a wet
+chunk, ~0.4 ms Debug, a shell at a time. **A cache hit therefore costs one fluid load** — a
+6 µs query and a 0.1 ms read in Release for a lake panel, the smallest of the four things a hit
+was built to skip — and the cache's own invariant, *nothing here is a source of truth*, stays
+trivially true. Revisit trigger: the turnaround arm on the played world reads its fluid loads
+as a hitch; the lever then is the blob, kept from the save job's own bytes on their way to the
+store.
+
+**Tests, and what has to break them.** The 4a lifecycle fuzz gains an in-memory store and a
+third arm: chunks toggled out are evicted through `TakeEvicted` → `FluidPanelBlob.Write` →
+store, and toggled back through index → `Read` → `Restore` → `ChunkArrived`, against a twin
+that never evicts; the same cells hold the same millilitres once everything is back, both rest,
+the rest is real, and a quit mid-walk (`TakeAllDirty`, reopen from the store, the rest of the
+walk) changes none of that. Both eviction timings are constructed — marked mid-tick and marked
+between ticks — and the paused list asserted exact against the queued set at the moment of the
+mark, strictly. The pipeline suite gains: a wet chunk meshes only after its restore; a chunk
+with no row fires fluid-ready at voxels-ready; a fluid job dropped by an unview is resubmitted
+at revival with the flag intact through the cache; a fluid job faulting on a bad row faults
+loudly; the in-memory source is consulted before the store (a newer snapshot pending, an older
+row on disk, the newer one wins); and an evicting chunk re-viewed needs no load. The recipes:
+release at the mark rather than after the tick (stranded front — `VerifyQuiescent`); evict
+without clearing `_storedAwake` (the lake deleted at the next save — the twin, across a quit);
+evict into `_emptied` (an empty row over a full one — the twin); one terrain question in the
+simulation bypassing the gate (water enters a pending chunk — `Restore` throws); `ChunkArrived`
+fired before the restore (the chunk's own face wake sees nothing — `VerifyQuiescent`); the flag
+cleared at retain (a revived chunk without its water — the twin); the store consulted before
+memory (the past restored — the twin); `evicted` dropped from the identity (the line reads *NO*);
+the index not unclaimed on a failed save (a load of nothing — the null path's counter).
+
+**Measurement, priced before built.** A bench arm — `--evict` — over `--lake`'s chamber block,
+filled and asleep: a box W chunks wide sweeps across it one chunk every K ticks with an in-memory
+store, printing per step the panels evicted and restored, bytes written and read, microseconds
+per write and read on real lake shapes, peak `PanelBytes` against a control that never evicts,
+the visits (which should differ only by the arrival wakes), and at the end both identities and
+`VerifyQuiescent` in both arms. Then the profile: the turnaround on a copy of the played world
+(`--world=probe-load --turnaround=10`), where the `sources` line gains fluid loads split by
+source — memory, pending, store — with their lane milliseconds, and the `M8b:` line carries
+`evicted` and `evicting`. The play's number is `PanelBytes` on the `M8b:` line falling from the
+world's wet chunks to the box's, and the surface rebuild beside it.
+
+**The decisions handed back, recommendation first:** the restore as a chunk-slot job on the
+serial lane for all three arrival paths (recommended; riding `LoadChunkJob` rejected as one path
+of three); the panel lingering one tick after the forget (recommended; immediate release
+rejected as a stranded front on every walk); nothing in the cache (recommended, with the blob as
+the named lever and the turnaround arm as its trigger); memory before the store, with the
+pending snapshots as a source (recommended, no alternative that is not the past); `evicted` on
+the identity (required); empty rows kept (recommended; the delete is a tidy). Nothing in the
+blob or the schema moves.
+
 ---
 
 
