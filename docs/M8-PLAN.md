@@ -1442,6 +1442,104 @@ pending snapshots as a source (recommended, no alternative that is not the past)
 the identity (required); empty rows kept (recommended; the delete is a tidy). Nothing in the
 blob or the schema moves.
 
+### M8b-4c — built, 2026-09-07
+
+**Built as the pass wrote it, all six decisions as recommended — Matthew: "all six as
+recommended, build it please" — and one thing the pass did not say, found by the played world
+on the first probe.** `FluidSimulation.Evict` / `TakeEvicted` / `Reclaim` in
+`FluidSimulation.Eviction.cs`, `FluidGrid.Evict` (the third way a panel goes, the one that does
+not mark the row stale), `StreamedChunk.FluidPending` read by the fluid terrain through
+`IFluidWorld.TryGetMaterialForFluid` on the streamer, `LoadFluidJob` in the chunk's own slot on
+the serial lane between voxels-ready and mesh, `_savedFluid` beside `_savedChunks`, the unwritten
+snapshots as a source ahead of the store, `onFluidReady` as the water's arrival hook, `evicted`
+on the identity, `IWorldStore.LoadFluidIndex` / `ReadFluid(ChunkPos)` beside the whole-table read.
+Suite 1,134 → 1,158; 12 recipes, 11 caught, 1 identity. No format or schema change.
+
+- **The portal tracker had to move onto the fluid-ready hook too, and the played world said so
+  on the first probe.** The tracker scanned a chunk's holes at voxels-ready; the drain then
+  poured Tier A's water into a hole whose chunk was still reading its row, the automaton refused
+  it (not loaded, to the water), and `PortalDrain`'s "refused what it had room for" invariant
+  threw. The rule is general: *to everything that is water, a chunk arrives when its water is
+  home.* Both the tracker and the automaton take `onFluidReady` now, which carries the chunk's
+  edit flag for the tracker's sake; `onVoxelsReady` is left to callers that are not water. The
+  relay was already safe — `Add` refuses a cell the terrain cannot hold and reports it as still
+  to pour.
+- **The flag surviving the cache is an identity, and the remark that said it was load-bearing
+  was wrong.** A revival is an arrival, and the pipeline re-derives `FluidPending` from its
+  sources at every arrival; clearing the flag at retain fails nothing. Left untouched at retain
+  anyway, with the reason recorded on the flag.
+- **The gate has a pipeline-level test after the battery said the unit test was its only
+  catcher.** Water poured into the chunk above one whose row is held on the lane waits on its
+  floor for twelve ticks and falls the moment the row lands; the assertion that got there took
+  three tries, because the restored water in the wet chunk is mid-flow and drains out once woken,
+  so the wet chunk's total is not a monotone quantity — the poured water leaving the chunk above
+  is.
+- **Two gated-store tests hung the suite for ten minutes before they failed.** A worker blocked
+  at a read gate blocks the scheduler's dispose for ever, and a dispose that writes through a
+  closed write gate does the same; both gates open in a `finally` now, so a failed assertion
+  reads as one.
+- **The bench's identity read `*** NO ***` in both arms on its first run**, because the fixture
+  fills the grid directly, outside the simulation's ledger; `filled` joins the bench's identity,
+  and "evicted" was counting rows written rather than panels released — a panel back on disk
+  unchanged writes nothing, and 63 of 109 did.
+
+**Measured — the bench (`--evict`, Release, 1.05× machine), a 6 × 6 × 6 block with four full
+layers (147,456 cells, 2.3 ML) and a three-column box walking across it and back, one column
+every four ticks:**
+
+```
+arm     ticks  visits   peak MiB  evicted  rows written  write µs/row  restored  read µs/panel  tick ms  rest  quiescent  identity
+keep       76  69,622       2.4        0             0           0.0         0            0.0    0.436  7,627       yes     exact
+evict      76  68,273       1.2      109            46         279.9       111          151.7    0.198  7,573       yes     exact
+```
+
+The visits differ by the arrival wakes and nothing else; both rest, and the rest is real — the
+stranded front the immediate release would have left is the `quiescent` column. A row is
+280 µs to write and 152 µs to read on real lake shapes, against the pass's 0.1 ms estimate for
+the read and 120–170 µs for the write.
+
+**Measured — the played world, headless, a copy of the retired chunk-bitten world, r4h/2v at
+12 m/s turning every 10 s for 30 s, against the previous commit's build on the same copy and
+flags:**
+
+```
+                                  M8b-4b (HEAD)          M8b-4c
+panels in RAM at the end          364 (22.8 MiB)         81 (5.1 MiB)
+fluid rows read off the lane      —                      256 in 121.9 ms (0.48 ms each, Debug)
+reclaimed inside the window       —                      40
+first draw / near lit             10.12 s / 4.55 s       10.27 s / 6.12 s
+viewer ms mean / p99              83.0 / 159.9           61.4 / 130.6
+savecost sim total                32.2 ms                98.2 ms (273 panels snapshotted)
+identity                          exact                  exact, with evicted
+```
+
+The first probe, before the tracker moved, read first draw 27.4 s and threw on every drain; the
+20 s was the exception's, not the slice's. **Two costs the run names and this slice does not
+pay**: `viewer ms` is 60–80 ms a move on this world in both arms — the box sweep with the
+portal tracker's scans and the arrival wakes inside it, older than 4c and recorded in TODO; and
+`FluidGrid.Restore` writes a lake panel cell by cell, ~32,768 `Write` calls on the sim thread
+inside the apply, which is the p99 frame moving from 33 to 58 ms — the lever is a bulk restore
+of the dense form with the totals recomputed once, named and not built.
+
+**The wire, headless, a scratch world, a 200,000 L pour under a viewer turning every 10 s, then
+a reopen standing still:**
+
+```
+quit 1    at quit — 15,147 L in RAM; the world file holds 16,077 L in 12 row(s) (4 empty)
+open 2    loaded 16,074 L from 7 panel(s), 10 rows off the lane in 6.5 ms; identity exact
+quit 2    the world file holds 3 L in 12 row(s) (11 empty)
+```
+
+The 3 L between the file and the reopen's `loaded` is one row the standing box never covered,
+and the second quit's line says exactly that — the file minus what came home is what is still
+away. The first session evicted 14 panels and read 11 back, identity exact with `evicted`. The
+r6 control, invoked verbatim, is 2601 / 325 / 3446 at 411 with every fluid term zero.
+
+**The play oracle changed.** `M8b: at quit` still prints the water in RAM, and a new line under
+it prints what the world file holds, every row summed after the write — the figure the next
+open's `loaded` reaches once every wet chunk has come home. "At quit equals restored" is gone
+because the open restores nothing; the periodic line's `loaded` and `evicted` are what to read.
+
 ---
 
 

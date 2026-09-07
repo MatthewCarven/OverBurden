@@ -120,6 +120,13 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// </remarks>
     private readonly Action<ChunkPos, bool>? _onVoxelsReady;
 
+    /// <summary>
+    /// A chunk's water is home: its stored panel restored, or found nearer, or there was none.
+    /// Fires after <see cref="_onVoxelsReady"/>, and for a chunk with a row only once the row has
+    /// landed — the automaton's arrival wake (M8b-4c).
+    /// </summary>
+    private readonly Action<ChunkPos, bool>? _onFluidReady;
+
     /// <summary>A chunk has stopped being tracked, cached or dropped. Fired after the light has been told.</summary>
     private readonly Action<ChunkPos>? _onChunkForgottenExternal;
 
@@ -169,6 +176,24 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
 
     /// <summary>Fluid panels copied for the next save job. See <see cref="Fluid"/>.</summary>
     private readonly List<FluidPanelSnapshot> _pendingFluidSaves = [];
+
+    /// <summary>Chunks with a fluid row on disk: read at open, claimed at submission. See <see cref="LoadFluidJob"/>.</summary>
+    private readonly HashSet<ChunkPos> _savedFluid = [];
+
+    /// <summary>
+    /// Fluid snapshots taken and not yet on disk — pending or in a batch in flight — by chunk.
+    /// </summary>
+    /// <remarks>
+    /// <b>The newest state of that chunk's water, and a source ahead of the store</b> (M8b-4c). A
+    /// chunk revived before its panel's batch lands would otherwise read the row the batch is
+    /// about to replace: the past restored, with the identity exact because <c>loaded</c> counts
+    /// whatever came back. The chunks answer the same race with the serial lane and a priority
+    /// band; a copy needs neither. A later snapshot of the same chunk replaces the entry, and an
+    /// entry leaves when the batch that carried that very object reports.
+    /// </remarks>
+    private readonly Dictionary<ChunkPos, FluidPanelSnapshot> _unwrittenFluid = [];
+
+    private readonly List<FluidPanelSnapshot> _evictedScratch = [];
 
     /// <summary>Columns whose stored heights have been asked for but not yet applied.</summary>
     private readonly HashSet<(int X, int Z)> _columnRestoresInFlight = [];
@@ -346,9 +371,11 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         long chunkCacheBytes = 0,
         bool distanceOrderedDerives = true,
         Action<ChunkPos, bool>? onVoxelsReady = null,
-        Action<ChunkPos>? onChunkForgotten = null)
+        Action<ChunkPos>? onChunkForgotten = null,
+        Action<ChunkPos, bool>? onFluidReady = null)
     {
         _distanceOrderedDerives = distanceOrderedDerives;
+        _onFluidReady = onFluidReady;
         _generator = generator;
         _materials = materials;
         _scheduler = scheduler;
@@ -393,8 +420,30 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
             // point asks the sets rather than the disk.
             foreach (ChunkPos position in _store.LoadChunkIndex()) _savedChunks.Add(position);
             foreach ((int X, int Z) key in _store.LoadColumnIndex()) _savedColumns.Add(key);
+            foreach (ChunkPos position in _store.LoadFluidIndex()) _savedFluid.Add(position);
         }
     }
+
+    /// <summary>How many chunks have a fluid row on disk, as of open plus every batch since.</summary>
+    public int SavedFluidCount => _savedFluid.Count;
+
+    /// <summary>Fluid snapshots taken and not yet on disk.</summary>
+    public int UnwrittenFluidCount => _unwrittenFluid.Count;
+
+    /// <summary>Fluid rows read off the lane, over the lifetime.</summary>
+    public int FluidLoads { get; private set; }
+
+    /// <summary>Fluid loads that read an absent row: the index promised one and the store had none.</summary>
+    public int FluidLoadsEmpty { get; private set; }
+
+    /// <summary>Panels restored from a snapshot not yet on disk, with no lane trip.</summary>
+    public int FluidLoadsFromMemory { get; private set; }
+
+    /// <summary>Arrivals whose panel had never left — back inside the eviction window.</summary>
+    public int FluidReclaims { get; private set; }
+
+    /// <summary>Milliseconds the fluid loads spent on the lane, in the store and the reader.</summary>
+    public double FluidLoadMillis { get; private set; }
 
     /// <summary>How many chunks the store held when this pipeline opened, plus any written since.</summary>
     public int SavedChunkCount => _savedChunks.Count;
@@ -887,6 +936,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
 
         ApplyResults();
         StepLight();
+        CollectEvicted();
         SubmitSaves();
         return Pump(maxSubmissions);
     }
@@ -1208,7 +1258,84 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
             _lightDepartures.Add(chunk.Position);
         }
 
+        // The panel leaves with the chunk, one tick behind it (M8b-4c) — but only where there is
+        // somewhere for it to go. With no store the panel stays in RAM and comes back paused, the
+        // pre-4c behaviour and the arm every test without a store was written against.
+        if (_store is not null)
+        {
+            Fluid?.Evict(chunk.Position);
+        }
+
         _onChunkForgottenExternal?.Invoke(chunk.Position);
+    }
+
+    /// <summary>
+    /// A chunk's voxels are here; finds its water. Memory, the eviction window, the snapshots
+    /// not yet written, then the store's index — and nothing, which is most chunks.
+    /// </summary>
+    /// <remarks>
+    /// <b>The order is the chunk's own, with two sources more, and for the chunk's own reason</b>:
+    /// consulting them the wrong way round is the only failure here that matters, and the wrong
+    /// one restores the past. Fires <see cref="_onFluidReady"/> at once when the water is home
+    /// or there is none; a chunk with a row to read is marked <see cref="StreamedChunk.FluidPending"/>
+    /// and the pump submits the load, which fires it when the row lands.
+    /// </remarks>
+    private void ArriveFluid(StreamedChunk chunk)
+    {
+        ChunkPos position = chunk.Position;
+
+        if (Fluid is null)
+        {
+            chunk.FluidPending = false;
+            _onFluidReady?.Invoke(position, chunk.HasEdits);
+            return;
+        }
+
+        if (Fluid.Reclaim(position))
+        {
+            FluidReclaims++;
+            chunk.FluidPending = false;
+            _onFluidReady?.Invoke(position, chunk.HasEdits);
+            return;
+        }
+
+        if (_unwrittenFluid.TryGetValue(position, out FluidPanelSnapshot? unwritten))
+        {
+            Fluid.Restore(unwritten);
+            FluidLoadsFromMemory++;
+            chunk.FluidPending = false;
+            _onFluidReady?.Invoke(position, chunk.HasEdits);
+            return;
+        }
+
+        if (_store is not null && _savedFluid.Contains(position))
+        {
+            chunk.FluidPending = true;
+            return;
+        }
+
+        chunk.FluidPending = false;
+        _onFluidReady?.Invoke(position, chunk.HasEdits);
+    }
+
+    /// <summary>Takes the panels whose eviction tick has passed onto the pending batch.</summary>
+    private void CollectEvicted()
+    {
+        if (_store is null || Fluid is null) return;
+
+        long entered = _nowTicks();
+
+        _evictedScratch.Clear();
+        Fluid.TakeEvicted(_evictedScratch);
+        foreach (FluidPanelSnapshot panel in _evictedScratch)
+        {
+            _pendingFluidSaves.Add(panel);
+            _unwrittenFluid[panel.Chunk] = panel;
+        }
+
+        _evictedScratch.Clear();
+
+        SaveQueueMillis += (_nowTicks() - entered) / TicksPerMillisecond;
     }
 
     /// <summary>
@@ -1423,7 +1550,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         // Whatever the outcome. A dropped load has left the store exactly as surely as a
         // completed one, and a counter that only came down on success would wedge DrainStoreLane
         // for its whole timeout at every quit.
-        if (result.Job is SaveWorldJob or LoadChunkJob or LoadColumnJob)
+        if (result.Job is SaveWorldJob or LoadChunkJob or LoadColumnJob or LoadFluidJob)
         {
             _storeJobsInFlight--;
         }
@@ -1500,10 +1627,42 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
                 chunk.TransitionTo(ChunkState.Generated);
                 ChunksGenerated++;
                 _onVoxelsReady?.Invoke(chunk.Position, chunk.HasEdits);
+                ArriveFluid(chunk);
 
                 // Terrain arriving here may be the last thing 26 neighbours were waiting on
                 // before they can run their own feature stage.
                 PushWithNeighbours(chunk.Position);
+                break;
+
+            case LoadFluidJob fluidLoad:
+                FluidLoads++;
+                FluidLoadMillis += fluidLoad.ElapsedMillis;
+
+                if (chunk.ViewCount == 0)
+                {
+                    // Leaving. The row stays the truth and the flag stays set, so a revival reads
+                    // it again; restoring here would put water into a chunk about to be forgotten
+                    // and evict it a tick later, written back unchanged.
+                    break;
+                }
+
+                if (fluidLoad.Result is null)
+                {
+                    // The index promised a row and the store had none. Nothing deletes rows today,
+                    // so this is a guard; the claim is dropped and the chunk carries on dry.
+                    _savedFluid.Remove(chunk.Position);
+                    FluidLoadsEmpty++;
+                }
+                else
+                {
+                    // Refuses a chunk that already holds water — that is a hole in the gate, and
+                    // it is left to throw rather than merged around.
+                    Fluid?.Restore(fluidLoad.Result);
+                }
+
+                chunk.FluidPending = false;
+                _onFluidReady?.Invoke(chunk.Position, chunk.HasEdits);
+                Push(chunk.Position);
                 break;
 
             case LoadChunkJob load:
@@ -1527,6 +1686,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
                 chunk.HasEdits = true;
                 chunk.DirtySinceSave = false;
                 _onVoxelsReady?.Invoke(chunk.Position, chunk.HasEdits);
+                ArriveFluid(chunk);
 
                 // Features, not Terrain, so ApplyFeatures does not run over it a second time.
                 //
@@ -1688,6 +1848,16 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
 
                 // Those 26 neighbours may now have everything they need to mesh.
                 PushWithNeighbours(chunk.Position);
+                break;
+
+            case ChunkState.Generated when chunk.FluidPending:
+                // Between the voxels and the mesh: the chunk's stored water, off the serial lane
+                // (M8b-4c). In the chunk's own slot so an unview cancels it, the record is kept
+                // until it reports, and a revival with the flag still set comes back through here.
+                // The light derives meanwhile — AdvanceLight ran above and asks for voxels, not
+                // for this — so what waits is the mesh, by one lane trip.
+                Submit(chunk, new LoadFluidJob(_store!, chunk.Position), serial: true);
+                _storeJobsInFlight++;
                 break;
 
             case ChunkState.Generated when _streamer.CanMesh(chunk.Position):
@@ -1882,6 +2052,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
                 // field — the forget fired when the chunk went out — so to anything watching
                 // arrivals this is one, and it is the path a scan wired to Complete would miss.
                 _onVoxelsReady?.Invoke(chunk.Position, chunk.HasEdits);
+                ArriveFluid(chunk);
 
                 if (chunk.Light is not null)
                 {
@@ -1924,7 +2095,10 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         // voxels. ChunkStreamer.Forget runs immediately after unless a worker still owes a result,
         // and a chunk that reached that point unsaved has lost whatever the player did to it.
         QueueSave(chunk);
-        QueueFluidSave(chunk.Position);
+
+        // The panel is not queued here. It leaves with the chunk at the forget, one tick behind
+        // it, through OnChunkForgotten and CollectEvicted (M8b-4c) — a chunk retained past this
+        // point for a job in flight is still loaded to the water and may still be written to.
 
         // Stop the work rather than merely stop wanting it. Without this, running somewhere
         // and turning around leaves the queue full of terrain nobody will ever see, and
@@ -2028,27 +2202,6 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         SaveQueueMillis += (_nowTicks() - entered) / TicksPerMillisecond;
     }
 
-    /// <summary>Copies a chunk's fluid panel for the next batch, if the water in it has changed.</summary>
-    /// <remarks>
-    /// The panel stays in RAM either way until M8b-4c; what leaves with the chunk is a copy of
-    /// what has changed, so a crash after the unview costs at most one autosave interval of this
-    /// chunk's water, the same window its voxels have. One dictionary lookup for a dry chunk.
-    /// </remarks>
-    private void QueueFluidSave(ChunkPos position)
-    {
-        if (_store is null || Fluid is null) return;
-
-        long entered = _nowTicks();
-
-        FluidPanelSnapshot? panel = Fluid.TakeDirty(position);
-        if (panel is not null)
-        {
-            _pendingFluidSaves.Add(panel);
-        }
-
-        SaveQueueMillis += (_nowTicks() - entered) / TicksPerMillisecond;
-    }
-
     /// <summary>
     /// Hands the pending batch to a worker, at most one batch in flight at a time.
     /// </summary>
@@ -2086,6 +2239,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         // this session while the save still lands — wrong on screen, recoverable on disk.
         foreach ((ChunkPos position, _) in _pendingChunkSaves) _savedChunks.Add(position);
         foreach ((int x, int z, _) in _pendingColumnSaves) _savedColumns.Add((x, z));
+        foreach (FluidPanelSnapshot panel in _pendingFluidSaves) _savedFluid.Add(panel.Chunk);
 
         _pendingChunkSaves.Clear();
         _pendingColumnSaves.Clear();
@@ -2115,6 +2269,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
             PanelsSaved += job.Fluid.Count;
             BytesSaved += job.BytesWritten;
             SaveWriteMillis += job.ElapsedMillis;
+            ForgetWritten(job.Fluid);
             return;
         }
 
@@ -2312,10 +2467,16 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
             return (0, 0);
         }
 
+        // Whatever TakeAllDirty took is the newest state of those chunks' water until it lands,
+        // and a chunk arriving in between reads it from here rather than from the row it is
+        // about to replace.
+        foreach (FluidPanelSnapshot panel in _pendingFluidSaves) _unwrittenFluid[panel.Chunk] = panel;
+
         var job = new SaveWorldJob(_store, [.. _pendingChunkSaves], [.. _pendingColumnSaves], [.. _pendingFluidSaves]);
 
         foreach ((ChunkPos position, _) in _pendingChunkSaves) _savedChunks.Add(position);
         foreach ((int x, int z, _) in _pendingColumnSaves) _savedColumns.Add((x, z));
+        foreach (FluidPanelSnapshot panel in _pendingFluidSaves) _savedFluid.Add(panel.Chunk);
 
         int chunks = _pendingChunkSaves.Count;
         int columns = _pendingColumnSaves.Count;
@@ -2355,9 +2516,25 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         ColumnsSaved += columns;
         PanelsSaved += panels;
         BytesSaved += job.BytesWritten;
+        ForgetWritten(job.Fluid);
 
         _store.Flush();
         return (chunks, columns);
+    }
+
+    /// <summary>
+    /// The batch carrying these snapshots has landed: each leaves the in-memory source, unless a
+    /// newer snapshot of the same chunk has replaced it there since.
+    /// </summary>
+    private void ForgetWritten(IReadOnlyList<FluidPanelSnapshot> written)
+    {
+        foreach (FluidPanelSnapshot panel in written)
+        {
+            if (_unwrittenFluid.TryGetValue(panel.Chunk, out FluidPanelSnapshot? held) && ReferenceEquals(held, panel))
+            {
+                _unwrittenFluid.Remove(panel.Chunk);
+            }
+        }
     }
 
     /// <summary>Writes the world header, which must happen before any chunk reaches the store.</summary>

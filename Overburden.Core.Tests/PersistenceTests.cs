@@ -1005,6 +1005,10 @@ public class PersistenceTests
 
         public virtual IReadOnlyList<(ChunkPos Position, byte[] Blob)> ReadFluid() => Inner.ReadFluid();
 
+        public virtual IReadOnlyCollection<ChunkPos> LoadFluidIndex() => Inner.LoadFluidIndex();
+
+        public virtual byte[]? ReadFluid(ChunkPos position) => Inner.ReadFluid(position);
+
         public virtual IReadOnlyList<StoredBasin> ReadBasins() => Inner.ReadBasins();
 
         public virtual void WriteBasins(IReadOnlyList<StoredBasin> basins) =>

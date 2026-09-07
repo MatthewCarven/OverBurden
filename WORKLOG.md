@@ -1,5 +1,47 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-07 — M8b-4c built: the panel leaves RAM with its chunk, and the played world found the rule the pass had not written
+
+**Matthew: "all six as recommended, build it please Claude, also please delete my savegame, its
+begging for regeneration" — and, on the world: "Nobody carves out 8x8x8 chunks and has a level
+like i did."** Built as planned; see M8-PLAN's "M8b-4c — built". The played world is moved aside
+rather than deleted — `worlds/retired-chunkbite-2026-09-07/`, Matthew's to remove — because it is
+the fixture every water measurement since M8b-1 was taken on, and the game regenerates a fresh
+`default` on the next launch. Suite 1,134 → 1,158; 12 recipes, 11 caught, 1 identity. Five things
+worth keeping:
+
+- **To everything that is water, a chunk arrives when its water is home — and the pass had only
+  said it of the automaton.** The first probe on the played world threw on every drain: the
+  portal tracker scanned a chunk's holes at voxels-ready, the drain poured into one whose row was
+  still on the lane, the automaton refused it as not loaded, and `PortalDrain`'s invariant fired.
+  Both the tracker and the automaton take `onFluidReady` now. The 27 s first draw that run
+  reported was the exception's: with the tracker moved, 10.27 s against the previous commit's
+  10.12 on the same copy and flags.
+- **The slice's number: 364 panels (22.8 MiB) in RAM at the end of the turnaround at HEAD, 81
+  (5.1 MiB) at 4c**, 256 rows read off the lane in 122 ms (0.48 ms each, Debug), 40 reclaimed
+  inside the window, identity exact with `evicted`. On the bench (Release) the evict arm rests
+  where the keep arm rests, the visits differing by the arrival wakes alone, and a row is 280 µs
+  to write and 152 µs to read — the stranded front the immediate release would have left is the
+  `quiescent` column, and it reads yes.
+- **The flag surviving the cache is an identity.** A revival is an arrival and the pipeline
+  re-derives `FluidPending` from its sources at every arrival, so "the flag cleared at retain"
+  fails nothing; the remark claiming it load-bearing was wrong and says so now.
+- **Two fixture lessons.** A gated store that a failed assertion leaves shut hangs the dispose —
+  a worker at a read gate blocks the scheduler's join, a quit through a write gate blocks
+  `SaveAll` — and the failure reads as a ten-minute hang; the gates open in a `finally`. And the
+  wet chunk's total is not monotone (its restored water is mid-flow and drains out once woken),
+  so the gate test asserts the poured water *leaving the chunk above*, which took three tries.
+- **Two costs stated and not paid**: `FluidGrid.Restore` writes a lake panel cell by cell on the
+  sim thread inside the apply (p99 frame 33 → 58 ms on the probe; the lever is a bulk dense
+  restore), and `viewer ms` is 60–80 ms a move on the played world with water on in *both* arms
+  — older than this slice, the portal scans and arrival wakes inside the box sweep — recorded in
+  TODO for its own pass.
+
+The play oracle changed with the open: `M8b: at quit` now has a line under it saying what the
+world file holds, every row summed after the write, which the next open's `loaded` reaches once
+every wet chunk is home. On the wire: the file held 16,077 L in 12 rows, the reopen loaded
+16,074 L, and the second quit's line said 3 L — the one row the standing box never covered.
+
 ## 2026-09-07 — M8b-4c planned: the panel lingers one tick, the chunk is not loaded to the water until its row is read, and the cache keeps nothing
 
 **Matthew: "M8b-4c please Claude also" — then "Oh just plan if we dont have one."** It had a

@@ -326,6 +326,37 @@ public abstract class WorldStoreContractTests : IDisposable
     }
 
     [Fact]
+    public void TheFluidIndexReportsExactlyWhatWasWrittenEmptyRowsIncluded()
+    {
+        // M8b-4c: the open reads the index, not the rows, and an empty row — a drained panel —
+        // stays in it, because a load of one costs a point query and restores nothing.
+        IWorldStore store = Track(CreateStore());
+        Assert.Empty(store.LoadFluidIndex());
+
+        store.Write([], [], [(A, Bytes(1, 2, 3)), (B, Bytes())]);
+
+        Assert.Equal(new HashSet<ChunkPos> { A, B }, store.LoadFluidIndex().ToHashSet());
+    }
+
+    [Fact]
+    public void AFluidRowReadsByChunkAndAnAbsentOneReadsAsNull()
+    {
+        IWorldStore store = Track(CreateStore());
+        Assert.Null(store.ReadFluid(A));
+
+        store.Write([], [], [(A, Bytes(7, 8)), (B, Bytes(9))]);
+
+        Assert.Equal(Bytes(7, 8), store.ReadFluid(A));
+        Assert.Equal(Bytes(9), store.ReadFluid(B));
+        Assert.Null(store.ReadFluid(new ChunkPos(-3, 2, 11)));
+
+        // A copy, not the stored array: the same rule as ReadChunk.
+        byte[] first = store.ReadFluid(A)!;
+        first[0] = 0;
+        Assert.Equal(Bytes(7, 8), store.ReadFluid(A));
+    }
+
+    [Fact]
     public void WritingTheSameFluidKeyTwiceReplaces()
     {
         IWorldStore store = Track(CreateStore());

@@ -67,6 +67,11 @@ internal static class Program
           --lake               the share slice: a lake at rest with a draining edge, the settle priced at no threshold against --settleshare
           --lakechambers <n>   chambers per axis for the lake's floor (default 12: a 96 m floor, 147,456 cells)
           --laketicks <n>      ticks to run the lake for (default 60)
+          --evict              M8b-4c: a box walks a flooded block, evicting and reading back panels, against a keep-everything control
+          --evictchambers <n>  chambers per axis for the block (default 6: a 48 m block)
+          --evictwidth <n>     the box's width in chunk columns (default 3)
+          --evictstep <n>      ticks between the box's steps (default 4)
+          --evictlayers <n>    full layers of water on the block's floor (default 4)
           --spill              M8b-3: a spill on real ground with and without the B -> A hand-off
           --spilllitres a,b    the spills to sweep, in litres (default 10000,50000)
           --spillticks <n>     tick cap per arm (default 20000)
@@ -100,6 +105,11 @@ internal static class Program
         bool spill = false;
         long[] spillLitres = [10_000, 50_000];
         int spillTicks = 20_000;
+        bool evict = false;
+        int evictChambers = 6;
+        int evictWidth = 3;
+        int evictStep = 4;
+        int evictLayers = 4;
 
         try
         {
@@ -194,6 +204,21 @@ internal static class Program
                     case "--spillticks":
                         spillTicks = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
                         break;
+                    case "--evict":
+                        evict = true;
+                        break;
+                    case "--evictchambers":
+                        evictChambers = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--evictwidth":
+                        evictWidth = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--evictstep":
+                        evictStep = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--evictlayers":
+                        evictLayers = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
                     case "--help" or "-h":
                         Console.WriteLine(Usage);
                         return 0;
@@ -226,6 +251,13 @@ internal static class Program
             var lakeGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
             return FluidBench.RunLake(
                 lakeGenerator, MachineControl(lakeGenerator), IsDebug(), lakeChambers, lakeTicks, settleShare);
+        }
+
+        if (evict)
+        {
+            var evictGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
+            return EvictBench.Run(
+                evictGenerator, MachineControl(evictGenerator), IsDebug(), evictChambers, evictWidth, evictStep, evictLayers);
         }
 
         if (fluid)

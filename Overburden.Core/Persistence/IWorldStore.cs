@@ -116,12 +116,24 @@ public interface IWorldStore : IDisposable
 
     /// <summary>Every stored fluid panel, whole.</summary>
     /// <remarks>
-    /// Read once at open, like the basins and for a stronger reason: until the panel leaves RAM
-    /// with its chunk (M8b-4c) the store is a mirror of the grid, and the grid is filled from it
-    /// before the first chunk arrives. A row is one chunk's held cells; an empty row is a chunk
-    /// whose water drained after it was first written, kept so the row says so.
+    /// The whole table in one call, which the open read until M8b-4c, when the panel started
+    /// leaving RAM with its chunk and the open began reading <see cref="LoadFluidIndex"/> instead.
+    /// Kept for the tests and the tools: a row is one chunk's held cells, and an empty row is a
+    /// chunk whose water drained after it was first written, kept so the row says so.
     /// </remarks>
     IReadOnlyList<(ChunkPos Position, byte[] Blob)> ReadFluid();
+
+    /// <summary>Every chunk position that has a stored fluid row, empty rows included.</summary>
+    /// <remarks>
+    /// Read once at open beside <see cref="LoadChunkIndex"/> and for the same reason: "does this
+    /// chunk have water on disk?" is asked on the sim thread at every arrival, and a query there
+    /// would put the lane inside a box sweep. An empty row stays in the index; loading one costs
+    /// a point query and restores nothing.
+    /// </remarks>
+    IReadOnlyCollection<ChunkPos> LoadFluidIndex();
+
+    /// <summary>One chunk's stored fluid row, or null if it has none.</summary>
+    byte[]? ReadFluid(ChunkPos position);
 
     /// <summary>Every basin holding water, by the world coordinate of its pit.</summary>
     /// <remarks>
@@ -250,6 +262,11 @@ public sealed class InMemoryWorldStore : IWorldStore
 
     public IReadOnlyList<(ChunkPos Position, byte[] Blob)> ReadFluid() =>
         [.. _fluid.Select(entry => (entry.Key, Copy(entry.Value)!))];
+
+    public IReadOnlyCollection<ChunkPos> LoadFluidIndex() => [.. _fluid.Keys];
+
+    public byte[]? ReadFluid(ChunkPos position) =>
+        _fluid.TryGetValue(position, out byte[]? blob) ? Copy(blob) : null;
 
     public void Write(
         IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,

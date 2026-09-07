@@ -652,7 +652,8 @@ internal sealed class PipelineHarness : IDisposable
         Action<VoxelPos, int>? onVoxelChanged = null,
         long chunkCacheBytes = 0,
         Action<ChunkPos, bool>? onVoxelsReady = null,
-        Action<ChunkPos>? onChunkForgotten = null)
+        Action<ChunkPos>? onChunkForgotten = null,
+        Action<ChunkPos, bool>? onFluidReady = null)
     {
         var viewers = new ViewerSet();
         _scheduler = new JobScheduler(viewers, threadCount: 4, sweepInterval: TimeSpan.FromMilliseconds(5));
@@ -683,7 +684,8 @@ internal sealed class PipelineHarness : IDisposable
             onVoxelChanged: onVoxelChanged,
             chunkCacheBytes: chunkCacheBytes,
             onVoxelsReady: onVoxelsReady,
-            onChunkForgotten: onChunkForgotten);
+            onChunkForgotten: onChunkForgotten,
+            onFluidReady: onFluidReady);
     }
 
     public ChunkPipeline Pipeline { get; }

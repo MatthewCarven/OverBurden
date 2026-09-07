@@ -139,9 +139,11 @@ internal static class FluidAssert
     public static void Conserves(FluidSimulation sim, long rejected = 0)
     {
         // Loaded joins the identity at M8b-4b: water put back from the world file was neither
-        // added nor moved, it was already there.
+        // added nor moved, it was already there. Evicted joins at M8b-4c: water that left RAM
+        // with its chunk is on disk, not gone.
         Assert.Equal(
-            sim.AddedMillilitres + sim.LoadedMillilitres - sim.RemovedMillilitres - sim.DisplacedMillilitres,
+            sim.AddedMillilitres + sim.LoadedMillilitres - sim.RemovedMillilitres - sim.DisplacedMillilitres
+            - sim.EvictedMillilitres,
             sim.TotalMillilitres);
 
         // Belt and braces on the grid's own total, which is maintained separately from the

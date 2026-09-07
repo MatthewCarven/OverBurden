@@ -384,6 +384,42 @@ public sealed class FluidGrid
         return restored;
     }
 
+    /// <summary>Whether this chunk has a panel allocated — one held cell or more.</summary>
+    public bool HasPanel(ChunkPos chunk) => _panels.ContainsKey(chunk);
+
+    /// <summary>
+    /// Drops a chunk's panel without touching the row on disk. Returns the millilitres that left
+    /// RAM with it, which the caller counts as evicted.
+    /// </summary>
+    /// <remarks>
+    /// <b>The third way a panel goes, and the one that does not mark the row stale</b> (M8b-4c).
+    /// A drained panel goes through <see cref="Release"/> and is remembered so its row is written
+    /// empty; this is an unload, not a drain — the water is on disk and the row is the truth —
+    /// so it must not enter <c>_emptied</c>, or the next save would write the lake's row empty
+    /// with the identity exact. The caller snapshots first if the row is stale; this only takes
+    /// the bytes away. The dirty bit goes with the panel: whatever it said is either on the
+    /// snapshot just taken or was already on disk.
+    /// </remarks>
+    public long Evict(ChunkPos chunk)
+    {
+        if (!_panels.Remove(chunk, out Panel? panel))
+        {
+            return 0;
+        }
+
+        long released = panel.Total;
+        _total -= panel.Total;
+        _held -= panel.Held;
+
+        if (_cacheValid && _cachedKey == chunk)
+        {
+            _cacheValid = false;
+            _cachedPanel = null;
+        }
+
+        return released;
+    }
+
     private void Write(ChunkPos chunk, Panel panel, int index, int amount)
     {
         int previous = panel.Cells[index];

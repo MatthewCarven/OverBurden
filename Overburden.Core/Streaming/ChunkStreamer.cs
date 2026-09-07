@@ -1,4 +1,5 @@
 using Overburden.Core.Content;
+using Overburden.Core.Fluid;
 using Overburden.Core.Jobs;
 using Overburden.Core.Lighting;
 using Overburden.Core.Voxels;
@@ -21,7 +22,7 @@ namespace Overburden.Core.Streaming;
 /// renderer and without threads.
 /// </para>
 /// </remarks>
-public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
+public sealed class ChunkStreamer : IVoxelWorld, ILightChunks, IFluidWorld
 {
     /// <summary>
     /// How many chunks are loaded beyond what a viewer can actually see.
@@ -466,6 +467,25 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks
     public bool TryGetMaterial(VoxelPos voxel, out int materialId)
     {
         if (!_chunks.TryGetValue(voxel.Chunk, out StreamedChunk? chunk) || chunk.Voxels is null)
+        {
+            materialId = MaterialIds.AirNumericId;
+            return false;
+        }
+
+        (int localX, int localY, int localZ) = voxel.Local;
+        materialId = chunk.Voxels.Get(localX, localY, localZ);
+        return true;
+    }
+
+    /// <summary>
+    /// <see cref="TryGetMaterial"/> for the water: a chunk whose stored fluid panel is still being
+    /// read (<see cref="StreamedChunk.FluidPending"/>) answers false, so no water flows into it
+    /// before its own arrives. One more flag read on the record already found; nothing else
+    /// consults the flag.
+    /// </summary>
+    public bool TryGetMaterialForFluid(VoxelPos voxel, out int materialId)
+    {
+        if (!_chunks.TryGetValue(voxel.Chunk, out StreamedChunk? chunk) || chunk.Voxels is null || chunk.FluidPending)
         {
             materialId = MaterialIds.AirNumericId;
             return false;

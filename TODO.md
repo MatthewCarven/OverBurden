@@ -4098,8 +4098,37 @@ finding without the coarser-tolerance fallback.
             landing at the next boundary, a slow tick lowering the rate, ~8× the Debug throughput.
             All eight decisions taken as recommended. Build (3) when the play reads the flood on
             open as hurting rather than slow. Not started.
-      - [ ] **M8b-4c — the panel leaves RAM with its chunk. Planned 2026-09-07, not built; see
-            M8-PLAN's "M8b-4c — the planning pass".** Five things the paragraph assumed were not
+      - [x] **M8b-4c — the panel leaves RAM with its chunk. Planned 2026-09-07 and ✅ built the
+            same day, all six decisions as recommended; see M8-PLAN's "M8b-4c — the planning
+            pass" and "M8b-4c — built".** Suite 1,134 → 1,158; 12 recipes, 11 caught, 1 identity
+            (the flag surviving the cache — a revival re-derives it). **One thing the pass did not
+            say, found by the played world on the first probe: the portal tracker had to move
+            onto the fluid-ready hook too**, or the drain pours into a chunk whose row is still
+            pending and throws — to everything that is water, a chunk arrives when its water is
+            home. Measured on a copy of the retired played world against the previous build:
+            panels in RAM at the end 364 (22.8 MiB) → 81 (5.1 MiB), 256 rows read off the lane
+            in 122 ms, first draw 10.1 → 10.3 s, identity exact with `evicted`; the bench's
+            evict arm rests where the keep arm rests, the visits differing by the arrival wakes
+            alone, a row 280 µs to write and 152 µs to read (Release). The r6 control unchanged.
+            - [ ] **Play check**: `start.cmd` on the fresh world, pour with `R`, fly away and
+                  back, quit and reopen. Read `evicted` and `loaded` on the `M8b:` line, `paused`
+                  at zero once every chunk is home, `displaced` at zero, the identity `exact`; the
+                  `M8b: the world file holds` line under `at quit`, which the next open's `loaded`
+                  reaches once the wet chunks are home; and the `M6:` line's `fluid N row(s) …
+                  loaded off the lane (ms)`. What a person can see and the log cannot: a lake
+                  that pops in a beat after its terrain, and any water that looks wrong at a
+                  chunk face after a turnaround.
+            - [ ] **Lever, not built: `FluidGrid.Restore` writes a lake panel cell by cell** —
+                  ~32,768 `Write` calls on the sim thread inside the apply, the p99 frame 33 →
+                  58 ms on the played-world probe. A bulk restore of the dense form with the
+                  totals recomputed once is the fix; build it when a restore is felt as a hitch.
+            - [ ] **`viewer ms` is 60–80 ms a move on the played world with water on, in both
+                  arms** (83 ms mean at HEAD, 61 at 4c; 1.5 ms with `--nowater`), so it is not
+                  this slice's: the box sweep with the portal tracker's scans and the arrival
+                  wakes inside it on cache revivals. M6d-2 measured the sweep at 7–13 ms and did
+                  not chase it; with water it wants its own pass — the scans on a worker, or the
+                  arrival work deferred out of the sweep.
+            **The pass, kept:** five things the paragraph assumed were not
             so, two of them the whole slice: **the panel lingers one tick after the forget**, so
             the tick pauses the chunk's queued cells and the row lists them (released at the mark,
             a flood front inside a leaving chunk is stranded on every walk); and **a chunk whose

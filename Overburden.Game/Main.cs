@@ -736,18 +736,21 @@ public partial class Main : Node3D
             },
             chunkCacheBytes: _chunkCacheMiB * 1024 * 1024,
             distanceOrderedDerives: !_deriveFifo,
-            // The three arrival paths — generate, load, cache revival — through one callback, and
-            // the forget, so the index never walks a chunk that is not here. M8b-4a: the automaton
-            // takes the same hook, to wake what the chunk's absence paused and the faces beside it.
-            onVoxelsReady: (position, hasEdits) =>
+            // The forget, so the index never walks a chunk that is not here.
+            onChunkForgotten: position => _portalTracker?.OnChunkForgotten(position),
+            // The three arrival paths — generate, load, cache revival — through one callback, for
+            // everything that is water. M8b-4a: the automaton wakes what the chunk's absence paused
+            // and the faces beside it. M8b-4c moved both off onVoxelsReady onto this, which fires
+            // only once the chunk's stored water is home: the chunk's own face wake then sees the
+            // restored cells, and the portal drain never pours into a chunk the water cannot hold
+            // yet — the played-world probe's first run did exactly that, and the drain threw.
+            onFluidReady: (position, hasEdits) =>
             {
                 _portalTracker?.OnVoxelsReady(position, hasEdits);
                 _fluid?.ChunkArrived(position);
-            },
-            onChunkForgotten: position => _portalTracker?.OnChunkForgotten(position));
+            });
 
         SetUpFluid(windowed);
-        RestoreFluid();
 
         // Whatever the world remembered the player carrying. Before the first swing, so that a
         // reopened world can place from what it was already holding.
@@ -3141,46 +3144,11 @@ public partial class Main : Node3D
 
     // ---------------------------------------------------------------- M8b: Tier B in the loop
 
-    /// <summary>Puts the world file's water back into the grid, asleep, before the first chunk arrives.</summary>
-    /// <remarks>
-    /// <b>Read whole at open, into paused panels</b> — M8b-4b. Until the panel leaves RAM with its
-    /// chunk (4c) the store is a mirror of the grid, so every row comes back now and the chunk
-    /// arrivals wake what each row said was awake, through the same hook that wakes a paused
-    /// flood. A row the reader refuses is fatal for the same reason a corrupt chunk blob is:
-    /// playing beside water the file says is there and the grid does not would look like a
-    /// fresh lake and read, on the next open, as a world that lost one.
-    /// </remarks>
-    private void RestoreFluid()
-    {
-        if (_store is null || _fluid is null)
-        {
-            return;
-        }
-
-        long before = Stopwatch.GetTimestamp();
-        IReadOnlyList<(ChunkPos Position, byte[] Blob)> rows = _store.ReadFluid();
-        int empty = 0;
-        foreach ((ChunkPos position, byte[] blob) in rows)
-        {
-            FluidPanelSnapshot panel = FluidPanelBlob.Read(blob, position);
-            if (panel.Cells.Length == 0)
-            {
-                empty++;
-                continue;
-            }
-
-            _fluid.Restore(panel);
-        }
-
-        if (rows.Count > 0)
-        {
-            GD.Print(
-                $"M8b: restored {_fluid.LoadedMillilitres / (double)FluidConstants.MillilitresPerLitre:N0} L in "
-                + $"{_fluid.RestoredPanels:N0} panel(s) ({empty} empty row(s)), "
-                + $"{_fluid.PausedCellCount:N0} cell(s) stored awake and paused for their chunks, in "
-                + $"{Milliseconds(before, Stopwatch.GetTimestamp()):F1} ms");
-        }
-    }
+    // M8b-4b read every fluid row here at open, into paused panels. M8b-4c reads the index instead
+    // (in the pipeline, beside the chunk index) and each chunk's row arrives with the chunk, off
+    // the serial lane, so the open is not a function of how much water the world holds and the
+    // grid is bounded by the box rather than the world. The `M8b: at quit` line stays; what the
+    // next open puts back is read off the periodic line's `loaded` as the chunks come home.
 
     private void SetUpFluid(bool windowed)
     {
@@ -3596,7 +3564,8 @@ public partial class Main : Node3D
         FluidSimulation f = _fluid!;
         bool exact = f.TotalMillilitres
             == f.AddedMillilitres + f.LoadedMillilitres
-               - f.RemovedMillilitres - f.DisplacedMillilitres - f.HandedMillilitres;
+               - f.RemovedMillilitres - f.DisplacedMillilitres - f.HandedMillilitres
+               - f.EvictedMillilitres;
         return exact ? "exact" : "*** NO ***";
     }
 
@@ -3644,13 +3613,15 @@ public partial class Main : Node3D
                + $"{f.Grid.PanelCount} panel(s) ({f.Grid.PanelBytes / 1024.0 / 1024.0:F1} MiB); "
                + $"injected {(f.AddedMillilitres - drawn) / litre:N0} L, drawn {drawn / litre:N0} L, "
                + $"loaded {f.LoadedMillilitres / litre:N0} L from {f.RestoredPanels:N0} panel(s), "
+               + $"evicted {f.EvictedMillilitres / litre:N0} L with {f.EvictedPanels:N0} panel(s), "
                + $"removed {f.RemovedMillilitres / litre:N0} L, displaced {f.DisplacedMillilitres / litre:N0} L, "
                + $"handed {f.HandedMillilitres / litre:N0} L to Tier A — "
-               + $"held == injected + drawn + loaded − removed − displaced − handed: {FluidIdentity()}, "
+               + $"held == injected + drawn + loaded − removed − displaced − handed − evicted: {FluidIdentity()}, "
                + $"received == handed: {HandoffIdentity()}; "
                + $"{_relayPendingMillilitres / litre:N0} L still to pour; "
                + $"paused {f.PausedCellCount:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
-               + $"{f.ResumedCells:N0} resumed, {f.FaceWakes:N0} face wake(s) | "
+               + $"{f.ResumedCells:N0} resumed, {f.FaceWakes:N0} face wake(s), "
+               + $"evicting {f.EvictingPanelCount:N0} panel(s), {f.ReclaimedPanels:N0} reclaimed | "
                + $"{f.Ticks:N0} tick(s) at {1.0 / FluidTickSeconds:F0} Hz, {f.ActiveCellCount:N0} active, "
                + $"peak {f.PeakActiveCells:N0}, {f.CellVisits:N0} visits; budget "
                + $"{_fluidBudget.TotalMilliseconds:F1} ms a frame, worst frame {_fluidWorstMillis:F2} ms, "
@@ -3720,12 +3691,14 @@ public partial class Main : Node3D
                + $"over {f.Grid.PanelCount} panel(s) ({f.Grid.PanelBytes / 1024.0 / 1024.0:F1} MiB); "
                + $"injected {(f.AddedMillilitres - drawn) / litre:N0} L, drawn {drawn / litre:N0} L, "
                + $"loaded {f.LoadedMillilitres / litre:N0} L from {f.RestoredPanels:N0} panel(s), "
+               + $"evicted {f.EvictedMillilitres / litre:N0} L with {f.EvictedPanels:N0} panel(s), "
                + $"removed {f.RemovedMillilitres / litre:N0} L, displaced {f.DisplacedMillilitres / litre:N0} L, "
                + $"handed {handed / litre:N0} L — "
-               + $"held == injected + drawn + loaded − removed − displaced − handed: {FluidIdentity()}; "
+               + $"held == injected + drawn + loaded − removed − displaced − handed − evicted: {FluidIdentity()}; "
                + $"{_relayPendingMillilitres / litre:N0} L still to pour; "
                + $"paused {f.PausedCellCount:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
-               + $"{f.ResumedCells:N0} resumed, {f.FaceWakes:N0} face wake(s)\n"
+               + $"{f.ResumedCells:N0} resumed, {f.FaceWakes:N0} face wake(s), "
+               + $"evicting {f.EvictingPanelCount:N0} panel(s), {f.ReclaimedPanels:N0} reclaimed\n"
                + breach
                + handoff
                + settle
@@ -3962,7 +3935,9 @@ public partial class Main : Node3D
         string sources =
             $"sources   {_pipeline.ChunksGenerated} generated, {_pipeline.ChunksLoaded} loaded, " +
             $"{streamer.CacheHits} from the cache ({streamer.CacheHitsWithLight} with their light) | " +
-            $"{_pipeline.LightBuilds} derives, {_pipeline.LightRevivals} reseeded\n";
+            $"{_pipeline.LightBuilds} derives, {_pipeline.LightRevivals} reseeded | " +
+            $"fluid {_pipeline.FluidLoads} loaded off the lane ({_pipeline.FluidLoadMillis:F1} ms), " +
+            $"{_pipeline.FluidLoadsFromMemory} from memory, {_pipeline.FluidReclaims} reclaimed\n";
 
         if (!streamer.CacheEnabled)
         {
@@ -4248,7 +4223,11 @@ public partial class Main : Node3D
                + $"({_pipeline.BytesSaved / 1024.0:F0} KiB), "
                + $"{_pipeline.SavedChunkCount} chunks in the world, "
                + $"{_pipeline.ColumnsRestored} columns restored, "
-               + $"{_pipeline.PendingSaves} pending, {_pipeline.FailedSaves} failed";
+               + $"{_pipeline.PendingSaves} pending, {_pipeline.FailedSaves} failed | "
+               + $"fluid {_pipeline.SavedFluidCount} row(s) in the world, "
+               + $"{_pipeline.FluidLoads} loaded off the lane ({_pipeline.FluidLoadMillis:F1} ms, "
+               + $"{_pipeline.FluidLoadsEmpty} empty), {_pipeline.FluidLoadsFromMemory} from memory, "
+               + $"{_pipeline.FluidReclaims} reclaimed, {_pipeline.UnwrittenFluidCount} unwritten";
     }
 
     /// <summary>What has been dug up and what has been built with it.</summary>
@@ -4599,6 +4578,28 @@ public partial class Main : Node3D
         if (_store is not null && _pipeline is not null)
         {
             GD.Print($"M6: world written on quit — {StoreSummary()}");
+
+            // M8b-4c: the open no longer restores every row, so "at quit equals restored" is not
+            // an oracle any more. This is its replacement — every row of the file summed after the
+            // write, which the next open's `loaded` reaches once the box has covered every wet
+            // chunk. Read here and not at open, because the open must not be a function of how
+            // much water the world holds; a quit may be.
+            if (_fluid is not null)
+            {
+                long onDisk = 0;
+                int rows = 0, empty = 0;
+                foreach ((ChunkPos position, byte[] blob) in _store.ReadFluid())
+                {
+                    rows++;
+                    long total = FluidPanelBlob.Read(blob, position).TotalMillilitres;
+                    if (total == 0) empty++;
+                    onDisk += total;
+                }
+
+                GD.Print(
+                    $"M8b: the world file holds {onDisk / (double)FluidConstants.MillilitresPerLitre:N0} L in "
+                    + $"{rows:N0} row(s) ({empty:N0} empty) — what the next open's loaded reaches once every wet chunk is home");
+            }
 
             // Printed because a wrong one is invisible until the next launch puts the player
             // somewhere strange, and the log is then the only record of what was written.

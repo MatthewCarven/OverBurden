@@ -57,6 +57,7 @@ public sealed class SqliteWorldStore : IWorldStore
     private readonly SqliteCommand _writeChunk;
     private readonly SqliteCommand _writeColumn;
     private readonly SqliteCommand _writeFluid;
+    private readonly SqliteCommand _readFluid;
     private readonly SqliteCommand _writeBasin;
 
     private bool _disposed;
@@ -105,6 +106,9 @@ public sealed class SqliteWorldStore : IWorldStore
             "INSERT INTO fluid (cx, cy, cz, blob) VALUES ($x, $y, $z, $blob) "
             + "ON CONFLICT(cx, cy, cz) DO UPDATE SET blob = excluded.blob;",
             "$x", "$y", "$z", "$blob");
+
+        _readFluid = Prepare(
+            "SELECT blob FROM fluid WHERE cx = $x AND cy = $y AND cz = $z;", "$x", "$y", "$z");
 
         _writeBasin = Prepare(
             "INSERT INTO basins (pit_x, pit_z, litres) VALUES ($x, $z, $litres);",
@@ -207,6 +211,35 @@ public sealed class SqliteWorldStore : IWorldStore
         }
 
         return panels;
+    }
+
+    public IReadOnlyCollection<ChunkPos> LoadFluidIndex()
+    {
+        ThrowIfDisposed();
+
+        var index = new List<ChunkPos>();
+
+        using SqliteCommand command = _connection.CreateCommand();
+        command.CommandText = "SELECT cx, cy, cz FROM fluid;";
+
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            index.Add(new ChunkPos(reader.GetInt32(0), reader.GetInt32(1), reader.GetInt32(2)));
+        }
+
+        return index;
+    }
+
+    public byte[]? ReadFluid(ChunkPos position)
+    {
+        ThrowIfDisposed();
+
+        _readFluid.Parameters["$x"].Value = position.X;
+        _readFluid.Parameters["$y"].Value = position.Y;
+        _readFluid.Parameters["$z"].Value = position.Z;
+
+        return _readFluid.ExecuteScalar() as byte[];
     }
 
     public void Write(
@@ -349,6 +382,7 @@ public sealed class SqliteWorldStore : IWorldStore
         _writeChunk.Dispose();
         _writeColumn.Dispose();
         _writeFluid.Dispose();
+        _readFluid.Dispose();
         _writeBasin.Dispose();
 
         // Checkpointed on the way out so the main file holds what was committed. Not required for

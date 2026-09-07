@@ -255,6 +255,32 @@ public sealed class StreamedChunk
     public bool DirtySinceSave { get; internal set; }
 
     /// <summary>
+    /// This chunk has a stored fluid row that has not been read yet, so it is not loaded to the
+    /// water until it lands.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>M8b-4c's gate.</b> The voxels arrive before the water in every arrival path, and a
+    /// neighbour's flow into the chunk's air before the row is read would meet the restore with
+    /// water already there. While this is set <see cref="ChunkStreamer.TryGetMaterialForFluid"/>
+    /// answers false — not loaded, to the water only — and the automaton pauses at the chunk's
+    /// faces as it does for an absent one. Cleared when the restore lands, or when the pipeline
+    /// finds the water somewhere nearer than the store.
+    /// </para>
+    /// <para>
+    /// <b>Survives the cache, and that is belt and braces rather than load-bearing.</b> A revival
+    /// is an arrival, and the pipeline re-derives this flag at every arrival from its sources —
+    /// the eviction window, the snapshots not yet written, the store's index — so a chunk that
+    /// left with its row unread is found to owe it again on return whatever this said meanwhile.
+    /// The build's battery filed "the flag cleared at retain" as a recipe and it was an identity
+    /// (M8b-4c); the flag is left untouched at retain anyway, beside <see cref="HasEdits"/> and
+    /// <see cref="DirtySinceSave"/>, because the cache holding the object is the reason those
+    /// survive and a rule with one exception is a rule nobody can rely on.
+    /// </para>
+    /// </remarks>
+    public bool FluidPending { get; internal set; }
+
+    /// <summary>
     /// The renderer has been handed a mesh for this chunk and has not been told to drop it.
     /// </summary>
     /// <remarks>

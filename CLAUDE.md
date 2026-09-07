@@ -305,6 +305,23 @@ reads as 1,385 ms; and it prints its first five passes by name, because the firs
 dotnet run --project Overburden.Bench -c Release -- --lake --settleshare 8
 ```
 
+M8b-4c (2026-09-07) adds **`--evict`**, the eviction bench: a box walks across a flooded chamber
+block and back, evicting the panels it leaves and reading back the ones it returns to, against a
+keep-everything control, printing peak panel memory, rows written and their microseconds, and —
+the column that matters — whether the automaton rests with everything back, which is the stranded
+front an early release would leave. `--evictchambers`, `--evictwidth`, `--evictstep` and
+`--evictlayers` (space-separated) size it:
+
+```bash
+dotnet run --project Overburden.Bench -c Release -- --evict
+```
+
+In the game the `sources` line and the `M6:` line print fluid rows read off the lane with their
+lane milliseconds, from memory, and reclaimed; the `M8b:` line carries `evicted` and `evicting`;
+and **`M8b: at quit` has a line under it saying what the world file holds**, every row summed after
+the write — the next open's `loaded` reaches it once every wet chunk is home, which replaced "at
+quit equals restored" when the open stopped reading the rows.
+
 The tick budget slice (2026-09-04) adds **`--fluidbudget=<ms>`**, the fifth budget seam of the same
 shape as `--lightbudget`: how much of a frame Tier B's tick may take before it yields and resumes
 next frame, 2 ms by default. **Zero is not off** — one granule of 64 visits a frame, so the water
@@ -441,11 +458,29 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-07, evening). Both play checks are done, and M8b-4c — the panel leaves
+**Pick up here (2026-09-07, night). M8b-4c is built and unplayed — the panel leaves RAM with
+its chunk, one tick behind it, and comes back off the serial lane before the chunk meshes; the
+play check is the first thing to do, on the fresh world (the chunk-bitten one is retired to
+`worlds/retired-chunkbite-2026-09-07/`, Matthew's to delete). The water thread
+(WATER-THREAD-PLAN.md) is next to build, its first slice — the near/far order — needing no thread
+at all.** Read M8-PLAN's "M8b-4c — built" first. Three things from the build: **to everything
+that is water, a chunk arrives when its water is home** — the portal tracker and the automaton
+both take `onFluidReady`, which fires once the chunk's row has landed, because the first probe on
+the played world had the drain pour into a pending chunk and throw; **the flag surviving the cache
+is an identity**, since a revival re-derives it; and the slice's number is 364 panels (22.8 MiB)
+→ 81 (5.1 MiB) at the end of a played-world turnaround, 256 rows off the lane in 122 ms, first
+draw unchanged. `--evict` is its bench arm. The play oracle changed: `M8b: at quit` has a line
+under it saying what the world file holds, which the next open's `loaded` reaches once every wet
+chunk is home; `evicted` is on the identity. Two levers named and not built: `FluidGrid.Restore`
+cell by cell (p99 frame 33 → 58 ms on the probe), and `viewer ms` at 60–80 ms a move on the played
+world with water on in *both* arms, which is older than the slice. The paragraph below is the
+evening's state, kept for the reasoning.
+
+**Where the evening of 2026-09-07 left off.** Both play checks are done, and M8b-4c — the panel leaves
 RAM with its chunk — is planned and not built: read M8-PLAN's "M8b-4c — the planning pass"
 before it, and build it once Matthew has answered its six decisions (all recommended). The water
 thread (WATER-THREAD-PLAN.md) follows 4c, its first slice — the near/far order — needing no
-thread at all.** The pass's two load-bearing findings: the panel lingers one tick after the
+thread at all. The pass's two load-bearing findings: the panel lingers one tick after the
 forget so the tick itself lists the chunk's queued cells (released at once, a flood front inside
 a leaving chunk is stranded on every walk), and a chunk whose row is still to be read is *not
 loaded, to the water* — a `FluidPending` flag, the restore as a chunk-slot job on the serial

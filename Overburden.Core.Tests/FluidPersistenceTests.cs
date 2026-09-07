@@ -358,10 +358,35 @@ public class FluidPersistenceTests
 
         public int TakeAllDirtyCalls { get; private set; }
 
-        public FluidPanelSnapshot? TakeDirty(ChunkPos chunk)
+        public List<ChunkPos> Evicted { get; } = [];
+
+        public List<FluidPanelSnapshot> Restored { get; } = [];
+
+        public HashSet<ChunkPos> Home { get; } = [];
+
+        /// <summary>Marks the chunk; the fake releases at the next <see cref="TakeEvicted"/>, with no tick to wait for.</summary>
+        public void Evict(ChunkPos chunk)
         {
+            Evicted.Add(chunk);
             TakeDirtyCalls.Add(chunk);
-            return Dirty.Remove(chunk, out FluidPanelSnapshot? panel) ? panel : null;
+        }
+
+        public void TakeEvicted(List<FluidPanelSnapshot> into)
+        {
+            foreach (ChunkPos chunk in Evicted)
+            {
+                if (Dirty.Remove(chunk, out FluidPanelSnapshot? panel)) into.Add(panel);
+            }
+
+            Evicted.Clear();
+        }
+
+        public bool Reclaim(ChunkPos chunk) => Evicted.Remove(chunk) || Home.Contains(chunk);
+
+        public void Restore(FluidPanelSnapshot panel)
+        {
+            Restored.Add(panel);
+            Home.Add(panel.Chunk);
         }
 
         public void TakeAllDirty(List<FluidPanelSnapshot> into)
@@ -567,7 +592,7 @@ public class FluidPersistenceTests
         int awake;
         VoxelPos poured;
         FluidSimulation? first = null;
-        using (var harness = new PipelineHarness(store: store, onVoxelsReady: (p, _) => first?.ChunkArrived(p)))
+        using (var harness = new PipelineHarness(store: store, onFluidReady: (p, _) => first?.ChunkArrived(p)))
         {
             first = new FluidSimulation(new VoxelFluidTerrain(harness.Pipeline.Streamer, materials));
             harness.Pipeline.Fluid = first;
@@ -598,26 +623,24 @@ public class FluidPersistenceTests
 
         Assert.True(store.FluidWrites > 0, "the dispose wrote no panel");
 
+        // M8b-4c: the open reads nothing but the index; each row arrives with its chunk, off the
+        // lane, and the arrival wake fires only once it has (onFluidReady, not onVoxelsReady).
         FluidSimulation? second = null;
         int arrivals = 0;
-        using (var harness = new PipelineHarness(store: store, onVoxelsReady: (p, _) => { arrivals++; second?.ChunkArrived(p); }))
+        using (var harness = new PipelineHarness(store: store, onFluidReady: (p, _) => { arrivals++; second?.ChunkArrived(p); }))
         {
             second = new FluidSimulation(new VoxelFluidTerrain(harness.Pipeline.Streamer, materials));
             harness.Pipeline.Fluid = second;
 
-            foreach ((ChunkPos position, byte[] blob) in store.ReadFluid())
-            {
-                second.Restore(FluidPanelBlob.Read(blob, position));
-            }
-
-            Assert.Equal(held, second.TotalMillilitres);
-            Assert.Equal(held, second.LoadedMillilitres);
-            Assert.Equal(awake, second.PausedCellCount);
-            Assert.Equal(0, second.ActiveCellCount);
+            Assert.Equal(0L, second.TotalMillilitres);
+            Assert.True(harness.Pipeline.SavedFluidCount > 0, "the open found no fluid rows to index");
 
             harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
             harness.Settle();
             Assert.True(arrivals > 0);
+            Assert.True(harness.Pipeline.FluidLoads > 0, "no row came off the lane");
+            Assert.Equal(held, second.LoadedMillilitres);
+            Assert.Equal(awake, second.ResumedCells);
             Assert.Equal(0, second.PausedCellCount);
             Assert.True(second.ActiveCellCount > 0, "the arrival woke nothing");
 

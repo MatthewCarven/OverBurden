@@ -347,18 +347,39 @@ public static class FluidPanelBlob
 public interface IFluidPersistence
 {
     /// <summary>
-    /// A snapshot of one chunk's panel if it is dirty, else null. For the unload path, where the
-    /// chunk is one of a shell leaving in one frame.
+    /// The chunk has left the field: its panel is to leave RAM once the tick has listed everything
+    /// awake in it. For the pipeline's forget hook, once per chunk of a leaving shell.
     /// </summary>
     /// <remarks>
-    /// Lists as awake only what is <em>paused</em> in the chunk, not what is queued, because
-    /// finding a chunk's queued cells means walking the whole active set and this is called once
-    /// per chunk of an unloading shell. The chunk's queued cells are paused by the next tick and
-    /// listed by the next <see cref="TakeAllDirty"/>, which walks the active set once — so the
-    /// snapshot taken here can under-list the awake cells for at most one autosave interval,
-    /// and the autosave's own crash window already covers that.
+    /// <b>Marks rather than releases</b> (M8b-4c): the panel stays until the first tick begun after
+    /// this call completes, so the chunk's queued cells are visited, found unloaded and paused, and
+    /// the snapshot the release takes lists them. Releasing here would strand every flood front
+    /// inside a leaving chunk. A chunk with no panel is marked too, because it may owe an empty row.
     /// </remarks>
-    FluidPanelSnapshot? TakeDirty(ChunkPos chunk);
+    void Evict(ChunkPos chunk);
+
+    /// <summary>
+    /// Snapshots of every panel whose eviction tick has passed, released as they are taken; nothing
+    /// for a panel whose row is already current. For the pipeline, once a frame before its saves.
+    /// </summary>
+    void TakeEvicted(List<FluidPanelSnapshot> into);
+
+    /// <summary>
+    /// The chunk is back. True when its panel never left — it was marked and the tick has not come,
+    /// or it was never marked — so nothing needs reading; false when there is nothing here for it.
+    /// </summary>
+    /// <remarks>
+    /// The first of the pipeline's sources for a chunk's water, ahead of the snapshots not yet
+    /// written and ahead of the store. Consulted in the wrong order the past comes back: an older
+    /// row over a newer panel, with the identity exact because <c>loaded</c> counts whatever came.
+    /// </remarks>
+    bool Reclaim(ChunkPos chunk);
+
+    /// <summary>
+    /// Puts a stored panel back, asleep, with its awake cells paused for the chunk's arrival to
+    /// wake. Refuses a chunk that already holds water: that is a hole in the gate, not a merge.
+    /// </summary>
+    void Restore(FluidPanelSnapshot panel);
 
     /// <summary>
     /// Snapshots of every panel worth writing — dirty, released, holding an awake cell, or whose

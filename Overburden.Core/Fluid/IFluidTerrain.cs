@@ -72,12 +72,18 @@ public interface IFluidTerrain
 public sealed class VoxelFluidTerrain(IVoxelWorld world, MaterialTable materials) : IFluidTerrain
 {
     private readonly IVoxelWorld _world = world ?? throw new ArgumentNullException(nameof(world));
+
+    // The gate (M8b-4c): a world that knows which chunks are still reading their stored water
+    // answers "not loaded" for them here and nowhere else. Bound once, so the hot path is one
+    // predictable branch and the same dictionary lookup TryGetMaterial already pays.
+    private readonly IFluidWorld? _fluidWorld = world as IFluidWorld;
+
     private readonly MaterialTable _materials =
         materials ?? throw new ArgumentNullException(nameof(materials));
 
     public bool CanHold(VoxelPos voxel)
     {
-        if (!_world.TryGetMaterial(voxel, out int materialId))
+        if (!Loaded(voxel, out int materialId))
         {
             // Not loaded is not the same answer as empty — VoxelRay.Blocked, one layer out.
             return false;
@@ -87,9 +93,39 @@ public sealed class VoxelFluidTerrain(IVoxelWorld world, MaterialTable materials
     }
 
     /// <summary>
-    /// The streamer's own answer: a chunk that is tracked and has voxels. A chunk still
-    /// generating answers false here as it does in <see cref="CanHold"/>, and for the same
-    /// reason — its water is paused until the voxels exist, and the arrival wakes it.
+    /// The streamer's own answer: a chunk that is tracked and has voxels — and, since M8b-4c, whose
+    /// stored water is home. A chunk still generating answers false here as it does in
+    /// <see cref="CanHold"/>, and for the same reason: its water is paused until the voxels exist,
+    /// and the arrival wakes it. A chunk whose panel is still being read answers false for the same
+    /// reason again, one step later — water flowing into it before its row lands would meet the
+    /// restore, and <see cref="FluidGrid.Restore"/> refuses a chunk that holds water.
     /// </summary>
-    public bool IsLoaded(VoxelPos voxel) => _world.TryGetMaterial(voxel, out _);
+    public bool IsLoaded(VoxelPos voxel) => Loaded(voxel, out _);
+
+    private bool Loaded(VoxelPos voxel, out int materialId) =>
+        _fluidWorld is not null
+            ? _fluidWorld.TryGetMaterialForFluid(voxel, out materialId)
+            : _world.TryGetMaterial(voxel, out materialId);
+}
+
+/// <summary>
+/// A voxel world that knows which of its chunks are loaded <em>to the water</em>.
+/// </summary>
+/// <remarks>
+/// <b>M8b-4c's gate, on the world rather than on the automaton.</b> A chunk arrives before its
+/// stored water in all three of the pipeline's arrival paths — revived on the sim thread, landed
+/// whole from a load, generated — so between the voxels and the row a neighbour's water could
+/// flow into its air, and the restore would find water where it expects none. The automaton
+/// already has one notion of a chunk it cannot answer for (M8b-4a's pause), so rather than a
+/// second set inside the simulation the streamer answers this question the way it answers
+/// <see cref="IVoxelWorld.TryGetMaterial"/>, with one more flag read on the record it has already
+/// found. Light, mesh and physics never see the flag; only the water does.
+/// </remarks>
+public interface IFluidWorld : IVoxelWorld
+{
+    /// <summary>
+    /// <see cref="IVoxelWorld.TryGetMaterial"/>, except that a chunk whose stored fluid panel has
+    /// not yet been read answers false: not loaded, to the water.
+    /// </summary>
+    bool TryGetMaterialForFluid(VoxelPos voxel, out int materialId);
 }
