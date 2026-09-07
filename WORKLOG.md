@@ -1,5 +1,33 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-07 — The spread rule, played: "the amount of water that spreads into empty cells is a little low"
+
+Matthew stabbed `R` 172 times on the fresh world (1,720,000 L, a ball of radius 19 with 350 kL
+pending at the peak) and called the spread low. Planned with him, not built. Two things the log
+settles before any rule is touched:
+
+- **It was the rule at 2 Hz, not a starved tick.** 80 ticks every 40 s through the whole middle
+  of the session at 9,000–16,000 active cells; the rate fell to ~1 Hz only in the last minute at
+  36,000 active (2,232 of 2,597 ticks sliced, longest 104 frames). So the water thread's
+  throughput is not what he was looking at — the divisor is.
+- **What a fifth means at a straight front.** The edge cell has one dry neighbour ahead and
+  gives it a fifth of the surplus, so a full cell's skirt is 3,125 → 625 mL and stops at the
+  litre floor two cells out; the pool is a mound that levels at three fifths a tick, sixteen
+  ticks a pair. Matthew's phrase is exactly the cost M8a recorded against the fixed divisor and
+  accepted as "the cheapest thing this project has to spend". A person has now spent it.
+
+The candidate is the counted divisor — *eligible + 1* — which M8a rejected for the wake defect
+`VerifyQuiescent` caught, not for its physics, and whose fix was named at the time: wake the
+destination's neighbourhood as well as the source's. At a straight front it gives half the
+surplus instead of a fifth; against four dry neighbours it is today's rule exactly; a pair levels
+in one tick. The termination proof survives (`d = k + 1`), the residue bound is unchanged, and
+the sheet solve's step constant reads the maximum divisor. **Not built because the claim is a
+number** — fewer ticks to rest against twice the visits per move — and `--fluid`, `--spill` and
+`--lake` can take it against the fixed rule as the control. Recorded in TODO beside the M8a
+decision. Also in the log and not a defect: `displaced` jumped 0 → 402 kL in one report, which is
+a chunk fill under the flood; `Displace` pushes into face neighbours with room and drains the
+rest, and a 32,768-voxel fill has nowhere to push.
+
 ## 2026-09-07 — M8b-4c built: the panel leaves RAM with its chunk, and the played world found the rule the pass had not written
 
 **Matthew: "all six as recommended, build it please Claude, also please delete my savegame, its

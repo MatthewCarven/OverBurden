@@ -3597,6 +3597,28 @@ part is the automaton and its oracles, M8a-2 is the measurement.
       makes the rule local to a pair, which is what lets the wake rule stay at one neighbourhood
       per transfer. **Cost: levelling two cells takes ~16 ticks instead of 1; the frontier still
       advances one cell per tick, which is what a person sees.**
+- [ ] **The play called the cost (2026-09-07): *"the amount of water that spreads into empty
+      cells is a little low"*, 172 relay stabs on the fresh world.** Read off the log first: the
+      tick held 2 Hz for nearly the whole session (80 ticks per 40 s at 9,000–16,000 active) and
+      fell to ~1 Hz only in the last minute at 36,000 active, so this is the rule at its nominal
+      rate, not starvation. What the rule does at a straight front: the edge cell gives a fifth
+      of its surplus to the one dry neighbour ahead, so the skirt beyond a full cell is 3,125 →
+      625 mL and stops at the litre floor two cells out. **Planned, not built — a counted
+      divisor revisited**: *eligible + 1* was rejected above for a wake defect, not for its
+      physics, and the fix was named then (wake the destination's neighbourhood too, ~2× the
+      visits per move). It gives a straight front half the surplus instead of a fifth, levels a
+      pair in one tick instead of sixteen, and is identical to today's rule in the one case
+      where all four neighbours are dry. The proof holds (`d = k + 1`, `(k+1−2d)Σt² =
+      −(k+1)Σt²`), the per-pair residue bound is unchanged (`d ≤ 5`), and `StepMillilitres`
+      reads the maximum divisor. **Wants a bench arm before it is believed**: `--fluid`,
+      `--spill` and `--lake` with the counted divisor against the fixed one — ticks to rest,
+      total visits to rest, `VerifyQuiescent` on every arm, the lifecycle fuzz — because the
+      claim is that fewer ticks to rest outweighs twice the visits per move, and that is a
+      number. **Not the lever**: `SpreadDivisor` 5 → 4 empties the source against four dry
+      neighbours and bounces it (a, 0, a/4 …), 5 → 3 clamps into a fan. The tick rate is the
+      other honest lever and waits for the water thread, which is what holds 2 Hz past ~20,000
+      active in Debug. `--settleafter=0` levels the mound under inflow today and does not move
+      the front.
 - [x] **Termination has a proof, not a hope** — a sideways move strictly decreases the sum of
       squares (`(k+1−2d)Σt² ≤ −5Σt²` for `k ≤ 4`, `d = 5`), a vertical move strictly decreases
       Σ(amount × Y) which is bounded below because an unloaded voxel is solid, and the pair
