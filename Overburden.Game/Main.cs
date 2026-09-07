@@ -467,6 +467,13 @@ public partial class Main : Node3D
     /// </summary>
     private int _settleShare = SheetSettle.DefaultSettleShare;
 
+    /// <summary>
+    /// <c>--spread=fixed|counted</c>: what a cell divides its sideways surplus by. Fixed by
+    /// default — M8a's rule, and the one every recorded figure was taken under; <c>counted</c>
+    /// is the play's arm for the rule the bench priced on 2026-09-07 (see <see cref="SpreadRule"/>).
+    /// </summary>
+    private SpreadRule _spread = SpreadRule.Fixed;
+
     private long _settlesAtWarm;
 
     /// <summary>The analysis in flight, or null. One at a time, by construction.</summary>
@@ -1120,6 +1127,13 @@ public partial class Main : Node3D
                 // its creeping edge — and the control arm.
                 case "settleshare" when int.TryParse(value, out int settleShare):
                     _settleShare = Math.Max(0, settleShare);
+                    break;
+
+                // The spread rule: fixed (divide by five) or counted (one part for the cell and
+                // one for each lower side). The bench's --spread is the same choice; this is the
+                // arm a person judges by stabbing R.
+                case "spread" when value is "fixed" or "counted":
+                    _spread = value == "counted" ? SpreadRule.Counted : SpreadRule.Fixed;
                     break;
 
                 // The rain's own A/B arm: everything else about the weather, with no particles.
@@ -3158,8 +3172,9 @@ public partial class Main : Node3D
         }
 
         var terrain = new VoxelFluidTerrain(_pipeline.Streamer, _materials!);
-        _fluid = new FluidSimulation(terrain);
+        _fluid = new FluidSimulation(terrain, spread: _spread);
         _fluidBudgetTicks = FluidSimulation.BudgetTicks(_fluidBudget);
+        GD.Print($"M8b: Tier B spread rule is {_spread.ToString().ToLowerInvariant()} (--spread=fixed|counted)");
 
         // M8b-4b: the save path takes its panels from here. After construction because the
         // terrain above is the pipeline's own streamer, which is the whole reason it is a

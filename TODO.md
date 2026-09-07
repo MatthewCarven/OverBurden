@@ -3619,6 +3619,52 @@ part is the automaton and its oracles, M8a-2 is the measurement.
       other honest lever and waits for the water thread, which is what holds 2 Hz past ~20,000
       active in Debug. `--settleafter=0` levels the mound under inflow today and does not move
       the front.
+- [x] **Benched (2026-09-07, Release, machine control 1.02–1.04×): the counted rule is built as
+      `SpreadRule.Counted`, `--spread` on the bench and `--spread=counted` in the game, the
+      default stays fixed, and the prediction above was wrong in the way `--front` was built to
+      show.** Suite 1,134 → 1,179; seven recipes, five caught (the dropped destination wake by
+      both fuzzes and **not** by M8a's own 8×8 floor, kept as a regression), two identities. The
+      fixed arm reproduces the M8b-1 table to the visit (39,809,482 and 111,222,865), so the
+      visit's restructure moved no digit. What the numbers say:
+      - **The wake M8a named was two cells too wide, and only the bench could see it.** "Wake
+        the destination's neighbourhood" is six cells; the cells whose move reads the destination
+        are the one above it (room only, which shrank) and its four sides (whose count can
+        shrink), so the sides are the complete set. Woken as six, **the one-voxel bore drained at
+        exactly half a cell a tick — 7.8 L/tick against 14.3, both shapes, to the litre — with
+        nothing sideways in the shaft at all**: the two vertical wakes reordered the column.
+        Trimmed to four, bore 1 is 15.1. Every figure below is the four-side wake; the six-wake
+        arm is in the worklog beside it.
+      - **A pool's front is diffusive, and a divisor moves diffusion as its square root.** On the
+        flat floor (`--front`, R's 10,000 L) the counted rule reaches radius 15 / 26 / 44 at ticks
+        20 / 100 / 500 against 13 / 22 / 38 — a fifth further, not twice — and rests in 6,705
+        ticks against 7,825 with 7% fewer visits at 1.7× the CPU per tick, because the per-visit
+        cost rose with the wakes. The pair arithmetic was right; the interior of a mound has two
+        or three lower sides and the front is gated by the litre floor, so 1.5× the diffusivity
+        is 1.22× the reach.
+      - **The front the player sees is the solve's, and the counted rule nearly doubles it once
+        the sheet is level.** `--front` with the solve at every boundary: fixed reaches radius 20
+        at tick 20 over 1,090 wet cells, counted reaches **35 over 2,716** — a sheet of 4,145 mL
+        across the floor against one of 9,934 — both resting in ~100 ticks. At a levelled edge the
+        count is one and the edge cell gives half. The `--settleafter=0` claim above — *does not
+        move the front* — was reasoning, and the measurement says the solve moves the front more
+        than the divisor does; the play runs the settle after two quiet ticks, so what Matthew saw
+        was nearer the fixed-plus-solve row than the fixed row.
+      - **A spill with the hand-off is the clear win.** `--spill` 10,000 L with the hand-off rests
+        in 65 ticks against 170 with 41% of the visits and 64% of the CPU; 50,000 L in 106 against
+        314 with 32% of the visits and 45% of the CPU; with the settle as well, 15 against 18 and
+        27 against 29. The automaton alone is 6,628 ticks against 9,111 and 61% of the visits.
+      - **A flood drains faster and costs more per tick.** The 96 m mine: bore 1 15.1 L/tick
+        against 14.3, bore 3 31.3 against 24.6, bore 9 106.0 against 92.1, at 1.6–1.7× the ms/tick
+        and ~1.5× the settle's visits under the cap; the chamber's settle 1,471 ticks against 1,915
+        with 29% fewer visits, and with the solve 67 against 44. The played lake at rest
+        (`--lake`, share 8) costs 1.4× the solve's visits and 1.7× the automaton's. **In the Debug
+        build the 2 Hz tick that held at 9,000–16,000 active would hold at roughly 6,000–10,000**;
+        the water thread is the answer to that, not the divisor.
+      - **Recommendation: the default stays fixed and Matthew plays `--spread=counted`** (pass it
+        to `start.cmd`), because the thing the play asked for is a look and the row that answers
+        it is the solve's. If it reads right the default flips and the water thread absorbs the
+        per-tick cost. **Revisit trigger for the fixed rule: the first play that reads the
+        counted front as right.**
 - [x] **Termination has a proof, not a hope** — a sideways move strictly decreases the sum of
       squares (`(k+1−2d)Σt² ≤ −5Σt²` for `k ≤ 4`, `d = 5`), a vertical move strictly decreases
       Σ(amount × Y) which is bounded below because an unloaded voxel is solid, and the pair

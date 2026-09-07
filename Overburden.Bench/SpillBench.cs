@@ -104,7 +104,7 @@ internal static class SpillBench
 
     internal static int Run(
         WorldGenerator generator, string machineControl, bool isDebug, ulong seed, long[] litresArms, int tickCap,
-        int settleShare)
+        int settleShare, SpreadRule[] spreads)
     {
         Console.WriteLine("Spill bench — M8b-3: the B → A hand-off against a spill on real ground");
         if (isDebug)
@@ -158,30 +158,36 @@ internal static class SpillBench
 
         foreach (long litres in litresArms)
         {
-            foreach ((bool handoff, bool settle) in new[] { (false, false), (true, false), (true, true) })
+            foreach (SpreadRule spread in spreads)
             {
-                RunArm(
-                    generator, seed, centreX, centreZ, halfSpan, lowest - 8, highest + 64, litres, handoff, settle,
-                    tickCap, settleShare);
-            }
+                foreach ((bool handoff, bool settle) in new[] { (false, false), (true, false), (true, true) })
+                {
+                    RunArm(
+                        generator, seed, centreX, centreZ, halfSpan, lowest - 8, highest + 64, litres, handoff, settle,
+                        tickCap, settleShare, spread);
+                }
 
-            Console.WriteLine();
+                Console.WriteLine();
+            }
         }
 
         Console.WriteLine(
             "  'cell-ticks' is the area under the active-set curve — every visit the flood paid "
             + "until it rested or the cap ran out — which is what the hand-off removes.");
+        Console.WriteLine(
+            "  'wet' is cells holding anything and 'radius' the furthest of them from the ball's centre, "
+            + "in voxels, which is the front the spread rule moves.");
         return 0;
     }
 
     private static void RunArm(
         WorldGenerator generator, ulong seed, int centreX, int centreZ, int halfSpan, int minY, int maxY,
-        long litres, bool withHandoff, bool withSettle, int tickCap, int settleShare)
+        long litres, bool withHandoff, bool withSettle, int tickCap, int settleShare, SpreadRule spread)
     {
         var terrain = new SurfaceTerrain(generator, centreX, centreZ, halfSpan, minY, maxY);
         var water = new WaterSystem(generator, seed, new BasinLedger(), Pitch);
         water.Install(water.AnalyseFor(centreX, centreZ));
-        var sim = new FluidSimulation(terrain);
+        var sim = new FluidSimulation(terrain, spread: spread);
         SurfaceHandoff? handoff = withHandoff ? new SurfaceHandoff(generator, water, sim) : null;
 
         // M8b-3b's settle beside the hand-off, at the game's default interval and in the game's
@@ -195,7 +201,7 @@ internal static class SpillBench
 
         // Promote the code first, on a small pour of its own, so the tick is tier-1 before the
         // clock starts — the watershed bench's rule.
-        var warm = new FluidSimulation(terrain);
+        var warm = new FluidSimulation(terrain, spread: spread);
         warm.Add(at, FluidConstants.CellCapacityMillilitres);
         for (int i = 0; i < 40; i++)
         {
@@ -203,6 +209,7 @@ internal static class SpillBench
         }
 
         var checkpoints = new Dictionary<int, int>();
+        var fronts = new Dictionary<int, (int Wet, int Reach)>();
         long cellTicks = 0;
         int peak = 0;
         int ticks = 0;
@@ -250,6 +257,7 @@ internal static class SpillBench
             if (Array.IndexOf(Checkpoints, ticks) >= 0)
             {
                 checkpoints[ticks] = result.ActiveAfter;
+                fronts[ticks] = Front(sim, centreX, centreZ);
             }
         }
 
@@ -268,7 +276,7 @@ internal static class SpillBench
             == sim.AddedMillilitres - sim.RemovedMillilitres - sim.DisplacedMillilitres;
 
         Console.WriteLine(
-            $"  {litres:N0} L, hand-off {(withHandoff ? "ON " : "off")}{(withSettle ? " + settle" : string.Empty)}: ball radius {radius}, delivered by tick "
+            $"  {litres:N0} L, {spread.ToString().ToLowerInvariant()}, hand-off {(withHandoff ? "ON " : "off")}{(withSettle ? " + settle" : string.Empty)}: ball radius {radius}, delivered by tick "
             + $"{(deliveredAtTick < 0 ? "never" : deliveredAtTick.ToString("N0", CultureInfo.InvariantCulture))}; "
             + $"{(rested ? $"rested after {ticks:N0} ticks" : $"HIT THE CAP at {ticks:N0} ticks with {sim.ActiveCellCount:N0} awake")}"
             + $" ({ticks / TicksPerSecond / 60.0:F1} min of world time); "
@@ -282,6 +290,9 @@ internal static class SpillBench
         Console.WriteLine(
             "           active after tick: "
             + string.Join(", ", Checkpoints.Where(checkpoints.ContainsKey).Select(t => $"{t}→{checkpoints[t]:N0}")));
+        Console.WriteLine(
+            "           wet / radius after tick: "
+            + string.Join(", ", Checkpoints.Where(fronts.ContainsKey).Select(t => $"{t}→{fronts[t].Wet:N0}/{fronts[t].Reach}")));
         Console.WriteLine(
             $"           ended: Tier B {held / 1000.0:N1} L in {sim.Grid.HeldCellCount:N0} cell(s) over {sim.Grid.PanelCount} panel(s); "
             + $"Tier A received {received:N0} L into {(handoff is null ? 0 : handoff.PendingBasins)} basin(s), holding "
@@ -304,7 +315,21 @@ internal static class SpillBench
         }
     }
 
-    private static long Pour(FluidSimulation sim, VoxelPos at, int r, long pending)
+    /// <summary>Wet cells, and the furthest of them from the centre in voxels (Chebyshev).</summary>
+    private static (int Wet, int Reach) Front(FluidSimulation sim, int centreX, int centreZ)
+    {
+        int wet = 0;
+        int reach = 0;
+        foreach (VoxelPos cell in sim.Grid.HeldCells())
+        {
+            wet++;
+            reach = Math.Max(reach, Math.Max(Math.Abs(cell.X - centreX), Math.Abs(cell.Z - centreZ)));
+        }
+
+        return (wet, reach);
+    }
+
+    internal static long Pour(FluidSimulation sim, VoxelPos at, int r, long pending)
     {
         int r2 = r * r;
         for (int dy = r; dy >= -r; dy--)
@@ -331,7 +356,7 @@ internal static class SpillBench
     }
 
     /// <summary>Main's rule for the relay's ball, copied so the bench pours what the game pours.</summary>
-    private static int RadiusVoxelsFor(long millilitres)
+    internal static int RadiusVoxelsFor(long millilitres)
     {
         double cells = millilitres / (double)FluidConstants.CellCapacityMillilitres;
         double radius = Math.Cbrt(3.0 * cells / (4.0 * Math.PI));

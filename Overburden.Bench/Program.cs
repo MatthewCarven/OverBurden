@@ -75,6 +75,10 @@ internal static class Program
           --spill              M8b-3: a spill on real ground with and without the B -> A hand-off
           --spilllitres a,b    the spills to sweep, in litres (default 10000,50000)
           --spillticks <n>     tick cap per arm (default 20000)
+          --spread <rule>      the sideways rule for --fluid, --spill, --lake and --front: fixed (divide by five, the default and every recorded figure), counted (one part for the cell and one per lower side), or both
+          --front              the spread rule at a pool's edge: R's ball on a flat floor, the wet radius and the profile tick by tick, each rule with and without the sheet solve
+          --frontlitres <n>    the ball, in litres (default 10000, which is one R)
+          --frontticks <n>     tick cap for the front arm (default 20000)
         """;
 
     private static int Main(string[] args)
@@ -110,6 +114,10 @@ internal static class Program
         int evictWidth = 3;
         int evictStep = 4;
         int evictLayers = 4;
+        string spread = "fixed";
+        bool front = false;
+        long frontLitres = 10_000;
+        int frontTicks = 20_000;
 
         try
         {
@@ -219,6 +227,23 @@ internal static class Program
                     case "--evictlayers":
                         evictLayers = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
                         break;
+                    case "--spread":
+                        spread = Next(args, ref i);
+                        if (spread is not ("fixed" or "counted" or "both"))
+                        {
+                            throw new ArgumentException($"--spread must be fixed, counted or both, not '{spread}'");
+                        }
+
+                        break;
+                    case "--front":
+                        front = true;
+                        break;
+                    case "--frontlitres":
+                        frontLitres = long.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--frontticks":
+                        frontTicks = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
                     case "--help" or "-h":
                         Console.WriteLine(Usage);
                         return 0;
@@ -245,12 +270,25 @@ internal static class Program
 
         ChunkPos[] region = Region();
         var strata = new StrataTable([new StrataLayer(Grass, 1), new StrataLayer(Dirt, 3)], Stone);
+        SpreadRule[] spreads = spread switch
+        {
+            "counted" => [SpreadRule.Counted],
+            "both" => [SpreadRule.Fixed, SpreadRule.Counted],
+            _ => [SpreadRule.Fixed],
+        };
+
+        if (front)
+        {
+            var frontGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
+            return FrontBench.Run(
+                frontGenerator, MachineControl(frontGenerator), IsDebug(), frontLitres, frontTicks, spreads);
+        }
 
         if (lake)
         {
             var lakeGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
             return FluidBench.RunLake(
-                lakeGenerator, MachineControl(lakeGenerator), IsDebug(), lakeChambers, lakeTicks, settleShare);
+                lakeGenerator, MachineControl(lakeGenerator), IsDebug(), lakeChambers, lakeTicks, settleShare, spreads);
         }
 
         if (evict)
@@ -277,7 +315,8 @@ internal static class Program
                 fluidChambers,
                 fluidBudget,
                 fluidSolve,
-                settleShare);
+                settleShare,
+                spreads);
         }
 
         if (portal)
@@ -291,7 +330,7 @@ internal static class Program
             var spillGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
             return SpillBench.Run(
                 spillGenerator, MachineControl(spillGenerator), IsDebug(), seed, spillLitres, spillTicks,
-                settleShare);
+                settleShare, spreads);
         }
 
         if (watershed)

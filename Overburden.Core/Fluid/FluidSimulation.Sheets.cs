@@ -582,6 +582,18 @@ public sealed partial class FluidSimulation
         return a;
     }
 
+    /// <summary>
+    /// Whether a sideways pair has a move between it, at the largest divisor there is.
+    /// </summary>
+    /// <remarks>
+    /// The pair-local form on purpose, under either rule: five is the ceiling, so a difference
+    /// that moves at five moves at any divisor, and the detector is exact under the fixed rule
+    /// and conservative under the counted one — a pair two to four millilitres apart with few
+    /// lower sides has a move the detector does not see, and the automaton makes it, at a
+    /// millilitre or two a tick, inside the residue the solve leaves anyway. Reading the real
+    /// divisor here would need each cell's four sides at flood time for a count the levelling
+    /// never uses.
+    /// </remarks>
     private static bool CanTransfer(int a, int b) =>
         FluidRules.HorizontalTransfer(a, b) > 0 || FluidRules.HorizontalTransfer(b, a) > 0;
 

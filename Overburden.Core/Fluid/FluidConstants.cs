@@ -54,25 +54,29 @@ public static class FluidConstants
     public const double CellCapacityLitres = CellCapacityMillilitres / (double)MillilitresPerLitre;
 
     /// <summary>
-    /// What a cell divides its surplus by when it spreads sideways: one part for itself and one
-    /// for each of its four horizontal neighbours.
+    /// What a cell divides its surplus by when it spreads sideways under <see cref="SpreadRule.Fixed"/>:
+    /// one part for itself and one for each of its four horizontal neighbours. The largest
+    /// divisor under <see cref="SpreadRule.Counted"/> too, so the residue bound reads it.
     /// </summary>
     /// <remarks>
-    /// <b>Fixed at five rather than counted from the eligible neighbours, and that is a
+    /// <b>Fixed at five rather than counted from the eligible neighbours, and that was a
     /// correctness decision rather than a simplification.</b> Dividing by <i>eligible + 1</i>
     /// converges faster and is the obvious rule, but it makes one cell's move depend on <i>its
     /// neighbours' amounts</i> and not only on the pair — so a neighbour <b>gaining</b> water can
     /// shrink the divisor and turn a transfer of zero into a transfer of one. The wake rule then
-    /// has to wake both neighbourhoods of every move instead of one, roughly doubling the visits,
-    /// or the automaton stops with moves still available. Measured, not argued: the variable
-    /// divisor left four cells of an 8x8 floor one millilitre out of level, and
-    /// <c>FluidSimulation.VerifyQuiescent</c> caught it on the first run it was ever asked.
+    /// has to wake both neighbourhoods of every move instead of one, or the automaton stops with
+    /// moves still available. Measured, not argued: the variable divisor left four cells of an
+    /// 8x8 floor one millilitre out of level, and <c>FluidSimulation.VerifyQuiescent</c> caught
+    /// it on the first run it was ever asked.
     /// <para>
-    /// The cost is convergence speed, which is the cheapest thing this project has to spend.
-    /// Levelling two cells takes about sixteen ticks instead of one, because the difference decays
-    /// by three fifths a tick; the <i>frontier</i> still advances one cell per tick, which is what
-    /// a person watching a flood actually sees. DESIGN's <i>slower than realtime is accuracy</i>
-    /// is the licence.
+    /// The cost is convergence speed, which M8a called the cheapest thing this project has to
+    /// spend. Levelling two cells takes about sixteen ticks instead of one, because the
+    /// difference decays by three fifths a tick; the <i>frontier</i> still advances one cell per
+    /// tick. <b>The play spent it (2026-09-07)</b>: at a straight front a fifth of the surplus
+    /// leaves a two-cell skirt and a mound behind it, and Matthew called the spread low. The
+    /// counted rule is back as <see cref="SpreadRule.Counted"/>, with the double wake it needs,
+    /// priced on the bench rather than argued; this constant stays the fixed rule's divisor and
+    /// the counted rule's ceiling.
     /// </para>
     /// </remarks>
     public const int SpreadDivisor = 5;

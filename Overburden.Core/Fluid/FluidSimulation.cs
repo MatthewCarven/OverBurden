@@ -180,18 +180,28 @@ public sealed partial class FluidSimulation : IFluidPersistence
     /// </remarks>
     private readonly int _fallSign = -1;
 
+    private readonly SpreadRule _spread;
+
     /// <param name="terrain">The one question the automaton asks the world.</param>
     /// <param name="nowTicks">
     /// The clock <see cref="Step(long)"/> reads, in <see cref="Stopwatch"/> ticks. Injected the way
     /// <c>ChunkPipeline</c> injects its own, so a test can drive a deadline deterministically; null
     /// is <see cref="Stopwatch.GetTimestamp"/>. Nothing but the deadline check ever reads it.
     /// </param>
-    public FluidSimulation(IFluidTerrain terrain, Func<long>? nowTicks = null)
+    /// <param name="spread">
+    /// What a cell divides its sideways surplus by. Fixed at construction because the wake rule
+    /// depends on it, and a wake rule that changed under resting water would leave moves asleep.
+    /// </param>
+    public FluidSimulation(IFluidTerrain terrain, Func<long>? nowTicks = null, SpreadRule spread = SpreadRule.Fixed)
     {
         ArgumentNullException.ThrowIfNull(terrain);
         _terrain = terrain;
         _nowTicks = nowTicks ?? Stopwatch.GetTimestamp;
+        _spread = spread;
     }
+
+    /// <summary>The sideways rule this simulation runs. See <see cref="SpreadRule"/>.</summary>
+    public SpreadRule Spread => _spread;
 
     /// <summary>Converts a budget to the clock's units, for a caller computing a deadline.</summary>
     public static long BudgetTicks(TimeSpan budget) =>
@@ -620,6 +630,7 @@ public sealed partial class FluidSimulation : IFluidPersistence
                 + "finish the tick with Step() first.");
         }
 
+        Span<int> sides = stackalloc int[4];
         foreach (VoxelPos cell in _grid.HeldCells())
         {
             if (!_terrain.CanHold(cell))
@@ -648,15 +659,10 @@ public sealed partial class FluidSimulation : IFluidPersistence
                 continue;
             }
 
-            foreach ((int dx, int dz) in Sideways)
+            int divisor = ReadSides(cell, amount, sides);
+            for (int k = 0; k < sides.Length; k++)
             {
-                VoxelPos side = cell.Offset(dx, 0, dz);
-                if (!_terrain.CanHold(side))
-                {
-                    continue;
-                }
-
-                if (FluidRules.HorizontalTransfer(amount, _grid.AmountAt(side)) > 0)
+                if (sides[k] >= 0 && FluidRules.HorizontalTransfer(amount, sides[k], divisor) > 0)
                 {
                     return false;
                 }
@@ -664,6 +670,44 @@ public sealed partial class FluidSimulation : IFluidPersistence
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Reads a cell's four sides — the amount held, or −1 where the side cannot hold water —
+    /// and returns the divisor its sideways moves use, under this simulation's rule.
+    /// </summary>
+    /// <remarks>
+    /// <b>One read of the sides serves both rules, and under the fixed rule it changes nothing
+    /// to the visit.</b> The visit used to read each side at its turn; the sides are distinct
+    /// cells and the visit writes only into them, never into a side it has yet to read, so a
+    /// side's amount at its turn is its amount before the first transfer — the snapshot the
+    /// termination proof assumes. Reading them first makes that explicit, and gives the counted
+    /// rule the count it needs before anything moves. Shared with <see cref="VerifyQuiescent"/>
+    /// for the reason <see cref="FluidRules"/> is: the check is independent of the wake
+    /// bookkeeping, not of the arithmetic.
+    /// </remarks>
+    private int ReadSides(VoxelPos cell, int amount, Span<int> sides)
+    {
+        int lower = 0;
+        for (int k = 0; k < Sideways.Length; k++)
+        {
+            (int dx, int dz) = Sideways[k];
+            VoxelPos side = cell.Offset(dx, 0, dz);
+            if (!_terrain.CanHold(side))
+            {
+                sides[k] = -1;
+                continue;
+            }
+
+            int beside = _grid.AmountAt(side);
+            sides[k] = beside;
+            if (beside < amount)
+            {
+                lower++;
+            }
+        }
+
+        return FluidRules.Divisor(_spread, lower);
     }
 
     /// <summary>
@@ -722,23 +766,27 @@ public sealed partial class FluidSimulation : IFluidPersistence
             return moved;
         }
 
-        foreach ((int dx, int dz) in Sideways)
+        // Against the snapshot taken before any of this cell's sideways moves — the source's
+        // amount and every side's — which is what makes the split even between neighbours and
+        // what FluidRules' termination proof assumes. Reading the live source here would drain it
+        // as it went; the sides are read once, up front, so the counted rule's divisor is a
+        // property of the state the tick found and not of the order it visited in.
+        Span<int> sides = stackalloc int[4];
+        int divisor = ReadSides(cell, amount, sides);
+        for (int k = 0; k < sides.Length; k++)
         {
-            VoxelPos side = cell.Offset(dx, 0, dz);
-            if (!_terrain.CanHold(side))
+            if (sides[k] < 0)
             {
                 continue;
             }
 
-            // Against the snapshot taken before any of this cell's sideways moves, which is what
-            // makes the split even between neighbours and what FluidRules' termination proof
-            // assumes. Reading the live amount here would drain the source as it went.
-            int want = FluidRules.HorizontalTransfer(amount, _grid.AmountAt(side));
+            int want = FluidRules.HorizontalTransfer(amount, sides[k], divisor);
             if (want <= 0)
             {
                 continue;
             }
 
+            VoxelPos side = cell.Offset(Sideways[k].Dx, 0, Sideways[k].Dz);
             int sideways = _grid.Transfer(cell, side, Math.Min(want, RoomAt(side)));
             if (sideways > 0)
             {
@@ -811,19 +859,29 @@ public sealed partial class FluidSimulation : IFluidPersistence
     /// Records a transfer and wakes whatever it could have given something to do.
     /// </summary>
     /// <remarks>
-    /// <b>Both endpoints, and the six neighbours of the source only.</b> The source lost water, so
-    /// a neighbour holding more can now give to it and the cell above it can now fall into it. The
-    /// destination gained, which can only <i>remove</i> moves from its own neighbours — it has less
-    /// room than before and is no lower than before — and it is woken itself in case it can now
-    /// pass the water on.
+    /// <b>Both endpoints, the six neighbours of the source, and under the counted rule the four
+    /// sides of the destination too.</b> The source lost water, so a neighbour holding more
+    /// can now give to it and the cell above it can now fall into it. Under the fixed rule the
+    /// destination's gain can only <i>remove</i> moves from its own neighbours — it has less room
+    /// than before and is no lower than before — so it is woken itself, in case it can now pass
+    /// the water on, and nothing else.
     /// <para>
-    /// <b>That argument is true only because <see cref="FluidRules.HorizontalTransfer"/> depends
-    /// on one pair of cells and nothing else, and it was false before it did.</b> Dividing by the
-    /// count of eligible neighbours made a cell's move depend on how many of its neighbours were
-    /// lower, so a neighbour gaining could shrink the divisor and hand a nearby cell a move it did
-    /// not have a moment ago — with nothing awake to take it. <see cref="VerifyQuiescent"/> caught
-    /// it the first time it was asked, on four cells that were one millilitre out of level.
-    /// <b>Halve this rule again and the same class of defect comes back, silently.</b>
+    /// <b>That argument is true only because the fixed rule's transfer depends on one pair of
+    /// cells and nothing else, and it was false before it did.</b> Dividing by the count of
+    /// eligible neighbours made a cell's move depend on how many of its neighbours were lower, so
+    /// a neighbour gaining could shrink the divisor and hand a nearby cell a move it did not have
+    /// a moment ago — with nothing awake to take it. <see cref="VerifyQuiescent"/> caught it the
+    /// first time it was asked, on four cells that were one millilitre out of level.
+    /// <b><see cref="SpreadRule.Counted"/> is that rule, brought back with the wake it needs</b>:
+    /// a cell's move reads its own amount, the room below it and its four sides, so the cells
+    /// that read the destination are the destination, the cell above it and its four sides —
+    /// and of those only a side's count can shrink on a gain, so the sides are woken and the
+    /// rest is complete by construction. The fixed rule keeps the narrower wake because it is
+    /// enough for it and each extra wake is a visit; the bench prices the difference.
+    /// <b>Drop the destination's sides under the counted rule and the M8a defect comes back,
+    /// silently</b> — the recipe in <c>SpreadRuleTests</c> is the one that says so. <b>Widen it
+    /// to the destination's six and a one-wide shaft drains at half the rate</b>, which is the
+    /// other recipe, and the one only the bench can see.
     /// </para>
     /// <para>
     /// <b><see cref="Wake"/>(<paramref name="to"/>) is today an identity — removing it breaks
@@ -839,6 +897,21 @@ public sealed partial class FluidSimulation : IFluidPersistence
         Wake(from);
         Wake(to);
         WakeNeighboursOf(from);
+        if (_spread == SpreadRule.Counted)
+        {
+            // The four sides of the destination and nothing else. A cell's move reads its own
+            // amount, the room below it and its four sides; of the cells that read `to`, the one
+            // above it reads only its room, which shrank, and the cell below it does not read it
+            // at all — only a side's count can shrink on a gain. The first version woke all six,
+            // and in a one-wide shaft the two extra wakes reordered the column so that it fell
+            // half a cell a tick instead of a whole one (--fluid at bore 1: 7.8 L/tick against
+            // 14.3, both shapes, to the litre). Nothing sideways there at all, so the physics was
+            // identical and the order was the whole of the difference.
+            foreach ((int dx, int dz) in Sideways)
+            {
+                Wake(to.Offset(dx, 0, dz));
+            }
+        }
     }
 
     private void Pause(VoxelPos cell)

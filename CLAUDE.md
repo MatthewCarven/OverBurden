@@ -322,6 +322,21 @@ and **`M8b: at quit` has a line under it saying what the world file holds**, eve
 the write — the next open's `loaded` reaches it once every wet chunk is home, which replaced "at
 quit equals restored" when the open stopped reading the rows.
 
+The spread rule bench (2026-09-07) adds **`--spread fixed|counted|both`** to `--fluid`, `--spill`,
+`--lake` and its own arm, **`--front`**: the relay's 10,000 L ball on the flat floor of a bitten
+block, printing the wet radius, the visible cells and the profile along one axis at checkpoints,
+with and without the sheet solve at every boundary, then ticks and visits to rest and whether the
+rest is real. **The counted divisor is one part for the cell and one for each side holding less
+(M8a's rejected rule, with the double wake it needs); fixed is five always, the default, and the
+rule every recorded figure was taken under.** `--frontlitres` and `--frontticks` size it. In the
+game **`--spread=counted`** is the play's arm, printed on the `M8b:` setup line; the default is
+fixed. The rule is a constructor argument on `FluidSimulation`, not a constant, because the wake
+rule depends on it:
+
+```bash
+dotnet run --project Overburden.Bench -c Release -- --front --spread both
+```
+
 The tick budget slice (2026-09-04) adds **`--fluidbudget=<ms>`**, the fifth budget seam of the same
 shape as `--lightbudget`: how much of a frame Tier B's tick may take before it yields and resumes
 next frame, 2 ms by default. **Zero is not off** — one granule of 64 visits a frame, so the water
@@ -458,7 +473,24 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-07, night). M8b-4c is built and unplayed — the panel leaves RAM with
+**Pick up here (2026-09-07, late). The counted divisor is built as a setting and benched, the
+default is still fixed, and the play check is `--spread=counted` passed to `start.cmd` — stab
+`R` on the fresh world and judge the pool's edge; if it reads right, flip the default and let the
+water thread (WATER-THREAD-PLAN.md, next to build) absorb the per-tick cost.** Read the
+2026-09-07 "counted divisor, benched" worklog entry and the TODO item beside M8a's divisor
+decision. Four things from it: **a pool's front is diffusive and a divisor moves it as the square
+root** — a fifth more radius at a given tick, not twice; **the front the player sees is the sheet
+solve's**, and the counted rule nearly doubles it once the sheet is level (radius 35 against 20
+at tick 20 on `--front`), so the previous entry's "`--settleafter=0` does not move the front" was
+wrong; **a spill with the hand-off rests in a third of the ticks at two thirds of the CPU, a
+flood drains 5–27% faster at 1.6–1.7× the ms/tick**, which in Debug is a 2 Hz tick that holds at
+fewer active cells; and **the wake M8a named was two cells too wide** — six neighbours of the
+destination reordered a one-wide shaft's column and halved its drain with the rule untouched, the
+four sides are the complete set, and only the bench could see it. The fixed arm reproduces the
+M8b-1 table to the visit. The M8b-4c play check below is still to do. The paragraph below is the
+night's state, kept for the reasoning.
+
+**Where the night of 2026-09-07 left off. M8b-4c is built and unplayed — the panel leaves RAM with
 its chunk, one tick behind it, and comes back off the serial lane before the chunk meshes; the
 play check is the first thing to do, on the fresh world (the chunk-bitten one is retired to
 `worlds/retired-chunkbite-2026-09-07/`, Matthew's to delete). The water thread

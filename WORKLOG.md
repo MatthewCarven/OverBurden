@@ -1,5 +1,86 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-07 — The counted divisor, benched: a front is diffusive, the solve moves it more than the divisor does, and the wake M8a named was two cells too wide
+
+**Matthew: "the water divisor first as recommended, bench it please."** Built as a setting rather
+than a change — `SpreadRule.Counted` on `FluidSimulation`'s constructor, one part for the cell and
+one for each side holding less. The visit reads its four sides once before anything moves
+(`ReadSides`), which under the fixed rule is the same reads in the same order, and **the fixed arm
+reproduces the M8b-1 table to the visit** — 39,809,482 at bore 1, 111,222,865 at bore 9 — so the
+restructure moved no digit. Suite 1,134 → 1,179. `--spread fixed|counted|both` on `--fluid`,
+`--spill`, `--lake` and a new `--front` (R's ball on the flat floor of a bitten block, the wet
+radius and the profile along one axis by tick, each rule with and without the solve);
+`--spread=counted` in the game, printed on the `M8b:` setup line. **Fixed stays the default.**
+
+**The wake M8a named was two cells too wide, and only the bench could see it.** M8a's fix was
+"wake the destination's neighbourhood too", and the first build did — six cells. The mine at
+bore 1 then drained at **exactly half a cell a tick, 7.8 L/tick against 14.3**, on both shapes,
+to the litre, in a one-wide shaft where nothing moves sideways at all: the rule was identical and
+the order was the whole of the difference, because the two vertical wakes queued the cell below
+the destination early and the column stopped descending whole. Deriving the set from who *reads*
+the changed cell — a cell's move reads its own amount, the room below it and its four sides, so
+of the cells that read the destination only a side's count can shrink on a gain — gives four
+cells, not six. Trimmed, bore 1 is 15.1. **The completeness argument was true of both wakes; the
+narrower one is the right one because the trajectory is the visit order.** Seven recipes, five
+caught: the dropped destination wake by the real-terrain fuzz and the obstructed-floor fuzz, **and
+not by M8a's own 5 L on an 8×8 floor**, kept as a regression and recorded as not the shape that
+catches it today; `k` for `k + 1` fails eleven; an equal side counted as lower fails the three-cell
+row; a rock side counted fails three; a quiescence check reading the fixed rule fails exactly the
+test written for it (four millilitres apart with one lower side). The two identities are the six-
+wake for the four (the suite cannot see it; the bench can) and a no-op.
+
+**The prediction in the previous entry was wrong in the way `--front` was built to show.** All
+Release, machine control 1.02–1.04×, the four-side wake; the six-wake arm is in brackets where it
+differs:
+
+```
+                                             fixed                 counted
+--front  R's 10,000 L on a flat floor
+  wet radius at tick 20 / 100 / 500          13 / 22 / 38          15 / 26 / 44
+  ticks to rest / visits / ms per tick       7,825 / 48.7M / 0.67  6,705 / 45.1M / 1.12
+--front  + the solve at every boundary
+  wet radius / wet cells at tick 20          20 / 1,090            35 / 2,716   [38 / 3,218]
+  ticks to rest / visits                     98 / 193k             101 / 191k   [70 / 203k]
+--spill  10,000 L, automaton alone           9,111 / 25.0M         6,628 / 15.4M
+         + hand-off  ticks / visits / CPU    170 / 182k / 27 ms    65 / 75k / 18 ms   [187 / 257k / 60 ms]
+         + hand-off + settle                 18 ticks              15
+--spill  50,000 L + hand-off                 314 / 939k / 172 ms   106 / 303k / 77 ms  [463 / 1.32M / 373 ms]
+         + hand-off + settle                 29                    27
+--fluid  mine, L/tick at bore 1 / 3 / 9      14.3 / 24.6 / 92.1    15.1 / 31.3 / 106.0  [7.8 / 30.4 / 104.6]
+         ms/tick at bore 1 / 3 / 9           0.53 / 0.86 / 3.21    0.88 / 1.49 / 5.21
+--fluid  chamber bore 3, settle              1,915 / 5.57M         1,471 / 3.93M
+         chamber bore 3, settle + solve      44 ticks              67
+--lake   share 8, solve visited / automaton  172k / 47.6k          242k / 80.1k
+```
+
+- **A pool's front is diffusive, and a divisor moves diffusion as its square root.** The pair
+  arithmetic was right — half at a straight front — and it buys a fifth more radius at a given
+  tick, not twice, because the interior of a mound has two or three lower sides and the front is
+  gated by the litre floor; 1.5× the diffusivity is 1.22× the reach. It costs ~1.7× per tick on
+  the flat floor, because every transfer queues more cells. **Fourth outing for a plan being
+  right about the shape and wrong about the size, and the first where the size was a square
+  root.**
+- **The front the player sees is the solve's, and the counted rule nearly doubles it once the
+  sheet is level.** Fixed with the solve at every boundary reaches radius 20 at tick 20 against 13
+  alone; counted with the solve reaches 35, over two and a half times the cells, a sheet of
+  4,145 mL against one of 9,934. At a levelled edge the count is one and the edge cell gives
+  half. The play runs the settle after two quiet ticks, so what Matthew saw was nearer the
+  fixed-plus-solve row than the fixed row; the previous entry's *"`--settleafter=0` does not move
+  the front"* was reasoning, and it is wrong — the solve moves the front more than the divisor.
+- **A spill with the hand-off is the clear win, and the six-wake arm had it as a loss.** 65 ticks
+  against 170 with 41% of the visits and 64% of the CPU at 10,000 L; 106 against 314 with 32% and
+  45% at 50,000 L. The wider wake had made the same arm 187 and 463 ticks at twice the CPU, which
+  is the order finding seen from the other side.
+- **A flood drains faster and costs more per tick.** Bore 9 106 L/tick against 92, bore 3 31
+  against 25, at 1.6–1.7× the ms/tick; the chamber's settle 1,471 ticks against 1,915 with 29%
+  fewer visits, and with the solve 67 against 44. The lake at rest costs 1.4× the solve's visits
+  and 1.7× the automaton's. In the Debug build the 2 Hz tick that held at 9,000–16,000 active
+  would hold at roughly 6,000–10,000; the water thread is the answer to that.
+- **Recommendation: the default stays fixed and Matthew plays `--spread=counted`.** The question
+  is a look, the row that answers it is the solve's, and the counted rule nearly doubles that row.
+  If it reads right the default flips and the water thread absorbs the per-tick cost. Recorded in
+  TODO beside M8a's decision, with the revisit trigger.
+
 ## 2026-09-07 — The spread rule, played: "the amount of water that spreads into empty cells is a little low"
 
 Matthew stabbed `R` 172 times on the fresh world (1,720,000 L, a ball of radius 19 with 350 kL

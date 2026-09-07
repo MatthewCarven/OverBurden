@@ -843,12 +843,17 @@ public class FluidSimulationTests
     // ---------------------------------------------------------------- the fuzz
 
     [Theory]
-    [InlineData(0x5EEDUL)]
-    [InlineData(0xA11CEUL)]
-    [InlineData(0xBEEFUL)]
-    [InlineData(0xC0FFEEUL)]
-    [InlineData(1UL)]
-    public void OnRealTerrainItConservesAndItStops(ulong seed)
+    [InlineData(0x5EEDUL, SpreadRule.Fixed)]
+    [InlineData(0xA11CEUL, SpreadRule.Fixed)]
+    [InlineData(0xBEEFUL, SpreadRule.Fixed)]
+    [InlineData(0xC0FFEEUL, SpreadRule.Fixed)]
+    [InlineData(1UL, SpreadRule.Fixed)]
+    [InlineData(0x5EEDUL, SpreadRule.Counted)]
+    [InlineData(0xA11CEUL, SpreadRule.Counted)]
+    [InlineData(0xBEEFUL, SpreadRule.Counted)]
+    [InlineData(0xC0FFEEUL, SpreadRule.Counted)]
+    [InlineData(1UL, SpreadRule.Counted)]
+    public void OnRealTerrainItConservesAndItStops(ulong seed, SpreadRule spread)
     {
         // Irregular terrain from the real generator rather than a tank. A hand-built basin makes
         // the automaton's easy case its only case, and this project has been caught by that
@@ -870,7 +875,7 @@ public class FluidSimulationTests
         int surface = generator.SurfaceHeightAt(0, 0);
         var terrain = new GeneratedTerrain(
             generator, -16, surface - 24, -16, 15, surface + 7, 15);
-        var sim = new FluidSimulation(terrain);
+        var sim = new FluidSimulation(terrain, spread: spread);
 
         var random = new Random((int)(seed & 0x7FFFFFFF));
         long rejected = 0;

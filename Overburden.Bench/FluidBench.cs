@@ -362,7 +362,8 @@ internal static class FluidBench
         int chambers,
         double budgetMillis,
         string solve,
-        int settleShare)
+        int settleShare,
+        SpreadRule[] spreads)
     {
         if (solve is not ("wait" or "solve" or "both"))
         {
@@ -429,18 +430,21 @@ internal static class FluidBench
 
         foreach (int bore in bores)
         {
-            if (solve != "solve")
+            foreach (SpreadRule spread in spreads)
             {
-                RunArm(
-                    Make(generator, shape, bore, depth, spanMetres, chambers),
-                    lakeLitres, ticks, bore, settleCap, budgetMillis, solve: false, settleShare);
-            }
+                if (solve != "solve")
+                {
+                    RunArm(
+                        Make(generator, shape, bore, depth, spanMetres, chambers),
+                        lakeLitres, ticks, bore, settleCap, budgetMillis, solve: false, settleShare, spread);
+                }
 
-            if (solve != "wait")
-            {
-                RunArm(
-                    Make(generator, shape, bore, depth, spanMetres, chambers),
-                    lakeLitres, ticks, bore, settleCap, budgetMillis, solve: true, settleShare);
+                if (solve != "wait")
+                {
+                    RunArm(
+                        Make(generator, shape, bore, depth, spanMetres, chambers),
+                        lakeLitres, ticks, bore, settleCap, budgetMillis, solve: true, settleShare, spread);
+                }
             }
         }
 
@@ -466,7 +470,8 @@ internal static class FluidBench
     /// pass costs, which is the number the play reported as a quarter-second hitch twice a second.
     /// </summary>
     internal static int RunLake(
-        WorldGenerator generator, string machineControl, bool isDebug, int chambers, int ticks, int settleShare)
+        WorldGenerator generator, string machineControl, bool isDebug, int chambers, int ticks, int settleShare,
+        SpreadRule[] spreads)
     {
         var example = new ChamberTerrain(generator, 0, 0, shaftVoxels: 1, depthMetres: 2, chambers);
         int cells = (2 * example.HalfSpan) * (2 * example.HalfSpan);
@@ -487,23 +492,29 @@ internal static class FluidBench
             + $"({SheetSettle.DefaultSettleAfterTicks} quiet ticks; a draw is not inflow).");
         Console.WriteLine();
         Console.WriteLine(
-            "  share    passes   levelled   under    stepped   visited      visited    written      written    longest   solve     automaton   awake");
+            "  spread    share    passes   levelled   under    stepped   visited      visited    written      written    longest   solve     automaton   awake");
         Console.WriteLine(
-            "                               share              cells        /pass      cells        /pass      pass ms   ms/tick   visits      mean");
+            "                                         share              cells        /pass      cells        /pass      pass ms   ms/tick   visits      mean");
         Console.WriteLine(
-            "  ------   ------   --------   ------   -------   ----------   --------   ----------   --------   -------   -------   ---------   -------");
+            "  -------   ------   ------   --------   ------   -------   ----------   --------   ----------   --------   -------   -------   ---------   -------");
 
         // Warm by call count, on a small lake, both paths: the first pass over a 147,456-cell lake
         // otherwise runs in tier-0 code being promoted mid-flood, and read 1,411 ms against a
         // warm 24 — the watershed bench's finding, on the solve.
-        foreach (int share in new[] { 0, settleShare })
+        foreach (SpreadRule spread in spreads)
         {
-            RunLakeArm(new ChamberTerrain(generator, 0, 0, shaftVoxels: 1, depthMetres: 2, chambers: 2), 40, share, print: false);
+            foreach (int share in new[] { 0, settleShare })
+            {
+                RunLakeArm(new ChamberTerrain(generator, 0, 0, shaftVoxels: 1, depthMetres: 2, chambers: 2), 40, share, spread, print: false);
+            }
         }
 
-        foreach (int share in settleShare == 0 ? [0] : new[] { 0, settleShare })
+        foreach (SpreadRule spread in spreads)
         {
-            RunLakeArm(new ChamberTerrain(generator, 0, 0, shaftVoxels: 1, depthMetres: 2, chambers), ticks, share, print: true);
+            foreach (int share in settleShare == 0 ? [0] : new[] { 0, settleShare })
+            {
+                RunLakeArm(new ChamberTerrain(generator, 0, 0, shaftVoxels: 1, depthMetres: 2, chambers), ticks, share, spread, print: true);
+            }
         }
 
         Console.WriteLine();
@@ -517,9 +528,9 @@ internal static class FluidBench
     private const int LakeDrainCells = 10;
     private const int LakeDrainMillilitres = 800;
 
-    private static void RunLakeArm(ChamberTerrain terrain, int ticks, int share, bool print)
+    private static void RunLakeArm(ChamberTerrain terrain, int ticks, int share, SpreadRule spread, bool print)
     {
-        var sim = new FluidSimulation(terrain);
+        var sim = new FluidSimulation(terrain, spread: spread);
         int half = terrain.HalfSpan;
         int floorY = terrain.FloorY;
         for (int x = -half; x < half; x++)
@@ -582,7 +593,7 @@ internal static class FluidBench
 
         Console.WriteLine(string.Create(
             CultureInfo.InvariantCulture,
-            $"  {share,6}   {settle.Settles,6:N0}   {settle.SheetsLevelled,8:N0}   {settle.SheetsUnderShare,6:N0}   "
+            $"  {spread.ToString().ToLowerInvariant(),-7}   {share,6}   {settle.Settles,6:N0}   {settle.SheetsLevelled,8:N0}   {settle.SheetsUnderShare,6:N0}   "
             + $"{settle.SheetsStepped,7:N0}   {settle.CellsVisited,10:N0}   "
             + $"{(settle.Settles == 0 ? 0 : settle.CellsVisited / (double)settle.Settles),8:N0}   "
             + $"{settle.CellsWritten,10:N0}   "
@@ -612,7 +623,7 @@ internal static class FluidBench
 
     private static void RunArm(
         DugTerrain terrain, long lakeLitres, int ticks, int bore, int settleCap, double budgetMillis,
-        bool solve, int settleShare)
+        bool solve, int settleShare, SpreadRule spread)
     {
         long budgetTicks = budgetMillis > 0
             ? FluidSimulation.BudgetTicks(TimeSpan.FromMilliseconds(budgetMillis))
@@ -621,14 +632,14 @@ internal static class FluidBench
         long tunnelCells = terrain.VoidCells();
         VoxelPos[] mouth = [.. terrain.Mouth()];
 
-        var sim = new FluidSimulation(terrain);
+        var sim = new FluidSimulation(terrain, spread: spread);
         long lake = lakeLitres * FluidConstants.MillilitresPerLitre;
         long offered = lake;
 
         // Promote the tick before anything is timed. Same reason the watershed bench warms by call
         // count rather than by wall clock: tiered compilation promotes after about thirty calls,
         // and a warm-up capped by time under-warms exactly when the subject gets slower.
-        var warm = new FluidSimulation(terrain);
+        var warm = new FluidSimulation(terrain, spread: spread);
         foreach (VoxelPos cell in mouth)
         {
             warm.Add(cell, FluidConstants.CellCapacityMillilitres);
@@ -787,7 +798,7 @@ internal static class FluidBench
             + $"{sim.Grid.HeldCellCount,7:N0}   {sim.Grid.PanelCount,6:N0}   "
             + $"{sim.Grid.PanelBytes / 1024.0 / 1024.0,4:F1}   "
             + $"{(settled.Settled ? settled.Ticks.ToString("N0", CultureInfo.InvariantCulture) : "NEVER"),6}   "
-            + $"{(conserved ? "exact" : "*** NO ***"),9}   {(solve ? "solve" : "wait")}"));
+            + $"{(conserved ? "exact" : "*** NO ***"),9}   {(solve ? "solve" : "wait")}/{spread.ToString().ToLowerInvariant()}"));
 
         string verdict = settled.Settled
             ? (sim.VerifyQuiescent() ? "reached rest, and the rest is real." : "*** STOPPED WITH MOVES AVAILABLE ***")
