@@ -1,5 +1,42 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-07 — The counted rule played, read off the log: the identities hold, `R` was never pressed, and the settle cannot fire on a world with a breached lake
+
+**Matthew: *"I think its good? can you check the logs please."*** The session ran
+`--spread=counted` — printed on the setup line — for 2,210 ticks on the played world, and the
+log says three things.
+
+- **Everything that is an identity held.** `held == injected + drawn + loaded − removed −
+  displaced − handed − evicted` exact on all 256 reports, `received == handed` exact, `paused`
+  0 on every report. `displaced` was 3,693 L, and it arrived on the report where `M6c:` gained a
+  chunk fill of 32,768 voxels: the fill deleting the water it filled, not the walk. The previous
+  session (fixed rule, 172 relay stabs) had 401,977 L displaced the same way — three steps, each
+  on a fill (7,925 voxels → 170 L, 67,346 → 339,191, 100,114 → 401,977). **A fill into a flooded
+  chamber deletes a third of a megalitre, reported and not conserved**; whether it should push
+  the water aside is recorded for M9's placement pass. The M8b-4c play check is also done by
+  this reading: the first session quit at `936,458 L in 58 row(s)`, the next open's `loaded`
+  reached 936,458 exactly, then 965,492 once two evicted panels (29,034 L) were read back —
+  `loaded − evicted` is the file.
+- **`R` was never pressed** (`injected 0 L`), so the observable the bench was built around was
+  not looked at. What the play showed was the world's own drain, ~350 L/tick for 1,400 ticks,
+  and then chunk bites under lakes: 2.4 ML drawn in 200 ticks, 187,021 active, the longest tick
+  526 frames, the surface rebuild 39 ms on the main thread and an autosave 66 ms. That is the
+  Debug 2 Hz cliff at the counted rule's 1.7× — the water thread's case, and the bench entry
+  predicted it in the shape of "holds at fewer active cells".
+- **The settle ran 0 passes in 2,210 ticks.** `SheetSettle` counts quiet ticks over the whole
+  automaton, and the portal drain adds at every boundary while a lake stands over a breach, so
+  `--settleafter=2` never fires on this world; the previous session, whose inflow was pours,
+  ran 25. **So what Matthew saw was the automaton's row — radius 15 against 13 — and not the
+  solve's 35 against 20, and the counted rule has still not been seen with the solve in play.**
+  Every finding that reads "the front the player sees is the solve's" is about a world without a
+  breach. Two levers recorded and not built, under M8b-3b: a per-sheet or per-chunk quiet count,
+  which is the natural fit once the water thread's near/far order exists, or a cadence under
+  inflow. Both change what a boundary does, so they wait for the thread's first slice.
+
+**Verdict recorded as a provisional yes.** The trigger for flipping the default — *the first
+play that reads the counted front as right* — wants `R` on the fresh world, where the settle can
+fire and the row the rule nearly doubles is the one on screen. The default stays fixed.
+
 ## 2026-09-07 — The counted divisor, benched: a front is diffusive, the solve moves it more than the divisor does, and the wake M8a named was two cells too wide
 
 **Matthew: "the water divisor first as recommended, bench it please."** Built as a setting rather

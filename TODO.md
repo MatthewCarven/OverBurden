@@ -3665,6 +3665,22 @@ part is the automaton and its oracles, M8a-2 is the measurement.
         it is the solve's. If it reads right the default flips and the water thread absorbs the
         per-tick cost. **Revisit trigger for the fixed rule: the first play that reads the
         counted front as right.**
+      - **Played (2026-09-07, evening) — read off the log; the pool's edge is not yet judged.**
+        Matthew: *"I think its good?"* The session ran `--spread=counted` (printed on the setup
+        line) for 2,210 ticks on the played world: the identity `exact` on all 256 reports,
+        `received == handed` exact, `paused` 0 throughout, and `displaced` 3,693 L — all of it at
+        one chunk fill (`32768 voxel(s) placed`) into wet cells, which is the fill deleting what
+        it fills, not the walk. **But `R` was never pressed** (`injected 0 L`), so the front the
+        bench was built around was not looked at; what the play showed was the world's own
+        drain (~350 L/tick for 1,400 ticks) and then chunk bites under lakes — 2.4 ML drawn in
+        200 ticks, 187,021 active, the longest tick 526 frames — which is the Debug 2 Hz cliff
+        at the counted rule's 1.7×, the water thread's case rather than the divisor's. **And the
+        settle never ran: 0 passes in 2,210 ticks**, because `SheetSettle`'s quiet counter is
+        global and the portal drain is inflow at every boundary — so what Matthew saw was the
+        automaton's row (15 against 13), not the solve's (35 against 20), and the counted rule
+        has still not been seen with the solve in play. The previous session (fixed rule, pours)
+        ran 25 passes. Recorded as a provisional yes; the judgement the trigger names wants `R`
+        on the fresh world, where the settle can fire.
 - [x] **Termination has a proof, not a hope** — a sideways move strictly decreases the sum of
       squares (`(k+1−2d)Σt² ≤ −5Σt²` for `k ≤ 4`, `d = 5`), a vertical move strictly decreases
       Σ(amount × Y) which is bounded below because an unloaded voxel is solid, and the pair
@@ -4057,6 +4073,21 @@ finding without the coarser-tolerance fallback.
             - [ ] **Play: does a tunnel floor levelling itself in one tick behind a creeping front
                   read right, and does *K* = 0's flat stream?** `--settleafter=` is the sweep; the
                   soak's look is deferred to M8c with the hand-off's decision.
+            - [ ] **The quiet counter is global, and a lake draining into the mine is inflow
+                  forever (2026-09-07, read off the play log).** `SheetSettle` resets its count
+                  whenever the automaton's added millilitres or disturbed cells moved, over the
+                  whole world; the portal drain adds at every boundary while any lake stands over
+                  a breach, so on the played world the solve ran **0 passes in 2,210 ticks** at
+                  `--settleafter=2` — the mine's flood is never levelled, and every finding that
+                  says "the front the player sees is the solve's" is about a world without a
+                  breach. The previous session, whose inflow was pours that stop, ran 25. Two
+                  levers, neither built: count quiet per sheet or per chunk (a sheet the drain
+                  does not feed goes quiet on its own — the natural fit once the water thread's
+                  near/far order exists), or a cadence under inflow (a pass every *N* boundaries
+                  while inflow persists, which `--settleafter=0` does at every one). The bench
+                  arm is `--fluid` with `--fluidsolve solve` while the lake still drains, which
+                  today's solve row runs only after the flow window. Decide with the water
+                  thread's first slice, since both change what a boundary does.
             - [x] **The solve and the hand-off had a seam.** A levelled sheet was asleep without a
                   visit and the hand-off reads visits: 10,558 L handed in the relay's window with
                   the settle off against 4,178 with it on. The solve lists what it levelled and
@@ -4178,14 +4209,25 @@ finding without the coarser-tolerance fallback.
             in 122 ms, first draw 10.1 → 10.3 s, identity exact with `evicted`; the bench's
             evict arm rests where the keep arm rests, the visits differing by the arrival wakes
             alone, a row 280 µs to write and 152 µs to read (Release). The r6 control unchanged.
-            - [ ] **Play check**: `start.cmd` on the fresh world, pour with `R`, fly away and
+            - [x] **Play check**: `start.cmd` on the fresh world, pour with `R`, fly away and
                   back, quit and reopen. Read `evicted` and `loaded` on the `M8b:` line, `paused`
                   at zero once every chunk is home, `displaced` at zero, the identity `exact`; the
                   `M8b: the world file holds` line under `at quit`, which the next open's `loaded`
                   reaches once the wet chunks are home; and the `M6:` line's `fluid N row(s) …
                   loaded off the lane (ms)`. What a person can see and the log cannot: a lake
                   that pops in a beat after its terrain, and any water that looks wrong at a
-                  chunk face after a turnaround.
+                  chunk face after a turnaround. **Read 2026-09-07 across two sessions**: the
+                  first quit at `936,458 L in 58 row(s)` and the next open's `loaded` reached
+                  936,458 L exactly, then 965,492 once two evicted panels (29,034 L) were read
+                  back — `loaded − evicted` is the file; 58 rows off the lane in 10.2 ms; `paused`
+                  0 on every report of both sessions; the identity exact throughout. **`displaced`
+                  was not zero and it was never the walk**: 401,977 L in the first session and
+                  3,693 in the second, each step landing on the report where `M6c:` gained a
+                  chunk fill — 7,925 voxels → 170 L, 67,346 → 339,191, 100,114 → 401,977. A fill
+                  into a flooded chamber deletes the water it fills, reported and not conserved;
+                  whether it should push the water aside instead is a design question for M9's
+                  placement pass, with a third of a megalitre as its first number. Matthew's
+                  reading of the look: *"I think its good?"* — nothing reported wrong at a face.
             - [ ] **Lever, not built: `FluidGrid.Restore` writes a lake panel cell by cell** —
                   ~32,768 `Write` calls on the sim thread inside the apply, the p99 frame 33 →
                   58 ms on the played-world probe. A bulk restore of the dense form with the

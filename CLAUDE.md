@@ -73,8 +73,10 @@ Run the game:
 start.cmd
 ```
 
-**`start.cmd` passes `-- --lightbudget=16 --adaptive=1` itself** — the first since 2026-09-03,
-Matthew's "lighting switch", and the second since 2026-09-06, the adaptive view radius. It launches the Debug build, where a derive is ~1.4 ms and the 4 ms default gives two or
+**`start.cmd` passes `-- --lightbudget=16 --adaptive=1 --spread=counted` itself** — the first since 2026-09-03,
+Matthew's "lighting switch", the second since 2026-09-06, the adaptive view radius, and the third since
+the evening of 2026-09-07, Matthew's own edit after the counted rule's first play: **the play arm is the
+counted rule, the code's default is still fixed**, and a later `--spread=fixed` wins. It launches the Debug build, where a derive is ~1.4 ms and the 4 ms default gives two or
 three a frame, which is what lit a mined-out room over tens of seconds. Anything you give
 `start.cmd` lands after that bare `--` as a game flag, and a later `--lightbudget=` wins. **The
 pipeline default stays 4 ms**, because every recorded measurement was taken at it and a profile
@@ -487,7 +489,16 @@ flood drains 5–27% faster at 1.6–1.7× the ms/tick**, which in Debug is a 2 
 fewer active cells; and **the wake M8a named was two cells too wide** — six neighbours of the
 destination reordered a one-wide shaft's column and halved its drain with the rule untouched, the
 four sides are the complete set, and only the bench could see it. The fixed arm reproduces the
-M8b-1 table to the visit. The M8b-4c play check below is still to do. The paragraph below is the
+M8b-1 table to the visit. **Played the same evening, read off the log (2026-09-07): the rule ran
+2,210 ticks on the played world with every identity exact and `paused` 0, `displaced` only where
+a chunk fill deleted what it filled — but `R` was never pressed, and the settle ran 0 passes,
+because its quiet counter is global and a lake draining through a breach is inflow at every
+boundary (TODO under M8b-3b).** So the counted front has been seen without the solve and the
+verdict is a provisional *"I think its good?"*; the judgement the trigger names still wants `R` on
+the fresh world. Matthew put `--spread=counted` into `start.cmd` himself the same evening, so every
+play from here is the counted arm unless a later `--spread=fixed` says otherwise; the code's default
+is unchanged. The M8b-4c play check is done — the quit's litres reached the next open's
+`loaded` exactly across two sessions. The paragraph below is the
 night's state, kept for the reasoning.
 
 **Where the night of 2026-09-07 left off. M8b-4c is built and unplayed — the panel leaves RAM with
