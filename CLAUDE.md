@@ -23,7 +23,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | **Elements, and whether to "just implement chemistry"** — a brainstorm with Matthew, 2026-09-03. Notes rather than a plan. The recommendation is *geology that reacts to water, with machine recipes as the chemistry set*; the element table says why each material would exist. **Read before M8c reads `permeability` and before M9 reads `supportDistance` — both have been in the material JSON unread since M1, and the trap is a constant shipping green.** |
 | [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **Planned 2026-09-02; M8a built the same day; M8b split four ways and M8b-1 built 2026-09-03; M8b-2 planned 2026-09-05 and all three parts built the same day, both open decisions taken as recommended — water crosses the seam in the game; M8b-3 planned and built the same day: the hand-off (3a) measured, the settle (3b) built and priced against the chamber, both mines and the played world, the spill's look deferred to M8c and the settle's interval an estimate with `--settleafter=` as the sweep.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it. **Its M8b section records a gap the plan had**: a flooded mine has no Tier A body, so resting mine water is stored, and the settle is a solve. Read the tick-budget item in TODO before M8b-2. |
 | [docs/ADAPTIVE-RADIUS-PLAN.md](docs/ADAPTIVE-RADIUS-PLAN.md) | **The adaptive view radius**, Matthew's proposal from the sprint corridor, planned and **built 2026-09-06**: fall to the 27-chunk floor while moving with a derive backlog, climb back a ring at a time while the derive is idle enough for one more. **Its "Built" section records that the plan's grow rule — a dwell — was wrong, and the 7 m/s corridor said so on its first run**; the rule is the light step's share of its budget now. Read the corridor worklog entry before it: the floor is a cliff edge, not a slope. |
-| [docs/WATER-THREAD-PLAN.md](docs/WATER-THREAD-PLAN.md) | **The water thread**, Matthew's question of 2026-09-07, planned and **not started**: near water at 2 Hz and far water as available (an ordering rule, no thread), a copy-on-write holdability bitset (the terrain a worker can read), and the tick as a scheduler job. **Placed after M8b-4c and before M8c**; all eight decisions taken as recommended. Read before touching the tick's order or its home. |
+| [docs/WATER-THREAD-PLAN.md](docs/WATER-THREAD-PLAN.md) | **The water thread**, Matthew's question of 2026-09-07. **Slice 1 — the near/far order — was planned and built 2026-09-09** and its planning pass corrected the slice's own mechanism twice, which is why that pass is worth reading before the code; slice 2 is **priced and parked**, slice 3 unstarted. **Placed after M8b-4c and before M8c.** Read before touching the tick's order or its home. |
 | [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md) | **The retained-chunk cache**, planned 2026-09-03, **slice 1 built the same day and slice 2 on 2026-09-04**: chunks leaving the box keep their voxels, column and derived light in a byte-capped cache, so a turnaround costs no load, no generate and no derive. **Both "built" sections record where the build departed from the plan** — a column rule the plan did not have, a column push that became a check at revival, and the three older light defects slice 2's walk found. Read the slice 2 section before touching `LightPropagator`. |
 | [docs/SCALE.md](docs/SCALE.md) | **How many voxels and cells exist at each view distance, what one full sweep costs, and what each system actually iterates.** Read before designing anything that wants to check the world periodically — M7, M8 and M9 all start here. |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
@@ -489,7 +489,25 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-07, late). The counted divisor is built as a setting and benched, the
+**Pick up here (2026-09-09, late). Two things are built and unplayed, and both want the same
+session's play.** **The water thread's slice 1** — near water visited every tick, far water deferred
+past the boundary under a quota of `near + max(--fluidfar, near)` — is on in `start.cmd` as
+`--fluidnear=2`, 0 being the control; and **the settle's wait is per chunk now**, so a portal
+drawing into one cell no longer postpones every sheet in the world (0 passes → 79 on one measured
+invocation). **The play question is one sentence: pour with `R` and see whether the puddle flattens
+instead of lingering**, which is what *"the bulk of the water disperses but the puddles linger"*
+was asking for. Four things from building them, all with numbers in WORKLOG:
+**a sort could not have delivered slice 1** — a tick does not end until its batch does, so far cells
+have to be *deferred past the boundary*; **slice 1 cannot bound a near set that is itself large**,
+because its quota scales with that set (the played world's near set was ~19,600 cells and a tick
+still took ~57 frames); **slice 2 does not pay for itself** — `--terrain` prices the game's read at
+1.47x Release / 1.59x Debug of a baked field's, a third of a visit rather than a multiple, so the
+bitset is slice 3's enabler and both wait; and **the settle's per-chunk wait was moved out of the
+sheets' merge because the recipe that broke it could not be caught** — the survivor of a merge is
+whichever has more cells, so no fixture can put the fed half on the losing side. The paragraph
+below is the state before all that, kept for the reasoning.
+
+**Earlier (2026-09-07, late). The counted divisor is built as a setting and benched, the
 default is still fixed, and the play check is `--spread=counted` passed to `start.cmd` — stab
 `R` on the fresh world and judge the pool's edge; if it reads right, flip the default and let the
 water thread (WATER-THREAD-PLAN.md, next to build) absorb the per-tick cost.** Read the
