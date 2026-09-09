@@ -4282,7 +4282,19 @@ finding without the coarser-tolerance fallback.
                   cost and `TickMisses` is the gate; and **a field is an amortisation that can
                   lose** — 32,768 questions to bake, one saved per read, so baking more than the
                   water uses costs more than it saves.
-                  - [ ] **Play check**: `--fluidfield=0` is the control; the `fluidfield` line
+                  - [x] **Played 2026-09-10 and it was broken; fixed the same day.** *"Is the water
+                        supposed to be stuck or frozen?"* — `PortalDrain.Draw` threw at every
+                        boundary, before the pour, the sync and the tick, so the settle ran 295
+                        times and the tick twice. **The field had baked a chunk whose voxels had not
+                        arrived**: `CanHold` answers false for an unloaded voxel, so 32,768 "solid"
+                        answers were cached as fact and only an edit could have corrected them.
+                        `Build` declines now (`Declined` on the `fluidfield` line), and `IsLoaded`
+                        always delegates to the source. Verified on a copy of the played world:
+                        ticks 9 → 19 and climbing, `displaced 0`, identity exact. Suite 1,206 →
+                        1,208. **The lesson beyond the fix: do not cache an answer whose meaning
+                        depends on state the cache does not capture** — three APIs here have a "no"
+                        that means two things.
+                  - [ ] **Re-play**: `--fluidfield=0` is the control; the `fluidfield` line
                         reports chunks, MiB and misses. Nothing should look different — that is the
                         point — so the check is that it does not, and that `TickMisses` stays 0.
             - [ ] **Slices 2 and 3 — ✅ planning pass done 2026-09-10, eight decisions handed back

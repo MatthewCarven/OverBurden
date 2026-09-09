@@ -1,5 +1,46 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-10 — "Is the water supposed to be stuck or frozen?" — no: the field cached an answer that meant two things
+
+Matthew, on the first play of slice 2. It was a regression and the log named it in one line:
+
+```
+InvalidOperationException: Portal { Inside = Voxel(-1280, -1, -320) ... } refused 15000 mL it had
+room for: the index holds a portal the terrain cannot hold, so an edit never reached it.
+   at PortalDrain.Draw() → Main.UpdateFluid
+```
+
+**Thrown at every boundary, before `PourPending`, before `Sync` and before `Step`.** So the settle
+ran **295 times** while the tick ran **twice**, 130,000 L stayed queued to pour, and the water
+stopped. Nothing about the physics was wrong: the boundary was aborting before it reached the tick.
+
+- **The cause is one line of `IFluidTerrain`'s own documentation, cached.** *"An unloaded voxel is
+  solid... but solid is the right answer for flow and the wrong one for water that is already
+  there"* — `CanHold` returning false means **either rock or not loaded**, which is why `IsLoaded`
+  exists at all. `FluidField.Build` asked `CanHold` 32,768 times for a chunk whose voxels had not
+  arrived, got "solid" for all of them, and **cached a condition as if it were a fact**. Nothing
+  corrected it, because only an *edit* invalidates and no edit was coming. The portal index —
+  built from the real world — knew there was a hole where the field saw rock, and the drain's
+  assertion is precisely the one that catches a terrain disagreeing with the index.
+- **The fix is to decline rather than to bake.** A chunk the source cannot answer for is left
+  `Unknown` and falls through until it can be baked truthfully; `Declined` counts it and is on the
+  `fluidfield` line, because the counter that would have made this visible in the first play was the
+  one I did not print. And **`IsLoaded` now always delegates to the source**: a field outliving its
+  chunk must not vouch for it, or M8b-4a's pause rule is told that water in a departed chunk is safe
+  to move.
+- **Two tests, and the first is the regression verbatim**: a field asked to bake an unloaded chunk
+  bakes nothing, answers `Unknown`, and bakes the truth at the boundary after the chunk arrives.
+  The second is the pause rule's: a departed chunk is not reported loaded because a field survives
+  it.
+- **Verified on a copy of the played world**: no exception, ticks 9 → 19 and climbing against the
+  broken build's 2, visits 419,633 → 781,731 in ten ticks, `displaced 0` and the identity exact.
+  Suite 1,206 → 1,208.
+- **The general shape, worth more than the fix: do not cache an answer whose meaning depends on
+  state the cache does not capture.** This codebase has three APIs where "no" means two things —
+  `VoxelRay.Blocked` against `Missed`, `TryGetMaterial` returning air *and* false, and
+  `CanHold`/`IsLoaded` — and each is documented as such. A cache over the first half of one of them
+  freezes the second half.
+
 ## 2026-09-10 — Slice 2 is built: the tick reads a baked field, and the miss counter is what says slice 3 may start
 
 `FluidField` implements `IFluidTerrain` and is built from one, so the simulation cannot tell which

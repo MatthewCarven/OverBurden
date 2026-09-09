@@ -245,4 +245,55 @@ public sealed class FluidFieldTests
         Assert.DoesNotContain(wet.Offset(1, 1, 1), reachable);
         Assert.DoesNotContain(wet.Offset(3, 0, 0), reachable);
     }
+
+    [Fact]
+    public void AChunkTheWorldCannotAnswerForIsNotBaked()
+    {
+        // <b>The regression this shipped with on 2026-09-10.</b> VoxelFluidTerrain answers "cannot
+        // hold" for an unloaded chunk — right for flow, since water must not enter a chunk that
+        // does not exist — so baking one produces solid rock, and <b>nothing corrects it, because
+        // only an edit invalidates</b>. In play the portal drain found such a chunk and threw at
+        // every boundary: the settle ran 295 times, the tick ran twice, and the water stopped.
+        var world = new LoadableTerrain(new BoxTerrain(0, 0, 0, 63, 63, 63));
+        var field = new FluidField(world);
+        var chunk = new ChunkPos(1, 1, 1);
+        var inside = new VoxelPos(40, 40, 40);
+
+        world.Unload(chunk);
+        field.Sync(new HashSet<ChunkPos> { chunk });
+
+        Assert.Equal(0, field.Chunks);
+        Assert.Equal(1, field.Declined);
+        Assert.Equal(FluidClass.Unknown, field.ClassAt(inside));
+        Assert.False(field.CanHold(inside));
+        Assert.False(field.IsLoaded(inside));
+
+        // And when the world can answer, the next boundary bakes the truth rather than keeping the
+        // lie it would otherwise have cached for as long as the chunk stayed reachable.
+        world.Load(chunk);
+        field.Sync(new HashSet<ChunkPos> { chunk });
+
+        Assert.Equal(1, field.Chunks);
+        Assert.Equal(FluidClass.Holdable, field.ClassAt(inside));
+        Assert.True(field.CanHold(inside));
+        Assert.True(field.IsLoaded(inside));
+    }
+
+    [Fact]
+    public void ADepartedChunkIsNotReportedLoadedJustBecauseItHasAField()
+    {
+        // The pause rule reads IsLoaded to decide whether water may be moved, and water in a chunk
+        // the world has let go is exactly what M8b-4a refuses to move. A field outliving its chunk
+        // must not vouch for it.
+        var world = new LoadableTerrain(new BoxTerrain(0, 0, 0, 63, 63, 63));
+        var field = new FluidField(world);
+        var chunk = new ChunkPos(1, 1, 1);
+        var inside = new VoxelPos(40, 40, 40);
+
+        field.Sync(new HashSet<ChunkPos> { chunk });
+        Assert.True(field.IsLoaded(inside));
+
+        world.Unload(chunk);
+        Assert.False(field.IsLoaded(inside));
+    }
 }

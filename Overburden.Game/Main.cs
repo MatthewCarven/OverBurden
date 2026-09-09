@@ -3779,7 +3779,7 @@ public partial class Main : Node3D
             ? "fluidfield off (--fluidfield=0)\n"
             : $"fluidfield {_field.Chunks:N0} chunk(s), {_field.Bytes / 1024.0 / 1024.0:F2} MiB; "
               + $"{_field.Builds:N0} built, {_field.Forgets:N0} forgotten, "
-              + $"{_field.Invalidations:N0} edited, {_field.Misses:N0} miss(es) of which "
+              + $"{_field.Invalidations:N0} edited, {_field.Declined:N0} declined, {_field.Misses:N0} miss(es) of which "
               + $"{_field.TickMisses:N0} inside a tick — a boundary miss is a pour asking about "
               + "ground no panel has reached yet and is harmless; a tick miss is what "
               + "slice 3 cannot have\n";

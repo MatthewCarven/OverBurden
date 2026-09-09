@@ -90,6 +90,12 @@ public sealed class FluidField : IFluidTerrain
     public long Invalidations { get; private set; }
 
     /// <summary>
+    /// Chunks <see cref="Sync"/> would have baked and could not, because the world could not
+    /// answer for them yet. They fall through until it can.
+    /// </summary>
+    public long Declined { get; private set; }
+
+    /// <summary>
     /// Questions about a chunk with no field, answered by the source instead.
     /// </summary>
     /// <remarks>
@@ -150,12 +156,13 @@ public sealed class FluidField : IFluidTerrain
 
     /// <inheritdoc />
     /// <remarks>
-    /// A chunk with a field is loaded by construction — the field was built from a world that could
-    /// answer for it. Without one the source answers, which is what keeps M8b-4a's pause rule
-    /// unchanged for a chunk nobody has baked.
+    /// <b>Always the source, never the field's own coverage.</b> A field is built only for a chunk
+    /// the world could answer for, but the chunk can unload afterwards while its field is still
+    /// wanted, and answering "loaded" then would tell M8b-4a's pause rule that water in a departed
+    /// chunk is safe to move. It is asked only where <see cref="CanHold"/> has already said no, so
+    /// it is off the hot path; slice 3 replaces it with the captured set.
     /// </remarks>
-    public bool IsLoaded(VoxelPos voxel) =>
-        Bits(voxel.Chunk) is not null || _source.IsLoaded(voxel);
+    public bool IsLoaded(VoxelPos voxel) => _source.IsLoaded(voxel);
 
     /// <summary>
     /// Builds a field for every chunk in <paramref name="reachable"/> that has none, and drops
@@ -197,6 +204,7 @@ public sealed class FluidField : IFluidTerrain
             {
                 Build(chunk);
             }
+
         }
     }
 
@@ -250,10 +258,29 @@ public sealed class FluidField : IFluidTerrain
         _cache = null;
     }
 
-    private void Build(ChunkPos chunk)
+    /// <summary>
+    /// Bakes one chunk, or declines to when the world cannot answer for it yet.
+    /// </summary>
+    /// <remarks>
+    /// <b>Declining is the whole of a defect this shipped with on 2026-09-10.</b>
+    /// <c>VoxelFluidTerrain.CanHold</c> answers <i>false</i> for a chunk that is not loaded — right
+    /// for flow, since water must not enter a chunk that does not exist — so baking one produces a
+    /// field of solid rock, and <b>nothing ever corrects it, because only an edit invalidates</b>.
+    /// In play the portal drain found such a chunk and threw at every boundary: the settle ran 295
+    /// times, the tick ran twice, and the water stopped. An unbakeable chunk is left
+    /// <see cref="FluidClass.Unknown"/> so it falls through to the source and is baked at a later
+    /// boundary, when the world can answer.
+    /// </remarks>
+    private bool Build(ChunkPos chunk)
     {
-        var bits = new byte[BytesPerChunk];
         VoxelPos origin = chunk.OriginVoxel;
+        if (!_source.IsLoaded(origin))
+        {
+            Declined++;
+            return false;
+        }
+
+        var bits = new byte[BytesPerChunk];
 
         // Z, X, Y to match the storage order the index is packed in, so the writes run forward.
         for (int lz = 0; lz < VoxelConstants.ChunkSize; lz++)
@@ -273,6 +300,7 @@ public sealed class FluidField : IFluidTerrain
 
         _chunks[chunk] = bits;
         Builds++;
+        return true;
     }
 
     private static void Set(byte[] bits, int index, bool holdable)
