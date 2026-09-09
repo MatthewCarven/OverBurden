@@ -248,6 +248,39 @@ palette. About 10 MiB at r6.
 - **Cost**: ~10 µs a chunk arrival to build, one 4 KiB clone per edited chunk per tick (a chunk
   bite is one clone, not 32,768).
 
+#### What gets copied is a bit, not a chunk — Matthew, 2026-09-09
+
+*"We have to copy the chunks for the water right?"* **No — one bit per voxel, and slice 1 copies
+nothing at all.** Three things the question is worth pinning before slice 2 is built.
+
+**Copying chunks is possible and is not the cheap part.** The water's inputs *are* knowable at a
+tick boundary — the chunks holding awake cells and their face neighbours, ~1,254 on the played
+world's flood — and M3a's `VoxelsSharedWithJob` is the mechanism, so "mark them shared and let the
+next edit clone" would work. What it would not fix is the read. Today's hot path per neighbour is
+`_chunks.TryGetValue(voxel.Chunk)` — a dictionary lookup on a three-int key — then a palette decode
+in `VoxelChunk.Get`, then `MaterialTable.IsFluid`, and a visit asks it about itself and up to five
+neighbours. **The bench that measured 0.25 µs a visit was reading a baked bitset**; the game reads
+that. So the bitset is not the price of the thread, it is a sim-thread saving that the thread later
+happens to need, which is why slice 2 is priced before any thread exists and stands alone if slice 3
+never happens.
+
+**It is not a memory saving, and the honest number should be stated that way.** 32,768 voxels is
+4 KiB of bits against a chunk's ~2 KB of palette-compressed voxels (M2b: 4.0 MiB over 2,048
+chunks) — **about twice the memory of the thing it summarises**, ~10 MiB at r6. What it buys is an
+indexed bit test instead of three indirections, and an array that can be handed to a reader whole.
+**Lever, not built: a uniform chunk needs one bit rather than 4 KiB** — the light derive's uniform
+closed form (M5c-1) in a second place, and solid rock below the surface is the common case, so the
+10 MiB is an upper bound rather than a figure.
+
+**And the open question is M8c, which is the next milestone after this piece.** MATERIALS-NOTES has
+seepage reading `permeability`, which is a per-material value; a one-bit field cannot express it,
+and baking one immediately before the milestone that needs more than one bit is how a format
+becomes a constraint. Two answers, and the recommendation is the second: widen the field to two
+bits (impermeable / permeable / holdable), or **keep the bit for flow and let seepage ask the world
+at a tick boundary on the sim thread**, since soaking is a boundary-rate process and not a
+per-visit question. Recommended, because it leaves M8c free to read whatever `permeability` turns
+out to mean without a bitset it has already outgrown. **Decide it before slice 2 bakes the field.**
+
 ### Slice 3 — the tick as a job
 
 Each 2 Hz boundary submits one `FluidTickJob` to the M2a scheduler with the captured terrain and

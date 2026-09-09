@@ -4240,7 +4240,13 @@ finding without the coarser-tolerance fallback.
             far cells deferred past the boundary under a per-tick admission quota, `--fluidnear=` /
             `--fluidfar=` the sweeps, 0 rings the control, judged in play first; (2) the readable
             terrain — a copy-on-write holdability bitset per chunk, ~10 MiB at r6, priced on the
-            sim thread before any thread; (3) the tick as a scheduler job per boundary, mutations
+            sim thread before any thread. **Not a copy of the chunks and not a memory saving**
+            (4 KiB of bits against ~2 KB of palette-compressed voxels); it replaces a dictionary
+            lookup, a palette decode and a material-table read per neighbour, up to six a visit,
+            which is why it stands alone if (3) never happens. Two things to settle before it
+            bakes the field: a uniform chunk wants one bit rather than 4 KiB (M5c-1'''s closed form
+            in a second place), and **M8c reads `permeability`, which one bit cannot express** —
+            recommended that the bit stays flow-only and seepage asks the world at a boundary; (3) the tick as a scheduler job per boundary, mutations
             landing at the next boundary, a slow tick lowering the rate, ~8× the Debug throughput.
             All eight decisions taken as recommended. Build (3) when the play reads the flood on
             open as hurting rather than slow. Not started.
