@@ -1,5 +1,35 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-10 — The surface fix is played and good; and slice 3 cannot be built without slice 2, which changes what "one worker" costs
+
+Matthew, on the build carrying the per-chunk settle, slice 1's order and the surface walk: *"I gave
+it a go, pretty awesome."* **Taken as a verdict on the build rather than on any one change** — it is
+a general positive, and the specific question slice 1 is still waiting on (*does the pool at your
+feet keep moving while the mine fills*) has now gone two plays without being separated from the
+others. **That is silence rather than a null**, and the plan's rule stands: drop slice 1's order only
+after a play that had far water and could not tell.
+
+**And a dependency the plan states but which reads as optional until you go to build it: slice 3
+needs slice 2.** Slice 3's paragraph says the tick job is submitted *"with the captured terrain"*,
+and the captured terrain is slice 2's bitset — because the tick asks `CanHold` and `IsLoaded` of the
+streamer's chunk dictionary, which a worker cannot read while the sim thread adds and removes chunks
+in it. So the order Matthew approved — *the surface mesh, then slice 3's single worker* — is really
+**slice 2 then slice 3**, and slice 2 was parked on 2026-09-09 for not paying for itself on speed.
+It still does not; it is the enabler, exactly as recorded, and going to slice 3 is what calls it in.
+
+**One thing that makes slice 2 cheaper than its estimate, found while measuring the surface.** The
+~10 MiB figure assumes a field for every tracked chunk (2,601 at r6 × 4 KiB). **The tick only ever
+asks about chunks that hold water and their face neighbours** — the played world holds 89 wet rows,
+so a lazily built field over the wet set plus its shell is on the order of **a few hundred chunks,
+one to two MiB**, and it is built and dropped with the water rather than with the view. *An estimate,
+from the wet-chunk counts in the play logs.* It also removes the "10 MiB at r6" objection to the
+four-bit form, should M8c want it.
+
+**Recommended: a planning pass over slices 2 and 3 together before any code**, because slice 3's
+paragraph was written before slices 1 and 2 were measured and three of its inputs have moved — the
+budget's ~8x is measured now, the terrain field is lazily-wet rather than 10 MiB of view, and the
+surface walk can ride the tick job instead of needing a snapshot of its own.
+
 ## 2026-09-10 — The surface mesh was not a threading problem: the walk asked the grid per cell where an array read would do, 28.38 ms → 12.09
 
 The plan was *the surface mesh off the main thread, then slice 3's single worker*. Splitting the
