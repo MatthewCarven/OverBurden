@@ -566,6 +566,56 @@ mutations (queue to the boundary)      reads (must wait for the boundary)
    reads the flood on open as the thing that hurts rather than the thing that is slow*. Slice 2 is
    not, once slice 3 is wanted.
 
+### Slice 3a — the grid belongs to the tick: begun 2026-09-10, held for a decision
+
+**Written, working, and stashed rather than committed** (`git stash list` → *slice-3a-wip: the grid
+belongs to the tick*). The stash is a convenience; everything needed to redo it from nothing is
+below.
+
+**Why 3a exists as a slice at all.** A tick has been sliced across frames since M8b's budget slice,
+so *a tick is in flight* is a state that already lasts up to tens of frames — 46 of them for a
+33,961-cell tick on the played world. **Every seam slice 3b has to survive is therefore already
+reachable today, synchronously.** So the rule can be built and exercised with no thread, and 3b
+becomes "change what sets the flag" rather than "introduce the flag and the concurrency together".
+
+**The shape, as built.** `FluidSimulation.Ownership.cs`, a new partial:
+
+- `GridOwnedByTick` — today `TickInProgress`, named separately because it is a claim about
+  ownership rather than about progress. 3b keeps the name and changes what sets it.
+- **Void mutators defer**: `Disturb`, `ChunkArrived`, `Restore`, `Evict` push onto a `List<Deferred>`
+  (a struct of kind + voxel + chunk + panel, in arrival order) and return. `ApplyDeferred()` runs
+  them at the boundary, **before** the settle, the hand-off and the drain, because those read what
+  the edits change.
+- **Reads refuse**: `TakeDirty`, `TakeAllDirty`, `TakeEvicted`, `Reclaim` throw the way
+  `VerifyQuiescent` does — there is no honest value for a grid half-way through a tick, and a
+  caller that has not been taught to wait should be loud rather than silently wrong.
+- **`Add`, `Remove`, `HandOff` assert rather than defer**, because each returns how much it moved
+  and a deferred call cannot answer.
+
+**Three things it found, and the first is why it is held.**
+
+1. **It reverses a documented, tested M8b property.** `FluidSimulation`'s class doc says *"Water may
+   be added, removed or disturbed between slices, and that is the game's case — the relay pours and
+   edits land between frames"*, and `WaterAddedBetweenSlicesIsNeitherLostNorLeftAsleep` and
+   `RemovingWaterBetweenSlicesWakesWhatWasAboveIt` exist to pin it. Decision 7 (taken 2026-09-07)
+   *is* that reversal, so it is authorised — but **14 failures across 6 test names**, and finishing
+   means rewriting the contract those tests were written to state. **That is the decision waiting:
+   confirm the reversal knowingly rather than have it happen as a side effect.**
+2. **`Remove` refusing mid-tick would crash in play.** It is Alt+R, a keypress, which lands on any
+   frame. **Main must queue it the way it already queues pours** (`_relayPendingMillilitres`), after
+   which `Remove` is boundary-only and the assert is right.
+3. **The rule caught a real caller on its first run**, which is the good news: the eviction fuzz —
+   and behind it `ChunkPipeline.SubmitSaves` — calls `TakeEvicted` mid-tick. **That is exactly the
+   autosave seam the planning pass predicted**, surfaced by a failing test rather than by argument.
+
+**To finish 3a**: rewrite the two `BetweenSlices` tests to assert the new contract (a mutation
+between slices is deferred and lands at the boundary, losing nothing), fix the four other failing
+names to reach a boundary before calling, rewrite the class doc paragraph, queue Alt+R in `Main`,
+call `ApplyDeferred()` at the top of the boundary block in `UpdateFluid`, and teach
+`ChunkPipeline.SubmitSaves` to skip the fluid half while `GridOwnedByTick`. Then the break battery.
+
+**Then 3b** (the job) and **3c** (the race battery and the measurement), per the pass above.
+
 ## The decisions, taken 2026-09-07 as recommended
 
 1. A separate piece, after M8b-4c and before M8c.

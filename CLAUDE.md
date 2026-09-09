@@ -489,7 +489,27 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-09, late). Two things are built and unplayed, and both want the same
+**Pick up here (2026-09-10, late). The water thread is three slices in and slice 3 is held on one
+decision.** Built and played since the last note: **slice 1** (near water every tick, far water
+deferred under a quota — `--fluidnear=2` from `start.cmd`), **the settle's per-chunk wait** (a
+portal drawing into one cell no longer postpones every sheet in the world — *"I cannot fault it in
+any way"*), **the surface walk** (28.4 → 12.1 ms, and it was never a threading problem — the walk
+asked the grid per cell where Y being contiguous makes the cell above the next array index), and
+**slice 2** (`FluidField`, the terrain a worker can read — *"Yeah I like it"*). **Slice 3a is
+written, working and stashed** (`git stash list` → `slice-3a-wip`), **held because finishing it
+knowingly reverses M8b's documented "water may be added, removed or disturbed between slices"** —
+14 failures across 6 test names. Read WATER-THREAD-PLAN's "Slices 2 and 3 — the planning pass" and
+"Slice 3a" before touching it; the latter is enough to redo the stash from nothing. **Four things
+worth not rediscovering**: a sort could not have delivered slice 1, because a tick does not end
+until its batch does; **slice 2 does not pay for itself** (the game's read is 1.47x a baked field's,
+a third of a visit) and is slice 3's enabler only; **do not cache an answer whose meaning depends on
+state the cache does not capture** — `CanHold` returning false means *rock or not loaded*, and
+caching it froze the water for a whole play session; and **the roof-open case is battery-gated**, so
+the worst load Tier B can see is an action that costs a charge, which is DESIGN's *slower than
+realtime is accuracy* with a game rule behind it. The paragraph below is the older state, kept for
+the reasoning.
+
+**Earlier (2026-09-09, late). Two things are built and unplayed, and both want the same
 session's play.** **The water thread's slice 1** — near water visited every tick, far water deferred
 past the boundary under a quota of `near + max(--fluidfar, near)` — is on in `start.cmd` as
 `--fluidnear=2`, 0 being the control; and **the settle's wait is per chunk now**, so a portal

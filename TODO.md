@@ -4297,6 +4297,19 @@ finding without the coarser-tolerance fallback.
                   - [x] **Re-played 2026-09-10 — *"Yeah I like it"*.** The check was that nothing
                         should look different, and nothing did. Slice 2 is accepted; slice 3 is
                         unblocked and still gated on its own trigger.
+            - [ ] **Slice 3 — split three ways on contact; 3a written and held 2026-09-10.**
+                  **3a the grid belongs to the tick** (sim thread, no job — a tick in flight already
+                  spans up to 46 frames, so every seam is reachable synchronously), **3b the tick as
+                  a job**, **3c the race battery and the measurement**. 3a is stashed
+                  (`slice-3a-wip`) and fully described in the plan's "Slice 3a" section, which is
+                  enough to redo it from nothing. **It is held on one decision: finishing it
+                  reverses M8b's documented, tested "water may be added, removed or disturbed
+                  between slices"** — decision 7 authorises it, but it is 14 failures across 6 test
+                  names and it rewrites the contract those tests exist to state. Two things it
+                  found: **`Remove` refusing mid-tick would crash in play** (Alt+R is a keypress —
+                  Main must queue it), and **the rule caught `TakeEvicted` being called mid-tick**
+                  by the eviction fuzz and by `ChunkPipeline.SubmitSaves`, which is the autosave
+                  seam the pass predicted.
             - [ ] **Slices 2 and 3 — ✅ planning pass done 2026-09-10, eight decisions handed back
                   with recommendations; see the plan's "Slices 2 and 3 — the planning pass". Build
                   slice 2 once they are answered.** What the pass changed: **the field is an

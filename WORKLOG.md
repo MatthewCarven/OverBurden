@@ -1,5 +1,27 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-10 — Slice 3a is written and held: it reverses a documented M8b property, and that wants saying out loud
+
+Matthew asked for slice 3 and it split three ways on contact. **3a — the grid belongs to the tick —
+is written, works, and is stashed rather than committed** (`slice-3a-wip`), because finishing it
+means knowingly reversing something M8b documented and tested. The design and the recipe to redo it
+from nothing are in WATER-THREAD-PLAN's "Slice 3a" section.
+
+- **A tick in flight is a state that already exists, which is why 3a is a slice at all.** The tick
+  has been sliced across frames since M8b's budget slice — 46 frames for a 33,961-cell tick on the
+  played world — so every seam 3b must survive is reachable today, synchronously. 3b then becomes
+  *change what sets the flag* rather than *introduce the flag and the concurrency together*.
+- **It reverses "water may be added, removed or disturbed between slices", which is in the class doc
+  and pinned by two tests.** Decision 7, taken 2026-09-07, is that reversal, so it is authorised —
+  but the blast radius is **14 failures across 6 test names**, and finishing means rewriting the
+  contract those tests exist to state. **Held for a knowing yes rather than a side effect.**
+- **`Remove` refusing mid-tick would crash in play**: it is Alt+R, a keypress, landing on any frame.
+  Main has to queue it the way it already queues pours, after which the refusal is right.
+- **The rule caught a real caller on its first run**: the eviction fuzz, and behind it
+  `ChunkPipeline.SubmitSaves`, calls `TakeEvicted` mid-tick — **the autosave seam the planning pass
+  predicted, surfaced by a failing test rather than by argument.** That is the design working.
+- **The tree is clean and 1,208 tests pass**; nothing half-done is committed.
+
 ## 2026-09-10 — The high load was six chunks taken out under a lake, and the battery gate turns out to bound Tier B's worst case
 
 Matthew, on the figures in the last play: *"dont mind the new high load score i've set, like I used
