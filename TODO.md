@@ -3681,6 +3681,20 @@ part is the automaton and its oracles, M8a-2 is the measurement.
         has still not been seen with the solve in play. The previous session (fixed rule, pours)
         ran 25 passes. Recorded as a provisional yes; the judgement the trigger names wants `R`
         on the fresh world, where the settle can fire.
+      - [x] **Judged (2026-09-09): *"Well they both look like water?"* — the default stays
+        fixed and the flag came out of `start.cmd`.** The A/B the bench asked for, made on a
+        fresh scratch world with nothing awake: one `R` on flat grass under each rule, same
+        spot. Matthew's count, the pour gone in about 8 s counted against about 9 s fixed —
+        inside one report of each other. The logs: both pours wholly in the basin by tick 20,
+        Tier B empty at quit, the settle 10 passes in each (the world was quiet, so it fired);
+        at tick 9 the *fixed* arm had handed more (4,092 L against 2,455), because its pool
+        stays thicker and whole litres on the ground go first, so the counted rule does not
+        even make a spill vanish sooner. **The trigger read "the first play that reads the
+        counted front as right"; it read as right, and so did fixed, at 1.7× less per tick.**
+        The bench's radius 35 against 20 is a fact about the solve's front at tick 20 that a
+        person watching a 10,000 L pool cannot see. Revisit trigger, narrowed: a spill on
+        screen that reads as syrup, or the water thread making the per-tick cost free — then
+        `--spread=counted` is one flag, already printed on the setup line.
 - [x] **Termination has a proof, not a hope** — a sideways move strictly decreases the sum of
       squares (`(k+1−2d)Σt² ≤ −5Σt²` for `k ≤ 4`, `d = 5`), a vertical move strictly decreases
       Σ(amount × Y) which is bounded below because an unloaded voxel is solid, and the pair

@@ -25,7 +25,8 @@ rem because every recorded measurement was taken at it; this launcher is a play 
 rem --adaptive=1 is the adaptive view radius (docs/ADAPTIVE-RADIUS-PLAN.md): the box falls to the 27-chunk
 rem floor while flying with a derive backlog and grows back a ring at a time while you hang around. Off
 rem by default for the same reason the light budget is: every recorded figure was taken at a fixed radius.
-rem --spread=counted is the Tier B divisor under play judgement since 2026-09-07 (one part for the cell and
-rem one for each side holding less); the code's default is still fixed, and a later --spread=fixed wins.
-"%EXE%" --path Overburden.Game -- --lightbudget=16 --adaptive=1 --spread=counted %*
+rem --spread=counted was passed here from 2026-09-07 to 2026-09-09 for the counted divisor's play; the A/B
+rem on flat grass read the same under both rules ("they both look like water"), so the default, fixed,
+rem stands and the flag is gone. Pass --spread=counted yourself to see the other arm.
+"%EXE%" --path Overburden.Game -- --lightbudget=16 --adaptive=1 %*
 pause

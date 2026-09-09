@@ -1,5 +1,22 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-09 — "Well they both look like water?": the counted divisor is judged, the default stays fixed, and the flag comes out of the launcher
+
+**The A/B the bench asked for, made properly**: a wiped scratch world with nothing awake, one `R`
+on flat grass under `--spread=counted`, then one under `--spread=fixed`, same spot. Matthew: *"Well
+they both look like water?"* — the pour gone in about 8 s counted, about 9 s fixed. The logs put
+both pours wholly in the basin by tick 20 with Tier B empty at quit and the settle firing (10 passes
+each, the world quiet at last), and at tick 9 the *fixed* arm had handed more — 4,092 L against
+2,455 — because its pool stays thicker and the hand-off takes whole litres on the ground first.
+
+**So the trigger fired and closed the other way.** "The first play that reads the counted front as
+right" — it did, and so did fixed, at 1.7× less per tick. The bench's radius 35 against 20 is a
+fact about the solve's front at tick 20 that a person watching a 10,000 L pool on grass cannot
+see; the observable the divisor moves is below the threshold of the eye at this scale, and the
+cost is not. The default stays fixed, `start.cmd` is back to its two flags, and the counted rule
+stays one flag away with its bench and its wake fix intact. Revisit trigger, narrowed: a spill on
+screen that reads as syrup, or the water thread making the tick's cost free. Nothing built.
+
 ## 2026-09-09 — "The bulk of the water disperses but the puddles linger": the settle lever gets its number, and a hole in a lake's bank is a treadmill
 
 **Matthew, on a scratch world (`--world=edge`, counted rule, four sessions):** *"the bulk of the
