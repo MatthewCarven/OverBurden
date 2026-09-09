@@ -1,4 +1,4 @@
-using Overburden.Core.Persistence;
+﻿using Overburden.Core.Persistence;
 using Overburden.Core.Voxels;
 
 namespace Overburden.Core.Fluid;
@@ -134,6 +134,11 @@ public sealed partial class FluidSimulation
             }
 
             _storedAwake.Remove(chunk);
+
+            // The inflow stamp goes with the chunk. A chunk that leaves and comes back has
+            // received nothing since, and a map that only ever grew would hold an entry for
+            // every chunk the world has ever poured into.
+            ForgetInflow(chunk);
         }
     }
 }

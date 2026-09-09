@@ -4104,7 +4104,20 @@ finding without the coarser-tolerance fallback.
             - [ ] **Play: does a tunnel floor levelling itself in one tick behind a creeping front
                   read right, and does *K* = 0's flat stream?** `--settleafter=` is the sweep; the
                   soak's look is deferred to M8c with the hand-off's decision.
-            - [ ] **The quiet counter is global, and a lake draining into the mine is inflow
+            - [x] **✅ Built 2026-09-09 — the quiet counter is per chunk now.** `Add` and a waking
+                  `Disturb` stamp their chunk with the tick; the sheet flood takes the max over the
+                  chunks a sheet touches; a sheet is levelled only when its own chunks have been
+                  quiet for K ticks, and `SheetSettle`'s global gate is gone. **Measured against the
+                  stashed control on one invocation: 0 passes → 79, 0 sheets levelled → 818, handed
+                  50,963 L → 54,912, active at the end 6,436 → 5,721**, for 439 ms of solve in a
+                  40 s window. The flag's meaning is unchanged (`age > K`, not `>= K` — the world
+                  counter zeroed the boundary the inflow landed on, and 80 s-at-2 against 12 s-at-0
+                  hangs on that). **What it does not fix: the sheet that contains the inflow**, which
+                  is the share rule's job and the honest limit of chunk resolution. 12 recipes;
+                  the one that could not be caught — `Union` dropping the fed half — was answered by
+                  moving the question to a walk of the sheet's cells at judgement, so there is no
+                  merge to get wrong.
+            - [ ] ~~**The quiet counter is global, and a lake draining into the mine is inflow~~
                   forever (2026-09-07, read off the play log).** `SheetSettle` resets its count
                   whenever the automaton's added millilitres or disturbed cells moved, over the
                   whole world; the portal drain adds at every boundary while any lake stands over

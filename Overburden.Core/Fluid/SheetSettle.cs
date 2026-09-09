@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 
 namespace Overburden.Core.Fluid;
 
@@ -50,8 +50,6 @@ public sealed class SheetSettle
     public const int DefaultSettleShare = 8;
 
     private readonly FluidSimulation _fluid;
-    private long _addedSeen;
-    private long _disturbedSeen;
 
     public SheetSettle(
         FluidSimulation fluid,
@@ -65,8 +63,6 @@ public sealed class SheetSettle
         _fluid = fluid;
         SettleAfterTicks = settleAfterTicks;
         SettleShare = settleShare;
-        _addedSeen = fluid.AddedMillilitres;
-        _disturbedSeen = fluid.DisturbedCells;
     }
 
     /// <summary>Ticks with no inflow before a pass runs. Zero runs one at every boundary with anything awake.</summary>
@@ -78,8 +74,8 @@ public sealed class SheetSettle
     /// </summary>
     public int SettleShare { get; }
 
-    /// <summary>Consecutive ticks with no inflow, as of the last boundary.</summary>
-    public int QuietTicks { get; private set; }
+    /// <summary>Sheets a pass left alone for standing in a chunk that is still being fed.</summary>
+    public long SheetsNoisy { get; private set; }
 
     /// <summary>Passes run.</summary>
     public long Settles { get; private set; }
@@ -126,12 +122,7 @@ public sealed class SheetSettle
     /// </summary>
     public SheetLevelResult? AtBoundary()
     {
-        bool inflow = _fluid.AddedMillilitres != _addedSeen || _fluid.DisturbedCells != _disturbedSeen;
-        _addedSeen = _fluid.AddedMillilitres;
-        _disturbedSeen = _fluid.DisturbedCells;
-        QuietTicks = inflow ? 0 : QuietTicks + 1;
-
-        if (QuietTicks < SettleAfterTicks || _fluid.ActiveCellCount == 0)
+        if (_fluid.ActiveCellCount == 0)
         {
             return null;
         }
@@ -143,7 +134,7 @@ public sealed class SheetSettle
     public SheetLevelResult Run()
     {
         long before = Stopwatch.GetTimestamp();
-        SheetLevelResult result = _fluid.LevelSheets(SettleShare);
+        SheetLevelResult result = _fluid.LevelSheets(SettleShare, SettleAfterTicks);
         double millis = (Stopwatch.GetTimestamp() - before) * 1000.0 / Stopwatch.Frequency;
 
         Settles++;
@@ -158,6 +149,7 @@ public sealed class SheetSettle
         SheetsSkipped += result.Skipped;
         SheetsUnderShare += result.UnderShare;
         SheetsStepped += result.Stepped;
+        SheetsNoisy += result.Noisy;
         CellsVisited += result.CellsVisited;
         CellsWritten += result.CellsWritten;
         MillilitresMoved += result.MillilitresMoved;

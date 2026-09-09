@@ -1,4 +1,4 @@
-using Overburden.Core.Voxels;
+﻿using Overburden.Core.Voxels;
 
 namespace Overburden.Core.Fluid;
 
@@ -24,7 +24,7 @@ namespace Overburden.Core.Fluid;
 /// <param name="CellsWoken">Cells queued for the next tick because the solve gave them something to do.</param>
 public readonly record struct SheetLevelResult(
     int Sheets, int Levelled, int Packed, int Skipped, int UnderShare, int Stepped, int LargestSheet,
-    int CellsVisited, int CellsWritten, long MillilitresMoved, int CellsWoken)
+    int CellsVisited, int CellsWritten, long MillilitresMoved, int CellsWoken, int Noisy)
 {
     /// <summary>A pass that found nothing to change.</summary>
     public bool Idle => CellsWritten == 0;
@@ -163,6 +163,10 @@ public sealed partial class FluidSimulation
     private readonly List<int> _sheetGivers = [];
     private readonly List<int> _sheetTakers = [];
 
+    // How many ticks a sheet's chunks must have gone without receiving before it may be levelled.
+    // Zero levels under inflow too. Set for the length of one pass.
+    private int _quietTicks;
+
     /// <summary>
     /// One flood's bookkeeping. <see cref="Parent"/> is union-find: a sheet whose parent is not
     /// itself was joined to another and its lists are empty.
@@ -242,7 +246,8 @@ public sealed partial class FluidSimulation
     /// cells found from a few hundred seeds; a flooded mine's floor is one sheet found from its
     /// front.
     /// </remarks>
-    public SheetLevelResult LevelSheets(int share = 0) => LevelSheets(Pending, share);
+    public SheetLevelResult LevelSheets(int share = 0, int quietTicks = 0) =>
+        LevelSheets(Pending, share, quietTicks);
 
     /// <summary>
     /// Levels every sheet reachable from the given cells, under the same share rule. At a tick
@@ -255,10 +260,13 @@ public sealed partial class FluidSimulation
     /// zero</b>: the early stop assumes every unsettled cell neighbours a seed, which only the
     /// wake rule guarantees.
     /// </remarks>
-    public SheetLevelResult LevelSheets(IReadOnlyList<VoxelPos> seeds, int share = 0)
+    public SheetLevelResult LevelSheets(
+        IReadOnlyList<VoxelPos> seeds, int share = 0, int quietTicks = 0)
     {
         ArgumentNullException.ThrowIfNull(seeds);
         ArgumentOutOfRangeException.ThrowIfNegative(share);
+        ArgumentOutOfRangeException.ThrowIfNegative(quietTicks);
+        _quietTicks = quietTicks;
         if (TickInProgress)
         {
             throw new InvalidOperationException(
@@ -274,7 +282,7 @@ public sealed partial class FluidSimulation
         _sheetSeeds.Sort(static (a, b) =>
             a.Y != b.Y ? a.Y.CompareTo(b.Y) : a.X != b.X ? a.X.CompareTo(b.X) : a.Z.CompareTo(b.Z));
 
-        int sheets = 0, levelled = 0, packed = 0, skipped = 0, underShare = 0, stepped = 0;
+        int sheets = 0, levelled = 0, packed = 0, skipped = 0, underShare = 0, stepped = 0, noisy = 0;
         int largest = 0, visited = 0, written = 0, woken = 0;
         long moved = 0;
 
@@ -328,6 +336,19 @@ public sealed partial class FluidSimulation
                     stepped++;
                 }
 
+                // Still being fed? Asked here rather than earlier so the share keeps its early-out
+                // — the flood is not paid to decide — and as one walk of the sheet's own cells
+                // rather than a field the flood maintains. <b>An accumulated field made the answer
+                // depend on Union taking the max, and a battery recipe that dropped it could not be
+                // caught</b>: which half of a merge survives is the larger cell count, so a fixture
+                // cannot reliably put the fed half on the losing side. There is no merge to get
+                // wrong now.
+                if (IsBeingFed(sheet))
+                {
+                    noisy++;
+                    continue;
+                }
+
                 if (sheet.Total <= (long)PackedCellMillilitres * count)
                 {
                     PackTargets(sheet);
@@ -349,7 +370,38 @@ public sealed partial class FluidSimulation
         }
 
         return new SheetLevelResult(
-            sheets, levelled, packed, skipped, underShare, stepped, largest, visited, written, moved, woken);
+            sheets, levelled, packed, skipped, underShare, stepped, largest, visited, written, moved,
+            woken, noisy);
+    }
+
+    /// <summary>
+    /// Whether any chunk this sheet stands in has received within the wait.
+    /// </summary>
+    /// <remarks>
+    /// <b>Age greater than K, not at least K</b>, because that is what the world counter this
+    /// replaced meant: inflow during a tick made that boundary's count zero, so K = 2 fired on the
+    /// third boundary after a pour. <c>--settleafter=</c> has recorded play figures against it —
+    /// 80 s at 2 against 12 s at 0 — and a rule that quietly moved the number by one would have
+    /// invalidated them. Levelling a sheet under inflow is what makes a stream down a tunnel rise
+    /// as a flat sheet instead of flowing, which is the arm <c>--settleafter=0</c> keeps.
+    /// </remarks>
+    private bool IsBeingFed(Sheet sheet)
+    {
+        if (_quietTicks <= 0)
+        {
+            return false;
+        }
+
+        foreach (int record in sheet.Cells)
+        {
+            long inflow = InflowTickAt(_cellPos[record].Chunk);
+            if (inflow != NeverInflowed && Ticks - inflow <= _quietTicks)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>The share rule, in one place: at least one cell in <paramref name="share"/> unsettled.</summary>

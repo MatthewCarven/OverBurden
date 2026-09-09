@@ -3672,6 +3672,7 @@ public partial class Main : Node3D
               + $"share 1 in {_settle.SettleShare}: "
               + $"{_settle.SheetsLevelled:N0} levelled / {_settle.SheetsPacked:N0} packed / "
               + $"{_settle.SheetsSkipped:N0} left / {_settle.SheetsUnderShare:N0} left under share / "
+              + $"{_settle.SheetsNoisy:N0} still being fed / "
               + $"{_settle.SheetsStepped:N0} levelled for a step, {_settle.CellsVisited:N0} cells visited, "
               + $"{_settle.CellsWritten:N0} written, "
               + $"largest sheet {_settle.LargestSheet:N0}, longest pass {_settle.LongestMillis:F1} ms";
@@ -3753,7 +3754,8 @@ public partial class Main : Node3D
               + $"after {_settle.SettleAfterTicks} quiet tick(s), share 1 in {_settle.SettleShare}; "
               + $"{_settle.SheetsLevelled:N0} levelled / "
               + $"{_settle.SheetsPacked:N0} packed / {_settle.SheetsSkipped:N0} left alone / "
-              + $"{_settle.SheetsUnderShare:N0} left under share / {_settle.SheetsStepped:N0} levelled for a step, "
+              + $"{_settle.SheetsUnderShare:N0} left under share / {_settle.SheetsNoisy:N0} still being fed / "
+              + $"{_settle.SheetsStepped:N0} levelled for a step, "
               + $"{_settle.CellsVisited:N0} cells visited, "
               + $"{_settle.CellsWritten:N0} written, {_settle.CellsWoken:N0} woken, largest sheet "
               + $"{_settle.LargestSheet:N0} cells, longest pass {_settle.LongestMillis:F2} ms, "

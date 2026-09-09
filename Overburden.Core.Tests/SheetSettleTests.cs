@@ -1,4 +1,4 @@
-using Overburden.Core.Fluid;
+﻿using Overburden.Core.Fluid;
 using Overburden.Core.Voxels;
 using Overburden.Core.Worldgen;
 
@@ -23,6 +23,23 @@ public class SheetSettleTests
     private const int Packed = FluidSimulation.PackedCellMillilitres;
 
     private static VoxelPos At(int x, int y, int z) => new(x, y, z);
+
+    /// <summary>
+    /// Fills a run of floor cells to the brim beside dry ones, which is a sheet with somewhere to
+    /// go and stays awake for tens of ticks.
+    /// </summary>
+    /// <remarks>
+    /// <b>Add takes one cell's capacity and hands the rest back</b>, so <c>Add(cell, 200_000)</c>
+    /// is a pour of 15,625 mL into one cell — a one-cell sheet, which LevelSheets skips by
+    /// construction. Three trigger tests were written against exactly that and asserted nothing.
+    /// </remarks>
+    private static void PourRow(FluidSimulation sim, int x0, int z, int cells)
+    {
+        for (int i = 0; i < cells; i++)
+        {
+            sim.Add(At(x0 + i, 0, z), FluidConstants.CellCapacityMillilitres);
+        }
+    }
 
     /// <summary>Every sideways pair inside the set differs by at most the tolerance.</summary>
     private static void AssertPairsWithin(FluidSimulation sim, IReadOnlyCollection<VoxelPos> cells, int tolerance)
@@ -658,21 +675,24 @@ public class SheetSettleTests
         var sim = new FluidSimulation(BoxTerrain.Cube(8));
         var settle = new SheetSettle(sim, settleAfterTicks: 2);
 
-        // The pour lands on the tick that follows, so that tick is not a quiet one.
-        sim.Add(At(4, 7, 4), 200_000);
+        // The pour lands on the tick that follows, so that tick is not a quiet one. Since
+        // 2026-09-09 the wait is a property of the sheet rather than of the world, so what says
+        // "not yet" is a sheet left alone for standing in a fed chunk, not a counter.
+        PourRow(sim, 0, 4, 4);
         sim.Step();
-        Assert.Null(settle.AtBoundary());
-        Assert.Equal(0, settle.QuietTicks);
+        SheetLevelResult first = settle.AtBoundary()!.Value;
+        Assert.True(first.Noisy > 0, "the sheet was levelled on the tick the pour landed");
+        Assert.Equal(0, first.Levelled + first.Packed);
 
         sim.Step();
-        Assert.Null(settle.AtBoundary());
-        Assert.Equal(1, settle.QuietTicks);
+        SheetLevelResult second = settle.AtBoundary()!.Value;
+        Assert.True(second.Noisy > 0);
+        Assert.Equal(0, second.Levelled + second.Packed);
 
         sim.Step();
-        SheetLevelResult? fired = settle.AtBoundary();
-        Assert.NotNull(fired);
-        Assert.Equal(2, settle.QuietTicks);
-        Assert.Equal(1, settle.Settles);
+        SheetLevelResult fired = settle.AtBoundary()!.Value;
+        Assert.Equal(0, fired.Noisy);
+        Assert.True(fired.Levelled + fired.Packed > 0);
 
         // Then at every boundary while anything is awake, and not once nothing is.
         int boundaries = 0;
@@ -724,46 +744,111 @@ public class SheetSettleTests
     [Fact]
     public void AnEditThatWakesWaterIsInflowAndOneThatWakesNothingIsNot()
     {
+        // A pour that keeps spreading, so there is always a sheet to judge: with nothing awake
+        // AtBoundary has nothing to say and every arm of this test would read the same null.
         var sim = new FluidSimulation(BoxTerrain.Cube(8));
-        sim.Add(At(4, 0, 4), 9_000);
+        var settle = new SheetSettle(sim, settleAfterTicks: 1);
+        PourRow(sim, 0, 4, 4);
         sim.Step();
-        var settle = new SheetSettle(sim, settleAfterTicks: 3);
-
         sim.Step();
-        settle.AtBoundary();
-        Assert.Equal(1, settle.QuietTicks);
+        Assert.Equal(0, settle.AtBoundary()!.Value.Noisy);
 
-        // Dry rock far from the water: nothing woke, nothing changed.
+        // Dry rock: nothing woke, so nothing was fed and the sheet is still eligible.
         sim.Disturb(At(0, 7, 0));
         sim.Step();
-        settle.AtBoundary();
-        Assert.Equal(2, settle.QuietTicks);
+        Assert.Equal(0, settle.AtBoundary()!.Value.Noisy);
 
-        // The wet cell itself: the terrain under standing water moved, and the count starts over.
-        sim.Disturb(At(4, 0, 4));
+        // Water: the terrain under it moved, and the wait starts over.
+        sim.Disturb(At(1, 0, 4));
         sim.Step();
-        settle.AtBoundary();
-        Assert.Equal(0, settle.QuietTicks);
+        Assert.True(settle.AtBoundary()!.Value.Noisy > 0);
     }
 
     [Fact]
     public void WaterLeavingIsNotInflow()
     {
         var sim = new FluidSimulation(BoxTerrain.Cube(8));
-        sim.Add(At(4, 0, 4), 9_000);
+        var settle = new SheetSettle(sim, settleAfterTicks: 1);
+        PourRow(sim, 0, 4, 4);
         sim.Step();
-        var settle = new SheetSettle(sim, settleAfterTicks: 3);
+        sim.Step();
 
+        sim.Remove(At(1, 0, 4), 1_000);
         sim.Step();
-        settle.AtBoundary();
-        sim.Remove(At(4, 0, 4), 1_000);
-        sim.Step();
-        settle.AtBoundary();
-        sim.HandOff(At(4, 0, 4), 1_000);
-        sim.Step();
-        settle.AtBoundary();
+        Assert.Equal(0, settle.AtBoundary()!.Value.Noisy);
 
-        Assert.Equal(3, settle.QuietTicks);
+        sim.HandOff(At(1, 0, 4), 1_000);
+        sim.Step();
+
+        // Water leaving is not inflow: a sheet drained from above has less to level, not more.
+        Assert.Equal(0, settle.AtBoundary()!.Value.Noisy);
+    }
+
+    [Fact]
+    public void ASheetIsFedIfAnyChunkItStandsInIs()
+    {
+        // A sheet that reaches into a chunk still receiving — a pool touching the stream that
+        // feeds it — is fed however quiet its other end has been, or the solve levels water while
+        // it is still arriving. <b>The battery is why this is a walk of the sheet's cells rather
+        // than a field the flood accumulates</b>: as a field the answer depended on Union taking
+        // the max, and no fixture can reliably put the fed half on the losing side of a merge,
+        // because the survivor is whichever has more cells.
+        var terrain = new BoxTerrain(0, 0, 0, 63, 31, 7);
+        var sim = new FluidSimulation(terrain);
+        var settle = new SheetSettle(sim, settleAfterTicks: 2);
+
+        // One connected run across the chunk boundary at x = 32, with the fed end the short side
+        // so the merge cannot pass by keeping the fed half as the survivor.
+        PourRow(sim, 20, 4, 17);
+        sim.Step();
+        sim.Step();
+        sim.Step();
+        Assert.Equal(0, settle.AtBoundary()!.Value.Noisy);
+
+        sim.Add(At(36, 0, 4), 4_000);
+        sim.Step();
+
+        SheetLevelResult result = settle.AtBoundary()!.Value;
+        Assert.True(
+            result.Noisy > 0,
+            "a sheet spanning a fed chunk and a quiet one was levelled under its own inflow");
+        FluidAssert.Conserves(sim);
+    }
+
+    [Fact]
+    public void OneSheetBeingFedDoesNotPostponeAnother()
+    {
+        // The whole reason the wait moved off a world counter (2026-09-09): a played session ran
+        // 340 ticks with 70,000 cells awake and ran the solve <b>not once</b>, because a portal
+        // drew ~150 L into one cell every tick and one global counter never reached two.
+        var terrain = new BoxTerrain(0, 0, 0, 127, 31, 7);
+        var sim = new FluidSimulation(terrain);
+        var settle = new SheetSettle(sim, settleAfterTicks: 2);
+
+        // Two bodies, three chunks apart, each spreading.
+        PourRow(sim, 4, 4, 4);
+        PourRow(sim, 108, 4, 4);
+        sim.Step();
+        sim.Step();
+        sim.Step();
+
+        // A tap on the far one only, at every boundary — the portal drain's shape.
+        for (int tick = 0; tick < 4; tick++)
+        {
+            sim.Add(At(108, 0, 4), 4_000);
+            sim.Step();
+        }
+
+        SheetLevelResult result = settle.AtBoundary()!.Value;
+
+        Assert.True(result.Noisy > 0, "the fed sheet was levelled under its own inflow");
+        Assert.True(
+            result.Levelled + result.Packed > 0,
+            "nothing was levelled: the fed sheet is still postponing the quiet one");
+
+        // And every cell of the levelled body really is level, which is the pass's own oracle.
+        Assert.True(sim.TotalMillilitres > 0);
+        FluidAssert.Conserves(sim);
     }
 
     // ---------------------------------------------------------------- real terrain

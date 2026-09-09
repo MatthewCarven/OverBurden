@@ -151,6 +151,23 @@ public sealed partial class FluidSimulation : IFluidPersistence
     // Cells the tick in progress visited and found nothing to do for. See Rested.
     private readonly List<VoxelPos> _rested = [];
 
+    // The tick at which each chunk last had water put into it or its rock disturbed. Read by the
+    // sheet solve, which will not level a sheet that touches a chunk still receiving.
+    //
+    // WHY PER CHUNK AND NOT ONE COUNTER FOR THE WORLD. SheetSettle counted inflow globally until
+    // 2026-09-09, so one portal drawing 150 L into one cell postponed levelling for every sheet
+    // in the world — 0 passes in 340 ticks of a played session, with 70,000 cells awake. The
+    // disturbance is local and the counter has to be too. A chunk is the resolution because the
+    // grid is already keyed by it and the flood can read it once per cell for the price of a
+    // cached lookup; per cell would be a timestamp on every voxel.
+    private readonly Dictionary<ChunkPos, long> _inflowTick = [];
+    private ChunkPos _inflowCacheKey;
+    private long _inflowCacheValue = NeverInflowed;
+    private bool _inflowCacheValid;
+
+    /// <summary>A chunk nothing has ever poured into. Not a tick number, and never arithmetic.</summary>
+    internal const long NeverInflowed = long.MinValue;
+
     // Cells visited while their chunk was not loaded, asleep in place until it arrives. Keyed by
     // chunk because an arrival is what wakes them, and a set per chunk because a loaded neighbour
     // moving water beside the boundary wakes the same paused cell again every tick it does.
@@ -350,6 +367,7 @@ public sealed partial class FluidSimulation : IFluidPersistence
         if (accepted > 0)
         {
             AddedMillilitres += accepted;
+            NoteInflow(voxel);
             Wake(voxel);
             WakeNeighboursOf(voxel);
         }
@@ -466,6 +484,7 @@ public sealed partial class FluidSimulation : IFluidPersistence
             // Counted whether or not the cell was already awake: an edit under water that is
             // still moving is as much a disturbance as one under water at rest.
             Wake(cell);
+            NoteInflow(cell);
             DisturbedCells++;
         }
     }
@@ -1191,6 +1210,48 @@ public sealed partial class FluidSimulation : IFluidPersistence
     /// is the test that sees it.
     /// </remarks>
     private int RoomAt(VoxelPos cell) => _grid.FreeAt(cell);
+
+    /// <summary>Records that this voxel's chunk received water or an edit on this tick.</summary>
+    private void NoteInflow(VoxelPos voxel)
+    {
+        ChunkPos chunk = voxel.Chunk;
+        _inflowTick[chunk] = Ticks;
+        if (_inflowCacheValid && _inflowCacheKey == chunk)
+        {
+            _inflowCacheValue = Ticks;
+        }
+    }
+
+    /// <summary>
+    /// The tick this chunk last received on, or <see cref="NeverInflowed"/>.
+    /// </summary>
+    /// <remarks>
+    /// One-entry cache, because the sheet flood asks per cell and a sheet's cells arrive in
+    /// spatial order — the same reason <c>FluidGrid</c> caches its panel lookup. Without it a
+    /// 162,572-cell sheet is that many dictionary probes to <i>decide</i> whether to level.
+    /// </remarks>
+    internal long InflowTickAt(ChunkPos chunk)
+    {
+        if (_inflowCacheValid && _inflowCacheKey == chunk)
+        {
+            return _inflowCacheValue;
+        }
+
+        _inflowCacheKey = chunk;
+        _inflowCacheValue = _inflowTick.TryGetValue(chunk, out long tick) ? tick : NeverInflowed;
+        _inflowCacheValid = true;
+        return _inflowCacheValue;
+    }
+
+    /// <summary>Drops a chunk's inflow stamp. Called where the grid drops the chunk.</summary>
+    private void ForgetInflow(ChunkPos chunk)
+    {
+        _inflowTick.Remove(chunk);
+        if (_inflowCacheValid && _inflowCacheKey == chunk)
+        {
+            _inflowCacheValid = false;
+        }
+    }
 
     /// <summary>Queues a cell for the next tick. True when it was not queued already.</summary>
     private bool Wake(VoxelPos cell)

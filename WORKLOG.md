@@ -1,5 +1,59 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-09 — The settle's wait is per chunk: a portal drawing into one cell no longer postpones every sheet in the world
+
+`SheetSettle` counted inflow with two world totals — `AddedMillilitres` and `DisturbedCells` — so
+one portal drawing 150 L into one cell reset the wait for every sheet everywhere. That is the
+treadmill named on 2026-09-07, priced on 2026-09-09 and then met head-on in slice 1's play: **0
+passes in 340 ticks with 70,000 cells awake**. `Add` and a waking `Disturb` now stamp their chunk
+with the tick; the sheet flood takes the max stamp over the chunks it touches; a sheet is levelled
+only when *its own* chunks have been quiet for K ticks. The global gate is gone — every boundary
+runs a pass and the per-sheet test decides.
+
+**Measured, same invocation, before and after** (`--fillbasin=400000 --breach=7
+--injectlitres=100000`, r6h/2v, 8 m/s, 40 s window, Debug):
+
+```
+                      global counter        per chunk
+settle passes              0                    79
+sheets levelled            0                   818
+sheets still fed           —                   630
+handed to Tier A      50,963 L             54,912 L
+active at the end        6,436                5,721
+```
+
+439 ms of solve across the 40 s window, longest pass 15.27 ms. **The control was run from the
+stashed working tree rather than argued from the mechanism**, and it printed `settle 0 pass(es)`
+exactly as the play log did.
+
+- **The wait's meaning is unchanged, and it nearly was not.** The first condition was `age >= K`;
+  the world counter meant `age > K`, because inflow during a tick zeroed *that* boundary's count, so
+  K = 2 fired on the third boundary after a pour. `--settleafter=` has recorded play figures against
+  it — 80 s at 2 against 12 s at 0 — and a rule that moved the number by one would have invalidated
+  them silently. Caught by a test, and the battery's "the wait is one tick short" now guards it.
+- **What it does not fix, stated rather than discovered later**: the sheet that *contains* the
+  inflow. A lake fed at one point is still not levelled, however large and however far its far end
+  is from the feed. That is the share rule's job and it is the honest limit of chunk resolution.
+- **Three trigger tests asserted nothing before this, and the same trap wrote three more.**
+  `Add(cell, 200_000)` takes one cell's capacity and hands the rest back, so those pours were one
+  cell — and `LevelSheets` skips a single-cell sheet by construction. `PourRow` fills a run of floor
+  cells and says why in its remarks.
+- **Twelve recipes, and the one that could not be caught was answered by deleting it.** The wait
+  began as a field the flood accumulated and `Union` merged with a max — and *"a merged sheet
+  forgets the fed half"* survived a test written for it, because **the survivor of a merge is
+  whichever has more cells, so no fixture can reliably put the fed half on the losing side.** It is
+  a walk of the sheet's own cells now, at judgement and after the share's early-out, so there is no
+  merge to get wrong; the game's figures are identical to the digit across the change, with only
+  the noisy/under-share split moving by one. **A test that cannot be made to fail is a design
+  saying the state is in the wrong place.** Two of the remaining misses are identities — the stamp
+  forgotten with its chunk is memory hygiene, and a sheet nobody fed looking fed differs only in
+  the first K ticks of a simulation's life. **One was a bad recipe rather than a gap**: it reordered
+  two assignments that both land before the return. Rewritten as *a new stamp leaves the cache
+  stale*, it is caught, which is what says the cache update in `NoteInflow` is load-bearing.
+- **The one-entry cache is not an optimisation to trim.** The flood asks per cell and a sheet's
+  cells arrive in spatial order; without it the played lake's 162,572-cell sheet is that many
+  dictionary probes to *decide* whether to level. Same shape as `FluidGrid`'s panel cache.
+
 ## 2026-09-09 — Slice 1's first play: the pour is still because a tick is a second long, and the settle has not run once
 
 Matthew, on the `default` world with `--fluidnear=2`: *"the water i drop using r tend to stay still
