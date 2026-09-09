@@ -3691,7 +3691,10 @@ public partial class Main : Node3D
                + $"{f.ResumedCells:N0} resumed, {f.FaceWakes:N0} face wake(s), "
                + $"evicting {f.EvictingPanelCount:N0} panel(s), {f.ReclaimedPanels:N0} reclaimed | "
                + $"{f.Ticks:N0} tick(s) at {1.0 / FluidTickSeconds:F0} Hz, {f.ActiveCellCount:N0} active "
-               + $"({f.FarBacklog:N0} far deferred), "
+               + (_fluidNearRings > 0
+                   ? $"(last tick {f.NearAdmitted:N0} near + {f.FarAdmitted:N0} far, "
+                     + $"{f.FarBacklog:N0} deferred), "
+                   : string.Empty)
                + $"peak {f.PeakActiveCells:N0}, {f.CellVisits:N0} visits; budget "
                + $"{_fluidBudget.TotalMilliseconds:F1} ms a frame, worst frame {_fluidWorstMillis:F2} ms, "
                + $"{_fluidSlicedTicks:N0} tick(s) over more than one frame, longest {_fluidLongestTickFrames:N0}"

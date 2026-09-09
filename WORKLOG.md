@@ -1,5 +1,43 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-09 — Slice 1's first play: the pour is still because a tick is a second long, and the settle has not run once
+
+Matthew, on the `default` world with `--fluidnear=2`: *"the water i drop using r tend to stay still
+but I noticed that water nearby seems to be gathering the runoff."* Read off `godot.log`, that is
+three separate things, and **only the third is slice 1's**.
+
+- **A tick is ~39,200 visits, which is ~114 ms of Debug CPU and ~57 frames at the 2 ms budget — so
+  the water ticks at about 1 Hz, not 2, and the worst tick spanned 292 frames.** Visits climb
+  392,000 per ten ticks against 69,000–71,000 active throughout; every one of 340 ticks was sliced.
+  **Near water is being visited every tick exactly as designed and it still moves at half rate**,
+  because the tick is not bounded by the far side. **The quota is <i>relative to</i> the near set** —
+  `near + max(512, near)` — so with the near set inferred at ~19,600 cells (visits/tick ÷ 2) a tick
+  is 2 × 19,600 whatever the far backlog does. **Slice 1 cannot fix a near set that is itself
+  28x what a 2 ms Debug frame buys.** The throttle is working: 30,000 far cells deferred, steady.
+- **The settle has run 0 passes in 340 ticks, and that is why there are 70,000 active cells at
+  all.** A portal is drawing ~150–180 L every tick (`drawn` 93,270 → 97,972 over thirty ticks), and
+  a draw is an `Add`, so the quiet counter resets every tick and never reaches two. **This is the
+  treadmill recorded on 2026-09-07 and given its number on 2026-09-09, met a third time** — and it
+  is now the largest lever on this world by a distance: the settle is what took a 162,572-cell lake
+  to 1,600 active. Without it the pour creeps diffusively rather than snapping level, which is most
+  of *"tends to stay still"*.
+- **"Water nearby gathering the runoff" is the hand-off working, and it is the one thing here that
+  is behaving as designed.** `handed` climbs 66,731 → 71,024 L steadily with `received == handed:
+  exact`; a spill on natural ground rests, is handed to the basin under its sample, and shows up as
+  the nearby body rising. M8b-3a, seen by a person for the first time.
+- **The play log could not answer the first point directly and now can.** The periodic `M8b:` line
+  printed `far deferred` but not the near set, so the near/far split had to be inferred from
+  visits-per-tick. It prints `last tick N near + M far, K deferred` when the order is on.
+- **Two costs beside it, both already recorded and both now seen in a play**: the Tier B surface
+  rebuild is **33.1 ms for 19,454 quads** on the main thread, four times a second; and 61–94 fluid
+  rows come off the serial lane at 30–34 ms per autosave report.
+
+**So the next thing to build is not slice 2.** Slice 2 is priced and is slice 3's enabler; what is
+actually making this world's water sluggish is the settle never firing, and the fix is the quiet
+counter being global when the disturbance is local (TODO under M8b-3b). **Recommended order from
+here: the settle's trigger, then judge slice 1 again on a world whose active set is not 70,000
+cells.**
+
 ## 2026-09-09 — Slice 2 priced before it is built: the game's terrain read is a third of a visit, not a multiple, so the bitset is slice 3's enabler rather than a win
 
 `--terrain` is the arm WATER-THREAD-PLAN's slice 2 asks for — *priced on the sim thread before any

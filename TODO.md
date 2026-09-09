@@ -4261,7 +4261,24 @@ finding without the coarser-tolerance fallback.
             - [x] **Slice 1 — planned and ✅ built 2026-09-09, unplayed; see the plan's
                   "Slice 1 — the planning pass" and "Slice 1 — built".** Suite 1,179 → 1,196,
                   14 recipes and 13 caught (the miss an identity).
-                  - [ ] **Play check**: `start.cmd` passes `--fluidnear=2`. Open the played world,
+                  - [x] **Play check — done 2026-09-09, and it found the lever is elsewhere.**
+                        *"The water i drop using r tend to stay still but I noticed that water
+                        nearby seems to be gathering the runoff."* Read off the log: the throttle
+                        works (30,000 far cells deferred, steady), the hand-off works (`handed`
+                        climbing, `received == handed: exact` — that is the runoff being gathered),
+                        and **the water still moves at ~1 Hz because a tick is ~39,200 visits,
+                        ~114 ms of Debug CPU, ~57 frames at the 2 ms budget, worst 292.** The quota
+                        is relative to the near set, so a near set of ~19,600 cells makes a tick
+                        2x that whatever the far side does — **slice 1 cannot bound a near set
+                        that is itself 28x what a Debug frame buys.** And **the settle ran 0 passes
+                        in 340 ticks**, because a portal draws every tick and a draw is inflow: the
+                        treadmill, third sighting, and now the largest lever on this world. The
+                        periodic `M8b:` line now prints `last tick N near + M far` so the next play
+                        need not infer it from visits-per-tick.
+                  - [ ] **Recommended next, ahead of slice 2**: the settle's quiet counter, which is
+                        global where the disturbance is local (see the M8b-3b item). Then judge
+                        slice 1 again on a world whose active set is not 70,000 cells.
+                  - [ ] The original recipe, for a re-run: `start.cmd` passes `--fluidnear=2`. Open the played world,
                         stand where water is flooding, and stab `R` at your feet. The question is
                         whether the pool under you keeps moving while the mine fills. Read
                         `fluidnear` on the profile line and `far deferred` on the `M8b:` line;
