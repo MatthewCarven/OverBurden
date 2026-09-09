@@ -1,5 +1,46 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-10 — The settle's per-chunk wait is played and accepted, and "four threads on water" is answered with arithmetic: one is eight times, and the surface mesh costs more than the whole tick
+
+Matthew, on the per-chunk wait: *"that is pretty good Claude like I cannot fault it in any way so
+perfection as far as i'm concerned."* **The settle change is accepted** — the play question *"does
+the puddle flatten instead of lingering"* is answered yes, which closes *"the bulk of the water
+disperses but the puddles linger"* from 2026-09-09. Slice 1's own play verdict is still open, because
+this play could not separate them.
+
+Then: *"how do you feel about running 4 different threads running water? Like my machine has 16
+threads total i figured we might be able to run 4 at once?"* **Recommended: one, which is slice 3 as
+planned, and the ordering changes — the surface mesh goes first.** The arithmetic, all from figures
+already recorded:
+
+- **The water does not need four cores; it needs to stop being rationed.** The played world's tick
+  is ~39,200 visits, ~114 ms of Debug CPU, so at 2 Hz the automaton wants **~23% of one core**
+  (~2.6% in Release). What makes it slow is `--fluidbudget`: 2 ms of a 16.7 ms frame is ~41,000
+  visits a second against a core's ~345,000. **Slice 3's single worker is therefore ~8x, and four
+  workers would be 4x on top of a problem one worker over-solves.**
+- **Only the roof-open case would use them.** 302,182 cells in one tick is ~876 ms Debug on one
+  core, over a 500 ms tick period; four would bring it under. **But DESIGN licenses exactly that
+  case being slower than realtime**, and it is one chunk-bite under a lake, not a thing play does
+  continuously.
+- **Four threads costs the automaton's only oracle.** There is no closed form for a trajectory —
+  the batch is a `List` rather than a `HashSet` *specifically* so that "the same input settles the
+  same way" is a property rather than a coincidence. Concurrent mutation of one grid destroys that
+  unless the partition is itself a pure function of state, so a correct four-thread design is a
+  deterministic spatial partition (chunk-column stripes) with the boundaries serialised or
+  red/black alternated. **Real work, and third in line rather than first.**
+- **The scheduler has eight workers on those sixteen threads already**, and the plan's named
+  revisit trigger for a dedicated thread is *the `sources` line showing generation starving during
+  a flood*. Handing four to the water during a flood is that trigger, deliberately.
+- **The bigger win is not the automaton at all: the Tier B surface mesh is 33.08 ms for 19,454
+  quads, on the main thread, every 0.25 s while water moves** (`FluidSurface.RebuildIntervalSeconds`)
+  — **132 ms a second, against the water tick's whole budget of 120 ms a second.** It is a pure
+  function of the grid, so it is the one piece here that moves to a worker with no concurrency
+  argument at all. **Recommended order: the surface mesh off the main thread, then slice 3's single
+  worker, then measure before anyone counts to four.**
+- **The one place "four" is already free**: a second fluid is a second `FluidSimulation` over its
+  own `FluidGrid` (settled 2026-09-03, MATERIALS-NOTES), and separate fluids share no state. Water,
+  and one day lava or gas, parallelise trivially. Today there is one fluid.
+
 ## 2026-09-09 — The settle's wait is per chunk: a portal drawing into one cell no longer postpones every sheet in the world
 
 `SheetSettle` counted inflow with two world totals — `AddedMillilitres` and `DisturbedCells` — so

@@ -4288,9 +4288,26 @@ finding without the coarser-tolerance fallback.
                         treadmill, third sighting, and now the largest lever on this world. The
                         periodic `M8b:` line now prints `last tick N near + M far` so the next play
                         need not infer it from visits-per-tick.
-                  - [ ] **Recommended next, ahead of slice 2**: the settle's quiet counter, which is
-                        global where the disturbance is local (see the M8b-3b item). Then judge
-                        slice 1 again on a world whose active set is not 70,000 cells.
+                  - [x] **The settle's quiet counter — built and played 2026-09-09/10.** Matthew:
+                        *"I cannot fault it in any way so perfection as far as i'm concerned."*
+                  - [ ] **Judge slice 1 again on a world whose active set is not 70,000 cells** —
+                        this play could not separate it from the settle change.
+                  - [ ] **The Tier B surface mesh goes to a worker, ahead of slice 3.** 33.08 ms for
+                        19,454 quads on the main thread every 0.25 s while water moves
+                        (`FluidSurface.RebuildIntervalSeconds`) is **132 ms a second against the
+                        water tick's whole budget of 120** — and it is a pure function of the grid,
+                        so it needs no concurrency argument. Named 2026-09-07, given its second
+                        reading and its ordering 2026-09-10 when Matthew asked about four threads.
+                  - [ ] **Four threads on the automaton: recommended against for now, with the
+                        arithmetic in the 2026-09-10 worklog entry.** One worker is ~8x (the
+                        rationing is `--fluidbudget`, not the core); four is 4x on top of a problem
+                        one over-solves; only the roof-open case (302,182 cells, ~876 ms Debug)
+                        would use them, and DESIGN licenses that being slower than realtime.
+                        **The cost is the automaton's only oracle** — the batch is a `List` so that
+                        "the same input settles the same way" is a property rather than a
+                        coincidence — so a correct four-thread design needs a deterministic spatial
+                        partition with serialised boundaries. Revisit when a play reads the
+                        roof-open case as the thing that hurts.
                   - [ ] The original recipe, for a re-run: `start.cmd` passes `--fluidnear=2`. Open the played world,
                         stand where water is flooding, and stab `R` at your feet. The question is
                         whether the pool under you keeps moving while the mine fills. Read
