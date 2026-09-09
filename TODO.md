@@ -4243,10 +4243,14 @@ finding without the coarser-tolerance fallback.
             sim thread before any thread. **Not a copy of the chunks and not a memory saving**
             (4 KiB of bits against ~2 KB of palette-compressed voxels); it replaces a dictionary
             lookup, a palette decode and a material-table read per neighbour, up to six a visit,
-            which is why it stands alone if (3) never happens. Two things to settle before it
-            bakes the field: a uniform chunk wants one bit rather than 4 KiB (M5c-1'''s closed form
-            in a second place), and **M8c reads `permeability`, which one bit cannot express** —
-            recommended that the bit stays flow-only and seepage asks the world at a boundary; (3) the tick as a scheduler job per boundary, mutations
+            which is why it stands alone if (3) never happens. **One bit behind
+            `FluidField.ClassAt`, decided 2026-09-09** — asked at four bits and decided at one,
+            because the field is a derived cache rather than a format: nothing on disk, nothing to
+            migrate, so M8c widens it to a nibble by changing a build function and an accessor if
+            its seepage wants permeability inside the tick. Four bits would be 40.6 MiB at r6
+            against 10.2 and four times the working set, on the one axis (locality) the field
+            exists to win. A uniform chunk wants one class rather than 4 KiB — M5c-1'''s closed form
+            in a second place, and worth building, not naming; (3) the tick as a scheduler job per boundary, mutations
             landing at the next boundary, a slow tick lowering the rate, ~8× the Debug throughput.
             All eight decisions taken as recommended. Build (3) when the play reads the flood on
             open as hurting rather than slow. Not started.

@@ -278,8 +278,53 @@ and baking one immediately before the milestone that needs more than one bit is 
 becomes a constraint. Two answers, and the recommendation is the second: widen the field to two
 bits (impermeable / permeable / holdable), or **keep the bit for flow and let seepage ask the world
 at a tick boundary on the sim thread**, since soaking is a boundary-rate process and not a
-per-visit question. Recommended, because it leaves M8c free to read whatever `permeability` turns
-out to mean without a bitset it has already outgrown. **Decide it before slice 2 bakes the field.**
+per-visit question. **Decided 2026-09-09 — one bit, behind a class accessor; see the section below**, on the
+grounds that this framing was wrong: the field is a derived cache rather than a format, so
+widening it in M8c is a build function and an accessor, with nothing on disk and nothing to
+migrate.
+
+#### One bit, behind a widenable accessor — asked for four, decided 2026-09-09
+
+Matthew: *"can we widen to 4bits please"*, then *"actually you decide"*. **One bit, and the reason
+is that the alarm I raised above was wrong in its premise.**
+
+**The field is derived and never persisted.** It is rebuilt from a chunk's voxels every time that
+chunk arrives — no header version, no mod-visible surface, nothing on disk, nothing a world
+remembers. So the usual argument for provisioning a field wide, *that changing it later is
+expensive*, **does not apply here at all**: widening it in M8c is a build function and an accessor,
+in one assembly, with no migration and no format. "Decide it before slice 2 bakes the field" treated
+a cache like a format, and a cache is exactly what this is.
+
+**What the four bits would have cost is the one thing the field exists for.** The reason a baked
+field reads at 0.25 µs a visit is locality; 16 KiB a chunk against 4 KiB is **40.6 MiB at r6 against
+10.2 MiB** (2,601 tracked chunks) and four times the working set for the same flood — a few dozen
+chunks' worth of field in a 2 MiB L2 instead of a few hundred. The per-visit read is identical
+either way (a nibble is an index shift and a mask, a bit is a shift and a mask), **so if the wide
+field were slower it would be slower for a reason no profile line would name.** Paying that for a
+milestone that is notes rather than a plan is speculative generality on the one axis this field is
+supposed to win.
+
+**So: one bit, reached only through `FluidField.ClassAt(voxel)` returning an enum**, never through
+the bits. Callers ask what class a voxel is; the storage is private; M8c widens it to a nibble by
+changing the build and the accessor and nothing else. That is not provisioning, it is one method.
+
+**Two things this keeps from the four-bit pass, because they were right regardless.**
+
+- **The uniform-chunk fast path is worth building rather than naming.** A solid chunk below the
+  surface — the commonest chunk there is — is one class instead of 4 KiB, which is M5c-1's uniform
+  closed form in a second place, and it makes the 10.2 MiB an upper bound.
+- **The field is derived, never authored, and pinned as such.** `MaterialTable` stays the one
+  definition of what a material is; a test asserts the field's answer equals the table's for every
+  voxel of a random world, the `IsCaveAt`/`GenerateTerrain` shape, third outing. A mod editing a
+  material's JSON must move the field, and what makes that safe is that nothing else knows the
+  mapping.
+
+11. **The readable terrain is one bit per voxel behind a class accessor, and M8c widens it if
+    seepage turns out to need a per-visit answer.** Decided rather than recommended, on the
+    grounds that the field is a derived cache and widening it later is two functions. Slice 2's
+    measurement prices it against today's dictionary-and-palette path with and without the uniform
+    fast path; **the revisit trigger is M8c's seepage wanting permeability inside the tick**, at
+    which point the accessor is already the seam.
 
 ### Slice 3 — the tick as a job
 
