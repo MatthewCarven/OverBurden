@@ -1,5 +1,20 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-10 — Slice 2 is played and accepted, and the settle's new frequency is the next thing to price
+
+Matthew, after the fix: *"Yeah I like it."* **The check for this slice was that nothing should look
+different, and nothing did** — which is the only verdict a substituted terrain can earn. Slice 2 is
+accepted and slice 3 is unblocked, still gated on its own trigger (*the play reading the flood on
+open as the thing that hurts rather than the thing that is slow*).
+
+**Named and not measured: the settle now runs at every boundary, and on the played world that is
+not free.** Removing the global quiet gate on 2026-09-09 multiplied its frequency by however many
+boundaries used to be skipped, and the frozen build's log — pathological, because the tick was not
+consuming — showed **295 passes, 9,134,295 cells visited, largest sheet 2,763, longest pass
+83.4 ms**. A healthy run will be smaller, but the shape is the question: **the per-sheet wait fixed
+the settle never firing, and the thing to check now is whether it fires too often.** The share
+threshold is the bound and `--settleshare=` is its sweep.
+
 ## 2026-09-10 — "Is the water supposed to be stuck or frozen?" — no: the field cached an answer that meant two things
 
 Matthew, on the first play of slice 2. It was a regression and the log named it in one line:

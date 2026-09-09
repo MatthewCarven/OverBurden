@@ -4294,9 +4294,9 @@ finding without the coarser-tolerance fallback.
                         1,208. **The lesson beyond the fix: do not cache an answer whose meaning
                         depends on state the cache does not capture** — three APIs here have a "no"
                         that means two things.
-                  - [ ] **Re-play**: `--fluidfield=0` is the control; the `fluidfield` line
-                        reports chunks, MiB and misses. Nothing should look different — that is the
-                        point — so the check is that it does not, and that `TickMisses` stays 0.
+                  - [x] **Re-played 2026-09-10 — *"Yeah I like it"*.** The check was that nothing
+                        should look different, and nothing did. Slice 2 is accepted; slice 3 is
+                        unblocked and still gated on its own trigger.
             - [ ] **Slices 2 and 3 — ✅ planning pass done 2026-09-10, eight decisions handed back
                   with recommendations; see the plan's "Slices 2 and 3 — the planning pass". Build
                   slice 2 once they are answered.** What the pass changed: **the field is an
