@@ -1,5 +1,32 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-09 — "The cross handling overhead": slice 1's deferred cells leave the swap, and the far floor finds the risk it was for
+
+Matthew, on the pass above and before any code: *"the cross handling overhead, makes it less than
+optimal?"* It is, and the tax has the wrong shape. Two refinements, decisions 8 and 9 in the plan.
+
+- **The bookkeeping scaled with the backlog being ignored rather than with the work being done.**
+  Deferring into `_pending` means the next `Begin()` swaps the deferred cells back in and partitions
+  all of them again to admit 512: a 1.3 MiB streaming walk on the flood-on-open's 110,000 cells,
+  ~0.5 ms Release and ~2 ms Debug (*estimates*), every tick, to schedule 1.5 ms of Debug visits —
+  **more overhead than far water**, and a ~20% tax on a tick with a 3,000-cell near set. **The carry
+  now stays out of the swap** in its own ordered list: O(new wakes + admitted) a tick, ~50× less on
+  that fixture, and the O(backlog) walk moves to once per viewer chunk change — the only event that
+  can reclassify anything — at ~2 ms every 1.1 s walking, under 1%.
+- **The price is the "Begin() and nothing else" claim, and the four readers are named rather than
+  discovered**: `ActiveCellCount`, `Complete`'s `ActiveAfter`, `Settle`'s loop and `Pending`, which
+  `LevelSheets` seeds from and which must be both lists in a fixed order — a `HashSet` seed would
+  put the sheet flood back on hash ordering, which this class rejected for the batch on the same
+  grounds. **`AwakeHeldCells` stays right untouched** because the carry is still in `_queued`, which
+  was the load-bearing half of the earlier shape and survives.
+- **The seam is an artefact, not only a cost, and it is what the floor was always for.** Round-robin
+  admission puts your own pool's leading edge — cells that just crossed the ring, 16–24 m out, and a
+  10,000 L pour spreads ~18 m in five seconds — in one queue behind a lake draining a hundred metres
+  off, where it would stall for the length of that flood. **Far admission is nearest-first**,
+  bucketed on the same per-move walk, with **one part in eight of the quota reserved for a rotating
+  tail.** *"One granule in eight"* was the right fraction against the wrong risk: the quota already
+  protects far from near, and what needs a floor is the far tail against the far front.
+
 ## 2026-09-09 — The water thread, slice 1: the planning pass says a sort delivers nothing, and the far floor is the wrong quantity
 
 Read slice 1's paragraph against `FluidSimulation.Begin/Resume/Complete`, `Main.UpdateFluid`,

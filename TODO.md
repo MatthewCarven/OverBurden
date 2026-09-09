@@ -4251,11 +4251,15 @@ finding without the coarser-tolerance fallback.
                   move once per 188-frame tick and not at 2 Hz — far cells have to be *deferred
                   past the boundary*; and **the far floor is cells admitted per tick, not a share
                   of the frame budget**, because a budget-driven interleave would cost the
-                  whole-equals-sliced identity the tick budget slice bought. The shape is a change
-                  to `Begin()` alone — partition, admit `near + max(512, near)`, put the tail back
-                  in `_pending` while leaving it in `_queued`, which is what keeps
-                  `AwakeHeldCells`, `ActiveCellCount` and `Settle`'s loop right unchanged and is
-                  the difference between a deferred far lake being saved and not. **With no near
+                  whole-equals-sliced identity the tick budget slice bought. The shape is a partition
+                  in `Begin()` — admit `near + max(512, near)`, nearest-first with one part in
+                  eight of the quota rotating — over a deferred list held **out of the swap**,
+                  because putting it back in `_pending` costs an O(backlog) walk every tick to
+                  admit the floor (~2 ms Debug on the 110,000-cell flood, against 1.5 ms of far
+                  visits): Matthew, 2026-09-09, *"the cross handling overhead, makes it less than
+                  optimal?"* The carry stays in `_queued`, which is what keeps `AwakeHeldCells`
+                  and the save path right; `ActiveCellCount`, `ActiveAfter`, `Settle`'s loop and
+                  `Pending` are the four readers that change. **With no near
                   water awake the tick is today's tick**, so the blast radius is the case the play
                   is about. Three costs stated: the cliff at the first near cell; the boundary work
                   (settle, hand-off, drain) going back to 2 Hz during a far flood, which is the

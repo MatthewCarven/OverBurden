@@ -81,7 +81,11 @@ cell for cell over 400 ticks. If admission is a function of the sets and never o
 test survives verbatim with both arms given the same near centre. **So the far floor is a number of
 cells per tick, not a share of a frame.**
 
-#### The mechanism, and it is a change to `Begin()` and nothing else
+#### The mechanism — a change to `Begin()`, and one more list than this section says
+
+**Superseded in part by "The carry costs more than the water it admits" below**, which keeps the
+deferred cells out of the swap and names the four readers that then have to know about them. The
+partition, the quota and the throttling rule are as written here.
 
 At `Begin()`, after the swap:
 
@@ -174,6 +178,56 @@ a play with no far water is not a null.
    seeding the settle from the near set is the lever if it does.
 7. **Re-classify the carried far cells only when the viewer's chunk changed.** Recommended; it is
    exact rather than an approximation.
+
+#### The carry costs more than the water it admits — Matthew, 2026-09-09, before any code
+
+*"The cross handling overhead, makes it less than optimal?"* — yes, and the tax has the wrong
+shape. Two refinements, both taken before slice 1 is built.
+
+**The bookkeeping scales with the backlog you are ignoring, not with the work you are doing.**
+Under the shape above the deferred cells go back into `_pending`, so the next `Begin()` swaps them
+into the batch and partitions all of them again to admit the floor's 512. On the flood-on-open's
+110,000 cells that is a 1.3 MiB streaming walk — two shifts, two compares and a list write a cell,
+~0.5 ms Release and ~2 ms Debug, *estimates* — paid every tick to schedule 512 visits worth 1.5 ms
+of Debug work. **The overhead exceeds the far work it admits**, and against a 3,000-cell near set
+it is a ~20% tax on the tick. Nothing is wrong; it is simply the one cost that grows with the
+number nobody is spending.
+
+**So the carry stays out of the swap.** A third ordered list, `_farCarry`, admitted from its front,
+never swapped and never re-walked at a tick boundary. Per tick the classification is then
+O(new wakes + admitted) — under 0.02 ms Debug in the case above, a ~50× reduction on the same
+fixture — and the O(backlog) walk moves to **once per viewer chunk change**, which is the only event
+that can reclassify anything: ~2 ms every 1.1 s walking and every 0.27 s at flycam sprint, under
+1% either way.
+
+**What that costs is the "Begin() and nothing else" claim, and the four readers are named rather
+than discovered**: `ActiveCellCount` and `Complete`'s `ActiveAfter` (both become the queued set plus
+the tick's remainder, which equals today's value when the carry is empty), `Settle`'s loop
+condition, and `Pending`, which `LevelSheets` seeds from and which must be both lists in a fixed
+order. **`AwakeHeldCells` stays correct untouched**, because the carry is still in `_queued` — that
+was the load-bearing part of the earlier shape and it survives. The other three are shallow, and
+each gets a break-recipe.
+
+**And the seam is a real artefact, not only a cost.** Round-robin admission puts your own pool's
+leading edge — the cells that just crossed the ring, 16–24 m away — in the same queue as a lake
+draining a hundred metres off, and behind it. A 10,000 L pour spreads ~18 m in five seconds
+(M8b-1), so the edge reaches the seam while you are watching it, and it would stall there for the
+length of a distant flood. **So far admission is nearest-first**, bucketed by ring on the same
+per-move walk that reclassifies — free, given that walk — with **one part in eight of the far quota
+reserved for a rotating tail**, so distance ordering cannot starve the distant.
+
+That is where decision 4's number belongs. *"One granule in eight"* was the right fraction against
+the wrong risk: it was protecting far water from near water, which the quota already does; what
+actually needs a floor is the far *tail* against the far *front*.
+
+**Two more decisions, both recommended:**
+
+8. **The deferred far cells live in their own ordered list, out of the swap**, with the four
+   readers above updated and tested. Recommended: the alternative is a per-tick cost proportional
+   to the backlog, which is the one number a throttle exists to stop paying.
+9. **Far admission is nearest-first, with one part in eight of the quota reserved for a rotating
+   tail.** Recommended: FIFO stalls your own pool's edge behind a distant lake, which is the
+   artefact a play would report as the water "sticking" at an invisible line.
 
 ### Slice 2 — the readable terrain (sim thread, priced first)
 
