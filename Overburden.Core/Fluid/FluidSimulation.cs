@@ -217,8 +217,14 @@ public sealed partial class FluidSimulation : IFluidPersistence
     /// before the slice existed read. Mid-tick the unvisited half is counted too, because a report
     /// taken between frames that showed only the next tick's queue would read a flood in progress
     /// as nearly asleep.
+    /// <para>
+    /// <b>And it counts <see cref="FarBacklog"/>, which is the whole reason the near/far order is
+    /// safe.</b> Deferred far cells are awake — they simply have not been admitted — so a count
+    /// that omitted them would report a throttled flood as quiescent, and <see cref="Settle"/>
+    /// would stop with water still moving. The term is zero on the unordered arm.
+    /// </para>
     /// </remarks>
-    public int ActiveCellCount => _pending.Count + RemainingInTick;
+    public int ActiveCellCount => _pending.Count + FarBacklog + RemainingInTick;
 
     /// <summary>True between a tick beginning and its cursor reaching the end of its batch.</summary>
     public bool TickInProgress => _batch.Count > 0;
@@ -514,6 +520,7 @@ public sealed partial class FluidSimulation : IFluidPersistence
         // Per slice rather than per tick, because a profile window can close mid-tick and the
         // visits it paid for are the ones it should count.
         CellVisits += visited;
+        CountVisits(end - visited, end);
 
         return _cursor < _batch.Count ? null : Complete();
     }
@@ -554,11 +561,15 @@ public sealed partial class FluidSimulation : IFluidPersistence
     {
         (_batch, _pending) = (_pending, _batch);
         _pending.Clear();
-        _queued.Clear();
         _rested.Clear();
         _cursor = 0;
         _tickCellsMoved = 0;
         _tickMillilitresMoved = 0;
+
+        // Near first, far under a quota, the rest deferred past the boundary — and _queued left
+        // holding exactly what was deferred. With no near field set this is one Clear and nothing
+        // else, which is the arm every recorded figure was taken in. See FluidSimulation.NearField.
+        ComposeBatch();
 
         // Measured on the set actually visited rather than on the one left behind, because the
         // peak is a cost figure and the cost is paid here.
@@ -574,7 +585,8 @@ public sealed partial class FluidSimulation : IFluidPersistence
         _batch.Clear();
         _cursor = 0;
         Ticks++;
-        return new FluidTickResult(visited, _tickCellsMoved, _tickMillilitresMoved, _pending.Count);
+        return new FluidTickResult(
+            visited, _tickCellsMoved, _tickMillilitresMoved, _pending.Count + FarBacklog);
     }
 
     /// <summary>
@@ -594,7 +606,7 @@ public sealed partial class FluidSimulation : IFluidPersistence
 
         // A tick in progress is finished first and counts as one of the ticks: the bound is on
         // ticks completed, and a caller that sliced before settling is still inside the first.
-        while ((TickInProgress || _pending.Count > 0) && ticks < maxTicks)
+        while ((TickInProgress || _pending.Count + FarBacklog > 0) && ticks < maxTicks)
         {
             FluidTickResult tick = Step();
             ticks++;

@@ -229,6 +229,49 @@ actually needs a floor is the far *tail* against the far *front*.
    tail.** Recommended: FIFO stalls your own pool's edge behind a distant lake, which is the
    artefact a play would report as the water "sticking" at an invisible line.
 
+#### Slice 1 — built 2026-09-09, unplayed
+
+`FluidSimulation.NearField.cs`: `SetNearField(centre, rings)`, the classification, the quota, the
+carry, and `--fluidnear=<rings>` / `--fluidfar=<cells>` in the game. **Rings 0 is the default and
+the control arm**, and `start.cmd` passes 2 the way it passes `--adaptive=1`. Suite 1,179 → 1,196 (17 new tests); the Game builds and three headless arms ran. Five things worth keeping.
+
+- **The wire holds and the identity never moved.** `fluidnear 2 ring(s), 346,118 near visit(s)
+  against 385,300 far, 3 tick(s) deferred something` on the standard wire check, with
+  `held == injected + drawn + loaded − removed − displaced − handed − evicted: exact` on every
+  report and `paused` behaving exactly as before. The control arm prints `fluidnear off, 744,714
+  near visit(s) against 0 far, 0 deferred` and is the same run it was.
+- **The headless instrument can barely exercise the throttle, and that is a fact about the
+  provocation rather than about the code.** `--injectlitres` pours *at the player*, so the water is
+  near by construction: at 12 m/s the throttle bound on 3 of 59 ticks (the moments the pour
+  straddled the ring as the player left it), and at 4 m/s on **none at all** — 1,634,268 near visits
+  against 1,992 far, because the player never leaves the pour. **The throttle needs two separated
+  bodies of water**, which is exactly the provocation the plan named and which one flag cannot
+  produce. `--fillbasin=400000 --breach=7 --injectlitres=100000` is the arm that does it — a lake
+  draining into a mine at the basin's pit while the relay pours at your feet — and it reads
+  **396,952 near against 281,717 far, 12 of 79 ticks deferring, both identities exact**. Quote that
+  invocation, not the wire check, for anything about the order.
+- **Two fixtures were wrong before the code was, and both were the same trap one level apart.**
+  The first corridor was 247 cells long — M8a's O(n²) case — so every settle assertion failed on the
+  fixture, in *both* arms, because levelling to the millilitre effectively never finishes there;
+  disjoint pockets settle in tens of ticks. Then a far pour that lands already stacked rests in
+  seventeen ticks and takes the quota's cap off before a twenty-tick test has finished looking, so
+  the far pocket is wide and the water goes in one end. **Neither failure was about near and far.**
+- **Thirteen recipes of fourteen caught, one identity, and the miss the battery found was a
+  scenario where both arms agree.** "Settle stops on the pending list alone" passed, because the
+  deferred backlog and the wake list only disagree when *nothing was woken* — and a far pour with a
+  partial top row keeps waking cells, so the carry drained either way.
+  `SettleFinishesTheBacklogWhenNothingElseIsAwake` pours whole rows so every cell rests on its first
+  visit, and it fails against the mutation. The identity is "the carry never compacted", which is
+  memory hygiene with no observable behaviour. **Named as a gap and not covered: that the carry is
+  drained from its *front*** — FIFO against LIFO only bites under a growing backlog and there is no
+  cheap boolean for it; the test asserts far-side progress every tick instead.
+- **`_queued` is what made this a small change.** The carry lives in the same dedupe set as the wake
+  list, so `AwakeHeldCells` — the store's walk and the eviction's — is correct untouched, and the
+  four readers that did change are the ones the planning pass named. `ComposeBatch` removes the
+  batch's own cells from `_queued` one at a time rather than clearing and re-adding the backlog,
+  which also takes the *whole-tick* path off the capacity-proportional `HashSet.Clear` that M8b's
+  budget slice recorded as its overshoot lever — for a throttled tick only.
+
 ### Slice 2 — the readable terrain (sim thread, priced first)
 
 A holdability bit per voxel, 4 KiB a chunk, built when a chunk's voxels arrive on the pipeline's

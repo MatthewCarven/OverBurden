@@ -1,5 +1,44 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-09 — The water thread, slice 1 is built and unplayed: near water every tick, far water deferred past the boundary
+
+`FluidSimulation.NearField.cs` — `SetNearField(centre, rings)`, a quota of
+`near == 0 ? everything : max(--fluidfar, the near set)`, and the far remainder deferred into a
+carry that never enters the swap. `--fluidnear=<rings>` in the game, 0 in code and 2 from
+`start.cmd`, the way `--adaptive=1` ships. **Suite 1,179 → 1,196; 14 recipes, 13 caught, 1
+identity.** Five things worth keeping.
+
+- **The play check is the first thing to do, and the invocation matters more than usual.** The
+  standard wire check cannot exercise this: `--injectlitres` pours *at the player*, so at 12 m/s the
+  throttle bound on 3 of 59 ticks and at 4 m/s on **none at all** — 1,634,268 near visits against
+  1,992 far, because the player never leaves the pour. **The order needs two separated bodies of
+  water**, which is the provocation the plan named, and the arm that produces it headlessly is
+  `--fillbasin=400000 --breach=7 --injectlitres=100000 --fluidnear=2`: a lake draining into a mine
+  at the basin's pit while the relay pours at your feet, reading **396,952 near against 281,717 far,
+  12 of 79 ticks deferring, both identities exact**. Quote that, not the wire check.
+- **The control arm is untouched and says so in its own words**: `fluidnear off, 744,714 near
+  visit(s) against 0 far, 0 deferred`. Rings zero short-circuits the whole file to one `Clear()`,
+  and `SetNearField` is not called at all from the game when the flag is zero, so a walking player
+  never reaches the classification path.
+- **Two fixtures were wrong before the code was, and neither failure was about near and far.** The
+  first corridor was 247 cells long — M8a's O(n²) case — so every settle assertion failed on the
+  fixture in *both* arms, because levelling to the millilitre effectively never finishes there.
+  Then a far pour that lands already stacked rests in seventeen ticks and takes the quota's cap off
+  before a twenty-tick test has finished looking. **Third and fourth outing for "the trap is the
+  fixture".**
+- **The battery's one real miss was a scenario where both arms agree.** "Settle stops on the pending
+  list alone" passed, because the deferred backlog and the wake list only disagree when *nothing was
+  woken* — and a far pour with a partial top row keeps waking cells, so the carry drained either
+  way. The new test pours whole rows so every cell rests on its first visit. The other miss is an
+  identity (the carry never compacted: memory hygiene, no observable behaviour). **Named and not
+  covered: that the carry is drained from its front** — FIFO against LIFO only bites under a growing
+  backlog, and there is no cheap boolean for it.
+- **`_queued` is what kept this small.** The carry lives in the same dedupe set as the wake list, so
+  `AwakeHeldCells` — the store's walk and the eviction's — is right untouched, and only the four
+  readers the planning pass named had to change. `ComposeBatch` removes the batch's own cells from
+  `_queued` rather than clearing and re-adding the backlog, which also takes a throttled tick off
+  the capacity-proportional `HashSet.Clear` that M8b's budget slice recorded as its overshoot lever.
+
 ## 2026-09-09 — "The cross handling overhead": slice 1's deferred cells leave the swap, and the far floor finds the risk it was for
 
 Matthew, on the pass above and before any code: *"the cross handling overhead, makes it less than

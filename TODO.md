@@ -4254,9 +4254,20 @@ finding without the coarser-tolerance fallback.
             landing at the next boundary, a slow tick lowering the rate, ~8× the Debug throughput.
             All eight decisions taken as recommended. Build (3) when the play reads the flood on
             open as hurting rather than slow. Not started.
-            - [ ] **Slice 1 — the planning pass is done (2026-09-09) and its seven decisions are
-                  handed back; see the plan's "Slice 1 — the planning pass". Build it once they
-                  are answered.** The pass corrected the mechanism twice: **a sort delivers
+            - [x] **Slice 1 — planned and ✅ built 2026-09-09, unplayed; see the plan's
+                  "Slice 1 — the planning pass" and "Slice 1 — built".** Suite 1,179 → 1,196,
+                  14 recipes and 13 caught (the miss an identity).
+                  - [ ] **Play check**: `start.cmd` passes `--fluidnear=2`. Open the played world,
+                        stand where water is flooding, and stab `R` at your feet. The question is
+                        whether the pool under you keeps moving while the mine fills. Read
+                        `fluidnear` on the profile line and `far deferred` on the `M8b:` line;
+                        `--fluidnear=0` is the control. **The headless instrument cannot answer
+                        this** — `--injectlitres` pours at the player, so the throttle bound on 0 of
+                        78 ticks at 4 m/s.
+                  - [ ] Not covered by a test: that the carry is drained from its front. FIFO
+                        against LIFO only bites under a growing backlog and there is no cheap
+                        boolean for it; progress every tick is asserted instead.
+                  The pass's own record: The pass corrected the mechanism twice: **a sort delivers
                   nothing**, because a tick does not end until its batch does, so near water would
                   move once per 188-frame tick and not at 2 Hz — far cells have to be *deferred
                   past the boundary*; and **the far floor is cells admitted per tick, not a share

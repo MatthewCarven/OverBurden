@@ -204,7 +204,32 @@ public sealed partial class FluidSimulation
     /// Cells queued for the next tick. Valid at a tick boundary, which is the only time the
     /// question means anything; the seeds of <see cref="LevelSheets()"/>.
     /// </summary>
-    public IReadOnlyList<VoxelPos> Pending => _pending;
+    /// <remarks>
+    /// <b>Includes the far cells the near/far order deferred past the boundary</b>, because they
+    /// are queued for a later tick rather than settled: a far sheet whose every cell is carried
+    /// would otherwise be invisible to the solve, and the share rule's early stop assumes each
+    /// unsettled cell neighbours a seed. Costs nothing while nothing is deferred, which is the
+    /// unordered arm and every bench figure.
+    /// </remarks>
+    public IReadOnlyList<VoxelPos> Pending
+    {
+        get
+        {
+            if (FarBacklog == 0)
+            {
+                return _pending;
+            }
+
+            _seedScratch.Clear();
+            _seedScratch.AddRange(_pending);
+            for (int i = _farHead; i < _farCarry.Count; i++)
+            {
+                _seedScratch.Add(_farCarry[i]);
+            }
+
+            return _seedScratch;
+        }
+    }
 
     /// <summary>
     /// Levels every sheet the active set touches whose disturbance is at least one cell in
@@ -217,7 +242,7 @@ public sealed partial class FluidSimulation
     /// cells found from a few hundred seeds; a flooded mine's floor is one sheet found from its
     /// front.
     /// </remarks>
-    public SheetLevelResult LevelSheets(int share = 0) => LevelSheets(_pending, share);
+    public SheetLevelResult LevelSheets(int share = 0) => LevelSheets(Pending, share);
 
     /// <summary>
     /// Levels every sheet reachable from the given cells, under the same share rule. At a tick

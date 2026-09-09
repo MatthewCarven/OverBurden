@@ -1,0 +1,309 @@
+using Overburden.Core.Voxels;
+
+namespace Overburden.Core.Fluid;
+
+/// <summary>
+/// The near/far order: water around the viewer is visited every tick, water further off is
+/// deferred past the boundary and admitted under a quota.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The order alone would deliver nothing, because a tick does not end until its batch does.</b>
+/// <see cref="FluidSimulation.Complete"/> fires when the cursor reaches the end of the batch, and
+/// the frame budget lapses <i>inside</i> a tick and never between one and the next — so sorting the
+/// batch near-first visits near cells in the first frame of the flood-on-open's 188-frame tick and
+/// then not again for three seconds. What makes near water tick at 2 Hz is far cells being
+/// <b>deferred past the boundary</b>, which is what this file does.
+/// </para>
+/// <para>
+/// <b>Admission is a function of the sets and never of the clock</b>, which is what keeps
+/// <i>a tick run whole lands the same water as a tick run in slices</i> — asserted cell for cell
+/// since M8b's tick budget slice. A far floor expressed as a share of each frame's budget would
+/// interleave far visits between near ones under clock control and cost exactly that property, so
+/// the floor here is a number of <b>cells admitted per tick</b>.
+/// </para>
+/// <para>
+/// <b>Throttling rather than scheduling: with no near cell awake the tick is today's tick.</b>
+/// The quota is unbounded when nothing near is awake, so the change's blast radius is exactly the
+/// case it exists for, and <see cref="NearRings"/> of zero — the default, and what every fixture
+/// and bench runs — skips this file altogether. The price is a cliff at the first near cell: one
+/// drip beside you drops a 110,000-cell far flood to the floor's rate. Named rather than smoothed,
+/// because every floor has that edge and each alternative buys it back with a second constant.
+/// </para>
+/// <para>
+/// <b>The deferred cells stay out of the swap, and that is a cost decision with a number.</b>
+/// Deferring into <c>_pending</c> would have the next <see cref="FluidSimulation.Begin"/> swap them
+/// back in and partition all of them again to admit the floor — a 1.3 MiB streaming walk on the
+/// flood-on-open's 110,000 cells, ~2 ms in Debug, every tick, to schedule 1.5 ms of visits. **The
+/// bookkeeping would exceed the far water it admits**, and it would scale with the backlog being
+/// ignored rather than with the work being done. So the carry is its own list, admitted from its
+/// front, and the O(backlog) walk happens only when the viewer's chunk changes — the one event that
+/// can reclassify anything.
+/// </para>
+/// <para>
+/// <b>The carry stays inside <c>_queued</c>, and that is the load-bearing part.</b>
+/// <see cref="AwakeHeldCells"/> walks <c>_queued</c>, and it is what the store writes and the
+/// eviction lists — so a backlog held in a list the dedupe set did not know about would be a lake
+/// that quietly stopped being saved. Four readers do have to know about the carry, and each has a
+/// break-recipe: <see cref="ActiveCellCount"/>, <see cref="FluidTickResult.ActiveAfter"/>,
+/// <see cref="Settle"/>'s loop condition, and <see cref="Pending"/>, which
+/// <see cref="LevelSheets(int)"/> seeds from — a far sheet whose cells are all carried would
+/// otherwise be invisible to the solve, and the share rule's early stop assumes every unsettled
+/// cell neighbours a seed.
+/// </para>
+/// </remarks>
+public sealed partial class FluidSimulation
+{
+    /// <summary>
+    /// The least the far side is admitted per tick while any near cell is awake: 512 cells, eight
+    /// granules of <see cref="VisitsPerDeadlineCheck"/>.
+    /// </summary>
+    /// <remarks>
+    /// <b>An estimate, labelled as one, and <c>--fluidfar=</c> is the sweep</b>; a very large value
+    /// is a second control arm. Eight granules is where M8b's <i>"one granule in eight"</i> ends up
+    /// once it is measured in the quantity that can actually be admitted. At 2 Hz it is 1,024 far
+    /// visits a second, ~2.5% of what the Debug frame budget buys.
+    /// </remarks>
+    public const int DefaultFarFloorCells = 512;
+
+    // Where the viewer is and how far "near" reaches, in chunks. Rings 0 is no order at all.
+    private ChunkPos _nearCentre;
+    private int _nearRings;
+
+    private int _farFloorCells = DefaultFarFloorCells;
+
+    // Far cells deferred past a boundary, oldest first, consumed from _farHead. Never swapped,
+    // and every cell in it is in _queued.
+    private readonly List<VoxelPos> _farCarry = [];
+    private int _farHead;
+
+    // Set when the viewer's chunk moved, because that is the only event that can change a carried
+    // cell's class. The next Begin then re-classifies the carry in the same pass it classifies the
+    // tick's wakes, which is the once-per-move O(backlog) walk this design pays for.
+    private bool _reclassifyCarry;
+
+    // Scratch for the classification pass, reused so a tick allocates nothing.
+    private readonly List<VoxelPos> _nearScratch = [];
+    private readonly List<VoxelPos> _farScratch = [];
+
+    // Seeds for LevelSheets when a carry exists: _pending plus the carry, in that order.
+    private readonly List<VoxelPos> _seedScratch = [];
+
+    // How much of the batch in progress is near. The batch is near-first, so the split is an index.
+    private int _batchNearCount;
+
+    /// <summary>Near cells admitted to the tick in progress, or to the last one completed.</summary>
+    public int NearAdmitted => _batchNearCount;
+
+    /// <summary>Far cells admitted to the tick in progress, or to the last one completed.</summary>
+    public int FarAdmitted { get; private set; }
+
+    /// <summary>Far cells deferred past the boundary and waiting for a later tick's quota.</summary>
+    public int FarBacklog => _farCarry.Count - _farHead;
+
+    /// <summary>Near cells visited over this simulation's lifetime.</summary>
+    public long NearCellsVisited { get; private set; }
+
+    /// <summary>Far cells visited over this simulation's lifetime.</summary>
+    public long FarCellsVisited { get; private set; }
+
+    /// <summary>Ticks that deferred at least one far cell past their boundary.</summary>
+    public long ThrottledTicks { get; private set; }
+
+    /// <summary>How many chunk rings around the viewer are near. Zero is no order.</summary>
+    public int NearRings => _nearRings;
+
+    /// <summary>The chunk the near field is centred on. Meaningless while <see cref="NearRings"/> is zero.</summary>
+    public ChunkPos NearCentre => _nearCentre;
+
+    /// <summary>
+    /// The least far cells admitted per tick while any near cell is awake.
+    /// </summary>
+    /// <remarks>
+    /// Settable rather than a constructor argument because it is a cost knob and not a rule: unlike
+    /// <see cref="SpreadRule"/>, nothing about the wake rules depends on it, so changing it under
+    /// resting water leaves no move asleep.
+    /// </remarks>
+    public int FarFloorCells
+    {
+        get => _farFloorCells;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value);
+            _farFloorCells = value;
+        }
+    }
+
+    /// <summary>
+    /// Where the viewer is, and how many chunk rings around it are visited every tick.
+    /// </summary>
+    /// <param name="centre">The viewer's chunk.</param>
+    /// <param name="rings">
+    /// Chebyshev rings on X and Z, the chunk column's <b>full height</b> — vertical is nearly free
+    /// at r6h/2v and water is vertical. Zero turns the order off, which is the default, the control
+    /// arm, and what every Core fixture and every bench arm runs.
+    /// </param>
+    /// <remarks>
+    /// Called by the game once a frame; safe to call with an unchanged centre, which costs a
+    /// comparison. <b>A changed centre does not move any water</b> — it marks the carry for
+    /// re-classification at the next tick boundary, so the reclassification lands where every other
+    /// mutation of the active set lands.
+    /// </remarks>
+    public void SetNearField(ChunkPos centre, int rings)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(rings);
+
+        bool changed = rings != _nearRings || centre != _nearCentre;
+        _nearCentre = centre;
+        _nearRings = rings;
+
+        // Turning the order off has to drain the carry too, and the same flag does it: the next
+        // composition classifies every carried cell, and with rings zero they are all near. The
+        // backlog term is what keeps a caller that passes zero every frame — the control arm — off
+        // the classification path entirely, however much the viewer moves.
+        if (changed && (rings > 0 || FarBacklog > 0))
+        {
+            _reclassifyCarry = true;
+        }
+    }
+
+    /// <summary>True when this cell's chunk is within the near rings of the viewer's.</summary>
+    /// <remarks>
+    /// Horizontal only. A chunk column is near or far as a whole, so a shaft under your feet is
+    /// near for its whole depth, which is the point: water is vertical and the box is short.
+    /// </remarks>
+    private bool IsNear(VoxelPos cell)
+    {
+        if (_nearRings <= 0)
+        {
+            // No order: everything is near, which is what makes a composition that runs only to
+            // drain a leftover carry produce exactly the batch the unordered arm would have.
+            return true;
+        }
+
+        ChunkPos chunk = cell.Chunk;
+        int dx = chunk.X - _nearCentre.X;
+        int dz = chunk.Z - _nearCentre.Z;
+        if (dx < 0) dx = -dx;
+        if (dz < 0) dz = -dz;
+        return (dx > dz ? dx : dz) <= _nearRings;
+    }
+
+    /// <summary>
+    /// Turns the cells woken since the last boundary into this tick's batch: near first, then as
+    /// much of the far carry as the quota admits, with the rest deferred.
+    /// </summary>
+    /// <remarks>
+    /// Leaves <c>_queued</c> holding exactly the deferred carry, which is the invariant every other
+    /// reader of the active set depends on.
+    /// </remarks>
+    private void ComposeBatch()
+    {
+        if (_nearRings <= 0 && !_reclassifyCarry && FarBacklog == 0)
+        {
+            // The unordered arm, and it must stay the cheapest path there is: one Clear, no
+            // classification, no copy. Every figure recorded before this slice was taken here.
+            _batchNearCount = _batch.Count;
+            FarAdmitted = 0;
+            _queued.Clear();
+            return;
+        }
+
+        Classify();
+
+        // Unbounded when nothing near is awake: throttling rather than scheduling, so a viewer
+        // standing in a dry field ticks the flood exactly as the unordered arm would.
+        int quota = _nearScratch.Count == 0 ? int.MaxValue : Math.Max(_farFloorCells, _nearScratch.Count);
+
+        _batch.Clear();
+        _batch.AddRange(_nearScratch);
+        _batchNearCount = _batch.Count;
+        FarAdmitted = AdmitFromCarry(quota);
+
+        if (FarBacklog > 0)
+        {
+            ThrottledTicks++;
+            // _queued must end holding exactly the carry, so the batch's own cells come out of it
+            // one at a time. Cheaper than clearing and re-adding the backlog, which is the cost
+            // this whole arrangement exists to avoid.
+            foreach (VoxelPos cell in _batch)
+            {
+                _queued.Remove(cell);
+            }
+        }
+        else
+        {
+            _queued.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Splits the woken cells — and the carry, when the viewer moved — into near and far, keeping
+    /// each side's relative order.
+    /// </summary>
+    private void Classify()
+    {
+        _nearScratch.Clear();
+        _farScratch.Clear();
+
+        // Carried cells first, so that a cell deferred earlier is admitted before one woken since:
+        // the round-robin the carry's fairness rests on.
+        if (_reclassifyCarry)
+        {
+            for (int i = _farHead; i < _farCarry.Count; i++)
+            {
+                VoxelPos cell = _farCarry[i];
+                (IsNear(cell) ? _nearScratch : _farScratch).Add(cell);
+            }
+
+            _farCarry.Clear();
+            _farHead = 0;
+            _reclassifyCarry = false;
+        }
+
+        foreach (VoxelPos cell in _batch)
+        {
+            (IsNear(cell) ? _nearScratch : _farScratch).Add(cell);
+        }
+
+        CompactCarry();
+        _farCarry.AddRange(_farScratch);
+    }
+
+    /// <summary>Appends up to <paramref name="quota"/> cells from the front of the carry to the batch.</summary>
+    private int AdmitFromCarry(int quota)
+    {
+        int take = Math.Min(quota, FarBacklog);
+        for (int i = 0; i < take; i++)
+        {
+            _batch.Add(_farCarry[_farHead + i]);
+        }
+
+        _farHead += take;
+        if (_farHead == _farCarry.Count)
+        {
+            _farCarry.Clear();
+            _farHead = 0;
+        }
+
+        return take;
+    }
+
+    /// <summary>Drops the consumed prefix once it is at least half the list, so the head is amortised O(1).</summary>
+    private void CompactCarry()
+    {
+        if (_farHead > 0 && _farHead * 2 >= _farCarry.Count)
+        {
+            _farCarry.RemoveRange(0, _farHead);
+            _farHead = 0;
+        }
+    }
+
+    /// <summary>Counts a slice's visits as near or far, from where the cursor was.</summary>
+    private void CountVisits(int from, int to)
+    {
+        int near = Math.Clamp(_batchNearCount, from, to) - from;
+        NearCellsVisited += near;
+        FarCellsVisited += to - from - near;
+    }
+}

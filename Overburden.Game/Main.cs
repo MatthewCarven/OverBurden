@@ -357,6 +357,26 @@ public partial class Main : Node3D
     /// </remarks>
     private TimeSpan _fluidBudget = FluidSimulation.DefaultTickBudget;
 
+    /// <summary>
+    /// <c>--fluidnear=&lt;rings&gt;</c>: how many chunk rings around the viewer Tier B visits every
+    /// tick, the rest of the awake set being deferred past the boundary under a quota. Zero is no
+    /// order at all — the default, the control arm, and what every recorded figure was taken in.
+    /// </summary>
+    /// <remarks>
+    /// <b><c>start.cmd</c> passes 2, the way it passes <c>--adaptive=1</c></b>, so the play gets
+    /// the feature while every measurement stays at the arm it was recorded in. Two rings is the
+    /// 5x5 chunk column of WATER-THREAD-PLAN's slice 1, the box's full height: vertical is nearly
+    /// free at r6h/2v and water is vertical.
+    /// </remarks>
+    private int _fluidNearRings;
+
+    /// <summary>
+    /// <c>--fluidfar=&lt;cells&gt;</c>: the least far cells admitted per tick while any near cell
+    /// is awake. <see cref="FluidSimulation.DefaultFarFloorCells"/> by default, an estimate; a very
+    /// large value is a second control arm.
+    /// </summary>
+    private int _fluidFarFloor = FluidSimulation.DefaultFarFloorCells;
+
     private long _fluidBudgetTicks;
 
     /// <summary>Frames the tick in progress has run over so far; the tick's span once it completes.</summary>
@@ -367,6 +387,11 @@ public partial class Main : Node3D
 
     /// <summary>The simulation's counters when the measured window opened, so the window's own figures can be reported.</summary>
     private long _fluidVisitsAtWarm, _fluidTicksAtWarm;
+
+    // The near/far counters are lifetime totals like the rest, so the window keeps its own
+    // baseline — a lifetime numerator over a window's denominator is the trap this project has
+    // walked into twice.
+    private long _fluidNearAtWarm, _fluidFarAtWarm, _fluidThrottledAtWarm;
 
     private int _fluidSlicedAtWarm, _fluidLongestTickFramesInWindow;
 
@@ -1111,6 +1136,17 @@ public partial class Main : Node3D
                 // the sweep. Zero is not off: one granule a frame, so the water still moves.
                 case "fluidbudget" when double.TryParse(value, out double fluidMillis):
                     _fluidBudget = TimeSpan.FromMilliseconds(Math.Max(0.0, fluidMillis));
+                    break;
+
+                // The water thread, slice 1: near water every tick, far water deferred past the
+                // boundary under a quota of max(--fluidfar, the near set). Zero rings is no order,
+                // which is the control arm and what every figure recorded before it was taken in.
+                case "fluidnear" when int.TryParse(value, out int nearRings):
+                    _fluidNearRings = Math.Max(0, nearRings);
+                    break;
+
+                case "fluidfar" when int.TryParse(value, out int farFloor):
+                    _fluidFarFloor = Math.Max(1, farFloor);
                     break;
 
                 // M8b-3b: how many ticks with nothing arriving before the sheet solve levels what
@@ -3173,8 +3209,13 @@ public partial class Main : Node3D
 
         var terrain = new VoxelFluidTerrain(_pipeline.Streamer, _materials!);
         _fluid = new FluidSimulation(terrain, spread: _spread);
+        _fluid.FarFloorCells = _fluidFarFloor;
         _fluidBudgetTicks = FluidSimulation.BudgetTicks(_fluidBudget);
         GD.Print($"M8b: Tier B spread rule is {_spread.ToString().ToLowerInvariant()} (--spread=fixed|counted)");
+        GD.Print(_fluidNearRings > 0
+            ? $"M8b: near water is {_fluidNearRings} ring(s) of chunks, visited every tick; far water "
+              + $"is admitted at least {_fluidFarFloor:N0} cell(s) a tick (--fluidnear=0 is no order)"
+            : "M8b: no near/far order — every awake cell is visited every tick (--fluidnear=<rings>)");
 
         // M8b-4b: the save path takes its panels from here. After construction because the
         // terrain above is the pipeline's own streamer, which is the whole reason it is a
@@ -3231,10 +3272,22 @@ public partial class Main : Node3D
             _fluidWarmSeen = true;
             _fluidVisitsAtWarm = _fluid.CellVisits;
             _fluidTicksAtWarm = _fluid.Ticks;
+            _fluidNearAtWarm = _fluid.NearCellsVisited;
+            _fluidFarAtWarm = _fluid.FarCellsVisited;
+            _fluidThrottledAtWarm = _fluid.ThrottledTicks;
             _fluidSlicedAtWarm = _fluidSlicedTicks;
             _drawnAtWarm = _drain?.DrawnMillilitres ?? 0;
             _handedAtWarm = _handoff?.HandedMillilitres ?? 0;
             _settlesAtWarm = _settle?.Settles ?? 0;
+        }
+
+        // Where the viewer is, for the near/far order. Called only when the order is on, so the
+        // control arm never reaches the classification path however far the player walks; a
+        // changed centre moves no water, it marks the carry for re-classification at the next
+        // boundary.
+        if (_fluidNearRings > 0)
+        {
+            _fluid.SetNearField(ViewerChunk(), _fluidNearRings);
         }
 
         _fluidSinceTick += delta;
@@ -3637,7 +3690,8 @@ public partial class Main : Node3D
                + $"paused {f.PausedCellCount:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
                + $"{f.ResumedCells:N0} resumed, {f.FaceWakes:N0} face wake(s), "
                + $"evicting {f.EvictingPanelCount:N0} panel(s), {f.ReclaimedPanels:N0} reclaimed | "
-               + $"{f.Ticks:N0} tick(s) at {1.0 / FluidTickSeconds:F0} Hz, {f.ActiveCellCount:N0} active, "
+               + $"{f.Ticks:N0} tick(s) at {1.0 / FluidTickSeconds:F0} Hz, {f.ActiveCellCount:N0} active "
+               + $"({f.FarBacklog:N0} far deferred), "
                + $"peak {f.PeakActiveCells:N0}, {f.CellVisits:N0} visits; budget "
                + $"{_fluidBudget.TotalMilliseconds:F1} ms a frame, worst frame {_fluidWorstMillis:F2} ms, "
                + $"{_fluidSlicedTicks:N0} tick(s) over more than one frame, longest {_fluidLongestTickFrames:N0}"
@@ -3721,6 +3775,10 @@ public partial class Main : Node3D
                + $"{visits:N0} visits ({visits / seconds:N0}/s against the ~520,000/s the light "
                + $"budget licenses), peak active {f.PeakActiveCells:N0}, {f.ActiveCellCount:N0} active at the end; "
                + $"{sliced:N0} tick(s) took more than one frame, longest {_fluidLongestTickFramesInWindow:N0} frame(s)\n"
+               + $"fluidnear {(_fluidNearRings > 0 ? $"{_fluidNearRings} ring(s)" : "off")}, "
+               + $"{f.NearCellsVisited - _fluidNearAtWarm:N0} near visit(s) against "
+               + $"{f.FarCellsVisited - _fluidFarAtWarm:N0} far, {f.FarBacklog:N0} deferred at the end, "
+               + $"{f.ThrottledTicks - _fluidThrottledAtWarm:N0} tick(s) deferred something\n"
                + tick
                + surface;
     }
