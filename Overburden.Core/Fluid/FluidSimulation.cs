@@ -1211,6 +1211,62 @@ public sealed partial class FluidSimulation : IFluidPersistence
     /// </remarks>
     private int RoomAt(VoxelPos cell) => _grid.FreeAt(cell);
 
+    /// <summary>
+    /// Every chunk a tick could read: those holding water or paused cells, and their face
+    /// neighbours.
+    /// </summary>
+    /// <remarks>
+    /// <b>What <see cref="FluidField.Sync"/> is given at a boundary.</b> A visit reads its own cell
+    /// and its six face neighbours and nothing further, so one ring of chunks around the wet set
+    /// covers a tick — an awake empty cell is one a wet neighbour woke, so it is inside that ring
+    /// already. <b>The claim is checked rather than trusted</b>: a question outside the built set
+    /// falls through to the source and is counted as a <see cref="FluidField.Misses"/>, and slice 3
+    /// cannot start while that counter moves.
+    /// </remarks>
+    public void ReachableChunks(HashSet<ChunkPos> into)
+    {
+        ArgumentNullException.ThrowIfNull(into);
+
+        into.Clear();
+        foreach (ChunkPos chunk in _grid.PanelChunks())
+        {
+            into.Add(chunk);
+        }
+
+        foreach ((ChunkPos chunk, _) in _paused)
+        {
+            into.Add(chunk);
+        }
+
+        // Two rings of face neighbours, not one. <b>One was wrong and the miss counter said so</b>
+        // — 51,336 fall-throughs in a 40 s flood: an awake cell need not hold water, so it can sit
+        // in the first ring, and visiting it reads *its* face neighbours, which are in the second.
+        // Manhattan rather than Chebyshev because every read is along a face: 25 chunks a seed
+        // rather than 125.
+        _reachScratch.Clear();
+        _reachScratch.AddRange(into);
+        for (int ring = 0; ring < 2; ring++)
+        {
+            int start = ring == 0 ? 0 : _reachRingStart;
+            _reachRingStart = _reachScratch.Count;
+            for (int i = start; i < _reachRingStart; i++)
+            {
+                ChunkPos chunk = _reachScratch[i];
+                foreach ((int dx, int dy, int dz) in Faces)
+                {
+                    ChunkPos neighbour = chunk.Offset(dx, dy, dz);
+                    if (into.Add(neighbour))
+                    {
+                        _reachScratch.Add(neighbour);
+                    }
+                }
+            }
+        }
+    }
+
+    private readonly List<ChunkPos> _reachScratch = [];
+    private int _reachRingStart;
+
     /// <summary>Records that this voxel's chunk received water or an edit on this tick.</summary>
     private void NoteInflow(VoxelPos voxel)
     {

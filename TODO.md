@@ -4271,6 +4271,20 @@ finding without the coarser-tolerance fallback.
             landing at the next boundary, a slow tick lowering the rate, ~8× the Debug throughput.
             All eight decisions taken as recommended. Build (3) when the play reads the flood on
             open as hurting rather than slow. Not started.
+            - [x] **Slice 2 — ✅ built 2026-09-10, decisions 1–4 as recommended.** `FluidField`
+                  is an `IFluidTerrain` built from one, so nothing else changed; one bit behind
+                  `ClassAt`, 4 KiB a chunk, `--fluidfield=0` the control. Suite 1,199 → 1,206.
+                  **0 tick misses on a 40 s flood (80 chunks, 0.31 MiB) — slice 3's precondition,
+                  measured.** Three findings: **one ring of face neighbours was wrong** and the miss
+                  count staying identical to the digit while the set grew 32 → 80 is what said so
+                  (two rings now, 1 + 6 + 18, Manhattan not Chebyshev); **every miss is the pour**,
+                  which asks whether a voxel can hold before a panel exists there, so `Misses` is a
+                  cost and `TickMisses` is the gate; and **a field is an amortisation that can
+                  lose** — 32,768 questions to bake, one saved per read, so baking more than the
+                  water uses costs more than it saves.
+                  - [ ] **Play check**: `--fluidfield=0` is the control; the `fluidfield` line
+                        reports chunks, MiB and misses. Nothing should look different — that is the
+                        point — so the check is that it does not, and that `TickMisses` stays 0.
             - [ ] **Slices 2 and 3 — ✅ planning pass done 2026-09-10, eight decisions handed back
                   with recommendations; see the plan's "Slices 2 and 3 — the planning pass". Build
                   slice 2 once they are answered.** What the pass changed: **the field is an

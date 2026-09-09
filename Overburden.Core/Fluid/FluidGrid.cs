@@ -447,6 +447,15 @@ public sealed class FluidGrid
     /// <summary>Whether this chunk has a panel allocated — one held cell or more.</summary>
     public bool HasPanel(ChunkPos chunk) => _panels.ContainsKey(chunk);
 
+    /// <summary>Every chunk holding a panel. O(panels), not O(cells).</summary>
+    /// <remarks>
+    /// The seed of the reachable set the field is built over: awake cells either hold water, and so
+    /// live in a panel, or are empty cells a wet neighbour woke, and so live within one voxel of
+    /// one. Derived from the panels rather than from the active set because a flood's active set is
+    /// hundreds of thousands of cells and its panels are dozens.
+    /// </remarks>
+    public IEnumerable<ChunkPos> PanelChunks() => _panels.Keys;
+
     /// <summary>
     /// Drops a chunk's panel without touching the row on disk. Returns the millilitres that left
     /// RAM with it, which the caller counts as evicted.

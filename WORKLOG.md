@@ -1,5 +1,44 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-10 — Slice 2 is built: the tick reads a baked field, and the miss counter is what says slice 3 may start
+
+`FluidField` implements `IFluidTerrain` and is built from one, so the simulation cannot tell which
+it was given: the tick, every fixture and every bench arm are untouched, and *a tick against the
+field lands the same water as a tick against the world* is a test rather than an argument. One bit
+per voxel behind `ClassAt`, 4 KiB a chunk, over the wet chunks and their neighbours; `--fluidfield=0`
+is the control arm. **Suite 1,199 → 1,206.**
+
+- **Nought misses inside a tick, which is slice 3's precondition, measured rather than assumed.**
+  The field counts every question about a chunk it has no field for and falls through to the
+  streamer, which is what makes this slice behaviour-preserving by construction. A 40 s flood
+  (`--fillbasin=400000 --breach=7 --injectlitres=100000`) reports **80 chunks, 0.31 MiB, 51,336
+  misses of which 0 inside a tick**.
+- **All 51,336 are the pour, and they are structural rather than an ordering bug.** 51,200 of them
+  is exactly 6,400 poured cells × the eight `CanHold` questions an `Add` asks. **A pour asks whether
+  a voxel can hold before any panel exists there**, so a reachable set derived from the panels
+  cannot know about it in advance — and a pour happens on the sim thread, where falling through is
+  what the code always did. **So the counter had to be split**: `Misses` is a cost, `TickMisses` is
+  the correctness gate.
+- **One ring of face neighbours was wrong and the counter refuted it.** The first rule was *wet
+  chunks plus their face neighbours*; widening it from 32 chunks to 80 left the miss count
+  **identical to the digit**, which is what said the misses were not the shell at all. The rule is
+  two rings now — 1 + 6 + 18 — because **an awake cell need not hold water**, so it can sit in the
+  first ring and visiting it reads *its* neighbours in the second. Manhattan rather than Chebyshev,
+  because every read is along a face: 25 chunks a seed rather than 125.
+- **A field is an amortisation, and the test that found it is the one that failed.** *"The field
+  asks its source fewer times than the world does"* is **false**: baking 27 chunks is 884,736
+  questions against the direct arm's 85,384 over 120 ticks. **A chunk's field costs 32,768 questions
+  and saves one per read**, so it loses whenever more is baked than the water uses — which is the
+  argument for the reachable set being the wet chunks rather than the view, and the second reason
+  (after `--terrain`'s 1.47x) that this slice is slice 3's enabler and not a speed-up. The assertion
+  is an equality now: the source is asked once per voxel of every chunk built, and never again.
+- **Copy-on-write, so a reader is one edit behind rather than torn.** An edit clones the 4 KiB
+  array and replaces the entry — 4 KiB against 32,768 questions to rebuild — which is M3a's rule at
+  a different size and decision 7 arriving in the storage instead of in the caller.
+- **The game's two arms agree to within run-to-run noise** (659,139 visits and 5,725 cells awake
+  against 658,883 and 5,728), which is what a substituted terrain should look like; the Core test is
+  where identity is asserted, because two headless runs differ by frame timing whatever they run.
+
 ## 2026-09-10 — The surface fix is played and good; and slice 3 cannot be built without slice 2, which changes what "one worker" costs
 
 Matthew, on the build carrying the per-chunk settle, slice 1's order and the surface walk: *"I gave

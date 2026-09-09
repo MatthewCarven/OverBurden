@@ -377,6 +377,22 @@ public partial class Main : Node3D
     /// </summary>
     private int _fluidFarFloor = FluidSimulation.DefaultFarFloorCells;
 
+    /// <summary>
+    /// <c>--fluidfield=0</c>: run the tick against the streamer directly, as it did before the
+    /// water thread's slice 2. On by default; zero is the control arm.
+    /// </summary>
+    /// <remarks>
+    /// <b>The field is not a speed-up and does not claim to be</b> — <c>--terrain</c> priced the
+    /// game's read at 1.47x a baked field's, a third of a visit — it is the terrain a worker can
+    /// read, which is what slice 3 needs. The control exists because a substituted terrain is
+    /// exactly the kind of change that should be provable to have moved nothing.
+    /// </remarks>
+    private bool _fluidFieldOn = true;
+
+    private FluidField? _field;
+
+    private readonly HashSet<ChunkPos> _fluidReachable = [];
+
     private long _fluidBudgetTicks;
 
     /// <summary>Frames the tick in progress has run over so far; the tick's span once it completes.</summary>
@@ -763,6 +779,9 @@ public partial class Main : Node3D
             // portal tracker is told the same way, after the write and never on a no-op.
             onVoxelChanged: (voxel, _) =>
             {
+                // The field first: the automaton is about to be told the world moved, and it must
+                // read the moved world rather than the one it was baked from.
+                _field?.Invalidate(voxel);
                 _fluid?.Disturb(voxel);
                 _portalTracker?.OnVoxelChanged(voxel);
             },
@@ -1147,6 +1166,12 @@ public partial class Main : Node3D
 
                 case "fluidfar" when int.TryParse(value, out int farFloor):
                     _fluidFarFloor = Math.Max(1, farFloor);
+                    break;
+
+                // The water thread, slice 2: the tick reads a baked field instead of the
+                // streamer's chunks. Zero is the arm every figure before it was taken in.
+                case "fluidfield" when int.TryParse(value, out int fieldOn):
+                    _fluidFieldOn = fieldOn != 0;
                     break;
 
                 // M8b-3b: how many ticks with nothing arriving before the sheet solve levels what
@@ -3208,10 +3233,18 @@ public partial class Main : Node3D
         }
 
         var terrain = new VoxelFluidTerrain(_pipeline.Streamer, _materials!);
-        _fluid = new FluidSimulation(terrain, spread: _spread);
+
+        // The field is a terrain over a terrain, so the simulation cannot tell which it was given
+        // and every fixture and bench arm stays valid. See FluidField.
+        _field = _fluidFieldOn ? new FluidField(terrain) : null;
+        _fluid = new FluidSimulation((IFluidTerrain?)_field ?? terrain, spread: _spread);
         _fluid.FarFloorCells = _fluidFarFloor;
         _fluidBudgetTicks = FluidSimulation.BudgetTicks(_fluidBudget);
         GD.Print($"M8b: Tier B spread rule is {_spread.ToString().ToLowerInvariant()} (--spread=fixed|counted)");
+        GD.Print(_field is null
+            ? "M8b: the tick reads the streamer directly (--fluidfield=0, the control arm)"
+            : $"M8b: the tick reads a baked field, {FluidField.BytesPerChunk / 1024} KiB a chunk over the "
+              + "wet chunks and their face neighbours (--fluidfield=0 is the control)");
         GD.Print(_fluidNearRings > 0
             ? $"M8b: near water is {_fluidNearRings} ring(s) of chunks, visited every tick; far water "
               + $"is admitted at least {_fluidFarFloor:N0} cell(s) a tick (--fluidnear=0 is no order)"
@@ -3307,12 +3340,29 @@ public partial class Main : Node3D
             _handoff?.Absorb();
             _drain?.Draw();
             PourPending();
+
+            // Last, so the pour and the draw are already in and the chunks they wet are covered
+            // before the tick reads them. Building here and nowhere else is what makes the terrain
+            // constant for the length of a tick, which is what slice 3 will need.
+            if (_field is not null)
+            {
+                _fluid.ReachableChunks(_fluidReachable);
+                _field.Sync(_fluidReachable);
+            }
         }
 
         if (begin || _fluid.TickInProgress)
         {
             long before = Stopwatch.GetTimestamp();
+
+            // Bracketed so a miss inside a tick can be told from a miss at a boundary:
+            // the first is what slice 3 cannot have, the second is a pour asking about
+            // ground no panel has reached yet and is harmless.
+            if (_field is not null) { _field.InTick = true; }
+
             FluidTickResult? done = _fluid.Step(before + _fluidBudgetTicks);
+            if (_field is not null) { _field.InTick = false; }
+
             double millis = Milliseconds(before, Stopwatch.GetTimestamp());
 
             _fluidFramesThisTick++;
@@ -3725,6 +3775,15 @@ public partial class Main : Node3D
             : "fluid ms  (no tick ran in the window)\n";
         int sliced = _fluidSlicedTicks - _fluidSlicedAtWarm;
 
+        string field = _field is null
+            ? "fluidfield off (--fluidfield=0)\n"
+            : $"fluidfield {_field.Chunks:N0} chunk(s), {_field.Bytes / 1024.0 / 1024.0:F2} MiB; "
+              + $"{_field.Builds:N0} built, {_field.Forgets:N0} forgotten, "
+              + $"{_field.Invalidations:N0} edited, {_field.Misses:N0} miss(es) of which "
+              + $"{_field.TickMisses:N0} inside a tick — a boundary miss is a pour asking about "
+              + "ground no panel has reached yet and is harmless; a tick miss is what "
+              + "slice 3 cannot have\n";
+
         string surface = _fluidSurface is null
             ? "fluidsurf not drawn (headless or --nowater)\n"
             : $"fluidsurf {_fluidSurface.QuadCount:N0} quad(s), {_fluidSurface.LastRebuildMillis:F2} ms ({_fluidSurface.LastWalkMillis:F2} walk + {_fluidSurface.LastInstallMillis:F2} install) "
@@ -3785,6 +3844,7 @@ public partial class Main : Node3D
                + $"{f.FarCellsVisited - _fluidFarAtWarm:N0} far, {f.FarBacklog:N0} deferred at the end, "
                + $"{f.ThrottledTicks - _fluidThrottledAtWarm:N0} tick(s) deferred something\n"
                + tick
+               + field
                + surface;
     }
 
