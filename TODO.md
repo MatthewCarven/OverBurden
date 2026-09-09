@@ -4271,6 +4271,16 @@ finding without the coarser-tolerance fallback.
             landing at the next boundary, a slow tick lowering the rate, ~8× the Debug throughput.
             All eight decisions taken as recommended. Build (3) when the play reads the flood on
             open as hurting rather than slow. Not started.
+            - [ ] **Slices 2 and 3 want one planning pass together, before any code (2026-09-10).**
+                  **Slice 3 cannot be built without slice 2**: its job is submitted *"with the
+                  captured terrain"*, and that is slice 2's field, because the tick asks `CanHold`
+                  and `IsLoaded` of the streamer's chunk dictionary and a worker cannot read it
+                  while the sim thread adds and removes chunks. So "slice 3's single worker" is
+                  really slice 2 then slice 3. Three of slice 3's inputs have moved since it was
+                  written: the budget's ~8x is measured, **the field is lazily-wet rather than
+                  10 MiB of view** (the tick only asks about wet chunks and their shell — the played
+                  world holds 89 wet rows, so one to two MiB; *an estimate*), and the surface walk
+                  can ride the tick job rather than needing a snapshot of its own.
             - [x] **Slice 1 — planned and ✅ built 2026-09-09, unplayed; see the plan's
                   "Slice 1 — the planning pass" and "Slice 1 — built".** Suite 1,179 → 1,196,
                   14 recipes and 13 caught (the miss an identity).
