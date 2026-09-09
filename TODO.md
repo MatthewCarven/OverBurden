@@ -3965,6 +3965,23 @@ finding without the coarser-tolerance fallback.
             rather than evidence, so M8d still owns the look. Not yet played: a tunnel driven into
             a lake bank on purpose, and the relay's water soaking into a hillside (the hand-off's
             own decision).
+      - [ ] **A hole in a lake's bank is a treadmill (2026-09-09, read off the scratch world's
+            log).** A chunk bitten at a lake's edge below the waterline files a portal; the lake
+            drains into the hole, the hole fills (held sat at ~670 kL, a chunk and a half of
+            cells), the overflow runs out over the hole's rim onto ground whose 4 m sample is
+            wet — under the lake, by Tier A's model — and the hand-off gives it straight back
+            to the basin it came from. `drawn` and `handed` then climb together forever:
+            **10.5 ML drawn and 10.9 ML handed in 2,000 ticks, ~7 kL a tick each way, with
+            8,000–10,000 cells awake the whole time** and `held` flat. Every identity exact; the
+            seam doing what each half was told to. It is the "two surfaces for one body of water"
+            case with a number, and it is why no world with a breach ever goes quiet (the item
+            above). Neither tier can end it alone: Tier A does not know the hole's level and Tier B
+            does not know the lake's. Two shapes, neither designed: the drain stops when the Tier B
+            column under the mouth stands as high as the lake (the mouth already passes down only
+            the room below it, so this is the same rule read against Tier A's level rather than
+            the cell's), or the hand-off refuses a cell whose sample is under a lake whose level
+            is above the cell (the water is already the lake's — leave it standing). M8c's, with
+            the seepage design, or M8d's with the look; not before.
       - [ ] **How to measure a spill in play — asked 2026-09-05: "IDK how much water is seeping
             into the hillside".** `handed` on the `M8b:` line and `received` on the `M7d:` line,
             every 5 s in the console behind the game and in `user://logs/godot.log`; press `R`, read
@@ -4088,6 +4105,22 @@ finding without the coarser-tolerance fallback.
                   arm is `--fluid` with `--fluidsolve solve` while the lake still drains, which
                   today's solve row runs only after the flow window. Decide with the water
                   thread's first slice, since both change what a boundary does.
+                  **Played 2026-09-09 on a scratch world (`--world=edge`), and Matthew swept the
+                  setting himself — 2, 0, 4, 2 across four sessions.** His report: *"the bulk of
+                  the water disperses but the puddles linger."* Once the world had a breach (a
+                  bite at a lake's bank, tick ~300 of the first session) `--settleafter=2` and
+                  `=4` ran **0 passes**, and a 530 kL burst of stabs took ~160 ticks — 80 s — to
+                  leave Tier B, the bench's 170 ticks for a spill with the hand-off alone; the
+                  lingering puddles are the automaton's creeping edge, the cells the solve would
+                  pack. `--settleafter=0` on the same world ran a pass at every one of 2,001
+                  boundaries and a 580 kL burst was gone in 20–30 ticks — 10–15 s — at 78,593
+                  sheets levelled, 7,325 packed, 219,795 left alone, 10.8 M cells visited in all
+                  (5.4 k a pass), the longest pass 40.5 ms. **So the lever has its number: a
+                  pour lingers 80 s or 12 s depending on whether a lake somewhere has a hole in
+                  it, and the pass-per-boundary arm is affordable at this scale.** Build one of
+                  the two levers with the water thread's first slice, or the cadence one before
+                  it if the thread slips — it is the smaller change and `--settleafter=0` is
+                  already its *N* = 1 arm.
             - [x] **The solve and the hand-off had a seam.** A levelled sheet was asleep without a
                   visit and the hand-off reads visits: 10,558 L handed in the relay's window with
                   the settle off against 4,178 with it on. The solve lists what it levelled and

@@ -1,5 +1,38 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-09 — "The bulk of the water disperses but the puddles linger": the settle lever gets its number, and a hole in a lake's bank is a treadmill
+
+**Matthew, on a scratch world (`--world=edge`, counted rule, four sessions):** *"the bulk of the
+water disperses but the puddles linger."* He also swept `--settleafter=` himself — 2, 0, 4, 2 —
+which turned the report into an A/B. Read off the four logs:
+
+- **The puddles are the automaton's creeping edge with the solve off, and the solve was off
+  because the world had a breach.** In the first session's tick ~300 a bite at a lake's edge below
+  the waterline filed a portal, and from then on `--settleafter=2` and `=4` ran **0 passes** —
+  the global quiet counter, recorded 2026-09-07, met in play. A burst of 53 stabs (530 kL) took
+  ~160 ticks, 80 s, to leave Tier B through the hand-off alone, which is the bench's 170 ticks
+  for a spill without the settle; the hand-off takes the whole litres on the ground fast (the
+  bulk) and the sub-litre edge creeps (the puddles). **At `--settleafter=0` on the same world a
+  pass ran at every one of 2,001 boundaries and a 580 kL burst was gone in 20–30 ticks, 10–15 s**
+  — 78,593 sheets levelled, 7,325 packed, 219,795 left alone, 10.8 M cells visited in all (5.4 k
+  a pass), the longest pass 40.5 ms. So the lever has its number, 80 s against 12 s, and the
+  pass-per-boundary arm is affordable at this scale. Recorded under M8b-3b; build with the water
+  thread's first slice, or the cadence lever before it.
+- **Why the breach is inflow forever: a hole in a lake's bank is a treadmill.** The lake drains
+  into the hole, the hole fills (`held` flat at ~670 kL), the overflow runs out over the rim onto
+  ground whose sample is wet — under the lake, to Tier A — and the hand-off gives it back to the
+  basin it came from. `drawn` and `handed` climbed together for 2,000 ticks, **10.5 ML and
+  10.9 ML, ~7 kL a tick each way, 8,000–10,000 cells awake throughout**, every identity exact.
+  Each half of the seam doing what it was told; the "two surfaces for one body of water" play
+  item, now with a number. Two shapes recorded under the M8b-2c play items, neither designed:
+  the drain stops when the column under the mouth stands as high as the lake, or the hand-off
+  leaves standing a cell whose sample is under a lake above it. M8c's or M8d's.
+- **The pour A/B was not made.** All four sessions were the counted arm; nothing was seen under
+  `--spread=fixed`. The scratch world was wiped at Matthew's request for the rerun, and the
+  play's next report wants the one sentence: which pool looked more like water.
+
+Nothing built. `start.cmd` gained a comment line for the flag it passes.
+
 ## 2026-09-07 — The counted rule played, read off the log: the identities hold, `R` was never pressed, and the settle cannot fire on a world with a breached lake
 
 **Matthew: *"I think its good? can you check the logs please."*** The session ran

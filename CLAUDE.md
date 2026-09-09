@@ -497,7 +497,11 @@ boundary (TODO under M8b-3b).** So the counted front has been seen without the s
 verdict is a provisional *"I think its good?"*; the judgement the trigger names still wants `R` on
 the fresh world. Matthew put `--spread=counted` into `start.cmd` himself the same evening, so every
 play from here is the counted arm unless a later `--spread=fixed` says otherwise; the code's default
-is unchanged. The M8b-4c play check is done — the quit's litres reached the next open's
+is unchanged. **The scratch-world play of 2026-09-09 (*"the bulk of the water disperses but the
+puddles linger"*) gave the settle lever its number**: on a world with a breach a pour lingers 80 s at
+`--settleafter=2` and 12 s at `=0`, because a hole in a lake's bank is a treadmill — drawn and handed
+climb together at ~7 kL a tick forever — so the quiet counter never fires (TODO under M8b-3b and the
+M8b-2c play items). The fixed-against-counted pour was not compared; `edge` was wiped for the rerun. The M8b-4c play check is done — the quit's litres reached the next open's
 `loaded` exactly across two sessions. The paragraph below is the
 night's state, kept for the reasoning.
 
