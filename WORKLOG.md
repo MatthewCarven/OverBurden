@@ -1,5 +1,30 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-10 — The high load was six chunks taken out under a lake, and the battery gate turns out to bound Tier B's worst case
+
+Matthew, on the figures in the last play: *"dont mind the new high load score i've set, like I used
+the quantum miner to take out about 6 chunks under a lake, like we will probably make it suck up an
+entire battery's charge in the game to do this."* **So that log is not a representative load and
+should not be quoted as one** — it is the roof-open case, deliberately provoked. M8b-1 measured the
+family: **43,374 cells woken by one chunk bitten out under a lake, 302,182 by a 2 x 2 x 2 block**,
+in a single tick.
+
+- **The battery gate is already the recorded decision and it now has a second job.** Matthew, 2026-09-03,
+  on the entangled miner: *"ima make you work to get this … an energy cost and must be recharged."*
+  Recorded then as M10's power model gating a *tool*; the same gate is also **the rate limiter on
+  Tier B's worst case**, because the only way to wake 300,000 cells at once is an action that costs
+  a charge. **A cost model and a game rule agreeing rather than competing**, and it is worth
+  noticing that nobody designed it that way.
+- **It weakens the case for slice 3 and kills the case for four threads again.** DESIGN licenses
+  *slower than realtime is accuracy*; a few seconds of water arriving after a deliberate, expensive,
+  once-a-charge action is not a defect and arguably reads as weight. **Left as a hedged intention
+  rather than a locked decision**, because *"we will probably"* is not a ruling and M10 owns the
+  power model.
+- **What it does not wave away: the settle's frequency in ordinary play.** That question came from
+  removing the global quiet gate on 2026-09-09 and is about a flood nobody provoked, so it still
+  wants a measurement on an ordinary load rather than on this one. **A directive to ignore an
+  extreme reading is not a directive to stop measuring the middle.**
+
 ## 2026-09-10 — Slice 2 is played and accepted, and the settle's new frequency is the next thing to price
 
 Matthew, after the fix: *"Yeah I like it."* **The check for this slice was that nothing should look
