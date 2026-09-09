@@ -54,6 +54,127 @@ Judged in play before slice 2 starts: a relay pour beside the player while `--fi
 `--breach` flood a mine at the edge of the box is the provocation, because silence about
 near-versus-far is not evidence.
 
+### Slice 1 — the planning pass, 2026-09-09
+
+Read the slice's paragraph above against `FluidSimulation.Begin/Resume/Complete`, `Main.UpdateFluid`,
+`SheetSettle`, `PortalDrain` and `AwakeHeldCells`. **The paragraph names the right feature and the
+wrong mechanism**, in the way the adaptive radius's grow rule did: it says the order is a sort and
+the far floor is a share of the frame budget, and neither quantity can deliver what the slice is
+for. What follows is the corrected mechanism, the four things it touches that the paragraph does
+not mention, and the decisions.
+
+#### The sort alone delivers nothing, because a tick does not end until its batch does
+
+`Begin()` swaps the pending set in as the batch; `Resume` walks it; `Complete()` fires only when the
+cursor reaches the end. **The frame budget lapses inside a tick, never between one and the next.**
+So bucketing the batch near-first puts near cells in the first frame of a tick and then does not
+visit them again until the tick ends — which on the flood-on-open is 188 frames later. Near water
+would move once every three seconds, not at 2 Hz. The order is necessary and is not sufficient:
+**what makes near water tick at 2 Hz is far cells being deferred past the boundary**, so the tick
+can complete without them.
+
+That also relocates the far floor. "One granule in eight of each frame's budget" is a *frame*
+quantity being asked to settle a *batch* question, and paying it would mean interleaving far visits
+between near ones under clock control — which is the one thing that would cost the property M8b-4's
+budget slice bought: **a tick run whole lands the same water as a tick run in slices**, asserted
+cell for cell over 400 ticks. If admission is a function of the sets and never of the clock, that
+test survives verbatim with both arms given the same near centre. **So the far floor is a number of
+cells per tick, not a share of a frame.**
+
+#### The mechanism, and it is a change to `Begin()` and nothing else
+
+At `Begin()`, after the swap:
+
+1. Partition the batch in place — near cells to the front, far cells after, relative order preserved
+   inside each. Near is `max(|dx|, |dz|) <= rings` on `VoxelPos.Chunk` against the viewer's chunk,
+   ignoring Y, which is the plan's 5×5 column at `rings = 2`.
+2. Admit `nearCount + quota` cells; move the tail back into the fresh `_pending` and leave it in
+   `_queued`; truncate the batch.
+3. `quota = near == 0 ? everything : max(FarFloorCells, nearCount)`.
+
+The deferred cells are put into `_pending` *before* the tick runs, so this tick's wakes append behind
+them and the round-robin is free: a carried cell is admitted before a cell woken since, and a far cell
+visited this tick goes to the back. Nothing else in the class moves. `_queued` still holds exactly
+"awake and not yet visited this tick", so `AwakeHeldCells`, `ActiveCellCount`, `Complete`'s
+`ActiveAfter` and `Settle`'s loop condition are all correct unchanged — **which is the single most
+load-bearing consequence of doing it this way**, because `AwakeHeldCells` is what the store writes and
+what the eviction lists, and a far backlog held in a fourth list of its own would be a lake that
+quietly stops being saved.
+
+**Rule 3 is throttling, not scheduling: with no near water awake, the tick is byte-for-byte today's
+tick.** That is worth more than it sounds — it bounds the change's blast radius to exactly the case
+the play is about, and it is a property a test can assert. Its cost is a cliff at the first near
+cell: one drip beside you drops a 110,000-cell far flood to the floor's rate. Named rather than
+smoothed, because every floor has that edge and the alternatives all pay for it with a second
+constant.
+
+Why `max(floor, near)` rather than a constant: it makes **a tick at most twice its near cost**, so
+the rate the player is watching degrades only with the water the player is standing in, and far
+water gets a real share rather than a starvation allowance. The floor, 512 cells — eight granules,
+which is where "one in eight" survives, reinterpreted — is an estimate; `--fluidfar=<cells>` is its
+sweep and a very large value is a second control arm.
+
+#### Four things the paragraph does not mention
+
+- **The boundary work goes back to 2 Hz, and that is a rate change in the game.** `SheetSettle`,
+  `SurfaceHandoff` and `PortalDrain` all run at `begin`, so today a far flood's 188-frame tick throttles
+  them to ~0.3 Hz; slice 1 restores the 2 Hz every one of them was designed and priced at — one portal
+  voxel at "30 L/s at 2 Hz" is 30 L/s again. **A restoration rather than an inflation**, but it is
+  visible: a breached lake drains faster in wall clock than it does today, which makes the known
+  treadmill (drawn and handed climbing together, so the settle's quiet counter never fires) turn
+  faster too. The number to watch is the settle pass, which was up to 275 ms in Debug on the played
+  lake's 162,572-cell sheet; the share threshold is what bounds it, and if it bites the lever is to
+  seed the settle from the near set alone.
+- **Reclassifying the carry every tick is O(awake) for nothing in the common case.** A carried cell's
+  class can only change when the viewer's chunk changes, so classify new wakes always and re-classify
+  the carry only when the viewer's chunk moved since the last tick. Exact, and it takes the 110,000-cell
+  case from a per-tick partition to a per-move one.
+- **Core keeps the old order by construction**, because `rings = 0` is no partition and no viewer is
+  the default. Every existing fixture, the whole bench and `Settle()` are the control arm without
+  being edited.
+- **`Settle()` still terminates** — the floor guarantees progress on the far side — but takes more
+  ticks when a viewer is set. Only the new tests set one.
+
+#### Cost, oracles, and what would say it is wrong
+
+**Cost**: the partition is `VoxelPos.Chunk` (three shifts) and a compare per awake cell, once a tick,
+on the near set plus new wakes — under 0.1 ms Debug in the ordinary case, ~2 ms Debug on a
+110,000-cell reclassification after a viewer move. *Estimates.* The `fluidtick` line gains near
+visited / far visited / far backlog, and the periodic `M8b:` line carries the backlog, because the
+play is read off the log.
+
+**Oracles**: the sliced-against-whole test run again with `rings = 2` on both arms; a fixture with
+water near and a flood far, asserting every near cell is visited every tick while the far backlog
+drains at the floor's rate and reaches real rest (`VerifyQuiescent`); the identity exact in both
+arms; `AwakeHeldCells` unchanged in count across a viewer move mid-flood, which is the save path and
+the one place a deferred cell could be lost; and the break-recipe battery, whose interesting recipes
+are the floor removed, the partition unstable, the carry appended behind new wakes, and the deferred
+cells dropped from `_queued`.
+
+**Judged in play, and the provocation is in the paragraph above**: a relay pour at your feet while
+`--fillbasin` and `--breach` flood a mine at the edge of the box. Silence about near-versus-far from
+a play with no far water is not a null.
+
+#### The decisions, handed back
+
+1. **The far quota is cells admitted per tick, not a share of the frame budget.** Recommended: the
+   budget-driven form costs the whole/sliced identity, which is a tested property since M8b's tick
+   budget slice.
+2. **Far is throttled only while near water is awake** — no near cells means today's tick, exactly.
+   Recommended, with the cliff at the first near cell named rather than smoothed.
+3. **`quota = max(512 cells, near count)`, `--fluidfar=<cells>` sweeping the floor.** Recommended;
+   512 is an estimate, the 1× multiplier is the argument that a tick costs at most twice its near set.
+4. **`--fluidnear=<rings>`, 0 in code and `start.cmd` passing 2.** Recommended, on the adaptive
+   radius's precedent: every recorded figure stays at the unordered arm unless it says otherwise, and
+   the play still gets the feature. The counted divisor's flag went into `start.cmd` the same way and
+   came out again when the play read the same under both rules.
+5. **Near is Chebyshev on chunk X and Z, full height**, as planned.
+6. **The boundary work returning to 2 Hz is accepted and measured, not mitigated.** Recommended,
+   because 2 Hz is what it was priced at; the settle pass is the figure that would reverse it, and
+   seeding the settle from the near set is the lever if it does.
+7. **Re-classify the carried far cells only when the viewer's chunk changed.** Recommended; it is
+   exact rather than an approximation.
+
 ### Slice 2 — the readable terrain (sim thread, priced first)
 
 A holdability bit per voxel, 4 KiB a chunk, built when a chunk's voxels arrive on the pipeline's

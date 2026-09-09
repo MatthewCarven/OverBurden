@@ -1,5 +1,51 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-09 — The water thread, slice 1: the planning pass says a sort delivers nothing, and the far floor is the wrong quantity
+
+Read slice 1's paragraph against `FluidSimulation.Begin/Resume/Complete`, `Main.UpdateFluid`,
+`SheetSettle`, `PortalDrain` and `AwakeHeldCells`. **The slice names the right feature and the
+wrong mechanism, twice** — the adaptive radius's grow rule a second time, and both corrections are
+the same shape: a rule translated from a sentence naming a quantity the failure is not made of.
+Nothing built; seven decisions handed back with recommendations, in the plan's new "Slice 1 — the
+planning pass".
+
+- **A sort cannot make near water tick at 2 Hz, because a tick does not end until its batch does.**
+  `Complete()` fires when the cursor reaches the end of the batch, and the frame budget lapses
+  *inside* a tick, never between one and the next. So bucketing near-first visits near cells in the
+  first frame of the flood-on-open's 188-frame tick and then not again for three seconds. The order
+  is necessary and not sufficient: **what delivers 2 Hz is far cells being deferred past the
+  boundary.**
+- **"One granule in eight of each frame's budget" is a frame quantity settling a batch question**,
+  and paying it means interleaving far visits between near ones under clock control — which costs
+  the property M8b's tick budget slice bought and asserts over 400 ticks, *a tick run whole lands
+  the same water as a tick run in slices*. Make admission a function of the sets and never of the
+  clock and that test survives verbatim with both arms given the same near centre. **So the far
+  floor is cells admitted per tick.**
+- **The shape is a change to `Begin()` and nothing else**, and the reason is `_queued`. Partition
+  the batch in place, admit `near + max(512, near)`, move the tail into the fresh `_pending`
+  *before* the tick runs — so this tick's wakes append behind it and the round-robin is free — and
+  leave it in `_queued`. `_queued` then still means "awake and not yet visited this tick", which is
+  what `AwakeHeldCells` walks, so the store, the eviction, `ActiveCellCount`, `ActiveAfter` and
+  `Settle`'s loop condition are all correct untouched. **A far backlog held in a fourth list of its
+  own would be a lake that quietly stops being saved.**
+- **Throttling rather than scheduling: with no near water awake the tick is today's tick, exactly.**
+  That bounds the change to the case the play is about and is a property a test can assert. Its
+  price is a cliff at the first near cell — one drip beside you drops a 110,000-cell far flood to
+  the floor — named rather than smoothed, because every floor has that edge and each alternative
+  buys it back with a second constant. `max(floor, near)` rather than a constant makes **a tick at
+  most twice its near cost**, so the rate the player watches degrades only with the water the player
+  is standing in.
+- **The boundary work goes back to 2 Hz during a far flood, and that is a rate change in the game.**
+  The settle, the hand-off and the drain all run at `begin`, so today a 188-frame tick throttles
+  them to ~0.3 Hz; a portal voxel priced at "30 L/s at 2 Hz" is 30 L/s again. A restoration rather
+  than an inflation — but it makes the known treadmill turn faster, and the figure that would
+  reverse it is the settle pass, up to 275 ms in Debug on the played lake's 162,572-cell sheet. The
+  lever if it bites is seeding the settle from the near set alone.
+- **Two smaller ones.** Reclassifying the carry is exact if it runs only when the viewer's chunk
+  moved, which takes the 110,000-cell case from a per-tick partition to a per-move one. And Core
+  keeps the old order by construction — `rings = 0`, no viewer — so every existing fixture, the
+  whole bench and `Settle()` are the control arm without being edited.
+
 ## 2026-09-09 — "Well they both look like water?": the counted divisor is judged, the default stays fixed, and the flag comes out of the launcher
 
 **The A/B the bench asked for, made properly**: a wiped scratch world with nothing awake, one `R`

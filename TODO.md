@@ -4237,13 +4237,31 @@ finding without the coarser-tolerance fallback.
       - [ ] **The water thread — planned 2026-09-07 with Matthew, placed after 4c and before M8c;
             see [docs/WATER-THREAD-PLAN.md](docs/WATER-THREAD-PLAN.md).** Three slices, each
             useful alone: (1) the order — near cells (5×5 chunks, full height) visited every tick,
-            far cells on what the budget leaves with a one-in-eight floor, `--fluidnear=` /
-            `--fluidfarshare=` the sweeps, 0 the control, judged in play first; (2) the readable
+            far cells deferred past the boundary under a per-tick admission quota, `--fluidnear=` /
+            `--fluidfar=` the sweeps, 0 rings the control, judged in play first; (2) the readable
             terrain — a copy-on-write holdability bitset per chunk, ~10 MiB at r6, priced on the
             sim thread before any thread; (3) the tick as a scheduler job per boundary, mutations
             landing at the next boundary, a slow tick lowering the rate, ~8× the Debug throughput.
             All eight decisions taken as recommended. Build (3) when the play reads the flood on
             open as hurting rather than slow. Not started.
+            - [ ] **Slice 1 — the planning pass is done (2026-09-09) and its seven decisions are
+                  handed back; see the plan's "Slice 1 — the planning pass". Build it once they
+                  are answered.** The pass corrected the mechanism twice: **a sort delivers
+                  nothing**, because a tick does not end until its batch does, so near water would
+                  move once per 188-frame tick and not at 2 Hz — far cells have to be *deferred
+                  past the boundary*; and **the far floor is cells admitted per tick, not a share
+                  of the frame budget**, because a budget-driven interleave would cost the
+                  whole-equals-sliced identity the tick budget slice bought. The shape is a change
+                  to `Begin()` alone — partition, admit `near + max(512, near)`, put the tail back
+                  in `_pending` while leaving it in `_queued`, which is what keeps
+                  `AwakeHeldCells`, `ActiveCellCount` and `Settle`'s loop right unchanged and is
+                  the difference between a deferred far lake being saved and not. **With no near
+                  water awake the tick is today's tick**, so the blast radius is the case the play
+                  is about. Three costs stated: the cliff at the first near cell; the boundary work
+                  (settle, hand-off, drain) going back to 2 Hz during a far flood, which is the
+                  rate it was priced at and makes the treadmill turn faster — the settle pass on a
+                  162,572-cell sheet is the figure that would reverse it; and the carry's
+                  reclassification, which is exact if it runs only when the viewer's chunk moved.
       - [x] **M8b-4c — the panel leaves RAM with its chunk. Planned 2026-09-07 and ✅ built the
             same day, all six decisions as recommended; see M8-PLAN's "M8b-4c — the planning
             pass" and "M8b-4c — built".** Suite 1,134 → 1,158; 12 recipes, 11 caught, 1 identity
