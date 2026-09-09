@@ -4292,7 +4292,17 @@ finding without the coarser-tolerance fallback.
                         *"I cannot fault it in any way so perfection as far as i'm concerned."*
                   - [ ] **Judge slice 1 again on a world whose active set is not 70,000 cells** —
                         this play could not separate it from the settle change.
-                  - [ ] **The Tier B surface mesh goes to a worker, ahead of slice 3.** 33.08 ms for
+                  - [x] **The Tier B surface mesh — ✅ 2026-09-10, and it was not a threading
+                        problem.** Splitting the timer first said the walk was 25.40 ms of 28.38 and
+                        the install 2.98; the walk was asking the grid per held cell where Y being
+                        contiguous makes the cell above the next array index.
+                        `FluidGrid.SurfaceCells()` is that walk, pinned against the naive definition
+                        by a fixture that stacks two bodies in one column and straddles a panel
+                        boundary. **28.38 → 12.09 ms (walk 25.40 → 8.85), so 114 ms a second of main
+                        thread → 48.** Threading it is now optional and **wants slice 3 first**: the
+                        tick job already has exclusive access to the grid, so the walk rides it with
+                        no snapshot. Superseded item:
+                  - [ ] ~~**The Tier B surface mesh goes to a worker, ahead of slice 3.**~~ 33.08 ms for
                         19,454 quads on the main thread every 0.25 s while water moves
                         (`FluidSurface.RebuildIntervalSeconds`) is **132 ms a second against the
                         water tick's whole budget of 120** — and it is a pure function of the grid,

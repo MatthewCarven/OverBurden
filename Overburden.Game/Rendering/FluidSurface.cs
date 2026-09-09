@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Godot;
 using Overburden.Core.Fluid;
 using Overburden.Core.Voxels;
@@ -94,6 +94,24 @@ public sealed class FluidSurface
         Rebuild(fluid);
     }
 
+    /// <summary>Surface cells the last walk yielded. Equals <see cref="QuadCount"/> since the walk began asking the grid for the surface rather than filtering every held cell.</summary>
+    public int CellsWalked { get; private set; }
+
+    /// <summary>
+    /// The two halves of a rebuild, split because only one of them can leave the main thread.
+    /// </summary>
+    /// <remarks>
+    /// The walk is over every held cell — 256,632 on the played world for 19,454 quads — and is a
+    /// pure read of the grid. The install is <c>ToArray</c>, the Godot marshalling and
+    /// <c>AddSurfaceFromArrays</c>, and has to happen where the renderer is. <b>Which of them the
+    /// 33 ms is decides whether moving this to a worker is worth anything</b>, and M5c-1 is the
+    /// reason it is measured rather than assumed: that plan costed propagation and the derive was
+    /// the larger half.
+    /// </remarks>
+    public double LastWalkMillis { get; private set; }
+
+    public double LastInstallMillis { get; private set; }
+
     private void Rebuild(FluidSimulation fluid)
     {
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
@@ -105,14 +123,12 @@ public sealed class FluidSurface
         FluidGrid grid = fluid.Grid;
         const float size = VoxelConstants.VoxelSize;
 
-        foreach (VoxelPos cell in grid.HeldCells())
+        int walked1 = 0;
+        foreach ((VoxelPos cell, int millilitres) in grid.SurfaceCells())
         {
-            if (grid.AmountAt(cell.Offset(0, 1, 0)) > 0)
-            {
-                continue;
-            }
+            walked1++;
 
-            float fill = grid.AmountAt(cell) / (float)FluidConstants.CellCapacityMillilitres;
+            float fill = millilitres / (float)FluidConstants.CellCapacityMillilitres;
             float x0 = cell.X * size;
             float z0 = cell.Z * size;
             float y = (cell.Y + fill) * size;
@@ -120,8 +136,15 @@ public sealed class FluidSurface
             AddQuad(vertices, normals, indices, x0, x0 + size, z0, z0 + size, y);
         }
 
+        long walked = System.Diagnostics.Stopwatch.GetTimestamp();
+        CellsWalked = walked1;
+        LastWalkMillis = (walked - started) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+
         Install(vertices, normals, indices);
 
+        LastInstallMillis =
+            (System.Diagnostics.Stopwatch.GetTimestamp() - walked) * 1000.0
+            / System.Diagnostics.Stopwatch.Frequency;
         QuadCount = indices.Count / 6;
         Rebuilds++;
         LastRebuildMillis =

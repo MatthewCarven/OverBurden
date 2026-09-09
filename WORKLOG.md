@@ -1,5 +1,47 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-10 — The surface mesh was not a threading problem: the walk asked the grid per cell where an array read would do, 28.38 ms → 12.09
+
+The plan was *the surface mesh off the main thread, then slice 3's single worker*. Splitting the
+rebuild's timer first — M5c-1's lesson, which costed propagation and found the derive was the larger
+half — says the walk is **25.40 ms of 28.38** and the install (`ToArray`, the Godot marshalling,
+`AddSurfaceFromArrays`, all of which must stay where the renderer is) is **2.98**. So the walk was
+worth moving; and then it turned out to be worth *fixing* instead.
+
+**`FluidGrid.SurfaceCells()`**: every held cell with nothing above it, and its millilitres, in one
+array read per cell. **A chunk stores `[z][x][y]` — Y contiguous** — so the cell above is the next
+index, and a column is walked downward carrying the value above it; only a panel's top layer asks
+the grid at all, once per column rather than once per cell. `FluidSurface` was doing
+`HeldCells()` filtered by `AmountAt(cell + Y)`, which is a panel lookup per held cell.
+
+**Measured on the same 3 ML flood, windowed, Debug, ~259,000 held cells:**
+
+```
+                walk      install    total
+before        25.40 ms    2.98 ms   28.38 ms
+after          8.85 ms    3.24 ms   12.09 ms
+```
+
+At the 0.25 s rebuild interval that is **114 ms a second of main thread down to 48**, against the
+water tick's whole budget of 120 ms a second.
+
+- **Threading is now optional rather than the plan, and the sequencing argument has flipped.** The
+  remaining 8.85 ms is a scan of the wet volume — 36 panels × 32,768 slots, ~7.5 ns a slot in Debug
+  — and moving it to a worker would need a snapshot of the panels, because the sim thread mutates
+  them. **After slice 3 it needs no snapshot at all**: the tick already runs on a worker with
+  exclusive access to the grid, so the walk rides it for free. **So slice 3 goes next, and the walk
+  moves with it if 12 ms still reads as a hitch.** Sixth named fallback dissolved by measurement.
+- **The oracle is two definitions pinned by equality**, the `IsCaveAt`/`GenerateTerrain` shape:
+  `SurfaceCells()` against `HeldCells()` filtered by the grid. **The fixture has to stack two bodies
+  in one column with air between and straddle a panel boundary**, because *"the highest cell in each
+  column"* is a different rule that passes every fixture with one body per column — a flooded
+  gallery under a pond is the case that separates them, and it is the ordinary shape of this game.
+- **The windowed run is the only instrument here**, because `FluidSurface` is not created without a
+  renderer and headless prints `no surface drawn`. A `--profile` run generates its own world, so the
+  played world's 19,454 quads had to be reproduced by pouring a comparable flood (3 ML, 259,000
+  cells) rather than by opening a copy — a copy opened at spawn holds no Tier B water at all, since
+  the wet chunks are elsewhere and Tier B only holds what is loaded.
+
 ## 2026-09-10 — The settle's per-chunk wait is played and accepted, and "four threads on water" is answered with arithmetic: one is eight times, and the surface mesh costs more than the whole tick
 
 Matthew, on the per-chunk wait: *"that is pretty good Claude like I cannot fault it in any way so

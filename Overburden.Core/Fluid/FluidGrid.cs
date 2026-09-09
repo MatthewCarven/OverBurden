@@ -232,6 +232,66 @@ public sealed class FluidGrid
     }
 
     /// <summary>
+    /// Every held cell with nothing directly above it, and how much it holds: the water's top
+    /// surface, which is what a renderer draws and what a sweep of the wet volume is for.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One array read per cell, because Y is contiguous.</b> A chunk stores <c>[z][x][y]</c>, so
+    /// the cell above is the <i>next index</i> — the column is walked downward carrying the value
+    /// above it, and only the top layer of a panel asks the grid at all. The caller's obvious
+    /// version, <c>HeldCells()</c> filtered by <c>AmountAt(cell + Y)</c>, pays a panel lookup per
+    /// held cell instead: <b>measured at 25.40 ms of a 28.38 ms surface rebuild</b> on a
+    /// 259,178-cell flood in the Debug build the game is played in, which was 89% of the cost and
+    /// the reason this exists.
+    /// </para>
+    /// <para>
+    /// <b>Not "the highest cell in each column".</b> A column can hold two bodies of water with air
+    /// between them — a flooded gallery under a pond — and both have a surface. The test is per
+    /// cell for that reason, and a fixture with one body per column cannot tell the two rules apart.
+    /// </para>
+    /// </remarks>
+    public IEnumerable<(VoxelPos Cell, int Millilitres)> SurfaceCells()
+    {
+        foreach ((ChunkPos chunk, Panel panel) in _panels)
+        {
+            if (panel.Held == 0)
+            {
+                continue;
+            }
+
+            VoxelPos origin = chunk.OriginVoxel;
+            ushort[] cells = panel.Cells;
+
+            for (int lz = 0; lz < VoxelConstants.ChunkSize; lz++)
+            {
+                for (int lx = 0; lx < VoxelConstants.ChunkSize; lx++)
+                {
+                    int column = VoxelPos.Index(lx, 0, lz);
+
+                    // The one cell whose neighbour above is in another panel. Asked once per
+                    // column rather than once per cell, and through the grid because the panel
+                    // above may not exist.
+                    int above = AmountAt(new VoxelPos(
+                        origin.X + lx, origin.Y + VoxelConstants.ChunkSize, origin.Z + lz));
+
+                    for (int ly = VoxelConstants.ChunkSize - 1; ly >= 0; ly--)
+                    {
+                        int amount = cells[column + ly];
+                        if (amount > 0 && above == 0)
+                        {
+                            yield return (
+                                new VoxelPos(origin.X + lx, origin.Y + ly, origin.Z + lz), amount);
+                        }
+
+                        above = amount;
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Every voxel holding anything in one face layer of a chunk: the 32 × 32 cells whose local
     /// coordinate on the axis of <paramref name="face"/> is 0 on the negative side and 31 on the
     /// positive. Exactly one component of <paramref name="face"/> is non-zero.

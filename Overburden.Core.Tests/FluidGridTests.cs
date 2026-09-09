@@ -1,4 +1,4 @@
-using Overburden.Core.Fluid;
+﻿using Overburden.Core.Fluid;
 using Overburden.Core.Voxels;
 
 namespace Overburden.Core.Tests;
@@ -179,5 +179,57 @@ public class FluidGridTests
 
         Assert.Equal(0, grid.Transfer(new VoxelPos(0, 0, 0), new VoxelPos(0, 0, 0), 100));
         Assert.Equal(100, grid.TotalMillilitres);
+    }
+
+    [Fact]
+    public void SurfaceCellsEqualsHeldCellsWithNothingAbove()
+    {
+        // Two definitions of the same thing, pinned by equality — the IsCaveAt/GenerateTerrain
+        // shape. The fast one walks each column downward carrying the value above it; the slow one
+        // asks the grid per cell. They must agree cell for cell and millilitre for millilitre, and
+        // the fixture has to put water across panel boundaries and stack two bodies in one column,
+        // because "the highest cell in each column" passes every fixture that has neither.
+        var grid = new FluidGrid();
+        var random = new Random(90_10);
+        var expected = new Dictionary<VoxelPos, int>();
+
+        for (int i = 0; i < 4_000; i++)
+        {
+            var cell = new VoxelPos(
+                random.Next(-40, 40), random.Next(-40, 72), random.Next(-40, 40));
+            grid.Fill(cell, random.Next(1, FluidConstants.CellCapacityMillilitres));
+        }
+
+        // Two bodies in one column with air between, straddling the panel boundary at y = 32.
+        foreach (int y in new[] { 28, 29, 30, 31, 34, 35 })
+        {
+            grid.Fill(new VoxelPos(5, y, 5), FluidConstants.CellCapacityMillilitres);
+        }
+
+        foreach (VoxelPos cell in grid.HeldCells())
+        {
+            if (grid.AmountAt(cell.Offset(0, 1, 0)) == 0)
+            {
+                expected[cell] = grid.AmountAt(cell);
+            }
+        }
+
+        var actual = new Dictionary<VoxelPos, int>();
+        foreach ((VoxelPos cell, int millilitres) in grid.SurfaceCells())
+        {
+            Assert.True(actual.TryAdd(cell, millilitres), $"{cell} was yielded twice");
+        }
+
+        Assert.Equal(expected.Count, actual.Count);
+        foreach ((VoxelPos cell, int millilitres) in expected)
+        {
+            Assert.True(actual.TryGetValue(cell, out int got), $"{cell} is a surface and was not yielded");
+            Assert.Equal(millilitres, got);
+        }
+
+        // The fixture has to reach the cases the rule can get wrong, or it proves nothing.
+        Assert.Contains(new VoxelPos(5, 31, 5), actual.Keys);
+        Assert.Contains(new VoxelPos(5, 35, 5), actual.Keys);
+        Assert.True(expected.Count > 500, $"only {expected.Count} surface cell(s): too thin to mean anything");
     }
 }

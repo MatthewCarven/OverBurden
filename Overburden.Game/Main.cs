@@ -3663,8 +3663,8 @@ public partial class Main : Node3D
 
         string surface = _fluidSurface is null
             ? " | no surface drawn (headless or --nowater)"
-            : $" | surface {_fluidSurface.QuadCount:N0} quad(s), "
-              + $"{_fluidSurface.LastRebuildMillis:F2} ms to rebuild";
+            : $" | surface {_fluidSurface.QuadCount:N0} quad(s) from {_fluidSurface.CellsWalked:N0} held cell(s), "
+              + $"{_fluidSurface.LastRebuildMillis:F2} ms to rebuild ({_fluidSurface.LastWalkMillis:F2} walk + {_fluidSurface.LastInstallMillis:F2} install)";
 
         string settle = _settle is null
             ? string.Empty
@@ -3727,7 +3727,7 @@ public partial class Main : Node3D
 
         string surface = _fluidSurface is null
             ? "fluidsurf not drawn (headless or --nowater)\n"
-            : $"fluidsurf {_fluidSurface.QuadCount:N0} quad(s), {_fluidSurface.LastRebuildMillis:F2} ms "
+            : $"fluidsurf {_fluidSurface.QuadCount:N0} quad(s), {_fluidSurface.LastRebuildMillis:F2} ms ({_fluidSurface.LastWalkMillis:F2} walk + {_fluidSurface.LastInstallMillis:F2} install) "
               + $"to rebuild, {_fluidSurface.Rebuilds} rebuild(s)\n";
 
         long drawn = _drain?.DrawnMillilitres ?? 0;
