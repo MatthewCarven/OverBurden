@@ -67,6 +67,11 @@ internal abstract class DugTerrain : IFluidTerrain
         _built = new bool[_spanX * _spanZ];
     }
 
+    /// <summary>The box the bitset covers, inclusive. What --terrain materialises into chunks.</summary>
+    public (VoxelPos Min, VoxelPos Max) Bounds() => (
+        new VoxelPos(_minX, _minY, _minZ),
+        new VoxelPos(_minX + _spanX - 1, _minY + _spanY - 1, _minZ + _spanZ - 1));
+
     public int CentreX { get; }
 
     public int CentreZ { get; }

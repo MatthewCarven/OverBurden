@@ -4239,8 +4239,12 @@ finding without the coarser-tolerance fallback.
             useful alone: (1) the order — near cells (5×5 chunks, full height) visited every tick,
             far cells deferred past the boundary under a per-tick admission quota, `--fluidnear=` /
             `--fluidfar=` the sweeps, 0 rings the control, judged in play first; (2) the readable
-            terrain — a copy-on-write holdability bitset per chunk, ~10 MiB at r6, priced on the
-            sim thread before any thread. **Not a copy of the chunks and not a memory saving**
+            terrain — a copy-on-write holdability bitset per chunk, ~10 MiB at r6. **Priced
+            2026-09-09 with `--terrain` and it does not pay for itself**: the game's read is 1.47x
+            Release / 1.59x Debug of a baked field's, which is a third of a visit rather than a
+            multiple, so the field is slice 3's *enabler* (the terrain a worker can read) and
+            inherits slice 3's revisit trigger instead of standing beside it. **Recommended: both
+            wait on slice 1's play.** **Not a copy of the chunks and not a memory saving**
             (4 KiB of bits against ~2 KB of palette-compressed voxels); it replaces a dictionary
             lookup, a palette decode and a material-table read per neighbour, up to six a visit,
             which is why it stands alone if (3) never happens. **One bit behind

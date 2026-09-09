@@ -369,6 +369,54 @@ changing the build and the accessor and nothing else. That is not provisioning, 
     fast path; **the revisit trigger is M8c's seepage wanting permeability inside the tick**, at
     which point the accessor is already the seam.
 
+#### Slice 2 priced before it is built — 2026-09-09, and it does not pay for itself
+
+`--terrain` runs the same flood twice over terrain that answers identically: arm one the bench's
+baked bitset, arm two the production `VoxelFluidTerrain` over real `VoxelChunk`s in a dictionary —
+the game's own path, a hash lookup on a three-int key, a palette decode and a material-table read,
+up to six a visit. **The oracle is that both arms visit the same cells and land the same water**, so
+the clock is the only thing that differed.
+
+```
+                              Release                  Debug
+baked bitset                0.228 µs/visit          1.389 µs/visit
+chunked, as the game reads  0.334 µs/visit          2.202 µs/visit
+                            1.47x                   1.59x
+```
+
+400,000 L into a 3 × 3 × 3 block of bitten chunks; 2,544,721 visits and 51,967,461 mL identical in
+both arms (Release), 718,928 / 25,399,541 (Debug, 200 ticks). Machine control 1.03x.
+
+**So the plan's question is answered, and the answer is no.** It asked: *"If the game's visit is
+markedly dearer than the bench's, the bitset pays for itself here and the thread is a separate
+question."* The game's visit **is** dearer — but by **a third of a visit, not a multiple**. The read
+is 0.106 µs of a 0.334 µs visit in Release and 0.813 of 2.202 in Debug, and a baked field replaces
+it with an indexed read rather than with nothing. **A third of Tier B's visit time, for ~10 MiB and
+a copy-on-write invariant, is not a case on its own.**
+
+**What survives is the structural reason, which was always the real one**: slice 2 is *the terrain a
+worker can read*. The streamer's dictionary cannot be read off the sim thread, so slice 3 cannot
+exist without it. That makes slice 2 an enabler rather than a win, and it inherits slice 3's revisit
+trigger instead of standing beside it.
+
+**Recommendation: slice 2 and slice 3 both wait on slice 1's play.** The plan already says to build
+slice 3 *"when the play reads the flood on open as the thing that hurts rather than the thing that
+is slow"*, and it said slices 1 and 2 *"stand on their own either way"* — that second half is what
+this measurement withdraws. If the play says the order is enough, neither is needed; if it says the
+flood still hurts, both go together and the 32% comes along with the thread.
+
+**Two things the arm cannot tell you**, said in its own output: the bench's bitset is one column of
+bits per (x, z) where slice 2's would be one array per chunk, so the locality differs and this is an
+upper bound; and every chunk here is resident and warm, where the game's dictionary holds thousands
+and four other systems walk it — so if anything the chunked arm under-states the game.
+
+**And the arm found its own fixture defect before it found anything else.** The first run reported
+`ARMS DISAGREE` — 2,544,721 visits against 2,350,355 — because a chunk straddling the fixture's
+bounds is created for the part inside it and defaulted to *air*, so its outside was holdable where
+the baked arm calls it rock. Chunks are created solid now and the open voxels are written into them.
+**Without the identical-trajectory oracle that run would have printed a plausible 1.08x and been
+believed.**
+
 ### Slice 3 — the tick as a job
 
 Each 2 Hz boundary submits one `FluidTickJob` to the M2a scheduler with the captured terrain and

@@ -116,6 +116,10 @@ internal static class Program
         int evictLayers = 4;
         string spread = "fixed";
         bool front = false;
+        bool terrain = false;
+        int terrainChambers = 3;
+        long terrainLitres = 400_000;
+        int terrainTicks = 400;
         long frontLitres = 10_000;
         int frontTicks = 20_000;
 
@@ -238,6 +242,18 @@ internal static class Program
                     case "--front":
                         front = true;
                         break;
+                    case "--terrain":
+                        terrain = true;
+                        break;
+                    case "--terrainchambers":
+                        terrainChambers = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--terrainlitres":
+                        terrainLitres = long.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--terrainticks":
+                        terrainTicks = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
                     case "--frontlitres":
                         frontLitres = long.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
                         break;
@@ -276,6 +292,30 @@ internal static class Program
             "both" => [SpreadRule.Fixed, SpreadRule.Counted],
             _ => [SpreadRule.Fixed],
         };
+
+        if (terrain)
+        {
+            var terrainGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
+            var terrainContent = new GameContent();
+            LoadResult terrainLoaded = terrainContent.Load(new DirectoryContentSource(ModsDirectory()));
+            if (!terrainLoaded.Success)
+            {
+                Console.Error.WriteLine($"content: {string.Join("; ", terrainLoaded.Errors)}");
+                return 1;
+            }
+
+            // The real table, because CanHold is "air or a fluid" and a made-up table would price a
+            // made-up question — the same reason --light and --store load the shipped mod.
+            return TerrainReadBench.Run(
+                terrainGenerator,
+                MaterialTable.From(terrainContent.Materials),
+                terrainContent.Materials.GetNumericId(Identifier.Parse("overburden:stone")),
+                MachineControl(terrainGenerator),
+                IsDebug(),
+                terrainChambers,
+                terrainLitres,
+                terrainTicks);
+        }
 
         if (front)
         {

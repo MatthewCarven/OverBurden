@@ -1,5 +1,43 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-09 — Slice 2 priced before it is built: the game's terrain read is a third of a visit, not a multiple, so the bitset is slice 3's enabler rather than a win
+
+`--terrain` is the arm WATER-THREAD-PLAN's slice 2 asks for — *priced on the sim thread before any
+thread exists*. The same flood twice over terrain that answers identically: the bench's baked
+bitset, and the production `VoxelFluidTerrain` over real `VoxelChunk`s in a dictionary, which is the
+game's own path (a hash lookup on a three-int key, a palette decode, a material-table read, up to
+six a visit).
+
+```
+                              Release                  Debug
+baked bitset                0.228 µs/visit          1.389 µs/visit
+chunked, as the game reads  0.334 µs/visit          2.202 µs/visit
+                            1.47x                   1.59x
+```
+
+- **The plan's question is answered and the answer is no.** It asked whether the game's visit is
+  *markedly* dearer than the bench's, in which case *"the bitset pays for itself here and the thread
+  is a separate question"*. It is dearer — by **a third of a visit**: 0.106 µs of 0.334 in Release,
+  0.813 of 2.202 in Debug, since a baked field replaces the read with an indexed read rather than
+  with nothing. **A third of Tier B's visit time for ~10 MiB and a copy-on-write invariant is not a
+  case on its own.**
+- **What survives is the reason that was always the real one**: slice 2 is *the terrain a worker can
+  read*, and the streamer's dictionary cannot be read off the sim thread. So it is slice 3's
+  enabler, and it inherits slice 3's revisit trigger instead of standing beside it. **Recommended:
+  slices 2 and 3 both wait on slice 1's play** — the plan's *"slices 1 and 2 stand on their own
+  either way"* is the half this withdraws.
+- **The arm found its own fixture defect before it found anything else, and the oracle is why.** The
+  first run printed `ARMS DISAGREE — 2,544,721 visits against 2,350,355`, because a chunk straddling
+  the fixture's bounds is created for the part inside it and defaulted to *air*, so its outside was
+  holdable where the baked arm calls it rock. Chunks are created solid now. **Without the
+  identical-trajectory check that run would have printed a plausible 1.08x and been believed** —
+  the same shape as the M8a fixture that answered `CanHold` with `IsCaveAt` and reported 3.86 µs.
+- **Both caveats are printed by the arm rather than left in a doc.** The bench's bitset is one
+  column of bits per (x, z) where slice 2's would be one array per chunk, so the locality differs
+  and this is an upper bound; and every chunk here is resident and warm, where the game's dictionary
+  holds thousands and four other systems walk it, so if anything the chunked arm under-states the
+  game.
+
 ## 2026-09-09 — The water thread, slice 1 is built and unplayed: near water every tick, far water deferred past the boundary
 
 `FluidSimulation.NearField.cs` — `SetNearField(centre, rings)`, a quota of

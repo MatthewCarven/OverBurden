@@ -324,6 +324,20 @@ and **`M8b: at quit` has a line under it saying what the world file holds**, eve
 the write — the next open's `loaded` reaches it once every wet chunk is home, which replaced "at
 quit equals restored" when the open stopped reading the rows.
 
+Price **what a Tier B visit pays to ask the world** — the measurement WATER-THREAD-PLAN's slice 2
+asks for before any bitset is built. The same flood twice over terrain that answers identically:
+the bench's baked bitset against the production `VoxelFluidTerrain` over real chunks in a
+dictionary, which is the game's own path. **The oracle is that both arms visit the same cells and
+land the same water**, printed, so a run whose arms disagree has timed two floods and says so
+instead of reporting a plausible ratio — which is what the first run did, because a chunk
+straddling the fixture's bounds defaulted to air. **1.47x Release / 1.59x Debug, which is a third
+of a visit rather than a multiple**, so the field does not pay for itself on speed and slice 2 is
+slice 3's enabler. `--terrainchambers`, `--terrainlitres` and `--terrainticks` size it:
+
+```bash
+dotnet run --project Overburden.Bench -c Release -- --terrain
+```
+
 The spread rule bench (2026-09-07) adds **`--spread fixed|counted|both`** to `--fluid`, `--spill`,
 `--lake` and its own arm, **`--front`**: the relay's 10,000 L ball on the flat floor of a bitten
 block, printing the wet radius, the visible cells and the profile along one axis at checkpoints,
