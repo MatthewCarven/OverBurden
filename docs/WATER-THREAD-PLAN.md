@@ -448,6 +448,124 @@ each a place a stale read can hide.
 worker. Every other job here is a pure function of its inputs, and the whole test discipline
 since M2a assumes it.
 
+## Slices 2 and 3 — the planning pass, 2026-09-10
+
+One pass over both, because **slice 3 cannot be built without slice 2** and three of slice 3's
+inputs have moved since it was written. Read the two paragraphs above against `FluidSimulation`,
+`IFluidTerrain`, `VoxelFluidTerrain`, `ChunkStreamer.TryGetMaterialForFluid`, `ChunkPipeline`'s five
+fluid call sites, `Main.UpdateFluid` and `JobPriority`.
+
+### What has moved since the paragraphs were written
+
+- **Slice 2 does not pay for itself on speed** (`--terrain`, 2026-09-09): the game's read is 1.47x
+  Release / 1.59x Debug of a baked field's, a third of a visit rather than a multiple. It is the
+  enabler and nothing else, so it ships *because* slice 3 is wanted, not on its own merits.
+- **The field is lazily-wet, not 10 MiB of view.** The ~10 MiB assumed one field per tracked chunk.
+  **A tick reads its own cells and their face neighbours and nothing else**, so the chunks it can
+  reach are *the chunks holding awake cells, plus those chunks' six face neighbours* — known at the
+  boundary, before the job is submitted. The played world holds 89 wet rows, so with the shell that
+  is a few hundred chunks: **1–2 MiB.** *An estimate, from the wet-chunk counts in the play logs.*
+- **The surface walk can ride the tick job** rather than needing a snapshot of its own (2026-09-10):
+  the job already has exclusive access to the grid, and the walk is 8.85 ms of the 12.09 ms rebuild.
+- **The budget's ~8x is measured now**, not derived: 2 ms of a frame buys ~41,000 visits a second
+  against a core's ~345,000 in Debug.
+
+### Slice 2, revised — the field is a terrain, so the tick does not change at all
+
+`IFluidTerrain` is one method plus `IsLoaded`, and `VoxelFluidTerrain` is the adapter onto the real
+world. **So the field is another adapter over the same interface**: `FluidField` implements
+`IFluidTerrain`, is built *by asking a real `IFluidTerrain`* voxel by voxel, and the tick takes it
+without knowing the difference. That keeps Core Godot-free with no new interface, keeps every
+existing fixture working, and makes the A/B *the same tick against two terrains* — which is exactly
+the shape `--terrain` already benches.
+
+- **Scope and lifetime.** A field per chunk, built on the sim thread at a boundary for any chunk in
+  the reachable set that has none, kept in a dictionary keyed by chunk, dropped when the chunk's
+  panel goes (beside `ForgetInflow`, which the settle's wait already hooks) . Building one is a
+  32,768-voxel walk of the real terrain — the plan's ~10 µs, *unmeasured*; a few hundred at once on
+  the first flooded boundary is the cost to watch, and it is the same shape as the light derive's
+  first fill.
+- **Invalidation is copy-on-write, on the hook the automaton already takes.** `onVoxelChanged` →
+  `Disturb` → also replace that chunk's field with an edited copy, 4 KiB, so a worker holding the
+  old array is never torn. M3a's rule at 4 KiB instead of a palette. **The edit therefore reaches
+  the water one tick late**, which is decision 7 already taken.
+- **`IsLoaded` becomes the captured set**: the chunk positions whose fields exist. A chunk leaving
+  mid-tick reads as loaded until the boundary, where M8b-4a's pause rule sees it — the plan's own
+  wording, and it is what makes the pause still correct.
+- **Oracle**: the field's answer equals the real terrain's, voxel for voxel, across random edits and
+  arrivals (the `IsCaveAt`/`GenerateTerrain` shape, fourth outing); and **a tick against the field
+  equals a tick against the live terrain, cell for cell**, which is the sliced-equals-whole test one
+  level out and the thing that says the substitution is free.
+- **Priced on the sim thread before any thread exists**, still: the tick runs against the field with
+  everything else unchanged, and the `fluid ms` line says what it bought.
+
+### Slice 3, revised — the grid becomes the job's, and the reads are the harder half
+
+The plan says *"everything that touches the grid from the sim thread moves from at the boundary to
+between jobs"* and names six seams. **There are thirteen, and the ones it does not name are reads.**
+Mutations are easy — they queue. A read that races is silent.
+
+```
+mutations (queue to the boundary)      reads (must wait for the boundary)
+  Add           the relay pour           TakeAllDirty     the autosave and quit
+  Remove        Alt+R                    AwakeHeldCells   the report line
+  Disturb       the edit hook            TotalMillilitres the report and the HUD
+  ChunkArrived  onFluidReady             SurfaceCells     the surface walk
+  Restore       a stored panel landing   VerifyQuiescent  refuses mid-tick already
+  Evict / Reclaim / TakeEvicted          Rested           the hand-off
+  LevelSheets   the settle               Pending          the settle's seeds
+  HandOff       the hand-off             Grid.AmountAt    the drain's room test
+```
+
+- **The rule, stated once: while a tick job is in flight the grid belongs to the job.** Mutations
+  queue and apply at the boundary; reads either wait for the boundary or use the value the last
+  boundary published. **The autosave is the sharp one** — a 30 s timer landing mid-tick, and a tick
+  under a flood can outlast a frame by hundreds — so `TakeAllDirty` has to *wait*, not race, and a
+  quit has to wait for or cancel the tick before writing.
+- **Cancelling a tick mid-flight is already safe, and that is M8b's slicing paying out.** The tick
+  is a cursor over its batch and the grid is consistent between cell visits, so a cancelled tick
+  leaves a legal world with a partly-visited batch — the same state a sliced tick is in every frame
+  today. **No new invariant is needed for quit**, which is the one place this could have been
+  unrecoverable.
+- **The boundary's four passes stay on the sim thread**: the settle, the hand-off, the drain, the
+  relay pour. They already run only at a boundary, which is now *between* jobs rather than between
+  ticks. Only the surface walk moves *into* the job, because it is the one that is expensive and
+  read-only.
+- **Priority.** `JobKind` is Mesh 10, Generate/Load 20, Save 30, and `Evaluate` wants a chunk
+  position the tick does not have, so the tick builds its priority with `FromBands` directly.
+  **Save's argument applies verbatim** — the queue never empties under flight, so anything ranked
+  below generation waits for a quiet moment that never comes, and a flood is exactly when that
+  matters. But unlike a save the cost is *not* nil: one worker of eight for the length of a tick,
+  which is the plan's named revisit trigger for a dedicated thread (`sources` showing generation
+  starving).
+- **Oracle**: the job-run tick equals the sim-thread tick cell for cell from the same inputs; the
+  identity at every boundary; the lifecycle fuzz driven through the job path; and a **race battery**
+  — an edit, an unload, a pour, an autosave and a quit each landing mid-tick, against a control that
+  does the same at boundaries. **`--fluidbudget` stops meaning anything on this arm and should say
+  so on the setup line**, the way `--fluidnear=0` says it is off.
+
+### The decisions
+
+1. **Slice 2 ships and is measured alone before slice 3 starts.** Recommended: it is behaviour-
+   preserving by construction (same tick, substituted terrain) and it is the half that can be
+   verified without concurrency.
+2. **`FluidField` implements `IFluidTerrain` and is built from one.** Recommended: the tick, every
+   fixture and every bench arm are untouched, and the A/B is two terrains rather than two code paths.
+3. **Scope is the chunks holding awake cells plus their face neighbours, built at the boundary,
+   cached per chunk, dropped with the panel.** Recommended; 1–2 MiB is an estimate and the first
+   flooded boundary's build cost is the number to take.
+4. **One bit, behind the class accessor** — already decided 2026-09-09, unchanged by this pass.
+5. **While a tick job is in flight the grid is the job's: mutations queue, reads wait.** Recommended,
+   and the autosave is the case to build the gate around rather than the relay pour.
+6. **The surface walk moves into the tick job; the settle, hand-off, drain and pour stay on the sim
+   thread.** Recommended: it is the only expensive read, and it needs no snapshot inside the job.
+7. **The tick job ranks with `Save`, above generation.** Recommended on Save's own starvation
+   argument, with the honest difference stated: a tick is not nil, so this is the trigger for a
+   dedicated thread if `sources` shows generation starving.
+8. **Slice 3 is still gated on the play**, per the plan's revisit trigger — *build it when the play
+   reads the flood on open as the thing that hurts rather than the thing that is slow*. Slice 2 is
+   not, once slice 3 is wanted.
+
 ## The decisions, taken 2026-09-07 as recommended
 
 1. A separate piece, after M8b-4c and before M8c.

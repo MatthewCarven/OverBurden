@@ -4271,7 +4271,21 @@ finding without the coarser-tolerance fallback.
             landing at the next boundary, a slow tick lowering the rate, ~8× the Debug throughput.
             All eight decisions taken as recommended. Build (3) when the play reads the flood on
             open as hurting rather than slow. Not started.
-            - [ ] **Slices 2 and 3 want one planning pass together, before any code (2026-09-10).**
+            - [ ] **Slices 2 and 3 — ✅ planning pass done 2026-09-10, eight decisions handed back
+                  with recommendations; see the plan's "Slices 2 and 3 — the planning pass". Build
+                  slice 2 once they are answered.** What the pass changed: **the field is an
+                  `IFluidTerrain` built from one**, so the tick, every fixture and every bench arm
+                  are untouched and the A/B is two terrains rather than two code paths; **the
+                  reachable set is the chunks holding awake cells plus their face neighbours**,
+                  known at the boundary, so 1–2 MiB rather than 10 (an estimate); and **the plan
+                  named six seams where there are thirteen, and the ones it missed are reads** —
+                  the autosave's `TakeAllDirty` is the sharp one, since a 30 s timer can land inside
+                  a tick that outlasts hundreds of frames. Two things that came out better than
+                  expected: **cancelling a tick mid-flight is already safe**, because the cursor
+                  leaves the grid consistent between cell visits, so quit needs no new invariant;
+                  and **the surface walk rides the job** rather than needing a snapshot. The old
+                  item:
+            - [ ] ~~**Slices 2 and 3 want one planning pass together, before any code (2026-09-10).**~~
                   **Slice 3 cannot be built without slice 2**: its job is submitted *"with the
                   captured terrain"*, and that is slice 2's field, because the tick asks `CanHold`
                   and `IsLoaded` of the streamer's chunk dictionary and a worker cannot read it
