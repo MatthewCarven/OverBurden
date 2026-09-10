@@ -52,6 +52,17 @@ public sealed class WaterSurface
     /// </remarks>
     private const double RebuildIntervalSeconds = 0.25;
 
+    /// <summary>How far under the solved level the plane is drawn, in metres.</summary>
+    /// <remarks>
+    /// <b>One centimetre, Matthew's number (2026-09-10), so a plane flush with a voxel's top face
+    /// loses to it.</b> The shore dilation draws the plane over cells whose ground sits exactly at
+    /// the level, and two coplanar faces z-fight — the water won in ragged patches across a
+    /// brim-full pond. A voxel of depth is 25 cm, so nothing a litre deep is hidden by this; only
+    /// the flush face is. A look constant, not a physics one: the level Tier A holds and hands
+    /// across the seam is untouched.
+    /// </remarks>
+    private const float SurfaceBiasMetres = 0.01f;
+
     private readonly ShaderMaterial _material;
     private readonly Rid _instance;
     private readonly World3D _world;
@@ -259,7 +270,7 @@ public sealed class WaterSurface
                 float z0 = field.WorldZOf(sz) * VoxelConstants.VoxelSize;
                 float x1 = x0 + (run * cellMetres);
                 float z1 = z0 + cellMetres;
-                float y = (float)(level * VoxelConstants.VoxelSize);
+                float y = (float)(level * VoxelConstants.VoxelSize) - SurfaceBiasMetres;
 
                 AddQuad(vertices, normals, indices, x0, x1, z0, z1, y);
                 sx += run;
