@@ -79,6 +79,84 @@ public interface ISeepTerrain : IFluidTerrain
     /// False for air, a fluid material, or a voxel that is not loaded.
     /// </summary>
     bool TryGetRock(VoxelPos voxel, out float permeability);
+
+    /// <summary>
+    /// The chunk and its one-voxel shell, classified, as one block — the same answers
+    /// <see cref="IFluidTerrain.CanHold"/> and <see cref="TryGetRock"/> give per voxel, read once.
+    /// False when this terrain cannot provide one, and the scan reads per voxel instead.
+    /// </summary>
+    /// <remarks>
+    /// <b>Defaults to false</b>, so every fixture that answers from a predicate keeps doing so,
+    /// and the per-voxel path stays the definition's own reading. The game's terrain answers true
+    /// through <see cref="IFluidWorld.VoxelsForFluid"/>; the two paths must agree cell for cell,
+    /// and a fixture that offers both is how the suite says they do.
+    /// </remarks>
+    bool TryReadNeighbourhood(ChunkPos chunk, SeepNeighbourhood into) => false;
+}
+
+/// <summary>
+/// A chunk and its shell classified for the seep scan: per cell, not loaded, holdable, or rock
+/// with its permeability. 34³ floats, reused across scans.
+/// </summary>
+/// <remarks>
+/// Three states in one float because the scan wants one array read per cell and rock's answer
+/// is already a float: the two sentinels are negative, which no bounded permeability is. Built
+/// from a <see cref="PaddedChunk"/> copied with <see cref="MissingMaterial"/> for an absent or
+/// pending neighbour — an ID no material has, which the classifier maps to
+/// <see cref="Unloaded"/> before the table is asked anything.
+/// </remarks>
+public sealed class SeepNeighbourhood
+{
+    /// <summary>The cell's chunk is not loaded to the water: nobody's rock and nobody's inside.</summary>
+    public const float Unloaded = -1f;
+
+    /// <summary>Water may be here: air or a fluid material.</summary>
+    public const float Holdable = -2f;
+
+    /// <summary>What <see cref="PaddedChunk.CopyFrom"/> is given for a missing neighbour. No material has it.</summary>
+    public const int MissingMaterial = -1;
+
+    private readonly float[] _cells = new float[PaddedChunk.Volume];
+
+    /// <summary>Local coordinates −1..32 on each axis.</summary>
+    public float this[int x, int y, int z]
+    {
+        get => _cells[PaddedChunk.Index(x, y, z)];
+        set => _cells[PaddedChunk.Index(x, y, z)] = value;
+    }
+
+    /// <summary>Classifies every cell of a padded copy through the table.</summary>
+    public void Classify(PaddedChunk padded, MaterialTable materials)
+    {
+        ArgumentNullException.ThrowIfNull(padded);
+        ArgumentNullException.ThrowIfNull(materials);
+
+        for (int z = -1; z <= VoxelConstants.ChunkSize; z++)
+        {
+            for (int x = -1; x <= VoxelConstants.ChunkSize; x++)
+            {
+                for (int y = -1; y <= VoxelConstants.ChunkSize; y++)
+                {
+                    int material = padded[x, y, z];
+                    float cell;
+                    if (material == MissingMaterial)
+                    {
+                        cell = Unloaded;
+                    }
+                    else if (material == MaterialIds.AirNumericId || materials.IsFluid(material))
+                    {
+                        cell = Holdable;
+                    }
+                    else
+                    {
+                        cell = materials.Permeability(material);
+                    }
+
+                    _cells[PaddedChunk.Index(x, y, z)] = cell;
+                }
+            }
+        }
+    }
 }
 
 /// <summary>
@@ -150,6 +228,41 @@ public sealed class VoxelFluidTerrain(IVoxelWorld world, MaterialTable materials
         return true;
     }
 
+    /// <summary>
+    /// The bulk read, when the world can hand over chunks: the 27 chunks around this one through
+    /// the fluid gate, copied once and classified once. A world that is only an
+    /// <see cref="IVoxelWorld"/> answers false and the scan reads per voxel.
+    /// </summary>
+    public bool TryReadNeighbourhood(ChunkPos chunk, SeepNeighbourhood into)
+    {
+        ArgumentNullException.ThrowIfNull(into);
+        if (_fluidWorld is null)
+        {
+            return false;
+        }
+
+        _neighbourhood ??= new VoxelChunk?[PaddedChunk.NeighbourhoodSize];
+        _padded ??= new PaddedChunk();
+        for (int dz = -1; dz <= 1; dz++)
+        {
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    _neighbourhood[PaddedChunk.NeighbourIndex(dx, dy, dz)] =
+                        _fluidWorld.VoxelsForFluid(chunk.Offset(dx, dy, dz));
+                }
+            }
+        }
+
+        _padded.CopyFrom(_neighbourhood, SeepNeighbourhood.MissingMaterial);
+        into.Classify(_padded, _materials);
+        return true;
+    }
+
+    private VoxelChunk?[]? _neighbourhood;
+    private PaddedChunk? _padded;
+
     private bool Loaded(VoxelPos voxel, out int materialId) =>
         _fluidWorld is not null
             ? _fluidWorld.TryGetMaterialForFluid(voxel, out materialId)
@@ -176,4 +289,11 @@ public interface IFluidWorld : IVoxelWorld
     /// not yet been read answers false: not loaded, to the water.
     /// </summary>
     bool TryGetMaterialForFluid(VoxelPos voxel, out int materialId);
+
+    /// <summary>
+    /// The chunk's voxels when it is loaded to the water by the rule above, or null. The seep
+    /// scan's bulk read (M8c-2): one decode of the chunk and its shell instead of 39,304
+    /// dictionary lookups, which is the difference between 0.7 ms and 5 ms a chunk.
+    /// </summary>
+    VoxelChunk? VoxelsForFluid(ChunkPos chunk);
 }

@@ -47,14 +47,37 @@ public sealed class PortalTracker
         (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1),
     ];
 
+    /// <summary>
+    /// Edits in one chunk between flushes past which the seep index stops being told per voxel
+    /// and the chunk is re-scanned whole at the next flush instead.
+    /// </summary>
+    /// <remarks>
+    /// <b>The bite lever (M8c-2).</b> A chunk bite is 32,768 hooks; the seep hook has no
+    /// geometric exit below the surface, so that is 14 ms Release and ~45 Debug a bite against
+    /// under 2 ms for a forget and a block scan of the chunk. Every face an edit can touch has
+    /// the edited voxel as one half, so a scan of that one chunk — which takes faces from either
+    /// side — is complete; the neighbours need nothing. Sixty-four is above any hand tool's edits
+    /// in a boundary (Alt's chip is 40 a second, 20 a boundary) and far under a bite, and the
+    /// per-voxel path stays the immediate one for everything a hand does.
+    /// </remarks>
+    public const int SeepBurstThreshold = 64;
+
     private readonly HashSet<ChunkPos> _loaded = [];
     private readonly HashSet<ChunkPos> _edited = [];
+    private readonly Dictionary<ChunkPos, int> _burst = [];
+    private readonly HashSet<ChunkPos> _rescan = [];
 
     public PortalTracker(PortalIndex index, SeepIndex? seeps = null)
     {
         ArgumentNullException.ThrowIfNull(index);
         Index = index;
         Seeps = seeps;
+        if (seeps is not null)
+        {
+            // Decision 3 on the inside's chunk: a hollow in an unedited chunk — a natural cave —
+            // is nobody's inside however close the dug chunk beside it.
+            seeps.IsDug = IsEdited;
+        }
     }
 
     public PortalIndex Index { get; }
@@ -70,6 +93,12 @@ public sealed class PortalTracker
 
     /// <summary>Scans run, including re-scans of an edited neighbour.</summary>
     public long Scans { get; private set; }
+
+    /// <summary>Chunks re-scanned whole by <see cref="Flush"/> after a burst of edits, over the lifetime.</summary>
+    public long Rescans { get; private set; }
+
+    /// <summary>Chunks waiting to be re-scanned: the seep index is stale for them until <see cref="Flush"/>.</summary>
+    public int PendingRescans => _rescan.Count;
 
     public bool IsLoaded(ChunkPos chunk) => _loaded.Contains(chunk);
 
@@ -112,7 +141,46 @@ public sealed class PortalTracker
         }
 
         Index.OnVoxelChanged(voxel);
-        Seeps?.OnVoxelChanged(voxel);
+        if (Seeps is null)
+        {
+            return;
+        }
+
+        int edits = (_burst.TryGetValue(chunk, out int sofar) ? sofar : 0) + 1;
+        _burst[chunk] = edits;
+        if (edits <= SeepBurstThreshold)
+        {
+            Seeps.OnVoxelChanged(voxel);
+        }
+        else
+        {
+            _rescan.Add(chunk);
+        }
+    }
+
+    /// <summary>
+    /// Re-scans every chunk that passed the burst threshold since the last flush, and resets the
+    /// counts. Call at the tick boundary before the seep drain reads the index; the portal index
+    /// is never stale and needs nothing here.
+    /// </summary>
+    public void Flush()
+    {
+        if (Seeps is not null)
+        {
+            foreach (ChunkPos chunk in _rescan)
+            {
+                Seeps.Forget(chunk);
+                if (_loaded.Contains(chunk))
+                {
+                    Seeps.Scan(chunk);
+                }
+
+                Rescans++;
+            }
+        }
+
+        _rescan.Clear();
+        _burst.Clear();
     }
 
     /// <summary>A chunk has stopped being tracked — dropped or cached, it makes no difference here.</summary>
@@ -120,6 +188,8 @@ public sealed class PortalTracker
     {
         _loaded.Remove(chunk);
         _edited.Remove(chunk);
+        _burst.Remove(chunk);
+        _rescan.Remove(chunk);
         Index.Forget(chunk);
         Seeps?.Forget(chunk);
     }

@@ -98,9 +98,14 @@ public interface IWaterTable
 /// arm prices it rather than the plan's 1.5–2 ms estimate.
 /// </para>
 /// <para>
-/// <b>Only dug chunks seep</b> — M8c's decision 3, the portal rule — and, as there, the index does
-/// not know what an edit is. <see cref="PortalTracker"/> owns the filter and feeds both indices the
-/// same events. Nothing here is stored: the faces are derived from the voxels and the seed surface,
+/// <b>Only dug chunks seep</b> — M8c's decision 3, the portal rule — and here the rule is on the
+/// inside's chunk, not on the pair: a face's inside must lie in a chunk <see cref="IsDug"/> says
+/// yes to. The portal index files every pair touching a dug chunk and gets away with it because a
+/// natural cave is never a pit and a bank needs a cliff; a seep face needs only rock beside a
+/// hollow, and caves are everywhere underground, so the looser rule wet a cave beside the first
+/// shaft the wire check bit and kept seeping into it after the shaft's own pit had drained.
+/// <see cref="PortalTracker"/> owns what dug means and binds it here; the index alone says yes to
+/// everything. Nothing here is stored: the faces are derived from the voxels and the seed surface,
 /// the table is Tier A's, and the one piece of state, the sub-litre <see cref="RemainderMillilitres"/>
 /// a chunk carries between ticks, is bounded at one cell and lost with the chunk — stated as a
 /// bound and asserted, decision 7.
@@ -133,7 +138,10 @@ public sealed class SeepIndex
         public readonly List<SeepGroup> Groups = [];
         public bool Stale = true;
         public long RemainderMillilitres;
+        public long Revision;
     }
+
+    private readonly SeepNeighbourhood _block = new();
 
     private readonly ISurfaceHeights _seed;
     private readonly ISeepTerrain _terrain;
@@ -142,6 +150,7 @@ public sealed class SeepIndex
     private readonly Dictionary<(int X, int Z), double?> _tableCache = [];
     private readonly Dictionary<(int Y, int X, int Z), double> _groupSums = [];
     private int _count;
+    private long _revision;
 
     /// <param name="seed">The unedited surface — the world generator, or the sky columns' copy of it.</param>
     /// <param name="terrain">Holdability and rock now, unloaded reading as neither.</param>
@@ -159,6 +168,13 @@ public sealed class SeepIndex
     }
 
     public int CellVoxels { get; }
+
+    /// <summary>
+    /// Whether a chunk counts as dug, so that a holdable voxel in it may be an inside. Everything
+    /// by default; <see cref="PortalTracker"/> binds its own edited set. Part of the definition,
+    /// so the oracle that evaluates <see cref="FacesOf"/> from scratch sees the same rule.
+    /// </summary>
+    public Func<ChunkPos, bool> IsDug { get; set; } = static _ => true;
 
     /// <summary>Faces in the index.</summary>
     public int Count => _count;
@@ -202,6 +218,14 @@ public sealed class SeepIndex
         Refresh(seeps);
         return seeps.Groups;
     }
+
+    /// <summary>
+    /// A number that changes whenever a face is filed or removed under this chunk, drawn from one
+    /// counter over the whole index so it never repeats. The drain records it when it finds every
+    /// face full, and looks again when it has moved. Zero for a chunk with no faces.
+    /// </summary>
+    public long RevisionOf(ChunkPos chunk) =>
+        _byChunk.TryGetValue(chunk, out ChunkSeeps? seeps) ? seeps.Revision : 0;
 
     /// <summary>True when this exact face — geometry and permeability — is filed.</summary>
     public bool Contains(SeepFace face) =>
@@ -296,7 +320,7 @@ public sealed class SeepIndex
     {
         ArgumentNullException.ThrowIfNull(into);
 
-        if (inside.Y > _seed.SurfaceHeightAt(inside.X, inside.Z) || !_terrain.CanHold(inside))
+        if (inside.Y > _seed.SurfaceHeightAt(inside.X, inside.Z) || !IsDug(inside.Chunk) || !_terrain.CanHold(inside))
         {
             return;
         }
@@ -328,8 +352,9 @@ public sealed class SeepIndex
                 Remove((new VoxelPos(changed.X + dx, changed.Y + dy, changed.Z + dz), changed));
             }
 
-            // As the inside. Geometry first: above its surface it is never one.
-            if (changed.Y <= surface)
+            // As the inside. Geometry first: above its surface it is never one, and outside a
+            // dug chunk neither (a natural cave in an unedited chunk).
+            if (changed.Y <= surface && IsDug(changed.Chunk))
             {
                 foreach ((int dx, int dy, int dz) in Faces)
                 {
@@ -361,7 +386,7 @@ public sealed class SeepIndex
 
             // The vertical neighbours share this voxel's column, and its surface was read once.
             int insideSurface = dx == 0 && dz == 0 ? surface : _seed.SurfaceHeightAt(inside.X, inside.Z);
-            bool isFace = inside.Y <= insideSurface && _terrain.CanHold(inside);
+            bool isFace = inside.Y <= insideSurface && IsDug(inside.Chunk) && _terrain.CanHold(inside);
             Reconcile((inside, changed), isFace, rockPermeability);
         }
     }
@@ -379,6 +404,11 @@ public sealed class SeepIndex
     /// </remarks>
     public int Scan(ChunkPos chunk)
     {
+        if (_terrain.TryReadNeighbourhood(chunk, _block))
+        {
+            return ScanBlock(chunk, _block);
+        }
+
         VoxelPos origin = chunk.OriginVoxel;
         int y0 = origin.Y;
         int y1 = y0 + VoxelConstants.ChunkSize - 1;
@@ -455,6 +485,120 @@ public sealed class SeepIndex
         return added;
     }
 
+    /// <summary>
+    /// The scan over a classified block: the definition again, as array reads — an inside is a
+    /// holdable cell at or below its surface, a face is a rock neighbour with permeability above
+    /// zero, and the shell contributes its one face into the chunk. The same faces the per-voxel
+    /// scan files, which is a test in both directions.
+    /// </summary>
+    private int ScanBlock(ChunkPos chunk, SeepNeighbourhood block)
+    {
+        VoxelPos origin = chunk.OriginVoxel;
+        int y0 = origin.Y;
+        int y1 = y0 + VoxelConstants.ChunkSize - 1;
+        int added = 0;
+
+        // The dug rule per chunk, read once each: the footprint, the chunk below, the chunk above,
+        // and the four beside.
+        bool dug = IsDug(chunk);
+        bool dugBelow = IsDug(chunk.Offset(0, -1, 0));
+        bool dugAbove = IsDug(chunk.Offset(0, 1, 0));
+
+        for (int lz = -1; lz <= VoxelConstants.ChunkSize; lz++)
+        {
+            bool zInside = lz >= 0 && lz < VoxelConstants.ChunkSize;
+            for (int lx = -1; lx <= VoxelConstants.ChunkSize; lx++)
+            {
+                bool xInside = lx >= 0 && lx < VoxelConstants.ChunkSize;
+                if (!xInside && !zInside)
+                {
+                    continue;
+                }
+
+                int x = origin.X + lx;
+                int z = origin.Z + lz;
+                int surface = _seed.SurfaceHeightAt(x, z);
+                if (surface < y0 - 1)
+                {
+                    continue;
+                }
+
+                if (xInside && zInside)
+                {
+                    int to = dug ? Math.Min(y1, surface) : y0 - 1;
+                    for (int y = y0; y <= to; y++)
+                    {
+                        int ly = y - y0;
+                        if (block[lx, ly, lz] != SeepNeighbourhood.Holdable)
+                        {
+                            continue;
+                        }
+
+                        var inside = new VoxelPos(x, y, z);
+                        foreach ((int dx, int dy, int dz) in Faces)
+                        {
+                            float rock = block[lx + dx, ly + dy, lz + dz];
+                            if (rock > 0f && Add(new SeepFace(inside, inside.Offset(dx, dy, dz), rock)))
+                            {
+                                added++;
+                            }
+                        }
+                    }
+
+                    // The shell voxel below, through the chunk's floor row; the one above,
+                    // through its roof row.
+                    if (dugBelow && block[lx, -1, lz] == SeepNeighbourhood.Holdable)
+                    {
+                        float rock = block[lx, 0, lz];
+                        var inside = new VoxelPos(x, y0 - 1, z);
+                        if (rock > 0f && Add(new SeepFace(inside, inside with { Y = y0 }, rock)))
+                        {
+                            added++;
+                        }
+                    }
+
+                    if (dugAbove && y1 + 1 <= surface && block[lx, VoxelConstants.ChunkSize, lz] == SeepNeighbourhood.Holdable)
+                    {
+                        float rock = block[lx, VoxelConstants.ChunkSize - 1, lz];
+                        var inside = new VoxelPos(x, y1 + 1, z);
+                        if (rock > 0f && Add(new SeepFace(inside, inside with { Y = y1 }, rock)))
+                        {
+                            added++;
+                        }
+                    }
+                }
+                else
+                {
+                    int dx = lx < 0 ? 1 : lx >= VoxelConstants.ChunkSize ? -1 : 0;
+                    int dz = lz < 0 ? 1 : lz >= VoxelConstants.ChunkSize ? -1 : 0;
+                    if (!IsDug(chunk.Offset(-dx, 0, -dz)))
+                    {
+                        continue;
+                    }
+
+                    int to = Math.Min(y1, surface);
+                    for (int y = y0; y <= to; y++)
+                    {
+                        int ly = y - y0;
+                        if (block[lx, ly, lz] != SeepNeighbourhood.Holdable)
+                        {
+                            continue;
+                        }
+
+                        float rock = block[lx + dx, ly, lz + dz];
+                        var inside = new VoxelPos(x, y, z);
+                        if (rock > 0f && Add(new SeepFace(inside, inside.Offset(dx, 0, dz), rock)))
+                        {
+                            added++;
+                        }
+                    }
+                }
+            }
+        }
+
+        return added;
+    }
+
     /// <summary>Removes every face with either half in this chunk, and the chunk's remainder. Returns how many.</summary>
     public int Forget(ChunkPos chunk)
     {
@@ -482,6 +626,7 @@ public sealed class SeepIndex
                 ChunkSeeps store = _byChunk[pair.Inside.Chunk];
                 store.Faces.Remove(pair);
                 store.Stale = true;
+                store.Revision = ++_revision;
                 _count--;
                 removed++;
                 if (store.Faces.Count == 0)
@@ -497,7 +642,7 @@ public sealed class SeepIndex
     private bool TryFace(VoxelPos inside, int surface, int dx, int dy, int dz, out SeepFace face)
     {
         face = default;
-        if (inside.Y > surface || !_terrain.CanHold(inside))
+        if (inside.Y > surface || !IsDug(inside.Chunk) || !_terrain.CanHold(inside))
         {
             return false;
         }
@@ -544,11 +689,13 @@ public sealed class SeepIndex
 
             seeps.Faces[pair] = face.Permeability;
             seeps.Stale = true;
+            seeps.Revision = ++_revision;
             return true;
         }
 
         seeps.Faces[pair] = face.Permeability;
         seeps.Stale = true;
+        seeps.Revision = ++_revision;
         _count++;
 
         ChunkPos rockChunk = face.Rock.Chunk;
@@ -575,6 +722,7 @@ public sealed class SeepIndex
         }
 
         seeps.Stale = true;
+        seeps.Revision = ++_revision;
         _count--;
         if (seeps.Faces.Count == 0)
         {

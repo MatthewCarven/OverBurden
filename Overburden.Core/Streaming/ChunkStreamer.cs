@@ -496,6 +496,12 @@ public sealed class ChunkStreamer : IVoxelWorld, ILightChunks, IFluidWorld
         return true;
     }
 
+    /// <summary>The chunk's voxels when loaded to the water — the same three tests as <see cref="TryGetMaterialForFluid"/>.</summary>
+    public VoxelChunk? VoxelsForFluid(ChunkPos position) =>
+        _chunks.TryGetValue(position, out StreamedChunk? chunk) && chunk.Voxels is not null && !chunk.FluidPending
+            ? chunk.Voxels
+            : null;
+
     /// <summary>Whether a record exists — viewed, or retained for a job in flight.</summary>
     public bool IsTracked(ChunkPos position) => _chunks.ContainsKey(position);
 

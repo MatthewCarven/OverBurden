@@ -140,11 +140,12 @@ heights live (1.2 ms against 10.3 ms a bite, Release, 2026-09-05). Release only:
 dotnet run --project Overburden.Bench -c Release -- --portal
 ```
 
-Measure **M8c-1's seep index** — a 10 × 10 × 3 m room dug under a lake in the real strata, read
+Measure **M8c's seep index** — a 10 × 10 × 3 m room dug under a lake in the real strata, read
 through the game's own `VoxelFluidTerrain`, swept by head and by rock: faces, the scan at arrival
-against the edit hook under a chunk bite, the coefficient's cost, litres a second at the shipped
-scale and hours to ankle-deep, and the delivery order per chunk. **The scan's floor is one
-holdability read per voxel at 77 ns**, which is where the plan's estimate was three times out.
+over a classified block against the per-voxel read (M8c-1's arm) and against the edit hook under a
+chunk bite, the coefficient's cost, litres a second at the shipped scale and hours to ankle-deep,
+and the delivery order per chunk. **The per-voxel scan's floor is one holdability read per voxel at
+77 ns**, which is where the plan's estimate was three times out and why the block path exists.
 Release only:
 
 ```bash
@@ -265,6 +266,16 @@ stands in its void (198 drawn at 100 quads a chunk). **The r6 control is, verbat
 goes after the bare `--` or the engine drops it without a word** (Main warns only about a
 `name=value` flag placed before the `--`; a flag after it that nothing reads is printed as unknown since 2026-09-10), and the run then opens the played world, which as of M8b-3a floods on open and
 reads nothing like a control.
+
+M8c-2 adds **`--seepscale=<x>`**, the seepage rate in litres a second per square metre of face per
+metre of head — 0.06 shipped, an estimate at the nuisance end (1.76 L/s into a 10 × 10 × 3 m stone
+room under 5 m, ankle-deep in 3.9 h; dirt 17.5× that), zero builds no index and no drain. The
+profile's `seep` line prints faces and chunks, seeping / delivered / skipped-full on the last pass,
+litres in the window and in all, burst rescans, the pass's mean and max, **the awake count at
+seeping boundaries min/mean/max — the water-bodies decision** — and whether Tier A's `seeped` equals
+Tier B's; the `M8b:` and `M7d:` lines carry `seeped`. **A seep provocation is `--fillbasin=2000000
+--breach=3 --seepscale=100`**: the smaller pour drains through the shaft's own portals in a few ticks
+because the pit holds 1,000 L at its saddle, and the `breach` line now says what the pit holds.
 
 M8b-2c adds the seam's two provocations, which go together. **`--fillbasin=<litres>` is the Tier A
 relay**: litres poured into the basin under the player when the measured window opens, reported
@@ -523,7 +534,30 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-11). M8c-1 is built and M8c-2 — the draw — is next, and it wants its own
+**Pick up here (2026-09-11, later). M8c is built — all three parts — and unplayed; the play check
+is the first thing to do, and its awake count is the water-bodies decision.** Read M8-PLAN's
+"M8c-2 — the planning pass" and "M8c-2 — built" first, then the TODO's play recipe under M8c-2.
+Matthew asked whether to back out of seepage because *"with infinite terrain, it will never
+settle"*; the answer (WORKLOG, 2026-09-11) is that it is the design for the game, bounded by the
+box for the engine, and a measurement for Tier B — and *"Ok lets continue"*. `SeepDrain` beside
+`PortalDrain` at the boundary; `WaterSystem.Seep` with `seeped` on every line and in both
+identities; the scan over a classified padded copy through the streamer's fluid gate (0.56 ms a
+solid chunk against 2.5); the tracker re-scans a chunk whole past 64 edits in a boundary (the
+bite); a full chunk is skipped until its faces change or sixteen passes pass; `--seepscale=`
+(0.06 shipped, an estimate at the nuisance end, zero builds nothing); `Saturation.HeadMetresAt`
+for M9. **Three things not to rediscover: the dug rule is on the inside's chunk (`SeepIndex.IsDug`)
+because the portal rule's "every pair touching a dug chunk" wet a natural cave beside the first
+shaft bitten; `--breach` bites the basin's *pit*, which on the profile seed holds 1,000 L and
+drains through its own portals in a few ticks, so a seep provocation wants `--fillbasin=2000000
+--seepscale=100` and reads `seeped` on the `seep` line; and the tracker's flush precedes the drain,
+so anything reading the seep index mid-frame after a bite reads the first 64 edits.** Suite 1,257
+→ 1,270; 30 break-recipes, 29 caught after three fixtures were fixed (nobody filled the room under
+a low lake, nobody placed rock at a cave's face from the dug side, no cave sat on a chunk's side
+face), the miss an identity — the tracker marks a chunk dug before it tells the index, so the
+as-inside dug check on the edit path can never fail through it. The paragraph below is M8c-1's
+state, kept for the reasoning.
+
+**Earlier (2026-09-11). M8c-1 is built and M8c-2 — the draw — is next, and it wants its own
 planning pass against the built index before any code.** Matthew took all eight of the pass's
 decisions as recommended (*"M8c as planned"*). Read M8-PLAN's "M8c-1 — built" first: `SeepIndex`
 beside `PortalIndex`, `ISeepTerrain` on `VoxelFluidTerrain`, `MaterialTable.Permeability` (the

@@ -1,5 +1,48 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-11 — M8c-2 and M8c-3 are built: the mine seeps, and "never settles" costs one flag
+
+Matthew, shown M8c-1's numbers: *"I am tempted to back out of seepage, because with infinite
+terrain, it will never settle?"* Sorted three ways and kept: as a game rule it is the design
+(DESIGN: pumps have a job that never ends; physically a mine floods to its table and stops, or
+the lake empties, and rain is the only source — 6 kL an hour into a stone room, a bucket outruns
+it); for the engine it is bounded by the loaded box, since nothing seeps where nobody is; and for
+Tier B it is a measurement, the awake count between deliveries, already the water-bodies trigger.
+*"Ok lets continue"*. Built the same day: `SeepDrain`, `WaterSystem.Seep`, the block scan, the
+tracker's burst and flush, `SeepIndex.IsDug`, `Saturation.HeadMetresAt` (M8c-3), `--seepscale=`,
+the `seep` profile line and `seeped` on every line. Suite 1,257 → 1,270; 30 break-recipes, 29 caught after three fixtures were fixed (nobody filled the room under a low lake, nobody placed rock at a cave's face from the dug side, no cave sat on a chunk's side face), the miss an identity — the tracker marks a chunk dug before it tells the index, so the as-inside dug check on the edit path can never fail through it. Read
+M8-PLAN's "M8c-2 — the planning pass" and "M8c-2 — built" first. Five things:
+
+- **The portal rule is too loose for seep faces, and the wire check found it.** "Every pair
+  touching a dug chunk" filed a natural cave in the undug neighbour of the first shaft bitten,
+  and it kept seeping after the shaft's pit had drained. Portals survive that rule because a cave
+  is never a pit and a bank needs a cliff; a seep face needs only rock beside a hollow, and caves
+  are everywhere underground. The rule is on the inside's chunk now (`IsDug`, bound by the
+  tracker, in the definition), and the cave stays dry until someone digs in its chunk.
+- **A full chunk is skipped, and that is where "never settles" is paid.** The rate is measured
+  against the lake, not the mine's own water, so a flooded room under a lake would walk every face
+  every tick for ever; now a pass that delivers nothing for want of room marks the chunk at the
+  index's revision and skips it until an edit moves the revision or sixteen passes go by. A lake
+  running dry mid-pass is *not* full — the second version conflated them and the rain would have
+  waited sixteen passes to be noticed.
+- **The block scan is 4.5–8× the per-voxel one, and the bite is a rescan.** `--seep`, Release: a
+  solid chunk 0.56 ms against 2.5, a room chunk ~1 against 7, a bitten chunk 1.8 against 4.1.
+  Past 64 edits in a chunk between flushes the tracker stops telling the seep index per voxel and
+  re-scans the chunk at the boundary — complete, because every face an edit touches has the
+  edited voxel as one half. The index is stale in between, so the flush precedes the drain; a
+  test that read a coefficient before the flush measured the first 64 edits of a 256-voxel room.
+- **The pour provocation measures the pit.** `--breach` bites the basin's pit, and on this seed
+  the pit holds 1,000 L at its saddle; a 200,000 L pour spills into the neighbours below and the
+  shaft drains the pit in a few ticks — Tier A's no-siphons rule, correct and dry. Two million
+  litres stands over it, and at `--seepscale=100` the shaft seeps 268 L in the window with both
+  identities exact until the portals empty the pit. The `breach` line prints what the pit's sample
+  maps to and holds now.
+- **Two fixtures were something else in a seepage costume.** A rim tunnel "above the table" ended
+  at the bank and filled through its own portal; moved into the rock it then stayed dry with the
+  lake over it, because the chunk's pooled rate lands lowest first and the room below had room —
+  decision 5, now asserted. The dry-face rule is tested by a hollow lower than the room under a
+  sample that drains elsewhere, found by asking the watershed.
+
 ## 2026-09-11 — M8c-1 is built: the seep index, permeability read at last, and the scan's cost is the read
 
 Matthew: *"M8c as planned"* — all eight decisions as recommended. Built M8c-1: `SeepIndex` beside

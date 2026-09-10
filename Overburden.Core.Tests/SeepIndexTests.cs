@@ -68,6 +68,39 @@ public class SeepIndexTests(ITestOutputHelper output)
         /// <summary>What the ground is made of: dirt in the top two voxels, stone below.</summary>
         public float NaturalRock(VoxelPos v) => v.Y >= Seed.SurfaceHeightAt(v.X, v.Z) - 1 ? Dirt : Stone;
 
+        /// <summary>Whether to offer the scan a classified block, built from the per-voxel answers.</summary>
+        public bool Bulk { get; set; }
+
+        /// <summary>Blocks handed out, so a test can assert which path the scan took.</summary>
+        public int BlocksRead { get; private set; }
+
+        public bool TryReadNeighbourhood(ChunkPos chunk, SeepNeighbourhood into)
+        {
+            if (!Bulk)
+            {
+                return false;
+            }
+
+            BlocksRead++;
+            VoxelPos origin = chunk.OriginVoxel;
+            for (int z = -1; z <= VoxelConstants.ChunkSize; z++)
+            {
+                for (int x = -1; x <= VoxelConstants.ChunkSize; x++)
+                {
+                    for (int y = -1; y <= VoxelConstants.ChunkSize; y++)
+                    {
+                        var v = new VoxelPos(origin.X + x, origin.Y + y, origin.Z + z);
+                        into[x, y, z] = !Loaded.Contains(v.Chunk) ? SeepNeighbourhood.Unloaded
+                            : CanHold(v) ? SeepNeighbourhood.Holdable
+                            : TryGetRock(v, out float permeability) ? permeability
+                            : SeepNeighbourhood.Unloaded;
+                    }
+                }
+            }
+
+            return true;
+        }
+
         public void Dig(SeepIndex index, VoxelPos v)
         {
             Placed.Remove(v);
@@ -362,6 +395,38 @@ public class SeepIndexTests(ITestOutputHelper output)
         Assert.False(terrain.TryGetRock(new VoxelPos(-5, 5, 5), out _));
         Assert.False(terrain.TryGetRock(new VoxelPos(70, 5, 5), out _));
         Assert.False(terrain.TryGetRock(new VoxelPos(300, 5, 5), out _));
+
+        // The bulk read through the same gate: the block over chunk (0, 0, 0) sees stone to the
+        // east, water to the west, and nothing loaded above, below or across the generating one.
+        var block = new SeepNeighbourhood();
+        Assert.True(terrain.TryReadNeighbourhood(ChunkPos.Zero, block));
+        Assert.Equal(SeepNeighbourhood.Holdable, block[5, 5, 5]);
+        Assert.Equal(0.02f, block[32, 5, 5]);
+        Assert.Equal(SeepNeighbourhood.Holdable, block[-1, 5, 5]);
+        Assert.Equal(SeepNeighbourhood.Unloaded, block[5, 32, 5]);
+        Assert.Equal(SeepNeighbourhood.Unloaded, block[5, -1, 5]);
+
+        // A chunk whose water is still landing is not loaded to the water in the block either.
+        var pending = new SeepNeighbourhood();
+        streamer.Get(new ChunkPos(1, 0, 0))!.FluidPending = true;
+        Assert.True(terrain.TryReadNeighbourhood(ChunkPos.Zero, pending));
+        Assert.Equal(SeepNeighbourhood.Unloaded, pending[32, 5, 5]);
+        Assert.Null(streamer.VoxelsForFluid(new ChunkPos(1, 0, 0)));
+        Assert.NotNull(streamer.VoxelsForFluid(ChunkPos.Zero));
+
+        // A world that is only an IVoxelWorld has no bulk path and says so.
+        var plain = new VoxelFluidTerrain(new PlainWorld(), Content.MaterialTable.ForTesting(
+            isOpaque: [false], isFluid: [false], textureLayer: [0], hardness: [0f]));
+        Assert.False(plain.TryReadNeighbourhood(ChunkPos.Zero, new SeepNeighbourhood()));
+    }
+
+    private sealed class PlainWorld : IVoxelWorld
+    {
+        public bool TryGetMaterial(VoxelPos voxel, out int materialId)
+        {
+            materialId = 0;
+            return true;
+        }
     }
 
     [Fact]
@@ -501,12 +566,16 @@ public class SeepIndexTests(ITestOutputHelper output)
         Assert.Equal(12, index.Count);
     }
 
-    [Fact]
-    public void IncrementalEqualsFromScratchAfterAnySequenceOfScansEditsAndForgets()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void IncrementalEqualsFromScratchAfterAnySequenceOfScansEditsAndForgets(bool bulk)
     {
         // THE ORACLE. From scratch is the definition (FacesOf) over every voxel of every loaded
         // chunk and the one-voxel shell around it — a face touches a chunk from either side —
-        // against the bookkeeping, the per-chunk delivery order and the groups.
+        // against the bookkeeping, the per-chunk delivery order and the groups. Twice: with the
+        // scan reading per voxel, and with the scan reading a classified block (the game's path
+        // since M8c-2), against the same per-voxel definition.
         var random = new Random(20260911);
         ChunkPos[] chunks =
         [
@@ -527,8 +596,18 @@ public class SeepIndexTests(ITestOutputHelper output)
             var seed = new AnalyticSurface((x, z) =>
                 34 + (Hash((x >> 2) + salt, z >> 2) % 5) + (x >= 40 ? 0 : 4));
 
-            var world = new SeepWorld(seed);
-            var index = new SeepIndex(seed, world);
+            // The dug rule bound to a set the ops move: a chunk is dug from its first dig on,
+            // as the tracker has it, and a natural hollow in an undug chunk is never an inside.
+            var dugChunks = new HashSet<ChunkPos>();
+            var world = new SeepWorld(seed) { Bulk = bulk };
+            var index = new SeepIndex(seed, world) { IsDug = dugChunks.Contains };
+            world.Natural.Add(new VoxelPos(20, 36, 20));
+            world.Natural.Add(new VoxelPos(44, 34, 40));
+            world.Natural.Add(new VoxelPos(10, 31, 10));
+            world.Natural.Add(new VoxelPos(12, 32, 12));
+            world.Natural.Add(new VoxelPos(32, 36, 20));
+            world.Natural.Add(new VoxelPos(20, 36, 32));
+            world.Natural.Add(new VoxelPos(31, 38, 40));
             world.Load(index, chunks[0]);
             bool unloadedRecently = false;
 
@@ -546,7 +625,18 @@ public class SeepIndexTests(ITestOutputHelper output)
                     // lake and dug out again is the edit path's "above the surface" clause.
                     if (world.Loaded.Contains(chunk))
                     {
-                        world.Dig(index, new VoxelPos(x, s + 2 - random.Next(10), z));
+                        var target = new VoxelPos(x, s + 2 - random.Next(10), z);
+                        if (dugChunks.Add(target.Chunk) && world.Loaded.Contains(target.Chunk))
+                        {
+                            // The tracker's rule: the first edit in a chunk scans it.
+                            world.Dug.Add(target);
+                            index.OnVoxelChanged(target);
+                            index.Scan(target.Chunk);
+                        }
+                        else
+                        {
+                            world.Dig(index, target);
+                        }
                     }
                 }
                 else if (kind < 55)
@@ -559,7 +649,12 @@ public class SeepIndexTests(ITestOutputHelper output)
                         VoxelPos target = placed.Offset(dx, dy, dz);
                         if (world.Loaded.Contains(target.Chunk))
                         {
+                            bool newlyDug = dugChunks.Add(target.Chunk);
                             world.Dig(index, target);
+                            if (newlyDug)
+                            {
+                                index.Scan(target.Chunk);
+                            }
                         }
                     }
                 }
@@ -567,7 +662,13 @@ public class SeepIndexTests(ITestOutputHelper output)
                 {
                     if (world.Loaded.Contains(chunk))
                     {
-                        world.Place(index, new VoxelPos(x, s - 4 + random.Next(7), z), rocks[random.Next(rocks.Length)]);
+                        var target = new VoxelPos(x, s - 4 + random.Next(7), z);
+                        bool newlyDug = dugChunks.Add(target.Chunk);
+                        world.Place(index, target, rocks[random.Next(rocks.Length)]);
+                        if (newlyDug)
+                        {
+                            index.Scan(target.Chunk);
+                        }
                     }
                 }
                 else if (kind < 87)
@@ -651,6 +752,70 @@ public class SeepIndexTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void TheBlockScanFilesExactlyWhatThePerVoxelScanFiles()
+    {
+        // The two readings of the definition against each other on the shapes the shell rules
+        // are about: a face across every kind of chunk boundary, a capped mouth in the row under
+        // a chunk floor, a sealed block, a natural cave, and a placed block in the lake.
+        var perVoxel = new SeepWorld(Flat(63));
+        var block = new SeepWorld(Flat(63)) { Bulk = true };
+        var a = new SeepIndex(perVoxel.Seed, perVoxel);
+        var b = new SeepIndex(block.Seed, block);
+
+        foreach (SeepWorld world in new[] { perVoxel, block })
+        {
+            world.Dug.UnionWith([
+                new VoxelPos(31, 40, 5), new VoxelPos(5, 32, 5), new VoxelPos(5, 63, 5), new VoxelPos(9, 64, 9),
+                new VoxelPos(0, 50, 31), new VoxelPos(20, 55, 20), new VoxelPos(20, 54, 20),
+            ]);
+            world.Placed[new VoxelPos(20, 53, 20)] = Sealed;
+            world.Placed[new VoxelPos(21, 55, 20)] = Dirt;
+            world.Placed[new VoxelPos(9, 65, 9)] = Stone;
+            world.Placed[new VoxelPos(5, 70, 5)] = Stone;
+            world.Natural.Add(new VoxelPos(12, 45, 12));
+        }
+
+        ChunkPos[] chunks = [new(0, 1, 0), new(1, 1, 0), new(0, 1, 1), new(0, 0, 0), new(0, 2, 0)];
+        foreach (ChunkPos chunk in chunks)
+        {
+            perVoxel.Load(a, chunk);
+            block.Load(b, chunk);
+            Assert.Equal(a.Count, b.Count);
+        }
+
+        Assert.Equal(chunks.Length, block.BlocksRead);
+        Assert.True(a.Count > 30, $"only {a.Count} faces, the fixture is thin");
+        foreach (ChunkPos chunk in chunks)
+        {
+            Assert.Equal(a.FacesIn(chunk), b.FacesIn(chunk));
+            Assert.Equal(a.GroupsIn(chunk), b.GroupsIn(chunk));
+        }
+
+        // And the real classifier over a padded copy: missing reads as unloaded before the table
+        // is asked, air and a fluid as holdable, rock as its bounded permeability.
+        var materials = Content.MaterialTable.ForTesting(
+            isOpaque: [false, true, true, false],
+            isFluid: [false, false, false, true],
+            textureLayer: [0, 0, 0, 0],
+            hardness: [0f, 1f, 3f, 0f],
+            permeability: [1f, 0.35f, 0.02f, 1f]);
+        var padded = new PaddedChunk();
+        padded.Fill(SeepNeighbourhood.MissingMaterial);
+        padded[0, 0, 0] = 0;
+        padded[1, 0, 0] = 3;
+        padded[2, 0, 0] = 1;
+        padded[3, 0, 0] = 2;
+        var classified = new SeepNeighbourhood();
+        classified.Classify(padded, materials);
+        Assert.Equal(SeepNeighbourhood.Unloaded, classified[-1, -1, -1]);
+        Assert.Equal(SeepNeighbourhood.Unloaded, classified[5, 5, 5]);
+        Assert.Equal(SeepNeighbourhood.Holdable, classified[0, 0, 0]);
+        Assert.Equal(SeepNeighbourhood.Holdable, classified[1, 0, 0]);
+        Assert.Equal(0.35f, classified[2, 0, 0]);
+        Assert.Equal(0.02f, classified[3, 0, 0]);
+    }
+
+    [Fact]
     public void TheTrackerFeedsTheSeepIndexUnderTheDugFilter()
     {
         // Decision 3 through the wiring: a natural cave in an unedited chunk is not a seep face
@@ -682,16 +847,155 @@ public class SeepIndexTests(ITestOutputHelper output)
         Assert.Equal(scans, tracker.Scans);
         Assert.Equal(6 + 4 + 5, seeps.Count);
 
+        // A cave in the unedited chunk beside the dug one, touching it: the wire check's case.
+        // Its wall against the dug chunk is a pair touching a dug chunk — the portal rule — and
+        // it is not a seep face, because the cave's chunk is not dug. The dug chunk's edit at the
+        // shared face must not file it either.
+        var east = new ChunkPos(1, 1, 0);
+        var caveBeside = new VoxelPos(32, 36, 20);
+        world.Natural.Add(caveBeside);
+        world.Loaded.Add(east);
+        tracker.OnVoxelsReady(east, hasEdits: false);
+        Assert.Equal(15, seeps.Count);
+        world.Dug.Add(new VoxelPos(31, 36, 20));
+        tracker.OnVoxelChanged(new VoxelPos(31, 36, 20));
+        Assert.Contains(seeps.FacesIn(SurfaceChunk), f => f.Inside == new VoxelPos(31, 36, 20) && f.Rock.Y == 35);
+        Assert.DoesNotContain(seeps.FacesIn(east), f => f.Inside == caveBeside);
+        Assert.Empty(seeps.FacesIn(east));
+        var found = new List<SeepFace>();
+        seeps.FacesOf(caveBeside, found);
+        Assert.Empty(found);
+
+        // A block placed at the shared face is the cave's rock only if the cave's chunk is dug:
+        // the edit path's as-rock copy of the rule.
+        world.Dug.Remove(new VoxelPos(31, 36, 20));
+        world.Placed[new VoxelPos(31, 36, 20)] = Stone;
+        tracker.OnVoxelChanged(new VoxelPos(31, 36, 20));
+        Assert.Empty(seeps.FacesIn(east));
+
+        // Dig in the east chunk and the cave's walls are faces from then on.
+        world.Dug.Add(new VoxelPos(40, 40, 5));
+        tracker.OnVoxelChanged(new VoxelPos(40, 40, 5));
+        Assert.Contains(seeps.FacesIn(east), f => f.Inside == caveBeside);
+        world.Loaded.Remove(east);
+        tracker.OnChunkForgotten(east);
+
         world.Loaded.Remove(SurfaceChunk);
         tracker.OnChunkForgotten(SurfaceChunk);
         Assert.Equal(0, seeps.Count);
         Assert.Equal(0, portals.Count);
 
-        // Back with its edits: both indices are scanned on the arrival.
+        // Back with its edits: both indices are scanned on the arrival — the cave and the two
+        // dug voxels' faces; the voxel at the east face is a placed block now.
         world.Loaded.Add(SurfaceChunk);
         tracker.OnVoxelsReady(SurfaceChunk, hasEdits: true);
         Assert.Equal(15, seeps.Count);
         Assert.Equal(1, portals.Count);
+    }
+
+    [Fact]
+    public void ABurstOfEditsIsRescannedWholeAtTheFlushAndEqualsTheDefinition()
+    {
+        // The bite lever: past SeepBurstThreshold edits in one chunk between flushes the
+        // tracker stops telling the seep index per voxel and re-scans the chunk at the flush.
+        // The index is stale in between — which is why the flush precedes the drain — and exact
+        // after; the portal index is told every edit and is never stale; a hand's few edits
+        // never reach the threshold and land at once.
+        var world = new SeepWorld(Flat(40)) { Bulk = true };
+        var portals = new PortalIndex(world.Seed, world);
+        var seeps = new SeepIndex(world.Seed, world);
+        var tracker = new PortalTracker(portals, seeps);
+        world.Loaded.Add(SurfaceChunk);
+        world.Loaded.Add(new ChunkPos(0, 0, 0));
+        tracker.OnVoxelsReady(SurfaceChunk, hasEdits: false);
+        tracker.OnVoxelsReady(new ChunkPos(0, 0, 0), hasEdits: false);
+
+        // A hand's worth: immediate.
+        for (int i = 0; i < 10; i++)
+        {
+            var v = new VoxelPos(5 + i, 38, 5);
+            world.Dug.Add(v);
+            tracker.OnVoxelChanged(v);
+        }
+
+        Assert.Equal(0, tracker.PendingRescans);
+        Assert.Equal(seeps.Count, FromScratch(seeps, world).Count);
+
+        // A bite: the first threshold's worth land, the rest wait.
+        VoxelPos origin = SurfaceChunk.OriginVoxel;
+        int edits = 0;
+        for (int y = 0; y < VoxelConstants.ChunkSize; y++)
+        {
+            for (int z = 0; z < VoxelConstants.ChunkSize; z++)
+            {
+                for (int x = 0; x < VoxelConstants.ChunkSize; x++)
+                {
+                    var v = new VoxelPos(origin.X + x, origin.Y + y, origin.Z + z);
+                    world.Dug.Add(v);
+                    tracker.OnVoxelChanged(v);
+                    edits++;
+                }
+            }
+        }
+
+        Assert.Equal(1, tracker.PendingRescans);
+        HashSet<SeepFace> expected = FromScratch(seeps, world);
+        Assert.NotEqual(expected.Count, seeps.Count);
+        Assert.Equal(VoxelConstants.ChunkSize * VoxelConstants.ChunkSize, portals.Count);
+
+        long rescans = tracker.Rescans;
+        tracker.Flush();
+        Assert.Equal(0, tracker.PendingRescans);
+        Assert.Equal(rescans + 1, tracker.Rescans);
+        Assert.Equal(expected.Count, seeps.Count);
+        foreach (SeepFace face in expected)
+        {
+            Assert.True(seeps.Contains(face), $"missing {face}");
+        }
+
+        // The floor row of the bitten chunk stands on the chunk below's roof row, filed under
+        // the bitten chunk: 1,024 faces the flush's scan took from the shell.
+        Assert.Equal(VoxelConstants.ChunkSize * VoxelConstants.ChunkSize, seeps.FacesIn(SurfaceChunk).Count(f => f.IsFloor));
+
+        // A burst that removes faces — the bitten chunk's floor row lined with stone — has to
+        // forget before it re-scans, or the faces the deferred edits closed would survive.
+        for (int i = 0; i < PortalTracker.SeepBurstThreshold * 2; i++)
+        {
+            var v = new VoxelPos(origin.X + (i & VoxelConstants.ChunkMask), origin.Y, origin.Z + (i >> VoxelConstants.ChunkSizeLog2));
+            world.Dug.Remove(v);
+            world.Placed[v] = Stone;
+            tracker.OnVoxelChanged(v);
+        }
+
+        Assert.Equal(1, tracker.PendingRescans);
+        tracker.Flush();
+        expected = FromScratch(seeps, world);
+        Assert.Equal(expected.Count, seeps.Count);
+        foreach (SeepFace face in expected)
+        {
+            Assert.True(seeps.Contains(face), $"missing {face}");
+        }
+
+        // A flush with nothing pending scans nothing; a forget drops a pending rescan.
+        rescans = tracker.Rescans;
+        tracker.Flush();
+        Assert.Equal(rescans, tracker.Rescans);
+        for (int i = 0; i < PortalTracker.SeepBurstThreshold + 1; i++)
+        {
+            // Inside the chunk whatever the threshold: the first version walked off its east
+            // face at i = 32 and counted the rest against the neighbour.
+            var v = new VoxelPos(origin.X + (i & VoxelConstants.ChunkMask), origin.Y + 1, origin.Z + 1 + (i >> VoxelConstants.ChunkSizeLog2));
+            world.Placed[v] = Stone;
+            tracker.OnVoxelChanged(v);
+        }
+
+        Assert.Equal(1, tracker.PendingRescans);
+        world.Loaded.Remove(SurfaceChunk);
+        tracker.OnChunkForgotten(SurfaceChunk);
+        Assert.Equal(0, tracker.PendingRescans);
+        tracker.Flush();
+        Assert.Equal(rescans, tracker.Rescans);
+        Assert.Equal(FromScratch(seeps, world).Count, seeps.Count);
     }
 
     [Fact]

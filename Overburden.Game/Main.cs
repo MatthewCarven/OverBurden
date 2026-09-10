@@ -516,6 +516,10 @@ public partial class Main : Node3D
 
     private bool _breached;
 
+    /// <summary>The basin the breach went into, and its pit's sample — printed on the breach line with what it holds now.</summary>
+    private int _breachBasin = Watershed.Outlet;
+    private (int X, int Z) _breachSample;
+
     // ------------------------------------------------------------ M8b-2c: the A → B seam
 
     /// <summary>The seed surface as the loaded columns hold it — five reads per edited voxel.</summary>
@@ -531,6 +535,41 @@ public partial class Main : Node3D
     private PortalDrain? _drain;
 
     private long _drawnAtWarm;
+
+    // ------------------------------------------------------------ M8c-2: Tier C, seepage
+
+    /// <summary>Every face through which a lake could seep into an excavation, filed under the chunk it arrives in.</summary>
+    private SeepIndex? _seeps;
+
+    /// <summary>Draws what the faces pass out of Tier A into Tier B at each tick boundary, lowest face first.</summary>
+    private SeepDrain? _seepDrain;
+
+    /// <summary>
+    /// <c>--seepscale=&lt;x&gt;</c>: litres a second per square metre of face per metre of head.
+    /// <see cref="SeepIndex.DefaultSeepageScale"/> by default, an estimate at the nuisance end —
+    /// 1.76 L/s into a 10 × 10 × 3 m stone room under 5 m of head, ankle-deep in 3.9 h, dirt
+    /// 17.5× that; M8d's play picks inside the range, as <c>rainfallScale</c> was picked. Zero
+    /// builds no index and no drain: the off switch, and the control arm.
+    /// </summary>
+    private double _seepScale = SeepIndex.DefaultSeepageScale;
+
+    private long _seepedAtWarm;
+    private long _seepPassesAtWarm;
+    private double _seepMillisSum;
+    private double _seepMillisSumAtWarm;
+    private double _seepMillisMax;
+
+    /// <summary>
+    /// The awake count at boundaries where something seeped — the measurement M8c's pass named
+    /// as the water-bodies trigger: a source with no end wakes the mine floor's sheet at every
+    /// delivery, and whether it goes quiet between deliveries is what this reads.
+    /// </summary>
+    private int _seepAwakeSamples;
+    private int _seepAwakeSamplesAtWarm;
+    private long _seepAwakeSum;
+    private long _seepAwakeSumAtWarm;
+    private int _seepAwakeMin = int.MaxValue;
+    private int _seepAwakeMax;
 
     // ------------------------------------------------------------ M8b-3a: the B → A seam
 
@@ -1214,6 +1253,12 @@ public partial class Main : Node3D
                     break;
                 case "breach" when int.TryParse(value, out int breach) && breach > 0:
                     _breachVoxels = breach;
+                    break;
+
+                // M8c-2: the seepage rate's sweep, rainfallScale's shape. Zero is off — no index,
+                // no drain, no scans — which is the control arm and the back-out.
+                case "seepscale" when double.TryParse(value, out double seepScale):
+                    _seepScale = Math.Max(0.0, seepScale);
                     break;
 
                 // The fifth budget seam of the same shape: how much of a frame Tier B's tick may
@@ -3181,7 +3226,8 @@ public partial class Main : Node3D
         return $"{water.StoredLitres:N0} L standing{full} in {wet}/{basins} basin(s), "
                + $"{water.Ledger.Count} basin(s) banked ({water.Ledger.TotalLitres:N0} L), "
                + $"{water.SpilledLitres:N0} L spilled, {water.InjectedLitres:N0} L injected, "
-               + $"{water.DrawnLitres:N0} L drawn into Tier B, {water.ReceivedLitres:N0} L received from it | "
+               + $"{water.DrawnLitres:N0} L drawn into Tier B, {water.SeepedLitres:N0} L seeped into it, "
+               + $"{water.ReceivedLitres:N0} L received from it | "
                + $"window {water.SpanMetres} m x{water.WindowsInstalled}, "
                + $"{_lastAnalysisMillis:F1} ms to analyse, scale x{water.RainfallScale}"
                + overflow
@@ -3304,7 +3350,7 @@ public partial class Main : Node3D
 
         return $"water     {held:N0} L held, {_water.SpilledLitres:N0} L spilled, "
                + $"{_water.InjectedLitres:N0} L injected, {_water.DrawnLitres:N0} L drawn into Tier B, "
-               + $"{_water.ReceivedLitres:N0} L received from it, "
+               + $"{_water.SeepedLitres:N0} L seeped into it, {_water.ReceivedLitres:N0} L received from it, "
                + $"{held * 60.0 / seconds:N0} L per wall-clock minute at scale "
                + $"x{_water.RainfallScale}\n"
                + $"analysis  {_lastAnalysisMillis:F1} ms for a {_water.SpanMetres} m window "
@@ -3367,8 +3413,19 @@ public partial class Main : Node3D
         // keeps it to dug chunks, and the drain that connects it to Tier A once a tick.
         _seedHeights = new StreamerSeedHeights(_pipeline.Streamer, _generator!);
         _portals = new PortalIndex(_seedHeights, terrain);
-        _portalTracker = new PortalTracker(_portals);
+
+        // M8c-2: Tier C. The seep index over the same terrain — its bulk read goes through the
+        // streamer's fluid gate, so a chunk whose water is still landing is nobody's rock — fed
+        // by the same tracker under the same dug filter, and the drain beside the portal drain.
+        // No water, or a scale of zero, builds neither: nothing scans, nothing seeps.
+        _seeps = _water is not null && _seepScale > 0 ? new SeepIndex(_seedHeights, terrain) : null;
+        _portalTracker = new PortalTracker(_portals, _seeps);
         _drain = _water is null ? null : new PortalDrain(_portals, _water, _fluid);
+        _seepDrain = _seeps is null ? null : new SeepDrain(_seeps, _water!, _fluid, _seepScale);
+        GD.Print(_seepDrain is null
+            ? $"M8c: seepage is off ({(_water is null ? "no water" : "--seepscale=0")}); the seep index is not built"
+            : $"M8c: seepage at {_seepScale} L/(m²·m·s) — a dug chunk under a lake takes permeability × head × face area × that "
+              + "out of the lake each tick, lowest face first (--seepscale=0 is off, the default is an estimate at the nuisance end)");
 
         // M8b-3a: the other direction. Water resting on the seed ground is the basin's, by the
         // rain model; measured to remove 99.3–99.5% of a surface spill's visits (--spill).
@@ -3417,6 +3474,11 @@ public partial class Main : Node3D
             _fluidThrottledAtWarm = _fluid.ThrottledTicks;
             _fluidSlicedAtWarm = _fluidSlicedTicks;
             _drawnAtWarm = _drain?.DrawnMillilitres ?? 0;
+            _seepedAtWarm = _seepDrain?.SeepedMillilitres ?? 0;
+            _seepPassesAtWarm = _seepDrain?.Passes ?? 0;
+            _seepMillisSumAtWarm = _seepMillisSum;
+            _seepAwakeSamplesAtWarm = _seepAwakeSamples;
+            _seepAwakeSumAtWarm = _seepAwakeSum;
             _handedAtWarm = _handoff?.HandedMillilitres ?? 0;
             _settlesAtWarm = _settle?.Settles ?? 0;
             _fluidJobsAtWarm = _fluidJobs;
@@ -3472,6 +3534,28 @@ public partial class Main : Node3D
             long t1 = Stopwatch.GetTimestamp();
             _handoff?.Absorb();
             _drain?.Draw();
+
+            // M8c-2: the flush re-scans any chunk a burst of edits left stale, then the seep
+            // drain reads the index. Timed apart from the drains it sits beside, because the
+            // pass over a dug mine's chunks is the term the plan could not price.
+            if (_seepDrain is not null)
+            {
+                long s0 = Stopwatch.GetTimestamp();
+                _portalTracker?.Flush();
+                _seepDrain.Draw();
+                double seepMillis = Milliseconds(s0, Stopwatch.GetTimestamp());
+                _seepMillisSum += seepMillis;
+                _seepMillisMax = Math.Max(_seepMillisMax, seepMillis);
+                if (_seepDrain.ChunksSeepingLastPass > 0)
+                {
+                    int awake = _fluid.ActiveCellCount;
+                    _seepAwakeSamples++;
+                    _seepAwakeSum += awake;
+                    _seepAwakeMin = Math.Min(_seepAwakeMin, awake);
+                    _seepAwakeMax = Math.Max(_seepAwakeMax, awake);
+                }
+            }
+
             long t2 = Stopwatch.GetTimestamp();
             TakePending();
             PourPending();
@@ -3750,6 +3834,8 @@ public partial class Main : Node3D
             target.PitX + (HeightField.DefaultCellVoxels / 2),
             player.Y,
             target.PitZ + (HeightField.DefaultCellVoxels / 2));
+        _breachBasin = basin;
+        _breachSample = _water.SampleOf(here.X, here.Z);
 
         if (_fillBasinLitres > 0)
         {
@@ -3980,7 +4066,14 @@ public partial class Main : Node3D
               + $"largest sheet {_settle.LargestSheet:N0}, longest pass {_settle.LongestMillis:F1} ms";
 
         long drawn = _drain?.DrawnMillilitres ?? 0;
+        long seeped = _seepDrain?.SeepedMillilitres ?? 0;
         FluidPublished p = f.Published;
+        string seep = _seepDrain is null
+            ? string.Empty
+            : $"seeped {seeped / litre:N0} L through {_seeps!.Count:N0} face(s) in {_seeps.ChunkCount:N0} chunk(s), "
+              + $"{_seepDrain.ChunksSeepingLastPass:N0} seeping / {_seepDrain.ChunksFullLastPass:N0} full on the last pass, "
+              + $"seep pass worst {_seepMillisMax:F1} ms, awake at seeping boundaries "
+              + $"{(_seepAwakeSamples > 0 ? $"{_seepAwakeMin:N0}/{_seepAwakeSum / _seepAwakeSamples:N0}/{_seepAwakeMax:N0}" : "—")}; ";
         string job = _fluidJobOn
             ? $"{f.JobTicks:N0} job tick(s), {f.TickRefusals:N0} refusal(s) inside a tick of which {f.TickRefusalsOfArrivedChunks:N0} for a chunk that had arrived, "
               + $"{f.JobTicksNotCompleted:N0} not completed with {f.CellsRequeued:N0} cell(s) requeued, "
@@ -3989,13 +4082,14 @@ public partial class Main : Node3D
             : string.Empty;
         return $"{p.TotalMillilitres / litre:N0} L moving in {p.HeldCells:N0} cell(s) over "
                + $"{p.Panels} panel(s) ({p.PanelBytes / 1024.0 / 1024.0:F1} MiB) at tick {p.Ticks:N0}; "
-               + $"injected {(p.Added - drawn) / litre:N0} L, drawn {drawn / litre:N0} L, "
+               + $"injected {(p.Added - drawn - seeped) / litre:N0} L, drawn {drawn / litre:N0} L, "
                + $"loaded {p.Loaded / litre:N0} L from {f.RestoredPanels:N0} panel(s), "
                + $"evicted {p.Evicted / litre:N0} L with {f.EvictedPanels:N0} panel(s), "
                + $"removed {p.Removed / litre:N0} L, displaced {p.Displaced / litre:N0} L, "
                + $"handed {p.Handed / litre:N0} L to Tier A — "
-               + $"held == injected + drawn + loaded − removed − displaced − handed − evicted: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
+               + $"held == injected + drawn + seeped + loaded − removed − displaced − handed − evicted: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
                + $"received == handed: {HandoffIdentity()}; "
+               + seep
                + job
                + $"{_relayPendingMillilitres / litre:N0} L still to pour; "
                + $"paused {p.Paused:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
@@ -4037,6 +4131,21 @@ public partial class Main : Node3D
                + BoundaryWorst() + "\n";
     }
 
+    /// <summary>What the breach's pit sample maps to now, and what that holds: the denominator behind "wet" and "covered".</summary>
+    private string BreachBasinNow()
+    {
+        if (_breachBasin == Watershed.Outlet || _water is null)
+        {
+            return string.Empty;
+        }
+
+        int basin = _water.BasinAtSample(_breachSample.X, _breachSample.Z);
+        long stored = basin == Watershed.Outlet || _water.Water is null ? 0 : _water.Water.StoredIn(basin);
+        string level = basin == Watershed.Outlet ? "none" : _water.LevelAt(basin)?.ToString("F2") ?? "none";
+        return $"; the breach's pit sample {_breachSample} maps to basin {basin} now (was {_breachBasin}), "
+               + $"holding {stored:N0} L at level {level}";
+    }
+
     /// <summary>The Tier B half of the profile, with the measured window's own denominators.</summary>
     private string FluidLines()
     {
@@ -4075,14 +4184,32 @@ public partial class Main : Node3D
               + $"to rebuild, {_fluidSurface.Rebuilds} rebuild(s)\n";
 
         long drawn = _drain?.DrawnMillilitres ?? 0;
+        long seeped = _seepDrain?.SeepedMillilitres ?? 0;
         long drawnA = (_water?.DrawnLitres ?? 0) * FluidConstants.MillilitresPerLitre;
+        long seepedA = (_water?.SeepedLitres ?? 0) * FluidConstants.MillilitresPerLitre;
         string breach = _drain is null || _portals is null
             ? "breach    no portal index (--nowater)\n"
             : $"breach    {_portals.Count:N0} portal(s) under {_portals.SampleCount:N0} sample(s), "
               + $"{_drain.WetSamplesLastPass:N0} wet and {_drain.CoveredPortalsLastPass:N0} covered on the "
               + $"last pass; drawn {(drawn - _drawnAtWarm) / litre:N0} L in the window, {drawn / litre:N0} L in "
               + $"all over {_drain.Draws:N0} draw(s) — Tier A drawn == Tier B drawn: "
-              + $"{(drawnA == drawn ? "exact" : "*** NO ***")}\n";
+              + $"{(drawnA == drawn ? "exact" : "*** NO ***")}"
+              + BreachBasinNow()
+              + "\n";
+
+        int seepPasses = (int)((_seepDrain?.Passes ?? 0) - _seepPassesAtWarm);
+        int awakeSamples = _seepAwakeSamples - _seepAwakeSamplesAtWarm;
+        string seep = _seepDrain is null || _seeps is null
+            ? $"seep      no seepage ({(_water is null ? "--nowater" : "--seepscale=0")})\n"
+            : $"seep      {_seeps.Count:N0} face(s) in {_seeps.ChunkCount:N0} chunk(s) at scale {_seepDrain.SeepageScale}; "
+              + $"{_seepDrain.ChunksSeepingLastPass:N0} seeping / {_seepDrain.ChunksDeliveredLastPass:N0} delivered / "
+              + $"{_seepDrain.ChunksFullLastPass:N0} skipped full on the last pass ({_seepDrain.FullChunks:N0} marked full); "
+              + $"seeped {(seeped - _seepedAtWarm) / litre:N0} L in the window, {seeped / litre:N0} L in all over "
+              + $"{_seepDrain.Deliveries:N0} deliver(ies); {_portalTracker?.Rescans ?? 0:N0} burst rescan(s); "
+              + $"pass mean {(seepPasses > 0 ? (_seepMillisSum - _seepMillisSumAtWarm) / seepPasses : 0):F2} ms max {_seepMillisMax:F2} ms; "
+              + $"awake at seeping boundaries min/mean/max "
+              + $"{(awakeSamples > 0 ? $"{_seepAwakeMin:N0}/{(_seepAwakeSum - _seepAwakeSumAtWarm) / awakeSamples:N0}/{_seepAwakeMax:N0} over {awakeSamples:N0}" : "— (none seeped)")} "
+              + $"— Tier A seeped == Tier B seeped: {(seepedA == seeped ? "exact" : "*** NO ***")}\n";
 
         long handed = f.HandedMillilitres;
         string handoff = _handoff is null
@@ -4123,18 +4250,19 @@ public partial class Main : Node3D
 
         return $"fluid     {p.TotalMillilitres / litre:N0} L moving in {p.HeldCells:N0} cell(s) "
                + $"over {p.Panels} panel(s) ({p.PanelBytes / 1024.0 / 1024.0:F1} MiB); "
-               + $"injected {(p.Added - drawn) / litre:N0} L, drawn {drawn / litre:N0} L, "
+               + $"injected {(p.Added - drawn - seeped) / litre:N0} L, drawn {drawn / litre:N0} L, seeped {seeped / litre:N0} L, "
                + $"loaded {p.Loaded / litre:N0} L from {f.RestoredPanels:N0} panel(s), "
                + $"evicted {p.Evicted / litre:N0} L with {f.EvictedPanels:N0} panel(s), "
                + $"removed {p.Removed / litre:N0} L, displaced {p.Displaced / litre:N0} L, "
                + $"handed {p.Handed / litre:N0} L — "
-               + $"held == injected + drawn + loaded − removed − displaced − handed − evicted: {(p.IdentityExact ? "exact" : "*** NO ***")}; "
+               + $"held == injected + drawn + seeped + loaded − removed − displaced − handed − evicted: {(p.IdentityExact ? "exact" : "*** NO ***")}; "
                + $"{_relayPendingMillilitres / litre:N0} L still to pour; "
                + $"paused {p.Paused:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
                + $"{f.ResumedCells:N0} resumed, {f.FaceWakes:N0} face wake(s), "
                + $"evicting {f.EvictingPanelCount:N0} panel(s), {f.ReclaimedPanels:N0} reclaimed\n"
                + jobLine
                + breach
+               + seep
                + handoff
                + settle
                + $"fluidtick {ticks:N0} tick(s) in the window at {1.0 / FluidTickSeconds:F0} Hz, "

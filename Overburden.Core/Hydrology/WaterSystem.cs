@@ -159,6 +159,9 @@ public sealed class WaterSystem : IWaterTable
     /// </remarks>
     public long DrawnLitres { get; private set; }
 
+    /// <summary>Litres seepage has taken out of lakes into Tier B, over the lifetime. M8c's term, beside <see cref="DrawnLitres"/>.</summary>
+    public long SeepedLitres { get; private set; }
+
     /// <summary>Litres handed to basins by Tier B through <see cref="Receive"/> — the B → A seam.</summary>
     /// <remarks>
     /// The other half of <see cref="DrawnLitres"/>' argument: Tier B's <c>handed</c> has to equal
@@ -381,6 +384,22 @@ public sealed class WaterSystem : IWaterTable
         long drawn = Water.Remove(basin, litres);
         DrawnLitres += drawn;
         return drawn;
+    }
+
+    /// <summary>
+    /// <see cref="Draw"/> through rock rather than a hole: the same removal, counted as seepage so
+    /// the two terms stay apart on every line and in both identities.
+    /// </summary>
+    public long Seep(int basin, long litres)
+    {
+        if (Water is null)
+        {
+            return 0;
+        }
+
+        long seeped = Water.Remove(basin, litres);
+        SeepedLitres += seeped;
+        return seeped;
     }
 
     /// <summary>

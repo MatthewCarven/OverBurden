@@ -1764,6 +1764,94 @@ departed from the pass, and what the measurement said:
   streamer answers an unloaded voxel with air's ID 0 and `false`, so dropping the loaded check
   changes nothing; kept because the answer is by the streamer's convention, not by construction.
 
+### M8c-2 — the planning pass, 2026-09-11, against the built index
+
+Matthew, on being shown the M8c-1 numbers: *"I am tempted to back out of seepage, because with
+infinite terrain, it will never settle?"* — and, on the answer, *"Ok lets continue"*. The answer is
+in the worklog; the part of it that shaped this pass: "never settles" is the design for the game
+(pumps have a job that never ends), is bounded by the loaded box for the engine (nothing seeps
+where nobody is), and is a measurement for Tier B (the awake count between deliveries, already
+the water-bodies trigger). So the pass adds one mechanism the paragraph above did not have — a
+full chunk is skipped — and takes the two levers M8c-1 priced, because the numbers said they
+would bite before the first play could.
+
+1. **Delivery is pooled per chunk, lowest face first, into faces below their own sample's table
+   only.** *Recommended.* On a divide one sample's faces are under a lake and the next sample's are
+   dry rock; a face above its table receives nothing however low it sorts.
+2. **A chunk whose eligible faces are all full is skipped until its faces change or sixteen passes
+   go by.** *Recommended.* The rate is measured against the lake, not against the water already in
+   the mine, so a flooded room under a lake would otherwise walk every face every tick for ever.
+   The index's per-chunk revision says when faces changed; the recheck catches water leaving by a
+   route that files no face (Alt+R, an eviction). This is where "never settles" costs one flag.
+3. **The scan reads a classified padded copy when the terrain can provide one.** *Recommended*, and
+   built: 0.56 ms a solid chunk against 2.5 per voxel, ~1 ms a room chunk against 7. The per-voxel
+   path stays as the definition's own reading and the fixtures' path; the game's terrain hands
+   the block through the streamer's fluid gate, so a chunk whose panel is still landing is nobody's
+   rock in the block as it is per voxel.
+4. **The edit hook stays per voxel up to 64 edits in a chunk between flushes, then the chunk is
+   re-scanned whole at the next flush.** *Recommended*, and built: every face an edit can touch has
+   the edited voxel as one half, so one chunk's scan is complete and the neighbours need nothing.
+   The index is stale between the burst and the flush, which is why the flush precedes the drain.
+5. **`seeped` is its own term on both tiers.** *Recommended.* `WaterSystem.Seep` beside `Draw`;
+   Tier B's `injected` is `Added − drawn − seeped`; the fluid identity reads `held == injected +
+   drawn + seeped + loaded − removed − displaced − handed − evicted`.
+6. **`--seepscale=` ships at 0.06, zero builds neither index nor drain.** *Recommended.* Zero is the
+   control arm and the back-out, and costs nothing.
+7. **The awake count is read at boundaries where something seeped**, min/mean/max in the window on
+   the `seep` line and the `M8b:` line. *Recommended.* The measurement decision 8 named.
+8. **A delivery counts as inflow to the settle**, so a drip-fed chunk's puddle levels diffusively
+   and never by the solve. *Recommended as is*, recorded as the cost of a source with no end; the
+   revisit trigger is a play that reads the puddle as syrup, and the lever is water bodies.
+9. **The remainder is a debt, not water**, bounded at one cell whichever way a pass ends.
+   *Recommended.* A quit loses time and no litre from any ledger.
+10. **A seep face's inside must lie in a dug chunk — the dug rule is on the inside, not on the
+    pair.** *Found by the wire check, not recommended in advance.* See below.
+
+### M8c-2 — built, 2026-09-11, and M8c-3 with it
+
+Suite 1,257 → 1,270; 30 break-recipes, 29 caught after three fixtures were fixed (nobody filled the room under a low lake, nobody placed rock at a cave's face from the dug side, no cave sat on a chunk's side face), the miss an identity — the tracker marks a chunk dug before it tells the index, so the as-inside dug check on the edit path can never fail through it. `SeepDrain` beside `PortalDrain`; `WaterSystem.Seep` and
+`SeepedLitres`; `IFluidWorld.VoxelsForFluid`, `ISeepTerrain.TryReadNeighbourhood` and
+`SeepNeighbourhood` (the block path); `PortalTracker`'s burst and `Flush`; `SeepIndex.IsDug` and
+`RevisionOf`; `Saturation.HeadMetresAt` (M8c-3, unread until M9); `--seepscale=` and the `seep`
+profile line; the `M8b:` and `M7d:` lines carrying `seeped`. What the build found:
+
+- **The portal rule was too loose for faces, and the first wire check said so.** A 3 × 3 shaft
+  bitten under a poured lake filed 110 faces in *two* chunks, and after the shaft's own pit had
+  drained one chunk kept seeping — a natural cave in the undug neighbour, touching the bitten
+  chunk, indexed as an inside by "every pair touching a dug chunk". Portals get away with that
+  rule because a cave is never a pit and a bank needs a cliff; a seep face needs only rock beside
+  a hollow, and caves are everywhere underground. The rule is now on the inside's chunk:
+  `SeepIndex.IsDug`, bound by the tracker to its edited set, in the definition so the oracle sees
+  it. With it the same shaft is 106 faces in one chunk, and the cave stays dry until someone digs
+  in its chunk.
+- **The pour provocation measures the pit, not the lake.** `--fillbasin` pours into the basin
+  under the player and `--breach` bites its pit; on this seed the pit holds 1,000 L at its saddle
+  and the rest of a 200,000 L pour spills into the neighbours below it, so the shaft drains the
+  pit in a few ticks and the table over it is gone — correct physics (the no-siphons rule in
+  Tier A), and nothing to seep from. The `breach` line now prints what the pit's sample maps to
+  and holds, which is the denominator behind "0 wet". Two million litres stands over the pit;
+  at `--seepscale=100` the shaft seeps 268 L in the window, both identities exact, until the
+  portals empty the pit and seeping stops with it.
+- **Two fixtures were the portal drain and decision 5 wearing a seepage costume.** A rim tunnel
+  meant to test "a face above the table is dry" ended at the bank, opened onto the lake's air,
+  and filled through its portal; moved into the rock, it then stayed dry when the lake rose over
+  it — because the chunk's rate is pooled and lands lowest first, and the room below it had
+  room. The test now asserts that. The dry-face rule is tested by a hollow *lower* than the room
+  under a sample that drains elsewhere, found by asking the watershed rather than placed.
+- **The tracker's burst caught a test of its own.** A 256-voxel room dug through the tracker is
+  past the threshold, so a coefficient read before the flush was over the first 64 edits — a
+  third under the true rate, and the test that "measured" it was reading the mechanism it exists
+  to defer. `DigRoom` flushes, and says why.
+- **The full mark and a lake running dry look the same from the litres and are not.** A pass that
+  delivers less than it owed because every face is full marks the chunk; one that delivers less
+  because the lake emptied on the way must not, or the rain refilling it waits sixteen passes to
+  be noticed. `starved` is set when a face's lake gives less than asked or is gone after a
+  delivery; the test pours 300 L over a 4,000 L room and expects the second 300 to arrive.
+- **The block scan and the per-voxel scan are held to each other** on the shapes the shell rules
+  are about, and the fuzz runs both against the same per-voxel definition with the dug rule bound
+  to a set the ops move. The real classifier is tested over a padded copy with a missing
+  neighbour, air, water and two rocks.
+
 ---
 
 ## M8d — The transparent pass, measurement and play

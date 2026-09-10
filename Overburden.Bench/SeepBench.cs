@@ -30,9 +30,13 @@ namespace Overburden.Bench;
 internal static class SeepBench
 {
     /// <summary>Generated chunks in a dictionary. Deliberately <c>ChunkStreamer.TryGetMaterial</c>'s shape.</summary>
-    private sealed class ChunkedWorld : IVoxelWorld
+    private sealed class ChunkedWorld : IFluidWorld
     {
         private readonly Dictionary<ChunkPos, VoxelChunk> _chunks = [];
+
+        public bool TryGetMaterialForFluid(VoxelPos voxel, out int materialId) => TryGetMaterial(voxel, out materialId);
+
+        public VoxelChunk? VoxelsForFluid(ChunkPos chunk) => _chunks.TryGetValue(chunk, out VoxelChunk? voxels) ? voxels : null;
 
         public int Chunks => _chunks.Count;
 
@@ -73,6 +77,16 @@ internal static class SeepBench
             perm = rock ? permeability : 0f;
             return rock;
         }
+    }
+
+    /// <summary>The same terrain with the bulk read hidden: the per-voxel scan, M8c-1's arm.</summary>
+    private sealed class PerVoxel(ISeepTerrain inner) : ISeepTerrain
+    {
+        public bool CanHold(VoxelPos voxel) => inner.CanHold(voxel);
+
+        public bool IsLoaded(VoxelPos voxel) => inner.IsLoaded(voxel);
+
+        public bool TryGetRock(VoxelPos voxel, out float permeability) => inner.TryGetRock(voxel, out permeability);
     }
 
     private sealed class FlatTable(double? level) : IWaterTable
@@ -170,6 +184,30 @@ internal static class SeepBench
             scanMillis = Math.Min(scanMillis, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         }
 
+        // The per-voxel arm over the same chunks: M8c-1's scan, the control for the block read.
+        var perVoxelIndex = new SeepIndex(seed, new PerVoxel(terrain));
+        double perVoxelMillis = double.MaxValue;
+        for (int rep = 0; rep < 3; rep++)
+        {
+            foreach (ChunkPos chunk in roomChunks)
+            {
+                perVoxelIndex.Forget(chunk);
+            }
+
+            long started = Stopwatch.GetTimestamp();
+            foreach (ChunkPos chunk in roomChunks)
+            {
+                perVoxelIndex.Scan(chunk);
+            }
+
+            perVoxelMillis = Math.Min(perVoxelMillis, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+        }
+
+        if (perVoxelIndex.Count != index.Count)
+        {
+            Console.WriteLine($"*** the block scan filed {index.Count} faces and the per-voxel scan {perVoxelIndex.Count} ***");
+        }
+
         // And one chunk of solid rock beside the room, which is what most of a dug mine's
         // neighbours are: 32,768 holdability reads that each exit at once.
         ChunkPos rockChunk = new VoxelPos(-20, floorY, 16).Chunk;
@@ -178,6 +216,13 @@ internal static class SeepBench
         {
             rockIndex.Forget(rockChunk);
             rockIndex.Scan(rockChunk);
+        });
+
+        var rockPerVoxel = new SeepIndex(seed, new PerVoxel(terrain));
+        double rockPerVoxelMillis = Best(3, () =>
+        {
+            rockPerVoxel.Forget(rockChunk);
+            rockPerVoxel.Scan(rockChunk);
         });
 
         // The read itself, so the scan's cost can be read as reads rather than as a mystery.
@@ -204,9 +249,11 @@ internal static class SeepBench
         Console.WriteLine(
             $"  Scan (the arrival path): {index.Count:N0} face(s) in {index.ChunkCount} chunk(s), "
             + $"{groups} group(s), {floors:N0} floor / {index.Count - floors - roofs:N0} wall / {roofs:N0} roof, "
-            + $"{scanMillis:F2} ms for the {roomChunks.Count} chunks, best of three");
+            + $"{scanMillis:F2} ms for the {roomChunks.Count} chunks over a classified block, best of three "
+            + $"({perVoxelMillis:F2} ms reading per voxel, M8c-1's arm)");
         Console.WriteLine(
-            $"  Scan of a chunk of solid rock beside it ({rockChunk}): {rockScanMillis:F2} ms, {rockIndex.Count} face(s); "
+            $"  Scan of a chunk of solid rock beside it ({rockChunk}): {rockScanMillis:F2} ms over a block, "
+            + $"{rockPerVoxelMillis:F2} ms per voxel, {rockIndex.Count} face(s); "
             + $"32,768 CanHold reads on that chunk alone: {readMillis:F2} ms ({held} holdable)");
 
         // The delivery order the drain will walk: the first face handed out, per chunk.
@@ -334,6 +381,16 @@ internal static class SeepBench
             biteScanMillis = Math.Min(biteScanMillis, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         }
 
+        var freshPerVoxel = new SeepIndex(seed, new PerVoxel(terrain));
+        double biteScanPerVoxelMillis = double.MaxValue;
+        for (int rep = 0; rep < 3; rep++)
+        {
+            freshPerVoxel.Forget(bite);
+            long started = Stopwatch.GetTimestamp();
+            freshPerVoxel.Scan(bite);
+            biteScanPerVoxelMillis = Math.Min(biteScanPerVoxelMillis, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+        }
+
         // The analytic seed for the same bite, so the surface read's share is a number rather
         // than a memory of M8b-2b's.
         var analytic = new SeepIndex(generator, terrain);
@@ -357,7 +414,8 @@ internal static class SeepBench
             $"    edit path, 32,768 OnVoxelChanged calls: {biteMillis:F2} ms, {biteFaces:N0} face(s) filed "
             + $"(the first pass files them and the others re-evaluate them, which is the same reads)");
         Console.WriteLine(
-            $"    arrival path, Scan of the bitten chunk: {biteScanMillis:F2} ms, {fresh.FacesIn(bite).Count:N0} face(s)");
+            $"    arrival path, Scan of the bitten chunk: {biteScanMillis:F2} ms over a block "
+            + $"({biteScanPerVoxelMillis:F2} ms per voxel), {fresh.FacesIn(bite).Count:N0} face(s)");
         Console.WriteLine(
             $"    edit path with the analytic seed instead of array reads: {analyticBiteMillis:F2} ms");
         Console.WriteLine();
