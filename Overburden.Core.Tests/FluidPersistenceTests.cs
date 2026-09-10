@@ -219,13 +219,12 @@ public class FluidPersistenceTests
     [Fact]
     public void TakeAllDirtyListsEveryAwakeHeldCellExactlyOnce()
     {
-        // Three places an awake cell can be — paused, queued for the next tick, unvisited in the
-        // tick in progress — and a cell can be in two at once. Each clause is made load-bearing
-        // by a cell that is in that place only: the east is paused only, because a paused cell is
-        // never re-queued; the west's spreading water is put mid-tick with one visit made, so all
-        // but the cells that one visit woke are unvisited only; and a pour after the tick began is
-        // queued only. The cells the one visit woke are both unvisited and queued, and must be
-        // listed once.
+        // Two places an awake cell can be at a boundary — paused, and queued for the next tick —
+        // and a cell can be in both. Each clause is made load-bearing by a cell that is in that
+        // place only: the east is paused only, because a paused cell is never re-queued; the
+        // west's spreading water is queued only. Until slice 3a there was a third place, the
+        // unvisited half of a tick in progress, and this test took its snapshot mid-tick; the
+        // snapshot refuses there now, which is asserted, so the third clause is unreachable.
         LoadableTerrain terrain = Corridor();
         var sim = new FluidSimulation(terrain);
 
@@ -242,9 +241,12 @@ public class FluidPersistenceTests
 
         Assert.Null(sim.Resume(1));
         Assert.True(sim.RemainingInTick > 0, "the fixture left nothing unvisited");
+        Assert.Throws<InvalidOperationException>(() => sim.TakeAllDirty([]));
+        Assert.Throws<InvalidOperationException>(() => sim.TakeDirty(West));
+        sim.Step();
         sim.Add(At(28, 3), Cap);
 
-        // The oracle: every held cell in the west is in motion (a point pour three ticks old has
+        // The oracle: every held cell in the west is in motion (a point pour four ticks old has
         // no cell at rest yet), so awake held = every west held cell plus the paused east ones.
         var expected = new HashSet<VoxelPos>(sim.Grid.HeldCells());
         Assert.Contains(At(28, 3), expected);
@@ -272,9 +274,7 @@ public class FluidPersistenceTests
 
         Assert.Equal(expected, listed);
         Assert.Equal(expected.Count, sim.AwakeHeldCells().Count());
-
-        // And the tick in progress was left exactly where it was.
-        Assert.True(sim.TickInProgress);
+        Assert.False(sim.TickInProgress);
     }
 
     [Fact]
@@ -354,6 +354,9 @@ public class FluidPersistenceTests
     {
         public Dictionary<ChunkPos, FluidPanelSnapshot> Dirty { get; } = [];
 
+        /// <summary>Settable, so a pipeline test can hold the grid the way a tick in flight does (slice 3a).</summary>
+        public bool GridOwnedByTick { get; set; }
+
         public List<ChunkPos> TakeDirtyCalls { get; } = [];
 
         public int TakeAllDirtyCalls { get; private set; }
@@ -373,6 +376,7 @@ public class FluidPersistenceTests
 
         public void TakeEvicted(List<FluidPanelSnapshot> into)
         {
+            TakeEvictedCalls++;
             foreach (ChunkPos chunk in Evicted)
             {
                 if (Dirty.Remove(chunk, out FluidPanelSnapshot? panel)) into.Add(panel);
@@ -381,7 +385,17 @@ public class FluidPersistenceTests
             Evicted.Clear();
         }
 
-        public bool Reclaim(ChunkPos chunk) => Evicted.Remove(chunk) || Home.Contains(chunk);
+        public int TakeEvictedCalls { get; private set; }
+
+        public int ReclaimCalls { get; private set; }
+
+        public bool MayHoldWater(ChunkPos chunk) => Home.Contains(chunk) || Evicted.Contains(chunk);
+
+        public bool Reclaim(ChunkPos chunk)
+        {
+            ReclaimCalls++;
+            return Evicted.Remove(chunk) || Home.Contains(chunk);
+        }
 
         public void Restore(FluidPanelSnapshot panel)
         {
@@ -434,6 +448,142 @@ public class FluidPersistenceTests
         FluidPanelSnapshot read = FluidPanelBlob.Read(blob, ChunkPos.Zero);
         Assert.Equal(SomePanel(ChunkPos.Zero).Cells, read.Cells);
         Assert.Equal([200], read.Awake);
+    }
+
+    // ---------------------------------------------------------------- slice 3a: the tick owns the grid
+
+    [Fact]
+    public void ARestoreMidTickIsDeferredUntilTheTickCompletes()
+    {
+        // A restore writes a panel into the grid, which mid-tick is the tick's: it queues, counted
+        // as nothing until the tick completes, and lands then with its cells paused as a restore
+        // between ticks would have left them.
+        LoadableTerrain terrain = Corridor();
+        terrain.Unload(East);
+        var sim = new FluidSimulation(terrain);
+
+        sim.Add(At(24), Cap);
+        for (int i = 0; i < 3; i++) sim.Step();
+        Assert.True(sim.ActiveCellCount > 1, "the fixture has too little in motion");
+        Assert.Null(sim.Resume(1));
+
+        ushort top = (ushort)At(33, 3).LocalIndex;
+        ushort floor = (ushort)At(33).LocalIndex;
+        var panel = new FluidPanelSnapshot(East, [.. new[] { (floor, (ushort)Cap), (top, (ushort)1000) }.OrderBy(c => c.Item1)], [top]);
+        sim.Restore(panel);
+
+        Assert.Equal(1, sim.DeferredCount);
+        Assert.Equal(0L, sim.LoadedMillilitres);
+        Assert.Equal(0, sim.RestoredPanels);
+        Assert.False(sim.Grid.HasPanel(East));
+        Assert.Equal(0, sim.PausedCellCount);
+
+        // And the chunk leaves again, still mid-tick: the mark queues behind the restore. Applied
+        // in arrival order the mark finds a panel and is due one tick later; applied the other way
+        // round it finds none and the panel would be released at the first collection.
+        sim.Evict(East);
+        Assert.Equal(2, sim.DeferredCount);
+
+        sim.Step();
+
+        Assert.Equal(0, sim.DeferredCount);
+        Assert.Equal(1000L + Cap, sim.LoadedMillilitres);
+        Assert.Equal(1, sim.RestoredPanels);
+        Assert.True(sim.Grid.HasPanel(East));
+        Assert.Equal(1, sim.PausedCellCount);
+        FluidAssert.Conserves(sim);
+
+        var taken = new List<FluidPanelSnapshot>();
+        sim.TakeEvicted(taken);
+        Assert.Empty(taken);
+        Assert.True(sim.Grid.HasPanel(East));
+
+        sim.Step();
+        sim.TakeEvicted(taken);
+        FluidPanelSnapshot released = Assert.Single(taken);
+        Assert.Equal(1000L + Cap, released.TotalMillilitres);
+        Assert.False(sim.Grid.HasPanel(East));
+        FluidAssert.Conserves(sim);
+    }
+
+    [Fact]
+    public void EvictionCollectionWaitsForTheBoundary()
+    {
+        // The pipeline collects released panels once a frame; while the grid is the tick's the
+        // release refuses, so the collection is skipped rather than refused, and the panel goes
+        // out on the first frame after.
+        var store = new InMemoryWorldStore();
+        using var harness = new PipelineHarness(store: store);
+        var fluid = new FakeFluid();
+        harness.Pipeline.Fluid = fluid;
+
+        ViewerId viewer = harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+        fluid.Dirty[ChunkPos.Zero] = SomePanel(ChunkPos.Zero);
+        fluid.Home.Add(ChunkPos.Zero);
+
+        fluid.GridOwnedByTick = true;
+        int collectionsBefore = fluid.TakeEvictedCalls;
+        harness.Pipeline.Streamer.MoveViewer(viewer, FarAway);
+        harness.Settle();
+
+        Assert.Contains(ChunkPos.Zero, fluid.Evicted);
+        Assert.Equal(collectionsBefore, fluid.TakeEvictedCalls);
+        Assert.Equal(0, store.FluidWrites);
+
+        fluid.GridOwnedByTick = false;
+        harness.Settle();
+
+        Assert.True(fluid.TakeEvictedCalls > 0);
+        Assert.Equal(1, store.FluidWrites);
+        Assert.Equal(1, harness.Pipeline.PanelsSaved);
+    }
+
+    [Fact]
+    public void SaveAllRefusesWhileTheTickOwnsTheGridWithNothingHalfDone()
+    {
+        var store = new InMemoryWorldStore();
+        using var harness = new PipelineHarness(store: store);
+        var fluid = new FakeFluid();
+        harness.Pipeline.Fluid = fluid;
+
+        harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+        Assert.True(harness.Pipeline.SetVoxel(new VoxelPos(16, 16, 16), 4));
+        fluid.Dirty[new ChunkPos(50, 0, 50)] = SomePanel(new ChunkPos(50, 0, 50));
+
+        fluid.GridOwnedByTick = true;
+        Assert.Throws<InvalidOperationException>(() => harness.Pipeline.SaveAll());
+        Assert.Equal(0, fluid.TakeAllDirtyCalls);
+        Assert.Equal(0, store.WriteCalls);
+        Assert.Single(fluid.Dirty);
+
+        // Nothing was queued or claimed: the boundary's save writes the edit and the panel whole.
+        fluid.GridOwnedByTick = false;
+        Assert.Equal((1, 1), harness.Pipeline.SaveAll());
+        Assert.Equal(1, fluid.TakeAllDirtyCalls);
+        Assert.Equal(1, store.ChunkWrites);
+        Assert.Equal(1, store.FluidWrites);
+    }
+
+    [Fact]
+    public void AnArrivalWithNoWaterAnywhereIsReadyWhateverTheTickIsDoing()
+    {
+        // The counterpart of the wet chunk parked: no panel, no snapshot, no row — ready at once
+        // with the grid the tick's, so the shell of a moving box meshes under a long tick.
+        var store = new InMemoryWorldStore();
+        using var harness = new PipelineHarness(store: store);
+        var fluid = new FakeFluid { GridOwnedByTick = true };
+        harness.Pipeline.Fluid = fluid;
+
+        harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+
+        Assert.Equal(0, harness.Pipeline.FluidArrivalsWaiting);
+        Assert.Equal(0L, harness.Pipeline.FluidArrivalsParked);
+        Assert.Equal(0, fluid.ReclaimCalls);
+        Assert.False(harness.Pipeline.Streamer.Get(ChunkPos.Zero)!.FluidPending);
+        Assert.Contains(ChunkPos.Zero, harness.MeshedPositions);
     }
 
     [Fact]
@@ -706,9 +856,14 @@ public class FluidPersistenceTests
         var random = new Random((int)(seed & 0x7FFFFFFF));
         long offered = 0, rejected = 0, twinRejected = 0;
         int quits = 0, quitsWithAwake = 0, quitsWithAway = 0, panelsWritten = 0;
+        int deferredRounds = 0, quitsMidTick = 0;
 
         for (int round = 0; round < 80; round++)
         {
+            // A pour is a boundary call (slice 3a): a round that left a tick in flight finishes
+            // it first, the way the game's relay waits for the boundary.
+            if (sim.TickInProgress) sim.Step();
+
             if (random.Next(3) != 0)
             {
                 int x = random.Next(minX, maxX + 1);
@@ -746,11 +901,13 @@ public class FluidPersistenceTests
                 twin.LevelSheets();
             }
 
-            // Sometimes mid-tick, because an autosave can land there and the quit path finishes
-            // nothing first.
+            // Sometimes mid-tick, so the toggle below lands as a deferred arrival or a deferred
+            // pause and the quit finds a tick in flight — which it finishes first, as Main does
+            // (slice 3a); the counts it takes are the boundary's.
             if (random.Next(6) == 0)
             {
                 sim.Resume(1);
+                deferredRounds++;
             }
 
             Assert.Equal(0L, sim.DisplacedMillilitres);
@@ -773,7 +930,14 @@ public class FluidPersistenceTests
 
             if (random.Next(5) == 0)
             {
-                // The quit. Finish nothing: whatever is mid-tick stays mid-tick in the counts.
+                // The quit: the tick in flight is finished, then everything is written.
+                if (sim.TickInProgress)
+                {
+                    quitsMidTick++;
+                    sim.Step();
+                }
+
+                Assert.Equal(0, sim.DeferredCount);
                 int awakeHeld = AwakeHeld(sim);
                 List<ChunkPos> loaded = chunks.Where(toggled.IsChunkLoaded).ToList();
                 bool anyAway = loaded.Count < chunks.Count;
@@ -836,6 +1000,8 @@ public class FluidPersistenceTests
         Assert.True(quitsWithAwake > 0, $"seed {seed:X}: no quit ever had awake water");
         Assert.True(quitsWithAway > 0, $"seed {seed:X}: no quit ever had a chunk away");
         Assert.True(panelsWritten > 0, $"seed {seed:X}: no panel was ever written");
+        Assert.True(deferredRounds > 0, $"seed {seed:X}: no round ever toggled a chunk mid-tick");
+        Assert.True(sim.Deferrals > 0 || quitsMidTick > 0, $"seed {seed:X}: nothing was ever deferred");
 
         // Then drain one stored chunk dry and quit again: its row must come back empty rather
         // than holding the water the earlier quit stored — deterministic here rather than left to

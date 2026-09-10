@@ -4297,19 +4297,37 @@ finding without the coarser-tolerance fallback.
                   - [x] **Re-played 2026-09-10 — *"Yeah I like it"*.** The check was that nothing
                         should look different, and nothing did. Slice 2 is accepted; slice 3 is
                         unblocked and still gated on its own trigger.
-            - [ ] **Slice 3 — split three ways on contact; 3a written and held 2026-09-10.**
-                  **3a the grid belongs to the tick** (sim thread, no job — a tick in flight already
-                  spans up to 46 frames, so every seam is reachable synchronously), **3b the tick as
-                  a job**, **3c the race battery and the measurement**. 3a is stashed
-                  (`slice-3a-wip`) and fully described in the plan's "Slice 3a" section, which is
-                  enough to redo it from nothing. **It is held on one decision: finishing it
-                  reverses M8b's documented, tested "water may be added, removed or disturbed
-                  between slices"** — decision 7 authorises it, but it is 14 failures across 6 test
-                  names and it rewrites the contract those tests exist to state. Two things it
-                  found: **`Remove` refusing mid-tick would crash in play** (Alt+R is a keypress —
-                  Main must queue it), and **the rule caught `TakeEvicted` being called mid-tick**
-                  by the eviction fuzz and by `ChunkPipeline.SubmitSaves`, which is the autosave
-                  seam the pass predicted.
+            - [ ] **Slice 3 — split three ways on contact 2026-09-10: 3a the grid belongs to the
+                  tick, 3b the tick as a job, 3c the race battery and the measurement.**
+                  - [x] **3a — ✅ built 2026-09-10, the reversal taken knowingly ("ok lets
+                        continue").** Suite 1,208 → 1,216; see the plan's "Slice 3a — built" for
+                        the three departures from the stash's recipe. Mutations queue and land at
+                        the tick's own completion (not at the next boundary — a `Reclaim` in the
+                        gap could outrun a deferred `Evict`); reads refuse; **the pipeline parks a
+                        wet arrival while the grid is the tick's and releases it on the first frame
+                        after**, because clearing `FluidPending` at arrival let a visit flow into a
+                        chunk whose restore was still queued; a dry chunk is ready at once. Alt+R
+                        queued, autosave postponed, quit finishes the tick. **Unplayed: the play
+                        check is a pour and a chunk bite under a flood with `displaced 0` and the
+                        identity exact, and the `M8b:` line's `deferred` / `parked` terms non-zero
+                        after a walk.**
+                        - [ ] **A quit cancels rather than finishes the tick** — a named lever, not
+                              built: the unvisited half of the batch would have to go back to the
+                              pending set, and at a quit the cost today is one tick's remainder,
+                              printed (`M8b: finished the tick in flight before the quit`). Build
+                              it if that line ever reads as seconds.
+                        - [ ] **A chunk that leaves and returns inside one tick waits for the
+                              boundary even when dry**, because its mark is in the deferred queue.
+                              Rare (a turnaround inside half a second) and bounded by the tick; if a
+                              sprint corridor ever shows meshes waiting on `parked`, the fix is a
+                              deferred `Evict` that records no mark for a chunk with no panel.
+                  - [ ] **3b — the job.** Change what sets `GridOwnedByTick`; drain the deferred
+                        list where the result is collected, before the flag clears; gate the reads
+                        `FluidSimulation.Ownership.cs` lists as still open (`AwakeHeldCells`,
+                        `TotalMillilitres`, `Rested`, `SurfaceCells`, the `Grid`); **publish the
+                        wet-chunk set at the boundary**, because `MayHoldWater` reads the panel
+                        dictionary the worker is writing.
+                  - [ ] **3c — the race battery and the measurement**, per the planning pass.
             - [ ] **Slices 2 and 3 — ✅ planning pass done 2026-09-10, eight decisions handed back
                   with recommendations; see the plan's "Slices 2 and 3 — the planning pass". Build
                   slice 2 once they are answered.** What the pass changed: **the field is an

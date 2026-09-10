@@ -39,8 +39,10 @@ public sealed partial class FluidSimulation
 {
     // Chunks whose panel is on its way out, and the completed-tick count at which it may go. Marked
     // between ticks the next tick visits everything queued, so the panel goes when that tick
-    // completes; marked mid-tick, cells woken earlier in this tick are queued for the next one, so
-    // it goes one tick later. Both are constructed in the tests and asserted strictly.
+    // completes. A mark that arrives mid-tick is deferred until this tick completes (slice 3a),
+    // which puts it one tick later by the same arithmetic — cells woken earlier in this tick are
+    // queued for the next one, so the panel must outlive that one too. Both are constructed in the
+    // tests and asserted strictly.
     private readonly Dictionary<ChunkPos, long> _evicting = [];
 
     /// <summary>Millilitres released with their chunks, to disk. A term of the identity.</summary>
@@ -58,18 +60,43 @@ public sealed partial class FluidSimulation
     /// <inheritdoc />
     public void Evict(ChunkPos chunk)
     {
+        if (Defer(DeferredKind.Evict, chunk: chunk))
+        {
+            return;
+        }
+
         // A chunk with no panel has nothing to linger for; if it owes an empty row (drained after
         // it was stored) the next TakeEvicted takes it at once. Marked in every case so the caller
         // has one call to make, and re-marking a chunk already going only moves its tick.
-        long due = !_grid.HasPanel(chunk) ? Ticks
-            : TickInProgress ? Ticks + 2
-            : Ticks + 1;
-        _evicting[chunk] = due;
+        _evicting[chunk] = _grid.HasPanel(chunk) ? Ticks + 1 : Ticks;
+    }
+
+    /// <inheritdoc />
+    public bool MayHoldWater(ChunkPos chunk)
+    {
+        if (_grid.HasPanel(chunk) || _evicting.ContainsKey(chunk))
+        {
+            return true;
+        }
+
+        // A mark that arrived mid-tick is in the queue rather than the dictionary until the tick
+        // completes, and the chunk it names has come back before it landed.
+        foreach (Deferred op in _deferred)
+        {
+            if (op.Kind == DeferredKind.Evict && op.Chunk == chunk)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <inheritdoc />
     public bool Reclaim(ChunkPos chunk)
     {
+        RefuseMidTick(nameof(Reclaim));
+
         if (_evicting.Remove(chunk))
         {
             ReclaimedPanels++;
@@ -83,6 +110,7 @@ public sealed partial class FluidSimulation
     public void TakeEvicted(List<FluidPanelSnapshot> into)
     {
         ArgumentNullException.ThrowIfNull(into);
+        RefuseMidTick(nameof(TakeEvicted));
 
         if (_evicting.Count == 0)
         {

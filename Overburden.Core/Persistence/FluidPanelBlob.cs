@@ -347,6 +347,24 @@ public static class FluidPanelBlob
 public interface IFluidPersistence
 {
     /// <summary>
+    /// True while a tick is in flight and the grid is the tick's (slice 3a). Every snapshot read
+    /// below refuses then, and the mutators queue; the pipeline parks a chunk's water arrival and
+    /// its eviction collection until this is false rather than being refused.
+    /// </summary>
+    bool GridOwnedByTick { get; }
+
+    /// <summary>
+    /// True when <see cref="Reclaim"/> would have anything to say about the chunk: a panel for it is
+    /// in RAM, or it is marked for eviction — with no panel, owing a row — or its mark is still
+    /// waiting for the tick. The one question the pipeline may ask mid-tick, because a tick creates
+    /// a panel only in a chunk that is loaded to the water and a chunk arriving now is not yet; it
+    /// decides whether an arrival can be ready at once or must wait for the boundary. A marked
+    /// chunk must wait: made ready with its mark standing, water could flow into it before the
+    /// boundary's collection, which would then evict a viewed chunk's panel.
+    /// </summary>
+    bool MayHoldWater(ChunkPos chunk);
+
+    /// <summary>
     /// The chunk has left the field: its panel is to leave RAM once the tick has listed everything
     /// awake in it. For the pipeline's forget hook, once per chunk of a leaving shell.
     /// </summary>

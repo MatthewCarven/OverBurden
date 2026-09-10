@@ -80,12 +80,18 @@ public readonly record struct FluidSettleResult(
 /// late is the design (DESIGN, <i>slower than realtime is accuracy</i>).
 /// </para>
 /// <para>
-/// <b>Water may be added, removed or disturbed between slices, and that is the game's case</b>
-/// — the relay pours and edits land between frames. Every public mutator wakes into the
-/// <i>next</i> tick's set, so a cell touched mid-tick is revisited whether or not this tick
-/// already passed it, and conservation holds by construction as it always did. What is not
-/// allowed mid-tick is asking whether the automaton was right to stop: <see cref="VerifyQuiescent"/>
-/// refuses, because the question is about a stopped automaton.
+/// <b>While a tick is in flight the grid is the tick's, and the game's edits wait for it</b>
+/// (the water thread, slice 3a — see <c>FluidSimulation.Ownership.cs</c>). Until 2026-09-10 the
+/// rule was the opposite: water could be added, removed or disturbed between slices, every
+/// mutator woke into the next tick's set, and two tests pinned it. That was true and it was also
+/// a chunk bite altering the terrain half-way through a trajectory that had already read the old
+/// one, and it is exactly what a tick on a worker cannot allow. So <see cref="Disturb"/>,
+/// <see cref="ChunkArrived"/>, <see cref="Restore"/> and <see cref="Evict"/> are queued mid-tick
+/// and land, in arrival order, the instant the tick completes; <see cref="Add"/> and
+/// <see cref="Remove"/> are boundary calls and refuse, as does every snapshot read — there is no
+/// honest value for a grid half-way through a tick, which is the reason
+/// <see cref="VerifyQuiescent"/> has always refused there. Conservation holds by construction as
+/// it always did, one boundary later.
 /// </para>
 /// <para>
 /// <b>And a cell whose chunk is not loaded is paused, not displaced (M8b-4a).</b> The terrain
@@ -353,6 +359,7 @@ public sealed partial class FluidSimulation : IFluidPersistence
     public long Add(VoxelPos voxel, long millilitres)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(millilitres);
+        RefuseMidTick(nameof(Add));
 
         if (!_terrain.CanHold(voxel))
         {
@@ -378,6 +385,7 @@ public sealed partial class FluidSimulation : IFluidPersistence
     /// <summary>Takes water out of a voxel. Returns what was actually removed.</summary>
     public long Remove(VoxelPos voxel, long millilitres)
     {
+        RefuseMidTick(nameof(Remove));
         long taken = Take(voxel, millilitres);
         RemovedMillilitres += taken;
         return taken;
@@ -463,6 +471,14 @@ public sealed partial class FluidSimulation : IFluidPersistence
     /// </remarks>
     public void Disturb(VoxelPos voxel)
     {
+        // Mid-tick the grid is the tick's: the edit lands at the boundary instead, which is
+        // half a second at worst and removes a chunk bite altering the world half-way
+        // through a trajectory that has already read the old terrain.
+        if (Defer(DeferredKind.Disturb, voxel: voxel))
+        {
+            return;
+        }
+
         if (_grid.HeldCellCount == 0)
         {
             return;
@@ -604,6 +620,11 @@ public sealed partial class FluidSimulation : IFluidPersistence
         _batch.Clear();
         _cursor = 0;
         Ticks++;
+
+        // The grid is the caller's again from this line; what queued behind the tick lands now,
+        // before anything else can read the grid, and the result counts what it woke.
+        ApplyDeferred();
+
         return new FluidTickResult(
             visited, _tickCellsMoved, _tickMillilitresMoved, _pending.Count + FarBacklog);
     }
@@ -976,6 +997,11 @@ public sealed partial class FluidSimulation : IFluidPersistence
     /// </remarks>
     public void Restore(FluidPanelSnapshot panel)
     {
+        if (Defer(DeferredKind.Restore, panel: panel))
+        {
+            return;
+        }
+
         ArgumentNullException.ThrowIfNull(panel);
 
         long restored = _grid.Restore(panel.Chunk, panel.Cells);
@@ -1003,6 +1029,8 @@ public sealed partial class FluidSimulation : IFluidPersistence
     /// <inheritdoc />
     public FluidPanelSnapshot? TakeDirty(ChunkPos chunk)
     {
+        RefuseMidTick(nameof(TakeDirty));
+
         if (!_grid.IsDirty(chunk))
         {
             return null;
@@ -1061,6 +1089,7 @@ public sealed partial class FluidSimulation : IFluidPersistence
     public void TakeAllDirty(List<FluidPanelSnapshot> into)
     {
         ArgumentNullException.ThrowIfNull(into);
+        RefuseMidTick(nameof(TakeAllDirty));
 
         // Every awake held cell grouped by chunk, in one walk, plus every dirty panel: a panel
         // with an awake cell in it is a panel whose row is stale even if nothing in it moved
@@ -1141,6 +1170,11 @@ public sealed partial class FluidSimulation : IFluidPersistence
     /// </remarks>
     public void ChunkArrived(ChunkPos chunk)
     {
+        if (Defer(DeferredKind.ChunkArrived, chunk: chunk))
+        {
+            return;
+        }
+
         if (_paused.Remove(chunk, out HashSet<VoxelPos>? cells))
         {
             foreach (VoxelPos cell in cells)

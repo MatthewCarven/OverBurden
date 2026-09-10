@@ -195,6 +195,24 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
 
     private readonly List<FluidPanelSnapshot> _evictedScratch = [];
 
+    /// <summary>
+    /// Chunks whose water arrival is waiting for the tick to complete, with the row already read
+    /// for it where the serial lane had read one (slice 3a).
+    /// </summary>
+    /// <remarks>
+    /// <b>To the water, a wet chunk arrives at a boundary.</b> While a tick owns the grid the
+    /// simulation defers a restore, but the streamer's "loaded to the water" gate is this
+    /// pipeline's <see cref="StreamedChunk.FluidPending"/>, and clearing it at arrival would let a
+    /// visit later in the same tick flow water into a chunk whose stored water lands at the
+    /// boundary — where the restore then refuses a chunk that already holds some. So the flag
+    /// stays set, the arrival is parked here, and <see cref="ReleaseFluidArrivals"/> runs it once
+    /// the grid is free; M8b-4c's rule with "home" moved from the frame to the boundary. The pump
+    /// skips a parked chunk so it does not submit a second read for a row that is already here.
+    /// </remarks>
+    private readonly Dictionary<ChunkPos, FluidPanelSnapshot?> _fluidWaiting = [];
+
+    private readonly List<ChunkPos> _fluidWaitingScratch = [];
+
     /// <summary>Columns whose stored heights have been asked for but not yet applied.</summary>
     private readonly HashSet<(int X, int Z)> _columnRestoresInFlight = [];
 
@@ -426,6 +444,12 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
 
     /// <summary>How many chunks have a fluid row on disk, as of open plus every batch since.</summary>
     public int SavedFluidCount => _savedFluid.Count;
+
+    /// <summary>Chunks whose water arrival is parked until the tick completes (slice 3a).</summary>
+    public int FluidArrivalsWaiting => _fluidWaiting.Count;
+
+    /// <summary>Water arrivals parked over the lifetime, because the grid was the tick's when they came.</summary>
+    public long FluidArrivalsParked { get; private set; }
 
     /// <summary>Fluid snapshots taken and not yet on disk.</summary>
     public int UnwrittenFluidCount => _unwrittenFluid.Count;
@@ -935,6 +959,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         ApplyResults();
+        ReleaseFluidArrivals();
         StepLight();
         CollectEvicted();
         SubmitSaves();
@@ -1291,6 +1316,28 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
             return;
         }
 
+        if (Fluid.GridOwnedByTick)
+        {
+            if (Fluid.MayHoldWater(position) || _unwrittenFluid.ContainsKey(position) || _savedFluid.Contains(position))
+            {
+                // Water somewhere for it and the grid is the tick's: not loaded to the water until
+                // the boundary; see _fluidWaiting. A row the lane had already read for an earlier
+                // parking of this chunk is kept, because it is the row.
+                chunk.FluidPending = true;
+                if (!_fluidWaiting.ContainsKey(position)) _fluidWaiting[position] = null;
+                FluidArrivalsParked++;
+                return;
+            }
+
+            // Dry by every source, so Reclaim — which refuses mid-tick — has nothing to say, and
+            // the chunk is ready at once whatever the tick is doing. Parking every arrival would
+            // hold every mesh for the length of a tick, which under a flood is the world not
+            // drawing; the first battery run caught this branch falling through to the refusal.
+            chunk.FluidPending = false;
+            _onFluidReady?.Invoke(position, chunk.HasEdits);
+            return;
+        }
+
         if (Fluid.Reclaim(position))
         {
             FluidReclaims++;
@@ -1318,10 +1365,57 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         _onFluidReady?.Invoke(position, chunk.HasEdits);
     }
 
+    /// <summary>Runs every parked water arrival once the grid is the caller's again (slice 3a).</summary>
+    /// <remarks>
+    /// A chunk that left while parked stays parked-and-pending the way a row landing for a leaving
+    /// chunk does: the flag stays set, a revival comes back through <see cref="ArriveFluid"/>, and
+    /// the row is the truth. A row read for it is dropped rather than restored into a chunk nobody
+    /// views.
+    /// </remarks>
+    private void ReleaseFluidArrivals()
+    {
+        if (_fluidWaiting.Count == 0 || Fluid is null || Fluid.GridOwnedByTick) return;
+
+        _fluidWaitingScratch.Clear();
+        _fluidWaitingScratch.AddRange(_fluidWaiting.Keys);
+
+        foreach (ChunkPos position in _fluidWaitingScratch)
+        {
+            FluidPanelSnapshot? row = _fluidWaiting[position];
+            _fluidWaiting.Remove(position);
+
+            if (!_streamer.TryGet(position, out StreamedChunk chunk) || chunk.ViewCount == 0 || !chunk.HasVoxels)
+            {
+                continue;
+            }
+
+            if (row is not null)
+            {
+                Fluid.Restore(row);
+                chunk.FluidPending = false;
+                _onFluidReady?.Invoke(position, chunk.HasEdits);
+            }
+            else
+            {
+                ArriveFluid(chunk);
+            }
+
+            // The pump refused it while it was parked; whatever it is now ready for, this frame.
+            Push(position);
+        }
+
+        _fluidWaitingScratch.Clear();
+    }
+
     /// <summary>Takes the panels whose eviction tick has passed onto the pending batch.</summary>
+    /// <remarks>
+    /// Skipped while the grid is the tick's (slice 3a): the release reads the paused set and
+    /// snapshots panels, and a panel whose tick has passed waits a frame rather than being read
+    /// half-way through a tick — which is M8b-4c's linger rule stated from the other side.
+    /// </remarks>
     private void CollectEvicted()
     {
-        if (_store is null || Fluid is null) return;
+        if (_store is null || Fluid is null || Fluid.GridOwnedByTick) return;
 
         long entered = _nowTicks();
 
@@ -1653,6 +1747,14 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
                     _savedFluid.Remove(chunk.Position);
                     FluidLoadsEmpty++;
                 }
+                else if (Fluid is { GridOwnedByTick: true })
+                {
+                    // The row is here and the grid is not ours: parked with the row, flag still
+                    // set, and ReleaseFluidArrivals restores it at the boundary (slice 3a).
+                    _fluidWaiting[chunk.Position] = fluidLoad.Result;
+                    FluidArrivalsParked++;
+                    break;
+                }
                 else
                 {
                     // Refuses a chunk that already holds water — that is a hole in the gate, and
@@ -1855,7 +1957,11 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
                 // (M8b-4c). In the chunk's own slot so an unview cancels it, the record is kept
                 // until it reports, and a revival with the flag still set comes back through here.
                 // The light derives meanwhile — AdvanceLight ran above and asks for voxels, not
-                // for this — so what waits is the mesh, by one lane trip.
+                // for this — so what waits is the mesh, by one lane trip. A chunk parked for the
+                // tick boundary (slice 3a) has its source still to decide, or its row already
+                // here, and either way is not a read to submit.
+                if (_fluidWaiting.ContainsKey(chunk.Position)) break;
+
                 Submit(chunk, new LoadFluidJob(_store!, chunk.Position), serial: true);
                 _storeJobsInFlight++;
                 break;
@@ -2434,6 +2540,17 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         if (_store is null) return (0, 0);
+
+        if (Fluid is { GridOwnedByTick: true })
+        {
+            // Before anything is queued or the lane drained: the panels are read by TakeAllDirty
+            // below and the simulation refuses that mid-tick, so a caller that has not finished
+            // the tick finds out here with nothing half-done (slice 3a). Main finishes the tick
+            // before a quit and postpones an autosave.
+            throw new InvalidOperationException(
+                "SaveAll called while the fluid tick owns the grid; finish the tick first, or wait "
+                + "for the boundary — the panels cannot be snapshotted half-way through a tick.");
+        }
 
         if (!DrainStoreLane())
         {

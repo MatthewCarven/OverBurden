@@ -1,5 +1,46 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-10 — Slice 3a is built: the grid belongs to the tick, and the pipeline is what makes a wet chunk arrive at a boundary
+
+Matthew's *"ok lets continue"* took the held decision — the reversal of M8b's "water may be added,
+removed or disturbed between slices" is knowing rather than a side effect — and 3a was finished
+from the stash. **Suite 1,208 → 1,216; 24 break-recipes, 22 caught, and the two misses are named** — `MayHoldWater`'s panel clause is reachable only with no store (the profile arm, where the wire check's *4 arrivals parked* is exactly it), and the release's "still viewed?" clause only for a chunk retained by a job in flight, the window the `LoadFluidJob` "leaving" branch already guards. Two recipes were missed on the first run and pinned on the second: the deferred list applied in reverse order (a restore then a mark for the same chunk is due a tick later than the reverse), and a parked row for a chunk that left being restored anyway (dropped, and the row read again on return).** Headless wire check, the M8b-4a recipe verbatim: 1,166 edits deferred, 4 arrivals parked, 8 reclaimed, `displaced 0`, both identities exact, all 200,000 L handed to Tier A by tick 50 — against M8b-4a's 195,981 L in the same window. The plan's
+"Slice 3a — built" section records three departures from the stash's own recipe, each found by
+reading the pipeline against it rather than by a test.
+
+- **The deferred list is applied by the tick's own completion, not by the caller at the next
+  boundary.** The recipe said "call `ApplyDeferred()` at the top of the boundary block"; between a
+  tick ending and the next beginning the grid is nobody's and a mutation lands directly, so a
+  `Reclaim` there could run *before* the `Evict` deferred ahead of it. `Complete()` drains the list
+  the moment `Ticks` advances, and *not the tick's* and *nothing deferred* are one state. The
+  `Evict` due-tick clause (`TickInProgress ? Ticks + 2 : Ticks + 1`) fell out: a mark deferred
+  past `Ticks++` is one tick later by arithmetic, and the strict eviction test still passes.
+- **Deferring `Restore` alone is unsafe, and the reason is a flag the pipeline owns.**
+  `ArriveFluid` cleared `FluidPending` at arrival, so a visit later in the same tick could flow
+  water into a chunk whose stored water lands at the boundary — where `Restore` refuses a chunk
+  that already holds some, by M8b-4c's own rule. So the pipeline **parks** a wet arrival while the
+  grid is the tick's (flag set, row kept if the lane read one, no second read submitted) and
+  `ReleaseFluidArrivals` runs it on the first frame after; `CollectEvicted` skips while owned;
+  `SaveAll` refuses up front with nothing half-done; Main postpones the autosave a frame at a time
+  and finishes a tick in flight before a quit, printing what it cost.
+- **A dry chunk does not wait, and the first battery run said where the line goes.** Parking every
+  arrival holds every mesh for the length of a tick — under a flood, the world not drawing. Only a
+  chunk with water somewhere waits: a panel in RAM, a mark (including one still in the deferred
+  queue — every chunk that left inside this tick), an unwritten snapshot, a row. **The dry branch
+  fell through to `Reclaim`, which refuses mid-tick, and three tests threw before a recipe was
+  applied**; and the fix's second half is that a chunk with a mark standing must wait too, or the
+  boundary's collection evicts a *viewed* chunk's panel once water flows in. `MayHoldWater` is the
+  one question the pipeline asks mid-tick, honest here; **in 3b it races the worker's panel
+  creation and wants a boundary-published set.**
+- **Alt+R is queued to the boundary the way the pour is**, so `Remove` refusing mid-tick is a
+  contract rather than a crash; the `M8b:` line prints deferrals and parked arrivals.
+- **Two things the first run of the fuzzes taught**: a pour is a boundary call, so a round that left
+  a tick in flight finishes it first (the game's relay does exactly that); and the eviction fuzz
+  now models the pipeline's parking rather than calling `Reclaim` mid-tick, which is the same
+  discipline the pipeline learned. `TakeAllDirty`'s third clause — the unvisited half of a tick in
+  progress — is unreachable now and the test asserts the refusal instead; `AwakeHeldCells` keeps
+  the clause because the report line still reads it mid-tick, and 3b gates that.
+
 ## 2026-09-10 — Slice 3a is written and held: it reverses a documented M8b property, and that wants saying out loud
 
 Matthew asked for slice 3 and it split three ways on contact. **3a — the grid belongs to the tick —

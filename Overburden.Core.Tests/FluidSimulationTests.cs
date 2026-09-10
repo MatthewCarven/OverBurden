@@ -1,4 +1,4 @@
-using Overburden.Core.Fluid;
+﻿using Overburden.Core.Fluid;
 using Overburden.Core.Voxels;
 using Overburden.Core.Worldgen;
 
@@ -778,34 +778,81 @@ public class FluidSimulationTests
     }
 
     [Fact]
-    public void WaterAddedBetweenSlicesIsNeitherLostNorLeftAsleep()
+    public void APourOrATakeMidTickIsRefusedAndTheBoundaryTakesBoth()
     {
-        // The game's case: the relay pours and edits land between frames, which is mid-tick now.
-        // Whatever arrives must be counted, must end up at rest, and the rest must be real.
+        // Slice 3a reverses the rule two earlier tests pinned: water could be added or removed
+        // between slices, and every mutator woke into the next tick's set. Now the grid is the
+        // tick's until it completes — Add and Remove return how much moved, so they cannot be
+        // deferred and refuse instead; the boundary takes both, with nothing lost.
         FluidSimulation sim = WithATickWorthSlicing();
         Assert.Null(sim.Resume(3));
+        Assert.True(sim.GridOwnedByTick);
 
-        // Into a corner of the box the sheet never reaches, and into a cell of the sheet's own
-        // batch — emptied when it fell, and on either side of the cursor depending on the order:
-        // both have to be revisited next tick.
         var corner = new VoxelPos(0, 23, 0);
+        Assert.Throws<InvalidOperationException>(() => sim.Add(corner, Cap));
+        Assert.Throws<InvalidOperationException>(() => sim.Remove(new VoxelPos(8, 20, 8), Cap));
+        Assert.Throws<InvalidOperationException>(() => sim.Reclaim(corner.Chunk));
+        Assert.Throws<InvalidOperationException>(() => sim.TakeEvicted([]));
+        Assert.Equal(0, sim.Grid.AmountAt(corner));
+        Assert.Equal(0, sim.DeferredCount);
+
+        // Finishing the tick is the boundary: the same calls land, and the water rests.
+        sim.Step();
+        Assert.False(sim.GridOwnedByTick);
         Assert.Equal(0, sim.Add(corner, Cap));
         Assert.Equal(0, sim.Add(new VoxelPos(8, 20, 8), Cap / 2));
 
-        Assert.True(sim.TickInProgress);
         FluidAssert.SettlesAndRests(sim);
         FluidAssert.Conserves(sim);
-
-        // The corner's water fell: nothing is left where it was poured.
         Assert.Equal(0, sim.Grid.AmountAt(corner));
     }
 
     [Fact]
-    public void RemovingWaterBetweenSlicesWakesWhatWasAboveIt()
+    public void ADisturbanceMidTickIsDeferredAndLandsWhenTheTickCompletes()
+    {
+        // Two layers at rest; wake one corner and slice into that tick. A disturbance at the far
+        // corner mid-tick wakes nothing yet — the automaton's picture of the terrain is the one it
+        // began the tick with — and lands, counted, the instant the tick completes.
+        var sim = new FluidSimulation(new BoxTerrain(0, 0, 0, 3, 5, 3));
+        for (int x = 0; x <= 3; x++)
+        {
+            for (int z = 0; z <= 3; z++)
+            {
+                sim.Add(new VoxelPos(x, 4, z), Cap);
+                sim.Add(new VoxelPos(x, 5, z), Cap);
+            }
+        }
+
+        FluidAssert.SettlesAndRests(sim);
+
+        sim.Disturb(new VoxelPos(0, 0, 0));
+        Assert.True(sim.ActiveCellCount > 1);
+        Assert.Null(sim.Resume(1));
+        Assert.True(sim.GridOwnedByTick);
+
+        long disturbedBefore = sim.DisturbedCells;
+        sim.Disturb(new VoxelPos(3, 0, 3));
+        Assert.Equal(1, sim.DeferredCount);
+        Assert.Equal(1L, sim.Deferrals);
+        Assert.Equal(disturbedBefore, sim.DisturbedCells);
+
+        // The far corner and its holding neighbours — above and two sideways — wake at completion.
+        sim.Step();
+        Assert.Equal(0, sim.DeferredCount);
+        Assert.Equal(disturbedBefore + 4, sim.DisturbedCells);
+
+        FluidAssert.SettlesAndRests(sim);
+        FluidAssert.Conserves(sim);
+        Assert.Equal(32L * Cap, sim.TotalMillilitres);
+    }
+
+    [Fact]
+    public void RemovingWaterAtTheBoundaryAfterASlicedTickWakesWhatWasAboveIt()
     {
         // Two full layers at rest on a 4 x 4 floor. Wake the floor by disturbing it, slice into
-        // that tick, then drain a floor cell mid-tick: the cell above it has to notice and fall,
-        // so the drained cell is full again at rest.
+        // that tick, finish it, then drain a floor cell at that boundary: the cell above it has to
+        // notice and fall, so the drained cell is full again at rest. The pre-slice-3a version
+        // drained mid-tick; the wake it asserts is the same.
         var sim = new FluidSimulation(new BoxTerrain(0, 0, 0, 3, 5, 3));
         for (int x = 0; x <= 3; x++)
         {
@@ -826,6 +873,7 @@ public class FluidSimulationTests
         sim.Disturb(new VoxelPos(1, 0, 1));
         Assert.True(sim.ActiveCellCount > 1);
         Assert.Null(sim.Resume(1));
+        sim.Step();
 
         Assert.Equal(Cap, sim.Remove(new VoxelPos(2, 0, 2), Cap));
 
@@ -834,7 +882,7 @@ public class FluidSimulationTests
         Assert.Equal(31L * Cap, sim.TotalMillilitres);
 
         // The cell above fell in and the floor neighbours topped it up to within a residue: a
-        // wake lost between the slices would have left it empty under a full cell, which is
+        // wake lost at the boundary would have left it empty under a full cell, which is
         // also what SettlesAndRests' quiescence check would have refused.
         int refilled = sim.Grid.AmountAt(new VoxelPos(2, 0, 2));
         Assert.True(refilled >= Cap - Residue, $"the drained cell refilled only to {refilled} mL");

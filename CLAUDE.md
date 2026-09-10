@@ -489,7 +489,31 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-10, late). The water thread is three slices in and slice 3 is held on one
+**Pick up here (2026-09-10, night). Slice 3a is built and unplayed; 3b — the tick as a job — is
+next and wants its own planning pass against the built 3a.** Read WATER-THREAD-PLAN's "Slice 3a —
+built" first: the stash's recipe was departed from three times, and each departure is a rule 3b
+inherits. **The grid belongs to the tick** — mutations (`Disturb`, `ChunkArrived`, `Restore`,
+`Evict`) queue and land, in arrival order, the instant the tick completes, by the tick's own
+`Complete()` and not by a caller at the next boundary (a `Reclaim` in the gap could outrun a
+deferred `Evict`); reads (`TakeAllDirty`, `TakeDirty`, `TakeEvicted`, `Reclaim`) and the
+boundary calls (`Add`, `Remove`, `HandOff`) refuse. **The pipeline parks a wet arrival while the
+grid is the tick's** (`FluidPending` stays set; `ReleaseFluidArrivals` runs it on the first frame
+after; `IFluidPersistence.MayHoldWater` is the one question it asks mid-tick) **and a dry chunk is
+ready at once** — the first battery run caught the dry branch falling through to a refusal, and
+parking everything would have been the world not drawing under a flood. `SaveAll` refuses up
+front; Main postpones the autosave a frame at a time, finishes a tick in flight before a quit
+(printed), and queues Alt+R to the boundary like the pour. Suite 1,208 → 1,216; 24 recipes, 22
+caught, both misses named. **The play check is one sentence: pour with `R`, bite chunks under it,
+walk away and back — `displaced 0`, both identities exact, and the `M8b:` line's `deferred` and
+`parked` terms non-zero.** Wire check headless: 1,166 deferred, 4 parked, 200,000 L handed. Three
+things 3b must not rediscover: **`MayHoldWater` reads the panel dictionary the worker will be
+writing** (publish a wet-chunk set at the boundary); **the reads still open mid-tick are listed in
+`FluidSimulation.Ownership.cs`** (`AwakeHeldCells`, `TotalMillilitres`, `Rested`, `SurfaceCells`,
+the `Grid`); and **a chunk that leaves and returns inside one tick waits for the boundary even when
+dry**, because its mark is in the queue — rare, bounded, and named in TODO with its fix. The
+paragraph below is the state before the build, kept for the reasoning.
+
+**Earlier (2026-09-10, late). The water thread is three slices in and slice 3 is held on one
 decision.** Built and played since the last note: **slice 1** (near water every tick, far water
 deferred under a quota — `--fluidnear=2` from `start.cmd`), **the settle's per-chunk wait** (a
 portal drawing into one cell no longer postpones every sheet in the world — *"I cannot fault it in

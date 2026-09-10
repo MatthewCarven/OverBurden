@@ -1,4 +1,4 @@
-using Overburden.Core.Content;
+﻿using Overburden.Core.Content;
 using Overburden.Core.Fluid;
 using Overburden.Core.Persistence;
 using Overburden.Core.Streaming;
@@ -182,10 +182,17 @@ public class FluidEvictionTests
         terrain.Unload(East);
         sim.Evict(East);
 
-        // Finishing this tick is not enough: what it woke is queued for the next one and not
-        // paused yet. Strictly — the fixture is built so that some of East's queued cells are in
-        // the next tick's set, and releasing here would list them nowhere.
+        // Mid-tick the mark itself waits (slice 3a): nothing is marked until the tick completes,
+        // and the release refuses to look. Finishing this tick is then not enough either: what it
+        // woke is queued for the next one and not paused yet. Strictly — the fixture is built so
+        // that some of East's queued cells are in the next tick's set, and releasing here would
+        // list them nowhere.
+        Assert.Equal(1, sim.DeferredCount);
+        Assert.Equal(0, sim.EvictingPanelCount);
+        Assert.Throws<InvalidOperationException>(() => sim.TakeEvicted([]));
         sim.Step();
+        Assert.Equal(0, sim.DeferredCount);
+        Assert.Equal(1, sim.EvictingPanelCount);
         var taken = new List<FluidPanelSnapshot>();
         sim.TakeEvicted(taken);
         Assert.Empty(taken);
@@ -610,6 +617,210 @@ public class FluidEvictionTests
         FluidAssert.Conserves(second.Sim);
     }
 
+    // ---------------------------------------------------------------- slice 3a: the tick owns the grid
+
+    [Fact]
+    public void AChunkThatLeftInsideTheTickComesBackAtTheBoundaryAndAFreshOneAtOnce()
+    {
+        // The pipeline's side of slice 3a. The whole box leaves and comes back inside one tick:
+        // every forget's eviction is deferred, so the two wet panels are still in RAM and every
+        // dry chunk carries a mark still in the queue — and Reclaim, which would clear it, refuses
+        // mid-tick. So all 343 come back parked, not loaded to the water. A column of chunks that
+        // never left then arrives with the tick still in flight and is ready and drawn at once. The
+        // boundary releases the parked ones, each reclaimed with no row read, and the water is
+        // exactly what it was.
+        var store = new InMemoryWorldStore();
+        using var session = new Session(store);
+        ChunkPos poured = new(1, 1, 0);
+
+        ViewerId viewer = session.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        session.Harness.Settle();
+        long held = session.PourAtOrigin();
+        held += session.PourAtOrigin(dx: 32) - held;
+        Assert.Null(session.Sim.Resume(1));
+        Assert.True(session.Sim.GridOwnedByTick);
+        Dictionary<VoxelPos, int> before = CellsIn(session.Sim, _ => true);
+
+        session.Streamer.MoveViewer(viewer, FarAway);
+        session.Harness.Settle();
+        Assert.True(session.Sim.DeferredCount >= 343, "the forget deferred nothing");
+        Assert.True(session.Sim.Grid.HasPanel(Wet) && session.Sim.Grid.HasPanel(poured), "a panel left RAM mid-tick");
+        Assert.Equal(0, store.FluidWrites);
+
+        session.Streamer.MoveViewer(viewer, ChunkPos.Zero);
+        session.Harness.Settle();
+
+        Assert.True(session.Sim.GridOwnedByTick, "the pipeline finished the tick, so nothing here was parked");
+        Assert.Equal(343, session.Pipeline.FluidArrivalsWaiting);
+        Assert.True(session.Streamer.Get(Wet)!.FluidPending);
+        Assert.True(session.Streamer.Get(poured)!.FluidPending);
+        Assert.True(session.Streamer.Get(new ChunkPos(-1, -1, -1))!.FluidPending);
+        Assert.Equal(0, session.Pipeline.FluidLoads);
+        Assert.Equal(0, session.Pipeline.FluidReclaims);
+        int meshedBefore = session.Harness.MeshedPositions.Count;
+
+        // Three columns of fresh chunks, never loaded before: no panel, no mark, no row.
+        ChunkPos fresh = new(4, 0, 0);
+        Assert.False(session.Streamer.IsTracked(fresh));
+        session.Streamer.MoveViewer(viewer, new ChunkPos(3, 0, 0));
+        session.Harness.Settle();
+
+        Assert.True(session.Sim.GridOwnedByTick);
+        Assert.False(session.Streamer.Get(fresh)!.FluidPending, "a fresh dry chunk waited for the boundary");
+        Assert.Contains(fresh, session.Harness.MeshedPositions);
+        Assert.True(session.Harness.MeshedPositions.Count > meshedBefore, "nothing drew under the tick");
+        Assert.True(session.Streamer.Get(Wet)!.FluidPending);
+        Assert.Equal(0, session.Pipeline.FluidReclaims);
+
+        // The boundary: the deferred evictions land, then the parked arrivals reclaim them; the
+        // parked chunks that left again in the meantime are dropped rather than reclaimed.
+        session.Sim.Step();
+        Assert.Equal(0, session.Sim.DeferredCount);
+        session.Harness.Settle();
+
+        Assert.Equal(0, session.Pipeline.FluidArrivalsWaiting);
+        Assert.True(session.Pipeline.FluidReclaims >= 2, "the wet chunks were not reclaimed");
+        Assert.Equal(0, session.Pipeline.FluidLoads);
+        Assert.Equal(0L, session.Sim.LoadedMillilitres);
+        Assert.Equal(0L, session.Sim.EvictedMillilitres);
+        Assert.Equal(0, session.Sim.EvictingPanelCount);
+        Assert.False(session.Streamer.Get(Wet)!.FluidPending);
+        Assert.False(session.Streamer.Get(poured)!.FluidPending);
+        Assert.False(session.Streamer.Get(new ChunkPos(0, -1, -1))!.FluidPending);
+
+        Dictionary<VoxelPos, int> after = CellsIn(session.Sim, _ => true);
+        Assert.True(
+            before.Count == after.Count && before.All(kv => after.GetValueOrDefault(kv.Key) == kv.Value),
+            "water moved while its chunks were away inside one tick");
+        Assert.Equal(held, session.Sim.TotalMillilitres);
+        Assert.Equal(0L, session.Sim.DisplacedMillilitres);
+        FluidAssert.Conserves(session.Sim);
+        FluidAssert.SettlesAndRests(session.Sim);
+        Assert.Equal(0, session.Sim.PausedCellCount);
+    }
+
+    /// <summary>
+    /// A session with Wet's row parked: read off the lane while the grid was the tick's, waiting
+    /// with the arrival for the boundary. Returns the litres the row holds and the viewer.
+    /// </summary>
+    private static (Session Second, long Held, ViewerId Viewer) WithARowParked(GatedStore store, long chunkCacheBytes = 0)
+    {
+        long held;
+        using (var first = new Session(store))
+        {
+            ViewerId viewer = first.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+            first.Harness.Settle();
+            held = first.PourAtOrigin();
+            first.Streamer.MoveViewer(viewer, FarAway);
+            first.Harness.Settle();
+            first.PumpUntil(() => first.Sim.Grid.PanelCount == 0);
+            first.Harness.Settle();
+        }
+
+        Assert.True(store.FluidWrites > 0);
+
+        var second = new Session(store, chunkCacheBytes: chunkCacheBytes);
+        store.ReadGate.Reset();
+        ChunkPos poured = new(1, 1, 0);
+
+        ViewerId again = second.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        try
+        {
+            second.PumpUntil(() =>
+                Volatile.Read(ref store.ReadsWaiting) > 0
+                && second.Streamer.Get(poured) is { HasVoxels: true, FluidPending: false });
+            Assert.True(second.Streamer.Get(Wet)!.FluidPending);
+
+            // The grid becomes the tick's while the read is held at the gate.
+            second.PourAtOrigin(dx: 32);
+            Assert.Null(second.Sim.Resume(1));
+            Assert.True(second.Sim.GridOwnedByTick);
+        }
+        finally
+        {
+            store.ReadGate.Set();
+        }
+
+        second.Harness.Settle();
+
+        Assert.True(second.Sim.GridOwnedByTick);
+        Assert.Equal(1, second.Pipeline.FluidLoads);
+        Assert.Equal(1, second.Pipeline.FluidArrivalsWaiting);
+        Assert.Equal(0L, second.Sim.LoadedMillilitres);
+        Assert.True(second.Streamer.Get(Wet)!.FluidPending);
+        Assert.DoesNotContain(Wet, second.Harness.MeshedPositions);
+        Assert.Equal(0, second.Sim.RestoredPanels);
+        return (second, held, again);
+    }
+
+    [Fact]
+    public void ARowLandingWhileTheTickOwnsTheGridIsParkedWithItAndRestoredAtTheBoundary()
+    {
+        // The other arrival path: the row comes off the lane while the grid is the tick's. It is
+        // parked with the arrival — read once, restored at the boundary — and the chunk stays not
+        // loaded to the water until then, so nothing can flow into a chunk whose stored water has
+        // yet to land.
+        var store = new GatedStore();
+        (Session second, long held, _) = WithARowParked(store);
+        using Session owned = second;
+
+        second.Sim.Step();
+        second.Harness.Settle();
+
+        Assert.Equal(1, second.Pipeline.FluidLoads);
+        Assert.Equal(0, second.Pipeline.FluidArrivalsWaiting);
+        Assert.Equal(held, second.Sim.LoadedMillilitres);
+        Assert.False(second.Streamer.Get(Wet)!.FluidPending);
+        Assert.Contains(Wet, second.Harness.MeshedPositions);
+        Assert.True(second.Sim.ResumedCells > 0, "the arrival woke nothing");
+
+        FluidAssert.SettlesAndRests(second.Sim);
+        Assert.Equal(0L, second.Sim.DisplacedMillilitres);
+        FluidAssert.Conserves(second.Sim);
+    }
+
+    [Fact]
+    public void AParkedRowForAChunkThatLeftIsDroppedNotRestored()
+    {
+        // The parked chunk leaves before the boundary. Its row stays the truth on disk and the
+        // release drops the copy rather than restoring water into a chunk nobody views — which
+        // would then be evicted and written back unchanged, a round trip with the identity exact
+        // and a needless write. Coming back reads the row again. With the cache on, because that
+        // was the arm expected to reach the release's "still viewed?" clause — and it does not: a
+        // cached chunk is out of the streamer's tracked set, so the release finds nothing either
+        // way. The clause is reachable only for a chunk retained by a job in flight, the window the
+        // LoadFluidJob "leaving" branch guards, and it is belt and braces here (M4a's zeroable
+        // epsilon category); what this test pins is the drop and the re-read.
+        var store = new GatedStore();
+        (Session second, long held, ViewerId viewer) = WithARowParked(store, chunkCacheBytes: 64L * 1024 * 1024);
+        using Session owned = second;
+        int writes = store.FluidWrites;
+
+        second.Streamer.MoveViewer(viewer, FarAway);
+        second.Harness.Settle();
+        Assert.False(second.Streamer.IsTracked(Wet));
+        Assert.True(second.Streamer.IsCached(Wet), "the chunk was not retained, so the release could not restore into it anyway");
+
+        second.Sim.Step();
+        second.Harness.Settle();
+
+        Assert.Equal(0, second.Pipeline.FluidArrivalsWaiting);
+        Assert.Equal(0, second.Sim.RestoredPanels);
+        Assert.Equal(0L, second.Sim.LoadedMillilitres);
+        Assert.Equal(0, second.Sim.EvictedPanels);
+        Assert.Equal(writes, store.FluidWrites);
+
+        second.Streamer.MoveViewer(viewer, ChunkPos.Zero);
+        second.Harness.Settle();
+        second.PumpUntil(() => second.Sim.LoadedMillilitres == held);
+
+        Assert.Equal(2, second.Pipeline.FluidLoads);
+        Assert.False(second.Streamer.Get(Wet)!.FluidPending);
+        FluidAssert.SettlesAndRests(second.Sim);
+        Assert.Equal(0L, second.Sim.DisplacedMillilitres);
+        FluidAssert.Conserves(second.Sim);
+    }
+
     [Fact]
     public void ASnapshotNotYetOnDiskIsTheSourceAheadOfTheStore()
     {
@@ -905,8 +1116,18 @@ public class FluidEvictionTests
             }
         }
 
+        // Chunks whose arrival came while the grid was the tick's, the way the pipeline parks one
+        // (slice 3a): not loaded to the water until the boundary, brought on the first frame after.
+        var parked = new HashSet<ChunkPos>();
+        int parkedArrivals = 0, deferredEvicts = 0;
+
         for (int round = 0; round < 80; round++)
         {
+            // A pour is a boundary call (slice 3a): a round that left a tick in flight finishes
+            // it first, the way the game's relay waits for the boundary.
+            if (sim.TickInProgress) sim.Step();
+            if (twin.TickInProgress) twin.Step();
+
             if (random.Next(3) != 0)
             {
                 int x = random.Next(minX, maxX + 1);
@@ -950,14 +1171,22 @@ public class FluidEvictionTests
                 twin.Resume(1);
             }
 
-            // The pipeline's frame: whatever tick has passed for a marked chunk is taken now.
+            // The pipeline's frame: parked arrivals first, then whatever tick has passed for a
+            // marked chunk — neither while a tick is in flight, which is the pipeline's own rule
+            // (slice 3a), so a mid-tick round leaves both for the next.
             var evicted = new List<FluidPanelSnapshot>();
-            sim.TakeEvicted(evicted);
-            foreach (FluidPanelSnapshot panel in evicted)
+            if (!sim.GridOwnedByTick)
             {
-                pending[panel.Chunk] = panel;
-                evictions++;
-                Assert.False(sim.Grid.HasPanel(panel.Chunk));
+                foreach (ChunkPos chunk in parked) Bring(sim, chunk);
+                parked.Clear();
+
+                sim.TakeEvicted(evicted);
+                foreach (FluidPanelSnapshot panel in evicted)
+                {
+                    pending[panel.Chunk] = panel;
+                    evictions++;
+                    Assert.False(sim.Grid.HasPanel(panel.Chunk));
+                }
             }
 
             if (random.Next(2) == 0) Flush();
@@ -989,7 +1218,15 @@ public class FluidEvictionTests
                 away[target] = CellsIn(sim, c => c == target);
                 toggled.Unload(target);
                 twinToggled.Unload(target);
+                if (sim.GridOwnedByTick) deferredEvicts++;
                 sim.Evict(target);
+            }
+            else if (sim.GridOwnedByTick)
+            {
+                // The pipeline's parking: the chunk stays unloaded to the water until the boundary.
+                if (parked.Add(target)) parkedArrivals++;
+                twinToggled.Load(target);
+                twin.ChunkArrived(target);
             }
             else
             {
@@ -1000,8 +1237,12 @@ public class FluidEvictionTests
 
             if (random.Next(5) == 0)
             {
-                // The quit: everything pending and everything in RAM to the store; a fresh
-                // simulation; only the loaded chunks come back, each from its row.
+                // The quit: the tick in flight finished first, as Main does (slice 3a); then
+                // everything pending and everything in RAM to the store; a fresh simulation; only
+                // the loaded chunks come back, each from its row. A parked chunk is not loaded to
+                // the water and is not one of them — its row is the truth, unread.
+                if (sim.TickInProgress) sim.Step();
+                parked.Clear();
                 Flush();
                 List<ChunkPos> loaded = chunks.Where(toggled.IsChunkLoaded).ToList();
                 int awakeLoaded = sim.AwakeHeldCells().Count(c => loaded.Contains(c.Chunk));
@@ -1034,6 +1275,7 @@ public class FluidEvictionTests
             }
         }
 
+        if (sim.TickInProgress) sim.Step();
         foreach (ChunkPos chunk in chunks)
         {
             if (!toggled.IsChunkLoaded(chunk))
@@ -1045,6 +1287,7 @@ public class FluidEvictionTests
         }
 
         Assert.Empty(away);
+        Assert.True(parkedArrivals + deferredEvicts > 0, $"seed {seed:X}: no chunk was ever toggled mid-tick");
 
         // The stranded-front oracle: with everything back both arms rest, and the rest is real.
         FluidAssert.SettlesAndRests(sim);

@@ -442,6 +442,13 @@ public partial class Main : Node3D
 
     private VoxelPos _relayAt;
 
+    /// <summary>Where Alt+R was pressed, waiting for the boundary; null when nothing is owed.</summary>
+    /// <remarks>
+    /// Queued the way the pour is (slice 3a): <see cref="FluidSimulation.Remove"/> is a boundary
+    /// call and refuses while a tick owns the grid, and a keypress lands on any frame.
+    /// </remarks>
+    private VoxelPos? _relayTakeAt;
+
     private bool _relayKeyHeld;
 
     /// <summary><c>--injectlitres</c>: litres poured at the player once the measured window opens.</summary>
@@ -2323,6 +2330,14 @@ public partial class Main : Node3D
             return;
         }
 
+        // Postponed a frame at a time while a tick owns the grid (slice 3a): SaveAll snapshots
+        // the panels and refuses mid-tick, and a tick under a flood can span tens of frames. The
+        // timer is left where it is, so the save fires on the first frame after the boundary.
+        if (_fluid is { TickInProgress: true })
+        {
+            return;
+        }
+
         _sinceAutosave = 0.0;
 
         long before = Stopwatch.GetTimestamp();
@@ -3339,6 +3354,7 @@ public partial class Main : Node3D
             _settle?.AtBoundary();
             _handoff?.Absorb();
             _drain?.Draw();
+            TakePending();
             PourPending();
 
             // Last, so the pour and the draw are already in and the chunks they wet are covered
@@ -3557,6 +3573,19 @@ public partial class Main : Node3D
         return Math.Max(1, (int)Math.Ceiling(radius) + 1);
     }
 
+    /// <summary>Alt+R's take, at the boundary it was queued for.</summary>
+    private void TakePending()
+    {
+        if (_fluid is null || _relayTakeAt is not { } at)
+        {
+            return;
+        }
+
+        _relayTakeAt = null;
+        long taken = TakeWaterAround(at);
+        GD.Print($"M8b: relay took {taken / (double)FluidConstants.MillilitresPerLitre:N0} L around {at}");
+    }
+
     /// <summary>Offers what the relay still owes to every cell in its ball, as fast as they take it.</summary>
     private void PourPending()
     {
@@ -3630,10 +3659,10 @@ public partial class Main : Node3D
         VoxelPos at = _mining.Hit.Previous;
         if (Input.IsKeyPressed(Key.Alt))
         {
-            long taken = TakeWaterAround(at);
+            // Cancels the pour at once and takes at the boundary, where the grid is ours.
             _relayPendingMillilitres = 0;
-            GD.Print(
-                $"M8b: relay took {taken / (double)FluidConstants.MillilitresPerLitre:N0} L around {at}");
+            _relayTakeAt = at;
+            GD.Print($"M8b: relay will take back everything within {TakeRadiusMetres:F0} m of {at} at the boundary");
             return;
         }
 
@@ -3740,7 +3769,9 @@ public partial class Main : Node3D
                + $"{_relayPendingMillilitres / litre:N0} L still to pour; "
                + $"paused {f.PausedCellCount:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
                + $"{f.ResumedCells:N0} resumed, {f.FaceWakes:N0} face wake(s), "
-               + $"evicting {f.EvictingPanelCount:N0} panel(s), {f.ReclaimedPanels:N0} reclaimed | "
+               + $"evicting {f.EvictingPanelCount:N0} panel(s), {f.ReclaimedPanels:N0} reclaimed, "
+               + $"{f.Deferrals:N0} edit(s) deferred to a boundary, "
+               + $"{_pipeline?.FluidArrivalsParked ?? 0:N0} arrival(s) parked | "
                + $"{f.Ticks:N0} tick(s) at {1.0 / FluidTickSeconds:F0} Hz, {f.ActiveCellCount:N0} active "
                + (_fluidNearRings > 0
                    ? $"(last tick {f.NearAdmitted:N0} near + {f.FarAdmitted:N0} far, "
@@ -4695,6 +4726,21 @@ public partial class Main : Node3D
             {
                 GD.PushError($"M6: could not write the world session on quit — {error.Message}");
             }
+        }
+
+        // A tick in flight is finished before anything is written (slice 3a): the snapshot
+        // refuses a grid half-way through a tick, and the quit is the one caller that cannot wait
+        // for a boundary. Whole rather than cancelled, because a cancel would need to return the
+        // unvisited half of the batch to the pending set and nothing today does that; at a quit
+        // the cost is one tick's remainder, printed. Before the dispose, which is what saves.
+        if (_fluid is { TickInProgress: true })
+        {
+            int remaining = _fluid.RemainingInTick;
+            long before = Stopwatch.GetTimestamp();
+            _fluid.Step();
+            GD.Print(
+                $"M8b: finished the tick in flight before the quit — {remaining:N0} cell(s) in "
+                + $"{Milliseconds(before, Stopwatch.GetTimestamp()):F1} ms");
         }
 
         // The water as it stands at the instant it is written, because the periodic line is up to

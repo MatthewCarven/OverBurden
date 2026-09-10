@@ -1,4 +1,4 @@
-# The water thread — near water at 2 Hz, far water as available, and the tick off the sim thread
+﻿# The water thread — near water at 2 Hz, far water as available, and the tick off the sim thread
 
 Planned 2026-09-07 with Matthew, from a question rather than a play finding: *"are we running the
 water sim on the main thread like if I were willing to put up with the delay could we do water on
@@ -566,11 +566,11 @@ mutations (queue to the boundary)      reads (must wait for the boundary)
    reads the flood on open as the thing that hurts rather than the thing that is slow*. Slice 2 is
    not, once slice 3 is wanted.
 
-### Slice 3a — the grid belongs to the tick: begun 2026-09-10, held for a decision
+### Slice 3a — the grid belongs to the tick: begun 2026-09-10, held for a decision, **built the same day**
 
-**Written, working, and stashed rather than committed** (`git stash list` → *slice-3a-wip: the grid
-belongs to the tick*). The stash is a convenience; everything needed to redo it from nothing is
-below.
+**Written, working, and stashed rather than committed** on the first pass (`slice-3a-wip`), held for
+the decision below; **Matthew's "ok lets continue" took it, and the built section follows this one.**
+The first pass's description is kept because the build departed from it in three places.
 
 **Why 3a exists as a slice at all.** A tick has been sliced across frames since M8b's budget slice,
 so *a tick is in flight* is a state that already lasts up to tens of frames — 46 of them for a
@@ -615,6 +615,69 @@ call `ApplyDeferred()` at the top of the boundary block in `UpdateFluid`, and te
 `ChunkPipeline.SubmitSaves` to skip the fluid half while `GridOwnedByTick`. Then the break battery.
 
 **Then 3b** (the job) and **3c** (the race battery and the measurement), per the pass above.
+
+### Slice 3a — built 2026-09-10
+
+The recipe above was followed and departed from three times, each because reading the pipeline
+against the stash found something the stash had not. Suite 1,208 → 1,216; 24 break-recipes, 22
+caught, the two misses named in the worklog entry.
+
+**Departure 1 — the deferred list is applied by the tick's own completion, not by the caller at
+the next boundary.** The recipe said "call `ApplyDeferred()` at the top of the boundary block in
+`UpdateFluid`". Between a tick ending and the next beginning there is a window — up to half a
+second — in which the grid is nobody's and a mutation lands directly, so a `Reclaim` there could
+run *before* the `Evict` that had been deferred ahead of it, and the panel would leave after the
+chunk was back. Arrival order is the whole point of a queue. `Complete()` now drains the list the
+moment the batch is cleared and `Ticks` has advanced, before the result is built; `ApplyDeferred`
+is private; and *the grid is not the tick's* and *nothing is deferred* are one state. **The
+`Evict` due-tick clause fell out of that**: a mark deferred mid-tick applies after `Ticks++`, which
+is the "one tick later" M8b-4c's linger rule wanted and `Evict` had been computing by hand
+(`TickInProgress ? Ticks + 2 : Ticks + 1`); the clause is gone and the strict eviction test still
+passes to the tick. 3b keeps the shape: the sim thread collects the job's result and drains the
+list in the same call, before the flag clears to anyone.
+
+**Departure 2 — to the water, a wet chunk arrives at a boundary, and the pipeline is what makes
+that true.** Deferring `Restore` alone is not safe: the streamer's "loaded to the water" gate is
+`StreamedChunk.FluidPending`, which `ArriveFluid` cleared at arrival, so a visit later in the same
+tick could flow water into a chunk whose stored water lands at the boundary — where `Restore`
+refuses a chunk that already holds some, by a rule M8b-4c pinned on purpose. So the pipeline
+**parks** an arrival while the grid is the tick's: the flag stays set, the chunk (with its row, if
+the lane had already read one) goes into `_fluidWaiting`, the pump refuses to submit a second read
+for it, and `ReleaseFluidArrivals` — a new step in `Update`, between `ApplyResults` and the light —
+runs the arrival on the first frame after the boundary, dropping any parked chunk nobody views any
+more. `CollectEvicted` is skipped while owned for the same reason, and `SaveAll` refuses up front
+with nothing queued or claimed. `IFluidPersistence` gained `GridOwnedByTick` and `MayHoldWater`.
+
+**Departure 3 — a dry chunk does not wait, and the first battery run said why the line is where
+it is.** Parking *every* arrival would hold every mesh for the length of a tick, which under a
+flood is the world not drawing. So only a chunk with water somewhere waits: a panel in RAM, a
+mark for eviction (with no panel, owing a row — or **a mark still in the deferred queue**, which is
+every chunk that left inside this tick), an unwritten snapshot, or a row in the store. Anything
+else is ready at once with the tick still in flight. **The first battery run caught the dry branch
+falling through to `Reclaim`, which refuses mid-tick** — three tests threw before any recipe was
+applied — and the fix had a second half: a chunk with a mark standing must not be made ready
+either, because water could flow into it before the boundary's collection, which would then evict
+a *viewed* chunk's panel. `MayHoldWater` is the one question the pipeline asks the simulation
+mid-tick, honest in 3a because a tick creates a panel only in a chunk loaded to the water; **in 3b
+it is a read racing the worker's panel creation and wants a boundary-published set.**
+
+**Consequences stated as costs.** A chunk that leaves and comes back inside one tick waits for the
+boundary even when dry — a turnaround inside half a second, rare in play and bounded by the tick.
+Deferred `ChunkArrived` calls land in one batch at completion — cheap, because
+`HeldCellsOnFace` early-outs on a chunk with no panel. The quit finishes the tick in flight
+synchronously and prints what that cost; a cancel would need to return the unvisited half of the
+batch to the pending set, which nothing does yet, and at a quit the cost is one tick's remainder.
+The autosave is postponed a frame at a time while a tick is in flight, with the timer left where it
+is. And what is still readable mid-tick — `AwakeHeldCells`, `TotalMillilitres`, `Rested`,
+`SurfaceCells`, the `Grid` — is listed in `FluidSimulation.Ownership.cs` as 3b's to gate.
+
+**What the M8b: line prints**: `N edit(s) deferred to a boundary, M arrival(s) parked` beside
+`reclaimed`; and `M8b: finished the tick in flight before the quit — N cell(s) in T ms` when a quit
+found one.
+
+**Then 3b** (the job — change what sets `GridOwnedByTick`, drain the list where the result is
+collected, gate the reads above, publish the wet-chunk set) and **3c** (the race battery and the
+measurement).
 
 ## The decisions, taken 2026-09-07 as recommended
 
