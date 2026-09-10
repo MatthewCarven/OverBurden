@@ -1387,6 +1387,14 @@ public partial class Main : Node3D
                 case "brush" when Enum.TryParse(value, ignoreCase: true, out BrushShape brush):
                     _startingBrush = brush;
                     break;
+
+                default:
+                    // A flag nobody reads is a play of the wrong arm that looks exactly like a play
+                    // of the right one: --fluidjob=1 was passed to a build that did not have it
+                    // (2026-09-10) and the log said nothing. Printed rather than warned, so it is
+                    // in godot.log beside the setup lines it would otherwise have changed.
+                    GD.Print($"Overburden: unknown flag \"{argument}\" — ignored");
+                    break;
             }
         }
 

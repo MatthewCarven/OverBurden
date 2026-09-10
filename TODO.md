@@ -4307,10 +4307,10 @@ finding without the coarser-tolerance fallback.
                         wet arrival while the grid is the tick's and releases it on the first frame
                         after**, because clearing `FluidPending` at arrival let a visit flow into a
                         chunk whose restore was still queued; a dry chunk is ready at once. Alt+R
-                        queued, autosave postponed, quit finishes the tick. **Unplayed: the play
-                        check is a pour and a chunk bite under a flood with `displaced 0` and the
-                        identity exact, and the `M8b:` line's `deferred` / `parked` terms non-zero
-                        after a walk.**
+                        queued, autosave postponed, quit finishes the tick. **Played 2026-09-10 —
+                        *"Seems pretty good to me"* — on the played world for 40 minutes: 10,031
+                        deferred, 233 parked, `displaced 0`, identities exact, `paused 0`, quit
+                        exact. Accepted.**
                         - [ ] **A quit cancels rather than finishes the tick** — a named lever, not
                               built: the unvisited half of the batch would have to go back to the
                               pending set, and at a quit the cost today is one tick's remainder,

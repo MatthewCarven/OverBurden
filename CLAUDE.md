@@ -245,8 +245,8 @@ stands in its void (198 drawn at 100 quads a chunk). **The r6 control is, verbat
 ```
 
 — 2601 / 325 / 3446 at 411 — because 900 frames is ~6 s and the r6 fill settles at ~7. **`--nosave`
-goes after the bare `--` or the engine drops it without a word** (Main's warning covers only
-`name=value` flags), and the run then opens the played world, which as of M8b-3a floods on open and
+goes after the bare `--` or the engine drops it without a word** (Main warns only about a
+`name=value` flag placed before the `--`; a flag after it that nothing reads is printed as unknown since 2026-09-10), and the run then opens the played world, which as of M8b-3a floods on open and
 reads nothing like a control.
 
 M8b-2c adds the seam's two provocations, which go together. **`--fillbasin=<litres>` is the Tier A
@@ -496,7 +496,7 @@ once they are answered.** The pass's four findings: nothing changes what sets `G
 reads a captured `FluidField` view where `Unknown` refuses both questions, so the job arm requires
 the field; the tick is the first *detached* job because `ChunkPipeline.Apply` is chunk-centric;
 and a cancel must give the unvisited half of the batch back, so 3a's quit lever is built in 3b.
-The paragraph below is 3a's state, still current — 3a is unplayed.
+**3a is played and accepted** (*"Seems pretty good to me"*, 40 minutes on the played world: 10,031 deferred, 233 parked, `displaced 0`, identities exact). **An unknown game flag now prints `Overburden: unknown flag … — ignored`** — that play passed `--fluidjob=1` to a build without it and nothing said so. The paragraph below is 3a's state, kept for the reasoning.
 
 **Earlier (2026-09-10, night). Slice 3a is built and unplayed; 3b — the tick as a job — is
 next and wants its own planning pass against the built 3a.** Read WATER-THREAD-PLAN's "Slice 3a —

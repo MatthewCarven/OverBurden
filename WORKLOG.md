@@ -1,5 +1,24 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-10 — Slice 3a is played by accident and accepted; and an unknown flag now says so
+
+Matthew ran `start.cmd --fluidjob=1` — a flag that does not exist yet, 3b being planned and not
+built — and reported *"Seems pretty good to me"*. The log says the run was **3a on the played
+world, 40 minutes of it**: 268 ticks, 127 relay pours (1,270,000 L injected), 2.42 ML loaded
+from 13 panels, **10,031 edits deferred to a boundary, 233 arrivals parked, 153 reclaimed,
+`displaced 0`, both identities exact, `paused 0`** at every one of 29 report lines, four
+autosaves of 17–50 ms, and a quit at 2,636,851 L that the world file reaches. **That is 3a's
+play check to the letter, and it passes.** The longest tick was 159 frames — the number 3b exists
+to move.
+
+- **The flag was ignored silently, and it took the log to tell a play of the wrong arm from a
+  play of the right one.** CLAUDE.md said Main warned about `name=value` flags; it warned only
+  about flags placed *before* the bare `--`. An unknown flag after it now prints
+  `Overburden: unknown flag "--fluidjob=1" — ignored` beside the setup lines it would have
+  changed. Verified headless: the line prints for the unknown flag and not for `--radius=2`.
+- **3b's decisions still stand as handed back**; the play read the arm that exists, not the one
+  that is planned.
+
 ## 2026-09-10 — Slice 3b planned: nothing changes what sets the flag, the worker reads a captured view, and the tick is the first detached job
 
 Matthew asked for 3b (*"3b please"*) and it got its planning pass against the built 3a; nine
