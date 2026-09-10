@@ -4362,6 +4362,17 @@ finding without the coarser-tolerance fallback.
                         `first draw` 6.08 s against 8.72, 2.1× the visits. **Unplayed: open the
                         played world, bite under a lake, read `boundary worst` on the `M8b:`
                         line and whether the skip is gone.**
+                        - [x] **Played 2026-09-10**: worst frame 332 → 63.7 ms (field sync 43.9,
+                              hand-off 24.7, pour 17.5, settle 0), one boundary waited over a
+                              128,600-cell peak, identities exact. Accepted on the numbers.
+                        - [ ] **The surface install is the largest main-thread term left**:
+                              7.84 ms for 20,196 quads every tick, beside a walk the worker now
+                              does in 9.09. Build the vertex arrays on the worker; only
+                              `AddSurfaceFromArrays` has to stay on the main thread.
+                        - [ ] **Tier A stands at 387.8% of capacity** on the same play (41 ML in
+                              basins of 10.7 ML, 648,611 L "would not fit back") — the hand-off
+                              feeds a basin past its rim. Does a lake read higher than its bank?
+                              M8c's, since seepage is where the rims start to matter.
                         - [ ] **Bake fields as jobs** — the named revisit if the cap's wait
                               (refusals for arrived chunks; 394 on the open) is ever seen in play.
                         - [ ] **The capture and compose is 3.9 ms a boundary at 200,000 active** —

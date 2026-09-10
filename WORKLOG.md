@@ -1,5 +1,19 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-10 — 3c is played: the worst frame 332 → 64 ms, one boundary waited, and Tier A is standing at 388% of capacity
+
+Matthew posted the `M8b:` line from a play: 279 ticks, 2.3 ML poured, 302,250 cells, peak 128,600
+active, worker wall 286 ms mean / 501 max with **one boundary waited** — one tick past its half
+second, the rate dipping once — identities exact, `displaced 0`, `paused 0`, 190 arrivals parked,
+105 refusals for arrived chunks. **`boundary worst`: settle 0, field sync 43.9 ms, hand-off 24.7,
+pour 17.5; the worst frame 63.7 ms against 332 before 3c.** The solve's longest pass, 199 ms, is
+on the worker. The largest main-thread term left is the surface install — 7.84 ms for 20,196 quads
+every tick, beside a 9.09 ms walk that is the worker's now; building the arrays on the worker is
+the lever, only `AddSurfaceFromArrays` has to stay. **Not 3c's, noticed on the same line: Tier A
+reports 41 ML standing at 387.8% of 10.7 ML capacity, 648,611 L "would not fit back"** — the
+hand-off feeding basins past their rims; whether a lake reads higher than its bank is the play
+question, recorded in TODO.
+
 ## 2026-09-10 — Slice 3c is built: the skip is gone from the sim thread, and the race battery found a 3b hole no listed race could have
 
 All five as recommended. **Suite 1,234 → 1,240; 14 recipes, 14 caught.** The water thread is
