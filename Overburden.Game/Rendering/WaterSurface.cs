@@ -17,11 +17,22 @@ namespace Overburden.Game.Rendering;
 /// exactly that claim, and the whole renderer is a sweep over the analysis grid.
 /// </para>
 /// <para>
-/// <b>The shoreline stair-steps on the analysis grid against 0.25 m terrain, and that is
-/// accepted for M7 rather than overlooked.</b> It is the most-looked-at part of a pond, and M8's
-/// Tier B is what replaces it — refining shore cells now would be building the thing M8 deletes.
-/// M7d-2's play called the 4 m step tolerable; <b>the grid is 2 m since 2026-09-10</b>, which
-/// halves the step at four times the samples (<c>HeightField.DefaultCellVoxels</c> says why).
+/// <b>The shoreline is clipped by the terrain's own depth, not by the analysis grid — Matthew's
+/// rule, 2026-09-10.</b> The surface is depth-tested against the terrain, so inside a wet cell the
+/// shore was always exact to the voxel: the quad runs under the whole footprint and any ground
+/// standing above the level covers it. What stair-stepped was the <em>missing</em> quads — a cell
+/// whose corner sample sits just above the level draws nothing, though half its footprint dips
+/// under. So a dry cell with a wet neighbour draws that neighbour's plane too
+/// (<see cref="DilateShore"/>), and the ground does the clipping for free: water shows exactly
+/// where the terrain is under the level, at 0.25 m, at any lattice, with no height read beyond
+/// the one the sweep already makes. The cost is the ring's quads, mostly hidden. The error it
+/// admits is the one a wet cell already has — a dip behind a 0.25 m ridge inside the footprint
+/// shows water — one cell further out and bounded there; <b>and only into the same lake</b>,
+/// because across a divide the far slope can be under the level and the first screenshot hung
+/// a slab over a saddle. A plane over the whole catchment would have been simpler still and
+/// wrong in every excavation below the lake's level in it, because the terrain that clips is
+/// the dug terrain and the level is the seed's. M7d-2's play called the 4 m step tolerable
+/// before this; the grid is 2 m since the same day for the curve's sake.
 /// </para>
 /// <para>
 /// <b>Rebuilt on a timer rather than every frame, because a level rises continuously and a mesh
@@ -71,6 +82,15 @@ public sealed class WaterSurface
 
     /// <summary>Basins with a surface drawn.</summary>
     public int WetBasins { get; private set; }
+
+    /// <summary>
+    /// Whether a dry sample beside a wet one draws the wet one's plane, so the terrain clips the
+    /// shore to the voxel. Off is the pre-2026-09-10 arm, <c>--shore=0</c>.
+    /// </summary>
+    public bool DilateShore { get; set; } = true;
+
+    /// <summary>Dry samples that drew a neighbour's plane on the last rebuild.</summary>
+    public int RingSamples { get; private set; }
 
     /// <summary>Milliseconds the last rebuild took on the sim thread.</summary>
     public double LastRebuildMillis { get; private set; }
@@ -126,6 +146,87 @@ public sealed class WaterSurface
             if (level is not null) WetBasins++;
         }
 
+        // One label and level per sample: the sample's own if it is wet, else - with the shore
+        // dilated - the highest-standing wet neighbour's, else none.
+        int samples = pitch * pitch;
+        var drawLabel = new int[samples];
+        var drawLevel = new double[samples];
+        for (int sz = 0; sz < pitch; sz++)
+        {
+            for (int sx = 0; sx < pitch; sx++)
+            {
+                int i = (sz * pitch) + sx;
+                drawLabel[i] = IsWet(watershed, field, levels, sx, sz, out int label, out double level)
+                    ? label
+                    : Watershed.Outlet;
+                drawLevel[i] = level;
+            }
+        }
+
+        RingSamples = 0;
+        if (DilateShore)
+        {
+            // Outward from the wet cells rather than inward from the dry ones: the window is
+            // 65,536 samples and the wet ones a few thousand, and the first version's scan of
+            // every dry cell's eight neighbours cost 4 ms Debug on the sim thread four times a
+            // second. Cloned so a ring cell set here does not seed a second ring.
+            var wetLabel = (int[])drawLabel.Clone();
+            var wetLevel = (double[])drawLevel.Clone();
+            for (int sz = 0; sz < pitch; sz++)
+            {
+                for (int sx = 0; sx < pitch; sx++)
+                {
+                    int i = (sz * pitch) + sx;
+                    if (wetLabel[i] == Watershed.Outlet)
+                    {
+                        continue;
+                    }
+
+                    double level = wetLevel[i];
+
+                    // Eight neighbours, because the sample is the cell's corner and a diagonal
+                    // neighbour's footprint is reached as readily as a side's.
+                    for (int dz = -1; dz <= 1; dz++)
+                    {
+                        int nz = sz + dz;
+                        if (nz < 0 || nz >= pitch) continue;
+                        for (int dx = -1; dx <= 1; dx++)
+                        {
+                            int nx = sx + dx;
+                            if (nx < 0 || nx >= pitch || (dx == 0 && dz == 0)) continue;
+                            int n = (nz * pitch) + nx;
+                            if (wetLabel[n] != Watershed.Outlet)
+                            {
+                                continue;
+                            }
+
+                            // Only into a cell of the same lake. A dry cell whose own basin
+                            // stands at this level is shore: its sample is above the water and
+                            // its footprint's low side is under it. A dry cell of another basin
+                            // is across a divide, and its footprint's far side can be below the
+                            // level on the *other* slope - the first screenshot had a lake at
+                            // 108% of its capacity hanging a slab over the saddle. Same lake
+                            // rather than same basin, because a lake merges basins and its level
+                            // is one number across them. Two lakes cannot both claim a cell under
+                            // this rule, so the first to reach it keeps it.
+                            int own = watershed.LabelAt(nx, nz);
+                            if (own < 0 || own >= levels.Length || levels[own] != level)
+                            {
+                                continue;
+                            }
+
+                            if (drawLabel[n] == Watershed.Outlet)
+                            {
+                                drawLabel[n] = wetLabel[i];
+                                drawLevel[n] = level;
+                                RingSamples++;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         var vertices = new List<Vector3>();
         var normals = new List<Vector3>();
         var indices = new List<int>();
@@ -137,16 +238,19 @@ public sealed class WaterSurface
             int sx = 0;
             while (sx < pitch)
             {
-                if (!IsWet(watershed, field, levels, sx, sz, out int label, out double level))
+                int i = (sz * pitch) + sx;
+                int label = drawLabel[i];
+                if (label == Watershed.Outlet)
                 {
                     sx++;
                     continue;
                 }
 
+                double level = drawLevel[i];
                 int run = 1;
                 while (sx + run < pitch
-                       && IsWet(watershed, field, levels, sx + run, sz, out int next, out _)
-                       && next == label)
+                       && drawLabel[i + run] == label
+                       && drawLevel[i + run] == level)
                 {
                     run++;
                 }

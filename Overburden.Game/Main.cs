@@ -595,6 +595,9 @@ public partial class Main : Node3D
     /// </remarks>
     private int _waterPitch = WindowVoxels / HeightField.DefaultCellVoxels;
 
+    /// <summary>See <see cref="WaterSurface.DilateShore"/>; <c>--shore=0</c> is the control arm.</summary>
+    private bool _dilateShore = true;
+
     /// <summary>512 m, in voxels.</summary>
     private const int WindowVoxels = 512 * VoxelConstants.VoxelsPerMetre;
 
@@ -791,7 +794,7 @@ public partial class Main : Node3D
 
         if (windowed && !_noWater)
         {
-            _waterSurface = new WaterSurface(GetWorld3D());
+            _waterSurface = new WaterSurface(GetWorld3D()) { DilateShore = _dilateShore };
         }
 
         if (_camera is not null)
@@ -1179,6 +1182,12 @@ public partial class Main : Node3D
                 // the analysis is roughly quadratic in the span, and this is what prices it.
                 case "waterwindow" when int.TryParse(value, out int pitch):
                     _waterPitch = Math.Max(2, pitch);
+                    break;
+
+                // The shore's ring dilation (2026-09-10): 0 is the arm where a cell draws its
+                // plane only if its own sample is under the level - the stair-stepped shoreline.
+                case "shore" when int.TryParse(value, out int shore):
+                    _dilateShore = shore != 0;
                     break;
 
                 // The water's control arm, the same shape as --norain. The analysis is the only
@@ -3179,7 +3188,8 @@ public partial class Main : Node3D
                + (_waterSurface is null
                    ? " | no surface drawn (headless or --nowater)"
                    : $" | surface {_waterSurface.QuadCount} quad(s) over "
-                     + $"{_waterSurface.WetBasins} basin(s), {_waterSurface.LastRebuildMillis:F2} ms");
+                     + $"{_waterSurface.WetBasins} basin(s), {_waterSurface.RingSamples} shore sample(s), "
+                     + $"{_waterSurface.LastRebuildMillis:F2} ms");
     }
 
     /// <summary>
@@ -3288,6 +3298,7 @@ public partial class Main : Node3D
         string surface = _waterSurface is null
             ? "surface   not drawn (headless or --nowater)\n"
             : $"surface   {_waterSurface.QuadCount} quad(s) over {_waterSurface.WetBasins} basin(s), "
+              + $"{_waterSurface.RingSamples} dry sample(s) drawing a neighbour's shore ({(_waterSurface.DilateShore ? "--shore=1" : "--shore=0")}), "
               + $"{_waterSurface.LastRebuildMillis:F2} ms to rebuild, "
               + $"{_waterSurface.Rebuilds} rebuild(s)\n";
 

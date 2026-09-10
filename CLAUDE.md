@@ -220,6 +220,11 @@ called `--weather` that silently failed to fill a basin would be the worse instr
 a view-dependent artefact is invisible in one picture by definition, so the face-tint A/B needs the
 same wall from two angles. `--viewnormal=1` is that A/B's other arm.
 
+The shore's ring dilation (2026-09-10) adds **`--shore=<0|1>`**: a dry sample beside a wet one draws
+the wet one's plane and the terrain's depth clips it to the voxel; 0 is the stair-stepped arm
+every M7 screenshot was taken in. Not profile-only. The `M7d:` line's `surface` term prints the
+ring's `shore sample(s)`.
+
 M7c-2 adds **`--pitch=<degrees>`**, the vertical half of `--yaw` (negative looks down), because a
 shot of rain going into a shaft has to look down it; and **`--norain`**, which leaves the whole of
 the weather in place and removes only the particles. That is the arm that priced them, and the
@@ -507,7 +512,20 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-10, late night). The watershed cell is 2 m — `HeightField.DefaultCellVoxels`
+**Pick up here (2026-09-10, late night, later). The shoreline is clipped by the terrain's depth,
+not by the lattice — Matthew's rule, built and screenshotted the same night: a dry sample beside a
+wet one draws the wet one's plane, only into the same lake, and the ground hides it wherever the
+ground is above the level.** `WaterSurface.DilateShore`, `--shore=0` the control. Exact to the
+voxel in the A/B on a copy of the played world, 1,667 → 2,389 quads, rebuild cost unchanged (3.4 ms
+against 3.7 Debug). **The first version dilated across divides and hung a slab over a saddle** —
+the played lakes stand at 108% of capacity, so the far slope was under the level — hence "same
+lake". **This changes the 2 m decision below**: the look no longer depends on the lattice, so 2 m
+buys only the curve at three times 4 m's analysis, and the honest A/B now is `--waterwindow=128`
+with the cell back at 16 against the shipped 2 m, on the look alone. That A/B is Matthew's play;
+water bodies (WATER-BODIES-NOTES.md) and the M8c pass are still what is next. The paragraph below
+is the 2 m state, kept for the reasoning.
+
+**Earlier (2026-09-10, late night). The watershed cell is 2 m — `HeightField.DefaultCellVoxels`
 16 → 8 on Matthew's request, because the sample is also the lake surface's quad and the shoreline
 stepped at 4 m — built and unplayed.** One constant; `_waterPitch` is `512 m / cell` so the window
 did not shrink; 25 tests were 4 m arithmetic (`PerVoxel = 4000`, `BasinAtSample(3, 3)`) and are
@@ -1381,7 +1399,9 @@ four findings recorded against a second attempt.
 **M7d-2 — the surface: built 2026-09-02.** `WaterSurface.cs` sweeps the analysis grid and emits a
 horizontal quad wherever a terrain sample sits below its basin's solved level — **739 quads over
 255 basins, 0.67 ms to rebuild**, four times a second (at the 4 m cell; the grid is 2 m since
-2026-09-10 and those figures want re-reading from the `M7d:` line). Three things worth keeping:
+2026-09-10 and those figures want re-reading from the `M7d:` line). **And since the same night a
+dry sample beside a wet one draws the wet one's plane** — the terrain's depth test clips the shore
+to the voxel, so the "4 m shoreline" below is history. Three things worth keeping:
 
 - **Nothing iterates water.** One number per basin against one height per sample, which is DESIGN's
   *solved, not simulated* reduced to a sweep and a comparison. That is why it is 0.67 ms.

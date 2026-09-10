@@ -1,5 +1,38 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-10 — The shoreline is clipped by the terrain, not the lattice: Matthew's rule, built and shot the same night
+
+Matthew, on the 2 m shoreline's screenshot: *"what if I decided that if any block in the boundary
+is at the same level and we just let any voxels above cover the water with their own data (like
+the water would still be hidden below any raised voxels)."* Then: *"I was more hoping for early
+exit on the comparison function really."*
+
+- **Why the shore stepped.** A cell drew its quad only if its *corner* sample was under the level,
+  and inside a wet cell the shore was already exact — the plane runs under the whole footprint and
+  the depth test hides it wherever the ground stands above the level. The steps were the missing
+  quads: a cell whose corner is just above the level draws nothing though half its footprint dips
+  under. **So a dry sample beside a wet one now draws the wet one's plane**, and the GPU clips it.
+  `WaterSurface.DilateShore`, `--shore=0` the control.
+- **The early exit he hoped for is the comparison's removal, and it was refused for a reason worth
+  keeping.** The comparison is 65,536 integer compares — not where the cost is (the quads are). A
+  plane over the whole catchment with no compare at all gives the same shore, and is wrong in every
+  excavation below the lake's level inside the catchment, because the terrain that clips is the
+  *dug* terrain and the level is the *seed's*: dig a pit on a hillside above the lake and water
+  appears in it. The ring bounds that error to one cell from real water, where Tier B would flow in
+  anyway.
+- **The first version hung a slab over a saddle.** It dilated into any dry neighbour; the played
+  lakes stand at 108% of capacity (the 388% item, still M8c's), so the far slope beyond the divide
+  was under the level and the plane showed in mid-air. Dilation is into the *same lake* only —
+  same level, not same basin, because a lake merges basins — and the slab went. A sliver can still
+  hang where a same-lake cell's footprint straddles a crest, bounded to one cell.
+- **Measured on a copy of the played world, windowed screenshot, `--pitch=-40`**: 1,667 → 2,389
+  quads, 6,714 ring samples, rebuild 3.7 → 3.4 ms Debug — the first version's inward scan of every
+  dry cell was 6.2 ms and the outward walk from the wet cells is what took it back. `C:/tmp/
+  shore-before.png` / `shore-after.png`; the shore follows the 0.25 m contour.
+- **It reopens the 2 m decision.** The look no longer depends on the lattice, so 2 m buys the
+  curve alone at three times 4 m's analysis; the A/B is now `--waterwindow=128` at 16 voxels
+  against the shipped 2 m on a pond filling. Recorded in TODO as the play check.
+
 ## 2026-09-10 — Water bodies proposed and recorded: the merge into a Tier A body that DESIGN promised and M8b never built
 
 Matthew: *"could we derive a speed improvement through joining these sheets into more like 3d

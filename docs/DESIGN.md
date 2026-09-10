@@ -263,8 +263,10 @@ visible here.
   between the 1 m light cell and the 8 m chunk column so it borrows neither one's revisit trigger.
   The price is per sample — the 512 m window analyses at 22.5 ms reference-equivalent against
   13.6 — and a world written at another cell size opens with its stored lakes discarded, once.
-  The next step down is not 1 m but a render-only clip of the quad against the seed height
-  inside a cell, which moves no basin.
+  **The shoreline no longer depends on it** (the same night): a dry sample beside a wet one of the
+  same lake draws the lake's plane and the terrain's depth clips it to the voxel — Matthew's rule,
+  `WaterSurface.DilateShore` — so the cell size is a curve-fidelity and analysis-cost decision
+  alone, and 4 m against 2 m is an open A/B on the look.
 - **A basin is identified by the world coordinate of its pit, never by an array index.** The
   analysis window is player-centred and renumbers when it moves; an index key silently reattaches
   stored water to a different basin.

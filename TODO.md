@@ -2997,10 +2997,24 @@ and so does everything after it. Additive, so header **v2 → v3 migrates**.
             **Halved to 2 m on 2026-09-10** at Matthew's request — one constant, the analysis
             22.5 ms reference-equivalent for the 512 m window (`--watershed`, 256 samples a side,
             130 ms in the Debug game on a worker), 391 basins in the spawn's window against 255.
-            - [ ] **Play check**: does the 2 m shoreline read better than the 4 m one, and is the
-                  window's arrival (130 ms Debug on a worker, once per ~128 m of travel) felt? If
-                  2 m is still coarse, the lever above — clip the quad against the seed height at
-                  1 m inside a wet cell — is the next step, *not* 1 m across the board (4× again).
+            - [x] **The lever was built the same night, cheaper than named: the terrain clips the
+                  quad.** Matthew's rule — a dry sample beside a wet one draws the wet one's plane
+                  and raised voxels cover it. `WaterSurface.DilateShore`, `--shore=0` the control.
+                  Voxel-exact in the A/B on a copy of the played world (`C:/tmp/shore-before.png`,
+                  `shore-after.png`), 1,667 → 2,389 quads, 6,714 ring samples, rebuild cost
+                  unchanged. **Only into the same lake**: the first version dilated across divides
+                  and hung a slab over a saddle, because the played lakes stand at 108% of capacity
+                  and the far slope was under the level. A sliver can still hang where a same-lake
+                  cell's footprint straddles a crest — bounded to one cell, and the same error a wet
+                  cell has always had. The whole-catchment plane (no comparison at all) was
+                  considered and refused: the clipping terrain is the *dug* terrain and the level
+                  is the seed's, so every excavation below the lake's level in the catchment would
+                  show water.
+            - [ ] **Play check, changed by the above**: the shoreline reads the same at any
+                  lattice now, so the A/B is the *curve* — `--waterwindow=128` with
+                  `DefaultCellVoxels` back at 16 against the shipped 2 m, on the look of a pond
+                  filling and on the analysis cost (13.6 against 22.5 ms reference-equivalent).
+                  If you cannot tell them apart, 4 m is right and the constant goes back.
             - [ ] **Every world written at 4 m opens with its lakes discarded, once**, with the
                   `M7d: the watershed lattice has changed` warning; they refill. Tier B water in
                   the mine is in the fluid panels and is untouched.
