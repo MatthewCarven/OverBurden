@@ -226,6 +226,10 @@ visible here.
   **active-cell set**, for water that is actually moving (tunnel breach, waterfall,
   pump outlet). Push down where there is capacity, equalise sideways otherwise. Stable
   cells sleep and merge into a Tier A body. Sleeping is load-bearing, not an optimisation.
+  **The merge half of that sentence is not built (2026-09-10)**: a resting mine has no Tier A
+  body, so its water is stored as cells (M8b-4b). Matthew's *"static 3D when at rest"* question
+  is that half — one number over a connected void, with the seams Tier A already has — and is
+  recorded in [WATER-BODIES-NOTES.md](WATER-BODIES-NOTES.md) for M8c's planning pass.
   **Corrected at M8a-1, 2026-09-02: cells hold millilitres, capacity 15,625, not an
   amount 0-255.** This line predates M7 and therefore predates litres being the currency
   of water here. A 0.25 m cell is **15.625 litres — not a whole number** — so a 0..255

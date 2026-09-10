@@ -1,5 +1,34 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-10 — Water bodies proposed and recorded: the merge into a Tier A body that DESIGN promised and M8b never built
+
+Matthew: *"could we derive a speed improvement through joining these sheets into more like 3d
+blobs? … I'm looking for more of a way for water to be static 3d when at rest?"* Recorded in
+[docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), not started — *"not yet"*. Three things
+from the conversation worth keeping:
+
+- **It is the design's own sentence.** DESIGN's Tier B line has read *"stable cells sleep and merge
+  into a Tier A body"* since week one, and M8-PLAN's persistence answer was *settle rather than
+  store*. M8b recorded that a flooded mine has no Tier A body and built panels; a body is that gap
+  closed, with the seams — hand-off, portal drain, portal index, volume curve — already built for
+  surface lakes.
+- **The saving is not the tick.** Sleeping cells cost nothing; what a body removes is the stored
+  shape of resting water — 78 MiB of panels, the 72–399 ms autosave copy, the cell-by-cell
+  restore, the 144,559-quad surface, the O(sheet) settle — and it turns a hole under a mine lake
+  into a drain from one number rather than a woken front.
+- **"Cheaper is more accurate" was claimed and then withdrawn in the same pass.** A roof-open under
+  a body drains through 1,024 mouths at the automaton's room-below rate, ~20 s for an 8 m chamber,
+  where the automaton's one-tick collapse is nearer to real water under 8 m of head. The version
+  that is more accurate is a mouth that draws by head, which only a body can do because only a
+  body knows its level — decision 6 in the notes, not a given. The roof-open wake itself is
+  written out in the notes so the 302,182 figure is legible: `Disturb` wakes the 1,024-cell bottom
+  layer over the footprint, and a cell woken mid-tick is visited in the same tick, so the chain
+  runs to the floor and the whole void is visited once.
+
+There is also no sea: `SeaLevelVoxels` is the terrain datum the surface noise swings around, read
+by nothing that is water, and a basin chain's last outlet spills into nothing. If one is ever
+wanted, the outlet becomes the sea — Tier A only, its own short pass, the window edge the trap.
+
 ## 2026-09-10 — The watershed cell is 2 m: one constant, eight fixtures re-derived, the window kept at 512 m
 
 Matthew asked what the granularity of the top static sheets of water is and how hard it is to

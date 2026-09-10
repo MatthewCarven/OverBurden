@@ -4626,6 +4626,17 @@ Three honest caveats, because the saving is not where it first appears:
       answer here — store the accumulator and the timestamp, not the cells — but it wants saying
       out loud, and it is a header field.
 
+- [ ] **Water bodies — resting water as one number over a void (Matthew, 2026-09-10, "not
+      yet").** [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md). DESIGN's *stable cells
+      merge into a Tier A body*, never built; the mine gets a Tier A body and the seams
+      (`SurfaceHandoff`, `PortalDrain`, `PortalIndex`, `VolumeCurve`) already exist. Buys memory,
+      the autosave copy, the restore, the surface mesh and the settle at rest, and turns a hole
+      under a mine lake into a portal drain rather than a woken front. **Does not make the tick
+      faster** — sleeping cells cost nothing already — and the roof-open drain is cheaper, not
+      more accurate, unless the mouth draws by head. Six decisions in the notes; belongs in M8c's
+      planning pass, opening with the void-curve derivation's cost (32,768 voxels a chunk bite,
+      ~1.3 million for the played mine).
+
 ### M9 — v0.5, the game exists
 
 - [ ] Support BFS from anchored material, per-material support distance
