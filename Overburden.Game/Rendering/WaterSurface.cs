@@ -17,10 +17,11 @@ namespace Overburden.Game.Rendering;
 /// exactly that claim, and the whole renderer is a sweep over the analysis grid.
 /// </para>
 /// <para>
-/// <b>The shoreline stair-steps on the 4 m analysis grid against 0.25 m terrain, and that is
+/// <b>The shoreline stair-steps on the analysis grid against 0.25 m terrain, and that is
 /// accepted for M7 rather than overlooked.</b> It is the most-looked-at part of a pond, and M8's
 /// Tier B is what replaces it — refining shore cells now would be building the thing M8 deletes.
-/// <b>M7d-2's play is what says whether it is tolerable until then.</b>
+/// M7d-2's play called the 4 m step tolerable; <b>the grid is 2 m since 2026-09-10</b>, which
+/// halves the step at four times the samples (<c>HeightField.DefaultCellVoxels</c> says why).
 /// </para>
 /// <para>
 /// <b>Rebuilt on a timer rather than every frame, because a level rises continuously and a mesh

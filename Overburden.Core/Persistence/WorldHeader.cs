@@ -74,7 +74,8 @@ public sealed record WorldHeader
     /// pit happens to be nearest. <b>The policy is to discard the volumes rather than refuse the
     /// world</b>: they refill in minutes of rain, and refusing to open a world over a derived
     /// quantity is the worse failure. Defaulted from the lattice itself, so there is one
-    /// definition of what 4 m means.
+    /// definition of the lattice — 4 m until 2026-09-10, 2 m since, and the played worlds written
+    /// at 4 m lose their lakes once, by this policy.
     /// </remarks>
     public int WatershedCellMetres { get; init; } =
         HeightField.DefaultCellVoxels / VoxelConstants.VoxelsPerMetre;

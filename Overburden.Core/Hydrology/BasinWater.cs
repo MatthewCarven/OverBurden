@@ -209,7 +209,7 @@ public sealed class BasinWater
     /// <b>A parent whose slab cannot hold anything does not end the walk, and until M8b-2a it
     /// did.</b> A composite closed at the same crossing height as its children has zero own
     /// capacity — three pits merging across one flat shelf produce it, and on integer heights
-    /// sampled every 4 m that is the common case, not the corner. Its slab is empty for ever, so
+    /// sampled every few metres that is the common case, not the corner. Its slab is empty for ever, so
     /// "the parent's slab is empty" says nothing about whether the water has risen past the
     /// ridge; the answer is one level up, and both children being full is what carries the walk
     /// there. Stopping at it reported one lake at two heights — the pits on one side at the shelf,

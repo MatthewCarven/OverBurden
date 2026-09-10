@@ -2990,10 +2990,20 @@ and so does everything after it. Additive, so header **v2 → v3 migrates**.
       brought forward rather than duplicated; and without it M7 has no play verdict at all.
       **M5b already ran that experiment** — a correct light grid that did not glow, unjudgeable
       until M5c-2.
-      - [ ] **Known ugly part, accepted up front: the shoreline.** A surface on the 4 m grid
+      - [x] **Known ugly part, accepted up front: the shoreline.** A surface on the 4 m grid
             against 0.25 m terrain stair-steps at the water's edge, which is the most-looked-at
             part of a pond. **M8's Tier B replaces it**, so refining the shore now is thrown-away
             work. Lever if the play cannot bear it: re-sample the boundary ring at 1 m.
+            **Halved to 2 m on 2026-09-10** at Matthew's request — one constant, the analysis
+            22.5 ms reference-equivalent for the 512 m window (`--watershed`, 256 samples a side,
+            130 ms in the Debug game on a worker), 391 basins in the spawn's window against 255.
+            - [ ] **Play check**: does the 2 m shoreline read better than the 4 m one, and is the
+                  window's arrival (130 ms Debug on a worker, once per ~128 m of travel) felt? If
+                  2 m is still coarse, the lever above — clip the quad against the seed height at
+                  1 m inside a wet cell — is the next step, *not* 1 m across the board (4× again).
+            - [ ] **Every world written at 4 m opens with its lakes discarded, once**, with the
+                  `M7d: the watershed lattice has changed` warning; they refill. Tier B water in
+                  the mine is in the fluid panels and is untouched.
 - [x] **Rainfall is a seeded weather cycle, and the weather is analytic.** Rain rate is a pure
       function of (seed, world time) — episodes hashed through `splitmix64`, so rainfall over any
       interval is a closed-form sum. **That is what makes integrate-forward exact rather than
@@ -3003,7 +3013,7 @@ and so does everything after it. Additive, so header **v2 → v3 migrates**.
             map, and an unbounded integration interval is the other half of the same problem.
             **Revisit trigger: the first mechanic that wants the world to have moved on while you
             were away** — crops, or an offline pump.
-- [x] **The watershed grid is 4 m** — half a chunk, 2×2 samples per chunk column, 16 m² of
+- [x] **The watershed grid was 4 m, and is 2 m since 2026-09-10 (see the shoreline item above)** — half a chunk, 2×2 samples per chunk column, 16 m² of
       catchment each. A 30 m pond is ~56 samples; a 1 km window is 62,500. **It sits between the
       1 m light cell and the 8 m chunk column deliberately, so it borrows neither one's revisit
       trigger** — the `BrushCell`-is-not-`LightCellPos` argument from M6c-1.

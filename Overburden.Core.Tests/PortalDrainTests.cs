@@ -26,13 +26,22 @@ namespace Overburden.Core.Tests;
 public class PortalDrainTests(ITestOutputHelper output)
 {
     private const ulong Seed = 0xB0A7UL;
-    private const int Pitch = 8;
+
+    /// <summary>
+    /// The lattice, and a window 128 voxels on a side whatever the lattice is — the fixture is
+    /// stated in world voxels, so the bowl's samples and litres per voxel of depth follow the
+    /// cell (2×2 samples at 4,000 L at the 4 m cell it was written at, 4×4 at 1,000 L at 2 m) and
+    /// the bowl's 64 m² does not.
+    /// </summary>
+    private const int Cell = HeightField.DefaultCellVoxels;
+    private const int Pitch = 128 / Cell;
+    private const long LitresPerVoxelOfBowlDepth = 64L * 250;
 
     /// <summary>The bowl's floor voxel, and its rim. Planes 31 and 41.</summary>
     private const int Floor = 30;
     private const int Rim = 40;
 
-    /// <summary>A square bowl over samples 3..4 on each axis (voxels 48..79), inside both windows the tests use.</summary>
+    /// <summary>A square 8 m bowl over voxels 48..79 on each axis, inside both windows the tests use.</summary>
     private static ISurfaceHeights Bowl() => new AnalyticSurface((x, z) =>
         x >= 48 && x < 80 && z >= 48 && z < 80 ? Floor : Rim);
 
@@ -89,7 +98,7 @@ public class PortalDrainTests(ITestOutputHelper output)
 
         public PortalDrain Drain { get; }
 
-        public int Basin => Water.BasinAtSample(3, 3);
+        public int Basin => Water.BasinAtSample(48 / Cell, 48 / Cell);
 
         public void Dig(VoxelPos v)
         {
@@ -144,10 +153,10 @@ public class PortalDrainTests(ITestOutputHelper output)
     {
         var twin = new Twin();
         Assert.NotEqual(Watershed.Outlet, twin.Basin);
-        Assert.Equal(twin.Basin, twin.Water.BasinAtSample(4, 4));
-        Assert.Equal(Watershed.Outlet, twin.Water.BasinAtSample(-1, 3));
-        Assert.Equal(Watershed.Outlet, twin.Water.BasinAtSample(3, Pitch));
-        Assert.Equal((3, 4), twin.Water.SampleOf(63, 64));
+        Assert.Equal(twin.Basin, twin.Water.BasinAtSample(64 / Cell, 64 / Cell));
+        Assert.Equal(Watershed.Outlet, twin.Water.BasinAtSample(-1, 48 / Cell));
+        Assert.Equal(Watershed.Outlet, twin.Water.BasinAtSample(48 / Cell, Pitch));
+        Assert.Equal((63 / Cell, 64 / Cell), twin.Water.SampleOf(63, 64));
         Assert.Equal((-1, 0), twin.Water.SampleOf(-1, 0));
 
         // A window whose origin is two samples over: the same world sample is a different array
@@ -156,9 +165,9 @@ public class PortalDrainTests(ITestOutputHelper output)
         // bowl's own samples — the cases that tell are the ones that cross the window's edge.
         twin.Water.Install(twin.Water.AnalyseFor(112, 112));
         Watershed moved = twin.Water.Window!.Watershed;
-        int originSample = moved.Field.OriginX / HeightField.DefaultCellVoxels;
-        Assert.Equal(2, originSample);
-        Assert.NotEqual(Watershed.Outlet, twin.Water.BasinAtSample(3, 3));
+        int originSample = moved.Field.OriginX / Cell;
+        Assert.Equal(32 / Cell, originSample);
+        Assert.NotEqual(Watershed.Outlet, twin.Water.BasinAtSample(48 / Cell, 48 / Cell));
 
         // Every world sample in the moved window against the window's own label — true by
         // construction, and different from an origin-less lookup wherever two samples two apart
@@ -182,7 +191,7 @@ public class PortalDrainTests(ITestOutputHelper output)
 
         // And outside the moved window on either side.
         Assert.Equal(Watershed.Outlet, twin.Water.BasinAtSample(1, 1));
-        Assert.Equal(Watershed.Outlet, twin.Water.BasinAtSample(originSample + Pitch, 3));
+        Assert.Equal(Watershed.Outlet, twin.Water.BasinAtSample(originSample + Pitch, 48 / Cell));
     }
 
     [Fact]
@@ -193,7 +202,7 @@ public class PortalDrainTests(ITestOutputHelper output)
         // because the draining tests' draws are not always whole cells and may never land on the
         // plane — which is how an off-by-one in the comparison hid from them.
         const int face = 35;
-        long litresAtFace = (face - (Floor + 1)) * 4L * 4000;
+        long litresAtFace = (face - (Floor + 1)) * LitresPerVoxelOfBowlDepth;
 
         var twin = new Twin();
         twin.Water.Inject(twin.Basin, litresAtFace);
@@ -313,7 +322,7 @@ public class PortalDrainTests(ITestOutputHelper output)
         // bed, and the lowest of them would drain the lake to its floor.
         twin.DigBox(30, face - 9, 58, 46, face, 62);
         twin.Dig(inside);
-        Assert.Equal([new Portal(inside, outside)], twin.Index.Under(3, 3));
+        Assert.Equal([new Portal(inside, outside)], twin.Index.Under(48 / Cell, 60 / Cell));
         Assert.Equal(1, twin.Index.Count);
 
         int ticks = 0;
@@ -331,8 +340,8 @@ public class PortalDrainTests(ITestOutputHelper output)
         Assert.True(after <= face, $"the lake stands at {after}, above the face at {face}");
 
         // And not before: one more draw would have taken the level under the face, so what is
-        // left is within one draw of the face's own volume — 4 voxels of depth over 4 cells.
-        long litresAtFace = (face - (Floor + 1)) * 4L * 4000;
+        // left is within one draw of the face's own volume — 4 voxels of depth over the bowl's 64 m².
+        long litresAtFace = (face - (Floor + 1)) * LitresPerVoxelOfBowlDepth;
         Assert.InRange(twin.Water.StoredLitres, litresAtFace - 15, litresAtFace);
 
         long chamberCapacity = 17L * 10 * 5 * FluidConstants.CellCapacityMillilitres;

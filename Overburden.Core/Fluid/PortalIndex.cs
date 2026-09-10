@@ -21,7 +21,7 @@ public readonly record struct Portal(VoxelPos Inside, VoxelPos Outside)
 }
 
 /// <summary>
-/// Every portal in the scanned world, filed under the 4 m watershed sample its outside voxel
+/// Every portal in the scanned world, filed under the watershed sample its outside voxel
 /// sits in, so that a tick walks only the samples that are wet.
 /// </summary>
 /// <remarks>

@@ -1,4 +1,5 @@
 using Overburden.Core.Hydrology;
+using Overburden.Core.Voxels;
 
 namespace Overburden.Core.Tests;
 
@@ -22,6 +23,10 @@ namespace Overburden.Core.Tests;
 public class WatershedTests
 {
     private const int Cell = HeightField.DefaultCellVoxels;
+
+    // (cell metres)² × 250 — 4,000 L at the 4 m cell this suite was written at, 1,000 L at 2 m.
+    private const long PerVoxel =
+        (Cell / VoxelConstants.VoxelsPerMetre) * (Cell / VoxelConstants.VoxelsPerMetre) * 250L;
 
     /// <summary>A square pit with a shelf around it — the fixture VolumeCurveTests does by hand.</summary>
     private static int[,] SteppedTank() =>
@@ -52,9 +57,9 @@ public class WatershedTests
         Assert.Equal(11, basin.SaddleHeight);
         Assert.Equal(Watershed.Outlet, basin.SpillTo);
 
-        // 74 voxels of depth over nine cells, 4,000 L each — the same number VolumeCurveTests
+        // 74 voxels of depth over nine cells, PerVoxel litres each — the same number VolumeCurveTests
         // derives on paper from the same shape.
-        Assert.Equal(74 * 4000L, basin.CapacityLitres);
+        Assert.Equal(74 * PerVoxel, basin.CapacityLitres);
     }
 
     [Fact]
@@ -145,13 +150,13 @@ public class WatershedTests
         // basin.
         Assert.Equal(5, deep.SaddleHeight);
         Assert.Equal(shallow.Index, deep.SpillTo);
-        Assert.Equal(4 * 4000L, deep.CapacityLitres);
+        Assert.Equal(4 * PerVoxel, deep.CapacityLitres);
 
         // The shallow one leaves the window over the 3 — plane 4 — rather than climbing back over
         // the ridge.
         Assert.Equal(4, shallow.SaddleHeight);
         Assert.Equal(Watershed.Outlet, shallow.SpillTo);
-        Assert.Equal(1 * 4000L, shallow.CapacityLitres);
+        Assert.Equal(1 * PerVoxel, shallow.CapacityLitres);
     }
 
     [Fact]
@@ -260,7 +265,8 @@ public class WatershedTests
         // the field) would disagree by a slab about where the ground is. Same shape as IsCaveAt
         // against GenerateTerrain: pinned rather than promised.
         var surface = new AnalyticSurface((x, z) => 5 + (((x * 7) + (z * 3)) % 11));
-        var field = HeightField.Sample(surface, 0, 0, pitch: 4);
+        const int perChunk = VoxelConstants.ChunkSize / Cell;
+        var field = HeightField.Sample(surface, 0, 0, pitch: 2 * perChunk);
 
         for (int chunkZ = 0; chunkZ < 2; chunkZ++)
         {
@@ -269,12 +275,12 @@ public class WatershedTests
                 var column = new Overburden.Core.Lighting.SkyColumn(chunkX, chunkZ);
                 column.Seed(surface);
 
-                foreach (int lz in new[] { 0, Cell })
+                for (int lz = 0; lz < VoxelConstants.ChunkSize; lz += Cell)
                 {
-                    foreach (int lx in new[] { 0, Cell })
+                    for (int lx = 0; lx < VoxelConstants.ChunkSize; lx += Cell)
                     {
-                        int sx = (chunkX * 2) + (lx / Cell);
-                        int sz = (chunkZ * 2) + (lz / Cell);
+                        int sx = (chunkX * perChunk) + (lx / Cell);
+                        int sz = (chunkZ * perChunk) + (lz / Cell);
                         Assert.Equal(column.OpenAboveY(lx, lz), field.HeightAt(sx, sz));
                     }
                 }

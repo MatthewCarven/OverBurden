@@ -2,7 +2,9 @@ using System.Buffers.Binary;
 using System.Numerics;
 using System.Text;
 using Overburden.Core.Content;
+using Overburden.Core.Hydrology;
 using Overburden.Core.Persistence;
+using Overburden.Core.Voxels;
 using Overburden.Core.Worldgen;
 
 namespace Overburden.Core.Tests;
@@ -450,7 +452,10 @@ public class WorldHeaderTests
         WorldHeader read = WorldHeaderBlob.Read(Reframe(older, version: 2));
 
         Assert.Equal(0, read.ElapsedMillis);
-        Assert.Equal(4, read.WatershedCellMetres);
+        // A v2 world has no stored basins to be keyed on any lattice, so it takes this build's —
+        // which is what the reader says, and what this asserts rather than a literal 4.
+        Assert.Equal(
+            HeightField.DefaultCellVoxels / VoxelConstants.VoxelsPerMetre, read.WatershedCellMetres);
         Assert.Equal(inventory, read.Inventory);
         Assert.Equal(player, read.Player);
     }

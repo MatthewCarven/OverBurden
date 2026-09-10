@@ -232,7 +232,7 @@ public sealed class Watershed
 
         // Swept a TIER at a time — one run of equal (filled, height) — rather than a cell at a
         // time, and that is what makes flat ground work. Voxel heights are integers sampled every
-        // 4 m, so equal neighbours are ordinary rather than exotic; and a cell in the middle of a
+        // few metres, so equal neighbours are ordinary rather than exotic; and a cell in the middle of a
         // flat has no strictly lower neighbour at all, so a per-cell sweep declares it a pit and
         // the terrain fills with basins that hold nothing. Instead the tier is seeded from
         // whatever lower ground already touches it and the label is spread across the flat, which

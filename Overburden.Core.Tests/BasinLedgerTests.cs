@@ -16,7 +16,12 @@ namespace Overburden.Core.Tests;
 public class BasinLedgerTests
 {
     private const int CellMetres = HeightField.DefaultCellVoxels / VoxelConstants.VoxelsPerMetre;
-    private const long PerVoxel = 4000;
+    // Litres per voxel of depth over one cell: (cell metres)² × 250, derived rather than stated
+    // so the fixture follows the lattice — 4,000 L at the 4 m cell this suite was written at,
+    // 1,000 L at the 2 m cell since 2026-09-10.
+    private const long PerVoxel =
+        (HeightField.DefaultCellVoxels / VoxelConstants.VoxelsPerMetre)
+        * (HeightField.DefaultCellVoxels / VoxelConstants.VoxelsPerMetre) * 250L;
 
     /// <summary>Two pits either side of a ridge, inside one high rim — so composites hold water.</summary>
     private static int[,] TwoPitsOneRidge()

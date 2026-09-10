@@ -27,7 +27,10 @@ namespace Overburden.Core.Tests;
 public class SurfaceHandoffTests(ITestOutputHelper output)
 {
     private const ulong Seed = 0x5EA7UL;
-    private const int Pitch = 8;
+
+    /// <summary>The lattice, and a window 128 voxels on a side whatever it is — the fixture is in world voxels.</summary>
+    private const int Cell = HeightField.DefaultCellVoxels;
+    private const int Pitch = 128 / Cell;
     private const int Cap = FluidConstants.CellCapacityMillilitres;
 
     /// <summary>The bowl's floor voxel and its rim; planes 31 and 41.</summary>
@@ -35,7 +38,7 @@ public class SurfaceHandoffTests(ITestOutputHelper output)
     private const int Rim = 40;
 
     /// <summary>
-    /// A square bowl over samples 3..4 (voxels 48..79), a ramp rising east of it from the floor
+    /// A square 8 m bowl over voxels 48..79, a ramp rising east of it from the floor
     /// to the rim over voxels 80..99, and the rim plateau everywhere else.
     /// </summary>
     private static ISurfaceHeights BowlAndRamp() => new AnalyticSurface((x, z) =>
@@ -107,7 +110,7 @@ public class SurfaceHandoffTests(ITestOutputHelper output)
 
         public SurfaceHandoff Handoff { get; }
 
-        public int Basin => Water.BasinAtSample(3, 3);
+        public int Basin => Water.BasinAtSample(48 / Cell, 48 / Cell);
 
         /// <summary>
         /// One tick and the boundary after it: the automaton, then the hand-off over what it found
@@ -172,16 +175,16 @@ public class SurfaceHandoffTests(ITestOutputHelper output)
     {
         var twin = new Twin();
         Assert.NotEqual(Watershed.Outlet, twin.Basin);
-        Assert.Equal(twin.Basin, twin.Water.BasinAtSample(4, 4));
-        Assert.Equal(twin.Basin, twin.Water.BasinAtSample(5, 4));
-        Assert.Equal(twin.Basin, twin.Water.BasinAtSample(6, 4));
-        Assert.Equal(Watershed.Outlet, twin.Water.BasinAtSample(-1, 3));
+        Assert.Equal(twin.Basin, twin.Water.BasinAtSample(64 / Cell, 64 / Cell));
+        Assert.Equal(twin.Basin, twin.Water.BasinAtSample(80 / Cell, 64 / Cell));
+        Assert.Equal(twin.Basin, twin.Water.BasinAtSample(96 / Cell, 64 / Cell));
+        Assert.Equal(Watershed.Outlet, twin.Water.BasinAtSample(-1, 48 / Cell));
         Assert.Equal(Floor + 1, twin.Water.Window!.Watershed.Basins[twin.Basin].PitHeight);
 
         // The rim is a flat plateau that touches the window edge, and the edge is an outlet: the
         // plateau's far corner drains off the window, which is the shape the outlet test needs
         // and the reason the ramp tests keep their water between the bowl's own walls.
-        Assert.Equal(Watershed.Outlet, twin.Water.BasinAtSample(7, 7));
+        Assert.Equal(Watershed.Outlet, twin.Water.BasinAtSample(Pitch - 1, Pitch - 1));
 
         // The ramp rises a plane every two voxels from the bowl's floor to the rim.
         Assert.Equal(Floor + 1, twin.Seed.SurfaceHeightAt(80, 60));
@@ -416,7 +419,7 @@ public class SurfaceHandoffTests(ITestOutputHelper output)
         Basin before = twin.Water.Window!.Watershed.Basins[twin.Basin];
 
         twin.Water.Install(twin.Water.AnalyseFor(112, 112));
-        int moved = twin.Water.BasinAtSample(3, 3);
+        int moved = twin.Water.BasinAtSample(48 / Cell, 48 / Cell);
         Assert.NotEqual(Watershed.Outlet, moved);
         Basin after = twin.Water.Window!.Watershed.Basins[moved];
         Assert.Equal((before.PitX, before.PitZ), (after.PitX, after.PitZ));

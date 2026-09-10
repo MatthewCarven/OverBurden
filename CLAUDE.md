@@ -506,7 +506,19 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-10, night). The water thread is built and played — slices 1, 2, 3a, 3b,
+**Pick up here (2026-09-10, late night). The watershed cell is 2 m — `HeightField.DefaultCellVoxels`
+16 → 8 on Matthew's request, because the sample is also the lake surface's quad and the shoreline
+stepped at 4 m — built and unplayed.** One constant; `_waterPitch` is `512 m / cell` so the window
+did not shrink; 25 tests were 4 m arithmetic (`PerVoxel = 4000`, `BasinAtSample(3, 3)`) and are
+derived from the lattice now. The 512 m window analyses at 22.5 ms reference-equivalent (13.6 at
+4 m), 130 ms Debug on a worker in the game, 391 basins at the spawn against 255. **Every world
+written at 4 m opens with its lakes discarded once** (`M7d: the watershed lattice has changed`) and
+refills; the mine's Tier B water is untouched. **The play check is the shoreline, and whether the
+window's arrival is felt**; if 2 m is still coarse the next step is a render-only clip of the quad
+against the seed height at 1 m inside a wet cell, not 1 m across the board. The paragraph below is
+the state before it, kept for the reasoning.
+
+**Earlier (2026-09-10, night). The water thread is built and played — slices 1, 2, 3a, 3b,
 3c — and the next thing is Matthew's: M8c is the plan's next milestone, and it wants its own
 planning pass.** 3c's play: worst frame 332 → 63.7 ms (field sync 43.9, hand-off 24.7, pour 17.5,
 settle 0), one boundary waited over a 128,600-cell peak, identities exact. Two things that play
@@ -1367,7 +1379,8 @@ four findings recorded against a second attempt.
 
 **M7d-2 — the surface: built 2026-09-02.** `WaterSurface.cs` sweeps the analysis grid and emits a
 horizontal quad wherever a terrain sample sits below its basin's solved level — **739 quads over
-255 basins, 0.67 ms to rebuild**, four times a second. Three things worth keeping:
+255 basins, 0.67 ms to rebuild**, four times a second (at the 4 m cell; the grid is 2 m since
+2026-09-10 and those figures want re-reading from the `M7d:` line). Three things worth keeping:
 
 - **Nothing iterates water.** One number per basin against one height per sample, which is DESIGN's
   *solved, not simulated* reduced to a sweep and a comparison. That is why it is 0.67 ms.

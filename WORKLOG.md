@@ -1,5 +1,39 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-10 — The watershed cell is 2 m: one constant, eight fixtures re-derived, the window kept at 512 m
+
+Matthew asked what the granularity of the top static sheets of water is and how hard it is to
+change. The sheet is Tier A's lake surface, one quad per watershed sample, so the answer was
+`HeightField.DefaultCellVoxels` — 4 m — and one line, because every consumer takes `cellVoxels`
+as a parameter and reads the constant for its default; nothing built since M7 hard-codes 16. He
+asked for 2 m.
+
+- **The change is the constant, 16 → 8, and `_waterPitch` stated as a span.** It was 128 samples,
+  which at 8 voxels would have silently halved the window to 256 m and put every catchment's far
+  edge on the outlet; it is `512 m / cell` now, 256 samples a side.
+- **Twenty-five tests failed and every one was arithmetic carried from 4 m, none a defect.**
+  Three suites held `PerVoxel = 4000` as a literal (now derived, `(cell m)² × 250`); the portal
+  and hand-off fixtures named their samples (`BasinAtSample(3, 3)`) where the bowl at voxels 48..79
+  is sample 3 at 4 m and 6 at 2 m — rewritten as `48 / Cell`, with `Pitch = 128 / Cell` so the
+  window in voxels is what it was. **The bowl's litres per voxel of depth did not move** — 4 cells
+  × 4,000 L and 16 × 1,000 L are both its 64 m² × 250 — which is why the capacities (160,000 L)
+  and levels (35.375) in those tests held to the digit and only the sample indices broke. The
+  v2 header test asserted a literal 4 for the default lattice; it asserts the constant now.
+- **Measured (`--watershed`, Release, machine control 1.11x)**: the 512 m window at 2 m is 65,536
+  samples, **24.96 ms measured / 22.5 reference-equivalent** against 13.6 at 4 m — less than the
+  4× the sample count predicts, because the flood is 60% of it and the flood is cheaper per sample
+  on a denser lattice (381 ns/sample against 752 at 256 m). In the Debug game, headless standing
+  start: **130.1 ms to analyse on a worker**, 391 basins in the spawn's window against 255 at 4 m,
+  streaming untouched (1521 tracked, first draw 3.64 s, light settled 3.62 s at r4h/2v).
+- **Every world written at 4 m loses its lakes once**, by `BasinLedger.Load`'s policy and with
+  the `M7d:` warning; the mine's water is in the fluid panels and is not on that lattice.
+- **Not built, named**: if 2 m still reads coarse, clip the drawn quad against the seed height
+  at 1 m inside each wet cell — render-only, moves no basin, costs no analysis — rather than 1 m
+  across the board, which is 4× again. And the sky-height plane test now walks every sample in a
+  chunk (`ChunkSize / Cell` a side) rather than a hand-written 2×2.
+
+Suite 1,240, unchanged in count. The play check is the shoreline and the window's arrival.
+
 ## 2026-09-10 — 3c is played: the worst frame 332 → 64 ms, one boundary waited, and Tier A is standing at 388% of capacity
 
 Matthew posted the `M8b:` line from a play: 279 ticks, 2.3 ML poured, 302,250 cells, peak 128,600

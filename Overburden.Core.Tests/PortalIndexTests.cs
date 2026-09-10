@@ -28,6 +28,9 @@ namespace Overburden.Core.Tests;
 /// </remarks>
 public class PortalIndexTests(ITestOutputHelper output)
 {
+    /// <summary>The lattice a portal is filed on; the fixtures' cliffs sit on it at any cell dividing 16.</summary>
+    private const int Cell = HeightField.DefaultCellVoxels;
+
     /// <summary>A world with a seed surface, a loaded set and edits, standing in for the streamer.</summary>
     private sealed class DugWorld(ISurfaceHeights seed) : IFluidTerrain
     {
@@ -114,7 +117,8 @@ public class PortalIndexTests(ITestOutputHelper output)
         // A tunnel driven west into a cliff at Y 35: the face voxel at x 15 opens east onto
         // x 16, which is above its own column's surface of 30 — the bank. The next voxel in
         // opens onto dug rock under a surface of 40, so it is not a portal. And the portal is
-        // filed under the outside's sample (1, 0), where the water is, not the inside's (0, 0).
+        // filed under the outside's sample — the one holding voxel 16, where the water is — not
+        // the inside's (0, 0). The cliff sits on the lattice at every cell size that divides 16.
         var world = new DugWorld(Cliff(16, high: 40, low: 30));
         var index = new PortalIndex(world.Seed, world);
 
@@ -122,7 +126,7 @@ public class PortalIndexTests(ITestOutputHelper output)
         Assert.Equal(0, index.Count);
 
         world.Dig(index, new VoxelPos(15, 35, 5));
-        Portal portal = Assert.Single(index.Under(1, 0));
+        Portal portal = Assert.Single(index.Under(16 / Cell, 0));
         Assert.Equal(new Portal(new VoxelPos(15, 35, 5), new VoxelPos(16, 35, 5)), portal);
         Assert.False(portal.IsPit);
         Assert.Empty(index.Under(0, 0));
@@ -210,7 +214,7 @@ public class PortalIndexTests(ITestOutputHelper output)
     public void ForgettingEitherChunkOfABankPortalRemovesIt()
     {
         // The inside is the last column of chunk 0 and the outside the first of chunk 1, filed
-        // under sample (2, 0). Forgetting the outside's chunk removes it — that voxel reads as
+        // under the sample holding voxel 32. Forgetting the outside's chunk removes it — that voxel reads as
         // solid now — and so does forgetting the inside's.
         var west = new ChunkPos(0, 1, 0);
         var east = new ChunkPos(1, 1, 0);
@@ -221,7 +225,7 @@ public class PortalIndexTests(ITestOutputHelper output)
         world.Load(index, west);
         world.Load(index, east);
         world.Dig(index, portal.Inside);
-        Assert.Equal([portal], index.Under(2, 0));
+        Assert.Equal([portal], index.Under(32 / Cell, 0));
 
         world.Unload(index, east);
         Assert.Equal(0, index.Count);

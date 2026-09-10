@@ -254,8 +254,13 @@ visible here.
 
 **Settled at M7's planning pass, 2026-09-01** — full reasoning in [M7-PLAN.md](M7-PLAN.md):
 
-- **The watershed grid is 4 m**, deliberately between the 1 m light cell and the 8 m chunk column
-  so it borrows neither one's revisit trigger.
+- **The watershed grid is 2 m** (4 m from M7's pass until 2026-09-10, halved on Matthew's request
+  because the sample is also the lake surface's quad and the shoreline stepped at 4 m), deliberately
+  between the 1 m light cell and the 8 m chunk column so it borrows neither one's revisit trigger.
+  The price is per sample — the 512 m window analyses at 22.5 ms reference-equivalent against
+  13.6 — and a world written at another cell size opens with its stored lakes discarded, once.
+  The next step down is not 1 m but a render-only clip of the quad against the seed height
+  inside a cell, which moves no basin.
 - **A basin is identified by the world coordinate of its pit, never by an array index.** The
   analysis window is player-centred and renumbers when it moves; an index key silently reattaches
   stored water to a different basin.

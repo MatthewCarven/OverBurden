@@ -41,15 +41,23 @@ namespace Overburden.Core.Hydrology;
 /// </remarks>
 public sealed class HeightField
 {
-    /// <summary>Voxels per sample on each axis — 16 voxels, 4 m. Settled at M7's planning pass.</summary>
+    /// <summary>Voxels per sample on each axis — 8 voxels, 2 m. 4 m from M7's planning pass until 2026-09-10.</summary>
     /// <remarks>
-    /// Half a chunk, 2×2 samples per chunk column. Deliberately not the 1 m light cell and not the
-    /// 8 m chunk column, so it <b>borrows neither one's revisit trigger</b> — the same argument
-    /// that kept <c>BrushCell</c> off <c>LightCellPos</c> at M6c-1. A 30 m pond is about 56
-    /// samples, which is enough for a believable volume→level curve; at 8 m it would be 16 and the
-    /// curve would be a staircase.
+    /// A quarter of a chunk, 4×4 samples per chunk column. Deliberately not the 1 m light cell and
+    /// not the 8 m chunk column, so it <b>borrows neither one's revisit trigger</b> — the same
+    /// argument that kept <c>BrushCell</c> off <c>LightCellPos</c> at M6c-1. A 30 m pond is about
+    /// 225 samples, which is a smooth volume→level curve; at 8 m it would be 16 and the curve a
+    /// staircase. <b>Halved from 4 m on Matthew's request, because the sample is also the drawn
+    /// surface's quad</b> — the lake's shoreline stepped in 4 m runs, tolerable in M7's play and no
+    /// better than that. The price is the analysis, which is per sample: the 512 m window is the
+    /// sample count the 1 km window was at 4 m, 65 ms Release / ~250 ms Debug on a worker per
+    /// window move against 13.6 / 53 (M7d-1's figures). Must be a whole number of metres — see
+    /// <see cref="Sample"/> — so the next step down is 1 m at four times this again, and the
+    /// cheaper next step is clipping the drawn quad against the seed height inside a cell, which
+    /// moves no basin. <b>Changing this renames every basin</b>: a world written at another cell
+    /// size opens with its stored lakes discarded, by <c>BasinLedger.Load</c>'s policy.
     /// </remarks>
-    public const int DefaultCellVoxels = 16;
+    public const int DefaultCellVoxels = 8;
 
     /// <summary>
     /// The largest height magnitude the flood's packed sort key can carry.

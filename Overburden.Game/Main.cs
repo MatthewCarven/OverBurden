@@ -585,11 +585,18 @@ public partial class Main : Node3D
 
     /// <summary>How many samples on a side the water window is analysed at.</summary>
     /// <remarks>
-    /// 128 samples of 4 m is a 512 m window. M7a measured a 1,024 m window at 66 ms on this
-    /// machine and the cost is roughly quadratic in the span, so this is about a quarter of that -
-    /// and it is what <c>analysis ms</c> in the profile exists to confirm rather than assume.
+    /// A 512 m window whatever the lattice: 128 samples at the 4 m cell, 256 at the 2 m cell
+    /// (2026-09-10). Stated as a span rather than a pitch so that halving the cell does not
+    /// silently halve how much of the world the rain lands on — a basin whose catchment crosses
+    /// the window's edge drains off it. The cost is per sample: M7a measured 128 samples at 13.6 ms
+    /// Release and 256 at 66 ms (the 1,024 m window, then), roughly quadratic in the pitch, on a
+    /// worker once every ~128 m of travel — which is what <c>analysis ms</c> in the profile exists
+    /// to confirm rather than assume.
     /// </remarks>
-    private int _waterPitch = 128;
+    private int _waterPitch = WindowVoxels / HeightField.DefaultCellVoxels;
+
+    /// <summary>512 m, in voxels.</summary>
+    private const int WindowVoxels = 512 * VoxelConstants.VoxelsPerMetre;
 
     /// <summary>Multiplies the rain reaching the ground. The knob M7b left for M7d to pick.</summary>
     /// <remarks>
