@@ -246,8 +246,11 @@ public sealed partial class FluidSimulation
     /// cells found from a few hundred seeds; a flooded mine's floor is one sheet found from its
     /// front.
     /// </remarks>
-    public SheetLevelResult LevelSheets(int share = 0, int quietTicks = 0) =>
-        LevelSheets(Pending, share, quietTicks);
+    public SheetLevelResult LevelSheets(int share = 0, int quietTicks = 0)
+    {
+        RefuseMidTick(nameof(LevelSheets));
+        return LevelSheets(Pending, share, quietTicks);
+    }
 
     /// <summary>
     /// Levels every sheet reachable from the given cells, under the same share rule. At a tick

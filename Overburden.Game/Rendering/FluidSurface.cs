@@ -112,7 +112,20 @@ public sealed class FluidSurface
 
     public double LastInstallMillis { get; private set; }
 
-    private void Rebuild(FluidSimulation fluid)
+    private void Rebuild(FluidSimulation fluid) => Rebuild(fluid.Grid.SurfaceCells(), walkMillisOnWorker: null);
+
+    /// <summary>
+    /// Installs a surface from cells a worker walked (slice 3b): the walk already happened on the
+    /// tick job, so only the geometry and the install are paid here.
+    /// </summary>
+    public void InstallFrom(IEnumerable<(VoxelPos Cell, int Millilitres)> cells, double walkMillisOnWorker)
+    {
+        System.ArgumentNullException.ThrowIfNull(cells);
+        _sinceRebuild = 0.0;
+        Rebuild(cells, walkMillisOnWorker);
+    }
+
+    private void Rebuild(IEnumerable<(VoxelPos Cell, int Millilitres)> cells, double? walkMillisOnWorker)
     {
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
 
@@ -120,11 +133,10 @@ public sealed class FluidSurface
         var normals = new List<Vector3>();
         var indices = new List<int>();
 
-        FluidGrid grid = fluid.Grid;
         const float size = VoxelConstants.VoxelSize;
 
         int walked1 = 0;
-        foreach ((VoxelPos cell, int millilitres) in grid.SurfaceCells())
+        foreach ((VoxelPos cell, int millilitres) in cells)
         {
             walked1++;
 
@@ -138,7 +150,10 @@ public sealed class FluidSurface
 
         long walked = System.Diagnostics.Stopwatch.GetTimestamp();
         CellsWalked = walked1;
-        LastWalkMillis = (walked - started) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+
+        // On the job arm the walk's time is the worker's and what this half paid is geometry;
+        // reported as the worker's walk so the line keeps meaning "the walk", wherever it ran.
+        LastWalkMillis = walkMillisOnWorker ?? (walked - started) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
 
         Install(vertices, normals, indices);
 

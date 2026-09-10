@@ -4321,19 +4321,43 @@ finding without the coarser-tolerance fallback.
                               Rare (a turnaround inside half a second) and bounded by the tick; if a
                               sprint corridor ever shows meshes waiting on `parked`, the fix is a
                               deferred `Evict` that records no mark for a chunk with no panel.
-                  - [ ] **3b — the job. ✅ Planning pass done 2026-09-10, nine decisions handed
-                        back with recommendations; see the plan's "Slice 3b — the planning
-                        pass". Build once they are answered.** What the pass changed: **nothing
-                        changes what sets `GridOwnedByTick`** — `Begin` at submission and
-                        `Complete` at collection keep `TickInProgress` true for the job's whole
-                        life, and only the visit loop moves to the worker; **the worker reads a
-                        captured field view where `Unknown` is a refusal**, which is what slice
-                        2's `TickMisses == 0` was measured for, so the job arm requires the field;
-                        **the tick is the first detached job**, because `ChunkPipeline.Apply` is
-                        chunk-centric and would corrupt a chunk's `OutstandingJobs`; **a cancel
-                        returns the unvisited half of the batch** (3a's quit lever, built here);
-                        and the report line and HUD read a `Published` snapshot rather than the
-                        grid. Nine decisions, all recommended.
+                  - [x] **3b — the job. ✅ Built 2026-09-10, all nine decisions as recommended
+                        ("ok lets continue"); see the plan's "Slice 3b — built".** Suite 1,216 →
+                        1,234; 25 recipes, 25 caught. `--fluidjob=1` in `start.cmd`, 0 the
+                        sim-thread arm. Three findings: **ownership is the batch or the job**
+                        (an empty batch left `TickInProgress` false with a worker on the grid —
+                        the fuzz's job arm found it); **`Wake` asked the live terrain from the
+                        worker** (found by a two-counting-terrains test); and **the refusal count
+                        over-claimed** — on the played world's open 4,754 refusals, of which one
+                        for a chunk that had arrived, the rest the live terrain's own "not loaded".
+                        Measured: the same trajectory as the sync arm to the visit; both arms at
+                        2 Hz on the open at ~18,000 active, the job's worker wall ~50 ms mean.
+                        **Unplayed. The play check: `Q` under a lake with `start.cmd`, read
+                        `fluidjob` on the `M8b:` line — worker wall, `boundary(ies) waited`,
+                        refusals of arrived chunks — and whether the world keeps drawing under
+                        it; and the `M6:`/`M2c:` lines for generation starving.**
+                        - [ ] **The first flooded boundary's field sync is 235–279 ms** on the
+                              played world's open (both arms, never timed before 3b): dozens of
+                              32,768-question bakes in one frame. Levers: bake on a worker
+                              (the bake is a pure function of a chunk's voxels — a job), or
+                              bake a chunk's field the first time a visit reaches it rather than
+                              the whole reachable set at once.
+                        - [ ] **The settle's first pass on the open is 114–138 ms** over the
+                              restored lake. It is the sheet solve's known shape (M8b-3b's "a
+                              pass is O(sheet)"); with the tick on a worker it is the largest
+                              thing left on the sim thread at a boundary. Slice a pass across
+                              boundaries, or run the solve on the job.
+                        - [ ] **`Publish` walks the awake set every boundary** (1.1 ms mean on
+                              the wire check, 6.5 ms worst on the open). A counter maintained by
+                              the wake and the pause would make it free; not built until the
+                              `boundary` line says it matters.
+                        - [ ] **`MayHoldWater` under a job is an over-approximation** (published
+                              panels ∪ the captured set); a chunk that is in the captured set,
+                              dry, and arriving — which cannot happen, since captured means
+                              loaded — would park needlessly. Recorded, not a defect.
+                        - [ ] **`--fluidbudget` means nothing on the job arm** and the setup line
+                              says so; the sync arm keeps it. If the sync arm is ever retired,
+                              the flag and the slicing go with it.
                   - [ ] **3c — the race battery and the measurement**, per the planning pass.
             - [ ] **Slices 2 and 3 — ✅ planning pass done 2026-09-10, eight decisions handed back
                   with recommendations; see the plan's "Slices 2 and 3 — the planning pass". Build

@@ -1407,6 +1407,60 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         _fluidWaitingScratch.Clear();
     }
 
+    /// <summary>Detached jobs submitted and not yet reported. See <see cref="SubmitDetached"/>.</summary>
+    public int DetachedJobsInFlight { get; private set; }
+
+    /// <summary>
+    /// Submits a job that is not about a chunk (slice 3b). Its result reaches
+    /// <see cref="IDetachedJob.OnResult"/> from <see cref="Update"/>, on the sim thread, in the
+    /// same budgeted pass as every other result.
+    /// </summary>
+    /// <remarks>
+    /// Counted in <see cref="JobsInFlight"/> so <see cref="IsQuiescent"/> waits for it, and in
+    /// <see cref="DetachedJobsInFlight"/> so a quit can wait for it by name — see
+    /// <see cref="WaitForDetached"/>. Never serial: the lane is the store's.
+    /// </remarks>
+    public void SubmitDetached(IDetachedJob job, CancellationToken cancellation = default)
+    {
+        ArgumentNullException.ThrowIfNull(job);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        JobsInFlight++;
+        DetachedJobsInFlight++;
+        _scheduler.Submit(job, cancellation);
+    }
+
+    /// <summary>
+    /// Pumps results until every detached job has reported, or the timeout passes. For the quit:
+    /// the fluid tick is cancelled and then waited for here, so the save that follows finds the
+    /// grid free.
+    /// </summary>
+    /// <returns>False if the timeout passed with a detached job still out.</returns>
+    public bool WaitForDetached(double timeoutSeconds = DrainTimeoutSeconds)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (DetachedJobsInFlight == 0) return true;
+
+        long deadline = Stopwatch.GetTimestamp() + (long)(timeoutSeconds * Stopwatch.Frequency);
+        while (DetachedJobsInFlight > 0)
+        {
+            if (_scheduler.TryTakeResult(out JobResult result))
+            {
+                Apply(result);
+                continue;
+            }
+
+            if (Stopwatch.GetTimestamp() > deadline)
+            {
+                return false;
+            }
+
+            Thread.Yield();
+        }
+
+        return true;
+    }
+
     /// <summary>Takes the panels whose eviction tick has passed onto the pending batch.</summary>
     /// <remarks>
     /// Skipped while the grid is the tick's (slice 3a): the release reads the paused set and
@@ -1649,10 +1703,11 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
             _storeJobsInFlight--;
         }
 
-        // Ahead of the chunk lookup, because neither of these is *about* one chunk. A save spans a
-        // batch and a column spans every chunk Y, so decrementing OutstandingJobs on whatever
-        // record their nominal Position happens to name would corrupt the accounting that keeps a
-        // chunk from being forgotten with a worker still holding it.
+        // Ahead of the chunk lookup, because none of these is *about* one chunk. A save spans a
+        // batch, a column spans every chunk Y, and a detached job (the fluid tick, slice 3b) names
+        // a position only for the queue's distance band — so decrementing OutstandingJobs on
+        // whatever record their nominal Position happens to name would corrupt the accounting that
+        // keeps a chunk from being forgotten with a worker still holding it.
         switch (result.Job)
         {
             case SaveWorldJob save:
@@ -1661,6 +1716,17 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
 
             case LoadColumnJob column:
                 ApplyColumnRestore(column, result.Outcome);
+                return;
+
+            case IDetachedJob detached:
+                DetachedJobsInFlight--;
+                if (result.Outcome == JobOutcome.Faulted)
+                {
+                    FaultedJobs++;
+                    _onJobFaulted?.Invoke(detached.Position, result.Exception!);
+                }
+
+                detached.OnResult(result.Outcome, result.Exception);
                 return;
         }
 

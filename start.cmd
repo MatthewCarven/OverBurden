@@ -28,9 +28,12 @@ rem by default for the same reason the light budget is: every recorded figure wa
 rem --spread=counted was passed here from 2026-09-07 to 2026-09-09 for the counted divisor's play; the A/B
 rem on flat grass read the same under both rules ("they both look like water"), so the default, fixed,
 rem stands and the flag is gone. Pass --spread=counted yourself to see the other arm.
+rem --fluidnear=2 is the water thread's slice 1 (near water every tick, far water under a quota) and
+rem --fluidjob=1 its slice 3b (the tick as a job on a worker); both off by default in the code, so a
+rem profile without them stays comparable with every recorded figure. --fluidjob=0 is the sim-thread arm.
 rem --fluidnear=2 is the water thread's first slice (docs/WATER-THREAD-PLAN.md): the 5x5 chunk
 rem column around you is visited every Tier B tick and water further off is deferred past the
 rem boundary under a quota. Off by default for the reason the other two are: every recorded figure
 rem was taken without it. --fluidnear=0 is the control arm, --fluidfar=<cells> the floor's sweep.
-"%EXE%" --path Overburden.Game -- --lightbudget=16 --adaptive=1 --fluidnear=2 %*
+"%EXE%" --path Overburden.Game -- --lightbudget=16 --adaptive=1 --fluidnear=2 --fluidjob=1 %*
 pause

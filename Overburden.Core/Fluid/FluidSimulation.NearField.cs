@@ -1,4 +1,4 @@
-using Overburden.Core.Voxels;
+﻿using Overburden.Core.Voxels;
 
 namespace Overburden.Core.Fluid;
 
@@ -152,6 +152,14 @@ public sealed partial class FluidSimulation
     public void SetNearField(ChunkPos centre, int rings)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(rings);
+
+        // The worker classifies visits against the centre, so a move lands at the next BeginTick
+        // (slice 3b). The last one wins, which is what a moving viewer means.
+        if (_job is not null)
+        {
+            _nearFieldPending = (centre, rings);
+            return;
+        }
 
         bool changed = rings != _nearRings || centre != _nearCentre;
         _nearCentre = centre;

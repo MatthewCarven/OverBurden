@@ -74,7 +74,14 @@ public sealed partial class FluidSimulation
     /// <inheritdoc />
     public bool MayHoldWater(ChunkPos chunk)
     {
-        if (_grid.HasPanel(chunk) || _evicting.ContainsKey(chunk))
+        // With a worker on the grid the panel dictionary is its; the panels as they stood at
+        // submission and the captured set are the whole of what the worker can have added to,
+        // and a chunk in the captured set is loaded already (slice 3b).
+        bool hasPanel = _job is null
+            ? _grid.HasPanel(chunk)
+            : _publishedPanels.Contains(chunk) || (_capturedView?.Covers(chunk) ?? false);
+
+        if (hasPanel || _evicting.ContainsKey(chunk))
         {
             return true;
         }

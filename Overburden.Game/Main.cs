@@ -413,6 +413,39 @@ public partial class Main : Node3D
 
     private bool _fluidWarmSeen;
 
+    /// <summary>
+    /// <c>--fluidjob=1</c>: the tick runs as a scheduler job on a worker, the water thread's slice
+    /// 3b. Off by default so a profile without the flag stays comparable with every recorded
+    /// figure; <c>start.cmd</c> passes it, slice 1's shape. Needs the field, because a worker
+    /// reads a captured view of it and cannot read the streamer.
+    /// </summary>
+    private bool _fluidJobOn;
+
+    private System.Threading.CancellationTokenSource? _fluidJobCts;
+
+    private long _fluidJobSubmittedAt;
+
+    /// <summary>A tick that faulted on a worker freezes the water for the session; printed once.</summary>
+    private bool _fluidJobFaulted;
+
+    // The job's own figures: wall time from submission to collection, the worker's visit and walk
+    // time, and boundaries that arrived to find the previous tick still out — a slow tick lowers
+    // the rate rather than skipping a cell, and this is how often it did.
+    private int _fluidJobs, _fluidJobsWaited;
+    private double _fluidJobWallSum, _fluidJobWallMax, _fluidJobVisitSum, _fluidJobWalkSum;
+    private int _fluidJobsAtWarm, _fluidJobsWaitedAtWarm;
+    private double _fluidJobWallSumAtWarm, _fluidJobVisitSumAtWarm, _fluidJobWalkSumAtWarm;
+    private long _fluidRefusalsAtWarm, _fluidArrivedRefusalsAtWarm, _fluidRequeuedAtWarm;
+
+    // What the boundary itself costs on the sim thread, by pass, so "fluid ms" on the job arm can
+    // be read as parts rather than as one number: the settle, the hand-off and the drain, the
+    // pour, the field sync, the publish, and the capture with the composition.
+    private double _bSettle, _bHandoff, _bPour, _bSync, _bPublish, _bBegin;
+    private double _bSettleMax, _bHandoffMax, _bPourMax, _bSyncMax, _bPublishMax;
+    private int _boundaries;
+    private double _bSettleAtWarm, _bHandoffAtWarm, _bPourAtWarm, _bSyncAtWarm, _bPublishAtWarm, _bBeginAtWarm;
+    private int _boundariesAtWarm;
+
     /// <summary>The tick interval: 2 Hz, the rate M8-PLAN costed the active set against and M8a measured at.</summary>
     /// <remarks>
     /// <b>The automaton is rate-free, so this is the caller's number and nothing in Core reads
@@ -1179,6 +1212,12 @@ public partial class Main : Node3D
                 // streamer's chunks. Zero is the arm every figure before it was taken in.
                 case "fluidfield" when int.TryParse(value, out int fieldOn):
                     _fluidFieldOn = fieldOn != 0;
+                    break;
+
+                // The water thread, slice 3b: the tick as a job on a worker. Zero is the
+                // sim-thread arm every figure before it was taken in.
+                case "fluidjob" when int.TryParse(value, out int jobOn):
+                    _fluidJobOn = jobOn != 0;
                     break;
 
                 // M8b-3b: how many ticks with nothing arriving before the sheet solve levels what
@@ -2341,7 +2380,7 @@ public partial class Main : Node3D
         // Postponed a frame at a time while a tick owns the grid (slice 3a): SaveAll snapshots
         // the panels and refuses mid-tick, and a tick under a flood can span tens of frames. The
         // timer is left where it is, so the save fires on the first frame after the boundary.
-        if (_fluid is { TickInProgress: true })
+        if (_fluid is { GridOwnedByTick: true })
         {
             return;
         }
@@ -3272,6 +3311,17 @@ public partial class Main : Node3D
             ? $"M8b: near water is {_fluidNearRings} ring(s) of chunks, visited every tick; far water "
               + $"is admitted at least {_fluidFarFloor:N0} cell(s) a tick (--fluidnear=0 is no order)"
             : "M8b: no near/far order — every awake cell is visited every tick (--fluidnear=<rings>)");
+        if (_fluidJobOn && _field is null)
+        {
+            _fluidJobOn = false;
+            GD.Print("M8b: --fluidjob=1 needs the field a worker can read and --fluidfield=0 took it away; the tick stays on the sim thread");
+        }
+
+        GD.Print(_fluidJobOn
+            ? "M8b: the tick runs as a scheduler job on a worker, one tick in flight at a time; "
+              + "--fluidbudget means nothing on this arm (--fluidjob=0 is the sim-thread arm)"
+            : $"M8b: the tick runs on the sim thread in slices of {_fluidBudget.TotalMilliseconds:F1} ms a frame (--fluidjob=1 is the worker arm)");
+        _fluid.Publish();
 
         // M8b-4b: the save path takes its panels from here. After construction because the
         // terrain above is the pipeline's own streamer, which is the whole reason it is a
@@ -3335,6 +3385,21 @@ public partial class Main : Node3D
             _drawnAtWarm = _drain?.DrawnMillilitres ?? 0;
             _handedAtWarm = _handoff?.HandedMillilitres ?? 0;
             _settlesAtWarm = _settle?.Settles ?? 0;
+            _fluidJobsAtWarm = _fluidJobs;
+            _fluidJobsWaitedAtWarm = _fluidJobsWaited;
+            _fluidJobWallSumAtWarm = _fluidJobWallSum;
+            _fluidJobVisitSumAtWarm = _fluidJobVisitSum;
+            _fluidJobWalkSumAtWarm = _fluidJobWalkSum;
+            _fluidRefusalsAtWarm = _fluid.TickRefusals;
+            _fluidArrivedRefusalsAtWarm = _fluid.TickRefusalsOfArrivedChunks;
+            _fluidRequeuedAtWarm = _fluid.CellsRequeued;
+            _bSettleAtWarm = _bSettle;
+            _bHandoffAtWarm = _bHandoff;
+            _bPourAtWarm = _bPour;
+            _bSyncAtWarm = _bSync;
+            _bPublishAtWarm = _bPublish;
+            _bBeginAtWarm = _bBegin;
+            _boundariesAtWarm = _boundaries;
         }
 
         // Where the viewer is, for the near/far order. Called only when the order is on, so the
@@ -3347,7 +3412,8 @@ public partial class Main : Node3D
         }
 
         _fluidSinceTick += delta;
-        bool begin = !_fluid.TickInProgress && _fluidSinceTick >= FluidTickSeconds;
+        bool begin = !_fluid.GridOwnedByTick && _fluidSinceTick >= FluidTickSeconds && !_fluidJobFaulted;
+        long boundaryStarted = Stopwatch.GetTimestamp();
         if (begin)
         {
             // At most one tick of debt after a stall: the remainder is kept, the burst is not.
@@ -3359,11 +3425,15 @@ public partial class Main : Node3D
             // reads the ticks since the last inflow before this boundary pours any, so the tick
             // after a draw is never a quiet one. Then B → A, so what rests on the ground is in the
             // lake before the lake is drawn from.
+            long t0 = Stopwatch.GetTimestamp();
             _settle?.AtBoundary();
+            long t1 = Stopwatch.GetTimestamp();
             _handoff?.Absorb();
             _drain?.Draw();
+            long t2 = Stopwatch.GetTimestamp();
             TakePending();
             PourPending();
+            long t3 = Stopwatch.GetTimestamp();
 
             // Last, so the pour and the draw are already in and the chunks they wet are covered
             // before the tick reads them. Building here and nowhere else is what makes the terrain
@@ -3373,10 +3443,62 @@ public partial class Main : Node3D
                 _fluid.ReachableChunks(_fluidReachable);
                 _field.Sync(_fluidReachable);
             }
+
+            long t4 = Stopwatch.GetTimestamp();
+
+            // After the passes, so the pour and the settle are in what the report line and the
+            // HUD read; the collection publishes again when the tick lands.
+            _fluid.Publish();
+            long t5 = Stopwatch.GetTimestamp();
+
+            _boundaries++;
+            double settle = Milliseconds(t0, t1), handoff = Milliseconds(t1, t2), pour = Milliseconds(t2, t3);
+            double sync = Milliseconds(t3, t4), publish = Milliseconds(t4, t5);
+            _bSettle += settle;
+            _bHandoff += handoff;
+            _bPour += pour;
+            _bSync += sync;
+            _bPublish += publish;
+            _bSettleMax = Math.Max(_bSettleMax, settle);
+            _bHandoffMax = Math.Max(_bHandoffMax, handoff);
+            _bPourMax = Math.Max(_bPourMax, pour);
+            _bSyncMax = Math.Max(_bSyncMax, sync);
+            _bPublishMax = Math.Max(_bPublishMax, publish);
+        }
+
+        if (begin && _fluidJobOn)
+        {
+            // Slice 3b: compose here, visit on a worker, collect in OnFluidTickCollected. The
+            // captured view is the terrain the worker reads; the live field goes on being edited
+            // and synced here without touching it. fluid ms now means this boundary's cost.
+            long b0 = Stopwatch.GetTimestamp();
+            FluidFieldView view = _field!.Capture();
+            FluidTickJob job = _fluid.BeginTick(view, ViewerChunk(), walkSurface: _fluidSurface is not null);
+            _bBegin += Milliseconds(b0, Stopwatch.GetTimestamp());
+            job.Collected = OnFluidTickCollected;
+            _fluidJobCts = new System.Threading.CancellationTokenSource();
+            _fluidJobSubmittedAt = Stopwatch.GetTimestamp();
+            _pipeline!.SubmitDetached(job, _fluidJobCts.Token);
+
+            double boundaryMillis = Milliseconds(boundaryStarted, Stopwatch.GetTimestamp());
+            _fluidWorstMillis = Math.Max(_fluidWorstMillis, boundaryMillis);
+            if (_profiler is { Warm: true })
+            {
+                _profiler.FluidTick.Add(boundaryMillis);
+            }
+
+            return;
+        }
+
+        if (_fluidJobOn)
+        {
+            // The tick is out, or nothing is due. The surface is installed at collection.
+            return;
         }
 
         if (begin || _fluid.TickInProgress)
         {
+            // The sync arm only (the job arm returned above), where owned and in progress are one.
             long before = Stopwatch.GetTimestamp();
 
             // Bracketed so a miss inside a tick can be told from a miss at a boundary:
@@ -3417,6 +3539,52 @@ public partial class Main : Node3D
 
         _fluidSurface?.Update(delta, _fluid);
     }
+
+    /// <summary>The job's result, on the sim thread, from the pipeline's result pass (slice 3b).</summary>
+    /// <remarks>
+    /// The tick is already collected — the deferred list drained, the unvisited cells of a tick
+    /// that did not complete returned to the queue, the numbers published — by the time this runs;
+    /// what is left is the game's side: the surface, the figures, and a fault.
+    /// </remarks>
+    private void OnFluidTickCollected(FluidTickJob job, JobOutcome outcome, Exception? error)
+    {
+        _fluidJobCts?.Dispose();
+        _fluidJobCts = null;
+
+        double wall = Milliseconds(_fluidJobSubmittedAt, Stopwatch.GetTimestamp());
+        _fluidJobs++;
+        _fluidJobWallSum += wall;
+        _fluidJobWallMax = Math.Max(_fluidJobWallMax, wall);
+        _fluidJobVisitSum += job.VisitMillis;
+        _fluidJobWalkSum += job.WalkMillis;
+        if (wall > FluidTickSeconds * 1000.0)
+        {
+            _fluidJobsWaited++;
+        }
+
+        if (job.Surface is not null && _fluidSurface is not null)
+        {
+            _fluidSurface.InstallFrom(job.Surface, job.WalkMillis);
+        }
+
+        if (outcome == JobOutcome.Faulted)
+        {
+            // Frozen rather than retried or handed back to the sim thread: a fault is a bug and
+            // deterministic, so a retry is the same exception at 2 Hz and a fallback is the same
+            // exception on the main thread, which takes the game with it. A frozen lake beside a
+            // reported exception is the pipeline's visible-hole rule.
+            _fluidJobFaulted = true;
+            GD.PushError(
+                $"M8b: the fluid tick faulted on a worker after {job.Batch:N0} cell(s) were composed, "
+                + $"{job.Requeued:N0} returned to the queue — the water is frozen for this session: {error}");
+        }
+        else if (outcome == JobOutcome.Dropped && _fluidJobCancelledForQuit is false)
+        {
+            GD.PushWarning($"M8b: the fluid tick was dropped outside a quit; {job.Requeued:N0} cell(s) returned to the queue");
+        }
+    }
+
+    private bool _fluidJobCancelledForQuit;
 
     /// <summary><c>--injectlitres</c>: the relay from the command line, so a headless run can flood something.</summary>
     /// <remarks>
@@ -3713,17 +3881,6 @@ public partial class Main : Node3D
         return taken;
     }
 
-    /// <summary>The milestone's oracle, as a word: held equals added less removed less displaced less handed.</summary>
-    private string FluidIdentity()
-    {
-        FluidSimulation f = _fluid!;
-        bool exact = f.TotalMillilitres
-            == f.AddedMillilitres + f.LoadedMillilitres
-               - f.RemovedMillilitres - f.DisplacedMillilitres - f.HandedMillilitres
-               - f.EvictedMillilitres;
-        return exact ? "exact" : "*** NO ***";
-    }
-
     /// <summary>The B → A seam from both ends: Tier A's received equals Tier B's handed, whole litres, with the remainder pending.</summary>
     private string HandoffIdentity()
     {
@@ -3765,17 +3922,25 @@ public partial class Main : Node3D
               + $"largest sheet {_settle.LargestSheet:N0}, longest pass {_settle.LongestMillis:F1} ms";
 
         long drawn = _drain?.DrawnMillilitres ?? 0;
-        return $"{f.TotalMillilitres / litre:N0} L moving in {f.Grid.HeldCellCount:N0} cell(s) over "
-               + $"{f.Grid.PanelCount} panel(s) ({f.Grid.PanelBytes / 1024.0 / 1024.0:F1} MiB); "
-               + $"injected {(f.AddedMillilitres - drawn) / litre:N0} L, drawn {drawn / litre:N0} L, "
-               + $"loaded {f.LoadedMillilitres / litre:N0} L from {f.RestoredPanels:N0} panel(s), "
-               + $"evicted {f.EvictedMillilitres / litre:N0} L with {f.EvictedPanels:N0} panel(s), "
-               + $"removed {f.RemovedMillilitres / litre:N0} L, displaced {f.DisplacedMillilitres / litre:N0} L, "
-               + $"handed {f.HandedMillilitres / litre:N0} L to Tier A — "
-               + $"held == injected + drawn + loaded − removed − displaced − handed − evicted: {FluidIdentity()}, "
+        FluidPublished p = f.Published;
+        string job = _fluidJobOn
+            ? $"{f.JobTicks:N0} job tick(s), {f.TickRefusals:N0} refusal(s) inside a tick of which {f.TickRefusalsOfArrivedChunks:N0} for a chunk that had arrived, "
+              + $"{f.JobTicksNotCompleted:N0} not completed with {f.CellsRequeued:N0} cell(s) requeued, "
+              + $"worker wall mean {(_fluidJobs > 0 ? _fluidJobWallSum / _fluidJobs : 0):F1} ms max {_fluidJobWallMax:F1} ms, "
+              + $"{_fluidJobsWaited:N0} boundary(ies) waited; "
+            : string.Empty;
+        return $"{p.TotalMillilitres / litre:N0} L moving in {p.HeldCells:N0} cell(s) over "
+               + $"{p.Panels} panel(s) ({p.PanelBytes / 1024.0 / 1024.0:F1} MiB) at tick {p.Ticks:N0}; "
+               + $"injected {(p.Added - drawn) / litre:N0} L, drawn {drawn / litre:N0} L, "
+               + $"loaded {p.Loaded / litre:N0} L from {f.RestoredPanels:N0} panel(s), "
+               + $"evicted {p.Evicted / litre:N0} L with {f.EvictedPanels:N0} panel(s), "
+               + $"removed {p.Removed / litre:N0} L, displaced {p.Displaced / litre:N0} L, "
+               + $"handed {p.Handed / litre:N0} L to Tier A — "
+               + $"held == injected + drawn + loaded − removed − displaced − handed − evicted: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
                + $"received == handed: {HandoffIdentity()}; "
+               + job
                + $"{_relayPendingMillilitres / litre:N0} L still to pour; "
-               + $"paused {f.PausedCellCount:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
+               + $"paused {p.Paused:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
                + $"{f.ResumedCells:N0} resumed, {f.FaceWakes:N0} face wake(s), "
                + $"evicting {f.EvictingPanelCount:N0} panel(s), {f.ReclaimedPanels:N0} reclaimed, "
                + $"{f.Deferrals:N0} edit(s) deferred to a boundary, "
@@ -3788,8 +3953,30 @@ public partial class Main : Node3D
                + $"peak {f.PeakActiveCells:N0}, {f.CellVisits:N0} visits; budget "
                + $"{_fluidBudget.TotalMilliseconds:F1} ms a frame, worst frame {_fluidWorstMillis:F2} ms, "
                + $"{_fluidSlicedTicks:N0} tick(s) over more than one frame, longest {_fluidLongestTickFrames:N0}"
+               + (_boundaries > 0 ? $" | boundary worst: {BoundaryWorst()}" : string.Empty)
                + settle
                + surface;
+    }
+
+    /// <summary>The worst single pass of each kind over the run — the frame a boundary can cost.</summary>
+    private string BoundaryWorst() =>
+        $"settle {_bSettleMax:F1} ms, hand-off and drain {_bHandoffMax:F1} ms, pour {_bPourMax:F1} ms, "
+        + $"field sync {_bSyncMax:F1} ms, publish {_bPublishMax:F1} ms";
+
+    /// <summary>The boundary's cost by pass, mean per boundary over the window.</summary>
+    private string BoundaryLine()
+    {
+        int n = _boundaries - _boundariesAtWarm;
+        if (n == 0)
+        {
+            return "boundary  (none in the window)\n";
+        }
+
+        return $"boundary  {n:N0} in the window, mean per boundary: settle {(_bSettle - _bSettleAtWarm) / n:F2} ms, "
+               + $"hand-off and drain {(_bHandoff - _bHandoffAtWarm) / n:F2} ms, pour {(_bPour - _bPourAtWarm) / n:F2} ms, "
+               + $"field sync {(_bSync - _bSyncAtWarm) / n:F2} ms, publish {(_bPublish - _bPublishAtWarm) / n:F2} ms, "
+               + $"capture and compose {(_bBegin - _bBeginAtWarm) / n:F2} ms; worst over the run: "
+               + BoundaryWorst() + "\n";
     }
 
     /// <summary>The Tier B half of the profile, with the measured window's own denominators.</summary>
@@ -3859,18 +4046,34 @@ public partial class Main : Node3D
               + $"{_settle.LargestSheet:N0} cells, longest pass {_settle.LongestMillis:F2} ms, "
               + $"{_settle.TotalMillis:F1} ms in all\n";
 
-        return $"fluid     {f.TotalMillilitres / litre:N0} L moving in {f.Grid.HeldCellCount:N0} cell(s) "
-               + $"over {f.Grid.PanelCount} panel(s) ({f.Grid.PanelBytes / 1024.0 / 1024.0:F1} MiB); "
-               + $"injected {(f.AddedMillilitres - drawn) / litre:N0} L, drawn {drawn / litre:N0} L, "
-               + $"loaded {f.LoadedMillilitres / litre:N0} L from {f.RestoredPanels:N0} panel(s), "
-               + $"evicted {f.EvictedMillilitres / litre:N0} L with {f.EvictedPanels:N0} panel(s), "
-               + $"removed {f.RemovedMillilitres / litre:N0} L, displaced {f.DisplacedMillilitres / litre:N0} L, "
-               + $"handed {handed / litre:N0} L — "
-               + $"held == injected + drawn + loaded − removed − displaced − handed − evicted: {FluidIdentity()}; "
+        FluidPublished p = f.Published;
+        int jobs = _fluidJobs - _fluidJobsAtWarm;
+        string jobLine = !_fluidJobOn
+            ? "fluidjob  off (--fluidjob=0): the tick ran on the sim thread\n"
+            : jobs == 0
+                ? "fluidjob  on, but no tick was collected in the window\n"
+                : $"fluidjob  {jobs:N0} tick(s) collected in the window ({jobs / seconds:F2}/s against 2 nominal); "
+                  + $"wall mean {(_fluidJobWallSum - _fluidJobWallSumAtWarm) / jobs:F1} ms max {_fluidJobWallMax:F1} ms "
+                  + $"(worker visits mean {(_fluidJobVisitSum - _fluidJobVisitSumAtWarm) / jobs:F1} ms, "
+                  + $"walk mean {(_fluidJobWalkSum - _fluidJobWalkSumAtWarm) / jobs:F2} ms); "
+                  + $"{_fluidJobsWaited - _fluidJobsWaitedAtWarm:N0} boundary(ies) waited for a slow tick; "
+                  + $"{f.TickRefusals - _fluidRefusalsAtWarm:N0} refusal(s) inside a tick, of which {f.TickRefusalsOfArrivedChunks - _fluidArrivedRefusalsAtWarm:N0} for a chunk that had arrived by collection — decision 7's cost, the rest is the live answer; "
+                  + $"{f.CellsRequeued - _fluidRequeuedAtWarm:N0} cell(s) requeued by ticks that did not complete\n"
+                  + BoundaryLine();
+
+        return $"fluid     {p.TotalMillilitres / litre:N0} L moving in {p.HeldCells:N0} cell(s) "
+               + $"over {p.Panels} panel(s) ({p.PanelBytes / 1024.0 / 1024.0:F1} MiB); "
+               + $"injected {(p.Added - drawn) / litre:N0} L, drawn {drawn / litre:N0} L, "
+               + $"loaded {p.Loaded / litre:N0} L from {f.RestoredPanels:N0} panel(s), "
+               + $"evicted {p.Evicted / litre:N0} L with {f.EvictedPanels:N0} panel(s), "
+               + $"removed {p.Removed / litre:N0} L, displaced {p.Displaced / litre:N0} L, "
+               + $"handed {p.Handed / litre:N0} L — "
+               + $"held == injected + drawn + loaded − removed − displaced − handed − evicted: {(p.IdentityExact ? "exact" : "*** NO ***")}; "
                + $"{_relayPendingMillilitres / litre:N0} L still to pour; "
-               + $"paused {f.PausedCellCount:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
+               + $"paused {p.Paused:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
                + $"{f.ResumedCells:N0} resumed, {f.FaceWakes:N0} face wake(s), "
                + $"evicting {f.EvictingPanelCount:N0} panel(s), {f.ReclaimedPanels:N0} reclaimed\n"
+               + jobLine
                + breach
                + handoff
                + settle
@@ -4736,11 +4939,28 @@ public partial class Main : Node3D
             }
         }
 
-        // A tick in flight is finished before anything is written (slice 3a): the snapshot
-        // refuses a grid half-way through a tick, and the quit is the one caller that cannot wait
-        // for a boundary. Whole rather than cancelled, because a cancel would need to return the
-        // unvisited half of the batch to the pending set and nothing today does that; at a quit
-        // the cost is one tick's remainder, printed. Before the dispose, which is what saves.
+        // A tick out on a worker is cancelled and waited for before anything is written (slice
+        // 3b): the collection gives its unvisited cells back to the queue, so the rows list them
+        // awake, and the save that follows finds the grid free. Before the dispose, which is what
+        // saves.
+        if (_fluid is { JobInFlight: true } && _pipeline is not null)
+        {
+            int remaining = _fluid.RemainingInTick;
+            long before = Stopwatch.GetTimestamp();
+            _fluidJobCancelledForQuit = true;
+            _fluidJobCts?.Cancel();
+            bool reported = _pipeline.WaitForDetached();
+            GD.Print(reported
+                ? $"M8b: cancelled the tick in flight before the quit — {remaining:N0} cell(s) were still to visit, "
+                  + $"{_fluid.CellsRequeued:N0} returned to the queue over the session, in "
+                  + $"{Milliseconds(before, Stopwatch.GetTimestamp()):F1} ms"
+                : "M8b: the fluid tick did not report within the timeout; the quit goes on without it");
+        }
+
+        // A tick in flight on the sim thread is finished before anything is written (slice 3a):
+        // the snapshot refuses a grid half-way through a tick, and the quit is the one caller that
+        // cannot wait for a boundary. Whole rather than cancelled: at a quit the cost is one
+        // tick's remainder, printed.
         if (_fluid is { TickInProgress: true })
         {
             int remaining = _fluid.RemainingInTick;
@@ -4756,9 +4976,10 @@ public partial class Main : Node3D
         // figure the next open's "restored" line has to equal is this one.
         if (_fluid is not null && _store is not null)
         {
+            _fluid.Publish();
             GD.Print(
-                $"M8b: at quit — {_fluid.TotalMillilitres / (double)FluidConstants.MillilitresPerLitre:N0} L in "
-                + $"{_fluid.Grid.HeldCellCount:N0} cell(s), {_fluid.AwakeHeldCells().Count():N0} awake or paused");
+                $"M8b: at quit — {_fluid.Published.TotalMillilitres / (double)FluidConstants.MillilitresPerLitre:N0} L in "
+                + $"{_fluid.Published.HeldCells:N0} cell(s), {_fluid.Published.AwakeHeld:N0} awake or paused");
         }
 
         _pipeline?.Dispose();

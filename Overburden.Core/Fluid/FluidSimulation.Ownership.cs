@@ -1,4 +1,4 @@
-using Overburden.Core.Persistence;
+﻿using Overburden.Core.Persistence;
 using Overburden.Core.Voxels;
 
 namespace Overburden.Core.Fluid;
@@ -86,11 +86,12 @@ public sealed partial class FluidSimulation
 
     /// <inheritdoc />
     /// <remarks>
-    /// The same condition as <see cref="TickInProgress"/> today, and named separately because it is
-    /// a statement about ownership rather than about progress: slice 3b keeps the name and changes
-    /// what sets it.
+    /// <see cref="TickInProgress"/> — a batch composed and not yet cleared — or a job out (slice
+    /// 3b). The second term is not redundant: a job begun with nothing awake has an empty batch,
+    /// so <c>TickInProgress</c> is false for its whole life while a worker still holds the grid,
+    /// and the fuzz's job arm found a second job beginning under it on its first run.
     /// </remarks>
-    public bool GridOwnedByTick => TickInProgress;
+    public bool GridOwnedByTick => TickInProgress || _job is not null;
 
     /// <summary>Applies everything that arrived mid-tick. Called by <see cref="Complete"/>, once the batch is cleared.</summary>
     /// <remarks>

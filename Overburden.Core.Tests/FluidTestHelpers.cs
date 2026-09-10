@@ -148,10 +148,12 @@ internal static class FluidAssert
 
         // Belt and braces on the grid's own total, which is maintained separately from the
         // simulation's ledger and would not move if Transfer ever stopped being symmetric.
+        // Unchecked, because the fuzz asserts this between a slice and its finish, which on the
+        // job arm is under a held job no worker is running.
         long fromCells = 0;
-        foreach (VoxelPos cell in sim.Grid.HeldCells())
+        foreach (VoxelPos cell in sim.GridUnchecked.HeldCells())
         {
-            fromCells += sim.Grid.AmountAt(cell);
+            fromCells += sim.GridUnchecked.AmountAt(cell);
         }
 
         Assert.Equal(sim.TotalMillilitres, fromCells);

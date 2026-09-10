@@ -1,5 +1,6 @@
 ﻿using Overburden.Core.Content;
 using Overburden.Core.Fluid;
+using Overburden.Core.Jobs;
 using Overburden.Core.Persistence;
 using Overburden.Core.Streaming;
 using Overburden.Core.Voxels;
@@ -51,9 +52,11 @@ public class FluidEvictionTests
     private static Dictionary<VoxelPos, int> CellsIn(FluidSimulation sim, Func<ChunkPos, bool> which)
     {
         var cells = new Dictionary<VoxelPos, int>();
-        foreach (VoxelPos cell in sim.Grid.HeldCells())
+        // Unchecked: the fuzz reads between a slice and its finish, where the job arm holds a job
+        // that no worker is running.
+        foreach (VoxelPos cell in sim.GridUnchecked.HeldCells())
         {
-            if (which(cell.Chunk)) cells[cell] = sim.Grid.AmountAt(cell);
+            if (which(cell.Chunk)) cells[cell] = sim.GridUnchecked.AmountAt(cell);
         }
 
         return cells;
@@ -63,7 +66,7 @@ public class FluidEvictionTests
         CellsIn(sim, c => c == chunk).Values.Sum(v => (long)v);
 
     private static HashSet<VoxelPos> AwakeIn(FluidSimulation sim, ChunkPos chunk) =>
-        sim.AwakeHeldCells().Where(c => c.Chunk == chunk).ToHashSet();
+        sim.AwakeHeldCellsUnchecked().Where(c => c.Chunk == chunk).ToHashSet();
 
     private static HashSet<VoxelPos> ListedAwake(FluidPanelSnapshot snapshot)
     {
@@ -332,18 +335,18 @@ public class FluidEvictionTests
 
     // ---------------------------------------------------------------- the pipeline
 
-    private static readonly ChunkPos FarAway = new(200, 0, 200);
-    private static readonly ChunkPos Wet = new(0, 1, 0);
+    internal static readonly ChunkPos FarAway = new(200, 0, 200);
+    internal static readonly ChunkPos Wet = new(0, 1, 0);
     private static readonly VoxelPos Pour = new(16, 40, 16);
 
-    private static MaterialTable Materials() => MaterialTable.ForTesting(
+    internal static MaterialTable Materials() => MaterialTable.ForTesting(
         isOpaque: [false, true, true, true],
         isFluid: [false, false, false, false],
         textureLayer: [0, 1, 2, 3],
         hardness: [0f, 0.8f, 3.0f, 50f]);
 
     /// <summary>The automaton over a harness's streamer, wired the way Main wires it.</summary>
-    private sealed class Session : IDisposable
+    internal sealed class Session : IDisposable
     {
         public Session(
             IWorldStore store,
@@ -387,13 +390,13 @@ public class FluidEvictionTests
         }
 
         /// <summary>Pumps the pipeline and the automaton together until <paramref name="until"/> holds.</summary>
-        public void PumpUntil(Func<bool> until, int timeoutMillis = 30_000)
+        public void PumpUntil(Func<bool> until, int timeoutMillis = 30_000, bool pumpTicks = true)
         {
             var clock = System.Diagnostics.Stopwatch.StartNew();
             while (!until())
             {
                 Pipeline.Update();
-                Sim.Step();
+                if (pumpTicks) Sim.Step();
                 if (clock.ElapsedMilliseconds > timeoutMillis)
                 {
                     throw new TimeoutException("the session did not reach the state it was pumped toward");
@@ -1037,12 +1040,17 @@ public class FluidEvictionTests
             new StrataTable([new StrataLayer(1, 1), new StrataLayer(2, 3)], 3));
 
     [Theory]
-    [InlineData(0x5EEDUL)]
-    [InlineData(0xA11CEUL)]
-    [InlineData(0xBEEFUL)]
-    [InlineData(0xC0FFEEUL)]
-    [InlineData(1UL)]
-    public void AcrossRandomUnloadsWithEvictionTheWaterComesBackCellForCellAndNoFrontIsStranded(ulong seed)
+    [InlineData(0x5EEDUL, false)]
+    [InlineData(0xA11CEUL, false)]
+    [InlineData(0xBEEFUL, false)]
+    [InlineData(0xC0FFEEUL, false)]
+    [InlineData(1UL, false)]
+    [InlineData(0x5EEDUL, true)]
+    [InlineData(0xA11CEUL, true)]
+    [InlineData(0xBEEFUL, true)]
+    [InlineData(0xC0FFEEUL, true)]
+    [InlineData(1UL, true)]
+    public void AcrossRandomUnloadsWithEvictionTheWaterComesBackCellForCellAndNoFrontIsStranded(ulong seed, bool viaJob)
     {
         // M8b-4a's lifecycle fuzz with the panels leaving: a chunk toggled out is evicted, its
         // snapshot goes to a pending set and, at random, to the store; a chunk toggled back is
@@ -1058,6 +1066,31 @@ public class FluidEvictionTests
 
         var inner = new GeneratedTerrain(generator, minX, minY, minZ, maxX, maxY, maxZ);
         var toggled = new LoadableTerrain(inner);
+
+        // viaJob drives every tick of the subject through the job path on this thread (slice 3b):
+        // a "slice" is a tick begun and not yet run, and finishing it is running and collecting
+        // it, so every seam the sync arm reaches mid-tick is reached with a job out instead.
+        FluidTickJob? held = null;
+        void Tick(FluidSimulation s)
+        {
+            if (!viaJob) { s.Step(); return; }
+            if (held is not null) { held.Run(CancellationToken.None); held.OnResult(JobOutcome.Completed, null); held = null; return; }
+            FluidTickJob job = s.BeginTick(toggled, ChunkPos.Zero);
+            job.Run(CancellationToken.None);
+            job.OnResult(JobOutcome.Completed, null);
+        }
+
+        void Slice(FluidSimulation s)
+        {
+            if (!viaJob) { s.Resume(1); return; }
+            held = s.BeginTick(toggled, ChunkPos.Zero);
+        }
+
+        void Finish(FluidSimulation s)
+        {
+            if (s.GridOwnedByTick) Tick(s);
+        }
+
         var twinInner = new GeneratedTerrain(generator, minX, minY, minZ, maxX, maxY, maxZ);
         var twinToggled = new LoadableTerrain(twinInner);
         var sim = new FluidSimulation(toggled);
@@ -1125,7 +1158,7 @@ public class FluidEvictionTests
         {
             // A pour is a boundary call (slice 3a): a round that left a tick in flight finishes
             // it first, the way the game's relay waits for the boundary.
-            if (sim.TickInProgress) sim.Step();
+            Finish(sim);
             if (twin.TickInProgress) twin.Step();
 
             if (random.Next(3) != 0)
@@ -1155,7 +1188,7 @@ public class FluidEvictionTests
             int ticks = random.Next(1, 9);
             for (int t = 0; t < ticks; t++)
             {
-                sim.Step();
+                Tick(sim);
                 twin.Step();
             }
 
@@ -1167,7 +1200,7 @@ public class FluidEvictionTests
 
             if (random.Next(6) == 0)
             {
-                sim.Resume(1);
+                Slice(sim);
                 twin.Resume(1);
             }
 
@@ -1185,7 +1218,7 @@ public class FluidEvictionTests
                 {
                     pending[panel.Chunk] = panel;
                     evictions++;
-                    Assert.False(sim.Grid.HasPanel(panel.Chunk));
+                    Assert.False(sim.GridUnchecked.HasPanel(panel.Chunk));
                 }
             }
 
@@ -1194,7 +1227,7 @@ public class FluidEvictionTests
             // While away, in RAM or not, not a millilitre moves.
             foreach ((ChunkPos chunk, Dictionary<VoxelPos, int> snapshot) in away)
             {
-                if (!sim.Grid.HasPanel(chunk))
+                if (!sim.GridUnchecked.HasPanel(chunk))
                 {
                     continue;
                 }
@@ -1210,7 +1243,7 @@ public class FluidEvictionTests
             FluidAssert.Conserves(sim, rejected);
             FluidAssert.Conserves(twin, twinRejected);
 
-            List<ChunkPos> wet = sim.Grid.HeldCells().Select(c => c.Chunk).Distinct().Where(chunks.Contains).ToList();
+            List<ChunkPos> wet = sim.GridUnchecked.HeldCells().Select(c => c.Chunk).Distinct().Where(chunks.Contains).ToList();
             ChunkPos target = wet.Count > 0 && random.Next(10) < 7 ? wet[random.Next(wet.Count)] : chunks[random.Next(chunks.Count)];
             if (toggled.IsChunkLoaded(target))
             {
@@ -1241,7 +1274,7 @@ public class FluidEvictionTests
                 // everything pending and everything in RAM to the store; a fresh simulation; only
                 // the loaded chunks come back, each from its row. A parked chunk is not loaded to
                 // the water and is not one of them — its row is the truth, unread.
-                if (sim.TickInProgress) sim.Step();
+                Finish(sim);
                 parked.Clear();
                 Flush();
                 List<ChunkPos> loaded = chunks.Where(toggled.IsChunkLoaded).ToList();
@@ -1270,12 +1303,13 @@ public class FluidEvictionTests
                 foreach (ChunkPos chunk in loaded) reopened.ChunkArrived(chunk);
 
                 sim = reopened;
+                held = null;
                 rejected = 0;
                 quits++;
             }
         }
 
-        if (sim.TickInProgress) sim.Step();
+        Finish(sim);
         foreach (ChunkPos chunk in chunks)
         {
             if (!toggled.IsChunkLoaded(chunk))

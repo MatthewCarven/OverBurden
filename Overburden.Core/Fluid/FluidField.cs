@@ -327,4 +327,92 @@ public sealed class FluidField : IFluidTerrain
         _cache = bits;
         return bits;
     }
+
+    /// <summary>
+    /// The field as it stands, frozen: what a tick on a worker reads (slice 3b). Call at a tick
+    /// boundary, after <see cref="Sync"/>.
+    /// </summary>
+    /// <remarks>
+    /// A copy of the dictionary's references — hundreds of entries, microseconds — over arrays
+    /// that are never mutated in place, so the view is never torn by an <see cref="Invalidate"/>
+    /// landing mid-tick: the live field gets a new array and the view keeps the old one, which is
+    /// decision 7 in the storage. The view answers for nothing outside itself.
+    /// </remarks>
+    public FluidFieldView Capture() => new(new Dictionary<ChunkPos, byte[]>(_chunks));
+}
+
+/// <summary>
+/// An immutable snapshot of a <see cref="FluidField"/>, safe to read from a worker while the live
+/// field is edited and synced on the sim thread.
+/// </summary>
+/// <remarks>
+/// <b><see cref="FluidClass.Unknown"/> is a refusal here, not a fall-through.</b> The live field
+/// asks the streamer about a chunk it has no bits for; a worker cannot, so the view answers
+/// <i>cannot hold, not loaded</i> and counts it. That is right by construction and not only safe:
+/// a chunk with no field at the boundary was one the world could not answer for then —
+/// <see cref="FluidField.Build"/> declines an unloaded chunk — so a cell in it pauses exactly as
+/// M8b-4a's rule wants and the arrival wakes it. Slice 2's <c>TickMisses</c> was the measurement
+/// that this costs nothing: zero on a 40 s flood. <see cref="Refusals"/> is the same count on this
+/// arm, and the one that must stay at zero.
+/// </remarks>
+public sealed class FluidFieldView : IFluidTerrain
+{
+    private readonly Dictionary<ChunkPos, byte[]> _chunks;
+    private ChunkPos _cacheKey;
+    private byte[]? _cache;
+
+    internal FluidFieldView(Dictionary<ChunkPos, byte[]> chunks)
+    {
+        _chunks = chunks;
+    }
+
+    /// <summary>Chunks the view covers.</summary>
+    public int Chunks => _chunks.Count;
+
+    /// <summary>Questions asked of a chunk the view does not cover, answered as a refusal.</summary>
+    /// <remarks>Written by the worker that reads the view and read at collection; nothing else touches it.</remarks>
+    public long Refusals { get; private set; }
+
+    /// <summary>The chunks refused, so the collection can ask the live terrain which of them had arrived meanwhile.</summary>
+    /// <remarks>
+    /// A refusal for a chunk that is <i>not loaded</i> is the answer the live terrain gives too, and
+    /// costs nothing; a refusal for a chunk that arrived mid-tick is a cell paused one boundary
+    /// longer than the sync arm would have — decision 7's cost, and the one worth counting apart.
+    /// </remarks>
+    public HashSet<ChunkPos> RefusedChunks { get; } = [];
+
+    /// <summary>True when the view covers the chunk — the captured set, which is what <c>IsLoaded</c> means on this arm.</summary>
+    public bool Covers(ChunkPos chunk) => _chunks.ContainsKey(chunk);
+
+    /// <inheritdoc />
+    public bool CanHold(VoxelPos voxel)
+    {
+        byte[]? bits = Bits(voxel.Chunk);
+        if (bits is null)
+        {
+            Refusals++;
+            RefusedChunks.Add(voxel.Chunk);
+            return false;
+        }
+
+        int index = voxel.LocalIndex;
+        return (bits[index >> 3] & (1 << (index & 7))) != 0;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>The captured set: covered is loaded, which the planning pass named as the whole meaning of the flag on a worker.</remarks>
+    public bool IsLoaded(VoxelPos voxel) => _chunks.ContainsKey(voxel.Chunk);
+
+    private byte[]? Bits(ChunkPos chunk)
+    {
+        if (_cache is not null && _cacheKey == chunk)
+        {
+            return _cache;
+        }
+
+        _chunks.TryGetValue(chunk, out byte[]? bits);
+        _cacheKey = chunk;
+        _cache = bits;
+        return bits;
+    }
 }

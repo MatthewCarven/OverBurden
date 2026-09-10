@@ -1,4 +1,4 @@
-using Overburden.Core.Voxels;
+﻿using Overburden.Core.Voxels;
 
 namespace Overburden.Core.Jobs;
 
@@ -34,6 +34,16 @@ public enum JobKind : byte
     /// it wrong is losing the work the whole milestone exists to keep.
     /// </remarks>
     Save = 30,
+
+    /// <summary>One tick of the Tier B automaton on a worker. The water thread, slice 3b.</summary>
+    /// <remarks>
+    /// Level with <see cref="Save"/> on Save's own argument: the queue never empties under flight,
+    /// so anything ranked below generation waits for a quiet moment that never comes, and a flood
+    /// is exactly when it matters. The honest difference is that a tick is not nil — one worker of
+    /// eight for its length — which is the named trigger for a dedicated thread if the
+    /// <c>sources</c> line shows generation starving.
+    /// </remarks>
+    FluidTick = 30,
 }
 
 /// <summary>

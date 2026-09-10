@@ -1,5 +1,44 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-10 — Slice 3b is built: the tick runs on a worker, and the first thing it found was a term missing from 3a's own rule
+
+*"ok lets continue"* took all nine decisions and 3b was built in the session. **Suite 1,216 →
+1,234; 25 break-recipes, 25 caught.** The plan's "Slice 3b — built" has the shape; three things
+from building it are worth more than the shape.
+
+- **Ownership is the batch *or* the job.** 3a's flag is *batch composed and not yet cleared*; a
+  job begun with nothing awake has an empty batch, so the flag was false for its whole life with a
+  worker on the grid, and the eviction fuzz's new job arm began a second job under the first on
+  its first run. `GridOwnedByTick => TickInProgress || _job is not null`. The pass's "nothing
+  changes what sets the flag" was one term short, and only the fuzz driven through the job path
+  could have said so.
+- **`Wake` asked the live terrain from the worker.** A move wakes its neighbours; `Wake` refuses a
+  cell that neither holds nor can hold by asking the terrain, and the pass's classification of the
+  sixteen `_terrain.` sites put it on the boundary side. Two counting terrains — the simulation's
+  own and the one the job is begun with — with the assertion that the live one is asked *nothing*
+  during a run found it; it reads the visit terrain now, which at a boundary is the live one.
+- **The number that "had to be zero" was over-claimed.** 4,754 refusals inside a tick on the
+  played world's open. A refusal for a chunk that is not loaded is the answer the live terrain
+  gives too — slice 2's `TickMisses == 0` was measured on a fresh world's flood, not on an open
+  with chunks arriving — so the view records the chunks it refused and the collection asks the
+  live terrain which had arrived. **Of 4,754, one.** That one is decision 7's whole cost on the
+  open.
+- **The measurement.** The M8b-4a wire check on the job arm is the sync arm's trajectory to the
+  visit (736,323 visits, 32,953 hand-offs, 200,000 L handed), 61 ticks at 2.03/s, worker wall
+  39 ms mean / 147 max, no boundary waited. On the played world's open both arms hold 2 Hz at
+  ~18,000 active — the flood 3b was planned for was drained on 2026-09-05 and is not in that file
+  any more — with `loaded` identical to the litre and every identity exact; generation is not
+  starving at a standing start (3,528 jobs both arms). The surface on the job arm: 775 quads, the
+  walk 0.78 ms on the worker, 0.28 ms of install left on the main thread.
+- **Two costs both arms pay at the open and neither ever timed**, visible because the boundary
+  is timed now, by pass: **field sync 235–279 ms** worst (the first flooded boundary's bakes —
+  slice 2's number, taken) and **the settle's first pass 114–138 ms**. With the tick on a worker
+  they are the whole of `fluid ms`; both are levers in TODO.
+- **A first-run instrument trap of the session's own making**: the first A/B opened *different*
+  worlds, because the first arm's quit wrote its water back into the probe copy and the second
+  arm loaded 15 kL more. A fresh copy per arm, and `--nosave` opens no world at all — the run
+  that "measured" the open with it was the r6 control.
+
 ## 2026-09-10 — Slice 3a is played by accident and accepted; and an unknown flag now says so
 
 Matthew ran `start.cmd --fluidjob=1` — a flag that does not exist yet, 3b being planned and not

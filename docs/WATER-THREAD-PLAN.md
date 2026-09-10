@@ -797,6 +797,71 @@ an edit, an unload, a pour, a save and a quit landing mid-job — and the measur
    profile without the flag stays comparable with every recorded figure and the play gets the arm.
    Recommended.
 
+### Slice 3b — built 2026-09-10, all nine as recommended
+
+Suite 1,216 → 1,234; 25 break-recipes, 25 caught — two on the second run, both fixtures (the twin
+test's disturbances were aimed at voxels the falling sheet had not reached and woke nothing on
+either arm; the surface walk had no assertion). Unplayed; `start.cmd` passes `--fluidjob=1`.
+
+**What was built, against the decisions.** `FluidSimulation.Job.cs`: `BeginTick(captured,
+position, walkSurface)` composes the batch on the sim thread and returns a `FluidTickJob`;
+`RunOnWorker` is the visit loop in granules, polling cancellation between them, then the surface
+walk; `CollectTick` gives a tick that did not complete its unvisited cells back, completes —
+which drains 3a's deferred list — and publishes. `FluidTickJob : IDetachedJob`, `JobKind.FluidTick
+= 30`. `FluidFieldView` is `FluidField.Capture()`: a copy of references over copy-on-write arrays,
+`Unknown` refuses both questions and counts. `ChunkPipeline.SubmitDetached` / `IDetachedJob.OnResult`
+routed ahead of the chunk lookup / `WaitForDetached`. `FluidPublished` for the report line and the
+HUD; `Grid`, `AwakeHeldCells`, `Rested`, `Resume`, `Step`, `ReachableChunks`, `LevelSheets`,
+`Publish` refuse under a job; `SetNearField` lands at the next begin; `MayHoldWater` reads the
+published panels and the captured set. Main: the boundary passes, capture, begin and submit; the
+collection installs the surface from the worker's cells; the quit cancels and waits; a fault
+freezes the water, printed once. `fluid ms` now means the boundary's cost, and a `boundary` line
+prints it by pass — mean per boundary in the window and the worst over the run.
+
+**Three things the build found that the pass did not.**
+
+1. **Ownership is the batch *or* the job, and the fuzz's job arm found it on its first run.** A
+   job begun with nothing awake has an empty batch, so `TickInProgress` is false for its whole
+   life while a worker holds the grid, and a second job began under the first. `GridOwnedByTick =>
+   TickInProgress || _job is not null`. So "nothing changes what sets the flag" was one term short.
+2. **`Wake` asked the live terrain from the worker.** A move wakes its neighbours, and `Wake`
+   refuses a cell that neither holds nor can hold by asking `_terrain` — the streamer, in the
+   game. The pass classified sixteen sites and missed that this one is reached from the visit
+   path; `TheWorkerReadsTheCapturedTerrainAndNotTheLiveOne` — two counting terrains, the live one
+   must be asked nothing during a run — found it, and `Wake` reads the visit terrain now, which at
+   a boundary is the live one.
+3. **The refusal count over-claimed, and the played world's open said so.** 4,754 refusals in the
+   open's first seconds read as the number that had to be zero not being zero. A refusal for a
+   chunk that is *not loaded* is the live terrain's own answer and costs nothing; only a refusal
+   for a chunk that arrived mid-tick is a cell paused one boundary longer than the sync arm — so
+   the view records the chunks it refused and the collection asks the live terrain which of them
+   had arrived. **On the open: 4,754 refusals, of which one.** That one is decision 7's whole cost
+   there.
+
+**Measured.** The M8b-4a wire check on the job arm lands the same trajectory as the sync arm to
+the visit — 736,323 visits, 32,953 hand-offs, peak 27,947, all 200,000 L handed — with 61 ticks
+collected at 2.03/s, worker wall mean 39 ms max 147 ms, no boundary waiting, no refusal; the
+boundary costs settle 7.0 ms, field sync 4.3, publish 1.1, hand-off and drain 0.8, pour 0.4,
+capture and compose 0.02, mean per boundary. **On the played world's open, both arms hold 2 Hz**
+at ~18,000 active (13,000 near + 5,000 far): the sync arm in ticks of up to 27 frames at the 2 ms
+budget, the job arm at a worker wall of ~50 ms mean, 168 max, 0 boundaries waited, `loaded`
+identical to the litre and every identity exact. The `sources` line is identical in both arms at a
+standing start (3,528 jobs), so generation is not starving there; a moving flood is the play's to
+read. **The surface on the job arm**: 775 quads from the worker's walk, 0.78 ms of walk on the
+worker against 0.28 ms of install on the main thread.
+
+**Two costs on the open that both arms pay and neither arm ever timed**, visible now because the
+boundary is: **field sync 235–279 ms** worst at the first flooded boundary — slice 2's "the first
+flooded boundary's build cost is the number to take", taken: dozens of 32,768-question bakes in
+one frame — and **the settle's first pass 114–138 ms** over the restored lake. Both are named in
+TODO as levers; both are the whole of `fluid ms` on the job arm.
+
+**Not measured yet, and it is the play's**: the flood the played world used to have on open is
+gone (the lakes were drained on 2026-09-05), so the case 3b was planned for — 110,000 cells, 188
+frames a tick — no longer exists in that file. The provocation is `Q` under a lake with
+`--fluidjob=1`, reading `fluidjob`'s wall and `boundary(ies) waited` on the `M8b:` line, and the
+`M2c:` line's generates beside the sync arm's.
+
 ## The decisions, taken 2026-09-07 as recommended
 
 1. A separate piece, after M8b-4c and before M8c.

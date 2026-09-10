@@ -362,6 +362,19 @@ the budget bounds. On the bench, `--fluidbudget <ms>` (space-separated, like its
 each flow tick as back-to-back slices and prints slices per tick and the worst slice, which is
 how the roof-open case was priced in frames.
 
+The water thread's slice 3b (2026-09-10) adds **`--fluidjob=<0|1>`**: the tick as a scheduler job on a
+worker, one in flight at a time, composed and collected on the sim thread — `start.cmd` passes `1`, and
+0 is the sim-thread arm every figure before it was taken in. It needs the field (`--fluidfield=0` puts
+the tick back on the sim thread and says so), and `--fluidbudget` means nothing on it. The profile gains
+**`fluidjob`** — ticks collected in the window against 2 a second, worker wall mean/max, visit and walk
+ms, boundaries that waited for a slow tick, refusals inside a tick *and how many were for a chunk that
+had arrived* (the only ones that cost anything) — and **`boundary`**, the sim thread's cost at a tick
+boundary by pass (settle, hand-off and drain, pour, field sync, publish, capture and compose), mean in
+the window and worst over the run; **`fluid ms` on this arm is the boundary's cost**, not a slice's.
+The periodic `M8b:` line carries `job tick(s)`, `worker wall`, `boundary(ies) waited` and `boundary
+worst`. A quit cancels the job and waits for it (`M8b: cancelled the tick in flight before the quit`);
+a fault freezes the water for the session, printed once.
+
 The adaptive view radius (2026-09-06) adds six. **`--adaptive=1` turns it on; off is the default
 and the arm every recorded streaming figure was taken in, and `start.cmd` passes it on** the way
 it passes the light budget. The box starts at the floor, falls a ring at a time while the viewer
@@ -489,7 +502,23 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-10, night, later). Slice 3b is planned and not built — nine decisions in
+**Pick up here (2026-09-10, evening). Slice 3b is built and unplayed — the tick runs as a job on a
+worker, `start.cmd` passes `--fluidjob=1`, 0 is the sim-thread arm.** Read WATER-THREAD-PLAN's
+"Slice 3b — built" first. Suite 1,216 → 1,234; 25 recipes, 25 caught. **The play check: `Q` a
+chunk out under a lake and read the `M8b:` line's `fluidjob` terms — worker wall, `boundary(ies)
+waited`, refusals *for a chunk that had arrived* (the plain refusal count is the live terrain's own
+"not loaded" and reads as an alarm that is not one) — and whether the world keeps drawing under
+it; the `M2c:` line's generates against a `--fluidjob=0` run say whether generation starves, which
+is the plan's trigger for a dedicated thread.** Three things not to rediscover: **ownership is the
+batch or the job** (an empty batch left the flag false with a worker on the grid — the fuzz's job
+arm found it); **`Wake` reads the visit terrain**, because a move wakes neighbours from the worker
+(a two-counting-terrains test found the live one being asked); and **the open's two big frames are
+the field sync (235–279 ms) and the settle's first pass (114–138 ms)**, both arms, never timed
+before, now on the `boundary` profile line and `boundary worst` on the periodic line — the levers
+are in TODO under 3b. 3c — the race battery on real threads and the moving-flood measurement — is
+next and wants its own pass. The paragraph below is the planning state, kept for the reasoning.
+
+**Earlier (2026-09-10, night, later). Slice 3b is planned and not built — nine decisions in
 WATER-THREAD-PLAN's "Slice 3b — the planning pass", all recommended, waiting on Matthew; build it
 once they are answered.** The pass's four findings: nothing changes what sets `GridOwnedByTick`
 (`Begin` at submission, `Complete` at collection, only the visit loop moves to a worker); the worker

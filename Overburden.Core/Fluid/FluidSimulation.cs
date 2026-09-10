@@ -219,6 +219,7 @@ public sealed partial class FluidSimulation : IFluidPersistence
     {
         ArgumentNullException.ThrowIfNull(terrain);
         _terrain = terrain;
+        _visitTerrain = terrain;
         _nowTicks = nowTicks ?? Stopwatch.GetTimestamp;
         _spread = spread;
     }
@@ -230,7 +231,15 @@ public sealed partial class FluidSimulation : IFluidPersistence
     public static long BudgetTicks(TimeSpan budget) =>
         (long)(budget.TotalMilliseconds * TicksPerMillisecond);
 
-    public FluidGrid Grid => _grid;
+    /// <summary>The grid. Refuses while a job owns it (slice 3b); read <see cref="Published"/> then.</summary>
+    public FluidGrid Grid
+    {
+        get
+        {
+            RefuseMidJob(nameof(Grid));
+            return _grid;
+        }
+    }
 
     /// <summary>
     /// Cells still awake: those this tick has not yet visited, plus those queued for the next.
@@ -446,7 +455,14 @@ public sealed partial class FluidSimulation : IFluidPersistence
     /// would otherwise never see a levelled sheet — so the settle runs before the hand-off.
     /// </para>
     /// </remarks>
-    public IReadOnlyList<VoxelPos> Rested => _rested;
+    public IReadOnlyList<VoxelPos> Rested
+    {
+        get
+        {
+            RefuseMidJob(nameof(Rested));
+            return _rested;
+        }
+    }
 
     /// <summary>
     /// Wakes whatever water an edit at this voxel could have given something to do.
@@ -522,12 +538,20 @@ public sealed partial class FluidSimulation : IFluidPersistence
     public FluidTickResult? Resume(int maxVisits)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxVisits);
+        RefuseMidJob(nameof(Resume));
 
         if (!TickInProgress)
         {
             Begin();
         }
 
+        Advance(maxVisits);
+        return _cursor < _batch.Count ? null : Complete();
+    }
+
+    /// <summary>The visit loop: up to <paramref name="maxVisits"/> cells of the batch from the cursor. The worker's unit as well as the slice's.</summary>
+    private void Advance(int maxVisits)
+    {
         // Remaining first, then the minimum: Step() passes int.MaxValue, and adding that to a
         // cursor past zero overflows negative — which returned null from a whole-tick call that
         // was finishing a sliced tick, and the suite's first run is what said so.
@@ -556,8 +580,6 @@ public sealed partial class FluidSimulation : IFluidPersistence
         // visits it paid for are the ones it should count.
         CellVisits += visited;
         CountVisits(end - visited, end);
-
-        return _cursor < _batch.Count ? null : Complete();
     }
 
     /// <summary>
@@ -745,7 +767,7 @@ public sealed partial class FluidSimulation : IFluidPersistence
         {
             (int dx, int dz) = Sideways[k];
             VoxelPos side = cell.Offset(dx, 0, dz);
-            if (!_terrain.CanHold(side))
+            if (!_visitTerrain.CanHold(side))
             {
                 sides[k] = -1;
                 continue;
@@ -776,9 +798,9 @@ public sealed partial class FluidSimulation : IFluidPersistence
             return 0;
         }
 
-        if (!_terrain.CanHold(cell))
+        if (!_visitTerrain.CanHold(cell))
         {
-            if (!_terrain.IsLoaded(cell))
+            if (!_visitTerrain.IsLoaded(cell))
             {
                 // Unknown rather than rock: the chunk left the box or has not generated yet.
                 // Asked second, so the hot path — a held cell in a loaded chunk — never asks it.
@@ -793,7 +815,7 @@ public sealed partial class FluidSimulation : IFluidPersistence
         long moved = 0;
 
         VoxelPos below = Below(cell);
-        if (_terrain.CanHold(below))
+        if (_visitTerrain.CanHold(below))
         {
             int fell = _grid.Transfer(cell, below, Math.Min(amount, RoomAt(below)));
             if (fell > 0)
@@ -858,7 +880,7 @@ public sealed partial class FluidSimulation : IFluidPersistence
         long moved = 0;
 
         VoxelPos below = Below(cell);
-        if (_terrain.CanHold(below))
+        if (_visitTerrain.CanHold(below))
         {
             moved += Squeeze(cell, below, ref amount);
         }
@@ -871,14 +893,14 @@ public sealed partial class FluidSimulation : IFluidPersistence
             }
 
             VoxelPos side = cell.Offset(dx, 0, dz);
-            if (_terrain.CanHold(side))
+            if (_visitTerrain.CanHold(side))
             {
                 moved += Squeeze(cell, side, ref amount);
             }
         }
 
         VoxelPos above = Above(cell);
-        if (amount > 0 && _terrain.CanHold(above))
+        if (amount > 0 && _visitTerrain.CanHold(above))
         {
             // The one place water goes up, and it is displacement rather than flow: something took
             // this voxel away, so the water is pushed rather than lifted.
@@ -1063,6 +1085,7 @@ public sealed partial class FluidSimulation : IFluidPersistence
     /// </remarks>
     public IEnumerable<VoxelPos> AwakeHeldCells()
     {
+        RefuseMidJob(nameof(AwakeHeldCells));
         var seen = new HashSet<VoxelPos>();
 
         foreach ((_, HashSet<VoxelPos> cells) in _paused)
@@ -1260,6 +1283,7 @@ public sealed partial class FluidSimulation : IFluidPersistence
     public void ReachableChunks(HashSet<ChunkPos> into)
     {
         ArgumentNullException.ThrowIfNull(into);
+        RefuseMidJob(nameof(ReachableChunks));
 
         into.Clear();
         foreach (ChunkPos chunk in _grid.PanelChunks())
@@ -1348,7 +1372,10 @@ public sealed partial class FluidSimulation : IFluidPersistence
     {
         // A cell that can hold water is worth a visit; so is one that cannot but still contains
         // some, because that is the only path by which displaced water gets out of new rock.
-        if (!_terrain.CanHold(cell) && _grid.AmountAt(cell) == 0)
+        // The visit terrain, because a move wakes its neighbours from the worker (slice 3b) and
+        // the live terrain is the streamer there; at a boundary the two are the same object.
+        // TheWorkerReadsTheCapturedTerrainAndNotTheLiveOne is what found this site.
+        if (!_visitTerrain.CanHold(cell) && _grid.AmountAt(cell) == 0)
         {
             return false;
         }
