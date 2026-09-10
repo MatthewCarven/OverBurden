@@ -512,7 +512,20 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-10, late night, later). The shoreline is clipped by the terrain's depth,
+**Pick up here (2026-09-11, small hours). M8c is planned and not built — eight decisions in
+M8-PLAN's "M8c — the planning pass", all recommended, waiting on Matthew; build M8c-1 once they are
+answered.** The pass's spine: **the water table under a lake is the lake**, so Tier C is derived
+from Tier A's level and stored nowhere (decision 5's v4 question is answered: no), and **seepage is
+the portal drain through intact rock with a permeability factor** — a seep face is a dug voxel
+against rock below its column's table, filed per chunk the way portals are, drawn at the boundary
+through `Remove` lowest-face-first. Three things not to rediscover: **the 388% figure is
+`WindowCapacityLitres` summing leaf capacities by design**, so a merged lake reads over 100% and
+the number is not evidence of a rim defect; **only dug chunks seep** (the portal rule); and
+**M8c-2's awake count under steady seepage decides whether water bodies (WATER-BODIES-NOTES.md) go
+before M8d**, because seepage is the first source with no end. The paragraph below is the state
+before the pass, kept for the reasoning.
+
+**Earlier (2026-09-10, late night, later). The shoreline is clipped by the terrain's depth,
 not by the lattice — Matthew's rule, built and screenshotted the same night: a dry sample beside a
 wet one draws the wet one's plane, only into the same lake, and the ground hides it wherever the
 ground is above the level.** `WaterSurface.DilateShore`, `--shore=0` the control. Exact to the

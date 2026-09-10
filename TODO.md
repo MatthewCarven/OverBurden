@@ -4642,6 +4642,30 @@ Three honest caveats, because the saving is not where it first appears:
       answer here — store the accumulator and the timestamp, not the cells — but it wants saying
       out loud, and it is a header field.
 
+- [ ] **M8c — Tier C, groundwater and seepage. Planned 2026-09-10; see M8-PLAN's "M8c — the
+      planning pass". Eight decisions, all recommended, waiting on Matthew.** The pass's finding:
+      the water table under a lake *is* the lake, so Tier C is derived from Tier A's level and
+      stored nowhere — no header change — and seepage is the portal drain through intact rock with
+      a permeability factor. **The 388% figure is `WindowCapacityLitres` summing leaf capacities**,
+      by its own comment; a merged lake reads over 100% by construction, so the rim question stands
+      as a play question and the number is not its evidence.
+      - [ ] **M8c-1 — the seep index and the measurement.** `SeepIndex` beside `PortalIndex`, the
+            fuzz's oracle the definition over every scanned voxel, the edit path a second copy of
+            the geometry; `MaterialTable.Permeability` bounded [0, 1] with NaN closed; `--seep` on
+            the bench, swept by head and material. *Estimate*: 1.5–2 ms Release per dug chunk's
+            scan, ~7–9 s over the played mine's 4,584 chunks at open.
+      - [ ] **M8c-2 — the draw.** `SeepDrain` at the boundary: litres out of the basin through
+            `Remove`, cells into Tier B lowest-face-first under a granule, `seeped` on both
+            identities, `--seepscale=` (*estimate* 0.06 L/(m²·m·s): a 10 × 10 × 3 m stone room
+            under 5 m of head takes seven hours to stand ankle-deep), a `seep` profile line with
+            the awake count between deliveries. **That count decides whether water bodies go
+            before M8d.** Play: a `hand_pick` tunnel under the played lake, then a chunk.
+      - [ ] **M8c-3 — `Saturation.At(voxel)`**, head below the table or zero, pure and tested,
+            unread until M9.
+      - [ ] Deliberately out: lateral groundwater (a tunnel under a divide from a lake gets
+            nothing — the revisit trigger is that play), seepage from rain with no lake, natural
+            caves seeping, the damp-wall look (M8d), solubility (its own pass after M9).
+
 - [ ] **Water bodies — resting water as one number over a void (Matthew, 2026-09-10, "not
       yet").** [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md). DESIGN's *stable cells
       merge into a Tier A body*, never built; the mine gets a Tier A body and the seams

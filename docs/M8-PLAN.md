@@ -1557,6 +1557,140 @@ like rainfall — but the moment it seeps into a space, that space is Tier B and
 **The join between a lazily-evaluated source and an eagerly-ticked sink is the shape to get right**,
 and it is the same join M7b built between analytic rainfall and a stored accumulator.
 
+### M8c — the planning pass, 2026-09-10
+
+Read the paragraph above against what M8b built, and against MATERIALS-NOTES, SCALE and the seams.
+**The paragraph above was written before the seams existed, and every hard question it names is
+answered by one of them.** Decision 3's honest problem — *lateral drainage is a coupling with no
+per-cell closed form* — dissolves once the water table is Tier A's level rather than a field of its
+own; the "join between a lazily-evaluated source and an eagerly-ticked sink" is `PortalDrain`,
+already built; decision 5's "Tier C may need storing, decide at M8c" is decided by having nothing to
+store. Four findings and then the decisions.
+
+#### Findings
+
+1. **The water table under a lake is the lake, and Tier A already holds it.** DESIGN's Tier C is
+   *a coarse per-1 m saturation field, rain-fed, draining downhill*, and the plan's decision 3
+   correctly says that field cannot be swept (SCALE: 778,752 cells at r4h/2v, 1.33 million at r6)
+   and that its lateral coupling has no closed form. But the quantity that field exists to produce
+   — *how saturated is the rock beside this excavation* — is, under a lake, the head of that lake
+   over the voxel, and a basin's level is one number Tier A solves, banks per pit and persists.
+   **So saturation is derived from Tier A, not stored anywhere**: for a voxel in a basin's
+   catchment, `head = level − y`, saturated where positive, dry where not; recent rain enters only
+   as a look (M7c's `WetnessAt`) until M9 asks for more. The field DESIGN describes is what a real
+   groundwater model would carry; the water table *is* that model's answer, and Tier A computes it
+   from volume and terrain already. Fifth outing for *the cheap version is the more accurate one*,
+   and it is the one that keeps M8c's oracle exact: seepage draws litres out of a basin that has
+   them, through `BasinWater.Remove` (M8b-2a), so `held == rained + injected + received − spilled −
+   drawn − seeped` stays an identity with no source that creates water.
+2. **Seepage is the portal drain through intact rock, with a permeability factor.** A portal is a
+   dug voxel opening onto a voxel above its own seed surface — a hole at voxel resolution, filed
+   under the outside's sample. A *seep face* is a dug voxel whose face neighbour is rock, below the
+   water table of the column it stands in: the same shape, the same index (per chunk, from the
+   three arrival paths, the edit hook and the forget — `PortalTracker`'s wiring), the same "a hole
+   is only what was dug" filter, the same draw at the tick boundary into Tier B cells. What differs
+   is the rate: a portal passes whatever room the cell under the mouth has; a seep face passes
+   `permeability(rock) × head × scale × Δt` litres. **Everything the paragraph above called the
+   shape to get right is `PortalDrain`, and it has been in the game since 2026-09-05.**
+3. **Nothing new is stored, so there is no header change.** The seep index is derived from the
+   chunk's voxels and the seed surface, like the portal index; the table is Tier A's; the only
+   state is a sub-cell remainder per seeping chunk, bounded at one cell (15.625 L) and lost on a
+   quit — the same bound M7d-1 recorded for a window move's remainder, and stated rather than
+   hidden. Decision 5's v4 question is answered: **no**.
+4. **The 388% figure is an instrument reading, not a rim overfill, and the term's own comment says
+   so.** `WindowCapacityLitres` sums *leaf* capacities — deliberately, "because the composite slabs
+   above the leaves are lakes that have already drowned their ridges" — so a merged lake standing
+   above its saddles reads over 100% by construction, and the played world's big lake reads 388%.
+   The hand-off cannot create litres and `Add` spills at the root. The play question *does a lake
+   read higher than its bank* stands on its own; the number is not evidence for it. **Re-read the
+   `M7d:` line with that denominator in mind before believing any percentage over 100.**
+
+#### What seeps, exactly
+
+For each loaded, dug chunk: every holdable voxel *v* (dug, or open above the seed surface inside
+the chunk — the portal index's holdability) with a face neighbour *r* that is rock, where the water
+table over *v*'s column stands above *v*. The table is `LevelAt(basin of SampleOf(v.X, v.Z))`, the
+lake's level if the column's basin is part of one, absent otherwise. Head is `table − (v.Y + 0.5)`
+in voxels, converted to metres. The face's rate is `perm(material of r) × head_m × seepageScale`,
+in litres per second per face, summed per chunk into a *coefficient* that changes only when the
+chunk's voxels or the table change. At each tick boundary the chunk's litres are `coefficient × Δt`
+plus its remainder; whole cells are drawn from the basin through `Remove` and delivered into Tier B
+at the seeping faces **lowest first** — head is greatest there, and a floor spring before a wall
+weep is what a real mine does — under a per-tick granule, the rest carried.
+
+Natural caves do not seep, by the portal rule — *a hole is what was dug* — and for the same reason:
+a cave under a lake that seeped from the moment the chunk generated would put water everywhere at
+once with nothing having been done. Named so the first cave found dry under a lake reads as a
+decision.
+
+#### The cost, estimated, and the measurement that replaces it
+
+- **The scan.** A chunk bite is 32,768 voxels × 6 faces; the portal scan of the same bite is
+  1.2 ms Release with the seed surface read once per column. The seep scan reads the same and
+  adds a material lookup per rock face — *estimate* 1.5–2 ms Release per dug chunk at arrival or
+  edit, on the sim thread where the portal scan runs. The played mine is 4,584 dug chunks; at open
+  that is ~7–9 s of scans, which is a lot for a frame and nothing for the serial lane the fluid
+  restore already uses. **M8c-1's bench takes the number.** Lever if it bites: the coefficient
+  stored in the fluid panel row (that *would* be a schema change; not recommended until measured).
+- **The tick.** One multiply per seeping chunk, plus deliveries under a granule. Below the noise
+  of the fluid tick's own boundary.
+- **The rate.** *Estimate*: a 10 × 10 × 3 m room in stone (JSON `permeability` 0.02) under 5 m of
+  head has ~160 m² of wall; at `seepageScale` 0.06 L/(m²·m·s) that is ~1 L/s, 25,000 L to stand
+  ankle-deep on the floor — seven hours of world time. Dirt at 0.35 is seventeen times faster.
+  That is the *nuisance* end the settled decision asks for; `--seepscale=` is the sweep and M8d's
+  play picks inside it, as `rainfallScale` was picked.
+- **What it does to Tier B, and the trigger it sets.** Seepage is the first source with no end:
+  a mine under a lake is fed for as long as the lake has water, and the lake is refilled by rain.
+  A resting sheet on the mine floor (not seed ground, so never handed off) is woken by every
+  delivery — a small ripple per cell, bounded by the settle's share slice, but *never nothing*.
+  **M8c-2 measures the awake count under steady seepage on the played world; if it does not go
+  quiet between deliveries, water bodies (WATER-BODIES-NOTES.md) move ahead of M8d**, because a
+  body takes a delivery as litres and stays asleep.
+
+#### Split
+
+- **M8c-1 — the seep index and the measurement.** Core only. `SeepIndex` beside `PortalIndex`:
+  faces per chunk with material and Y, the coefficient, the per-chunk remainder; the definition
+  over every voxel of every scanned chunk as the fuzz's oracle, with the edit path a second copy
+  of the geometry (M8b-2b's rule, which is what let its fuzz catch a mutation). `MaterialTable`
+  projects `Permeability`, bounded at load and use to [0, 1] with NaN failing closed (M3c). A
+  bench arm `--seep`: a room under a lake, swept by head and by material, printing faces, scan ms,
+  L/tick and whether the lowest face delivers first.
+- **M8c-2 — the draw.** `SeepDrain` beside `PortalDrain` at the tick boundary: litres out of the
+  basin through `Remove`, cells into Tier B lowest-first under a granule, `seeped` on both tiers'
+  lines and in both identities, `--seepscale=` the lever, the `M8b:` and `M7d:` lines carrying it,
+  and a `seep` profile line (faces, chunks seeping, litres in the window and in all, the awake
+  count between deliveries). Play: dig under the played lake with a `hand_pick`, then a chunk out,
+  and read whether the water arriving reads as *the mine getting wet* or as a tap.
+- **M8c-3 — the query M9 reads.** `Saturation.At(voxel)` in Core: head below the table, or zero;
+  pure, tested, unread until M9 — so M9's keystone interaction has its input defined by the
+  milestone that owns it rather than guessed by the one that consumes it. The damp-wall look is
+  M8d's and not here.
+
+#### Decisions, each with a recommendation
+
+1. **Tier C is derived from Tier A's level, not a stored field.** *Recommended.* Cost: no lateral
+   groundwater — a tunnel below lake A's level but under a divide into dry basin B's catchment gets
+   nothing, though A is twenty metres away. Revisit trigger: that play, exactly. The lever then is
+   a radius over neighbouring lakes' levels, still derived, still no store.
+2. **Seepage draws from the basin, so the oracle stays exact; no lake, no seepage.** *Recommended.*
+   Cost: a wet hillside with no lake does not weep into a tunnel; recent rain is a look only.
+   Revisit trigger: M9 wanting saturation from rain alone for support — then rain's contribution
+   is a second derived term with its own identity, not a store.
+3. **Only dug chunks seep, natural caves do not** — the portal rule. *Recommended*; see above.
+4. **Permeability is the JSON scalar, per material, bounded [0, 1], NaN closed.** *Recommended*,
+   and it is MATERIALS-NOTES' one urgent item: the field has been in the format unread since M1
+   and the trap is a constant shipping green. Solubility stays out (that note's decision 2).
+5. **Delivery is lowest-face-first under a granule.** *Recommended.* Cost: a per-chunk sort by Y
+   once per scan. The alternative — deliver at the wall where the face is — is the same list
+   unsorted and puts a wall weep before a floor spring, which is backwards.
+6. **`seepageScale` ships at the nuisance end, an estimate, swept by flag, picked in M8d's play.**
+   *Recommended* — the settled option 3, and `rainfallScale`'s shape.
+7. **Nothing is stored; the remainder is lost on a quit, bounded at one cell per chunk.**
+   *Recommended*, stated as a bound and asserted.
+8. **M8c-1 and M8c-2 are built as one session each; M8c-3 is a morning.** The measurement in
+   M8c-2 — the awake count under steady seepage — decides whether water bodies go before M8d.
+
 ---
 
 ## M8d — The transparent pass, measurement and play

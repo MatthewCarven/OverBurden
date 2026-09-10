@@ -1,5 +1,27 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-11 — M8c is planned: the water table is the lake, and seepage is the portal drain through rock
+
+The planning pass for Tier C, in M8-PLAN under "M8c — the planning pass". Eight decisions, all
+recommended, handed back. Four things from it:
+
+- **Every hard question the M8c paragraph named is answered by a seam M8b built.** Decision 3's
+  "lateral drainage has no closed form" dissolves once the water table is Tier A's level rather
+  than a field: under a lake, saturation at a voxel is the lake's head over it, one number Tier A
+  already solves, banks and persists. Nothing is stored, so decision 5's v4 question is no.
+- **Seepage is `PortalDrain` with a rate.** A seep face is a dug voxel against rock below its
+  column's table; the index is `PortalIndex`'s shape with the same "a hole is what was dug"
+  filter; the draw is `Remove` out of the basin, cells into Tier B lowest-face-first, so the oracle
+  stays `held == rained + injected + received − spilled − drawn − seeped` with no source that
+  creates water. Permeability is the JSON scalar, unread since M1, bounded [0, 1], NaN closed.
+- **The 388% is the denominator.** `WindowCapacityLitres` sums leaf capacities by its own comment,
+  so a lake that has drowned its ridges reads over 100% by construction. The rim play question
+  stands; the number is not its evidence.
+- **Seepage is the first source with no end, and that sets water bodies' trigger.** A mine floor
+  is not seed ground, so its resting sheet is never handed off and every delivered cell wakes it;
+  M8c-2 measures the awake count between deliveries on the played world, and if it never goes
+  quiet, bodies go before M8d.
+
 ## 2026-09-10 — The shore is played and accepted; the plane draws a centimetre low
 
 Matthew's two screenshots: the played world in rain, *"looks awesome"*. Between the ring landing and
