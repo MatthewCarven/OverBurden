@@ -522,8 +522,11 @@ the played lakes stand at 108% of capacity, so the far slope was under the level
 lake". **This changes the 2 m decision below**: the look no longer depends on the lattice, so 2 m
 buys only the curve at three times 4 m's analysis, and the honest A/B now is `--waterwindow=128`
 with the cell back at 16 against the shipped 2 m, on the look alone. That A/B is Matthew's play;
-water bodies (WATER-BODIES-NOTES.md) and the M8c pass are still what is next. The paragraph below
-is the 2 m state, kept for the reasoning.
+water bodies (WATER-BODIES-NOTES.md) and the M8c pass are still what is next. **Played the same
+night — *"looks awesome"* — so 2 m, the ring and the 1 cm plane bias (`SurfaceBiasMetres`, so a
+flush voxel face wins the z-fight the ring exposed) ship; the 4 m arm was not run and is not a
+flag, because the lattice check discards stored lakes on every change.** The paragraph below is
+the 2 m state, kept for the reasoning.
 
 **Earlier (2026-09-10, late night). The watershed cell is 2 m — `HeightField.DefaultCellVoxels`
 16 → 8 on Matthew's request, because the sample is also the lake surface's quad and the shoreline

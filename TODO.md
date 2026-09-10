@@ -3010,11 +3010,13 @@ and so does everything after it. Additive, so header **v2 → v3 migrates**.
                   considered and refused: the clipping terrain is the *dug* terrain and the level
                   is the seed's, so every excavation below the lake's level in the catchment would
                   show water.
-            - [ ] **Play check, changed by the above**: the shoreline reads the same at any
-                  lattice now, so the A/B is the *curve* — `--waterwindow=128` with
-                  `DefaultCellVoxels` back at 16 against the shipped 2 m, on the look of a pond
-                  filling and on the analysis cost (13.6 against 22.5 ms reference-equivalent).
-                  If you cannot tell them apart, 4 m is right and the constant goes back.
+            - [x] **Played and accepted, 2026-09-10** — *"looks awesome"* on the played world in
+                  rain: 2 m, the ring and the 1 cm bias ship. The 4 m arm was not run (the cell is
+                  a constant, so `--waterwindow=128` at 2 m is a 256 m window, not 4 m) and is
+                  deliberately not made a flag: the header's lattice check discards the stored
+                  lakes on every change, so an A/B on the played world would wipe them twice.
+                  **Revisit trigger: the analysis cost being felt** — 130 ms Debug on a worker per
+                  window move — at which point 4 m is one constant and a scratch world.
             - [ ] **Every world written at 4 m opens with its lakes discarded, once**, with the
                   `M7d: the watershed lattice has changed` warning; they refill. Tier B water in
                   the mine is in the fluid panels and is untouched.

@@ -1,5 +1,17 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-10 — The shore is played and accepted; the plane draws a centimetre low
+
+Matthew's two screenshots: the played world in rain, *"looks awesome"*. Between the ring landing and
+the play, a brim-full pond showed the water winning a z-fight in ragged patches wherever the ground
+sat exactly at the level — the ring draws the plane over those cells now, which the corner-sample
+rule never did. **`SurfaceBiasMetres = 0.01`**, Matthew's number: the plane is drawn a centimetre
+under the solved level and the flush face wins; the level itself, and everything the seam hands
+across, is untouched. One correction to the play's own framing: `--waterwindow=128` is a 256 m
+window at the 2 m cell, not the 4 m arm — the cell is a constant — so what was judged is the
+shipped state, and it stands. The 4 m arm is not made a flag because the header's lattice check
+discards the stored lakes on every change.
+
 ## 2026-09-10 — The shoreline is clipped by the terrain, not the lattice: Matthew's rule, built and shot the same night
 
 Matthew, on the 2 m shoreline's screenshot: *"what if I decided that if any block in the boundary
