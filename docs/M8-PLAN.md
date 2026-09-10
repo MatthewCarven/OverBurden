@@ -1691,6 +1691,79 @@ decision.
 8. **M8c-1 and M8c-2 are built as one session each; M8c-3 is a morning.** The measurement in
    M8c-2 — the awake count under steady seepage — decides whether water bodies go before M8d.
 
+### M8c-1 — built, 2026-09-11
+
+Matthew's *"M8c as planned"* took all eight. Suite 1,234 → 1,257; 33 break-recipes, 32 caught,
+the one miss an identity. `Overburden.Core/Fluid/SeepIndex.cs` holds `SeepFace`, `SeepGroup`,
+`IWaterTable` and the index; `ISeepTerrain` is `IFluidTerrain` plus *is this loaded rock, and how
+permeable* (`VoxelFluidTerrain` answers both); `MaterialTable.Permeability` is the field's first
+reader since M1, refused outside [0, 1] at load and clamped with NaN → 0 at use;
+`PortalTracker` takes the seep index as a second, optional index and feeds it the same events
+under the same dug filter; `WaterSystem` implements `IWaterTable` as `BasinAtSample` → `LevelAt`.
+Nothing is wired into `Main` — that is M8c-2 — and the bench arm is `--seep`. Where the build
+departed from the pass, and what the measurement said:
+
+- **The table is not in the definition, and the coefficient is per group, not per face.** The
+  pass wrote "a face … where the water table over v's column stands above v" as if the table were
+  part of what the index holds; it changes every tick and nothing edits the world when it does,
+  so the index holds every candidate face — holdable, at or below its seed surface, against loaded
+  rock of non-zero permeability — and `Coefficient(chunk, table)` asks the table at the boundary.
+  Faces are summed per (sample, Y) into `SeepGroup`s first, because every face in a sample at one
+  Y sees the same head: the bench's 6,613 faces are 345 groups, and a coefficient is 0.025 ms.
+  **Sealed rock is not a face at all**, rather than a zero term, so a room lined with something
+  impermeable has no faces and the drain never visits it.
+- **Filed under the inside's chunk, with a second listing by rock chunk for the faces that cross a
+  boundary.** A face whose rock is in the neighbouring chunk has to go when either chunk goes; the
+  first draft walked six neighbours' stores on every forget, which at a box sweep's slab of chunks
+  against a dug mine's six-thousand-face stores is milliseconds a frame. The cross listing makes a
+  forget O(faces removed). The vertical shell — the row under the chunk's floor and the row over
+  its roof — is scanned with one face each, and a column whose surface is the row under the floor
+  is the one the "surface below the chunk" exit must not skip: a dug surface voxel capped by a
+  block placed in the chunk's floor row, which is a test because the battery's S13 needed it.
+- **The scan's cost is the read, and the plan's estimate was wrong by three to four times.**
+  `--seep`, Release, 1.03x machine: **a chunk of solid rock scans in 4.65 ms, of which 2.65 ms is
+  32,768 `CanHold` reads at 77 ns each** through the game's own `VoxelFluidTerrain` over a
+  palettised chunk; a bitten-out chunk (uniform air, every voxel seven reads) 3.5 ms; the room's
+  eight chunks 55 ms, 6.9 ms each. The portal scan is 1.2 ms because it evaluates a band of Ys; a
+  seep face can be anywhere below the surface and there is no geometric exit, so **the floor is
+  one holdability read per voxel**. Over the played mine's 4,584 dug chunks that is 16–30 s of
+  sim-thread scans at open in Release, ~3× in Debug, against the pass's "7–9 s, nothing for the
+  serial lane". **Lever, named and not built: scan a padded copy** — `PaddedChunk`'s 34³ decode is
+  ~0.2 ms and the scan over it is array reads, so a chunk would be ~0.5 ms and could run on a
+  worker; it would make the portal scan cheaper too. M8c-2 measures the open on the played world
+  and takes it if it bites, which the number says it will.
+- **The edit path under a chunk bite is 14.4 ms Release**, against the portal hook's 0.9–1.2:
+  32,768 hooks with no geometric exit, each a holdability read, six rock reads and six dictionary
+  probes. The seed surface is not the cost (16.4 ms with the analytic seed). In the Debug build a
+  bite already costs 16.9 ms mean on the sim thread; this would be ~45 ms more, four times a
+  second under `Q`. **Lever, named and not built: a bulk edit** — `Carve.Chunk` telling the
+  tracker to forget and re-scan the chunk (3.5 ms) instead of 32,768 hooks — which is M8c-2's to
+  wire, since the tracker's edit hook is where the bite lands.
+- **The rate is measured and the pass's arithmetic was right in shape.** The 10 × 10 × 3 m room in
+  the real strata at the shipped 0.06 L/(m²·m·s): **1.76 L/s under 5 m of head, ankle-deep
+  (25,000 L) in 3.9 hours of world time**; 0.084 L/s under half a metre, where only the floor and
+  the lowest wall faces are below the table, 9.2 L/s under 20 m. All dirt is 17.5× stone — 30.9 L/s
+  at 5 m, ankle-deep in thirteen minutes. The pass's "about a litre a second, seven hours" counted
+  160 m² of wall; the room has 320 m² of face. **The nuisance end is where it sits, and
+  `--seepscale=` is M8c-2's sweep for M8d's play.**
+- **The delivery order is the index's, and the bench prints it per chunk**: the first face handed
+  out is at the chunk's lowest Y and is a floor wherever the chunk has one. The room's upper
+  chunks have no floor faces (their floor row is the room's own air), so their first face is the
+  lowest wall — the bench says "floor first: NO" for them and that is the shape, not a defect.
+- **The remainder is on the index, bounded at one cell, refused for a chunk with no faces, and
+  lost with the chunk** — decision 7 as three assertions. It is a debt against faces, not water:
+  the drain owes the chunk sub-litre seepage it has not yet drawn from the basin, so a quit loses
+  time and no litre from any ledger.
+- **Thirty-three recipes, thirty-two caught, four of them after the fixtures were fixed.** Nobody
+  dug beside a sealed block (S5, and S4 — the definition filing sealed rock — is shared with the
+  oracle, so only a direct `FacesOf` read can see it); nobody re-opened a voxel above the surface
+  beside rock (S2 — a block placed in the lake and dug out again); and the tracker test's only edit
+  was the one that triggers a scan, so the hook's own call to the seep index was never load-bearing
+  (S26). The fuzz gained digs just above the surface and digs beside a placed block. **S31 —
+  `VoxelFluidTerrain.TryGetRock` treating an unloaded voxel as rock — is an identity**: the
+  streamer answers an unloaded voxel with air's ID 0 and `false`, so dropping the loaded check
+  changes nothing; kept because the answer is by the streamer's convention, not by construction.
+
 ---
 
 ## M8d — The transparent pass, measurement and play

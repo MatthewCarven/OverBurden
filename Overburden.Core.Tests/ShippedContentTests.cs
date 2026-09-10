@@ -138,6 +138,37 @@ public class ShippedContentTests
         Assert.Contains(emitters, e => e.LightEmission == MaterialDefinition.MaxLightEmission);
     }
 
+    [Fact]
+    public void ShippedRockIsPermeableSomewhereAndSealedSomewhere()
+    {
+        // The seep index files a face only through rock whose permeability is above zero, so a
+        // base game whose every solid material read 0 would have a seepage system that never
+        // fires — and one whose every material leaked would have no way to line a shaft. Both
+        // ends have to exist in the content for either half of M8c to be tested by play.
+        var content = new GameContent();
+        content.Load(new DirectoryContentSource(ModsDirectory()));
+
+        var rocks = content.Materials.Entries()
+            .Select(entry => entry.Value)
+            .Where(material => !material.IsAir && !material.IsFluid)
+            .ToList();
+
+        Assert.NotEmpty(rocks);
+        foreach (var rock in rocks)
+        {
+            Assert.InRange(rock.Permeability, 0f, 1f);
+        }
+
+        Assert.Contains(rocks, r => r.Permeability > 0f);
+        Assert.Contains(rocks, r => r.Permeability == 0f);
+
+        // Stone under dirt is the ordering the seep rate's estimate assumes: a room in stone
+        // takes hours to wet, one in dirt minutes.
+        float stone = content.Materials.Get(Identifier.Parse("overburden:stone")).Permeability;
+        float dirt = content.Materials.Get(Identifier.Parse("overburden:dirt")).Permeability;
+        Assert.True(stone > 0f && dirt > stone, $"stone {stone}, dirt {dirt}");
+    }
+
     /// <summary>
     /// The <c>mods/</c> directory the game runs against, found by walking up to the solution.
     /// </summary>

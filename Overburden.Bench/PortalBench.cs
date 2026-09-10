@@ -21,7 +21,7 @@ namespace Overburden.Bench;
 internal static class PortalBench
 {
     /// <summary>The seed surface over a region as one array read, which is what <c>SkyColumn</c> holds.</summary>
-    private sealed class ArraySeed : ISurfaceHeights
+    internal sealed class ArraySeed : ISurfaceHeights
     {
         private readonly WorldGenerator _generator;
         private readonly int _minX;

@@ -53,7 +53,36 @@ public interface IFluidTerrain
 }
 
 /// <summary>
-/// <see cref="IFluidTerrain"/> over a real voxel world.
+/// The second question seepage asks the world, on top of <see cref="IFluidTerrain"/>'s one: is
+/// this voxel rock, and how readily does water pass through it?
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Rock is loaded and not holdable</b> — the complement of <see cref="IFluidTerrain.CanHold"/>
+/// inside the loaded world, so the two questions partition every loaded voxel and a seep face and
+/// a portal can never share a pair. An unloaded voxel is neither: it reads as solid to the flow
+/// (M4a's rule), but a wall the world cannot name has no permeability, and a face against it is
+/// not indexed until the chunk arrives and the scan on its arrival finds it.
+/// </para>
+/// <para>
+/// One method with the permeability in the answer, rather than a material ID the index would
+/// then look up, for the reason <see cref="IFluidTerrain"/> is one method: a fixture answers it
+/// from a lambda and the index acquires no opinion about materials. The value is already bounded
+/// to [0, 1] with NaN sealed — <see cref="MaterialTable.Permeability"/>'s contract — and the
+/// index treats it as exact.
+/// </para>
+/// </remarks>
+public interface ISeepTerrain : IFluidTerrain
+{
+    /// <summary>
+    /// True when the voxel is loaded rock, with how readily water passes through it, 0..1.
+    /// False for air, a fluid material, or a voxel that is not loaded.
+    /// </summary>
+    bool TryGetRock(VoxelPos voxel, out float permeability);
+}
+
+/// <summary>
+/// <see cref="IFluidTerrain"/> and <see cref="ISeepTerrain"/> over a real voxel world.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -69,7 +98,7 @@ public interface IFluidTerrain
 /// moment to look at it.
 /// </para>
 /// </remarks>
-public sealed class VoxelFluidTerrain(IVoxelWorld world, MaterialTable materials) : IFluidTerrain
+public sealed class VoxelFluidTerrain(IVoxelWorld world, MaterialTable materials) : ISeepTerrain
 {
     private readonly IVoxelWorld _world = world ?? throw new ArgumentNullException(nameof(world));
 
@@ -101,6 +130,25 @@ public sealed class VoxelFluidTerrain(IVoxelWorld world, MaterialTable materials
     /// restore, and <see cref="FluidGrid.Restore"/> refuses a chunk that holds water.
     /// </summary>
     public bool IsLoaded(VoxelPos voxel) => Loaded(voxel, out _);
+
+    /// <summary>
+    /// The seep scan's read: the same lookup as <see cref="CanHold"/> with the opposite answer
+    /// and the material's permeability attached. Loaded to the water, for the reason
+    /// <see cref="IsLoaded"/> is — a chunk whose panel is still landing is not a wall yet either.
+    /// </summary>
+    public bool TryGetRock(VoxelPos voxel, out float permeability)
+    {
+        if (!Loaded(voxel, out int materialId)
+            || materialId == MaterialIds.AirNumericId
+            || _materials.IsFluid(materialId))
+        {
+            permeability = 0f;
+            return false;
+        }
+
+        permeability = _materials.Permeability(materialId);
+        return true;
+    }
 
     private bool Loaded(VoxelPos voxel, out int materialId) =>
         _fluidWorld is not null

@@ -1,3 +1,4 @@
+using Overburden.Core.Fluid;
 using Overburden.Core.Lighting;
 using Overburden.Core.Voxels;
 
@@ -67,7 +68,7 @@ public sealed class WaterWindow
 /// accumulates error if it does not.
 /// </para>
 /// </remarks>
-public sealed class WaterSystem
+public sealed class WaterSystem : IWaterTable
 {
     private readonly ISurfaceHeights _heights;
     private readonly ulong _seed;
@@ -348,6 +349,17 @@ public sealed class WaterSystem
     {
         if (Water is null || Window is null) return null;
         return Water.StoredIn(basin) > 0 ? Water.LevelAt(basin) : null;
+    }
+
+    /// <summary>
+    /// The water table over a world-lattice sample: the lake standing over the basin it drains to,
+    /// or null off the window, on an outlet, or over a dry basin. M8c's Tier C, derived and stored
+    /// nowhere — see <see cref="IWaterTable"/>.
+    /// </summary>
+    public double? TableAt(int sampleX, int sampleZ)
+    {
+        int basin = BasinAtSample(sampleX, sampleZ);
+        return basin == Watershed.Outlet ? null : LevelAt(basin);
     }
 
     /// <summary>

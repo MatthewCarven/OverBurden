@@ -52,6 +52,7 @@ internal static class Program
           --store              time the SQLite read path against the generation it replaces
           --watershed          time the M7 watershed analysis over a sweep of window sizes
           --portal             time M8b-2b's portal index over a chunk bite, array seed against analytic
+          --seep               M8c-1: the seep index over a room under a lake in real strata, swept by head and rock
           --fluid              time M8's Tier B automaton draining a lake into a mine
           --fluidlitres <n>    the lake, in litres (default 9,000,000)
           --fluidticks  <n>    ticks of flow before the settle (default 2000)
@@ -92,6 +93,7 @@ internal static class Program
         bool watershed = false;
         bool fluid = false;
         bool portal = false;
+        bool seep = false;
         long fluidLitres = 9_000_000;
         int fluidTicks = 2_000;
         int[] fluidBores = [1, 3, 5, 9];
@@ -158,6 +160,9 @@ internal static class Program
                         break;
                     case "--portal":
                         portal = true;
+                        break;
+                    case "--seep":
+                        seep = true;
                         break;
                     case "--fluidlitres":
                         fluidLitres = long.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
@@ -363,6 +368,33 @@ internal static class Program
         {
             var portalGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
             return PortalBench.Run(portalGenerator, MachineControl(portalGenerator), IsDebug());
+        }
+
+        if (seep)
+        {
+            // The real mod's IDs in the strata, so the generated rock is the rock whose
+            // permeability the table holds — a room in stone is stone because stone.json says so.
+            var seepContent = new GameContent();
+            LoadResult seepLoaded = seepContent.Load(new DirectoryContentSource(ModsDirectory()));
+            if (!seepLoaded.Success)
+            {
+                Console.Error.WriteLine($"content: {string.Join("; ", seepLoaded.Errors)}");
+                return 1;
+            }
+
+            int grassId = seepContent.Materials.GetNumericId(Identifier.Parse("overburden:grass"));
+            int dirtId = seepContent.Materials.GetNumericId(Identifier.Parse("overburden:dirt"));
+            int stoneId = seepContent.Materials.GetNumericId(Identifier.Parse("overburden:stone"));
+            var seepStrata = new StrataTable([new StrataLayer(grassId, 1), new StrataLayer(dirtId, 3)], stoneId);
+            var seepGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, seepStrata);
+            MaterialTable seepMaterials = MaterialTable.From(seepContent.Materials);
+            return SeepBench.Run(
+                seepGenerator,
+                seepMaterials,
+                seepMaterials.Permeability(stoneId),
+                seepMaterials.Permeability(dirtId),
+                MachineControl(seepGenerator),
+                IsDebug());
         }
 
         if (spill)

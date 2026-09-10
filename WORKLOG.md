@@ -1,5 +1,40 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-11 — M8c-1 is built: the seep index, permeability read at last, and the scan's cost is the read
+
+Matthew: *"M8c as planned"* — all eight decisions as recommended. Built M8c-1: `SeepIndex` beside
+`PortalIndex` in `Overburden.Core/Fluid/`, `ISeepTerrain` on `VoxelFluidTerrain`,
+`MaterialTable.Permeability` (the JSON field's first reader since M1, refused outside [0, 1] at
+load, NaN sealed at use), `PortalTracker` feeding both indices under one dug filter, `WaterSystem`
+as an `IWaterTable`, and `--seep` on the bench. Suite 1,234 → 1,257; 33 recipes, 32 caught, one
+identity. Nothing in the game yet — M8c-2 wires the draw. Read M8-PLAN's "M8c-1 — built" first.
+Five things:
+
+- **The plan's scan estimate was 1.5–2 ms a chunk; it is 3.5–7 ms, and the floor is the read.**
+  A chunk of solid rock scans in 4.65 ms Release, 2.65 of which is 32,768 `CanHold` reads at 77 ns
+  each through the game's own terrain over a palettised chunk. The portal scan is 1.2 ms because
+  it evaluates a band of Ys; a seep face can be anywhere below the surface, so every voxel is read
+  once. Over the played mine's 4,584 dug chunks that is 16–30 s of sim-thread scans at open. **The
+  lever is a padded copy** — `PaddedChunk`'s decode is ~0.2 ms and array reads after it — and it
+  is named for M8c-2, which measures the open on the played world.
+- **A chunk bite is 14.4 ms Release through the edit hook, twelve times the portal hook.** No
+  geometric exit below the surface, so 32,768 × (a holdability read, six rock reads, six probes).
+  The bulk-edit lever — `Carve.Chunk` telling the tracker to re-scan the chunk at 3.5 ms instead
+  of firing 32,768 hooks — is M8c-2's, at the wiring.
+- **The rate: 1.76 L/s through a 10 × 10 × 3 m stone room under 5 m of head, ankle-deep in
+  3.9 hours; all dirt 17.5× that, thirteen minutes.** The pass said a litre a second and seven
+  hours from 160 m² of wall; the room has 320 m² of face. Half a metre of head is 0.084 L/s, because
+  only the floor and the lowest walls are below the table. The nuisance end, as decided;
+  `--seepscale=` is M8c-2's sweep.
+- **The table stays out of the definition.** A lake's level changes every tick with no edit, so the
+  index holds every candidate face and the coefficient asks the table at the boundary — per
+  (sample, Y) group, 345 groups for 6,613 faces, 0.025 ms. The pass's wording had the table in the
+  face; it is in the coefficient.
+- **Four recipes were fixtures and one was an identity.** Nobody dug beside a sealed block, nobody
+  re-opened a voxel above the surface, the tracker test's only edit was the scan-triggering one;
+  and an unloaded voxel already reads as air's ID, so the terrain's loaded check on the rock
+  question is belt and braces by the streamer's convention.
+
 ## 2026-09-11 — M8c is planned: the water table is the lake, and seepage is the portal drain through rock
 
 The planning pass for Tier C, in M8-PLAN under "M8c — the planning pass". Eight decisions, all

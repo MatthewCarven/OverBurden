@@ -22,7 +22,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/M10-NOTES.md](docs/M10-NOTES.md) | **The quantum machine family** — Matthew’s proposal, 2026-09-02: a fluid pump that teleports to a wireless output, and a general machine programmer. Notes rather than a plan, on the deferred-collapse precedent. **Read before planning M10, and before shipping any machine — it names the entity-storage change that header v4 rides on.** |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md) | **Water bodies** — Matthew's question, 2026-09-10: resting water as one number over a connected void, DESIGN's *"stable cells merge into a Tier A body"* half that M8b never built. Notes rather than a plan, with the roof-open wake explained and six decisions. **Read before M8c's planning pass, which is where it belongs.** |
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | **Elements, and whether to "just implement chemistry"** — a brainstorm with Matthew, 2026-09-03. Notes rather than a plan. The recommendation is *geology that reacts to water, with machine recipes as the chemistry set*; the element table says why each material would exist. **Read before M8c reads `permeability` and before M9 reads `supportDistance` — both have been in the material JSON unread since M1, and the trap is a constant shipping green.** |
-| [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **Planned 2026-09-02; M8a built the same day; M8b split four ways and M8b-1 built 2026-09-03; M8b-2 planned 2026-09-05 and all three parts built the same day, both open decisions taken as recommended — water crosses the seam in the game; M8b-3 planned and built the same day: the hand-off (3a) measured, the settle (3b) built and priced against the chamber, both mines and the played world, the spill's look deferred to M8c and the settle's interval an estimate with `--settleafter=` as the sweep.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it. **Its M8b section records a gap the plan had**: a flooded mine has no Tier A body, so resting mine water is stored, and the settle is a solve. Read the tick-budget item in TODO before M8b-2. |
+| [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **M8c planned 2026-09-10, all eight decisions taken 2026-09-11, M8c-1 built the same day — read "M8c-1 — built" before M8c-2's pass.** **Planned 2026-09-02; M8a built the same day; M8b split four ways and M8b-1 built 2026-09-03; M8b-2 planned 2026-09-05 and all three parts built the same day, both open decisions taken as recommended — water crosses the seam in the game; M8b-3 planned and built the same day: the hand-off (3a) measured, the settle (3b) built and priced against the chamber, both mines and the played world, the spill's look deferred to M8c and the settle's interval an estimate with `--settleafter=` as the sweep.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it. **Its M8b section records a gap the plan had**: a flooded mine has no Tier A body, so resting mine water is stored, and the settle is a solve. Read the tick-budget item in TODO before M8b-2. |
 | [docs/ADAPTIVE-RADIUS-PLAN.md](docs/ADAPTIVE-RADIUS-PLAN.md) | **The adaptive view radius**, Matthew's proposal from the sprint corridor, planned and **built 2026-09-06**: fall to the 27-chunk floor while moving with a derive backlog, climb back a ring at a time while the derive is idle enough for one more. **Its "Built" section records that the plan's grow rule — a dwell — was wrong, and the 7 m/s corridor said so on its first run**; the rule is the light step's share of its budget now. Read the corridor worklog entry before it: the floor is a cliff edge, not a slope. |
 | [docs/WATER-THREAD-PLAN.md](docs/WATER-THREAD-PLAN.md) | **The water thread**, Matthew's question of 2026-09-07. **Slice 1 — the near/far order — was planned and built 2026-09-09** and its planning pass corrected the slice's own mechanism twice, which is why that pass is worth reading before the code; slice 2 is **priced and parked**, slice 3 unstarted. **Placed after M8b-4c and before M8c.** Read before touching the tick's order or its home. |
 | [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md) | **The retained-chunk cache**, planned 2026-09-03, **slice 1 built the same day and slice 2 on 2026-09-04**: chunks leaving the box keep their voxels, column and derived light in a byte-capped cache, so a turnaround costs no load, no generate and no derive. **Both "built" sections record where the build departed from the plan** — a column rule the plan did not have, a column push that became a check at revival, and the three older light defects slice 2's walk found. Read the slice 2 section before touching `LightPropagator`. |
@@ -138,6 +138,17 @@ heights live (1.2 ms against 10.3 ms a bite, Release, 2026-09-05). Release only:
 
 ```bash
 dotnet run --project Overburden.Bench -c Release -- --portal
+```
+
+Measure **M8c-1's seep index** — a 10 × 10 × 3 m room dug under a lake in the real strata, read
+through the game's own `VoxelFluidTerrain`, swept by head and by rock: faces, the scan at arrival
+against the edit hook under a chunk bite, the coefficient's cost, litres a second at the shipped
+scale and hours to ankle-deep, and the delivery order per chunk. **The scan's floor is one
+holdability read per voxel at 77 ns**, which is where the plan's estimate was three times out.
+Release only:
+
+```bash
+dotnet run --project Overburden.Bench -c Release -- --seep
 ```
 
 Measure **M8's Tier B automaton** — a lake draining into a mine, swept by breach width. Release
@@ -512,9 +523,25 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-11, small hours). M8c is planned and not built — eight decisions in
-M8-PLAN's "M8c — the planning pass", all recommended, waiting on Matthew; build M8c-1 once they are
-answered.** The pass's spine: **the water table under a lake is the lake**, so Tier C is derived
+**Pick up here (2026-09-11). M8c-1 is built and M8c-2 — the draw — is next, and it wants its own
+planning pass against the built index before any code.** Matthew took all eight of the pass's
+decisions as recommended (*"M8c as planned"*). Read M8-PLAN's "M8c-1 — built" first: `SeepIndex`
+beside `PortalIndex`, `ISeepTerrain` on `VoxelFluidTerrain`, `MaterialTable.Permeability` (the
+JSON field's first reader since M1), `PortalTracker` feeding both indices under one dug filter,
+`WaterSystem` as an `IWaterTable`, `--seep` on the bench; nothing in `Main` yet. Suite 1,234 →
+1,257; 33 recipes, 32 caught, one identity. **Three numbers M8c-2's pass opens with, all Release
+from `--seep`**: a chunk's seep scan is 3.5–7 ms and the floor is one 77 ns holdability read per
+voxel (the plan said 1.5–2; the played mine's 4,584 dug chunks are 16–30 s of sim-thread scans at
+open — the named lever is a scan over a padded copy, ~0.5 ms, workable on a worker); a chunk bite
+through the edit hook is 14.4 ms against the portal hook's 0.9 (lever: a bulk edit that re-scans
+the chunk at 3.5 ms); and the rate at the shipped 0.06 is 1.76 L/s through a 10 × 10 × 3 m stone
+room under 5 m of head, ankle-deep in 3.9 h, dirt 17.5× that — the nuisance end, as decided,
+`--seepscale=` M8c-2's sweep. **The table is not in the face**: the index holds every candidate
+face and `Coefficient(chunk, table)` asks Tier A at the boundary, per (sample, Y) group. The
+paragraph below is the pass's state, kept for the reasoning.
+
+**Earlier (2026-09-11, small hours). M8c is planned — eight decisions in M8-PLAN's "M8c — the
+planning pass", all recommended.** The pass's spine: **the water table under a lake is the lake**, so Tier C is derived
 from Tier A's level and stored nowhere (decision 5's v4 question is answered: no), and **seepage is
 the portal drain through intact rock with a permeability factor** — a seep face is a dug voxel
 against rock below its column's table, filed per chunk the way portals are, drawn at the boundary

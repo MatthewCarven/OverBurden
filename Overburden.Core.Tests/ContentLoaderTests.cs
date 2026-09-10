@@ -67,6 +67,36 @@ public class ContentLoaderTests
     }
 
     [Fact]
+    public void PermeabilityOutsideZeroToOneIsRefusedRatherThanClamped()
+    {
+        // M8c's first reader of a field the format has carried since M1. Refused, as an
+        // out-of-range lightEmission is: a mod writing 20 believed the range was wider, and a
+        // silent clamp to 1 would make its sand and its gravel read identical.
+        foreach (string value in new[] { "1.5", "-0.1", "20" })
+        {
+            var source = TestContent.BaseGame()
+                .Add("wetmod", "mod.json", """{ "id": "wetmod", "name": "Wet", "version": "1" }""")
+                .Add("wetmod", "materials/gravel.json", $$"""{ "id": "gravel", "permeability": {{value}} }""");
+
+            var result = new GameContent().Load(source);
+
+            Assert.False(result.Success, $"permeability {value} loaded");
+            Assert.Contains(result.Errors, e => e.Contains("gravel.json") && e.Contains("permeability"));
+        }
+
+        // The ends of the range are inside it.
+        var edges = TestContent.BaseGame()
+            .Add("wetmod", "mod.json", """{ "id": "wetmod", "name": "Wet", "version": "1" }""")
+            .Add("wetmod", "materials/sealed.json", """{ "id": "sealed", "permeability": 0 }""")
+            .Add("wetmod", "materials/open.json", """{ "id": "open", "permeability": 1 }""");
+        var content = new GameContent();
+        var ok = content.Load(edges);
+        Assert.True(ok.Success, string.Join("; ", ok.Errors));
+        Assert.Equal(0f, content.Materials.Get(Identifier.Parse("wetmod:sealed")).Permeability);
+        Assert.Equal(1f, content.Materials.Get(Identifier.Parse("wetmod:open")).Permeability);
+    }
+
+    [Fact]
     public void ModContentDefaultsToItsOwnNamespace()
     {
         var content = new GameContent();

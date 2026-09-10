@@ -242,6 +242,13 @@ visible here.
   it drains downhill, and it seeps into excavations at a rate set by saturation and
   material permeability. This is what makes mining under a lake frightening and
   gives pumps a job that never ends.
+  **Superseded at M8c's planning pass, 2026-09-10, decided 2026-09-11: there is no field.** The
+  water table under a lake is the lake — a column's saturation is the head of the basin it
+  drains to, which Tier A already solves, banks and persists — so Tier C is derived from Tier A's
+  level and stored nowhere, and seepage is the portal drain through intact rock with the
+  material's permeability as the rate (M8-PLAN, "M8c — the planning pass"). The cost, stated:
+  no lateral groundwater, so a tunnel under a divide into a dry basin's catchment is dry however
+  near the lake; rain with no lake is a look, not a source. Revisit triggers are those two plays.
 
 ### Rain
 

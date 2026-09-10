@@ -3812,11 +3812,14 @@ part is the automaton and its oracles, M8a-2 is the measurement.
       was **4.2 MiB**, a twentieth of one drawn chunk's mesh budget at r12. **Restated as an
       absolute: revisit when `PanelBytes` passes ~64 MiB in a played session.** A ratio a sparse
       world will always fail is not a trigger, it is a complaint.
-- [ ] Tier C coarse groundwater saturation field, fed by rain, drains downhill
-      - [ ] **Read `permeability` from the material JSON, per material.** It has been in the format
-            unread since M1, exactly as `hardness` was until M3c. A constant here ships green and
-            makes the field decorative — see [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md).
-- [ ] Seepage into excavations driven by saturation × material permeability
+- [ ] Tier C coarse groundwater saturation field, fed by rain, drains downhill — **superseded by
+      M8c's decision 1 (2026-09-11): the table is Tier A's level, derived and stored nowhere.**
+      - [x] **Read `permeability` from the material JSON, per material.** Done 2026-09-11 at
+            M8c-1: `MaterialTable.Permeability`, refused outside [0, 1] at load, NaN sealed at use,
+            with a shipped-content test that something leaks and something is sealed — see
+            [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md).
+- [ ] Seepage into excavations driven by saturation × material permeability — **M8c-1's index is
+      built; M8c-2's draw is next.**
 - [ ] Transparent render pass, back-to-front sorting
       - [x] **Decided 2026-09-03: a grid per fluid kind. Tier B was single-fluid, and a gas is a second fluid kind
             with gravity's sign flipped.** Heavy gas (CO₂, blackdamp) is water's rule verbatim;
@@ -4643,23 +4646,43 @@ Three honest caveats, because the saving is not where it first appears:
       out loud, and it is a header field.
 
 - [ ] **M8c — Tier C, groundwater and seepage. Planned 2026-09-10; see M8-PLAN's "M8c — the
-      planning pass". Eight decisions, all recommended, waiting on Matthew.** The pass's finding:
+      planning pass". Eight decisions, all taken as recommended 2026-09-11 (*"M8c as planned"*);
+      M8c-1 built the same day.** The pass's finding:
       the water table under a lake *is* the lake, so Tier C is derived from Tier A's level and
       stored nowhere — no header change — and seepage is the portal drain through intact rock with
       a permeability factor. **The 388% figure is `WindowCapacityLitres` summing leaf capacities**,
       by its own comment; a merged lake reads over 100% by construction, so the rim question stands
       as a play question and the number is not its evidence.
-      - [ ] **M8c-1 — the seep index and the measurement.** `SeepIndex` beside `PortalIndex`, the
-            fuzz's oracle the definition over every scanned voxel, the edit path a second copy of
-            the geometry; `MaterialTable.Permeability` bounded [0, 1] with NaN closed; `--seep` on
-            the bench, swept by head and material. *Estimate*: 1.5–2 ms Release per dug chunk's
-            scan, ~7–9 s over the played mine's 4,584 chunks at open.
+      - [x] **M8c-1 — the seep index and the measurement. Built 2026-09-11**; see M8-PLAN's
+            "M8c-1 — built". `SeepIndex` beside `PortalIndex`, the definition over every scanned
+            voxel as the fuzz's oracle, the edit path a second copy of the geometry;
+            `MaterialTable.Permeability` refused outside [0, 1] at load and NaN sealed at use;
+            `ISeepTerrain` on `VoxelFluidTerrain`; `PortalTracker` feeds both indices; `--seep`
+            on the bench. **Measured, Release**: a solid chunk scans in 4.65 ms (2.65 of it is
+            32,768 reads at 77 ns), a bitten one 3.5, the room's chunks 6.9 each — the plan's
+            1.5–2 ms was the read's cost missed; a chunk bite through the hook is 14.4 ms; the
+            room under 5 m of head is 1.76 L/s, ankle-deep in 3.9 h, dirt 17.5× that.
+            - [ ] **Lever for the open, not built: scan a padded copy.** 4,584 dug chunks × 3.5–7 ms
+                  is 16–30 s of sim-thread scans at open in Release; `PaddedChunk`'s 34³ decode is
+                  ~0.2 ms and the scan over it is array reads, ~0.5 ms a chunk, and it could run on
+                  a worker. M8c-2 measures the open on the played world first. The portal scan
+                  would take the same path.
+            - [ ] **Lever for the bite, not built: a bulk edit.** `Carve.Chunk` firing 32,768 hooks
+                  costs the seep index 14.4 ms Release (~45 Debug) a bite against 3.5 ms for a
+                  forget and re-scan of the chunk; the tracker is where a begin/end pair would land.
+            - [ ] **The per-tick coefficient is 0.073 µs a group** (345 groups for 6,613 faces);
+                  the played mine's ~4,584 chunks at ~40 groups each would be ~13 ms a tick Release
+                  if every chunk were walked — M8c-2's drain skips a chunk under dry samples before
+                  its groups, `PortalDrain`'s shape, and caches nothing until that is measured.
       - [ ] **M8c-2 — the draw.** `SeepDrain` at the boundary: litres out of the basin through
             `Remove`, cells into Tier B lowest-face-first under a granule, `seeped` on both
-            identities, `--seepscale=` (*estimate* 0.06 L/(m²·m·s): a 10 × 10 × 3 m stone room
-            under 5 m of head takes seven hours to stand ankle-deep), a `seep` profile line with
-            the awake count between deliveries. **That count decides whether water bodies go
-            before M8d.** Play: a `hand_pick` tunnel under the played lake, then a chunk.
+            identities, `--seepscale=` (0.06 L/(m²·m·s) shipped as an estimate; **measured on the
+            bench 2026-09-11: 1.76 L/s through a 10 × 10 × 3 m stone room under 5 m, ankle-deep in
+            3.9 h**), a `seep` profile line with the awake count between deliveries. **That count
+            decides whether water bodies go before M8d.** Wants its own planning pass against the
+            built M8c-1: the open's scan cost and the bite's hook cost above, the remainder as a
+            debt bounded at one cell, the per-chunk walk skipping dry samples first. Play: a
+            `hand_pick` tunnel under the played lake, then a chunk.
       - [ ] **M8c-3 — `Saturation.At(voxel)`**, head below the table or zero, pure and tested,
             unread until M9.
       - [ ] Deliberately out: lateral groundwater (a tunnel under a divide from a lake gets

@@ -32,6 +32,13 @@ namespace Overburden.Core.Fluid;
 /// outside voxel in it that a neighbour's dug mouth opens onto — become part of that set the moment
 /// the chunk counts as dug.
 /// </para>
+/// <para>
+/// <b>M8c feeds the <see cref="SeepIndex"/> from the same events, under the same filter</b> — a
+/// seep face is the portal's shape through rock instead of into air, and "only what was dug seeps"
+/// is decision 3 by the argument that named the portal rule: a natural cave under a lake that wept
+/// from the moment its chunk generated would be water everywhere with nothing having been done.
+/// One tracker rather than two, so the two indices can never disagree about which chunks are dug.
+/// </para>
 /// </remarks>
 public sealed class PortalTracker
 {
@@ -43,13 +50,17 @@ public sealed class PortalTracker
     private readonly HashSet<ChunkPos> _loaded = [];
     private readonly HashSet<ChunkPos> _edited = [];
 
-    public PortalTracker(PortalIndex index)
+    public PortalTracker(PortalIndex index, SeepIndex? seeps = null)
     {
         ArgumentNullException.ThrowIfNull(index);
         Index = index;
+        Seeps = seeps;
     }
 
     public PortalIndex Index { get; }
+
+    /// <summary>The seep faces, kept to the same dug chunks. Null before M8c's wiring, or on an arm without it.</summary>
+    public SeepIndex? Seeps { get; }
 
     /// <summary>Chunks whose voxels are here.</summary>
     public int LoadedCount => _loaded.Count;
@@ -101,6 +112,7 @@ public sealed class PortalTracker
         }
 
         Index.OnVoxelChanged(voxel);
+        Seeps?.OnVoxelChanged(voxel);
     }
 
     /// <summary>A chunk has stopped being tracked — dropped or cached, it makes no difference here.</summary>
@@ -109,11 +121,13 @@ public sealed class PortalTracker
         _loaded.Remove(chunk);
         _edited.Remove(chunk);
         Index.Forget(chunk);
+        Seeps?.Forget(chunk);
     }
 
     private void Scan(ChunkPos chunk)
     {
         Index.Scan(chunk);
+        Seeps?.Scan(chunk);
         Scans++;
     }
 }

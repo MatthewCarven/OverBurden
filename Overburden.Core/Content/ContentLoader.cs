@@ -244,12 +244,24 @@ public sealed class ContentLoader
                 continue;
             }
 
+            float permeability = dto.Permeability ?? 0f;
+
+            // Refused rather than clamped, as lightEmission is. A mod writing 20 meant "very
+            // permeable" against a range it believed was wider; clamping it to 1 would make sand
+            // and gravel read identical and nobody would know why. NaN cannot come out of JSON,
+            // but a definition can be built without the loader, and the table seals it there.
+            if (float.IsNaN(permeability) || permeability < 0f || permeability > 1f)
+            {
+                errors.Add($"{manifest.Id}/{path}: permeability must be within 0..1.");
+                continue;
+            }
+
             var definition = new MaterialDefinition
             {
                 Id = id,
                 Hardness = dto.Hardness ?? 1f,
                 SupportDistance = dto.SupportDistance ?? 0,
-                Permeability = dto.Permeability ?? 0f,
+                Permeability = permeability,
                 Density = dto.Density ?? 1000f,
                 TextureLayer = dto.TextureLayer ?? 0,
                 LightEmission = emission,
