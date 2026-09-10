@@ -99,7 +99,7 @@ public sealed partial class FluidSimulation
     /// </param>
     /// <param name="position">Where the player is, for the queue's distance band.</param>
     /// <param name="walkSurface">Whether the worker walks the surface after the visits.</param>
-    public FluidTickJob BeginTick(IFluidTerrain captured, ChunkPos position, bool walkSurface = false)
+    public FluidTickJob BeginTick(IFluidTerrain captured, ChunkPos position, bool walkSurface = false, (int Share, int QuietTicks)? settle = null)
     {
         ArgumentNullException.ThrowIfNull(captured);
         if (GridOwnedByTick)
@@ -119,7 +119,7 @@ public sealed partial class FluidSimulation
 
         _visitTerrain = captured;
         _capturedView = captured as FluidFieldView;
-        _job = new FluidTickJob(this, position, walkSurface, _batch.Count);
+        _job = new FluidTickJob(this, position, walkSurface, _batch.Count, settle);
         return _job;
     }
 
@@ -161,6 +161,17 @@ public sealed partial class FluidSimulation
 
         long visited = Stopwatch.GetTimestamp();
         job.VisitMillis = (visited - started) * 1000.0 / Stopwatch.Frequency;
+
+        // The settle's solve, where the boundary would have run it (slice 3c): after every visit
+        // and before the hand-off reads what it levelled as resting. Only with something awake,
+        // which is SheetSettle.AtBoundary's own test.
+        if (job.SettleWith is { } settle && _pending.Count + FarBacklog > 0)
+        {
+            job.Settle = SolveOnWorker(settle.Share, settle.QuietTicks);
+            long settled = Stopwatch.GetTimestamp();
+            job.SettleMillis = (settled - visited) * 1000.0 / Stopwatch.Frequency;
+            visited = settled;
+        }
 
         if (job.WalkSurface)
         {
@@ -230,14 +241,28 @@ public sealed partial class FluidSimulation
     /// Snapshots the numbers the report line and the HUD read. Taken at every collection; call
     /// again after the boundary passes so the pour and the settle are in it.
     /// </summary>
-    public void Publish()
+    /// <param name="exactAwake">
+    /// Walk the paused and queued sets for the held-only, deduplicated count — 14.9 ms at 150,000
+    /// active on the play, which is why the periodic call does not. False counts queued cells held
+    /// or not, plus paused, without the walk: the number a report wants, and the one a quit's
+    /// "awake or paused" line is not — that line asks for the walk once.
+    /// </param>
+    public void Publish(bool exactAwake = false)
     {
         RefuseMidJob(nameof(Publish));
 
-        int awake = 0;
-        foreach (VoxelPos _ in AwakeHeldCells())
+        int awake;
+        if (exactAwake)
         {
-            awake++;
+            awake = 0;
+            foreach (VoxelPos _ in AwakeHeldCells())
+            {
+                awake++;
+            }
+        }
+        else
+        {
+            awake = _pending.Count + FarBacklog + _pausedCells;
         }
 
         Published = new FluidPublished(
@@ -308,13 +333,23 @@ public sealed class FluidTickJob : IDetachedJob
 {
     private readonly FluidSimulation _sim;
 
-    internal FluidTickJob(FluidSimulation sim, ChunkPos position, bool walkSurface, int batch)
+    internal FluidTickJob(FluidSimulation sim, ChunkPos position, bool walkSurface, int batch, (int Share, int QuietTicks)? settle)
     {
         _sim = sim;
         Position = position;
         WalkSurface = walkSurface;
         Batch = batch;
+        SettleWith = settle;
     }
+
+    /// <summary>The settle's parameters when the worker is to run the solve at the tail; null on the sim-thread settle.</summary>
+    public (int Share, int QuietTicks)? SettleWith { get; }
+
+    /// <summary>What the solve did, when it ran on the worker; null when nothing was awake or the settle was not asked for.</summary>
+    public SheetLevelResult? Settle { get; internal set; }
+
+    /// <summary>Wall time of the solve on the worker.</summary>
+    public double SettleMillis { get; internal set; }
 
     /// <inheritdoc />
     public JobKind Kind => JobKind.FluidTick;

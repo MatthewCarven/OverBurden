@@ -166,7 +166,8 @@ internal static class FluidAssert
         FluidSettleResult result = sim.Settle(maxTicks);
         Assert.True(result.Settled, $"still active after {result.Ticks} ticks");
         Assert.Equal(0, sim.ActiveCellCount);
-        Assert.True(sim.VerifyQuiescent(), "the automaton stopped with moves still available");
+        (VoxelPos Cell, string Why)? stranded = sim.FirstCellWithAMove();
+        Assert.True(stranded is null, $"the automaton stopped with moves still available: {stranded?.Cell} — {stranded?.Why}; paused {sim.PausedCellCount} in {sim.PausedChunkCount} chunk(s)");
         return result;
     }
 }

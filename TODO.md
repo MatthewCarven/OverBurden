@@ -4337,21 +4337,12 @@ finding without the coarser-tolerance fallback.
                         0 boundaries waited, identities exact, 461 drawn. Accepted. The skip is
                         the boundary's 332 ms worst frame — field sync 230, settle 143 — and is
                         3c's first item.**
-                        - [ ] **The first flooded boundary's field sync is 235–279 ms** on the
-                              played world's open (both arms, never timed before 3b): dozens of
-                              32,768-question bakes in one frame. Levers: bake on a worker
-                              (the bake is a pure function of a chunk's voxels — a job), or
-                              bake a chunk's field the first time a visit reaches it rather than
-                              the whole reachable set at once.
-                        - [ ] **The settle's first pass on the open is 114–138 ms** over the
-                              restored lake. It is the sheet solve's known shape (M8b-3b's "a
-                              pass is O(sheet)"); with the tick on a worker it is the largest
-                              thing left on the sim thread at a boundary. Slice a pass across
-                              boundaries, or run the solve on the job.
-                        - [ ] **`Publish` walks the awake set every boundary** (1.1 ms mean on
-                              the wire check, 6.5 ms worst on the open). A counter maintained by
-                              the wake and the pause would make it free; not built until the
-                              `boundary` line says it matters.
+                        - [x] ~~The first flooded boundary's field sync is 235–279 ms~~ — capped
+                              per boundary in 3c (748 → 51 ms on the open as it now is).
+                        - [x] ~~The settle's first pass on the open is 114–138 ms~~ — on the
+                              worker since 3c, at the job's tail with the order preserved.
+                        - [x] ~~`Publish` walks the awake set every boundary~~ — counts since 3c;
+                              the quit's line walks once.
                         - [ ] **`MayHoldWater` under a job is an over-approximation** (published
                               panels ∪ the captured set); a chunk that is in the captured set,
                               dry, and arriving — which cannot happen, since captured means
@@ -4359,13 +4350,23 @@ finding without the coarser-tolerance fallback.
                         - [ ] **`--fluidbudget` means nothing on the job arm** and the setup line
                               says so; the sync arm keeps it. If the sync arm is ever retired,
                               the flag and the slicing go with it.
-                  - [ ] **3c — ✅ planning pass done 2026-09-10, five decisions handed back with
-                        recommendations; see the plan's "Slice 3c — the planning pass".** The
-                        skip first (field bakes capped per boundary with a wake at landing; the
-                        settle's solve on the job's tail with the order preserved; the awake
-                        count maintained), then the race battery on real threads (one stress
-                        test plus the quit mid-job, with the in-place `Invalidate` recipe), then
-                        generation under a moving flood in both arms.
+                  - [x] **3c — ✅ built 2026-09-10, all five as recommended; see the plan's
+                        "Slice 3c — built".** Suite 1,234 → 1,240; 14 recipes, 14 caught.
+                        `--fieldbakes=<n>` caps the bakes (8); the settle's solve runs on the
+                        worker; `Publish` counts rather than walks. **The open's worst field sync
+                        748 → 51 ms, settle 0 on the sim thread.** The race battery found a real
+                        3b hole — a departed chunk's field stayed in the worker's view, so its
+                        queued cells were moved rather than paused and the eviction released
+                        them unlisted — and `Invalidate` baking an unloaded voxel as rock; both
+                        fixed and pinned. Moving 2 ML flood: generation identical in both arms,
+                        `first draw` 6.08 s against 8.72, 2.1× the visits. **Unplayed: open the
+                        played world, bite under a lake, read `boundary worst` on the `M8b:`
+                        line and whether the skip is gone.**
+                        - [ ] **Bake fields as jobs** — the named revisit if the cap's wait
+                              (refusals for arrived chunks; 394 on the open) is ever seen in play.
+                        - [ ] **The capture and compose is 3.9 ms a boundary at 200,000 active** —
+                              the batch's composition on the sim thread. Fine at that size; the
+                              lever is composing on the worker from a published pending list.
             - [ ] **Slices 2 and 3 — ✅ planning pass done 2026-09-10, eight decisions handed back
                   with recommendations; see the plan's "Slices 2 and 3 — the planning pass". Build
                   slice 2 once they are answered.** What the pass changed: **the field is an

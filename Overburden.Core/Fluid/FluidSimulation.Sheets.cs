@@ -167,6 +167,10 @@ public sealed partial class FluidSimulation
     // Zero levels under inflow too. Set for the length of one pass.
     private int _quietTicks;
 
+    // The tick "now" for the quiet test. Ticks at a boundary; on the worker the solve runs before
+    // Complete's Ticks++, so it is told Ticks + 1 and the quiet count reads as the sync arm's.
+    private long _solveTick;
+
     /// <summary>
     /// One flood's bookkeeping. <see cref="Parent"/> is union-find: a sheet whose parent is not
     /// itself was joined to another and its lists are empty.
@@ -267,15 +271,33 @@ public sealed partial class FluidSimulation
         IReadOnlyList<VoxelPos> seeds, int share = 0, int quietTicks = 0)
     {
         ArgumentNullException.ThrowIfNull(seeds);
-        ArgumentOutOfRangeException.ThrowIfNegative(share);
-        ArgumentOutOfRangeException.ThrowIfNegative(quietTicks);
-        _quietTicks = quietTicks;
         if (TickInProgress)
         {
             throw new InvalidOperationException(
                 $"LevelSheets asked mid-tick, with {RemainingInTick} cell(s) still to visit; "
                 + "finish the tick with Step() first.");
         }
+
+        return Solve(seeds, share, quietTicks, Ticks);
+    }
+
+    /// <summary>
+    /// The solve at the tail of a job, on the worker (slice 3c): over the next tick's set as the
+    /// visits left it, told the tick number the boundary will have, so the quiet test and the
+    /// order — settle, then hand-off, drain, pour, the next tick — are the sync arm's exactly.
+    /// </summary>
+    internal SheetLevelResult SolveOnWorker(int share, int quietTicks) =>
+        Solve(Pending, share, quietTicks, Ticks + 1);
+
+    /// <summary>The tick number the last solve tested quiet against. Tests only: it pins the worker's +1.</summary>
+    internal long LastSolveTick => _solveTick;
+
+    private SheetLevelResult Solve(IReadOnlyList<VoxelPos> seeds, int share, int quietTicks, long nowTick)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(share);
+        ArgumentOutOfRangeException.ThrowIfNegative(quietTicks);
+        _quietTicks = quietTicks;
+        _solveTick = nowTick;
 
         // A copy, because waking appends to the pending list this is usually a view of; and a
         // total order on position rather than the caller's order, so the same water in the same
@@ -398,7 +420,7 @@ public sealed partial class FluidSimulation
         foreach (int record in sheet.Cells)
         {
             long inflow = InflowTickAt(_cellPos[record].Chunk);
-            if (inflow != NeverInflowed && Ticks - inflow <= _quietTicks)
+            if (inflow != NeverInflowed && _solveTick - inflow <= _quietTicks)
             {
                 return true;
             }
@@ -413,12 +435,12 @@ public sealed partial class FluidSimulation
 
     /// <summary>Wet, holdable, and standing on something: a cell a sheet can be made of.</summary>
     private bool IsSheetCell(VoxelPos cell) =>
-        _grid.AmountAt(cell) > 0 && _terrain.CanHold(cell) && IsSupported(cell);
+        _grid.AmountAt(cell) > 0 && _visitTerrain.CanHold(cell) && IsSupported(cell);
 
     private bool IsSupported(VoxelPos cell)
     {
         VoxelPos below = Below(cell);
-        return !_terrain.CanHold(below) || RoomAt(below) == 0;
+        return !_visitTerrain.CanHold(below) || RoomAt(below) == 0;
     }
 
     /// <summary>
@@ -530,7 +552,7 @@ public sealed partial class FluidSimulation
                 _nextLayer.Add(Discover(side, root));
                 unsettled |= CanTransfer(amount, beside);
             }
-            else if (_terrain.CanHold(side))
+            else if (_visitTerrain.CanHold(side))
             {
                 // Dry, or wet and falling: not the sheet's, but somewhere this cell could
                 // spread once it holds more — the front.

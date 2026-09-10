@@ -153,12 +153,16 @@ public class FluidJobTests
     {
         var terrain = new BoxTerrain(0, 0, 0, 23, 23, 23);
         FluidSimulation sim = Pour(terrain);
-        sim.Publish();
+        sim.Publish(exactAwake: true);
         FluidPublished p = sim.Published;
         Assert.Equal(sim.TotalMillilitres, p.TotalMillilitres);
         Assert.Equal(sim.Grid.HeldCellCount, p.HeldCells);
         Assert.Equal(sim.AwakeHeldCells().Count(), p.AwakeHeld);
         Assert.True(p.IdentityExact);
+
+        // The cheap count is queued-held-or-not plus paused: never under the walk's figure.
+        sim.Publish();
+        Assert.True(sim.Published.AwakeHeld >= p.AwakeHeld);
 
         // Taken again at collection: the tick's water moved, the snapshot moved with it.
         long before = p.Ticks;
@@ -309,12 +313,19 @@ public class FluidJobTests
         var live = new CountingTerrain(box);
         var captured = new CountingTerrain(box);
         FluidSimulation sim = Pour(live);
-        sim.Step();
+
+        // At rest on the floor, then one floor cell emptied, so the job's visits move water and
+        // leave something awake for the solve at its tail, which then finds the floor's sheet.
+        FluidAssert.SettlesAndRests(sim);
+        Assert.True(sim.Remove(new VoxelPos(10, 0, 10), Cap) > 0);
+        Assert.True(sim.ActiveCellCount > 0);
 
         int liveBefore = live.Asked;
-        FluidTickJob job = sim.BeginTick(captured, ChunkPos.Zero);
+        FluidTickJob job = sim.BeginTick(captured, ChunkPos.Zero, settle: (8, 0));
         job.Run(CancellationToken.None);
         Assert.True(captured.Asked > 0, "the worker asked the captured terrain nothing");
+        Assert.NotNull(job.Settle);
+        Assert.True(job.Settle.Value.Sheets > 0, "the worker's solve found no sheet, so its terrain reads went unexercised");
         Assert.Equal(liveBefore, live.Asked);
 
         job.OnResult(JobOutcome.Completed, null);
@@ -346,6 +357,401 @@ public class FluidJobTests
         job.OnResult(JobOutcome.Completed, null);
         Assert.False(sim.GridOwnedByTick);
         Assert.Equal(1L, sim.Ticks);
+    }
+
+    // ---------------------------------------------------------------- slice 3c: the skip's levers
+
+    [Fact]
+    public void TheSettleOnTheWorkerEqualsTheSettleAtTheBoundaryCellForCell()
+    {
+        // The twin again, with the settle: the job runs the solve at its tail with the tick number
+        // the boundary will have; the sync arm runs it at the boundary after Step(). Same seeds,
+        // same quiet count, same water — and the order settle → next tick is the same on both.
+        var terrain = new BoxTerrain(0, 0, 0, 23, 23, 23);
+        FluidSimulation viaJob = Pour(terrain);
+        FluidSimulation viaStep = Pour(terrain);
+        var settle = new SheetSettle(viaStep, settleAfterTicks: 2, settleShare: 8);
+        int solvedOnWorker = 0;
+
+        for (int tick = 0; tick < 60; tick++)
+        {
+            FluidTickJob job = viaJob.BeginTick(terrain, ChunkPos.Zero, settle: settle.ForWorker);
+            job.Run(CancellationToken.None);
+            job.OnResult(JobOutcome.Completed, null);
+            if (job.Settle is { } r && r.Sheets > 0) solvedOnWorker++;
+
+            viaStep.Step();
+            SheetLevelResult? atBoundary = settle.AtBoundary();
+
+            // The worker solves exactly when the boundary would have — with something awake —
+            // and tests quiet against the same tick number the boundary has.
+            Assert.Equal(atBoundary is not null, job.Settle is not null);
+            if (job.Settle is not null)
+            {
+                Assert.Equal(viaStep.LastSolveTick, viaJob.LastSolveTick);
+                Assert.Equal(viaStep.Ticks, viaJob.LastSolveTick);
+            }
+
+            AssertSameWater(viaJob, viaStep, $"after tick {tick}");
+        }
+
+        Assert.True(solvedOnWorker > 0, "the worker never found a sheet to solve");
+        FluidAssert.SettlesAndRests(viaJob);
+        FluidAssert.SettlesAndRests(viaStep);
+        AssertSameWater(viaJob, viaStep, "at rest");
+    }
+
+    [Fact]
+    public void ACappedSyncBakesUpToTheCapAndListsWhatItBakesLate()
+    {
+        var inner = new LoadableTerrain(new BoxTerrain(0, 0, 0, 191, 15, 15));
+        var field = new FluidField(inner);
+        ChunkPos[] six = [.. Enumerable.Range(0, 6).Select(x => new ChunkPos(x, 0, 0))];
+        inner.Unload(six[5]);
+        var late = new List<ChunkPos>();
+
+        // The cap is met before the unloaded chunk is reached, so it is capped rather than
+        // declined; either way it is owed.
+        field.Sync(six, maxBuilds: 2, late);
+        Assert.Equal(2, field.Chunks);
+        Assert.Equal(4L, field.Capped);
+        Assert.Equal(0L, field.Declined);
+        Assert.Equal(4, field.Waiting);
+        Assert.Empty(late);
+
+        field.Sync(six, maxBuilds: 2, late);
+        Assert.Equal(4, field.Chunks);
+        Assert.Equal(2, late.Count);
+        Assert.Equal(2, field.Waiting);
+
+        // The declined chunk loads: it is owed too, and comes out on the late list.
+        inner.Load(six[5]);
+        late.Clear();
+        field.Sync(six, maxBuilds: 8, late);
+        Assert.Equal(6, field.Chunks);
+        Assert.Equal(2, late.Count);
+        Assert.Contains(six[5], late);
+        Assert.Equal(0, field.Waiting);
+
+        // A decline on its own, under the cap: owed, and late when the world can answer.
+        var lone = new FluidField(inner);
+        var nine = new ChunkPos(9, 0, 0);
+        inner.Unload(nine);
+        late.Clear();
+        lone.Sync([nine], 8, late);
+        Assert.Equal(1L, lone.Declined);
+        Assert.Equal(1, lone.Waiting);
+        Assert.Empty(late);
+        inner.Load(nine);
+        lone.Sync([nine], 8, late);
+        Assert.Equal([nine], late);
+        Assert.Equal(0, lone.Waiting);
+
+        // What was owed and is no longer reachable is no longer owed.
+        ChunkPos seven = new(7, 0, 0), eight = new(8, 0, 0);
+        field.Sync([six[0], seven, eight], maxBuilds: 1, late);
+        Assert.Equal(1, field.Waiting);
+        field.Sync([six[0]], maxBuilds: 1, late);
+        Assert.Equal(0, field.Waiting);
+    }
+
+    [Fact]
+    public void AFieldForAChunkThatLeftIsDroppedAtTheSyncSoTheWorkerPausesItsCells()
+    {
+        // The hole the race battery found: a departed chunk keeps its panel and so stays
+        // reachable; its field stayed too, so a worker's view kept moving cells the sync arm
+        // pauses, and the eviction released them unlisted. The sync drops the field of a chunk
+        // the world no longer answers for, and the next tick pauses its cells as it should.
+        var inner = new LoadableTerrain(new BoxTerrain(0, 0, 0, 63, 15, 15));
+        var field = new FluidField(inner);
+        ChunkPos west = new(0, 0, 0), east = new(1, 0, 0);
+        var sim = new FluidSimulation(field);
+        sim.Add(new VoxelPos(40, 12, 8), Cap);
+        field.Sync([west, east]);
+        Assert.Equal(2, field.Chunks);
+
+        // An invalidation landing on the departed chunk first — the edit hook's path — drops the
+        // field the same way rather than baking "cannot answer" as rock.
+        inner.Unload(east);
+        field.Invalidate(new VoxelPos(33, 3, 3));
+        Assert.Equal(1, field.Chunks);
+        Assert.Equal(1L, field.InvalidationsDeclined);
+        Assert.Equal(1, field.Waiting);
+        inner.Load(east);
+        field.Sync([west, east]);
+        Assert.Equal(2, field.Chunks);
+
+        inner.Unload(east);
+        field.Sync([west, east]);
+        Assert.Equal(1, field.Chunks);
+        Assert.Equal(1L, field.Departed);
+        Assert.Equal(1, field.Waiting);
+        Assert.False(field.Capture().Covers(east));
+
+        FluidTickJob job = sim.BeginTick(field.Capture(), ChunkPos.Zero);
+        job.Run(CancellationToken.None);
+        job.OnResult(JobOutcome.Completed, null);
+        Assert.Equal(1, sim.PausedCellCount);
+        Assert.Equal(Cap, sim.Grid.AmountAt(new VoxelPos(40, 12, 8)));
+        Assert.Equal(0L, sim.TickRefusalsOfArrivedChunks);
+
+        // Back: baked late, woken as an arrival, and the water falls.
+        inner.Load(east);
+        var late = new List<ChunkPos>();
+        field.Sync([west, east], 8, late);
+        Assert.Equal([east], late);
+        sim.ChunkArrived(east);
+        FluidTickJob next = sim.BeginTick(field.Capture(), ChunkPos.Zero);
+        next.Run(CancellationToken.None);
+        next.OnResult(JobOutcome.Completed, null);
+        Assert.Equal(Cap, sim.Grid.AmountAt(new VoxelPos(40, 11, 8)));
+    }
+
+    [Fact]
+    public void ACellPausedForAnUnbakedChunkWakesWhenTheChunkArrivesToTheWater()
+    {
+        // The mechanism a late bake relies on: a tick against a view that does not cover the
+        // water's chunk refuses it and pauses the cells; ChunkArrived — what Main calls for a
+        // late-baked chunk — wakes them, and the next tick moves them.
+        var inner = new LoadableTerrain(new BoxTerrain(0, 0, 0, 63, 15, 15));
+        var field = new FluidField(inner);
+        ChunkPos west = new(0, 0, 0), east = new(1, 0, 0);
+        var sim = new FluidSimulation(field);
+        sim.Add(new VoxelPos(40, 12, 8), Cap);
+
+        // The water's own chunk is reachable and past a cap of one: refused this tick, owed.
+        var late = new List<ChunkPos>();
+        field.Sync([west, east], 1, late);
+        Assert.True(field.Chunks == 1 && field.Waiting == 1);
+        FluidTickJob job = sim.BeginTick(field.Capture(), ChunkPos.Zero);
+        job.Run(CancellationToken.None);
+        job.OnResult(JobOutcome.Completed, null);
+        Assert.Equal(1, sim.PausedCellCount);
+        Assert.Equal(0, sim.ActiveCellCount);
+        Assert.True(sim.TickRefusals > 0);
+        sim.Publish();
+        Assert.Equal(1, sim.Published.AwakeHeld);
+
+        // Counted as the cost it is: the chunk was loaded all along, only unbaked.
+        Assert.Equal(1L, sim.TickRefusalsOfArrivedChunks);
+        Assert.Equal(Cap, sim.Grid.AmountAt(new VoxelPos(40, 12, 8)));
+
+        field.Sync([west, east], 8, late);
+        Assert.Equal([east], late);
+        sim.ChunkArrived(east);
+        Assert.Equal(0, sim.PausedCellCount);
+        Assert.Equal(1, sim.ActiveCellCount);
+
+        FluidTickJob next = sim.BeginTick(field.Capture(), ChunkPos.Zero);
+        next.Run(CancellationToken.None);
+        next.OnResult(JobOutcome.Completed, null);
+        Assert.Equal(0, sim.Grid.AmountAt(new VoxelPos(40, 12, 8)));
+        Assert.Equal(Cap, sim.Grid.AmountAt(new VoxelPos(40, 11, 8)));
+        FluidAssert.Conserves(sim);
+    }
+
+    // ---------------------------------------------------------------- slice 3c: the race battery
+
+    [Fact]
+    public void MutationsLandingUnderARunningWorkerLeaveEveryIdentityExact()
+    {
+        const bool doMoves = true, doInvalidate = true, doDisturb = true;
+        // The battery's stress arm. A pour large enough that a tick runs for milliseconds on a
+        // real worker, and while it runs the sim thread does everything the game can do between
+        // frames: edits (a disturbance deferred and the live field invalidated under the view),
+        // the box moving away and back (evictions deferred, wet arrivals parked), pours and saves
+        // that must be refused. The runtime reports no data race, so the oracle is what the design
+        // promises: no fault, the captured view untouched by the edits, every identity exact at
+        // every collection, nothing displaced, and a real rest with everything back.
+        var store = new InMemoryWorldStore();
+        using var session = new FluidEvictionTests.Session(store);
+        ViewerId viewer = session.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        session.Harness.Settle();
+
+        long held = 0;
+        for (int x = 8; x < 24; x++)
+        {
+            for (int z = 8; z < 24; z++)
+            {
+                for (int up = 0; up < 2; up++)
+                {
+                    var cell = new VoxelPos(x, 44 + up, z);
+                    Assert.Equal(0L, session.Sim.Add(cell, Cap));
+                    held += Cap;
+                }
+            }
+        }
+
+        var terrain = new VoxelFluidTerrain(session.Streamer, FluidEvictionTests.Materials());
+        var field = new FluidField(terrain);
+        var reachable = new HashSet<ChunkPos>();
+        var random = new Random(0x3C);
+        int refusedSaves = 0, refusedPours = 0, disturbances = 0, invalidations = 0, moves = 0, viewChecks = 0;
+        long worstVisits = 0;
+
+        var late = new List<ChunkPos>();
+        int lateWakes = 0;
+        for (int tick = 0; tick < 40; tick++)
+        {
+            session.Sim.ReachableChunks(reachable);
+            late.Clear();
+            field.Sync(reachable, 8, late);
+
+            // Main's late wake. Without it this test strands a front: a cell paused for a chunk
+            // past the cap has no arrival coming, and "the automaton stopped with moves still
+            // available" is what the first run of this test said.
+            foreach (ChunkPos chunk in late)
+            {
+                session.Sim.ChunkArrived(chunk);
+                lateWakes++;
+            }
+
+            FluidFieldView view = field.Capture();
+            FluidTickJob job = session.Sim.BeginTick(view, ChunkPos.Zero);
+            worstVisits = Math.Max(worstVisits, job.Batch);
+            session.Pipeline.SubmitDetached(job);
+
+            // Everything below lands while the worker may be running.
+            var probe = new VoxelPos(random.Next(0, 32), random.Next(32, 64), random.Next(0, 32));
+            bool probeBefore = view.CanHold(probe);
+            for (int i = 0; i < 6 && job.Outcome is null; i++)
+            {
+                session.Pipeline.Update();
+                var voxel = new VoxelPos(random.Next(0, 32), random.Next(32, 64), random.Next(0, 32));
+                if (doDisturb) session.Sim.Disturb(voxel);
+                if (doInvalidate) field.Invalidate(voxel);
+                disturbances++;
+                invalidations++;
+
+                // Only while the worker still owns the grid: the Update above may have collected
+                // a short tick, after which a pour and a save are simply allowed.
+                if (session.Sim.GridOwnedByTick)
+                {
+                    Assert.Throws<InvalidOperationException>(() => session.Sim.Add(voxel, Cap));
+                    Assert.Throws<InvalidOperationException>(() => session.Pipeline.SaveAll());
+                    refusedPours++;
+                    refusedSaves++;
+                }
+
+                if (doMoves && tick % 10 == 3 && i == 1)
+                {
+                    session.Streamer.MoveViewer(viewer, FluidEvictionTests.FarAway);
+                    session.Pipeline.Update();
+                    session.Streamer.MoveViewer(viewer, ChunkPos.Zero);
+                    moves++;
+                }
+
+                Thread.Yield();
+            }
+
+            // The view the worker read never changed under it.
+            Assert.Equal(probeBefore, view.CanHold(probe));
+            viewChecks++;
+
+            session.PumpUntil(() => job.Outcome is not null, pumpTicks: false);
+            Assert.Equal(JobOutcome.Completed, job.Outcome);
+            Assert.True(session.Sim.Published.IdentityExact, $"identity broken at tick {tick}");
+            Assert.Equal(0L, session.Sim.DisplacedMillilitres);
+            Assert.Equal(0, session.Sim.DeferredCount);
+        }
+
+        session.Harness.Settle();
+        FluidAssert.Conserves(session.Sim);
+        session.Sim.Settle();
+        if (session.Sim.FirstCellWithAMove() is { } strandedNow)
+        {
+            VoxelPos below = strandedNow.Cell.Offset(0, -1, 0);
+            StreamedChunk? c = session.Streamer.Get(strandedNow.Cell.Chunk);
+            Assert.Fail($"stranded: {strandedNow.Cell} — {strandedNow.Why}; chunk tracked {c is not null}, pending {c?.FluidPending}, view {c?.ViewCount}, "
+                + $"field says below {field.ClassAt(below)} against terrain {terrain.CanHold(below)}, field chunks {field.Chunks}, waiting {field.Waiting}, declined invalidations {field.InvalidationsDeclined}, "
+                + $"refusals {session.Sim.TickRefusals}/{session.Sim.TickRefusalsOfArrivedChunks}");
+        }
+
+        Assert.True(disturbances > 0 && invalidations > 0 && refusedPours > 0 && refusedSaves > 0 && viewChecks == 40);
+        Assert.True(!doMoves || moves > 0);
+        Assert.True(lateWakes > 0, "no chunk was ever baked late, so the cap's wake was not exercised");
+        Assert.True(worstVisits > 256, $"the largest batch was {worstVisits}: the worker was not running long enough to race");
+        Assert.Equal(40L, session.Sim.JobTicks);
+        Assert.Equal(0L, session.Sim.JobTicksNotCompleted);
+        Assert.True(held > 0);
+        FluidAssert.Conserves(session.Sim);
+        FluidAssert.SettlesAndRests(session.Sim);
+        Assert.Equal(0, session.Sim.PausedCellCount);
+    }
+
+    [Fact]
+    public void AQuitMidJobCancelsWaitsWritesAndTheNextOpenHasTheWaterWithTheRequeuedCellsAwake()
+    {
+        // The game's quit with a worker out: cancel the job, pump until it reports, write — and
+        // the rows the next open restores hold the water cell for cell, listing the cells the
+        // cancelled tick gave back as awake.
+        var store = new InMemoryWorldStore();
+        Dictionary<VoxelPos, int> atQuit;
+        int awakeAtQuit, requeued;
+        long total;
+        using (var first = new FluidEvictionTests.Session(store))
+        {
+            first.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+            first.Harness.Settle();
+            for (int x = 12; x < 20; x++)
+            {
+                for (int z = 12; z < 20; z++)
+                {
+                    Assert.Equal(0L, first.Sim.Add(new VoxelPos(x, 44, z), Cap));
+                }
+            }
+
+            first.Sim.Step();
+            first.Sim.Step();
+
+            var terrain = new VoxelFluidTerrain(first.Streamer, FluidEvictionTests.Materials());
+            var field = new FluidField(terrain);
+            var reachable = new HashSet<ChunkPos>();
+            first.Sim.ReachableChunks(reachable);
+            field.Sync(reachable);
+
+            using var gate = new ManualResetEventSlim(false);
+            first.Sim.WorkerGate = gate;
+            using var cts = new CancellationTokenSource();
+            FluidTickJob job = first.Sim.BeginTick(field.Capture(), ChunkPos.Zero);
+            Assert.True(job.Batch > 0);
+            first.Pipeline.SubmitDetached(job, cts.Token);
+            first.Pipeline.Update();
+            Assert.True(first.Sim.GridOwnedByTick);
+            Assert.Throws<InvalidOperationException>(() => first.Pipeline.SaveAll());
+
+            // The quit: cancel, let the worker go, wait for its report.
+            cts.Cancel();
+            gate.Set();
+            Assert.True(first.Pipeline.WaitForDetached(timeoutSeconds: 10));
+            Assert.Equal(JobOutcome.Dropped, job.Outcome);
+            requeued = job.Requeued;
+            Assert.Equal(job.Batch, requeued);
+            Assert.False(first.Sim.GridOwnedByTick);
+
+            total = first.Sim.TotalMillilitres;
+            atQuit = Cells(first.Sim);
+            awakeAtQuit = first.Sim.AwakeHeldCells().Count();
+            Assert.True(awakeAtQuit > 0, "nothing is listed awake at the quit");
+
+            // Disposing the session is the write.
+        }
+
+        Assert.True(store.FluidWrites > 0, "the quit wrote no panel");
+
+        using var second = new FluidEvictionTests.Session(store);
+        second.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        second.Harness.Settle();
+
+        Assert.Equal(total, second.Sim.LoadedMillilitres);
+        Dictionary<VoxelPos, int> restored = Cells(second.Sim);
+        Assert.True(
+            atQuit.Count == restored.Count && atQuit.All(kv => restored.GetValueOrDefault(kv.Key) == kv.Value),
+            "the water did not come back cell for cell");
+        Assert.Equal(awakeAtQuit, second.Sim.ResumedCells);
+        FluidAssert.SettlesAndRests(second.Sim);
+        Assert.Equal(0L, second.Sim.DisplacedMillilitres);
+        FluidAssert.Conserves(second.Sim);
     }
 
     // ---------------------------------------------------------------- the captured view
@@ -604,7 +1010,12 @@ public class FluidJobTests
         session.Harness.Settle();
         Assert.Equal(61L, session.Sim.JobTicks);
         Assert.Equal(0L, session.Sim.JobTicksNotCompleted);
-        Assert.Equal(0L, session.Sim.TickRefusals);
+
+        // Refusals here are the box leaving under a held job: the departed chunks' fields are
+        // dropped at the next sync and the worker pauses their cells. They are back by the
+        // collection but still parked — not loaded to the water — so they do not count as
+        // arrived; the parking's release wakes them.
+        Assert.True(session.Sim.TickRefusals > 0, "the box left under a held job and nothing was refused for it");
         Assert.True(parkedSeen > 0, "no arrival was parked while a real worker held the grid");
         Assert.True(session.Pipeline.FluidArrivalsParked > 0);
         Assert.Equal(0, session.Pipeline.FluidArrivalsWaiting);

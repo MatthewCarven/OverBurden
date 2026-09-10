@@ -136,7 +136,15 @@ public sealed class SheetSettle
         long before = Stopwatch.GetTimestamp();
         SheetLevelResult result = _fluid.LevelSheets(SettleShare, SettleAfterTicks);
         double millis = (Stopwatch.GetTimestamp() - before) * 1000.0 / Stopwatch.Frequency;
+        return Record(result, millis);
+    }
 
+    /// <summary>The parameters a job's worker runs the solve with. See <see cref="FluidSimulation.BeginTick"/>.</summary>
+    public (int Share, int QuietTicks) ForWorker => (SettleShare, SettleAfterTicks);
+
+    /// <summary>Counts a pass that ran elsewhere — on a job's worker (slice 3c) — as one of this settle's.</summary>
+    public SheetLevelResult Record(SheetLevelResult result, double millis)
+    {
         Settles++;
         if (result.Idle)
         {

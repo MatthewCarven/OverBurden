@@ -393,6 +393,18 @@ public partial class Main : Node3D
 
     private readonly HashSet<ChunkPos> _fluidReachable = [];
 
+    /// <summary>
+    /// <c>--fieldbakes=<n></c>: at most this many chunk fields baked at one boundary (slice 3c).
+    /// Eight is an estimate — ~16–20 ms in Debug — and this is the sweep; a very large value is
+    /// the pre-3c arm, which baked the first flooded boundary's dozens in one 230 ms frame.
+    /// </summary>
+    private int _fieldBakesPerBoundary = 8;
+
+    private readonly List<ChunkPos> _fieldLate = [];
+
+    /// <summary>Chunks whose field landed late — past the cap, or after a decline — and were woken as an arrival.</summary>
+    private long _fieldLateWakes;
+
     private long _fluidBudgetTicks;
 
     /// <summary>Frames the tick in progress has run over so far; the tick's span once it completes.</summary>
@@ -432,9 +444,9 @@ public partial class Main : Node3D
     // time, and boundaries that arrived to find the previous tick still out — a slow tick lowers
     // the rate rather than skipping a cell, and this is how often it did.
     private int _fluidJobs, _fluidJobsWaited;
-    private double _fluidJobWallSum, _fluidJobWallMax, _fluidJobVisitSum, _fluidJobWalkSum;
+    private double _fluidJobWallSum, _fluidJobWallMax, _fluidJobVisitSum, _fluidJobWalkSum, _fluidJobSettleSum;
     private int _fluidJobsAtWarm, _fluidJobsWaitedAtWarm;
-    private double _fluidJobWallSumAtWarm, _fluidJobVisitSumAtWarm, _fluidJobWalkSumAtWarm;
+    private double _fluidJobWallSumAtWarm, _fluidJobVisitSumAtWarm, _fluidJobWalkSumAtWarm, _fluidJobSettleSumAtWarm;
     private long _fluidRefusalsAtWarm, _fluidArrivedRefusalsAtWarm, _fluidRequeuedAtWarm;
 
     // What the boundary itself costs on the sim thread, by pass, so "fluid ms" on the job arm can
@@ -1218,6 +1230,10 @@ public partial class Main : Node3D
                 // sim-thread arm every figure before it was taken in.
                 case "fluidjob" when int.TryParse(value, out int jobOn):
                     _fluidJobOn = jobOn != 0;
+                    break;
+
+                case "fieldbakes" when int.TryParse(value, out int bakes):
+                    _fieldBakesPerBoundary = Math.Max(1, bakes);
                     break;
 
                 // M8b-3b: how many ticks with nothing arriving before the sheet solve levels what
@@ -3390,6 +3406,7 @@ public partial class Main : Node3D
             _fluidJobWallSumAtWarm = _fluidJobWallSum;
             _fluidJobVisitSumAtWarm = _fluidJobVisitSum;
             _fluidJobWalkSumAtWarm = _fluidJobWalkSum;
+            _fluidJobSettleSumAtWarm = _fluidJobSettleSum;
             _fluidRefusalsAtWarm = _fluid.TickRefusals;
             _fluidArrivedRefusalsAtWarm = _fluid.TickRefusalsOfArrivedChunks;
             _fluidRequeuedAtWarm = _fluid.CellsRequeued;
@@ -3426,7 +3443,14 @@ public partial class Main : Node3D
             // after a draw is never a quiet one. Then B → A, so what rests on the ground is in the
             // lake before the lake is drawn from.
             long t0 = Stopwatch.GetTimestamp();
-            _settle?.AtBoundary();
+
+            // On the job arm the solve ran at the tail of the last job and was recorded at its
+            // collection (slice 3c); the sim-thread arm settles here, as it always has.
+            if (!_fluidJobOn)
+            {
+                _settle?.AtBoundary();
+            }
+
             long t1 = Stopwatch.GetTimestamp();
             _handoff?.Absorb();
             _drain?.Draw();
@@ -3441,7 +3465,17 @@ public partial class Main : Node3D
             if (_field is not null)
             {
                 _fluid.ReachableChunks(_fluidReachable);
-                _field.Sync(_fluidReachable);
+                _fieldLate.Clear();
+                _field.Sync(_fluidReachable, _fieldBakesPerBoundary, _fieldLate);
+
+                // A field that landed late is an arrival to the water: the cells a tick paused
+                // for want of it, and the neighbours that rested against it as a wall, wake now,
+                // before the next batch is composed (slice 3c).
+                foreach (ChunkPos chunk in _fieldLate)
+                {
+                    _fluid.ChunkArrived(chunk);
+                    _fieldLateWakes++;
+                }
             }
 
             long t4 = Stopwatch.GetTimestamp();
@@ -3473,7 +3507,7 @@ public partial class Main : Node3D
             // and synced here without touching it. fluid ms now means this boundary's cost.
             long b0 = Stopwatch.GetTimestamp();
             FluidFieldView view = _field!.Capture();
-            FluidTickJob job = _fluid.BeginTick(view, ViewerChunk(), walkSurface: _fluidSurface is not null);
+            FluidTickJob job = _fluid.BeginTick(view, ViewerChunk(), walkSurface: _fluidSurface is not null, settle: _settle?.ForWorker);
             _bBegin += Milliseconds(b0, Stopwatch.GetTimestamp());
             job.Collected = OnFluidTickCollected;
             _fluidJobCts = new System.Threading.CancellationTokenSource();
@@ -3560,6 +3594,12 @@ public partial class Main : Node3D
         if (wall > FluidTickSeconds * 1000.0)
         {
             _fluidJobsWaited++;
+        }
+
+        if (job.Settle is { } solved)
+        {
+            _settle?.Record(solved, job.SettleMillis);
+            _fluidJobSettleSum += job.SettleMillis;
         }
 
         if (job.Surface is not null && _fluidSurface is not null)
@@ -4005,7 +4045,8 @@ public partial class Main : Node3D
             ? "fluidfield off (--fluidfield=0)\n"
             : $"fluidfield {_field.Chunks:N0} chunk(s), {_field.Bytes / 1024.0 / 1024.0:F2} MiB; "
               + $"{_field.Builds:N0} built, {_field.Forgets:N0} forgotten, "
-              + $"{_field.Invalidations:N0} edited, {_field.Declined:N0} declined, {_field.Misses:N0} miss(es) of which "
+              + $"{_field.Invalidations:N0} edited, {_field.Declined:N0} declined, {_field.Capped:N0} past the cap of "
+              + $"{_fieldBakesPerBoundary} a boundary, {_field.Waiting:N0} still owed, {_fieldLateWakes:N0} late and woken; {_field.Misses:N0} miss(es) of which "
               + $"{_field.TickMisses:N0} inside a tick — a boundary miss is a pour asking about "
               + "ground no panel has reached yet and is harmless; a tick miss is what "
               + "slice 3 cannot have\n";
@@ -4055,6 +4096,7 @@ public partial class Main : Node3D
                 : $"fluidjob  {jobs:N0} tick(s) collected in the window ({jobs / seconds:F2}/s against 2 nominal); "
                   + $"wall mean {(_fluidJobWallSum - _fluidJobWallSumAtWarm) / jobs:F1} ms max {_fluidJobWallMax:F1} ms "
                   + $"(worker visits mean {(_fluidJobVisitSum - _fluidJobVisitSumAtWarm) / jobs:F1} ms, "
+                  + $"solve mean {(_fluidJobSettleSum - _fluidJobSettleSumAtWarm) / jobs:F2} ms, "
                   + $"walk mean {(_fluidJobWalkSum - _fluidJobWalkSumAtWarm) / jobs:F2} ms); "
                   + $"{_fluidJobsWaited - _fluidJobsWaitedAtWarm:N0} boundary(ies) waited for a slow tick; "
                   + $"{f.TickRefusals - _fluidRefusalsAtWarm:N0} refusal(s) inside a tick, of which {f.TickRefusalsOfArrivedChunks - _fluidArrivedRefusalsAtWarm:N0} for a chunk that had arrived by collection — decision 7's cost, the rest is the live answer; "

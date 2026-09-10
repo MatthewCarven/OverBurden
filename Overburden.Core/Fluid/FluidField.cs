@@ -174,9 +174,45 @@ public sealed class FluidField : IFluidTerrain
     /// Forgetting through the same call that builds means an unloaded chunk needs no hook of its
     /// own: it simply stops being reachable.
     /// </remarks>
-    public void Sync(IReadOnlyCollection<ChunkPos> reachable)
+    public void Sync(IReadOnlyCollection<ChunkPos> reachable) => Sync(reachable, int.MaxValue, null);
+
+    /// <summary>Reachable chunks left unbaked by a cap or a decline, still owed a bake.</summary>
+    public int Waiting => _waiting.Count;
+
+    /// <summary>Fields dropped at a sync because their chunk had left the box while still reachable.</summary>
+    public long Departed { get; private set; }
+
+    /// <summary>Invalidations that found the world unable to answer and dropped the field instead.</summary>
+    public long InvalidationsDeclined { get; private set; }
+
+    /// <summary>Bakes deferred past the cap, over the lifetime. See <see cref="Sync(IReadOnlyCollection{ChunkPos}, int, List{ChunkPos})"/>.</summary>
+    public long Capped { get; private set; }
+
+    /// <summary>
+    /// <see cref="Sync(IReadOnlyCollection{ChunkPos})"/> with at most <paramref name="maxBuilds"/>
+    /// bakes this call (slice 3c), and every chunk baked <i>late</i> — owed from an earlier
+    /// boundary, by the cap or by a decline — appended to <paramref name="lateBuilt"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The cap is the skip.</b> The first flooded boundary of a restore or a chunk bite finds
+    /// dozens of reachable chunks with no field and baked them all in one frame — 230 ms on the
+    /// played world, felt. In play the reachable set grows by a few chunks a tick and never meets
+    /// the cap; the open and the bite are where it spreads the cost over boundaries.
+    /// </para>
+    /// <para>
+    /// <b>A late bake must wake the chunk the way an arrival does, and the caller owns that.</b> A
+    /// chunk past the cap has no field, so a tick refuses its cells and pauses them; a paused cell
+    /// has no way back but <see cref="FluidSimulation.ChunkArrived"/>, and for a chunk that was
+    /// loaded all along no arrival is coming. That was a latent hole for a <i>declined</i> build
+    /// before the cap existed — a chunk declined at one boundary and baked at a later one woke
+    /// nothing either — which is why the late list carries declines as well as caps.
+    /// </para>
+    /// </remarks>
+    public void Sync(IReadOnlyCollection<ChunkPos> reachable, int maxBuilds, List<ChunkPos>? lateBuilt)
     {
         ArgumentNullException.ThrowIfNull(reachable);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxBuilds);
 
         if (_chunks.Count > 0)
         {
@@ -198,15 +234,56 @@ public sealed class FluidField : IFluidTerrain
             }
         }
 
+        // What was owed and is no longer reachable is no longer owed.
+        if (_waiting.Count > 0)
+        {
+            _waiting.RemoveWhere(chunk => !reachable.Contains(chunk));
+        }
+
+        int built = 0;
         foreach (ChunkPos chunk in reachable)
         {
-            if (!_chunks.ContainsKey(chunk))
+            if (_chunks.ContainsKey(chunk))
             {
-                Build(chunk);
+                // A chunk that has left the box keeps its panel, so it stays reachable, and until
+                // 3c its field stayed with it — so a worker's view covered a chunk the world no
+                // longer answered for, and the tick went on moving its queued cells where the
+                // sync arm pauses them. The eviction's linger rule lists the paused; the moved
+                // ones were released asleep and came back stranded, which the race battery found
+                // on real threads and nothing else could have. Dropped, so the view refuses it
+                // and the cells pause; owed, so it is baked when the chunk is back.
+                if (!_source.IsLoaded(chunk.OriginVoxel))
+                {
+                    Forget(chunk);
+                    _waiting.Add(chunk);
+                    Departed++;
+                }
+
+                continue;
             }
 
+            if (built >= maxBuilds)
+            {
+                if (_waiting.Add(chunk)) Capped++;
+                continue;
+            }
+
+            if (Build(chunk))
+            {
+                built++;
+                if (_waiting.Remove(chunk))
+                {
+                    lateBuilt?.Add(chunk);
+                }
+            }
+            else
+            {
+                _waiting.Add(chunk);
+            }
         }
     }
+
+    private readonly HashSet<ChunkPos> _waiting = [];
 
     /// <summary>Rebuilds one voxel's bit from the source, on a fresh array.</summary>
     /// <remarks>
@@ -219,6 +296,19 @@ public sealed class FluidField : IFluidTerrain
         ChunkPos chunk = voxel.Chunk;
         if (!_chunks.TryGetValue(chunk, out byte[]? bits))
         {
+            return;
+        }
+
+        // The same "no" Build declines on: CanHold is false for a voxel the world cannot answer
+        // for, and baking that as rock is the frozen-water defect through a second door. The game
+        // edits only loaded chunks, so this is the race battery's case — an invalidation landing
+        // on a chunk that has just left the box — and the field is dropped so it is rebuilt when
+        // the world can answer, with the cells it covers paused and woken by the late bake.
+        if (!_source.IsLoaded(voxel))
+        {
+            Forget(chunk);
+            _waiting.Add(chunk);
+            InvalidationsDeclined++;
             return;
         }
 

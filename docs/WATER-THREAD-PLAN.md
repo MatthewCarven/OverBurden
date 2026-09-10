@@ -938,6 +938,64 @@ trigger for a dedicated thread is that line moving.
 5. **The race battery is one stress test over the real scheduler plus the quit-mid-job test, with
    the in-place `Invalidate` recipe in its battery.** Recommended.
 
+### Slice 3c — built 2026-09-10, all five as recommended
+
+Suite 1,234 → 1,240; 14 break-recipes, 14 caught — three of them only on a second run, because
+the first run's catches came from a stress test that was itself flaky, which is the finding below.
+`--fieldbakes=<n>` (8) is the cap's sweep; `--fluidjob=1` is unchanged in `start.cmd`.
+
+**The skip.** `FluidField.Sync(reachable, maxBuilds, lateBuilt)` bakes at most *n* chunks a
+boundary, owes the rest (and every decline), and hands back the chunks it baked late so Main can
+wake them with `ChunkArrived` — a paused cell's only way back. The settle's solve runs at the tail
+of the job (`SolveOnWorker`, told `Ticks + 1` so the quiet test reads as the boundary's; the three
+`_terrain.` sites in the sheet solve take the visit terrain) and `SheetSettle.Record` counts it at
+collection; the order settle → hand-off → drain → pour → next tick is unchanged, and the twin test
+asserts the worker solves exactly when the boundary would and against the same tick number.
+`Publish` counts queued-plus-paused without the walk; the quit's line walks once
+(`Publish(exactAwake: true)`). **On the played world's open — which now holds the 153,000-cell
+flood the play made — the worst field sync went from 748 ms to 51 ms, and the settle's sim-thread
+cost to 0.** The cap's price is refusals: 318,807 against 15,265 uncapped, of which 394 for chunks
+that had arrived — cells waiting a boundary or two for their bake.
+
+**The race battery found a real hole in 3b, and it was not any of the races the pass listed.** The
+stress test — a pour big enough to keep a worker running while the sim thread edits under it,
+moves the box away and back, and is refused pours and saves — stranded a front on two runs in
+three, on clean code, always the same shape: a cell holding water asleep over an empty holdable
+cell, not paused, not queued. Bisecting the mutations put it on the moves; the diagnostic
+(`FirstCellWithAMove`, which now names the cell and why for every `SettlesAndRests`) put it on
+the eviction. **A chunk that leaves the box keeps its panel, so it stays reachable, so its field
+stayed with it — and a worker's view therefore covered a chunk the world no longer answered for.**
+The eviction's linger rule depends on a departed chunk reading *not loaded*, so the tick pauses
+its queued cells and the release lists them awake; on the job arm the tick went on moving them,
+the release listed only the paused, and the moved ones came back asleep. The sync arm never had
+this, because the live terrain says "not loaded". `Sync` drops the field of any reachable chunk
+the source no longer answers for (`Departed`) and owes it; the worker then pauses the cells as the
+sync arm does. **Eighteen stress runs green after; the pin is
+`AFieldForAChunkThatLeftIsDroppedAtTheSyncSoTheWorkerPausesItsCells`.** On the way it also found
+**`Invalidate` baking an unloaded voxel as rock** — the frozen-water "conditional no" through the
+edit hook's door, unreachable in play (edits need a loaded chunk) and reachable by the battery;
+it declines and drops the field now.
+
+**A finding about the battery itself.** The first battery run reported four recipes caught only
+by the stress test, including one that could not affect it (the solve's tick number — the stress
+passes no settle to the job). That was the flake wearing a catch's costume; the re-run after the
+fix showed three of the four MISSED, and each got its own pin. **A recipe caught by a test that is
+not stable is not caught.**
+
+**The measurement.** A 2 ML moving flood (`--injectlitres=2000000 --speed=12 --turnaround=10`,
+r4h/2v, 30 s), both arms: `3276 generated` in both — generation does not starve, so the dedicated
+thread's trigger does not fire — and **`first draw` 6.08 s on the job arm against 8.72 s** on the
+sync arm, because the sim thread is free. The sync arm ran 36 ticks in the window with a longest of
+289 frames; the job arm ran 57 at 2.1× the visits (5.45 M against 2.57 M), worker wall 288 ms mean
+/ 685 max with the solve at 77 ms of it, 17 boundaries waiting for a slow tick — the rate lowering
+rather than a cell skipped, as decided. The boundary on the job arm: 23 ms mean, of which field
+sync 13.5, capture and compose 3.9 (a 200,000-cell batch), pour 3.5 (the injection's 198.7 ms
+once), hand-off 2.1, settle and publish 0.
+
+**Unplayed.** The play check is the open of the played world and a bite under a lake, reading
+`boundary worst` on the `M8b:` line — field sync should read tens of milliseconds, settle 0 — and
+whether the skip is gone.
+
 ## The decisions, taken 2026-09-07 as recommended
 
 1. A separate piece, after M8b-4c and before M8c.

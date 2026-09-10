@@ -373,7 +373,11 @@ boundary by pass (settle, hand-off and drain, pour, field sync, publish, capture
 the window and worst over the run; **`fluid ms` on this arm is the boundary's cost**, not a slice's.
 The periodic `M8b:` line carries `job tick(s)`, `worker wall`, `boundary(ies) waited` and `boundary
 worst`. A quit cancels the job and waits for it (`M8b: cancelled the tick in flight before the quit`);
-a fault freezes the water for the session, printed once.
+a fault freezes the water for the session, printed once. Slice 3c adds **`--fieldbakes=<n>`** — at
+most that many chunk fields baked at one boundary, 8 by default and an estimate, a very large value
+the pre-3c arm that baked a restore's dozens in one frame; the `fluidfield` line prints how many went
+past the cap, are still owed, and were baked late and woken. On the job arm the settle's solve runs at
+the tail of the job (`solve mean` on the `fluidjob` line) and the `boundary` line's settle reads 0.
 
 The adaptive view radius (2026-09-06) adds six. **`--adaptive=1` turns it on; off is the default
 and the arm every recorded streaming figure was taken in, and `start.cmd` passes it on** the way
@@ -502,7 +506,21 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-10, late evening). Slice 3b is built, played and accepted; 3c is planned
+**Pick up here (2026-09-10, night). The water thread is built — slices 1, 2, 3a, 3b, 3c — and 3c
+is unplayed.** Read WATER-THREAD-PLAN's "Slice 3c — built" first. **The play check: open the
+played world, bite under a lake, read `boundary worst` on the `M8b:` line — field sync in the tens
+of milliseconds, settle 0 — and whether the skip is gone.** Two things from 3c not to rediscover:
+**a chunk that leaves the box must lose its field at the next sync** (`Departed`), because its
+panel keeps it reachable and a worker's view covering a departed chunk moves cells the eviction
+then releases unlisted — the race battery found it on real threads and nothing else could have;
+and **a recipe caught by a flaky test is not caught** — three of the first battery's catches were
+the stress test failing on its own. `--fieldbakes=<n>` caps the bakes at a boundary (8) and a late
+bake wakes the chunk as an arrival; the settle's solve runs at the job's tail. Generation does not
+starve under a 2 ML moving flood (identical generates, first draw earlier), so the dedicated
+thread's trigger has not fired. What is next is Matthew's — M8c is the plan's next milestone. The
+paragraph below is 3c's planning state, kept for the reasoning.
+
+**Earlier (2026-09-10, late evening). Slice 3b is built, played and accepted; 3c is planned
 and not built — five decisions in WATER-THREAD-PLAN's "Slice 3c — the planning pass", all
 recommended, waiting on Matthew.** The play: *"I got it to skip slightly but that was all"* — the log
 says peak 153,250 active cells at a steady 2 Hz on the worker (172 ms mean / 319 max, 0 boundaries

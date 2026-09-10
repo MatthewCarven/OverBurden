@@ -1,5 +1,30 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-10 — Slice 3c is built: the skip is gone from the sim thread, and the race battery found a 3b hole no listed race could have
+
+All five as recommended. **Suite 1,234 → 1,240; 14 recipes, 14 caught.** The water thread is
+built: slices 1, 2, 3a, 3b, 3c.
+
+- **The skip.** Field bakes capped per boundary (`--fieldbakes=`, 8) with a late bake waking the
+  chunk as an arrival; the settle's solve at the tail of the job, told `Ticks + 1` so the quiet
+  test and the order are the boundary's; `Publish` counts rather than walks. On the played
+  world's open — which now holds the play's 153,000-cell flood — **the worst field sync 748 → 51
+  ms, the settle's sim-thread cost 0.**
+- **The race battery stranded a front on clean code two runs in three, and it was the eviction.**
+  A departed chunk keeps its panel, so it stays reachable, so its field stayed in the worker's
+  view; the tick went on moving its queued cells where the sync arm pauses them, and the release
+  listed only the paused. `Sync` drops the field of a chunk the world no longer answers for.
+  **The sync arm never had this and no listed race was it** — it took a real worker, a moving box,
+  and a diagnostic that names the stranded cell. Also found on the way: `Invalidate` baking an
+  unloaded voxel as rock, the frozen-water trap through the edit hook's door.
+- **A recipe caught by a test that is not stable is not caught.** The first battery run credited
+  the stress test with four catches, one of which it could not physically make; after the fix
+  three were MISSED and got real pins.
+- **The measurement.** 2 ML moving flood, both arms: `3276 generated` in both — generation does
+  not starve — and `first draw` 6.08 s against 8.72; 57 ticks against 36 at 2.1× the visits, 17
+  boundaries waiting for a slow tick. The boundary on the job arm is 23 ms mean: field sync 13.5,
+  capture and compose 3.9, pour 3.5, hand-off 2.1.
+
 ## 2026-09-10 — 3b is played: 153,000 cells at a steady 2 Hz on a worker, and the skip is the boundary
 
 Matthew: *"I got it to skip slightly but that was all."* The log: 155 s, 101 relay pours, **peak

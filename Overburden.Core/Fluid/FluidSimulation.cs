@@ -704,6 +704,16 @@ public sealed partial class FluidSimulation : IFluidPersistence
                 + "finish the tick with Step() first.");
         }
 
+        return FirstCellWithAMove() is null;
+    }
+
+    /// <summary>
+    /// The first held cell the automaton would move if it visited it, with why, or null when it was
+    /// right to stop. The diagnostic behind <see cref="VerifyQuiescent"/>, for a test that has to
+    /// say which cell was stranded.
+    /// </summary>
+    public (VoxelPos Cell, string Why)? FirstCellWithAMove()
+    {
         Span<int> sides = stackalloc int[4];
         foreach (VoxelPos cell in _grid.HeldCells())
         {
@@ -717,7 +727,7 @@ public sealed partial class FluidSimulation : IFluidPersistence
                     continue;
                 }
 
-                return false;
+                return (cell, "held water in rock");
             }
 
             int amount = _grid.AmountAt(cell);
@@ -725,7 +735,7 @@ public sealed partial class FluidSimulation : IFluidPersistence
             VoxelPos below = Below(cell);
             if (_terrain.CanHold(below) && RoomAt(below) > 0)
             {
-                return false;
+                return (cell, $"room below ({RoomAt(below)} mL), holds {amount}, paused {IsPaused(cell)}, queued {_queued.Contains(cell)}, chunk loaded {_terrain.IsLoaded(cell)}, below loaded {_terrain.IsLoaded(below)}");
             }
 
             if (!FluidRules.CanSpread(amount))
@@ -738,13 +748,16 @@ public sealed partial class FluidSimulation : IFluidPersistence
             {
                 if (sides[k] >= 0 && FluidRules.HorizontalTransfer(amount, sides[k], divisor) > 0)
                 {
-                    return false;
+                    return (cell, $"a sideways move to side {k}, paused {IsPaused(cell)}");
                 }
             }
         }
 
-        return true;
+        return null;
     }
+
+    private bool IsPaused(VoxelPos cell) =>
+        _paused.TryGetValue(cell.Chunk, out HashSet<VoxelPos>? set) && set.Contains(cell);
 
     /// <summary>
     /// Reads a cell's four sides — the amount held, or −1 where the side cannot hold water —
