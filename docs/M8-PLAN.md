@@ -1683,7 +1683,13 @@ decision.
    and the trap is a constant shipping green. Solubility stays out (that note's decision 2).
 5. **Delivery is lowest-face-first under a granule.** *Recommended.* Cost: a per-chunk sort by Y
    once per scan. The alternative — deliver at the wall where the face is — is the same list
-   unsorted and puts a wall weep before a floor spring, which is backwards.
+   unsorted and puts a wall weep before a floor spring, which is backwards. **Played 2026-09-11
+   at scale ×10: the water comes out of the wall at one point and runs — *"more like a tap"* — and
+   Matthew kept it: *"that is how it works in real life"*. In hard rock it does: inflow is through
+   joints and fissures, a spring or a running crack, not a sweating wall; sweating is dirt and
+   sand. A per-group, faces-take-turns delivery was proposed on the verdict and withdrawn on the
+   reply. Revisit trigger: a room dug in dirt reading wrong, whose fix is per material — dirt
+   sweats, stone springs — and not a change to this rule.**
 6. **`seepageScale` ships at the nuisance end, an estimate, swept by flag, picked in M8d's play.**
    *Recommended* — the settled option 3, and `rainfallScale`'s shape.
 7. **Nothing is stored; the remainder is lost on a quit, bounded at one cell per chunk.**

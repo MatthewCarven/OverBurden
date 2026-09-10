@@ -4692,6 +4692,12 @@ Three honest caveats, because the saving is not where it first appears:
                      terms, plus `displaced 0` and both identities exact. **The sentence wanted
                      back: whether the water arriving reads as the mine getting wet or as a tap,
                      and whether the awake mean at seeping boundaries is tens or thousands.**
+                     **Half answered 2026-09-11 (scale ×10, 33,113 L seeped through 15,352 faces,
+                     identities exact): it reads as a tap, and that is kept — hard rock lets water
+                     in through joints, not through the wall. The awake mean read 419 while only
+                     tunnelling and ~49,000 after a `Q` bite let the lake in through portals, so
+                     the bodies number is the flood's, not the drip's: it still wants one session
+                     of tunnelling under the lake without breaking through.**
             - [ ] A delivery is an inflow to the settle (`Add` notes it), so a drip-fed chunk's
                   puddle levels by diffusion and never by the solve. Revisit trigger: the play
                   reading the puddle as syrup; lever: water bodies, where a delivery is a number.

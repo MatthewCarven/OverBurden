@@ -1,5 +1,19 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-11 — M8c played: it reads as a tap, and a tap is right for stone
+
+Two screenshots at `--seepscale=10`: a blue smear running down the wall of the big pit just under
+the lake's level, then a `Q` bite letting the lake into the pit. The log: 33,113 L seeped through
+15,352 faces in 16 chunks, 7 seeping and 2 full on the last pass, 29,713 L drawn through the bite's
+portals, both identities exact, seep pass worst 16.7 ms Debug, worst frame 54 ms. The verdict on
+the first shot: *"more like a tap"*. I proposed spreading the delivery across each group's faces
+so the wall sweats; Matthew: *"but like that is how it works in real life"* — and in hard rock it
+is: inflow is through joints, a spring or a running fissure, not a damp wall. Withdrawn; decision
+5 stands, with a per-material revisit trigger (dirt sweats, stone springs) recorded against it.
+**The water-bodies number is still open**: awake at seeping boundaries read 37/419/789 while only
+tunnelling and 37/49,000/61,077 after the bite, which is the flood's count and not the drip's.
+One session under the lake without breaking through is what answers it.
+
 ## 2026-09-11 — M8c-2 and M8c-3 are built: the mine seeps, and "never settles" costs one flag
 
 Matthew, shown M8c-1's numbers: *"I am tempted to back out of seepage, because with infinite
