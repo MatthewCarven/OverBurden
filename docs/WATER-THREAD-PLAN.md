@@ -679,6 +679,124 @@ found one.
 collected, gate the reads above, publish the wet-chunk set) and **3c** (the race battery and the
 measurement).
 
+### Slice 3b — the tick as a job: the planning pass, 2026-09-10
+
+Read against the built 3a, `JobScheduler`, `JobPriority`, `ChunkPipeline.Apply`, `FluidField`,
+`FluidSurface` and every `_terrain.` site in `FluidSimulation`. Four things the pass found that
+the two paragraphs above do not say, then the decisions.
+
+**1. The split is Begin / Run / Complete, and 3a already put the seam in the right place.**
+`TickInProgress` is `_batch.Count > 0`, true from `Begin()` (the batch composed) to `Complete()`
+(the batch cleared, the deferred list drained). Put `Begin` at submission and `Complete` at
+collection, both on the sim thread, and **`GridOwnedByTick => TickInProgress` stays literally
+true across the job's whole life** — 3a's "3b changes what sets it" turns out to be *nothing*
+changes what sets it; what changes is who runs the visits in between. The worker runs the visit
+loop only (`Resume`'s body, in granules, polling cancellation) plus the surface walk; it never
+touches `_pending`'s composition, `Ticks`, the deferred list, the near field or the boundary
+passes. So the state the worker writes is: cell amounts and panel creation in `_grid`, `_cursor`,
+`_rested`, `_paused`/`_pausedCells`, `_queued` (wakes), `_inflowTick`, and counters — and every
+one of those is read on the sim thread only at a boundary today, with three exceptions below.
+
+**2. The terrain the worker reads is a captured view, and a miss inside it is a refusal.** The
+live `FluidField` falls through to the streamer on a miss and its dictionary is mutated by
+`Invalidate` (the edit hook, any frame) and `Sync` (the boundary). A worker cannot read either. So
+`FluidField.Capture()` at the boundary returns an immutable view — a copy of the dictionary's
+references, hundreds of entries, microseconds; the arrays are copy-on-write already so the view is
+never torn — and in the view **`Unknown` answers `CanHold` false and `IsLoaded` false**, counted.
+That is what slice 2's `TickMisses` was the gate for: 0 on a 40 s flood, so a refusal inside a
+tick costs nothing measured, and it is right by construction — a chunk with no field at the
+boundary was not loaded then (`Build` declines an unloaded chunk), so its cells pause exactly as
+M8b-4a's rule wants and `ChunkArrived` wakes them. The visit path takes the view through a
+per-tick `_visitTerrain`; **every boundary call keeps the live terrain** — `Add`, the sheet
+solve, `ChunkArrived`'s face wake, `Wake`'s refusal — and the build classifies each of the sixteen
+`_terrain.` sites. **Consequence: the job arm requires the field.** `--fluidfield=0` with the job
+on is the sync arm with a line saying so, not a crash and not a worker reading the streamer.
+
+**3. Three reads still cross the tick, and each gets a different answer.**
+- **The report line and the HUD** read `TotalMillilitres`, `HeldCellCount`, `PanelCount`,
+  `PanelBytes`, `AwakeHeldCells().Count()`, `PausedCellCount` and the identity terms every frame.
+  Longs are atomic on x64 but a mid-trajectory total is not a boundary value and `FluidIdentity()`
+  could read `*** NO ***` across a `Displace` and its counter. **A `Published` snapshot, taken at
+  every collection**, is what both read; the M8b: line stops reading the grid at all.
+- **`AwakeHeldCells()`, `Grid`, `Step()`/`Resume()`** refuse while a job is in flight, the way
+  `TakeAllDirty` does — a `_jobInFlight` flag beside the batch. The bench and the suite keep the
+  sync path, which is the control arm and the oracle's other half.
+- **`MayHoldWater`** reads `_grid.HasPanel`, and the worker creates panels. Mid-job it reads
+  **the published panel set ∪ the captured reachable set** instead — the worker can create a panel
+  only inside the captured set — which over-approximates by chunks that are loaded already and
+  therefore not arriving.
+
+**4. A cancelled tick has to give its unvisited cells back, so 3a's "quit finishes the tick" lever
+gets built here rather than named.** `Complete()` clears the batch; a tick that stopped at the
+cursor would lose every awake cell past it — asleep, unvisited, a stranded front on every quit. So
+collection of a `Dropped` result wakes `_batch[cursor..]` into the pending set before completing
+(`Wake` refuses nothing that holds), and the row lists them awake, exact. The quit then cancels
+the job's token and pumps results until that one result is applied — `DrainStoreLane`'s shape,
+generalised — and `SaveAll` finds the grid free. `M8b: cancelled the tick in flight before the
+quit — N cell(s) returned to the queue` replaces 3a's line. **The pipeline's `Apply` is
+chunk-centric** — it would decrement `OutstandingJobs` on whatever chunk a tick's nominal position
+named — so the tick is the first *detached* job: an `IDetachedJob` with an `OnResult` the
+pipeline routes to ahead of the chunk lookup, submitted through `SubmitDetached` so `JobsInFlight`
+stays honest, and `IsQuiescent` counts it.
+
+**What it costs, stated.** One worker of eight for the tick's length under a flood — the
+`sources` line's generation figure against the sync arm is the number, and generation starving is
+the plan's own trigger for a dedicated thread. The surface updates once a tick (2 Hz) rather than
+four times a second, and freezes for the length of a long tick — which is when the water is not
+moving on screen anyway. The `Published` snapshot is a second copy of six numbers, report-only.
+`--fluidbudget=` means nothing on the job arm and the setup line says so. The autosave can now be
+postponed for the length of a multi-second tick rather than tens of frames.
+
+**What it should buy, as a prediction to be measured rather than believed**: `fluid ms` per frame
+collapses to the boundary passes (the settle's pass, the hand-off, the drain, the pour and the
+capture — the settle's 19.5 ms longest pass is the new worst frame, and it was already there);
+visits a second from the budget's ~41,000 to a core's ~345,000 in Debug, so the flood-on-open
+ticks at ~3 Hz instead of every 188 frames; the surface walk's 8.85 ms leaves the main thread. A
+`fluidjob` profile line — tick wall time on the worker mean/max, ticks a second achieved against
+2 nominal, boundaries that waited for a job, the walk's ms — and `fluid ms` kept, now meaning the
+boundary's cost.
+
+**Oracle.** (a) The job-run tick equals the sync tick cell for cell from the same inputs — a twin
+driven through `Begin`/worker-loop/`Complete` on the test thread against `Step()`, with the same
+edits deferred at the same boundaries; (b) the same with a real scheduler and real threads through
+the `Session` harness — identity exact, `displaced 0`, rest real; (c) a cancel after *k* granules
+returns exactly the unvisited cells and conserves; (d) the refusals mid-job; (e) the captured view's
+refusal and its count; (f) `MayHoldWater` over-approximates mid-job and never under-approximates;
+(g) the lifecycle fuzzes driven through the job path. **3c** is the race battery on real threads —
+an edit, an unload, a pour, a save and a quit landing mid-job — and the measurement.
+
+#### The decisions
+
+1. **`FluidTickJob` is a detached job on the shared scheduler**, routed by the pipeline through
+   `IDetachedJob.OnResult` ahead of the chunk lookup, submitted by `SubmitDetached`, waited on by a
+   generalised `DrainStoreLane`. Recommended: it gets exactly-one-result, cancellation and the
+   profiler for free, and the alternative — a second scheduler or a thread — forfeits all three.
+2. **The worker reads a captured `FluidField` view in which `Unknown` is false for both
+   questions, and the job arm requires the field** (`--fluidfield=0` ⇒ the sync arm, printed).
+   Recommended: it is what `TickMisses == 0` was measured for.
+3. **`Begin` at submission and `Complete` at collection, both on the sim thread; the worker runs
+   the visit loop and the surface walk and nothing else; `GridOwnedByTick` stays
+   `TickInProgress`.** Recommended: the smallest change to a state machine 3a just proved.
+4. **Mid-job reads: the report line and HUD read a `Published` snapshot; `Grid`,
+   `AwakeHeldCells` and `Step` refuse; `MayHoldWater` reads published panels ∪ the captured
+   set.** Recommended.
+5. **A cancelled tick returns its unvisited cells to the queue, and the quit cancels rather than
+   finishes.** Recommended, and it is 3a's named lever built now because a quit must not sit
+   through a multi-second tick.
+6. **A faulted tick freezes the water for the session, printed once.** Recommended over falling
+   back to the sync arm, which would rethrow the same deterministic fault on the main thread
+   every boundary and take the game with it; a frozen lake beside a reported exception is the
+   pipeline's visible-hole rule.
+7. **The surface walk runs at the end of the job**, cells handed back, geometry built at
+   collection; 2 Hz. Recommended: fresher than walking first, and the only boundary pass that
+   changes *which* cells are surface is packing, one boundary stale and invisible.
+8. **`JobKind.FluidTick = 30`, Save's band, position the viewer's chunk.** Decision 7 of the
+   earlier pass, restated because the queue evaluates priority from `Kind`, not from a value the
+   job hands it.
+9. **Off by default in the code, on in `start.cmd` as `--fluidjob=1`** — slice 1's shape, so a
+   profile without the flag stays comparable with every recorded figure and the play gets the arm.
+   Recommended.
+
 ## The decisions, taken 2026-09-07 as recommended
 
 1. A separate piece, after M8b-4c and before M8c.

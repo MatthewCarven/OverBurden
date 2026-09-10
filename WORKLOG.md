@@ -1,5 +1,30 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-10 — Slice 3b planned: nothing changes what sets the flag, the worker reads a captured view, and the tick is the first detached job
+
+Matthew asked for 3b (*"3b please"*) and it got its planning pass against the built 3a; nine
+decisions are in WATER-THREAD-PLAN's "Slice 3b — the planning pass", all with recommendations.
+
+- **3a's "3b changes what sets `GridOwnedByTick`" turns out to be nothing changes it.**
+  `TickInProgress` is *batch composed and not yet cleared*; put `Begin` at submission and
+  `Complete` at collection and the flag already spans the job. The worker runs the visit loop
+  and the surface walk; everything else stays on the sim thread at a boundary.
+- **The worker reads a captured `FluidField` view in which `Unknown` refuses both questions.**
+  The live field falls through to the streamer and is mutated by the edit hook any frame; the
+  view is a copy of references over copy-on-write arrays. Slice 2's `TickMisses == 0` is exactly
+  the measurement that says a refusal costs nothing, and it is right by construction because an
+  unknown chunk was unloaded at the boundary. **The job arm therefore requires the field.**
+- **The tick is the first detached job.** `ChunkPipeline.Apply` is chunk-centric and would
+  decrement `OutstandingJobs` on whatever chunk the tick's nominal position named; an
+  `IDetachedJob.OnResult` routed ahead of the chunk lookup, a `SubmitDetached` that keeps
+  `JobsInFlight` honest, and `DrainStoreLane` generalised for the quit.
+- **A cancel must return the unvisited half of the batch**, or every quit strands a front — so
+  3a's "quit finishes the tick" lever is built in 3b rather than named.
+- **Three reads still cross the tick and get three answers**: the report line and HUD read a
+  `Published` snapshot; `Grid`/`AwakeHeldCells`/`Step` refuse; `MayHoldWater` reads published
+  panels ∪ the captured set. The prediction to measure: `fluid ms` collapses to the boundary
+  passes and visits a second go from ~41,000 to a core's ~345,000 in Debug.
+
 ## 2026-09-10 — Slice 3a is built: the grid belongs to the tick, and the pipeline is what makes a wet chunk arrive at a boundary
 
 Matthew's *"ok lets continue"* took the held decision — the reversal of M8b's "water may be added,

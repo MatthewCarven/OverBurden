@@ -4321,12 +4321,19 @@ finding without the coarser-tolerance fallback.
                               Rare (a turnaround inside half a second) and bounded by the tick; if a
                               sprint corridor ever shows meshes waiting on `parked`, the fix is a
                               deferred `Evict` that records no mark for a chunk with no panel.
-                  - [ ] **3b — the job.** Change what sets `GridOwnedByTick`; drain the deferred
-                        list where the result is collected, before the flag clears; gate the reads
-                        `FluidSimulation.Ownership.cs` lists as still open (`AwakeHeldCells`,
-                        `TotalMillilitres`, `Rested`, `SurfaceCells`, the `Grid`); **publish the
-                        wet-chunk set at the boundary**, because `MayHoldWater` reads the panel
-                        dictionary the worker is writing.
+                  - [ ] **3b — the job. ✅ Planning pass done 2026-09-10, nine decisions handed
+                        back with recommendations; see the plan's "Slice 3b — the planning
+                        pass". Build once they are answered.** What the pass changed: **nothing
+                        changes what sets `GridOwnedByTick`** — `Begin` at submission and
+                        `Complete` at collection keep `TickInProgress` true for the job's whole
+                        life, and only the visit loop moves to the worker; **the worker reads a
+                        captured field view where `Unknown` is a refusal**, which is what slice
+                        2's `TickMisses == 0` was measured for, so the job arm requires the field;
+                        **the tick is the first detached job**, because `ChunkPipeline.Apply` is
+                        chunk-centric and would corrupt a chunk's `OutstandingJobs`; **a cancel
+                        returns the unvisited half of the batch** (3a's quit lever, built here);
+                        and the report line and HUD read a `Published` snapshot rather than the
+                        grid. Nine decisions, all recommended.
                   - [ ] **3c — the race battery and the measurement**, per the planning pass.
             - [ ] **Slices 2 and 3 — ✅ planning pass done 2026-09-10, eight decisions handed back
                   with recommendations; see the plan's "Slices 2 and 3 — the planning pass". Build

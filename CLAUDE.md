@@ -489,7 +489,16 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-10, night). Slice 3a is built and unplayed; 3b — the tick as a job — is
+**Pick up here (2026-09-10, night, later). Slice 3b is planned and not built — nine decisions in
+WATER-THREAD-PLAN's "Slice 3b — the planning pass", all recommended, waiting on Matthew; build it
+once they are answered.** The pass's four findings: nothing changes what sets `GridOwnedByTick`
+(`Begin` at submission, `Complete` at collection, only the visit loop moves to a worker); the worker
+reads a captured `FluidField` view where `Unknown` refuses both questions, so the job arm requires
+the field; the tick is the first *detached* job because `ChunkPipeline.Apply` is chunk-centric;
+and a cancel must give the unvisited half of the batch back, so 3a's quit lever is built in 3b.
+The paragraph below is 3a's state, still current — 3a is unplayed.
+
+**Earlier (2026-09-10, night). Slice 3a is built and unplayed; 3b — the tick as a job — is
 next and wants its own planning pass against the built 3a.** Read WATER-THREAD-PLAN's "Slice 3a —
 built" first: the stash's recipe was departed from three times, and each departure is a rule 3b
 inherits. **The grid belongs to the tick** — mutations (`Disturb`, `ChunkArrived`, `Restore`,
