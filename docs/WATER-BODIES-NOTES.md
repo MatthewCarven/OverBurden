@@ -116,6 +116,14 @@ decision for the pass, not a given.
 6. **The drain rate at a mouth**: the automaton's room-below rule (today's), or head-driven. See
    above.
 
+## Pressure is the body's — a second argument that is not about speed
+
+A cell has no pressure; the automaton moves on room and level difference only. A body knows its
+level, so *head* at any voxel inside its void is one subtraction — which is what a head-driven
+drain (decision 6), crush depth, a rebreather's cost curve and pressure-based energy storage all
+read. Matthew's underwater ladder (M10-NOTES, *Being underwater*) needs it from its second rung
+up, so bodies are on that ladder's path as well as on the speed's.
+
 ## Further reach, deliberately not taken now
 
 Surface lakes could become bodies too, wherever their bed is loaded — a curve from real voxels

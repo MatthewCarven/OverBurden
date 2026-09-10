@@ -288,3 +288,24 @@ question for a milestone with no counter in it.
 
 **So nothing in this document comes forward.** The table above is kept as the record of what was
 considered, and its M8d row is now the thing that was *not* done, and why.
+
+## Being underwater — the ladder, 2026-09-10
+
+Matthew, on the same evening as [WATER-BODIES-NOTES.md](WATER-BODIES-NOTES.md): *"when I am under
+water eventually I was going to make you either carry oxygen or a rebreather in later tech
+followed by quantum entangle->teleportation into your like lungs for that total water
+invulnerability like feel but at the expense of quantum vacuum and pressure based energy
+storage."* Recorded, not planned. Three things about it:
+
+- **Every rung is a survival-mode mechanic**, and survival mode is already the recorded trigger
+  for shortening reach (5 → 3 m, M4d) and for weight (the chunk bite, 2026-09-03). Oxygen goes on
+  the same trigger so the three land as one decision rather than three.
+- **The top rung is this family's.** Entangled lungs are the relay pump with the player as the
+  output — a fluid teleported to a wireless destination — so it takes the same deferred-collapse
+  shape, the same entity storage, and pays from the same battery M10's power model defines. *"At
+  the expense of quantum vacuum and pressure based energy storage"* is that model's currency
+  named from the player's side.
+- **Pressure is a body quantity.** Depth-based cost — crush depth, a rebreather's curve, pressure
+  storage — is head below a water body's level, which a cell cannot state (the automaton has no
+  pressure) and a body states in one subtraction. So the ladder above oxygen wants water bodies
+  built first, and that is a second argument for them that is not about speed.

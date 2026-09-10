@@ -4635,7 +4635,9 @@ Three honest caveats, because the saving is not where it first appears:
       faster** — sleeping cells cost nothing already — and the roof-open drain is cheaper, not
       more accurate, unless the mouth draws by head. Six decisions in the notes; belongs in M8c's
       planning pass, opening with the void-curve derivation's cost (32,768 voxels a chunk bite,
-      ~1.3 million for the played mine).
+      ~1.3 million for the played mine). **Pressure is a body quantity** — head below the level —
+      so the underwater ladder (oxygen → rebreather → entangled lungs, M10-NOTES *Being
+      underwater*, survival-mode trigger) is on this item's path too.
 
 ### M9 — v0.5, the game exists
 
