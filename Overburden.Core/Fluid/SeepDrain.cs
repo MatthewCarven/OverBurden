@@ -19,12 +19,20 @@ namespace Overburden.Core.Fluid;
 /// and nothing else.
 /// </para>
 /// <para>
-/// <b>Pooled per chunk and delivered lowest first — a floor spring before a wall weep.</b> The
-/// chunk's whole rate lands at its lowest face that has room and is below the table; a face above
-/// the table is dry rock and receives nothing however low it lies, which matters on a divide,
-/// where one sample's faces are under a lake and the next sample's are not. What does not divide
-/// into whole litres is carried as the chunk's remainder on the index (decision 7): a debt against
-/// faces, not water, bounded at one cell and lost with the chunk.
+/// <b>Two arms, <see cref="SeepMode"/>, and the played one is the default.</b> <i>Spring</i> pools
+/// the chunk's whole rate and lands it at the lowest face that has room and is below the table — a
+/// floor spring before a wall weep, one point that runs, which Matthew read as *"more like a tap"*
+/// and kept: *"that is how it works in real life"*, and in hard rock it is, where water comes
+/// through joints and not through the wall. <i>Sweat</i> lets each group (one sample, one Y —
+/// every face in it under the same head) owe its own litres, and hands each litre to the next face
+/// in that group with room, round-robin: the wall weeps everywhere at once, deeper faces more. Same
+/// index, same rate, same identities; only where the litres land differs, and where they land is
+/// what the automaton then does with them, so the awake count under each is the measurement the
+/// switch exists to take. A face above the table is dry rock and receives nothing on either arm,
+/// which matters on a divide, where one sample's faces are under a lake and the next sample's are
+/// not. What does not divide into whole litres is carried as a debt against faces, not water —
+/// per chunk on the index for spring (decision 7), per group here for sweat — bounded at one cell
+/// and lost with the chunk, or, for sweat, with any change to the chunk's faces.
 /// </para>
 /// <para>
 /// <b>A chunk whose faces are all full is skipped until something changes.</b> The lake's head does
@@ -49,6 +57,18 @@ public sealed class SeepDrain
     /// <summary>How many passes a full chunk is skipped before it is looked at again regardless.</summary>
     public const int FullRecheckPasses = 16;
 
+    /// <summary>The sweat arm's per-chunk state: what each group owes and which face it hands to next, valid for one index revision.</summary>
+    private sealed class Sweat
+    {
+        public long Revision = -1;
+        public long[] Owed = [];
+        public int[] Cursor = [];
+        public List<int>[] Faces = [];
+    }
+
+    private readonly Dictionary<ChunkPos, Sweat> _sweat = [];
+    private readonly List<double> _groupCoefficients = [];
+
     private readonly SeepIndex _index;
     private readonly WaterSystem _water;
     private readonly FluidSimulation _fluid;
@@ -58,7 +78,13 @@ public sealed class SeepDrain
     private readonly Dictionary<ChunkPos, (long Revision, long Pass)> _full = [];
     private readonly Dictionary<(int X, int Z), (int Basin, double? Level)> _samples = [];
 
-    public SeepDrain(SeepIndex index, WaterSystem water, FluidSimulation fluid, double seepageScale, double tickSeconds = 0.5)
+    public SeepDrain(
+        SeepIndex index,
+        WaterSystem water,
+        FluidSimulation fluid,
+        double seepageScale,
+        double tickSeconds = 0.5,
+        SeepMode mode = SeepMode.Spring)
     {
         ArgumentNullException.ThrowIfNull(index);
         ArgumentNullException.ThrowIfNull(water);
@@ -71,10 +97,14 @@ public sealed class SeepDrain
         _fluid = fluid;
         _tickSeconds = tickSeconds;
         SeepageScale = seepageScale;
+        Mode = mode;
     }
 
     /// <summary>Litres a second per square metre of face per metre of head. <see cref="SeepIndex.DefaultSeepageScale"/> unless swept.</summary>
     public double SeepageScale { get; }
+
+    /// <summary>Where the litres land: one running spring, or the whole wall sweating.</summary>
+    public SeepMode Mode { get; }
 
     /// <summary>Millilitres that have crossed the seam. Equals <see cref="WaterSystem.SeepedLitres"/> × 1,000, always.</summary>
     public long SeepedMillilitres { get; private set; }
@@ -126,8 +156,8 @@ public sealed class SeepDrain
         });
 
         // A full mark outlives its chunk's faces only until here: a chunk with no store reads
-        // revision zero, which no store ever has.
-        if (_full.Count > _chunks.Count)
+        // revision zero, which no store ever has. The sweat state goes the same way.
+        if (_full.Count > _chunks.Count || _sweat.Count > _chunks.Count)
         {
             _stale.Clear();
             foreach (ChunkPos chunk in _full.Keys)
@@ -138,9 +168,18 @@ public sealed class SeepDrain
                 }
             }
 
+            foreach (ChunkPos chunk in _sweat.Keys)
+            {
+                if (_index.RevisionOf(chunk) == 0)
+                {
+                    _stale.Add(chunk);
+                }
+            }
+
             foreach (ChunkPos chunk in _stale)
             {
                 _full.Remove(chunk);
+                _sweat.Remove(chunk);
             }
         }
 
@@ -158,6 +197,12 @@ public sealed class SeepDrain
                 }
 
                 _full.Remove(chunk);
+            }
+
+            if (Mode == SeepMode.Sweat)
+            {
+                deliveredThisPass += SweatChunk(chunk);
+                continue;
             }
 
             double coefficient = _index.Coefficient(chunk, _water);
@@ -201,6 +246,170 @@ public sealed class SeepDrain
     }
 
     /// <summary>
+    /// The sweat arm for one chunk: each group owes its own litres and hands each to the next face
+    /// in it with room. Returns the millilitres delivered.
+    /// </summary>
+    private long SweatChunk(ChunkPos chunk)
+    {
+        _groupCoefficients.Clear();
+        double coefficient = _index.GroupCoefficients(chunk, _water, _groupCoefficients);
+        if (coefficient <= 0)
+        {
+            return 0;
+        }
+
+        ChunksSeepingLastPass++;
+        IReadOnlyList<SeepFace> faces = _index.FacesIn(chunk);
+        IReadOnlyList<SeepGroup> groups = _index.GroupsIn(chunk);
+        Sweat state = SweatStateFor(chunk, faces, groups);
+        _samples.Clear();
+
+        long delivered = 0;
+        bool wanted = false;
+        bool anyRoom = false;
+        bool starved = false;
+        for (int g = 0; g < groups.Count; g++)
+        {
+            if (_groupCoefficients[g] <= 0)
+            {
+                continue;
+            }
+
+            long owed = state.Owed[g]
+                + (long)(SeepIndex.LitresPerSecond(_groupCoefficients[g], SeepageScale) * _tickSeconds * FluidConstants.MillilitresPerLitre);
+            List<int> members = state.Faces[g];
+            wanted |= owed >= FluidConstants.MillilitresPerLitre;
+            int tried = 0;
+            while (owed >= FluidConstants.MillilitresPerLitre && tried < members.Count)
+            {
+                int cursor = state.Cursor[g] % members.Count;
+                state.Cursor[g] = cursor + 1;
+                tried++;
+                SeepFace face = faces[members[cursor]];
+                if (_fluid.Grid.FreeAt(face.Inside) < FluidConstants.MillilitresPerLitre)
+                {
+                    continue;
+                }
+
+                anyRoom = true;
+                tried = 0;
+                long seeped = SeepInto(face, 1, ref starved);
+                if (seeped == 0)
+                {
+                    break;
+                }
+
+                owed -= FluidConstants.MillilitresPerLitre;
+                delivered += FluidConstants.MillilitresPerLitre;
+            }
+
+            state.Owed[g] = Math.Min(owed, FluidConstants.CellCapacityMillilitres);
+        }
+
+        if (delivered > 0)
+        {
+            ChunksDeliveredLastPass++;
+        }
+        else if (wanted && !anyRoom)
+        {
+            // Every group that owed a litre found no face with room: full, as on the spring arm.
+            // A pass where nothing owed a litre yet is not that, and neither is a starved lake —
+            // starvation is only ever found through a face that had room, so anyRoom covers it.
+            _full[chunk] = (_index.RevisionOf(chunk), Passes);
+        }
+
+        return delivered;
+    }
+
+    private Sweat SweatStateFor(ChunkPos chunk, IReadOnlyList<SeepFace> faces, IReadOnlyList<SeepGroup> groups)
+    {
+        if (!_sweat.TryGetValue(chunk, out Sweat? state))
+        {
+            state = new Sweat();
+            _sweat[chunk] = state;
+        }
+
+        long revision = _index.RevisionOf(chunk);
+        if (state.Revision == revision)
+        {
+            return state;
+        }
+
+        // The faces changed under the groups: rebuild the membership and start the debts again.
+        // Bounded — what each group owed was under a litre — and stated as the arm's cost.
+        state.Revision = revision;
+        state.Owed = new long[groups.Count];
+        state.Cursor = new int[groups.Count];
+        state.Faces = new List<int>[groups.Count];
+        var byKey = new Dictionary<(int Y, int X, int Z), int>(groups.Count);
+        for (int g = 0; g < groups.Count; g++)
+        {
+            state.Faces[g] = [];
+            byKey[(groups[g].Y, groups[g].SampleX, groups[g].SampleZ)] = g;
+        }
+
+        for (int i = 0; i < faces.Count; i++)
+        {
+            (int sx, int sz) = _index.SampleOf(faces[i].Inside);
+            state.Faces[byKey[(faces[i].Y, sx, sz)]].Add(i);
+        }
+
+        return state;
+    }
+
+    /// <summary>
+    /// Takes up to <paramref name="litres"/> out of the lake over the face's sample and puts them
+    /// into its inside. Returns the litres moved; sets <paramref name="starved"/> when the lake
+    /// gave less than asked or is gone after. The face is assumed to have the room.
+    /// </summary>
+    private long SeepInto(SeepFace face, long litres, ref bool starved)
+    {
+        (int X, int Z) key = _index.SampleOf(face.Inside);
+        if (!_samples.TryGetValue(key, out (int Basin, double? Level) sample))
+        {
+            int basin = _water.BasinAtSample(key.X, key.Z);
+            sample = (basin, basin == Watershed.Outlet ? null : _water.LevelAt(basin));
+            _samples[key] = sample;
+        }
+
+        if (sample.Level is null || sample.Level.Value <= face.Y + 0.5)
+        {
+            return 0;
+        }
+
+        long seeped = _water.Seep(sample.Basin, litres);
+        if (seeped < litres)
+        {
+            starved = true;
+            _samples[key] = (sample.Basin, _water.LevelAt(sample.Basin));
+            if (seeped == 0)
+            {
+                return 0;
+            }
+        }
+
+        long millilitres = seeped * FluidConstants.MillilitresPerLitre;
+        long refused = _fluid.Add(face.Inside, millilitres);
+        if (refused != 0)
+        {
+            throw new InvalidOperationException(
+                $"Seep face {face} refused {refused} mL it had room for: the index holds a face "
+                + "the terrain cannot hold, so an edit never reached it.");
+        }
+
+        SeepedMillilitres += millilitres;
+        Deliveries++;
+        double? after = _water.LevelAt(sample.Basin);
+        _samples[key] = (sample.Basin, after);
+        if (after is null)
+        {
+            starved = true;
+        }
+
+        return seeped;
+    }
+
+    /// <summary>
     /// Puts up to <paramref name="litres"/> into the chunk's faces, lowest first, each out of the
     /// lake over its own sample. Returns the litres delivered.
     /// </summary>
@@ -238,40 +447,10 @@ public sealed class SeepDrain
                 continue;
             }
 
-            long seeped = _water.Seep(sample.Basin, ask);
-            if (seeped < ask)
-            {
-                // The lake ran out on the way down; its level is stale in the cache and every
-                // later face reads it again.
-                starved = true;
-                _samples[key] = (sample.Basin, _water.LevelAt(sample.Basin));
-                if (seeped == 0)
-                {
-                    continue;
-                }
-            }
-
-            long millilitres = seeped * FluidConstants.MillilitresPerLitre;
-            long refused = _fluid.Add(face.Inside, millilitres);
-            if (refused != 0)
-            {
-                throw new InvalidOperationException(
-                    $"Seep face {face} refused {refused} mL it had room for: the index holds a face "
-                    + "the terrain cannot hold, so an edit never reached it.");
-            }
-
-            SeepedMillilitres += millilitres;
-            delivered += seeped;
-            Deliveries++;
-
-            // The lake is lower now, and may be gone: that is the lake running out, not the
-            // chunk filling up, whatever the faces after this one find.
-            double? after = _water.LevelAt(sample.Basin);
-            _samples[key] = (sample.Basin, after);
-            if (after is null)
-            {
-                starved = true;
-            }
+            // The lake may run out on the way down — that is the lake running out, not the
+            // chunk filling up, whatever the faces after this one find — and SeepInto re-reads
+            // its level for them.
+            delivered += SeepInto(face, ask, ref starved);
         }
 
         return delivered;

@@ -553,6 +553,12 @@ public partial class Main : Node3D
     /// </summary>
     private double _seepScale = SeepIndex.DefaultSeepageScale;
 
+    /// <summary>
+    /// <c>--seepmode=spring|sweat</c>: one running spring at the chunk's lowest face (the played
+    /// arm and the default) or the whole wall sweating, each group handing litres round its faces.
+    /// </summary>
+    private SeepMode _seepMode = SeepMode.Spring;
+
     private long _seepedAtWarm;
     private long _seepPassesAtWarm;
     private double _seepMillisSum;
@@ -1259,6 +1265,9 @@ public partial class Main : Node3D
                 // no drain, no scans — which is the control arm and the back-out.
                 case "seepscale" when double.TryParse(value, out double seepScale):
                     _seepScale = Math.Max(0.0, seepScale);
+                    break;
+                case "seepmode":
+                    _seepMode = value.Equals("sweat", StringComparison.OrdinalIgnoreCase) ? SeepMode.Sweat : SeepMode.Spring;
                     break;
 
                 // The fifth budget seam of the same shape: how much of a frame Tier B's tick may
@@ -3421,11 +3430,12 @@ public partial class Main : Node3D
         _seeps = _water is not null && _seepScale > 0 ? new SeepIndex(_seedHeights, terrain) : null;
         _portalTracker = new PortalTracker(_portals, _seeps);
         _drain = _water is null ? null : new PortalDrain(_portals, _water, _fluid);
-        _seepDrain = _seeps is null ? null : new SeepDrain(_seeps, _water!, _fluid, _seepScale);
+        _seepDrain = _seeps is null ? null : new SeepDrain(_seeps, _water!, _fluid, _seepScale, mode: _seepMode);
         GD.Print(_seepDrain is null
             ? $"M8c: seepage is off ({(_water is null ? "no water" : "--seepscale=0")}); the seep index is not built"
             : $"M8c: seepage at {_seepScale} L/(m²·m·s) — a dug chunk under a lake takes permeability × head × face area × that "
-              + "out of the lake each tick, lowest face first (--seepscale=0 is off, the default is an estimate at the nuisance end)");
+              + $"out of the lake each tick, {(_seepMode == SeepMode.Sweat ? "each group handing litres round its faces (--seepmode=sweat)" : "lowest face first (--seepmode=spring)")} "
+              + "(--seepscale=0 is off, the default is an estimate at the nuisance end)");
 
         // M8b-3a: the other direction. Water resting on the seed ground is the basin's, by the
         // rain model; measured to remove 99.3–99.5% of a surface spill's visits (--spill).
@@ -4070,7 +4080,7 @@ public partial class Main : Node3D
         FluidPublished p = f.Published;
         string seep = _seepDrain is null
             ? string.Empty
-            : $"seeped {seeped / litre:N0} L through {_seeps!.Count:N0} face(s) in {_seeps.ChunkCount:N0} chunk(s), "
+            : $"seeped {seeped / litre:N0} L ({_seepDrain.Mode.ToString().ToLowerInvariant()}) through {_seeps!.Count:N0} face(s) in {_seeps.ChunkCount:N0} chunk(s), "
               + $"{_seepDrain.ChunksSeepingLastPass:N0} seeping / {_seepDrain.ChunksFullLastPass:N0} full on the last pass, "
               + $"seep pass worst {_seepMillisMax:F1} ms, awake at seeping boundaries "
               + $"{(_seepAwakeSamples > 0 ? $"{_seepAwakeMin:N0}/{_seepAwakeSum / _seepAwakeSamples:N0}/{_seepAwakeMax:N0}" : "—")}; ";
@@ -4201,7 +4211,7 @@ public partial class Main : Node3D
         int awakeSamples = _seepAwakeSamples - _seepAwakeSamplesAtWarm;
         string seep = _seepDrain is null || _seeps is null
             ? $"seep      no seepage ({(_water is null ? "--nowater" : "--seepscale=0")})\n"
-            : $"seep      {_seeps.Count:N0} face(s) in {_seeps.ChunkCount:N0} chunk(s) at scale {_seepDrain.SeepageScale}; "
+            : $"seep      {_seeps.Count:N0} face(s) in {_seeps.ChunkCount:N0} chunk(s) at scale {_seepDrain.SeepageScale}, {_seepDrain.Mode.ToString().ToLowerInvariant()}; "
               + $"{_seepDrain.ChunksSeepingLastPass:N0} seeping / {_seepDrain.ChunksDeliveredLastPass:N0} delivered / "
               + $"{_seepDrain.ChunksFullLastPass:N0} skipped full on the last pass ({_seepDrain.FullChunks:N0} marked full); "
               + $"seeped {(seeped - _seepedAtWarm) / litre:N0} L in the window, {seeped / litre:N0} L in all over "

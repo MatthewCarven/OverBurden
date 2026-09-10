@@ -256,29 +256,61 @@ public sealed class SeepIndex
         Refresh(seeps);
         _tableCache.Clear();
 
-        double sumVoxelHead = 0;
+        double sum = 0;
         foreach (SeepGroup group in seeps.Groups)
         {
-            (int X, int Z) key = (group.SampleX, group.SampleZ);
-            if (!_tableCache.TryGetValue(key, out double? level))
-            {
-                level = table.TableAt(group.SampleX, group.SampleZ);
-                _tableCache[key] = level;
-            }
-
-            if (level is null)
-            {
-                continue;
-            }
-
-            double head = level.Value - (group.Y + 0.5);
-            if (head > 0)
-            {
-                sumVoxelHead += group.Permeability * head;
-            }
+            sum += GroupCoefficient(group, table);
         }
 
-        return sumVoxelHead * VoxelConstants.VoxelSize * FaceAreaSquareMetres;
+        return sum;
+    }
+
+    /// <summary>
+    /// <see cref="Coefficient"/> group by group, in <see cref="GroupsIn"/>'s order, appended to
+    /// <paramref name="into"/> — the sweat arm's input, where each group owes its own litres.
+    /// Returns the sum, which equals <see cref="Coefficient"/>.
+    /// </summary>
+    public double GroupCoefficients(ChunkPos chunk, IWaterTable table, List<double> into)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        ArgumentNullException.ThrowIfNull(into);
+
+        if (!_byChunk.TryGetValue(chunk, out ChunkSeeps? seeps))
+        {
+            return 0;
+        }
+
+        Refresh(seeps);
+        _tableCache.Clear();
+
+        double sum = 0;
+        foreach (SeepGroup group in seeps.Groups)
+        {
+            double coefficient = GroupCoefficient(group, table);
+            into.Add(coefficient);
+            sum += coefficient;
+        }
+
+        return sum;
+    }
+
+    /// <summary>One group's permeability × head in metres × face area, with the table read once per sample per call.</summary>
+    private double GroupCoefficient(SeepGroup group, IWaterTable table)
+    {
+        (int X, int Z) key = (group.SampleX, group.SampleZ);
+        if (!_tableCache.TryGetValue(key, out double? level))
+        {
+            level = table.TableAt(group.SampleX, group.SampleZ);
+            _tableCache[key] = level;
+        }
+
+        if (level is null)
+        {
+            return 0;
+        }
+
+        double head = level.Value - (group.Y + 0.5);
+        return head > 0 ? group.Permeability * head * VoxelConstants.VoxelSize * FaceAreaSquareMetres : 0;
     }
 
     /// <summary>

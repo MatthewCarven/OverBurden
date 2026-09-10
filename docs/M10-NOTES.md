@@ -309,3 +309,27 @@ storage."* Recorded, not planned. Three things about it:
   storage — is head below a water body's level, which a cell cannot state (the automaton has no
   pressure) and a body states in one subtraction. So the ladder above oxygen wants water bodies
   built first, and that is a second argument for them that is not about speed.
+
+## Wading, and the pump ladder — 2026-09-11
+
+Matthew, the evening M8c's seepage was first played: *"it should be easy enough now for you to
+flood your underground base, i kind like the idea of having to wade through water until you can
+get enough iron and other tools given you have first constructed the wooden versions then the
+brass version the iron version then the steel version"* — and, asked, *"that was just me thinking
+about the future"*. Recorded, not planned. Three things about it:
+
+- **It is the tool-tier ladder applied to pumps, and the format already has the ladder.**
+  `hand_pick` … `steel_pick` are content (M3c); a pump is the relay pump with a tier — how fast it
+  moves water and how much power it draws are the two numbers a tier changes, as a pick's tier
+  changes its bite and its threshold. Wooden → brass → iron → steel is four JSON files once the
+  machine exists, and the machine is this family's, so it lands whole at M10 with the entity
+  table it needs. **Wood is a material the game does not have, and wood means trees**; that is
+  the one thing in the sentence that is not already on a path.
+- **Wading is the body noticing Tier B water**, which nothing does today: `VoxelCollider` treats
+  a fluid cell as air. Drag by depth is the cheap version and a survival-mode mechanic, so it goes
+  on the same trigger as reach, weight and oxygen — one decision, four consequences — and sits
+  under this ladder's first rung, since the point of wading is that you cannot yet pump.
+- **The flood it wades through is what M8c delivers, at a rate that is a lever.** At the shipped
+  `seepageScale` a stone room takes hours to stand ankle-deep; the arm that makes the early game
+  *wade* is a higher scale for dirt (which sweats) than stone (which springs), and that is a
+  per-material decision recorded against M8-PLAN's decision 5, not a mechanic of its own.

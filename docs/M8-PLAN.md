@@ -1689,7 +1689,16 @@ decision.
    joints and fissures, a spring or a running crack, not a sweating wall; sweating is dirt and
    sand. A per-group, faces-take-turns delivery was proposed on the verdict and withdrawn on the
    reply. Revisit trigger: a room dug in dirt reading wrong, whose fix is per material — dirt
-   sweats, stone springs — and not a change to this rule.**
+   sweats, stone springs — and not a change to this rule.** **And then, the same evening:** *"I
+   might take you up on the sweating metric … having to wade through water until you can get
+   enough iron"* — so both arms exist, `--seepmode=spring|sweat`, spring the default because it
+   was played and judged. Sweat lets each group (one sample, one Y) owe its own litres and hands
+   each to the next face in that group with room, round-robin; a submerged group stops, which is
+   what a head difference of nothing does and is the one place the arms differ in litres (the
+   spring redirects a submerged face's share to the next face with room). Headless over the
+   provocation shaft the two are within 5% in litres, visits and awake cells; the played world is
+   the A/B, and the per-material version — stone springs, dirt sweats — is what the switch exists
+   to inform.
 6. **`seepageScale` ships at the nuisance end, an estimate, swept by flag, picked in M8d's play.**
    *Recommended* — the settled option 3, and `rainfallScale`'s shape.
 7. **Nothing is stored; the remainder is lost on a quit, bounded at one cell per chunk.**

@@ -1,5 +1,21 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-11 — The sweat arm, for wading: `--seepmode=spring|sweat`
+
+Later the same evening: *"actually I might take you up on the sweating metric … i kind like the
+idea of having to wade through water until you can get enough iron"*. Built as the other arm of a
+switch rather than a replacement, spring staying the default because it was played and judged.
+Sweat: each group — one sample, one Y, every face under the same head — owes its own litres and
+hands each to the next face in it with room, round-robin, so the wall weeps everywhere and the
+floor most. Same index, rate and identities; a submerged group stops (a head difference of
+nothing), which is the one place the arms differ in litres. Suite 1,270 → 1,276; nine recipes,
+eight caught, the miss an identity (starvation is only ever found through a face that had room,
+so the starved term in the sweat arm's full rule was dead and is gone). **CPU: I was too quick
+earlier** — headless over the provocation shaft the arms are within 5% in litres, visits and awake
+cells (67 against 72 mean); a tap's stream never rests while it runs, sweat's drops fall and sit
+under the spread threshold, so the played A/B decides and not the argument. The wading and the
+wooden → brass → iron → steel pump ladder are in M10-NOTES in his words; wood means trees.
+
 ## 2026-09-11 — M8c played: it reads as a tap, and a tap is right for stone
 
 Two screenshots at `--seepscale=10`: a blue smear running down the wall of the big pit just under

@@ -4697,7 +4697,11 @@ Three honest caveats, because the saving is not where it first appears:
                      in through joints, not through the wall. The awake mean read 419 while only
                      tunnelling and ~49,000 after a `Q` bite let the lake in through portals, so
                      the bodies number is the flood's, not the drip's: it still wants one session
-                     of tunnelling under the lake without breaking through.**
+                     of tunnelling under the lake without breaking through.** **Then Matthew asked
+                     for the sweat after all, for wading: `--seepmode=sweat` is built (each group
+                     hands litres round its faces; spring stays the default). The tunnel-only
+                     session is now an A/B: once under each mode, `awake at seeping boundaries`
+                     mean off the `M8b:` line for both, and which reads like a mine.**
             - [ ] A delivery is an inflow to the settle (`Add` notes it), so a drip-fed chunk's
                   puddle levels by diffusion and never by the solve. Revisit trigger: the play
                   reading the puddle as syrup; lever: water bodies, where a delivery is a number.

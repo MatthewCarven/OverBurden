@@ -267,7 +267,9 @@ goes after the bare `--` or the engine drops it without a word** (Main warns onl
 `name=value` flag placed before the `--`; a flag after it that nothing reads is printed as unknown since 2026-09-10), and the run then opens the played world, which as of M8b-3a floods on open and
 reads nothing like a control.
 
-M8c-2 adds **`--seepscale=<x>`**, the seepage rate in litres a second per square metre of face per
+M8c-2 adds **`--seepmode=spring|sweat`** — one running spring at a chunk's lowest face with room
+(the played arm and the default) or every group handing litres round its faces so the wall
+weeps everywhere — and **`--seepscale=<x>`**, the seepage rate in litres a second per square metre of face per
 metre of head — 0.06 shipped, an estimate at the nuisance end (1.76 L/s into a 10 × 10 × 3 m stone
 room under 5 m, ankle-deep in 3.9 h; dirt 17.5× that), zero builds no index and no drain. The
 profile's `seep` line prints faces and chunks, seeping / delivered / skipped-full on the last pass,
@@ -534,7 +536,17 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-11, later). M8c is built — all three parts — and unplayed; the play check
+**Pick up here (2026-09-11, evening). M8c is built, played once, and has two delivery arms; the
+play check that is still owed is the tunnel-only A/B.** The first play (scale ×10) read *"more like
+a tap"* and Matthew kept it — hard rock lets water in through joints — then asked for the sweat
+too, for wading: `--seepmode=spring|sweat`, spring the default. The awake count that decides
+water bodies was confounded by a `Q` bite (419 mean while tunnelling, ~49,000 after the lake came
+in through portals), so: one session tunnelling under the played lake without breaking through,
+once per mode, reading `awake at seeping boundaries` off the `M8b:` line — the TODO has it as a
+recipe. The wading and pump-ladder idea is in M10-NOTES. The paragraph below is the state at the
+build, kept for the reasoning.
+
+**Earlier (2026-09-11, later). M8c is built — all three parts — and unplayed; the play check
 is the first thing to do, and its awake count is the water-bodies decision.** Read M8-PLAN's
 "M8c-2 — the planning pass" and "M8c-2 — built" first, then the TODO's play recipe under M8c-2.
 Matthew asked whether to back out of seepage because *"with infinite terrain, it will never

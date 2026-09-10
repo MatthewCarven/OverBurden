@@ -66,7 +66,7 @@ public class SeepDrainTests(ITestOutputHelper output)
 
     private sealed class Twin
     {
-        public Twin(double scale = SeepIndex.DefaultSeepageScale)
+        public Twin(double scale = SeepIndex.DefaultSeepageScale, SeepMode mode = SeepMode.Spring)
         {
             Seed = Bowl();
             Terrain = new DugTerrain(Seed);
@@ -77,7 +77,7 @@ public class SeepDrainTests(ITestOutputHelper output)
             Seeps = new SeepIndex(Seed, Terrain);
             Tracker = new PortalTracker(Portals, Seeps);
             PortalDrain = new PortalDrain(Portals, Water, Fluid);
-            Drain = new SeepDrain(Seeps, Water, Fluid, scale);
+            Drain = new SeepDrain(Seeps, Water, Fluid, scale, mode: mode);
 
             // Chunk Y 0 and 1 (voxels 0..63) over the bowl and its walls.
             for (int cz = 1; cz <= 2; cz++)
@@ -171,12 +171,15 @@ public class SeepDrainTests(ITestOutputHelper output)
         twin.Tracker.Flush();
     }
 
-    [Fact]
-    public void ARoomUnderALakeFillsBySeepageAndTheLakeDropsByExactlyWhatArrived()
+    [Theory]
+    [InlineData(SeepMode.Spring)]
+    [InlineData(SeepMode.Sweat)]
+    public void ARoomUnderALakeFillsBySeepageAndTheLakeDropsByExactlyWhatArrived(SeepMode mode)
     {
         // At the shipped scale the room owes 0.04 L a tick; swept up so litres cross every tick
-        // and the rate can be read against the coefficient inside a few hundred ticks.
-        var twin = new Twin(scale: 50);
+        // and the rate can be read against the coefficient inside a few hundred ticks. Both arms:
+        // the rate, the identities and the full chunk are the same; only where the litres land.
+        var twin = new Twin(scale: 50, mode);
         DigRoom(twin);
         Assert.Equal(0, twin.Portals.Count);
         Assert.True(twin.Seeps.Count > 0);
@@ -208,8 +211,18 @@ public class SeepDrainTests(ITestOutputHelper output)
         }
 
         Assert.Equal(1, firstSeep);
-        Assert.InRange(twin.Water.SeepedLitres, (long)(litresPerTick * ticks * 0.9), (long)(litresPerTick * ticks * 1.05));
         long atHundred = twin.Water.SeepedLitres;
+        if (mode == SeepMode.Spring)
+        {
+            Assert.InRange(atHundred, (long)(litresPerTick * ticks * 0.9), (long)(litresPerTick * ticks * 1.05));
+        }
+        else
+        {
+            // The sweat arm's floor group is submerged once its 64 cells are full to the litre,
+            // and a submerged group's litres are not drawn — the head difference there is gone —
+            // so the room fills slower than the whole coefficient says, by the floor's share.
+            Assert.InRange(atHundred, (long)(litresPerTick * ticks * 0.5), (long)(litresPerTick * ticks * 1.05));
+        }
 
         // Then the room fills — 256 cells, 4,000 L — and the chunk goes full: seepage stops
         // short of the room's capacity by the sub-litre room the whole-litre deliveries leave,
@@ -344,14 +357,16 @@ public class SeepDrainTests(ITestOutputHelper output)
         Assert.Equal(twin.Water.SeepedLitres * FluidConstants.MillilitresPerLitre, twin.Drain.SeepedMillilitres);
     }
 
-    [Fact]
-    public void AFaceUnderADryBasinReceivesNothingHoweverLowItLies()
+    [Theory]
+    [InlineData(SeepMode.Spring)]
+    [InlineData(SeepMode.Sweat)]
+    public void AFaceUnderADryBasinReceivesNothingHoweverLowItLies(SeepMode mode)
     {
         // The pooled delivery goes lowest first, but only into faces that stand under a table:
         // a hollow in the same chunk whose column drains to a basin holding nothing is dry rock
         // however far below the room it lies. Found rather than placed, because which rim sample
         // drains where is the watershed's business.
-        var twin = new Twin(scale: 50);
+        var twin = new Twin(scale: 50, mode);
         DigRoom(twin);
         ChunkPos room = new VoxelPos(56, 20, 56).Chunk;
         int bowl = twin.Basin;
@@ -385,14 +400,16 @@ public class SeepDrainTests(ITestOutputHelper output)
         twin.AssertIdentity();
     }
 
-    [Fact]
-    public void AFullChunkIsSkippedUntilItsFacesChangeOrTheRecheckComesRound()
+    [Theory]
+    [InlineData(SeepMode.Spring)]
+    [InlineData(SeepMode.Sweat)]
+    public void AFullChunkIsSkippedUntilItsFacesChangeOrTheRecheckComesRound(SeepMode mode)
     {
         // One dug voxel under the bed holds 15.625 L. A big lake over it fills it inside a few
         // passes; after that the chunk is marked full and skipped — not walked — until a dig
         // in it moves the index's revision, or FullRecheckPasses passes go by, which is how
         // water taken out by a route that files no face (the relay's Alt+R) is noticed.
-        var twin = new Twin(scale: 500);
+        var twin = new Twin(scale: 500, mode);
         var cell = new VoxelPos(60, 24, 60);
         twin.Dig(cell);
         twin.Water.Inject(twin.Basin, 200_000);
@@ -420,9 +437,10 @@ public class SeepDrainTests(ITestOutputHelper output)
         Assert.Equal(seepedWhenFull, twin.Water.SeepedLitres);
         Assert.InRange(twin.Seeps.RemainderMillilitres(cell.Chunk), 0, FluidConstants.CellCapacityMillilitres);
 
-        // A dig beside it changes the faces: looked at again on the next pass, and the new
-        // voxel takes water.
-        twin.Dig(cell with { X = 61 });
+        // A dig above it changes the faces — and the groups, since it is another Y, which is
+        // what the sweat arm's per-group state has to notice: looked at again on the next
+        // pass, and the new voxel takes water.
+        twin.Dig(cell with { Y = 25 });
         twin.Tick();
         Assert.Equal(0, twin.Drain.ChunksFullLastPass);
         Assert.True(twin.Water.SeepedLitres > seepedWhenFull);
@@ -445,13 +463,15 @@ public class SeepDrainTests(ITestOutputHelper output)
         output.WriteLine($"full after {pass} pass(es) at {visitsWhenFull}; rechecked after {SeepDrain.FullRecheckPasses}");
     }
 
-    [Fact]
-    public void ALakeThatRunsDryMidPassIsNotAFullChunk()
+    [Theory]
+    [InlineData(SeepMode.Spring)]
+    [InlineData(SeepMode.Sweat)]
+    public void ALakeThatRunsDryMidPassIsNotAFullChunk(SeepMode mode)
     {
         // A small lake over a big room: the pass asks for more than the lake holds, gets less,
         // and must not mark the room full — its faces have room, the lake has none, and the
         // next rain would otherwise wait 16 passes to be noticed.
-        var twin = new Twin(scale: 10_000);
+        var twin = new Twin(scale: 10_000, mode);
         DigRoom(twin);
         twin.Water.Inject(twin.Basin, 300);
         twin.Tick();
@@ -489,12 +509,14 @@ public class SeepDrainTests(ITestOutputHelper output)
         output.WriteLine($"{twin.Water.DrawnLitres:N0} L drawn through the shaft, {twin.Water.SeepedLitres:N0} L seeped through the walls");
     }
 
-    [Fact]
-    public void ARateUnderALitreATickIsCarriedAsARemainderAndDeliveredWhole()
+    [Theory]
+    [InlineData(SeepMode.Spring)]
+    [InlineData(SeepMode.Sweat)]
+    public void ARateUnderALitreATickIsCarriedAsARemainderAndDeliveredWhole(SeepMode mode)
     {
         // A single voxel under the bed owes a few millilitres a tick (0.6 mL at the shipped
         // scale, swept to ~20). Nothing crosses until a whole litre is owed, then exactly one does.
-        var twin = new Twin(scale: 2.0);
+        var twin = new Twin(scale: 2.0, mode);
         var cell = new VoxelPos(60, 26, 60);
         twin.Dig(cell);
         twin.Water.Inject(twin.Basin, 100_000);
@@ -511,7 +533,7 @@ public class SeepDrainTests(ITestOutputHelper output)
             twin.Tick();
             ticks++;
             long remainder = twin.Seeps.RemainderMillilitres(cell.Chunk);
-            Assert.InRange(remainder, 0, FluidConstants.MillilitresPerLitre - 1);
+            Assert.InRange(remainder, 0, mode == SeepMode.Spring ? FluidConstants.MillilitresPerLitre - 1 : 0);
             if (twin.Water.SeepedLitres != lastSeeped)
             {
                 deliveries.Add((ticks, twin.Water.SeepedLitres - lastSeeped));
@@ -558,6 +580,57 @@ public class SeepDrainTests(ITestOutputHelper output)
         twin.Water.Water!.Remove(twin.Basin, left);
         Assert.Equal(0, Saturation.HeadMetresAt(deep, twin.Water));
         Assert.Equal(0, Saturation.HeadMetresAt(new VoxelPos(-500, -100, -500), twin.Water));
+    }
+
+    [Fact]
+    public void TheSweatArmWetsTheWallEverywhereAndTheFloorMost()
+    {
+        // The other arm: each group owes its own litres and hands them round its faces. After a
+        // few hundred ticks the room's floor is wet across many cells rather than one, the walls
+        // are wet at every Y, and the floor — deepest, most head — has taken the most; the
+        // spring arm over the same ticks has water in far fewer cells. Same litres out of the
+        // lake to within the remainders, same identities.
+        var sweat = new Twin(scale: 50, SeepMode.Sweat);
+        var spring = new Twin(scale: 50, SeepMode.Spring);
+        DigRoom(sweat);
+        DigRoom(spring);
+        sweat.Water.Inject(sweat.Basin, 100_000);
+        spring.Water.Inject(spring.Basin, 100_000);
+
+        for (int i = 0; i < 40; i++)
+        {
+            sweat.Tick();
+            spring.Tick();
+            sweat.AssertIdentity();
+        }
+
+        Assert.Equal(SeepMode.Sweat, sweat.Drain.Mode);
+        List<VoxelPos> wet = sweat.Fluid.Grid.HeldCells().ToList();
+        List<VoxelPos> wetSpring = spring.Fluid.Grid.HeldCells().ToList();
+        output.WriteLine(
+            $"sweat: {sweat.Water.SeepedLitres:N0} L in {wet.Count} cell(s) over {wet.Select(c => c.Y).Distinct().Count()} Y level(s), "
+            + $"{sweat.Drain.Deliveries} deliveries; spring: {spring.Water.SeepedLitres:N0} L in {wetSpring.Count} cell(s), {spring.Drain.Deliveries} deliveries");
+
+        // Fewer litres, not more: the spring redirects a submerged face's share to the next face
+        // with room, the sweat arm lets a submerged group stop, which is what a head difference
+        // of nothing does.
+        Assert.InRange(sweat.Water.SeepedLitres, (long)(spring.Water.SeepedLitres * 0.85), spring.Water.SeepedLitres);
+        // The automaton spreads the spring's stream over the floor too, so cell counts separate
+        // the arms only modestly (133 against 96 here); the spring's own column stacks above the
+        // floor as well, so "water above Y 20" does not separate them either. What does is the
+        // floor's water arriving in many cells rather than through one, below.
+        Assert.True(wet.Count > wetSpring.Count, "the sweat arm did not spread the water over more cells than the spring");
+        Assert.Contains(wet, c => c.Y > 20);
+        Assert.Contains(wet, c => c.Y == 20);
+
+        // The floor group holds the most, and the floor cells that took water are many.
+        long floor = wet.Where(c => c.Y == 20).Sum(c => (long)sweat.Fluid.Grid.AmountAt(c));
+        long rest = wet.Where(c => c.Y > 20).Sum(c => (long)sweat.Fluid.Grid.AmountAt(c));
+        Assert.True(floor > rest, $"floor {floor} mL against the rest {rest} mL");
+        Assert.True(wet.Count(c => c.Y == 20) > 8, "the floor's litres landed in a handful of cells");
+
+        // Deliveries are whole litres, one at a time, round the group's faces.
+        Assert.Equal(sweat.Water.SeepedLitres, sweat.Drain.Deliveries);
     }
 
     [Fact]
