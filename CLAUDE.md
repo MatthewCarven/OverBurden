@@ -506,10 +506,15 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-10, night). The water thread is built — slices 1, 2, 3a, 3b, 3c — and 3c
-is unplayed.** Read WATER-THREAD-PLAN's "Slice 3c — built" first. **The play check: open the
-played world, bite under a lake, read `boundary worst` on the `M8b:` line — field sync in the tens
-of milliseconds, settle 0 — and whether the skip is gone.** Two things from 3c not to rediscover:
+**Pick up here (2026-09-10, night). The water thread is built and played — slices 1, 2, 3a, 3b,
+3c — and the next thing is Matthew's: M8c is the plan's next milestone, and it wants its own
+planning pass.** 3c's play: worst frame 332 → 63.7 ms (field sync 43.9, hand-off 24.7, pour 17.5,
+settle 0), one boundary waited over a 128,600-cell peak, identities exact. Two things that play
+left in TODO: the surface install is the largest main-thread term now (7.8 ms for 20,196 quads a
+tick — build the arrays on the worker), and Tier A stands at 388% of capacity on that world (the
+hand-off feeds basins past their rims — look at a lake bank before M8c, since seepage is where
+rims start to matter). Read WATER-THREAD-PLAN's "Slice 3c — built" first. Two things from 3c not
+to rediscover:
 **a chunk that leaves the box must lose its field at the next sync** (`Departed`), because its
 panel keeps it reachable and a worker's view covering a departed chunk moves cells the eviction
 then releases unlisted — the race battery found it on real threads and nothing else could have;
