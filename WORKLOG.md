@@ -1,5 +1,20 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-10 — 3b is played: 153,000 cells at a steady 2 Hz on a worker, and the skip is the boundary
+
+Matthew: *"I got it to skip slightly but that was all."* The log: 155 s, 101 relay pours, **peak
+153,250 active cells at a steady 2 Hz** — worker wall 172 ms mean / 319 ms max, `0 boundaries
+waited` — every identity exact, `displaced 0`, 461 drawn throughout, 0 refusals for a chunk that
+had arrived. A 319 ms tick on the sim-thread arm is 160 frames at the 2 ms budget, a tick every
+2.7 s; the worker held 2 Hz. **The skip is the boundary's worst frame, 332 ms: field sync 230 ms
+and the settle's first pass 143 ms**, the two costs 3b's measurement had just named as both arms'
+and neither arm's to see. 3b accepted; 3c planned with the skip as its first item — the bakes
+capped per boundary with a wake at landing (which also closes a latent hole: a cell paused for a
+chunk that was loaded all along has no arrival to wake it), the settle's solve at the tail of the
+job with M8b-3b's order preserved, the awake count maintained rather than walked — then the race
+battery on real threads and the moving-flood generation measurement. Five decisions, all with
+recommendations.
+
 ## 2026-09-10 — Slice 3b is built: the tick runs on a worker, and the first thing it found was a term missing from 3a's own rule
 
 *"ok lets continue"* took all nine decisions and 3b was built in the session. **Suite 1,216 →

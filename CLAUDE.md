@@ -502,7 +502,17 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-10, evening). Slice 3b is built and unplayed — the tick runs as a job on a
+**Pick up here (2026-09-10, late evening). Slice 3b is built, played and accepted; 3c is planned
+and not built — five decisions in WATER-THREAD-PLAN's "Slice 3c — the planning pass", all
+recommended, waiting on Matthew.** The play: *"I got it to skip slightly but that was all"* — the log
+says peak 153,250 active cells at a steady 2 Hz on the worker (172 ms mean / 319 max, 0 boundaries
+waited), identities exact, 461 drawn; **the skip is the boundary's 332 ms frame — field sync 230,
+settle 143 — and is 3c's first item**: bakes capped per boundary with a wake at landing, the
+settle's solve on the job's tail with the order preserved, the awake count maintained; then the
+race battery on real threads and the moving-flood generation measurement. The paragraph below is
+3b's build state, kept for the reasoning.
+
+**Earlier (2026-09-10, evening). Slice 3b is built and unplayed — the tick runs as a job on a
 worker, `start.cmd` passes `--fluidjob=1`, 0 is the sim-thread arm.** Read WATER-THREAD-PLAN's
 "Slice 3b — built" first. Suite 1,216 → 1,234; 25 recipes, 25 caught. **The play check: `Q` a
 chunk out under a lake and read the `M8b:` line's `fluidjob` terms — worker wall, `boundary(ies)

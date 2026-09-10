@@ -4332,10 +4332,11 @@ finding without the coarser-tolerance fallback.
                         for a chunk that had arrived, the rest the live terrain's own "not loaded".
                         Measured: the same trajectory as the sync arm to the visit; both arms at
                         2 Hz on the open at ~18,000 active, the job's worker wall ~50 ms mean.
-                        **Unplayed. The play check: `Q` under a lake with `start.cmd`, read
-                        `fluidjob` on the `M8b:` line — worker wall, `boundary(ies) waited`,
-                        refusals of arrived chunks — and whether the world keeps drawing under
-                        it; and the `M6:`/`M2c:` lines for generation starving.**
+                        **Played 2026-09-10 — *"I got it to skip slightly but that was all"*:
+                        peak 153,250 active at a steady 2 Hz, worker wall 172 ms mean / 319 max,
+                        0 boundaries waited, identities exact, 461 drawn. Accepted. The skip is
+                        the boundary's 332 ms worst frame — field sync 230, settle 143 — and is
+                        3c's first item.**
                         - [ ] **The first flooded boundary's field sync is 235–279 ms** on the
                               played world's open (both arms, never timed before 3b): dozens of
                               32,768-question bakes in one frame. Levers: bake on a worker
@@ -4358,7 +4359,13 @@ finding without the coarser-tolerance fallback.
                         - [ ] **`--fluidbudget` means nothing on the job arm** and the setup line
                               says so; the sync arm keeps it. If the sync arm is ever retired,
                               the flag and the slicing go with it.
-                  - [ ] **3c — the race battery and the measurement**, per the planning pass.
+                  - [ ] **3c — ✅ planning pass done 2026-09-10, five decisions handed back with
+                        recommendations; see the plan's "Slice 3c — the planning pass".** The
+                        skip first (field bakes capped per boundary with a wake at landing; the
+                        settle's solve on the job's tail with the order preserved; the awake
+                        count maintained), then the race battery on real threads (one stress
+                        test plus the quit mid-job, with the in-place `Invalidate` recipe), then
+                        generation under a moving flood in both arms.
             - [ ] **Slices 2 and 3 — ✅ planning pass done 2026-09-10, eight decisions handed back
                   with recommendations; see the plan's "Slices 2 and 3 — the planning pass". Build
                   slice 2 once they are answered.** What the pass changed: **the field is an

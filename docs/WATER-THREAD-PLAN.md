@@ -862,6 +862,82 @@ frames a tick — no longer exists in that file. The provocation is `Q` under a 
 `--fluidjob=1`, reading `fluidjob`'s wall and `boundary(ies) waited` on the `M8b:` line, and the
 `M2c:` line's generates beside the sync arm's.
 
+**Played 2026-09-10 — *"I got it to skip slightly but that was all"* — and the log says what the
+play was**: 155 s, 101 relay pours, **peak 153,250 active cells at a steady 2 Hz**, worker wall
+172 ms mean / 319 ms max, `0 boundaries waited`, every identity exact, `displaced 0`, 461 chunks
+drawn throughout, 0 refusals for a chunk that had arrived. The sim-thread arm cannot do that: a
+319 ms tick at 2 ms a frame is 160 frames, a tick every 2.7 s. **The skip is the boundary's worst
+frame, 332 ms — field sync 230 ms and the settle's first pass 143 ms** — the two costs 3b's
+measurement named as both arms' and neither arm's to see. Accepted; the skip is 3c's first item.
+
+### Slice 3c — the planning pass, 2026-09-10
+
+Three things, in the order the play put them: the skip, the race battery, and the one measurement
+still open.
+
+**1. The skip is two boundary passes, and each has a small lever with the order preserved.**
+
+- **The field sync.** `FluidField.Sync` bakes every reachable chunk with no field, inline, at the
+  boundary: 32,768 questions to the streamer each, ~2.3 ms in Debug, and the first flooded
+  boundary of a restore or a chunk bite finds dozens at once — 230 ms in one frame. Two levers.
+  *Cap the bakes per boundary* (`--fieldbakes=<n>`, 8 an estimate at ~16–20 ms Debug): a chunk
+  past the cap has no field, so its cells refuse and pause, and **the bake landing at a later
+  boundary must wake them the way an arrival does** — a paused cell has no other way back, which
+  is a latent hole today for a *declined* build whose chunk never "arrives" (it was loaded all
+  along). In play the reachable set grows by a few chunks a tick and never meets the cap; the open
+  and the bite are where it spreads a 230 ms frame over a dozen boundaries. *Or bake as a job*: the
+  bake is a pure function of a chunk's voxels and the material table, `VoxelChunk` is already
+  copy-on-write while shared with a job (M3a), so a `BakeFieldJob` per chunk on the scheduler with
+  the result applied at a boundary removes the cost from the sim thread entirely — but it is a new
+  chunk-scoped job kind through the pipeline's `Complete`, with the wake at landing the same. The
+  cap is twenty lines and bounded; the job is the principled one.
+- **The settle's first pass.** `LevelSheets(share, quiet)` over `Pending` at the boundary, 143 ms
+  over the played lake, atomic by design (M8b-3b: a pass is O(sheet)). At the end of a job's visits
+  `Pending` is exactly the next tick's set, so **the solve can run at the tail of `RunOnWorker`**,
+  after the visits and before the surface walk, and the order the M8b-3b argument fixed — settle,
+  then hand-off, then drain, then pour, then the next tick — is unchanged, since the collection
+  runs the hand-off after the job. The trigger (`SheetSettle.AtBoundary`'s quiet-tick decision)
+  stays on the sim thread and is captured into the job; the three `_terrain.` sites in
+  `FluidSimulation.Sheets.cs` take the visit terrain, as `Wake` did; the result lands on the
+  settle's counters at collection. Cost: the job's wall grows by the solve — 319 + 143 ms is
+  inside the 500 ms and "a slow tick lowers the rate" covers the rest.
+- **`Publish`'s awake walk**: 14.9 ms worst on the play, a walk over the paused and queued sets at
+  every boundary. A count maintained where cells are woken, visited and paused makes it O(1).
+
+**2. The race battery, on real threads.** Every seam the ownership design closes is closed by
+refusal or deferral, so a "race" here is a mutation landing while a *running* worker — not a held
+one — reads the view and writes the grid: `Disturb` and `field.Invalidate` (an edit), `Evict` and
+`Sync` (an unload — the sync is a boundary call and must stay one), `ChunkArrived`/`Restore` (an
+arrival, parked), `SaveAll` (refused, the autosave postponed), and a quit (cancel, wait, write).
+The oracle the runtime gives is weak — .NET reports no data race — so the battery's oracle is:
+no fault, the view unchanged by an edit that landed during the run (a counting view), every
+identity exact at every collection, rest real at the end, and **the quit mid-job**: cancel, wait,
+write, reopen, and the rows list the requeued cells awake with the water cell for cell. Driven as
+one stress test over the real scheduler with a large pour so the worker is genuinely running while
+the sim thread edits under it, plus the quit as its own test. **A recipe the battery must contain**:
+`Invalidate` mutating the live array in place instead of replacing it — the copy-on-write the
+view's safety rests on has no test that fails without it.
+
+**3. The measurement still open: generation under a moving flood.** The wire check's `sources`
+line is identical in both arms and the play drew 461 chunks under a 153k-cell flood, so nothing
+says generation starves — but nothing measured it either. One scripted arm: `--injectlitres=
+2000000 --speed=12 --turnaround=10` in both arms, reading `sources` and `first draw`; the plan's
+trigger for a dedicated thread is that line moving.
+
+#### The decisions
+
+1. **3c is the skip's two levers, the race battery and the starving measurement, in that order.**
+   Recommended: the skip is what the play reported, and the battery is the plan's own item.
+2. **The field bakes are capped per boundary, with the bake waking the chunk's paused cells as an
+   arrival does; the bake-as-a-job is the named revisit** if the cap's wait is ever seen in play.
+   Recommended: twenty bounded lines against a new job kind, and the wake-at-bake closes a latent
+   hole either way.
+3. **The settle's solve runs at the tail of the job, the trigger stays on the sim thread, the
+   order is preserved.** Recommended.
+4. **The awake count is maintained, not walked.** Recommended.
+5. **The race battery is one stress test over the real scheduler plus the quit-mid-job test, with
+   the in-place `Invalidate` recipe in its battery.** Recommended.
+
 ## The decisions, taken 2026-09-07 as recommended
 
 1. A separate piece, after M8b-4c and before M8c.
