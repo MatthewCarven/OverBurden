@@ -53,6 +53,7 @@ internal static class Program
           --watershed          time the M7 watershed analysis over a sweep of window sizes
           --portal             time M8b-2b's portal index over a chunk bite, array seed against analytic
           --seep               M8c-1: the seep index over a room under a lake in real strata, swept by head and rock
+          --seepawake          M8c: what a drip does to the automaton with nothing else awake, both arms (--seepticks <n>, default 600)
           --fluid              time M8's Tier B automaton draining a lake into a mine
           --fluidlitres <n>    the lake, in litres (default 9,000,000)
           --fluidticks  <n>    ticks of flow before the settle (default 2000)
@@ -94,6 +95,8 @@ internal static class Program
         bool fluid = false;
         bool portal = false;
         bool seep = false;
+        bool seepAwake = false;
+        int seepTicks = 600;
         long fluidLitres = 9_000_000;
         int fluidTicks = 2_000;
         int[] fluidBores = [1, 3, 5, 9];
@@ -163,6 +166,12 @@ internal static class Program
                         break;
                     case "--seep":
                         seep = true;
+                        break;
+                    case "--seepawake":
+                        seepAwake = true;
+                        break;
+                    case "--seepticks":
+                        seepTicks = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
                         break;
                     case "--fluidlitres":
                         fluidLitres = long.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
@@ -368,6 +377,11 @@ internal static class Program
         {
             var portalGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
             return PortalBench.Run(portalGenerator, MachineControl(portalGenerator), IsDebug());
+        }
+
+        if (seepAwake)
+        {
+            return SeepAwakeBench.Run(seepTicks);
         }
 
         if (seep)

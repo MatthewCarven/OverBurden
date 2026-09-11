@@ -4701,10 +4701,20 @@ Three honest caveats, because the saving is not where it first appears:
                      for the sweat after all, for wading: `--seepmode=sweat` is built (each group
                      hands litres round its faces; spring stays the default). The tunnel-only
                      session is now an A/B: once under each mode, `awake at seeping boundaries`
-                     mean off the `M8b:` line for both, and which reads like a mine.**
+                     mean off the `M8b:` line for both, and which reads like a mine.** **Answered
+                     on the bench 2026-09-11 (`--seepawake`), because the game's count reads the
+                     whole world's awake cells and the played world's flood swamps the drip: at the
+                     shipped scale a small room is quiet 97% of ticks, a 10 × 10 × 3 m room keeps
+                     141 awake under a spring and 18 under sweat; at ×10 one to two thousand. A
+                     drip does not force water bodies; bodies stay after M8d. What is still play's
+                     is the look A/B.**
             - [ ] A delivery is an inflow to the settle (`Add` notes it), so a drip-fed chunk's
                   puddle levels by diffusion and never by the solve. Revisit trigger: the play
                   reading the puddle as syrup; lever: water bodies, where a delivery is a number.
+            - [ ] **The `awake at seeping boundaries` term is the world's count, not the drip's.**
+                  Read it against a `--seepscale=0` control on the same world or not at all; the
+                  clean number is `--seepawake`. Lever if it is ever wanted in play: count the cells
+                  the drain's own deliveries woke, which the sim would have to attribute.
             - [ ] The rate is measured against the lake, not the head difference to the mine's
                   own water, so a mine seeps at the full rate until it is full and then stops,
                   rather than slowing as it fills. Bodies give the honest difference for free.

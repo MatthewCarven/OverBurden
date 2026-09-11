@@ -1,5 +1,51 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-11 — The bodies number, taken where nothing else is awake: the drip does not force water bodies
+
+Matthew's third screenshot: a pit dug *beside* the lake, not under it, with water on its floor —
+*"water falls as gravity decides"*. Decision 1 in one picture: the table is the lake's level over
+everything that drains to it, so a pit whose floor is below the water line is under head from the
+side. The log (sweat, ×10): 99,667 L seeped through 33,981 faces in 25 chunks, both identities
+exact — and 120,629 L *drawn*, because the pit's wall reaches the lake's air somewhere and the
+portals feed it too.
+
+**The game's `awake at seeping boundaries` cannot answer the bodies question on the played
+world**, and this play is what said so: it counts every awake cell at a boundary where something
+seeped — the loaded mine water, the portal flood, a fill's 158 kL displaced — and would read the
+same with seepage off (562 / ~45,000 / 108,623 here; 921 / 2,930 / 5,042 on the first report,
+before anything was dug). So the number was taken on the bench instead, `--seepawake`: the test
+suite's bowl, a room wholly under its bed fed by seepage alone, both arms, 600 ticks with the
+settle at every boundary, at the shipped scale and at the ×10 Matthew plays:
+
+```
+  room (voxels)   scale   mode     seeped L   awake mean / p50 / max   quiet ticks   wet cells at end
+  8x4x8            0.06   spring         24         0 /     0 /     47           584                 32
+  8x4x8            0.06   sweat          12         0 /     0 /     36           593                 21
+  8x4x8            0.60   spring        240        21 /     0 /    108           419                 64
+  8x4x8            0.60   sweat         232        15 /     0 /    157           454                 64
+  40x12x40         0.06   spring        596       141 /   104 /    393            21                593
+  40x12x40         0.06   sweat         368        18 /     0 /    412           520                465
+  40x12x40         0.60   spring      5,988      1981 / 2,159 /  2,998             0              1,517
+  40x12x40         0.60   sweat       5,780      1258 /   902 /  3,469             9              1,672
+```
+
+Three things:
+
+- **A drip does not force water bodies.** At the shipped scale a tunnel-sized room is quiet 97%
+  of ticks with a mean of zero awake; a 10 × 10 × 3 m room under a spring keeps ~100–140 cells
+  awake (a stream running across its floor) and under sweat 18, quiet 87% of ticks. At ×10 both
+  arms hold one to two thousand awake on the big room and never go quiet — a rate the play chose
+  for seeing it, not the shipped one. Tens to low thousands, never the tens of thousands the
+  played world's count showed; those were the flood. Bodies stay after M8d, as planned.
+- **Sweat is cheaper for the automaton, not dearer.** My first instinct was wrong and the second
+  right: a spring's stream never rests while it runs; sweat's litre-drops fall, land under the
+  spread threshold and sleep. On the big room at the shipped scale that is 18 against 141 mean
+  awake for two thirds of the litres — the submerged-group rule stops its floor faces once they
+  are covered.
+- **The game's line stays and is relabelled in the head**: it is the world's awake count at
+  seeping boundaries, useful against a `--seepscale=0` control on the same world and useless
+  alone. The bench is the measurement.
+
 ## 2026-09-11 — The sweat arm, for wading: `--seepmode=spring|sweat`
 
 Later the same evening: *"actually I might take you up on the sweating metric … i kind like the

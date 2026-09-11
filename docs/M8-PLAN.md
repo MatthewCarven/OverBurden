@@ -1698,7 +1698,11 @@ decision.
    spring redirects a submerged face's share to the next face with room). Headless over the
    provocation shaft the two are within 5% in litres, visits and awake cells; the played world is
    the A/B, and the per-material version — stone springs, dirt sweats — is what the switch exists
-   to inform.
+   to inform. **The awake count under each, with nothing else in the world (`--seepawake`,
+   2026-09-11): a 10 × 10 × 3 m room at the shipped scale keeps 141 cells awake under a spring
+   and 18 under sweat, quiet 87% of ticks; a tunnel-sized room is quiet 97% under either. Sweat is
+   the cheaper arm for the automaton — drops rest, a stream runs — and a drip does not force water
+   bodies (decision 8's measurement, answered: bodies stay after M8d).**
 6. **`seepageScale` ships at the nuisance end, an estimate, swept by flag, picked in M8d's play.**
    *Recommended* — the settled option 3, and `rainfallScale`'s shape.
 7. **Nothing is stored; the remainder is lost on a quit, bounded at one cell per chunk.**

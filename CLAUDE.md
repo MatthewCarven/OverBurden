@@ -152,6 +152,17 @@ Release only:
 dotnet run --project Overburden.Bench -c Release -- --seep
 ```
 
+Measure **what a drip does to the automaton with nothing else awake** — the bodies number M8c's
+pass asked for, which the game's `awake at seeping boundaries` cannot give on a played world
+because it counts every awake cell (the flood, the loaded mine, a fill's displacement) and reads
+the same with seepage off. A room under a bowl fed by seepage alone, both arms, the shipped scale
+and ×10, 600 ticks with the settle: awake mean / p50 / max and quiet ticks. **Debug-safe — it is a
+count, not a time.** `--seepticks <n>` sizes it:
+
+```bash
+dotnet run --project Overburden.Bench -c Release -- --seepawake
+```
+
 Measure **M8's Tier B automaton** — a lake draining into a mine, swept by breach width. Release
 only, and **the fixture bakes its terrain into a bitset before timing anything**, because the first
 version answered `CanHold` with `IsCaveAt` and reported 3.86 µs a visit against a true 0.2–0.3:
@@ -536,7 +547,18 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-11, evening). M8c is built, played once, and has two delivery arms; the
+**Pick up here (2026-09-11, night). M8c is built, played twice, and the water-bodies question is
+answered: a drip does not force bodies, they stay after M8d.** The second play was a pit dug
+*beside* the lake — decision 1 in a picture, the table is a level not a footprint — and it showed
+the game's `awake at seeping boundaries` is the world's count, not the drip's (it reads the flood
+and the loaded mine and would read the same with seepage off). `--seepawake` on the bench is the
+clean measurement: at the shipped scale a 10 × 10 × 3 m room keeps 141 cells awake under a spring
+and 18 under sweat, a tunnel-sized room is quiet 97% of ticks under either, and ×10 holds one to
+two thousand. Sweat is the cheaper arm for the automaton, not the dearer. What is still play's is
+the look A/B between the arms; M8d is next. The paragraph below is the evening's state, kept for
+the reasoning.
+
+**Earlier (2026-09-11, evening). M8c is built, played once, and has two delivery arms; the
 play check that is still owed is the tunnel-only A/B.** The first play (scale ×10) read *"more like
 a tap"* and Matthew kept it — hard rock lets water in through joints — then asked for the sweat
 too, for wading: `--seepmode=spring|sweat`, spring the default. The awake count that decides
