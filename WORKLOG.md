@@ -45,6 +45,11 @@ death a respawn that keeps the inventory; and **a fill refusing a voxel that hol
 answers the fill-into-a-flooded-chamber question TODO parked for this pass and makes M10's pump the
 only way to reclaim a flooded room. Nothing built; DESIGN is amended after the decisions, not before.
 
+**Taken the same evening — *"As planned, see you in a fresh chat for M9a"*.** All twelve, the
+estimates in 5 and 8 shipping as written. DESIGN's *Structural integrity* section, its M11 row,
+SCALE's M9 paragraph, MATERIALS-NOTES decision 1 and `MaterialDefinition.SupportDistance`'s comment
+are amended; M9a opens fresh, against `ChunkLight` and `LightPropagator` first.
+
 ## 2026-09-11 — M8 is done: *"Look I love what we have, it settles"*
 
 The evening's last word, after an hour on the played world with the new mesh, the shader, the

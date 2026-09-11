@@ -154,8 +154,10 @@ is a hazard only once M9 exists to be undermined by it.
    exist, the trap is a constant shipping green. Costs nothing extra now; a retrofit costs a format
    version and every mod written against the constant. **The permeability half is done (M8c-1,
    2026-09-11)**: `MaterialTable.Permeability`, refused outside [0, 1] at load, NaN sealed at use,
-   and a shipped-content test that something leaks and something is sealed. `supportDistance`
-   is still M9's.
+   and a shipped-content test that something leaks and something is sealed. **The support half
+   is planned (M9-PLAN decision 5, taken 2026-09-11)**: `supportDistance` stays the dry point and
+   `supportUnderHead` is a per-material piecewise-linear list, head metres → distance in voxels,
+   over `Saturation.HeadMetresAt`; built at M9a.
 2. **Solubility goes in its own pass after M9, not into M8c beside permeability.** Recommended,
    because limestone dissolving *under a roof the support BFS already models* is where it becomes a
    hazard rather than a curiosity, and because M8's oracle is exact volume — a second conserved

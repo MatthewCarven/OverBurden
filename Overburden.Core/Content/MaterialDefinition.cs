@@ -21,6 +21,12 @@ public sealed class MaterialDefinition
     /// How far, in voxels, this material carries unsupported load before it collapses.
     /// Stone carries far, dirt less, sand barely at all. Consumed by M9.
     /// </summary>
+    /// <remarks>
+    /// M9-PLAN decision 1 (taken 2026-09-11): the lateral reach at a roof's underside; each voxel
+    /// of rock above buys a constant's worth more (the arch), and a <em>hanging</em> voxel spends
+    /// double, so a material hangs half as far as it spans. Capped at 48 by the loader at M9a,
+    /// because the field is a byte and a mod's 1000 would be a roof that never falls.
+    /// </remarks>
     public int SupportDistance { get; init; }
 
     /// <summary>

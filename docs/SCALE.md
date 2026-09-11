@@ -132,7 +132,12 @@ active for all but the last 79 of them.
 > is not a smaller set but a **handoff**: a settled body stops being Tier B's and becomes Tier A's.
 > That is M8b, and this measurement is why it is the milestone rather than the automaton.
 
-**M9's collapse.** Deferred rather than continuous (Matthew's proposal, recorded in TODO), so the
+**M9's collapse — planned 2026-09-11, M9-PLAN.** The field is per voxel over dug chunks and their
+six face neighbours only, derived from scratch per chunk on a worker (*estimate: 1–3 ms Release,
+32 KiB a chunk*; M9a's bench takes the number), and the count that answers the question below is
+the `M9:` line's *at-risk chunks*. The paragraph that framed it:
+
+Deferred rather than continuous (Matthew's proposal, recorded in TODO), so the
 eligibility test is allowed to be late — which means it can run coarse and sampled rather than
 per-voxel on every edit. The sizing question there is not visits per second but **how many
 regions are at risk at once**, which is a different quantity and wants its own measurement.

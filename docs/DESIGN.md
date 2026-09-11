@@ -289,13 +289,21 @@ visible here.
 
 ### Structural integrity
 
-- BFS from anchored material (bedrock, or anything transitively reaching it), with a
-  per-material **support distance** — stone carries far, dirt less, sand barely.
-  Unsupported material collapses into loose rubble.
+- A **support budget** propagated from anchored material, with a per-material **support
+  distance** — stone carries far, dirt less, sand barely. Unsupported material collapses into
+  loose rubble. **Amended 2026-09-11, M9's planning pass (see M9-PLAN decisions 1 and 3)**:
+  there is no bedrock — the anchor is the edge of the analysed set, dug chunks and their six
+  face neighbours, M4a's *unloaded is solid* extended to *and holds*; and the rule has an
+  **arch** — sideways spends the material's share, resting on rock refunds a world constant,
+  hanging costs double — because a plain distance rule opens a shaft to the surface over a
+  16 m room, and because strictly negative cycles are what make the fixpoint unique.
 - Run **incrementally, locally, on a budget, off-thread**, triggered by mining.
-  Never globally.
+  Never globally. **And deferred**: a random, seeded delay between *became possible* and
+  *fell* (Matthew, 2026-09-01), so a late evaluation is a later collapse and nothing in it
+  has to fit a frame.
 - **Saturation degrades support distance.** Water does not merely flood the mine, it
-  *causes the cave-in*. This is the single interaction that ties the game together.
+  *causes the cave-in*. This is the single interaction that ties the game together. The
+  curve is per material in the JSON (`supportUnderHead`), over `Saturation.HeadMetresAt`.
 
 ### Player
 
@@ -429,7 +437,7 @@ transaction as the blob that first used it. See [M6-PLAN.md](M6-PLAN.md).
 | | |
 |---|---|
 | M10 | Machine framework, power, pumps, shoring — *you fight back* |
-| M11 | Drills, conveyors, crafting, health — **v1.0** |
+| M11 | Drills, conveyors, crafting, the rest of health (M9 ships the minimum: collapse damage, death, respawn) — **v1.0** |
 | M12 | MoonSharp scripting API |
 | M13 | Distance LOD, biomes, polish |
 

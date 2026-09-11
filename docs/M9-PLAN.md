@@ -69,7 +69,7 @@ is a roof that stands a few seconds longer. Nothing in M9 has to fit a frame.
 
 ## Decisions to settle before any code
 
-Twelve, each with a recommendation. Matthew's are marked.
+Twelve, each with a recommendation. Matthew's are marked. **All twelve taken as recommended, 2026-09-11 — *"As planned"*; the estimates in 5 and 8 ship as written until play moves them.**
 
 ### 1. The rule is a budget with an arch, not a plain distance — *recommended*
 

@@ -4826,37 +4826,37 @@ Three honest caveats, because the saving is not where it first appears:
 ### M9 — v0.5, the game exists
 
 **Planned 2026-09-11 — [docs/M9-PLAN.md](docs/M9-PLAN.md), split M9a–M9d, twelve decisions all
-recommended and waiting on Matthew.** Two facts from the code open it: there is no bedrock (the
+taken as recommended the same day (*"As planned"*). M9a is next, in its own session.** Two facts from the code open it: there is no bedrock (the
 anchor is the edge of the analysed set, M4a's *unloaded is solid* extended to *and holds*), and
 DESIGN's literal distance rule has no arch — a 2 × 2 bite in stone would open a one-metre shaft to
 the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
 
-- [ ] **The decisions** — build M9a once they are taken:
-      - [ ] 1. A budget with an arch: sideways spends the material's share, resting refunds a world
+- [x] **The decisions** — all twelve taken 2026-09-11:
+      - [x] 1. A budget with an arch: sideways spends the material's share, resting refunds a world
             constant (`RestRefundVoxels` 30, estimate), hanging costs double; strictly negative cycles
             make the fixpoint unique. `lamp.json` 4 → 8 rides on it.
-      - [ ] 2. Per voxel, one byte, only where non-trivial (32 KiB an analysed solid chunk; the cell
+      - [x] 2. Per voxel, one byte, only where non-trivial (32 KiB an analysed solid chunk; the cell
             rule the named fallback).
-      - [ ] 3. Analysed set = dug chunks + six face neighbours; a natural cave is stable until
+      - [x] 3. Analysed set = dug chunks + six face neighbours; a natural cave is stable until
             touched; exactness in the visible box is *not* the margin's — the failure is a later fall.
-      - [ ] 4. From-scratch derive per chunk on a worker, neighbours' faces captured, re-derive
+      - [x] 4. From-scratch derive per chunk on a worker, neighbours' faces captured, re-derive
             whoever's input changed; coalesced at `--supportcadence=` (250 ms, estimate).
-      - [ ] 5. `supportUnderHead` — head metres → distance, piecewise linear, per material; stone
+      - [x] 5. `supportUnderHead` — head metres → distance, piecewise linear, per material; stone
             `[[2,24],[10,12]]`, dirt `[[1,4],[3,1]]` — **estimates, Matthew's**; `--supportscale=`,
             `--saturation=0`.
-      - [ ] 6. Loose voxels dropped straight down, instantly, into one `overburden:rubble`; not
+      - [x] 6. Loose voxels dropped straight down, instantly, into one `overburden:rubble`; not
             replaceable; voxel count conserved, Σ(Y) decreases.
-      - [ ] 7. Nothing persisted; re-derived at open, delays re-rolled, no fall until the
+      - [x] 7. Nothing persisted; re-derived at open, delays re-rolled, no fall until the
             neighbourhood has derived.
-      - [ ] 8. Delay seeded by `Hash64(seed, chunk, world ms)`, world seconds, 2–60 s (estimates,
+      - [x] 8. Delay seeded by `Hash64(seed, chunk, world ms)`, world seconds, 2–60 s (estimates,
             **Matthew's**), shorter with the deficit; `--collapseafter=`, `--collapse=0`.
-      - [ ] 9. Water under a fall collected and re-poured into the cavity at the boundary, never
+      - [x] 9. Water under a fall collected and re-poured into the cavity at the boundary, never
             destroyed; **and a fill refuses a voxel holding water — Matthew's.**
-      - [ ] 10. Health at the minimum: damage per voxel on the body, buried past 4 m is death, death
+      - [x] 10. Health at the minimum: damage per voxel on the body, buried past 4 m is death, death
             is respawn with the inventory kept; not persisted. DESIGN's M11 row → *the rest of health*.
-      - [ ] 11. Warning signs ship with the fall: `COLOR.b` strain in the merge key, dust from the
+      - [x] 11. Warning signs ship with the fall: `COLOR.b` strain in the merge key, dust from the
             underside; sound waits.
-      - [ ] 12. Split M9a field / M9b wiring / M9c-1 fall alone / M9c-2 body / M9d keystone.
+      - [x] 12. Split M9a field / M9b wiring / M9c-1 fall alone / M9c-2 body / M9d keystone.
 - [ ] **M9a — the field.** `Overburden.Core/Structure/`, `MaterialTable.SupportCost`, the curve's
       loader (refuse `supportDistance` > 48, non-monotone curves), `--support` on the bench with the
       seven fixtures and the ASCII cross-section. First number: the per-voxel derive's ms.
@@ -4868,9 +4868,9 @@ the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
       questions: does the plug-then-hold read as *settling*; is a deferred fall attributable; does
       the soil patch under a shallow bite read right; does a bite under the played lake read as
       *the water brought it down*.
-- [ ] After the decisions: DESIGN's *Structural integrity* (bedrock → the analysed edge, the arch,
+- [x] After the decisions: DESIGN's *Structural integrity* (bedrock → the analysed edge, the arch,
       *deferred*), MATERIALS-NOTES decision 1, `MaterialDefinition.SupportDistance`'s comment,
-      SCALE's M9 paragraph.
+      SCALE's M9 paragraph — all amended 2026-09-11.
 - [x] **`supportDistance` is already in the material JSON, unread since M1** — the plan reads it,
       per material, as the curve's dry point. Solubility stays its own pass after M9.
 
