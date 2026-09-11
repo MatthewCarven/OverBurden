@@ -1,5 +1,50 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-11 — M9's planning pass: no bedrock, and no arch
+
+*"M9's planning pass please"*, opened fresh as the last session asked. [docs/M9-PLAN.md](docs/M9-PLAN.md),
+split M9a–M9d, twelve decisions all recommended. Two things the code said before any decision:
+
+- **There is no bedrock.** DESIGN's *BFS from anchored material (bedrock, …)* names a material the
+  mods do not have and a world floor the generator does not make — stone continues forever under a
+  metre of soil. The anchor the engine *does* have is the rule it has used three times: an unloaded
+  voxel is solid. So the anchor is the edge of what is analysed, and the analysed set is the portal
+  rule's — dug chunks and their six face neighbours, because a bitten chunk is all air and its roof
+  is the undug chunk above. Analysing the whole box was rejected on one count: a collapse edits, so
+  every natural cave that fell would turn a regenerable chunk into a stored one, by the thousand.
+- **DESIGN's literal rule has no arch, and the bench arithmetic says what that costs.** A voxel
+  more than `supportDistance` lateral steps from a wall is at risk — and so is every voxel resting on
+  it, to the surface. Over a 16 m square room (a 2 × 2 bite) that is a one-metre shaft through the
+  overburden. The plan's rule is a budget: sideways spends the material's share, resting on rock
+  *refunds* a constant, hanging costs double. **The refund had to be a world constant and hanging had
+  to cost double for a proof, not for physics**: with a per-material refund a dirt voxel over a stone
+  one pumps itself to full budget and a floating slab never falls; with hanging equal to resting a
+  column across a chunk face self-supports forever. Strictly negative cycles give the unique fixpoint
+  M5b's oracle needs and the convergence decision 4's chunk-wise iteration needs. Physics came out
+  right anyway: stone arches at 45°, soil at 75°.
+
+Three more things from the arithmetic, all labelled derived-not-measured:
+
+- **A path runs to the nearest wall, so a gallery 8 m wide of any length never falls in stone**; the
+  smallest stone room that sheds is 2 × 2 bites, and it sheds a 1 m plug of 20 voxels, then holds.
+  The first draft said *two bites side by side* and *192 voxels* — the second wall was forgotten.
+- **The keystone as a number**: the same 16 m room sheds 20 voxels dry and ~5,700 under five metres
+  of lake with the plan's estimated curve — three hundred times — while a tunnel still never falls.
+- **Support is skylight upside down**, and the plan says so in one paragraph so M9a reads `ChunkLight`
+  and `LightPropagator` first. Where it departs: the derive is from scratch per chunk on a worker with
+  the neighbours' faces captured, and the join is re-deriving whoever's input changed — because the
+  un-light walk is where cache slice 2 found three defects, and a chunk re-derived whole has no
+  inverse to get wrong. And unlike light, **the margin does not make the visible box exact** — a
+  support path can run 30 m to a wall or upward at 45° indefinitely — so a roof whose wall is beyond
+  the box stands until the box moves. The failure is a *later* fall, which the deferral licenses;
+  recorded so nobody adds a ring for it.
+
+Two things handed to Matthew beyond the numbers: **health at M9** (DESIGN puts it at M11, but *the
+mine kills you* is M9's line and his proposal names damage) — the plan recommends the minimum, with
+death a respawn that keeps the inventory; and **a fill refusing a voxel that holds water**, which
+answers the fill-into-a-flooded-chamber question TODO parked for this pass and makes M10's pump the
+only way to reclaim a flooded room. Nothing built; DESIGN is amended after the decisions, not before.
+
 ## 2026-09-11 — M8 is done: *"Look I love what we have, it settles"*
 
 The evening's last word, after an hour on the played world with the new mesh, the shader, the
