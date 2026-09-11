@@ -4197,7 +4197,7 @@ public partial class Main : Node3D
                + $"loaded {p.Loaded / litre:N0} L from {f.RestoredPanels:N0} panel(s), "
                + $"evicted {p.Evicted / litre:N0} L with {f.EvictedPanels:N0} panel(s), "
                + $"removed {p.Removed / litre:N0} L, displaced {p.Displaced / litre:N0} L, "
-               + $"handed {p.Handed / litre:N0} L to Tier A — "
+               + $"handed {p.Handed / litre:N0} L to Tier A ({_handoff?.RefusedUnderLake ?? 0:N0} cell(s) left under a lake in all) — "
                + $"held == injected + drawn + seeped + loaded − removed − displaced − handed − evicted: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
                + $"received == handed: {HandoffIdentity()}; "
                + seep

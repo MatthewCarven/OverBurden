@@ -4623,11 +4623,12 @@ finding without the coarser-tolerance fallback.
             depth written and back faces culled (the mesh's winding flipped for it), sides tinted
             by normal, the underwater wash off the installed mesh. Screenshots sent; the verdict
             is Matthew's, in play.
-            - [ ] **Play, M8d-4's fourth question**: a pour on the terraces, a pool in a pit, the
-                  flooded mine — does it read as one liquid, does the surface rise rather than
-                  jump, does the wash say "you are in it". The look constants (shallow and deep
-                  colours, falloff, tints, the wash's alpha) are `FluidWater.gdshader` uniforms
-                  and the tint's `Color` in Main; retune by number, not by guess.
+            - [x] **Play, M8d-4's fourth question — answered 2026-09-11: *"Looks great …
+                  reflective and all, no expense spared"*** on the played world's flooded mine,
+                  the pit under the lake and the eye in the water; the log behind it is in
+                  WORKLOG. The look constants (shallow and deep colours, falloff, tints, the
+                  wash's alpha) are `FluidWater.gdshader` uniforms and the tint's `Color` in
+                  Main; retune by number if a later play asks.
             - [ ] **One unnamed failure in `FluidJobTests` on the run straight after the M8d-2
                   commit** (32 tests in 13 s, one failed, the harness line cut the name off), not
                   reproduced in three re-runs of the class nor in the full suite after. Recorded

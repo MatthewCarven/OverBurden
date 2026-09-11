@@ -1,5 +1,25 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-11 — M8d-4, first play: *"Looks great … reflective and all, no expense spared"*
+
+Four screenshots of the played world's flooded mine under the new mesh and shader, two and a half
+minutes on the log (tick 310, 155 s): the stair of flooded chambers from above, its sides and
+depth reading as a stair of water rather than tiles; the same from the water's own level; the pit
+under the lake looking up — Tier A's plane over the hole, the two-surfaces shape M7 named, with
+Tier B's sides edge-on under it; and the eye in the water with the wash on. **The "more 3D"
+question is answered yes.** From the log: identities exact throughout, `paused 0`, `displaced 0`,
+**0 boundaries waited** at a worker wall of 77–108 ms mean (Debug), worst frame 54.8 ms; the
+surface installed 11–12k quads (3.5–3.9k tops over 7.4–7.7k surface cells, 7.4–8.2k sides) in
+5–6 ms a tick against slice 3c's 7.8 for 20k, the mesh 44–52 ms on the worker; **380 long falls
+over 2,905 cells** — the fall rule ran, mostly in the first fifty ticks as the open's flood
+dropped through the mine; `drawn` 34,704 L against `handed` 4,662 — the lake into the mine, the
+treadmill not turning. *"No expense spared"* is the Schlick sheen Tier A already had, now on
+faces that face the eye; the expense is the 5–6 ms install, which is the merge's dividend.
+
+**The bank rule's count was not on the periodic line** — `left under a lake` was on the
+profile's `handoff` line only, so this play cannot say whether it fired. Added to the `M8b:` line
+beside `handed`; the breach-world check under M8d-3 in TODO still stands.
+
 ## 2026-09-11 — M8d-3: the fall and the bank, and the pass's wording was a voxel out
 
 *"Ok lets continue with M8d-3"*, decisions 7 and 8 taken, so a pass against the code and a build in
