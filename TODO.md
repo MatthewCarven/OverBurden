@@ -4586,17 +4586,35 @@ finding without the coarser-tolerance fallback.
             (525% on the played world).** A label, not the litres; fix the denominator to the
             tree's capacity or drop the percentage before anyone reads it as a defect.
 - [ ] **M8d — planned 2026-09-11; see M8-PLAN's "M8d — the planning pass". Ten decisions, all
-      recommended, waiting on Matthew; build M8d-1 once they are answered.** The pass's spine:
+      taken as recommended the same night (*"As planned please"*); M8d-1 built.** The pass's spine:
       "more 3D" is three absences in the debug surface — no side faces, no depth in the colour,
       no motion between ticks — and the surface install is already the largest main-thread term,
       so the mesh is rebuilt as merged tops plus sides on the worker before anything is polished;
       the waterfall is Matthew's fall rule (stateless, up to 16 a tick) with sides to give it a
       front; the lake-bank treadmill is the hand-off refusing a cell under its own lake.
-      - [ ] **M8d-1 — the mesh.** `FluidSurfaceMesher` in Core: merged tops, sides where water
-            meets air or a lower fill, column depth and previous fill per vertex; arrays built on
-            the worker, installed on the main thread. Measured against the debug surface.
-      - [ ] **M8d-2 — the look.** Depth darkening, side shading, the `tick_phase` lerp, the
-            underwater tint. Screenshots, each arm against the debug surface.
+      - [x] **M8d-1 — the mesh. Built 2026-09-11; read M8-PLAN's "M8d-1 — built".**
+            `FluidSurfaceMesher` in Core: tops merged within a 2 mm tolerance, sides between drawn
+            heights wherever water meets air or a lower fill, bottoms under falling cells, column
+            depth and previous height per vertex in UV; built on the worker, installed on the main
+            thread; `--fluidsurface=debug|nosides|nobottoms|notops|nomerge` the arms, `--surface`
+            the bench. A lake at rest installs 26× fewer quads, a flood in progress 1.5–5× more.
+            - [ ] **Seam slivers.** A side between two runs drawn a millilitre apart across a
+                  panel seam, because the neighbour's drawn height is in another panel and its held
+                  amount stands in: 2,231 on the jittered lake fixture, none visible (a millilitre
+                  is 0.016 mm). Lever: keep the last panel row's drawn amounts. Trigger: a play
+                  that reads the seams, or the quad count mattering.
+            - [ ] **A covered cell is drawn full**, so a falling column is a shaft and not a stack
+                  of slabs. A rendering rule that exaggerates falling water's volume; judge it with
+                  M8d-3's fall, where the falling picture changes anyway.
+            - [ ] **The mesh costs one to three times the walk on the worker** (19–48 ms Release on
+                  the played lake's shape against the walk's 10–37; 43–44 ms Debug on the played
+                  world's open). Fine on the job arm; on `--fluidjob=0` it is sim-thread time at
+                  every rebuild, and the first lever is skipping the terrain ask for a floor cell
+                  the previous build already answered.
+      - [ ] **M8d-2 — the look.** Depth darkening from UV.y, side shading by normal, the
+            `tick_phase` lerp from UV.x, Tier B's own shader writing depth (decision 4 — the mesh
+            is opaque from every side today because every face blends and none writes depth), the
+            underwater tint. Screenshots, each arm against `--fluidsurface=debug`.
       - [ ] **M8d-3 — the fall and the bank.** `--fallcells=<n>` stateless up to 16, benched on
             `--front` and `--fluid` before the default; the hand-off's refusal for a cell under its
             own lake's level, with the 2026-09-09 treadmill as the test.

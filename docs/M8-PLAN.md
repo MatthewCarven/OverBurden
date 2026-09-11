@@ -1998,6 +1998,121 @@ findings, the split, and the decisions.
 10. **M8d-1 and M8d-3 are one session each; M8d-2 is screenshots and a person; M8d-4 is play.**
     *Recommended.*
 
+### M8d-1 — built, 2026-09-11
+
+Matthew took all ten decisions as recommended (*"As planned please"*). Built the same session:
+`FluidSurfaceMesher` in `Overburden.Core/Fluid/`, `FluidSurfaceMesh` as its output, the tick job
+carrying the mesh instead of the cell list, `FluidSurface` in the game reduced to an install,
+`--fluidsurface=<mesh|debug|nosides|nobottoms|notops|nomerge>` as the arms, and `--surface` on
+the bench. Suite 1,270 → 1,289. The r6 control is unchanged to the digit (2601 / 325 / 3446 at
+411), as it must be — nothing here runs headless.
+
+**What the mesher is.** Three passes over each held panel, the panels in (x, z, y) order so a
+column's depth carries across a panel's floor. Pass 1 walks columns bottom-up: every wet cell gets
+its depth (contiguous wet cells beneath, capped at 255) and what it is drawn at; a surface cell
+gets a top key of (fill, depth, previous height) and joins the panel's surface list; a cell with
+air below gets a bottom. Pass 2 merges tops greedily per layer — a run along X, then rows along Z
+— on the key, and writes each cell's *drawn* fill and previous back. Pass 3 runs the four walls
+along their length, a face wherever a wet cell is drawn higher than its neighbour and the
+neighbour is water or air. Every vertex carries two attributes, previous height and wet depth, in
+metres, in the mesh's UV; the shader does not read them yet, which is M8d-2.
+
+**Departures from the pass, each with its reason:**
+
+- **The merge key has a tolerance, and it is 2 mm.** The first build keyed tops on the raw
+  millilitres and the lake fixture, filled with exactly 8,000 mL a cell, merged to one quad a
+  panel. Then the fixture was given the settle's jitter — 8,000 or 8,001 — and the same lake was
+  66,127 tops and 111,290 sides, because the settle levels a sheet to within a millilitre, not to
+  zero, and a key on the amount splits a level lake along its millilitre contours and draws a
+  sliver between every pair. Rounding to a fixed quantum was tried and is worse in a way that
+  looks fine on average: a lake whose level sits on a quantum boundary — one in 125 — splits the
+  same way, and a draining lake passes through such a level regularly. A *run* tolerance does not
+  have a boundary: a run takes any cell within 125 mL of its first and draws the run at the first
+  cell's height. Cost: a run's drawn height is its first cell's, within 2 mm of every other.
+- **Sides are between drawn heights, exactly, not between amounts within the tolerance.** With
+  the tolerance on sides too, two runs drawn a millimetre apart got no face between them, and the
+  crack that leaves is still a pixel wide at a grazing angle; the relay's ball came out streaked
+  with the ground seen through the cracks. A side between drawn heights closes every crack with a
+  sliver at most a tolerance tall, and two cells in one run are drawn equal and show none. The
+  cost is the sliver: on the jittered lake fixture 2,231 of them, along panel seams, where the
+  neighbour's drawn height is in another panel and its held amount stands in — the lever, not
+  built, is keeping the last panel row's drawn amounts, and the trigger is a play that reads the
+  seams.
+- **A cell with water above it is drawn full.** The automaton holds a falling cell part-full with
+  its water at the floor and air above, and drawn as held a falling column is a stack of slabs
+  with the ground showing through the slots between them — the streaks that survived the crack
+  fix, attributed by `--fluidsurface=notops` and `--fluidsurface=nosides` to the sides and then by
+  reasoning to the slots. Drawn full, a falling column is a shaft; the surface cell keeps its fill
+  so the column's top is where the water is. A rendering rule, not a physics one: at rest a
+  covered cell is full anyway, so it changes only what falling water looks like, which is M8d-3's
+  question and now has a shape to be judged on.
+- **The previous surface is per panel in index order, not a dictionary of cells.** A dictionary
+  cost more than the walk on the played lake's shape — 147,456 inserts and as many lookups a
+  build. Per panel, as parallel arrays of local index and drawn amount in pass 1's own order, the
+  tops read it with a cursor that only advances and the sides — the perimeter — binary-search it;
+  the two boundary layers of a panel search the panels above and below. A fuzz pins both paths to
+  a dictionary of the previous surface across surfaces that cross a panel's top and bottom.
+- **Bottoms are built as well as sides**, because a wet cell with air below has an underside — a
+  falling drop, a ball in the air — and the same column walk knows the cell below. Unmerged, being
+  transient. And **sides are over every wet cell, not surface cells only**, or a waterfall would
+  be drawn as its topmost cell.
+- **The mesher asks the terrain `IsLoaded` before `CanHold`**, and only about dry neighbours of
+  wet cells, so a captured view counts no refusal for its questions; `TickRefusals` is decision 7's
+  instrument and a test holds it at zero across a build over the view. On the played world's open
+  the asks are one per surface cell — every cell on a floor asks whether the floor is air — and
+  148,992 on the lake fixture; on the view each is a bit read.
+
+**Measured, `--surface`, Release, on this machine at 1.05× the reference.** The debug arm is the
+walk plus one quad a surface cell; the mesh's second build is the steady state, with a previous:
+
+```
+shape                      surface cells   debug quads   debug ms |  tops   sides  bottoms   quads   KiB   mesh ms
+lake at rest (settle jitter)    147,456       147,456     35–38  |   144   2,231   3,262    5,637   837   47–49
+lake, two levels, a step        147,456       147,456        10  |   144     384   3,262    3,790   563      19
+flood of 10,000 L, tick 5           509           509       0.5  |   298   1,545     509    2,352   349     1.7
+flood at rest, tick 7,825         7,378         7,378       1.1  |   243     827       0    1,070   159     1.5
+roof open, 2×2×2, tick 20         8,916         8,916       1.7  |   706   4,669   8,199   13,574 2,015     7.7
+```
+
+Read: **a lake at rest installs 26× fewer quads and a rested flood 7× fewer; a flood in progress
+installs 1.5–5× more**, because every step of the front has a side and every cell of a falling
+body has a bottom — the plan's stated sign. The mesh costs one to three times the walk on the
+worker (the first lake row is slow in both arms, for both, and is a fixture or memory effect
+neither arm escapes; the second row is the representative one). **The 3,262 bottoms under the lake
+at rest are the fixture's**: the chamber block's floor has the generator's caves under it, and a
+hand-filled sheet does not drain into them.
+
+**In the game, Debug, the played world's open**: ~7,400 surface cells → ~14,400 quads (4,700
+tops, 9,500 sides, 50–150 bottoms, 2.1 MiB), 43–44 ms to mesh on the worker, **5.0–6.1 ms to
+install** against slice 3c's 7.8 ms for 20,196 — the install is now bounded by quads, and the loaded mine at its
+open is a flood in progress, where the merge has little to take. The relay's 50,000 L ball at
+tick 12: 1,472 surface cells → 5,799 quads, 861 KiB, 7.2 ms mesh, 3.1 ms install; the debug arm
+1,472 quads, 0.65 ms install.
+
+**Recipes, 16 applied, 10 caught on the first run, six holes, each closed with a test and
+re-run: 16 caught.** The six, and what each fixture lacked: sides within the tolerance dropped
+(no fixture had two runs that could not merge drawn less than a tolerance apart — the crack rule's
+own case, untested by its own tests); the previous list storing held amounts instead of drawn
+(every run's cells were filled equal); a stale drawn amount read for a dry neighbour (no fixture
+put a wet cell at one local index in one panel and a dry one at the same index in the next); the
+depth carry never reset between panel columns (the same, for the carry array); the panels left in
+dictionary order (every fixture filled bottom-up, so insertion order was the right order); and a
+side run merging on its own height alone (every wall's neighbours were all dry). **Four of the six
+are the same shape**: a scratch array or an order that a fixture happened to agree with, which is
+the "fixture degenerate in a way the assertion cannot see" entry a fourth time. The recipes the
+fuzz caught alone: the cursor skipping `index − 1`, and the search above at a panel's top layer.
+
+**Screenshots, all in the shared shader, so the look is M8d-2's and none of these is a verdict on
+it**: the relay's ball from six metres, debug arm against mesh arm — a field of tiles against a
+solid blue mass; then the mesh with sides, bottoms and tops each left out, which is how the
+streaks were attributed. What a person would look at first is that a body of moving water is now
+opaque from every side, because every face blends and none writes depth — decision 4, M8d-2's
+first item.
+
+**Not built, named:** the seam slivers' lever above; sides merging across a panel seam (a wall
+along a chunk boundary is two runs); and the debug arm's own install figure as a profile line,
+since the `fluidsurf` line prints one arm at a time.
+
 ---
 
 ## The open decision — settled by Matthew, 2026-09-02: option 3

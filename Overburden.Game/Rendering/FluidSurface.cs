@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+﻿using System.Runtime.InteropServices;
 using Godot;
 using Overburden.Core.Fluid;
 using Overburden.Core.Voxels;
@@ -6,25 +6,18 @@ using Overburden.Core.Voxels;
 namespace Overburden.Game.Rendering;
 
 /// <summary>
-/// Draws Tier B's moving water: one quad on top of every cell that has nothing above it, at the
-/// height the cell is filled to.
+/// Draws Tier B's moving water: the mesh <see cref="FluidSurfaceMesher"/> builds — merged tops,
+/// sides where water meets air, bottoms under falling cells — installed as it comes.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>A debug view, and named as one so that nobody polishes it.</b> M8d owns the real transparent
-/// pass — side faces, sorting, a surface that reads as one liquid rather than as a field of tiles.
-/// This exists because M8b's whole question is whether water arrives where you dug, and a flood
-/// nobody can see cannot be judged, screenshotted or reported as broken. It is
-/// <see cref="WaterSurface"/>'s shape over held cells instead of basin samples, and it shares the
-/// same shader.
-/// </para>
-/// <para>
-/// <b>Top faces only, and no merging.</b> The number of top cells is an area — one per wetted
-/// column — so it is bounded the way the active set is, and a rebuild is a scan of the held cells
-/// rather than of the world. <see cref="QuadCount"/> and <see cref="LastRebuildMillis"/> are
-/// printed so the cost is in the report rather than in somebody's head; if a flooded chamber makes
-/// this the dearest thing on the sim thread, that is M8d's argument for doing it properly, not a
-/// reason to merge here.
+/// <b>Until M8d-1 this was a debug view, one quad on top of every surface cell and no merging</b>,
+/// built because M8b's whole question was whether water arrives where you dug and a flood nobody
+/// can see cannot be judged. Its install grew to the largest main-thread term (7.8 ms for 20,196
+/// quads at slice 3c's play; 144,559 quads in 119.7 ms under a flood at M8b-4b's), which is what
+/// the merge is for. The geometry is Core's now; this class owns the instance, the material and
+/// the install, and nothing about what the water looks like. It shares
+/// <see cref="WaterSurface"/>'s shader until M8d-2 gives it its own.
 /// </para>
 /// <para>
 /// <b>Rebuilt on the Tier A surface's timer and only when the simulation has moved</b>, because a
@@ -94,131 +87,111 @@ public sealed class FluidSurface
         Rebuild(fluid);
     }
 
-    /// <summary>Surface cells the last walk yielded. Equals <see cref="QuadCount"/> since the walk began asking the grid for the surface rather than filtering every held cell.</summary>
+    /// <summary>Surface cells the last build covered with its tops — what the debug view drew one quad each.</summary>
     public int CellsWalked { get; private set; }
+
+    /// <summary>Merged top quads, side runs and bottoms in the last build. Their sum is <see cref="QuadCount"/>.</summary>
+    public int Tops { get; private set; }
+
+    public int Sides { get; private set; }
+
+    public int Bottoms { get; private set; }
+
+    /// <summary>Bytes of arrays the last build handed over, which on the job arm is what the job carried back.</summary>
+    public long LastMeshBytes { get; private set; }
 
     /// <summary>
     /// The two halves of a rebuild, split because only one of them can leave the main thread.
     /// </summary>
     /// <remarks>
-    /// The walk is over every held cell — 256,632 on the played world for 19,454 quads — and is a
-    /// pure read of the grid. The install is <c>ToArray</c>, the Godot marshalling and
-    /// <c>AddSurfaceFromArrays</c>, and has to happen where the renderer is. <b>Which of them the
-    /// 33 ms is decides whether moving this to a worker is worth anything</b>, and M5c-1 is the
-    /// reason it is measured rather than assumed: that plan costed propagation and the derive was
-    /// the larger half.
+    /// Since M8d-1 the walk is the mesher — every panel scanned, tops merged, sides run, the
+    /// arrays built — and runs on the worker on the job arm; the install is the marshalling and
+    /// <c>AddSurfaceFromArrays</c>, and has to happen where the renderer is. The install was the
+    /// largest main-thread term at slice 3c's play (7.8 ms for 20,196 quads); this is the number
+    /// that says what the merge did to it.
     /// </remarks>
     public double LastWalkMillis { get; private set; }
 
     public double LastInstallMillis { get; private set; }
 
-    private void Rebuild(FluidSimulation fluid) => Rebuild(fluid.Grid.SurfaceCells(), walkMillisOnWorker: null);
-
-    /// <summary>
-    /// Installs a surface from cells a worker walked (slice 3b): the walk already happened on the
-    /// tick job, so only the geometry and the install are paid here.
-    /// </summary>
-    public void InstallFrom(IEnumerable<(VoxelPos Cell, int Millilitres)> cells, double walkMillisOnWorker)
+    private void Rebuild(FluidSimulation fluid)
     {
-        System.ArgumentNullException.ThrowIfNull(cells);
-        _sinceRebuild = 0.0;
-        Rebuild(cells, walkMillisOnWorker);
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
+        FluidSurfaceMesh mesh = fluid.BuildSurface();
+        double walk = (System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+        Rebuild(mesh, walk);
     }
 
-    private void Rebuild(IEnumerable<(VoxelPos Cell, int Millilitres)> cells, double? walkMillisOnWorker)
+    /// <summary>
+    /// Installs a mesh a worker built (slice 3b, M8d-1): the walk and the geometry already
+    /// happened on the tick job, so only the install is paid here.
+    /// </summary>
+    public void InstallFrom(FluidSurfaceMesh mesh, double walkMillisOnWorker)
+    {
+        System.ArgumentNullException.ThrowIfNull(mesh);
+        _sinceRebuild = 0.0;
+        Rebuild(mesh, walkMillisOnWorker);
+    }
+
+    private void Rebuild(FluidSurfaceMesh mesh, double walkMillis)
     {
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
 
-        var vertices = new List<Vector3>();
-        var normals = new List<Vector3>();
-        var indices = new List<int>();
+        CellsWalked = mesh.SurfaceCells;
+        Tops = mesh.Tops;
+        Sides = mesh.Sides;
+        Bottoms = mesh.Bottoms;
+        LastMeshBytes = mesh.Bytes;
+        LastWalkMillis = walkMillis;
 
-        const float size = VoxelConstants.VoxelSize;
-
-        int walked1 = 0;
-        foreach ((VoxelPos cell, int millilitres) in cells)
-        {
-            walked1++;
-
-            float fill = millilitres / (float)FluidConstants.CellCapacityMillilitres;
-            float x0 = cell.X * size;
-            float z0 = cell.Z * size;
-            float y = (cell.Y + fill) * size;
-
-            AddQuad(vertices, normals, indices, x0, x0 + size, z0, z0 + size, y);
-        }
-
-        long walked = System.Diagnostics.Stopwatch.GetTimestamp();
-        CellsWalked = walked1;
-
-        // On the job arm the walk's time is the worker's and what this half paid is geometry;
-        // reported as the worker's walk so the line keeps meaning "the walk", wherever it ran.
-        LastWalkMillis = walkMillisOnWorker ?? (walked - started) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
-
-        Install(vertices, normals, indices);
+        Install(mesh);
 
         LastInstallMillis =
-            (System.Diagnostics.Stopwatch.GetTimestamp() - walked) * 1000.0
-            / System.Diagnostics.Stopwatch.Frequency;
-        QuadCount = indices.Count / 6;
-        Rebuilds++;
-        LastRebuildMillis =
             (System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1000.0
             / System.Diagnostics.Stopwatch.Frequency;
+        QuadCount = mesh.QuadCount;
+        Rebuilds++;
+        LastRebuildMillis = walkMillis + LastInstallMillis;
     }
 
-    private static void AddQuad(
-        List<Vector3> vertices,
-        List<Vector3> normals,
-        List<int> indices,
-        float x0, float x1, float z0, float z1, float y)
-    {
-        int first = vertices.Count;
-
-        vertices.Add(new Vector3(x0, y, z0));
-        vertices.Add(new Vector3(x1, y, z0));
-        vertices.Add(new Vector3(x1, y, z1));
-        vertices.Add(new Vector3(x0, y, z1));
-
-        for (int i = 0; i < 4; i++)
-        {
-            normals.Add(Vector3.Up);
-        }
-
-        // Same winding as WaterSurface: visible face up, and the material is cull_disabled for
-        // the case where you are under it.
-        indices.Add(first);
-        indices.Add(first + 2);
-        indices.Add(first + 1);
-        indices.Add(first);
-        indices.Add(first + 3);
-        indices.Add(first + 2);
-    }
-
-    private void Install(List<Vector3> vertices, List<Vector3> normals, List<int> indices)
+    private void Install(FluidSurfaceMesh mesh)
     {
         ArrayMesh? previous = _mesh;
         _mesh = null;
 
-        if (indices.Count == 0)
+        if (mesh.Indices.Length == 0)
         {
             RenderingServer.InstanceSetBase(_instance, default);
             previous?.Dispose();
             return;
         }
 
+        // The mesher's flat floats are Godot's structs laid end to end — Vector3 is three
+        // sequential floats and Vector2 two — so the marshalling is one copy each rather than a
+        // loop constructing a struct per vertex. Checked against the mesher's vertex count.
+        Vector3[] vertices = MemoryMarshal.Cast<float, Vector3>(mesh.Positions).ToArray();
+        Vector3[] normals = MemoryMarshal.Cast<float, Vector3>(mesh.Normals).ToArray();
+        Vector2[] attributes = MemoryMarshal.Cast<float, Vector2>(mesh.Attributes).ToArray();
+        if (vertices.Length != mesh.VertexCount || attributes.Length != mesh.VertexCount)
+        {
+            GD.PushError($"Overburden: fluid surface arrays disagree — {vertices.Length} positions, {attributes.Length} attributes, {mesh.VertexCount} vertices");
+        }
+
         var arrays = new Godot.Collections.Array();
         arrays.Resize((int)Mesh.ArrayType.Max);
-        arrays[(int)Mesh.ArrayType.Vertex] = vertices.ToArray();
-        arrays[(int)Mesh.ArrayType.Normal] = normals.ToArray();
-        arrays[(int)Mesh.ArrayType.Index] = indices.ToArray();
+        arrays[(int)Mesh.ArrayType.Vertex] = vertices;
+        arrays[(int)Mesh.ArrayType.Normal] = normals;
+        // UV carries (previous height, depth): float32 with no compress flag, as M5a probed for
+        // UV2. The shader reads UV.x and UV.y once M8d-2 teaches it to.
+        arrays[(int)Mesh.ArrayType.TexUV] = attributes;
+        arrays[(int)Mesh.ArrayType.Index] = mesh.Indices;
 
-        var mesh = new ArrayMesh();
-        mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
-        mesh.SurfaceSetMaterial(0, _material);
+        var built = new ArrayMesh();
+        built.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+        built.SurfaceSetMaterial(0, _material);
 
-        _mesh = mesh;
-        RenderingServer.InstanceSetBase(_instance, mesh.GetRid());
+        _mesh = built;
+        RenderingServer.InstanceSetBase(_instance, built.GetRid());
         RenderingServer.InstanceSetTransform(_instance, Transform3D.Identity);
 
         previous?.Dispose();

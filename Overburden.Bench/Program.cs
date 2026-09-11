@@ -81,6 +81,7 @@ internal static class Program
           --front              the spread rule at a pool's edge: R's ball on a flat floor, the wet radius and the profile tick by tick, each rule with and without the sheet solve
           --frontlitres <n>    the ball, in litres (default 10000, which is one R)
           --frontticks <n>     tick cap for the front arm (default 20000)
+          --surface            M8d-1: the Tier B mesh against the debug surface on a lake at rest (--lakechambers) and a flood (--frontlitres)
         """;
 
     private static int Main(string[] args)
@@ -121,6 +122,7 @@ internal static class Program
         int evictLayers = 4;
         string spread = "fixed";
         bool front = false;
+        bool surface = false;
         bool terrain = false;
         int terrainChambers = 3;
         long terrainLitres = 400_000;
@@ -256,6 +258,9 @@ internal static class Program
                     case "--front":
                         front = true;
                         break;
+                    case "--surface":
+                        surface = true;
+                        break;
                     case "--terrain":
                         terrain = true;
                         break;
@@ -329,6 +334,12 @@ internal static class Program
                 terrainChambers,
                 terrainLitres,
                 terrainTicks);
+        }
+
+        if (surface)
+        {
+            var surfaceGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
+            return SurfaceBench.Run(surfaceGenerator, MachineControl(surfaceGenerator), IsDebug(), lakeChambers, frontLitres);
         }
 
         if (front)

@@ -432,6 +432,7 @@ public partial class Main : Node3D
     /// reads a captured view of it and cannot read the streamer.
     /// </summary>
     private bool _fluidJobOn;
+    private string _fluidSurfaceMode = "mesh";
 
     private System.Threading.CancellationTokenSource? _fluidJobCts;
 
@@ -1269,6 +1270,13 @@ public partial class Main : Node3D
                     break;
                 case "seepmode":
                     _seepMode = value.Equals("spring", StringComparison.OrdinalIgnoreCase) ? SeepMode.Spring : SeepMode.Sweat;
+                    break;
+
+                // M8d-1: the Tier B mesh — merged tops, sides, bottoms — or the pre-M8d-1 debug
+                // view, one quad per surface cell, as the control arm for a look A/B; or the mesh
+                // with one kind of face left out, so a screenshot can say which kind an artefact is.
+                case "fluidsurface":
+                    _fluidSurfaceMode = value.ToLowerInvariant();
                     break;
 
                 // The fifth budget seam of the same shape: how much of a frame Tier B's tick may
@@ -3448,6 +3456,35 @@ public partial class Main : Node3D
         if (windowed)
         {
             _fluidSurface = new FluidSurface(GetWorld3D());
+            FluidSurfaceMesher mesher = _fluid.SurfaceMesher;
+            switch (_fluidSurfaceMode)
+            {
+                case "debug":
+                    mesher.DebugView = true;
+                    GD.Print("M8d: the Tier B surface is the pre-M8d-1 debug view, one quad per surface cell (--fluidsurface=mesh is the mesh)");
+                    break;
+                case "nosides":
+                    mesher.Sides = false;
+                    GD.Print("M8d: the Tier B mesh without its sides (--fluidsurface)");
+                    break;
+                case "nobottoms":
+                    mesher.Bottoms = false;
+                    GD.Print("M8d: the Tier B mesh without its bottoms (--fluidsurface)");
+                    break;
+                case "nomerge":
+                    mesher.Merge = false;
+                    GD.Print("M8d: the Tier B mesh with its tops unmerged (--fluidsurface)");
+                    break;
+                case "notops":
+                    mesher.Tops = false;
+                    GD.Print("M8d: the Tier B mesh without its tops (--fluidsurface)");
+                    break;
+                case "mesh":
+                    break;
+                default:
+                    GD.Print($"M8d: --fluidsurface={_fluidSurfaceMode} is not mesh, debug, nosides, nobottoms, notops or nomerge — the mesh it is");
+                    break;
+            }
         }
     }
 
@@ -4062,8 +4099,9 @@ public partial class Main : Node3D
 
         string surface = _fluidSurface is null
             ? " | no surface drawn (headless or --nowater)"
-            : $" | surface {_fluidSurface.QuadCount:N0} quad(s) from {_fluidSurface.CellsWalked:N0} held cell(s), "
-              + $"{_fluidSurface.LastRebuildMillis:F2} ms to rebuild ({_fluidSurface.LastWalkMillis:F2} walk + {_fluidSurface.LastInstallMillis:F2} install)";
+            : $" | surface {_fluidSurface.QuadCount:N0} quad(s) ({_fluidSurface.Tops:N0} top(s) over {_fluidSurface.CellsWalked:N0} surface cell(s), "
+              + $"{_fluidSurface.Sides:N0} side(s), {_fluidSurface.Bottoms:N0} bottom(s), {_fluidSurface.LastMeshBytes / 1024.0:N0} KiB), "
+              + $"{_fluidSurface.LastRebuildMillis:F2} ms to rebuild ({_fluidSurface.LastWalkMillis:F2} mesh + {_fluidSurface.LastInstallMillis:F2} install)";
 
         string settle = _settle is null
             ? string.Empty
@@ -4191,7 +4229,9 @@ public partial class Main : Node3D
 
         string surface = _fluidSurface is null
             ? "fluidsurf not drawn (headless or --nowater)\n"
-            : $"fluidsurf {_fluidSurface.QuadCount:N0} quad(s), {_fluidSurface.LastRebuildMillis:F2} ms ({_fluidSurface.LastWalkMillis:F2} walk + {_fluidSurface.LastInstallMillis:F2} install) "
+            : $"fluidsurf {_fluidSurface.QuadCount:N0} quad(s) — {_fluidSurface.Tops:N0} top(s) over {_fluidSurface.CellsWalked:N0} surface cell(s), "
+              + $"{_fluidSurface.Sides:N0} side(s), {_fluidSurface.Bottoms:N0} bottom(s), {_fluidSurface.LastMeshBytes / 1024.0:N0} KiB — "
+              + $"{_fluidSurface.LastRebuildMillis:F2} ms ({_fluidSurface.LastWalkMillis:F2} mesh + {_fluidSurface.LastInstallMillis:F2} install) "
               + $"to rebuild, {_fluidSurface.Rebuilds} rebuild(s)\n";
 
         long drawn = _drain?.DrawnMillilitres ?? 0;

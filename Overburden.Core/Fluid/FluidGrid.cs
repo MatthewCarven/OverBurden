@@ -456,6 +456,25 @@ public sealed class FluidGrid
     /// </remarks>
     public IEnumerable<ChunkPos> PanelChunks() => _panels.Keys;
 
+    /// <summary>Every panel holding anything, with its cells, for the surface mesher's scans. Read only.</summary>
+    internal IEnumerable<(ChunkPos Chunk, ushort[] Cells)> HeldPanels()
+    {
+        foreach ((ChunkPos chunk, Panel panel) in _panels)
+        {
+            if (panel.Held > 0)
+            {
+                yield return (chunk, panel.Cells);
+            }
+        }
+    }
+
+    /// <summary>A panel's cells, or null when the chunk has none or holds nothing. Read only.</summary>
+    internal ushort[]? PanelCells(ChunkPos chunk)
+    {
+        Panel? panel = Find(chunk);
+        return panel is null || panel.Held == 0 ? null : panel.Cells;
+    }
+
     /// <summary>
     /// Drops a chunk's panel without touching the row on disk. Returns the millilitres that left
     /// RAM with it, which the caller counts as evicted.

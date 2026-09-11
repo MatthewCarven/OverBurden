@@ -996,16 +996,20 @@ public class FluidJobTests
             Assert.Equal(0L, session.Sim.DisplacedMillilitres);
         }
 
-        // One more with the surface walked on the worker: the cells it hands back are the grid's
-        // own surface as it stands at collection.
+        // One more with the surface meshed on the worker (M8d-1): the geometry it hands back is
+        // the grid's own surface as it stands at collection — the same arrays a fresh mesher
+        // builds from the grid now, over every one of the walk's surface cells.
         session.Sim.ReachableChunks(reachable);
         field.Sync(reachable);
         FluidTickJob walked = session.Sim.BeginTick(field.Capture(), ChunkPos.Zero, walkSurface: true);
         session.Pipeline.SubmitDetached(walked);
         session.PumpUntil(() => walked.Outcome is not null, pumpTicks: false);
         Assert.NotNull(walked.Surface);
-        Assert.Equal(session.Sim.Grid.SurfaceCells().ToHashSet(), walked.Surface.ToHashSet());
-        Assert.True(walked.Surface.Count > 0, "the walk found no surface over the pour");
+        Assert.Equal(session.Sim.Grid.SurfaceCells().Count(), walked.Surface.SurfaceCells);
+        Assert.True(walked.Surface.QuadCount > 0, "the mesh found no surface over the pour");
+        FluidSurfaceMesh again = new FluidSurfaceMesher().Build(session.Sim.Grid, field);
+        Assert.Equal(again.Positions, walked.Surface.Positions);
+        Assert.Equal(again.Indices, walked.Surface.Indices);
 
         session.Harness.Settle();
         Assert.Equal(61L, session.Sim.JobTicks);

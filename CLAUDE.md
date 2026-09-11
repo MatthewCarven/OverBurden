@@ -153,6 +153,22 @@ Release only:
 dotnet run --project Overburden.Bench -c Release -- --seep
 ```
 
+Measure **M8d-1's Tier B mesh against the debug surface it replaced** — the played lake's shape at
+rest with the settle's millilitre of jitter (`--lakechambers`), the same lake stepped, the relay's ball
+spreading and at rest (`--frontlitres`), and the roof-open flood: surface cells, the debug arm's quads
+and walk ms, then tops / sides / bottoms / quads / KiB / terrain asks and the mesh's first and steady
+build ms. **The first lake row is slow in both arms and the second is the representative one**; the
+3,262 bottoms under the lake are the fixture's caves. Release only:
+
+```bash
+dotnet run --project Overburden.Bench -c Release -- --surface
+```
+
+In the game **`--fluidsurface=debug`** is the pre-M8d-1 arm — one quad a surface cell, the control for
+every M8d-2 screenshot — and `nosides`, `nobottoms`, `notops`, `nomerge` leave one thing out, which is
+how the ball's streaks were attributed to the slots in a falling column. The `M8b:` line's `surface`
+term and the profile's `fluidsurf` line print tops / sides / bottoms / KiB and mesh + install ms.
+
 Measure **what a drip does to the automaton with nothing else awake** — the bodies number M8c's
 pass asked for, which the game's `awake at seeping boundaries` cannot give on a played world
 because it counts every awake cell (the flood, the loaded mine, a fill's displacement) and reads
@@ -548,9 +564,26 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-11, late night). M8d is planned and not built — ten decisions in
-M8-PLAN's "M8d — the planning pass", all recommended, waiting on Matthew; build M8d-1 once they
-are answered.** Sweat is the shipped seep mode now (*"I like this sweating"*; `--seepmode=spring`
+**Pick up here (2026-09-11, later still). M8d-1 is built — the Tier B mesh — and M8d-2, the
+look, is next: read M8-PLAN's "M8d-1 — built" first, then its "M8d — the planning pass"
+decisions 2, 3, 4 and 6, which are M8d-2's.** `FluidSurfaceMesher` in Core builds merged tops
+(within a 2 mm run tolerance, because a levelled sheet is level to a millilitre and a key on the
+amount split the lake into 66,127 quads), sides between *drawn* heights wherever water meets air or
+a lower fill, bottoms under falling cells, and per vertex the previous height and the wet depth in
+UV — which the shared `Water.gdshader` does not read yet. The job carries the arrays; `FluidSurface`
+only installs. **Three things not to rediscover: a covered cell is drawn full**, because the
+automaton holds a falling cell part-full with air above and a falling column drawn as held is a
+stack of slabs with the ground showing through the slots — the streaks in the first screenshot,
+attributed with `--fluidsurface=notops|nosides` after two wrong hypotheses (a z-fight, a crack) had
+been built and tested; **the previous surface is per panel in index order**, a cursor for the tops
+and a search for the perimeter, because a dictionary cost more than the walk; and **the mesh is
+opaque from every side** because every face blends and none writes depth — decision 4, M8d-2's
+first item, now in a picture. Numbers: a lake at rest installs 26× fewer quads, a flood in
+progress 1.5–5× more; the played world's open installs ~14,400 quads in 5–6 ms against slice 3c's 7.8 for 20,196. The
+paragraph below is the planning state, kept for the reasoning.
+
+**Earlier (2026-09-11, late night). M8d was planned and not built — ten decisions in
+M8-PLAN's "M8d — the planning pass", all recommended; Matthew took them all the same night.** Sweat is the shipped seep mode now (*"I like this sweating"*; `--seepmode=spring`
 is the arm), and [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) holds the ores-layers-trees
 discussion in Matthew's words with the three questions its own pass will want. M8d's spine: "more
 3D" is three absences in the debug surface — no sides, no depth in the colour, no motion between

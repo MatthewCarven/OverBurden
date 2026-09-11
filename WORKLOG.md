@@ -1,5 +1,39 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-11 — M8d-1: the Tier B mesh, and what three screenshots said about it
+
+*"As planned please"* took all ten of M8d's decisions, and M8d-1 is built: `FluidSurfaceMesher` in
+Core, the tick job carrying arrays instead of cells, `FluidSurface` reduced to an install, `--surface`
+on the bench, `--fluidsurface=<arm>` in the game. Suite 1,270 → 1,289; r6 control unchanged. The
+plan's built section has the table; the findings that cost the evening:
+
+- **A level lake is level to a millilitre, and a merge key has to know that.** The first key was the
+  raw amount and the lake fixture merged to one quad a panel — because the fixture was filled to
+  exactly 8,000 mL a cell. With the settle's jitter (8,000 or 8,001) the same lake was 66,127 tops and
+  111,290 sides. A fixed quantum has a boundary and one lake in 125 sits on it; a *run* tolerance
+  (2 mm, the run drawn at its first cell's height) has none. **The fixture that reads as a clean pass
+  is the one to distrust** — this is M8c's "nobody filled the room under a low lake" with millilitres
+  for metres.
+- **Three screenshots attributed a streak, and two hypotheses were wrong first.** The relay's ball
+  from six metres was striped with the ground. A 1 cm bias on floor-level edges (Tier A's fix with the
+  sign reversed) changed nothing; sides between drawn heights instead of within the tolerance (the
+  crack theory) changed nothing; `--fluidsurface=notops` and `=nosides` put the streaks in the sides
+  and the pixels were pure grass, not a blend — so the ground was seen *through* the mesh, not fought
+  for. The slots: the automaton holds a falling cell part-full with air above, and a falling column
+  drawn as held is a stack of slabs. A covered cell is drawn full now, and the ball is a solid mass.
+  **Force one kind of face off at a time and read the pixel values** — the eye called it z-fighting
+  twice and the sampler said terrain.
+- **The dictionary of the previous surface cost more than the walk** (147,456 inserts and lookups a
+  build). Per panel in index order, the tops read it with a cursor and only the perimeter searches.
+- **The mesh trades quads with a sign that depends on the shape**, as the plan said: a lake at rest
+  installs 26× fewer quads (147,456 → 5,637), a rested flood 7× fewer, a flood in progress 1.5–5× more.
+  On the played world's open — a flood in progress — install 7.8 → 5–6 ms for a comparable quad
+  count (~14,400); the merge has little to take there, and the mesh is 43–44 ms of Debug worker time. The mesh costs one
+  to three times the walk; both arms of the first lake row are 3.5× slower than the second for the
+  same cell count and neither escapes it, so the second row is the representative one.
+- **The look is untouched and the mesh is opaque from every side**, because every face blends and
+  none writes depth — decision 4, which is M8d-2's first item, now visible in a picture.
+
 ## 2026-09-11 — Sweat is the default, worldgen is written down, and M8d is planned
 
 Three things at the end of the day. **Sweat ships as the default** — *"Yeah well I like this

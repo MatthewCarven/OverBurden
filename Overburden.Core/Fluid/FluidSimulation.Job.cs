@@ -15,7 +15,7 @@ namespace Overburden.Core.Fluid;
 /// and <see cref="CollectTick"/> clears it at collection, both on the sim thread, so the flag 3a
 /// built spans the job's whole life and every rule 3a exercised synchronously — mutations queue,
 /// reads refuse, the pipeline parks a wet arrival — holds unchanged with a worker in the middle.
-/// The worker runs the visit loop and the surface walk and nothing else: not the composition, not
+/// The worker runs the visit loop and the surface mesh and nothing else: not the composition, not
 /// the deferred list, not the near field, not a boundary pass.
 /// </para>
 /// <para>
@@ -175,15 +175,29 @@ public sealed partial class FluidSimulation
 
         if (job.WalkSurface)
         {
-            var surface = new List<(VoxelPos Cell, int Millilitres)>();
-            foreach ((VoxelPos cell, int millilitres) in _grid.SurfaceCells())
-            {
-                surface.Add((cell, millilitres));
-            }
-
-            job.Surface = surface;
+            // M8d-1: the mesh, not the cells — the arrays are built here so the main thread pays
+            // only the install. The captured view answers the mesher's questions about dry
+            // neighbours, IsLoaded first, so it counts no refusal for them.
+            job.Surface = _surfaceMesher.Build(_grid, _visitTerrain);
             job.WalkMillis = (Stopwatch.GetTimestamp() - visited) * 1000.0 / Stopwatch.Frequency;
         }
+    }
+
+    private readonly FluidSurfaceMesher _surfaceMesher = new();
+
+    /// <summary>The mesher both arms build the surface with, for its <see cref="FluidSurfaceMesher.DebugView"/> switch.</summary>
+    public FluidSurfaceMesher SurfaceMesher => _surfaceMesher;
+
+    /// <summary>
+    /// The surface as geometry, built here and now (the sim-thread arm; the job arm builds it on
+    /// the worker and hands it back as <see cref="FluidTickJob.Surface"/>). Refuses while a job
+    /// owns the grid. One mesher serves both arms, so the previous-height attribute is continuous
+    /// across a build wherever it ran.
+    /// </summary>
+    public FluidSurfaceMesh BuildSurface()
+    {
+        RefuseMidJob(nameof(BuildSurface));
+        return _surfaceMesher.Build(_grid, _visitTerrain);
     }
 
     /// <summary>
@@ -363,8 +377,8 @@ public sealed class FluidTickJob : IDetachedJob
     /// <summary>Cells in the batch the job was begun with.</summary>
     public int Batch { get; }
 
-    /// <summary>Surface cells as the worker left the grid, when asked for; the caller builds geometry from them.</summary>
-    public List<(VoxelPos Cell, int Millilitres)>? Surface { get; internal set; }
+    /// <summary>The surface as the worker left the grid, as geometry (M8d-1), when asked for; the caller installs it.</summary>
+    public FluidSurfaceMesh? Surface { get; internal set; }
 
     /// <summary>Wall time of the visits on the worker.</summary>
     public double VisitMillis { get; internal set; }
