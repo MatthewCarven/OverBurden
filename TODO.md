@@ -4621,6 +4621,11 @@ finding without the coarser-tolerance fallback.
                   jump, does the wash say "you are in it". The look constants (shallow and deep
                   colours, falloff, tints, the wash's alpha) are `FluidWater.gdshader` uniforms
                   and the tint's `Color` in Main; retune by number, not by guess.
+            - [ ] **One unnamed failure in `FluidJobTests` on the run straight after the M8d-2
+                  commit** (32 tests in 13 s, one failed, the harness line cut the name off), not
+                  reproduced in three re-runs of the class nor in the full suite after. Recorded
+                  rather than dismissed; if it returns, read the name and diagnose the mechanism
+                  from the code before touching the test.
             - [ ] **From inside the water nothing of it draws** (cull_back) — a swimmer looking up
                   sees no surface. Wading (M10-NOTES) will want the underside drawn from below:
                   a second, front-culled pass of the tops, or cull_disabled with sorted faces.
