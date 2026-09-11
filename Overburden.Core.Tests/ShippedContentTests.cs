@@ -177,7 +177,7 @@ public class ShippedContentTests
     /// nothing outside one particular layout is worse than no content test, because the suite
     /// still reports it as passing.
     /// </remarks>
-    private static string ModsDirectory()
+    internal static string ModsDirectory()
     {
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
 

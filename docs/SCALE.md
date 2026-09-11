@@ -135,7 +135,9 @@ active for all but the last 79 of them.
 **M9's collapse — planned 2026-09-11, M9-PLAN.** The field is per voxel over dug chunks and their
 six face neighbours only, derived from scratch per chunk on a worker (*estimate: 1–3 ms Release,
 32 KiB a chunk*; M9a's bench takes the number), and the count that answers the question below is
-the `M9:` line's *at-risk chunks*. The paragraph that framed it:
+the `M9:` line's *at-risk chunks*. The paragraph that framed it: **M9a measured it, 2026-09-12: 0.8–1.1 ms a searched derive over
+32,768 voxels (Release, tiering off), 0.2 ms to gather the padded copy, a wall chunk the closed form
+at the gather alone; a 4 × 4 room from nothing is 128 derives in 3 rounds.**
 
 Deferred rather than continuous (Matthew's proposal, recorded in TODO), so the
 eligibility test is allowed to be late — which means it can run coarse and sampled rather than

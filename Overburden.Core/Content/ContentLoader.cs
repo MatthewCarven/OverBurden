@@ -256,11 +256,31 @@ public sealed class ContentLoader
                 continue;
             }
 
+            int supportDistance = dto.SupportDistance ?? 0;
+
+            // Refused rather than clamped, as the others are. The field is a byte and a step costs
+            // round(120 / distance): a mod's 1000 rounds to zero and is a roof that never falls,
+            // and whoever wrote it believed the range was wider.
+            if (supportDistance < 0 || supportDistance > MaterialDefinition.MaxSupportDistance)
+            {
+                errors.Add(
+                    $"{manifest.Id}/{path}: supportDistance must be within "
+                    + $"0..{MaterialDefinition.MaxSupportDistance}.");
+                continue;
+            }
+
+            if (!TryReadSupportCurve(dto.SupportUnderHead, supportDistance, out var curve, out string? curveError))
+            {
+                errors.Add($"{manifest.Id}/{path}: {curveError}");
+                continue;
+            }
+
             var definition = new MaterialDefinition
             {
                 Id = id,
                 Hardness = dto.Hardness ?? 1f,
-                SupportDistance = dto.SupportDistance ?? 0,
+                SupportDistance = supportDistance,
+                SupportUnderHead = curve,
                 Permeability = permeability,
                 Density = dto.Density ?? 1000f,
                 TextureLayer = dto.TextureLayer ?? 0,
@@ -379,6 +399,65 @@ public sealed class ContentLoader
         return loaded;
     }
 
+    /// <summary>
+    /// Reads a material's saturation curve and refuses one a reader could not interpolate.
+    /// </summary>
+    /// <remarks>
+    /// Strictly increasing in head, non-increasing in distance, never above the dry distance and
+    /// never below zero; each point exactly two numbers. A curve whose distance <em>rises</em>
+    /// with head is the one shape that reads as a typo and would make water shore a roof up, so it
+    /// is refused rather than sorted — sorting would silently keep the mistake.
+    /// </remarks>
+    private static bool TryReadSupportCurve(
+        List<List<float>>? points,
+        int dryDistance,
+        out IReadOnlyList<SupportPoint> curve,
+        out string? error)
+    {
+        error = null;
+        if (points is null || points.Count == 0)
+        {
+            curve = [];
+            return true;
+        }
+
+        var read = new List<SupportPoint>(points.Count);
+        float lastHead = 0f;
+        float lastDistance = dryDistance;
+        foreach (List<float> point in points)
+        {
+            if (point is null || point.Count != 2)
+            {
+                error = "supportUnderHead must be a list of [headMetres, distance] pairs.";
+                curve = [];
+                return false;
+            }
+
+            float head = point[0];
+            float distance = point[1];
+            if (float.IsNaN(head) || float.IsNaN(distance) || head <= lastHead)
+            {
+                error = "supportUnderHead heads must be positive and strictly increasing.";
+                curve = [];
+                return false;
+            }
+
+            if (distance < 0f || distance > lastDistance)
+            {
+                error = "supportUnderHead distances must not rise with head, and must not exceed supportDistance.";
+                curve = [];
+                return false;
+            }
+
+            read.Add(new SupportPoint(head, distance));
+            lastHead = head;
+            lastDistance = distance;
+        }
+
+        curve = read;
+        return true;
+    }
+
     private sealed class ModManifestJson
     {
         public string? Id { get; set; }
@@ -392,6 +471,7 @@ public sealed class ContentLoader
         public string? Id { get; set; }
         public float? Hardness { get; set; }
         public int? SupportDistance { get; set; }
+        public List<List<float>>? SupportUnderHead { get; set; }
         public float? Permeability { get; set; }
         public float? Density { get; set; }
         public int? TextureLayer { get; set; }

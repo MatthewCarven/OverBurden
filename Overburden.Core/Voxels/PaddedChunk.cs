@@ -31,6 +31,17 @@ public sealed class PaddedChunk
 
     public const int Volume = Size * Size * Size;
 
+    /// <summary>
+    /// What a caller gives <see cref="CopyFrom"/> for a neighbour that is not loaded, when it
+    /// needs to tell <i>absent</i> from <i>air</i>. No material has it.
+    /// </summary>
+    /// <remarks>
+    /// The seep scan and the support derive both classify a missing neighbour differently from an
+    /// empty one — solid to the water, anchored to the roof — and both read it back through the
+    /// same constant, so a copy taken for one is a copy the other could read.
+    /// </remarks>
+    public const int MissingMaterial = -1;
+
     private readonly int[] _voxels = new int[Volume];
 
     /// <summary>Same Z-major, X, Y-contiguous order as <see cref="VoxelPos.Index"/>.</summary>

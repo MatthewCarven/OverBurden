@@ -2,6 +2,7 @@
   "id": "stone",
   "hardness": 3.0,
   "supportDistance": 30,
+  "supportUnderHead": [[2, 24], [10, 12]],
   "permeability": 0.02,
   "density": 2600,
   "textureLayer": 0

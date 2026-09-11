@@ -4857,11 +4857,28 @@ the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
       - [x] 11. Warning signs ship with the fall: `COLOR.b` strain in the merge key, dust from the
             underside; sound waits.
       - [x] 12. Split M9a field / M9b wiring / M9c-1 fall alone / M9c-2 body / M9d keystone.
-- [ ] **M9a — the field.** `Overburden.Core/Structure/`, `MaterialTable.SupportCost`, the curve's
-      loader (refuse `supportDistance` > 48, non-monotone curves), `--support` on the bench with the
-      seven fixtures and the ASCII cross-section. First number: the per-voxel derive's ms.
+- [x] **M9a — the field.** Built 2026-09-12 — read M9-PLAN's "M9a — the planning pass" and "M9a —
+      built". `Overburden.Core/Structure/` (`SupportRule`, `ChunkSupport`, `SupportCostTable`,
+      `SupportFaces`, `SupportDerive`, `SupportRegion`), `MaterialTable.SupportDistanceAt`, the
+      loader's cap and curve, `supportUnderHead` in the shipped JSON, `--support` on the bench.
+      **First number: 0.8–1.1 ms a searched derive, 0.2 ms a gather, Release with tiering off**
+      (the plan said 1–3; the cell rule's 4 ms trigger is far). Three departures the build made:
+      `K = 120` (the byte), a path dies at `−K` and unreached is a state (the floor as a source held
+      a mid-air chunk's top and made a second fixpoint), the join starts from below (33 rounds → 2).
+      Suite 1,296 → 1,319; eleven recipes, ten caught, one identity.
+      - [ ] **Lever, named and not built:** the gather is a fifth of a derive and is
+            `PaddedChunk.CopyFrom` through `VoxelChunk.Get` — M5c-1's lever for light, unbuilt there too.
+      - [ ] **Decision 3's cost in a number, for the play:** the bench's natural-cave row sheds
+            nothing on the first bite because the cave's ceiling is in the chunk beyond the shell —
+            the second bite may bring the cave's whole ceiling down. *"Don't disturb the old
+            workings"* is the play question.
 - [ ] **M9b — the wiring.** Analysed set, derive job, four triggers, the join, the strain tint,
       `M9:` line, `--support=0`, `--bitechunks=<n>`. Check: a 2 × 2 bite reads `at risk 20`.
+      **Wants its own planning pass against `SupportRegion`** — the join's queue is the
+      pipeline's, the derive a chunk job carrying a `PaddedChunk` and a `SupportFaces` gathered on
+      the sim thread; the transient is now *at risk where it will hold* (the join climbs), so the
+      tint wants decision 7's barrier as much as the collapse does; and `DOTNET_TieredCompilation`
+      is a fact the game's Debug build should be read against.
 - [ ] **M9c-1 — the fall.** Alone. Rubble, the timer, the re-pour, the cascade. `displaced 0`.
 - [ ] **M9c-2 — the body.** Health, damage, death, `TryUnstick` for the buried, dust, HUD.
 - [ ] **M9d — the keystone and the play.** The table-move trigger, the fill's refusal, four

@@ -17,6 +17,8 @@ public sealed class MaterialTable
     private readonly float[] _hardness;
     private readonly byte[] _lightEmission;
     private readonly float[] _permeability;
+    private readonly int[] _supportDistance;
+    private readonly SupportPoint[][] _supportCurve;
 
     private MaterialTable(
         bool[] isOpaque,
@@ -24,7 +26,9 @@ public sealed class MaterialTable
         int[] textureLayer,
         float[] hardness,
         byte[] lightEmission,
-        float[] permeability)
+        float[] permeability,
+        int[] supportDistance,
+        SupportPoint[][] supportCurve)
     {
         _isOpaque = isOpaque;
         _isFluid = isFluid;
@@ -32,6 +36,8 @@ public sealed class MaterialTable
         _hardness = hardness;
         _lightEmission = lightEmission;
         _permeability = permeability;
+        _supportDistance = supportDistance;
+        _supportCurve = supportCurve;
     }
 
     public int Count => _isOpaque.Length;
@@ -77,6 +83,57 @@ public sealed class MaterialTable
     /// </remarks>
     public float Permeability(int materialId) => _permeability[materialId];
 
+    /// <summary>
+    /// Whether this material can carry or need support: anything that is not air and not a fluid.
+    /// The complement of Tier B's <i>holdable</i>, so the two questions partition every voxel.
+    /// </summary>
+    public bool IsSolid(int materialId) => materialId != MaterialIds.AirNumericId && !_isFluid[materialId];
+
+    /// <summary>How far, in voxels, this material carries sideways when dry. M9's first reader of the JSON field.</summary>
+    public int SupportDistance(int materialId) => _supportDistance[materialId];
+
+    /// <summary>
+    /// How far this material carries sideways under <paramref name="headMetres"/> of water — the
+    /// dry distance at zero head, linear between the curve's points, constant past the last.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Projected here for the reason <see cref="Hardness"/> is: the support derive asks it once
+    /// per voxel of a chunk, through a per-chunk table it builds for its 16 samples and 32 rows,
+    /// and that is 512 curve reads a derive rather than 32,768. The curve's shape — increasing
+    /// head, non-increasing distance — is the loader's promise, so this walks it without checking.
+    /// </para>
+    /// <para>
+    /// A float, because the loader accepts fractional distances on the curve and a fraction of a
+    /// voxel of reach is a fraction of a step's cost; the rule rounds once, at the cost.
+    /// </para>
+    /// </remarks>
+    public float SupportDistanceAt(int materialId, double headMetres)
+    {
+        int dry = _supportDistance[materialId];
+        SupportPoint[] curve = _supportCurve[materialId];
+        if (curve.Length == 0 || headMetres <= 0 || double.IsNaN(headMetres))
+        {
+            return dry;
+        }
+
+        float previousHead = 0f;
+        float previousDistance = dry;
+        foreach (SupportPoint point in curve)
+        {
+            if (headMetres <= point.HeadMetres)
+            {
+                double t = (headMetres - previousHead) / (point.HeadMetres - previousHead);
+                return (float)(previousDistance + ((point.Distance - previousDistance) * t));
+            }
+
+            previousHead = point.HeadMetres;
+            previousDistance = point.Distance;
+        }
+
+        return previousDistance;
+    }
+
     /// <summary>The permeability the table stores for a definition: clamped to [0, 1], NaN to 0.</summary>
     public static float BoundPermeability(float permeability) =>
         float.IsNaN(permeability) ? 0f : Math.Clamp(permeability, 0f, 1f);
@@ -97,9 +154,14 @@ public sealed class MaterialTable
         var hardness = new float[count];
         var lightEmission = new byte[count];
         var permeability = new float[count];
+        var supportDistance = new int[count];
+        var supportCurve = new SupportPoint[count][];
 
         for (int id = 0; id < count; id++)
         {
+            // Every entry gets a curve, empty by default, so a reader never null-checks.
+            supportCurve[id] = [];
+
             if (!materials.GetIdentifier(id).IsValid)
             {
                 // A hole left by a removed mod whose identifier is no longer known. Treat
@@ -112,6 +174,10 @@ public sealed class MaterialTable
                 // Sealed, like the named placeholder: a hole's rock leaks nothing, so a removed
                 // mod cannot flood a mine that was dry when it was installed.
                 permeability[id] = 0f;
+
+                // And carries as the named placeholder carries, so a removed mod's roof is neither
+                // eternal nor the first thing in the world to fall.
+                supportDistance[id] = UnknownSupportDistance;
                 continue;
             }
 
@@ -127,10 +193,20 @@ public sealed class MaterialTable
             lightEmission[id] = (byte)Math.Clamp(
                 definition.LightEmission, 0, MaterialDefinition.MaxLightEmission);
             permeability[id] = BoundPermeability(definition.Permeability);
+
+            // Clamped as the others are, for the same reason: the loader refuses the range, and
+            // a definition built without it still cannot write a cost that rounds to zero.
+            supportDistance[id] = Math.Clamp(definition.SupportDistance, 0, MaterialDefinition.MaxSupportDistance);
+            supportCurve[id] = [.. definition.SupportUnderHead];
         }
 
-        return new MaterialTable(isOpaque, isFluid, textureLayer, hardness, lightEmission, permeability);
+        return new MaterialTable(
+            isOpaque, isFluid, textureLayer, hardness, lightEmission, permeability, supportDistance, supportCurve);
     }
+
+    /// <summary>What a hole with no identifier carries: the named placeholder's distance, one number.</summary>
+    private static readonly int UnknownSupportDistance =
+        MaterialDefinition.Unknown(Identifier.Parse("overburden:unknown")).SupportDistance;
 
     /// <summary>Builds a table directly, for tests and tools that have no registry.</summary>
     /// <param name="hardness">
@@ -150,16 +226,28 @@ public sealed class MaterialTable
     /// sealed", the closed default, and a seep test that wants a wall to leak says so.
     /// Bounded exactly as <see cref="From"/> bounds it.
     /// </param>
+    /// <param name="supportDistance">
+    /// Optional, and zero is the closed default here too: a solid material that carries nothing
+    /// sideways is at risk one voxel from an anchor, so a support test that forgot the argument
+    /// sees everything fall rather than everything stand.
+    /// </param>
+    /// <param name="supportCurve">Optional; absent is dry everywhere.</param>
     internal static MaterialTable ForTesting(
         bool[] isOpaque,
         bool[] isFluid,
         int[] textureLayer,
         float[] hardness,
         byte[]? lightEmission = null,
-        float[]? permeability = null) =>
+        float[]? permeability = null,
+        int[]? supportDistance = null,
+        SupportPoint[][]? supportCurve = null) =>
         new(isOpaque, isFluid, textureLayer, hardness,
             lightEmission ?? new byte[isOpaque.Length],
             permeability is null
                 ? new float[isOpaque.Length]
-                : Array.ConvertAll(permeability, BoundPermeability));
+                : Array.ConvertAll(permeability, BoundPermeability),
+            supportDistance is null
+                ? new int[isOpaque.Length]
+                : Array.ConvertAll(supportDistance, d => Math.Clamp(d, 0, MaterialDefinition.MaxSupportDistance)),
+            supportCurve ?? Enumerable.Repeat(Array.Empty<SupportPoint>(), isOpaque.Length).ToArray());
 }

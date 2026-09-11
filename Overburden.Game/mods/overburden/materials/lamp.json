@@ -1,7 +1,7 @@
 {
   "id": "lamp",
   "hardness": 0.5,
-  "supportDistance": 4,
+  "supportDistance": 8,
   "permeability": 0.0,
   "density": 900,
   "textureLayer": 3,

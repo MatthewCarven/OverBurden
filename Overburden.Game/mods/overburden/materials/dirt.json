@@ -2,6 +2,7 @@
   "id": "dirt",
   "hardness": 0.8,
   "supportDistance": 8,
+  "supportUnderHead": [[1, 4], [3, 1]],
   "permeability": 0.35,
   "density": 1500,
   "textureLayer": 1

@@ -114,7 +114,7 @@ public sealed class SeepNeighbourhood
     public const float Holdable = -2f;
 
     /// <summary>What <see cref="PaddedChunk.CopyFrom"/> is given for a missing neighbour. No material has it.</summary>
-    public const int MissingMaterial = -1;
+    public const int MissingMaterial = PaddedChunk.MissingMaterial;
 
     private readonly float[] _cells = new float[PaddedChunk.Volume];
 

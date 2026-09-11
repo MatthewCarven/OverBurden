@@ -1,5 +1,85 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-12 — M9a built: the support field, and the byte that moved the constant
+
+*"m9a please"*. The pass first — decisions 1–5 and the bench section read against `ChunkLight`,
+`LightPropagator`, `PaddedChunk`, `SeepNeighbourhood` and `Saturation` — then the build in the
+same session, because every finding was a representation or an algorithm and none reversed a
+decision Matthew took. Both are in [docs/M9-PLAN.md](docs/M9-PLAN.md) under "M9a — the planning
+pass" and "M9a — built". Suite 1,296 → 1,319; eleven recipes, ten caught, one an identity.
+
+**The first number: 0.8–1.1 ms a searched derive over 32,768 voxels, 0.2 ms to gather the padded
+copy, Release with the JIT's tiering off.** The plan estimated 1–3 and named 4 as the cell rule's
+trigger. The join from nothing is 34 derives in 2 rounds for a 2 × 2 room and 128 in 3 for a 4 × 4;
+a wall chunk is the closed form and costs the gather alone.
+
+**The plan's byte could not hold its own rule.** `K = 240` in `0..240` leaves fifteen codes for a
+deficit, and the plug's own derivation needs deficits exact — its second layer is `−8 + r` and its
+third is zero, and a deficit quantised at a chunk face moves that sign. `K = 120` with an offset:
+241 values, every cost halved exactly, the geometry unchanged to the voxel.
+
+**And then the floor, three times.** A byte needs a bottom and the plan's rule has none, so where a
+path's budget goes below `−K` had to be decided, and the first two answers were wrong in ways only
+the tests could show:
+
+- **The floor as a source at every solid voxel** — the natural reading of "the deficit saturates" —
+  let a chunk placed in mid-air recover one refund a layer off its own floor and hold its top two
+  layers: 30,720 at risk of 32,768. The floor was supporting things.
+- **The floor as a source only where an anchor reaches** fixed that, and a column straddling a
+  chunk face then converged to the floor rather than to unreached — 118 rounds, each half's floor
+  justifying the other's — and the fixpoint oracle *accepted it*, because a floor is a fixpoint of
+  that rule. A second fixpoint is the oracle's completeness gone, which is the whole of M5b's
+  argument for it.
+- **A path dies at `−K`, and a voxel no live path reaches is `Unreached`** — a state, code 0, the
+  plan's `−∞` and every deficit past `K` alike. Max over live paths from the anchors: one fixpoint,
+  and the derive needs neither a flood nor a clamp. The cost is stated on the constant: a deficit
+  past `K` is not counted further, so a wide roof's centre is unreached rather than "recovered
+  thirty-four layers up", and it is reached from the anchored top face or not at all. Mechanically
+  the first two designs were not label-setting either — a hang from the floor to the floor lands
+  in a bucket the scan has passed — so the height potential that makes the derive Dijkstra was
+  also what ruled them out.
+
+**The join climbs.** Decision 4 said an underived neighbour is an anchor and the iteration descends;
+on a body across a face that loses one refund a round — 33 rounds and 156 derives for the 2 × 2, 61
+and 724 for the 4 × 4. From below, an underived analysed neighbour contributes nothing and every
+round carries live paths one chunk further: 2 and 34, 3 and 128, at-risk counts identical to the
+voxel. The transient inverts — a chunk derived before its neighbour reads at risk where it will
+hold — and decision 7's barrier is what keeps M9b's tint and M9c's fall from reading it.
+
+**Seven cross-sections, drawn.** Six agree with decision 1's arithmetic, two of them correcting the
+table's words: the 4 × 4's wedge is cut flat at seventeen layers by the hang from the anchored top
+face (4.25 m, not 8.5; 47,600 voxels against ~52,000), and the soil roof has sky above it, not
+stone (975 against 1,024, on a terrace flat over 39 of 64 samples). The 2 × 2 sheds twenty, with a
+row of zeros over the plug. Under head, the bench measures at the underside where the plan measured
+at the lake: 532 / 3,028 / 14,060 under 2 / 5 / 10 m. **The seventh is decision 3's cost in a
+number**: the bench found a bite whose roof chunk is 21,061 voxels of natural cave, and nothing is
+at risk, because the cave's *ceiling* is in the chunk beyond the shell and anchored — the first
+bite beside a wide cave sheds nothing, the second may bring the cave's ceiling down. M8c's *"the
+portal rule wet a natural cave beside the first shaft"* asked of the roof, and answered.
+
+**Two fixtures were wrong before the code was**, both about anchoring: a run of dirt placed ten
+voxels up a chunk anchored at its side started at `+17` because the arch from that side rises at
+45°; and a loaded stone chunk placed over a hanging column as its "ceiling" is analysed, not an
+anchor, and its own bottom layer was dead before the column began. An unloaded chunk anchors, a
+loaded one is analysed — the difference is decision 3 entire.
+
+**Two instrument findings.** The bench's per-derive figure read 3.2 ms on its first two rows and
+0.8 on the rest in one run, and 2.5–4 on every row in the next: `Derive` at tier 0, with the JIT's
+promotion postponed for as long as the process keeps jitting new methods, which a bench walking
+through fixtures does; `--watershed`'s warm-up-by-call-count does not help (that is OSR, a different
+delay). `DOTNET_TieredCompilation=0` is the arm that means anything and the bench says which arm it
+is. And the shared `LayerIndex` transposed was an identity — writer and reader agree — while the
+layer test used `LayerIndex` as its own oracle; the asymmetric recipe (the reader alone) fails five
+tests, and the test spells the index out now.
+
+**Content:** `supportUnderHead` in the shipped JSON — stone `[[2, 24], [10, 12]]`, dirt and grass
+`[[1, 4], [3, 1]]`, the plan's estimates — the loader refusing `supportDistance` outside `0..48` and
+any curve it could not interpolate, `lamp.json` 4 → 8, `MaterialTable.SupportDistanceAt` the
+projection, `MaterialTable.IsSolid` the complement of Tier B's holdable. `PaddedChunk.MissingMaterial`
+moved down from `SeepNeighbourhood` so the seep scan and the support derive read one constant.
+
+M9b is next and wants its own pass against `SupportRegion`; the TODO names what it inherits.
+
 ## 2026-09-11 — M9's planning pass: no bedrock, and no arch
 
 *"M9's planning pass please"*, opened fresh as the last session asked. [docs/M9-PLAN.md](docs/M9-PLAN.md),

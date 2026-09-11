@@ -30,6 +30,39 @@ public sealed class MaterialDefinition
     public int SupportDistance { get; init; }
 
     /// <summary>
+    /// The most <see cref="SupportDistance"/> may be: 48 voxels, 12 m. Refused above it by the
+    /// loader, the way <c>ToolDefinition.MaxRadiusMetres</c> refuses a radius.
+    /// </summary>
+    /// <remarks>
+    /// The field is a byte with a budget of <c>SupportRule.MaxBudget</c> (120), so a step costs
+    /// <c>round(120 / distance)</c>: exact for every shipped distance, within 10% to 32 and within
+    /// 20% to 48. A mod's 1000 would round to zero — a roof that never falls — which is why it is
+    /// refused rather than clamped: whoever wrote it believed the range was wider.
+    /// </remarks>
+    public const int MaxSupportDistance = 48;
+
+    /// <summary>
+    /// How <see cref="SupportDistance"/> falls as the head of water over the voxel rises — M9-PLAN
+    /// decision 5, the saturation curve. Empty means dry everywhere.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Points of (head in metres, support distance in voxels), strictly increasing in head and
+    /// non-increasing in distance, with <see cref="SupportDistance"/> the implied point at zero
+    /// head; linear between points, constant past the last. The loader refuses anything else, so a
+    /// reader may assume the shape. The head comes from <c>Saturation.HeadMetresAt</c> — the
+    /// quantity M8c defined for this reader — and the curve is the half of MATERIALS-NOTES'
+    /// decision 1 that M8c-1 left for M9.
+    /// </para>
+    /// <para>
+    /// A curve, per material, in the JSON, because it is the one interaction DESIGN calls the
+    /// thing that ties the game together, and a constant here would be the trap MATERIALS-NOTES
+    /// names — shipping green with the field decorative.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<SupportPoint> SupportUnderHead { get; init; } = [];
+
+    /// <summary>
     /// How readily groundwater passes through, 0 (sealed) to 1 (open). Consumed by M8;
     /// this is the property that decides whether a tunnel stays dry.
     /// </summary>
@@ -107,3 +140,6 @@ public sealed class MaterialDefinition
 
     public override string ToString() => IsUnknown ? $"{Id} (unknown)" : Id.ToString();
 }
+
+/// <summary>One point on a material's saturation curve: at this head, this support distance.</summary>
+public readonly record struct SupportPoint(float HeadMetres, float Distance);

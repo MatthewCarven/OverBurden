@@ -83,6 +83,9 @@ internal static class Program
           --frontticks <n>     tick cap for the front arm (default 20000)
           --surface            M8d-1: the Tier B mesh against the debug surface on a lake at rest (--lakechambers) and a flood (--frontlitres)
           --fallcells <n>      M8d-3: cells a visit may fall through vacant air, for --fluid and --front (default 16; 1 is the pre-M8d-3 arm)
+          --support            M9a: the support field over the plan's seven fixtures on real strata, the derive's ms and a cross-section of each wedge
+          --restrefund <n>     voxels of rest that refund one full budget, for --support (default 30, the shipped estimate)
+          --supportscale <x>   multiplies every support distance, for --support (default 1)
         """;
 
     private static int Main(string[] args)
@@ -131,6 +134,9 @@ internal static class Program
         int terrainTicks = 400;
         long frontLitres = 10_000;
         int frontTicks = 20_000;
+        bool support = false;
+        int restRefund = Overburden.Core.Structure.SupportRule.Default.RestRefundVoxels;
+        float supportScale = 1f;
 
         try
         {
@@ -281,6 +287,15 @@ internal static class Program
                     case "--frontlitres":
                         frontLitres = long.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
                         break;
+                    case "--support":
+                        support = true;
+                        break;
+                    case "--restrefund":
+                        restRefund = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--supportscale":
+                        supportScale = float.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
                     case "--frontticks":
                         frontTicks = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
                         break;
@@ -399,6 +414,35 @@ internal static class Program
         if (seepAwake)
         {
             return SeepAwakeBench.Run(seepTicks);
+        }
+
+        if (support)
+        {
+            // The real mod's IDs in the strata, as --seep: a stone roof carries 30 because
+            // stone.json says so, and the soil's curve is the shipped one.
+            var supportContent = new GameContent();
+            LoadResult supportLoaded = supportContent.Load(new DirectoryContentSource(ModsDirectory()));
+            if (!supportLoaded.Success)
+            {
+                Console.Error.WriteLine($"content: {string.Join("; ", supportLoaded.Errors)}");
+                return 1;
+            }
+
+            int supportGrass = supportContent.Materials.GetNumericId(Identifier.Parse("overburden:grass"));
+            int supportDirt = supportContent.Materials.GetNumericId(Identifier.Parse("overburden:dirt"));
+            int supportStone = supportContent.Materials.GetNumericId(Identifier.Parse("overburden:stone"));
+            var supportStrata = new StrataTable([new StrataLayer(supportGrass, 1), new StrataLayer(supportDirt, 3)], supportStone);
+            var supportGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, supportStrata);
+            return SupportBench.Run(
+                supportGenerator,
+                MaterialTable.From(supportContent.Materials),
+                supportStone,
+                supportDirt,
+                supportGrass,
+                MachineControl(supportGenerator),
+                IsDebug(),
+                restRefund,
+                supportScale);
         }
 
         if (seep)

@@ -102,9 +102,9 @@ the smallest stone room that sheds anything is a 2 × 2 bite.
 | one bite, or a row of them, in stone | nothing | — |
 | 16 m square (2 × 2 bites), stone | a 1 m × 1 m plug in the middle of the roof, 0.5 m thick | **20 voxels, 0.3 m³**, and the roof then holds — it arched |
 | 24 m square (3 × 3), stone | a pyramid 9 m on a side at the base, 4.5 m tall | ~7,800 voxels, ~120 m³ |
-| 32 m square (4 × 4), stone | 17 m on a side, 8.5 m tall | ~52,000 voxels, ~820 m³ — more than one bite took out |
-| one bite with its top face in the shipped soil | the soil over the middle 4 m × 4 m, 1 m thick; the stone above holds | 1,024 voxels, 16 m³ of dirt onto the floor |
-| 16 m square, stone, under 5 m of lake (decision 5's curve) | a pyramid 7 m on a side, 5.5 m tall | ~5,700 voxels, ~90 m³ — **three hundred times the dry fall** |
+| 32 m square (4 × 4), stone | 17 m on a side, 8.5 m tall — **measured at M9a: a trapezoid 17 layers (4.25 m) tall, cut flat by the hang from the anchored top face** | ~52,000 voxels, ~820 m³ — **47,600 measured** — more than one bite took out |
+| one bite with its top face in the shipped soil | the soil over the middle 4 m × 4 m, 1 m thick; ~~the stone above holds~~ there is no stone above the soil — sky | 1,024 voxels, 16 m³ of dirt onto the floor — **975 measured on a terrace flat over 39 of 64 samples** |
+| 16 m square, stone, under 5 m of lake (decision 5's curve) | a pyramid 7 m on a side, 5.5 m tall | ~5,700 voxels, ~90 m³ — **three hundred times the dry fall**. *Measured at M9a with the head at the underside: 532 under 2 m, 3,028 under 5 m, 14,060 under 10 m — a room 8 m down under a 5 m lake reads 13 m of head* |
 | the same 16 m square under the plain rule | the 1 m column to the surface | the overburden |
 
 The last two rows are the milestone: the keystone interaction as a number, and the reason decision
@@ -122,7 +122,8 @@ slab of dirt on stone never falls. The rule was designed for physics and constra
 the proof is also what makes decision 4's incremental solver converge.
 
 **Storage: one byte per voxel.** `0..240` is the budget, the values above it a capped deficit (how
-far past zero, for decision 8's delay). Rounding: `round(240 / sd)` is exact for every shipped
+far past zero, for decision 8's delay). *Superseded at M9a — see "M9a — the planning pass", item 1:
+`K = 120`, the byte holds `[−K, K]` exactly, and a deficit past `K` is `Unreached`.* Rounding: `round(240 / sd)` is exact for every shipped
 distance and within 10% for `sd ≤ 48`; the loader **refuses `supportDistance` above 48** (12 m) the
 way `ToolDefinition.MaxRadiusMetres` refuses a radius, because a 1000 in a mod file is a roof that
 never falls. **Content change that rides on this: `lamp.json`'s `supportDistance` 4 → 8**, since
@@ -409,3 +410,204 @@ voxels fallen, litres re-poured, and health. **A seep provocation and a support 
 - **SCALE.md's *M9's collapse* paragraph**: the sizing question it named — *how many regions are at
   risk at once* — gets its answer from M9b's line, and the per-voxel derive joins the *what is
   actually iterated* table.
+
+---
+
+## M9a — the planning pass
+
+> 2026-09-12, decisions 1–5 and the bench section read against `ChunkLight`, `LightPropagator`,
+> `PaddedChunk`, `SeepNeighbourhood`, `Saturation` and `MaterialTable` before any code. Seven
+> places the plan stopped one level above where the wrong answer sat; each is recorded beside the
+> rule it changes, and none reverses a decision Matthew took.
+
+1. **Decision 1's byte cannot hold the field at `K = 240`, and the deficit's range is the
+   budget's own.** The plan puts `0..240` in the byte and "a capped deficit" above it — fifteen
+   codes. But the plug's own derivation needs exact negatives: the underside's centre is `−8`, the
+   layer resting on it is `−8 + r = −4` and at risk, the layer above that `0` and held. A deficit
+   quantised at a chunk face moves that sign, so a plug straddling a face would be a different
+   thickness from one inside a chunk, and "incremental equals from-scratch" would be false by
+   representation. And decision 8 clamps `deficit / K` at 1, so the deficit is wanted all the way
+   to `−K`: the range is `[−K, K]`, 481 values. **`K = 120` ships**: 241 values with an offset of
+   120, fifteen codes spare, one of them *not solid*. Every cost halves exactly — stone 4 a step,
+   dirt 15, the refund 4 at `RestRefundVoxels = 30` — so the geometry in decision 1's table is
+   unchanged to the voxel; what changed is the deficit's granularity, which nothing reads finer
+   than the delay's lerp. Rounding: `round(120 / sd)` is exact for every shipped distance and
+   within 10% for `sd ≤ 32`, within 20% to the cap of 48. **The floor at `−K` is a source** — every
+   solid voxel is worth at least `−K` on its own — which is what bounds the range, keeps the
+   fixpoint unique (the max-over-paths argument holds with one more source), and lands exactly
+   where decision 8's clamp saturates. A mid-air chunk is `−K` throughout rather than `−∞`.
+
+2. **The derive is label-setting, not the plan's label-correcting.** Subtract `r` per voxel of
+   height — `B′(v) = B(v) − r · y(v)` — and every step is non-positive: up costs 0, sideways `−c`,
+   down `r − 2 · max(r, c) ≤ −r`. That is Dijkstra on a max-heap, one pop per voxel, and a bucket
+   queue over the 365 primed levels (`2K + 31r`) makes it linear. The cap at `K` is
+   `min(K − r · y, ·)`, monotone and non-increasing, so the label-setting argument survives it. The
+   plan's estimate stands as the bench's number; what this changes is that the derive's cost is a
+   bound rather than a convergence.
+
+3. **The 4 × 4 room's pyramid is truncated by hanging, not by the face.** The roof chunk's top
+   face borders an unanalysed chunk and is anchored, and a voxel hanging from an anchor is at
+   `K − 2r = 112`, the one under it `104`, so the top fifteen layers of any roof chunk are held from
+   above however wide the room. The plan's "8.5 m pyramid truncated at the 8 m roof chunk" is a
+   pyramid of at most seventeen layers, 4.25 m, and the bench draws it before the table is
+   corrected. The staged collapse decision 3 describes is unchanged — the next stage begins when the
+   roof chunk is dug and the chunk above joins the set.
+
+4. **An unanalysed *loaded* neighbour anchors through its solid border voxels only; an unloaded
+   one anchors everywhere.** Decision 3 says a voxel across a face into an unanalysed chunk carries
+   a full budget, and read literally that anchors a roof to the air of a natural cave or the sky
+   beside it. `PaddedChunk` already carries the border, and `SeepNeighbourhood.MissingMaterial`
+   already names an unloaded one, so the honest rule costs nothing: solid across the face, `K`;
+   air, nothing; missing, `K`. The optimistic direction is preserved in both cases.
+
+5. **Fixture 4's row says "the stone above holds", and there is no stone above the soil.** The
+   strata are grass over dirt over stone; a bite with its top face in the soil has a roof of soil
+   and sky above it. The count stands — 1,024, the middle 4 m × 4 m through all four soil layers,
+   because the underside's centre is at the floor and four layers of `+4` cannot recover a `−15`
+   sideways step — but the row's words are wrong and the bench's picture is the correction.
+
+6. **A solid material with `supportDistance` 0 carries nothing sideways.** Air's 0 never enters
+   the rule (air is not solid); a mod's solid 0 would divide by zero. Its cost is `2K`: one
+   sideways step from a full anchor is the floor. Recorded rather than refused, because a material
+   that hangs only straight down is a legitimate thing for a mod to mean.
+
+7. **Decision 2's flag is a closed form, and it is pinned against the general path.** An all-solid
+   chunk whose bottom face reads `K` everywhere is `K` throughout — every voxel rests on a full
+   voxel — with no search; an all-air chunk holds no array. Both are the `IsCaveAt` /
+   `GenerateTerrain` shape: one definition, two paths, an equality test between them.
+
+Decisions taken in the pass, all as recommended above and none of them Matthew's: **`K = 120`**
+(1); **the label-setting derive** (2); **anchor through solid border voxels** (4); and **the rule's
+refund and distance scale are parameters of a `SupportRule` value, not constants**, because
+`--restrefund=` and `--supportscale=` are named sweeps and a constant cannot be swept. The head
+table is per chunk from `IWaterTable` through `Saturation.HeadMetresAt`, 16 samples × 32 rows, as
+decision 5 says. Nothing in `Main`, no job, no tint — M9b's.
+
+## M9a — built
+
+> 2026-09-12. `Overburden.Core/Structure/` — `SupportRule`, `ChunkSupport`, `SupportCostTable`,
+> `SupportFaces`, `SupportDerive`, `SupportRegion` — with `MaterialTable.SupportDistance` /
+> `SupportDistanceAt` / `IsSolid`, the loader's cap and curve, `supportUnderHead` in the four
+> shipped materials, `lamp.json` 4 → 8, and `--support` on the bench. Suite 1,296 → 1,319.
+> Nothing in `Main`, no job, no tint: M9b's.
+
+**The numbers, Release, `DOTNET_TieredCompilation=0`** (the line under the bench's table says
+which arm; with tiering on the search reads up to 3× while `Derive` sits at tier 0, and no warm-up
+by call count moves it while the bench keeps jitting new methods):
+
+```
+fixture                          analysed  derives (searched)  rounds   gather ms/derive   search ms/derive   at risk (chunks)   field KiB
+1a. one bite in stone                   7        8 (  2)            2               0.19               1.14         0 ( 0)          64
+1b. a row of four bites                22       38 ( 14)            2               0.19               0.83         0 ( 0)         257
+2.  a 2 x 2 square (16 m)              20       34 ( 15)            2               0.20               0.80        20 ( 4)         289
+3.  a 4 x 4 square (32 m)              64      128 ( 58)            3               0.24               0.95    47,600 (16)         931
+4.  one bite with a soil roof           7        8 (  3)            2               0.29               0.97       975 ( 1)          96
+5.  the 2 x 2 under 2 m of head        20       34 ( 15)            2               0.27               1.14       532 ( 4)         289
+5.  the 2 x 2 under 5 m of head        20       34 ( 15)            2               0.21               0.90     3,028 ( 4)         289
+5.  the 2 x 2 under 10 m of head       20       34 ( 15)            2               0.20               0.92    14,060 ( 4)         289
+6.  a chunk filled in mid-air           7        7 (  2)            1               0.19               0.34    32,768 ( 1)          64
+7.  a bite in the natural-cave shell    7        8 (  2)            2               0.19               0.84         0 ( 0)          64
+```
+
+**The first number: 0.8–1.1 ms a searched derive and 0.2 ms a gather**, against the plan's 1–3 ms
+estimate and the cell rule's 4 ms trigger; ~32,000 pops and ~36,000 pushes a search, so the
+label-setting argument holds in practice — a voxel is bettered once in ten. A wall chunk is the
+closed form and costs the gather alone. The 4 × 4 room from nothing is 128 derives in 3 rounds,
+66 ms; on eight workers in M9b that is a frame.
+
+**Six of the seven pictures agree with the arithmetic, and the seventh answers M8c's question the
+other way.** The 2 × 2 plug is sixteen voxels at the underside, four resting on them, and a row of
+zeros over it — the arch, in a picture. The 4 × 4's wedge is a 45° trapezoid **seventeen layers
+tall, 4.25 m, cut flat by the hang from the anchored top face** — the pass's item 3 drawn, not the
+table's 8.5 m — with a ten-voxel-wide core at the underside past every wall's reach; 47,600 voxels
+against the table's ~52,000. The soil roof is the middle 4 m × 4 m through all four soil layers,
+975 against 1,024 on a terrace that is flat over 39 of 64 samples. The 2 × 2 under 10 m of head is
+a pyramid 22 layers tall, 14,060 voxels; under 5 m, 3,028 — **the table's "under 5 m of lake,
+~5,700" measured the head at the lake, and the bench measures it at the underside**, where a room
+8 m down under a 5 m lake reads 13 m. The mid-air chunk is unreached throughout. **And the
+natural-cave shell sheds nothing**: the bench's search found a bite whose roof chunk is 21,061
+voxels of cave, and the cave's *ceiling* is in the chunk above that, outside the analysed set,
+anchored — so the first bite beside a wide natural cave brings nothing down, because the roof that
+would fall is not analysed until the chunk holding it is a face neighbour of a dug one. M8c's
+*"the portal rule wet a natural cave beside the first shaft"* asked of the roof in advance, and
+answered: not until the second bite.
+
+**Three things the build changed, each found by a test failing, and the third by the pass's own
+oracle refusing to be complete:**
+
+- **The floor is not a source, anywhere.** The plan's rule has no floor; the byte needs one; the
+  first build made `−K` a source at every solid voxel — and a chunk placed in mid-air recovered one
+  refund a layer off its own floor and held its top two layers, 30,720 at risk of 32,768. The
+  second made it a source only where an anchor reached — and a column straddling a chunk face
+  settled at the floor rather than unreached, each half's floor justifying the other's, 118 rounds
+  to get there, and the fixpoint oracle accepted it because a floor is a fixpoint. **So a path
+  dies when its budget reaches `−K`, only a live path reaches anything, and a voxel no live path
+  reaches is `Unreached`** — code 0, the plan's `−∞` and every deficit past `K` alike, a source of
+  nothing. That is the max over *live* paths from the anchors: one fixpoint, no flood, no clamp,
+  and the cost stated on the constant: a deficit past `K` is not counted further, so the exact
+  rule's `−136` at a wide roof's centre — recovered thirty-four layers up — is unreached here and
+  reached from the anchored top face or not at all. `SupportRule.IsLive` is the whole of it.
+- **The join starts from below.** Decision 4's optimistic start — an underived neighbour is an
+  anchor — loses one refund a round on a body across a face: 33 rounds and 156 derives for the
+  2 × 2 room, 61 and 724 for the 4 × 4. From below — an underived analysed neighbour contributes
+  nothing through its face; an unloaded or unanalysed one anchors as always — every round carries
+  live paths one chunk further and the analysed set's diameter bounds it: 2 and 34, 3 and 128, the
+  at-risk counts identical to the voxel, which is the uniqueness proof cashed the other way. The
+  transient is inverted — a chunk derived before its neighbour reads at risk where it will hold —
+  and decision 7's barrier is what keeps a collapse (M9c) and the tint (M9b) from reading it.
+- **The derive is Dijkstra on a bucket queue in a height potential**, the pass's item 2, and
+  `SupportDeriveResult.Pushes / Pops ≈ 1.1` says it is label-setting in practice as well as in
+  proof. The cap at `K` is a clamp that only lowers, which the argument survives; a floor clamp
+  would not have been — a hang from the floor to the floor lands in a bucket already scanned —
+  and that is the mechanical reason the first two designs above were not just wrong but not
+  label-setting either.
+
+**The other departures from the plan, all in "M9a — the planning pass" above and now code:**
+`K = 120` with the offset encoding (item 1); the anchor through solid border voxels only, and
+`PaddedChunk.MissingMaterial` moved down from `SeepNeighbourhood` so both readers share the one
+constant (item 4); the closed form for an all-solid chunk on a full bottom face, pinned against the
+search (item 7); a solid material with `supportDistance` 0 at cost `2K` (item 6). `SupportRule` is
+a record carrying `RestRefundVoxels` and `DistanceScale` — `--restrefund` and `--supportscale` on
+the bench, space-separated like its siblings.
+
+**Tests, 23 new.** The oracle is `SupportRegion.VerifyFixpoint`: every solid voxel of every field
+equals the rule over its real neighbours across faces, through a per-voxel lookup sharing nothing
+with the derive's padded copy, buckets or layer indexing, and the fixpoint's uniqueness makes it
+complete. Around it: the plug to the voxel (the twenty positions, `−8 / −4 / 0` up the centre), one
+bite and a gallery at zero, the mid-air chunk unreached, the column across a face converging to
+unreached in at most `2 · 2K / r` rounds and the same column under an anchored ceiling at
+`112, 104, … 0, −8, … dead`, dirt on stone unreached and a run of dirt dying at its eighth voxel, an
+unanalysed neighbour anchoring through stone and not through air, the closed form against the
+search, the lake over the roof against the dry roof and against a table below it, the refund and
+the scale as sweeps, the layer copy per face and the neighbour's opposite face, the encoding's whole
+range, the rule's constants; and the fuzz — bites, fills, departures and returns over a 36-chunk
+block with sky over it, the incremental region against a fresh one marked in reverse order, byte
+for byte, and both held to the fixpoint. Content: the distance reaching the table, the cap refused
+at 49 and −1 and loaded at 48, eight unreadable curves refused by name, a good one interpolated at
+seven heads, the placeholder's distance for a removed mod, and the shipped content's numbers —
+every solid material inside the range, stone the farthest, the lamp surviving a hang, stone and
+dirt carrying less under water.
+
+**Eleven break-recipes, ten caught and one an identity that exposed a self-oracle.** Hanging at
+single cost, the destination's material ignored sideways, the join never requeuing, a path live at
+exactly `−K`, the closed form firing on any bottom, a departed chunk's layer kept, the head ignored,
+an anchor through air, the derive reading a layer transposed, a rising curve accepted — all caught.
+The shared `LayerIndex` transposed is an identity: writer and reader both go through it, so a
+consistent transposition reads the right voxel — and the layer test had been using `LayerIndex` as
+its own oracle, which is why it stayed green; it spells the index out now and catches that
+mutation too. The join recipe is worth a note: the symmetric plug is the same twenty voxels after
+one round as after two, so only the asymmetric fixtures — the dirt run, the fuzz — saw it.
+
+**Two fixtures were wrong before the code was.** The dirt-run test put its run ten voxels up a
+chunk anchored at one side and expected `120 − 4·32 − 15` at its first voxel; the arch from that
+side rises at 45° and the run started at `+17`. The hanging column's first fixture put a loaded
+stone chunk over it as the ceiling — analysed, so it hung from its own top and its bottom layer was
+dead before the column began; an unloaded chunk anchors, a loaded one is analysed, and the
+difference is the whole of decision 3. Neither was a code defect; the verifier passed both.
+
+**For M9b, three things this leaves on the table:** the gather is a fifth of a derive and is
+`PaddedChunk.CopyFrom` through `VoxelChunk.Get` — the same lever M5c-1 named for light and did not
+build; a chunk under a water table rebuilds its 3 KiB cost table every derive, which is
+microseconds; and the bench's row 7 is the decision-3 cost in a number — a first bite beside a
+wide natural cave sheds nothing, the second may bring the cave's whole ceiling down — which is the
+play question *"don't disturb the old workings"* will answer.
