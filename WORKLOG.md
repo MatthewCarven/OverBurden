@@ -1,5 +1,17 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-11 — M8 is done: *"Look I love what we have, it settles"*
+
+The evening's last word, after an hour on the played world with the new mesh, the shader, the
+fall rule and the bank rule: the flooded mine from above and from its own level, a lake let in
+through the ceiling as a waterfall and through three openings at once, pours landing as mounds
+and levelling in steps, the eye under the surface with the wash on. *It settles* is the verdict
+M8 was built to earn — DESIGN's *sleeping is load-bearing*, M8a's measured *the settle is not
+affordable*, M8b-3's solve, the share slice, and the hand-off, said by the person who watched a
+lake go into a mine and stop. M8d-4's questions are answered as far as play can answer them; the
+fourth, *recoverable*, is M10's pump. One check stays owed (the bank rule's count in play, which
+needs a relaunch), and M9 is next with its planning pass.
+
 ## 2026-09-11 — M8d-4, second play: the waterfall — *"Looks good to me"*
 
 Twelve screenshots, eleven and a half minutes on the log (tick 1,370): the 50,000 L ball on the

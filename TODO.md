@@ -4592,8 +4592,10 @@ finding without the coarser-tolerance fallback.
       - [ ] **The water line's `% of capacity` sums leaf basins, so a merged lake reads over 100%
             (525% on the played world).** A label, not the litres; fix the denominator to the
             tree's capacity or drop the percentage before anyone reads it as a defect.
-- [ ] **M8d — planned 2026-09-11; see M8-PLAN's "M8d — the planning pass". Ten decisions, all
-      taken as recommended the same night (*"As planned please"*); M8d-1 built.** The pass's spine:
+- [x] **M8d — planned 2026-09-11; see M8-PLAN's "M8d — the planning pass". Ten decisions, all
+      taken as recommended the same night (*"As planned please"*); all four parts built and
+      played the same day, and closed on Matthew's verdict: *"Look I love what we have, it
+      settles."*** The pass's spine:
       "more 3D" is three absences in the debug surface — no side faces, no depth in the colour,
       no motion between ticks — and the surface install is already the largest main-thread term,
       so the mesh is rebuilt as merged tops plus sides on the worker before anything is polished;
@@ -4662,8 +4664,12 @@ finding without the coarser-tolerance fallback.
                   the bed under the Tier A plane rather than raising the lake; a spill's front
                   that reaches a deep bed stops there. Named cost; trigger: a play that reads it
                   as wrong, or the bed's panels mattering.
-      - [ ] **M8d-4 — the play.** Dread or inconvenience; recoverable; water or spreadsheet at
-            2 Hz; and "more 3D".
+      - [x] **M8d-4 — the play. Done 2026-09-11 over one evening's sessions on the played world:**
+            "more 3D" — *"Looks great … reflective and all"*; water or spreadsheet at 2 Hz — the
+            waterfall, *"Looks good to me"*; dread or inconvenience — a lake let into the mine
+            through three openings at once, the galleries filling in steps, and the verdict on
+            the whole: *"Look I love what we have, it settles."* Recoverable is M10's pump and
+            was not asked. The bank rule's in-play count is the one check still owed (above).
 - [ ] **M8d — the transparent pass has its first play verdict before it is planned (2026-09-04).**
       Matthew, on the relay's water stepping down a terraced hillside: *"looks cool going down the
       stairs"*, and then *"it would be nice if eventually it's a bit more 3D, like it's a very flat

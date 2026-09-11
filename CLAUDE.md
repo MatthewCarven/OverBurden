@@ -573,8 +573,16 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-11, last of all). M8d-1, M8d-2 and M8d-3 are built — the Tier B mesh,
-its look, the fall and the bank — and what is left of M8d is M8d-4, the play, which is Matthew's:
+**Pick up here (2026-09-11, end of day). M8 is done and played — *"Look I love what we have, it
+settles"* — and M9 is next, and it wants its planning pass first: read MATERIALS-NOTES before
+`supportDistance` (unread in the JSON since M1), SCALE.md for what a support sweep iterates, and
+`Saturation.HeadMetresAt` for the input M8c defined for it. One M8 check is still owed in play — the
+bank rule's `left under a lake` count on the `M8b:` line, on the 2026-09-09 scratch world's breach
+after a relaunch — and the M8d-4 verdicts are in TODO and WORKLOG. The paragraph below is the state
+before the play, kept for the reasoning.**
+
+**Earlier (2026-09-11, last of all). M8d-1, M8d-2 and M8d-3 were built — the Tier B mesh,
+its look, the fall and the bank — with M8d-4, the play, left:
 the four questions in M8-PLAN's M8d section, with the play recipes under M8d-2 and M8d-3 in TODO.**
 Read M8-PLAN's three "built" sections first. M8d-3 in one line: a visit falls through vacant air up
 to `--fallcells=` (16; 1 the old arm, `--fallcells <n>` on `--front` and `--fluid`), the mesher's
