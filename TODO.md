@@ -4642,11 +4642,22 @@ finding without the coarser-tolerance fallback.
             mesher's previous-height search reaches as far, and the hand-off leaves a rested cell
             standing when its sample's lake stands above the cell's top. The front's shape and
             the mine's drain rate do not move under the rule — the look does, and that is play's.
-            - [ ] **Play (M8d-4)**: a pour off a cliff and a lake into a bitten chunk at 16 against
-                  `--fallcells=1`; the `M8b:` line's `long fall(s)` term says the rule ran, the
-                  `handoff` line's `left under a lake` says the bank rule did. On the 2026-09-09
-                  scratch world's breach: `drawn` should stop climbing once the hole's column is as
-                  high as the lake, and `handed` with it.
+            - [x] **Play (M8d-4), the waterfall — answered 2026-09-11: *"Looks good to me"*** on a
+                  lake falling through the mine's ceiling into the flooded chamber, caught tick by
+                  tick in twelve screenshots; 46,745 long falls over 417,467 cells on the log (8.9 a
+                  fall), identities exact, 0 boundaries waited. WORKLOG has the numbers.
+            - [ ] **The bank rule in play**: on the 2026-09-09 scratch world's breach, `drawn` should
+                  stop climbing once the hole's column is as high as the lake, and the `M8b:` line's
+                  `left under a lake` should be non-zero. The waterfall session ran a build older
+                  than that term, so it is still unread.
+            - [ ] **The waterfall is the mesh's dear case: 51,087 quads (36,592 sides, 5,443 bottoms,
+                  7.6 MB) installed in 22–32 ms a tick against 5–6 for the lake.** A falling column
+                  is a stack of cells each at its own depth with air on four sides and beneath, so
+                  nothing merges. Two levers, neither built: drop the depth from a side's merge key
+                  (the shader's depth term is a top's; sides could carry the column's top depth and
+                  merge vertically along the fall), and draw a bottom only under the lowest wet cell
+                  of a column, not under every cell with air beneath. Trigger: a waterfall that
+                  stutters, or the install passing a frame.
             - [ ] **Tier B water under a lake stays.** A pour with `R` over a lake makes a puddle on
                   the bed under the Tier A plane rather than raising the lake; a spill's front
                   that reaches a deep bed stops there. Named cost; trigger: a play that reads it

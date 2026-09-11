@@ -1,5 +1,27 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-11 — M8d-4, second play: the waterfall — *"Looks good to me"*
+
+Twelve screenshots, eleven and a half minutes on the log (tick 1,370): the 50,000 L ball on the
+terraces with its sides; a pond beside a bite; and a column of water falling from a hole in the
+mine's ceiling into the flooded chamber, caught tick by tick — a tall pale slab from roof to
+surface, a block arriving beside it, the two merging, the column gone. **DESIGN's floor — *a
+surface two metres away that jumps once a second is broken, not slow* — met by a person on the
+hardest case, the waterfall, and passed.** The fall rule is what makes the column a column: at one
+cell a tick it would have been a stack of slabs an eighth of a metre apart.
+
+From the log: 27 presses of `R` (270,000 L injected), 453,465 L drawn from the lake through the
+ceiling, identities exact, `displaced 0`, 0 boundaries waited, worst frame 54.8 ms (Debug);
+**46,745 long falls over 417,467 cells — 8.9 cells a fall**, the rule running the whole session.
+**And the waterfall is the mesh's dear case, with a number**: the surface peaked at 51,087 quads —
+9,564 tops over 20,117 surface cells, **36,592 sides, 5,443 bottoms**, 7.6 MB — installed in
+22–32 ms a tick against 5–6 for the lake, 100 ms on the worker. A falling column is a stack of
+cells each at its own depth with air on four sides and beneath, so nothing merges and every cell
+is five faces; the merge's dividend is the lake's, not the fall's. Named in TODO, not built: a
+side's key carries the column depth for a shading term the shader uses only on tops, so sides
+could merge across depth, and a bottom is drawn under every cell of a falling column where only
+the lowest is seen.
+
 ## 2026-09-11 — M8d-4, first play: *"Looks great … reflective and all, no expense spared"*
 
 Four screenshots of the played world's flooded mine under the new mesh and shader, two and a half
