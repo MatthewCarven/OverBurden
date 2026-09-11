@@ -1,5 +1,22 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-11 — Sweat is the default, worldgen is written down, and M8d is planned
+
+Three things at the end of the day. **Sweat ships as the default** — *"Yeah well I like this
+sweating"* — with `--seepmode=spring` the arm; the eventual rule is per material and needs no
+field, a rock's permeability saying whether it springs or sweats. **Worldgen as content is in
+[WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md)** in Matthew's words — ores, layers, trees, and the
+three questions the pass wants from him — because *"I do like thinking ahead"* and the plan does
+not call for it yet. **M8d is planned**: ten decisions in M8-PLAN's "M8d — the planning pass", all
+recommended, waiting on Matthew. The pass's findings: "more 3D" is three absences in the debug
+surface (no sides, no depth in the colour, no motion between ticks); the surface install is
+already the largest main-thread term (7.8 ms a tick for 20,196 quads) so the mesh is rebuilt as
+merged tops plus sides on the worker before the look is touched; depth comes from the column, not
+a depth-buffer read; the perceptual floor is a `tick_phase` lerp from the previous fill, Tier A's
+trick; the waterfall is the fall rule TODO has carried since 2026-09-07, with sides to give a fall
+a front; and the lake-bank treadmill lands here as the hand-off refusing a cell under its own
+lake. Split M8d-1 mesh / M8d-2 look / M8d-3 fall and bank / M8d-4 play.
+
 ## 2026-09-11 — The bodies number, taken where nothing else is awake: the drip does not force water bodies
 
 Matthew's third screenshot: a pit dug *beside* the lake, not under it, with water on its floor —

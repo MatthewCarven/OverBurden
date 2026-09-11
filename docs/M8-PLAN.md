@@ -1893,6 +1893,111 @@ The play questions, provisionally — they are the milestone's actual verdict:
   two metres away that jumps once a second is not slow, it is broken.* **Tier A carries an
   interpolable level for exactly this reason; Tier B needs the equivalent decided.**
 
+### M8d — the planning pass, 2026-09-11
+
+Read the paragraph above against what is on the screen now, and against three plays that have
+already judged it: *"looks cool going down the stairs … it would be nice if eventually it's a bit
+more 3D, like it's a very flat affair right now"* (2026-09-04), the wall weep read as *"more like a
+tap"* (today), and the pit filling from the side with a stepped sheet on its floor (today). Four
+findings, the split, and the decisions.
+
+#### Findings
+
+1. **Two surfaces exist and both were built to be seen, not looked at.** `WaterSurface` is Tier
+   A's: one plane per basin at its solved level, a ring of dry samples drawing the neighbour's
+   plane, clipped by the terrain's depth, rebuilt four times a second in ~3 ms. `FluidSurface` is
+   Tier B's and calls itself a debug view in its first line: one quad on top of every held cell
+   that has nothing above it, at the cell's fill height, no sides, no merging, one flat colour.
+   They share `Water.gdshader` — unshaded, a Schlick sheen against the sky colour, `blend_mix`,
+   depth tested and never written. "More 3D" is three specific absences in that list: **no vertical
+   face where water meets air** (a sheet has no lip, a fall has no front), **no depth in the
+   colour** (a puddle and a pool are the same blue), and **no motion between ticks** (a cell's top
+   jumps at 2 Hz, which is DESIGN's stated floor met head-on).
+2. **The cost is already the largest main-thread term, and it grows with sides.** Slice 3c's play:
+   the surface install is 7.8 ms a tick for 20,196 quads, on the main thread, after the walk moved
+   to the worker; M8b-4b's play saw 144,559 quads rebuilt in 119.7 ms four times a second under a
+   flood. Sides multiply the quads (a wet column at a step adds one to four faces), so M8d cannot
+   add them to the debug mesh as it stands. Two levers, both cheap: **merge the tops** — a level
+   sheet is runs of equal fill, `WaterSurface` already merges runs on `(basin, level)` and the
+   played lake is 162,572 cells of one level — and **build the arrays on the worker**, where the
+   walk already runs; the main thread then pays `AddSurfaceFromArrays` and nothing else.
+3. **Depth in the colour needs no depth-buffer read.** The walk knows, for every surface cell, how
+   many wet cells stand under it in the column; that is a number per vertex, and the shader
+   darkens with it. A depth-texture read would give the true optical path but costs a second pass
+   and a resolve; the column's own depth is free, worker-side, and right for the two cases the
+   play named — a puddle on a floor and a pool in a pit.
+4. **The perceptual floor has a cheap answer with one honest hole.** Keep the previous walk's fill
+   per surface cell as a second vertex attribute and lerp between the two in the vertex shader on
+   a `tick_phase` uniform that runs 0 → 1 over the half second — no remesh between ticks, a
+   surface that rises instead of jumping, and the same trick Tier A's interpolable level is. The
+   hole: a cell that was dry last tick has no previous height. Rising from the cell's floor is the
+   right default for a filling cell; a cell that emptied vanishes at the tick, which is a drop
+   leaving and reads as one. Stated rather than hidden.
+5. **The waterfall is priced and not built, and it is this part's.** A cell falls one voxel a
+   tick — 0.5 m/s — which is the number behind *"water falls as gravity decides"* reading as slow.
+   TODO carries Matthew's fall rule (2026-09-07) priced on paper: fall as far as is vacant up to
+   *N* cells a tick, stateless, the termination proof intact, ~6 ms a second in Release for a
+   thousand-cell front. With sides on the mesh a fall has a front to look at, so the rule and the
+   look are one play.
+6. **The lake-bank treadmill is the look's problem now.** A hole in a bank drains the lake, fills,
+   overflows onto a wet sample and hands straight back — `drawn` and `handed` climbing together
+   for ever with 8–10,000 cells awake (2026-09-09). TODO parked it as M8c's or M8d's; M8c did not
+   touch it. Of the two shapes named, **the hand-off refusing a cell whose sample's lake stands
+   above it** is one condition in `SurfaceHandoff`, keeps every identity (the water simply stays
+   Tier B's), and is the rule the seep drain already applies to a face. It belongs here because a
+   waterfall into a lake-side hole is exactly that case, and the fall rule would make it faster.
+
+#### Split
+
+- **M8d-1 — the mesh.** Core: a `FluidSurfaceMesher` that turns the walk's surface cells into
+  vertex arrays — tops merged along runs of equal fill, a side face wherever a wet cell meets air
+  or a lower fill on any of its four sides, per vertex the column depth and the previous fill —
+  pure, tested against the debug mesh's quads on the same cells, benched on the played lake's
+  shape (`--lake`) and a flood (`--front`). Game: the job emits the arrays, `FluidSurface` installs
+  them. Measured: quads and install ms against the debug surface on the same runs; the r6 control
+  unchanged. Headless-verifiable throughout.
+- **M8d-2 — the look.** The shader: depth darkening, side faces shaded by their normal, the
+  tick-phase lerp, and an underwater tint when the eye's voxel holds water (the cheapest "you are
+  in it", and the wading precursor). Screenshots with `--injectlitres` on a stepped hillside and on
+  the played pit, each arm against the debug surface. Needs a person.
+- **M8d-3 — the fall and the bank.** `--fallcells=<n>` (not `--fall`, which is the fall profile),
+  stateless, benched on `--front` and `--fluid` for visits and for the front's shape, then the
+  hand-off's refusal for a cell under its own lake's level, with the treadmill's scratch-world
+  shape as the test. Judged by the waterfall question.
+- **M8d-4 — the play.** The three questions above plus *"more 3D"* as the fourth, on the played
+  world and on a fresh one, with the log read behind each verdict.
+
+#### Decisions, each with a recommendation
+
+1. **Tier B's mesh gains side faces and merged tops.** *Recommended.* Cost: the mesher is a second
+   walk over the surface cells, on the worker; the quad count moves from one per surface cell to
+   one per run plus the sides, which on a level sheet is far fewer and on a stair is more.
+2. **Depth in the colour comes from the column's wet depth per vertex, not a depth-buffer read.**
+   *Recommended.* Cost: a pool over a cave reads as its column, not its optical path; the honest
+   version is a second pass, and the trigger for it is a screenshot that looks wrong.
+3. **Between ticks the surface lerps from the previous fill on a `tick_phase` uniform.**
+   *Recommended*, and it is DESIGN's floor answered the way Tier A answers it. Cost: a cell that
+   emptied vanishes at the tick; a cell that appeared rises from its floor.
+4. **Tier B's mesh writes depth; Tier A's plane keeps not writing it.** *Recommended.* One mesh
+   with tops and sides needs its own faces to sort, and writing depth does it for free; the cost
+   is that Tier B water seen through Tier A water shows the nearer only, which is the lake's
+   surface over a flooded pit — right more often than not.
+5. **The arrays are built on the worker; the main thread only installs.** *Recommended.* Cost:
+   the job carries the arrays back, a few hundred KiB a tick at the played lake's size.
+6. **An underwater tint when the eye's voxel holds water.** *Recommended*, in M8d-2. Cost: a
+   canvas overlay and one `AmountAt` a frame.
+7. **The fall rule ships stateless, up to 16 cells a tick, `--fallcells=` the sweep, 1 the
+   control.** *Recommended* — 8 m/s from the first tick, no velocity byte, the proof intact —
+   with the bench taken before the default is set: if the front's shape on `--front` moves, the
+   rule is judged in play at both values; if it does not, 16 ships.
+8. **The hand-off refuses a cell whose sample's lake stands above it.** *Recommended.* Cost: a
+   spill onto a wet sample under a lake stays Tier B's and levels by the automaton instead of
+   vanishing into the basin — which is what it would do.
+9. **Water bodies stay after M8d.** *Recommended*, on `--seepawake`'s number: a drip does not
+   force them, and M8d-1's merged tops take the surface's share of their argument.
+10. **M8d-1 and M8d-3 are one session each; M8d-2 is screenshots and a person; M8d-4 is play.**
+    *Recommended.*
+
 ---
 
 ## The open decision — settled by Matthew, 2026-09-02: option 3

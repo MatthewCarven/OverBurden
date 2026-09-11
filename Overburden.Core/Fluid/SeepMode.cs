@@ -6,9 +6,11 @@ namespace Overburden.Core.Fluid;
 /// </summary>
 /// <remarks>
 /// A constructor argument like <see cref="SpreadRule"/>, and a play arm like it: <c>spring</c> is
-/// what was played first and read as *"more like a tap"*, kept because that is how hard rock lets
-/// water in; <c>sweat</c> is the arm Matthew then asked for, to see wading through a mine that
-/// weeps everywhere. Which one ships per material is a decision the switch exists to inform.
+/// what was played first and read as *"more like a tap"*, kept as an arm because that is how hard
+/// rock lets water in; <c>sweat</c> is the arm Matthew then asked for, played, and liked — *"I
+/// like this sweating"* — and it ships as the game's default from 2026-09-11, being also the
+/// cheaper arm for the automaton (drops rest, a stream runs). The eventual rule is per material and
+/// needs no field: a rock's permeability says whether it springs or sweats.
 /// </remarks>
 public enum SeepMode
 {

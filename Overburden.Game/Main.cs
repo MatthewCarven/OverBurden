@@ -554,10 +554,11 @@ public partial class Main : Node3D
     private double _seepScale = SeepIndex.DefaultSeepageScale;
 
     /// <summary>
-    /// <c>--seepmode=spring|sweat</c>: one running spring at the chunk's lowest face (the played
-    /// arm and the default) or the whole wall sweating, each group handing litres round its faces.
+    /// <c>--seepmode=spring|sweat</c>: the whole wall sweating, each group handing litres round its
+    /// faces (the default since 2026-09-11 — played and liked, and the cheaper arm for the
+    /// automaton), or one running spring at the chunk's lowest face, the first arm played.
     /// </summary>
-    private SeepMode _seepMode = SeepMode.Spring;
+    private SeepMode _seepMode = SeepMode.Sweat;
 
     private long _seepedAtWarm;
     private long _seepPassesAtWarm;
@@ -1267,7 +1268,7 @@ public partial class Main : Node3D
                     _seepScale = Math.Max(0.0, seepScale);
                     break;
                 case "seepmode":
-                    _seepMode = value.Equals("sweat", StringComparison.OrdinalIgnoreCase) ? SeepMode.Sweat : SeepMode.Spring;
+                    _seepMode = value.Equals("spring", StringComparison.OrdinalIgnoreCase) ? SeepMode.Spring : SeepMode.Sweat;
                     break;
 
                 // The fifth budget seam of the same shape: how much of a frame Tier B's tick may

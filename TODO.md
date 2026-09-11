@@ -4585,6 +4585,23 @@ finding without the coarser-tolerance fallback.
       - [ ] **The water line's `% of capacity` sums leaf basins, so a merged lake reads over 100%
             (525% on the played world).** A label, not the litres; fix the denominator to the
             tree's capacity or drop the percentage before anyone reads it as a defect.
+- [ ] **M8d — planned 2026-09-11; see M8-PLAN's "M8d — the planning pass". Ten decisions, all
+      recommended, waiting on Matthew; build M8d-1 once they are answered.** The pass's spine:
+      "more 3D" is three absences in the debug surface — no side faces, no depth in the colour,
+      no motion between ticks — and the surface install is already the largest main-thread term,
+      so the mesh is rebuilt as merged tops plus sides on the worker before anything is polished;
+      the waterfall is Matthew's fall rule (stateless, up to 16 a tick) with sides to give it a
+      front; the lake-bank treadmill is the hand-off refusing a cell under its own lake.
+      - [ ] **M8d-1 — the mesh.** `FluidSurfaceMesher` in Core: merged tops, sides where water
+            meets air or a lower fill, column depth and previous fill per vertex; arrays built on
+            the worker, installed on the main thread. Measured against the debug surface.
+      - [ ] **M8d-2 — the look.** Depth darkening, side shading, the `tick_phase` lerp, the
+            underwater tint. Screenshots, each arm against the debug surface.
+      - [ ] **M8d-3 — the fall and the bank.** `--fallcells=<n>` stateless up to 16, benched on
+            `--front` and `--fluid` before the default; the hand-off's refusal for a cell under its
+            own lake's level, with the 2026-09-09 treadmill as the test.
+      - [ ] **M8d-4 — the play.** Dread or inconvenience; recoverable; water or spreadsheet at
+            2 Hz; and "more 3D".
 - [ ] **M8d — the transparent pass has its first play verdict before it is planned (2026-09-04).**
       Matthew, on the relay's water stepping down a terraced hillside: *"looks cool going down the
       stairs"*, and then *"it would be nice if eventually it's a bit more 3D, like it's a very flat

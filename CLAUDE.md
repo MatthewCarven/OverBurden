@@ -20,6 +20,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/M7-PLAN.md](docs/M7-PLAN.md) | M7, rain, split into M7a–M7d. Planned 2026-09-01, **built and played 2026-09-02**. Kept for the reasoning; **read SCALE.md before it**. Two places it was overtaken: splashes were cut (M7c-2) and the occlusion field's cost estimate was ten times out (M7d-1). |
 | [docs/M7-PLAY.md](docs/M7-PLAY.md) | M7's play: five questions, **all five answered 2026-09-02**, the flags that provoke weather without waiting for it, and how to read the `M7c:`/`M7d:` log lines. Kept for the verdicts. |
 | [docs/M10-NOTES.md](docs/M10-NOTES.md) | **The quantum machine family** — Matthew’s proposal, 2026-09-02: a fluid pump that teleports to a wireless output, and a general machine programmer. Notes rather than a plan, on the deferred-collapse precedent. **Read before planning M10, and before shipping any machine — it names the entity-storage change that header v4 rides on.** |
+| [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | **Worldgen as content** — Matthew's thinking-ahead, 2026-09-11: ores, layers, trees, and what is permeable. Notes rather than a plan; what MATERIALS-NOTES already decided is listed so it is not re-litigated, and the three questions its pass wants from him are at the end. **Not scheduled — M8d, then M9.** |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md) | **Water bodies** — Matthew's question, 2026-09-10: resting water as one number over a connected void, DESIGN's *"stable cells merge into a Tier A body"* half that M8b never built. Notes rather than a plan, with the roof-open wake explained and six decisions. **Read before M8c's planning pass, which is where it belongs.** |
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | **Elements, and whether to "just implement chemistry"** — a brainstorm with Matthew, 2026-09-03. Notes rather than a plan. The recommendation is *geology that reacts to water, with machine recipes as the chemistry set*; the element table says why each material would exist. **Read before M8c reads `permeability` and before M9 reads `supportDistance` — both have been in the material JSON unread since M1, and the trap is a constant shipping green.** |
 | [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **M8c planned 2026-09-10, all eight decisions taken 2026-09-11, M8c-1 built the same day — read "M8c-1 — built" before M8c-2's pass.** **Planned 2026-09-02; M8a built the same day; M8b split four ways and M8b-1 built 2026-09-03; M8b-2 planned 2026-09-05 and all three parts built the same day, both open decisions taken as recommended — water crosses the seam in the game; M8b-3 planned and built the same day: the hand-off (3a) measured, the settle (3b) built and priced against the chamber, both mines and the played world, the spill's look deferred to M8c and the settle's interval an estimate with `--settleafter=` as the sweep.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it. **Its M8b section records a gap the plan had**: a flooded mine has no Tier A body, so resting mine water is stored, and the settle is a solve. Read the tick-budget item in TODO before M8b-2. |
@@ -278,9 +279,9 @@ goes after the bare `--` or the engine drops it without a word** (Main warns onl
 `name=value` flag placed before the `--`; a flag after it that nothing reads is printed as unknown since 2026-09-10), and the run then opens the played world, which as of M8b-3a floods on open and
 reads nothing like a control.
 
-M8c-2 adds **`--seepmode=spring|sweat`** — one running spring at a chunk's lowest face with room
-(the played arm and the default) or every group handing litres round its faces so the wall
-weeps everywhere — and **`--seepscale=<x>`**, the seepage rate in litres a second per square metre of face per
+M8c-2 adds **`--seepmode=spring|sweat`** — every group handing litres round its faces so the wall
+weeps everywhere (the default since 2026-09-11, played and liked, and the cheaper arm for the
+automaton) or one running spring at a chunk's lowest face with room, the first arm played — and **`--seepscale=<x>`**, the seepage rate in litres a second per square metre of face per
 metre of head — 0.06 shipped, an estimate at the nuisance end (1.76 L/s into a 10 × 10 × 3 m stone
 room under 5 m, ankle-deep in 3.9 h; dirt 17.5× that), zero builds no index and no drain. The
 profile's `seep` line prints faces and chunks, seeping / delivered / skipped-full on the last pass,
@@ -547,7 +548,19 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-11, night). M8c is built, played twice, and the water-bodies question is
+**Pick up here (2026-09-11, late night). M8d is planned and not built — ten decisions in
+M8-PLAN's "M8d — the planning pass", all recommended, waiting on Matthew; build M8d-1 once they
+are answered.** Sweat is the shipped seep mode now (*"I like this sweating"*; `--seepmode=spring`
+is the arm), and [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) holds the ores-layers-trees
+discussion in Matthew's words with the three questions its own pass will want. M8d's spine: "more
+3D" is three absences in the debug surface — no sides, no depth in the colour, no motion between
+ticks; the surface install is already the largest main-thread term, so M8d-1 rebuilds the mesh as
+merged tops plus sides on the worker before M8d-2 touches the look; the waterfall is the fall rule
+from TODO (stateless, up to 16 a tick, `--fallcells=`); the lake-bank treadmill is the hand-off
+refusing a cell under its own lake. The paragraph below is the night's state, kept for the
+reasoning.
+
+**Earlier (2026-09-11, night). M8c is built, played twice, and the water-bodies question is
 answered: a drip does not force bodies, they stay after M8d.** The second play was a pit dug
 *beside* the lake — decision 1 in a picture, the table is a level not a footprint — and it showed
 the game's `awake at seeping boundaries` is the world's count, not the drip's (it reads the flood
