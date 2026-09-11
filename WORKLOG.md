@@ -1,5 +1,22 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-11 — M8d-2: the look, built and handed over
+
+*"Ok lets continue with M8d-2"*, with its four decisions already taken, so it was read against the
+code and built: `FluidWater.gdshader`, Tier B's own — depth in the colour from the column under the
+vertex, the surface lerped from where it was on a `tick_phase` uniform Main runs over the half
+second after a mesh lands, depth written and back faces culled so the mesh sorts itself, sides
+tinted by normal, and a full-screen wash when the eye is in the water, asked of the installed mesh
+rather than the grid because the grid is the worker's. The debug arm keeps `Water.gdshader`, so
+`--fluidsurface=debug` is the old geometry and the old look together.
+
+Two things from it: **the mesh's winding was the terrain mesher's mirror** and had drawn only
+because nothing culled — the first cull_back run is what said so, and the index pattern and the
+winding test both changed; and **from inside the water nothing of it draws**, which is decision 4's
+stated cost and the reason the wash exists — wading will want the underside back (TODO). Three
+screenshots against the debug arm went to Matthew: the hillside pour, the ball, the eye inside it.
+The verdict is his and the play's; a pool in a pit and the lerp cannot be photographed by a script.
+
 ## 2026-09-11 — M8d-1: the Tier B mesh, and what three screenshots said about it
 
 *"As planned please"* took all ten of M8d's decisions, and M8d-1 is built: `FluidSurfaceMesher` in

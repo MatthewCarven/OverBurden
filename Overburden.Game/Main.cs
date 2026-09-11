@@ -2198,6 +2198,7 @@ public partial class Main : Node3D
 
         _waterSurface?.SetBrightness(_skyBrightness * dimming);
         _fluidSurface?.SetBrightness(_skyBrightness * dimming);
+        UpdateFluidLook();
 
         // Only while the profiler is warm, so the range reported beside the remesh count is the
         // weather the measurement actually saw rather than the weather the warm-up did.
@@ -3455,7 +3456,8 @@ public partial class Main : Node3D
         _settle = new SheetSettle(_fluid, _settleAfterTicks, _settleShare);
         if (windowed)
         {
-            _fluidSurface = new FluidSurface(GetWorld3D());
+            _fluidSurface = new FluidSurface(GetWorld3D(), debugView: _fluidSurfaceMode == "debug");
+            SetUpUnderwaterTint();
             FluidSurfaceMesher mesher = _fluid.SurfaceMesher;
             switch (_fluidSurfaceMode)
             {
@@ -3722,6 +3724,54 @@ public partial class Main : Node3D
         }
 
         _fluidSurface?.Update(delta, _fluid);
+    }
+
+    // M8d-2, decision 6: a full-screen wash when the eye is in the water. Its own layer rather
+    // than the HUD's, because the HUD is skipped during a profile and a screenshot of the tint is
+    // taken with one. The cheapest "you are in it" there is, and the wading precursor.
+    private CanvasLayer? _underwaterLayer;
+    private ColorRect? _underwaterTint;
+    private bool _underwater;
+
+    private void SetUpUnderwaterTint()
+    {
+        _underwaterLayer = new CanvasLayer { Name = "Underwater", Layer = 5 };
+        _underwaterTint = new ColorRect
+        {
+            Name = "UnderwaterTint",
+            Color = new Color(0.10f, 0.28f, 0.42f, 0.55f),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Visible = false,
+        };
+        _underwaterTint.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _underwaterLayer.AddChild(_underwaterTint);
+        AddChild(_underwaterLayer);
+    }
+
+    /// <summary>
+    /// Every frame: the lerp's phase since the mesh landed, and whether the eye is in the water.
+    /// </summary>
+    private void UpdateFluidLook()
+    {
+        if (_fluidSurface is null || _camera is null)
+        {
+            return;
+        }
+
+        // 0 → 1 over the tick's half second, then held: a tick that takes longer than its period
+        // leaves the surface where it arrived rather than moving it twice.
+        double since = (Time.GetTicksMsec() - _fluidSurface.InstalledAtMsec) / 1000.0;
+        _fluidSurface.SetPhase((float)(since / FluidTickSeconds));
+
+        bool under = _fluidSurface.IsUnderwater(_camera.GlobalPosition);
+        if (under != _underwater)
+        {
+            _underwater = under;
+            if (_underwaterTint is not null)
+            {
+                _underwaterTint.Visible = under;
+            }
+        }
     }
 
     /// <summary>The job's result, on the sim thread, from the pipeline's result pass (slice 3b).</summary>
@@ -5152,6 +5202,7 @@ public partial class Main : Node3D
         _rain?.Dispose();
         _waterSurface?.Dispose();
         _fluidSurface?.Dispose();
+        _underwaterLayer?.QueueFree();
         _skyHeights.Dispose();
 
         // Order matters: stop the pipeline submitting, then stop the workers, then release

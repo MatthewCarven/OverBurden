@@ -164,8 +164,10 @@ build ms. **The first lake row is slow in both arms and the second is the repres
 dotnet run --project Overburden.Bench -c Release -- --surface
 ```
 
-In the game **`--fluidsurface=debug`** is the pre-M8d-1 arm — one quad a surface cell, the control for
-every M8d-2 screenshot — and `nosides`, `nobottoms`, `notops`, `nomerge` leave one thing out, which is
+In the game **`--fluidsurface=debug`** is the pre-M8d-1 arm — one quad a surface cell *in Tier A's
+shader*, the geometry and the look every M8b and M8c screenshot had, the control for every M8d-2
+screenshot — and `nosides`, `nobottoms`, `notops`, `nomerge` leave one thing out of the mesh (in the
+new shader), which is
 how the ball's streaks were attributed to the slots in a falling column. The `M8b:` line's `surface`
 term and the profile's `fluidsurf` line print tops / sides / bottoms / KiB and mesh + install ms.
 
@@ -564,8 +566,19 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-11, later still). M8d-1 is built — the Tier B mesh — and M8d-2, the
-look, is next: read M8-PLAN's "M8d-1 — built" first, then its "M8d — the planning pass"
+**Pick up here (2026-09-11, last). M8d-1 and M8d-2 are built — the Tier B mesh and its look —
+and the look is Matthew's to judge in play; M8d-3, the fall and the bank, is next and wants its own
+planning pass (decisions 7 and 8 are taken; the pass is against the built mesher, because a fall
+rule changes what a falling column looks like and the mesh now draws one full).** Read M8-PLAN's
+"M8d-1 — built" and "M8d-2 — built" first. M8d-2 in one line: `FluidWater.gdshader` — depth from
+UV.y, the lerp from UV.x on `tick_phase`, depth written with back faces culled (**the mesh's winding
+was the terrain's mirror and had to flip**), sides tinted by normal, an underwater wash asked of the
+installed mesh; `--fluidsurface=debug` is the old geometry *and* the old shader. From inside the
+water nothing of it draws, by design; wading wants the underside back. The paragraph below is
+M8d-1's state, kept for the reasoning.
+
+**Earlier (2026-09-11, later still). M8d-1 was built — the Tier B mesh — with M8d-2, the
+look, next: M8-PLAN's "M8d-1 — built" first, then its "M8d — the planning pass"
 decisions 2, 3, 4 and 6, which are M8d-2's.** `FluidSurfaceMesher` in Core builds merged tops
 (within a 2 mm run tolerance, because a levelled sheet is level to a millilitre and a key on the
 amount split the lake into 66,127 quads), sides between *drawn* heights wherever water meets air or

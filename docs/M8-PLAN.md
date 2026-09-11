@@ -2113,6 +2113,49 @@ first item.
 along a chunk boundary is two runs); and the debug arm's own install figure as a profile line,
 since the `fluidsurf` line prints one arm at a time.
 
+### M8d-2 — built, 2026-09-11, and handed to a person
+
+*"Ok lets continue with M8d-2"* — decisions 2, 3, 4 and 6 were already taken, so no pass: read
+against the code and built. `FluidWater.gdshader` is Tier B's own shader; the debug arm keeps
+`Water.gdshader`, so `--fluidsurface=debug` is the old geometry *and* the old look, the control
+every M8b and M8c picture was taken in.
+
+**What is in it, decision by decision:**
+
+- **Depth in the colour (2)**: `UV.y`, the wet column under the vertex, drives a mix from a
+  shallow colour (alpha 0.30) to a deep one (alpha 0.88) on `1 − exp(−0.9 · depth)` — a metre of
+  water is 59% deep, three metres 93%. A pour's skirt is nearly clear; its body is not. Look
+  constants, all four, for a person.
+- **The lerp (3)**: `VERTEX.y = mix(UV.x, VERTEX.y, tick_phase)`, the phase run 0 → 1 by Main over
+  the tick's half second from the mesh's install and held at 1 after, so a tick that overruns its
+  period leaves the surface where it arrived. Invisible in a still; the play judges it.
+- **Depth written, back faces culled (4)**: `depth_draw_always, cull_back`. Writing depth makes
+  the mesh's own faces sort; culling leaves one front face per ray on a convex body, so the far
+  side of a pool does not blend through its near side. **The mesh's winding had to change for
+  it** — the debug view's index pattern was the terrain mesher's mirror and drew only because
+  nothing culled; the pattern is `(0, 1, 2), (0, 2, 3)` now, the winding test restated, and a
+  screenshot from above confirmed the tops face up. Cost, as the pass said: from inside the water
+  every face looks away and none draws, which is what the tint is for.
+- **Sides shaded by their normal**: the terrain's `face_tint` gentler — top 1.0, side 0.78,
+  underside 0.6 — so a lip reads as a lip.
+- **The underwater tint (6)**: a full-screen `ColorRect` on its own `CanvasLayer` (the HUD is
+  skipped under a profile, and the tint's screenshot is taken with one), shown when the eye is in
+  the water. **Asked of the installed mesh, not the grid** — the grid is the worker's while a job
+  is out and the main thread may not read it — by scanning the tops for one over the eye whose
+  wet column reaches down to it. One tick behind the water, like the picture, and agreeing with
+  it by construction. A few thousand quads, four compares each, once a frame.
+
+**Screenshots, each mesh arm against `--fluidsurface=debug` from the same spot:** the relay's
+8,000 L on the terraced hillside at tick 9 — a field of tiles against a body with a lip and a pale
+skirt; the 50,000 L ball from six metres — tiles against a translucent mass with its sides; and
+the eye inside the ball — the wash on, the terrain and the ball's inner faces through it. Sent to
+Matthew. **Not photographed, and the play's**: a pool in a pit (the depth darkening's case — no
+scripted run puts the camera at one), the lerp, and the played world's flooded mine.
+
+**Nothing here is measured, deliberately**: the shader's cost is a per-fragment mix and a
+per-vertex lerp, the tint's scan is bounded by the tops, and the only figure that could move —
+the install — is M8d-1's and unchanged.
+
 ---
 
 ## The open decision — settled by Matthew, 2026-09-02: option 3

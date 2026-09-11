@@ -16,8 +16,8 @@ namespace Overburden.Game.Rendering;
 /// can see cannot be judged. Its install grew to the largest main-thread term (7.8 ms for 20,196
 /// quads at slice 3c's play; 144,559 quads in 119.7 ms under a flood at M8b-4b's), which is what
 /// the merge is for. The geometry is Core's now; this class owns the instance, the material and
-/// the install, and nothing about what the water looks like. It shares
-/// <see cref="WaterSurface"/>'s shader until M8d-2 gives it its own.
+/// the install, the tick-phase uniform and the underwater question; what the water looks like is
+/// <c>FluidWater.gdshader</c>'s (M8d-2), and the debug arm keeps <see cref="WaterSurface"/>'s.
 /// </para>
 /// <para>
 /// <b>Rebuilt on the Tier A surface's timer and only when the simulation has moved</b>, because a
@@ -36,17 +36,24 @@ public sealed class FluidSurface
     private long _builtAtTick = -1;
     private long _builtAtTotal = -1;
 
-    public FluidSurface(World3D world)
+    /// <param name="debugView">
+    /// True draws with Tier A's shader, <c>Water.gdshader</c> — the look every M8b and M8c
+    /// screenshot had, and the control arm for M8d-2's — so <c>--fluidsurface=debug</c> is the
+    /// old geometry <i>and</i> the old shader, not the old geometry in the new look.
+    /// </param>
+    public FluidSurface(World3D world, bool debugView = false)
     {
         System.ArgumentNullException.ThrowIfNull(world);
 
-        var shader = GD.Load<Shader>("res://Rendering/Water.gdshader");
+        string path = debugView ? "res://Rendering/Water.gdshader" : "res://Rendering/FluidWater.gdshader";
+        var shader = GD.Load<Shader>(path);
         if (shader is null)
         {
-            GD.PushError("Overburden: could not load res://Rendering/Water.gdshader");
+            GD.PushError($"Overburden: could not load {path}");
         }
 
         _material = new ShaderMaterial { Shader = shader };
+        _debugView = debugView;
 
         _instance = RenderingServer.InstanceCreate();
         RenderingServer.InstanceSetScenario(_instance, world.Scenario);
@@ -60,8 +67,77 @@ public sealed class FluidSurface
 
     public int Rebuilds { get; private set; }
 
+    private readonly bool _debugView;
+    private FluidSurfaceMesh? _lastMesh;
+
     public void SetBrightness(float brightness) =>
         _material.SetShaderParameter("sky_brightness", brightness);
+
+    /// <summary>Milliseconds of <c>Time.GetTicksMsec</c> at which the current mesh was installed; the lerp's zero.</summary>
+    public ulong InstalledAtMsec { get; private set; }
+
+    /// <summary>
+    /// How far the surface has moved from where it was to where it is, 0..1 (M8d-2, decision 3).
+    /// The shader lerps every vertex from its previous height on this; the caller runs it 0 → 1
+    /// over the tick's half second from <see cref="InstalledAtMsec"/>. Ignored by the debug arm's
+    /// shader, which has no such uniform.
+    /// </summary>
+    public void SetPhase(float phase)
+    {
+        if (!_debugView)
+        {
+            _material.SetShaderParameter("tick_phase", Mathf.Clamp(phase, 0f, 1f));
+        }
+    }
+
+    /// <summary>
+    /// Whether a point is inside the water the last build drew: under a top and within the wet
+    /// column that top reports beneath it (M8d-2, decision 6).
+    /// </summary>
+    /// <remarks>
+    /// <b>Read off the installed mesh, not the grid</b>, because the grid is the worker's while a
+    /// tick job is out and the main thread may not ask it — and the mesh is what the eye sees, so
+    /// the tint agrees with the picture by construction. One tick behind the water, like the
+    /// picture. A scan of the tops: a few thousand quads on the played world, four compares each,
+    /// once a frame; not worth an index until a profile says so.
+    /// </remarks>
+    public bool IsUnderwater(Vector3 point)
+    {
+        FluidSurfaceMesh? mesh = _lastMesh;
+        if (mesh is null)
+        {
+            return false;
+        }
+
+        float[] p = mesh.Positions;
+        float[] n = mesh.Normals;
+        float[] a = mesh.Attributes;
+        for (int q = 0; q < mesh.QuadCount; q++)
+        {
+            int v = mesh.Indices[q * 6];
+            if (n[(v * 3) + 1] < 0.5f)
+            {
+                continue;
+            }
+
+            // A top's corners are v..v+3 in the mesher's order: (x0,z0), (x1,z0), (x1,z1), (x0,z1).
+            float x0 = p[v * 3], z0 = p[(v * 3) + 2];
+            float x1 = p[((v + 2) * 3)], z1 = p[((v + 2) * 3) + 2];
+            if (point.X < x0 || point.X >= x1 || point.Z < z0 || point.Z >= z1)
+            {
+                continue;
+            }
+
+            float top = p[(v * 3) + 1];
+            float depth = a[(v * 2) + 1];
+            if (point.Y <= top && point.Y >= top - depth)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Rebuilds if it is due and the water has moved since the last time.</summary>
     public void Update(double delta, FluidSimulation fluid)
@@ -137,6 +213,8 @@ public sealed class FluidSurface
     {
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
 
+        _lastMesh = mesh;
+        InstalledAtMsec = Time.GetTicksMsec();
         CellsWalked = mesh.SurfaceCells;
         Tops = mesh.Tops;
         Sides = mesh.Sides;

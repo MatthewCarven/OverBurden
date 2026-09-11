@@ -825,13 +825,18 @@ public sealed class FluidSurfaceMesher
         _attributes.Add(p2); _attributes.Add(d2);
         _attributes.Add(p3); _attributes.Add(d3);
 
-        // The debug view's pattern: (0, 2, 1), (0, 3, 2).
+        // Front faces are Godot's clockwise. The corners here have (p1 − p0) × (p3 − p0) against
+        // the normal — the debug view's order, which drew cull_disabled and never had to be right
+        // — so the triangles walk the corners forward, (0, 1, 2), (0, 2, 3), where the terrain
+        // mesher's corners (cross along the normal) walk them as (0, 2, 1), (0, 3, 2). M8d-2 culls
+        // back faces to make depth writing sort the water, and a screenshot from above is what
+        // confirmed the tops face up.
         _indices.Add(first);
-        _indices.Add(first + 2);
         _indices.Add(first + 1);
-        _indices.Add(first);
-        _indices.Add(first + 3);
         _indices.Add(first + 2);
+        _indices.Add(first);
+        _indices.Add(first + 2);
+        _indices.Add(first + 3);
     }
 }
 

@@ -4611,10 +4611,19 @@ finding without the coarser-tolerance fallback.
                   world's open). Fine on the job arm; on `--fluidjob=0` it is sim-thread time at
                   every rebuild, and the first lever is skipping the terrain ask for a floor cell
                   the previous build already answered.
-      - [ ] **M8d-2 — the look.** Depth darkening from UV.y, side shading by normal, the
-            `tick_phase` lerp from UV.x, Tier B's own shader writing depth (decision 4 — the mesh
-            is opaque from every side today because every face blends and none writes depth), the
-            underwater tint. Screenshots, each arm against `--fluidsurface=debug`.
+      - [x] **M8d-2 — the look. Built 2026-09-11; read M8-PLAN's "M8d-2 — built".**
+            `FluidWater.gdshader`: depth darkening from UV.y, the `tick_phase` lerp from UV.x,
+            depth written and back faces culled (the mesh's winding flipped for it), sides tinted
+            by normal, the underwater wash off the installed mesh. Screenshots sent; the verdict
+            is Matthew's, in play.
+            - [ ] **Play, M8d-4's fourth question**: a pour on the terraces, a pool in a pit, the
+                  flooded mine — does it read as one liquid, does the surface rise rather than
+                  jump, does the wash say "you are in it". The look constants (shallow and deep
+                  colours, falloff, tints, the wash's alpha) are `FluidWater.gdshader` uniforms
+                  and the tint's `Color` in Main; retune by number, not by guess.
+            - [ ] **From inside the water nothing of it draws** (cull_back) — a swimmer looking up
+                  sees no surface. Wading (M10-NOTES) will want the underside drawn from below:
+                  a second, front-culled pass of the tops, or cull_disabled with sorted faces.
       - [ ] **M8d-3 — the fall and the bank.** `--fallcells=<n>` stateless up to 16, benched on
             `--front` and `--fluid` before the default; the hand-off's refusal for a cell under its
             own lake's level, with the 2026-09-09 treadmill as the test.

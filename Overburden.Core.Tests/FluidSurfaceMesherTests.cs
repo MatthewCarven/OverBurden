@@ -98,9 +98,10 @@ public sealed class FluidSurfaceMesherTests
     [Fact]
     public void EveryQuadIsWoundWithItsNormal()
     {
-        // M5a's shape of test: the winding is what a cull mode reads, and cull_disabled today is
-        // not a reason to be wrong about it. (p1 − p0) × (p3 − p0) reversed by the index pattern
-        // must point along the normal, for every kind of face.
+        // M5a's shape of test: the winding is what a cull mode reads, and M8d-2 culls back faces.
+        // The corners have (p1 − p0) × (p3 − p0) against the normal and the indices walk them
+        // forward, which is Godot's clockwise front face seen from the normal's side — the terrain
+        // mesher's convention mirrored twice — for every kind of face.
         var grid = new FluidGrid();
         grid.Fill(new VoxelPos(10, 10, 10), Cap);
         grid.Fill(new VoxelPos(11, 10, 10), Cap / 2);
@@ -656,7 +657,7 @@ public sealed class FluidSurfaceMesherTests
         for (int q = 0; q < mesh.QuadCount; q++)
         {
             int first = mesh.Indices[q * 6];
-            Assert.Equal(new[] { first, first + 2, first + 1, first, first + 3, first + 2 }, mesh.Indices[(q * 6)..((q * 6) + 6)]);
+            Assert.Equal(new[] { first, first + 1, first + 2, first, first + 2, first + 3 }, mesh.Indices[(q * 6)..((q * 6) + 6)]);
             Vertex V(int i) => new(mesh.Positions[i * 3], mesh.Positions[(i * 3) + 1], mesh.Positions[(i * 3) + 2]);
             (float, float, float) Nm(int i) => (mesh.Normals[i * 3], mesh.Normals[(i * 3) + 1], mesh.Normals[(i * 3) + 2]);
             for (int i = 1; i < 4; i++)
