@@ -1,5 +1,35 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-11 — M8d-3: the fall and the bank, and the pass's wording was a voxel out
+
+*"Ok lets continue with M8d-3"*, decisions 7 and 8 taken, so a pass against the code and a build in
+one session. A visit falls through vacant air up to `--fallcells=` (16 ships; 1 is the old arm),
+stateless, 8 m/s from the first tick; the hand-off leaves a rested cell standing when its sample's
+lake stands above the cell's top. Suite 1,289 → 1,296. Five things:
+
+- **The bench said 16 ships, by decision 7's own rule**: the front's shape on `--front` does not
+  move (radius 8 / 13 / 22 against 8 / 14 / 23 at ticks 1 / 20 / 100, rest at 7,825 against 7,830
+  ticks) and the mine's drain on `--fluid` moves 1–3% — **a shaft's throughput was never the
+  fall's**, which also answers the dead-end-shaft item: a wet column is a column. The rule changes
+  the look, which is what it was for: 17,156 long falls over 162,017 cells in a fifteen-second pour.
+- **`Wake(to)` stopped being an identity.** M8a kept the line for a relay between non-adjacent
+  cells; the fall is that transfer, and without the line a drop rests on a ledge with a move — nine
+  tests fail. The note that named it as the only thing that would wake such a landing was right.
+- **The pass's bank rule was one voxel out, and the hand-off's own tests said so.** "The lake
+  stands above the cell" as `level > cell.Y` refused the sixth cell of every spill into a bowl,
+  because the first five had made a lake and any litre puts the level over the bed plane; the
+  milestone's headline test failed. Submerged — `level > cell.Y + 1` — is the rule: a margin is
+  handed until it is a cell deep, a bed beside a bitten bank is under many. **A rule taken from a
+  sentence wants the fixture that sentence forgot** (the tests that were already there, here).
+- **The mesher had to learn the fall**: a surface that fell sixteen cells had no previous within
+  one cell above and rose from its floor, the hole M8d-1 named. The search reaches the fall's cap
+  now, in both the tops' cursor and the sides' search, and the battery found the reach's far bound
+  exclusive on both — closed with cases at the bounds.
+- **The lifecycle fixtures run the one-cell arm.** Every pause, job and eviction fixture catches
+  water in mid-fall, and the first full run under the new default died of an
+  `OutOfMemoryException` in one of them running away. The arm is a fixture's rate, not a
+  preference; the fall's own tests include the drop that meets an unloaded chunk.
+
 ## 2026-09-11 — M8d-2: the look, built and handed over
 
 *"Ok lets continue with M8d-2"*, with its four decisions already taken, so it was read against the

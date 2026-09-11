@@ -32,6 +32,10 @@ namespace Overburden.Core.Tests;
 /// while the chunk is away, and every round of the fuzz.
 /// </para>
 /// </remarks>
+// The simulations here run the one-cell fall (fallCells: 1), the arm every fixture in this file
+// was built on: they catch water in mid-fall — at a chunk's face, in a chunk whose row is pending,
+// in a chunk that leaves — and M8d-3's rule lands it in one tick. The fall has its own tests
+// (FluidFallTests), including the drop that meets an unloaded chunk on the way down.
 public class FluidPauseTests
 {
     private const int Cap = FluidConstants.CellCapacityMillilitres;
@@ -64,7 +68,7 @@ public class FluidPauseTests
         // A tall corridor so the water is still falling when its chunk goes: mid-air, mid-flow,
         // and on no face of the chunk — the one cell only the paused list can reach again.
         LoadableTerrain terrain = Corridor(0, 63, height: 8);
-        var sim = new FluidSimulation(terrain);
+        var sim = new FluidSimulation(terrain, fallCells: 1);
         sim.Add(At(40, up: 6), Cap);
         sim.Step();
 
@@ -110,7 +114,7 @@ public class FluidPauseTests
         // Water at rest across the boundary, then the east chunk goes and the west keeps working:
         // a pour beside the boundary, a dig under it, a removal, and ticks. Not one east cell moves.
         LoadableTerrain terrain = Corridor();
-        var sim = new FluidSimulation(terrain);
+        var sim = new FluidSimulation(terrain, fallCells: 1);
         sim.Add(At(28), Cap);
         sim.Add(At(35), Cap);
         FluidAssert.SettlesAndRests(sim);
@@ -145,7 +149,7 @@ public class FluidPauseTests
         // can wake the west cells is the arrival looking across its own face at the neighbour's.
         LoadableTerrain terrain = Corridor();
         terrain.Unload(East);
-        var sim = new FluidSimulation(terrain);
+        var sim = new FluidSimulation(terrain, fallCells: 1);
         sim.Add(At(28), Cap);
         sim.Add(At(26), Cap);
         FluidAssert.SettlesAndRests(sim);
@@ -175,7 +179,7 @@ public class FluidPauseTests
         // it is written and left asleep, and the cell across the face gains a move with nobody
         // to tell it. Only the arriving chunk's own face wake reaches it.
         LoadableTerrain terrain = Corridor();
-        var sim = new FluidSimulation(terrain);
+        var sim = new FluidSimulation(terrain, fallCells: 1);
         sim.Add(At(28), Cap);
         sim.Add(At(35), Cap);
         FluidAssert.SettlesAndRests(sim);
@@ -214,7 +218,7 @@ public class FluidPauseTests
         // pauses it, and the arrival lets it through the hole.
         var terrain = new LoadableTerrain(new PredicateTerrain(v =>
             v.X >= 24 && v.X <= 39 && v.Y >= Floor && v.Y <= Floor + 3 && v.Z == Lane && v.X != 31));
-        var sim = new FluidSimulation(terrain);
+        var sim = new FluidSimulation(terrain, fallCells: 1);
         sim.Add(At(35), Cap);
         FluidAssert.SettlesAndRests(sim);
         Assert.True(sim.Grid.AmountAt(At(32)) > 0);
@@ -244,7 +248,7 @@ public class FluidPauseTests
         // The 32,768-visit trap, the other way round: a chunk arriving beside a lake must not
         // wake the lake, and a chunk arriving in dry rock must not wake anything at all.
         LoadableTerrain terrain = Corridor();
-        var sim = new FluidSimulation(terrain);
+        var sim = new FluidSimulation(terrain, fallCells: 1);
         sim.Add(At(28), Cap);
         sim.Add(At(35), Cap);
         FluidAssert.SettlesAndRests(sim);
@@ -264,7 +268,7 @@ public class FluidPauseTests
         Assert.Equal(0, sim.ActiveCellCount);
         Assert.Equal(2L, sim.FaceWakes);
 
-        var empty = new FluidSimulation(Corridor());
+        var empty = new FluidSimulation(Corridor(), fallCells: 1);
         empty.ChunkArrived(East);
         Assert.Equal(0, empty.ActiveCellCount);
     }
@@ -275,7 +279,7 @@ public class FluidPauseTests
         // Both chunks away, water resting in both, and only the east comes back: the west's face
         // cells would only be paused again if woken, so they are not, and the count says so.
         LoadableTerrain terrain = Corridor();
-        var sim = new FluidSimulation(terrain);
+        var sim = new FluidSimulation(terrain, fallCells: 1);
         sim.Add(At(28), Cap);
         sim.Add(At(35), Cap);
         FluidAssert.SettlesAndRests(sim);
@@ -351,8 +355,8 @@ public class FluidPauseTests
         var toggledInner = new GeneratedTerrain(generator, minX, minY, minZ, maxX, maxY, maxZ);
         var toggled = new LoadableTerrain(toggledInner);
         var control = new LoadableTerrain(new GeneratedTerrain(generator, minX, minY, minZ, maxX, maxY, maxZ));
-        var sim = new FluidSimulation(toggled);
-        var twin = new FluidSimulation(control);
+        var sim = new FluidSimulation(toggled, fallCells: 1);
+        var twin = new FluidSimulation(control, fallCells: 1);
 
         ChunkPos lo = new VoxelPos(minX, minY, minZ).Chunk;
         ChunkPos hi = new VoxelPos(maxX, maxY, maxZ).Chunk;

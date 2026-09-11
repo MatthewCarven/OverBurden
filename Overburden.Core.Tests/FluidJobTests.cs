@@ -28,13 +28,17 @@ namespace Overburden.Core.Tests;
 /// <see cref="AJobTickOnARealWorkerThroughThePipelineKeepsTheIdentity"/>.
 /// </para>
 /// </remarks>
+// The simulations here run the one-cell fall (fallCells: 1), the arm every fixture in this file
+// was built on: they catch water in mid-fall — at a chunk's face, in a chunk whose row is pending,
+// in a chunk that leaves — and M8d-3's rule lands it in one tick. The fall has its own tests
+// (FluidFallTests), including the drop that meets an unloaded chunk on the way down.
 public class FluidJobTests
 {
     private const int Cap = FluidConstants.CellCapacityMillilitres;
 
     private static FluidSimulation Pour(IFluidTerrain terrain)
     {
-        var sim = new FluidSimulation(terrain);
+        var sim = new FluidSimulation(terrain, fallCells: 1);
         for (int x = 4; x <= 19; x++)
         {
             for (int z = 4; z <= 19; z++)
@@ -342,7 +346,7 @@ public class FluidJobTests
         // TickInProgress is false for the job's whole life, and a second job could begin under the
         // first. Ownership is the batch or the job.
         var terrain = new BoxTerrain(0, 0, 0, 7, 7, 7);
-        var sim = new FluidSimulation(terrain);
+        var sim = new FluidSimulation(terrain, fallCells: 1);
         Assert.Equal(0, sim.ActiveCellCount);
 
         FluidTickJob job = sim.BeginTick(terrain, ChunkPos.Zero);
@@ -465,7 +469,7 @@ public class FluidJobTests
         var inner = new LoadableTerrain(new BoxTerrain(0, 0, 0, 63, 15, 15));
         var field = new FluidField(inner);
         ChunkPos west = new(0, 0, 0), east = new(1, 0, 0);
-        var sim = new FluidSimulation(field);
+        var sim = new FluidSimulation(field, fallCells: 1);
         sim.Add(new VoxelPos(40, 12, 8), Cap);
         field.Sync([west, east]);
         Assert.Equal(2, field.Chunks);
@@ -516,7 +520,7 @@ public class FluidJobTests
         var inner = new LoadableTerrain(new BoxTerrain(0, 0, 0, 63, 15, 15));
         var field = new FluidField(inner);
         ChunkPos west = new(0, 0, 0), east = new(1, 0, 0);
-        var sim = new FluidSimulation(field);
+        var sim = new FluidSimulation(field, fallCells: 1);
         sim.Add(new VoxelPos(40, 12, 8), Cap);
 
         // The water's own chunk is reachable and past a cap of one: refused this tick, owed.
@@ -813,7 +817,7 @@ public class FluidJobTests
         ChunkPos wet = new(0, 0, 0), captured = new(1, 0, 0), elsewhere = new(2, 0, 0);
         field.Sync([wet, captured]);
 
-        var sim = new FluidSimulation(field);
+        var sim = new FluidSimulation(field, fallCells: 1);
         sim.Add(new VoxelPos(5, 10, 5), Cap);
         sim.Step();
 

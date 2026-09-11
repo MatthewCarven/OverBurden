@@ -4024,7 +4024,10 @@ finding without the coarser-tolerance fallback.
             the room below it, so this is the same rule read against Tier A's level rather than
             the cell's), or the hand-off refuses a cell whose sample is under a lake whose level
             is above the cell (the water is already the lake's — leave it standing). M8c's, with
-            the seepage design, or M8d's with the look; not before.
+            the seepage design, or M8d's with the look; not before. **Built at M8d-3 (2026-09-11)
+            as the second shape, one voxel stricter than written — submerged, not wet — and the
+            first shape falls out of it: the drain stops when the column under the mouth is as high
+            as the lake. The play check is above under M8d-3.**
       - [ ] **How to measure a spill in play — asked 2026-09-05: "IDK how much water is seeping
             into the hillside".** `handed` on the `M8b:` line and `received` on the `M7d:` line,
             every 5 s in the console behind the game and in `user://logs/godot.log`; press `R`, read
@@ -4038,12 +4041,16 @@ finding without the coarser-tolerance fallback.
             until M8b-3 a chamber that fills under a lake holds its water for ever** — no B → A
             handoff exists yet (closed by M8b-3a).
       - [ ] **A dead-end shaft's throughput is ~1 L a tick, and the plan's 30 L/s per portal assumes
-            the cell under the mouth empties.** M8a's 29 L/s was a bore into a mine with tunnels. If
-            M8d's waterfall wants a column to carry a cell a tick, the automaton's visit order (or a
-            bottom-up pass down a column) is the lever; measure before building.
-      - [ ] **Matthew's fall rule (2026-09-07): let a cell fall 2, 4, 8, 16 cells a tick when the
-            cells below are vacant, so falling water is not 0.5 m/s.** Priced on paper, not
-            built: the visit already reads the cell below, so probing up to sixteen is at most 16
+            the cell under the mouth empties.** M8a's 29 L/s was a bore into a mine with tunnels.
+            **Measured against the fall rule at M8d-3: not the descent's** — `--fluid` at bores
+            1 / 3 / 9 reads 15.1 / 36.6 / 157.9 L a tick at one cell a visit and 15.2 / 37.8 / 159.1
+            at sixteen, because a wet column is a column, not a fall. The lever is the mouth's
+            offer (a bottom-up pass down the column, or the drain reading the column's room), and
+            it is still unbuilt.
+      - [x] **Matthew's fall rule (2026-09-07): let a cell fall 2, 4, 8, 16 cells a tick when the
+            cells below are vacant, so falling water is not 0.5 m/s. Built at M8d-3, 2026-09-11,
+            as the stateless version, 16 the default; see M8-PLAN's "M8d-3 — built".** Priced on
+            paper first: the visit already reads the cell below, so probing up to sixteen is at most 16
             reads a *falling* cell, and falling cells are a column where the active set is an
             area — a 1,000-cell fall front is 32,000 reads a second at 2 Hz, ~6 ms a second in
             Release, a rounding error on the 2 ms-a-frame budget. The termination proof survives
@@ -4629,9 +4636,20 @@ finding without the coarser-tolerance fallback.
             - [ ] **From inside the water nothing of it draws** (cull_back) — a swimmer looking up
                   sees no surface. Wading (M10-NOTES) will want the underside drawn from below:
                   a second, front-culled pass of the tops, or cull_disabled with sorted faces.
-      - [ ] **M8d-3 — the fall and the bank.** `--fallcells=<n>` stateless up to 16, benched on
-            `--front` and `--fluid` before the default; the hand-off's refusal for a cell under its
-            own lake's level, with the 2026-09-09 treadmill as the test.
+      - [x] **M8d-3 — the fall and the bank. Built 2026-09-11; read M8-PLAN's "M8d-3 — built".**
+            A visit falls through vacant air up to `--fallcells=` (16; 1 is the old arm), the
+            mesher's previous-height search reaches as far, and the hand-off leaves a rested cell
+            standing when its sample's lake stands above the cell's top. The front's shape and
+            the mine's drain rate do not move under the rule — the look does, and that is play's.
+            - [ ] **Play (M8d-4)**: a pour off a cliff and a lake into a bitten chunk at 16 against
+                  `--fallcells=1`; the `M8b:` line's `long fall(s)` term says the rule ran, the
+                  `handoff` line's `left under a lake` says the bank rule did. On the 2026-09-09
+                  scratch world's breach: `drawn` should stop climbing once the hole's column is as
+                  high as the lake, and `handed` with it.
+            - [ ] **Tier B water under a lake stays.** A pour with `R` over a lake makes a puddle on
+                  the bed under the Tier A plane rather than raising the lake; a spill's front
+                  that reaches a deep bed stops there. Named cost; trigger: a play that reads it
+                  as wrong, or the bed's panels mattering.
       - [ ] **M8d-4 — the play.** Dread or inconvenience; recoverable; water or spreadsheet at
             2 Hz; and "more 3D".
 - [ ] **M8d — the transparent pass has its first play verdict before it is planned (2026-09-04).**

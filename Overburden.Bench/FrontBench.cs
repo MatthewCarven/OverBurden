@@ -36,7 +36,8 @@ internal static class FrontBench
     private static readonly int[] ProfileTicks = [5, 20, 100];
 
     internal static int Run(
-        WorldGenerator generator, string machineControl, bool isDebug, long litres, int tickCap, SpreadRule[] spreads)
+        WorldGenerator generator, string machineControl, bool isDebug, long litres, int tickCap, SpreadRule[] spreads,
+        int fallCells = FluidSimulation.DefaultFallCells)
     {
         Console.WriteLine("Front bench — the spread rule at a pool's edge: the relay's ball on a flat floor");
         if (isDebug)
@@ -58,12 +59,13 @@ internal static class FrontBench
         Console.WriteLine(
             "  'wet' is cells holding anything, 'visible' cells holding a litre or more (the spread floor),"
             + " 'radius' the furthest wet cell from the centre in voxels (Chebyshev).");
+        Console.WriteLine($"  Fall: {fallCells} cell(s) a visit (--fallcells; {FluidSimulation.DefaultFallCells} is the default, 1 the pre-M8d-3 arm).");
         Console.WriteLine();
 
         // Warm by call count on a small pour, both rules, so the first timed tick is tier-1.
         foreach (SpreadRule spread in spreads)
         {
-            var warm = new FluidSimulation(example, spread: spread);
+            var warm = new FluidSimulation(example, spread: spread, fallCells: fallCells);
             warm.Add(new VoxelPos(0, example.FloorY + 2, 0), FluidConstants.CellCapacityMillilitres);
             for (int i = 0; i < 40; i++)
             {
@@ -78,16 +80,16 @@ internal static class FrontBench
         // sheet keeps it holding. Both are printed so the play's question has both answers.
         foreach (SpreadRule spread in spreads)
         {
-            RunArm(generator, ml, radius, tickCap, spread, solve: false);
+            RunArm(generator, ml, radius, tickCap, spread, solve: false, fallCells);
             Console.WriteLine();
-            RunArm(generator, ml, radius, tickCap, spread, solve: true);
+            RunArm(generator, ml, radius, tickCap, spread, solve: true, fallCells);
             Console.WriteLine();
         }
 
         return 0;
     }
 
-    private static void RunArm(WorldGenerator generator, long ml, int radius, int tickCap, SpreadRule spread, bool solve)
+    private static void RunArm(WorldGenerator generator, long ml, int radius, int tickCap, SpreadRule spread, bool solve, int fallCells)
     {
         var terrain = new ChamberTerrain(generator, 0, 0, shaftVoxels: 1, depthMetres: 2, chambers: 3);
         int half = terrain.HalfSpan;
@@ -102,7 +104,7 @@ internal static class FrontBench
             }
         }
 
-        var sim = new FluidSimulation(terrain, spread: spread);
+        var sim = new FluidSimulation(terrain, spread: spread, fallCells: fallCells);
         SheetSettle? settle = solve ? new SheetSettle(sim, settleAfterTicks: 0, settleShare: SheetSettle.DefaultSettleShare) : null;
         var at = new VoxelPos(0, floorY + 1 + radius, 0);
         long pending = ml;

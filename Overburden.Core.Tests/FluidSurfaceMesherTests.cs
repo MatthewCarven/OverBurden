@@ -468,9 +468,59 @@ public sealed class FluidSurfaceMesherTests
         Quad fallen = Top(mesher.Build(grid, Open), cell.X, cell.Z);
         Assert.Equal((7 + (1_000 / (float)Cap)) * Size, fallen.Prev0, 5);
 
+        // A surface that fell ten cells in one tick (M8d-3) comes down from where it was, not up
+        // from its floor: the nearest previous surface above within the fall's reach.
+        grid.Fill(new VoxelPos(4, 20, 4), 6_000);
+        mesher.Build(grid, Open);
+        grid.Drain(new VoxelPos(4, 20, 4), 6_000);
+        grid.Fill(new VoxelPos(4, 10, 4), 6_000);
+        Assert.Equal((20 + (6_000 / (float)Cap)) * Size, Top(mesher.Build(grid, Open), 4, 4).Prev0, 5);
+
+        // And across a panel's top: from y = 40 in the panel above to y = 30 in this one.
+        grid.Fill(new VoxelPos(5, 40, 5), 6_000);
+        mesher.Build(grid, Open);
+        grid.Drain(new VoxelPos(5, 40, 5), 6_000);
+        grid.Fill(new VoxelPos(5, 30, 5), 6_000);
+        Assert.Equal((40 + (6_000 / (float)Cap)) * Size, Top(mesher.Build(grid, Open), 5, 5).Prev0, 5);
+
+        // The reach's last cell inside the panel — a previous surface on the top layer, six
+        // above — is inside the search, not one past it.
+        grid.Fill(new VoxelPos(6, 31, 6), 6_000);
+        mesher.Build(grid, Open);
+        grid.Drain(new VoxelPos(6, 31, 6), 6_000);
+        grid.Fill(new VoxelPos(6, 25, 6), 6_000);
+        Assert.Equal((31 + (6_000 / (float)Cap)) * Size, Top(mesher.Build(grid, Open), 6, 6).Prev0, 5);
+
+        // A side's lower edge asks the same question of a dry neighbour, through the search the
+        // perimeter uses rather than the tops' cursor: its previous surface in the panel above.
+        grid.Fill(new VoxelPos(8, 40, 7), 6_000);
+        mesher.Build(grid, Open);
+        grid.Drain(new VoxelPos(8, 40, 7), 6_000);
+        grid.Fill(new VoxelPos(7, 30, 7), 6_000);
+        FluidSurfaceMesh sided = mesher.Build(grid, Open);
+        Quad plusX = Quads(sided).Single(q => q.Normal == (1f, 0f, 0f) && q.P0.X == 8 * Size && q.MinY() == 30 * Size);
+        Assert.Equal((40 + (6_000 / (float)Cap)) * Size, plusX.Prev0, 5);
+
+        // The searches' far bounds are inclusive: the top layer of the panel above, 33 cells up,
+        // for a top (the cursor's hand-over to the panel above), and the top layer of the same
+        // panel for a side's dry neighbour (the perimeter's search).
+        grid.Fill(new VoxelPos(9, 63, 9), 6_000);
+        mesher.Build(grid, Open);
+        grid.Drain(new VoxelPos(9, 63, 9), 6_000);
+        grid.Fill(new VoxelPos(9, 30, 9), 6_000);
+        Assert.Equal((63 + (6_000 / (float)Cap)) * Size, Top(mesher.Build(grid, Open), 9, 9).Prev0, 5);
+
+        grid.Fill(new VoxelPos(11, 31, 10), 6_000);
+        mesher.Build(grid, Open);
+        grid.Drain(new VoxelPos(11, 31, 10), 6_000);
+        grid.Fill(new VoxelPos(10, 25, 10), 6_000);
+        FluidSurfaceMesh edged = mesher.Build(grid, Open);
+        Quad edge = Quads(edged).Single(q => q.Normal == (1f, 0f, 0f) && q.P0.X == 11 * Size && q.P0.Z == 10 * Size && q.MinY() == 25 * Size);
+        Assert.Equal((31 + (6_000 / (float)Cap)) * Size, edge.Prev0, 5);
+
         // A cell that has just got wet, elsewhere, rises from its floor whatever else happened.
-        grid.Fill(new VoxelPos(9, 6, 9), 2_000);
-        Assert.Equal(6 * Size, Top(mesher.Build(grid, Open), 9, 9).Prev0);
+        grid.Fill(new VoxelPos(12, 6, 12), 2_000);
+        Assert.Equal(6 * Size, Top(mesher.Build(grid, Open), 12, 12).Prev0);
 
         // The previous the next build reads is what was drawn, not what was held: a cell that was
         // second in a run stood at the run's height, and lerps from there when it is alone.
@@ -541,12 +591,21 @@ public sealed class FluidSurfaceMesherTests
                 else grid.Drain(cell, random.Next(1, Cap));
             }
 
-            // Surfaces crossing y = 32 both ways.
+            // Surfaces crossing y = 32 both ways, and columns emptied from the top down by up
+            // to the fall's reach, so a surface lands many cells under where it was — across the
+            // panel boundary for some — which is the search the fall rule made necessary.
             for (int x = -20; x < 20; x++)
             {
                 var top = new VoxelPos(x, 32, x);
                 if (grid.AmountAt(top) > 0) grid.Drain(top, Cap);
                 else grid.Fill(top, random.Next(1, Cap));
+
+                int drop = random.Next(2, FluidSurfaceMesher.FallSearchCells);
+                int fromY = random.Next(24, 44);
+                for (int dy = 0; dy < drop; dy++)
+                {
+                    grid.Drain(new VoxelPos(-x, fromY - dy, x), Cap);
+                }
             }
 
             FluidSurfaceMesh mesh = mesher.Build(grid, Open);
@@ -573,7 +632,7 @@ public sealed class FluidSurfaceMesherTests
                         Assert.True(held > 0 && MathF.Abs(((y + (held / (float)Cap)) * Size) - q.P0.Y) <= tolerance, $"{cell} is not the surface under a top at {q.P0.Y}");
                         float expected;
                         if (previous.TryGetValue(cell, out int same)) expected = (y + (same / (float)Cap)) * Size;
-                        else if (previous.TryGetValue(cell.Offset(0, 1, 0), out int above)) { expected = (y + ((Cap + above) / (float)Cap)) * Size; if (y == 31) crossings++; }
+                        else if (NearestAbove(previous, cell) is (int dy, int above)) { expected = (y + (((dy * Cap) + above) / (float)Cap)) * Size; if (y + dy >= 32 && y < 32) crossings++; }
                         else if (previous.TryGetValue(cell.Offset(0, -1, 0), out int below)) { expected = (y + ((below - Cap) / (float)Cap)) * Size; if (y == 32) crossings++; }
                         else expected = y * Size;
                         Assert.True(MathF.Abs(expected - q.Prev0) <= tolerance, $"{cell}: previous height {q.Prev0} against {expected}");
@@ -613,6 +672,20 @@ public sealed class FluidSurfaceMesherTests
     }
 
     // ----- helpers -----
+
+    /// <summary>The definition the store's cursor and searches are pinned to: the nearest previous surface above within the fall's reach.</summary>
+    private static (int Dy, int Amount)? NearestAbove(Dictionary<VoxelPos, int> previous, VoxelPos cell)
+    {
+        for (int dy = 1; dy <= FluidSurfaceMesher.FallSearchCells; dy++)
+        {
+            if (previous.TryGetValue(cell.Offset(0, dy, 0), out int amount))
+            {
+                return (dy, amount);
+            }
+        }
+
+        return null;
+    }
 
     private static Quad Top(FluidSurfaceMesh mesh, int x, int z) =>
         Quads(mesh).Single(q =>

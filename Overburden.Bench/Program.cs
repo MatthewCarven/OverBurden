@@ -82,6 +82,7 @@ internal static class Program
           --frontlitres <n>    the ball, in litres (default 10000, which is one R)
           --frontticks <n>     tick cap for the front arm (default 20000)
           --surface            M8d-1: the Tier B mesh against the debug surface on a lake at rest (--lakechambers) and a flood (--frontlitres)
+          --fallcells <n>      M8d-3: cells a visit may fall through vacant air, for --fluid and --front (default 16; 1 is the pre-M8d-3 arm)
         """;
 
     private static int Main(string[] args)
@@ -123,6 +124,7 @@ internal static class Program
         string spread = "fixed";
         bool front = false;
         bool surface = false;
+        int fallCells = FluidSimulation.DefaultFallCells;
         bool terrain = false;
         int terrainChambers = 3;
         long terrainLitres = 400_000;
@@ -261,6 +263,9 @@ internal static class Program
                     case "--surface":
                         surface = true;
                         break;
+                    case "--fallcells":
+                        fallCells = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
                     case "--terrain":
                         terrain = true;
                         break;
@@ -346,7 +351,7 @@ internal static class Program
         {
             var frontGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
             return FrontBench.Run(
-                frontGenerator, MachineControl(frontGenerator), IsDebug(), frontLitres, frontTicks, spreads);
+                frontGenerator, MachineControl(frontGenerator), IsDebug(), frontLitres, frontTicks, spreads, fallCells);
         }
 
         if (lake)
@@ -381,7 +386,8 @@ internal static class Program
                 fluidBudget,
                 fluidSolve,
                 settleShare,
-                spreads);
+                spreads,
+                fallCells);
         }
 
         if (portal)

@@ -163,8 +163,9 @@ public class SurfaceHandoffTests(ITestOutputHelper output)
                 (Handoff.ReceivedLitres * FluidConstants.MillilitresPerLitre) + Handoff.PendingMillilitres,
                 Handoff.HandedMillilitres);
 
+            // Drawn leaves the world here: this twin has no portal drain to receive it.
             Assert.Equal(
-                ((Water.InjectedLitres - Water.SpilledLitres) * FluidConstants.MillilitresPerLitre)
+                ((Water.InjectedLitres - Water.SpilledLitres - Water.DrawnLitres) * FluidConstants.MillilitresPerLitre)
                     + Fluid.AddedMillilitres - Fluid.RemovedMillilitres - Fluid.DisplacedMillilitres,
                 (a * FluidConstants.MillilitresPerLitre) + Handoff.PendingMillilitres + b);
         }
@@ -315,6 +316,49 @@ public class SurfaceHandoffTests(ITestOutputHelper output)
         Assert.Equal(0, twin.Fluid.Grid.AmountAt(mouth));
         Assert.Equal(poured - shaft, twin.Handoff.HandedMillilitres);
         Assert.True(twin.Water.ReceivedLitres > 0);
+        twin.AssertIdentity();
+    }
+
+    [Fact]
+    public void ACellRestingUnderItsOwnLakeIsLeftStandingAndOneAboveTheLevelIsHanded()
+    {
+        // The treadmill's shape (2026-09-09): water resting on the bowl's bed while the basin
+        // holds a lake a metre deep over it. Handed, it would raise the lake it came from; left,
+        // it rests as Tier B and the seam goes quiet. Drain the lake below the cell's top and the
+        // same water is handed, so a spill on a dry bed and one under a lake differ only by the
+        // lake — and a lake shallower than a cell does not refuse (the spill tests, whose first
+        // litres make one).
+        var twin = new Twin();
+        int basin = twin.Basin;
+
+        // The bowl is 32 × 32 voxels of 8 m; a metre of lake over it is 1,024 m³.
+        twin.Water.Inject(basin, 1_024_000);
+        double level = twin.Water.LevelAt(basin)!.Value;
+        Assert.True(level > Floor + 2, $"the lake's level {level} does not stand a cell over the bed at plane {Floor + 1}");
+
+        var bed = new VoxelPos(60, Floor + 1, 60);
+        twin.Fluid.Add(bed, Cap);
+        for (int i = 0; i < 10; i++)
+        {
+            twin.Tick();
+            twin.AssertIdentity();
+        }
+
+        twin.RunToRest();
+        Assert.Equal(Cap, twin.Fluid.TotalMillilitres);
+        Assert.Equal(0L, twin.Handoff.HandedMillilitres);
+        Assert.True(twin.Handoff.RefusedUnderLake > 0, "nothing was refused under the lake");
+        Assert.Equal(0, twin.Fluid.ActiveCellCount);
+        twin.AssertIdentity();
+
+        // Drain the lake below the bed's level and the same water is handed at the next rest.
+        long inLake = twin.Water.Water!.StoredIn(basin);
+        twin.Water.Draw(basin, inLake);
+        Assert.True(twin.Water.LevelAt(basin) is null || twin.Water.LevelAt(basin) <= bed.Y);
+        twin.Fluid.Disturb(bed);
+        twin.RunToRest();
+        Assert.Equal(0L, twin.Fluid.TotalMillilitres);
+        Assert.Equal(Cap, twin.Handoff.HandedMillilitres);
         twin.AssertIdentity();
     }
 

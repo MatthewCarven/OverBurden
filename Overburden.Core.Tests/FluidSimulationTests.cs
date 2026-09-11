@@ -678,7 +678,9 @@ public class FluidSimulationTests
         // a column falls two cells in its first tick (the cell below it is woken into the same
         // batch and visited after it) and one cell in each tick after that, so the second and
         // third ticks each move exactly one cell's worth, and the four falls sum to four cells.
-        var sim = new FluidSimulation(new BoxTerrain(0, 0, 0, 0, 5, 0));
+        // The one-cell arm, which the tick-by-tick figures below are written for; the fall
+        // rule's own figures are in FluidFallTests.
+        var sim = new FluidSimulation(new BoxTerrain(0, 0, 0, 0, 5, 0), fallCells: 1);
         sim.Add(new VoxelPos(0, 4, 0), Cap);
 
         FluidTickResult first = sim.Step();

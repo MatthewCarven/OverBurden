@@ -33,6 +33,10 @@ namespace Overburden.Core.Tests;
 /// <c>evicted</c> missing from the identity — every <c>Conserves</c> here.
 /// </para>
 /// </remarks>
+// The simulations here run the one-cell fall (fallCells: 1), the arm every fixture in this file
+// was built on: they catch water in mid-fall — at a chunk's face, in a chunk whose row is pending,
+// in a chunk that leaves — and M8d-3's rule lands it in one tick. The fall has its own tests
+// (FluidFallTests), including the drop that meets an unloaded chunk on the way down.
 public class FluidEvictionTests
 {
     private const int Cap = FluidConstants.CellCapacityMillilitres;
@@ -88,7 +92,7 @@ public class FluidEvictionTests
     private static (FluidSimulation Sim, LoadableTerrain Terrain, HashSet<VoxelPos> QueuedInEast) Flowing()
     {
         LoadableTerrain terrain = Corridor();
-        var sim = new FluidSimulation(terrain);
+        var sim = new FluidSimulation(terrain, fallCells: 1);
         for (int up = 0; up < 4; up++)
         {
             Assert.Equal(0L, sim.Add(At(38, up), Cap));
@@ -246,7 +250,7 @@ public class FluidEvictionTests
         // A drained panel writes an empty row; an evicted one must not, because the row is the
         // truth. A resting, stored, clean panel is evicted with nothing to write and nothing owed.
         LoadableTerrain terrain = Corridor();
-        var sim = new FluidSimulation(terrain);
+        var sim = new FluidSimulation(terrain, fallCells: 1);
         sim.Add(At(38), 4_000);
         FluidAssert.SettlesAndRests(sim);
         var stored = new List<FluidPanelSnapshot>();
@@ -363,7 +367,7 @@ public class FluidEvictionTests
                     onFluidReady?.Invoke(position);
                     Sim?.ChunkArrived(position);
                 });
-            Sim = new FluidSimulation(new VoxelFluidTerrain(Harness.Pipeline.Streamer, Materials()));
+            Sim = new FluidSimulation(new VoxelFluidTerrain(Harness.Pipeline.Streamer, Materials()), fallCells: 1);
             Harness.Pipeline.Fluid = Sim;
         }
 
@@ -1093,8 +1097,8 @@ public class FluidEvictionTests
 
         var twinInner = new GeneratedTerrain(generator, minX, minY, minZ, maxX, maxY, maxZ);
         var twinToggled = new LoadableTerrain(twinInner);
-        var sim = new FluidSimulation(toggled);
-        var twin = new FluidSimulation(twinToggled);
+        var sim = new FluidSimulation(toggled, fallCells: 1);
+        var twin = new FluidSimulation(twinToggled, fallCells: 1);
         var store = new InMemoryWorldStore();
         var pending = new Dictionary<ChunkPos, FluidPanelSnapshot>();
 
@@ -1287,7 +1291,7 @@ public class FluidEvictionTests
 
                 // What was evicting is on disk now and its RAM copy goes with the old simulation.
                 foreach (ChunkPos chunk in chunks) toggled.Unload(chunk);
-                var reopened = new FluidSimulation(toggled);
+                var reopened = new FluidSimulation(toggled, fallCells: 1);
                 foreach (ChunkPos chunk in loaded)
                 {
                     toggled.Load(chunk);

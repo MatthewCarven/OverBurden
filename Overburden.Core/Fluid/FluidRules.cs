@@ -41,7 +41,9 @@ namespace Overburden.Core.Fluid;
 /// The sum of squares is a non-negative integer, so only finitely many sideways moves can happen
 /// at a fixed water height. Vertical moves strictly reduce a different quantity — the sum of
 /// <i>amount × Y</i>, which is bounded below because an unloaded voxel is solid — so the pair
-/// ordered lexicographically strictly decreases on every move the automaton can make.
+/// ordered lexicographically strictly decreases on every move the automaton can make. A fall of
+/// several cells in one visit (M8d-3's rule, <see cref="FluidSimulation.FallCells"/>) reduces it
+/// by several times as much, and is one move, so the proof does not notice the difference.
 /// </para>
 /// <para>
 /// <b>What it costs, stated: two settled neighbours may differ by up to four millilitres — and

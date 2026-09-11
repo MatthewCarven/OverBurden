@@ -368,7 +368,8 @@ internal static class FluidBench
         double budgetMillis,
         string solve,
         int settleShare,
-        SpreadRule[] spreads)
+        SpreadRule[] spreads,
+        int fallCells = FluidSimulation.DefaultFallCells)
     {
         if (solve is not ("wait" or "solve" or "both"))
         {
@@ -433,6 +434,12 @@ internal static class FluidBench
             "  ------   ------   ---------   -------   ------   -----   --------   ------   "
             + "------   --------   -------   -------   -------   ------   ----   ------   ---------   -----");
 
+        if (fallCells != FluidSimulation.DefaultFallCells)
+        {
+            Console.WriteLine($"  Fall: {fallCells} cell(s) a visit (--fallcells; {FluidSimulation.DefaultFallCells} is the default, 1 the pre-M8d-3 arm).");
+            Console.WriteLine();
+        }
+
         foreach (int bore in bores)
         {
             foreach (SpreadRule spread in spreads)
@@ -441,14 +448,14 @@ internal static class FluidBench
                 {
                     RunArm(
                         Make(generator, shape, bore, depth, spanMetres, chambers),
-                        lakeLitres, ticks, bore, settleCap, budgetMillis, solve: false, settleShare, spread);
+                        lakeLitres, ticks, bore, settleCap, budgetMillis, solve: false, settleShare, spread, fallCells);
                 }
 
                 if (solve != "wait")
                 {
                     RunArm(
                         Make(generator, shape, bore, depth, spanMetres, chambers),
-                        lakeLitres, ticks, bore, settleCap, budgetMillis, solve: true, settleShare, spread);
+                        lakeLitres, ticks, bore, settleCap, budgetMillis, solve: true, settleShare, spread, fallCells);
                 }
             }
         }
@@ -628,7 +635,7 @@ internal static class FluidBench
 
     private static void RunArm(
         DugTerrain terrain, long lakeLitres, int ticks, int bore, int settleCap, double budgetMillis,
-        bool solve, int settleShare, SpreadRule spread)
+        bool solve, int settleShare, SpreadRule spread, int fallCells)
     {
         long budgetTicks = budgetMillis > 0
             ? FluidSimulation.BudgetTicks(TimeSpan.FromMilliseconds(budgetMillis))
@@ -637,14 +644,14 @@ internal static class FluidBench
         long tunnelCells = terrain.VoidCells();
         VoxelPos[] mouth = [.. terrain.Mouth()];
 
-        var sim = new FluidSimulation(terrain, spread: spread);
+        var sim = new FluidSimulation(terrain, spread: spread, fallCells: fallCells);
         long lake = lakeLitres * FluidConstants.MillilitresPerLitre;
         long offered = lake;
 
         // Promote the tick before anything is timed. Same reason the watershed bench warms by call
         // count rather than by wall clock: tiered compilation promotes after about thirty calls,
         // and a warm-up capped by time under-warms exactly when the subject gets slower.
-        var warm = new FluidSimulation(terrain, spread: spread);
+        var warm = new FluidSimulation(terrain, spread: spread, fallCells: fallCells);
         foreach (VoxelPos cell in mouth)
         {
             warm.Add(cell, FluidConstants.CellCapacityMillilitres);

@@ -44,12 +44,11 @@ namespace Overburden.Core.Fluid;
 /// <para>
 /// <b>The previous height is looked up in the previous build's surface, with one honest hole.</b>
 /// A surface cell's previous height is where its column's surface stood last build: the same cell
-/// if it was a surface then, the cell above if the surface fell into this one, the cell below if
-/// it rose out of that one, and the cell's own floor otherwise — so a cell that has just got wet
-/// rises from its floor, which is the plan's stated default, and a surface that fell more than one
-/// cell in a build (which the automaton cannot do today, and M8d-3's fall rule can) also rises
-/// from its floor rather than from where it was. A cell that emptied has no vertex and vanishes at
-/// the tick. The previous surface is kept per panel in index order, so the tops read it with a
+/// if it was a surface then, the nearest surface above it within <see cref="FallSearchCells"/> if
+/// the surface fell into this one (M8d-3's rule falls up to sixteen cells a tick, and a fallen
+/// surface should come down from where it was), the cell below if it rose out of that one, and
+/// the cell's own floor otherwise — so a cell that has just got wet rises from its floor, which is
+/// the plan's stated default. A cell that emptied has no vertex and vanishes at the tick. The previous surface is kept per panel in index order, so the tops read it with a
 /// cursor and only the sides search it; its cost is on the bench beside the walk's.
 /// </para>
 /// <para>
@@ -67,6 +66,12 @@ public sealed class FluidSurfaceMesher
 {
     /// <summary>Wet cells under a vertex are counted up to this and no further; 63.75 m of water is as dark as it gets.</summary>
     public const int MaxDepthCells = 255;
+
+    /// <summary>
+    /// How far up a column the previous surface is looked for when a cell has none of its own:
+    /// the most a visit can fall (M8d-3), so a surface that fell lerps down from where it was.
+    /// </summary>
+    public const int FallSearchCells = FluidSimulation.MaxFallCells;
 
     /// <summary>
     /// The merge's tolerance in millilitres: 2 mm of height. A top run extends over a cell whose
@@ -135,6 +140,22 @@ public sealed class FluidSurfaceMesher
         {
             int at = Array.BinarySearch(Index, 0, Count, index);
             return at < 0 ? -1 : Amount[at];
+        }
+
+        /// <summary>
+        /// The first entry with a local index in [<paramref name="from"/>, <paramref name="to"/>],
+        /// as (index, amount), or (−1, −1). The nearest previous surface above a cell in its
+        /// column, since a column is contiguous in index.
+        /// </summary>
+        public (int Index, int Amount) FirstIn(int from, int to)
+        {
+            int at = Array.BinarySearch(Index, 0, Count, from);
+            if (at < 0)
+            {
+                at = ~at;
+            }
+
+            return at < Count && Index[at] <= to ? (Index[at], Amount[at]) : (-1, -1);
         }
     }
 
@@ -557,10 +578,10 @@ public sealed class FluidSurfaceMesher
             return same;
         }
 
-        int above = PreviousAt(cell.Offset(0, 1, 0));
+        int above = PreviousAbove(cell);
         if (above >= 0)
         {
-            return Cap + above;
+            return above;
         }
 
         int below = PreviousAt(cell.Offset(0, -1, 0));
@@ -572,10 +593,51 @@ public sealed class FluidSurfaceMesher
         return 0;
     }
 
-    /// <summary>The previous surface's amount at a cell, or −1: one panel lookup, cached, and a binary search.</summary>
-    private int PreviousAt(VoxelPos cell)
+    /// <summary>
+    /// The nearest previous surface above a cell in its column within <see cref="FallSearchCells"/>,
+    /// relative to the cell's floor in millilitres, or −1. A fall of several cells in one tick
+    /// (M8d-3) lands a surface that far under where it was, and the lerp should bring it down
+    /// from there rather than up from its floor. Two panels at most: the cell's own to its top
+    /// layer, then the one above for the rest of the reach.
+    /// </summary>
+    private int PreviousAbove(VoxelPos cell)
     {
-        ChunkPos chunk = cell.Chunk;
+        (int lx, int ly, int lz) = cell.Local;
+        int column = VoxelPos.Index(lx, 0, lz);
+        int index = column + ly;
+        int reach = Math.Min(FallSearchCells, N - 1 - ly);
+        if (reach > 0)
+        {
+            PanelSurface? own = PanelOf(cell.Chunk);
+            if (own is not null)
+            {
+                (int found, int amount) = own.FirstIn(index + 1, index + reach);
+                if (found >= 0)
+                {
+                    return ((found - index) * Cap) + amount;
+                }
+            }
+        }
+
+        int rest = FallSearchCells - (N - 1 - ly);
+        if (rest > 0)
+        {
+            PanelSurface? up = PanelOf(cell.Chunk.Offset(0, 1, 0));
+            if (up is not null)
+            {
+                (int found, int amount) = up.FirstIn(column, column + Math.Min(rest, N) - 1);
+                if (found >= 0)
+                {
+                    return ((N - ly + (found - column)) * Cap) + amount;
+                }
+            }
+        }
+
+        return -1;
+    }
+
+    private PanelSurface? PanelOf(ChunkPos chunk)
+    {
         if (!_prevCacheValid || _prevCacheKey != chunk)
         {
             _previous.TryGetValue(chunk, out _prevCache);
@@ -583,8 +645,11 @@ public sealed class FluidSurfaceMesher
             _prevCacheValid = true;
         }
 
-        return _prevCache?.Find(cell.LocalIndex) ?? -1;
+        return _prevCache;
     }
+
+    /// <summary>The previous surface's amount at a cell, or −1: one panel lookup, cached, and a binary search.</summary>
+    private int PreviousAt(VoxelPos cell) => PanelOf(cell.Chunk)?.Find(cell.LocalIndex) ?? -1;
 
     /// <summary>
     /// <see cref="PreviousRelative"/> for pass 1, which visits surface cells in index order: the
@@ -599,9 +664,11 @@ public sealed class FluidSurfaceMesher
             return 0;
         }
 
-        // The same cell, and the cells above and below inside this panel, are index, index + 1
-        // and index − 1 in the sorted list; advance to the first entry at or past index − 1.
+        // The same cell and the cell below are index and index − 1 in the sorted list, and the
+        // nearest previous surface above within reach is the first entry past index that is
+        // still in this column; advance to the first entry at or past index − 1 and scan.
         int same = -1, above = -1, below = -1;
+        int reach = Math.Min(FallSearchCells, N - 1 - ly);
         if (_prevSame is { } list)
         {
             int[] indices = list.Index;
@@ -611,13 +678,20 @@ public sealed class FluidSurfaceMesher
                 _prevCursor++;
             }
 
-            for (int at = _prevCursor; at < count && at < _prevCursor + 3; at++)
+            for (int at = _prevCursor; at < count; at++)
             {
                 int found = indices[at];
-                if (found == index) same = list.Amount[at];
-                else if (found == index + 1 && ly < N - 1) above = list.Amount[at];
-                else if (found == index - 1 && ly > 0) below = list.Amount[at];
-                else if (found > index + 1) break;
+                if (found == index) { same = list.Amount[at]; break; }
+                if (found == index - 1) { if (ly > 0) below = list.Amount[at]; continue; }
+                if (found > index)
+                {
+                    if (found <= index + reach)
+                    {
+                        above = ((found - index) * Cap) + list.Amount[at];
+                    }
+
+                    break;
+                }
             }
         }
 
@@ -626,14 +700,23 @@ public sealed class FluidSurfaceMesher
             return same;
         }
 
-        if (ly == N - 1 && _prevAbove is { } up)
+        if (above < 0)
         {
-            above = up.Find(index - (N - 1));
+            int rest = FallSearchCells - (N - 1 - ly);
+            if (rest > 0 && _prevAbove is { } up)
+            {
+                int column = index - ly;
+                (int found, int amount) = up.FirstIn(column, column + Math.Min(rest, N) - 1);
+                if (found >= 0)
+                {
+                    above = ((N - ly + (found - column)) * Cap) + amount;
+                }
+            }
         }
 
         if (above >= 0)
         {
-            return Cap + above;
+            return above;
         }
 
         if (ly == 0 && _prevBelow is { } down)
@@ -700,12 +783,13 @@ public sealed class FluidSurfaceMesher
         return d == wetBelow && Near(a, amount) && Near(p, prev);
     }
 
-    // amount < 2^14, depth < 2^8, prev + Cap < 2^16: 38 bits, never zero because amount ≥ 1.
+    // amount < 2^14, depth < 2^8, prev + Cap < 2^21 (a previous up to FallSearchCells cells
+    // above is (64 + 1) × 15,625 < 2^21): 43 bits, never zero because amount ≥ 1.
     private static long PackTop(int amount, int depth, int prev) =>
         (long)(uint)amount | ((long)depth << 14) | ((long)(prev + Cap) << 22);
 
     private static (int Amount, int Depth, int Prev) UnpackTop(long key) =>
-        ((int)(key & 0x3FFF), (int)((key >> 14) & 0xFF), (int)((key >> 22) & 0xFFFF) - Cap);
+        ((int)(key & 0x3FFF), (int)((key >> 14) & 0xFF), (int)((key >> 22) & 0x1FFFFF) - Cap);
 
     private readonly record struct SideKey(int A, int B, int Depth, int PrevA, int PrevB);
 

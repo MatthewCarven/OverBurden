@@ -432,6 +432,7 @@ public partial class Main : Node3D
     /// reads a captured view of it and cannot read the streamer.
     /// </summary>
     private bool _fluidJobOn;
+    private int _fallCells = FluidSimulation.DefaultFallCells;
     private string _fluidSurfaceMode = "mesh";
 
     private System.Threading.CancellationTokenSource? _fluidJobCts;
@@ -1336,6 +1337,13 @@ public partial class Main : Node3D
                 // arm a person judges by stabbing R.
                 case "spread" when value is "fixed" or "counted":
                     _spread = value == "counted" ? SpreadRule.Counted : SpreadRule.Fixed;
+                    break;
+
+                // M8d-3, the fall rule: how many cells a visit may fall through vacant air.
+                // 16 is the default (8 m/s from the first tick); 1 is the pre-M8d-3 arm, a cell a
+                // tick, and the control every figure before it was taken in.
+                case "fallcells" when int.TryParse(value, out int fallCells):
+                    _fallCells = Math.Clamp(fallCells, 1, FluidSimulation.MaxFallCells);
                     break;
 
                 // The rain's own A/B arm: everything else about the weather, with no particles.
@@ -3398,7 +3406,11 @@ public partial class Main : Node3D
         // The field is a terrain over a terrain, so the simulation cannot tell which it was given
         // and every fixture and bench arm stays valid. See FluidField.
         _field = _fluidFieldOn ? new FluidField(terrain) : null;
-        _fluid = new FluidSimulation((IFluidTerrain?)_field ?? terrain, spread: _spread);
+        _fluid = new FluidSimulation((IFluidTerrain?)_field ?? terrain, spread: _spread, fallCells: _fallCells);
+        if (_fallCells != FluidSimulation.DefaultFallCells)
+        {
+            GD.Print($"M8d: a visit falls at most {_fallCells} cell(s) (--fallcells; {FluidSimulation.DefaultFallCells} is the default, 1 the pre-M8d-3 arm)");
+        }
         _fluid.FarFloorCells = _fluidFarFloor;
         _fluidBudgetTicks = FluidSimulation.BudgetTicks(_fluidBudget);
         GD.Print($"M8b: Tier B spread rule is {_spread.ToString().ToLowerInvariant()} (--spread=fixed|counted)");
@@ -4193,6 +4205,7 @@ public partial class Main : Node3D
                + $"{_relayPendingMillilitres / litre:N0} L still to pour; "
                + $"paused {p.Paused:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
                + $"{f.ResumedCells:N0} resumed, {f.FaceWakes:N0} face wake(s), "
+               + $"{f.LongFalls:N0} long fall(s) over {f.CellsFallen:N0} cell(s) at up to {f.FallCells}, "
                + $"evicting {f.EvictingPanelCount:N0} panel(s), {f.ReclaimedPanels:N0} reclaimed, "
                + $"{f.Deferrals:N0} edit(s) deferred to a boundary, "
                + $"{_pipeline?.FluidArrivalsParked ?? 0:N0} arrival(s) parked | "
@@ -4316,7 +4329,8 @@ public partial class Main : Node3D
         string handoff = _handoff is null
             ? "handoff   no hand-off (--nowater)\n"
             : $"handoff   {_handoff.RestedLastPass:N0} rested and {_handoff.OnGroundLastPass:N0} on the ground on the "
-              + $"last pass; handed {(handed - _handedAtWarm) / litre:N0} L in the window, {handed / litre:N0} L in "
+              + $"last pass ({_handoff.UnderLakeLastPass:N0} left under a lake, {_handoff.RefusedUnderLake:N0} in all); "
+              + $"handed {(handed - _handedAtWarm) / litre:N0} L in the window, {handed / litre:N0} L in "
               + $"all over {_handoff.Handoffs:N0} hand-off(s), {_handoff.PendingMillilitres:N0} mL pending in "
               + $"{_handoff.PendingBasins:N0} basin(s) — Tier A received == Tier B handed: {HandoffIdentity()}\n";
 
@@ -4360,6 +4374,7 @@ public partial class Main : Node3D
                + $"{_relayPendingMillilitres / litre:N0} L still to pour; "
                + $"paused {p.Paused:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
                + $"{f.ResumedCells:N0} resumed, {f.FaceWakes:N0} face wake(s), "
+               + $"{f.LongFalls:N0} long fall(s) over {f.CellsFallen:N0} cell(s) at up to {f.FallCells} (--fallcells), "
                + $"evicting {f.EvictingPanelCount:N0} panel(s), {f.ReclaimedPanels:N0} reclaimed\n"
                + jobLine
                + breach

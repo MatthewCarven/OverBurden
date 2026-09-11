@@ -215,17 +215,40 @@ public sealed partial class FluidSimulation : IFluidPersistence
     /// What a cell divides its sideways surplus by. Fixed at construction because the wake rule
     /// depends on it, and a wake rule that changed under resting water would leave moves asleep.
     /// </param>
-    public FluidSimulation(IFluidTerrain terrain, Func<long>? nowTicks = null, SpreadRule spread = SpreadRule.Fixed)
+    /// <summary>
+    /// How far a cell may fall in one visit, in cells: the lowest empty holdable cell within this
+    /// many directly beneath it is where its water lands. One is the pre-M8d-3 rule, a cell a
+    /// tick — 0.5 m/s at 2 Hz, which is the number behind a waterfall reading as slow.
+    /// </summary>
+    public const int DefaultFallCells = 16;
+
+    /// <summary>The most any simulation may fall in one visit; the mesher searches this far up for a fallen surface's previous height.</summary>
+    public const int MaxFallCells = 64;
+
+    public FluidSimulation(IFluidTerrain terrain, Func<long>? nowTicks = null, SpreadRule spread = SpreadRule.Fixed, int fallCells = DefaultFallCells)
     {
         ArgumentNullException.ThrowIfNull(terrain);
+        ArgumentOutOfRangeException.ThrowIfLessThan(fallCells, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(fallCells, MaxFallCells);
         _terrain = terrain;
         _visitTerrain = terrain;
         _nowTicks = nowTicks ?? Stopwatch.GetTimestamp;
         _spread = spread;
+        _fallCells = fallCells;
     }
+
+    private readonly int _fallCells;
 
     /// <summary>The sideways rule this simulation runs. See <see cref="SpreadRule"/>.</summary>
     public SpreadRule Spread => _spread;
+
+    /// <summary>Cells a visit may fall. See <see cref="DefaultFallCells"/>.</summary>
+    public int FallCells => _fallCells;
+
+    /// <summary>Visits whose water fell more than one cell, and the cells they fell in all, over the lifetime.</summary>
+    public long LongFalls { get; private set; }
+
+    public long CellsFallen { get; private set; }
 
     /// <summary>Converts a budget to the clock's units, for a caller computing a deadline.</summary>
     public static long BudgetTicks(TimeSpan budget) =>
@@ -830,12 +853,42 @@ public sealed partial class FluidSimulation : IFluidPersistence
         VoxelPos below = Below(cell);
         if (_visitTerrain.CanHold(below))
         {
-            int fell = _grid.Transfer(cell, below, Math.Min(amount, RoomAt(below)));
+            // M8d-3, Matthew's fall rule: as far as is vacant, up to FallCells, in one visit.
+            // Stateless — no velocity byte, so terminal speed from the first tick — and the
+            // termination proof is untouched, since a longer fall lowers Σ(amount × Y) by more.
+            // The probe reads only empty cells, so a drop lands on water rather than through it,
+            // and a cell with water directly beneath it falls exactly as it did: into it, clamped
+            // by its room. The cells passed through were empty and stay empty, so nothing that
+            // read them has changed; the landing is woken by Record — the line the M8a note kept
+            // for a destination that is not the source's neighbour, load-bearing from here.
+            VoxelPos landing = below;
+            int fallen = 1;
+            if (_grid.AmountAt(below) == 0)
+            {
+                while (fallen < _fallCells)
+                {
+                    VoxelPos next = Below(landing);
+                    if (!_visitTerrain.CanHold(next) || _grid.AmountAt(next) != 0)
+                    {
+                        break;
+                    }
+
+                    landing = next;
+                    fallen++;
+                }
+            }
+
+            int fell = _grid.Transfer(cell, landing, Math.Min(amount, RoomAt(landing)));
             if (fell > 0)
             {
-                Record(cell, below);
+                Record(cell, landing);
                 moved += fell;
                 amount -= fell;
+                if (fallen > 1)
+                {
+                    LongFalls++;
+                    CellsFallen += fallen;
+                }
             }
 
             if (amount == 0)
@@ -971,12 +1024,12 @@ public sealed partial class FluidSimulation : IFluidPersistence
     /// other recipe, and the one only the bench can see.
     /// </para>
     /// <para>
-    /// <b><see cref="Wake"/>(<paramref name="to"/>) is today an identity — removing it breaks
-    /// nothing and cannot</b>, because every destination the automaton moves water to is a face
-    /// neighbour of the source and is therefore already woken by the line below it. It is kept
-    /// because <b>the debug relay is a transfer between cells that are not adjacent</b>, and the
-    /// moment that exists this line is the only thing waking the far end. Named rather than
-    /// deleted, so the next person does not have to rediscover which of the two it is.
+    /// <b><see cref="Wake"/>(<paramref name="to"/>) was an identity until M8d-3 and is
+    /// load-bearing now</b>: every destination used to be a face neighbour of the source and so
+    /// already woken by the line below it, and the note here kept the line for a relay between
+    /// cells that are not adjacent. The fall rule is that transfer — a cell lands up to
+    /// <see cref="FallCells"/> below its source — and this line is the only thing waking the
+    /// landing. A test drops a cell down a shaft onto a ledge and asserts it spreads next tick.
     /// </para>
     /// </remarks>
     private void Record(VoxelPos from, VoxelPos to)

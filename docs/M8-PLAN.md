@@ -2156,6 +2156,78 @@ scripted run puts the camera at one), the lerp, and the played world's flooded m
 per-vertex lerp, the tint's scan is bounded by the tops, and the only figure that could move —
 the install — is M8d-1's and unchanged.
 
+### M8d-3 — the pass against the built mesher, and built, 2026-09-11
+
+*"Ok lets continue with M8d-3"*. Decisions 7 and 8 were taken; the pass read them against the
+automaton's visit, the termination proof, the wake rule, the hand-off and the built mesher, and
+found four things, all built the same session. Suite 1,289 → 1,296; the `--front` and `--fluid`
+figures under the control arm reproduce.
+
+**The fall (decision 7).** `FluidSimulation(fallCells:)`, 16 by default, 1 the pre-M8d-3 arm,
+`--fallcells=` in the game and `--fallcells <n>` on `--front` and `--fluid`. A visit whose cell
+below is empty probes downward through empty, holdable cells up to the cap and lands the water in
+the last one; a cell with water directly beneath it falls as it did, into it, clamped by the room.
+Stateless, so terminal speed from the first tick: 16 cells is 4 m a tick, 8 m/s.
+
+- **The proof does not notice.** A longer fall lowers Σ(amount × Y) by more and is one move.
+- **`Wake(to)` stopped being an identity.** M8a kept the line for a relay between non-adjacent
+  cells, naming it as the only thing that would wake such a landing; the fall is that transfer,
+  and dropping the line strands a drop on a ledge with a move (a test, and the battery's most
+  caught recipe — nine tests fail without it).
+- **The cells passed through were empty and stay empty**, so nothing that read them changed;
+  the landing's neighbours are the fixed rule's own wake, unchanged.
+- **The probe reads only empty cells**, so a drop lands on water rather than through it — nine
+  cells fallen onto a half-full floor cell, not ten — and the "only when the cell below is
+  empty" guard before it is an identity given the wake: a wet cell over air is itself awake
+  and falls in the same tick, so no fixture can hold one still for the probe to pass. Named as
+  such; the battery's one miss.
+- **The bench said 16 ships, by decision 7's own rule.** `--front` at 1 and 16: radius 8 / 13 /
+  22 against 8 / 14 / 23 at ticks 1, 20, 100; rest at tick 7,825 against 7,830; peak active
+  13,115 against 13,119. The front's shape does not move — a ball on a flat floor lands a tick or
+  two sooner and spreads the same. `--fluid` (the 96 m mine, bores 1 / 3 / 9, 1,000 ticks):
+  15.1 / 36.6 / 157.9 L a tick against 15.2 / 37.8 / 159.1, visits +5–13%. **The shaft's
+  throughput was never the fall's** — once a column is wet it is a column, not a fall — which
+  answers TODO's "dead-end shaft ~1 L a tick" item too: the mouth's offer, not the descent, is
+  the bound. What the rule changes is the look, which is what it was for: on the headless pour,
+  17,156 long falls over 162,017 cells in fifteen seconds, 9.4 cells a fall.
+- **The mesher had to learn it.** A surface that fell sixteen cells had no previous within one
+  cell above and rose from its floor — the hole M8d-1 named. The previous-height search now
+  looks up the column as far as the fall can reach (`FallSearchCells = MaxFallCells`, 64): the
+  tops' cursor scans to the reach and hands over to the panel above, the sides' search does the
+  same with a lower-bound search, and the packed key gained the bits. Pinned by the fuzz
+  (columns emptied from the top down by up to the reach) and by four explicit cases at the
+  bounds — the last cell of the reach in the panel, the top layer of the panel above, a side's
+  dry neighbour through each.
+- **The lifecycle fixtures run the one-cell arm** (`fallCells: 1` in `FluidPauseTests`,
+  `FluidJobTests`, `FluidEvictionTests` and one tick-figures test): every one of them catches
+  water in mid-fall — at a face, in a pending chunk, in a chunk that leaves — and the rule lands
+  it in one tick. The fall's own tests include the drop that meets an unloaded chunk on the way
+  down (it rests on the boundary and falls on at the arrival). The first full run under the new
+  default aborted with an `OutOfMemoryException` in a mid-fall fixture running away; the arm is
+  what a fixture's rate is, not a preference.
+
+**The bank (decision 8).** `SurfaceHandoff` leaves a rested cell standing when its sample's basin
+holds a lake whose level is above the cell's *top* — `level > cell.Y + 1` — counted as
+`UnderLakeLastPass` / `RefusedUnderLake` on the `handoff` line. **The pass's wording was one voxel
+out, and the hand-off's own tests said so**: "the lake stands above the cell" read as `level >
+cell.Y` refused the sixth cell of every spill into a bowl because the first five had made a lake —
+any litre puts the level a hair over the bed plane — and four tests failed, one of them the
+milestone's headline (*a spill ends entirely in the basin*). Submerged, not wet: a cell at a
+lake's shallow margin is handed and the margin rises until it is a cell deep; a cell on the bed
+beside a bitten bank is under many cells of lake and stays. The test is the treadmill's shape — a
+metre of lake over the bowl, a cell on its bed, nothing handed, the automaton quiet — and the same
+cell handed once the lake is drawn below its top. The twin's whole-world identity gained the draw
+term it had never needed. Cost, as decided: a pour into a lake stays Tier B on the bed; and the
+drain stops when the column under the mouth is as high as the lake, which the treadmill item
+named as the other shape and gets for free.
+
+**Battery: 13 recipes, 10 caught first, two holes closed (the inclusive bound of the reach's
+search, the panel-above search on the sides' path), one identity named.** The r6 control is
+untouched — nothing here runs without water.
+
+**Not photographed.** The fall's look is M8d-4's: a pour off a cliff, a lake into a bitten
+chunk, with `--fallcells=1` as the arm to hold beside it.
+
 ---
 
 ## The open decision — settled by Matthew, 2026-09-02: option 3
