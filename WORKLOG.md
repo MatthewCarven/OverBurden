@@ -1,5 +1,38 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-12 — M9b planned: the derive is a detached job, and the tint waits for the barrier
+
+*"M9b's pass is next not sure if planning pass or work pass?"* — a planning pass, by the
+arrangement, and it is in [docs/M9-PLAN.md](docs/M9-PLAN.md) under "M9b — the planning pass":
+nine decisions, all recommended, read against `SupportRegion`, `ChunkPipeline`'s `Advance` /
+`Submit` / `Neighbourhood` / `Apply`, `IDetachedJob`, `PortalTracker`, the mesher's `FaceKey` and
+the converter. Nothing built. Three findings worth the entry:
+
+- **The chunk's slot is the wrong home for the derive.** `Advance`'s *never two jobs for one chunk*
+  would serialise the derive with the urgent remesh the same edit queues — either the broken rock
+  waits a millisecond and a round trip, or the tint lands as a second remesh anyway. `IDetachedJob`
+  already exists for a job that is not the chunk's state machine, and `Apply` routes it by name
+  ahead of the chunk lookup; the submission still lives in the pipeline, because the 27 references
+  need `VoxelsSharedWithJob` set the way `Neighbourhood()` sets it. A `ChunkSupport` is a new
+  object per derive, so the mesher can take it by reference with no copy.
+- **The plan's 250 ms coalescing timer is a second mechanism with no number.** Correctness needs a
+  per-chunk in-flight mark whatever else is built — a derive on a snapshot older than the last edit
+  is a field the oracle rejects — and that mark caps a chunk at one derive per round trip. The timer
+  is deferred with its trigger on the `support` line: 40 chips a second is ~30 derives at 1 ms,
+  0.4% of eight workers.
+- **The tint reads only settled fields, and settled is per chunk over its seven.** M9a's join
+  climbs, so the transient is *at risk where it will hold*; a tint reading it flashes and clears.
+  Decision 7's barrier — a chunk and its six neither queued nor in flight — applied to the tint,
+  with a remesh only when the at-risk set changed (a 32 KiB compare, not a hash) and never urgent,
+  so the played world's at-risk shell arriving at the open does not reorder the distance queue.
+
+Two smaller corrections to the plan's own sentences: `--bitechunks` bites three chunks down, not
+"under the player", because a metre of soil makes the chunk under the player's a soil-roofed bite
+(fixture 4) where the oracle is the stone plug (fixture 2); and the region wires to `onVoxelsReady`,
+not the tracker's `onFluidReady`, because support reads Tier A's table and not the panels. The
+first measurement is the played world's open in the Debug build with tiering on, against a Debug
+`--support` — the profile figure wants a reference from its own build.
+
 ## 2026-09-12 — M9a built: the support field, and the byte that moved the constant
 
 *"m9a please"*. The pass first — decisions 1–5 and the bench section read against `ChunkLight`,

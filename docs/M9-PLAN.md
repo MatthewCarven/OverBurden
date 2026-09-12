@@ -616,3 +616,145 @@ build; a chunk under a water table rebuilds its 3 KiB cost table every derive, w
 microseconds; and the bench's row 7 is the decision-3 cost in a number — a first bite beside a
 wide natural cave sheds nothing, the second may bring the cave's whole ceiling down — which is the
 play question *"don't disturb the old workings"* will answer.
+
+## M9b — the planning pass
+
+> 2026-09-12, decisions 3, 4, 7, 11 and 12's M9b row read against `SupportRegion`, `ChunkPipeline`
+> (`Advance`, `Submit`, `Neighbourhood`, `Apply`'s detached branch, `AdvanceLight`, the three hooks),
+> `IDetachedJob`, `PortalTracker`, `GreedyMesher`'s `FaceKey`, `MeshBuffer.Shades` and
+> `ChunkMeshConverter`. Nine decisions, all recommended, none reversing one Matthew took; three of
+> them are places the plan's one sentence stopped above where the wrong answer sat.
+
+**What the built M9a hands M9b, in one paragraph.** `SupportRegion` owns the analysed set, the
+fields, the join's worklist and the oracle, and derives in a loop — `Settle()` — through
+`_voxels(chunk)` at derive time. Every field is a new object per derive (`SupportDerive.Derive`:
+*"the field returned is new each call; the scratch is not"*), so a `ChunkSupport` is immutable and
+can be handed to a worker by reference; the scratch is per `SupportDerive` instance, so a worker
+needs its own. `SupportFaces` copies six layers; `SupportCostTable.Build` reads `IWaterTable` —
+`WaterSystem`, sim-thread only. The gather is 27 references and a padded copy, which is exactly
+what `MeshChunkJob` does on the worker from references captured on the sim thread under M3a's
+copy-on-write.
+
+### 1. The derive is a detached job, not the chunk's slot — *recommended*
+
+`Advance` says *never two jobs for one chunk*, and the derive's commonest trigger is the edit that
+also queues the urgent remesh. In the chunk's slot the two serialise: derive first and the rock the
+player just broke waits a round trip and a millisecond; remesh first and the tint waits behind a mesh
+and lands as a second remesh anyway. `IDetachedJob` exists for a job that is not about a chunk's
+state machine (slice 3b) and `Apply` already routes it by name ahead of the chunk lookup, so
+`SupportDeriveJob : IDetachedJob` with `Position` = the chunk (the distance band), `JobKind.Support`
+level with `Mesh`, and the urgency byte set when the cause is an edit — the remesh's own band, so
+the tint arrives with the mesh it belongs to. **The submission lives in `ChunkPipeline`** — a
+`Support` property beside `Fluid`, null being `--support=0` — because the 27 references have to set
+`VoxelsSharedWithJob` on every neighbour the way `Neighbourhood()` does, and that flag is the
+pipeline's. The job carries: the 27 references (copied to a `PaddedChunk` on the worker, as the
+mesh does), a `SupportFaces` copied on the sim thread from the neighbours' current fields, a
+`SupportCostTable` built on the sim thread from the live table, and a `SupportDerive` from a
+per-worker pool. `Run` touches nothing of the streamer's.
+
+Costs stated: a detached job is not cancelled by an unview, so a result for a chunk that has left
+is dropped at `Applied` (the region's `Departed` has already forgotten it) — one wasted millisecond
+on a worker, never a wrong field; and stale inputs are decision 2's problem, not the slot's.
+
+### 2. Coalescing is the in-flight rule, not a timer — *recommended*
+
+Per chunk: **at most one derive in flight and one queued.** A trigger that lands while a derive is
+in flight marks the chunk and the result requeues it — `NeedsRemesh` surviving a mesh completing,
+third outing (M3a's rule, then the light's). That mark is needed for correctness whatever else is
+built: a derive that ran on a snapshot older than the last edit is a field the oracle rejects. The
+plan's `--supportcadence=` (250 ms, "an estimate") is a second mechanism over the first with no
+number behind it, so it is **deferred, not built**: the `support` line prints derives a second and
+requeues, and the trigger for the timer is that number scaling with swing rate until worker time
+shows on the `sources` line. Arithmetic, for the record: the entangled chip at 40/s in one chunk is
+at most one derive a round trip — a frame or two — so ~30/s × 1 ms, 0.4% of eight workers, and the
+neighbours re-derive only when a face layer moved, which an interior chip does not do.
+
+### 3. The barrier is per chunk over its seven, and the tint reads only settled fields — *recommended*
+
+M9a's join climbs, so the transient is *at risk where it will hold*: a chunk derived before its
+neighbour reads a plug that is not there. A tint that reads the transient flashes for a round and
+clears — two remeshes and a visible lie. Decision 7's barrier is stated for the collapse and M9b
+applies it to the tint: **a chunk is settled when it and its six analysed face neighbours are
+neither queued nor in flight**, evaluated at every `Applied` for the chunk and its six. Not global
+quiescence — under continuous mining the region never quiesces and the tint would never update.
+A newly settled chunk marks a remesh **only when its at-risk set differs from the one its last mesh
+read** (`ChunkSupport.SameAtRiskSet`, a 32 KiB compare at ~10 µs with a uniform fast path — not a
+hash, because a collision is a stale tint and the compare costs nothing worth the argument), and it
+marks it non-urgent: `NeedsRemesh` without `RemeshUrgent`, M5c-1's relight argument — a tint 100 ms
+stale is invisible, and an at-risk shell arriving urgent at the open would reorder the whole
+distance-ordered queue. The `M9:` line prints `unsettled`, the count the barrier is holding back.
+
+### 4. The mesher takes the chunk's own field by reference; strain is one bit in the key — *recommended*
+
+`MeshChunkJob` gains a `ChunkSupport?` — the field reference at submission, immutable, no copy, and
+null until the chunk has settled once (decision 3), which the mesher reads as no strain. Every face
+the mesher emits belongs to a voxel of the chunk itself (`here` is inside 0..31; only `there` is
+padding), so decision 11's *a face belongs to its voxel* needs no padded field. **Binary, as the
+plan says**: `FaceKey(Material, CornerShade, Strain)`, a third byte in `MeshBuffer.Shades`, written
+to `COLOR.b` by the converter, which today writes a constant 0 there. A graded tint (deficit / K per
+face) is one line later and a screenshot's call; it would fragment quads across a gradient the way
+light does, and the plan's argument is that strain costs quads only where it fires. **The r6 control
+is the oracle**: no edits, an empty analysed set, zero derives, and a key that gained a constant —
+2601 / 325 / 3446 at 411, to the digit. `--supporttint=0` leaves the field on and the tint out, so
+the open's extra remeshes can be priced apart from the derives, and so the look A/B has a control.
+
+### 5. Wired to the pipeline's hooks, not to the tracker — *recommended*
+
+`onVoxelsReady(position, hasEdits)` → `Arrived`, preceded by `MarkDug` when `hasEdits`;
+`onVoxelChanged(voxel)` → `Edited(voxel.Chunk)`; `onChunkForgotten` → `Departed`. **Not
+`onFluidReady`**: the portal tracker moved there at M8b-4c because a drain pours into panels, and
+support reads Tier A's table, not the panels — a field derived before the chunk's water is home is
+correct. The tracker's `_edited` and the region's `_dug` are the same rule read off adjacent hooks;
+a pipeline test asserts they agree over the fuzz. Cost stated: the edit hook is per voxel and a bite
+is 32,768 calls into a `HashSet` — a few milliseconds in Debug, on the sim thread, beside the
+tracker's own; if the bite hitches, the lever is the per-chunk dirty list `SetVoxel` already keeps.
+
+### 6. The water table is read at submission; the move trigger stays M9d's — *recommended*
+
+`SupportCostTable.Build(chunk, WaterSystem, …)` on the sim thread at submission: sixteen lookups and
+3 KiB, microseconds. A chunk derived after a lake rose sees the higher head; **a settled roof under
+a lake that rises afterwards is not re-derived until something else touches it** — decision 4's
+fourth trigger, which the split puts in M9d with the keystone. The consequence in M9b's own
+provocation: `--fillbasin` pours in the same frame the bite lands, so the bite's derives read the
+poured lake, and the keystone recipe reads right without the trigger. Said so nobody reads a dry
+roof under a rising lake as a defect before M9d.
+
+### 7. `--bitechunks=<n>` with `--bitedepth=<chunks>`, 3 by default — *recommended*
+
+An *n* × *n* square of chunks bitten through `SetVoxel` when the measured window opens — the
+breach's shape one scale up — with its top face `bitedepth` chunks below the player's. **Three, not
+the "under the player" the plan implies**, because the strata are a metre of soil over stone and a
+bite whose roof is the chunk under the player's has that roof partly soil in most columns — fixture
+4's picture, not fixture 2's — and the headless oracle is fixture 2: **`at risk 20 voxel(s) in
+1 chunk(s)` at n = 2, 0 at n = 1**, in the derive counts and the at-risk count on the `support`
+line. The screenshot needs a camera in the bite looking up, because a plug is an underside and no
+view from the surface shows it: `--inbite` drops the flycam to the bite's centre on the same frame
+(profile and screenshot arms only) and `--pitch=85` does the rest. In play `Q` is the provocation.
+
+### 8. The `M9:` line and the `support` profile line — *recommended*
+
+Analysed chunks, fields held and their KiB, dug chunks; derives in the window split searched /
+closed-form / requeued-stale / dropped-departed and by cause — edit, arrival, neighbour, departure;
+in flight, pending, unsettled; worker mean / max ms; sim-thread gather and apply mean / max ms;
+at-risk chunks and voxels **over settled fields only**; tint remeshes. `M9: at open` after the
+first quiescence on a named world, with the wall clock to it. Every count has its denominator
+beside it, and at-risk is printed as settled so the number M9c reads is the number the line says.
+
+### 9. The first measurement is the played world's open — *recommended*
+
+The probe recipe (`worlds/probe-load/`, `--world=probe-load`): derives to the first quiescence,
+seconds to it, worker ms in Debug **with tiering on** — the build people play — against a Debug run
+of the bench's `--support` with tiering on, so the profile figure has a reference from its own
+build rather than M9a's Release-tiering-off number; at-risk chunks and voxels in the void's shell,
+which is what M9c will drop and what Matthew accepted; fields' KiB. Estimates, labelled: the r6 box
+holds ~1,500 analysed chunks there, most bitten and so closed-form, a few hundred searched over
+two or three rounds — 1–2 s of worker wall in Debug, ~100 ms of sim thread spread under the result
+budget, 5–15 MiB of fields. The r6 control and the seed-world flythrough are the other two arms
+and must not move.
+
+**Held over, named:** `Settle()` stays as the bench's and the suite's loop; the region grows a
+`TryTakeNext` / `Applied` pair the pipeline pumps, and the oracle survives into the pipeline as a
+test — edits through `SetVoxel`, `IsQuiescent`, `VerifyFixpoint` empty — which is the wire test
+M5c-2's rule asks for. The field is dropped on unload and re-derived on return, as planned; keeping
+it in the chunk cache is the lever the plan named. The dust half of decision 11 waits for M9c-2 with
+the rest of the look.

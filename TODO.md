@@ -4878,11 +4878,21 @@ the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
             barrier — nothing falls until a chunk and its six neighbours have derived.
 - [ ] **M9b — the wiring.** Analysed set, derive job, four triggers, the join, the strain tint,
       `M9:` line, `--support=0`, `--bitechunks=<n>`. Check: a 2 × 2 bite reads `at risk 20`.
-      **Wants its own planning pass against `SupportRegion`** — the join's queue is the
-      pipeline's, the derive a chunk job carrying a `PaddedChunk` and a `SupportFaces` gathered on
-      the sim thread; the transient is now *at risk where it will hold* (the join climbs), so the
-      tint wants decision 7's barrier as much as the collapse does; and `DOTNET_TieredCompilation`
-      is a fact the game's Debug build should be read against.
+      **Planned 2026-09-12 — M9-PLAN's "M9b — the planning pass", nine decisions, all recommended,
+      waiting on Matthew; build once answered.** The spine: the derive is a *detached* job (the
+      chunk's slot would serialise it with the urgent remesh); coalescing is the in-flight mark, not
+      the plan's 250 ms timer (deferred, with its trigger); the tint reads only *settled* fields —
+      a chunk and its six neither queued nor in flight, decision 7's barrier applied to M9b — and
+      remeshes non-urgently only when the at-risk set changed; strain is one bit in the merge key,
+      `COLOR.b`; wired to `onVoxelsReady` / `onVoxelChanged` / `onChunkForgotten`, not the tracker
+      and not `onFluidReady`; the table read at submission, the move trigger M9d's; `--bitedepth=3`
+      because the chunk under the player has a soil roof; `--supporttint=0` and `--inbite` as the
+      A/B and the screenshot prop; the first measurement the played world's open in Debug with
+      tiering on, against a Debug `--support`.
+      - [ ] Decision 2's deferred timer: `--supportcadence=` only if derives/s on the `support`
+            line scales with swing rate until worker time shows on `sources`.
+      - [ ] Decision 5's cost: the edit hook is per voxel, 32,768 `HashSet` hits a bite; the lever
+            if the bite hitches is the per-chunk dirty list `SetVoxel` keeps.
 - [ ] **M9c-1 — the fall.** Alone. Rubble, the timer, the re-pour, the cascade. `displaced 0`.
 - [ ] **M9c-2 — the body.** Health, damage, death, `TryUnstick` for the buried, dust, HUD.
 - [ ] **M9d — the keystone and the play.** The table-move trigger, the fill's refusal, four

@@ -587,7 +587,18 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-12). M9a is built — the support field — and M9b, the wiring, is next and
+**Pick up here (2026-09-12, later). M9b is planned and not built — nine decisions in M9-PLAN's
+"M9b — the planning pass", all recommended, waiting on Matthew; build it once they are answered.**
+The spine: the derive is a *detached* job, not the chunk's slot (which would serialise it with the
+urgent remesh); coalescing is the per-chunk in-flight mark and the plan's 250 ms timer is deferred
+with a trigger; the tint reads only *settled* fields — a chunk and its six neither queued nor in
+flight — and remeshes non-urgently only when the at-risk set changed; strain is one bit in the merge
+key on `COLOR.b`; wired to `onVoxelsReady` / `onVoxelChanged` / `onChunkForgotten`, not
+`onFluidReady`; `--bitechunks` bites three chunks down because the chunk under the player has a soil
+roof; the first measurement is the played world's open in Debug with tiering on. The paragraph below
+is the state before the pass, kept for the reasoning.
+
+**Earlier (2026-09-12). M9a is built — the support field — and M9b, the wiring, is next and
 wants its own planning pass against `SupportRegion` before any code: the join's queue becomes the
 pipeline's, the derive a chunk job carrying a `PaddedChunk` and a `SupportFaces` gathered on the sim
 thread, the strain tint behind decision 7's barrier.** Read M9-PLAN's "M9a — the planning pass" and
