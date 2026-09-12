@@ -786,7 +786,10 @@ internal sealed class PipelineHarness : IDisposable
         isFluid: [false, false, false, false, false],
         textureLayer: [0, 1, 2, 3, 4],
         hardness: [0f, 0.9f, 0.8f, 3.0f, 0.5f],
-        lightEmission: [0, 0, 0, 0, 15]);
+        lightEmission: [0, 0, 0, 0, 15],
+        // The shipped support distances too (M9b), so a bite driven through this harness sheds
+        // the plug the bench's fixture 2 sheds. Read by nothing before the support region.
+        supportDistance: [0, 8, 8, 30, 8]);
 
     public void Dispose()
     {

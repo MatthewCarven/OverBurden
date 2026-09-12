@@ -1,5 +1,40 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-12 — M9b built: the derive on a worker, the tint on the roof
+
+*"As planned please Claude"* — all nine decisions, and the build the same day. Read
+[docs/M9-PLAN.md](docs/M9-PLAN.md)'s "M9b — built". Suite 1,319 → 1,332; eighteen recipes,
+sixteen caught, two misses named.
+
+**The oracle, first run: `at risk 20 voxel(s) in 4 settled chunk(s)`** for a `--bitechunks=2` on
+the seed world — the bench's fixture 2 reached through `SetVoxel`, eight workers and the join — with
+the r6 control unchanged to the digit. The screenshot from inside the bite shows the plug's
+underside as a red-brown square at the roof's centre; the pixel reads (94, 58, 42) against
+(110, 92, 70) with the tint off and identical off the plug, so the tint is measured rather than
+eyeballed. Four things worth the entry:
+
+- **The parallel join is dearer than the loop, and prints it.** A 2 × 2 that the loop arm settles
+  in 34 derives takes 86–209 in the game, because a neighbour's landing marks a chunk in flight
+  stale and it goes round again — `requeued stale` on the `M9:` line, 30–83 of them. Every one is
+  a millisecond on a worker the player never waits for; the lever, if it ever matters, is holding
+  a submission while any of the six is in flight, and it is in TODO rather than built.
+- **The Debug figure has a reference from its own build now.** A searched derive is 4.7–7.5 ms
+  mean on a worker with tiering on; the Debug bench with tiering on reads 0.83 gather + 4.4
+  search. M9a's 0.8–1.1 is Release with tiering off — a 4–5× penalty on the search, the light
+  derive's shape again.
+- **Three battery misses were fixtures, and two were symmetry.** The 2 × 2 plug and the mesher
+  fixture's voxel at (10, 0, 10) are both their own mirror under x ↔ z, so a transposed read
+  tinted the same voxel and nothing failed; the tint-off test's roofs had all been drawn before a
+  field settled, so an ignored switch had nothing to show. Both are the shape memory already
+  names — a fixture degenerate in a way the assertion cannot see — and both are asymmetric now.
+- **The played world's open is owed, not measured.** The chunk-bitten void the pass named is gone
+  (retired and deleted), and `default` holds 220 stored chunks with one in the spawn's box: 25
+  derives, nothing at risk. The `support` line and `M9: at open` are ready for the first world dug
+  big enough to have a shell.
+
+Strain rides `UV2.y` rather than the pass's `COLOR.b` — `MeshBuffer`'s comment had named it the
+home for the next scalar since M5a, and it leaves the shade stride the M5 tests index alone.
+
 ## 2026-09-12 — M9b planned: the derive is a detached job, and the tint waits for the barrier
 
 *"M9b's pass is next not sure if planning pass or work pass?"* — a planning pass, by the

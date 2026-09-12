@@ -44,6 +44,14 @@ public enum JobKind : byte
     /// <c>sources</c> line shows generation starving.
     /// </remarks>
     FluidTick = 30,
+
+    /// <summary>One chunk's support derive on a worker. M9b.</summary>
+    /// <remarks>
+    /// Level with <see cref="Mesh"/>: it is caused by the edit the remesh is caused by, costs a
+    /// millisecond, and carries the remesh's urgency byte when an edit caused it, so the tint
+    /// lands beside the mesh it belongs to rather than after the horizon has loaded.
+    /// </remarks>
+    Support = 10,
 }
 
 /// <summary>

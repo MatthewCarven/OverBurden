@@ -5,6 +5,7 @@ using Overburden.Core.Jobs;
 using Overburden.Core.Lighting;
 using Overburden.Core.Persistence;
 using Overburden.Core.Meshing;
+using Overburden.Core.Structure;
 using Overburden.Core.Voxels;
 using Overburden.Core.Worldgen;
 
@@ -263,6 +264,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// </para>
     /// </remarks>
     private readonly List<ChunkPos> _lightBuilds = [];
+    private readonly List<ChunkPos> _supportSettled = [];
 
     private bool _lightBuildsUnsorted;
 
@@ -531,6 +533,71 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// </remarks>
     public IFluidPersistence? Fluid { get; set; }
 
+    /// <summary>
+    /// The support fields (M9b), or null with <c>--support=0</c>: the region whose queue this
+    /// pipeline pumps into detached derive jobs, and whose settled fields the mesher reads.
+    /// </summary>
+    /// <remarks>
+    /// A property for the reason <see cref="Fluid"/> is one — the region reads this pipeline's
+    /// own streamer — and it is told what the pipeline's three hooks tell everything else: a
+    /// chunk arriving (edited or not), a voxel changing, a chunk being forgotten. Not the fluid
+    /// arrival: support reads Tier A's table, not the panels, so a field derived before the
+    /// chunk's water is home is correct.
+    /// </remarks>
+    public SupportRegion? Support { get; set; }
+
+    /// <summary>
+    /// Whether the mesher is handed the settled field (the strain tint). Off leaves every derive
+    /// running and the mesh untouched — the A/B that prices the tint's remeshes apart from the
+    /// derives, and the look's control arm.
+    /// </summary>
+    public bool SupportTint { get; set; } = true;
+
+    /// <summary>How many derives one frame may take off the region's queue and submit.</summary>
+    /// <remarks>
+    /// A gather is 27 references, six 1 KiB layer copies and a 3 KiB cost table — tens of
+    /// microseconds — but the open of a chunk-bitten world queues the whole shell at once, and
+    /// a frame that submitted it all would be milliseconds of gather in one go. An estimate;
+    /// the <c>M9:</c> line prints what is still pending.
+    /// </remarks>
+    public const int MaxSupportSubmissionsPerFrame = 32;
+
+    /// <summary>Support derives submitted to workers, over the lifetime.</summary>
+    public long SupportDerivesSubmitted { get; private set; }
+
+    /// <summary>Support derives that landed with a field.</summary>
+    public long SupportDerivesApplied { get; private set; }
+
+    /// <summary>Support derives dropped by the scheduler — at a quit, in practice.</summary>
+    public long SupportDerivesDropped { get; private set; }
+
+    /// <summary>Support derives that threw on a worker.</summary>
+    public long SupportDerivesFaulted { get; private set; }
+
+    /// <summary>Support derives out on workers now.</summary>
+    public int SupportDerivesInFlight { get; private set; }
+
+    /// <summary>Milliseconds the sim thread spent gathering support requests, over the lifetime.</summary>
+    public double SupportGatherMillis { get; private set; }
+
+    /// <summary>Milliseconds the sim thread spent landing support results, over the lifetime.</summary>
+    public double SupportApplyMillis { get; private set; }
+
+    /// <summary>Worker milliseconds the support derives took, summed over the lifetime.</summary>
+    public double SupportWorkerMillis { get; private set; }
+
+    /// <summary>The longest support derive a worker ran.</summary>
+    public double SupportWorkerMillisMax { get; private set; }
+
+    /// <summary>Worker milliseconds of that in the padded copy.</summary>
+    public double SupportCopyMillis { get; private set; }
+
+    /// <summary>Remeshes marked because a settled field tinted different faces from the mesh on screen.</summary>
+    public int StrainRemeshes { get; private set; }
+
+    /// <summary>Settles that changed nothing the mesh shows, so cost no remesh.</summary>
+    public int StrainSettlesUnchanged { get; private set; }
+
     /// <summary>Save batches handed to the serial lane.</summary>
     /// <remarks>
     /// <b>Batches rather than chunks, because the batch is the unit of transaction</b> — and
@@ -776,7 +843,10 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         // asked only about jobs and the work list would see quiescence with a chunk's bytes still
         // sitting in the pending batch, and a test that settled there would be asserting about a
         // world that had not finished being written.
-        && PendingSaves == 0;
+        && PendingSaves == 0
+
+        // M9b: a derive waiting in the region's queue is work the next Update will submit.
+        && (Support is null || Support.Pending == 0);
 
     /// <summary>Reads one voxel, or reports that its chunk is not there to read.</summary>
     /// <remarks>
@@ -860,6 +930,10 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         {
             MarkForRemesh(dirty[i]);
         }
+
+        // The support region before the subscriber, for the same reason: it reads the chunk it
+        // is told about. Per voxel, like the hook — a bite is 32,768 of these, each a set lookup.
+        Support?.Edited(voxel.Chunk);
 
         // Last, so a subscriber that reads the world back sees the voxel it was told about. The
         // fluid adapter's CanHold is exactly such a read.
@@ -961,6 +1035,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         ApplyResults();
         ReleaseFluidArrivals();
         StepLight();
+        StepSupport();
         CollectEvicted();
         SubmitSaves();
         return Pump(maxSubmissions);
@@ -1290,6 +1365,10 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         {
             Fluid?.Evict(chunk.Position);
         }
+
+        // The field goes with the chunk and is re-derived on return (M9-PLAN decision 4); the
+        // neighbours anchor to the gap. Retaining it in the cache is the named lever, not built.
+        Support?.Departed(chunk.Position);
 
         _onChunkForgottenExternal?.Invoke(chunk.Position);
     }
@@ -1787,6 +1866,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
                 chunk.TransitionTo(ChunkState.Generated);
                 ChunksGenerated++;
                 _onVoxelsReady?.Invoke(chunk.Position, chunk.HasEdits);
+                Support?.Arrived(chunk.Position, chunk.HasEdits);
                 ArriveFluid(chunk);
 
                 // Terrain arriving here may be the last thing 26 neighbours were waiting on
@@ -1854,6 +1934,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
                 chunk.HasEdits = true;
                 chunk.DirtySinceSave = false;
                 _onVoxelsReady?.Invoke(chunk.Position, chunk.HasEdits);
+                Support?.Arrived(chunk.Position, chunk.HasEdits);
                 ArriveFluid(chunk);
 
                 // Features, not Terrain, so ApplyFeatures does not run over it a second time.
@@ -2123,6 +2204,12 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
             EditRemeshes++;
         }
 
+        // The settled field, by reference — immutable, a new object per derive — or null for a
+        // chunk that has never settled, which the mesher reads as no strain. Recorded on the chunk
+        // so a later settle can tell whether the faces it would tint are the faces on screen.
+        ChunkSupport? support = SupportTint ? Support?.SettledField(chunk.Position) : null;
+        chunk.SupportMeshed = support;
+
         chunk.TransitionTo(ChunkState.Meshing);
         Submit(
             chunk,
@@ -2132,7 +2219,128 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
                 _materials,
                 urgent,
                 _ambientOcclusion,
-                GatherLight(chunk.Position)));
+                GatherLight(chunk.Position),
+                support));
+    }
+
+    /// <summary>
+    /// One frame of support (M9b): takes what the region has queued, up to the cap, and sends
+    /// each off as a detached derive with its 27 references marked shared.
+    /// </summary>
+    /// <remarks>
+    /// After the light step and before the pump for the reason the light step sits there: the
+    /// applies above are where chunks arrive and are forgotten, so the region's queue is as fresh
+    /// as it gets, and a request gathered here reads the neighbours' fields as they stand this
+    /// frame. The derives themselves are detached and never wait on the chunk's slot.
+    /// </remarks>
+    private void StepSupport()
+    {
+        if (Support is null)
+        {
+            return;
+        }
+
+        int taken = 0;
+        while (taken < MaxSupportSubmissionsPerFrame && Support.TryTakeNext(out SupportDeriveRequest request))
+        {
+            long started = _nowTicks();
+            var job = new SupportDeriveJob(request, Neighbourhood(request.Chunk), _materials, Support.Rule, ApplySupport);
+            SupportGatherMillis += (_nowTicks() - started) / TicksPerMillisecond;
+            SupportDerivesSubmitted++;
+            SupportDerivesInFlight++;
+            SubmitDetached(job);
+            taken++;
+        }
+    }
+
+    /// <summary>A support derive reported: the field lands in the region, and whatever settled is checked against the screen.</summary>
+    private void ApplySupport(SupportDeriveJob job, JobOutcome outcome)
+    {
+        SupportDerivesInFlight--;
+        if (Support is null)
+        {
+            return;
+        }
+
+        ChunkPos position = job.Position;
+        switch (outcome)
+        {
+            case JobOutcome.Completed:
+            {
+                long started = _nowTicks();
+                SupportDerivesApplied++;
+                SupportWorkerMillis += job.ElapsedMillis;
+                SupportCopyMillis += job.CopyMillis;
+                if (job.ElapsedMillis > SupportWorkerMillisMax)
+                {
+                    SupportWorkerMillisMax = job.ElapsedMillis;
+                }
+
+                _supportSettled.Clear();
+                Support.Applied(position, job.Result!, job.DeriveResult, _supportSettled);
+                foreach (ChunkPos settled in _supportSettled)
+                {
+                    MarkForStrainRemesh(settled);
+                }
+
+                SupportApplyMillis += (_nowTicks() - started) / TicksPerMillisecond;
+                break;
+            }
+
+            case JobOutcome.Faulted:
+                // Reported through the detached branch already. Not retried, for the reason a
+                // chunk job is not: the fault would repeat. The chunk keeps whatever field it had.
+                SupportDerivesFaulted++;
+                Support.Abandoned(position, requeue: false);
+                break;
+
+            default:
+                SupportDerivesDropped++;
+                Support.Abandoned(position, requeue: true);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// A chunk's field settled: a remesh, non-urgent, when the faces it would tint differ from
+    /// the faces its mesh on screen tints.
+    /// </summary>
+    /// <remarks>
+    /// The relight's shape (<see cref="MarkForRelight"/>) and its argument: a tint 100 ms stale
+    /// is invisible, and the at-risk shell of a chunk-bitten world arriving urgent at the open
+    /// would reorder the whole distance-ordered queue. A chunk that has not meshed reads the
+    /// settled field at its first mesh and needs nothing here. Compared against the field the
+    /// mesh in flight or on screen was built with, so a settle landing mid-mesh marks the chunk
+    /// stale the way an edit does and <c>Complete</c> pushes it round again.
+    /// </remarks>
+    private void MarkForStrainRemesh(ChunkPos position)
+    {
+        if (!SupportTint || !_streamer.TryGet(position, out StreamedChunk chunk))
+        {
+            return;
+        }
+
+        if (!chunk.HasLiveMesh && chunk.State != ChunkState.Meshing)
+        {
+            return;
+        }
+
+        ChunkSupport? settled = Support!.SettledField(position);
+        bool same = settled is null ? chunk.SupportMeshed is null || chunk.SupportMeshed.AtRiskCount == 0
+                                    : settled.SameAtRiskSet(chunk.SupportMeshed);
+        if (same)
+        {
+            StrainSettlesUnchanged++;
+            return;
+        }
+
+        if (!chunk.NeedsRemesh)
+        {
+            StrainRemeshes++;
+        }
+
+        chunk.NeedsRemesh = true;
+        Push(position);
     }
 
     /// <summary>
@@ -2224,6 +2432,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
                 // field — the forget fired when the chunk went out — so to anything watching
                 // arrivals this is one, and it is the path a scan wired to Complete would miss.
                 _onVoxelsReady?.Invoke(chunk.Position, chunk.HasEdits);
+                Support?.Arrived(chunk.Position, chunk.HasEdits);
                 ArriveFluid(chunk);
 
                 if (chunk.Light is not null)

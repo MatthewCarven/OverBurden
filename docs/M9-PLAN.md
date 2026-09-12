@@ -758,3 +758,75 @@ test — edits through `SetVoxel`, `IsQuiescent`, `VerifyFixpoint` empty — whi
 M5c-2's rule asks for. The field is dropped on unload and re-derived on return, as planned; keeping
 it in the chunk cache is the lever the plan named. The dust half of decision 11 waits for M9c-2 with
 the rest of the look.
+
+## M9b — built
+
+> 2026-09-12, the same day as the pass, all nine decisions taken as recommended (*"As planned"*).
+> `SupportRegion` gained the pumped arm, `SupportDeriveJob` beside the fluid tick as the second
+> detached job, `ChunkPipeline.Support` beside `Fluid`, strain in the mesher's key and on `UV2.y`,
+> the shader's tint, `--support=`, `--supporttint=`, `--bitechunks=`, `--bitedepth=`, `--inbite`,
+> the `M9:` line and the `support` profile line. Suite 1,319 → 1,332. Eighteen recipes, sixteen
+> caught, two named misses.
+
+**The oracle in the game, first run: `at risk 20 voxel(s) in 4 settled chunk(s)`** for
+`--bitechunks=2` on the seed world — the bench's fixture 2 through `SetVoxel`, workers and the
+join — with 0 at n = 1, and **the r6 control unchanged to the digit, 2601 / 325 / 3446 at 411**.
+The screenshot from inside the bite shows the plug's underside as a red-brown 1 m square at the
+roof's centre, and the pixel says so before the eye does: (94, 58, 42) on the plug against
+(110, 92, 70) with `--supporttint=0`, an off-plug pixel identical in both arms. The scripted lamp
+`--debuglamp` hangs from the plug and is at risk with it, which is the 21st voxel and the fifth
+chunk that run prints.
+
+**Numbers, Debug with tiering on — the build people play.** A searched derive is 4.7–7.5 ms mean
+on a worker (copy 1.4–1.9 of it), max 10.8–17.5; the Debug bench with tiering on reads 0.83 ms
+gather + 4.4 ms search, so the game's figure has its reference from its own build (M9a's 0.8–1.1
+is Release with tiering off — a 4–5× Debug penalty on the search, the light derive's shape). The
+sim thread pays 0.01–0.03 ms to gather a request and 0.09–0.20 ms to land one; the 2 × 2 bite's
+whole run of derives is 0.05% of the sim thread and 2.9% of one worker over a 15 s window. The
+join in parallel is dearer than the loop: 86–209 derives for a 2 × 2 whose loop arm takes 34,
+because a neighbour's landing marks a chunk in flight stale and it goes round again — `requeued
+stale` on the line, 30–83 of them — and every one of those is a millisecond on a worker the
+player never waits for. **The played world's open could not be measured on the void**: the
+chunk-bitten world is gone (retired 2026-09-07 and deleted), and `default` today holds 220 stored
+chunks with one in the spawn's box — 25 derives over 7 analysed, nothing at risk, 192 KiB. The
+figure the pass wanted is still owed on the first world dug big enough to have a shell.
+
+**Three things the build changed from the pass, each recorded beside its decision:**
+
+- **Strain rides `UV2.y`, not `COLOR.b`.** `MeshBuffer`'s own comment had named UV2.y *"the
+  obvious home for the next per-vertex scalar that turns up"* since M5a, it was a written zero,
+  and taking it leaves the shade stride every M5 test indexes untouched. Constant across a quad by
+  the key, so the interpolation argument that ruled UV2 out for two light channels does not apply.
+- **An edit reaching a chunk in flight requeues its six as well as itself** — `MarkDug`'s rule,
+  not a new one: an edit at a chunk changes what the neighbours' padded copies hold. The first
+  fixture expected one requeue and was wrong; the region's comment says why seven.
+- **The bite is a square one chunk deep**, the bench's fixture 2, not the cube the first build
+  made — a cube edits four times the voxels for the same roof.
+
+**The battery, eighteen recipes.** Caught: the stale mark dropped, the landing ignoring it, settled
+ignoring the neighbours, `SettledField` returning the live field, a departed result kept, the join
+never requeuing, `SameAtRiskSet` always true, the strain remesh never marked, the tint switch
+ignored, each of the three hooks unwired (arrival at all three sites), the mesher ignoring the
+field, the mesher reading it transposed, the mesh job dropping it, and the cause counts counting
+calls. **Three of those were misses on the first run and fixtures, not code**: the 2 × 2 plug and
+the mesher fixture's (10, 0, 10) are both symmetric under x ↔ z, so a transposed read tinted the
+same voxel (the mesher's is at (10, 0, 20) now); the tint-off test's roofs had all been drawn before
+any field settled, so a switch that was ignored had nothing to show (it chips a roof corner after
+the settle now); and `Edited`'s early-out made the call-counting recipe an identity on the one
+path the test used (it counts `Arrived` twice now). **Two misses named and kept**: `IsQuiescent`'s
+pending clause is an identity by construction — a landing's join enqueues and the same `Update`'s
+`StepSupport` takes, so nothing is ever pending with nothing in flight at a frame's end — and a
+detached derive is dropped only by a quit, which pumps no results, so `Abandoned(requeue: true)`
+is a branch for the cancel that does not exist yet.
+
+**What the wire found.** Nothing in Core: the pumped arm equalled the loop arm byte for byte on
+its first fuzz, with `RequeuedStale > 0` asserted so the fixture is known to have exercised the
+rule. The one defect was the cause counter, which counted every one of a bite's 1.8 M hook calls
+under *edit* on the first headless run — 32,768 voxels times seven — and counts queue changes
+now, which is what "queued by cause" was ever meant to say.
+
+**For M9c, three things this leaves:** `SupportRegion.SettledField` is the field a collapse may
+read and `SettledAtRiskVoxels` the count it drops, both behind the barrier already; the
+`--bitechunks` provocation composes with `--fillbasin` as planned, and the keystone recipe reads
+the poured lake because the pour lands the frame before the bite; and the tint's look is judged
+at the first play — a graded tint is one line in the mesher and a screenshot's call.

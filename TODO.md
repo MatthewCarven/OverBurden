@@ -4876,23 +4876,27 @@ the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
             wherever the field says so the moment M9b derives it, and M9c will drop it. No
             migration, no per-world switch. The one thing that still stands is decision 7's
             barrier — nothing falls until a chunk and its six neighbours have derived.
-- [ ] **M9b — the wiring.** Analysed set, derive job, four triggers, the join, the strain tint,
-      `M9:` line, `--support=0`, `--bitechunks=<n>`. Check: a 2 × 2 bite reads `at risk 20`.
-      **Planned 2026-09-12 — M9-PLAN's "M9b — the planning pass", nine decisions, all recommended,
-      waiting on Matthew; build once answered.** The spine: the derive is a *detached* job (the
-      chunk's slot would serialise it with the urgent remesh); coalescing is the in-flight mark, not
-      the plan's 250 ms timer (deferred, with its trigger); the tint reads only *settled* fields —
-      a chunk and its six neither queued nor in flight, decision 7's barrier applied to M9b — and
-      remeshes non-urgently only when the at-risk set changed; strain is one bit in the merge key,
-      `COLOR.b`; wired to `onVoxelsReady` / `onVoxelChanged` / `onChunkForgotten`, not the tracker
-      and not `onFluidReady`; the table read at submission, the move trigger M9d's; `--bitedepth=3`
-      because the chunk under the player has a soil roof; `--supporttint=0` and `--inbite` as the
-      A/B and the screenshot prop; the first measurement the played world's open in Debug with
-      tiering on, against a Debug `--support`.
+- [x] **M9b — the wiring.** Planned and built 2026-09-12 — read M9-PLAN's "M9b — the planning
+      pass" and "M9b — built". The derive is a detached job (`SupportDeriveJob`) pumped off
+      `SupportRegion`'s queue by `ChunkPipeline.Support`, at most 32 a frame; coalescing is the
+      in-flight mark; the tint reads settled fields only (a chunk and its six at rest) and remeshes
+      non-urgently when the at-risk set moved; strain is one bit in the key on `UV2.y`;
+      `--support=0`, `--supporttint=0`, `--bitechunks=<n>`, `--bitedepth=<n>` (3), `--inbite`; the
+      `M9:` line and the `support` profile line. **Oracle met: `at risk 20 voxel(s) in 4 settled
+      chunk(s)` on the seed world, r6 control unchanged to the digit, the plug tinted on screen and
+      measured by pixel.** Suite 1,319 → 1,332; 18 recipes, 16 caught, both misses named.
+      - [ ] **Owed: the played world's open on a world with a shell.** The chunk-bitten void is
+            gone; `default` has 220 stored chunks and one in the spawn's box. The `support` line
+            and `M9: at open` are ready for the first world dug big enough.
       - [ ] Decision 2's deferred timer: `--supportcadence=` only if derives/s on the `support`
             line scales with swing rate until worker time shows on `sources`.
-      - [ ] Decision 5's cost: the edit hook is per voxel, 32,768 `HashSet` hits a bite; the lever
-            if the bite hitches is the per-chunk dirty list `SetVoxel` keeps.
+      - [ ] Decision 5's cost: the edit hook is per voxel, three set lookups a call after the
+            first; the lever if a bite hitches is the per-chunk dirty list `SetVoxel` keeps.
+      - [ ] The parallel join re-derives more than the loop (86–209 against 34 for a 2 × 2) —
+            worker time the player never waits for; a lever if the `support` line's `requeued
+            stale` ever matters is to hold a chunk's submission until none of its six is in flight.
+      - [ ] The tint's look — a graded tint (deficit / K per face) is one line in the mesher, a
+            screenshot's call, and a quad cost; judged at the first play.
 - [ ] **M9c-1 — the fall.** Alone. Rubble, the timer, the re-pour, the cascade. `displaced 0`.
 - [ ] **M9c-2 — the body.** Health, damage, death, `TryUnstick` for the buried, dust, HUD.
 - [ ] **M9d — the keystone and the play.** The table-move trigger, the fill's refusal, four

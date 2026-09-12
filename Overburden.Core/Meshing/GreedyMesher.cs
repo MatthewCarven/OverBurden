@@ -1,5 +1,6 @@
 using Overburden.Core.Content;
 using Overburden.Core.Lighting;
+using Overburden.Core.Structure;
 using Overburden.Core.Voxels;
 
 namespace Overburden.Core.Meshing;
@@ -48,8 +49,14 @@ public sealed class GreedyMesher
     /// The AO channel and the light channel have been in this key since M1c, when both were
     /// constant, for exactly this reason: adding them later would mean rewriting the sweep.
     /// </para>
+    /// <para>
+    /// <b>Strain is one bit (M9b, decision 11)</b>: a face of a voxel the settled support field
+    /// has at risk. Binary rather than graded so it costs quads only where it fires — a graded
+    /// deficit would fragment quads across its gradient the way light does — and a face belongs
+    /// to its voxel, which is the chunk's own, so no padded field is needed.
+    /// </para>
     /// </remarks>
-    private readonly record struct FaceKey(int Material, CornerShade Shade)
+    private readonly record struct FaceKey(int Material, CornerShade Shade, bool Strain)
     {
         /// <summary>Air never produces a face, so the zero value doubles as "empty".</summary>
         public bool HasFace => Material != MaterialIds.AirNumericId;
@@ -60,14 +67,18 @@ public sealed class GreedyMesher
     /// — full skylight everywhere and no block light — which is the arm of M5d's measurement
     /// that says what putting light in the merge key costs in quads.
     /// </param>
+    /// <param name="support">
+    /// The chunk's settled support field, or null for no strain anywhere — the pre-M9b mesh, and
+    /// the <c>--supporttint=0</c> arm.
+    /// </param>
     public void Build(
-        PaddedChunk voxels, MaterialTable materials, ChunkMesh output, PaddedLight? light = null)
+        PaddedChunk voxels, MaterialTable materials, ChunkMesh output, PaddedLight? light = null, ChunkSupport? support = null)
     {
         output.Reset();
 
         for (int face = 0; face < VoxelFace.Count; face++)
         {
-            SweepFace(face, voxels, materials, light, output);
+            SweepFace(face, voxels, materials, light, support, output);
         }
     }
 
@@ -76,11 +87,12 @@ public sealed class GreedyMesher
         PaddedChunk voxels,
         MaterialTable materials,
         PaddedLight? light,
+        ChunkSupport? support,
         ChunkMesh output)
     {
         for (int slice = 0; slice < Size; slice++)
         {
-            if (BuildMask(face, slice, voxels, materials, light))
+            if (BuildMask(face, slice, voxels, materials, light, support))
             {
                 MergeAndEmit(face, slice, materials, output);
             }
@@ -89,7 +101,7 @@ public sealed class GreedyMesher
 
     /// <summary>Marks which faces on this slice are visible. Returns false if none are.</summary>
     private bool BuildMask(
-        int face, int slice, PaddedChunk voxels, MaterialTable materials, PaddedLight? light)
+        int face, int slice, PaddedChunk voxels, MaterialTable materials, PaddedLight? light, ChunkSupport? support)
     {
         int axis = VoxelFace.Axis[face];
         int uAxis = VoxelFace.UAxis[face];
@@ -118,8 +130,13 @@ public sealed class GreedyMesher
                 // Only sampled for a face that will actually be emitted: AO costs twelve
                 // padded-chunk reads on top of the two visibility already did, and most
                 // positions in a slice have no face at all.
+                // The face is the chunk's own voxel's — position is inside 0..31 — so the field
+                // is asked at the local index, with no border.
                 _mask[v * Size + u] = visible
-                    ? new FaceKey(here, ShadeFor(face, position, voxels, materials, light))
+                    ? new FaceKey(
+                        here,
+                        ShadeFor(face, position, voxels, materials, light),
+                        support is not null && support.IsAtRisk(VoxelPos.Index(position[0], position[1], position[2])))
                     : default;
 
                 any |= visible;
@@ -267,6 +284,7 @@ public sealed class GreedyMesher
             width,
             height,
             materials.TextureLayer(key.Material),
-            key.Shade);
+            key.Shade,
+            key.Strain);
     }
 }

@@ -22,13 +22,14 @@ public sealed class MeshBuffer
     public float[] Uvs { get; private set; } = new float[InitialQuads * 4 * 2];
 
     /// <summary>
-    /// Per-vertex (texture array layer, spare).
+    /// Per-vertex (texture array layer, strain).
     /// </summary>
     /// <remarks>
-    /// UV2.y carried <c>light × AO</c> until M5a moved the shade into <see cref="Shades"/>.
-    /// It is left as a written zero rather than removed because Godot's UV2 is a
-    /// <c>Vector2</c> either way, so the component costs nothing to keep and is the obvious
-    /// home for the next per-vertex scalar that turns up.
+    /// UV2.y carried <c>light × AO</c> until M5a moved the shade into <see cref="Shades"/>, sat
+    /// as a written zero until M9b, and carries the strain bit now — 1 on the faces of voxels the
+    /// settled support field has at risk, 0 elsewhere. Constant across a quad by the merge key, so
+    /// the interpolation that ruled out packing two light channels into it is no concern here.
+    /// The shader reads it as <c>UV2.y</c>.
     /// </remarks>
     public float[] Uv2s { get; private set; } = new float[InitialQuads * 4 * 2];
 
@@ -81,13 +82,15 @@ public sealed class MeshBuffer
     /// <paramref name="corners"/>. Also decides which diagonal splits the quad — see
     /// <see cref="CornerShade.FlipDiagonal"/>.
     /// </param>
+    /// <param name="strain">True for a face of a voxel at risk of falling (M9b) — the strain tint.</param>
     public void AddQuad(
         ReadOnlySpan<float> corners,
         ReadOnlySpan<float> normal,
         float uExtent,
         float vExtent,
         float layer,
-        CornerShade shade)
+        CornerShade shade,
+        bool strain = false)
     {
         EnsureCapacity();
 
@@ -113,7 +116,7 @@ public sealed class MeshBuffer
             Uvs[v2 + i * 2 + 1] = vs[i];
 
             Uv2s[v2 + i * 2 + 0] = layer;
-            Uv2s[v2 + i * 2 + 1] = 0f;
+            Uv2s[v2 + i * 2 + 1] = strain ? 1f : 0f;
 
             Shades[v2 + i * 2 + 0] = shade.Sky(i);
             Shades[v2 + i * 2 + 1] = shade.Block(i);

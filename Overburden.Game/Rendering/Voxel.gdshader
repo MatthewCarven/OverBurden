@@ -28,6 +28,12 @@ uniform sampler2DArray albedo : source_color, filter_nearest, repeat_enable;
 varying float layer;
 varying vec2 shade;
 
+// STRAIN, 0 or 1 per face, off UV2.y — M9b's warning sign. The mesher writes 1 on every face of
+// a voxel the settled support field has at risk, in the merge key, so it costs quads only where
+// it fires and a remesh only when the set of tinted faces changes. Constant across a quad, so the
+// interpolation never lands between the two values.
+varying float strain;
+
 // WORLD SPACE, and carrying it is the whole fix for a bug that was cosmetic until M7c.
 //
 // `NORMAL` inside fragment() is in VIEW space in Godot 4. face_tint() below asks "is this face
@@ -91,8 +97,16 @@ uniform float wet_sheen : hint_range(0.0, 2.0) = 0.5;
 // is what --yaw exists for.
 uniform bool tint_in_view_space = false;
 
+// WHAT AT-RISK ROCK LOOKS LIKE. A dusty red-brown the surface is pulled toward, and a darkening
+// with it — attributable rather than pretty, because M9-PLAN decision 11's whole argument is that
+// a purely random collapse cannot be learned from. Taste; a screenshot judges it, and the crack
+// texture is the cosmetics pass's. --supporttint=0 is the control.
+uniform vec3 strain_tint : source_color = vec3(0.78, 0.30, 0.22);
+uniform float strain_amount : hint_range(0.0, 1.0) = 0.6;
+
 void vertex() {
 	layer = UV2.x;
+	strain = UV2.y;
 	shade = COLOR.rg;
 	world_normal = NORMAL;
 }
@@ -147,6 +161,11 @@ void fragment() {
 		* face_tint(tint_in_view_space ? NORMAL : world_normal)
 		* mix(1.0, 1.0 - wet_darkening, wet)
 		* lit;
+
+	// Strain multiplies the lit surface rather than replacing it, so an at-risk roof in a dark
+	// chamber stays dark: the sign reads where there is light to read it by, which is where a
+	// lamp is, which is where the player is.
+	surface *= mix(vec3(1.0), strain_tint, strain * strain_amount);
 
 	// The sheen, and this one genuinely belongs in view space: it is a reflection, so NORMAL and
 	// the view vector are both wanted relative to the eye. VERTEX is the fragment in view space,

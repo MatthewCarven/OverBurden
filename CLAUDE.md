@@ -23,7 +23,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | **Worldgen as content** — Matthew's thinking-ahead, 2026-09-11: ores, layers, trees, and what is permeable. Notes rather than a plan; what MATERIALS-NOTES already decided is listed so it is not re-litigated, and the three questions its pass wants from him are at the end. **Not scheduled — M8d, then M9.** |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md) | **Water bodies** — Matthew's question, 2026-09-10: resting water as one number over a connected void, DESIGN's *"stable cells merge into a Tier A body"* half that M8b never built. Notes rather than a plan, with the roof-open wake explained and six decisions. **Read before M8c's planning pass, which is where it belongs.** |
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | **Elements, and whether to "just implement chemistry"** — a brainstorm with Matthew, 2026-09-03. Notes rather than a plan. The recommendation is *geology that reacts to water, with machine recipes as the chemistry set*; the element table says why each material would exist. **Read before M8c reads `permeability` and before M9 reads `supportDistance` — both have been in the material JSON unread since M1, and the trap is a constant shipping green.** |
-| [docs/M9-PLAN.md](docs/M9-PLAN.md) | **M9, the mine kills you — planned 2026-09-11, all twelve decisions taken the same day; M9a built 2026-09-12 (read its "planning pass" and "built" sections — the byte moved `K` to 120, a dead path is a state, the join climbs), M9b next.** Split M9a–M9d. **Read its "two facts" first: there is no bedrock, and DESIGN's literal distance rule opens a shaft to the surface over a 2 × 2 bite** — the plan's budget-with-an-arch rule and its uniqueness proof are decision 1. Read MATERIALS-NOTES and SCALE before it. |
+| [docs/M9-PLAN.md](docs/M9-PLAN.md) | **M9, the mine kills you — planned 2026-09-11, all twelve decisions taken the same day; M9a and M9b built 2026-09-12 (read their "planning pass" and "built" sections — the byte moved `K` to 120, a dead path is a state, the join climbs; the derive is a detached job, the tint waits for the barrier), M9c-1 next and alone.** Split M9a–M9d. **Read its "two facts" first: there is no bedrock, and DESIGN's literal distance rule opens a shaft to the surface over a 2 × 2 bite** — the plan's budget-with-an-arch rule and its uniqueness proof are decision 1. Read MATERIALS-NOTES and SCALE before it. |
 | [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **M8c planned 2026-09-10, all eight decisions taken 2026-09-11, M8c-1 built the same day — read "M8c-1 — built" before M8c-2's pass.** **Planned 2026-09-02; M8a built the same day; M8b split four ways and M8b-1 built 2026-09-03; M8b-2 planned 2026-09-05 and all three parts built the same day, both open decisions taken as recommended — water crosses the seam in the game; M8b-3 planned and built the same day: the hand-off (3a) measured, the settle (3b) built and priced against the chamber, both mines and the played world, the spill's look deferred to M8c and the settle's interval an estimate with `--settleafter=` as the sweep.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it. **Its M8b section records a gap the plan had**: a flooded mine has no Tier A body, so resting mine water is stored, and the settle is a solve. Read the tick-budget item in TODO before M8b-2. |
 | [docs/ADAPTIVE-RADIUS-PLAN.md](docs/ADAPTIVE-RADIUS-PLAN.md) | **The adaptive view radius**, Matthew's proposal from the sprint corridor, planned and **built 2026-09-06**: fall to the 27-chunk floor while moving with a derive backlog, climb back a ring at a time while the derive is idle enough for one more. **Its "Built" section records that the plan's grow rule — a dwell — was wrong, and the 7 m/s corridor said so on its first run**; the rule is the light step's share of its budget now. Read the corridor worklog entry before it: the floor is a cliff edge, not a slope. |
 | [docs/WATER-THREAD-PLAN.md](docs/WATER-THREAD-PLAN.md) | **The water thread**, Matthew's question of 2026-09-07. **Slice 1 — the near/far order — was planned and built 2026-09-09** and its planning pass corrected the slice's own mechanism twice, which is why that pass is worth reading before the code; slice 2 is **priced and parked**, slice 3 unstarted. **Placed after M8b-4c and before M8c.** Read before touching the tick's order or its home. |
@@ -202,6 +202,20 @@ call count moves it; the line under the table says which arm ran. `--restrefund 
 ```bash
 DOTNET_TieredCompilation=0 dotnet run --project Overburden.Bench -c Release -- --support
 ```
+
+M9b (2026-09-12) adds the support field's seams. **`--support=0` builds no region** — no derives, no
+tint, the control arm; **`--supporttint=0` keeps every derive and hands the mesher nothing**, the
+tint's control and the arm that prices its remeshes apart. **`--bitechunks=<n>` bites an n × n square
+of chunks, one deep, `--bitedepth=` (3) chunks under the player's when the window opens** — three
+because the chunk under the player's has a soil roof, and the oracle is the stone plug: `at risk 20
+voxel(s) in 4 settled chunk(s)` at n = 2 on the seed world, 0 at n = 1. **`--inbite` drops the camera
+into the bite** for the screenshot, because a plug is an underside — with `--pitch=85`. The periodic
+`M9:` line and the profile's `support` line print analysed / dug / fields and KiB, derives split
+searched / closed-form / requeued-stale / dropped-departed and by cause, in flight / pending /
+unsettled, worker mean and max, sim gather and apply, at-risk voxels and chunks **over settled fields**,
+and tint remeshes; `M9: at open` prints once when the open's derives have all landed. **Read the worker
+figure against the Debug bench with tiering on** (`dotnet run --project Overburden.Bench -c Debug --
+--support`, 0.83 + 4.4 ms), not against M9a's Release number.
 
 Measure **M8's Tier B automaton** — a lake draining into a mine, swept by breach width. Release
 only, and **the fixture bakes its terrain into a bitset before timing anything**, because the first
@@ -587,7 +601,22 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-12, later). M9b is planned and not built — nine decisions in M9-PLAN's
+**Pick up here (2026-09-12, last). M9b is built — the support field is in the loop and the tint is
+on the roof — and M9c-1, the fall, is next: alone, as split, and it wants its own planning pass
+against `SupportRegion.SettledField` / `SettledAtRiskVoxels` (what a collapse may read, behind
+decision 7's barrier already), `FluidSimulation` for decision 9's re-pour, and the `M9:` line.** Read
+M9-PLAN's "M9b — the planning pass" and "M9b — built" first. M9b in one line: `SupportDeriveJob` is
+the second detached job, pumped off the region's queue by `ChunkPipeline.Support` at most 32 a
+frame; a trigger reaching a chunk in flight marks it stale and the landing requeues it (the whole
+of the coalescing); a chunk is settled when it and its six are neither queued nor in flight, and
+only settled fields reach the mesher, which puts one strain bit per face in the key on `UV2.y`.
+**Three things not to rediscover: the parallel join re-derives 3–6× what the loop does (`requeued
+stale`) and that is worker time nobody waits for; a Debug worker derive is ~5 ms with tiering on and
+the Debug bench says the same; and the played world's open is still owed — the chunk-bitten void is
+gone and `default` has one stored chunk in the spawn's box.** The paragraph below is the state at the
+pass, kept for the reasoning.
+
+**Earlier (2026-09-12, later). M9b is planned and not built — nine decisions in M9-PLAN's
 "M9b — the planning pass", all recommended, waiting on Matthew; build it once they are answered.**
 The spine: the derive is a *detached* job, not the chunk's slot (which would serialise it with the
 urgent remesh); coalescing is the per-chunk in-flight mark and the plan's 250 ms timer is deferred

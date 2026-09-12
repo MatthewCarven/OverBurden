@@ -260,6 +260,45 @@ public sealed class ChunkSupport
         _ => (0, 1),
     };
 
+    /// <summary>
+    /// Whether this field marks exactly the voxels <paramref name="other"/> marks at risk — null
+    /// standing for a field with nothing at risk, which is what a mesh built with no field read.
+    /// </summary>
+    /// <remarks>
+    /// The strain tint's remesh test (M9b, decision 3): a settled field is worth a remesh only
+    /// when the faces it would tint differ from the faces the last mesh tinted. A compare rather
+    /// than a hash, because a collision would be a stale tint and 32 KiB compares in ~10 µs. The
+    /// counts go first because two fields with different counts cannot agree, and most settles
+    /// on a stable roof change nothing.
+    /// </remarks>
+    public bool SameAtRiskSet(ChunkSupport? other)
+    {
+        if (other is null)
+        {
+            return AtRiskCount == 0;
+        }
+
+        if (AtRiskCount != other.AtRiskCount)
+        {
+            return false;
+        }
+
+        if (AtRiskCount == 0 || (_values is null && other._values is null))
+        {
+            return true;
+        }
+
+        for (int index = 0; index < VoxelConstants.ChunkVolume; index++)
+        {
+            if (IsAtRisk(index) != other.IsAtRisk(index))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>A copy of the bytes, dense or expanded, for tests and the bench that compare whole fields.</summary>
     public byte[] Snapshot()
     {

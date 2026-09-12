@@ -5,6 +5,53 @@ using Overburden.Core.Voxels;
 
 namespace Overburden.Core.Structure;
 
+/// <summary>Why a chunk was queued to derive — the causes the <c>M9:</c> line prints apart.</summary>
+public enum SupportTrigger : byte
+{
+    /// <summary>An edit landed in the chunk, or it was marked dug.</summary>
+    Edit,
+
+    /// <summary>The chunk arrived, or a face neighbour did and its border is to be re-read.</summary>
+    Arrival,
+
+    /// <summary>A neighbour's face layer moved — the join.</summary>
+    Neighbour,
+
+    /// <summary>A face neighbour left the loaded world and anchors now.</summary>
+    Departure,
+
+    /// <summary>The water table over an analysed chunk moved.</summary>
+    Table,
+}
+
+/// <summary>
+/// What a derive needs, gathered on the sim thread at submission (M9b, decision 1): the faces
+/// copied from the neighbours' current fields and the cost table built from the live water
+/// table. The 27 voxel references are the pipeline's to gather, because the copy-on-write flag
+/// they need is the pipeline's.
+/// </summary>
+public sealed class SupportDeriveRequest
+{
+    internal SupportDeriveRequest(ChunkPos chunk, SupportFaces faces, SupportCostTable costs, bool urgent)
+    {
+        Chunk = chunk;
+        Faces = faces;
+        Costs = costs;
+        Urgent = urgent;
+    }
+
+    public ChunkPos Chunk { get; }
+
+    /// <summary>The neighbours' layers as they stood at submission; owned by the derive from here.</summary>
+    public SupportFaces Faces { get; }
+
+    /// <summary>The chunk's cost table over the water table as it stood at submission.</summary>
+    public SupportCostTable Costs { get; }
+
+    /// <summary>True when an edit is among the causes — the derive takes the remesh's own urgency band.</summary>
+    public bool Urgent { get; }
+}
+
 /// <summary>
 /// The support fields of an analysed set of chunks, joined across their faces by re-deriving
 /// whoever's input changed — M9-PLAN decisions 3 and 4 as one object, with no thread in it.
@@ -28,9 +75,23 @@ namespace Overburden.Core.Structure;
 /// the rounds, where from above (decision 4's optimistic start, the first build) a body across a
 /// face loses one refund a round and a 2 × 2 room took 33 rounds and 156 derives against 2 and 34, a 4 × 4 room 61 and 724 against 3 and 128.
 /// The transient is the other way — a chunk derived before its neighbour reads at risk where it
-/// will hold — and decision 7's barrier is what keeps a collapse from reading a transient. In the
-/// game (M9b) each derive is a chunk job and this object's queue is the pipeline's; here it is a
-/// loop, which is what the bench and the fuzz need.
+/// will hold — and decision 7's barrier is what keeps a collapse from reading a transient.
+/// </para>
+/// <para>
+/// <b>Two ways to run it, one join (M9b).</b> <see cref="Settle"/> derives in a loop on the
+/// calling thread — the bench's and the suite's arm. The game pumps the same queue through
+/// <see cref="TryTakeNext"/> / <see cref="Applied"/>: a derive leaves as a request gathered on
+/// the sim thread, runs on a worker, and lands as a field; between the two the chunk is <em>in
+/// flight</em>, and a trigger that reaches it then marks it stale so the landing requeues it —
+/// <c>NeedsRemesh</c> surviving a mesh completing, third outing. That mark is also the whole of
+/// the coalescing: at most one derive in flight and one queued per chunk, however many edits land.
+/// </para>
+/// <para>
+/// <b>Settled is per chunk over its seven</b> — the chunk and its analysed face neighbours all
+/// neither queued nor in flight — and only a settled field reaches the mesher
+/// (<see cref="SettledField"/>). The join climbs, so a chunk derived before its neighbour reads at
+/// risk where it will hold; a tint reading that would flash for a round. Decision 7's barrier,
+/// applied to the tint as well as to the collapse.
 /// </para>
 /// <para>
 /// <b>Not thread-safe, and not the game's home for the fields.</b> The fields live here so the
@@ -48,14 +109,18 @@ public sealed class SupportRegion
     private readonly HashSet<ChunkPos> _dug = [];
     private readonly HashSet<ChunkPos> _analysed = [];
     private readonly Dictionary<ChunkPos, ChunkSupport> _fields = [];
+    private readonly Dictionary<ChunkPos, ChunkSupport> _settled = [];
     private readonly Queue<ChunkPos> _queue = [];
     private readonly HashSet<ChunkPos> _queued = [];
+    private readonly HashSet<ChunkPos> _urgent = [];
+    private readonly HashSet<ChunkPos> _inFlight = [];
+    private readonly HashSet<ChunkPos> _staleInFlight = [];
     private readonly SupportDerive _derive = new();
     private readonly PaddedChunk _padded = new();
     private readonly VoxelChunk?[] _neighbourhood = new VoxelChunk?[PaddedChunk.NeighbourhoodSize];
-    private readonly SupportFaces _faces = new();
     private readonly byte[] _before = new byte[ChunkSupport.LayerSize];
     private readonly byte[] _after = new byte[ChunkSupport.LayerSize];
+    private readonly long[] _triggers = new long[5];
     private SupportCostTable? _dry;
 
     /// <param name="voxels">The world's chunks: null for one that is not loaded.</param>
@@ -68,7 +133,10 @@ public sealed class SupportRegion
         _table = table;
     }
 
-    /// <summary>Derives run so far.</summary>
+    /// <summary>The rule the fields are derived under.</summary>
+    public SupportRule Rule => _rule;
+
+    /// <summary>Derives run so far, both arms.</summary>
     public long Derives { get; private set; }
 
     /// <summary>Voxels the search settled, over every derive.</summary>
@@ -80,11 +148,20 @@ public sealed class SupportRegion
     /// <summary>Derives answered by the closed form.</summary>
     public long TrivialDerives { get; private set; }
 
-    /// <summary>Stopwatch ticks spent gathering padded copies and face layers, over every derive.</summary>
+    /// <summary>Stopwatch ticks spent gathering padded copies and face layers, over every derive (the loop arm).</summary>
     public long GatherTicks { get; private set; }
 
-    /// <summary>Stopwatch ticks spent in the derive itself, over every derive.</summary>
+    /// <summary>Stopwatch ticks spent in the derive itself, over every derive (the loop arm).</summary>
     public long DeriveTicks { get; private set; }
+
+    /// <summary>Derives whose result landed after a trigger reached the chunk in flight, so it went round again.</summary>
+    public long RequeuedStale { get; private set; }
+
+    /// <summary>Derives whose chunk had left the loaded world by the time the result landed.</summary>
+    public long DroppedDeparted { get; private set; }
+
+    /// <summary>Requests taken that found the chunk not loaded and derived nothing.</summary>
+    public long SkippedUnloaded { get; private set; }
 
     /// <summary>The chunks the rule applies to.</summary>
     public IReadOnlyCollection<ChunkPos> Analysed => _analysed;
@@ -95,18 +172,68 @@ public sealed class SupportRegion
     /// <summary>Chunks waiting to derive.</summary>
     public int Pending => _queue.Count;
 
+    /// <summary>Chunks whose derive has been taken and not yet landed.</summary>
+    public int InFlight => _inFlight.Count;
+
+    /// <summary>Fields held.</summary>
+    public int FieldCount => _fields.Count;
+
     /// <summary>Solid voxels with a negative budget across every derived field.</summary>
     public int AtRiskVoxels => _fields.Values.Sum(field => field.AtRiskCount);
 
     /// <summary>Chunks whose field has at least one voxel at risk.</summary>
     public int AtRiskChunks => _fields.Values.Count(field => field.AtRiskCount > 0);
 
+    /// <summary>Solid voxels at risk across the <em>settled</em> fields — what the tint shows and what a collapse may read.</summary>
+    public int SettledAtRiskVoxels => _settled.Values.Sum(field => field.AtRiskCount);
+
+    /// <summary>Settled chunks with at least one voxel at risk.</summary>
+    public int SettledAtRiskChunks => _settled.Values.Count(field => field.AtRiskCount > 0);
+
+    /// <summary>Chunks with a field that the barrier is holding back: some of their seven is queued or in flight.</summary>
+    public int Unsettled => _fields.Keys.Count(chunk => !IsSettled(chunk));
+
     /// <summary>What the fields cost in memory.</summary>
     public long FieldBytes => _fields.Values.Sum(field => (long)field.EstimatedBytes);
 
+    /// <summary>
+    /// Queue entries by cause, over the lifetime: counted when a trigger changes something — a
+    /// chunk newly queued, or newly marked stale in flight — so a bite's 32,768 edit hooks count
+    /// as the handful of chunks they queue. A chunk queued for two reasons counts under both.
+    /// </summary>
+    public long Triggered(SupportTrigger trigger) => _triggers[(int)trigger];
+
     public bool IsAnalysed(ChunkPos chunk) => _analysed.Contains(chunk);
 
+    public bool IsDug(ChunkPos chunk) => _dug.Contains(chunk);
+
     public ChunkSupport? FieldAt(ChunkPos chunk) => _fields.GetValueOrDefault(chunk);
+
+    /// <summary>
+    /// The field the mesher may read: the chunk's field as it stood the last time the chunk and
+    /// its six were all at rest, or null when it has never settled.
+    /// </summary>
+    public ChunkSupport? SettledField(ChunkPos chunk) => _settled.GetValueOrDefault(chunk);
+
+    /// <summary>Whether the chunk and its analysed face neighbours are all neither queued nor in flight.</summary>
+    public bool IsSettled(ChunkPos chunk)
+    {
+        if (IsPendingOrInFlight(chunk))
+        {
+            return false;
+        }
+
+        for (int face = 0; face < VoxelFace.Count; face++)
+        {
+            ChunkPos neighbour = Across(chunk, face);
+            if (_analysed.Contains(neighbour) && IsPendingOrInFlight(neighbour))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     /// <summary>
     /// Marks a chunk dug — edited — which puts it and its six face neighbours into the analysed
@@ -130,27 +257,46 @@ public sealed class SupportRegion
             }
         }
 
-        Enqueue(chunk);
+        Enqueue(chunk, SupportTrigger.Edit);
         for (int face = 0; face < VoxelFace.Count; face++)
         {
-            Enqueue(Across(chunk, face));
+            Enqueue(Across(chunk, face), SupportTrigger.Edit);
         }
     }
 
     /// <summary>An edit landed in a chunk. Only what was dug is edited, so this is <see cref="MarkDug"/>.</summary>
-    public void Edited(ChunkPos chunk) => MarkDug(chunk);
+    /// <remarks>
+    /// Per voxel — a bite is 32,768 calls — so the common case, a chunk already dug and already
+    /// waiting urgently, is three set lookups and out. The per-chunk dirty list the pipeline keeps
+    /// is the lever if a bite ever hitches on this (M9b, decision 5).
+    /// </remarks>
+    public void Edited(ChunkPos chunk)
+    {
+        if (_dug.Contains(chunk) && _urgent.Contains(chunk) && (_queued.Contains(chunk) || _staleInFlight.Contains(chunk)))
+        {
+            return;
+        }
+
+        MarkDug(chunk);
+    }
 
     /// <summary>A chunk left the loaded world: its field goes, and its neighbours anchor to it.</summary>
     public void Departed(ChunkPos chunk)
     {
         _fields.Remove(chunk);
-        _queued.Remove(chunk);
+        _settled.Remove(chunk);
+        if (_queued.Remove(chunk))
+        {
+            // Left in the queue as a position; TryTakeNext finds it unloaded and skips it.
+            _urgent.Remove(chunk);
+        }
+
         for (int face = 0; face < VoxelFace.Count; face++)
         {
             ChunkPos neighbour = Across(chunk, face);
             if (_analysed.Contains(neighbour))
             {
-                Enqueue(neighbour);
+                Enqueue(neighbour, SupportTrigger.Departure);
             }
         }
     }
@@ -160,7 +306,7 @@ public sealed class SupportRegion
     {
         if (_analysed.Contains(chunk))
         {
-            Enqueue(chunk);
+            Enqueue(chunk, SupportTrigger.Arrival);
         }
 
         for (int face = 0; face < VoxelFace.Count; face++)
@@ -168,9 +314,23 @@ public sealed class SupportRegion
             ChunkPos neighbour = Across(chunk, face);
             if (_analysed.Contains(neighbour))
             {
-                Enqueue(neighbour);
+                Enqueue(neighbour, SupportTrigger.Arrival);
             }
         }
+    }
+
+    /// <summary>
+    /// The pipeline's arrival hook: a chunk that arrives edited is dug — the portal rule read
+    /// off the same event <c>PortalTracker</c> reads it from — and then it arrives.
+    /// </summary>
+    public void Arrived(ChunkPos chunk, bool hasEdits)
+    {
+        if (hasEdits)
+        {
+            MarkDug(chunk);
+        }
+
+        Arrived(chunk);
     }
 
     /// <summary>The water table moved: every analysed chunk derives again. Decision 4's fourth trigger, unrefined.</summary>
@@ -178,7 +338,7 @@ public sealed class SupportRegion
     {
         foreach (ChunkPos chunk in _analysed)
         {
-            Enqueue(chunk);
+            Enqueue(chunk, SupportTrigger.Table);
         }
     }
 
@@ -186,6 +346,10 @@ public sealed class SupportRegion
     /// Derives until nothing is queued, or <paramref name="maxDerives"/> have run. Returns the
     /// rounds it took — a round is the queue as it stood when the round began.
     /// </summary>
+    /// <remarks>
+    /// The loop arm, on the calling thread, through the same take / land pair the game pumps —
+    /// so the bench and the fuzz exercise the join the pipeline runs, not a twin of it.
+    /// </remarks>
     public int Settle(int maxDerives = int.MaxValue)
     {
         int rounds = 0;
@@ -196,9 +360,26 @@ public sealed class SupportRegion
             int inRound = _queue.Count;
             for (int i = 0; i < inRound && run < maxDerives; i++)
             {
-                ChunkPos chunk = _queue.Dequeue();
-                _queued.Remove(chunk);
-                DeriveOne(chunk);
+                if (!TryTakeOne(out ChunkPos chunk, out SupportDeriveRequest? request))
+                {
+                    break;
+                }
+
+                if (request is null)
+                {
+                    // Not loaded: skipped, and the position was consumed from this round.
+                    continue;
+                }
+
+                long started = System.Diagnostics.Stopwatch.GetTimestamp();
+                GatherNeighbourhood(chunk);
+                long gathered = System.Diagnostics.Stopwatch.GetTimestamp();
+                GatherTicks += gathered - started;
+
+                ChunkSupport field = _derive.Derive(_padded, _materials, _rule, request.Costs, request.Faces, out SupportDeriveResult result);
+                DeriveTicks += System.Diagnostics.Stopwatch.GetTimestamp() - gathered;
+
+                Applied(chunk, field, result, settled: null);
                 run++;
             }
         }
@@ -206,34 +387,87 @@ public sealed class SupportRegion
         return rounds;
     }
 
-    /// <summary>One derive, and the join: neighbours across a moved layer are queued.</summary>
-    private void DeriveOne(ChunkPos chunk)
+    /// <summary>
+    /// Takes the next chunk to derive, marking it in flight, with its faces and cost table
+    /// gathered now. False when nothing is queued. A queued chunk that is not loaded is
+    /// consumed and skipped — its field is dropped and its neighbours anchor to it.
+    /// </summary>
+    public bool TryTakeNext(out SupportDeriveRequest request)
     {
+        while (TryTakeOne(out _, out SupportDeriveRequest? taken))
+        {
+            if (taken is not null)
+            {
+                request = taken;
+                return true;
+            }
+        }
+
+        request = null!;
+        return false;
+    }
+
+    /// <summary>
+    /// One dequeue: false when the queue is empty; true with a null request when the chunk was
+    /// not loaded and nothing is to derive.
+    /// </summary>
+    private bool TryTakeOne(out ChunkPos chunk, out SupportDeriveRequest? request)
+    {
+        request = null;
+        if (_queue.Count == 0)
+        {
+            chunk = default;
+            return false;
+        }
+
+        chunk = _queue.Dequeue();
+        _queued.Remove(chunk);
+        bool urgent = _urgent.Remove(chunk);
+
         if (!_analysed.Contains(chunk))
         {
-            return;
+            return true;
         }
 
-        VoxelChunk? own = _voxels(chunk);
-        if (own is null)
+        if (_voxels(chunk) is null)
         {
             // Not loaded: no field, and the neighbours anchor to it through the missing border.
+            // Its seven may have been waiting on this entry to settle.
+            SkippedUnloaded++;
             _fields.Remove(chunk);
-            return;
+            _settled.Remove(chunk);
+            SettleAround(chunk, settled: null);
+            return true;
         }
 
-        long started = System.Diagnostics.Stopwatch.GetTimestamp();
-        Gather(chunk, own);
-        long gathered = System.Diagnostics.Stopwatch.GetTimestamp();
-        GatherTicks += gathered - started;
-
-        ChunkSupport? previous = _fields.GetValueOrDefault(chunk);
+        var faces = new SupportFaces();
+        GatherFaces(chunk, faces);
         SupportCostTable costs = _table is null
             ? _dry ??= SupportCostTable.Dry(_materials, _rule)
             : SupportCostTable.Build(chunk, _table, _materials, _rule);
 
-        ChunkSupport field = _derive.Derive(_padded, _materials, _rule, costs, _faces, out SupportDeriveResult result);
-        DeriveTicks += System.Diagnostics.Stopwatch.GetTimestamp() - gathered;
+        _inFlight.Add(chunk);
+        request = new SupportDeriveRequest(chunk, faces, costs, urgent);
+        return true;
+    }
+
+    /// <summary>
+    /// A derive landed: the field is kept, neighbours across a moved layer are queued, a chunk
+    /// that was triggered while in flight goes round again, and every chunk of its seven that is
+    /// now at rest is settled and listed in <paramref name="settled"/>.
+    /// </summary>
+    /// <remarks>
+    /// A result for a chunk that has left is dropped — the region has no field to keep for a
+    /// chunk it cannot read — and one for a chunk that left and came back is kept and requeued,
+    /// because the return marked it stale.
+    /// </remarks>
+    public void Applied(ChunkPos chunk, ChunkSupport field, SupportDeriveResult result, List<ChunkPos>? settled)
+    {
+        ArgumentNullException.ThrowIfNull(field);
+
+        _inFlight.Remove(chunk);
+        bool stale = _staleInFlight.Remove(chunk);
+
         Derives++;
         Pops += result.Pops;
         Pushes += result.Pushes;
@@ -242,6 +476,16 @@ public sealed class SupportRegion
             TrivialDerives++;
         }
 
+        if (!_analysed.Contains(chunk) || _voxels(chunk) is null)
+        {
+            DroppedDeparted++;
+            _fields.Remove(chunk);
+            _settled.Remove(chunk);
+            SettleAround(chunk, settled);
+            return;
+        }
+
+        ChunkSupport? previous = _fields.GetValueOrDefault(chunk);
         _fields[chunk] = field;
 
         for (int face = 0; face < VoxelFace.Count; face++)
@@ -252,9 +496,58 @@ public sealed class SupportRegion
                 continue;
             }
 
-            Enqueue(neighbour);
+            Enqueue(neighbour, SupportTrigger.Neighbour);
+        }
+
+        if (stale)
+        {
+            RequeuedStale++;
+            Enqueue(chunk, SupportTrigger.Edit, countTrigger: false);
+        }
+
+        SettleAround(chunk, settled);
+    }
+
+    /// <summary>A derive that did not land: the chunk is no longer in flight, and goes round again if asked.</summary>
+    public void Abandoned(ChunkPos chunk, bool requeue)
+    {
+        _inFlight.Remove(chunk);
+        bool stale = _staleInFlight.Remove(chunk);
+        if ((requeue || stale) && _analysed.Contains(chunk))
+        {
+            Enqueue(chunk, SupportTrigger.Edit, countTrigger: false);
+        }
+
+        SettleAround(chunk, settled: null);
+    }
+
+    /// <summary>Settles whichever of a chunk's seven is now at rest, listing each whose settled field changed.</summary>
+    private void SettleAround(ChunkPos chunk, List<ChunkPos>? settled)
+    {
+        TrySettle(chunk, settled);
+        for (int face = 0; face < VoxelFace.Count; face++)
+        {
+            TrySettle(Across(chunk, face), settled);
         }
     }
+
+    private void TrySettle(ChunkPos chunk, List<ChunkPos>? settled)
+    {
+        if (!_fields.TryGetValue(chunk, out ChunkSupport? field) || !IsSettled(chunk))
+        {
+            return;
+        }
+
+        if (_settled.TryGetValue(chunk, out ChunkSupport? already) && ReferenceEquals(already, field))
+        {
+            return;
+        }
+
+        _settled[chunk] = field;
+        settled?.Add(chunk);
+    }
+
+    private bool IsPendingOrInFlight(ChunkPos chunk) => _queued.Contains(chunk) || _inFlight.Contains(chunk);
 
     /// <summary>
     /// Whether the layer a neighbour reads across <paramref name="face"/> differs from what it
@@ -281,7 +574,7 @@ public sealed class SupportRegion
         return !_before.AsSpan().SequenceEqual(_after);
     }
 
-    private void Gather(ChunkPos chunk, VoxelChunk own)
+    private void GatherNeighbourhood(ChunkPos chunk)
     {
         for (int dz = -1; dz <= 1; dz++)
         {
@@ -289,41 +582,64 @@ public sealed class SupportRegion
             {
                 for (int dy = -1; dy <= 1; dy++)
                 {
-                    _neighbourhood[PaddedChunk.NeighbourIndex(dx, dy, dz)] =
-                        dx == 0 && dy == 0 && dz == 0 ? own : _voxels(chunk.Offset(dx, dy, dz));
+                    _neighbourhood[PaddedChunk.NeighbourIndex(dx, dy, dz)] = _voxels(chunk.Offset(dx, dy, dz));
                 }
             }
         }
 
         _padded.CopyFrom(_neighbourhood, PaddedChunk.MissingMaterial);
+    }
 
+    /// <summary>The six faces as the join sees them now: anchored, a neighbour's layer, or nothing yet.</summary>
+    private void GatherFaces(ChunkPos chunk, SupportFaces faces)
+    {
         for (int face = 0; face < VoxelFace.Count; face++)
         {
             ChunkPos neighbour = Across(chunk, face);
             if (!_analysed.Contains(neighbour))
             {
-                _faces.Anchor(face);
+                faces.Anchor(face);
             }
             else if (_fields.TryGetValue(neighbour, out ChunkSupport? field))
             {
-                _faces.From(face, field);
+                faces.From(face, field);
             }
             else if (_voxels(neighbour) is null)
             {
-                _faces.Anchor(face);
+                faces.Anchor(face);
             }
             else
             {
-                _faces.Unreached(face);
+                faces.Unreached(face);
             }
         }
     }
 
-    private void Enqueue(ChunkPos chunk)
+    private void Enqueue(ChunkPos chunk, SupportTrigger trigger, bool countTrigger = true)
     {
-        if (_queued.Add(chunk))
+        if (trigger == SupportTrigger.Edit)
         {
-            _queue.Enqueue(chunk);
+            _urgent.Add(chunk);
+        }
+
+        bool changed;
+        if (_inFlight.Contains(chunk))
+        {
+            // The derive out on a worker read a snapshot older than this: its landing requeues.
+            changed = _staleInFlight.Add(chunk);
+        }
+        else
+        {
+            changed = _queued.Add(chunk);
+            if (changed)
+            {
+                _queue.Enqueue(chunk);
+            }
+        }
+
+        if (changed && countTrigger)
+        {
+            _triggers[(int)trigger]++;
         }
     }
 

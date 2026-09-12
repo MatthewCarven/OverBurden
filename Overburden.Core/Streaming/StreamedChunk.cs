@@ -295,6 +295,12 @@ public sealed class StreamedChunk
     public bool HasLiveMesh { get; internal set; }
 
     /// <summary>
+    /// The settled support field the mesh in flight or on screen was built with (M9b), or null
+    /// for none — what a later settle is compared against to decide whether the tint moved.
+    /// </summary>
+    public Structure.ChunkSupport? SupportMeshed { get; internal set; }
+
+    /// <summary>
     /// How many submitted jobs have yet to report a result for this chunk.
     /// </summary>
     /// <remarks>

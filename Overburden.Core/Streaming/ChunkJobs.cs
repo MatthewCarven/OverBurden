@@ -66,6 +66,7 @@ public sealed class MeshChunkJob : IJob
     private readonly MaterialTable _materials;
     private readonly bool _ambientOcclusion;
     private readonly PaddedLight? _light;
+    private readonly Structure.ChunkSupport? _support;
 
     /// <param name="urgent">
     /// A remesh the player is waiting on, rather than one the streamer asked for. Raises
@@ -81,13 +82,18 @@ public sealed class MeshChunkJob : IJob
     /// before this job was submitted</b> rather than referenced. Null restores the pre-M5c
     /// shade, for the A/B that prices light in the merge key.
     /// </param>
+    /// <param name="support">
+    /// The chunk's settled support field (M9b), by reference — immutable, so no copy — or null
+    /// for no strain. The mesher tints the faces of its at-risk voxels.
+    /// </param>
     public MeshChunkJob(
         ChunkPos position,
         VoxelChunk?[] neighbourhood,
         MaterialTable materials,
         bool urgent = false,
         bool ambientOcclusion = true,
-        PaddedLight? light = null)
+        PaddedLight? light = null,
+        Structure.ChunkSupport? support = null)
     {
         if (neighbourhood.Length != PaddedChunk.NeighbourhoodSize)
         {
@@ -101,6 +107,7 @@ public sealed class MeshChunkJob : IJob
         _materials = materials;
         _ambientOcclusion = ambientOcclusion;
         _light = light;
+        _support = support;
         Urgency = urgent ? EditUrgency : (byte)0;
     }
 
@@ -133,7 +140,7 @@ public sealed class MeshChunkJob : IJob
         cancellation.ThrowIfCancellationRequested();
 
         var mesh = new ChunkMesh();
-        new GreedyMesher(_ambientOcclusion).Build(padded, _materials, mesh, _light);
+        new GreedyMesher(_ambientOcclusion).Build(padded, _materials, mesh, _light, _support);
         Result = mesh;
     }
 }

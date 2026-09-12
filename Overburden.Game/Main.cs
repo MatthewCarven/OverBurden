@@ -15,6 +15,7 @@ using Overburden.Core.Mining;
 using Overburden.Core.Persistence;
 using Overburden.Core.Physics;
 using Overburden.Core.Streaming;
+using Overburden.Core.Structure;
 using Overburden.Core.Voxels;
 using Overburden.Core.Worldgen;
 using Overburden.Game.Diagnostics;
@@ -518,6 +519,48 @@ public partial class Main : Node3D
 
     private bool _breached;
 
+    // ---------------------------------------------------------------- M9b: the support field in the loop
+
+    /// <summary><c>--support=0</c> builds no region: no derives, no tint, the pre-M9b arm and the control.</summary>
+    private bool _supportOn = true;
+
+    /// <summary><c>--supporttint=0</c> derives everything and hands the mesher nothing — the tint's control.</summary>
+    private bool _supportTint = true;
+
+    /// <summary>The analysed set, the fields and the join; the pipeline pumps its queue.</summary>
+    private SupportRegion? _support;
+
+    /// <summary><c>--bitechunks=&lt;n&gt;</c>: an n × n square of chunks bitten under the player once the window opens.</summary>
+    private int _biteChunks;
+
+    /// <summary>
+    /// <c>--bitedepth=&lt;chunks&gt;</c>: how many chunks below the player's the bite's top face sits.
+    /// Three, because the strata are a metre of soil over stone and a bite one chunk down has a
+    /// roof that is partly soil in most columns — fixture 4's picture, where the oracle is the
+    /// stone plug of fixture 2.
+    /// </summary>
+    private int _biteDepth = 3;
+
+    /// <summary><c>--inbite</c>: drop the camera into the bite's centre when it lands, so a screenshot looks up at the roof.</summary>
+    private bool _inBite;
+
+    private bool _bitten;
+    private double _supportSeconds;
+    private bool _supportOpenReported;
+    private bool _supportWarmSeen;
+    private long _supportDerivesAtWarm;
+    private long _supportRegionDerivesAtWarm;
+    private long _supportTrivialAtWarm;
+    private long _supportRequeuedAtWarm;
+    private long _supportDroppedAtWarm;
+    private double _supportWorkerAtWarm;
+    private double _supportCopyAtWarm;
+    private double _supportGatherAtWarm;
+    private double _supportApplyAtWarm;
+    private int _strainRemeshesAtWarm;
+    private int _strainUnchangedAtWarm;
+    private readonly long[] _supportTriggersAtWarm = new long[5];
+
     /// <summary>The basin the breach went into, and its pit's sample — printed on the breach line with what it holds now.</summary>
     private int _breachBasin = Watershed.Outlet;
     private (int X, int Z) _breachSample;
@@ -912,6 +955,7 @@ public partial class Main : Node3D
             });
 
         SetUpFluid(windowed);
+        SetUpSupport();
 
         // Whatever the world remembered the player carrying. Before the first swing, so that a
         // reopened world can place from what it was already holding.
@@ -1262,6 +1306,30 @@ public partial class Main : Node3D
                     break;
                 case "breach" when int.TryParse(value, out int breach) && breach > 0:
                     _breachVoxels = breach;
+                    break;
+
+                // M9b: the support field's switches. --support=0 is the control arm — no region,
+                // no derives, no tint; --supporttint=0 keeps the derives and leaves the mesh alone,
+                // which prices the tint's remeshes apart from the derives and is the look's control.
+                case "support" when int.TryParse(value, out int support):
+                    _supportOn = support != 0;
+                    break;
+                case "supporttint" when int.TryParse(value, out int supportTint):
+                    _supportTint = supportTint != 0;
+                    break;
+
+                // M9b's provocation: an n × n square of chunks bitten under the player when the
+                // window opens, through the edit path, --breach's shape one scale up. Depth in
+                // chunks below the player's; --inbite drops the camera into it for the screenshot,
+                // because a plug is an underside and no view from the surface shows it.
+                case "bitechunks" when int.TryParse(value, out int biteChunks) && biteChunks > 0:
+                    _biteChunks = biteChunks;
+                    break;
+                case "bitedepth" when int.TryParse(value, out int biteDepth) && biteDepth > 0:
+                    _biteDepth = biteDepth;
+                    break;
+                case "inbite":
+                    _inBite = true;
                     break;
 
                 // M8c-2: the seepage rate's sweep, rainfallScale's shape. Zero is off — no index,
@@ -2042,6 +2110,7 @@ public partial class Main : Node3D
 
         UpdateMining(delta);
         UpdatePlacement(delta);
+        UpdateSupport(delta);
 
         // The viewer only moves in whole chunks. Comparing first means a camera drifting
         // inside one chunk never touches the streaming policy at all.
@@ -2099,6 +2168,12 @@ public partial class Main : Node3D
                 _remeshesAtWarm = _pipeline.EditRemeshes;
                 _relightsAtWarm = _pipeline.RelightRemeshes;
                 _sweepsAtWarm = _scheduler!.Sweeps;
+            }
+
+            if (!_supportWarmSeen)
+            {
+                _supportWarmSeen = true;
+                SnapshotSupportAtWarm();
             }
 
             _profiler.PipelineUpdate.Add(Milliseconds(before, afterUpdate));
@@ -3204,6 +3279,7 @@ public partial class Main : Node3D
             PlacementLines() +
             PersistenceLines() +
             CacheLines() +
+            SupportLines() +
             WeatherLines() +
             _profiler.PlayerLines(_profiler.MeasuredSeconds) +
             $"{StreamingProfiler.RenderLine()}\n" +
@@ -3384,6 +3460,227 @@ public partial class Main : Node3D
                + $"({_water.Pitch}x{_water.Pitch} samples), {_water.WindowsInstalled} installed"
                + $"{flight}\n"
                + surface;
+    }
+
+    // ---------------------------------------------------------------- M9b: the support field in the loop
+
+    /// <summary>
+    /// Builds the region and hands it to the pipeline, which pumps its queue into detached
+    /// derives and tells it what its own hooks see: arrivals, edits, forgets.
+    /// </summary>
+    /// <remarks>
+    /// After the water, because the cost table reads the table at submission (M9-PLAN decision 5)
+    /// — <c>WaterSystem</c> is the <see cref="IWaterTable"/>, or nothing under <c>--nowater</c>.
+    /// The table-move trigger is M9d's; a lake that rises over a settled roof afterwards is not
+    /// re-derived until something else touches the roof, and that is stated so nobody reads it
+    /// as a defect before then.
+    /// </remarks>
+    private void SetUpSupport()
+    {
+        if (_pipeline is null || _materials is null)
+        {
+            return;
+        }
+
+        if (!_supportOn)
+        {
+            GD.Print("M9: support is off (--support=0) — no region, no derives, no tint; the control arm");
+            return;
+        }
+
+        ChunkStreamer streamer = _pipeline.Streamer;
+        _support = new SupportRegion(position => streamer.Get(position)?.Voxels, _materials, SupportRule.Default, _water);
+        _pipeline.Support = _support;
+        _pipeline.SupportTint = _supportTint;
+        GD.Print(
+            $"M9: support field on — K = {SupportRule.MaxBudget}, refund every {SupportRule.Default.RestRefundVoxels} voxel(s) of rest; "
+            + "a dug chunk and its six face neighbours are analysed, derives run as detached jobs at most "
+            + $"{ChunkPipeline.MaxSupportSubmissionsPerFrame} a frame, and the tint reads settled fields only "
+            + $"({(_supportTint ? "tint on" : "tint off, --supporttint=0")}; --support=0 is the control)");
+    }
+
+    /// <summary>The bite provocation, and the <c>M9: at open</c> line once.</summary>
+    private void UpdateSupport(double delta)
+    {
+        if (_support is null || _pipeline is null)
+        {
+            return;
+        }
+
+        _supportSeconds += delta;
+        BiteChunksIfDue();
+
+        // Once, when the fill has lit and every derive the open queued has landed — the moment
+        // the at-risk count is the world's rather than a round's. A named world's open is what
+        // this prints for; on the seed world it prints a zero with its denominator.
+        if (!_supportOpenReported
+            && _support.Derives > 0
+            && _support.Pending == 0
+            && _pipeline.SupportDerivesInFlight == 0
+            && !_pipeline.LightInFlight)
+        {
+            _supportOpenReported = true;
+            GD.Print(
+                $"M9: at open — {_support.Derives:N0} derive(s) ({_support.Derives - _support.TrivialDerives:N0} searched) over "
+                + $"{_support.Analysed.Count:N0} analysed chunk(s) in {_supportSeconds:F1} s; "
+                + $"{_support.SettledAtRiskVoxels:N0} voxel(s) at risk in {_support.SettledAtRiskChunks:N0} chunk(s), "
+                + $"{_support.FieldCount:N0} field(s) holding {_support.FieldBytes / 1024.0:N0} KiB; "
+                + $"worker mean {(_pipeline.SupportDerivesApplied > 0 ? _pipeline.SupportWorkerMillis / _pipeline.SupportDerivesApplied : 0):F2} ms "
+                + $"max {_pipeline.SupportWorkerMillisMax:F2} ms");
+        }
+    }
+
+    /// <summary>
+    /// Bites an n × n square of chunks, one chunk deep, under the player when the window opens —
+    /// the breach's shape one scale up, and the bench's fixture 2 for n = 2 — so a headless run
+    /// has a roof to read and a screenshot has an underside to look at.
+    /// </summary>
+    private void BiteChunksIfDue()
+    {
+        if (_bitten || _biteChunks <= 0 || _pipeline is null || _support is null)
+        {
+            return;
+        }
+
+        bool due = _profiler is null ? _supportSeconds >= 3.0 : _profiler.Warm;
+        if (!due)
+        {
+            return;
+        }
+
+        _bitten = true;
+        ChunkPos centre = PlayerVoxel().Chunk;
+        int half = _biteChunks / 2;
+        var min = new ChunkPos(centre.X - half, centre.Y - _biteDepth, centre.Z - half);
+        var max = new ChunkPos(min.X + _biteChunks - 1, min.Y, min.Z + _biteChunks - 1);
+
+        long before = Stopwatch.GetTimestamp();
+        int removed = 0;
+        int unloaded = 0;
+        for (int cz = min.Z; cz <= max.Z; cz++)
+        for (int cy = min.Y; cy <= max.Y; cy++)
+        for (int cx = min.X; cx <= max.X; cx++)
+        {
+            var chunk = new ChunkPos(cx, cy, cz);
+            if (_pipeline.Streamer.Get(chunk)?.Voxels is null)
+            {
+                unloaded++;
+                continue;
+            }
+
+            VoxelPos origin = chunk.OriginVoxel;
+            for (int z = 0; z < VoxelConstants.ChunkSize; z++)
+            for (int x = 0; x < VoxelConstants.ChunkSize; x++)
+            for (int y = 0; y < VoxelConstants.ChunkSize; y++)
+            {
+                if (_pipeline.SetVoxel(origin.Offset(x, y, z), MaterialIds.AirNumericId))
+                {
+                    removed++;
+                }
+            }
+        }
+
+        GD.Print(
+            $"M9: bit a {_biteChunks}x{_biteChunks} square of chunks from {min} to {max}, {_biteDepth} chunk(s) under "
+            + $"the player's, in {Milliseconds(before, Stopwatch.GetTimestamp()):F1} ms: {removed:N0} voxel(s) removed, "
+            + $"{unloaded} chunk(s) not loaded; {_support.Analysed.Count:N0} analysed, {_support.Pending:N0} queued (--bitechunks)");
+
+        if (_inBite && _camera is not null)
+        {
+            // The centre of the bitten block, in metres: a plug is an underside, and no view from
+            // the surface shows one. The flythrough leaves the camera alone at --speed=0.
+            VoxelPos lo = min.OriginVoxel;
+            VoxelPos hi = max.OriginVoxel.Offset(VoxelConstants.ChunkSize, VoxelConstants.ChunkSize, VoxelConstants.ChunkSize);
+            _camera.GlobalPosition = new Vector3(
+                (lo.X + hi.X) * 0.5f * VoxelConstants.VoxelSize,
+                (lo.Y + hi.Y) * 0.5f * VoxelConstants.VoxelSize,
+                (lo.Z + hi.Z) * 0.5f * VoxelConstants.VoxelSize);
+            GD.Print($"M9: the camera is in the bite at {_camera.GlobalPosition} (--inbite)");
+        }
+    }
+
+    private void SnapshotSupportAtWarm()
+    {
+        if (_support is null || _pipeline is null)
+        {
+            return;
+        }
+
+        _supportDerivesAtWarm = _pipeline.SupportDerivesApplied;
+        _supportRegionDerivesAtWarm = _support.Derives;
+        _supportTrivialAtWarm = _support.TrivialDerives;
+        _supportRequeuedAtWarm = _support.RequeuedStale;
+        _supportDroppedAtWarm = _support.DroppedDeparted;
+        _supportWorkerAtWarm = _pipeline.SupportWorkerMillis;
+        _supportCopyAtWarm = _pipeline.SupportCopyMillis;
+        _supportGatherAtWarm = _pipeline.SupportGatherMillis;
+        _supportApplyAtWarm = _pipeline.SupportApplyMillis;
+        _strainRemeshesAtWarm = _pipeline.StrainRemeshes;
+        _strainUnchangedAtWarm = _pipeline.StrainSettlesUnchanged;
+        for (int i = 0; i < _supportTriggersAtWarm.Length; i++)
+        {
+            _supportTriggersAtWarm[i] = _support.Triggered((SupportTrigger)i);
+        }
+    }
+
+    /// <summary>The periodic <c>M9:</c> line: the analysed set, the derives by cause, the barrier, and what is at risk.</summary>
+    private string SupportSummary()
+    {
+        SupportRegion r = _support!;
+        ChunkPipeline p = _pipeline!;
+        long applied = p.SupportDerivesApplied;
+        return $"{r.Analysed.Count:N0} analysed ({r.Dug.Count:N0} dug), {r.FieldCount:N0} field(s) holding {r.FieldBytes / 1024.0:N0} KiB; "
+               + $"{r.Derives:N0} derive(s) — {r.Derives - r.TrivialDerives:N0} searched, {r.TrivialDerives:N0} closed-form, "
+               + $"{r.RequeuedStale:N0} requeued stale, {r.DroppedDeparted:N0} dropped departed — by cause "
+               + $"edit {r.Triggered(SupportTrigger.Edit):N0} / arrival {r.Triggered(SupportTrigger.Arrival):N0} / "
+               + $"neighbour {r.Triggered(SupportTrigger.Neighbour):N0} / departure {r.Triggered(SupportTrigger.Departure):N0} / "
+               + $"table {r.Triggered(SupportTrigger.Table):N0}; "
+               + $"{p.SupportDerivesInFlight:N0} in flight, {r.Pending:N0} pending, {r.Unsettled:N0} unsettled; "
+               + $"worker mean {(applied > 0 ? p.SupportWorkerMillis / applied : 0):F2} ms max {p.SupportWorkerMillisMax:F2} ms "
+               + $"(copy {(applied > 0 ? p.SupportCopyMillis / applied : 0):F2}), sim gather {(p.SupportDerivesSubmitted > 0 ? p.SupportGatherMillis / p.SupportDerivesSubmitted : 0):F3} ms apply {(applied > 0 ? p.SupportApplyMillis / applied : 0):F3} ms; "
+               + $"at risk {r.SettledAtRiskVoxels:N0} voxel(s) in {r.SettledAtRiskChunks:N0} settled chunk(s) "
+               + $"({r.AtRiskVoxels:N0} in {r.AtRiskChunks:N0} counting unsettled); "
+               + $"{p.StrainRemeshes:N0} tint remesh(es), {p.StrainSettlesUnchanged:N0} settle(s) changed nothing on screen"
+               + (p.SupportDerivesFaulted > 0 ? $"; *** {p.SupportDerivesFaulted} derive(s) FAULTED ***" : string.Empty);
+    }
+
+    /// <summary>The profile's <c>support</c> line, with the window's own denominators.</summary>
+    private string SupportLines()
+    {
+        if (_support is null || _pipeline is null)
+        {
+            return $"support   no support field ({(_supportOn ? "no world" : "--support=0")})\n";
+        }
+
+        SupportRegion r = _support;
+        ChunkPipeline p = _pipeline;
+        double seconds = Math.Max(_profiler!.MeasuredSeconds, 0.001);
+        long applied = p.SupportDerivesApplied - _supportDerivesAtWarm;
+        long derives = r.Derives - _supportRegionDerivesAtWarm;
+        long trivial = r.TrivialDerives - _supportTrivialAtWarm;
+        double worker = p.SupportWorkerMillis - _supportWorkerAtWarm;
+        double copy = p.SupportCopyMillis - _supportCopyAtWarm;
+        double gather = p.SupportGatherMillis - _supportGatherAtWarm;
+        double apply = p.SupportApplyMillis - _supportApplyAtWarm;
+        string causes = string.Join(" / ", Enum.GetValues<SupportTrigger>().Select(
+            t => $"{t.ToString().ToLowerInvariant()} {r.Triggered(t) - _supportTriggersAtWarm[(int)t]:N0}"));
+
+        return $"support   {r.Analysed.Count:N0} analysed ({r.Dug.Count:N0} dug), {r.FieldCount:N0} field(s) holding {r.FieldBytes / 1024.0:N0} KiB; "
+               + $"{derives:N0} derive(s) in the window ({derives / seconds:F1}/s) — {derives - trivial:N0} searched, {trivial:N0} closed-form, "
+               + $"{r.RequeuedStale - _supportRequeuedAtWarm:N0} requeued stale, {r.DroppedDeparted - _supportDroppedAtWarm:N0} dropped departed, "
+               + $"{r.Derives:N0} in all — queued by cause {causes}; "
+               + $"{p.SupportDerivesInFlight:N0} in flight, {r.Pending:N0} pending, {r.Unsettled:N0} unsettled at the end; "
+               + $"worker mean {(applied > 0 ? worker / applied : 0):F2} ms max {p.SupportWorkerMillisMax:F2} ms "
+               + $"(copy {(applied > 0 ? copy / applied : 0):F2} ms), {worker / seconds / 10.0:F2}% of one worker; "
+               + $"sim gather {(applied > 0 ? gather / Math.Max(1, p.SupportDerivesSubmitted - _supportDerivesAtWarm) : 0):F3} ms "
+               + $"apply {(applied > 0 ? apply / applied : 0):F3} ms a derive, {(gather + apply) / seconds / 10.0:F3}% of the sim thread; "
+               + $"at risk {r.SettledAtRiskVoxels:N0} voxel(s) in {r.SettledAtRiskChunks:N0} settled chunk(s) "
+               + $"({r.AtRiskVoxels:N0} in {r.AtRiskChunks:N0} counting unsettled); "
+               + $"{p.StrainRemeshes - _strainRemeshesAtWarm:N0} tint remesh(es) in the window, "
+               + $"{p.StrainSettlesUnchanged - _strainUnchangedAtWarm:N0} settle(s) changed nothing on screen"
+               + $"{(_supportTint ? string.Empty : " (tint off, --supporttint=0)")}"
+               + (p.SupportDerivesFaulted > 0 ? $"; *** {p.SupportDerivesFaulted} derive(s) FAULTED ***" : string.Empty)
+               + "\n";
     }
 
     // ---------------------------------------------------------------- M8b: Tier B in the loop
@@ -4858,6 +5155,7 @@ public partial class Main : Node3D
 
         if (_water is not null) GD.Print($"M7d: {WaterSummary()}");
         if (_fluid is not null) GD.Print($"M8b: {FluidSummary()}");
+        if (_support is not null) GD.Print($"M9: {SupportSummary()}");
     }
 
     /// <summary>
