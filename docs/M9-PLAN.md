@@ -605,6 +605,11 @@ stone chunk over it as the ceiling — analysed, so it hung from its own top and
 dead before the column began; an unloaded chunk anchors, a loaded one is analysed, and the
 difference is the whole of decision 3. Neither was a code defect; the verifier passed both.
 
+**Matthew, on the seventh picture (2026-09-12):** *"isn't an issue, feel free to make dangerous any
+old save"* — the shell stays as built, and the played world gets no grace at open: what the field
+says is at risk in a chunk-bitten void is at risk, and M9c drops it. Decision 7's barrier is the
+only protection an old save gets, and it is a barrier against a transient, not a migration.
+
 **For M9b, three things this leaves on the table:** the gather is a fifth of a derive and is
 `PaddedChunk.CopyFrom` through `VoxelChunk.Get` — the same lever M5c-1 named for light and did not
 build; a chunk under a water table rebuilds its 3 KiB cost table every derive, which is

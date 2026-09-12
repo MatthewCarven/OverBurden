@@ -601,8 +601,9 @@ floor, because the floor as a source held a mid-air chunk's top and then made a 
 oracle accepted; an unloaded chunk anchors and a loaded one beside a dug one is analysed, which two
 test fixtures got wrong before the code did; and the bench's per-derive figure is 3× at JIT tier 0,
 so `--support` wants `DOTNET_TieredCompilation=0` and says which arm it ran.** The natural-cave row
-sheds nothing on the first bite — the cave's ceiling is beyond the shell — and that is decision 3's
-cost for the play to judge. The paragraph below is the state before the build, kept for the
+sheds nothing on the first bite — the cave's ceiling is beyond the shell — and Matthew's verdict on
+it is *"isn't an issue, feel free to make dangerous any old save"*: the shell stays, and the played
+world gets no grace at open. The paragraph below is the state before the build, kept for the
 reasoning.
 
 **Earlier (2026-09-11, last). M9 is planned and all twelve decisions are taken — *"As

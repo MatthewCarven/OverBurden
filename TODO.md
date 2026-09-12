@@ -4868,10 +4868,14 @@ the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
       Suite 1,296 → 1,319; eleven recipes, ten caught, one identity.
       - [ ] **Lever, named and not built:** the gather is a fifth of a derive and is
             `PaddedChunk.CopyFrom` through `VoxelChunk.Get` — M5c-1's lever for light, unbuilt there too.
-      - [ ] **Decision 3's cost in a number, for the play:** the bench's natural-cave row sheds
-            nothing on the first bite because the cave's ceiling is in the chunk beyond the shell —
-            the second bite may bring the cave's whole ceiling down. *"Don't disturb the old
-            workings"* is the play question.
+      - [x] **Decision 3's cost in a number, and Matthew's answer (2026-09-12):** the bench's
+            natural-cave row sheds nothing on the first bite because the cave's ceiling is in the
+            chunk beyond the shell, and the second bite may bring it all down. *"Isn't an issue,
+            feel free to make dangerous any old save"* — so the shell stays as built, and **the
+            played world gets no grace at open**: a 264 × 304 m chunk-bitten void will be at risk
+            wherever the field says so the moment M9b derives it, and M9c will drop it. No
+            migration, no per-world switch. The one thing that still stands is decision 7's
+            barrier — nothing falls until a chunk and its six neighbours have derived.
 - [ ] **M9b — the wiring.** Analysed set, derive job, four triggers, the join, the strain tint,
       `M9:` line, `--support=0`, `--bitechunks=<n>`. Check: a 2 × 2 bite reads `at risk 20`.
       **Wants its own planning pass against `SupportRegion`** — the join's queue is the

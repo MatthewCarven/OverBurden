@@ -78,6 +78,12 @@ any curve it could not interpolate, `lamp.json` 4 → 8, `MaterialTable.SupportD
 projection, `MaterialTable.IsSolid` the complement of Tier B's holdable. `PaddedChunk.MissingMaterial`
 moved down from `SeepNeighbourhood` so the seep scan and the support derive read one constant.
 
+**The seventh picture put to Matthew, same day: *"isn't an issue, feel free to make dangerous any old
+save."*** So the shell stays as built for the caves' sake, and the played world — 4,584 stored
+chunks, a 264 × 304 m void bitten 64 m deep — gets no grace at open: wherever the field says at risk,
+M9c drops it. No migration, no per-world switch; decision 7's barrier is against a transient, not
+an old save.
+
 M9b is next and wants its own pass against `SupportRegion`; the TODO names what it inherits.
 
 ## 2026-09-11 — M9's planning pass: no bedrock, and no arch
