@@ -1,5 +1,83 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-13 — M9c-1a built: the fall, the timer and the water's two terms, in Core
+
+*"M9c-1's build please Claude"* — and, mid-turn, *"if you want to do this as smaller pieces and
+give yourself the plan for next iteration i'd be fine with that"*. Taken: **c-1a is Core and its
+battery, c-1b is the wire** — `Main`'s flags and lines, the boundary block, the unstick, the bench's
+`--collapse` arm, the headless oracle — and c-1b's brief is in TODO under M9c-1. Suite 1,332 →
+1,360; twenty-two recipes, twenty-one caught and one an identity — the return's remainder path,
+which the arithmetic says nothing reaches; two of the catches are tests written after the first
+run (arming from a stale snapshot between a fire and its settle, a departed chunk's timer). Nothing in `Main`, nothing on the bench, no flag: a
+world opened today marks its roofs and drops none of them.
+
+**What is built.** `Overburden.Core/Structure/Collapse.cs` is the act — `Collapse.TryFall(region,
+chunk, world, materials, rubbleId, water, out result)` — and `CollapseScheduler.cs` the sweep
+(`Sweep(worldMillis)`: arm, disarm, fire, returning the falls with a cascade flag), with
+`CollapseWindow` as the delay (`lerp(max, min, deficit / K) × U(0.5, 1.5)` in world seconds off
+`Hash64.ForChunk(seed ^ worldMillis, chunk)`). `SupportRegion.TryReadSettled` is decision 2's gate
+and `SettledFields` what the sweep walks. `ICollapseWater` in `Core/Fluid/` is the water's three
+calls plus the fluid-ready question; `FluidSimulation.Collapse.cs` implements it — `Lift` is
+`Take`'s twin, `Return` is `Add`'s, `DisplaceLifted` adds to `displaced`, `IsReady` asks the
+terrain's `IsLoaded` at the chunk's origin — and `FluidPublished` carries `Lifted` and `Returned`.
+`mods/overburden/materials/rubble.json` is decision 7's numbers, with a fifth `LayerColour` and
+jitter. `SupportTestWorld` gained rubble, a census (solid count and `Σ(Y)`) and an `Editor` that is
+the pipeline's hook chain in miniature.
+
+**Five things the build found, each by a test failing first:**
+
+- **The barrier makes a plug fall one roof per boundary, and that is the design working.** The
+  plug straddles four roof chunks; the first roof's fall is an edit that requeues it and its six,
+  and the other three roofs are its neighbours — so they read *unsettled* and wait for the next
+  boundary. Every fixture with more than one firing chunk had to settle between fires. In play a
+  2 × 2 plug comes down over four boundaries (two seconds) and a 4 × 4 room piece by piece at
+  2 Hz, each piece's fall unsettling the next, which reads as crumbling and costs no cascade rule.
+- **The dirt roof cascades, and not the way the plan said.** The plan had "a wedge's core is
+  unreached, so each stage re-arms at the minimum" for a 4 × 4 room; the field says a stone or dirt
+  wedge under anchored walls is *one* fall — every held voxel above it has a sideways path through
+  held voxels (the field is `120 − 15(d + 1) + 4k` under dirt, and the column at `d = 7` is held all
+  the way up). The cascade the fixture actually shows is decision 3's: the fall marks the roof chunk
+  *dug*, the stone chunk above joins the analysed set, its own field is 56 at the centre against the
+  anchor's 120, and the centre voxels the top face held at exactly 0 come loose — 3,152, then 8,
+  then nothing. Recorded as the test's own numbers; the plan's paragraph wants amending in c-1b.
+- **A stone chunk over an unloaded chunk falls twice**, as the pass recorded rather than built:
+  the rubble rests on the loaded edge as on rock, the timer is cleared; when the chunk below arrives
+  (air) the rubble's chunk is analysed against it, reads unreached, re-arms at the minimum and falls
+  again. Now a test, and the one fixture that exercises "cleared at a fall and re-armed from the new
+  deficit" in this rule.
+- **Two runs in one column need arithmetic, not a second walk**: the upper run's drop is where
+  the lower one landed plus its length, because the world between them is air by construction (a
+  held voxel cannot sit under an at-risk one) and reading it again after the lower's writes is an
+  identity that costs a walk.
+- **The plan's "16 columns of one rubble, four of two" is 12 and 4** — twenty voxels, sixteen
+  columns. The test says which.
+
+**Timers are cleared for every chunk a fall fell from**, not only the firing chunk — a slight
+extension of decision 3, because the chunks a run reached into have a new deficit too; a neighbour
+that did not fall keeps its timer, and the two-stage stack test pins both halves.
+
+**Numbers, Debug, from the suite**: the plug's four fires plus the settles between are ~0.6 s;
+the 65,536-voxel stack falls as one in the same; the fuzz's three seeds run to `at risk 0` with
+`Σ(Y)` down at every sweep and the count exact. The fall's own ms in the game is c-1b's to take.
+
+**c-1b, in order**: `--collapse=<0|1>` and `--collapseafter=<min>,<max>` parsed beside `--support`;
+the scheduler built in `SetUpSupport` over `_pipeline` as the `IVoxelEditor`, `_fluid` as the
+water (null under `--nowater`), `_settings.Seed` and `_clock.ElapsedMillis`; `SweepCollapse()` in
+`UpdateFluid`'s `begin` block after `PourPending()` and before `_field.Sync`, and from
+`UpdateSupport` every frame when `_fluid is null`; one `M9: fell …` line per `CollapseFire` (chunk,
+voxels, columns, deepest drop, litres lifted / returned, `cascade` when flagged); the `M9:` line and
+the `support` profile line gaining `armed / due / waiting (unsettled N, fluid-pending N)`, `fired`,
+`voxels fallen` with the mean drop, `stale skipped`, `lifted / returned L`, `freed / buried`;
+`M8b:`'s identity line carrying `lifted` and `returned` off `Published`; the unstick after any fall
+whose `Written` chunks overlap the body — `VoxelCollider.OverlapsSolid` on `_player.State.Box`,
+`PlayerSpawn.TryUnstick`, `_player.Teleport(freed.FeetCentre)`, `M9: the player was freed N m up`
+or `M9: the player is buried`; the bench's `--collapse` arm on `--support` (a `DictionaryEditor`
+telling the region and the automaton, `Σ(Y)` before and after, the picture after beside the
+picture before, fixture 2 flooded through `VoxelFluidTerrain`); then the headless oracle
+`--bitechunks=2 --collapseafter=1,2` → `fell 20 voxel(s)`, `at risk 0`, the r6 control to the
+digit, `--nowater` the same fall with no water lines; then M9-PLAN's "M9c-1 — built" section and
+CLAUDE.md's pick-up paragraph.
+
 ## 2026-09-13 — M9c-1 planned: a run falls as one, and the snapshot is not the gate
 
 *"M9c-1 planning pass please Claude"* — decisions 6–9 and 12's M9c row read against the built

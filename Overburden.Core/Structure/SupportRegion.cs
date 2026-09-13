@@ -215,6 +215,28 @@ public sealed class SupportRegion
     /// </summary>
     public ChunkSupport? SettledField(ChunkPos chunk) => _settled.GetValueOrDefault(chunk);
 
+    /// <summary>
+    /// The field a collapse may read (M9c-1, decision 2): the chunk's field only when the chunk is
+    /// settled <em>now</em>, in which case it is the live field, derived from voxels no edit has
+    /// touched since. False for a chunk with no field, and for one whose snapshot is the last
+    /// settle's — a chunk mined since its timer armed is unsettled, and a fall reading its stale
+    /// snapshot would put rubble at a landing for a voxel that is air.
+    /// </summary>
+    public bool TryReadSettled(ChunkPos chunk, out ChunkSupport field)
+    {
+        if (_settled.TryGetValue(chunk, out ChunkSupport? settled) && IsSettled(chunk))
+        {
+            field = settled;
+            return true;
+        }
+
+        field = null!;
+        return false;
+    }
+
+    /// <summary>The settled snapshots by chunk — what the collapse sweep walks. Not a copy: do not mutate the region while enumerating.</summary>
+    public IReadOnlyDictionary<ChunkPos, ChunkSupport> SettledFields => _settled;
+
     /// <summary>Whether the chunk and its analysed face neighbours are all neither queued nor in flight.</summary>
     public bool IsSettled(ChunkPos chunk)
     {

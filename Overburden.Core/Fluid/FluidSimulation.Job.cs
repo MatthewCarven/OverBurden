@@ -292,7 +292,9 @@ public sealed partial class FluidSimulation
             RemovedMillilitres,
             DisplacedMillilitres,
             HandedMillilitres,
-            EvictedMillilitres);
+            EvictedMillilitres,
+            LiftedMillilitres,
+            ReturnedMillilitres);
     }
 
     /// <summary>Refuses a read of state a worker is writing.</summary>
@@ -336,7 +338,9 @@ public readonly record struct FluidPublished(
     long Removed,
     long Displaced,
     long Handed,
-    long Evicted)
+    long Evicted,
+    long Lifted,
+    long Returned)
 {
     /// <summary><c>held == injected + drawn + loaded − removed − displaced − handed − evicted</c>, from one snapshot.</summary>
     public bool IdentityExact => TotalMillilitres == Added + Loaded - Removed - Displaced - Handed - Evicted;

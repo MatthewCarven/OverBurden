@@ -6,8 +6,9 @@ using Overburden.Core.Voxels;
 namespace Overburden.Core.Tests;
 
 /// <summary>
-/// A dictionary of chunks with four materials, for the support field: air, stone (carries 30),
-/// dirt (carries 8) and water (a fluid, not solid). Chunks can leave and come back.
+/// A dictionary of chunks with five materials, for the support field: air, stone (carries 30),
+/// dirt (carries 8), water (a fluid, not solid) and rubble (carries 2, M9c-1's fill). Chunks can
+/// leave and come back.
 /// </summary>
 /// <remarks>
 /// The shipped curves for stone and dirt are the fixture's too, so a test that puts a lake over
@@ -19,21 +20,23 @@ internal sealed class SupportTestWorld
     public const int Stone = 1;
     public const int Dirt = 2;
     public const int Water = 3;
+    public const int Rubble = 4;
 
     private readonly Dictionary<ChunkPos, VoxelChunk> _chunks = [];
     private readonly HashSet<ChunkPos> _departed = [];
 
     public MaterialTable Materials { get; } = MaterialTable.ForTesting(
-        isOpaque: [false, true, true, false],
-        isFluid: [false, false, false, true],
-        textureLayer: [0, 0, 0, 0],
-        hardness: [0f, 3f, 0.8f, 0f],
-        supportDistance: [0, 30, 8, 0],
+        isOpaque: [false, true, true, false, true],
+        isFluid: [false, false, false, true, false],
+        textureLayer: [0, 0, 0, 0, 0],
+        hardness: [0f, 3f, 0.8f, 0f, 0.5f],
+        supportDistance: [0, 30, 8, 0, 2],
         supportCurve:
         [
             [],
             [new SupportPoint(2f, 24f), new SupportPoint(10f, 12f)],
             [new SupportPoint(1f, 4f), new SupportPoint(3f, 1f)],
+            [],
             [],
         ]);
 
@@ -112,5 +115,121 @@ internal sealed class SupportTestWorld
     public sealed class FlatTable(double? level) : IWaterTable
     {
         public double? TableAt(int sampleX, int sampleZ) => level;
+    }
+
+    /// <summary>Solid voxels, and the sum of their Y — M9c-1's two oracles over every chunk that exists and is here.</summary>
+    public (long Solid, long SumY) Census()
+    {
+        long solid = 0;
+        long sumY = 0;
+        foreach ((ChunkPos position, VoxelChunk chunk) in _chunks)
+        {
+            if (_departed.Contains(position))
+            {
+                continue;
+            }
+
+            if (chunk.IsUniform)
+            {
+                if (Materials.IsSolid(chunk.UniformValue))
+                {
+                    solid += VoxelConstants.ChunkVolume;
+                    // 32 × 32 columns, each summing originY + 0 .. originY + 31.
+                    long originY = position.OriginVoxel.Y;
+                    const long n = VoxelConstants.ChunkSize;
+                    sumY += n * n * ((n * originY) + (n * (n - 1) / 2));
+                }
+
+                continue;
+            }
+
+            VoxelPos origin = position.OriginVoxel;
+            for (int z = 0; z < VoxelConstants.ChunkSize; z++)
+            for (int x = 0; x < VoxelConstants.ChunkSize; x++)
+            for (int y = 0; y < VoxelConstants.ChunkSize; y++)
+            {
+                if (Materials.IsSolid(chunk.Get(x, y, z)))
+                {
+                    solid++;
+                    sumY += origin.Y + y;
+                }
+            }
+        }
+
+        return (solid, sumY);
+    }
+
+    /// <summary>Solid voxels of one material, over every chunk that is here.</summary>
+    public long Count(int material)
+    {
+        long count = 0;
+        foreach ((ChunkPos position, VoxelChunk chunk) in _chunks)
+        {
+            if (_departed.Contains(position))
+            {
+                continue;
+            }
+
+            if (chunk.IsUniform)
+            {
+                count += chunk.UniformValue == material ? VoxelConstants.ChunkVolume : 0;
+                continue;
+            }
+
+            for (int index = 0; index < VoxelConstants.ChunkVolume; index++)
+            {
+                (int x, int y, int z) = VoxelPos.FromIndex(index);
+                if (chunk.Get(x, y, z) == material)
+                {
+                    count++;
+                }
+            }
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// The world as an editor: reads that refuse a chunk that is not here, and writes that tell
+    /// the region and whoever else asked — the pipeline's hook chain, in miniature.
+    /// </summary>
+    public sealed class Editor(SupportTestWorld world, SupportRegion? region, Action<VoxelPos, int>? onChanged = null) : IVoxelEditor
+    {
+        public int Writes { get; private set; }
+
+        public bool TryGetMaterial(VoxelPos voxel, out int materialId)
+        {
+            VoxelChunk? chunk = world.Get(voxel.Chunk);
+            if (chunk is null)
+            {
+                materialId = Air;
+                return false;
+            }
+
+            (int lx, int ly, int lz) = voxel.Local;
+            materialId = chunk.Get(lx, ly, lz);
+            return true;
+        }
+
+        public bool SetVoxel(VoxelPos voxel, int materialId)
+        {
+            VoxelChunk? chunk = world.Get(voxel.Chunk);
+            if (chunk is null)
+            {
+                return false;
+            }
+
+            (int lx, int ly, int lz) = voxel.Local;
+            if (chunk.Get(lx, ly, lz) == materialId)
+            {
+                return true;
+            }
+
+            chunk.Set(lx, ly, lz, materialId);
+            Writes++;
+            region?.Edited(voxel.Chunk);
+            onChanged?.Invoke(voxel, materialId);
+            return true;
+        }
     }
 }

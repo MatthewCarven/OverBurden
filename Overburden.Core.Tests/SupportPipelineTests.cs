@@ -91,6 +91,75 @@ public class SupportPipelineTests
     }
 
     [Fact]
+    public void TheCollapseThroughThePipelineDropsThePlugRemeshesTheRoofAndLeavesTheFixpointClean()
+    {
+        // M9c-1's wire: the scheduler over the pipeline's own SetVoxel. A bite, a settle, a sweep
+        // with no delay — one roof fires per settle, because a fall is an edit and the other
+        // roofs are its neighbours — and after the last: the plug on the bite's floor as the
+        // harness's stone (its rubble stand-in), HasEdits on every roof, the roofs remeshed,
+        // the region requeued and settled, nothing at risk, quiescent and fixpoint-clean.
+        using var harness = new PipelineHarness();
+        SupportRegion region = Attach(harness);
+        harness.Pipeline.Streamer.AddViewer(BiteOrigin, 2, 2);
+        harness.Settle();
+        Bite(harness, TwoByTwo);
+        harness.Settle();
+        Assert.Equal(20, region.SettledAtRiskVoxels);
+
+        var scheduler = new CollapseScheduler(
+            region, harness.Pipeline, PipelineHarness.Materials(), rubbleId: Stone, seed: 1,
+            new CollapseWindow { MinSeconds = 0, MaxSeconds = 0 });
+        var roofDeliveries = TwoByTwo.ToDictionary(b => b.Offset(0, 1, 0), b => harness.Deliveries.GetValueOrDefault(b.Offset(0, 1, 0)));
+
+        int fired = 0;
+        for (int boundary = 0; boundary < 8 && fired < 4; boundary++)
+        {
+            IReadOnlyList<CollapseFire> fires = scheduler.Sweep(boundary * 500L);
+            fired += fires.Count;
+            foreach (CollapseFire fire in fires)
+            {
+                Assert.Equal(5, fire.Result.Voxels);
+                Assert.Equal(0, fire.Result.StaleSkipped);
+                Assert.True(harness.Pipeline.Streamer.Get(fire.Result.Chunk)!.HasEdits);
+            }
+
+            // The fall's writes went through the pipeline: the region is requeued and the
+            // pipeline is not quiescent until its derives land.
+            if (fires.Count > 0)
+            {
+                Assert.False(harness.Pipeline.IsQuiescent);
+            }
+
+            harness.Settle();
+        }
+
+        Assert.Equal(4, fired);
+        Assert.Equal(20, scheduler.VoxelsFallen);
+        Assert.Empty(region.VerifyFixpoint());
+        Assert.Equal(0, region.SettledAtRiskVoxels);
+        Assert.Equal(0, region.Unsettled);
+        Assert.True(harness.Pipeline.IsQuiescent);
+
+        // The plug is on the floor of the bites, as stone, and the plug's cells are air.
+        VoxelPos origin = BiteOrigin.OriginVoxel;
+        for (int x = 30; x <= 33; x++)
+        for (int z = 30; z <= 33; z++)
+        {
+            Assert.True(harness.Pipeline.TryGetMaterial(origin.Offset(x, 0, z), out int floor));
+            Assert.Equal(Stone, floor);
+            Assert.True(harness.Pipeline.TryGetMaterial(origin.Offset(x, 32, z), out int plug));
+            Assert.Equal(Air, plug);
+        }
+
+        // Every roof and every bite was remeshed by the fall.
+        foreach (ChunkPos bite in TwoByTwo)
+        {
+            ChunkPos roof = bite.Offset(0, 1, 0);
+            Assert.True(harness.Deliveries.GetValueOrDefault(roof) > roofDeliveries[roof], $"the roof {roof} was not remeshed");
+        }
+    }
+
+    [Fact]
     public void WithTheTintOffTheDerivesRunAndTheMeshIsUntouched()
     {
         using var harness = new PipelineHarness();

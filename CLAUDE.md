@@ -601,7 +601,14 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-13). M9c-1 is planned and not built — eleven decisions in M9-PLAN's
+**Pick up here (2026-09-13, evening). M9c-1a is built — the fall, the timer sweep and the water's
+two terms, in Core with their battery — and M9c-1b, the wire, is next: alone, against the ordered
+brief in TODO under M9c-1 (flags, the boundary block, the `M9:` lines, the unstick, the bench arm,
+the headless oracle, then the docs). Read M9-PLAN's "M9c-1a — built" first: a plug falls one roof
+per boundary because the barrier works, and the cascade is the analysed set growing, not the wedge
+re-arming.** The paragraph below is the state at the pass, kept for the reasoning.
+
+**Earlier (2026-09-13). M9c-1 is planned and not built — eleven decisions in M9-PLAN's
 "M9c-1 — the planning pass", all taken as recommended the same day (*"as planned"*); build it
 next, alone, as split, against that section and the tests it names at its end.** The pass's spine: **a fall is a column run** — the chunk's settled at-risk set
 followed downward through at-risk voxels across chunk faces into settled chunks, waiting on an

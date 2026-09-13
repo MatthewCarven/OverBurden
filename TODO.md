@@ -4900,7 +4900,8 @@ the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
       - [ ] The tint's look — a graded tint (deficit / K per face) is one line in the mesher, a
             screenshot's call, and a quad cost; judged at the first play.
 - [ ] **M9c-1 — the fall.** Alone. **Planned 2026-09-13 — eleven decisions in M9-PLAN's "M9c-1 —
-      the planning pass", all taken as recommended the same day (*"as planned"*); build next.** Rubble, the timer, the re-pour, the
+      the planning pass", all taken as recommended the same day (*"as planned"*); split c-1a / c-1b
+      the same evening on Matthew's *"smaller pieces"*.** Rubble, the timer, the re-pour, the
       cascade, `--collapse=`, `--collapseafter=`, the bench's `--collapse` arm. The pass's spine: a
       fall is a *column run* followed downward across faces into settled chunks (a run straddling a
       horizontal face would otherwise turn to rubble in place and fire as a no-op every boundary);
@@ -4911,6 +4912,32 @@ the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
       oracle. **The unstick is here** (a body in rubble with no health is stuck, not unhurt) —
       taken 2026-09-13, with damage and death sent on to M11. Oracle: `--bitechunks=2 --collapseafter=1,2` reads
       `fell 20 voxel(s)` then `at risk 0`; r6 control to the digit.
+      - [x] **c-1a — Core, built 2026-09-13.** `Collapse.TryFall`, `CollapseScheduler` and
+            `CollapseWindow` in `Core/Structure/`; `SupportRegion.TryReadSettled` / `SettledFields`;
+            `ICollapseWater` and `FluidSimulation.Collapse.cs` (`Lift`, `Return`, `DisplaceLifted`,
+            `IsReady`; `lifted` / `returned` on `FluidPublished`); `rubble.json` and its colour;
+            27 tests, 22 recipes, 21 caught and one an identity. Read M9-PLAN's "M9c-1a — built".
+      - [ ] **c-1b — the wire, next, alone.** In order: `--collapse=<0|1>` and
+            `--collapseafter=<min>,<max>` parsed beside `--support`; the scheduler built in
+            `SetUpSupport` over `_pipeline` as the `IVoxelEditor`, `_fluid` as the water (null under
+            `--nowater`), `_settings.Seed`, `_clock.ElapsedMillis`; `SweepCollapse()` in
+            `UpdateFluid`'s `begin` block after `PourPending()` and before `_field.Sync`, and from
+            `UpdateSupport` every frame when `_fluid is null`; one `M9: fell …` line per
+            `CollapseFire` (chunk, voxels, columns, deepest drop, litres lifted / returned, `cascade`
+            when flagged, the fall's ms); the `M9:` line and the `support` profile line gaining
+            `armed / due / waiting (unsettled N, fluid-pending N)`, `fired`, `voxels fallen` with the
+            mean drop, `stale skipped`, `lifted / returned L`, `freed / buried`; `M8b:`'s identity
+            line carrying `lifted` and `returned` off `Published`; the unstick after any fall whose
+            `Written` chunks overlap the body — `VoxelCollider.OverlapsSolid` on `_player.State.Box`,
+            `PlayerSpawn.TryUnstick`, `_player.Teleport(freed.FeetCentre)`, `M9: the player was
+            freed N m up` or `M9: the player is buried`; the bench's `--collapse` arm on `--support`
+            (a `DictionaryEditor` telling the region and the automaton, `Σ(Y)` before and after, the
+            picture after beside the picture before, fixture 2 flooded through `VoxelFluidTerrain`);
+            the headless oracle `--bitechunks=2 --collapseafter=1,2` → `fell 20 voxel(s)` over four
+            boundaries, `at risk 0`, the r6 control to the digit, `--nowater` the same fall with no
+            water lines; then M9-PLAN's built section extended, its decision-3 cascade paragraph
+            amended (a stone or dirt wedge under anchored walls is one fall; the cascade is the
+            chunk above joining the analysed set), CLAUDE.md's pick-up paragraph.
       - [ ] **Lever, named and not built:** `FluidField.Invalidate` clones 4 KiB a voxel, so a fall
             under a lake churns tens of MiB — a per-chunk invalidation on a bulk edit, M8c-1's seep
             lever, when a fall under the played lake hitches.

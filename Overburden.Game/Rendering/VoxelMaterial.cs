@@ -53,6 +53,10 @@ public static class VoxelMaterial
         // M5b's lamp. Pale and near-white so it reads as a source rather than as a yellow
         // block, and so the block light it emits is what colours the room.
         new Color(0.96f, 0.92f, 0.78f),
+
+        // M9c-1's rubble: a grey-brown coarser than stone, so a fallen roof reads as a pile
+        // and not as more wall. A screenshot's call, like the rest of this table.
+        new Color(0.44f, 0.38f, 0.32f),
     ];
 
     /// <summary>The colour for a layer, or a flat grey for one this build has no texture for.</summary>
@@ -82,7 +86,7 @@ public static class VoxelMaterial
         // Jitter per layer, beside the shared colour rather than folded into it: the HUD wants
         // the flat colour and the block wants the speckle, and they are the same decision only
         // as far as the hue.
-        float[] jitter = [0.08f, 0.12f, 0.10f, 0.04f];
+        float[] jitter = [0.08f, 0.12f, 0.10f, 0.04f, 0.16f];
 
         var layers = new Godot.Collections.Array<Image>();
         for (int layer = 0; layer < LayerColour.Length; layer++)

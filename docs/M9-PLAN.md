@@ -1046,3 +1046,45 @@ disarm on zero, indifference to a re-derive that keeps the set, the re-arm at th
 fall, `--collapse=0`; the unstick; the content — numbers, not replaceable, the ID appended to a
 seeded table; and the wire — a bite through the pipeline, settle, fire, `HasEdits` on the roof
 chunk, the remesh marked, the region requeued, quiescent and fixpoint-clean after.
+
+## M9c-1a — built
+
+> 2026-09-13, the evening of the pass. Matthew, mid-turn: *"if you want to do this as smaller
+> pieces and give yourself the plan for next iteration i'd be fine with that"* — so c-1 is c-1a,
+> Core and its battery, and c-1b, the wire, whose brief is in TODO. Suite 1,332 → 1,360; 22
+> recipes, 21 caught, one an identity. Nothing in `Main`, nothing on the bench, no flag.
+
+**What is where.** `Overburden.Core/Structure/Collapse.cs` — `TryFall(region, chunk, world,
+materials, rubbleId, water, out result)`, decisions 1, 2, 4 and 5 as one static method: the runs
+gathered from the settled fields and the world before a voxel is written, the landing per column
+run bottom-up, the fluid-ready wait over every chunk the fall would write, then lift / write /
+return per run. `CollapseScheduler.cs` — decision 3's sweep (`Sweep(worldMillis)` returns the
+`CollapseFire`s it made, each with a cascade flag) and `CollapseWindow` (decision 8's delay, min
+and max validated, `DelaySeconds(maxDeficit, unit)`). `SupportRegion.TryReadSettled` is the gate
+and `SettledFields` what the sweep walks. `Core/Fluid/ICollapseWater.cs` is the water's three
+calls and `IsReady`; `FluidSimulation.Collapse.cs` implements it with `LiftedMillilitres` and
+`ReturnedMillilitres`, and `FluidPublished` carries both. `rubble.json` is decision 7's numbers;
+`VoxelMaterial.LayerColour` has its fifth entry.
+
+**Four things the build changed or found:**
+
+- **A plug falls one roof per boundary.** The four roof chunks are each other's face neighbours;
+  the first fall is an edit that requeues it and its six, so the other three read unsettled and
+  fire at the next boundaries — 2 s for a plug, a 4 × 4 room piece by piece at 2 Hz. The barrier
+  working, and every multi-roof fixture had to settle between fires.
+- **Decision 3's cascade paragraph is wrong about the mechanism and right about the effect.**
+  A stone or dirt wedge under anchored walls is one fall — every held voxel above it has a
+  sideways path through held voxels — so no stage re-arms from the wedge itself. The cascade the
+  dirt-roof fixture shows is the *analysed set growing*: the fall marks the roof dug, the chunk
+  above joins the set, its field is 56 at the centre against the anchor's 120, and the voxels the
+  top face held at exactly 0 come loose: 3,152, then 8. The rubble-on-an-unloaded-chunk case the
+  pass recorded rather than built is the other re-arm, and is a test.
+- **Timers are cleared for every chunk a fall fell from**, the firing chunk and the chunks its
+  runs reached into, not the firing chunk alone; a neighbour that did not fall keeps its timer.
+- **Two runs in one column need arithmetic**: the upper's drop is the lower's landing plus its
+  length, since the world between is air by construction; and the plan's *"16 columns of one
+  rubble, four of two"* is 12 and 4.
+
+**The identity, named**: `DisplaceLifted` — a return always fits, by the arithmetic in decision 4,
+so the remainder path exists for a defect and no fixture reaches it.
+
