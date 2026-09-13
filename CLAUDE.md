@@ -616,8 +616,9 @@ re-arm at the 1–3 s minimum; the plug's deficit of 8 gives 28–84 s); **the r
 from the first cell above the new rubble**, through the traversed column into the cavity, and always
 fits (a run of *n* lands in *n* cells and vacates *n*); **`lifted` / `returned` are Tier B's alone**,
 the identity untouched, and a fire waits for fluid-ready chunks so `displaced 0` is an oracle. One
-line of the split is handed back: the unstick moves into c-1 (a body in rubble with no health is
-stuck on every axis, `F` the only door); damage and death stay c-2. Priced by last night's bite —
+line of the split is taken: the unstick is c-1's (a body in rubble with no health is stuck on
+every axis, `F` the only door) — **and damage, death and respawn went to M11 the same day** (*"for
+debugging I dont need it really"*), so M9c-2 is dust alone and DESIGN's M9 and M11 rows say so. Priced by last night's bite —
 131,072 voxels in 197 ms Debug, 1.5 µs a voxel through the hook chain — so a per-chunk fall is
 milliseconds and the mid-air fill is two bites in a frame. Rubble: `rubble.json` (hardness 0.5,
 `supportDistance` 2, permeability 0.6, no curve, not replaceable, `textureLayer` 4 — a fifth

@@ -309,6 +309,8 @@ chamber until M10's pump has emptied it. Matthew's.
 
 ### 10. Health at M9 is the minimum that makes *the mine kills you* true — *recommended; DESIGN's table needs a word*
 
+> **Superseded 2026-09-13, at M9c-1's pass.** Matthew: *"Damage and death i'm happy even if we move it to a later pass honestly for debugging I dont need it really but it will be something that comes up toward the end."* Health, damage, death and respawn go back to M11, where DESIGN had them; M9c-2 shrinks to the dust half of decision 11, judged after M9d's play; the unstick ships in M9c-1 (its pass, decision 8), so a fall buries the body and frees it or says it is buried. DESIGN's M9 and M11 rows are amended. The paragraph below is kept as the recommendation it was.
+
 DESIGN puts *health* in M11 and *the mine kills you* in M9, and Matthew's proposal is explicit:
 *"use it to damage your health so you always mine the overhangs."* Recommended: `PlayerHealth` in
 Core — a number, 100, slow regeneration; **damage per rubble voxel landing in the body's box**; a
@@ -341,7 +343,7 @@ Sound waits for the cosmetics pass — there is no audio in the project and the 
 |---|---|---|---|
 | **M9a — the field** | `Overburden.Core/Structure/`: the rule, `ChunkSupport`, the derive from a padded copy + neighbour faces + the head table, `MaterialTable.SupportCost` and the curve's loader, the anchor rule, `--support` on the bench | unique-fixpoint check per voxel; incremental == from-scratch under a fuzz of edits and arrivals; the seven cross-sections drawn | bench, Release |
 | **M9b — the wiring** | the analysed set, the derive as a chunk job, coalescing, the four triggers, the neighbour join, the strain tint, `M9:` line, `support` profile line, `--support=0`, `--bitechunks=<n>` | a 2 × 2 bite in stone reads `at risk 20 voxel(s)`; one bite reads 0; the r6 control unchanged to the digit | headless + screenshot |
-| **M9c — the collapse** | c-1: `overburden:rubble`, the timer, the fall at the boundary with the re-pour, the cascade, `--collapse=0`, `--collapseafter=`; c-2: health, damage, death, respawn, the buried body, dust, the HUD | voxel count conserved; Σ(Y) strictly decreases; `displaced 0` across a fall; the cascade ends with no deficit | headless: the plug falls, the line says so |
+| **M9c — the collapse** | c-1: `overburden:rubble`, the timer, the fall at the boundary with the re-pour, the cascade, `--collapse=0`, `--collapseafter=`, the unstick; c-2: dust — ~~health, damage, death, respawn, the buried body, the HUD~~ *M11's since 2026-09-13* | voxel count conserved; Σ(Y) strictly decreases; `displaced 0` across a fall; the cascade ends with no deficit | headless: the plug falls, the line says so |
 | **M9d — the keystone and the play** | the table-move trigger wired, the fill's refusal, the play recipes, the four questions | the same chamber dry and under the played lake | Matthew |
 
 M9c-1 goes alone, the way M8b-4b did: a defect in the fall is an edit to the world that cannot be
@@ -983,6 +985,8 @@ played world postdates it; a test seeds the played world's real table and regist
 Mining rubble yields rubble, which is placeable, which is MATERIALS-NOTES' fill for free.
 
 ### 8. The unstick moves into c-1; damage and death stay c-2 — *recommended; a line of the split, Matthew's*
+
+> **Taken 2026-09-13, and further**: damage and death go to M11, not c-2 (*"for debugging I dont need it really"*). c-2 is dust alone now. The unstick is c-1's.
 
 Decision 12 puts "the buried body" in c-2 with health. But a body with rubble in its box before
 health exists is not unhurt, it is *stuck*: M4a's collider takes its layer from the moved box, so a

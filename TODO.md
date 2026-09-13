@@ -4852,8 +4852,10 @@ the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
             **Matthew's**), shorter with the deficit; `--collapseafter=`, `--collapse=0`.
       - [x] 9. Water under a fall collected and re-poured into the cavity at the boundary, never
             destroyed; **and a fill refuses a voxel holding water — Matthew's.**
-      - [x] 10. Health at the minimum: damage per voxel on the body, buried past 4 m is death, death
-            is respawn with the inventory kept; not persisted. DESIGN's M11 row → *the rest of health*.
+      - [x] 10. ~~Health at the minimum: damage per voxel on the body, buried past 4 m is death, death
+            is respawn with the inventory kept; not persisted. DESIGN's M11 row → *the rest of health*.~~
+            **Sent back to M11 on 2026-09-13** — *"for debugging I dont need it really"*; DESIGN's rows
+            amended, a fall buries the body and c-1's unstick frees it or says it is buried.
       - [x] 11. Warning signs ship with the fall: `COLOR.b` strain in the merge key, dust from the
             underside; sound waits.
       - [x] 12. Split M9a field / M9b wiring / M9c-1 fall alone / M9c-2 body / M9d keystone.
@@ -4906,14 +4908,14 @@ the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
       promise; the timer is a sweep at the boundary and the cascade is the re-arm from the new
       deficit; the re-pour goes bottom-up from above the new rubble; `lifted` / `returned` on Tier B
       alone, the identity untouched, a fire waiting for fluid-ready chunks so `displaced 0` is an
-      oracle. **The unstick moves here from c-2** (a body in rubble with no health is stuck, not
-      unhurt) — Matthew's line to move. Oracle: `--bitechunks=2 --collapseafter=1,2` reads
+      oracle. **The unstick is here** (a body in rubble with no health is stuck, not unhurt) —
+      taken 2026-09-13, with damage and death sent on to M11. Oracle: `--bitechunks=2 --collapseafter=1,2` reads
       `fell 20 voxel(s)` then `at risk 0`; r6 control to the digit.
       - [ ] **Lever, named and not built:** `FluidField.Invalidate` clones 4 KiB a voxel, so a fall
             under a lake churns tens of MiB — a per-chunk invalidation on a bulk edit, M8c-1's seep
             lever, when a fall under the played lake hitches.
-- [ ] **M9c-2 — the body.** Health, damage, death, dust, HUD. (`TryUnstick` for the buried moved to
-      c-1 by its pass, if Matthew agrees.)
+- [ ] **M9c-2 — dust.** Decision 11's other half, optional, judged after M9d's play (the tint may be
+      enough). Health, damage, death and the HUD bar are M11's since 2026-09-13; the unstick is c-1's.
 - [ ] **M9d — the keystone and the play.** The table-move trigger, the fill's refusal, four
       questions: does the plug-then-hold read as *settling*; is a deferred fall attributable; does
       the soil patch under a shallow bite read right; does a bite under the played lake read as
