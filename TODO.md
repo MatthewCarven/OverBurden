@@ -4900,7 +4900,7 @@ the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
       - [ ] The tint's look — a graded tint (deficit / K per face) is one line in the mesher, a
             screenshot's call, and a quad cost; judged at the first play.
 - [ ] **M9c-1 — the fall.** Alone. **Planned 2026-09-13 — eleven decisions in M9-PLAN's "M9c-1 —
-      the planning pass", all recommended, waiting on Matthew.** Rubble, the timer, the re-pour, the
+      the planning pass", all taken as recommended the same day (*"as planned"*); build next.** Rubble, the timer, the re-pour, the
       cascade, `--collapse=`, `--collapseafter=`, the bench's `--collapse` arm. The pass's spine: a
       fall is a *column run* followed downward across faces into settled chunks (a run straddling a
       horizontal face would otherwise turn to rubble in place and fire as a no-op every boundary);

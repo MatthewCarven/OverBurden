@@ -843,6 +843,8 @@ at the first play — a graded tint is one line in the mesher and a screenshot's
 > both arms, `FluidSimulation.Add` / `Remove` / `Displace` and the ownership rules, `FluidGrid.Fill`,
 > `Registry.SeedIdTable`, `PlayerSpawn.TryUnstick` and last night's bite log. Eleven decisions, all
 > recommended; two of them correct an oracle the plan wrote, and one moves a line of the split.
+> **All eleven taken as recommended, 2026-09-13 — *"as planned"* — with health sent on to M11 the
+> same day (decision 10, superseded). M9c-1 builds next, alone, against this section.**
 
 **What the built M9b hands M9c-1, in one paragraph.** `SupportRegion._settled` holds, per chunk,
 *the field as it stood the last time the chunk and its six were all at rest* — a snapshot, kept
