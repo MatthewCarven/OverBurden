@@ -830,3 +830,213 @@ read and `SettledAtRiskVoxels` the count it drops, both behind the barrier alrea
 `--bitechunks` provocation composes with `--fillbasin` as planned, and the keystone recipe reads
 the poured lake because the pour lands the frame before the bite; and the tint's look is judged
 at the first play — a graded tint is one line in the mesher and a screenshot's call.
+
+## M9c-1 — the planning pass
+
+> 2026-09-13, decisions 6, 7, 8, 9 and 12's M9c row read against the built `SupportRegion`
+> (`SettledField`, `IsSettled`, `TrySettle`, `Edited`'s early-out, `Applied`'s join),
+> `ChunkSupport` (`IsAtRisk`, `MaxDeficit`), `ChunkPipeline.SetVoxel` and its hook chain
+> (`RelightAfterEdit`, `MarkForRemesh`, `Support.Edited`, `onVoxelChanged` → `FluidField.Invalidate`,
+> `FluidSimulation.Disturb`, `PortalTracker.OnVoxelChanged`), `Main.UpdateFluid`'s boundary block on
+> both arms, `FluidSimulation.Add` / `Remove` / `Displace` and the ownership rules, `FluidGrid.Fill`,
+> `Registry.SeedIdTable`, `PlayerSpawn.TryUnstick` and last night's bite log. Eleven decisions, all
+> recommended; two of them correct an oracle the plan wrote, and one moves a line of the split.
+
+**What the built M9b hands M9c-1, in one paragraph.** `SupportRegion._settled` holds, per chunk,
+*the field as it stood the last time the chunk and its six were all at rest* — a snapshot, kept
+until the next settle replaces it. `SettledField(chunk)` returns that snapshot whether or not the
+chunk is settled *now*; `IsSettled(chunk)` says whether it is. When `IsSettled` is true the
+snapshot is `_fields[chunk]` (every transition to settled goes through `SettleAround` for the
+chunk, since it is caused by a landing in one of its seven), and that field was derived from
+voxels no edit has touched since — an edit anywhere in the chunk or its six requeues it through
+`Edited` → `MarkDug`, whose early-out is safe because a neighbour's view of a chunk is its border
+and the join compares the border's bytes. `ChunkSupport.MaxDeficit` is decision 8's input, built.
+The collapse's own writes go through `SetVoxel`, so a fall requeues the chunk it fell from and the
+chunks it landed in, and the chunk above a cavity joins the analysed set through `HasEdits` —
+decision 3's staged collapse needs no code of its own. And the fluid grid is the tick's between
+boundaries: `Add` and `Remove` refuse mid-tick, `Disturb` defers, and `Main`'s boundary block —
+`begin` in `UpdateFluid`, both arms — is the one place a frame owns the grid.
+
+**One fact from the rule that shapes the fall, derived and then leaned on.** *The voxel directly
+below an at-risk voxel is non-solid, or at risk itself.* A solid voxel below with a budget `b ≥ 0`
+gives the one above `min(K, b + r) ≥ 4` by rest; an anchor gives `K`; only an unreached voxel
+(contributes nothing) or one at `b < −r` (gives `b + r < 0`) leaves the voxel above at risk. So an
+at-risk *run* down a column always ends on air or water, never on held rock — and that is what
+makes "drop it straight down" a strictly descending move rather than a hope.
+
+### 1. What falls is the chunk's settled at-risk set plus the at-risk runs directly under it, across faces, into settled chunks — never rock-to-rubble in place — *recommended*
+
+Decision 6 drops "every at-risk voxel"; decision 8 fires per chunk. Read together over a plug that
+straddles a horizontal chunk face — the fact above says the voxels under a firing chunk's set may be
+at risk in the chunk *below*, waiting on their own timer — the literal rule lands the upper voxels
+on solid rock where they stand: rock → rubble in place, no movement, `Σ(Y)` unchanged, and the
+in-place rubble then re-derives as rubble resting on at-risk rock and fires again as a no-op at
+every boundary until the lower chunk goes. That is a wasted fire a boundary, a log that says
+"collapse: 0 voxels", and decision 6's oracle false.
+
+So the unit of a fall is a **column run**: from each at-risk voxel of the firing chunk, follow the
+column downward through at-risk voxels — into the chunk below when it is analysed *and settled*,
+reading its settled field — until the first non-solid voxel. The run falls as one. If the chunk
+below is unsettled the fire **waits** for a later boundary (decision 7's barrier, one chunk down).
+Within the firing chunk two runs in one column (at-risk, air, at-risk) fall bottom-up, the upper
+onto the lower's rubble. **Consequences, stated:** `Σ(Y)` strictly decreases at every fall, which
+is the plan's oracle kept rather than weakened; rubble is never written where rock stood; and
+a fall is bounded by one chunk's at-risk set plus whatever hangs under it in the column — in
+practice one chunk, at most a mid-air fill's 32,768 (fixture 6).
+
+*Rejected: one timer per connected at-risk component across chunks* — a flood over settled fields
+at every settle, for a staggered fall that reads as crumbling anyway (decision 3 below).
+
+### 2. The gate is `IsSettled` now and the world, not the snapshot — *recommended*
+
+The plan's "the deficit set at the moment of firing, re-read from the field" names `SettledField`,
+and `SettledField` is the *last* settle. A chunk edited since — the player mining the plug out
+while its timer runs — is unsettled with a stale snapshot, and a collapse reading it would move a
+voxel that is air: nothing at the source, **rubble from nothing at the landing**. The conservation
+oracle would catch it after the fact; the gate stops it. `SupportRegion.TryReadSettled(chunk, out
+field)` returns the field only when `IsSettled(chunk)`, and the fall reads each at-risk voxel's
+material from the world and skips one that is not solid, counted as `stale skipped` on the line —
+belt and braces, expected to read zero, printed so a non-zero says the gate has a hole.
+
+### 3. The timer is a sweep at the boundary, armed and disarmed from settled at-risk counts, and re-armed from the new deficit after a fall — *recommended*
+
+Per analysed chunk, one `CollapseTimer { armedAtWorldMillis, dueAtWorldMillis }`, in a
+`CollapseScheduler` in Core. Rather than a hook on the settle, the scheduler **sweeps the settled
+fields at each boundary** (2 Hz; a walk over ~1,500 fields is microseconds, and `SettledAtRiskChunks`
+already walks them for the line): a settled chunk with `AtRiskCount > 0` and no timer arms —
+`due = now + lerp(max, min, MaxDeficit / K) × U(0.5, 1.5)`, the unit from
+`Hash64.Combine(seed ^ worldMillis, chunk)`, world seconds off `WorldClock` so `--clockscale` applies
+to the roof the way it applies to the weather; an armed chunk whose settled count is zero
+disarms; an armed chunk that is due fires if `IsSettled` and decision 5's chunks are fluid-ready,
+else stays due and is tried next boundary. A re-derive that keeps the set non-empty leaves the
+timer alone, as the plan says. **After a fall the timer is cleared, and the re-settle re-arms it
+from the new deficit** — which gives the cascade its pace with no cascade rule: a wedge's core is
+unreached (deficit `K`), so each stage re-arms at the minimum, 1–3 s, and the stages of a 4 × 4
+room follow each other seconds apart, while the 2 × 2 plug's deficit of 8 — its centre at −8 — arms near the maximum,
+28–84 s of warning for 20 voxels. Arming a poll late costs up to half a second against a 2–60 s
+window. `--collapse=0` sweeps and arms and never fires — the warning-only arm.
+
+### 4. The re-pour goes bottom-up from the cell above the rubble's new top, through the column it fell through, into the cavity — *recommended*
+
+Decision 9 says "into the cavity from the bottom up", and the cavity is in the roof. In a flooded
+room every cell below is full and the cavity is the only room, so that is where the water ends
+and it is right. In a half-flooded room the same rule lifts a floor pool to the ceiling and drops
+it back through the automaton. Pouring instead **from the first cell above the new rubble
+upward** — the traversed column first, then the cavity — puts displaced water where a stone
+dropped in a pool puts it: the local level rises. The arithmetic that guarantees room: per column
+a run of *n* voxels lands in *n* cells holding at most *n* × 15,625 mL, and vacates *n* cells of
+rock now air, so the collected water always fits and the identity is exact by construction.
+Per column, in order: drain every landing cell (a collapse-specific `Lift`, `Take`'s twin with its
+own counter), write the column's final materials once per cell (a cell that is both cavity and
+landing is written rubble once, never air then rubble), then `Return` bottom-up through
+`Add`'s path, which reads the live terrain and so sees the air the rock left. `Disturb` at each
+rubble write finds an emptied cell and wakes the neighbours that hold water; `Add` wakes the rest.
+
+### 5. Tier B gains `lifted` and `returned`; the identity does not change; the fall waits for fluid-ready chunks so `displaced 0` stays an oracle — *recommended, and a correction to decision 9*
+
+Decision 9 has `collapsed` join *both* tiers' identities. Tier A holds no water in the cells a fall
+touches — a collapse edits voxels, and a lake over a cavity that opens to the surface reaches it
+through the portal tracker's hook the way a breach does, on the seam already built — so the term
+is Tier B's alone, and it is two: `LiftedMillilitres` and `ReturnedMillilitres`, equal by the
+arithmetic in 4, printed together and asserted equal, with any remainder sent to `Displaced` and
+never dropped. `held == injected + loaded − removed − displaced − handed − evicted` is untouched,
+because a lift and a return are one representation to the same representation. `injected` stays
+the relay's number.
+
+The one way a return could refuse: `Add` asks the live `VoxelFluidTerrain`, whose `IsLoaded` gate
+answers *not loaded* for a chunk whose stored water is still on the lane (`FluidPending`). A fall
+landing in such a chunk would also write rubble over cells whose water lands a moment later and is
+displaced at its first visit. So a fire requires the firing chunk, every chunk of its runs and
+every landing chunk to be fluid-ready (`MayHoldWater`'s question, asked of the pipeline), and
+waits otherwise — a boundary or two after an arrival, never longer. With `--nowater` there is no
+grid and no wait.
+
+### 6. The fall runs in the fluid boundary block, after the pours and before the field sync; without water, every frame from `UpdateSupport` — *recommended*
+
+`Main.UpdateFluid`'s `begin` block is the frame that owns the grid on both arms (the job arm
+composes the next tick after it; the sim-thread arm settles in it). The collapse goes after
+`TakePending` / `PourPending` and before `_field.Sync` and `Publish`, so the tick that follows reads
+a terrain with the rubble in it and the panels with the water where it was returned, and the
+report line and the HUD see the fall in the same frame. `--nowater` has no boundary, so
+`UpdateSupport` sweeps every frame instead. **Cost, priced by the bite**: last night's
+`--bitechunks=2` wrote 131,072 voxels in 197 ms Debug — 1.5 µs a voxel through the whole hook
+chain — so the plug is nothing, the 4 × 4 wedge's 47,600 would be ~70 ms as one fall and is
+sixteen pieces of ≤ 3,000 (~5 ms) under decision 3's per-chunk timers, and the mid-air fill's
+32,768 × 2 writes is two bites in one frame, the precedent the chunk fill already set. **One term
+the bite already pays and this pass names**: `FluidField.Invalidate` clones 4 KiB per voxel when
+the chunk has a fluid field, so a fall under a lake churns tens of MiB; the lever is a per-chunk
+invalidation on a bulk edit, the same lever M8c-1 named for the seep scan, not built until a fall
+under the played lake hitches.
+
+### 7. `overburden:rubble` is one JSON file, one palette entry, and an ID appended to old worlds — *recommended; the numbers are estimates*
+
+`mods/overburden/materials/rubble.json`: hardness 0.5 (anything that takes dirt takes it),
+`supportDistance` 2 (cost 60: a rubble voxel cantilevers half a metre off a wall at `K`, which is
+a rubble ledge and not a defect), no `supportUnderHead` (a curve on 2 is a number with no play
+behind it — dry everywhere until a play says otherwise), permeability 0.6 (loose fill; dirt is
+0.35), density 1800, `replaceable` absent so it is false on M6c-1's grounds, `textureLayer` 4 —
+a fifth `LayerColour` and jitter in `VoxelMaterial`, a grey-brown coarser than stone, a
+screenshot's call. Its label is its path, *rubble*, on the hotbar for free. **An old world's
+header table gains it as the next ID at open and writes it at quit** — `Registry.Register` after
+`SeedIdTable`, non-negotiable 2's designed path, which the lamp never exercised because every
+played world postdates it; a test seeds the played world's real table and registers rubble after.
+Mining rubble yields rubble, which is placeable, which is MATERIALS-NOTES' fill for free.
+
+### 8. The unstick moves into c-1; damage and death stay c-2 — *recommended; a line of the split, Matthew's*
+
+Decision 12 puts "the buried body" in c-2 with health. But a body with rubble in its box before
+health exists is not unhurt, it is *stuck*: M4a's collider takes its layer from the moved box, so a
+box inside a wall is blocked on every axis and gravity reads as grounded. Without health the
+player has `F` (fly ignores collision) and nothing else. `PlayerSpawn.TryUnstick` exists, up-only,
+4 m, and `PlayerController` already re-admits through it: after a fall whose landing cells overlap
+the body's box, c-1 calls it and prints `M9: the player was freed N m up`; a failed unstick —
+buried past the bound — prints `M9: the player is buried` and leaves the body for c-2 to kill.
+Two dozen lines, and the play of c-1 is not spent under a roof with no way out.
+
+### 9. Flags, the `M9:` line, and one line per fall — *recommended*
+
+`--collapse=<0|1>` (1), `--collapseafter=<min>,<max>` in world seconds (2, 60 — decision 8's
+estimates, Matthew's). The `M9:` line and the `support` profile line gain `armed / due / waiting
+(unsettled N, fluid-pending N)`, `fired`, `voxels fallen` with the mean drop in voxels, `stale
+skipped`, `lifted / returned L`, `freed / buried`. **Each fall prints one line** — chunk, voxels,
+columns, the deepest drop, litres lifted and returned, whether it was a stage of a cascade
+(a fire within one delay window of the last in the same chunk) — the bite's shape, because a
+fall is a rare event a person will want to find in the log, and a cascade of sixteen pieces is
+sixteen lines. `M8b:`'s identity line carries `lifted` and `returned`.
+
+### 10. The bench's `--collapse` arm and the headless oracle — *recommended*
+
+`--support --collapse` drops every fixture: the scheduler with a zero delay, fire → `Settle` →
+fire until nothing is at risk, printing stages, voxels a stage, `Σ(Y)` before and after, the
+count identity, and the picture after the last stage beside the picture before. Fixture 2
+flooded — a `FluidSimulation` over `VoxelFluidTerrain` on the fixture's chunks (the `--terrain`
+arm's `ChunkedWorld`), the room filled to the ceiling through `Fill` — prints lifted, returned,
+displaced and the automaton's identity, then ticks to rest. The bench needs an `IVoxelEditor` over
+its dictionary that tells the region and the automaton what it wrote, twenty lines. In the game:
+`--bitechunks=2 --collapseafter=1,2` on the seed world, headless, reads `fell 20 voxel(s)` in the
+window and `at risk 0` after; the r6 control unchanged to the digit; `--nowater` the same fall
+with no water lines. The flooded oracle in play is `displaced 0` on the `M8b:` line across a
+`Q` bite's roof under the played lake, which is M9d's recipe read early.
+
+### 11. Deliberately not in c-1 — *recommended*
+
+Dust, damage, death, the health bar (c-2); the table-move trigger and the fill's refusal (M9d);
+per-source rubble and an angle of repose (content and MATERIALS-NOTES' expensive CA); a fall
+retained across a quit (decision 7 — a timer at quit is re-rolled at open, and a fall mid-write is
+impossible because the fall is one boundary). One thing recorded rather than built: rubble that
+lands on an unloaded chunk rests on it as on rock, and when that chunk loads the rubble's chunk is
+dug, analysed, and the rubble over air falls again — self-correcting, and the reason the landing
+walk stops at the loaded edge rather than reasoning about it.
+
+**Tests the build owes, named now so the battery has a shape:** the plug to the voxel (16 columns
+of one rubble, four of two, the floor's `Σ(Y)`); count conserved and `Σ(Y)` strictly down at every
+fall over a fuzz of rooms, fired until quiet, the fixpoint holding after; the run across a
+horizontal face (a fixture with the at-risk run straddling `y = 32`, both orders of firing) and
+the wait on an unsettled chunk below; the stale gate (a voxel mined out after arming is not a
+rubble voxel at the landing); the flooded room (`lifted == returned`, `displaced 0`, the total
+unchanged, the water in the cavity) and the half-flooded one (the water above the rubble, not in
+the ceiling, after the automaton rests); the fluid-pending wait; the timer's window, its seeding,
+disarm on zero, indifference to a re-derive that keeps the set, the re-arm at the minimum after a
+fall, `--collapse=0`; the unstick; the content — numbers, not replaceable, the ID appended to a
+seeded table; and the wire — a bite through the pipeline, settle, fire, `HasEdits` on the roof
+chunk, the remesh marked, the region requeued, quiescent and fixpoint-clean after.

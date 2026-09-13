@@ -23,7 +23,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | **Worldgen as content** — Matthew's thinking-ahead, 2026-09-11: ores, layers, trees, and what is permeable. Notes rather than a plan; what MATERIALS-NOTES already decided is listed so it is not re-litigated, and the three questions its pass wants from him are at the end. **Not scheduled — M8d, then M9.** |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md) | **Water bodies** — Matthew's question, 2026-09-10: resting water as one number over a connected void, DESIGN's *"stable cells merge into a Tier A body"* half that M8b never built. Notes rather than a plan, with the roof-open wake explained and six decisions. **Read before M8c's planning pass, which is where it belongs.** |
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | **Elements, and whether to "just implement chemistry"** — a brainstorm with Matthew, 2026-09-03. Notes rather than a plan. The recommendation is *geology that reacts to water, with machine recipes as the chemistry set*; the element table says why each material would exist. **Read before M8c reads `permeability` and before M9 reads `supportDistance` — both have been in the material JSON unread since M1, and the trap is a constant shipping green.** |
-| [docs/M9-PLAN.md](docs/M9-PLAN.md) | **M9, the mine kills you — planned 2026-09-11, all twelve decisions taken the same day; M9a and M9b built 2026-09-12 (read their "planning pass" and "built" sections — the byte moved `K` to 120, a dead path is a state, the join climbs; the derive is a detached job, the tint waits for the barrier), M9c-1 next and alone.** Split M9a–M9d. **Read its "two facts" first: there is no bedrock, and DESIGN's literal distance rule opens a shaft to the surface over a 2 × 2 bite** — the plan's budget-with-an-arch rule and its uniqueness proof are decision 1. Read MATERIALS-NOTES and SCALE before it. |
+| [docs/M9-PLAN.md](docs/M9-PLAN.md) | **M9, the mine kills you — planned 2026-09-11, all twelve decisions taken the same day; M9a and M9b built 2026-09-12 (read their "planning pass" and "built" sections — the byte moved `K` to 120, a dead path is a state, the join climbs; the derive is a detached job, the tint waits for the barrier); M9c-1 planned 2026-09-13 (a fall is a column run, the snapshot is not the gate, the cascade is the re-arm), waiting on its eleven decisions.** Split M9a–M9d. **Read its "two facts" first: there is no bedrock, and DESIGN's literal distance rule opens a shaft to the surface over a 2 × 2 bite** — the plan's budget-with-an-arch rule and its uniqueness proof are decision 1. Read MATERIALS-NOTES and SCALE before it. |
 | [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **M8c planned 2026-09-10, all eight decisions taken 2026-09-11, M8c-1 built the same day — read "M8c-1 — built" before M8c-2's pass.** **Planned 2026-09-02; M8a built the same day; M8b split four ways and M8b-1 built 2026-09-03; M8b-2 planned 2026-09-05 and all three parts built the same day, both open decisions taken as recommended — water crosses the seam in the game; M8b-3 planned and built the same day: the hand-off (3a) measured, the settle (3b) built and priced against the chamber, both mines and the played world, the spill's look deferred to M8c and the settle's interval an estimate with `--settleafter=` as the sweep.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it. **Its M8b section records a gap the plan had**: a flooded mine has no Tier A body, so resting mine water is stored, and the settle is a solve. Read the tick-budget item in TODO before M8b-2. |
 | [docs/ADAPTIVE-RADIUS-PLAN.md](docs/ADAPTIVE-RADIUS-PLAN.md) | **The adaptive view radius**, Matthew's proposal from the sprint corridor, planned and **built 2026-09-06**: fall to the 27-chunk floor while moving with a derive backlog, climb back a ring at a time while the derive is idle enough for one more. **Its "Built" section records that the plan's grow rule — a dwell — was wrong, and the 7 m/s corridor said so on its first run**; the rule is the light step's share of its budget now. Read the corridor worklog entry before it: the floor is a cliff edge, not a slope. |
 | [docs/WATER-THREAD-PLAN.md](docs/WATER-THREAD-PLAN.md) | **The water thread**, Matthew's question of 2026-09-07. **Slice 1 — the near/far order — was planned and built 2026-09-09** and its planning pass corrected the slice's own mechanism twice, which is why that pass is worth reading before the code; slice 2 is **priced and parked**, slice 3 unstarted. **Placed after M8b-4c and before M8c.** Read before touching the tick's order or its home. |
@@ -600,6 +600,32 @@ verbatim — the flags go after the bare `--`:
 ```bash
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
+
+**Pick up here (2026-09-13). M9c-1 is planned and not built — eleven decisions in M9-PLAN's
+"M9c-1 — the planning pass", all recommended, waiting on Matthew; build it once they are answered,
+alone, as split.** The pass's spine: **a fall is a column run** — the chunk's settled at-risk set
+followed downward through at-risk voxels across chunk faces into settled chunks, waiting on an
+unsettled one — because the voxel under an at-risk voxel is non-solid or at risk (derived from the
+rule), and the plan's per-chunk timer over "every at-risk voxel" would turn a run straddling a
+horizontal face to rubble *in place* and fire as a no-op every boundary; **the gate is `IsSettled`
+now and the world**, because `SettledField` is the last settle's snapshot, kept until the next, and
+a chunk mined since its timer armed would put rubble at a landing for a voxel that is air; **the
+timer is a sweep at the fluid boundary** over settled at-risk counts, cleared at a fall and re-armed
+from the new deficit, which is the whole of the cascade (a wedge's core is unreached, so stages
+re-arm at the 1–3 s minimum; the plug's deficit of 8 gives 28–84 s); **the re-pour goes bottom-up
+from the first cell above the new rubble**, through the traversed column into the cavity, and always
+fits (a run of *n* lands in *n* cells and vacates *n*); **`lifted` / `returned` are Tier B's alone**,
+the identity untouched, and a fire waits for fluid-ready chunks so `displaced 0` is an oracle. One
+line of the split is handed back: the unstick moves into c-1 (a body in rubble with no health is
+stuck on every axis, `F` the only door); damage and death stay c-2. Priced by last night's bite —
+131,072 voxels in 197 ms Debug, 1.5 µs a voxel through the hook chain — so a per-chunk fall is
+milliseconds and the mid-air fill is two bites in a frame. Rubble: `rubble.json` (hardness 0.5,
+`supportDistance` 2, permeability 0.6, no curve, not replaceable, `textureLayer` 4 — a fifth
+`LayerColour`), an ID appended to an old world's table at open. Oracle: `--bitechunks=2
+--collapseafter=1,2` reads `fell 20 voxel(s)` then `at risk 0`, r6 control to the digit; the bench's
+`--collapse` arm drops every fixture and floods fixture 2. **Two M9b items are still owed and are
+not c-1's**: the played world's open on a world with a shell, and the tint's look at the first play.
+The paragraph below is M9b's built state, kept for the reasoning.
 
 **Pick up here (2026-09-12, last). M9b is built — the support field is in the loop and the tint is
 on the roof — and M9c-1, the fall, is next: alone, as split, and it wants its own planning pass

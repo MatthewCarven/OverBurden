@@ -1,5 +1,45 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-13 — M9c-1 planned: a run falls as one, and the snapshot is not the gate
+
+*"M9c-1 planning pass please Claude"* — decisions 6–9 and 12's M9c row read against the built
+`SupportRegion`, the pipeline's edit hook chain, the fluid boundary and the ownership rules. Eleven
+decisions in [docs/M9-PLAN.md](docs/M9-PLAN.md)'s "M9c-1 — the planning pass", all recommended,
+waiting on Matthew; two correct an oracle the plan wrote and one moves a line of the split. Nothing
+built. Four things worth the entry:
+
+- **A derived fact does the work: the voxel under an at-risk voxel is non-solid or at risk.** Rest
+  from a held voxel gives at least `+4`, an anchor gives `K`, so only air, water, an unreached voxel
+  or one below `−r` leaves the voxel above at risk. That is what makes "drop it straight down"
+  strictly descending — and it is also what shows the plan's two rules disagree: decision 8 fires
+  per chunk and decision 6 drops every at-risk voxel, so a run straddling a horizontal chunk face
+  would turn to rubble *in place* on the lower chunk's still-standing rock, `Σ(Y)` unchanged, and
+  fire as a no-op every boundary until the lower chunk went. The fall is a **column run** now,
+  followed downward across faces into settled chunks, waiting on an unsettled one — `Σ(Y)`
+  strictly down at every fall is kept rather than weakened.
+- **`SettledField` is the last settle, not a promise the chunk is settled now.** The snapshot is
+  kept until the next settle replaces it, so a chunk edited since its timer armed — the player
+  mining the plug out — has a stale snapshot, and a collapse reading it would put rubble at a
+  landing for a voxel that is air. `IsSettled` is the gate (`TryReadSettled`), the world is the
+  source of what falls, and `stale skipped` is printed so a non-zero says the gate has a hole.
+- **The cascade needs no rule.** Clear the timer at a fall and let the re-settle re-arm it from
+  the new deficit: a wedge's core is unreached, deficit `K`, so each stage re-arms at the minimum
+  and a 4 × 4 room comes down in stages seconds apart, while the plug's deficit of 8 gives 20
+  voxels 28–84 s of warning. The timer is a sweep at the boundary over settled at-risk counts, not
+  a hook on the settle; half a second of arming latency against a 2–60 s window.
+- **The re-pour goes above the rubble, not into the cavity first, and it is Tier B's term alone.**
+  Per column a run of *n* lands in *n* cells and vacates *n*, so the lifted water always fits;
+  pouring bottom-up from the first cell over the new rubble puts it where a stone in a pool puts
+  it, and in a flooded room it still ends in the cavity. `lifted` / `returned` are two counters,
+  equal by arithmetic, the identity untouched; a fire waits for fluid-ready chunks so `displaced 0`
+  stays an oracle rather than usually-zero. Priced by last night's bite — 131,072 voxels in 197 ms
+  Debug, 1.5 µs a voxel through the whole hook chain — a per-chunk fall is a few milliseconds and
+  the mid-air fill is two bites in a frame.
+
+And one line of the split is handed back: the unstick moves into c-1, because a body with rubble in
+its box before health exists is not unhurt, it is stuck on every axis with `F` as the only door.
+Damage and death stay c-2.
+
 ## 2026-09-12 — M9b built: the derive on a worker, the tint on the roof
 
 *"As planned please Claude"* — all nine decisions, and the build the same day. Read

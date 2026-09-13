@@ -4897,8 +4897,23 @@ the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
             stale` ever matters is to hold a chunk's submission until none of its six is in flight.
       - [ ] The tint's look — a graded tint (deficit / K per face) is one line in the mesher, a
             screenshot's call, and a quad cost; judged at the first play.
-- [ ] **M9c-1 — the fall.** Alone. Rubble, the timer, the re-pour, the cascade. `displaced 0`.
-- [ ] **M9c-2 — the body.** Health, damage, death, `TryUnstick` for the buried, dust, HUD.
+- [ ] **M9c-1 — the fall.** Alone. **Planned 2026-09-13 — eleven decisions in M9-PLAN's "M9c-1 —
+      the planning pass", all recommended, waiting on Matthew.** Rubble, the timer, the re-pour, the
+      cascade, `--collapse=`, `--collapseafter=`, the bench's `--collapse` arm. The pass's spine: a
+      fall is a *column run* followed downward across faces into settled chunks (a run straddling a
+      horizontal face would otherwise turn to rubble in place and fire as a no-op every boundary);
+      the gate is `IsSettled` now plus the world, because `SettledField` is the last settle and not a
+      promise; the timer is a sweep at the boundary and the cascade is the re-arm from the new
+      deficit; the re-pour goes bottom-up from above the new rubble; `lifted` / `returned` on Tier B
+      alone, the identity untouched, a fire waiting for fluid-ready chunks so `displaced 0` is an
+      oracle. **The unstick moves here from c-2** (a body in rubble with no health is stuck, not
+      unhurt) — Matthew's line to move. Oracle: `--bitechunks=2 --collapseafter=1,2` reads
+      `fell 20 voxel(s)` then `at risk 0`; r6 control to the digit.
+      - [ ] **Lever, named and not built:** `FluidField.Invalidate` clones 4 KiB a voxel, so a fall
+            under a lake churns tens of MiB — a per-chunk invalidation on a bulk edit, M8c-1's seep
+            lever, when a fall under the played lake hitches.
+- [ ] **M9c-2 — the body.** Health, damage, death, dust, HUD. (`TryUnstick` for the buried moved to
+      c-1 by its pass, if Matthew agrees.)
 - [ ] **M9d — the keystone and the play.** The table-move trigger, the fill's refusal, four
       questions: does the plug-then-hold read as *settling*; is a deferred fall attributable; does
       the soil patch under a shallow bite read right; does a bite under the played lake read as
