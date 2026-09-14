@@ -2080,13 +2080,13 @@ public partial class Main : Node3D
                 + "rate — only air is replaceable, so it fills holes and never overwrites rock.",
             EntangledBite.Cube =>
                 "M5d: entangled miner ON — reach unlimited (bounded by the loaded world), "
-                + $"{1.0f / _mining.EntangledCubeCooldownSeconds:F1} swings/s, "
+                + "one click one cell (no repeat while held, at most " + $"{1.0f / _mining.EntangledCubeCooldownSeconds:F0}/s), "
                 + $"and each one takes a {Carve.CubeVoxels * VoxelConstants.VoxelSize:F0} m cube "
                 + $"on the brush's {Carve.CubeVoxels * VoxelConstants.VoxelSize:F0} m lattice "
                 + $"({Carve.CubeVoxels * Carve.CubeVoxels * Carve.CubeVoxels:N0} voxels) — still "
                 + $"{_mining.Tool.Id.Path}'s hardness gate, so it leaves what the tier cannot take. "
                 + "Alt still chips one voxel."
-                + "\n      Right mouse places the brush (B) on the same lattice at the same rate "
+                + "\n      Right mouse places the brush (B) on the same lattice, one click one cell, "
                 + "and reach — only air is replaceable, so it fills holes and never overwrites rock.",
             _ =>
                 "M5d: entangled miner ON — reach unlimited (bounded by the loaded world), "
