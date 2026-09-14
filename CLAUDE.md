@@ -630,7 +630,15 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-14). M9c-1 is built — c-1a's Core and c-1b's wire — and unplayed: the roof
+**Pick up here (2026-09-14, afternoon). M9c-1 is built and played once: six falls in a steel-pick
+tunnel, three of them under a pond with `lifted == returned` exact and `displaced 0` — the wet oracle
+passed in play. Matthew's one note is the delay: *"I want it to be unpredictable … if you have left too
+much overhang"* — the jitter `× U(0.5, 1.5)` makes a thin lip always go in about a minute; widening the
+draw is one constant in `CollapseWindow.DelaySeconds` and waits on his word after the next play (TODO
+under c-1b). He opened a fresh chat for something about the water; M9d is still next.** The paragraph
+below is the morning's state.
+
+**Earlier (2026-09-14). M9c-1 is built — c-1a's Core and c-1b's wire — and unplayed: the roof
 comes down in the game, the oracle reads as planned (four `M9: fell` lines one boundary apart, `20
 voxel(s) fallen`, `at risk 0`, the r6 control to the digit) and the bench's `--collapse` arm drops
 all seven fixtures with both oracles holding. Read M9-PLAN's "M9c-1b — built" first. The play

@@ -4950,6 +4950,25 @@ the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
             water lines; then M9-PLAN's built section extended, its decision-3 cascade paragraph
             amended (a stone or dirt wedge under anchored walls is one fall; the cascade is the
             chunk above joining the analysed set), CLAUDE.md's pick-up paragraph.
+      - [x] **First play, 2026-09-14 (steel pick, a fresh `default`, ~25 min of world time):** six
+            falls, 15 voxels, in two tunnelled chunks — three single voxels under a pond at t 405 /
+            415 / 428 s (drops 3, 1, 1, the last two `cascade`), each lifting and returning one
+            cell (16 L), then 1 / 5 / 6 voxels in a second chunk at t 1134 / 1396 / 1533 s with
+            drops to 7. `lifted 47 L == returned 47 L`, `displaced 0`, both identities exact, `0
+            stale skipped`, 3,382 sweeps at 0.028 ms mean, worst 3.9 ms (the first fall). **The
+            wet oracle passed in play before M9d asked for it.** The unstick is still unexercised
+            (`0 freed / 0 buried` — nothing landed on him).
+      - [ ] **The delay's jitter is too narrow — Matthew, after the play:** *"I want it to be
+            unpredictable like, like you know if you have left too much overhang"*. Today the draw
+            is `lerp(max, min, deficit / K) × U(0.5, 1.5)`, so a thin lip always goes in about a
+            minute and the 6-voxel shelf read as a timer (it sat on six `M9:` lines before it went).
+            **The lever is the draw's width, not the deficit rule**: keep the lean (more overhang
+            falls sooner on average) and widen to `U(0.1, 2.5)` or an exponential with the deficit's
+            delay as its mean, so the same lip can go in 5 s or 150 s. One constant in
+            `CollapseWindow.DelaySeconds`; `--collapseafter=` still sets the ends; re-run the
+            seed-world oracle so the four falls still land inside `--measure=20` (a wider draw at
+            `1,2` may need a longer window or `--clockscale`). **Do it on his word after the next
+            play** — he has not been hit yet and is mining again.
       - [ ] **Lever, named and not built:** `FluidField.Invalidate` clones 4 KiB a voxel, so a fall
             under a lake churns tens of MiB — a per-chunk invalidation on a bulk edit, M8c-1's seep
             lever, when a fall under the played lake hitches. **c-1b's number for it**: a plug's

@@ -44,7 +44,16 @@ entry:
   profile's `fluid`, beside `received == handed`, off `Published` — exact in every arm today
   because nothing has fallen into water in the game yet; the bench is where it was exercised.
 
-**Unplayed, and the play checks are in TODO under c-1b**: a `Q` 2 × 2 under stone on the played
+**Played the same afternoon, on a wiped `default` with the steel pick** — six falls, 15 voxels, three of
+them single voxels under a pond that each lifted and returned one cell (`lifted 47 L == returned 47 L`,
+`displaced 0`, both identities exact, `0 stale skipped`, 3,382 sweeps at 0.028 ms mean). The wet oracle
+passed in play before M9d asked for it. **The verdict was on the delay, not the fall**: *"I want it to
+be unpredictable like, like you know if you have left too much overhang"* — the 6-voxel shelf sat on six
+`M9:` lines and then went, which reads as a timer. The `× U(0.5, 1.5)` jitter is the narrow half of the
+window; widening the draw (TODO under c-1b) is one constant and waits on his word after the next play.
+Nothing has landed on him yet, so the unstick is still unexercised.
+
+**The play checks are in TODO under c-1b**: a `Q` 2 × 2 under stone on the played
 world, waiting the window out (the plug's deficit of 8 arms near the 60 s end); standing under it
 on foot for the unstick line; a bite under the played lake for `displaced 0` and `lifted ==
 returned`. Next is M9d — the table-move trigger, the fill's refusal, and the four questions — and
