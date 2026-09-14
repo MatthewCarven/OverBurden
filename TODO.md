@@ -5088,10 +5088,17 @@ the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
             4 × 4 room's biggest stage (11,703 voxels) is ~18 ms in one boundary at the bite's rate.
 - [ ] **M9c-2 — dust.** Decision 11's other half, optional, judged after M9d's play (the tint may be
       enough). Health, damage, death and the HUD bar are M11's since 2026-09-13; the unstick is c-1's.
-- [ ] **M9d — the keystone and the play.** The table-move trigger, the fill's refusal, four
-      questions: does the plug-then-hold read as *settling*; is a deferred fall attributable; does
+- [ ] **M9d — the keystone and the play. Planned 2026-09-15 — ten decisions in M9-PLAN's
+      "M9d — the planning pass", waiting on Matthew; build once they are answered.** The
+      table-move trigger (readings compared at the boundary, requeue iff the cost table's bytes
+      differ), a timer that only shortens, the fill's refusal (`Wet`, read from a published
+      per-panel bitset — never the grid), `--saturation=0`, `--tablemove=0`,
+      `--fillbasinafter=`, the oracle, the jitter's widening, and four questions as recipes:
+      does the plug-then-hold read as *settling*; is a deferred fall attributable; does
       the soil patch under a shallow bite read right; does a bite under the played lake read as
-      *the water brought it down*.
+      *the water brought it down*. Two things are his beyond the numbers: whether a fill under
+      a Tier A plane is refused (recommended not — a pier deletes nothing), and whether the
+      jitter widens before this play (recommended yes).
 - [x] After the decisions: DESIGN's *Structural integrity* (bedrock → the analysed edge, the arch,
       *deferred*), MATERIALS-NOTES decision 1, `MaterialDefinition.SupportDistance`'s comment,
       SCALE's M9 paragraph — all amended 2026-09-11.

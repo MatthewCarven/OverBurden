@@ -643,7 +643,24 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-15). M9d is next and wants its planning pass — read M9-PLAN's M9d
+**Pick up here (2026-09-15, later). M9d is planned and not built — ten decisions in
+M9-PLAN's "M9d — the planning pass", eight recommended and two Matthew's (a fill under a Tier A
+plane, and the jitter's widening before the play); build it once they are answered, Core first
+against the tests the section names at its end, then the wire and the oracle.** The pass's spine:
+**the trigger is a comparison, not a re-derive** — the cost table records sixteen readings per
+sample at submission, the region compares fresh ones at the fluid boundary (memoised per basin)
+and requeues under `Table` only when the rebuilt table's bytes differ, so a lake's fourteenth
+metre over a roof already past the curve's last point costs nothing; **a timer only shortens**,
+because `CollapseScheduler` arms once from the deficit it had and a dry plug's 60 s would
+otherwise outlive the lake that rose over it; and **the fill's wet answer is a published per-panel
+bitset read on one path**, never the grid — the M8d-5b lesson (a read of `Grid` mid-tick throws,
+and under `--fluidjob=1` the grid is a worker's for up to a third of every second). `--saturation=0`
+is the dry control the split's oracle row has named since the plan and is not yet a flag. The
+morning's fix — a quit with a completed tick's surface in hand threw past the save, two sessions
+lost their last 30 s — is in WORKLOG and commit `019177a`; read it before touching `_ExitTree`'s
+order. The paragraph below is the state before the pass, kept for the reasoning.**
+
+**Earlier (2026-09-15). M9d is next and wants its planning pass — read M9-PLAN's M9d
 section against `CollapseWindow`, `SupportRegion` and `FluidSimulation` first. The night of
 2026-09-14 ended with three things after the stall fix, all built, committed and played once:
 the entangled bite is the brush cell (`Carve.Cube`, `CubeVoxels = BrushCell.Voxels`, so dig

@@ -1170,3 +1170,172 @@ and rests in one tick of 88 visits.
   these fixtures the two are equal because a zero window makes every settled chunk fire at once.
 
 Not played. What a person judges is M9d's four questions; the c-1b oracle is a log.
+
+---
+
+## M9d — the planning pass
+
+> 2026-09-15, before any code, against `SupportRegion`, `SupportCostTable`, `CollapseScheduler`,
+> `Place.Put` and `FluidSimulation`'s ownership rules. M9d is the keystone — the table-move trigger,
+> the fill's refusal, the play — and it is small; what the pass found is that both halves touch a
+> rule already settled elsewhere (the derive reads the table at submission; the grid refuses
+> mid-tick) and each wants stating before it is coded.
+
+**Four things read off the code.** `TableMoved()` exists on the region, unrefined — every analysed
+chunk — and nothing calls it; `SupportCostTable.Build` reads the live `IWaterTable` at submission,
+so the trigger is a *comparison* against what a derive read, not a new path. `CollapseScheduler`
+arms a chunk once, from the deficit it had, and never re-arms while the set stays non-empty — a
+dry 2 × 2 plug armed at deficit 8 (near the 60 s end) keeps that timer when a lake rises over it
+and the deficit goes to `K`, so the keystone would fall on the dry clock. `Place.Put`'s gate is
+`existing != Air` and nothing in `IVoxelEditor` can say *wet*; the honest wet answer is a Tier B
+cell's amount, and the grid refuses that read while a job owns it — which under `--fluidjob=1` is
+the case for up to a third of every second on the played world's floods (3b's play: worker wall 172 ms mean, 319 max). And `--saturation=0`, the control the split's oracle row
+names (*the same chamber dry and under the played lake*), is not a flag; the region already takes
+a null table, so it is one line.
+
+### 1. The trigger is a reading compared at the boundary, not a re-derive of everything — *recommended*
+
+A derive's cost table records what it read: sixteen **readings**, one per 2 m sample, each
+`max(0, level − chunk.OriginY)` in voxels (0 for a dry sample *and* for a lake standing below the
+chunk, which the cost table cannot tell apart either). The region keeps them beside the field.
+At each fluid boundary — after the pour, the drain and the hand-off, which are the three things
+besides rain that move a level — the region sweeps its analysed chunks: for each with a field and
+neither queued nor in flight, sixteen fresh readings, memoised per basin the way `WaterSurface`
+solves `LevelAt` once per basin rather than once per sample; **a sample moved by a voxel or more
+rebuilds the chunk's cost table and requeues it under `Table` iff the bytes differ**. The second
+stage is what makes a chunk 13 m under a lake indifferent to the lake's fourteenth metre — past
+the curve's last point the distance is constant, and a re-derive would move nothing.
+
+*Estimate*: on the played world's ~120 analysed chunks, 1,900 memoised lookups a boundary —
+tens of microseconds; the table rebuild only where something moved. Its own `table` term on the
+`boundary` line, because the boundary's worst frame is a 3c item. Under `--nowater` there is no
+table and no sweep; `--tablemove=0` is the M9b arm, kept so a rising lake over a settled roof can
+be read against it. `TableMoved()` stays as the test double.
+
+*Rejected*: a per-basin change list on `WaterSystem` — a basin is an index that the window
+renumbers on every move, so the field would carry a stale key; the readings are per sample in
+world coordinates and survive a re-analysis by construction, and a re-analysis that changes a
+level is a table move like any other. *Rejected*: a per-frame round-robin — the levels move at
+the boundary or by rain, and rain moves a level a voxel in minutes.
+
+### 2. A timer only shortens — *recommended*
+
+The scheduler stores the deficit it armed at. At the sweep, a settled field whose `MaxDeficit`
+grew past it redraws and **keeps the earlier of the two dues**; a deficit that shrank keeps its
+due (a roof that was going to fall still is), and an empty set disarms as now. So a plug armed
+dry at 60 s that a lake then stands over re-arms near the 2 s end, and the fall is the water's.
+Cost: one draw. The identity that holds: a re-derive that keeps the set and the deficit is not an
+event — decision 3's rule, unchanged.
+
+### 3. A fill refuses a voxel holding water; a lake is not refused — *recommended; the lake half is Matthew's*
+
+Decision 9's rule, with its edge stated. `IVoxelEditor.HoldsWater(VoxelPos)`, default `false`
+(the `IFluidTerrain.IsLoaded` precedent — the eleven predicate editors in the suite are untouched);
+`Place.Put` tests it after `Occupied` and before the stock, and returns a new bucket, **`Wet`**,
+counted on `PlaceResult`, the HUD's placement line and the profile's `PlacementLines`. One `Put`
+holds it, so the brush, the precision voxel, the entangled fill and `--entanglechunk`'s chunk all
+refuse the same cells and fill the dry ones round them. *A voxel under a Tier A plane is not
+refused*: a lake is a body with no cells, its volume is a number the terrain cannot reduce
+(edits do not change the watershed — locked), so a fill there is a pier and deletes nothing.
+Refusing it would end building in water for a rule that protects nothing. **Matthew's**, because
+it is the one place a player would feel the rule and the argument is about what reads right.
+
+### 4. The wet answer is a published bitset, one path — *recommended*
+
+`FluidPanel` keeps a 4 KiB wet bitset maintained on every cell write (a bit flips only when an
+amount crosses zero — a branch inside a 2.9 µs Debug visit, noise); `Publish()` copies the bitsets
+of the panels the tick touched into a sim-thread dictionary beside `_publishedPanels`, and
+`HoldsWater` reads **only the published copy**, whether or not a job owns the grid. Stale by at
+most one tick, uniformly: a cell that went wet during the tick in flight is not refused and its
+water is displaced at the next visit — today's behaviour, bounded to one tick's arrivals and
+still counted on `displaced`; a cell that dried is refused for half a second and the click can be
+repeated. *Estimate*: 44 touched panels on the played log is 176 KiB a boundary, ~20 µs.
+
+*Rejected*: reading the grid when it is free and the copy when it is not — two paths, and the
+untested one is the path play takes. *Rejected*: `MayHoldWater`'s chunk answer — a puddle in one
+corner would refuse every fill in an 8 m chunk, and the play would read the rule as broken.
+*Rejected*: deferring the fill to the boundary like `R` — the bite writes at the click, and a
+build verb that lags half a second while its twin does not is a seam a hand feels.
+
+### 5. Flags, lines and the pour's delay — *recommended*
+
+`--saturation=0` builds the region with no table — every derive dry, the control; `--tablemove=0`
+keeps the table and drops the trigger; `--fillbasinafter=<seconds>` lands `--fillbasin`'s pour
+that far into the measured window rather than at its open (0 today's arm), because the trigger's
+oracle needs the bite settled dry *before* the lake stands over it, and today the pour lands the
+frame before the bite. The `M9:` line's `table` count exists; the `boundary` line gains `table`;
+the placement lines gain `wet`.
+
+### 6. The headless oracle — *recommended*
+
+`--bitechunks=2 --collapse=0 --fillbasin=2000000 --fillbasinafter=5 --measure=20`: `at risk 20
+voxel(s) in 4 settled chunk(s)` at the open, then `table N` requeues on the `M9:` line after the
+pour lands and at risk climbs into the hundreds or thousands (M9a read 532 under 2 m and 3,028
+under 5 m for the same room; the head here is the pour's level over a bite 24 m down, and the run
+says the number rather than the plan). With `--collapseafter=1,2` the fall is that many voxels
+with `lifted == returned` and `displaced 0`. **Three controls**: `--saturation=0` reads 20 and
+falls 20 with the lake standing; `--tablemove=0` reads 20 after the pour; the r6 control is
+unchanged to the digit.
+
+### 7. The jitter — widen before this play, or keep — *Matthew's; recommended: widen*
+
+TODO holds his verdict from the first play (*"I want it to be unpredictable"*) and the lever —
+`U(0.5, 1.5)` → an exponential with the deficit's delay as its mean, capped at the window's ends
+so `--collapseafter=` keeps its meaning — with *on his word after the next play*. M9d's play is
+that play, and its second question (is a deferred fall attributable) reads differently under a
+draw that makes a thin lip a timer. Recommended: widen first, so the play judges one thing.
+Re-run the seed-world oracle; a wider draw at `1,2` may want `--clockscale`.
+
+### 8. The play: four questions as recipes, one sentence wanted back on each — *recommended*
+
+On `default` (wiped 2026-09-14 14:01; the pond with the three falls is on it), `start.cmd` with
+`--entanglechunk` for the chunk bite, because a 16 m room on the cube arm is 256 clicks.
+
+1. **Does the plug-then-hold read as *settling*?** `Q`, two chunk bites side by side and two
+   more behind, 24 m down in stone; walk back and wait the minute out (or `--collapseafter=2,10`).
+   One `M9: fell 20` line and the roof then holds. *Wanted back*: whether it read as the roof
+   settling or as a glitch.
+2. **Is a deferred fall attributable?** `--collapse=0`, the same room, look up: the tint is the
+   whole of the warning. *Wanted back*: whether you could say where it would go before it went.
+3. **Does the soil patch under a shallow bite read right?** One chunk bite whose top face is in
+   the surface soil (bite the chunk under your feet from beside it). ~1,000 voxels of dirt fall
+   onto the floor. *Wanted back*: whether dirt falling and stone holding read as two materials.
+4. **Does a bite under the played lake read as *the water brought it down*?** The same 2 × 2
+   under the pond, then once more with `--saturation=0`; read `at risk` on the `M9:` line in
+   both (twenty against thousands), `lifted == returned`, `displaced 0`. *Wanted back*: whether
+   the wet roof going and the dry one holding read as the lake's doing.
+
+And two the questions do not name: **the trigger in play** — dig a room under a dry hollow, stand
+in the hollow and `R` ten thousand litres a few times (the hand-off raises the basin), read
+`table` climbing on the `M9:` line and the tint arriving on the roof with nothing touched; **the
+fill in play** — `R` into a room, then a brush into the pool: `wet 64` on the placement line, the
+water untouched, `displaced 0` at the next `M8b:` line.
+
+### 9. Deliberately not in M9d — *recommended*
+
+Dust (M9c-2, judged after this play); health, damage, death (M11); the field retained across
+unload; the per-chunk invalidation lever for a fall under a lake (TODO, when it hitches); rain
+wetness as head on a hillside (`Saturation`'s own revisit trigger — a second derived term, not
+this one); an angle of repose. And **a fill that displaces water rather than refusing it** —
+`Place`'s M8 revisit trigger says *displace*; decision 9 chose *refuse* because displacing
+into a flooded room has nowhere to go and the loop wants the pump. Recorded so the trigger's
+wording does not re-open it.
+
+### 10. The split — *recommended*
+
+One build, Core first: the readings and the sweep on `SupportRegion`, the scheduler's shorten
+rule, `HoldsWater` and `Wet` in `Place`, the panel bitset and its publish — each with its tests —
+then the wire (the flags, the boundary term, the pipeline's `HoldsWater` over the published copy,
+the oracle), then the docs. Small enough for one session; the play is Matthew's and closes M9.
+
+**Tests the build owes.** The trigger: a settled chunk under a sample that rises a voxel is
+requeued under `Table` and no other chunk is; a rise under a voxel requeues nothing; a lake
+rising below a dry chunk requeues nothing; a rise past the curve's last point requeues nothing
+(the byte compare); a queued or in-flight chunk is not queued twice; a window move that
+renumbers basins at unchanged levels requeues nothing; the incremental-equals-from-scratch fuzz
+gains *the table moves* as an event. The scheduler: armed at 8 then deficit `K` is due earlier;
+deficit 8 → 4 keeps its due; the set emptying disarms. The fill: a wet voxel is `Wet`, its
+amount untouched and `displaced 0` after ticks; a cell that dried refuses for one publish and
+fills after the next; a voxel under a Tier A plane fills; the chunk fill refuses exactly the wet
+cells. The wire: the pipeline's `HoldsWater` answers mid-tick with a job on the grid without
+touching `Grid` (the M8d-5b lesson as an assertion).
