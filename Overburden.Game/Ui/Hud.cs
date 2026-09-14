@@ -354,6 +354,13 @@ public sealed partial class Hud : CanvasLayer
             return $"WHOLE CHUNK  (Q)   ·   {tier} gate  (T)   ·   dig / fill   ·   Alt: one voxel";
         }
 
+        // The cube bite (2026-09-14): the dig is 2 m and the fill is still the 8 m chunk, which
+        // is the one asymmetry in the mode and the reason both scales are printed.
+        if (mining?.TakesCube == true)
+        {
+            return $"2 M CUBE  (Q)   ·   {tier} gate  (T)   ·   dig 2 m / fill 8 m chunk   ·   Alt: one voxel";
+        }
+
         return $"{brush} brush  (B)   ·   {tier}  (T)   ·   1-9 material, V cycle   ·   Alt: one voxel";
     }
 }

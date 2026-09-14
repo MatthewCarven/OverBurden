@@ -317,6 +317,110 @@ public static class Carve
         return new CarveResult(candidates, removed, tooHard, alreadyAir, unreachable);
     }
 
+    /// <summary>The cube bite's edge in voxels: eight, a 2 m cube, sixty-four to a chunk.</summary>
+    /// <remarks>
+    /// A power of two dividing the chunk, for the reason the cave lattice step is one: the cube
+    /// lattice then nests inside the chunk lattice, so a cube never straddles a chunk face and
+    /// sixty-four cube bites are one chunk bite exactly. <see cref="CubeOrigin"/> relies on it.
+    /// </remarks>
+    public const int CubeVoxels = 8;
+
+    /// <summary>The cube of the cube lattice that holds <paramref name="voxel"/>, by its origin.</summary>
+    /// <remarks>
+    /// Snapped to a lattice rather than centred on the hit voxel, and that is the whole of what
+    /// makes the shape a miner's: consecutive bites tile into flat-walled rooms instead of
+    /// overlapping into ragged one-voxel steps, which is what the 1 m brush lattice buys placement
+    /// and what the chunk lattice buys the chunk bite. A mask floors negative coordinates too,
+    /// which a division would not — the seam through the origin that
+    /// <see cref="VoxelPos.Chunk"/> shifts to avoid.
+    /// </remarks>
+    public static VoxelPos CubeOrigin(VoxelPos voxel) => new(
+        voxel.X & ~(CubeVoxels - 1),
+        voxel.Y & ~(CubeVoxels - 1),
+        voxel.Z & ~(CubeVoxels - 1));
+
+    /// <summary>
+    /// Takes the 2 m cube of the cube lattice that holds the hit voxel — the entangled miner's
+    /// bite since 2026-09-14, between the tier's sphere and the whole chunk.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Matthew's ask, verbatim: <i>"just take an 8x8 cube like right click"</i></b> — the
+    /// chunk bite was the right scale for flooding a test mine and the wrong one for shaping
+    /// anything, 512 m³ gone a press with the seam drawn nowhere. Eight voxels is the cube brush's
+    /// idea at bite scale: a lattice you can see the edges of, small enough to steer, big enough
+    /// that a room is a few presses rather than a few hundred.
+    /// </para>
+    /// <para>
+    /// Same <see cref="Take"/>, same gate, same buckets as the other three shapes. 512 candidates
+    /// exactly, whatever the aim — bounded like the chunk's and for the same reason.
+    /// </para>
+    /// </remarks>
+    public static CarveResult Cube(
+        IVoxelEditor world,
+        MaterialTable materials,
+        in VoxelHit hit,
+        ToolDefinition tool,
+        VolumetricInventory? into = null)
+    {
+        ArgumentNullException.ThrowIfNull(tool);
+
+        return Cube(world, materials, CubeOrigin(hit.Voxel), tool.HardnessThreshold, into);
+    }
+
+    /// <summary>Takes every voxel of the cube at <paramref name="origin"/> the threshold allows.</summary>
+    /// <remarks>
+    /// The named-origin overload, the way <see cref="Chunk(IVoxelEditor, MaterialTable, ChunkPos, float, VolumetricInventory?)"/>
+    /// takes a named chunk: which cube a hit maps to is <see cref="CubeOrigin"/>'s decision and
+    /// nobody else's. The origin is not snapped here — a caller naming one off the lattice gets
+    /// the cube it named.
+    /// </remarks>
+    public static CarveResult Cube(
+        IVoxelEditor world,
+        MaterialTable materials,
+        VoxelPos origin,
+        float hardnessThreshold,
+        VolumetricInventory? into = null)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(materials);
+
+        if (float.IsNaN(hardnessThreshold))
+        {
+            // The same failure-open trap the other shapes document.
+            throw new ArgumentOutOfRangeException(
+                nameof(hardnessThreshold),
+                hardnessThreshold,
+                "A hardness threshold of NaN would compare false against every material and "
+                + "so remove all of them. Use float.NegativeInfinity for a tool that takes nothing.");
+        }
+
+        int candidates = 0;
+        int removed = 0;
+        int tooHard = 0;
+        int alreadyAir = 0;
+        int unreachable = 0;
+
+        // Chunk's loop nest at the cube's size: Z outer, Y inner, the storage order.
+        for (int z = 0; z < CubeVoxels; z++)
+        for (int x = 0; x < CubeVoxels; x++)
+        for (int y = 0; y < CubeVoxels; y++)
+        {
+            var voxel = new VoxelPos(origin.X + x, origin.Y + y, origin.Z + z);
+            candidates++;
+
+            switch (Take(world, materials, voxel, hardnessThreshold, into))
+            {
+                case Bucket.Removed: removed++; break;
+                case Bucket.TooHard: tooHard++; break;
+                case Bucket.AlreadyAir: alreadyAir++; break;
+                default: unreachable++; break;
+            }
+        }
+
+        return new CarveResult(candidates, removed, tooHard, alreadyAir, unreachable);
+    }
+
     /// <summary>
     /// Where a swing lands, given what the player is pointing at: <b>the centre of the hit
     /// voxel</b>.

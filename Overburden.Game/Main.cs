@@ -217,9 +217,10 @@ public partial class Main : Node3D
     private bool _mineWhileProfiling;
     private bool _entangleWhileProfiling;
 
-    private bool _entangledSphereWhileProfiling;
+    private EntangledBite _entangledBite = EntangledBite.Cube;
 
     private float _chunkCooldownSeconds = MiningController.DefaultEntangledChunkCooldownSeconds;
+    private float _cubeCooldownSeconds = MiningController.DefaultEntangledCubeCooldownSeconds;
     private bool _fallProfile;
     private bool _ambientOcclusion = true;
     private bool _lightInMergeKey = true;
@@ -1519,7 +1520,14 @@ public partial class Main : Node3D
                 // the thing it disables, the same as --cavestep=1 and --viewnormal=1, because a
                 // flag that reads as "off" invites being thought of as the default.
                 case "entanglesphere":
-                    _entangledSphereWhileProfiling = true;
+                    _entangledBite = EntangledBite.Sphere;
+                    break;
+
+                // The chunk bite, the default from 2026-09-03 until the cube replaced it on
+                // 2026-09-14: the arm every recorded bite figure was taken in, and the one that
+                // excavates a test mine in seconds. A play bind's arm, so not profile-only.
+                case "entanglechunk":
+                    _entangledBite = EntangledBite.Chunk;
                     break;
 
                 // The chunk bite's rate, as a seam rather than a constant, for the reason
@@ -1530,6 +1538,12 @@ public partial class Main : Node3D
                 case "chunkcooldown" when float.TryParse(value, out float chunkCooldown)
                                           && chunkCooldown > 0.0f:
                     _chunkCooldownSeconds = chunkCooldown;
+                    break;
+
+                // The cube bite's rate, an estimate (0.1 s), for the same reason and the same way.
+                case "cubecooldown" when float.TryParse(value, out float cubeCooldown)
+                                         && cubeCooldown > 0.0f:
+                    _cubeCooldownSeconds = cubeCooldown;
                     break;
 
                 // The fall profile. M2d measured a viewer flying horizontally at a constant
@@ -2042,17 +2056,31 @@ public partial class Main : Node3D
         // see until they have already removed eight metres of world. The hardness clause is
         // still printed: it is the half of the old rule that did not change, and the half that
         // makes a bedrock floor survive being pointed at.
-        GD.Print(_mining.EntangledTakesChunk
-            ? "M5d: entangled miner ON — reach unlimited (bounded by the loaded world), "
-              + $"{1.0f / _mining.EntangledChunkCooldownSeconds:F1} swings/s, "
-              + $"and each one takes the WHOLE {VoxelConstants.ChunkSizeMetres:F0} m chunk "
-              + $"({VoxelConstants.ChunkVolume:N0} voxels) — still {_mining.Tool.Id.Path}'s "
-              + "hardness gate, so it leaves what the tier cannot take. Alt still chips one voxel."
-              + "\n      Right mouse FILLS the whole chunk in front of the crosshair, at the same "
-              + "rate — only air is replaceable, so it fills holes and never overwrites rock."
-            : "M5d: entangled miner ON — reach unlimited (bounded by the loaded world), "
-              + $"{1.0f / MiningController.EntangledCooldownSeconds:F0} swings/s, "
-              + $"still {_mining.Tool.Id.Path}'s bite and hardness gate");
+        GD.Print(_mining.Bite switch
+        {
+            EntangledBite.Chunk =>
+                "M5d: entangled miner ON — reach unlimited (bounded by the loaded world), "
+                + $"{1.0f / _mining.EntangledChunkCooldownSeconds:F1} swings/s, "
+                + $"and each one takes the WHOLE {VoxelConstants.ChunkSizeMetres:F0} m chunk "
+                + $"({VoxelConstants.ChunkVolume:N0} voxels) — still {_mining.Tool.Id.Path}'s "
+                + "hardness gate, so it leaves what the tier cannot take. Alt still chips one voxel."
+                + "\n      Right mouse FILLS the whole chunk in front of the crosshair, at the same "
+                + "rate — only air is replaceable, so it fills holes and never overwrites rock.",
+            EntangledBite.Cube =>
+                "M5d: entangled miner ON — reach unlimited (bounded by the loaded world), "
+                + $"{1.0f / _mining.EntangledCubeCooldownSeconds:F1} swings/s, "
+                + $"and each one takes a {Carve.CubeVoxels * VoxelConstants.VoxelSize:F0} m cube "
+                + $"on the {Carve.CubeVoxels * VoxelConstants.VoxelSize:F0} m lattice "
+                + $"({Carve.CubeVoxels * Carve.CubeVoxels * Carve.CubeVoxels:N0} voxels) — still "
+                + $"{_mining.Tool.Id.Path}'s hardness gate, so it leaves what the tier cannot take. "
+                + "Alt still chips one voxel."
+                + "\n      Right mouse FILLS the whole 8 m chunk in front of the crosshair — only "
+                + "air is replaceable, so it fills holes and never overwrites rock.",
+            _ =>
+                "M5d: entangled miner ON — reach unlimited (bounded by the loaded world), "
+                + $"{1.0f / MiningController.EntangledCooldownSeconds:F0} swings/s, "
+                + $"still {_mining.Tool.Id.Path}'s bite and hardness gate",
+        });
     }
 
     private static Vector3 ToGodot(System.Numerics.Vector3 v) => new(v.X, v.Y, v.Z);
@@ -2908,6 +2936,7 @@ public partial class Main : Node3D
             // only reached a profile run would be a sweep seam for the one arm that cannot
             // judge it.
             EntangledChunkCooldownSeconds = _chunkCooldownSeconds,
+            EntangledCubeCooldownSeconds = _cubeCooldownSeconds,
         };
 
         _highlight = new VoxelHighlight(GetWorld3D());
@@ -2919,7 +2948,7 @@ public partial class Main : Node3D
         }
 
         _mining.Entangled = _entangleWhileProfiling;
-        _mining.EntangledTakesChunk = !_entangledSphereWhileProfiling;
+        _mining.Bite = _entangledBite;
 
         GD.Print($"M3d: mining with {strongest.Id} — tiers {string.Join(", ", names)}");
     }
@@ -2953,9 +2982,11 @@ public partial class Main : Node3D
             // against one tool rather than a chunk bite against a brush fill. Set here rather than
             // beside the miner's own assignment because this controller is built after it, and a
             // --entangle profile that armed the bite but not the fill would be an arm nobody asked
-            // for — the M5c-2 hole one layer out, in a seam rather than in the logic.
+            // for — the M5c-2 hole one layer out, in a seam rather than in the logic. The fill
+            // stays the whole chunk under the cube bite (2026-09-14): "like right click" was the
+            // ask, so the right click is the thing that did not move.
             Entangled = _entangleWhileProfiling,
-            EntangledFillsChunk = !_entangledSphereWhileProfiling,
+            EntangledFillsChunk = _entangledBite != EntangledBite.Sphere,
             ChunkCooldownSeconds = _chunkCooldownSeconds,
         };
 
@@ -3163,6 +3194,13 @@ public partial class Main : Node3D
         {
             (float cx, float cy, float cz) = _mining.Hit.Voxel.Chunk.OriginMetres;
             _highlight.ShowAt(new Vector3(cx, cy, cz), VoxelConstants.ChunkSizeMetres);
+        }
+        else if (_mining.TakesCube && !precise)
+        {
+            // The cube's lattice is as invisible as the chunk's, and a 2 m box is exactly the
+            // scale at which the wrong cube going reads as the tool missing.
+            (float cx, float cy, float cz) = Carve.CubeOrigin(_mining.Hit.Voxel).MinCornerMetres;
+            _highlight.ShowAt(new Vector3(cx, cy, cz), Carve.CubeVoxels * VoxelConstants.VoxelSize);
         }
         else
         {
@@ -5078,6 +5116,16 @@ public partial class Main : Node3D
                         * VoxelConstants.VoxelSize * VoxelConstants.VoxelSize
                         * VoxelConstants.VoxelSize:N0} m³ of world offered up)"
                   + (_mining.ChunkSwings == _mining.Swings
+                      ? "\n"
+                      : " — MIXED with other shapes, so every per-swing mean above is a blend\n")
+                : string.Empty) +
+            (_mining.CubeSwings > 0
+                ? $"cube      {_mining.CubeSwings} of {_mining.Swings} swing(s) took a "
+                  + $"{Carve.CubeVoxels * VoxelConstants.VoxelSize:F0} m cube "
+                  + $"({_mining.CubeSwings * (double)(Carve.CubeVoxels * Carve.CubeVoxels * Carve.CubeVoxels)
+                        * VoxelConstants.VoxelSize * VoxelConstants.VoxelSize
+                        * VoxelConstants.VoxelSize:N0} m³ of world offered up)"
+                  + (_mining.CubeSwings == _mining.Swings
                       ? "\n"
                       : " — MIXED with other shapes, so every per-swing mean above is a blend\n")
                 : string.Empty);

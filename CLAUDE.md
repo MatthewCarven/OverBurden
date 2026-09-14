@@ -316,11 +316,14 @@ table below), `--skybrightness=<0..2>` (scales the sky channel alone; 0 leaves o
 **the overcast multiplies this rather than replacing it, so the seam survives weather**),
 `--debuglamp` (places one lamp where the crosshair points, so a screenshot can show block
 light without a keypress) and `--entangle` (the entangled miner, which with `--mine` aims along
-the flight path rather than straight down — see below). **`--entanglesphere` restores its
-pre-2026-09-03 bite**, the tier's sphere instead of a whole chunk, and is the arm the chunk bite
-was priced against; **`--chunkcooldown=<seconds>` sweeps the chunk bite's rate and is deliberately
-not profile-only**, because `Q` is a play bind and a rate that only reached a profile run would be
-a seam for the one arm that cannot judge it.
+the flight path rather than straight down — see below). **The entangled bite is a 2 m cube on a
+2 m lattice since 2026-09-14** (`Carve.Cube`, 512 voxels, 10/s an estimate); **`--entanglechunk`
+restores the whole-chunk bite of 2026-09-03 to 2026-09-14**, the arm every recorded bite figure
+was taken in, and **`--entanglesphere` the pre-2026-09-03 bite**, the tier's sphere, the arm the
+chunk was priced against; **`--chunkcooldown=<seconds>` and `--cubecooldown=<seconds>` sweep
+the two rates and are deliberately not profile-only**, because `Q` is a play bind and a rate that
+only reached a profile run would be a seam for the one arm that cannot judge it. The fill under
+`Q` is still the whole chunk in either arm.
 
 M7c-1 adds four more, all seams rather than settings. **`--clock=<seconds>` starts the run
 somewhere in this world's forecast** — the weather is a pure function of (seed, time), so this is
@@ -2838,10 +2841,14 @@ same argument that kept it out of the tool JSON.
 
 **The entangled miner is a debug bind, built 2026-08-31 to dig M5d-2's test volume.** **Q**
 toggles it: point at anything, hold left click, and it eats what it is pointed at however far
-away. **As of 2026-09-03 a bare click takes the whole 8 m chunk** — 32,768 voxels, 512 m³ — at
-**4 a second**; Alt still chips one voxel, at 40. **And a bare *right* click fills a whole chunk,
-same day, same rate, same reach** — so the bite has an undo at its own scale. Three things about it
-that are easy to undo by accident:
+away. **As of 2026-09-14 a bare click takes a 2 m cube — 8 × 8 × 8 voxels on a 2 m lattice
+that nests inside the chunk's, at 10 a second (an estimate, `--cubecooldown=`)** — on Matthew's
+*"just take an 8x8 cube like right click"*; from 2026-09-03 until then it took **the whole 8 m
+chunk** — 32,768 voxels, 512 m³ — at **4 a second**, which `--entanglechunk` restores and which
+every bite figure below was measured on. Alt still chips one voxel, at 40. **And a bare *right*
+click fills a whole chunk, same reach, unchanged by the cube** — "like right click" was the ask,
+so the right click is the thing that did not move; the HUD prints both scales. Three things about
+it that are easy to undo by accident:
 
 - **It is deliberately not a tool tier, and that is the design decision rather than laziness.**
   *Reach is the player's, not the tool's* is locked twice — M3d, restated at M4c — because
