@@ -643,7 +643,21 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-14, night). M8d-5 is built, both halves — a lake is a body Tier B cannot
+**Pick up here (2026-09-15). M9d is next and wants its planning pass — read M9-PLAN's M9d
+section against `CollapseWindow`, `SupportRegion` and `FluidSimulation` first. The night of
+2026-09-14 ended with three things after the stall fix, all built, committed and played once:
+the entangled bite is the brush cell (`Carve.Cube`, `CubeVoxels = BrushCell.Voxels`, so dig
+and fill are one lattice by construction), the entangled fill is the brush at range, both at
+10/s on Matthew's word (*"eventually this will cost a lot of power"* — the rate is an input to
+M10's battery gate, not a frame ceiling), and **one click is one click** on that arm (an edge
+in `Main`, Alt still repeats). `--entanglechunk` is the old chunk pair and every recorded bite
+figure's arm. Three lessons that cost a pass each: a number in his message is what he sees on
+screen (the brush cell is "4x4x4", and "8x8" was that cell, not eight voxels — ask which grid
+before building a size); a hook on an arrival path runs mid-tick and may ask the automaton
+nothing but `MayHoldWater`; and count a play log's `ERROR` lines before its reports. The
+paragraph below is the state before all that.**
+
+**Earlier (2026-09-14, night). M8d-5 is built, both halves — a lake is a body Tier B cannot
 enter — and played: *"this version seems working now?"*, recorded on his word. A chunk bitten
 out of a lake's centre reversed decision 7 first (a bite in a lake's bed fills only to the seed,
 the water above is the lake's, so the plane draws over the bite and Tier B draws no top under a
