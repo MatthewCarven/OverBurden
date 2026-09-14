@@ -166,6 +166,9 @@ public sealed class FluidSurface
     /// <summary>Surface cells the last build covered with its tops — what the debug view drew one quad each.</summary>
     public int CellsWalked { get; private set; }
 
+    /// <summary>Wet cells the last build drew full with no top because a lake's cell is above them (M8d-5).</summary>
+    public int UnderLake { get; private set; }
+
     /// <summary>Merged top quads, side runs and bottoms in the last build. Their sum is <see cref="QuadCount"/>.</summary>
     public int Tops { get; private set; }
 
@@ -216,6 +219,7 @@ public sealed class FluidSurface
         _lastMesh = mesh;
         InstalledAtMsec = Time.GetTicksMsec();
         CellsWalked = mesh.SurfaceCells;
+        UnderLake = mesh.UnderLake;
         Tops = mesh.Tops;
         Sides = mesh.Sides;
         Bottoms = mesh.Bottoms;

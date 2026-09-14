@@ -1,5 +1,28 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-14 — M8d-5 played once: a chunk out of a lake's centre reverses decision 7
+
+Matthew's first play on the new build: `Q` on a chunk in the middle of a lake — *"this happen
+if you take a chunk out of the center of a lake … this might be my fault"*. Not his fault, and
+not what the pass thought either. The screenshot is a dark box inside the plane with pale patches
+on its top; the mesher already draws no side against a cell it cannot hold, so it is not walls.
+**A bite in a lake's bed is below the seed surface, so Tier B fills it only to the seed, and the
+cells from there to the level are the band — Tier A's water.** Decision 7 skipped A's plane over
+the bite and left Tier B's top a metre or two down inside a hole, dark for its eight metres of
+column; the pale patches are the top cells' unequal fills that A's flat plane never showed.
+
+The fix is the reverse of decision 7: **the plane draws over the bite, because the water above
+the seed there is the lake's, and Tier B draws no top under a lake cell, because the water goes
+on upward.** One rule in `FluidSurfaceMesher` — a would-be surface cell whose cell above answers
+`InLake` is drawn full with no top, the same clause as a cell with Tier B water above it — with
+`UnderLake` on the surface terms. The skip, `--lakeoverdug` and `dug sample(s) skipped` are
+removed rather than kept as an arm, because the arm is a hole in a lake. The test runs the
+bed-bite in both arms: a 4 × 4 pit four deep fills to the seed (988 L drawn, rest at 34 ticks)
+and draws 0 tops with 16 cells under the lake; the control draws the merged top the screenshot
+showed. Suite 1,368 → 1,370; r6 control unchanged. What the eye judges next: the bite as the
+lake with its walls seen through the water — and the shade step between A's flat tint and B's
+depth tint where they meet is still a look question, named and not built against.
+
 ## 2026-09-14 — M8d-5b built: the wire, and the number the spill bench forced
 
 The wire against 5a's brief, same session: the ceiling built with the water and wrapped round

@@ -498,6 +498,49 @@ public class LakeCeilingTests(ITestOutputHelper output)
         Assert.Equal(0L, twin.Fluid.Add(new VoxelPos(60, twin.Top + 1, 60), Cap));
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ABiteInTheBedFillsToTheSeedAndItsWaterDrawsNoTopUnderTheLake(bool withCeiling)
+    {
+        // The chunk-out-of-the-lake screenshot (2026-09-14): a pit dug in the bed is below the
+        // seed, so Tier B fills it to the seed and the cells from there to the level are the
+        // lake's. The mesher must draw no top on the pit's water — the water goes on upward as
+        // Tier A's — and the control arm shows the tops it would otherwise draw.
+        var twin = new Twin(withCeiling);
+        twin.Water.Inject(twin.Basin, (4 * LitresPerVoxelOfDepth) + 2_000);
+        twin.Refresh();
+
+        // A 4 × 4 pit, four deep, in the middle of the bed.
+        twin.DigBox(60, Floor - 3, 60, 63, Floor, 63);
+        int ticks = twin.RunToRest();
+        Assert.True(twin.Water.DrawnLitres > 0, "nothing drained into the pit");
+
+        // Full to the seed and no higher: the pit's top cells hold water, the bed's plane above
+        // them is the lake's and holds none in Tier B.
+        Assert.True(twin.Fluid.Grid.AmountAt(new VoxelPos(61, Floor, 61)) > 0, "the pit did not fill to the seed");
+        if (withCeiling)
+        {
+            Assert.Equal(0, twin.Fluid.Grid.AmountAt(new VoxelPos(61, Floor + 1, 61)));
+        }
+
+        var mesher = new FluidSurfaceMesher();
+        IFluidTerrain terrain = withCeiling ? new LakeBoundedTerrain(twin.Terrain, twin.Ceiling!) : twin.Terrain;
+        FluidSurfaceMesh mesh = mesher.Build(twin.Fluid.Grid, terrain);
+        output.WriteLine($"ceiling {withCeiling}: rest after {ticks} ticks, drawn {twin.Water.DrawnLitres:N0} L, tops {mesh.Tops}, under a lake {mesh.UnderLake}, surface cells {mesh.SurfaceCells}");
+        if (withCeiling)
+        {
+            Assert.Equal(0, mesh.Tops);
+            Assert.Equal(0, mesh.SurfaceCells);
+            Assert.Equal(16, mesh.UnderLake);
+        }
+        else
+        {
+            Assert.True(mesh.Tops > 0, "the control arm drew no top, so the rule was not tested");
+            Assert.Equal(0, mesh.UnderLake);
+        }
+    }
+
     [Fact]
     public void TheRefreshRebuildsOnlyWhereASampleTopMovedAndDropsColumnsThatLeft()
     {

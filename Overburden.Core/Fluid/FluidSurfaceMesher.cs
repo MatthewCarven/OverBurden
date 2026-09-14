@@ -42,6 +42,15 @@ namespace Overburden.Core.Fluid;
 /// the run of their wall; bottoms do not merge, being a drop's underside and transient.
 /// </para>
 /// <para>
+/// <b>A cell under a lake cell has no top either (M8d-5).</b> A bite in a lake's bed is below the
+/// seed surface, so Tier B fills it only to the seed, and the cells from there to the level are
+/// the lake's — Tier A's water, drawn by Tier A's plane. The water goes on upward, so the cell is
+/// drawn full with no surface, exactly as a cell with Tier B water above it is; the first
+/// screenshot of a chunk bitten out of a lake's centre had Tier B's top sitting a metre down inside
+/// a hole in the plane, dark for its eight metres of column. Asked of the terrain's
+/// <see cref="IFluidTerrain.InLake"/>, for the cell above a would-be surface cell only.
+/// </para>
+/// <para>
 /// <b>The previous height is looked up in the previous build's surface, with one honest hole.</b>
 /// A surface cell's previous height is where its column's surface stood last build: the same cell
 /// if it was a surface then, the nearest surface above it within <see cref="FallSearchCells"/> if
@@ -181,7 +190,7 @@ public sealed class FluidSurfaceMesher
     private readonly List<int> _indices = [];
     private readonly List<ChunkPos> _order = [];
 
-    private int _tops, _sides, _bottoms, _surfaceCells, _terrainAsks;
+    private int _tops, _sides, _bottoms, _surfaceCells, _terrainAsks, _underLake;
 
     /// <summary>Surface cells of the previous build, for tests and reports.</summary>
     public int PreviousSurfaceCells => _previousCells;
@@ -224,7 +233,7 @@ public sealed class FluidSurfaceMesher
         _normals.Clear();
         _attributes.Clear();
         _indices.Clear();
-        _tops = _sides = _bottoms = _surfaceCells = _terrainAsks = 0;
+        _tops = _sides = _bottoms = _surfaceCells = _terrainAsks = _underLake = 0;
 
         // Bottom-up through each column of panels so the depth carries across a panel's floor.
         _order.Clear();
@@ -281,7 +290,8 @@ public sealed class FluidSurfaceMesher
             _sides,
             _bottoms,
             _surfaceCells,
-            _terrainAsks);
+            _terrainAsks,
+            _underLake);
     }
 
     private void BuildPanel(FluidGrid grid, IFluidTerrain terrain, ChunkPos chunk, ushort[] cells)
@@ -335,6 +345,14 @@ public sealed class FluidSurfaceMesher
                     // of the relay's ball was striped with the ground seen through them. The
                     // surface cell keeps its fill, so the column's top is still where the water is.
                     int above = ly == N - 1 ? aboveTop : cells[index + 1];
+                    if (above == 0 && terrain.InLake(new VoxelPos(x, y + 1, z)))
+                    {
+                        // The lake's water continues above this cell: full, and no surface.
+                        _terrainAsks++;
+                        _underLake++;
+                        above = Cap;
+                    }
+
                     _drawnAmount[index] = (ushort)(above > 0 ? Cap : amount);
                     if (above == 0)
                     {
@@ -939,7 +957,8 @@ public sealed class FluidSurfaceMesh(
     int sides,
     int bottoms,
     int surfaceCells,
-    int terrainAsks)
+    int terrainAsks,
+    int underLake)
 {
     public float[] Positions { get; } = positions;
 
@@ -966,8 +985,11 @@ public sealed class FluidSurfaceMesh(
     /// <summary>Surface cells the tops cover, which the debug view drew one quad each.</summary>
     public int SurfaceCells { get; } = surfaceCells;
 
-    /// <summary>Questions asked of the terrain, all about dry neighbours of wet cells.</summary>
+    /// <summary>Questions asked of the terrain, all about dry neighbours of wet cells and the cell above a would-be surface.</summary>
     public int TerrainAsks { get; } = terrainAsks;
+
+    /// <summary>Wet cells drawn full with no top because a lake's cell is above them (M8d-5).</summary>
+    public int UnderLake { get; } = underLake;
 
     /// <summary>Bytes the arrays occupy: what a job carries back.</summary>
     public long Bytes => (long)sizeof(float) * (Positions.Length + Normals.Length + Attributes.Length) + (long)sizeof(int) * Indices.Length;

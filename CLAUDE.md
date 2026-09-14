@@ -172,15 +172,14 @@ front's shape on `--front`, both of which take `--fallcells <n>` (space-separate
 prints `long fall(s) over N cell(s) at up to F`; the `handoff` line prints `left under a lake`, the
 bank rule's count.
 
-M8d-5 (2026-09-14) adds three. **`--lakebody=0` builds no `LakeCeiling`** — the pre-M8d-5 arm
-minus the bank rule, in which a hole in a lake's bank treadmills (`drawn` and `handed` climbing
-together), kept as the measurement arm for the wrapper's cost and not for play; **`--lakeoverdug=1`
-draws Tier A's plane over a sample every column of which is dug below the seed**, the pre-M8d-5
-look, against the default that leaves such a sample to Tier B's sheet; and on the bench `--spill`
-builds a ceiling with its hand-off, at 2.2× the tick of the bare bitset — the bench's figure, not
-the game's. The `M8b:` line's `handed` term carries `N cell(s) of it found inside a lake; lake
-columns / rebuilt / woken`, the `boundary` line a `lake` bracket, and the `M7d:` surface term
-`dug sample(s) skipped`.
+M8d-5 (2026-09-14) adds one flag and one bench change. **`--lakebody=0` builds no `LakeCeiling`**
+— the pre-M8d-5 arm minus the bank rule, in which a hole in a lake's bank treadmills (`drawn` and
+`handed` climbing together), kept as the measurement arm for the wrapper's cost and not for play;
+and on the bench `--spill` builds a ceiling with its hand-off, at 2.2× the tick of the bare bitset
+— the bench's figure, not the game's. The `M8b:` line's `handed` term carries `N cell(s) of it
+found inside a lake; lake columns / rebuilt / woken`, its surface term `N under a lake` (Tier B
+cells drawn full with no top because the lake's cell is above them — a bite in a lake's bed
+reads as the lake), and the `boundary` line a `lake` bracket.
 
 In the game **`--fluidsurface=debug`** is the pre-M8d-1 arm — one quad a surface cell *in Tier A's
 shader*, the geometry and the look every M8b and M8c screenshot had, the control for every M8d-2
@@ -641,10 +640,13 @@ verbatim — the flags go after the bare `--`:
 ```
 
 **Pick up here (2026-09-14, night). M8d-5 is built, both halves — a lake is a body Tier B cannot
-enter — and unplayed; the play check is the first thing to do (TODO under M8d-5: the channel
-between two lakes reads as one sheet, `R` onto a lake vanishes into its level, and decision 7's
-plane over a `Q` bite judged against `--lakeoverdug=1`), then M9d.** Read M8-PLAN's "M8d-5 — the
-planning pass", "M8d-5a — built" and "M8d-5b — built". Two things from 5b not to rediscover:
+enter — played once (a chunk bitten out of a lake's centre reversed decision 7 the same evening:
+a bite in a lake's bed fills only to the seed, the water above is the lake's, so the plane draws
+over the bite and Tier B draws no top under a lake cell), and the play check is the first thing
+to do (TODO under M8d-5: the channel between two lakes reads as one sheet, `R` onto a lake
+vanishes into its level, a `Q` bite in a bed reads as the lake with its walls seen through the
+water), then M9d.** Read M8-PLAN's "M8d-5 — the planning pass", "M8d-5a — built" and "M8d-5b —
+built" (its last paragraph is decision 7's reversal). Two things from 5b not to rediscover:
 **the wrapper costs `--spill` 2.2× a tick and the game nothing measurable** (a second interface
 dispatch over a 5 ns bitset; the game's visit is 2.9 µs Debug and read 16.4 ms with the ceiling
 against 18.6 without), and **`--lakebody=0` is a measurement arm, not a play arm** — it is the

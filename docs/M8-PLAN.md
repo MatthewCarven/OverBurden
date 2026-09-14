@@ -2329,6 +2329,10 @@ Consequences, each the physics the play expected:
    it is 2,704 table reads and a few array rebuilds a boundary and the number should be seen
    rather than assumed. **Recommended.**
 7. **Tier A's plane is skipped over a sample every column of which is dug below the level.**
+   **Reversed by the first screenshot, 2026-09-14 — see "M8d-5b — built" below: a bite in a
+   lake's bed is below the seed, Tier B fills it only to the seed, and the water from there to
+   the level is the lake's, so the plane must draw over the bite and it is Tier B that draws no
+   top there.** The paragraph as decided:
    Over a bite the plane and the bite's Tier B sheet would otherwise both draw at the level, a
    centimetre apart — no z-fight, but two blends, a darker square over the hole. A sample with
    any undug column keeps its plane, because under the rule that column's water is the lake's
@@ -2497,8 +2501,20 @@ inside a lake whose column had no band yet (bands exist only for reachable colum
 test. `WakeBand` runs only for a chunk with a panel, and a submerged cell counts as handed only
 when it was. Suite 1,368.
 
-**Not photographed.** Decision 7's plane over a bite is a windowed look and is play's:
-`--lakeoverdug=1` beside the default, on a copy of a world with a `Q` bite at a lake's edge.
+**Decision 7 was wrong, and the first screenshot said so.** Matthew took a chunk out of the
+centre of a lake: a dark box inside the plane with pale patches on its top. Not a wall — the
+mesher already draws no side against a cell it cannot hold — but a hole: the bite is below the
+seed surface, so Tier B fills it only *to the seed*, and the cells from there up to the level are
+the band, Tier A's water; decision 7 then skipped A's plane over the bite and left Tier B's top
+sitting a metre or two down inside the hole, dark for its eight metres of column, its pale
+patches the top cells' unequal fills. **The plane must draw over the bite, because the water
+above the seed there is the lake's; and Tier B must draw no top under a lake cell, because the
+water goes on upward.** One rule in `FluidSurfaceMesher` — a would-be surface cell whose cell
+above answers `InLake` is drawn full with no top, `UnderLake` on the `M8b:` and `fluidsurf`
+surface terms — and the skip, `--lakeoverdug` and `dug sample(s) skipped` are gone rather than
+kept as an arm, since the arm is a hole in a lake. The test is the bed-bite in both arms: a 4 × 4
+pit four deep fills to the seed (988 L drawn, rest at 34 ticks) and draws 0 tops with 16 cells
+under the lake, against the control's one merged top. Suite 1,370.
 
 **Play.** Matthew's channel between two lakes on a fresh world: one sheet, the lower lake's
 plane, and nothing stepped beneath it. `R` onto a lake should spread on its surface and vanish

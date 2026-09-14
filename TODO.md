@@ -4676,8 +4676,9 @@ finding without the coarser-tolerance fallback.
                   "M8d-5a — built".
             - [x] **M8d-5b — the wire. Built 2026-09-14** against the list below; read M8-PLAN's
                   "M8d-5b — built" for the three oracles and the storage change `--spill` forced.
-                  What is still play's: step 10, and decision 7's screenshot A/B (`--lakeoverdug=1`).
-                  The brief, as built:
+                  What is still play's: step 10. Decision 7 (step 6) was reversed by the first
+                  screenshot the same evening — the plane draws over a bite and Tier B draws no top
+                  under a lake cell; `--lakeoverdug` is gone. The brief, as built:
                   1. `Main.SetUpFluid`: `_lakeCeiling = new LakeCeiling(_seedHeights, _water)` when
                      there is water; wrap the terrain the simulation is given —
                      `new LakeBoundedTerrain(field ?? terrain, ceiling)` — and pass the ceiling to
@@ -4717,10 +4718,11 @@ finding without the coarser-tolerance fallback.
                   10. Play: Matthew's channel between two lakes on a fresh world — one sheet.
             - [ ] **Play (M8d-5)**: the channel between two lakes on a fresh world — one sheet, the
                   lower lake's plane, nothing stepped beneath it; `R` onto a lake spreads on its
-                  surface and vanishes at the next boundary; a `Q` bite at a lake's edge fills from
-                  the portals to the level and the plane over it is skipped (`--lakeoverdug=1` is
-                  the arm with it drawn — judge which reads right). Read `inside a lake` and
-                  `lake … woken` off the `M8b:` line, and `dug sample(s) skipped` off `M7d:`.
+                  surface and vanishes at the next boundary; a `Q` bite in a lake's bed fills
+                  from the portals to the seed, the plane draws over it and Tier B draws no top
+                  under it — the bite reads as the lake with its walls visible through the water
+                  (the 2026-09-14 screenshot's dark box is the before). Read `inside a lake` and
+                  `lake … woken` off the `M8b:` line, and `N under a lake` off its surface term.
             - [ ] **The wrapper costs the bench 2.2× a tick and the game nothing measurable** —
                   `--spill`'s inner is a 5 ns bitset and the second interface dispatch is the whole
                   cost. Lever, not built: fold the band read into `FluidFieldView.CanHold` directly

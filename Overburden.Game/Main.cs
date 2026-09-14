@@ -724,9 +724,6 @@ public partial class Main : Node3D
     /// </remarks>
     private int _waterPitch = WindowVoxels / HeightField.DefaultCellVoxels;
 
-    /// <summary>See <see cref="WaterSurface.SkipOverDug"/>; <c>--lakeoverdug=1</c> is the pre-M8d-5 arm, the plane drawn over a bite.</summary>
-    private bool _lakeOverDug;
-
     /// <summary>See <see cref="WaterSurface.DilateShore"/>; <c>--shore=0</c> is the control arm.</summary>
     private bool _dilateShore = true;
 
@@ -926,12 +923,7 @@ public partial class Main : Node3D
 
         if (windowed && !_noWater)
         {
-            _waterSurface = new WaterSurface(GetWorld3D())
-            {
-                DilateShore = _dilateShore,
-                SkipOverDug = !_lakeOverDug,
-                ColumnAt = (cx, cz) => _pipeline?.Streamer.ColumnAt(cx, cz),
-            };
+            _waterSurface = new WaterSurface(GetWorld3D()) { DilateShore = _dilateShore };
         }
 
         if (_camera is not null)
@@ -1334,9 +1326,6 @@ public partial class Main : Node3D
                 // plane only if its own sample is under the level - the stair-stepped shoreline.
                 case "shore" when int.TryParse(value, out int shore):
                     _dilateShore = shore != 0;
-                    break;
-                case "lakeoverdug" when int.TryParse(value, out int overDug):
-                    _lakeOverDug = overDug != 0;
                     break;
                 case "lakebody" when int.TryParse(value, out int lakeBody):
                     _lakeBody = lakeBody != 0;
@@ -3425,7 +3414,7 @@ public partial class Main : Node3D
                + (_waterSurface is null
                    ? " | no surface drawn (headless or --nowater)"
                    : $" | surface {_waterSurface.QuadCount} quad(s) over "
-                     + $"{_waterSurface.WetBasins} basin(s), {_waterSurface.RingSamples} shore sample(s), {_waterSurface.DugSamples} dug sample(s) skipped, "
+                     + $"{_waterSurface.WetBasins} basin(s), {_waterSurface.RingSamples} shore sample(s), "
                      + $"{_waterSurface.LastRebuildMillis:F2} ms");
     }
 
@@ -4782,7 +4771,7 @@ public partial class Main : Node3D
 
         string surface = _fluidSurface is null
             ? " | no surface drawn (headless or --nowater)"
-            : $" | surface {_fluidSurface.QuadCount:N0} quad(s) ({_fluidSurface.Tops:N0} top(s) over {_fluidSurface.CellsWalked:N0} surface cell(s), "
+            : $" | surface {_fluidSurface.QuadCount:N0} quad(s) ({_fluidSurface.Tops:N0} top(s) over {_fluidSurface.CellsWalked:N0} surface cell(s), {_fluidSurface.UnderLake:N0} under a lake, "
               + $"{_fluidSurface.Sides:N0} side(s), {_fluidSurface.Bottoms:N0} bottom(s), {_fluidSurface.LastMeshBytes / 1024.0:N0} KiB), "
               + $"{_fluidSurface.LastRebuildMillis:F2} ms to rebuild ({_fluidSurface.LastWalkMillis:F2} mesh + {_fluidSurface.LastInstallMillis:F2} install)";
 
@@ -4917,7 +4906,7 @@ public partial class Main : Node3D
 
         string surface = _fluidSurface is null
             ? "fluidsurf not drawn (headless or --nowater)\n"
-            : $"fluidsurf {_fluidSurface.QuadCount:N0} quad(s) — {_fluidSurface.Tops:N0} top(s) over {_fluidSurface.CellsWalked:N0} surface cell(s), "
+            : $"fluidsurf {_fluidSurface.QuadCount:N0} quad(s) — {_fluidSurface.Tops:N0} top(s) over {_fluidSurface.CellsWalked:N0} surface cell(s), {_fluidSurface.UnderLake:N0} under a lake, "
               + $"{_fluidSurface.Sides:N0} side(s), {_fluidSurface.Bottoms:N0} bottom(s), {_fluidSurface.LastMeshBytes / 1024.0:N0} KiB — "
               + $"{_fluidSurface.LastRebuildMillis:F2} ms ({_fluidSurface.LastWalkMillis:F2} mesh + {_fluidSurface.LastInstallMillis:F2} install) "
               + $"to rebuild, {_fluidSurface.Rebuilds} rebuild(s)\n";

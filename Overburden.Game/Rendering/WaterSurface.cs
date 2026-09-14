@@ -1,8 +1,6 @@
-using System;
 using System.Collections.Generic;
 using Godot;
 using Overburden.Core.Hydrology;
-using Overburden.Core.Lighting;
 using Overburden.Core.Voxels;
 
 namespace Overburden.Game.Rendering;
@@ -102,25 +100,6 @@ public sealed class WaterSurface
     /// </summary>
     public bool DilateShore { get; set; } = true;
 
-    /// <summary>
-    /// M8d-5, decision 7: whether a wet sample every column of which has been dug below its seed
-    /// surface draws no plane. Over a bite the plane and the bite's Tier B sheet would otherwise
-    /// both draw at the level a centimetre apart — no z-fight, two blends, a darker square over the
-    /// hole — and under the rule the hole's water is Tier B's to draw. A sample with any undug
-    /// column keeps its plane, because that column's water is the lake's and only the plane draws
-    /// it. Off is the pre-M8d-5 arm, <c>--lakeoverdug=1</c>.
-    /// </summary>
-    public bool SkipOverDug { get; set; } = true;
-
-    /// <summary>
-    /// The sky column for a chunk column, for <see cref="SkipOverDug"/>. Read only for a wet sample
-    /// whose column has edits, so a lake over untouched ground costs one flag read a sample.
-    /// </summary>
-    public Func<int, int, SkyColumn?>? ColumnAt { get; set; }
-
-    /// <summary>Wet samples left without a plane on the last rebuild because every column of them is dug.</summary>
-    public int DugSamples { get; private set; }
-
     /// <summary>Dry samples that drew a neighbour's plane on the last rebuild.</summary>
     public int RingSamples { get; private set; }
 
@@ -195,57 +174,6 @@ public sealed class WaterSurface
             }
         }
 
-        // The plane over a bite is the bite's sheet's to draw: a wet sample every column of which
-        // is dug below its seed surface is dropped, and marked so the ring cannot put it back.
-        DugSamples = 0;
-        bool[]? dugSkipped = null;
-        if (SkipOverDug && ColumnAt is not null)
-        {
-            int cell = field.CellVoxels;
-            for (int sz = 0; sz < pitch; sz++)
-            {
-                for (int sx = 0; sx < pitch; sx++)
-                {
-                    int i = (sz * pitch) + sx;
-                    if (drawLabel[i] == Watershed.Outlet)
-                    {
-                        continue;
-                    }
-
-                    int wx = field.WorldXOf(sx);
-                    int wz = field.WorldZOf(sz);
-                    SkyColumn? column = ColumnAt(wx >> VoxelConstants.ChunkSizeLog2, wz >> VoxelConstants.ChunkSizeLog2);
-                    if (column is not { HasEdits: true, IsSeeded: true })
-                    {
-                        continue;
-                    }
-
-                    bool allDug = true;
-                    for (int dz = 0; dz < cell && allDug; dz++)
-                    {
-                        for (int dx = 0; dx < cell; dx++)
-                        {
-                            int lx = (wx + dx) & VoxelConstants.ChunkMask;
-                            int lz = (wz + dz) & VoxelConstants.ChunkMask;
-                            if (column.OpenAboveY(lx, lz) >= column.SeedSurfaceY(lx, lz) + 1)
-                            {
-                                allDug = false;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (allDug)
-                    {
-                        drawLabel[i] = Watershed.Outlet;
-                        dugSkipped ??= new bool[samples];
-                        dugSkipped[i] = true;
-                        DugSamples++;
-                    }
-                }
-            }
-        }
-
         RingSamples = 0;
         if (DilateShore)
         {
@@ -278,7 +206,7 @@ public sealed class WaterSurface
                             int nx = sx + dx;
                             if (nx < 0 || nx >= pitch || (dx == 0 && dz == 0)) continue;
                             int n = (nz * pitch) + nx;
-                            if (wetLabel[n] != Watershed.Outlet || (dugSkipped is not null && dugSkipped[n]))
+                            if (wetLabel[n] != Watershed.Outlet)
                             {
                                 continue;
                             }
