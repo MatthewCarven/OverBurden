@@ -229,8 +229,10 @@ figure against the Debug bench with tiering on** (`dotnet run --project Overburd
 M9c-1 (2026-09-14) adds the fall's two. **`--collapse=0` arms every timer and fires none** — the
 warning-only arm, for walking under a marked roof to judge the marking; **`--collapseafter=<min>,<max>`**
 is the delay window in world seconds (2, 60 — decision 8's estimates; a settled chunk with something
-at risk arms `lerp(max, min, deficit / K) × U(0.5, 1.5)`, seeded, so the 2 × 2 plug's deficit of 8
-arms near the 60 s end and `--clockscale` shortens it the way it shortens the weather). The sweep runs
+at risk arms `lerp(max, min, deficit / K) × −ln(1 − u)`, seeded — **an exponential with the deficit's
+delay as its mean since M9d, 2026-09-15**, so the 2 × 2 plug's deficit of 8 has a mean near the 60 s end,
+a median of 39 s and one draw in twenty over 168 s, and `--clockscale` shortens it the way it shortens
+the weather; **a timer only shortens** — a lake rising over an armed roof redraws it earlier). The sweep runs
 at each fluid boundary — its own `collapse` term on the `boundary` line — or every frame under
 `--nowater`. **Each fall prints one `M9: fell` line** (chunk, voxels, columns, deepest and mean drop,
 chunks fell from and written into, litres lifted / returned, `cascade`, the world time, the sweep's ms),
@@ -243,6 +245,24 @@ returned L by falls`. **The headless oracle, verbatim, reads four `M9: fell` lin
 
 ```bash
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --bitechunks=2 --collapseafter=1,2 --measure=20
+```
+
+M9d (2026-09-15) adds the keystone's three. **`--saturation=0` derives every field dry with the water
+still on** — the control the plan's oracle row names (*the same chamber dry and under the lake*);
+**`--tablemove=0` keeps the table and drops the sweep** that re-derives a settled roof under a lake that
+moved — M9b's arm, a roof under a rising lake keeps its dry field; **`--fillbasinafter=<seconds>` lands
+`--fillbasin`'s pour that far into the measured window** rather than at its open, because the trigger's
+oracle needs the bite settled dry before the lake stands over it (0 is every earlier figure's arm — the
+pour the frame before the bite). The `M9:` line's `table N` gains `(S sweep(s), C compared, R rebuilt,
+U unchanged)` and its `armed` a `(M shortened)`; the `boundary` line gains `table`; the `M6c:` and
+`building` lines gain `wet` — the fill's refusal, a voxel holding Tier B water left alone. **The keystone,
+verbatim, reads `at risk 20` at open, `table 20`, `at risk 18,718 voxel(s) in 7 settled chunk(s)` after the
+pour, four falls of ~6,200 voxels with `lifted 30 L == returned 30 L` and `displaced 0`, then `at risk 0`;
+`--saturation=0` sheds the plug's 20 and nothing more, `--tablemove=0` reads `table 0 (0 sweep(s))` and
+stays at 20, and the r6 control is unchanged:**
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --bitechunks=2 --fillbasin=2000000 --fillbasinafter=5 --collapseafter=1,2 --measure=25
 ```
 
 On the bench **`--support --collapse`** drops every fixture stage by stage with a zero window —
@@ -643,7 +663,21 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-15, later). M9d is planned and not built — ten decisions in
+**Pick up here (2026-09-15, evening). M9d is built — the table-move trigger, a timer that only
+shortens, the exponential jitter, the fill's refusal — and the play is Matthew's: the four questions
+as recipes are in TODO under M9d, one sentence wanted back on each, and decision 3's edge (a pier in a
+lake is allowed; *"not sure about 3 yet"*) waits on it. Read M9-PLAN's "M9d — built" first. Three
+things not to rediscover: **the trigger is a comparison against what the derive read** — sixteen
+readings on the cost table, memoised per sample (not per basin: `IWaterTable` hides basins), requeue
+iff the rebuilt bytes differ, re-recorded either way or a flat move rebuilds every sweep; **the fill's
+wet answer is `FluidGrid`'s per-panel bitset copied at `Publish` and read from the copy on one path,
+never the grid** — the M8d-5b lesson as an assertion in `PlaceWetTests`; and **`--place` cannot reach a
+pool headless** (it builds a column under the crosshair, M6d-2's finding), so the fill's wire is a
+pipeline test with `GridOwnedByTick` true, and the play's `wet 64` is the first time it meets water in
+the game. After the play: M9c-2 (dust) is judged, then M10. The paragraph below is the state at the
+pass, kept for the reasoning.**
+
+**Earlier (2026-09-15, later). M9d is planned and not built — ten decisions in
 M9-PLAN's "M9d — the planning pass", eight recommended and two Matthew's (a fill under a Tier A
 plane, and the jitter's widening before the play); build it once they are answered, Core first
 against the tests the section names at its end, then the wire and the oracle.** The pass's spine:

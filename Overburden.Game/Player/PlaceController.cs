@@ -199,6 +199,9 @@ public sealed class PlaceController(
     /// <summary>Voxels the inventory could not pay for.</summary>
     public int VoxelsOutOfStock { get; private set; }
 
+    /// <summary>Voxels refused because they held water (M9d, decision 3), over the session.</summary>
+    public int VoxelsWet { get; private set; }
+
     /// <summary>Placements that could not reach part of their own brush.</summary>
     public int ClippedPlacements { get; private set; }
 
@@ -287,6 +290,7 @@ public sealed class PlaceController(
         VoxelsOccupied += result.Occupied;
         VoxelsInsidePlayer += result.InsidePlayer;
         VoxelsOutOfStock += result.OutOfStock;
+        VoxelsWet += result.Wet;
         RanOutThisFrame = result.OutOfStock > 0;
 
         if (!result.Complete)

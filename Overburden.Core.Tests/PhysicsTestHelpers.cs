@@ -125,6 +125,11 @@ internal sealed class TestWorld : IVoxelEditor
 
     public void Set(VoxelPos voxel, int material) => _voxels[voxel] = material;
 
+    /// <summary>Voxels answering <see cref="HoldsWater"/> true — the fill's refusal (M9d). Empty, and dry, unless a test fills it.</summary>
+    public HashSet<VoxelPos> Wet { get; } = [];
+
+    public bool HoldsWater(VoxelPos voxel) => Wet.Contains(voxel);
+
     /// <summary>Reads fine, refuses writes — the two halves of the interface disagreeing.</summary>
     public void RefuseWrites(ChunkPos chunk) => _writeRefused.Add(chunk);
 

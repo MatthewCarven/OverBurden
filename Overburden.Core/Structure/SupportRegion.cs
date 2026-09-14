@@ -123,6 +123,12 @@ public sealed class SupportRegion
     private readonly long[] _triggers = new long[5];
     private SupportCostTable? _dry;
 
+    // M9d, decision 1: the cost table each chunk's derive was submitted with, kept so the
+    // table-move sweep can compare readings and then bytes against what the field was built
+    // from. Recorded at submission and dropped with the field.
+    private readonly Dictionary<ChunkPos, SupportCostTable> _costs = [];
+    private readonly MemoTable _memo = new();
+
     /// <param name="voxels">The world's chunks: null for one that is not loaded.</param>
     /// <param name="table">The water table, or null for dry everywhere.</param>
     public SupportRegion(Func<ChunkPos, VoxelChunk?> voxels, MaterialTable materials, SupportRule rule, IWaterTable? table = null)
@@ -307,6 +313,7 @@ public sealed class SupportRegion
     {
         _fields.Remove(chunk);
         _settled.Remove(chunk);
+        _costs.Remove(chunk);
         if (_queued.Remove(chunk))
         {
             // Left in the queue as a position; TryTakeNext finds it unloaded and skips it.
@@ -355,12 +362,126 @@ public sealed class SupportRegion
         Arrived(chunk);
     }
 
-    /// <summary>The water table moved: every analysed chunk derives again. Decision 4's fourth trigger, unrefined.</summary>
+    /// <summary>The water table moved: every analysed chunk derives again. Decision 4's fourth trigger, unrefined — the test double for <see cref="CheckTable"/>.</summary>
     public void TableMoved()
     {
         foreach (ChunkPos chunk in _analysed)
         {
             Enqueue(chunk, SupportTrigger.Table);
+        }
+    }
+
+    /// <summary>Sweeps of <see cref="CheckTable"/> over the run.</summary>
+    public long TableChecks { get; private set; }
+
+    /// <summary>Chunks the sweep compared readings for.</summary>
+    public long TableCompared { get; private set; }
+
+    /// <summary>Chunks a moved reading made the sweep rebuild a table for.</summary>
+    public long TableRebuilt { get; private set; }
+
+    /// <summary>Rebuilt tables whose bytes matched the old — a move past the curve's last point, re-recorded and not requeued.</summary>
+    public long TableUnchanged { get; private set; }
+
+    /// <summary>
+    /// The table-move trigger (M9d, decision 1): every analysed chunk with a field and nothing in
+    /// flight for it has its sixteen readings taken again; one that moved by a voxel or more has
+    /// its cost table rebuilt, and the chunk is requeued under <see cref="SupportTrigger.Table"/>
+    /// iff the bytes differ. Returns how many were requeued.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A comparison, not a re-derive: the derive read the table at submission and what it read is
+    /// kept beside the field, so the sweep is sixteen lookups per chunk, memoised per sample
+    /// because chunks stacked in a column share theirs. The second stage is what makes a roof
+    /// already past the curve's last point indifferent to another metre of lake — its distance is
+    /// constant there, so the rebuilt bytes match and nothing is queued. A table that matched is
+    /// re-recorded, or its readings would stay a voxel out and every sweep would rebuild it.
+    /// </para>
+    /// <para>
+    /// Queued and in-flight chunks are skipped: their next derive reads the live table anyway.
+    /// The chunks a moved chunk borders are not touched here — its re-derive moves its face
+    /// layers and the join queues them, which is decision 4's ordinary path.
+    /// </para>
+    /// </remarks>
+    public int CheckTable()
+    {
+        if (_table is null)
+        {
+            return 0;
+        }
+
+        TableChecks++;
+        _memo.Reset(_table);
+        int requeued = 0;
+        foreach (ChunkPos chunk in _analysed)
+        {
+            if (!_costs.TryGetValue(chunk, out SupportCostTable? recorded)
+                || !_fields.ContainsKey(chunk)
+                || _queued.Contains(chunk)
+                || _inFlight.Contains(chunk))
+            {
+                continue;
+            }
+
+            TableCompared++;
+            ReadOnlySpan<double> readings = recorded.Readings;
+            bool moved = false;
+            for (int sz = 0; sz < SupportCostTable.SamplesPerAxis && !moved; sz++)
+            {
+                for (int sx = 0; sx < SupportCostTable.SamplesPerAxis; sx++)
+                {
+                    double now = SupportCostTable.ReadingAt(chunk, sx, sz, _memo);
+                    if (Math.Abs(now - readings[(sz * SupportCostTable.SamplesPerAxis) + sx]) >= 1.0)
+                    {
+                        moved = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!moved)
+            {
+                continue;
+            }
+
+            TableRebuilt++;
+            SupportCostTable fresh = SupportCostTable.Build(chunk, _memo, _materials, _rule);
+            _costs[chunk] = fresh;
+            if (fresh.SameCosts(recorded))
+            {
+                TableUnchanged++;
+                continue;
+            }
+
+            Enqueue(chunk, SupportTrigger.Table);
+            requeued++;
+        }
+
+        return requeued;
+    }
+
+    /// <summary>The live table behind one sweep's memo: a sample is asked of the world once a sweep.</summary>
+    private sealed class MemoTable : IWaterTable
+    {
+        private readonly Dictionary<(int X, int Z), double?> _levels = [];
+        private IWaterTable _inner = null!;
+
+        public void Reset(IWaterTable inner)
+        {
+            _inner = inner;
+            _levels.Clear();
+        }
+
+        public double? TableAt(int sampleX, int sampleZ)
+        {
+            if (!_levels.TryGetValue((sampleX, sampleZ), out double? level))
+            {
+                level = _inner.TableAt(sampleX, sampleZ);
+                _levels[(sampleX, sampleZ)] = level;
+            }
+
+            return level;
         }
     }
 
@@ -458,6 +579,7 @@ public sealed class SupportRegion
             SkippedUnloaded++;
             _fields.Remove(chunk);
             _settled.Remove(chunk);
+            _costs.Remove(chunk);
             SettleAround(chunk, settled: null);
             return true;
         }
@@ -467,6 +589,7 @@ public sealed class SupportRegion
         SupportCostTable costs = _table is null
             ? _dry ??= SupportCostTable.Dry(_materials, _rule)
             : SupportCostTable.Build(chunk, _table, _materials, _rule);
+        _costs[chunk] = costs;
 
         _inFlight.Add(chunk);
         request = new SupportDeriveRequest(chunk, faces, costs, urgent);
@@ -503,6 +626,7 @@ public sealed class SupportRegion
             DroppedDeparted++;
             _fields.Remove(chunk);
             _settled.Remove(chunk);
+            _costs.Remove(chunk);
             SettleAround(chunk, settled);
             return;
         }

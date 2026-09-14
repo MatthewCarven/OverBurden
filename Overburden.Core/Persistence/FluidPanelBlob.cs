@@ -365,6 +365,13 @@ public interface IFluidPersistence
     bool MayHoldWater(ChunkPos chunk);
 
     /// <summary>
+    /// Whether the voxel held water at the last publish — the second question the pipeline may
+    /// ask mid-tick, because it reads a copy the boundary took and never the grid (M9d,
+    /// decision 4). The fill's refusal; false by default so a store's test double stays dry.
+    /// </summary>
+    bool HoldsWater(VoxelPos voxel) => false;
+
+    /// <summary>
     /// The chunk has left the field: its panel is to leave RAM once the tick has listed everything
     /// awake in it. For the pipeline's forget hook, once per chunk of a leaving shell.
     /// </summary>

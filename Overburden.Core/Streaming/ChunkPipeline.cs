@@ -885,6 +885,21 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// caller is told rather than the write being dropped silently — a carve reaching past the
     /// loaded region needs to know it was clipped.
     /// </returns>
+    /// <summary>
+    /// The fill's refusal (M9d, decision 3): whether the voxel holds Tier B water, as the
+    /// automaton last published it. Dry with no automaton.
+    /// </summary>
+    /// <remarks>
+    /// Through <see cref="Fluid"/>'s published copy and never its grid — a brush is a keypress and
+    /// lands whenever the hand does, which under a worker tick is inside the tick a third of the
+    /// time; the grid refuses there and the copy answers. Stale by at most one tick.
+    /// </remarks>
+    public bool HoldsWater(VoxelPos voxel)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return Fluid?.HoldsWater(voxel) ?? false;
+    }
+
     public bool SetVoxel(VoxelPos voxel, int materialId)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);

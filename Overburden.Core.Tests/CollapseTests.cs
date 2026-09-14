@@ -585,26 +585,42 @@ public class CollapseTests
     // ------------------------------------------------------------------ the timer
 
     [Fact]
-    public void TheWindowShortensWithTheDeficitAndJittersByHalfEitherWay()
+    public void TheWindowShortensWithTheDeficitAndTheJitterIsExponentialAboutIt()
     {
         var window = new CollapseWindow { MinSeconds = 2, MaxSeconds = 60 };
+        const float mean = CollapseWindow.MeanUnit;
 
-        Assert.Equal(60.0, window.DelaySeconds(0, 0.5f), 6);
-        Assert.Equal(2.0, window.DelaySeconds(K, 0.5f), 6);
-        Assert.Equal(2.0, window.DelaySeconds(10 * K, 0.5f), 6);
-        Assert.Equal(31.0, window.DelaySeconds(K / 2, 0.5f), 6);
+        // At the mean unit the draw is the deficit's delay itself: the window's two numbers are
+        // the mean's ends (M9d, decision 7).
+        Assert.Equal(60.0, window.DelaySeconds(0, mean), 4);
+        Assert.Equal(2.0, window.DelaySeconds(K, mean), 4);
+        Assert.Equal(2.0, window.DelaySeconds(10 * K, mean), 4);
+        Assert.Equal(31.0, window.DelaySeconds(K / 2, mean), 4);
 
-        // The plug: deficit 8 arms near the maximum, 28–84 s.
-        double plug = window.DelaySeconds(8, 0.5f);
+        // The plug: deficit 8 has a mean near the maximum, and the same lip goes in five seconds
+        // or three minutes — the median is 0.69 of the mean, a unit of 0.05 is one draw in twenty
+        // under a twentieth of it, and 0.95 is one in twenty over three times it.
+        double plug = window.DelaySeconds(8, mean);
         Assert.InRange(plug, 55.0, 57.0);
-        Assert.Equal(plug * 0.5, window.DelaySeconds(8, 0f), 6);
-        Assert.InRange(window.DelaySeconds(8, 0.999f), plug * 1.49, plug * 1.5);
+        Assert.Equal(plug * 0.693147, window.DelaySeconds(8, 0.5f), 2);
+        Assert.InRange(window.DelaySeconds(8, 0.05f), plug * 0.05, plug * 0.052);
+        Assert.InRange(window.DelaySeconds(8, 0.95f), plug * 2.99, plug * 3.0);
+        Assert.Equal(0.0, window.DelaySeconds(8, 0f), 6);
+
+        // Bounded above at the unit's cap, so a draw is never infinite; strictly increasing in
+        // the unit, so the seed's order is the due's order.
+        Assert.InRange(window.DelaySeconds(8, 1f), plug * 13.8, plug * 13.9);
+        Assert.True(window.DelaySeconds(8, 0.3f) < window.DelaySeconds(8, 0.31f));
 
         // The sweep flag: zero everywhere is the instant arm.
         Assert.Equal(0.0, Instant.DelaySeconds(8, 0.7f));
         Assert.Throws<ArgumentOutOfRangeException>(() => new CollapseWindow { MinSeconds = -1 });
         Assert.Throws<ArgumentOutOfRangeException>(() => new CollapseWindow { MaxSeconds = double.NaN });
     }
+
+    /// <summary>The widest a draw can be at a given deficit: the mean at the unit's cap.</summary>
+    private static long WidestMillis(CollapseWindow window, int deficit) =>
+        (long)Math.Ceiling(window.DelaySeconds(deficit, 1f) * 1000.0) + 1;
 
     [Fact]
     public void ASettledRoofArmsOnceIsSeededAndFiresWhenDue()
@@ -619,7 +635,8 @@ public class CollapseTests
         ChunkPos roof = TwoByTwo[0].Offset(0, 1, 0);
         Assert.True(scheduler.TryGetTimer(roof, out CollapseTimer timer));
         Assert.Equal(10_000, timer.ArmedAtMillis);
-        Assert.InRange(timer.DueAtMillis - timer.ArmedAtMillis, 28_000, 84_300);
+        Assert.Equal(8, timer.Deficit);
+        Assert.InRange(timer.DueAtMillis - timer.ArmedAtMillis, 0, WidestMillis(CollapseWindow.Default, 8));
 
         // Seeded: the same seed, chunk and moment give the same due; a different seed does not
         // (over four chunks, at least one moves).
@@ -755,9 +772,11 @@ public class CollapseTests
 
         Assert.True(lowerTimer.DueAtMillis < upperTimer.DueAtMillis, "no seed in 64 put the lower chunk first");
 
-        // Both unreached throughout — deficit K — so both armed at the minimum.
-        Assert.InRange(lowerTimer.DueAtMillis, 1_000, 3_000);
-        Assert.InRange(upperTimer.DueAtMillis, 1_000, 3_000);
+        // Both unreached throughout — deficit K — so both drawn about the minimum.
+        Assert.Equal(K, lowerTimer.Deficit);
+        Assert.Equal(K, upperTimer.Deficit);
+        Assert.InRange(lowerTimer.DueAtMillis, 0, WidestMillis(window, K));
+        Assert.InRange(upperTimer.DueAtMillis, 0, WidestMillis(window, K));
 
         IReadOnlyList<CollapseFire> fires = scheduler.Sweep(lowerTimer.DueAtMillis);
         Assert.Single(fires);
@@ -818,7 +837,8 @@ public class CollapseTests
             Assert.Equal(now, timer.ArmedAtMillis);
             if (stages.Count == 0)
             {
-                Assert.InRange(timer.DueAtMillis - now, 1_000, 3_000);
+                Assert.Equal(K, timer.Deficit);
+                Assert.InRange(timer.DueAtMillis - now, 0, WidestMillis(window, K));
             }
 
             now = timer.DueAtMillis;
@@ -897,7 +917,8 @@ public class CollapseTests
         ChunkPos rubble = new ChunkPos(0, 1, 0);
         Assert.True(scheduler.TryGetTimer(rubble, out CollapseTimer second));
         Assert.Equal(now, second.ArmedAtMillis);
-        Assert.InRange(second.DueAtMillis - now, 1_000, 3_000);
+        Assert.Equal(K, second.Deficit);
+        Assert.InRange(second.DueAtMillis - now, 0, WidestMillis(window, K));
 
         fires = scheduler.Sweep(second.DueAtMillis);
         Assert.Single(fires);

@@ -367,6 +367,17 @@ public class FluidPersistenceTests
 
         public HashSet<ChunkPos> Home { get; } = [];
 
+        /// <summary>Voxels answering <see cref="HoldsWater"/> — the fill's refusal through the pipeline (M9d).</summary>
+        public HashSet<VoxelPos> Wet { get; } = [];
+
+        public int HoldsWaterAsked { get; private set; }
+
+        public bool HoldsWater(VoxelPos voxel)
+        {
+            HoldsWaterAsked++;
+            return Wet.Contains(voxel);
+        }
+
         /// <summary>Marks the chunk; the fake releases at the next <see cref="TakeEvicted"/>, with no tick to wait for.</summary>
         public void Evict(ChunkPos chunk)
         {
@@ -413,6 +424,41 @@ public class FluidPersistenceTests
 
     private static FluidPanelSnapshot SomePanel(ChunkPos chunk) =>
         new(chunk, [(100, 500), (200, Cap)], [200]);
+
+    [Fact]
+    public void ThePipelineAsksTheAutomatonWhetherAVoxelIsWetAndABrushRefusesIt()
+    {
+        // The wire M9d's fill rests on: ChunkPipeline.HoldsWater is Fluid.HoldsWater, asked per
+        // voxel by Place.Put, and asked while the grid is a tick's — the answer is the published
+        // copy's and the pipeline never waits. With no automaton the pipeline is dry.
+        using var harness = new PipelineHarness();
+        ViewerId viewer = harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 3);
+        harness.Settle();
+
+        // A cell in the sky over the harness's one-octave hill: air, so the brush would fill it.
+        var cell = new Building.BrushCell(4, 20, 4);
+        Assert.True(harness.Pipeline.TryGetMaterial(cell.OriginVoxel, out int above));
+        Assert.Equal(MaterialIds.AirNumericId, above);
+        Assert.False(harness.Pipeline.HoldsWater(cell.OriginVoxel));
+
+        var fluid = new FakeFluid { GridOwnedByTick = true };
+        harness.Pipeline.Fluid = fluid;
+        VoxelPos wet = cell.VoxelAt(1, 0, 2);
+        fluid.Wet.Add(wet);
+        const int stone = 3;
+
+        Building.PlaceResult result = Building.Place.Cube(harness.Pipeline, PipelineHarness.Materials(), cell, stone);
+
+        Assert.True(result.IsAccounted, result.ToString());
+        Assert.Equal(1, result.Wet);
+        Assert.Equal(63, result.Placed);
+        Assert.Equal(64, fluid.HoldsWaterAsked);
+        Assert.True(harness.Pipeline.TryGetMaterial(wet, out int left));
+        Assert.Equal(MaterialIds.AirNumericId, left);
+        Assert.True(harness.Pipeline.HoldsWater(wet));
+        Assert.False(harness.Pipeline.HoldsWater(cell.OriginVoxel));
+        harness.Pipeline.Streamer.RemoveViewer(viewer);
+    }
 
     private static readonly ChunkPos FarAway = new(200, 0, 200);
 

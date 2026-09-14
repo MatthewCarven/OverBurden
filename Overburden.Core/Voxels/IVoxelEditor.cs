@@ -29,4 +29,25 @@ public interface IVoxelEditor : IVoxelWorld
     /// the loaded region has to be able to report that it was clipped.
     /// </returns>
     bool SetVoxel(VoxelPos voxel, int materialId);
+
+    /// <summary>
+    /// Whether this voxel holds Tier B water — the fill's refusal (M9d, decision 3): replaceable
+    /// means air with no water in it, because a fill that overwrote a wet cell would delete the
+    /// water it filled and the identity would report it as <c>displaced</c> rather than restore it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A default rather than a requirement, the way <c>IFluidTerrain.IsLoaded</c> defaults, so the
+    /// dictionary editors every carve and brush test runs against are untouched and dry. The real
+    /// implementation reads the automaton's <i>published</i> wet set — never the grid, which
+    /// refuses while a worker owns it — so the answer is stale by at most one tick, uniformly, and
+    /// the fill that slips through is one tick's arrivals, still counted on <c>displaced</c>.
+    /// </para>
+    /// <para>
+    /// A voxel under a Tier A plane is <i>not</i> wet by this question: a lake is a body with no
+    /// cells, its volume is a number the terrain cannot reduce, so a fill there is a pier and
+    /// deletes nothing. Matthew's to reverse after the play; the refusal is one <c>InLake</c> read.
+    /// </para>
+    /// </remarks>
+    bool HoldsWater(VoxelPos voxel) => false;
 }

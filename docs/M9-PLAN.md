@@ -279,6 +279,10 @@ ceiling.
 
 ### 8. The delay is seeded, in world time, and shortens with the deficit — *recommended; the window is Matthew's*
 
+> **Amended at M9d (2026-09-15, decision 7):** the jitter is exponential with the deficit's delay
+> as its mean — `× −ln(1 − u)` — after the first play read the uniform draw as a timer; and a timer
+> only shortens (M9d decision 2), so a lake rising over an armed roof redraws it earlier.
+
 Per analysed chunk, one timer, started when the chunk's deficit set becomes non-empty and left
 running by later derives that keep it so. Delay = `lerp(max, min, clamp(deficit / K, 0, 1)) ×
 U(0.5, 1.5)` in **world seconds** off `WorldClock`, drawn from `Hash64(worldSeed, chunk, worldMillis
@@ -1339,3 +1343,86 @@ amount untouched and `displaced 0` after ticks; a cell that dried refuses for on
 fills after the next; a voxel under a Tier A plane fills; the chunk fill refuses exactly the wet
 cells. The wire: the pipeline's `HoldsWater` answers mid-tick with a job on the grid without
 touching `Grid` (the M8d-5b lesson as an assertion).
+
+---
+
+## M9d — built
+
+> 2026-09-15. All ten decisions as recommended (*"As recommended"*), the jitter widened (decision
+> 7, *"widen the jitter"*), and decision 3's lake edge shipped as recommended with Matthew *"not
+> sure about 3 yet"* — a fill under a Tier A plane is not refused, and the refusal is one `InLake`
+> read named in TODO for after the play. Suite 1,392 → 1,411; 21 break-recipes, 21 caught (one
+> after its assertion was tightened, below). The game build ran on a .NET SDK that was replaced
+> under it mid-session — 10.0.302 → 10.0.401 — which is why the first battery run reported
+> "No SDKs were found"; the suite is green on the new one.
+
+**The trigger, as built.** `SupportCostTable` records sixteen `Readings` — `max(0, level −
+OriginY)` in voxels per 2 m sample — and `SameCosts` compares bytes; `SupportRegion` keeps the
+table each derive was submitted with beside the field (`_costs`, dropped wherever the field is)
+and `CheckTable()` sweeps the analysed set: skip anything queued or in flight, sixteen readings
+through a per-sweep `MemoTable`, a move of a voxel or more rebuilds the table, requeue under
+`Table` iff the bytes differ, re-record either way. **The memo is per sample, not per basin**,
+because `IWaterTable` hides basins — and chunks stacked in a column share their sixteen, which is
+where the saving is: the 2 × 2 room's twenty analysed chunks stand in twelve columns, 192 asks
+for 320 lookups and three rebuilds at 528 each. Counters: `TableChecks`, `TableCompared`,
+`TableRebuilt`, `TableUnchanged`, on the `M9:` line after `table N`. `TableMoved()` stays as the
+unrefined arm the tests double with.
+
+**A timer only shortens.** `CollapseTimer` carries the deficit it was drawn for; the sweep
+redraws a settled field whose deficit grew and keeps the earlier due, records the deficit on a
+later draw so it is not redrawn every boundary, and leaves a shrunken deficit's due alone.
+`Shortened` counts it, on the `M9:` line as `N armed (M shortened)`.
+
+**The jitter is exponential.** `DelaySeconds` is `lerp(max, min, deficit / K) × −ln(1 − u)`, u in
+[0, 1) capped at 0.999999 (13.8× the mean at most, never infinite), `CollapseWindow.MeanUnit` the
+unit at which the draw is its mean, for tests. The window's two numbers are the mean's ends now;
+the plug's median is 39 s, a twentieth of its draws under 3 s and a twentieth over 168 s. The
+seed-world oracle's four stages still land inside `--measure=20` at `1,2`.
+
+**The fill's refusal.** `IVoxelEditor.HoldsWater` defaults false; `Place.Put` returns `Bucket.Wet`
+after `Occupied` and before the stock; `PlaceResult.Wet` is in `IsAccounted` and `ToString`;
+`PlaceController.VoxelsWet` reaches the `M6c:` line and the profile's `building` line. **Wet
+before the stock is a cost claim, not an observable**: the stock check debits nothing, so the
+order cannot be caught by a fixture and the battery did not try. **The wet answer**: `FluidGrid`'s
+panel keeps a 4 KiB bitset flipped in `Write` on a zero crossing and a `WetChanged` flag;
+`CollectWet` copies changed panels into a caller's dictionary and drops the copies of panels
+released or evicted since (`_wetReleased`, with a re-obtained panel's copy winning over its
+drop); `FluidSimulation.Publish` collects into `_publishedWet` and `HoldsWater` reads it — never
+the grid, asserted mid-job. `IFluidPersistence.HoldsWater` defaults false so the store's fake
+stays dry; `ChunkPipeline.HoldsWater` is `Fluid?.HoldsWater`, and the pipeline test asks it with
+`GridOwnedByTick` true.
+
+**Flags and lines.** `--saturation=0` builds the region with no table; `--tablemove=0` skips the
+sweep; `--fillbasinafter=<s>` holds the pour (and the breach) that far past the window's open.
+The `boundary` line has a `table` term; `M9:` prints the sweep's four counters and `shortened`;
+`M6c:` and `building` print `wet`.
+
+**The keystone, headless, Debug, the seed world** — `--profile --speed=0 --bitechunks=2
+--fillbasin=2000000 --fillbasinafter=5 --collapseafter=1,2 --measure=25`: the dry plug's four
+`fell 5` at t 4.0 / 4.5 / 5.0 / 7.0 s and `at risk 0` at open; the pour lands (level −6 over a bite
+24 m down, so every row is past stone's last curve point); `table 20` requeues all twenty; **at
+risk 18,718 voxels in 7 settled chunks**; then `fell 6,233 / 6,223 / 6,255 / 6,227` — each room
+chunk's whole roof — with seepage lifted `30 L == returned 30 L`, `displaced 0`, and `at risk 0` at
+the end. **Three controls**: `--saturation=0` sheds the plug's 20 and nothing more with the lake
+standing (`fired 4 in all, 20 voxel(s) fallen`); `--tablemove=0` reads `table 0 (0 sweep(s))` and
+`at risk 20` after the pour; the r6 control is 2601 / 325 / 3446 to the digit.
+
+**Cost.** The sweep is 0.14 ms mean a boundary over 20 analysed chunks, 2.56 ms on the boundary
+that rebuilt all twenty (Debug, `--fluidjob=1`) — ~7 µs a compared chunk, so the played world's
+~120 is under a millisecond at 2 Hz. The plan's "tens of microseconds" was for the lookups alone
+and left out the dictionary behind the memo; recorded, and no lever named, because the boundary's
+worst is the field sync at 23 ms. A wet roof's fall is 16–35 ms a stage in Debug, the hook-chain
+cost c-1b recorded, and the lever is unchanged (TODO).
+
+**What the battery found.** Twenty-one recipes across the sweep, the scheduler, the window, the
+gate, the bitset, the publish and the wire; twenty caught on the first run. The miss was the memo
+— the fixture asserted *fewer asks than analysed × 16* and the unmemoised sweep asks fewer than
+that anyway, because the reading loop breaks at the first moved sample. The claim is exact and the
+test says so now: asks equal the distinct samples under the analysed set. **Two identities are
+named rather than counted**: Wet-before-stock (above), and the `≥ 1.0` threshold's direction,
+which the half-voxel fixture separates but a `>` would not.
+
+**Not measured here, and the play's.** Whether the plug-then-hold reads as settling, whether the
+tint says where, the soil patch, and whether the wet roof going and the dry one holding read as the
+lake's doing — decision 8's four recipes, in TODO. And decision 3's edge: a pier in a lake is
+allowed, and the first play that reads it as wrong reverses it in one line.

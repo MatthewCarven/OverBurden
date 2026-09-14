@@ -34,18 +34,49 @@ public sealed class SupportCostTable
     /// <summary>Rows in the table: 16 samples by 32 voxel rows.</summary>
     public const int Rows = SamplesPerAxis * SamplesPerAxis * VoxelConstants.ChunkSize;
 
+    /// <summary>Samples per chunk: 16.</summary>
+    public const int Samples = SamplesPerAxis * SamplesPerAxis;
+
+    private static readonly double[] NoReadings = new double[Samples];
+
     private readonly byte[] _cost;
     private readonly int _materials;
+    private readonly double[] _readings;
 
-    private SupportCostTable(byte[] cost, int materials, bool isDry)
+    private SupportCostTable(byte[] cost, int materials, bool isDry, double[] readings)
     {
         _cost = cost;
         _materials = materials;
         IsDry = isDry;
+        _readings = readings;
     }
 
     /// <summary>True when no row had any head over it: every row is the dry cost.</summary>
     public bool IsDry { get; }
+
+    /// <summary>
+    /// What the table read per sample, in voxels of water standing over the chunk's bottom row —
+    /// <c>max(0, level − OriginY)</c>, zero for a dry sample and for a lake standing below the
+    /// chunk, which the costs cannot tell apart either. The table-move trigger (M9d, decision 1)
+    /// compares these before it rebuilds anything. Index <c>sz × 4 + sx</c>.
+    /// </summary>
+    public ReadOnlySpan<double> Readings => _readings;
+
+    /// <summary>Whether every cost byte equals the other table's — the trigger's second stage.</summary>
+    public bool SameCosts(SupportCostTable other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+        return _materials == other._materials && _cost.AsSpan().SequenceEqual(other._cost);
+    }
+
+    /// <summary>The reading the table would record for one sample now: the trigger's first stage.</summary>
+    public static double ReadingAt(ChunkPos chunk, int sampleX, int sampleZ, IWaterTable table)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        VoxelPos origin = chunk.OriginVoxel;
+        double? level = table.TableAt((origin.X / CellVoxels) + sampleX, (origin.Z / CellVoxels) + sampleZ);
+        return level is null ? 0 : Math.Max(0, level.Value - origin.Y);
+    }
 
     /// <summary>The table for a chunk nothing stands over — or for every chunk when saturation is off.</summary>
     public static SupportCostTable Dry(MaterialTable materials, SupportRule rule)
@@ -65,7 +96,7 @@ public sealed class SupportCostTable
             Array.Copy(cost, 0, cost, row * count, count);
         }
 
-        return new SupportCostTable(cost, count, isDry: true);
+        return new SupportCostTable(cost, count, isDry: true, NoReadings);
     }
 
     /// <summary>
@@ -88,6 +119,7 @@ public sealed class SupportCostTable
 
         int count = materials.Count;
         var cost = new byte[Rows * count];
+        var readings = new double[Samples];
         bool dry = true;
         VoxelPos origin = chunk.OriginVoxel;
         Span<byte> dryRow = stackalloc byte[count];
@@ -100,6 +132,7 @@ public sealed class SupportCostTable
         {
             for (int sx = 0; sx < SamplesPerAxis; sx++)
             {
+                readings[(sz * SamplesPerAxis) + sx] = ReadingAt(chunk, sx, sz, table);
                 for (int y = 0; y < VoxelConstants.ChunkSize; y++)
                 {
                     var voxel = new VoxelPos(origin.X + (sx * CellVoxels), origin.Y + y, origin.Z + (sz * CellVoxels));
@@ -120,7 +153,7 @@ public sealed class SupportCostTable
             }
         }
 
-        return new SupportCostTable(cost, count, dry);
+        return new SupportCostTable(cost, count, dry, readings);
     }
 
     /// <summary>The sideways step cost into <paramref name="material"/> at chunk-local coordinates.</summary>

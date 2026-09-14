@@ -58,9 +58,26 @@ public sealed class FluidGrid
 
         /// <summary>Snapshotted at least once, so a row on disk may exist for it and must be emptied if this panel is.</summary>
         public bool Stored;
+
+        /// <summary>
+        /// One bit per cell, set while the cell holds anything — the fill's wet answer (M9d,
+        /// decision 4). Maintained by <see cref="Write"/> on a zero crossing, so it costs a
+        /// branch the visit already takes and never a scan.
+        /// </summary>
+        public readonly ulong[] Wet = new ulong[WetWords];
+
+        /// <summary>A bit flipped since <see cref="CollectWet"/> last copied this panel out.</summary>
+        public bool WetChanged;
     }
 
+    /// <summary>Words in a panel's wet bitset: 32,768 cells over 64-bit words.</summary>
+    public const int WetWords = VoxelConstants.ChunkVolume / 64;
+
     private readonly Dictionary<ChunkPos, Panel> _panels = [];
+
+    // Panels released since the last CollectWet: their published copy, if any, is to be dropped.
+    // A chunk that was released and re-obtained in between is in both lists and the copy wins.
+    private readonly List<ChunkPos> _wetReleased = [];
 
     // Chunks whose panel was released after being snapshotted: the row on disk still holds water
     // that has since drained away, and the next save writes it empty. A panel released before it
@@ -98,6 +115,79 @@ public sealed class FluidGrid
 
     /// <summary>Millilitres this voxel could still take.</summary>
     public int FreeAt(VoxelPos voxel) => FluidConstants.CellCapacityMillilitres - AmountAt(voxel);
+
+    /// <summary>Whether the voxel holds anything, off the panel's bitset — the live answer, for tests and the bench.</summary>
+    public bool IsWet(VoxelPos voxel)
+    {
+        Panel? panel = Find(voxel.Chunk);
+        if (panel is null)
+        {
+            return false;
+        }
+
+        int index = voxel.LocalIndex;
+        return (panel.Wet[index >> 6] & (1UL << (index & 63))) != 0;
+    }
+
+    /// <summary>
+    /// Copies every panel's wet bitset that changed since the last call into
+    /// <paramref name="published"/>, drops the copies of panels released since, and returns
+    /// how many were copied. The sim thread's answer to <see cref="IsWet"/> while a worker owns
+    /// the grid (M9d, decision 4): one path, always the copy, stale by at most one tick.
+    /// </summary>
+    /// <remarks>
+    /// A copy is 4 KiB and only a touched panel pays it — 44 panels on the played world's flood
+    /// is 176 KiB a boundary. The arrays are reused across calls, so a steady flood allocates
+    /// nothing here.
+    /// </remarks>
+    public int CollectWet(Dictionary<ChunkPos, ulong[]> published)
+    {
+        ArgumentNullException.ThrowIfNull(published);
+
+        foreach (ChunkPos chunk in _wetReleased)
+        {
+            if (!_panels.ContainsKey(chunk))
+            {
+                published.Remove(chunk);
+            }
+        }
+
+        _wetReleased.Clear();
+
+        int copied = 0;
+        foreach ((ChunkPos chunk, Panel panel) in _panels)
+        {
+            if (!panel.WetChanged)
+            {
+                continue;
+            }
+
+            if (!published.TryGetValue(chunk, out ulong[]? copy))
+            {
+                copy = new ulong[WetWords];
+                published[chunk] = copy;
+            }
+
+            Array.Copy(panel.Wet, copy, WetWords);
+            panel.WetChanged = false;
+            copied++;
+        }
+
+        return copied;
+    }
+
+    /// <summary>The wet bit for a voxel in a published copy, or false with no copy.</summary>
+    public static bool IsWetIn(Dictionary<ChunkPos, ulong[]> published, VoxelPos voxel)
+    {
+        ArgumentNullException.ThrowIfNull(published);
+        if (!published.TryGetValue(voxel.Chunk, out ulong[]? copy))
+        {
+            return false;
+        }
+
+        int index = voxel.LocalIndex;
+        return (copy[index >> 6] & (1UL << (index & 63))) != 0;
+    }
 
     /// <summary>
     /// Puts water in. Returns what would not fit, which the caller must account for rather than
@@ -498,6 +588,7 @@ public sealed class FluidGrid
         long released = panel.Total;
         _total -= panel.Total;
         _held -= panel.Held;
+        _wetReleased.Add(chunk);
 
         if (_cacheValid && _cachedKey == chunk)
         {
@@ -522,11 +613,15 @@ public sealed class FluidGrid
         {
             panel.Held++;
             _held++;
+            panel.Wet[index >> 6] |= 1UL << (index & 63);
+            panel.WetChanged = true;
         }
         else if (previous != 0 && amount == 0)
         {
             panel.Held--;
             _held--;
+            panel.Wet[index >> 6] &= ~(1UL << (index & 63));
+            panel.WetChanged = true;
         }
 
         if (panel.Held == 0)
@@ -573,6 +668,7 @@ public sealed class FluidGrid
         }
 
         _panels.Remove(chunk);
+        _wetReleased.Add(chunk);
         if (panel.Stored)
         {
             _emptied.Add(chunk);

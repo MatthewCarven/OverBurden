@@ -540,6 +540,17 @@ public partial class Main : Node3D
     /// <summary><c>--supporttint=0</c> derives everything and hands the mesher nothing — the tint's control.</summary>
     private bool _supportTint = true;
 
+    /// <summary><c>--saturation=0</c>: the region reads no water table — every derive dry, the keystone's control (M9d).</summary>
+    private bool _saturationOn = true;
+
+    /// <summary><c>--tablemove=0</c>: the table-move sweep is off — M9b's arm, a settled roof under a rising lake stays as derived (M9d).</summary>
+    private bool _tableMoveOn = true;
+
+    /// <summary><c>--fillbasinafter=&lt;seconds&gt;</c>: the pour lands that far into the measured window rather than at its open (M9d).</summary>
+    private double _fillBasinAfterSeconds;
+    private double _fillBasinDelayElapsed;
+    private double _bTable, _bTableAtWarm, _bTableMax;
+
     /// <summary>The analysed set, the fields and the join; the pipeline pumps its queue.</summary>
     private SupportRegion? _support;
 
@@ -1384,6 +1395,21 @@ public partial class Main : Node3D
                     break;
                 case "supporttint" when int.TryParse(value, out int supportTint):
                     _supportTint = supportTint != 0;
+                    break;
+
+                // M9d's three. --saturation=0 derives every field dry with the water still on —
+                // the control the keystone's oracle row names; --tablemove=0 keeps the table and
+                // drops the sweep that re-derives a roof under a lake that moved, M9b's arm;
+                // --fillbasinafter= lands --fillbasin's pour that many seconds into the window,
+                // because the trigger's oracle needs the bite settled dry before the lake rises.
+                case "saturation" when int.TryParse(value, out int saturation):
+                    _saturationOn = saturation != 0;
+                    break;
+                case "tablemove" when int.TryParse(value, out int tableMove):
+                    _tableMoveOn = tableMove != 0;
+                    break;
+                case "fillbasinafter" when double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double after) && after >= 0:
+                    _fillBasinAfterSeconds = after;
                     break;
 
                 // M9c-1: the fall's two flags. --collapse=0 arms and never fires, the arm that lets
@@ -3635,14 +3661,21 @@ public partial class Main : Node3D
         }
 
         ChunkStreamer streamer = _pipeline.Streamer;
-        _support = new SupportRegion(position => streamer.Get(position)?.Voxels, _materials, SupportRule.Default, _water);
+        Overburden.Core.Fluid.IWaterTable? table = _saturationOn ? _water : null;
+        _support = new SupportRegion(position => streamer.Get(position)?.Voxels, _materials, SupportRule.Default, table);
         _pipeline.Support = _support;
         _pipeline.SupportTint = _supportTint;
         GD.Print(
             $"M9: support field on — K = {SupportRule.MaxBudget}, refund every {SupportRule.Default.RestRefundVoxels} voxel(s) of rest; "
             + "a dug chunk and its six face neighbours are analysed, derives run as detached jobs at most "
             + $"{ChunkPipeline.MaxSupportSubmissionsPerFrame} a frame, and the tint reads settled fields only "
-            + $"({(_supportTint ? "tint on" : "tint off, --supporttint=0")}; --support=0 is the control)");
+            + $"({(_supportTint ? "tint on" : "tint off, --supporttint=0")}; --support=0 is the control); "
+            + (table is null
+                ? (_water is null ? "every derive is dry (no water)" : "every derive is dry (--saturation=0), the keystone's control")
+                : "the cost table reads the water table at submission, and "
+                  + (_tableMoveOn
+                      ? "the table-move sweep at each fluid boundary re-derives a chunk whose lake moved a voxel and whose costs changed (--tablemove=0 is the M9b arm)"
+                      : "the table-move sweep is off (--tablemove=0): a roof under a lake that rises afterwards keeps its dry field")));
 
         SetUpCollapse();
     }
@@ -3680,7 +3713,7 @@ public partial class Main : Node3D
         };
         GD.Print(
             $"M9: collapse {(_collapseOn ? "on" : "arming only (--collapse=0)")} — a settled chunk with something at risk arms "
-            + $"{_collapseWindow.MinSeconds:0.##}–{_collapseWindow.MaxSeconds:0.##} s of world time by its deficit, ×0.5–1.5 seeded "
+            + $"{_collapseWindow.MinSeconds:0.##}–{_collapseWindow.MaxSeconds:0.##} s of world time by its deficit as the mean of a seeded exponential draw "
             + $"(--collapseafter=min,max); rubble is ID {rubble}; the sweep runs "
             + $"{(_fluid is null ? "every frame, no water to wait for (--nowater)" : "at each fluid boundary, waiting on fluid-pending chunks")}");
     }
@@ -3795,7 +3828,7 @@ public partial class Main : Node3D
         int freed = _collapseFreed - (window ? _collapseFreedAtWarm : 0);
         int buried = _collapseBuried - (window ? _collapseBuriedAtWarm : 0);
         const double litre = FluidConstants.MillilitresPerLitre;
-        return $"; collapse {(c.FireEnabled ? "on" : "arming only")}: {c.Armed:N0} armed / {c.Due:N0} due / waiting (unsettled {c.WaitingUnsettled:N0}, fluid-pending {c.WaitingFluid:N0}), "
+        return $"; collapse {(c.FireEnabled ? "on" : "arming only")}: {c.Armed:N0} armed ({c.Shortened:N0} shortened) / {c.Due:N0} due / waiting (unsettled {c.WaitingUnsettled:N0}, fluid-pending {c.WaitingFluid:N0}), "
                + $"{fired:N0} fired{(window ? " in the window" : string.Empty)} ({c.Fired:N0} in all), {voxels:N0} voxel(s) fallen "
                + $"(mean drop {(voxels > 0 ? drop / (double)voxels : 0):F1}, deepest {c.DeepestDrop}), {stale:N0} stale skipped, "
                + (_fluid is null ? "no water" : $"lifted {lifted / litre:N0} L / returned {returned / litre:N0} L{(c.DisplacedMillilitres > 0 ? $" (*** {c.DisplacedMillilitres} mL DISPLACED ***)" : string.Empty)}")
@@ -3959,7 +3992,7 @@ public partial class Main : Node3D
                + $"{r.RequeuedStale:N0} requeued stale, {r.DroppedDeparted:N0} dropped departed — by cause "
                + $"edit {r.Triggered(SupportTrigger.Edit):N0} / arrival {r.Triggered(SupportTrigger.Arrival):N0} / "
                + $"neighbour {r.Triggered(SupportTrigger.Neighbour):N0} / departure {r.Triggered(SupportTrigger.Departure):N0} / "
-               + $"table {r.Triggered(SupportTrigger.Table):N0}; "
+               + $"table {r.Triggered(SupportTrigger.Table):N0} ({r.TableChecks:N0} sweep(s), {r.TableCompared:N0} compared, {r.TableRebuilt:N0} rebuilt, {r.TableUnchanged:N0} unchanged); "
                + $"{p.SupportDerivesInFlight:N0} in flight, {r.Pending:N0} pending, {r.Unsettled:N0} unsettled; "
                + $"worker mean {(applied > 0 ? p.SupportWorkerMillis / applied : 0):F2} ms max {p.SupportWorkerMillisMax:F2} ms "
                + $"(copy {(applied > 0 ? p.SupportCopyMillis / applied : 0):F2}), sim gather {(p.SupportDerivesSubmitted > 0 ? p.SupportGatherMillis / p.SupportDerivesSubmitted : 0):F3} ms apply {(applied > 0 ? p.SupportApplyMillis / applied : 0):F3} ms; "
@@ -3994,7 +4027,7 @@ public partial class Main : Node3D
         return $"support   {r.Analysed.Count:N0} analysed ({r.Dug.Count:N0} dug), {r.FieldCount:N0} field(s) holding {r.FieldBytes / 1024.0:N0} KiB; "
                + $"{derives:N0} derive(s) in the window ({derives / seconds:F1}/s) — {derives - trivial:N0} searched, {trivial:N0} closed-form, "
                + $"{r.RequeuedStale - _supportRequeuedAtWarm:N0} requeued stale, {r.DroppedDeparted - _supportDroppedAtWarm:N0} dropped departed, "
-               + $"{r.Derives:N0} in all — queued by cause {causes}; "
+               + $"{r.Derives:N0} in all — queued by cause {causes} (table sweeps {r.TableChecks:N0}, {r.TableRebuilt:N0} rebuilt, {r.TableUnchanged:N0} unchanged); "
                + $"{p.SupportDerivesInFlight:N0} in flight, {r.Pending:N0} pending, {r.Unsettled:N0} unsettled at the end; "
                + $"worker mean {(applied > 0 ? worker / applied : 0):F2} ms max {p.SupportWorkerMillisMax:F2} ms "
                + $"(copy {(applied > 0 ? copy / applied : 0):F2} ms), {worker / seconds / 10.0:F2}% of one worker; "
@@ -4199,6 +4232,7 @@ public partial class Main : Node3D
             _bHandoffAtWarm = _bHandoff;
             _bPourAtWarm = _bPour;
             _bCollapseAtWarm = _bCollapse;
+            _bTableAtWarm = _bTable;
             _bLakeAtWarm = _bLake;
             _bSyncAtWarm = _bSync;
             _bPublishAtWarm = _bPublish;
@@ -4267,6 +4301,20 @@ public partial class Main : Node3D
             TakePending();
             PourPending();
             long t3 = Stopwatch.GetTimestamp();
+
+            // M9d, decision 1: the table-move sweep, after every pass that moves a level — the
+            // hand-off, the drains, the pour — and before the collapse sweep, so a roof whose lake
+            // rose is requeued before its timer is judged. A comparison over the analysed set,
+            // memoised per sample; its own term, because the boundary's worst frame is watched.
+            if (_support is not null && _tableMoveOn)
+            {
+                long tt = Stopwatch.GetTimestamp();
+                _support.CheckTable();
+                double table = Milliseconds(tt, Stopwatch.GetTimestamp());
+                _bTable += table;
+                _bTableMax = Math.Max(_bTableMax, table);
+                t3 = Stopwatch.GetTimestamp();
+            }
 
             // M9c-1, decision 6: the fall, after the pours and before the field sync, so the
             // tick that follows reads a terrain with the rubble in it and panels with the water
@@ -4575,6 +4623,16 @@ public partial class Main : Node3D
         bool due = _profiler is null ? _secondsSinceStart >= 3.0 : _profiler.Warm;
         if (!due || _water.Window is null)
         {
+            return;
+        }
+
+        // M9d: --fillbasinafter= holds the pour (and the breach with it) that many seconds past
+        // the window's open, so a --bitechunks bite has settled dry before the lake stands over
+        // it and the table-move sweep is what re-derives the roof. Zero is the arm every earlier
+        // figure was taken in — the pour the frame before the bite.
+        if (_fillBasinDelayElapsed < _fillBasinAfterSeconds)
+        {
+            _fillBasinDelayElapsed += GetProcessDeltaTime();
             return;
         }
 
@@ -4906,7 +4964,7 @@ public partial class Main : Node3D
     /// <summary>The worst single pass of each kind over the run — the frame a boundary can cost.</summary>
     private string BoundaryWorst() =>
         $"settle {_bSettleMax:F1} ms, hand-off and drain {_bHandoffMax:F1} ms, pour {_bPourMax:F1} ms, "
-        + $"collapse {_bCollapseMax:F1} ms, lake {_bLakeMax:F1} ms, field sync {_bSyncMax:F1} ms, publish {_bPublishMax:F1} ms";
+        + $"table {_bTableMax:F2} ms, collapse {_bCollapseMax:F1} ms, lake {_bLakeMax:F1} ms, field sync {_bSyncMax:F1} ms, publish {_bPublishMax:F1} ms";
 
     /// <summary>The boundary's cost by pass, mean per boundary over the window.</summary>
     private string BoundaryLine()
@@ -4919,7 +4977,7 @@ public partial class Main : Node3D
 
         return $"boundary  {n:N0} in the window, mean per boundary: settle {(_bSettle - _bSettleAtWarm) / n:F2} ms, "
                + $"hand-off and drain {(_bHandoff - _bHandoffAtWarm) / n:F2} ms, pour {(_bPour - _bPourAtWarm) / n:F2} ms, "
-               + $"collapse {(_bCollapse - _bCollapseAtWarm) / n:F2} ms, "
+               + $"table {(_bTable - _bTableAtWarm) / n:F3} ms, collapse {(_bCollapse - _bCollapseAtWarm) / n:F2} ms, "
                + $"lake {(_bLake - _bLakeAtWarm) / n:F2} ms, "
                + $"field sync {(_bSync - _bSyncAtWarm) / n:F2} ms, publish {(_bPublish - _bPublishAtWarm) / n:F2} ms, "
                + $"capture and compose {(_bBegin - _bBeginAtWarm) / n:F2} ms; worst over the run: "
@@ -5193,7 +5251,8 @@ public partial class Main : Node3D
             $"{_place.VoxelsPlaced / placements:F2} placed / " +
             $"{_place.VoxelsOccupied / placements:F2} occupied / " +
             $"{_place.VoxelsInsidePlayer / placements:F2} inside the player / " +
-            $"{_place.VoxelsOutOfStock / placements:F2} unaffordable per placement\n" +
+            $"{_place.VoxelsOutOfStock / placements:F2} unaffordable / " +
+            $"{_place.VoxelsWet / placements:F2} wet per placement\n" +
             $"carrying  {_inventory.TotalLitres:F0} L across {_inventory.MaterialCount} material(s)\n" +
             // The number M6d-1 named and did not take. Its recorded hypothesis is that
             // precision placement costs twice a brush per click because one voxel dropped
@@ -5625,7 +5684,7 @@ public partial class Main : Node3D
 
         return $"{held} | {_place.Placements} placement(s), {_place.VoxelsPlaced} voxel(s) placed, "
                + $"{_place.VoxelsOccupied} occupied, {_place.VoxelsInsidePlayer} inside the player, "
-               + $"{_place.VoxelsOutOfStock} unaffordable";
+               + $"{_place.VoxelsOutOfStock} unaffordable, {_place.VoxelsWet} wet";
     }
 
     /// <summary>

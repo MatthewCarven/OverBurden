@@ -5069,7 +5069,7 @@ the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
             stale skipped`, 3,382 sweeps at 0.028 ms mean, worst 3.9 ms (the first fall). **The
             wet oracle passed in play before M9d asked for it.** The unstick is still unexercised
             (`0 freed / 0 buried` — nothing landed on him).
-      - [ ] **The delay's jitter is too narrow — Matthew, after the play:** *"I want it to be
+      - [x] **The delay's jitter is too narrow — Matthew, after the play — widened at M9d (2026-09-15, decision 7: an exponential with the deficit's delay as its mean; the paragraph below is the note as it stood):** *"I want it to be
             unpredictable like, like you know if you have left too much overhang"*. Today the draw
             is `lerp(max, min, deficit / K) × U(0.5, 1.5)`, so a thin lip always goes in about a
             minute and the 6-voxel shelf read as a timer (it sat on six `M9:` lines before it went).
@@ -5088,17 +5088,41 @@ the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
             4 × 4 room's biggest stage (11,703 voxels) is ~18 ms in one boundary at the bite's rate.
 - [ ] **M9c-2 — dust.** Decision 11's other half, optional, judged after M9d's play (the tint may be
       enough). Health, damage, death and the HUD bar are M11's since 2026-09-13; the unstick is c-1's.
-- [ ] **M9d — the keystone and the play. Planned 2026-09-15 — ten decisions in M9-PLAN's
-      "M9d — the planning pass", waiting on Matthew; build once they are answered.** The
-      table-move trigger (readings compared at the boundary, requeue iff the cost table's bytes
-      differ), a timer that only shortens, the fill's refusal (`Wet`, read from a published
-      per-panel bitset — never the grid), `--saturation=0`, `--tablemove=0`,
-      `--fillbasinafter=`, the oracle, the jitter's widening, and four questions as recipes:
-      does the plug-then-hold read as *settling*; is a deferred fall attributable; does
-      the soil patch under a shallow bite read right; does a bite under the played lake read as
-      *the water brought it down*. Two things are his beyond the numbers: whether a fill under
-      a Tier A plane is refused (recommended not — a pier deletes nothing), and whether the
-      jitter widens before this play (recommended yes).
+- [x] **M9d — the keystone and the play. Planned 2026-09-15, all ten decisions as recommended and
+      built the same day; the play is Matthew's.** Read M9-PLAN's "M9d — the planning pass" and
+      "M9d — built". The table-move trigger (readings compared at each fluid boundary, memoised
+      per sample, requeue iff the rebuilt cost table's bytes differ — `table N (S sweep(s), C
+      compared, R rebuilt, U unchanged)` on the `M9:` line, `table` on the `boundary` line), a
+      timer that only shortens (`N armed (M shortened)`), the exponential jitter, the fill's
+      refusal (`Wet` on the `M6c:` and `building` lines, read from a published per-panel bitset —
+      never the grid), `--saturation=0`, `--tablemove=0`, `--fillbasinafter=<s>`. Headless: the
+      keystone reads `at risk 20` dry → `table 20` → `at risk 18,718 in 7` → four ~6,200-voxel
+      falls, `lifted 30 == returned 30`, `displaced 0`, `at risk 0`; the three controls hold.
+      - [ ] **The play — four questions as recipes, one sentence wanted back on each.** On
+            `default`, `start.cmd` with `--entanglechunk` (a 16 m room on the cube arm is 256
+            clicks). (1) *Settling*: `Q`, four chunk bites in a 2 × 2, 24 m down in stone; walk
+            back and wait the minute out, or `--collapseafter=2,10`; one `M9: fell 20` and the roof
+            holds — did it read as the roof settling or as a glitch? (2) *Attributable*:
+            `--collapse=0`, the same room, look up — could you say where it would go before it
+            went? (3) *The soil patch*: one chunk bite whose top face is in the surface soil, from
+            beside it; ~1,000 voxels of dirt fall — did dirt falling and stone holding read as two
+            materials? (4) *The water brought it down*: the same 2 × 2 under the pond, then once
+            more with `--saturation=0`; `at risk` twenty against thousands, `lifted == returned`,
+            `displaced 0` — did the wet roof going and the dry one holding read as the lake's
+            doing? Then two the questions do not name: dig a room under a dry hollow, stand in the
+            hollow and `R` ten thousand litres a few times (the hand-off raises the basin), read
+            `table` climbing on the `M9:` line and the tint arriving on the roof untouched; and `R`
+            into a room, a brush into the pool — `wet 64` on the `M6c:` line, the water untouched,
+            `displaced 0` on the next `M8b:` line.
+      - [ ] **Decision 3's edge is Matthew's after the play (*"not sure about 3 yet"*):** a fill
+            under a Tier A plane is allowed — a lake is a body with no cells and its volume is a
+            number terrain cannot reduce, so a pier deletes nothing. If a rock placed in a lake
+            reads as wrong, the refusal is one read: `LakeCeiling.InLake` (M8d-5) beside
+            `HoldsWater` in `ChunkPipeline`, a `Wet` for the lake's cells too.
+      - [ ] **Lever, named and not built:** the sweep asks the world once per distinct sample and
+            the dictionary behind the memo is most of its 7 µs a chunk (Debug); a per-column
+            reading cache keyed by chunk column would halve the asks on a stacked mine. Trigger:
+            `table` on the `boundary` line reading over a millisecond on the played world.
 - [x] After the decisions: DESIGN's *Structural integrity* (bedrock → the analysed edge, the arch,
       *deferred*), MATERIALS-NOTES decision 1, `MaterialDefinition.SupportDistance`'s comment,
       SCALE's M9 paragraph — all amended 2026-09-11.

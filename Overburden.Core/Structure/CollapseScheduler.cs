@@ -5,8 +5,8 @@ using Overburden.Core.Worldgen;
 
 namespace Overburden.Core.Structure;
 
-/// <summary>One armed chunk: when it armed and when it is due, in world milliseconds.</summary>
-public readonly record struct CollapseTimer(long ArmedAtMillis, long DueAtMillis);
+/// <summary>One armed chunk: when it armed, when it is due, in world milliseconds, and the deficit it was drawn for.</summary>
+public readonly record struct CollapseTimer(long ArmedAtMillis, long DueAtMillis, int Deficit);
 
 /// <summary>A fall the sweep made: the result, when, and whether it followed another in the same chunk within a delay window.</summary>
 public readonly record struct CollapseFire(CollapseResult Result, long WorldMillis, bool CascadeStage);
@@ -16,10 +16,22 @@ public readonly record struct CollapseFire(CollapseResult Result, long WorldMill
 /// fall, shortened by the deficit and jittered by a seeded draw. Min 2 s, max 60 s, estimates
 /// — <c>--collapseafter=&lt;min&gt;,&lt;max&gt;</c> is the sweep.
 /// </summary>
+/// <remarks>
+/// <b>The jitter is exponential since M9d (decision 7), with the deficit's delay as its mean.</b>
+/// The first play's draw was <c>U(0.5, 1.5)</c> and a thin lip always went in about a minute —
+/// Matthew: <i>"I want it to be unpredictable like, like you know if you have left too much
+/// overhang"</i>. An exponential keeps the lean (more overhang falls sooner on average) and lets
+/// the same lip go in five seconds or three minutes: the median is 0.69 of the mean, one draw in
+/// twenty is under 0.05 of it and one in twenty over three times it. The window's two numbers are
+/// the mean's ends now rather than the draw's, and <c>--collapseafter=</c> still sets them.
+/// </remarks>
 public sealed record CollapseWindow
 {
     /// <summary>The estimates as shipped.</summary>
     public static readonly CollapseWindow Default = new();
+
+    /// <summary>The unit at which the exponential draw is exactly its mean: <c>1 − e⁻¹</c>. For tests.</summary>
+    public const float MeanUnit = 0.63212056f;
 
     private readonly double _minSeconds = 2.0;
     private readonly double _maxSeconds = 60.0;
@@ -56,15 +68,16 @@ public sealed record CollapseWindow
 
     /// <summary>
     /// The delay for a chunk whose worst voxel is <paramref name="maxDeficit"/> below zero:
-    /// <c>lerp(max, min, deficit / K) × U(0.5, 1.5)</c>, the unit drawn from
-    /// <paramref name="unit"/> in [0, 1).
+    /// <c>lerp(max, min, deficit / K) × Exp(1)</c>, the exponential's unit drawn from
+    /// <paramref name="unit"/> in [0, 1) as <c>−ln(1 − unit)</c>.
     /// </summary>
     public double DelaySeconds(int maxDeficit, float unit)
     {
         double share = Math.Clamp(maxDeficit / (double)SupportRule.MaxBudget, 0.0, 1.0);
         double max = Math.Max(_minSeconds, _maxSeconds);
         double nominal = max + ((_minSeconds - max) * share);
-        return nominal * (0.5 + unit);
+        double clamped = Math.Clamp(unit, 0.0, 0.999999);
+        return nominal * -Math.Log(1.0 - clamped);
     }
 }
 
@@ -186,6 +199,9 @@ public sealed class CollapseScheduler
     /// <summary>Timers disarmed because their chunk's settled set emptied without a fall, over the lifetime.</summary>
     public long Disarmed { get; private set; }
 
+    /// <summary>Timers redrawn earlier because a settle raised their chunk's deficit (M9d, decision 2), over the lifetime.</summary>
+    public long Shortened { get; private set; }
+
     /// <summary>The timer on a chunk, if armed.</summary>
     public bool TryGetTimer(ChunkPos chunk, out CollapseTimer timer) => _timers.TryGetValue(chunk, out timer);
 
@@ -254,6 +270,26 @@ public sealed class CollapseScheduler
             {
                 timer = Arm(chunk, field.MaxDeficit, worldMillis);
             }
+            else if (field.MaxDeficit > timer.Deficit)
+            {
+                // A timer only shortens (M9d, decision 2): a lake that rose over a roof armed dry
+                // raises its deficit, and the fall should come on the wet clock, not the dry one.
+                // Redrawn for the new deficit and the earlier due kept; a draw that lands later
+                // keeps the old due and records the deficit, so it is not redrawn every sweep. A
+                // deficit that shrank keeps its due — a roof that was going to fall still is.
+                CollapseTimer redrawn = Draw(chunk, field.MaxDeficit, worldMillis);
+                if (redrawn.DueAtMillis < timer.DueAtMillis)
+                {
+                    timer = redrawn;
+                    Shortened++;
+                }
+                else
+                {
+                    timer = timer with { Deficit = field.MaxDeficit };
+                }
+
+                _timers[chunk] = timer;
+            }
 
             if (timer.DueAtMillis > worldMillis)
             {
@@ -302,12 +338,18 @@ public sealed class CollapseScheduler
 
     private CollapseTimer Arm(ChunkPos chunk, int maxDeficit, long worldMillis)
     {
-        float unit = Hash64.ToUnitFloat(Hash64.ForChunk(_seed ^ (ulong)worldMillis, chunk));
-        double delay = Window.DelaySeconds(maxDeficit, unit);
-        var timer = new CollapseTimer(worldMillis, worldMillis + (long)Math.Round(delay * 1000.0));
+        CollapseTimer timer = Draw(chunk, maxDeficit, worldMillis);
         _timers[chunk] = timer;
         ArmedInAll++;
         return timer;
+    }
+
+    /// <summary>A timer for this chunk and deficit, drawn from the seed and the clock, stored by nobody.</summary>
+    private CollapseTimer Draw(ChunkPos chunk, int maxDeficit, long worldMillis)
+    {
+        float unit = Hash64.ToUnitFloat(Hash64.ForChunk(_seed ^ (ulong)worldMillis, chunk));
+        double delay = Window.DelaySeconds(maxDeficit, unit);
+        return new CollapseTimer(worldMillis, worldMillis + (long)Math.Round(delay * 1000.0), maxDeficit);
     }
 
     private void Record(ChunkPos chunk, CollapseResult result, long worldMillis)

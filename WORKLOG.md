@@ -1,5 +1,60 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-15 — M9d built: the trigger is a comparison, a timer only shortens, the wet answer is a copy
+
+Matthew took the pass whole — *"As recommended"* — with the jitter widened and decision 3's lake
+edge left open (*"not sure about 3 yet"*); built in one session, Core first, 1,392 → 1,411 tests,
+21 break-recipes and 21 caught. Read M9-PLAN's "M9d — built" for the shape; what is worth keeping
+here is what the build corrected in the pass and what the numbers said.
+
+**The memo is per sample, not per basin.** The pass said "memoised per basin the way
+`WaterSurface` solves `LevelAt`", and the region cannot: `IWaterTable` is `TableAt(sampleX,
+sampleZ)` and hides the basin. Per sample is what the interface allows and it is where the saving
+actually is — chunks stacked in a column share their sixteen — so the 2 × 2 room's twenty analysed
+chunks in twelve columns cost 192 asks, not 320 plus 528 a rebuild. **The test's first assertion
+of that was too weak** (*fewer asks than analysed × 16*), and the battery's one miss said so: the
+unmemoised sweep asks fewer than that anyway, because the reading loop breaks at the first moved
+sample. The claim is exact and the test now says exactly it.
+
+**A flat move has to be re-recorded.** A lake already past the curve's last point rises another
+voxel: the readings moved, the rebuilt table matches, nothing is queued — and unless the fresh
+table replaces the old, every sweep from then on rebuilds it for the same nothing. One line, and
+its own fixture (`ALakeRisingPastTheCurvesLastPointRebuildsAndRequeuesNothing` asserts `TableRebuilt`
+stays put on the second sweep).
+
+**The keystone reads in the game, and the number is the plan's last row.** `--bitechunks=2` with the
+pour held 5 s: the dry plug's four `fell 5`, `at risk 0` at open, then `table 20` and **18,718 at
+risk in 7 chunks** — the whole roof of each room chunk, since a bite 24 m down under a lake at −6
+puts every row past stone's 10 m point — and four falls of ~6,200 voxels each with `lifted 30 ==
+returned 30` (the seepage's litres, lifted from under the fall and put back), `displaced 0`, `at risk
+0` after. `--saturation=0` sheds 20 and nothing more with the lake standing; `--tablemove=0` reads
+`table 0 (0 sweep(s))` and 20 after the pour; r6 to the digit.
+
+**The sweep costs 7 µs a chunk in Debug, not the pass's tens of microseconds a sweep.** 0.14 ms a
+boundary over 20 analysed, 2.56 on the boundary that rebuilt all twenty; the estimate counted the
+lookups and not the dictionary behind the memo. Under a millisecond on the played world's ~120,
+against a field sync of 23 ms on the same line, so no lever is built; one is named in TODO.
+
+**The exponential's tail is the point and also the oracle's risk.** `−ln(1 − u)` has no upper
+end short of the cap (13.8× at 0.999999); the plug's mean stays 56 s, its median is 39, one draw
+in twenty is under 3 s and one over 168 s. The seed-world oracle's four stages at `1,2` still land
+inside `--measure=20` — checked, since a wider draw could have pushed one out.
+
+**The fill cannot be wire-checked by the flythrough.** `--place --injectlitres` reads `0.00 wet` at
+every pitch, and it is M6d-2's finding again: the profile builds a column under the crosshair and
+the pool round it is never the aimed cell. The wire is a pipeline test with `GridOwnedByTick` true
+and a `FakeFluid` answering wet; the first fill to meet water in the game is the play's.
+
+**Two identities named rather than counted.** Wet-before-stock is a cost claim — the stock check
+debits nothing, so no fixture can see the order. And `≥ 1.0` against `>`: the half-voxel fixture
+separates a threshold of 0.5 from 1.0 and would not separate `>` from `≥`.
+
+**The SDK was replaced under the session.** Between two battery runs `dotnet` reported "No SDKs
+were found": `sdk/10.0.302` had emptied to a lone `Roslyn` folder with two `setup.exe` and an
+`msiexec` running — Matthew's update, *"Yeah sorry … its finished"* — and 10.0.401 came back
+minutes later. The suite is green on it; the new analyzers surface one pre-existing CA2014 in
+`LightPropagator` (a `stackalloc` in a loop) that is not M9d's.
+
 ## 2026-09-14 — a quit with the tick's surface in hand threw past the save
 
 Matthew's last two sessions of the evening (20:08 and 20:42) ended on `ObjectDisposedException:

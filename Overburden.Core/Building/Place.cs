@@ -32,13 +32,22 @@ namespace Overburden.Core.Building;
 /// refusal</b> — the same distinction <see cref="CarveResult.Unreachable"/> draws, and the same
 /// one <see cref="RayOutcome.Blocked"/> draws against <see cref="RayOutcome.Missed"/>.
 /// </param>
+/// <param name="Wet">
+/// Air voxels holding Tier B water, refused (M9d, decision 3). A fill that overwrote one would
+/// delete the water it filled — the automaton would count it <c>displaced</c> at the next visit
+/// and nothing would put it back — so replaceable means air <i>with no water in it</i>, and the
+/// brush fills the dry cells round the pool and leaves the pool. The loop this buys: a flooded
+/// room cannot be filled until M10's pump has emptied it. Zero for every editor that does not
+/// answer <see cref="IVoxelEditor.HoldsWater"/>.
+/// </param>
 public readonly record struct PlaceResult(
     int Candidates,
     int Placed,
     int Occupied,
     int InsidePlayer,
     int Unreachable,
-    int OutOfStock = 0)
+    int OutOfStock = 0,
+    int Wet = 0)
 {
     /// <summary>The whole brush was inside loaded, generated terrain.</summary>
     public bool Complete => Unreachable == 0;
@@ -51,11 +60,11 @@ public readonly record struct PlaceResult(
     /// and quietly loses voxels.
     /// </remarks>
     public bool IsAccounted =>
-        Candidates == Placed + Occupied + InsidePlayer + Unreachable + OutOfStock;
+        Candidates == Placed + Occupied + InsidePlayer + Unreachable + OutOfStock + Wet;
 
     public override string ToString() =>
         $"{Candidates} candidate(s): placed {Placed}, occupied {Occupied}, " +
-        $"inside player {InsidePlayer}, unreachable {Unreachable}, out of stock {OutOfStock}";
+        $"inside player {InsidePlayer}, unreachable {Unreachable}, out of stock {OutOfStock}, wet {Wet}";
 }
 
 /// <summary>
@@ -83,11 +92,14 @@ public readonly record struct PlaceResult(
 /// with no tool and no gate. <c>Carve</c> is how material leaves the world.
 /// </para>
 /// <para>
-/// <b>Revisit trigger, M8:</b> "replaceable" means air today because there is nothing else it
-/// could mean — <see cref="MaterialTable.IsFluid"/> exists and no shipped material sets it.
-/// When fluids exist, a brush pushed into water should displace it while a brush pushed into
-/// rock still must not. That is the same trigger <see cref="VoxelRay"/> carries for its stop
-/// test and <c>Carve</c> for its removability test, and this is the third place it will bite.
+/// <b>The M8 revisit trigger fired at M9d, and the answer was <i>refuse</i>, not
+/// <i>displace</i>.</b> "Replaceable" meant air alone until then because nothing else could be in a
+/// voxel; Tier B water is in the same 0.25 m cell as the voxel now, and a brush pushed into a
+/// flooded room has nowhere to displace to — every neighbour is full — so displacing would be
+/// deleting with a nicer name. Replaceable means air with no water in it (M9-PLAN decision 9,
+/// planned at M9d decision 3), through <see cref="IVoxelEditor.HoldsWater"/>; a wet voxel is a
+/// <see cref="PlaceResult.Wet"/> refusal and the rest of the brush lands. Water is not a
+/// material, so <see cref="MaterialTable.IsFluid"/> still has no reader here.
 /// </para>
 /// <para>
 /// Brushes are methods rather than an <c>IShape</c> the caller supplies, following
@@ -517,6 +529,7 @@ public static class Place
         InsidePlayer,
         Unreachable,
         OutOfStock,
+        Wet,
     }
 
     /// <summary>
@@ -560,6 +573,16 @@ public static class Place
             // early-out now has no caller that fires it at all — M4a's zeroable-contact-epsilon
             // category — and it is kept for the same reason: it protects the next writer.
             return Bucket.Occupied;
+        }
+
+        // Air with water in it is not replaceable (M9d, decision 3). After Occupied because the
+        // read is the cheaper test and a wet rock is a contradiction the automaton never writes;
+        // before the stock for the reason Occupied is — nothing is charged for a voxel this brush
+        // would not fill. One gate here, so the brush, the precision voxel, the entangled fill and
+        // the chunk fill refuse exactly the same cells.
+        if (world.HoldsWater(voxel))
+        {
+            return Bucket.Wet;
         }
 
         // Last of the refusals, and last on purpose: the stock is only consulted once the voxel
@@ -642,6 +665,7 @@ public static class Place
         private int _insidePlayer;
         private int _unreachable;
         private int _outOfStock;
+        private int _wet;
 
         /// <summary>One voxel is inside the brush. Called by the shape, before the gate.</summary>
         public void Candidate() => _candidates++;
@@ -655,11 +679,12 @@ public static class Place
                 case Bucket.Occupied: _occupied++; break;
                 case Bucket.InsidePlayer: _insidePlayer++; break;
                 case Bucket.OutOfStock: _outOfStock++; break;
+                case Bucket.Wet: _wet++; break;
                 default: _unreachable++; break;
             }
         }
 
         public readonly PlaceResult ToResult() =>
-            new(_candidates, _placed, _occupied, _insidePlayer, _unreachable, _outOfStock);
+            new(_candidates, _placed, _occupied, _insidePlayer, _unreachable, _outOfStock, _wet);
     }
 }

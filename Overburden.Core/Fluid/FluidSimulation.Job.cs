@@ -56,6 +56,28 @@ public sealed partial class FluidSimulation
     private HashSet<ChunkPos> _publishedPanels = [];
     private (ChunkPos Centre, int Rings)? _nearFieldPending;
 
+    // M9d, decision 4: the wet bitsets as the last Publish copied them, read by HoldsWater on the
+    // sim thread whether or not a worker owns the grid. One path: never the grid.
+    private readonly Dictionary<ChunkPos, ulong[]> _publishedWet = [];
+
+    /// <summary>Panels whose wet bitset <see cref="Publish"/> has copied out, over the run.</summary>
+    public long WetPanelsPublished { get; private set; }
+
+    /// <summary>Chunks with a published wet copy — the footprint, 4 KiB each.</summary>
+    public int PublishedWetPanels => _publishedWet.Count;
+
+    /// <summary>
+    /// Whether the voxel held water at the last <see cref="Publish"/> — the fill's refusal
+    /// (<c>IVoxelEditor.HoldsWater</c>), answered mid-tick without touching the grid.
+    /// </summary>
+    /// <remarks>
+    /// Stale by at most one tick, and in both directions: a cell that went wet during the tick in
+    /// flight is not refused and its water is displaced at the next visit, counted; a cell that
+    /// dried is refused until the next publish. A keypress cannot wait for a boundary and a fill
+    /// is a keypress, so the copy is the answer rather than a deferral.
+    /// </remarks>
+    public bool HoldsWater(VoxelPos voxel) => FluidGrid.IsWetIn(_publishedWet, voxel);
+
     /// <summary>True while a worker owns the visit loop: between <see cref="BeginTick"/> and <see cref="CollectTick"/>.</summary>
     public bool JobInFlight => _job is not null;
 
@@ -266,6 +288,7 @@ public sealed partial class FluidSimulation
     public void Publish(bool exactAwake = false)
     {
         RefuseMidJob(nameof(Publish));
+        WetPanelsPublished += _grid.CollectWet(_publishedWet);
 
         int awake;
         if (exactAwake)
