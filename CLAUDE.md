@@ -669,7 +669,11 @@ functions"*, 14 falls with every identity exact, `table 1,297` requeues. The one
 wet copy's staleness with a number (a chunk fill into a chunk mid-flood displaced 18,955 L past
 3,516 refusals), and on his word **the chunk fill is deferred to the boundary** — a queue of clicks
 run after the pour behind a fresh `Publish`, the brush still instant, `N chunk fill(s) at the
-boundary` on the `M6c:` line. The four questions are still his: the four questions
+boundary` on the `M6c:` line. His per-chunk-thread question is answered and written into WATER-THREAD-PLAN's
+revisit triggers (colour waves when `boundary(ies) waited` goes non-zero; the visit loop is worker time
+nobody waits for). **After the play comes M9c-2's verdict (dust, optional) and then M10's planning pass
+— read M10-NOTES first; the machine is the first entity and header v4 rides on it.** The four questions
+are still his: the four questions
 as recipes are in TODO under M9d, one sentence wanted back on each, and decision 3's edge (a pier in a
 lake is allowed; *"not sure about 3 yet"*) waits on it. Read M9-PLAN's "M9d — built" first. Three
 things not to rediscover: **the trigger is a comparison against what the derive read** — sixteen
