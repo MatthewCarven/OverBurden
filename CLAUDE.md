@@ -2850,6 +2850,8 @@ reach and rate on the same lattice** — Matthew's *"make it all the same 4x4x4"
 eight voxels on a misreading of "8x8", corrected the same night). From 2026-09-03 until then a
 click took **the whole 8 m chunk** — 32,768 voxels, 512 m³ — at **4 a second** and the right click
 filled one, which `--entanglechunk` restores and which every bite figure below was measured on.
+**And on the cube arm one click is one click** — a bare press fires once and never repeats while
+held (Alt keeps its held repeat for fine work at range; the sphere and chunk arms are unchanged).
 Alt still chips one voxel, at 40. Three things about it that are easy to undo by accident:
 
 - **It is deliberately not a tool tier, and that is the design decision rather than laziness.**

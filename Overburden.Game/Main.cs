@@ -215,6 +215,18 @@ public partial class Main : Node3D
     private TimeSpan? _applyBudget;
     private TimeSpan? _lightBudget;
     private bool _mineWhileProfiling;
+
+    /// <summary>Whether each mouse button was down last frame, for the cube arm's one-click rule.</summary>
+    /// <remarks>
+    /// <b>"One click is one click"</b> (Matthew, 2026-09-14): on the cube arm a bare click fires
+    /// once on the press and never repeats while held, so the entangled miner is a click and not
+    /// a hose. The cooldown still applies underneath — a click inside it is dropped, not queued —
+    /// and Alt keeps its held repeat, because chipping single voxels at range is the fine-work
+    /// case the L+Q pairing was reported load-bearing for. The sphere and chunk arms are unchanged.
+    /// </remarks>
+    private bool _leftWasDown;
+
+    private bool _rightWasDown;
     private bool _entangleWhileProfiling;
 
     private EntangledBite _entangledBite = EntangledBite.Cube;
@@ -3028,11 +3040,16 @@ public partial class Main : Node3D
 
         Vector3 origin = _camera.GlobalPosition;
         Vector3 forward = -_camera.GlobalTransform.Basis.Z;
-        bool placing = _camera.MouseCaptured && Input.IsMouseButtonPressed(MouseButton.Right);
+        bool rightDown = _camera.MouseCaptured && Input.IsMouseButtonPressed(MouseButton.Right);
+        bool rightPressed = rightDown && !_rightWasDown;
+        _rightWasDown = rightDown;
 
         // The same modifier as mining, deliberately: Alt+left takes one voxel and Alt+right
         // places one, so "precision" is a thing the player learns once rather than per verb.
-        bool precise = placing && Input.IsKeyPressed(Key.Alt);
+        bool precise = rightDown && Input.IsKeyPressed(Key.Alt);
+
+        // One click, one cell on the cube arm; see _leftWasDown.
+        bool placing = _mining is { TakesCube: true } && !precise ? rightPressed : rightDown;
 
         if (_placeWhileProfiling)
         {
@@ -3123,7 +3140,9 @@ public partial class Main : Node3D
 
         Vector3 origin = _camera.GlobalPosition;
         Vector3 forward = -_camera.GlobalTransform.Basis.Z;
-        bool mining = _camera.MouseCaptured && Input.IsMouseButtonPressed(MouseButton.Left);
+        bool leftDown = _camera.MouseCaptured && Input.IsMouseButtonPressed(MouseButton.Left);
+        bool leftPressed = leftDown && !_leftWasDown;
+        _leftWasDown = leftDown;
 
         // Alt takes exactly the highlighted voxel instead of the tool's sphere, and holds the
         // same meaning for the other button: **one modifier means precision across both verbs.**
@@ -3134,7 +3153,10 @@ public partial class Main : Node3D
         // 1.8 m between chips. Alt is free in walk and is *crawl* in fly, so "slow down to do
         // fine work" pairs with the modifier rather than fighting it — which is the argument
         // that named Alt as the better key a milestone before anything needed it.
-        bool precise = mining && Input.IsKeyPressed(Key.Alt);
+        bool precise = leftDown && Input.IsKeyPressed(Key.Alt);
+
+        // One click, one cell on the cube arm; see _leftWasDown.
+        bool mining = _mining.TakesCube && !precise ? leftPressed : leftDown;
 
         if (_mineWhileProfiling)
         {

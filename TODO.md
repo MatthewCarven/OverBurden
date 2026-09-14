@@ -5360,6 +5360,10 @@ the same breath and unprompted, the constraint: *"but do not implement weight pl
             rate is an input to M10's battery gate (the entangled miner's power cost is the gate
             that makes you earn it), so it is chosen for what a charge will buy, not for the frame.
             `--cubecooldown=` still sweeps it.
+      - [x] **One click is one click** (same evening): on the cube arm a bare press fires once
+            and never repeats while held, both buttons; the cooldown underneath drops a click
+            inside it rather than queueing it. Alt keeps its held repeat — chipping at range is
+            the L+Q fine-work case — and the sphere and chunk arms are as they were.
 - [x] **The rate is measured, and the measurement says the rate is not what needs choosing.**
       Same-session A/B at r4h/2v, 6 m/s, 30 s, Debug, against `--entanglesphere`: **one bite costs
       `swing ms` mean 16.9 / max 35.6 on the sim thread against the sphere's 0.054 / 2.48** — one
