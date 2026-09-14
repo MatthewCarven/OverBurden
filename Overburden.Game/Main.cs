@@ -455,10 +455,10 @@ public partial class Main : Node3D
     // What the boundary itself costs on the sim thread, by pass, so "fluid ms" on the job arm can
     // be read as parts rather than as one number: the settle, the hand-off and the drain, the
     // pour, the field sync, the publish, and the capture with the composition.
-    private double _bSettle, _bHandoff, _bPour, _bSync, _bPublish, _bBegin;
-    private double _bSettleMax, _bHandoffMax, _bPourMax, _bSyncMax, _bPublishMax;
+    private double _bSettle, _bHandoff, _bPour, _bCollapse, _bSync, _bPublish, _bBegin;
+    private double _bSettleMax, _bHandoffMax, _bPourMax, _bCollapseMax, _bSyncMax, _bPublishMax;
     private int _boundaries;
-    private double _bSettleAtWarm, _bHandoffAtWarm, _bPourAtWarm, _bSyncAtWarm, _bPublishAtWarm, _bBeginAtWarm;
+    private double _bSettleAtWarm, _bHandoffAtWarm, _bPourAtWarm, _bCollapseAtWarm, _bSyncAtWarm, _bPublishAtWarm, _bBeginAtWarm;
     private int _boundariesAtWarm;
 
     /// <summary>The tick interval: 2 Hz, the rate M8-PLAN costed the active set against and M8a measured at.</summary>
@@ -560,6 +560,35 @@ public partial class Main : Node3D
     private int _strainRemeshesAtWarm;
     private int _strainUnchangedAtWarm;
     private readonly long[] _supportTriggersAtWarm = new long[5];
+
+    // ---------------------------------------------------------------- M9c-1b: the fall in the loop
+
+    /// <summary><c>--collapse=0</c> arms every timer and fires none — the warning-only arm, for walking under a marked roof.</summary>
+    private bool _collapseOn = true;
+
+    /// <summary><c>--collapseafter=&lt;min&gt;,&lt;max&gt;</c> in world seconds; 2 and 60 are decision 8's estimates.</summary>
+    private CollapseWindow _collapseWindow = CollapseWindow.Default;
+
+    /// <summary>The timers and the fall — swept at the fluid boundary, or every frame when there is no water.</summary>
+    private CollapseScheduler? _collapse;
+
+    /// <summary>Falls whose landing overlapped the body and the unstick lifted it clear / could not.</summary>
+    private int _collapseFreed;
+    private int _collapseBuried;
+
+    private double _collapseSweepMillisSum;
+    private double _collapseSweepMillisMax;
+    private double _collapseFallMillisMax;
+    private long _collapseSweepsAtWarm;
+    private long _collapseFiredAtWarm;
+    private long _collapseVoxelsAtWarm;
+    private long _collapseDropAtWarm;
+    private long _collapseStaleAtWarm;
+    private long _collapseLiftedAtWarm;
+    private long _collapseReturnedAtWarm;
+    private int _collapseFreedAtWarm;
+    private int _collapseBuriedAtWarm;
+    private double _collapseSweepMillisAtWarm;
 
     /// <summary>The basin the breach went into, and its pit's sample — printed on the breach line with what it holds now.</summary>
     private int _breachBasin = Watershed.Outlet;
@@ -1318,6 +1347,17 @@ public partial class Main : Node3D
                     _supportTint = supportTint != 0;
                     break;
 
+                // M9c-1: the fall's two flags. --collapse=0 arms and never fires, the arm that lets
+                // a person walk under a marked roof to judge the marking; --collapseafter=min,max
+                // is decision 8's window in world seconds, 2 and 60 the shipped estimates, and
+                // the headless oracle passes 1,2 so the plug falls inside the window.
+                case "collapse" when int.TryParse(value, out int collapse):
+                    _collapseOn = collapse != 0;
+                    break;
+                case "collapseafter" when TryParseWindow(value, out CollapseWindow window):
+                    _collapseWindow = window;
+                    break;
+
                 // M9b's provocation: an n × n square of chunks bitten under the player when the
                 // window opens, through the edit path, --breach's shape one scale up. Depth in
                 // chunks below the player's; --inbite drops the camera into it for the screenshot,
@@ -1633,6 +1673,23 @@ public partial class Main : Node3D
         }
 
         return margin;
+    }
+
+    /// <summary><c>--collapseafter=min,max</c>: two finite, non-negative world seconds, comma-separated.</summary>
+    private static bool TryParseWindow(string value, out CollapseWindow window)
+    {
+        window = CollapseWindow.Default;
+        string[] parts = value.Split(',');
+        if (parts.Length != 2
+            || !double.TryParse(parts[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double min)
+            || !double.TryParse(parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double max)
+            || !double.IsFinite(min) || !double.IsFinite(max) || min < 0 || max < 0)
+        {
+            return false;
+        }
+
+        window = new CollapseWindow { MinSeconds = min, MaxSeconds = max };
+        return true;
     }
 
     /// <summary>
@@ -3497,6 +3554,164 @@ public partial class Main : Node3D
             + "a dug chunk and its six face neighbours are analysed, derives run as detached jobs at most "
             + $"{ChunkPipeline.MaxSupportSubmissionsPerFrame} a frame, and the tint reads settled fields only "
             + $"({(_supportTint ? "tint on" : "tint off, --supporttint=0")}; --support=0 is the control)");
+
+        SetUpCollapse();
+    }
+
+    // ---------------------------------------------------------------- M9c-1b: the fall in the loop
+
+    private const string RubbleId = "overburden:rubble";
+
+    /// <summary>
+    /// The scheduler over the region, the pipeline as the editor (so every fallen voxel goes
+    /// through the hook chain a swing does — light, remesh, the region, the water) and the
+    /// automaton as the water, or none under <c>--nowater</c>.
+    /// </summary>
+    /// <remarks>
+    /// Rubble is looked up like the lamp — <c>TryGetNumericId</c>, never a fallback to air — and
+    /// a world without it (a mod that removed the file) gets the warning-only arm with a line
+    /// saying so, because a fall that wrote air would delete rock rather than move it.
+    /// </remarks>
+    private void SetUpCollapse()
+    {
+        if (_support is null || _pipeline is null || _materials is null)
+        {
+            return;
+        }
+
+        if (!Content.Materials.TryGetNumericId(Identifier.Parse(RubbleId), out int rubble) || !_materials.IsSolid(rubble))
+        {
+            GD.Print($"M9: collapse is off — {RubbleId} is not a solid material in this world's content, so a fall has nothing to write");
+            return;
+        }
+
+        _collapse = new CollapseScheduler(_support, _pipeline, _materials, rubble, _settings.Seed, _collapseWindow, _fluid)
+        {
+            FireEnabled = _collapseOn,
+        };
+        GD.Print(
+            $"M9: collapse {(_collapseOn ? "on" : "arming only (--collapse=0)")} — a settled chunk with something at risk arms "
+            + $"{_collapseWindow.MinSeconds:0.##}–{_collapseWindow.MaxSeconds:0.##} s of world time by its deficit, ×0.5–1.5 seeded "
+            + $"(--collapseafter=min,max); rubble is ID {rubble}; the sweep runs "
+            + $"{(_fluid is null ? "every frame, no water to wait for (--nowater)" : "at each fluid boundary, waiting on fluid-pending chunks")}");
+    }
+
+    /// <summary>
+    /// One boundary's sweep: arm, disarm, fire, and for each fall one line, the unstick, and the
+    /// timings. From <see cref="UpdateFluid"/>'s <c>begin</c> block after the pours and before the
+    /// field sync — the frame that owns the grid — or from <see cref="UpdateSupport"/> every frame
+    /// when there is no water.
+    /// </summary>
+    private void SweepCollapse()
+    {
+        if (_collapse is null)
+        {
+            return;
+        }
+
+        long t0 = Stopwatch.GetTimestamp();
+        IReadOnlyList<CollapseFire> fires = _collapse.Sweep(_clock.ElapsedMillis);
+        double sweepMillis = Milliseconds(t0, Stopwatch.GetTimestamp());
+        _collapseSweepMillisSum += sweepMillis;
+        _collapseSweepMillisMax = Math.Max(_collapseSweepMillisMax, sweepMillis);
+        if (fires.Count == 0)
+        {
+            return;
+        }
+
+        // The sweep's time is the falls' when anything fell; a sweep over ~1,500 settled fields
+        // with nothing due is microseconds, so the max is the fall's.
+        _collapseFallMillisMax = Math.Max(_collapseFallMillisMax, sweepMillis);
+        foreach (CollapseFire fire in fires)
+        {
+            CollapseResult r = fire.Result;
+            string water = _fluid is null
+                ? string.Empty
+                : $", lifted {r.LiftedMillilitres / (double)FluidConstants.MillilitresPerLitre:N0} L / returned {r.ReturnedMillilitres / (double)FluidConstants.MillilitresPerLitre:N0} L"
+                  + (r.DisplacedMillilitres > 0 ? $" (*** {r.DisplacedMillilitres} mL DISPLACED ***)" : string.Empty);
+            GD.Print(
+                $"M9: fell — chunk {r.Chunk}: {r.Voxels:N0} voxel(s) in {r.Columns:N0} column(s), deepest drop {r.DeepestDrop} "
+                + $"(mean {r.MeanDrop:F1}), {r.FellFrom.Count} chunk(s) fell from, {r.Written.Count} written into"
+                + (r.StaleSkipped > 0 ? $", {r.StaleSkipped} stale skipped" : string.Empty)
+                + water
+                + (fire.CascadeStage ? ", cascade" : string.Empty)
+                + $" at t {fire.WorldMillis / 1000.0:F1} s; the sweep took {sweepMillis:F1} ms");
+            UnstickAfterFall(r);
+        }
+    }
+
+    /// <summary>
+    /// Decision 8's half of c-1: a body with rubble in its box is stuck on every axis, and health
+    /// is M11's. After a fall whose written chunks overlap the body, lift it clear through
+    /// <see cref="PlayerSpawn.TryUnstick"/> — up only, 4 m — or say it is buried and leave it,
+    /// with <c>F</c> the only door until M11. Walking only: the flying body has no collision.
+    /// </summary>
+    private void UnstickAfterFall(CollapseResult fall)
+    {
+        if (_player is null || _pipeline is null || _materials is null || _player.Mode != PlayerMode.Walk)
+        {
+            return;
+        }
+
+        Overburden.Core.Physics.Aabb box = _player.State.Box;
+        (VoxelPos lo, VoxelPos hi) = box.VoxelBounds;
+        bool overlaps = false;
+        foreach (ChunkPos written in fall.Written)
+        {
+            if (written.X >= lo.Chunk.X && written.X <= hi.Chunk.X
+                && written.Y >= lo.Chunk.Y && written.Y <= hi.Chunk.Y
+                && written.Z >= lo.Chunk.Z && written.Z <= hi.Chunk.Z)
+            {
+                overlaps = true;
+                break;
+            }
+        }
+
+        if (!overlaps || !VoxelCollider.OverlapsSolid(_pipeline, _materials, box))
+        {
+            return;
+        }
+
+        if (PlayerSpawn.TryUnstick(_pipeline, _materials, box, out Overburden.Core.Physics.Aabb freed))
+        {
+            _collapseFreed++;
+            float lifted = freed.Min.Y - box.Min.Y;
+            _player.Teleport(freed.FeetCentre);
+            GD.Print($"M9: the player was freed {lifted:F2} m up after the fall in chunk {fall.Chunk}");
+        }
+        else
+        {
+            _collapseBuried++;
+            GD.Print($"M9: the player is buried under the fall in chunk {fall.Chunk} — past the {PlayerSpawn.DefaultMaxUnstickMetres} m unstick; F is the door until M11");
+        }
+    }
+
+    /// <summary>The collapse's terms on the periodic <c>M9:</c> line and the profile's <c>support</c> line.</summary>
+    private string CollapseTerms(bool window)
+    {
+        if (_collapse is null)
+        {
+            return "; no collapse";
+        }
+
+        CollapseScheduler c = _collapse;
+        long fired = c.Fired - (window ? _collapseFiredAtWarm : 0);
+        long voxels = c.VoxelsFallen - (window ? _collapseVoxelsAtWarm : 0);
+        long drop = c.DropSum - (window ? _collapseDropAtWarm : 0);
+        long stale = c.StaleSkipped - (window ? _collapseStaleAtWarm : 0);
+        long lifted = c.LiftedMillilitres - (window ? _collapseLiftedAtWarm : 0);
+        long returned = c.ReturnedMillilitres - (window ? _collapseReturnedAtWarm : 0);
+        long sweeps = c.Sweeps - (window ? _collapseSweepsAtWarm : 0);
+        double sweepMillis = _collapseSweepMillisSum - (window ? _collapseSweepMillisAtWarm : 0);
+        int freed = _collapseFreed - (window ? _collapseFreedAtWarm : 0);
+        int buried = _collapseBuried - (window ? _collapseBuriedAtWarm : 0);
+        const double litre = FluidConstants.MillilitresPerLitre;
+        return $"; collapse {(c.FireEnabled ? "on" : "arming only")}: {c.Armed:N0} armed / {c.Due:N0} due / waiting (unsettled {c.WaitingUnsettled:N0}, fluid-pending {c.WaitingFluid:N0}), "
+               + $"{fired:N0} fired{(window ? " in the window" : string.Empty)} ({c.Fired:N0} in all), {voxels:N0} voxel(s) fallen "
+               + $"(mean drop {(voxels > 0 ? drop / (double)voxels : 0):F1}, deepest {c.DeepestDrop}), {stale:N0} stale skipped, "
+               + (_fluid is null ? "no water" : $"lifted {lifted / litre:N0} L / returned {returned / litre:N0} L{(c.DisplacedMillilitres > 0 ? $" (*** {c.DisplacedMillilitres} mL DISPLACED ***)" : string.Empty)}")
+               + $", {freed} freed / {buried} buried; {sweeps:N0} sweep(s), mean {(sweeps > 0 ? sweepMillis / sweeps : 0):F3} ms, "
+               + $"worst {_collapseSweepMillisMax:F1} ms, longest fall {_collapseFallMillisMax:F1} ms";
     }
 
     /// <summary>The bite provocation, and the <c>M9: at open</c> line once.</summary>
@@ -3509,6 +3724,13 @@ public partial class Main : Node3D
 
         _supportSeconds += delta;
         BiteChunksIfDue();
+
+        // M9c-1, decision 6: without water there is no boundary, so the sweep runs every frame
+        // here; with water it runs in UpdateFluid's begin block, the frame that owns the grid.
+        if (_fluid is null)
+        {
+            SweepCollapse();
+        }
 
         // Once, when the fill has lit and every derive the open queued has landed — the moment
         // the at-risk count is the world's rather than a round's. A named world's open is what
@@ -3621,6 +3843,20 @@ public partial class Main : Node3D
         {
             _supportTriggersAtWarm[i] = _support.Triggered((SupportTrigger)i);
         }
+
+        if (_collapse is not null)
+        {
+            _collapseSweepsAtWarm = _collapse.Sweeps;
+            _collapseFiredAtWarm = _collapse.Fired;
+            _collapseVoxelsAtWarm = _collapse.VoxelsFallen;
+            _collapseDropAtWarm = _collapse.DropSum;
+            _collapseStaleAtWarm = _collapse.StaleSkipped;
+            _collapseLiftedAtWarm = _collapse.LiftedMillilitres;
+            _collapseReturnedAtWarm = _collapse.ReturnedMillilitres;
+            _collapseFreedAtWarm = _collapseFreed;
+            _collapseBuriedAtWarm = _collapseBuried;
+            _collapseSweepMillisAtWarm = _collapseSweepMillisSum;
+        }
     }
 
     /// <summary>The periodic <c>M9:</c> line: the analysed set, the derives by cause, the barrier, and what is at risk.</summary>
@@ -3641,7 +3877,8 @@ public partial class Main : Node3D
                + $"at risk {r.SettledAtRiskVoxels:N0} voxel(s) in {r.SettledAtRiskChunks:N0} settled chunk(s) "
                + $"({r.AtRiskVoxels:N0} in {r.AtRiskChunks:N0} counting unsettled); "
                + $"{p.StrainRemeshes:N0} tint remesh(es), {p.StrainSettlesUnchanged:N0} settle(s) changed nothing on screen"
-               + (p.SupportDerivesFaulted > 0 ? $"; *** {p.SupportDerivesFaulted} derive(s) FAULTED ***" : string.Empty);
+               + (p.SupportDerivesFaulted > 0 ? $"; *** {p.SupportDerivesFaulted} derive(s) FAULTED ***" : string.Empty)
+               + CollapseTerms(window: false);
     }
 
     /// <summary>The profile's <c>support</c> line, with the window's own denominators.</summary>
@@ -3680,6 +3917,7 @@ public partial class Main : Node3D
                + $"{p.StrainSettlesUnchanged - _strainUnchangedAtWarm:N0} settle(s) changed nothing on screen"
                + $"{(_supportTint ? string.Empty : " (tint off, --supporttint=0)")}"
                + (p.SupportDerivesFaulted > 0 ? $"; *** {p.SupportDerivesFaulted} derive(s) FAULTED ***" : string.Empty)
+               + CollapseTerms(window: true)
                + "\n";
     }
 
@@ -3852,6 +4090,7 @@ public partial class Main : Node3D
             _bSettleAtWarm = _bSettle;
             _bHandoffAtWarm = _bHandoff;
             _bPourAtWarm = _bPour;
+            _bCollapseAtWarm = _bCollapse;
             _bSyncAtWarm = _bSync;
             _bPublishAtWarm = _bPublish;
             _bBeginAtWarm = _bBegin;
@@ -3920,6 +4159,13 @@ public partial class Main : Node3D
             PourPending();
             long t3 = Stopwatch.GetTimestamp();
 
+            // M9c-1, decision 6: the fall, after the pours and before the field sync, so the
+            // tick that follows reads a terrain with the rubble in it and panels with the water
+            // where it was returned. Its own bracket on the boundary line, because a fall is a
+            // bulk edit through the whole hook chain and would otherwise read as a slow pour.
+            SweepCollapse();
+            long t3c = Stopwatch.GetTimestamp();
+
             // Last, so the pour and the draw are already in and the chunks they wet are covered
             // before the tick reads them. Building here and nowhere else is what makes the terrain
             // constant for the length of a tick, which is what slice 3 will need.
@@ -3948,15 +4194,17 @@ public partial class Main : Node3D
 
             _boundaries++;
             double settle = Milliseconds(t0, t1), handoff = Milliseconds(t1, t2), pour = Milliseconds(t2, t3);
-            double sync = Milliseconds(t3, t4), publish = Milliseconds(t4, t5);
+            double collapse = Milliseconds(t3, t3c), sync = Milliseconds(t3c, t4), publish = Milliseconds(t4, t5);
             _bSettle += settle;
             _bHandoff += handoff;
             _bPour += pour;
+            _bCollapse += collapse;
             _bSync += sync;
             _bPublish += publish;
             _bSettleMax = Math.Max(_bSettleMax, settle);
             _bHandoffMax = Math.Max(_bHandoffMax, handoff);
             _bPourMax = Math.Max(_bPourMax, pour);
+            _bCollapseMax = Math.Max(_bCollapseMax, collapse);
             _bSyncMax = Math.Max(_bSyncMax, sync);
             _bPublishMax = Math.Max(_bPublishMax, publish);
         }
@@ -4496,7 +4744,8 @@ public partial class Main : Node3D
                + $"removed {p.Removed / litre:N0} L, displaced {p.Displaced / litre:N0} L, "
                + $"handed {p.Handed / litre:N0} L to Tier A ({_handoff?.RefusedUnderLake ?? 0:N0} cell(s) left under a lake in all) — "
                + $"held == injected + drawn + seeped + loaded − removed − displaced − handed − evicted: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
-               + $"received == handed: {HandoffIdentity()}; "
+               + $"received == handed: {HandoffIdentity()}, "
+               + $"lifted {p.Lifted / litre:N0} L == returned {p.Returned / litre:N0} L by falls: {(p.Lifted == p.Returned ? "exact" : "*** NO ***")}; "
                + seep
                + job
                + $"{_relayPendingMillilitres / litre:N0} L still to pour; "
@@ -4522,7 +4771,7 @@ public partial class Main : Node3D
     /// <summary>The worst single pass of each kind over the run — the frame a boundary can cost.</summary>
     private string BoundaryWorst() =>
         $"settle {_bSettleMax:F1} ms, hand-off and drain {_bHandoffMax:F1} ms, pour {_bPourMax:F1} ms, "
-        + $"field sync {_bSyncMax:F1} ms, publish {_bPublishMax:F1} ms";
+        + $"collapse {_bCollapseMax:F1} ms, field sync {_bSyncMax:F1} ms, publish {_bPublishMax:F1} ms";
 
     /// <summary>The boundary's cost by pass, mean per boundary over the window.</summary>
     private string BoundaryLine()
@@ -4535,6 +4784,7 @@ public partial class Main : Node3D
 
         return $"boundary  {n:N0} in the window, mean per boundary: settle {(_bSettle - _bSettleAtWarm) / n:F2} ms, "
                + $"hand-off and drain {(_bHandoff - _bHandoffAtWarm) / n:F2} ms, pour {(_bPour - _bPourAtWarm) / n:F2} ms, "
+               + $"collapse {(_bCollapse - _bCollapseAtWarm) / n:F2} ms, "
                + $"field sync {(_bSync - _bSyncAtWarm) / n:F2} ms, publish {(_bPublish - _bPublishAtWarm) / n:F2} ms, "
                + $"capture and compose {(_bBegin - _bBeginAtWarm) / n:F2} ms; worst over the run: "
                + BoundaryWorst() + "\n";
@@ -4668,6 +4918,7 @@ public partial class Main : Node3D
                + $"removed {p.Removed / litre:N0} L, displaced {p.Displaced / litre:N0} L, "
                + $"handed {p.Handed / litre:N0} L — "
                + $"held == injected + drawn + seeped + loaded − removed − displaced − handed − evicted: {(p.IdentityExact ? "exact" : "*** NO ***")}; "
+               + $"lifted {p.Lifted / litre:N0} L == returned {p.Returned / litre:N0} L by falls: {(p.Lifted == p.Returned ? "exact" : "*** NO ***")}; "
                + $"{_relayPendingMillilitres / litre:N0} L still to pour; "
                + $"paused {p.Paused:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
                + $"{f.ResumedCells:N0} resumed, {f.FaceWakes:N0} face wake(s), "

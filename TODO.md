@@ -4899,9 +4899,11 @@ the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
             stale` ever matters is to hold a chunk's submission until none of its six is in flight.
       - [ ] The tint's look — a graded tint (deficit / K per face) is one line in the mesher, a
             screenshot's call, and a quad cost; judged at the first play.
-- [ ] **M9c-1 — the fall.** Alone. **Planned 2026-09-13 — eleven decisions in M9-PLAN's "M9c-1 —
+- [x] **M9c-1 — the fall.** Alone. **Planned 2026-09-13 — eleven decisions in M9-PLAN's "M9c-1 —
       the planning pass", all taken as recommended the same day (*"as planned"*); split c-1a / c-1b
-      the same evening on Matthew's *"smaller pieces"*.** Rubble, the timer, the re-pour, the
+      the same evening on Matthew's *"smaller pieces"*; c-1a built 2026-09-13, c-1b built
+      2026-09-14 — the oracle reads as planned and the bench drops every fixture with both
+      oracles holding; unplayed.** Rubble, the timer, the re-pour, the
       cascade, `--collapse=`, `--collapseafter=`, the bench's `--collapse` arm. The pass's spine: a
       fall is a *column run* followed downward across faces into settled chunks (a run straddling a
       horizontal face would otherwise turn to rubble in place and fire as a no-op every boundary);
@@ -4917,7 +4919,17 @@ the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
             `ICollapseWater` and `FluidSimulation.Collapse.cs` (`Lift`, `Return`, `DisplaceLifted`,
             `IsReady`; `lifted` / `returned` on `FluidPublished`); `rubble.json` and its colour;
             27 tests, 22 recipes, 21 caught and one an identity. Read M9-PLAN's "M9c-1a — built".
-      - [ ] **c-1b — the wire, next, alone.** In order: `--collapse=<0|1>` and
+      - [x] **c-1b — the wire, built 2026-09-14 as briefed.** Read M9-PLAN's "M9c-1b — built":
+            the oracle `--profile --speed=0 --bitechunks=2 --collapseafter=1,2 --measure=20` reads
+            four `M9: fell` lines one boundary apart, `20 voxel(s) fallen`, `at risk 0`, the r6
+            control to the digit, `--nowater` the same fall with no water terms; the bench's
+            `--support --collapse` drops all seven fixtures with both oracles holding and floods
+            fixture 2 (312 L lifted == 312 L returned, 0 displaced, one tick to rest). **Play
+            checks, owed**: `Q` a 2 × 2 out under stone on the played world and wait the window
+            out (the plug's deficit arms near the 60 s end — `--collapseafter=` shortens it);
+            stand under it walking for the unstick line; bite under the played lake and read
+            `displaced 0` and `lifted == returned` on the `M8b:` line. The brief as built follows.
+            In order: `--collapse=<0|1>` and
             `--collapseafter=<min>,<max>` parsed beside `--support`; the scheduler built in
             `SetUpSupport` over `_pipeline` as the `IVoxelEditor`, `_fluid` as the water (null under
             `--nowater`), `_settings.Seed`, `_clock.ElapsedMillis`; `SweepCollapse()` in
@@ -4940,7 +4952,10 @@ the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
             chunk above joining the analysed set), CLAUDE.md's pick-up paragraph.
       - [ ] **Lever, named and not built:** `FluidField.Invalidate` clones 4 KiB a voxel, so a fall
             under a lake churns tens of MiB — a per-chunk invalidation on a bulk edit, M8c-1's seep
-            lever, when a fall under the played lake hitches.
+            lever, when a fall under the played lake hitches. **c-1b's number for it**: a plug's
+            ten writes cost the sweep 3–13 ms Debug with the water's hooks on and 0.5–0.9 ms under
+            `--nowater`, with no water anywhere near — the hook chain is the whole bill, and a
+            4 × 4 room's biggest stage (11,703 voxels) is ~18 ms in one boundary at the bite's rate.
 - [ ] **M9c-2 — dust.** Decision 11's other half, optional, judged after M9d's play (the tint may be
       enough). Health, damage, death and the HUD bar are M11's since 2026-09-13; the unstick is c-1's.
 - [ ] **M9d — the keystone and the play.** The table-move trigger, the fill's refusal, four

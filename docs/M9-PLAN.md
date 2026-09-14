@@ -920,6 +920,17 @@ room follow each other seconds apart, while the 2 × 2 plug's deficit of 8 — i
 28–84 s of warning for 20 voxels. Arming a poll late costs up to half a second against a 2–60 s
 window. `--collapse=0` sweeps and arms and never fires — the warning-only arm.
 
+> **Amended 2026-09-14, after c-1a and the bench's `--collapse` arm.** The mechanism above is
+> wrong about where a cascade comes from and right about its pace. A stone or dirt wedge under
+> anchored walls is *one* fall — every held voxel above it has a sideways path through held
+> voxels, so nothing re-arms from the wedge itself. What stages a room's collapse is two other
+> things: the barrier (the four roof chunks of a plug are each other's neighbours, so the first
+> fall requeues the rest and they fire one boundary apart), and **the analysed set growing** —
+> a fall marks the roof dug, the chunk above joins the set, and what its own field cannot hold
+> comes loose: the 4 × 4 room's 47,600 at-risk voxels become 54,740 fallen over 18 stages, the
+> last four of them the row above the roof. The re-arm from the new deficit still sets the pace
+> of those later stages, at the minimum where the new roof is unreached; that half stands.
+
 ### 4. The re-pour goes bottom-up from the cell above the rubble's new top, through the column it fell through, into the cavity — *recommended*
 
 Decision 9 says "into the cavity from the bottom up", and the cavity is in the roof. In a flooded
@@ -1088,3 +1099,74 @@ calls and `IsReady`; `FluidSimulation.Collapse.cs` implements it with `LiftedMil
 **The identity, named**: `DisplaceLifted` — a return always fits, by the arithmetic in decision 4,
 so the remainder path exists for a defect and no fixture reaches it.
 
+
+## M9c-1b — built
+
+> 2026-09-14, the wire, alone, against the ordered brief in TODO. Nothing in Core moved and the
+> suite is 1,359 (the "1,360" the c-1a note quotes was a miscount; the committed tree reads 1,359
+> before and after). `Main` gains the flags, the scheduler, the sweep at the boundary, one line
+> per fall, the unstick and the terms on three lines; the bench gains `--collapse`.
+
+**What is where.** `Main.SetUpCollapse()` runs at the end of `SetUpSupport()`: rubble is looked up
+the lamp's way (`TryGetNumericId`, never a fallback to air — a world whose content has no solid
+rubble gets a line and no scheduler), the region is the one M9b built, the pipeline is the
+`IVoxelEditor`, the automaton is the `ICollapseWater` or null under `--nowater`, the seed is the
+world's and the clock is `WorldClock.ElapsedMillis`. `SweepCollapse()` is called from
+`UpdateFluid`'s `begin` block after `PourPending()` and before `_field.Sync` — in its own bracket
+on the `boundary` line, `collapse`, rather than inside the pour's — and from `UpdateSupport` every
+frame when `_fluid is null`. Each `CollapseFire` prints `M9: fell — chunk …: N voxel(s) in M
+column(s), deepest drop D (mean), F chunk(s) fell from, W written into, lifted / returned L,
+cascade, at t S s; the sweep took ms`. `UnstickAfterFall` runs for a walking body whose box
+overlaps a written chunk and overlaps solid: `TryUnstick` lifts it and `Teleport` re-admits it
+(`M9: the player was freed N m up`), or `M9: the player is buried` and the body stays for M11.
+`CollapseTerms` is on the periodic `M9:` line and the profile's `support` line: `armed / due /
+waiting (unsettled, fluid-pending)`, `fired`, `voxels fallen` with the mean and deepest drop,
+`stale skipped`, `lifted / returned L`, `freed / buried`, sweeps with mean, worst and the longest
+fall. Both identity lines carry `lifted L == returned L by falls: exact` off `Published`.
+
+**The oracle, first run** — `--profile --speed=0 --bitechunks=2 --collapseafter=1,2 --measure=20`,
+headless, Debug: four `M9: fell` lines at t 5.0, 5.5, 6.0 and 6.5 s, one roof per boundary as
+c-1a said, each `5 voxel(s) in 4 column(s), deepest drop 32`, then `at risk 0 voxel(s)` and `20
+voxel(s) fallen (mean drop 32.0)`, `0 stale skipped`, `lifted 0 L / returned 0 L`. **The r6 control
+is 2601 / 325 / 3446 at 411, to the digit.** `--nowater` is the same twenty voxels with no water
+terms on the line, the four roofs 0.1–0.2 s apart because the sweep runs every frame and a roof
+fires the frame it re-settles.
+
+**Numbers, Debug, the build people play.** A plug's fall — ten writes through the whole hook chain
+— costs the sweep 3–13 ms with water on (the first 13.3, the rest 3–5) and 0.5–0.9 ms with
+`--nowater`, so the water's hooks (`FluidField.Invalidate`, `Disturb`, the portal tracker's
+per-edit path) are most of a fall's cost even with no water anywhere; the sweep with nothing due
+is ~0.1 ms over 32 settled fields. The `boundary` line's `collapse` worst reads 16.0 ms against
+the sweep's 13.3 because the fall's line is printed inside the bracket. Release on the bench
+(`--support --collapse`, tiering off, a dictionary editor with the region and the automaton as
+its only hooks): 5 voxels 0.1 ms, 3,515 voxels 0.8 ms, 11,703 voxels 2.3 ms, the mid-air fill's
+32,768 in 4.1 ms.
+
+**The bench drops every fixture and the oracles hold on all of them**: solid voxels conserved and
+`Σ(Y)` strictly down at every stage, the fixpoint clean after every settle, `at risk 0` at the
+end, and the picture after beside the picture before with `o` for held rubble. The 2 × 2 plug is
+four falls of 5; the soil roof's 975 voxels are one fall; the 2 × 2 under 2 / 5 / 10 m of head is
+532 / 3,028 / 14,064 voxels in 4 / 4 / 8 falls; the mid-air fill's 32,768 voxels land in one fall
+with a mean drop of 30.5, draped over the terraced surface column by column; the natural-cave
+shell sheds nothing, as at M9a. **The 4 × 4 room is 29 falls in 18 stages for 54,740 voxels
+against 47,600 at risk before** — the corners' 5-voxel plugs first, then the edges' 96, then the
+four centre chunks' 11,703 each, then what came loose as rubble re-derived, and **stages 15–18
+are the chunk row above the roof, one 5-voxel plug each**: the cascade as c-1a described it, the
+analysed set growing when the centre roofs fell whole and the chunks over them became roofs.
+**Fixture 2 flooded to the ceiling** (2,048,000 L through `FluidGrid.Fill`, `VoxelFluidTerrain`
+over the dictionary) lifts 312 L and returns 312 L, 78 a fall, 0 mL displaced, the total exact,
+and rests in one tick of 88 visits.
+
+**Two things the wire found, neither a defect:**
+
+- **The fall's cost in the game is the hooks, not the fall.** The bench's 0.1 ms for five voxels
+  against the game's 3–13 ms says the per-voxel hook chain — light, remesh, region, fluid field,
+  automaton, tracker — is the whole bill, and it is paid per write. The named lever (a per-chunk
+  invalidation on a bulk edit) is in TODO and is not built until a fall under the played lake
+  hitches; a 4 × 4 room's biggest stage is 11,703 voxels, which at the bite's 1.5 µs a voxel is
+  ~18 ms in one boundary.
+- **The stage table needs both counters.** A sweep that fires nothing because every due chunk is
+  waiting on an unsettled one still costs a settle, so the bench prints stages *and* sweeps; on
+  these fixtures the two are equal because a zero window makes every settled chunk fire at once.
+
+Not played. What a person judges is M9d's four questions; the c-1b oracle is a log.

@@ -86,6 +86,7 @@ internal static class Program
           --support            M9a: the support field over the plan's seven fixtures on real strata, the derive's ms and a cross-section of each wedge
           --restrefund <n>     voxels of rest that refund one full budget, for --support (default 30, the shipped estimate)
           --supportscale <x>   multiplies every support distance, for --support (default 1)
+          --collapse           M9c-1: with --support, drops every fixture stage by stage — voxels a stage, sum(Y) before and after, the picture after beside before — and floods fixture 2 first
         """;
 
     private static int Main(string[] args)
@@ -135,6 +136,7 @@ internal static class Program
         long frontLitres = 10_000;
         int frontTicks = 20_000;
         bool support = false;
+        bool collapse = false;
         int restRefund = Overburden.Core.Structure.SupportRule.Default.RestRefundVoxels;
         float supportScale = 1f;
 
@@ -290,6 +292,9 @@ internal static class Program
                     case "--support":
                         support = true;
                         break;
+                    case "--collapse":
+                        collapse = true;
+                        break;
                     case "--restrefund":
                         restRefund = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
                         break;
@@ -431,6 +436,7 @@ internal static class Program
             int supportGrass = supportContent.Materials.GetNumericId(Identifier.Parse("overburden:grass"));
             int supportDirt = supportContent.Materials.GetNumericId(Identifier.Parse("overburden:dirt"));
             int supportStone = supportContent.Materials.GetNumericId(Identifier.Parse("overburden:stone"));
+            int supportRubble = supportContent.Materials.GetNumericId(Identifier.Parse("overburden:rubble"));
             var supportStrata = new StrataTable([new StrataLayer(supportGrass, 1), new StrataLayer(supportDirt, 3)], supportStone);
             var supportGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, supportStrata);
             return SupportBench.Run(
@@ -442,7 +448,8 @@ internal static class Program
                 MachineControl(supportGenerator),
                 IsDebug(),
                 restRefund,
-                supportScale);
+                supportScale,
+                collapse ? supportRubble : -1);
         }
 
         if (seep)

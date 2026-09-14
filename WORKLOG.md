@@ -1,5 +1,55 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-14 — M9c-1b built: the fall is in the loop, and the roof comes down
+
+The wire, alone, against the ordered brief c-1a left in TODO. Nothing in Core moved; the suite
+is 1,359 (c-1a's "1,360" was a miscount — the committed tree read 1,359 before this session too).
+Read [docs/M9-PLAN.md](docs/M9-PLAN.md)'s "M9c-1b — built" first.
+
+**The oracle, first run, exactly as planned.** `--profile --speed=0 --bitechunks=2
+--collapseafter=1,2 --measure=20`, headless, Debug: the bite lands at 3 s, the four roof chunks
+settle, and `M9: fell` prints at t 5.0, 5.5, 6.0 and 6.5 s — one roof per boundary, because the
+first fall requeues its neighbours and they read unsettled until its writes have derived, which is
+c-1a's finding on a clock. Each is `5 voxel(s) in 4 column(s), deepest drop 32`; after the fourth,
+`at risk 0 voxel(s) in 0 settled chunk(s)` and `20 voxel(s) fallen (mean drop 32.0)`, `0 stale
+skipped`, `0 freed / 0 buried`. **The r6 control is 2601 / 325 / 3446 at 411, to the digit**, with
+the scheduler built and sweeping at every boundary. `--nowater` drops the same twenty voxels with
+no water terms on the line, its four roofs 0.1–0.2 s apart because the sweep runs every frame.
+
+**The bench's `--collapse` arm drops all seven fixtures and both oracles hold on every one** —
+solid voxels conserved, `Σ(Y)` strictly down at every stage, the fixpoint clean after each settle,
+`at risk 0` at the end — with the picture after beside the picture before (`o` is held rubble):
+the plug's twelve singles and four pairs on the floor, the mid-air fill's 32,768 voxels draped over
+the terraced surface column by column. **Fixture 2 flooded to the ceiling lifts 312 L and returns
+312 L**, 78 a fall, nothing displaced, the total exact, at rest in one tick. Four things worth the
+entry:
+
+- **The 4 × 4 room is 54,740 voxels fallen against 47,600 at risk before, in 29 falls over 18
+  stages, and the last four stages are the chunk row above the roof.** Corners first (5 each),
+  edges (96), the four centre chunks whole (11,703 each), then what came loose as rubble
+  re-derived, then one 5-voxel plug in each chunk *over* the centre — the cascade c-1a described,
+  the analysed set growing, now in a table. Decision 3's paragraph is amended in the plan: a
+  wedge under anchored walls is one fall; the stages are the barrier and the growing set.
+- **In the game a fall's cost is the hooks, not the fall.** Five voxels are 0.1 ms on the bench's
+  dictionary editor (Release) and the plug's ten writes cost the game's sweep 3–13 ms in Debug
+  with water on, 0.5–0.9 ms under `--nowater` — with no water anywhere near the bite. The
+  per-voxel hook chain is the whole bill, and it is paid per write; the lever (a per-chunk
+  invalidation on a bulk edit) has its number in TODO and stays unbuilt until a fall under the
+  played lake hitches. A 4 × 4's biggest stage is 11,703 voxels, ~18 ms at the bite's rate.
+- **The collapse has its own bracket on the `boundary` line.** The brief put the sweep inside the
+  pour's; a fall reading as a slow pour would have been the wrong diagnosis waiting to happen, so
+  `collapse` is a sixth term, mean in the window and worst over the run. Its worst reads 16.0
+  against the sweep's own 13.3 because the `M9: fell` line is printed inside it.
+- **The `lifted == returned` identity is on both tiers' lines**, the periodic `M8b:` and the
+  profile's `fluid`, beside `received == handed`, off `Published` — exact in every arm today
+  because nothing has fallen into water in the game yet; the bench is where it was exercised.
+
+**Unplayed, and the play checks are in TODO under c-1b**: a `Q` 2 × 2 under stone on the played
+world, waiting the window out (the plug's deficit of 8 arms near the 60 s end); standing under it
+on foot for the unstick line; a bite under the played lake for `displaced 0` and `lifted ==
+returned`. Next is M9d — the table-move trigger, the fill's refusal, and the four questions — and
+it wants its planning pass; M9c-2 (dust) is optional and judged after M9d's play.
+
 ## 2026-09-13 — M9c-1a built: the fall, the timer and the water's two terms, in Core
 
 *"M9c-1's build please Claude"* — and, mid-turn, *"if you want to do this as smaller pieces and

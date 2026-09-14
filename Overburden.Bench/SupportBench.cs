@@ -68,7 +68,8 @@ internal static class SupportBench
         string machineControl,
         bool isDebug,
         int restRefund,
-        float supportScale)
+        float supportScale,
+        int rubbleId = -1)
     {
         Console.WriteLine("Support bench — M9a's field over the plan's seven fixtures");
         if (isDebug)
@@ -193,7 +194,274 @@ internal static class SupportBench
         Console.WriteLine();
         Console.WriteLine("Cross-sections through each room's middle. The eye has to agree with the table before the rule is believed.");
         Console.Write(sections);
+
+        if (rubbleId >= 0)
+        {
+            // Fixture 2 again, flooded: a fresh room, because the dry one above has been dropped.
+            Fixture flooded = Room("2f. the 2 x 2 square, flooded to the ceiling", generator, deepY, 2, 2,
+                note: "fixture 2 with every cell of its bites full through FluidGrid.Fill before the roof falls");
+            Console.WriteLine();
+            Console.WriteLine("The collapse (--collapse): every fixture dropped stage by stage with a zero delay — a sweep, a settle, a sweep — until nothing is at risk.");
+            Console.WriteLine("The oracles are solid voxels conserved and sum(Y) strictly down at every stage; the picture after is beside the picture before.");
+            foreach (Fixture fixture in fixtures)
+            {
+                Drop(fixture, materials, rule, rubbleId, flooded: false);
+            }
+
+            Drop(flooded, materials, rule, rubbleId, flooded: true);
+        }
+
         return 0;
+    }
+
+    /// <summary>
+    /// The fixture's dictionary as the world an editor writes: every write tells the region
+    /// (the pipeline's <c>Support.Edited</c>) and the automaton (<c>Disturb</c>), the hook chain
+    /// in miniature — the test world's editor, over the bench's chunks.
+    /// </summary>
+    private sealed class DictionaryEditor(Dictionary<ChunkPos, VoxelChunk> chunks, SupportRegion region) : IVoxelEditor
+    {
+        public FluidSimulation? Fluid { get; set; }
+
+        public int Writes { get; private set; }
+
+        public bool TryGetMaterial(VoxelPos voxel, out int materialId)
+        {
+            if (!chunks.TryGetValue(voxel.Chunk, out VoxelChunk? chunk))
+            {
+                materialId = MaterialIds.AirNumericId;
+                return false;
+            }
+
+            (int lx, int ly, int lz) = voxel.Local;
+            materialId = chunk.Get(lx, ly, lz);
+            return true;
+        }
+
+        public bool SetVoxel(VoxelPos voxel, int materialId)
+        {
+            if (!chunks.TryGetValue(voxel.Chunk, out VoxelChunk? chunk))
+            {
+                return false;
+            }
+
+            (int lx, int ly, int lz) = voxel.Local;
+            if (chunk.Get(lx, ly, lz) == materialId)
+            {
+                return true;
+            }
+
+            chunk.Set(lx, ly, lz, materialId);
+            Writes++;
+            region.Edited(voxel.Chunk);
+            Fluid?.Disturb(voxel);
+            return true;
+        }
+    }
+
+    /// <summary>Solid voxels and the sum of their Y over the fixture — decision 6's two oracles.</summary>
+    private static (long Solid, long SumY) Census(Dictionary<ChunkPos, VoxelChunk> chunks, MaterialTable materials)
+    {
+        long solid = 0;
+        long sumY = 0;
+        foreach ((ChunkPos position, VoxelChunk chunk) in chunks)
+        {
+            long originY = position.OriginVoxel.Y;
+            if (chunk.IsUniform)
+            {
+                if (materials.IsSolid(chunk.UniformValue))
+                {
+                    const long n = VoxelConstants.ChunkSize;
+                    solid += VoxelConstants.ChunkVolume;
+                    sumY += n * n * ((n * originY) + (n * (n - 1) / 2));
+                }
+
+                continue;
+            }
+
+            for (int lz = 0; lz < VoxelConstants.ChunkSize; lz++)
+            for (int lx = 0; lx < VoxelConstants.ChunkSize; lx++)
+            for (int ly = 0; ly < VoxelConstants.ChunkSize; ly++)
+            {
+                if (materials.IsSolid(chunk.Get(lx, ly, lz)))
+                {
+                    solid++;
+                    sumY += originY + ly;
+                }
+            }
+        }
+
+        return (solid, sumY);
+    }
+
+    /// <summary>
+    /// Drops one fixture: a fresh region settled over its chunks, the scheduler with a zero
+    /// window, then sweep → settle → sweep until nothing is at risk (or a stage cap), printing
+    /// each stage's falls, <c>Σ(Y)</c> before and after, the count identity and the fixpoint,
+    /// and the picture after beside the one the table printed. Flooded, the room's cells are
+    /// filled first and the water's identity and its ticks to rest are printed after.
+    /// </summary>
+    private static void Drop(Fixture fixture, MaterialTable materials, SupportRule rule, int rubbleId, bool flooded)
+    {
+        var region = new SupportRegion(chunk => fixture.Chunks.GetValueOrDefault(chunk), materials, rule, fixture.Table);
+        foreach (ChunkPos chunk in fixture.Dug)
+        {
+            region.MarkDug(chunk);
+        }
+
+        region.Settle();
+        var editor = new DictionaryEditor(fixture.Chunks, region);
+        FluidSimulation? fluid = null;
+        long waterBefore = 0;
+        if (flooded)
+        {
+            fluid = new FluidSimulation(new VoxelFluidTerrain(editor, materials));
+            editor.Fluid = fluid;
+            foreach (ChunkPos bite in fixture.Dug)
+            {
+                VoxelPos origin = bite.OriginVoxel;
+                for (int lz = 0; lz < VoxelConstants.ChunkSize; lz++)
+                for (int lx = 0; lx < VoxelConstants.ChunkSize; lx++)
+                for (int ly = 0; ly < VoxelConstants.ChunkSize; ly++)
+                {
+                    fluid.Grid.Fill(origin.Offset(lx, ly, lz), FluidConstants.CellCapacityMillilitres);
+                }
+            }
+
+            waterBefore = fluid.TotalMillilitres;
+        }
+
+        var scheduler = new CollapseScheduler(
+            region, editor, materials, rubbleId, seed: 0, new CollapseWindow { MinSeconds = 0, MaxSeconds = 0 }, fluid);
+
+        // The table's picture stops three rows under the roof; the rubble lands on the floor,
+        // so both pictures here reach it — and a chunk further when what is under the lowest
+        // dug chunk is not solid rock (the mid-air fill lands on the surface a chunk down).
+        ChunkPos lowestDug = fixture.Dug.MinBy(c => c.Y);
+        int lowY = lowestDug.OriginVoxel.Y - 3;
+        if (!(fixture.Chunks.GetValueOrDefault(lowestDug.Offset(0, -1, 0)) is { IsUniform: true } under && materials.IsSolid(under.UniformValue)))
+        {
+            lowY -= VoxelConstants.ChunkSize;
+        }
+
+        fixture = new Fixture
+        {
+            Name = fixture.Name,
+            Chunks = fixture.Chunks,
+            Dug = fixture.Dug,
+            SliceZ = fixture.SliceZ,
+            SliceMinX = fixture.SliceMinX,
+            SliceMaxX = fixture.SliceMaxX,
+            SliceMinY = Math.Min(fixture.SliceMinY, lowY),
+            SliceMaxY = fixture.SliceMaxY,
+            Table = fixture.Table,
+            Note = fixture.Note,
+        };
+        string before = Slice(region, fixture, materials);
+        (long solidBefore, long sumBefore) = Census(fixture.Chunks, materials);
+        Console.WriteLine();
+        Console.WriteLine($"--- {fixture.Name}: {region.SettledAtRiskVoxels:N0} voxel(s) at risk in {region.SettledAtRiskChunks:N0} chunk(s) before; "
+                          + $"{solidBefore:N0} solid, sum(Y) {sumBefore:N0}"
+                          + (flooded ? $"; {waterBefore / (double)FluidConstants.MillilitresPerLitre:N0} L in the room" : string.Empty));
+        if (region.SettledAtRiskVoxels == 0)
+        {
+            Console.WriteLine("    nothing at risk: nothing falls, and the picture is the one above.");
+            return;
+        }
+
+        Console.WriteLine("    stage   chunk                     voxels   columns   deepest   mean drop   sum(Y) after      ms" + (flooded ? "   lifted L   returned L" : string.Empty));
+        long sumLast = sumBefore;
+        int stage = 0;
+        int stages = 0;
+        long voxelsInAll = 0;
+        double millisInAll = 0;
+        bool broken = false;
+        const int maxStages = 64;
+        for (; stage < maxStages; stage++)
+        {
+            long started = Stopwatch.GetTimestamp();
+            IReadOnlyList<CollapseFire> fires = scheduler.Sweep(stage * 1000L);
+            double millis = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+            if (fires.Count == 0)
+            {
+                if (scheduler.Due == 0 && scheduler.WaitingUnsettled == 0)
+                {
+                    break;
+                }
+
+                // Something is due and waiting on a chunk under it: settle and try again.
+                region.Settle();
+                continue;
+            }
+
+            stages++;
+            millisInAll += millis;
+            (long solidNow, long sumNow) = Census(fixture.Chunks, materials);
+            foreach (CollapseFire fire in fires)
+            {
+                CollapseResult r = fire.Result;
+                voxelsInAll += r.Voxels;
+                Console.WriteLine(
+                    $"    {stages,5}   {r.Chunk,-24} {r.Voxels,8:N0}  {r.Columns,8:N0}  {r.DeepestDrop,8}  {r.MeanDrop,10:F1}   {sumNow,13:N0}  {millis / fires.Count,6:F1}"
+                    + (flooded ? $"   {r.LiftedMillilitres / (double)FluidConstants.MillilitresPerLitre,8:N0}   {r.ReturnedMillilitres / (double)FluidConstants.MillilitresPerLitre,10:N0}" : string.Empty)
+                    + (r.StaleSkipped > 0 ? $"   *** {r.StaleSkipped} STALE SKIPPED ***" : string.Empty)
+                    + (r.DisplacedMillilitres > 0 ? $"   *** {r.DisplacedMillilitres} mL DISPLACED ***" : string.Empty));
+            }
+
+            if (solidNow != solidBefore || sumNow >= sumLast)
+            {
+                Console.WriteLine($"    *** ORACLE BROKEN at stage {stages}: solid {solidBefore:N0} → {solidNow:N0}, sum(Y) {sumLast:N0} → {sumNow:N0} ***");
+                broken = true;
+            }
+
+            sumLast = sumNow;
+            region.Settle();
+            List<string> violations = region.VerifyFixpoint();
+            if (violations.Count > 0)
+            {
+                Console.WriteLine($"    *** FIXPOINT VIOLATED after stage {stages}: {violations[0]} ***");
+                broken = true;
+            }
+        }
+
+        (long solidAfter, long sumAfter) = Census(fixture.Chunks, materials);
+        Console.WriteLine(
+            $"    {scheduler.Fired:N0} fall(s) in {stages:N0} stage(s) over {stage:N0} sweep(s), {voxelsInAll:N0} voxel(s) fallen (mean drop {(scheduler.VoxelsFallen > 0 ? scheduler.DropSum / (double)scheduler.VoxelsFallen : 0):F1}, "
+            + $"deepest {scheduler.DeepestDrop}), {millisInAll:F1} ms in the falls; solid {solidBefore:N0} → {solidAfter:N0} "
+            + $"({(solidAfter == solidBefore ? "conserved" : "*** NOT CONSERVED ***")}), sum(Y) {sumBefore:N0} → {sumAfter:N0}; "
+            + $"{region.SettledAtRiskVoxels:N0} at risk after"
+            + (stage >= maxStages ? $" *** STAGE CAP {maxStages} HIT ***" : string.Empty)
+            + (broken ? " *** SEE ABOVE ***" : string.Empty));
+
+        if (fluid is not null)
+        {
+            long started = Stopwatch.GetTimestamp();
+            FluidSettleResult rest = fluid.Settle(maxTicks: 20_000);
+            double restMillis = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+            bool exact = fluid.TotalMillilitres == waterBefore && fluid.LiftedMillilitres == fluid.ReturnedMillilitres + fluid.DisplacedMillilitres;
+            Console.WriteLine(
+                $"    water: lifted {fluid.LiftedMillilitres / (double)FluidConstants.MillilitresPerLitre:N0} L, returned {fluid.ReturnedMillilitres / (double)FluidConstants.MillilitresPerLitre:N0} L, "
+                + $"displaced {fluid.DisplacedMillilitres} mL, total {waterBefore / (double)FluidConstants.MillilitresPerLitre:N0} → {fluid.TotalMillilitres / (double)FluidConstants.MillilitresPerLitre:N0} L "
+                + $"({(exact ? "exact" : "*** NO ***")}); {rest.Ticks:N0} tick(s) to rest ({(rest.Settled ? "real" : "*** BUDGET HIT ***")}, "
+                + $"{rest.CellVisits:N0} visits, peak {rest.PeakActiveCells:N0} active) in {restMillis:F1} ms; quiescent {(fluid.VerifyQuiescent() ? "yes" : "*** NO ***")}");
+        }
+
+        Console.WriteLine("    before (as the table printed it)          |   after the last stage ('o' is held rubble; '#' at-risk rubble or rock)");
+        string after = Slice(region, fixture, materials, rubbleId);
+        string[] left = before.Split('\n');
+        string[] right = after.Split('\n');
+        int width = left.Max(l => l.TrimEnd('\r').Length);
+        for (int i = 0; i < Math.Max(left.Length, right.Length); i++)
+        {
+            string l = i < left.Length ? left[i].TrimEnd('\r') : string.Empty;
+            string r = i < right.Length ? right[i].TrimEnd('\r') : string.Empty;
+            if (l.Length == 0 && r.Length == 0)
+            {
+                continue;
+            }
+
+            Console.WriteLine($"{l.PadRight(width)}   |{r}");
+        }
     }
 
     /// <summary>A room of n × m bites at chunk row <paramref name="chunkY"/>, walls and roof generated around it.</summary>
@@ -415,7 +683,7 @@ internal static class SupportBench
         };
     }
 
-    private static string Slice(SupportRegion region, Fixture fixture, MaterialTable materials)
+    private static string Slice(SupportRegion region, Fixture fixture, MaterialTable materials, int rubbleId = -1)
     {
         var text = new StringBuilder();
         for (int y = fixture.SliceMaxY; y >= fixture.SliceMinY; y--)
@@ -446,7 +714,8 @@ internal static class SupportBench
                 }
 
                 byte value = field.Value(lx, ly, lz);
-                text.Append(value == ChunkSupport.Unreached ? 'X' : ChunkSupport.IsAtRisk(value) ? '#' : value == ChunkSupport.Zero ? '-' : '.');
+                bool rubble = rubbleId >= 0 && voxels.Get(lx, ly, lz) == rubbleId;
+                text.Append(value == ChunkSupport.Unreached ? 'X' : ChunkSupport.IsAtRisk(value) ? '#' : rubble ? 'o' : value == ChunkSupport.Zero ? '-' : '.');
             }
 
             text.AppendLine();
