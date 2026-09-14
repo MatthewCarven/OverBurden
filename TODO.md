@@ -5315,8 +5315,54 @@ the ask arrives, the answers that already exist are not re-derived.
 
 ### M10 — Fighting back
 
-**Planned 2026-09-15 — [docs/M10-PLAN.md](docs/M10-PLAN.md), split M10a–M10d, eleven decisions
-with recommendations, waiting on Matthew; M10a's own pass follows the answers.** The pass's three
+**Re-planned the same evening as the ladder — [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md),
+Matthew's brief (*"the first tech we make will be the last tech in the game"* — hand → steam → DC
+→ AC → quantum, with crafting from parts made earlier), twenty-three decisions with
+recommendations, ten parts M10a–M10j in four groups; the morning's [docs/M10-PLAN.md](docs/M10-PLAN.md)
+is its first rung with eight decisions amended.** The ladder's one idea: connection is membership
+and movement is a ledger transfer at the boundary — a wire, shaft or pipe is evidence that two rows
+share a pool, never a thing that carries anything, so there is no solver and the DC tier's short
+run and the AC tier's unlimited one are one code path with one number different. Five things
+taken during the pass in his words: iron under the water table; the first age stone and wood;
+trees found and planted with seeds from fire and growth on a worker after the tick; channel 0–15,
+outputs cycling on a per-channel cursor, every input firing every tick; the channel set by
+right-clicking with a computer; machines below quantum with faces. His hose-as-FIFO is returned
+as decision 2 with the cheaper arm recommended (a presentation fill and a live leak at a cut).
+
+- [ ] **The twenty-three decisions** — Matthew's: 1 (membership narrows M10-PLAN's decision 8),
+      2 (the hose), 3's numbers, 6 (the mL move's timing), 8 (parts on the hotbar), 9 (pool = Σ
+      storage amends decision 8), 11's `E` split, 15–16's numbers, 18 brass/zinc, 19 stainless
+      without chromium, 20 lithium as rock, 23 the roadmap and the solar re-class; the rest
+      recommended. Each part wants its own pass against the code before it.
+- [ ] **M10a — the store slice first and alone, then the entity, the relay pump and outlet** on
+      the format's final shape: schema 4 with the versioned row blob, the batch write carrying the
+      header (its first test is the crash today's two calls cannot close), `links` beside
+      `ports`, channel 0–15, the per-channel cursor, the 27-cell intake read, the active set with
+      `hasMachines` on every chunk the box touches, `IsLoaded` before the wet read, `--pump`, the
+      `M10:` line. **`--pump`'s delivered rate is the first number** — every pump cap in the
+      ladder is fiction until it.
+- [ ] **M10b — the computer**: an item; right-click on a machine opens ports and the stock tab;
+      `SetPort` clamped in Core; weights.
+- [ ] **M10c — power on the channel class**: pool = Σ storage rows, `clamped`; converters and
+      storage; solar quantised at its one entry site; the equipped pack at header v4; the tool's
+      `power` block; `--nogate`.
+- [ ] **M10d — the play**: the mine pumped dry by relay, the storm, the gate, the pillar verdict.
+- [ ] **M10e — the conductor index**: `conductor` block, `ConductorTracker` marking a dirty set and
+      nothing else in the hook, per-chunk summaries at schema 5 riding the batch write, `NetworkSet`
+      with position-derived ids, `maxRunCells` as occupied brush cells, the rescan cap, the
+      forget-path rescan, the energised bit, the cut's leak; `--network`.
+- [ ] **M10f — generators, converters, the crank and the sink**: `E` held with millis sampled,
+      `burner`, the boiler that drinks and `consumed` on every identity, the engine beside it,
+      `shaft`, media order, the dock, `pipe_outlet`, `flooded`.
+- [ ] **M10g — recipes, stations and parts**: the loader's second pass, jobs by value, the
+      remainder per output, `unit`, the placeable filter and parts page, the craft panel; the
+      relay's own recipe retires M10a's seeding.
+- [ ] **M10h — worldgen for the ladder**: WORLDGEN-NOTES' pass first, its three questions
+      answered; logs and saplings, layers, seams and veins by a second lattice field.
+- [ ] **M10i — the five tiers' JSON**; solar re-classed to `dc`.
+- [ ] **M10j — the play**: the ladder climbed once, timed; five named moments as five sentences.
+
+**The morning's plan, kept for the reasoning — its M10a–d are the parts above, as amended:** The pass's three
 facts: the boundary is the machine tick (`Add`/`Remove` refuse mid-tick, so DESIGN's 20 Hz has no
 consumer); a machine is a material plus a row (the body is 64 voxels of `overburden:relay_pump`,
 so mesh, light, collide, support, mine, credit, hotbar and `Q`-placement at range are free; only

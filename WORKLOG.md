@@ -1,5 +1,79 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-15 — the ladder planned: connection is membership, and there is no solver
+
+Matthew, the evening after M10's pass: *"m10 is going to be a lot longer than this … the first tech
+we make will be the last tech in the game, like plan with me some kind of crafting system that we
+will use to create the machines from components we have made previously … hand cranked → steam
+(needs a boiler and mechanical output) → electrical (wires/solar panels … dc not a lot of travel …
+because our solver consumes cpu) → bespoke electrical ac (no distance limit, higher currents, 3d
+printed stainless steel parts) → quantum (no distance limit, inputs and outputs need not be
+physically connected)."* [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md): twenty-three
+decisions, ten parts M10a–M10j; the morning's M10-PLAN is its first rung with eight decisions
+amended. Nothing built.
+
+**How the pass was run, because it is the first of its kind here.** Four readers mapped the code
+and the notes; four designers wrote independent designs from four angles (engine cost, gameplay,
+mod format, physical plausibility); three judges scored all four adversarially (Core and the
+non-negotiables, CPU, gameplay-and-Matthew); one synthesis took the winner and grafted the rest;
+one critic asked what was missing. Thirteen agents, ~2.9 M tokens, 34 minutes. It earned its keep
+in the judging: the engine-first design's hand pump poured into the column above its own top,
+which is inside its own 3 × 3 × 3 intake, so it pumped its outlet back and the room never dried
+while `pumped == emitted` held perfectly; three designs bounded a run by *voxel* count, which
+gives a 2 m dc run by the right-click brush and 32 m by Alt+right for the same copper; the
+format-first design's coal stock lasted 34 h by its own arithmetic where it said 2.3; three designs
+multiplied a pool by the raw float `OvercastAt`; and three asserted the header and the machine
+table were "one transaction" against a store whose `WriteWorldHeader` is a separate call. None of
+those would have been found by one designer reading its own plan.
+
+**The one idea.** A wire, a shaft or a pipe is evidence that two machine rows share a pool, never a
+thing that carries anything: no current, no pressure, no water in a pipe, no steam in a boiler.
+Every tier moves litres and joules with the relay pump's three lines, and the five tiers differ
+only in the membership rule — the player at a crank, a shaft component of 16 cells, a copper
+component of 24, a cable component unbounded, a channel number 0–15. *Who is connected* is
+answered at edit time by a per-chunk conductor index of PortalIndex's shape, marked dirty from the
+three hooks and rescanned at the boundary under a cap, relabelling only the component touched;
+the tick is O(awake machines) at every tier. *"Our solver consumes CPU"* is false because there is
+no solver — the DC tier's short run and the AC tier's unlimited one are one code path with one
+number different, and the number is a cell count, not a search.
+
+**Four facts from the code the morning's plan did not have.** `ViewDistanceVertical` is 2 (16 m)
+against a 64 m mine, so *"no distance limit"* is only true if membership survives unloading —
+per-chunk summaries persist as the chunk's own derived data on the batch write, and the forget
+path must rescan a dirty chunk first or "an unloaded voxel cannot change" is false. The header and
+the machine table are two store calls, so a recipe queue that moves voxels from the inventory
+into a station is a crash that duplicates them until a batch overload carries the header — the
+store slice's first test, and no inventory-to-row transfer ships before it. `FluidGrid.IsWetIn` is
+a dictionary lookup a voxel (~25 ns, estimate), so a pump's naive intake read is ~45 µs and 500
+pumps are ~22 ms Release on the frame that is already the played build's worst; the read is 27
+cell lookups with a per-panel wet count cached at `Publish`, and a machine active set with a
+`hasMachines` bit on every chunk the box touches is the design rather than a lever. And a 0.25 m
+wire with `supportDistance` 2 costs 60 a step under M9's rule, so a run along a roof falls in the
+collapse window — conductors declare 8, and a cable that falls with its roof is the tier-3 moment;
+`Place.Put` refuses `Wet`, so a hose through the flooded room the hand tier is about takes the
+machine body's deferred, displacing path.
+
+**Five things taken in his words during the pass.** Iron under the water table (seepage is the
+tax on ore) and the first age stone and wood (wooden tools exist) — WORLDGEN-NOTES' questions 1
+and 3; trees found and planted, seeds from fire, growth on a worker after the tick as a pure
+function of (planting time, now) — question 2; channel 0–15, outputs cycling, every input firing
+every tick, the cursor per channel so two pumps go to two outlets in one boundary; the channel set
+by right-clicking with a computer — the programmer is an item, not `E`; and faces on sub-quantum
+machines. His hose as a FIFO that fills was answered in the chat as a shift register holding litres
+and is returned as decision 2 with a cheaper arm recommended: an *energised* bit in the merge key
+so the hose visibly fills from the pump end, and a cut hose spraying the pump's own flow at the
+break — the two things the FIFO was for, with no third home for water. The FIFO is honestly cheap
+and stays the arm if the fill has to be physically delayed; its costs are written beside it.
+
+**Two things the pass decided that go beyond the brief.** The boiler drinks — 0.5 L/s from the
+cells around it, leaving the world as `consumed`, a `Watershed.Outlet`-shaped term on both
+identities — so steam is the tier where the antagonist becomes a resource, which the lithium tier
+finishes. And parts are materials (`unit: count`, `placeable: false`) rather than a second
+inventory: one registry, one ID table, one save form; the cost is ~30 IDs shifting the hotbar and
+a placeable filter that must ship with the recipes. Hand crafting is instant and time belongs only
+to powered stations you walk away from — two designs had a cranked workbench at five minutes a
+pump body, which is busywork wearing *"the fun part"*'s costume.
+
 ## 2026-09-15 — M10 planned: the boundary is the tick, a machine is a material plus a row, an outlet is out of the box on day one
 
 The planning pass for M10, from [M10-NOTES](docs/M10-NOTES.md) against the code as M9d left it:

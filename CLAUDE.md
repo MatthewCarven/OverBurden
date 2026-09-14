@@ -23,6 +23,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | **Worldgen as content** — Matthew's thinking-ahead, 2026-09-11: ores, layers, trees, and what is permeable. Notes rather than a plan; what MATERIALS-NOTES already decided is listed so it is not re-litigated, and the three questions its pass wants from him are at the end. **Not scheduled — M8d, then M9.** |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md) | **Water bodies** — Matthew's question, 2026-09-10: resting water as one number over a connected void, DESIGN's *"stable cells merge into a Tier A body"* half that M8b never built. Notes rather than a plan, with the roof-open wake explained and six decisions. **Read before M8c's planning pass, which is where it belongs.** |
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | **Elements, and whether to "just implement chemistry"** — a brainstorm with Matthew, 2026-09-03. Notes rather than a plan. The recommendation is *geology that reacts to water, with machine recipes as the chemistry set*; the element table says why each material would exist. **Read before M8c reads `permeability` and before M9 reads `supportDistance` — both have been in the material JSON unread since M1, and the trap is a constant shipping green.** |
+| [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) | **The ladder — hand → steam → DC → AC → quantum, and the crafting under it; planned 2026-09-15 (evening) from Matthew's brief, twenty-three decisions, ten parts M10a–M10j, waiting on Matthew.** Its one idea: connection is membership and movement is a ledger transfer at the boundary — no solver, nothing in flight at any tier. **Read its four facts first** (the 16 m vertical box against a 64 m mine; the header and the machine table are two store calls; `IsWetIn` is a dictionary lookup a voxel; a wire on a ceiling falls under M9's rule). M10-PLAN's a–d are its first rung, eight decisions amended. Read M10-PLAN and M10-NOTES before it. |
 | [docs/M10-PLAN.md](docs/M10-PLAN.md) | **M10, you fight back — planned 2026-09-15, eleven decisions with recommendations, waiting on Matthew; M10a's own pass follows the answers.** Split M10a–M10d: the entity, the relay pump and outlet / the programmer / power / the play. **Read its three facts first: the boundary is the machine tick (`Add`/`Remove` refuse mid-tick, so DESIGN's 20 Hz has no consumer), a machine is a material plus a row (the body is 64 voxels of a material, so every existing path is free and only the config is new), and an outlet is out of the loaded box on day one** (`ViewDistanceVertical` 2 against a 64 m mine). Read M10-NOTES before it. |
 | [docs/M9-PLAN.md](docs/M9-PLAN.md) | **M9, the mine kills you — planned 2026-09-11, all twelve decisions taken the same day; M9a and M9b built 2026-09-12 (read their "planning pass" and "built" sections — the byte moved `K` to 120, a dead path is a state, the join climbs; the derive is a detached job, the tint waits for the barrier); M9c-1 planned 2026-09-13 (a fall is a column run, the snapshot is not the gate) and built 2026-09-13/14 — c-1a Core, c-1b the wire; read "M9c-1b — built": the roof comes down in the game, the cascade is the analysed set growing, and a fall's cost is the hook chain. M9d next, unplayed.** Split M9a–M9d. **Read its "two facts" first: there is no bedrock, and DESIGN's literal distance rule opens a shaft to the surface over a 2 × 2 bite** — the plan's budget-with-an-arch rule and its uniqueness proof are decision 1. Read MATERIALS-NOTES and SCALE before it. |
 | [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **M8c planned 2026-09-10, all eight decisions taken 2026-09-11, M8c-1 built the same day — read "M8c-1 — built" before M8c-2's pass.** **Planned 2026-09-02; M8a built the same day; M8b split four ways and M8b-1 built 2026-09-03; M8b-2 planned 2026-09-05 and all three parts built the same day, both open decisions taken as recommended — water crosses the seam in the game; M8b-3 planned and built the same day: the hand-off (3a) measured, the settle (3b) built and priced against the chamber, both mines and the played world, the spill's look deferred to M8c and the settle's interval an estimate with `--settleafter=` as the sweep.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it. **Its M8b section records a gap the plan had**: a flooded mine has no Tier A body, so resting mine water is stored, and the settle is a solve. Read the tick-budget item in TODO before M8b-2. |
@@ -663,6 +664,31 @@ verbatim — the flags go after the bare `--`:
 ```bash
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
+
+**Pick up here (2026-09-15, late night). The ladder is planned and not built —
+[docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md), twenty-three decisions, twelve of them
+Matthew's; M10a's own pass follows the answers and builds the store slice first and alone.** The
+brief came in an evening: *"the first tech we make will be the last tech in the game"*, a crafting
+system from parts made earlier, and five tiers — hand → steam (a boiler and mechanical output) →
+DC (wires, short runs, *"our solver consumes cpu"*) → AC (no distance limit, printed stainless) →
+quantum (nothing touches). The pass was four independent designs, three adversarial judges and a
+critic (the workflow's journal is in the session's transcript dir); what survived: **connection is
+membership, never transport, at every tier** — a wire, shaft or pipe is evidence that two rows share
+a pool, an incremental per-chunk index of PortalIndex's shape answers *who is connected* at edit
+time, the tick is O(awake machines) at every tier, and there is no solver to consume CPU; the DC
+and AC tiers are one code path with `maxRunCells` 24 against null. Five things he added mid-pass
+are taken in his words (iron under the table; stone and wood first; trees found and planted, seeds
+from fire, growth on a worker after the tick; channel 0–15 with a per-channel cursor and every input
+firing every tick; the channel set by right-clicking with a computer; faces on sub-quantum
+machines), and his hose-as-FIFO is returned as decision 2 with a cheaper arm recommended. **Four
+things the pass found that the morning's plan did not have**: the header and the machine table are
+two store calls, so a recipe queue is a crash that duplicates inputs until a batch overload carries
+the header (decision 5, the store slice's first test); `IsWetIn` is a dictionary lookup a voxel, so
+the intake read is 27 cell lookups with a per-panel wet count and an active set, not a lever
+(decision 14); a wire on a ceiling falls under M9's rule and `Wet` refuses a hose through a flooded
+room (decisions 12, 17); and a chunk forgotten before its capped rescan would persist a stale
+summary (decision 4). Every pump cap is fiction until `--pump` reports the automaton's throughput
+into a 3 × 3 × 3 box. The paragraph below is the morning's state, kept for the reasoning.**
 
 **Pick up here (2026-09-15, night). M10 is planned and not built — eleven decisions in
 [docs/M10-PLAN.md](docs/M10-PLAN.md), nine recommended and two wanting a word from Matthew (the

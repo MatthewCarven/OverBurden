@@ -7,6 +7,18 @@
 > for why nothing came forward. Every number here is derived from the constants in the code or
 > labelled an estimate; the first measurement is M10a's bench arm.
 
+> **Overtaken the same evening, and kept as the ladder's last rung.** Matthew's brief that
+> evening — *"the first tech we make will be the last tech in the game"*, a crafting system, and
+> a five-tier ladder hand → steam → DC → AC → quantum — is planned in
+> [M10-LADDER-PLAN.md](M10-LADDER-PLAN.md), which this plan's M10a–M10d are the first part of.
+> That plan amends decisions 1, 3, 4, 5, 6, 8, 9 and 10 here (the `machine` block gains `links`
+> beside `ports`; the pool is the sum of the storage rows, not a stored number; "no wires" is the
+> quantum class's rule and below it wires are membership in an incremental index; the channel is
+> 0–15 with a per-channel cursor; the programmer is a computer in the hand, not `E`; the header
+> and the machine table are one transaction; `consumed` joins the identities) and leaves 2, 7 and
+> 11 standing. Read it before building M10a — the format ships on its final shape so mods never
+> see a key move.
+
 M7 built the rain, M8 the water getting in, M9 the ceiling coming down. M10 is the first milestone
 whose output is a *counter* — DESIGN's ***you build pumps and shoring to fight back → which needs
 power → which needs more mining***. Everything before it was the antagonist; this is the first
