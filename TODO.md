@@ -4664,6 +4664,21 @@ finding without the coarser-tolerance fallback.
             - [x] **Tier B water under a lake stays — trigger fired 2026-09-14** (*"the topmost
                   sheet of water does not fall in line with most of the water cells underneath"*).
                   See M8d-5 below.
+      - [ ] **A silent pipeline stall after floating out of the vertical box and back (2026-09-14,
+            evening, on `main` at c5cc04a) — first thing in the next session.** Matthew flew high
+            over a valley (the floor beyond r2v, undrawn by design), came back down, and stood on
+            undrawn ground with cave interiors showing black through it — *"I'm standing on air"* —
+            for well over twenty seconds. The log's reports were identical for the whole time:
+            `2827 tracked, 396 drawn, 0 in flight, 0 queued, 0 faulted, light settled`, the `M2a:`
+            sweeps all empty, `cache: 7672 hits (7151 lit), 7146 reseeded`. Idle, not busy: the
+            M2c-2 class of stall (a chunk one stage short with nothing left to push it). Hypothesis:
+            a chunk revived from the retained cache *with its light grid* (the reseed path, cache
+            slice 2) is not pushed on to mesh in some case that a whole slab leaving and returning
+            vertically produces and a horizontal walk does not. Reproduce headless: `--profile` with
+            a flythrough that climbs 40 m and descends (no such arm exists — `--fall` drops from
+            height but never climbs), or a windowed play that does the same; read the kept log
+            (`godot2026-09-14T*.log`, the last of the day) for the chunk states. Recovery is a
+            relaunch.
       - [ ] **M8d-5 — the lake is a body Tier B cannot enter.** Planned 2026-09-14 from the play
             finding, eight decisions in M8-PLAN's "M8d-5 — the planning pass", all taken as
             recommended (*"Lets build it now"*). Split at the Core / wire seam on *"break into
