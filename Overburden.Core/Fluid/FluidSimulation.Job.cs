@@ -118,7 +118,9 @@ public sealed partial class FluidSimulation
         _publishedPanels = [.. _grid.PanelChunks()];
 
         _visitTerrain = captured;
-        _capturedView = captured as FluidFieldView;
+
+        // The view's own counters, through M8d-5's wrapper when the lakes are on.
+        _capturedView = (captured as LakeBoundedTerrain)?.Inner as FluidFieldView ?? captured as FluidFieldView;
         _job = new FluidTickJob(this, position, walkSurface, _batch.Count, settle);
         return _job;
     }

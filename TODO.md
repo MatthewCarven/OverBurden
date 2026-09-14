@@ -4674,7 +4674,10 @@ finding without the coarser-tolerance fallback.
                   the bank rule out. Suite 1,359 → 1,367; 17 recipes, 16 caught, one identity.
                   The treadmill's shape in both arms is the headline test. Read M8-PLAN's
                   "M8d-5a — built".
-            - [ ] **M8d-5b — the wire, alone, in this order:**
+            - [x] **M8d-5b — the wire. Built 2026-09-14** against the list below; read M8-PLAN's
+                  "M8d-5b — built" for the three oracles and the storage change `--spill` forced.
+                  What is still play's: step 10, and decision 7's screenshot A/B (`--lakeoverdug=1`).
+                  The brief, as built:
                   1. `Main.SetUpFluid`: `_lakeCeiling = new LakeCeiling(_seedHeights, _water)` when
                      there is water; wrap the terrain the simulation is given —
                      `new LakeBoundedTerrain(field ?? terrain, ceiling)` — and pass the ceiling to
@@ -4712,6 +4715,19 @@ finding without the coarser-tolerance fallback.
                   9. Docs: M8-PLAN "M8d-5b — built", WORKLOG, CLAUDE.md's pick-up and its flag
                      paragraph, DESIGN's M8 row if it states the bank rule.
                   10. Play: Matthew's channel between two lakes on a fresh world — one sheet.
+            - [ ] **Play (M8d-5)**: the channel between two lakes on a fresh world — one sheet, the
+                  lower lake's plane, nothing stepped beneath it; `R` onto a lake spreads on its
+                  surface and vanishes at the next boundary; a `Q` bite at a lake's edge fills from
+                  the portals to the level and the plane over it is skipped (`--lakeoverdug=1` is
+                  the arm with it drawn — judge which reads right). Read `inside a lake` and
+                  `lake … woken` off the `M8b:` line, and `dug sample(s) skipped` off `M7d:`.
+            - [ ] **The wrapper costs the bench 2.2× a tick and the game nothing measurable** —
+                  `--spill`'s inner is a 5 ns bitset and the second interface dispatch is the whole
+                  cost. Lever, not built: fold the band read into `FluidFieldView.CanHold` directly
+                  (one dispatch) if a Release game measurement ever shows the visit moving.
+            - [ ] **A film one cell above the level inside a bite, from a pour** (M8d-5's residue):
+                  Tier B poured into a full bite stands at `top + 1` in dug cells, which are not on
+                  the plane. Cosmetic, debug relay only. Trigger: a play that reads it as wrong.
       - [x] **M8d-4 — the play. Done 2026-09-11 over one evening's sessions on the played world:**
             "more 3D" — *"Looks great … reflective and all"*; water or spreadsheet at 2 Hz — the
             waterfall, *"Looks good to me"*; dread or inconvenience — a lake let into the mine

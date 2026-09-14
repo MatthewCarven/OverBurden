@@ -558,6 +558,28 @@ public sealed partial class FluidSimulation : IFluidPersistence
         }
     }
 
+    /// <summary>
+    /// Wakes this one cell if it holds water — <see cref="Disturb"/> without the six neighbours,
+    /// for M8d-5's ceiling, which wakes every cell a lake rose over: a cell inside a lake needs
+    /// visiting so it is listed and handed, and nothing beside it needs to know.
+    /// </summary>
+    public void WakeCell(VoxelPos voxel)
+    {
+        // Mid-tick the grid is the tick's; a full disturb at the boundary is the safe form of
+        // the same wake, and a rise mid-tick is rare enough for its six extra reads.
+        if (Defer(DeferredKind.Disturb, voxel: voxel))
+        {
+            return;
+        }
+
+        if (_grid.HeldCellCount == 0)
+        {
+            return;
+        }
+
+        WakeIfHolding(voxel);
+    }
+
     private void WakeIfHolding(VoxelPos cell)
     {
         if (_grid.AmountAt(cell) > 0)

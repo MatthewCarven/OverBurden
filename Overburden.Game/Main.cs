@@ -455,10 +455,10 @@ public partial class Main : Node3D
     // What the boundary itself costs on the sim thread, by pass, so "fluid ms" on the job arm can
     // be read as parts rather than as one number: the settle, the hand-off and the drain, the
     // pour, the field sync, the publish, and the capture with the composition.
-    private double _bSettle, _bHandoff, _bPour, _bCollapse, _bSync, _bPublish, _bBegin;
-    private double _bSettleMax, _bHandoffMax, _bPourMax, _bCollapseMax, _bSyncMax, _bPublishMax;
+    private double _bSettle, _bHandoff, _bPour, _bCollapse, _bLake, _bSync, _bPublish, _bBegin;
+    private double _bSettleMax, _bHandoffMax, _bPourMax, _bCollapseMax, _bLakeMax, _bSyncMax, _bPublishMax;
     private int _boundaries;
-    private double _bSettleAtWarm, _bHandoffAtWarm, _bPourAtWarm, _bCollapseAtWarm, _bSyncAtWarm, _bPublishAtWarm, _bBeginAtWarm;
+    private double _bSettleAtWarm, _bHandoffAtWarm, _bPourAtWarm, _bCollapseAtWarm, _bLakeAtWarm, _bSyncAtWarm, _bPublishAtWarm, _bBeginAtWarm;
     private int _boundariesAtWarm;
 
     /// <summary>The tick interval: 2 Hz, the rate M8-PLAN costed the active set against and M8a measured at.</summary>
@@ -657,6 +657,15 @@ public partial class Main : Node3D
     /// <summary>Hands what came to rest on the analytic ground to the basin under it, at each tick boundary.</summary>
     private SurfaceHandoff? _handoff;
 
+    /// <summary>M8d-5: where the lakes are, as the automaton sees them. Null without water.</summary>
+    private LakeCeiling? _lakeCeiling;
+
+    /// <summary>
+    /// <c>--lakebody=0</c> builds no ceiling: the pre-M8d-5 arm minus the bank rule, so a hole in a
+    /// bank treadmills in it. A measurement arm for the wrapper's cost on the visit, not a play arm.
+    /// </summary>
+    private bool _lakeBody = true;
+
     private long _handedAtWarm;
 
     // ------------------------------------------------------------ M8b-3b: the settle
@@ -714,6 +723,9 @@ public partial class Main : Node3D
     /// to confirm rather than assume.
     /// </remarks>
     private int _waterPitch = WindowVoxels / HeightField.DefaultCellVoxels;
+
+    /// <summary>See <see cref="WaterSurface.SkipOverDug"/>; <c>--lakeoverdug=1</c> is the pre-M8d-5 arm, the plane drawn over a bite.</summary>
+    private bool _lakeOverDug;
 
     /// <summary>See <see cref="WaterSurface.DilateShore"/>; <c>--shore=0</c> is the control arm.</summary>
     private bool _dilateShore = true;
@@ -914,7 +926,12 @@ public partial class Main : Node3D
 
         if (windowed && !_noWater)
         {
-            _waterSurface = new WaterSurface(GetWorld3D()) { DilateShore = _dilateShore };
+            _waterSurface = new WaterSurface(GetWorld3D())
+            {
+                DilateShore = _dilateShore,
+                SkipOverDug = !_lakeOverDug,
+                ColumnAt = (cx, cz) => _pipeline?.Streamer.ColumnAt(cx, cz),
+            };
         }
 
         if (_camera is not null)
@@ -981,6 +998,14 @@ public partial class Main : Node3D
             {
                 _portalTracker?.OnVoxelsReady(position, hasEdits);
                 _fluid?.ChunkArrived(position);
+
+                // M8d-5: a panel lands after its column was covered, so the refresh's wake never
+                // saw its cells; the band's own sweep does, and a cell asleep inside a lake is
+                // visited, listed and handed at the next boundary.
+                if (_lakeCeiling is not null && _fluid is not null)
+                {
+                    _lakeCeiling.WakeBand(position, _fluid.WakeCell);
+                }
             });
 
         SetUpFluid(windowed);
@@ -1309,6 +1334,12 @@ public partial class Main : Node3D
                 // plane only if its own sample is under the level - the stair-stepped shoreline.
                 case "shore" when int.TryParse(value, out int shore):
                     _dilateShore = shore != 0;
+                    break;
+                case "lakeoverdug" when int.TryParse(value, out int overDug):
+                    _lakeOverDug = overDug != 0;
+                    break;
+                case "lakebody" when int.TryParse(value, out int lakeBody):
+                    _lakeBody = lakeBody != 0;
                     break;
 
                 // The water's control arm, the same shape as --norain. The analysis is the only
@@ -3394,7 +3425,7 @@ public partial class Main : Node3D
                + (_waterSurface is null
                    ? " | no surface drawn (headless or --nowater)"
                    : $" | surface {_waterSurface.QuadCount} quad(s) over "
-                     + $"{_waterSurface.WetBasins} basin(s), {_waterSurface.RingSamples} shore sample(s), "
+                     + $"{_waterSurface.WetBasins} basin(s), {_waterSurface.RingSamples} shore sample(s), {_waterSurface.DugSamples} dug sample(s) skipped, "
                      + $"{_waterSurface.LastRebuildMillis:F2} ms");
     }
 
@@ -3938,10 +3969,27 @@ public partial class Main : Node3D
 
         var terrain = new VoxelFluidTerrain(_pipeline.Streamer, _materials!);
 
+        // M8b-2c's seed surface off the columns (1.2 ms a bite against 10.3 with the function),
+        // built first because M8d-5's ceiling reads it too.
+        _seedHeights = new StreamerSeedHeights(_pipeline.Streamer, _generator!);
+
+        // M8d-5: a lake is a body Tier B cannot enter. The band over every lake's bed, refreshed
+        // at the boundary; the terrain the simulation is given is wrapped in it, so the field's
+        // bits never carry the band and a level moving a voxel costs no rebake. The seep index and
+        // the portal index keep the bare terrain — a band cell is air to them, and a portal's
+        // mouth is the dug voxel beside it.
+        _lakeCeiling = _water is null || !_lakeBody ? null : new LakeCeiling(_seedHeights, _water);
+
         // The field is a terrain over a terrain, so the simulation cannot tell which it was given
         // and every fixture and bench arm stays valid. See FluidField.
         _field = _fluidFieldOn ? new FluidField(terrain) : null;
-        _fluid = new FluidSimulation((IFluidTerrain?)_field ?? terrain, spread: _spread, fallCells: _fallCells);
+        IFluidTerrain simTerrain = (IFluidTerrain?)_field ?? terrain;
+        if (_lakeCeiling is not null)
+        {
+            simTerrain = new LakeBoundedTerrain(simTerrain, _lakeCeiling);
+        }
+
+        _fluid = new FluidSimulation(simTerrain, spread: _spread, fallCells: _fallCells);
         if (_fallCells != FluidSimulation.DefaultFallCells)
         {
             GD.Print($"M8d: a visit falls at most {_fallCells} cell(s) (--fallcells; {FluidSimulation.DefaultFallCells} is the default, 1 the pre-M8d-3 arm)");
@@ -3974,10 +4022,8 @@ public partial class Main : Node3D
         // property.
         _pipeline.Fluid = _fluid;
 
-        // M8b-2c: the seam. The seed surface off the columns (1.2 ms a bite against 10.3 with the
-        // function), the index over the same holdability the automaton uses, the tracker that
-        // keeps it to dug chunks, and the drain that connects it to Tier A once a tick.
-        _seedHeights = new StreamerSeedHeights(_pipeline.Streamer, _generator!);
+        // M8b-2c: the seam. The index over the same holdability the automaton uses, the tracker
+        // that keeps it to dug chunks, and the drain that connects it to Tier A once a tick.
         _portals = new PortalIndex(_seedHeights, terrain);
 
         // M8c-2: Tier C. The seep index over the same terrain — its bulk read goes through the
@@ -3996,7 +4042,11 @@ public partial class Main : Node3D
 
         // M8b-3a: the other direction. Water resting on the seed ground is the basin's, by the
         // rain model; measured to remove 99.3–99.5% of a surface spill's visits (--spill).
-        _handoff = _water is null ? null : new SurfaceHandoff(_seedHeights, _water, _fluid);
+        _handoff = _water is null ? null : new SurfaceHandoff(_seedHeights, _water, _fluid, _lakeCeiling);
+        GD.Print(_lakeCeiling is null
+            ? $"M8d: no lakes to keep Tier B out of ({(_water is null ? "no water" : "--lakebody=0, the measurement arm: a hole in a bank treadmills")})"
+            : "M8d: a lake is a body Tier B cannot enter — the band over a lake's bed up to its top is not holdable, "
+              + "water resting on the top is handed to the basin, water found inside is handed whole");
 
         // M8b-3b: the settle. Needs no Tier A, because a flooded mine has no Tier A body — the
         // sheets it levels are the ones the hand-off cannot reach.
@@ -4091,6 +4141,7 @@ public partial class Main : Node3D
             _bHandoffAtWarm = _bHandoff;
             _bPourAtWarm = _bPour;
             _bCollapseAtWarm = _bCollapse;
+            _bLakeAtWarm = _bLake;
             _bSyncAtWarm = _bSync;
             _bPublishAtWarm = _bPublish;
             _bBeginAtWarm = _bBegin;
@@ -4166,12 +4217,28 @@ public partial class Main : Node3D
             SweepCollapse();
             long t3c = Stopwatch.GetTimestamp();
 
+            // M8d-5, decision 6: the lakes as this boundary's passes left them, after the hand-off
+            // and the drains have moved their litres and before the field is synced and captured —
+            // so the hand-off read the ceiling the tick read, and the tick that follows reads the
+            // levels as they stand now. The refresh wakes what a rise submerged.
+            if (_lakeCeiling is not null)
+            {
+                _fluid.ReachableChunks(_fluidReachable);
+                _lakeCeiling.Refresh(_fluidReachable, _fluid.WakeCell);
+            }
+
+            long t3l = Stopwatch.GetTimestamp();
+
             // Last, so the pour and the draw are already in and the chunks they wet are covered
             // before the tick reads them. Building here and nowhere else is what makes the terrain
             // constant for the length of a tick, which is what slice 3 will need.
             if (_field is not null)
             {
-                _fluid.ReachableChunks(_fluidReachable);
+                if (_lakeCeiling is null)
+                {
+                    _fluid.ReachableChunks(_fluidReachable);
+                }
+
                 _fieldLate.Clear();
                 _field.Sync(_fluidReachable, _fieldBakesPerBoundary, _fieldLate);
 
@@ -4194,17 +4261,19 @@ public partial class Main : Node3D
 
             _boundaries++;
             double settle = Milliseconds(t0, t1), handoff = Milliseconds(t1, t2), pour = Milliseconds(t2, t3);
-            double collapse = Milliseconds(t3, t3c), sync = Milliseconds(t3c, t4), publish = Milliseconds(t4, t5);
+            double collapse = Milliseconds(t3, t3c), lake = Milliseconds(t3c, t3l), sync = Milliseconds(t3l, t4), publish = Milliseconds(t4, t5);
             _bSettle += settle;
             _bHandoff += handoff;
             _bPour += pour;
             _bCollapse += collapse;
+            _bLake += lake;
             _bSync += sync;
             _bPublish += publish;
             _bSettleMax = Math.Max(_bSettleMax, settle);
             _bHandoffMax = Math.Max(_bHandoffMax, handoff);
             _bPourMax = Math.Max(_bPourMax, pour);
             _bCollapseMax = Math.Max(_bCollapseMax, collapse);
+            _bLakeMax = Math.Max(_bLakeMax, lake);
             _bSyncMax = Math.Max(_bSyncMax, sync);
             _bPublishMax = Math.Max(_bPublishMax, publish);
         }
@@ -4216,7 +4285,10 @@ public partial class Main : Node3D
             // and synced here without touching it. fluid ms now means this boundary's cost.
             long b0 = Stopwatch.GetTimestamp();
             FluidFieldView view = _field!.Capture();
-            FluidTickJob job = _fluid.BeginTick(view, ViewerChunk(), walkSurface: _fluidSurface is not null, settle: _settle?.ForWorker);
+            IFluidTerrain captured = _lakeCeiling is null
+                ? view
+                : new LakeBoundedTerrain(view, _lakeCeiling.Capture());
+            FluidTickJob job = _fluid.BeginTick(captured, ViewerChunk(), walkSurface: _fluidSurface is not null, settle: _settle?.ForWorker);
             _bBegin += Milliseconds(b0, Stopwatch.GetTimestamp());
             job.Collected = OnFluidTickCollected;
             _fluidJobCts = new System.Threading.CancellationTokenSource();
@@ -4742,7 +4814,8 @@ public partial class Main : Node3D
                + $"loaded {p.Loaded / litre:N0} L from {f.RestoredPanels:N0} panel(s), "
                + $"evicted {p.Evicted / litre:N0} L with {f.EvictedPanels:N0} panel(s), "
                + $"removed {p.Removed / litre:N0} L, displaced {p.Displaced / litre:N0} L, "
-               + $"handed {p.Handed / litre:N0} L to Tier A ({_handoff?.SubmergedHanded ?? 0:N0} cell(s) of it found inside a lake) — "
+               + $"handed {p.Handed / litre:N0} L to Tier A ({_handoff?.SubmergedHanded ?? 0:N0} cell(s) of it found inside a lake"
+               + (_lakeCeiling is null ? string.Empty : $"; lake {_lakeCeiling.ChunkColumns:N0} column(s), {_lakeCeiling.Rebuilt:N0} rebuilt, {_lakeCeiling.WokenSubmerged:N0} woken") + ") — "
                + $"held == injected + drawn + seeped + loaded − removed − displaced − handed − evicted: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
                + $"received == handed: {HandoffIdentity()}, "
                + $"lifted {p.Lifted / litre:N0} L == returned {p.Returned / litre:N0} L by falls: {(p.Lifted == p.Returned ? "exact" : "*** NO ***")}; "
@@ -4771,7 +4844,7 @@ public partial class Main : Node3D
     /// <summary>The worst single pass of each kind over the run — the frame a boundary can cost.</summary>
     private string BoundaryWorst() =>
         $"settle {_bSettleMax:F1} ms, hand-off and drain {_bHandoffMax:F1} ms, pour {_bPourMax:F1} ms, "
-        + $"collapse {_bCollapseMax:F1} ms, field sync {_bSyncMax:F1} ms, publish {_bPublishMax:F1} ms";
+        + $"collapse {_bCollapseMax:F1} ms, lake {_bLakeMax:F1} ms, field sync {_bSyncMax:F1} ms, publish {_bPublishMax:F1} ms";
 
     /// <summary>The boundary's cost by pass, mean per boundary over the window.</summary>
     private string BoundaryLine()
@@ -4785,6 +4858,7 @@ public partial class Main : Node3D
         return $"boundary  {n:N0} in the window, mean per boundary: settle {(_bSettle - _bSettleAtWarm) / n:F2} ms, "
                + $"hand-off and drain {(_bHandoff - _bHandoffAtWarm) / n:F2} ms, pour {(_bPour - _bPourAtWarm) / n:F2} ms, "
                + $"collapse {(_bCollapse - _bCollapseAtWarm) / n:F2} ms, "
+               + $"lake {(_bLake - _bLakeAtWarm) / n:F2} ms, "
                + $"field sync {(_bSync - _bSyncAtWarm) / n:F2} ms, publish {(_bPublish - _bPublishAtWarm) / n:F2} ms, "
                + $"capture and compose {(_bBegin - _bBeginAtWarm) / n:F2} ms; worst over the run: "
                + BoundaryWorst() + "\n";

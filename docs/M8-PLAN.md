@@ -2440,6 +2440,64 @@ probed — the copy is now checked on a column the view has not read.
 
 **5b's brief is in TODO under M8d-5**, as an ordered list.
 
+### M8d-5b — built, 2026-09-14: the wire
+
+Against 5a's ten-step brief, in order. Nothing in the rule moved; one thing in its storage did.
+Suite unchanged at 1,367.
+
+**What is in.** `Main.SetUpFluid` builds `_seedHeights` first, then the ceiling when there is
+water, and wraps the terrain the simulation is given — the field or the live terrain — in
+`LakeBoundedTerrain`; the seep index and the portal index keep the bare terrain. The job arm
+hands the worker `LakeBoundedTerrain(view, ceiling.Capture())` and the collection unwraps
+`Inner` for the view's refusal counters. The boundary runs the refresh after the collapse and
+before the field sync, in its own `lake` bracket on the `boundary` line and `boundary worst`,
+waking what a rise submerged through the new `FluidSimulation.WakeCell` — `Disturb` without the
+six neighbours, because a cell inside a lake needs visiting and nothing beside it needs to know.
+`onFluidReady` runs `WakeBand` for the chunk whose panel just landed. The `M8b:` line carries
+`lake N column(s), M rebuilt, W woken` beside the submerged count. `WaterSurface.SkipOverDug`
+(decision 7) drops a wet sample every column of which is dug below its seed — read only where the
+sky column has edits, the ring cannot put it back, `dug sample(s) skipped` on the `M7d:` surface
+term — with `--lakeoverdug=1` the pre-M8d-5 arm. `--spill` builds a ceiling with its hand-off.
+And `--lakebody=0` builds no ceiling: the pre-M8d-5 arm minus the bank rule, in which a hole in a
+bank treadmills, kept as the measurement arm for the wrapper's cost and not for play.
+
+**The three oracles.**
+
+- **The r6 control is 2601 / 325 / 3446 at 411, to the digit**, every new term zero.
+- **The headless pour hands 199,999 L of 200,000 L** (M8b-4a's wire check read 195,981 under the
+  bank rule — the difference is the bed water it kept), 140 cells found inside a lake, 116
+  columns rebuilt, 11,169 woken, both identities exact, the refresh's worst boundary 2.6 ms
+  Debug.
+- **The retest `default` on a copy: 20,363 L handed at the first boundary, 2,242 cells found
+  inside a lake, then flat** — the bed water under the lower lake became the lake's by itself —
+  with 22,937 L still Tier B in the dug channel and chamber, which is where it should be.
+
+**The storage change, and the number that forced it.** `--spill` before and after, back to
+back with the no-ceiling arms identical (0.310 / 0.312, 1.062 / 1.080 ms a tick, so the machine
+was steady): the spill's physics is the same to the visit — same active sets, same ticks to
+rest, same litres, because the pours land on hills and the lakes they make are in pits below —
+but the ceiling arms read **0.160 → 0.517 and 0.535 → 1.299 ms a tick**. The first wrapper held
+a live-or-captured branch over a ceiling whose one-entry cache did not cache a miss, so every
+`CanHold` over a column with no band was a dictionary lookup. Caching the miss took it to 0.405
+/ 1.194; making the live ceiling and a capture one sealed read structure (`LakeCeilingView`,
+`LakeCeiling.Live`) with no branch, called non-virtually from the wrapper, is where it stands.
+**The rest is the second interface dispatch over a 5 ns bitset read, and no cache removes it.**
+In the game the inner read is a field's dictionary-and-bits or the streamer's lookup, and the
+Debug visit is 2.9 µs: **worker visits mean 16.4 ms with the ceiling against 18.6 ms without**
+on the retest world with a 200 kL pour (job arm) — not the same physics, since the ceiling arm
+keeps 1,477 cells awake to the control's 2,338 and the control's `drawn` is already climbing
+(2,340 L against 21, the treadmill starting), but the direction is the finding: the wrapper's
+cost is invisible against the game's visit and is offset by the cells it puts to sleep. The
+bench's figure is recorded as the bench's; a Release per-visit number in the game is
+`--terrain`'s shape of measurement and is not taken.
+
+**Not photographed.** Decision 7's plane over a bite is a windowed look and is play's:
+`--lakeoverdug=1` beside the default, on a copy of a world with a `Q` bite at a lake's edge.
+
+**Play.** Matthew's channel between two lakes on a fresh world: one sheet, the lower lake's
+plane, and nothing stepped beneath it. `R` onto a lake should spread on its surface and vanish
+into the level at the next boundary.
+
 ---
 
 ## The open decision — settled by Matthew, 2026-09-02: option 3

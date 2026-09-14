@@ -187,8 +187,13 @@ internal static class SpillBench
         var terrain = new SurfaceTerrain(generator, centreX, centreZ, halfSpan, minY, maxY);
         var water = new WaterSystem(generator, seed, new BasinLedger(), Pitch);
         water.Install(water.AnalyseFor(centreX, centreZ));
-        var sim = new FluidSimulation(terrain, spread: spread);
-        SurfaceHandoff? handoff = withHandoff ? new SurfaceHandoff(generator, water, sim) : null;
+
+        // M8d-5: the lakes the spill makes are bodies the automaton cannot enter, as in the game;
+        // the ceiling goes with the hand-off, because without the hand-off nothing makes a lake.
+        LakeCeiling? ceiling = withHandoff ? new LakeCeiling(generator, water) : null;
+        var sim = new FluidSimulation(ceiling is null ? terrain : new LakeBoundedTerrain(terrain, ceiling), spread: spread);
+        SurfaceHandoff? handoff = withHandoff ? new SurfaceHandoff(generator, water, sim, ceiling) : null;
+        var reachable = new HashSet<ChunkPos>();
 
         // M8b-3b's settle beside the hand-off, at the game's default interval and in the game's
         // order at the boundary: settle, then absorb what it listed as resting, then pour.
@@ -230,6 +235,12 @@ internal static class SpillBench
             {
                 clock.Restart();
                 handed = handoff.Absorb();
+                if (ceiling is not null)
+                {
+                    sim.ReachableChunks(reachable);
+                    ceiling.Refresh(reachable, sim.WakeCell);
+                }
+
                 absorbMillis += clock.Elapsed.TotalMilliseconds;
             }
 

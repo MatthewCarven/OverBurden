@@ -1,5 +1,37 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-14 — M8d-5b built: the wire, and the number the spill bench forced
+
+The wire against 5a's brief, same session: the ceiling built with the water and wrapped round
+the terrain the simulation reads, the worker handed a frozen capture, the refresh at the boundary
+in its own `lake` bracket, `WakeCell` for what a rise submerges, `WakeBand` on a panel's arrival,
+the plane skipped over a sample dug all the way across, `--spill` with a ceiling, `--lakeoverdug=`
+and `--lakebody=` as the arms. Suite 1,367. Read M8-PLAN's "M8d-5b — built".
+
+**The oracles read as planned.** The r6 control 2601 / 325 / 3446 at 411 to the digit; the
+headless pour hands **199,999 L of 200,000 L** (195,981 under the bank rule — the bed water it
+kept), 140 cells found inside a lake, identities exact; the retest `default` on a copy hands
+**20,363 L at its first boundary, 2,242 cells found inside a lake**, then flat, with 22,937 L
+still Tier B in the dug channel where it belongs. The refresh's worst boundary is 2.6 ms Debug
+over 11k wakes.
+
+**`--spill` said the wrapper cost 2.4–3.2× a tick, and two of three fixes stuck.** Back to
+back with the no-ceiling arms identical (0.310 / 0.312 ms a tick — the machine was steady), the
+spill's physics is the same to the visit but its ceiling arms read 0.160 → 0.517 and 0.535 →
+1.299 ms a tick. The first wrapper branched live-or-captured over a cache that did not cache a
+miss; caching the miss and making the live ceiling and a capture one sealed read structure
+(`LakeCeilingView`, `LakeCeiling.Live`) took it to 0.405 / 1.194. **The rest is a second
+interface dispatch over a 5 ns bitset read, which no cache removes, and which the game does not
+have**: the game's inner read is a field's dictionary-and-bits and its Debug visit 2.9 µs, and
+on the retest world with a 200 kL pour the worker's visits read **16.4 ms mean with the ceiling
+against 18.6 ms without** — different physics (1,477 cells awake against 2,338, the control's
+`drawn` already climbing at 2,340 L against 21, the treadmill starting), but the direction is
+the finding. The lever — the band read inside `FluidFieldView.CanHold`, one dispatch — is in
+TODO, unbuilt, with a Release game measurement as its trigger.
+
+What is play's: the channel between two lakes, one sheet; `R` onto a lake vanishing into its
+level; and decision 7's plane over a bite, `--lakeoverdug=1` the arm with it drawn.
+
 ## 2026-09-14 — M8d-5a built: a lake is a body Tier B cannot enter (Core half)
 
 Matthew's afternoon play, twice: the rain-filled spawn plain with `R` pours on it, then a fresh

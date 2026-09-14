@@ -162,7 +162,7 @@ public class LakeCeilingTests(ITestOutputHelper output)
         }
 
         /// <summary>The ceiling's refresh, with the wake, as the boundary runs it.</summary>
-        public void Refresh() => Ceiling?.Refresh(Reachable, Fluid.Disturb);
+        public void Refresh() => Ceiling?.Refresh(Reachable, Fluid.WakeCell);
 
         /// <summary>
         /// One game boundary and the tick after it, in the game's order: the hand-off over what
@@ -575,7 +575,7 @@ public class LakeCeilingTests(ITestOutputHelper output)
 
         foreach (VoxelPos w in woken)
         {
-            twin.Fluid.Disturb(w);
+            twin.Fluid.WakeCell(w);
         }
 
         twin.Fluid.Step();

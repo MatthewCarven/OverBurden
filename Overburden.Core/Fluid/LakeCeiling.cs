@@ -60,16 +60,22 @@ public sealed class LakeCeiling
     private readonly HashSet<(int X, int Z)> _seen = [];
     private readonly List<(int X, int Z)> _gone = [];
 
-    private (int X, int Z) _cacheKey;
-    private ColumnBand? _cache;
-
     public LakeCeiling(ISurfaceHeights seed, WaterSystem water)
     {
         ArgumentNullException.ThrowIfNull(seed);
         ArgumentNullException.ThrowIfNull(water);
         _seed = seed;
         _water = water;
+        Live = new LakeCeilingView(_bands);
     }
+
+    /// <summary>
+    /// The bands as they stand, readable — what <see cref="LakeBoundedTerrain"/> reads on the
+    /// sim-thread arm. One sealed read structure for the live ceiling and a capture alike, so the
+    /// hot path is a non-virtual call and one cached lookup: the first version's wrapper over a
+    /// live-or-captured branch read 2.4–3.2x the tick on <c>--spill</c>.
+    /// </summary>
+    public LakeCeilingView Live { get; }
 
     /// <summary>Chunk columns with a band.</summary>
     public int ChunkColumns => _bands.Count;
@@ -94,11 +100,7 @@ public sealed class LakeCeiling
     /// lake's top. Solid rock is never in a lake — a placed block above the seed is the caller's
     /// business, and <see cref="LakeBoundedTerrain"/> asks the inner terrain first.
     /// </summary>
-    public bool InLake(VoxelPos voxel)
-    {
-        ColumnBand? band = Band(voxel.Chunk.X, voxel.Chunk.Z);
-        return band is not null && band.Contains(voxel);
-    }
+    public bool InLake(VoxelPos voxel) => Live.InLake(voxel);
 
     /// <summary>
     /// The plane water stands on at this column: the lake's top where there is one, else the seed
@@ -108,7 +110,7 @@ public sealed class LakeCeiling
     public int PlaneAt(int worldX, int worldZ)
     {
         int seed = _seed.SurfaceHeightAt(worldX, worldZ);
-        ColumnBand? band = Band(worldX >> VoxelConstants.ChunkSizeLog2, worldZ >> VoxelConstants.ChunkSizeLog2);
+        ColumnBand? band = Live.Band(worldX >> VoxelConstants.ChunkSizeLog2, worldZ >> VoxelConstants.ChunkSizeLog2);
         if (band is null)
         {
             return seed;
@@ -156,7 +158,7 @@ public sealed class LakeCeiling
             _bands.Remove(key);
         }
 
-        _cache = null;
+        Live.Invalidate();
     }
 
     /// <summary>
@@ -167,7 +169,7 @@ public sealed class LakeCeiling
     public void WakeBand(ChunkPos chunk, Action<VoxelPos> submerged)
     {
         ArgumentNullException.ThrowIfNull(submerged);
-        ColumnBand? band = Band(chunk.X, chunk.Z);
+        ColumnBand? band = Live.Band(chunk.X, chunk.Z);
         if (band is null)
         {
             return;
@@ -230,26 +232,12 @@ public sealed class LakeCeiling
         _bands[key] = band;
         Rebuilt++;
         RebuiltLastPass++;
-        _cache = null;
+        Live.Invalidate();
 
         if (submerged is not null)
         {
             WokenSubmerged += band.WakeRisen(existing, originX, originZ, submerged);
         }
-    }
-
-    private ColumnBand? Band(int chunkX, int chunkZ)
-    {
-        (int X, int Z) key = (chunkX, chunkZ);
-        if (_cache is not null && _cacheKey == key)
-        {
-            return _cache;
-        }
-
-        _bands.TryGetValue(key, out ColumnBand? band);
-        _cacheKey = key;
-        _cache = band;
-        return band;
     }
 
     /// <summary>One chunk column's band: per voxel column the plane above the seed and the lake's top.</summary>
@@ -359,13 +347,19 @@ public sealed class LakeCeiling
 }
 
 /// <summary>
-/// A <see cref="LakeCeiling"/> frozen at a tick boundary: what a worker reads. Answers for the
-/// columns it captured and nothing else — a column with no band is not in a lake.
+/// The bands of a <see cref="LakeCeiling"/>, readable: the live set through
+/// <see cref="LakeCeiling.Live"/>, or a copy frozen at a tick boundary through
+/// <see cref="LakeCeiling.Capture"/> — what a worker reads. Answers for the columns it holds and
+/// nothing else; a column with no band is not in a lake.
 /// </summary>
+/// <remarks>
+/// <b>Misses are cached as well as hits.</b> Most columns have no band, and a miss that is not
+/// cached is a dictionary lookup on every <c>CanHold</c>.
+/// </remarks>
 public sealed class LakeCeilingView
 {
     private readonly Dictionary<(int X, int Z), LakeCeiling.ColumnBand> _bands;
-    private (int X, int Z) _cacheKey;
+    private int _cacheX, _cacheZ;
     private LakeCeiling.ColumnBand? _cache;
     private bool _cached;
 
@@ -374,22 +368,40 @@ public sealed class LakeCeilingView
         _bands = bands;
     }
 
-    /// <summary>Chunk columns with a band in the capture.</summary>
+    /// <summary>Chunk columns with a band.</summary>
     public int ChunkColumns => _bands.Count;
 
     /// <summary>See <see cref="LakeCeiling.InLake"/>.</summary>
     public bool InLake(VoxelPos voxel)
     {
-        (int X, int Z) key = (voxel.Chunk.X, voxel.Chunk.Z);
-        if (!_cached || _cacheKey != key)
+        int cx = voxel.X >> VoxelConstants.ChunkSizeLog2;
+        int cz = voxel.Z >> VoxelConstants.ChunkSizeLog2;
+        if (!_cached || _cacheX != cx || _cacheZ != cz)
         {
-            _bands.TryGetValue(key, out _cache);
-            _cacheKey = key;
+            _bands.TryGetValue((cx, cz), out _cache);
+            _cacheX = cx;
+            _cacheZ = cz;
             _cached = true;
         }
 
         return _cache is not null && _cache.Contains(voxel);
     }
+
+    internal LakeCeiling.ColumnBand? Band(int chunkX, int chunkZ)
+    {
+        if (!_cached || _cacheX != chunkX || _cacheZ != chunkZ)
+        {
+            _bands.TryGetValue((chunkX, chunkZ), out _cache);
+            _cacheX = chunkX;
+            _cacheZ = chunkZ;
+            _cached = true;
+        }
+
+        return _cache;
+    }
+
+    /// <summary>The live set changed under this view: forget the cached column.</summary>
+    internal void Invalidate() => _cached = false;
 }
 
 /// <summary>
@@ -406,15 +418,11 @@ public sealed class LakeCeilingView
 /// </remarks>
 public sealed class LakeBoundedTerrain : IFluidTerrain
 {
-    private readonly LakeCeiling? _live;
-    private readonly LakeCeilingView? _captured;
+    private readonly LakeCeilingView _bands;
 
     public LakeBoundedTerrain(IFluidTerrain inner, LakeCeiling ceiling)
+        : this(inner, (ceiling ?? throw new ArgumentNullException(nameof(ceiling))).Live)
     {
-        ArgumentNullException.ThrowIfNull(inner);
-        ArgumentNullException.ThrowIfNull(ceiling);
-        Inner = inner;
-        _live = ceiling;
     }
 
     public LakeBoundedTerrain(IFluidTerrain inner, LakeCeilingView ceiling)
@@ -422,19 +430,16 @@ public sealed class LakeBoundedTerrain : IFluidTerrain
         ArgumentNullException.ThrowIfNull(inner);
         ArgumentNullException.ThrowIfNull(ceiling);
         Inner = inner;
-        _captured = ceiling;
+        _bands = ceiling;
     }
 
     /// <summary>The terrain under the lakes.</summary>
     public IFluidTerrain Inner { get; }
 
-    public bool CanHold(VoxelPos voxel) => Inner.CanHold(voxel) && !InBand(voxel);
+    public bool CanHold(VoxelPos voxel) => Inner.CanHold(voxel) && !_bands.InLake(voxel);
 
     public bool IsLoaded(VoxelPos voxel) => Inner.IsLoaded(voxel);
 
     /// <summary>In the lake: the inner terrain would hold water here and the band covers it.</summary>
-    public bool InLake(VoxelPos voxel) => Inner.CanHold(voxel) && InBand(voxel);
-
-    private bool InBand(VoxelPos voxel) =>
-        _live is not null ? _live.InLake(voxel) : _captured!.InLake(voxel);
+    public bool InLake(VoxelPos voxel) => Inner.CanHold(voxel) && _bands.InLake(voxel);
 }
