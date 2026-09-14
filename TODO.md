@@ -5315,17 +5315,54 @@ the ask arrives, the answers that already exist are not re-derived.
 
 ### M10 — Fighting back
 
-- [ ] Machine framework registered through the public mod API (dogfood test:
-      if a pump can't be built through it, the API is wrong)
-- [ ] Fixed 20 Hz sim tick, spatially partitioned update list
-- [ ] Power: generation / consumption / storage network
+**Planned 2026-09-15 — [docs/M10-PLAN.md](docs/M10-PLAN.md), split M10a–M10d, eleven decisions
+with recommendations, waiting on Matthew; M10a's own pass follows the answers.** The pass's three
+facts: the boundary is the machine tick (`Add`/`Remove` refuse mid-tick, so DESIGN's 20 Hz has no
+consumer); a machine is a material plus a row (the body is 64 voxels of `overburden:relay_pump`,
+so mesh, light, collide, support, mine, credit, hotbar and `Q`-placement at range are free; only
+the config is new); and an outlet is out of the loaded box on day one (`ViewDistanceVertical` 2,
+the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
+
+- [ ] **The eleven decisions**, each recommended unless marked: (1) the `machine` block inside the
+      material JSON, `kind` an engine behaviour keyed by name, no second registry; (2) placement
+      atomic, into water deferred to the boundary and displacing through `Lift`/`Return`; (3) the
+      tick is the fluid boundary after the pour and before the table sweep, 20 Hz retired with the
+      drill as its trigger; (4) the rows are the truth, read whole at open, written whole at
+      autosave at schema 4, reconciled at every chunk arrival, dismantled by a dirty-chunk sweep
+      that credits the remainder after a swing and nothing after a fall; (5) the pump draws Tier A
+      when its sample's table stands over its top, else the wet cells in the 3 × 3 × 3 m around it;
+      the outlet pours into the column above; an unloaded outlet on the surface inside the window
+      credits the ledger, underground accepts nothing; `min(offered, accepted)` in one boundary,
+      round-robin in position order; (6) ports are bounded integers in the JSON, the programmer is
+      `E` on a machine until crafting makes it an item — **the key is Matthew's**; (7) the pump
+      ships unpowered, priced in a material the player cannot yet make, seeded by a debug key;
+      (8) power is a pool per channel with no wires, the first generator solar off `SkyColumn` and
+      `OvercastAt`; (9) the carried battery gates the entangled miner by energy per voxel taken,
+      header v4 — **the numbers are Matthew's**; (10) `pumped == emitted` per boundary on both tiers
+      and across them, the M8 lifecycle battery with machines running as the test; (11) the split.
+- [ ] **M10a — the entity, the pump and the outlet.** Decisions 1–5 and 7; the store slice (schema
+      4, the reconcile) built and battery-tested before the pump moves a litre. `--pump=<L/s>`, the
+      `M10:` line, `machines` on the `boundary` line, the bench's `--pump` arm — **the delivered
+      rate against the nominal is the first number, and it decides the JSON's 100 L/s** (an
+      estimate between the one-voxel hole's 29 L/s and the widest bore's ~300).
+- [ ] **M10b — the programmer.** Decision 6: `MachinePanel`, the first input UI; `SetPort` in Core;
+      channels and weights; weighted round-robin.
+- [ ] **M10c — power.** Decisions 8 and 9: the pool, the solar panel, the placed battery, the
+      carried battery, header v4, the gate on the entangled miner.
       - [ ] **The first consumer is a hand tool, settled 2026-09-03**: the entangled miner draws
             stored energy, must be recharged, and battery tiers are the ladder — Matthew: *"only
             once you have the latest tier battery will it be as effective as it is now."* Storage
             made portable; tiers as content the way pick tiers are. **Recommendation, recorded with
             the gate item under the chunk fill: a tier scales capacity and recharge, never the 4/s
-            or the bite.**
-- [ ] Pumps, shoring/supports
+            or the bite.** Decision 9 takes it as written.
+- [ ] **M10d — the play.** Pump the played mine dry; the storm dimming the panels that pump it;
+      the gate felt at the bite; whether a placed pillar reads as shoring (if not, a shoring
+      material is one JSON file).
+- [ ] **Deliberately not in M10**: shoring as a material (a pillar already carries a full budget
+      under `SupportRule.Rest`), drills and conveyors and crafting (M11), the inventory's move to
+      millilitres (v5 at M11, alone — not v4 with the machines as MATERIALS-NOTES said), random
+      distribution, a machine cap (printed, trigger `machines` over a millisecond on the boundary
+      line), wading and oxygen (the survival-mode trigger).
 
 #### The entangled miner at 40/s — raised 2026-09-02, third time
 

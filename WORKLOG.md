@@ -1,5 +1,66 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-15 — M10 planned: the boundary is the tick, a machine is a material plus a row, an outlet is out of the box on day one
+
+The planning pass for M10, from [M10-NOTES](docs/M10-NOTES.md) against the code as M9d left it:
+[docs/M10-PLAN.md](docs/M10-PLAN.md), split M10a–M10d, eleven decisions, nine recommended and two
+Matthew's (the programmer's key; the battery's numbers). Nothing built. Three things the code said
+that the notes could not have:
+
+**The boundary is the machine tick, and DESIGN's 20 Hz has no consumer.** `FluidSimulation.Add`,
+`Remove` and `HandOff` refuse mid-tick, and under `start.cmd`'s `--fluidjob=1` the grid is a
+worker's for up to a third of every second. A pump is a drain and an outlet is a pour; every pass
+that moves water runs in `Main.UpdateFluid`'s boundary block, so a machine that touches water ticks
+there — between the chunk fills and the table-move sweep, so an outlet raising a lake over a roof
+requeues the roof in the same boundary — and nowhere else. DESIGN's *fixed 20 Hz sim step,
+spatially partitioned update list* is amended to *machines tick at the fluid boundary*, with M11's
+drill (a voxel every half-second reads as stuttering; litres do not) as the trigger for a second,
+faster rate beside it. Rates are litres a second in the JSON and an exact `L/s × 500 ms`
+millilitres a boundary in the code, so a late boundary is a slower pump and never a wrong one.
+
+**A machine is a material plus a row, and the material half costs nothing.** M10-NOTES piece 6 said
+a machine *cannot be a voxel* — true of the channel number, not of the body. One brush cell of
+`overburden:relay_pump` is meshed, lit, collided with, supported, gated by hardness, credited per
+voxel by `Carve.Take`, shown with a swatch on the hotbar, placed by the right button and placed at
+range by `Q` + right click, with no new code in any of it. The `machine` block goes *inside* the
+material JSON — `kind` an engine behaviour picked by name, the numbers a mod's — so there is one
+ID, one registry entry and no second ID table; the row (origin, material ID through the world's
+table, ports) is the only new state, in a `machines` table at schema 4, read whole at open and
+written whole at autosave like the basins. **The rows are the truth and the body follows**: at
+every chunk arrival a row rebuilds a missing body and a body with no row is cleared without
+credit — the crash between an unload's chunk write and an autosave's row write can produce either,
+and the one lag left is the inventory's, which every brush placement has had since M6c. Placement
+is atomic (64 or none) and, into water, deferred to the boundary and *displacing* through
+M9c-1's `Lift`/`Return` — because M9d's wet refusal exists for a fill that deletes water, and the
+play case is a pump placed in a flooded room.
+
+**An outlet on the surface is outside the loaded box the first time anyone pumps a mine out.**
+`ViewDistanceVertical` is 2 — 16 m — and the played mine is 64 m deep, so the notes' *"does an
+output in an unloaded chunk still exist?"* is M10a's rule, not a later lever: an unloaded outlet
+at or above the seed surface inside the watershed window credits its sample's basin through
+`Receive` — the hand-off's rule without the wait, `BasinLedger` paying off a third time — and an
+unloaded outlet underground accepts nothing and the pump stalls, printed. The pump itself reads
+Tier A when its sample's table stands over its top (`Draw`, the portal drain's call) and the wet
+cells in the 3 × 3 × 3 m around it otherwise, **and the delivered rate is the automaton's
+throughput into that box, not the JSON's number** — M8a's one-voxel hole at 29 L/s is the same
+physics — so the bench's `--pump` arm takes the delivered L/s at three intake sizes before the
+100 L/s estimate is believed. `min(offered, accepted)` in one boundary, nothing held by a machine,
+`pumped == emitted` on both tiers and across them, and the M8 lifecycle battery with machines
+running as the test rather than a machine test.
+
+Two things the pass decided beyond the notes. **Power is a pool per channel with no wires** — the
+pipe argument a second time, and the fiction already said *wireless* — with the first generator
+solar off `SkyColumn`'s openness and `Weather.OvercastAt`, both of which exist, so the storm that
+floods the mine dims the panels that pump it: DESIGN's loop closed with two inputs the game
+already has, and no fuel material the world does not. And **shoring is not built**: a placed stone
+pillar already carries a full budget to its top under `SupportRule.Rest` (`K/30` a voxel, 32 voxels
+to the cap), so DESIGN's *raise local support distance* is true of what M9 ships and the play
+question is whether it *reads* so. The inventory's move to millilitres, which MATERIALS-NOTES had
+riding header v4 with the machines, goes to v5 at M11 alone — a change in a field's meaning is a
+refusal under the format policy and a data-loss-shaped bump goes by itself. Header v4 is the
+carried battery's (M10c); the machine table is a schema bump, not a header one, which corrects
+M10-NOTES' shorthand.
+
 ## 2026-09-15 — the first M9d play, and the chunk fill goes to the boundary
 
 *"Loving the collapse functions like :-{D"* — answered from the log first: 0 errors, 14 falls

@@ -23,6 +23,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | **Worldgen as content** — Matthew's thinking-ahead, 2026-09-11: ores, layers, trees, and what is permeable. Notes rather than a plan; what MATERIALS-NOTES already decided is listed so it is not re-litigated, and the three questions its pass wants from him are at the end. **Not scheduled — M8d, then M9.** |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md) | **Water bodies** — Matthew's question, 2026-09-10: resting water as one number over a connected void, DESIGN's *"stable cells merge into a Tier A body"* half that M8b never built. Notes rather than a plan, with the roof-open wake explained and six decisions. **Read before M8c's planning pass, which is where it belongs.** |
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | **Elements, and whether to "just implement chemistry"** — a brainstorm with Matthew, 2026-09-03. Notes rather than a plan. The recommendation is *geology that reacts to water, with machine recipes as the chemistry set*; the element table says why each material would exist. **Read before M8c reads `permeability` and before M9 reads `supportDistance` — both have been in the material JSON unread since M1, and the trap is a constant shipping green.** |
+| [docs/M10-PLAN.md](docs/M10-PLAN.md) | **M10, you fight back — planned 2026-09-15, eleven decisions with recommendations, waiting on Matthew; M10a's own pass follows the answers.** Split M10a–M10d: the entity, the relay pump and outlet / the programmer / power / the play. **Read its three facts first: the boundary is the machine tick (`Add`/`Remove` refuse mid-tick, so DESIGN's 20 Hz has no consumer), a machine is a material plus a row (the body is 64 voxels of a material, so every existing path is free and only the config is new), and an outlet is out of the loaded box on day one** (`ViewDistanceVertical` 2 against a 64 m mine). Read M10-NOTES before it. |
 | [docs/M9-PLAN.md](docs/M9-PLAN.md) | **M9, the mine kills you — planned 2026-09-11, all twelve decisions taken the same day; M9a and M9b built 2026-09-12 (read their "planning pass" and "built" sections — the byte moved `K` to 120, a dead path is a state, the join climbs; the derive is a detached job, the tint waits for the barrier); M9c-1 planned 2026-09-13 (a fall is a column run, the snapshot is not the gate) and built 2026-09-13/14 — c-1a Core, c-1b the wire; read "M9c-1b — built": the roof comes down in the game, the cascade is the analysed set growing, and a fall's cost is the hook chain. M9d next, unplayed.** Split M9a–M9d. **Read its "two facts" first: there is no bedrock, and DESIGN's literal distance rule opens a shaft to the surface over a 2 × 2 bite** — the plan's budget-with-an-arch rule and its uniqueness proof are decision 1. Read MATERIALS-NOTES and SCALE before it. |
 | [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **M8c planned 2026-09-10, all eight decisions taken 2026-09-11, M8c-1 built the same day — read "M8c-1 — built" before M8c-2's pass.** **Planned 2026-09-02; M8a built the same day; M8b split four ways and M8b-1 built 2026-09-03; M8b-2 planned 2026-09-05 and all three parts built the same day, both open decisions taken as recommended — water crosses the seam in the game; M8b-3 planned and built the same day: the hand-off (3a) measured, the settle (3b) built and priced against the chamber, both mines and the played world, the spill's look deferred to M8c and the settle's interval an estimate with `--settleafter=` as the sweep.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it. **Its M8b section records a gap the plan had**: a flooded mine has no Tier A body, so resting mine water is stored, and the settle is a solve. Read the tick-budget item in TODO before M8b-2. |
 | [docs/ADAPTIVE-RADIUS-PLAN.md](docs/ADAPTIVE-RADIUS-PLAN.md) | **The adaptive view radius**, Matthew's proposal from the sprint corridor, planned and **built 2026-09-06**: fall to the 27-chunk floor while moving with a derive backlog, climb back a ring at a time while the derive is idle enough for one more. **Its "Built" section records that the plan's grow rule — a dwell — was wrong, and the 7 m/s corridor said so on its first run**; the rule is the light step's share of its budget now. Read the corridor worklog entry before it: the floor is a cliff edge, not a slope. |
@@ -662,6 +663,29 @@ verbatim — the flags go after the bare `--`:
 ```bash
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
+
+**Pick up here (2026-09-15, night). M10 is planned and not built — eleven decisions in
+[docs/M10-PLAN.md](docs/M10-PLAN.md), nine recommended and two wanting a word from Matthew (the
+programmer's key, decision 6; the battery's numbers, decision 9); M10a's own planning pass follows
+the answers, against `Place`, `ChunkPipeline`'s arrival hook, `IWorldStore` and the boundary block
+in `Main.UpdateFluid`.** The pass's spine: **the boundary is the machine tick** — a pump is a drain
+and an outlet is a pour, and neither can touch the grid anywhere else, so DESIGN's *fixed 20 Hz sim
+step* is retired with M11's drill as the trigger to revisit; **a machine is a material plus a
+row** — the body is one brush cell of `overburden:relay_pump`, so the mesher, the light, the
+collider, the support field, the hardness gate, the per-voxel credit, the hotbar and `Q`'s
+placement at range all work unchanged, and only the config (position, kind, ports) is new, in a
+`machines` table at schema 4, read whole at open, written whole at autosave, **reconciled at every
+chunk arrival with the row as the truth**; and **an outlet on the surface is outside the loaded
+box the first time anyone pumps a mine out**, so the unloaded-outlet rule is M10a's — the
+hand-off's *water on the analytic ground is Tier A's*, credited to the ledger, and an unloaded
+outlet underground accepts nothing. `pumped == emitted` at every boundary on both tiers and across
+them, with no in-flight term, is the oracle, and the M8 lifecycle battery with machines running is
+the test. Power (M10c) is a pool per channel with no wires — the pipe argument a second time — and
+the first generator is solar off `SkyColumn` and `OvercastAt`, so the storm that floods the mine
+dims the panels that pump it. Shoring is not built: a placed pillar already carries a full budget
+under `SupportRule.Rest`, and whether it *reads* as shoring is M10d's play. **Still Matthew's from
+M9d: the four questions in TODO (one sentence each), decision 3's lake edge, and M9c-2's dust
+verdict**; none blocks M10a. The paragraph below is the evening's state, kept for the reasoning.**
 
 **Pick up here (2026-09-15, evening). M9d is built — the table-move trigger, a timer that only
 shortens, the exponential jitter, the fill's refusal — and played once: *"Loving the collapse
