@@ -4398,6 +4398,16 @@ finding without the coarser-tolerance fallback.
                         `first draw` 6.08 s against 8.72, 2.1× the visits. **Unplayed: open the
                         played world, bite under a lake, read `boundary worst` on the `M8b:`
                         line and whether the skip is gone.**
+                  - [ ] **Lever, named 2026-09-15 and not built — the tick across workers (Matthew:
+                        *"each chunk's water calc in its own thread?"*).** Colour waves over
+                        chunks as N detached jobs a wave, per-panel counters, per-job wake lists,
+                        no panel release mid-tick, and a wave-order oracle in place of
+                        sliced-equals-whole; not halos, because the 16-cell fall crosses faces
+                        inside a tick. **Trigger: `boundary(ies) waited` on the `M8b:` line
+                        non-zero routinely** — the visit loop is worker time nobody waits for
+                        (45 ms Release a 150k-cell tick against a 500 ms period) and the felt
+                        skip is the sim-thread boundary. Reasoning in WATER-THREAD-PLAN's revisit
+                        triggers.
                         - [x] **Played 2026-09-10**: worst frame 332 → 63.7 ms (field sync 43.9,
                               hand-off 24.7, pour 17.5, settle 0), one boundary waited over a
                               128,600-cell peak, identities exact. Accepted on the numbers.

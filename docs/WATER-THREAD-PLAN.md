@@ -1014,6 +1014,22 @@ whether the skip is gone.
 - **Drop slice 1's order if the play cannot tell near from far after the provocation above** —
   and only after it, because a null from a play that never had far water is not a null.
 - **A dedicated thread** if the `sources` line shows generation starving during a flood.
+- **The tick split across workers — one job per chunk, or per colour wave — if `boundary(ies)
+  waited` on the `M8b:` line goes non-zero routinely**: a tick longer than its 500 ms period on the
+  played world. Matthew's question, 2026-09-15 (*"the chances of running each chunk's water calc
+  in its own thread? or too much double handling / too much overcopy"*). Not built, because the
+  visit loop is not what anybody waits for: a 150,000-cell flood tick is ~45 ms Release and 172–319
+  Debug against a 500 ms period, `waited` read 0 on the 3b play, and the skip that was felt was
+  the boundary — field sync, hand-off, pour, all sim-thread — which threads under the tick do not
+  touch. **The shape when it fires: colour waves, not halos.** Chunks of even `(x + y + z)` run as
+  N detached jobs, then the odd ones, so adjacent chunks never race; what it costs is the grid's
+  four shared things — the panel dictionary (no release mid-tick), the one-entry cache, the
+  `_total`/`_held` counters (per panel, summed at collection) and the wake queue (per job, merged)
+  — and the visit order, which is a physics input here, so the sliced-equals-whole oracle becomes
+  wave-order-equals-a-reference. The halo form (six face layers copied per chunk, 12 KB, each side
+  computing the same pairwise flux — which M8a's fixed divisor was chosen to allow) is the cheaper
+  copy and the wrong physics: M8d-3's 16-cell fall crosses faces inside a tick and a one-layer halo
+  stops it at the face.
 
 ## Deliberately not in this piece
 
