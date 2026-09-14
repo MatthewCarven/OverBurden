@@ -1,37 +1,44 @@
 ﻿# Overburden — Worklog
 
-## 2026-09-14 — the entangled bite is a 2 m cube: *"just take an 8x8 cube like right click"*
+## 2026-09-14 — the entangled bite is the brush cell, and so is the fill: *"make it all the same 4x4x4"*
 
-One sentence from Matthew after the stall fix, and a question back before touching it, because
-both buttons already worked on the same 8 m chunk while `Q` was on and "like right click" could
-have meant three things: a smaller cube, the same cube off the lattice, or the chunk in front
-rather than the one hit. **The answer was the first — an 8 × 8 × 8 voxel cube, 2 m.**
+One sentence from Matthew after the stall fix — *"just take an 8x8 cube like right click"* —
+and a question back before touching it, because both buttons already worked on the same 8 m
+chunk while `Q` was on and "like right click" could have meant three things. The answer was a
+smaller cube, and I read "8x8" as eight voxels and built a 2 m cube. **It was the cube brush's
+cell he meant** — *"match the 4x4x4 grid on the right click function"* — and then the fill as
+well: *"make it all the same 4x4x4"*. Three passes for one lattice, and the last is the one
+that was right by construction rather than by a number.
 
 `Carve.Cube` beside `Chunk`, sharing `Take`, so the hardness gate is still the one gate in the
-game — four shapes now, one edit breaks all four. `CubeOrigin` floors the hit voxel to a 2 m
-lattice **by mask, not division**, which is the chunk bite's one real hazard a size down: voxel
-−1 is in the cube at −8, and a tidy-up to `/ 8 * 8` would put a seam through the origin (caught
-by 6). The lattice nests in the chunk's because 8 divides 32, so a cube never straddles a chunk
-face and sixty-four cubes tile a chunk exactly — both asserted, and `CubeVoxels = 6` fails nine
-tests. **Snapped to a lattice rather than centred on the hit, for the reason the brush is**:
-consecutive bites tile into flat-walled rooms instead of overlapping into one-voxel steps.
+game — four shapes now, one edit breaks all four. **`CubeVoxels` is `BrushCell.Voxels` and
+`CubeOrigin` is `BrushCell.FromVoxel(...).OriginVoxel`**: the dig's cell is the fill's cell
+because they are the same code, not because two constants happen to agree — the
+`IsCaveAt`/`GenerateTerrain` argument, and a literal 8 is a recipe the lattice test catches
+alone (every other test derives its edge from the constant and scales with the mutation). The
+brush's snap is a shift, so voxel −1 is in the cell at −4 and a tidy-up to `/ 4 * 4` puts a
+seam through the origin (caught by 7). The cell divides the chunk, so a cube never straddles a
+chunk face and 512 tile a chunk exactly — both asserted. **Snapped rather than centred on the
+hit, for the reason the brush is**: consecutive bites tile into flat-walled rooms instead of
+overlapping into one-voxel steps.
 
 `MiningController.EntangledTakesChunk` became `Bite`, an `EntangledBite` of Sphere / Cube /
-Chunk with Cube the default; `--entanglechunk` restores the 2026-09-03 bite (every recorded
-bite figure is that arm, so a profile reproducing one now needs the flag), `--entanglesphere`
-the older one. **The fill stays the whole chunk** — the ask was to make the left click like the
-right, so the right click is the thing that did not move — and the HUD says `2 M CUBE (Q) ·
-dig 2 m / fill 8 m chunk`, both scales, because that asymmetry is the one a player would not
-guess. The cube's rate is **0.1 s, an estimate** between the sphere's 0.025 and the chunk's
-0.25, `--cubecooldown=` the sweep: the sphere's forty would push 20,000 voxels a second through
-the edit hook, the chunk's four would take sixteen seconds to clear one chunk's volume.
+Chunk with Cube the default. **The fill moved with it**: `EntangledFillsChunk` is true only on
+the chunk arm, so with `Q` on the right click is the selected brush at unlimited reach — the
+place controller already did that when the flag was off, the outline already drew the cell, and
+the only new piece is `PlaceController.BrushCooldownSeconds` so dig and fill pace the same. The
+HUD reads `1 M CELL (Q) · dig cell / cube brush (B)`. `--entanglechunk` restores the chunk pair
+of 2026-09-03 (every recorded bite figure is that arm, so a profile reproducing one needs the
+flag), `--entanglesphere` the sphere. The rate is **0.05 s, an estimate** between the sphere's
+0.025 and the chunk's 0.25, `--cubecooldown=` the sweep: a cell is four `hand_pick` spheres, so
+the sphere's forty nearly transfers and the chunk's four would take two minutes to clear a chunk.
 
-Headless on the `--entangle --mine` profile arm, r4h/2v, 6 m/s: **9.4/s delivered against 10
-nominal, 379 voxels a swing, swing 1.3 ms mean / 7.1 ms max, 3.3 remeshes and 1.0 clones a
-swing**, `steel_pick` taking everything it was pointed at. Suite 1,370 → 1,391; five recipes,
-five caught (division 6, bounds 13, `hit.Previous` 5, edge 6 → 9, edge 16 → 10 — the last pins
-the *size*, which nothing else would). One assertion was wrong first and the code was right:
-`CarveResult.Complete` means nothing was unreachable, not nothing was refused.
+Headless on the `--entangle --mine` profile arm, r4h/2v, 6 m/s: **17.8/s delivered against 20
+nominal, 47 voxels a swing, swing 0.42 ms mean / 4.3 ms max, 1.7 remeshes a swing** (the
+eight-voxel cut at 10/s read 9.4/s, 379 voxels, 1.3 ms / 7.1 ms, 3.3 remeshes). Suite 1,370 →
+1,392; recipes at eight: division 6, bounds 13, `hit.Previous` 5, edge 6 → 9, edge 16 → 10; at
+four: division 7, `hit.Previous` 6, literal 8 → 2. One assertion was wrong first and the code
+was right: `CarveResult.Complete` means nothing was unreachable, not nothing was refused.
 
 ## 2026-09-14 — the "standing on air" stall was the M8d-5b hook asking the grid mid-tick
 

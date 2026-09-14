@@ -5342,21 +5342,21 @@ the same breath and unprompted, the constraint: *"but do not implement weight pl
       outlining the target voxel in front of an 8 m bite shows the player the wrong object — aim a
       hand’s width across an invisible seam and a different cube goes. **M6c-3’s brush-cell argument
       arriving a second time.** HUD says `WHOLE CHUNK (Q)` for the reason it says `ONE VOXEL (Alt)`.
-- [x] **The bite is a 2 m cube as of 2026-09-14** — Matthew: *"just take an 8x8 cube like right
-      click"*. `Carve.Cube`, 8 × 8 × 8 voxels on a 2 m lattice that nests in the chunk's (a mask,
-      not a division, so the seam through the origin cannot come back), the same `Take` and gate,
-      `MiningController.Bite` an `EntangledBite` of Sphere / Cube / Chunk with Cube the default;
-      `--entanglechunk` and `--entanglesphere` the arms, `--cubecooldown=` the rate's sweep
-      (0.1 s, an estimate between the sphere's 0.025 and the chunk's 0.25). The fill stays the
-      chunk. Headless on the `--entangle` profile arm: 9.4/s delivered, 379 voxels a swing, swing
-      1.3 ms mean / 7.1 max, 3.3 remeshes a swing. 21 tests, five recipes, five caught. **Play
-      question: the rate, and whether the 2 m lattice reads as a lattice** — a hit near a cube's
-      edge takes the cube the voxel is in, not the one the crosshair "looks" in; the outline is
-      the answer to that, as it was for the chunk.
-      - [ ] Rate: 10/s is a guess. Judge by holding the click along a wall; `--cubecooldown=`.
-      - [ ] Whether the fill should shrink to match (a 2 m cube fill on the same lattice is
-            `Place.Cube` at 8 voxels, one afternoon) — deferred until the bite has been played
-            small; the ask left the right click alone.
+- [x] **The bite is the brush cell as of 2026-09-14** — Matthew: *"just take an 8x8 cube like
+      right click"*, then *"match the 4x4x4 grid on the right click function"*, then *"make it
+      all the same 4x4x4"*. `Carve.Cube`, `CubeVoxels = BrushCell.Voxels` (4, 1 m) with
+      `CubeOrigin` the brush's own snap, so dig and fill are one lattice by construction and a
+      literal that agreed with the brush the day it was written is a recipe (caught by the one
+      test that exists for it); the same `Take` and gate; `MiningController.Bite` an
+      `EntangledBite` of Sphere / Cube / Chunk with Cube the default. **The fill moved too**: with
+      `Q` on the right click places the selected brush at unlimited reach at the cube's rate, and
+      only `--entanglechunk` pairs the chunk bite with the chunk fill. `--cubecooldown=` sweeps
+      the rate (0.05 s, an estimate between the sphere's 0.025 and the chunk's 0.25;
+      `PlaceController.BrushCooldownSeconds` follows it on the cube arm). Headless on the
+      `--entangle --mine` arm: 17.8/s delivered against 20, 47 voxels a swing, swing 0.42 ms mean
+      / 4.3 max, 1.7 remeshes a swing. 22 tests; three recipes at this size, three caught. The
+      first cut was eight voxels at 10/s (9.4/s, 379 voxels, 1.3 ms) on a misreading of "8x8".
+      - [ ] Rate: 20/s is a guess. Judge by holding the click along a wall; `--cubecooldown=`.
 - [x] **The rate is measured, and the measurement says the rate is not what needs choosing.**
       Same-session A/B at r4h/2v, 6 m/s, 30 s, Debug, against `--entanglesphere`: **one bite costs
       `swing ms` mean 16.9 / max 35.6 on the sim thread against the sphere's 0.054 / 2.48** — one

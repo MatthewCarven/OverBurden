@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Godot;
+using Overburden.Core.Building;
 using Overburden.Core.Content;
 using Overburden.Core.Inventory;
 using Overburden.Game.Player;
@@ -354,11 +355,13 @@ public sealed partial class Hud : CanvasLayer
             return $"WHOLE CHUNK  (Q)   ·   {tier} gate  (T)   ·   dig / fill   ·   Alt: one voxel";
         }
 
-        // The cube bite (2026-09-14): the dig is 2 m and the fill is still the 8 m chunk, which
-        // is the one asymmetry in the mode and the reason both scales are printed.
+        // The cube bite (2026-09-14): the dig is one brush cell and the fill is the brush at
+        // range, so the line is the ordinary brush line with the mode named — the only thing Q
+        // changed that a player cannot see is the reach.
         if (mining?.TakesCube == true)
         {
-            return $"2 M CUBE  (Q)   ·   {tier} gate  (T)   ·   dig 2 m / fill 8 m chunk   ·   Alt: one voxel";
+            return $"{BrushCell.SizeMetres:F0} M CELL  (Q)   ·   {tier} gate  (T)   ·   "
+                + $"dig cell / {brush} brush  (B)   ·   1-9 material   ·   Alt: one voxel";
         }
 
         return $"{brush} brush  (B)   ·   {tier}  (T)   ·   1-9 material, V cycle   ·   Alt: one voxel";

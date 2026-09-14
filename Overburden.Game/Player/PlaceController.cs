@@ -110,6 +110,15 @@ public sealed class PlaceController(
     public float ChunkCooldownSeconds { get; set; } =
         MiningController.DefaultEntangledChunkCooldownSeconds;
 
+    /// <summary>The entangled brush's cooldown — the cube bite's, so dig and fill pace the same.</summary>
+    /// <remarks>
+    /// "Make it all the same 4x4x4" (2026-09-14) is the lattice and the rate together: a fill at
+    /// the sphere's forty beside a dig at twenty would be the asymmetry the cube was asked to
+    /// remove, one axis over. Main sets it to the cube cooldown on the cube arm and leaves the
+    /// sphere arm at the sphere's rate.
+    /// </remarks>
+    public float BrushCooldownSeconds { get; set; } = MiningController.EntangledCooldownSeconds;
+
     private double _cooldown;
 
     /// <summary>The brush being placed. Cycled from a key.</summary>
@@ -320,6 +329,7 @@ public sealed class PlaceController(
     private double CooldownForShape(bool precise) => (Entangled, precise) switch
     {
         (true, false) when EntangledFillsChunk => ChunkCooldownSeconds,
+        (true, false) => BrushCooldownSeconds,
         (true, _) => MiningController.EntangledCooldownSeconds,
         _ => CooldownSeconds,
     };

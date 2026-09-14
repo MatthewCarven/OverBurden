@@ -316,14 +316,15 @@ table below), `--skybrightness=<0..2>` (scales the sky channel alone; 0 leaves o
 **the overcast multiplies this rather than replacing it, so the seam survives weather**),
 `--debuglamp` (places one lamp where the crosshair points, so a screenshot can show block
 light without a keypress) and `--entangle` (the entangled miner, which with `--mine` aims along
-the flight path rather than straight down — see below). **The entangled bite is a 2 m cube on a
-2 m lattice since 2026-09-14** (`Carve.Cube`, 512 voxels, 10/s an estimate); **`--entanglechunk`
-restores the whole-chunk bite of 2026-09-03 to 2026-09-14**, the arm every recorded bite figure
-was taken in, and **`--entanglesphere` the pre-2026-09-03 bite**, the tier's sphere, the arm the
-chunk was priced against; **`--chunkcooldown=<seconds>` and `--cubecooldown=<seconds>` sweep
-the two rates and are deliberately not profile-only**, because `Q` is a play bind and a rate that
-only reached a profile run would be a seam for the one arm that cannot judge it. The fill under
-`Q` is still the whole chunk in either arm.
+the flight path rather than straight down — see below). **The entangled bite is the brush cell
+since 2026-09-14 — a 1 m cube on the 1 m brush lattice** (`Carve.Cube`, `CubeVoxels =
+BrushCell.Voxels`, 64 voxels, 20/s an estimate), **and the entangled fill is the brush at range
+on the same lattice at the same rate**; **`--entanglechunk` restores the whole-chunk bite and
+fill of 2026-09-03 to 2026-09-14**, the arm every recorded bite figure was taken in, and
+**`--entanglesphere` the pre-2026-09-03 bite**, the tier's sphere, the arm the chunk was priced
+against; **`--chunkcooldown=<seconds>` and `--cubecooldown=<seconds>` sweep the two rates and
+are deliberately not profile-only**, because `Q` is a play bind and a rate that only reached a
+profile run would be a seam for the one arm that cannot judge it.
 
 M7c-1 adds four more, all seams rather than settings. **`--clock=<seconds>` starts the run
 somewhere in this world's forecast** — the weather is a pure function of (seed, time), so this is
@@ -2841,14 +2842,14 @@ same argument that kept it out of the tool JSON.
 
 **The entangled miner is a debug bind, built 2026-08-31 to dig M5d-2's test volume.** **Q**
 toggles it: point at anything, hold left click, and it eats what it is pointed at however far
-away. **As of 2026-09-14 a bare click takes a 2 m cube — 8 × 8 × 8 voxels on a 2 m lattice
-that nests inside the chunk's, at 10 a second (an estimate, `--cubecooldown=`)** — on Matthew's
-*"just take an 8x8 cube like right click"*; from 2026-09-03 until then it took **the whole 8 m
-chunk** — 32,768 voxels, 512 m³ — at **4 a second**, which `--entanglechunk` restores and which
-every bite figure below was measured on. Alt still chips one voxel, at 40. **And a bare *right*
-click fills a whole chunk, same reach, unchanged by the cube** — "like right click" was the ask,
-so the right click is the thing that did not move; the HUD prints both scales. Three things about
-it that are easy to undo by accident:
+away. **As of 2026-09-14 a bare click takes one brush cell — 4 × 4 × 4 voxels on the 1 m brush
+lattice, `CubeVoxels = BrushCell.Voxels` so the two verbs cannot drift — at 20 a second (an
+estimate, `--cubecooldown=`), and a bare *right* click places the selected brush at the same
+reach and rate on the same lattice** — Matthew's *"make it all the same 4x4x4"* (first built at
+eight voxels on a misreading of "8x8", corrected the same night). From 2026-09-03 until then a
+click took **the whole 8 m chunk** — 32,768 voxels, 512 m³ — at **4 a second** and the right click
+filled one, which `--entanglechunk` restores and which every bite figure below was measured on.
+Alt still chips one voxel, at 40. Three things about it that are easy to undo by accident:
 
 - **It is deliberately not a tool tier, and that is the design decision rather than laziness.**
   *Reach is the player's, not the tool's* is locked twice — M3d, restated at M4c — because

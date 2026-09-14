@@ -1,3 +1,4 @@
+using Overburden.Core.Building;
 using Overburden.Core.Content;
 using Overburden.Core.Inventory;
 using Overburden.Core.Mining;
@@ -6,34 +7,34 @@ using Overburden.Core.Voxels;
 namespace Overburden.Core.Tests;
 
 /// <summary>
-/// The cube carve — the entangled miner's bite since 2026-09-14, 512 voxels of a 2 m cube on a
-/// 2 m lattice.
+/// The cube carve — the entangled miner's bite since 2026-09-14, sixty-four voxels of a 1 m cube
+/// on the brush lattice.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The same shape of claim as <see cref="CarveChunkTests"/>, one lattice level down: the shape
-/// is fixed, so what can go wrong is <b>which</b> cube and <b>where it stops</b>. Two hazards
-/// are the cube's own. <b>The lattice is built by a mask, not a division</b>, so the seam
-/// through the origin — voxel −1 landing in the cube at 0 — is the recipe most likely to be
-/// reintroduced by a tidy-up; and <b>the cube must nest inside the chunk</b>, because a cube
-/// straddling a chunk face is a bite that spills into a chunk the hit never named, which is the
-/// chunk bite's off-by-one wearing a smaller coat.
+/// The same shape of claim as <see cref="CarveChunkTests"/>, two lattice levels down: the shape
+/// is fixed, so what can go wrong is <b>which</b> cube and <b>where it stops</b>. Three hazards
+/// are the cube's own. <b>The lattice is the brush's</b>, so a size of its own that agreed with
+/// <c>BrushCell.Voxels</c> the day it was written is the recipe; <b>the snap is a shift, not a
+/// division</b>, so the seam through the origin — voxel −1 landing in the cube at 0 — is the
+/// tidy-up to guard; and <b>the cube must nest inside the chunk</b>, because a cube straddling a
+/// chunk face is a bite that spills into a chunk the hit never named, which is the chunk bite's
+/// off-by-one wearing a smaller coat.
 /// </para>
 /// <para>
 /// <b>Break-recipes run against the finished code:</b>
 /// </para>
 /// <list type="number">
-/// <item><see cref="Carve.CubeOrigin"/> by truncating division (<c>/ 8 * 8</c>) — <b>caught, by
-/// 6</b>: the origin theory's negative rows, the straddling test's negative chunk and the tiling
+/// <item><see cref="Carve.CubeOrigin"/> by truncating division (<c>/ 4 * 4</c>) — <b>caught, by
+/// 7</b>: the origin theory's negative rows, the straddling test's negative chunk and the tiling
 /// test, whose cubes then overlap at zero.</item>
 /// <item>Loop bounds <c>&lt;=</c> — <b>caught, by 13</b>, the set assertions again.</item>
-/// <item>Cube from <c>hit.Previous</c> rather than <c>hit.Voxel</c> — <b>caught, by 5</b>: the
+/// <item>Cube from <c>hit.Previous</c> rather than <c>hit.Voxel</c> — <b>caught, by 6</b>: the
 /// three face rows straddle the seam on the axis the ray came along, and the corner hits of the
 /// straddling test have their Previous outside the chunk.</item>
-/// <item><c>CubeVoxels</c> 8 → 6, not a divisor of 32 — <b>caught, by 9</b>: a cube then
-/// straddles a chunk face and the sixty-four no longer tile. And 8 → 16, which divides 32 and
-/// nests but is not the 2 m the ask named — <b>caught, by 10</b>, the origin theory's literal
-/// expected values being what pins the size.</item>
+/// <item><c>CubeVoxels</c> a literal 8 rather than <c>BrushCell.Voxels</c> — <b>caught, by 2, both
+/// the brush-lattice test</b>: every other test derives its edge from the constant and scales
+/// with the mutation, so that one test is the whole of what pins the cube to the right click's grid. (Run at eight voxels the same night: 8 → 6 caught by 9, 8 → 16 by 10.)</item>
 /// <item>The hardness gate, air-as-removed and the inventory credit live in the shared
 /// <c>Take</c>, and their recipes are the sphere, chip and chunk files' — one edit breaks four
 /// shapes, which a forked gate would not.</item>
@@ -82,17 +83,28 @@ public class CarveCubeTests
         Assert.Equal(0, Edge & (Edge - 1));
     }
 
+    [Fact]
+    public void TheBiteIsOnTheBrushLatticeSoTheRightClickFillsWhatTheLeftClickTook()
+    {
+        // The ask, as a test: the dig's cell is the fill's cell. A size of its own that happened
+        // to equal the brush's would pass the day it was written and drift the day either moved.
+        Assert.Equal(BrushCell.Voxels, Edge);
+        Assert.Equal(1.0f, Edge * VoxelConstants.VoxelSize);
+        var voxel = new VoxelPos(-13, 22, 7);
+        Assert.Equal(BrushCell.FromVoxel(voxel).OriginVoxel, Carve.CubeOrigin(voxel));
+    }
+
     [Theory]
     [InlineData(0, 0, 0, 0, 0, 0)]
-    [InlineData(7, 7, 7, 0, 0, 0)]
-    [InlineData(8, 0, 0, 8, 0, 0)]
-    [InlineData(-1, -1, -1, -8, -8, -8)]
-    [InlineData(-8, 3, 15, -8, 0, 8)]
-    [InlineData(-9, -16, 31, -16, -16, 24)]
+    [InlineData(3, 3, 3, 0, 0, 0)]
+    [InlineData(4, 0, 0, 4, 0, 0)]
+    [InlineData(-1, -1, -1, -4, -4, -4)]
+    [InlineData(-4, 3, 15, -4, 0, 12)]
+    [InlineData(-9, -16, 31, -12, -16, 28)]
     public void TheCubeOriginIsTheLatticeFloorOnBothSidesOfZero(int x, int y, int z, int ox, int oy, int oz)
     {
-        // Voxel −1 belongs to the cube at −8, not the one at 0: the seam a division would put
-        // through the origin, and the reason the floor is a mask.
+        // Voxel −1 belongs to the cube at −4, not the one at 0: the seam a division would put
+        // through the origin, and the reason the floor is a shift.
         Assert.Equal(new VoxelPos(ox, oy, oz), Carve.CubeOrigin(new VoxelPos(x, y, z)));
     }
 
@@ -100,7 +112,7 @@ public class CarveCubeTests
     public void ACubeBiteTakesEveryVoxelOfItsOwnCubeAndNoneOfAnyOther()
     {
         var world = new FakeEditor { DefaultMaterial = Dirt };
-        var origin = new VoxelPos(16, -24, 40);
+        var origin = new VoxelPos(16, -24, 44);
 
         CarveResult result = Carve.Cube(world, Materials(), origin, 1.0f);
 
@@ -121,8 +133,8 @@ public class CarveCubeTests
 
     [Theory]
     [InlineData(0, 0, 0)]
-    [InlineData(7, 7, 7)]
-    [InlineData(3, 5, 1)]
+    [InlineData(3, 3, 3)]
+    [InlineData(1, 2, 3)]
     public void TheCubeTakenIsTheOneHoldingTheHitVoxelWhereverInsideItTheHitLands(int lx, int ly, int lz)
     {
         var world = new FakeEditor { DefaultMaterial = Dirt };
@@ -183,7 +195,7 @@ public class CarveCubeTests
     }
 
     [Fact]
-    public void SixtyFourCubesTileAChunkExactly()
+    public void TheLatticeCubesTileAChunkExactly()
     {
         // The nesting claim as geometry, on a chunk below the origin: the cubes at every lattice
         // origin inside the chunk write the chunk's voxel set once each, no overlap, no gap. This
@@ -196,7 +208,7 @@ public class CarveCubeTests
         for (int x = 0; x < perEdge; x++)
         for (int y = 0; y < perEdge; y++)
         {
-            VoxelPos inside = chunk.OriginVoxel.Offset(x * Edge + 3, y * Edge + 5, z * Edge + 7);
+            VoxelPos inside = chunk.OriginVoxel.Offset(x * Edge + 1, y * Edge + 2, z * Edge + 3);
             Carve.Cube(world, Materials(), Carve.CubeOrigin(inside), 1.0f);
         }
 
@@ -219,7 +231,7 @@ public class CarveCubeTests
 
         world.Writes.Clear();
 
-        CarveResult result = Carve.Cube(world, Materials(), HitAt(origin.Offset(1, 6, 1)), WeakPick());
+        CarveResult result = Carve.Cube(world, Materials(), HitAt(origin.Offset(1, 3, 1)), WeakPick());
 
         Assert.Equal(Volume, result.Candidates);
         Assert.Equal(Volume / 2, result.Removed);
@@ -249,6 +261,7 @@ public class CarveCubeTests
         var world = new FakeEditor { DefaultMaterial = Dirt };
         var origin = new VoxelPos(8, 8, 8);
         int stone = 0;
+        // One layer of stone, a quarter of the cube.
         for (int z = 0; z < Edge; z++)
         for (int x = 0; x < Edge; x++)
         {

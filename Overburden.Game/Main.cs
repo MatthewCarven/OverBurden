@@ -2070,12 +2070,12 @@ public partial class Main : Node3D
                 "M5d: entangled miner ON — reach unlimited (bounded by the loaded world), "
                 + $"{1.0f / _mining.EntangledCubeCooldownSeconds:F1} swings/s, "
                 + $"and each one takes a {Carve.CubeVoxels * VoxelConstants.VoxelSize:F0} m cube "
-                + $"on the {Carve.CubeVoxels * VoxelConstants.VoxelSize:F0} m lattice "
+                + $"on the brush's {Carve.CubeVoxels * VoxelConstants.VoxelSize:F0} m lattice "
                 + $"({Carve.CubeVoxels * Carve.CubeVoxels * Carve.CubeVoxels:N0} voxels) — still "
                 + $"{_mining.Tool.Id.Path}'s hardness gate, so it leaves what the tier cannot take. "
                 + "Alt still chips one voxel."
-                + "\n      Right mouse FILLS the whole 8 m chunk in front of the crosshair — only "
-                + "air is replaceable, so it fills holes and never overwrites rock.",
+                + "\n      Right mouse places the brush (B) on the same lattice at the same rate "
+                + "and reach — only air is replaceable, so it fills holes and never overwrites rock.",
             _ =>
                 "M5d: entangled miner ON — reach unlimited (bounded by the loaded world), "
                 + $"{1.0f / MiningController.EntangledCooldownSeconds:F0} swings/s, "
@@ -2982,11 +2982,14 @@ public partial class Main : Node3D
             // against one tool rather than a chunk bite against a brush fill. Set here rather than
             // beside the miner's own assignment because this controller is built after it, and a
             // --entangle profile that armed the bite but not the fill would be an arm nobody asked
-            // for — the M5c-2 hole one layer out, in a seam rather than in the logic. The fill
-            // stays the whole chunk under the cube bite (2026-09-14): "like right click" was the
-            // ask, so the right click is the thing that did not move.
+            // for — the M5c-2 hole one layer out, in a seam rather than in the logic. Under the
+            // cube bite (2026-09-14, "make it all the same 4x4x4") the fill is the brush at range
+            // on the same lattice, at the cube's rate; only the chunk arm fills chunks.
             Entangled = _entangleWhileProfiling,
-            EntangledFillsChunk = _entangledBite != EntangledBite.Sphere,
+            EntangledFillsChunk = _entangledBite == EntangledBite.Chunk,
+            BrushCooldownSeconds = _entangledBite == EntangledBite.Cube
+                ? _cubeCooldownSeconds
+                : MiningController.EntangledCooldownSeconds,
             ChunkCooldownSeconds = _chunkCooldownSeconds,
         };
 
@@ -3197,8 +3200,8 @@ public partial class Main : Node3D
         }
         else if (_mining.TakesCube && !precise)
         {
-            // The cube's lattice is as invisible as the chunk's, and a 2 m box is exactly the
-            // scale at which the wrong cube going reads as the tool missing.
+            // The brush lattice, drawn for the bite the way the brush outline draws it for the
+            // fill: the wrong cell going reads as the tool missing.
             (float cx, float cy, float cz) = Carve.CubeOrigin(_mining.Hit.Voxel).MinCornerMetres;
             _highlight.ShowAt(new Vector3(cx, cy, cz), Carve.CubeVoxels * VoxelConstants.VoxelSize);
         }

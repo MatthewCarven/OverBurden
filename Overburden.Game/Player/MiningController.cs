@@ -79,7 +79,7 @@ public sealed class MiningController(
     /// <para>
     /// <b>It used to compose with the number keys entirely — "how far and how fast, never how
     /// big a bite or what the bite is hard enough to take". Half of that is now false</b>: see
-    /// <see cref="Bite"/>, which makes the bite a 2 m cube or a whole chunk. <b>The hardness
+    /// <see cref="Bite"/>, which makes the bite a 1 m cube or a whole chunk. <b>The hardness
     /// half survives untouched and is the half that was load-bearing</b>, because it is what
     /// keeps <see cref="Carve"/>'s gate the only gate in the game rather than something a
     /// keypress opts out of.
@@ -88,7 +88,7 @@ public sealed class MiningController(
     public bool Entangled { get; set; }
 
     /// <summary>
-    /// What a bare entangled swing takes: the 2 m cube by default, the whole chunk or the tier's
+    /// What a bare entangled swing takes: the brush cell's 1 m cube by default, the whole chunk or the tier's
     /// sphere as arms. The remarks are the chunk bite's, kept because the cube inherits them.
     /// </summary>
     /// <remarks>
@@ -121,8 +121,8 @@ public sealed class MiningController(
     /// measured against.
     /// </para>
     /// <para>
-    /// <b>Superseded as the default on 2026-09-14 by the cube</b> — <i>"just take an 8x8 cube
-    /// like right click"</i> — and kept as an arm: the chunk bite is what excavates a test mine in
+    /// <b>Superseded as the default on 2026-09-14 by the cube</b> — <i>"match the 4x4x4 grid
+    /// on the right click function"</i> — and kept as an arm: the chunk bite is what excavates a test mine in
     /// seconds and what every recorded bite figure was taken with. <c>--entanglechunk</c> restores
     /// it; the fiction above is the cube's too, one lattice level down.
     /// </para>
@@ -139,7 +139,7 @@ public sealed class MiningController(
     /// </remarks>
     public bool TakesWholeChunk => Entangled && Bite == EntangledBite.Chunk;
 
-    /// <summary>Whether the next ordinary swing would take the 2 m cube, for the same outline reason.</summary>
+    /// <summary>Whether the next ordinary swing would take the 1 m cube, for the same outline reason.</summary>
     public bool TakesCube => Entangled && Bite == EntangledBite.Cube;
 
     /// <summary>
@@ -297,17 +297,18 @@ public sealed class MiningController(
     /// </remarks>
     public float EntangledChunkCooldownSeconds { get; set; } = DefaultEntangledChunkCooldownSeconds;
 
-    /// <summary>Ten cube bites a second — an estimate, between the sphere's forty and the chunk's four.</summary>
+    /// <summary>Twenty cube bites a second — an estimate, between the sphere's forty and the chunk's four.</summary>
     /// <remarks>
     /// <para>
-    /// A cube is 512 voxels, thirty times <c>hand_pick</c>'s sphere and a sixty-fourth of a chunk,
-    /// so neither neighbour's rate transfers: the sphere's forty would be 20,000 voxels a second
-    /// through the edit hook and its remeshes, the chunk's four would take sixteen seconds to
-    /// clear one chunk's volume. <b>Not measured; picked so a room is quick and a held click is
+    /// A cube is sixty-four voxels, four <c>hand_pick</c> spheres and a 512th of a chunk, so the
+    /// sphere's rate nearly transfers and the chunk's does not: at forty a second the cube would
+    /// be 2,560 voxels a second through the edit hook, at four it would take two minutes to clear
+    /// one chunk's volume. <b>Not measured; picked so a room is quick and a held click is
     /// steerable</b>, and <c>--cubecooldown=</c> is the sweep, a play bind like the chunk's.
+    /// (0.1 s while the cube was eight voxels, for one evening.)
     /// </para>
     /// </remarks>
-    public const float DefaultEntangledCubeCooldownSeconds = 0.1f;
+    public const float DefaultEntangledCubeCooldownSeconds = 0.05f;
 
     /// <summary>The live value, so <c>--cubecooldown=</c> can sweep it without a rebuild.</summary>
     public float EntangledCubeCooldownSeconds { get; set; } = DefaultEntangledCubeCooldownSeconds;
@@ -355,7 +356,7 @@ public sealed class MiningController(
     /// </remarks>
     public int ChunkSwings { get; private set; }
 
-    /// <summary>Of <see cref="Swings"/>, how many took a 2 m cube — the same denominator argument, one shape more.</summary>
+    /// <summary>Of <see cref="Swings"/>, how many took a 1 m cube — the same denominator argument, one shape more.</summary>
     public int CubeSwings { get; private set; }
 
     /// <summary>How far this swing actually reached, for the report.</summary>
@@ -526,7 +527,7 @@ public sealed class MiningController(
     public int DebugPlacements { get; private set; }
 }
 
-/// <summary>What a bare entangled click takes: the tier's sphere, a 2 m cube, or the 8 m chunk.</summary>
+/// <summary>What a bare entangled click takes: the tier's sphere, the brush cell's 1 m cube, or the 8 m chunk.</summary>
 /// <remarks>
 /// Three shapes and one gate. Whichever is chosen, <see cref="Carve"/>'s hardness gate is still
 /// the only gate in the game — the mode changes how far, how fast and how big, never what a
@@ -538,7 +539,7 @@ public enum EntangledBite
     /// <summary>The tier's own sphere at range — <c>--entanglesphere</c>, the arm the others were priced against.</summary>
     Sphere,
 
-    /// <summary>An 8-voxel cube on the 2 m lattice — the default since 2026-09-14.</summary>
+    /// <summary>The brush cell — a 4-voxel cube on the 1 m brush lattice — the default since 2026-09-14.</summary>
     Cube,
 
     /// <summary>The whole 8 m chunk the ray hit — <c>--entanglechunk</c>, the default from 2026-09-03 to 2026-09-14.</summary>

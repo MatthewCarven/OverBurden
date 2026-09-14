@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using Overburden.Core.Building;
 using Overburden.Core.Content;
 using Overburden.Core.Inventory;
 using Overburden.Core.Voxels;
@@ -317,43 +318,43 @@ public static class Carve
         return new CarveResult(candidates, removed, tooHard, alreadyAir, unreachable);
     }
 
-    /// <summary>The cube bite's edge in voxels: eight, a 2 m cube, sixty-four to a chunk.</summary>
+    /// <summary>The cube bite's edge in voxels: the brush cell's four, a 1 m cube, 512 to a chunk.</summary>
     /// <remarks>
-    /// A power of two dividing the chunk, for the reason the cave lattice step is one: the cube
-    /// lattice then nests inside the chunk lattice, so a cube never straddles a chunk face and
-    /// sixty-four cube bites are one chunk bite exactly. <see cref="CubeOrigin"/> relies on it.
+    /// <b><see cref="BrushCell.Voxels"/> and not a number of its own</b>, because the ask was the
+    /// right click's grid — <i>"match the 4x4x4 grid on the right click function"</i> — and two
+    /// constants that agree the day they are written are the <c>IsCaveAt</c>/<c>GenerateTerrain</c>
+    /// argument: the bite and the cube brush are one lattice, so a hole dug is a cell the brush
+    /// fills back exactly. The cell divides the chunk, so a cube never straddles a chunk face and
+    /// 512 cube bites are one chunk bite exactly. (First built at eight on a misreading of "8x8",
+    /// corrected the same night.)
     /// </remarks>
-    public const int CubeVoxels = 8;
+    public const int CubeVoxels = BrushCell.Voxels;
 
-    /// <summary>The cube of the cube lattice that holds <paramref name="voxel"/>, by its origin.</summary>
+    /// <summary>The cube of the brush lattice that holds <paramref name="voxel"/>, by its origin.</summary>
     /// <remarks>
     /// Snapped to a lattice rather than centred on the hit voxel, and that is the whole of what
     /// makes the shape a miner's: consecutive bites tile into flat-walled rooms instead of
-    /// overlapping into ragged one-voxel steps, which is what the 1 m brush lattice buys placement
-    /// and what the chunk lattice buys the chunk bite. A mask floors negative coordinates too,
-    /// which a division would not — the seam through the origin that
-    /// <see cref="VoxelPos.Chunk"/> shifts to avoid.
+    /// overlapping into ragged one-voxel steps, which is what the brush lattice buys placement
+    /// and what the chunk lattice buys the chunk bite. The brush's own snap — a shift, never a
+    /// division, so voxel −1 is in the cell at −4 and no seam runs through the origin.
     /// </remarks>
-    public static VoxelPos CubeOrigin(VoxelPos voxel) => new(
-        voxel.X & ~(CubeVoxels - 1),
-        voxel.Y & ~(CubeVoxels - 1),
-        voxel.Z & ~(CubeVoxels - 1));
+    public static VoxelPos CubeOrigin(VoxelPos voxel) => BrushCell.FromVoxel(voxel).OriginVoxel;
 
     /// <summary>
-    /// Takes the 2 m cube of the cube lattice that holds the hit voxel — the entangled miner's
+    /// Takes the 1 m cube of the brush lattice that holds the hit voxel — the entangled miner's
     /// bite since 2026-09-14, between the tier's sphere and the whole chunk.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Matthew's ask, verbatim: <i>"just take an 8x8 cube like right click"</i></b> — the
-    /// chunk bite was the right scale for flooding a test mine and the wrong one for shaping
-    /// anything, 512 m³ gone a press with the seam drawn nowhere. Eight voxels is the cube brush's
-    /// idea at bite scale: a lattice you can see the edges of, small enough to steer, big enough
-    /// that a room is a few presses rather than a few hundred.
+    /// <b>Matthew's ask: the cube brush's own cell, dug</b> — the chunk bite was the right scale
+    /// for flooding a test mine and the wrong one for shaping anything, 512 m³ gone a press with
+    /// the seam drawn nowhere. The brush cell is the lattice a builder already works on, and a
+    /// bite on the same lattice means what the right click puts down the left click takes up,
+    /// cell for cell.
     /// </para>
     /// <para>
-    /// Same <see cref="Take"/>, same gate, same buckets as the other three shapes. 512 candidates
-    /// exactly, whatever the aim — bounded like the chunk's and for the same reason.
+    /// Same <see cref="Take"/>, same gate, same buckets as the other three shapes. Sixty-four
+    /// candidates exactly, whatever the aim — bounded like the chunk's and for the same reason.
     /// </para>
     /// </remarks>
     public static CarveResult Cube(
