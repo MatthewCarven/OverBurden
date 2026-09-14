@@ -32,6 +32,10 @@ of 2026-09-03 (every recorded bite figure is that arm, so a profile reproducing 
 flag), `--entanglesphere` the sphere. The rate is **0.05 s, an estimate** between the sphere's
 0.025 and the chunk's 0.25, `--cubecooldown=` the sweep: a cell is four `hand_pick` spheres, so
 the sphere's forty nearly transfers and the chunk's four would take two minutes to clear a chunk.
+**Then his number: *"10/second eventually this will cost a lot of power"* — 0.1 s ships**, and
+the reason is the one that matters: the entangled miner's gate is M10's battery, so its rate is a
+design input to what a charge buys, not a ceiling the frame carries. Every rate before it was a
+cost argument; this is the first chosen for the game.
 
 Headless on the `--entangle --mine` profile arm, r4h/2v, 6 m/s: **17.8/s delivered against 20
 nominal, 47 voxels a swing, swing 0.42 ms mean / 4.3 ms max, 1.7 remeshes a swing** (the

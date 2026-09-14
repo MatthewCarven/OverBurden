@@ -5356,7 +5356,10 @@ the same breath and unprompted, the constraint: *"but do not implement weight pl
       `--entangle --mine` arm: 17.8/s delivered against 20, 47 voxels a swing, swing 0.42 ms mean
       / 4.3 max, 1.7 remeshes a swing. 22 tests; three recipes at this size, three caught. The
       first cut was eight voxels at 10/s (9.4/s, 379 voxels, 1.3 ms) on a misreading of "8x8".
-      - [ ] Rate: 20/s is a guess. Judge by holding the click along a wall; `--cubecooldown=`.
+      - [x] Rate: 10/s, Matthew's — *"10/second eventually this will cost a lot of power"*. The
+            rate is an input to M10's battery gate (the entangled miner's power cost is the gate
+            that makes you earn it), so it is chosen for what a charge will buy, not for the frame.
+            `--cubecooldown=` still sweeps it.
 - [x] **The rate is measured, and the measurement says the rate is not what needs choosing.**
       Same-session A/B at r4h/2v, 6 m/s, 30 s, Debug, against `--entanglesphere`: **one bite costs
       `swing ms` mean 16.9 / max 35.6 on the sim thread against the sphere's 0.054 / 2.48** — one

@@ -318,7 +318,7 @@ table below), `--skybrightness=<0..2>` (scales the sky channel alone; 0 leaves o
 light without a keypress) and `--entangle` (the entangled miner, which with `--mine` aims along
 the flight path rather than straight down — see below). **The entangled bite is the brush cell
 since 2026-09-14 — a 1 m cube on the 1 m brush lattice** (`Carve.Cube`, `CubeVoxels =
-BrushCell.Voxels`, 64 voxels, 20/s an estimate), **and the entangled fill is the brush at range
+BrushCell.Voxels`, 64 voxels, 10/s on Matthew's word), **and the entangled fill is the brush at range
 on the same lattice at the same rate**; **`--entanglechunk` restores the whole-chunk bite and
 fill of 2026-09-03 to 2026-09-14**, the arm every recorded bite figure was taken in, and
 **`--entanglesphere` the pre-2026-09-03 bite**, the tier's sphere, the arm the chunk was priced
@@ -2843,8 +2843,9 @@ same argument that kept it out of the tool JSON.
 **The entangled miner is a debug bind, built 2026-08-31 to dig M5d-2's test volume.** **Q**
 toggles it: point at anything, hold left click, and it eats what it is pointed at however far
 away. **As of 2026-09-14 a bare click takes one brush cell — 4 × 4 × 4 voxels on the 1 m brush
-lattice, `CubeVoxels = BrushCell.Voxels` so the two verbs cannot drift — at 20 a second (an
-estimate, `--cubecooldown=`), and a bare *right* click places the selected brush at the same
+lattice, `CubeVoxels = BrushCell.Voxels` so the two verbs cannot drift — at 10 a second (his
+number, *"10/second eventually this will cost a lot of power"* — the rate is a design input to
+M10's battery gate, not a frame ceiling; `--cubecooldown=`), and a bare *right* click places the selected brush at the same
 reach and rate on the same lattice** — Matthew's *"make it all the same 4x4x4"* (first built at
 eight voxels on a misreading of "8x8", corrected the same night). From 2026-09-03 until then a
 click took **the whole 8 m chunk** — 32,768 voxels, 512 m³ — at **4 a second** and the right click

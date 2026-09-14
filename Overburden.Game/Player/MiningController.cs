@@ -297,18 +297,21 @@ public sealed class MiningController(
     /// </remarks>
     public float EntangledChunkCooldownSeconds { get; set; } = DefaultEntangledChunkCooldownSeconds;
 
-    /// <summary>Twenty cube bites a second — an estimate, between the sphere's forty and the chunk's four.</summary>
+    /// <summary>Ten cube bites a second — Matthew's number, between the sphere's forty and the chunk's four.</summary>
     /// <remarks>
     /// <para>
     /// A cube is sixty-four voxels, four <c>hand_pick</c> spheres and a 512th of a chunk, so the
     /// sphere's rate nearly transfers and the chunk's does not: at forty a second the cube would
     /// be 2,560 voxels a second through the edit hook, at four it would take two minutes to clear
-    /// one chunk's volume. <b>Not measured; picked so a room is quick and a held click is
-    /// steerable</b>, and <c>--cubecooldown=</c> is the sweep, a play bind like the chunk's.
-    /// (0.1 s while the cube was eight voxels, for one evening.)
+    /// one chunk's volume. Twenty was the estimate (17.8/s delivered, 0.42 ms a swing headless);
+    /// <b>ten is his — <i>"10/second"</i>, 2026-09-14 — and the reason is not cost, it is that
+    /// this rate is what a battery will one day pay for</b>: the entangled miner's gate is M10's
+    /// power model (TODO, "the gate that makes you earn it is a battery"), so the shipped rate is
+    /// a design number for that gate rather than a ceiling the frame can carry. <c>--cubecooldown=</c>
+    /// is the sweep, a play bind like the chunk's.
     /// </para>
     /// </remarks>
-    public const float DefaultEntangledCubeCooldownSeconds = 0.05f;
+    public const float DefaultEntangledCubeCooldownSeconds = 0.1f;
 
     /// <summary>The live value, so <c>--cubecooldown=</c> can sweep it without a rebuild.</summary>
     public float EntangledCubeCooldownSeconds { get; set; } = DefaultEntangledCubeCooldownSeconds;
