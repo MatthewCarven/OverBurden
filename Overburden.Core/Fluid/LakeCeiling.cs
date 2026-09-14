@@ -162,6 +162,26 @@ public sealed class LakeCeiling
     }
 
     /// <summary>
+    /// Builds or refreshes the band of every chunk column a box of voxels stands in, before water
+    /// is put down there. A band exists only for reachable columns — the ones with water near —
+    /// so a pour onto a lake with no Tier B nearby would otherwise be accepted into the lake's
+    /// volume and sink to the bed for a boundary before being handed (the review's finding,
+    /// 2026-09-14); covered first, it lands on the lake's top.
+    /// </summary>
+    public void Cover(VoxelPos min, VoxelPos max, Action<VoxelPos>? submerged)
+    {
+        int cx0 = min.X >> VoxelConstants.ChunkSizeLog2, cx1 = max.X >> VoxelConstants.ChunkSizeLog2;
+        int cz0 = min.Z >> VoxelConstants.ChunkSizeLog2, cz1 = max.Z >> VoxelConstants.ChunkSizeLog2;
+        for (int cz = cz0; cz <= cz1; cz++)
+        {
+            for (int cx = cx0; cx <= cx1; cx++)
+            {
+                Refresh((cx, cz), submerged);
+            }
+        }
+    }
+
+    /// <summary>
     /// Wakes every cell of this chunk's band, as a refresh does for a band that grew from nothing.
     /// For a chunk whose stored water landed after its column was covered: the arrival is the
     /// pipeline's, and a panel arrives after the chunk it belongs to.

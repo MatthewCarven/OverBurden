@@ -2491,6 +2491,12 @@ cost is invisible against the game's visit and is offset by the cells it puts to
 bench's figure is recorded as the bench's; a Release per-visit number in the game is
 `--terrain`'s shape of measurement and is not taken.
 
+**Reviewed and amended the same evening.** A read-only review found the pour's ball landing
+inside a lake whose column had no band yet (bands exist only for reachable columns);
+`LakeCeiling.Cover` builds them under the ball before the pour, with the uncovered control as a
+test. `WakeBand` runs only for a chunk with a panel, and a submerged cell counts as handed only
+when it was. Suite 1,368.
+
 **Not photographed.** Decision 7's plane over a bite is a windowed look and is play's:
 `--lakeoverdug=1` beside the default, on a copy of a world with a `Q` bite at a lake's edge.
 

@@ -473,6 +473,32 @@ public class LakeCeilingTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void CoverBuildsTheBandUnderAPourBeforeItLandsWhereNoWaterWasNear()
+    {
+        // The review's finding: a band exists only for reachable columns, so a pour onto a lake
+        // with no Tier B nearby was accepted into the lake's volume. Covered first, the lake
+        // cell refuses and the pour lands on the top.
+        var twin = new Twin();
+        twin.Reachable.Clear();
+        twin.Refresh();
+        twin.Water.Inject(twin.Basin, (4 * LitresPerVoxelOfDepth) + 2_000);
+        var inLake = new VoxelPos(60, Floor + 3, 60);
+        Assert.Equal(0, twin.Ceiling!.ChunkColumns);
+
+        // The control: uncovered, the lake cell takes the water.
+        var control = new Twin();
+        control.Reachable.Clear();
+        control.Refresh();
+        control.Water.Inject(control.Basin, (4 * LitresPerVoxelOfDepth) + 2_000);
+        Assert.Equal(0L, control.Fluid.Add(inLake, Cap));
+
+        twin.Ceiling.Cover(inLake.Offset(-4, -4, -4), inLake.Offset(4, 4, 4), twin.Fluid.WakeCell);
+        Assert.True(twin.Ceiling.ChunkColumns > 0);
+        Assert.Equal(Cap, twin.Fluid.Add(inLake, Cap));
+        Assert.Equal(0L, twin.Fluid.Add(new VoxelPos(60, twin.Top + 1, 60), Cap));
+    }
+
+    [Fact]
     public void TheRefreshRebuildsOnlyWhereASampleTopMovedAndDropsColumnsThatLeft()
     {
         var twin = new Twin();

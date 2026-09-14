@@ -167,10 +167,10 @@ public sealed class SurfaceHandoff
                 continue;
             }
 
-            SubmergedLastPass++;
             long taken = Hand(cell, amount);
             if (taken > 0)
             {
+                SubmergedLastPass++;
                 SubmergedHanded++;
             }
 

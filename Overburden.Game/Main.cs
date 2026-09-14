@@ -1002,7 +1002,7 @@ public partial class Main : Node3D
                 // M8d-5: a panel lands after its column was covered, so the refresh's wake never
                 // saw its cells; the band's own sweep does, and a cell asleep inside a lake is
                 // visited, listed and handed at the next boundary.
-                if (_lakeCeiling is not null && _fluid is not null)
+                if (_lakeCeiling is not null && _fluid is not null && _fluid.Grid.HasPanel(position))
                 {
                     _lakeCeiling.WakeBand(position, _fluid.WakeCell);
                 }
@@ -4643,6 +4643,10 @@ public partial class Main : Node3D
 
         int r = _relayRadiusVoxels;
         int r2 = r * r;
+
+        // M8d-5: the lake under the ball, before the ball. A band exists only for columns with
+        // water near, and a pour is how water arrives where none was.
+        _lakeCeiling?.Cover(_relayAt.Offset(-r, -r, -r), _relayAt.Offset(r, r, r), _fluid.WakeCell);
 
         // A fixed order, so the same pour lands the same way twice.
         for (int dy = r; dy >= -r; dy--)

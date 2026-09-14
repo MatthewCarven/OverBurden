@@ -29,6 +29,16 @@ against 18.6 ms without** — different physics (1,477 cells awake against 2,338
 the finding. The lever — the band read inside `FluidFieldView.CanHold`, one dispatch — is in
 TODO, unbuilt, with a Release game measurement as its trigger.
 
+**A read-only review (Fable, on the two commits) found two real things and one cosmetic, all
+fixed the same evening.** A band exists only for the automaton's reachable columns — the ones
+with water near — so `R` onto a lake with no Tier B nearby was accepted *into* the lake's volume
+and sank to the bed for a boundary before the wake and the hand-off took it: litres exact, the
+transient wrong. `LakeCeiling.Cover(min, max)` builds the bands under the pour's ball before
+`PourPending` puts anything down (a test with the uncovered control beside it). `WakeBand` on
+every arrival swept a 4 m band's 16k cells for dry chunks too, and mid-tick each was a deferred
+full `Disturb`; it runs only for a chunk with a panel now. And `SubmergedLastPass` counted before
+the hand succeeded. Suite 1,368; the pour oracle unchanged at 199,999 L.
+
 What is play's: the channel between two lakes, one sheet; `R` onto a lake vanishing into its
 level; and decision 7's plane over a bite, `--lakeoverdug=1` the arm with it drawn.
 
