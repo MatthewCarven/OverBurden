@@ -117,7 +117,8 @@ Duration targets are for feel and are unplayed.
   body within reach held `E` on it; `Main` accumulates milliseconds held per frame and the boundary
   credits `75 W × millis` millijoules, exactly (75 W is sustained human output — physiology,
   estimate). Nothing stores it; walk away and it stops.
-- **Fluid**: `wooden_pipe` (class `pipe`, 8 cells) to a `pipe_outlet`. `wooden_pump`: head 4 m
+- **Fluid**: `wooden_pipe` (class `pipe`, no run bound — the head is the bound, decision 3) to a
+  `pipe_outlet`. `wooden_pump`: head 4 m
   (a bucket-and-rope lift), efficiency 0.5, cap 1 L/s. The litre costs `ceil(9.8 × Δh ÷ η)` J
   (physics, integer): 79 J at 4 m, so 75 W buys **0.95 L/s** — less than a 10 × 10 × 3 m stone
   room's 1.76 L/s seep under 5 m (M8c bench), **so you wade**, which is the tier he asked for.
@@ -145,7 +146,7 @@ Duration targets are for feel and are unplayed.
   the class's only storage (100 kJ). A voxel of coal is 300 s at full load; a brush cell of it is
   5.3 h, hauled by hand.
 - **Transmission**: `iron_shaft`, class `shaft`, 16 cells, 20 kW — *"mechanical output"* is short.
-  `iron_pipe`, 64 cells.
+  `iron_pipe`, no run bound.
 - **Pump**: `iron_pump`, head 20 m (three stages for the played mine with one spare), η 0.5, cap
   30 L/s — just over a one-voxel breach's 29 L/s (M8a) and a hair under dirt's 30.8, on purpose.
   At 20 m the litre is 392 J, so 10 kW delivers 25 L/s.
@@ -171,7 +172,7 @@ Duration targets are for feel and are unplayed.
 - **Transmission**: `copper_wire`, class `dc`, **24 cells** — derived: 48 V, 16 mm² copper at
   1.05 mΩ/m, 100 A, 10% drop → 46 m of conductor, 23 m out and back (each of those is a choice;
   `--dcrun=` sweeps it; 32, half the played mine, is the alternative) — and 10 kW. `steel_pipe`,
-  256 cells.
+  no run bound.
 - **Pump**: `electric_pump`, head 30 m, η 0.6, cap 60 L/s. At 30 m the litre is 490 J, so 60 L/s
   wants 29 kW and a 10 kW circuit delivers 20: **head is a bill, not a wall** — the deep face is
   the expensive face.
@@ -303,8 +304,19 @@ cut to find them.
 ### 3. Run bounds are a count of occupied 1 m brush cells — *recommended; the numbers are Matthew's*
 
 A component's run is the popcount of the union of its segments' cell sets; over the strictest
-material's bound it is `overlength` and delivers nothing. Shaft 16, dc 24, wooden pipe 8, iron
-pipe 64, ac and stainless pipe null; `--dcrun=` and `--shaftrun=` sweep them.
+material's bound it is `overlength` and delivers nothing. Shaft 16, dc 24, ac null; `--dcrun=` and
+`--shaftrun=` sweep them.
+
+**Pipes have no run bound at any tier — the pump's head is the fluid tier's bound.** Matthew, on
+reading the first draft (which had wooden pipe 8, iron 64, steel 256): *"I may want to change the
+fluid hose output lengths to be a fair bit more forgiving distance wise, so you can pump from low
+to high easily enough like you might need more to go deeper."* So a hose runs as far as you can
+lay it, a long horizontal run costs the wood or iron it is made of and nothing else, and going
+*deeper* is what needs more: another pump and another outlet every head's worth of lift — 4, 7,
+20, 30, 100 m by tier, none for the relay. A second bound on the same tier would have been a
+second thing to explain, and the wire's cap exists for reasons (the dark half, the cost model) a
+hose does not share. `maxRunCells` stays a field on the conductor block, so a mod that wants a
+short hose can have one.
 
 - **Rejected: a voxel count.** A brush cell is 64 voxels, so the default right-click brush would
   give a 2 m dc run and Alt+right 32 m for the same copper — three of the four designs had this.
@@ -695,7 +707,7 @@ each under more head, and every litre lifted costs its height.
 | Litre cost | `ceil(9.8 × Δh ÷ η)` J | physics, integer |
 | Pumps: head / η / cap — wood, brass, iron, electric, steel, relay | 4/0.5/1; 7/0.6/3; 20/0.5/30; 30/0.6/60; 100/0.7/300; none/–/100 | estimates; 7 m physical; 30 L/s sits between 29 and 30.8 on purpose |
 | Boiler / turbine / reactor | 10 kW, 3 MJ a coal voxel, 0.5 L/s; 200 kW, 5 L/s; 2 MW | estimates (real boiler feed ~0.13 L/s, ×4) |
-| Run bounds: shaft / dc / pipes / ac | 16 / 24 / 8, 64, 256, null / null cells | dc derived from voltage drop (its inputs are choices); rest estimates |
+| Run bounds: shaft / dc / ac; pipes | 16 / 24 / null cells; none (head is the bound) | dc derived from voltage drop (its inputs are choices); shaft an estimate; pipes Matthew's |
 | Circuit caps: shaft / dc / ac | 20 / 10 / 200 kW | estimates |
 | Solar | 500 W a cell × openness/16 × (256 − byte)/256 | estimate (real ~200 W/m² peak, ×2.5 for no night) |
 | Storage: placed / carried, by tier | 100 MJ, 300 MJ, 5 GJ / 3.6, 10, 500 MJ | estimates (lead-acid real ~250 MJ/m³); Matthew's |

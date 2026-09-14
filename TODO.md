@@ -5328,6 +5328,8 @@ trees found and planted with seeds from fire and growth on a worker after the ti
 outputs cycling on a per-channel cursor, every input firing every tick; the channel set by
 right-clicking with a computer; machines below quantum with faces. His hose-as-FIFO is returned
 as decision 2 with the cheaper arm recommended (a presentation fill and a live leak at a cut).
+**And, on reading it: pipes have no run bound at any tier — the head is the fluid tier's bound**
+(*"a fair bit more forgiving distance wise … you might need more to go deeper"*), decision 3 amended.
 
 - [ ] **The twenty-three decisions** — Matthew's: 1 (membership narrows M10-PLAN's decision 8),
       2 (the hose), 3's numbers, 6 (the mL move's timing), 8 (parts on the hotbar), 9 (pool = Σ
