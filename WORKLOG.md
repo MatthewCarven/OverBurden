@@ -1,5 +1,17 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-14 — M8d-5 played: *"this version seems working now?"*
+
+Matthew bisected it by play before believing it — f3d18d1 (pre-M9) and 1f48db4 (M9b) both grew
+the second sheet, and the f3d18d1 log said why in numbers: 47,606 L of Tier B on the bed under
+`173,917 cell-ticks left under a lake`, the bank rule refusing at every tick. So the sheet was
+M8d-3's, never M9c's. Back on `main` with decision 7 reversed, the same play — two pours channelled
+into a bitten pit — reads **240,000 L injected, 241,204 L handed (the whole pour), 53 cells found
+inside a lake, 73,604 L drawn into the pit against 3,263 L on f3d18d1**, 17 cells under a lake on
+the surface term, identities exact, the refresh's worst boundary 1.6 ms. The pit fills from the
+lakes at twenty times the old rate because the water is in Tier A, where the portals can draw it.
+Recorded as played on his word; M9d is next.
+
 ## 2026-09-14 — M8d-5 played once: a chunk out of a lake's centre reverses decision 7
 
 Matthew's first play on the new build: `Q` on a chunk in the middle of a lake — *"this happen

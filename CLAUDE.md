@@ -640,12 +640,11 @@ verbatim — the flags go after the bare `--`:
 ```
 
 **Pick up here (2026-09-14, night). M8d-5 is built, both halves — a lake is a body Tier B cannot
-enter — played once (a chunk bitten out of a lake's centre reversed decision 7 the same evening:
-a bite in a lake's bed fills only to the seed, the water above is the lake's, so the plane draws
-over the bite and Tier B draws no top under a lake cell), and the play check is the first thing
-to do (TODO under M8d-5: the channel between two lakes reads as one sheet, `R` onto a lake
-vanishes into its level, a `Q` bite in a bed reads as the lake with its walls seen through the
-water), then M9d.** Read M8-PLAN's "M8d-5 — the planning pass", "M8d-5a — built" and "M8d-5b —
+enter — and played: *"this version seems working now?"*, recorded on his word. A chunk bitten
+out of a lake's centre reversed decision 7 first (a bite in a lake's bed fills only to the seed,
+the water above is the lake's, so the plane draws over the bite and Tier B draws no top under a
+lake cell), and a bisect by play put the original second sheet on M8d-3's bank rule, not M9c.
+M9d is next and wants its planning pass.** Read M8-PLAN's "M8d-5 — the planning pass", "M8d-5a — built" and "M8d-5b —
 built" (its last paragraph is decision 7's reversal). Two things from 5b not to rediscover:
 **the wrapper costs `--spill` 2.2× a tick and the game nothing measurable** (a second interface
 dispatch over a 5 ns bitset; the game's visit is 2.9 µs Debug and read 16.4 ms with the ceiling

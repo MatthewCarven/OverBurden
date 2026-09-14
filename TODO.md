@@ -4716,7 +4716,14 @@ finding without the coarser-tolerance fallback.
                   9. Docs: M8-PLAN "M8d-5b — built", WORKLOG, CLAUDE.md's pick-up and its flag
                      paragraph, DESIGN's M8 row if it states the bank rule.
                   10. Play: Matthew's channel between two lakes on a fresh world — one sheet.
-            - [ ] **Play (M8d-5)**: the channel between two lakes on a fresh world — one sheet, the
+            - [x] **Play (M8d-5) — done 2026-09-14, evening: *"this version seems working now?"*, then
+                  *"record it as played"*.** Two pours channelled into a bitten pit on a fresh
+                  `default`: 240,000 L injected, 241,204 L handed, 53 cells found inside a lake,
+                  73,604 L drawn into the pit against 3,263 on the same play at f3d18d1 (where 47.6 kL
+                  sat on the bed under `173,917 cell-ticks left under a lake` — the bisect that put the
+                  second sheet on M8d-3's bank rule, not M9c); `17 under a lake` on the surface term.
+                  The recipe as it stood:
+            - [x] The channel between two lakes on a fresh world — one sheet, the
                   lower lake's plane, nothing stepped beneath it; `R` onto a lake spreads on its
                   surface and vanishes at the next boundary; a `Q` bite in a lake's bed fills
                   from the portals to the seed, the plane draws over it and Tier B draws no top
