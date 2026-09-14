@@ -205,6 +205,28 @@ public sealed class PlaceController(
     /// <summary>Placements that could not reach part of their own brush.</summary>
     public int ClippedPlacements { get; private set; }
 
+    /// <summary>
+    /// Whether a chunk fill waits for the fluid boundary instead of landing at the click (M9d,
+    /// Matthew's word after the first play: <i>"defer the chunk fill to the boundary"</i>).
+    /// </summary>
+    /// <remarks>
+    /// The fill's wet answer is a copy the last publish took, stale by up to a tick; a brush can
+    /// lose 64 cells' worth at most to that and a chunk fill 32,768 — the first play's fifth fill
+    /// into a chunk mid-flood refused 3,516 wet voxels and still displaced 18,955 L. So the chunk
+    /// arm alone waits for the boundary, where the grid is free and a fresh publish makes the copy
+    /// exact; the brush and the precision voxel stay instant. Off with no water, where there is no
+    /// boundary and nothing to lose.
+    /// </remarks>
+    public bool DeferChunkFills { get; set; }
+
+    private readonly List<(ChunkPos Chunk, int MaterialId)> _pendingChunkFills = [];
+
+    /// <summary>Chunk fills clicked since the last boundary, waiting for it.</summary>
+    public int PendingChunkFills => _pendingChunkFills.Count;
+
+    /// <summary>Chunk fills queued to the boundary, over the session.</summary>
+    public int ChunkFillsDeferred { get; private set; }
+
     /// <summary>True on the frame a placement ran out of material, for a one-off message.</summary>
     public bool RanOutThisFrame { get; private set; }
 
@@ -261,6 +283,18 @@ public sealed class PlaceController(
             return false;
         }
 
+        if (!precise && TakesWholeChunk && DeferChunkFills)
+        {
+            // Queued, not placed: the boundary runs every one through RunPendingChunkFills, in
+            // click order, with the same tallies. A list rather than a slot, because the click
+            // rate is 4 a second against a 2 Hz boundary and a click that vanished would be the
+            // one-click-one-click rule broken from the other side.
+            _pendingChunkFills.Add((TargetChunk, MaterialId));
+            _cooldown = CooldownForShape(precise);
+            ChunkFillsDeferred++;
+            return true;
+        }
+
         PlaceResult result = precise
             ? Place.Voxel(pipeline, materials, TargetVoxel, MaterialId, body, inventory)
             : TakesWholeChunk
@@ -286,6 +320,42 @@ public sealed class PlaceController(
         {
             ChunkPlacements++;
         }
+        Record(result);
+        return true;
+    }
+
+    /// <summary>
+    /// Runs every chunk fill clicked since the last boundary, in click order. The caller
+    /// publishes the wet copy first, so the refusal reads the grid as it stands and not as it
+    /// stood a tick ago.
+    /// </summary>
+    /// <returns>The results summed, or null with nothing queued.</returns>
+    public PlaceResult? RunPendingChunkFills(Aabb? body)
+    {
+        if (_pendingChunkFills.Count == 0)
+        {
+            return null;
+        }
+
+        var sum = default(PlaceResult);
+        foreach ((ChunkPos chunk, int material) in _pendingChunkFills)
+        {
+            PlaceResult result = Place.Chunk(pipeline, materials, chunk, material, body, inventory);
+            Placements++;
+            ChunkPlacements++;
+            Record(result);
+            sum = new PlaceResult(
+                sum.Candidates + result.Candidates, sum.Placed + result.Placed, sum.Occupied + result.Occupied,
+                sum.InsidePlayer + result.InsidePlayer, sum.Unreachable + result.Unreachable,
+                sum.OutOfStock + result.OutOfStock, sum.Wet + result.Wet);
+        }
+
+        _pendingChunkFills.Clear();
+        return sum;
+    }
+
+    private void Record(PlaceResult result)
+    {
         VoxelsPlaced += result.Placed;
         VoxelsOccupied += result.Occupied;
         VoxelsInsidePlayer += result.InsidePlayer;
@@ -297,8 +367,6 @@ public sealed class PlaceController(
         {
             ClippedPlacements++;
         }
-
-        return true;
     }
 
     /// <summary>How far this placement may reach — the player's arm, or the whole loaded world.</summary>

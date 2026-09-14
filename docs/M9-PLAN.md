@@ -1426,3 +1426,18 @@ which the half-voxel fixture separates but a `>` would not.
 tint says where, the soil patch, and whether the wet roof going and the dry one holding read as the
 lake's doing — decision 8's four recipes, in TODO. And decision 3's edge: a pier in a lake is
 allowed, and the first play that reads it as wrong reverses it in one line.
+
+**The first play, and the chunk fill's deferral (2026-09-15, same evening).** Matthew's verdict on
+the collapse: *"Loving the collapse functions"*. The log: 0 errors, 14 falls from a voxel to a
+2,140-voxel roof, every `lifted == returned`, `table 1,297` requeues over 1,073 sweeps (217,582
+compared, 1,320 rebuilt, 23 flat), one timer shortened, `at risk 0` at the end. **And the
+staleness got its number**: the fifth chunk fill went into a chunk mid-flood, refused 3,516 wet
+voxels and still displaced 18,955 L — the tick in flight was pouring into ~1,200 cells the copy
+had not seen. His word: *"defer the chunk fill to the boundary"*. Built: `PlaceController.
+DeferChunkFills` (on wherever there is water), a click on the chunk arm queues `(chunk, material)`
+— a list, not a slot, because 4 clicks a second against a 2 Hz boundary would otherwise drop
+every other one — and `RunPendingChunkFills` at the boundary after the pour, behind a fresh
+`Publish` so the copy is the grid as the boundary's own passes left it. The brush and the
+precision voxel stay instant, with 64 cells the most a tick's staleness can cost. `M6c:` prints
+`N chunk fill(s) at the boundary`; a fill that met water prints one `M9d:` line. Headless: 57
+clicks, 57 fills; the r6 control unchanged.

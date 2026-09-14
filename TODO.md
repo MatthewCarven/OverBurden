@@ -5114,6 +5114,11 @@ the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
             `table` climbing on the `M9:` line and the tint arriving on the roof untouched; and `R`
             into a room, a brush into the pool — `wet 64` on the `M6c:` line, the water untouched,
             `displaced 0` on the next `M8b:` line.
+      - [x] **The chunk fill is deferred to the boundary — Matthew, after the first play, on the
+            log's number (the fifth chunk fill into a chunk mid-flood: 3,516 wet refused, 18,955 L
+            still displaced): *"defer the chunk fill to the boundary"*.** `DeferChunkFills` on the
+            controller, a queue of clicks run after the pour behind a fresh `Publish`; the brush
+            stays instant. `--nowater` fills at the click. Built 2026-09-15.
       - [ ] **Decision 3's edge is Matthew's after the play (*"not sure about 3 yet"*):** a fill
             under a Tier A plane is allowed — a lake is a body with no cells and its volume is a
             number terrain cannot reduce, so a pier deletes nothing. If a rock placed in a lake

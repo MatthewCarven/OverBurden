@@ -664,7 +664,12 @@ verbatim — the flags go after the bare `--`:
 ```
 
 **Pick up here (2026-09-15, evening). M9d is built — the table-move trigger, a timer that only
-shortens, the exponential jitter, the fill's refusal — and the play is Matthew's: the four questions
+shortens, the exponential jitter, the fill's refusal — and played once: *"Loving the collapse
+functions"*, 14 falls with every identity exact, `table 1,297` requeues. The one finding was the
+wet copy's staleness with a number (a chunk fill into a chunk mid-flood displaced 18,955 L past
+3,516 refusals), and on his word **the chunk fill is deferred to the boundary** — a queue of clicks
+run after the pour behind a fresh `Publish`, the brush still instant, `N chunk fill(s) at the
+boundary` on the `M6c:` line. The four questions are still his: the four questions
 as recipes are in TODO under M9d, one sentence wanted back on each, and decision 3's edge (a pier in a
 lake is allowed; *"not sure about 3 yet"*) waits on it. Read M9-PLAN's "M9d — built" first. Three
 things not to rediscover: **the trigger is a comparison against what the derive read** — sixteen

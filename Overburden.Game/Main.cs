@@ -3025,6 +3025,9 @@ public partial class Main : Node3D
             // on the same lattice, at the cube's rate; only the chunk arm fills chunks.
             Entangled = _entangleWhileProfiling,
             EntangledFillsChunk = _entangledBite == EntangledBite.Chunk,
+            // M9d: a chunk fill waits for the fluid boundary where there is one — see the
+            // controller's remarks; the brush stays instant. --nowater has no boundary.
+            DeferChunkFills = !_noWater,
             BrushCooldownSeconds = _entangledBite == EntangledBite.Cube
                 ? _cubeCooldownSeconds
                 : MiningController.EntangledCooldownSeconds,
@@ -4300,6 +4303,7 @@ public partial class Main : Node3D
             long t2 = Stopwatch.GetTimestamp();
             TakePending();
             PourPending();
+            RunPendingChunkFills();
             long t3 = Stopwatch.GetTimestamp();
 
             // M9d, decision 1: the table-move sweep, after every pass that moves a level — the
@@ -4734,6 +4738,35 @@ public partial class Main : Node3D
         double cells = millilitres / (double)FluidConstants.CellCapacityMillilitres;
         double radius = Math.Cbrt(3.0 * cells / (4.0 * Math.PI));
         return Math.Max(1, (int)Math.Ceiling(radius) + 1);
+    }
+
+    /// <summary>
+    /// The chunk fill a right click queued, at the boundary (M9d). Publishes first, so the fill's
+    /// wet answer is the grid as this boundary's own passes left it — the hand-off, the drains and
+    /// the pour have written cells since the collection's publish — and then places through the
+    /// same path a click would, tallied the same way.
+    /// </summary>
+    private void RunPendingChunkFills()
+    {
+        if (_place is not { PendingChunkFills: > 0 } || _fluid is null)
+        {
+            return;
+        }
+
+        _fluid.Publish();
+        Overburden.Core.Physics.Aabb? body =
+            _player is not null && _player.Mode == PlayerMode.Walk && _player.Spawned ? _player.State.Box : null;
+        long before = Stopwatch.GetTimestamp();
+        PlaceResult? result = _place.RunPendingChunkFills(body);
+        if (result is { } filled && _profiler is { Warm: true })
+        {
+            _profiler.Place.Add(Milliseconds(before, Stopwatch.GetTimestamp()));
+        }
+
+        if (result is { Wet: > 0 } wet)
+        {
+            GD.Print($"M9d: chunk fill at the boundary — {wet.Placed:N0} placed, {wet.Wet:N0} wet left alone, {wet.Occupied:N0} occupied");
+        }
     }
 
     /// <summary>Alt+R's take, at the boundary it was queued for.</summary>
@@ -5684,7 +5717,7 @@ public partial class Main : Node3D
 
         return $"{held} | {_place.Placements} placement(s), {_place.VoxelsPlaced} voxel(s) placed, "
                + $"{_place.VoxelsOccupied} occupied, {_place.VoxelsInsidePlayer} inside the player, "
-               + $"{_place.VoxelsOutOfStock} unaffordable, {_place.VoxelsWet} wet";
+               + $"{_place.VoxelsOutOfStock} unaffordable, {_place.VoxelsWet} wet, {_place.ChunkFillsDeferred} chunk fill(s) at the boundary";
     }
 
     /// <summary>

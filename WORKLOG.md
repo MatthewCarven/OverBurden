@@ -1,5 +1,29 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-15 — the first M9d play, and the chunk fill goes to the boundary
+
+*"Loving the collapse functions like :-{D"* — answered from the log first: 0 errors, 14 falls
+from one voxel to a 2,140-voxel roof (three chunks' roofs inside a second, then a one-voxel
+`cascade` stage), every `lifted == returned` exact, `at risk 0` at the end; the trigger fired
+1,297 times over 1,073 sweeps as the lakes moved over the mine (217,582 compared, 1,320 rebuilt,
+23 flat), one timer shortened.
+
+**The staleness the pass accepted got its number in the first hour.** The fifth chunk fill went
+into a chunk mid-flood: 4,592 wet voxels refused across the session, 3,516 of them on that fill,
+and `displaced` jumped 0 → 18,955 L on the same report — ~1,200 cells the tick in flight was still
+pouring into that the copy had not seen. Decision 4 said "bounded to one tick's arrivals"; on a
+flooding chunk at 2 Hz that bound is a quarter of the refusals. The brush cannot lose more than
+64 cells' worth; the chunk fill can lose a chunk's. Matthew: *"defer the chunk fill to the
+boundary"* — the arm the pass had rejected for latency, now taken for the one shape where the
+latency is half a second on a debug tool and the loss is megalitre-shaped.
+
+Built the same evening: the controller queues the chunk arm's clicks and the boundary runs them
+after the pour behind a fresh `Publish`, so the copy is the grid as this boundary's passes left
+it. **A queue, not a slot** — the first version kept one pending fill and the headless run showed
+30 fills for 58 clicks, because the button fires at 4 a second against a 2 Hz boundary and every
+second click replaced the first; a click that vanishes is the one-click-one-click rule broken from
+the other side. 57 clicks, 57 fills after. `--nowater` has no boundary and fills at the click.
+
 ## 2026-09-15 — M9d built: the trigger is a comparison, a timer only shortens, the wet answer is a copy
 
 Matthew took the pass whole — *"As recommended"* — with the jitter widened and decision 3's lake
