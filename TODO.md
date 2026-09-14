@@ -4696,6 +4696,12 @@ finding without the coarser-tolerance fallback.
             a hook's throw, count it on the `M2c:` line beside `faulted` and carry on. The second
             keeps the world drawing under a bug; the first is one line and keeps the throw loud.
             Trigger: the next hook added to an arrival path, or the next idle-looking stall.
+            **Second instance, 2026-09-14 evening:** `OnFluidTickCollected` threw inside
+            `Apply` under the quit's `WaitForDetached` (installing a completed tick's surface
+            into the disposed `FluidSurface`), unwound `_ExitTree` past `_pipeline.Dispose()`,
+            and two sessions lost their last 30 s with no line saying so. Fixed locally — the
+            field nulled, the wait in a `try` — but the frame's pump has the same shape: a
+            detached job's callback throwing inside `Update`'s result pass. Same lever.
       - [ ] **M8d-5 — the lake is a body Tier B cannot enter.** Planned 2026-09-14 from the play
             finding, eight decisions in M8-PLAN's "M8d-5 — the planning pass", all taken as
             recommended (*"Lets build it now"*). Split at the Core / wire seam on *"break into

@@ -5912,6 +5912,11 @@ public partial class Main : Node3D
         _rain?.Dispose();
         _waterSurface?.Dispose();
         _fluidSurface?.Dispose();
+        // Nulled, not only disposed: the cancelled tick collected below still carries a surface
+        // mesh, and OnFluidTickCollected installs it wherever the field is non-null. On
+        // 2026-09-14 that was SurfaceSetMaterial on the disposed material, the throw unwound
+        // _ExitTree past the save, and the session's last 30 s were gone with no line to say so.
+        _fluidSurface = null;
         _underwaterLayer?.QueueFree();
         _skyHeights.Dispose();
 
@@ -5949,12 +5954,23 @@ public partial class Main : Node3D
             long before = Stopwatch.GetTimestamp();
             _fluidJobCancelledForQuit = true;
             _fluidJobCts?.Cancel();
-            bool reported = _pipeline.WaitForDetached();
-            GD.Print(reported
-                ? $"M8b: cancelled the tick in flight before the quit — {remaining:N0} cell(s) were still to visit, "
-                  + $"{_fluid.CellsRequeued:N0} returned to the queue over the session, in "
-                  + $"{Milliseconds(before, Stopwatch.GetTimestamp()):F1} ms"
-                : "M8b: the fluid tick did not report within the timeout; the quit goes on without it");
+            // The collection runs the job's callback on this thread, and a throw there is the
+            // one thing that must not reach the tree: everything below it is the save. Caught
+            // and printed rather than let out, because a quit that loses the world to a render
+            // teardown defect is worse than one that leaves a tick's mesh uninstalled.
+            try
+            {
+                bool reported = _pipeline.WaitForDetached();
+                GD.Print(reported
+                    ? $"M8b: cancelled the tick in flight before the quit — {remaining:N0} cell(s) were still to visit, "
+                      + $"{_fluid.CellsRequeued:N0} returned to the queue over the session, in "
+                      + $"{Milliseconds(before, Stopwatch.GetTimestamp()):F1} ms"
+                    : "M8b: the fluid tick did not report within the timeout; the quit goes on without it");
+            }
+            catch (Exception error) when (error is not OutOfMemoryException)
+            {
+                GD.PushError($"M8b: collecting the tick in flight threw on quit — {error.GetType().Name}: {error.Message}; the quit goes on to the save");
+            }
         }
 
         // A tick in flight on the sim thread is finished before anything is written (slice 3a):

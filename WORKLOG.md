@@ -1,5 +1,38 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-14 — a quit with the tick's surface in hand threw past the save
+
+Matthew's last two sessions of the evening (20:08 and 20:42) ended on `ObjectDisposedException:
+Godot.ShaderMaterial` out of `FluidSurface.Install`, under `Main._ExitTree` → `WaitForDetached` →
+`OnFluidTickCollected`, and `535 RID allocations … leaked at exit`. **Neither log has `M8b: at
+quit`, `M6: world written on quit` or `M6c: saved the player` after it** — the throw unwound
+`_ExitTree` before `_pipeline.Dispose()`, so the quit's save never ran and everything since the
+last autosave (up to 30 s of edits, the water rows, the player's position) was lost, with no line
+saying so. The leaked RIDs are the 533 drawn chunks the skipped dispose would have freed.
+
+The order: `_fluidSurface?.Dispose()` is the third line of `_ExitTree`, and the cancelled tick is
+collected after it. A tick cancelled during its visits throws out of the worker and carries no
+surface; **one cancelled during its settle or its walk — or already complete and waiting to be
+pumped — completes with `job.Surface` set**, and the callback installs it wherever `_fluidSurface`
+is non-null, which it still was, disposed. On the played world the walk over a 125,000-cell
+surface is tens of milliseconds a tick, so play lands in that window often enough for twice in
+thirty-five minutes.
+
+Two lines. **`_fluidSurface = null` after its dispose**, so the callback's own guard skips the
+install; and **the wait is inside a `try`** that prints `M8b: collecting the tick in flight threw
+on quit — …; the quit goes on to the save`, because a render-teardown defect must not be able to
+cost the world. The second is the general shape of the `Complete`-hook lever in TODO: a callback
+that throws inside `Apply` unwinds whoever pumped it, and the quit is the pump that saves.
+
+Verified windowed with `--quit-after 700 -- --nosave --fluidjob=1 --injectlitres=2000000`: the
+quit prints `M8b: cancelled the tick in flight before the quit — 124,039 cell(s) were still to
+visit`, no error, no leak. **The same run on the stashed pre-fix code did not throw either** — a
+2 ML pour's tick is in its visits for most of its wall, so the fixture reached the cancelled state
+and not the surface-carrying one, twice. The mechanism is read off the trace rather than
+reproduced: the guard is `job.Surface is not null && _fluidSurface is not null`, and the field is
+null now. A deterministic fixture wants the quit to land in the walk — a `WorkerGate`-shaped seam
+after the visits, which does not exist and is not built for one line.
+
 ## 2026-09-14 — the entangled bite is the brush cell, and so is the fill: *"make it all the same 4x4x4"*
 
 One sentence from Matthew after the stall fix — *"just take an 8x8 cube like right click"* —
