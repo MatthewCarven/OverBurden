@@ -994,7 +994,13 @@ public partial class Main : Node3D
                 // M8d-5: a panel lands after its column was covered, so the refresh's wake never
                 // saw its cells; the band's own sweep does, and a cell asleep inside a lake is
                 // visited, listed and handed at the next boundary.
-                if (_lakeCeiling is not null && _fluid is not null && _fluid.Grid.HasPanel(position))
+                //
+                // MayHoldWater and never Grid: this fires mid-tick for every dry arrival (slice 3a
+                // parks only the wet ones), and Grid refuses while a worker owns it. The refusal
+                // unwound Complete before its neighbour push, which is the M2c-2 stall — a chunk
+                // one stage short with nothing left to push it — and was the "standing on air"
+                // of 2026-09-14. MayHoldWater is the one question 3a built to be asked here.
+                if (_lakeCeiling is not null && _fluid is not null && _fluid.MayHoldWater(position))
                 {
                     _lakeCeiling.WakeBand(position, _fluid.WakeCell);
                 }

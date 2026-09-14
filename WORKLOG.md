@@ -1,5 +1,43 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-14 — the "standing on air" stall was the M8d-5b hook asking the grid mid-tick
+
+Matthew relaunched, loaded fine, and pasted a log full of `Grid asked with a tick job in flight`
+thrown from `Main.<_Ready>` line 997 — the M8d-5b wake in `onFluidReady`, which read
+`_fluid.Grid.HasPanel(position)`. That read is refused while a worker owns the grid, and the hook
+fires mid-tick for **every dry arrival**: slice 3a parks only the arrivals that may hold water,
+and hands a dry chunk on at once so the world keeps drawing under a flood. Under `--fluidjob=1`
+a tick is in flight a good share of the time (worker wall mean 150–240 ms of a 500 ms period on
+the played world; 1.4 s at the open), so a few dozen arrivals a session threw.
+
+**And the throw is the TODO's top item, not the cache.** It unwinds `ChunkPipeline.Complete`
+at the `ArriveFluid` call, *before* `PushWithNeighbours` — the M2c-2 stall to the letter: the
+chunk sits at `Generated`, its neighbourhood is never pushed, every report reads idle. The
+"floated out of the vertical box and back" session's kept log (`godot2026-09-14T18.45.59.log`,
+137 reports) has 85 of the same refusal, unread under the reports. The hypothesis recorded
+there — the cache's reseed path — was wrong; the cache was only the thing that made a vertical
+trip revive a whole slab of dry chunks at once.
+
+The fix is one read: `_fluid.MayHoldWater(position)`, the question 3a built to be asked
+mid-tick (it reads the published panel set and the captured view while a job is in flight, the
+grid at a boundary). At a boundary it is `HasPanel` plus the evicting marks, a superset, and a
+false positive costs a band walk whose wakes are already deferred. Measured headless on a copy
+of the played world under `start.cmd`'s flags, r6h/2v, 12 m/s turning every 10 s, 30 s window:
+**62 refusals → 0**, `ERROR` lines 0, both arms 358 drawn at the end (the flythrough returns to
+a box it had meshed), `grown` 23.6 s → 15.8 s.
+
+Two things worth keeping:
+
+- **A hook on `onFluidReady` runs mid-tick by design, and the M8d-5b pass did not say so.**
+  3a's rule — *`MayHoldWater` is the one question it asks mid-tick* — was written about the
+  pipeline, and the wire's hook is the pipeline's caller one layer out. The rule now sits on the
+  call site, in the comment, where the next hook will read it.
+- **A hook exception eats the neighbour push.** `Complete`'s generate branch runs three hooks
+  before `PushWithNeighbours`, and any of them throwing turns one bad read into a silent stall
+  that reads as idle in every report — nothing counts it, `faulted` stays 0. Named in TODO as a
+  lever, not built: push before the hooks, or count and swallow a hook's throw the way a job
+  fault is counted.
+
 ## 2026-09-14 — M8d-5 played: *"this version seems working now?"*
 
 Matthew bisected it by play before believing it — f3d18d1 (pre-M9) and 1f48db4 (M9b) both grew

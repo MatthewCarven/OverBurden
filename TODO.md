@@ -4664,8 +4664,17 @@ finding without the coarser-tolerance fallback.
             - [x] **Tier B water under a lake stays — trigger fired 2026-09-14** (*"the topmost
                   sheet of water does not fall in line with most of the water cells underneath"*).
                   See M8d-5 below.
-      - [ ] **A silent pipeline stall after floating out of the vertical box and back (2026-09-14,
-            evening, on `main` at c5cc04a) — first thing in the next session.** Matthew flew high
+      - [x] **A silent pipeline stall after floating out of the vertical box and back (2026-09-14,
+            evening, on `main` at c5cc04a) — found and fixed the same night.** It was the M8d-5b
+            wake in `onFluidReady` reading `_fluid.Grid`, which refuses while a tick job is in
+            flight; the hook fires mid-tick for every *dry* arrival (3a parks only the wet ones),
+            the throw unwound `Complete` before `PushWithNeighbours`, and the chunk sat at
+            `Generated` with nothing to push it — the M2c-2 stall exactly. The stall session's log
+            had 85 of the refusal under its reports; the cache hypothesis below was wrong (the
+            cache only made a vertical trip revive a slab of dry chunks at once). Fixed with
+            `MayHoldWater`, the question 3a built to be asked mid-tick: 62 → 0 refusals on a
+            30 s turnaround over a copy of the played world. WORKLOG 2026-09-14. The record as
+            it was written, kept for the symptom: Matthew flew high
             over a valley (the floor beyond r2v, undrawn by design), came back down, and stood on
             undrawn ground with cave interiors showing black through it — *"I'm standing on air"* —
             for well over twenty seconds. The log's reports were identical for the whole time:
@@ -4679,6 +4688,14 @@ finding without the coarser-tolerance fallback.
             height but never climbs), or a windowed play that does the same; read the kept log
             (`godot2026-09-14T*.log`, the last of the day) for the chunk states. Recovery is a
             relaunch.
+      - [ ] **A hook that throws inside `ChunkPipeline.Complete` eats the neighbour push, and
+            nothing counts it.** The generate branch runs `onVoxelsReady`, `Support.Arrived` and
+            `ArriveFluid`'s `onFluidReady` before `PushWithNeighbours`; one throw from any of them
+            is the M2c-2 stall with `faulted 0` and every report idle — found 2026-09-14 when the
+            M8d-5b hook read the grid mid-tick. Lever, not built: push before the hooks, or catch
+            a hook's throw, count it on the `M2c:` line beside `faulted` and carry on. The second
+            keeps the world drawing under a bug; the first is one line and keeps the throw loud.
+            Trigger: the next hook added to an arrival path, or the next idle-looking stall.
       - [ ] **M8d-5 — the lake is a body Tier B cannot enter.** Planned 2026-09-14 from the play
             finding, eight decisions in M8-PLAN's "M8d-5 — the planning pass", all taken as
             recommended (*"Lets build it now"*). Split at the Core / wire seam on *"break into
