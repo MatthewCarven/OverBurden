@@ -4648,10 +4648,11 @@ finding without the coarser-tolerance fallback.
                   lake falling through the mine's ceiling into the flooded chamber, caught tick by
                   tick in twelve screenshots; 46,745 long falls over 417,467 cells on the log (8.9 a
                   fall), identities exact, 0 boundaries waited. WORKLOG has the numbers.
-            - [ ] **The bank rule in play**: on the 2026-09-09 scratch world's breach, `drawn` should
-                  stop climbing once the hole's column is as high as the lake, and the `M8b:` line's
-                  `left under a lake` should be non-zero. The waterfall session ran a build older
-                  than that term, so it is still unread.
+            - [x] **The bank rule in play — read 2026-09-14, and it is the wrong rule.** Matthew,
+                  fresh world, no relay: a channel from a higher lake into a lower one; `drawn
+                  32,936 L`, `handed 5,389 L`, `27,552 L` left as Tier B under `56,270 cell-ticks
+                  left under a lake` — two surfaces, the plane over a stepped sheet on the bed.
+                  Decision 8's recorded cost, met by the game's own loop. Replaced by M8d-5.
             - [ ] **The waterfall is the mesh's dear case: 51,087 quads (36,592 sides, 5,443 bottoms,
                   7.6 MB) installed in 22–32 ms a tick against 5–6 for the lake.** A falling column
                   is a stack of cells each at its own depth with air on four sides and beneath, so
@@ -4660,10 +4661,57 @@ finding without the coarser-tolerance fallback.
                   merge vertically along the fall), and draw a bottom only under the lowest wet cell
                   of a column, not under every cell with air beneath. Trigger: a waterfall that
                   stutters, or the install passing a frame.
-            - [ ] **Tier B water under a lake stays.** A pour with `R` over a lake makes a puddle on
-                  the bed under the Tier A plane rather than raising the lake; a spill's front
-                  that reaches a deep bed stops there. Named cost; trigger: a play that reads it
-                  as wrong, or the bed's panels mattering.
+            - [x] **Tier B water under a lake stays — trigger fired 2026-09-14** (*"the topmost
+                  sheet of water does not fall in line with most of the water cells underneath"*).
+                  See M8d-5 below.
+      - [ ] **M8d-5 — the lake is a body Tier B cannot enter.** Planned 2026-09-14 from the play
+            finding, eight decisions in M8-PLAN's "M8d-5 — the planning pass", all taken as
+            recommended (*"Lets build it now"*). Split at the Core / wire seam on *"break into
+            smaller parts"*.
+            - [x] **M8d-5a — the rule, the hand-off and the tests, in Core. Built 2026-09-14.**
+                  `LakeCeiling` / `LakeCeilingView` / `LakeBoundedTerrain`, `IFluidTerrain.InLake`,
+                  `FluidSimulation.Submerged`, the hand-off's `PlaneAt + 1` and the submerged pass;
+                  the bank rule out. Suite 1,359 → 1,367; 17 recipes, 16 caught, one identity.
+                  The treadmill's shape in both arms is the headline test. Read M8-PLAN's
+                  "M8d-5a — built".
+            - [ ] **M8d-5b — the wire, alone, in this order:**
+                  1. `Main.SetUpFluid`: `_lakeCeiling = new LakeCeiling(_seedHeights, _water)` when
+                     there is water; wrap the terrain the simulation is given —
+                     `new LakeBoundedTerrain(field ?? terrain, ceiling)` — and pass the ceiling to
+                     `SurfaceHandoff`. The seep drain and the portal index keep the bare
+                     `VoxelFluidTerrain`.
+                  2. The job arm: where `_field.Capture()` is handed to `BeginTick`, hand
+                     `new LakeBoundedTerrain(view, _lakeCeiling.Capture())` instead, and have the
+                     collection unwrap `Inner` for the view's refusal counters
+                     (`FluidSimulation.Job.cs`, `_capturedView = captured as FluidFieldView` → try
+                     `(captured as LakeBoundedTerrain)?.Inner` first).
+                  3. The boundary, decision 6: after `SweepCollapse()` and before the field sync,
+                     `_lakeCeiling.Refresh(_fluidReachable, _fluid.Disturb)` — `ReachableChunks`
+                     is already filled for the sync; fill it before the refresh on the
+                     `--fluidfield=0` arm too. Its own bracket, `lake`, on the `boundary` line and
+                     `boundary worst`.
+                  4. The arrival: in the pipeline's `onFluidReady` handler beside
+                     `_fluid.ChunkArrived(chunk)`, `_lakeCeiling?.WakeBand(chunk, _fluid.Disturb)`.
+                  5. Lines: the `M8b:` line gains `lake N column(s), M rebuilt, W woken`; the
+                     profile's `handoff` line already prints the submerged terms; a `lake` term on
+                     the `fluidfield`/`boundary` lines with the refresh's ms.
+                  6. `--lakeoverdug=<0|1>` (1 the pre-M8d-5 arm) and decision 7 in `WaterSurface`:
+                     skip a wet sample all of whose 64 columns' open height is below the level,
+                     read only for samples whose chunk column the portal tracker marks dug.
+                     A/B by screenshot on a copy of `default` (bite a chunk at a lake's edge with
+                     `Q`, `--settle=20000`).
+                  7. Bench: `--spill` builds a `LakeCeiling` over its `WaterSystem` and wraps
+                     `SurfaceTerrain`; record its rows before and after. `--fluid` and `--front`
+                     untouched, and reproduce.
+                  8. Oracles, verbatim: the r6 control (2601 / 325 / 3446 at 411, every new term
+                     zero); the headless pour `--profile --radius=4 --vradius=2 --speed=12
+                     --turnaround=10 --measure=30 --injectlitres=200000` with `handed` ≈ the pour
+                     and `submerged` counted; the played `default` opened — its 27,672 L of bed
+                     water should be handed at the first boundaries (`M8b:` `handed` climbs by
+                     ~27 kL, `inside a lake` non-zero) and then stay flat.
+                  9. Docs: M8-PLAN "M8d-5b — built", WORKLOG, CLAUDE.md's pick-up and its flag
+                     paragraph, DESIGN's M8 row if it states the bank rule.
+                  10. Play: Matthew's channel between two lakes on a fresh world — one sheet.
       - [x] **M8d-4 — the play. Done 2026-09-11 over one evening's sessions on the played world:**
             "more 3D" — *"Looks great … reflective and all"*; water or spreadsheet at 2 Hz — the
             waterfall, *"Looks good to me"*; dread or inconvenience — a lake let into the mine

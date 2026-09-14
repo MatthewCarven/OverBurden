@@ -4742,7 +4742,7 @@ public partial class Main : Node3D
                + $"loaded {p.Loaded / litre:N0} L from {f.RestoredPanels:N0} panel(s), "
                + $"evicted {p.Evicted / litre:N0} L with {f.EvictedPanels:N0} panel(s), "
                + $"removed {p.Removed / litre:N0} L, displaced {p.Displaced / litre:N0} L, "
-               + $"handed {p.Handed / litre:N0} L to Tier A ({_handoff?.RefusedUnderLake ?? 0:N0} cell(s) left under a lake in all) — "
+               + $"handed {p.Handed / litre:N0} L to Tier A ({_handoff?.SubmergedHanded ?? 0:N0} cell(s) of it found inside a lake) — "
                + $"held == injected + drawn + seeped + loaded − removed − displaced − handed − evicted: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
                + $"received == handed: {HandoffIdentity()}, "
                + $"lifted {p.Lifted / litre:N0} L == returned {p.Returned / litre:N0} L by falls: {(p.Lifted == p.Returned ? "exact" : "*** NO ***")}; "
@@ -4876,7 +4876,7 @@ public partial class Main : Node3D
         string handoff = _handoff is null
             ? "handoff   no hand-off (--nowater)\n"
             : $"handoff   {_handoff.RestedLastPass:N0} rested and {_handoff.OnGroundLastPass:N0} on the ground on the "
-              + $"last pass ({_handoff.UnderLakeLastPass:N0} left under a lake, {_handoff.RefusedUnderLake:N0} in all); "
+              + $"last pass ({_handoff.SubmergedLastPass:N0} inside a lake and handed whole, {_handoff.SubmergedHanded:N0} in all); "
               + $"handed {(handed - _handedAtWarm) / litre:N0} L in the window, {handed / litre:N0} L in "
               + $"all over {_handoff.Handoffs:N0} hand-off(s), {_handoff.PendingMillilitres:N0} mL pending in "
               + $"{_handoff.PendingBasins:N0} basin(s) — Tier A received == Tier B handed: {HandoffIdentity()}\n";

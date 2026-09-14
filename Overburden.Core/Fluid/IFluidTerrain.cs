@@ -50,6 +50,19 @@ public interface IFluidTerrain
     /// already said no, and only by <c>Visit</c>, <c>VerifyQuiescent</c> and the arrival wake.
     /// </remarks>
     bool IsLoaded(VoxelPos voxel) => true;
+
+    /// <summary>
+    /// True when the voxel is inside a Tier A lake — natural air above the seed ground, at or under
+    /// the lake's top (M8d-5). Not holdable, like rock; but water found there is the lake's and is
+    /// handed to it rather than displaced.
+    /// </summary>
+    /// <remarks>
+    /// <b>Defaults to false, and is asked only where <see cref="CanHold"/> has said no and
+    /// <see cref="IsLoaded"/> yes, for the visited cell alone</b> — so the hot path pays nothing,
+    /// and every terrain that answers from a predicate never sees a lake. Only
+    /// <see cref="LakeBoundedTerrain"/> answers it, from a <see cref="LakeCeiling"/>.
+    /// </remarks>
+    bool InLake(VoxelPos voxel) => false;
 }
 
 /// <summary>

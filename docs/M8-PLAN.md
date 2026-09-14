@@ -2230,6 +2230,218 @@ chunk, with `--fallcells=1` as the arm to hold beside it.
 
 ---
 
+### M8d-5 — the lake is a body: the planning pass, 2026-09-14, from a play finding
+
+**The finding.** Matthew, on a fresh `default`, no relay: a channel from a higher lake into a
+lower one. The log read `drawn 32,936 L`, `handed 5,389 L`, `27,552 L` still Tier B with
+`56,270 cell-ticks left under a lake`; the screen read two surfaces — Tier A's plane at the lower
+lake's level (its first handed litres plus the rain that was falling) and, under it, Tier B's
+stepped sheet running along the bed into the channel's end. *"The topmost sheet of water does not
+fall in line with most of the water cells underneath."* Earlier the same day the same picture over
+the rain-filled spawn plain, with `R` pours on it (4.64 ML injected, 4.31 ML handed, 1.36 ML left
+as Tier B on the bed).
+
+**It is decision 8's recorded cost, met.** M8d-3 built the bank rule — a rested cell whose sample's
+lake stands above its top is left as Tier B — to cut the 2026-09-09 treadmill, and wrote its cost
+down: *"a pour into a lake stays Tier B on its bed rather than raising the lake."* What the play
+adds is that the cost is not confined to the debug pour. **The game's own loop — drain one lake
+into another — produces it the moment the receiving basin holds anything**: the first arrivals
+land on a dry bed and merge, the bed is then under a lake, and every litre after that is refused
+for ever. Two models of one column, neither able to see the other: to Tier A the column is full
+to the level; to Tier B it holds a cell or two on the ground.
+
+**Why the bank rule cannot simply come out.** The treadmill it cut is real mass moving: the lake
+pours through the portals into a bite at its bank, the bite fills to the bed, its sheet spreads
+*sideways onto the bed* — which to Tier B is dry ground under an open sky — the hand-off gives
+that back to the basin it came from, and the lake pours it in again, ~7 kL a tick each way, the
+bite never full. Un-refusing the hand-off restores exactly that. **The leak sideways onto the bed
+is the thing that has to stop**, and no rule on the hand-off can stop it, because by the time the
+hand-off sees the water it has already spread.
+
+**The rule: a lake is a body Tier B cannot enter.** M8c's spine — *the water table under a lake is
+the lake* — applied to the automaton. A voxel in natural air above the seed ground and at or
+under its sample's lake top is not holdable to Tier B, the way rock is not; water resting on the
+lake's top is handed to the basin the way water resting on the ground is; and water found inside
+the lake (a level that rose past a sleeping cell, an old save's bed water) is handed whole.
+Consequences, each the physics the play expected:
+
+- One sheet. No Tier B exists under a Tier A plane on natural ground.
+- A pour onto a lake spreads on its surface as Tier B, rests, and vanishes into the level at the
+  next boundary. The bite is fed by the lake through the portals at the portal rate, fills from
+  below to the lake's level and stops, because the mouth cells are full and the bed cannot be
+  leaked onto. No treadmill can form.
+- A tunnel breaking out under the level *inside* the lake backs up to the level. One breaking out
+  below the level into a different basin still drains there; one breaking out above the level
+  still spills onto the bank and is handed.
+- The bank rule and its counters go; `displaced` keeps its meaning.
+
+#### Decisions
+
+1. **The band is per voxel column, from the seed surface.** A cell is *in the lake* iff
+   `seed(x, z) < Y ≤ floor(TableAt(sample(x, z)))`. The seed surface, not the dug one, because
+   a dug voxel is below the seed by definition and is where the lake pours *into*; the band's
+   floor is the plane the hand-off already reads. Per column rather than per 2 m sample because
+   the seed varies inside a sample on any slope. **Recommended.** Rejected: the plane hidden
+   wherever Tier B lies beneath it — render-only, cheap, and it draws the lake with a pit in its
+   surface wherever a pour rested.
+2. **Where it lives: `LakeCeiling` in `Overburden.Core/Fluid/`, refreshed at the tick boundary,
+   consulted through a terrain wrapper.** One object per game, keyed by chunk column (cx, cz):
+   `int[1024] floor` (seed + 1, written once) and `int[1024] top` (the band's top, or none),
+   arrays replaced rather than mutated — M3a's copy-on-write, so a captured view is never torn.
+   `LakeBoundedTerrain(inner, ceiling)` is an `IFluidTerrain` over an `IFluidTerrain` — the
+   field's own shape, *"which is why nothing else changes"* — answering `CanHold` as
+   `inner.CanHold && !ceiling.InLake`, and it wraps `VoxelFluidTerrain` on the sim-thread arm,
+   the `FluidField` on the field arm, and the captured `FluidFieldView` on the job arm (with the
+   ceiling's own captured view). The bits are baked from the inner terrain and never carry the
+   band, so a level rising a voxel costs no rebake and never meets `--fieldbakes`' cap.
+   **Recommended.** Rejected: baking the band into the field's bits — it conflates rock with
+   lake behind one `false` (the memory rule that froze the water once), and a rain at ×20 moves
+   some basin's `floor(level)` every few seconds across 391 basins, each a chunk-column of
+   rebakes.
+3. **The automaton learns one more word: `IFluidTerrain.InLake(voxel)`, default false, asked
+   only on the not-holdable branch of the visited cell, after `IsLoaded`.** A cell that holds
+   water and is in the lake is neither paused nor displaced: it is listed in `Submerged` (the
+   `Rested` pattern, cleared as a tick begins) and left asleep. The hot path — a held cell in a
+   loaded, holdable voxel — pays nothing; every fixture and bench that answers from a predicate
+   answers false and is untouched. **Recommended.** Rejected: letting `Displace` handle it —
+   it squeezes upward, which happens to put the water on the lake's top, and sideways at a
+   lake's edge into a neighbouring basin's air, across the divide.
+4. **The hand-off hands two kinds of cell, through the one `HandOff` + `Receive` path with the
+   per-pit remainder.** A rested cell standing on the plane — `Y == max(seed, top) + 1`, which is
+   the ground where there is no lake and the lake's top where there is — and every submerged
+   cell, whole. `RefusedUnderLake` / `UnderLakeLastPass` retire; `SubmergedLastPass` /
+   `SubmergedHanded` replace them on the `handoff` and `M8b:` lines. **Recommended.**
+5. **The refresh wakes what it submerges.** At each boundary the ceiling recomputes, per
+   reachable chunk column, the 16 sample tops (`floor(TableAt)`); a column whose tops changed
+   rebuilds its `top` array, and for every voxel column whose top rose, every cell in
+   `(old, new]` is `Disturb`ed — the automaton's own "wake only what holds water", so a dry
+   cell costs one panel read. A chunk column newly in the reachable set counts as risen from
+   nothing, which is how an old save's bed water (27 kL on the played world) migrates by itself;
+   and the pipeline's `onFluidReady` runs the same sweep for the chunk whose panel just landed,
+   because a panel arrives after its column was covered. Woken → visited → listed submerged →
+   handed at the next boundary: two boundaries from a rise to the lake owning it. Cost bound:
+   band height × 1,024 reads per changed chunk column — a 4 m lake is 16 k, under a millisecond.
+   **Recommended.**
+6. **Boundary order: settle, hand-off, drains, pour, collapse, *then* the ceiling refresh, then
+   the field sync and capture.** So the hand-off reads the ceiling the tick read — a rested
+   cell is judged against the same top that made it rest — and the tick that follows reads the
+   levels as this boundary left them. Its own bracket on the `boundary` line (`lake`), because
+   it is 2,704 table reads and a few array rebuilds a boundary and the number should be seen
+   rather than assumed. **Recommended.**
+7. **Tier A's plane is skipped over a sample every column of which is dug below the level.**
+   Over a bite the plane and the bite's Tier B sheet would otherwise both draw at the level, a
+   centimetre apart — no z-fight, but two blends, a darker square over the hole. A sample with
+   any undug column keeps its plane, because under the rule that column's water is the lake's
+   and only the plane draws it; the notch that a partly-dug sample would otherwise show is the
+   thing this clause avoids. Read only for wet samples whose chunk column the portal tracker
+   marks dug, so the rebuild's 7,500 samples cost the tracker's set lookup each and the 64
+   column reads only where it matters. **Recommended, built after the physics and judged by a
+   screenshot on a copy of the played world**, `--lakeoverdug=1` the pre-M8d-5 arm.
+8. **`--spill` gets the ceiling; `--fluid` and `--front` do not.** The spill bench has a real
+   `WaterSystem` and measures the hand-off; without the band it would measure the pre-M8d-3
+   treadmill-free world. Its rows are re-run before and after and both recorded. The other arms
+   have no lake and answer `InLake` false by default. **Recommended.**
+
+#### What is deliberately unchanged
+
+- `PortalDrain` and `PortalIndex`: a portal's mouth is the dug voxel and the drain pours into
+  it; the outside cell — now a band cell when covered — is never written. The `covered` test
+  is the same comparison against the same level.
+- `SeepIndex` / `SeepDrain`: a seep face is dug rock against rock; a band cell is air and is
+  a portal's business.
+- The sheet solve: membership reads `CanHold`, so a band cell is not in any sheet.
+- The hand-off's *placed block* clause: a cell resting on a placed block above the ground is
+  still not on the plane. A tank built *inside* a lake has band cells for its interior and
+  cannot be filled by Tier B — which is what a tank in a lake holds anyway.
+
+#### Known residue, stated
+
+- **A film one cell above the level, inside a bite, from a pour.** Tier B poured into a full
+  bite stands at `top + 1` in dug cells, which are not on the plane and are not handed; the
+  lake's own drain never produces it (a mouth at `top + 1` is not covered, so nothing draws
+  there). Cosmetic, from the debug relay only, one cell thick.
+- **Two boundaries of lag** between a level rising past a cell and the lake owning that cell
+  (decision 5). A second a boundary at 2 Hz.
+- **The lake still drains into a mine at the portal rate**, ~77 L a tick on the 2026-09-14 log,
+  which is M8d's waterfall number and not this slice's.
+
+#### Oracles and the battery
+
+- **The treadmill's shape, run to rest.** A lake a metre over the bowl, a bite in the bank
+  (dug cells below the seed at the rim, portals into the lake), the drain and the hand-off at
+  every boundary: `drawn` stops growing; Tier B holds the bite's volume up to `floor(level)`
+  and nothing on the bed; both identities exact; the automaton quiescent.
+- **The bank rule's test inverts**: the cell on the bed under a metre of lake is handed at the
+  first boundary; nothing remains in Tier B.
+- **A pour onto a lake** rests on its top and is handed; the level rises by the pour; a second
+  pour lands on the new top.
+- **The rise wakes**: a cell asleep on a dry bed; inject until the level passes it; the next
+  boundary lists it submerged and hands it.
+- **The field and the live arm agree cell for cell** with the band on — the existing field
+  A/B, with a lake in the fixture.
+- **The r6 control, verbatim, unchanged to the digit**; `--fluid` and `--front` reproduce.
+- Break-recipes on: the band's two bounds (`<` versus `≤` at the seed and the top), `InLake`
+  asked before `IsLoaded`, the wake sweeping `[old, new)` instead of `(old, new]`, the
+  hand-off's `+ 1`, the refresh before the hand-off (decision 6), the view capturing the live
+  ceiling instead of a snapshot, and the `onFluidReady` sweep removed.
+
+### M8d-5a — built, 2026-09-14: the rule, the hand-off and the tests, in Core
+
+Split at the Core / wire seam on Matthew's *"if this is getting too complex break into smaller
+parts"*: 5a is the rule and its battery, 5b the wire (Main, the flags and lines, the `onFluidReady`
+sweep, the surface skip, `--spill`). Suite 1,359 → 1,367; nothing in `Main` moved but the two
+line terms that named the retired counters, so the game builds and the tree is green.
+
+**What is in.** `LakeCeiling` (Core/Fluid) — per chunk column two `int[1024]`s, the seed plane
+and the band's top, arrays replaced never mutated, `Refresh(reachable, wake)` comparing sixteen
+sample tops per column before it rebuilds anything, `WakeBand(chunk, wake)` for the arrival
+path, `PlaneAt` for the hand-off, `Capture()` for the worker; `LakeCeilingView`, the frozen
+copy; `LakeBoundedTerrain`, the wrapper that answers `CanHold` as `inner && !band` and the new
+`IFluidTerrain.InLake` (default false) as `inner.CanHold && band`. The visit asks `InLake` third,
+after `CanHold` and `IsLoaded`, and lists the cell in `FluidSimulation.Submerged` — the `Rested`
+pattern, cleared as a tick begins — rather than displacing it; `VerifyQuiescent` reads such a
+cell as at rest. `SurfaceHandoff` takes an optional ceiling: a rested cell is on the plane at
+`PlaneAt + 1`, every submerged cell is handed whole, and `RefusedUnderLake` / `UnderLakeLastPass`
+are `SubmergedHanded` / `SubmergedLastPass`. The bank rule is gone.
+
+**The treadmill's shape, in both arms, is the test that matters** (`LakeCeilingTests`, a bowl
+with a chamber dug flush with its west wall, a bank portal on every row, the drain and the
+hand-off at every boundary). With the ceiling: the chamber takes **9,869 L**, the level drops
+36.125 → 35.508, rest at 2,834 ticks, **nothing on the bed, nothing handed**. Without: 600 ticks
+draw **40,268 L and hand 32,079 L back**, 717 L on the bed, 696 cells awake, and it never rests —
+the 2026-09-09 log's shape reproduced as a control, so the guarded boundary is known to be
+reached. Its other seven: the band's two bounds and what is outside them; the inverted bank test
+(the same cell on the same bed under the same lake, handed whole); a 32-cell pour onto a lake
+rests on its top and is handed in 53 ticks, the level up by exactly the pour; a rise wakes a cell
+it submerges, with the wake counted at exactly the bowl's 1,024 columns per voxel of rise; the
+refresh rebuilds only where a sample top moved and drops columns that left; a captured view
+keeps its lake while the live one moves; `WakeBand` reaches every band cell of a chunk and
+nothing above it.
+
+**Battery: 17 recipes, 16 caught, one identity.** The identity is `InLake` asked before
+`IsLoaded`: the wrapper's `InLake` needs the inner terrain to hold, which an unloaded voxel never
+does, so the order cannot matter through it. One recipe was a hole first: a view over the live
+dictionary passed because the view's per-column cache had already read the column the test
+probed — the copy is now checked on a column the view has not read.
+
+**Three things from building it:**
+
+- **The plane is 31 over a floor written as 30, and four voxels of depth stand at 35, not 34.**
+  Every first-draft fixture had the top one low; M8b-2a's "the plane the water stands on" is the
+  rule, and the tests say so in their header now.
+- **A full cell on a flat bed spreads for hundreds of ticks.** "Asleep on the bed" needs a cup
+  of placed blocks round the cell, or the fixture is testing the spread; and a cell put down
+  *before* the lake is how water gets into a band at all, because `Add` refuses a lake cell —
+  which is the rule seen from the relay's side, and `R` over a lake will land on its top.
+- **`floor(level)` at an exact integer includes an empty top cell.** A pour whose litres carry
+  the top past an integer turns cells resting *on* the lake into cells *inside* it — handed
+  either way, one boundary later. The pour test stands a bit over the integer so its assertion
+  is about the plane; the residue is cosmetic and named.
+
+**5b's brief is in TODO under M8d-5**, as an ordered list.
+
+---
+
 ## The open decision — settled by Matthew, 2026-09-02: option 3
 
 **M8 makes the mine floodable and nothing fights back until M10.**

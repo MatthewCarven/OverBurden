@@ -157,6 +157,9 @@ public sealed partial class FluidSimulation : IFluidPersistence
     // Cells the tick in progress visited and found nothing to do for. See Rested.
     private readonly List<VoxelPos> _rested = [];
 
+    // Cells the tick in progress visited and found inside a Tier A lake. See Submerged.
+    private readonly List<VoxelPos> _submerged = [];
+
     // The tick at which each chunk last had water put into it or its rock disturbed. Read by the
     // sheet solve, which will not level a sheet that touches a chunk still receiving.
     //
@@ -488,6 +491,29 @@ public sealed partial class FluidSimulation : IFluidPersistence
     }
 
     /// <summary>
+    /// Cells the last tick visited and found inside a Tier A lake (M8d-5): holding water, in a
+    /// loaded voxel the terrain will not hold water in because the lake stands there. Neither
+    /// moved, paused nor displaced — left asleep, listed, and the hand-off hands every one of
+    /// them whole to the basin. Cleared when a tick begins, like <see cref="Rested"/>.
+    /// </summary>
+    /// <remarks>
+    /// How a cell gets there: it slept on a dry bed and the level rose past it, or it was stored
+    /// under a lake by a build before the rule; the ceiling's refresh wakes both so a visit
+    /// lists them. Never through flow — a visit never moves water into a lake cell.
+    /// </remarks>
+    public IReadOnlyList<VoxelPos> Submerged
+    {
+        get
+        {
+            RefuseMidJob(nameof(Submerged));
+            return _submerged;
+        }
+    }
+
+    /// <summary>Cells a visit found inside a lake, over the lifetime.</summary>
+    public long SubmergedVisits { get; private set; }
+
+    /// <summary>
     /// Wakes whatever water an edit at this voxel could have given something to do.
     /// </summary>
     /// <remarks>
@@ -583,13 +609,13 @@ public sealed partial class FluidSimulation : IFluidPersistence
         for (; _cursor < end; _cursor++)
         {
             VoxelPos cell = _batch[_cursor];
-            long here = Visit(cell, out bool paused);
+            long here = Visit(cell, out bool notResting);
             if (here > 0)
             {
                 _tickCellsMoved++;
                 _tickMillilitresMoved += here;
             }
-            else if (!paused && _grid.AmountAt(cell) > 0)
+            else if (!notResting && _grid.AmountAt(cell) > 0)
             {
                 // Held water with no move: at rest, by the automaton's own test. An empty cell
                 // visited is not resting water, a cell Displace emptied is not either, and a
@@ -642,6 +668,7 @@ public sealed partial class FluidSimulation : IFluidPersistence
         (_batch, _pending) = (_pending, _batch);
         _pending.Clear();
         _rested.Clear();
+        _submerged.Clear();
         _cursor = 0;
         _tickCellsMoved = 0;
         _tickMillilitresMoved = 0;
@@ -750,6 +777,13 @@ public sealed partial class FluidSimulation : IFluidPersistence
                     continue;
                 }
 
+                if (_terrain.InLake(cell))
+                {
+                    // The lake's, awaiting the hand-off: a visit lists it and moves nothing, so
+                    // the automaton is at rest with it, and the boundary is what takes it.
+                    continue;
+                }
+
                 return (cell, "held water in rock");
             }
 
@@ -821,12 +855,13 @@ public sealed partial class FluidSimulation : IFluidPersistence
     }
 
     /// <summary>
-    /// Moves what this cell can move, and returns how much that was. <paramref name="paused"/>
-    /// is true when the cell was neither moved nor rested but put to sleep in an unloaded chunk.
+    /// Moves what this cell can move, and returns how much that was. <paramref name="notResting"/>
+    /// is true when the cell was neither moved nor rested: put to sleep in an unloaded chunk, or
+    /// found inside a lake and listed for the hand-off.
     /// </summary>
-    private long Visit(VoxelPos cell, out bool paused)
+    private long Visit(VoxelPos cell, out bool notResting)
     {
-        paused = false;
+        notResting = false;
         int amount = _grid.AmountAt(cell);
         if (amount == 0)
         {
@@ -841,7 +876,20 @@ public sealed partial class FluidSimulation : IFluidPersistence
                 // Unknown rather than rock: the chunk left the box or has not generated yet.
                 // Asked second, so the hot path — a held cell in a loaded chunk — never asks it.
                 Pause(cell);
-                paused = true;
+                notResting = true;
+                return 0;
+            }
+
+            if (_visitTerrain.InLake(cell))
+            {
+                // Inside a Tier A lake (M8d-5): the lake's water, asked third so the two answers
+                // before it — held in a loaded, holdable voxel; held in a chunk that left — cost
+                // nothing for it. Listed for the hand-off and left asleep rather than displaced,
+                // because Displace squeezes upward onto the lake's top, or sideways at a lake's
+                // edge into a neighbouring basin's air across the divide.
+                _submerged.Add(cell);
+                SubmergedVisits++;
+                notResting = true;
                 return 0;
             }
 

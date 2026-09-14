@@ -1,5 +1,49 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-14 — M8d-5a built: a lake is a body Tier B cannot enter (Core half)
+
+Matthew's afternoon play, twice: the rain-filled spawn plain with `R` pours on it, then a fresh
+world with a channel dug from a higher lake into a lower one — *"the topmost sheet of water does
+not fall in line with most of the water cells underneath."* The log for the second: `drawn 32,936
+L`, `handed 5,389 L`, `27,552 L` still Tier B, `56,270 cell-ticks left under a lake`, `injected
+0`. **M8d-3's bank rule, whose cost was written down as "a pour into a lake stays Tier B on its
+bed", produces two surfaces from the game's own loop**: the first arrivals in the lower basin land
+on dry bed and merge, the bed is then under a lake, and every litre after is refused for ever.
+Planned as M8d-5 in [docs/M8-PLAN.md](docs/M8-PLAN.md) (eight decisions, all taken — *"Lets
+build it now"*), split at the Core / wire seam on *"break into smaller parts"*, and 5a built the
+same afternoon. Suite 1,359 → 1,367.
+
+**The rule.** A voxel in natural air above the seed ground and at or under its sample's lake
+top — `seed < Y ≤ floor(TableAt(sample))`, M8c's Tier C floored — is not holdable to Tier B, the
+way rock is not. Water resting on the lake's top is handed as water on the ground is (`PlaneAt +
+1`, one test for both); water found inside a lake is listed `Submerged` by the visit and handed
+whole at the boundary. `LakeCeiling` holds the band per chunk column, refreshed at the boundary
+from sixteen sample tops, arrays replaced never mutated so a worker's view is never torn;
+`LakeBoundedTerrain` wraps any terrain — the field's own shape, so nothing else changed.
+
+**Why not just drop the bank rule.** The treadmill it cut is the bed under a lake being, to Tier
+B, dry ground the chamber's sheet can spread onto; the hand-off then returns it and the drain
+draws it again. The chamber test runs that shape in both arms: **with the ceiling, 9,869 L into
+the chamber, the level 36.1 → 35.5, rest at 2,834 ticks, nothing on the bed, nothing handed;
+without, 600 ticks draw 40,268 L and hand 32,079 L back and it never rests.** The control arm
+asserting the treadmill is what says the guarded boundary is reached.
+
+**Battery: 17 recipes, 16 caught, one identity** (`InLake` before `IsLoaded` — the wrapper's
+`InLake` needs the inner terrain to hold, which unloaded never does). One recipe found a hole
+in a test rather than the code: a view sharing the live dictionary passed because the view's
+per-column cache had read the probed column already; the test probes an unread column now.
+
+Three things worth keeping: **the plane is one over the floor** (four voxels of depth stand at
+35 over a floor of 30, and every first-draft fixture was one low); **a full cell on a flat bed
+spreads for hundreds of ticks**, so "asleep on the bed" is a cupped cell, and water gets into a
+band only by being there first, because `Add` refuses a lake cell — `R` over a lake lands on its
+top; and **`floor(level)` at an exact integer includes an empty top cell**, so a pour can turn
+cells on the lake into cells in it — handed either way, a boundary later, named as residue.
+
+**5b — the wire — is briefed in TODO as an ordered list**, with the three oracles (the r6
+control, the headless pour, the played `default` handing its 27,672 L of bed water over at its
+first boundaries) and the screenshot A/B for the plane over a bite.
+
 ## 2026-09-14 — M9c-1b built: the fall is in the loop, and the roof comes down
 
 The wire, alone, against the ordered brief c-1a left in TODO. Nothing in Core moved; the suite

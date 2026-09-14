@@ -42,13 +42,17 @@ namespace Overburden.Core.Fluid;
 /// like the rain accumulator's, under a litre a basin.
 /// </para>
 /// <para>
-/// <b>A cell under its own sample's lake is left standing (M8d-3, decision 8).</b> Tier A already
-/// holds that water as the lake's level; handing the cell back would raise the level with water
-/// the lake then drains again through whatever hole let it out — the 2026-09-09 treadmill, ~7 kL a
-/// tick each way for ever. Refused, the water rests as Tier B under the lake and the drain stops
-/// when the column under the mouth stands as high as the lake. Cost: a pour into a lake stays
-/// Tier B on its bed rather than raising the lake, and a spill onto a lake's wet bank levels by
-/// the automaton instead of vanishing.
+/// <b>Water on the lake's top is on the plane too, and water inside the lake is the lake's
+/// (M8d-5).</b> With a <see cref="LakeCeiling"/>, the plane a cell stands on is the lake's top
+/// where there is one and the seed ground where there is not — one test, <c>Y == plane + 1</c> —
+/// so a pour onto a lake spreads on its surface, rests, and is handed exactly as a spill on the
+/// ground is. And a cell the last tick found <i>inside</i> a lake (<see cref="FluidSimulation.Submerged"/>
+/// — a level that rose past a sleeping cell, or bed water stored by a build before the rule) is
+/// handed whole without waiting to rest, because a visit never moves it. This replaces M8d-3's
+/// bank rule, which left a rested cell under its own lake standing to cut the 2026-09-09
+/// treadmill; the treadmill was the bed under a lake being, to Tier B, dry ground it could spread
+/// onto, and the ceiling takes that ground away instead. Without a ceiling the pass is M8b-3a's:
+/// the seed ground is the only plane.
 /// </para>
 /// <para>
 /// <b>A cell on an outlet sample leaves the world</b>, as rain on an outlet catchment does, and
@@ -71,9 +75,10 @@ public sealed class SurfaceHandoff
     private readonly ISurfaceHeights _seed;
     private readonly WaterSystem _water;
     private readonly FluidSimulation _fluid;
+    private readonly LakeCeiling? _ceiling;
     private readonly Dictionary<(int X, int Z), int> _pending = [];
 
-    public SurfaceHandoff(ISurfaceHeights seed, WaterSystem water, FluidSimulation fluid)
+    public SurfaceHandoff(ISurfaceHeights seed, WaterSystem water, FluidSimulation fluid, LakeCeiling? ceiling = null)
     {
         ArgumentNullException.ThrowIfNull(seed);
         ArgumentNullException.ThrowIfNull(water);
@@ -82,6 +87,7 @@ public sealed class SurfaceHandoff
         _seed = seed;
         _water = water;
         _fluid = fluid;
+        _ceiling = ceiling;
     }
 
     /// <summary>Millilitres taken out of Tier B. Equals <see cref="FluidSimulation.HandedMillilitres"/>' growth since construction.</summary>
@@ -99,14 +105,14 @@ public sealed class SurfaceHandoff
     /// <summary>Cells the last tick found at rest, ground or not.</summary>
     public int RestedLastPass { get; private set; }
 
-    /// <summary>Of those, cells on the analytic ground — the ones handed, or woken for want of a window.</summary>
+    /// <summary>Of those, cells on the plane — the ground, or the lake's top — the ones handed, or woken for want of a window.</summary>
     public int OnGroundLastPass { get; private set; }
 
-    /// <summary>Of the cells on the ground on the last pass, how many stood under their sample's lake and were left there (M8d-3).</summary>
-    public int UnderLakeLastPass { get; private set; }
+    /// <summary>Cells the last tick found inside a lake, handed whole on the last pass (M8d-5).</summary>
+    public int SubmergedLastPass { get; private set; }
 
-    /// <summary>Cells refused because they stood under their own lake, over the lifetime.</summary>
-    public long RefusedUnderLake { get; private set; }
+    /// <summary>Cells handed for being inside a lake, over the lifetime.</summary>
+    public long SubmergedHanded { get; private set; }
 
     /// <summary>Basins with a remainder pending.</summary>
     public int PendingBasins => _pending.Count;
@@ -118,10 +124,11 @@ public sealed class SurfaceHandoff
     public long Absorb()
     {
         IReadOnlyList<VoxelPos> rested = _fluid.Rested;
+        IReadOnlyList<VoxelPos> submerged = _fluid.Submerged;
         RestedLastPass = rested.Count;
         OnGroundLastPass = 0;
-        UnderLakeLastPass = 0;
-        if (rested.Count == 0)
+        SubmergedLastPass = 0;
+        if (rested.Count == 0 && submerged.Count == 0)
         {
             return 0;
         }
@@ -132,7 +139,7 @@ public sealed class SurfaceHandoff
         {
             VoxelPos cell = rested[i];
             int amount = _fluid.Grid.AmountAt(cell);
-            if (amount == 0 || cell.Y != _seed.SurfaceHeightAt(cell.X, cell.Z) + 1)
+            if (amount == 0 || cell.Y != PlaneAt(cell.X, cell.Z) + 1)
             {
                 continue;
             }
@@ -146,57 +153,69 @@ public sealed class SurfaceHandoff
                 continue;
             }
 
-            (int sampleX, int sampleZ) = _water.SampleOf(cell.X, cell.Z);
-            int basin = _water.BasinAtSample(sampleX, sampleZ);
+            handedThisPass += Hand(cell, amount);
+        }
 
-            // M8d-3, decision 8: a cell under its own sample's lake is the lake's already, and is
-            // left standing. Handing it back is the treadmill — a hole in a bank drains the lake,
-            // fills, overflows onto the wet bed beside it, and the hand-off gave the overflow
-            // straight back to the basin it came from, drawn and handed climbing together for
-            // ever. Under, not merely wet: the lake's surface stands above the cell's top, so the
-            // cell is submerged. Any water at all in the basin puts its level a hair over the bed
-            // plane, and a rule on that refused the sixth cell of every spill into a bowl because
-            // the first five had made a lake — the hand-off's own case, broken by its own
-            // delivery. A cell at a lake's shallow margin is still handed, and the margin rises
-            // until it is a cell deep; a cell on the bed beside a bitten bank is under a lake
-            // many cells deep and stays. The water rests where it is as Tier B, and the drain
-            // stops when the column under the mouth is as high as the lake.
-            if (basin != Watershed.Outlet && _water.LevelAt(basin) is { } level && level > cell.Y + 1)
-            {
-                UnderLakeLastPass++;
-                RefusedUnderLake++;
-                continue;
-            }
-
-            (int X, int Z) key = basin == Watershed.Outlet
-                ? OutletKey
-                : PitOf(basin);
-
-            long taken = _fluid.HandOff(cell, amount);
-            if (taken == 0)
+        // Inside a lake: the lake's whether or not it rested, and a visit never moves it. Before
+        // a window lands there is no lake to be inside, so the list is empty by construction.
+        for (int i = 0; i < submerged.Count; i++)
+        {
+            VoxelPos cell = submerged[i];
+            int amount = _fluid.Grid.AmountAt(cell);
+            if (amount == 0 || !windowed)
             {
                 continue;
             }
 
-            HandedMillilitres += taken;
+            SubmergedLastPass++;
+            long taken = Hand(cell, amount);
+            if (taken > 0)
+            {
+                SubmergedHanded++;
+            }
+
             handedThisPass += taken;
-            Handoffs++;
-
-            _pending.TryGetValue(key, out int pending);
-            pending += (int)taken;
-            int litres = pending / FluidConstants.MillilitresPerLitre;
-            pending -= litres * FluidConstants.MillilitresPerLitre;
-            PendingMillilitres += taken - ((long)litres * FluidConstants.MillilitresPerLitre);
-            _pending[key] = pending;
-
-            if (litres > 0)
-            {
-                _water.Receive(basin, litres);
-                ReceivedLitres += litres;
-            }
         }
 
         return handedThisPass;
+    }
+
+    /// <summary>The plane water stands on at a column: the lake's top over a lake, else the seed ground.</summary>
+    private int PlaneAt(int x, int z) =>
+        _ceiling is not null ? _ceiling.PlaneAt(x, z) : _seed.SurfaceHeightAt(x, z);
+
+    /// <summary>Takes the whole cell out of Tier B and delivers its whole litres to the basin under its sample.</summary>
+    private long Hand(VoxelPos cell, int amount)
+    {
+        (int sampleX, int sampleZ) = _water.SampleOf(cell.X, cell.Z);
+        int basin = _water.BasinAtSample(sampleX, sampleZ);
+        (int X, int Z) key = basin == Watershed.Outlet
+            ? OutletKey
+            : PitOf(basin);
+
+        long taken = _fluid.HandOff(cell, amount);
+        if (taken == 0)
+        {
+            return 0;
+        }
+
+        HandedMillilitres += taken;
+        Handoffs++;
+
+        _pending.TryGetValue(key, out int pending);
+        pending += (int)taken;
+        int litres = pending / FluidConstants.MillilitresPerLitre;
+        pending -= litres * FluidConstants.MillilitresPerLitre;
+        PendingMillilitres += taken - ((long)litres * FluidConstants.MillilitresPerLitre);
+        _pending[key] = pending;
+
+        if (litres > 0)
+        {
+            _water.Receive(basin, litres);
+            ReceivedLitres += litres;
+        }
+
+        return taken;
     }
 
     /// <summary>The remainder held for one basin of the installed window, in millilitres.</summary>

@@ -630,7 +630,22 @@ verbatim — the flags go after the bare `--`:
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
 
-**Pick up here (2026-09-14, afternoon). M9c-1 is built and played once: six falls in a steel-pick
+**Pick up here (2026-09-14, evening). M8d-5a is built — a lake is a body Tier B cannot enter, in
+Core — and M8d-5b, the wire, is next, alone, against the ten-step ordered brief in TODO under
+M8d-5.** Matthew's afternoon play found M8d-3's bank rule producing two surfaces from the game's
+own loop (a channel from a higher lake into a lower one: the Tier A plane at the lower lake's
+level over a stepped Tier B sheet on its bed, `27,552 L left under a lake`); the rule is
+replaced by `LakeCeiling` — the band of natural air over a lake's bed up to `floor(TableAt)` is
+unholdable, water on the lake's top is handed like water on the ground, water found inside is
+handed whole. Read M8-PLAN's "M8d-5 — the planning pass" (eight decisions, all taken) and
+"M8d-5a — built" first. **Three things not to rediscover: the plane is one over the floor** (four
+voxels of depth stand at 35 over a floor of 30); **`Add` refuses a lake cell**, so `R` over a lake
+lands on its top and is handed at the next boundary; and **the treadmill's control arm never
+rests** — it is the treadmill, and the test runs it for a fixed 600 ticks. The played `default`
+was wiped at 14:01 and the new one holds 27,672 L of bed water that 5b's oracle expects handed at
+its first boundaries. The paragraph below is the afternoon's state.
+
+**Earlier (2026-09-14, afternoon). M9c-1 is built and played once: six falls in a steel-pick
 tunnel, three of them under a pond with `lifted == returned` exact and `displaced 0` — the wet oracle
 passed in play. Matthew's one note is the delay: *"I want it to be unpredictable … if you have left too
 much overhang"* — the jitter `× U(0.5, 1.5)` makes a thin lip always go in about a minute; widening the
