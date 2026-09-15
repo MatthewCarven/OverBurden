@@ -310,7 +310,27 @@ public sealed partial class Hud : CanvasLayer
 
         view.Swatch.Color = VoxelMaterial.ColourForLayer(materials.TextureLayer(materialId));
         view.Name.Text = DisplayName(definitions, materialId);
-        view.Litres.Text = $"{inventory.Litres(materialId):N0} L";
+        view.Litres.Text = Holding(inventory, materials, materialId);
+    }
+
+    /// <summary>
+    /// A holding in the material's own unit: litres, parts, or bodies — with the fraction shown
+    /// when a body's 64 voxels are not all there (half a pump after a fall places nothing).
+    /// </summary>
+    private static string Holding(VolumetricInventory inventory, MaterialTable materials, int materialId)
+    {
+        long voxels = inventory.Voxels(materialId);
+        switch (materials.Unit(materialId))
+        {
+            case MaterialUnit.Count:
+                return $"× {voxels:N0}";
+            case MaterialUnit.Cells:
+                const long Cell = BrushCell.Voxels * BrushCell.Voxels * BrushCell.Voxels;
+                long whole = voxels / Cell, part = voxels % Cell;
+                return part == 0 ? $"× {whole:N0}" : $"× {whole:N0} ({part}/{Cell})";
+            default:
+                return $"{inventory.Litres(materialId):N0} L";
+        }
     }
 
     /// <summary>
@@ -334,6 +354,13 @@ public sealed partial class Hud : CanvasLayer
     {
         string brush = place.Brush.ToString().ToLowerInvariant();
         string tier = mining is null ? "no tool" : mining.Tool.Id.Path.Replace('_', ' ');
+
+        // A machine material places as one body whatever the brush, so the brush is not what the
+        // next click does and the line says so (M10a-2).
+        if (place.SelectedIsMachine)
+        {
+            return $"MACHINE  (one {BrushCell.SizeMetres:F0} m body)   ·   {tier}  (T)   ·   1-9 material, V cycle";
+        }
 
         // The modifier is reported as a state rather than as a hint while it is held, because
         // the outline changes size at the same moment and a player needs to know which of the

@@ -5352,16 +5352,15 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             opens at schema 3 and gains the table. Read "M10a-1 — built" in M10-LADDER-PLAN for
             the four departures (`Basins` nullable for `--nowater`; `WriteSession` as the quit's
             fallback when the tick still owns the grid; the quit's order; blob equality).
-      - [ ] **M10a-2 — the entity**: the loader's `machine` block and `unit` (every rule a refusal
-            naming the file; a `via` this build does not serve refused naming the part), the two
-            JSON files at hardness 3.0 and two `LayerColour` entries, `MaterialTable.IsMachine`,
-            `VoxelChunk.MayContain`, `Place.Machine` (all 64 or none, one call makes the body and the
-            row; wet → 64 `Wet` and the controller queues it to the boundary; the deferred path
-            lifts, writes, returns bottom-up over the box, displaces the rest, printed),
-            `IMachineBodies` on `Carve`, the three hooks (queue and mark only) and the per-frame
-            drain (reconcile: absent → rebuilt or credited; partial → destroyed; orphan → cleared;
-            dismantle: `Lost == Carved` credits the remainder, `Lost > Carved` destroys), `P`, the
-            hotbar's `× N`, `MACHINE` on the HUD, `--abort=<s>`.
+      - [x] **M10a-2 — the entity, built 2026-09-15 (night).** The loader's `machine` block and
+            `unit` with every refusal naming the file, the relay pair at hardness 3.0, `Place.Machine`
+            and `MachineDisplacing`, `IMachineBodies` on `Carve`, the hooks that queue and the drain
+            that writes, `P`, the hotbar's `× N`, `MACHINE`, `--abort=` — and `--standfor=` and
+            `--material=` so the crash arm can be reached (`--place` aims level while moving).
+            Suite 1,469 → 1,519; 17 recipes, 17 caught (one identity fixture); r6 control to the
+            digit; the orphan direction seen headless (128 voxels cleared at the reopen). Read
+            "M10a-2 — built" in M10-LADDER-PLAN. **Unplayed**: the look of the pair, `MACHINE` on the
+            status line, a pump placed into a flooded room by hand are M10d's.
       - [ ] **M10a-3 — the pump**: `Pump`/`Emit` twins with counters on both tiers and in both
             identities, `FluidGrid.HeldIn`, `WaterSystem.TryBasinAtSample`, `MachineTick` in its
             `machines` bracket (deferred placements, per-channel outlets sorted, per pump: ≤ 8

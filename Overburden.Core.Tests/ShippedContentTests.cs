@@ -85,6 +85,34 @@ public class ShippedContentTests
     }
 
     [Fact]
+    public void TheRelayPairShipsAsMachinesABodyCanBeDismantledFrom()
+    {
+        // M10a-2: both bodies load as machines counted in cells, and a shipped tier can take a
+        // body — a machine nobody can mine is a machine nobody can dismantle, which is why the
+        // relay ships at hardness 3.0 and not the ladder's 5.0.
+        var content = new GameContent();
+        LoadResult result = content.Load(new DirectoryContentSource(ModsDirectory()));
+        Assert.True(result.Success, string.Join("; ", result.Errors));
+
+        MaterialDefinition pump = content.Materials.Get(Identifier.Parse("overburden:relay_pump"));
+        MaterialDefinition outlet = content.Materials.Get(Identifier.Parse("overburden:relay_outlet"));
+        Assert.True(pump.IsMachine && outlet.IsMachine);
+        Assert.Equal(Overburden.Core.Machines.MachineKind.Pump, pump.Machine!.Kind);
+        Assert.Equal(Overburden.Core.Machines.MachineKind.Outlet, outlet.Machine!.Kind);
+        Assert.Equal(MaterialUnit.Cells, pump.Unit);
+        Assert.Equal(MaterialUnit.Cells, outlet.Unit);
+        Assert.NotNull(pump.Machine.Port("channel"));
+        Assert.NotNull(outlet.Machine.Port("channel"));
+
+        float tallest = content.Tools.Entries().Max(e => e.Value.HardnessThreshold);
+        Assert.True(pump.Hardness <= tallest, "no shipped tier can take a relay pump body, so none can be dismantled");
+        Assert.True(outlet.Hardness <= tallest, "no shipped tier can take a relay outlet body, so none can be dismantled");
+
+        MaterialTable table = MaterialTable.From(content.Materials);
+        Assert.Equal(2, table.MachineIds.Count);
+    }
+
+    [Fact]
     public void EveryShippedTierIsUsable()
     {
         // A tier with no reach, or one that cannot take even the softest thing in the world,

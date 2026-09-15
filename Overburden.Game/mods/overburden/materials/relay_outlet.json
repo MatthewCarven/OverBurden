@@ -1,0 +1,19 @@
+{
+  "id": "relay_outlet",
+  "hardness": 3.0,
+  "supportDistance": 8,
+  "permeability": 0.0,
+  "density": 7800,
+  "textureLayer": 6,
+  "unit": "cells",
+  "machine": {
+    "kind": "outlet",
+    "links": {
+      "water": { "carries": "fluid", "role": "sink", "via": "channel", "port": "channel" }
+    },
+    "ports": {
+      "channel": { "default": 0, "min": 0, "max": 15 },
+      "weight":  { "default": 1, "min": 1, "max": 100 }
+    }
+  }
+}

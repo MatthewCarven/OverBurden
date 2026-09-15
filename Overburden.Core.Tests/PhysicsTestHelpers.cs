@@ -133,9 +133,14 @@ internal sealed class TestWorld : IVoxelEditor
     /// <summary>Reads fine, refuses writes — the two halves of the interface disagreeing.</summary>
     public void RefuseWrites(ChunkPos chunk) => _writeRefused.Add(chunk);
 
+    private readonly HashSet<VoxelPos> _writeRefusedVoxels = [];
+
+    /// <summary>Refuses writes to one voxel and no other — a write that fails part-way through a shape.</summary>
+    public void RefuseWrite(VoxelPos voxel) => _writeRefusedVoxels.Add(voxel);
+
     public bool SetVoxel(VoxelPos voxel, int materialId)
     {
-        if (_unloaded.Contains(voxel.Chunk) || _writeRefused.Contains(voxel.Chunk))
+        if (_unloaded.Contains(voxel.Chunk) || _writeRefused.Contains(voxel.Chunk) || _writeRefusedVoxels.Contains(voxel))
         {
             return false;
         }

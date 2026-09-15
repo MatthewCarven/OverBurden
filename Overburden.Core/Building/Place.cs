@@ -1,6 +1,8 @@
 using System.Numerics;
 using Overburden.Core.Content;
+using Overburden.Core.Fluid;
 using Overburden.Core.Inventory;
+using Overburden.Core.Machines;
 using Overburden.Core.Physics;
 using Overburden.Core.Voxels;
 
@@ -65,6 +67,17 @@ public readonly record struct PlaceResult(
     public override string ToString() =>
         $"{Candidates} candidate(s): placed {Placed}, occupied {Occupied}, " +
         $"inside player {InsidePlayer}, unreachable {Unreachable}, out of stock {OutOfStock}, wet {Wet}";
+}
+
+/// <summary>What <see cref="Place.MachineDisplacing"/> did: the placement, and where the water went.</summary>
+/// <param name="Result">The 64-voxel result, whole in one bucket.</param>
+/// <param name="Lifted">Millilitres lifted out of the cell before the body was written.</param>
+/// <param name="Returned">Of those, millilitres put back into the box around the body.</param>
+/// <param name="Displaced">Of those, millilitres nothing had room for — counted on the identity.</param>
+public readonly record struct MachinePlacement(PlaceResult Result, long Lifted, long Returned, long Displaced)
+{
+    /// <summary><c>lifted == returned + displaced</c>, by construction; asserted anyway.</summary>
+    public bool IsAccounted => Lifted == Returned + Displaced;
 }
 
 /// <summary>
@@ -308,6 +321,242 @@ public static class Place
     /// the mining half makes the opposite choice and why copying it here would break the verb.
     /// </remarks>
     public static ChunkPos TargetChunk(in VoxelHit hit) => hit.Previous.Chunk;
+
+    /// <summary>
+    /// Places a machine: all 64 voxels of one brush cell and the row that makes them a machine,
+    /// or nothing at all.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>All or none, in one call that makes both halves</b> (M10-PLAN decision 2; M10a's pass,
+    /// decision 10). A half-placed body is a body with no row or a row with no body, and the
+    /// reconcile would delete it a frame later having debited the inventory; a caller given the
+    /// body and the row as two calls could split them. So the cell is checked whole first, in the
+    /// brush's own order of refusals — inside the player, unreachable, occupied, wet, out of
+    /// stock — and the result names the whole cell in whichever bucket refused it: a wet voxel
+    /// among 64 is 64 <see cref="PlaceResult.Wet"/> and nothing written, which is how the
+    /// controller knows to queue the placement to the boundary. Only then are the 64 written; a
+    /// write that fails mid-way is rolled back and reported <see cref="PlaceResult.Unreachable"/>.
+    /// </para>
+    /// <para>
+    /// <b>Whatever brush is selected</b>: the machine's shape is its body and the brush has no say.
+    /// The stock check asks for 64 voxels, not one — a machine is a unit (the ladder's decision
+    /// 6, <c>unit: cells</c>), and a player with 17 voxels of pump places nothing.
+    /// </para>
+    /// </remarks>
+    public static PlaceResult Machine(
+        IVoxelEditor world,
+        MaterialTable materials,
+        BrushCell cell,
+        int materialId,
+        BrushFacing facing,
+        MachineSet machines,
+        Aabb? body = null,
+        VolumetricInventory? from = null)
+    {
+        (VoxelPos Min, VoxelPos Max)? bodyVoxels = Validate(world, materials, materialId, body);
+        ArgumentNullException.ThrowIfNull(machines);
+        MachineDefinition definition = materials.Machine(materialId)
+            ?? throw new ArgumentException($"Material {materialId} is not a machine.", nameof(materialId));
+
+        PlaceResult? refused = CheckCell(world, cell, bodyVoxels, from, materialId, machines, refuseWet: true);
+        if (refused is { } r)
+        {
+            return r;
+        }
+
+        return WriteBody(world, cell, materialId, facing, definition, machines, from);
+    }
+
+    /// <summary>
+    /// The boundary's placement into water: the cell's water is lifted, the body written, and the
+    /// water returned bottom-up over the 26 cells around the body, the remainder displaced.
+    /// </summary>
+    /// <remarks>
+    /// <b>The chunk fill's path with M9c-1's routine</b> (M10-PLAN decision 2): a machine placed
+    /// in a flooded room is the play M10 exists for, and M9d's <c>Wet</c> refusal — right for a
+    /// fill, which deletes what it overwrites — would refuse the milestone. Deferred to the
+    /// boundary because <see cref="ICollapseWater.Lift"/> refuses mid-tick, and displacing rather
+    /// than deleting because the water goes where a submerged body sends it: up. Bottom-up over
+    /// the box — Y ascending, then x, then z — so the level in the box rises by the body's volume;
+    /// into a full box under a roof that is the whole body's worth displaced, exactly, printed,
+    /// and a test. <c>lifted == returned + displaced</c> holds by construction.
+    /// </remarks>
+    public static MachinePlacement MachineDisplacing(
+        IVoxelEditor world,
+        MaterialTable materials,
+        BrushCell cell,
+        int materialId,
+        BrushFacing facing,
+        MachineSet machines,
+        ICollapseWater water,
+        Aabb? body = null,
+        VolumetricInventory? from = null)
+    {
+        (VoxelPos Min, VoxelPos Max)? bodyVoxels = Validate(world, materials, materialId, body);
+        ArgumentNullException.ThrowIfNull(machines);
+        ArgumentNullException.ThrowIfNull(water);
+        MachineDefinition definition = materials.Machine(materialId)
+            ?? throw new ArgumentException($"Material {materialId} is not a machine.", nameof(materialId));
+
+        PlaceResult? refused = CheckCell(world, cell, bodyVoxels, from, materialId, machines, refuseWet: false);
+        if (refused is { } r)
+        {
+            return new MachinePlacement(r, 0, 0, 0);
+        }
+
+        long lifted = 0;
+        for (int lz = 0; lz < BrushCell.Voxels; lz++)
+        for (int lx = 0; lx < BrushCell.Voxels; lx++)
+        for (int ly = 0; ly < BrushCell.Voxels; ly++)
+        {
+            lifted += water.Lift(cell.VoxelAt(lx, ly, lz));
+        }
+
+        PlaceResult result = WriteBody(world, cell, materialId, facing, definition, machines, from);
+
+        long remaining = lifted;
+        if (result.Placed == 0)
+        {
+            // The write failed and rolled back: the cells are air again, so the water goes back
+            // where it was, and only what will not fit is displaced.
+            for (int lz = 0; lz < BrushCell.Voxels && remaining > 0; lz++)
+            for (int lx = 0; lx < BrushCell.Voxels && remaining > 0; lx++)
+            for (int ly = 0; ly < BrushCell.Voxels && remaining > 0; ly++)
+            {
+                remaining = water.Return(cell.VoxelAt(lx, ly, lz), remaining);
+            }
+        }
+        else
+        {
+            // Bottom-up over the box around the body — voxel rows from one cell below to one
+            // cell above — skipping the body itself, which is solid now.
+            VoxelPos origin = cell.OriginVoxel;
+            for (int dy = -BrushCell.Voxels; dy < 2 * BrushCell.Voxels && remaining > 0; dy++)
+            for (int dx = -BrushCell.Voxels; dx < 2 * BrushCell.Voxels && remaining > 0; dx++)
+            for (int dz = -BrushCell.Voxels; dz < 2 * BrushCell.Voxels && remaining > 0; dz++)
+            {
+                bool inBody = dx >= 0 && dx < BrushCell.Voxels && dy >= 0 && dy < BrushCell.Voxels && dz >= 0 && dz < BrushCell.Voxels;
+                if (inBody)
+                {
+                    continue;
+                }
+
+                remaining = water.Return(new VoxelPos(origin.X + dx, origin.Y + dy, origin.Z + dz), remaining);
+            }
+        }
+
+        if (remaining > 0)
+        {
+            water.DisplaceLifted(remaining);
+        }
+
+        return new MachinePlacement(result, lifted, lifted - remaining, remaining);
+    }
+
+    /// <summary>
+    /// The whole-cell check, in the brush's order of refusals; null when the cell can take a body.
+    /// </summary>
+    private static PlaceResult? CheckCell(
+        IVoxelEditor world,
+        BrushCell cell,
+        in (VoxelPos Min, VoxelPos Max)? bodyVoxels,
+        VolumetricInventory? from,
+        int materialId,
+        MachineSet machines,
+        bool refuseWet)
+    {
+        const int Cell = BrushCell.Voxels * BrushCell.Voxels * BrushCell.Voxels;
+
+        int insidePlayer = 0, unreachable = 0, occupied = 0, wet = 0;
+
+        if (machines.TryGet(cell, out _))
+        {
+            // A row already stands here; its body's voxels would read Occupied below in any case,
+            // but the row is the cheaper and the surer test.
+            occupied = Cell;
+        }
+
+        for (int lz = 0; lz < BrushCell.Voxels; lz++)
+        for (int lx = 0; lx < BrushCell.Voxels; lx++)
+        for (int ly = 0; ly < BrushCell.Voxels; ly++)
+        {
+            VoxelPos voxel = cell.VoxelAt(lx, ly, lz);
+
+            if (bodyVoxels is (VoxelPos min, VoxelPos max)
+                && voxel.X >= min.X && voxel.X <= max.X
+                && voxel.Y >= min.Y && voxel.Y <= max.Y
+                && voxel.Z >= min.Z && voxel.Z <= max.Z)
+            {
+                insidePlayer++;
+                continue;
+            }
+
+            if (!world.TryGetMaterial(voxel, out int existing))
+            {
+                unreachable++;
+                continue;
+            }
+
+            if (existing != MaterialIds.AirNumericId)
+            {
+                occupied++;
+                continue;
+            }
+
+            if (refuseWet && world.HoldsWater(voxel))
+            {
+                wet++;
+            }
+        }
+
+        if (insidePlayer > 0) return new PlaceResult(Cell, 0, 0, Cell, 0, 0);
+        if (unreachable > 0) return new PlaceResult(Cell, 0, 0, 0, Cell, 0);
+        if (occupied > 0) return new PlaceResult(Cell, 0, Cell, 0, 0, 0);
+        if (wet > 0) return new PlaceResult(Cell, 0, 0, 0, 0, 0, Cell);
+        if (from is not null && from.Voxels(materialId) < Cell) return new PlaceResult(Cell, 0, 0, 0, 0, Cell);
+
+        return null;
+    }
+
+    /// <summary>Writes the 64 voxels, debits the stock and creates the row — or rolls back and reports.</summary>
+    private static PlaceResult WriteBody(
+        IVoxelEditor world,
+        BrushCell cell,
+        int materialId,
+        BrushFacing facing,
+        MachineDefinition definition,
+        MachineSet machines,
+        VolumetricInventory? from)
+    {
+        const int Cell = BrushCell.Voxels * BrushCell.Voxels * BrushCell.Voxels;
+
+        var written = new List<VoxelPos>(Cell);
+        for (int lz = 0; lz < BrushCell.Voxels; lz++)
+        for (int lx = 0; lx < BrushCell.Voxels; lx++)
+        for (int ly = 0; ly < BrushCell.Voxels; ly++)
+        {
+            VoxelPos voxel = cell.VoxelAt(lx, ly, lz);
+            if (!world.SetVoxel(voxel, materialId))
+            {
+                // Should not happen: the read succeeded a moment ago on the sim thread. Rolled
+                // back rather than left half-there, because a half body is the state the whole
+                // method exists to make unreachable.
+                foreach (VoxelPos undo in written)
+                {
+                    world.SetVoxel(undo, MaterialIds.AirNumericId);
+                }
+
+                return new PlaceResult(Cell, 0, 0, 0, Cell, 0);
+            }
+
+            written.Add(voxel);
+        }
+
+        from?.Take(materialId, Cell);
+        machines.NotePlaced(new MachineRow(cell, materialId, facing, definition.DefaultPorts()));
+        return new PlaceResult(Cell, Cell, 0, 0, 0, 0);
+    }
 
     /// <summary>Fills a whole cell — 4×4×4 voxels, one cubic metre.</summary>
     public static PlaceResult Cube(

@@ -1021,11 +1021,18 @@ public class CollapseTests
         LoadResult result = content.Load(new DirectoryContentSource(ShippedContentTests.ModsDirectory()), saved);
         Assert.True(result.Success, string.Join("; ", result.Errors));
 
+        // Everything shipped since that header was written is appended after it, in the
+        // directory's load order (M10a-2's relay pair sorts before rubble), and the saved prefix
+        // is untouched — which is the whole of non-negotiable 2: an old world's numbers never move.
         IReadOnlyList<Identifier> exported = content.Materials.ExportIdTable();
-        Assert.Equal(saved.Count + 1, exported.Count);
         Assert.Equal(saved, exported.Take(saved.Count));
-        Assert.Equal(Identifier.Parse("overburden:rubble"), exported[saved.Count]);
-        Assert.Equal(saved.Count, content.Materials.GetNumericId(Identifier.Parse("overburden:rubble")));
+        Identifier[] appended = [.. exported.Skip(saved.Count)];
+        Assert.Equal(3, appended.Length);
+        Assert.Contains(Identifier.Parse("overburden:rubble"), appended);
+        Assert.Contains(Identifier.Parse("overburden:relay_pump"), appended);
+        Assert.Contains(Identifier.Parse("overburden:relay_outlet"), appended);
+        Assert.True(content.Materials.GetNumericId(Identifier.Parse("overburden:rubble")) >= saved.Count);
+        Assert.Equal(exported.Count, exported.Distinct().Count());
     }
 
     private static byte[] Fixture(string name)

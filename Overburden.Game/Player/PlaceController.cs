@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Numerics;
 using Overburden.Core.Building;
 using Overburden.Core.Content;
+using Overburden.Core.Fluid;
 using Overburden.Core.Inventory;
+using Overburden.Core.Machines;
 using Overburden.Core.Physics;
 using Overburden.Core.Streaming;
 using Overburden.Core.Voxels;
@@ -227,6 +229,42 @@ public sealed class PlaceController(
     /// <summary>Chunk fills queued to the boundary, over the session.</summary>
     public int ChunkFillsDeferred { get; private set; }
 
+    /// <summary>
+    /// The machine set a placement of a machine material creates its row in (M10a-2). Null
+    /// makes a machine material an ordinary voxel to this controller, which no run wants.
+    /// </summary>
+    public MachineSet? Machines { get; set; }
+
+    /// <summary>
+    /// The water a deferred machine placement lifts and returns through — the fluid simulation.
+    /// Null under <c>--nowater</c>, where nothing is ever wet and no placement is deferred.
+    /// </summary>
+    public ICollapseWater? Water { get; set; }
+
+    private readonly List<(BrushCell Cell, int MaterialId, BrushFacing Facing)> _pendingMachines = [];
+
+    /// <summary>Machine placements refused wet and waiting for the boundary.</summary>
+    public int PendingMachines => _pendingMachines.Count;
+
+    /// <summary>Machines placed at the click, over the session.</summary>
+    public int MachinesPlaced { get; private set; }
+
+    /// <summary>Machine placements queued to the boundary, over the session.</summary>
+    public int MachinesDeferred { get; private set; }
+
+    /// <summary>Machines placed at the boundary through the displacing path.</summary>
+    public int MachinesPlacedDisplacing { get; private set; }
+
+    /// <summary>Millilitres a deferred placement lifted, returned around the body, and displaced, over the session.</summary>
+    public long MachineLifted { get; private set; }
+
+    public long MachineReturned { get; private set; }
+
+    public long MachineDisplaced { get; private set; }
+
+    /// <summary>Whether the selected material is a machine — the HUD's <c>MACHINE</c>.</summary>
+    public bool SelectedIsMachine => MaterialId >= 0 && Machines is not null && materials.IsMachine(MaterialId);
+
     /// <summary>True on the frame a placement ran out of material, for a one-off message.</summary>
     public bool RanOutThisFrame { get; private set; }
 
@@ -281,6 +319,33 @@ public sealed class PlaceController(
         if (!placing || _cooldown > 0.0 || Outcome != RayOutcome.Hit || MaterialId < 0)
         {
             return false;
+        }
+
+        if (SelectedIsMachine)
+        {
+            // A machine material places as one cell whatever the brush, mode or modifier (M10a's
+            // pass, decision 10): the body is the shape. Refused wet whole, it is queued to the
+            // boundary where the water can be lifted and returned; refused any other way it is
+            // reported as the brush would report it.
+            PlaceResult machine = Place.Machine(
+                pipeline, materials, TargetCell, MaterialId, Facing, Machines!, body, inventory);
+            _cooldown = BrushCooldownSeconds;
+            Placements++;
+
+            if (machine.Wet > 0 && Water is not null)
+            {
+                _pendingMachines.Add((TargetCell, MaterialId, Facing));
+                MachinesDeferred++;
+                return true;
+            }
+
+            if (machine.Placed > 0)
+            {
+                MachinesPlaced++;
+            }
+
+            Record(machine);
+            return true;
         }
 
         if (!precise && TakesWholeChunk && DeferChunkFills)
@@ -351,6 +416,47 @@ public sealed class PlaceController(
         }
 
         _pendingChunkFills.Clear();
+        return sum;
+    }
+
+    /// <summary>
+    /// Runs every machine placement refused wet since the last boundary, in click order, on the
+    /// displacing path. The caller has published the wet copy and the grid is the frame's.
+    /// </summary>
+    /// <returns>The placements summed, or null with nothing queued.</returns>
+    public MachinePlacement? RunPendingMachinePlacements(Aabb? body)
+    {
+        if (_pendingMachines.Count == 0 || Machines is null || Water is null)
+        {
+            _pendingMachines.Clear();
+            return null;
+        }
+
+        var sum = default(MachinePlacement);
+        foreach ((BrushCell cell, int material, BrushFacing facing) in _pendingMachines)
+        {
+            MachinePlacement placed = Place.MachineDisplacing(
+                pipeline, materials, cell, material, facing, Machines, Water, body, inventory);
+            Record(placed.Result);
+            if (placed.Result.Placed > 0)
+            {
+                MachinesPlacedDisplacing++;
+            }
+
+            MachineLifted += placed.Lifted;
+            MachineReturned += placed.Returned;
+            MachineDisplaced += placed.Displaced;
+
+            PlaceResult r = placed.Result, s = sum.Result;
+            sum = new MachinePlacement(
+                new PlaceResult(
+                    s.Candidates + r.Candidates, s.Placed + r.Placed, s.Occupied + r.Occupied,
+                    s.InsidePlayer + r.InsidePlayer, s.Unreachable + r.Unreachable,
+                    s.OutOfStock + r.OutOfStock, s.Wet + r.Wet),
+                sum.Lifted + placed.Lifted, sum.Returned + placed.Returned, sum.Displaced + placed.Displaced);
+        }
+
+        _pendingMachines.Clear();
         return sum;
     }
 
@@ -457,6 +563,18 @@ public sealed class PlaceController(
     {
         int materialId = inventory.MaterialInSlot(slot);
         return materialId < 0 ? MaterialId : MaterialId = materialId;
+    }
+
+    /// <summary>Selects a material by numeric ID, if the inventory holds any of it. The <c>--material=</c> seam.</summary>
+    public bool Select(int materialId)
+    {
+        if (materialId < 0 || !inventory.Has(materialId))
+        {
+            return false;
+        }
+
+        MaterialId = materialId;
+        return true;
     }
 
     /// <summary>The material there is most of, or −1 for an empty inventory.</summary>

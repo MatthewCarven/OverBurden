@@ -2,6 +2,7 @@
 using Overburden.Core.Building;
 using Overburden.Core.Content;
 using Overburden.Core.Inventory;
+using Overburden.Core.Machines;
 using Overburden.Core.Voxels;
 
 namespace Overburden.Core.Mining;
@@ -97,11 +98,12 @@ public static class Carve
         MaterialTable materials,
         Vector3 centreMetres,
         ToolDefinition tool,
-        VolumetricInventory? into = null)
+        VolumetricInventory? into = null,
+        IMachineBodies? bodies = null)
     {
         ArgumentNullException.ThrowIfNull(tool);
 
-        return Sphere(world, materials, centreMetres, tool.RadiusMetres, tool.HardnessThreshold, into);
+        return Sphere(world, materials, centreMetres, tool.RadiusMetres, tool.HardnessThreshold, into, bodies);
     }
 
     /// <summary>Swings <paramref name="tool"/> at what a raycast found.</summary>
@@ -114,8 +116,9 @@ public static class Carve
         MaterialTable materials,
         in VoxelHit hit,
         ToolDefinition tool,
-        VolumetricInventory? into = null) =>
-        Swing(world, materials, SwingCentre(hit), tool, into);
+        VolumetricInventory? into = null,
+        IMachineBodies? bodies = null) =>
+        Swing(world, materials, SwingCentre(hit), tool, into, bodies);
 
     /// <summary>
     /// Takes <b>exactly the voxel the ray hit</b> with <paramref name="tool"/>, and nothing
@@ -149,11 +152,12 @@ public static class Carve
         MaterialTable materials,
         in VoxelHit hit,
         ToolDefinition tool,
-        VolumetricInventory? into = null)
+        VolumetricInventory? into = null,
+        IMachineBodies? bodies = null)
     {
         ArgumentNullException.ThrowIfNull(tool);
 
-        return Voxel(world, materials, hit.Voxel, tool.HardnessThreshold, into);
+        return Voxel(world, materials, hit.Voxel, tool.HardnessThreshold, into, bodies);
     }
 
     /// <summary>
@@ -172,7 +176,8 @@ public static class Carve
         MaterialTable materials,
         VoxelPos voxel,
         float hardnessThreshold,
-        VolumetricInventory? into = null)
+        VolumetricInventory? into = null,
+        IMachineBodies? bodies = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(materials);
@@ -189,7 +194,7 @@ public static class Carve
                 + "so remove all of them. Use float.NegativeInfinity for a tool that takes nothing.");
         }
 
-        return Take(world, materials, voxel, hardnessThreshold, into) switch
+        return Take(world, materials, voxel, hardnessThreshold, into, bodies) switch
         {
             Bucket.Removed => new CarveResult(1, 1, 0, 0, 0),
             Bucket.TooHard => new CarveResult(1, 0, 1, 0, 0),
@@ -253,11 +258,12 @@ public static class Carve
         MaterialTable materials,
         in VoxelHit hit,
         ToolDefinition tool,
-        VolumetricInventory? into = null)
+        VolumetricInventory? into = null,
+        IMachineBodies? bodies = null)
     {
         ArgumentNullException.ThrowIfNull(tool);
 
-        return Chunk(world, materials, hit.Voxel.Chunk, tool.HardnessThreshold, into);
+        return Chunk(world, materials, hit.Voxel.Chunk, tool.HardnessThreshold, into, bodies);
     }
 
     /// <summary>Takes every voxel of <paramref name="chunk"/> the threshold allows.</summary>
@@ -271,7 +277,8 @@ public static class Carve
         MaterialTable materials,
         ChunkPos chunk,
         float hardnessThreshold,
-        VolumetricInventory? into = null)
+        VolumetricInventory? into = null,
+        IMachineBodies? bodies = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(materials);
@@ -306,7 +313,7 @@ public static class Carve
             var voxel = new VoxelPos(origin.X + x, origin.Y + y, origin.Z + z);
             candidates++;
 
-            switch (Take(world, materials, voxel, hardnessThreshold, into))
+            switch (Take(world, materials, voxel, hardnessThreshold, into, bodies))
             {
                 case Bucket.Removed: removed++; break;
                 case Bucket.TooHard: tooHard++; break;
@@ -362,11 +369,12 @@ public static class Carve
         MaterialTable materials,
         in VoxelHit hit,
         ToolDefinition tool,
-        VolumetricInventory? into = null)
+        VolumetricInventory? into = null,
+        IMachineBodies? bodies = null)
     {
         ArgumentNullException.ThrowIfNull(tool);
 
-        return Cube(world, materials, CubeOrigin(hit.Voxel), tool.HardnessThreshold, into);
+        return Cube(world, materials, CubeOrigin(hit.Voxel), tool.HardnessThreshold, into, bodies);
     }
 
     /// <summary>Takes every voxel of the cube at <paramref name="origin"/> the threshold allows.</summary>
@@ -381,7 +389,8 @@ public static class Carve
         MaterialTable materials,
         VoxelPos origin,
         float hardnessThreshold,
-        VolumetricInventory? into = null)
+        VolumetricInventory? into = null,
+        IMachineBodies? bodies = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(materials);
@@ -410,7 +419,7 @@ public static class Carve
             var voxel = new VoxelPos(origin.X + x, origin.Y + y, origin.Z + z);
             candidates++;
 
-            switch (Take(world, materials, voxel, hardnessThreshold, into))
+            switch (Take(world, materials, voxel, hardnessThreshold, into, bodies))
             {
                 case Bucket.Removed: removed++; break;
                 case Bucket.TooHard: tooHard++; break;
@@ -492,7 +501,8 @@ public static class Carve
         Vector3 centreMetres,
         float radiusMetres,
         float hardnessThreshold,
-        VolumetricInventory? into = null)
+        VolumetricInventory? into = null,
+        IMachineBodies? bodies = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(materials);
@@ -566,7 +576,7 @@ public static class Carve
             // would stop meaning anything.
             candidates++;
 
-            switch (Take(world, materials, voxel, hardnessThreshold, into))
+            switch (Take(world, materials, voxel, hardnessThreshold, into, bodies))
             {
                 case Bucket.Removed: removed++; break;
                 case Bucket.TooHard: tooHard++; break;
@@ -602,7 +612,8 @@ public static class Carve
         MaterialTable materials,
         VoxelPos voxel,
         float hardnessThreshold,
-        VolumetricInventory? into)
+        VolumetricInventory? into,
+        IMachineBodies? bodies)
     {
         if (!world.TryGetMaterial(voxel, out int material))
         {
@@ -634,6 +645,15 @@ public static class Carve
         // afterwards would pay for voxels that turned out to be unreachable, and crediting before
         // the write would pay for a hole that was never made.
         into?.Add(material, 1);
+
+        // And the machine set told, after the credit, when the voxel was a body's — the one fact
+        // that lets the set tell a pick from a fall at its drain (M10a-2, IMachineBodies). One
+        // array read for every other voxel a pick takes.
+        if (bodies is not null && materials.IsMachine(material))
+        {
+            bodies.Taken(voxel, material);
+        }
+
         return Bucket.Removed;
     }
 

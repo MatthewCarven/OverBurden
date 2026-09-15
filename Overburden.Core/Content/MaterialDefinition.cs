@@ -1,3 +1,5 @@
+using Overburden.Core.Machines;
+
 namespace Overburden.Core.Content;
 
 /// <summary>
@@ -108,6 +110,22 @@ public sealed class MaterialDefinition
     /// </summary>
     public bool IsUnknown { get; init; }
 
+    /// <summary>
+    /// The <c>machine</c> block, or null for a material that is only a voxel. A body of this
+    /// material is one brush cell with a row (M10-PLAN decision 1; M10a-2).
+    /// </summary>
+    public MachineDefinition? Machine { get; init; }
+
+    /// <summary>Whether a body of this material is a machine.</summary>
+    public bool IsMachine => Machine is not null;
+
+    /// <summary>
+    /// How the hotbar counts this material: litres (the default), one voxel a part
+    /// (<c>count</c>), or 64 voxels a body (<c>cells</c>). Presentation only — the inventory
+    /// counts voxels whatever the unit (the ladder's decision 6).
+    /// </summary>
+    public MaterialUnit Unit { get; init; } = MaterialUnit.Litres;
+
     /// <summary>Nothing here — the emptiness test throughout the engine.</summary>
     public bool IsAir => Id == MaterialIds.Air;
 
@@ -143,3 +161,11 @@ public sealed class MaterialDefinition
 
 /// <summary>One point on a material's saturation curve: at this head, this support distance.</summary>
 public readonly record struct SupportPoint(float HeadMetres, float Distance);
+
+/// <summary>How a material is counted on the hotbar. See <see cref="MaterialDefinition.Unit"/>.</summary>
+public enum MaterialUnit : byte
+{
+    Litres,
+    Count,
+    Cells,
+}

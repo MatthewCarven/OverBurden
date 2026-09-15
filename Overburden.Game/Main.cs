@@ -189,6 +189,13 @@ public partial class Main : Node3D
     /// and the case the adaptive radius's grow-back exists for. Zero, the default, never stops.
     /// </summary>
     private double _sprintForSeconds;
+
+    /// <summary><c>--standfor=&lt;seconds&gt;</c>: the flythrough stands at spawn that long before it moves — <c>--sprintfor</c>'s mirror.</summary>
+    private double _standForSeconds;
+    private double _stoodSeconds;
+
+    /// <summary><c>--material=&lt;id&gt;</c>: what <c>--place</c> places, when <c>--stock=</c> seeded more than one thing.</summary>
+    private string? _startingMaterial;
     private double _flownSeconds;
 
     // The adaptive view radius (docs/ADAPTIVE-RADIUS-PLAN.md). Off by default so every recorded
@@ -559,9 +566,19 @@ public partial class Main : Node3D
 
     /// <summary>
     /// Every machine row in the world, loaded or not — read whole at open, written whole with
-    /// the session at every autosave and the quit (M10a-1). Rows only until M10a-2 places one.
+    /// the session at every autosave and the quit (M10a-1) — and, since M10a-2, the reconcile at
+    /// every arrival and the dismantle after every damaged body, both run by <see cref="DrainMachines"/>
+    /// once a frame. Built with the material table, so null until <see cref="SetUpMachines"/>.
     /// </summary>
-    private readonly MachineSet _machines = new();
+    private MachineSet? _machines;
+
+    /// <summary><c>--abort=&lt;seconds&gt;</c>: end the process with no save at all — the crash arm the reconcile is tested against.</summary>
+    private double _abortAfterSeconds;
+
+    private bool _seedKeyHeld;
+
+    private long _machineDrainCalls;
+    private double _machineDrainMillisSum, _machineDrainMillisMax;
 
     /// <summary><c>--bitechunks=&lt;n&gt;</c>: an n × n square of chunks bitten under the player once the window opens.</summary>
     private int _biteChunks;
@@ -1001,14 +1018,21 @@ public partial class Main : Node3D
             // M8b: the fluid automaton cannot see edits, and this is how it is told. Wired before
             // _fluid exists, so the null guard is what the first frames run on. M8b-2c: the
             // portal tracker is told the same way, after the write and never on a no-op.
-            onVoxelChanged: (voxel, _) =>
+            onVoxelChanged: (voxel, material) =>
             {
                 // The field first: the automaton is about to be told the world moved, and it must
                 // read the moved world rather than the one it was baked from.
                 _field?.Invalidate(voxel);
                 _fluid?.Disturb(voxel);
                 _portalTracker?.OnVoxelChanged(voxel);
+                // M10a-2: two lookups and a counter, never a write — the drain writes, once a frame.
+                _machines?.OnVoxelChanged(voxel, material);
             },
+            // M10a-2: an arrival with rows in it, or a palette that might hold a machine
+            // material, is queued for the frame's drain. O(palette) here, no voxel read, no write:
+            // this fires inside Complete before the neighbour push.
+            onVoxelsReady: (position, hasEdits) =>
+                _machines?.ChunkArrived(position, hasEdits, _pipeline?.Streamer.Get(position)?.Voxels),
             chunkCacheBytes: _chunkCacheMiB * 1024 * 1024,
             distanceOrderedDerives: !_deriveFifo,
             // The forget, so the index never walks a chunk that is not here.
@@ -1641,6 +1665,13 @@ public partial class Main : Node3D
                     _persist = false;
                     break;
 
+                // M10a-2: the crash arm. The process ends that many seconds in with no save at
+                // all, so the next open of the same world meets whatever the unload path wrote
+                // without the session that would have matched it.
+                case "abort" when double.TryParse(value, out double abort) && abort > 0:
+                    _abortAfterSeconds = abort;
+                    break;
+
                 // The retained-chunk cache's cap. Zero is the committed pre-cache behaviour and
                 // is the control arm; the default headless baseline has to come out identical in
                 // both, because nothing leaves the box at a standing start. Not profile-only,
@@ -1691,6 +1722,19 @@ public partial class Main : Node3D
                     break;
 
                 // Moves for N seconds and then stands still: the arm the grow-back is judged in.
+                // M10a-2: the mirror of --sprintfor, for a placement that has to land before the
+                // flythrough moves — --place aims level while moving and places nothing (M6d-2),
+                // so a run that wants a body placed and then its chunk unloaded stands first.
+                case "standfor" when double.TryParse(value, out double standFor) && standFor > 0.0:
+                    _standForSeconds = standFor;
+                    break;
+
+                // M10a-2: which material --place places. --stock= seeds every material alike and
+                // the controller picks the largest holding, which is a tie broken by ID.
+                case "material":
+                    _startingMaterial = value;
+                    break;
+
                 case "sprintfor" when double.TryParse(value, out double sprintFor) && sprintFor > 0.0:
                     _sprintForSeconds = sprintFor;
                     break;
@@ -2317,6 +2361,11 @@ public partial class Main : Node3D
         _freeQueue.Drain();
         long afterFree = Stopwatch.GetTimestamp();
 
+        // After the update, so every arrival the update completed is queued before the drain
+        // reconciles it; the hooks only queued.
+        DrainMachines();
+        AbortIfDue();
+
         if (_profiler is { Warm: true })
         {
             // The zero-remesh claim is a difference rather than a total: the fill is still
@@ -2763,7 +2812,7 @@ public partial class Main : Node3D
             basins = _water.Ledger.Entries();
         }
 
-        return new SessionSnapshot(WorldHeaderBlob.Write(CurrentHeader()), basins, _machines.Snapshot());
+        return new SessionSnapshot(WorldHeaderBlob.Write(CurrentHeader()), basins, _machines?.Snapshot() ?? []);
     }
 
     /// <summary>Reads the machine table whole, before the first frame.</summary>
@@ -2775,13 +2824,93 @@ public partial class Main : Node3D
     /// </remarks>
     private void SetUpMachines()
     {
-        if (_store is null)
+        _machines = new MachineSet(_materials!);
+
+        if (_store is not null)
+        {
+            RestoreReport report = _machines.Restore(_store.ReadMachines(), id => _materials!.Machine(id)?.Ports);
+            GD.Print($"M10: at open — {report}");
+        }
+
+        if (_abortAfterSeconds > 0)
+        {
+            GD.Print($"M10: this run ends with no save {_abortAfterSeconds:F0} s in (--abort) — the crash arm");
+        }
+    }
+
+    /// <summary>
+    /// The frame's half of the machine set: the reconcile of every chunk that arrived since the
+    /// last frame and the dismantle of every body damaged since — through the pipeline, where the
+    /// brush writes, never from a hook.
+    /// </summary>
+    private void DrainMachines()
+    {
+        if (_machines is null || _pipeline is null || !_machines.HasWorkQueued)
         {
             return;
         }
 
-        RestoreReport report = _machines.Restore(_store.ReadMachines(), _ => null);
-        GD.Print($"M10: at open — {report}");
+        long before = Stopwatch.GetTimestamp();
+        DrainReport report = _machines.Drain(_pipeline, _inventory, chunk => _pipeline.Streamer.Get(chunk)?.Voxels);
+        double millis = Milliseconds(before, Stopwatch.GetTimestamp());
+        _machineDrainCalls++;
+        _machineDrainMillisSum += millis;
+        _machineDrainMillisMax = Math.Max(_machineDrainMillisMax, millis);
+
+        if (report.DidAnything)
+        {
+            GD.Print($"M10: drain — {report} in {millis:F2} ms");
+        }
+    }
+
+    /// <summary>
+    /// <c>P</c> puts a relay pump and a relay outlet in the inventory — the debug bind M10-PLAN
+    /// decision 7 named beside <c>R</c>, retired when M10g's recipe exists.
+    /// </summary>
+    private void SeedMachines()
+    {
+        if (_camera is null || !_camera.MouseCaptured)
+        {
+            return;
+        }
+
+        bool pressed = Input.IsKeyPressed(Key.P);
+        bool edge = pressed && !_seedKeyHeld;
+        _seedKeyHeld = pressed;
+        if (!edge)
+        {
+            return;
+        }
+
+        const int Cell = BrushCell.Voxels * BrushCell.Voxels * BrushCell.Voxels;
+        int pump = MaterialId("overburden:relay_pump");
+        int outlet = MaterialId("overburden:relay_outlet");
+        if (pump == MaterialIds.AirNumericId || outlet == MaterialIds.AirNumericId)
+        {
+            GD.Print("M10: the relay pump and outlet are not in this world's content, so P seeds nothing");
+            return;
+        }
+
+        _inventory.Add(pump, Cell);
+        _inventory.Add(outlet, Cell);
+        GD.Print("M10: P — one relay pump and one relay outlet added to the inventory (64 voxels each); pick them on the number row");
+    }
+
+    /// <summary>Ends the process with no save, when <c>--abort=</c> asked for it.</summary>
+    /// <remarks>
+    /// <c>Environment.Exit</c> rather than a quit, because a quit saves and the whole point is
+    /// what the reconcile makes of a world whose last interval was never written — the orphan
+    /// body of a chunk that unloaded with its machine before the row's autosave.
+    /// </remarks>
+    private void AbortIfDue()
+    {
+        if (_abortAfterSeconds <= 0 || _secondsSinceStart < _abortAfterSeconds)
+        {
+            return;
+        }
+
+        GD.Print($"M10: --abort — ending the process now with no save, {_secondsSinceStart:F1} s in");
+        System.Environment.Exit(3);
     }
 
     private static double Milliseconds(long from, long to) =>
@@ -3079,6 +3208,10 @@ public partial class Main : Node3D
                 ? _cubeCooldownSeconds
                 : MiningController.EntangledCooldownSeconds,
             ChunkCooldownSeconds = _chunkCooldownSeconds,
+            // M10a-2: a machine material places as one cell with a row; wet, it waits for the
+            // boundary and displaces through the simulation. Null water under --nowater.
+            Machines = _machines,
+            Water = _fluid,
         };
 
         // A second outline, a metre across and in a different colour, because the brush lands on
@@ -3098,6 +3231,14 @@ public partial class Main : Node3D
                     _inventory.Add(numericId, _startingStock);
                 }
             }
+        }
+
+        if (_startingMaterial is not null)
+        {
+            int wanted = MaterialId(_startingMaterial);
+            GD.Print(_place.Select(wanted)
+                ? $"M10: --place places {_startingMaterial} (--material)"
+                : $"M10: --material={_startingMaterial} is not a material the inventory holds; --place places the largest holding");
         }
 
         GD.Print(
@@ -3273,6 +3414,7 @@ public partial class Main : Node3D
 
         PlaceDebugLamp();
         RelayWater();
+        SeedMachines();
 
         if (_highlight is null)
         {
@@ -3415,6 +3557,13 @@ public partial class Main : Node3D
     {
         if (_flySpeed <= 0f || _camera is null || _generator is null)
         {
+            return;
+        }
+
+        // The standing-first arm (M10a-2): stand for N seconds, then fly.
+        if (_standForSeconds > 0.0 && _stoodSeconds < _standForSeconds)
+        {
+            _stoodSeconds += delta;
             return;
         }
 
@@ -4351,6 +4500,7 @@ public partial class Main : Node3D
             TakePending();
             PourPending();
             RunPendingChunkFills();
+            RunPendingMachinePlacements();
             long t3 = Stopwatch.GetTimestamp();
 
             // M9d, decision 1: the table-move sweep, after every pass that moves a level — the
@@ -4793,6 +4943,34 @@ public partial class Main : Node3D
     /// the pour have written cells since the collection's publish — and then places through the
     /// same path a click would, tallied the same way.
     /// </summary>
+    /// <summary>The boundary's half of a machine placed into water — M10-PLAN decision 2's deferred, displacing path.</summary>
+    private void RunPendingMachinePlacements()
+    {
+        if (_place is not { PendingMachines: > 0 } || _fluid is null)
+        {
+            return;
+        }
+
+        Overburden.Core.Physics.Aabb? body =
+            _player is not null && _player.Mode == PlayerMode.Walk && _player.Spawned ? _player.State.Box : null;
+        long before = Stopwatch.GetTimestamp();
+        MachinePlacement? placed = _place.RunPendingMachinePlacements(body);
+        if (placed is { } p)
+        {
+            if (_profiler is { Warm: true })
+            {
+                _profiler.Place.Add(Milliseconds(before, Stopwatch.GetTimestamp()));
+            }
+
+            GD.Print(
+                $"M10: machine placed at the boundary — {p.Result.Placed / 64} body(ies), "
+                + $"{p.Result.Occupied / 64} occupied, {p.Result.OutOfStock / 64} out of stock, "
+                + $"lifted {p.Lifted / (double)FluidConstants.MillilitresPerLitre:N1} L, returned {p.Returned / (double)FluidConstants.MillilitresPerLitre:N1} L, "
+                + $"displaced {p.Displaced / (double)FluidConstants.MillilitresPerLitre:N1} L"
+                + (p.IsAccounted ? string.Empty : "  *** lifted != returned + displaced ***"));
+        }
+    }
+
     private void RunPendingChunkFills()
     {
         if (_place is not { PendingChunkFills: > 0 } || _fluid is null)
@@ -5692,7 +5870,18 @@ public partial class Main : Node3D
         if (_water is not null) GD.Print($"M7d: {WaterSummary()}");
         if (_fluid is not null) GD.Print($"M8b: {FluidSummary()}");
         if (_support is not null) GD.Print($"M9: {SupportSummary()}");
-        GD.Print($"M10: {_machines.Count} machine(s), {_pipeline.SessionsSaved} session save(s)");
+        if (_machines is not null)
+        {
+            GD.Print(
+                $"M10: {_machines.Count} machine(s), {_pipeline.SessionsSaved} session save(s) | "
+                + $"placed {_machines.Placed} ({_place?.MachinesDeferred ?? 0} deferred, {_place?.MachinesPlacedDisplacing ?? 0} at the boundary, "
+                + $"lifted {(_place?.MachineLifted ?? 0) / (double)FluidConstants.MillilitresPerLitre:N0} L, displaced {(_place?.MachineDisplaced ?? 0) / (double)FluidConstants.MillilitresPerLitre:N0} L) | "
+                + $"dismantled {_machines.Dismantled} ({_machines.DismantledVoxelsCredited} voxel(s) credited), destroyed {_machines.Destroyed} | "
+                + $"reconciled {_machines.ChunksReconciled} chunk(s): {_machines.Rebuilt} rebuilt, {_machines.ReturnedAtArrival} returned, "
+                + $"{_machines.DestroyedAtArrival} destroyed, {_machines.OrphanVoxelsCleared} orphan voxel(s) cleared, "
+                + $"{_machines.ChunksSkippedByPalette} skipped by palette, {_machines.ChunksLeftBeforeDrain} left before the drain | "
+                + $"drain {_machineDrainCalls} call(s), {(_machineDrainCalls > 0 ? _machineDrainMillisSum / _machineDrainCalls : 0):F2} ms mean, {_machineDrainMillisMax:F2} max");
+        }
     }
 
     /// <summary>

@@ -86,6 +86,24 @@ public sealed class VoxelChunk
         _ => -1, // direct storage has no palette
     };
 
+    /// <summary>
+    /// Whether the chunk might hold <paramref name="materialId"/> anywhere — an over-approximation
+    /// that is exact for a uniform chunk, a palette membership test for a palettised one, and
+    /// always true for direct storage.
+    /// </summary>
+    /// <remarks>
+    /// <b>Over-approximates, and that is the point.</b> <see cref="Compact"/> never runs on the
+    /// live chunk, so a palette can name a material the chunk no longer holds; a yes here costs the
+    /// caller a scan of 32,768 voxels and a no is a guarantee. The machine reconcile (M10a-2) asks
+    /// this at every arrival so a chunk with no machine material in it is skipped in O(palette).
+    /// </remarks>
+    public bool MayContain(int materialId) => _kind switch
+    {
+        StorageKind.Uniform => _uniformValue == materialId,
+        StorageKind.Palettised => _palette!.Contains(materialId),
+        _ => true,
+    };
+
     /// <summary>Payload bytes, excluding object headers. Used by the memory tests.</summary>
     public int EstimatedBytes => _kind switch
     {

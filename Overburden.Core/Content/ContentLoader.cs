@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Overburden.Core.Machines;
 
 namespace Overburden.Core.Content;
 
@@ -275,6 +276,28 @@ public sealed class ContentLoader
                 continue;
             }
 
+            if (!TryReadUnit(dto.Unit, out MaterialUnit unit, out string? unitError))
+            {
+                errors.Add($"{manifest.Id}/{path}: {unitError}");
+                continue;
+            }
+
+            MachineDefinition? machine = null;
+            if (dto.Machine is not null)
+            {
+                if (dto.Fluid == true)
+                {
+                    errors.Add($"{manifest.Id}/{path}: a fluid cannot carry a machine block; a body is solid.");
+                    continue;
+                }
+
+                if (!TryReadMachine(dto.Machine, out machine, out string? machineError))
+                {
+                    errors.Add($"{manifest.Id}/{path}: machine: {machineError}");
+                    continue;
+                }
+            }
+
             var definition = new MaterialDefinition
             {
                 Id = id,
@@ -288,6 +311,8 @@ public sealed class ContentLoader
                 IsOpaque = dto.Opaque ?? true,
                 IsFluid = dto.Fluid ?? false,
                 IsReplaceable = dto.Replaceable ?? false,
+                Machine = machine,
+                Unit = unit,
             };
 
             try
@@ -458,12 +483,192 @@ public sealed class ContentLoader
         return true;
     }
 
+    private static bool TryReadUnit(string? text, out MaterialUnit unit, out string? error)
+    {
+        error = null;
+        switch (text)
+        {
+            case null or "litres": unit = MaterialUnit.Litres; return true;
+            case "count": unit = MaterialUnit.Count; return true;
+            case "cells": unit = MaterialUnit.Cells; return true;
+            default:
+                unit = MaterialUnit.Litres;
+                error = $"unit '{text}' is not one of litres, count, cells.";
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// Reads a <c>machine</c> block, refusing anything the engine could not serve with the file
+    /// named — the rules are <see cref="MachineDefinition.TryValidate"/>'s, and the shape rules
+    /// here are only the ones a DTO cannot express.
+    /// </summary>
+    /// <remarks>
+    /// <b>The whole grammar is read and a <c>via</c> this build does not serve is refused, naming
+    /// the part that will</b> (M10a's pass, decision 11). A mod written for M10f that loaded on
+    /// M10a and ticked nothing would be the lamp that did not glow, against a format mods write to.
+    /// </remarks>
+    private static bool TryReadMachine(MachineJson dto, out MachineDefinition? machine, out string? error)
+    {
+        machine = null;
+
+        MachineKind kind;
+        switch (dto.Kind)
+        {
+            case "pump": kind = MachineKind.Pump; break;
+            case "outlet": kind = MachineKind.Outlet; break;
+            case "generator" or "converter" or "storage":
+                error = $"kind '{dto.Kind}' is not in this build — power is M10c.";
+                return false;
+            case "station":
+                error = "kind 'station' is not in this build — crafting is M10g.";
+                return false;
+            case null:
+                error = "no 'kind'.";
+                return false;
+            default:
+                error = $"kind '{dto.Kind}' is not a machine kind.";
+                return false;
+        }
+
+        long millilitresPerSecond = 0;
+        if (dto.LitresPerSecond is { } litresPerSecond)
+        {
+            // Kept in millilitres so the boundary's share is integer arithmetic; a rate that is
+            // not a whole millilitre a second is refused rather than rounded, because the tick
+            // would then move a different amount from the one the file says.
+            double millis = litresPerSecond * 1000.0;
+            if (double.IsNaN(millis) || double.IsInfinity(millis) || millis != Math.Round(millis))
+            {
+                error = "litresPerSecond must be a whole number of millilitres a second (three decimals at most).";
+                return false;
+            }
+
+            millilitresPerSecond = (long)Math.Round(millis);
+        }
+
+        var links = new List<MachineLink>();
+        if (dto.Links is not null)
+        {
+            foreach ((string name, MachineLinkJson? link) in dto.Links)
+            {
+                if (link is null)
+                {
+                    error = $"link '{name}' is empty.";
+                    return false;
+                }
+
+                MachineMedium carries;
+                switch (link.Carries)
+                {
+                    case "power": carries = MachineMedium.Power; break;
+                    case "fluid": carries = MachineMedium.Fluid; break;
+                    default:
+                        error = $"link '{name}': carries must be power or fluid.";
+                        return false;
+                }
+
+                MachineRole role;
+                switch (link.Role)
+                {
+                    case "source": role = MachineRole.Source; break;
+                    case "sink": role = MachineRole.Sink; break;
+                    default:
+                        error = $"link '{name}': role must be source or sink.";
+                        return false;
+                }
+
+                if (link.Via is null)
+                {
+                    error = $"link '{name}' names no via.";
+                    return false;
+                }
+
+                links.Add(new MachineLink(name, carries, role, link.Via, link.Face, link.Port));
+            }
+        }
+
+        var ports = new List<PortDefinition>();
+        if (dto.Ports is not null)
+        {
+            foreach ((string name, MachinePortJson? port) in dto.Ports)
+            {
+                if (port is null || port.Min is null || port.Max is null)
+                {
+                    error = $"port '{name}' needs min and max (and default, which is min when absent).";
+                    return false;
+                }
+
+                if (!PortDefinition.IsValidName(name))
+                {
+                    error = $"'{name}' is not a port name: 1..{PortDefinition.MaxNameLength} of lowercase letters, digits, '_', '-' or '.'.";
+                    return false;
+                }
+
+                long min = port.Min.Value, max = port.Max.Value, @default = port.Default ?? min;
+                if (min > max || @default < min || @default > max)
+                {
+                    error = $"port '{name}': min {min} <= default {@default} <= max {max} does not hold.";
+                    return false;
+                }
+
+                ports.Add(new PortDefinition(name, @default, min, max));
+            }
+        }
+
+        var read = new MachineDefinition
+        {
+            Kind = kind,
+            MillilitresPerSecond = millilitresPerSecond,
+            HeadMetres = dto.HeadMetres,
+            JoulesPerLitre = dto.JoulesPerLitre ?? 0,
+            IntakeRadiusCells = dto.IntakeRadiusCells ?? MachineDefinition.MinIntakeRadiusCells,
+            Links = links,
+            Ports = ports,
+        };
+
+        if (!read.TryValidate(out error))
+        {
+            return false;
+        }
+
+        machine = read;
+        return true;
+    }
+
     private sealed class ModManifestJson
     {
         public string? Id { get; set; }
         public string? Name { get; set; }
         public string? Version { get; set; }
         public List<string>? Dependencies { get; set; }
+    }
+
+    private sealed class MachineJson
+    {
+        public string? Kind { get; set; }
+        public double? LitresPerSecond { get; set; }
+        public double? HeadMetres { get; set; }
+        public long? JoulesPerLitre { get; set; }
+        public int? IntakeRadiusCells { get; set; }
+        public Dictionary<string, MachineLinkJson?>? Links { get; set; }
+        public Dictionary<string, MachinePortJson?>? Ports { get; set; }
+    }
+
+    private sealed class MachineLinkJson
+    {
+        public string? Carries { get; set; }
+        public string? Role { get; set; }
+        public string? Via { get; set; }
+        public string? Face { get; set; }
+        public string? Port { get; set; }
+    }
+
+    private sealed class MachinePortJson
+    {
+        public long? Default { get; set; }
+        public long? Min { get; set; }
+        public long? Max { get; set; }
     }
 
     private sealed class MaterialJson
@@ -479,6 +684,8 @@ public sealed class ContentLoader
         public bool? Opaque { get; set; }
         public bool? Fluid { get; set; }
         public bool? Replaceable { get; set; }
+        public string? Unit { get; set; }
+        public MachineJson? Machine { get; set; }
     }
 
     private sealed class ToolJson

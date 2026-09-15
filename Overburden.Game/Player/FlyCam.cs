@@ -114,6 +114,7 @@ public partial class FlyCam : Camera3D
             "  B cycles the brush, T cycles the tool tier\n" +
             "  L places a lamp — a debug bind, and with Q the only way to place at range\n" +
             "  Q toggles the entangled miner — unlimited reach, 40 swings/s, also a debug bind\n" +
+            "  P puts a relay pump and a relay outlet in the inventory — a debug bind until crafting; a machine places as one 1 m body\n" +
             "  Esc releases the mouse, click to recapture");
     }
 

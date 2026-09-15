@@ -1234,3 +1234,82 @@ this build writes and an older build refuses is that test.
 JSON files, `Place.Machine`, `IMachineBodies` on `Carve`, the three hooks and the per-frame
 drain, `P`, the hotbar, `--abort=`. `MachineSet` gains the placement, the damage counters and
 the drain there; `SetUpMachines` hands `Restore` the material table's declarations.
+
+### M10a-2 — built
+
+> 2026-09-15, night, after a-1. Suite 1,469 → 1,519; seventeen break-recipes, seventeen caught
+> once one fixture was fixed; the r6 control unchanged to the digit; the orphan direction of the
+> reconcile seen headless on a scratch world through `--abort`.
+
+**What is there.** The loader reads the whole `machine` grammar (`MachineDefinition`,
+`MachineLink`, `MachineKind` in `Overburden.Core/Machines/`; `MaterialDefinition.Machine` and
+`Unit`; `MaterialTable.IsMachine`, `Machine(id)`, `MachineIds`, `Unit(id)`) and refuses every rule
+in decision 11 naming the file — a `kind` this build does not serve naming M10c or M10g, a `via`
+it does not serve naming M10f or M10e, a channel link with no declared port or with a face, a
+pump with no fluid source or an outlet with no fluid sink, every number outside its bound, a port
+named outside the charset, a seventeenth port, a fluid with a machine block, a `unit` that is not
+one of three. `MachineDefinition.TryValidate` holds the rules in one place and the table refuses
+to project a block that fails them, so a definition built without the loader is held to the same
+ones. `relay_pump.json` and `relay_outlet.json` ship at hardness 3.0 with `unit: cells`, two
+`LayerColour` entries and — found by the r6 control throwing on the first run — two jitter entries,
+now asserted against each other. `VoxelChunk.MayContain`. `Place.Machine`: the whole cell checked
+first in the brush's order of refusals, whole in one bucket, then 64 writes with a rollback and the
+row made in the same call; `Place.MachineDisplacing`: the water lifted, the body written, the
+water returned bottom-up over the box, the rest displaced, `lifted == returned + displaced` on
+the result. `IMachineBodies` threaded through `Carve`'s nine entry points to `Take`, called after
+the credit for a machine material. `MachineSet` gained the hooks and the drain: `ChunkArrived`
+queues (rows in the chunk, or a palette that might hold a machine material, edited chunks only),
+`OnVoxelChanged` bumps `Lost`, `Taken` bumps `Carved`, and `Drain` reconciles every queued chunk
+(whole → nothing; absent → rebuilt into air or returned to the inventory when the cell is rock;
+partial → destroyed; an orphan voxel → air) and dismantles every damaged row (`Lost == Carved`
+credits the remainder, `Lost > Carved` destroys). `PlaceController` places a machine material as
+one body whatever the brush, mode or modifier, queues a wet refusal to the boundary and runs it
+there on the displacing path; `Main` wires `onVoxelsReady` for the first time, drains once a
+frame after the pipeline's update, runs the deferred placements beside the chunk fills, seeds on
+`P`, prints `MACHINE` and `× N` on the HUD, and carries `--abort=`, `--standfor=` and
+`--material=`.
+
+**Three departures from the pass.** `--standfor=<s>` and `--material=<id>` exist: the pass
+named `--abort=` as the crash arm, and the first run said the arm could not be reached — `--place`
+aims level while the flythrough moves and places nothing (M6d-2), so a run that wants a body
+placed *and then* its chunk unloaded has to stand first, and `--stock=` seeds every material alike
+so the controller's largest-holding pick lands on grass. Both are `--sprintfor=`'s and `--brush=`'s
+shape. The jitter table is the third: not a departure from the pass but from the plan of never
+having to think about it — `LayerColour` had a sixth and seventh entry and `Create` indexed a
+five-entry jitter array by layer, and the r6 control threw `IndexOutOfRange` before its first
+frame. Asserted now.
+
+**Two recipes were identities against their fixtures.** *No rollback on a failed write* stayed
+green because the fixture refused every write in the chunk, so the *first* write failed and there
+was nothing to roll back; `TestWorld.RefuseWrite(voxel)` refuses one voxel deep inside the cell
+now and the test asserts more than one write happened before the refusal. And the drain test's
+fall-then-swing fixture carved `Cell.VoxelAt(4, …)` — the next cell over — for its fifth voxel,
+which was air already: a fixture error the assertion caught on the first run, not a hole. The
+other sixteen — a fall credited, a swing not credited, a partial body rebuilt, orphans unscanned,
+every edited arrival queued, a body write counted as a loss, damaged rows before arrivals, the
+carve silent, occupied not refused, the row before the writes, the water returned top-down, the
+remainder undisplaced, the wet check dropped, an invalid block projected, every via served, a pump
+with no source — were caught first time.
+
+**Measured.** The r6 control, verbatim, 2601 / 325 / 3446 at 411. The orphan direction headless:
+`--profile --speed=12 --standfor=5 --pitch=-60 --place --stock=64 --material=overburden:relay_pump
+--world=probe --autosave=100 --abort=30` stands, places a pump and — `--stock=` having seeded the
+outlet too — an outlet on top of it, flies off, writes four edited chunks at the unload and no row,
+and ends at 30 s; the reopen reads `0 machine row(s)` and its first drain prints `2 reconciled,
+128 orphan voxel(s) cleared, 2 skipped by palette` in 22.8 ms — two chunks scanned at 32,768
+voxels and 128 writes through the hook chain, once. The other direction (a row on disk, the body
+gone) is the pipeline test's alone, as the pass said: nothing headless dismantles a body without
+`--mine` also digging the ground from under the next placement.
+
+**What the tests say.** `MachineContentTests` (10), `PlaceMachineTests` (15, one against the real
+`FluidSimulation` with `FluidAssert.Conserves`), `MachineDrainTests` (19), `MachinePipelineTests`
+(4: the generate path rebuilds, the cache path leaves whole, the swing through the pipeline
+dismantles, an orphan on the generate path clears), `ShippedContentTests` gained the pair, and
+`CollapseTests.AnOldWorldsTableGainsRubbleAsTheNextIdAtOpen` was amended — the played world's v3
+header gains three IDs now, in directory order, so *rubble is next* became *the saved prefix is
+untouched and every new material follows it*.
+
+**Next: M10a-3, the pump** — `Pump`/`Emit` twins on both tiers, `HeldIn`, `TryBasinAtSample`,
+`MachineTick` in its `machines` bracket, the cursor, the unloaded-outlet rule, `--pump=` and
+`--pumpoutlet=`, the full `M10:` line and profile block, `--pump` on the bench, the lifecycle
+battery with machines running.

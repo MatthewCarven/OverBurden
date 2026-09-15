@@ -87,6 +87,16 @@ public sealed class MachineRow
     /// <summary>The kind's own state between boundaries, version byte first. Empty when it keeps none.</summary>
     public byte[] KindState { get; set; }
 
+    /// <summary>Body voxels that stopped being the body's material since the row was last whole — the hook's count.</summary>
+    /// <remarks>
+    /// Session state, never persisted: a damaged row is dismantled or destroyed at the same
+    /// frame's drain, so a row on disk is always whole. See <see cref="MachineSet"/>'s credit rule.
+    /// </remarks>
+    public int Lost { get; internal set; }
+
+    /// <summary>Of those, how many a pick took and credited — <see cref="IMachineBodies.Taken"/>'s count.</summary>
+    public int Carved { get; internal set; }
+
     /// <summary>The port's value, or its absence.</summary>
     public bool TryGetPort(string name, out long value) => _ports.TryGetValue(name, out value);
 

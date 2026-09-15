@@ -57,6 +57,12 @@ public static class VoxelMaterial
         // M9c-1's rubble: a grey-brown coarser than stone, so a fallen roof reads as a pile
         // and not as more wall. A screenshot's call, like the rest of this table.
         new Color(0.44f, 0.38f, 0.32f),
+
+        // M10a-2's relay pump and outlet: a dark iron blue for the body that takes water and
+        // a brass for the one that gives it, so the pair reads as a pair from across a room.
+        // Unscreenshotted; a look call for M10d's play.
+        new Color(0.22f, 0.28f, 0.40f),
+        new Color(0.72f, 0.55f, 0.22f),
     ];
 
     /// <summary>The colour for a layer, or a flat grey for one this build has no texture for.</summary>
@@ -86,12 +92,19 @@ public static class VoxelMaterial
         // Jitter per layer, beside the shared colour rather than folded into it: the HUD wants
         // the flat colour and the block wants the speckle, and they are the same decision only
         // as far as the hue.
-        float[] jitter = [0.08f, 0.12f, 0.10f, 0.04f, 0.16f];
+        // The relay pair (M10a-2) is smoother than rock — a cast body, not a face of it — and
+        // the table is asserted against the colours so a sixth colour cannot ship without a sixth
+        // jitter: the r6 control threw an IndexOutOfRange from here on the night the pair was added.
+        float[] jitter = [0.08f, 0.12f, 0.10f, 0.04f, 0.16f, 0.03f, 0.03f];
+        if (jitter.Length != LayerColour.Length)
+        {
+            GD.PushError($"Overburden: {LayerColour.Length} layer colours but {jitter.Length} jitters; the two tables have drifted");
+        }
 
         var layers = new Godot.Collections.Array<Image>();
         for (int layer = 0; layer < LayerColour.Length; layer++)
         {
-            layers.Add(Speckled(LayerColour[layer], jitter[layer], seed: layer + 1));
+            layers.Add(Speckled(LayerColour[layer], layer < jitter.Length ? jitter[layer] : 0.08f, seed: layer + 1));
         }
 
         var array = new Texture2DArray();

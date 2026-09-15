@@ -653,14 +653,15 @@ internal sealed class PipelineHarness : IDisposable
         long chunkCacheBytes = 0,
         Action<ChunkPos, bool>? onVoxelsReady = null,
         Action<ChunkPos>? onChunkForgotten = null,
-        Action<ChunkPos, bool>? onFluidReady = null)
+        Action<ChunkPos, bool>? onFluidReady = null,
+        MaterialTable? materials = null)
     {
         var viewers = new ViewerSet();
         _scheduler = new JobScheduler(viewers, threadCount: 4, sweepInterval: TimeSpan.FromMilliseconds(5));
 
         Pipeline = new ChunkPipeline(
             Generator(),
-            Materials(),
+            materials ?? Materials(),
             _scheduler,
             viewers,
             onMeshReady: (chunk, mesh) =>
@@ -775,6 +776,34 @@ internal sealed class PipelineHarness : IDisposable
 
     /// <summary>An opaque, full-strength emitter. Nothing generates it; tests place it.</summary>
     public const int Lamp = 4;
+
+    /// <summary>A machine body material — a relay pump's shape. Nothing generates it; tests place it (M10a-2).</summary>
+    public const int Pump = 5;
+
+    /// <summary>The shipped table plus one machine, for the reconcile and dismantle tests.</summary>
+    public static MaterialTable MaterialsWithPump() => MaterialTable.ForTesting(
+        //             air    grass dirt  stone lamp  pump
+        isOpaque: [false, true, true, true, true, true],
+        isFluid: [false, false, false, false, false, false],
+        textureLayer: [0, 1, 2, 3, 4, 5],
+        hardness: [0f, 0.9f, 0.8f, 3.0f, 0.5f, 3.0f],
+        lightEmission: [0, 0, 0, 0, 15, 0],
+        supportDistance: [0, 8, 8, 30, 8, 8],
+        machine: [null, null, null, null, null, PumpDefinition],
+        unit: [default, default, default, default, default, Overburden.Core.Content.MaterialUnit.Cells]);
+
+    /// <summary>The relay pump's block, as the shipped JSON declares it.</summary>
+    public static readonly Overburden.Core.Machines.MachineDefinition PumpDefinition = new()
+    {
+        Kind = Overburden.Core.Machines.MachineKind.Pump,
+        MillilitresPerSecond = 100_000,
+        IntakeRadiusCells = 1,
+        Links =
+        [
+            new Overburden.Core.Machines.MachineLink("water", Overburden.Core.Machines.MachineMedium.Fluid, Overburden.Core.Machines.MachineRole.Source, "channel", null, "channel"),
+        ],
+        Ports = [new Overburden.Core.Machines.PortDefinition("channel", 0, 0, 15), new Overburden.Core.Machines.PortDefinition("weight", 1, 1, 100)],
+    };
 
     /// <summary>
     /// The base game's own hardnesses, so a carve driven through this harness gates the same

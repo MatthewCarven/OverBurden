@@ -1,5 +1,44 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-15 — M10a-2 built: a machine is a material plus a row, and the row is the truth
+
+*"As recommended, lets build a-2"* — the entity. Suite 1,469 → 1,519. What was built is in
+M10-LADDER-PLAN's "M10a-2 — built"; what is worth keeping here:
+
+- **The first thing the r6 control found was not a machine.** `LayerColour` gained the pair's two
+  colours and `VoxelMaterial.Create` indexed a five-entry jitter array by layer — `IndexOutOfRange`
+  from `_Ready`, before the first frame, in a run that placed nothing. Every test was green, because
+  no test builds a texture array. The two tables are asserted against each other now. Fourth outing
+  for *run the control before believing the suite*.
+- **The crash arm could not be reached with the flags that existed.** The pass named `--abort=`; the
+  first run placed nothing, because `--place` aims level while the flythrough moves (M6d-2) and a
+  standing run never unloads the chunk. `--standfor=<s>` — `--sprintfor=`'s mirror — and
+  `--material=<id>` — because `--stock=` seeds every material alike and the largest holding is grass —
+  are the two seams that make it reachable; with them the orphan direction reads `128 orphan
+  voxel(s) cleared, 2 skipped by palette` at the reopen, in 22.8 ms for two 32,768-voxel scans and
+  128 writes through the hook chain.
+- **Two fixtures were identities.** *No rollback on a failed write* was green with the rollback
+  removed because the fixture refused every write in the chunk, so the first write failed and there
+  was nothing to roll back — a refusal one voxel deep inside the cell is the fixture now, and the
+  test asserts more than one write preceded it. And a fall-then-swing fixture carved the next cell
+  over for its fifth voxel; the assertion caught it. Seventeen recipes, seventeen caught after that.
+- **The credit rule held up against every arm the battery could think of.** `Lost == Carved` with
+  the carve saying what it took: a swing of 17 ends at 64 in the inventory; a chip of one at 64;
+  `Q`'s cube at 64 by the carve and 0 by the drain; a fall of half at 0 and the row gone; rubble
+  inside the body at 0 and the rubble left lying; a fall and a swing in one frame at exactly the
+  swing's voxels. Remove the row before writing air, or the hook counts the clear as damage against
+  a row that is being cleared — the drain does, and the reconcile does.
+- **`Main` wires `onVoxelsReady` for the first time.** Every earlier consumer moved to
+  `onFluidReady` (M8b-4c); the reconcile is about voxels and wants the chunk before its water, and
+  the hook does nothing but queue, so it can fire mid-tick inside `Complete` without the M2c-2 stall
+  the pass's fact 3 named.
+- **The played world's v3 header gains three IDs now, in directory order** — `relay_outlet`,
+  `relay_pump`, `rubble` — so `AnOldWorldsTableGainsRubbleAsTheNextIdAtOpen`'s *rubble is next* was
+  a fact about a directory with one new file. The property is the saved prefix untouched and every
+  new material after it; the test says that now.
+
+Next: M10a-3, the pump.
+
 ## 2026-09-15 — M10a-1 built: the session rides the chunk transaction, and the machines table exists
 
 *"As recommended, lets build a-1"* — the store slice, alone, as the pass split it. Suite 1,412 →

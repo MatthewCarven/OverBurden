@@ -1,3 +1,5 @@
+using Overburden.Core.Machines;
+
 namespace Overburden.Core.Content;
 
 /// <summary>
@@ -19,6 +21,9 @@ public sealed class MaterialTable
     private readonly float[] _permeability;
     private readonly int[] _supportDistance;
     private readonly SupportPoint[][] _supportCurve;
+    private readonly MachineDefinition?[] _machine;
+    private readonly MaterialUnit[] _unit;
+    private readonly int[] _machineIds;
 
     private MaterialTable(
         bool[] isOpaque,
@@ -28,7 +33,9 @@ public sealed class MaterialTable
         byte[] lightEmission,
         float[] permeability,
         int[] supportDistance,
-        SupportPoint[][] supportCurve)
+        SupportPoint[][] supportCurve,
+        MachineDefinition?[] machine,
+        MaterialUnit[] unit)
     {
         _isOpaque = isOpaque;
         _isFluid = isFluid;
@@ -38,9 +45,31 @@ public sealed class MaterialTable
         _permeability = permeability;
         _supportDistance = supportDistance;
         _supportCurve = supportCurve;
+        _machine = machine;
+        _unit = unit;
+
+        var ids = new List<int>();
+        for (int id = 0; id < machine.Length; id++)
+        {
+            if (machine[id] is not null) ids.Add(id);
+        }
+
+        _machineIds = [.. ids];
     }
 
     public int Count => _isOpaque.Length;
+
+    /// <summary>Whether a body of the material is a machine — one array read, for the hooks and the carve.</summary>
+    public bool IsMachine(int materialId) => _machine[materialId] is not null;
+
+    /// <summary>The material's machine block, or null. Projected here for the reason <see cref="Hardness"/> is.</summary>
+    public MachineDefinition? Machine(int materialId) => _machine[materialId];
+
+    /// <summary>Every numeric ID that is a machine, for a chunk's palette check at arrival.</summary>
+    public IReadOnlyList<int> MachineIds => _machineIds;
+
+    /// <summary>How the hotbar counts the material.</summary>
+    public MaterialUnit Unit(int materialId) => _unit[materialId];
 
     public bool IsOpaque(int materialId) => _isOpaque[materialId];
 
@@ -156,6 +185,8 @@ public sealed class MaterialTable
         var permeability = new float[count];
         var supportDistance = new int[count];
         var supportCurve = new SupportPoint[count][];
+        var machine = new MachineDefinition?[count];
+        var unit = new MaterialUnit[count];
 
         for (int id = 0; id < count; id++)
         {
@@ -198,10 +229,17 @@ public sealed class MaterialTable
             // a definition built without it still cannot write a cost that rounds to zero.
             supportDistance[id] = Math.Clamp(definition.SupportDistance, 0, MaterialDefinition.MaxSupportDistance);
             supportCurve[id] = [.. definition.SupportUnderHead];
+
+            // A machine block that would not load is not projected: the loader is not the only
+            // way a definition gets here, and a body whose block the engine cannot serve is a
+            // voxel and nothing more — the table's belt to the loader's braces.
+            machine[id] = definition.Machine is { } block && block.TryValidate(out _) ? block : null;
+            unit[id] = definition.Unit;
         }
 
         return new MaterialTable(
-            isOpaque, isFluid, textureLayer, hardness, lightEmission, permeability, supportDistance, supportCurve);
+            isOpaque, isFluid, textureLayer, hardness, lightEmission, permeability, supportDistance, supportCurve,
+            machine, unit);
     }
 
     /// <summary>What a hole with no identifier carries: the named placeholder's distance, one number.</summary>
@@ -240,7 +278,9 @@ public sealed class MaterialTable
         byte[]? lightEmission = null,
         float[]? permeability = null,
         int[]? supportDistance = null,
-        SupportPoint[][]? supportCurve = null) =>
+        SupportPoint[][]? supportCurve = null,
+        MachineDefinition?[]? machine = null,
+        MaterialUnit[]? unit = null) =>
         new(isOpaque, isFluid, textureLayer, hardness,
             lightEmission ?? new byte[isOpaque.Length],
             permeability is null
@@ -249,5 +289,7 @@ public sealed class MaterialTable
             supportDistance is null
                 ? new int[isOpaque.Length]
                 : Array.ConvertAll(supportDistance, d => Math.Clamp(d, 0, MaterialDefinition.MaxSupportDistance)),
-            supportCurve ?? Enumerable.Repeat(Array.Empty<SupportPoint>(), isOpaque.Length).ToArray());
+            supportCurve ?? Enumerable.Repeat(Array.Empty<SupportPoint>(), isOpaque.Length).ToArray(),
+            machine ?? new MachineDefinition?[isOpaque.Length],
+            unit ?? new MaterialUnit[isOpaque.Length]);
 }
