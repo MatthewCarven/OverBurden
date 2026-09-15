@@ -1,5 +1,41 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-15 — M10a-1 built: the session rides the chunk transaction, and the machines table exists
+
+*"As recommended, lets build a-1"* — the store slice, alone, as the pass split it. Suite 1,412 →
+1,469. What was built is in M10-LADDER-PLAN's "M10a-1 — built"; what is worth keeping here:
+
+- **The first test passed on both stores, and the battery said why it is worth having.**
+  `AWriteThatFailsOnItsMachinesLeavesTheHeaderBasinsAndChunksUnchanged` puts a header, basins, a
+  chunk and a machine list with a null last blob in one batch after a good one, and asserts the
+  file reads as if the second never happened. Commit the header outside the transaction and it
+  fails; skip the in-memory store's pre-validation and it fails; write the header in a second
+  call from `SaveWorldJob` and the pipeline's twin fails. Fifteen recipes across the store, the
+  job, the pipeline, the set and the blob; fifteen caught.
+- **One recipe was an identity against its fixture.** The blob reader's "nothing follows the kind
+  state" check stayed green with the check removed, because the test appended a byte to the blob
+  and the *frame's* stored-length check refused it first — the corruption test that trips an
+  earlier guard than the one it names, a variety the memory already lists. The fixture now
+  hand-builds a payload with a trailing byte inside an honest frame; caught.
+- **`--nowater` would have cleared the basins.** The pass's `SessionSnapshot` had a non-null basin
+  list; a run with no `WaterSystem` has no ledger, and an empty list means *clear the table*. Null
+  means *leave it* — the first departure from the pass, found writing `Main.Session()`.
+- **The quit has a case the pass's fact 2 did not reach.** `SaveAll` refuses while a tick owns the
+  grid, and a tick that does not report within its cancel timeout leaves it owned at the quit.
+  Before this the session was written first and separately, so it survived that; joined to the
+  batch it would not have. `ChunkPipeline.WriteSession` writes it alone in that one case, printed,
+  and the chunks are lost with the interval as they always were.
+- **The autosave line prints every time now.** M6b-3's rule was a line only when something was
+  written; the session is written every time, so the line says `0 chunk(s), … and the session
+  (615 basin(s), 0 machine(s))` and a quiet thirty seconds is legible rather than silent.
+- **Measured.** r6 control 2601 / 325 / 3446 at 411, unchanged. A fresh world's autosave with the
+  session 14.3 ms; a copy of the played world — schema 3, 119 chunks, 615 basins, 207 fluid rows —
+  opens, reads `0 machine row(s)`, autosaves 48 panels and the session in 99.5 ms (the basin
+  rewrite was inside the old bracket too), and reads back at `user_version 4` with every count
+  intact. `default` itself is untouched and still at schema 3 until Matthew next opens it.
+
+Next: M10a-2, the entity.
+
 ## 2026-09-15 — M10a planned: hooks queue and frames write, `Lost == Carved`, and the lake is `InLake`
 
 Matthew took the ladder whole — *"As recommended, lets do M10a's planning pass"* — so all

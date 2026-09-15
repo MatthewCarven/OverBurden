@@ -40,12 +40,13 @@ public sealed class SqliteWorldStore : IWorldStore
     /// <c>user_version</c> pragma, which costs no table and no row.
     ///
     /// <para>
-    /// <b>Moved to 2 at M7b-2</b> for the <c>basins</c> table. An older file gains it on open —
-    /// every statement here is <c>IF NOT EXISTS</c> — so the bump records what happened rather
-    /// than gating anything, and a file written by a <em>newer</em> build is still refused.
+    /// <b>Moved to 2 at M7b-2</b> for the <c>basins</c> table, <b>to 3 at M8b-4b</b> for
+    /// <c>fluid</c>, and <b>to 4 at M10a-1</b> for <c>machines</c>. An older file gains the table
+    /// on open — every statement here is <c>IF NOT EXISTS</c> — so the bump records what happened
+    /// rather than gating anything, and a file written by a <em>newer</em> build is still refused.
     /// </para>
     /// </remarks>
-    public const int SchemaVersion = 3;
+    public const int SchemaVersion = 4;
 
     private const string HeaderKey = "header";
 
@@ -59,6 +60,7 @@ public sealed class SqliteWorldStore : IWorldStore
     private readonly SqliteCommand _writeFluid;
     private readonly SqliteCommand _readFluid;
     private readonly SqliteCommand _writeBasin;
+    private readonly SqliteCommand _writeMachine;
 
     private bool _disposed;
 
@@ -113,6 +115,10 @@ public sealed class SqliteWorldStore : IWorldStore
         _writeBasin = Prepare(
             "INSERT INTO basins (pit_x, pit_z, litres) VALUES ($x, $z, $litres);",
             "$x", "$z", "$litres");
+
+        _writeMachine = Prepare(
+            "INSERT INTO machines (ox, oy, oz, material, blob) VALUES ($x, $y, $z, $material, $blob);",
+            "$x", "$y", "$z", "$material", "$blob");
     }
 
     /// <summary>The file this store was opened on.</summary>
@@ -129,11 +135,7 @@ public sealed class SqliteWorldStore : IWorldStore
     public void WriteWorldHeader(byte[] blob)
     {
         ArgumentNullException.ThrowIfNull(blob);
-        ThrowIfDisposed();
-
-        _writeHeader.Parameters["$key"].Value = HeaderKey;
-        _writeHeader.Parameters["$value"].Value = blob;
-        _writeHeader.ExecuteNonQuery();
+        Write(new WorldBatch { Header = blob });
     }
 
     public IReadOnlyCollection<ChunkPos> LoadChunkIndex()
@@ -242,34 +244,43 @@ public sealed class SqliteWorldStore : IWorldStore
         return _readFluid.ExecuteScalar() as byte[];
     }
 
+    /// <summary>The three-list write, kept on the class so a caller typed to it still compiles.</summary>
     public void Write(
         IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,
         IReadOnlyList<(int X, int Z, byte[] Blob)> columns,
-        IReadOnlyList<(ChunkPos Position, byte[] Blob)> fluid)
+        IReadOnlyList<(ChunkPos Position, byte[] Blob)> fluid) =>
+        Write(new WorldBatch { Chunks = chunks, Columns = columns, Fluid = fluid });
+
+    public void Write(WorldBatch batch)
     {
-        ArgumentNullException.ThrowIfNull(chunks);
-        ArgumentNullException.ThrowIfNull(columns);
-        ArgumentNullException.ThrowIfNull(fluid);
+        ArgumentNullException.ThrowIfNull(batch);
         ThrowIfDisposed();
 
-        if (chunks.Count == 0 && columns.Count == 0 && fluid.Count == 0)
+        if (batch.IsEmpty)
         {
             // An empty flush is the common case on a quiet frame, and an empty transaction still
             // costs a commit.
             return;
         }
 
-        // One transaction over both, because a chunk and its column are not independent — see
-        // IWorldStore.Write. It is also the difference between one fsync and hundreds.
+        // One transaction over all of it, because none of these is independent of the others —
+        // see IWorldStore.Write. It is also the difference between one fsync and hundreds. The
+        // session parts are replaced whole inside the same transaction: the header upserted, the
+        // basins and the machines deleted and re-inserted, so a world is never briefly a world
+        // with no water and no machines in it, and a throw anywhere below the header — a null
+        // machine blob against a NOT NULL column, say — rolls the header back with it.
         using SqliteTransaction transaction = _connection.BeginTransaction();
 
         _writeChunk.Transaction = transaction;
         _writeColumn.Transaction = transaction;
         _writeFluid.Transaction = transaction;
+        _writeHeader.Transaction = transaction;
+        _writeBasin.Transaction = transaction;
+        _writeMachine.Transaction = transaction;
 
         try
         {
-            foreach ((ChunkPos position, byte[] blob) in chunks)
+            foreach ((ChunkPos position, byte[] blob) in batch.Chunks)
             {
                 _writeChunk.Parameters["$x"].Value = position.X;
                 _writeChunk.Parameters["$y"].Value = position.Y;
@@ -278,7 +289,7 @@ public sealed class SqliteWorldStore : IWorldStore
                 _writeChunk.ExecuteNonQuery();
             }
 
-            foreach ((int x, int z, byte[] blob) in columns)
+            foreach ((int x, int z, byte[] blob) in batch.Columns)
             {
                 _writeColumn.Parameters["$x"].Value = x;
                 _writeColumn.Parameters["$z"].Value = z;
@@ -286,13 +297,51 @@ public sealed class SqliteWorldStore : IWorldStore
                 _writeColumn.ExecuteNonQuery();
             }
 
-            foreach ((ChunkPos position, byte[] blob) in fluid)
+            foreach ((ChunkPos position, byte[] blob) in batch.Fluid)
             {
                 _writeFluid.Parameters["$x"].Value = position.X;
                 _writeFluid.Parameters["$y"].Value = position.Y;
                 _writeFluid.Parameters["$z"].Value = position.Z;
                 _writeFluid.Parameters["$blob"].Value = blob;
                 _writeFluid.ExecuteNonQuery();
+            }
+
+            if (batch.Header is not null)
+            {
+                // The header first among the session parts, deliberately: the contract suite's
+                // failing-write test puts the bad entry after it, so the rollback is what is
+                // being tested and not the order of the loops.
+                _writeHeader.Parameters["$key"].Value = HeaderKey;
+                _writeHeader.Parameters["$value"].Value = batch.Header;
+                _writeHeader.ExecuteNonQuery();
+            }
+
+            if (batch.Basins is not null)
+            {
+                Clear("basins", transaction);
+                foreach (StoredBasin basin in batch.Basins)
+                {
+                    _writeBasin.Parameters["$x"].Value = basin.PitX;
+                    _writeBasin.Parameters["$z"].Value = basin.PitZ;
+                    _writeBasin.Parameters["$litres"].Value = basin.Litres;
+                    _writeBasin.ExecuteNonQuery();
+                }
+            }
+
+            if (batch.Machines is not null)
+            {
+                Clear("machines", transaction);
+                foreach (StoredMachine machine in batch.Machines)
+                {
+                    _writeMachine.Parameters["$x"].Value = machine.Origin.X;
+                    _writeMachine.Parameters["$y"].Value = machine.Origin.Y;
+                    _writeMachine.Parameters["$z"].Value = machine.Origin.Z;
+                    _writeMachine.Parameters["$material"].Value = machine.MaterialId;
+                    // A null blob here is refused by the STRICT NOT NULL column, inside the
+                    // transaction, which is the whole of the store slice's first test.
+                    _writeMachine.Parameters["$blob"].Value = machine.Blob is null ? DBNull.Value : machine.Blob;
+                    _writeMachine.ExecuteNonQuery();
+                }
             }
 
             transaction.Commit();
@@ -302,7 +351,39 @@ public sealed class SqliteWorldStore : IWorldStore
             _writeChunk.Transaction = null;
             _writeColumn.Transaction = null;
             _writeFluid.Transaction = null;
+            _writeHeader.Transaction = null;
+            _writeBasin.Transaction = null;
+            _writeMachine.Transaction = null;
         }
+    }
+
+    private void Clear(string table, SqliteTransaction transaction)
+    {
+        using SqliteCommand clear = _connection.CreateCommand();
+        clear.Transaction = transaction;
+        clear.CommandText = $"DELETE FROM {table};";
+        clear.ExecuteNonQuery();
+    }
+
+    public IReadOnlyList<StoredMachine> ReadMachines()
+    {
+        ThrowIfDisposed();
+
+        var machines = new List<StoredMachine>();
+
+        using SqliteCommand command = _connection.CreateCommand();
+        command.CommandText = "SELECT ox, oy, oz, material, blob FROM machines;";
+
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            machines.Add(new StoredMachine(
+                new VoxelPos(reader.GetInt32(0), reader.GetInt32(1), reader.GetInt32(2)),
+                reader.GetInt32(3),
+                (byte[])reader.GetValue(4)));
+        }
+
+        return machines;
     }
 
     public IReadOnlyList<StoredBasin> ReadBasins()
@@ -327,38 +408,10 @@ public sealed class SqliteWorldStore : IWorldStore
     public void WriteBasins(IReadOnlyList<StoredBasin> basins)
     {
         ArgumentNullException.ThrowIfNull(basins);
-        ThrowIfDisposed();
 
-        // Delete and insert inside one transaction, so a world is never briefly a world with no
-        // water in it. The empty case still runs, because clearing is exactly what a world opened
-        // with a different watershed lattice asks for.
-        using SqliteTransaction transaction = _connection.BeginTransaction();
-
-        using (SqliteCommand clear = _connection.CreateCommand())
-        {
-            clear.Transaction = transaction;
-            clear.CommandText = "DELETE FROM basins;";
-            clear.ExecuteNonQuery();
-        }
-
-        _writeBasin.Transaction = transaction;
-
-        try
-        {
-            foreach (StoredBasin basin in basins)
-            {
-                _writeBasin.Parameters["$x"].Value = basin.PitX;
-                _writeBasin.Parameters["$z"].Value = basin.PitZ;
-                _writeBasin.Parameters["$litres"].Value = basin.Litres;
-                _writeBasin.ExecuteNonQuery();
-            }
-
-            transaction.Commit();
-        }
-        finally
-        {
-            _writeBasin.Transaction = null;
-        }
+        // The empty case still runs — the batch is not empty with a basin list on it — because
+        // clearing is exactly what a world opened with a different watershed lattice asks for.
+        Write(new WorldBatch { Basins = basins });
     }
 
     public void Flush()
@@ -384,6 +437,7 @@ public sealed class SqliteWorldStore : IWorldStore
         _writeFluid.Dispose();
         _readFluid.Dispose();
         _writeBasin.Dispose();
+        _writeMachine.Dispose();
 
         // Checkpointed on the way out so the main file holds what was committed. Not required for
         // durability — the WAL is part of the database — but a .db that stays at its initial size
@@ -472,6 +526,15 @@ public sealed class SqliteWorldStore : IWorldStore
                 pit_z  INTEGER NOT NULL,
                 litres INTEGER NOT NULL,
                 PRIMARY KEY (pit_x, pit_z)
+            ) STRICT;
+
+            CREATE TABLE IF NOT EXISTS machines (
+                ox       INTEGER NOT NULL,
+                oy       INTEGER NOT NULL,
+                oz       INTEGER NOT NULL,
+                material INTEGER NOT NULL,
+                blob     BLOB    NOT NULL,
+                PRIMARY KEY (ox, oy, oz)
             ) STRICT;
             """;
 

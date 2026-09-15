@@ -57,7 +57,7 @@ public abstract class WorldStoreContractTests : IDisposable
     private static readonly ChunkPos A = new(3, -2, 7);
     private static readonly ChunkPos B = new(-9, 0, 4);
 
-    private static byte[] Bytes(params int[] values) => [.. values.Select(v => (byte)v)];
+    protected static byte[] Bytes(params int[] values) => [.. values.Select(v => (byte)v)];
 
     // -----------------------------------------------------------------------------------------
     // The header.
@@ -503,6 +503,181 @@ public abstract class WorldStoreContractTests : IDisposable
         Assert.Equal(new StoredBasin(-16, 240, 123_456), only);
     }
 
+    // -----------------------------------------------------------------------------------------
+    // The session on the batch (M10a-1): machines, basins and the header in one transaction.
+    // -----------------------------------------------------------------------------------------
+
+    private static readonly VoxelPos O1 = new(4, 8, -12);
+    private static readonly VoxelPos O2 = new(-64, 0, 32);
+
+    [Fact]
+    public void ANewWorldHasNoMachines() => Assert.Empty(Track(CreateStore()).ReadMachines());
+
+    [Fact]
+    public void MachinesRoundTripWholeAndKeyedByOrigin()
+    {
+        IWorldStore store = Track(CreateStore());
+
+        store.Write(new WorldBatch
+        {
+            Machines = [new StoredMachine(O1, 3, Bytes(1, 2)), new StoredMachine(O2, 5, Bytes(3))],
+        });
+
+        StoredMachine[] rows = [.. store.ReadMachines().OrderBy(row => row.Origin.X)];
+        Assert.Equal(2, rows.Length);
+        Assert.Equal(new StoredMachine(O2, 5, Bytes(3)), rows[0]);
+        Assert.Equal(new StoredMachine(O1, 3, Bytes(1, 2)), rows[1]);
+    }
+
+    [Fact]
+    public void WritingTheMachinesReplacesTheTable()
+    {
+        // The set in memory is the truth and a dismantled machine has to leave the disk: fewer
+        // rows the second time deletes, and a row at the same origin is replaced, not merged.
+        IWorldStore store = Track(CreateStore());
+
+        store.Write(new WorldBatch
+        {
+            Machines = [new StoredMachine(O1, 3, Bytes(1)), new StoredMachine(O2, 5, Bytes(2))],
+        });
+        store.Write(new WorldBatch { Machines = [new StoredMachine(O1, 3, Bytes(9))] });
+
+        StoredMachine only = Assert.Single(store.ReadMachines());
+        Assert.Equal(new StoredMachine(O1, 3, Bytes(9)), only);
+    }
+
+    [Fact]
+    public void WritingNoMachinesClearsThem()
+    {
+        IWorldStore store = Track(CreateStore());
+
+        store.Write(new WorldBatch { Machines = [new StoredMachine(O1, 3, Bytes(1))] });
+        store.Write(new WorldBatch { Machines = [] });
+
+        Assert.Empty(store.ReadMachines());
+    }
+
+    [Fact]
+    public void AStoredMachineBlobIsNotAliasedToTheCallersArray()
+    {
+        IWorldStore store = Track(CreateStore());
+        byte[] blob = Bytes(1, 2, 3);
+
+        store.Write(new WorldBatch { Machines = [new StoredMachine(O1, 3, blob)] });
+        blob[0] = 99;
+
+        Assert.Equal(Bytes(1, 2, 3), Assert.Single(store.ReadMachines()).Blob);
+    }
+
+    [Fact]
+    public void ASessionlessBatchLeavesTheMachinesBasinsAndHeaderAlone()
+    {
+        // The unload path's batch carries chunks and panels and none of the session, and must not
+        // touch what it does not have: null means leave it, and only an empty list clears.
+        IWorldStore store = Track(CreateStore());
+
+        store.Write(new WorldBatch
+        {
+            Header = Bytes(7),
+            Basins = [new StoredBasin(0, 0, 100)],
+            Machines = [new StoredMachine(O1, 3, Bytes(1))],
+        });
+        store.Write([(A, Bytes(1))], [(1, 2, Bytes(2))], [(A, Bytes(3))]);
+
+        Assert.Equal(Bytes(7), store.ReadWorldHeader());
+        Assert.Equal(100L, Assert.Single(store.ReadBasins()).Litres);
+        Assert.Single(store.ReadMachines());
+        Assert.Equal(Bytes(1), store.ReadChunk(A));
+    }
+
+    [Fact]
+    public void AllSixListsLandInOneWrite()
+    {
+        IWorldStore store = Track(CreateStore());
+
+        store.Write(new WorldBatch
+        {
+            Chunks = [(A, Bytes(1))],
+            Columns = [(1, 2, Bytes(2))],
+            Fluid = [(A, Bytes(3))],
+            Header = Bytes(4),
+            Basins = [new StoredBasin(8, 8, 5)],
+            Machines = [new StoredMachine(O1, 6, Bytes(6))],
+        });
+
+        Assert.Equal(Bytes(1), store.ReadChunk(A));
+        Assert.Equal(Bytes(2), store.ReadColumn(1, 2));
+        Assert.Equal(Bytes(3), Assert.Single(store.ReadFluid()).Blob);
+        Assert.Equal(Bytes(4), store.ReadWorldHeader());
+        Assert.Equal(new StoredBasin(8, 8, 5), Assert.Single(store.ReadBasins()));
+        Assert.Equal(new StoredMachine(O1, 6, Bytes(6)), Assert.Single(store.ReadMachines()));
+    }
+
+    [Fact]
+    public void AWriteThatFailsOnItsMachinesLeavesTheHeaderBasinsAndChunksUnchanged()
+    {
+        // The store slice's first test. A recipe start moves voxels from the player's inventory
+        // (the header) into a station's stock (a row), and a placement debits the header for a
+        // body whose row is the machine table — so a crash after the header and before the rows
+        // duplicates or deletes authored state. A null blob among the machines is the one bad
+        // entry both stores refuse; the header that went in ahead of it, in the same batch, and
+        // everything written before the batch, must read as if the batch never happened.
+        IWorldStore store = Track(CreateStore());
+
+        store.Write(new WorldBatch
+        {
+            Chunks = [(A, Bytes(1))],
+            Header = Bytes(1),
+            Basins = [new StoredBasin(0, 0, 1000)],
+            Machines = [new StoredMachine(O1, 3, Bytes(1))],
+        });
+
+        Assert.ThrowsAny<Exception>(() => store.Write(new WorldBatch
+        {
+            Chunks = [(B, Bytes(2))],
+            Header = Bytes(2),
+            Basins = [new StoredBasin(0, 0, 2000)],
+            Machines = [new StoredMachine(O1, 3, Bytes(2)), new StoredMachine(O2, 4, null!)],
+        }));
+
+        Assert.Equal(Bytes(1), store.ReadWorldHeader());
+        Assert.Equal(1000L, Assert.Single(store.ReadBasins()).Litres);
+        Assert.Equal(new StoredMachine(O1, 3, Bytes(1)), Assert.Single(store.ReadMachines()));
+        Assert.Equal(Bytes(1), store.ReadChunk(A));
+        Assert.Null(store.ReadChunk(B));
+    }
+
+    [Fact]
+    public void TheHeaderAndBasinCallsAreTheBatchUnderneath()
+    {
+        // WriteWorldHeader at open and WriteBasins for the lattice clear are the same write, so
+        // a store cannot have two header paths that disagree.
+        IWorldStore store = Track(CreateStore());
+
+        store.WriteWorldHeader(Bytes(1));
+        store.WriteBasins([new StoredBasin(1, 1, 1)]);
+        store.Write(new WorldBatch { Header = Bytes(2), Basins = [] });
+
+        Assert.Equal(Bytes(2), store.ReadWorldHeader());
+        Assert.Empty(store.ReadBasins());
+    }
+
+    [Fact]
+    public void AMachineSurvivesAReopen()
+    {
+        if (!CanReopen)
+        {
+            return;
+        }
+
+        IWorldStore store = Track(CreateStore());
+        store.Write(new WorldBatch { Machines = [new StoredMachine(O1, 3, Bytes(4, 5, 6))] });
+        store.Flush();
+
+        IWorldStore reopened = Track(Reopen(store));
+        Assert.Equal(new StoredMachine(O1, 3, Bytes(4, 5, 6)), Assert.Single(reopened.ReadMachines()));
+    }
+
     [Fact]
     public void FlushIsSafeOnAnEmptyWorld() => Track(CreateStore()).Flush();
 
@@ -652,11 +827,68 @@ public sealed class SqliteWorldStoreTests : WorldStoreContractTests
             connection.Open();
             using Microsoft.Data.Sqlite.SqliteCommand command = connection.CreateCommand();
             command.CommandText = "PRAGMA user_version;";
-            Assert.Equal(3L, (long)command.ExecuteScalar()!);
+            Assert.Equal((long)SqliteWorldStore.SchemaVersion, (long)command.ExecuteScalar()!);
         }
 
         using var again = new SqliteWorldStore(WorldPath);
         Assert.Single(again.ReadFluid());
+    }
+
+    [Fact]
+    public void ASchemaThreeWorldOpensAndGainsTheMachinesTable()
+    {
+        // The world Matthew plays at M10a-1 is schema 3 — chunks, columns, basins, fluid, no
+        // machines — and the upgrade is additive again: open it, find the table, stamp 4, lose
+        // nothing, and a session write lands rows in it. Built as the M8b-4b build built it.
+        Directory.CreateDirectory(_directory);
+
+        using (var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={WorldPath}"))
+        {
+            connection.Open();
+            using Microsoft.Data.Sqlite.SqliteCommand command = connection.CreateCommand();
+            command.CommandText =
+                """
+                CREATE TABLE world (key TEXT NOT NULL PRIMARY KEY, value BLOB NOT NULL) STRICT;
+                CREATE TABLE chunks (cx INTEGER NOT NULL, cy INTEGER NOT NULL, cz INTEGER NOT NULL,
+                    blob BLOB NOT NULL, PRIMARY KEY (cx, cy, cz)) STRICT;
+                CREATE TABLE columns (cx INTEGER NOT NULL, cz INTEGER NOT NULL, blob BLOB NOT NULL,
+                    PRIMARY KEY (cx, cz)) STRICT;
+                CREATE TABLE fluid (cx INTEGER NOT NULL, cy INTEGER NOT NULL, cz INTEGER NOT NULL,
+                    blob BLOB NOT NULL, PRIMARY KEY (cx, cy, cz)) STRICT;
+                CREATE TABLE basins (pit_x INTEGER NOT NULL, pit_z INTEGER NOT NULL, litres INTEGER NOT NULL,
+                    PRIMARY KEY (pit_x, pit_z)) STRICT;
+                INSERT INTO world VALUES ('header', X'01');
+                INSERT INTO chunks VALUES (1, 2, 3, X'AB');
+                INSERT INTO fluid VALUES (1, 2, 3, X'CD');
+                INSERT INTO basins VALUES (4, 5, 6000);
+                PRAGMA user_version = 3;
+                """;
+            command.ExecuteNonQuery();
+        }
+
+        using (var store = new SqliteWorldStore(WorldPath))
+        {
+            Assert.Empty(store.ReadMachines());
+            Assert.Equal([new ChunkPos(1, 2, 3)], store.LoadChunkIndex().ToArray());
+            Assert.Equal(Bytes(0xCD), Assert.Single(store.ReadFluid()).Blob);
+            Assert.Equal(6000L, Assert.Single(store.ReadBasins()).Litres);
+            Assert.Equal(Bytes(1), store.ReadWorldHeader());
+            store.Write(new WorldBatch { Machines = [new StoredMachine(new VoxelPos(4, 8, 12), 7, Bytes(9))] });
+        }
+
+        using (var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={WorldPath}"))
+        {
+            connection.Open();
+            using Microsoft.Data.Sqlite.SqliteCommand command = connection.CreateCommand();
+            command.CommandText = "PRAGMA user_version;";
+            Assert.Equal(4L, (long)command.ExecuteScalar()!);
+        }
+
+        using var again = new SqliteWorldStore(WorldPath);
+        StoredMachine row = Assert.Single(again.ReadMachines());
+        Assert.Equal(new VoxelPos(4, 8, 12), row.Origin);
+        Assert.Equal(7, row.MaterialId);
+        Assert.Equal(6000L, Assert.Single(again.ReadBasins()).Litres);
     }
 
     [Fact]

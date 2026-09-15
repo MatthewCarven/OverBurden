@@ -5342,14 +5342,16 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
       is a level, so a pump in a pit beside a lake would drink it through the rock — `InLake` is the
       question; `BasinAtSample` folds *off the window* into `Outlet`. **`--pump`'s delivered rate is
       the first number** — every pump cap in the ladder is fiction until it.
-      - [ ] **M10a-1 — the store slice, first and alone**: `WorldBatch` with the optional session
-            (machines, basins, header) in one transaction, `SaveAll(SessionSnapshot?)`, both stores,
-            `ReadMachines`, schema 4, `MachineRowBlob` v1 (ports by name, kind-state versioned and
-            opaque), `MachineSet.Snapshot`/`Restore`, `Main`'s autosave and quit on one call, the
-            `M10:` line's `machines 0`. **First test: a store that throws inside the batch after the
-            header leaves header, basins and chunks byte-identical, on both stores.** The
-            `ThrowingStore` and every `InMemoryWorldStoreBase` override move to the record. The r6
-            control to the digit.
+      - [x] **M10a-1 — the store slice, built 2026-09-15 (night), alone.** `WorldBatch` with the
+            optional session (machines, basins, header) in one transaction on both stores,
+            `SaveAll(session)`, `ReadMachines`, schema 4, `MachineRowBlob` v1, `PortDefinition` /
+            `MachineRow` / `MachineSet` as rows only, `Main`'s autosave and quit on one call, the
+            `M10:` lines. The first test is in the contract suite and both stores pass it; suite
+            1,412 → 1,469; 15 recipes, 15 caught (one fixture fixed — the appended-blob recipe
+            tripped the frame's guard first); r6 control to the digit; the played world's copy
+            opens at schema 3 and gains the table. Read "M10a-1 — built" in M10-LADDER-PLAN for
+            the four departures (`Basins` nullable for `--nowater`; `WriteSession` as the quit's
+            fallback when the tick still owns the grid; the quit's order; blob equality).
       - [ ] **M10a-2 — the entity**: the loader's `machine` block and `unit` (every rule a refusal
             naming the file; a `via` this build does not serve refused naming the part), the two
             JSON files at hardness 3.0 and two `LayerColour` entries, `MaterialTable.IsMachine`,

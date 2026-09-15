@@ -54,7 +54,7 @@ public interface IWorldStore : IDisposable
     /// blob that first used it"; ordering delivers the same guarantee for free.
     /// </para>
     /// </remarks>
-    void WriteWorldHeader(byte[] blob);
+    void WriteWorldHeader(byte[] blob) => Write(new WorldBatch { Header = blob });
 
     /// <summary>Every chunk position that has a stored blob.</summary>
     /// <remarks>
@@ -81,26 +81,35 @@ public interface IWorldStore : IDisposable
     byte[]? ReadColumn(int chunkX, int chunkZ);
 
     /// <summary>
-    /// Writes chunks and sky columns together, atomically.
+    /// Writes everything in the batch, atomically: chunks, sky columns and fluid panels, and —
+    /// when the batch carries them — the machine table, the basin table and the header.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>One call rather than two, because a chunk and its column are not independent.</b> A
+    /// <b>One call rather than several, because none of these is independent of the others.</b> A
     /// shaft's chunks stored without the column that records how far the sky now reaches down it
     /// reload with the column seeded analytically — from the <em>pre-dig</em> surface — so every
     /// cell in the shaft fails <see cref="Lighting.SkyColumn.IsCellOpenToSky"/> and the shaft is
-    /// dark for a reason nothing on screen can explain. Splitting this into two calls would make
-    /// that state reachable by a crash between them.
+    /// dark for a reason nothing on screen can explain (M6b). A chunk's voxels written and its
+    /// water not is, after a crash between them, water inside rock or rock over a hole (M8b-4b).
+    /// And the session — header, basins, machines — written in three calls is, after a crash
+    /// between any two, a lake's litres in neither tier or a machine's row with no debit for its
+    /// body (M10a-1). Every one of those is a state a crash between two transactions can reach and
+    /// one transaction cannot. See <see cref="WorldBatch"/> for what null and empty mean.
     /// </para>
     /// <para>
     /// Batched rather than per chunk because the unload path hands over a whole shell at once, and
     /// because a transaction per chunk is the difference between one fsync and hundreds.
     /// </para>
     /// </remarks>
+    void Write(WorldBatch batch);
+
+    /// <summary>Chunks, columns and fluid with no session — the unload path's batch.</summary>
     void Write(
         IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,
         IReadOnlyList<(int X, int Z, byte[] Blob)> columns,
-        IReadOnlyList<(ChunkPos Position, byte[] Blob)> fluid);
+        IReadOnlyList<(ChunkPos Position, byte[] Blob)> fluid) =>
+        Write(new WorldBatch { Chunks = chunks, Columns = columns, Fluid = fluid });
 
     /// <summary>Chunks and columns with no fluid, for a caller that has none.</summary>
     /// <remarks>
@@ -108,11 +117,21 @@ public interface IWorldStore : IDisposable
     /// the column does (M8b-4b)</b>: a chunk's voxels written in one transaction and its water in
     /// another is, after a crash between them, water inside rock or rock over a hole. This
     /// overload exists so a caller with nothing wet — the store bench, most tests — does not
-    /// have to say so, and it is the three-list write underneath.
+    /// have to say so, and it is the batch write underneath.
     /// </remarks>
     void Write(
         IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,
-        IReadOnlyList<(int X, int Z, byte[] Blob)> columns) => Write(chunks, columns, []);
+        IReadOnlyList<(int X, int Z, byte[] Blob)> columns) =>
+        Write(new WorldBatch { Chunks = chunks, Columns = columns });
+
+    /// <summary>Every stored machine row, whole.</summary>
+    /// <remarks>
+    /// Read once at open beside the basins and for the same reason: rows are hundreds, not
+    /// millions, and every one of them ticks whether or not its chunk is loaded (M10-PLAN
+    /// decision 4), so the set lives in memory and the disk is a mirror written whole at every
+    /// session save. There is no per-row read and no index to keep.
+    /// </remarks>
+    IReadOnlyList<StoredMachine> ReadMachines();
 
     /// <summary>Every stored fluid panel, whole.</summary>
     /// <remarks>
@@ -143,7 +162,7 @@ public interface IWorldStore : IDisposable
     IReadOnlyList<StoredBasin> ReadBasins();
 
     /// <summary>
-    /// Replaces every stored basin volume with <paramref name="basins"/>.
+    /// Replaces every stored basin volume with <paramref name="basins"/>, on its own.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -158,10 +177,13 @@ public interface IWorldStore : IDisposable
     /// </para>
     /// <para>
     /// Passing an empty list therefore <em>clears</em> the table, which is exactly what a world
-    /// opened with a different watershed lattice needs.
+    /// opened with a different watershed lattice needs — and since M10a-1 that clear at open is
+    /// this method's only caller: an autosave and a quit put the basins on the batch through
+    /// <see cref="Write(WorldBatch)"/>, in the chunk transaction, so the litres the portal drain
+    /// moved between the two are in one tier or the other after a crash and never in neither.
     /// </para>
     /// </remarks>
-    void WriteBasins(IReadOnlyList<StoredBasin> basins);
+    void WriteBasins(IReadOnlyList<StoredBasin> basins) => Write(new WorldBatch { Basins = basins });
 
     /// <summary>
     /// Pushes everything written so far into the main file rather than leaving it in a sidecar.
@@ -206,6 +228,7 @@ public sealed class InMemoryWorldStore : IWorldStore
     private readonly Dictionary<(int X, int Z), byte[]> _columns = [];
     private readonly Dictionary<ChunkPos, byte[]> _fluid = [];
     private readonly Dictionary<(int X, int Z), long> _basins = [];
+    private readonly Dictionary<VoxelPos, StoredMachine> _machines = [];
     private byte[]? _header;
 
     /// <summary>How many times <see cref="Write"/> has been called. For tests about batching.</summary>
@@ -223,6 +246,15 @@ public sealed class InMemoryWorldStore : IWorldStore
     /// <summary>How many times the basin table has been replaced.</summary>
     public int BasinWrites { get; private set; }
 
+    /// <summary>How many times the machine table has been replaced.</summary>
+    public int MachineWrites { get; private set; }
+
+    /// <summary>How many times the header has been written.</summary>
+    public int HeaderWrites { get; private set; }
+
+    /// <summary>How many batches carried any part of the session.</summary>
+    public int SessionWrites { get; private set; }
+
     public int FlushCalls { get; private set; }
 
     public bool IsDisposed { get; private set; }
@@ -232,7 +264,7 @@ public sealed class InMemoryWorldStore : IWorldStore
     public void WriteWorldHeader(byte[] blob)
     {
         ArgumentNullException.ThrowIfNull(blob);
-        _header = Copy(blob);
+        Write(new WorldBatch { Header = blob });
     }
 
     public IReadOnlyList<StoredBasin> ReadBasins() =>
@@ -241,14 +273,11 @@ public sealed class InMemoryWorldStore : IWorldStore
     public void WriteBasins(IReadOnlyList<StoredBasin> basins)
     {
         ArgumentNullException.ThrowIfNull(basins);
-
-        BasinWrites++;
-        _basins.Clear();
-        foreach (StoredBasin basin in basins)
-        {
-            _basins[(basin.PitX, basin.PitZ)] = basin.Litres;
-        }
+        Write(new WorldBatch { Basins = basins });
     }
+
+    public IReadOnlyList<StoredMachine> ReadMachines() =>
+        [.. _machines.Values.Select(row => row with { Blob = Copy(row.Blob)! })];
 
     public IReadOnlyCollection<ChunkPos> LoadChunkIndex() => [.. _chunks.Keys];
 
@@ -268,40 +297,69 @@ public sealed class InMemoryWorldStore : IWorldStore
     public byte[]? ReadFluid(ChunkPos position) =>
         _fluid.TryGetValue(position, out byte[]? blob) ? Copy(blob) : null;
 
+    /// <summary>The three-list write, kept on the class so a caller typed to it still compiles.</summary>
     public void Write(
         IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,
         IReadOnlyList<(int X, int Z, byte[] Blob)> columns,
-        IReadOnlyList<(ChunkPos Position, byte[] Blob)> fluid)
-    {
-        ArgumentNullException.ThrowIfNull(chunks);
-        ArgumentNullException.ThrowIfNull(columns);
-        ArgumentNullException.ThrowIfNull(fluid);
+        IReadOnlyList<(ChunkPos Position, byte[] Blob)> fluid) =>
+        Write(new WorldBatch { Chunks = chunks, Columns = columns, Fluid = fluid });
 
-        // Every blob checked before any is kept, so a bad entry in the third list leaves the
-        // first two unwritten — the atomicity the SQLite store gets from its transaction, and
-        // the contract suite asks both for it.
-        foreach ((_, byte[] blob) in chunks) ArgumentNullException.ThrowIfNull(blob, nameof(chunks));
-        foreach ((_, _, byte[] blob) in columns) ArgumentNullException.ThrowIfNull(blob, nameof(columns));
-        foreach ((_, byte[] blob) in fluid) ArgumentNullException.ThrowIfNull(blob, nameof(fluid));
+    public void Write(WorldBatch batch)
+    {
+        ArgumentNullException.ThrowIfNull(batch);
+
+        // Every blob checked before any is kept, so a bad entry in the last list leaves the
+        // others unwritten — the atomicity the SQLite store gets from its transaction, and the
+        // contract suite asks both for it. The session parts too: a null machine blob after a
+        // header must leave the header as it was.
+        batch.Validate();
 
         WriteCalls++;
 
-        foreach ((ChunkPos position, byte[] blob) in chunks)
+        foreach ((ChunkPos position, byte[] blob) in batch.Chunks)
         {
             _chunks[position] = Copy(blob)!;
             ChunkWrites++;
         }
 
-        foreach ((int x, int z, byte[] blob) in columns)
+        foreach ((int x, int z, byte[] blob) in batch.Columns)
         {
             _columns[(x, z)] = Copy(blob)!;
             ColumnWrites++;
         }
 
-        foreach ((ChunkPos position, byte[] blob) in fluid)
+        foreach ((ChunkPos position, byte[] blob) in batch.Fluid)
         {
             _fluid[position] = Copy(blob)!;
             FluidWrites++;
+        }
+
+        if (batch.HasSession) SessionWrites++;
+
+        if (batch.Machines is not null)
+        {
+            MachineWrites++;
+            _machines.Clear();
+            foreach (StoredMachine machine in batch.Machines)
+            {
+                _machines[machine.Origin] = machine with { Blob = Copy(machine.Blob)! };
+            }
+        }
+
+        if (batch.Basins is not null)
+        {
+            BasinWrites++;
+            _basins.Clear();
+            foreach (StoredBasin basin in batch.Basins)
+            {
+                _basins[(basin.PitX, basin.PitZ)] = basin.Litres;
+            }
+        }
+
+        if (batch.Header is not null)
+        {
+            HeaderWrites++;
+            _header = Copy(batch.Header);
         }
     }
 

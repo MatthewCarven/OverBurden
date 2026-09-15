@@ -1162,3 +1162,75 @@ the pour and the breach, `--pumpoutlet=64`, the `--abort` orphan, and the r6 con
   box), 4 (hooks queue, frames write; `Lost == Carved`), 5 (`InLake`; whole litres across tiers;
   `unanalysed`), 7 (`P`; hardness 3.0), 10 (the twins), 11 (the split into three).
 - TODO's M10a item becomes the three-part checklist; CLAUDE.md's pick-up points at a-1.
+
+### M10a-1 — built
+
+> 2026-09-15, night, alone as planned. Suite 1,412 → 1,469; fifteen break-recipes, fifteen caught
+> once one fixture was fixed; the r6 control unchanged to the digit; a copy of the played world
+> opened at schema 3, gained the table and lost nothing.
+
+**What is there.** `WorldBatch` is the store's one write: chunks, columns, fluid, and three
+optional session parts — `Machines`, `Basins`, `Header` — null meaning *leave it*, empty meaning
+*clear it*, one SQLite transaction over all six with the header upserted and the two tables
+deleted and re-inserted inside it. The list-form `Write`s are sugar over it on the interface and
+on both stores, and `WriteWorldHeader` and `WriteBasins` are the batch underneath, so a store
+cannot grow two header paths that disagree. `ReadMachines` reads the table whole. Schema 4:
+`machines (ox, oy, oz, material, blob)`, gained on open by a schema-3 file. `MachineRowBlob` v1 —
+facing, ports by name in ordinal order, a length-prefixed kind state carried opaque — with a
+reader that refuses a wrong key, an origin off the brush lattice, a facing that is not one, a
+seventeenth port, a name outside the charset, a name twice, and bytes after the state inside an
+honest frame. `PortDefinition`, `MachineRow` and `MachineSet` in `Overburden.Core/Machines/`: the
+set is rows only, keyed by cell and indexed by chunk, `Snapshot()` in origin order so an unchanged
+world writes the same table twice, `Restore()` dropping, defaulting and clamping against the ports
+a material declares — each counted, none refused — and keeping a row of unknown kind verbatim.
+`SaveWorldJob` carries a `SessionSnapshot`; `ChunkPipeline.SaveAll(session)` writes it in the
+batch and writes even when nothing else is dirty; `Dispose`'s backstop carries none; `SubmitSaves`
+never does. `Main`: `Session()` banks the ledger and builds the three, `SetUpMachines` reads the
+table at open (`M10: at open — …`), the autosave is one call and prints every time with what it
+carried, the quit writes the session with the chunks after the tick in flight is dealt with, and
+the periodic `M10:` line prints the count and the session saves.
+
+**The first test, named in the pass, is
+`AWriteThatFailsOnItsMachinesLeavesTheHeaderBasinsAndChunksUnchanged`**, in the contract suite so
+both stores run it: a batch carrying a header, basins, a chunk and a machine list whose last blob
+is null must leave everything the previous batch wrote — SQLite by rollback, the in-memory store
+by validating every entry before keeping any. Committing the header outside the transaction fails
+it; skipping the in-memory validation fails it.
+
+**Four departures from the pass, each small.** `SessionSnapshot.Basins` is nullable, because a
+`--nowater` run has no ledger and an empty list would have cleared the stored basins on its first
+autosave. `ChunkPipeline.WriteSession` exists: fact 2 said `Dispose` saves too, and the quit path
+has a case fact 2 did not reach — a fluid tick that did not report within its cancel timeout
+leaves the grid a worker's and `SaveAll` refuses, so the session goes alone there, as the quit
+wrote it before the two were joined, printed. The quit's order moved: the session was written
+before the tick's cancel and is written after it now, so the tick's collection throwing on the
+way out (caught, printed) no longer separates the two halves. And `StoredMachine` compares its
+blob by bytes, because a record struct over an array compares references and two reads of one row
+are one row.
+
+**One recipe was an identity against its fixture and the fixture was wrong.** *Trailing bytes
+accepted* — the reader's check that nothing follows the kind state — stayed green with the check
+removed, because the test appended a byte to the *blob* and the frame's stored-length check
+refused it first: the corruption test that trips an earlier guard than the one it names. The
+test now hand-builds a payload with a byte after the state and a frame that declares it honestly,
+and the recipe is caught. The other fourteen — the header outside the transaction, no
+pre-validation, machines merged rather than replaced, basins left alone on a session write, a
+quiet `SaveAll` swallowing the session, the machines never reaching the batch, the header in a
+second call, `Dispose` clearing the machines, no clamp, a merging restore, an unsorted snapshot,
+an unknown kind's ports dropped, duplicate names accepted, ports by insertion order — were caught
+first time.
+
+**Measured.** The r6 control, verbatim, is 2601 / 325 / 3446 at 411 with `M10: 0 machine(s), 0
+session save(s)` between its lines. A fresh world's autosave with the session is 14.3 ms; a copy
+of the played world (schema 3, 119 chunks, 615 basins, 207 fluid rows) opens, reads
+`0 machine row(s)`, autosaves `48 fluid panel(s) and the session (615 basin(s), 0 machine(s))`
+in 99.5 ms — the basin rewrite was inside the old bracket too, so the figure is comparable, and
+it is the cost M7b-2 stated — quits, and reads back at `user_version 4` with every count intact.
+A schema-4 world opened by a schema-3 build refuses on `user_version`, the mechanism
+`ANewerSchemaVersionIsRefusedRatherThanOpened` pins; no fixture file was made, because a file
+this build writes and an older build refuses is that test.
+
+**Next: M10a-2, the entity**, against decision 12's list — the loader's `machine` block, the two
+JSON files, `Place.Machine`, `IMachineBodies` on `Carve`, the three hooks and the per-frame
+drain, `P`, the hotbar, `--abort=`. `MachineSet` gains the placement, the damage counters and
+the drain there; `SetUpMachines` hands `Restore` the material table's declarations.

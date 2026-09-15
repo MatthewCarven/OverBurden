@@ -139,6 +139,12 @@ public sealed class LoadColumnJob : IJob
 /// tunnel. <c>ChunkPipeline</c> submits it with <see cref="CancellationToken.None"/> and does not
 /// route it through the per-chunk cancellation the unview path uses.
 /// </para>
+/// <para>
+/// <b>Since M10a-1 it can carry the session too</b> — the header, the basins and the machine
+/// rows, already as bytes and records — and lands it in the same transaction as the chunks.
+/// Only the synchronous path hands it one; the unload path's asynchronous batch never does,
+/// because it does not have it. See <see cref="WorldBatch"/> for why the three ride together.
+/// </para>
 /// </remarks>
 public sealed class SaveWorldJob : IJob
 {
@@ -146,17 +152,20 @@ public sealed class SaveWorldJob : IJob
     private readonly (ChunkPos Position, VoxelChunk Voxels)[] _chunks;
     private readonly (int X, int Z, SkyColumn Column)[] _columns;
     private readonly FluidPanelSnapshot[] _fluid;
+    private readonly SessionSnapshot? _session;
 
     public SaveWorldJob(
         IWorldStore store,
         (ChunkPos Position, VoxelChunk Voxels)[] chunks,
         (int X, int Z, SkyColumn Column)[] columns,
-        FluidPanelSnapshot[]? fluid = null)
+        FluidPanelSnapshot[]? fluid = null,
+        SessionSnapshot? session = null)
     {
         _store = store;
         _chunks = chunks;
         _columns = columns;
         _fluid = fluid ?? [];
+        _session = session;
 
         Position = chunks.Length > 0 ? chunks[0].Position
             : columns.Length > 0 ? new ChunkPos(columns[0].X, 0, columns[0].Z)
@@ -180,6 +189,9 @@ public sealed class SaveWorldJob : IJob
 
     /// <summary>The fluid panels this batch carries — copies, so the tick may write the live ones meanwhile.</summary>
     public IReadOnlyList<FluidPanelSnapshot> Fluid => _fluid;
+
+    /// <summary>The session this batch carries, or null on the unload path.</summary>
+    public SessionSnapshot? Session => _session;
 
     public int BytesWritten { get; private set; }
 
@@ -229,7 +241,21 @@ public sealed class SaveWorldJob : IJob
             bytes += blob.Length;
         }
 
-        _store.Write(chunks, columns, fluid);
+        if (_session is not null)
+        {
+            bytes += _session.Header.Length;
+            foreach (StoredMachine machine in _session.Machines) bytes += machine.Blob.Length;
+        }
+
+        _store.Write(new WorldBatch
+        {
+            Chunks = chunks,
+            Columns = columns,
+            Fluid = fluid,
+            Header = _session?.Header,
+            Basins = _session?.Basins,
+            Machines = _session?.Machines,
+        });
         BytesWritten = bytes;
 
         ElapsedMillis = (Stopwatch.GetTimestamp() - entered) * 1000.0 / Stopwatch.Frequency;

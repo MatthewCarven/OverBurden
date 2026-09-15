@@ -554,13 +554,10 @@ public class FluidEvictionTests
             return base.ReadFluid(position);
         }
 
-        public override void Write(
-            IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,
-            IReadOnlyList<(int X, int Z, byte[] Blob)> columns,
-            IReadOnlyList<(ChunkPos Position, byte[] Blob)> fluid)
+        public override void Write(WorldBatch batch)
         {
             WriteGate.Wait();
-            base.Write(chunks, columns, fluid);
+            base.Write(batch);
         }
 
         public int FluidWrites => Inner.FluidWrites;

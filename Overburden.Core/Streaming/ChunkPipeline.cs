@@ -519,6 +519,9 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// <summary>Fluid panel blobs handed to the store.</summary>
     public int PanelsSaved { get; private set; }
 
+    /// <summary>Sessions — header, basins, machines — written in a chunk batch's transaction, over the lifetime.</summary>
+    public int SessionsSaved { get; private set; }
+
     /// <summary>
     /// Where the water comes from when the world is written — M8b-4b. Null means no Tier B, and
     /// nothing wet is ever written.
@@ -2824,8 +2827,13 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// first and which is the reason this can be called from an autosave timer at all.
     /// </para>
     /// </remarks>
+    /// <param name="session">
+    /// The header, the basins and the machine rows to land in the same transaction as the
+    /// chunks, or null — the <see cref="Dispose"/> backstop, and every caller before M10a-1. With
+    /// a session the write happens even when nothing else is dirty, because the session is.
+    /// </param>
     /// <returns>How many chunks and columns were written.</returns>
-    public (int Chunks, int Columns) SaveAll()
+    public (int Chunks, int Columns) SaveAll(SessionSnapshot? session = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -2868,7 +2876,8 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         // awake cells: whatever it missed is listed here within one autosave interval.
         Fluid?.TakeAllDirty(_pendingFluidSaves);
 
-        if (_pendingChunkSaves.Count == 0 && _pendingColumnSaves.Count == 0 && _pendingFluidSaves.Count == 0)
+        if (session is null
+            && _pendingChunkSaves.Count == 0 && _pendingColumnSaves.Count == 0 && _pendingFluidSaves.Count == 0)
         {
             _store.Flush();
             return (0, 0);
@@ -2879,7 +2888,8 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         // about to replace.
         foreach (FluidPanelSnapshot panel in _pendingFluidSaves) _unwrittenFluid[panel.Chunk] = panel;
 
-        var job = new SaveWorldJob(_store, [.. _pendingChunkSaves], [.. _pendingColumnSaves], [.. _pendingFluidSaves]);
+        var job = new SaveWorldJob(
+            _store, [.. _pendingChunkSaves], [.. _pendingColumnSaves], [.. _pendingFluidSaves], session);
 
         foreach ((ChunkPos position, _) in _pendingChunkSaves) _savedChunks.Add(position);
         foreach ((int x, int z, _) in _pendingColumnSaves) _savedColumns.Add((x, z));
@@ -2922,11 +2932,51 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         ChunksSaved += chunks;
         ColumnsSaved += columns;
         PanelsSaved += panels;
+        if (session is not null) SessionsSaved++;
         BytesSaved += job.BytesWritten;
         ForgetWritten(job.Fluid);
 
         _store.Flush();
         return (chunks, columns);
+    }
+
+    /// <summary>
+    /// Writes the session alone, in its own transaction, when the chunks cannot be written.
+    /// </summary>
+    /// <remarks>
+    /// The quit's fallback: <see cref="SaveAll"/> refuses while a fluid tick owns the grid, and a
+    /// tick that did not report within its cancel timeout leaves the grid owned at the quit. The
+    /// world's chunks are then lost with the session's last interval, as they were before
+    /// M10a-1 — but the session need not be, and before M10a-1 it was written first and
+    /// separately, so this keeps that much. Same drain as <see cref="WriteWorldHeader"/>.
+    /// </remarks>
+    /// <returns>False when the lane could not be drained, so nothing was written.</returns>
+    public bool WriteSession(SessionSnapshot session)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(session);
+
+        if (_store is null) return false;
+
+        if (!DrainStoreLane())
+        {
+            FailedSaves++;
+            _onJobFaulted?.Invoke(
+                ChunkPos.Zero,
+                new TimeoutException(
+                    $"The store's serial lane still had {_storeJobsInFlight} job(s) after "
+                    + $"{DrainTimeoutSeconds:F0} s, so the session was not written."));
+            return false;
+        }
+
+        _store.Write(new WorldBatch
+        {
+            Header = session.Header,
+            Basins = session.Basins,
+            Machines = session.Machines,
+        });
+        SessionsSaved++;
+        return true;
     }
 
     /// <summary>

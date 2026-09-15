@@ -679,13 +679,10 @@ public class FluidPersistenceTests
     {
         public bool Broken { get; set; } = true;
 
-        public override void Write(
-            IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,
-            IReadOnlyList<(int X, int Z, byte[] Blob)> columns,
-            IReadOnlyList<(ChunkPos Position, byte[] Blob)> fluid)
+        public override void Write(WorldBatch batch)
         {
             if (Broken) throw new IOException("the disk is on fire");
-            base.Write(chunks, columns, fluid);
+            base.Write(batch);
         }
     }
 

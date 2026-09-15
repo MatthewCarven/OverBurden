@@ -771,6 +771,173 @@ public class PersistenceTests
         Assert.Single(store.LoadChunkIndex());
     }
 
+    // -----------------------------------------------------------------------------------------
+    // The session on the batch (M10a-1).
+    // -----------------------------------------------------------------------------------------
+
+    private static SessionSnapshot Session(byte header, long litres = 1000, int machines = 1)
+    {
+        var rows = new List<StoredMachine>();
+        for (int i = 0; i < machines; i++)
+        {
+            var row = new Machines.MachineRow(
+                new Building.BrushCell(i * 2, 0, 0), 4, Building.BrushFacing.PositiveX,
+                [new("channel", i)]);
+            rows.Add(new StoredMachine(row.Origin, row.MaterialId, MachineRowBlob.Write(row)));
+        }
+
+        return new SessionSnapshot([header], [new StoredBasin(0, 0, litres)], rows);
+    }
+
+    [Fact]
+    public void SaveAllWithASessionWritesItInTheSameTransactionAsTheChunks()
+    {
+        // An autosave was three store calls — header, basins, batch — and a crash between any
+        // two left the world with half a session. One call now: the session rides the batch, and
+        // the in-memory store counts one Write for the lot.
+        var store = new InMemoryWorldStore();
+        using var harness = new PipelineHarness(store: store);
+
+        harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+        EditOneVoxel(harness.Pipeline, ChunkPos.Zero);
+
+        int writesBefore = store.WriteCalls;
+        (int chunks, _) = harness.Pipeline.SaveAll(Session(header: 7, litres: 4000));
+
+        Assert.Equal(1, chunks);
+        Assert.Equal(1, store.WriteCalls - writesBefore);
+        Assert.Equal(1, store.SessionWrites);
+        Assert.Equal(1, harness.Pipeline.SessionsSaved);
+        Assert.Equal([7], store.ReadWorldHeader());
+        Assert.Equal(4000L, Assert.Single(store.ReadBasins()).Litres);
+        Assert.Single(store.ReadMachines());
+        Assert.Single(store.LoadChunkIndex());
+    }
+
+    [Fact]
+    public void SaveAllWithASessionWritesEvenWhenNothingIsDirty()
+    {
+        // The session is dirty by definition — the clock moved, the ledger banked — so the early
+        // return that keeps a quiet autosave cheap must not swallow it.
+        var store = new InMemoryWorldStore();
+        using var harness = new PipelineHarness(store: store);
+
+        harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+
+        Assert.Equal((0, 0), harness.Pipeline.SaveAll());
+        Assert.Equal(0, store.SessionWrites);
+
+        Assert.Equal((0, 0), harness.Pipeline.SaveAll(Session(header: 3)));
+
+        Assert.Equal(1, store.SessionWrites);
+        Assert.Equal([3], store.ReadWorldHeader());
+    }
+
+    [Fact]
+    public void TheDisposeBackstopCarriesNoSession()
+    {
+        // Dispose's SaveAll writes what is still dirty and nothing else: a session it does not
+        // have is left as the last autosave wrote it, never cleared by an empty one.
+        var store = new InMemoryWorldStore();
+
+        using (var harness = new PipelineHarness(store: store))
+        {
+            harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+            harness.Settle();
+            harness.Pipeline.SaveAll(Session(header: 9, machines: 2));
+
+            EditOneVoxel(harness.Pipeline, ChunkPos.Zero);
+        }
+
+        Assert.Single(store.LoadChunkIndex());
+        Assert.Equal(1, store.SessionWrites);
+        Assert.Equal(2, store.ReadMachines().Count);
+        Assert.Equal([9], store.ReadWorldHeader());
+    }
+
+    [Fact]
+    public void AFailedSessionSaveWritesNothingAndKeepsTheChunksPending()
+    {
+        // The synchronous path's restore, with a session on it: the store throws, the chunks go
+        // back on the pending list, and the session — header, basins, rows — is not half there.
+        // The caller retries with a fresh session at its next autosave, which is what lands it.
+        var store = new ThrowingWorldStore();
+        using var harness = new PipelineHarness(store: store);
+
+        harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+        EditOneVoxel(harness.Pipeline, ChunkPos.Zero);
+
+        Assert.Equal((0, 0), harness.Pipeline.SaveAll(Session(header: 1)));
+        Assert.Equal(1, harness.Pipeline.FailedSaves);
+        Assert.Equal(0, harness.Pipeline.SessionsSaved);
+        Assert.Null(store.ReadWorldHeader());
+        Assert.Empty(store.ReadMachines());
+        Assert.Empty(store.LoadChunkIndex());
+
+        store.Recover();
+
+        (int chunks, _) = harness.Pipeline.SaveAll(Session(header: 2));
+
+        Assert.Equal(1, chunks);
+        Assert.Equal(1, harness.Pipeline.SessionsSaved);
+        Assert.Equal([2], store.ReadWorldHeader());
+        Assert.Single(store.ReadMachines());
+    }
+
+    [Fact]
+    public void WriteSessionLandsTheSessionAloneAndLeavesTheChunksForSaveAll()
+    {
+        // The quit's fallback when the tick still owns the grid: the session in its own
+        // transaction, the chunks untouched — as the quit wrote them before the two were joined.
+        var store = new InMemoryWorldStore();
+        using var harness = new PipelineHarness(store: store);
+
+        harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+        EditOneVoxel(harness.Pipeline, ChunkPos.Zero);
+
+        Assert.True(harness.Pipeline.WriteSession(Session(header: 5)));
+
+        Assert.Equal([5], store.ReadWorldHeader());
+        Assert.Single(store.ReadMachines());
+        Assert.Empty(store.LoadChunkIndex());
+        Assert.Equal(1, harness.Pipeline.SessionsSaved);
+
+        (int chunks, _) = harness.Pipeline.SaveAll();
+        Assert.Equal(1, chunks);
+        Assert.Single(store.LoadChunkIndex());
+    }
+
+    [Fact]
+    public void AnUnloadBatchNeverCarriesTheSession()
+    {
+        // The asynchronous path — a chunk leaving the box — writes chunks and panels and must
+        // leave the session as the last SaveAll wrote it. The failure this guards is the unload
+        // path clearing the machine table with an empty list it never had.
+        var store = new InMemoryWorldStore();
+        using var harness = new PipelineHarness(store: store);
+
+        ViewerId viewer = harness.Pipeline.Streamer.AddViewer(ChunkPos.Zero, 1, 1);
+        harness.Settle();
+        harness.Pipeline.SaveAll(Session(header: 4, machines: 3));
+
+        EditOneVoxel(harness.Pipeline, ChunkPos.Zero);
+        harness.Pipeline.Streamer.MoveViewer(viewer, FarAway);
+        for (int i = 0; i < 500 && harness.Pipeline.ChunksSaved == 0; i++)
+        {
+            harness.Pipeline.Update();
+            Thread.Sleep(1);
+        }
+
+        Assert.True(harness.Pipeline.ChunksSaved > 0, "the unload should have written the chunk");
+        Assert.Equal(1, store.SessionWrites);
+        Assert.Equal(3, store.ReadMachines().Count);
+        Assert.Equal([4], store.ReadWorldHeader());
+    }
+
     [Fact]
     public void AFailedSaveIsRetriedUntilItLands()
     {
@@ -855,13 +1022,10 @@ public class PersistenceTests
 
         public void Recover() => _broken = false;
 
-        public override void Write(
-            IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,
-            IReadOnlyList<(int X, int Z, byte[] Blob)> columns,
-            IReadOnlyList<(ChunkPos Position, byte[] Blob)> fluid)
+        public override void Write(WorldBatch batch)
         {
             if (_broken) throw new IOException("the disk is on fire");
-            base.Write(chunks, columns, fluid);
+            base.Write(batch);
         }
     }
 
@@ -904,13 +1068,10 @@ public class PersistenceTests
         public override byte[]? ReadColumn(int chunkX, int chunkZ) =>
             Guarded(() => base.ReadColumn(chunkX, chunkZ));
 
-        public override void Write(
-            IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,
-            IReadOnlyList<(int X, int Z, byte[] Blob)> columns,
-            IReadOnlyList<(ChunkPos Position, byte[] Blob)> fluid) =>
+        public override void Write(WorldBatch batch) =>
             Guarded<object?>(() =>
             {
-                base.Write(chunks, columns, fluid);
+                base.Write(batch);
                 return null;
             });
 
@@ -955,16 +1116,13 @@ public class PersistenceTests
 
         public void Release() => _gate.Set();
 
-        public override void Write(
-            IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,
-            IReadOnlyList<(int X, int Z, byte[] Blob)> columns,
-            IReadOnlyList<(ChunkPos Position, byte[] Blob)> fluid)
+        public override void Write(WorldBatch batch)
         {
             IsWriting = true;
             try
             {
                 _gate.Wait(TimeSpan.FromSeconds(10));
-                base.Write(chunks, columns, fluid);
+                base.Write(batch);
             }
             finally
             {
@@ -998,10 +1156,16 @@ public class PersistenceTests
 
         public virtual byte[]? ReadColumn(int chunkX, int chunkZ) => Inner.ReadColumn(chunkX, chunkZ);
 
-        public virtual void Write(
+        /// <summary>The batch is the primitive; a double that intercepts writes overrides this one.</summary>
+        public virtual void Write(WorldBatch batch) => Inner.Write(batch);
+
+        public void Write(
             IReadOnlyList<(ChunkPos Position, byte[] Blob)> chunks,
             IReadOnlyList<(int X, int Z, byte[] Blob)> columns,
-            IReadOnlyList<(ChunkPos Position, byte[] Blob)> fluid) => Inner.Write(chunks, columns, fluid);
+            IReadOnlyList<(ChunkPos Position, byte[] Blob)> fluid) =>
+            Write(new WorldBatch { Chunks = chunks, Columns = columns, Fluid = fluid });
+
+        public virtual IReadOnlyList<StoredMachine> ReadMachines() => Inner.ReadMachines();
 
         public virtual IReadOnlyList<(ChunkPos Position, byte[] Blob)> ReadFluid() => Inner.ReadFluid();
 

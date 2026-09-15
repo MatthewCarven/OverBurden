@@ -10,6 +10,7 @@ using Overburden.Core.Hydrology;
 using Overburden.Core.Inventory;
 using Overburden.Core.Lighting;
 using Overburden.Core.Jobs;
+using Overburden.Core.Machines;
 using Overburden.Core.Meshing;
 using Overburden.Core.Mining;
 using Overburden.Core.Persistence;
@@ -554,6 +555,14 @@ public partial class Main : Node3D
     /// <summary>The analysed set, the fields and the join; the pipeline pumps its queue.</summary>
     private SupportRegion? _support;
 
+    // ---------------------------------------------------------------- M10: machines
+
+    /// <summary>
+    /// Every machine row in the world, loaded or not — read whole at open, written whole with
+    /// the session at every autosave and the quit (M10a-1). Rows only until M10a-2 places one.
+    /// </summary>
+    private readonly MachineSet _machines = new();
+
     /// <summary><c>--bitechunks=&lt;n&gt;</c>: an n × n square of chunks bitten under the player once the window opens.</summary>
     private int _biteChunks;
 
@@ -1032,6 +1041,7 @@ public partial class Main : Node3D
 
         SetUpFluid(windowed);
         SetUpSupport();
+        SetUpMachines();
 
         // Whatever the world remembered the player carrying. Before the first swing, so that a
         // reopened world can place from what it was already holding.
@@ -2717,24 +2727,61 @@ public partial class Main : Node3D
 
         long before = Stopwatch.GetTimestamp();
 
-        // The header first, because it carries the inventory and the player — the session state
-        // that no chunk holds. Writing only the chunks would save the tunnel and forget what the
+        // The session — header, basins, machines — rides the chunk batch in one transaction
+        // (M10a-1). Until then it was three store calls in a row, and a crash between the basin
+        // write and the batch left the litres the portal drain had moved in that interval in
+        // neither tier; a machine placed between the header and the row would have been a debit
+        // with no row. Writing only the chunks would still save the tunnel and forget what the
         // player was carrying when they dug it.
-        _pipeline.WriteWorldHeader(CurrentHeader());
-        WriteBasins();
-
+        SessionSnapshot session = Session();
         int panelsBefore = _pipeline.PanelsSaved;
-        (int chunks, int columns) = _pipeline.SaveAll();
+        (int chunks, int columns) = _pipeline.SaveAll(session);
         int panels = _pipeline.PanelsSaved - panelsBefore;
 
-        // Only when it did something. A line every thirty seconds saying nothing happened is how
-        // a log stops being read.
-        if (chunks > 0 || columns > 0 || panels > 0)
+        // Every time now, because the session is written every time; the line says what else
+        // went with it, so a quiet thirty seconds reads as "0 chunk(s)" and not as silence.
+        GD.Print(
+            $"M6: autosaved {chunks} chunk(s), {columns} column(s), {panels} fluid panel(s) and the session "
+            + $"({session.Basins?.Count ?? 0} basin(s), {session.Machines.Count} machine(s)) in "
+            + $"{Milliseconds(before, Stopwatch.GetTimestamp()):F1} ms");
+    }
+
+    /// <summary>The session as it stands: the header's bytes, the banked ledger, and every machine row.</summary>
+    /// <remarks>
+    /// <b>Bank first, always.</b> The ledger is the persistent thing and the installed window's
+    /// water is a view of the part of it the player is standing in — so writing without banking
+    /// saves the world as it was when they walked into this window rather than as it is, which
+    /// reads as a pond that stops filling whenever somebody stands still near it. With no water
+    /// at all (<c>--nowater</c>) the basins are null, which leaves the stored table alone.
+    /// </remarks>
+    private SessionSnapshot Session()
+    {
+        IReadOnlyList<StoredBasin>? basins = null;
+        if (_water is not null)
         {
-            GD.Print(
-                $"M6: autosaved {chunks} chunk(s), {columns} column(s) and {panels} fluid panel(s) in "
-                + $"{Milliseconds(before, Stopwatch.GetTimestamp()):F1} ms");
+            _water.Bank();
+            basins = _water.Ledger.Entries();
         }
+
+        return new SessionSnapshot(WorldHeaderBlob.Write(CurrentHeader()), basins, _machines.Snapshot());
+    }
+
+    /// <summary>Reads the machine table whole, before the first frame.</summary>
+    /// <remarks>
+    /// M10a-1 declares no machine material, so every row's ports are kept verbatim — a row can
+    /// only be in a world file this build reads if a later build wrote it, and it is carried as an
+    /// unknown kind the way a removed mod's would be. M10a-2 hands <c>Restore</c> the material
+    /// table's declarations.
+    /// </remarks>
+    private void SetUpMachines()
+    {
+        if (_store is null)
+        {
+            return;
+        }
+
+        RestoreReport report = _machines.Restore(_store.ReadMachines(), _ => null);
+        GD.Print($"M10: at open — {report}");
     }
 
     private static double Milliseconds(long from, long to) =>
@@ -5645,6 +5692,7 @@ public partial class Main : Node3D
         if (_water is not null) GD.Print($"M7d: {WaterSummary()}");
         if (_fluid is not null) GD.Print($"M8b: {FluidSummary()}");
         if (_support is not null) GD.Print($"M9: {SupportSummary()}");
+        GD.Print($"M10: {_machines.Count} machine(s), {_pipeline.SessionsSaved} session save(s)");
     }
 
     /// <summary>
@@ -5889,32 +5937,6 @@ public partial class Main : Node3D
         Player = SavedPlayer(),
     };
 
-    /// <summary>Banks the analysed window's water and writes every basin the world knows about.</summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Bank first, always.</b> The ledger is the persistent thing and the installed window's
-    /// water is a view of the part of it the player is standing in — so writing without banking
-    /// saves the world as it was when they walked into this window rather than as it is, which
-    /// reads as a pond that stops filling whenever somebody stands still near it.
-    /// </para>
-    /// <para>
-    /// <b>Called from the same bracket as <c>SaveAll</c>, which is what keeps the store's "one
-    /// caller at a time" contract.</b> M6b-3 found that contract broken by exactly this shape of
-    /// addition: a sim-thread write while the serial lane is inside the store, and the lane is
-    /// almost continuously inside it while the player moves. <c>SaveAll</c> drains the lane first.
-    /// </para>
-    /// </remarks>
-    private void WriteBasins()
-    {
-        if (_store is null || _water is null)
-        {
-            return;
-        }
-
-        _water.Bank();
-        _store.WriteBasins(_water.Ledger.Entries());
-    }
-
     /// <summary>Where the player is, for the world file — or null if there is no body yet.</summary>
     /// <remarks>
     /// <b>The camera decides while flying and the body decides while walking</b>, and they are not
@@ -6021,20 +6043,8 @@ public partial class Main : Node3D
         // scheduler first would drop whatever was queued on that lane, and JobResult's contract
         // says a dropped job reports Dropped rather than running — which for a save is a deleted
         // tunnel. This is the single most likely way to ship a data-loss bug in M6.
-        // Before the dispose, because Dispose writes the chunks and this writes the session. Both
-        // are the same quit and losing either half is the same bug.
-        if (_store is not null && _pipeline is not null)
-        {
-            try
-            {
-                _pipeline.WriteWorldHeader(CurrentHeader());
-                WriteBasins();
-            }
-            catch (Exception error) when (error is not OutOfMemoryException)
-            {
-                GD.PushError($"M6: could not write the world session on quit — {error.Message}");
-            }
-        }
+        // The session is written below, with the chunks, once the tick in flight has been dealt
+        // with — M10a-1 put it on the same batch, so the two halves of the quit are one write.
 
         // A tick out on a worker is cancelled and waited for before anything is written (slice
         // 3b): the collection gives its unvisited cells back to the queue, so the rows list them
@@ -6088,6 +6098,34 @@ public partial class Main : Node3D
             GD.Print(
                 $"M8b: at quit — {_fluid.Published.TotalMillilitres / (double)FluidConstants.MillilitresPerLitre:N0} L in "
                 + $"{_fluid.Published.HeldCells:N0} cell(s), {_fluid.Published.AwakeHeld:N0} awake or paused");
+        }
+
+        // The session and the chunks in one transaction (M10a-1). If the tick could not be
+        // cancelled the grid is still a worker's and SaveAll refuses; the chunks are then lost
+        // with this interval, as they were before, but the session need not be — it goes alone,
+        // which is what the quit did before the two were joined. Dispose's own SaveAll below is
+        // the backstop and carries no session.
+        if (_store is not null && _pipeline is not null)
+        {
+            try
+            {
+                SessionSnapshot session = Session();
+                if (_fluid is { GridOwnedByTick: true })
+                {
+                    bool written = _pipeline.WriteSession(session);
+                    GD.Print(written
+                        ? "M6: the fluid tick still owns the grid at the quit, so the session was written alone and the chunks were not"
+                        : "M6: the fluid tick still owns the grid at the quit and the session could not be written either");
+                }
+                else
+                {
+                    _pipeline.SaveAll(session);
+                }
+            }
+            catch (Exception error) when (error is not OutOfMemoryException)
+            {
+                GD.PushError($"M6: could not write the world session on quit — {error.Message}");
+            }
         }
 
         _pipeline?.Dispose();
