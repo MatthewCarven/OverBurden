@@ -1,5 +1,42 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-16 — M10a-3 built: a pump is a drain and an outlet is a pour, and nothing is in flight
+
+*"As recommended, lets build a-3"* — the pump. Suite 1,519 → 1,551. What was built is in
+M10-LADDER-PLAN's "M10a-3 — built"; what is worth keeping here:
+
+- **The relay delivers its nominal rate, and the number says why every pump cap was fiction until
+  it.** On the bench's flooded chamber the pump takes 50 L a boundary for 3,984 boundaries at both
+  intake radii, because the settle levels the sheet every boundary and the eight floor cells
+  around the body are refilled from the whole floor. The rate is the automaton's spread, not the
+  pump's setting; the radius buys nothing on a sheet and costs 4.8× the read. Its case is a pit
+  narrower than the box, and `--pumprate` is the sweep.
+- **The read the ladder proposed is the wrong structure for a box.** `AmountAt` over the 26 cells
+  is 3.2 ns a voxel — one panel lookup a cell, one array read a voxel — against 19.1 ns through the
+  published wet bitset (a panel lookup *and* a bit test a voxel). Decision 14's read is retired by
+  the measurement rather than confirmed; `HeldIn` answers a dry box in 10 ns, so five hundred dry
+  pumps are 0.02 ms a boundary and five hundred wet ones 3 ms.
+- **The unloaded-outlet rule is the mouth's, not the origin's.** The pass said *origin at or above
+  the seed surface*; the first unloaded run stalled every boundary, because a body placed on a
+  surface off the 1 m lattice sits up to three voxels into it — the `--pump` arm carves its cell —
+  and the origin was at −4 over ground at −2. What matters is the layer the pour lands in:
+  `mouth.Y > SurfaceHeightAt`. And 64 m is not the unloaded arm: the loaded box is r6 plus the
+  margin, 64 m from the viewer, and the shaft is at the pit; 96 m is.
+- **The whole-litre floor was an identity against thirty-one tests.** Every offer was a budget or
+  a box that happened to be whole, and every room sixteen cells or a rigged multiple. A box holding
+  20,500 mL against a basin outlet, and a lake pump into a layer with 15,125 mL of room, are the
+  fixture now; the recipe is caught by that test alone. Nineteen recipes, nineteen caught, once it
+  was written.
+- **The rate override is a seam and not a content change.** `--pump=<L/s>` on the game and
+  `--pumprate` on the bench set `MachineTick.RateOverrideMillilitresPerSecond`, the shape
+  `--seepscale` has over the JSON's permeability; a row's definition is the content's and the tick
+  cannot change it. The pass wrote `--pump=<L/s>` as if the flag chose the pump; it chooses the sweep.
+- **Headless, the seam closes on itself.** A lake drains through the portals into the shaft, the
+  pump takes it from Tier B, the outlet pours it on the surface, the hand-off returns it to the
+  basin: `drawn 1,000 == pumped 1,000 == emitted 1,000`, `handed 986`, every identity exact. With
+  the outlet's chunk unloaded, `emitted 1,000 L into Tier A`, Tier B empty, `handed 0` — the litres
+  never rested anywhere.
+
 ## 2026-09-15 — M10a-2 built: a machine is a material plus a row, and the row is the truth
 
 *"As recommended, lets build a-2"* — the entity. Suite 1,469 → 1,519. What was built is in

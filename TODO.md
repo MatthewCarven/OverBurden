@@ -5361,16 +5361,20 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             digit; the orphan direction seen headless (128 voxels cleared at the reopen). Read
             "M10a-2 — built" in M10-LADDER-PLAN. **Unplayed**: the look of the pair, `MACHINE` on the
             status line, a pump placed into a flooded room by hand are M10d's.
-      - [ ] **M10a-3 — the pump**: `Pump`/`Emit` twins with counters on both tiers and in both
-            identities, `FluidGrid.HeldIn`, `WaterSystem.TryBasinAtSample`, `MachineTick` in its
-            `machines` bracket (deferred placements, per-channel outlets sorted, per pump: ≤ 8
-            `IsLoaded`, ≤ 8 `HeldIn`, the 26 cells face-edge-corner, or the lake through `InLake`;
-            room first, then exactly that moved; whole litres across tiers; the owed counter for a
-            slow lake pump; the channel's cursor in memory), the unloaded-outlet rule with
-            `unanalysed` apart from `Outlet`, `--pump=<L/s>` and `--pumpoutlet=<m>` (24 loaded, 64
-            unloaded), the full `M10:` line and profile block, `--pump` on the bench, the lifecycle
-            battery with machines running. Every row ticks every boundary; the sleep set is a lever
-            with `machines` > 1 ms as its trigger.
+      - [x] **M10a-3 — the pump, built 2026-09-16 (small hours).** `Pump`/`Emit` twins on both
+            tiers and in both identities, `HeldIn`, `TryBasinAtSample`, `MachineTick` in its
+            `machines` bracket (every row every boundary: ≤ 8 `IsLoaded`, ≤ 8 `HeldIn`, the 26
+            cells nearest first, or the lake through `InLake`; room first, then exactly that moved;
+            whole litres across a tier; the owed counter; the channel's cursor in memory), the
+            unloaded-outlet rule on the *mouth*, `--pump=<L/s>` (a rate override, the content's 100)
+            and `--pumpoutlet=<m>` (24 loaded; **96 unloaded** — the loaded box is r6 plus the
+            margin from the viewer, and the shaft stands at the pit), the `M10:` line's `tick:`,
+            the `machines` and `machtick` profile blocks, `--pump` on the bench, the lifecycle
+            with quits. Suite 1,519 → 1,551; 19 recipes, 19 caught (one identity fixture added
+            before the battery — the whole-litre floor); r6 control to the digit. **The first
+            number: the relay delivers its nominal 100 L/s on a flooded chamber at either radius,
+            3.2 ns a voxel to read the box, 500 wet pumps 3 ms a boundary, 500 dry 0.02 ms.** Read
+            "M10a-3 — built" in M10-LADDER-PLAN. **The sleep set stays a lever**, trigger unchanged.
 - [ ] **M10b — the computer**: an item; right-click on a machine opens ports and the stock tab;
       `SetPort` clamped in Core; weights.
 - [ ] **M10c — power on the channel class**: pool = Σ storage rows, `clamped`; converters and

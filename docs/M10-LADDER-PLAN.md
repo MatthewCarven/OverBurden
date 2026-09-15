@@ -1313,3 +1313,117 @@ untouched and every new material follows it*.
 `MachineTick` in its `machines` bracket, the cursor, the unloaded-outlet rule, `--pump=` and
 `--pumpoutlet=`, the full `M10:` line and profile block, `--pump` on the bench, the lifecycle
 battery with machines running.
+
+### M10a-3 — built
+
+> 2026-09-16, small hours, after a-2 (*"As recommended, lets build a-3"*). Suite 1,519 → 1,551;
+> nineteen break-recipes, nineteen caught first time; the r6 control unchanged to the digit; the
+> shaft pumped out headless in both arms, the loaded outlet and the unloaded one; the bench's
+> `--pump` has its first number.
+
+**What is there.** `FluidSimulation.Pump` / `Emit` beside `Lift` / `Return` in the collapse
+partial — `Take`'s and `Add`'s paths with their own counters, `PumpedMillilitres` and
+`EmittedMillilitres` — and `FluidPublished` carries both, so the published identity reads `held ==
+injected + drawn + seeped + loaded + emitted − removed − displaced − handed − evicted − pumped` and
+`FluidAssert.Conserves` reads the same. `WaterSystem.Pump` / `Emit` beside `Draw` / `Receive` with
+`PumpedLitres` / `EmittedLitres` (an emit to `Outlet` spills, as a receive does), and
+`TryBasinAtSample`, which answers false off the window and true-with-`Outlet` for a sample the
+window says drains off its edge — fact 6's two answers, kept apart. `FluidGrid.HeldIn(chunk)` is the
+panel's own count. `MachineRow.OwedMillilitres` is the slow lake pump's want, never persisted.
+`MachineTick` in `Overburden.Core/Machines/`: built over the set, the table, the simulation, the
+*live* simulation terrain, the seed surface and Tier A; `Run()` once a boundary walks the pumps in
+origin order, each against the outlets on its channel in origin order from the channel's cursor,
+and returns a `MachineTickReport` — pumps, outlets, moves, pumped and emitted on each tier, the
+five stalls — whose `Exact` is `pumped == emitted` for the boundary; `CrossTierExact` is the same
+over the lifetime. `Main`: the `machines` bracket between the pour and the table check holds the
+deferred wet placements and the tick, its own term on the `boundary` line and `boundary worst`;
+`--pump=<L/s>` places a relay pump at the bottom of `--breach`'s shaft and a relay outlet
+`--pumpoutlet=<m>` along +X on the surface — through `Place.Machine` where the outlet's chunk is
+loaded, the cell carved first because a body is 64 air voxels and the shaft is three wide, and as
+a row alone where it is not, printed either way; the periodic `M10:` line gained `tick:` with both
+tiers' pumped and emitted, the cross-tier identity, the stalls by cause, the intake voxels read and
+the tick's mean and max; the profile gained `machines` and `machtick`; the Tier A water line prints
+`pumped out of lakes` and `emitted into basins`. The bench's `--pump`: the chamber fixture flooded
+and settled, a relay pump on its floor's centre, a relay outlet on the surface with a sink under
+it standing in for the hand-off; the delivered rate at radius 1 and 2, the read priced both ways,
+the tick at 1 / 100 / 500 pumps wet and 500 dry, and the loop; `--pumplitres`, `--pumprate`,
+`--pumpboundaries`.
+
+**The tick, as built, where it departed from decision 8.** Two things. The unloaded-outlet rule
+reads the *mouth*, not the origin: a body placed on a surface that is not on the 1 m lattice sits
+up to three voxels into it (the `--pump` arm carves its cell; a brush refuses one and lands the cell
+above), and the first unloaded run stalled every boundary on an outlet whose origin was at −4 over
+a surface at −2 with its mouth at 0 — the rule is *the layer the pour lands in is natural air over
+the seed*, `mouth.Y > SurfaceHeightAt`, and `AnUnloadedOutletHalfBuriedInTheGroundStillStandsOnIt`
+is its test. And a pump's rate can be overridden: `MachineTick.RateOverrideMillilitresPerSecond`,
+the game's `--pump=<L/s>` and the bench's `--pumprate`, a sweep seam over the content's number the
+way `--seepscale` is over the JSON's — the shipped relay says 100 and nothing in the tick can change
+what a row's definition says. `--pumpoutlet`'s unloaded arm is **96 m, not the pass's 64**: the
+loaded box is r6 plus the two-chunk margin, 64 m from the *viewer*, and the shaft stands at the
+basin's pit rather than under the viewer, so 64 m from the shaft landed inside it and the outlet
+was placed; 96 reads `a row alone (its chunk is not loaded — the unloaded arm)`.
+
+**What the numbers say.** Headless, `--profile --speed=0 --fillbasin=2000000 --breach=3 --pump=100
+--measure=40`: the lake drains 1,000 L through the portals into the shaft, the pump takes 1,000 L
+from Tier B in 20 moves of 50 and emits 1,000 L over the outlet on the surface, the hand-off returns
+986 L of it to the basin — a loop through Tier A, every identity exact, `machines 0.15 ms` a
+boundary. With `--pumpoutlet=96 --fluidjob=1`: `emitted 0 L into Tier B + 1,000 L into Tier A`,
+Tier B empty at the end, Tier A back at 2,000,000 L, `handed 0` because nothing ever rested — the
+litres went straight to the basin under a chunk the box never loaded. The `--abort` arm on a
+scratch world writes both bodies at the unload and no row; the reopen reads `0 machine row(s)` and
+clears 64 + 64 orphan voxels over two drains. On the bench (Release, 1.04× the reference):
+
+```
+radius   boundaries   delivered   nominal   moves   stalled   active peak   tick ms mean / max   empty after
+1             3,984      100.0        100    3,983    1/0          6,221      0.012 / 1.14       3,984 (879 L left)
+2             3,989      100.0        100    3,988    1/0          6,221      0.027 / 1.17       3,989 (623 L left)
+
+the read, 26 cells = 1,664 voxels: AmountAt 5.3 µs (3.2 ns a voxel) against the published bitset walk 31.8 µs (19.1 ns); one HeldIn 10 ns
+
+pumps   water             tick ms mean / max   moves/boundary   intake voxels/boundary
+    1   flooded               0.017 / 1.21          1.0                    1,664
+  100   flooded               0.602 / 2.69        100.0                  166,400
+  500   flooded               2.962 / 4.41        500.0                  832,000
+  500   every panel dry       0.020 / 0.02          0.0                        0
+
+the loop: 10,000 boundaries, 500,000 L moved at 100.0 L/s, the total 200,000 L unchanged at every boundary, displaced 0
+```
+
+**The relay delivers its nominal rate on a flooded chamber at either radius** — the settle levels
+the sheet every boundary, so the eight floor cells around the body are refilled from the whole
+floor and the 3.2 cells a boundary come out of them every time; 200,000 L is pumped out in 3,984
+boundaries (33 minutes of world time), the last 879 L a film the pack rule left in cells outside
+the box. So the intake radius buys nothing here and costs 4.8× the read (124 cells against 26);
+its case is a pump whose box the sheet cannot refill in a tick — a pit narrower than the box, or a
+pump that outruns the automaton's spread at a higher rate — and that is `--pumprate`'s sweep, not
+taken. **The read is 3.2 ns a voxel through `AmountAt` and 19 ns through the published bitset**,
+which retires the ladder's decision 14 read rather than confirming it: the copy is the wrong
+structure for a box (a panel lookup and a bit test per voxel, against a panel lookup per box and
+an array read per voxel). **Five hundred wet pumps are 3 ms a boundary; five hundred dry ones are
+0.02 ms** — `HeldIn` answers a dry box in 10 ns, and the sleep set stays a lever with the trigger
+the pass named (`machines` over 1 ms on the played world). The loop moves 100 L/s round and round
+and the world's total does not move by a millilitre in 10,000 boundaries.
+
+**The tests.** `MachineTickTests` (32): the fixture (one basin, the ramp draining into it, the two
+rooms, fact 6's two answers), the intake order, B → B in one boundary, nearest cells first, the
+loop over 10,000 boundaries, the five stalls, the box straddling an unloaded chunk, two outlets
+alternating, two pumps reaching two outlets, the remainder passing to the next outlet, A → B with
+the drain's equality beside it, the 0.47 L/s pump drawing a litre every fourth or fifth boundary,
+the pit beside the lake pumping nothing under a table that stands over it, whole litres across a
+tier with the remainder left behind, the unloaded outlet on the ground / half-buried / underground
+/ off the window / draining off the edge, an outlet and a pump in the lake, the wider intake, the
+same set twice landing the same millilitres, a shrunk ring wrapping the cursor, an unknown kind
+ticking nothing, and the lifecycle over four seeds with quits — panels and rows written in one
+batch, a fresh set restored, both identities and the cross-tier one exact at every round. The
+nineteen recipes: the whole-litre floor, the cursor (never, and per outlet), the box's loaded check
+(dropped, and reading only the body's chunk), the panel-count shortcut, the lake intake (never, and
+by the table — M10-PLAN decision 5's rule, caught by the pit), the underground outlet, the fold into
+`Outlet`, the order reversed, the owed counter, the ring not rebuilt, the channel ignored, rock as
+room, the sim's pump as `removed`, the sim's emit not waking, the published identity without
+`pumped`, Tier A's emit to `Outlet` not spilled. **The whole-litre floor was an identity against
+the first thirty-one tests** — every offer and every room happened to be whole — and got its own
+fixture (20,500 mL in the box, 15,125 mL of room) before the battery ran.
+
+**Next: M10b, the computer** — an item; right-click on a machine opens the ports and the stock
+tab; `SetPort` clamped in Core; the weights the round-robin ignores. M10a is done and unplayed;
+M10d's play has the relay pumping the mine.

@@ -97,6 +97,13 @@ public sealed class MachineRow
     /// <summary>Of those, how many a pick took and credited — <see cref="IMachineBodies.Taken"/>'s count.</summary>
     public int Carved { get; internal set; }
 
+    /// <summary>
+    /// A slow lake pump's sub-litre remainder: the millilitres of its budget not yet worth a whole
+    /// litre (M10a-3, decision 5). A want, not water — never persisted, so a quit loses a fraction
+    /// of one boundary's pumping and never a litre.
+    /// </summary>
+    public int OwedMillilitres { get; internal set; }
+
     /// <summary>The port's value, or its absence.</summary>
     public bool TryGetPort(string name, out long value) => _ports.TryGetValue(name, out value);
 

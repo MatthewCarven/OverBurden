@@ -172,6 +172,18 @@ public sealed class WaterSystem : IWaterTable
     /// </remarks>
     public long ReceivedLitres { get; private set; }
 
+    /// <summary>Litres a pump took out of lakes, over the lifetime — the machine layer's A → B or A → A intake (M10a-3).</summary>
+    /// <remarks>
+    /// A term of Tier A's identity beside <see cref="DrawnLitres"/> and <see cref="SeepedLitres"/>,
+    /// and its own term, so <c>drawn</c> keeps meaning the portal: <c>held == rained + injected +
+    /// received + emitted − spilled − drawn − seeped − pumped</c>. The machine layer's own line is
+    /// <c>pumped == emitted</c> across both tiers.
+    /// </remarks>
+    public long PumpedLitres { get; private set; }
+
+    /// <summary>Litres an outlet delivered to basins, over the lifetime — an outlet in a lake, or one the box has not loaded standing on the analytic ground.</summary>
+    public long EmittedLitres { get; private set; }
+
     /// <summary>Litres put into basins by <see cref="Inject"/>, the debug pour for Tier A.</summary>
     /// <remarks>
     /// M8-PLAN's rule for the relay, applied to this tier: a debug source creates litres from
@@ -428,6 +440,44 @@ public sealed class WaterSystem : IWaterTable
         return spilled;
     }
 
+    /// <summary>
+    /// Takes up to <paramref name="litres"/> out of the lake this basin is part of on a pump's
+    /// behalf, and returns what was taken — which the caller delivers to an outlet or the machine
+    /// layer's identity stops holding. <see cref="Draw"/>'s shape with its own counter.
+    /// </summary>
+    public long Pump(int basin, long litres)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(litres);
+        if (Water is null)
+        {
+            return 0;
+        }
+
+        long pumped = Water.Remove(basin, litres);
+        PumpedLitres += pumped;
+        return pumped;
+    }
+
+    /// <summary>
+    /// Delivers pumped whole litres into the lake this basin is part of, or out of the world when
+    /// the basin is <see cref="Watershed.Outlet"/>. Returns what spilled. <see cref="Receive"/>'s
+    /// shape with its own counter — the outlet half of the seam an unloaded outlet on the ground
+    /// and an outlet in a lake both use (M10a-3, decision 8).
+    /// </summary>
+    public long Emit(int basin, long litres)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(litres);
+        if (Water is null)
+        {
+            throw new InvalidOperationException("No window is installed, so there is no basin to emit into.");
+        }
+
+        EmittedLitres += litres;
+        long spilled = basin == Watershed.Outlet ? litres : Water.Add(basin, litres);
+        SpilledLitres += spilled;
+        return spilled;
+    }
+
     /// <summary>Pours litres into a basin from nothing — the debug seam for Tier A. Returns what spilled.</summary>
     public long Inject(int basin, long litres)
     {
@@ -472,6 +522,37 @@ public sealed class WaterSystem : IWaterTable
         }
 
         return Window.Watershed.LabelAt(sx, sz);
+    }
+
+    /// <summary>
+    /// <see cref="BasinAtSample"/> with the two answers it folds together kept apart (M10a's pass,
+    /// fact 6): false when no window is installed or the sample lies outside it — nobody has
+    /// analysed the ground there — and true with the label otherwise, where the label may still be
+    /// <see cref="Watershed.Outlet"/> for a sample the window covers and says drains off its edge.
+    /// </summary>
+    /// <remarks>
+    /// The unloaded-outlet rule needs the distinction: litres to a sample that drains off the
+    /// edge leave the world, as rain on that catchment does; litres to a sample nobody has
+    /// analysed would leave the world too if the two were one answer, and they are meant to stall.
+    /// </remarks>
+    public bool TryBasinAtSample(int worldSampleX, int worldSampleZ, out int basin)
+    {
+        basin = Watershed.Outlet;
+        if (Window is null)
+        {
+            return false;
+        }
+
+        HeightField field = Window.Watershed.Field;
+        int sx = worldSampleX - (field.OriginX / field.CellVoxels);
+        int sz = worldSampleZ - (field.OriginZ / field.CellVoxels);
+        if (sx < 0 || sz < 0 || sx >= field.Pitch || sz >= field.Pitch)
+        {
+            return false;
+        }
+
+        basin = Window.Watershed.LabelAt(sx, sz);
+        return true;
     }
 
     /// <summary>Litres standing in the installed window right now.</summary>

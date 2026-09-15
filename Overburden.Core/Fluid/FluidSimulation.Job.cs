@@ -319,7 +319,9 @@ public sealed partial class FluidSimulation
             HandedMillilitres,
             EvictedMillilitres,
             LiftedMillilitres,
-            ReturnedMillilitres);
+            ReturnedMillilitres,
+            PumpedMillilitres,
+            EmittedMillilitres);
     }
 
     /// <summary>Refuses a read of state a worker is writing.</summary>
@@ -365,10 +367,12 @@ public readonly record struct FluidPublished(
     long Handed,
     long Evicted,
     long Lifted,
-    long Returned)
+    long Returned,
+    long Pumped,
+    long Emitted)
 {
-    /// <summary><c>held == injected + drawn + loaded − removed − displaced − handed − evicted</c>, from one snapshot.</summary>
-    public bool IdentityExact => TotalMillilitres == Added + Loaded - Removed - Displaced - Handed - Evicted;
+    /// <summary><c>held == injected + drawn + loaded + emitted − removed − displaced − handed − evicted − pumped</c>, from one snapshot.</summary>
+    public bool IdentityExact => TotalMillilitres == Added + Loaded + Emitted - Removed - Displaced - Handed - Evicted - Pumped;
 }
 
 /// <summary>One tick of the automaton as a job on the scheduler. See <see cref="FluidSimulation.BeginTick"/>.</summary>

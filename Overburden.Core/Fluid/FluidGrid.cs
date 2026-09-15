@@ -537,6 +537,13 @@ public sealed class FluidGrid
     /// <summary>Whether this chunk has a panel allocated — one held cell or more.</summary>
     public bool HasPanel(ChunkPos chunk) => _panels.ContainsKey(chunk);
 
+    /// <summary>
+    /// Cells holding anything in this chunk — the panel's own count, maintained on every zero
+    /// crossing, so a pump can ask "is there any water in my box" with one lookup a chunk
+    /// before it reads a cell (M10a-3, decision 7). Zero for a chunk with no panel.
+    /// </summary>
+    public int HeldIn(ChunkPos chunk) => Find(chunk)?.Held ?? 0;
+
     /// <summary>Every chunk holding a panel. O(panels), not O(cells).</summary>
     /// <remarks>
     /// The seed of the reachable set the field is built over: awake cells either hold water, and so

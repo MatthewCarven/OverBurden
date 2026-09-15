@@ -482,6 +482,11 @@ public partial class Main : Node3D
     private double _bSettleAtWarm, _bHandoffAtWarm, _bPourAtWarm, _bCollapseAtWarm, _bLakeAtWarm, _bSyncAtWarm, _bPublishAtWarm, _bBeginAtWarm;
     private int _boundariesAtWarm;
 
+    // M10a-3: the machines bracket — the deferred wet placements and the machine tick, its own
+    // term because every row ticks every boundary and the sleep set is a lever whose trigger is
+    // this number over a millisecond on the played world.
+    private double _bMachines, _bMachinesMax, _bMachinesAtWarm;
+
     /// <summary>The tick interval: 2 Hz, the rate M8-PLAN costed the active set against and M8a measured at.</summary>
     /// <remarks>
     /// <b>The automaton is rate-free, so this is the caller's number and nothing in Core reads
@@ -574,6 +579,28 @@ public partial class Main : Node3D
 
     /// <summary><c>--abort=&lt;seconds&gt;</c>: end the process with no save at all — the crash arm the reconcile is tested against.</summary>
     private double _abortAfterSeconds;
+
+    /// <summary>
+    /// The machine tick (M10a-3): every pump moves water to an outlet on its channel once a
+    /// boundary, in the <c>machines</c> bracket after the pour and before the table check. Null
+    /// under <c>--nowater</c>, where there is no boundary and nothing to move.
+    /// </summary>
+    private MachineTick? _machineTick;
+
+    /// <summary>The live simulation terrain the tick reads — the field wrapped in the lake ceiling, never a captured view.</summary>
+    private IFluidTerrain? _machineTerrain;
+
+    /// <summary><c>--pump=&lt;L/s&gt;</c>: a relay pump at the bottom of <c>--breach</c>'s shaft and an outlet on the surface, every pump at that rate.</summary>
+    private double _pumpLitresPerSecond;
+
+    /// <summary><c>--pumpoutlet=&lt;metres&gt;</c>: how far along +X from the shaft the outlet stands. 24 is inside the r6 box; 64 is outside it, the unloaded arm.</summary>
+    private double _pumpOutletMetres = 24.0;
+
+    private long _machineTickCalls;
+    private double _machineTickMillisSum, _machineTickMillisMax;
+    private long _machineTickCallsAtWarm;
+    private double _machineTickMillisSumAtWarm;
+    private long _pumpedBAtWarm, _pumpedAAtWarm, _emittedBAtWarm, _emittedAAtWarm, _movesAtWarm;
 
     private bool _seedKeyHeld;
 
@@ -1670,6 +1697,18 @@ public partial class Main : Node3D
                 // without the session that would have matched it.
                 case "abort" when double.TryParse(value, out double abort) && abort > 0:
                     _abortAfterSeconds = abort;
+                    break;
+
+                // M10a-3: the pump's provocation. A relay pump is placed at the bottom of the
+                // shaft --breach bites, an outlet on the surface --pumpoutlet metres along +X, on
+                // channel 0, at the window's open — so --fillbasin --breach --pump floods the
+                // shaft and pumps it back out in one run. The rate is every pump's, a sweep seam
+                // over the content's 100 L/s, printed when it differs.
+                case "pump" when double.TryParse(value, out double pump) && pump > 0:
+                    _pumpLitresPerSecond = pump;
+                    break;
+                case "pumpoutlet" when double.TryParse(value, out double pumpOutlet) && pumpOutlet >= 0:
+                    _pumpOutletMetres = pumpOutlet;
                     break;
 
                 // The retained-chunk cache's cap. Zero is the committed pre-cache behaviour and
@@ -2836,6 +2875,118 @@ public partial class Main : Node3D
         {
             GD.Print($"M10: this run ends with no save {_abortAfterSeconds:F0} s in (--abort) — the crash arm");
         }
+
+        // M10a-3: the tick, over the live simulation terrain — the field wrapped in the ceiling —
+        // because IsLoaded and InLake are its two questions and a captured view refuses what it
+        // does not cover. Tier A and the seed surface are the unloaded-outlet rule's.
+        if (_fluid is not null && _machineTerrain is not null)
+        {
+            _machineTick = new MachineTick(
+                _machines, _materials!, _fluid, _machineTerrain, _seedHeights, _water,
+                boundaryMillis: (long)Math.Round(FluidTickSeconds * 1000.0));
+            if (_pumpLitresPerSecond > 0)
+            {
+                _machineTick.RateOverrideMillilitresPerSecond = (long)Math.Round(_pumpLitresPerSecond * FluidConstants.MillilitresPerLitre);
+                GD.Print($"M10: every pump runs at {_pumpLitresPerSecond:N1} L/s (--pump); the content's relay pump says 100");
+            }
+
+            GD.Print("M10: the machine tick runs at every boundary — every pump, every outlet on its channel, the cheap read first (--pump=<L/s> --pumpoutlet=<m> provoke it)");
+        }
+        else
+        {
+            GD.Print("M10: no machine tick (--nowater): a pump needs a boundary to move water at");
+        }
+    }
+
+    /// <summary>The <c>machines</c> bracket's second half: every pump, once, through the tick.</summary>
+    private void RunMachineTick()
+    {
+        if (_machineTick is null || _machines is null || _machines.Count == 0)
+        {
+            return;
+        }
+
+        long before = Stopwatch.GetTimestamp();
+        MachineTickReport report = _machineTick.Run();
+        double millis = Milliseconds(before, Stopwatch.GetTimestamp());
+        _machineTickCalls++;
+        _machineTickMillisSum += millis;
+        _machineTickMillisMax = Math.Max(_machineTickMillisMax, millis);
+
+        if (!report.Exact)
+        {
+            GD.PushError($"M10: the machine tick is not exact — {report}");
+        }
+    }
+
+    /// <summary>
+    /// <c>--pump</c>'s bodies, at the window's open beside the breach: a pump at the bottom of
+    /// the shaft, an outlet on the surface along +X. Through <c>Place.Machine</c> where the
+    /// chunk is loaded — the cell carved first, because a body needs 64 air voxels and a shaft is
+    /// three wide — and as a row alone where it is not, for the reconcile to build at arrival.
+    /// </summary>
+    private void PlacePumpAndOutlet(VoxelPos shaftBottom, int surfaceY)
+    {
+        if (_pumpLitresPerSecond <= 0 || _pipeline is null || _machines is null || _materials is null || _place is null)
+        {
+            return;
+        }
+
+        int pump = MaterialId("overburden:relay_pump");
+        int outlet = MaterialId("overburden:relay_outlet");
+        if (pump == MaterialIds.AirNumericId || outlet == MaterialIds.AirNumericId)
+        {
+            GD.Print("M10: the relay pump and outlet are not in this world's content, so --pump places nothing");
+            return;
+        }
+
+        const int Cell = BrushCell.Voxels * BrushCell.Voxels * BrushCell.Voxels;
+        _inventory.Add(pump, Cell);
+        _inventory.Add(outlet, Cell);
+
+        // The pump: the cell holding the shaft's bottom voxel, carved whole so the body fits.
+        BrushCell pumpCell = BrushCell.FromVoxel(shaftBottom);
+        PlaceResult pumped = PlaceBody(pumpCell, pump);
+
+        // The outlet: the cell over the seed surface --pumpoutlet metres along +X.
+        int dx = (int)Math.Round(_pumpOutletMetres * VoxelConstants.VoxelsPerMetre);
+        int ox = shaftBottom.X + dx;
+        int oz = shaftBottom.Z;
+        int ground = _generator!.SurfaceHeightAt(ox, oz);
+        BrushCell outletCell = BrushCell.FromVoxel(new VoxelPos(ox, ground + 1, oz));
+        bool outletLoaded = _pipeline.Streamer.Get(outletCell.OriginVoxel.Chunk)?.Voxels is not null;
+        string outletHow;
+        if (outletLoaded)
+        {
+            PlaceResult placed = PlaceBody(outletCell, outlet);
+            outletHow = placed.Placed == Cell ? "placed" : $"NOT placed ({placed})";
+        }
+        else
+        {
+            // The unloaded arm: the row alone. The body follows at the chunk's arrival, and until
+            // then the outlet is Tier A's by the unloaded-outlet rule — its origin is on the ground
+            // and its sample is in the window.
+            _machines.Add(new MachineRow(outletCell, outlet, BrushFacing.PositiveX, _materials.Machine(outlet)!.DefaultPorts()));
+            _inventory.Take(outlet, Cell);
+            outletHow = "a row alone (its chunk is not loaded — the unloaded arm)";
+        }
+
+        GD.Print(
+            $"M10: --pump — a relay pump at {pumpCell} (bottom of the shaft, {(pumped.Placed == Cell ? "placed" : $"NOT placed: {pumped}")}) "
+            + $"and a relay outlet at {outletCell} ({_pumpOutletMetres:N0} m along +X on the surface at {ground}, {outletHow}), both on channel 0");
+    }
+
+    /// <summary>Carves the cell to air and places a body in it through the brush's own path.</summary>
+    private PlaceResult PlaceBody(BrushCell cell, int material)
+    {
+        for (int lz = 0; lz < BrushCell.Voxels; lz++)
+        for (int lx = 0; lx < BrushCell.Voxels; lx++)
+        for (int ly = 0; ly < BrushCell.Voxels; ly++)
+        {
+            _pipeline!.SetVoxel(cell.VoxelAt(lx, ly, lz), MaterialIds.AirNumericId);
+        }
+
+        return Place.Machine(_pipeline!, _materials!, cell, material, BrushFacing.PositiveX, _machines!, body: null, from: _inventory);
     }
 
     /// <summary>
@@ -3648,6 +3799,7 @@ public partial class Main : Node3D
             LightLines() +
             MiningLines() +
             PlacementLines() +
+            MachineLines() +
             PersistenceLines() +
             CacheLines() +
             SupportLines() +
@@ -3825,6 +3977,7 @@ public partial class Main : Node3D
         return $"water     {held:N0} L held, {_water.SpilledLitres:N0} L spilled, "
                + $"{_water.InjectedLitres:N0} L injected, {_water.DrawnLitres:N0} L drawn into Tier B, "
                + $"{_water.SeepedLitres:N0} L seeped into it, {_water.ReceivedLitres:N0} L received from it, "
+               + $"{_water.PumpedLitres:N0} L pumped out of lakes, {_water.EmittedLitres:N0} L emitted into basins, "
                + $"{held * 60.0 / seconds:N0} L per wall-clock minute at scale "
                + $"x{_water.RainfallScale}\n"
                + $"analysis  {_lastAnalysisMillis:F1} ms for a {_water.SpanMetres} m window "
@@ -4280,6 +4433,7 @@ public partial class Main : Node3D
         }
 
         _fluid = new FluidSimulation(simTerrain, spread: _spread, fallCells: _fallCells);
+        _machineTerrain = simTerrain;
         if (_fallCells != FluidSimulation.DefaultFallCells)
         {
             GD.Print($"M8d: a visit falls at most {_fallCells} cell(s) (--fallcells; {FluidSimulation.DefaultFallCells} is the default, 1 the pre-M8d-3 arm)");
@@ -4437,6 +4591,14 @@ public partial class Main : Node3D
             _bPublishAtWarm = _bPublish;
             _bBeginAtWarm = _bBegin;
             _boundariesAtWarm = _boundaries;
+            _bMachinesAtWarm = _bMachines;
+            _machineTickCallsAtWarm = _machineTickCalls;
+            _machineTickMillisSumAtWarm = _machineTickMillisSum;
+            _pumpedBAtWarm = _machineTick?.PumpedMillilitres ?? 0;
+            _pumpedAAtWarm = _machineTick?.PumpedLitres ?? 0;
+            _emittedBAtWarm = _machineTick?.EmittedMillilitres ?? 0;
+            _emittedAAtWarm = _machineTick?.EmittedLitres ?? 0;
+            _movesAtWarm = _machineTick?.Moves ?? 0;
         }
 
         // Where the viewer is, for the near/far order. Called only when the order is on, so the
@@ -4500,8 +4662,17 @@ public partial class Main : Node3D
             TakePending();
             PourPending();
             RunPendingChunkFills();
+            long t2m = Stopwatch.GetTimestamp();
+
+            // M10a-3: the machines bracket — the deferred wet placements, then the tick, after the
+            // pour so a pump reads the water the boundary put down and before the table check so
+            // a lake a pump lowered is compared at this boundary rather than the next.
             RunPendingMachinePlacements();
+            RunMachineTick();
             long t3 = Stopwatch.GetTimestamp();
+            double machines = Milliseconds(t2m, t3);
+            _bMachines += machines;
+            _bMachinesMax = Math.Max(_bMachinesMax, machines);
 
             // M9d, decision 1: the table-move sweep, after every pass that moves a level — the
             // hand-off, the drains, the pour — and before the collapse sweep, so a roof whose lake
@@ -4567,7 +4738,7 @@ public partial class Main : Node3D
             long t5 = Stopwatch.GetTimestamp();
 
             _boundaries++;
-            double settle = Milliseconds(t0, t1), handoff = Milliseconds(t1, t2), pour = Milliseconds(t2, t3);
+            double settle = Milliseconds(t0, t1), handoff = Milliseconds(t1, t2), pour = Milliseconds(t2, t2m);
             double collapse = Milliseconds(t3, t3c), lake = Milliseconds(t3c, t3l), sync = Milliseconds(t3l, t4), publish = Milliseconds(t4, t5);
             _bSettle += settle;
             _bHandoff += handoff;
@@ -4914,6 +5085,13 @@ public partial class Main : Node3D
                 $"M8b: bit a {_breachVoxels}x{_breachVoxels} shaft {depth} deep under the player at "
                 + $"({here.X}, {here.Z}), surface {surface}: {removed:N0} voxel(s) removed, "
                 + $"{_portals?.Count ?? 0} portal(s) filed (--breach)");
+
+            // M10a-3: the pump at the shaft's bottom, the outlet on the surface along +X.
+            PlacePumpAndOutlet(new VoxelPos(here.X, surface - depth + 1, here.Z), surface);
+        }
+        else if (_pumpLitresPerSecond > 0)
+        {
+            GD.Print("M10: --pump wants --breach's shaft to stand in; no shaft was bitten, so no pump is placed");
         }
     }
 
@@ -5194,7 +5372,8 @@ public partial class Main : Node3D
                + $"removed {p.Removed / litre:N0} L, displaced {p.Displaced / litre:N0} L, "
                + $"handed {p.Handed / litre:N0} L to Tier A ({_handoff?.SubmergedHanded ?? 0:N0} cell(s) of it found inside a lake"
                + (_lakeCeiling is null ? string.Empty : $"; lake {_lakeCeiling.ChunkColumns:N0} column(s), {_lakeCeiling.Rebuilt:N0} rebuilt, {_lakeCeiling.WokenSubmerged:N0} woken") + ") — "
-               + $"held == injected + drawn + seeped + loaded − removed − displaced − handed − evicted: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
+               + $"pumped {p.Pumped / litre:N0} L, emitted {p.Emitted / litre:N0} L — "
+               + $"held == injected + drawn + seeped + loaded + emitted − removed − displaced − handed − evicted − pumped: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
                + $"received == handed: {HandoffIdentity()}, "
                + $"lifted {p.Lifted / litre:N0} L == returned {p.Returned / litre:N0} L by falls: {(p.Lifted == p.Returned ? "exact" : "*** NO ***")}; "
                + seep
@@ -5221,7 +5400,7 @@ public partial class Main : Node3D
 
     /// <summary>The worst single pass of each kind over the run — the frame a boundary can cost.</summary>
     private string BoundaryWorst() =>
-        $"settle {_bSettleMax:F1} ms, hand-off and drain {_bHandoffMax:F1} ms, pour {_bPourMax:F1} ms, "
+        $"settle {_bSettleMax:F1} ms, hand-off and drain {_bHandoffMax:F1} ms, pour {_bPourMax:F1} ms, machines {_bMachinesMax:F2} ms, "
         + $"table {_bTableMax:F2} ms, collapse {_bCollapseMax:F1} ms, lake {_bLakeMax:F1} ms, field sync {_bSyncMax:F1} ms, publish {_bPublishMax:F1} ms";
 
     /// <summary>The boundary's cost by pass, mean per boundary over the window.</summary>
@@ -5235,6 +5414,7 @@ public partial class Main : Node3D
 
         return $"boundary  {n:N0} in the window, mean per boundary: settle {(_bSettle - _bSettleAtWarm) / n:F2} ms, "
                + $"hand-off and drain {(_bHandoff - _bHandoffAtWarm) / n:F2} ms, pour {(_bPour - _bPourAtWarm) / n:F2} ms, "
+               + $"machines {(_bMachines - _bMachinesAtWarm) / n:F3} ms, "
                + $"table {(_bTable - _bTableAtWarm) / n:F3} ms, collapse {(_bCollapse - _bCollapseAtWarm) / n:F2} ms, "
                + $"lake {(_bLake - _bLakeAtWarm) / n:F2} ms, "
                + $"field sync {(_bSync - _bSyncAtWarm) / n:F2} ms, publish {(_bPublish - _bPublishAtWarm) / n:F2} ms, "
@@ -5368,8 +5548,8 @@ public partial class Main : Node3D
                + $"loaded {p.Loaded / litre:N0} L from {f.RestoredPanels:N0} panel(s), "
                + $"evicted {p.Evicted / litre:N0} L with {f.EvictedPanels:N0} panel(s), "
                + $"removed {p.Removed / litre:N0} L, displaced {p.Displaced / litre:N0} L, "
-               + $"handed {p.Handed / litre:N0} L — "
-               + $"held == injected + drawn + seeped + loaded − removed − displaced − handed − evicted: {(p.IdentityExact ? "exact" : "*** NO ***")}; "
+               + $"handed {p.Handed / litre:N0} L, pumped {p.Pumped / litre:N0} L, emitted {p.Emitted / litre:N0} L — "
+               + $"held == injected + drawn + seeped + loaded + emitted − removed − displaced − handed − evicted − pumped: {(p.IdentityExact ? "exact" : "*** NO ***")}; "
                + $"lifted {p.Lifted / litre:N0} L == returned {p.Returned / litre:N0} L by falls: {(p.Lifted == p.Returned ? "exact" : "*** NO ***")}; "
                + $"{_relayPendingMillilitres / litre:N0} L still to pour; "
                + $"paused {p.Paused:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
@@ -5487,6 +5667,65 @@ public partial class Main : Node3D
     /// against placed is the number that says whether the lattice is landing where the aim
     /// suggests — a placement that is nearly all occupied was aimed into a cell already full.
     /// </remarks>
+    /// <summary>The tick's half of the periodic <c>M10:</c> line: both tiers' pumped and emitted, the cross-tier identity, the stalls, the cost.</summary>
+    private string MachineTickSummary()
+    {
+        if (_machineTick is null)
+        {
+            return " | no tick (--nowater)";
+        }
+
+        MachineTick t = _machineTick;
+        const double litre = FluidConstants.MillilitresPerLitre;
+        MachineTickReport last = t.Last;
+        return $" | tick: {last.Pumps} pump(s) over {last.Outlets} outlet(s), "
+               + $"pumped {t.PumpedMillilitres / litre:N0} L from Tier B + {t.PumpedLitres:N0} L from Tier A, "
+               + $"emitted {t.EmittedMillilitres / litre:N0} L into Tier B + {t.EmittedLitres:N0} L into Tier A "
+               + $"({t.EmittedLitresIntoLakes:N0} into a lake, {t.EmittedLitresToUnloadedOutlets:N0} to an outlet the box has not loaded) — "
+               + $"pumped == emitted across the tiers: {(t.CrossTierExact ? "exact" : "*** NO ***")}; "
+               + $"{t.Moves:N0} move(s), stalled {t.StalledNoOutlet:N0} no outlet / {t.StalledNoWater:N0} no water ({t.IntakesSkippedDry:N0} off the panel counts) / "
+               + $"{t.StalledNoRoom:N0} no room / {t.StalledUnloaded:N0} unloaded / {t.StalledUnanalysed:N0} unanalysed; "
+               + $"{t.IntakeVoxelsRead:N0} intake voxel(s) read; "
+               + $"{_machineTickCalls:N0} tick(s), {(_machineTickCalls > 0 ? _machineTickMillisSum / _machineTickCalls : 0):F3} ms mean, {_machineTickMillisMax:F3} max";
+    }
+
+    /// <summary>The profile's <c>machines</c> block, with the window's own denominators.</summary>
+    private string MachineLines()
+    {
+        if (_machines is null)
+        {
+            return string.Empty;
+        }
+
+        string rows = $"machines  {_machines.Count} row(s); placed {_machines.Placed} ({_place?.MachinesDeferred ?? 0} deferred to the boundary), "
+                      + $"dismantled {_machines.Dismantled} ({_machines.DismantledVoxelsCredited} voxel(s) credited), destroyed {_machines.Destroyed}; "
+                      + $"reconciled {_machines.ChunksReconciled} chunk(s): {_machines.Rebuilt} rebuilt, {_machines.ReturnedAtArrival} returned, "
+                      + $"{_machines.DestroyedAtArrival} destroyed, {_machines.OrphanVoxelsCleared} orphan voxel(s) cleared, "
+                      + $"{_machines.ChunksSkippedByPalette} skipped by palette; "
+                      + $"drain {_machineDrainCalls} call(s), {(_machineDrainCalls > 0 ? _machineDrainMillisSum / _machineDrainCalls : 0):F2} ms mean, {_machineDrainMillisMax:F2} max\n";
+        if (_machineTick is null)
+        {
+            return rows + "machtick  none (--nowater)\n";
+        }
+
+        MachineTick t = _machineTick;
+        const double litre = FluidConstants.MillilitresPerLitre;
+        double seconds = Math.Max(_profiler!.MeasuredSeconds, 0.001);
+        long ticks = _machineTickCalls - _machineTickCallsAtWarm;
+        long pumpedB = t.PumpedMillilitres - _pumpedBAtWarm, pumpedA = t.PumpedLitres - _pumpedAAtWarm;
+        long emittedB = t.EmittedMillilitres - _emittedBAtWarm, emittedA = t.EmittedLitres - _emittedAAtWarm;
+        long moves = t.Moves - _movesAtWarm;
+        double pumpedInWindow = (pumpedB / litre) + pumpedA;
+        return rows
+               + $"machtick  {ticks:N0} tick(s) in the window over {t.Last.Pumps} pump(s) and {t.Last.Outlets} outlet(s), {moves:N0} move(s); "
+               + $"pumped {pumpedB / litre:N0} L from Tier B + {pumpedA:N0} L from Tier A ({pumpedInWindow / seconds:N1} L/s over the window), "
+               + $"emitted {emittedB / litre:N0} L into Tier B + {emittedA:N0} L into Tier A; in all pumped {t.PumpedMillilitres / litre:N0} + {t.PumpedLitres:N0} L, "
+               + $"emitted {t.EmittedMillilitres / litre:N0} + {t.EmittedLitres:N0} L — pumped == emitted across the tiers: {(t.CrossTierExact ? "exact" : "*** NO ***")}; "
+               + $"stalled {t.StalledNoOutlet:N0} no outlet / {t.StalledNoWater:N0} no water / {t.StalledNoRoom:N0} no room / {t.StalledUnloaded:N0} unloaded / {t.StalledUnanalysed:N0} unanalysed; "
+               + $"{t.IntakeVoxelsRead:N0} intake voxel(s) read in all, {t.IntakesSkippedDry:N0} intake(s) answered dry off the panel counts; "
+               + $"tick {(ticks > 0 ? (_machineTickMillisSum - _machineTickMillisSumAtWarm) / ticks : 0):F3} ms mean in the window, {_machineTickMillisMax:F3} max over the run\n";
+    }
+
     private string PlacementLines()
     {
         if (_place is null || _place.Placements == 0)
@@ -5880,7 +6119,8 @@ public partial class Main : Node3D
                 + $"reconciled {_machines.ChunksReconciled} chunk(s): {_machines.Rebuilt} rebuilt, {_machines.ReturnedAtArrival} returned, "
                 + $"{_machines.DestroyedAtArrival} destroyed, {_machines.OrphanVoxelsCleared} orphan voxel(s) cleared, "
                 + $"{_machines.ChunksSkippedByPalette} skipped by palette, {_machines.ChunksLeftBeforeDrain} left before the drain | "
-                + $"drain {_machineDrainCalls} call(s), {(_machineDrainCalls > 0 ? _machineDrainMillisSum / _machineDrainCalls : 0):F2} ms mean, {_machineDrainMillisMax:F2} max");
+                + $"drain {_machineDrainCalls} call(s), {(_machineDrainCalls > 0 ? _machineDrainMillisSum / _machineDrainCalls : 0):F2} ms mean, {_machineDrainMillisMax:F2} max"
+                + MachineTickSummary());
         }
     }
 

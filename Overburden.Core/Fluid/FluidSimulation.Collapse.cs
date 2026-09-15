@@ -83,4 +83,68 @@ public sealed partial class FluidSimulation : ICollapseWater
     /// panel, and a fixture that answers from a predicate is loaded everywhere.
     /// </remarks>
     public bool IsReady(ChunkPos chunk) => _terrain.IsLoaded(chunk.OriginVoxel);
+
+    // ---------------------------------------------------------------------------------------
+    // The machine twins (M10a-3, decision 6): a pump is a drain and an outlet is a pour, each
+    // with its own counter and nothing else, so `removed` keeps meaning the relay and `drawn`
+    // the portal. Both are terms of the identity — a pump subtracts from held and an emit adds
+    // to it — and `pumped == emitted` across the machine layer is its own line.
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>Millilitres a pump took out of cells, over the lifetime. A term of the identity.</summary>
+    public long PumpedMillilitres { get; private set; }
+
+    /// <summary>Millilitres an outlet put into cells, over the lifetime. A term of the identity.</summary>
+    public long EmittedMillilitres { get; private set; }
+
+    /// <summary>
+    /// Takes water out of a voxel on a pump's behalf. Returns what was taken, which the caller
+    /// must deliver to an outlet — on this tier or the other — or the machine layer's own
+    /// identity, <c>pumped == emitted</c>, stops holding.
+    /// </summary>
+    /// <remarks>
+    /// <c>Take</c> with a counter of its own, the shape <see cref="HandOff"/> and <see cref="Lift"/>
+    /// took: the water is not gone, it is in flight for exactly the length of one call at the
+    /// boundary, and nothing in the world holds it in between.
+    /// </remarks>
+    public long Pump(VoxelPos voxel, long millilitres)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(millilitres);
+        RefuseMidTick(nameof(Pump));
+        long taken = Take(voxel, millilitres);
+        PumpedMillilitres += taken;
+        return taken;
+    }
+
+    /// <summary>
+    /// Puts pumped water into a voxel — an outlet's pour. Returns what would not fit, which a
+    /// caller that read the room first must treat as a wiring fault rather than a refund.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Add"/>'s path — the live terrain's <c>CanHold</c>, the room, the wake — with
+    /// the counter swapped, exactly as <see cref="Return"/> is.
+    /// </remarks>
+    public long Emit(VoxelPos voxel, long millilitres)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(millilitres);
+        RefuseMidTick(nameof(Emit));
+
+        if (millilitres == 0 || !_terrain.CanHold(voxel))
+        {
+            return millilitres;
+        }
+
+        long offered = Math.Min(millilitres, RoomAt(voxel));
+        long overflow = millilitres - offered + _grid.Fill(voxel, offered);
+        long accepted = millilitres - overflow;
+        if (accepted > 0)
+        {
+            EmittedMillilitres += accepted;
+            NoteInflow(voxel);
+            Wake(voxel);
+            WakeNeighboursOf(voxel);
+        }
+
+        return overflow;
+    }
 }

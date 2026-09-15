@@ -87,6 +87,10 @@ internal static class Program
           --restrefund <n>     voxels of rest that refund one full budget, for --support (default 30, the shipped estimate)
           --supportscale <x>   multiplies every support distance, for --support (default 1)
           --collapse           M9c-1: with --support, drops every fixture stage by stage — voxels a stage, sum(Y) before and after, the picture after beside before — and floods fixture 2 first
+          --pump               M10a-3: the relay pump's delivered rate on a flooded chamber at intake radius 1 and 2, the read priced both ways, the tick's cost at 1 / 100 / 500 pumps, and the loop
+          --pumplitres <n>     the flood, in litres (default 200000, a 3 m depth over the chamber's floor)
+          --pumprate <L/s>     every pump's rate in place of the content's 100 (default: the content's)
+          --pumpboundaries <n> boundaries to run the delivery arms for (default 4000; the loop runs at least 10000)
         """;
 
     private static int Main(string[] args)
@@ -137,6 +141,10 @@ internal static class Program
         int frontTicks = 20_000;
         bool support = false;
         bool collapse = false;
+        bool pumpBench = false;
+        long pumpLitres = 200_000;
+        double? pumpRate = null;
+        int pumpBoundaries = 4_000;
         int restRefund = Overburden.Core.Structure.SupportRule.Default.RestRefundVoxels;
         float supportScale = 1f;
 
@@ -303,6 +311,18 @@ internal static class Program
                         break;
                     case "--frontticks":
                         frontTicks = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--pump":
+                        pumpBench = true;
+                        break;
+                    case "--pumplitres":
+                        pumpLitres = long.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--pumprate":
+                        pumpRate = double.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--pumpboundaries":
+                        pumpBoundaries = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
                         break;
                     case "--help" or "-h":
                         Console.WriteLine(Usage);
@@ -477,6 +497,54 @@ internal static class Program
                 seepMaterials.Permeability(dirtId),
                 MachineControl(seepGenerator),
                 IsDebug());
+        }
+
+        if (pumpBench)
+        {
+            // The shipped relay pair through the real loader, so the rate and the radius under
+            // test are the content's; the radius-2 arm is the same block at the other radius the
+            // format allows, under a bench namespace so it can never be mistaken for shipped.
+            var pumpContent = new GameContent();
+            LoadResult pumpLoaded = pumpContent.Load(new DirectoryContentSource(ModsDirectory()));
+            if (!pumpLoaded.Success)
+            {
+                Console.Error.WriteLine($"content: {string.Join("; ", pumpLoaded.Errors)}");
+                return 1;
+            }
+
+            MaterialDefinition shippedPump = pumpContent.Materials.Get(Identifier.Parse("overburden:relay_pump"));
+            MaterialDefinition shippedOutlet = pumpContent.Materials.Get(Identifier.Parse("overburden:relay_outlet"));
+            var pumpRegistry = new Registry<MaterialDefinition>("materials", MaterialDefinition.Unknown);
+            pumpRegistry.Register(MaterialIds.Air, pumpContent.Materials.Get(MaterialIds.Air));
+            pumpRegistry.Register(Identifier.Parse("overburden:stone"), pumpContent.Materials.Get(Identifier.Parse("overburden:stone")));
+            int pumpId = pumpRegistry.Register(shippedPump.Id, shippedPump);
+            int outletId = pumpRegistry.Register(shippedOutlet.Id, shippedOutlet);
+            var widePump = new MaterialDefinition
+            {
+                Id = Identifier.Parse("bench:relay_pump_r2"),
+                Hardness = shippedPump.Hardness,
+                SupportDistance = shippedPump.SupportDistance,
+                Density = shippedPump.Density,
+                TextureLayer = shippedPump.TextureLayer,
+                Unit = shippedPump.Unit,
+                Machine = new Overburden.Core.Machines.MachineDefinition
+                {
+                    Kind = shippedPump.Machine!.Kind,
+                    MillilitresPerSecond = shippedPump.Machine.MillilitresPerSecond,
+                    HeadMetres = shippedPump.Machine.HeadMetres,
+                    JoulesPerLitre = shippedPump.Machine.JoulesPerLitre,
+                    IntakeRadiusCells = 2,
+                    Links = shippedPump.Machine.Links,
+                    Ports = shippedPump.Machine.Ports,
+                },
+            };
+            int widePumpId = pumpRegistry.Register(widePump.Id, widePump);
+            pumpRegistry.Freeze();
+
+            var pumpGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
+            return PumpBench.Run(
+                pumpGenerator, MaterialTable.From(pumpRegistry), pumpId, widePumpId, outletId,
+                MachineControl(pumpGenerator), IsDebug(), pumpLitres, pumpRate, pumpBoundaries);
         }
 
         if (spill)

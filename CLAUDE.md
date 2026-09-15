@@ -23,7 +23,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | **Worldgen as content** — Matthew's thinking-ahead, 2026-09-11: ores, layers, trees, and what is permeable. Notes rather than a plan; what MATERIALS-NOTES already decided is listed so it is not re-litigated, and the three questions its pass wants from him are at the end. **Not scheduled — M8d, then M9.** |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md) | **Water bodies** — Matthew's question, 2026-09-10: resting water as one number over a connected void, DESIGN's *"stable cells merge into a Tier A body"* half that M8b never built. Notes rather than a plan, with the roof-open wake explained and six decisions. **Read before M8c's planning pass, which is where it belongs.** |
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | **Elements, and whether to "just implement chemistry"** — a brainstorm with Matthew, 2026-09-03. Notes rather than a plan. The recommendation is *geology that reacts to water, with machine recipes as the chemistry set*; the element table says why each material would exist. **Read before M8c reads `permeability` and before M9 reads `supportDistance` — both have been in the material JSON unread since M1, and the trap is a constant shipping green.** |
-| [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) | **The ladder — hand → steam → DC → AC → quantum, and the crafting under it; planned 2026-09-15 (evening) from Matthew's brief, twenty-three decisions, ten parts M10a–M10j, all taken as recommended the same night. M10a's own planning pass is its last section — six facts from the code, twelve decisions, three sessions a-1/a-2/a-3 — and M10a-1 (the store slice) and M10a-2 (the entity) are built; read their "built" sections before a-3's code.** Its one idea: connection is membership and movement is a ledger transfer at the boundary — no solver, nothing in flight at any tier. **Read its four facts first** (the 16 m vertical box against a 64 m mine; the header and the machine table are two store calls; `IsWetIn` is a dictionary lookup a voxel; a wire on a ceiling falls under M9's rule). M10-PLAN's a–d are its first rung, eight decisions amended. Read M10-PLAN and M10-NOTES before it. |
+| [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) | **The ladder — hand → steam → DC → AC → quantum, and the crafting under it; planned 2026-09-15 (evening) from Matthew's brief, twenty-three decisions, ten parts M10a–M10j, all taken as recommended the same night. M10a's own planning pass is its last section — six facts from the code, twelve decisions, three sessions a-1/a-2/a-3 — and all three are built (2026-09-15/16): the store slice, the entity, the pump; read the three "built" sections before M10b's pass — a-3's has the bench's first number, the relay delivering its nominal 100 L/s on a flooded chamber, and the read the ladder's decision 14 proposed retired by measurement.** Its one idea: connection is membership and movement is a ledger transfer at the boundary — no solver, nothing in flight at any tier. **Read its four facts first** (the 16 m vertical box against a 64 m mine; the header and the machine table are two store calls; `IsWetIn` is a dictionary lookup a voxel; a wire on a ceiling falls under M9's rule). M10-PLAN's a–d are its first rung, eight decisions amended. Read M10-PLAN and M10-NOTES before it. |
 | [docs/M10-PLAN.md](docs/M10-PLAN.md) | **M10, you fight back — planned 2026-09-15, eleven decisions with recommendations, waiting on Matthew; M10a's own pass follows the answers.** Split M10a–M10d: the entity, the relay pump and outlet / the programmer / power / the play. **Read its three facts first: the boundary is the machine tick (`Add`/`Remove` refuse mid-tick, so DESIGN's 20 Hz has no consumer), a machine is a material plus a row (the body is 64 voxels of a material, so every existing path is free and only the config is new), and an outlet is out of the loaded box on day one** (`ViewDistanceVertical` 2 against a 64 m mine). Read M10-NOTES before it. |
 | [docs/M9-PLAN.md](docs/M9-PLAN.md) | **M9, the mine kills you — planned 2026-09-11, all twelve decisions taken the same day; M9a and M9b built 2026-09-12 (read their "planning pass" and "built" sections — the byte moved `K` to 120, a dead path is a state, the join climbs; the derive is a detached job, the tint waits for the barrier); M9c-1 planned 2026-09-13 (a fall is a column run, the snapshot is not the gate) and built 2026-09-13/14 — c-1a Core, c-1b the wire; read "M9c-1b — built": the roof comes down in the game, the cascade is the analysed set growing, and a fall's cost is the hook chain. M9d next, unplayed.** Split M9a–M9d. **Read its "two facts" first: there is no bedrock, and DESIGN's literal distance rule opens a shaft to the surface over a 2 × 2 bite** — the plan's budget-with-an-arch rule and its uniqueness proof are decision 1. Read MATERIALS-NOTES and SCALE before it. |
 | [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **M8c planned 2026-09-10, all eight decisions taken 2026-09-11, M8c-1 built the same day — read "M8c-1 — built" before M8c-2's pass.** **Planned 2026-09-02; M8a built the same day; M8b split four ways and M8b-1 built 2026-09-03; M8b-2 planned 2026-09-05 and all three parts built the same day, both open decisions taken as recommended — water crosses the seam in the game; M8b-3 planned and built the same day: the hand-off (3a) measured, the settle (3b) built and priced against the chamber, both mines and the played world, the spill's look deferred to M8c and the settle's interval an estimate with `--settleafter=` as the sweep.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it. **Its M8b section records a gap the plan had**: a flooded mine has no Tier A body, so resting mine water is stored, and the settle is a solve. Read the tick-budget item in TODO before M8b-2. |
@@ -598,6 +598,45 @@ inventory** until M10g's recipe exists. The orphan check, verbatim, on a scratch
 
 then reopen `--world=probe` and read `M10: drain — … 128 orphan voxel(s) cleared`; delete the world after.
 
+**M10a-3 adds the pump's two.** `--pump=<L/s>` places a relay pump at the bottom of the shaft
+`--breach` bites and a relay outlet on the surface `--pumpoutlet=<metres>` along +X (24 by default),
+both on channel 0, at the window's open — through `Place.Machine` where the outlet's chunk is loaded
+(the cell carved first: a body is 64 air voxels and the shaft is three wide) and as a row alone where
+it is not. **The rate is every pump's, a sweep seam over the content's 100 L/s** (the shipped relay
+pump says 100 and a row's definition is the content's; `MachineTick.RateOverrideMillilitresPerSecond`,
+the shape `--seepscale` has over the JSON's permeability). The `M10:` line's `tick:` prints both
+tiers' pumped and emitted, `pumped == emitted across the tiers`, the five stalls (`no outlet`, `no
+water`, `no room`, `unloaded`, `unanalysed`), the intake voxels read and the tick's mean and max; the
+`boundary` line carries `machines`; the profile has `machines` and `machtick`; the `M8b:` and
+`fluid` identities read `+ emitted − pumped` and the `water` line prints `pumped out of lakes` and
+`emitted into basins`. **The loaded arm, verbatim — the lake drains through the portals into the
+shaft, the pump takes it, the outlet pours it on the surface, the hand-off returns it to the basin;
+`drawn 1,000 == pumped 1,000 == emitted 1,000`, every identity exact:**
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --fillbasin=2000000 --breach=3 --pump=100 --measure=40
+```
+
+**The unloaded arm is `--pumpoutlet=96`, not 64**: the loaded box is r6 plus the two-chunk margin,
+64 m from the *viewer*, and the shaft stands at the basin's pit rather than under the viewer, so 64 m
+from the shaft is still loaded. At 96 the run prints `a row alone (its chunk is not loaded — the
+unloaded arm)` and the profile's `machtick` reads `emitted 0 L into Tier B + 1,000 L into Tier A`
+with `handed 0` — the litres never rested anywhere. Add `--fluidjob=1` to read the `boundary` line.
+
+Measure **the relay pump** — the number every pump cap in the ladder was fiction until, and the read
+priced both ways. The chamber fixture flooded and settled, a relay pump on its floor's centre, an
+outlet on the surface with a sink under it standing in for the hand-off: the delivered rate against
+the nominal at intake radius 1 and 2 (100.0 L/s at both — the settle refills the box from the whole
+sheet every boundary, so the radius buys nothing on a sheet and costs 4.8× the read), the box through
+`AmountAt` against the published bitset walk (3.2 ns a voxel against 19.1), the tick at 1 / 100 / 500
+pumps wet and 500 dry (0.02 / 0.6 / 3.0 ms; 0.02 ms dry off `HeldIn`), and the loop — the outlet
+inside the chamber, 10,000 boundaries, the world's total unchanged to the millilitre. Release only;
+`--pumplitres`, `--pumprate` and `--pumpboundaries` (space-separated) size it:
+
+```bash
+dotnet run --project Overburden.Bench -c Release -- --pump
+```
+
 **The world file lives at `user://worlds/<name>/world.db`** — on Windows,
 `%APPDATA%/Godot/app_userdata/Overburden/worlds/`. `--world=<name>` picks one, `--nosave` opens
 none at all, and `--autosave=<seconds>` moves the 30 s flush. **A run that is a measurement or a
@@ -693,7 +732,28 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
-**Pick up here (2026-09-15, the end of the night). M10a-2 is built — the entity — and M10a-3, the
+**Pick up here (2026-09-16, small hours). M10a is built — all three sessions — and M10b, the
+computer, is next and wants its own planning pass against the ladder's decisions for it (an item;
+right-click on a machine opens the ports and the stock tab; `SetPort` clamped in Core; the weights
+the round-robin ignores) and against `MachineTick`, `MachineRow.SetPortUnchecked` and
+`PlaceController`. Read "M10a-3 — built" in [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md)
+first.** What a-3 built: `FluidSimulation.Pump`/`Emit` and `WaterSystem.Pump`/`Emit` with their
+counters in both identities; `FluidGrid.HeldIn`; `WaterSystem.TryBasinAtSample` (false off the
+window, true-with-`Outlet` for a sample that drains off the edge); `MachineRow.OwedMillilitres`;
+`MachineTick` — every pump every boundary, the cheap read first, the outlets on its channel from
+the channel's cursor, room read then exactly that moved, whole litres across a tier, the
+unloaded-outlet rule on the *mouth*; the `machines` bracket in `Main.UpdateFluid` after the pour and
+before the table check; `--pump=` and `--pumpoutlet=`; `--pump` on the bench. **Three things M10b
+must not rediscover**: the tick reads the *live* simulation terrain (the field wrapped in the lake
+ceiling), never a captured view, because `IsLoaded` and `InLake` are its two questions and a view
+refuses what it does not cover; a body placed on a surface off the 1 m lattice sits up to three
+voxels into it, so any rule about "on the ground" is about the mouth; and the rate override is a
+seam, not a port — a row's rate is its definition's until a port says otherwise, which is M10b's
+question to ask. Suite 1,551; 19 recipes, 19 caught; r6 control to the digit. **M10a is unplayed
+end to end** — the relay pumping the mine is M10d's play. The paragraph below is a-2's state, kept
+for the reasoning.
+
+**Earlier (2026-09-15, the end of the night). M10a-2 is built — the entity — and M10a-3, the
 pump, is next, against decision 12's list in the pass at the end of
 [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md); read "M10a-2 — built" first.** What exists: the
 `machine` block through the loader with every refusal naming the file and a `via` this build does

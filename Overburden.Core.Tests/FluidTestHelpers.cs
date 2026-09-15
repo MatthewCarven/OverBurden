@@ -140,10 +140,12 @@ internal static class FluidAssert
     {
         // Loaded joins the identity at M8b-4b: water put back from the world file was neither
         // added nor moved, it was already there. Evicted joins at M8b-4c: water that left RAM
-        // with its chunk is on disk, not gone.
+        // with its chunk is on disk, not gone. Pumped and emitted join at M10a-3: a pump takes
+        // and an outlet gives, each counted on its own so the machine layer's own line,
+        // pumped == emitted, can be read beside this one.
         Assert.Equal(
-            sim.AddedMillilitres + sim.LoadedMillilitres - sim.RemovedMillilitres - sim.DisplacedMillilitres
-            - sim.EvictedMillilitres,
+            sim.AddedMillilitres + sim.LoadedMillilitres + sim.EmittedMillilitres - sim.RemovedMillilitres
+            - sim.DisplacedMillilitres - sim.EvictedMillilitres - sim.PumpedMillilitres,
             sim.TotalMillilitres);
 
         // Belt and braces on the grid's own total, which is maintained separately from the
