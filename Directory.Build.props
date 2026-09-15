@@ -1,0 +1,19 @@
+<Project>
+
+  <!-- The Debug configuration keeps its symbols and its DEBUG constant but lets the JIT optimise.
+
+       Godot's editor host loads .godot/mono/temp/bin/Debug/ and nothing else, so every play from
+       M2 to 2026-09-15 ran with DebuggableAttribute(DisableOptimizations) stamped on every
+       assembly - the light derive at 5.9x its Release cost, a Tier B visit at ~10x, the boundary's
+       worst frame at 63.7 ms. Nothing here needs the unoptimised JIT: there is no Debug.Assert
+       and no #if DEBUG in Core, Game or Persistence, and every oracle is a printed identity.
+
+       One file rather than three csproj edits so the bench's Debug arm and the test suite take
+       the same rule, and a "Debug" figure means one thing everywhere. Every play-log figure
+       recorded before 2026-09-15 is an unoptimised-Debug figure; see the worklog entry of that
+       date for the two controls that bracket the change. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+</Project>

@@ -1,5 +1,57 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-15 — the Debug build gets its optimiser: seven milestones of play were on an unoptimised JIT
+
+Matthew: *"should I switch to a release version of Godot?"* Godot 4.7.1-stable already is one; what
+was Debug is the C# — `start.cmd` runs the editor host, which loads `.godot/mono/temp/bin/Debug/`
+and nothing else, and `[Reflection.Assembly]::LoadFile(...).GetCustomAttributes(DebuggableAttribute)`
+read `IsJITOptimizerDisabled = True` on `Overburden.Core.dll`. Every play since M2 ran with the JIT
+told not to optimise. Nothing needed it: zero `Debug.Assert`, zero `#if DEBUG` in Core, Game or
+Persistence; every oracle is a printed identity.
+
+**One file: `Directory.Build.props` at the root sets `<Optimize>true</Optimize>` for the Debug
+configuration**, so the editor's build, the bench's Debug arm and the test suite take the same
+rule. Not an export — the release export with SQLitePCLRaw's natives is still the recorded
+unverified step and is worth doing once, but it is not what a play needs. After the rebuild the
+attribute reads `False` on Core and Persistence.
+
+**Bracketed by two controls, same session, same flags, before and after.** The r6 control,
+verbatim, is unchanged to the digit on every streaming figure — 2601 / 325 / 3446 at 411 — and its
+light step is `3,976 ms deriving / 537 ms propagating` → `924 / 90`: **4.3× on the derive, 6× on
+the walk**, against the recorded 5.9× and ~10× Release penalties (the propagation's cells-visited
+differs by 428 in a million between the arms, a worker-order effect on which chunk arrives first,
+not a physics one). A standing start on a copy of the played world, 20 s, `--fluidjob=1
+--fluidnear=2`, the 4 ms budget:
+
+```
+                                unoptimised        optimised
+first draw / near lit          8.74 s / 2.15 s    2.90 s / 0.86 s
+light settled / all settled    8.71 s / 10.22 s   2.87 s / 3.47 s
+update ms mean / p99           1.597 / 7.18       0.099 / 2.72
+fluid job wall mean / max      312 / 486 ms       66 / 223 ms
+  visits / solve               135 / 174 ms       22 / 39 ms
+boundary mean: hand-off        7.98 ms            3.19 ms
+               field sync      21.46 ms           3.97 ms
+               capture+compose 5.30 ms            3.14 ms
+fluid ms (per frame) mean/max  36.5 / 54.9        11.8 / 42.7
+support worker derive mean     3.07 ms            0.78 ms
+```
+
+Both Tier B identities exact in both arms; suite 1,412 green in 58 s. **The boundary's *worst*
+frames barely moved** — the open's first hand-off pass is 62.3 → 60.3 ms, the lake refresh's worst
+17 → 31 — because those are the first-pass costs proportional to a 140,000-cell restore, not the
+JIT; the means are what the optimiser bought. So the ladder plan's *"the Debug boundary is
+already the played build's worst frame"* shrinks to *the open's first boundary*, and the machine
+tick lands on a frame that is now ~12 ms mean rather than ~36.
+
+**What this changes in the bookkeeping.** Every play-log figure and every headless profile figure
+recorded before this entry is an *unoptimised* Debug figure; a profile from here on is not
+comparable with one before it, and the r6 control's streaming numbers are the one thing that is
+(they are counts). `start.cmd`'s `--lightbudget=16` was a response to a 1.4 ms derive that is now
+~0.36 ms; it stays until a play says the 4 ms default lights a room fast enough, because a budget
+is a play setting and this was a measurement. The bench's `-c Debug --support` figure (0.83 + 4.4 ms)
+that M9b's worker derive is read against is an unoptimised figure too; re-take it before quoting.
+
 ## 2026-09-15 — the ladder planned: connection is membership, and there is no solver
 
 Matthew, the evening after M10's pass: *"m10 is going to be a lot longer than this … the first tech

@@ -81,8 +81,15 @@ start.cmd
 **`start.cmd` passes `-- --lightbudget=16 --adaptive=1` itself** — the first since 2026-09-03,
 Matthew's "lighting switch", and the second since 2026-09-06, the adaptive view radius. (It carried
 `--spread=counted` from 2026-09-07 to 2026-09-09 for the counted divisor's play; the A/B read the same
-under both rules and the flag came out — pass it yourself to see that arm.) It launches the Debug build, where a derive is ~1.4 ms and the 4 ms default gives two or
-three a frame, which is what lit a mined-out room over tens of seconds. Anything you give
+under both rules and the flag came out — pass it yourself to see that arm.) It launches the Debug build — **which
+since the evening of 2026-09-15 is JIT-optimised: `Directory.Build.props` sets `Optimize` for the
+Debug configuration, because the editor host loads `bin/Debug` and nothing else and every play until
+then ran with the optimiser disabled.** Before that a derive was ~1.4 ms and the 4 ms default gave two or
+three a frame, which is what lit a mined-out room over tens of seconds and why the 16 ms budget exists;
+it is ~0.36 ms now and the budget stays until a play says otherwise. **Every play-log and headless
+profile figure recorded before 2026-09-15 is an unoptimised-Debug figure** — the r6 control's streaming
+counts are unchanged to the digit, its light step is 4.3× faster, and a played-world open's first draw is
+8.7 → 2.9 s; the worklog entry has the table. Anything you give
 `start.cmd` lands after that bare `--` as a game flag, and a later `--lightbudget=` wins. **The
 pipeline default stays 4 ms**, because every recorded measurement was taken at it and a profile
 run does not go through `start.cmd`.
@@ -664,6 +671,14 @@ verbatim — the flags go after the bare `--`:
 ```bash
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --radius=4 --vradius=2 --speed=12 --turnaround=10 --measure=30 --injectlitres=200000
 ```
+
+**Also that night: the Debug build the game runs is JIT-optimised now** (`Directory.Build.props`,
+`Optimize` on the Debug configuration — the editor host loads `bin/Debug` and every play from M2 to
+2026-09-15 ran with the optimiser disabled). Bracketed by the r6 control (streaming to the digit,
+derive 3,976 → 924 ms) and a played-world open (first draw 8.74 → 2.90 s, fluid job wall 312 → 66 ms,
+boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 green. **Every figure
+before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
+export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
 **Pick up here (2026-09-15, late night). The ladder is planned and not built —
 [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md), twenty-three decisions, twelve of them

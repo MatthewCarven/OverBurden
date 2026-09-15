@@ -5349,6 +5349,11 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
       storage; solar quantised at its one entry site; the equipped pack at header v4; the tool's
       `power` block; `--nogate`.
 - [ ] **M10d — the play**: the mine pumped dry by relay, the storm, the gate, the pillar verdict.
+- [ ] **After the optimiser (2026-09-15): re-judge `start.cmd`'s `--lightbudget=16` on a play** — it
+      was a response to a 1.4 ms unoptimised derive that is ~0.36 ms now; and **re-take the Debug
+      bench figures quoted against game numbers** (`-c Debug -- --support`'s 0.83 + 4.4 ms) before
+      quoting them again. The release export with SQLitePCLRaw's natives is still the unverified
+      step — worth one run, not needed for play.
 - [ ] **M10e — the conductor index**: `conductor` block, `ConductorTracker` marking a dirty set and
       nothing else in the hook, per-chunk summaries at schema 5 riding the batch write, `NetworkSet`
       with position-derived ids, `maxRunCells` as occupied brush cells, the rescan cap, the

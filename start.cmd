@@ -17,6 +17,9 @@ if not exist "%EXE%" (
   exit /b 1
 )
 
+rem Since 2026-09-15 the Debug build this launches is JIT-optimised (Directory.Build.props at the
+rem repo root); the light-budget note below describes the unoptimised build it was written for, and
+rem the 16 ms stays until a play says the 4 ms default is enough again.
 rem Everything after the bare "--" is a game flag; everything you pass to start.cmd lands there
 rem too, and a later --lightbudget= wins. The 16 ms light budget is the play setting for the
 rem Debug build this launches: a Debug derive is ~1.4 ms and the 4 ms default gives two or three
