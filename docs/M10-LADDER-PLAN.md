@@ -5,7 +5,8 @@
 > ladder's *last* rung and are still built first — then [M10-NOTES.md](M10-NOTES.md),
 > [MATERIALS-NOTES.md](MATERIALS-NOTES.md) and [WORLDGEN-NOTES.md](WORLDGEN-NOTES.md). Every number
 > here is derived from a constant in the code, from a physical fact, or labelled an estimate; the
-> first measurement is `--pump`. The pass was run as four independent designs (engine cost first,
+> first measurement is `--pump`. **Taken as recommended, all twenty-three, the same night; M10a's
+> planning pass is the last section.** The pass was run as four independent designs (engine cost first,
 > gameplay first, mod format first, physical plausibility first), three adversarial judges and a
 > completeness critic; what survived is here, and what they killed is listed under each decision.
 
@@ -244,7 +245,9 @@ Duration targets are for feel and are unplayed.
 ## Decisions
 
 Recommended and built as recommended unless marked *Matthew's*; the rejected arms are named so
-they are not re-argued.
+they are not re-argued. **All twenty-three taken as recommended the same night** — *"As
+recommended, lets do M10a's planning pass"* — and that pass is at the end of this document; it
+amends decisions 5, 12 and 14 and the reconcile rule under *Persistence* from the code.
 
 ### 1. Connection is membership, never transport, at every tier below quantum — *recommended; Matthew's, because it narrows M10-PLAN decision 8*
 
@@ -775,3 +778,387 @@ page, a crank indicator) and the mouse-capture mode none can open without, again
 - WORLDGEN-NOTES: its three questions answered, in Matthew's words; its pass is M10h's.
 - M10-NOTES: header v4 is the pack's; the machine table is a schema bump; "no wires" is the
   quantum class's rule, and below it wires are membership.
+
+---
+
+## M10a — the planning pass
+
+> 2026-09-15, night, after Matthew took the ladder's twenty-three decisions as recommended
+> (*"As recommended, lets do M10a's planning pass"*). Read against `IWorldStore` and
+> `SqliteWorldStore`; `ChunkPipeline.SaveAll`, `SubmitSaves`, `WriteWorldHeader`, `Dispose` and
+> the three hooks; `Main.Autosave`, `_ExitTree` and the boundary block; `Place.Put` and the chunk
+> fill's queue; `Carve.Take`; `Collapse`'s lift-and-return loop; `PortalDrain` and `SurfaceHandoff`
+> (the two passes that already move litres between the tiers); `FluidSimulation.Add` / `Remove` /
+> `Lift` / `Return`, `FluidGrid`'s panels and `Publish`; `LakeCeiling.InLake`;
+> `WaterSystem.Draw` / `Receive` / `BasinAtSample`; `ContentLoader.LoadMaterials`; `VoxelChunk`'s
+> palette surface. Six things the code said that neither plan had, twelve decisions, the format as
+> it ships, the split into three sessions, and the tests by part.
+
+### Six facts from the code
+
+1. **An autosave is three store calls, not two.** `Main.Autosave` writes the header, then
+   `WriteBasins` — its own delete-and-insert transaction — then `SaveAll`, which is chunks, columns
+   and fluid panels in one transaction through `SaveWorldJob`. The ladder's decision 5 counted the
+   header and the machine table; the basins are a third call, and a crash between the basin write
+   and the batch already leaves whatever the portal drain moved in that interval in neither tier —
+   bounded by the autosave interval, never priced, and about to gain a second path in each
+   direction (a pump drawing a lake into Tier B; an outlet crediting the ledger). The quit is the
+   same three calls in the same order with the fluid job's cancel between the second and the third.
+
+2. **`Dispose` saves too.** `ChunkPipeline.Dispose` calls `SaveAll()` as the backstop before it
+   cancels anything, and `_ExitTree` writes the session *before* disposing. So a session that rides
+   the batch has to be handed in by the caller that has it — the pipeline knows nothing of headers,
+   basins or rows — and the backstop must be able to run with none.
+
+3. **The hooks are the wrong place for a write, and the two plans put writes in two of them.**
+   `onVoxelsReady` fires inside `Complete` before the neighbour push — a throw there is M2c-2's
+   stall, it runs mid-tick under `--fluidjob=1` (the M8d-5b lesson), and `onVoxelChanged` fires
+   32,768 times a bite. M10-PLAN decision 4 has the reconcile *rewriting 64 voxels* at
+   `onVoxelsReady` and the dismantle running "at once after a swing" from `onVoxelChanged`; both
+   are `SetVoxel`, which re-enters the hook chain. Everything that writes today — the brush, the
+   chunk fill, the fall — writes from the frame or the boundary, never from a hook.
+
+4. **A fall and a swing write the same thing into a body.** `Collapse` writes air into a run's
+   cells and rubble at the landing; `Carve.Take` writes air. The `onVoxelChanged` hook sees a body
+   voxel become air in both cases and cannot tell which. So the ladder's reconcile clause — *credited
+   unless any of its 64 is rubble* — is right for a short fall (rubble lands inside the cell) and
+   wrong for a long one (the rubble ten metres down, the cell all air, the machine credited as if it
+   had been mined). And a body falls *partly*: the at-risk set is per voxel and a fall is a column
+   run, so a machine on a roof's edge loses the columns nearest the void and keeps the rest. What
+   does distinguish the two is who credited: `Carve.Take` credits the inventory per voxel it
+   removes; the fall credits nothing.
+
+5. **The water table is a level, not a footprint** (M9d decision 1), so M10-PLAN decision 5's
+   intake rule — *if the pump's sample's table stands above its top, draw from Tier A* — lets a pump
+   in a dry pit beside a lake drink that lake through the rock at 100 L/s, where the seep index lets
+   it in at 1.76. The question that means *the lake physically stands here* is
+   `LakeCeiling.InLake(voxel)`, the hand-off's own rule for a submerged cell, and the live sim
+   terrain has answered it since M8d-5.
+
+6. **`BasinAtSample` folds "off the window" into `Watershed.Outlet`.** `Receive(Outlet, litres)`
+   sends the litres out of the world — right for a sample that drains off the window's edge, wrong
+   for one the window does not cover, which the ladder says stalls `unanalysed`. The unloaded-outlet
+   rule needs a question `WaterSystem` does not yet ask.
+
+Two smaller ones. `VoxelChunk`'s palette is `internal`, so the reconcile's O(palette) skip wants a
+public `MayContain(materialId)` — an over-approximation, because `Compact` never runs and a
+palette can name a material the chunk no longer holds, which costs a 32,768-voxel scan and can
+never miss a body. And `FluidGrid.Panel.Held` is the per-panel wet count the ladder's decision 14
+wanted `Publish` to cache: it exists, is maintained on every zero crossing, and wants a public
+`HeldIn(chunk)`.
+
+### Decisions
+
+Each recommended and built as recommended unless Matthew says otherwise; each names what it amends.
+
+#### 1. The batch is a record and the session rides it — *recommended; amends ladder decision 5*
+
+`IWorldStore.Write(WorldBatch batch)`, where `WorldBatch` carries `Chunks`, `Columns`, `Fluid`
+and three optional session parts — `Machines`, `Basins`, `Header` — null meaning *leave the table
+alone*, an empty list meaning *clear it*. One SQLite transaction over all six. The two existing
+`Write` overloads become sugar over it, so every caller written before this compiles.
+`ChunkPipeline.SaveAll(SessionSnapshot? session = null)` puts the session on the batch when given
+one; `SubmitSaves` (the unload path's asynchronous batch, one in flight) never carries one, and
+`Dispose`'s backstop passes none. `Main.Autosave` and `_ExitTree` become one call each: bank the
+ledger, then `SaveAll(new SessionSnapshot(headerBlob, ledgerEntries, machineRows))`, after the
+fluid job's cancel at a quit because `SaveAll` refuses mid-tick. `WriteWorldHeader` stays for the
+open, before any chunk, where the ordering argument holds; `WriteBasins` stays for the
+lattice-changed clear at open. **The store slice's first test is a store that throws inside the
+batch after the header** — a null blob among the machines — **leaving the header, the basins and
+every chunk byte-identical**: SQLite by its rollback, the in-memory store by the pre-validation it
+already does for the fluid list, and the contract suite runs both.
+
+- **Rejected:** a fourth positional list and a seventh overload (the next part adds a fifth);
+  machines alone in the transaction with the basins left out (they are the same pair — a debit on
+  one side and a credit on the other — with litres instead of voxels, and a pump is the first
+  thing to move litres across that crash window at a rate).
+- **Cost:** the basin rewrite (tens of thousands of rows on a travelled world, M7b-2's stated cost)
+  moves inside the chunk transaction; the autosave line prints `session` when it wrote one.
+
+#### 2. The machines table: keyed by origin voxel, the material as a column, one versioned blob; replaced whole — *recommended*
+
+Schema 4: `machines (ox, oy, oz, material, blob) PRIMARY KEY (ox, oy, oz)`, STRICT, gained by an
+older file on open as the fluid table was. Written as the basins are — delete-and-insert inside
+the batch — because the set in memory is the truth and a dismantled machine has to leave the
+disk. `MachineRowBlob` v1 in `BlobFormat`'s frame: a facing byte (`BrushFacing`, from
+`Place.FacingFrom` at placement — unused by either M10a kind, carried because sub-quantum machines
+have faces and the format ships whole); a port count; `(name, int64)` pairs **by name, never by
+declaration order**, because a mod that reorders its ports would rebind every stored value
+silently; then a length-prefixed kind-state with its own version byte — empty for both M10a kinds,
+carried opaque for a kind this build does not know, so a removed mod's row survives the way its
+material hole does. At read: a port the definition does not declare is dropped and printed; a
+declared port missing takes its default; a value outside its bounds is clamped and `clamped`
+counted — decision 21's rule, a row is a caller. A material ID that is a hole keeps its row inert
+and its body `Unknown`, exactly as a chunk's palette hole does. Rows are hundreds; a name is eight
+bytes. `IWorldStore.ReadMachines()` reads the table whole at open beside the basins.
+
+#### 3. Hooks queue and frames write — *recommended; amends M10-PLAN decision 4*
+
+`onVoxelsReady(chunk)`: if the set has rows in the chunk, or `MayContain` says a machine material
+might be in it, add the chunk to an arrivals list — O(palette), no voxel read, no write.
+`onVoxelChanged(voxel, material)`: `if (rowsByChunk.Count == 0) return;` then one dictionary
+lookup on the chunk and one on the cell; a voxel inside a row's cell whose new material is not the
+body's bumps that row's `Lost` — two lookups, 32,768 times a bite is under a millisecond, and a
+world with no machine pays a count check. `Machines.Drain()` runs in `_Process` after
+`_pipeline.Update`, every frame, O(1) when both lists are empty: for each queued chunk still
+loaded — a chunk can leave between the hook and the frame, so it is asked again, and one that
+left is dropped and queued afresh by its next arrival — the reconcile; for each row with `Lost >
+0`, the dismantle. Both write through `SetVoxel` from the frame, where the brush writes; neither
+needs the boundary, so both run under `--nowater`. A body rebuilt at arrival lands one frame after
+the chunk does, which is before it can mesh, since nothing meshes until its neighbourhood is lit.
+
+#### 4. The credit rule is `Lost == Carved`; `Carve.Take` tells the set what it took — *recommended; replaces the ladder's rubble clause and amends M10-PLAN decision 4*
+
+`IMachineBodies.Taken(voxel, material)`, an optional parameter on `Carve`'s four entry points
+threaded to `Take`, called after the inventory credit when `materials.IsMachine(material)` — one
+`bool[]` read per removed voxel for ordinary mining. A row counts `Lost` from the hook and `Carved`
+from `Take`. At the drain, **`Lost == Carved`**: a pick dismantled it — the remaining `64 − Lost`
+body voxels are written to air and credited, the row removed, and a swing that took 17 ends with
+64 in the inventory; **`Lost > Carved`**: something other than a pick took voxels — in M10a only a
+fall can — and the remainder is written to air *without* credit and the row removed: a machine on a
+roof that comes down is destroyed whether it fell whole or half and however far the rubble went,
+and the voxels the player mined off it first are theirs. `Q`'s cube through `Take` is 64 carved in
+one click; Alt's chip is 1 carved and 63 credited by the drain. The fall keeps not knowing a
+machine exists.
+
+**The reconcile at arrival follows the same logic without the counters**, because a chunk written
+at an unload never holds a *partial* body from a swing — the dismantle runs the same frame: all 64
+present → nothing; none present → rebuilt from the row into air, or, if the cell is not all air
+(the chunk regenerated as rock because its write was lost), dismantled *with* credit, because the
+row says the player owns it; some present → destroyed without credit, since only a fall leaves a
+partial body on disk; a machine-material voxel no row covers → air without credit, the orphan of a
+crash before the row's autosave. A rebuild into a cell the water has since entered displaces it,
+counted, the fall's stale case. Every arm prints on the `M10:` line.
+
+- **Rejected:** a flag around `SweepCollapse()` (a bracket the bench's `--collapse` arm would not
+  set, and the next fall path would not either); the fall telling the set (it can stay ignorant
+  because the counters carry what it would have said); the rubble clause (fact 4).
+
+#### 5. The lake intake is `InLake`; whole litres cross a tier; a slow pump keeps an owed counter that is not water — *recommended; amends M10-PLAN decision 5 and ladder decision 12*
+
+The pump asks `terrain.InLake(the cell above its top)` on the live sim terrain: true → Tier A,
+`WaterSystem.Pump(basin, litres)` on the basin under its sample; false → Tier B, the box. Across
+tiers only whole litres move — a Tier B cell holds 15,625 mL, so the portal drain's rule holds
+here and a pump into an unloaded surface outlet or a lake column takes `floor(mL ÷ 1,000)` litres
+with no pending anywhere; within Tier B millilitres move. A pump under 2 L/s on a lake accumulates
+`owed += rate × 500` mL a boundary and draws a litre when owed reaches 1,000 — a *want*, not
+water, so it is not persisted and a quit loses a fraction of one boundary's pumping, never a litre.
+The relay never uses it; a 0.47 L/s fixture does, for the test. `WaterSystem.TryBasinAtSample(sx,
+sz, out basin)` answers false off the window (fact 6), so `unanalysed` and *drains off the edge*
+are two answers.
+
+#### 6. Two twins on each tier — *recommended; M10-PLAN decision 10's terms on `HandOff`'s shape*
+
+`FluidSimulation.Pump(voxel, mL)` is `Take` with `PumpedMillilitres`; `Emit(voxel, mL)` is `Add`'s
+path with `EmittedMillilitres`; `FluidPublished` gains both and `IdentityExact` reads them.
+`WaterSystem.Pump(basin, litres)` / `Emit(basin, litres)` beside `Draw` / `Receive` with
+`PumpedLitres` / `EmittedLitres`, so `PortalDrain`'s *drawn mL equals `DrawnLitres` × 1,000, always*
+keeps being true. Cross-tier, on the `M10:` line: `pumpedB + 1,000 × pumpedA == emittedB + 1,000 ×
+emittedA`. Rejected: `Remove` / `Add` with the lines decomposed — Alt+R and M10f's boiler would
+share `removed`, and `drawn` would stop meaning the portal.
+
+#### 7. Every row ticks every boundary with the cheap read; the active set is a lever — *recommended; amends ladder decision 14*
+
+Per pump: up to eight `IsLoaded` on the box's chunks — any unloaded and it stalls `unloaded`,
+nothing partial (an unloaded panel reads *dry*, the conditional no that froze the water once); up
+to eight `HeldIn` — all zero and it stalls `no water` having read nothing else; then `AmountAt`
+over the 26 cells' voxels in `[z][x][y]` order, face cells before edges before corners, which is
+nearest-first at no sort. Five hundred pumps over dry panels are 8,000 dictionary lookups, ~0.2 ms
+Release (estimate; `--pump` prices it at 1 / 100 / 500). The sleep-and-wake set — whose wake rule
+the ladder itself called *one recipe from a pump that never restarts* — is not built; the trigger
+is `machines` over 1 ms on the `boundary` line on the played world.
+
+#### 8. The tick, exactly — *recommended*
+
+In the `machines` bracket between `RunPendingChunkFills()` and `CheckTable()`, the grid the frame's:
+
+1. **The deferred wet placements** (decision 10): `Lift` the cell's wet voxels, write the body
+   through `Place.Machine`'s write pass, `Return` bottom-up over the 26 cells' voxels — Y ascending,
+   then x, then z, so the water goes where a submerged body sends it, up — and `DisplaceLifted` the
+   remainder, printed; `lifted == returned + displaced` on the line. Into a full box under a roof
+   that is 64 × 15,625 mL displaced, exactly, which is the honest case and a test.
+2. **Per channel**, the outlets sorted (x, y, z), rebuilt when the set's version moved.
+3. **Per pump** in (x, y, z) order: budget `L/s × 500` mL; the intake as decision 7 (or the lake as
+   decision 5); offer = min(budget, what is there). Then from the channel's cursor over its
+   outlets: room is — loaded and not in a lake — Σ `FreeAt` over the 16 cells of the layer above
+   the top face where `CanHold`; — in a lake, or unloaded with the outlet's origin at or above the
+   seed surface and its sample inside the window — whole litres to the basin; — unloaded
+   underground, or off the window — zero. `take = min(room, offer − moved)`; the intake is drained
+   by exactly `take` (Tier A may hand back fewer whole litres, and then it is exactly what it
+   handed); the outlet is given exactly that; an `Emit` refused for what `FreeAt` promised throws,
+   the portal drain's rule — the wiring would be the thing that is wrong. The cursor advances once
+   per pump that moved anything. Stalls are named: `no outlet`, `no water`, `no room`, `unloaded`,
+   `unanalysed`. Two pumps on one channel reach two outlets in one boundary because the cursor is
+   the channel's; an outlet whose layer sits inside a pump's own box recirculates, which is a loop
+   the player laid and not a rule's defect; the round-robin is plain and `weight` waits for M10b.
+
+`pumped == emitted` holds per pump per boundary by construction — the room is read, then exactly
+that much is moved end to end — and the world's total is a constant of the machine layer.
+
+#### 9. The cursor is the channel's, in memory, reset at open — *recommended*
+
+Sixteen integers nobody persists. Determinism is *within a session from the same open*, which is
+what the tests and the bench assert; after a reopen the first pour goes to the first outlet in
+position order. Cost: one boundary's litres, once, to a different outlet on the same channel.
+Rejected: a seventeenth kind of thing in the machines table.
+
+#### 10. A machine material places as one cell whatever the brush, mode or modifier; `P` seeds; the hotbar prints `× N` — *recommended; M10-PLAN decisions 2 and 7 made concrete*
+
+`PlaceController`: `materials.IsMachine(MaterialId)` → `Place.Machine(world, materials, cell,
+material, facing, machines, body, inventory)` at `TargetCell` — the brush, `--entanglechunk`'s
+chunk and Alt's voxel all mean one cell, the HUD says `MACHINE`, and `Q` places at range.
+`Place.Machine` checks all 64 (air, not wet on the published copy, not inside the body, 64 in
+stock), then writes all or none and creates the row on success — one Core call, so no caller can
+split the body from the row, and a `SetVoxel` that fails mid-way rolls the written voxels back and
+reports `Unreachable`. A wet answer returns 64 `Wet` and the controller queues `(cell, material,
+facing)` to the boundary — the chunk fill's list, decision 8's step 1. A cell under a lake's plane
+is `LakeCeiling`'s and holds nothing, so a pump on a lake bed places at once. `P` puts 64 voxels
+of `relay_pump` and 64 of `relay_outlet` in the inventory, printed — the debug bind beside `R`,
+retired by M10g's recipe. `unit: cells` prints `× 1`; a holding under 64 (half a body after a
+fall) prints `× 0 (17/64)` and places nothing.
+
+#### 11. The loader takes the whole `machine` grammar and refuses a `via` this build does not serve — *recommended*
+
+`kind` ∈ {`pump`, `outlet`} here; `generator`, `converter`, `storage`, `station` are refused as
+*not in this build — M10c / M10g*, naming the part. `via: channel` is served; `crank`, `burner`,
+`solar`, `surround`, `adjacent:` are refused the same way (M10f), and any other string as *a
+conductor class — M10e*. Every rule the format section lists holds: a `channel` link needs a
+`channel` port, ≤ 16 ports, `min ≤ default ≤ max`, port names in the identifier charset, a pump
+declares a fluid `source` link and an outlet a fluid `sink`, `intakeRadiusCells` 1..2,
+`litresPerSecond` > 0 and ≤ 54,000, `headMetres` null or ≤ 1,024, `joulesPerLitre` ≥ 0 (carried,
+unread until M10c), a conductor block on a machine refused. `unit` is `litres` (default), `count`
+or `cells`. `MaterialTable` projects `IsMachine` and `Machine(id)`. Refusal rather than a lamp
+that does not glow: M5b shipped one for a day inside one milestone; a mod written for M10f that
+loads on M10a and ticks nothing is the same state against a format mods will write to.
+
+#### 12. Three sessions: a-1 the store, a-2 the entity, a-3 the pump — *recommended*
+
+**M10a-1, the store slice, first and alone:** `WorldBatch` and `SessionSnapshot`, the six-list
+write on both stores, `ReadMachines`, schema 4, `MachineRowBlob`, `MachineSet` as a set of rows
+with `Snapshot()` and `Restore()`, `SaveAll(session)`, `Main`'s autosave and quit on one call, the
+`M10:` line's `machines 0` and `session` on the autosave line. No placement, no tick; rows exist
+only through tests. **M10a-2, the entity:** the loader's `machine` block and `unit`, the two JSON
+files and two `LayerColour` entries, `MaterialTable.IsMachine`, `VoxelChunk.MayContain`,
+`Place.Machine` instant and deferred, `IMachineBodies` on `Carve`, the three hooks and the drain,
+the reconcile and the dismantle, `P`, the hotbar's `× N`, `MACHINE` on the HUD, `--abort=`. **M10a-3,
+the pump:** `Pump` / `Emit` on both tiers, `HeldIn`, `TryBasinAtSample`, `MachineTick`, the
+cursor, the unloaded-outlet rule, `--pump=` and `--pumpoutlet=`, the `machines` bracket, the full
+`M10:` line and the profile block, `--pump` on the bench, the lifecycle battery with machines
+running. Each is Core first against the tests named below, then the wire; a-1 alone because a
+defect there is a machine that vanishes with its config.
+
+### The format, as M10a ships it
+
+```json
+// mods/overburden/materials/relay_pump.json
+{ "id": "relay_pump", "hardness": 3.0, "supportDistance": 8, "density": 7800, "textureLayer": 5, "unit": "cells",
+  "machine": { "kind": "pump", "litresPerSecond": 100, "headMetres": null, "joulesPerLitre": 1000, "intakeRadiusCells": 1,
+    "links": { "power": { "carries": "power", "role": "sink",   "via": "channel", "port": "channel" },
+               "water": { "carries": "fluid", "role": "source", "via": "channel", "port": "channel" } },
+    "ports": { "channel": { "default": 0, "min": 0, "max": 15 }, "weight": { "default": 1, "min": 1, "max": 100 } } } }
+
+// mods/overburden/materials/relay_outlet.json
+{ "id": "relay_outlet", "hardness": 3.0, "supportDistance": 8, "density": 7800, "textureLayer": 6, "unit": "cells",
+  "machine": { "kind": "outlet",
+    "links": { "water": { "carries": "fluid", "role": "sink", "via": "channel", "port": "channel" } },
+    "ports": { "channel": { "default": 0, "min": 0, "max": 15 }, "weight": { "default": 1, "min": 1, "max": 100 } } } }
+```
+
+Hardness 3.0, not the ladder's 5.0: `steel_pick`'s threshold is 3.5 and a body nobody can mine is
+a body nobody can dismantle — the 5.0 assumed the entangled miner's own threshold, which is M10c's
+tool block. The `power` link is parsed, validated and unread until M10c. `joulesPerLitre` likewise.
+`weight` is stored on the row and unread until M10b.
+
+### Persistence, exactly
+
+Schema 3 → 4, the `machines` table above; header v3 unchanged (v4 is M10c's pack). `MachineRowBlob`
+v1: frame; facing (byte); port count (byte); ports as (length-prefixed UTF-8 name, int64); kind
+state as (int32 length, bytes) whose first byte is its own version, empty here. Read at open, whole,
+into `MachineSet`; written whole on every session save. The world the played `default` is holds no
+rows; opening it stamps schema 4 and reads an empty table, and a v3 build opening a schema-4 file
+refuses (`user_version` 4 > 3), which is `downgraded-world-v3-header.bin`'s shape a second time and
+gets its own fixture, `downgraded-world-schema-4.db`.
+
+### The `M10:` line, the profile, and the flags
+
+The periodic `M10:` line: `machines N (P pump(s), O outlet(s))`; `pumped B / A` and `emitted B / A`
+in the window and in all; `cross-tier exact`; stalls by cause; `placed / deferred / lifted /
+returned / displaced`; `dismantled (V credited) / destroyed`; `reconciled: rebuilt / returned to
+the inventory / destroyed / orphans cleared / chunks skipped by palette`; `clamped port(s)`; the
+tick's mean and max ms. The `boundary` line gains `machines`; the profile gains a `machines` block
+with the same terms and both tiers' identities read with the new terms. `M10: at open` prints the
+rows read and any clamped. Flags: **`--pump=<L/s>`** places a pump at the bottom of the shaft
+`--breach` bites at the basin's pit and an outlet on the surface **`--pumpoutlet=<metres>`** off
+(24 by default, inside the r6 box; 64 is outside it, the unloaded arm), on channel 0, at the
+window's open, so `--fillbasin=2000000 --breach=3 --pump=100 --measure=60` floods the shaft and
+pumps it back out in one run; **`--abort=<seconds>`** ends the process with no save at all, the
+crash arm — the reconcile's orphan direction headless is `--pump=100 --speed=12 --autosave=100
+--abort=12 --world=probe`: the chunk unloads and is written with the body, the row never lands,
+and the reopen prints `orphans cleared 128`. The other direction (row on disk, body gone) needs a
+dismantle mid-run and is the pipeline test's alone.
+
+### The bench: `--pump`
+
+The chamber fixture flooded to rest, a pump on its floor's centre and an outlet on the surface
+above (`DugTerrain.CanHold` answers for air above the seed), both bodies solid to the terrain; per
+boundary: offered, room, moved, delivered L/s against the nominal, at `intakeRadiusCells` 1 and 2;
+then boundaries to empty and the active-set peak with the pump running. **The delivered figure is
+the number every pump cap in the ladder is fiction until.** Beside it the read priced both ways on
+the same grid (the box through `AmountAt`; the naive published-copy walk), and `machines` at 1 /
+100 / 500 pumps and at 500 with every panel dry. The loop arm — the outlet inside the chamber —
+asserts the world's total unchanged to the millilitre over 10,000 boundaries. Release only, like
+its siblings; `--pumplitres`, `--pumprate`, `--pumpboundaries` size it.
+
+### The tests, by part
+
+**a-1.** Contract suite, both stores: `MachinesRoundTripWholeAndKeyedByOrigin`;
+`WritingTheMachinesReplacesTheTable` (fewer rows the second time deletes);
+`ASessionlessBatchLeavesTheMachinesBasinsAndHeaderAlone`; `AllSixListsLandInOneWrite`;
+**`AWriteThatFailsOnItsMachinesLeavesTheHeaderBasinsAndChunksUnchanged`** — the first test.
+`MachineRowBlobTests`: round trip; truncation refused by the frame; an unknown version refused; an
+undeclared port dropped and counted; a missing port defaulted; an out-of-bounds value clamped and
+counted; an unknown kind's state byte-identical through a round trip. `PersistenceTests`:
+`SaveAllWithASessionWritesItInTheSameTransaction`; `TheDisposeBackstopCarriesNoSession`;
+`AFailedSessionSaveKeepsThePanelsAndTheChunksPending` (the `ThrowingStore` fixture, which the
+`WorldBatch` change touches — every `InMemoryWorldStoreBase` override moves to the record). The r6
+control to the digit.
+
+**a-2.** `ContentLoaderTests`: one refusal per rule in decision 11, each naming the file, and a
+`via: crank` refused as *M10f*; `ShippedContentTests` finds both bodies, `IsMachine`, `unit:
+cells`, and still finds a tier that leaves the hardest material standing. `PlaceMachineTests`: a
+rock voxel among 64 → nothing written, no row, no debit; inside the player → the same; 63 in stock
+→ `OutOfStock` 64; a wet voxel → `Wet` 64 and nothing written; 64 placed ⇔ a row exists; the
+deferred path lifts, writes, returns bottom-up with `lifted == returned + displaced` and the
+identity exact; into a full box under a roof `displaced == 64 × 15,625`; a lake column places at
+once. `DismantleTests`: swing 17 → 64 in the inventory, row gone, cell air; chip 1 → 64; `Q`'s cube
+→ 64 by the carve and 0 by the drain; a fall of half → row gone, credit 0 past the carve's; a fall
+then a swing in one frame → only the swing's voxels; the hook never writes (a counting editor
+asserts zero `SetVoxel` inside `Complete`). `ReconcileTests` through the pipeline harness: absent
+→ rebuilt; absent into rock → dismantled with credit; partial → destroyed uncredited; orphan →
+cleared uncredited; a chunk with no machine in its palette never scanned (counted); a chunk that
+left before the drain not written and queued again at its next arrival; the cache revival path
+reconciles too (the third arrival path).
+
+**a-3.** `MachineTickTests`: B → B `pumped == emitted` per boundary and the world's total constant
+over 10,000 boundaries with a loop; A → B whole litres, `pumpedA`, and `PortalDrain`'s equality
+still true beside it; B → A to an unloaded surface outlet inside the window → `emittedA`, whole
+litres, nothing pending; unloaded underground → `unloaded`; off the window → `unanalysed` where
+`BasinAtSample` reads `Outlet` (the test that separates fact 6's two answers); `no outlet`, `no
+room` (a roof), `no water`; two outlets cycle one per boundary; two pumps on one channel reach two
+outlets in one boundary; a pump on channel 1 ignores channel 0's outlets; the 0.47 L/s fixture
+draws a litre every fourth or fifth boundary and never more than owed; **the pit beside the lake
+pumps nothing** where `TableAt` stands over it (fact 5); a box straddling an unloaded chunk stalls
+whole; the same set from the same open twice lands the same millilitres in the same cells.
+`FluidLifecycleTests` with machines running — pour, pump, walk away, walk back, quit, reopen —
+both identities exact and the cross-tier equality at every boundary. Headless: `--pump=100` with
+the pour and the breach, `--pumpoutlet=64`, the `--abort` orphan, and the r6 control.
+
+### What this pass amends
+
+- Ladder decision 5 (the basins join the transaction; the batch is a record), 12 and 14 (`InLake`;
+  the active set is a lever), and the reconcile rule under *Persistence* (the counters replace the
+  rubble clause). Decision 4's *the forget path rescans* is untouched — it is M10e's.
+- M10-PLAN decision 2 (one cell whatever the brush; the deferred path returns bottom-up over the
+  box), 4 (hooks queue, frames write; `Lost == Carved`), 5 (`InLake`; whole litres across tiers;
+  `unanalysed`), 7 (`P`; hardness 3.0), 10 (the twins), 11 (the split into three).
+- TODO's M10a item becomes the three-part checklist; CLAUDE.md's pick-up points at a-1.

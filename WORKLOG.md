@@ -1,5 +1,66 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-15 — M10a planned: hooks queue and frames write, `Lost == Carved`, and the lake is `InLake`
+
+Matthew took the ladder whole — *"As recommended, lets do M10a's planning pass"* — so all
+twenty-three decisions stand as written and M10a's own pass ran against the code, at the end of
+M10-LADDER-PLAN. Six things the code said that neither M10-PLAN nor the ladder had, each of which
+moved a decision:
+
+- **An autosave is three store calls, not two.** Header, then `WriteBasins` in its own
+  transaction, then the batch. The ladder counted two; the basins are a third, and the crash
+  window between them already loses whatever the portal drain moved in the interval — unpriced,
+  and a pump would add a second path across it in each direction. So the batch becomes a record
+  (`WorldBatch`) carrying an optional session — machines, basins, header — in one transaction,
+  and `SaveAll(SessionSnapshot?)` is what the autosave and the quit call. `Dispose` saves too, as
+  the backstop, and carries none.
+- **The plans put writes inside two hooks.** `onVoxelsReady` fires inside `Complete` before the
+  neighbour push (the M2c-2 stall if it throws; mid-tick under `--fluidjob=1`), and M10-PLAN
+  decision 4 had the reconcile rewriting 64 voxels there and the dismantle "at once after a
+  swing" from `onVoxelChanged`. Neither hook writes now: the arrival hook queues the chunk if the
+  set has rows in it or the palette may hold a machine material (`VoxelChunk.MayContain`, public,
+  an over-approximation because `Compact` never runs); the edit hook bumps a row's `Lost`; a
+  per-frame drain does the reconcile and the dismantle through `SetVoxel` where the brush writes.
+- **A fall and a swing write the same thing into a body**, so the ladder's *credited unless any of
+  its 64 is rubble* is right for a short fall and wrong for a long one, and a body falls *partly*
+  (the at-risk set is per voxel, a fall is a column run). What distinguishes them is who credited:
+  `Carve.Take` credits per voxel and the fall credits nothing. So `Carve` tells the set what it
+  took through an optional `IMachineBodies`, and at the drain `Lost == Carved` dismantles with the
+  remainder credited while `Lost > Carved` destroys without — whole or half, however far the
+  rubble went, and the voxels the player mined first are theirs. The reconcile follows the same
+  logic without counters, because an unload never writes a partial body from a swing: none
+  present → rebuilt (or credited, if the cell regenerated as rock); some present → destroyed;
+  an orphan → cleared.
+- **The water table is a level, not a footprint** (M9d decision 1), so *draw from Tier A when the
+  sample's table stands above the pump* would let a pump in a dry pit beside a lake drink it
+  through the rock at 100 L/s where the seep index lets it in at 1.76. `LakeCeiling.InLake` is the
+  question, and the live sim terrain has answered it since M8d-5.
+- **`BasinAtSample` folds "off the window" into `Outlet`**, and `Receive(Outlet)` sends litres out
+  of the world — right for a sample draining off the edge, wrong for one the window does not cover.
+  `TryBasinAtSample` separates them so `unanalysed` is a stall and not a sink.
+- **`FluidGrid.Panel.Held` already is the per-panel wet count** the ladder wanted `Publish` to
+  cache. Public as `HeldIn`, it makes a pump over dry panels eight lookups; every row ticks every
+  boundary and the sleep set — whose wake rule the ladder itself called one recipe from a pump
+  that never restarts — is a lever with `machines` > 1 ms as its trigger.
+
+Twelve decisions, all recommended; the ladder's 5, 12 and 14 and its reconcile rule amended;
+M10-PLAN's 2, 4, 5, 7, 10 and 11 amended. Whole litres cross a tier and millilitres move within
+Tier B, so nothing is ever pending at an outlet (a slow pump on a lake keeps an *owed* counter
+that is a want, not water, and is not persisted). `Pump`/`Emit` twins on both tiers carry their
+own counters into both identities, on `HandOff`'s shape, so `PortalDrain`'s *drawn mL == drawn L
+× 1000* stays true. The channel's cursor lives in memory and resets at open — determinism is
+within a session, the cost one boundary's litres to a different outlet once after a reopen. A
+machine material places as one cell whatever the brush, mode or modifier; `P` seeds 64 + 64 for
+the play; the relay bodies ship at hardness 3.0, not the ladder's 5.0, because `steel_pick`'s
+threshold is 3.5 and a body nobody can mine is a body nobody can dismantle. The loader takes the
+whole `machine` grammar and refuses a `via` this build does not serve, naming the part that will —
+a lamp that does not glow was a day inside one milestone; against a format mods write to it is
+not the state to ship. Split three ways at the Core/wire seam: **a-1 the store slice first and
+alone** (its first test the store that throws inside the batch after the header), **a-2 the
+entity** (the loader, `Place.Machine`, the hooks and the drain, `P`, `--abort=`), **a-3 the pump**
+(`MachineTick`, the unloaded-outlet rule, `--pump=` / `--pumpoutlet=`, the bench's `--pump`, the
+lifecycle battery with machines running). Nothing built.
+
 ## 2026-09-15 — the Debug build gets its optimiser: seven milestones of play were on an unoptimised JIT
 
 Matthew: *"should I switch to a release version of Godot?"* Godot 4.7.1-stable already is one; what

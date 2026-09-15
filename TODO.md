@@ -5331,18 +5331,45 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
 **And, on reading it: pipes have no run bound at any tier — the head is the fluid tier's bound**
 (*"a fair bit more forgiving distance wise … you might need more to go deeper"*), decision 3 amended.
 
-- [ ] **The twenty-three decisions** — Matthew's: 1 (membership narrows M10-PLAN's decision 8),
-      2 (the hose), 3's numbers, 6 (the mL move's timing), 8 (parts on the hotbar), 9 (pool = Σ
-      storage amends decision 8), 11's `E` split, 15–16's numbers, 18 brass/zinc, 19 stainless
-      without chromium, 20 lithium as rock, 23 the roadmap and the solar re-class; the rest
-      recommended. Each part wants its own pass against the code before it.
-- [ ] **M10a — the store slice first and alone, then the entity, the relay pump and outlet** on
-      the format's final shape: schema 4 with the versioned row blob, the batch write carrying the
-      header (its first test is the crash today's two calls cannot close), `links` beside
-      `ports`, channel 0–15, the per-channel cursor, the 27-cell intake read, the active set with
-      `hasMachines` on every chunk the box touches, `IsLoaded` before the wet read, `--pump`, the
-      `M10:` line. **`--pump`'s delivered rate is the first number** — every pump cap in the
-      ladder is fiction until it.
+- [x] **The twenty-three decisions — all taken as recommended 2026-09-15 (night): *"As
+      recommended"*.** Matthew's were 1, 2, 3's numbers, 6, 8, 9, 11's `E` split, 15–16, 18, 19,
+      20, 23. Each part wants its own pass against the code before it.
+- [ ] **M10a — planned 2026-09-15 (night), the pass at the end of M10-LADDER-PLAN: six facts from
+      the code, twelve decisions, three sessions.** The facts that moved it: an autosave is *three*
+      store calls (header, basins, batch); `Dispose` saves too; the hooks fire inside `Complete` and
+      the two plans put writes in two of them; a fall and a swing write the same thing into a body,
+      so the rubble clause cannot tell them apart — `Carve.Take` can (`Lost == Carved`); the table
+      is a level, so a pump in a pit beside a lake would drink it through the rock — `InLake` is the
+      question; `BasinAtSample` folds *off the window* into `Outlet`. **`--pump`'s delivered rate is
+      the first number** — every pump cap in the ladder is fiction until it.
+      - [ ] **M10a-1 — the store slice, first and alone**: `WorldBatch` with the optional session
+            (machines, basins, header) in one transaction, `SaveAll(SessionSnapshot?)`, both stores,
+            `ReadMachines`, schema 4, `MachineRowBlob` v1 (ports by name, kind-state versioned and
+            opaque), `MachineSet.Snapshot`/`Restore`, `Main`'s autosave and quit on one call, the
+            `M10:` line's `machines 0`. **First test: a store that throws inside the batch after the
+            header leaves header, basins and chunks byte-identical, on both stores.** The
+            `ThrowingStore` and every `InMemoryWorldStoreBase` override move to the record. The r6
+            control to the digit.
+      - [ ] **M10a-2 — the entity**: the loader's `machine` block and `unit` (every rule a refusal
+            naming the file; a `via` this build does not serve refused naming the part), the two
+            JSON files at hardness 3.0 and two `LayerColour` entries, `MaterialTable.IsMachine`,
+            `VoxelChunk.MayContain`, `Place.Machine` (all 64 or none, one call makes the body and the
+            row; wet → 64 `Wet` and the controller queues it to the boundary; the deferred path
+            lifts, writes, returns bottom-up over the box, displaces the rest, printed),
+            `IMachineBodies` on `Carve`, the three hooks (queue and mark only) and the per-frame
+            drain (reconcile: absent → rebuilt or credited; partial → destroyed; orphan → cleared;
+            dismantle: `Lost == Carved` credits the remainder, `Lost > Carved` destroys), `P`, the
+            hotbar's `× N`, `MACHINE` on the HUD, `--abort=<s>`.
+      - [ ] **M10a-3 — the pump**: `Pump`/`Emit` twins with counters on both tiers and in both
+            identities, `FluidGrid.HeldIn`, `WaterSystem.TryBasinAtSample`, `MachineTick` in its
+            `machines` bracket (deferred placements, per-channel outlets sorted, per pump: ≤ 8
+            `IsLoaded`, ≤ 8 `HeldIn`, the 26 cells face-edge-corner, or the lake through `InLake`;
+            room first, then exactly that moved; whole litres across tiers; the owed counter for a
+            slow lake pump; the channel's cursor in memory), the unloaded-outlet rule with
+            `unanalysed` apart from `Outlet`, `--pump=<L/s>` and `--pumpoutlet=<m>` (24 loaded, 64
+            unloaded), the full `M10:` line and profile block, `--pump` on the bench, the lifecycle
+            battery with machines running. Every row ticks every boundary; the sleep set is a lever
+            with `machines` > 1 ms as its trigger.
 - [ ] **M10b — the computer**: an item; right-click on a machine opens ports and the stock tab;
       `SetPort` clamped in Core; weights.
 - [ ] **M10c — power on the channel class**: pool = Σ storage rows, `clamped`; converters and
