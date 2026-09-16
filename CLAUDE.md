@@ -598,6 +598,26 @@ inventory** until M10g's recipe exists. The orphan check, verbatim, on a scratch
 
 then reopen `--world=probe` and read `M10: drain — … 128 orphan voxel(s) cleared`; delete the world after.
 
+**M10b-1 adds the computer and one flag.** `overburden:computer` is a material with `unit: count`
+and `placeable: false` — carried, counted and on the hotbar, never a block: `Place` refuses an item
+as it refuses air, and the controller routes the right-click before the brush, so with the computer
+selected a right-click *edge* on a machine body under the crosshair (the hit voxel's cell — mining's
+aim, not building's) raises the panel request that M10b-2's panel opens, and on anything else does
+nothing. `P` seeds one beside the relay pair. **`--port=<pump|outlet>:<name>=<value>`** writes a port on
+one of `--pump`'s bodies through `MachineSet.SetPort` — clamped, counted, printed (`clamped to 15`) —
+and the tick reads the ring the write made at the next boundary; the `M10:` line and the `machines`
+profile block print `port writes N (M clamped), computer O open(s) / M miss(es)`. Weights are the
+ring (the smooth weighted round-robin; all-ones is the plain round-robin), and the shipped pump
+declares no `weight` — only an outlet's is read. The port-write oracle, verbatim, reads `pump's
+channel := 3: set to 3`, `outlet's weight := 99999: clamped to 100` and `stalled 60 no outlet`:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --fillbasin=2000000 --breach=3 --pump=100 --port=pump:channel=3 --port=outlet:weight=99999 --measure=30
+```
+
+With `--world=probe` on that run and a reopen of `--world=probe`, the reopen reads `2 machine
+row(s) read` and `stalled … no outlet` — the write survived the quit; delete the world after.
+
 **M10a-3 adds the pump's two.** `--pump=<L/s>` places a relay pump at the bottom of the shaft
 `--breach` bites and a relay outlet on the surface `--pumpoutlet=<metres>` along +X (24 by default),
 both on channel 0, at the window's open — through `Place.Machine` where the outlet's chunk is loaded
@@ -732,7 +752,23 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
-**Pick up here (2026-09-16, small hours, later). M10b is planned and not built — "M10b — the
+**Pick up here (2026-09-16, morning). M10b-1 is built — Core and the headless seam — and M10b-2,
+the panel, is next: `MachinePanel` in `Overburden.Game/Ui/` over the row `PlaceController.PanelRequest`
+names (set for one frame on a right-click edge with the computer selected on a machine body; `Main`
+prints it today), one `SpinBox` per port the material declares through `MachineSet.SetPort` (clamped,
+counted, `Version` moved on a changed value — the tick rebuilds its rings at the next boundary), a
+status line from `MachineRow.LastStall` / `LastMovedMillilitres`, `FlyCam.ReleaseMouse()` /
+`CaptureMouse()`, `Main._UnhandledInput` ignoring its keys while the panel is open and closing it
+when capture returns (a click outside re-captures through the camera's own rule), `--openpanel` for
+the screenshot. Read "M10b-1 — built" in [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) first.**
+Three things b-2 must not rediscover: both input handlers are *unhandled* input, so a `Control`
+with `MouseFilter.Stop` owns its clicks and a focused `LineEdit` its keys; the edge is the
+controller's (it computes the click from the hold, so `--place`'s held button is one click and the
+panel must not re-open every frame); and a port re-sent unchanged moves nothing, so the panel may
+write on every change without a rebuild a boundary. Suite 1,569; 14 recipes, 14 caught; r6 control
+to the digit. The paragraph below is the pass's state, kept for the reasoning.
+
+**Earlier (2026-09-16, small hours, later). M10b is planned and not built — "M10b — the
 planning pass" after a-3's built section in [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md):
 six facts, nine decisions, two sessions; decision 1's ID (`overburden:computer`, his word, against
 the notes' `machine_programmer`) is Matthew's and the rest are recommended. Build b-1 first — Core

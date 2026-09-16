@@ -24,6 +24,126 @@ public class MachineSetTests
     private static MachineRow Relay(BrushCell cell, long channel = 0, long weight = 1) =>
         new(cell, 4, BrushFacing.PositiveX, [new("channel", channel), new("weight", weight)]);
 
+    /// <summary>A table whose material 4 declares the relay's two ports, so SetPort has bounds to clamp to.</summary>
+    private static readonly Content.MaterialTable DeclaringTable = Content.MaterialTable.ForTesting(
+        isOpaque: [false, true, true, true, true],
+        isFluid: [false, false, false, false, false],
+        textureLayer: [0, 1, 2, 3, 4],
+        hardness: [0f, 1f, 1f, 1f, 3f],
+        machine: [null, null, null, null, new MachineDefinition
+        {
+            Kind = MachineKind.Outlet,
+            Links = [new MachineLink("water", MachineMedium.Fluid, MachineRole.Sink, MachineLink.ChannelVia, null, "channel")],
+            Ports = RelayPorts,
+        }]);
+
+    // ---------------------------------------------------------------- SetPort (M10b, decision 4)
+
+    [Fact]
+    public void SetPortInBoundsLandsTheValueAndMovesTheVersion()
+    {
+        var set = new MachineSet(DeclaringTable);
+        set.Add(Relay(CellA));
+        long before = set.Version;
+
+        PortWrite write = set.SetPort(CellA, "channel", 7);
+
+        Assert.Equal(PortWriteResult.Set, write.Result);
+        Assert.Equal(7L, write.Value);
+        Assert.True(write.Landed);
+        Assert.True(set.TryGet(CellA, out MachineRow row));
+        Assert.Equal(7L, row.Ports["channel"]);
+        Assert.Equal(before + 1, set.Version);
+        Assert.Equal(1L, set.PortWrites);
+        Assert.Equal(0L, set.PortWritesClamped);
+    }
+
+    [Fact]
+    public void SetPortOutOfBoundsLandsTheBoundAndCountsTheClamp()
+    {
+        var set = new MachineSet(DeclaringTable);
+        set.Add(Relay(CellA));
+
+        PortWrite high = set.SetPort(CellA, "channel", 99);
+        PortWrite low = set.SetPort(CellA, "weight", -5);
+
+        Assert.Equal(PortWriteResult.Clamped, high.Result);
+        Assert.Equal(15L, high.Value);
+        Assert.Equal(PortWriteResult.Clamped, low.Result);
+        Assert.Equal(1L, low.Value);
+        Assert.True(set.TryGet(CellA, out MachineRow row));
+        Assert.Equal(15L, row.Ports["channel"]);
+        Assert.Equal(1L, row.Ports["weight"]);
+        Assert.Equal(2L, set.PortWrites);
+        Assert.Equal(2L, set.PortWritesClamped);
+    }
+
+    [Fact]
+    public void SetPortRefusesAnUndeclaredNameAnAbsentRowAndAHole()
+    {
+        var set = new MachineSet(DeclaringTable);
+        set.Add(Relay(CellA));
+        set.Add(new MachineRow(CellB, 3, BrushFacing.PositiveX, [new("channel", 0)]));
+        long before = set.Version;
+
+        Assert.Equal(PortWriteResult.NoSuchPort, set.SetPort(CellA, "rate", 5).Result);
+        Assert.Equal(PortWriteResult.NoSuchRow, set.SetPort(CellC, "channel", 5).Result);
+
+        // Material 3 declares no machine block: a hole's row refuses every write, because there
+        // is nothing to clamp against and an unbounded write is what the restore exists to stop.
+        Assert.Equal(PortWriteResult.NoSuchPort, set.SetPort(CellB, "channel", 5).Result);
+
+        // And a set built without a table refuses the same way.
+        var bare = new MachineSet();
+        bare.Add(Relay(CellA));
+        Assert.Equal(PortWriteResult.NoSuchPort, bare.SetPort(CellA, "channel", 5).Result);
+
+        Assert.Equal(before, set.Version);
+        Assert.Equal(0L, set.PortWrites);
+        Assert.True(set.TryGet(CellB, out MachineRow hole));
+        Assert.Equal(0L, hole.Ports["channel"]);
+    }
+
+    [Fact]
+    public void AnUnchangedWriteIsCountedAndMovesNothing()
+    {
+        // A panel re-sending the value it shows costs no rebuild.
+        var set = new MachineSet(DeclaringTable);
+        set.Add(Relay(CellA, channel: 3));
+        long before = set.Version;
+
+        PortWrite write = set.SetPort(CellA, "channel", 3);
+
+        Assert.Equal(PortWriteResult.Set, write.Result);
+        Assert.Equal(before, set.Version);
+        Assert.Equal(1L, set.PortWrites);
+
+        // Clamped onto the value already there: counted as a clamp, still no move.
+        set.SetPort(CellA, "channel", 3);
+        set.Add(Relay(CellB, channel: 15));
+        long afterAdd = set.Version;
+        Assert.Equal(PortWriteResult.Clamped, set.SetPort(CellB, "channel", 40).Result);
+        Assert.Equal(afterAdd, set.Version);
+    }
+
+    [Fact]
+    public void AWrittenPortRoundTripsASnapshotAndARestore()
+    {
+        // M10b's quit oracle: a port write is on the row, and the row is the table.
+        var set = new MachineSet(DeclaringTable);
+        set.Add(Relay(CellA));
+        set.SetPort(CellA, "channel", 9);
+        set.SetPort(CellA, "weight", 250);
+
+        var restored = new MachineSet(DeclaringTable);
+        RestoreReport report = restored.Restore(set.Snapshot(), id => id == 4 ? RelayPorts : null);
+
+        Assert.Equal(0, report.Clamped + report.Dropped + report.Defaulted);
+        Assert.True(restored.TryGet(CellA, out MachineRow row));
+        Assert.Equal(9L, row.Ports["channel"]);
+        Assert.Equal(100L, row.Ports["weight"]);
+    }
+
     [Fact]
     public void RowsAreFoundByCellAndByChunk()
     {

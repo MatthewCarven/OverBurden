@@ -1612,3 +1612,80 @@ past its bound shows the clamped value. Q, B, V, T and the number row do nothing
   the hotbar filter and the parts page stay at M10g.
 - M10-NOTES piece 8's `machine_programmer`: superseded by `computer` if Matthew takes decision 1.
 - `relay_pump.json`: the `weight` port comes out.
+
+### M10b-1 — built
+
+> 2026-09-16, after the pass (*"As recommended, lets build b-1"* — decision 1 taken as
+> recommended, so the ID is `overburden:computer`). Suite 1,551 → 1,569; fourteen break-recipes,
+> fourteen caught first time; the r6 control unchanged to the digit; every headless oracle the
+> pass named read as written.
+
+**What is there.** `placeable` through the loader (`MaterialJson.Placeable`, default true; a
+machine with `placeable: false` refused naming the file — a body the brush cannot place is a row
+nothing can create), `MaterialDefinition.IsPlaceable`, `MaterialTable.IsPlaceable` (a hole is a
+block), and `Place.Validate` throwing for an item exactly as it throws for air — every shape and
+`Place.Machine`, before a voxel is written. `computer.json` at `unit: count`, `placeable: false`,
+`textureLayer 7`, an eighth `LayerColour` and jitter; `relay_pump.json` without its `weight` port.
+`MachineSet.SetPort(cell, name, value) → PortWrite` — `Set`, `Clamped` with the value that
+landed, `NoSuchRow`, `NoSuchPort` (an undeclared name, a hole's row, or a set built without a
+table) — never throwing for a value, `PortWrites` and `PortWritesClamped` counted, and `Version`
+moved on every write that changed a value and on none that did not. `MachineRow.LastStall` and
+`LastMovedMillilitres`, session-only like `OwedMillilitres`, written by the tick every boundary.
+`MachineTick`: the ring per channel is the outlets in origin order expanded by `weight` through
+the smooth weighted round-robin (`ExpandByWeight`, ties to the first in origin order), the cursor
+indexes the ring, a pump walking it skips an outlet it already reached this boundary,
+`OutletRoomReads` counts what that saves, `RingOn(channel)` exposes the ring, `Outlets` on the
+report is the distinct count. `PlaceController.SelectedIsItem` routes a right-click before the
+brush: with an item selected nothing is ever placed; a right-click *edge* — the controller
+computes it from the hold, so `--place`'s held button is one click — on a machine body under the
+crosshair (the hit voxel's cell, mining's aim) sets `PanelRequest` for one frame and counts
+`ComputerOpens`, anything else counts `ComputerMisses`. The HUD's status line reads `COMPUTER (in
+hand) · right-click a machine to open it`. `P` seeds one computer beside the pair, once. `Main`
+prints the request (`M10: computer — … the panel is M10b-2's`), applies `--port=<pump|outlet>:<name>=<value>`
+to `--pump`'s bodies as they are placed and prints each write with its clamp, and carries `port
+writes N (M clamped), computer O open(s) / M miss(es)` on the `M10:` line and the `machines`
+profile block.
+
+**Two things the build found.** The 3 : 1 fixture's first version split 5 : 3 — not the ring's
+doing but the mouth layer's: sixteen cells hold five boundaries' worth, and the sixth went to the
+other outlet for *room*, which is a-3's rule working. The fixture drains both mouths between
+boundaries now and asserts the sequence `AABAAABA` outright. And the hundred-weight fixture poured
+four cells against a 3.2-cell budget, so the second boundary read the box's remainder and the
+"no read" assertion failed for the right reason; it pours exactly one budget now. Neither was a
+hole; both were fixtures degenerate in a way the assertion could see.
+
+**What the numbers say.** Headless, `--pump=100 --port=pump:channel=3 --port=outlet:weight=99999`:
+`pump's channel := 3: set to 3`, `outlet's weight := 99999: clamped to 100`, `port writes 2 (1
+clamped)`, and the tick reads `stalled 60 no outlet` for the window — the pump on channel 3 with the
+outlet on 0. On a scratch world with the pump alone moved to channel 3, the reopen reads `2 machine
+row(s) read` and `stalled 36 no outlet`: the write survived the quit and the ring was rebuilt from
+it at the first boundary. With the computer selected under `--place`, `0 placement(s), 0 voxel(s)
+placed` and `computer 0 open(s) / 1 miss(es)` — the routing refused the brush and the one edge the
+held button makes landed on the ground. The r6 control, verbatim, 2601 / 325 / 3446 at 411.
+
+**The tests.** `PlaceItemTests` (3): the table projects and defaults, every shape and
+`Place.Machine` refuse an item before writing, a block beside the item still places.
+`MachineContentTests` gained `placeable` read, projected and defaulted, and the non-placeable
+machine refused naming the file; `ShippedContentTests` finds the computer as the one shipped
+material that is not a block, the pump without `weight` and the outlet with it.
+`MachineSetTests` (5 more): in bounds sets and moves the version; out of bounds lands the bound and
+counts; an undeclared name, an absent row, a hole's row and a bare set refuse; an unchanged write
+counts and moves nothing; a written port round-trips a snapshot and a restore. `MachineTickTests`
+(7 more): an outlet moved off the channel by `SetPort` leaves the pump `no outlet` at the very
+next boundary; 5 : 1 : 1 reads `A A B A C A A`; 3 : 1 delivers `AABAAABA`; all-ones is the outlets
+in origin order once each; a weight of a hundred is one room read per outlet per pump, a roofed
+heavy outlet read once and passed over; a row reads back the stall and the move the report
+counted, a lake pump's litres in millilitres; a port written, snapshotted, restored and ticked
+lands on its new channel with the clamped weight. `CollapseTests`' old-world table gains a fourth
+appended ID. The fourteen recipes: the loader ignoring `placeable`, accepting a non-placeable
+machine, the table projecting always-true, `Place` not refusing, `SetPort` not clamping, never
+moving the version, moving it on an unchanged write, writing an undeclared name, weights ignored,
+the ring blockwise, the tie to the later outlet, the walk not skipping, `LastStall` and
+`LastMoved` not written — all caught first time. The tie recipe was caught by six tests, four of
+them a-3's: an equal-weight ring that starts with the later outlet is the plain round-robin
+running backwards.
+
+**Next: M10b-2, the panel** — `MachinePanel` over the ports `PanelRequest` names, one `SpinBox`
+per declared port through `SetPort`, the stall line from `LastStall` and `LastMovedMillilitres`,
+`FlyCam.ReleaseMouse()` / `CaptureMouse()`, `Main` ignoring its keys while the panel is open and
+closing it when capture returns, `--openpanel` for the screenshot.

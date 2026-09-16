@@ -17,8 +17,7 @@
       "water": { "carries": "fluid", "role": "source", "via": "channel", "port": "channel" }
     },
     "ports": {
-      "channel": { "default": 0, "min": 0, "max": 15 },
-      "weight":  { "default": 1, "min": 1, "max": 100 }
+      "channel": { "default": 0, "min": 0, "max": 15 }
     }
   }
 }

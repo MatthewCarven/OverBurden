@@ -355,6 +355,12 @@ public sealed partial class Hud : CanvasLayer
         string brush = place.Brush.ToString().ToLowerInvariant();
         string tier = mining is null ? "no tool" : mining.Tool.Id.Path.Replace('_', ' ');
 
+        // An item in the hand never places (M10b): the line says what the click does instead.
+        if (place.SelectedIsItem)
+        {
+            return $"COMPUTER  (in hand)   ·   right-click a machine to open it   ·   {tier}  (T)   ·   1-9 material, V cycle";
+        }
+
         // A machine material places as one body whatever the brush, so the brush is not what the
         // next click does and the line says so (M10a-2).
         if (place.SelectedIsMachine)

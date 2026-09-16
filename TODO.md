@@ -5384,11 +5384,15 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
       input; `SetPort` must move `Version` or the tick keeps the old ring; the shipped pump's
       `weight` port reads nothing and comes out; nothing declares stock, so the stock tab is
       M10g's and the quit oracle is a port write.
-      - [ ] **b-1 — Core and the headless seam**: `placeable` through the loader, table and
-            `Place.Validate`; `computer.json`, its colour and jitter, `P`; `MachineSet.SetPort`
-            (clamped, counted, a version bump); the weighted ring with the smooth interleave and
-            the per-boundary skip; `MachineRow.LastStall`; the controller's routing and open
-            request; `--port=<pump|outlet>:<name>=<value>`; `port writes` on the `M10:` line.
+      - [x] **b-1 — Core and the headless seam, built 2026-09-16.** `placeable` through the
+            loader, the table and `Place.Validate`; `overburden:computer` (his word) with its
+            colour and jitter, `P` seeds one; `relay_pump.json` without `weight`;
+            `MachineSet.SetPort` → `PortWrite` (clamped, counted, `Version` on a changed value);
+            the weighted ring by the smooth interleave with the per-boundary skip and
+            `OutletRoomReads`; `MachineRow.LastStall` / `LastMovedMillilitres`; the controller's
+            `SelectedIsItem` route and `PanelRequest`; `--port=`; `port writes` and `computer
+            opens / misses` on the `M10:` line. Suite 1,551 → 1,569; 14 recipes, 14 caught; r6
+            control to the digit; the port write survives a quit headless. Read "M10b-1 — built".
       - [ ] **b-2 — the panel**: `MachinePanel` (a row per declared port, the stall line, Esc or
             a click outside closes), `FlyCam.ReleaseMouse()` / `CaptureMouse()`, keys ignored while
             open, `--openpanel`, the screenshot.

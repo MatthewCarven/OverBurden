@@ -23,6 +23,7 @@ public sealed class MaterialTable
     private readonly SupportPoint[][] _supportCurve;
     private readonly MachineDefinition?[] _machine;
     private readonly MaterialUnit[] _unit;
+    private readonly bool[] _isPlaceable;
     private readonly int[] _machineIds;
 
     private MaterialTable(
@@ -35,7 +36,8 @@ public sealed class MaterialTable
         int[] supportDistance,
         SupportPoint[][] supportCurve,
         MachineDefinition?[] machine,
-        MaterialUnit[] unit)
+        MaterialUnit[] unit,
+        bool[] isPlaceable)
     {
         _isOpaque = isOpaque;
         _isFluid = isFluid;
@@ -47,6 +49,7 @@ public sealed class MaterialTable
         _supportCurve = supportCurve;
         _machine = machine;
         _unit = unit;
+        _isPlaceable = isPlaceable;
 
         var ids = new List<int>();
         for (int id = 0; id < machine.Length; id++)
@@ -70,6 +73,9 @@ public sealed class MaterialTable
 
     /// <summary>How the hotbar counts the material.</summary>
     public MaterialUnit Unit(int materialId) => _unit[materialId];
+
+    /// <summary>Whether the brush may put the material into the world; false for an item in the hand (M10b).</summary>
+    public bool IsPlaceable(int materialId) => _isPlaceable[materialId];
 
     public bool IsOpaque(int materialId) => _isOpaque[materialId];
 
@@ -187,11 +193,15 @@ public sealed class MaterialTable
         var supportCurve = new SupportPoint[count][];
         var machine = new MachineDefinition?[count];
         var unit = new MaterialUnit[count];
+        var isPlaceable = new bool[count];
 
         for (int id = 0; id < count; id++)
         {
             // Every entry gets a curve, empty by default, so a reader never null-checks.
             supportCurve[id] = [];
+
+            // A hole is a solid stand-in and places as one: a removed mod's block stays a block.
+            isPlaceable[id] = true;
 
             if (!materials.GetIdentifier(id).IsValid)
             {
@@ -235,11 +245,12 @@ public sealed class MaterialTable
             // voxel and nothing more — the table's belt to the loader's braces.
             machine[id] = definition.Machine is { } block && block.TryValidate(out _) ? block : null;
             unit[id] = definition.Unit;
+            isPlaceable[id] = definition.IsPlaceable;
         }
 
         return new MaterialTable(
             isOpaque, isFluid, textureLayer, hardness, lightEmission, permeability, supportDistance, supportCurve,
-            machine, unit);
+            machine, unit, isPlaceable);
     }
 
     /// <summary>What a hole with no identifier carries: the named placeholder's distance, one number.</summary>
@@ -280,7 +291,8 @@ public sealed class MaterialTable
         int[]? supportDistance = null,
         SupportPoint[][]? supportCurve = null,
         MachineDefinition?[]? machine = null,
-        MaterialUnit[]? unit = null) =>
+        MaterialUnit[]? unit = null,
+        bool[]? placeable = null) =>
         new(isOpaque, isFluid, textureLayer, hardness,
             lightEmission ?? new byte[isOpaque.Length],
             permeability is null
@@ -291,5 +303,6 @@ public sealed class MaterialTable
                 : Array.ConvertAll(supportDistance, d => Math.Clamp(d, 0, MaterialDefinition.MaxSupportDistance)),
             supportCurve ?? Enumerable.Repeat(Array.Empty<SupportPoint>(), isOpaque.Length).ToArray(),
             machine ?? new MachineDefinition?[isOpaque.Length],
-            unit ?? new MaterialUnit[isOpaque.Length]);
+            unit ?? new MaterialUnit[isOpaque.Length],
+            placeable ?? Enumerable.Repeat(true, isOpaque.Length).ToArray());
 }

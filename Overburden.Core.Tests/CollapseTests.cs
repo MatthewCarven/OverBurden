@@ -1022,13 +1022,15 @@ public class CollapseTests
         Assert.True(result.Success, string.Join("; ", result.Errors));
 
         // Everything shipped since that header was written is appended after it, in the
-        // directory's load order (M10a-2's relay pair sorts before rubble), and the saved prefix
-        // is untouched — which is the whole of non-negotiable 2: an old world's numbers never move.
+        // directory's load order (M10b's computer and M10a-2's relay pair sort before rubble),
+        // and the saved prefix is untouched — which is the whole of non-negotiable 2: an old
+        // world's numbers never move.
         IReadOnlyList<Identifier> exported = content.Materials.ExportIdTable();
         Assert.Equal(saved, exported.Take(saved.Count));
         Identifier[] appended = [.. exported.Skip(saved.Count)];
-        Assert.Equal(3, appended.Length);
+        Assert.Equal(4, appended.Length);
         Assert.Contains(Identifier.Parse("overburden:rubble"), appended);
+        Assert.Contains(Identifier.Parse("overburden:computer"), appended);
         Assert.Contains(Identifier.Parse("overburden:relay_pump"), appended);
         Assert.Contains(Identifier.Parse("overburden:relay_outlet"), appended);
         Assert.True(content.Materials.GetNumericId(Identifier.Parse("overburden:rubble")) >= saved.Count);

@@ -106,6 +106,16 @@ public readonly record struct MachineTickReport(
 /// the same open — pumps in origin order, outlets per channel in origin order, both rebuilt when
 /// the set's version moves.
 /// </para>
+/// <para>
+/// <b>Weights are the ring, not a second rule</b> (M10b, decision 5). A channel's ring is its
+/// outlets in origin order expanded by their <c>weight</c> port through the smooth weighted
+/// round-robin — each turn picks the outlet with the largest running credit, every credit grows by
+/// its weight each turn and the pick's falls by the total — so weights 5 : 1 : 1 read
+/// <c>A A B A C A A</c> rather than <c>A A A A A B C</c>, and weights all one are the plain ring
+/// entry for entry: the round-robin is the all-equal case (M10-NOTES piece 2). The cursor indexes
+/// the ring; a pump walking it skips an outlet it already reached this boundary, so a weight of a
+/// hundred is one room read, not a hundred.
+/// </para>
 /// </remarks>
 public sealed class MachineTick
 {
@@ -129,11 +139,16 @@ public sealed class MachineTick
     private readonly WaterSystem? _water;
     private readonly long _boundaryMillis;
 
+    /// <summary>The <c>weight</c> port a ring reads; an outlet whose material declares none weighs one.</summary>
+    public const string WeightPort = "weight";
+
     private long _builtAtVersion = -1;
     private readonly List<(MachineRow Row, MachineDefinition Definition)> _pumps = [];
     private readonly List<MachineRow>?[] _outlets = new List<MachineRow>?[Channels];
+    private readonly int[] _outletCount = new int[Channels];
     private readonly int[] _cursor = new int[Channels];
     private readonly List<ChunkPos> _boxChunks = new(8);
+    private readonly HashSet<MachineRow> _reached = [];
 
     /// <param name="machines">The rows; the tick reads them and never writes a row.</param>
     /// <param name="materials">Which rows are pumps and outlets, and at what rate.</param>
@@ -222,6 +237,9 @@ public sealed class MachineTick
     /// <summary>Pumps whose box held nothing at all, answered from the panels' counts without a cell read.</summary>
     public long IntakesSkippedDry { get; private set; }
 
+    /// <summary>Outlet layers read for room, over the lifetime — one per outlet a pump reached, whatever its weight.</summary>
+    public long OutletRoomReads { get; private set; }
+
     /// <summary>The last boundary's report.</summary>
     public MachineTickReport Last { get; private set; }
 
@@ -233,8 +251,19 @@ public sealed class MachineTick
         PumpedMillilitres + (PumpedLitres * FluidConstants.MillilitresPerLitre)
         == EmittedMillilitres + (EmittedLitres * FluidConstants.MillilitresPerLitre);
 
-    /// <summary>The cursor on <paramref name="channel"/>: which outlet the next pump that moves anything reaches first.</summary>
+    /// <summary>The cursor on <paramref name="channel"/>: which ring entry the next pump that moves anything reaches first.</summary>
     public int CursorOn(int channel) => _cursor[channel];
+
+    /// <summary>The ring on <paramref name="channel"/> as the last rebuild left it — the outlets expanded by weight, in turn order.</summary>
+    public IReadOnlyList<MachineRow> RingOn(int channel)
+    {
+        if (_builtAtVersion != _machines.Version)
+        {
+            Rebuild();
+        }
+
+        return _outlets[channel] ?? (IReadOnlyList<MachineRow>)[];
+    }
 
     /// <summary>The intake cells around a body at <paramref name="radiusCells"/>, nearest first — the order the read and the drain walk.</summary>
     public static ReadOnlySpan<(int Dx, int Dy, int Dz)> IntakeCellsAt(int radiusCells) =>
@@ -256,9 +285,9 @@ public sealed class MachineTick
 
         int pumps = _pumps.Count;
         int outlets = 0;
-        foreach (List<MachineRow>? channel in _outlets)
+        foreach (int count in _outletCount)
         {
-            outlets += channel?.Count ?? 0;
+            outlets += count;
         }
 
         int moved = 0;
@@ -273,6 +302,10 @@ public sealed class MachineTick
             pumpedA += PumpedLitres - a0;
             emittedB += EmittedMillilitres - eb0;
             emittedA += EmittedLitres - ea0;
+
+            // What the panel reads beside the number the player typed (M10b, decision 6).
+            row.LastStall = stall;
+            row.LastMovedMillilitres = (PumpedMillilitres - b0) + ((PumpedLitres - a0) * FluidConstants.MillilitresPerLitre);
 
             switch (stall)
             {
@@ -337,20 +370,64 @@ public sealed class MachineTick
         }
 
         _pumps.Sort(static (a, b) => CompareOrigin(a.Row, b.Row));
-        foreach (List<MachineRow>? channel in _outlets)
-        {
-            channel?.Sort(CompareOrigin);
-        }
-
-        // A cursor past the end of a shrunk ring wraps rather than points at nothing.
         for (int channel = 0; channel < Channels; channel++)
         {
-            int count = _outlets[channel]?.Count ?? 0;
-            _cursor[channel] = count == 0 ? 0 : _cursor[channel] % count;
+            List<MachineRow>? outlets = _outlets[channel];
+            _outletCount[channel] = outlets?.Count ?? 0;
+            if (outlets is null)
+            {
+                _cursor[channel] = 0;
+                continue;
+            }
+
+            outlets.Sort(CompareOrigin);
+            _outlets[channel] = ExpandByWeight(outlets);
+
+            // A cursor past the end of a shrunk ring wraps rather than points at nothing.
+            _cursor[channel] %= _outlets[channel]!.Count;
         }
 
         _builtAtVersion = _machines.Version;
     }
+
+    /// <summary>
+    /// The smooth weighted round-robin over outlets in origin order: Σweight turns, each picking
+    /// the outlet with the largest running credit (first in origin order on a tie), every credit
+    /// grown by its weight before the pick and the pick's shrunk by the total after it. Weights
+    /// all one give the outlets in origin order, once each.
+    /// </summary>
+    private static List<MachineRow> ExpandByWeight(List<MachineRow> outlets)
+    {
+        int n = outlets.Count;
+        var weight = new long[n];
+        long total = 0;
+        for (int i = 0; i < n; i++)
+        {
+            weight[i] = WeightOf(outlets[i]);
+            total += weight[i];
+        }
+
+        var ring = new List<MachineRow>((int)Math.Min(total, 100_000));
+        var credit = new long[n];
+        for (long turn = 0; turn < total; turn++)
+        {
+            int pick = 0;
+            for (int i = 0; i < n; i++)
+            {
+                credit[i] += weight[i];
+                if (credit[i] > credit[pick]) pick = i;
+            }
+
+            credit[pick] -= total;
+            ring.Add(outlets[pick]);
+        }
+
+        return ring;
+    }
+
+    /// <summary>The outlet's weight: its port, clamped to a positive number, or one where the material declares none.</summary>
+    private static long WeightOf(MachineRow row) =>
+        row.TryGetPort(WeightPort, out long weight) ? Math.Max(1, weight) : 1;
 
     private static int CompareOrigin(MachineRow a, MachineRow b)
     {
@@ -426,9 +503,17 @@ public sealed class MachineTick
         PumpStall first = PumpStall.None;
         int count = outlets.Count;
         int start = _cursor[channel];
+        _reached.Clear();
         for (int i = 0; i < count && moved < offer; i++)
         {
             MachineRow outlet = outlets[(start + i) % count];
+            if (!_reached.Add(outlet))
+            {
+                // The ring lists a weighted outlet more than once; one room read a boundary.
+                continue;
+            }
+
+            OutletRoomReads++;
             long room = RoomAt(outlet, out bool toBasin, out int basin, out bool intoLake, out PumpStall reason);
             if (room == 0)
             {

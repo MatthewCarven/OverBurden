@@ -107,6 +107,12 @@ public sealed class MachineSet : IMachineBodies
     /// <summary>Rows destroyed at the drain without credit — something other than a pick took a voxel.</summary>
     public long Destroyed { get; private set; }
 
+    /// <summary>Port writes through <see cref="SetPort"/>, over the lifetime, clamped or not.</summary>
+    public long PortWrites { get; private set; }
+
+    /// <summary>Of those, writes whose value was outside the port's bounds and landed clamped.</summary>
+    public long PortWritesClamped { get; private set; }
+
     /// <summary>The row whose body fills <paramref name="cell"/>, if any.</summary>
     public bool TryGet(BrushCell cell, out MachineRow row) => _rows.TryGetValue(cell, out row!);
 
@@ -161,6 +167,54 @@ public sealed class MachineSet : IMachineBodies
     {
         Add(row);
         Placed++;
+    }
+
+    /// <summary>
+    /// Writes a port on the row at <paramref name="cell"/>, clamped to the material's declaration
+    /// — the computer's one write (M10b, decision 4), and the <c>--port=</c> seam's.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Never throws for a value, because a row is a caller</b> (the ladder's decision 21): the
+    /// panel, the flag and a multiplayer server all arrive here, and a number outside its bounds
+    /// is clamped and counted rather than refused. A name the declaration does not carry is
+    /// refused by name; a row whose material declares no ports — a hole left by a removed mod,
+    /// or a set built without a table — refuses every write, because there is nothing to clamp
+    /// against and an unbounded write is the thing the restore exists to prevent.
+    /// </para>
+    /// <para>
+    /// <b><see cref="Version"/> moves on every write that changed a value</b>, so the tick rebuilds
+    /// its rings at the next boundary: a pump whose outlet just left its channel stalls
+    /// <c>no outlet</c> there and not a boundary later. An unchanged write is counted and moves
+    /// nothing, so a panel re-sending the value it shows costs no rebuild.
+    /// </para>
+    /// </remarks>
+    public PortWrite SetPort(BrushCell cell, string name, long value)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+
+        if (!_rows.TryGetValue(cell, out MachineRow? row))
+        {
+            return new PortWrite(PortWriteResult.NoSuchRow, 0);
+        }
+
+        if (_materials?.Machine(row.MaterialId)?.Port(name) is not { } port)
+        {
+            return new PortWrite(PortWriteResult.NoSuchPort, 0);
+        }
+
+        long landed = port.Clamp(value);
+        bool clamped = landed != value;
+        PortWrites++;
+        if (clamped) PortWritesClamped++;
+
+        if (!row.TryGetPort(name, out long before) || before != landed)
+        {
+            row.SetPortUnchecked(name, landed);
+            Version++;
+        }
+
+        return new PortWrite(clamped ? PortWriteResult.Clamped : PortWriteResult.Set, landed);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -597,6 +651,37 @@ public sealed class MachineSet : IMachineBodies
 
         return new RestoreReport(stored.Count, unknown, dropped, defaulted, clamped);
     }
+}
+
+/// <summary>How a <see cref="MachineSet.SetPort"/> landed.</summary>
+public enum PortWriteResult : byte
+{
+    /// <summary>The value was in bounds and is on the row.</summary>
+    Set,
+
+    /// <summary>The value was outside the port's bounds; the bound is on the row.</summary>
+    Clamped,
+
+    /// <summary>No row stands in that cell.</summary>
+    NoSuchRow,
+
+    /// <summary>The row's material declares no port by that name — or declares no ports at all.</summary>
+    NoSuchPort,
+}
+
+/// <summary>What one <see cref="MachineSet.SetPort"/> did, and the value that landed.</summary>
+public readonly record struct PortWrite(PortWriteResult Result, long Value)
+{
+    /// <summary>True when a value is on the row after the call, clamped or not.</summary>
+    public bool Landed => Result is PortWriteResult.Set or PortWriteResult.Clamped;
+
+    public override string ToString() => Result switch
+    {
+        PortWriteResult.Set => $"set to {Value}",
+        PortWriteResult.Clamped => $"clamped to {Value}",
+        PortWriteResult.NoSuchRow => "no machine there",
+        _ => "no such port",
+    };
 }
 
 /// <summary>What <see cref="MachineSet.Restore"/> found, for the open's line.</summary>

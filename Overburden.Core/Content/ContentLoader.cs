@@ -291,6 +291,15 @@ public sealed class ContentLoader
                     continue;
                 }
 
+                if (dto.Placeable == false)
+                {
+                    // A machine is a body the brush places (M10a); a machine nobody can place is
+                    // a row nothing can create. Refused at load naming the file, like every other
+                    // rule the format has.
+                    errors.Add($"{manifest.Id}/{path}: a machine cannot be \"placeable\": false; its body is placed by the brush.");
+                    continue;
+                }
+
                 if (!TryReadMachine(dto.Machine, out machine, out string? machineError))
                 {
                     errors.Add($"{manifest.Id}/{path}: machine: {machineError}");
@@ -311,6 +320,7 @@ public sealed class ContentLoader
                 IsOpaque = dto.Opaque ?? true,
                 IsFluid = dto.Fluid ?? false,
                 IsReplaceable = dto.Replaceable ?? false,
+                IsPlaceable = dto.Placeable ?? true,
                 Machine = machine,
                 Unit = unit,
             };
@@ -684,6 +694,7 @@ public sealed class ContentLoader
         public bool? Opaque { get; set; }
         public bool? Fluid { get; set; }
         public bool? Replaceable { get; set; }
+        public bool? Placeable { get; set; }
         public string? Unit { get; set; }
         public MachineJson? Machine { get; set; }
     }

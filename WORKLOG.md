@@ -1,5 +1,31 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-16 — M10b-1 built: an item is never placed, a port write moves the ring
+
+*"As recommended, lets build b-1"* — the ID is `overburden:computer`. Suite 1,551 → 1,569. What
+was built is in M10-LADDER-PLAN's "M10b-1 — built"; what is worth keeping here:
+
+- **The one write is clamped, counted and moves the version — and only when it changed a
+  value.** `SetPort` returns what landed rather than throwing, because a row is a caller; a panel
+  re-sending the value it shows costs no ring rebuild; a pump whose outlet just changed channel
+  stalls `no outlet` at the very next boundary, which the headless run reads as `stalled 60 no
+  outlet` and the reopen of a scratch world as `36` — the write survived the quit.
+- **The ring is the weights.** Smooth weighted round-robin at rebuild: 5 : 1 : 1 reads
+  `A A B A C A A`, 3 : 1 delivers `AABAAABA`, and all-ones is a-3's ring entry for entry — the
+  tie-break recipe (`>=` for `>`) was caught by four of a-3's tests, because an equal-weight ring
+  that starts with the later outlet is the plain round-robin running backwards. A pump skips an
+  outlet it already reached this boundary, so a weight of a hundred is one room read.
+- **Two fixtures were degenerate in ways the assertions saw.** The 3 : 1 fixture split 5 : 3
+  because sixteen mouth cells hold five boundaries and the sixth went to the other outlet *for
+  room* — a-3's rule, not a defect; the mouths drain between boundaries now. The hundred-weight
+  fixture poured four cells against a 3.2-cell budget and the "no read" boundary read the
+  remainder; it pours one budget exactly.
+- **The item's edge is the controller's, not Main's.** `--place` holds the button for the window,
+  so the controller computes the click from the hold and a held button is one click: with the
+  computer selected the run reads `0 placement(s)` and `computer 0 open(s) / 1 miss(es)`.
+- **A fourth appended ID.** The played world's v3 header gains `computer` beside the relay pair
+  and rubble, in directory order, the saved prefix untouched.
+
 ## 2026-09-16 — M10b planned: the computer is an item, and the first item that is not a block
 
 *"Ok lets continue"* after M10a-3 — M10b's planning pass, written into M10-LADDER-PLAN after

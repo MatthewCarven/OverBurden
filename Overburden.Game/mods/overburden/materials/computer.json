@@ -1,0 +1,10 @@
+{
+  "id": "computer",
+  "hardness": 1.0,
+  "supportDistance": 2,
+  "permeability": 0.0,
+  "density": 2000,
+  "textureLayer": 7,
+  "unit": "count",
+  "placeable": false
+}

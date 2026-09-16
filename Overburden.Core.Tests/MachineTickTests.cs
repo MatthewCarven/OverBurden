@@ -224,7 +224,7 @@ public class MachineTickTests(ITestOutputHelper output)
         }
 
         /// <summary>What <c>Place.Machine</c> leaves: 64 solid voxels and a row with the definition's default ports.</summary>
-        public MachineRow Place(BrushCell cell, int material, int channel = 0)
+        public MachineRow Place(BrushCell cell, int material, int channel = 0, int weight = 1)
         {
             for (int lz = 0; lz < BrushCell.Voxels; lz++)
             for (int lx = 0; lx < BrushCell.Voxels; lx++)
@@ -235,8 +235,20 @@ public class MachineTickTests(ITestOutputHelper output)
 
             var row = new MachineRow(cell, material, BrushFacing.PositiveX, Materials.Machine(material)!.DefaultPorts());
             row.SetPortUnchecked("channel", channel);
+            if (row.TryGetPort("weight", out _))
+            {
+                row.SetPortUnchecked("weight", weight);
+            }
+
             Machines.Add(row);
             return row;
+        }
+
+        /// <summary>The bodies stand; only the rows are replaced — a quit and a reopen as the set sees it.</summary>
+        public void ReopenRows()
+        {
+            RestoreReport report = Machines.Restore(Machines.Snapshot(), id => Materials.Machine(id)?.Ports);
+            Assert.Equal(0, report.Clamped + report.Dropped + report.Defaulted + report.Unknown);
         }
 
         /// <summary>Whole cells onto the room's floor, nearest the pump first, until the litres are down.</summary>
@@ -604,6 +616,185 @@ public class MachineTickTests(ITestOutputHelper output)
     }
 
     // ---------------------------------------------------------------- the cursor
+
+    // ---------------------------------------------------------------- M10b: SetPort and the weighted ring
+
+    [Fact]
+    public void AnOutletMovedOffTheChannelBySetPortLeavesThePumpNoOutletAtTheNextBoundary()
+    {
+        // Fact 4 of M10b's pass: the tick reads channels at rebuild and rebuilds on Version, so
+        // SetPort has to move it — the pump stalls at the very next boundary, not one later.
+        var twin = new Twin();
+        twin.Place(Twin.PumpCell, Pump);
+        twin.Place(Twin.RimOutlet, Outlet);
+        twin.PourIntoRoom(120 * Cap);
+        twin.Fluid.Settle(200);
+        Assert.Equal(1, twin.Boundary(step: false).Moved);
+
+        PortWrite write = twin.Machines.SetPort(Twin.RimOutlet, "channel", 3);
+        Assert.Equal(PortWriteResult.Set, write.Result);
+
+        MachineTickReport report = twin.Boundary(step: false);
+        Assert.Equal(1, report.NoOutlet);
+        Assert.Equal(0, report.Moved);
+        Assert.Empty(twin.Tick.RingOn(0));
+        Assert.Single(twin.Tick.RingOn(3));
+
+        // And a pump moved onto the same channel finds it there.
+        twin.Machines.SetPort(Twin.PumpCell, "channel", 3);
+        Assert.Equal(1, twin.Boundary(step: false).Moved);
+    }
+
+    [Fact]
+    public void WeightsAreTheSmoothInterleave()
+    {
+        // Weights 5 : 1 : 1 read A A B A C A A — the two lighter outlets spread through the ring
+        // rather than bunched at its end, which is what the smooth weighted round-robin is for.
+        var twin = new Twin();
+        MachineRow a = twin.Place(Twin.RimOutlet, Outlet, weight: 5);
+        MachineRow b = twin.Place(Twin.RimOutletB, Outlet, weight: 1);
+        MachineRow c = twin.Place(new BrushCell(12, 10, 9), Outlet, weight: 1);
+
+        IReadOnlyList<MachineRow> ring = twin.Tick.RingOn(0);
+
+        Assert.Equal(new[] { a, a, b, a, c, a, a }, ring);
+    }
+
+    [Fact]
+    public void WeightsThreeToOneDeliverThreeBoundariesToOnePerFour()
+    {
+        var twin = new Twin();
+        twin.Place(Twin.PumpCell, Pump);
+        twin.Place(Twin.RimOutlet, Outlet, weight: 3);
+        twin.Place(Twin.RimOutletB, Outlet, weight: 1);
+        twin.PourIntoRoom(200 * Cap);
+        twin.Fluid.Settle(200);
+
+        // The mouths are emptied between boundaries — a layer holds five boundaries' worth, and
+        // a full layer would send the sixth to the other outlet for room rather than for weight.
+        int toA = 0, toB = 0;
+        var order = new List<char>();
+        for (int boundary = 0; boundary < 8; boundary++)
+        {
+            Assert.Equal(1, twin.Boundary(step: false).Moved);
+            long a = twin.OverMouthOf(Twin.RimOutlet), b = twin.OverMouthOf(Twin.RimOutletB);
+            Assert.True((a == RelayMillilitresPerBoundary) != (b == RelayMillilitresPerBoundary), $"boundary {boundary} split the offer: {a} / {b}");
+            if (a > 0) { toA++; order.Add('A'); } else { toB++; order.Add('B'); }
+            foreach (BrushCell outlet in new[] { Twin.RimOutlet, Twin.RimOutletB })
+            for (int lz = 0; lz < BrushCell.Voxels; lz++)
+            for (int lx = 0; lx < BrushCell.Voxels; lx++)
+            {
+                twin.Fluid.Remove(outlet.VoxelAt(lx, BrushCell.Voxels, lz), Cap);
+            }
+        }
+
+        Assert.Equal(6, toA);
+        Assert.Equal(2, toB);
+        Assert.Equal("AABAAABA", string.Concat(order));
+    }
+
+    [Fact]
+    public void WeightsAllOneAreThePlainRingEntryForEntry()
+    {
+        // The round-robin is the all-equal case: the ring is the outlets in origin order, once
+        // each, which is what every a-3 test ran on.
+        var twin = new Twin();
+        MachineRow b = twin.Place(Twin.RimOutletB, Outlet);
+        MachineRow a = twin.Place(Twin.RimOutlet, Outlet);
+        MachineRow room = twin.Place(Twin.RoomOutlet, Outlet);
+
+        Assert.Equal(new[] { a, b, room }, twin.Tick.RingOn(0));
+    }
+
+    [Fact]
+    public void AWeightOfAHundredCostsOneRoomReadPerOutletPerPump()
+    {
+        // The ring lists a heavy outlet a hundred times; a pump walking it reads its room once.
+        var twin = new Twin();
+        twin.Place(Twin.PumpCell, Pump);
+        twin.Place(Twin.RimOutlet, Outlet, weight: 100);
+        twin.Place(Twin.RimOutletB, Outlet, weight: 1);
+        twin.PourIntoRoom(RelayMillilitresPerBoundary, xMin: 36, xMax: 39);
+        Assert.Equal(RelayMillilitresPerBoundary, twin.InBoxOf(Twin.PumpCell));
+        Assert.Equal(101, twin.Tick.RingOn(0).Count);
+
+        // The offer is exactly one budget and the first outlet takes it all: one room read.
+        twin.Boundary(step: false);
+        Assert.Equal(1L, twin.Tick.OutletRoomReads);
+
+        // The box is empty now: the walk never starts, so no read at all.
+        Assert.Equal(1, twin.Boundary(step: false).NoWater);
+        Assert.Equal(1L, twin.Tick.OutletRoomReads);
+
+        // A roofed heavy outlet is read once and passed over, the light one read once and used.
+        var roofed = new Twin();
+        roofed.Place(Twin.PumpCell, Pump);
+        roofed.Place(Twin.RoofedOutlet, Outlet, weight: 100);
+        roofed.Place(Twin.RimOutlet, Outlet, weight: 1);
+        roofed.PourIntoRoom(40 * Cap);
+        MachineTickReport report = roofed.Boundary(step: false);
+        Assert.Equal(1, report.Moved);
+        Assert.Equal(2L, roofed.Tick.OutletRoomReads);
+        Assert.Equal(RelayMillilitresPerBoundary, roofed.OverMouthOf(Twin.RimOutlet));
+    }
+
+    [Fact]
+    public void ARowReadsBackTheStallAndTheMoveTheReportCounted()
+    {
+        // What the panel shows beside the number the player typed (M10b, decision 6).
+        var twin = new Twin();
+        MachineRow pump = twin.Place(Twin.PumpCell, Pump);
+        Assert.Equal(PumpStall.None, pump.LastStall);
+
+        twin.Boundary(step: false);
+        Assert.Equal(PumpStall.NoOutlet, pump.LastStall);
+        Assert.Equal(0L, pump.LastMovedMillilitres);
+
+        twin.Place(Twin.RimOutlet, Outlet);
+        twin.Boundary(step: false);
+        Assert.Equal(PumpStall.NoWater, pump.LastStall);
+
+        twin.PourIntoRoom(40 * Cap);
+        twin.Boundary(step: false);
+        Assert.Equal(PumpStall.None, pump.LastStall);
+        Assert.Equal(RelayMillilitresPerBoundary, pump.LastMovedMillilitres);
+
+        // A lake pump reads its litres back in millilitres, the same unit as the box's.
+        var lake = new Twin();
+        MachineRow bed = lake.Place(Twin.BedPump, Pump);
+        lake.Place(Twin.RoomOutlet, Outlet);
+        lake.Lake(110_000);
+        lake.Boundary(step: false);
+        Assert.Equal(RelayMillilitresPerBoundary, bed.LastMovedMillilitres);
+    }
+
+    [Fact]
+    public void APortWrittenSnapshottedAndRestoredTicksOnItsNewChannel()
+    {
+        // The quit oracle (M10b, decision 7): a port write is on the row, the row is the table,
+        // and the tick after the reopen reads the ring the write made.
+        var twin = new Twin();
+        twin.Place(Twin.PumpCell, Pump);
+        twin.Place(Twin.RimOutlet, Outlet);
+        twin.Place(Twin.RimOutletB, Outlet);
+        twin.PourIntoRoom(120 * Cap);
+        twin.Fluid.Settle(200);
+        Assert.Equal(PortWriteResult.Set, twin.Machines.SetPort(Twin.PumpCell, "channel", 5).Result);
+        Assert.Equal(PortWriteResult.Set, twin.Machines.SetPort(Twin.RimOutletB, "channel", 5).Result);
+        Assert.Equal(PortWriteResult.Clamped, twin.Machines.SetPort(Twin.RimOutletB, "weight", 1_000).Result);
+
+        twin.ReopenRows();
+
+        Assert.True(twin.Machines.TryGet(Twin.RimOutletB, out MachineRow restored));
+        Assert.Equal(5L, restored.Ports["channel"]);
+        Assert.Equal(100L, restored.Ports["weight"]);
+        MachineTickReport report = twin.Boundary(step: false);
+        Assert.Equal(1, report.Moved);
+        Assert.Equal(RelayMillilitresPerBoundary, twin.OverMouthOf(Twin.RimOutletB));
+        Assert.Equal(0L, twin.OverMouthOf(Twin.RimOutlet));
+        Assert.Single(twin.Tick.RingOn(0));
+        Assert.Equal(100, twin.Tick.RingOn(5).Count);
+    }
 
     [Fact]
     public void TwoOutletsOnOneChannelTakeAlternateBoundaries()

@@ -598,6 +598,9 @@ public partial class Main : Node3D
 
     private long _machineTickCalls;
     private double _machineTickMillisSum, _machineTickMillisMax;
+
+    /// <summary><c>--port=&lt;pump|outlet&gt;:&lt;name&gt;=&lt;value&gt;</c>: port writes applied to <c>--pump</c>'s bodies as they are placed, clamped and printed.</summary>
+    private readonly List<(string Target, string Name, long Value)> _portWrites = [];
     private long _machineTickCallsAtWarm;
     private double _machineTickMillisSumAtWarm;
     private long _pumpedBAtWarm, _pumpedAAtWarm, _emittedBAtWarm, _emittedAAtWarm, _movesAtWarm;
@@ -1710,6 +1713,24 @@ public partial class Main : Node3D
                 case "pumpoutlet" when double.TryParse(value, out double pumpOutlet) && pumpOutlet >= 0:
                     _pumpOutletMetres = pumpOutlet;
                     break;
+
+                // M10b: a port write on one of --pump's bodies, through MachineSet.SetPort —
+                // clamped, counted and printed — so the panel's one write has a headless twin.
+                // Repeatable; each is applied as its body is placed.
+                case "port":
+                {
+                    int colon = value.IndexOf(':'), equals = value.IndexOf('=');
+                    if (colon > 0 && equals > colon + 1 && long.TryParse(value[(equals + 1)..], out long portValue))
+                    {
+                        _portWrites.Add((value[..colon], value[(colon + 1)..equals], portValue));
+                    }
+                    else
+                    {
+                        GD.Print($"Overburden: --port wants <pump|outlet>:<name>=<value>, not '{value}' — ignored");
+                    }
+
+                    break;
+                }
 
                 // The retained-chunk cache's cap. Zero is the committed pre-cache behaviour and
                 // is the control arm; the default headless baseline has to come out identical in
@@ -2974,6 +2995,25 @@ public partial class Main : Node3D
         GD.Print(
             $"M10: --pump — a relay pump at {pumpCell} (bottom of the shaft, {(pumped.Placed == Cell ? "placed" : $"NOT placed: {pumped}")}) "
             + $"and a relay outlet at {outletCell} ({_pumpOutletMetres:N0} m along +X on the surface at {ground}, {outletHow}), both on channel 0");
+
+        // M10b: the port writes, through the one write the panel uses, clamped and printed.
+        foreach ((string target, string name, long value) in _portWrites)
+        {
+            BrushCell? cell = target switch
+            {
+                "pump" => pumpCell,
+                "outlet" => outletCell,
+                _ => null,
+            };
+            if (cell is not { } at)
+            {
+                GD.Print($"M10: --port={target}:{name}={value} names no body --pump places (pump or outlet) — ignored");
+                continue;
+            }
+
+            PortWrite write = _machines.SetPort(at, name, value);
+            GD.Print($"M10: --port — {target}'s {name} := {value}: {write} (--port)");
+        }
     }
 
     /// <summary>Carves the cell to air and places a body in it through the brush's own path.</summary>
@@ -3036,15 +3076,24 @@ public partial class Main : Node3D
         const int Cell = BrushCell.Voxels * BrushCell.Voxels * BrushCell.Voxels;
         int pump = MaterialId("overburden:relay_pump");
         int outlet = MaterialId("overburden:relay_outlet");
-        if (pump == MaterialIds.AirNumericId || outlet == MaterialIds.AirNumericId)
+        int computer = MaterialId("overburden:computer");
+        if (pump == MaterialIds.AirNumericId || outlet == MaterialIds.AirNumericId || computer == MaterialIds.AirNumericId)
         {
-            GD.Print("M10: the relay pump and outlet are not in this world's content, so P seeds nothing");
+            GD.Print("M10: the relay pump, outlet and computer are not all in this world's content, so P seeds nothing");
             return;
         }
 
         _inventory.Add(pump, Cell);
         _inventory.Add(outlet, Cell);
-        GD.Print("M10: P — one relay pump and one relay outlet added to the inventory (64 voxels each); pick them on the number row");
+
+        // M10b: one computer, the item that opens a machine's ports — an item is counted by the
+        // voxel and never spent, so one is enough for the session and P seeds it once.
+        if (!_inventory.Has(computer))
+        {
+            _inventory.Add(computer, 1);
+        }
+
+        GD.Print("M10: P — one relay pump and one relay outlet added to the inventory (64 voxels each), and a computer; pick them on the number row");
     }
 
     /// <summary>Ends the process with no save, when <c>--abort=</c> asked for it.</summary>
@@ -3451,6 +3500,12 @@ public partial class Main : Node3D
         if (placed && _profiler is { Warm: true })
         {
             _profiler.Place.Add(Milliseconds(before, Stopwatch.GetTimestamp()));
+        }
+
+        // M10b: the computer's click. b-1 routes and counts; b-2 opens the panel on it.
+        if (_place.PanelRequest is { } opened)
+        {
+            GD.Print($"M10: computer — {opened} under the crosshair (ports: {string.Join(", ", opened.Ports.Select(p => $"{p.Key} {p.Value}"))}); the panel is M10b-2's");
         }
 
         if (placed && _place.RanOutThisFrame && !_announcedEmpty)
@@ -5702,7 +5757,8 @@ public partial class Main : Node3D
                       + $"reconciled {_machines.ChunksReconciled} chunk(s): {_machines.Rebuilt} rebuilt, {_machines.ReturnedAtArrival} returned, "
                       + $"{_machines.DestroyedAtArrival} destroyed, {_machines.OrphanVoxelsCleared} orphan voxel(s) cleared, "
                       + $"{_machines.ChunksSkippedByPalette} skipped by palette; "
-                      + $"drain {_machineDrainCalls} call(s), {(_machineDrainCalls > 0 ? _machineDrainMillisSum / _machineDrainCalls : 0):F2} ms mean, {_machineDrainMillisMax:F2} max\n";
+                      + $"drain {_machineDrainCalls} call(s), {(_machineDrainCalls > 0 ? _machineDrainMillisSum / _machineDrainCalls : 0):F2} ms mean, {_machineDrainMillisMax:F2} max; "
+                      + $"port writes {_machines.PortWrites} ({_machines.PortWritesClamped} clamped), computer {_place?.ComputerOpens ?? 0} open(s) / {_place?.ComputerMisses ?? 0} miss(es)\n";
         if (_machineTick is null)
         {
             return rows + "machtick  none (--nowater)\n";
@@ -6119,7 +6175,8 @@ public partial class Main : Node3D
                 + $"reconciled {_machines.ChunksReconciled} chunk(s): {_machines.Rebuilt} rebuilt, {_machines.ReturnedAtArrival} returned, "
                 + $"{_machines.DestroyedAtArrival} destroyed, {_machines.OrphanVoxelsCleared} orphan voxel(s) cleared, "
                 + $"{_machines.ChunksSkippedByPalette} skipped by palette, {_machines.ChunksLeftBeforeDrain} left before the drain | "
-                + $"drain {_machineDrainCalls} call(s), {(_machineDrainCalls > 0 ? _machineDrainMillisSum / _machineDrainCalls : 0):F2} ms mean, {_machineDrainMillisMax:F2} max"
+                + $"drain {_machineDrainCalls} call(s), {(_machineDrainCalls > 0 ? _machineDrainMillisSum / _machineDrainCalls : 0):F2} ms mean, {_machineDrainMillisMax:F2} max | "
+                + $"port writes {_machines.PortWrites} ({_machines.PortWritesClamped} clamped), computer {_place?.ComputerOpens ?? 0} open(s) / {_place?.ComputerMisses ?? 0} miss(es)"
                 + MachineTickSummary());
         }
     }

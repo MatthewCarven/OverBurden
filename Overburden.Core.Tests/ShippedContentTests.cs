@@ -110,6 +110,38 @@ public class ShippedContentTests
 
         MaterialTable table = MaterialTable.From(content.Materials);
         Assert.Equal(2, table.MachineIds.Count);
+
+        // M10b: only a ring has weights, so the pump declares none and the outlet does; a port
+        // the panel would list that nothing reads is the thing decision 11 refuses a via for.
+        Assert.Null(pump.Machine.Port("weight"));
+        Assert.Equal(new Overburden.Core.Machines.PortDefinition("weight", 1, 1, 100), outlet.Machine.Port("weight"));
+    }
+
+    [Fact]
+    public void TheComputerShipsAsAnItemInTheHand()
+    {
+        // M10b, decision 1: overburden:computer, counted by the piece, never a block.
+        var content = new GameContent();
+        LoadResult result = content.Load(new DirectoryContentSource(ModsDirectory()));
+        Assert.True(result.Success, string.Join("; ", result.Errors));
+
+        MaterialDefinition computer = content.Materials.Get(Identifier.Parse("overburden:computer"));
+        Assert.False(computer.IsPlaceable);
+        Assert.False(computer.IsMachine);
+        Assert.Equal(MaterialUnit.Count, computer.Unit);
+
+        MaterialTable table = MaterialTable.From(content.Materials);
+        int id = content.Materials.GetNumericId(Identifier.Parse("overburden:computer"));
+        Assert.False(table.IsPlaceable(id));
+
+        // Every shipped block is placeable; the computer is the only thing that is not.
+        int notPlaceable = 0;
+        for (int i = 0; i < table.Count; i++)
+        {
+            if (!table.IsPlaceable(i)) notPlaceable++;
+        }
+
+        Assert.Equal(1, notPlaceable);
     }
 
     [Fact]

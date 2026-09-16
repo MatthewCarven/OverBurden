@@ -884,6 +884,20 @@ public static class Place
                 + "Carve is how material leaves the world.");
         }
 
+        if ((uint)materialId < (uint)materials.Count && !materials.IsPlaceable(materialId))
+        {
+            // An item in the hand — the computer, a part — is carried and counted but never a
+            // block (M10b, decision 2). Refused as air is: a caller error, not a bucket, because
+            // the controller routes an item to its own verb before it reaches here, and a
+            // PlaceResult bucket for a case no correct caller produces would touch IsAccounted
+            // and every test that sums it.
+            throw new ArgumentOutOfRangeException(
+                nameof(materialId),
+                materialId,
+                "The material is not placeable: it is an item in the hand, and the controller "
+                + "routes an item to its verb before reaching Place.");
+        }
+
         if ((uint)materialId >= (uint)materials.Count)
         {
             // Caught here rather than at the write, because a voxel holding an ID no material

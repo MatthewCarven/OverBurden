@@ -104,6 +104,12 @@ public sealed class MachineRow
     /// </summary>
     public int OwedMillilitres { get; internal set; }
 
+    /// <summary>Why the pump moved nothing at the last boundary, or <see cref="PumpStall.None"/> when it moved — the tick writes it, the panel reads it (M10b). Session-only.</summary>
+    public PumpStall LastStall { get; internal set; }
+
+    /// <summary>Millilitres the pump moved at the last boundary, both tiers in millilitres. Session-only.</summary>
+    public long LastMovedMillilitres { get; internal set; }
+
     /// <summary>The port's value, or its absence.</summary>
     public bool TryGetPort(string name, out long value) => _ports.TryGetValue(name, out value);
 

@@ -265,6 +265,27 @@ public sealed class PlaceController(
     /// <summary>Whether the selected material is a machine — the HUD's <c>MACHINE</c>.</summary>
     public bool SelectedIsMachine => MaterialId >= 0 && Machines is not null && materials.IsMachine(MaterialId);
 
+    /// <summary>
+    /// Whether the selected material is an item in the hand rather than a block (M10b): the
+    /// computer today, the ladder's parts at M10g. A right-click never places it; with the
+    /// computer it opens the machine under the crosshair.
+    /// </summary>
+    public bool SelectedIsItem => MaterialId >= 0 && !materials.IsPlaceable(MaterialId);
+
+    /// <summary>
+    /// The row a right-click edge with the computer selected landed on this frame, for the
+    /// panel to open (b-2); null on every other frame. Set and consumed within one update.
+    /// </summary>
+    public MachineRow? PanelRequest { get; private set; }
+
+    /// <summary>Right-click edges with the computer selected that landed on a machine body, over the session.</summary>
+    public int ComputerOpens { get; private set; }
+
+    /// <summary>Right-click edges with the computer selected that landed on anything else — rock, air, a block — and did nothing.</summary>
+    public int ComputerMisses { get; private set; }
+
+    private bool _placingWasDown;
+
     /// <summary>True on the frame a placement ran out of material, for a one-off message.</summary>
     public bool RanOutThisFrame { get; private set; }
 
@@ -314,6 +335,35 @@ public sealed class PlaceController(
         if (MaterialId < 0 || !inventory.Has(MaterialId))
         {
             MaterialId = LargestHolding();
+        }
+
+        // The edge of the button, for the one verb that is a click and not a hold.
+        bool clicked = placing && !_placingWasDown;
+        _placingWasDown = placing;
+        PanelRequest = null;
+
+        if (SelectedIsItem)
+        {
+            // An item in the hand is never placed (M10b, decisions 2 and 3): the brush would
+            // put 64 voxels of computer into the world on the first click, which is fact 1 of
+            // the pass. The computer's verb is a right-click edge on a machine body under the
+            // crosshair — the hit voxel's cell, mining's aim rather than building's — and on
+            // anything else the click does nothing at all.
+            if (clicked && Outcome == RayOutcome.Hit
+                && Machines is not null
+                && pipeline.TryGetMaterial(hit.Voxel, out int hitMaterial)
+                && materials.IsMachine(hitMaterial)
+                && Machines.TryGet(BrushCell.FromVoxel(hit.Voxel), out MachineRow? row))
+            {
+                PanelRequest = row;
+                ComputerOpens++;
+            }
+            else if (clicked)
+            {
+                ComputerMisses++;
+            }
+
+            return false;
         }
 
         if (!placing || _cooldown > 0.0 || Outcome != RayOutcome.Hit || MaterialId < 0)

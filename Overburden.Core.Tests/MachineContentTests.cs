@@ -27,6 +27,10 @@ public class MachineContentTests
             "ports": { "channel": { "default": 0, "min": 0, "max": 15 } } } }
         """;
 
+    private const string Computer = """
+        { "id": "computer", "hardness": 1.0, "supportDistance": 2, "unit": "count", "placeable": false }
+        """;
+
     private static (GameContent Content, LoadResult Result) Load(params (string File, string Json)[] files)
     {
         InMemoryContentSource source = TestContent.BaseGame().Add("pumps", "mod.json", Mod);
@@ -45,6 +49,33 @@ public class MachineContentTests
 
         Assert.False(result.Success, $"{file} loaded: {json}");
         Assert.Contains(result.Errors, e => e.Contains(file) && e.Contains(mentioning, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void PlaceableFalseIsReadAndProjectedAndDefaultsTrue()
+    {
+        // M10b, decision 2: the computer is a material — one registry, one hotbar — that the
+        // brush may not put into the world; every material that says nothing is a block.
+        (GameContent content, LoadResult result) = Load(("computer.json", Computer), ("pump.json", Pump));
+        Assert.True(result.Success, string.Join("; ", result.Errors));
+
+        MaterialDefinition computer = content.Materials.Get(Identifier.Parse("pumps:computer"));
+        Assert.False(computer.IsPlaceable);
+        Assert.Equal(MaterialUnit.Count, computer.Unit);
+        Assert.False(computer.IsMachine);
+        Assert.True(content.Materials.Get(Identifier.Parse("pumps:pump")).IsPlaceable);
+
+        MaterialTable table = MaterialTable.From(content.Materials);
+        Assert.False(table.IsPlaceable(content.Materials.GetNumericId(Identifier.Parse("pumps:computer"))));
+        Assert.True(table.IsPlaceable(content.Materials.GetNumericId(Identifier.Parse("pumps:pump"))));
+        Assert.True(table.IsPlaceable(MaterialIds.AirNumericId));
+    }
+
+    [Fact]
+    public void AMachineThatIsNotPlaceableIsRefusedNamingTheFile()
+    {
+        // A body the brush cannot place is a row nothing can create.
+        Refused("stuck.json", Pump.Replace("\"unit\": \"cells\",", "\"unit\": \"cells\", \"placeable\": false,"), "placeable");
     }
 
     [Fact]

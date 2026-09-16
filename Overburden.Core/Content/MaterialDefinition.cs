@@ -120,6 +120,14 @@ public sealed class MaterialDefinition
     public bool IsMachine => Machine is not null;
 
     /// <summary>
+    /// Whether the brush may put this material into the world. True for every block; false for
+    /// an item that lives in the hand — the computer (M10b), the ladder's parts (M10g). A material
+    /// that is not placeable is still carried, counted and shown on the hotbar; selecting it and
+    /// clicking is the item's own verb, never a placement.
+    /// </summary>
+    public bool IsPlaceable { get; init; } = true;
+
+    /// <summary>
     /// How the hotbar counts this material: litres (the default), one voxel a part
     /// (<c>count</c>), or 64 voxels a body (<c>cells</c>). Presentation only — the inventory
     /// counts voxels whatever the unit (the ladder's decision 6).
