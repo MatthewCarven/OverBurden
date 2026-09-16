@@ -5375,8 +5375,23 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             number: the relay delivers its nominal 100 L/s on a flooded chamber at either radius,
             3.2 ns a voxel to read the box, 500 wet pumps 3 ms a boundary, 500 dry 0.02 ms.** Read
             "M10a-3 — built" in M10-LADDER-PLAN. **The sleep set stays a lever**, trigger unchanged.
-- [ ] **M10b — the computer**: an item; right-click on a machine opens ports and the stock tab;
-      `SetPort` clamped in Core; weights.
+- [ ] **M10b — the computer: planned 2026-09-16 (small hours), the pass after M10a-3's built
+      section in M10-LADDER-PLAN — six facts, nine decisions (the ID `overburden:computer` is
+      Matthew's; the rest recommended), two sessions.** The facts that moved it: a right-click
+      with anything selected places it, so `placeable: false` comes forward for the first item
+      that is not a block; the computer's aim is mining's (the hit voxel), not building's; the
+      capture handshake is two calls on `FlyCam` because both input handlers are *unhandled*
+      input; `SetPort` must move `Version` or the tick keeps the old ring; the shipped pump's
+      `weight` port reads nothing and comes out; nothing declares stock, so the stock tab is
+      M10g's and the quit oracle is a port write.
+      - [ ] **b-1 — Core and the headless seam**: `placeable` through the loader, table and
+            `Place.Validate`; `computer.json`, its colour and jitter, `P`; `MachineSet.SetPort`
+            (clamped, counted, a version bump); the weighted ring with the smooth interleave and
+            the per-boundary skip; `MachineRow.LastStall`; the controller's routing and open
+            request; `--port=<pump|outlet>:<name>=<value>`; `port writes` on the `M10:` line.
+      - [ ] **b-2 — the panel**: `MachinePanel` (a row per declared port, the stall line, Esc or
+            a click outside closes), `FlyCam.ReleaseMouse()` / `CaptureMouse()`, keys ignored while
+            open, `--openpanel`, the screenshot.
 - [ ] **M10c — power on the channel class**: pool = Σ storage rows, `clamped`; converters and
       storage; solar quantised at its one entry site; the equipped pack at header v4; the tool's
       `power` block; `--nogate`.

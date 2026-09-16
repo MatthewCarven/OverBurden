@@ -1,5 +1,33 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-16 — M10b planned: the computer is an item, and the first item that is not a block
+
+*"Ok lets continue"* after M10a-3 — M10b's planning pass, written into M10-LADDER-PLAN after
+a-3's built section. Nine decisions, one Matthew's (the ID: `overburden:computer` in his word
+against the notes' `machine_programmer`), two sessions. What the code said:
+
+- **A right-click with anything selected places it.** The controller's one non-brush branch is
+  `SelectedIsMachine`; a computer in the hotbar would be 64 voxels of computer on the first
+  click. So the ladder's `placeable: false` (decision 8, M10g's) comes forward in its loader /
+  table / `Place.Validate` half — refused as air is refused, a caller error and not a bucket —
+  and the hotbar filter and parts page stay where they were.
+- **The computer's aim is mining's, not building's.** `Place.TargetCell` is the air before the
+  face; the machine under the crosshair is the hit voxel's cell, one `TryGet` on a hit the
+  controller already has.
+- **The capture handshake is two calls, not a mode.** `FlyCam` and `Main` both read *unhandled*
+  input, so a `Control` that stops its events and a focused `LineEdit` own their clicks and keys;
+  a click outside reaches the camera and re-captures, which is the panel's close.
+- **`SetPort` has to move `Version`** or a pump keeps its old ring until something else changes
+  the set; the shrunk-ring wrap from a-3 already covers an outlet that changes channel.
+- **The shipped pump's `weight` port reads nothing** — only a ring has weights — and comes out;
+  no world has a row, and a restore drops an undeclared port with a count.
+- **Nothing declares stock**, so the stock tab is M10g's with the kind that gives it a field, and
+  the split row's *a transfer round-trips a quit* becomes *a port write round-trips a quit*,
+  which a-1's blob already carries.
+- **Weights are the smooth interleave** (3 : 1 reads A B A A), with a per-boundary skip so a
+  weight of 100 is not a hundred room reads, and all-ones is a-3's ring entry for entry — the
+  identity that makes the plain round-robin the all-equal case.
+
 ## 2026-09-16 — M10a-3 built: a pump is a drain and an outlet is a pour, and nothing is in flight
 
 *"As recommended, lets build a-3"* — the pump. Suite 1,519 → 1,551. What was built is in

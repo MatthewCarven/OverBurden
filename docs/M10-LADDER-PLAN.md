@@ -1427,3 +1427,188 @@ fixture (20,500 mL in the box, 15,125 mL of room) before the battery ran.
 **Next: M10b, the computer** — an item; right-click on a machine opens the ports and the stock
 tab; `SetPort` clamped in Core; the weights the round-robin ignores. M10a is done and unplayed;
 M10d's play has the relay pumping the mine.
+
+## M10b — the planning pass
+
+> 2026-09-16, small hours, after a-3 (*"Ok lets continue"* after *"M10b wants its planning pass
+> first"*). Read against the ladder's decisions 8 and 11 and its split row for M10b; M10-PLAN
+> decision 6 as the ladder amended it (*the programmer is an item in the hand, not a key*);
+> M10-NOTES piece 7 (the programmer is a format); `PlaceController.Update` and `Main.UpdatePlacement`;
+> `FlyCam._UnhandledInput` and `Main._UnhandledInput`; `Hud`; `MachineRow.SetPortUnchecked`,
+> `MachineSet.Version` and `MachineTick.Rebuild`; `Place.Validate`; `ContentLoader`'s material
+> DTO; the shipped `relay_pump.json`. Six facts, nine decisions, two sessions, the tests by part.
+
+### Six facts from the code
+
+1. **A right-click with anything selected places it.** `Main.UpdatePlacement` reads the right
+   button and hands `PlaceController.Update` a `placing` flag; the controller places the selected
+   material through the brush unless `SelectedIsMachine`, which is the one branch that is not a
+   brush. A computer in the hotbar — a material, because parts are materials (ladder decision 8) —
+   would be placed as 64 voxels of computer on the first click. So the ladder's `placeable: false`
+   cannot wait for M10g's parts: the first item that is not a block needs it, and the computer is
+   that item. The rest of decision 8 — the hotbar filter, the parts page — is still M10g's; one
+   item in a slot is not the crowding the filter answers.
+
+2. **Building names the space in front, mining names the thing you point at, and the computer is
+   a mining-side aim.** `Place.TargetCell(hit)` is the cell of `hit.Previous`, the air before the
+   face; the machine under the crosshair is `BrushCell.FromVoxel(hit.Voxel)`, whose material
+   `IsMachine` and whose cell `MachineSet.TryGet` answers. The controller casts every frame and
+   keeps `Hit`, so the row under the crosshair is one lookup on a hit it already has.
+
+3. **The mouse-capture handshake is the whole of the UI risk, and it is smaller than the ladder
+   feared.** `FlyCam._UnhandledInput` releases the mouse on Escape and captures it on any mouse
+   button pressed while released; `Main._UnhandledInput` reads Q, B, V, T and the number row.
+   Both are *unhandled* input — a `Control` with `MouseFilter.Stop` and a focused `LineEdit`
+   consume their events first — so a panel takes its own clicks and keys, and a click *outside*
+   it reaches the camera and re-captures the mouse. Every existing `Hud` control is
+   `MouseFilter.Ignore`, which is why the HUD has never had this question. What the panel needs
+   from the camera is two calls — release, capture — and a rule that a re-capture closes it.
+
+4. **The tick reads a row's channel at rebuild, and rebuilds on `MachineSet.Version`, which only
+   `Add`, `Remove` and `Restore` move.** A port written through `SetPortUnchecked` today would
+   leave a pump on its old ring until something else changed the set. `SetPort` has to move the
+   version, and the cursor's wrap on a shrunk ring (a-3's `Rebuild`) already handles the outlet
+   that leaves one channel for another.
+
+5. **The shipped pump declares a `weight` port that nothing can read.** Only a ring has weights;
+   a pump is never in one. `relay_pump.json` carries `weight 1..100` beside `channel`, so the
+   panel would list a number that does nothing — the thing decision 11 refuses a `via` for. No
+   played world has a row, and a row with an undeclared port is dropped and counted at restore
+   (a-1), so removing it costs nothing.
+
+6. **Nothing declares stock.** The stock tab in M10b's split row is a tab over a field no row has:
+   `stockVoxels` is the `station` and `generator` kinds' (M10g, M10f), the row blob's kind state is
+   empty for both M10a kinds, and a-1's `WorldBatch` — the transaction the ladder's decision 5
+   said no inventory-to-row transfer ships before — is built. The transaction exists; the thing
+   to transfer into does not. A row *does* already hold something a quit must keep: its ports.
+
+### Decisions
+
+Each recommended unless marked, and built as recommended unless Matthew says otherwise.
+
+#### 1. The computer is a material with `unit: count` and `placeable: false`, its ID `overburden:computer`; `P` seeds one — *the ID is Matthew's*
+
+One registry, one ID table, one hotbar, one save form — ladder decision 8's whole argument.
+`{ "id": "computer", "hardness": 1.0, "supportDistance": 2, "density": 2000, "textureLayer": 7,
+"unit": "count", "placeable": false }`, a seventh `LayerColour` and jitter entry (asserted since
+a-2), the label derived from the id. **The ID**: M10-NOTES settled `machine_programmer` on
+2026-09-02 as *one word from Matthew to change until the first machine ships*; the ladder's brief
+says *computer* in his words, three times, and the fabricator recipe lists *the computer*. Nothing
+has shipped under either name. **Recommend `overburden:computer`** — his word, and general the way
+the notes wanted it (it configures any machine). `P` puts one in the inventory beside the relay
+pair until M10g's recipe retires the seeding; using it never consumes it.
+
+#### 2. `placeable: false` comes forward in its minimal form — the loader, the table, and `Place` refusing it as it refuses air — *recommended; amends the ladder's decision 8 by timing only*
+
+`MaterialJson.Placeable` (default true), `MaterialTable.IsPlaceable(id)`, and `Place.Validate`
+throwing for a non-placeable material with the message it gives air: a caller error, not a
+bucket, because a controller that reaches `Place` with a part in hand is the wiring being wrong,
+and a new `PlaceResult` bucket would touch `IsAccounted` and every test that sums it for a case
+no correct caller produces. `PlaceController` checks `IsPlaceable` before the brush and routes the
+right-click to the computer's verb instead. The hotbar filter and the parts page stay M10g's.
+
+#### 3. The verb is a right-click edge with the computer selected, on a machine body under the crosshair; anywhere else it does nothing — *recommended*
+
+Fact 2: the row is `Machines.TryGet(BrushCell.FromVoxel(Hit.Voxel))` when the hit voxel's
+material `IsMachine`. An edge, not a hold, because opening a panel sixty times a second is the
+toggle-key bug M4c named. Aimed at rock, air or a non-machine block, the click is a no-op — no
+brush, no swing, no message beyond the status line's `COMPUTER — right-click a machine`. `E` stays
+unbound (decision 11's crank and workbench).
+
+#### 4. `MachineSet.SetPort(cell, name, value)` in Core, clamped, counted, and a version bump — *recommended*
+
+Returns a `PortWrite` — `Set`, `Clamped` (with the value that landed), `NoSuchRow`, `NoSuchPort` —
+never throws for a value, because the panel and `--port=` are both callers and a row is a caller
+(decision 21's rule): the clamp is `PortDefinition.Clamp` against the material's declaration, an
+undeclared name is refused by name, a row whose material declares no ports (a hole) refuses every
+write. `PortWrites` and `PortWritesClamped` on the set for the `M10:` line. **`Version` moves on
+every write that changed a value** (fact 4), so the tick rebuilds its rings at the next boundary
+and a pump whose outlet just left its channel stalls `no outlet` there rather than a boundary
+later. A multiplayer server would apply the same call.
+
+#### 5. Weighted round-robin: the ring is the outlets expanded by weight with the smooth interleave; the pump's `weight` port is dropped — *recommended*
+
+Per channel, at rebuild: the outlets in origin order, then a ring of Σ`weight` entries built by
+the smooth weighted round-robin (each turn picks the outlet with the largest running credit,
+credit += weight each turn, the pick's credit −= Σweight), so weights 3 : 1 read A B A A rather
+than A A A B, and weights all one are today's ring entry for entry — the plain round-robin is the
+all-equal case, M10-NOTES piece 2. The cursor indexes the ring; a pump walking it from the cursor
+skips an outlet it already reached this boundary (a per-boundary stamp on the row, session-only),
+so a weight of 100 does not cost a hundred room reads. Σweight ≤ 100 × outlets, rebuilt only when
+the set's version moves. `relay_pump.json` loses its `weight` port (fact 5); `relay_outlet.json`
+keeps it. Rejected: a random pick under a seed — one more mode with nothing over weights (M10-PLAN
+"deliberately not").
+
+#### 6. The panel: `MachinePanel`, one row per declared port, the row's last stall on it, Esc or a click outside closes — *recommended*
+
+`Overburden.Game/Ui/MachinePanel.cs`, a `CanvasLayer` over a `PanelContainer` with
+`MouseFilter.Stop`: a title from the material's label, one `HBoxContainer` per declared port —
+the name as its label, a `SpinBox` bounded by the declaration — and a status line reading the
+row's **last stall** (`MachineRow.LastStall`, session-only like `OwedMillilitres`, written by the
+tick: `stalled: no outlet on channel 3`, `moved 50 L last boundary`), because the number the
+player types is only legible beside what the machine did with it. Every change goes through
+decision 4's `SetPort` at once, and the `SpinBox` shows the clamped value back. Opening releases
+the mouse through `FlyCam.ReleaseMouse()`; Esc or a click outside re-captures through the
+camera's own rule and `Main` closes the panel on seeing capture return; `Main._UnhandledInput`
+ignores its keys while a panel is open. Labels are derived from the port name, never authored
+(M6d-3's rule). No stock tab (decision 7).
+
+#### 7. No stock tab at M10b; the split row's *a transfer round-trips a quit* becomes *a port write round-trips a quit* — *recommended; amends the ladder's split*
+
+Fact 6. The tab is M10g's with the `station` kind that gives it a field; a-1's row blob already
+carries the ports, so the quit oracle is: write a port, quit, reopen, the row reads it back and
+the tick's ring reflects it — through `Snapshot` / `Restore` in the suite and `--world=probe`
+headless. Building the tab now would be M10-PLAN decision 6's own argument against the item —
+a gate with nothing behind it — one tab over.
+
+#### 8. Headless: `--port=<pump|outlet>:<name>=<value>` on `--pump`'s bodies; `--openpanel` for the screenshot; `port writes` on the `M10:` line — *recommended*
+
+`--port=` is applied to the body `--pump` places, printed with the clamp (`--port=pump:channel=99`
+reads `clamped to 15`), and the oracle is the tick's: the pump moved to channel 3 alone stalls
+`no outlet`; both moved pump as before; `--world=probe` and a reopen read the value back.
+`--openpanel` opens the panel on the pump when the window opens, so `screenshot.gd` can shoot a
+control nobody can click headless — `--debuglamp`'s shape. The periodic `M10:` line and the
+`machines` profile block print `port writes N (M clamped)`.
+
+#### 9. Two sessions: b-1 Core and the headless seam, b-2 the panel — *recommended*
+
+**b-1**: `placeable` through the loader and the table, `Place.Validate`'s refusal, `computer.json`
+with its colour and jitter, `P`, `MachineSet.SetPort` with its counts and the version bump, the
+weighted ring and the per-boundary skip, `MachineRow.LastStall`, the controller's routing (the
+verb as a no-op that opens nothing yet — `OpenPanelRequested` on the controller for b-2 to read),
+`--port=`, the `M10:` line. Headless-verifiable end to end. **b-2**: `MachinePanel`, the capture
+handshake, `--openpanel`, the screenshot, the play note. Cut at the Core/wire seam as M9's
+sub-parts were; b-1 alone because the weight ring and the version rule are the two things a test
+can hold exactly and a panel cannot.
+
+### The tests, by part
+
+**b-1.** `MachineContentTests`: `placeable: false` read and projected, default true, the shipped
+computer is `count` and not placeable, the shipped pump declares no `weight` and the outlet
+does. `PlaceTests`: a non-placeable material throws from `Validate` on every shape and
+`Place.Machine`. `MachineSetTests`: `SetPort` in bounds → `Set` and the value; out of bounds →
+`Clamped` with the bound; an undeclared name → `NoSuchPort`; no row → `NoSuchRow`; a hole's row
+→ refused; `Version` moves on a changed value and not on an unchanged one; `PortWrites` counts.
+`MachineTickTests`: an outlet moved to channel 3 by `SetPort` leaves channel 0's pump `no outlet`
+at the next boundary and not the one after; weights 3 : 1 on two outlets deliver 3 boundaries to
+A per 1 to B in the smooth order (A B A A); weights all 1 land the same millilitres in the same
+cells as a-3's ring over 60 boundaries (the identity that says the plain ring is the all-equal
+case); a weight of 100 costs one room read per outlet per pump; `LastStall` on a row reads the
+stall the report counted; a port written, snapshotted, restored and ticked lands on the new
+channel. `PlaceControllerTests` or the pipeline harness: the computer selected and a right-click
+edge on a machine raises the open request with that row and places nothing; on rock it does
+nothing; a hold raises once. Headless: `--pump=100 --port=pump:channel=3` reads `stalled … no
+outlet`; `--port=pump:channel=99` reads `clamped to 15`; `--world=probe` then a reopen reads the
+row's channel back; the r6 control to the digit.
+
+**b-2.** The panel by screenshot with `--openpanel`: the title, two port rows with their bounds,
+the stall line; Esc closes and the mouse is captured again; a click outside closes; a `SpinBox`
+past its bound shows the clamped value. Q, B, V, T and the number row do nothing while it is open.
+
+### What this pass amends
+
+- The ladder's split row for M10b: the stock tab is M10g's, and the quit oracle is a port write.
+- The ladder's decision 8: `placeable: false` and its loader/table/`Place` half arrive at M10b;
+  the hotbar filter and the parts page stay at M10g.
+- M10-NOTES piece 8's `machine_programmer`: superseded by `computer` if Matthew takes decision 1.
+- `relay_pump.json`: the `weight` port comes out.
