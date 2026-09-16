@@ -1,5 +1,22 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-16 — The pick never told the machine set what it took: a-2's wire, found by M10c's pass
+
+Reading `MiningController`'s swing dispatch for where the gate goes: every `Carve` entry point
+has taken an `IMachineBodies` since M10a-2, `Carve.Take` reports a body voxel through it, the
+drain's credit rule is `Lost == Carved`, and `MachineDrainTests` proves the whole chain with the
+set passed in — and the game's controller passed nothing. So in every play since a-2 a pick on a
+pump read `Lost > Carved`, a fall's signature, and destroyed the body without credit. M5c-2's
+shape of hole to the letter: every part of the path tested, the wire between two layers not.
+`MiningController.Bodies`, set to the set in `Main`; the same headless fixture reads
+`lost 128 carved 0` unwired and `lost 128 carved 64` wired. **The fixture's 128 is its own
+confound and worth keeping**: `--place --mine --entangle` bites the pump's cell and, in the same
+frame before the drain, fills the emptied cell with grass — sixty-four more `Lost` against a row
+the drain has not yet removed — so it reads `destroyed` in both arms with nothing to credit. A
+bite and a fill into one cell inside one frame is a state the drain reads as a fall; rare in play,
+and in the cube arm nothing is lost by it, but the sphere arm would forfeit the remainder. Named
+in TODO, not fixed.
+
 ## 2026-09-16 — M10b-2 built: the panel, and the click that closes it is not a swing
 
 *"M10b-2 please"*. No Core change; suite 1,569, r6 control to the digit. What was built is in

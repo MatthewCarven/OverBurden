@@ -5410,6 +5410,15 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             channel 15`), and the panel prints its status line on every stall-kind change. Three
             screenshots taken; suite 1,569 unchanged (no Core change); r6 control to the digit.
             Read "M10b-2 — built".
+      - [x] **The pick's wire to the set, found and fixed 2026-09-16 by M10c's pass**: the game's
+            `MiningController` never passed the machine set to `Carve`, so a pick on a body read
+            `Lost > Carved` and destroyed it without credit in every play since a-2. `Bodies` on
+            the controller now. **Lever, not built**: the damage marks are read at the frame's
+            drain, so a bite and a fill into one cell inside one frame count the fill as damage
+            and destroy the remainder — the headless fixture does exactly that (`--place --mine
+            --entangle`, `lost 128 carved 64`); a hook that ignores a write of the body's own
+            material *back* into a damaged row's cell is one line, and the recipe is a chip and
+            an Alt-fill on one frame.
       - [ ] **M10b's play check — on a scratch world, one sentence back on each** (M10d's play
             takes the pump end to end; this is the panel alone):
             1. `P`, select the computer (`COMPUTER (in hand)` on the status line), right-click the

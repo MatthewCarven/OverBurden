@@ -45,6 +45,20 @@ public sealed class MiningController(
     public Overburden.Core.Inventory.VolumetricInventory? Inventory { get; init; }
 
     /// <summary>
+    /// The machine set a swing tells what it took of a body, or null to tell nobody.
+    /// </summary>
+    /// <remarks>
+    /// <b>Unwired from M10a-2 until 2026-09-16, and M5c-2's shape of hole exactly</b>: Core's
+    /// <c>Carve.Take</c> reports a body voxel through <c>IMachineBodies.Taken</c> and the drain's
+    /// credit rule is <c>Lost == Carved</c>, tested end to end in <c>MachineDrainTests</c> with the
+    /// set passed in — and this controller passed nothing, so in the game every pick on a pump
+    /// read <c>Lost &gt; Carved</c>, the fall's signature, and destroyed the body without credit.
+    /// Found by M10c's planning pass reading the swing dispatch for the gate; the wire between
+    /// two tested halves had no recipe on it.
+    /// </remarks>
+    public Overburden.Core.Machines.IMachineBodies? Bodies { get; set; }
+
+    /// <summary>
     /// How far the player can reach, in metres. Supplied by the player, who owns it.
     /// </summary>
     /// <remarks>
@@ -456,12 +470,12 @@ public sealed class MiningController(
         // without leaving the mode, which at unlimited reach is the only way to do fine work at
         // the far end of a cave.
         CarveResult result = precise
-            ? Carve.Chip(pipeline, materials, hit, Tool, Inventory)
+            ? Carve.Chip(pipeline, materials, hit, Tool, Inventory, Bodies)
             : TakesWholeChunk
-                ? Carve.Chunk(pipeline, materials, hit, Tool, Inventory)
+                ? Carve.Chunk(pipeline, materials, hit, Tool, Inventory, Bodies)
                 : TakesCube
-                    ? Carve.Cube(pipeline, materials, hit, Tool, Inventory)
-                    : Carve.Swing(pipeline, materials, hit, Tool, Inventory);
+                    ? Carve.Cube(pipeline, materials, hit, Tool, Inventory, Bodies)
+                    : Carve.Swing(pipeline, materials, hit, Tool, Inventory, Bodies);
 
         _cooldown = CooldownForShape(precise);
         Swings++;

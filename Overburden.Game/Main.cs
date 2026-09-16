@@ -3533,6 +3533,10 @@ public partial class Main : Node3D
         _mining = new MiningController(_pipeline!, _materials!, strongest)
         {
             Inventory = _inventory,
+
+            // The set, so a pick's bite on a body is a dismantle with credit and not a fall's
+            // destruction — SetUpMachines ran before this (2026-09-16; see the property).
+            Bodies = _machines,
             ReachMetres = _player?.ReachMetres ?? PlayerController.DefaultReachMetres,
 
             // Set here rather than in the profile block, because Q is a play bind: a rate that
