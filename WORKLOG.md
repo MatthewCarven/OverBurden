@@ -1,5 +1,42 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-16 — M10c planned: the pool is the tick's, the pack is the header's, the miner is a tool
+
+*"Ok lets do the M10c planning pass"*. Nine facts, eleven decisions, three sessions, in
+M10-LADDER-PLAN's "M10c — the planning pass"; what is worth keeping here:
+
+- **A joule a litre is a millijoule a millilitre.** The relay's `joulesPerLitre` 1,000 is the
+  pump's bill in the tick's own unit with no conversion: `affordable mL = available mJ ÷ 1000`.
+  The pool per channel is Σ placed storage charge plus the boundary's generation, pumps draw in
+  origin order, the pack draws last and never supplies, the remainder is written back in origin
+  order up to capacity and the excess is `clamped` — reported, never tolerated. A sixth stall,
+  `unpowered`, sits after `no water`.
+- **The relay is 200 panels**, by the ladder's own numbers (50 kJ a boundary against 250 J), and
+  the ladder put *pumped dry by relay* in M10d's row whose generation is M10f's. So the pool
+  makes `--pump` stall the day it lands unless something charges the cell, and a cell placed from
+  a count is empty. The answer is a debug seed in the tradition of `P` and `R`: `Alt+P` fills
+  every loaded cell and the pack, and `--pump` places a charged cell beside the outlet so a-3's
+  recipes keep reading `drawn 1,000 == pumped 1,000` — `--cell=0` is the arm that reads
+  `unpowered`.
+- **The pass found a live defect and fixed it first** (the entry below): the pick never passed
+  the set to `Carve`, so every play since a-2 destroyed a pump it mined. The same shape waits for
+  the gate — the pack can only be debited from the Game-side controllers — so the budget goes
+  into Core's shapes as a parameter with an `Unpowered` bucket, and the wire gets a headless
+  recipe on day one.
+- **The entangled miner becomes a tool**, because the ladder's `power` block has nothing to sit
+  on: `tools/entangled_miner.json` with its own threshold (5.0 — it takes a body, which a hand
+  pick could not, and decision 15 needs that), its cooldown (`--cubecooldown=` is the sweep now,
+  `--pump=`'s shape) and its joules. This reverses M3d's *never what the bite is hard enough to
+  take* — the pack is the gate now — and keeps what M5d protected: no `reachMetres` in the format.
+- **`--nogate` is one flag for both draws.** Pumps and the miner free at once, the pre-M10c arm;
+  every recorded `--mine --entangle` recipe gains it, because a profile equips nothing.
+- **The lead-acid pack ships before the vacuum pack**, on the channel class until M10i docks it,
+  because M10d's row is *the gate felt at the bite* and the top pack lasts a session by design;
+  56 s of full-rate mining and twelve minutes on ten panels is a gate one play can feel. Matthew's.
+- **`--weather=1` dims a panel to 976 mJ a boundary**, not zero — the byte is 255 of 256 — and the
+  overcast byte is taken once at the boundary from the same forced-or-forecast expression the
+  shader reads, or the oracle would read the sky.
+
 ## 2026-09-16 — The pick never told the machine set what it took: a-2's wire, found by M10c's pass
 
 Reading `MiningController`'s swing dispatch for where the gate goes: every `Carve` entry point

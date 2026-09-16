@@ -1764,3 +1764,331 @@ The r6 control, verbatim, 2601 / 325 / 3446 at 411; the suite 1,569.
 seven-question recipe in TODO — and M10d's, where the relay pumps the played mine. Next is M10c,
 power on the channel class, and it wants its own planning pass against the ladder's decisions for
 it, `MachineTick`, `MachineSet` and the header.
+
+---
+
+## M10c — the planning pass
+
+> 2026-09-16, evening, after b-2 (*"Ok lets do the M10c planning pass"*). Read against the
+> ladder's decisions 9, 10, 15, 16, 21 and 23, its tier-2 and tier-4 numbers, its format block and
+> its tick; M10-PLAN decisions 8 and 9 as the ladder amended them; `MachineTick.Run`, `Rebuild`
+> and `TickPump`; `MachineDefinition.TryValidate` and `ContentLoader.TryReadMachine`;
+> `MachineRow.KindState` and `MachineRowBlob`; `MachineSet.Restore`; `WorldHeaderBlob` v3 and its
+> migration policy; `SkyColumn.OpenAboveY` / `IsCellOpenToSky` and `ChunkStreamer.ColumnAt`;
+> `Weather.OvercastAt` and `Main`'s `_forcedWeather`; `Carve.Take`, `CarveResult.IsAccounted`
+> and the four shapes; `MiningController`'s dispatch and cooldowns; `PlaceController`'s item
+> route; `ToolDefinition`; `Main.SeedMachines`, `CurrentHeader` and `PlacePumpAndOutlet`.
+> Nine facts, eleven decisions, three sessions, the tests by part. **One thing the pass found
+> was a defect, fixed before it was written** (commit `2b26540`): the pick never told the set
+> what it took — fact 6.
+
+### Nine facts from the code
+
+1. **The format is here and the tick's half is not.** `MachineDefinition.JoulesPerLitre` is
+   parsed, validated non-negative, and read by nothing; the shipped relay carries `1000`.
+   `ReservedVia` holds `solar` and `ServedVia` holds `channel` alone; `TryReadMachine` refuses
+   `generator`, `converter` and `storage` by name, saying *power is M10c*. So c-1 adds two kinds
+   and serves one more `via`, and every refusal it lifts is a test that exists today.
+
+2. **The kind blob is the row's own versioned bytes, carried verbatim and clamped nowhere.**
+   `MachineRow.KindState` is a `byte[]` both M10a kinds leave empty; `MachineRowBlob` v1
+   length-prefixes it and the ladder's persistence section says its first byte is the kind's
+   version. `Restore` drops, defaults and clamps *ports* against the material's declaration and
+   counts each, and carries the state opaque — right for an unknown kind, wrong for a storage row
+   whose charge must not exceed its capacity (decision 21: *a row read from disk is clamped to its
+   material's bounds*). The charge needs a typed reader and its own clamp at restore, and no
+   schema bump: the blob's version byte is what the ladder put there for this.
+
+3. **The sky column already answers openness at 0.25 m, and the panel's rule is a count over the
+   array the light's rule reads all-or-nothing.** `SkyColumn.OpenAboveY(lx, lz)` is the first open
+   Y of every column of a 32 × 32 footprint; `IsCellOpenToSky` demands all sixteen of a cell's
+   columns open (M5b's under-seeding argument). A panel's openness — *open columns ÷ 16*, the
+   ladder's decision 10 — is the same sixteen reads with a count, and `ChunkStreamer.ColumnAt`
+   hands the column per (x, z) chunk column. A chunk column nobody has loaded has no column, and
+   a row ticks unloaded (ladder decision 4) — so the openness is sampled when the column is there
+   and kept on the row when it is not, which is the *openness byte* the ladder's kind blob lists.
+
+4. **The overcast is a float per frame and the forced one is the shader's.** `Main` reads
+   `_forcedWeather ?? Weather.OvercastAt(seed, now)` every frame for the uniforms; nothing reads
+   it at the boundary. Decision 10 quantises it once at the site it enters the pool — a byte,
+   taken at the boundary from the same `?? ` expression, or `--weather=1` dims the sky and not
+   the panel and the split row's oracle reads the forecast instead of the flag.
+
+5. **The relay is 200 panels.** 100 L/s × 1,000 J/L is 50 kJ a boundary; a panel is 500 W × 0.5 s
+   = 250 J. The ladder said so (*solar runs the DC tier's pumps, not the relay*) and then put *the
+   played mine pumped dry by relay; the storm* in M10d's row, whose generation is M10f's. With
+   the pool in and no debug charge, `--pump` stalls `unpowered` and a-3's recipe stops reading
+   `drawn 1,000 == pumped 1,000`. The relay's M10c and M10d arms need a charged cell, and a cell
+   placed from the inventory is empty (a count has no charge) — so the charge is a debug seed,
+   on `--pump`'s path and on a key, the way the pump itself is seeded.
+
+6. **The pick never told the set what it took — fixed.** Every `Carve` entry point has taken an
+   `IMachineBodies` since a-2 and `MachineDrainTests` proves `Lost == Carved` with the set
+   passed; `MiningController` passed nothing, so in every play since a-2 a pick on a pump read a
+   fall's signature and destroyed it without credit. `MiningController.Bodies` now (`2b26540`);
+   the same fixture reads `carved 0` unwired and `carved 64` wired. **The same shape waits for
+   the gate**: the pack can only be debited from the controllers, which are Game-side, so the
+   budget that makes *takes what the charge buys and stops* true must be a parameter of Core's
+   shapes with a bucket in `CarveResult`, and the wire from the pack to that parameter wants its
+   own headless recipe on day one, not a Core test that passes the pack in.
+
+7. **There is no tool for the `power` block to sit on.** The ladder's decision 15 puts
+   `joulesPerVoxel` on *the tool's* `power` block and shows `tools/entangled_miner.json`; in the
+   code the entangled miner is a mode on `MiningController` with no file — `Tool` is the tier for
+   every shape, the cube's rate is `DefaultEntangledCubeCooldownSeconds` with `--cubecooldown=`
+   as its sweep, and M5d recorded *deliberately not a tool tier* so that no `reachMetres` field
+   enters the format. A `power` block on the tiers makes Q with a steel pick free; a block the
+   mode reads from a file that is not a tool is a third kind of thing. The file exists or the
+   gate has no content to be.
+
+8. **Header v4 is one more presence-byte section.** v3's `Player` is written as a presence byte
+   and a fixed payload after the inventory, v1 and v2 are read by the same reader with documented
+   defaults, and the policy is *an additive version migrates, a version that changes what a field
+   means is refused*. The pack — material through the world's table, charge in millijoules, a
+   channel — is exactly that shape after the lattice, and a v3 world opens with no pack equipped,
+   which is a true statement about it. `SessionSnapshot` already carries the header bytes, so the
+   pack rides the chunk transaction for free (a-1).
+
+9. **An item's right-click is routed once and answered by material.** `PlaceController` routes
+   `SelectedIsItem` before the brush and, for the computer, asks the machine under the crosshair;
+   a pack is an item by the same `placeable: false` and needs a verb of its own on the same edge,
+   and the `ComputerMisses` count is a click with the computer on nothing — which is free to
+   mean something.
+
+### Decisions
+
+Each recommended unless marked, and built as recommended unless Matthew says otherwise.
+
+#### 1. The pool is the tick's: per channel, Σ placed storage charge plus this boundary's generation; pumps draw in origin order at `joulesPerLitre`; the pack last; written back in origin order up to capacity; the excess `clamped` — *recommended*
+
+Inside `MachineTick.Run`, before the pumps: per channel, `stored = Σ` charge of every storage row
+on it (loaded or not — a row is the truth) and `generated = Σ` every converter's output this
+boundary (decision 2); `available = stored + generated`. Then every pump in origin order, as
+today, with one more term where the offer is read: `affordable = available ÷ joulesPerLitre`
+millilitres — **a joule a litre is a millijoule a millilitre, so the bill is one integer division
+with no unit conversion** — and `moved = min(offer, room, affordable)`; after the move
+`available −= moved × joulesPerLitre`. A pump with an outlet, water and room and nothing to pay
+with stalls **`unpowered`**, a sixth `PumpStall`, and `no water` beats it (a dry pump is not a
+starved one). Then the equipped pack (decision 4) draws last. Then what remains is written back
+into the channel's storage rows in origin order up to each capacity, and what no row holds is
+`clamped` — counted, printed, never tolerated (M10-PLAN decision 10's sentence). The identity,
+per channel per boundary and over the session:
+`Σ charge + pack == loaded + generated − drawn − clamped`, with `loaded` the charge read at open
+(rows and header) and `drawn` split `by pumps` / `by the tool` — the fluid identity's shape, a
+`loaded` term included for the reason `M8b:` has one.
+
+- **Rejected: draining rows in origin order and leaving the rest** — a cell at the far end of a
+  channel never charges and the first one takes every storm; the ladder's rule is the sum and a
+  redistribution, and a redistribution is what makes *a cut splits the pool into its rows'
+  charges* (M10e) a statement about rows rather than about order.
+- **Rejected: a stored pool number per channel** (M10-PLAN decision 8's first form) — the ladder's
+  decision 9 killed it and this pass keeps it dead: nothing persists per channel, so nothing can
+  disagree with the rows.
+
+#### 2. Solar is a `converter` — sink via `solar`, source via `channel` — and its boundary output is one integer product — *recommended*
+
+`ratedWatts × boundaryMillis` millijoules × `open ÷ 16` × `(256 − byte) ÷ 256`, integer division
+last, so a 500 W panel gives 250,000 mJ open under a clear sky and **976 mJ under `--weather=1`**
+(byte 255), which is the split row's oracle to the millijoule. `open` is the count of the top
+cell's sixteen columns whose `OpenAboveY` is at or below the body's top plus one, read off
+`ChunkStreamer.ColumnAt` through an `ISolarSky` the tick takes (`TryOpenColumnsAbove(cell, out
+count)` — false when the column is not loaded), sampled at the boundary when the column is
+there and written into the row's kind state as a byte; when it is not, the byte stands (fact 3),
+so a surface field keeps charging a cell while its owner is 64 m down. The overcast byte is
+`min(255, ⌊overcast × 256⌋)` from `_forcedWeather ?? OvercastAt`, taken once at the boundary and
+handed to the tick (`OvercastByte`), never a float inside Core (ladder decision 10). `efficiency`
+is read as an integer per-mille at load and multiplied in; solar ships at 1,000. **Shipped on the
+channel class until M10i re-classes it to `dc`, printed at load** — ladder decision 23's nerf
+later, so nobody builds a base on wireless solar.
+
+- **Rejected: `IsCellOpenToSky`** — all sixteen or nothing, so a panel beside a wall is dark; the
+  count is the same reads.
+- **Rejected: sampling the openness when the chunk arrives** — a lamp placed over the panel would
+  not dim it until the next arrival; the boundary is where every other input is read.
+
+#### 3. Storage is a kind with `capacityJoules` and `carried`; a placed row's charge is its kind state, clamped at restore; a body placed from the inventory is empty — *recommended*
+
+Kind blob v1 for `storage`: a version byte and an int64 of millijoules, read and written by a
+`StorageState` helper in Core so the tick never parses bytes inline; `Restore` clamps it to the
+material's capacity through the set's own table and counts it under `Clamped` (fact 2; the ports
+lookup a test hands in gains a capacity lookup). An unknown kind's blob is still carried opaque.
+A count in the inventory has no charge (ladder decision 15), so a body placed from it starts at
+zero, and a cell dismantled credits its material and forfeits its charge — `forfeited` is a
+printed term, not a tolerance. **`overburden:vacuum_cell` ships**: placed, 5 GJ, channel — the one
+storage the ladder never re-classes, final on day one.
+
+#### 4. The equipped pack rides header v4; a right-click edge with a pack in hand equips it; it recharges last, bounded by `rechargeWatts`, and is never a supply; its channel is the computer's panel on nothing — *recommended; the pack's ID and numbers are Matthew's*
+
+Header v4, additive: after the lattice, a presence byte, the pack's material through the world's
+table, its charge in millijoules, its channel — v3 migrates to *no pack* (fact 8), and the row of
+the old-version fixture is named. `EquippedPack` in Core holds it live; `Main` writes it into
+`CurrentHeader`, so it rides the session's transaction. **Equipping**: with a pack selected (an
+item by `placeable: false`, counted `× N`), a right-click edge anywhere equips one from the count;
+with a pack already equipped the click swaps, and the outgoing pack goes back to the count with
+its charge forfeited and printed — the ladder's *a second pack in the inventory is a count with
+no charge*, the only rule under which a swap is exact. **Recharging**: the pack draws from its
+channel *after* every placed consumer, `min(available, capacity − charge, rechargeWatts ×
+boundaryMillis)`, and its charge is never part of `available` — a backpack is not a battery bank,
+or the relay would drain the miner's pack in one boundary. **Its channel**: the computer's
+right-click on *nothing* — sky, rock, a block, the misses b-1 counts — opens the pack's panel when
+one is equipped (`MachinePanel` over a small port view rather than a row: one `channel` box, the
+charge as its status), amending M10b's decision 3 by one sentence; with none equipped the miss
+stays a miss. **The pack**: `overburden:lead_acid_pack`, 3.6 MJ, `rechargeWatts` 1,000 — a car
+battery on a car charger — on the channel class until M10i re-classes it to `dc` with its dock,
+printed at load beside the panel's line. It ships rather than the vacuum pack because M10d's
+row is *the gate felt at the bite*, and by decision 16 the top pack lasts a session on purpose:
+56 s of full-rate mining and twelve minutes on ten panels is a gate you can feel in one play.
+
+- **Rejected: the pack as a storage row on its channel** — the relay drinks it (above); and a row
+  with no position has no origin order.
+- **Rejected: `E` to equip, or a slot on the HUD** — a third key for a verb the right-click edge
+  already carries for items.
+- **Rejected: the pack's channel as a flag** — a port nothing in play can write is decision 11's
+  refusal one layer out.
+
+#### 5. The entangled miner becomes a tool: `tools/entangled_miner.json` with its threshold, its cooldown and its `power` block; Q swings it and T's tiers stay free — *recommended; the threshold is Matthew's*
+
+Fact 7. `ToolDefinition.Power` — `{ "via": "channel", "joulesPerVoxel": 100 }`, `via` held to the
+served set as a link's is, the joules bounded at load (0 ≤ J ≤ 10⁹, refused past it) — on any
+tool; the shipped picks declare none and a tool with none is free. `overburden:entangled_miner`
+is loaded by ID, off the T cycle, and is what `MiningController` swings while Q is on:
+`hardnessThreshold` 5.0 (the ladder's — it takes anything, machine bodies at 3.0 included, which
+is decision 15's *Q reclaims a machine at range exactly as a pick does* and was not true under a
+hand pick), `cooldownSeconds` 0.10 with `--cubecooldown=` now a sweep over the file's number the
+way `--pump=` is over the relay's, `radiusMetres` unread by the cube and named so. **What this
+reverses**: *entanglement never changes what the bite is hard enough to take* (M3d, restated at
+M5d and 2026-09-03) — Q composed with the tier's threshold so `Carve.Take` stayed the only gate.
+It still is the only gate; the threshold it reads is the entangled tool's, and the thing that
+makes Q *earned* is the pack, which is the brief. **What this keeps**: no `reachMetres` in the
+format — the entangled reach is still the mode's constant and the world's edge, and that was the
+decision M5d protected. Without the file (a mod that removes it), Q falls back to the tier and is
+free, printed.
+
+- **Rejected: the `power` block on the tiers** — Q with a steel pick would be free, and the gate
+  would gate the hand pick's holder only.
+- **Rejected: a mode-only file that is not a tool** — a third content shape for one number.
+
+#### 6. The gate: a voxel budget on every `Carve` shape with an `Unpowered` bucket; the controller pays `Removed × J`; the fill at range is all-or-nothing on a cell's cost; the Alt chip pays one; no pack, Q takes nothing; `--nogate` is one flag for the pumps and the miner — *recommended*
+
+`Carve.Cube`, `Sphere`, `Chip`, `Voxel` and `Chunk` take `int voxelBudget = int.MaxValue`;
+`Take` lands a voxel it would have removed in **`CarveResult.Unpowered`** once the budget is
+spent — after `TooHard`, so a voxel the tool cannot take costs nothing — and `IsAccounted` gains
+the term (the M6c argument against a bucket does not hold here: an empty pack is a case every
+correct caller produces). `MiningController` computes the budget as `charge ÷ (J × 1000)` from
+the equipped pack and debits `Removed × J` after the carve — *takes what the charge buys and
+stops*, M10-PLAN decision 9's words; the Alt chip is the same path with a budget of one voxel's
+worth; **the fill at range** (`PlaceController`, entangled) is refused whole when the charge is
+under `64 × J` and pays `Placed × J` after, so `Place` needs no bucket. With the gate on and no
+pack equipped, an entangled swing carves nothing and the HUD's `Q` line says `no pack — P seeds
+one`; `Swings` still count, so a run reads *swung and took nothing* rather than *did not swing*.
+**`--nogate`** is the pre-M10c arm for both draws at once — pumps free, the miner free, printed
+on the `M10:` setup line — and every recorded `--mine --entangle` recipe gains it, because a
+profile run equips nothing (CLAUDE.md's commands say so in the same commit).
+
+- **Rejected: the bite refused whole under `64 × J`** — the pack's last 6.3 kJ are stranded and the
+  gate reads as a cliff rather than a running-down.
+- **Rejected: two flags** (`--nogate` for the miner, `--nopower` for the pumps) — one arm, one
+  name; a run that frees one and not the other measures a world that cannot exist.
+
+#### 7. Debug seeding: `P` adds a panel, a cell and a pack; `Alt+P` fills every loaded storage row and the pack; `--pump` places a charged cell beside the outlet; `--solar=<n>`, `--pack`, `--charge=` — *recommended*
+
+Fact 5. `P` seeds a solar panel and a vacuum cell beside the relay pair, and one pack once, the
+way it seeds one computer. **`Alt+P` fills every storage row in the loaded set and the equipped
+pack to capacity**, printed with the joules — Alt+R's shape, the debug arm that lets M10d's relay
+run — and is the only way a placed cell is ever full without generation. `--pump` places a
+**charged vacuum cell** in the cell beside the outlet along +X as it places the outlet, so a-3's
+recipes read `drawn 1,000 == pumped 1,000` unchanged with `drawn by pumps 1,000,000 J` beside them
+(`--cell=0` omits it, and that run reads `stalled 60 unpowered`). `--solar=<n>` places n panels on
+the surface in a row along −X from the outlet; `--pack[=<id>]` equips one at open, `--charge=<J>`
+sets its charge — the gate's headless oracle.
+
+#### 8. The lines: a `power:` term on `M10:` and the `machines` block; the panel's three new lines; the HUD's pack — *recommended*
+
+`M10:` gains `power: N cell(s) hold J, pack J / J (ch C), generated J (P panel(s), open X/16
+mean, overcast B/256), drawn J by pumps + J by the tool, clamped J, forfeited J — pool == loaded +
+generated − drawn − clamped: exact`; the `machines` profile block the same, and `boundary`'s
+`machines` bracket is unchanged (the pool is inside it). The panel (b-2) reads a storage row as
+`charged 2.1 GJ of 5 GJ`, a converter as `generating 250 J a boundary (16/16 open, overcast
+0/256)`, and a pump's sixth stall as `stalled: no power on channel 3`. The HUD's status line
+carries `pack 2.1 / 3.6 MJ` whenever one is equipped and `Q takes nothing — no pack` under Q
+without one.
+
+#### 9. The bench: `--pump` gains a power row — *recommended*
+
+The loop closed with a charged cell on the channel: 500 pumps with 500 cells against a-3's 500
+free, so the pool's cost on the boundary is a number beside the read's; and the identity checked
+to the millijoule over the 10,000-boundary loop with the cell draining. No new arm.
+
+#### 10. Not in M10c — *recommended*
+
+Docking (M10f: the pack on the channel class recharges anywhere until then, printed); `crank`,
+`burner`, `surround`, `adjacent:` and any class (M10e/f); the `Flooded` stall (M10f); the machine
+sleep set (still a lever); the hotbar's parts page (M10g); a placed cell's charge on the swatch;
+day and night.
+
+#### 11. Three sessions: c-1 the pool in Core, c-2 the wire and the oracles, c-3 the pack and the gate — *recommended*
+
+**c-1**: the two kinds through the loader (`ratedWatts`, `efficiency` per-mille, `capacityJoules`,
+`carried`, `rechargeWatts`; `solar` served as a sink `via`; the refusals it lifts), `StorageState`
+and the converter's openness byte in the kind blob, the restore's clamp, `ISolarSky` and
+`OvercastByte` on the tick, the pool per channel with the pump's bill and `unpowered`, the
+write-back and `clamped`, the pack's recharge against an `EquippedPack` the tick is handed, the
+counters and the identity, `PowerOff` (the `--nogate` seam's tick half). Headless-invisible on
+its own. **c-2**: `Main`'s `ISolarSky` over the sky columns, the overcast byte at the boundary,
+`P` and `Alt+P`, `--pump`'s cell, `--solar=`, `--cell=`, `--nogate`'s tick half, the `M10:` and
+profile lines, the panel's lines, the bench row, `--weather=1`'s oracle; the three JSON files
+(`solar_panel`, `vacuum_cell`, `lead_acid_pack`) and `ShippedContentTests` on them. **c-3**:
+header v4 and `EquippedPack`'s persistence, the equip verb and the swap, the pack's panel on
+nothing, `tools/entangled_miner.json` and `ToolDefinition.Power`, `Carve`'s budget and
+`Unpowered`, the controllers paying, the HUD, `--pack`, `--charge=`, `--nogate`'s miner half, the
+bite-that-stops oracle, the recorded recipes amended. Cut at the Core/wire seam as before; c-3
+alone because it is the header bump and the first change to a recorded play rule.
+
+### The tests, by part
+
+**c-1.** `MachineContentTests`: a `converter` and a `storage` load with every field read; `solar`
+is served as a sink and refused as a source; `ratedWatts`, `capacityJoules` and `rechargeWatts`
+bounded and refused past the bound; `efficiency` outside 0..1 refused; a `carried` storage with a
+face or two links refused; a pump with `joulesPerLitre` 0 is free. `MachineRowBlob` /
+`MachineSetTests`: a storage row's charge round-trips the blob; a charge over capacity restores
+clamped and counted; an unknown kind's blob is still carried verbatim. `MachineTickTests` (a
+`Twin` with a fake sky): a channel with one panel and no cell reads `clamped == generated` every
+boundary; one panel and one cell reads the cell's charge climbing by exactly 250,000 mJ a boundary
+open under byte 0 and by 976 under byte 255; openness 8 of 16 halves it; an unloaded panel
+generates from its stored byte; two cells on a channel are filled in origin order and the second
+starts only when the first is full; a relay pump with water, room and a full cell moves its whole
+budget and the cell falls by `moved × 1000` mJ; with 25,000,000 mJ it moves exactly 25 L and
+stalls `unpowered` at the next boundary with `no water` beating it on a dry box; two pumps in
+origin order share a cell first-come; the pack recharges last and never supplies; the identity
+holds per boundary and over 1,000 boundaries with the twin's `loaded` term; `PowerOff` reproduces
+a-3's every fixture to the millilitre. `CollapseTests`' old-world table gains three IDs.
+
+**c-2.** Headless: `--pump=100` reads a-3's oracle with `drawn by pumps 1,000,000 J` and the cell
+fallen by exactly that; `--cell=0` reads `stalled 60 unpowered`; `--solar=10 --cell=0` reads
+`generated 150,000,000 mJ, clamped 150,000,000` over 60 boundaries (no store, `--weather=0`) and
+`--weather=1` reads `585,600` for both; `--solar=10` with the cell reads the cell climbing; the r6
+control to the digit; `P` then a screenshot of a panel's and a cell's panel lines. The bench's
+power row.
+
+**c-3.** `WorldHeaderBlob`: v4 round-trips the pack; a v3 header opens with none; a pack naming a
+material outside the table is refused naming it; the settings count test is untouched.
+`CarveTests`: a budget of 6 on a 64-voxel cube removes 6 and lands 58 in `Unpowered` with
+`IsAccounted` true on every shape; a budget of 0 removes nothing; `TooHard` voxels cost nothing
+against the budget. `ToolContentTests`: `power` read, `via` held to the served set, the joules
+bounded; the shipped miner declares it and the picks do not; `ShippedContentTests` still finds a
+tier that leaves the hardest material standing with the miner off the cycle. Headless, verbatim:
+`--pack --charge=640 --mine --entangle --profile --speed=0` reads `removed 6`, `unpowered 58` on the
+first swing and `unpowered 64` after, the pack at `40 J`; without `--pack` it reads `swung N, took
+nothing (no pack)`; with `--nogate` it reads a-3's figures; `--world=probe --pack --charge=1000`
+then a reopen reads `pack 1,000 J`; the r6 control to the digit. By hand: equip, swap and read
+`forfeited`; the pack's panel on the sky.
+
+### What this pass amends
+
+- M10-PLAN decision 8's stored pool and decision 9's `batteries/` folder: superseded by the
+  ladder's decisions 9 and 15, and now by the row's kind state and the pack's header section.
+- M10b's decision 3: the computer's click on nothing opens the equipped pack's panel.
+- M3d's and M5d's *entanglement never changes what the bite is hard enough to take*: reversed by
+  decision 5; the pack is the gate and the entangled tool's threshold is content.
+- CLAUDE.md's recorded `--mine --entangle` recipes: every one gains `--nogate`.
+- The ladder's M10d row: the relay's power at M10d is `Alt+P`'s debug charge, stated as such.

@@ -5447,9 +5447,45 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             reset per boundary over the outlets, and a `MachineTickTests` fixture); a port
             declared wider than 2^53 rounds in the box before `SetPort` sees it (no shipped port
             is near it).
-- [ ] **M10c — power on the channel class**: pool = Σ storage rows, `clamped`; converters and
-      storage; solar quantised at its one entry site; the equipped pack at header v4; the tool's
-      `power` block; `--nogate`.
+- [ ] **M10c — power on the channel class: planned 2026-09-16 (evening), the pass after
+      M10b-2's built section in M10-LADDER-PLAN — nine facts, eleven decisions (the pack's ID
+      and numbers and the entangled tool's threshold are Matthew's; the rest recommended), three
+      sessions.** The facts that moved it: `joulesPerLitre` is parsed and read by nothing; the kind
+      blob is carried verbatim and clamped nowhere; the sky column already answers openness per
+      0.25 m column; the overcast is a per-frame float and the forced one is the shader's; the
+      relay is 200 panels, so its M10c/M10d arms need a debug charge; the pick never told the set
+      what it took (fixed, `2b26540`) and the gate's wire is the same shape; there is no tool for
+      the `power` block to sit on; header v4 is one more presence-byte section.
+      - [ ] **c-1 — the pool in Core**: the `converter` and `storage` kinds through the loader
+            (`ratedWatts`, `efficiency` per-mille, `capacityJoules`, `carried`, `rechargeWatts`;
+            `solar` served as a sink `via`), `StorageState` and the openness byte in the kind
+            blob, the restore's clamp, `ISolarSky` and `OvercastByte` on the tick, the pool per
+            channel — the pump's bill at `joulesPerLitre` (a millijoule a millilitre), `unpowered`
+            after `no water`, the pack last and never a supply, write-back in origin order,
+            `clamped` — the counters, the identity `Σ charge + pack == loaded + generated − drawn
+            − clamped`, `PowerOff`. Tests at the pass's end.
+      - [ ] **c-2 — the wire and the oracles**: `Main`'s sky adapter, the overcast byte at the
+            boundary, `P` (a panel, a cell, a pack once) and `Alt+P` (fills every loaded cell and
+            the pack, printed), `--pump`'s charged cell beside the outlet (`--cell=0` omits it →
+            `stalled 60 unpowered`), `--solar=<n>`, `--nogate`'s tick half, the `M10:` `power:`
+            term and the profile block, the panel's three lines, the bench's power row,
+            `--weather=1` → 976 mJ a panel a boundary; the three JSON files and
+            `ShippedContentTests`.
+      - [ ] **c-3 — the pack and the gate**: header v4 (presence, material, charge mJ, channel;
+            v3 → no pack), `EquippedPack`, the equip verb (a right-click edge with a pack in hand;
+            a swap forfeits, printed), the pack's panel on the computer's click on nothing,
+            `tools/entangled_miner.json` (threshold 5.0, cooldown 0.10 with `--cubecooldown=` as
+            its sweep, `power { via: channel, joulesPerVoxel: 100 }`) and `ToolDefinition.Power`,
+            `Carve`'s voxel budget and `CarveResult.Unpowered` in `IsAccounted`, the controllers
+            paying (bite, Alt chip; the fill at range all-or-nothing on `64 × J`), the HUD's pack
+            line, `--pack[=<id>]`, `--charge=<J>`, `--nogate`'s miner half; the bite-that-stops
+            oracle (`--charge=640` → `removed 6, unpowered 58`, the pack at 40 J); **every
+            recorded `--mine --entangle` recipe gains `--nogate`** in the same commit.
+      - [ ] **Matthew's, before c-3**: the pack that ships (`lead_acid_pack` 3.6 MJ / 1 kW is
+            recommended because the gate has to be felt in one play; the vacuum pack lasts a
+            session by design) and the entangled tool's threshold (5.0 recommended — it takes a
+            body, which a hand pick could not; this reverses M3d's *never what the bite is hard
+            enough to take*).
 - [ ] **M10d — the play**: the mine pumped dry by relay, the storm, the gate, the pillar verdict.
 - [ ] **After the optimiser (2026-09-15): re-judge `start.cmd`'s `--lightbudget=16` on a play** — it
       was a response to a 1.4 ms unoptimised derive that is ~0.36 ms now; and **re-take the Debug
