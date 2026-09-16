@@ -23,7 +23,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | **Worldgen as content** — Matthew's thinking-ahead, 2026-09-11: ores, layers, trees, and what is permeable. Notes rather than a plan; what MATERIALS-NOTES already decided is listed so it is not re-litigated, and the three questions its pass wants from him are at the end. **Not scheduled — M8d, then M9.** |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md) | **Water bodies** — Matthew's question, 2026-09-10: resting water as one number over a connected void, DESIGN's *"stable cells merge into a Tier A body"* half that M8b never built. Notes rather than a plan, with the roof-open wake explained and six decisions. **Read before M8c's planning pass, which is where it belongs.** |
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | **Elements, and whether to "just implement chemistry"** — a brainstorm with Matthew, 2026-09-03. Notes rather than a plan. The recommendation is *geology that reacts to water, with machine recipes as the chemistry set*; the element table says why each material would exist. **Read before M8c reads `permeability` and before M9 reads `supportDistance` — both have been in the material JSON unread since M1, and the trap is a constant shipping green.** |
-| [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) | **The ladder — hand → steam → DC → AC → quantum, and the crafting under it; planned 2026-09-15 (evening) from Matthew's brief, twenty-three decisions, ten parts M10a–M10j, all taken as recommended the same night. M10a's own planning pass is its last section — six facts from the code, twelve decisions, three sessions a-1/a-2/a-3 — and all three are built (2026-09-15/16): the store slice, the entity, the pump; a-3's built section has the bench's first number, the relay delivering its nominal 100 L/s on a flooded chamber, and the read the ladder's decision 14 proposed retired by measurement. M10b's own pass follows it (2026-09-16): six facts, nine decisions, two sessions, the ID Matthew's.** Its one idea: connection is membership and movement is a ledger transfer at the boundary — no solver, nothing in flight at any tier. **Read its four facts first** (the 16 m vertical box against a 64 m mine; the header and the machine table are two store calls; `IsWetIn` is a dictionary lookup a voxel; a wire on a ceiling falls under M9's rule). M10-PLAN's a–d are its first rung, eight decisions amended. Read M10-PLAN and M10-NOTES before it. |
+| [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) | **The ladder — hand → steam → DC → AC → quantum, and the crafting under it; planned 2026-09-15 (evening) from Matthew's brief, twenty-three decisions, ten parts M10a–M10j, all taken as recommended the same night. M10a's own planning pass is its last section — six facts from the code, twelve decisions, three sessions a-1/a-2/a-3 — and all three are built (2026-09-15/16): the store slice, the entity, the pump; a-3's built section has the bench's first number, the relay delivering its nominal 100 L/s on a flooded chamber, and the read the ladder's decision 14 proposed retired by measurement. M10b's own pass follows it (2026-09-16): six facts, nine decisions, two sessions, the ID Matthew's — both built the same day, b-2's built section recording the two camera rules the pass did not have (the re-capture click is swallowed; flight is gated on capture).** Its one idea: connection is membership and movement is a ledger transfer at the boundary — no solver, nothing in flight at any tier. **Read its four facts first** (the 16 m vertical box against a 64 m mine; the header and the machine table are two store calls; `IsWetIn` is a dictionary lookup a voxel; a wire on a ceiling falls under M9's rule). M10-PLAN's a–d are its first rung, eight decisions amended. Read M10-PLAN and M10-NOTES before it. |
 | [docs/M10-PLAN.md](docs/M10-PLAN.md) | **M10, you fight back — planned 2026-09-15, eleven decisions with recommendations, waiting on Matthew; M10a's own pass follows the answers.** Split M10a–M10d: the entity, the relay pump and outlet / the programmer / power / the play. **Read its three facts first: the boundary is the machine tick (`Add`/`Remove` refuse mid-tick, so DESIGN's 20 Hz has no consumer), a machine is a material plus a row (the body is 64 voxels of a material, so every existing path is free and only the config is new), and an outlet is out of the loaded box on day one** (`ViewDistanceVertical` 2 against a 64 m mine). Read M10-NOTES before it. |
 | [docs/M9-PLAN.md](docs/M9-PLAN.md) | **M9, the mine kills you — planned 2026-09-11, all twelve decisions taken the same day; M9a and M9b built 2026-09-12 (read their "planning pass" and "built" sections — the byte moved `K` to 120, a dead path is a state, the join climbs; the derive is a detached job, the tint waits for the barrier); M9c-1 planned 2026-09-13 (a fall is a column run, the snapshot is not the gate) and built 2026-09-13/14 — c-1a Core, c-1b the wire; read "M9c-1b — built": the roof comes down in the game, the cascade is the analysed set growing, and a fall's cost is the hook chain. M9d next, unplayed.** Split M9a–M9d. **Read its "two facts" first: there is no bedrock, and DESIGN's literal distance rule opens a shaft to the surface over a 2 × 2 bite** — the plan's budget-with-an-arch rule and its uniqueness proof are decision 1. Read MATERIALS-NOTES and SCALE before it. |
 | [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **M8c planned 2026-09-10, all eight decisions taken 2026-09-11, M8c-1 built the same day — read "M8c-1 — built" before M8c-2's pass.** **Planned 2026-09-02; M8a built the same day; M8b split four ways and M8b-1 built 2026-09-03; M8b-2 planned 2026-09-05 and all three parts built the same day, both open decisions taken as recommended — water crosses the seam in the game; M8b-3 planned and built the same day: the hand-off (3a) measured, the settle (3b) built and priced against the chamber, both mines and the played world, the spill's look deferred to M8c and the settle's interval an estimate with `--settleafter=` as the sweep.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it. **Its M8b section records a gap the plan had**: a flooded mine has no Tier A body, so resting mine water is stored, and the settle is a solve. Read the tick-budget item in TODO before M8b-2. |
@@ -618,6 +618,34 @@ channel := 3: set to 3`, `outlet's weight := 99999: clamped to 100` and `stalled
 With `--world=probe` on that run and a reopen of `--world=probe`, the reopen reads `2 machine
 row(s) read` and `stalled … no outlet` — the write survived the quit; delete the world after.
 
+**M10b-2 adds the panel and two flags.** With the computer in hand a right-click on a machine body
+opens `MachinePanel` — the label, the cell, one `SpinBox` per declared port with its bounds, a status
+line from the row's last stall and move (`moved 50 L at the last boundary`, `stalled: no outlet on
+channel 3`) — and hands the mouse to it; every change is one `SetPort`, printed as `M10: panel — …
+channel := 3: set to 3`. Esc closes it (`Main`'s while a panel is open; every other key is ignored
+there), so does a click outside (the camera's own capture) or the row leaving the set, **and the
+click that takes the mouse back is swallowed by both verbs until it is released** (`FlyCam.ClickLive`
+— before b-2 the re-capture click swung at the crosshair, which for a panel is the machine it was open
+on); **flight is gated on capture now**, as walking has been since M4c. **`--openpanel[=outlet]`**
+opens the panel on `--pump`'s pump (or outlet) as it is placed — a screenshot prop, so like
+`--debuglamp` it leaves the played world alone, and built with the HUD so a `--profile` run has none —
+and **`--panelset=<name>=<value>`** types into the open box, through the box, so the widget's wire
+runs headless (`--port=` writes past it). The panel prints its status line on every stall-kind
+change, which is what a headless run reads. The screenshot, verbatim — the pump's panel with
+`moved 50 L at the last boundary`; add `--port=pump:channel=3` for the amber `stalled: no outlet on
+channel 3`, or `--openpanel=outlet --port=outlet:weight=7` for the two-row panel:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --script res://screenshot.gd -- C:/tmp/panel.png --fillbasin=2000000 --breach=3 --pump=100 --openpanel --settle=9000
+```
+
+The widget's wire, headless and verbatim, reads `typed 99 into channel's box`, `channel := 15: set to
+15`, `port writes 1 (0 clamped)` and then `stalled: no outlet on channel 15`:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless --quit-after 1200 -- --nosave --fillbasin=2000000 --breach=3 --pump=100 --openpanel --panelset=channel=99
+```
+
 **M10a-3 adds the pump's two.** `--pump=<L/s>` places a relay pump at the bottom of the shaft
 `--breach` bites and a relay outlet on the surface `--pumpoutlet=<metres>` along +X (24 by default),
 both on channel 0, at the window's open — through `Place.Machine` where the outlet's chunk is loaded
@@ -752,7 +780,26 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
-**Pick up here (2026-09-16, morning). M10b-1 is built — Core and the headless seam — and M10b-2,
+**Pick up here (2026-09-16, morning, later). M10b is built — both sessions — and unplayed;
+M10c, power on the channel class, is next and wants its own planning pass against the ladder's
+decisions for it (the pool per channel as Σ storage rows, `clamped`, the converter and storage
+kinds, solar quantised off `SkyColumn` and `OvercastAt`, the equipped pack at header v4, the tool's
+`power` block, `--nogate`) and against `MachineTick`, `MachineSet`, `WorldHeader` and the entangled
+miner's rate. Read "M10b-2 — built" in [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) first,
+then the seven-question play recipe under M10b in TODO — the panel opened, edited and closed by
+hand is the one thing this build could not verify, and question 3 (one Esc or two with a field
+active) is a one-line change either way.** What b-2 built: `MachinePanel` over `PanelRequest`, one
+`SpinBox` per declared port through `SetPort` at once, the stall line, `FlyCam.ReleaseMouse()` /
+`CaptureMouse()`, Esc and the click outside and the row's departure as the three closes,
+`--openpanel[=outlet]`, `--panelset=`. **Three things M10c must not rediscover**: the click that
+re-captures the mouse is swallowed by the verbs until it is released (`FlyCam.ClickLive`, not
+`MouseCaptured`, is what mining and placement read now — a new verb reads it too); flight and
+walking are both gated on capture, so a panel or any future UI that releases the mouse stops the
+body where it stands; and the panel is built with the HUD and skipped with it under `--profile`,
+so a profile's `computer N open(s)` counts requests that opened nothing. Suite 1,569; r6 control to
+the digit. The paragraph below is b-1's state, kept for the reasoning.
+
+**Earlier (2026-09-16, morning). M10b-1 is built — Core and the headless seam — and M10b-2,
 the panel, is next: `MachinePanel` in `Overburden.Game/Ui/` over the row `PlaceController.PanelRequest`
 names (set for one frame on a right-click edge with the computer selected on a machine body; `Main`
 prints it today), one `SpinBox` per port the material declares through `MachineSet.SetPort` (clamped,

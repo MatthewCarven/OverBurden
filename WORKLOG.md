@@ -1,5 +1,36 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-16 — M10b-2 built: the panel, and the click that closes it is not a swing
+
+*"M10b-2 please"*. No Core change; suite 1,569, r6 control to the digit. What was built is in
+M10-LADDER-PLAN's "M10b-2 — built"; what is worth keeping here:
+
+- **The re-capture click has swung at the crosshair since M2, and the panel is the case that
+  made it matter.** A press while the mouse is released captures it in the input phase; the same
+  frame's `_Process` reads the button as held and mines or places. For a panel the crosshair is
+  still on the machine — nothing turns the camera while the mouse is released — so closing the
+  panel with a click would bite the pump just configured. `FlyCam.ClickLive` swallows the
+  capturing click until every button is up, for both verbs, and the rule is the camera's so that
+  "click back into the window" and "click outside the panel" are one case. Profiles never
+  capture by a click, so no figure moves.
+- **Flight is gated on capture now, as walking has been since M4c.** A focused field consumes a
+  key *event*; `Input.IsKeyPressed` reports the key's *state*, so typing into a panel would have
+  flown the camera in play — reasoned from the code, not seen, since a screenshot run has no keys. The FlyCam's own remark had
+  said the mouse belonging to the game was what the verbs read; movement now reads it too.
+- **The panel prints its status line on a stall-kind change, and that is the headless oracle.**
+  A label nobody can read headless is a UI nobody has verified; the log reads
+  `stalled: no water at the intake` → `moved 50 L at the last boundary` → `stalled: no water at the
+  intake` as a lake drains through the pump, three lines, bounded by the kinds.
+- **`--panelset=` types into the box rather than writing the port**, because `--port=` already
+  writes past the widget and M5c-2's rule is a recipe on the wire between layers: the box clamps
+  99 to 15, the signal runs, `SetPort` counts one write, the tick reads `no outlet on channel 15`.
+  The panel's `Clamped` branch is therefore unreachable from the panel — the box and the
+  declaration are built from one definition — and the branch is kept because the row is the
+  truth and the box is a view.
+- **Esc may take two presses with a field active, and the play decides.** Godot 4.4+'s
+  `LineEdit` consumes `ui_cancel` while editing. Recorded as the play check's question rather
+  than pre-empted, because the fix is one line either way and which is right is a hand's answer.
+
 ## 2026-09-16 — M10b-1 built: an item is never placed, a port write moves the ring
 
 *"As recommended, lets build b-1"* — the ID is `overburden:computer`. Suite 1,551 → 1,569. What

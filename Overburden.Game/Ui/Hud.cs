@@ -345,9 +345,10 @@ public sealed partial class Hud : CanvasLayer
     /// game ships <c>stone</c>, <c>dirt</c>, <c>grass</c>, <c>lamp</c> — and it is guaranteed to
     /// exist for every material including a placeholder standing in for a removed mod.
     /// <b>Revisit trigger: the first material whose ID is not a sensible label, or the first
-    /// request to run the game in another language.</b>
+    /// request to run the game in another language.</b> Shared with <see cref="MachinePanel"/>'s
+    /// title since M10b-2, so there is one definition of what a material is called.
     /// </remarks>
-    private static string DisplayName(Registry<MaterialDefinition> definitions, int materialId) =>
+    internal static string DisplayName(Registry<MaterialDefinition> definitions, int materialId) =>
         definitions.GetIdentifier(materialId).Path.Replace('_', ' ');
 
     private static string StatusText(PlaceController place, MiningController? mining, bool precise)

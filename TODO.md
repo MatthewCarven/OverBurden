@@ -5375,9 +5375,9 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             number: the relay delivers its nominal 100 L/s on a flooded chamber at either radius,
             3.2 ns a voxel to read the box, 500 wet pumps 3 ms a boundary, 500 dry 0.02 ms.** Read
             "M10a-3 — built" in M10-LADDER-PLAN. **The sleep set stays a lever**, trigger unchanged.
-- [ ] **M10b — the computer: planned 2026-09-16 (small hours), the pass after M10a-3's built
+- [x] **M10b — the computer: planned 2026-09-16 (small hours), the pass after M10a-3's built
       section in M10-LADDER-PLAN — six facts, nine decisions (the ID `overburden:computer` is
-      Matthew's; the rest recommended), two sessions.** The facts that moved it: a right-click
+      Matthew's; the rest recommended), two sessions; both built 2026-09-16, unplayed.** The facts that moved it: a right-click
       with anything selected places it, so `placeable: false` comes forward for the first item
       that is not a block; the computer's aim is mining's (the hit voxel), not building's; the
       capture handshake is two calls on `FlyCam` because both input handlers are *unhandled*
@@ -5393,9 +5393,51 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             `SelectedIsItem` route and `PanelRequest`; `--port=`; `port writes` and `computer
             opens / misses` on the `M10:` line. Suite 1,551 → 1,569; 14 recipes, 14 caught; r6
             control to the digit; the port write survives a quit headless. Read "M10b-1 — built".
-      - [ ] **b-2 — the panel**: `MachinePanel` (a row per declared port, the stall line, Esc or
-            a click outside closes), `FlyCam.ReleaseMouse()` / `CaptureMouse()`, keys ignored while
-            open, `--openpanel`, the screenshot.
+      - [x] **b-2 — the panel, built 2026-09-16 (morning).** `Overburden.Game/Ui/MachinePanel.cs`:
+            the material's label and cell, one `SpinBox` per declared port with its bounds beside
+            it, every change through `SetPort` at once and printed, the status line from
+            `LastStall` / `LastMovedMillilitres` (an outlet's says what its ports mean); opened on
+            `PanelRequest` through `Main.OpenPanel`, the mouse released after the panel shows;
+            closed by Esc (`Main`'s while a panel is open, every other key ignored), by a click
+            outside (the camera's own capture, seen by `Main` next frame) or by the row leaving
+            the set. **Two rules the pass did not have**: the click that takes the mouse back is
+            swallowed by both verbs until it is released (`FlyCam.ClickLive`) — before this the
+            re-capture click swung at whatever the crosshair was on, which for a panel is the
+            machine it was open on — and flight is gated on capture, because a key typed into a
+            field is a key `Input.IsKeyPressed` still reports. `--openpanel[=outlet]` opens on
+            `--pump`'s body, `--panelset=<name>=<value>` types into the open box (the widget's wire,
+            headless: `channel := 15: set to 15` for a typed 99, then `stalled: no outlet on
+            channel 15`), and the panel prints its status line on every stall-kind change. Three
+            screenshots taken; suite 1,569 unchanged (no Core change); r6 control to the digit.
+            Read "M10b-2 — built".
+      - [ ] **M10b's play check — on a scratch world, one sentence back on each** (M10d's play
+            takes the pump end to end; this is the panel alone):
+            1. `P`, select the computer (`COMPUTER (in hand)` on the status line), right-click the
+               ground — nothing placed, nothing swung. Select the pump, place it, select the
+               computer, right-click the body: the panel opens centred, the cursor on it, the
+               camera still.
+            2. Change the channel with the arrows and by typing; the log prints one `M10: panel —
+               … channel := N: set to N` per change and the `M10:` line's `port writes` climbs.
+               Type 99: the box shows 15.
+            3. Esc with the field still editing: the field stops editing (Godot 4.4+'s LineEdit
+               consumes the first Esc); Esc again closes the panel and the mouse is captured —
+               **is one Esc or two what you expect?** If one, the panel handles Esc itself
+               (`_UnhandledKeyInput` on the panel, marked handled, the camera's rule untouched).
+            4. Open it again; click the ground outside the panel with the left button: the panel
+               closes, the mouse is captured, and **the pump is not bitten** (`ClickLive`) — the
+               `M6c:`/`M3:` lines show no swing on that click.
+            5. With the panel open press 1–9, Q, B, V, T, F: nothing changes (the log prints no
+               `M6c: brush`, `M4c:` or tier line); WASD does not fly the camera.
+            6. Open the outlet: two rows, `weight 1 … 100`, the status line naming its channel.
+            7. The look — is a dim panel over the world the right shape, or does it want to sit
+               to one side of the crosshair? (The cursor appears at the screen centre when the
+               mouse is released, which is why it is centred.)
+            Levers named and not built: a HUD status line saying `PANEL OPEN` while one is
+            (the hotbar's line still names the brush underneath); an outlet's own `received`
+            counter on the row for its status line (the tick writes only the pump's; one field,
+            reset per boundary over the outlets, and a `MachineTickTests` fixture); a port
+            declared wider than 2^53 rounds in the box before `SetPort` sees it (no shipped port
+            is near it).
 - [ ] **M10c — power on the channel class**: pool = Σ storage rows, `clamped`; converters and
       storage; solar quantised at its one entry site; the equipped pack at header v4; the tool's
       `power` block; `--nogate`.

@@ -1689,3 +1689,78 @@ running backwards.
 per declared port through `SetPort`, the stall line from `LastStall` and `LastMovedMillilitres`,
 `FlyCam.ReleaseMouse()` / `CaptureMouse()`, `Main` ignoring its keys while the panel is open and
 closing it when capture returns, `--openpanel` for the screenshot.
+
+### M10b-2 — built
+
+> 2026-09-16, morning (*"M10b-2 please"*). No Core change: the suite is b-1's 1,569, the r6
+> control is unchanged to the digit, and the thing built is judged by three screenshots and two
+> headless lines.
+
+**What is there.** `Overburden.Game/Ui/MachinePanel.cs`, a `CanvasLayer` at layer 11 over a
+full-rect root that ignores the mouse and a centred `PanelContainer` that stops it: the material's
+label (`Hud.DisplayName`, now shared — one definition of what a material is called) in the HUD's
+selection yellow, the cell's metres and the facing, one `HBoxContainer` per port the definition
+declares — the name with its underscores opened, a `SpinBox` bounded by the declaration, the
+bounds beside it as `0 … 15` — a status line, and a hint. Every change goes through
+`MachineSet.SetPort` the moment the box's value changes, printed
+(`M10: panel — relay pump at Cell(15, -4, 3): channel := 15: set to 15`), the landed value shown
+back; the box's own range clamps what is typed before the write sees it, so `Clamped` is
+`--port=`'s to exercise. The status line is the row's `LastStall` and `LastMovedMillilitres` in
+the player's words — `moved 50 L at the last boundary` in green, `stalled: no outlet on channel 3`
+in amber, the five stalls each with a sentence — refreshed on the HUD's tenth-of-a-second
+throttle, and an outlet's line says what its ports mean (`receives from every pump on channel 0 ·
+weight 7 in the ring`), because the tick writes only the pump's row. **The panel prints its
+status line whenever the stall kind changes**, never when the number does, so headless — where
+nobody can read the label — the log carries `stalled: no water at the intake` → `moved 50 L at the
+last boundary` → `stalled: no water at the intake` as the lake drains, three lines for a run.
+
+`Main.OpenPanel` opens it on `PanelRequest` (b-1's edge, so once per click): the panel shows,
+*then* `FlyCam.ReleaseMouse()`, so the cursor appears — at the screen centre, which is why the
+panel is centred — over a panel that exists. Three things close it, all through `Main.ClosePanel`:
+Esc, which `Main._UnhandledInput` owns while a panel is open (every other key is left alone — a
+digit is a port value on its way to a field, not a hotbar slot — and the camera, a child, saw the
+same Esc first and released a mouse that was already released, so the order comes out captured
+through `FlyCam.CaptureMouse()`); a click outside, which the frame does not stop and so reaches the
+camera as unhandled input and captures by the camera's own rule, seen by `UpdatePanel` the same
+frame; and the row leaving the set (a pick, a fall, a reconcile — the panel is a view of one row
+and goes when it does). `--openpanel` opens on `--pump`'s pump as it is placed, `--openpanel=outlet`
+on the outlet (the two-row one), and `--panelset=<name>=<value>` puts a value into the open box as a
+hand would — through the box, so its range and its signal run — the widget's wire headless.
+
+**Two rules the pass did not have, both the camera's.** *The click that takes the mouse back is
+swallowed by the verbs until it is released* (`FlyCam.ClickLive`, read by mining and placement in
+place of `MouseCaptured`). Before this the press captured the mouse in the input phase and the same
+frame's `_Process` read the button as held and swung at whatever the crosshair was on — a bite out
+of the ground for clicking back into the window, which nobody minded, and a bite out of the pump you
+had just configured for closing its panel, which nobody would have: nothing turns the camera while
+the mouse is released, so the crosshair is still on the machine when the panel closes. The swallow
+is the camera's rather than the panel's so the two cases are one rule, and it ends when every button
+is up, read as state rather than as the release event, because a release over a Control that stops
+the mouse is that Control's. And *flight is gated on capture*, as walking has been since M4c: a key
+typed into a field is a key `Input.IsKeyPressed` still reports — the field consumes the event, not
+the state — and a panel that flew the camera while you typed `1` and `w` into it would leave the
+machine behind you. Both are recorded in the FlyCam's remarks; neither moves a profile figure,
+because a profile captures at `_Ready` and never by a click.
+
+**One thing the build cannot verify and the play must.** Godot 4.4+'s `LineEdit` consumes Esc
+while it is *editing* (it un-edits and accepts the event), so with a box's field still active the
+first Esc leaves the field and the second closes the panel; with no field active one Esc closes.
+Whether two is what a hand expects is the play check's question 3; if one, the panel takes Esc
+itself in `_UnhandledKeyInput` and marks it handled, the camera's rule untouched.
+
+**What the numbers say.** Headless, no `--profile` (the panel is built with the HUD and skipped
+with it): `--fillbasin=2000000 --breach=3 --pump=100 --openpanel` reads `panel — opened on relay
+pump at Cell(15, -4, 3) (--openpanel): channel = 0 [0..15]` and the three status lines above;
+`--port=pump:channel=3` beside it reads `channel = 3 [0..15]` at the open and `stalled: no outlet on
+channel 3`; `--panelset=channel=99 --panelset=weight=5` reads `typed 99 into channel's box`,
+`channel := 15: set to 15`, `the open panel has no box called 'weight'`, `port writes 1 (0 clamped)`
+on the `M10:` line and `stalled: no outlet on channel 15` at the next boundary — the box clamped,
+the set counted, the ring rebuilt. Three screenshots through `screenshot.gd` with `--settle=9000`:
+the pump's panel with its one row and `moved 50 L at the last boundary`; the same pump on channel
+3 with the amber stall; the outlet's with two rows and `weight 7 … 1 … 100` after `--port=outlet:weight=7`.
+The r6 control, verbatim, 2601 / 325 / 3446 at 411; the suite 1,569.
+
+**M10b is built.** What is not: the play — the panel opened, edited and closed by hand, the
+seven-question recipe in TODO — and M10d's, where the relay pumps the played mine. Next is M10c,
+power on the channel class, and it wants its own planning pass against the ladder's decisions for
+it, `MachineTick`, `MachineSet` and the header.

@@ -112,6 +112,18 @@ public partial class Main : Node3D
     private PlaceController? _place;
 
     private Hud? _hud;
+
+    /// <summary>The computer's panel (M10b-2), built with the HUD and open on at most one machine.</summary>
+    private MachinePanel? _panel;
+
+    /// <summary><c>--openpanel</c>: open the panel on <c>--pump</c>'s pump as it is placed, for the screenshot.</summary>
+    private bool _openPanel;
+
+    /// <summary><c>--openpanel=outlet</c>: the outlet's panel instead — the two-row one.</summary>
+    private bool _openPanelOnOutlet;
+
+    /// <summary><c>--panelset=&lt;name&gt;=&lt;value&gt;</c>: typed into the open panel's box after <c>--openpanel</c> opens it — the widget's wire, headless.</summary>
+    private readonly List<(string Name, long Value)> _panelSets = [];
     private VoxelHighlight? _cellHighlight;
     private readonly VolumetricInventory _inventory = new();
     private bool _placeWhileProfiling;
@@ -1597,6 +1609,34 @@ public partial class Main : Node3D
                     _debugLamp = true;
                     break;
 
+                // M10b-2: opens the computer's panel on --pump's pump as it is placed, so
+                // screenshot.gd can shoot a control nobody can right-click headless —
+                // --debuglamp's shape, and like it a screenshot prop that leaves the played world
+                // alone. Headless the panel still opens, and prints what it would show.
+                case "openpanel":
+                    _openPanel = true;
+                    // The outlet's panel is the two-row one (channel and weight); the pump's is
+                    // the one with a stall line worth reading. Bare, or =pump, is the pump.
+                    _openPanelOnOutlet = string.Equals(value, "outlet", StringComparison.OrdinalIgnoreCase);
+                    break;
+
+                // A value put into the open panel's box as a hand would type it, so the wire from
+                // the widget to SetPort runs headless — --port= writes past the widget. Repeatable.
+                case "panelset":
+                {
+                    int equals = value.IndexOf('=');
+                    if (equals > 0 && long.TryParse(value[(equals + 1)..], out long typed))
+                    {
+                        _panelSets.Add((value[..equals], typed));
+                    }
+                    else
+                    {
+                        GD.Print($"Overburden: --panelset wants <name>=<value>, not '{value}' — ignored");
+                    }
+
+                    break;
+                }
+
                 case "profile":
                     profile = true;
                     break;
@@ -1845,7 +1885,7 @@ public partial class Main : Node3D
         // *loads* what an earlier one saved is not comparable with M2d's figures — the whole
         // streaming shape changes when 1,521 generates become 1,521 serial reads. --world= is the
         // opt back in, deliberately explicit.
-        if ((profile || _debugLamp) && !_worldNamed)
+        if ((profile || _debugLamp || _openPanel) && !_worldNamed)
         {
             _persist = false;
         }
@@ -1982,6 +2022,21 @@ public partial class Main : Node3D
             return;
         }
 
+        // M10b-2: the panel has the keyboard while it is open. Esc closes it and takes the mouse
+        // back — the camera, a child, saw the same Esc first and released a mouse that was already
+        // released, so the order comes out captured — and every other key is left alone: a digit
+        // here is a port value on its way to a field, not a hotbar slot. Below this line nothing
+        // changes, and a key a focused field consumed never reaches here at all.
+        if (_panel is { IsOpen: true })
+        {
+            if (key.Keycode == Key.Escape)
+            {
+                ClosePanel("Esc");
+            }
+
+            return;
+        }
+
         if (key.Keycode == Key.Q)
         {
             ToggleEntangledMiner();
@@ -2108,11 +2163,111 @@ public partial class Main : Node3D
     {
         if (_profiler is not null)
         {
+            if (_openPanel)
+            {
+                GD.Print("M10: --openpanel — no panel is built in a profile run, for the HUD's reason; drop --profile to open one");
+            }
+
             return;
         }
 
         _hud = new Hud { Name = "Hud" };
         AddChild(_hud);
+
+        // The panel with it, for the same reason and one more: it is added after the camera, so
+        // it sees unhandled input first — which is nothing, since its frame stops the clicks it
+        // wants at the GUI stage and the keys it wants go to a focused field before anyone.
+        _panel = new MachinePanel { Name = "MachinePanel" };
+        AddChild(_panel);
+    }
+
+    /// <summary>
+    /// Opens the panel on a row — the computer's right-click, or <c>--openpanel</c> — and hands the
+    /// mouse to it.
+    /// </summary>
+    /// <remarks>
+    /// The handshake is three lines and the order is the point: the panel shows, <em>then</em> the
+    /// camera releases the mouse, so the cursor appears over a panel that exists. Closing is
+    /// <see cref="ClosePanel"/>, from Esc, from the capture returning, or from the row going away.
+    /// </remarks>
+    private void OpenPanel(MachineRow row, string how)
+    {
+        if (_materials is null || _machines is null || _camera is null)
+        {
+            return;
+        }
+
+        string ports = string.Join(", ", row.Ports.Select(p => $"{p.Key} {p.Value}"));
+        MachineDefinition? definition = _materials.Machine(row.MaterialId);
+        if (definition is null)
+        {
+            // Unreachable from the controller, which asks IsMachine before it asks the set; kept
+            // for --openpanel and for a row whose material is a hole, which declares nothing.
+            GD.Print($"M10: computer — {row} declares no ports (its material is not a machine here); nothing to open ({how})");
+            return;
+        }
+
+        if (_panel is null)
+        {
+            GD.Print($"M10: computer — {row} under the crosshair (ports: {ports}); no panel in a profile run ({how})");
+            return;
+        }
+
+        string label = Hud.DisplayName(Content.Materials, row.MaterialId);
+        _panel.Open(row, definition, label, _machines);
+        _camera.ReleaseMouse();
+
+        GD.Print(
+            $"M10: panel — opened on {label} at {row.Cell} ({how}): "
+            + string.Join(", ", definition.Ports.Select(p =>
+                $"{p.Name} = {(row.TryGetPort(p.Name, out long held) ? held : p.Default)} [{p.Min}..{p.Max}]")));
+    }
+
+    /// <summary>Closes the panel and takes the mouse back if a click has not already.</summary>
+    private void ClosePanel(string why)
+    {
+        if (_panel is not { IsOpen: true })
+        {
+            return;
+        }
+
+        BrushCell cell = _panel.Row!.Cell;
+        _panel.Close();
+        if (_camera is { MouseCaptured: false })
+        {
+            _camera.CaptureMouse();
+        }
+
+        GD.Print($"M10: panel — closed on {cell} ({why}); {_panel.Writes} port write(s) through the panel this session");
+    }
+
+    /// <summary>
+    /// The panel's frame: closed when the camera has the mouse again — a click outside, by the
+    /// camera's own rule — or when the row it shows has left the set; refreshed otherwise.
+    /// </summary>
+    private void UpdatePanel(double delta)
+    {
+        if (_panel is not { IsOpen: true } || _camera is null)
+        {
+            return;
+        }
+
+        if (_camera.MouseCaptured)
+        {
+            ClosePanel("a click outside took the mouse back");
+            return;
+        }
+
+        // A pick, a fall or a reconcile can remove the row under an open panel; the set is the
+        // truth and the panel is a view of one row of it, so it goes when the row does.
+        MachineRow row = _panel.Row!;
+        if (_machines is null || !_machines.TryGet(row.Cell, out MachineRow now) || !ReferenceEquals(now, row))
+        {
+            ClosePanel("the machine is gone");
+            return;
+        }
+
+        _panel.Refresh(delta);
     }
 
     /// <summary>Selects a hotbar slot from a number key.</summary>
@@ -2373,6 +2528,7 @@ public partial class Main : Node3D
 
         UpdateMining(delta);
         UpdatePlacement(delta);
+        UpdatePanel(delta);
         UpdateSupport(delta);
 
         // The viewer only moves in whole chunks. Comparing first means a camera drifting
@@ -3014,6 +3170,39 @@ public partial class Main : Node3D
             PortWrite write = _machines.SetPort(at, name, value);
             GD.Print($"M10: --port — {target}'s {name} := {value}: {write} (--port)");
         }
+
+        // M10b-2: the panel on the pump, after the writes so it shows what they landed. A row
+        // alone is never the pump's — the pump's cell is loaded by construction, the shaft is.
+        if (_openPanel)
+        {
+            BrushCell wanted = _openPanelOnOutlet ? outletCell : pumpCell;
+            if (_machines.TryGet(wanted, out MachineRow wantedRow))
+            {
+                OpenPanel(wantedRow, _openPanelOnOutlet ? "--openpanel=outlet" : "--openpanel");
+
+                foreach ((string name, long typed) in _panelSets)
+                {
+                    if (_panel is not { IsOpen: true })
+                    {
+                        GD.Print($"M10: --panelset={name}={typed} — no panel is open to type into");
+                    }
+                    else if (!_panel.TypeInto(name, typed))
+                    {
+                        GD.Print($"M10: --panelset={name}={typed} — the open panel has no box called '{name}'");
+                    }
+                    else
+                    {
+                        // The box's own range has already clamped it by the time the panel prints
+                        // the write, so what was typed is printed here.
+                        GD.Print($"M10: --panelset — typed {typed} into {name}'s box");
+                    }
+                }
+            }
+            else
+            {
+                GD.Print($"M10: --openpanel — no row at {wanted}, so there is nothing to open");
+            }
+        }
     }
 
     /// <summary>Carves the cell to air and places a body in it through the brush's own path.</summary>
@@ -3457,7 +3646,9 @@ public partial class Main : Node3D
 
         Vector3 origin = _camera.GlobalPosition;
         Vector3 forward = -_camera.GlobalTransform.Basis.Z;
-        bool rightDown = _camera.MouseCaptured && Input.IsMouseButtonPressed(MouseButton.Right);
+        // ClickLive rather than MouseCaptured since M10b-2: the click that took the mouse back is
+        // not a placement, or a panel would close on the machine it opened and re-open on it.
+        bool rightDown = _camera.ClickLive && Input.IsMouseButtonPressed(MouseButton.Right);
         bool rightPressed = rightDown && !_rightWasDown;
         _rightWasDown = rightDown;
 
@@ -3502,10 +3693,11 @@ public partial class Main : Node3D
             _profiler.Place.Add(Milliseconds(before, Stopwatch.GetTimestamp()));
         }
 
-        // M10b: the computer's click. b-1 routes and counts; b-2 opens the panel on it.
+        // M10b: the computer's click — an edge the controller computed from the hold, so this is
+        // one frame per click and the panel opens once (b-1); b-2 opens it.
         if (_place.PanelRequest is { } opened)
         {
-            GD.Print($"M10: computer — {opened} under the crosshair (ports: {string.Join(", ", opened.Ports.Select(p => $"{p.Key} {p.Value}"))}); the panel is M10b-2's");
+            OpenPanel(opened, "right-click with the computer in hand");
         }
 
         if (placed && _place.RanOutThisFrame && !_announcedEmpty)
@@ -3563,7 +3755,9 @@ public partial class Main : Node3D
 
         Vector3 origin = _camera.GlobalPosition;
         Vector3 forward = -_camera.GlobalTransform.Basis.Z;
-        bool leftDown = _camera.MouseCaptured && Input.IsMouseButtonPressed(MouseButton.Left);
+        // ClickLive rather than MouseCaptured since M10b-2: the click that took the mouse back is
+        // not a swing — closing a panel would otherwise bite the machine it was open on.
+        bool leftDown = _camera.ClickLive && Input.IsMouseButtonPressed(MouseButton.Left);
         bool leftPressed = leftDown && !_leftWasDown;
         _leftWasDown = leftDown;
 

@@ -32,6 +32,7 @@ public partial class FlyCam : Camera3D
     private float _yaw;
     private float _pitch;
     private bool _mouseCaptured;
+    private bool _capturedByClick;
 
     /// <summary>
     /// Whether the mouse belongs to the game right now.
@@ -39,9 +40,28 @@ public partial class FlyCam : Camera3D
     /// <remarks>
     /// Mining polls the left button, and Esc releasing the mouse has to stop that as well as
     /// stop looking around — otherwise clicking on something else while the window has focus
-    /// digs a hole in the world.
+    /// digs a hole in the world. <b>Flight is gated on it too since M10b-2</b>, because a key
+    /// typed into a panel's field is a key <c>Input.IsKeyPressed</c> still reports — the field
+    /// consumes the event, not the state — and a panel that flew the camera while you typed into
+    /// it would leave the machine you opened behind you.
     /// </remarks>
     public bool MouseCaptured => _mouseCaptured;
+
+    /// <summary>
+    /// Whether the verbs may read the mouse buttons: captured, and not by a click that is still
+    /// held.
+    /// </summary>
+    /// <remarks>
+    /// <b>The click that re-captures the mouse is swallowed until it is released.</b> Before
+    /// M10b-2 it was not: the press captured the mouse in the input phase, and the same frame's
+    /// <c>_Process</c> read the button as held and swung at whatever the crosshair was on — a
+    /// bite out of the ground for clicking back into the window, which nobody minded, and a bite
+    /// out of the pump you had just configured for closing its panel, which is the case the rule
+    /// was written for: the crosshair is still on the machine when the panel closes, because
+    /// nothing turns the camera while the mouse is released. The swallow is the camera's rather
+    /// than the panel's so that the two cases are one rule.
+    /// </remarks>
+    public bool ClickLive => _mouseCaptured && !_capturedByClick;
 
     /// <summary>
     /// Whether WASD drives the camera directly.
@@ -114,7 +134,8 @@ public partial class FlyCam : Camera3D
             "  B cycles the brush, T cycles the tool tier\n" +
             "  L places a lamp — a debug bind, and with Q the only way to place at range\n" +
             "  Q toggles the entangled miner — unlimited reach, 40 swings/s, also a debug bind\n" +
-            "  P puts a relay pump and a relay outlet in the inventory — a debug bind until crafting; a machine places as one 1 m body\n" +
+            "  P puts a relay pump, a relay outlet and a computer in the inventory — a debug bind until crafting; a machine places as one 1 m body\n" +
+            "  With the computer in hand, right-click a machine to open its panel; Esc or a click outside closes it\n" +
             "  Esc releases the mouse, click to recapture");
     }
 
@@ -143,6 +164,21 @@ public partial class FlyCam : Camera3D
         Rotation = new Vector3(_pitch, _yaw, 0);
     }
 
+    /// <summary>
+    /// Gives the mouse to a panel: the cursor shows, looking around stops, the verbs stop
+    /// (M10b-2). The reverse is the camera's own rule — a click outside the panel, which reaches
+    /// here as unhandled input because the panel stops only the clicks on it — or
+    /// <see cref="CaptureMouse"/> from Esc, which <c>Main</c> owns while a panel is open.
+    /// </summary>
+    public void ReleaseMouse() => SetMouseCaptured(false);
+
+    /// <summary>Takes the mouse back without a click — Esc closing a panel, or the machine under one going away.</summary>
+    public void CaptureMouse()
+    {
+        SetMouseCaptured(true);
+        _capturedByClick = false;
+    }
+
     public override void _UnhandledInput(InputEvent @event)
     {
         switch (@event)
@@ -160,14 +196,29 @@ public partial class FlyCam : Camera3D
                 break;
 
             case InputEventMouseButton { Pressed: true } when !_mouseCaptured:
+                // A click that lands on a Control stopping the mouse never gets here — the panel's
+                // frame owns its own clicks — so this is a click on the world, and it takes the mouse
+                // back. Swallowed by the verbs until it is released; see ClickLive.
                 SetMouseCaptured(true);
+                _capturedByClick = true;
                 break;
         }
     }
 
     public override void _Process(double delta)
     {
-        if (!FlightEnabled)
+        // The swallow ends when every button is up, read as state rather than as the release
+        // event, because a release over a Control that stops the mouse is that Control's and
+        // would never arrive here.
+        if (_capturedByClick
+            && !Input.IsMouseButtonPressed(MouseButton.Left)
+            && !Input.IsMouseButtonPressed(MouseButton.Right)
+            && !Input.IsMouseButtonPressed(MouseButton.Middle))
+        {
+            _capturedByClick = false;
+        }
+
+        if (!FlightEnabled || !_mouseCaptured)
         {
             return;
         }
