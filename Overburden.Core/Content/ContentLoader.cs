@@ -291,18 +291,26 @@ public sealed class ContentLoader
                     continue;
                 }
 
-                if (dto.Placeable == false)
+                if (!TryReadMachine(dto.Machine, out machine, out string? machineError))
                 {
-                    // A machine is a body the brush places (M10a); a machine nobody can place is
-                    // a row nothing can create. Refused at load naming the file, like every other
-                    // rule the format has.
+                    errors.Add($"{manifest.Id}/{path}: machine: {machineError}");
+                    continue;
+                }
+
+                // A machine is a body the brush places (M10a); a machine nobody can place is a row
+                // nothing can create — unless it is carried (M10c), a pack in the hand that is an
+                // item by the same rule the computer is, and then it must be. Refused at load
+                // naming the file, like every other rule the format has.
+                bool carried = machine!.Carried;
+                if (dto.Placeable == false && !carried)
+                {
                     errors.Add($"{manifest.Id}/{path}: a machine cannot be \"placeable\": false; its body is placed by the brush.");
                     continue;
                 }
 
-                if (!TryReadMachine(dto.Machine, out machine, out string? machineError))
+                if (carried && dto.Placeable != false)
                 {
-                    errors.Add($"{manifest.Id}/{path}: machine: {machineError}");
+                    errors.Add($"{manifest.Id}/{path}: a carried storage must be \"placeable\": false; it is an item in the hand, never a body.");
                     continue;
                 }
             }
@@ -527,8 +535,10 @@ public sealed class ContentLoader
         {
             case "pump": kind = MachineKind.Pump; break;
             case "outlet": kind = MachineKind.Outlet; break;
-            case "generator" or "converter" or "storage":
-                error = $"kind '{dto.Kind}' is not in this build — power is M10c.";
+            case "converter": kind = MachineKind.Converter; break;
+            case "storage": kind = MachineKind.Storage; break;
+            case "generator":
+                error = "kind 'generator' is not in this build — the burner and the crank are M10f.";
                 return false;
             case "station":
                 error = "kind 'station' is not in this build — crafting is M10g.";
@@ -555,6 +565,39 @@ public sealed class ContentLoader
             }
 
             millilitresPerSecond = (long)Math.Round(millis);
+        }
+
+        // Thousandths, by the rule litresPerSecond follows: a fraction the tick cannot hold
+        // exactly is refused rather than rounded, so the file and the pool agree.
+        int efficiencyPerMille = MachineDefinition.PerMille;
+        if (dto.Efficiency is { } efficiency)
+        {
+            double thousandths = efficiency * MachineDefinition.PerMille;
+            if (double.IsNaN(thousandths) || double.IsInfinity(thousandths) || thousandths != Math.Round(thousandths))
+            {
+                error = "efficiency must be a whole number of thousandths (three decimals at most).";
+                return false;
+            }
+
+            if (thousandths < 0 || thousandths > MachineDefinition.PerMille)
+            {
+                error = "efficiency must be within 0..1.";
+                return false;
+            }
+
+            efficiencyPerMille = (int)Math.Round(thousandths);
+        }
+
+        long capacityMillijoules = 0;
+        if (dto.CapacityJoules is { } capacityJoules)
+        {
+            if (capacityJoules < 0 || capacityJoules > MachineDefinition.MaxCapacityJoules)
+            {
+                error = $"capacityJoules must be within 0..{MachineDefinition.MaxCapacityJoules:N0}.";
+                return false;
+            }
+
+            capacityMillijoules = capacityJoules * MachineDefinition.PerMille;
         }
 
         var links = new List<MachineLink>();
@@ -633,6 +676,11 @@ public sealed class ContentLoader
             HeadMetres = dto.HeadMetres,
             JoulesPerLitre = dto.JoulesPerLitre ?? 0,
             IntakeRadiusCells = dto.IntakeRadiusCells ?? MachineDefinition.MinIntakeRadiusCells,
+            RatedWatts = dto.RatedWatts ?? 0,
+            EfficiencyPerMille = efficiencyPerMille,
+            CapacityMillijoules = capacityMillijoules,
+            Carried = dto.Carried ?? false,
+            RechargeWatts = dto.RechargeWatts,
             Links = links,
             Ports = ports,
         };
@@ -661,6 +709,11 @@ public sealed class ContentLoader
         public double? HeadMetres { get; set; }
         public long? JoulesPerLitre { get; set; }
         public int? IntakeRadiusCells { get; set; }
+        public long? RatedWatts { get; set; }
+        public double? Efficiency { get; set; }
+        public long? CapacityJoules { get; set; }
+        public bool? Carried { get; set; }
+        public long? RechargeWatts { get; set; }
         public Dictionary<string, MachineLinkJson?>? Links { get; set; }
         public Dictionary<string, MachinePortJson?>? Ports { get; set; }
     }

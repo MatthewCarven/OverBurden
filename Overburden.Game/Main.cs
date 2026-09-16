@@ -3060,7 +3060,15 @@ public partial class Main : Node3D
         {
             _machineTick = new MachineTick(
                 _machines, _materials!, _fluid, _machineTerrain, _seedHeights, _water,
-                boundaryMillis: (long)Math.Round(FluidTickSeconds * 1000.0));
+                boundaryMillis: (long)Math.Round(FluidTickSeconds * 1000.0))
+            {
+                // M10c-1: the pool is in Core and nothing in the game feeds it yet — no sky, no
+                // overcast byte, no cell beside --pump's outlet — so the tick runs the pre-M10c
+                // arm until c-2 wires it, or the relay would stall unpowered and a-3's oracle
+                // would stop reading. Printed, so a run cannot mistake this for a measurement.
+                PowerOff = true,
+            };
+            GD.Print("M10: power is off — the pool is c-1's Core and c-2 wires it; every pump is free (the pre-M10c arm)");
             if (_pumpLitresPerSecond > 0)
             {
                 _machineTick.RateOverrideMillilitresPerSecond = (long)Math.Round(_pumpLitresPerSecond * FluidConstants.MillilitresPerLitre);

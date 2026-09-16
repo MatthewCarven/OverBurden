@@ -26,9 +26,16 @@ public enum PumpStall : byte
 
     /// <summary>The outlet, or the lake, is on ground the watershed has not analysed — off the window.</summary>
     Unanalysed,
+
+    /// <summary>Water, room and an outlet, and not a litre's worth of joules on its channel (M10c). <c>no water</c> beats it: a dry pump is not a starved one.</summary>
+    Unpowered,
 }
 
 /// <summary>What one <see cref="MachineTick.Run"/> did.</summary>
+/// <param name="GeneratedMillijoules">This boundary's generation over every channel (M10c).</param>
+/// <param name="DrawnMillijoules">What the pumps paid this boundary.</param>
+/// <param name="ClampedMillijoules">What no storage row could hold after the write-back — reported, never tolerated.</param>
+/// <param name="PackGivenMillijoules">What the equipped pack took from its channel, last.</param>
 public readonly record struct MachineTickReport(
     int Pumps,
     int Outlets,
@@ -41,7 +48,12 @@ public readonly record struct MachineTickReport(
     int NoWater,
     int NoRoom,
     int Unloaded,
-    int Unanalysed)
+    int Unanalysed,
+    int Unpowered = 0,
+    long GeneratedMillijoules = 0,
+    long DrawnMillijoules = 0,
+    long ClampedMillijoules = 0,
+    long PackGivenMillijoules = 0)
 {
     /// <summary>Everything a pump took this boundary, in millilitres, both tiers.</summary>
     public long PumpedInAll => PumpedMillilitres + (PumpedLitres * FluidConstants.MillilitresPerLitre);
@@ -55,7 +67,8 @@ public readonly record struct MachineTickReport(
     public override string ToString() =>
         $"{Pumps} pump(s) over {Outlets} outlet(s), {Moved} moved; pumped {PumpedMillilitres:N0} mL + {PumpedLitres:N0} L, "
         + $"emitted {EmittedMillilitres:N0} mL + {EmittedLitres:N0} L ({(Exact ? "exact" : "*** NOT EXACT ***")}); "
-        + $"stalled: {NoOutlet} no outlet, {NoWater} no water, {NoRoom} no room, {Unloaded} unloaded, {Unanalysed} unanalysed";
+        + $"stalled: {NoOutlet} no outlet, {NoWater} no water, {NoRoom} no room, {Unloaded} unloaded, {Unanalysed} unanalysed, {Unpowered} unpowered; "
+        + $"power: generated {GeneratedMillijoules:N0} mJ, drawn {DrawnMillijoules:N0}, clamped {ClampedMillijoules:N0}, pack given {PackGivenMillijoules:N0}";
 }
 
 /// <summary>
@@ -107,6 +120,20 @@ public readonly record struct MachineTickReport(
 /// the set's version moves.
 /// </para>
 /// <para>
+/// <b>The pool is this tick's, per channel, and nothing persists per channel</b> (M10c, decision 1;
+/// the ladder's decision 9). Before the pumps: every converter's output this boundary and every
+/// placed storage row's charge are summed per channel; a pump's offer is capped at what the channel
+/// can pay for — <c>joulesPerLitre</c> is a millijoule a millilitre, so the bill is one integer
+/// division — and a pump with water, room and an outlet but not a litre's worth of joules stalls
+/// <c>unpowered</c>; after the pumps the equipped pack draws last, bounded by its recharge; then
+/// what remains is written back into the channel's storage rows in origin order up to capacity,
+/// and what no row holds is <c>clamped</c>, reported. Solar is one integer product (decision 2):
+/// <c>ratedWatts × boundary × open / 16 × (256 − overcast) / 256 × efficiency / 1000</c>, the
+/// openness sampled off <see cref="ISolarSky"/> when the column is loaded and kept on the row
+/// (<see cref="ConverterState"/>) when it is not. <see cref="PowerOff"/> is the pre-M10c arm —
+/// no generation, no bill, no write-back — the game's <c>--nogate</c>.
+/// </para>
+/// <para>
 /// <b>Weights are the ring, not a second rule</b> (M10b, decision 5). A channel's ring is its
 /// outlets in origin order expanded by their <c>weight</c> port through the smooth weighted
 /// round-robin — each turn picks the outlet with the largest running credit, every credit grows by
@@ -150,6 +177,11 @@ public sealed class MachineTick
     private readonly List<ChunkPos> _boxChunks = new(8);
     private readonly HashSet<MachineRow> _reached = [];
 
+    // M10c: the pool's parts, rebuilt with the rings.
+    private readonly List<(MachineRow Row, MachineDefinition Definition, int Channel)> _converters = [];
+    private readonly List<(MachineRow Row, MachineDefinition Definition)>?[] _storage = new List<(MachineRow, MachineDefinition)>?[Channels];
+    private readonly long[] _available = new long[Channels];
+
     /// <param name="machines">The rows; the tick reads them and never writes a row.</param>
     /// <param name="materials">Which rows are pumps and outlets, and at what rate.</param>
     /// <param name="fluid">Tier B, at a boundary — the grid is the caller's.</param>
@@ -192,8 +224,90 @@ public sealed class MachineTick
     /// </summary>
     public long? RateOverrideMillilitresPerSecond { get; set; }
 
+    /// <summary>
+    /// The pre-M10c arm: no generation, no bill, no write-back, every pump free — the game's
+    /// <c>--nogate</c>. Off by default; a caller that has no pool yet (c-1's game) turns it on
+    /// and says so.
+    /// </summary>
+    public bool PowerOff { get; set; }
+
+    /// <summary>What a solar converter asks at the boundary; null makes every panel generate from its last sample (dark, if it never had one).</summary>
+    public ISolarSky? Sky { get; set; }
+
+    /// <summary>The overcast as a byte, 0 clear to 255, taken once a boundary by the caller — the one site the float enters the pool (decision 10).</summary>
+    public byte OvercastByte { get; set; }
+
+    /// <summary>The pack the player carries, recharged last from its channel each boundary; null with none equipped.</summary>
+    public EquippedPack? Pack { get; set; }
+
     /// <summary>Boundaries run.</summary>
     public long Boundaries { get; private set; }
+
+    /// <summary>Millijoules every converter generated, over the lifetime.</summary>
+    public long GeneratedMillijoules { get; private set; }
+
+    /// <summary>Millijoules the pumps paid, over the lifetime.</summary>
+    public long DrawnByPumpsMillijoules { get; private set; }
+
+    /// <summary>Millijoules no storage row could hold after a write-back, over the lifetime.</summary>
+    public long ClampedMillijoules { get; private set; }
+
+    /// <summary>Millijoules the equipped pack took from its channel, over the lifetime.</summary>
+    public long PackGivenMillijoules { get; private set; }
+
+    /// <summary>Pump-boundaries that stalled for want of a litre's worth of joules.</summary>
+    public long StalledUnpowered { get; private set; }
+
+    /// <summary>Converter-boundaries whose openness was sampled off the sky, and those that used the row's last sample.</summary>
+    public long SolarSampled { get; private set; }
+
+    public long SolarUnsampled { get; private set; }
+
+    /// <summary>Open columns summed over every converter-boundary, for a mean against <see cref="SolarSampled"/> + <see cref="SolarUnsampled"/>.</summary>
+    public long OpenColumnsSum { get; private set; }
+
+    /// <summary>Converters and placed storage rows as the last rebuild left them.</summary>
+    public int Converters => _converters.Count;
+
+    public int StorageRows
+    {
+        get
+        {
+            int n = 0;
+            foreach (List<(MachineRow, MachineDefinition)>? rows in _storage)
+            {
+                n += rows?.Count ?? 0;
+            }
+
+            return n;
+        }
+    }
+
+    /// <summary>Millijoules on every placed storage row now, through the set's own definition of a charge.</summary>
+    public long StoredMillijoules
+    {
+        get
+        {
+            long sum = 0;
+            foreach (MachineRow row in _machines.Rows)
+            {
+                sum += _machines.ChargeOf(row);
+            }
+
+            return sum;
+        }
+    }
+
+    /// <summary>
+    /// The pool's identity over the session: every millijoule on a row or in the pack now is one
+    /// that entered on a row, was generated, or was in the pack at hand-over, less what left on a
+    /// row, what the pumps paid, what was clamped and what the tool took. No term is in flight.
+    /// </summary>
+    public bool PowerExact =>
+        StoredMillijoules + (Pack?.ChargeMillijoules ?? 0)
+        == _machines.StoredMillijoulesEntering - _machines.StoredMillijoulesLeaving
+            + GeneratedMillijoules - DrawnByPumpsMillijoules - ClampedMillijoules
+            + (Pack?.InitialMillijoules ?? 0) - (Pack?.TakenMillijoules ?? 0);
 
     /// <summary>Pump-boundaries that moved anything.</summary>
     public long Moves { get; private set; }
@@ -292,7 +406,10 @@ public sealed class MachineTick
 
         int moved = 0;
         long pumpedB = 0, pumpedA = 0, emittedB = 0, emittedA = 0;
-        int noOutlet = 0, noWater = 0, noRoom = 0, unloaded = 0, unanalysed = 0;
+        int noOutlet = 0, noWater = 0, noRoom = 0, unloaded = 0, unanalysed = 0, unpowered = 0;
+
+        // M10c: the pool before the pumps — what every channel can pay this boundary.
+        long generated = PowerOff ? 0 : BeginPower();
 
         foreach ((MachineRow row, MachineDefinition definition) in _pumps)
         {
@@ -333,20 +450,154 @@ public sealed class MachineTick
                     unanalysed++;
                     StalledUnanalysed++;
                     break;
+                case PumpStall.Unpowered:
+                    unpowered++;
+                    StalledUnpowered++;
+                    break;
             }
+        }
+
+        // M10c: the pack last, then the write-back and the clamp.
+        long drawn = 0, clamped = 0, packGiven = 0;
+        if (!PowerOff)
+        {
+            drawn = _drawnThisBoundary;
+            packGiven = RechargePack();
+            clamped = WriteBack();
         }
 
         Last = new MachineTickReport(
             pumps, outlets, moved, pumpedB, pumpedA, emittedB, emittedA,
-            noOutlet, noWater, noRoom, unloaded, unanalysed);
+            noOutlet, noWater, noRoom, unloaded, unanalysed, unpowered,
+            generated, drawn, clamped, packGiven);
         return Last;
+    }
+
+    private long _drawnThisBoundary;
+
+    /// <summary>
+    /// Every converter's output and every storage row's charge, summed per channel into what the
+    /// channel can pay this boundary. Returns the generation.
+    /// </summary>
+    private long BeginPower()
+    {
+        Array.Clear(_available);
+        _drawnThisBoundary = 0;
+        long generated = 0;
+        foreach ((MachineRow row, MachineDefinition definition, int channel) in _converters)
+        {
+            long output = SolarOutput(row, definition);
+            _available[channel] += output;
+            generated += output;
+        }
+
+        GeneratedMillijoules += generated;
+
+        for (int channel = 0; channel < Channels; channel++)
+        {
+            List<(MachineRow Row, MachineDefinition Definition)>? rows = _storage[channel];
+            if (rows is null)
+            {
+                continue;
+            }
+
+            foreach ((MachineRow row, _) in rows)
+            {
+                _available[channel] += StorageState.Read(row);
+            }
+        }
+
+        return generated;
+    }
+
+    /// <summary>
+    /// A panel's millijoules this boundary — decision 2's one integer product, the openness
+    /// sampled when the sky can answer and the row's last sample otherwise.
+    /// </summary>
+    private long SolarOutput(MachineRow row, MachineDefinition definition)
+    {
+        int open;
+        if (Sky is not null && Sky.TryOpenColumnsAbove(row.Cell, out open))
+        {
+            ConverterState.WriteOpenColumns(row, open);
+            SolarSampled++;
+        }
+        else
+        {
+            open = ConverterState.ReadOpenColumns(row);
+            SolarUnsampled++;
+        }
+
+        OpenColumnsSum += open;
+
+        // Multiply then divide, each factor in turn, so 500 W under a byte of 255 reads 976 mJ
+        // and not 0: the storm dims a panel to a 256th, never off. Every factor is bounded at
+        // load so the product stays inside a long.
+        long millijoules = definition.RatedWatts * _boundaryMillis;
+        millijoules = millijoules * open / ConverterState.Columns;
+        millijoules = millijoules * (256 - OvercastByte) / 256;
+        millijoules = millijoules * definition.EfficiencyPerMille / MachineDefinition.PerMille;
+        return millijoules;
+    }
+
+    /// <summary>The pack draws last from its channel, to its capacity and its recharge bound. Returns what it took.</summary>
+    private long RechargePack()
+    {
+        if (Pack is null)
+        {
+            return 0;
+        }
+
+        int channel = Math.Clamp(Pack.Channel, 0, Channels - 1);
+        long bound = Pack.Definition.RechargeWatts is { } watts ? watts * _boundaryMillis : long.MaxValue;
+        long give = Math.Min(_available[channel], Math.Min(Pack.CapacityMillijoules - Pack.ChargeMillijoules, bound));
+        if (give <= 0)
+        {
+            return 0;
+        }
+
+        long given = Pack.Give(give);
+        _available[channel] -= given;
+        PackGivenMillijoules += given;
+        return given;
+    }
+
+    /// <summary>
+    /// What each channel still has goes back into its storage rows in origin order, each to its
+    /// capacity; what no row holds is clamped. Returns the boundary's clamp.
+    /// </summary>
+    private long WriteBack()
+    {
+        long clamped = 0;
+        for (int channel = 0; channel < Channels; channel++)
+        {
+            long remaining = _available[channel];
+            List<(MachineRow Row, MachineDefinition Definition)>? rows = _storage[channel];
+            if (rows is not null)
+            {
+                foreach ((MachineRow row, MachineDefinition definition) in rows)
+                {
+                    long put = Math.Min(remaining, definition.CapacityMillijoules);
+                    StorageState.Write(row, put);
+                    remaining -= put;
+                }
+            }
+
+            clamped += remaining;
+            _available[channel] = 0;
+        }
+
+        ClampedMillijoules += clamped;
+        return clamped;
     }
 
     /// <summary>The pumps and the per-channel outlets, in origin order, from the set as it stands.</summary>
     private void Rebuild()
     {
         _pumps.Clear();
+        _converters.Clear();
         Array.Clear(_outlets);
+        Array.Clear(_storage);
 
         foreach (MachineRow row in _machines.Rows)
         {
@@ -366,10 +617,24 @@ public sealed class MachineTick
                     int channel = ChannelOf(row);
                     (_outlets[channel] ??= []).Add(row);
                     break;
+                case MachineKind.Converter:
+                    _converters.Add((row, definition, ChannelOf(row)));
+                    break;
+                case MachineKind.Storage when !definition.Carried:
+                    // A carried storage is the pack, never a row; one that reached the set is
+                    // kept and ticks nothing, like a hole.
+                    (_storage[ChannelOf(row)] ??= []).Add((row, definition));
+                    break;
             }
         }
 
         _pumps.Sort(static (a, b) => CompareOrigin(a.Row, b.Row));
+        _converters.Sort(static (a, b) => CompareOrigin(a.Row, b.Row));
+        foreach (List<(MachineRow Row, MachineDefinition Definition)>? rows in _storage)
+        {
+            rows?.Sort(static (a, b) => CompareOrigin(a.Row, b.Row));
+        }
+
         for (int channel = 0; channel < Channels; channel++)
         {
             List<MachineRow>? outlets = _outlets[channel];
@@ -499,6 +764,29 @@ public sealed class MachineTick
             }
         }
 
+        // M10c: the bill. A joule a litre is a millijoule a millilitre, so what the channel can
+        // pay for is one division; a lake pump's offer stays whole litres. After no water, by
+        // design — a dry pump is not a starved one. (A Tier B pump pouring into a basin with
+        // under a litre's worth of joules rounds its take to nothing at the outlet and reads
+        // no room there; the pool accumulates and the next boundary pays, so the label is
+        // one boundary's, not the stall.)
+        long bill = definition.JoulesPerLitre;
+        if (!PowerOff && bill > 0)
+        {
+            long affordable = _available[channel] / bill;
+            if (lake)
+            {
+                affordable -= affordable % FluidConstants.MillilitresPerLitre;
+            }
+
+            if (affordable == 0)
+            {
+                return PumpStall.Unpowered;
+            }
+
+            offer = Math.Min(offer, affordable);
+        }
+
         long moved = 0;
         PumpStall first = PumpStall.None;
         int count = outlets.Count;
@@ -573,6 +861,16 @@ public sealed class MachineTick
 
         if (moved > 0)
         {
+            // Paid after the move, for exactly what moved: the offer was capped at what the
+            // channel could pay, so the bill can never exceed what is there.
+            if (!PowerOff && bill > 0)
+            {
+                long cost = moved * bill;
+                _available[channel] -= cost;
+                _drawnThisBoundary += cost;
+                DrawnByPumpsMillijoules += cost;
+            }
+
             _cursor[channel] = (start + 1) % count;
             return PumpStall.None;
         }

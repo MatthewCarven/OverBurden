@@ -46,16 +46,55 @@ public class MachineTickTests(ITestOutputHelper output)
 
     private const int Air = 0, Stone = 1, Pump = 2, Outlet = 3, SlowPump = 4, WidePump = 5;
 
+    // M10c: the pool's materials — a 500 W panel, one at 90%, a 5 GJ cell, a 100 J cell, the
+    // relay with its bill, and a pack.
+    private const int Panel = 6, DimPanel = 7, BigCell = 8, SmallCell = 9, BilledPump = 10, PackMaterial = 11;
+
     /// <summary>The relay's rate: 100 L/s is 50,000 mL a boundary, 3.2 cells.</summary>
     private const long RelayMillilitresPerBoundary = 50_000;
 
-    private static MachineDefinition PumpAt(long millilitresPerSecond, int radius = 1) => new()
+    /// <summary>A 500 W panel over 500 ms, open and clear: 250,000 mJ.</summary>
+    private const long PanelMillijoulesPerBoundary = 250_000;
+
+    /// <summary>The relay's bill: a joule a litre is a millijoule a millilitre, so 1,000 J/L is 50,000,000 mJ a boundary at full rate.</summary>
+    private const long RelayBill = 1000;
+
+    private const long BigCellCapacity = 5_000_000_000L * 1000L;
+    private const long SmallCellCapacity = 100L * 1000L;
+    private const long PackCapacity = 3_600_000L * 1000L;
+    private const long PackRechargePerBoundary = 1000L * 500L;
+
+    private static MachineDefinition PumpAt(long millilitresPerSecond, int radius = 1, long joulesPerLitre = 0) => new()
     {
         Kind = MachineKind.Pump,
         MillilitresPerSecond = millilitresPerSecond,
         IntakeRadiusCells = radius,
+        JoulesPerLitre = joulesPerLitre,
         Links = [new MachineLink("water", MachineMedium.Fluid, MachineRole.Source, MachineLink.ChannelVia, null, "channel")],
         Ports = [new PortDefinition("channel", 0, 0, 15), new PortDefinition("weight", 1, 1, 100)],
+    };
+
+    private static MachineDefinition PanelAt(long watts, int efficiencyPerMille = 1000) => new()
+    {
+        Kind = MachineKind.Converter,
+        RatedWatts = watts,
+        EfficiencyPerMille = efficiencyPerMille,
+        Links =
+        [
+            new MachineLink("sky", MachineMedium.Power, MachineRole.Sink, MachineDefinition.SolarVia, null, null),
+            new MachineLink("out", MachineMedium.Power, MachineRole.Source, MachineLink.ChannelVia, null, "channel"),
+        ],
+        Ports = [new PortDefinition("channel", 0, 0, 15)],
+    };
+
+    private static MachineDefinition CellOf(long capacityMillijoules, bool carried = false, long? rechargeWatts = null) => new()
+    {
+        Kind = MachineKind.Storage,
+        CapacityMillijoules = capacityMillijoules,
+        Carried = carried,
+        RechargeWatts = rechargeWatts,
+        Links = [new MachineLink("charge", MachineMedium.Power, MachineRole.Sink, MachineLink.ChannelVia, null, "channel")],
+        Ports = [new PortDefinition("channel", 0, 0, 15)],
     };
 
     private static readonly MachineDefinition OutletDefinition = new()
@@ -66,13 +105,31 @@ public class MachineTickTests(ITestOutputHelper output)
     };
 
     internal static readonly MaterialTable Materials = MaterialTable.ForTesting(
-        //             air    stone  pump   outlet slow   wide
-        isOpaque: [false, true, true, true, true, true],
-        isFluid: [false, false, false, false, false, false],
-        textureLayer: [0, 1, 2, 3, 4, 5],
-        hardness: [0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f],
-        machine: [null, null, PumpAt(100_000), OutletDefinition, PumpAt(470), PumpAt(100_000, radius: 2)],
-        unit: [default, default, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells]);
+        //             air    stone  pump   outlet slow   wide   panel  dim    big    small  billed pack
+        isOpaque: [false, true, true, true, true, true, true, true, true, true, true, true],
+        isFluid: [false, false, false, false, false, false, false, false, false, false, false, false],
+        textureLayer: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+        hardness: [0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 1.0f, 1.0f, 3.0f, 3.0f, 3.0f, 1.0f],
+        machine:
+        [
+            null, null, PumpAt(100_000), OutletDefinition, PumpAt(470), PumpAt(100_000, radius: 2),
+            PanelAt(500), PanelAt(500, 900), CellOf(BigCellCapacity), CellOf(SmallCellCapacity),
+            PumpAt(100_000, joulesPerLitre: RelayBill), CellOf(PackCapacity, carried: true, rechargeWatts: 1000),
+        ],
+        unit:
+        [
+            default, default, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells,
+            MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Count,
+        ],
+        placeable: [true, true, true, true, true, true, true, true, true, true, true, false]);
+
+    /// <summary>The sky a test dictates: a cell's open columns, or nothing loaded over it.</summary>
+    private sealed class DictatedSky : ISolarSky
+    {
+        public Dictionary<BrushCell, int> Open { get; } = [];
+
+        public bool TryOpenColumnsAbove(BrushCell cell, out int open) => Open.TryGetValue(cell, out open);
+    }
 
     /// <summary>The bowl over 48..79, the ramp rising east of it over 80..93, the rim everywhere else.</summary>
     private static ISurfaceHeights BowlAndRamp() => new AnalyticSurface((x, z) =>
@@ -145,7 +202,7 @@ public class MachineTickTests(ITestOutputHelper output)
             Drain = new PortalDrain(Index, Water, Fluid);
             Handoff = new SurfaceHandoff(Seed, Water, Fluid, Ceiling);
             Machines = new MachineSet(Materials);
-            Tick = new MachineTick(Machines, Materials, Fluid, Bounded, Seed, Water, boundaryMillis);
+            Tick = new MachineTick(Machines, Materials, Fluid, Bounded, Seed, Water, boundaryMillis) { Sky = Sky };
 
             for (int cz = 1; cz <= 2; cz++)
             {
@@ -187,6 +244,8 @@ public class MachineTickTests(ITestOutputHelper output)
 
         public MachineTick Tick { get; }
 
+        public DictatedSky Sky { get; } = new();
+
         public HashSet<ChunkPos> Reachable { get; } = [];
 
         public int Basin => Water.BasinAtSample(48 / Cell, 48 / Cell);
@@ -224,7 +283,9 @@ public class MachineTickTests(ITestOutputHelper output)
         }
 
         /// <summary>What <c>Place.Machine</c> leaves: 64 solid voxels and a row with the definition's default ports.</summary>
-        public MachineRow Place(BrushCell cell, int material, int channel = 0, int weight = 1)
+        /// <param name="charge">A storage row's charge, written before the row enters so the set's entering count sees it — a restored row's shape, never a placed one's (a placed cell is empty).</param>
+        /// <param name="open">A converter's open columns as the sky reports them; null leaves the column unloaded.</param>
+        public MachineRow Place(BrushCell cell, int material, int channel = 0, int weight = 1, long charge = 0, int? open = 16)
         {
             for (int lz = 0; lz < BrushCell.Voxels; lz++)
             for (int lx = 0; lx < BrushCell.Voxels; lx++)
@@ -240,8 +301,34 @@ public class MachineTickTests(ITestOutputHelper output)
                 row.SetPortUnchecked("weight", weight);
             }
 
+            if (charge > 0)
+            {
+                StorageState.Write(row, charge);
+            }
+
+            if (Materials.Machine(material)!.Kind == MachineKind.Converter && open is { } columns)
+            {
+                Sky.Open[cell] = columns;
+            }
+
             Machines.Add(row);
             return row;
+        }
+
+        /// <summary>Takes every millilitre out of the room, so the next boundary reads no water.</summary>
+        public void DrainRoom()
+        {
+            for (int y = RoomFloor; y <= RoomTop; y++)
+            for (int z = RoomMin; z <= RoomMax; z++)
+            for (int x = RoomMin; x <= RoomMax; x++)
+            {
+                var v = new VoxelPos(x, y, z);
+                long held = Fluid.Grid.AmountAt(v);
+                if (held > 0)
+                {
+                    Fluid.Remove(v, held);
+                }
+            }
         }
 
         /// <summary>The bodies stand; only the rows are replaced — a quit and a reopen as the set sees it.</summary>
@@ -413,6 +500,383 @@ public class MachineTickTests(ITestOutputHelper output)
             int b = Math.Abs(two[i].Dx) + Math.Abs(two[i].Dy) + Math.Abs(two[i].Dz);
             Assert.True(a <= b, $"cell {i} is nearer than cell {i - 1}");
         }
+    }
+
+    // ---------------------------------------------------------------- M10c: the pool
+
+    private static long ChargeOf(MachineRow row) => StorageState.Read(row);
+
+    [Fact]
+    public void APanelWithNoCellClampsEverythingItGeneratesAndTheIdentityHolds()
+    {
+        // Generation with no storage is use-it-or-lose-it, and the loss is a printed term (the
+        // ladder's decision 9): a channel with no battery reads clamped == generated.
+        var twin = new Twin();
+        twin.Place(Twin.RimOutlet, Panel);
+
+        for (int boundary = 0; boundary < 3; boundary++)
+        {
+            MachineTickReport report = twin.Boundary(step: false);
+            Assert.Equal(PanelMillijoulesPerBoundary, report.GeneratedMillijoules);
+            Assert.Equal(PanelMillijoulesPerBoundary, report.ClampedMillijoules);
+            Assert.Equal(0L, report.DrawnMillijoules);
+            Assert.True(twin.Tick.PowerExact);
+        }
+
+        Assert.Equal(3 * PanelMillijoulesPerBoundary, twin.Tick.GeneratedMillijoules);
+        Assert.Equal(twin.Tick.GeneratedMillijoules, twin.Tick.ClampedMillijoules);
+        Assert.Equal(0L, twin.Tick.StoredMillijoules);
+    }
+
+    [Fact]
+    public void APanelAndACellChargeByExactlyTheProductEachBoundary()
+    {
+        // Decision 2's one integer product: 500 W × 500 ms × open/16 × (256 − byte)/256 × eff/1000.
+        var twin = new Twin();
+        twin.Place(Twin.RimOutlet, Panel);
+        MachineRow cell = twin.Place(Twin.RimOutletB, BigCell);
+
+        twin.Boundary(step: false);
+        Assert.Equal(PanelMillijoulesPerBoundary, ChargeOf(cell));
+        twin.Boundary(step: false);
+        twin.Boundary(step: false);
+        Assert.Equal(3 * PanelMillijoulesPerBoundary, ChargeOf(cell));
+        Assert.Equal(0L, twin.Tick.ClampedMillijoules);
+
+        // The storm: a byte of 255 leaves a 256th, never nothing — 976 mJ, the split row's oracle.
+        twin.Tick.OvercastByte = 255;
+        MachineTickReport storm = twin.Boundary(step: false);
+        Assert.Equal(976L, storm.GeneratedMillijoules);
+        Assert.Equal((3 * PanelMillijoulesPerBoundary) + 976, ChargeOf(cell));
+
+        // Half the columns roofed, halves it; none open, nothing.
+        twin.Tick.OvercastByte = 0;
+        twin.Sky.Open[Twin.RimOutlet] = 8;
+        Assert.Equal(PanelMillijoulesPerBoundary / 2, twin.Boundary(step: false).GeneratedMillijoules);
+        twin.Sky.Open[Twin.RimOutlet] = 0;
+        Assert.Equal(0L, twin.Boundary(step: false).GeneratedMillijoules);
+
+        // A panel at 90% gives 225,000 beside a full one's 250,000.
+        twin.Sky.Open[Twin.RimOutlet] = 16;
+        twin.Place(Twin.RoomOutlet, DimPanel);
+        Assert.Equal(PanelMillijoulesPerBoundary + 225_000, twin.Boundary(step: false).GeneratedMillijoules);
+        Assert.True(twin.Tick.PowerExact);
+    }
+
+    [Fact]
+    public void AnUnloadedPanelGeneratesFromItsLastSampleAndOneNeverSampledIsDark()
+    {
+        var twin = new Twin();
+        MachineRow panel = twin.Place(Twin.RimOutlet, Panel, open: 12);
+        twin.Place(Twin.RimOutletB, BigCell);
+
+        Assert.Equal(187_500L, twin.Boundary(step: false).GeneratedMillijoules);
+        Assert.Equal(12, ConverterState.ReadOpenColumns(panel));
+        Assert.Equal(1L, twin.Tick.SolarSampled);
+
+        // The column leaves the box: the byte on the row stands in.
+        twin.Sky.Open.Remove(Twin.RimOutlet);
+        Assert.Equal(187_500L, twin.Boundary(step: false).GeneratedMillijoules);
+        Assert.Equal(1L, twin.Tick.SolarUnsampled);
+
+        // And a panel placed where nobody has the column generates nothing until somebody does.
+        twin.Place(Twin.RoomOutlet, Panel, open: null);
+        Assert.Equal(187_500L, twin.Boundary(step: false).GeneratedMillijoules);
+        twin.Sky.Open[Twin.RoomOutlet] = 16;
+        Assert.Equal(187_500L + PanelMillijoulesPerBoundary, twin.Boundary(step: false).GeneratedMillijoules);
+        Assert.True(twin.Tick.PowerExact);
+    }
+
+    [Fact]
+    public void TwoCellsFillInOriginOrderAndTheSecondOnlyOnceTheFirstIsFull()
+    {
+        // Four columns open: 62,500 mJ a boundary into two 100,000 mJ cells.
+        var twin = new Twin();
+        twin.Place(Twin.RimOutlet, Panel, open: 4);
+        MachineRow first = twin.Place(Twin.RimOutletB, SmallCell);
+        MachineRow second = twin.Place(new BrushCell(12, 10, 9), SmallCell);
+        Assert.True(MachineTickOriginBefore(first, second));
+
+        twin.Boundary(step: false);
+        Assert.Equal(62_500L, ChargeOf(first));
+        Assert.Equal(0L, ChargeOf(second));
+
+        twin.Boundary(step: false);
+        Assert.Equal(SmallCellCapacity, ChargeOf(first));
+        Assert.Equal(25_000L, ChargeOf(second));
+
+        twin.Boundary(step: false);
+        Assert.Equal(87_500L, ChargeOf(second));
+
+        MachineTickReport full = twin.Boundary(step: false);
+        Assert.Equal(SmallCellCapacity, ChargeOf(second));
+        Assert.Equal(50_000L, full.ClampedMillijoules);
+        Assert.True(twin.Tick.PowerExact);
+    }
+
+    private static bool MachineTickOriginBefore(MachineRow a, MachineRow b) =>
+        a.Origin.X < b.Origin.X || (a.Origin.X == b.Origin.X && (a.Origin.Y < b.Origin.Y || (a.Origin.Y == b.Origin.Y && a.Origin.Z < b.Origin.Z)));
+
+    [Fact]
+    public void ABilledPumpMovesItsBudgetAndTheCellFallsByExactlyTheBill()
+    {
+        var twin = new Twin();
+        MachineRow pump = twin.Place(Twin.PumpCell, BilledPump);
+        twin.Place(Twin.RimOutlet, Outlet);
+        MachineRow cell = twin.Place(Twin.RoomOutlet, BigCell, charge: BigCellCapacity);
+        twin.PourIntoRoom(120 * Cap);
+        twin.Fluid.Settle(200);
+        Assert.Equal(BigCellCapacity, twin.Machines.StoredMillijoulesEntering);
+
+        MachineTickReport report = twin.Boundary(step: false);
+
+        Assert.Equal(1, report.Moved);
+        Assert.Equal(RelayMillilitresPerBoundary, pump.LastMovedMillilitres);
+        Assert.Equal(RelayMillilitresPerBoundary * RelayBill, report.DrawnMillijoules);
+        Assert.Equal(BigCellCapacity - (RelayMillilitresPerBoundary * RelayBill), ChargeOf(cell));
+        Assert.Equal(0L, report.ClampedMillijoules);
+        Assert.True(twin.Tick.PowerExact);
+        twin.AssertIdentity();
+    }
+
+    [Fact]
+    public void APumpWithTwentyFiveLitresOfJoulesMovesExactlyThatAndThenStallsUnpoweredUnlessDry()
+    {
+        var twin = new Twin();
+        MachineRow pump = twin.Place(Twin.PumpCell, BilledPump);
+        twin.Place(Twin.RimOutlet, Outlet);
+        MachineRow cell = twin.Place(Twin.RoomOutlet, BigCell, charge: 25_000L * RelayBill);
+        twin.PourIntoRoom(120 * Cap);
+        twin.Fluid.Settle(200);
+
+        MachineTickReport first = twin.Boundary(step: false);
+        Assert.Equal(1, first.Moved);
+        Assert.Equal(25_000L, pump.LastMovedMillilitres);
+        Assert.Equal(0L, ChargeOf(cell));
+
+        // Water, room and an outlet, and nothing to pay with.
+        MachineTickReport second = twin.Boundary(step: false);
+        Assert.Equal(0, second.Moved);
+        Assert.Equal(1, second.Unpowered);
+        Assert.Equal(PumpStall.Unpowered, pump.LastStall);
+        Assert.Equal(1L, twin.Tick.StalledUnpowered);
+
+        // A dry pump is not a starved one: no water beats unpowered.
+        twin.DrainRoom();
+        MachineTickReport dry = twin.Boundary(step: false);
+        Assert.Equal(PumpStall.NoWater, pump.LastStall);
+        Assert.Equal(0, dry.Unpowered);
+        Assert.True(twin.Tick.PowerExact);
+        twin.AssertIdentity();
+    }
+
+    [Fact]
+    public void TwoPumpsOnOneChannelShareACellFirstComeInOriginOrder()
+    {
+        // 75 L worth: the first pump in origin order takes its 50, the second gets 25.
+        var twin = new Twin();
+        MachineRow a = twin.Place(Twin.PumpCell, BilledPump);
+        MachineRow b = twin.Place(new BrushCell(11, 2, 10), BilledPump);
+        Assert.True(MachineTickOriginBefore(a, b));
+        twin.Place(Twin.RimOutlet, Outlet);
+        twin.Place(Twin.RimOutletB, Outlet);
+        twin.Place(Twin.RoomOutlet, BigCell, charge: 75_000L * RelayBill);
+        twin.PourIntoRoom(200 * Cap);
+        twin.Fluid.Settle(200);
+
+        MachineTickReport report = twin.Boundary(step: false);
+
+        Assert.Equal(2, report.Moved);
+        Assert.Equal(RelayMillilitresPerBoundary, a.LastMovedMillilitres);
+        Assert.Equal(25_000L, b.LastMovedMillilitres);
+        Assert.Equal(75_000L * RelayBill, report.DrawnMillijoules);
+        Assert.True(twin.Tick.PowerExact);
+
+        // The cell is spent: both stall at the next boundary, with water and room still there.
+        Assert.Equal(2, twin.Boundary(step: false).Unpowered);
+        Assert.True(twin.Tick.PowerExact);
+        twin.AssertIdentity();
+    }
+
+    [Fact]
+    public void ThePackRechargesLastAtItsBoundAndNeverSupplies()
+    {
+        var twin = new Twin();
+        var pack = new EquippedPack(PackMaterial, Materials.Machine(PackMaterial)!, chargeMillijoules: 0, channel: 0);
+        twin.Tick.Pack = pack;
+
+        // A panel and no cell: the pack takes the whole 250,000 and nothing is clamped.
+        twin.Place(Twin.RimOutlet, Panel);
+        MachineTickReport report = twin.Boundary(step: false);
+        Assert.Equal(PanelMillijoulesPerBoundary, report.PackGivenMillijoules);
+        Assert.Equal(PanelMillijoulesPerBoundary, pack.ChargeMillijoules);
+        Assert.Equal(0L, report.ClampedMillijoules);
+
+        // A full cell beside it: the pack takes its bound, 500,000 a boundary, off the cell.
+        MachineRow cell = twin.Place(Twin.RimOutletB, BigCell, charge: BigCellCapacity);
+        report = twin.Boundary(step: false);
+        Assert.Equal(PackRechargePerBoundary, report.PackGivenMillijoules);
+        Assert.Equal(BigCellCapacity + PanelMillijoulesPerBoundary - PackRechargePerBoundary, ChargeOf(cell));
+        Assert.True(twin.Tick.PowerExact);
+
+        // Last: a billed pump on the channel is paid before the pack sees anything.
+        var starved = new Twin();
+        var full = new EquippedPack(PackMaterial, Materials.Machine(PackMaterial)!, PackCapacity, channel: 0);
+        starved.Tick.Pack = full;
+        MachineRow pump = starved.Place(Twin.PumpCell, BilledPump);
+        starved.Place(Twin.RimOutlet, Outlet);
+        starved.PourIntoRoom(120 * Cap);
+        starved.Fluid.Settle(200);
+
+        // The pack holds 3.6 MJ and the pump wants 50 kJ: it stalls, because a backpack is not a
+        // battery bank.
+        MachineTickReport stalled = starved.Boundary(step: false);
+        Assert.Equal(PumpStall.Unpowered, pump.LastStall);
+        Assert.Equal(PackCapacity, full.ChargeMillijoules);
+        Assert.Equal(0L, stalled.PackGivenMillijoules);
+        Assert.True(starved.Tick.PowerExact);
+
+        // And with a panel of its own, the pump is paid first and the pack gets the rest.
+        starved.Place(Twin.RimOutletB, Panel);
+        starved.Place(Twin.RoomOutlet, BigCell, charge: 60_000L * RelayBill);
+        MachineTickReport paid = starved.Boundary(step: false);
+        Assert.Equal(RelayMillilitresPerBoundary * RelayBill, paid.DrawnMillijoules);
+        Assert.Equal(0L, paid.PackGivenMillijoules);
+        Assert.True(starved.Tick.PowerExact);
+    }
+
+    [Fact]
+    public void ALakePumpUnderALitreOfJoulesStallsUnpoweredAndWithOneMovesExactlyOne()
+    {
+        // Whole litres cross a tier, so a lake pump's affordable offer is floored to litres: with
+        // 999 mL worth of joules it stalls unpowered rather than reading no room off a take that
+        // rounded to nothing at the outlet.
+        var twin = new Twin();
+        MachineRow pump = twin.Place(Twin.BedPump, BilledPump);
+        twin.Place(Twin.RoomOutlet, Outlet);
+        MachineRow cell = twin.Place(Twin.RoofedOutlet, BigCell, charge: 999L * RelayBill);
+        twin.Lake(110_000);
+
+        MachineTickReport report = twin.Boundary(step: false);
+        Assert.Equal(PumpStall.Unpowered, pump.LastStall);
+        Assert.Equal(0, report.NoRoom);
+        Assert.Equal(999L * RelayBill, ChargeOf(cell));
+
+        // One litre's worth more: exactly one litre crosses and the cell keeps the 999 mL's.
+        twin.Place(Twin.RimOutletB, Panel, open: 4);
+        twin.Boundary(step: false);
+        Assert.Equal(PumpStall.None, pump.LastStall);
+        Assert.Equal(Litre, pump.LastMovedMillilitres);
+        Assert.Equal(1L, twin.Tick.PumpedLitres);
+        Assert.Equal((999L * RelayBill) + 62_500 - (Litre * RelayBill), ChargeOf(cell));
+        Assert.True(twin.Tick.PowerExact);
+        twin.AssertIdentity();
+    }
+
+    [Fact]
+    public void PowerOffIsTheFreeArmAndMovesNoJoule()
+    {
+        var twin = new Twin();
+        twin.Tick.PowerOff = true;
+        MachineRow pump = twin.Place(Twin.PumpCell, BilledPump);
+        twin.Place(Twin.RimOutlet, Outlet);
+        twin.Place(Twin.RimOutletB, Panel);
+        MachineRow cell = twin.Place(Twin.RoomOutlet, BigCell, charge: 12_345);
+        twin.PourIntoRoom(120 * Cap);
+        twin.Fluid.Settle(200);
+
+        MachineTickReport report = twin.Boundary(step: false);
+
+        Assert.Equal(RelayMillilitresPerBoundary, pump.LastMovedMillilitres);
+        Assert.Equal(0L, report.GeneratedMillijoules);
+        Assert.Equal(0L, report.DrawnMillijoules);
+        Assert.Equal(0L, report.ClampedMillijoules);
+        Assert.Equal(12_345L, ChargeOf(cell));
+        Assert.True(twin.Tick.PowerExact);
+        twin.AssertIdentity();
+    }
+
+    [Fact]
+    public void AChargeRestoredAndRepouredTicksFromWhereItStood()
+    {
+        var twin = new Twin();
+        twin.Place(Twin.PumpCell, BilledPump);
+        twin.Place(Twin.RimOutlet, Outlet);
+        twin.Place(Twin.RimOutletB, Panel);
+        twin.Place(Twin.RoomOutlet, BigCell, charge: 120_000L * RelayBill);
+        twin.PourIntoRoom(120 * Cap);
+        twin.Fluid.Settle(200);
+        twin.Boundary(step: false);
+        long before = twin.Tick.StoredMillijoules;
+        Assert.Equal((120_000L - RelayMillilitresPerBoundary) * RelayBill + PanelMillijoulesPerBoundary, before);
+
+        twin.ReopenRows();
+
+        Assert.Equal(before, twin.Tick.StoredMillijoules);
+        Assert.True(twin.Tick.PowerExact);
+        MachineTickReport report = twin.Boundary(step: false);
+        Assert.Equal(1, report.Moved);
+        Assert.Equal(RelayMillilitresPerBoundary * RelayBill, report.DrawnMillijoules);
+        Assert.True(twin.Tick.PowerExact);
+    }
+
+    [Fact]
+    public void ThePoolIdentityHoldsOverAThousandBoundariesWithEverythingRunning()
+    {
+        var twin = new Twin();
+        // The pack starts full, or it would drink every boundary's generation for nine thousand
+        // boundaries and the cells would never see a millijoule to overflow with.
+        var pack = new EquippedPack(PackMaterial, Materials.Machine(PackMaterial)!, PackCapacity, channel: 0);
+        twin.Tick.Pack = pack;
+        twin.Place(Twin.PumpCell, BilledPump);
+        twin.Place(Twin.RimOutlet, Outlet);
+        twin.Place(Twin.RimOutletB, Panel);
+        twin.Place(new BrushCell(12, 10, 9), Panel, open: 9);
+        twin.Place(Twin.RoomOutlet, SmallCell);
+        twin.Place(Twin.RoofedOutlet, SmallCell, charge: SmallCellCapacity);
+        twin.PourIntoRoom(120 * Cap);
+        twin.Fluid.Settle(200);
+
+        // Four phases, so every term moves: the pump running on the panels (a trickle, since it
+        // takes all it can pay for), the room dry so the cells fill and overflow, the sky roofed
+        // over a re-poured room so the cells run dry and the bill is the constraint, and the sun
+        // back.
+        long moves = 0, unpowered = 0;
+        for (int boundary = 0; boundary < 1000; boundary++)
+        {
+            if (boundary % 50 == 25)
+            {
+                // The tool draws on the pack between boundaries; the identity carries it.
+                pack.Take(300_000);
+            }
+
+            if (boundary % 100 == 99)
+            {
+                twin.Tick.OvercastByte = (byte)(boundary % 256);
+            }
+
+            if (boundary == 200) twin.DrainRoom();
+            if (boundary == 350) twin.PourIntoRoom(120 * Cap);
+
+            int dark = boundary is >= 350 and < 450 ? 0 : 16;
+            twin.Sky.Open[Twin.RimOutletB] = dark;
+            twin.Sky.Open[new BrushCell(12, 10, 9)] = dark == 0 ? 0 : 9;
+
+            MachineTickReport report = twin.Boundary(step: (boundary % 7) == 0);
+            moves += report.Moved;
+            unpowered += report.Unpowered;
+            Assert.True(twin.Tick.PowerExact, $"boundary {boundary}: the pool identity broke");
+            Assert.True(report.Exact, $"boundary {boundary}: pumped != emitted");
+        }
+
+        twin.AssertIdentity();
+        Assert.True(moves > 0);
+        Assert.True(unpowered > 0, "the fixture never ran the cell dry, so the bill was never the constraint");
+        Assert.True(twin.Tick.ClampedMillijoules > 0, "the small cell never overflowed");
+        output.WriteLine(
+            $"1,000 boundaries: {moves} move(s), {unpowered} unpowered, generated {twin.Tick.GeneratedMillijoules:N0} mJ, "
+            + $"drawn {twin.Tick.DrawnByPumpsMillijoules:N0}, clamped {twin.Tick.ClampedMillijoules:N0}, pack given {twin.Tick.PackGivenMillijoules:N0}, "
+            + $"stored {twin.Tick.StoredMillijoules:N0} + pack {pack.ChargeMillijoules:N0}");
     }
 
     // ---------------------------------------------------------------- B -> B

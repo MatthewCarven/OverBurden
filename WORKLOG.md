@@ -1,5 +1,26 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-16 — M10c-1 built: the pool in Core, and a pump takes all it can pay for
+
+*"As recommended, lets build c-1"*. Suite 1,569 → 1,591; twenty-two break-recipes, nineteen caught first time and three after the fixture each named was added — a converter with the sky as its source and the channel as its sink (the converter's own shape rule made the first recipe an identity), the pack's own capacity bound (the tick caps before it calls, so only the object's test sees it), and a lake pump under a litre of joules (the floor changes the stall's name, not the water); r6 control to the
+digit. What was built is in M10-LADDER-PLAN's "M10c-1 — built"; what is worth keeping here:
+
+- **A pump takes all it can pay for, so a panel on its channel never lets it starve.** The
+  thousand-boundary fixture ran nine hundred boundaries without one `unpowered` because 390 mJ of
+  generation buys 390 mL and the pump moves it; the stall needed a roofed sky over a re-poured
+  room. That is the mechanic, not a hole: the ladder's *head is a bill, not a wall* one tier
+  early. The play will feel it as a relay that pumps at whatever the sky pays for.
+- **A 3.6 MJ pack drinks nine thousand boundaries of one panel** before a cell sees a millijoule
+  to overflow with, because the pack draws last but the cells are written back after it. A full
+  pack was the fixture's answer; in play it means a fresh pack on a small field leaves the cells
+  empty for over an hour, which is the tier's shape and worth saying at M10d.
+- **The identity has no new counter on any caller.** `loaded` and `forfeited` are one pair on the
+  set — charge entering at `Add`, leaving at `Remove`, both at a restore over a live set — so a
+  dismantle, a placement, a reopen and a debug seed are all inside the equation without being
+  named in it.
+- **976, not 0.** Multiply then divide, each factor in turn: the storm dims a panel to a 256th.
+  The order was a decision (the pass's decision 2) and the test asserts the number.
+
 ## 2026-09-16 — M10c planned: the pool is the tick's, the pack is the header's, the miner is a tool
 
 *"Ok lets do the M10c planning pass"*. Nine facts, eleven decisions, three sessions, in

@@ -2092,3 +2092,77 @@ then a reopen reads `pack 1,000 J`; the r6 control to the digit. By hand: equip,
   decision 5; the pack is the gate and the entangled tool's threshold is content.
 - CLAUDE.md's recorded `--mine --entangle` recipes: every one gains `--nogate`.
 - The ladder's M10d row: the relay's power at M10d is `Alt+P`'s debug charge, stated as such.
+
+### M10c-1 — built
+
+> 2026-09-16, evening (*"As recommended, lets build c-1"* — the pack and the threshold taken as
+> recommended). Suite 1,569 → 1,591; twenty-two break-recipes, nineteen caught first time and three after the fixture each named was added — a converter with the sky as its source and the channel as its sink (the converter's own shape rule made the first recipe an identity), the pack's own capacity bound (the tick caps before it calls, so only the object's test sees it), and a lake pump under a litre of joules (the floor changes the stall's name, not the water); the r6 control unchanged to the
+> digit. Core only; the game turns the pool off and says so until c-2 wires it.
+
+**What is there.** `MachineKind.Converter` and `MachineKind.Storage` through the loader —
+`ratedWatts`, `efficiency` (read as whole thousandths by `litresPerSecond`'s rule, refused
+otherwise), `capacityJoules` (kept in millijoules), `carried`, `rechargeWatts` — with every rule
+refusing naming the file: `solar` is served as a `via` and is a power sink on a converter and
+nothing else; a converter declares a solar sink and a power source; a storage exactly one power
+sink; a carried storage is `placeable: false` and no other machine may be; the numbers are
+bounded (a gigawatt, a terajoule, a gigajoule a litre) and refused past the bound; `generator`
+now names M10f. `StorageState` and `ConverterState` in Core are the kind blob's two layouts —
+version 1, an int64 of millijoules and a byte of open columns — read and written by no one but
+them, in place once the bytes are this version's, a foreign version reading as empty; `Restore`
+clamps a charge to its material's capacity through the set's own table and counts it, a
+table-less set clamping nothing. `MachineSet.ChargeOf`, `StoredMillijoulesEntering` and
+`StoredMillijoulesLeaving` are counted at every door — `Add`, `Remove`, and a restore over a live
+set, which nets to zero — so the pool identity has its `loaded` and `forfeited` terms in one pair
+with no new counter on any caller. `ISolarSky` is the one question a panel asks; `EquippedPack`
+is the pack as an object — capacity and recharge bound from its definition, `Take` and `Give`
+with their counters, never a row.
+
+**The tick.** `BeginPower` before the pumps: every converter's `SolarOutput` — the openness
+sampled off the sky and written to the row when the column is loaded, the row's byte when it is
+not; then `ratedWatts × boundary`, `× open / 16`, `× (256 − byte) / 256`, `× efficiency / 1000`,
+multiply-then-divide each in turn so a byte of 255 leaves 976 mJ of 250,000 and not 0 — summed
+per channel with every placed storage row's charge into `_available`. In `TickPump`, after the
+offer and after `no water`: `affordable = available ÷ joulesPerLitre` (a millijoule a
+millilitre), floored to whole litres for a lake pump, `unpowered` at zero, the offer capped at it;
+after the move the bill for exactly what moved comes off the channel. Then `RechargePack` — last,
+`min(available, room, rechargeWatts × boundary)` — and `WriteBack`, every channel's remainder
+into its storage rows in origin order to capacity, the rest `clamped`. `PowerOff` skips all three
+and the bill: the pre-M10c arm, which the game runs now. The report carries `Unpowered`,
+`Generated`, `Drawn`, `Clamped` and `PackGiven`; the tick carries their lifetimes, the solar
+sample counts and the open-column sum for a mean, `StoredMillijoules` through the set's
+definition, and **`PowerExact`**: `Σ rows + pack == entering − leaving + generated − drawn −
+clamped + pack initial − pack taken`.
+
+**Two things the fixtures said.** A pump takes all it can pay for, so with a panel on its channel
+it buys a trickle every boundary and never starves: the thousand-boundary fixture wanted a roofed
+sky over a re-poured room before `unpowered` fired, and a pack that starts full before a cell ever
+overflowed — a 3.6 MJ pack drinks nine thousand boundaries of one panel. And a 60 L cell left 10 L
+after one boundary, which is what the reopen fixture then read — the fixture's arithmetic, not the
+tick's. Neither was a hole.
+
+**The tests.** `MachineContentTests` (+5, and the backwards-converter case): a converter, a cell and a pack load with every field
+read; solar served as a sink on a converter and refused as a source, on a fluid link, with a
+face, on a pump; a converter without its solar sink or its power source, a storage with a source
+or two sinks, a carried storage with a face; every power number bounded and refused; carried is a
+storage that is not placeable and nothing else. `MachineSetTests` (+5): the charge round-trips the
+blob and a snapshot; the pack gives to its capacity, takes to empty and counts both; an empty or foreign state reads as none and is rewritten in this version in
+place; a charge over capacity restores clamped and counted, and a bare set clamps nothing; entering
+and leaving are counted at every door and a carried row counts none. `MachineTickTests` (+12): a
+panel with no cell clamps everything; a panel and a cell charge by exactly the product, 976 under
+the storm, half at eight columns, nothing at none, 225,000 at 90%; an unloaded panel generates from
+its last sample and one never sampled is dark; two cells fill in origin order and the second only
+once the first is full; a billed pump moves its budget and the cell falls by exactly the bill; 25 L
+of joules moves exactly 25 L, then `unpowered` with water and room, and `no water` beats it dry;
+two pumps share a cell first-come in origin order and both stall when it is spent; a lake pump
+under a litre of joules stalls `unpowered` and with one moves exactly one; the pack
+recharges last at its bound and never supplies; `PowerOff` moves no joule and the pump is free; a
+charge restored ticks from where it stood; and a thousand boundaries with everything running — the
+tool drawing on the pack between them, the overcast walking, the room drained and re-poured, the
+sky roofed for a hundred — hold `PowerExact` and `pumped == emitted` at every one, with moves,
+stalls and clamps all non-zero.
+
+**Next: M10c-2, the wire and the oracles** — `Main`'s `ISolarSky` over `ChunkStreamer.ColumnAt`,
+the overcast byte at the boundary from `_forcedWeather ?? OvercastAt`, `PowerOff` off and
+`--nogate` on, `P` and `Alt+P`, `--pump`'s charged cell and `--cell=0`, `--solar=<n>`, the `M10:`
+`power:` term, the panel's three lines, the bench's power row, the three JSON files and
+`ShippedContentTests`, `--weather=1` reading 976 mJ a panel a boundary.

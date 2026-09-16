@@ -14,6 +14,12 @@ public enum MachineKind : byte
 {
     Pump,
     Outlet,
+
+    /// <summary>Turns one medium into another each boundary — solar into a channel's pool (M10c).</summary>
+    Converter,
+
+    /// <summary>Holds joules between boundaries — a placed cell, or a carried pack (M10c).</summary>
+    Storage,
 }
 
 /// <summary>What a link carries.</summary>
@@ -86,16 +92,46 @@ public sealed class MachineDefinition
 
     public const int MaxIntakeRadiusCells = 2;
 
-    /// <summary>The engine's own <c>via</c> names. Only <see cref="MachineLink.ChannelVia"/> is served in M10a.</summary>
+    /// <summary>The engine's own <c>via</c> names. <see cref="MachineLink.ChannelVia"/> is served from M10a, <see cref="SolarVia"/> from M10c.</summary>
     public static readonly IReadOnlyList<string> ReservedVia = ["channel", "crank", "burner", "solar", "surround"];
 
     /// <summary>The prefix of the one reserved <c>via</c> that takes an argument.</summary>
     public const string AdjacentViaPrefix = "adjacent:";
 
+    /// <summary>The sky as a medium: a converter's sink link <c>via: solar</c> reads the openness over its body and the overcast (M10c, decision 2).</summary>
+    public const string SolarVia = "solar";
+
     /// <summary>The <c>via</c> rules this build's tick can serve.</summary>
-    public static readonly IReadOnlyList<string> ServedVia = [MachineLink.ChannelVia];
+    public static readonly IReadOnlyList<string> ServedVia = [MachineLink.ChannelVia, SolarVia];
+
+    /// <summary>The most a converter may be rated: a gigawatt, so a boundary's millijoules and a channel's sum stay inside a long.</summary>
+    public const long MaxRatedWatts = 1_000_000_000L;
+
+    /// <summary>The most a storage may hold, in joules: a terajoule, for the same reason (the vacuum cell is 5 GJ).</summary>
+    public const long MaxCapacityJoules = 1_000_000_000_000L;
+
+    /// <summary>The most a litre may cost a pump: a gigajoule, so the largest offer times it fits a long.</summary>
+    public const long MaxJoulesPerLitre = 1_000_000_000L;
+
+    /// <summary>Efficiency's unit: a converter's <c>efficiency</c> is read as a whole number of thousandths, never a float in the tick (decision 10).</summary>
+    public const int PerMille = 1000;
 
     public required MachineKind Kind { get; init; }
+
+    /// <summary>A converter's output at full input, in watts. Zero for a kind that has none.</summary>
+    public long RatedWatts { get; init; }
+
+    /// <summary>A converter's efficiency in thousandths, 0..1000; 1000 for a kind that has none.</summary>
+    public int EfficiencyPerMille { get; init; } = PerMille;
+
+    /// <summary>A storage's capacity in millijoules. Zero for a kind that has none.</summary>
+    public long CapacityMillijoules { get; init; }
+
+    /// <summary>Whether the storage is a pack in the hand rather than a body in the world (ladder decision 15).</summary>
+    public bool Carried { get; init; }
+
+    /// <summary>How fast a carried storage may take charge, in watts; null is unbounded. Unread on a placed one.</summary>
+    public long? RechargeWatts { get; init; }
 
     /// <summary>A pump's nominal rate. Zero for a kind that has none.</summary>
     public long MillilitresPerSecond { get; init; }
@@ -198,14 +234,49 @@ public sealed class MachineDefinition
             return false;
         }
 
-        if (JoulesPerLitre < 0)
+        if (JoulesPerLitre < 0 || JoulesPerLitre > MaxJoulesPerLitre)
         {
-            error = "joulesPerLitre must not be negative.";
+            error = $"joulesPerLitre must be within 0..{MaxJoulesPerLitre:N0}.";
+            return false;
+        }
+
+        if (Kind == MachineKind.Converter)
+        {
+            if (RatedWatts <= 0 || RatedWatts > MaxRatedWatts)
+            {
+                error = $"ratedWatts must be more than 0 and at most {MaxRatedWatts:N0} for a converter.";
+                return false;
+            }
+
+            if (EfficiencyPerMille < 0 || EfficiencyPerMille > PerMille)
+            {
+                error = "efficiency must be within 0..1.";
+                return false;
+            }
+        }
+
+        if (Kind == MachineKind.Storage)
+        {
+            if (CapacityMillijoules <= 0 || CapacityMillijoules > MaxCapacityJoules * PerMille)
+            {
+                error = $"capacityJoules must be more than 0 and at most {MaxCapacityJoules:N0} for a storage.";
+                return false;
+            }
+
+            if (RechargeWatts is { } recharge && (recharge <= 0 || recharge > MaxRatedWatts))
+            {
+                error = $"rechargeWatts must be null or more than 0 and at most {MaxRatedWatts:N0}.";
+                return false;
+            }
+        }
+        else if (Carried)
+        {
+            error = "only a storage can be carried.";
             return false;
         }
 
         var linkNames = new HashSet<string>(StringComparer.Ordinal);
-        bool fluidSource = false, fluidSink = false;
+        bool fluidSource = false, fluidSink = false, powerSource = false, powerSink = false, solar = false;
         foreach (MachineLink link in Links)
         {
             if (!PortDefinition.IsValidName(link.Name))
@@ -241,10 +312,40 @@ public sealed class MachineDefinition
                 }
             }
 
+            if (link.Via == SolarVia)
+            {
+                // The sky is a medium with one direction: it is drawn from and never poured into,
+                // and only a converter turns it into joules a pool can hold.
+                if (link.Carries != MachineMedium.Power || link.Role != MachineRole.Sink)
+                {
+                    error = $"link '{link.Name}' is via solar, which is a power sink and nothing else.";
+                    return false;
+                }
+
+                if (Kind != MachineKind.Converter)
+                {
+                    error = $"link '{link.Name}' is via solar, which only a converter can take.";
+                    return false;
+                }
+
+                if (link.Face is not null)
+                {
+                    error = $"link '{link.Name}' is via solar and declares a face; the sky is over the top.";
+                    return false;
+                }
+
+                solar = true;
+            }
+
             if (link.Carries == MachineMedium.Fluid)
             {
                 if (link.Role == MachineRole.Source) fluidSource = true;
                 else fluidSink = true;
+            }
+            else
+            {
+                if (link.Role == MachineRole.Source) powerSource = true;
+                else powerSink = true;
             }
         }
 
@@ -258,6 +359,47 @@ public sealed class MachineDefinition
         {
             error = "an outlet declares a fluid link with role sink — where its water comes from.";
             return false;
+        }
+
+        if (Kind == MachineKind.Converter && (!powerSink || !powerSource))
+        {
+            error = "a converter declares a power link with role sink and one with role source — what it turns into what.";
+            return false;
+        }
+
+        if (Kind == MachineKind.Converter && !solar)
+        {
+            // Every other input medium is M10f's; a converter with nothing served to drink from
+            // would load and generate nothing, which is the state this method exists to refuse.
+            error = "a converter's sink is via solar in this build — the other media are M10f.";
+            return false;
+        }
+
+        if (Kind == MachineKind.Storage)
+        {
+            int powerLinks = 0;
+            foreach (MachineLink link in Links)
+            {
+                if (link.Carries == MachineMedium.Power) powerLinks++;
+            }
+
+            if (powerLinks != 1 || !powerSink || powerSource)
+            {
+                error = "a storage declares exactly one power link, with role sink — the pool it belongs to.";
+                return false;
+            }
+
+            if (Carried)
+            {
+                foreach (MachineLink link in Links)
+                {
+                    if (link.Face is not null)
+                    {
+                        error = $"link '{link.Name}' declares a face on a carried storage, which has no body.";
+                        return false;
+                    }
+                }
+            }
         }
 
         error = null;

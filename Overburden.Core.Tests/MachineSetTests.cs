@@ -25,17 +25,172 @@ public class MachineSetTests
         new(cell, 4, BrushFacing.PositiveX, [new("channel", channel), new("weight", weight)]);
 
     /// <summary>A table whose material 4 declares the relay's two ports, so SetPort has bounds to clamp to.</summary>
+    /// <summary>Material 5: a placed storage of 5,000 J, and material 6: a pack (M10c).</summary>
+    private const int CellMaterial = 5, PackMaterial = 6;
+
+    private const long CellCapacity = 5_000L * 1000L;
+
+    private static readonly MachineDefinition CellDefinition = new()
+    {
+        Kind = MachineKind.Storage,
+        CapacityMillijoules = CellCapacity,
+        Links = [new MachineLink("charge", MachineMedium.Power, MachineRole.Sink, MachineLink.ChannelVia, null, "channel")],
+        Ports = [new PortDefinition("channel", 0, 0, 15)],
+    };
+
+    private static readonly MachineDefinition PackDefinition = new()
+    {
+        Kind = MachineKind.Storage,
+        Carried = true,
+        CapacityMillijoules = 3_600_000L * 1000L,
+        RechargeWatts = 1000,
+        Links = [new MachineLink("charge", MachineMedium.Power, MachineRole.Sink, MachineLink.ChannelVia, null, "channel")],
+        Ports = [new PortDefinition("channel", 0, 0, 15)],
+    };
+
     private static readonly Content.MaterialTable DeclaringTable = Content.MaterialTable.ForTesting(
-        isOpaque: [false, true, true, true, true],
-        isFluid: [false, false, false, false, false],
-        textureLayer: [0, 1, 2, 3, 4],
-        hardness: [0f, 1f, 1f, 1f, 3f],
+        isOpaque: [false, true, true, true, true, true, true],
+        isFluid: [false, false, false, false, false, false, false],
+        textureLayer: [0, 1, 2, 3, 4, 5, 6],
+        hardness: [0f, 1f, 1f, 1f, 3f, 3f, 1f],
         machine: [null, null, null, null, new MachineDefinition
         {
             Kind = MachineKind.Outlet,
             Links = [new MachineLink("water", MachineMedium.Fluid, MachineRole.Sink, MachineLink.ChannelVia, null, "channel")],
             Ports = RelayPorts,
-        }]);
+        }, CellDefinition, PackDefinition],
+        placeable: [true, true, true, true, true, true, false]);
+
+    private static MachineRow Cell(BrushCell cell, long chargeMillijoules)
+    {
+        var row = new MachineRow(cell, CellMaterial, BrushFacing.PositiveX, [new("channel", 0)]);
+        StorageState.Write(row, chargeMillijoules);
+        return row;
+    }
+
+    // ---------------------------------------------------------------- the charge (M10c, decision 3)
+
+    [Fact]
+    public void AStorageRowsChargeRoundTripsTheBlobAndTheSnapshot()
+    {
+        MachineRow row = Cell(CellA, 1_234_567);
+        Assert.Equal(1_234_567L, StorageState.Read(row));
+        Assert.Equal(9, row.KindState.Length);
+        Assert.Equal(StorageState.Version, row.KindState[0]);
+
+        MachineRow back = MachineRowBlob.Read(MachineRowBlob.Write(row), row.Origin, row.MaterialId);
+        Assert.Equal(1_234_567L, StorageState.Read(back));
+
+        var set = new MachineSet(DeclaringTable);
+        set.Add(row);
+        var restored = new MachineSet(DeclaringTable);
+        RestoreReport report = restored.Restore(set.Snapshot(), id => DeclaringTable.Machine(id)?.Ports);
+        Assert.Equal(0, report.Clamped);
+        Assert.True(restored.TryGet(CellA, out MachineRow again));
+        Assert.Equal(1_234_567L, StorageState.Read(again));
+        Assert.Equal(1_234_567L, restored.ChargeOf(again));
+    }
+
+    [Fact]
+    public void AnEmptyOrForeignKindStateReadsAsNoChargeAndIsRewrittenInThisVersion()
+    {
+        var empty = new MachineRow(CellA, CellMaterial, BrushFacing.PositiveX, [new("channel", 0)]);
+        Assert.Equal(0L, StorageState.Read(empty));
+
+        var foreign = new MachineRow(CellB, CellMaterial, BrushFacing.PositiveX, [new("channel", 0)], [7, 1, 2, 3, 4, 5, 6, 7, 8]);
+        Assert.Equal(0L, StorageState.Read(foreign));
+
+        StorageState.Write(foreign, 42);
+        Assert.Equal(42L, StorageState.Read(foreign));
+        Assert.Equal(StorageState.Version, foreign.KindState[0]);
+
+        // In place once the bytes are this version's: the same array, rewritten.
+        byte[] before = foreign.KindState;
+        StorageState.Write(foreign, 43);
+        Assert.Same(before, foreign.KindState);
+        Assert.Equal(43L, StorageState.Read(foreign));
+    }
+
+    [Fact]
+    public void AChargeOverCapacityRestoresClampedAndCounted()
+    {
+        // Decision 21: a row read from disk is a caller, clamped to the material's bounds and
+        // counted, never refused — through the set's own table, which is what knows a capacity.
+        MachineRow row = Cell(CellA, CellCapacity + 1);
+        List<StoredMachine> stored = [Stored(row)];
+
+        var set = new MachineSet(DeclaringTable);
+        RestoreReport report = set.Restore(stored, id => DeclaringTable.Machine(id)?.Ports);
+
+        Assert.Equal(1, report.Clamped);
+        Assert.True(set.TryGet(CellA, out MachineRow back));
+        Assert.Equal(CellCapacity, StorageState.Read(back));
+        Assert.Equal(CellCapacity, set.StoredMillijoulesEntering);
+
+        // A set with no table clamps nothing: it has nothing to clamp against.
+        var bare = new MachineSet();
+        Assert.Equal(0, bare.Restore(stored, _ => null).Clamped);
+        Assert.True(bare.TryGet(CellA, out MachineRow kept));
+        Assert.Equal(CellCapacity + 1, StorageState.Read(kept));
+        Assert.Equal(0L, bare.ChargeOf(kept));
+    }
+
+    [Fact]
+    public void APackGivesToItsCapacityAndTakesToEmptyAndCountsBoth()
+    {
+        // The tick caps what it gives before calling Give, so the pack's own bound is belt and
+        // braces there — pinned here on the object, because the header (c-3) and the tool will
+        // call it too.
+        var pack = new EquippedPack(PackMaterial, PackDefinition, chargeMillijoules: 100, channel: 3);
+        Assert.Equal(100L, pack.InitialMillijoules);
+        Assert.Equal(3, pack.Channel);
+
+        Assert.Equal(PackDefinition.CapacityMillijoules - 100, pack.Give(long.MaxValue / 2));
+        Assert.Equal(PackDefinition.CapacityMillijoules, pack.ChargeMillijoules);
+        Assert.Equal(0L, pack.Give(1));
+
+        Assert.Equal(PackDefinition.CapacityMillijoules, pack.Take(long.MaxValue / 2));
+        Assert.Equal(0L, pack.ChargeMillijoules);
+        Assert.Equal(0L, pack.Take(1));
+        Assert.Equal(PackDefinition.CapacityMillijoules - 100, pack.GivenMillijoules);
+        Assert.Equal(PackDefinition.CapacityMillijoules, pack.TakenMillijoules);
+
+        // Clamped at construction too, and only a carried storage is a pack.
+        Assert.Equal(PackDefinition.CapacityMillijoules, new EquippedPack(PackMaterial, PackDefinition, long.MaxValue, 0).ChargeMillijoules);
+        Assert.Equal(15, new EquippedPack(PackMaterial, PackDefinition, 0, 99).Channel);
+        Assert.Throws<ArgumentException>(() => new EquippedPack(CellMaterial, CellDefinition, 0, 0));
+    }
+
+    [Fact]
+    public void ChargeEnteringAndLeavingAreCountedOnEveryDoor()
+    {
+        var set = new MachineSet(DeclaringTable);
+        set.Add(Cell(CellA, 100));
+        set.Add(Cell(CellB, 200));
+        set.Add(Relay(CellC));
+        Assert.Equal(300L, set.StoredMillijoulesEntering);
+        Assert.Equal(0L, set.StoredMillijoulesLeaving);
+
+        Assert.True(set.Remove(CellA));
+        Assert.Equal(100L, set.StoredMillijoulesLeaving);
+
+        // A restore over a live set: what stood leaves, what the table holds enters, and the
+        // difference is the charge on the rows now.
+        set.Restore(set.Snapshot(), id => DeclaringTable.Machine(id)?.Ports);
+        Assert.Equal(500L, set.StoredMillijoulesEntering);
+        Assert.Equal(300L, set.StoredMillijoulesLeaving);
+        Assert.True(set.TryGet(CellB, out MachineRow b));
+        Assert.Equal(200L, set.StoredMillijoulesEntering - set.StoredMillijoulesLeaving);
+        Assert.Equal(200L, set.ChargeOf(b));
+
+        // The pack's material is carried: a row of it in the set counts no charge, because the
+        // pool never reads it.
+        var pack = new MachineRow(CellA, PackMaterial, BrushFacing.PositiveX, [new("channel", 0)]);
+        StorageState.Write(pack, 999);
+        set.Add(pack);
+        Assert.Equal(500L, set.StoredMillijoulesEntering);
+        Assert.Equal(0L, set.ChargeOf(pack));
+    }
 
     // ---------------------------------------------------------------- SetPort (M10b, decision 4)
 

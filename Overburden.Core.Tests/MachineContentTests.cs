@@ -31,6 +31,28 @@ public class MachineContentTests
         { "id": "computer", "hardness": 1.0, "supportDistance": 2, "unit": "count", "placeable": false }
         """;
 
+    private const string Panel = """
+        { "id": "panel", "hardness": 1.0, "supportDistance": 2, "unit": "cells",
+          "machine": { "kind": "converter", "ratedWatts": 500, "efficiency": 0.9,
+            "links": { "sky": { "carries": "power", "role": "sink",   "via": "solar" },
+                       "out": { "carries": "power", "role": "source", "via": "channel", "port": "channel" } },
+            "ports": { "channel": { "default": 0, "min": 0, "max": 15 } } } }
+        """;
+
+    private const string Cell = """
+        { "id": "cell", "hardness": 3.0, "supportDistance": 8, "unit": "cells",
+          "machine": { "kind": "storage", "capacityJoules": 5000000000,
+            "links": { "charge": { "carries": "power", "role": "sink", "via": "channel", "port": "channel" } },
+            "ports": { "channel": { "default": 0, "min": 0, "max": 15 } } } }
+        """;
+
+    private const string Pack = """
+        { "id": "pack", "hardness": 1.0, "supportDistance": 2, "unit": "count", "placeable": false,
+          "machine": { "kind": "storage", "carried": true, "capacityJoules": 3600000, "rechargeWatts": 1000,
+            "links": { "charge": { "carries": "power", "role": "sink", "via": "channel", "port": "channel" } },
+            "ports": { "channel": { "default": 0, "min": 0, "max": 15 } } } }
+        """;
+
     private static (GameContent Content, LoadResult Result) Load(params (string File, string Json)[] files)
     {
         InMemoryContentSource source = TestContent.BaseGame().Add("pumps", "mod.json", Mod);
@@ -114,6 +136,104 @@ public class MachineContentTests
         Assert.Equal(2, table.MachineIds.Count);
     }
 
+    // ---------------------------------------------------------------- M10c: the converter and the storage
+
+    [Fact]
+    public void AConverterAndAStorageLoadWithEveryFieldRead()
+    {
+        (GameContent content, LoadResult result) = Load(("panel.json", Panel), ("cell.json", Cell), ("pack.json", Pack));
+        Assert.True(result.Success, string.Join("; ", result.Errors));
+
+        MachineDefinition panel = content.Materials.Get(Identifier.Parse("pumps:panel")).Machine!;
+        Assert.Equal(MachineKind.Converter, panel.Kind);
+        Assert.Equal(500L, panel.RatedWatts);
+        Assert.Equal(900, panel.EfficiencyPerMille);
+        Assert.False(panel.Carried);
+        Assert.Equal(0L, panel.CapacityMillijoules);
+        Assert.Equal(MachineDefinition.SolarVia, panel.Link("sky")!.Via);
+        Assert.Equal(MachineRole.Sink, panel.Link("sky")!.Role);
+        Assert.True(panel.Link("out")!.IsChannel);
+
+        MachineDefinition cell = content.Materials.Get(Identifier.Parse("pumps:cell")).Machine!;
+        Assert.Equal(MachineKind.Storage, cell.Kind);
+        Assert.Equal(5_000_000_000L * 1000L, cell.CapacityMillijoules);
+        Assert.False(cell.Carried);
+        Assert.Null(cell.RechargeWatts);
+        Assert.Equal(MachineDefinition.PerMille, cell.EfficiencyPerMille);
+        Assert.True(content.Materials.Get(Identifier.Parse("pumps:cell")).IsPlaceable);
+
+        MaterialDefinition packMaterial = content.Materials.Get(Identifier.Parse("pumps:pack"));
+        MachineDefinition pack = packMaterial.Machine!;
+        Assert.Equal(MachineKind.Storage, pack.Kind);
+        Assert.True(pack.Carried);
+        Assert.Equal(3_600_000L * 1000L, pack.CapacityMillijoules);
+        Assert.Equal(1000L, pack.RechargeWatts);
+        Assert.False(packMaterial.IsPlaceable);
+        Assert.Equal(MaterialUnit.Count, packMaterial.Unit);
+
+        // The pool's arithmetic is on these: 500 W over 500 ms is 250,000 mJ open and clear.
+        MaterialTable table = MaterialTable.From(content.Materials);
+        Assert.True(table.IsMachine(content.Materials.GetNumericId(Identifier.Parse("pumps:panel"))));
+        Assert.True(table.IsMachine(content.Materials.GetNumericId(Identifier.Parse("pumps:pack"))));
+    }
+
+    [Fact]
+    public void SolarIsServedAsAPowerSinkOnAConverterAndNothingElse()
+    {
+        Refused("sun-source.json", Panel.Replace("\"role\": \"sink\",   \"via\": \"solar\"", "\"role\": \"source\", \"via\": \"solar\""), "sink");
+
+        // The case the converter's own shape rule cannot catch: the sky as the source and the
+        // channel as the sink is a converter with one of each, refused only by solar's rule.
+        Refused("sun-backwards.json", Panel
+            .Replace("\"role\": \"sink\",   \"via\": \"solar\"", "\"role\": \"source\", \"via\": \"solar\"")
+            .Replace("\"out\": { \"carries\": \"power\", \"role\": \"source\"", "\"out\": { \"carries\": \"power\", \"role\": \"sink\""), "nothing else");
+        Refused("sun-fluid.json", Panel.Replace("\"sky\": { \"carries\": \"power\"", "\"sky\": { \"carries\": \"fluid\""), "sink");
+        Refused("sun-face.json", Panel.Replace("\"via\": \"solar\" }", "\"via\": \"solar\", \"face\": \"top\" }"), "face");
+        Refused("sun-pump.json", """
+            { "id": "sun-pump", "machine": { "kind": "pump", "litresPerSecond": 1,
+              "links": { "sky":   { "carries": "power", "role": "sink",   "via": "solar" },
+                         "water": { "carries": "fluid", "role": "source", "via": "channel", "port": "channel" } },
+              "ports": { "channel": { "default": 0, "min": 0, "max": 15 } } } }
+            """, "converter");
+    }
+
+    [Fact]
+    public void AConverterNeedsASolarSinkAndAPowerSourceAndAStorageExactlyOnePowerSink()
+    {
+        // A converter whose only input is a medium M10f serves would load and generate nothing.
+        Refused("dry.json", Panel.Replace("\"via\": \"solar\"", "\"via\": \"channel\", \"port\": \"channel\""), "solar");
+        Refused("mute.json", Panel.Replace("\"out\": { \"carries\": \"power\", \"role\": \"source\"", "\"out\": { \"carries\": \"power\", \"role\": \"sink\""), "source");
+        Refused("leaky.json", Cell.Replace("\"role\": \"sink\"", "\"role\": \"source\""), "sink");
+        Refused("two.json", Cell.Replace(
+            "\"charge\": { \"carries\": \"power\", \"role\": \"sink\", \"via\": \"channel\", \"port\": \"channel\" }",
+            "\"charge\": { \"carries\": \"power\", \"role\": \"sink\", \"via\": \"channel\", \"port\": \"channel\" }, "
+            + "\"more\": { \"carries\": \"power\", \"role\": \"sink\", \"via\": \"channel\", \"port\": \"channel\" }"), "exactly one");
+        Refused("faced.json", Pack.Replace("\"via\": \"channel\", \"port\": \"channel\" }", "\"via\": \"channel\", \"port\": \"channel\", \"face\": \"any\" }"), "face");
+    }
+
+    [Fact]
+    public void ThePowerNumbersAreBoundedAndRefusedNotClamped()
+    {
+        Refused("idle.json", Panel.Replace("\"ratedWatts\": 500", "\"ratedWatts\": 0"), "ratedWatts");
+        Refused("sun.json", Panel.Replace("\"ratedWatts\": 500", "\"ratedWatts\": 1000000001"), "ratedWatts");
+        Refused("over.json", Panel.Replace("\"efficiency\": 0.9", "\"efficiency\": 1.5"), "efficiency");
+        Refused("fine.json", Panel.Replace("\"efficiency\": 0.9", "\"efficiency\": 0.0005"), "thousandths");
+        Refused("empty.json", Cell.Replace("\"capacityJoules\": 5000000000", "\"capacityJoules\": 0"), "capacityJoules");
+        Refused("vast.json", Cell.Replace("\"capacityJoules\": 5000000000", "\"capacityJoules\": 1000000000001"), "capacityJoules");
+        Refused("stuck.json", Pack.Replace("\"rechargeWatts\": 1000", "\"rechargeWatts\": 0"), "rechargeWatts");
+        Refused("dear.json", Pump.Replace("\"joulesPerLitre\": 1000", "\"joulesPerLitre\": 1000000001"), "joulesPerLitre");
+    }
+
+    [Fact]
+    public void CarriedIsAStorageThatIsNotPlaceableAndNothingElse()
+    {
+        // The pack is an item by the computer's rule, and the one machine allowed to be; a body
+        // that says carried, or a pack that says placeable, is the wiring being wrong.
+        Refused("body.json", Pack.Replace("\"placeable\": false,", ""), "carried");
+        Refused("held.json", Cell.Replace("\"unit\": \"cells\",", "\"unit\": \"cells\", \"placeable\": false,"), "placeable");
+        Refused("flying.json", Panel.Replace("\"ratedWatts\": 500,", "\"ratedWatts\": 500, \"carried\": true,"), "carried");
+    }
+
     [Fact]
     public void AMaterialWithNoMachineBlockIsOnlyAVoxel()
     {
@@ -127,7 +247,7 @@ public class MachineContentTests
     [Fact]
     public void AKindThisBuildDoesNotServeIsRefusedNamingThePart()
     {
-        Refused("gen.json", """{ "id": "gen", "machine": { "kind": "generator", "links": {}, "ports": {} } }""", "M10c");
+        Refused("gen.json", """{ "id": "gen", "machine": { "kind": "generator", "links": {}, "ports": {} } }""", "M10f");
         Refused("station.json", """{ "id": "station", "machine": { "kind": "station", "links": {}, "ports": {} } }""", "M10g");
         Refused("odd.json", """{ "id": "odd", "machine": { "kind": "teleporter" } }""", "not a machine kind");
         Refused("none.json", """{ "id": "none", "machine": { } }""", "kind");

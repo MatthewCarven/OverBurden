@@ -5456,7 +5456,9 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
       relay is 200 panels, so its M10c/M10d arms need a debug charge; the pick never told the set
       what it took (fixed, `2b26540`) and the gate's wire is the same shape; there is no tool for
       the `power` block to sit on; header v4 is one more presence-byte section.
-      - [ ] **c-1 — the pool in Core**: the `converter` and `storage` kinds through the loader
+      - [x] **c-1 — the pool in Core, built 2026-09-16 (evening).** Suite 1,569 → 1,591;
+            twenty-two break-recipes, nineteen caught first time and three after the fixture each named was added — a converter with the sky as its source and the channel as its sink (the converter's own shape rule made the first recipe an identity), the pack's own capacity bound (the tick caps before it calls, so only the object's test sees it), and a lake pump under a litre of joules (the floor changes the stall's name, not the water); r6 control to the digit; the game runs `PowerOff` and prints it
+            until c-2. Read "M10c-1 — built". What was planned: the `converter` and `storage` kinds through the loader
             (`ratedWatts`, `efficiency` per-mille, `capacityJoules`, `carried`, `rechargeWatts`;
             `solar` served as a sink `via`), `StorageState` and the openness byte in the kind
             blob, the restore's clamp, `ISolarSky` and `OvercastByte` on the tick, the pool per

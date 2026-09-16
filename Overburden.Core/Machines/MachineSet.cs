@@ -123,6 +123,25 @@ public sealed class MachineSet : IMachineBodies
     /// <summary>Whether any row's body is in <paramref name="chunk"/>. The hooks' first question.</summary>
     public bool HasRowsIn(ChunkPos chunk) => _byChunk.ContainsKey(chunk);
 
+    /// <summary>
+    /// Millijoules of charge that entered the set on storage rows — added, placed or restored —
+    /// over the session. With <see cref="StoredMillijoulesLeaving"/>, the pool identity's
+    /// <c>loaded</c> and <c>forfeited</c> terms in one pair (M10c).
+    /// </summary>
+    public long StoredMillijoulesEntering { get; private set; }
+
+    /// <summary>Millijoules of charge that left the set on storage rows removed — dismantled, destroyed, or replaced at a restore.</summary>
+    public long StoredMillijoulesLeaving { get; private set; }
+
+    /// <summary>The charge on a row, or zero when its material is not a storage here.</summary>
+    /// <remarks>
+    /// Through the table, never by reading the bytes alone: another kind's state could carry a
+    /// version byte of 1 and eight bytes after it, and a set built without a table (a test's)
+    /// counts no charge at all rather than guessing.
+    /// </remarks>
+    public long ChargeOf(MachineRow row) =>
+        _materials?.Machine(row.MaterialId) is { Kind: MachineKind.Storage, Carried: false } ? StorageState.Read(row) : 0;
+
     /// <summary>Adds a row. Refuses a second row at the same cell: one cell, one body.</summary>
     public void Add(MachineRow row)
     {
@@ -140,6 +159,7 @@ public sealed class MachineSet : IMachineBodies
         }
 
         rows.Add(row);
+        StoredMillijoulesEntering += ChargeOf(row);
         Version++;
     }
 
@@ -158,6 +178,7 @@ public sealed class MachineSet : IMachineBodies
             _byChunk.Remove(row.Chunk);
         }
 
+        StoredMillijoulesLeaving += ChargeOf(row);
         Version++;
         return true;
     }
@@ -592,6 +613,14 @@ public sealed class MachineSet : IMachineBodies
         ArgumentNullException.ThrowIfNull(stored);
         ArgumentNullException.ThrowIfNull(portsOf);
 
+        // Whatever stood here leaves with its charge; what the table holds enters below through
+        // Add. A restore over an empty set counts nothing here, and one over a live set (a test's
+        // reopen) nets to zero, so the pool identity holds across it either way.
+        foreach (MachineRow leaving in _rows.Values)
+        {
+            StoredMillijoulesLeaving += ChargeOf(leaving);
+        }
+
         _rows.Clear();
         _byChunk.Clear();
         _arrivals.Clear();
@@ -637,6 +666,20 @@ public sealed class MachineSet : IMachineBodies
                         row.SetPortUnchecked(port.Name, inBounds);
                         clamped++;
                     }
+                }
+            }
+
+            // The charge is the storage kind's state and its bound is the material's capacity —
+            // clamped and counted by decision 21's rule, since a row read from disk is a caller
+            // too. Through the set's own table: the ports lookup a test hands in says nothing
+            // about capacities, and a set without a table clamps nothing.
+            if (_materials?.Machine(row.MaterialId) is { Kind: MachineKind.Storage, Carried: false } storage)
+            {
+                long charge = StorageState.Read(row);
+                if (charge > storage.CapacityMillijoules)
+                {
+                    StorageState.Write(row, storage.CapacityMillijoules);
+                    clamped++;
                 }
             }
 

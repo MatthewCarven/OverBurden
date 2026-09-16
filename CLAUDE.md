@@ -780,7 +780,27 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
-**Pick up here (2026-09-16, evening). M10c is planned and not built — "M10c — the planning
+**Pick up here (2026-09-16, night). M10c-1 is built — the pool in Core — and M10c-2, the wire
+and the oracles, is next: `Main`'s `ISolarSky` over `ChunkStreamer.ColumnAt` (the count of the
+body's sixteen columns whose `OpenAboveY` is at or below its top plus one), the overcast byte at
+the boundary as `min(255, ⌊(_forcedWeather ?? OvercastAt) × 256⌋)` into `MachineTick.OvercastByte`,
+`PowerOff` off with `--nogate` turning it on (printed), `P` seeding a panel, a cell and a pack once,
+`Alt+P` filling every loaded cell and the pack (printed), `--pump` placing a *charged* vacuum cell
+beside the outlet (`--cell=0` omits it → `stalled 60 unpowered`), `--solar=<n>`, the `M10:` line's
+`power:` term and the `machines` block, the panel's three lines (`charged … of …`, `generating … a
+boundary (N/16 open, overcast B/256)`, `stalled: no power on channel N`), the bench's power row,
+`solar_panel.json` / `vacuum_cell.json` / `lead_acid_pack.json` with `ShippedContentTests`, and
+`--weather=1` reading 976 mJ a panel a boundary. Read "M10c-1 — built" in
+[docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) first.** Three things c-2 must not rediscover:
+the game runs `MachineTick.PowerOff = true` and prints it — every recipe reads as recorded because
+of that line, and c-2 removes it in the same commit that places the charged cell; a pump takes all
+it can pay for, so a panel on its channel buys a trickle and the relay never stalls `unpowered`
+while the sun is up (the fixture needed a roofed sky) — `--cell=0` under `--weather=1` is the arm
+that stalls; and `ChargeOf` goes through the set's table, so a headless oracle that reads charge
+reads the set's, never the bytes. Suite 1,591; the r6 control to the digit. The paragraph below is
+the pass's state, kept for the reasoning.
+
+**Earlier (2026-09-16, evening). M10c is planned and not built — "M10c — the planning
 pass" after b-2's built section in [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md): nine facts,
 eleven decisions, three sessions c-1 the pool in Core / c-2 the wire and the oracles / c-3 the pack
 and the gate; two things are Matthew's (the pack that ships — `lead_acid_pack` 3.6 MJ / 1 kW
