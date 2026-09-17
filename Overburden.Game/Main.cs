@@ -20,6 +20,7 @@ using Overburden.Core.Structure;
 using Overburden.Core.Voxels;
 using Overburden.Core.Worldgen;
 using Overburden.Game.Diagnostics;
+using Overburden.Game.Machines;
 using Overburden.Game.Player;
 using Overburden.Game.Rendering;
 using Overburden.Game.Ui;
@@ -119,8 +120,22 @@ public partial class Main : Node3D
     /// <summary><c>--openpanel</c>: open the panel on <c>--pump</c>'s pump as it is placed, for the screenshot.</summary>
     private bool _openPanel;
 
-    /// <summary><c>--openpanel=outlet</c>: the outlet's panel instead — the two-row one.</summary>
-    private bool _openPanelOnOutlet;
+    /// <summary><c>--openpanel=pump|outlet|cell|panel</c>: which of <c>--pump</c>'s bodies the panel opens on; bare is the pump.</summary>
+    private string _openPanelTarget = "pump";
+
+    /// <summary><c>--nogate</c>: the pre-M10c arm — the pool off, every pump free, the miner free (c-3) — printed.</summary>
+    private bool _noGate;
+
+    /// <summary><c>--cell=0</c> omits the charged vacuum cell <c>--pump</c> places beside the outlet (M10c-2).</summary>
+    private bool _cellWithPump = true;
+
+    /// <summary><c>--solar=&lt;n&gt;</c>: solar panels placed on the surface west of the outlet as <c>--pump</c>'s bodies are placed.</summary>
+    private int _solarPanels;
+
+    /// <summary>The sky the tick asks for a panel's openness — the streamer's columns, counted (M10c-2).</summary>
+    private StreamerSolarSky? _solarSky;
+
+    private long _generatedAtWarm, _drawnByPumpsAtWarm, _clampedAtWarm;
 
     /// <summary><c>--panelset=&lt;name&gt;=&lt;value&gt;</c>: typed into the open panel's box after <c>--openpanel</c> opens it — the widget's wire, headless.</summary>
     private readonly List<(string Name, long Value)> _panelSets = [];
@@ -1616,8 +1631,29 @@ public partial class Main : Node3D
                 case "openpanel":
                     _openPanel = true;
                     // The outlet's panel is the two-row one (channel and weight); the pump's is
-                    // the one with a stall line worth reading. Bare, or =pump, is the pump.
-                    _openPanelOnOutlet = string.Equals(value, "outlet", StringComparison.OrdinalIgnoreCase);
+                    // the one with a stall line worth reading; the cell's and the panel's (M10c-2)
+                    // are the charge line and the generation line. Bare, or =pump, is the pump.
+                    _openPanelTarget = string.IsNullOrEmpty(value) ? "pump" : value.ToLowerInvariant();
+                    break;
+
+                // M10c-2: the pre-M10c arm. The pool off, so every pump is free, and (c-3) the
+                // miner free — one flag for both draws, because a run that frees one and not the
+                // other measures a world that cannot exist. Every recorded --mine --entangle
+                // recipe carries it from c-3.
+                case "nogate":
+                    _noGate = true;
+                    break;
+
+                // --pump's charged cell beside the outlet, and the arm that omits it and reads
+                // stalled unpowered.
+                case "cell" when int.TryParse(value, out int cellArm):
+                    _cellWithPump = cellArm != 0;
+                    break;
+
+                // Solar panels on the surface west of the outlet, placed with --pump's bodies:
+                // the storm's oracle (--weather=1 → 976 mJ a panel a boundary) and the play's field.
+                case "solar" when int.TryParse(value, out int solar) && solar >= 0:
+                    _solarPanels = solar;
                     break;
 
                 // A value put into the open panel's box as a hand would type it, so the wire from
@@ -2214,7 +2250,7 @@ public partial class Main : Node3D
         }
 
         string label = Hud.DisplayName(Content.Materials, row.MaterialId);
-        _panel.Open(row, definition, label, _machines);
+        _panel.Open(row, definition, label, _machines, _machineTick);
         _camera.ReleaseMouse();
 
         GD.Print(
@@ -3058,17 +3094,27 @@ public partial class Main : Node3D
         // does not cover. Tier A and the seed surface are the unloaded-outlet rule's.
         if (_fluid is not null && _machineTerrain is not null)
         {
+            // M10c-2: the sky is the streamer's columns, counted; the overcast byte is set at
+            // every boundary in RunMachineTick; the pool is on unless --nogate.
+            _solarSky = new StreamerSolarSky(_pipeline!.Streamer);
             _machineTick = new MachineTick(
                 _machines, _materials!, _fluid, _machineTerrain, _seedHeights, _water,
                 boundaryMillis: (long)Math.Round(FluidTickSeconds * 1000.0))
             {
-                // M10c-1: the pool is in Core and nothing in the game feeds it yet — no sky, no
-                // overcast byte, no cell beside --pump's outlet — so the tick runs the pre-M10c
-                // arm until c-2 wires it, or the relay would stall unpowered and a-3's oracle
-                // would stop reading. Printed, so a run cannot mistake this for a measurement.
-                PowerOff = true,
+                PowerOff = _noGate,
+                Sky = _solarSky,
             };
-            GD.Print("M10: power is off — the pool is c-1's Core and c-2 wires it; every pump is free (the pre-M10c arm)");
+            if (_noGate)
+            {
+                GD.Print("M10: --nogate — the pool is off and every pump is free (the pre-M10c arm)");
+            }
+            else
+            {
+                GD.Print(
+                    "M10: the pool is on — a pump pays joulesPerLitre from its channel's cells and panels, the pack recharges last, the excess is clamped; "
+                    + "solar_panel and lead_acid_pack ride the channel class until M10i (wireless for now)");
+            }
+
             if (_pumpLitresPerSecond > 0)
             {
                 _machineTick.RateOverrideMillilitresPerSecond = (long)Math.Round(_pumpLitresPerSecond * FluidConstants.MillilitresPerLitre);
@@ -3091,6 +3137,11 @@ public partial class Main : Node3D
             return;
         }
 
+        // M10c-2: the one site the overcast enters the pool (decision 10) — the same forced-or-
+        // forecast expression the shader reads, once a boundary, as a byte; 1.0 is 255, a 256th.
+        float overcast = _forcedWeather ?? Weather.OvercastAt(_settings.Seed, _clock.ElapsedMillis);
+        _machineTick.OvercastByte = (byte)Math.Clamp((int)(overcast * 256f), 0, 255);
+
         long before = Stopwatch.GetTimestamp();
         MachineTickReport report = _machineTick.Run();
         double millis = Milliseconds(before, Stopwatch.GetTimestamp());
@@ -3101,6 +3152,11 @@ public partial class Main : Node3D
         if (!report.Exact)
         {
             GD.PushError($"M10: the machine tick is not exact — {report}");
+        }
+
+        if (!_machineTick.PowerExact)
+        {
+            GD.PushError($"M10: the pool identity broke — {report}");
         }
     }
 
@@ -3179,14 +3235,69 @@ public partial class Main : Node3D
             GD.Print($"M10: --port — {target}'s {name} := {value}: {write} (--port)");
         }
 
+        // M10c-2: a charged vacuum cell in the cell beside the outlet, so the relay has something
+        // to pay with — 200 panels' worth a boundary, the pass's fact 5 — and a-3's oracle keeps
+        // reading. Placed as the outlet is, charged through the set's one debug door; --cell=0
+        // omits it, and that run reads stalled unpowered.
+        BrushCell? cellCell = null;
+        if (_cellWithPump)
+        {
+            int cellMaterial = MaterialId("overburden:vacuum_cell");
+            if (cellMaterial == MaterialIds.AirNumericId)
+            {
+                GD.Print("M10: the vacuum cell is not in this world's content, so --pump places no cell");
+            }
+            else
+            {
+                cellCell = PlaceSurfaceBody(ox + BrushCell.Voxels, oz, cellMaterial, out string cellHow);
+                long capacity = _materials.Machine(cellMaterial)!.CapacityMillijoules;
+                long landed = _machines.SetCharge(cellCell.Value, capacity);
+                GD.Print($"M10: --pump — a vacuum cell at {cellCell} beside the outlet ({cellHow}), charged to {MachinePanel.Joules(landed)} (--cell=0 omits it)");
+            }
+        }
+
+        // And the field: --solar=<n> panels on the surface west of the outlet, a metre apart.
+        BrushCell? firstPanel = null;
+        if (_solarPanels > 0)
+        {
+            int panelMaterial = MaterialId("overburden:solar_panel");
+            if (panelMaterial == MaterialIds.AirNumericId)
+            {
+                GD.Print("M10: the solar panel is not in this world's content, so --solar places nothing");
+            }
+            else
+            {
+                int placedPanels = 0, rowsAlone = 0;
+                for (int i = 0; i < _solarPanels; i++)
+                {
+                    BrushCell panelCell = PlaceSurfaceBody(ox - ((i + 1) * BrushCell.Voxels), oz, panelMaterial, out string how);
+                    firstPanel ??= panelCell;
+                    if (how == "placed") placedPanels++;
+                    else rowsAlone++;
+                }
+
+                GD.Print($"M10: --solar — {_solarPanels} panel(s) on the surface west of the outlet: {placedPanels} placed, {rowsAlone} row(s) alone");
+            }
+        }
+
         // M10b-2: the panel on the pump, after the writes so it shows what they landed. A row
         // alone is never the pump's — the pump's cell is loaded by construction, the shaft is.
         if (_openPanel)
         {
-            BrushCell wanted = _openPanelOnOutlet ? outletCell : pumpCell;
-            if (_machines.TryGet(wanted, out MachineRow wantedRow))
+            BrushCell? wantedOrNot = _openPanelTarget switch
             {
-                OpenPanel(wantedRow, _openPanelOnOutlet ? "--openpanel=outlet" : "--openpanel");
+                "outlet" => outletCell,
+                "cell" => cellCell,
+                "panel" => firstPanel,
+                _ => pumpCell,
+            };
+            if (wantedOrNot is not { } wanted)
+            {
+                GD.Print($"M10: --openpanel={_openPanelTarget} — no such body was placed, so there is nothing to open");
+            }
+            else if (_machines.TryGet(wanted, out MachineRow wantedRow))
+            {
+                OpenPanel(wantedRow, _openPanelTarget == "pump" ? "--openpanel" : $"--openpanel={_openPanelTarget}");
 
                 foreach ((string name, long typed) in _panelSets)
                 {
@@ -3211,6 +3322,31 @@ public partial class Main : Node3D
                 GD.Print($"M10: --openpanel — no row at {wanted}, so there is nothing to open");
             }
         }
+    }
+
+    /// <summary>
+    /// A body on the seed surface at (x, z) — the outlet's shape: through the brush's path where
+    /// the chunk is loaded, a row alone where it is not. Says which in <paramref name="how"/>.
+    /// </summary>
+    private BrushCell PlaceSurfaceBody(int x, int z, int material, out string how)
+    {
+        const int Cell = BrushCell.Voxels * BrushCell.Voxels * BrushCell.Voxels;
+        int ground = _generator!.SurfaceHeightAt(x, z);
+        BrushCell cell = BrushCell.FromVoxel(new VoxelPos(x, ground + 1, z));
+        _inventory.Add(material, Cell);
+        if (_pipeline!.Streamer.Get(cell.OriginVoxel.Chunk)?.Voxels is not null)
+        {
+            PlaceResult placed = PlaceBody(cell, material);
+            how = placed.Placed == Cell ? "placed" : $"NOT placed ({placed})";
+        }
+        else
+        {
+            _machines!.Add(new MachineRow(cell, material, BrushFacing.PositiveX, _materials!.Machine(material)!.DefaultPorts()));
+            _inventory.Take(material, Cell);
+            how = "a row alone";
+        }
+
+        return cell;
     }
 
     /// <summary>Carves the cell to air and places a body in it through the brush's own path.</summary>
@@ -3270,27 +3406,74 @@ public partial class Main : Node3D
             return;
         }
 
+        // M10c-2: Alt+P fills every placed cell to capacity — the debug charge M10d's relay
+        // runs on, Alt+R's shape, and the only way a placed cell is ever full without generation.
+        if (Input.IsKeyPressed(Key.Alt))
+        {
+            FillEveryCell();
+            return;
+        }
+
         const int Cell = BrushCell.Voxels * BrushCell.Voxels * BrushCell.Voxels;
         int pump = MaterialId("overburden:relay_pump");
         int outlet = MaterialId("overburden:relay_outlet");
         int computer = MaterialId("overburden:computer");
-        if (pump == MaterialIds.AirNumericId || outlet == MaterialIds.AirNumericId || computer == MaterialIds.AirNumericId)
+        int panel = MaterialId("overburden:solar_panel");
+        int cell = MaterialId("overburden:vacuum_cell");
+        int pack = MaterialId("overburden:lead_acid_pack");
+        if (pump == MaterialIds.AirNumericId || outlet == MaterialIds.AirNumericId || computer == MaterialIds.AirNumericId
+            || panel == MaterialIds.AirNumericId || cell == MaterialIds.AirNumericId || pack == MaterialIds.AirNumericId)
         {
-            GD.Print("M10: the relay pump, outlet and computer are not all in this world's content, so P seeds nothing");
+            GD.Print("M10: the relay pump, outlet, computer, solar panel, vacuum cell and lead-acid pack are not all in this world's content, so P seeds nothing");
             return;
         }
 
         _inventory.Add(pump, Cell);
         _inventory.Add(outlet, Cell);
+        _inventory.Add(panel, Cell);
+        _inventory.Add(cell, Cell);
 
         // M10b: one computer, the item that opens a machine's ports — an item is counted by the
-        // voxel and never spent, so one is enough for the session and P seeds it once.
+        // voxel and never spent, so one is enough for the session and P seeds it once. M10c: one
+        // pack, the same way; equipping it is c-3's.
         if (!_inventory.Has(computer))
         {
             _inventory.Add(computer, 1);
         }
 
-        GD.Print("M10: P — one relay pump and one relay outlet added to the inventory (64 voxels each), and a computer; pick them on the number row");
+        if (!_inventory.Has(pack))
+        {
+            _inventory.Add(pack, 1);
+        }
+
+        GD.Print("M10: P — a relay pump, a relay outlet, a solar panel and a vacuum cell added to the inventory (64 voxels each), and a computer and a lead-acid pack once; pick them on the number row. Alt+P fills every placed cell");
+    }
+
+    /// <summary>Every placed storage row charged to its capacity, through the set's one debug door.</summary>
+    private void FillEveryCell()
+    {
+        if (_machines is null || _materials is null)
+        {
+            return;
+        }
+
+        int filled = 0;
+        long millijoules = 0;
+        foreach (MachineRow row in _machines.Rows.ToArray())
+        {
+            if (_materials.Machine(row.MaterialId) is { Kind: MachineKind.Storage, Carried: false } storage)
+            {
+                long before = _machines.ChargeOf(row);
+                long landed = _machines.SetCharge(row.Cell, storage.CapacityMillijoules);
+                if (landed >= 0)
+                {
+                    filled++;
+                    millijoules += landed - before;
+                }
+            }
+        }
+
+        GD.Print($"M10: Alt+P — {filled} cell(s) filled with {MachinePanel.Joules(millijoules)} (debug)");
     }
 
     /// <summary>Ends the process with no save, when <c>--abort=</c> asked for it.</summary>
@@ -4860,6 +5043,9 @@ public partial class Main : Node3D
             _emittedBAtWarm = _machineTick?.EmittedMillilitres ?? 0;
             _emittedAAtWarm = _machineTick?.EmittedLitres ?? 0;
             _movesAtWarm = _machineTick?.Moves ?? 0;
+            _generatedAtWarm = _machineTick?.GeneratedMillijoules ?? 0;
+            _drawnByPumpsAtWarm = _machineTick?.DrawnByPumpsMillijoules ?? 0;
+            _clampedAtWarm = _machineTick?.ClampedMillijoules ?? 0;
         }
 
         // Where the viewer is, for the near/far order. Called only when the order is on, so the
@@ -5945,9 +6131,27 @@ public partial class Main : Node3D
                + $"({t.EmittedLitresIntoLakes:N0} into a lake, {t.EmittedLitresToUnloadedOutlets:N0} to an outlet the box has not loaded) — "
                + $"pumped == emitted across the tiers: {(t.CrossTierExact ? "exact" : "*** NO ***")}; "
                + $"{t.Moves:N0} move(s), stalled {t.StalledNoOutlet:N0} no outlet / {t.StalledNoWater:N0} no water ({t.IntakesSkippedDry:N0} off the panel counts) / "
-               + $"{t.StalledNoRoom:N0} no room / {t.StalledUnloaded:N0} unloaded / {t.StalledUnanalysed:N0} unanalysed; "
+               + $"{t.StalledNoRoom:N0} no room / {t.StalledUnloaded:N0} unloaded / {t.StalledUnanalysed:N0} unanalysed / {t.StalledUnpowered:N0} unpowered; "
                + $"{t.IntakeVoxelsRead:N0} intake voxel(s) read; "
-               + $"{_machineTickCalls:N0} tick(s), {(_machineTickCalls > 0 ? _machineTickMillisSum / _machineTickCalls : 0):F3} ms mean, {_machineTickMillisMax:F3} max";
+               + $"{_machineTickCalls:N0} tick(s), {(_machineTickCalls > 0 ? _machineTickMillisSum / _machineTickCalls : 0):F3} ms mean, {_machineTickMillisMax:F3} max"
+               + PowerSummary(t);
+    }
+
+    /// <summary>The pool's half of the <c>M10:</c> line: what is stored, generated, drawn and clamped, and the identity over the session (M10c-2).</summary>
+    private static string PowerSummary(MachineTick t)
+    {
+        if (t.PowerOff)
+        {
+            return " | power: off (--nogate)";
+        }
+
+        long samples = t.SolarSampled + t.SolarUnsampled;
+        string open = samples > 0 ? $"{t.OpenColumnsSum / (double)samples:F1}" : "–";
+        return $" | power: {t.StorageRows:N0} cell(s) hold {MachinePanel.Joules(t.StoredMillijoules)}, "
+               + $"pack {(t.Pack is null ? "none" : $"{MachinePanel.Joules(t.Pack.ChargeMillijoules)} of {MachinePanel.Joules(t.Pack.CapacityMillijoules)} (ch {t.Pack.Channel})")}, "
+               + $"generated {MachinePanel.Joules(t.GeneratedMillijoules)} ({t.Converters:N0} panel(s), open {open}/16 mean, {t.SolarUnsampled:N0} unsampled, overcast {t.OvercastByte}/256), "
+               + $"drawn {MachinePanel.Joules(t.DrawnByPumpsMillijoules)} by pumps, clamped {MachinePanel.Joules(t.ClampedMillijoules)}, pack given {MachinePanel.Joules(t.PackGivenMillijoules)} — "
+               + $"pool == entering − leaving + generated − drawn − clamped: {(t.PowerExact ? "exact" : "*** NO ***")}";
     }
 
     /// <summary>The profile's <c>machines</c> block, with the window's own denominators.</summary>
@@ -5983,9 +6187,29 @@ public partial class Main : Node3D
                + $"pumped {pumpedB / litre:N0} L from Tier B + {pumpedA:N0} L from Tier A ({pumpedInWindow / seconds:N1} L/s over the window), "
                + $"emitted {emittedB / litre:N0} L into Tier B + {emittedA:N0} L into Tier A; in all pumped {t.PumpedMillilitres / litre:N0} + {t.PumpedLitres:N0} L, "
                + $"emitted {t.EmittedMillilitres / litre:N0} + {t.EmittedLitres:N0} L — pumped == emitted across the tiers: {(t.CrossTierExact ? "exact" : "*** NO ***")}; "
-               + $"stalled {t.StalledNoOutlet:N0} no outlet / {t.StalledNoWater:N0} no water / {t.StalledNoRoom:N0} no room / {t.StalledUnloaded:N0} unloaded / {t.StalledUnanalysed:N0} unanalysed; "
+               + $"stalled {t.StalledNoOutlet:N0} no outlet / {t.StalledNoWater:N0} no water / {t.StalledNoRoom:N0} no room / {t.StalledUnloaded:N0} unloaded / {t.StalledUnanalysed:N0} unanalysed / {t.StalledUnpowered:N0} unpowered; "
                + $"{t.IntakeVoxelsRead:N0} intake voxel(s) read in all, {t.IntakesSkippedDry:N0} intake(s) answered dry off the panel counts; "
-               + $"tick {(ticks > 0 ? (_machineTickMillisSum - _machineTickMillisSumAtWarm) / ticks : 0):F3} ms mean in the window, {_machineTickMillisMax:F3} max over the run\n";
+               + $"tick {(ticks > 0 ? (_machineTickMillisSum - _machineTickMillisSumAtWarm) / ticks : 0):F3} ms mean in the window, {_machineTickMillisMax:F3} max over the run\n"
+               + PowerLine(t);
+    }
+
+    /// <summary>The profile's <c>power</c> line: the window's generation, draw and clamp in millijoules beside the lifetime's, the sky's answers, the identity.</summary>
+    private string PowerLine(MachineTick t)
+    {
+        if (t.PowerOff)
+        {
+            return "power     off (--nogate)\n";
+        }
+
+        long generated = t.GeneratedMillijoules - _generatedAtWarm;
+        long drawn = t.DrawnByPumpsMillijoules - _drawnByPumpsAtWarm;
+        long clamped = t.ClampedMillijoules - _clampedAtWarm;
+        return $"power     in the window: generated {generated:N0} mJ, drawn {drawn:N0} by pumps, clamped {clamped:N0}; "
+               + $"in all: generated {t.GeneratedMillijoules:N0} mJ, drawn {t.DrawnByPumpsMillijoules:N0}, clamped {t.ClampedMillijoules:N0}, pack given {t.PackGivenMillijoules:N0}; "
+               + $"{t.StorageRows:N0} cell(s) hold {t.StoredMillijoules:N0} mJ ({MachinePanel.Joules(t.StoredMillijoules)}), pack {(t.Pack is null ? "none" : $"{t.Pack.ChargeMillijoules:N0} mJ")}; "
+               + $"{t.Converters:N0} panel(s), sampled {t.SolarSampled:N0} / unsampled {t.SolarUnsampled:N0} (sky answered {_solarSky?.Answered ?? 0:N0}, no column {_solarSky?.Unanswered ?? 0:N0}), "
+               + $"open {(t.SolarSampled + t.SolarUnsampled > 0 ? t.OpenColumnsSum / (double)(t.SolarSampled + t.SolarUnsampled) : 0):F2}/16 mean, overcast {t.OvercastByte}/256 at the last boundary; "
+               + $"pool == entering − leaving + generated − drawn − clamped: {(t.PowerExact ? "exact" : "*** NO ***")}\n";
     }
 
     private string PlacementLines()

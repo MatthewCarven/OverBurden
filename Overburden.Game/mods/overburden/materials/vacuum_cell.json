@@ -1,0 +1,19 @@
+{
+  "id": "vacuum_cell",
+  "hardness": 3.0,
+  "supportDistance": 8,
+  "permeability": 0.0,
+  "density": 7800,
+  "textureLayer": 9,
+  "unit": "cells",
+  "machine": {
+    "kind": "storage",
+    "capacityJoules": 5000000000,
+    "links": {
+      "charge": { "carries": "power", "role": "sink", "via": "channel", "port": "channel" }
+    },
+    "ports": {
+      "channel": { "default": 0, "min": 0, "max": 15 }
+    }
+  }
+}

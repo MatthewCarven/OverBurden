@@ -109,6 +109,7 @@ internal static class PumpBench
         int pumpId,
         int widePumpId,
         int outletId,
+        int cellId,
         string machineControl,
         bool isDebug,
         long litres,
@@ -147,17 +148,20 @@ internal static class PumpBench
         PriceTheRead(generator, materials, pumpId, litres);
 
         Console.WriteLine();
-        Console.WriteLine("  The tick's cost by pump count, 200 boundaries each, every pump at 2 L/s so eight outlets on the surface have the room:");
+        Console.WriteLine("  The tick's cost by pump count, 200 boundaries each, every pump at 2 L/s so eight outlets on the surface have the room.");
+        Console.WriteLine("  'free' is a-3's arm (the pool off); 'powered' (M10c-2) gives every pump a charged vacuum cell on its channel, so the");
+        Console.WriteLine("  pool is summed, billed and written back over as many cells as pumps every boundary:");
         Console.WriteLine();
-        Console.WriteLine("  pumps   water        tick ms mean   tick ms max   moves/boundary   stalled (no water / no room)   intake voxels/boundary");
-        Console.WriteLine("  -----   ----------   ------------   -----------   --------------   ----------------------------   ----------------------");
-        RunCost(generator, materials, pumpId, outletId, pumps: 1, wet: true);
-        RunCost(generator, materials, pumpId, outletId, pumps: 100, wet: true);
-        RunCost(generator, materials, pumpId, outletId, pumps: 500, wet: true);
-        RunCost(generator, materials, pumpId, outletId, pumps: 500, wet: false);
+        Console.WriteLine("  pumps   water        power           tick ms mean   tick ms max   moves/boundary   stalled (no water / no room)   intake voxels/boundary");
+        Console.WriteLine("  -----   ----------   -------------   ------------   -----------   --------------   ----------------------------   ----------------------");
+        RunCost(generator, materials, pumpId, outletId, cellId, pumps: 1, wet: true, cells: 0);
+        RunCost(generator, materials, pumpId, outletId, cellId, pumps: 100, wet: true, cells: 0);
+        RunCost(generator, materials, pumpId, outletId, cellId, pumps: 500, wet: true, cells: 0);
+        RunCost(generator, materials, pumpId, outletId, cellId, pumps: 500, wet: false, cells: 0);
+        RunCost(generator, materials, pumpId, outletId, cellId, pumps: 500, wet: true, cells: 500);
 
         Console.WriteLine();
-        RunLoop(generator, materials, pumpId, outletId, litres, nominal, Math.Max(boundaries, 10_000));
+        RunLoop(generator, materials, pumpId, outletId, cellId, litres, nominal, Math.Max(boundaries, 10_000));
 
         Console.WriteLine();
         Console.WriteLine("  'delivered' under the nominal is the box refilling slower than the pump drains it; the intake radius is the lever and its cost");
@@ -176,7 +180,9 @@ internal static class PumpBench
             Generator = generator;
             Fluid = new FluidSimulation(Bodied);
             Settle = new SheetSettle(Fluid, SheetSettle.DefaultSettleAfterTicks, SheetSettle.DefaultSettleShare);
-            Tick = new MachineTick(Machines, materials, Fluid, Bodied, boundaryMillis: BoundaryMillis);
+            // The pool off unless a row turns it on: a-3's arms are the free arm, and a relay
+            // with nothing on its channel would stall unpowered and measure nothing (M10c-2).
+            Tick = new MachineTick(Machines, materials, Fluid, Bodied, boundaryMillis: BoundaryMillis) { PowerOff = true };
             Materials = materials;
             Litres = litres;
         }
@@ -480,15 +486,19 @@ internal static class PumpBench
         _ = sink;
     }
 
-    private static void RunCost(WorldGenerator generator, MaterialTable materials, int pumpId, int outletId, int pumps, bool wet)
+    private static void RunCost(WorldGenerator generator, MaterialTable materials, int pumpId, int outletId, int cellId, int pumps, bool wet, int cells)
     {
         // A 2 x 2 x 2 block, pumps on every other cell of its floor and the floors above, eight
         // outlets on the surface; 2 L/s each so the outlets have the room. The dry arm is the
-        // same rows over a block with no water in it: the panel counts answer every intake.
-        var scene = new Scene(generator, materials, litres: 3_500_000, chambers: 2);
+        // same rows over a block with no water in it: the panel counts answer every intake. The
+        // powered arm puts a charged cell on the odd cell beside every pump and turns the pool on.
+        // A cell body displaces a cubic metre, so the powered arm's flood is a thousand litres
+        // less per cell or the block cannot hold it.
+        var scene = new Scene(generator, materials, litres: 3_500_000 - (cells * 1_000L), chambers: 2);
         scene.Tick.RateOverrideMillilitresPerSecond = 2_000;
+        scene.Tick.PowerOff = cells == 0;
         int half = scene.Terrain.HalfSpan;
-        int placed = 0;
+        int placed = 0, cellsPlaced = 0;
         for (int cy = 0; placed < pumps && cy < 16; cy += 2)
         for (int cz = 0; placed < pumps && cz < 16; cz += 2)
         for (int cx = 0; placed < pumps && cx < 16; cx += 2)
@@ -499,6 +509,14 @@ internal static class PumpBench
                 scene.Terrain.CentreZ - half + (cz * BrushCell.Voxels)));
             scene.Place(cell, pumpId);
             placed++;
+
+            if (cellsPlaced < cells)
+            {
+                BrushCell beside = cell.Offset(1, 0, 0);
+                scene.Place(beside, cellId);
+                scene.Machines.SetCharge(beside, materials.Machine(cellId)!.CapacityMillijoules);
+                cellsPlaced++;
+            }
         }
 
         for (int i = 0; i < 8; i++)
@@ -539,16 +557,36 @@ internal static class PumpBench
             }
         }
 
+        if (!scene.Tick.PowerExact)
+        {
+            throw new InvalidOperationException("the pool identity broke");
+        }
+
+        string power = cells == 0 ? "free" : $"{cellsPlaced} cell(s)";
         Console.WriteLine(
-            $"  {placed,5:N0}   {(wet ? "flooded" : "every panel dry"),-10}   {sum / Boundaries,12:F3}   {max,11:F3}   {moves / (double)Boundaries,14:F1}   {noWater,12:N0} / {noRoom,-12:N0}   {(scene.Tick.IntakeVoxelsRead - voxelsBefore) / (double)Boundaries,22:N0}");
+            $"  {placed,5:N0}   {(wet ? "flooded" : "every panel dry"),-10}   {power,-13}   {sum / Boundaries,12:F3}   {max,11:F3}   {moves / (double)Boundaries,14:F1}   {noWater,12:N0} / {noRoom,-12:N0}   {(scene.Tick.IntakeVoxelsRead - voxelsBefore) / (double)Boundaries,22:N0}");
+        if (cells > 0)
+        {
+            Console.WriteLine(
+                $"          the pool over the {Boundaries} boundaries: drawn {scene.Tick.DrawnByPumpsMillijoules / 1000.0 / 1000.0:N1} kJ by the pumps, "
+                + $"{scene.Tick.StoredMillijoules / 1e12:N3} GJ still stored, clamped {scene.Tick.ClampedMillijoules} mJ, the identity exact at every boundary");
+        }
     }
 
-    private static void RunLoop(WorldGenerator generator, MaterialTable materials, int pumpId, int outletId, long litres, long nominal, int boundaries)
+    private static void RunLoop(WorldGenerator generator, MaterialTable materials, int pumpId, int outletId, int cellId, long litres, long nominal, int boundaries)
     {
         var scene = new Scene(generator, materials, litres);
         scene.Tick.RateOverrideMillilitresPerSecond = nominal;
         BrushCell pumpCell = scene.FloorCell();
         scene.Place(pumpCell, pumpId);
+
+        // Powered (M10c-2): a charged vacuum cell on the surface pays the relay's bill every
+        // boundary — 5 GJ against 50 kJ a boundary, so it never runs dry over the loop — and the
+        // pool identity is checked beside the water's.
+        scene.Tick.PowerOff = false;
+        BrushCell cellCell = scene.SurfaceCell(dx: -12, dz: 12);
+        scene.Place(cellCell, cellId);
+        long charged = scene.Machines.SetCharge(cellCell, materials.Machine(cellId)!.CapacityMillijoules);
 
         // The outlet inside the chamber, two cells east of the pump and five up — its mouth in
         // the air over the flood, since a mouth under water has no room: what it pours falls
@@ -568,17 +606,20 @@ internal static class PumpBench
             tickSum += (Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency;
             scene.Fluid.Step();
             moved += report.PumpedMillilitres;
-            if (!report.Exact || scene.Fluid.TotalMillilitres != total || !scene.IdentityExact)
+            if (!report.Exact || scene.Fluid.TotalMillilitres != total || !scene.IdentityExact || !scene.Tick.PowerExact)
             {
                 throw new InvalidOperationException(
-                    $"loop, boundary {b}: total {scene.Fluid.TotalMillilitres:N0} against {total:N0}, {report}");
+                    $"loop, boundary {b}: total {scene.Fluid.TotalMillilitres:N0} against {total:N0}, power {(scene.Tick.PowerExact ? "exact" : "BROKEN")}, {report}");
             }
         }
 
+        long bill = moved * materials.Machine(pumpId)!.JoulesPerLitre;
         Console.WriteLine(
             $"  The loop: the outlet inside the chamber, {boundaries:N0} boundaries in {clock.Elapsed.TotalSeconds:F1} s — "
             + $"{moved / Litre:N0} L moved ({moved / Litre / (boundaries * BoundaryMillis / 1000.0):F1} L/s against {nominal / Litre:N0} nominal), "
             + $"the world's total {total / Litre:N0} L unchanged at every boundary, the identity exact at every boundary, "
-            + $"tick {tickSum / boundaries:F3} ms mean, displaced {scene.Fluid.DisplacedMillilitres} mL");
+            + $"tick {tickSum / boundaries:F3} ms mean, displaced {scene.Fluid.DisplacedMillilitres} mL; "
+            + $"the cell paid {scene.Tick.DrawnByPumpsMillijoules / 1e6:N1} kJ of its {charged / 1e12:N0} GJ, exactly {moved / Litre:N0} L × {materials.Machine(pumpId)!.JoulesPerLitre} J/L"
+            + $"{(scene.Tick.DrawnByPumpsMillijoules == bill ? "" : " *** NOT THE BILL ***")}, the pool identity exact at every boundary");
     }
 }

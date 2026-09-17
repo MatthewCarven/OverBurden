@@ -23,7 +23,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | **Worldgen as content** — Matthew's thinking-ahead, 2026-09-11: ores, layers, trees, and what is permeable. Notes rather than a plan; what MATERIALS-NOTES already decided is listed so it is not re-litigated, and the three questions its pass wants from him are at the end. **Not scheduled — M8d, then M9.** |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md) | **Water bodies** — Matthew's question, 2026-09-10: resting water as one number over a connected void, DESIGN's *"stable cells merge into a Tier A body"* half that M8b never built. Notes rather than a plan, with the roof-open wake explained and six decisions. **Read before M8c's planning pass, which is where it belongs.** |
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | **Elements, and whether to "just implement chemistry"** — a brainstorm with Matthew, 2026-09-03. Notes rather than a plan. The recommendation is *geology that reacts to water, with machine recipes as the chemistry set*; the element table says why each material would exist. **Read before M8c reads `permeability` and before M9 reads `supportDistance` — both have been in the material JSON unread since M1, and the trap is a constant shipping green.** |
-| [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) | **The ladder — hand → steam → DC → AC → quantum, and the crafting under it; planned 2026-09-15 (evening) from Matthew's brief, twenty-three decisions, ten parts M10a–M10j, all taken as recommended the same night. M10a's own planning pass is its last section — six facts from the code, twelve decisions, three sessions a-1/a-2/a-3 — and all three are built (2026-09-15/16): the store slice, the entity, the pump; a-3's built section has the bench's first number, the relay delivering its nominal 100 L/s on a flooded chamber, and the read the ladder's decision 14 proposed retired by measurement. M10b's own pass follows it (2026-09-16): six facts, nine decisions, two sessions, the ID Matthew's — both built the same day, b-2's built section recording the two camera rules the pass did not have (the re-capture click is swallowed; flight is gated on capture). M10c's pass follows b-2's built section (2026-09-16, evening): nine facts, eleven decisions, three sessions — the pool is the tick's, the pack is the header's, the entangled miner becomes a tool; two things are Matthew's.** Its one idea: connection is membership and movement is a ledger transfer at the boundary — no solver, nothing in flight at any tier. **Read its four facts first** (the 16 m vertical box against a 64 m mine; the header and the machine table are two store calls; `IsWetIn` is a dictionary lookup a voxel; a wire on a ceiling falls under M9's rule). M10-PLAN's a–d are its first rung, eight decisions amended. Read M10-PLAN and M10-NOTES before it. |
+| [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) | **The ladder — hand → steam → DC → AC → quantum, and the crafting under it; planned 2026-09-15 (evening) from Matthew's brief, twenty-three decisions, ten parts M10a–M10j, all taken as recommended the same night. M10a's own planning pass is its last section — six facts from the code, twelve decisions, three sessions a-1/a-2/a-3 — and all three are built (2026-09-15/16): the store slice, the entity, the pump; a-3's built section has the bench's first number, the relay delivering its nominal 100 L/s on a flooded chamber, and the read the ladder's decision 14 proposed retired by measurement. M10b's own pass follows it (2026-09-16): six facts, nine decisions, two sessions, the ID Matthew's — both built the same day, b-2's built section recording the two camera rules the pass did not have (the re-capture click is swallowed; flight is gated on capture). M10c's pass follows b-2's built section (2026-09-16, evening): nine facts, eleven decisions, three sessions — the pool is the tick's, the pack is the header's, the entangled miner becomes a tool; two things are Matthew's, both taken as recommended; c-1 and c-2 built 2026-09-16/17 (the pool in Core; the wire, the three JSON files and the oracles), c-3 next.** Its one idea: connection is membership and movement is a ledger transfer at the boundary — no solver, nothing in flight at any tier. **Read its four facts first** (the 16 m vertical box against a 64 m mine; the header and the machine table are two store calls; `IsWetIn` is a dictionary lookup a voxel; a wire on a ceiling falls under M9's rule). M10-PLAN's a–d are its first rung, eight decisions amended. Read M10-PLAN and M10-NOTES before it. |
 | [docs/M10-PLAN.md](docs/M10-PLAN.md) | **M10, you fight back — planned 2026-09-15, eleven decisions with recommendations, waiting on Matthew; M10a's own pass follows the answers.** Split M10a–M10d: the entity, the relay pump and outlet / the programmer / power / the play. **Read its three facts first: the boundary is the machine tick (`Add`/`Remove` refuse mid-tick, so DESIGN's 20 Hz has no consumer), a machine is a material plus a row (the body is 64 voxels of a material, so every existing path is free and only the config is new), and an outlet is out of the loaded box on day one** (`ViewDistanceVertical` 2 against a 64 m mine). Read M10-NOTES before it. |
 | [docs/M9-PLAN.md](docs/M9-PLAN.md) | **M9, the mine kills you — planned 2026-09-11, all twelve decisions taken the same day; M9a and M9b built 2026-09-12 (read their "planning pass" and "built" sections — the byte moved `K` to 120, a dead path is a state, the join climbs; the derive is a detached job, the tint waits for the barrier); M9c-1 planned 2026-09-13 (a fall is a column run, the snapshot is not the gate) and built 2026-09-13/14 — c-1a Core, c-1b the wire; read "M9c-1b — built": the roof comes down in the game, the cascade is the analysed set growing, and a fall's cost is the hook chain. M9d next, unplayed.** Split M9a–M9d. **Read its "two facts" first: there is no bedrock, and DESIGN's literal distance rule opens a shaft to the surface over a 2 × 2 bite** — the plan's budget-with-an-arch rule and its uniqueness proof are decision 1. Read MATERIALS-NOTES and SCALE before it. |
 | [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **M8c planned 2026-09-10, all eight decisions taken 2026-09-11, M8c-1 built the same day — read "M8c-1 — built" before M8c-2's pass.** **Planned 2026-09-02; M8a built the same day; M8b split four ways and M8b-1 built 2026-09-03; M8b-2 planned 2026-09-05 and all three parts built the same day, both open decisions taken as recommended — water crosses the seam in the game; M8b-3 planned and built the same day: the hand-off (3a) measured, the settle (3b) built and priced against the chamber, both mines and the played world, the spill's look deferred to M8c and the settle's interval an estimate with `--settleafter=` as the sweep.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it. **Its M8b section records a gap the plan had**: a flooded mine has no Tier A body, so resting mine water is stored, and the settle is a solve. Read the tick-budget item in TODO before M8b-2. |
@@ -671,6 +671,37 @@ from the shaft is still loaded. At 96 the run prints `a row alone (its chunk is 
 unloaded arm)` and the profile's `machtick` reads `emitted 0 L into Tier B + 1,000 L into Tier A`
 with `handed 0` — the litres never rested anywhere. Add `--fluidjob=1` to read the `boundary` line.
 
+**M10c-2 adds the pool's wire and three flags (2026-09-17).** The pool is on: a pump pays its
+`joulesPerLitre` from the placed cells and panels on its channel, stalls `unpowered` — the sixth
+stall, after `no water` — with a litre's worth short, and what no cell holds is `clamped`.
+`overburden:solar_panel` (500 W, a converter: `sky` via `solar`, `out` via `channel`),
+`overburden:vacuum_cell` (5 GJ, placed) and `overburden:lead_acid_pack` (3.6 MJ, 1 kW recharge,
+carried — an item like the computer; equipping it is c-3's) ship; the panel and the pack ride the
+channel class until M10i, printed at open. A panel's boundary is `ratedWatts × 500 × open/16 ×
+(256 − overcast)/256` — the openness counted off the streamer's sky columns
+(`StreamerSolarSky`, the light's array counted rather than all-or-nothing) and kept on the row when
+its column is unloaded, the overcast a byte taken once a boundary from the same `--weather`-or-forecast
+expression the shader reads — **so `--weather=1` dims a panel to 976 mJ a boundary, never zero.**
+**`--pump` places a charged vacuum cell beside the outlet** (the relay is 200 panels, so a-3's
+oracle keeps reading; `--cell=0` omits it and that run reads `59 unpowered`); **`--solar=<n>`** places
+panels west of the outlet a metre apart; **`--nogate`** is the pre-M10c arm — the pool off, every
+pump free (and, from c-3, the miner free), printed. `P` seeds a panel and a cell beside the relay
+pair and a pack once; **`Alt+P` fills every placed cell to capacity**, printed — the debug charge
+M10d's relay runs on. `--openpanel=cell|panel` opens the panel on those bodies. The `M10:` line and
+the `machines` block carry `unpowered` and a `power:` term ending `pool == entering − leaving +
+generated − drawn − clamped: exact`; the profile has a `power` line with the window's terms. **The
+storm's oracle, verbatim — ten panels, no cell, a clear sky: the profile's `power` line reads
+`generated 150,000,000 mJ` over the window's 60 boundaries with `open 16.00/16`, `sky answered 600`;
+with `--weather=1` in place of `--weather=0` it reads `generated 585,600 mJ`:**
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --fillbasin=2000000 --breach=3 --pump=100 --cell=0 --solar=10 --weather=0 --measure=30
+```
+
+On the bench `--pump` gains a powered row — 500 pumps with 500 charged cells against the free
+arm, 3.03–3.11 ms against 3.00–3.01 mean over two runs, the pool inside the bench's own spread — and its loop runs
+powered, the cell paying exactly the bill over 10,000 boundaries with both identities exact.
+
 Measure **the relay pump** — the number every pump cap in the ladder was fiction until, and the read
 priced both ways. The chamber fixture flooded and settled, a relay pump on its floor's centre, an
 outlet on the surface with a sink under it standing in for the hand-off: the delivered rate against
@@ -780,7 +811,32 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
-**Pick up here (2026-09-16, night). M10c-1 is built — the pool in Core — and M10c-2, the wire
+**Pick up here (2026-09-17, small hours). M10c-2 is built — the wire, the three JSON files and
+the oracles — and M10c-3, the pack and the gate, is next, alone: header v4 (a presence byte, the
+pack's material through the world's table, its charge in millijoules, its channel; v3 opens with
+none) and `EquippedPack`'s persistence through `CurrentHeader`; the equip verb (a right-click edge
+with a pack in hand, routed in `PlaceController` beside the computer's; a swap forfeits the
+outgoing charge, printed); the pack's panel on the computer's click on nothing (`MachinePanel` over
+a port view rather than a row — one `channel` box, the charge as its status); `tools/entangled_miner.json`
+(threshold 5.0, cooldown 0.10 with `--cubecooldown=` as its sweep, `power { via: channel,
+joulesPerVoxel: 100 }`) and `ToolDefinition.Power` with the loader's rules; `Carve`'s voxel
+budget on every shape and `CarveResult.Unpowered` in `IsAccounted`; `MiningController` paying
+`Removed × J` from the pack (the Alt chip too) and `PlaceController`'s fill at range refused whole
+under `64 × J`; the HUD's `pack 2.1 / 3.6 MJ` and `Q takes nothing — no pack`; `--pack[=<id>]`,
+`--charge=<J>`; `--nogate`'s miner half; `Alt+P` filling the pack too; the bite-that-stops oracle
+(`--pack --charge=640 --mine --entangle --profile --speed=0` → `removed 6`, `unpowered 58`, the pack
+at 40 J); the tick's `Pack` set from the header; and **every recorded `--mine --entangle` recipe
+gaining `--nogate` in the same commit**. Read "M10c-2 — built" and the pass's decisions 4–6 in
+[docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) first.** Three things c-3 must not rediscover:
+`MachineSet.SetCharge` is the debug door for *placed* cells and the pack is not a row — the pack's
+`loaded` is `EquippedPack.InitialMillijoules` and its tool draw `TakenMillijoules`, both already in
+`PowerExact`; the pack recharges *last* and is never in `_available`, so a full pack never runs a
+pump; and `PlaceController.SelectedIsItem` routes every non-placeable material to the item branch,
+where the computer asks the machine under the crosshair — the pack's edge goes beside it, keyed on
+the material's `Carried` storage block. Suite 1,592; the r6 control to the digit. The paragraph
+below is c-1's state, kept for the reasoning.
+
+**Earlier (2026-09-16, night). M10c-1 is built — the pool in Core — and M10c-2, the wire
 and the oracles, is next: `Main`'s `ISolarSky` over `ChunkStreamer.ColumnAt` (the count of the
 body's sixteen columns whose `OpenAboveY` is at or below its top plus one), the overcast byte at
 the boundary as `min(255, ⌊(_forcedWeather ?? OvercastAt) × 256⌋)` into `MachineTick.OvercastByte`,

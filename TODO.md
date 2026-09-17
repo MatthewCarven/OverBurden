@@ -5466,7 +5466,12 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             after `no water`, the pack last and never a supply, write-back in origin order,
             `clamped` — the counters, the identity `Σ charge + pack == loaded + generated − drawn
             − clamped`, `PowerOff`. Tests at the pass's end.
-      - [ ] **c-2 — the wire and the oracles**: `Main`'s sky adapter, the overcast byte at the
+      - [x] **c-2 — the wire and the oracles, built 2026-09-17 (small hours).** Every oracle the
+            pass named read to the millijoule (150,000,000 and 585,600 mJ over 60 boundaries for ten
+            panels clear and under the storm; `59 unpowered` with `--cell=0`; a-3's oracle unchanged
+            with the cell at 4,999.0 MJ), the r6 control to the digit, the bench's powered row at
+            3.03–3.11 ms against 3.00–3.01 free for 500 pumps and 500 cells over two runs. Read "M10c-2 — built". What was
+            planned: `Main`'s sky adapter, the overcast byte at the
             boundary, `P` (a panel, a cell, a pack once) and `Alt+P` (fills every loaded cell and
             the pack, printed), `--pump`'s charged cell beside the outlet (`--cell=0` omits it →
             `stalled 60 unpowered`), `--solar=<n>`, `--nogate`'s tick half, the `M10:` `power:`

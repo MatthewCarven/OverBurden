@@ -64,6 +64,7 @@ public sealed partial class MachinePanel : CanvasLayer
 
     private MachineRow? _row;
     private MachineSet? _machines;
+    private MachineTick? _tick;
     private MachineKind _kind;
     private string _label = string.Empty;
     private bool _syncing;
@@ -163,10 +164,12 @@ public sealed partial class MachinePanel : CanvasLayer
     /// <param name="definition">The machine block of the row's material — the port declarations and their bounds.</param>
     /// <param name="label">The material's display name, derived by the HUD's rule.</param>
     /// <param name="machines">The set the writes go to.</param>
-    public void Open(MachineRow row, MachineDefinition definition, string label, MachineSet machines)
+    /// <param name="tick">The tick, for a converter's generation line and the overcast; null under <c>--nowater</c>.</param>
+    public void Open(MachineRow row, MachineDefinition definition, string label, MachineSet machines, MachineTick? tick = null)
     {
         _row = row;
         _machines = machines;
+        _tick = tick;
         _kind = definition.Kind;
         _label = label;
         _printedStall = null;
@@ -234,6 +237,7 @@ public sealed partial class MachinePanel : CanvasLayer
 
         _row = null;
         _machines = null;
+        _tick = null;
         _root.Visible = false;
     }
 
@@ -358,6 +362,24 @@ public sealed partial class MachinePanel : CanvasLayer
             return ($"receives from every pump on channel {channel}   ·   weight {weight} in the ring", DimText, null);
         }
 
+        // M10c-2: a cell's charge through the set's own definition of one, a panel's generation
+        // through the tick's — never a second copy of either formula.
+        if (_kind == MachineKind.Storage)
+        {
+            long capacity = _machines?.CapacityOf(row) ?? 0;
+            long charge = _machines?.ChargeOf(row) ?? 0;
+            return ($"charged {Joules(charge)} of {Joules(capacity)}   ·   pooled on channel {channel}", charge > 0 ? MovedText : DimText, null);
+        }
+
+        if (_kind == MachineKind.Converter)
+        {
+            int open = ConverterState.ReadOpenColumns(row);
+            long output = _tick?.SolarOutputOf(row) ?? 0;
+            byte overcast = _tick?.OvercastByte ?? 0;
+            return ($"generating {Joules(output)} a boundary onto channel {channel}   ·   {open}/16 open, overcast {overcast}/256",
+                output > 0 ? MovedText : StallText, null);
+        }
+
         return row.LastStall switch
         {
             PumpStall.None when row.LastMovedMillilitres > 0 =>
@@ -368,8 +390,22 @@ public sealed partial class MachinePanel : CanvasLayer
             PumpStall.NoRoom => ($"stalled: no room at any outlet on channel {channel}", StallText, PumpStall.NoRoom),
             PumpStall.Unloaded => ("stalled: the intake or an outlet is not loaded", StallText, PumpStall.Unloaded),
             PumpStall.Unanalysed => ("stalled: off the analysed window — no ground to pour on", StallText, PumpStall.Unanalysed),
+            PumpStall.Unpowered => ($"stalled: no power on channel {channel}", StallText, PumpStall.Unpowered),
             _ => (row.LastStall.ToString(), StallText, row.LastStall),
         };
+    }
+
+    /// <summary>Millijoules in the unit a person reads: mJ under a joule, then J, kJ, MJ, GJ.</summary>
+    internal static string Joules(long millijoules)
+    {
+        long sign = millijoules < 0 ? -1 : 1;
+        long mJ = Math.Abs(millijoules);
+        string s = sign < 0 ? "−" : string.Empty;
+        if (mJ < 1_000L) return $"{s}{mJ} mJ";
+        if (mJ < 10_000_000L) return $"{s}{mJ / 1000.0:N0} J";
+        if (mJ < 10_000_000_000L) return $"{s}{mJ / 1_000_000.0:N1} kJ";
+        if (mJ < 10_000_000_000_000L) return $"{s}{mJ / 1_000_000_000.0:N1} MJ";
+        return $"{s}{mJ / 1_000_000_000_000.0:N2} GJ";
     }
 
     /// <summary>Millilitres as litres, whole when they are whole — the tick's unit shown in the player's.</summary>

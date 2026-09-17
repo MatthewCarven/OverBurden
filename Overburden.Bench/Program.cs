@@ -514,11 +514,13 @@ internal static class Program
 
             MaterialDefinition shippedPump = pumpContent.Materials.Get(Identifier.Parse("overburden:relay_pump"));
             MaterialDefinition shippedOutlet = pumpContent.Materials.Get(Identifier.Parse("overburden:relay_outlet"));
+            MaterialDefinition shippedCell = pumpContent.Materials.Get(Identifier.Parse("overburden:vacuum_cell"));
             var pumpRegistry = new Registry<MaterialDefinition>("materials", MaterialDefinition.Unknown);
             pumpRegistry.Register(MaterialIds.Air, pumpContent.Materials.Get(MaterialIds.Air));
             pumpRegistry.Register(Identifier.Parse("overburden:stone"), pumpContent.Materials.Get(Identifier.Parse("overburden:stone")));
             int pumpId = pumpRegistry.Register(shippedPump.Id, shippedPump);
             int outletId = pumpRegistry.Register(shippedOutlet.Id, shippedOutlet);
+            int cellId = pumpRegistry.Register(shippedCell.Id, shippedCell);
             var widePump = new MaterialDefinition
             {
                 Id = Identifier.Parse("bench:relay_pump_r2"),
@@ -543,7 +545,7 @@ internal static class Program
 
             var pumpGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
             return PumpBench.Run(
-                pumpGenerator, MaterialTable.From(pumpRegistry), pumpId, widePumpId, outletId,
+                pumpGenerator, MaterialTable.From(pumpRegistry), pumpId, widePumpId, outletId, cellId,
                 MachineControl(pumpGenerator), IsDebug(), pumpLitres, pumpRate, pumpBoundaries);
         }
 

@@ -1,0 +1,22 @@
+{
+  "id": "lead_acid_pack",
+  "hardness": 1.0,
+  "supportDistance": 2,
+  "permeability": 0.0,
+  "density": 4000,
+  "textureLayer": 10,
+  "unit": "count",
+  "placeable": false,
+  "machine": {
+    "kind": "storage",
+    "carried": true,
+    "capacityJoules": 3600000,
+    "rechargeWatts": 1000,
+    "links": {
+      "charge": { "carries": "power", "role": "sink", "via": "channel", "port": "channel" }
+    },
+    "ports": {
+      "channel": { "default": 0, "min": 0, "max": 15 }
+    }
+  }
+}

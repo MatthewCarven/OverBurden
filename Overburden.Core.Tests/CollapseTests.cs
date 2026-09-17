@@ -1028,9 +1028,12 @@ public class CollapseTests
         IReadOnlyList<Identifier> exported = content.Materials.ExportIdTable();
         Assert.Equal(saved, exported.Take(saved.Count));
         Identifier[] appended = [.. exported.Skip(saved.Count)];
-        Assert.Equal(4, appended.Length);
+        Assert.Equal(7, appended.Length);
         Assert.Contains(Identifier.Parse("overburden:rubble"), appended);
         Assert.Contains(Identifier.Parse("overburden:computer"), appended);
+        Assert.Contains(Identifier.Parse("overburden:solar_panel"), appended);
+        Assert.Contains(Identifier.Parse("overburden:vacuum_cell"), appended);
+        Assert.Contains(Identifier.Parse("overburden:lead_acid_pack"), appended);
         Assert.Contains(Identifier.Parse("overburden:relay_pump"), appended);
         Assert.Contains(Identifier.Parse("overburden:relay_outlet"), appended);
         Assert.True(content.Materials.GetNumericId(Identifier.Parse("overburden:rubble")) >= saved.Count);

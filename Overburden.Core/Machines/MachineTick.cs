@@ -529,13 +529,32 @@ public sealed class MachineTick
         }
 
         OpenColumnsSum += open;
+        return SolarMillijoules(definition, open, OvercastByte, _boundaryMillis);
+    }
 
-        // Multiply then divide, each factor in turn, so 500 W under a byte of 255 reads 976 mJ
-        // and not 0: the storm dims a panel to a 256th, never off. Every factor is bounded at
-        // load so the product stays inside a long.
-        long millijoules = definition.RatedWatts * _boundaryMillis;
-        millijoules = millijoules * open / ConverterState.Columns;
-        millijoules = millijoules * (256 - OvercastByte) / 256;
+    /// <summary>
+    /// What a converter row would generate at a boundary under the overcast the tick holds, from
+    /// its last-sampled openness — the panel's line, off the one definition the tick uses.
+    /// </summary>
+    public long SolarOutputOf(MachineRow row)
+    {
+        MachineDefinition? definition = _materials.Machine(row.MaterialId);
+        return definition is { Kind: MachineKind.Converter }
+            ? SolarMillijoules(definition, ConverterState.ReadOpenColumns(row), OvercastByte, _boundaryMillis)
+            : 0;
+    }
+
+    /// <summary>Decision 2's one integer product.</summary>
+    /// <remarks>
+    /// Multiply then divide, each factor in turn, so 500 W under a byte of 255 reads 976 mJ and
+    /// not 0: the storm dims a panel to a 256th, never off. Every factor is bounded at load so
+    /// the product stays inside a long.
+    /// </remarks>
+    public static long SolarMillijoules(MachineDefinition definition, int openColumns, byte overcastByte, long boundaryMillis)
+    {
+        long millijoules = definition.RatedWatts * boundaryMillis;
+        millijoules = millijoules * openColumns / ConverterState.Columns;
+        millijoules = millijoules * (256 - overcastByte) / 256;
         millijoules = millijoules * definition.EfficiencyPerMille / MachineDefinition.PerMille;
         return millijoules;
     }

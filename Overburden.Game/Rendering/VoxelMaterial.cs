@@ -67,6 +67,14 @@ public static class VoxelMaterial
         // M10b's computer: an item in the hand, never a block, so this colour is only ever a
         // hotbar swatch — a slate with a hint of green, the one thing here that is not rock.
         new Color(0.30f, 0.36f, 0.34f),
+
+        // M10c-2's power: a solar panel in a deep glassy blue so a field reads as a field on
+        // grass; a vacuum cell in a near-black with a violet cast, the one body that holds
+        // something nobody can see; and the lead-acid pack, a hotbar swatch only, in a dull
+        // battery grey. Unscreenshotted; look calls for M10d's play.
+        new Color(0.12f, 0.20f, 0.42f),
+        new Color(0.16f, 0.12f, 0.22f),
+        new Color(0.40f, 0.40f, 0.38f),
     ];
 
     /// <summary>The colour for a layer, or a flat grey for one this build has no texture for.</summary>
@@ -99,7 +107,7 @@ public static class VoxelMaterial
         // The relay pair (M10a-2) is smoother than rock — a cast body, not a face of it — and
         // the table is asserted against the colours so a sixth colour cannot ship without a sixth
         // jitter: the r6 control threw an IndexOutOfRange from here on the night the pair was added.
-        float[] jitter = [0.08f, 0.12f, 0.10f, 0.04f, 0.16f, 0.03f, 0.03f, 0.02f];
+        float[] jitter = [0.08f, 0.12f, 0.10f, 0.04f, 0.16f, 0.03f, 0.03f, 0.02f, 0.02f, 0.02f, 0.03f];
         if (jitter.Length != LayerColour.Length)
         {
             GD.PushError($"Overburden: {LayerColour.Length} layer colours but {jitter.Length} jitters; the two tables have drifted");

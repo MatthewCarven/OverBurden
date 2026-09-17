@@ -2166,3 +2166,74 @@ the overcast byte at the boundary from `_forcedWeather ?? OvercastAt`, `PowerOff
 `--nogate` on, `P` and `Alt+P`, `--pump`'s charged cell and `--cell=0`, `--solar=<n>`, the `M10:`
 `power:` term, the panel's three lines, the bench's power row, the three JSON files and
 `ShippedContentTests`, `--weather=1` reading 976 mJ a panel a boundary.
+
+### M10c-2 — built
+
+> 2026-09-17, small hours (*"c-2 please"*). Suite 1,591 → 1,592; every headless oracle the pass
+> named read to the millijoule; the r6 control unchanged to the digit; two screenshots; the
+> bench's power row. No Core rule changed — two Core doors were added for the wire (`SetCharge`,
+> `SolarOutputOf`) and nothing else.
+
+**What is there.** `Overburden.Game/Machines/StreamerSolarSky.cs` — the light's own array, counted:
+a body's sixteen columns off `ChunkStreamer.ColumnAt`, open when `OpenAboveY` is at or below the
+body's top plus one, `false` with no seeded column so the row's last sample stands. `Main` sets
+`MachineTick.OvercastByte` once a boundary in `RunMachineTick` from the same `_forcedWeather ??
+OvercastAt` the shader reads, `min(255, ⌊overcast × 256⌋)`, and pushes an error on the pool
+identity as it does on the water's. `PowerOff` is `--nogate`'s now — printed either way, and the
+pool's line at open says the panel and the pack ride the channel class until M10i. **`--pump`
+places a charged vacuum cell in the cell beside the outlet** through `PlaceSurfaceBody` (the
+outlet's own path: through the brush where the chunk is loaded, a row alone where it is not) and
+`MachineSet.SetCharge`, the set's one debug door — clamped to capacity, the difference counted as
+entering or leaving so the identity carries it without a term of its own; `--cell=0` omits it.
+`--solar=<n>` places panels west of the outlet a metre apart the same way. `P` seeds a panel and
+a cell beside the pair and a lead-acid pack once (equipping it is c-3's); **`Alt+P` fills every
+placed cell to capacity**, printed — Alt+R's shape, the charge M10d's relay runs on.
+`--openpanel=cell|panel` opens on those bodies. The `M10:` line carries a `power:` term — cells and
+what they hold, the pack, generated with the panel count, the open-column mean, the unsampled
+count and the overcast byte, drawn by pumps, clamped, pack given, and `pool == entering − leaving +
+generated − drawn − clamped: exact` — beside a sixth stall; the profile has a `power` line with
+the window's terms and the sky's answers. The panel reads a cell as `charged 4,999.5 MJ of
+5,000.0 MJ · pooled on channel 0`, a converter as `generating 125 J a boundary onto channel 0 ·
+16/16 open, overcast 128/256` through `MachineTick.SolarOutputOf` (one definition of the product),
+and a pump's sixth stall as `stalled: no power on channel N`. `MachinePanel.Joules` is the one
+formatter (mJ, J, kJ, MJ, GJ). Three JSON files: `solar_panel` (500 W, `efficiency` 1.0, layer 8),
+`vacuum_cell` (5 GJ, layer 9), `lead_acid_pack` (3.6 MJ, 1 kW, `carried`, `placeable: false`,
+`unit: count`, layer 10 — a swatch only); three colours and jitters, asserted; the bench's `--pump`
+gains a powered row and a powered loop.
+
+**What the numbers say.** Headless, `--fillbasin=2000000 --breach=3 --pump=100`: a-3's oracle
+unchanged — `drawn 1,000 == pumped 1,000 == emitted 1,000` — with the cell at `4,999.0 MJ` of
+5,000 and `drawn 1,000.0 kJ by pumps`, the pool exact. `--cell=0`: `59 unpowered` of 60 ticks in
+the window (the first is `no water`, before the lake reaches the shaft), 0 moves. `--solar=10
+--cell=0 --weather=0`: **`generated 150,000,000 mJ`** over the window's 60 boundaries, ten panels
+`open 16.00/16`, the sky answered 600 of 600, `drawn 147,500,000 by pumps` — the trickle, 2.5 L a
+boundary — and `clamped 2,500,000` from the one boundary before the water came; **`--weather=1`:
+`generated 585,600 mJ`**, 976 a panel a boundary, `drawn 531,000` (9 mL a boundary), `clamped
+54,600`, the identity exact. `--nogate --cell=0` reads a-3's 20 moves and `0 unpowered`. The bench,
+Release: **500 pumps with 500 charged cells tick at 3.03–3.11 ms mean against 3.00–3.01 free over two runs** — the pool
+over five hundred rows is 0.02–0.11 ms a boundary, inside the bench's own spread, summed, billed and written back — `drawn 110,000 kJ`
+over 220 boundaries at 2 L/s, 2,499.890 GJ still stored, clamped 0; the loop, powered, moves
+500,000 L over 10,000 boundaries with the world's total unchanged, the cell paying exactly
+`500,000 L × 1,000 J/L` of its 5 GJ and the pool identity exact at every one. The r6 control,
+verbatim, 2601 / 325 / 3446 at 411. Two screenshots: the cell's panel with its charge line, and a
+panel's under `--weather=0.5` reading `125 J a boundary`, `overcast 128/256`, with the rain on.
+
+**Two things the wire said.** The bench's powered arm could not hold its flood: five hundred cell
+bodies displace five hundred cubic metres, so the arm pours a thousand litres less per cell — a
+fixture fact, not a hole. And the pool's cost on the boundary is a rounding error against the
+read: the ladder's *the tick is O(awake machines) at every tier* holds for the power half at the
+first number it was given.
+
+**The tests.** `ShippedContentTests` (+1): the trio loads with every field read, the pack is the
+second non-placeable material, the relay's boundary bill is exactly 200 panels', every shipped
+tier can take a panel and a cell. `CollapseTests`' old-world table gains three appended IDs. The
+rest is the wire's, headless and on the bench, as above.
+
+**Next: M10c-3, the pack and the gate** — header v4 and `EquippedPack`'s persistence, the equip
+verb and the swap with `forfeited`, the pack's panel on the computer's click on nothing,
+`tools/entangled_miner.json` (threshold 5.0, cooldown 0.10 with `--cubecooldown=` as its sweep,
+`power { via: channel, joulesPerVoxel: 100 }`) and `ToolDefinition.Power`, `Carve`'s voxel budget
+and `CarveResult.Unpowered` in `IsAccounted`, the controllers paying (the bite and the Alt chip;
+the fill at range all-or-nothing on `64 × J`), the HUD's pack line, `--pack[=<id>]`,
+`--charge=<J>`, `--nogate`'s miner half, the bite-that-stops oracle, and every recorded `--mine
+--entangle` recipe gaining `--nogate` in the same commit.

@@ -1,0 +1,21 @@
+{
+  "id": "solar_panel",
+  "hardness": 1.0,
+  "supportDistance": 2,
+  "permeability": 0.0,
+  "density": 2500,
+  "textureLayer": 8,
+  "unit": "cells",
+  "machine": {
+    "kind": "converter",
+    "ratedWatts": 500,
+    "efficiency": 1.0,
+    "links": {
+      "sky": { "carries": "power", "role": "sink",   "via": "solar" },
+      "out": { "carries": "power", "role": "source", "via": "channel", "port": "channel" }
+    },
+    "ports": {
+      "channel": { "default": 0, "min": 0, "max": 15 }
+    }
+  }
+}

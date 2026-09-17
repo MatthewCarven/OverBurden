@@ -142,6 +142,33 @@ public sealed class MachineSet : IMachineBodies
     public long ChargeOf(MachineRow row) =>
         _materials?.Machine(row.MaterialId) is { Kind: MachineKind.Storage, Carried: false } ? StorageState.Read(row) : 0;
 
+    /// <summary>
+    /// Sets the charge on the storage row at <paramref name="cell"/>, clamped to its capacity,
+    /// with the difference counted as charge entering or leaving — the debug seed (<c>--pump</c>'s
+    /// cell, <c>Alt+P</c>) and nothing in play, which charges through the tick alone.
+    /// </summary>
+    /// <returns>The charge that landed, or −1 when the cell holds no placed storage row.</returns>
+    public long SetCharge(BrushCell cell, long millijoules)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(millijoules);
+        if (!_rows.TryGetValue(cell, out MachineRow? row)
+            || _materials?.Machine(row.MaterialId) is not { Kind: MachineKind.Storage, Carried: false } storage)
+        {
+            return -1;
+        }
+
+        long before = StorageState.Read(row);
+        long landed = Math.Min(millijoules, storage.CapacityMillijoules);
+        StorageState.Write(row, landed);
+        if (landed > before) StoredMillijoulesEntering += landed - before;
+        else StoredMillijoulesLeaving += before - landed;
+        return landed;
+    }
+
+    /// <summary>A placed storage row's capacity in millijoules, or zero when its material is not a storage here.</summary>
+    public long CapacityOf(MachineRow row) =>
+        _materials?.Machine(row.MaterialId) is { Kind: MachineKind.Storage, Carried: false } storage ? storage.CapacityMillijoules : 0;
+
     /// <summary>Adds a row. Refuses a second row at the same cell: one cell, one body.</summary>
     public void Add(MachineRow row)
     {

@@ -1,5 +1,31 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-17 — M10c-2 built: the wire, and the pool costs nothing the read does not
+
+*"c-2 please"*. Suite 1,591 → 1,592; every oracle to the millijoule; r6 control to the digit. What
+was built is in M10-LADDER-PLAN's "M10c-2 — built"; what is worth keeping here:
+
+- **The pool over five hundred rows is 0.02–0.11 ms a boundary.** 500 pumps with 500 charged cells
+  tick at 3.03–3.11 ms against 3.00–3.01 free over two runs on the bench, Release — the sum, the bill and the write-back
+  are a rounding error against the intake read, so the ladder's *O(awake machines) at every tier*
+  holds for the power half at its first number. The bench's powered arm had to pour a thousand
+  litres less per cell, because a cell body displaces a cubic metre and the block could not hold
+  the flood: the fixture's fact, not a hole.
+- **The storm's oracle is exact and not zero.** Ten panels under `--weather=1` generate 585,600 mJ
+  over sixty boundaries — 976 each a boundary — and under `--weather=0` 150,000,000; the sky
+  answered all six hundred asks with sixteen columns open, so the count and the byte are both
+  doing what decision 2 said. The trickle is visible in the same line: the relay drew 147.5 MJ of
+  the 150 and moved 147.5 L, 2.5 a boundary, which is what a pump that takes all it can pay for
+  looks like on ten panels.
+- **The debug charge is one door on the set.** `MachineSet.SetCharge` clamps to capacity and
+  counts the difference as charge entering or leaving, so `--pump`'s cell and `Alt+P` are inside
+  the identity without a term named for them — the same shape as the restore's `loaded`. A play
+  charges only through the tick.
+- **The formatter is the panel's.** `MachinePanel.Joules` is the one place millijoules become a
+  unit a person reads, and the `M10:` line, the profile and the panel all go through it; the bench
+  prints its own units and got the divisor wrong first (mJ to GJ is 10¹², not 10⁹) — a bench prints
+  raw and that is where the mistake surfaced.
+
 ## 2026-09-16 — M10c-1 built: the pool in Core, and a pump takes all it can pay for
 
 *"As recommended, lets build c-1"*. Suite 1,569 → 1,591; twenty-two break-recipes, nineteen caught first time and three after the fixture each named was added — a converter with the sky as its source and the channel as its sink (the converter's own shape rule made the first recipe an identity), the pack's own capacity bound (the tick caps before it calls, so only the object's test sees it), and a lake pump under a litre of joules (the floor changes the stall's name, not the water); r6 control to the
