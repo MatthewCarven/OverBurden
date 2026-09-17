@@ -28,12 +28,21 @@ namespace Overburden.Core.Mining;
 /// <see cref="TooHard"/> for the reason <see cref="RayOutcome.Blocked"/> is separate from
 /// <see cref="RayOutcome.Missed"/>.
 /// </param>
+/// <param name="Unpowered">
+/// Voxels the tool could take and the budget could not pay for (M10c-3, decision 6). Counted
+/// <em>after</em> <see cref="TooHard"/>, so a voxel the tool cannot take costs nothing, and
+/// after air, so a bite into an empty cell is free. <b>A bucket rather than a refusal of the
+/// whole swing</b>, because a pack that ends mid-bite is what every correct caller produces —
+/// <em>takes what the charge buys and stops</em> — and a swing refused whole would strand the
+/// pack's last few kilojoules and read as a cliff instead of a running-down.
+/// </param>
 public readonly record struct CarveResult(
     int Candidates,
     int Removed,
     int TooHard,
     int AlreadyAir,
-    int Unreachable)
+    int Unreachable,
+    int Unpowered = 0)
 {
     /// <summary>The whole shape was inside loaded, generated terrain.</summary>
     /// <remarks>
@@ -50,11 +59,12 @@ public readonly record struct CarveResult(
     /// quietly loses voxels. A total that has to add up is the cheapest way to make that
     /// impossible to add by accident.
     /// </remarks>
-    public bool IsAccounted => Candidates == Removed + TooHard + AlreadyAir + Unreachable;
+    public bool IsAccounted => Candidates == Removed + TooHard + AlreadyAir + Unreachable + Unpowered;
 
     public override string ToString() =>
         $"{Candidates} candidate(s): removed {Removed}, too hard {TooHard}, " +
-        $"already air {AlreadyAir}, unreachable {Unreachable}";
+        $"already air {AlreadyAir}, unreachable {Unreachable}" +
+        (Unpowered > 0 ? $", unpowered {Unpowered}" : string.Empty);
 }
 
 /// <summary>
@@ -93,17 +103,24 @@ public static class Carve
     /// every pre-M6c caller and test compiling unedited, the same shape as
     /// <c>ChunkPipeline</c>'s optional store.
     /// </param>
+    /// <param name="voxelBudget">
+    /// How many voxels this swing may remove before the rest land in
+    /// <see cref="CarveResult.Unpowered"/> — what the equipped pack can pay for at the tool's
+    /// <see cref="ToolPower.JoulesPerVoxel"/>, computed by the caller (M10c-3). Unbounded by
+    /// default, which is every tool without a <c>power</c> block and every caller before it.
+    /// </param>
     public static CarveResult Swing(
         IVoxelEditor world,
         MaterialTable materials,
         Vector3 centreMetres,
         ToolDefinition tool,
         VolumetricInventory? into = null,
-        IMachineBodies? bodies = null)
+        IMachineBodies? bodies = null,
+        int voxelBudget = int.MaxValue)
     {
         ArgumentNullException.ThrowIfNull(tool);
 
-        return Sphere(world, materials, centreMetres, tool.RadiusMetres, tool.HardnessThreshold, into, bodies);
+        return Sphere(world, materials, centreMetres, tool.RadiusMetres, tool.HardnessThreshold, into, bodies, voxelBudget);
     }
 
     /// <summary>Swings <paramref name="tool"/> at what a raycast found.</summary>
@@ -117,8 +134,9 @@ public static class Carve
         in VoxelHit hit,
         ToolDefinition tool,
         VolumetricInventory? into = null,
-        IMachineBodies? bodies = null) =>
-        Swing(world, materials, SwingCentre(hit), tool, into, bodies);
+        IMachineBodies? bodies = null,
+        int voxelBudget = int.MaxValue) =>
+        Swing(world, materials, SwingCentre(hit), tool, into, bodies, voxelBudget);
 
     /// <summary>
     /// Takes <b>exactly the voxel the ray hit</b> with <paramref name="tool"/>, and nothing
@@ -153,11 +171,12 @@ public static class Carve
         in VoxelHit hit,
         ToolDefinition tool,
         VolumetricInventory? into = null,
-        IMachineBodies? bodies = null)
+        IMachineBodies? bodies = null,
+        int voxelBudget = int.MaxValue)
     {
         ArgumentNullException.ThrowIfNull(tool);
 
-        return Voxel(world, materials, hit.Voxel, tool.HardnessThreshold, into, bodies);
+        return Voxel(world, materials, hit.Voxel, tool.HardnessThreshold, into, bodies, voxelBudget);
     }
 
     /// <summary>
@@ -177,7 +196,8 @@ public static class Carve
         VoxelPos voxel,
         float hardnessThreshold,
         VolumetricInventory? into = null,
-        IMachineBodies? bodies = null)
+        IMachineBodies? bodies = null,
+        int voxelBudget = int.MaxValue)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(materials);
@@ -194,11 +214,12 @@ public static class Carve
                 + "so remove all of them. Use float.NegativeInfinity for a tool that takes nothing.");
         }
 
-        return Take(world, materials, voxel, hardnessThreshold, into, bodies) switch
+        return Take(world, materials, voxel, hardnessThreshold, into, bodies, ref voxelBudget) switch
         {
             Bucket.Removed => new CarveResult(1, 1, 0, 0, 0),
             Bucket.TooHard => new CarveResult(1, 0, 1, 0, 0),
             Bucket.AlreadyAir => new CarveResult(1, 0, 0, 1, 0),
+            Bucket.Unpowered => new CarveResult(1, 0, 0, 0, 0, 1),
             _ => new CarveResult(1, 0, 0, 0, 1),
         };
     }
@@ -224,7 +245,10 @@ public static class Carve
     /// delete key</b>: a chunk bite through a bedrock floor leaves the bedrock standing exactly
     /// as a <c>hand_pick</c> leaves a stone seam, so tiers still mean what they mean and
     /// <see cref="Take"/> is still the only gate in the game. A mode that bypassed it would make
-    /// M3c's whole argument bypassable by pressing Q.
+    /// M3c's whole argument bypassable by pressing Q. (<b>Since M10c-3 the threshold Q swings is
+    /// the entangled miner's own — content, 5.0 — and the gate gained a second half, the budget</b>:
+    /// <see cref="Take"/> is still the one place a voxel is refused, and the thing that makes Q
+    /// earned is the pack that budget comes from.)
     /// </para>
     /// <para>
     /// <b>Which chunk is decided by <c>hit.Voxel</c>, never by a rounded centre.</b> A chunk
@@ -259,11 +283,12 @@ public static class Carve
         in VoxelHit hit,
         ToolDefinition tool,
         VolumetricInventory? into = null,
-        IMachineBodies? bodies = null)
+        IMachineBodies? bodies = null,
+        int voxelBudget = int.MaxValue)
     {
         ArgumentNullException.ThrowIfNull(tool);
 
-        return Chunk(world, materials, hit.Voxel.Chunk, tool.HardnessThreshold, into, bodies);
+        return Chunk(world, materials, hit.Voxel.Chunk, tool.HardnessThreshold, into, bodies, voxelBudget);
     }
 
     /// <summary>Takes every voxel of <paramref name="chunk"/> the threshold allows.</summary>
@@ -278,7 +303,8 @@ public static class Carve
         ChunkPos chunk,
         float hardnessThreshold,
         VolumetricInventory? into = null,
-        IMachineBodies? bodies = null)
+        IMachineBodies? bodies = null,
+        int voxelBudget = int.MaxValue)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(materials);
@@ -302,6 +328,7 @@ public static class Carve
         int tooHard = 0;
         int alreadyAir = 0;
         int unreachable = 0;
+        int unpowered = 0;
 
         // Z outer and Y inner, matching the [z][x][y] storage order the writes land in. It is
         // the same loop nest as Sphere's and for the same reason, and here it covers the array
@@ -313,16 +340,17 @@ public static class Carve
             var voxel = new VoxelPos(origin.X + x, origin.Y + y, origin.Z + z);
             candidates++;
 
-            switch (Take(world, materials, voxel, hardnessThreshold, into, bodies))
+            switch (Take(world, materials, voxel, hardnessThreshold, into, bodies, ref voxelBudget))
             {
                 case Bucket.Removed: removed++; break;
                 case Bucket.TooHard: tooHard++; break;
                 case Bucket.AlreadyAir: alreadyAir++; break;
+                case Bucket.Unpowered: unpowered++; break;
                 default: unreachable++; break;
             }
         }
 
-        return new CarveResult(candidates, removed, tooHard, alreadyAir, unreachable);
+        return new CarveResult(candidates, removed, tooHard, alreadyAir, unreachable, unpowered);
     }
 
     /// <summary>The cube bite's edge in voxels: the brush cell's four, a 1 m cube, 512 to a chunk.</summary>
@@ -370,11 +398,12 @@ public static class Carve
         in VoxelHit hit,
         ToolDefinition tool,
         VolumetricInventory? into = null,
-        IMachineBodies? bodies = null)
+        IMachineBodies? bodies = null,
+        int voxelBudget = int.MaxValue)
     {
         ArgumentNullException.ThrowIfNull(tool);
 
-        return Cube(world, materials, CubeOrigin(hit.Voxel), tool.HardnessThreshold, into, bodies);
+        return Cube(world, materials, CubeOrigin(hit.Voxel), tool.HardnessThreshold, into, bodies, voxelBudget);
     }
 
     /// <summary>Takes every voxel of the cube at <paramref name="origin"/> the threshold allows.</summary>
@@ -390,7 +419,8 @@ public static class Carve
         VoxelPos origin,
         float hardnessThreshold,
         VolumetricInventory? into = null,
-        IMachineBodies? bodies = null)
+        IMachineBodies? bodies = null,
+        int voxelBudget = int.MaxValue)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(materials);
@@ -410,6 +440,7 @@ public static class Carve
         int tooHard = 0;
         int alreadyAir = 0;
         int unreachable = 0;
+        int unpowered = 0;
 
         // Chunk's loop nest at the cube's size: Z outer, Y inner, the storage order.
         for (int z = 0; z < CubeVoxels; z++)
@@ -419,16 +450,17 @@ public static class Carve
             var voxel = new VoxelPos(origin.X + x, origin.Y + y, origin.Z + z);
             candidates++;
 
-            switch (Take(world, materials, voxel, hardnessThreshold, into, bodies))
+            switch (Take(world, materials, voxel, hardnessThreshold, into, bodies, ref voxelBudget))
             {
                 case Bucket.Removed: removed++; break;
                 case Bucket.TooHard: tooHard++; break;
                 case Bucket.AlreadyAir: alreadyAir++; break;
+                case Bucket.Unpowered: unpowered++; break;
                 default: unreachable++; break;
             }
         }
 
-        return new CarveResult(candidates, removed, tooHard, alreadyAir, unreachable);
+        return new CarveResult(candidates, removed, tooHard, alreadyAir, unreachable, unpowered);
     }
 
     /// <summary>
@@ -502,7 +534,8 @@ public static class Carve
         float radiusMetres,
         float hardnessThreshold,
         VolumetricInventory? into = null,
-        IMachineBodies? bodies = null)
+        IMachineBodies? bodies = null,
+        int voxelBudget = int.MaxValue)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(materials);
@@ -557,6 +590,7 @@ public static class Carve
         int tooHard = 0;
         int alreadyAir = 0;
         int unreachable = 0;
+        int unpowered = 0;
 
         // Z outer and Y inner, matching the [z][x][y] storage order the writes land in.
         for (int z = min.Z; z <= max.Z; z++)
@@ -576,16 +610,17 @@ public static class Carve
             // would stop meaning anything.
             candidates++;
 
-            switch (Take(world, materials, voxel, hardnessThreshold, into, bodies))
+            switch (Take(world, materials, voxel, hardnessThreshold, into, bodies, ref voxelBudget))
             {
                 case Bucket.Removed: removed++; break;
                 case Bucket.TooHard: tooHard++; break;
                 case Bucket.AlreadyAir: alreadyAir++; break;
+                case Bucket.Unpowered: unpowered++; break;
                 default: unreachable++; break;
             }
         }
 
-        return new CarveResult(candidates, removed, tooHard, alreadyAir, unreachable);
+        return new CarveResult(candidates, removed, tooHard, alreadyAir, unreachable, unpowered);
     }
 
     /// <summary>Which bucket one voxel landed in.</summary>
@@ -595,6 +630,7 @@ public static class Carve
         TooHard,
         AlreadyAir,
         Unreachable,
+        Unpowered,
     }
 
     /// <summary>
@@ -606,6 +642,9 @@ public static class Carve
     /// once offered — unloaded, already air, too hard, taken — is this, and a second copy is a
     /// second thing to drift. It is the same argument <c>WorldGenerator</c> makes about
     /// <c>IsCaveAt</c> and <c>GenerateTerrain</c> sharing one definition of the cave field.
+    /// <b>The budget is the fifth thing that can happen to a voxel, and it is asked last</b>: a
+    /// voxel that is unreachable, air or too hard never reaches the budget, so the pack pays for
+    /// what came away and nothing else (M10c-3).
     /// </remarks>
     private static Bucket Take(
         IVoxelEditor world,
@@ -613,7 +652,8 @@ public static class Carve
         VoxelPos voxel,
         float hardnessThreshold,
         VolumetricInventory? into,
-        IMachineBodies? bodies)
+        IMachineBodies? bodies,
+        ref int voxelBudget)
     {
         if (!world.TryGetMaterial(voxel, out int material))
         {
@@ -633,6 +673,15 @@ public static class Carve
             return Bucket.TooHard;
         }
 
+        // The gate's other half (M10c-3): the tool could take it and the pack cannot pay for it.
+        // Asked here and not earlier, so a voxel that is air or too hard costs nothing; spent
+        // below, after the write, so the budget consumed is exactly Removed and the caller pays
+        // for what came away.
+        if (voxelBudget <= 0)
+        {
+            return Bucket.Unpowered;
+        }
+
         // Should not happen: a read that succeeded means the chunk is loaded and generated,
         // which is the same condition the write tests. Reported rather than ignored so that an
         // editor whose two halves ever disagree surfaces the voxel instead of losing it.
@@ -643,8 +692,10 @@ public static class Carve
 
         // Credited here and only here, after the write succeeded. Crediting from the bucket count
         // afterwards would pay for voxels that turned out to be unreachable, and crediting before
-        // the write would pay for a hole that was never made.
+        // the write would pay for a hole that was never made. The budget is spent at the same
+        // moment for the same reason: what it counts is what came away.
         into?.Add(material, 1);
+        voxelBudget--;
 
         // And the machine set told, after the credit, when the voxel was a body's — the one fact
         // that lets the set tell a pick from a fall at its drain (M10a-2, IMachineBodies). One

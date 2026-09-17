@@ -257,7 +257,8 @@ public sealed partial class Hud : CanvasLayer
         PlaceController place,
         MiningController? mining,
         bool precise,
-        string? radius = null)
+        string? radius = null,
+        Overburden.Core.Machines.EquippedPack? pack = null)
     {
         _sinceRefresh += delta;
         bool refreshText = _sinceRefresh >= RefreshSeconds;
@@ -288,7 +289,7 @@ public sealed partial class Hud : CanvasLayer
             // The adaptive radius, when it is on, is the play's oracle for the whole feature —
             // fly, sprint, watch the number fall and the world stay drawn; stop, watch it climb —
             // and it costs nothing to show, so it rides on the status line's own refresh.
-            string text = StatusText(place, mining, precise);
+            string text = StatusText(place, mining, precise, pack);
             _status.Text = radius is null ? text : $"{text}   ·   view {radius}";
         }
     }
@@ -351,15 +352,42 @@ public sealed partial class Hud : CanvasLayer
     internal static string DisplayName(Registry<MaterialDefinition> definitions, int materialId) =>
         definitions.GetIdentifier(materialId).Path.Replace('_', ' ');
 
-    private static string StatusText(PlaceController place, MiningController? mining, bool precise)
+    private static string StatusText(PlaceController place, MiningController? mining, bool precise, Overburden.Core.Machines.EquippedPack? pack)
+    {
+        // M10c-3: the pack on every line while one is equipped — the charge is what the bite
+        // spends, so it belongs beside whatever the next click does — and the gate's refusal
+        // named under Q with none: swung and took nothing is a thing a player has to be told.
+        string packLine = pack is null
+            ? string.Empty
+            : $"   ·   pack {MachinePanel.Joules(pack.ChargeMillijoules)} / {MachinePanel.Joules(pack.CapacityMillijoules)}";
+        return Line(place, mining, precise, pack) + packLine;
+    }
+
+    private static string Line(PlaceController place, MiningController? mining, bool precise, Overburden.Core.Machines.EquippedPack? pack)
     {
         string brush = place.Brush.ToString().ToLowerInvariant();
         string tier = mining is null ? "no tool" : mining.Tool.Id.Path.Replace('_', ' ');
 
         // An item in the hand never places (M10b): the line says what the click does instead.
+        if (place.SelectedIsPack)
+        {
+            return pack is null
+                ? $"PACK  (in hand)   ·   right-click to equip it   ·   {tier}  (T)   ·   1-9 material, V cycle"
+                : $"PACK  (in hand)   ·   right-click to swap it — the equipped one's charge is forfeited   ·   {tier}  (T)   ·   1-9 material, V cycle";
+        }
+
         if (place.SelectedIsItem)
         {
-            return $"COMPUTER  (in hand)   ·   right-click a machine to open it   ·   {tier}  (T)   ·   1-9 material, V cycle";
+            return pack is null
+                ? $"COMPUTER  (in hand)   ·   right-click a machine to open it   ·   {tier}  (T)   ·   1-9 material, V cycle"
+                : $"COMPUTER  (in hand)   ·   right-click a machine to open it, or nothing for the pack   ·   {tier}  (T)   ·   1-9 material, V cycle";
+        }
+
+        // The gate with nothing to pay it (M10c-3): Q swings a costing tool and no pack is
+        // equipped, so a click swings and takes nothing — said before the click, not after.
+        if (mining is { Entangled: true, NeedsAPack: true })
+        {
+            return "Q TAKES NOTHING — no pack   ·   P seeds one, then pick it on the number row and right-click to equip it";
         }
 
         // A machine material places as one body whatever the brush, so the brush is not what the

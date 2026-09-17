@@ -5416,7 +5416,8 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             the controller now. **Lever, not built**: the damage marks are read at the frame's
             drain, so a bite and a fill into one cell inside one frame count the fill as damage
             and destroy the remainder — the headless fixture does exactly that (`--place --mine
-            --entangle`, `lost 128 carved 64`); a hook that ignores a write of the body's own
+            --entangle`, `lost 128 carved 64`; **`--nogate` too from M10c-3**, or the bite takes
+            nothing); a hook that ignores a write of the body's own
             material *back* into a damaged row's cell is one line, and the recipe is a chip and
             an Alt-fill on one frame.
       - [ ] **M10b's play check — on a scratch world, one sentence back on each** (M10d's play
@@ -5478,21 +5479,49 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             term and the profile block, the panel's three lines, the bench's power row,
             `--weather=1` → 976 mJ a panel a boundary; the three JSON files and
             `ShippedContentTests`.
-      - [ ] **c-3 — the pack and the gate**: header v4 (presence, material, charge mJ, channel;
-            v3 → no pack), `EquippedPack`, the equip verb (a right-click edge with a pack in hand;
-            a swap forfeits, printed), the pack's panel on the computer's click on nothing,
-            `tools/entangled_miner.json` (threshold 5.0, cooldown 0.10 with `--cubecooldown=` as
-            its sweep, `power { via: channel, joulesPerVoxel: 100 }`) and `ToolDefinition.Power`,
-            `Carve`'s voxel budget and `CarveResult.Unpowered` in `IsAccounted`, the controllers
-            paying (bite, Alt chip; the fill at range all-or-nothing on `64 × J`), the HUD's pack
-            line, `--pack[=<id>]`, `--charge=<J>`, `--nogate`'s miner half; the bite-that-stops
-            oracle (`--charge=640` → `removed 6, unpowered 58`, the pack at 40 J); **every
-            recorded `--mine --entangle` recipe gains `--nogate`** in the same commit.
-      - [ ] **Matthew's, before c-3**: the pack that ships (`lead_acid_pack` 3.6 MJ / 1 kW is
-            recommended because the gate has to be felt in one play; the vacuum pack lasts a
-            session by design) and the entangled tool's threshold (5.0 recommended — it takes a
-            body, which a hand pick could not; this reverses M3d's *never what the bite is hard
-            enough to take*).
+      - [x] **c-3 — the pack and the gate, built 2026-09-17.** Header v4 with the pack, the equip
+            verb and the swap (`forfeited`, a term in the identity), the pack's panel on the
+            computer's click on nothing, `tools/entangled_miner.json` through `ToolDefinition.Power`
+            and off the T cycle, `Carve`'s budget with `Unpowered`, both controllers paying, the
+            HUD's pack line, `--pack`, `--charge=`, `--openpanel=pack`, `--nogate`'s miner half.
+            The oracle reads `removed 6, unpowered 57 of 64` (one air voxel in the spawn's cube —
+            the pass's 58 assumed a solid one), the pack at 40 J, and 40 J after a reopen; the
+            r6 control to the digit; 26 recipes, 26 caught. **Two things found on the way**: every
+            `--place` profile since M10b-1 selected the computer and placed nothing (fixed —
+            placeable first, an item seeded at one), and two header tests had passed on the wrong
+            refusal since M7b-2 (fixed with one `TrailerBytes`). Read "M10c-3 — built".
+      - [x] **Matthew's, before c-3** — both taken as recommended: `lead_acid_pack` 3.6 MJ / 1 kW
+            ships, the entangled tool's threshold is 5.0 (it takes a body, which a hand pick could
+            not; this reverses M3d's *never what the bite is hard enough to take*).
+      - [ ] **M10c's play check — on a scratch world, one sentence back on each** (M10d's play
+            runs the relay dry and watches the storm; this is the pack and the gate alone):
+            1. `Q`, click the ground with nothing equipped — the status line reads `Q TAKES NOTHING
+               — no pack`, the click swings and takes nothing, the log prints `M10: gate — swung
+               entangled_miner with no pack`. *Does a swing that takes nothing read as a gate or as
+               a bug?*
+            2. `P`, pick the lead-acid pack on the number row (`PACK (in hand)`), right-click
+               anywhere — the line gains `pack 0 mJ / 3,600.0 kJ`, the log `equipped … empty`.
+               *Did the right-click with nothing under it read as equipping?*
+            3. `Alt+P` — `pack 3,600.0 kJ`. Hold `Q`'s click on a hillside and watch the number
+               run down: 6.4 kJ a cube, ~56 s to empty, then the bite stops mid-cube (`the pack
+               ran out mid-bite: removed N, unpowered M`). *Does a bite that stops partway read as
+               running out, or as the tool breaking?* (Decision 6's rejected arm was the whole
+               bite refused.)
+            4. With the pack empty, right-click at range with `Q` on and a brush in hand — refused
+               whole, `M10: gate — the fill at range needs 6.4 kJ`. *Is all-or-nothing on the fill
+               right, beside the bite's running-down?*
+            5. Place a vacuum cell (`P` seeds one), `Alt+P` — the pack on channel 0 recharges at
+               500 J a boundary from it: 6.4 s a cube. Pick the computer, right-click the sky — the
+               pack's panel; set the channel to 1 and watch the recharge stop. *One sentence on
+               the panel opening on nothing.*
+            6. `P` again (a second pack in the count), pick it, right-click — the swap: the HUD
+               warned `the equipped one's charge is forfeited`, the log prints the joules
+               forfeited. *Is a swap that throws a full pack away the right rule, or should the
+               outgoing pack keep its charge as an item?* (The ladder's decision 15 says a count
+               has no charge; this is the play that judges it.)
+            7. Quit and reopen — `a pack equipped (header v4)`, the charge to the joule. Then `T`
+               through the tiers: the entangled miner is not on the cycle, and the steel pick is
+               still free. *Does `Q` costing while `T` does not read as the design?*
 - [ ] **M10d — the play**: the mine pumped dry by relay, the storm, the gate, the pillar verdict.
 - [ ] **After the optimiser (2026-09-15): re-judge `start.cmd`'s `--lightbudget=16` on a play** — it
       was a response to a 1.4 ms unoptimised derive that is ~0.36 ms now; and **re-take the Debug

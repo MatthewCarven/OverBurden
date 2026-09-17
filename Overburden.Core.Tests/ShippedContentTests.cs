@@ -63,7 +63,12 @@ public class ShippedContentTests
         var content = new GameContent();
         content.Load(new DirectoryContentSource(ModsDirectory()));
 
-        var tiers = content.Tools.Entries().Select(e => e.Value).ToList();
+        // The tiers are the T cycle: every tool but the entangled miner, which M10c-3 loads by
+        // ID and keeps off the cycle (decision 5). It takes anything, so with it in the set the
+        // "leaves something standing" claim would be true of the picks and untested of the cycle.
+        var tiers = content.Tools.Entries().Select(e => e.Value)
+            .Where(t => t.Id != Identifier.Parse(EntangledMinerId))
+            .ToList();
         var solids = content.Materials.Entries()
             .Select(e => e.Value)
             .Where(m => !m.IsAir)
@@ -82,6 +87,43 @@ public class ShippedContentTests
         Assert.True(
             tiers.Any(t => t.HardnessThreshold >= hardest),
             "no shipped tier can take the hardest material, so the deepest rock is unmineable");
+
+        // And every tier on the cycle is free: the gate is the entangled miner's alone.
+        Assert.All(tiers, t => Assert.True(t.IsFree, $"{t.Id} on the T cycle draws power"));
+    }
+
+    /// <summary>The tool Q swings (M10c-3): loaded by ID, off the T cycle, the one shipped tool with a power block.</summary>
+    private const string EntangledMinerId = "overburden:entangled_miner";
+
+    [Fact]
+    public void TheEntangledMinerShipsAsAToolWithAPowerBlockThatTakesAnything()
+    {
+        // M10c-3, decision 5: the mode became content — a threshold of 5.0 so Q reclaims a machine
+        // body at range exactly as a pick does (the ladder's rule, not true under a hand pick), the
+        // cube's 0.1 s as the file's cooldown, and the power block the gate reads. The radius is the
+        // sphere arm's (--entanglesphere) and the cube never reads it.
+        var content = new GameContent();
+        LoadResult result = content.Load(new DirectoryContentSource(ModsDirectory()));
+        Assert.True(result.Success, string.Join("; ", result.Errors));
+
+        ToolDefinition miner = content.Tools.Get(Identifier.Parse(EntangledMinerId));
+        Assert.Equal(5.0f, miner.HardnessThreshold);
+        Assert.Equal(0.1f, miner.CooldownSeconds);
+        Assert.NotNull(miner.Power);
+        Assert.Equal(Overburden.Core.Machines.MachineLink.ChannelVia, miner.Power!.Via);
+        Assert.Equal(100L, miner.Power.JoulesPerVoxel);
+        Assert.False(miner.IsFree);
+
+        // It takes every shipped solid, machine bodies included.
+        float hardest = content.Materials.Entries().Select(e => e.Value).Where(m => !m.IsAir).Max(m => m.Hardness);
+        Assert.True(miner.HardnessThreshold >= hardest);
+
+        // And the arithmetic the play feels: a full lead-acid pack is 562.5 cube bites at 100 J a
+        // voxel, 56 s at ten a second — the gate felt in one play, which is why the pack ships.
+        MaterialDefinition pack = content.Materials.Get(Identifier.Parse("overburden:lead_acid_pack"));
+        long cubeMillijoules = miner.Power.MillijoulesPerVoxel * Overburden.Core.Mining.Carve.CubeVoxels
+                               * Overburden.Core.Mining.Carve.CubeVoxels * Overburden.Core.Mining.Carve.CubeVoxels;
+        Assert.Equal(562L, pack.Machine!.CapacityMillijoules / cubeMillijoules);
     }
 
     [Fact]

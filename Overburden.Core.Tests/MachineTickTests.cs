@@ -699,11 +699,57 @@ public class MachineTickTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void ASwapForfeitsTheOutgoingPacksChargeAndTheIdentityHoldsAcrossIt()
+    {
+        // M10c-3, decision 4: a pack back in the count is a count, and a count has no charge —
+        // so what the outgoing pack held leaves the pool as `forfeited`, a term and not a
+        // tolerance. The identity has to hold across any number of swaps, the tool drawing on
+        // each, or a swap would be the one door the pool leaks through.
+        var twin = new Twin();
+        var first = new EquippedPack(PackMaterial, Materials.Machine(PackMaterial)!, chargeMillijoules: 1_000, channel: 0);
+        Assert.Equal(0L, twin.Tick.EquipPack(first));
+        twin.Place(Twin.RimOutlet, Panel);
+
+        // The panel charges it; the tool takes some; then the swap.
+        twin.Boundary(step: false);
+        Assert.Equal(400L, first.Take(400));
+        long held = first.ChargeMillijoules;
+        Assert.Equal(1_000 + PanelMillijoulesPerBoundary - 400, held);
+        Assert.True(twin.Tick.PowerExact);
+
+        var second = new EquippedPack(PackMaterial, Materials.Machine(PackMaterial)!, chargeMillijoules: 0, channel: 0);
+        Assert.Equal(held, twin.Tick.EquipPack(second));
+        Assert.Equal(held, twin.Tick.PackForfeitedMillijoules);
+        Assert.Equal(1L, twin.Tick.PacksUnequipped);
+        Assert.Same(second, twin.Tick.Pack);
+        Assert.True(twin.Tick.PowerExact);
+
+        // The second pack charges from the same panel and the identity still holds; so does
+        // unequipping to nothing, which forfeits the second's charge too.
+        twin.Boundary(step: false);
+        Assert.Equal(PanelMillijoulesPerBoundary, second.ChargeMillijoules);
+        Assert.Equal(200L, second.Take(200));
+        Assert.True(twin.Tick.PowerExact);
+
+        Assert.Equal(PanelMillijoulesPerBoundary - 200, twin.Tick.EquipPack(null));
+        Assert.Null(twin.Tick.Pack);
+        Assert.Equal(held + PanelMillijoulesPerBoundary - 200, twin.Tick.PackForfeitedMillijoules);
+        Assert.Equal(1_000L, twin.Tick.PackInitialMillijoules);
+        Assert.Equal(600L, twin.Tick.PackTakenMillijoules);
+        Assert.True(twin.Tick.PowerExact);
+        twin.AssertIdentity();
+
+        // With nothing equipped a boundary clamps the panel's whole output again.
+        Assert.Equal(PanelMillijoulesPerBoundary, twin.Boundary(step: false).ClampedMillijoules);
+        Assert.True(twin.Tick.PowerExact);
+    }
+
+    [Fact]
     public void ThePackRechargesLastAtItsBoundAndNeverSupplies()
     {
         var twin = new Twin();
         var pack = new EquippedPack(PackMaterial, Materials.Machine(PackMaterial)!, chargeMillijoules: 0, channel: 0);
-        twin.Tick.Pack = pack;
+        twin.Tick.EquipPack(pack);
 
         // A panel and no cell: the pack takes the whole 250,000 and nothing is clamped.
         twin.Place(Twin.RimOutlet, Panel);
@@ -722,7 +768,7 @@ public class MachineTickTests(ITestOutputHelper output)
         // Last: a billed pump on the channel is paid before the pack sees anything.
         var starved = new Twin();
         var full = new EquippedPack(PackMaterial, Materials.Machine(PackMaterial)!, PackCapacity, channel: 0);
-        starved.Tick.Pack = full;
+        starved.Tick.EquipPack(full);
         MachineRow pump = starved.Place(Twin.PumpCell, BilledPump);
         starved.Place(Twin.RimOutlet, Outlet);
         starved.PourIntoRoom(120 * Cap);
@@ -827,7 +873,7 @@ public class MachineTickTests(ITestOutputHelper output)
         // The pack starts full, or it would drink every boundary's generation for nine thousand
         // boundaries and the cells would never see a millijoule to overflow with.
         var pack = new EquippedPack(PackMaterial, Materials.Machine(PackMaterial)!, PackCapacity, channel: 0);
-        twin.Tick.Pack = pack;
+        twin.Tick.EquipPack(pack);
         twin.Place(Twin.PumpCell, BilledPump);
         twin.Place(Twin.RimOutlet, Outlet);
         twin.Place(Twin.RimOutletB, Panel);

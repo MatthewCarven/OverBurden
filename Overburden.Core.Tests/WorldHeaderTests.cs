@@ -372,7 +372,26 @@ public class WorldHeaderTests
     /// </summary>
     private const int ClockAndLatticeBytes = sizeof(long) + sizeof(int);
 
+    /// <summary>The pack section M10c-3 appended: one presence byte with no pack equipped.</summary>
+    private const int PackAbsentBytes = 1;
+
+    /// <summary>Bytes a present pack occupies after its flag: an int32 ID, an int64 charge, an int32 channel.</summary>
+    private const int PackPayloadBytes = 16;
+
+    /// <summary>
+    /// Everything after the inventory rows in a header with no player and no pack: the player
+    /// flag, the clock and lattice, the pack flag. <b>Every offset counted back from the end goes
+    /// through this</b>, because the v4 bump found two tests that had been indexing into the
+    /// clock since v3 and passing on the wrong refusal (the player flag read 9, or 1 with no
+    /// player behind it) — <c>ClockAndLatticeBytes</c> happens to equal <c>EntryBytes</c>.
+    /// </summary>
+    private const int TrailerBytes = 1 + ClockAndLatticeBytes + PackAbsentBytes;
+
     private const int EntryBytes = 12;
+
+    /// <summary>The payload offset of inventory row <paramref name="row"/> of <paramref name="count"/>, in a header with no player and no pack.</summary>
+    private static int RowOffset(byte[] payload, int row, int count) =>
+        payload.Length - TrailerBytes - (EntryBytes * (count - row));
 
     private static WorldHeader WithInventory(params (int MaterialId, long Voxels)[] entries) =>
         Header(Air, Stone, Copper) with
@@ -425,9 +444,10 @@ public class WorldHeaderTests
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone, Copper)));
 
         // An empty inventory is a four-byte zero count and no player is a single zero byte; the
-        // clock and the watershed lattice that M7b-2 appended are eight more and four more.
-        // Dropping exactly those seventeen bytes is what a version 1 payload was.
-        byte[] older = payload[..^17];
+        // clock and the watershed lattice that M7b-2 appended are eight more and four more, and
+        // the pack flag M10c-3 appended one more. Dropping exactly those eighteen bytes is what
+        // a version 1 payload was.
+        byte[] older = payload[..^(sizeof(int) + TrailerBytes)];
 
         WorldHeader read = WorldHeaderBlob.Read(Reframe(older, version: 1));
 
@@ -448,7 +468,7 @@ public class WorldHeaderTests
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(
             Header(Air, Stone, Copper) with { Inventory = inventory, Player = player }));
 
-        byte[] older = payload[..^12];
+        byte[] older = payload[..^(ClockAndLatticeBytes + PackAbsentBytes)];
         WorldHeader read = WorldHeaderBlob.Read(Reframe(older, version: 2));
 
         Assert.Equal(0, read.ElapsedMillis);
@@ -484,7 +504,7 @@ public class WorldHeaderTests
         // And on read, because a header can arrive from a file rather than from this process.
         byte[] blob = WorldHeaderBlob.Write(Header(Air, Stone));
         byte[] payload = PayloadOf(blob);
-        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(payload.Length - 12), -1);
+        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(payload.Length - ClockAndLatticeBytes - PackAbsentBytes), -1);
 
         Assert.Throws<BlobFormatException>(
             () => WorldHeaderBlob.Read(Reframe(payload, WorldHeaderBlob.Version)));
@@ -497,7 +517,7 @@ public class WorldHeaderTests
             () => WorldHeaderBlob.Write(Header(Air, Stone) with { WatershedCellMetres = 0 }));
 
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone)));
-        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - 4), 0);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - sizeof(int) - PackAbsentBytes), 0);
 
         Assert.Throws<BlobFormatException>(
             () => WorldHeaderBlob.Read(Reframe(payload, WorldHeaderBlob.Version)));
@@ -543,9 +563,10 @@ public class WorldHeaderTests
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((1, 5), (2, 7))));
 
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(
-            payload.AsSpan(payload.Length - 1 - (EntryBytes * 2)), 0);
+            payload.AsSpan(RowOffset(payload, 0, 2)), 0);
 
-        Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
+        var error = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
+        Assert.Contains("air", error.Message);
     }
 
     [Fact]
@@ -556,9 +577,12 @@ public class WorldHeaderTests
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((1, 5), (2, 7))));
 
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(
-            payload.AsSpan(payload.Length - 1 - EntryBytes), 9);
+            payload.AsSpan(RowOffset(payload, 1, 2)), 9);
 
-        Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
+        // The refusal it names, not the first one that happens to fire: until M10c-3 this offset
+        // was the player flag and the test passed on "the player-present flag is 9".
+        var error = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
+        Assert.Contains("material ID 9", error.Message);
     }
 
     [Fact]
@@ -569,9 +593,12 @@ public class WorldHeaderTests
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((1, 5), (2, 7))));
 
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(
-            payload.AsSpan(payload.Length - 1 - EntryBytes), 1);
+            payload.AsSpan(RowOffset(payload, 1, 2)), 1);
 
-        Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
+        // As above: this offset was the player flag until M10c-3, and a 1 there read a player out
+        // of the clock's bytes and ran out — a refusal, and the wrong one.
+        var error = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
+        Assert.Contains("out of order or duplicated", error.Message);
     }
 
     [Fact]
@@ -590,7 +617,7 @@ public class WorldHeaderTests
         };
 
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(header));
-        payload[^(PlayerPayloadBytes + 1 + ClockAndLatticeBytes)] = 2;
+        payload[^(PlayerPayloadBytes + 1 + ClockAndLatticeBytes + PackAbsentBytes)] = 2;
 
         Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
     }
@@ -628,9 +655,119 @@ public class WorldHeaderTests
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((1, 5))));
 
         BinaryPrimitives.WriteInt32LittleEndian(
-            payload.AsSpan(
-                payload.Length - ClockAndLatticeBytes - 1 - EntryBytes - sizeof(int)),
+            payload.AsSpan(RowOffset(payload, 0, 1) - sizeof(int)),
             2);
+
+        Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
+    }
+
+    // -------------------------------------------------------------------------------------
+    // Version 4: the equipped pack (M10c-3). The player's shape — a presence byte and a fixed
+    // payload after the lattice — and the inventory's checks against the table.
+    // -------------------------------------------------------------------------------------
+
+    [Fact]
+    public void TheEquippedPackSurvivesTheRoundTrip()
+    {
+        var pack = new PackSave(MaterialId: 2, ChargeMillijoules: 2_100_000_000, Channel: 7);
+        WorldHeader written = Header(Air, Stone, Copper) with { Pack = pack };
+
+        WorldHeader read = WorldHeaderBlob.Read(WorldHeaderBlob.Write(written));
+
+        Assert.Equal(pack, read.Pack);
+    }
+
+    [Fact]
+    public void AWorldWithNoPackEquippedReadsNoneRatherThanAnEmptyOne()
+    {
+        WorldHeader read = WorldHeaderBlob.Read(WorldHeaderBlob.Write(Header(Air, Stone)));
+
+        Assert.Null(read.Pack);
+    }
+
+    [Fact]
+    public void AWorldWrittenBeforeThePackExistedOpensWithNoneEquipped()
+    {
+        // The third migration, under the same policy: version 3 is version 4 without its pack
+        // section, and "no pack equipped" is exactly true of a world nothing could equip one in.
+        var inventory = new[] { new InventoryEntry(1, 64) };
+        var player = new PlayerSave(new Vector3(1.5f, 70.25f, -3.5f), Flying: false);
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(
+            Header(Air, Stone, Copper) with { Inventory = inventory, Player = player, ElapsedMillis = 42 }));
+
+        byte[] older = payload[..^PackAbsentBytes];
+        WorldHeader read = WorldHeaderBlob.Read(Reframe(older, version: 3));
+
+        Assert.Null(read.Pack);
+        Assert.Equal(42, read.ElapsedMillis);
+        Assert.Equal(inventory, read.Inventory);
+        Assert.Equal(player, read.Player);
+    }
+
+    [Fact]
+    public void ThePlayedWorldsRealV3HeaderStillOpensWithNoPack()
+    {
+        // The real fixture again, now as the v3 → v4 case: the bytes on disk are what a build
+        // before M10c-3 wrote, and they read with no pack and everything else intact.
+        WorldHeader read = WorldHeaderBlob.Read(PlayedWorldV3Header());
+
+        Assert.Null(read.Pack);
+        Assert.True(read.MaterialIdTable.Count > 1);
+    }
+
+    [Fact]
+    public void APackNamingAMaterialTheTableLacksIsRefusedOnWriteAndOnReadNamingIt()
+    {
+        var error = Assert.Throws<ArgumentException>(
+            () => WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(9, 1, 0) }));
+        Assert.Contains("material ID 9", error.Message);
+
+        // And on read: a valid pack rewritten to an ID past the table. The material sits four
+        // bytes after the pack flag, sixteen before the end.
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(1, 1, 0) }));
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - PackPayloadBytes), 9);
+
+        var refused = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
+        Assert.Contains("material ID 9", refused.Message);
+    }
+
+    [Fact]
+    public void APackThatIsAirIsRefused() =>
+        Assert.Throws<ArgumentException>(
+            () => WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(0, 1, 0) }));
+
+    [Fact]
+    public void APackWithANegativeChargeIsRefusedOnRead()
+    {
+        // Write refuses it too; the read is the arm a damaged file reaches. The charge sits
+        // twelve bytes before the end.
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(1, 1, 0) }));
+        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(payload.Length - 12), -1);
+
+        Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
+        Assert.Throws<ArgumentException>(
+            () => WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(1, -1, 0) }));
+    }
+
+    [Fact]
+    public void APackOffTheChannelLadderIsRefused()
+    {
+        Assert.Throws<ArgumentException>(
+            () => WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(1, 1, 16) }));
+
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(1, 1, 0) }));
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - 4), 16);
+
+        Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
+    }
+
+    [Fact]
+    public void APackPresentFlagThatIsNeitherZeroNorOneIsRefused()
+    {
+        // Written with a pack present, for the reason the player's twin records: with none, the
+        // check removed leaves "ran out of bytes reading the pack" to fire instead.
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(1, 1, 0) }));
+        payload[^(PackPayloadBytes + 1)] = 2;
 
         Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
     }

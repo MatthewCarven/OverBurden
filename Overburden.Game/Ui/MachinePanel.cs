@@ -71,11 +71,20 @@ public sealed partial class MachinePanel : CanvasLayer
     private double _sinceRefresh;
     private PumpStall? _printedStall;
 
-    /// <summary>Whether a machine is open in it.</summary>
-    public bool IsOpen => _row is not null;
+    /// <summary>The equipped pack open in it (M10c-3) — a port view over an object that is not a row.</summary>
+    private EquippedPack? _pack;
 
-    /// <summary>The row open in it, or null.</summary>
+    /// <summary>Whether a machine or the pack is open in it.</summary>
+    public bool IsOpen => _row is not null || _pack is not null;
+
+    /// <summary>The row open in it, or null — null too while the pack is open.</summary>
     public MachineRow? Row => _row;
+
+    /// <summary>The pack open in it, or null.</summary>
+    public EquippedPack? Pack => _pack;
+
+    /// <summary>What is open, for the log: the row's cell or the pack.</summary>
+    public string Subject => _row is not null ? _row.Cell.ToString() : _pack is not null ? "the equipped pack" : "nothing";
 
     /// <summary>Port writes made through the panel, over the session.</summary>
     public long Writes { get; private set; }
@@ -168,6 +177,7 @@ public sealed partial class MachinePanel : CanvasLayer
     public void Open(MachineRow row, MachineDefinition definition, string label, MachineSet machines, MachineTick? tick = null)
     {
         _row = row;
+        _pack = null;
         _machines = machines;
         _tick = tick;
         _kind = definition.Kind;
@@ -204,6 +214,54 @@ public sealed partial class MachinePanel : CanvasLayer
     }
 
     /// <summary>
+    /// Shows the equipped pack (M10c-3, decision 4): its label, one spin box per port its
+    /// definition declares — the channel — written straight onto the object, and its charge as
+    /// the status. The computer's click on nothing opens it. Replaces whatever was open.
+    /// </summary>
+    /// <remarks>
+    /// The same widgets over a different truth: a pack is not a row, so there is no
+    /// <see cref="MachineSet.SetPort"/> to go through and no cell to print — the port lands on
+    /// <see cref="EquippedPack.Channel"/> clamped, and the header carries it from there.
+    /// </remarks>
+    public void OpenPack(EquippedPack pack, string label, MachineTick? tick = null)
+    {
+        _row = null;
+        _machines = null;
+        _pack = pack;
+        _tick = tick;
+        _kind = MachineKind.Storage;
+        _label = label;
+        _printedStall = null;
+        _sinceRefresh = RefreshSeconds;
+
+        _title.Text = label.ToUpperInvariant();
+        _where.Text = "equipped   ·   recharges from its channel after every placed consumer";
+
+        foreach (Node child in _portRows.GetChildren())
+        {
+            _portRows.RemoveChild(child);
+            child.QueueFree();
+        }
+
+        _views.Clear();
+
+        foreach (PortDefinition port in pack.Definition.Ports)
+        {
+            _portRows.AddChild(BuildPackPortRow(port, pack));
+        }
+
+        if (pack.Definition.Ports.Count == 0)
+        {
+            var none = new Label { Text = "no ports", MouseFilter = Control.MouseFilterEnum.Ignore };
+            none.AddThemeColorOverride("font_color", DimText);
+            _portRows.AddChild(none);
+        }
+
+        _root.Visible = true;
+        RefreshStatus();
+    }
+
+    /// <summary>
     /// Puts a value into a port's box as a hand would — through the box, so its range and its
     /// signal run — for <c>--panelset=</c>, the headless twin of typing (M5c-2's rule: the wire
     /// between the widget and <see cref="MachineSet.SetPort"/> wants its own recipe).
@@ -223,10 +281,10 @@ public sealed partial class MachinePanel : CanvasLayer
         return false;
     }
 
-    /// <summary>Hides the panel and forgets the row. Idempotent.</summary>
+    /// <summary>Hides the panel and forgets the row or the pack. Idempotent.</summary>
     public void Close()
     {
-        if (_row is null)
+        if (!IsOpen)
         {
             return;
         }
@@ -236,15 +294,16 @@ public sealed partial class MachinePanel : CanvasLayer
         GetViewport()?.GuiReleaseFocus();
 
         _row = null;
+        _pack = null;
         _machines = null;
         _tick = null;
         _root.Visible = false;
     }
 
-    /// <summary>Re-reads the row's stall and move into the status line, throttled.</summary>
+    /// <summary>Re-reads the row's stall and move — or the pack's charge — into the status line, throttled.</summary>
     public void Refresh(double delta)
     {
-        if (_row is null)
+        if (!IsOpen)
         {
             return;
         }
@@ -298,6 +357,76 @@ public sealed partial class MachinePanel : CanvasLayer
         return line;
     }
 
+    /// <summary>The pack's port row: the same box, landing on the object rather than on a row through the set.</summary>
+    private Control BuildPackPortRow(PortDefinition port, EquippedPack pack)
+    {
+        var line = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        line.AddThemeConstantOverride("separation", 10);
+
+        var name = new Label
+        {
+            Text = port.Name.Replace('_', ' '),
+            CustomMinimumSize = new Vector2(110f, 0f),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        line.AddChild(name);
+
+        var spin = new SpinBox
+        {
+            MinValue = port.Min,
+            MaxValue = port.Max,
+            Step = 1,
+            Rounded = true,
+            Alignment = HorizontalAlignment.Right,
+            CustomMinimumSize = new Vector2(120f, 0f),
+            MouseFilter = Control.MouseFilterEnum.Stop,
+        };
+        spin.Value = port.Name == MachineTick.ChannelPort ? pack.Channel : port.Default;
+        line.AddChild(spin);
+
+        var bounds = new Label { Text = $"{port.Min} … {port.Max}", MouseFilter = Control.MouseFilterEnum.Ignore };
+        bounds.AddThemeColorOverride("font_color", DimText);
+        line.AddChild(bounds);
+
+        var view = new PortView(port.Name, spin, bounds);
+        _views.Add(view);
+        spin.ValueChanged += value => OnPackValueChanged(view, value);
+        return line;
+    }
+
+    /// <summary>
+    /// The pack's one port: the channel, clamped onto the object. Any other port the pack's
+    /// definition declares has nothing to land on yet and is printed as such rather than lost.
+    /// </summary>
+    private void OnPackValueChanged(PortView view, double value)
+    {
+        if (_syncing || _pack is null)
+        {
+            return;
+        }
+
+        long typed = (long)Math.Round(value);
+        if (view.Name == MachineTick.ChannelPort)
+        {
+            _pack.Channel = (int)Math.Clamp(typed, 0, MachineTick.Channels - 1);
+            Writes++;
+            GD.Print($"M10: panel — {_label} (equipped): channel := {typed}: set to {_pack.Channel}");
+
+            if (_pack.Channel != typed)
+            {
+                _syncing = true;
+                view.Spin.Value = _pack.Channel;
+                _syncing = false;
+            }
+        }
+        else
+        {
+            GD.Print($"M10: panel — {_label} (equipped): {view.Name} := {typed}: a pack has no {view.Name} to set yet — ignored");
+        }
+
+        RefreshStatus();
+    }
+
     /// <summary>
     /// One change, one write, at once. The box's own range already clamps a typed value, so a
     /// <c>Clamped</c> here means the declaration and the box disagree — which they cannot, being
@@ -330,6 +459,24 @@ public sealed partial class MachinePanel : CanvasLayer
 
     private void RefreshStatus()
     {
+        if (_pack is not null)
+        {
+            // The pack's line, refreshed every tick of the throttle and printed once at open: a
+            // charge is a number that moves every boundary and a print per move would be the log
+            // the stall rule exists to prevent.
+            long bound = _pack.Definition.RechargeWatts is { } watts && _tick is not null ? watts * _tick.BoundaryMillis : 0;
+            string recharge = bound > 0 ? $"up to {Joules(bound)} a boundary" : "at any rate the channel can give";
+            _status.Text = $"charged {Joules(_pack.ChargeMillijoules)} of {Joules(_pack.CapacityMillijoules)}   ·   recharges on channel {_pack.Channel}, {recharge}";
+            _status.AddThemeColorOverride("font_color", _pack.ChargeMillijoules > 0 ? MovedText : StallText);
+            if (_printedStall is null)
+            {
+                _printedStall = PumpStall.None;
+                GD.Print($"M10: panel — {_label} (equipped): {_status.Text}");
+            }
+
+            return;
+        }
+
         if (_row is null)
         {
             return;

@@ -1,4 +1,40 @@
+using Overburden.Core.Machines;
+
 namespace Overburden.Core.Content;
+
+/// <summary>
+/// What a tool draws to take a voxel (M10c-3, the ladder's decision 15): the pool it draws from,
+/// named as a link's <c>via</c> is, and the joules a voxel costs.
+/// </summary>
+/// <param name="Via">
+/// The rule the draw goes through — <c>channel</c> today, held to <see cref="MachineDefinition.ServedVia"/>
+/// at load the way a link's is, so a tool written for a conductor class M10e has not built is
+/// refused naming the part rather than loaded and free.
+/// </param>
+/// <param name="JoulesPerVoxel">
+/// What one voxel <em>removed</em> costs — never one offered, never one the tool could not
+/// take. Zero is a tool on the pool that draws nothing, which is legal and dull; the shipped
+/// picks declare no block at all and are free by absence.
+/// </param>
+/// <remarks>
+/// <b>On the tool and not on the tier's holder</b>, because the thing that makes the entangled
+/// miner <em>earned</em> is a cost the hand pick does not pay: a block on the tiers would gate
+/// Q with a steel pick at nothing. The draw itself is the caller's — the pack is Game-side
+/// state — and Core's shapes take the budget it computes (<c>Carve</c>'s <c>voxelBudget</c>).
+/// </remarks>
+public sealed record ToolPower(string Via, long JoulesPerVoxel)
+{
+    /// <summary>The largest <see cref="JoulesPerVoxel"/> the format accepts — a gigajoule a voxel, a sanity bound.</summary>
+    public const long MaxJoulesPerVoxel = 1_000_000_000L;
+
+    /// <summary>Millijoules one removed voxel costs, the pool's unit.</summary>
+    public long MillijoulesPerVoxel => JoulesPerVoxel * MachineDefinition.PerMille;
+
+    /// <summary>Whether this block draws anything at all.</summary>
+    public bool IsFree => JoulesPerVoxel == 0;
+
+    public override string ToString() => $"{JoulesPerVoxel:N0} J a voxel via {Via}";
+}
 
 /// <summary>
 /// One mining tool tier: how big a bite it takes, and what it is hard enough to take it out of.
@@ -73,6 +109,19 @@ public sealed class ToolDefinition
     /// resolves toward instant — a slower swing is a tuning value, not a code change.
     /// </remarks>
     public float CooldownSeconds { get; init; } = 0.25f;
+
+    /// <summary>
+    /// What a voxel costs to take with this tool, or null for a tool that is free (M10c-3).
+    /// </summary>
+    /// <remarks>
+    /// Null and not a zero-cost block, so "declares no power" and "declares a power of nothing"
+    /// stay two different facts a mod can write — the shipped picks are the first, and a tool
+    /// on a pool it does not draw from would be the second.
+    /// </remarks>
+    public ToolPower? Power { get; init; }
+
+    /// <summary>Whether a swing of this tool draws nothing from any pack.</summary>
+    public bool IsFree => Power is null || Power.IsFree;
 
     /// <summary>True for a tool whose defining mod is not installed.</summary>
     public bool IsUnknown { get; init; }

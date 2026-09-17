@@ -152,6 +152,9 @@ public sealed class MachineTick
     /// <summary>Channels 0..15, the ladder's rule.</summary>
     public const int Channels = 16;
 
+    /// <summary>The boundary's length in world milliseconds — what a watt is multiplied by.</summary>
+    public long BoundaryMillis => _boundaryMillis;
+
     /// <summary>The game's boundary interval: the automaton's 2 Hz.</summary>
     public const long DefaultBoundaryMillis = 500;
 
@@ -238,7 +241,50 @@ public sealed class MachineTick
     public byte OvercastByte { get; set; }
 
     /// <summary>The pack the player carries, recharged last from its channel each boundary; null with none equipped.</summary>
-    public EquippedPack? Pack { get; set; }
+    /// <remarks>Set through <see cref="EquipPack"/>, so a swap keeps the identity exact — the outgoing pack's terms stay counted.</remarks>
+    public EquippedPack? Pack { get; private set; }
+
+    /// <summary>
+    /// Equips <paramref name="pack"/> — or nothing — in place of whatever was carried, and returns
+    /// what the outgoing pack held, which is forfeited: a pack back in the count is a count, and
+    /// a count has no charge (the ladder's decision 15, the only rule under which a swap is exact).
+    /// </summary>
+    /// <remarks>
+    /// The outgoing pack's <c>initial</c> and <c>taken</c> move into the session's sums and its
+    /// charge into <see cref="PackForfeitedMillijoules"/>, so <see cref="PowerExact"/> holds across
+    /// any number of swaps: every millijoule the pool ever gave a pack is either in the pack
+    /// carried now, was taken by a tool, or was forfeited — and all three are terms.
+    /// </remarks>
+    public long EquipPack(EquippedPack? pack)
+    {
+        long forfeited = 0;
+        if (Pack is { } outgoing)
+        {
+            forfeited = outgoing.ChargeMillijoules;
+            _packInitialSum += outgoing.InitialMillijoules;
+            _packTakenSum += outgoing.TakenMillijoules;
+            PackForfeitedMillijoules += forfeited;
+            PacksUnequipped++;
+        }
+
+        Pack = pack;
+        return forfeited;
+    }
+
+    /// <summary>Millijoules forfeited by packs unequipped this session — a swap's cost, printed, never a tolerance.</summary>
+    public long PackForfeitedMillijoules { get; private set; }
+
+    /// <summary>Packs unequipped this session, for the forfeit's denominator.</summary>
+    public long PacksUnequipped { get; private set; }
+
+    private long _packInitialSum;
+    private long _packTakenSum;
+
+    /// <summary>What every pack this session was handed over holding, the one carried now included — the pack's <c>loaded</c>.</summary>
+    public long PackInitialMillijoules => _packInitialSum + (Pack?.InitialMillijoules ?? 0);
+
+    /// <summary>What the tool took from every pack this session, the one carried now included.</summary>
+    public long PackTakenMillijoules => _packTakenSum + (Pack?.TakenMillijoules ?? 0);
 
     /// <summary>Boundaries run.</summary>
     public long Boundaries { get; private set; }
@@ -300,14 +346,15 @@ public sealed class MachineTick
 
     /// <summary>
     /// The pool's identity over the session: every millijoule on a row or in the pack now is one
-    /// that entered on a row, was generated, or was in the pack at hand-over, less what left on a
-    /// row, what the pumps paid, what was clamped and what the tool took. No term is in flight.
+    /// that entered on a row, was generated, or was in a pack at hand-over, less what left on a
+    /// row, what the pumps paid, what was clamped, what the tool took and what a swap forfeited.
+    /// No term is in flight.
     /// </summary>
     public bool PowerExact =>
         StoredMillijoules + (Pack?.ChargeMillijoules ?? 0)
         == _machines.StoredMillijoulesEntering - _machines.StoredMillijoulesLeaving
             + GeneratedMillijoules - DrawnByPumpsMillijoules - ClampedMillijoules
-            + (Pack?.InitialMillijoules ?? 0) - (Pack?.TakenMillijoules ?? 0);
+            + PackInitialMillijoules - PackTakenMillijoules - PackForfeitedMillijoules;
 
     /// <summary>Pump-boundaries that moved anything.</summary>
     public long Moves { get; private set; }

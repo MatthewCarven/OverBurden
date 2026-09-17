@@ -23,7 +23,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | **Worldgen as content** — Matthew's thinking-ahead, 2026-09-11: ores, layers, trees, and what is permeable. Notes rather than a plan; what MATERIALS-NOTES already decided is listed so it is not re-litigated, and the three questions its pass wants from him are at the end. **Not scheduled — M8d, then M9.** |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md) | **Water bodies** — Matthew's question, 2026-09-10: resting water as one number over a connected void, DESIGN's *"stable cells merge into a Tier A body"* half that M8b never built. Notes rather than a plan, with the roof-open wake explained and six decisions. **Read before M8c's planning pass, which is where it belongs.** |
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | **Elements, and whether to "just implement chemistry"** — a brainstorm with Matthew, 2026-09-03. Notes rather than a plan. The recommendation is *geology that reacts to water, with machine recipes as the chemistry set*; the element table says why each material would exist. **Read before M8c reads `permeability` and before M9 reads `supportDistance` — both have been in the material JSON unread since M1, and the trap is a constant shipping green.** |
-| [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) | **The ladder — hand → steam → DC → AC → quantum, and the crafting under it; planned 2026-09-15 (evening) from Matthew's brief, twenty-three decisions, ten parts M10a–M10j, all taken as recommended the same night. M10a's own planning pass is its last section — six facts from the code, twelve decisions, three sessions a-1/a-2/a-3 — and all three are built (2026-09-15/16): the store slice, the entity, the pump; a-3's built section has the bench's first number, the relay delivering its nominal 100 L/s on a flooded chamber, and the read the ladder's decision 14 proposed retired by measurement. M10b's own pass follows it (2026-09-16): six facts, nine decisions, two sessions, the ID Matthew's — both built the same day, b-2's built section recording the two camera rules the pass did not have (the re-capture click is swallowed; flight is gated on capture). M10c's pass follows b-2's built section (2026-09-16, evening): nine facts, eleven decisions, three sessions — the pool is the tick's, the pack is the header's, the entangled miner becomes a tool; two things are Matthew's, both taken as recommended; c-1 and c-2 built 2026-09-16/17 (the pool in Core; the wire, the three JSON files and the oracles), c-3 next.** Its one idea: connection is membership and movement is a ledger transfer at the boundary — no solver, nothing in flight at any tier. **Read its four facts first** (the 16 m vertical box against a 64 m mine; the header and the machine table are two store calls; `IsWetIn` is a dictionary lookup a voxel; a wire on a ceiling falls under M9's rule). M10-PLAN's a–d are its first rung, eight decisions amended. Read M10-PLAN and M10-NOTES before it. |
+| [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) | **The ladder — hand → steam → DC → AC → quantum, and the crafting under it; planned 2026-09-15 (evening) from Matthew's brief, twenty-three decisions, ten parts M10a–M10j, all taken as recommended the same night. M10a's own planning pass is its last section — six facts from the code, twelve decisions, three sessions a-1/a-2/a-3 — and all three are built (2026-09-15/16): the store slice, the entity, the pump; a-3's built section has the bench's first number, the relay delivering its nominal 100 L/s on a flooded chamber, and the read the ladder's decision 14 proposed retired by measurement. M10b's own pass follows it (2026-09-16): six facts, nine decisions, two sessions, the ID Matthew's — both built the same day, b-2's built section recording the two camera rules the pass did not have (the re-capture click is swallowed; flight is gated on capture). M10c's pass follows b-2's built section (2026-09-16, evening): nine facts, eleven decisions, three sessions — the pool is the tick's, the pack is the header's, the entangled miner becomes a tool; two things are Matthew's, both taken as recommended; all three built 2026-09-16/17 (the pool in Core; the wire, the three JSON files and the oracles; the pack on header v4, the entangled miner as a tool, the budget on every carve shape) — M10c is built and unplayed, the play recipe under M10c in TODO.** Its one idea: connection is membership and movement is a ledger transfer at the boundary — no solver, nothing in flight at any tier. **Read its four facts first** (the 16 m vertical box against a 64 m mine; the header and the machine table are two store calls; `IsWetIn` is a dictionary lookup a voxel; a wire on a ceiling falls under M9's rule). M10-PLAN's a–d are its first rung, eight decisions amended. Read M10-PLAN and M10-NOTES before it. |
 | [docs/M10-PLAN.md](docs/M10-PLAN.md) | **M10, you fight back — planned 2026-09-15, eleven decisions with recommendations, waiting on Matthew; M10a's own pass follows the answers.** Split M10a–M10d: the entity, the relay pump and outlet / the programmer / power / the play. **Read its three facts first: the boundary is the machine tick (`Add`/`Remove` refuse mid-tick, so DESIGN's 20 Hz has no consumer), a machine is a material plus a row (the body is 64 voxels of a material, so every existing path is free and only the config is new), and an outlet is out of the loaded box on day one** (`ViewDistanceVertical` 2 against a 64 m mine). Read M10-NOTES before it. |
 | [docs/M9-PLAN.md](docs/M9-PLAN.md) | **M9, the mine kills you — planned 2026-09-11, all twelve decisions taken the same day; M9a and M9b built 2026-09-12 (read their "planning pass" and "built" sections — the byte moved `K` to 120, a dead path is a state, the join climbs; the derive is a detached job, the tint waits for the barrier); M9c-1 planned 2026-09-13 (a fall is a column run, the snapshot is not the gate) and built 2026-09-13/14 — c-1a Core, c-1b the wire; read "M9c-1b — built": the roof comes down in the game, the cascade is the analysed set growing, and a fall's cost is the hook chain. M9d next, unplayed.** Split M9a–M9d. **Read its "two facts" first: there is no bedrock, and DESIGN's literal distance rule opens a shaft to the surface over a 2 × 2 bite** — the plan's budget-with-an-arch rule and its uniqueness proof are decision 1. Read MATERIALS-NOTES and SCALE before it. |
 | [docs/M8-PLAN.md](docs/M8-PLAN.md) | M8, water gets in, split M8a–M8d. **M8c planned 2026-09-10, all eight decisions taken 2026-09-11, M8c-1 built the same day — read "M8c-1 — built" before M8c-2's pass.** **Planned 2026-09-02; M8a built the same day; M8b split four ways and M8b-1 built 2026-09-03; M8b-2 planned 2026-09-05 and all three parts built the same day, both open decisions taken as recommended — water crosses the seam in the game; M8b-3 planned and built the same day: the hand-off (3a) measured, the settle (3b) built and priced against the chamber, both mines and the played world, the spill's look deferred to M8c and the settle's interval an estimate with `--settleafter=` as the sweep.** Tier B’s cell size is settled at 0.25 m and SCALE’s open 64x question is answered in it. **Its M8b section records a gap the plan had**: a flooded mine has no Tier A body, so resting mine water is stored, and the settle is a solve. Read the tick-budget item in TODO before M8b-2. |
@@ -345,7 +345,9 @@ table below), `--skybrightness=<0..2>` (scales the sky channel alone; 0 leaves o
 **the overcast multiplies this rather than replacing it, so the seam survives weather**),
 `--debuglamp` (places one lamp where the crosshair points, so a screenshot can show block
 light without a keypress) and `--entangle` (the entangled miner, which with `--mine` aims along
-the flight path rather than straight down — see below). **The entangled bite is the brush cell
+the flight path rather than straight down — see below; **since M10c-3 it swings a tool that
+costs 100 J a voxel from the equipped pack, so a `--mine --entangle` run takes nothing unless it
+carries `--nogate` or `--pack`** — every recipe below that has one gained it). **The entangled bite is the brush cell
 since 2026-09-14 — a 1 m cube on the 1 m brush lattice** (`Carve.Cube`, `CubeVoxels =
 BrushCell.Voxels`, 64 voxels, 10/s on Matthew's word), **and the entangled fill is the brush at range
 on the same lattice at the same rate**; **`--entanglechunk` restores the whole-chunk bite and
@@ -702,6 +704,50 @@ On the bench `--pump` gains a powered row — 500 pumps with 500 charged cells a
 arm, 3.03–3.11 ms against 3.00–3.01 mean over two runs, the pool inside the bench's own spread — and its loop runs
 powered, the cell paying exactly the bill over 10,000 boundaries with both identities exact.
 
+**M10c-3 adds the pack, the gate and three flags (2026-09-17).** The entangled miner is content:
+`tools/entangled_miner.json` (threshold 5.0 — it takes a machine body at range as a pick does,
+which reverses M3d's *entanglement never changes what the bite is hard enough to take*; 0.10 s a
+cube with `--cubecooldown=` a sweep over the file's number; `power { via: channel, joulesPerVoxel:
+100 }`), loaded by ID and **off the T cycle**, so `T` still cycles the two free picks and only Q
+costs. **The gate is a voxel budget on every `Carve` shape** — what the equipped pack can pay for
+at the tool's price, asked after air and after `TooHard` so neither costs, the rest of the shape
+in `CarveResult.Unpowered` — and the pack pays for exactly what came away: *takes what the charge
+buys and stops*, a bite that ends mid-cube. The fill at range is all or nothing on the shape's
+cost and refused whole under it. **The pack rides header v4** (a presence byte, its material
+through the table, its charge, its channel; a v3 world opens with none); a right-click edge with
+a pack in hand equips one from the count, empty, and swaps it for the one worn, **whose charge is
+forfeited** — a term in the identity (`… − forfeited: exact`), printed with the swap count. The
+computer's click on nothing opens the pack's panel (one `channel` box). The HUD reads `pack
+2,100.0 kJ / 3,600.0 kJ` while one is worn and `Q TAKES NOTHING — no pack` under Q without. `P`
+seeds a pack once; `Alt+P` fills it with the cells. **`--pack[=<id>]`** equips one at open,
+**`--charge=<J>`** sets it, `--openpanel=pack` opens its panel, **`--nogate`** frees the miner
+and the fill with the pumps. **The bite-that-stops oracle, verbatim, reads `removed 6, unpowered
+57 of 64; paid 600 J, the pack at 40 J` on the first swing** (the spawn's cube holds one air voxel,
+which costs nothing — the pass wrote 58 for a solid one), then `removed 0, unpowered 57`, and the
+profile's `gate` line `6,840 voxel(s) unpowered over 120 swing(s)`; without `--pack` it reads
+`gate swung 120, took nothing (no pack …)`; with `--nogate` in place of `--pack --charge=640`,
+63 removed a swing and `gate off`:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --pack --charge=640 --mine --entangle --measure=10
+```
+
+The fill's arm — `--place --entangle --stock=64000 --pack --charge=6400 --pitch=-15` — places one
+cell and refuses the next (`the fill at range needs 6,400 J in the pack and it holds 0 mJ`); at
+`--charge=3200` it refuses the first. The swap, headless — the flag's pack worn, the count's
+equipped over it by the held right-click — reads `the outgoing pack's 1,000 J forfeited … 1
+swap(s)` and the identity exact:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --place --material=overburden:lead_acid_pack --stock=64 --pack --charge=1000 --measure=5
+```
+
+With `--world=probe --pack --charge=1000` and a reopen of `--world=probe`, the reopen reads `a
+pack equipped (header v4)` and `equipped from the world file: 1,000 J`; delete the world after.
+**`--stock=` seeds an item at one rather than at the stock since c-3**, and `--place` selects a
+placeable material first — every `--place` profile since M10b-1 had selected the computer and
+placed nothing (`computer 0 open(s) / 1 miss(es)` where its placements should have been).
+
 Measure **the relay pump** — the number every pump cap in the ladder was fiction until, and the read
 priced both ways. The chamber fixture flooded and settled, a relay pump on its floor's centre, an
 outlet on the surface with a sink under it standing in for the hand-off: the delivered rate against
@@ -811,7 +857,28 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
-**Pick up here (2026-09-17, small hours). M10c-2 is built — the wire, the three JSON files and
+**Pick up here (2026-09-17). M10c is built — all three sessions — and unplayed; M10d, the
+play, is next, and the ladder's decision 23 puts M10e (the conductor index, the DC tier) after
+it. Read "M10c-3 — built" in [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) first, then the
+seven-question play recipe under M10c in TODO — the equip, the swap's forfeit, the bite that
+stops mid-cube and the fill refused whole are the four things this build could not judge, and
+question 6 (whether a swapped-out pack should keep its charge as an item) is the one that would
+move a ladder decision.** What c-3 built: `PackSave` on header v4 and `EquippedPack` through
+`CurrentHeader`; `MachineTick.EquipPack` with `forfeited` in `PowerExact`; `ToolDefinition.Power`
+and `tools/entangled_miner.json`, loaded by ID and off the T cycle; `Carve`'s `voxelBudget` on
+every shape with `CarveResult.Unpowered`; `MiningController.SwungTool`/`Pack`/`PowerOff` paying
+`Removed × cost`; `PlaceController`'s all-or-nothing fill, `EquipRequest` and `PackPanelRequest`;
+`MachinePanel.OpenPack`; the HUD's pack line; `--pack`, `--charge=`, `--openpanel=pack`,
+`--nogate`'s miner half. **Three things M10d must not rediscover**: `--stock=` seeds an item at
+one and `--place` selects a placeable material first — every `--place` profile from M10b-1 to
+c-3 selected the computer and placed nothing; the bite-that-stops oracle reads `unpowered 57`
+and not the pass's 58 because the spawn's cube holds an air voxel and air costs nothing; and the
+tick's `Pack` is set through `EquipPack` only, because a swap that replaced the object silently
+dropped what the pool had given the first pack — the identity has a `forfeited` term for it.
+Suite 1,617; the r6 control to the digit. The paragraph below is c-2's state, kept for the
+reasoning.
+
+**Earlier (2026-09-17, small hours). M10c-2 is built — the wire, the three JSON files and
 the oracles — and M10c-3, the pack and the gate, is next, alone: header v4 (a presence byte, the
 pack's material through the world's table, its charge in millijoules, its channel; v3 opens with
 none) and `EquippedPack`'s persistence through `CurrentHeader`; the equip verb (a right-click edge
@@ -2113,7 +2180,9 @@ things worth keeping:
   Entanglement "changes how far and how fast, **never how big a bite or what the bite is hard
   enough to take**" — the bite clause is gone, **the hardness clause is untouched**, so a chunk
   bite through bedrock leaves the bedrock standing and `Carve.Take` is still the only gate in the
-  game. Dropping it fails **11** tests, most of them pre-existing sphere and chip ones.
+  game. Dropping it fails **11** tests, most of them pre-existing sphere and chip ones. (**The
+  hardness clause went too at M10c-3** — Q swings a tool of its own with a threshold of 5.0 and
+  a price a voxel; `Take` is still the one gate, reading that tool.)
 - **No weight, recorded as a decision rather than left as an omission.** 512,000 L a click, no
   carry limit, no encumbrance. Matthew's argument is the good version: the real-world answer to a
   haulage limit is *"zip tie two shopping trolleys together and drag that sucker behind me"*, and
@@ -3324,26 +3393,28 @@ filled one, which `--entanglechunk` restores and which every bite figure below w
 held (Alt keeps its held repeat for fine work at range; the sphere and chunk arms are unchanged).
 Alt still chips one voxel, at 40. Three things about it that are easy to undo by accident:
 
-- **It is deliberately not a tool tier, and that is the design decision rather than laziness.**
-  *Reach is the player's, not the tool's* is locked twice — M3d, restated at M4c — because
-  putting it in the tool JSON would guess a field into a format mods have written against. A
-  tool whose defining property is unlimited reach is the case that decision did not anticipate,
-  and for this one tool the reversal is arguably right. So it is a mode on `MiningController`
-  with **no `reachMetres` in the JSON and no `ToolDefinition` field**: once that field exists,
-  every mod writes against it and the decision is gone for *every* tool. **Making it real
-  content is the moment to settle that**, and it wants its own planning pass.
+- **It was deliberately not a tool tier until M10c-3, and the reach half of that still
+  holds.** *Reach is the player's, not the tool's* is locked twice — M3d, restated at M4c —
+  because putting it in the tool JSON would guess a field into a format mods have written
+  against. **Since 2026-09-17 it is content — `tools/entangled_miner.json`, with a threshold, a
+  cooldown and a `power` block — loaded by ID and kept off the T cycle, and the mode on
+  `MiningController` swings it while Q is on. There is still no `reachMetres` in the JSON and no
+  `ToolDefinition` field for it**: the reach is the mode's constant and the world's edge, which
+  is the decision M5d protected; what the file carries is what the pass needed a file for, the
+  price a voxel costs from the pack.
 - **"However far away" means "as far as the world exists", about 144 m at r16.** What stops the
   ray is `RayOutcome.Blocked` at the edge of the loaded region — entanglement is not
   distance-sensitive but **the streamer is**. The 512 m constant is a backstop bounding the DDA,
   the same shape as `MaxRadiusMetres` bounding the carve. Aiming at sky costs no swing.
-- **It composed with the number keys, and half of that stopped being true on 2026-09-03.** It
+- **It composed with the number keys, and both halves of that have stopped being true.** It
   changed *how far* and *how fast*, **never how big a bite or what the bite is hard enough to
-  take** — and the bite clause is now gone, because a bare click takes a whole chunk. **The
-  hardness clause survives untouched and is the half that was load-bearing**: a chunk bite through
-  bedrock leaves the bedrock standing, so `Carve.Take`'s gate stays the only gate in the game
-  rather than something a keypress opts out of. Dropping it from `Take` fails **11** tests, most
-  of them pre-existing sphere and chip ones — one edit breaking three shapes is what a forked gate
-  would not do.
+  take** — the bite clause went on 2026-09-03, because a bare click takes a whole chunk (a cell
+  since 2026-09-14), **and the hardness clause went at M10c-3**: Q swings the entangled miner's
+  own threshold, 5.0, so it takes a machine body at range exactly as a pick does — the ladder's
+  rule, which was not true under a hand pick. **`Carve.Take` is still the only gate in the game**,
+  reading the tool in hand's threshold and, since c-3, the budget the pack sets; what makes Q
+  *earned* now is the pack and not the tier. Dropping the hardness check from `Take` still fails
+  the sphere and chip tests — one edit breaking every shape is what a forked gate would not do.
   Measured at **11.1 m mean / 18.9 m furthest reach**, 0.139 ms a swing against 0.083
   un-entangled, and **0.9 relight remeshes per swing against 1.0** — carving a hundred metres
   away is not a different cost from carving at arm's length. `MaxReachMetres` exists because

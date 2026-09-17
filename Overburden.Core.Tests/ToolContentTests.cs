@@ -103,6 +103,73 @@ public class ToolContentTests
         Assert.True(content.Tools.Contains(Identifier.Parse("overburden:hand_pick")));
     }
 
+    // -------------------------------------------------------------------------------------
+    // The power block (M10c-3, decision 5): a tool's draw, with a link's via rule and a bound.
+    // -------------------------------------------------------------------------------------
+
+    [Fact]
+    public void ATooolsPowerBlockIsReadAndAToolWithoutOneIsFree()
+    {
+        var source = TestContent.BaseGame()
+            .Add("overburden", "tools/miner.json",
+                """{ "id": "miner", "hardnessThreshold": 5.0, "cooldownSeconds": 0.1, "power": { "via": "channel", "joulesPerVoxel": 100 } }""");
+
+        var content = new GameContent();
+        LoadResult result = content.Load(source);
+        Assert.True(result.Success, string.Join("; ", result.Errors));
+
+        var miner = content.Tools.Get(Identifier.Parse("overburden:miner"));
+        Assert.NotNull(miner.Power);
+        Assert.Equal("channel", miner.Power!.Via);
+        Assert.Equal(100L, miner.Power.JoulesPerVoxel);
+        Assert.Equal(100_000L, miner.Power.MillijoulesPerVoxel);
+        Assert.False(miner.IsFree);
+
+        // The picks declare none and are free by absence — two facts, kept apart.
+        var pick = content.Tools.Get(Identifier.Parse("overburden:hand_pick"));
+        Assert.Null(pick.Power);
+        Assert.True(pick.IsFree);
+    }
+
+    [Theory]
+    [InlineData("""{ "id": "bad", "power": { "joulesPerVoxel": 100 } }""", "via")]
+    [InlineData("""{ "id": "bad", "power": { "via": "crank", "joulesPerVoxel": 100 } }""", "M10f")]
+    [InlineData("""{ "id": "bad", "power": { "via": "copper", "joulesPerVoxel": 100 } }""", "M10e")]
+    [InlineData("""{ "id": "bad", "power": { "via": "Not A Via", "joulesPerVoxel": 100 } }""", "via")]
+    [InlineData("""{ "id": "bad", "power": { "via": "channel", "joulesPerVoxel": -1 } }""", "joulesPerVoxel")]
+    [InlineData("""{ "id": "bad", "power": { "via": "channel", "joulesPerVoxel": 1000000001 } }""", "joulesPerVoxel")]
+    public void APowerBlockThisBuildCannotServeIsRefusedNamingWhy(string json, string names)
+    {
+        // A via the tick does not serve is refused naming the part that will, as a link's is
+        // (M10a's pass, decision 11): a tool written for a class M10e has not built would
+        // otherwise load free, which is the gate silently open.
+        var source = TestContent.BaseGame().Add("overburden", "tools/bad.json", json);
+
+        var content = new GameContent();
+        LoadResult result = content.Load(source);
+
+        Assert.False(result.Success);
+        Assert.Contains(result.Errors, error => error.Contains("tools/bad.json") && error.Contains(names));
+        Assert.False(content.Tools.Contains(Identifier.Parse("overburden:bad")));
+        Assert.Equal(2, result.ToolsLoaded);
+    }
+
+    [Fact]
+    public void APowerBlockOfNothingIsAToolOnThePoolThatDrawsNothing()
+    {
+        // Legal and dull, and distinct from no block at all: the block is there and reads zero.
+        var source = TestContent.BaseGame()
+            .Add("overburden", "tools/idle.json", """{ "id": "idle", "power": { "via": "channel" } }""");
+
+        var content = new GameContent();
+        Assert.True(content.Load(source).Success);
+
+        var idle = content.Tools.Get(Identifier.Parse("overburden:idle"));
+        Assert.NotNull(idle.Power);
+        Assert.Equal(0L, idle.Power!.JoulesPerVoxel);
+        Assert.True(idle.IsFree);
+    }
+
     [Fact]
     public void AToolFileThatIsNotJsonIsReportedAndSkipped()
     {

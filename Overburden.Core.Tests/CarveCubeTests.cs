@@ -255,6 +255,121 @@ public class CarveCubeTests
         Assert.Single(world.Writes);
     }
 
+    // -------------------------------------------------------------------------------------
+    // The voxel budget (M10c-3, decision 6): takes what the charge buys and stops, on every
+    // shape, with the rest in Unpowered and the total still accounted.
+    // -------------------------------------------------------------------------------------
+
+    [Fact]
+    public void ABudgetOfSixOnASolidCubeRemovesSixAndLandsTheRestInUnpowered()
+    {
+        var world = new FakeEditor { DefaultMaterial = Dirt };
+        var origin = new VoxelPos(16, -24, 44);
+
+        CarveResult result = Carve.Cube(world, Materials(), origin, 1.0f, voxelBudget: 6);
+
+        Assert.Equal(new CarveResult(Volume, 6, 0, 0, 0, Volume - 6), result);
+        Assert.True(result.IsAccounted);
+        Assert.True(result.Complete);
+        Assert.Equal(6, world.Writes.Count);
+
+        // The six are the first six in the storage order — the budget is spent in the walk's
+        // own order, not by any preference, so a repeated bite chews the same corner onward.
+        var expected = new HashSet<VoxelPos>();
+        for (int y = 0; y < 4; y++) expected.Add(origin.Offset(0, y, 0));
+        expected.Add(origin.Offset(1, 0, 0));
+        expected.Add(origin.Offset(1, 1, 0));
+        Assert.Equal(expected, world.WrittenVoxels);
+    }
+
+    [Fact]
+    public void ABudgetOfZeroRemovesNothingAndEveryVoxelIsUnpowered()
+    {
+        var world = new FakeEditor { DefaultMaterial = Dirt };
+
+        CarveResult result = Carve.Cube(world, Materials(), new VoxelPos(0, 0, 0), 1.0f, voxelBudget: 0);
+
+        Assert.Equal(new CarveResult(Volume, 0, 0, 0, 0, Volume), result);
+        Assert.True(result.IsAccounted);
+        Assert.Empty(world.Writes);
+    }
+
+    [Fact]
+    public void TooHardAndAirCostNothingAgainstTheBudget()
+    {
+        // Half the cube is stone the weak pick cannot take and a layer is air: a budget of two
+        // takes two dirt voxels, and neither the stone nor the air is counted against it — the
+        // stone is TooHard first, the air AlreadyAir first, and only what the tool could take
+        // reaches the gate.
+        var world = new FakeEditor { DefaultMaterial = Dirt };
+        var origin = new VoxelPos(0, 0, 0);
+        for (int z = 0; z < Edge; z++)
+        for (int x = 0; x < Edge; x++)
+        {
+            world.SetVoxel(origin.Offset(x, 0, z), Stone);
+            world.SetVoxel(origin.Offset(x, 1, z), Stone);
+            world.SetVoxel(origin.Offset(x, 2, z), MaterialIds.AirNumericId);
+        }
+
+        world.Writes.Clear();
+
+        CarveResult result = Carve.Cube(world, Materials(), HitAt(origin.Offset(1, 3, 1)), WeakPick(), voxelBudget: 2);
+
+        int stone = Edge * Edge * 2, air = Edge * Edge, dirt = Volume - stone - air;
+        Assert.Equal(new CarveResult(Volume, 2, stone, air, 0, dirt - 2), result);
+        Assert.True(result.IsAccounted);
+        Assert.Equal(2, world.Writes.Count);
+        Assert.All(world.WrittenVoxels, voxel => Assert.Equal(3, voxel.Y));
+    }
+
+    [Fact]
+    public void TheBudgetHoldsOnEveryShape()
+    {
+        // One gate in Take, four shapes offering voxels to it: a budget of three on each lands
+        // exactly three and accounts for the rest. The chip is the degenerate case — one voxel,
+        // a budget of one takes it and a budget of zero refuses it as Unpowered, not TooHard.
+        var materials = Materials();
+
+        var sphereWorld = new FakeEditor { DefaultMaterial = Dirt };
+        CarveResult sphere = Carve.Sphere(sphereWorld, materials, new System.Numerics.Vector3(8f, 8f, 8f), 0.5f, 1.0f, voxelBudget: 3);
+        Assert.Equal(3, sphere.Removed);
+        Assert.Equal(sphere.Candidates - 3, sphere.Unpowered);
+        Assert.True(sphere.IsAccounted);
+        Assert.Equal(3, sphereWorld.Writes.Count);
+
+        var chunkWorld = new FakeEditor { DefaultMaterial = Dirt };
+        CarveResult chunk = Carve.Chunk(chunkWorld, materials, new ChunkPos(1, -1, 2), 1.0f, voxelBudget: 3);
+        Assert.Equal(new CarveResult(VoxelConstants.ChunkVolume, 3, 0, 0, 0, VoxelConstants.ChunkVolume - 3), chunk);
+        Assert.Equal(3, chunkWorld.Writes.Count);
+
+        var voxelWorld = new FakeEditor { DefaultMaterial = Dirt };
+        Assert.Equal(new CarveResult(1, 1, 0, 0, 0), Carve.Voxel(voxelWorld, materials, new VoxelPos(3, 3, 3), 1.0f, voxelBudget: 1));
+        Assert.Equal(new CarveResult(1, 0, 0, 0, 0, 1), Carve.Voxel(voxelWorld, materials, new VoxelPos(4, 4, 4), 1.0f, voxelBudget: 0));
+        Assert.Single(voxelWorld.Writes);
+
+        // And through the tool overloads, which is the wire the controller uses.
+        var hitWorld = new FakeEditor { DefaultMaterial = Dirt };
+        CarveResult chip = Carve.Chip(hitWorld, materials, HitAt(new VoxelPos(5, 5, 5)), StrongPick(), voxelBudget: 0);
+        Assert.Equal(1, chip.Unpowered);
+        CarveResult swing = Carve.Swing(hitWorld, materials, HitAt(new VoxelPos(9, 9, 9)), StrongPick(), voxelBudget: 3);
+        Assert.Equal(3, swing.Removed);
+        Assert.True(swing.Unpowered > 0);
+        Assert.Equal(3, hitWorld.Writes.Count);
+    }
+
+    [Fact]
+    public void TheDefaultBudgetIsUnboundedSoEveryOlderCallerIsFree()
+    {
+        // Every result above the gate: a cube with no budget named removes the whole cube, and
+        // its Unpowered is zero — the pre-M10c-3 CarveResult, term for term.
+        var world = new FakeEditor { DefaultMaterial = Dirt };
+        CarveResult result = Carve.Cube(world, Materials(), new VoxelPos(0, 0, 0), 1.0f);
+
+        Assert.Equal(0, result.Unpowered);
+        Assert.Equal(Volume, result.Removed);
+        Assert.DoesNotContain("unpowered", result.ToString());
+    }
+
     [Fact]
     public void TheInventoryIsCreditedPerMaterialAcrossASeamThroughTheCube()
     {

@@ -137,6 +137,36 @@ public partial class Main : Node3D
 
     private long _generatedAtWarm, _drawnByPumpsAtWarm, _clampedAtWarm;
 
+    // ---------------------------------------------------------------- M10c-3: the pack and the gate
+
+    /// <summary>
+    /// The pack the player carries (M10c-3, decision 4): not a row — it rides header v4 and
+    /// lives here as the one object the tick recharges, the controllers debit and the header
+    /// writes. Null with none equipped.
+    /// </summary>
+    private EquippedPack? _pack;
+
+    /// <summary>What the world file said was equipped, applied once the registry is loaded.</summary>
+    private PackSave? _restoredPack;
+
+    /// <summary><c>--pack[=&lt;id&gt;]</c>: equip one at open, the gate's headless seam — null when not asked, empty for the shipped pack.</summary>
+    private string? _packFlag;
+
+    /// <summary><c>--charge=&lt;J&gt;</c>: the equipped pack's charge at open, in joules; null leaves it as the header or the flag left it.</summary>
+    private long? _chargeJoules;
+
+    /// <summary>The tool Q swings — <c>overburden:entangled_miner</c>, loaded by ID and off the T cycle — or null when a mod removed it.</summary>
+    private ToolDefinition? _entangledTool;
+
+    /// <summary>The ID Q's tool is loaded by (decision 5).</summary>
+    private const string EntangledMinerId = "overburden:entangled_miner";
+
+    /// <summary>Whether <c>--cubecooldown=</c> was given, so the file's number is the default and the flag the sweep.</summary>
+    private bool _cubeCooldownSwept;
+
+    /// <summary>The gate's two one-off prints: the swing the pack ran out inside, and the first that took nothing.</summary>
+    private bool _printedGateRanOut, _printedGateEmpty, _printedGateNoPack, _printedFillRefused;
+
     /// <summary><c>--panelset=&lt;name&gt;=&lt;value&gt;</c>: typed into the open panel's box after <c>--openpanel</c> opens it — the widget's wire, headless.</summary>
     private readonly List<(string Name, long Value)> _panelSets = [];
     private VoxelHighlight? _cellHighlight;
@@ -1166,6 +1196,7 @@ public partial class Main : Node3D
         SetUpMining();
         SetUpPlacement();
         SetUpHud();
+        SetUpPack();
 
         // Not MaterialId(), which falls back to air: placing air where a missing mod's lamp
         // should go would carve a hole out of whatever the player was pointing at.
@@ -1656,6 +1687,18 @@ public partial class Main : Node3D
                     _solarPanels = solar;
                     break;
 
+                // M10c-3: a pack equipped at open — the shipped lead-acid pack bare, or a material
+                // by ID — the gate's headless seam, because a profile run has no inventory to
+                // pick one from and no hand to right-click with. --charge= sets what it holds, in
+                // joules (the file's unit), so the bite-that-stops oracle is one line.
+                case "pack":
+                    _packFlag = string.IsNullOrEmpty(value) ? "overburden:lead_acid_pack" : value;
+                    break;
+
+                case "charge" when long.TryParse(value, out long charge) && charge >= 0:
+                    _chargeJoules = charge;
+                    break;
+
                 // A value put into the open panel's box as a hand would type it, so the wire from
                 // the widget to SetPort runs headless — --port= writes past the widget. Repeatable.
                 case "panelset":
@@ -1718,10 +1761,13 @@ public partial class Main : Node3D
                     _chunkCooldownSeconds = chunkCooldown;
                     break;
 
-                // The cube bite's rate, an estimate (0.1 s), for the same reason and the same way.
+                // The cube bite's rate, for the same reason and the same way — since M10c-3 a
+                // sweep over the entangled miner's own cooldownSeconds, the way --pump= is over
+                // the relay's litresPerSecond.
                 case "cubecooldown" when float.TryParse(value, out float cubeCooldown)
                                          && cubeCooldown > 0.0f:
                     _cubeCooldownSeconds = cubeCooldown;
+                    _cubeCooldownSwept = true;
                     break;
 
                 // The fall profile. M2d measured a viewer flying horizontally at a constant
@@ -2183,7 +2229,8 @@ public partial class Main : Node3D
 
         _hud.Refresh(
             delta, _inventory, _materials, Content.Materials, _place, _mining, precise,
-            _adaptiveRadius ? $"r{_radiusState.Horizontal}h/{_radiusState.Vertical}v" : null);
+            _adaptiveRadius ? $"r{_radiusState.Horizontal}h/{_radiusState.Vertical}v" : null,
+            _pack);
     }
 
     /// <summary>Builds the hotbar, unless this run is a measurement.</summary>
@@ -2215,6 +2262,213 @@ public partial class Main : Node3D
         // wants at the GUI stage and the keys it wants go to a focused field before anyone.
         _panel = new MachinePanel { Name = "MachinePanel" };
         AddChild(_panel);
+    }
+
+    /// <summary>
+    /// The pack at open (M10c-3): the header's, or <c>--pack</c>'s, with <c>--charge=</c> applied;
+    /// handed to the tick, the miner and the fill; printed. After the HUD, so the line shows it.
+    /// </summary>
+    /// <remarks>
+    /// A header naming a material that is not a pack in this content — a removed mod's — drops
+    /// the pack and says so with its charge, rather than refusing the world: the header carries
+    /// the table and not the definitions, so this is the first place the question can be asked.
+    /// </remarks>
+    private void SetUpPack()
+    {
+        if (_materials is null)
+        {
+            return;
+        }
+
+        EquippedPack? pack = null;
+        string how = string.Empty;
+
+        if (_restoredPack is PackSave saved)
+        {
+            MachineDefinition? definition = _materials.Machine(saved.MaterialId);
+            if (definition is { Kind: MachineKind.Storage, Carried: true })
+            {
+                pack = new EquippedPack(saved.MaterialId, definition, saved.ChargeMillijoules, saved.Channel);
+                how = "from the world file";
+                if (pack.ChargeMillijoules != saved.ChargeMillijoules)
+                {
+                    GD.Print($"M10: pack — the world file's charge of {MachinePanel.Joules(saved.ChargeMillijoules)} is over {Content.Materials.GetIdentifier(saved.MaterialId)}'s capacity and was clamped to {MachinePanel.Joules(pack.ChargeMillijoules)}");
+                }
+            }
+            else
+            {
+                GD.Print(
+                    $"M10: pack — the world file's equipped pack is material {saved.MaterialId} "
+                    + $"({Content.Materials.GetIdentifier(saved.MaterialId)}), which is not a pack in this content; "
+                    + $"dropped with its {MachinePanel.Joules(saved.ChargeMillijoules)} forfeited");
+            }
+        }
+
+        if (_packFlag is not null)
+        {
+            int material = MaterialId(_packFlag);
+            MachineDefinition? definition = material == MaterialIds.AirNumericId ? null : _materials.Machine(material);
+            if (definition is { Kind: MachineKind.Storage, Carried: true })
+            {
+                // The flag's pack replaces the file's — a seam, and a run that names one means it.
+                long charge = _chargeJoules is { } joules ? joules * MachineDefinition.PerMille : pack?.ChargeMillijoules ?? 0;
+                pack = new EquippedPack(material, definition, charge, pack?.Channel ?? 0);
+                how = "--pack";
+            }
+            else
+            {
+                GD.Print($"M10: --pack={_packFlag} is not a carried storage in this content, so nothing is equipped by it");
+            }
+        }
+        else if (_chargeJoules is { } joules && pack is not null)
+        {
+            pack = new EquippedPack(pack.MaterialId, pack.Definition, joules * MachineDefinition.PerMille, pack.Channel);
+            how += " with --charge";
+        }
+        else if (_chargeJoules is not null)
+        {
+            GD.Print("M10: --charge= names a charge and no pack is equipped to hold it (--pack equips one)");
+        }
+
+        HandOverPack(pack);
+
+        if (pack is null)
+        {
+            GD.Print(_noGate
+                ? "M10: no pack equipped; the miner is free under --nogate"
+                : $"M10: no pack equipped — Q takes nothing until one is (P seeds a {Hud.DisplayName(Content.Materials, MaterialId("overburden:lead_acid_pack"))}, right-click with it in hand equips it; --pack does it headless)");
+        }
+        else
+        {
+            GD.Print(
+                $"M10: pack — {Hud.DisplayName(Content.Materials, pack.MaterialId)} equipped {how}: "
+                + $"{MachinePanel.Joules(pack.ChargeMillijoules)} of {MachinePanel.Joules(pack.CapacityMillijoules)} on channel {pack.Channel}"
+                + (_mining is { MillijoulesPerVoxel: > 0 } m ? $" — {pack.VoxelsAffordable(m.MillijoulesPerVoxel):N0} voxel(s) at {m.MillijoulesPerVoxel / MachineDefinition.PerMille:N0} J each" : string.Empty));
+        }
+
+        // The pack's panel for the screenshot, --openpanel's shape without --pump.
+        if (_openPanel && _openPanelTarget == "pack")
+        {
+            if (pack is null)
+            {
+                GD.Print("M10: --openpanel=pack — no pack is equipped, so there is nothing to open");
+            }
+            else
+            {
+                OpenPackPanel("--openpanel=pack");
+                TypePanelSets();
+            }
+        }
+    }
+
+    /// <summary>Hands the pack to everything that reads it: the tick (which counts a swap's forfeit), the miner, the fill. Null unequips.</summary>
+    /// <returns>What the outgoing pack held, forfeited.</returns>
+    private long HandOverPack(EquippedPack? pack)
+    {
+        long forfeited = _machineTick is not null ? _machineTick.EquipPack(pack) : _pack?.ChargeMillijoules ?? 0;
+        _pack = pack;
+        if (_mining is not null)
+        {
+            _mining.Pack = pack;
+        }
+
+        if (_place is not null)
+        {
+            _place.Pack = pack;
+        }
+
+        return forfeited;
+    }
+
+    /// <summary>
+    /// The equip verb (M10c-3, decision 4): one pack of <paramref name="materialId"/> off the
+    /// count and onto the back, empty — a count has no charge — and the one that was there back
+    /// to the count with its charge forfeited, printed. The swap is what makes a second pack in
+    /// the inventory a count and the equipped one the only charge there is.
+    /// </summary>
+    private void EquipPackFromInventory(int materialId, string how)
+    {
+        if (_materials is null)
+        {
+            return;
+        }
+
+        MachineDefinition? definition = _materials.Machine(materialId);
+        if (definition is not { Kind: MachineKind.Storage, Carried: true })
+        {
+            GD.Print($"M10: {Content.Materials.GetIdentifier(materialId)} is not a pack; nothing equipped ({how})");
+            return;
+        }
+
+        if (_inventory.Take(materialId, 1) < 1)
+        {
+            GD.Print($"M10: no {Hud.DisplayName(Content.Materials, materialId)} in the inventory to equip ({how})");
+            return;
+        }
+
+        EquippedPack? outgoing = _pack;
+        if (outgoing is not null && _panel is { Pack: not null })
+        {
+            ClosePanel("the pack was swapped");
+        }
+
+        var pack = new EquippedPack(materialId, definition, chargeMillijoules: 0, channel: 0);
+        long forfeited = HandOverPack(pack);
+        string label = Hud.DisplayName(Content.Materials, materialId);
+
+        if (outgoing is null)
+        {
+            GD.Print($"M10: pack — {label} equipped ({how}): empty, {MachinePanel.Joules(pack.CapacityMillijoules)} capacity, channel {pack.Channel}; Alt+P fills it");
+            return;
+        }
+
+        _inventory.Add(outgoing.MaterialId, 1);
+        GD.Print(
+            $"M10: pack — {label} equipped in place of {Hud.DisplayName(Content.Materials, outgoing.MaterialId)} ({how}): "
+            + $"the outgoing pack's {MachinePanel.Joules(forfeited)} forfeited and it is back in the inventory as a count; "
+            + $"{MachinePanel.Joules(_machineTick?.PackForfeitedMillijoules ?? forfeited)} forfeited by {(_machineTick?.PacksUnequipped ?? 1):N0} swap(s) this session");
+    }
+
+    /// <summary>Opens the panel on the equipped pack — the computer's click on nothing, or <c>--openpanel=pack</c>.</summary>
+    private void OpenPackPanel(string how)
+    {
+        if (_pack is null || _camera is null)
+        {
+            return;
+        }
+
+        string label = Hud.DisplayName(Content.Materials, _pack.MaterialId);
+        if (_panel is null)
+        {
+            GD.Print($"M10: computer — the equipped {label} ({how}); no panel in a profile run");
+            return;
+        }
+
+        _panel.OpenPack(_pack, label, _machineTick);
+        _camera.ReleaseMouse();
+        GD.Print($"M10: panel — opened on the equipped {label} ({how}): channel = {_pack.Channel} [0..{MachineTick.Channels - 1}]");
+    }
+
+    /// <summary>Types every <c>--panelset=</c> into the open panel, whichever it is open on.</summary>
+    private void TypePanelSets()
+    {
+        foreach ((string name, long typed) in _panelSets)
+        {
+            if (_panel is not { IsOpen: true })
+            {
+                GD.Print($"M10: --panelset={name}={typed} — no panel is open to type into");
+            }
+            else if (!_panel.TypeInto(name, typed))
+            {
+                GD.Print($"M10: --panelset={name}={typed} — the open panel has no box called '{name}'");
+            }
+            else
+            {
+                // The box's own range has already clamped it by the time the panel prints
+                // the write, so what was typed is printed here.
+                GD.Print($"M10: --panelset — typed {typed} into {name}'s box");
+            }
+        }
     }
 
     /// <summary>
@@ -2267,14 +2521,14 @@ public partial class Main : Node3D
             return;
         }
 
-        BrushCell cell = _panel.Row!.Cell;
+        string subject = _panel.Subject;
         _panel.Close();
         if (_camera is { MouseCaptured: false })
         {
             _camera.CaptureMouse();
         }
 
-        GD.Print($"M10: panel — closed on {cell} ({why}); {_panel.Writes} port write(s) through the panel this session");
+        GD.Print($"M10: panel — closed on {subject} ({why}); {_panel.Writes} port write(s) through the panel this session");
     }
 
     /// <summary>
@@ -2291,6 +2545,20 @@ public partial class Main : Node3D
         if (_camera.MouseCaptured)
         {
             ClosePanel("a click outside took the mouse back");
+            return;
+        }
+
+        // The pack's panel goes when the pack does — a swap closes it itself; this is the
+        // belt for an unequip from anywhere else.
+        if (_panel.Pack is { } shownPack)
+        {
+            if (!ReferenceEquals(shownPack, _pack))
+            {
+                ClosePanel("the pack is gone");
+                return;
+            }
+
+            _panel.Refresh(delta);
             return;
         }
 
@@ -3282,7 +3550,7 @@ public partial class Main : Node3D
 
         // M10b-2: the panel on the pump, after the writes so it shows what they landed. A row
         // alone is never the pump's — the pump's cell is loaded by construction, the shaft is.
-        if (_openPanel)
+        if (_openPanel && _openPanelTarget != "pack")
         {
             BrushCell? wantedOrNot = _openPanelTarget switch
             {
@@ -3298,24 +3566,7 @@ public partial class Main : Node3D
             else if (_machines.TryGet(wanted, out MachineRow wantedRow))
             {
                 OpenPanel(wantedRow, _openPanelTarget == "pump" ? "--openpanel" : $"--openpanel={_openPanelTarget}");
-
-                foreach ((string name, long typed) in _panelSets)
-                {
-                    if (_panel is not { IsOpen: true })
-                    {
-                        GD.Print($"M10: --panelset={name}={typed} — no panel is open to type into");
-                    }
-                    else if (!_panel.TypeInto(name, typed))
-                    {
-                        GD.Print($"M10: --panelset={name}={typed} — the open panel has no box called '{name}'");
-                    }
-                    else
-                    {
-                        // The box's own range has already clamped it by the time the panel prints
-                        // the write, so what was typed is printed here.
-                        GD.Print($"M10: --panelset — typed {typed} into {name}'s box");
-                    }
-                }
+                TypePanelSets();
             }
             else
             {
@@ -3446,7 +3697,7 @@ public partial class Main : Node3D
             _inventory.Add(pack, 1);
         }
 
-        GD.Print("M10: P — a relay pump, a relay outlet, a solar panel and a vacuum cell added to the inventory (64 voxels each), and a computer and a lead-acid pack once; pick them on the number row. Alt+P fills every placed cell");
+        GD.Print("M10: P — a relay pump, a relay outlet, a solar panel and a vacuum cell added to the inventory (64 voxels each), and a computer and a lead-acid pack once; pick them on the number row (right-click with the pack in hand equips it). Alt+P fills every placed cell and the pack");
     }
 
     /// <summary>Every placed storage row charged to its capacity, through the set's one debug door.</summary>
@@ -3473,7 +3724,11 @@ public partial class Main : Node3D
             }
         }
 
-        GD.Print($"M10: Alt+P — {filled} cell(s) filled with {MachinePanel.Joules(millijoules)} (debug)");
+        long packGiven = _pack?.Give(_pack.CapacityMillijoules) ?? 0;
+        GD.Print(
+            $"M10: Alt+P — {filled} cell(s) filled with {MachinePanel.Joules(millijoules)}"
+            + (_pack is null ? string.Empty : $", the pack given {MachinePanel.Joules(packGiven)} to {MachinePanel.Joules(_pack.ChargeMillijoules)}")
+            + " (debug)");
     }
 
     /// <summary>Ends the process with no save, when <c>--abort=</c> asked for it.</summary>
@@ -3697,8 +3952,18 @@ public partial class Main : Node3D
     /// </remarks>
     private void SetUpMining()
     {
-        foreach ((_, _, ToolDefinition tier) in Content.Tools.Entries())
+        // M10c-3, decision 5: the entangled miner is a tool now, loaded by ID and kept off the
+        // T cycle — on it, its threshold would make it the strongest tier and the default pick,
+        // and the gate would then gate the hand.
+        Identifier minerId = Identifier.Parse(EntangledMinerId);
+        foreach ((_, Identifier id, ToolDefinition tier) in Content.Tools.Entries())
         {
+            if (id == minerId)
+            {
+                _entangledTool = tier;
+                continue;
+            }
+
             _tiers.Add(tier);
         }
 
@@ -3732,10 +3997,16 @@ public partial class Main : Node3D
 
             // Set here rather than in the profile block, because Q is a play bind: a rate that
             // only reached a profile run would be a sweep seam for the one arm that cannot
-            // judge it.
+            // judge it. The cube's rate is the miner's file's since M10c-3, the flag its sweep.
             EntangledChunkCooldownSeconds = _chunkCooldownSeconds,
-            EntangledCubeCooldownSeconds = _cubeCooldownSeconds,
+            EntangledCubeCooldownSeconds = _cubeCooldownSwept || _entangledTool is null ? _cubeCooldownSeconds : _entangledTool.CooldownSeconds,
+
+            // M10c-3: the tool Q swings and the gate's miner half. The pack is handed over in
+            // SetUpPack, once the HUD exists to show it.
+            EntangledTool = _entangledTool,
+            PowerOff = _noGate,
         };
+        _cubeCooldownSeconds = _mining.EntangledCubeCooldownSeconds;
 
         _highlight = new VoxelHighlight(GetWorld3D());
 
@@ -3749,6 +4020,24 @@ public partial class Main : Node3D
         _mining.Bite = _entangledBite;
 
         GD.Print($"M3d: mining with {strongest.Id} — tiers {string.Join(", ", names)}");
+
+        if (_entangledTool is null)
+        {
+            GD.Print($"M10: no {EntangledMinerId} in this content, so Q swings the tier and is free");
+        }
+        else if (_noGate)
+        {
+            GD.Print($"M10: Q swings {_entangledTool.Id} (takes hardness <= {_entangledTool.HardnessThreshold:F1}, {_cubeCooldownSeconds:F2} s a cube) — free under --nogate");
+        }
+        else
+        {
+            GD.Print(
+                $"M10: Q swings {_entangledTool.Id} — takes hardness <= {_entangledTool.HardnessThreshold:F1}, "
+                + $"{_cubeCooldownSeconds:F2} s a cube{(_cubeCooldownSwept ? " (--cubecooldown)" : string.Empty)}, "
+                + (_entangledTool.Power is { } power
+                    ? $"{power.JoulesPerVoxel:N0} J a voxel via {power.Via} from the equipped pack (the gate; --nogate frees it)"
+                    : "free (the file declares no power)"));
+        }
     }
 
     /// <summary>
@@ -3796,6 +4085,10 @@ public partial class Main : Node3D
             // boundary and displaces through the simulation. Null water under --nowater.
             Machines = _machines,
             Water = _fluid,
+            // M10c-3: the fill at range pays the bite's price from the same pack, all or nothing
+            // on the shape's cost; the pack itself is handed over in SetUpPack.
+            PowerOff = _noGate,
+            EntangledMillijoulesPerVoxel = _entangledTool?.Power?.MillijoulesPerVoxel ?? 0,
         };
 
         // A second outline, a metre across and in a different colour, because the brush lands on
@@ -3807,12 +4100,14 @@ public partial class Main : Node3D
         if (_startingStock > 0)
         {
             // A profile seam, not a gift: --place has to have something to place, and mining
-            // first would measure the carve as well as the brush.
+            // first would measure the carve as well as the brush. Placeable materials at the
+            // stock; an item at one — enough to select it with --material= and right-click, which
+            // is the equip verb's headless wire (M10c-3), and not 64,000 computers.
             foreach ((int numericId, _, _) in Content.Materials.Entries())
             {
                 if (numericId != MaterialIds.AirNumericId)
                 {
-                    _inventory.Add(numericId, _startingStock);
+                    _inventory.Add(numericId, _materials.IsPlaceable(numericId) ? _startingStock : 1);
                 }
             }
         }
@@ -3895,6 +4190,33 @@ public partial class Main : Node3D
             OpenPanel(opened, "right-click with the computer in hand");
         }
 
+        // M10c-3: the pack's verbs on the same edge — equip with a pack in hand, and the
+        // computer's click on nothing opening the equipped pack's panel.
+        if (_place.EquipRequest >= 0)
+        {
+            EquipPackFromInventory(_place.EquipRequest, "right-click with a pack in hand");
+        }
+
+        if (_place.PackPanelRequest)
+        {
+            OpenPackPanel("right-click with the computer on nothing");
+        }
+
+        if (_place.RefusedUnpoweredThisFrame && !_printedFillRefused)
+        {
+            // Once, until a placement lands: the fill at range is all or nothing on the shape's
+            // cost, and the first refusal is the one a player has to be told about.
+            _printedFillRefused = true;
+            GD.Print(
+                $"M10: gate — the fill at range needs {MachinePanel.Joules(_place.LastRefusedNeedMillijoules)} in the pack and "
+                + (_pack is null ? "none is equipped" : $"it holds {MachinePanel.Joules(_pack.ChargeMillijoules)}")
+                + $"; refused whole ({_place.UnpoweredPlacements:N0} refused, {_place.VoxelsUnpowered:N0} voxel(s), this session)");
+        }
+        else if (placed)
+        {
+            _printedFillRefused = false;
+        }
+
         if (placed && _place.RanOutThisFrame && !_announcedEmpty)
         {
             // Once, until something is placed successfully again. There is no HUD until M6d, so
@@ -3940,6 +4262,51 @@ public partial class Main : Node3D
     }
 
     private bool _announcedEmpty;
+
+    /// <summary>
+    /// The gate's three one-off lines (M10c-3): the swing the pack ran out inside, the first
+    /// that took nothing on an empty pack, and the first swung with none equipped. Once each,
+    /// because the bite fires ten times a second and the log is the instrument headless.
+    /// </summary>
+    private void PrintGate()
+    {
+        if (_mining is null)
+        {
+            return;
+        }
+
+        CarveResult last = _mining.LastResult;
+        if (last.Unpowered == 0)
+        {
+            return;
+        }
+
+        if (_pack is null)
+        {
+            if (!_printedGateNoPack)
+            {
+                _printedGateNoPack = true;
+                GD.Print($"M10: gate — swung {_mining.SwungTool.Id.Path} with no pack equipped: took nothing ({last}); P seeds a pack, right-click with it in hand equips it");
+            }
+
+            return;
+        }
+
+        if (last.Removed > 0 && !_printedGateRanOut)
+        {
+            _printedGateRanOut = true;
+            GD.Print(
+                $"M10: gate — the pack ran out mid-bite: removed {last.Removed}, unpowered {last.Unpowered} of {last.Candidates}; "
+                + $"paid {MachinePanel.Joules(_mining.LastPaidMillijoules)}, the pack at {MachinePanel.Joules(_pack.ChargeMillijoules)}");
+        }
+        else if (last.Removed == 0 && !_printedGateEmpty)
+        {
+            _printedGateEmpty = true;
+            GD.Print(
+                $"M10: gate — the pack is spent: removed 0, unpowered {last.Unpowered} of {last.Candidates}; "
+                + $"the pack at {MachinePanel.Joules(_pack.ChargeMillijoules)} buys nothing at {_mining.MillijoulesPerVoxel / MachineDefinition.PerMille:N0} J a voxel");
+        }
+    }
 
     private void UpdateMining(double delta)
     {
@@ -4005,6 +4372,11 @@ public partial class Main : Node3D
         if (swung && _profiler is { Warm: true })
         {
             _profiler.Swing.Add(Milliseconds(before, Stopwatch.GetTimestamp()));
+        }
+
+        if (swung)
+        {
+            PrintGate();
         }
 
         PlaceDebugLamp();
@@ -6057,7 +6429,7 @@ public partial class Main : Node3D
             // A gate that never fired is not a gate that passed. VoxelsRefused' own remarks say
             // so; until now the report did not.
             (_mining.VoxelsRefused == 0
-                ? $" — the hardness gate never fired, so {_mining.Tool.Id.Path} took everything "
+                ? $" — the hardness gate never fired, so {_mining.SwungTool.Id.Path} took everything "
                   + "it was pointed at and the mechanic is untested by this run\n"
                 : "\n") +
             $"remesh    {_pipeline!.EditRemeshes / swings:F1} chunks per swing, " +
@@ -6069,6 +6441,17 @@ public partial class Main : Node3D
             $"clones    {_pipeline.ChunkClones / swings:F1} per swing " +
             $"({_pipeline.ChunkClones * 2.0 / swings:F1} KiB at ~2 KiB each)\n" +
             $"clipped   {_mining.ClippedSwings} swing(s) reached past the loaded world\n" +
+            // M10c-3: the gate's own line whenever it could have fired — a costing tool in hand
+            // — with the case named: took nothing for want of a pack, or paid and ran out.
+            (_mining.MillijoulesPerVoxel > 0 || _mining.SwingsWithNoPack > 0 || _mining.VoxelsUnpowered > 0
+                ? (_mining.SwingsWithNoPack == _mining.Swings && _mining.Swings > 0
+                    ? $"gate      swung {_mining.Swings}, took nothing (no pack — the gate is on; --pack equips one, --nogate frees the miner)\n"
+                    : $"gate      {_mining.VoxelsUnpowered:N0} voxel(s) unpowered over {_mining.UnpoweredSwings:N0} swing(s), "
+                      + $"{_mining.SwingsWithNoPack:N0} swing(s) with no pack; paid {_mining.MillijoulesPaid:N0} mJ ({MachinePanel.Joules(_mining.MillijoulesPaid)}) at "
+                      + $"{_mining.MillijoulesPerVoxel / MachineDefinition.PerMille:N0} J a voxel; the pack "
+                      + (_pack is null ? "none" : $"at {_pack.ChargeMillijoules:N0} mJ ({MachinePanel.Joules(_pack.ChargeMillijoules)}) of {MachinePanel.Joules(_pack.CapacityMillijoules)}")
+                      + $"; last swing {_mining.LastResult}\n")
+                : _noGate && _mining.EntangledSwings > 0 ? "gate      off (--nogate)\n" : string.Empty) +
             (_mining.EntangledSwings > 0
                 ? $"entangled {_mining.EntangledSwings} swing(s) — NOT comparable with M3d's baseline\n"
                   + $"reach     {_mining.TotalReachMetres / swings:F1} m mean, {_mining.MaxReachMetres:F1} m furthest\n"
@@ -6150,8 +6533,9 @@ public partial class Main : Node3D
         return $" | power: {t.StorageRows:N0} cell(s) hold {MachinePanel.Joules(t.StoredMillijoules)}, "
                + $"pack {(t.Pack is null ? "none" : $"{MachinePanel.Joules(t.Pack.ChargeMillijoules)} of {MachinePanel.Joules(t.Pack.CapacityMillijoules)} (ch {t.Pack.Channel})")}, "
                + $"generated {MachinePanel.Joules(t.GeneratedMillijoules)} ({t.Converters:N0} panel(s), open {open}/16 mean, {t.SolarUnsampled:N0} unsampled, overcast {t.OvercastByte}/256), "
-               + $"drawn {MachinePanel.Joules(t.DrawnByPumpsMillijoules)} by pumps, clamped {MachinePanel.Joules(t.ClampedMillijoules)}, pack given {MachinePanel.Joules(t.PackGivenMillijoules)} — "
-               + $"pool == entering − leaving + generated − drawn − clamped: {(t.PowerExact ? "exact" : "*** NO ***")}";
+               + $"drawn {MachinePanel.Joules(t.DrawnByPumpsMillijoules)} by pumps + {MachinePanel.Joules(t.PackTakenMillijoules)} by the tool, clamped {MachinePanel.Joules(t.ClampedMillijoules)}, "
+               + $"pack given {MachinePanel.Joules(t.PackGivenMillijoules)}, forfeited {MachinePanel.Joules(t.PackForfeitedMillijoules)} by {t.PacksUnequipped:N0} swap(s) — "
+               + $"pool == entering − leaving + generated − drawn − clamped − forfeited: {(t.PowerExact ? "exact" : "*** NO ***")}";
     }
 
     /// <summary>The profile's <c>machines</c> block, with the window's own denominators.</summary>
@@ -6205,11 +6589,11 @@ public partial class Main : Node3D
         long drawn = t.DrawnByPumpsMillijoules - _drawnByPumpsAtWarm;
         long clamped = t.ClampedMillijoules - _clampedAtWarm;
         return $"power     in the window: generated {generated:N0} mJ, drawn {drawn:N0} by pumps, clamped {clamped:N0}; "
-               + $"in all: generated {t.GeneratedMillijoules:N0} mJ, drawn {t.DrawnByPumpsMillijoules:N0}, clamped {t.ClampedMillijoules:N0}, pack given {t.PackGivenMillijoules:N0}; "
-               + $"{t.StorageRows:N0} cell(s) hold {t.StoredMillijoules:N0} mJ ({MachinePanel.Joules(t.StoredMillijoules)}), pack {(t.Pack is null ? "none" : $"{t.Pack.ChargeMillijoules:N0} mJ")}; "
+               + $"in all: generated {t.GeneratedMillijoules:N0} mJ, drawn {t.DrawnByPumpsMillijoules:N0} by pumps + {t.PackTakenMillijoules:N0} by the tool, clamped {t.ClampedMillijoules:N0}, pack given {t.PackGivenMillijoules:N0}, forfeited {t.PackForfeitedMillijoules:N0}; "
+               + $"{t.StorageRows:N0} cell(s) hold {t.StoredMillijoules:N0} mJ ({MachinePanel.Joules(t.StoredMillijoules)}), pack {(t.Pack is null ? "none" : $"{t.Pack.ChargeMillijoules:N0} mJ ({MachinePanel.Joules(t.Pack.ChargeMillijoules)})")}; "
                + $"{t.Converters:N0} panel(s), sampled {t.SolarSampled:N0} / unsampled {t.SolarUnsampled:N0} (sky answered {_solarSky?.Answered ?? 0:N0}, no column {_solarSky?.Unanswered ?? 0:N0}), "
                + $"open {(t.SolarSampled + t.SolarUnsampled > 0 ? t.OpenColumnsSum / (double)(t.SolarSampled + t.SolarUnsampled) : 0):F2}/16 mean, overcast {t.OvercastByte}/256 at the last boundary; "
-               + $"pool == entering − leaving + generated − drawn − clamped: {(t.PowerExact ? "exact" : "*** NO ***")}\n";
+               + $"pool == entering − leaving + generated − drawn − clamped − forfeited: {(t.PowerExact ? "exact" : "*** NO ***")}\n";
     }
 
     private string PlacementLines()
@@ -6779,6 +7163,7 @@ public partial class Main : Node3D
             _restoredInventory = world.Inventory;
             _restoredWatershedCellMetres = world.WatershedCellMetres;
             _savedPlayer = world.Player;
+            _restoredPack = world.Pack;
 
             // The world's own clock replaces whatever --clock asked for, and that ordering is the
             // point rather than a precedence rule: this is the line that makes "time advances only
@@ -6807,7 +7192,8 @@ public partial class Main : Node3D
                 $"M6: opened {path} — seed 0x{settings.Seed:X}, "
                 + $"{world.MaterialIdTable.Count} material id(s) restored, "
                 + $"{world.Inventory.Count} material(s) carried, "
-                + (world.Player is null ? "no saved player" : "player restored"));
+                + (world.Player is null ? "no saved player" : "player restored")
+                + (world.Pack is null ? ", no pack equipped" : $", a pack equipped (header v{header[0]})"));
 
             return true;
         }
@@ -6851,6 +7237,9 @@ public partial class Main : Node3D
         Inventory = [.. _inventory.Entries().Select(e => new InventoryEntry(e.MaterialId, e.Voxels))],
         ElapsedMillis = _clock.ElapsedMillis,
         Player = SavedPlayer(),
+        // M10c-3: the pack rides the header, so it rides the session's transaction (a-1) — what
+        // it holds at the instant of the write, through the world's own table.
+        Pack = _pack is null ? null : new PackSave(_pack.MaterialId, _pack.ChargeMillijoules, _pack.Channel),
     };
 
     /// <summary>Where the player is, for the world file — or null if there is no body yet.</summary>

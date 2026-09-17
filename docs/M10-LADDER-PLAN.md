@@ -2237,3 +2237,105 @@ and `CarveResult.Unpowered` in `IsAccounted`, the controllers paying (the bite a
 the fill at range all-or-nothing on `64 × J`), the HUD's pack line, `--pack[=<id>]`,
 `--charge=<J>`, `--nogate`'s miner half, the bite-that-stops oracle, and every recorded `--mine
 --entangle` recipe gaining `--nogate` in the same commit.
+
+### M10c-3 — built
+
+> 2026-09-17 (*"c-3 please"*). Suite 1,592 → 1,617; twenty-six break-recipes, twenty-six caught; every headless
+> oracle the pass named read — one of them a voxel off the pass's arithmetic for a reason the
+> aim explains; the r6 control unchanged to the digit; two screenshots. **M10c is built, all
+> three sessions, and unplayed** — the play recipe is in TODO under M10c.
+
+**What is there.** Header v4: after the lattice a presence byte and, present, the pack's
+material through the world's table, its charge in millijoules and its channel — `PackSave` on
+`WorldHeader`, the player's shape, with the inventory's three checks at write and at read and
+v3 opening with none (the real played-world fixture reads with `Pack == null`). `EquippedPack`
+gains the one definition of what a joule buys — `VoxelsAffordable(cost)`, floored, and
+`Pay(voxels, cost)` for exactly what came away — and the tick gains `EquipPack`, the door a
+swap goes through: the outgoing pack's `initial` and `taken` move into the session's sums and
+its charge into `PackForfeitedMillijoules`, so `PowerExact` reads `Σ rows + pack == entering −
+leaving + generated − drawn − clamped + Σ initial − Σ taken − forfeited` across any number of
+swaps. `tools/entangled_miner.json` ships — threshold 5.0, `cooldownSeconds` 0.10, `power {
+via: channel, joulesPerVoxel: 100 }`, a radius for the sphere arm the cube never reads —
+through `ToolDefinition.Power` (`ToolPower`: the `via` held to the served set as a link's is,
+the joules bounded at a gigajoule) with the picks free by absence and `IsFree` telling the two
+apart; `Main` loads it by ID and keeps it off the T cycle, because on the cycle its threshold
+would make it the strongest tier and the default pick. **`Carve`'s five shapes take `int
+voxelBudget = int.MaxValue`**, one gate in `Take` asks it after air and after `TooHard` and
+spends it after the write, and the rest of the shape lands in `CarveResult.Unpowered`, in
+`IsAccounted`. `MiningController` swings `SwungTool` — the entangled tool while Q is on and it
+exists, the tier otherwise — with a budget of `Pack.VoxelsAffordable(cost)` (unbounded free or
+under `PowerOff`, nothing with a costing tool and no pack) and pays `Removed × cost` after; the
+Alt chip is the same path with one candidate. `PlaceController`'s fill at range is all or nothing
+on the shape's cost — a voxel, a cell, a chunk — refused whole under it (`UnpoweredPlacements`,
+printed once) and paid for what landed, the deferred chunk fill asked again at the boundary. The
+equip verb: with a pack selected (`SelectedIsPack`, a carried storage), a right-click edge
+anywhere raises `EquipRequest` and `Main` takes one off the count, equips it empty and, with one
+already there, puts that one back as a count with its charge forfeited and printed. The
+computer's click on nothing opens the pack's panel when one is equipped — `MachinePanel.OpenPack`,
+one `channel` box landing on the object, `charged 2,100.0 kJ of 3,600.0 kJ · recharges on channel
+3, up to 500 J a boundary` — and stays a miss with none. The HUD carries `pack 2,100.0 kJ /
+3,600.0 kJ` on every line while one is equipped and `Q TAKES NOTHING — no pack` under Q without
+one. `--pack[=<id>]` equips at open, `--charge=<J>` sets it, `--openpanel=pack` opens its panel,
+`--nogate` frees the miner and the fill with the pumps, `Alt+P` fills the pack too, `P`'s line
+says the right-click equips. The `M10:` line's `power:` term gains `by the tool` and `forfeited
+J by N swap(s)` and the identity's last term; the profile's `mining` block gains a `gate` line.
+
+**What the numbers say.** `--pack --charge=640 --mine --entangle --profile --speed=0`: **`removed
+6, unpowered 57 of 64` on the first swing, `paid 600 J, the pack at 40 J`**, then `removed 0,
+unpowered 57` — the pass wrote 58, and the cube on the hillside at the spawn holds one air voxel,
+which is the aim's fact and not the gate's (air costs nothing, so 64 − 1 − 6). Without `--pack`:
+`swung 120, took nothing (no pack)`, every candidate but the air in `Unpowered`, `Swings`
+counting. With `--nogate`: 63 removed a swing, `gate off`. On a scratch world `--pack
+--charge=1000` then a reopen reads `equipped from the world file: 1,000 J` with `header v4`; after
+the 640 J bite the reopen reads `40 J`. The relay with an empty pack on its channel gives it
+exactly `500 J × 40 boundaries = 20 kJ` off the cell (`4,998.98 MJ`), the pool exact. The fill at
+range: 3,200 J refuses whole (`needs 6,400 J … holds 3,200 J`), 6,400 J places one cell and
+refuses the next at 0, 12,800 J places two (113 voxels, 15 occupied) and refuses at the 1,500 J
+left. The swap, headless — `--pack --charge=1000 --place --material=overburden:lead_acid_pack
+--stock=64` — reads `the outgoing pack's 1,000 J forfeited … 1 swap(s)` and the identity exact.
+The c-2 storm oracle and the r6 control unchanged to the digit.
+
+**Three things the wire said.** *`--place` has placed nothing since M10b-1*: `--stock=` seeded
+every material alike, the largest holding at a tie was the lowest ID, and from b-1 that was the
+computer — every `--place` profile since read `computer 0 open(s) / 1 miss(es)` where its
+placements should have been. `LargestHolding` prefers a placeable material now and `--stock=`
+seeds an item at one, which is also the equip verb's headless wire. *Two header tests had passed
+on the wrong refusal since M7b-2*: their tail offsets counted back over the inventory rows
+without the clock and the lattice, and `ClockAndLatticeBytes` equals an inventory row's twelve,
+so `AnInventoryHoldingAMaterialTheTableLacksIsRefusedOnRead` wrote 9 into the player flag and
+passed on *the player-present flag is 9*, and the duplicate-row test read a player out of the
+clock's bytes and ran out; the v4 byte moved both onto the clock and they failed, which is what
+a version bump is for. Every tail offset goes through one `TrailerBytes` now and both assert the
+refusal they name. And *the swap is a term*: the identity with one pack held, and a swap that
+replaced the object dropped what the pool had given the first — `EquipPack` on the tick, not a
+setter, and the forfeit printed with its count.
+
+**The tests.** `WorldHeaderTests` (+9): the pack round-trips; none reads none; a v3 payload and
+the played world's real v3 header open with no pack; a pack naming a material past the table is
+refused at write and at read naming it; air, a negative charge, a channel off the ladder and a
+flag of 2 refused. `MachineTickTests` (+1): a swap forfeits the outgoing charge and the identity
+holds across two swaps and an unequip with the tool drawing on each. `MachineSetTests` (+1): 640 J
+at 100 J a voxel buys six, the seventh nothing, a cost of nothing everything, and a short pay
+returns short. `CarveCubeTests` (+5): six of a solid cube in storage order with 58 unpowered
+and accounted; zero takes nothing; stone and air cost nothing against the budget; the budget on
+the sphere, the chunk, the voxel, the chip and the swing; the default unbounded with `Unpowered`
+zero. `ToolContentTests` (+8): the block read and the picks free by absence; six refusals naming
+`via`, M10f, M10e, the charset and the bound; a block of nothing is a tool on the pool that
+draws nothing. `ShippedContentTests` (+1, +1 amended): the miner ships with its numbers and takes
+every shipped solid, a full pack is 562 cube bites; the T cycle without it still straddles the
+materials and every tier on it is free. **Twenty-six break-recipes, twenty-six caught first
+time** — the budget before `TooHard` or before air, never spent, spent twice, `Unpowered` filed
+as `TooHard` or left out of the total, the cube or the tool overload dropping it, affordable
+rounding up, a cost of nothing affording nothing, one voxel's bill for any count, a swap
+forgetting the forfeit or the outgoing pack's initial or taken, the identity without
+`forfeited`, the header writing the channel as zero or reading the pack at v3 or not at v4 or
+skipping any of its four checks, the loader ignoring an unserved via or the bound or dropping
+the block, a block of nothing reading as none. One recipe is named for what it is: *the budget
+spent before the write rather than after* is an identity through an editor whose writes never
+fail (M4a's zeroable-epsilon category), so the recipe run was the spend doubled, which the six-
+voxel cube caught.
+
+**What M10d's play should feel, and where the numbers put it.** A full lead-acid pack is 562 cube
+bites — 56 s at ten a second — and recharges at 500 J a boundary, a cube every 6.4 s on any
+channel with a charged cell, twelve minutes to full on ten panels; a swap is a full pack thrown
+away, said on the HUD before the click. The seven-question recipe is in TODO.

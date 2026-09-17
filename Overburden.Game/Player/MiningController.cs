@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Numerics;
 using Overburden.Core.Content;
+using Overburden.Core.Machines;
 using Overburden.Core.Mining;
 using Overburden.Core.Streaming;
 using Overburden.Core.Voxels;
@@ -59,6 +60,56 @@ public sealed class MiningController(
     public Overburden.Core.Machines.IMachineBodies? Bodies { get; set; }
 
     /// <summary>
+    /// The tool Q swings (M10c-3, decision 5): <c>overburden:entangled_miner</c>, loaded by ID
+    /// and off the T cycle, with the threshold that takes anything and the <c>power</c> block
+    /// the gate reads. Null when a mod has removed it, and then Q swings the tier and is free —
+    /// the fall-back Main prints.
+    /// </summary>
+    /// <remarks>
+    /// <b>This reverses <i>entanglement never changes what the bite is hard enough to take</i></b>
+    /// (M3d, restated at M5d and on 2026-09-03). <c>Carve.Take</c> is still the only gate in the
+    /// game; the threshold it reads while Q is on is this tool's rather than the tier's, so Q
+    /// reclaims a machine body at range exactly as a pick does (the ladder's rule, which was not
+    /// true under a hand pick). What makes Q <em>earned</em> is the pack, which is the brief.
+    /// </remarks>
+    public ToolDefinition? EntangledTool { get; set; }
+
+    /// <summary>The pack the tool draws on, or null with none equipped — Main's, handed in.</summary>
+    public EquippedPack? Pack { get; set; }
+
+    /// <summary>
+    /// The miner's half of <c>--nogate</c>: every swing free whatever the tool declares — the
+    /// pre-M10c arm every recorded <c>--mine --entangle</c> figure was taken in.
+    /// </summary>
+    public bool PowerOff { get; set; }
+
+    /// <summary>The tool a swing uses now: the entangled tool while Q is on and it exists, the tier otherwise.</summary>
+    public ToolDefinition SwungTool => Entangled && EntangledTool is not null ? EntangledTool : Tool;
+
+    /// <summary>Millijoules one removed voxel costs with the tool in hand, or zero while free.</summary>
+    public long MillijoulesPerVoxel => PowerOff ? 0 : SwungTool.Power?.MillijoulesPerVoxel ?? 0;
+
+    /// <summary>Whether the next swing would take nothing for want of a pack: a costing tool, the gate on, nothing equipped.</summary>
+    public bool NeedsAPack => MillijoulesPerVoxel > 0 && Pack is null;
+
+    /// <summary>Voxels removed that landed in <c>Unpowered</c> — what the pack could not pay for, over the session.</summary>
+    public int VoxelsUnpowered { get; private set; }
+
+    /// <summary>Swings in which the budget ran out before the shape did.</summary>
+    public int UnpoweredSwings { get; private set; }
+
+    /// <summary>Swings fired with a costing tool and no pack — swung and took nothing, and counted as swung.</summary>
+    public int SwingsWithNoPack { get; private set; }
+
+    /// <summary>Millijoules the pack paid for voxels, over the session.</summary>
+    public long MillijoulesPaid { get; private set; }
+
+    /// <summary>What the last swing did, whole, and what it paid — the gate's headless oracle reads these.</summary>
+    public CarveResult LastResult { get; private set; }
+
+    public long LastPaidMillijoules { get; private set; }
+
+    /// <summary>
     /// How far the player can reach, in metres. Supplied by the player, who owns it.
     /// </summary>
     /// <remarks>
@@ -83,20 +134,21 @@ public sealed class MiningController(
     /// mechanism rather than of the body holding it.
     /// </para>
     /// <para>
-    /// So it is <b>not</b> a tool tier and there is no <c>reachMetres</c> in the tool JSON. Once
-    /// a field like that exists, every mod writes against it and the locked decision is gone for
-    /// every tool rather than for this one. This is a mode on the controller, on Q, in the
-    /// same spirit as the L lamp bind: the smallest thing that makes the milestone playable,
-    /// left obviously not-the-feature. <b>Making it real content is the moment to settle whether
-    /// <c>ToolDefinition</c> gains an optional reach</b>, and that wants its own planning pass.
+    /// So there is no <c>reachMetres</c> in the tool JSON. Once a field like that exists, every
+    /// mod writes against it and the locked decision is gone for every tool rather than for this
+    /// one. This is a mode on the controller, on Q — and <b>since M10c-3 the mode swings a tool
+    /// of its own</b>, <see cref="EntangledTool"/>, which carries what the pass needed a file
+    /// for (a threshold, a cooldown, a price a voxel) and still no reach: the reach stays the
+    /// mode's constant and the world's edge.
     /// </para>
     /// <para>
     /// <b>It used to compose with the number keys entirely — "how far and how fast, never how
-    /// big a bite or what the bite is hard enough to take". Half of that is now false</b>: see
-    /// <see cref="Bite"/>, which makes the bite a 1 m cube or a whole chunk. <b>The hardness
-    /// half survives untouched and is the half that was load-bearing</b>, because it is what
-    /// keeps <see cref="Carve"/>'s gate the only gate in the game rather than something a
-    /// keypress opts out of.
+    /// big a bite or what the bite is hard enough to take". Both halves are now false</b>: see
+    /// <see cref="Bite"/>, which makes the bite a 1 m cube or a whole chunk, and
+    /// <see cref="EntangledTool"/>, whose threshold is what Q takes with. <see cref="Carve"/>'s
+    /// gate is still the only gate in the game; what it reads while Q is on is that tool's
+    /// threshold and the pack's budget rather than the tier's, and what makes Q earned is the
+    /// pack.
     /// </para>
     /// </remarks>
     public bool Entangled { get; set; }
@@ -465,17 +517,43 @@ public sealed class MiningController(
             return false;
         }
 
+        // M10c-3, decision 6: the budget is what the pack can pay for at the tool's cost — the
+        // whole shape while the tool is free or the gate is off, nothing with a costing tool and
+        // no pack — and the pack pays for exactly what came away, after. The Alt chip is the
+        // same path: one candidate, so a budget of one takes it and a budget of none refuses it.
+        ToolDefinition tool = SwungTool;
+        long cost = MillijoulesPerVoxel;
+        int budget = cost == 0 ? int.MaxValue : Pack?.VoxelsAffordable(cost) ?? 0;
+
         // Precision wins over the chunk bite, and that ordering is the whole of why Alt still
         // means what it meant. Q makes the bite enormous; Alt is how you put it down again
         // without leaving the mode, which at unlimited reach is the only way to do fine work at
         // the far end of a cave.
         CarveResult result = precise
-            ? Carve.Chip(pipeline, materials, hit, Tool, Inventory, Bodies)
+            ? Carve.Chip(pipeline, materials, hit, tool, Inventory, Bodies, budget)
             : TakesWholeChunk
-                ? Carve.Chunk(pipeline, materials, hit, Tool, Inventory, Bodies)
+                ? Carve.Chunk(pipeline, materials, hit, tool, Inventory, Bodies, budget)
                 : TakesCube
-                    ? Carve.Cube(pipeline, materials, hit, Tool, Inventory, Bodies)
-                    : Carve.Swing(pipeline, materials, hit, Tool, Inventory, Bodies);
+                    ? Carve.Cube(pipeline, materials, hit, tool, Inventory, Bodies, budget)
+                    : Carve.Swing(pipeline, materials, hit, tool, Inventory, Bodies, budget);
+
+        long paid = cost > 0 && Pack is not null ? Pack.Pay(result.Removed, cost) : 0;
+        LastResult = result;
+        LastPaidMillijoules = paid;
+        MillijoulesPaid += paid;
+        VoxelsUnpowered += result.Unpowered;
+        if (result.Unpowered > 0)
+        {
+            UnpoweredSwings++;
+        }
+
+        if (cost > 0 && Pack is null)
+        {
+            // Swung and took nothing, rather than did not swing: the cooldown runs and Swings
+            // counts, so a run without a pack reads as a run that swung at nothing it could pay
+            // for, not as one that never fired.
+            SwingsWithNoPack++;
+        }
 
         _cooldown = CooldownForShape(precise);
         Swings++;
@@ -544,12 +622,11 @@ public sealed class MiningController(
     public int DebugPlacements { get; private set; }
 }
 
-/// <summary>What a bare entangled click takes: the tier's sphere, the brush cell's 1 m cube, or the 8 m chunk.</summary>
+/// <summary>What a bare entangled click takes: the tool's sphere, the brush cell's 1 m cube, or the 8 m chunk.</summary>
 /// <remarks>
-/// Three shapes and one gate. Whichever is chosen, <see cref="Carve"/>'s hardness gate is still
-/// the only gate in the game — the mode changes how far, how fast and how big, never what a
-/// bite is hard enough to take (M5d-2's rule, its bite clause reversed on 2026-09-03 and its
-/// hardness clause untouched since).
+/// Three shapes and one gate. Whichever is chosen, <see cref="Carve"/>'s gate is still the only
+/// gate in the game — reading the entangled tool's threshold and the pack's budget since M10c-3
+/// (M5d-2's rule, its bite clause reversed on 2026-09-03 and its hardness clause on 2026-09-17).
 /// </remarks>
 public enum EntangledBite
 {

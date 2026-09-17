@@ -1,5 +1,42 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-17 — M10c-3 built: the pack and the gate, and the miner is content
+
+*"c-3 please"*. Suite 1,592 → 1,617; 26 recipes, 26 caught; every oracle
+read; the r6 control to the digit; **M10c is built, all three sessions, and unplayed.** What was
+built is in M10-LADDER-PLAN's "M10c-3 — built"; what is worth keeping here:
+
+- **The gate is a budget on the shape and a bucket in the result, and the pack pays for what
+  came away.** `Carve.Take` asks the budget after air and after `TooHard` and spends it after the
+  write, so a bite through stone costs the miner nothing and a bite that runs out mid-cube takes
+  six and reports fifty-seven `Unpowered` — *takes what the charge buys and stops*. The oracle
+  reads `removed 6, unpowered 57 of 64` rather than the pass's 58 because the cube on the
+  spawn's hillside holds one air voxel: the aim's fact, and the gate's rule that air is free
+  showing in the number.
+- **A swap is a term.** `PowerExact` with one pack was `Σ rows + pack == … + initial − taken`;
+  replacing the object dropped what the pool had given the first pack and the identity broke by
+  exactly that. `MachineTick.EquipPack` moves the outgoing pack's `initial` and `taken` into the
+  session's sums and its charge into `forfeited`, printed with the swap count — the ladder's
+  *a count has no charge* as arithmetic, and the one rule under which a swap is exact.
+- **`--place` has placed nothing since M10b-1, and the c-3 fill check is what found it.**
+  `--stock=` seeded every material alike, `LargestHolding` took the lowest ID at a tie, and from
+  b-1 that was the computer — an item, which the item branch never places — so every `--place`
+  profile since read `computer 0 open(s) / 1 miss(es)` and `0 placement(s)`. Placeable first now,
+  and an item seeded at one under `--stock=`, which is also how the equip verb runs headless
+  (`--place --material=overburden:lead_acid_pack`). No recorded figure is affected: M6d-2's and
+  the fill's were taken before the computer existed.
+- **Two header tests had passed on the wrong refusal since M7b-2**, and the v4 byte is what
+  failed them. Their tail offsets counted back over the inventory rows without the twelve bytes
+  M7b-2 appended — and `ClockAndLatticeBytes` equals an inventory row's twelve, so
+  `…MaterialTheTableLacks…` wrote 9 into the *player flag* and passed on *flag is 9*, and the
+  duplicate-row test read a player out of the clock and ran out of bytes. One `TrailerBytes`
+  now, and both assert the message they name. Sixth outing for *a green run is not evidence*, in
+  a new variety: a coincidence of two constants.
+- **The miner is a tool and the T cycle does not carry it.** `SetUpMining` loads
+  `overburden:entangled_miner` by ID and skips it, because on the cycle its 5.0 would be the
+  strongest tier and the default pick, and the gate would gate the hand. The cube's rate is the
+  file's 0.10 with `--cubecooldown=` a sweep over it, the way `--pump=` is over the relay's.
+
 ## 2026-09-17 — M10c-2 built: the wire, and the pool costs nothing the read does not
 
 *"c-2 please"*. Suite 1,591 → 1,592; every oracle to the millijoule; r6 control to the digit. What

@@ -421,6 +421,34 @@ public sealed class ContentLoader
                 continue;
             }
 
+            // M10c-3: the power block, with a link's via rule and a bound of its own. Refused
+            // rather than defaulted, for the loader's usual reason — a tool that was meant to
+            // cost something and loaded free would be the gate silently open.
+            ToolPower? power = null;
+            if (dto.Power is { } powerDto)
+            {
+                if (string.IsNullOrEmpty(powerDto.Via))
+                {
+                    errors.Add($"{manifest.Id}/{path}: power names no via.");
+                    continue;
+                }
+
+                if (!MachineDefinition.ViaIsServed(powerDto.Via, out string? viaError))
+                {
+                    errors.Add($"{manifest.Id}/{path}: power: {viaError}");
+                    continue;
+                }
+
+                long joules = powerDto.JoulesPerVoxel ?? 0;
+                if (joules < 0 || joules > ToolPower.MaxJoulesPerVoxel)
+                {
+                    errors.Add($"{manifest.Id}/{path}: power.joulesPerVoxel must be within 0..{ToolPower.MaxJoulesPerVoxel:N0}.");
+                    continue;
+                }
+
+                power = new ToolPower(powerDto.Via, joules);
+            }
+
             try
             {
                 tools.Register(id, new ToolDefinition
@@ -429,6 +457,7 @@ public sealed class ContentLoader
                     RadiusMetres = radius,
                     HardnessThreshold = threshold,
                     CooldownSeconds = cooldown,
+                    Power = power,
                 });
 
                 loaded++;
@@ -758,5 +787,12 @@ public sealed class ContentLoader
         public float? RadiusMetres { get; set; }
         public float? HardnessThreshold { get; set; }
         public float? CooldownSeconds { get; set; }
+        public ToolPowerJson? Power { get; set; }
+    }
+
+    private sealed class ToolPowerJson
+    {
+        public string? Via { get; set; }
+        public long? JoulesPerVoxel { get; set; }
     }
 }

@@ -162,6 +162,34 @@ public class MachineSetTests
     }
 
     [Fact]
+    public void APackBuysWholeVoxelsAndPaysForExactlyWhatCameAway()
+    {
+        // M10c-3, decision 6: the budget is charge ÷ cost, floored — 640 J at 100 J a voxel buys
+        // six, and the last 40 J buy nothing rather than a seventh — and the bill is what was
+        // removed, never what was offered. One definition of both, on the object, so the bite
+        // and the fill cannot disagree about what a joule buys.
+        const long CostMillijoules = 100 * 1000;
+        var pack = new EquippedPack(PackMaterial, PackDefinition, chargeMillijoules: 640 * 1000, channel: 0);
+
+        Assert.Equal(6, pack.VoxelsAffordable(CostMillijoules));
+        Assert.Equal(int.MaxValue, pack.VoxelsAffordable(0));
+        Assert.Equal(6 * CostMillijoules, pack.Pay(6, CostMillijoules));
+        Assert.Equal(40 * 1000L, pack.ChargeMillijoules);
+        Assert.Equal(0, pack.VoxelsAffordable(CostMillijoules));
+
+        // A caller that skipped the budget is short, and the return says so.
+        Assert.Equal(40 * 1000L, pack.Pay(1, CostMillijoules));
+        Assert.Equal(0L, pack.ChargeMillijoules);
+        Assert.Equal(640 * 1000L, pack.TakenMillijoules);
+
+        // A full pack's budget does not overflow an int at a cost of one millijoule.
+        var full = new EquippedPack(PackMaterial, PackDefinition, long.MaxValue, 0);
+        Assert.Equal((int)Math.Min(int.MaxValue, PackDefinition.CapacityMillijoules), full.VoxelsAffordable(1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => pack.VoxelsAffordable(-1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => pack.Pay(-1, CostMillijoules));
+    }
+
+    [Fact]
     public void ChargeEnteringAndLeavingAreCountedOnEveryDoor()
     {
         var set = new MachineSet(DeclaringTable);

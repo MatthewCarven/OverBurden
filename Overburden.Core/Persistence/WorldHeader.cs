@@ -3,6 +3,7 @@ using System.Numerics;
 using System.Text;
 using Overburden.Core.Content;
 using Overburden.Core.Hydrology;
+using Overburden.Core.Machines;
 using Overburden.Core.Voxels;
 using Overburden.Core.Worldgen;
 
@@ -87,7 +88,24 @@ public sealed record WorldHeader
     /// surface. A world written before M6c-2 reads as null, which is exactly what it is.
     /// </remarks>
     public PlayerSave? Player { get; init; }
+
+    /// <summary>The pack the player has equipped, or null with none (M10c-3, header v4).</summary>
+    /// <remarks>
+    /// <b>Here and not in the machine table, because the pack is not a row</b> — it has no cell
+    /// and no origin order, and the pool's write-back fills rows in that order. It is the first
+    /// player-authored state after the inventory that a chunk cannot regenerate and a count
+    /// cannot recover: a count has no charge, so a pack that did not survive a quit would be a
+    /// full battery lost at every launch. A world written before v4 reads as null, which is a
+    /// true statement about it.
+    /// </remarks>
+    public PackSave? Pack { get; init; }
 }
+
+/// <summary>The equipped pack as the header carries it: its material through the world's table, its charge, its channel.</summary>
+/// <param name="MaterialId">The pack's material, by the world's numeric ID — never air, never past the table.</param>
+/// <param name="ChargeMillijoules">What it holds. Clamped to the material's capacity when the world opens, not here, because the header has the table and not the definitions.</param>
+/// <param name="Channel">The channel it recharges from, 0..15 — the one port a pack has, and it lives here rather than on a row.</param>
+public readonly record struct PackSave(int MaterialId, long ChargeMillijoules, int Channel);
 
 /// <summary>One material's holding, in voxels rather than litres.</summary>
 /// <remarks>
@@ -138,22 +156,24 @@ public static class WorldHeaderBlob
 {
     /// <summary>The version this build writes.</summary>
     /// <remarks>
-    /// <b>Moved to 2 at M6c-2</b> for the player's position and the volumetric inventory, and
-    /// <b>to 3 at M7b-2</b> for the world clock and the watershed lattice. Both are strictly
-    /// additive, so both migrate under the policy in <see cref="OldestVersion"/>. During a
-    /// milestone the only person holding a saved world is the one building it.
+    /// <b>Moved to 2 at M6c-2</b> for the player's position and the volumetric inventory,
+    /// <b>to 3 at M7b-2</b> for the world clock and the watershed lattice, and <b>to 4 at
+    /// M10c-3</b> for the equipped pack. All three are strictly additive, so all three migrate
+    /// under the policy in <see cref="OldestVersion"/>. During a milestone the only person
+    /// holding a saved world is the one building it.
     /// </remarks>
-    public const byte Version = 3;
+    public const byte Version = 4;
 
     /// <summary>The oldest layout this build can still read.</summary>
     /// <remarks>
     /// <para>
     /// <b>Older versions are migrated rather than refused, and the reason they are allowed to be
     /// is that every change so far has been strictly additive.</b> A v1 header is a v2 header
-    /// without its two trailing sections and a v2 header is a v3 one without its clock and
-    /// lattice, so reading either means supplying documented defaults — no inventory, no saved
-    /// player, no time elapsed — and all of them are true statements about a world written before
-    /// the field existed.
+    /// without its two trailing sections, a v2 header is a v3 one without its clock and
+    /// lattice, and a v3 header is a v4 one without its pack, so reading any of them means
+    /// supplying documented defaults — no inventory, no saved player, no time elapsed, no pack
+    /// equipped — and all of them are true statements about a world written before the field
+    /// existed.
     /// </para>
     /// <para>
     /// <b>This is not the thing M6a argued against.</b> That was a reader filling in a field the
@@ -170,6 +190,9 @@ public static class WorldHeaderBlob
 
     /// <summary>Bytes a present <see cref="PlayerSave"/> occupies, after its presence byte.</summary>
     private const int PlayerBytes = (sizeof(float) * 3) + 1;
+
+    /// <summary>Bytes a present <see cref="PackSave"/> occupies, after its presence byte: an int32 ID, an int64 charge, an int32 channel.</summary>
+    private const int PackBytes = sizeof(int) + sizeof(long) + sizeof(int);
 
     /// <summary>
     /// Bytes one <see cref="WorldGenSettings"/> occupies: 8 + 4×2 + 4×6 + 1 + 4×3.
@@ -237,6 +260,13 @@ public static class WorldHeaderBlob
                 nameof(header));
         }
 
+        if (header.Pack is PackSave packToCheck)
+        {
+            // The same three checks the read makes, at write, for the inventory's reason: a pack
+            // naming a material the table lacks is a bug in the session that wrote it.
+            ValidatePack(packToCheck, header.MaterialIdTable.Count, message => new ArgumentException(message, nameof(header)));
+        }
+
         int payloadLength = SettingsBytes
                             + sizeof(int)
                             + sizeof(int)
@@ -244,7 +274,9 @@ public static class WorldHeaderBlob
                             + 1
                             + (header.Player is null ? 0 : PlayerBytes)
                             + sizeof(long)
-                            + sizeof(int);
+                            + sizeof(int)
+                            + 1
+                            + (header.Pack is null ? 0 : PackBytes);
 
         for (int i = 0; i < table.Count; i++)
         {
@@ -307,6 +339,20 @@ public static class WorldHeaderBlob
         offset += sizeof(long);
         BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(offset), header.WatershedCellMetres);
         offset += sizeof(int);
+
+        // Version 4: the pack, the player's shape — a presence byte and a fixed payload.
+        if (header.Pack is PackSave pack)
+        {
+            payload[offset++] = 1;
+            BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(offset), pack.MaterialId);
+            BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(offset + 4), pack.ChargeMillijoules);
+            BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(offset + 12), pack.Channel);
+            offset += PackBytes;
+        }
+        else
+        {
+            payload[offset++] = 0;
+        }
 
         byte[]? compressed = BlobFormat.TryCompress(payload);
         ReadOnlySpan<byte> stored = compressed ?? payload;
@@ -375,6 +421,38 @@ public static class WorldHeaderBlob
         }
 
         return sorted;
+    }
+
+    /// <summary>
+    /// The pack's three rules, shared by the writer and the reader so they cannot disagree: a
+    /// material the table has and that is not air, a charge that is not negative, a channel on
+    /// the ladder's 0..15. Whether the material is <em>a pack</em> is the opener's question — the
+    /// header carries the table and not the definitions, and a world whose pack material a
+    /// removed mod owned should open with the pack dropped and said so, not refuse.
+    /// </summary>
+    private static void ValidatePack(PackSave pack, int materialCount, Func<string, Exception> refuse)
+    {
+        if (pack.MaterialId == MaterialIds.AirNumericId)
+        {
+            throw refuse("The equipped pack is air, which is not a pack.");
+        }
+
+        if ((uint)pack.MaterialId >= (uint)materialCount)
+        {
+            throw refuse(
+                $"The equipped pack is material ID {pack.MaterialId}, which the world's table of "
+                + $"{materialCount} does not have.");
+        }
+
+        if (pack.ChargeMillijoules < 0)
+        {
+            throw refuse($"The equipped pack holds {pack.ChargeMillijoules} mJ, which is not a charge.");
+        }
+
+        if (pack.Channel < 0 || pack.Channel >= MachineTick.Channels)
+        {
+            throw refuse($"The equipped pack is on channel {pack.Channel}; channels are 0..{MachineTick.Channels - 1}.");
+        }
     }
 
     /// <summary>The first identifier that appears twice in <paramref name="table"/>, with both slots.</summary>
@@ -525,6 +603,14 @@ public static class WorldHeaderBlob
             }
         }
 
+        // Version 3 stopped here, so a world written before M10c-3 has no pack equipped — which
+        // is exactly true of it: nothing before then could equip one.
+        PackSave? pack = null;
+        if (version >= 4)
+        {
+            pack = ReadPack(payload, count, ref offset);
+        }
+
         if (offset != payload.Length)
         {
             throw new BlobFormatException(
@@ -551,7 +637,42 @@ public static class WorldHeaderBlob
             Player = player,
             ElapsedMillis = elapsedMillis,
             WatershedCellMetres = watershedCellMetres,
+            Pack = pack,
         };
+    }
+
+    /// <summary>Reads the equipped pack, if the world has one — the player's shape, the inventory's checks.</summary>
+    private static PackSave? ReadPack(ReadOnlySpan<byte> payload, int materialCount, ref int offset)
+    {
+        const string What = "World header";
+
+        if (payload.Length - offset < 1)
+        {
+            throw new BlobFormatException($"{What}: ran out of bytes reading the pack flag.");
+        }
+
+        byte present = payload[offset++];
+        if (present > 1)
+        {
+            throw new BlobFormatException(
+                $"{What}: the pack-present flag is {present}, which is neither 0 nor 1.");
+        }
+
+        if (present == 0) return null;
+
+        if (payload.Length - offset < PackBytes)
+        {
+            throw new BlobFormatException($"{What}: ran out of bytes reading the pack.");
+        }
+
+        var pack = new PackSave(
+            BinaryPrimitives.ReadInt32LittleEndian(payload[offset..]),
+            BinaryPrimitives.ReadInt64LittleEndian(payload[(offset + 4)..]),
+            BinaryPrimitives.ReadInt32LittleEndian(payload[(offset + 12)..]));
+        offset += PackBytes;
+
+        ValidatePack(pack, materialCount, message => new BlobFormatException($"{What}: {message}"));
+        return pack;
     }
 
     /// <summary>Reads the inventory, checked against the table that gives its keys meaning.</summary>

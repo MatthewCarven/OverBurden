@@ -284,6 +284,92 @@ public sealed class PlaceController(
     /// <summary>Right-click edges with the computer selected that landed on anything else — rock, air, a block — and did nothing.</summary>
     public int ComputerMisses { get; private set; }
 
+    // ---------------------------------------------------------------- M10c-3: the pack and the gate
+
+    /// <summary>The pack the fill at range draws on, or null with none equipped — Main's, handed in.</summary>
+    public EquippedPack? Pack { get; set; }
+
+    /// <summary>The fill's half of <c>--nogate</c>: every placement free.</summary>
+    public bool PowerOff { get; set; }
+
+    /// <summary>
+    /// Millijoules one placed voxel costs at range — the entangled tool's <c>joulesPerVoxel</c>,
+    /// set by Main from the same block the bite reads, so the fill is the bite's price. Zero is
+    /// free, which is every placement inside the arm's reach and the pre-M10c arm.
+    /// </summary>
+    public long EntangledMillijoulesPerVoxel { get; set; }
+
+    /// <summary>Whether the selected item is a pack — a carried storage — so a right-click equips it (decision 4).</summary>
+    public bool SelectedIsPack =>
+        SelectedIsItem && materials.Machine(MaterialId) is { Kind: MachineKind.Storage, Carried: true };
+
+    /// <summary>
+    /// The pack material a right-click edge asked to equip this frame, or −1 — set and consumed
+    /// within one update, <see cref="PanelRequest"/>'s shape. Main does the equipping, because the
+    /// swap touches the inventory, the tick and the header at once.
+    /// </summary>
+    public int EquipRequest { get; private set; } = -1;
+
+    /// <summary>
+    /// True on the frame the computer was clicked on nothing with a pack equipped: the pack's
+    /// panel opens (the pass amending M10b's decision 3 by one sentence). With none equipped the
+    /// miss stays a miss.
+    /// </summary>
+    public bool PackPanelRequest { get; private set; }
+
+    /// <summary>Equip requests over the session, and the computer's opens of the pack's panel.</summary>
+    public int EquipRequests { get; private set; }
+
+    public int PackPanelOpens { get; private set; }
+
+    /// <summary>Placements at range refused whole for want of the shape's cost in the pack, and the voxels they would have offered.</summary>
+    public int UnpoweredPlacements { get; private set; }
+
+    public int VoxelsUnpowered { get; private set; }
+
+    /// <summary>Millijoules the pack paid for placed voxels, over the session.</summary>
+    public long MillijoulesPaid { get; private set; }
+
+    /// <summary>True on a frame a placement was refused for want of charge, for a one-off message.</summary>
+    public bool RefusedUnpoweredThisFrame { get; private set; }
+
+    /// <summary>What the last refused placement needed, in millijoules, for the message.</summary>
+    public long LastRefusedNeedMillijoules { get; private set; }
+
+    /// <summary>What a placement at range costs a voxel now: the tool's price unless the gate is off or the arm is the reach.</summary>
+    private long FillCostMillijoules => Entangled && !PowerOff ? EntangledMillijoulesPerVoxel : 0;
+
+    /// <summary>
+    /// Whether the pack can pay for <paramref name="voxels"/> at the fill's price — the
+    /// all-or-nothing rule (decision 6): a fill at range is refused whole under the shape's
+    /// cost rather than left as a partial cell, because half a wall is not a wall and the bite
+    /// already has the running-down. Free is always affordable.
+    /// </summary>
+    private bool CanAfford(int voxels, out long need)
+    {
+        long cost = FillCostMillijoules;
+        need = cost * voxels;
+        return cost == 0 || (Pack is not null && Pack.VoxelsAffordable(cost) >= voxels);
+    }
+
+    /// <summary>Pays the pack for what a placement put down, at the fill's price.</summary>
+    private void PayFor(PlaceResult result)
+    {
+        long cost = FillCostMillijoules;
+        if (cost > 0 && Pack is not null && result.Placed > 0)
+        {
+            MillijoulesPaid += Pack.Pay(result.Placed, cost);
+        }
+    }
+
+    private void RefuseUnpowered(int voxels, long need)
+    {
+        UnpoweredPlacements++;
+        VoxelsUnpowered += voxels;
+        RefusedUnpoweredThisFrame = true;
+        LastRefusedNeedMillijoules = need;
+    }
+
     private bool _placingWasDown;
 
     /// <summary>True on the frame a placement ran out of material, for a one-off message.</summary>
@@ -314,6 +400,7 @@ public sealed class PlaceController(
     {
         _cooldown = Math.Max(0.0, _cooldown - delta);
         RanOutThisFrame = false;
+        RefusedUnpoweredThisFrame = false;
 
         // Cast every frame regardless of the button, because the cell highlight has to follow the
         // crosshair and not only the placements.
@@ -341,6 +428,22 @@ public sealed class PlaceController(
         bool clicked = placing && !_placingWasDown;
         _placingWasDown = placing;
         PanelRequest = null;
+        EquipRequest = -1;
+        PackPanelRequest = false;
+
+        if (SelectedIsPack)
+        {
+            // M10c-3, decision 4: a right-click edge anywhere with a pack in hand equips one
+            // from the count — no target, because a pack goes on a back and not on a wall. Main
+            // does the swap, since it touches the inventory, the tick and the header together.
+            if (clicked)
+            {
+                EquipRequest = MaterialId;
+                EquipRequests++;
+            }
+
+            return false;
+        }
 
         if (SelectedIsItem)
         {
@@ -348,7 +451,8 @@ public sealed class PlaceController(
             // put 64 voxels of computer into the world on the first click, which is fact 1 of
             // the pass. The computer's verb is a right-click edge on a machine body under the
             // crosshair — the hit voxel's cell, mining's aim rather than building's — and on
-            // anything else the click does nothing at all.
+            // anything else the click opens the equipped pack's panel (M10c-3) or, with none,
+            // does nothing at all.
             if (clicked && Outcome == RayOutcome.Hit
                 && Machines is not null
                 && pipeline.TryGetMaterial(hit.Voxel, out int hitMaterial)
@@ -357,6 +461,11 @@ public sealed class PlaceController(
             {
                 PanelRequest = row;
                 ComputerOpens++;
+            }
+            else if (clicked && Pack is not null)
+            {
+                PackPanelRequest = true;
+                PackPanelOpens++;
             }
             else if (clicked)
             {
@@ -398,6 +507,17 @@ public sealed class PlaceController(
             return true;
         }
 
+        // M10c-3: the fill at range is all-or-nothing on the shape's cost — a voxel, a cell, a
+        // chunk — and refused whole under it. Asked before the shape runs, so nothing is placed
+        // that the pack then cannot pay for; the cooldown runs so a refused click is a click.
+        int offered = precise ? 1 : TakesWholeChunk ? VoxelConstants.ChunkVolume : BrushCell.Voxels * BrushCell.Voxels * BrushCell.Voxels;
+        if (!CanAfford(offered, out long need))
+        {
+            RefuseUnpowered(offered, need);
+            _cooldown = CooldownForShape(precise);
+            return false;
+        }
+
         if (!precise && TakesWholeChunk && DeferChunkFills)
         {
             // Queued, not placed: the boundary runs every one through RunPendingChunkFills, in
@@ -436,6 +556,7 @@ public sealed class PlaceController(
             ChunkPlacements++;
         }
         Record(result);
+        PayFor(result);
         return true;
     }
 
@@ -455,10 +576,20 @@ public sealed class PlaceController(
         var sum = default(PlaceResult);
         foreach ((ChunkPos chunk, int material) in _pendingChunkFills)
         {
+            // Asked again at the boundary, because a bite between the click and the boundary
+            // may have spent what the click was budgeted against — the fill pays exactly what
+            // it places or places nothing.
+            if (!CanAfford(VoxelConstants.ChunkVolume, out long need))
+            {
+                RefuseUnpowered(VoxelConstants.ChunkVolume, need);
+                continue;
+            }
+
             PlaceResult result = Place.Chunk(pipeline, materials, chunk, material, body, inventory);
             Placements++;
             ChunkPlacements++;
             Record(result);
+            PayFor(result);
             sum = new PlaceResult(
                 sum.Candidates + result.Candidates, sum.Placed + result.Placed, sum.Occupied + result.Occupied,
                 sum.InsidePlayer + result.InsidePlayer, sum.Unreachable + result.Unreachable,
@@ -627,14 +758,32 @@ public sealed class PlaceController(
         return true;
     }
 
-    /// <summary>The material there is most of, or −1 for an empty inventory.</summary>
+    /// <summary>The placeable material there is most of — an item only when nothing else is carried — or −1 for an empty inventory.</summary>
+    /// <remarks>
+    /// <b>Placeable first, since 2026-09-17.</b> The default selection is what the next
+    /// right-click builds with, and an item builds nothing; with <c>--stock=</c> seeding every
+    /// material alike the tie went to the lowest ID, which from M10b-1 was the computer — so
+    /// every <c>--place</c> profile from then to M10c-3 selected the computer and placed nothing,
+    /// reading <c>computer 0 open(s) / 1 miss(es)</c> where its placements should have been.
+    /// </remarks>
     private int LargestHolding()
     {
-        int best = -1;
-        long most = 0;
+        int best = -1, bestItem = -1;
+        long most = 0, mostItem = 0;
 
         foreach ((int materialId, long voxels) in inventory.Entries())
         {
+            if (!materials.IsPlaceable(materialId))
+            {
+                if (voxels > mostItem)
+                {
+                    mostItem = voxels;
+                    bestItem = materialId;
+                }
+
+                continue;
+            }
+
             if (voxels > most)
             {
                 most = voxels;
@@ -642,6 +791,6 @@ public sealed class PlaceController(
             }
         }
 
-        return best;
+        return best >= 0 ? best : bestItem;
     }
 }

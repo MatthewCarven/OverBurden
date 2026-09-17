@@ -81,6 +81,40 @@ public sealed class EquippedPack
         return given;
     }
 
+    /// <summary>
+    /// How many voxels the charge buys at <paramref name="millijoulesPerVoxel"/> — the budget a
+    /// carve is handed (M10c-3, decision 6). Unbounded at a cost of nothing.
+    /// </summary>
+    /// <remarks>
+    /// One definition of the division, here rather than in each controller, so the bite and the
+    /// fill agree on what a joule buys: <c>charge ÷ cost</c>, floored, which is <em>takes what
+    /// the charge buys and stops</em> — the last few kilojoules buy the last few voxels rather
+    /// than nothing.
+    /// </remarks>
+    public int VoxelsAffordable(long millijoulesPerVoxel)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(millijoulesPerVoxel);
+        if (millijoulesPerVoxel == 0)
+        {
+            return int.MaxValue;
+        }
+
+        return (int)Math.Min(int.MaxValue, ChargeMillijoules / millijoulesPerVoxel);
+    }
+
+    /// <summary>Pays for <paramref name="voxels"/> at <paramref name="millijoulesPerVoxel"/>; returns what was taken.</summary>
+    /// <remarks>
+    /// A caller that budgeted through <see cref="VoxelsAffordable"/> and pays for what
+    /// <c>Removed</c> says came away can never be short here, and the return says so — a
+    /// return under the bill is a caller that skipped the budget.
+    /// </remarks>
+    public long Pay(int voxels, long millijoulesPerVoxel)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(voxels);
+        ArgumentOutOfRangeException.ThrowIfNegative(millijoulesPerVoxel);
+        return Take(voxels * millijoulesPerVoxel);
+    }
+
     public override string ToString() =>
         $"pack of material {MaterialId} on channel {Channel}: {ChargeMillijoules:N0} of {CapacityMillijoules:N0} mJ";
 }
