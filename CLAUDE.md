@@ -718,7 +718,8 @@ through the table, its charge, its channel; a v3 world opens with none); a right
 a pack in hand equips one from the count, empty, and swaps it for the one worn, **whose charge is
 forfeited** — a term in the identity (`… − forfeited: exact`), printed with the swap count. The
 computer's click on nothing opens the pack's panel (one `channel` box). The HUD reads `pack
-2,100.0 kJ / 3,600.0 kJ` while one is worn and `Q TAKES NOTHING — no pack` under Q without. `P`
+2,100.0 kJ / 3,600.0 kJ (58.3%)` while one is worn — **the share since the first play, because
+`3,994 J of 3,600.0 kJ` read as over the cap** — and `Q TAKES NOTHING — no pack` under Q without. `P`
 seeds a pack once; `Alt+P` fills it with the cells. **`--pack[=<id>]`** equips one at open,
 **`--charge=<J>`** sets it, `--openpanel=pack` opens its panel, **`--nogate`** frees the miner
 and the fill with the pumps. **The bite-that-stops oracle, verbatim, reads `removed 6, unpowered

@@ -466,7 +466,7 @@ public sealed partial class MachinePanel : CanvasLayer
             // the stall rule exists to prevent.
             long bound = _pack.Definition.RechargeWatts is { } watts && _tick is not null ? watts * _tick.BoundaryMillis : 0;
             string recharge = bound > 0 ? $"up to {Joules(bound)} a boundary" : "at any rate the channel can give";
-            _status.Text = $"charged {Joules(_pack.ChargeMillijoules)} of {Joules(_pack.CapacityMillijoules)}   ·   recharges on channel {_pack.Channel}, {recharge}";
+            _status.Text = $"charged {ChargeOf(_pack.ChargeMillijoules, _pack.CapacityMillijoules)}   ·   recharges on channel {_pack.Channel}, {recharge}";
             _status.AddThemeColorOverride("font_color", _pack.ChargeMillijoules > 0 ? MovedText : StallText);
             if (_printedStall is null)
             {
@@ -515,7 +515,7 @@ public sealed partial class MachinePanel : CanvasLayer
         {
             long capacity = _machines?.CapacityOf(row) ?? 0;
             long charge = _machines?.ChargeOf(row) ?? 0;
-            return ($"charged {Joules(charge)} of {Joules(capacity)}   ·   pooled on channel {channel}", charge > 0 ? MovedText : DimText, null);
+            return ($"charged {ChargeOf(charge, capacity)}   ·   pooled on channel {channel}", charge > 0 ? MovedText : DimText, null);
         }
 
         if (_kind == MachineKind.Converter)
@@ -543,6 +543,33 @@ public sealed partial class MachinePanel : CanvasLayer
     }
 
     /// <summary>Millijoules in the unit a person reads: mJ under a joule, then J, kJ, MJ, GJ.</summary>
+    /// <summary>
+    /// A charge against its capacity with the share between them — <c>3,994 J of 3,600.0 kJ
+    /// (0.1%)</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>The share is there because the pair without it was read as over the cap</b> (M10c's
+    /// first play, 2026-09-17: *"they have no upper bound?"* off a pack at 3,994 J of 3,600 kJ).
+    /// Each number keeps its own unit, because a 7 kJ cell against 5 GJ in the capacity's unit
+    /// would read <c>0.00 GJ</c>; the share is what makes the two comparable at a glance.
+    /// </remarks>
+    internal static string ChargeOf(long chargeMillijoules, long capacityMillijoules) =>
+        capacityMillijoules <= 0
+            ? Joules(chargeMillijoules)
+            : $"{Joules(chargeMillijoules)} of {Joules(capacityMillijoules)} ({Share(chargeMillijoules, capacityMillijoules)})";
+
+    /// <summary>A part of a whole as a percentage to one place; a non-zero part under a tenth reads <c>&lt;0.1%</c> rather than <c>0.0%</c>.</summary>
+    internal static string Share(long part, long whole)
+    {
+        if (whole <= 0)
+        {
+            return "–";
+        }
+
+        double percent = 100.0 * part / whole;
+        return part > 0 && percent < 0.05 ? "<0.1%" : $"{percent:N1}%";
+    }
+
     internal static string Joules(long millijoules)
     {
         long sign = millijoules < 0 ? -1 : 1;

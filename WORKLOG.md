@@ -26,6 +26,18 @@ play). Two things worth keeping:
   against question 1 in TODO; the answer went back as the numbers above and the three steps
   (pick the pack on the number row, right-click, then `Alt+P` or a channel of its own — on
   channel 0 beside that pump it recharges last and gets nothing).
+- **The second question, an hour later, was a units misread and is a display fix.** *"They have
+  no upper bound? Or maybe it's because I placed two of the batteries and two solar panels?"* —
+  the pack's panel read `charged 3,994 J of 3,600.0 kJ`, a joule figure beside a kilojoule one,
+  and 3,994 of 3,600 reads as over the cap. It is 0.1%: the 4 kJ arrived in the eight boundaries
+  after the open while the pump's chunk was still loading (`stalled 8 unloaded`), at the pack's
+  1 kW recharge bound — 500 J a boundary, the two panels' whole output — and stopped the moment
+  the pump ran, because the pump draws before the pack recharges and takes everything it can pay
+  for. `MachinePanel.ChargeOf` prints the share beside every charge/capacity pair now (the pack's
+  panel, a cell's, the HUD's `pack X / Y (p%)`, the open's line), each number in its own unit
+  because a 7 kJ cell in its 5 GJ capacity's unit would read `0.00 GJ`. Two batteries and two
+  panels add no rate: the cell holds nothing while a pump on its channel has water to move, and
+  the pump's own bound is 100 L/s — 50 kJ a boundary, 200 panels.
 
 ## 2026-09-17 — M10c-3 built: the pack and the gate, and the miner is content
 

@@ -5505,9 +5505,9 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
                play read the pool off a pump: one panel 0.25 L a boundary, two panels double,
                *"it started pumping more :-{D"* (WORKLOG, that evening).
             2. `P`, pick the lead-acid pack on the number row (`PACK (in hand)`), right-click
-               anywhere — the line gains `pack 0 mJ / 3,600.0 kJ`, the log `equipped … empty`.
+               anywhere — the line gains `pack 0 mJ / 3,600.0 kJ (0.0%)`, the log `equipped … empty`.
                *Did the right-click with nothing under it read as equipping?*
-            3. `Alt+P` — `pack 3,600.0 kJ`. Hold `Q`'s click on a hillside and watch the number
+            3. `Alt+P` — `pack 3,600.0 kJ / 3,600.0 kJ (100.0%)`. Hold `Q`'s click on a hillside and watch the number
                run down: 6.4 kJ a cube, ~56 s to empty, then the bite stops mid-cube (`the pack
                ran out mid-bite: removed N, unpowered M`). *Does a bite that stops partway read as
                running out, or as the tool breaking?* (Decision 6's rejected arm was the whole

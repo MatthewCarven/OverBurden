@@ -359,7 +359,7 @@ public sealed partial class Hud : CanvasLayer
         // named under Q with none: swung and took nothing is a thing a player has to be told.
         string packLine = pack is null
             ? string.Empty
-            : $"   ·   pack {MachinePanel.Joules(pack.ChargeMillijoules)} / {MachinePanel.Joules(pack.CapacityMillijoules)}";
+            : $"   ·   pack {MachinePanel.Joules(pack.ChargeMillijoules)} / {MachinePanel.Joules(pack.CapacityMillijoules)} ({MachinePanel.Share(pack.ChargeMillijoules, pack.CapacityMillijoules)})";
         return Line(place, mining, precise, pack) + packLine;
     }
 

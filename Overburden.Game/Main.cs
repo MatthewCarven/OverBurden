@@ -2342,7 +2342,7 @@ public partial class Main : Node3D
         {
             GD.Print(
                 $"M10: pack — {Hud.DisplayName(Content.Materials, pack.MaterialId)} equipped {how}: "
-                + $"{MachinePanel.Joules(pack.ChargeMillijoules)} of {MachinePanel.Joules(pack.CapacityMillijoules)} on channel {pack.Channel}"
+                + $"{MachinePanel.ChargeOf(pack.ChargeMillijoules, pack.CapacityMillijoules)} on channel {pack.Channel}"
                 + (_mining is { MillijoulesPerVoxel: > 0 } m ? $" — {pack.VoxelsAffordable(m.MillijoulesPerVoxel):N0} voxel(s) at {m.MillijoulesPerVoxel / MachineDefinition.PerMille:N0} J each" : string.Empty));
         }
 

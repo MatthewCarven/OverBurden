@@ -2272,10 +2272,13 @@ equip verb: with a pack selected (`SelectedIsPack`, a carried storage), a right-
 anywhere raises `EquipRequest` and `Main` takes one off the count, equips it empty and, with one
 already there, puts that one back as a count with its charge forfeited and printed. The
 computer's click on nothing opens the pack's panel when one is equipped — `MachinePanel.OpenPack`,
-one `channel` box landing on the object, `charged 2,100.0 kJ of 3,600.0 kJ · recharges on channel
-3, up to 500 J a boundary` — and stays a miss with none. The HUD carries `pack 2,100.0 kJ /
-3,600.0 kJ` on every line while one is equipped and `Q TAKES NOTHING — no pack` under Q without
-one. `--pack[=<id>]` equips at open, `--charge=<J>` sets it, `--openpanel=pack` opens its panel,
+one `channel` box landing on the object, `charged 2,100.0 kJ of 3,600.0 kJ (58.3%) · recharges on
+channel 3, up to 500 J a boundary` — and stays a miss with none. The HUD carries `pack 2,100.0 kJ /
+3,600.0 kJ (58.3%)` on every line while one is equipped and `Q TAKES NOTHING — no pack` under Q
+without one. (The share on both, and on a cell's panel, is from the first play the same evening:
+a pack at `3,994 J of 3,600.0 kJ` — a joule figure beside a kilojoule one — was read as over its
+cap, *"they have no upper bound?"*; each number keeps its own unit because a 7 kJ cell in its
+5 GJ capacity's unit would read `0.00 GJ`, and the share is what makes the pair comparable.) `--pack[=<id>]` equips at open, `--charge=<J>` sets it, `--openpanel=pack` opens its panel,
 `--nogate` frees the miner and the fill with the pumps, `Alt+P` fills the pack too, `P`'s line
 says the right-click equips. The `M10:` line's `power:` term gains `by the tool` and `forfeited
 J by N swap(s)` and the identity's last term; the profile's `mining` block gains a `gate` line.
