@@ -1,5 +1,32 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-17 (evening) — M10c's first play: the pool read off a pump, the pack was never picked up
+
+*"I placed a pump and a solar panel and an output and an input and it was pumping — like how do
+I use my inventory? I added a second solar panel and it started pumping more :-{D"*. Read off
+`godot.log` (the played `default`, 21:45–21:50): a relay pump first (`stalled 86 no outlet` until
+the outlet went in), then a solar panel (its first 1,000 J `clamped` — nothing held it yet), a
+vacuum cell (`hold 2,000 → 7,250 J`), then the outlet — and the pump drank the cell dry in one
+boundary and has run on the panel's trickle since: 250 J a boundary at 1 kJ a litre is
+**0.25 L a boundary, 0.5 L/s, `moved 0.250 L at the last boundary` on the pump's own panel line**;
+a second panel doubled it. The relay pump wants 50 kJ a boundary for its 100 L/s, so one panel is
+0.5% of its rate and 200 panels are the whole of it (c-1's "the relay is 200 panels", seen in
+play). Two things worth keeping:
+
+- **The pool reads as designed the first time it is felt** — the pump scales with the panels on
+  its channel, and the exclamation on the second panel is the verdict. The cell reading
+  `hold 0 mJ` for the rest of the session is the same rule: a pump takes all it can pay for, so a
+  cell on a pump's channel never accumulates while the pump has water to move.
+- **The pack was never equipped, and the question is the play recipe's first answer.** `Q` was
+  swung once with nothing worn (`took nothing … unpowered 64`), `P` was pressed twice, the fill at
+  range was refused fourteen times (`needs 6,400 J in the pack and none is equipped`), and no
+  right-click was ever made with the pack in hand — *"how do I use my inventory?"* is the swing
+  that takes nothing reading as a locked door rather than a bug, with the HUD's own instruction
+  (`P seeds one, then pick it on the number row and right-click to equip it`) not followed. Noted
+  against question 1 in TODO; the answer went back as the numbers above and the three steps
+  (pick the pack on the number row, right-click, then `Alt+P` or a channel of its own — on
+  channel 0 beside that pump it recharges last and gets nothing).
+
 ## 2026-09-17 — M10c-3 built: the pack and the gate, and the miner is content
 
 *"c-3 please"*. Suite 1,592 → 1,617; 26 recipes, 26 caught; every oracle

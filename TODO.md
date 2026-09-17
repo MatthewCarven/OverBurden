@@ -5498,7 +5498,12 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             1. `Q`, click the ground with nothing equipped — the status line reads `Q TAKES NOTHING
                — no pack`, the click swings and takes nothing, the log prints `M10: gate — swung
                entangled_miner with no pack`. *Does a swing that takes nothing read as a gate or as
-               a bug?*
+               a bug?* **Played 2026-09-17 (evening), on `default`, not the scratch world**: swung
+               once, took nothing, `P` pressed twice, the fill refused fourteen times, no
+               right-click ever made with the pack in hand — *"how do I use my inventory?"* A
+               locked door, not a bug; the HUD's instruction under `Q` was not followed. The same
+               play read the pool off a pump: one panel 0.25 L a boundary, two panels double,
+               *"it started pumping more :-{D"* (WORKLOG, that evening).
             2. `P`, pick the lead-acid pack on the number row (`PACK (in hand)`), right-click
                anywhere — the line gains `pack 0 mJ / 3,600.0 kJ`, the log `equipped … empty`.
                *Did the right-click with nothing under it read as equipping?*
