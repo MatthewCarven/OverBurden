@@ -1,20 +1,37 @@
 ﻿# Overburden — Worklog
 
-## 2026-09-18 — The miner's price: 100 → 20 J a voxel, on the first bite that stopped
+## 2026-09-18 — The miner's price and the pack's recharge, moved twice on the first bite that stopped
 
 *"Press Q once to switch to the quantum miner? If yes then it seems ok but you don't get far …
 I understand that lead acid isn't exactly a beefy power supply … but for the sake of the game
 be a little generous please"* — play recipe step 3 answered: the bite that stops mid-cube read
-as running out (the gate, not a break), and 562 cubes in 56 s is too tight at tier 0. **The
-price moved, not the pack**: `tools/entangled_miner.json` reads `joulesPerVoxel: 20`, so the
-lead-acid pack is 2,812 cubes and 4.7 min of continuous bites, the 10 MJ pack 13 min, the 500 MJ
-cell 10.9 h; a cube costs 1.28 kJ and recharges every 2.6 s on a 1 kW channel, an hour to refill
-from two panels. The pack's 3.6 MJ is a real battery's and stays; the joules a quantum bite costs
-is the game's number, which is why decision 16 put the fiction there. 25 J (3.75 min) and 10 J
-(9.4 min — the gate barely felt on two panels) were the arms. The oracles moved with it and were
-re-run: `--charge=128` reads `removed 6, unpowered 57 of 64; paid 120 J, the pack at 8 J` (the
-shape kept; 640 J and 600 / 40 at the old price), the fill's arms are 640 / 1,280 / 2,560 J;
-`ShippedContentTests` asserts 2,812. One number, no rebuild, if 20 still reads short.
+as running out (the gate, not a break), and 562 cubes in 56 s is too tight at tier 0. The price
+went 100 → 20 J a voxel (2,812 cubes, 4.7 min). **An hour later, at 20 J**: *"I might have
+appealed to your generosity too much … nearly half a chunk I reckon … I am having trouble
+fighting solar recharge on the channel I am on"* — read off the log: `Alt+P` had put 5 GJ in a
+cell on the pack's channel, the tool had drawn 21 kJ, and the pack sat at 3,583 of 3,600 kJ,
+because a 1 kW recharge at 20 J a voxel sustains a cube every 1.3 s off any charged channel and
+nobody digs that fast by hand. Two things worth keeping:
+
+- **The price is the burst and the recharge is what you fight, and the first pass moved only
+  one of them.** A full pack is capacity ÷ price — how far one charge digs; the sustained rate
+  on a charged channel is recharge ÷ price — what you cannot out-dig. *"You don't get far"* was
+  the first; *"fighting the recharge"* was the second, and lowering the price alone raised the
+  second by the same factor it raised the first. **Now 50 J a voxel and 250 W**
+  (`lead_acid_pack.rechargeWatts`, 1 kW until today; C/4 for a 1 kWh lead-acid): a bite is
+  3.2 kJ, the pack 1,125 cubes — 2.2 chunks, 1.9 min non-stop, half a chunk 23% of it on the
+  HUD — a cube every 12.8 s sustained and four hours to refill. The 3.6 MJ stays: it is a real
+  battery's number, and the two that moved are the game's. Decision 16 carries both amendments
+  and the arms; two numbers in two JSON files, no rebuild.
+- **The first recorded figure had a factor of two in it.** "A cube every 2.6 s on a 1 kW
+  channel" was 1.28 s — 1,280 J at 1,000 J/s — written from the 100 J figure (6.4 s) without
+  re-deriving it. The docs carry 12.8 s now, derived: 3,200 J at 250 W.
+
+The oracles moved with the numbers and were re-run: `--charge=320` keeps the `removed 6,
+unpowered 57 of 64` shape at `paid 300 J, the pack at 20 J`; the fill's arms are 1,600 / 3,200 /
+6,400 J with 750 J left after two placements; the relay gives an empty pack `125 J × 40
+boundaries = 5 kJ` off the cell (`4,999.0 MJ`); `ShippedContentTests` asserts 50 J, 250 W and
+1,125 cubes. Suite 1,617.
 
 ## 2026-09-18 — The inventory screen has a home: M10g, as one screen
 

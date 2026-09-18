@@ -11,7 +11,7 @@
     "kind": "storage",
     "carried": true,
     "capacityJoules": 3600000,
-    "rechargeWatts": 1000,
+    "rechargeWatts": 250,
     "links": {
       "charge": { "carries": "power", "role": "sink", "via": "channel", "port": "channel" }
     },

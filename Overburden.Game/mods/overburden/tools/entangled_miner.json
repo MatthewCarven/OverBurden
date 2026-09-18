@@ -3,5 +3,5 @@
   "radiusMetres": 0.5,
   "hardnessThreshold": 5.0,
   "cooldownSeconds": 0.10,
-  "power": { "via": "channel", "joulesPerVoxel": 20 }
+  "power": { "via": "channel", "joulesPerVoxel": 50 }
 }

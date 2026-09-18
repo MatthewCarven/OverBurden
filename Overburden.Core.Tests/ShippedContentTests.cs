@@ -111,7 +111,7 @@ public class ShippedContentTests
         Assert.Equal(0.1f, miner.CooldownSeconds);
         Assert.NotNull(miner.Power);
         Assert.Equal(Overburden.Core.Machines.MachineLink.ChannelVia, miner.Power!.Via);
-        Assert.Equal(20L, miner.Power.JoulesPerVoxel);
+        Assert.Equal(50L, miner.Power.JoulesPerVoxel);
         Assert.False(miner.IsFree);
 
         // It takes every shipped solid, machine bodies included.
@@ -125,7 +125,7 @@ public class ShippedContentTests
         MaterialDefinition pack = content.Materials.Get(Identifier.Parse("overburden:lead_acid_pack"));
         long cubeMillijoules = miner.Power.MillijoulesPerVoxel * Overburden.Core.Mining.Carve.CubeVoxels
                                * Overburden.Core.Mining.Carve.CubeVoxels * Overburden.Core.Mining.Carve.CubeVoxels;
-        Assert.Equal(2812L, pack.Machine!.CapacityMillijoules / cubeMillijoules);
+        Assert.Equal(1125L, pack.Machine!.CapacityMillijoules / cubeMillijoules);
     }
 
     [Fact]
@@ -218,7 +218,7 @@ public class ShippedContentTests
         Assert.Equal(Overburden.Core.Machines.MachineKind.Storage, pack.Machine!.Kind);
         Assert.True(pack.Machine.Carried);
         Assert.Equal(3_600_000L * 1000L, pack.Machine.CapacityMillijoules);
-        Assert.Equal(1000L, pack.Machine.RechargeWatts);
+        Assert.Equal(250L, pack.Machine.RechargeWatts);
         Assert.False(pack.IsPlaceable);
         Assert.Equal(MaterialUnit.Count, pack.Unit);
 
