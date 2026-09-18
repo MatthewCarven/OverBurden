@@ -485,6 +485,15 @@ a defect.
 100 J a voxel (6.4 kJ a bite, 64 kW at 10/s); packs 3.6 / 10 / 500 MJ — 56 s, 2.6 min, 2.2 h of
 full-rate mining; capacity and recharge scale by tier, never the rate or the bite.
 
+**Amended 2026-09-18, on the first play**: *"you don't get far … for the sake of the game be a
+little generous"* — **20 J a voxel** (1.28 kJ a bite, 12.8 kW at 10/s), so the same three packs
+are **4.7 min, 13 min and 10.9 h** — 2,812 cubes from the lead-acid pack, a cube every 2.6 s on a
+1 kW channel, an hour to refill from two panels. The price moved and not the pack, because the
+pack's 3.6 MJ is a real battery's and the price of a quantum bite is the game's number; the top
+cell past a session is *"as effective as it is now"* by another name. 25 J (3.75 min) and 10 J
+(9.4 min, and the gate barely felt on two panels) were the arms; one number in
+`tools/entangled_miner.json`, no rebuild, if 20 still reads short.
+
 - **Rejected: physical specific energy** (200 MJ a bite, a lead-acid pack digs one voxel) — he
   asked for less effective, not inert. **Rejected: a 26-minute top cell** — under *"as effective as
   it is now"*.
@@ -718,7 +727,7 @@ each under more head, and every litre lifted costs its height.
 | Circuit caps: shaft / dc / ac | 20 / 10 / 200 kW | estimates |
 | Solar | 500 W a cell × openness/16 × (256 − byte)/256 | estimate (real ~200 W/m² peak, ×2.5 for no night) |
 | Storage: placed / carried, by tier | 100 MJ, 300 MJ, 5 GJ / 3.6, 10, 500 MJ | estimates (lead-acid real ~250 MJ/m³); Matthew's |
-| Miner | 100 J a voxel → 56 s / 2.6 min / 2.2 h a pack | estimate; Matthew's |
+| Miner | 20 J a voxel → 4.7 min / 13 min / 10.9 h a pack (100 J → 56 s / 2.6 min / 2.2 h until the first play, 2026-09-18) | played once; Matthew's |
 | Wire mill | 1 voxel copper → 64 wire | the conduit fiction |
 | Bounds | intake 1..2 cells; L/s ≤ 54,000; ≤ 16 ports; stock ≤ 65,536 | derived / choices |
 | Duration targets, tiers 0–3 | 30–60 min / 2–4 h / 4–8 h / 8–15 h | estimates for feel, unplayed |
@@ -2288,7 +2297,10 @@ cap, *"they have no upper bound?"*; each number keeps its own unit because a 7 k
 says the right-click equips. The `M10:` line's `power:` term gains `by the tool` and `forfeited
 J by N swap(s)` and the identity's last term; the profile's `mining` block gains a `gate` line.
 
-**What the numbers say.** `--pack --charge=640 --mine --entangle --profile --speed=0`: **`removed
+**What the numbers say** (at the 100 J price this was built at; 20 J since 2026-09-18 — the
+recipe carries `--charge=128` now and reads `paid 120 J, the pack at 8 J`, the fill's arms
+640 / 1,280 / 2,560 J with 300 J left after the two placements, everything else to the digit). `--pack --charge=640 --mine --entangle
+--profile --speed=0`: **`removed
 6, unpowered 57 of 64` on the first swing, `paid 600 J, the pack at 40 J`**, then `removed 0,
 unpowered 57` — the pass wrote 58, and the cube on the hillside at the spawn holds one air voxel,
 which is the aim's fact and not the gate's (air costs nothing, so 64 − 1 − 6). Without `--pack`:
@@ -2343,10 +2355,11 @@ spent before the write rather than after* is an identity through an editor whose
 fail (M4a's zeroable-epsilon category), so the recipe run was the spend doubled, which the six-
 voxel cube caught.
 
-**What M10d's play should feel, and where the numbers put it.** A full lead-acid pack is 562 cube
-bites — 56 s at ten a second — and recharges at 500 J a boundary, a cube every 6.4 s on any
-channel with a charged cell, twelve minutes to full on ten panels; a swap is a full pack thrown
-away, said on the HUD before the click. The seven-question recipe is in TODO.
+**What M10d's play should feel, and where the numbers put it.** A full lead-acid pack is 2,812 cube
+bites — 4.7 min at ten a second (562 and 56 s until the first play; decision 16's amendment) — and
+recharges at 500 J a boundary, a cube every 2.6 s on any channel with a charged cell, an hour to
+full on two panels; a swap is a full pack thrown away, said on the HUD before the click. The
+seven-question recipe is in TODO.
 
 ## The inventory screen — folded into M10g (2026-09-18)
 

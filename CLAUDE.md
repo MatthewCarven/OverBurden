@@ -346,7 +346,7 @@ table below), `--skybrightness=<0..2>` (scales the sky channel alone; 0 leaves o
 `--debuglamp` (places one lamp where the crosshair points, so a screenshot can show block
 light without a keypress) and `--entangle` (the entangled miner, which with `--mine` aims along
 the flight path rather than straight down — see below; **since M10c-3 it swings a tool that
-costs 100 J a voxel from the equipped pack, so a `--mine --entangle` run takes nothing unless it
+costs 20 J a voxel from the equipped pack (100 until the first play, 2026-09-18), so a `--mine --entangle` run takes nothing unless it
 carries `--nogate` or `--pack`** — every recipe below that has one gained it). **The entangled bite is the brush cell
 since 2026-09-14 — a 1 m cube on the 1 m brush lattice** (`Carve.Cube`, `CubeVoxels =
 BrushCell.Voxels`, 64 voxels, 10/s on Matthew's word), **and the entangled fill is the brush at range
@@ -708,7 +708,9 @@ powered, the cell paying exactly the bill over 10,000 boundaries with both ident
 `tools/entangled_miner.json` (threshold 5.0 — it takes a machine body at range as a pick does,
 which reverses M3d's *entanglement never changes what the bite is hard enough to take*; 0.10 s a
 cube with `--cubecooldown=` a sweep over the file's number; `power { via: channel, joulesPerVoxel:
-100 }`), loaded by ID and **off the T cycle**, so `T` still cycles the two free picks and only Q
+20 }` — **100 until M10c's first play read a 56 s pack as *"you don't get far"*; 20 makes it
+4.7 min, 2,812 cubes, and the price is the game's number where the pack's 3.6 MJ is a real
+battery's**), loaded by ID and **off the T cycle**, so `T` still cycles the two free picks and only Q
 costs. **The gate is a voxel budget on every `Carve` shape** — what the equipped pack can pay for
 at the tool's price, asked after air and after `TooHard` so neither costs, the rest of the shape
 in `CarveResult.Unpowered` — and the pack pays for exactly what came away: *takes what the charge
@@ -723,19 +725,20 @@ computer's click on nothing opens the pack's panel (one `channel` box). The HUD 
 seeds a pack once; `Alt+P` fills it with the cells. **`--pack[=<id>]`** equips one at open,
 **`--charge=<J>`** sets it, `--openpanel=pack` opens its panel, **`--nogate`** frees the miner
 and the fill with the pumps. **The bite-that-stops oracle, verbatim, reads `removed 6, unpowered
-57 of 64; paid 600 J, the pack at 40 J` on the first swing** (the spawn's cube holds one air voxel,
-which costs nothing — the pass wrote 58 for a solid one), then `removed 0, unpowered 57`, and the
-profile's `gate` line `6,840 voxel(s) unpowered over 120 swing(s)`; without `--pack` it reads
-`gate swung 120, took nothing (no pack …)`; with `--nogate` in place of `--pack --charge=640`,
-63 removed a swing and `gate off`:
+57 of 64; paid 120 J, the pack at 8 J` on the first swing** (the spawn's cube holds one air voxel,
+which costs nothing — the pass wrote 58 for a solid one; `--charge=640` and `paid 600 J, the pack
+at 40 J` at the 100 J price), then `removed 0, unpowered 57`, and the profile's `gate` line
+`6,840 voxel(s) unpowered over 120 swing(s)`; without `--pack` it reads `gate swung 120, took
+nothing (no pack …)`; with `--nogate` in place of `--pack --charge=128`, 63 removed a swing and
+`gate off`:
 
 ```bash
-../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --pack --charge=640 --mine --entangle --measure=10
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --pack --charge=128 --mine --entangle --measure=10
 ```
 
-The fill's arm — `--place --entangle --stock=64000 --pack --charge=6400 --pitch=-15` — places one
-cell and refuses the next (`the fill at range needs 6,400 J in the pack and it holds 0 mJ`); at
-`--charge=3200` it refuses the first. The swap, headless — the flag's pack worn, the count's
+The fill's arm — `--place --entangle --stock=64000 --pack --charge=1280 --pitch=-15` — places one
+cell and refuses the next (`the fill at range needs 1,280 J in the pack and it holds 0 mJ`); at
+`--charge=640` it refuses the first. The swap, headless — the flag's pack worn, the count's
 equipped over it by the held right-click — reads `the outgoing pack's 1,000 J forfeited … 1
 swap(s)` and the identity exact:
 

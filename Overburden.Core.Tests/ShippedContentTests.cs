@@ -111,19 +111,21 @@ public class ShippedContentTests
         Assert.Equal(0.1f, miner.CooldownSeconds);
         Assert.NotNull(miner.Power);
         Assert.Equal(Overburden.Core.Machines.MachineLink.ChannelVia, miner.Power!.Via);
-        Assert.Equal(100L, miner.Power.JoulesPerVoxel);
+        Assert.Equal(20L, miner.Power.JoulesPerVoxel);
         Assert.False(miner.IsFree);
 
         // It takes every shipped solid, machine bodies included.
         float hardest = content.Materials.Entries().Select(e => e.Value).Where(m => !m.IsAir).Max(m => m.Hardness);
         Assert.True(miner.HardnessThreshold >= hardest);
 
-        // And the arithmetic the play feels: a full lead-acid pack is 562.5 cube bites at 100 J a
-        // voxel, 56 s at ten a second — the gate felt in one play, which is why the pack ships.
+        // And the arithmetic the play feels: a full lead-acid pack is 2,812 cube bites at 20 J a
+        // voxel, 4.7 min at ten a second — the gate felt in one play, which is why the pack ships.
+        // (100 J and 562 bites until 2026-09-18: M10c's first play read 56 s as "you don't get
+        // far", and the price is the game's number where the pack's 3.6 MJ is a real battery's.)
         MaterialDefinition pack = content.Materials.Get(Identifier.Parse("overburden:lead_acid_pack"));
         long cubeMillijoules = miner.Power.MillijoulesPerVoxel * Overburden.Core.Mining.Carve.CubeVoxels
                                * Overburden.Core.Mining.Carve.CubeVoxels * Overburden.Core.Mining.Carve.CubeVoxels;
-        Assert.Equal(562L, pack.Machine!.CapacityMillijoules / cubeMillijoules);
+        Assert.Equal(2812L, pack.Machine!.CapacityMillijoules / cubeMillijoules);
     }
 
     [Fact]

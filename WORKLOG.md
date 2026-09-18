@@ -1,5 +1,21 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-18 — The miner's price: 100 → 20 J a voxel, on the first bite that stopped
+
+*"Press Q once to switch to the quantum miner? If yes then it seems ok but you don't get far …
+I understand that lead acid isn't exactly a beefy power supply … but for the sake of the game
+be a little generous please"* — play recipe step 3 answered: the bite that stops mid-cube read
+as running out (the gate, not a break), and 562 cubes in 56 s is too tight at tier 0. **The
+price moved, not the pack**: `tools/entangled_miner.json` reads `joulesPerVoxel: 20`, so the
+lead-acid pack is 2,812 cubes and 4.7 min of continuous bites, the 10 MJ pack 13 min, the 500 MJ
+cell 10.9 h; a cube costs 1.28 kJ and recharges every 2.6 s on a 1 kW channel, an hour to refill
+from two panels. The pack's 3.6 MJ is a real battery's and stays; the joules a quantum bite costs
+is the game's number, which is why decision 16 put the fiction there. 25 J (3.75 min) and 10 J
+(9.4 min — the gate barely felt on two panels) were the arms. The oracles moved with it and were
+re-run: `--charge=128` reads `removed 6, unpowered 57 of 64; paid 120 J, the pack at 8 J` (the
+shape kept; 640 J and 600 / 40 at the old price), the fill's arms are 640 / 1,280 / 2,560 J;
+`ShippedContentTests` asserts 2,812. One number, no rebuild, if 20 still reads short.
+
 ## 2026-09-18 — The inventory screen has a home: M10g, as one screen
 
 *"When do we do player inventory, do I have that in the plan anywhere?"* — twice, scheduled

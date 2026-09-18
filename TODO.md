@@ -5510,12 +5510,14 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
                anywhere — the line gains `pack 0 mJ / 3,600.0 kJ (0.0%)`, the log `equipped … empty`.
                *Did the right-click with nothing under it read as equipping?*
             3. `Alt+P` — `pack 3,600.0 kJ / 3,600.0 kJ (100.0%)`. Hold `Q`'s click on a hillside and watch the number
-               run down: 6.4 kJ a cube, ~56 s to empty, then the bite stops mid-cube (`the pack
+               run down: 1.28 kJ a cube, ~4.7 min to empty, then the bite stops mid-cube (`the pack
                ran out mid-bite: removed N, unpowered M`). *Does a bite that stops partway read as
                running out, or as the tool breaking?* (Decision 6's rejected arm was the whole
-               bite refused.)
+               bite refused.) **Played 2026-09-18 at 6.4 kJ and 56 s**: *"seems ok but you don't
+               get far … be a little generous"* — the stop read as running out, and the price went
+               100 → 20 J a voxel (decision 16 amended; 25 and 10 the arms).
             4. With the pack empty, right-click at range with `Q` on and a brush in hand — refused
-               whole, `M10: gate — the fill at range needs 6.4 kJ`. *Is all-or-nothing on the fill
+               whole, `M10: gate — the fill at range needs 1,280 J`. *Is all-or-nothing on the fill
                right, beside the bite's running-down?*
             5. Place a vacuum cell (`P` seeds one), `Alt+P` — the pack on channel 0 recharges at
                500 J a boundary from it: 6.4 s a cube. Pick the computer, right-click the sky — the
