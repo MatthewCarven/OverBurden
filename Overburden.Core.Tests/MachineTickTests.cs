@@ -699,12 +699,13 @@ public class MachineTickTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void ASwapForfeitsTheOutgoingPacksChargeAndTheIdentityHoldsAcrossIt()
+    public void ASwapStowsTheOutgoingPacksChargeAndTheIdentityHoldsAcrossIt()
     {
-        // M10c-3, decision 4: a pack back in the count is a count, and a count has no charge —
-        // so what the outgoing pack held leaves the pool as `forfeited`, a term and not a
-        // tolerance. The identity has to hold across any number of swaps, the tool drawing on
-        // each, or a swap would be the one door the pool leaks through.
+        // M10c-3, decision 4, amended 2026-09-18: what the outgoing pack held leaves the pool as
+        // `stowed` — it goes back into the inventory with the pack (a count with no charge until
+        // Matthew's "keep its charge as an item") — a term and not a tolerance. The identity has
+        // to hold across any number of swaps, the tool drawing on each, or a swap would be the
+        // one door the pool leaks through.
         var twin = new Twin();
         var first = new EquippedPack(PackMaterial, Materials.Machine(PackMaterial)!, chargeMillijoules: 1_000, channel: 0);
         Assert.Equal(0L, twin.Tick.EquipPack(first));
@@ -719,13 +720,13 @@ public class MachineTickTests(ITestOutputHelper output)
 
         var second = new EquippedPack(PackMaterial, Materials.Machine(PackMaterial)!, chargeMillijoules: 0, channel: 0);
         Assert.Equal(held, twin.Tick.EquipPack(second));
-        Assert.Equal(held, twin.Tick.PackForfeitedMillijoules);
+        Assert.Equal(held, twin.Tick.PackStowedMillijoules);
         Assert.Equal(1L, twin.Tick.PacksUnequipped);
         Assert.Same(second, twin.Tick.Pack);
         Assert.True(twin.Tick.PowerExact);
 
         // The second pack charges from the same panel and the identity still holds; so does
-        // unequipping to nothing, which forfeits the second's charge too.
+        // unequipping to nothing, which stows the second's charge too.
         twin.Boundary(step: false);
         Assert.Equal(PanelMillijoulesPerBoundary, second.ChargeMillijoules);
         Assert.Equal(200L, second.Take(200));
@@ -733,7 +734,7 @@ public class MachineTickTests(ITestOutputHelper output)
 
         Assert.Equal(PanelMillijoulesPerBoundary - 200, twin.Tick.EquipPack(null));
         Assert.Null(twin.Tick.Pack);
-        Assert.Equal(held + PanelMillijoulesPerBoundary - 200, twin.Tick.PackForfeitedMillijoules);
+        Assert.Equal(held + PanelMillijoulesPerBoundary - 200, twin.Tick.PackStowedMillijoules);
         Assert.Equal(1_000L, twin.Tick.PackInitialMillijoules);
         Assert.Equal(600L, twin.Tick.PackTakenMillijoules);
         Assert.True(twin.Tick.PowerExact);
@@ -742,6 +743,18 @@ public class MachineTickTests(ITestOutputHelper output)
         // With nothing equipped a boundary clamps the panel's whole output again.
         Assert.Equal(PanelMillijoulesPerBoundary, twin.Boundary(step: false).ClampedMillijoules);
         Assert.True(twin.Tick.PowerExact);
+
+        // A stowed pack equipped again comes back through `initial` with what it was stowed
+        // holding — the round trip is two terms that cancel, and the identity reads exact with
+        // the charge in the pool again rather than counted twice or lost.
+        var again = new EquippedPack(PackMaterial, Materials.Machine(PackMaterial)!, chargeMillijoules: held, channel: 0);
+        Assert.Equal(0L, twin.Tick.EquipPack(again));
+        Assert.Equal(1_000L + held, twin.Tick.PackInitialMillijoules);
+        Assert.True(twin.Tick.PowerExact);
+        twin.Boundary(step: false);
+        Assert.Equal(held + PanelMillijoulesPerBoundary, again.ChargeMillijoules);
+        Assert.True(twin.Tick.PowerExact);
+        twin.AssertIdentity();
     }
 
     [Fact]

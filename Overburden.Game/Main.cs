@@ -149,6 +149,15 @@ public partial class Main : Node3D
     /// <summary>What the world file said was equipped, applied once the registry is loaded.</summary>
     private PackSave? _restoredPack;
 
+    /// <summary>
+    /// The charges of the packs carried in the inventory beside their count — a swapped-out pack
+    /// keeps what it had (2026-09-18, Matthew's <i>"keep its charge as an item"</i>; header v5).
+    /// </summary>
+    private readonly CarriedPacks _carriedPacks = new();
+
+    /// <summary>What the world file said the carried packs held, applied once the registry is loaded.</summary>
+    private IReadOnlyList<PackSave> _restoredCarriedPacks = [];
+
     /// <summary><c>--pack[=&lt;id&gt;]</c>: equip one at open, the gate's headless seam — null when not asked, empty for the shipped pack.</summary>
     private string? _packFlag;
 
@@ -1157,6 +1166,7 @@ public partial class Main : Node3D
         // Whatever the world remembered the player carrying. Before the first swing, so that a
         // reopened world can place from what it was already holding.
         _inventory.Reset(_restoredInventory.Select(entry => (entry.MaterialId, entry.Voxels)));
+        RestoreCarriedPacks();
 
         // Before any chunk can be written, which is what replaces a world-spanning transaction:
         // numeric IDs are only allocated during content load, so the table on disk is already the
@@ -2230,7 +2240,8 @@ public partial class Main : Node3D
         _hud.Refresh(
             delta, _inventory, _materials, Content.Materials, _place, _mining, precise,
             _adaptiveRadius ? $"r{_radiusState.Horizontal}h/{_radiusState.Vertical}v" : null,
-            _pack);
+            _pack,
+            _place.SelectedIsPack ? _carriedPacks.FullestMillijoules(_place.MaterialId) : 0);
     }
 
     /// <summary>Builds the hotbar, unless this run is a measurement.</summary>
@@ -2361,11 +2372,11 @@ public partial class Main : Node3D
         }
     }
 
-    /// <summary>Hands the pack to everything that reads it: the tick (which counts a swap's forfeit), the miner, the fill. Null unequips.</summary>
-    /// <returns>What the outgoing pack held, forfeited.</returns>
+    /// <summary>Hands the pack to everything that reads it: the tick (which counts a swap's stowed charge), the miner, the fill. Null unequips.</summary>
+    /// <returns>What the outgoing pack held, which the caller stows or drops.</returns>
     private long HandOverPack(EquippedPack? pack)
     {
-        long forfeited = _machineTick is not null ? _machineTick.EquipPack(pack) : _pack?.ChargeMillijoules ?? 0;
+        long stowed = _machineTick is not null ? _machineTick.EquipPack(pack) : _pack?.ChargeMillijoules ?? 0;
         _pack = pack;
         if (_mining is not null)
         {
@@ -2377,14 +2388,15 @@ public partial class Main : Node3D
             _place.Pack = pack;
         }
 
-        return forfeited;
+        return stowed;
     }
 
     /// <summary>
-    /// The equip verb (M10c-3, decision 4): one pack of <paramref name="materialId"/> off the
-    /// count and onto the back, empty — a count has no charge — and the one that was there back
-    /// to the count with its charge forfeited, printed. The swap is what makes a second pack in
-    /// the inventory a count and the equipped one the only charge there is.
+    /// The equip verb (M10c-3, decision 4, amended 2026-09-18): one pack of <paramref name="materialId"/>
+    /// off the count and onto the back — the fullest one carried, or an empty one — and the one
+    /// that was there back to the count <em>with its charge</em>, stowed beside the count and
+    /// printed. Until the first play a count had no charge and a swap forfeited it; Matthew's
+    /// <i>"keep its charge as an item"</i> is <see cref="CarriedPacks"/>.
     /// </summary>
     private void EquipPackFromInventory(int materialId, string how)
     {
@@ -2412,21 +2424,31 @@ public partial class Main : Node3D
             ClosePanel("the pack was swapped");
         }
 
-        var pack = new EquippedPack(materialId, definition, chargeMillijoules: 0, channel: 0);
-        long forfeited = HandOverPack(pack);
+        // The fullest carried pack of the material, or an empty one when none carried holds
+        // anything — a count with no entry beside it is an empty pack on channel 0.
+        PackSave? carried = _carriedPacks.TakeFullest(materialId);
+        var pack = new EquippedPack(materialId, definition, carried?.ChargeMillijoules ?? 0, carried?.Channel ?? 0);
+        long stowed = HandOverPack(pack);
         string label = Hud.DisplayName(Content.Materials, materialId);
+        string charged = carried is null
+            ? $"empty, {MachinePanel.Joules(pack.CapacityMillijoules)} capacity, channel {pack.Channel}; Alt+P fills it"
+            : $"{MachinePanel.ChargeOf(pack.ChargeMillijoules, pack.CapacityMillijoules)} from the inventory, channel {pack.Channel}";
 
         if (outgoing is null)
         {
-            GD.Print($"M10: pack — {label} equipped ({how}): empty, {MachinePanel.Joules(pack.CapacityMillijoules)} capacity, channel {pack.Channel}; Alt+P fills it");
+            GD.Print($"M10: pack — {label} equipped ({how}): {charged}");
             return;
         }
 
         _inventory.Add(outgoing.MaterialId, 1);
+        bool kept = _carriedPacks.Stow(new PackSave(outgoing.MaterialId, outgoing.ChargeMillijoules, outgoing.Channel));
         GD.Print(
-            $"M10: pack — {label} equipped in place of {Hud.DisplayName(Content.Materials, outgoing.MaterialId)} ({how}): "
-            + $"the outgoing pack's {MachinePanel.Joules(forfeited)} forfeited and it is back in the inventory as a count; "
-            + $"{MachinePanel.Joules(_machineTick?.PackForfeitedMillijoules ?? forfeited)} forfeited by {(_machineTick?.PacksUnequipped ?? 1):N0} swap(s) this session");
+            $"M10: pack — {label} equipped in place of {Hud.DisplayName(Content.Materials, outgoing.MaterialId)} ({how}): {charged}; "
+            + (kept
+                ? $"the outgoing pack is back in the inventory holding {MachinePanel.Joules(stowed)} on channel {outgoing.Channel}; "
+                : "the outgoing pack is back in the inventory empty; ")
+            + $"{MachinePanel.Joules(_machineTick?.PackStowedMillijoules ?? stowed)} stowed by {(_machineTick?.PacksUnequipped ?? 1):N0} swap(s) this session, "
+            + $"{_carriedPacks.Count():N0} carried pack(s) charged");
     }
 
     /// <summary>Opens the panel on the equipped pack — the computer's click on nothing, or <c>--openpanel=pack</c>.</summary>
@@ -6534,8 +6556,8 @@ public partial class Main : Node3D
                + $"pack {(t.Pack is null ? "none" : $"{MachinePanel.Joules(t.Pack.ChargeMillijoules)} of {MachinePanel.Joules(t.Pack.CapacityMillijoules)} (ch {t.Pack.Channel})")}, "
                + $"generated {MachinePanel.Joules(t.GeneratedMillijoules)} ({t.Converters:N0} panel(s), open {open}/16 mean, {t.SolarUnsampled:N0} unsampled, overcast {t.OvercastByte}/256), "
                + $"drawn {MachinePanel.Joules(t.DrawnByPumpsMillijoules)} by pumps + {MachinePanel.Joules(t.PackTakenMillijoules)} by the tool, clamped {MachinePanel.Joules(t.ClampedMillijoules)}, "
-               + $"pack given {MachinePanel.Joules(t.PackGivenMillijoules)}, forfeited {MachinePanel.Joules(t.PackForfeitedMillijoules)} by {t.PacksUnequipped:N0} swap(s) — "
-               + $"pool == entering − leaving + generated − drawn − clamped − forfeited: {(t.PowerExact ? "exact" : "*** NO ***")}";
+               + $"pack given {MachinePanel.Joules(t.PackGivenMillijoules)}, stowed {MachinePanel.Joules(t.PackStowedMillijoules)} by {t.PacksUnequipped:N0} swap(s) — "
+               + $"pool == entering − leaving + generated − drawn − clamped − stowed: {(t.PowerExact ? "exact" : "*** NO ***")}";
     }
 
     /// <summary>The profile's <c>machines</c> block, with the window's own denominators.</summary>
@@ -6589,11 +6611,11 @@ public partial class Main : Node3D
         long drawn = t.DrawnByPumpsMillijoules - _drawnByPumpsAtWarm;
         long clamped = t.ClampedMillijoules - _clampedAtWarm;
         return $"power     in the window: generated {generated:N0} mJ, drawn {drawn:N0} by pumps, clamped {clamped:N0}; "
-               + $"in all: generated {t.GeneratedMillijoules:N0} mJ, drawn {t.DrawnByPumpsMillijoules:N0} by pumps + {t.PackTakenMillijoules:N0} by the tool, clamped {t.ClampedMillijoules:N0}, pack given {t.PackGivenMillijoules:N0}, forfeited {t.PackForfeitedMillijoules:N0}; "
+               + $"in all: generated {t.GeneratedMillijoules:N0} mJ, drawn {t.DrawnByPumpsMillijoules:N0} by pumps + {t.PackTakenMillijoules:N0} by the tool, clamped {t.ClampedMillijoules:N0}, pack given {t.PackGivenMillijoules:N0}, stowed {t.PackStowedMillijoules:N0}; "
                + $"{t.StorageRows:N0} cell(s) hold {t.StoredMillijoules:N0} mJ ({MachinePanel.Joules(t.StoredMillijoules)}), pack {(t.Pack is null ? "none" : $"{t.Pack.ChargeMillijoules:N0} mJ ({MachinePanel.Joules(t.Pack.ChargeMillijoules)})")}; "
                + $"{t.Converters:N0} panel(s), sampled {t.SolarSampled:N0} / unsampled {t.SolarUnsampled:N0} (sky answered {_solarSky?.Answered ?? 0:N0}, no column {_solarSky?.Unanswered ?? 0:N0}), "
                + $"open {(t.SolarSampled + t.SolarUnsampled > 0 ? t.OpenColumnsSum / (double)(t.SolarSampled + t.SolarUnsampled) : 0):F2}/16 mean, overcast {t.OvercastByte}/256 at the last boundary; "
-               + $"pool == entering − leaving + generated − drawn − clamped − forfeited: {(t.PowerExact ? "exact" : "*** NO ***")}\n";
+               + $"pool == entering − leaving + generated − drawn − clamped − stowed: {(t.PowerExact ? "exact" : "*** NO ***")}\n";
     }
 
     private string PlacementLines()
@@ -7164,6 +7186,7 @@ public partial class Main : Node3D
             _restoredWatershedCellMetres = world.WatershedCellMetres;
             _savedPlayer = world.Player;
             _restoredPack = world.Pack;
+            _restoredCarriedPacks = world.CarriedPacks;
 
             // The world's own clock replaces whatever --clock asked for, and that ordering is the
             // point rather than a precedence rule: this is the line that makes "time advances only
@@ -7240,7 +7263,49 @@ public partial class Main : Node3D
         // M10c-3: the pack rides the header, so it rides the session's transaction (a-1) — what
         // it holds at the instant of the write, through the world's own table.
         Pack = _pack is null ? null : new PackSave(_pack.MaterialId, _pack.ChargeMillijoules, _pack.Channel),
+        // And the charges the carried packs keep beside their count (v5), in the save form's order.
+        CarriedPacks = _carriedPacks.Entries,
     };
+
+    /// <summary>
+    /// Puts the world file's carried charges back beside the inventory's count, dropping — and
+    /// saying so — any whose material is not a pack in this content, the equipped pack's rule.
+    /// </summary>
+    private void RestoreCarriedPacks()
+    {
+        _carriedPacks.Reset([]);
+        if (_restoredCarriedPacks.Count == 0 || _materials is null)
+        {
+            return;
+        }
+
+        long restored = 0;
+        int kept = 0;
+        foreach (PackSave saved in _restoredCarriedPacks)
+        {
+            MachineDefinition? definition = _materials.Machine(saved.MaterialId);
+            if (definition is not { Kind: MachineKind.Storage, Carried: true })
+            {
+                GD.Print(
+                    $"M10: pack — the world file carries a charged pack of material {saved.MaterialId} "
+                    + $"({Content.Materials.GetIdentifier(saved.MaterialId)}), which is not a pack in this content; "
+                    + $"dropped with its {MachinePanel.Joules(saved.ChargeMillijoules)} forfeited");
+                continue;
+            }
+
+            long charge = Math.Min(saved.ChargeMillijoules, definition.CapacityMillijoules);
+            if (_carriedPacks.Stow(saved with { ChargeMillijoules = charge }))
+            {
+                kept++;
+                restored += charge;
+            }
+        }
+
+        if (kept > 0)
+        {
+            GD.Print($"M10: pack — {kept:N0} carried pack(s) restored from the world file holding {MachinePanel.Joules(restored)} between them");
+        }
+    }
 
     /// <summary>Where the player is, for the world file — or null if there is no body yet.</summary>
     /// <remarks>

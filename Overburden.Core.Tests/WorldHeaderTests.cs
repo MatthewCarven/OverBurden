@@ -375,17 +375,21 @@ public class WorldHeaderTests
     /// <summary>The pack section M10c-3 appended: one presence byte with no pack equipped.</summary>
     private const int PackAbsentBytes = 1;
 
-    /// <summary>Bytes a present pack occupies after its flag: an int32 ID, an int64 charge, an int32 channel.</summary>
+    /// <summary>Bytes a present pack occupies after its flag: an int32 ID, an int64 charge, an int32 channel — and one carried pack's row.</summary>
     private const int PackPayloadBytes = 16;
 
+    /// <summary>The carried packs' section v5 appended (2026-09-18): an int32 count, zero with none charged.</summary>
+    private const int CarriedAbsentBytes = 4;
+
     /// <summary>
-    /// Everything after the inventory rows in a header with no player and no pack: the player
-    /// flag, the clock and lattice, the pack flag. <b>Every offset counted back from the end goes
-    /// through this</b>, because the v4 bump found two tests that had been indexing into the
-    /// clock since v3 and passing on the wrong refusal (the player flag read 9, or 1 with no
-    /// player behind it) — <c>ClockAndLatticeBytes</c> happens to equal <c>EntryBytes</c>.
+    /// Everything after the inventory rows in a header with no player, no pack and no carried
+    /// charge: the player flag, the clock and lattice, the pack flag, the carried count. <b>Every
+    /// offset counted back from the end goes through this</b>, because the v4 bump found two
+    /// tests that had been indexing into the clock since v3 and passing on the wrong refusal (the
+    /// player flag read 9, or 1 with no player behind it) — <c>ClockAndLatticeBytes</c> happens
+    /// to equal <c>EntryBytes</c>.
     /// </summary>
-    private const int TrailerBytes = 1 + ClockAndLatticeBytes + PackAbsentBytes;
+    private const int TrailerBytes = 1 + ClockAndLatticeBytes + PackAbsentBytes + CarriedAbsentBytes;
 
     private const int EntryBytes = 12;
 
@@ -468,7 +472,7 @@ public class WorldHeaderTests
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(
             Header(Air, Stone, Copper) with { Inventory = inventory, Player = player }));
 
-        byte[] older = payload[..^(ClockAndLatticeBytes + PackAbsentBytes)];
+        byte[] older = payload[..^(ClockAndLatticeBytes + PackAbsentBytes + CarriedAbsentBytes)];
         WorldHeader read = WorldHeaderBlob.Read(Reframe(older, version: 2));
 
         Assert.Equal(0, read.ElapsedMillis);
@@ -504,7 +508,7 @@ public class WorldHeaderTests
         // And on read, because a header can arrive from a file rather than from this process.
         byte[] blob = WorldHeaderBlob.Write(Header(Air, Stone));
         byte[] payload = PayloadOf(blob);
-        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(payload.Length - ClockAndLatticeBytes - PackAbsentBytes), -1);
+        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(payload.Length - ClockAndLatticeBytes - PackAbsentBytes - CarriedAbsentBytes), -1);
 
         Assert.Throws<BlobFormatException>(
             () => WorldHeaderBlob.Read(Reframe(payload, WorldHeaderBlob.Version)));
@@ -517,7 +521,7 @@ public class WorldHeaderTests
             () => WorldHeaderBlob.Write(Header(Air, Stone) with { WatershedCellMetres = 0 }));
 
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone)));
-        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - sizeof(int) - PackAbsentBytes), 0);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - sizeof(int) - PackAbsentBytes - CarriedAbsentBytes), 0);
 
         Assert.Throws<BlobFormatException>(
             () => WorldHeaderBlob.Read(Reframe(payload, WorldHeaderBlob.Version)));
@@ -617,7 +621,7 @@ public class WorldHeaderTests
         };
 
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(header));
-        payload[^(PlayerPayloadBytes + 1 + ClockAndLatticeBytes + PackAbsentBytes)] = 2;
+        payload[^(PlayerPayloadBytes + 1 + ClockAndLatticeBytes + PackAbsentBytes + CarriedAbsentBytes)] = 2;
 
         Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
     }
@@ -695,7 +699,7 @@ public class WorldHeaderTests
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(
             Header(Air, Stone, Copper) with { Inventory = inventory, Player = player, ElapsedMillis = 42 }));
 
-        byte[] older = payload[..^PackAbsentBytes];
+        byte[] older = payload[..^(PackAbsentBytes + CarriedAbsentBytes)];
         WorldHeader read = WorldHeaderBlob.Read(Reframe(older, version: 3));
 
         Assert.Null(read.Pack);
@@ -723,9 +727,9 @@ public class WorldHeaderTests
         Assert.Contains("material ID 9", error.Message);
 
         // And on read: a valid pack rewritten to an ID past the table. The material sits four
-        // bytes after the pack flag, sixteen before the end.
+        // bytes after the pack flag, sixteen before the carried count that ends the payload.
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(1, 1, 0) }));
-        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - PackPayloadBytes), 9);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - PackPayloadBytes - CarriedAbsentBytes), 9);
 
         var refused = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
         Assert.Contains("material ID 9", refused.Message);
@@ -740,9 +744,9 @@ public class WorldHeaderTests
     public void APackWithANegativeChargeIsRefusedOnRead()
     {
         // Write refuses it too; the read is the arm a damaged file reaches. The charge sits
-        // twelve bytes before the end.
+        // twelve bytes before the carried count that ends the payload.
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(1, 1, 0) }));
-        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(payload.Length - 12), -1);
+        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(payload.Length - 12 - CarriedAbsentBytes), -1);
 
         Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
         Assert.Throws<ArgumentException>(
@@ -756,7 +760,7 @@ public class WorldHeaderTests
             () => WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(1, 1, 16) }));
 
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(1, 1, 0) }));
-        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - 4), 16);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - 4 - CarriedAbsentBytes), 16);
 
         Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
     }
@@ -767,9 +771,135 @@ public class WorldHeaderTests
         // Written with a pack present, for the reason the player's twin records: with none, the
         // check removed leaves "ran out of bytes reading the pack" to fire instead.
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(Header(Air, Stone) with { Pack = new PackSave(1, 1, 0) }));
-        payload[^(PackPayloadBytes + 1)] = 2;
+        payload[^(PackPayloadBytes + 1 + CarriedAbsentBytes)] = 2;
 
         Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
+    }
+
+    // -------------------------------------------------------------------------------------
+    // Version 5: the carried packs' charges (2026-09-18, "keep its charge as an item"). A count
+    // and a pack row per entry after the equipped pack, checked against the table and the
+    // inventory's own counts — a charge for a pack the inventory does not hold is refused.
+    // -------------------------------------------------------------------------------------
+
+    [Fact]
+    public void TheCarriedPacksChargesSurviveTheRoundTripInTheirOrder()
+    {
+        var carried = new[]
+        {
+            new PackSave(2, 2_650_600_000, 3),
+            new PackSave(2, 1_000_000, 0),
+            new PackSave(1, 5, 15),
+        };
+        WorldHeader written = WithInventory((1, 3), (2, 2)) with
+        {
+            Pack = new PackSave(2, 7, 0),
+            CarriedPacks = carried,
+        };
+
+        WorldHeader read = WorldHeaderBlob.Read(WorldHeaderBlob.Write(written));
+
+        Assert.Equal(carried, read.CarriedPacks);
+        Assert.Equal(new PackSave(2, 7, 0), read.Pack);
+        Assert.Equal(written.Inventory, read.Inventory);
+    }
+
+    [Fact]
+    public void AWorldWrittenBeforeCarriedChargesExistedOpensWithNone()
+    {
+        // The fourth migration, under the same policy: version 4 is version 5 without its carried
+        // section, and "no carried pack holds a charge" is exactly true of a world whose every
+        // swap forfeited it.
+        var pack = new PackSave(2, 99, 1);
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((2, 2)) with { Pack = pack, ElapsedMillis = 42 }));
+
+        byte[] older = payload[..^CarriedAbsentBytes];
+        WorldHeader read = WorldHeaderBlob.Read(Reframe(older, version: 4));
+
+        Assert.Empty(read.CarriedPacks);
+        Assert.Equal(pack, read.Pack);
+        Assert.Equal(42, read.ElapsedMillis);
+    }
+
+    [Fact]
+    public void ThePlayedWorldsRealV3HeaderOpensWithNoCarriedCharge()
+    {
+        WorldHeader read = WorldHeaderBlob.Read(PlayedWorldV3Header());
+
+        Assert.Empty(read.CarriedPacks);
+    }
+
+    [Fact]
+    public void ACarriedPackTheInventoryDoesNotHoldIsRefusedOnWriteAndOnReadNamingTheCount()
+    {
+        // Two charged packs of material 2 against an inventory holding one: a session that lost
+        // count. The count is the truth and the charges annotate it.
+        var error = Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(
+            WithInventory((2, 1)) with { CarriedPacks = [new PackSave(2, 1, 0), new PackSave(2, 2, 0)] }));
+        Assert.Contains("2 carried pack(s)", error.Message);
+        Assert.Contains("holds 1", error.Message);
+
+        // And with none of it at all — the inventory has no row for the material.
+        Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(
+            WithInventory((1, 1)) with { CarriedPacks = [new PackSave(2, 1, 0)] }));
+
+        // On read: written honestly with two held and two charged, then the inventory row's
+        // count rewritten to one. The row sits before the trailer: the player flag, the clock and
+        // lattice, the pack flag, the carried count and two carried rows.
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(
+            WithInventory((2, 2)) with { CarriedPacks = [new PackSave(2, 1, 0), new PackSave(2, 2, 0)] }));
+        int trailer = 1 + ClockAndLatticeBytes + PackAbsentBytes + CarriedAbsentBytes + (2 * PackPayloadBytes);
+        int row = payload.Length - trailer - EntryBytes;
+        Assert.Equal(2, BinaryPrimitives.ReadInt32LittleEndian(payload.AsSpan(row)));
+        Assert.Equal(2L, BinaryPrimitives.ReadInt64LittleEndian(payload.AsSpan(row + sizeof(int))));
+        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(row + sizeof(int)), 1);
+
+        var refused = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
+        Assert.Contains("holds 1", refused.Message);
+    }
+
+    [Fact]
+    public void ACarriedPackHoldingNothingIsRefusedBecauseAnEmptyPackIsACount()
+    {
+        Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(
+            WithInventory((2, 1)) with { CarriedPacks = [new PackSave(2, 0, 0)] }));
+
+        // On read: the one carried row's charge sits twelve bytes before the end.
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((2, 1)) with { CarriedPacks = [new PackSave(2, 1, 0)] }));
+        BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(payload.Length - 12), 0);
+
+        var refused = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
+        Assert.Contains("holds nothing", refused.Message);
+    }
+
+    [Fact]
+    public void ACarriedPackIsHeldToTheEquippedPacksThreeRulesNamingWhichEntry()
+    {
+        var past = Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(
+            WithInventory((2, 1)) with { CarriedPacks = [new PackSave(9, 1, 0)] }));
+        Assert.Contains("Carried pack 0", past.Message);
+        Assert.Contains("material ID 9", past.Message);
+
+        Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(
+            WithInventory((2, 1)) with { CarriedPacks = [new PackSave(2, 1, 16)] }));
+        Assert.Throws<ArgumentException>(() => WorldHeaderBlob.Write(
+            WithInventory((2, 1)) with { CarriedPacks = [new PackSave(2, -1, 0)] }));
+
+        // On read the channel is the last four bytes of the one carried row.
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((2, 1)) with { CarriedPacks = [new PackSave(2, 1, 0)] }));
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - 4), 16);
+        var refused = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
+        Assert.Contains("Carried pack 0", refused.Message);
+    }
+
+    [Fact]
+    public void ACarriedCountPastTheBytesIsRefusedBeforeAnyRowIsRead()
+    {
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((2, 1)) with { CarriedPacks = [new PackSave(2, 1, 0)] }));
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(payload.Length - PackPayloadBytes - sizeof(int)), 2);
+
+        var refused = Assert.Throws<BlobFormatException>(() => WorldHeaderBlob.Read(Reframe(payload)));
+        Assert.Contains("bytes remain", refused.Message);
     }
 
     /// <summary>The blob's payload, decompressed if it was compressed. BCL only.</summary>

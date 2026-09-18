@@ -258,7 +258,8 @@ public sealed partial class Hud : CanvasLayer
         MiningController? mining,
         bool precise,
         string? radius = null,
-        Overburden.Core.Machines.EquippedPack? pack = null)
+        Overburden.Core.Machines.EquippedPack? pack = null,
+        long carriedPackMillijoules = 0)
     {
         _sinceRefresh += delta;
         bool refreshText = _sinceRefresh >= RefreshSeconds;
@@ -289,7 +290,7 @@ public sealed partial class Hud : CanvasLayer
             // The adaptive radius, when it is on, is the play's oracle for the whole feature —
             // fly, sprint, watch the number fall and the world stay drawn; stop, watch it climb —
             // and it costs nothing to show, so it rides on the status line's own refresh.
-            string text = StatusText(place, mining, precise, pack);
+            string text = StatusText(place, mining, precise, pack, carriedPackMillijoules);
             _status.Text = radius is null ? text : $"{text}   ·   view {radius}";
         }
     }
@@ -352,7 +353,7 @@ public sealed partial class Hud : CanvasLayer
     internal static string DisplayName(Registry<MaterialDefinition> definitions, int materialId) =>
         definitions.GetIdentifier(materialId).Path.Replace('_', ' ');
 
-    private static string StatusText(PlaceController place, MiningController? mining, bool precise, Overburden.Core.Machines.EquippedPack? pack)
+    private static string StatusText(PlaceController place, MiningController? mining, bool precise, Overburden.Core.Machines.EquippedPack? pack, long carriedPackMillijoules)
     {
         // M10c-3: the pack on every line while one is equipped — the charge is what the bite
         // spends, so it belongs beside whatever the next click does — and the gate's refusal
@@ -360,10 +361,10 @@ public sealed partial class Hud : CanvasLayer
         string packLine = pack is null
             ? string.Empty
             : $"   ·   pack {MachinePanel.Joules(pack.ChargeMillijoules)} / {MachinePanel.Joules(pack.CapacityMillijoules)} ({MachinePanel.Share(pack.ChargeMillijoules, pack.CapacityMillijoules)})";
-        return Line(place, mining, precise, pack) + packLine;
+        return Line(place, mining, precise, pack, carriedPackMillijoules) + packLine;
     }
 
-    private static string Line(PlaceController place, MiningController? mining, bool precise, Overburden.Core.Machines.EquippedPack? pack)
+    private static string Line(PlaceController place, MiningController? mining, bool precise, Overburden.Core.Machines.EquippedPack? pack, long carriedPackMillijoules)
     {
         string brush = place.Brush.ToString().ToLowerInvariant();
         string tier = mining is null ? "no tool" : mining.Tool.Id.Path.Replace('_', ' ');
@@ -371,9 +372,12 @@ public sealed partial class Hud : CanvasLayer
         // An item in the hand never places (M10b): the line says what the click does instead.
         if (place.SelectedIsPack)
         {
+            // The fullest carried one is what the right-click equips, so it is what the hand
+            // says it holds; a swap keeps the worn one's charge beside the count (2026-09-18).
+            string held = carriedPackMillijoules > 0 ? $"PACK  (in hand, {MachinePanel.Joules(carriedPackMillijoules)})" : "PACK  (in hand, empty)";
             return pack is null
-                ? $"PACK  (in hand)   ·   right-click to equip it   ·   {tier}  (T)   ·   1-9 material, V cycle"
-                : $"PACK  (in hand)   ·   right-click to swap it — the equipped one's charge is forfeited   ·   {tier}  (T)   ·   1-9 material, V cycle";
+                ? $"{held}   ·   right-click to equip it   ·   {tier}  (T)   ·   1-9 material, V cycle"
+                : $"{held}   ·   right-click to swap — the worn one keeps its charge   ·   {tier}  (T)   ·   1-9 material, V cycle";
         }
 
         if (place.SelectedIsItem)

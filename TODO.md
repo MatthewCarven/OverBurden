@@ -5482,7 +5482,8 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             `--weather=1` → 976 mJ a panel a boundary; the three JSON files and
             `ShippedContentTests`.
       - [x] **c-3 — the pack and the gate, built 2026-09-17.** Header v4 with the pack, the equip
-            verb and the swap (`forfeited`, a term in the identity), the pack's panel on the
+            verb and the swap (`forfeited`, a term in the identity — `stowed` since 2026-09-18, the
+            charge kept beside the count), the pack's panel on the
             computer's click on nothing, `tools/entangled_miner.json` through `ToolDefinition.Power`
             and off the T cycle, `Carve`'s budget with `Unpowered`, both controllers paying, the
             HUD's pack line, `--pack`, `--charge=`, `--openpanel=pack`, `--nogate`'s miner half.
@@ -5530,7 +5531,11 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
                warned `the equipped one's charge is forfeited`, the log prints the joules
                forfeited. *Is a swap that throws a full pack away the right rule, or should the
                outgoing pack keep its charge as an item?* (The ladder's decision 15 says a count
-               has no charge; this is the play that judges it.)
+               has no charge; this is the play that judges it.) **Played 2026-09-18** — the swap
+               threw 2,650.6 kJ away and the verdict was *"keep its charge as an item please"*:
+               built the same evening as `CarriedPacks` at header v5, the fullest carried pack
+               equipped and the outgoing one stowed with its charge; decision 15 amended, the
+               identity's term is `stowed`.
             7. Quit and reopen — `a pack equipped (header v4)`, the charge to the joule. Then `T`
                through the tiers: the entangled miner is not on the cycle, and the steel pick is
                still free. *Does `Q` costing while `T` does not read as the design?*
@@ -5550,7 +5555,8 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
 - [ ] **M10g — recipes, stations, parts and the inventory screen**: the loader's second pass,
       jobs by value, the remainder per output, `unit`; **the inventory screen, folded in
       2026-09-18** — one `Control` on `E` tapped: the grid of every holding, the hotbar as a
-      nine-slot assignment in the header at v5 (a v4 world opens with its first nine holdings in
+      nine-slot assignment in the header at the next version — v6 as things stand, v5 having
+      gone to the carried packs' charges the same day (a v5 world opens with its first nine holdings in
       ID order, so nothing moves), assign by number key from the grid and by drag, the placeable
       filter as the grid's (all / blocks / parts / machines) with the parts page its *parts*
       filter, the craft pane present within reach of a station, litres → m³ from 1,000 L, a total

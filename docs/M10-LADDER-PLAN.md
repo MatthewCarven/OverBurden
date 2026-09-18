@@ -474,7 +474,11 @@ charger kind; below quantum a carried cell recharges only while docked at a char
 on a live component — without it the DC tier's *dark half* and the AC tier's cable-to-the-face
 never bite and the battery ladder is a capacity slider. The vacuum cell recharges from its channel
 anywhere. Header v4 carries the *equipped* pack (material, `charge_mJ`, channel); a second pack in
-the inventory is a count with no charge. The entangled miner's `joulesPerVoxel` sits on the tool's
+the inventory is a count with no charge — **amended 2026-09-18 on the first play's swap, which
+threw 2,650 kJ away: *"keep its charge as an item please"*. A carried pack keeps its charge and
+channel beside the count (`CarriedPacks`, header v5), a right-click equips the fullest one
+carried, and the swap's `forfeited` term is `stowed`; the count is still the truth of how many
+and the charges annotate it, so an empty pack has no row.** The entangled miner's `joulesPerVoxel` sits on the tool's
 `power` block and the bite, the fill at range and the Alt chip all pay it; with the gate on and no
 pack, `Q` takes nothing; `--nogate` keeps the debug arm for measurement runs, printed. `Q`
 reclaims a machine at range exactly as a pick does up close — dismantle credits it — which is not
@@ -698,7 +702,7 @@ openness byte, stock entries with a remainder per output, the job by value. The 
 byte lets every later part add state with no schema bump; an unknown kind's blob is carried
 opaque so a removed mod's row survives the way its material hole does. **Schema 5** (M10e):
 `conductors` — one summary per chunk that holds any, riding the batch write. **No `networks`
-table.** Header **v4** (M10c): the equipped pack. Header **v5**: not built.
+table.** Header **v4** (M10c): the equipped pack. Header **v5** (2026-09-18): the carried packs' charges. The hotbar assignment (M10g) takes the next.
 
 **Reconcile at arrival, amending M10-PLAN decision 4**: a body with fewer than 64 of its voxels is
 dismantled and credited *unless any of its 64 is rubble*, in which case it is destroyed without
@@ -779,7 +783,7 @@ one recipe from a pump that never restarts — the fuzz carries the wake sources
 *would this pump have moved water* oracle. `consumed` is a new term on every identity and a boiler
 defect hides in a count exactly as `displaced` once did. `E` carries two meanings and the computer
 a third verb on right-click. Whole-voxel recipes are coarse and the wire mill's 1 : 64 hides it;
-the first recipe that cannot fires v5. Cable to rubble on a fall loses the copper — the right
+the first recipe that cannot fires the millilitre bump. Cable to rubble on a fall loses the copper — the right
 punishment or a rage-quit, and only play says which; a salvage recipe is the lever. Laying 96
 voxels of cable with Alt+right is tedium that can read as difficulty the wrong way; a one-cell
 `line` brush is the lever. Three new Godot Controls (the machine panel; the inventory screen with
@@ -1947,7 +1951,9 @@ the old-version fixture is named. `EquippedPack` in Core holds it live; `Main` w
 item by `placeable: false`, counted `× N`), a right-click edge anywhere equips one from the count;
 with a pack already equipped the click swaps, and the outgoing pack goes back to the count with
 its charge forfeited and printed — the ladder's *a second pack in the inventory is a count with
-no charge*, the only rule under which a swap is exact. **Recharging**: the pack draws from its
+no charge*, the only rule under which a swap is exact (**reversed on the first play, 2026-09-18:
+the charge is kept beside the count, `stowed` in the identity — see decision 15's amendment**).
+**Recharging**: the pack draws from its
 channel *after* every placed consumer, `min(available, capacity − charge, rechargeWatts ×
 boundaryMillis)`, and its charge is never part of `available` — a backpack is not a battery bank,
 or the relay would drain the miner's pack in one boundary. **Its channel**: the computer's
@@ -2291,7 +2297,9 @@ on the shape's cost — a voxel, a cell, a chunk — refused whole under it (`Un
 printed once) and paid for what landed, the deferred chunk fill asked again at the boundary. The
 equip verb: with a pack selected (`SelectedIsPack`, a carried storage), a right-click edge
 anywhere raises `EquipRequest` and `Main` takes one off the count, equips it empty and, with one
-already there, puts that one back as a count with its charge forfeited and printed. The
+already there, puts that one back as a count with its charge forfeited and printed (**since
+2026-09-18 the fullest carried one is equipped and the outgoing one keeps its charge, `stowed` —
+the amendment at the end of this section**). The
 computer's click on nothing opens the pack's panel when one is equipped — `MachinePanel.OpenPack`,
 one `channel` box landing on the object, `charged 2,100.0 kJ of 3,600.0 kJ (58.3%) · recharges on
 channel 3, up to 500 J a boundary` — and stays a miss with none. The HUD carries `pack 2,100.0 kJ /
@@ -2321,7 +2329,8 @@ exactly `500 J × 40 boundaries = 20 kJ` off the cell (`4,998.98 MJ`), the pool 
 range: 3,200 J refuses whole (`needs 6,400 J … holds 3,200 J`), 6,400 J places one cell and
 refuses the next at 0, 12,800 J places two (113 voxels, 15 occupied) and refuses at the 1,500 J
 left. The swap, headless — `--pack --charge=1000 --place --material=overburden:lead_acid_pack
---stock=64` — reads `the outgoing pack's 1,000 J forfeited … 1 swap(s)` and the identity exact.
+--stock=64` — reads `the outgoing pack's 1,000 J forfeited … 1 swap(s)` and the identity exact
+(`… holding 1,000 J … 1,000 J stowed by 1 swap(s)` since the amendment).
 The c-2 storm oracle and the r6 control unchanged to the digit.
 
 **Three things the wire said.** *`--place` has placed nothing since M10b-1*: `--stock=` seeded
@@ -2364,6 +2373,35 @@ spent before the write rather than after* is an identity through an editor whose
 fail (M4a's zeroable-epsilon category), so the recipe run was the spend doubled, which the six-
 voxel cube caught.
 
+**Amended 2026-09-18 — a swapped-out pack keeps its charge.** The first play's swap (play recipe
+step 6) threw a 2,650.6 kJ pack away and Matthew's verdict was *"keep its charge as an item
+please"*, which reverses decision 15's *a count has no charge* and c-3's `forfeited`. What
+changed: `CarriedPacks` in `Overburden.Core/Inventory/` — the charges of the packs carried, an
+annotation on the inventory's count and never a second count (`Stow` keeps nothing for an empty
+pack, `TakeFullest` is what a right-click equips, `Entries` in the save form's order); header
+**v5** appends a count and a `PackSave` row per charged carried pack after the equipped pack's
+section, validated at write and read by the pack's three rules naming *which* entry and by a
+fourth — no material's rows outnumber its voxels in the inventory (`… holds 1 of it — a count is
+the truth and cannot be exceeded`) — and a v4 world opens with none, which is true of it;
+`MachineTick.EquipPack` returns what the outgoing pack held as `PackStowedMillijoules`, the
+identity's last term renamed (`… − stowed: exact`), and a stowed pack equipped again comes back
+through `initial` so the round trip is two terms that cancel; `Main` stows the outgoing pack
+beside the count and equips the fullest carried one (`equipped in place of …: 1,000 J of 3,600.0
+kJ (<0.1%) from the inventory … the outgoing pack is back in the inventory holding N J on channel
+C; N J stowed by N swap(s), N carried pack(s) charged`), restores the carried charges at open
+(`N carried pack(s) restored from the world file holding N J between them`, a material that is
+not a pack dropped and said so as the equipped pack's is) and writes them in `CurrentHeader`; the
+HUD reads `PACK (in hand, 2,650.6 kJ) · right-click to swap — the worn one keeps its charge`. The
+cost stated: a pack swapped out at 0 J loses its channel (no row), which is the price of the count
+staying the truth. **The oracle, headless on a scratch world**: the swap recipe reads `the
+outgoing pack is back in the inventory holding 1,000 J … 1,000 J stowed by 1 swap(s)`; a reopen
+reads `header v5`, `1 carried pack(s) restored … holding 1,000 J`; a second swap on that world
+reads `1,000 J of 3,600.0 kJ (<0.1%) from the inventory` with `0 mJ stowed`; and the reopen after
+that reads the worn pack at `1,000 J`. `WorldHeaderTests` (+6, every tail offset through a
+`CarriedAbsentBytes` of four), `CarriedPacksTests` (+3), the swap test asserting the re-equip;
+suite 1,617 → 1,627. The inventory screen's hotbar assignment, written down as "v5" the same
+morning, takes v6 — the number is a counter.
+
 **What M10d's play should feel, and where the numbers put it.** A full lead-acid pack is 1,125 cube
 bites — 2.2 chunks, 1.9 min at ten a second (562 and 56 s until the first play; decision 16's
 amendment) — and recharges at 125 J a boundary, a cube every 12.8 s on any channel with a charged
@@ -2401,8 +2439,10 @@ The seven-question recipe is in TODO.
    section behind a presence byte with `ValidatePack` shared by the writer and the reader. A slot
    assignment is a new section of the same shape, at the next version, under M6c-2's policy that
    an additive version migrates. **Decision 6 reserved "v5" for the inventory's millilitre move;
-   the number is a counter, not a name** — the assignment takes v5 and the millilitre bump, still
-   on its narrowed trigger, takes the next.
+   the number is a counter, not a name** — the assignment takes the next number after whatever
+   ships before it (v5 went to the carried packs' charges the same day this was written, so the
+   assignment is v6 as things stand) and the millilitre bump, still on its narrowed trigger,
+   takes the one after.
 4. **The game has one mouse-releasing UI and every rule a second one needs.** `MachinePanel`
    (M10b-2): a `Control` with `MouseFilter.Stop` owns its clicks and a focused field its keys;
    `FlyCam.ReleaseMouse()` / `CaptureMouse()`; Esc closes, a click outside re-captures and the
@@ -2441,14 +2481,14 @@ outside does not (a grid is where clicks go), so the close is Esc or `E` again.
   inventory at ten a second; a station's job lands a voxel at a boundary) — the HUD's tenth-second
   throttle is the pattern.
 
-#### 2. The hotbar becomes an assignment — nine slots naming a material or nothing — stored in the header at v5 — *recommended*
+#### 2. The hotbar becomes an assignment — nine slots naming a material or nothing — stored in the header at the next version — *recommended*
 
 `HotbarAssignment` in `Overburden.Core/Inventory/`: nine `int`s, −1 for empty, no duplicates;
 `MaterialInSlot(slot)` moves onto it, and `VolumetricInventory.Entries()` keeps its ID-ordered
 sort for the save form and the grid's default order. A slot keeps its material when the holding
 goes to zero (the tile dims and reads `0 L`; the next bite of stone lands back in *your* stone
 slot); a material acquired for the first time takes the first empty slot, or none if there is
-none (it is in the grid). Written as a v5 header section behind the pack's, validated as the pack
+none (it is in the grid). Written as a header section behind the carried packs', validated as the pack
 is — every ID in the table, no ID twice, exactly nine — and **a v4 world opens with the first
 nine holdings in ID order**, which is exactly what its row showed, so nothing moves on the first
 open of an old world.
@@ -2519,4 +2559,6 @@ on the number row while fewer than ten materials are carried after it.
   off there; TODO's M10g line gains the screen and the header version; the outgrown-unit item
   points at decision 6.
 - DESIGN's M10 row gains *the inventory screen*.
-- Decision 6's "v5 (millilitres)" reads as *the next version after the assignment's*.
+- Decision 6's "v5 (millilitres)" reads as *the next version after the assignment's* — and v5
+  itself went to the carried packs' charges the same day (the amendment at the end of "M10c-3 —
+  built"), so the assignment is v6.

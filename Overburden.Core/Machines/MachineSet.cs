@@ -126,7 +126,7 @@ public sealed class MachineSet : IMachineBodies
     /// <summary>
     /// Millijoules of charge that entered the set on storage rows — added, placed or restored —
     /// over the session. With <see cref="StoredMillijoulesLeaving"/>, the pool identity's
-    /// <c>loaded</c> and <c>forfeited</c> terms in one pair (M10c).
+    /// <c>loaded</c> and <c>stowed</c> terms in one pair (M10c).
     /// </summary>
     public long StoredMillijoulesEntering { get; private set; }
 

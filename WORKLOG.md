@@ -1,5 +1,33 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-18 (evening) — A swapped-out pack keeps its charge: `CarriedPacks`, header v5, `stowed`
+
+Play recipe step 6, answered by the play and by one sentence: the swap threw a 2,650.6 kJ pack
+away — *"keep its charge as an item please"*. That reverses the ladder's decision 15 (*a second
+pack in the inventory is a count with no charge*) and the one rule c-3 recorded as *"the only
+rule under which a swap is exact"*. Built the same evening; three things worth keeping:
+
+- **The count stays the truth and the charges annotate it.** `CarriedPacks` is a list of
+  `(material, charge, channel)` beside the inventory's voxel count of the pack material — never
+  a second count. An empty pack has no row (`Stow` keeps nothing for 0 J, so a pack swapped out
+  empty loses its channel, stated as the cost), a right-click equips the fullest carried one,
+  and the header refuses — at write and at read — a material whose charged rows outnumber its
+  voxels: *"a count is the truth and cannot be exceeded"*. Header v5 appends a count and a
+  `PackSave` row per entry after the equipped pack's section; a v4 world opens with none, which
+  is true of it. The hotbar assignment folded into M10g that morning as "v5" is v6 — the version
+  is a counter.
+- **The swap was exact under `forfeited` and is exact under `stowed`, and the difference is one
+  round trip.** `EquipPack` moves the outgoing pack's charge into `PackStowedMillijoules` (the
+  identity's last term, renamed) and a stowed pack equipped again comes back through `initial`,
+  the world file's path — two terms that cancel, asserted in the swap test's re-equip, the
+  battery's "forgets the stowed term" caught. Headless on a scratch world: swap → `1,000 J
+  stowed by 1 swap(s)`; reopen → `header v5`, `1 carried pack(s) restored … holding 1,000 J`;
+  swap back → `1,000 J of 3,600.0 kJ (<0.1%) from the inventory`; reopen → the worn pack at
+  `1,000 J`.
+- **Every tail offset in `WorldHeaderTests` moved by four bytes and none of them by hand** — the
+  v4 bump's `TrailerBytes` lesson paid: one constant, `CarriedAbsentBytes`, and the fourteen tests
+  that count back from the payload's end went through it. Suite 1,617 → 1,627.
+
 ## 2026-09-18 — The miner's price and the pack's recharge, moved twice on the first bite that stopped
 
 *"Press Q once to switch to the quantum miner? If yes then it seems ok but you don't get far …

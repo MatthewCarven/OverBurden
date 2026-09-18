@@ -99,6 +99,16 @@ public sealed record WorldHeader
     /// true statement about it.
     /// </remarks>
     public PackSave? Pack { get; init; }
+
+    /// <summary>The charged packs carried in the inventory beside their count (2026-09-18, header v5).</summary>
+    /// <remarks>
+    /// <b>An annotation on the inventory's count, never a second count</b>: a material's entries
+    /// here can never outnumber its voxels in <see cref="Inventory"/>, and the reader refuses a
+    /// header where they do, because that is a session that wrote a charge for a pack it did not
+    /// hold. Empty for a world written before v5, which is true of it — nothing before then kept
+    /// a swapped-out pack's charge. See <see cref="Core.Inventory.CarriedPacks"/> for the rule.
+    /// </remarks>
+    public IReadOnlyList<PackSave> CarriedPacks { get; init; } = [];
 }
 
 /// <summary>The equipped pack as the header carries it: its material through the world's table, its charge, its channel.</summary>
@@ -158,11 +168,13 @@ public static class WorldHeaderBlob
     /// <remarks>
     /// <b>Moved to 2 at M6c-2</b> for the player's position and the volumetric inventory,
     /// <b>to 3 at M7b-2</b> for the world clock and the watershed lattice, and <b>to 4 at
-    /// M10c-3</b> for the equipped pack. All three are strictly additive, so all three migrate
-    /// under the policy in <see cref="OldestVersion"/>. During a milestone the only person
-    /// holding a saved world is the one building it.
+    /// M10c-3</b> for the equipped pack, and <b>to 5 on 2026-09-18</b> for the carried packs'
+    /// charges. All four are strictly additive, so all four migrate under the policy in
+    /// <see cref="OldestVersion"/>. During a milestone the only person holding a saved world is
+    /// the one building it. (The inventory screen's hotbar assignment, folded into M10g, was
+    /// written down as "v5" before this bump; the number is a counter and it takes the next.)
     /// </remarks>
-    public const byte Version = 4;
+    public const byte Version = 5;
 
     /// <summary>The oldest layout this build can still read.</summary>
     /// <remarks>
@@ -173,7 +185,7 @@ public static class WorldHeaderBlob
     /// lattice, and a v3 header is a v4 one without its pack, so reading any of them means
     /// supplying documented defaults — no inventory, no saved player, no time elapsed, no pack
     /// equipped — and all of them are true statements about a world written before the field
-    /// existed.
+    /// existed. A v4 header is a v5 one without its carried packs, which reads as none charged.
     /// </para>
     /// <para>
     /// <b>This is not the thing M6a argued against.</b> That was a reader filling in a field the
@@ -191,7 +203,7 @@ public static class WorldHeaderBlob
     /// <summary>Bytes a present <see cref="PlayerSave"/> occupies, after its presence byte.</summary>
     private const int PlayerBytes = (sizeof(float) * 3) + 1;
 
-    /// <summary>Bytes a present <see cref="PackSave"/> occupies, after its presence byte: an int32 ID, an int64 charge, an int32 channel.</summary>
+    /// <summary>Bytes a present <see cref="PackSave"/> occupies, after its presence byte: an int32 ID, an int64 charge, an int32 channel — and one carried pack's row, after the section's count.</summary>
     private const int PackBytes = sizeof(int) + sizeof(long) + sizeof(int);
 
     /// <summary>
@@ -267,6 +279,9 @@ public static class WorldHeaderBlob
             ValidatePack(packToCheck, header.MaterialIdTable.Count, message => new ArgumentException(message, nameof(header)));
         }
 
+        IReadOnlyList<PackSave> carried = header.CarriedPacks ?? [];
+        ValidateCarriedPacks(carried, inventory, header.MaterialIdTable.Count, message => new ArgumentException(message, nameof(header)));
+
         int payloadLength = SettingsBytes
                             + sizeof(int)
                             + sizeof(int)
@@ -276,7 +291,9 @@ public static class WorldHeaderBlob
                             + sizeof(long)
                             + sizeof(int)
                             + 1
-                            + (header.Pack is null ? 0 : PackBytes);
+                            + (header.Pack is null ? 0 : PackBytes)
+                            + sizeof(int)
+                            + (carried.Count * PackBytes);
 
         for (int i = 0; i < table.Count; i++)
         {
@@ -352,6 +369,18 @@ public static class WorldHeaderBlob
         else
         {
             payload[offset++] = 0;
+        }
+
+        // Version 5: the carried packs' charges — a count and the pack's own row per entry, in
+        // the list's sorted order so the same packs write the same bytes.
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(offset), carried.Count);
+        offset += sizeof(int);
+        foreach (PackSave stowed in carried)
+        {
+            BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(offset), stowed.MaterialId);
+            BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(offset + 4), stowed.ChargeMillijoules);
+            BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(offset + 12), stowed.Channel);
+            offset += PackBytes;
         }
 
         byte[]? compressed = BlobFormat.TryCompress(payload);
@@ -430,28 +459,76 @@ public static class WorldHeaderBlob
     /// header carries the table and not the definitions, and a world whose pack material a
     /// removed mod owned should open with the pack dropped and said so, not refuse.
     /// </summary>
-    private static void ValidatePack(PackSave pack, int materialCount, Func<string, Exception> refuse)
+    private static void ValidatePack(PackSave pack, int materialCount, Func<string, Exception> refuse, string what = "The equipped pack")
     {
         if (pack.MaterialId == MaterialIds.AirNumericId)
         {
-            throw refuse("The equipped pack is air, which is not a pack.");
+            throw refuse($"{what} is air, which is not a pack.");
         }
 
         if ((uint)pack.MaterialId >= (uint)materialCount)
         {
             throw refuse(
-                $"The equipped pack is material ID {pack.MaterialId}, which the world's table of "
+                $"{what} is material ID {pack.MaterialId}, which the world's table of "
                 + $"{materialCount} does not have.");
         }
 
         if (pack.ChargeMillijoules < 0)
         {
-            throw refuse($"The equipped pack holds {pack.ChargeMillijoules} mJ, which is not a charge.");
+            throw refuse($"{what} holds {pack.ChargeMillijoules} mJ, which is not a charge.");
         }
 
         if (pack.Channel < 0 || pack.Channel >= MachineTick.Channels)
         {
-            throw refuse($"The equipped pack is on channel {pack.Channel}; channels are 0..{MachineTick.Channels - 1}.");
+            throw refuse($"{what} is on channel {pack.Channel}; channels are 0..{MachineTick.Channels - 1}.");
+        }
+    }
+
+    /// <summary>
+    /// The carried packs' rules, shared by the writer and the reader: each entry a pack by
+    /// <see cref="ValidatePack"/>'s three, holding something (an empty pack is a count and has no
+    /// row), and no material's entries outnumbering its voxels in the inventory — a charge for a
+    /// pack the inventory does not hold is a session that lost count, and the count is the truth.
+    /// </summary>
+    private static void ValidateCarriedPacks(
+        IReadOnlyList<PackSave> carried, IReadOnlyList<InventoryEntry> inventory, int materialCount, Func<string, Exception> refuse)
+    {
+        if (carried.Count == 0)
+        {
+            return;
+        }
+
+        var counted = new Dictionary<int, long>();
+        for (int i = 0; i < carried.Count; i++)
+        {
+            PackSave pack = carried[i];
+            ValidatePack(pack, materialCount, refuse, $"Carried pack {i}");
+            if (pack.ChargeMillijoules == 0)
+            {
+                throw refuse($"Carried pack {i} holds nothing; an empty pack is a count and has no row.");
+            }
+
+            counted[pack.MaterialId] = counted.GetValueOrDefault(pack.MaterialId) + 1;
+        }
+
+        foreach ((int materialId, long entries) in counted)
+        {
+            long held = 0;
+            foreach (InventoryEntry entry in inventory)
+            {
+                if (entry.MaterialId == materialId)
+                {
+                    held = entry.Voxels;
+                    break;
+                }
+            }
+
+            if (entries > held)
+            {
+                throw refuse(
+                    $"{entries} carried pack(s) of material ID {materialId} hold a charge, but the "
+                    + $"inventory holds {held} of it — a count is the truth and cannot be exceeded.");
+            }
         }
     }
 
@@ -611,6 +688,14 @@ public static class WorldHeaderBlob
             pack = ReadPack(payload, count, ref offset);
         }
 
+        // Version 4 stopped here, so a world written before 2026-09-18 carries no charged pack —
+        // a swap forfeited the charge until then, so there was nothing to carry.
+        PackSave[] carried = [];
+        if (version >= 5)
+        {
+            carried = ReadCarriedPacks(payload, count, inventory, ref offset);
+        }
+
         if (offset != payload.Length)
         {
             throw new BlobFormatException(
@@ -638,7 +723,47 @@ public static class WorldHeaderBlob
             ElapsedMillis = elapsedMillis,
             WatershedCellMetres = watershedCellMetres,
             Pack = pack,
+            CarriedPacks = carried,
         };
+    }
+
+    /// <summary>Reads the carried packs' charges (v5), checked against the table and the inventory's counts.</summary>
+    private static PackSave[] ReadCarriedPacks(
+        ReadOnlySpan<byte> payload, int materialCount, IReadOnlyList<InventoryEntry> inventory, ref int offset)
+    {
+        const string What = "World header";
+
+        if (payload.Length - offset < sizeof(int))
+        {
+            throw new BlobFormatException($"{What}: ran out of bytes reading the carried packs' count.");
+        }
+
+        int count = BinaryPrimitives.ReadInt32LittleEndian(payload[offset..]);
+        offset += sizeof(int);
+
+        if (count < 0)
+        {
+            throw new BlobFormatException($"{What}: {count} carried packs is not a count.");
+        }
+
+        if (payload.Length - offset < (long)count * PackBytes)
+        {
+            throw new BlobFormatException(
+                $"{What}: {count} carried pack(s) declared but only {payload.Length - offset} bytes remain.");
+        }
+
+        var carried = new PackSave[count];
+        for (int i = 0; i < count; i++)
+        {
+            carried[i] = new PackSave(
+                BinaryPrimitives.ReadInt32LittleEndian(payload[offset..]),
+                BinaryPrimitives.ReadInt64LittleEndian(payload[(offset + 4)..]),
+                BinaryPrimitives.ReadInt32LittleEndian(payload[(offset + 12)..]));
+            offset += PackBytes;
+        }
+
+        ValidateCarriedPacks(carried, inventory, materialCount, message => new BlobFormatException($"{What}: {message}"));
+        return carried;
     }
 
     /// <summary>Reads the equipped pack, if the world has one — the player's shape, the inventory's checks.</summary>

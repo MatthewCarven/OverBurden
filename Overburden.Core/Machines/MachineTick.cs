@@ -246,35 +246,38 @@ public sealed class MachineTick
 
     /// <summary>
     /// Equips <paramref name="pack"/> — or nothing — in place of whatever was carried, and returns
-    /// what the outgoing pack held, which is forfeited: a pack back in the count is a count, and
-    /// a count has no charge (the ladder's decision 15, the only rule under which a swap is exact).
+    /// what the outgoing pack held, which leaves the pool: <em>stowed</em>, back in the inventory
+    /// with the pack (2026-09-18, Matthew's <i>"keep its charge as an item"</i>; until then a pack
+    /// back in the count was a count with no charge and the term was <c>forfeited</c>).
     /// </summary>
     /// <remarks>
     /// The outgoing pack's <c>initial</c> and <c>taken</c> move into the session's sums and its
-    /// charge into <see cref="PackForfeitedMillijoules"/>, so <see cref="PowerExact"/> holds across
+    /// charge into <see cref="PackStowedMillijoules"/>, so <see cref="PowerExact"/> holds across
     /// any number of swaps: every millijoule the pool ever gave a pack is either in the pack
-    /// carried now, was taken by a tool, or was forfeited — and all three are terms.
+    /// carried now, was taken by a tool, or was stowed — and all three are terms. A stowed pack
+    /// equipped again comes back through <c>initial</c>, the way the world file's pack does, so
+    /// the round trip is two terms that cancel rather than a charge that reappears.
     /// </remarks>
     public long EquipPack(EquippedPack? pack)
     {
-        long forfeited = 0;
+        long stowed = 0;
         if (Pack is { } outgoing)
         {
-            forfeited = outgoing.ChargeMillijoules;
+            stowed = outgoing.ChargeMillijoules;
             _packInitialSum += outgoing.InitialMillijoules;
             _packTakenSum += outgoing.TakenMillijoules;
-            PackForfeitedMillijoules += forfeited;
+            PackStowedMillijoules += stowed;
             PacksUnequipped++;
         }
 
         Pack = pack;
-        return forfeited;
+        return stowed;
     }
 
-    /// <summary>Millijoules forfeited by packs unequipped this session — a swap's cost, printed, never a tolerance.</summary>
-    public long PackForfeitedMillijoules { get; private set; }
+    /// <summary>Millijoules stowed by packs unequipped this session — what left the pool with them, printed, never a tolerance.</summary>
+    public long PackStowedMillijoules { get; private set; }
 
-    /// <summary>Packs unequipped this session, for the forfeit's denominator.</summary>
+    /// <summary>Packs unequipped this session, for the stowed term's denominator.</summary>
     public long PacksUnequipped { get; private set; }
 
     private long _packInitialSum;
@@ -347,14 +350,14 @@ public sealed class MachineTick
     /// <summary>
     /// The pool's identity over the session: every millijoule on a row or in the pack now is one
     /// that entered on a row, was generated, or was in a pack at hand-over, less what left on a
-    /// row, what the pumps paid, what was clamped, what the tool took and what a swap forfeited.
+    /// row, what the pumps paid, what was clamped, what the tool took and what a swap stowed.
     /// No term is in flight.
     /// </summary>
     public bool PowerExact =>
         StoredMillijoules + (Pack?.ChargeMillijoules ?? 0)
         == _machines.StoredMillijoulesEntering - _machines.StoredMillijoulesLeaving
             + GeneratedMillijoules - DrawnByPumpsMillijoules - ClampedMillijoules
-            + PackInitialMillijoules - PackTakenMillijoules - PackForfeitedMillijoules;
+            + PackInitialMillijoules - PackTakenMillijoules - PackStowedMillijoules;
 
     /// <summary>Pump-boundaries that moved anything.</summary>
     public long Moves { get; private set; }
