@@ -1,5 +1,23 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-18 — The inventory screen has a home: M10g, as one screen
+
+*"When do we do player inventory, do I have that in the plan anywhere?"* — twice, scheduled
+nowhere: TODO's "An inventory screen, and slots that stay put" under M6d (his own words from
+M6d-3), and decision 8's placeable filter and parts page at M10g. Folded into M10g on his word
+as "The inventory screen — folded into M10g" at the end of M10-LADDER-PLAN: seven facts from the
+code and eight decisions with recommendations, M10g's own pass still to come after M10d–f. The
+spine: **the inventory is the screen and the craft panel and the parts page are panes of it**, on
+`E` tapped (free — decision 11's crank is `E` *held*); **the hotbar becomes a nine-slot
+assignment in the header at v5**, which is the fix M6d-3 named and could not schedule, with a v4
+world opening on its first nine holdings in ID order so nothing moves; the placeable filter moves
+from the row to the grid, because an assigned row has nothing to shift; capacity stays unbounded
+with a total shown; litres scale to m³ from 1,000 L. Two things the evening's play put into it:
+eleven materials over nine keys with `V` the only way to the tenth (fact 2), and the pack's
+`3,994 J of 3,600.0 kJ` misread (the screen has room for a number). Decision 6's "v5
+(millilitres)" is renumbered — the version is a counter — and the risks paragraph's four new
+Controls are three.
+
 ## 2026-09-17 (evening) — M10c's first play: the pool read off a pump, the pack was never picked up
 
 *"I placed a pump and a solar panel and an output and an input and it was pumping — like how do

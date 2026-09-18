@@ -2911,8 +2911,10 @@ the report it prints.
 
 #### Surfaced by M6's play, not scheduled
 
-- [ ] **An inventory screen, and slots that stay put.** Matthew, asked whether the ID-order shift
-      bothered him: *"Didn't care but do want to adjust it so slots stay put, when we do the
+- [ ] **An inventory screen, and slots that stay put — scheduled 2026-09-18: M10g's, as one
+      screen; the plan is "The inventory screen — folded into M10g" at the end of
+      M10-LADDER-PLAN (eight decisions, all recommended, `E` the key and the unit Matthew's).**
+      Matthew, asked whether the ID-order shift bothered him: *"Didn't care but do want to adjust it so slots stay put, when we do the
       inventory screen etc, I was going to allow you to carry more than what is on the hotbar
       maybe?"* **The framing is the design.** Today the hotbar is a *projection* of the inventory
       and is fully determined by it; the moment you can carry more than the row shows, **the
@@ -5540,9 +5542,16 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
 - [ ] **M10f — generators, converters, the crank and the sink**: `E` held with millis sampled,
       `burner`, the boiler that drinks and `consumed` on every identity, the engine beside it,
       `shaft`, media order, the dock, `pipe_outlet`, `flooded`.
-- [ ] **M10g — recipes, stations and parts**: the loader's second pass, jobs by value, the
-      remainder per output, `unit`, the placeable filter and parts page, the craft panel; the
-      relay's own recipe retires M10a's seeding.
+- [ ] **M10g — recipes, stations, parts and the inventory screen**: the loader's second pass,
+      jobs by value, the remainder per output, `unit`; **the inventory screen, folded in
+      2026-09-18** — one `Control` on `E` tapped: the grid of every holding, the hotbar as a
+      nine-slot assignment in the header at v5 (a v4 world opens with its first nine holdings in
+      ID order, so nothing moves), assign by number key from the grid and by drag, the placeable
+      filter as the grid's (all / blocks / parts / machines) with the parts page its *parts*
+      filter, the craft pane present within reach of a station, litres → m³ from 1,000 L, a total
+      and no cap; `--assign=<slot>=<id>` and `--openinventory` the seams; the relay's own recipe
+      retires M10a's seeding. Its pass reads the folded-in section first and puts the inventory
+      half in its first session.
 - [ ] **M10h — worldgen for the ladder**: WORLDGEN-NOTES' pass first, its three questions
       answered; logs and saplings, layers, seams and veins by a second lattice field.
 - [ ] **M10i — the five tiers' JSON**; solar re-classed to `dc`.
@@ -5968,7 +5977,9 @@ by the battery item below. The rest are wanted, not merely suggested.**
       persisted number, the charge, which rides M10-NOTES' header v4. Planned at M10, not before.
 - [ ] **The hotbar's unit has been outgrown.** `1,767,903,281 L` in an 84 px slot, printed `N0`; the
       format was chosen for a 265 L swing and a bite is 512,000 L. A scaled unit — m³ past a
-      thousand litres, or the chunk — and **the unit is Matthew's to pick.**
+      thousand litres, or the chunk — and **the unit is Matthew's to pick.** Scheduled at M10g
+      with the inventory screen (2026-09-18, decision 6 of the folded-in section: m³ from
+      1,000 L, recommended over the chunk).
 - [ ] **The window-edge outlet now moves millions of litres, and the magnitude is what is new.**
       379,831 L and 4,027,831 L "would not fit back" on two window moves. Designed — the edge is an
       outlet, and `Seed` leaves rather than carrying a debt — and zero in every test and both plays

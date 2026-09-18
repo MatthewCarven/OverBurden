@@ -436,7 +436,7 @@ transaction as the blob that first used it. See [M6-PLAN.md](M6-PLAN.md).
 
 | | |
 |---|---|
-| M10 | Machine framework, power, pumps, shoring — *you fight back* |
+| M10 | Machine framework, power, pumps, shoring, the inventory screen — *you fight back* |
 | M11 | Drills, conveyors, crafting, health — collapse damage, death, respawn with the inventory kept, fall damage, drowning; M9-PLAN decision 10 had pulled the minimum into M9 and Matthew sent it back here on 2026-09-13 — **v1.0** |
 | M12 | MoonSharp scripting API |
 | M13 | Distance LOD, biomes, polish |

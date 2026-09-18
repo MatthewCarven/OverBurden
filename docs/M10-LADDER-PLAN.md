@@ -365,8 +365,10 @@ moves into the batch.
 
 A station's output accrues millilitres in a per-row remainder and emits a voxel into its stock at
 15,625 — the hand-off's remainder-per-pit shape a third time. Hand recipes are whole-voxel by
-loader rule. Header v3's inventory is untouched; v5 (millilitres) stays on the narrowed trigger —
-*a hand recipe wants a fraction, or a play finds 15.6 L parts absurd* — and goes alone.
+loader rule. Header v3's inventory is untouched; the millilitre bump stays on the narrowed trigger —
+*a hand recipe wants a fraction, or a play finds 15.6 L parts absurd* — and goes alone (it was
+"v5" here until 2026-09-18; the hotbar assignment takes v5 and the version number is a counter,
+so the millilitre move takes whichever is next).
 `unit` on a material is `litres` (default), `count` (one voxel is one part; the hotbar prints
 `× 3`) or `cells` (64 voxels is one; a machine body prints `× 1`). Energy's unit is the
 millijoule for the reason water's is the millilitre: `watts × 500` mJ a boundary is exact, and
@@ -400,7 +402,9 @@ number row is unusable after the first piston.
 - **Rejected: a second item inventory** — a second registry, header section, hotbar and thing a
   mod must learn.
 - **Cost**: every acquired part shifts the ID-ordered hotbar (M6d-3's known cost, fixed for
-  placeables by the filter); a removed mod leaves that many holes.
+  placeables by the filter); a removed mod leaves that many holes. **Amended 2026-09-18**: the
+  hotbar becomes a player-authored assignment and nothing shifts it; the filter is the inventory
+  grid's — see "The inventory screen — folded into M10g" at the end of this document.
 
 ### 9. The pool is the sum of the storage rows on a component or channel, never a stored number — *Matthew's, because it amends M10-PLAN decision 8*
 
@@ -742,7 +746,7 @@ that fires on day one. Then `--network` at M10e: a 10,000-voxel line cut, a wire
 | **M10d** | The play: the played mine pumped dry by relay; the storm; the gate at the bite; the pillar verdict; M9d's four questions | Matthew's sentence |
 | **M10e** | The conductor index: `conductor` block, `ConductorTracker`, summaries, `NetworkSet`, position-derived ids, bounds → `overlength`/`overcap`, the rescan cap, the forget-path rescan, schema 5, `via: <class>`, `adjacent:`, `surround`; the energised bit and the cut's leak | labels equal a from-scratch flood after random edits, arrivals, forgets and reloads in both hook orders; a cut splits the pool into its rows' charges exactly; a cable through a chunk unloaded under `--vradius=1` keeps its circuit across a reload; `--network` |
 | **M10f** | Generators, converters, the crank and the sink: `E` held with millis sampled, `burner`, the boiler's drink and `consumed` on every identity, the engine, `shaft`, media order, the dock, the flywheel, `pipe_outlet`, `flooded` | a boiler → engine → dynamo chain's identity with one-boundary lag per hop; the world total moves by exactly the consumed litres; a cranked pump moves `min(cap, 75 W × millis ÷ J/L)` to the millilitre at two outlet heights; a pack undocked gains nothing |
-| **M10g** | Recipes, stations and parts: the loader's second pass, `station` kind, stock, jobs by value, remainders, `unit`, the placeable filter and parts page, the craft panel on `E`, the relay's own recipe so M10a's seeding retires | a job survives a quit mid-way; a removed mod's job completes; five smelts yield one voxel and a printed remainder; player + stocks constant over a thousand random steps; `ShippedContentTests` finds every material and tag |
+| **M10g** | Recipes, stations and parts, **and the inventory screen** (folded in 2026-09-18 — the section at the end of this document): the loader's second pass, `station` kind, stock, jobs by value, remainders, `unit`; one screen on `E` tapped holding the inventory grid, the hotbar as a nine-slot assignment in the header at v5, the placeable filter and the parts page as the grid's filter, the craft pane, the scaled unit; the relay's own recipe so M10a's seeding retires | a job survives a quit mid-way; a removed mod's job completes; five smelts yield one voxel and a printed remainder; player + stocks constant over a thousand random steps; `ShippedContentTests` finds every material and tag |
 | **M10h** | Worldgen for the ladder — WORLDGEN-NOTES' own planning pass first, with its three questions answered: logs at the surface and planted saplings on a worker; layers; seams and veins by a second lattice field; iron under the table; ordered so tier 0 is playable first | generation ms against 0.47; volume per material per depth band; ore bit-identical across chunk faces; a log across a chunk face lights correctly; a played world opens with new strata below its dug region and its dug region unchanged |
 | **M10i** | The content: five tiers of JSON and textures through the loader a mod uses; solar re-classed to `dc` | every station tag has a station, every class a conductor, some tier lifts 64 m, some pump beats dirt; a 25-cell copper run is dead and a 24 is live |
 | **M10j** | The play: the ladder climbed once on a fresh world, timed against the targets; the five named moments as five sentences | Matthew's |
@@ -762,8 +766,9 @@ a third verb on right-click. Whole-voxel recipes are coarse and the wire mill's 
 the first recipe that cannot fires v5. Cable to rubble on a fall loses the copper — the right
 punishment or a rage-quit, and only play says which; a salvage recipe is the lever. Laying 96
 voxels of cable with Alt+right is tedium that can read as difficulty the wrong way; a one-cell
-`line` brush is the lever. Four new Godot Controls (the machine panel, the craft panel, the parts
-page, a crank indicator) and the mouse-capture mode none can open without, against one today.
+`line` brush is the lever. Three new Godot Controls (the machine panel; the inventory screen with
+the craft pane and the parts filter inside it — four until 2026-09-18 folded the screen in; a crank
+indicator) and the mouse-capture mode none can open without, against one today.
 
 ## What this changes in the other documents, once the decisions are taken
 
@@ -2342,3 +2347,154 @@ voxel cube caught.
 bites — 56 s at ten a second — and recharges at 500 J a boundary, a cube every 6.4 s on any
 channel with a charged cell, twelve minutes to full on ten panels; a swap is a full pack thrown
 away, said on the HUD before the click. The seven-question recipe is in TODO.
+
+## The inventory screen — folded into M10g (2026-09-18)
+
+> Matthew, the morning after M10c's first play: *"when do we do player inventory, do I have that
+> in the plan anywhere?"* It was in it twice and scheduled nowhere — TODO's "An inventory screen,
+> and slots that stay put" under M6d (his words from M6d-3: *"do want to adjust it so slots stay
+> put, when we do the inventory screen etc, I was going to allow you to carry more than what is on
+> the hotbar maybe?"*), and decision 8's *the hotbar gains a placeable filter and a parts page* at
+> M10g. This section folds the first into the second on his word (*"yes please"*), as one screen.
+> **It is a plan, not M10g's planning pass** — that pass runs when M10g is next, after M10d, M10e
+> and M10f, against the code as it stands then, and splits M10g into its sessions. What this
+> section settles is the shape, so that pass starts from decisions rather than from a question.
+
+### Seven facts from the code
+
+1. **The hotbar is a projection of the inventory and nothing else.** `VolumetricInventory.
+   MaterialInSlot(slot)` is `Entries()[slot]` — the carried materials in ascending ID order —
+   and `Hud.Slots` is nine *"because the keyboard has nine, not because the inventory has a
+   limit"*. A tenth holding is carried and reachable only by `V` (`PlaceController.NextMaterial`
+   cycles the whole inventory, not the row). M6d-3 chose ID order over first-acquired order
+   because acquisition order is written down nowhere and would shuffle across a quit; it recorded
+   the cost — *acquiring a new material shifts every slot above it* — and named the fix: **a
+   player-arranged slot assignment that survives a quit, a header field and a version**.
+2. **M10c's first play hit the limit before M10g's parts exist.** `P` twice put eleven materials
+   in the inventory over nine keys; the solar panel and the vacuum cell fell off the end of the
+   row and were reached with `V`. Decision 8's ~30 part IDs make every acquired part shift the
+   row again, which is why it ships the filter *with* the recipes rather than after.
+3. **The header carries holdings and nothing about slots.** `WorldHeader.Inventory` is a list of
+   `(MaterialId, Voxels)` at `InventoryEntryBytes = 12`, written in ID order; v4 added the pack's
+   section behind a presence byte with `ValidatePack` shared by the writer and the reader. A slot
+   assignment is a new section of the same shape, at the next version, under M6c-2's policy that
+   an additive version migrates. **Decision 6 reserved "v5" for the inventory's millilitre move;
+   the number is a counter, not a name** — the assignment takes v5 and the millilitre bump, still
+   on its narrowed trigger, takes the next.
+4. **The game has one mouse-releasing UI and every rule a second one needs.** `MachinePanel`
+   (M10b-2): a `Control` with `MouseFilter.Stop` owns its clicks and a focused field its keys;
+   `FlyCam.ReleaseMouse()` / `CaptureMouse()`; Esc closes, a click outside re-captures and the
+   verbs swallow that click through `FlyCam.ClickLive`; flight and walking are gated on capture,
+   so a body stops where it stands while any screen is open; `--openpanel` is the screenshot's
+   prop and `--panelset=` types into it headless. A full-screen inventory inherits all of it.
+5. **`E` is unbound, and decision 11 gives it two meanings**: held within reach of a crank
+   machine it cranks; tapped at a workbench it opens the craft panel. A tap *away from* a
+   workbench means nothing today.
+6. **The row's unit is outgrown and Matthew's to pick.** `Hud.Holding` prints litres `N0`
+   (`1,767,903,281 L` in an 84 px slot, a TODO item since 2026-09-03), `× N` for `count`, `× N`
+   with a fraction for `cells`. A screen with room for a number is where the unit gets chosen.
+7. **Capacity is unbounded, deliberately, and every credit path assumes it.** `Carve.Take`
+   credits after the write; a fill's `OutOfStock` is the only refusal the inventory makes.
+   M6's recorded triggers for a limit were M10 containers, M11 crafting and *an inventory screen
+   as a third and earlier candidate*. The screen arrives; the limit does not have to.
+
+### Eight decisions, each with a recommendation
+
+#### 1. The inventory is the screen; the craft panel and the parts page are panes of it, on `E` tapped — *recommended; the key is Matthew's*
+
+One `Control`, opened by a tap of `E` anywhere: the inventory grid (every holding — swatch, name,
+amount in its unit, the pack's charge on its own tile while one is worn), the hotbar row along
+its foot, a filter across the top (**all / blocks / parts / machines**, by `placeable` and
+`unit`), and a recipes pane that is present when a station is within reach — the `hand` station
+always, so hand recipes craft from anywhere, as decision 11 says. Esc closes it, the click
+outside does not (a grid is where clicks go), so the close is Esc or `E` again.
+
+- **Rejected: a separate key (`I`, `Tab`)** — a tap of `E` away from a workbench is free, the
+  crank is `E` *held* and the two do not collide (decision 11's split is a tap against a hold,
+  not a place against a place), and one key that means *open the screen* is one thing to learn.
+- **Rejected: three Controls** — the craft panel, the parts page and an inventory screen with
+  three ways to open and close. The risks paragraph counted four new Controls; this is three (the
+  screen, the machine panel, a crank indicator).
+- **Cost**: the screen is the first UI whose content changes while it is open (a bite credits the
+  inventory at ten a second; a station's job lands a voxel at a boundary) — the HUD's tenth-second
+  throttle is the pattern.
+
+#### 2. The hotbar becomes an assignment — nine slots naming a material or nothing — stored in the header at v5 — *recommended*
+
+`HotbarAssignment` in `Overburden.Core/Inventory/`: nine `int`s, −1 for empty, no duplicates;
+`MaterialInSlot(slot)` moves onto it, and `VolumetricInventory.Entries()` keeps its ID-ordered
+sort for the save form and the grid's default order. A slot keeps its material when the holding
+goes to zero (the tile dims and reads `0 L`; the next bite of stone lands back in *your* stone
+slot); a material acquired for the first time takes the first empty slot, or none if there is
+none (it is in the grid). Written as a v5 header section behind the pack's, validated as the pack
+is — every ID in the table, no ID twice, exactly nine — and **a v4 world opens with the first
+nine holdings in ID order**, which is exactly what its row showed, so nothing moves on the first
+open of an old world.
+
+- **Rejected: first-acquired order** — M6d-3's reason stands (nothing records it), and the
+  assignment *is* the record that fix needed.
+- **Rejected: ID order with pinned slots** — the same object with a worse name.
+- **Cost**: a header version, a migration test, and `SelectSlot` reading the assignment rather
+  than the inventory; `P`'s seeded materials land in empty slots the way a bite's do.
+
+#### 3. Assign by number key from the grid, and by drag — *recommended*
+
+Click a tile in the grid, press `1`–`9`: that slot now holds it, and whatever the slot held goes
+back to the grid (the tile is never lost — a holding is always in the grid; the row is a view
+onto nine of them). Drag a tile onto a slot for the same thing; drag a slot onto another slot to
+swap. The key path is the one a headless run can drive — `--assign=<slot>=<id>` — so the wire
+is testable the way `--panelset=` made the panel's.
+
+- **Rejected: drag only** — one input path that headless cannot exercise, M5c-2's shape of hole.
+
+#### 4. The placeable filter moves from the row to the grid; the row needs none — *recommended; amends decision 8's mechanism, not its substance*
+
+Decision 8 gave the hotbar a placeable filter so that thirty parts would not shift the row. With
+an assignment nothing shifts the row, so the filter is the grid's — **all / blocks / parts /
+machines** — and the row shows whatever the player put there, a part included (a computer on
+`8` is the play tonight). The parts page is the *parts* filter. Decision 8's argument — one
+registry, one ID table, one header section, one save form — is untouched.
+
+#### 5. Capacity stays unbounded; the screen shows a total and no limit — *recommended*
+
+A total row under the grid (litres carried across every material, a number the HUD has never
+shown) and nothing that refuses. A cap needs a rule for a bite that does not fit — a refused
+credit is a deleted voxel or a refused bite, and either is a survival-mode decision with the
+reach and the haulage limit (M4d's and 2026-09-03's recorded triggers). **Revisit trigger: a
+survival mode, or a play that reads the total as meaningless** — the number on screen is what
+makes the second possible.
+
+#### 6. The unit scales: litres under a cubic metre, cubic metres above, on the row and in the grid — *Matthew's; recommended*
+
+`L` under 1,000 L; `m³` from 1,000 L, one decimal under 100 m³ and whole above with separators
+(`1,768 m³` for the played world's stone, `15.6 L` for a part's voxel is `count`'s business and
+prints `× 1`); `cells` unchanged. One formatter in `Hud`, shared by the row and the grid, which
+closes the 2026-09-03 TODO item. The alternative Matthew named was the chunk (512 m³ a click);
+recommended against because a chunk is a debug bite's size and not a unit.
+
+#### 7. Core first, the screen second, the header in between — *recommended; the split is M10g's pass's*
+
+The assignment is Core with its battery before any Control exists: the round trip through the
+header; a v4 world opening with its ID-order default; a duplicate ID, an unknown ID, a wrong count
+refused at read and write naming which; an assignment surviving a holding at zero; a first
+acquisition landing in the first empty slot and in none when full; `SelectSlot` reading the
+assignment; `--assign=` headless. The screen is a screenshot — `--openinventory` the prop — and
+the same three closes the panel has. **M10g's own pass splits its sessions; the recommendation to
+it is that the inventory half goes first**, because it depends on no recipe and it is the frame
+the craft pane and the parts filter land in.
+
+#### 8. Nothing moves ahead of M10d — *recommended*
+
+The play is next, then M10e and M10f, and M10g's pass after them reads this section first. The
+row's overflow is a nuisance tonight, not a blocker: `V` reaches every holding, and the pack sits
+on the number row while fewer than ten materials are carried after it.
+
+### What this changes elsewhere
+
+- The M10g row in the split names the screen; decision 8's note points here; the risks
+  paragraph's *four new Godot Controls* is three.
+- TODO's M6d item "An inventory screen, and slots that stay put" points at M10g and stays ticked
+  off there; TODO's M10g line gains the screen and the header version; the outgrown-unit item
+  points at decision 6.
+- DESIGN's M10 row gains *the inventory screen*.
+- Decision 6's "v5 (millilitres)" reads as *the next version after the assignment's*.
