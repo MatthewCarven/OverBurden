@@ -164,20 +164,15 @@ public partial class Main : Node3D
     /// <summary><c>--charge=&lt;J&gt;</c>: the equipped pack's charge at open, in joules; null leaves it as the header or the flag left it.</summary>
     private long? _chargeJoules;
 
-    /// <summary>The tool Q swings — <c>overburden:entangled_miner</c>, loaded by ID and off the T cycle — or null when a mod removed it.</summary>
-    private ToolDefinition? _entangledTool;
+    /// <summary>The two quantum tiers' IDs (2026-09-19, Matthew's): the cube and the chunk, on the T cycle like the picks.</summary>
+    private const string QuantumMinerId = "overburden:quantum_miner";
+    private const string QuantumExcavatorId = "overburden:quantum_excavator";
 
-    /// <summary>The ID Q's tool is loaded by (decision 5).</summary>
-    private const string EntangledMinerId = "overburden:entangled_miner";
+    /// <summary>Whether <c>--cubecooldown=</c> / <c>--chunkcooldown=</c> was given, so the file's number is the default and the flag the sweep.</summary>
+    private bool _cubeCooldownSwept, _chunkCooldownSwept;
 
-    /// <summary>Whether <c>--cubecooldown=</c> was given, so the file's number is the default and the flag the sweep.</summary>
-    private bool _cubeCooldownSwept;
-
-    /// <summary>
-    /// Q's two meanings (2026-09-19): tapped, the quantum miner goes on the mouse; held past the
-    /// threshold, it runs. <c>--holdafter=</c> moves the threshold.
-    /// </summary>
-    private readonly TapOrHold _quantumKey = new();
+    /// <summary>The tier <c>--entangle</c> / <c>--entanglechunk</c> selects at open, by ID, or null for the cycle's default.</summary>
+    private string? _tierAtOpen;
 
     /// <summary>The gate's two one-off prints: the swing the pack ran out inside, and the first that took nothing.</summary>
     private bool _printedGateRanOut, _printedGateEmpty, _printedGateNoPack, _printedFillRefused;
@@ -311,12 +306,10 @@ public partial class Main : Node3D
     private bool _leftWasDown;
 
     private bool _rightWasDown;
-    private bool _entangleWhileProfiling;
 
     /// <summary><c>--holdq</c>: Q held from the first frame — the hold's wire, headless, the way <c>--place</c> holds the button.</summary>
     private bool _holdQ;
 
-    private EntangledBite _entangledBite = EntangledBite.Cube;
 
     private float _chunkCooldownSeconds = MiningController.DefaultEntangledChunkCooldownSeconds;
     private float _cubeCooldownSeconds = MiningController.DefaultEntangledCubeCooldownSeconds;
@@ -1750,35 +1743,36 @@ public partial class Main : Node3D
                     _mineWhileProfiling = true;
                     break;
 
-                // The entangled miner from the command line, because F12 cannot be pressed
-                // headlessly and a debug bind nobody has run is a debug bind that does not work.
-                // The sixth seam of this shape. It deliberately does NOT imply --mine: on its
-                // own it only proves the cast reaches, which is the half that has no other
-                // witness.
+                // The quantum miner selected at open, because no headless run presses T and a
+                // tier nobody has run is a tier that does not work. The sixth seam of this
+                // shape, and the name every recorded recipe carries — it was the entangled
+                // mode's switch until the mode became the tiers (2026-09-19). It deliberately
+                // does NOT imply --mine: on its own it only proves the cast reaches.
                 case "entangle":
-                    _entangleWhileProfiling = true;
+                    _tierAtOpen = QuantumMinerId;
                     break;
 
-                // Q held for the whole run, from whichever mode the run is in — the hold's wire
+                // Q held for the whole run, on whichever tier the run is on — the hold's wire
                 // check, because no headless run presses a key. Past the profile's refusal by its
-                // own hand, the way --entangle sets the mode a key would: the run asked for it.
+                // own hand, the way --entangle selects the tier a key would: the run asked for it.
                 case "holdq":
                     _holdQ = true;
                     break;
 
-                // The arm the chunk bite was priced against: entangled, but taking the tier's
-                // sphere the way Q did before. Named for the thing it restores rather than for
-                // the thing it disables, the same as --cavestep=1 and --viewnormal=1, because a
-                // flag that reads as "off" invites being thought of as the default.
+                // Retired 2026-09-19 with the mode: the pick's sphere at range is no tier's shape.
+                // Its figures are in the worklog (0.139 ms a swing at four a second, the arm the
+                // chunk bite was priced against); if it is wanted back it is a reach seam on the
+                // tier, one flag. Said out loud rather than left to the unknown-flag line.
                 case "entanglesphere":
-                    _entangledBite = EntangledBite.Sphere;
+                    GD.Print("Overburden: --entanglesphere is retired (2026-09-19) — the pick's sphere at range is no tier's shape; the quantum tiers are on T");
                     break;
 
-                // The chunk bite, the default from 2026-09-03 until the cube replaced it on
-                // 2026-09-14: the arm every recorded bite figure was taken in, and the one that
-                // excavates a test mine in seconds. A play bind's arm, so not profile-only.
+                // The quantum excavator selected at open — the chunk bite, the default from
+                // 2026-09-03 until the cube replaced it on 2026-09-14: the arm every recorded bite
+                // figure was taken in, and the one that excavates a test mine in seconds. A play
+                // bind's arm, so not profile-only.
                 case "entanglechunk":
-                    _entangledBite = EntangledBite.Chunk;
+                    _tierAtOpen = QuantumExcavatorId;
                     break;
 
                 // The chunk bite's rate, as a seam rather than a constant, for the reason
@@ -1789,6 +1783,7 @@ public partial class Main : Node3D
                 case "chunkcooldown" when float.TryParse(value, out float chunkCooldown)
                                           && chunkCooldown > 0.0f:
                     _chunkCooldownSeconds = chunkCooldown;
+                    _chunkCooldownSwept = true;
                     break;
 
                 // The cube bite's rate, for the same reason and the same way — since M10c-3 a
@@ -1798,14 +1793,6 @@ public partial class Main : Node3D
                                          && cubeCooldown > 0.0f:
                     _cubeCooldownSeconds = cubeCooldown;
                     _cubeCooldownSwept = true;
-                    break;
-
-                // How long Q is down before it is a hold rather than a tap (0.25 s, an estimate).
-                // A tap toggles on release, so this is also the toggle's latency; zero makes
-                // every press a hold and leaves the mouse mode unreachable from the key. Not
-                // profile-only, for --cubecooldown's reason: Q is a play bind.
-                case "holdafter" when double.TryParse(value, out double holdAfter) && holdAfter >= 0.0:
-                    _quantumKey.HoldSeconds = holdAfter;
                     break;
 
                 // The fall profile. M2d measured a viewer flying horizontally at a constant
@@ -2157,8 +2144,7 @@ public partial class Main : Node3D
             return;
         }
 
-        // Q is not here: it is polled in UpdateQuantumKey, because a tap and a hold share it and
-        // a toggle on the key-down edge would flip the mouse mode on every hold's way in.
+        // Q is not here: it is a hold, polled in UpdateQuantumKey beside P, R and L.
 
         if (key.Keycode == Key.B)
         {
@@ -2660,12 +2646,7 @@ public partial class Main : Node3D
         if (_mining is null || _tiers.Count == 0) return;
 
         int current = _tiers.IndexOf(_mining.Tool);
-        ToolDefinition next = _tiers[(current + 1) % _tiers.Count];
-
-        _mining.Tool = next;
-        GD.Print(
-            $"M3d: {next.Id} — radius {next.RadiusMetres:F2} m, " +
-            $"takes hardness <= {next.HardnessThreshold:F1}");
+        ApplyTier(_tiers[(current + 1) % _tiers.Count], announce: true);
     }
 
     private void CycleMaterial()
@@ -2680,103 +2661,91 @@ public partial class Main : Node3D
               + $"({_inventory.Litres(materialId):F0} L held)");
     }
 
-    /// <summary>Q, polled: a tap toggles the mode, a hold runs the miner.</summary>
+    /// <summary>Q, polled: held, the tier in hand runs — a swing at the crosshair every cooldown, no click.</summary>
     /// <remarks>
     /// <para>
-    /// <b>The key is fed every frame and acted on only while the mouse is captured.</b> Feeding
-    /// it always keeps the helper's press/release honest across a capture change; acting only
-    /// while captured is what stops a hold from eating the world behind a panel or an Esc, and
-    /// covers the panel case — a Control with the keyboard would swallow the event but not the
-    /// poll. A tap that completes uncaptured is dropped, which is nothing anyone will miss.
+    /// <i>"holding q is supposed to enable automine"</i> (Matthew, 2026-09-19), and it was a
+    /// tap-or-hold for a few hours — tapped the mode, held the run — until the mode became the
+    /// tiers the same day and the tap had nothing left to mean. A plain hold now, starting on
+    /// the press; <see cref="TapOrHold"/> waits for E (M10g).
     /// </para>
     /// <para>
-    /// The hold is <see cref="MiningController.Running"/>, read by <c>UpdateMining</c> as a swing
-    /// every frame the cooldown allows — the profile's own <c>mining = true</c> path, with Alt
-    /// as precision the way it is for a click. A profile run refuses both meanings, for the
-    /// reason the toggle already did.
+    /// <b>Acted on only while the mouse is captured</b>, which stops a hold from eating the
+    /// world behind a panel or an Esc and covers the panel case — a Control with the keyboard
+    /// would swallow the event but not the poll. The hold is
+    /// <see cref="MiningController.Running"/>, read by <c>UpdateMining</c> as a swing every frame
+    /// the cooldown allows — the profile's own <c>mining = true</c> path, with Alt as precision
+    /// the way it is for a click. A profile run refuses it unless <c>--holdq</c> asked.
     /// </para>
     /// </remarks>
-    private void UpdateQuantumKey(double delta)
+    private void UpdateQuantumKey()
     {
         if (_mining is null || _camera is null)
         {
             return;
         }
 
-        bool tapped = _quantumKey.Update(_holdQ || Input.IsKeyPressed(Key.Q), delta);
-
-        if (!_camera.MouseCaptured || (_profiler is not null && !_holdQ))
-        {
-            _mining.Running = false;
-            return;
-        }
-
-        if (tapped)
-        {
-            ToggleEntangledMiner();
-        }
-
-        _mining.Running = _quantumKey.Holding;
+        bool held = _holdQ || Input.IsKeyPressed(Key.Q);
+        _mining.Running = held && _camera.MouseCaptured && (_profiler is null || _holdQ);
     }
 
-    private void ToggleEntangledMiner()
+    /// <summary>Puts a tier in hand — both verbs at once, because the fill is the bite's twin at every scale.</summary>
+    /// <remarks>
+    /// One tier, both verbs (the rule the Q toggle had since 2026-09-03): a tier that could bite
+    /// at range but not fill at range would be half a tool, and the missing half is the one
+    /// that puts back what the other took. The fill's rate is the bite's, swept by the same
+    /// flag; its price a voxel is the tool's; only the excavator fills chunks.
+    /// </remarks>
+    private void ApplyTier(ToolDefinition tier, bool announce)
     {
         if (_mining is null)
         {
             return;
         }
 
-        if (_profiler is not null)
-        {
-            GD.Print("M5d: the entangled miner is unavailable during a profile run.");
-            return;
-        }
+        _mining.Tool = tier;
 
-        _mining.Entangled = !_mining.Entangled;
-
-        // One mode, both verbs. Q is a single toggle, so a player who could bite at range but
-        // not fill at range would have half a tool — and the half they were missing is the one
-        // that puts back what the other half took.
         if (_place is not null)
         {
-            _place.Entangled = _mining.Entangled;
+            _place.Entangled = tier.AtRange;
+            _place.EntangledFillsChunk = tier.Bite == ToolBite.Chunk;
+            _place.BrushCooldownSeconds = tier.Bite == ToolBite.Cube
+                ? _mining.BareCooldownSeconds
+                : MiningController.EntangledCooldownSeconds;
+            _place.ChunkCooldownSeconds = tier.Bite == ToolBite.Chunk
+                ? _mining.BareCooldownSeconds
+                : MiningController.DefaultEntangledChunkCooldownSeconds;
+            _place.EntangledMillijoulesPerVoxel = tier.Power?.MillijoulesPerVoxel ?? 0;
         }
 
-        if (!_mining.Entangled)
+        if (!announce)
         {
-            GD.Print("M5d: entangled miner OFF — reach back to "
-                + $"{_player?.ReachMetres ?? PlayerController.DefaultReachMetres:F1} m");
             return;
         }
 
-        // Says the bite out loud, because it is the one thing about this mode a player cannot
-        // see until they have already removed eight metres of world. The hardness clause is
-        // still printed: it is the half of the old rule that did not change, and the half that
-        // makes a bedrock floor survive being pointed at.
-        GD.Print(_mining.Bite switch
+        GD.Print(tier.Bite switch
         {
-            EntangledBite.Chunk =>
-                "M5d: entangled miner ON — reach unlimited (bounded by the loaded world), "
-                + $"{1.0f / _mining.EntangledChunkCooldownSeconds:F1} swings/s, "
+            ToolBite.Chunk =>
+                $"M3d: {tier.Id} — reach unlimited (bounded by the loaded world), "
+                + $"{1.0f / _mining.BareCooldownSeconds:F1} bites/s, one click one chunk, "
                 + $"and each one takes the WHOLE {VoxelConstants.ChunkSizeMetres:F0} m chunk "
-                + $"({VoxelConstants.ChunkVolume:N0} voxels) — still {_mining.Tool.Id.Path}'s "
-                + "hardness gate, so it leaves what the tier cannot take. Alt still chips one voxel."
+                + $"({VoxelConstants.ChunkVolume:N0} voxels) at hardness <= {tier.HardnessThreshold:F1}, "
+                + $"{tier.Power?.JoulesPerVoxel ?? 0:N0} J a voxel from the pack. Alt chips one voxel; hold Q to run."
                 + "\n      Right mouse FILLS the whole chunk in front of the crosshair, at the same "
                 + "rate — only air is replaceable, so it fills holes and never overwrites rock.",
-            EntangledBite.Cube =>
-                "M5d: entangled miner ON — reach unlimited (bounded by the loaded world), "
-                + "one click one cell (hold Q to run it, at most " + $"{1.0f / _mining.EntangledCubeCooldownSeconds:F0}/s), "
+            ToolBite.Cube =>
+                $"M3d: {tier.Id} — reach unlimited (bounded by the loaded world), "
+                + $"{1.0f / _mining.BareCooldownSeconds:F0} bites/s, one click one cell, "
                 + $"and each one takes a {Carve.CubeVoxels * VoxelConstants.VoxelSize:F0} m cube "
-                + $"on the brush's {Carve.CubeVoxels * VoxelConstants.VoxelSize:F0} m lattice "
-                + $"({Carve.CubeVoxels * Carve.CubeVoxels * Carve.CubeVoxels:N0} voxels) — still "
-                + $"{_mining.Tool.Id.Path}'s hardness gate, so it leaves what the tier cannot take. "
-                + "Alt still chips one voxel."
+                + $"on the brush's lattice ({Carve.CubeVoxels * Carve.CubeVoxels * Carve.CubeVoxels:N0} voxels) "
+                + $"at hardness <= {tier.HardnessThreshold:F1}, {tier.Power?.JoulesPerVoxel ?? 0:N0} J a voxel from the pack. "
+                + "Alt chips one voxel; hold Q to run."
                 + "\n      Right mouse places the brush (B) on the same lattice, one click one cell, "
-                + "and reach — only air is replaceable, so it fills holes and never overwrites rock.",
+                + "at reach — only air is replaceable, so it fills holes and never overwrites rock.",
             _ =>
-                "M5d: entangled miner ON — reach unlimited (bounded by the loaded world), "
-                + $"{1.0f / MiningController.EntangledCooldownSeconds:F0} swings/s, "
-                + $"still {_mining.Tool.Id.Path}'s bite and hardness gate",
+                $"M3d: {tier.Id} — radius {tier.RadiusMetres:F2} m, "
+                + $"takes hardness <= {tier.HardnessThreshold:F1}, "
+                + $"reach {_player?.ReachMetres ?? PlayerController.DefaultReachMetres:F1} m, free",
         });
     }
 
@@ -2916,7 +2885,7 @@ public partial class Main : Node3D
             _flyingEye = new System.Numerics.Vector3(eye.X, eye.Y, eye.Z);
         }
 
-        UpdateQuantumKey(delta);
+        UpdateQuantumKey();
         UpdateMining(delta);
         UpdatePlacement(delta);
         UpdatePanel(delta);
@@ -4039,20 +4008,12 @@ public partial class Main : Node3D
     /// </remarks>
     private void SetUpMining()
     {
-        // M10c-3, decision 5: the entangled miner is a tool now, loaded by ID and kept off the
-        // T cycle — on it, its threshold would make it the strongest tier and the default pick,
-        // and the gate would then gate the hand.
-        Identifier minerId = Identifier.Parse(EntangledMinerId);
-        foreach ((_, Identifier id, ToolDefinition tier) in Content.Tools.Entries())
-        {
-            if (id == minerId)
-            {
-                _entangledTool = tier;
-                continue;
-            }
-
-            _tiers.Add(tier);
-        }
+        // Every tool is on the T cycle since 2026-09-19, the quantum tiers included, in Core's
+        // order (weakest first, smallest bite among equals). The default is Core's too — the
+        // strongest *free* tool, so a fresh world's first swing takes stone and does not cost
+        // from an empty pack, which is the case M10c-3's decision 5 kept the costing tool off
+        // the cycle to avoid. --entangle / --entanglechunk select a quantum tier at open by ID.
+        _tiers.AddRange(ToolTiers.Order(Content.Tools.Entries().Select(e => e.Value)));
 
         if (_tiers.Count == 0)
         {
@@ -4060,20 +4021,23 @@ public partial class Main : Node3D
             return;
         }
 
-        // The strongest tier by default. Starting on the weakest would be a truer tutorial,
-        // but the first swing at stone would then do nothing and read as a broken build.
-        ToolDefinition strongest = _tiers[0];
-        foreach (ToolDefinition tier in _tiers)
+        ToolDefinition start = ToolTiers.Default(_tiers);
+        if (_tierAtOpen is { } wanted)
         {
-            if (tier.HardnessThreshold > strongest.HardnessThreshold)
+            ToolDefinition? selected = _tiers.FirstOrDefault(t => t.Id.ToString() == wanted);
+            if (selected is null)
             {
-                strongest = tier;
+                GD.Print($"M10: no {wanted} in this content, so the run stays on {start.Id}");
+            }
+            else
+            {
+                start = selected;
             }
         }
 
         // Reach comes from the player, who owns it as of M4c. Nothing here has a default to
         // fall back on, which is the point — MiningController.ReachMetres is `required`.
-        _mining = new MiningController(_pipeline!, _materials!, strongest)
+        _mining = new MiningController(_pipeline!, _materials!, start)
         {
             Inventory = _inventory,
 
@@ -4082,18 +4046,16 @@ public partial class Main : Node3D
             Bodies = _machines,
             ReachMetres = _player?.ReachMetres ?? PlayerController.DefaultReachMetres,
 
-            // Set here rather than in the profile block, because Q is a play bind: a rate that
+            // Set here rather than in the profile block, because T is a play bind: a rate that
             // only reached a profile run would be a sweep seam for the one arm that cannot
-            // judge it. The cube's rate is the miner's file's since M10c-3, the flag its sweep.
-            EntangledChunkCooldownSeconds = _chunkCooldownSeconds,
-            EntangledCubeCooldownSeconds = _cubeCooldownSwept || _entangledTool is null ? _cubeCooldownSeconds : _entangledTool.CooldownSeconds,
+            // judge it. The rates are the tools' files'; the flags are their sweeps.
+            ChunkCooldownSweepSeconds = _chunkCooldownSwept ? _chunkCooldownSeconds : null,
+            CubeCooldownSweepSeconds = _cubeCooldownSwept ? _cubeCooldownSeconds : null,
 
-            // M10c-3: the tool Q swings and the gate's miner half. The pack is handed over in
-            // SetUpPack, once the HUD exists to show it.
-            EntangledTool = _entangledTool,
+            // M10c-3: the gate's miner half. The pack is handed over in SetUpPack, once the HUD
+            // exists to show it.
             PowerOff = _noGate,
         };
-        _cubeCooldownSeconds = _mining.EntangledCubeCooldownSeconds;
 
         _highlight = new VoxelHighlight(GetWorld3D());
 
@@ -4103,32 +4065,24 @@ public partial class Main : Node3D
             names.Add($"{i + 1}:{_tiers[i].Id.Path}");
         }
 
-        _mining.Entangled = _entangleWhileProfiling;
-        _mining.Bite = _entangledBite;
+        GD.Print($"M3d: mining with {start.Id} — tiers {string.Join(", ", names)}; T cycles them, Q held runs the one in hand");
 
-        GD.Print($"M3d: mining with {strongest.Id} — tiers {string.Join(", ", names)}");
-
-        if (_entangledTool is null)
+        foreach (ToolDefinition tier in _tiers.Where(t => t.AtRange))
         {
-            GD.Print($"M10: no {EntangledMinerId} in this content, so Q swings the tier and is free");
-        }
-        else if (_noGate)
-        {
-            GD.Print($"M10: Q swings {_entangledTool.Id} (takes hardness <= {_entangledTool.HardnessThreshold:F1}, {_cubeCooldownSeconds:F2} s a cube) — free under --nogate");
-        }
-        else
-        {
+            ToolDefinition was = _mining.Tool;
+            _mining.Tool = tier;
+            float rate = _mining.BareCooldownSeconds;
+            _mining.Tool = was;
+            bool swept = tier.Bite == ToolBite.Chunk ? _chunkCooldownSwept : _cubeCooldownSwept;
             GD.Print(
-                $"M10: Q swings {_entangledTool.Id} — takes hardness <= {_entangledTool.HardnessThreshold:F1}, "
-                + $"{_cubeCooldownSeconds:F2} s a cube{(_cubeCooldownSwept ? " (--cubecooldown)" : string.Empty)}, "
-                + (_entangledTool.Power is { } power
-                    ? $"{power.JoulesPerVoxel:N0} J a voxel via {power.Via} from the equipped pack (the gate; --nogate frees it)"
-                    : "free (the file declares no power)"));
+                $"M10: {tier.Id} — {tier.Bite.ToString().ToLowerInvariant()} at range, takes hardness <= {tier.HardnessThreshold:F1}, "
+                + $"{rate:F2} s a bite{(swept ? " (swept)" : string.Empty)}, "
+                + (_noGate
+                    ? "free under --nogate"
+                    : tier.Power is { } power
+                        ? $"{power.JoulesPerVoxel:N0} J a voxel via {power.Via} from the equipped pack (the gate; --nogate frees it)"
+                        : "free (the file declares no power)"));
         }
-
-        GD.Print(
-            $"M10: Q tapped puts the quantum miner on the mouse; held past {_quantumKey.HoldSeconds:F2} s it runs "
-            + "(a cube a cooldown at the crosshair, one voxel with Alt; --holdafter= moves the threshold)");
     }
 
     /// <summary>
@@ -4156,22 +4110,13 @@ public partial class Main : Node3D
             // The player's reach, the same number mining uses. A brush is not a tool and does not
             // get to reach further than an arm — M3d's decision, restated at M4c.
             ReachMetres = _player.ReachMetres,
-            // Both halves of the mode move together, so an --entanglesphere A/B compares one tool
-            // against one tool rather than a chunk bite against a brush fill. Set here rather than
-            // beside the miner's own assignment because this controller is built after it, and a
-            // --entangle profile that armed the bite but not the fill would be an arm nobody asked
-            // for — the M5c-2 hole one layer out, in a seam rather than in the logic. Under the
-            // cube bite (2026-09-14, "make it all the same 4x4x4") the fill is the brush at range
-            // on the same lattice, at the cube's rate; only the chunk arm fills chunks.
-            Entangled = _entangleWhileProfiling,
-            EntangledFillsChunk = _entangledBite == EntangledBite.Chunk,
+            // The tier's half of the fill — at range or not, chunk or brush, the rate, the price
+            // — is set by ApplyTier below, once for the tier in hand and again on every T, so
+            // a --entangle profile that armed the bite but not the fill cannot exist: the M5c-2
+            // hole one layer out, in a seam rather than in the logic.
             // M9d: a chunk fill waits for the fluid boundary where there is one — see the
             // controller's remarks; the brush stays instant. --nowater has no boundary.
             DeferChunkFills = !_noWater,
-            BrushCooldownSeconds = _entangledBite == EntangledBite.Cube
-                ? _cubeCooldownSeconds
-                : MiningController.EntangledCooldownSeconds,
-            ChunkCooldownSeconds = _chunkCooldownSeconds,
             // M10a-2: a machine material places as one cell with a row; wet, it waits for the
             // boundary and displaces through the simulation. Null water under --nowater.
             Machines = _machines,
@@ -4179,8 +4124,12 @@ public partial class Main : Node3D
             // M10c-3: the fill at range pays the bite's price from the same pack, all or nothing
             // on the shape's cost; the pack itself is handed over in SetUpPack.
             PowerOff = _noGate,
-            EntangledMillijoulesPerVoxel = _entangledTool?.Power?.MillijoulesPerVoxel ?? 0,
         };
+
+        if (_mining is not null)
+        {
+            ApplyTier(_mining.Tool, announce: false);
+        }
 
         // A second outline, a metre across and in a different colour, because the brush lands on
         // the lattice rather than on the voxel under the crosshair. Without it the snap reads as
@@ -4379,7 +4328,7 @@ public partial class Main : Node3D
             if (!_printedGateNoPack)
             {
                 _printedGateNoPack = true;
-                GD.Print($"M10: gate — swung {_mining.SwungTool.Id.Path} with no pack equipped: took nothing ({last}); P seeds a pack, right-click with it in hand equips it");
+                GD.Print($"M10: gate — swung {_mining.Tool.Id.Path} with no pack equipped: took nothing ({last}); P seeds a pack, right-click with it in hand equips it");
             }
 
             return;
@@ -4446,7 +4395,7 @@ public partial class Main : Node3D
             // costs no swing — the cast returns Missed or Blocked and the button does nothing —
             // so the run measures fewer swings that each reach much further, which is exactly
             // the claim being checked.
-            forward = _mining.Entangled ? forward : Vector3.Down;
+            forward = _mining.AtRange ? forward : Vector3.Down;
             mining = true;
 
             // Spheres, always, and stated rather than left to fall out of "no key is held".
@@ -6526,7 +6475,7 @@ public partial class Main : Node3D
             // A gate that never fired is not a gate that passed. VoxelsRefused' own remarks say
             // so; until now the report did not.
             (_mining.VoxelsRefused == 0
-                ? $" — the hardness gate never fired, so {_mining.SwungTool.Id.Path} took everything "
+                ? $" — the hardness gate never fired, so {_mining.Tool.Id.Path} took everything "
                   + "it was pointed at and the mechanic is untested by this run\n"
                 : "\n") +
             $"remesh    {_pipeline!.EditRemeshes / swings:F1} chunks per swing, " +

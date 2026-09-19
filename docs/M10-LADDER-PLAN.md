@@ -2408,6 +2408,30 @@ amendment) — and recharges at 125 J a boundary, a cube every 12.8 s on any cha
 cell, four hours to full; a swap is a full pack thrown away, said on the HUD before the click.
 The seven-question recipe is in TODO.
 
+**Amended 2026-09-19 — the quantum tiers are content on T, and decision 5's "off the cycle" is
+reversed.** Matthew, after the modifier map was read back and Q held became automine: *"i want
+quantum (small scale) and quantum (large scale) to be tiers like in hand/steel … the automine
+function and left click and right click to operate on the tier selected"*. Small is the cube,
+large is the chunk, his IDs `quantum_miner` and `quantum_excavator`. **What decision 5 had
+wrong**: it kept the one costing tool off the cycle because the default was *the strongest tool*
+and a 5.0 threshold would have been a fresh world's first pick; the rule that was missing is
+that the default is *the strongest free tool*, and with it in Core (`ToolTiers.Default`, asserted
+against the shipped content) a costing tier can sit on the cycle. **Built the same day**:
+`ToolDefinition.Bite` — `"bite": sphere | cube | chunk`, absent the sphere, refused naming the
+file otherwise — with the reach following the bite (a cube only exists at range, so the file says
+*which* reach and never how far: *reach is the player's* holds a third time, and the cost is that
+a mod cannot write a cube at arm's length); `ToolTiers.Order` (threshold, bite, id) so the cycle
+reads hand → steel → miner → excavator without a `tier` number in the format; `MiningController`
+loses `Entangled`, `Bite`, `EntangledTool` and `SwungTool` — the swing is the tool in hand's
+shape, reach, price and threshold, `Running` the only flag left; `PlaceController` keeps its own
+`TakesCube` and `Main.ApplyTier` sets the fill's half from the tier on every `T`; the Q toggle,
+`EntangledBite` and `--entanglesphere` go, `--entangle` / `--entanglechunk` select a tier at
+open, `--chunkcooldown=` / `--cubecooldown=` sweep the two files. One price a voxel on both: **the
+tier is the shape and the voxel is the price**, so the excavator is 1.64 MJ a chunk — two chunks
+a lead-acid pack — and *"only once you have the latest tier battery will it be as effective as it
+is now"* is M10i's number. Six recipes on the rules and the loader, six caught; the bite-that-stops
+oracle reads to the digit under `--entangle`; suite 1,627 → 1,638.
+
 ## The inventory screen — folded into M10g (2026-09-18)
 
 > Matthew, the morning after M10c's first play: *"when do we do player inventory, do I have that

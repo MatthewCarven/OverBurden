@@ -59,21 +59,6 @@ public sealed class MiningController(
     /// </remarks>
     public Overburden.Core.Machines.IMachineBodies? Bodies { get; set; }
 
-    /// <summary>
-    /// The tool Q swings (M10c-3, decision 5): <c>overburden:entangled_miner</c>, loaded by ID
-    /// and off the T cycle, with the threshold that takes anything and the <c>power</c> block
-    /// the gate reads. Null when a mod has removed it, and then Q swings the tier and is free —
-    /// the fall-back Main prints.
-    /// </summary>
-    /// <remarks>
-    /// <b>This reverses <i>entanglement never changes what the bite is hard enough to take</i></b>
-    /// (M3d, restated at M5d and on 2026-09-03). <c>Carve.Take</c> is still the only gate in the
-    /// game; the threshold it reads while Q is on is this tool's rather than the tier's, so Q
-    /// reclaims a machine body at range exactly as a pick does (the ladder's rule, which was not
-    /// true under a hand pick). What makes Q <em>earned</em> is the pack, which is the brief.
-    /// </remarks>
-    public ToolDefinition? EntangledTool { get; set; }
-
     /// <summary>The pack the tool draws on, or null with none equipped — Main's, handed in.</summary>
     public EquippedPack? Pack { get; set; }
 
@@ -83,11 +68,8 @@ public sealed class MiningController(
     /// </summary>
     public bool PowerOff { get; set; }
 
-    /// <summary>The tool a swing uses now: the entangled tool while the quantum miner is up and it exists, the tier otherwise.</summary>
-    public ToolDefinition SwungTool => Quantum && EntangledTool is not null ? EntangledTool : Tool;
-
     /// <summary>Millijoules one removed voxel costs with the tool in hand, or zero while free.</summary>
-    public long MillijoulesPerVoxel => PowerOff ? 0 : SwungTool.Power?.MillijoulesPerVoxel ?? 0;
+    public long MillijoulesPerVoxel => PowerOff ? 0 : Tool.Power?.MillijoulesPerVoxel ?? 0;
 
     /// <summary>Whether the next swing would take nothing for want of a pack: a costing tool, the gate on, nothing equipped.</summary>
     public bool NeedsAPack => MillijoulesPerVoxel > 0 && Pack is null;
@@ -122,119 +104,69 @@ public sealed class MiningController(
     public required float ReachMetres { get; init; }
 
     /// <summary>
-    /// The entangled miner: unlimited reach and a fixed rate, on a debug bind.
+    /// The quantum tiers: the tool in hand carries its bite, and the reach follows the bite.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>An endgame tool sketched as a debug mode, and the distinction is deliberate.</b> The
-    /// fiction is that entanglement is not distance-sensitive, so the arm stops being what
-    /// limits the bite. That is a direct reversal of a decision locked twice — <b>reach is the
-    /// player's, not the tool's</b> (M3d, restated at M4c) — and the reversal is *correct* for
-    /// this one tool, because its whole concept is that the reach is a property of the
-    /// mechanism rather than of the body holding it.
+    /// <b>The mode is gone (2026-09-19).</b> From M5d-2 to that day the entangled miner was a
+    /// mode on the controller — Q toggled it, and from M10c-3 the mode swung a tool of its own
+    /// loaded by ID and kept off the T cycle. Matthew: <i>"i want quantum (small scale) and
+    /// quantum (large scale) to be tiers like in hand/steel … left click and right click to
+    /// operate at the scale"</i>. So the quantum miner (the cube) and the quantum excavator (the
+    /// chunk) are tools on the cycle, <see cref="ToolDefinition.Bite"/> is where the shape
+    /// lives, and this controller has no flag of its own left: the swing is the tool's shape at
+    /// the tool's reach, paying the tool's price, gated by the tool's threshold.
     /// </para>
     /// <para>
-    /// So there is no <c>reachMetres</c> in the tool JSON. Once a field like that exists, every
-    /// mod writes against it and the locked decision is gone for every tool rather than for this
-    /// one. This is a mode on the controller, on Q — and <b>since M10c-3 the mode swings a tool
-    /// of its own</b>, <see cref="EntangledTool"/>, which carries what the pass needed a file
-    /// for (a threshold, a cooldown, a price a voxel) and still no reach: the reach stays the
-    /// mode's constant and the world's edge.
+    /// <b>Still no <c>reachMetres</c> in the tool JSON.</b> <i>Reach is the player's, not the
+    /// tool's</i> is locked twice (M3d, M4c); the bite says <em>which</em> reach — the arm, or
+    /// the loaded world's edge (<see cref="EntangledReachMetres"/>) — and never how far, because
+    /// a cube or a chunk only exists on the brush lattice at range. <see cref="Carve"/>'s gate
+    /// is still the only gate in the game, reading the tool in hand's threshold and the pack's
+    /// budget; what makes the quantum tiers <em>earned</em> is the pack.
     /// </para>
     /// <para>
-    /// <b>It used to compose with the number keys entirely — "how far and how fast, never how
-    /// big a bite or what the bite is hard enough to take". Both halves are now false</b>: see
-    /// <see cref="Bite"/>, which makes the bite a 1 m cube or a whole chunk, and
-    /// <see cref="EntangledTool"/>, whose threshold is what Q takes with. <see cref="Carve"/>'s
-    /// gate is still the only gate in the game; what it reads while Q is on is that tool's
-    /// threshold and the pack's budget rather than the tier's, and what makes Q earned is the
-    /// pack.
+    /// The fiction the chunk bite was written with, kept because the cube inherits it: salvage
+    /// from a humanity that did not make it — superconducting coils, a quantum-vacuum tap for
+    /// power, a mass measured in tons — indexing matter by the lattice the world's storage is
+    /// chunked on because that is the granularity its entanglement register addresses. It does
+    /// not take a bite the size of its head; it resolves a cell of the lattice. <b>And no
+    /// weight</b>, recorded so nobody adds it as an obvious oversight: a chunk of rock is 512,000
+    /// litres and there is no carry limit — a player who cannot carry it walks back and forth,
+    /// which is patience taxed and called difficulty. Revisit trigger: a survival mode.
     /// </para>
     /// </remarks>
-    public bool Entangled { get; set; }
+    public ToolBite Bite => Tool.Bite;
+
+    /// <summary>Whether the tool in hand reaches to the loaded world's edge — the quantum tiers.</summary>
+    public bool AtRange => Tool.AtRange;
 
     /// <summary>
-    /// Whether Q is held — the quantum miner <em>running</em>: a bite at the crosshair every
-    /// cooldown with no click, whatever the mouse is doing.
+    /// Whether Q is held — the tier <em>running</em>: a swing at the crosshair every cooldown
+    /// with no click.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Q tapped puts the quantum miner on the mouse; Q held runs it</b> (Matthew, 2026-09-19:
-    /// <i>"holding q is supposed to enable automine"</i>). The two are independent on purpose:
-    /// a hold from the pick swings the entangled tool at its reach and its cube and hands the
-    /// pick back on release, so the hillside run is hold-Q with no mode change, and the toggle
-    /// is only about what a click does. <see cref="Quantum"/> is the one both read.
-    /// </para>
-    /// <para>
-    /// Set by <c>Main</c> from a <see cref="TapOrHold"/> on the key every frame, the way
-    /// <c>precise</c> arrives as an argument: held-key state belongs to the binding, and this is
-    /// stored only because reach, tool and shape are read from properties rather than passed.
-    /// This is also what replaced Alt's held repeat on the cube arm — the one way to stream is
-    /// the hold, and Alt means precision and nothing else.
-    /// </para>
+    /// <i>"holding q is supposed to enable automine"</i> (Matthew, 2026-09-19). One rule on
+    /// every tier: on a pick it is the button held, on a quantum tier it is the run — the only
+    /// way to stream on the tiers whose click is one click. Set by <c>Main</c> from the key each
+    /// frame, the way <c>precise</c> arrives as an argument: held-key state belongs to the
+    /// binding. This is also what replaced Alt's held repeat on the cube arm the same day, so
+    /// Alt means precision and nothing else.
     /// </remarks>
     public bool Running { get; set; }
 
-    /// <summary>The quantum miner is up — on the mouse or running — and the swing is its tool, reach and shape.</summary>
-    public bool Quantum => Entangled || Running;
-
-    /// <summary>
-    /// What a bare entangled swing takes: the brush cell's 1 m cube by default, the whole chunk or the tier's
-    /// sphere as arms. The remarks are the chunk bite's, kept because the cube inherits them.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>The fiction earns the mechanic rather than decorating it.</b> This is salvage from a
-    /// humanity that did not make it: superconducting coils, a quantum-vacuum tap for power, and
-    /// a mass measured in tons — a machine nobody would build to dig a tunnel, indexing matter
-    /// by the same lattice the world's storage is chunked on because that is the granularity its
-    /// entanglement register addresses. It does not take a bite the size of its head; it
-    /// resolves a cell of the lattice, and the cell is 8 m on a side.
-    /// </para>
-    /// <para>
-    /// <b>And it stays a debug bind, which is what the fiction buys.</b> A tool that removes 512
-    /// cubic metres a press is not balanceable against a <c>hand_pick</c> and is not trying to
-    /// be. What it is for is the same thing Q has always been for — excavating a test volume
-    /// large enough to judge something by eye — and <b>M8 needs a bigger one than M5d did</b>: a
-    /// mine worth flooding is tens of thousands of cubic metres, and the sphere digs a corridor.
-    /// </para>
-    /// <para>
-    /// <b>Explicitly not implemented, and recorded so nobody adds it as an obvious oversight:
-    /// weight.</b> A chunk of rock is 512,000 litres and there is no carry limit, no
-    /// encumbrance, and no penalty for holding it. Being over-encumbered has never been fun in
-    /// any game that has had it, and the real-world response to a haulage limit is to go and get
-    /// a bigger container — a player who cannot will simply walk back and forth, which is
-    /// patience taxed and called difficulty. <b>Revisit trigger: a survival mode</b>, which is
-    /// already the recorded trigger for shortening reach, and the two would be settled together.
-    /// </para>
-    /// <para>
-    /// <c>--entanglesphere</c> restores the sphere, which is the A/B arm the cost of the chunk was
-    /// measured against.
-    /// </para>
-    /// <para>
-    /// <b>Superseded as the default on 2026-09-14 by the cube</b> — <i>"match the 4x4x4 grid
-    /// on the right click function"</i> — and kept as an arm: the chunk bite is what excavates a test mine in
-    /// seconds and what every recorded bite figure was taken with. <c>--entanglechunk</c> restores
-    /// it; the fiction above is the cube's too, one lattice level down.
-    /// </para>
-    /// </remarks>
-    public EntangledBite Bite { get; set; } = EntangledBite.Cube;
-
     /// <summary>Whether the next ordinary swing would take a whole chunk.</summary>
     /// <remarks>
-    /// Exposed so the highlight can outline the cube rather than re-deriving the rule from
-    /// two flags. A chunk boundary is invisible in the world, so an outline of one voxel in
-    /// front of an 8 m bite is not a small inaccuracy — it is the player being shown the wrong
-    /// object. <b>Precision is not folded in here</b> because it is a per-frame held key rather
-    /// than controller state, and the caller that knows about the key is the caller that draws.
-    /// <b>The hold is</b>: while Q is held from the pick the swing is the cube, and the outline
-    /// has to say so — <c>PlaceController</c> keeps its own <c>TakesCube</c> for the fill, which
-    /// the hold does not touch.
+    /// Exposed so the highlight can outline the cube rather than re-deriving the rule. A chunk
+    /// boundary is invisible in the world, so an outline of one voxel in front of an 8 m bite is
+    /// not a small inaccuracy — it is the player being shown the wrong object. <b>Precision is
+    /// not folded in here</b> because it is a per-frame held key rather than controller state,
+    /// and the caller that knows about the key is the caller that draws.
     /// </remarks>
-    public bool TakesWholeChunk => Quantum && Bite == EntangledBite.Chunk;
+    public bool TakesWholeChunk => Tool.Bite == ToolBite.Chunk;
 
     /// <summary>Whether the next ordinary swing would take the 1 m cube, for the same outline reason.</summary>
-    public bool TakesCube => Quantum && Bite == EntangledBite.Cube;
+    public bool TakesCube => Tool.Bite == ToolBite.Cube;
 
     /// <summary>
     /// The entangled reach. A backstop, not the real limit — the world is.
@@ -382,14 +314,14 @@ public sealed class MiningController(
     /// </remarks>
     public const float DefaultEntangledChunkCooldownSeconds = 0.25f;
 
-    /// <summary>The live value, so <c>--chunkcooldown=</c> can sweep it without a rebuild.</summary>
+    /// <summary><c>--chunkcooldown=</c>'s value, or null for the excavator's own <c>cooldownSeconds</c> — the sweep over the file's number.</summary>
     /// <remarks>
     /// A settable property rather than the constant, for the reason <c>rainfallScale</c> is one:
     /// this is a feel number the measurement can only bound, so the person judging it has to be
     /// able to move it. The constant stays as the shipped default and as the thing the doc
     /// comment above argues about.
     /// </remarks>
-    public float EntangledChunkCooldownSeconds { get; set; } = DefaultEntangledChunkCooldownSeconds;
+    public float? ChunkCooldownSweepSeconds { get; set; }
 
     /// <summary>Ten cube bites a second — Matthew's number, between the sphere's forty and the chunk's four.</summary>
     /// <remarks>
@@ -407,10 +339,18 @@ public sealed class MiningController(
     /// </remarks>
     public const float DefaultEntangledCubeCooldownSeconds = 0.1f;
 
-    /// <summary>The live value, so <c>--cubecooldown=</c> can sweep it without a rebuild.</summary>
-    public float EntangledCubeCooldownSeconds { get; set; } = DefaultEntangledCubeCooldownSeconds;
+    /// <summary><c>--cubecooldown=</c>'s value, or null for the miner's own <c>cooldownSeconds</c> — the sweep over the file's number.</summary>
+    public float? CubeCooldownSweepSeconds { get; set; }
 
-    private float EffectiveReachMetres => Quantum ? EntangledReachMetres : ReachMetres;
+    /// <summary>The cooldown a bare swing of the tool in hand pays: the file's, or the flag's where one swept it.</summary>
+    public float BareCooldownSeconds => Tool.Bite switch
+    {
+        ToolBite.Chunk => ChunkCooldownSweepSeconds ?? Tool.CooldownSeconds,
+        ToolBite.Cube => CubeCooldownSweepSeconds ?? Tool.CooldownSeconds,
+        _ => Tool.CooldownSeconds,
+    };
+
+    private float EffectiveReachMetres => Tool.AtRange ? EntangledReachMetres : ReachMetres;
 
     /// <summary>
     /// The cooldown for the shape actually swung, which is a rule change worth naming.
@@ -425,13 +365,8 @@ public sealed class MiningController(
     /// the case Matthew reported as load-bearing — fine work at range, the <c>L</c>+<c>Q</c>
     /// pairing, where the whole point is placing and picking single things far away.
     /// </remarks>
-    private float CooldownForShape(bool precise) => (Quantum, precise) switch
-    {
-        (true, false) when Bite == EntangledBite.Chunk => EntangledChunkCooldownSeconds,
-        (true, false) when Bite == EntangledBite.Cube => EntangledCubeCooldownSeconds,
-        (true, _) => EntangledCooldownSeconds,
-        _ => Tool.CooldownSeconds,
-    };
+    private float CooldownForShape(bool precise) =>
+        precise && Tool.AtRange ? EntangledCooldownSeconds : BareCooldownSeconds;
 
     /// <summary>Of <see cref="Swings"/>, how many were fired entangled.</summary>
     /// <remarks>
@@ -549,7 +484,7 @@ public sealed class MiningController(
         // whole shape while the tool is free or the gate is off, nothing with a costing tool and
         // no pack — and the pack pays for exactly what came away, after. The Alt chip is the
         // same path: one candidate, so a budget of one takes it and a budget of none refuses it.
-        ToolDefinition tool = SwungTool;
+        ToolDefinition tool = Tool;
         long cost = MillijoulesPerVoxel;
         int budget = cost == 0 ? int.MaxValue : Pack?.VoxelsAffordable(cost) ?? 0;
 
@@ -598,7 +533,7 @@ public sealed class MiningController(
             PreciseSwings++;
         }
 
-        if (Quantum)
+        if (Tool.AtRange)
         {
             EntangledSwings++;
         }
@@ -650,21 +585,4 @@ public sealed class MiningController(
     public int DebugPlacements { get; private set; }
 }
 
-/// <summary>What a bare entangled click takes: the tool's sphere, the brush cell's 1 m cube, or the 8 m chunk.</summary>
-/// <remarks>
-/// Three shapes and one gate. Whichever is chosen, <see cref="Carve"/>'s gate is still the only
-/// gate in the game — reading the entangled tool's threshold and the pack's budget since M10c-3
-/// (M5d-2's rule, its bite clause reversed on 2026-09-03 and its hardness clause on 2026-09-17).
-/// </remarks>
-public enum EntangledBite
-{
-    /// <summary>The tier's own sphere at range — <c>--entanglesphere</c>, the arm the others were priced against.</summary>
-    Sphere,
-
-    /// <summary>The brush cell — a 4-voxel cube on the 1 m brush lattice — the default since 2026-09-14.</summary>
-    Cube,
-
-    /// <summary>The whole 8 m chunk the ray hit — <c>--entanglechunk</c>, the default from 2026-09-03 to 2026-09-14.</summary>
-    Chunk,
-}
 

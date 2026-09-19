@@ -387,11 +387,11 @@ public sealed partial class Hud : CanvasLayer
                 : $"COMPUTER  (in hand)   ·   right-click a machine to open it, or nothing for the pack   ·   {tier}  (T)   ·   1-9 material, V cycle";
         }
 
-        // The gate with nothing to pay it (M10c-3): Q swings a costing tool and no pack is
+        // The gate with nothing to pay it (M10c-3): the tier in hand costs and no pack is
         // equipped, so a click swings and takes nothing — said before the click, not after.
-        if (mining is { Entangled: true, NeedsAPack: true })
+        if (mining is { NeedsAPack: true })
         {
-            return "Q TAKES NOTHING — no pack   ·   P seeds one, then pick it on the number row and right-click to equip it";
+            return $"{tier.ToUpperInvariant()} TAKES NOTHING — no pack   ·   P seeds one, then pick it on the number row and right-click to equip it";
         }
 
         // A machine material places as one body whatever the brush, so the brush is not what the
@@ -407,17 +407,19 @@ public sealed partial class Hud : CanvasLayer
         if (precise)
         {
             return mining?.Running == true
-                ? $"RUNNING  (Q held)   ·   ONE VOXEL  (Alt)   ·   {tier} gate  (T)"
+                ? $"RUNNING  (Q held)   ·   ONE VOXEL  (Alt)   ·   {tier}  (T)"
                 : $"ONE VOXEL  (Alt)   ·   {tier}  (T)   ·   1-9 material, V cycle";
         }
 
-        // The hold (2026-09-19): the miner is eating what the crosshair is on, no click, from
-        // whichever mode the key was held in — so the line says so before it says anything about
-        // clicks, which do nothing extra while it runs.
+        // The hold (2026-09-19): the tier in hand is eating what the crosshair is on, no click —
+        // so the line says so before it says anything about clicks, which do nothing extra
+        // while it runs.
         if (mining?.Running == true)
         {
-            string shape = mining.TakesWholeChunk ? "WHOLE CHUNK" : $"{BrushCell.SizeMetres:F0} M CELL";
-            return $"RUNNING  (Q held)   ·   {shape}   ·   {tier} gate  (T)   ·   Alt: one voxel";
+            string shape = mining.TakesWholeChunk ? "WHOLE CHUNK"
+                : mining.TakesCube ? $"{BrushCell.SizeMetres:F0} M CELL"
+                : "SPHERE";
+            return $"RUNNING  (Q held)   ·   {shape}   ·   {tier}  (T)   ·   Alt: one voxel";
         }
 
         // Same argument, one shape further along and with more riding on it: the outline has
@@ -429,7 +431,7 @@ public sealed partial class Hud : CanvasLayer
             // Both verbs named, because both changed scale at the same keypress and the fill is
             // the one a player would not guess. "dig / fill" rather than "mine / place": the
             // pairing is what makes the mode safe to use, since the bite now has an undo.
-            return $"WHOLE CHUNK  (Q)   ·   {tier} gate  (T)   ·   dig / fill   ·   Alt: one voxel   ·   hold Q: run";
+            return $"WHOLE CHUNK   ·   {tier}  (T)   ·   dig / fill at range   ·   Alt: one voxel   ·   hold Q: run";
         }
 
         // The cube bite (2026-09-14): the dig is one brush cell and the fill is the brush at
@@ -437,10 +439,10 @@ public sealed partial class Hud : CanvasLayer
         // changed that a player cannot see is the reach.
         if (mining?.TakesCube == true)
         {
-            return $"{BrushCell.SizeMetres:F0} M CELL  (Q)   ·   {tier} gate  (T)   ·   "
-                + $"dig cell / {brush} brush  (B)   ·   1-9 material   ·   Alt: one voxel   ·   hold Q: run";
+            return $"{BrushCell.SizeMetres:F0} M CELL   ·   {tier}  (T)   ·   "
+                + $"dig cell / {brush} brush  (B) at range   ·   1-9 material   ·   Alt: one voxel   ·   hold Q: run";
         }
 
-        return $"{brush} brush  (B)   ·   {tier}  (T)   ·   1-9 material, V cycle   ·   Alt: one voxel   ·   Q: tap mode / hold run";
+        return $"{brush} brush  (B)   ·   {tier}  (T)   ·   1-9 material, V cycle   ·   Alt: one voxel   ·   hold Q: run";
     }
 }

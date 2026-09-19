@@ -1,5 +1,48 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-19 (evening) — The quantum tiers are content on T: `quantum_miner`, `quantum_excavator`, a `bite` on the tool
+
+*"i want quantum (small scale) and quantum (large scale) to be tiers like in hand/steel etc and I
+want the left click/right click to operate at the scale … the automine function and left click
+and right click to operate on the tier selected"* — and then *"yes cube/chunk, quantum_miner and
+quantum_excavator, build it"*. The mode that Q toggled since M5d-2 (and that swung a tool of its
+own since M10c-3) is gone; the two shapes it had are two tools on the cycle.
+
+- **`"bite": sphere | cube | chunk` on the tool**, absent the sphere, an unknown value refused
+  naming the file. The reach follows the bite and is not a field — *reach is the player's, not
+  the tool's* is locked twice and holds a third time, because a cube or a chunk only exists on
+  the brush lattice at range; the file says which reach and never how far. Cost: a mod cannot
+  write a cube at arm's length; revisit trigger, the first that asks.
+- **The cycle's two rules moved into Core** (`ToolTiers`): order is (threshold, bite, id) so it
+  reads hand → steel → miner → excavator with no `tier` number in the format, and **the default
+  is the strongest *free* tool** — the rule M10c-3's decision 5 was missing when it kept the
+  costing tool off the cycle to stop it becoming a fresh world's first pick. `ShippedContentTests`
+  asserts the start is free, a sphere, and takes stone. Six recipes (the default strongest
+  regardless, the order ignoring the bite or reversed, an unknown bite loading as a sphere, the
+  bite parsed and not registered, a cube reaching the arm), six caught; suite 1,627 → 1,638.
+- **The controllers lost the mode.** `MiningController` has no `Entangled`, `Bite`,
+  `EntangledTool` or `SwungTool`: the swing is the tool in hand's shape at its reach, paying its
+  price, gated by its threshold, and `Running` is the one flag left. `PlaceController` keeps its
+  own `TakesCube`; `Main.ApplyTier` sets the fill's half — at range, chunk or brush, the rate, the
+  price a voxel — from the tier on every `T`, so a tier that could bite at range and not fill
+  there cannot exist. The Q toggle, `EntangledBite` and `--entanglesphere` are gone (the sphere
+  at range is no tier's shape; its figures are here); `--entangle` / `--entanglechunk` select a
+  tier at open and keep their names because every recipe carries them; `--chunkcooldown=` and
+  `--cubecooldown=` sweep the two files' numbers. Q is a plain hold from the press now — the tap
+  had nothing left to mean — and `TapOrHold` waits for E.
+- **One price a voxel on both, so the tier is the shape and the voxel is the price.** The
+  excavator is 1.64 MJ a chunk: two chunks a lead-acid pack, 0.25 s a bite when it has the
+  charge. That is the ladder's *"only once you have the latest tier battery will it be as
+  effective as it is now"* as a number, and M10i's battery is where it changes.
+- **Oracles**: the bite-that-stops reads `removed 6, unpowered 57 of 64; paid 300 J, the pack at
+  20 J` and `6,840 voxel(s) unpowered over 120 swing(s)` to the digit under `--entangle`, now
+  naming `quantum_miner`; the fill arm places one and refuses the next as recorded; the r6
+  control to the digit; the open prints `tiers 1:hand_pick, 2:steel_pick, 3:quantum_miner,
+  4:quantum_excavator` and one `M10:` line per quantum tier; `--holdq --entanglechunk --nogate`
+  runs the excavator at 25,859 voxels a swing until the bore is past the loaded box.
+
+Unplayed. The play check is under M10d in TODO, with the hold's.
+
 ## 2026-09-19 (later) — Q held runs the quantum miner; Alt's held repeat goes with the modifier map read back
 
 *"Um so i've mashed up the modifier keys on this one can you examine and tell me what we have

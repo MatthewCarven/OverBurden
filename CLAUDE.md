@@ -344,26 +344,28 @@ world has generated but cannot draw, because nothing meshes until its neighbourh
 table below), `--skybrightness=<0..2>` (scales the sky channel alone; 0 leaves only block light —
 **the overcast multiplies this rather than replacing it, so the seam survives weather**),
 `--debuglamp` (places one lamp where the crosshair points, so a screenshot can show block
-light without a keypress) and `--entangle` (the entangled miner, which with `--mine` aims along
-the flight path rather than straight down — see below; **since M10c-3 it swings a tool that
-costs 50 J a voxel from the equipped pack (100 until the first play, 2026-09-18; 20 for an hour of it), so a `--mine --entangle` run takes nothing unless it
-carries `--nogate` or `--pack`** — every recipe below that has one gained it). **The entangled bite is the brush cell
-since 2026-09-14 — a 1 m cube on the 1 m brush lattice** (`Carve.Cube`, `CubeVoxels =
-BrushCell.Voxels`, 64 voxels, 10/s on Matthew's word), **and the entangled fill is the brush at range
-on the same lattice at the same rate**; **`--entanglechunk` restores the whole-chunk bite and
-fill of 2026-09-03 to 2026-09-14**, the arm every recorded bite figure was taken in, and
-**`--entanglesphere` the pre-2026-09-03 bite**, the tier's sphere, the arm the chunk was priced
-against; **`--chunkcooldown=<seconds>` and `--cubecooldown=<seconds>` sweep the two rates and
-are deliberately not profile-only**, because `Q` is a play bind and a rate that only reached a
-profile run would be a seam for the one arm that cannot judge it. **Since 2026-09-19 Q has two
-meanings — tapped, the quantum miner goes on the mouse; held past `--holdafter=<seconds>` (0.25,
-an estimate), it *runs*: a cube a cooldown at the crosshair with no click, one voxel with Alt,
-from whichever mode the key was held in** (`TapOrHold`, the helper E reuses at M10g;
-`MiningController.Running`). **`--holdq` holds it for a whole run** — the hold's wire, past the
-profile's refusal by its own hand — and from the pick with `--pack --charge=320 --pitch=-60
---profile --speed=0 --measure=10` reads `entangled 120 swing(s)` at 9.2/s, `removed 6, unpowered
-7 of 64; paid 300 J, the pack at 20 J` (the spawn's cube at that pitch is 57 air voxels, so it
-is not `--mine`'s 57 unpowered), and `840 voxel(s) unpowered over 120 swing(s)`.
+light without a keypress) and `--entangle` (**selects the quantum miner at open** — since
+2026-09-19 the quantum tiers are tools on the T cycle, `overburden:quantum_miner` the 1 m cube
+and `overburden:quantum_excavator` the 8 m chunk, both at range, both 50 J a voxel from the
+equipped pack (100 until the first play, 2026-09-18; 20 for an hour of it), and the flag keeps
+its name because every recipe carries it; with `--mine` it aims along the flight path rather
+than straight down — see below; **a `--mine --entangle` run takes nothing unless it carries
+`--nogate` or `--pack`**). **The miner's bite is the brush cell — a 1 m cube on the 1 m brush
+lattice** (`Carve.Cube`, `CubeVoxels = BrushCell.Voxels`, 64 voxels, 10/s on Matthew's word),
+**and its fill is the brush at range on the same lattice at the same rate**; **`--entanglechunk`
+selects the excavator** — the whole-chunk bite and fill that was the default from 2026-09-03 to
+2026-09-14, the arm every recorded bite figure was taken in; **`--entanglesphere` is retired**
+(2026-09-19 — the pick's sphere at range is no tier's shape; its figures are in the worklog, and
+it prints that it is retired); **`--chunkcooldown=<seconds>` and `--cubecooldown=<seconds>` sweep
+the two files' `cooldownSeconds` and are deliberately not profile-only**, because `T` is a play
+bind and a rate that only reached a profile run would be a seam for the one arm that cannot
+judge it. **Q held runs the tier in hand** — *"holding q is supposed to enable automine"* — a
+swing at the crosshair every cooldown with no click, one voxel with Alt, a plain hold from the
+press (`MiningController.Running`; `TapOrHold` exists for E at M10g and nothing reads it yet).
+**`--holdq` holds it for a whole run** — the hold's wire, past the profile's refusal by its own
+hand — and on the excavator with `--entanglechunk --nogate --pitch=-60 --profile --speed=0
+--measure=6` reads `quantum_excavator took everything` at 25,859 removed a swing; from the
+default pick it swings `steel_pick` at 29 a swing until the bore is past reach.
 
 M7c-1 adds four more, all seams rather than settings. **`--clock=<seconds>` starts the run
 somewhere in this world's forecast** — the weather is a pure function of (seed, time), so this is
@@ -713,7 +715,9 @@ arm, 3.03–3.11 ms against 3.00–3.01 mean over two runs, the pool inside the 
 powered, the cell paying exactly the bill over 10,000 boundaries with both identities exact.
 
 **M10c-3 adds the pack, the gate and three flags (2026-09-17).** The entangled miner is content:
-`tools/entangled_miner.json` (threshold 5.0 — it takes a machine body at range as a pick does,
+`tools/entangled_miner.json` (**`quantum_miner.json` since 2026-09-19, with `quantum_excavator.json`
+beside it and a `bite` field on the tool — the quantum tiers on the T cycle; see the pick-up
+paragraph of that date**; threshold 5.0 — it takes a machine body at range as a pick does,
 which reverses M3d's *entanglement never changes what the bite is hard enough to take*; 0.10 s a
 cube with `--cubecooldown=` a sweep over the file's number; `power { via: channel, joulesPerVoxel:
 50 }` — **100 until M10c's first play read a 56 s pack as *"you don't get far"*, then 20 for an
@@ -722,8 +726,9 @@ solar recharge on the channel I am on"*; 50 J and the pack's recharge 1 kW → 2
 it 1,125 cubes (2.2 chunks, 1.9 min of non-stop bites) and a cube every 12.8 s sustained on a
 full channel, four hours to refill — the price is the burst and the recharge is what you fight,
 and both are the game's numbers where the pack's 3.6 MJ is a real battery's**), loaded by ID and
-**off the T cycle**, so `T` still cycles the two free picks and only Q
-costs. **The gate is a voxel budget on every `Carve` shape** — what the equipped pack can pay for
+**off the T cycle** until 2026-09-19 (so that `T` cycled the two free picks and only Q cost; on
+the cycle since, with `ToolTiers.Default` starting a world on the strongest *free* tool). **The
+gate is a voxel budget on every `Carve` shape** — what the equipped pack can pay for
 at the tool's price, asked after air and after `TooHard` so neither costs, the rest of the shape
 in `CarveResult.Unpowered` — and the pack pays for exactly what came away: *takes what the charge
 buys and stops*, a bite that ends mid-cube. The fill at range is all or nothing on the shape's
@@ -878,7 +883,31 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
-**Pick up here (2026-09-17). M10c is built — all three sessions — and unplayed; M10d, the
+**Pick up here (2026-09-19). Three things landed on the played world's day, all Matthew's
+words, all built and unplayed, and M10d's play is still the next thing.** *The modifier map
+read back*: Shift and Ctrl are movement only; Alt is precision on both buttons, crawl in fly,
+and the debug keys' inverse (Alt+P, Alt+R); Ctrl+Alt in fly cancels to base speed (recorded,
+left). *Q held is automine*: `MiningController.Running`, a plain hold from the press, a swing at
+the crosshair every cooldown on whatever tier is in hand — and Alt's held repeat on the cube arm
+went with it, so a click is one click whatever it holds. *The quantum tiers are content on T*:
+`tools/quantum_miner.json` (the 1 m cube, 0.10 s) and `tools/quantum_excavator.json` (the 8 m
+chunk, 0.25 s), both 5.0 and 50 J a voxel, through a `"bite": sphere | cube | chunk` field on the
+tool whose reach follows it (no `reachMetres`, still); `ToolTiers.Order` is (threshold, bite,
+id) and `ToolTiers.Default` the strongest *free* tool — the rule M10c-3's decision 5 dodged by
+keeping the costing tool off the cycle; the mode, its Q toggle, `EntangledBite`, `EntangledTool`
+and `--entanglesphere` are gone, `--entangle` / `--entanglechunk` select a tier at open, and
+both verbs follow the tier (`ApplyTier` in `Main`). The excavator is a two-chunks-a-pack tool
+with lead-acid — the ladder's *"only once you have the latest tier battery"* as a number. Read
+"M10c-3 — built"'s last amendment in [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) and the
+play checks under M10d in TODO. Three things not to rediscover: **a fresh world must not start
+on a costing tool** (the first swing would cost from an empty pack and read as a broken build —
+`ToolTiers.Default` is the rule and `ShippedContentTests` asserts it); **`PlaceController` has
+its own `TakesCube`**, because the fill follows the tier and not the hold; and **the bite's
+oracle reads the same to the digit** (`removed 6, unpowered 57`, `6,840 over 120`) under
+`--entangle`, which now means the miner in hand. Suite 1,627 → 1,638; r6 control to the digit.
+The paragraph below is c-3's state, kept for the reasoning.
+
+**Earlier (2026-09-17). M10c is built — all three sessions — and unplayed; M10d, the
 play, is next, and the ladder's decision 23 puts M10e (the conductor index, the DC tier) after
 it. Read "M10c-3 — built" in [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) first, then the
 seven-question play recipe under M10c in TODO — the equip, the swap (its forfeit became a
@@ -3402,10 +3431,11 @@ because reach is
 the *player's* rather than the tool's — M4 is where something exists to own it, which is the
 same argument that kept it out of the tool JSON.
 
-**The entangled miner is a debug bind, built 2026-08-31 to dig M5d-2's test volume.** **Q**
-tapped toggles it (**and Q held runs it since 2026-09-19** — *"holding q is supposed to enable
-automine"* — a cube a cooldown at the crosshair with no click, from either mode, the pick handed
-back on release): point at anything, hold left click, and it eats what it is pointed at however far
+**The entangled miner is a debug bind, built 2026-08-31 to dig M5d-2's test volume — and
+since 2026-09-19 it is two tiers on `T`, `quantum_miner` (the cube) and `quantum_excavator` (the
+chunk), the mode and its Q toggle gone; Q held runs whatever tier is in hand** (*"holding q is
+supposed to enable automine"*). What follows is the mode's history, kept for the reasoning; read
+"Q" as "the quantum tier in hand". **Q** toggled it: point at anything, hold left click, and it eats what it is pointed at however far
 away. **As of 2026-09-14 a bare click takes one brush cell — 4 × 4 × 4 voxels on the 1 m brush
 lattice, `CubeVoxels = BrushCell.Voxels` so the two verbs cannot drift — at 10 a second (his
 number, *"10/second eventually this will cost a lot of power"* — the rate is a design input to
@@ -3428,7 +3458,9 @@ unchanged). Alt still chips one voxel. Three things about it that are easy to un
   `MiningController` swings it while Q is on. There is still no `reachMetres` in the JSON and no
   `ToolDefinition` field for it**: the reach is the mode's constant and the world's edge, which
   is the decision M5d protected; what the file carries is what the pass needed a file for, the
-  price a voxel costs from the pack.
+  price a voxel costs from the pack. **And since 2026-09-19 it is two tiers on the cycle with a
+  `bite` field, and the reach follows the bite** — a cube or a chunk only exists at range, so
+  the file says which reach and never how far; the lock holds a third time.
 - **"However far away" means "as far as the world exists", about 144 m at r16.** What stops the
   ray is `RayOutcome.Blocked` at the edge of the loaded region — entanglement is not
   distance-sensitive but **the streamer is**. The 512 m constant is a backstop bounding the DDA,

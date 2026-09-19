@@ -5547,11 +5547,14 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
                through the tiers: the entangled miner is not on the cycle, and the steel pick is
                still free. *Does `Q` costing while `T` does not read as the design?*
 - [ ] **M10d — the play**: the mine pumped dry by relay, the storm, the gate, the pillar verdict.
-      - [ ] **The hold (2026-09-19, unplayed)**: tap Q and click — one cell; Alt+click — one
-            voxel, once; hold Q from the pick — it eats the hill at 10/s until you let go or the
-            pack does; Alt with it — one voxel at 40/s; the toggle's 0.25 s latency on release,
-            felt or not (`--holdafter=` is the sweep). One sentence back, and whether the mouse
-            mode still earns its key once the hold exists.
+      - [ ] **The quantum tiers and the hold (2026-09-19, unplayed)**: `T` cycles hand → steel →
+            quantum miner → quantum excavator (a fresh world starts on steel); on the miner a
+            click is one 1 m cell dug or the brush placed at range, on the excavator one 8 m
+            chunk dug or filled at range, Alt one voxel on any tier; hold Q on any tier and it
+            runs — the miner eats the hill at 10/s until you let go or the pack does, the
+            excavator a chunk every 0.25 s and a lead-acid pack lasts two of them. One sentence
+            back on each: does the excavator's two-chunk pack read as *the battery is the gate*
+            or as broken, and does the cycle's order read as a ladder.
       **Begun 2026-09-19, on `default`, unprompted** — *"Well the pumps seem to work well"*, three
       screenshots: a wall of relay outlets on a lake's bank with the pumped water cascading off
       its end into the lake under rain, and a wet stair shaft below. Read off the two logs
