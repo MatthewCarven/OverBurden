@@ -5552,6 +5552,13 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
       waited under a 1.14 M-cell tick at 327 ms worker wall. 201 panels made 46 MJ in that half
       hour against the pumps' 8.2 MJ — 37.7 MJ `clamped` with every cell full — so the panels
       alone would have run them. The storm half is still to be watched for the dimming.
+      **An hour later, the loop** — *"if you 'load up the system' too much you end up flooding
+      your mineshaft"*, a screenshot of a wet tunnel: the same session read `pumped 60,379 L`,
+      `handed 60,304 L to Tier A` and **`drawn 58,151 L`** — the outlets pour onto the bank of the
+      lake that drains through the shaft's portals into the mine the pumps stand in, so 96% of
+      what went up came back down, and once the lake stood over the outlets' mouths they stalled
+      `no room` (1,061). Not a defect: the seam working both ways, and the M10d question it
+      answers is that *pumped dry* needs the outlets past a divide or the mouth above the level.
       - [ ] **A sound effect for the quantum miner: *failed — insufficient charge*** (Matthew,
             2026-09-19, mid-play). The first sound in the game, so it wants a home for audio
             before it wants a file: the events are the three `M10: gate` prints in `Main`

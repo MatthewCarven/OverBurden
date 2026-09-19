@@ -21,6 +21,15 @@ the void), the machine tick 1.5 ms mean / 8.7 max for sixteen pumps, 0 boundarie
   quantum miner: failed — insufficient charge"*, mid-play. Recorded in TODO under M10d with its
   hooks named (the three `gate` prints and the fill's refusal, all edge-detected already); not
   scheduled, because the first sound wants a home for audio before it wants a file.
+- **An hour on, the loop closed and he laughed at it.** *"If you 'load up the system' too much
+  you end up flooding your mineshaft"* — the session's line reads `pumped 60,379 L`, `handed
+  60,304 L to Tier A` and `drawn 58,151 L`: the outlets stand on the bank of the lake that drains
+  through the shaft's own portals into the mine the pumps sit in, so 96% of what the relay lifted
+  came straight back down, and once the lake stood over the outlets' mouths they stalled `no room`
+  (1,061 by the end). Every identity exact throughout. That is the seam working in both
+  directions at once, and it is the first M10d answer: *the mine pumped dry by relay* is not a
+  pump count, it is where the outlets stand — past a divide, or with the shaft's mouth above the
+  level the lake will reach.
 
 ## 2026-09-18 (evening) — A swapped-out pack keeps its charge: `CarriedPacks`, header v5, `stowed`
 
