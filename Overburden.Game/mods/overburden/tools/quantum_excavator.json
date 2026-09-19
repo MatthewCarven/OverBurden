@@ -1,0 +1,7 @@
+{
+  "id": "quantum_excavator",
+  "bite": "chunk",
+  "hardnessThreshold": 5.0,
+  "cooldownSeconds": 0.25,
+  "power": { "via": "channel", "joulesPerVoxel": 50 }
+}

@@ -123,6 +123,31 @@ public sealed class ToolDefinition
     /// <summary>Whether a swing of this tool draws nothing from any pack.</summary>
     public bool IsFree => Power is null || Power.IsFree;
 
+    /// <summary>
+    /// The shape a bare swing takes — and with it the reach (2026-09-19).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The quantum tiers are tools on the T cycle</b> — Matthew: <i>"i want quantum (small
+    /// scale) and quantum (large scale) to be tiers like in hand/steel"</i> — which reverses
+    /// M10c-3's decision 5 (one tool loaded by ID, off the cycle, a mode on Q). A tier that is a
+    /// shape needs the shape in the file, so this is the field; the picks leave it out and get
+    /// the sphere.
+    /// </para>
+    /// <para>
+    /// <b>The reach follows the bite and is not a field.</b> <i>Reach is the player's, not the
+    /// tool's</i> is locked twice (M3d, M4c): a <c>reachMetres</c> would guess a distance into a
+    /// format mods write against. A cube or a chunk only exists on the brush lattice at range —
+    /// there is no cube-at-arm's-length verb — so the bite says which reach (the arm, or the
+    /// loaded world's edge) and never how far. Cost: a mod cannot write a cube bite at arm's
+    /// length. Revisit trigger: the first mod that asks.
+    /// </para>
+    /// </remarks>
+    public ToolBite Bite { get; init; } = ToolBite.Sphere;
+
+    /// <summary>Whether a swing reaches to the loaded world's edge rather than the arm — every bite but the sphere.</summary>
+    public bool AtRange => Bite != ToolBite.Sphere;
+
     /// <summary>True for a tool whose defining mod is not installed.</summary>
     public bool IsUnknown { get; init; }
 
@@ -157,4 +182,21 @@ public sealed class ToolDefinition
     };
 
     public override string ToString() => IsUnknown ? $"{Id} (unknown)" : Id.ToString();
+}
+
+/// <summary>The shape a tool's bare swing takes; the reach follows it (<see cref="ToolDefinition.Bite"/>).</summary>
+/// <remarks>
+/// Ordered by size, and the order is read: <see cref="ToolTiers.Order"/> sorts tools of one
+/// threshold by it, so the miner comes before the excavator on the T cycle.
+/// </remarks>
+public enum ToolBite
+{
+    /// <summary>The tool's <see cref="ToolDefinition.RadiusMetres"/> sphere at the player's reach — the picks.</summary>
+    Sphere,
+
+    /// <summary>One brush cell — a 4 × 4 × 4 voxel cube on the 1 m brush lattice — at range. The quantum miner.</summary>
+    Cube,
+
+    /// <summary>The whole 8 m chunk the ray hit, at range. The quantum excavator.</summary>
+    Chunk,
 }

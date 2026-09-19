@@ -154,6 +154,50 @@ public class ToolContentTests
         Assert.Equal(2, result.ToolsLoaded);
     }
 
+    // -------------------------------------------------------------------------------------
+    // The bite (2026-09-19): the quantum tiers are tools on the T cycle, so the shape is a field.
+    // -------------------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData("cube", ToolBite.Cube, true)]
+    [InlineData("chunk", ToolBite.Chunk, true)]
+    [InlineData("sphere", ToolBite.Sphere, false)]
+    [InlineData(null, ToolBite.Sphere, false)]
+    public void ABiteIsReadAndAbsentIsTheSphereAtTheArm(string? name, ToolBite expected, bool atRange)
+    {
+        // The reach follows the bite and is not a field: a cube or a chunk is at range, a sphere
+        // is at the arm, and the picks — which write no bite — are the sphere. Writing "sphere"
+        // out loud is the same tool as leaving it out, kept distinct from an unknown value.
+        string bite = name is null ? string.Empty : $", \"bite\": \"{name}\"";
+        var source = TestContent.BaseGame()
+            .Add("overburden", "tools/shaped.json", $$$"""{ "id": "shaped", "hardnessThreshold": 5.0{{{bite}}} }""");
+
+        var content = new GameContent();
+        LoadResult result = content.Load(source);
+        Assert.True(result.Success, string.Join("; ", result.Errors));
+
+        var tool = content.Tools.Get(Identifier.Parse("overburden:shaped"));
+        Assert.Equal(expected, tool.Bite);
+        Assert.Equal(atRange, tool.AtRange);
+    }
+
+    [Fact]
+    public void ABiteThisBuildDoesNotSwingIsRefusedNamingTheFile()
+    {
+        // Refused rather than defaulted to the sphere, for the via rule's reason: a shape the
+        // carve cannot swing loading as a pick would be a typo the loader made on the mod's behalf.
+        var source = TestContent.BaseGame()
+            .Add("overburden", "tools/bad.json", """{ "id": "bad", "hardnessThreshold": 5.0, "bite": "cone" }""");
+
+        var content = new GameContent();
+        LoadResult result = content.Load(source);
+
+        Assert.False(result.Success);
+        Assert.Contains(result.Errors, error => error.Contains("tools/bad.json") && error.Contains("bite") && error.Contains("cone"));
+        Assert.False(content.Tools.Contains(Identifier.Parse("overburden:bad")));
+        Assert.Equal(2, result.ToolsLoaded);
+    }
+
     [Fact]
     public void APowerBlockOfNothingIsAToolOnThePoolThatDrawsNothing()
     {

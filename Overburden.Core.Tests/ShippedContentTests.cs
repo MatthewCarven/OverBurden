@@ -63,69 +63,91 @@ public class ShippedContentTests
         var content = new GameContent();
         content.Load(new DirectoryContentSource(ModsDirectory()));
 
-        // The tiers are the T cycle: every tool but the entangled miner, which M10c-3 loads by
-        // ID and keeps off the cycle (decision 5). It takes anything, so with it in the set the
-        // "leaves something standing" claim would be true of the picks and untested of the cycle.
-        var tiers = content.Tools.Entries().Select(e => e.Value)
-            .Where(t => t.Id != Identifier.Parse(EntangledMinerId))
-            .ToList();
+        // The tiers are the T cycle — every tool, in the cycle's own order, since the quantum
+        // tiers joined it (2026-09-19; M10c-3's decision 5 kept the one costing tool off it). The
+        // "leaves something standing" claim is made of the *free* tiers, because the quantum
+        // ones take anything and would make it true of the picks and untested of the cycle.
+        var tiers = ToolTiers.Order(content.Tools.Entries().Select(e => e.Value));
+        var free = tiers.Where(t => t.IsFree).ToList();
         var solids = content.Materials.Entries()
             .Select(e => e.Value)
             .Where(m => !m.IsAir)
             .ToList();
 
-        Assert.NotEmpty(tiers);
+        Assert.NotEmpty(free);
         Assert.NotEmpty(solids);
 
         float softest = solids.Min(m => m.Hardness);
         float hardest = solids.Max(m => m.Hardness);
 
         Assert.True(
-            tiers.Any(t => t.HardnessThreshold >= softest && t.HardnessThreshold < hardest),
-            "no shipped tier leaves anything standing, so nothing shows what a tool is for");
+            free.Any(t => t.HardnessThreshold >= softest && t.HardnessThreshold < hardest),
+            "no shipped free tier leaves anything standing, so nothing shows what a tool is for");
 
         Assert.True(
             tiers.Any(t => t.HardnessThreshold >= hardest),
             "no shipped tier can take the hardest material, so the deepest rock is unmineable");
 
-        // And every tier on the cycle is free: the gate is the entangled miner's alone.
-        Assert.All(tiers, t => Assert.True(t.IsFree, $"{t.Id} on the T cycle draws power"));
+        // A fresh world starts on a free tier that takes stone: the first swing must do something
+        // and must not cost from an empty pack.
+        ToolDefinition start = ToolTiers.Default(tiers);
+        Assert.True(start.IsFree, $"{start.Id} is the starting tier and draws power");
+        Assert.Equal(ToolBite.Sphere, start.Bite);
+        Assert.True(start.HardnessThreshold >= softest, $"{start.Id} is the starting tier and takes nothing shipped");
     }
 
-    /// <summary>The tool Q swings (M10c-3): loaded by ID, off the T cycle, the one shipped tool with a power block.</summary>
-    private const string EntangledMinerId = "overburden:entangled_miner";
+    /// <summary>The two quantum tiers (2026-09-19): small scale is the cube, large scale the chunk, both at range and both costing.</summary>
+    private const string QuantumMinerId = "overburden:quantum_miner";
+    private const string QuantumExcavatorId = "overburden:quantum_excavator";
 
     [Fact]
-    public void TheEntangledMinerShipsAsAToolWithAPowerBlockThatTakesAnything()
+    public void TheQuantumTiersShipAsTwoCostingToolsOnTheCycleThatTakeAnything()
     {
-        // M10c-3, decision 5: the mode became content — a threshold of 5.0 so Q reclaims a machine
-        // body at range exactly as a pick does (the ladder's rule, not true under a hand pick), the
-        // cube's 0.1 s as the file's cooldown, and the power block the gate reads. The radius is the
-        // sphere arm's (--entanglesphere) and the cube never reads it.
+        // Matthew's IDs and his split — "quantum (small scale) and quantum (large scale) … tiers
+        // like in hand/steel". A threshold of 5.0 so either reclaims a machine body at range as a
+        // pick does (the ladder's rule), the cube at 0.1 s and the chunk at 0.25 s as the files'
+        // cooldowns, and one price a voxel — the tier is the shape, the voxel is the price.
         var content = new GameContent();
         LoadResult result = content.Load(new DirectoryContentSource(ModsDirectory()));
         Assert.True(result.Success, string.Join("; ", result.Errors));
 
-        ToolDefinition miner = content.Tools.Get(Identifier.Parse(EntangledMinerId));
-        Assert.Equal(5.0f, miner.HardnessThreshold);
+        ToolDefinition miner = content.Tools.Get(Identifier.Parse(QuantumMinerId));
+        ToolDefinition excavator = content.Tools.Get(Identifier.Parse(QuantumExcavatorId));
+        Assert.Equal(ToolBite.Cube, miner.Bite);
+        Assert.Equal(ToolBite.Chunk, excavator.Bite);
+        Assert.True(miner.AtRange);
+        Assert.True(excavator.AtRange);
         Assert.Equal(0.1f, miner.CooldownSeconds);
-        Assert.NotNull(miner.Power);
-        Assert.Equal(Overburden.Core.Machines.MachineLink.ChannelVia, miner.Power!.Via);
-        Assert.Equal(50L, miner.Power.JoulesPerVoxel);
-        Assert.False(miner.IsFree);
+        Assert.Equal(0.25f, excavator.CooldownSeconds);
 
-        // It takes every shipped solid, machine bodies included.
         float hardest = content.Materials.Entries().Select(e => e.Value).Where(m => !m.IsAir).Max(m => m.Hardness);
-        Assert.True(miner.HardnessThreshold >= hardest);
+        foreach (ToolDefinition tool in new[] { miner, excavator })
+        {
+            Assert.Equal(5.0f, tool.HardnessThreshold);
+            Assert.NotNull(tool.Power);
+            Assert.Equal(Overburden.Core.Machines.MachineLink.ChannelVia, tool.Power!.Via);
+            Assert.Equal(50L, tool.Power.JoulesPerVoxel);
+            Assert.False(tool.IsFree);
+            Assert.True(tool.HardnessThreshold >= hardest);
+        }
 
-        // And the arithmetic the play feels: a full lead-acid pack is 2,812 cube bites at 20 J a
-        // voxel, 4.7 min at ten a second — the gate felt in one play, which is why the pack ships.
-        // (100 J and 562 bites until 2026-09-18: M10c's first play read 56 s as "you don't get
-        // far", and the price is the game's number where the pack's 3.6 MJ is a real battery's.)
+        // They are the last two on the cycle, miner before excavator, and neither is the start.
+        var tiers = ToolTiers.Order(content.Tools.Entries().Select(e => e.Value));
+        Assert.Equal(QuantumMinerId, tiers[^2].Id.ToString());
+        Assert.Equal(QuantumExcavatorId, tiers[^1].Id.ToString());
+        Assert.True(ToolTiers.Default(tiers).IsFree);
+
+        // The arithmetic the play feels, at 50 J a voxel (100 until 2026-09-18's first play read
+        // 56 s as "you don't get far", 20 for an hour after): a full lead-acid pack is 1,125 cube
+        // bites — 1.9 min at ten a second — and two chunk bites, so the excavator is a
+        // two-chunks-a-pack tool until M10i's battery, which is the ladder's "only once you have
+        // the latest tier battery will it be as effective as it is now" as a number.
         MaterialDefinition pack = content.Materials.Get(Identifier.Parse("overburden:lead_acid_pack"));
         long cubeMillijoules = miner.Power.MillijoulesPerVoxel * Overburden.Core.Mining.Carve.CubeVoxels
                                * Overburden.Core.Mining.Carve.CubeVoxels * Overburden.Core.Mining.Carve.CubeVoxels;
+        long chunkMillijoules = excavator.Power.MillijoulesPerVoxel * Overburden.Core.Voxels.VoxelConstants.ChunkVolume;
         Assert.Equal(1125L, pack.Machine!.CapacityMillijoules / cubeMillijoules);
+        Assert.Equal(2L, pack.Machine!.CapacityMillijoules / chunkMillijoules);
     }
 
     [Fact]

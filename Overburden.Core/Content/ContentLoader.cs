@@ -396,6 +396,23 @@ public sealed class ContentLoader
             float threshold = dto.HardnessThreshold ?? 0f;
             float cooldown = dto.CooldownSeconds ?? 0.25f;
 
+            // The bite (2026-09-19): absent is the sphere, the picks' shape; a value this build
+            // does not know is refused naming the file, for the via rule's reason — a shape the
+            // carve cannot swing would otherwise load as a sphere and read as a typo nobody made.
+            ToolBite bite = ToolBite.Sphere;
+            if (dto.Bite is { } biteName)
+            {
+                switch (biteName)
+                {
+                    case "sphere": bite = ToolBite.Sphere; break;
+                    case "cube": bite = ToolBite.Cube; break;
+                    case "chunk": bite = ToolBite.Chunk; break;
+                    default:
+                        errors.Add($"{manifest.Id}/{path}: bite \"{biteName}\" is not a shape this build swings — sphere, cube or chunk.");
+                        continue;
+                }
+            }
+
             // Rejected at the door rather than clamped, so that every tool the registry
             // hands out is one the carve can be swung with unconditionally. A NaN radius
             // clamped to something sensible would hide the typo; a NaN radius reaching
@@ -458,6 +475,7 @@ public sealed class ContentLoader
                     HardnessThreshold = threshold,
                     CooldownSeconds = cooldown,
                     Power = power,
+                    Bite = bite,
                 });
 
                 loaded++;
@@ -788,6 +806,7 @@ public sealed class ContentLoader
         public float? HardnessThreshold { get; set; }
         public float? CooldownSeconds { get; set; }
         public ToolPowerJson? Power { get; set; }
+        public string? Bite { get; set; }
     }
 
     private sealed class ToolPowerJson
