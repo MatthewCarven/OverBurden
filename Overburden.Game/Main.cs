@@ -3829,7 +3829,11 @@ public partial class Main : Node3D
             }
         }
 
-        long packGiven = _pack?.Give(_pack.CapacityMillijoules) ?? 0;
+        // Through the tick, so the debug charge is a term in the pool identity — a Give on the
+        // pack alone is the pool's recharge path and broke the identity for a session (2026-09-19).
+        long packGiven = _pack is null ? 0
+            : _machineTick?.Pack is not null ? _machineTick.FillPack(_pack.CapacityMillijoules)
+            : _pack.Give(_pack.CapacityMillijoules);
         GD.Print(
             $"M10: Alt+P — {filled} cell(s) filled with {MachinePanel.Joules(millijoules)}"
             + (_pack is null ? string.Empty : $", the pack given {MachinePanel.Joules(packGiven)} to {MachinePanel.Joules(_pack.ChargeMillijoules)}")
@@ -6780,8 +6784,9 @@ public partial class Main : Node3D
                + $"pack {(t.Pack is null ? "none" : $"{MachinePanel.Joules(t.Pack.ChargeMillijoules)} of {MachinePanel.Joules(t.Pack.CapacityMillijoules)} (ch {t.Pack.Channel})")}, "
                + $"generated {MachinePanel.Joules(t.GeneratedMillijoules)} ({t.Converters:N0} panel(s), open {open}/16 mean, {t.SolarUnsampled:N0} unsampled, overcast {t.OvercastByte}/256), "
                + $"drawn {MachinePanel.Joules(t.DrawnByPumpsMillijoules)} by pumps + {MachinePanel.Joules(t.PackTakenMillijoules)} by the tool, clamped {MachinePanel.Joules(t.ClampedMillijoules)}, "
-               + $"pack given {MachinePanel.Joules(t.PackGivenMillijoules)}, stowed {MachinePanel.Joules(t.PackStowedMillijoules)} by {t.PacksUnequipped:N0} swap(s) — "
-               + $"pool == entering − leaving + generated − drawn − clamped − stowed: {(t.PowerExact ? "exact" : "*** NO ***")}";
+               + $"pack given {MachinePanel.Joules(t.PackGivenMillijoules)}, stowed {MachinePanel.Joules(t.PackStowedMillijoules)} by {t.PacksUnequipped:N0} swap(s)"
+               + (t.PackDebugMillijoules > 0 ? $", {MachinePanel.Joules(t.PackDebugMillijoules)} debug-filled into the pack" : string.Empty)
+               + $" — pool == entering − leaving + generated − drawn − clamped − stowed{(t.PackDebugMillijoules > 0 ? " + debug" : string.Empty)}: {(t.PowerExact ? "exact" : "*** NO ***")}";
     }
 
     /// <summary>The profile's <c>machines</c> block, with the window's own denominators.</summary>

@@ -280,6 +280,38 @@ public sealed class MachineTick
     /// <summary>Millijoules stowed by packs unequipped this session — what left the pool with them, printed, never a tolerance.</summary>
     public long PackStowedMillijoules { get; private set; }
 
+    /// <summary>
+    /// Millijoules the debug fill gave the equipped pack this session — <c>Alt+P</c>'s pack half,
+    /// charge from outside the pool, a term in <see cref="PowerExact"/> as a cell's
+    /// <see cref="MachineSet.SetCharge"/> is through <c>entering</c>.
+    /// </summary>
+    /// <remarks>
+    /// Found by the fresh world's first play (2026-09-19): the cells' debug fill has been in the
+    /// identity since c-2 and the pack's went straight through <see cref="EquippedPack.Give"/>,
+    /// the pool's own recharge path, so a pack filled from 7 kJ broke the pool identity by
+    /// 3,593 kJ on every boundary for the rest of the session — 1,403 error lines. The
+    /// morning's pack was full at open and the fill gave it nothing, which is why the identity
+    /// read exact there.
+    /// </remarks>
+    public long PackDebugMillijoules { get; private set; }
+
+    /// <summary>
+    /// The pack's debug door: gives the equipped pack up to <paramref name="millijoules"/> from
+    /// outside the pool and counts it, so the identity holds. Returns what went in; −1 with no pack.
+    /// </summary>
+    public long FillPack(long millijoules)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(millijoules);
+        if (Pack is null)
+        {
+            return -1;
+        }
+
+        long given = Pack.Give(millijoules);
+        PackDebugMillijoules += given;
+        return given;
+    }
+
     /// <summary>Packs unequipped this session, for the stowed term's denominator.</summary>
     public long PacksUnequipped { get; private set; }
 
@@ -360,7 +392,7 @@ public sealed class MachineTick
         StoredMillijoules + (Pack?.ChargeMillijoules ?? 0)
         == _machines.StoredMillijoulesEntering - _machines.StoredMillijoulesLeaving
             + GeneratedMillijoules - DrawnByPumpsMillijoules - ClampedMillijoules
-            + PackInitialMillijoules - PackTakenMillijoules - PackStowedMillijoules;
+            + PackInitialMillijoules + PackDebugMillijoules - PackTakenMillijoules - PackStowedMillijoules;
 
     /// <summary>Pump-boundaries that moved anything.</summary>
     public long Moves { get; private set; }

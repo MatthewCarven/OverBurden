@@ -1,5 +1,39 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-19 (night) — The fresh world's first hour: a 1 ML dome in a stone tank, and `Alt+P` breaking the pool identity
+
+A screenshot with no words — a Ctrl+R megalitre standing as a stepped dome inside a stone-walled
+tank on the grass, hills as islands behind it — and *"Thanks Claude lets Continue please :-{D Love
+this project!"*. Off the fresh world's log at 19:25, an hour in: `injected 49,330,000 L` (he has
+poured 49 ML with R and Ctrl+R), 45.6 ML of it handed back to Tier A, which stands at 353% of
+the window's capacity; 10.6 ML moving in 694k cells; 14 pumps over 28 outlets, 195 kL pumped,
+`no room` 436 against the retired world's 4,809 — the machine columns are doing their job; 2,449
+raindrops, 38 kL, owed paid to zero.
+
+**Count the `ERROR` lines before the reports: 1,403, all one line.** `M10: the pool identity
+broke` from the boundary after `Alt+P — 1 cell(s) filled with 4,999.6 MJ, the pack given
+3,593.0 kJ to 3,600.0 kJ`. The cells' debug fill has been in the identity since c-2
+(`MachineSet.SetCharge` counts what landed as `entering`); the pack's half called
+`EquippedPack.Give` directly — the pool's own recharge path, whose joules are accounted as
+generation not clamped — so 3,593 kJ entered the pool with no term for it and the lifetime
+identity read `*** NO ***` on every boundary after. The morning's play never saw it because
+that pack was full at open and the fill gave it nothing. Fixed: `MachineTick.FillPack` is the
+pack's debug door, `PackDebugMillijoules` a term in `PowerExact` and on the `power:` line as
+`debug-filled into the pack` with `+ debug` in the identity's text when it has; a swap after it
+stows the debug charge with the rest and the terms cancel. One test (a 7 kJ pack filled, a
+boundary, the tool drawing, a swap, nothing equipped), the identity's term mutated and caught;
+the bite oracle to the digit.
+
+**The dome is the ball, not a defect.** A 1 ML pour is a 26-voxel ball of full cells; a full
+cell with full neighbours has nothing to move, so it collapses from its base outward — the
+bottom layer spreads a cell a tick to the walls, the layer above drops into the room that
+opens — and a tank on natural grass leaks: a rested cell on the seed plane is handed to the
+basin under it (M8b-3a's pinned rule, *a tank on natural ground leaks as rain inside it would*),
+so the tank empties into the ground unless he floors it. **And the tick is at 1.2 Hz on this
+world too**: worker 705 ms mean (max 5.3 s), 902 of 3,244 boundaries waited, the longest settle
+pass 2.5 s, with 367k deferred — the solve's seeds, the lever recorded this afternoon, now with
+a second world's number. It is the next thing to build.
+
 ## 2026-09-19 (evening, last) — Rain drops Tier B cells: `--rainshare`, a drop owed to the sky
 
 *"Oh I want rain to randomly drop tier b cells from the sky too please Claude like not many but

@@ -781,7 +781,11 @@ count; an empty pack has no row, so a pack swapped out at 0 J loses its channel.
 computer's click on nothing opens the pack's panel (one `channel` box). The HUD reads `pack
 2,100.0 kJ / 3,600.0 kJ (58.3%)` while one is worn — **the share since the first play, because
 `3,994 J of 3,600.0 kJ` read as over the cap** — and `Q TAKES NOTHING — no pack` under Q without. `P`
-seeds a pack once; `Alt+P` fills it with the cells. **`--pack[=<id>]`** equips one at open,
+seeds a pack once; `Alt+P` fills it with the cells — **through `MachineTick.FillPack` since
+2026-09-19, because a `Give` on the pack alone is the pool's recharge path and a fresh world's
+7 kJ pack filled that way broke the pool identity by 3,593 kJ on every boundary for a session
+(1,403 error lines; the `power:` term prints `debug-filled into the pack` and the identity
+`+ debug` when it has)**. **`--pack[=<id>]`** equips one at open,
 **`--charge=<J>`** sets it, `--openpanel=pack` opens its panel, **`--nogate`** frees the miner
 and the fill with the pumps. **The bite-that-stops oracle, verbatim, reads `removed 6, unpowered
 57 of 64; paid 300 J, the pack at 20 J` on the first swing** (the spawn's cube holds one air voxel,

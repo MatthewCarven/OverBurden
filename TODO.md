@@ -5684,6 +5684,14 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
             --fluidnear=2` reads `4 machine column(s) … 0 far` against `0 … 10,336 far`. The play
             check was the mounds draining with him underground — **played 2026-09-19 the same
             evening: *"the mounds are draining now"*.**
+      - [x] **`Alt+P`'s pack half broke the pool identity — the fresh world's first play,
+            2026-09-19.** The cells' debug fill has been `entering` since c-2; the pack's went
+            through `EquippedPack.Give`, the pool's recharge path, so a 7 kJ pack filled to
+            3,600 kJ read `*** NO ***` on every boundary after — 1,403 `ERROR` lines in the log
+            before the play's own numbers. The morning's pack was full at open and the fill gave
+            it nothing. `MachineTick.FillPack` is the pack's door now, `PackDebugMillijoules`
+            a term (`+ debug` on the line when it has), a swap after it stows the debug charge
+            with the rest. One test; the bite oracle to the digit.
       - [ ] **Rain drops Tier B cells — Matthew, 2026-09-19: *"rain to randomly drop tier b
             cells from the sky too please … not many but just to make you think about the water
             runoff"*.** Built the same evening: `--rainshare=<percent>` (2, an estimate; 0 off),

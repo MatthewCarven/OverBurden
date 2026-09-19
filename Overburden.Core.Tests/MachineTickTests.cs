@@ -758,6 +758,45 @@ public class MachineTickTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void TheDebugFillOfThePackIsATermAndTheIdentityHoldsThroughASwap()
+    {
+        // The fresh world's first play, 2026-09-19: Alt+P filled a 7 kJ pack through the pool's
+        // own recharge path and the identity read broken for the rest of the session. The pack's
+        // debug door is the tick's, counted as a cell's SetCharge is — and a swap after it stows
+        // the debug charge with the rest, the two terms cancelling.
+        var twin = new Twin();
+        var pack = new EquippedPack(PackMaterial, Materials.Machine(PackMaterial)!, chargeMillijoules: 7_000, channel: 0);
+        twin.Tick.EquipPack(pack);
+        twin.Place(Twin.RimOutlet, Panel);
+        twin.Boundary(step: false);
+        Assert.True(twin.Tick.PowerExact);
+
+        long given = twin.Tick.FillPack(pack.CapacityMillijoules);
+        Assert.Equal(pack.CapacityMillijoules - 7_000 - PanelMillijoulesPerBoundary, given);
+        Assert.Equal(pack.CapacityMillijoules, pack.ChargeMillijoules);
+        Assert.Equal(given, twin.Tick.PackDebugMillijoules);
+        Assert.True(twin.Tick.PowerExact);
+
+        // Full, so a boundary clamps the panel and the identity still holds; the tool draws.
+        twin.Boundary(step: false);
+        Assert.True(twin.Tick.PowerExact);
+        Assert.Equal(500L, pack.Take(500));
+        Assert.True(twin.Tick.PowerExact);
+
+        var next = new EquippedPack(PackMaterial, Materials.Machine(PackMaterial)!, chargeMillijoules: 0, channel: 0);
+        Assert.Equal(pack.CapacityMillijoules - 500, twin.Tick.EquipPack(next));
+        Assert.True(twin.Tick.PowerExact);
+        twin.Boundary(step: false);
+        Assert.True(twin.Tick.PowerExact);
+        twin.AssertIdentity();
+
+        // Nothing equipped: the door says so and gives nothing.
+        twin.Tick.EquipPack(null);
+        Assert.Equal(-1L, twin.Tick.FillPack(1));
+        Assert.True(twin.Tick.PowerExact);
+    }
+
+    [Fact]
     public void ThePackRechargesLastAtItsBoundAndNeverSupplies()
     {
         var twin = new Twin();
