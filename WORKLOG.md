@@ -1,5 +1,44 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-20 (small hours) — A fluid row that named an empty awake cell holed a chunk for good
+
+*"i think i may have upset the chunk loader or the godot sync function in the 2nd screenshot"* —
+black blobs on a Tier B sheet over grass, the compound's floor. **Count the `ERROR` lines first:
+four, one line** — `Chunk job failed at Chunk(1, -1, -9): … Fluid panel blob … awake cell 4732
+holds nothing; an awake cell is a held cell`, once per return to the chunk. The chain: the
+blob's reader refused the row, the `LoadFluidJob` faulted, and a faulted chunk job is not
+retried — *the chunk steps back, sits out of the work list and renders as a hole* (the
+pipeline's own comment) — so the chunk under the sheet drew nothing and the unlit insides of its
+neighbours showed through the water as black. Leaving and returning read the same row and
+faulted again, four times.
+
+**How the row got there.** Two writers listed a chunk's *paused* cells as awake without asking
+whether they held anything — `TakeDirty` (the unview path) and the eviction's — where the
+autosave's `TakeAllDirty` has filtered through `AwakeHeldCells` since M8b-4b. A visit never
+pauses an empty cell (an empty visit sleeps before the loaded test), so the paused cell was held
+when it was paused and drained after, while its chunk was away; the one drain I can name is the
+hand-off taking from a cell the solve levelled on the worker's captured view (still loaded there)
+after the live terrain had said the chunk left, and I have not proved it — the writers' invariant
+is the fix either way. **Both ends**: the writers filter to held cells (`HeldIndices`), and the
+reader drops an awake index that holds nothing and counts it rather than refusing the row
+(`FluidPanelBlob.Read(…, out awakeDropped)`, the count on the `M6:` lines as `N awake index(es)
+dropped for holding nothing`; the awake count's guard is the chunk's bound now, not the held
+count, because a pre-fix row can name more awake cells than held). Dropping changes no water:
+`Wake` refuses a cell that cannot hold and holds nothing. Two tests (the blob's refusal became
+*dropped and counted*, the ascending rule still refused; a restored pre-fix row written back by
+both writers listing only the held cell, read back with nothing dropped) and four recipes, four
+caught. **His world's row, read through the new reader on a copy: 31 cells held, 18 awake
+named, 2 dropped, 16 kept, 471.9 L restored** — the next open heals it, no file surgery.
+Suite 1,660 → 1,661; the r6 control to the digit.
+
+**And the world at 23:53, off the same log**: 34.3 ML moving in 2.25 M cells, 962k deferred,
+64 pumps over 127 outlets (1.85 ML pumped, 168,817 `no water` — most intakes dry), worker wall
+1,620 ms mean (max 6.2 s), 4,282 of 4,295 boundaries waited, the last pass seeded 66,364 cells
+(30,861 from the carry) with the longest pass 3.1 s. The seeds are bounded now; what the solve
+pays for is the sheets it *does* level on a 34 ML world fed and drained at 191 machines — the
+M8b-3b "pass per boundary is O(sheet)" item proper, with this number, in TODO. *"she seems quite
+happy to chug along"* — at half a tick a second, she is.
+
 ## 2026-09-19 (night, later) — The solve is seeded from what changed: a carried cell is offered once
 
 *"go please Claude"*. The lever from the afternoon's finding, planned against `Sheets.cs` and

@@ -257,12 +257,23 @@ public class FluidPanelBlobTests
         Assert.Throws<BlobFormatException>(() => FluidPanelBlob.Read(HandBuilt([(1, 1)], [], declaredCount: Cells + 1), At));
 
     [Fact]
-    public void AnAwakeCellThatHoldsNothingIsRefused()
+    public void AnAwakeCellThatHoldsNothingIsDroppedAndCounted()
     {
-        // An awake cell goes on the paused list and is woken at arrival, and Wake refuses a cell
-        // that cannot hold and holds nothing — so an empty awake cell would be silently dropped,
-        // which is the format lying about what it wakes.
-        Assert.Throws<BlobFormatException>(() => FluidPanelBlob.Read(HandBuilt([(4, 1), (9, 1)], [5]), At));
+        // Refused until 2026-09-19, when a played world's row named one and the refusal holed the
+        // chunk for good (a faulted load is not retried). Wake refuses a cell that cannot hold and
+        // holds nothing, so leaving the index out changes no water; the count is what says a
+        // writer is still producing them.
+        FluidPanelSnapshot read = FluidPanelBlob.Read(HandBuilt([(4, 1), (9, 1)], [4, 5, 9]), At, out int dropped);
+        Assert.Equal(1, dropped);
+        Assert.Equal(new ushort[] { 4, 9 }, read.Awake);
+        Assert.Equal(2, read.Cells.Length);
+
+        FluidPanelSnapshot clean = FluidPanelBlob.Read(HandBuilt([(4, 1), (9, 1)], [9]), At, out int none);
+        Assert.Equal(0, none);
+        Assert.Equal(new ushort[] { 9 }, clean.Awake);
+
+        // The ascending rule is still the format's: a dropped index still has to be in order.
+        Assert.Throws<BlobFormatException>(() => FluidPanelBlob.Read(HandBuilt([(4, 1), (9, 1)], [5, 3]), At));
     }
 
     [Fact]

@@ -151,7 +151,7 @@ public sealed partial class FluidSimulation
             {
                 (ushort, ushort)[] cells = _grid.TakeSnapshot(chunk);
                 ushort[] awake = _paused.TryGetValue(chunk, out HashSet<VoxelPos>? paused)
-                    ? AwakeIndices(paused.Select(cell => (ushort)cell.LocalIndex))
+                    ? AwakeIndices(HeldIndices(paused))
                     : [];
                 into.Add(new FluidPanelSnapshot(chunk, cells, awake));
             }

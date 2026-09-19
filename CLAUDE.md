@@ -595,7 +595,11 @@ column(s)`. The wire, against the same run with the hand-over out: `--profile --
 --fillbasin=2000000 --breach=3 --pump=100 --pumpoutlet=48 --fluidnear=2 --measure=40` reads
 `4 machine column(s), 11,462 near visit(s) against 0 far` where the control read `0 machine
 column(s), 1,126 near visit(s) against 10,336 far`, the same 1,000 L pumped and handed in both.
-**And the solve is seeded from what changed since the same night**: a carried cell is offered to
+**A fluid row that names an awake cell holding nothing is read with the index dropped and
+counted since 2026-09-20** (`M6:` lines, `N awake index(es) dropped for holding nothing`) — the
+reader refused such a row until then, the load job faulted, and a faulted chunk job draws as a
+hole; the two writers that produced it (the unview and eviction paths listing every paused cell
+as awake) filter to held cells now. **And the solve is seeded from what changed since the same night**: a carried cell is offered to
 the sheet solve once, when it enters the carry, and again only when woken again (the bit in
 `_queued`, `Wake` clears it, a solve marks what it took, a re-classification keeps the prefix)
 — the played worlds had the solve flooding 294k cells a boundary from a 456k-cell carry to level

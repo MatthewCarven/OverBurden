@@ -6992,7 +6992,7 @@ public partial class Main : Node3D
             $"sources   {_pipeline.ChunksGenerated} generated, {_pipeline.ChunksLoaded} loaded, " +
             $"{streamer.CacheHits} from the cache ({streamer.CacheHitsWithLight} with their light) | " +
             $"{_pipeline.LightBuilds} derives, {_pipeline.LightRevivals} reseeded | " +
-            $"fluid {_pipeline.FluidLoads} loaded off the lane ({_pipeline.FluidLoadMillis:F1} ms), " +
+            $"fluid {_pipeline.FluidLoads} loaded off the lane ({_pipeline.FluidLoadMillis:F1} ms, {_pipeline.FluidAwakeDropped} awake index(es) dropped for holding nothing), " +
             $"{_pipeline.FluidLoadsFromMemory} from memory, {_pipeline.FluidReclaims} reclaimed\n";
 
         if (!streamer.CacheEnabled)
@@ -7297,7 +7297,7 @@ public partial class Main : Node3D
                + $"{_pipeline.PendingSaves} pending, {_pipeline.FailedSaves} failed | "
                + $"fluid {_pipeline.SavedFluidCount} row(s) in the world, "
                + $"{_pipeline.FluidLoads} loaded off the lane ({_pipeline.FluidLoadMillis:F1} ms, "
-               + $"{_pipeline.FluidLoadsEmpty} empty), {_pipeline.FluidLoadsFromMemory} from memory, "
+               + $"{_pipeline.FluidLoadsEmpty} empty, {_pipeline.FluidAwakeDropped} awake index(es) dropped for holding nothing), {_pipeline.FluidLoadsFromMemory} from memory, "
                + $"{_pipeline.FluidReclaims} reclaimed, {_pipeline.UnwrittenFluidCount} unwritten";
     }
 

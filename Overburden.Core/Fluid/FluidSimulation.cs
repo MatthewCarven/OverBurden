@@ -1200,11 +1200,28 @@ public sealed partial class FluidSimulation : IFluidPersistence
 
         (ushort, ushort)[] cells = _grid.TakeSnapshot(chunk);
         ushort[] awake = _paused.TryGetValue(chunk, out HashSet<VoxelPos>? paused)
-            ? AwakeIndices(paused.Select(cell => (ushort)cell.LocalIndex))
+            ? AwakeIndices(HeldIndices(paused))
             : [];
 
         NoteStoredAwake(chunk, awake);
         return new FluidPanelSnapshot(chunk, cells, awake);
+    }
+
+    /// <summary>
+    /// The paused cells that hold water, as the blob lists awake cells: an awake cell in the
+    /// blob is a held cell. A paused cell can be empty — a queued holdable cell visited after its
+    /// chunk left the box is paused where it stands — and until 2026-09-19 two writers listed
+    /// those, which the reader refused, which holed a chunk on a played world for good.
+    /// </summary>
+    private IEnumerable<ushort> HeldIndices(HashSet<VoxelPos> paused)
+    {
+        foreach (VoxelPos cell in paused)
+        {
+            if (_grid.AmountAt(cell) > 0)
+            {
+                yield return (ushort)cell.LocalIndex;
+            }
+        }
     }
 
     private void NoteStoredAwake(ChunkPos chunk, ushort[] awake)

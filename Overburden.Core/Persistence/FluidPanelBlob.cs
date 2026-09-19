@@ -163,8 +163,30 @@ public static class FluidPanelBlob
     }
 
     /// <summary>Rebuilds the panel stored for <paramref name="chunk"/>, validating every cell.</summary>
-    public static FluidPanelSnapshot Read(ReadOnlySpan<byte> blob, ChunkPos chunk)
+    public static FluidPanelSnapshot Read(ReadOnlySpan<byte> blob, ChunkPos chunk) =>
+        Read(blob, chunk, out _);
+
+    /// <summary>
+    /// Rebuilds the panel stored for <paramref name="chunk"/>, validating every cell;
+    /// <paramref name="awakeDropped"/> is how many awake indices named a cell holding nothing and
+    /// were left out.
+    /// </summary>
+    /// <remarks>
+    /// <b>Dropped and counted rather than refused, since 2026-09-19.</b> The format's invariant is
+    /// that an awake cell is a held cell, and until that night the reader refused a blob that
+    /// broke it — which on a played world put one chunk's whole panel, and the chunk with it,
+    /// beyond reach: a faulted load job is not retried, the chunk sits out of the work list and
+    /// draws as a hole, and every return reads the same row and faults again. The row got there
+    /// through the two writers that listed a chunk's paused cells as awake without asking whether
+    /// they held anything (a queued empty cell visited after its chunk left the box is paused, and
+    /// empty); both filter now, and this reader heals the rows already written. An awake index
+    /// with nothing in it wakes nothing anyway — <c>Wake</c> refuses a cell that cannot hold and
+    /// holds nothing — so dropping it changes no water; the count is printed so a row that keeps
+    /// producing them is seen.
+    /// </remarks>
+    public static FluidPanelSnapshot Read(ReadOnlySpan<byte> blob, ChunkPos chunk, out int awakeDropped)
     {
+        awakeDropped = 0;
         string what = $"Fluid panel blob for {chunk}";
 
         ReadOnlySpan<byte> payload = BlobFormat.ReadPayload(blob, Version, HeaderBytes, what, out _);
@@ -272,11 +294,12 @@ public static class FluidPanelBlob
         int awakeCount = BinaryPrimitives.ReadInt32LittleEndian(payload[offset..]);
         offset += sizeof(int);
 
-        if (awakeCount < 0 || awakeCount > cells.Length)
+        // Bounded by the chunk, not by the held count: a row the pre-2026-09-19 writers wrote
+        // can name more awake cells than held ones, and the loop below drops the empties.
+        if (awakeCount < 0 || awakeCount > VoxelConstants.ChunkVolume)
         {
             throw new BlobFormatException(
-                $"{what}: declares {awakeCount} awake cells against {cells.Length} held; "
-                + "an awake cell is a held cell.");
+                $"{what}: declares {awakeCount} awake cells against a chunk of {VoxelConstants.ChunkVolume}.");
         }
 
         if (payload.Length != offset + (awakeCount * sizeof(ushort)))
@@ -287,6 +310,7 @@ public static class FluidPanelBlob
         }
 
         var awake = new ushort[awakeCount];
+        int kept = 0;
         int cursor = 0;
         int last = -1;
         for (int i = 0; i < awakeCount; i++)
@@ -300,16 +324,23 @@ public static class FluidPanelBlob
                     $"{what}: awake cell {i} has index {index} after {last}; the list must strictly ascend.");
             }
 
+            last = index;
+
             // Both lists ascend, so the subset check is one merge rather than a search per entry.
             while (cursor < cells.Length && cells[cursor].Index < index) cursor++;
             if (cursor == cells.Length || cells[cursor].Index != index)
             {
-                throw new BlobFormatException(
-                    $"{what}: awake cell {index} holds nothing; an awake cell is a held cell.");
+                // Holds nothing: left out, counted — see the remarks.
+                awakeDropped++;
+                continue;
             }
 
-            awake[i] = index;
-            last = index;
+            awake[kept++] = index;
+        }
+
+        if (kept < awakeCount)
+        {
+            Array.Resize(ref awake, kept);
         }
 
         return new FluidPanelSnapshot(chunk, cells, awake);

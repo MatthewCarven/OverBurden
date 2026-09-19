@@ -471,6 +471,9 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// <summary>Milliseconds the fluid loads spent on the lane, in the store and the reader.</summary>
     public double FluidLoadMillis { get; private set; }
 
+    /// <summary>Awake indices in restored rows that held nothing and were left out (2026-09-19) — a row written by the pre-fix writers.</summary>
+    public int FluidAwakeDropped { get; private set; }
+
     /// <summary>How many chunks the store held when this pipeline opened, plus any written since.</summary>
     public int SavedChunkCount => _savedChunks.Count;
 
@@ -1895,6 +1898,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
             case LoadFluidJob fluidLoad:
                 FluidLoads++;
                 FluidLoadMillis += fluidLoad.ElapsedMillis;
+                FluidAwakeDropped += fluidLoad.AwakeDropped;
 
                 if (chunk.ViewCount == 0)
                 {

@@ -217,6 +217,56 @@ public class FluidPersistenceTests
     }
 
     [Fact]
+    public void APausedCellThatHoldsNothingIsNotWrittenAsAwake()
+    {
+        // The played world of 2026-09-19 wrote a row naming an awake cell with nothing in it, the
+        // reader refused the row, and the chunk was a hole for good. A visit never pauses an empty
+        // cell, so the fixture makes one the way the world can — a row from before the fix,
+        // restored while the chunk is away (its awake list is what the pre-fix reader would have
+        // refused, handed straight to Restore) — then asks both writers what they would put on
+        // disk: the held cell only, and a row that reads back with nothing dropped.
+        LoadableTerrain terrain = Corridor();
+        terrain.Unload(East);
+        var sim = new FluidSimulation(terrain);
+
+        ushort held = (ushort)At(33).LocalIndex;
+        ushort empty = (ushort)At(34).LocalIndex;
+        sim.Restore(new FluidPanelSnapshot(East, [(held, (ushort)Cap)], [.. new[] { held, empty }.OrderBy(i => i)]));
+        Assert.Equal(2, sim.PausedCellCount);
+
+        // A restored panel is clean, and the unview writer writes a dirty one: a millilitre into
+        // the chunk while it is loaded (with no arrival, so the paused set stands), then away.
+        terrain.Load(East);
+        Assert.Equal(0L, sim.Add(At(33, 1), 1));
+        Assert.Equal(2, sim.PausedCellCount);
+        terrain.Unload(East);
+
+        FluidPanelSnapshot? unview = sim.TakeDirty(East);
+        Assert.NotNull(unview);
+        Assert.Equal(new[] { held }, unview.Awake);
+        FluidPanelBlob.Read(FluidPanelBlob.Write(unview), East, out int dropped);
+        Assert.Equal(0, dropped);
+
+        // The eviction writer, the other list: mark the chunk for eviction, run the boundary that
+        // collects it, and read what it wrote. The tick's visit pauses the millilitre's cell too
+        // — held, so listed — and the empty one is still left out.
+        sim.Evict(East);
+        sim.Step();
+        var evicted = new List<FluidPanelSnapshot>();
+        sim.TakeEvicted(evicted);
+        FluidPanelSnapshot row = Assert.Single(evicted);
+        Assert.Contains(held, row.Awake);
+        Assert.DoesNotContain(empty, row.Awake);
+        foreach (ushort index in row.Awake)
+        {
+            Assert.Contains(row.Cells, c => c.Index == index);
+        }
+
+        FluidPanelBlob.Read(FluidPanelBlob.Write(row), East, out int droppedByEviction);
+        Assert.Equal(0, droppedByEviction);
+    }
+
+    [Fact]
     public void TakeAllDirtyListsEveryAwakeHeldCellExactlyOnce()
     {
         // Two places an awake cell can be at a boundary — paused, and queued for the next tick —

@@ -55,6 +55,9 @@ public sealed class LoadFluidJob : IJob
     /// <summary>Milliseconds this job spent in the store and the reader, on the lane.</summary>
     public double ElapsedMillis { get; private set; }
 
+    /// <summary>Awake indices the row named that held nothing, left out by the reader (2026-09-19).</summary>
+    public int AwakeDropped { get; private set; }
+
     public void Run(CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
@@ -64,7 +67,8 @@ public sealed class LoadFluidJob : IJob
         byte[]? blob = _store.ReadFluid(Position);
         if (blob is not null)
         {
-            Result = FluidPanelBlob.Read(blob, Position);
+            Result = FluidPanelBlob.Read(blob, Position, out int dropped);
+            AwakeDropped = dropped;
         }
 
         ElapsedMillis = (Stopwatch.GetTimestamp() - entered) * 1000.0 / Stopwatch.Frequency;

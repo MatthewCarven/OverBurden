@@ -5692,6 +5692,27 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
             it nothing. `MachineTick.FillPack` is the pack's door now, `PackDebugMillijoules`
             a term (`+ debug` on the line when it has), a swap after it stows the debug charge
             with the rest. One test; the bite oracle to the digit.
+      - [x] **A fluid row naming an empty awake cell holed a chunk for good — the fresh world,
+            2026-09-20 (small hours).** The reader refused it, the load job faulted, a faulted
+            chunk job is not retried and draws as a hole — the black blobs under the compound's
+            sheet. The unview and eviction writers listed every paused cell as awake; both filter
+            to held cells now, and the reader drops an empty awake index and counts it (`M6:`
+            lines, `awake index(es) dropped for holding nothing`). His row read 2 dropped of 18,
+            471.9 L restored; the next open heals it. Two tests, four recipes caught.
+            - [ ] **What drained a paused cell is unproved.** A visit never pauses an empty
+                  cell, so the cell was held when paused and drained while its chunk was away;
+                  the candidate is the hand-off taking from a cell the worker's solve levelled on
+                  its captured view after the live terrain said the chunk left. If the `M6:`
+                  count keeps climbing on a world written entirely after this fix, that is where
+                  to look.
+      - [ ] **The solve's pass on a 34 ML world with 191 machines is 1.6 s mean, 3.1 s longest**
+            (2026-09-20, 64 pumps over 127 outlets, 2.25 M cells, 962k deferred, 4,282 of 4,295
+            boundaries waited) — with the seeds bounded (66k a pass), the cost is the sheets it
+            levels: fed and drained at every machine every boundary, so worth levelling every
+            pass, and O(sheet) each. The M8b-3b "pass per boundary is O(sheet)" item proper.
+            Levers, unpriced: level a sheet at most every N boundaries while it is being fed
+            (the settle's own wait, per sheet rather than per chunk); cap a pass's cells and carry
+            the rest to the next; a smaller share for very large sheets.
       - [ ] **Rain drops Tier B cells — Matthew, 2026-09-19: *"rain to randomly drop tier b
             cells from the sky too please … not many but just to make you think about the water
             runoff"*.** Built the same evening: `--rainshare=<percent>` (2, an estimate; 0 off),
