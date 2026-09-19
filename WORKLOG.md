@@ -31,9 +31,14 @@ just to make you think about the water runoff like"* — mid-play, after the mou
   paid to zero between reports, identities exact. The profile seed's first forty seconds are dry,
   so the wet-fill wire (`171 wet / 93 filled`) and the r6 control read as recorded.
 
-The play check is his sentence: whether two percent reads as *"not many"*, and whether a lone
-0.25 m cell dropping at 8 m/s and sliding down a slope into the mine reads as runoff — the share
-is one flag, and a bigger drop is a different shape.
+The play check was his sentence, and it came back within the hour: *"Looks good to me Claude? I
+loved seeing the tier b water blocks falling"* — 2% stands. The screenshot with it is the world
+as he left it: one Tier B sheet to the horizon with the hills as islands, 21.1 ML in 969 rows at
+the quit. **Retired on his word at 18:31**, after the clean quit the log shows (`at quit —
+19,002,923 L in 1,232,265 cell(s)`; `the world file holds 21,127,394 L in 969 row(s)`):
+`worlds/default/` → `worlds/retired-flooded-2026-09-19/`, 185 chunks, 312 machine rows, 615
+banked basins, 2.6 MiB — the solve lever's measurement world, opened only as a copy with
+`--world=`. The next launch starts him fresh.
 
 ## 2026-09-19 (evening, later) — The machines are near: `SetNearColumns`, the near field's second kind of viewer
 

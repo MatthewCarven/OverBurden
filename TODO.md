@@ -5693,7 +5693,9 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
             reads as *"not many"* and whether a drop landing on a slope and running to the mine
             or the lake reads as runoff — the number to move is the share, one flag; and whether
             a single 0.25 m cell falling at 8 m/s reads as rain or as a dropped ice cube (the
-            lerp draws it sliding; a bigger drop is four cells, a different shape).
+            lerp draws it sliding; a bigger drop is four cells, a different shape). **Played the
+            same evening: *"Looks good to me … I loved seeing the tier b water blocks falling"*
+            — 2% stands.**
       - [ ] **The settle's solve floods 294k cells a boundary on the played world** — worker wall
             750–870 ms mean, the tick at 1.2 Hz, 1,261 of 1,375 boundaries waited, the batch 3,514
             cells. `LevelSheets` seeds from the whole carry (456k cells) every pass so a wholly far
@@ -5701,11 +5703,12 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
             sheet full of carried cells is flooded whole to be `left`. Lever: a carried cell seeds
             the solve once, when it enters the carry, or the share counts *moved* cells rather than
             seeds. The M8b-3b "pass per boundary is O(sheet)" item with the played number.
-            - [ ] **Keep the flooded `default` as the measurement world when Matthew moves on**
-                  (*"this one has been flooded enough"*, 2026-09-19): copy it to
-                  `worlds/retired-flooded-2026-09-19/` rather than delete — 16.5 ML in 1.07 M
-                  cells with a 456k carry is the only world the solve's 294k-cell pass exists
-                  on, and the lever above is priced against it, on a copy, with `--world=`.
+            - [x] **The flooded `default` is retired as the measurement world** — *"Please
+                  Retire my world for your own tests"*, 2026-09-19 18:31, after a clean quit:
+                  `worlds/retired-flooded-2026-09-19/` (185 chunks, 969 fluid rows holding
+                  21.1 ML, 312 machine rows, 615 banked basins; 2.6 MiB). The next launch makes
+                  a fresh `default`. The lever above is priced against it on a copy, with
+                  `--world=`; never opened as itself.
 - [ ] **Deliberately not in M10**: shoring as a material (a pillar already carries a full budget
       under `SupportRule.Rest`), drills and conveyors and crafting (M11), the inventory's move to
       millilitres (v5 at M11, alone — not v4 with the machines as MATERIALS-NOTES said), random

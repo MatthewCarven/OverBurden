@@ -894,7 +894,11 @@ decision; the solution, projects, folders and namespaces; and the content namesp
 folder, `config/name` and the `user://` folder. **Stage 4 is Matthew's**: the GitHub repo, the
 local folder, the remote URL, and the assistant's memory directory (see TODO's name-check item).
 **The played worlds now live under `app_userdata/Overburden/`; the `MinerCraft/` folder beside it
-is the pre-rename backup and is Matthew's to delete.**
+is the pre-rename backup and is Matthew's to delete.** **The flooded world of 2026-09-19 —
+sixteen pumps, forty-three outlets, 21.1 ML of Tier B in 969 rows — is
+`worlds/retired-flooded-2026-09-19/`**, retired on his word after a clean quit: the measurement
+world for the solve lever (TODO under M10d), to be opened only as a copy with `--world=`; his
+`default` from that evening is a fresh world.
 
 **Where the morning of 2026-09-06 left off. M8b-4a is built — the pause and the arrival — and M8b-4b, the store,
 is next and goes alone, because a defect there is permanent data loss.** Read M8-PLAN's "M8b-4 —
