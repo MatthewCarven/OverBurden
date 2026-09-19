@@ -55,6 +55,22 @@ namespace Overburden.Core.Fluid;
 /// a machine — and one bigger tick when the set changes.
 /// </para>
 /// <para>
+/// <b>The solve is seeded from what changed, not from the whole carry every pass (2026-09-19).</b>
+/// <see cref="Pending"/> lists the carry so a wholly far sheet is not invisible to the solve, and
+/// on the played worlds that was the worker's whole cost: 456k carried cells offered as seeds
+/// every boundary, each flooded three layers before the share could freeze its sheet, 294k cells a
+/// pass to level twenty sheets, the tick at 1.2 Hz with 1,261 of 1,375 boundaries waiting on it.
+/// A carried cell is offered <i>once</i> — the first solve after it enters the carry — and again
+/// only when it is woken again, which is the one event that can change its sheet's answer: an
+/// unsettled pair needs a cell that moved, and a move wakes both cells of every pair it makes.
+/// The offered mark is the bit in <c>_queued</c>, cleared by <see cref="Wake"/> on a re-wake and
+/// by admission, so a re-classification keeps it. What this costs in accuracy, stated: a sheet
+/// the share left alone keeps its old unsettled pairs uncounted until something near them moves,
+/// so a far sheet is levelled by the solve less eagerly and by the visits under the quota
+/// otherwise — the share rule's own trade, one pass further. <see cref="SolveSeedsLast"/> and
+/// <see cref="SolveCarrySeedsLast"/> are the count, on the <c>settle</c> term.
+/// </para>
+/// <para>
 /// <b>The carry stays inside <c>_queued</c>, and that is the load-bearing part.</b>
 /// <see cref="AwakeHeldCells"/> walks <c>_queued</c>, and it is what the store writes and the
 /// eviction lists — so a backlog held in a list the dedupe set did not know about would be a lake
@@ -107,6 +123,24 @@ public sealed partial class FluidSimulation
     // Seeds for LevelSheets when a carry exists: _pending plus the carry, in that order.
     private readonly List<VoxelPos> _seedScratch = [];
 
+    // The carry's offered prefix: cells at [_farHead, _farOfferedEnd) have been offered to a solve
+    // since they entered; those from _farOfferedEnd on are new. Carried cells woken again since
+    // they were offered are listed here until the next solve takes them.
+    private int _farOfferedEnd;
+    private List<VoxelPos> _farRewoken = [];
+
+    // What the solve in progress was given from the carry, marked offered when it returns: the
+    // carry's count at the time (the carry grows only at Begin) and the re-woken list it took —
+    // swapped out, so a cell the solve itself wakes again lands in a fresh list for the next one.
+    private int _farOfferPendingTo;
+    private List<VoxelPos> _farRewokenTaken = [];
+
+    /// <summary>Seeds the last solve from <see cref="Pending"/>'s path was given.</summary>
+    public int SolveSeedsLast { get; private set; }
+
+    /// <summary>Of those, cells from the far carry — new since the last solve, or woken again.</summary>
+    public int SolveCarrySeedsLast { get; private set; }
+
     // How much of the batch in progress is near. The batch is near-first, so the split is an index.
     private int _batchNearCount;
 
@@ -118,6 +152,18 @@ public sealed partial class FluidSimulation
 
     /// <summary>Far cells deferred past the boundary and waiting for a later tick's quota.</summary>
     public int FarBacklog => _farCarry.Count - _farHead;
+
+    /// <summary>The deferred cells themselves, oldest first — the carry as the quota will admit it. Valid at a boundary.</summary>
+    public IEnumerable<VoxelPos> DeferredCells
+    {
+        get
+        {
+            for (int i = _farHead; i < _farCarry.Count; i++)
+            {
+                yield return _farCarry[i];
+            }
+        }
+    }
 
     /// <summary>Near cells visited over this simulation's lifetime.</summary>
     public long NearCellsVisited { get; private set; }
@@ -273,6 +319,70 @@ public sealed partial class FluidSimulation
     }
 
     /// <summary>
+    /// The seeds a solve from the active set takes: the pending list, the carry's cells not yet
+    /// offered, and the carried cells woken again since they were. <see cref="Pending"/> is the
+    /// whole set; this is the part of it that can change a sheet's answer.
+    /// </summary>
+    private IReadOnlyList<VoxelPos> SolveSeeds()
+    {
+        if (FarBacklog == 0)
+        {
+            // A re-wake listed while the carry still stood is a cell since admitted and visited;
+            // nothing to offer, nothing to mark.
+            _farRewoken.Clear();
+            SolveSeedsLast = _pending.Count;
+            SolveCarrySeedsLast = 0;
+            return _pending;
+        }
+
+        _seedScratch.Clear();
+        _seedScratch.AddRange(_pending);
+        int from = Math.Max(_farOfferedEnd, _farHead);
+        for (int i = from; i < _farCarry.Count; i++)
+        {
+            _seedScratch.Add(_farCarry[i]);
+        }
+
+        _seedScratch.AddRange(_farRewoken);
+        SolveSeedsLast = _seedScratch.Count;
+        SolveCarrySeedsLast = _seedScratch.Count - _pending.Count;
+
+        _farOfferPendingTo = _farCarry.Count;
+        (_farRewoken, _farRewokenTaken) = (_farRewokenTaken, _farRewoken);
+        _farRewoken.Clear();
+        return _seedScratch;
+    }
+
+    /// <summary>After a solve from <see cref="SolveSeeds"/>: the carry's cells it was given are marked offered and the re-woken list it took is spent.</summary>
+    private void MarkCarryOffered()
+    {
+        if (FarBacklog == 0 && _farRewokenTaken.Count == 0)
+        {
+            return;
+        }
+
+        int from = Math.Max(_farOfferedEnd, _farHead);
+        int to = Math.Min(_farOfferPendingTo, _farCarry.Count);
+        for (int i = from; i < to; i++)
+        {
+            _queued[_farCarry[i]] = true;
+        }
+
+        foreach (VoxelPos cell in _farRewokenTaken)
+        {
+            // Still carried — a cell admitted to a batch since it was re-woken is not queued
+            // any more, and a cell that left and came back is pending and unmarked by index.
+            if (_queued.ContainsKey(cell))
+            {
+                _queued[cell] = true;
+            }
+        }
+
+        _farOfferedEnd = Math.Max(_farOfferedEnd, to);
+        _farRewokenTaken.Clear();
+    }
+
+    /// <summary>
     /// Turns the cells woken since the last boundary into this tick's batch: near first, then as
     /// much of the far carry as the quota admits, with the rest deferred.
     /// </summary>
@@ -333,14 +443,30 @@ public sealed partial class FluidSimulation
         // the round-robin the carry's fairness rests on.
         if (_reclassifyCarry)
         {
+            // The offered prefix survives the walk: the cells that stay far keep their order, so
+            // those of the old prefix that stay are a prefix of the new carry.
+            int offeredEnd = Math.Max(_farOfferedEnd, _farHead);
+            int offeredKept = 0;
             for (int i = _farHead; i < _farCarry.Count; i++)
             {
                 VoxelPos cell = _farCarry[i];
-                (IsNear(cell) ? _nearScratch : _farScratch).Add(cell);
+                if (IsNear(cell))
+                {
+                    _nearScratch.Add(cell);
+                }
+                else
+                {
+                    _farScratch.Add(cell);
+                    if (i < offeredEnd)
+                    {
+                        offeredKept++;
+                    }
+                }
             }
 
             _farCarry.Clear();
             _farHead = 0;
+            _farOfferedEnd = offeredKept;
             _reclassifyCarry = false;
         }
 
@@ -367,6 +493,7 @@ public sealed partial class FluidSimulation
         {
             _farCarry.Clear();
             _farHead = 0;
+            _farOfferedEnd = 0;
         }
 
         return take;
@@ -378,6 +505,7 @@ public sealed partial class FluidSimulation
         if (_farHead > 0 && _farHead * 2 >= _farCarry.Count)
         {
             _farCarry.RemoveRange(0, _farHead);
+            _farOfferedEnd = Math.Max(0, _farOfferedEnd - _farHead);
             _farHead = 0;
         }
     }

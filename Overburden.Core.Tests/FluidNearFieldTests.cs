@@ -575,6 +575,114 @@ public sealed class FluidNearFieldTests
     }
 
     [Fact]
+    public void ACarriedCellIsOfferedToTheSolveOnceAndAgainOnlyWhenWokenAgain()
+    {
+        // The worker's cost on the played worlds (2026-09-19): every carried cell offered as a
+        // seed every pass, three layers flooded around each before the share could freeze the
+        // sheet. A wide far pocket poured at one end stays carried for hundreds of ticks under a
+        // near tap; the first solve is offered all of it, the second none of it, and a wake beside
+        // a carried cell re-offers that cell and its sides — no more.
+        FluidSimulation sim = Ordered(farFloor: 4, width: 32);
+        Pour(sim, Far, 200);
+        Pour(sim, Near, 4);
+        sim.Step();
+        int backlog = sim.FarBacklog;
+        Assert.True(backlog > 0, "nothing was deferred");
+
+        sim.LevelSheets(share: 8);
+        Assert.Equal(backlog, sim.SolveCarrySeedsLast);
+
+        sim.Add(Near(0), Cap / 2);
+        sim.Step();
+        Assert.True(sim.FarBacklog > 0);
+        int newSinceLast = sim.FarBacklog;
+
+        sim.LevelSheets(share: 8);
+        // Only what entered the carry since the last solve — at most what a tick's far visits and
+        // the near tap woke into it — never the whole backlog again.
+        Assert.True(sim.SolveCarrySeedsLast < backlog / 2, $"{sim.SolveCarrySeedsLast} carry seed(s) offered again of a backlog of {newSinceLast}");
+
+        // A wake on a carried cell whose every holdable neighbour is carried too — the pour's
+        // bottom row, inside the pocket — re-offers that cell and its sides through the mark and
+        // nothing else: no cell enters the carry fresh, so the count is the re-wake path alone.
+        // From the carry itself, not Pending: a far cell woken since the last Begin is pending
+        // and unmarked, and a re-wake of it goes nowhere — it is a seed already.
+        var carried = new HashSet<VoxelPos>(sim.DeferredCells);
+        VoxelPos? interior = null;
+        foreach (VoxelPos cell in carried)
+        {
+            bool enclosed = true;
+            foreach ((int dx, int dy) in new[] { (-1, 0), (1, 0), (0, 1), (0, -1) })
+            {
+                VoxelPos side = cell.Offset(dx, dy, 0);
+                bool inPocket = side.X >= FarX && side.X < FarX + 32 && side.Y >= 8 && side.Y <= 40;
+                if (inPocket && !carried.Contains(side))
+                {
+                    enclosed = false;
+                    break;
+                }
+            }
+
+            if (enclosed)
+            {
+                interior = cell;
+                break;
+            }
+        }
+
+        Assert.True(interior.HasValue, "no carried cell is enclosed by carried cells, so the re-wake path cannot be isolated");
+
+        // A take, not an add: an add into a full cell accepts nothing and wakes nothing.
+        Assert.Equal(1L, sim.Remove(interior!.Value, 1));
+        sim.LevelSheets(share: 8);
+        Assert.InRange(sim.SolveCarrySeedsLast, 1, 6);
+        FluidAssert.Conserves(sim);
+    }
+
+    [Fact]
+    public void TheOfferedMarkSurvivesAViewerMoveThatKeepsTheCellFar()
+    {
+        // A re-classification walks the carry once per viewer chunk change — every second on
+        // foot — and re-offering the whole backlog on each would be the cost back while walking.
+        FluidSimulation sim = Ordered(farFloor: 4, width: 32);
+        Pour(sim, Far, 200);
+        Pour(sim, Near, 4);
+        sim.Step();
+        sim.LevelSheets(share: 8);
+        Assert.True(sim.SolveCarrySeedsLast > 0);
+
+        // One chunk over: the near pocket at chunk 0 is still near with one ring, so the tap
+        // keeps the quota on, and the far pocket at chunk 6 is still far — but the centre moved,
+        // so the carry is walked and rebuilt.
+        sim.SetNearField(new ChunkPos(1, 0, 0), Rings);
+        sim.Add(Near(1), Cap / 2);
+        sim.Step();
+        Assert.True(sim.FarBacklog > 0, "nothing was deferred after the move — the quota came off");
+
+        sim.LevelSheets(share: 8);
+        Assert.True(
+            sim.SolveCarrySeedsLast < sim.FarBacklog / 2,
+            $"a viewer move re-offered {sim.SolveCarrySeedsLast} of {sim.FarBacklog} carried cells");
+        FluidAssert.Conserves(sim);
+    }
+
+    [Fact]
+    public void TheSolveStillLevelsAFarSheetItWasOfferedOnce()
+    {
+        // The accuracy the rule keeps: a far sheet with a step in it, wholly carried, is levelled
+        // on the first offer as it always was — the deferred cells are still seeds, once.
+        FluidSimulation sim = Ordered(farFloor: 4, width: 32);
+        Pour(sim, Far, 200);
+        Pour(sim, Near, 4);
+        sim.Step();
+
+        SheetLevelResult first = sim.LevelSheets();
+        Assert.True(first.Sheets > 0, "the solve saw no sheet at all");
+        Assert.True(first.Levelled + first.Packed + first.Stepped > 0, "the far pocket was not levelled on its first offer");
+        FluidAssert.Conserves(sim);
+    }
+
+    [Fact]
     public void WithNoOrderTheMachineColumnsChangeNothing()
     {
         // Rings zero is the control arm — every fixture, every bench — and a machine column

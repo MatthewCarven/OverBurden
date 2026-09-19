@@ -253,7 +253,14 @@ public sealed partial class FluidSimulation
     public SheetLevelResult LevelSheets(int share = 0, int quietTicks = 0)
     {
         RefuseMidTick(nameof(LevelSheets));
-        return LevelSheets(Pending, share, quietTicks);
+        if (TickInProgress)
+        {
+            throw new InvalidOperationException(
+                $"LevelSheets asked mid-tick, with {RemainingInTick} cell(s) still to visit; "
+                + "finish the tick with Step() first.");
+        }
+
+        return SolveFromActiveSet(share, quietTicks, Ticks);
     }
 
     /// <summary>
@@ -287,7 +294,19 @@ public sealed partial class FluidSimulation
     /// order — settle, then hand-off, drain, pour, the next tick — are the sync arm's exactly.
     /// </summary>
     internal SheetLevelResult SolveOnWorker(int share, int quietTicks) =>
-        Solve(Pending, share, quietTicks, Ticks + 1);
+        SolveFromActiveSet(share, quietTicks, Ticks + 1);
+
+    /// <summary>
+    /// The solve over the active set: seeded from the pending list and the carry's changed part
+    /// (see the near field's remarks — a carried cell is offered once, and again when woken
+    /// again), the carry marked offered after.
+    /// </summary>
+    private SheetLevelResult SolveFromActiveSet(int share, int quietTicks, long nowTick)
+    {
+        SheetLevelResult result = Solve(SolveSeeds(), share, quietTicks, nowTick);
+        MarkCarryOffered();
+        return result;
+    }
 
     /// <summary>The tick number the last solve tested quiet against. Tests only: it pins the worker's +1.</summary>
     internal long LastSolveTick => _solveTick;

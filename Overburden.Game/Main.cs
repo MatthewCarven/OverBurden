@@ -6415,7 +6415,8 @@ public partial class Main : Node3D
               + $"{_settle.SheetsNoisy:N0} still being fed / "
               + $"{_settle.SheetsStepped:N0} levelled for a step, {_settle.CellsVisited:N0} cells visited, "
               + $"{_settle.CellsWritten:N0} written, "
-              + $"largest sheet {_settle.LargestSheet:N0}, longest pass {_settle.LongestMillis:F1} ms";
+              + $"largest sheet {_settle.LargestSheet:N0}, longest pass {_settle.LongestMillis:F1} ms, "
+              + $"last pass seeded {f.SolveSeedsLast:N0} ({f.SolveCarrySeedsLast:N0} from the carry)";
 
         long drawn = _drain?.DrawnMillilitres ?? 0;
         long seeped = _seepDrain?.SeepedMillilitres ?? 0;
@@ -6593,7 +6594,7 @@ public partial class Main : Node3D
               + $"{_settle.CellsVisited:N0} cells visited, "
               + $"{_settle.CellsWritten:N0} written, {_settle.CellsWoken:N0} woken, largest sheet "
               + $"{_settle.LargestSheet:N0} cells, longest pass {_settle.LongestMillis:F2} ms, "
-              + $"{_settle.TotalMillis:F1} ms in all\n";
+              + $"{_settle.TotalMillis:F1} ms in all; last pass seeded {f.SolveSeedsLast:N0} ({f.SolveCarrySeedsLast:N0} from the carry)\n";
 
         FluidPublished p = f.Published;
         int jobs = _fluidJobs - _fluidJobsAtWarm;

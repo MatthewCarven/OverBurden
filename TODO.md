@@ -5704,13 +5704,19 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
             lerp draws it sliding; a bigger drop is four cells, a different shape). **Played the
             same evening: *"Looks good to me … I loved seeing the tier b water blocks falling"*
             — 2% stands.**
-      - [ ] **The settle's solve floods 294k cells a boundary on the played world** — worker wall
+      - [x] **The settle's solve floods 294k cells a boundary on the played world** — worker wall
             750–870 ms mean, the tick at 1.2 Hz, 1,261 of 1,375 boundaries waited, the batch 3,514
-            cells. `LevelSheets` seeds from the whole carry (456k cells) every pass so a wholly far
-            sheet is not invisible; the share's early stop counts every seed as unsettled, so a
-            sheet full of carried cells is flooded whole to be `left`. Lever: a carried cell seeds
-            the solve once, when it enters the carry, or the share counts *moved* cells rather than
-            seeds. The M8b-3b "pass per boundary is O(sheet)" item with the played number.
+            cells; the fresh world an hour in read the same (705 ms, 902 of 3,244 waited). Every
+            carried cell was a seed every pass, and every seed is flooded three layers before the
+            share can freeze its sheet. **Built 2026-09-19 (night) on *"go"*: a carried cell is
+            offered once and again only when woken again** — the bit in `_queued`, `SolveSeeds`,
+            `MarkCarryOffered`, the prefix kept across a re-classification. On a copy of the
+            retired world: solve 92.8 → 5.3 ms a pass, worker 106 → 29 ms, 118k → 6.7k cells a
+            pass, 229 → 276 sheets levelled. Three tests, five recipes caught, suite 1,660; the
+            r6 control and every `--fluidnear=0` oracle unchanged. Read WATER-THREAD-PLAN's
+            second 2026-09-19 amendment under slice 1. **Play check**: `worker wall mean` and
+            `boundary(ies) waited` on the `M8b:` line under the same water — waited should stop
+            climbing — and the pumps at their full rate.
             - [x] **The flooded `default` is retired as the measurement world** — *"Please
                   Retire my world for your own tests"*, 2026-09-19 18:31, after a clean quit:
                   `worlds/retired-flooded-2026-09-19/` (185 chunks, 969 fluid rows holding

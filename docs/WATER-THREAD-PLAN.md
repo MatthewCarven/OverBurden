@@ -299,6 +299,33 @@ log answered the tick-split trigger below**: `1,261 boundary(ies) waited` of 1,3
 not the visit loop (3,514 cells a tick) but the solve on the job's tail flooding 294k cells a
 pass from the carry's seeds — the lever is the seeds, in TODO under M10d, not the split.
 
+**Amended 2026-09-19 (night) — the solve is seeded from what changed, not from the whole carry.**
+Built the same night on *"go please Claude"*. `Pending` still lists the carry (a wholly far
+sheet must not be invisible), but a solve from the active set takes `SolveSeeds()`: the pending
+list, the carry's cells not yet offered, and the carried cells woken again since they were. The
+offered mark is one bit a cell in `_queued`, which became a `Dictionary<VoxelPos, bool>`:
+`Wake` on a queued, offered cell clears the bit and lists the cell (`_farRewoken`); a solve
+marks the carry range it was given and the re-woken list it took, both snapshotted before the
+solve so the cells the solve itself wakes land in a fresh list for the next one; admission
+removes the cell and its bit; a re-classification keeps the offered prefix, because the cells
+that stay far keep their order and the old prefix's survivors are a prefix of the new carry —
+which is what stops a viewer chunk change (every second on foot) re-offering the backlog. Why it
+is sound: an unsettled pair needs a cell that moved, and a move wakes both cells of every pair
+it makes, so every pair that appeared since a sheet was judged has a seed on it; what is not
+re-counted is the pairs the share already left alone, so a far sheet under the share stays
+under it until something near it moves — the share rule's own trade, one pass further, and the
+visits under the quota are still the floor. Three tests (offered once and again on a re-wake
+through an enclosed carried cell taken from, the mark surviving a viewer move that keeps the
+cell far, a far sheet still levelled on its first offer), five recipes, five caught. **On a copy
+of the retired world at a standing start, `--fluidjob=1 --fluidnear=2 --measure=30`, the same
+run before and after: solve mean 92.78 → 5.28 ms, worker wall 106.4 → 28.9 ms, the settle's
+cells visited 7,109,166 → 399,249 over 60 passes (118k → 6.7k a pass), and it levelled more,
+not fewer — 229 → 276 sheets, 22,340 → 57,967 cells written, the backlog 32,736 → 14,962 at
+the end** — because the control's passes were frozen floods around 33k seeds and the seeded
+arm's are levels. Every recorded oracle runs `--fluidnear=0`, where the carry is empty and the
+path is unchanged; the r6 control to the digit; suite 1,657 → 1,660. The `settle` term prints
+`last pass seeded N (M from the carry)`.
+
 ### Slice 2 — the readable terrain (sim thread, priced first)
 
 A holdability bit per voxel, 4 KiB a chunk, built when a chunk's voxels arrive on the pipeline's

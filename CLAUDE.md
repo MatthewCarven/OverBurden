@@ -595,6 +595,13 @@ column(s)`. The wire, against the same run with the hand-over out: `--profile --
 --fillbasin=2000000 --breach=3 --pump=100 --pumpoutlet=48 --fluidnear=2 --measure=40` reads
 `4 machine column(s), 11,462 near visit(s) against 0 far` where the control read `0 machine
 column(s), 1,126 near visit(s) against 10,336 far`, the same 1,000 L pumped and handed in both.
+**And the solve is seeded from what changed since the same night**: a carried cell is offered to
+the sheet solve once, when it enters the carry, and again only when woken again (the bit in
+`_queued`, `Wake` clears it, a solve marks what it took, a re-classification keeps the prefix)
+— the played worlds had the solve flooding 294k cells a boundary from a 456k-cell carry to level
+twenty sheets, the tick at 1.2 Hz; on a copy of the retired world the solve went 92.8 → 5.3 ms
+a pass and levelled more, not fewer. `--fluidnear=0` has no carry and is unchanged; the
+`settle` term prints `last pass seeded N (M from the carry)`.
 
 The adaptive view radius (2026-09-06) adds six. **`--adaptive=1` turns it on; off is the default
 and the arm every recorded streaming figure was taken in, and `start.cmd` passes it on** the way

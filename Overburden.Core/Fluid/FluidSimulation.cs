@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Overburden.Core.Persistence;
 using Overburden.Core.Voxels;
 
@@ -152,7 +153,10 @@ public sealed partial class FluidSimulation : IFluidPersistence
     // turns "the same input settles the same way" from a property into a coincidence.
     private List<VoxelPos> _batch = [];
     private List<VoxelPos> _pending = [];
-    private readonly HashSet<VoxelPos> _queued = [];
+    // The dedupe set of the active set, with one bit a cell (2026-09-19): whether a carried cell
+    // has been offered to the sheet solve as a seed since it was last woken. See the near field's
+    // remarks — the solve is seeded from what changed, not from the whole backlog every pass.
+    private readonly Dictionary<VoxelPos, bool> _queued = [];
 
     // Cells the tick in progress visited and found nothing to do for. See Rested.
     private readonly List<VoxelPos> _rested = [];
@@ -814,7 +818,7 @@ public sealed partial class FluidSimulation : IFluidPersistence
             VoxelPos below = Below(cell);
             if (_terrain.CanHold(below) && RoomAt(below) > 0)
             {
-                return (cell, $"room below ({RoomAt(below)} mL), holds {amount}, paused {IsPaused(cell)}, queued {_queued.Contains(cell)}, chunk loaded {_terrain.IsLoaded(cell)}, below loaded {_terrain.IsLoaded(below)}");
+                return (cell, $"room below ({RoomAt(below)} mL), holds {amount}, paused {IsPaused(cell)}, queued {_queued.ContainsKey(cell)}, chunk loaded {_terrain.IsLoaded(cell)}, below loaded {_terrain.IsLoaded(below)}");
             }
 
             if (!FluidRules.CanSpread(amount))
@@ -1232,7 +1236,7 @@ public sealed partial class FluidSimulation : IFluidPersistence
             }
         }
 
-        foreach (VoxelPos cell in _queued)
+        foreach (VoxelPos cell in _queued.Keys)
         {
             if (_grid.AmountAt(cell) > 0 && seen.Add(cell)) yield return cell;
         }
@@ -1516,10 +1520,19 @@ public sealed partial class FluidSimulation : IFluidPersistence
             return false;
         }
 
-        if (_queued.Add(cell))
+        ref bool offered = ref CollectionsMarshal.GetValueRefOrAddDefault(_queued, cell, out bool queued);
+        if (!queued)
         {
             _pending.Add(cell);
             return true;
+        }
+
+        // A carried cell woken again is one whose neighbourhood moved: it is a seed for the next
+        // solve once more, and this is the only way a cell already offered becomes one.
+        if (offered)
+        {
+            offered = false;
+            _farRewoken.Add(cell);
         }
 
         return false;

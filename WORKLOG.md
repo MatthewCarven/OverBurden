@@ -1,5 +1,45 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-19 (night, later) — The solve is seeded from what changed: a carried cell is offered once
+
+*"go please Claude"*. The lever from the afternoon's finding, planned against `Sheets.cs` and
+`NearField.cs` and built in one pass:
+
+- **What the cost was.** `Pending` lists the far carry so a wholly far sheet is not invisible
+  to the solve (slice 1's rule), and every seed is flooded three layers before the share can
+  freeze its sheet — so 456k carried cells tiling the played world's resting sheets were 294k
+  cells visited a pass to level twenty, the worker's 750 ms, the tick at 1.2 Hz.
+- **The rule.** A carried cell is offered to the solve once, on the first solve after it enters
+  the carry, and again only when it is woken again. `_queued` is a `Dictionary<VoxelPos, bool>`
+  now — the offered bit a cell; `Wake` on a queued, offered cell clears it and lists the cell;
+  `SolveSeeds()` is the pending list, the carry's unoffered tail and the re-woken list, both
+  snapshotted so the cells the solve itself wakes go to the next one; `MarkCarryOffered()` after;
+  admission takes the bit with the cell; a re-classification keeps the offered prefix (the
+  survivors of the old prefix are a prefix of the new carry), so a viewer chunk change every
+  second on foot does not re-offer the backlog. Sound because an unsettled pair needs a cell
+  that moved and a move wakes both cells of every pair — what is not re-counted is the pairs the
+  share already left alone, which is the share rule's own trade one pass further, with the
+  quota's visits still the floor.
+- **Measured on a copy of the retired world, the same run before and after** (`--profile
+  --speed=0 --world=probe-solve --fluidjob=1 --fluidnear=2 --measure=30`): solve mean 92.78 →
+  5.28 ms, worker wall 106.4 → 28.9 ms, settle cells visited 7.1 M → 399k over 60 passes, and
+  more levelled rather than fewer — 229 → 276 sheets, 22,340 → 57,967 cells written, the
+  backlog 32,736 → 14,962 at the end. The control's passes were frozen floods around 33k seeds;
+  the seeded arm's are levels.
+- **Tests and recipes.** Offered once and again on a re-wake — isolated through an enclosed
+  carried cell *taken from* (an add into a full cell accepts nothing and wakes nothing, and a
+  far cell woken since the last Begin is pending, not carried, so the fixture reads
+  `DeferredCells`, new); the mark surviving a viewer move that keeps the cell far (the first
+  fixture moved the viewer off the near tap and the quota came off — nothing deferred, nothing
+  tested); a far sheet still levelled on its first offer. Five recipes, five caught, one only
+  after the fixture stopped adding water to a full cell. Suite 1,657 → 1,660; the r6 control to
+  the digit; every recorded oracle runs `--fluidnear=0`, where the carry is empty and the path
+  is byte-for-byte the old one.
+
+The `settle` term prints `last pass seeded N (M from the carry)`. The play check is the `M8b:`
+line's `worker wall mean` and `boundary(ies) waited` under the same water — waited should stop
+climbing — and the pumps at their full rate.
+
 ## 2026-09-19 (night) — The fresh world's first hour: a 1 ML dome in a stone tank, and `Alt+P` breaking the pool identity
 
 A screenshot with no words — a Ctrl+R megalitre standing as a stepped dome inside a stone-walled
