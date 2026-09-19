@@ -1169,6 +1169,46 @@ public class MachineTickTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void NearColumnsAreEveryPumpsBoxAndEveryOutletsMouthAndNothingElse()
+    {
+        // The near field's second kind of viewer (2026-09-19). The pump in the room's middle at
+        // radius 1 is column (1, 1) alone; the west room's outlet is column (0, 1) alone, so a
+        // list that forgot outlets would be one column short; a panel and a cell stand in column
+        // (2, 1), which a list that took every row would name and this one must not.
+        var twin = new Twin();
+        twin.Place(Twin.PumpCell, Pump);
+        twin.Place(Twin.WestOutlet, Outlet);
+        twin.Place(new BrushCell(17, 10, 9), Panel);
+        twin.Place(new BrushCell(18, 10, 9), BigCell);
+
+        var columns = new HashSet<(int X, int Z)>(twin.Tick.NearColumns);
+
+        Assert.Equal(new HashSet<(int, int)> { (1, 1), (0, 1) }, columns);
+    }
+
+    [Fact]
+    public void NearColumnsFollowTheIntakeRadiusAndTheSet()
+    {
+        // A wide pump one cell east of the room's west wall reaches two cells west at radius 2 —
+        // across the chunk's face into column X 0 — where a radius-1 box would stay inside
+        // column 1; and a dismantle takes a column out at the next read, because the list is
+        // rebuilt with the rings.
+        var twin = new Twin();
+        var nearTheWall = new BrushCell(9, 2, 10);
+        twin.Place(nearTheWall, WidePump);
+        Assert.Equal(new HashSet<(int, int)> { (0, 1), (1, 1) }, new HashSet<(int X, int Z)>(twin.Tick.NearColumns));
+
+        MachineRow west = twin.Place(Twin.WestOutlet, Outlet);
+        Assert.Equal(new HashSet<(int, int)> { (0, 1), (1, 1) }, new HashSet<(int X, int Z)>(twin.Tick.NearColumns));
+
+        Assert.True(twin.Machines.Remove(nearTheWall));
+        Assert.Equal(new HashSet<(int, int)> { (0, 1) }, new HashSet<(int X, int Z)>(twin.Tick.NearColumns));
+
+        Assert.True(twin.Machines.Remove(west.Cell));
+        Assert.Empty(twin.Tick.NearColumns);
+    }
+
+    [Fact]
     public void WeightsAreTheSmoothInterleave()
     {
         // Weights 5 : 1 : 1 read A A B A C A A — the two lighter outlets spread through the ring

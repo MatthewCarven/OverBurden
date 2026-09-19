@@ -488,4 +488,108 @@ public sealed class FluidNearFieldTests
         Assert.True(sim.VerifyQuiescent());
         FluidAssert.Conserves(sim);
     }
+
+    // The far pocket's chunk column: FarX 200 is chunk 6.
+    private static readonly (int X, int Z)[] FarColumn = [(6, 0)];
+
+    [Fact]
+    public void AMachineColumnIsNearWhereverTheViewerStands()
+    {
+        // The near field's second kind of viewer (2026-09-19): a far outlet's mound was visited
+        // once in ~260 ticks under the quota and the pump behind it stalled no room. With the
+        // machine's column named, the far pocket is admitted whole every tick with the viewer
+        // six chunks off — nothing deferred, nothing throttled.
+        FluidSimulation sim = Ordered(farFloor: 4);
+        sim.SetNearColumns(FarColumn);
+        Pour(sim, Near, 4);
+        Pour(sim, Far, 60);
+
+        sim.Step();
+
+        Assert.Equal(0, sim.FarBacklog);
+        Assert.Equal(0, sim.FarAdmitted);
+        Assert.Equal(0, sim.ThrottledTicks);
+        Assert.True(sim.NearAdmitted >= 64, $"only {sim.NearAdmitted} admitted as near");
+        Assert.Equal(1, sim.NearColumnCount);
+        Assert.True(sim.IsNearColumn(6, 0));
+        FluidAssert.Conserves(sim);
+    }
+
+    [Fact]
+    public void NamingAMachineColumnReclassifiesTheCarryAndLosesNoCell()
+    {
+        // The viewer-move rule for a placement: the carry is walked once at the next boundary,
+        // and what was far is near. Nothing duplicated, nothing dropped from the set the store walks.
+        FluidSimulation sim = Ordered(farFloor: 4);
+        Pour(sim, Near, 4);
+        Pour(sim, Far, 60);
+
+        sim.Step();
+        long heldBefore = sim.TotalMillilitres;
+        Assert.True(sim.FarBacklog > 0, "nothing was deferred, so there is no carry to re-classify");
+
+        sim.SetNearColumns(FarColumn);
+        sim.Step();
+
+        Assert.Equal(0, sim.FarBacklog);
+        Assert.True(sim.NearAdmitted > 4, "the far cells did not become near after the column was named");
+        Assert.Equal(heldBefore, sim.TotalMillilitres);
+        FluidAssert.Conserves(sim);
+
+        var seen = new HashSet<VoxelPos>();
+        foreach (VoxelPos cell in sim.Pending)
+        {
+            Assert.True(seen.Add(cell), $"{cell} is queued twice after the column was named");
+        }
+
+        var awake = new HashSet<VoxelPos>(sim.AwakeHeldCells());
+        foreach (VoxelPos cell in sim.Pending)
+        {
+            if (sim.Grid.AmountAt(cell) > 0)
+            {
+                Assert.Contains(cell, awake);
+            }
+        }
+    }
+
+    [Fact]
+    public void ADismantledMachinesColumnIsFarAgain()
+    {
+        // A wide far pocket poured at one end stays awake for hundreds of ticks, so the column
+        // being taken away is observable: the next composition defers it under the quota again.
+        FluidSimulation sim = Ordered(farFloor: 4, width: 32);
+        sim.SetNearColumns(FarColumn);
+        Pour(sim, Far, 200);
+        Pour(sim, Near, 4);
+
+        sim.Step();
+        Assert.Equal(0, sim.FarBacklog);
+
+        sim.SetNearColumns([]);
+        sim.Add(Near(0), Cap / 2);
+        sim.Step();
+
+        Assert.Equal(0, sim.NearColumnCount);
+        Assert.True(sim.FarBacklog > 0, "the far pocket was still admitted after its column was removed");
+        FluidAssert.Conserves(sim);
+    }
+
+    [Fact]
+    public void WithNoOrderTheMachineColumnsChangeNothing()
+    {
+        // Rings zero is the control arm — every fixture, every bench — and a machine column
+        // must not put it onto the classification path.
+        var sim = new FluidSimulation(Pockets());
+        sim.SetNearColumns(FarColumn);
+        Pour(sim, Near, 4);
+        Pour(sim, Far, 60);
+
+        FluidTickResult tick = sim.Step();
+
+        Assert.Equal(0, sim.FarAdmitted);
+        Assert.Equal(0, sim.FarBacklog);
+        Assert.Equal(0, sim.ThrottledTicks);
+        Assert.Equal(tick.CellsVisited, sim.NearAdmitted);
+        Assert.Equal(0, sim.FarCellsVisited);
+    }
 }

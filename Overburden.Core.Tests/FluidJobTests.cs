@@ -268,17 +268,22 @@ public class FluidJobTests
         Assert.Throws<InvalidOperationException>(() => sim.BeginTick(terrain, ChunkPos.Zero));
         Assert.Throws<InvalidOperationException>(() => sim.Add(new VoxelPos(1, 22, 1), Cap));
 
-        // A move lands at the next begin rather than under the worker.
+        // A move lands at the next begin rather than under the worker — and so does a machine
+        // column named while the worker is out.
         sim.SetNearField(new ChunkPos(3, 0, 3), 2);
+        sim.SetNearColumns([(7, 7)]);
         Assert.Equal(0, sim.NearRings);
+        Assert.Equal(0, sim.NearColumnCount);
 
         job.Run(CancellationToken.None);
         job.OnResult(JobOutcome.Completed, null);
         Assert.False(sim.JobInFlight);
         Assert.Equal(0, sim.NearRings);
+        Assert.Equal(0, sim.NearColumnCount);
         FluidTickJob next = sim.BeginTick(terrain, ChunkPos.Zero);
         Assert.Equal(2, sim.NearRings);
         Assert.Equal(new ChunkPos(3, 0, 3), sim.NearCentre);
+        Assert.True(sim.IsNearColumn(7, 7));
         next.Run(CancellationToken.None);
         next.OnResult(JobOutcome.Completed, null);
 

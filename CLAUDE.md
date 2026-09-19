@@ -563,6 +563,20 @@ the pre-3c arm that baked a restore's dozens in one frame; the `fluidfield` line
 past the cap, are still owed, and were baked late and woken. On the job arm the settle's solve runs at
 the tail of the job (`solve mean` on the `fluidjob` line) and the `boundary` line's settle reads 0.
 
+The near/far order (slice 1, 2026-09-09) is **`--fluidnear=<rings>`** — the viewer's chunk column
+and that many rings, horizontal, visited every tick; `start.cmd` passes 2 and 0 is no order, the
+control arm every fixture runs — and **`--fluidfar=<cells>`**, the least far cells admitted a tick
+while anything near is awake (512; the quota is `max(--fluidfar, near)`). **Since 2026-09-19 the
+machines are near too**: the chunk columns under every pump's intake box and every outlet's mouth
+layer (`MachineTick.NearColumns` → `FluidSimulation.SetNearColumns`, once a frame beside the
+centre) are near wherever the player stands, because a far outlet's 250 L mouth layer was visited
+once in ~260 ticks and its pump stalled `no room` for a session; the `M8b:` line's near/far
+bracket prints `N machine column(s) near`, the profile's `fluidnear` line `2 ring(s) + N machine
+column(s)`. The wire, against the same run with the hand-over out: `--profile --speed=0
+--fillbasin=2000000 --breach=3 --pump=100 --pumpoutlet=48 --fluidnear=2 --measure=40` reads
+`4 machine column(s), 11,462 near visit(s) against 0 far` where the control read `0 machine
+column(s), 1,126 near visit(s) against 10,336 far`, the same 1,000 L pumped and handed in both.
+
 The adaptive view radius (2026-09-06) adds six. **`--adaptive=1` turns it on; off is the default
 and the arm every recorded streaming figure was taken in, and `start.cmd` passes it on** the way
 it passes the light budget. The box starts at the floor, falls a ring at a time while the viewer
@@ -909,7 +923,13 @@ play checks under M10d in TODO. **And a fourth thing the same evening, from the 
 into water displaces it* — M9d's `Wet` refusal still lands the dry part at the click, and the
 boundary runs the same shape again with `FillWater` in hand (lift, write, return bottom-up over
 the shape's box grown by a cell, the rest `displaced`), the chunk fill included; read "M9d —
-built"'s last amendment in [docs/M9-PLAN.md](docs/M9-PLAN.md). Three things not to rediscover: **a fresh world must not start
+built"'s last amendment in [docs/M9-PLAN.md](docs/M9-PLAN.md). **And a fifth, from the same play an hour later**: *the machines are
+near* — a far outlet's mound was visited once in ~260 ticks under the far quota and its pump
+stalled `no room` for the session (*"the water processing cannot keep up with the 'dump' rate"*),
+so the chunk columns under every pump's box and every outlet's mouth join the viewer's rings in
+`IsNear`; read the 2026-09-19 amendment at the end of "Slice 1 — built" in
+[docs/WATER-THREAD-PLAN.md](docs/WATER-THREAD-PLAN.md), which also records the solve flooding
+294k cells a boundary on that world — the tick at 1.2 Hz, a lever in TODO. Three things not to rediscover: **a fresh world must not start
 on a costing tool** (the first swing would cost from an empty pack and read as a broken build —
 `ToolTiers.Default` is the rule and `ShippedContentTests` asserts it); **`PlaceController` has
 its own `TakesCube`**, because the fill follows the tier and not the hold; and **the bite's

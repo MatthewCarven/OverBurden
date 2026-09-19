@@ -5485,6 +5485,16 @@ public partial class Main : Node3D
         if (_fluidNearRings > 0)
         {
             _fluid.SetNearField(ViewerChunk(), _fluidNearRings);
+
+            // The near field's second kind of viewer (2026-09-19): the chunk columns under every
+            // pump's intake box and every outlet's mouth layer are near wherever the player is,
+            // so a far outlet's mound drains and a far intake refills at the tick's own rate
+            // rather than the far quota's. An unchanged set costs the tick's version check and
+            // one comparison; a placement re-classifies the carry once at the next boundary.
+            if (_machineTick is not null)
+            {
+                _fluid.SetNearColumns(_machineTick.NearColumns);
+            }
         }
 
         _fluidSinceTick += delta;
@@ -6286,7 +6296,7 @@ public partial class Main : Node3D
                + $"{f.Ticks:N0} tick(s) at {1.0 / FluidTickSeconds:F0} Hz, {f.ActiveCellCount:N0} active "
                + (_fluidNearRings > 0
                    ? $"(last tick {f.NearAdmitted:N0} near + {f.FarAdmitted:N0} far, "
-                     + $"{f.FarBacklog:N0} deferred), "
+                     + $"{f.FarBacklog:N0} deferred; {f.NearColumnCount:N0} machine column(s) near), "
                    : string.Empty)
                + $"peak {f.PeakActiveCells:N0}, {f.CellVisits:N0} visits; budget "
                + $"{_fluidBudget.TotalMilliseconds:F1} ms a frame, worst frame {_fluidWorstMillis:F2} ms, "
@@ -6463,7 +6473,7 @@ public partial class Main : Node3D
                + $"{visits:N0} visits ({visits / seconds:N0}/s against the ~520,000/s the light "
                + $"budget licenses), peak active {f.PeakActiveCells:N0}, {f.ActiveCellCount:N0} active at the end; "
                + $"{sliced:N0} tick(s) took more than one frame, longest {_fluidLongestTickFramesInWindow:N0} frame(s)\n"
-               + $"fluidnear {(_fluidNearRings > 0 ? $"{_fluidNearRings} ring(s)" : "off")}, "
+               + $"fluidnear {(_fluidNearRings > 0 ? $"{_fluidNearRings} ring(s) + {f.NearColumnCount:N0} machine column(s)" : "off")}, "
                + $"{f.NearCellsVisited - _fluidNearAtWarm:N0} near visit(s) against "
                + $"{f.FarCellsVisited - _fluidFarAtWarm:N0} far, {f.FarBacklog:N0} deferred at the end, "
                + $"{f.ThrottledTicks - _fluidThrottledAtWarm:N0} tick(s) deferred something\n"

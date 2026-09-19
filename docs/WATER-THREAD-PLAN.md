@@ -272,6 +272,33 @@ the control arm**, and `start.cmd` passes 2 the way it passes `--adaptive=1`. Su
   which also takes the *whole-tick* path off the capacity-proportional `HashSet.Clear` that M8b's
   budget slice recorded as its overshoot lever — for a throttled tick only.
 
+**Amended 2026-09-19 — the near field has a second kind of viewer: the machines.** M10d's play
+put 43 relay outlets on the surface and the player 16 m or more from them underground, and the
+order did exactly what this section says it does: the outlets' water was far, admitted at
+`max(512, near)` a tick over a 456k-cell backlog, so each outlet's 250 L mouth layer was visited
+once in ~260 ticks, the pump behind it stalled `no room` for the rest of the session (4,809 by
+the end), and the hand-off — which reads *rested* cells, and a rested cell is a visited one —
+moved only while he stood on the surface (*"the water processing cannot keep up with the 'dump'
+rate of the pumps"*). A machine reads its own water every boundary and is what "near" means, so
+`FluidSimulation.SetNearColumns` takes the chunk columns under every pump's intake box and every
+outlet's mouth layer (`MachineTick.NearColumns`, rebuilt with the rings), `IsNear` is the rings
+*or* those columns — the arithmetic first, one hash probe for a cell the rings refused — and a
+changed set re-classifies the carry at the next boundary exactly as a viewer move does, once per
+placement. Under a job the set lands at the next `BeginTick` like the centre. Rings 0 still skips
+all of it. Cost: the awake water in those columns every tick — a mound draining or a sheet
+creeping into an intake is a few hundred cells a machine — and one bigger tick when the set
+changes. The other arm, a far outlet on the analytic ground pouring straight into Tier A as an
+unloaded one does, was O(1) and rejected: it empties a reservoir built on the surface through
+its floor at 16 m and does nothing for a far intake. Wire: the a-3 oracle with
+`--pumpoutlet=48 --fluidnear=2 --speed=0` reads `fluidnear 2 ring(s) + 4 machine column(s),
+11,462 near visit(s) against 0 far` where the same run with the hand-over commented out reads
+`0 machine column(s), 1,126 near visit(s) against 10,336 far` — the same 1,000 L pumped and
+handed in both, moved from the far side to the near. Six recipes, six caught; suite 1,646 →
+1,652; the `M8b:` line's `near`/`far` bracket carries `N machine column(s) near`. **The same
+log answered the tick-split trigger below**: `1,261 boundary(ies) waited` of 1,375, and it was
+not the visit loop (3,514 cells a tick) but the solve on the job's tail flooding 294k cells a
+pass from the carry's seeds — the lever is the seeds, in TODO under M10d, not the split.
+
 ### Slice 2 — the readable terrain (sim thread, priced first)
 
 A holdability bit per voxel, 4 KiB a chunk, built when a chunk's voxels arrive on the pipeline's
@@ -1016,7 +1043,11 @@ whether the skip is gone.
 - **A dedicated thread** if the `sources` line shows generation starving during a flood.
 - **The tick split across workers — one job per chunk, or per colour wave — if `boundary(ies)
   waited` on the `M8b:` line goes non-zero routinely**: a tick longer than its 500 ms period on the
-  played world. Matthew's question, 2026-09-15 (*"the chances of running each chunk's water calc
+  played world. **Fired 2026-09-19 and closed the other way**: 1,261 of 1,375 boundaries waited on
+  the played world with the tick's batch at 3,514 cells — the worker's 750–870 ms was the settle's
+  solve flooding 294k cells a pass from the carry's 456k seeds, which a split of the visit loop
+  would not touch; the lever is the solve's seeds (TODO under M10d), and this trigger reads the
+  `fluidjob` line's `visit` ms against its `solve mean` before it is believed again. Matthew's question, 2026-09-15 (*"the chances of running each chunk's water calc
   in its own thread? or too much double handling / too much overcopy"*). Not built, because the
   visit loop is not what anybody waits for: a 150,000-cell flood tick is ~45 ms Release and 172–319
   Debug against a 500 ms period, `waited` read 0 on the 3b play, and the skip that was felt was

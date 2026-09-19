@@ -55,6 +55,7 @@ public sealed partial class FluidSimulation
     private FluidFieldView? _capturedView;
     private HashSet<ChunkPos> _publishedPanels = [];
     private (ChunkPos Centre, int Rings)? _nearFieldPending;
+    private List<(int X, int Z)>? _nearColumnsPending;
 
     // M9d, decision 4: the wet bitsets as the last Publish copied them, read by HoldsWater on the
     // sim thread whether or not a worker owns the grid. One path: never the grid.
@@ -341,6 +342,12 @@ public sealed partial class FluidSimulation
         {
             _nearFieldPending = null;
             SetNearField(pending.Centre, pending.Rings);
+        }
+
+        if (_nearColumnsPending is { } columns)
+        {
+            _nearColumnsPending = null;
+            SetNearColumns(columns);
         }
     }
 }

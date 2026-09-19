@@ -5669,19 +5669,21 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
 - [ ] **M10d — the play.** Pump the played mine dry; the storm dimming the panels that pump it;
       the gate felt at the bite; whether a placed pillar reads as shoring (if not, a shoring
       material is one JSON file).
-      - [ ] **The outlets far from the player stall on their own mound — Matthew, 2026-09-19,
+      - [x] **The outlets far from the player stall on their own mound — Matthew, 2026-09-19,
             underground: *"the water is building up on top of them … the water processing cannot
             keep up with the 'dump' rate"*.** The near/far order is the viewer's column and two
             rings, horizontal; an outlet 16 m away is far, its 250 L mouth layer is visited once in
             ~260 ticks, the pump stalls `no room` (4,809 by the end) and the hand-off never sees a
-            rested cell there (`handed` moved only while he stood on the surface). Recommended: **a
-            machine's chunk column is near** — the columns under a pump's intake box and an outlet's
-            mouth layer join the viewer's rings in `FluidSimulation.IsNear`; `Main` hands the set
-            to the simulation at the boundary (pending through the job like the centre), the carry
-            re-classified when it changes; the `M8b:` line's `near` gains `(+N machine column(s))`.
-            Wire: the a-3 oracle with `--fluidnear=2 --speed=0` and the viewer more than two
-            chunks from the outlet — `no room` 0 and `handed` climbing at the pumped rate; the r6
-            control to the digit. Worklog entry of the day, "later still".
+            rested cell there (`handed` moved only while he stood on the surface). **Built the same
+            evening on his word: a machine's chunk column is near** — `MachineTick.NearColumns`
+            (every pump's box at its radius, the box one cell around every outlet) handed to
+            `FluidSimulation.SetNearColumns` once a frame beside the centre, `IsNear` the rings or
+            the columns, a changed set re-classifying the carry once; the `M8b:` bracket and the
+            profile's `fluidnear` line print the count. Six recipes, six caught; suite 1,652; the
+            r6 control to the digit. Wire against the hand-over commented out: `--pumpoutlet=48
+            --fluidnear=2` reads `4 machine column(s) … 0 far` against `0 … 10,336 far`. The play
+            check is the mounds draining with him underground — `no room` flat on the `M10:` line
+            and `handed` climbing on the `M8b:` line while `near` is small.
       - [ ] **The settle's solve floods 294k cells a boundary on the played world** — worker wall
             750–870 ms mean, the tick at 1.2 Hz, 1,261 of 1,375 boundaries waited, the batch 3,514
             cells. `LevelSheets` seeds from the whole carry (456k cells) every pass so a wholly far

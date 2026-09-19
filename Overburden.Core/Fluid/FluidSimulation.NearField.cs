@@ -41,6 +41,20 @@ namespace Overburden.Core.Fluid;
 /// can reclassify anything.
 /// </para>
 /// <para>
+/// <b>The near field has two kinds of viewer since 2026-09-19: the player, and every machine
+/// that moves water.</b> A far outlet's mouth layer (250 L, sixteen voxels) filled in five
+/// boundaries and was visited once in ~260 ticks under the quota — the pump behind it stalled
+/// <c>no room</c> for the rest of the session, the hand-off never saw a rested cell there, and
+/// <c>handed</c> moved only while Matthew stood on the surface (<i>"the water processing cannot
+/// keep up with the 'dump' rate of the pumps"</i>). A machine reads its own water every boundary
+/// and is exactly what "near" means; so <see cref="SetNearColumns"/> takes the chunk columns
+/// under every pump's intake box and every outlet's mouth layer, and <see cref="IsNear"/> is the
+/// rings <i>or</i> those columns. The set changes when a machine is placed or dismantled, and
+/// that is the one other event that re-classifies the carry. Cost: the awake water in those
+/// columns every tick — a mound draining or a sheet creeping into an intake is a few hundred cells
+/// a machine — and one bigger tick when the set changes.
+/// </para>
+/// <para>
 /// <b>The carry stays inside <c>_queued</c>, and that is the load-bearing part.</b>
 /// <see cref="AwakeHeldCells"/> walks <c>_queued</c>, and it is what the store writes and the
 /// eviction lists — so a backlog held in a list the dedupe set did not know about would be a lake
@@ -69,6 +83,10 @@ public sealed partial class FluidSimulation
     // Where the viewer is and how far "near" reaches, in chunks. Rings 0 is no order at all.
     private ChunkPos _nearCentre;
     private int _nearRings;
+
+    // Chunk columns near wherever the viewer stands: the machines' (2026-09-19). Read only at
+    // Begin, on the sim thread, like the centre.
+    private readonly HashSet<(int X, int Z)> _nearColumns = [];
 
     private int _farFloorCells = DefaultFarFloorCells;
 
@@ -115,6 +133,12 @@ public sealed partial class FluidSimulation
 
     /// <summary>The chunk the near field is centred on. Meaningless while <see cref="NearRings"/> is zero.</summary>
     public ChunkPos NearCentre => _nearCentre;
+
+    /// <summary>Chunk columns near wherever the viewer stands — the machines' (2026-09-19). Meaningless while <see cref="NearRings"/> is zero.</summary>
+    public int NearColumnCount => _nearColumns.Count;
+
+    /// <summary>True when the chunk column at (<paramref name="chunkX"/>, <paramref name="chunkZ"/>) is one <see cref="SetNearColumns"/> named.</summary>
+    public bool IsNearColumn(int chunkX, int chunkZ) => _nearColumns.Contains((chunkX, chunkZ));
 
     /// <summary>
     /// The least far cells admitted per tick while any near cell is awake.
@@ -175,7 +199,51 @@ public sealed partial class FluidSimulation
         }
     }
 
-    /// <summary>True when this cell's chunk is within the near rings of the viewer's.</summary>
+    /// <summary>
+    /// The chunk columns that are near wherever the viewer stands — the machines' second kind of
+    /// viewer (2026-09-19): every pump's intake box and every outlet's mouth layer, as
+    /// <c>MachineTick.NearColumns</c> lists them.
+    /// </summary>
+    /// <param name="columns">Chunk (X, Z) columns; the whole column's height is near, as the viewer's rings are.</param>
+    /// <remarks>
+    /// Called by the game once a frame beside <see cref="SetNearField"/>; an unchanged set costs a
+    /// comparison. <b>A changed set does not move any water</b> — it marks the carry for
+    /// re-classification at the next tick boundary, the viewer's move rule, and the walk is
+    /// O(backlog) once per placement rather than per frame. Under a job the set lands at the next
+    /// <c>BeginTick</c>, like the centre.
+    /// </remarks>
+    public void SetNearColumns(IReadOnlyCollection<(int X, int Z)> columns)
+    {
+        ArgumentNullException.ThrowIfNull(columns);
+
+        if (_job is not null)
+        {
+            // A copy, because the tick rebuilds its set when a machine lands and the pending
+            // one must be what was asked for at the time.
+            _nearColumnsPending = [.. columns];
+            return;
+        }
+
+        if (_nearColumns.Count == columns.Count && _nearColumns.SetEquals(columns))
+        {
+            return;
+        }
+
+        _nearColumns.Clear();
+        foreach ((int x, int z) in columns)
+        {
+            _nearColumns.Add((x, z));
+        }
+
+        // The viewer-move rule: with the order on, or a carry to drain, the next composition
+        // re-classifies every carried cell against the new set.
+        if (_nearRings > 0 || FarBacklog > 0)
+        {
+            _reclassifyCarry = true;
+        }
+    }
+
+    /// <summary>True when this cell's chunk is within the near rings of the viewer's, or in a machine's column.</summary>
     /// <remarks>
     /// Horizontal only. A chunk column is near or far as a whole, so a shaft under your feet is
     /// near for its whole depth, which is the point: water is vertical and the box is short.
@@ -194,7 +262,14 @@ public sealed partial class FluidSimulation
         int dz = chunk.Z - _nearCentre.Z;
         if (dx < 0) dx = -dx;
         if (dz < 0) dz = -dz;
-        return (dx > dz ? dx : dz) <= _nearRings;
+        if ((dx > dz ? dx : dz) <= _nearRings)
+        {
+            return true;
+        }
+
+        // The arithmetic first, the lookup only for a cell the rings refused: on a reclassify
+        // over a large carry that is one hash probe per far cell, once per placement.
+        return _nearColumns.Count > 0 && _nearColumns.Contains((chunk.X, chunk.Z));
     }
 
     /// <summary>

@@ -180,6 +180,9 @@ public sealed class MachineTick
     private readonly List<ChunkPos> _boxChunks = new(8);
     private readonly HashSet<MachineRow> _reached = [];
 
+    // The chunk columns the tick reads or writes water in, rebuilt with the rings (2026-09-19).
+    private readonly HashSet<(int X, int Z)> _nearColumns = [];
+
     // M10c: the pool's parts, rebuilt with the rings.
     private readonly List<(MachineRow Row, MachineDefinition Definition, int Channel)> _converters = [];
     private readonly List<(MachineRow Row, MachineDefinition Definition)>?[] _storage = new List<(MachineRow, MachineDefinition)>?[Channels];
@@ -433,6 +436,27 @@ public sealed class MachineTick
     public static ReadOnlySpan<(int Dx, int Dy, int Dz)> IntakeCellsAt(int radiusCells) =>
         IntakeCells[radiusCells];
 
+    /// <summary>
+    /// The chunk columns the tick moves water in — every pump's intake box at its radius and the
+    /// box one cell around every outlet, where its mouth layer is and where the mound spills —
+    /// as the set stands. The near field's second kind of viewer (2026-09-19): the game hands
+    /// this to <see cref="FluidSimulation.SetNearColumns"/> so a machine's water is visited every
+    /// tick wherever the player is, which is what lets a far outlet's mound drain and a far
+    /// intake refill. Converters and storage read no water and list nothing.
+    /// </summary>
+    public IReadOnlyCollection<(int X, int Z)> NearColumns
+    {
+        get
+        {
+            if (_builtAtVersion != _machines.Version)
+            {
+                Rebuild();
+            }
+
+            return _nearColumns;
+        }
+    }
+
     /// <summary>One boundary: every pump, in origin order.</summary>
     /// <remarks>
     /// Refuses mid-tick through the simulation's own guard on the first <c>Pump</c> or
@@ -665,6 +689,7 @@ public sealed class MachineTick
     {
         _pumps.Clear();
         _converters.Clear();
+        _nearColumns.Clear();
         Array.Clear(_outlets);
         Array.Clear(_storage);
 
@@ -681,10 +706,12 @@ public sealed class MachineTick
             {
                 case MachineKind.Pump:
                     _pumps.Add((row, definition));
+                    AddNearColumns(row.Cell, definition.IntakeRadiusCells);
                     break;
                 case MachineKind.Outlet:
                     int channel = ChannelOf(row);
                     (_outlets[channel] ??= []).Add(row);
+                    AddNearColumns(row.Cell, 1);
                     break;
                 case MachineKind.Converter:
                     _converters.Add((row, definition, ChannelOf(row)));
@@ -1026,6 +1053,18 @@ public sealed class MachineTick
 
         toBasin = true;
         return long.MaxValue;
+    }
+
+    /// <summary>The chunk columns the box at <paramref name="radius"/> around <paramref name="cell"/> covers — up to four at a chunk corner.</summary>
+    private void AddNearColumns(BrushCell cell, int radius)
+    {
+        ChunkPos lo = cell.Offset(-radius, 0, -radius).OriginVoxel.Chunk;
+        ChunkPos hi = cell.Offset(radius, 0, radius).VoxelAt(BrushCell.Voxels - 1, 0, BrushCell.Voxels - 1).Chunk;
+        for (int cz = lo.Z; cz <= hi.Z; cz++)
+        for (int cx = lo.X; cx <= hi.X; cx++)
+        {
+            _nearColumns.Add((cx, cz));
+        }
     }
 
     /// <summary>Up to eight <c>IsLoaded</c>: the chunks the box at <paramref name="radius"/> covers, and whether every one is loaded to the water.</summary>

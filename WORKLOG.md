@@ -1,5 +1,47 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-19 (evening, later) — The machines are near: `SetNearColumns`, the near field's second kind of viewer
+
+*"build the near columns please Claude"* — an hour after the finding below. Built:
+
+- **`MachineTick.NearColumns`**: the chunk columns under every pump's intake box at its radius
+  and the box one cell around every outlet (its mouth layer, and where the mound spills), rebuilt
+  with the rings when the set's version moves; converters and storage read no water and list
+  nothing. A body is a 1 m cell on the lattice and never straddles a chunk, so an outlet is one
+  column and a pump at a chunk corner four.
+- **`FluidSimulation.SetNearColumns`**: an unchanged set is one comparison; a changed one marks
+  the carry for re-classification at the next boundary — the viewer-move rule, once per
+  placement rather than per frame; under a job it lands at the next `BeginTick` like the centre.
+  `IsNear` is the rings *or* the columns, the arithmetic first and one hash probe only for a cell
+  the rings refused, so a re-classification over the played world's 456k-cell carry is ~456k
+  probes once. Rings 0 still skips the file. `Main` hands the set over once a frame beside the
+  centre; the `M8b:` line's bracket reads `N machine column(s) near` and the profile's `fluidnear`
+  line `2 ring(s) + N machine column(s)`.
+- **Tests** (+6, suite 1,646 → 1,652): a named column is admitted whole with the viewer six
+  chunks off and nothing throttled; naming one re-classifies the carry with nothing duplicated or
+  dropped from the store's walk; a removed column is far again (the wide far pocket, awake for
+  hundreds of ticks, is what makes that observable); rings 0 ignores the columns and stays off the
+  classification path; the job test gains the pending columns; the tick lists the pump's box and
+  the outlet's column and not the panel's or the cell's, follows the intake radius across a chunk
+  face, and drops a dismantled row's column at the next read. Six recipes, six caught (the
+  columns ignored, the carry not re-classified, the pending set dropped, outlets forgotten, every
+  row listed, the body's column instead of the box's) — two of them only after the harness matched
+  CRLF, the memory's rule a second time. A seventh test was written and deleted: "an unchanged set
+  is a cheap comparison" has no observable, because a re-classification preserves the carry's
+  order — a cost identity.
+- **The wire, with a same-run control**: the a-3 oracle with `--pumpoutlet=48 --fluidnear=2
+  --speed=0` puts the outlet at chunk 7 and the viewer near chunk 1; it reads `fluidnear 2 ring(s)
+  + 4 machine column(s), 11,462 near visit(s) against 0 far`, and with the hand-over commented out
+  `0 machine column(s), 1,126 near visit(s) against 10,336 far` — the same 1,000 L pumped,
+  handed 969 L, every identity exact in both. The recipe cannot show the *starvation* itself (its
+  far side is small and nothing near stays awake, so the quota never bites — the play's 456k
+  backlog under a 1,757-cell near tap is what did), which is why the Core tests carry that half.
+  r6 control 2601 / 325 / 3446 at 411.
+
+The play check is the one sentence he opened with: the mounds draining with him underground —
+`no room` flat on the `M10:` line, `handed` climbing on the `M8b:` line while `near` is small.
+The solve's 294k cells a boundary stands as the next lever, in TODO under M10d.
+
 ## 2026-09-19 (later still) — The outlets far from the player stall on their own mound: the far quota is the machines' ceiling
 
 *"i've got quite a few pump outputs but the water is building up on top of them and because I'm
