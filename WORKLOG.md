@@ -1,5 +1,53 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-19 (night) — A fill into water displaces it: `FillWater`, the machine's rule on every shape
+
+*"ok so I want the fill function to either absorb the water or displace it or remove it your
+choice i do not mind which, it makes it impossible to build where there is even a slight amount
+of water?"* — the first play that built in water, an hour after the quantum tiers landed. M9d's
+answer was *refuse* (decision 3: a brush pushed into a flooded room has nowhere to displace to,
+so displacing would be deleting with a nicer name); his log that session read `18 wet` and every
+one of them a wall he could not put up.
+
+**Displace**, because the rule already exists — M10a-2's `Place.MachineDisplacing` lifts a
+cell's water, writes the body and returns the water bottom-up over the box around it, the rest
+`displaced` — and generalising it keeps every identity exact. Remove would be the same thing with
+all of it displaced; absorb has no unit to absorb into. Built:
+
+- **`FillWater`** in Core beside `MachinePlacement`: handed to any shape, it turns `Put`'s wet
+  refusal into a lift before the write, puts a refused write's water straight back into its
+  voxel, and at the end of the shape returns what is in hand bottom-up over the shape's box grown
+  by one brush cell (Y ascending, then x, then z — the level rises), the remainder to
+  `DisplaceLifted`. The shape's own voxels are not skipped: a ramp leaves air in its cell and that
+  air may take water back; a voxel just written is solid and `Return` refuses it through the
+  terrain. `lifted == returned + displaced` by construction. Every shape — voxel, cube, slab, ramp,
+  sphere, chunk — takes it as an optional last argument; without it the click's path is exactly
+  M9d's.
+- **`PlaceController.RunPendingWetFills`**: a click whose result has `Wet > 0` lands its dry part
+  at once and queues the same shape with its wet count; the boundary runs it again behind the
+  chunk fills' fresh `Publish`, asks the pack for the wet count only, and records only what
+  landed (the dry part reads `Occupied` on the re-run and would inflate the session's count).
+  The chunk fill at the boundary takes the water too. `Main.RunPendingFills` replaces
+  `RunPendingChunkFills` at the boundary; a wet fill prints one `M9d:` line with its litres and
+  the `M6c:` line's `wet` carries `(N filled displacing at the boundary: lifted / returned /
+  displaced)`.
+- **`PlaceDisplacingTests`** (+8): a cube into a pool lifts 16 cells and returns all of it around
+  the cube; the return is bottom-up (the first cell is a full cell below); no water in hand still
+  refuses; a ramp's own air takes the water back when rock is all around; a full box under a roof
+  displaces the whole fill's worth; a refused write puts the water back where it was; every shape
+  displaces the same voxel (the fixture had to move off the cell's corner — the 0.6 m sphere does
+  not reach it); nothing wet moves nothing. Suite 1,638 → 1,646.
+- **The wire**: `--place` from the first frame builds a column under the crosshair before any
+  water arrives (M6d-2), so `--placeafter=<seconds>` holds the button off. A brush into a 200 kL
+  pour at −60° reads `171 wet (93 filled displacing at the boundary: lifted 1,082.0 L, returned
+  1,082.0 L, displaced 0.0 L)`; a chunk fill into it `28,543 placed … lifted 55,207.7 L, returned
+  55,207.7 L`. The fill oracle and the r6 control are unchanged.
+
+One thing the wire's run showed and the play will meet: `displaced 176 L` on the fluid line from
+the *instant* brush — the click's dry writes into cells the published copy had not seen wet, M9d's
+64-cell staleness bound. Now that a boundary path exists for every shape, the lever is a brush
+that defers whole whenever its box is wet at all; in TODO under M9d, unbuilt.
+
 ## 2026-09-19 (evening) — The quantum tiers are content on T: `quantum_miner`, `quantum_excavator`, a `bite` on the tool
 
 *"i want quantum (small scale) and quantum (large scale) to be tiers like in hand/steel etc and I

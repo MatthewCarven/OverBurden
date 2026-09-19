@@ -81,6 +81,101 @@ public readonly record struct MachinePlacement(PlaceResult Result, long Lifted, 
 }
 
 /// <summary>
+/// The water a fill displaces (2026-09-19): handed to any shape at a tick boundary, it turns a
+/// wet voxel from a refusal into a lift, a write and a return around the shape, and carries
+/// where every millilitre went.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>M9d's <i>refuse</i> became <i>displace</i> on the first play that built in water</b> —
+/// Matthew: <i>"it makes it impossible to build where there is even a slight amount of water"</i>,
+/// and <i>absorb, displace or remove, your choice</i>. Displace, because it is the machine's rule
+/// (<see cref="Place.MachineDisplacing"/>) on every shape: the water in the voxels a shape writes
+/// is lifted first, the shape is written, and the lifted water is returned bottom-up over the
+/// shape's box grown by one brush cell — a filled pool's level rises by the fill's volume — with
+/// what no cell has room for counted <c>displaced</c>, the term that already means <i>water the
+/// world took a cell from</i>. Remove would be the same with all of it displaced; absorb has no
+/// unit to absorb into. <c>lifted == returned + displaced</c> holds by construction.
+/// </para>
+/// <para>
+/// <b>Only at a boundary</b>, because <see cref="ICollapseWater.Lift"/> refuses mid-tick: a click
+/// that meets water is refused <see cref="PlaceResult.Wet"/> at the click as before and queued,
+/// and the boundary runs it again with this in hand — the dry voxels are <c>Occupied</c> by then
+/// and the wet ones are filled displacing. A refused write (out of stock, unreachable) puts its
+/// voxel's water straight back, so a shape that places nothing moves nothing.
+/// </para>
+/// </remarks>
+public sealed class FillWater(ICollapseWater water)
+{
+    /// <summary>The water the shape lifts from and returns to.</summary>
+    public ICollapseWater Water { get; } = water ?? throw new ArgumentNullException(nameof(water));
+
+    /// <summary>Millilitres lifted out of the voxels the shape wrote (or tried to).</summary>
+    public long Lifted { get; internal set; }
+
+    /// <summary>Of those, millilitres put back — into the refused voxel itself, or around the shape.</summary>
+    public long Returned { get; internal set; }
+
+    /// <summary>Of those, millilitres nothing had room for — counted on the identity, never dropped.</summary>
+    public long Displaced { get; internal set; }
+
+    /// <summary><c>lifted == returned + displaced</c>, by construction; asserted anyway.</summary>
+    public bool IsAccounted => Lifted == Returned + Displaced;
+
+    /// <summary>Puts <paramref name="millilitres"/> back into one voxel, the rest displaced — a refused write's undo.</summary>
+    internal void PutBack(VoxelPos voxel, long millilitres)
+    {
+        if (millilitres == 0)
+        {
+            return;
+        }
+
+        long remaining = Water.Return(voxel, millilitres);
+        Returned += millilitres - remaining;
+        if (remaining > 0)
+        {
+            Water.DisplaceLifted(remaining);
+            Displaced += remaining;
+        }
+    }
+
+    /// <summary>
+    /// Returns everything still in hand bottom-up over the shape's box grown by one brush cell
+    /// on every side, and displaces the rest. Called once, at the end of a shape.
+    /// </summary>
+    /// <remarks>
+    /// Y ascending, then x, then z — the machine's order, so the level in the box rises. The
+    /// shape's own voxels are not skipped: a ramp leaves air in its cell and that air may take
+    /// water back, while a voxel just written is solid and <see cref="ICollapseWater.Return"/>
+    /// refuses it through the terrain.
+    /// </remarks>
+    internal void Settle(VoxelPos min, VoxelPos max)
+    {
+        long remaining = Lifted - Returned - Displaced;
+        if (remaining <= 0)
+        {
+            return;
+        }
+
+        int grow = BrushCell.Voxels;
+        for (int y = min.Y - grow; y <= max.Y + grow && remaining > 0; y++)
+        for (int x = min.X - grow; x <= max.X + grow && remaining > 0; x++)
+        for (int z = min.Z - grow; z <= max.Z + grow && remaining > 0; z++)
+        {
+            long before = remaining;
+            remaining = Water.Return(new VoxelPos(x, y, z), remaining);
+            Returned += before - remaining;
+        }
+
+        if (remaining > 0)
+        {
+            Water.DisplaceLifted(remaining);
+            Displaced += remaining;
+        }
+    }
+}
+
+/// <summary>
 /// Putting material into the world in brush-shaped lots, on the 1 m lattice.
 /// </summary>
 /// <remarks>
@@ -112,7 +207,10 @@ public readonly record struct MachinePlacement(PlaceResult Result, long Lifted, 
 /// deleting with a nicer name. Replaceable means air with no water in it (M9-PLAN decision 9,
 /// planned at M9d decision 3), through <see cref="IVoxelEditor.HoldsWater"/>; a wet voxel is a
 /// <see cref="PlaceResult.Wet"/> refusal and the rest of the brush lands. Water is not a
-/// material, so <see cref="MaterialTable.IsFluid"/> still has no reader here.
+/// material, so <see cref="MaterialTable.IsFluid"/> still has no reader here. <b>And the answer
+/// became <i>displace</i> at the boundary on 2026-09-19</b> (<see cref="FillWater"/>): the click
+/// still refuses wet, the boundary lifts, writes and returns, and the full room's case is the
+/// honest <c>displaced</c> term rather than a wall that cannot be built.
 /// </para>
 /// <para>
 /// Brushes are methods rather than an <c>IShape</c> the caller supplies, following
@@ -193,14 +291,16 @@ public static class Place
         VoxelPos voxel,
         int materialId,
         Aabb? body = null,
-        VolumetricInventory? from = null)
+        VolumetricInventory? from = null,
+        FillWater? displacing = null)
     {
         (VoxelPos Min, VoxelPos Max)? bodyVoxels = Validate(world, materials, materialId, body);
 
         var tally = default(Tally);
         tally.Candidate();
-        tally.Add(Put(world, voxel, materialId, bodyVoxels, from));
+        tally.Add(Put(world, voxel, materialId, bodyVoxels, from, displacing));
 
+        displacing?.Settle(voxel, voxel);
         return tally.ToResult();
     }
 
@@ -275,8 +375,9 @@ public static class Place
         in VoxelHit hit,
         int materialId,
         Aabb? body = null,
-        VolumetricInventory? from = null) =>
-        Chunk(world, materials, TargetChunk(hit), materialId, body, from);
+        VolumetricInventory? from = null,
+        FillWater? displacing = null) =>
+        Chunk(world, materials, TargetChunk(hit), materialId, body, from, displacing);
 
     /// <summary>Fills a chunk named directly. The aim-free overload, for tests.</summary>
     public static PlaceResult Chunk(
@@ -285,7 +386,8 @@ public static class Place
         ChunkPos chunk,
         int materialId,
         Aabb? body = null,
-        VolumetricInventory? from = null)
+        VolumetricInventory? from = null,
+        FillWater? displacing = null)
     {
         (VoxelPos Min, VoxelPos Max)? bodyVoxels = Validate(world, materials, materialId, body);
 
@@ -305,9 +407,13 @@ public static class Place
                 new VoxelPos(origin.X + x, origin.Y + y, origin.Z + z),
                 materialId,
                 bodyVoxels,
-                from));
+                from,
+                displacing));
         }
 
+        displacing?.Settle(
+            origin,
+            new VoxelPos(origin.X + VoxelConstants.ChunkSize - 1, origin.Y + VoxelConstants.ChunkSize - 1, origin.Z + VoxelConstants.ChunkSize - 1));
         return tally.ToResult();
     }
 
@@ -565,7 +671,8 @@ public static class Place
         BrushCell cell,
         int materialId,
         Aabb? body = null,
-        VolumetricInventory? from = null)
+        VolumetricInventory? from = null,
+        FillWater? displacing = null)
     {
         (VoxelPos Min, VoxelPos Max)? bodyVoxels = Validate(world, materials, materialId, body);
         var tally = default(Tally);
@@ -575,9 +682,10 @@ public static class Place
         for (int ly = 0; ly < BrushCell.Voxels; ly++)
         {
             tally.Candidate();
-            tally.Add(Put(world, cell.VoxelAt(lx, ly, lz), materialId, bodyVoxels, from));
+            tally.Add(Put(world, cell.VoxelAt(lx, ly, lz), materialId, bodyVoxels, from, displacing));
         }
 
+        displacing?.Settle(cell.OriginVoxel, cell.VoxelAt(BrushCell.Voxels - 1, BrushCell.Voxels - 1, BrushCell.Voxels - 1));
         return tally.ToResult();
     }
 
@@ -596,7 +704,8 @@ public static class Place
         BrushCell cell,
         int materialId,
         Aabb? body = null,
-        VolumetricInventory? from = null)
+        VolumetricInventory? from = null,
+        FillWater? displacing = null)
     {
         (VoxelPos Min, VoxelPos Max)? bodyVoxels = Validate(world, materials, materialId, body);
         var tally = default(Tally);
@@ -606,9 +715,10 @@ public static class Place
         for (int ly = 0; ly < BrushCell.Voxels / 2; ly++)
         {
             tally.Candidate();
-            tally.Add(Put(world, cell.VoxelAt(lx, ly, lz), materialId, bodyVoxels, from));
+            tally.Add(Put(world, cell.VoxelAt(lx, ly, lz), materialId, bodyVoxels, from, displacing));
         }
 
+        displacing?.Settle(cell.OriginVoxel, cell.VoxelAt(BrushCell.Voxels - 1, BrushCell.Voxels / 2 - 1, BrushCell.Voxels - 1));
         return tally.ToResult();
     }
 
@@ -640,7 +750,8 @@ public static class Place
         int materialId,
         BrushFacing facing,
         Aabb? body = null,
-        VolumetricInventory? from = null)
+        VolumetricInventory? from = null,
+        FillWater? displacing = null)
     {
         (VoxelPos Min, VoxelPos Max)? bodyVoxels = Validate(world, materials, materialId, body);
         var tally = default(Tally);
@@ -653,10 +764,11 @@ public static class Place
             for (int ly = 0; ly < height; ly++)
             {
                 tally.Candidate();
-                tally.Add(Put(world, cell.VoxelAt(lx, ly, lz), materialId, bodyVoxels, from));
+                tally.Add(Put(world, cell.VoxelAt(lx, ly, lz), materialId, bodyVoxels, from, displacing));
             }
         }
 
+        displacing?.Settle(cell.OriginVoxel, cell.VoxelAt(BrushCell.Voxels - 1, BrushCell.Voxels - 1, BrushCell.Voxels - 1));
         return tally.ToResult();
     }
 
@@ -693,8 +805,9 @@ public static class Place
         float radiusMetres,
         int materialId,
         Aabb? body = null,
-        VolumetricInventory? from = null) =>
-        Sphere(world, materials, cell.CentreMetres, radiusMetres, materialId, body, from);
+        VolumetricInventory? from = null,
+        FillWater? displacing = null) =>
+        Sphere(world, materials, cell.CentreMetres, radiusMetres, materialId, body, from, displacing);
 
     /// <summary>Fills a sphere at an arbitrary centre. The lattice-free overload, for tests.</summary>
     public static PlaceResult Sphere(
@@ -704,7 +817,8 @@ public static class Place
         float radiusMetres,
         int materialId,
         Aabb? body = null,
-        VolumetricInventory? from = null)
+        VolumetricInventory? from = null,
+        FillWater? displacing = null)
     {
         (VoxelPos Min, VoxelPos Max)? bodyVoxels = Validate(world, materials, materialId, body);
 
@@ -754,9 +868,10 @@ public static class Place
             // anywhere near the loaded edge, since the corners reach r(√3 − 1) further out than
             // the sphere ever does.
             tally.Candidate();
-            tally.Add(Put(world, voxel, materialId, bodyVoxels, from));
+            tally.Add(Put(world, voxel, materialId, bodyVoxels, from, displacing));
         }
 
+        displacing?.Settle(min, max);
         return tally.ToResult();
     }
 
@@ -795,7 +910,8 @@ public static class Place
         VoxelPos voxel,
         int materialId,
         in (VoxelPos Min, VoxelPos Max)? bodyVoxels,
-        VolumetricInventory? from)
+        VolumetricInventory? from,
+        FillWater? displacing = null)
     {
         // The body first, before the read. It is the cheaper test, and it is true regardless of
         // what is in the voxel — "we will not build that inside you" does not depend on whether
@@ -829,9 +945,19 @@ public static class Place
         // before the stock for the reason Occupied is — nothing is charged for a voxel this brush
         // would not fill. One gate here, so the brush, the precision voxel, the entangled fill and
         // the chunk fill refuse exactly the same cells.
+        // With no water in hand that is the refusal; with it (a boundary's run) the water is
+        // lifted here and returned around the shape at the end — or straight back into this
+        // voxel below, if the write is refused.
+        long lifted = 0;
         if (world.HoldsWater(voxel))
         {
-            return Bucket.Wet;
+            if (displacing is null)
+            {
+                return Bucket.Wet;
+            }
+
+            lifted = displacing.Water.Lift(voxel);
+            displacing.Lifted += lifted;
         }
 
         // Last of the refusals, and last on purpose: the stock is only consulted once the voxel
@@ -840,6 +966,7 @@ public static class Place
         // cliff would cost the volume of the cliff.
         if (from is not null && !from.Has(materialId))
         {
+            displacing?.PutBack(voxel, lifted);
             return Bucket.OutOfStock;
         }
 
@@ -848,6 +975,7 @@ public static class Place
         // whose two halves ever disagree surfaces the voxel instead of losing it.
         if (!world.SetVoxel(voxel, materialId))
         {
+            displacing?.PutBack(voxel, lifted);
             return Bucket.Unreachable;
         }
 

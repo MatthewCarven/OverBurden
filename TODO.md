@@ -5132,12 +5132,27 @@ the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
             hollow and `R` ten thousand litres a few times (the hand-off raises the basin), read
             `table` climbing on the `M9:` line and the tint arriving on the roof untouched; and `R`
             into a room, a brush into the pool — `wet 64` on the `M6c:` line, the water untouched,
-            `displaced 0` on the next `M8b:` line.
+            `displaced 0` on the next `M8b:` line. **Answered by the play 2026-09-19, the other
+            way**: *"it makes it impossible to build where there is even a slight amount of
+            water"* — the refusal stands at the click and the boundary fills displacing; see the
+            item below.
       - [x] **The chunk fill is deferred to the boundary — Matthew, after the first play, on the
             log's number (the fifth chunk fill into a chunk mid-flood: 3,516 wet refused, 18,955 L
             still displaced): *"defer the chunk fill to the boundary"*.** `DeferChunkFills` on the
             controller, a queue of clicks run after the pour behind a fresh `Publish`; the brush
             stays instant. `--nowater` fills at the click. Built 2026-09-15.
+      - [x] **A fill into water displaces it — Matthew, 2026-09-19: *"absorb the water or
+            displace it or remove it, your choice"*.** The click refuses wet as before and queues
+            the shape; the boundary runs it with `FillWater` (M10a-2's machine rule on every
+            shape: lift, write, return bottom-up over the box grown by a cell, the rest
+            `displaced`), the chunk fill too. `RunPendingWetFills`, `--placeafter=`,
+            `PlaceDisplacingTests` (+8), the `M6c:` bracket. Read M9-PLAN's amendment.
+            - [ ] **The click's dry path can still displace by staleness**: the wire's run shows
+                  `displaced 176 L` on the fluid line from the instant brush writing cells the
+                  published copy had not seen wet (M9d's 64-cell bound). Now that the boundary
+                  path exists, the lever is a brush that defers whole whenever its cell's chunk
+                  is wet at all — one `HoldsWater` scan of the box before the write. Not built;
+                  wants a play that notices the 176 L.
       - [ ] **Decision 3's edge is Matthew's after the play (*"not sure about 3 yet"*):** a fill
             under a Tier A plane is allowed — a lake is a body with no cells and its volume is a
             number terrain cannot reduce, so a pier deletes nothing. If a rock placed in a lake

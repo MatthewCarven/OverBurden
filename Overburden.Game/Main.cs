@@ -182,6 +182,9 @@ public partial class Main : Node3D
     private VoxelHighlight? _cellHighlight;
     private readonly VolumetricInventory _inventory = new();
     private bool _placeWhileProfiling;
+
+    /// <summary><c>--placeafter=&lt;seconds&gt;</c>: how long <c>--place</c> holds off — so a pour can arrive under the crosshair first.</summary>
+    private double _placeAfterSeconds;
     private bool _precisePlaceWhileProfiling;
     private long _startingStock;
     private BrushShape _startingBrush = BrushShape.Cube;
@@ -1955,6 +1958,14 @@ public partial class Main : Node3D
                 // measurement.
                 case "place":
                     _placeWhileProfiling = true;
+                    break;
+
+                // --place from the first frame builds a column under the crosshair before any
+                // water can arrive (M6d-2's finding), so the wet fill's wire — a brush into the
+                // relay's pool, refused at the click, placed displacing at the boundary — needs the
+                // button held off until the pool is there. Seconds from the run's start.
+                case "placeafter" when double.TryParse(value, out double placeAfter) && placeAfter >= 0.0:
+                    _placeAfterSeconds = placeAfter;
                     break;
 
                 // The precise arm of --place, and the only way to exercise the modifier without a
@@ -4196,7 +4207,8 @@ public partial class Main : Node3D
             // Along the look direction rather than straight down, which is what --mine does. A
             // brush aimed at the ground under the camera lands in the cell the player is standing
             // in, where the body refusal eats most of it — so the run would measure the refusal.
-            placing = true;
+            _placeAfterSeconds -= delta;
+            placing = _placeAfterSeconds <= 0.0;
 
             // Brushes unless the precise arm was asked for, and stated rather than left to fall
             // out of "no key is held" — the same argument --mine makes. A voxel is 1/64th of a
@@ -5526,7 +5538,7 @@ public partial class Main : Node3D
             long t2 = Stopwatch.GetTimestamp();
             TakePending();
             PourPending();
-            RunPendingChunkFills();
+            RunPendingFills();
             long t2m = Stopwatch.GetTimestamp();
 
             // M10a-3: the machines bracket — the deferred wet placements, then the tick, after the
@@ -6014,9 +6026,13 @@ public partial class Main : Node3D
         }
     }
 
-    private void RunPendingChunkFills()
+    /// <summary>
+    /// The boundary's fills: the chunk fills clicked since the last one, then the fills the click
+    /// refused wet — both behind one fresh publish, both with the water in hand (2026-09-19).
+    /// </summary>
+    private void RunPendingFills()
     {
-        if (_place is not { PendingChunkFills: > 0 } || _fluid is null)
+        if (_place is null || _fluid is null || (_place.PendingChunkFills == 0 && _place.PendingWetFills == 0))
         {
             return;
         }
@@ -6025,15 +6041,32 @@ public partial class Main : Node3D
         Overburden.Core.Physics.Aabb? body =
             _player is not null && _player.Mode == PlayerMode.Walk && _player.Spawned ? _player.State.Box : null;
         long before = Stopwatch.GetTimestamp();
-        PlaceResult? result = _place.RunPendingChunkFills(body);
-        if (result is { } filled && _profiler is { Warm: true })
+        long liftedBefore = _place.FillLifted, returnedBefore = _place.FillReturned, displacedBefore = _place.FillDisplaced;
+        PlaceResult? chunks = _place.RunPendingChunkFills(body);
+        (PlaceResult Result, long Lifted, long Returned, long Displaced)? wet = _place.RunPendingWetFills(body);
+        if (_profiler is { Warm: true })
         {
             _profiler.Place.Add(Milliseconds(before, Stopwatch.GetTimestamp()));
         }
 
-        if (result is { Wet: > 0 } wet)
+        if (chunks is { } filled && _place.FillLifted > liftedBefore)
         {
-            GD.Print($"M9d: chunk fill at the boundary — {wet.Placed:N0} placed, {wet.Wet:N0} wet left alone, {wet.Occupied:N0} occupied");
+            long lifted = _place.FillLifted - liftedBefore - (wet?.Lifted ?? 0);
+            long returned = _place.FillReturned - returnedBefore - (wet?.Returned ?? 0);
+            long displaced = _place.FillDisplaced - displacedBefore - (wet?.Displaced ?? 0);
+            GD.Print(
+                $"M9d: chunk fill at the boundary — {filled.Placed:N0} placed, {filled.Occupied:N0} occupied; "
+                + $"lifted {lifted / (double)FluidConstants.MillilitresPerLitre:N1} L, returned {returned / (double)FluidConstants.MillilitresPerLitre:N1} L, "
+                + $"displaced {displaced / (double)FluidConstants.MillilitresPerLitre:N1} L");
+        }
+
+        if (wet is { } w)
+        {
+            GD.Print(
+                $"M9d: fill into water at the boundary — {w.Result.Placed:N0} voxel(s) placed displacing, "
+                + $"lifted {w.Lifted / (double)FluidConstants.MillilitresPerLitre:N1} L, returned {w.Returned / (double)FluidConstants.MillilitresPerLitre:N1} L, "
+                + $"displaced {w.Displaced / (double)FluidConstants.MillilitresPerLitre:N1} L"
+                + (w.Lifted == w.Returned + w.Displaced ? string.Empty : "  *** lifted != returned + displaced ***"));
         }
     }
 
@@ -7111,7 +7144,9 @@ public partial class Main : Node3D
 
         return $"{held} | {_place.Placements} placement(s), {_place.VoxelsPlaced} voxel(s) placed, "
                + $"{_place.VoxelsOccupied} occupied, {_place.VoxelsInsidePlayer} inside the player, "
-               + $"{_place.VoxelsOutOfStock} unaffordable, {_place.VoxelsWet} wet, {_place.ChunkFillsDeferred} chunk fill(s) at the boundary";
+               + $"{_place.VoxelsOutOfStock} unaffordable, {_place.VoxelsWet} wet ({_place.WetVoxelsFilled} filled displacing at the boundary: "
+               + $"lifted {_place.FillLifted / (double)FluidConstants.MillilitresPerLitre:N1} L, returned {_place.FillReturned / (double)FluidConstants.MillilitresPerLitre:N1} L, "
+               + $"displaced {_place.FillDisplaced / (double)FluidConstants.MillilitresPerLitre:N1} L), {_place.ChunkFillsDeferred} chunk fill(s) at the boundary";
     }
 
     /// <summary>

@@ -1441,3 +1441,23 @@ every other one — and `RunPendingChunkFills` at the boundary after the pour, b
 precision voxel stay instant, with 64 cells the most a tick's staleness can cost. `M6c:` prints
 `N chunk fill(s) at the boundary`; a fill that met water prints one `M9d:` line. Headless: 57
 clicks, 57 fills; the r6 control unchanged.
+
+**Amended 2026-09-19 — the fill's refusal became a displacement at the boundary.** The first play
+that built in water: *"I want the fill function to either absorb the water or displace it or
+remove it, your choice … it makes it impossible to build where there is even a slight amount of
+water"*. Displace, because it is M10a-2's machine rule (`Place.MachineDisplacing`) on every shape
+and the identity stays exact: the click's path is unchanged — M9d's `Wet` refusal lands the dry
+part at once — and the same shape is queued to the boundary with what it was refused
+(`PlaceController.RunPendingWetFills`), where it runs again with a `FillWater` in hand: a wet
+voxel is lifted, written, and the lifted water is returned bottom-up over the shape's box grown
+by one brush cell — the pool's level rises by the fill's volume — with what no cell has room for
+`displaced`, the term that already means *water the world took a cell from*. A refused write
+(out of stock, unreachable) puts its voxel's water straight back. The chunk fill at the boundary
+takes the water too, so its wet voxels are filled rather than left. Decision 3's argument — *a
+brush pushed into a flooded room has nowhere to displace to, so displacing would be deleting with
+a nicer name* — is met by the term: into a full box under a roof the whole fill's worth is
+`displaced`, printed, and that is the honest answer where a wall that cannot be built was not.
+`PlaceDisplacingTests` (+8); `--placeafter=<seconds>` holds `--place` off so the relay's pool can
+arrive first, and the wire reads `171 wet (93 filled displacing at the boundary: lifted 1,082.0 L,
+returned 1,082.0 L, displaced 0.0 L)` on a brush into a 200 kL pour and `lifted 55,207.7 L,
+returned 55,207.7 L` for a chunk fill into it. The `M6c:` line's `wet` gained the bracket.

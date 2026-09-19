@@ -264,7 +264,13 @@ moved — M9b's arm, a roof under a rising lake keeps its dry field; **`--fillba
 oracle needs the bite settled dry before the lake stands over it (0 is every earlier figure's arm — the
 pour the frame before the bite). The `M9:` line's `table N` gains `(S sweep(s), C compared, R rebuilt,
 U unchanged)` and its `armed` a `(M shortened)`; the `boundary` line gains `table`; the `M6c:` and
-`building` lines gain `wet` — the fill's refusal, a voxel holding Tier B water left alone. **The keystone,
+`building` lines gain `wet` — the fill's refusal, a voxel holding Tier B water left alone **at the
+click; since 2026-09-19 the boundary fills it displacing** (`FillWater` — the machine's lift /
+write / return rule on every shape, `lifted == returned + displaced`; the `M6c:` line's `wet`
+carries `(N filled displacing at the boundary: lifted / returned / displaced)`, and **`--placeafter=<seconds>`**
+holds `--place` off so a pour can arrive first: `--profile --speed=0 --place --placeafter=6
+--stock=64000 --injectlitres=200000 --pitch=-60 --measure=12` reads `171 wet (93 filled displacing
+at the boundary: lifted 1,082.0 L, returned 1,082.0 L, displaced 0.0 L)`). **The keystone,
 verbatim, reads `at risk 20` at open, `table 20`, `at risk 18,718 voxel(s) in 7 settled chunk(s)` after the
 pour, four falls of ~6,200 voxels with `lifted 30 L == returned 30 L` and `displaced 0`, then `at risk 0`;
 `--saturation=0` sheds the plug's 20 and nothing more, `--tablemove=0` reads `table 0 (0 sweep(s))` and
@@ -899,7 +905,11 @@ and `--entanglesphere` are gone, `--entangle` / `--entanglechunk` select a tier 
 both verbs follow the tier (`ApplyTier` in `Main`). The excavator is a two-chunks-a-pack tool
 with lead-acid — the ladder's *"only once you have the latest tier battery"* as a number. Read
 "M10c-3 — built"'s last amendment in [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) and the
-play checks under M10d in TODO. Three things not to rediscover: **a fresh world must not start
+play checks under M10d in TODO. **And a fourth thing the same evening, from the play**: *the fill
+into water displaces it* — M9d's `Wet` refusal still lands the dry part at the click, and the
+boundary runs the same shape again with `FillWater` in hand (lift, write, return bottom-up over
+the shape's box grown by a cell, the rest `displaced`), the chunk fill included; read "M9d —
+built"'s last amendment in [docs/M9-PLAN.md](docs/M9-PLAN.md). Three things not to rediscover: **a fresh world must not start
 on a costing tool** (the first swing would cost from an empty pack and read as a broken build —
 `ToolTiers.Default` is the rule and `ShippedContentTests` asserts it); **`PlaceController` has
 its own `TakesCube`**, because the fill follows the tier and not the hold; and **the bite's

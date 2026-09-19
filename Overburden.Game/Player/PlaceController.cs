@@ -239,6 +239,41 @@ public sealed class PlaceController(
     public int ChunkFillsDeferred { get; private set; }
 
     /// <summary>
+    /// A fill the click refused wet, waiting for the boundary to run it displacing (2026-09-19).
+    /// </summary>
+    /// <remarks>
+    /// The click's path is unchanged — M9d's <c>Wet</c> refusal lands the dry part at once — and
+    /// the same shape is queued here with what it was refused, so the boundary can run it again
+    /// with <see cref="FillWater"/> in hand: the dry voxels are <c>Occupied</c> by then and cost
+    /// nothing, the wet ones are lifted, written and their water returned around the shape.
+    /// Matthew's word after the first play that built in water: <i>"absorb the water or displace
+    /// it or remove it, your choice … it makes it impossible to build where there is even a
+    /// slight amount of water"</i>.
+    /// </remarks>
+    private readonly record struct PendingFill(
+        FillShape Shape, VoxelPos Voxel, BrushCell Cell, ChunkPos Chunk, BrushFacing Facing, float RadiusMetres, int MaterialId, int Wet);
+
+    private enum FillShape { Voxel, Cube, Slab, Ramp, Sphere, Chunk }
+
+    private readonly List<PendingFill> _pendingWetFills = [];
+
+    /// <summary>Fills refused wet since the last boundary, waiting for it.</summary>
+    public int PendingWetFills => _pendingWetFills.Count;
+
+    /// <summary>Fills queued to the boundary for their water, over the session.</summary>
+    public int WetFillsDeferred { get; private set; }
+
+    /// <summary>Voxels placed into water at the boundary, displacing it, over the session.</summary>
+    public int WetVoxelsFilled { get; private set; }
+
+    /// <summary>Millilitres a fill lifted out of its voxels, returned around the shape, and displaced, over the session.</summary>
+    public long FillLifted { get; private set; }
+
+    public long FillReturned { get; private set; }
+
+    public long FillDisplaced { get; private set; }
+
+    /// <summary>
     /// The machine set a placement of a machine material creates its row in (M10a-2). Null
     /// makes a machine material an ordinary voxel to this controller, which no run wants.
     /// </summary>
@@ -566,7 +601,81 @@ public sealed class PlaceController(
         }
         Record(result);
         PayFor(result);
+
+        if (result.Wet > 0 && Water is not null)
+        {
+            FillShape shape = precise ? FillShape.Voxel
+                : TakesWholeChunk ? FillShape.Chunk
+                : Brush switch
+                {
+                    BrushShape.Cube => FillShape.Cube,
+                    BrushShape.Slab => FillShape.Slab,
+                    BrushShape.Ramp => FillShape.Ramp,
+                    _ => FillShape.Sphere,
+                };
+            _pendingWetFills.Add(new PendingFill(shape, TargetVoxel, TargetCell, TargetChunk, Facing, SphereRadiusMetres, MaterialId, result.Wet));
+            WetFillsDeferred++;
+        }
+
         return true;
+    }
+
+    /// <summary>
+    /// Runs every fill the click refused wet since the last boundary, in click order, with the
+    /// water in hand. The caller has published the wet copy and the grid is the frame's.
+    /// </summary>
+    /// <returns>The results summed with the water moved, or null with nothing queued.</returns>
+    public (PlaceResult Result, long Lifted, long Returned, long Displaced)? RunPendingWetFills(Aabb? body)
+    {
+        if (_pendingWetFills.Count == 0 || Water is null)
+        {
+            _pendingWetFills.Clear();
+            return null;
+        }
+
+        var sum = default(PlaceResult);
+        long lifted = 0, returned = 0, displaced = 0;
+        foreach (PendingFill fill in _pendingWetFills)
+        {
+            // Asked again at the boundary for what is still to place — the wet count — because a
+            // bite between the click and the boundary may have spent what the click was
+            // budgeted against.
+            if (!CanAfford(fill.Wet, out long need))
+            {
+                RefuseUnpowered(fill.Wet, need);
+                continue;
+            }
+
+            var displacing = new FillWater(Water);
+            PlaceResult result = fill.Shape switch
+            {
+                FillShape.Voxel => Place.Voxel(pipeline, materials, fill.Voxel, fill.MaterialId, body, inventory, displacing),
+                FillShape.Chunk => Place.Chunk(pipeline, materials, fill.Chunk, fill.MaterialId, body, inventory, displacing),
+                FillShape.Cube => Place.Cube(pipeline, materials, fill.Cell, fill.MaterialId, body, inventory, displacing),
+                FillShape.Slab => Place.Slab(pipeline, materials, fill.Cell, fill.MaterialId, body, inventory, displacing),
+                FillShape.Ramp => Place.Ramp(pipeline, materials, fill.Cell, fill.MaterialId, fill.Facing, body, inventory, displacing),
+                _ => Place.Sphere(pipeline, materials, fill.Cell, fill.RadiusMetres, fill.MaterialId, body, inventory, displacing),
+            };
+
+            // Only what landed is recorded: the dry part was placed and tallied at the click and
+            // reads Occupied now, and counting that again would inflate the session's occupied.
+            VoxelsPlaced += result.Placed;
+            WetVoxelsFilled += result.Placed;
+            PayFor(result);
+            FillLifted += displacing.Lifted;
+            FillReturned += displacing.Returned;
+            FillDisplaced += displacing.Displaced;
+            lifted += displacing.Lifted;
+            returned += displacing.Returned;
+            displaced += displacing.Displaced;
+            sum = new PlaceResult(
+                sum.Candidates + result.Candidates, sum.Placed + result.Placed, sum.Occupied + result.Occupied,
+                sum.InsidePlayer + result.InsidePlayer, sum.Unreachable + result.Unreachable,
+                sum.OutOfStock + result.OutOfStock, sum.Wet + result.Wet);
+        }
+
+        _pendingWetFills.Clear();
+        return (sum, lifted, returned, displaced);
     }
 
     /// <summary>
@@ -594,11 +703,20 @@ public sealed class PlaceController(
                 continue;
             }
 
-            PlaceResult result = Place.Chunk(pipeline, materials, chunk, material, body, inventory);
+            // With the water in hand since 2026-09-19: a chunk fill at the boundary is already
+            // where the grid is free, so its wet voxels are filled displacing rather than left.
+            FillWater? displacing = Water is null ? null : new FillWater(Water);
+            PlaceResult result = Place.Chunk(pipeline, materials, chunk, material, body, inventory, displacing);
             Placements++;
             ChunkPlacements++;
             Record(result);
             PayFor(result);
+            if (displacing is not null)
+            {
+                FillLifted += displacing.Lifted;
+                FillReturned += displacing.Returned;
+                FillDisplaced += displacing.Displaced;
+            }
             sum = new PlaceResult(
                 sum.Candidates + result.Candidates, sum.Placed + result.Placed, sum.Occupied + result.Occupied,
                 sum.InsidePlayer + result.InsidePlayer, sum.Unreachable + result.Unreachable,
