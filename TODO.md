@@ -5669,6 +5669,26 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
 - [ ] **M10d — the play.** Pump the played mine dry; the storm dimming the panels that pump it;
       the gate felt at the bite; whether a placed pillar reads as shoring (if not, a shoring
       material is one JSON file).
+      - [ ] **The outlets far from the player stall on their own mound — Matthew, 2026-09-19,
+            underground: *"the water is building up on top of them … the water processing cannot
+            keep up with the 'dump' rate"*.** The near/far order is the viewer's column and two
+            rings, horizontal; an outlet 16 m away is far, its 250 L mouth layer is visited once in
+            ~260 ticks, the pump stalls `no room` (4,809 by the end) and the hand-off never sees a
+            rested cell there (`handed` moved only while he stood on the surface). Recommended: **a
+            machine's chunk column is near** — the columns under a pump's intake box and an outlet's
+            mouth layer join the viewer's rings in `FluidSimulation.IsNear`; `Main` hands the set
+            to the simulation at the boundary (pending through the job like the centre), the carry
+            re-classified when it changes; the `M8b:` line's `near` gains `(+N machine column(s))`.
+            Wire: the a-3 oracle with `--fluidnear=2 --speed=0` and the viewer more than two
+            chunks from the outlet — `no room` 0 and `handed` climbing at the pumped rate; the r6
+            control to the digit. Worklog entry of the day, "later still".
+      - [ ] **The settle's solve floods 294k cells a boundary on the played world** — worker wall
+            750–870 ms mean, the tick at 1.2 Hz, 1,261 of 1,375 boundaries waited, the batch 3,514
+            cells. `LevelSheets` seeds from the whole carry (456k cells) every pass so a wholly far
+            sheet is not invisible; the share's early stop counts every seed as unsettled, so a
+            sheet full of carried cells is flooded whole to be `left`. Lever: a carried cell seeds
+            the solve once, when it enters the carry, or the share counts *moved* cells rather than
+            seeds. The M8b-3b "pass per boundary is O(sheet)" item with the played number.
 - [ ] **Deliberately not in M10**: shoring as a material (a pillar already carries a full budget
       under `SupportRule.Rest`), drills and conveyors and crafting (M11), the inventory's move to
       millilitres (v5 at M11, alone — not v4 with the machines as MATERIALS-NOTES said), random

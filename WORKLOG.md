@@ -1,5 +1,51 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-19 (later still) — The outlets far from the player stall on their own mound: the far quota is the machines' ceiling
+
+*"i've got quite a few pump outputs but the water is building up on top of them and because I'm
+away a little down in the mine the water processing cannot keep up with the 'dump' rate of the
+pumps?"* — with four screenshots of the loop from the morning (the lake at the door running down
+the stairs). Off the live log at tick 1,375 (14:55), 11 pumps over 43 outlets:
+
+- **The pumps ran at 3–5% of nominal all session** — 50,228 L pumped in 687 ticks against a
+  nominal 1,100 L/s — and the stall that grew while he was underground was `no room`: 27 at the
+  first row it appears on, 4,809 twenty minutes later, ~84 a ten-second report. An outlet emits
+  into the sixteen voxels of the layer above its top, 250 L, full in five boundaries.
+- **The mound is the far quota, not the automaton's speed.** The near/far order (slice 1,
+  2026-09-09) is *horizontal, the viewer's chunk column and two rings*; the outlets stand more
+  than 16 m from his column, so the water on top of them is *far*, and the far side is admitted
+  at `max(512, near)` cells a tick — `1,757 near + 1,757 far, 453,867 deferred` on the line. A far
+  cell is visited once in ~260 ticks, and at the 1.2 Hz the tick was running (below) that is one
+  cell's worth off each mound every ~3.6 minutes: **~1 L/s an outlet against the 100 it was
+  given.** The settle cannot stand in: the water has to *fall* off the outlet's top, a vertical
+  move only a visit makes, and the sheet is `still being fed` anyway (21,589 such refusals).
+- **The hand-off has the same gate, and the log shows it in his footsteps.** `handed` sat at 0 →
+  115 L over the first five minutes underground with 16.5 ML in Tier B, climbed 2,437 → 15,786 L
+  in the two minutes he stood on the surface (`near` 24,021–44,671), stalled again below
+  (`near` 700), climbed 17,841 → 41,741 L on his next visit up (`near` 119,618). A rested cell is
+  a *visited* cell; nothing far rests.
+- **The tick ran at 1.2 Hz, and it was the solve, not the visits**: worker wall 750–870 ms mean
+  from the first line to the last, `1,261 boundary(ies) waited` of 1,375, while the tick's own
+  batch was 3,514 cells. `LevelSheets` seeds from the carry so a wholly far sheet is not invisible
+  to it (slice 1's rule), and with 456k carried cells it flooded 294k cells a pass (404 M over
+  1,374 passes) to level ~20 sheets. The pumps' budget is `rate × 500 ms` per boundary, so at
+  1.2 Hz a pump that had water and room delivered 60 L/s.
+
+**The loop is the morning's and stands**: `drawn` 92.6 kL into the mine through the door's
+portals against `received` 81.0 kL from the outlets — the screenshots' stairs. The mound is a
+different thing and a scheduler's: the near field has one viewer and a machine is another.
+Recommended and not built (TODO under M10d): **a machine's chunk column is near** — the columns
+under every pump's intake box and every outlet's mouth layer join the viewer's rings in
+`IsNear`, handed to the simulation once a boundary, the carry re-classified when the set changes
+(rare; a placement). Symmetric for the pump's `no water` where the water is creeping toward a far
+intake. Cost: the awake water in those columns every tick — a mound draining and a sheet creeping
+into an intake are a few hundred cells a machine (M8c's spring kept 141 awake in a room), so
+~10–20k visits a tick on this world against the 456k the carry holds; the first tick after the
+change visits whatever those columns carry, once. The other arm — a far outlet on the analytic
+ground emits into Tier A as an unloaded one does — is O(1) but empties a reservoir built on the
+surface through its floor the moment the player is 16 m away, and does nothing for the intakes.
+The solve's 294k cells a pass is a second lever with its own TODO line.
+
 ## 2026-09-19 (night) — A fill into water displaces it: `FillWater`, the machine's rule on every shape
 
 *"ok so I want the fill function to either absorb the water or displace it or remove it your
