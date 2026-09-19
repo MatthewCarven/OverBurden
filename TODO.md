@@ -5691,6 +5691,11 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
             sheet full of carried cells is flooded whole to be `left`. Lever: a carried cell seeds
             the solve once, when it enters the carry, or the share counts *moved* cells rather than
             seeds. The M8b-3b "pass per boundary is O(sheet)" item with the played number.
+            - [ ] **Keep the flooded `default` as the measurement world when Matthew moves on**
+                  (*"this one has been flooded enough"*, 2026-09-19): copy it to
+                  `worlds/retired-flooded-2026-09-19/` rather than delete — 16.5 ML in 1.07 M
+                  cells with a 456k carry is the only world the solve's 294k-cell pass exists
+                  on, and the lever above is priced against it, on a copy, with `--world=`.
 - [ ] **Deliberately not in M10**: shoring as a material (a pillar already carries a full budget
       under `SupportRule.Rest`), drills and conveyors and crafting (M11), the inventory's move to
       millilitres (v5 at M11, alone — not v4 with the machines as MATERIALS-NOTES said), random
