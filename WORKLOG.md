@@ -40,6 +40,21 @@ Two things left where they were, recorded: Ctrl+Alt cancelling in fly (two multi
 nobody chose it) and Alt as the debug keys' inverse (thins out when P retires with M10g's
 recipe). The hold is unplayed; the check is under M10d in TODO.
 
+**A screenshot from under the flood, same session** — *"Can you examine what i'm looking at"*:
+a mined void under a lake standing at 659% of its rims, looked at from its floor. The log: 17.3 ML
+of Tier B in 1.1 M cells over 91 panels, 28 kL drawn through the portals this session, 11,611
+long falls over 58,645 cells, one roof fall (`lifted 16 == returned 16`), `displaced 0`, every
+identity exact. What the eye gets is the M8d-2 underside item from the other side: tops are
+back-face culled and a resting sheet has no bottom (27, all under falling cells), so from below
+each sheet is its 19,226 sides alone — a stack of paper-thin slabs, the Tier A plane showing
+through as flat pale blue where the bed was mined out from under it (26,115 cells drawn under a
+lake), and the fronts' fractal edges as the dark side tint. Recorded on the existing item; the
+fix is the same second pass. **The load is the largest Tier B has carried in play**: peak 211,978
+active, worker wall 1,074 ms max, 191 boundaries waited — all of them in the open's first minutes
+(the count stood still from tick 514 to 534 at 2 Hz), which is WATER-THREAD-PLAN's revisit trigger
+showing at a restore and not in the steady state. The surface rebuild is 231 ms a tick (219 on
+the worker, 12.6 to install) for 27,566 quads.
+
 ## 2026-09-19 — M10d's play begins itself: sixteen pumps, a wall of outlets, the rain lifted out
 
 *"Well the pumps seem to work well"* — three screenshots, unprompted: a wall of relay outlets on

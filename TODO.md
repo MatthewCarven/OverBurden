@@ -4651,6 +4651,13 @@ finding without the coarser-tolerance fallback.
             - [ ] **From inside the water nothing of it draws** (cull_back) — a swimmer looking up
                   sees no surface. Wading (M10-NOTES) will want the underside drawn from below:
                   a second, front-culled pass of the tops, or cull_disabled with sorted faces.
+                  **Seen from below rather than inside, 2026-09-19** — *"Can you examine what i'm
+                  looking at"*: a mined void under a lake at 659% of its rims, 17.3 ML of Tier B in
+                  1.1 M cells cascading into it; from underneath each resting sheet is its sides
+                  alone (19,226 sides against 8,313 tops, 27 bottoms), so the flood reads as a stack
+                  of paper-thin slabs with the Tier A plane showing through as flat pale blue and
+                  the fronts' fractal edges as dark side-tinted patches. Every identity exact. The
+                  same item, from the other side; the fix is the same pass.
       - [x] **M8d-3 — the fall and the bank. Built 2026-09-11; read M8-PLAN's "M8d-3 — built".**
             A visit falls through vacant air up to `--fallcells=` (16; 1 is the old arm), the
             mesher's previous-height search reaches as far, and the hand-off leaves a rested cell
