@@ -1,5 +1,27 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-19 — M10d's play begins itself: sixteen pumps, a wall of outlets, the rain lifted out
+
+*"Well the pumps seem to work well"* — three screenshots, unprompted: a wall of relay outlets on
+a lake's bank with the pumped water cascading off its end into the lake, rain falling, and a
+stair shaft below with the water running down it. Off the logs (10:53–11:26): 250 machines — 16
+pumps, 20 outlets, 201 panels, 13 cells at 65 GJ from `Alt+P` — 8,161 L pumped in the first half
+hour and 4,356 L in the two minutes of rain after it, `pumped == emitted` across the tiers exact
+on every line, 101 L emitted to an outlet the box had not loaded and credited to Tier A (the
+unloaded rule, in play for the first time), 15,017 `no water` stalls against 311 moves (the
+pumps sit where the rain arrives and wait for it — the 17.7 ML the world holds is elsewhere in
+the void), the machine tick 1.5 ms mean / 8.7 max for sixteen pumps, 0 boundaries waited under a
+1.14 M-cell tick at 327 ms of worker wall. Two things worth keeping:
+
+- **The panels would have run it alone.** 201 panels generated 46 MJ in the half hour against
+  the pumps' 8.2 MJ, and 37.7 MJ was `clamped` because every cell was full — the debug charge
+  was never touched. At 100 L/s a pump wants 50 kJ a boundary and got what the rain gave it;
+  the relay-is-200-panels arithmetic from c-1's pass is the arithmetic of this base.
+- **A sound is asked for, and it is the game's first.** *"We will have a sound effect for the
+  quantum miner: failed — insufficient charge"*, mid-play. Recorded in TODO under M10d with its
+  hooks named (the three `gate` prints and the fill's refusal, all edge-detected already); not
+  scheduled, because the first sound wants a home for audio before it wants a file.
+
 ## 2026-09-18 (evening) — A swapped-out pack keeps its charge: `CarriedPacks`, header v5, `stowed`
 
 Play recipe step 6, answered by the play and by one sentence: the swap threw a 2,650.6 kJ pack

@@ -5540,6 +5540,27 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
                through the tiers: the entangled miner is not on the cycle, and the steel pick is
                still free. *Does `Q` costing while `T` does not read as the design?*
 - [ ] **M10d — the play**: the mine pumped dry by relay, the storm, the gate, the pillar verdict.
+      **Begun 2026-09-19, on `default`, unprompted** — *"Well the pumps seem to work well"*, three
+      screenshots: a wall of relay outlets on a lake's bank with the pumped water cascading off
+      its end into the lake under rain, and a wet stair shaft below. Read off the two logs
+      (2026-09-19, 10:53–11:26): 250 machines — 16 pumps, 20 outlets, 201 panels, 13 cells
+      (65 GJ, `Alt+P`'s) — 8,161 L pumped in the first half hour and 4,356 L in the two minutes
+      of rain after, `pumped == emitted` across the tiers exact on every line, 101 L to an outlet
+      the box had not loaded (credited to Tier A, the unloaded rule in play), 15,017 `no water`
+      stalls against 311 moves (the pumps wait on what arrives — the mine's 17.7 ML is elsewhere
+      in the void), the machine tick 1.5 ms mean / 8.7 max for sixteen pumps, 0 boundaries
+      waited under a 1.14 M-cell tick at 327 ms worker wall. 201 panels made 46 MJ in that half
+      hour against the pumps' 8.2 MJ — 37.7 MJ `clamped` with every cell full — so the panels
+      alone would have run them. The storm half is still to be watched for the dimming.
+      - [ ] **A sound effect for the quantum miner: *failed — insufficient charge*** (Matthew,
+            2026-09-19, mid-play). The first sound in the game, so it wants a home for audio
+            before it wants a file: the events are the three `M10: gate` prints in `Main`
+            (`swung … with no pack`, `ran out mid-bite`, `the pack is spent`) and the fill's
+            `refused whole`, all already edge-detected for the one-off print; the sound goes where
+            the print goes. Godot's `AudioStreamPlayer` on `Main`, one stream, no bus work yet;
+            whether a held `Alt` chip re-fires it every 25 ms or once per empty is the pass's
+            question. Not scheduled — the cosmetics pass or the next play that asks for a second
+            sound, whichever first.
 - [ ] **After the optimiser (2026-09-15): re-judge `start.cmd`'s `--lightbudget=16` on a play** — it
       was a response to a 1.4 ms unoptimised derive that is ~0.36 ms now; and **re-take the Debug
       bench figures quoted against game numbers** (`-c Debug -- --support`'s 0.83 + 4.4 ms) before
