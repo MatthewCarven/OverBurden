@@ -406,7 +406,18 @@ public sealed partial class Hud : CanvasLayer
         // two things they are looking at.
         if (precise)
         {
-            return $"ONE VOXEL  (Alt)   ·   {tier}  (T)   ·   1-9 material, V cycle";
+            return mining?.Running == true
+                ? $"RUNNING  (Q held)   ·   ONE VOXEL  (Alt)   ·   {tier} gate  (T)"
+                : $"ONE VOXEL  (Alt)   ·   {tier}  (T)   ·   1-9 material, V cycle";
+        }
+
+        // The hold (2026-09-19): the miner is eating what the crosshair is on, no click, from
+        // whichever mode the key was held in — so the line says so before it says anything about
+        // clicks, which do nothing extra while it runs.
+        if (mining?.Running == true)
+        {
+            string shape = mining.TakesWholeChunk ? "WHOLE CHUNK" : $"{BrushCell.SizeMetres:F0} M CELL";
+            return $"RUNNING  (Q held)   ·   {shape}   ·   {tier} gate  (T)   ·   Alt: one voxel";
         }
 
         // Same argument, one shape further along and with more riding on it: the outline has
@@ -418,7 +429,7 @@ public sealed partial class Hud : CanvasLayer
             // Both verbs named, because both changed scale at the same keypress and the fill is
             // the one a player would not guess. "dig / fill" rather than "mine / place": the
             // pairing is what makes the mode safe to use, since the bite now has an undo.
-            return $"WHOLE CHUNK  (Q)   ·   {tier} gate  (T)   ·   dig / fill   ·   Alt: one voxel";
+            return $"WHOLE CHUNK  (Q)   ·   {tier} gate  (T)   ·   dig / fill   ·   Alt: one voxel   ·   hold Q: run";
         }
 
         // The cube bite (2026-09-14): the dig is one brush cell and the fill is the brush at
@@ -427,9 +438,9 @@ public sealed partial class Hud : CanvasLayer
         if (mining?.TakesCube == true)
         {
             return $"{BrushCell.SizeMetres:F0} M CELL  (Q)   ·   {tier} gate  (T)   ·   "
-                + $"dig cell / {brush} brush  (B)   ·   1-9 material   ·   Alt: one voxel";
+                + $"dig cell / {brush} brush  (B)   ·   1-9 material   ·   Alt: one voxel   ·   hold Q: run";
         }
 
-        return $"{brush} brush  (B)   ·   {tier}  (T)   ·   1-9 material, V cycle   ·   Alt: one voxel";
+        return $"{brush} brush  (B)   ·   {tier}  (T)   ·   1-9 material, V cycle   ·   Alt: one voxel   ·   Q: tap mode / hold run";
     }
 }

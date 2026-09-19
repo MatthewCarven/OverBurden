@@ -355,7 +355,15 @@ fill of 2026-09-03 to 2026-09-14**, the arm every recorded bite figure was taken
 **`--entanglesphere` the pre-2026-09-03 bite**, the tier's sphere, the arm the chunk was priced
 against; **`--chunkcooldown=<seconds>` and `--cubecooldown=<seconds>` sweep the two rates and
 are deliberately not profile-only**, because `Q` is a play bind and a rate that only reached a
-profile run would be a seam for the one arm that cannot judge it.
+profile run would be a seam for the one arm that cannot judge it. **Since 2026-09-19 Q has two
+meanings — tapped, the quantum miner goes on the mouse; held past `--holdafter=<seconds>` (0.25,
+an estimate), it *runs*: a cube a cooldown at the crosshair with no click, one voxel with Alt,
+from whichever mode the key was held in** (`TapOrHold`, the helper E reuses at M10g;
+`MiningController.Running`). **`--holdq` holds it for a whole run** — the hold's wire, past the
+profile's refusal by its own hand — and from the pick with `--pack --charge=320 --pitch=-60
+--profile --speed=0 --measure=10` reads `entangled 120 swing(s)` at 9.2/s, `removed 6, unpowered
+7 of 64; paid 300 J, the pack at 20 J` (the spawn's cube at that pitch is 57 air voxels, so it
+is not `--mine`'s 57 unpowered), and `840 voxel(s) unpowered over 120 swing(s)`.
 
 M7c-1 adds four more, all seams rather than settings. **`--clock=<seconds>` starts the run
 somewhere in this world's forecast** — the weather is a pure function of (seed, time), so this is
@@ -1188,7 +1196,7 @@ the entangled bite is the brush cell (`Carve.Cube`, `CubeVoxels = BrushCell.Voxe
 and fill are one lattice by construction), the entangled fill is the brush at range, both at
 10/s on Matthew's word (*"eventually this will cost a lot of power"* — the rate is an input to
 M10's battery gate, not a frame ceiling), and **one click is one click** on that arm (an edge
-in `Main`, Alt still repeats). `--entanglechunk` is the old chunk pair and every recorded bite
+in `Main`; Alt repeated until 2026-09-19, when the stream moved to Q held). `--entanglechunk` is the old chunk pair and every recorded bite
 figure's arm. Three lessons that cost a pass each: a number in his message is what he sees on
 screen (the brush cell is "4x4x4", and "8x8" was that cell, not eight voxels — ask which grid
 before building a size); a hook on an arrival path runs mid-tick and may ask the automaton
@@ -3395,7 +3403,9 @@ the *player's* rather than the tool's — M4 is where something exists to own it
 same argument that kept it out of the tool JSON.
 
 **The entangled miner is a debug bind, built 2026-08-31 to dig M5d-2's test volume.** **Q**
-toggles it: point at anything, hold left click, and it eats what it is pointed at however far
+tapped toggles it (**and Q held runs it since 2026-09-19** — *"holding q is supposed to enable
+automine"* — a cube a cooldown at the crosshair with no click, from either mode, the pick handed
+back on release): point at anything, hold left click, and it eats what it is pointed at however far
 away. **As of 2026-09-14 a bare click takes one brush cell — 4 × 4 × 4 voxels on the 1 m brush
 lattice, `CubeVoxels = BrushCell.Voxels` so the two verbs cannot drift — at 10 a second (his
 number, *"10/second eventually this will cost a lot of power"* — the rate is a design input to
@@ -3405,8 +3415,10 @@ eight voxels on a misreading of "8x8", corrected the same night). From 2026-09-0
 click took **the whole 8 m chunk** — 32,768 voxels, 512 m³ — at **4 a second** and the right click
 filled one, which `--entanglechunk` restores and which every bite figure below was measured on.
 **And on the cube arm one click is one click** — a bare press fires once and never repeats while
-held (Alt keeps its held repeat for fine work at range; the sphere and chunk arms are unchanged).
-Alt still chips one voxel, at 40. Three things about it that are easy to undo by accident:
+held, **precise or not since 2026-09-19** (Alt kept a held repeat for fine work at range until the
+modifier map was read back and it turned out to be a 40/s voxel stream whenever you crawled and
+clicked in fly mode; the one way to stream is Q held now, and the sphere and chunk arms are
+unchanged). Alt still chips one voxel. Three things about it that are easy to undo by accident:
 
 - **It was deliberately not a tool tier until M10c-3, and the reach half of that still
   holds.** *Reach is the player's, not the tool's* is locked twice — M3d, restated at M4c —

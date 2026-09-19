@@ -99,6 +99,15 @@ public sealed class PlaceController(
     /// <summary>A bare placement fills the whole 8 m chunk in front of the crosshair.</summary>
     public bool TakesWholeChunk => Entangled && EntangledFillsChunk;
 
+    /// <summary>Whether an entangled placement fills one brush cell at range — the cube arm's fill.</summary>
+    /// <remarks>
+    /// The fill's own flag rather than <c>MiningController.TakesCube</c>, which Main read until
+    /// 2026-09-19: the miner's now includes the hold, and a held Q from the pick must not turn
+    /// the 5 m brush into a one-click verb on its way past. The hold runs the bite and nothing
+    /// else.
+    /// </remarks>
+    public bool TakesCube => Entangled && !EntangledFillsChunk;
+
     /// <summary>
     /// How long between whole-chunk fills, in seconds.
     /// </summary>

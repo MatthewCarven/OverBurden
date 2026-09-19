@@ -83,8 +83,8 @@ public sealed class MiningController(
     /// </summary>
     public bool PowerOff { get; set; }
 
-    /// <summary>The tool a swing uses now: the entangled tool while Q is on and it exists, the tier otherwise.</summary>
-    public ToolDefinition SwungTool => Entangled && EntangledTool is not null ? EntangledTool : Tool;
+    /// <summary>The tool a swing uses now: the entangled tool while the quantum miner is up and it exists, the tier otherwise.</summary>
+    public ToolDefinition SwungTool => Quantum && EntangledTool is not null ? EntangledTool : Tool;
 
     /// <summary>Millijoules one removed voxel costs with the tool in hand, or zero while free.</summary>
     public long MillijoulesPerVoxel => PowerOff ? 0 : SwungTool.Power?.MillijoulesPerVoxel ?? 0;
@@ -154,6 +154,31 @@ public sealed class MiningController(
     public bool Entangled { get; set; }
 
     /// <summary>
+    /// Whether Q is held — the quantum miner <em>running</em>: a bite at the crosshair every
+    /// cooldown with no click, whatever the mouse is doing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Q tapped puts the quantum miner on the mouse; Q held runs it</b> (Matthew, 2026-09-19:
+    /// <i>"holding q is supposed to enable automine"</i>). The two are independent on purpose:
+    /// a hold from the pick swings the entangled tool at its reach and its cube and hands the
+    /// pick back on release, so the hillside run is hold-Q with no mode change, and the toggle
+    /// is only about what a click does. <see cref="Quantum"/> is the one both read.
+    /// </para>
+    /// <para>
+    /// Set by <c>Main</c> from a <see cref="TapOrHold"/> on the key every frame, the way
+    /// <c>precise</c> arrives as an argument: held-key state belongs to the binding, and this is
+    /// stored only because reach, tool and shape are read from properties rather than passed.
+    /// This is also what replaced Alt's held repeat on the cube arm — the one way to stream is
+    /// the hold, and Alt means precision and nothing else.
+    /// </para>
+    /// </remarks>
+    public bool Running { get; set; }
+
+    /// <summary>The quantum miner is up — on the mouse or running — and the swing is its tool, reach and shape.</summary>
+    public bool Quantum => Entangled || Running;
+
+    /// <summary>
     /// What a bare entangled swing takes: the brush cell's 1 m cube by default, the whole chunk or the tier's
     /// sphere as arms. The remarks are the chunk bite's, kept because the cube inherits them.
     /// </summary>
@@ -202,11 +227,14 @@ public sealed class MiningController(
     /// front of an 8 m bite is not a small inaccuracy — it is the player being shown the wrong
     /// object. <b>Precision is not folded in here</b> because it is a per-frame held key rather
     /// than controller state, and the caller that knows about the key is the caller that draws.
+    /// <b>The hold is</b>: while Q is held from the pick the swing is the cube, and the outline
+    /// has to say so — <c>PlaceController</c> keeps its own <c>TakesCube</c> for the fill, which
+    /// the hold does not touch.
     /// </remarks>
-    public bool TakesWholeChunk => Entangled && Bite == EntangledBite.Chunk;
+    public bool TakesWholeChunk => Quantum && Bite == EntangledBite.Chunk;
 
     /// <summary>Whether the next ordinary swing would take the 1 m cube, for the same outline reason.</summary>
-    public bool TakesCube => Entangled && Bite == EntangledBite.Cube;
+    public bool TakesCube => Quantum && Bite == EntangledBite.Cube;
 
     /// <summary>
     /// The entangled reach. A backstop, not the real limit — the world is.
@@ -382,7 +410,7 @@ public sealed class MiningController(
     /// <summary>The live value, so <c>--cubecooldown=</c> can sweep it without a rebuild.</summary>
     public float EntangledCubeCooldownSeconds { get; set; } = DefaultEntangledCubeCooldownSeconds;
 
-    private float EffectiveReachMetres => Entangled ? EntangledReachMetres : ReachMetres;
+    private float EffectiveReachMetres => Quantum ? EntangledReachMetres : ReachMetres;
 
     /// <summary>
     /// The cooldown for the shape actually swung, which is a rule change worth naming.
@@ -397,7 +425,7 @@ public sealed class MiningController(
     /// the case Matthew reported as load-bearing — fine work at range, the <c>L</c>+<c>Q</c>
     /// pairing, where the whole point is placing and picking single things far away.
     /// </remarks>
-    private float CooldownForShape(bool precise) => (Entangled, precise) switch
+    private float CooldownForShape(bool precise) => (Quantum, precise) switch
     {
         (true, false) when Bite == EntangledBite.Chunk => EntangledChunkCooldownSeconds,
         (true, false) when Bite == EntangledBite.Cube => EntangledCubeCooldownSeconds,
@@ -570,7 +598,7 @@ public sealed class MiningController(
             PreciseSwings++;
         }
 
-        if (Entangled)
+        if (Quantum)
         {
             EntangledSwings++;
         }

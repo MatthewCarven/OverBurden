@@ -1,5 +1,45 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-19 (later) — Q held runs the quantum miner; Alt's held repeat goes with the modifier map read back
+
+*"Um so i've mashed up the modifier keys on this one can you examine and tell me what we have
+there?"* The map, off the code: Shift and Ctrl touch movement only (sneak / descend, sprint / ×5),
+and Alt means three things — precision on both buttons, crawl in fly, and the inverse of a debug
+key (Alt+P fills the cells, Alt+R takes the water back). Two mash-ups fell out of holding two at
+once: Ctrl+Alt in fly is 6 × 5 × 0.2 = exactly base speed, and **Alt on the cube arm re-enabled
+the held repeat** — a bare click is one cell, Alt held was a 40/s voxel stream — so a crawl with
+one click in fly mode sprayed voxels. He dropped that one, first as "move it to Z", then *"holding
+q is supposed to enable automine(tm)"*, and took the pass's recommendations whole.
+
+**Q tapped puts the quantum miner on the mouse; Q held runs it.** Built the same session:
+
+- **`TapOrHold`** (`Overburden.Game/Player/`, Godot-free like the controllers) — a press released
+  under the threshold is a tap, past it a hold, and a hold never taps. The tap fires on
+  *release*, because a toggle on the key-down edge cannot share the key with a hold without
+  flipping the mode on every hold's way in; the toggle is up to 0.25 s late for it, an estimate,
+  `--holdafter=` the sweep. E reuses it at M10g (tapped the screen, held the crank).
+- **`MiningController.Running`** and `Quantum => Entangled || Running` — tool, reach, shape and
+  cooldown read the union, so a hold from the pick swings the entangled tool at its reach and
+  its cube and hands the pick back on release; the toggle is only about what a click does.
+  `PlaceController.TakesCube` is the fill's own flag, so a held Q from the pick does not make the
+  5 m brush edge-triggered on its way past.
+- **`Main`** polls Q beside P, R and L (`UpdateQuantumKey`), fed every frame and acted on only
+  while the mouse is captured — which covers the panel, whose focused field swallows the event
+  but not the poll. `mining = running || (TakesCube ? leftPressed : leftDown)`, `precise =
+  (leftDown || running) && Alt`: a click is one click whatever it holds, and the hold is the
+  profile's own `mining = true` path with Alt as precision. The HUD reads `RUNNING (Q held)`,
+  the mode lines gain `hold Q: run`, the pick's `Q: tap mode / hold run`.
+- **`--holdq`** holds it for a run, past the profile's refusal by the flag's own hand. From the
+  pick with `--pack --charge=320 --pitch=-60 --profile --speed=0 --measure=10`: `entangled 120
+  swing(s)` at 9.2/s, `removed 6, unpowered 7 of 64; paid 300 J, the pack at 20 J`, `840 voxel(s)
+  unpowered over 120 swing(s)` — the spawn's cube at that pitch is 57 air voxels, which is why it
+  is not `--mine`'s 57 unpowered. The bite-that-stops and fill oracles read as recorded, the r6
+  control to the digit; Core untouched, so the suite is unchanged at 1,627.
+
+Two things left where they were, recorded: Ctrl+Alt cancelling in fly (two multipliers stacking,
+nobody chose it) and Alt as the debug keys' inverse (thins out when P retires with M10g's
+recipe). The hold is unplayed; the check is under M10d in TODO.
+
 ## 2026-09-19 — M10d's play begins itself: sixteen pumps, a wall of outlets, the rain lifted out
 
 *"Well the pumps seem to work well"* — three screenshots, unprompted: a wall of relay outlets on

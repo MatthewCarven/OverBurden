@@ -173,6 +173,12 @@ public partial class Main : Node3D
     /// <summary>Whether <c>--cubecooldown=</c> was given, so the file's number is the default and the flag the sweep.</summary>
     private bool _cubeCooldownSwept;
 
+    /// <summary>
+    /// Q's two meanings (2026-09-19): tapped, the quantum miner goes on the mouse; held past the
+    /// threshold, it runs. <c>--holdafter=</c> moves the threshold.
+    /// </summary>
+    private readonly TapOrHold _quantumKey = new();
+
     /// <summary>The gate's two one-off prints: the swing the pack ran out inside, and the first that took nothing.</summary>
     private bool _printedGateRanOut, _printedGateEmpty, _printedGateNoPack, _printedFillRefused;
 
@@ -294,14 +300,21 @@ public partial class Main : Node3D
     /// <remarks>
     /// <b>"One click is one click"</b> (Matthew, 2026-09-14): on the cube arm a bare click fires
     /// once on the press and never repeats while held, so the entangled miner is a click and not
-    /// a hose. The cooldown still applies underneath — a click inside it is dropped, not queued —
-    /// and Alt keeps its held repeat, because chipping single voxels at range is the fine-work
-    /// case the L+Q pairing was reported load-bearing for. The sphere and chunk arms are unchanged.
+    /// a hose. The cooldown still applies underneath — a click inside it is dropped, not queued.
+    /// <b>Alt kept a held repeat until 2026-09-19</b> — chipping single voxels at range, the
+    /// L+Q fine-work case — and it went when the modifier map was read back: in fly mode Alt is
+    /// crawl, so a crawl with one click on the cube arm was a 40/s stream of voxels. <b>The one
+    /// way to stream now is Q held</b> (<see cref="MiningController.Running"/>), which runs the
+    /// bite at its own rate and one voxel at the chip's with Alt; a click is one click whatever
+    /// it holds. The sphere and chunk arms are unchanged.
     /// </remarks>
     private bool _leftWasDown;
 
     private bool _rightWasDown;
     private bool _entangleWhileProfiling;
+
+    /// <summary><c>--holdq</c>: Q held from the first frame — the hold's wire, headless, the way <c>--place</c> holds the button.</summary>
+    private bool _holdQ;
 
     private EntangledBite _entangledBite = EntangledBite.Cube;
 
@@ -1746,6 +1759,13 @@ public partial class Main : Node3D
                     _entangleWhileProfiling = true;
                     break;
 
+                // Q held for the whole run, from whichever mode the run is in — the hold's wire
+                // check, because no headless run presses a key. Past the profile's refusal by its
+                // own hand, the way --entangle sets the mode a key would: the run asked for it.
+                case "holdq":
+                    _holdQ = true;
+                    break;
+
                 // The arm the chunk bite was priced against: entangled, but taking the tier's
                 // sphere the way Q did before. Named for the thing it restores rather than for
                 // the thing it disables, the same as --cavestep=1 and --viewnormal=1, because a
@@ -1778,6 +1798,14 @@ public partial class Main : Node3D
                                          && cubeCooldown > 0.0f:
                     _cubeCooldownSeconds = cubeCooldown;
                     _cubeCooldownSwept = true;
+                    break;
+
+                // How long Q is down before it is a hold rather than a tap (0.25 s, an estimate).
+                // A tap toggles on release, so this is also the toggle's latency; zero makes
+                // every press a hold and leaves the mouse mode unreachable from the key. Not
+                // profile-only, for --cubecooldown's reason: Q is a play bind.
+                case "holdafter" when double.TryParse(value, out double holdAfter) && holdAfter >= 0.0:
+                    _quantumKey.HoldSeconds = holdAfter;
                     break;
 
                 // The fall profile. M2d measured a viewer flying horizontally at a constant
@@ -2129,11 +2157,8 @@ public partial class Main : Node3D
             return;
         }
 
-        if (key.Keycode == Key.Q)
-        {
-            ToggleEntangledMiner();
-            return;
-        }
+        // Q is not here: it is polled in UpdateQuantumKey, because a tap and a hold share it and
+        // a toggle on the key-down edge would flip the mouse mode on every hold's way in.
 
         if (key.Keycode == Key.B)
         {
@@ -2655,6 +2680,45 @@ public partial class Main : Node3D
               + $"({_inventory.Litres(materialId):F0} L held)");
     }
 
+    /// <summary>Q, polled: a tap toggles the mode, a hold runs the miner.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The key is fed every frame and acted on only while the mouse is captured.</b> Feeding
+    /// it always keeps the helper's press/release honest across a capture change; acting only
+    /// while captured is what stops a hold from eating the world behind a panel or an Esc, and
+    /// covers the panel case — a Control with the keyboard would swallow the event but not the
+    /// poll. A tap that completes uncaptured is dropped, which is nothing anyone will miss.
+    /// </para>
+    /// <para>
+    /// The hold is <see cref="MiningController.Running"/>, read by <c>UpdateMining</c> as a swing
+    /// every frame the cooldown allows — the profile's own <c>mining = true</c> path, with Alt
+    /// as precision the way it is for a click. A profile run refuses both meanings, for the
+    /// reason the toggle already did.
+    /// </para>
+    /// </remarks>
+    private void UpdateQuantumKey(double delta)
+    {
+        if (_mining is null || _camera is null)
+        {
+            return;
+        }
+
+        bool tapped = _quantumKey.Update(_holdQ || Input.IsKeyPressed(Key.Q), delta);
+
+        if (!_camera.MouseCaptured || (_profiler is not null && !_holdQ))
+        {
+            _mining.Running = false;
+            return;
+        }
+
+        if (tapped)
+        {
+            ToggleEntangledMiner();
+        }
+
+        _mining.Running = _quantumKey.Holding;
+    }
+
     private void ToggleEntangledMiner()
     {
         if (_mining is null)
@@ -2701,7 +2765,7 @@ public partial class Main : Node3D
                 + "rate — only air is replaceable, so it fills holes and never overwrites rock.",
             EntangledBite.Cube =>
                 "M5d: entangled miner ON — reach unlimited (bounded by the loaded world), "
-                + "one click one cell (no repeat while held, at most " + $"{1.0f / _mining.EntangledCubeCooldownSeconds:F0}/s), "
+                + "one click one cell (hold Q to run it, at most " + $"{1.0f / _mining.EntangledCubeCooldownSeconds:F0}/s), "
                 + $"and each one takes a {Carve.CubeVoxels * VoxelConstants.VoxelSize:F0} m cube "
                 + $"on the brush's {Carve.CubeVoxels * VoxelConstants.VoxelSize:F0} m lattice "
                 + $"({Carve.CubeVoxels * Carve.CubeVoxels * Carve.CubeVoxels:N0} voxels) — still "
@@ -2852,6 +2916,7 @@ public partial class Main : Node3D
             _flyingEye = new System.Numerics.Vector3(eye.X, eye.Y, eye.Z);
         }
 
+        UpdateQuantumKey(delta);
         UpdateMining(delta);
         UpdatePlacement(delta);
         UpdatePanel(delta);
@@ -4060,6 +4125,10 @@ public partial class Main : Node3D
                     ? $"{power.JoulesPerVoxel:N0} J a voxel via {power.Via} from the equipped pack (the gate; --nogate frees it)"
                     : "free (the file declares no power)"));
         }
+
+        GD.Print(
+            $"M10: Q tapped puts the quantum miner on the mouse; held past {_quantumKey.HoldSeconds:F2} s it runs "
+            + "(a cube a cooldown at the crosshair, one voxel with Alt; --holdafter= moves the threshold)");
     }
 
     /// <summary>
@@ -4168,8 +4237,10 @@ public partial class Main : Node3D
         // places one, so "precision" is a thing the player learns once rather than per verb.
         bool precise = rightDown && Input.IsKeyPressed(Key.Alt);
 
-        // One click, one cell on the cube arm; see _leftWasDown.
-        bool placing = _mining is { TakesCube: true } && !precise ? rightPressed : rightDown;
+        // One click, one cell on the cube arm, precise or not; see _leftWasDown. The fill's own
+        // flag rather than the miner's, because the miner's includes the hold and a held Q from
+        // the pick must not make the 5 m brush edge-triggered on its way past.
+        bool placing = _place.TakesCube ? rightPressed : rightDown;
 
         if (_placeWhileProfiling)
         {
@@ -4354,10 +4425,14 @@ public partial class Main : Node3D
         // 1.8 m between chips. Alt is free in walk and is *crawl* in fly, so "slow down to do
         // fine work" pairs with the modifier rather than fighting it — which is the argument
         // that named Alt as the better key a milestone before anything needed it.
-        bool precise = leftDown && Input.IsKeyPressed(Key.Alt);
+        //
+        // With Q held it is the running miner's precision: one voxel at the chip's rate, no
+        // button. That is the only stream Alt is part of since 2026-09-19 — see _leftWasDown.
+        bool running = _mining.Running;
+        bool precise = (leftDown || running) && Input.IsKeyPressed(Key.Alt);
 
-        // One click, one cell on the cube arm; see _leftWasDown.
-        bool mining = _mining.TakesCube && !precise ? leftPressed : leftDown;
+        // One click, one cell on the cube arm, precise or not; the hold is the run. See _leftWasDown.
+        bool mining = running || (_mining.TakesCube ? leftPressed : leftDown);
 
         if (_mineWhileProfiling)
         {

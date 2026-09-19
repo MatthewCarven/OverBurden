@@ -5540,6 +5540,11 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
                through the tiers: the entangled miner is not on the cycle, and the steel pick is
                still free. *Does `Q` costing while `T` does not read as the design?*
 - [ ] **M10d — the play**: the mine pumped dry by relay, the storm, the gate, the pillar verdict.
+      - [ ] **The hold (2026-09-19, unplayed)**: tap Q and click — one cell; Alt+click — one
+            voxel, once; hold Q from the pick — it eats the hill at 10/s until you let go or the
+            pack does; Alt with it — one voxel at 40/s; the toggle's 0.25 s latency on release,
+            felt or not (`--holdafter=` is the sweep). One sentence back, and whether the mouse
+            mode still earns its key once the hold exists.
       **Begun 2026-09-19, on `default`, unprompted** — *"Well the pumps seem to work well"*, three
       screenshots: a wall of relay outlets on a lake's bank with the pumped water cascading off
       its end into the lake under rain, and a wet stair shaft below. Read off the two logs
@@ -5565,9 +5570,10 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             (`swung … with no pack`, `ran out mid-bite`, `the pack is spent`) and the fill's
             `refused whole`, all already edge-detected for the one-off print; the sound goes where
             the print goes. Godot's `AudioStreamPlayer` on `Main`, one stream, no bus work yet;
-            whether a held `Alt` chip re-fires it every 25 ms or once per empty is the pass's
-            question. Not scheduled — the cosmetics pass or the next play that asks for a second
-            sound, whichever first.
+            whether a held Q on a dry pack re-fires it every 100 ms or once per hold is the
+            pass's question (Alt's held chip went the same day; the hold is the only stream).
+            Not scheduled — the cosmetics pass or the next play that asks for a second sound,
+            whichever first.
 - [ ] **After the optimiser (2026-09-15): re-judge `start.cmd`'s `--lightbudget=16` on a play** — it
       was a response to a 1.4 ms unoptimised derive that is ~0.36 ms now; and **re-take the Debug
       bench figures quoted against game numbers** (`-c Debug -- --support`'s 0.83 + 4.4 ms) before
@@ -5733,6 +5739,13 @@ the same breath and unprompted, the constraint: *"but do not implement weight pl
             and never repeats while held, both buttons; the cooldown underneath drops a click
             inside it rather than queueing it. Alt keeps its held repeat — chipping at range is
             the L+Q fine-work case — and the sphere and chunk arms are as they were.
+            **Amended 2026-09-19: Alt's repeat is gone and Q held is the stream** — the modifier
+            map read back had Alt meaning crawl in fly *and* a 40/s voxel stream on the cube arm,
+            so a crawl with one click sprayed voxels; *"holding q is supposed to enable
+            automine"*. Q tapped toggles the mode (on release now, ≤ 0.25 s late), Q held past
+            the threshold runs the miner from either mode — `TapOrHold`, `MiningController.Running`,
+            `--holdafter=`, `--holdq`. A click is one click whatever it holds. **Unplayed**; the
+            play check is under M10d.
 - [x] **The rate is measured, and the measurement says the rate is not what needs choosing.**
       Same-session A/B at r4h/2v, 6 m/s, 30 s, Debug, against `--entanglesphere`: **one bite costs
       `swing ms` mean 16.9 / max 35.6 on the sim thread against the sphere's 0.054 / 2.48** — one

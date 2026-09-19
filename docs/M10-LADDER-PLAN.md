@@ -2474,6 +2474,10 @@ outside does not (a grid is where clicks go), so the close is Esc or `E` again.
 - **Rejected: a separate key (`I`, `Tab`)** — a tap of `E` away from a workbench is free, the
   crank is `E` *held* and the two do not collide (decision 11's split is a tap against a hold,
   not a place against a place), and one key that means *open the screen* is one thing to learn.
+  **The tap/hold helper exists since 2026-09-19** — `TapOrHold` in `Overburden.Game/Player/`,
+  built for Q (tapped, the quantum miner on the mouse; held, it runs): the tap fires on release
+  of a press under the threshold, so the screen will open up to 0.25 s late, and a hold never
+  taps. E takes it as is.
 - **Rejected: three Controls** — the craft panel, the parts page and an inventory screen with
   three ways to open and close. The risks paragraph counted four new Controls; this is three (the
   screen, the machine panel, a crank indicator).
