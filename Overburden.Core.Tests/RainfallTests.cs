@@ -389,6 +389,97 @@ public class RainfallTests
     }
 
     [Fact]
+    public void RainOwedToTierBIsPaidBeforeALitreReachesABasin()
+    {
+        // A cell of 15,625 mL dropped from this sky (2026-09-19): the basins receive exactly
+        // that much less than the same hour with nothing owed, the debt is paid in full, and
+        // nothing was rounded away on the way.
+        const long hour = 3_600_000;
+        const long cell = 15_625_000;
+
+        (Watershed shedA, BasinWater plain) = Bowl();
+        var plainRain = new BasinRainfall(shedA, plain, Seed);
+        plainRain.AdvanceTo(hour);
+
+        (Watershed shedB, BasinWater owing) = Bowl();
+        var owingRain = new BasinRainfall(shedB, owing, Seed);
+        owingRain.Divert(cell);
+        owingRain.AdvanceTo(hour);
+
+        Assert.Equal(0L, owingRain.OwedMicrolitres);
+        Assert.Equal(cell, owingRain.PaidMicrolitres);
+
+        long plainTotal = plain.TotalStoredLitres * 1_000_000 + Pending(plainRain, shedA) + plainRain.SpilledLitres * 1_000_000;
+        long owingTotal = owing.TotalStoredLitres * 1_000_000 + Pending(owingRain, shedB) + owingRain.SpilledLitres * 1_000_000;
+        Assert.Equal(cell, plainTotal - owingTotal);
+        Assert.True(plain.TotalStoredLitres > 0, "an hour of weather delivered nothing");
+
+        static long Pending(BasinRainfall rain, Watershed shed)
+        {
+            long sum = 0;
+            for (int basin = 0; basin < shed.Basins.Count; basin++)
+            {
+                sum += rain.PendingMicrolitres(basin);
+            }
+
+            return sum;
+        }
+    }
+
+    [Fact]
+    public void AnHourInOneStepEqualsAnHourInStepsWithRainOwed()
+    {
+        // The oracle again with a debt in it, because the debt is paid from the same microlitres
+        // on both paths — a payment rule that depended on the step would break the property the
+        // whole tier rests on, and this is what would say so.
+        const long hour = 3_600_000;
+        const long cell = 15_625_000;
+
+        (Watershed watershed, BasinWater oneStep) = Bowl();
+        var oneShot = new BasinRainfall(watershed, oneStep, Seed);
+        oneShot.Divert(3 * cell);
+        oneShot.AdvanceTo(hour);
+
+        (Watershed stepwiseShed, BasinWater stepwise) = Bowl();
+        var ticked = new BasinRainfall(stepwiseShed, stepwise, Seed);
+        ticked.Divert(3 * cell);
+        for (long second = 1; second <= 3600; second++)
+        {
+            ticked.AdvanceTo(second * 1000);
+        }
+
+        Assert.Equal(oneStep.TotalStoredLitres, stepwise.TotalStoredLitres);
+        Assert.Equal(oneShot.SpilledLitres, ticked.SpilledLitres);
+        Assert.Equal(oneShot.PaidMicrolitres, ticked.PaidMicrolitres);
+        Assert.Equal(3 * cell, ticked.PaidMicrolitres);
+        for (int basin = 0; basin < watershed.Basins.Count; basin++)
+        {
+            Assert.Equal(oneStep.StoredIn(basin), stepwise.StoredIn(basin));
+            Assert.Equal(oneShot.PendingMicrolitres(basin), ticked.PendingMicrolitres(basin));
+        }
+    }
+
+    [Fact]
+    public void RainOwedWithNoRainToPayItStaysOwed()
+    {
+        // Diverted in a dry spell: nothing is invented to pay it, and the next rain does.
+        (Watershed watershed, BasinWater water) = Bowl();
+        var rain = new BasinRainfall(watershed, water, Seed);
+        long wet = FirstWetEpisode();
+        Assert.True(wet > 0, "this seed's first episode is wet, so there is no dry spell to test in");
+
+        rain.Divert(15_625_000);
+        rain.AdvanceTo(wet);
+        Assert.Equal(15_625_000L, rain.OwedMicrolitres);
+        Assert.Equal(0L, rain.PaidMicrolitres);
+        Assert.Equal(0L, water.TotalStoredLitres);
+
+        rain.AdvanceTo(wet + Weather.EpisodeMillis);
+        Assert.Equal(0L, rain.OwedMicrolitres);
+        Assert.Equal(15_625_000L, rain.PaidMicrolitres);
+    }
+
+    [Fact]
     public void ADrizzleTooSmallForOneLitreAStepStillFillsTheBasin()
     {
         // The case that fails without the carried remainder, and it fails in the direction nothing

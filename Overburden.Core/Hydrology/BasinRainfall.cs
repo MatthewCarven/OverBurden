@@ -92,6 +92,34 @@ public sealed class BasinRainfall
     /// <summary>World time this has been integrated up to.</summary>
     public long TimeMillis { get; private set; }
 
+    /// <summary>
+    /// Microlitres of this sky's rain that fell as Tier B cells instead of into a basin and are
+    /// still to be paid for out of the rain that follows (2026-09-19).
+    /// </summary>
+    /// <remarks>
+    /// <b>A raindrop the automaton can carry is still rain, so it comes out of the rain.</b>
+    /// Matthew's <i>"rain to randomly drop tier b cells from the sky … to make you think about the
+    /// water runoff"</i>: a cell of 15,625 mL put into the sky over the drawn box, which falls,
+    /// runs off and is handed back to a basin, or into a mine — and it is not water from nothing
+    /// (M8-PLAN's rule for a debug source is a reported term; this is not a debug source). The
+    /// cell's volume is owed here and paid before any litre of the next rain reaches a basin, in
+    /// microlitres, exact; the world's total is unchanged by a drop the moment it is paid, and
+    /// what is still owed is printed. Global rather than per basin because rain is uniform over the
+    /// window and a drop is one cell against megalitres — which basin is a few litres lower is
+    /// noise, and a per-basin debt would sit unpaid on a basin the drops happened to favour.
+    /// </remarks>
+    public long OwedMicrolitres { get; private set; }
+
+    /// <summary>Microlitres paid off <see cref="OwedMicrolitres"/> since this object was made.</summary>
+    public long PaidMicrolitres { get; private set; }
+
+    /// <summary>Owes <paramref name="microlitres"/> of rain to Tier B — a cell that fell from this sky.</summary>
+    public void Divert(long microlitres)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(microlitres);
+        OwedMicrolitres += microlitres;
+    }
+
     /// <summary>Litres that have left the world since this object was made.</summary>
     public long SpilledLitres { get; private set; }
 
@@ -122,6 +150,17 @@ public sealed class BasinRainfall
         {
             // Exact: nanometres × square metres is microlitres, with nothing rounded away.
             _pendingMicrolitres[basin] += depth * _catchmentSquareMetres[basin];
+
+            // What Tier B was given from this sky is paid first, in microlitres, so the drops
+            // and the basins share one rain and an hour in one call still equals an hour in
+            // steps: the debt is paid from the same microlitres either way.
+            if (OwedMicrolitres > 0)
+            {
+                long pay = Math.Min(OwedMicrolitres, _pendingMicrolitres[basin]);
+                _pendingMicrolitres[basin] -= pay;
+                OwedMicrolitres -= pay;
+                PaidMicrolitres += pay;
+            }
 
             long litres = _pendingMicrolitres[basin] / MicrolitresPerLitre;
             if (litres == 0)

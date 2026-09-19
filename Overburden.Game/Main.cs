@@ -368,6 +368,31 @@ public partial class Main : Node3D
     /// </remarks>
     private float? _forcedWeather;
 
+    /// <summary>
+    /// <c>--rainshare=&lt;percent&gt;</c>: the share of the rain over the drawn box that falls as
+    /// Tier B cells rather than straight into the basins (2026-09-19, Matthew: <i>"rain to
+    /// randomly drop tier b cells from the sky too please … not many but just to make you think
+    /// about the water runoff"</i>). Two by default, an estimate; zero is off, the arm every
+    /// figure before this date was taken in. A cell is 15.6 L, so at the heaviest scaled weather
+    /// (~1 kL/s over a 96 m box) two percent is a drop every second or so; a drizzle proportionally
+    /// fewer. Each is owed to the sky and paid from its next rain (<see cref="WaterSystem.DivertRain"/>),
+    /// so a drop is rain and not water from nothing.
+    /// </summary>
+    private double _rainSharePercent = 2.0;
+
+    // The drops: fractional cells accrued from the rain over the box, the clock they were accrued
+    // to, the voxels waiting for the boundary, the session's counts and the seeded picker.
+    private double _rainDropsAccrued;
+    private long _rainDropsMillis;
+    private readonly List<VoxelPos> _rainDropsPending = [];
+    private Random? _rainDropsRandom;
+    private long _rainedIntoBMillilitres;
+    private int _rainDrops;
+    private int _rainDropsSkipped;
+
+    /// <summary>Drops waiting for a boundary; a long frame under a downpour queues no more than this.</summary>
+    private const int RainDropsPendingCap = 64;
+
     /// <summary>Which way the camera faces at spawn, for a screenshot that needs an angle.</summary>
     private float _spawnYawDegrees;
 
@@ -1462,6 +1487,11 @@ public partial class Main : Node3D
                 // Forces the sheen and the overcast without making it rain — see _forcedWeather.
                 case "weather" when float.TryParse(value, out float forced):
                     _forcedWeather = Math.Clamp(forced, 0f, 1f);
+                    break;
+
+                // The share of the rain over the drawn box that falls as Tier B cells; 0 is off.
+                case "rainshare" when double.TryParse(value, out double share) && share >= 0.0 && share <= 100.0:
+                    _rainSharePercent = share;
                     break;
 
                 // Turns the camera at spawn, which screenshot.gd has never been able to do.
@@ -3221,6 +3251,7 @@ public partial class Main : Node3D
         }
 
         _water.Advance(_clock.ElapsedMillis);
+        AccrueRainDrops();
 
         if (_waterAnalysis is { IsCompleted: true })
         {
@@ -4734,7 +4765,8 @@ public partial class Main : Node3D
                + $"{water.Ledger.Count} basin(s) banked ({water.Ledger.TotalLitres:N0} L), "
                + $"{water.SpilledLitres:N0} L spilled, {water.InjectedLitres:N0} L injected, "
                + $"{water.DrawnLitres:N0} L drawn into Tier B, {water.SeepedLitres:N0} L seeped into it, "
-               + $"{water.ReceivedLitres:N0} L received from it | "
+               + $"{water.ReceivedLitres:N0} L received from it, "
+               + $"{water.RainDivertedMicrolitres / 1_000_000.0:N1} L rained into it as cells ({water.RainOwedMicrolitres / 1_000_000.0:N1} L still owed) | "
                + $"window {water.SpanMetres} m x{water.WindowsInstalled}, "
                + $"{_lastAnalysisMillis:F1} ms to analyse, scale x{water.RainfallScale}"
                + overflow
@@ -4859,6 +4891,7 @@ public partial class Main : Node3D
                + $"{_water.InjectedLitres:N0} L injected, {_water.DrawnLitres:N0} L drawn into Tier B, "
                + $"{_water.SeepedLitres:N0} L seeped into it, {_water.ReceivedLitres:N0} L received from it, "
                + $"{_water.PumpedLitres:N0} L pumped out of lakes, {_water.EmittedLitres:N0} L emitted into basins, "
+               + $"{_water.RainDivertedMicrolitres / 1_000_000.0:N1} L rained into Tier B as {_rainDrops:N0} cell(s) ({_water.RainOwedMicrolitres / 1_000_000.0:N1} L still owed, {_rainDropsSkipped:N0} drop(s) skipped), "
                + $"{held * 60.0 / seconds:N0} L per wall-clock minute at scale "
                + $"x{_water.RainfallScale}\n"
                + $"analysis  {_lastAnalysisMillis:F1} ms for a {_water.SpanMetres} m window "
@@ -5326,6 +5359,9 @@ public partial class Main : Node3D
             ? "M8b: the tick reads the streamer directly (--fluidfield=0, the control arm)"
             : $"M8b: the tick reads a baked field, {FluidField.BytesPerChunk / 1024} KiB a chunk over the "
               + "wet chunks and their face neighbours (--fluidfield=0 is the control)");
+        GD.Print(_rainSharePercent > 0.0
+            ? $"M7d: {_rainSharePercent:0.#}% of the rain over the drawn box falls as Tier B cells, owed to the sky and paid from its next rain (--rainshare=0 is off)"
+            : "M7d: no rain falls as Tier B cells (--rainshare=0)");
         GD.Print(_fluidNearRings > 0
             ? $"M8b: near water is {_fluidNearRings} ring(s) of chunks, visited every tick; far water "
               + $"is admitted at least {_fluidFarFloor:N0} cell(s) a tick (--fluidnear=0 is no order)"
@@ -5555,6 +5591,7 @@ public partial class Main : Node3D
             long t2 = Stopwatch.GetTimestamp();
             TakePending();
             PourPending();
+            DropRain();
             RunPendingFills();
             long t2m = Stopwatch.GetTimestamp();
 
@@ -6100,6 +6137,113 @@ public partial class Main : Node3D
         GD.Print($"M8b: relay took {taken / (double)FluidConstants.MillilitresPerLitre:N0} L around {at}");
     }
 
+    /// <summary>
+    /// Turns this frame's rain over the drawn box into whole cells owed to the sky — the share
+    /// <c>--rainshare</c> names — and picks each one a column: a random (x, z) in the drawn box,
+    /// at the top row of the drawn vertical box, if the sky is there (the seed surface below it;
+    /// a box that is underground gets no rain, which is what a roof means).
+    /// </summary>
+    /// <remarks>
+    /// Accrued here, put down at the boundary by <see cref="DropRain"/> where the grid is the
+    /// frame's — the pour's rule. The rain is read off the same <see cref="Weather.DepthNanometresOver"/>
+    /// the basins are rained from, so a drop follows the forecast and not the look (<c>--weather</c>
+    /// forces the sheen and drops nothing, as it fills nothing).
+    /// </remarks>
+    private void AccrueRainDrops()
+    {
+        if (_rainSharePercent <= 0.0 || _water is null || _fluid is null || _seedHeights is null)
+        {
+            return;
+        }
+
+        long now = _clock.ElapsedMillis;
+        if (now <= _rainDropsMillis)
+        {
+            return;
+        }
+
+        long depth = Weather.DepthNanometresOver(_settings.Seed, _rainDropsMillis, now) * _water.RainfallScale;
+        _rainDropsMillis = now;
+        if (depth == 0)
+        {
+            return;
+        }
+
+        // Nanometres over square metres is microlitres, exactly as the basins count it; the box is
+        // the drawn horizontal radius in chunks of 8 m.
+        int rings = _radiusState.Horizontal;
+        long sideMetres = ((2L * rings) + 1) * VoxelConstants.ChunkSize / VoxelConstants.VoxelsPerMetre;
+        double microlitres = (double)depth * sideMetres * sideMetres;
+        const double MicrolitresPerCell = FluidConstants.CellCapacityMillilitres * 1000.0;
+        _rainDropsAccrued += microlitres * (_rainSharePercent / 100.0) / MicrolitresPerCell;
+
+        if (_rainDropsAccrued < 1.0)
+        {
+            return;
+        }
+
+        _rainDropsRandom ??= new Random(unchecked((int)_settings.Seed));
+        ChunkPos viewer = ViewerChunk();
+        int span = ((2 * rings) + 1) * VoxelConstants.ChunkSize;
+        int originX = (viewer.X - rings) * VoxelConstants.ChunkSize;
+        int originZ = (viewer.Z - rings) * VoxelConstants.ChunkSize;
+        int y = ((viewer.Y + _radiusState.Vertical) * VoxelConstants.ChunkSize) + VoxelConstants.ChunkSize - 1;
+
+        while (_rainDropsAccrued >= 1.0 && _rainDropsPending.Count < RainDropsPendingCap)
+        {
+            _rainDropsAccrued -= 1.0;
+            int x = originX + _rainDropsRandom.Next(span);
+            int z = originZ + _rainDropsRandom.Next(span);
+            if (y <= _seedHeights.SurfaceHeightAt(x, z))
+            {
+                // The box's top is inside the ground here — the player is underground and the sky
+                // is above the loaded world. No drop: it would be rain under a roof.
+                _rainDropsSkipped++;
+                continue;
+            }
+
+            _rainDropsPending.Add(new VoxelPos(x, y, z));
+        }
+    }
+
+    /// <summary>
+    /// Puts the accrued drops into the sky at the boundary: one cell each, through the pour's
+    /// path — the lake band covered first so a drop over a lake lands on its top and is handed —
+    /// and each cell that landed is owed to the sky through <see cref="WaterSystem.DivertRain"/>.
+    /// </summary>
+    private void DropRain()
+    {
+        if (_rainDropsPending.Count == 0 || _fluid is null || _water is null)
+        {
+            return;
+        }
+
+        IFluidTerrain? terrain = _machineTerrain;
+        foreach (VoxelPos drop in _rainDropsPending)
+        {
+            if (terrain is null || !terrain.IsLoaded(drop) || !terrain.CanHold(drop))
+            {
+                _rainDropsSkipped++;
+                continue;
+            }
+
+            _lakeCeiling?.Cover(drop, drop, _fluid.WakeCell);
+            long refused = _fluid.Add(drop, FluidConstants.CellCapacityMillilitres);
+            long landed = FluidConstants.CellCapacityMillilitres - refused;
+            if (landed == 0)
+            {
+                _rainDropsSkipped++;
+                continue;
+            }
+
+            _rainedIntoBMillilitres += landed;
+            _rainDrops++;
+            _water.DivertRain(landed * 1000);
+        }
+
+        _rainDropsPending.Clear();
+    }
+
     /// <summary>Offers what the relay still owes to every cell in its ball, as fast as they take it.</summary>
     private void PourPending()
     {
@@ -6286,14 +6430,15 @@ public partial class Main : Node3D
             : string.Empty;
         return $"{p.TotalMillilitres / litre:N0} L moving in {p.HeldCells:N0} cell(s) over "
                + $"{p.Panels} panel(s) ({p.PanelBytes / 1024.0 / 1024.0:F1} MiB) at tick {p.Ticks:N0}; "
-               + $"injected {(p.Added - drawn - seeped) / litre:N0} L, drawn {drawn / litre:N0} L, "
+               + $"injected {(p.Added - drawn - seeped - _rainedIntoBMillilitres) / litre:N0} L, "
+               + $"rained {_rainedIntoBMillilitres / litre:N0} L ({_rainDrops:N0} drop(s), {_rainDropsSkipped:N0} skipped), drawn {drawn / litre:N0} L, "
                + $"loaded {p.Loaded / litre:N0} L from {f.RestoredPanels:N0} panel(s), "
                + $"evicted {p.Evicted / litre:N0} L with {f.EvictedPanels:N0} panel(s), "
                + $"removed {p.Removed / litre:N0} L, displaced {p.Displaced / litre:N0} L, "
                + $"handed {p.Handed / litre:N0} L to Tier A ({_handoff?.SubmergedHanded ?? 0:N0} cell(s) of it found inside a lake"
                + (_lakeCeiling is null ? string.Empty : $"; lake {_lakeCeiling.ChunkColumns:N0} column(s), {_lakeCeiling.Rebuilt:N0} rebuilt, {_lakeCeiling.WokenSubmerged:N0} woken") + ") — "
                + $"pumped {p.Pumped / litre:N0} L, emitted {p.Emitted / litre:N0} L — "
-               + $"held == injected + drawn + seeped + loaded + emitted − removed − displaced − handed − evicted − pumped: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
+               + $"held == injected + rained + drawn + seeped + loaded + emitted − removed − displaced − handed − evicted − pumped: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
                + $"received == handed: {HandoffIdentity()}, "
                + $"lifted {p.Lifted / litre:N0} L == returned {p.Returned / litre:N0} L by falls: {(p.Lifted == p.Returned ? "exact" : "*** NO ***")}; "
                + seep

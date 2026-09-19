@@ -184,6 +184,42 @@ public sealed class WaterSystem : IWaterTable
     /// <summary>Litres an outlet delivered to basins, over the lifetime — an outlet in a lake, or one the box has not loaded standing on the analytic ground.</summary>
     public long EmittedLitres { get; private set; }
 
+    /// <summary>
+    /// Microlitres of rain handed to Tier B as falling cells over the session (2026-09-19) —
+    /// <see cref="DivertRain"/>. Paid out of the rain that follows before a litre reaches a basin;
+    /// <see cref="RainOwedMicrolitres"/> is what is still to be paid.
+    /// </summary>
+    public long RainDivertedMicrolitres { get; private set; }
+
+    /// <summary>Microlitres of diverted rain paid off so far, across every window.</summary>
+    public long RainPaidMicrolitres => _rainPaidBeforeWindow + (_rain?.PaidMicrolitres ?? 0);
+
+    /// <summary>Microlitres of diverted rain still to be paid from the next rain.</summary>
+    public long RainOwedMicrolitres => _rain?.OwedMicrolitres ?? _rainOwedBeforeWindow;
+
+    private long _rainPaidBeforeWindow;
+    private long _rainOwedBeforeWindow;
+
+    /// <summary>
+    /// Rain that fell as a Tier B cell rather than into a basin: owed to this sky and paid from
+    /// its next rain. Before the first window it is kept and handed to the accumulator when one
+    /// lands, and a window move carries it, so nothing is created by a move — the remainder's
+    /// one stated cost does not apply to it.
+    /// </summary>
+    public void DivertRain(long microlitres)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(microlitres);
+        RainDivertedMicrolitres += microlitres;
+        if (_rain is null)
+        {
+            _rainOwedBeforeWindow += microlitres;
+        }
+        else
+        {
+            _rain.Divert(microlitres);
+        }
+    }
+
     /// <summary>Litres put into basins by <see cref="Inject"/>, the debug pour for Tier A.</summary>
     /// <remarks>
     /// M8-PLAN's rule for the relay, applied to this tier: a debug source creates litres from
@@ -315,8 +351,15 @@ public sealed class WaterSystem : IWaterTable
         // Revisit trigger: anything that re-analyses often — a much smaller window, or rainfall so
         // light that a basin's whole intake between moves is sub-litre. The fix is to carry the
         // remainder across a move keyed by pit, exactly as the ledger carries litres.
+        // The diverted rain still owed crosses the move with the water, unlike the sub-litre
+        // remainder above: it is whole cells, not a rounding, and a drop nobody paid for would be
+        // water from nothing.
+        long owed = _rain?.OwedMicrolitres ?? _rainOwedBeforeWindow;
+        _rainPaidBeforeWindow += _rain?.PaidMicrolitres ?? 0;
+        _rainOwedBeforeWindow = 0;
         _rain = new BasinRainfall(
             window.Watershed, water, _seed, _integratedToMillis, RainfallScale);
+        _rain.Divert(owed);
     }
 
     /// <summary>Rains everything that fell since the last call. Returns litres that left the world.</summary>

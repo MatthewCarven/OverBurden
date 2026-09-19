@@ -5684,6 +5684,16 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
             --fluidnear=2` reads `4 machine column(s) … 0 far` against `0 … 10,336 far`. The play
             check was the mounds draining with him underground — **played 2026-09-19 the same
             evening: *"the mounds are draining now"*.**
+      - [ ] **Rain drops Tier B cells — Matthew, 2026-09-19: *"rain to randomly drop tier b
+            cells from the sky too please … not many but just to make you think about the water
+            runoff"*.** Built the same evening: `--rainshare=<percent>` (2, an estimate; 0 off),
+            a cell at the top of the drawn box at a random column, owed to the sky and paid from
+            its next rain in microlitres (`BasinRainfall.Divert`, `WaterSystem.DivertRain`,
+            carried across windows). Suite 1,652 → 1,656. **Play check**: whether two percent
+            reads as *"not many"* and whether a drop landing on a slope and running to the mine
+            or the lake reads as runoff — the number to move is the share, one flag; and whether
+            a single 0.25 m cell falling at 8 m/s reads as rain or as a dropped ice cube (the
+            lerp draws it sliding; a bigger drop is four cells, a different shape).
       - [ ] **The settle's solve floods 294k cells a boundary on the played world** — worker wall
             750–870 ms mean, the tick at 1.2 Hz, 1,261 of 1,375 boundaries waited, the batch 3,514
             cells. `LevelSheets` seeds from the whole carry (456k cells) every pass so a wholly far

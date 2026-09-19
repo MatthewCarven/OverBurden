@@ -1,5 +1,40 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-19 (evening, last) — Rain drops Tier B cells: `--rainshare`, a drop owed to the sky
+
+*"Oh I want rain to randomly drop tier b cells from the sky too please Claude like not many but
+just to make you think about the water runoff like"* — mid-play, after the mounds. Built:
+
+- **A share of the rain over the drawn box falls as cells.** Each frame the same
+  `Weather.DepthNanometresOver` the basins are rained from is read over the drawn horizontal box
+  (nanometres × square metres is microlitres, the accumulator's own arithmetic), `--rainshare=`
+  percent of it accrues as whole 15,625 mL cells, and each cell picks a random column in the box
+  and the top row of the drawn vertical box — skipped where the seed surface is above it (the
+  player underground; rain under a roof) or the cell cannot hold. Put down at the boundary through
+  the pour's path, the lake band covered first so a drop over a lake lands on its top and is
+  handed. Two percent by default, an estimate: ~1 kL/s falls on a 96 m box at the heaviest scaled
+  weather, so a drop a second or so; `0` is off and the arm every recorded figure was taken in.
+- **A drop is rain, not water from nothing.** M8-PLAN's rule makes a *debug* source a reported
+  term; this is a mechanic, so it comes out of the rain: `WaterSystem.DivertRain` owes each landed
+  cell to the sky and `BasinRainfall` pays it in microlitres from the next rain before a litre
+  reaches a basin — global rather than per basin, because rain is uniform over the window and a
+  cell against megalitres is noise, and a per-basin debt would sit unpaid on a basin the drops
+  favoured. The debt crosses a window move and the first window (unlike the sub-litre remainder,
+  whose one stated cost is a rounding — a drop nobody paid for would be a cell of water invented).
+  Four tests: the basins receive exactly a cell less than the same hour with nothing owed, to the
+  microlitre; the hour-in-one-call oracle holds with a debt in it; a debt in a dry spell stays
+  owed and the next rain pays it; the debt crosses the first window and a move with the paid total
+  intact. Suite 1,652 → 1,656.
+- **The lines.** `M8b:` — `injected … rained N L (D drop(s), S skipped)` and `+ rained` in the
+  identity; `M7d:` and the profile's `water` — `rained into it as cells (N L still owed)`.
+  Headless at `--clockscale=20` over 40 s: 642 drops, 10,031 L rained, 6,771 L handed back, owed
+  paid to zero between reports, identities exact. The profile seed's first forty seconds are dry,
+  so the wet-fill wire (`171 wet / 93 filled`) and the r6 control read as recorded.
+
+The play check is his sentence: whether two percent reads as *"not many"*, and whether a lone
+0.25 m cell dropping at 8 m/s and sliding down a slope into the mine reads as runoff — the share
+is one flag, and a bigger drop is a different shape.
+
 ## 2026-09-19 (evening, later) — The machines are near: `SetNearColumns`, the near field's second kind of viewer
 
 *"build the near columns please Claude"* — an hour after the finding below. Built:

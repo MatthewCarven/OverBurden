@@ -249,6 +249,37 @@ public class WaterSystemTests
     }
 
     [Fact]
+    public void RainOwedToTierBCrossesAWindowMoveAndTheFirstWindow()
+    {
+        // A drop diverted before any window exists is owed to the first one, and one owed at a
+        // move is owed to the next — whole cells, not a rounding, so unlike the remainder above a
+        // move must not drop it: a drop nobody paid for is water from nothing.
+        const long cell = 15_625_000;
+        WaterSystem system = NewSystem(rainfallScale: 1);
+        system.DivertRain(cell);
+        Assert.Equal(cell, system.RainOwedMicrolitres);
+        Assert.Equal(0L, system.RainPaidMicrolitres);
+
+        system.Install(system.AnalyseFor(0, 0));
+        Assert.Equal(cell, system.RainOwedMicrolitres);
+
+        system.DivertRain(cell);
+        system.Install(system.AnalyseFor(0, 0));
+        Assert.Equal(2 * cell, system.RainOwedMicrolitres);
+        Assert.Equal(2 * cell, system.RainDivertedMicrolitres);
+
+        long time = RainUntilWet(system);
+        system.Advance(time + 3_600_000);
+        Assert.Equal(0L, system.RainOwedMicrolitres);
+        Assert.Equal(2 * cell, system.RainPaidMicrolitres);
+
+        // And paid across a move: the paid total survives the accumulator being replaced.
+        system.Install(system.AnalyseFor(0, 0));
+        Assert.Equal(2 * cell, system.RainPaidMicrolitres);
+        Assert.Equal(0L, system.RainOwedMicrolitres);
+    }
+
+    [Fact]
     public void RainThatFellBeforeTheFirstWindowLandedIsDeliveredRatherThanLost()
     {
         // The first analysis takes tens of milliseconds on a worker and the world is not paused for

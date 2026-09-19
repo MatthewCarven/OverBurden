@@ -396,6 +396,23 @@ shot of rain going into a shaft has to look down it; and **`--norain`**, which l
 the weather in place and removes only the particles. That is the arm that priced them, and the
 particles are the only part of M7c that costs GPU time.
 
+**Rain drops Tier B cells since 2026-09-19** — Matthew: *"not many but just to make you think
+about the water runoff"*. **`--rainshare=<percent>`** is the share of the rain over the drawn
+box that falls as 15.6 L cells from the top row of the drawn vertical box at a random column
+(2 by default, an estimate — a drop every second or so at the heaviest scaled weather; 0 is off,
+the arm every figure before that date was taken in); a drop is skipped where the box's top is
+inside the ground (underground, no sky) or the cell cannot hold. **A drop is rain, not water from
+nothing**: each landed cell is owed to the sky through `WaterSystem.DivertRain` and
+`BasinRainfall` pays it in microlitres out of the next rain before a litre reaches a basin, the
+debt carried across a window move and the first window (the sub-litre remainder's one stated
+cost does not apply to it), so an hour in one call still equals an hour in steps with a debt in
+it. The `M8b:` line's `injected` becomes `injected … rained N L (D drop(s), S skipped)` and the
+identity reads `+ rained`; the `M7d:` line and the profile's `water` line print `rained into it
+as cells (N L still owed)`. Headless: `--profile --speed=0 --clockscale=20 --measure=40` reads
+`rained 7,953 L (509 drop(s))`, `handed 5,206 L`, `0.0 L still owed`, identities exact; the first
+forty seconds of the profile seed are dry, so every recorded oracle reads as before and the r6
+control is to the digit.
+
 M7d-1 adds **`--rainscale=<x>`**, which multiplies the depth applied to the world while leaving the
 sky honest — **not** `--clockscale`, which speeds the weather up too; **`--waterwindow=<samples>`**,
 the sweep seam for the analysis, whose cost is roughly quadratic in the span; and **`--nowater`**,
