@@ -574,6 +574,13 @@ public partial class Main : Node3D
     /// <summary>Litres one press of the relay pours. Enough to see; not enough to flood a mine.</summary>
     private const long RelayLitres = 10_000;
 
+    /// <summary>
+    /// Litres Ctrl+R pours — a hundred presses of R in one, a 1 ML ball 6.5 m across (Matthew,
+    /// 2026-09-19: <i>"drop 100x amount of water as a test"</i>). Ctrl because Ctrl is "more" on the
+    /// modifier map (sprint, ×5 in fly) and Alt is the debug keys' inverse, which Alt+R already is.
+    /// </summary>
+    private const long RelayBigLitres = RelayLitres * 100;
+
     /// <summary>Radius Alt+R takes water from, in metres.</summary>
     private const float TakeRadiusMetres = 2f;
 
@@ -6133,8 +6140,9 @@ public partial class Main : Node3D
 
     /// <summary>
     /// The debug relay: R puts <see cref="RelayLitres"/> down at the crosshair as a ball sized to
-    /// hold them, Alt+R takes back everything within <see cref="TakeRadiusMetres"/> of it. M8-PLAN's provocation seam, built as a bind and not as
-    /// content.
+    /// hold them, Ctrl+R a hundred times that (<see cref="RelayBigLitres"/>), Alt+R takes back
+    /// everything within <see cref="TakeRadiusMetres"/> of it. M8-PLAN's provocation seam, built as
+    /// a bind and not as content.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -6177,11 +6185,15 @@ public partial class Main : Node3D
             return;
         }
 
+        // A ball half in the ground delivers its top half at once and offers the rest every
+        // boundary until it fits — the hose the pour's own remarks name, and at 1 ML the pour
+        // loop is 53³ cells a boundary until it has.
+        long litres = Input.IsKeyPressed(Key.Ctrl) ? RelayBigLitres : RelayLitres;
         _relayAt = at;
-        _relayPendingMillilitres += RelayLitres * FluidConstants.MillilitresPerLitre;
+        _relayPendingMillilitres += litres * FluidConstants.MillilitresPerLitre;
         _relayRadiusVoxels = RadiusVoxelsFor(_relayPendingMillilitres);
         GD.Print(
-            $"M8b: relay pouring {RelayLitres:N0} L at {at} in a ball of radius {_relayRadiusVoxels} voxels; "
+            $"M8b: relay pouring {litres:N0} L at {at} in a ball of radius {_relayRadiusVoxels} voxels; "
             + $"{_relayPendingMillilitres / (double)FluidConstants.MillilitresPerLitre:N0} L pending");
     }
 

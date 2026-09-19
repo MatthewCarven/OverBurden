@@ -5682,8 +5682,8 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
             profile's `fluidnear` line print the count. Six recipes, six caught; suite 1,652; the
             r6 control to the digit. Wire against the hand-over commented out: `--pumpoutlet=48
             --fluidnear=2` reads `4 machine column(s) … 0 far` against `0 … 10,336 far`. The play
-            check is the mounds draining with him underground — `no room` flat on the `M10:` line
-            and `handed` climbing on the `M8b:` line while `near` is small.
+            check was the mounds draining with him underground — **played 2026-09-19 the same
+            evening: *"the mounds are draining now"*.**
       - [ ] **The settle's solve floods 294k cells a boundary on the played world** — worker wall
             750–870 ms mean, the tick at 1.2 Hz, 1,261 of 1,375 boundaries waited, the batch 3,514
             cells. `LevelSheets` seeds from the whole carry (456k cells) every pass so a wholly far

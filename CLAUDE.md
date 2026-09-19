@@ -407,7 +407,9 @@ hold the litres, put on the ground under the player when the measured window ope
 without a profiler). **Sized rather than fixed, because a fixed ball is a hose** — the automaton
 falls one cell a tick and spreads diffusively, so a source region drains only at its boundary's
 rate, and a run with one measures the hose rather than the flood. In play **`R` puts 10,000 L down
-at the crosshair and Alt+R takes back everything within 2 m**; no material, no JSON, no ID. The
+at the crosshair, Ctrl+R 1,000,000 L (2026-09-19, *"100x … as a test"* — a 6.5 m ball, its top
+half at once and the rest offered every boundary until it fits), and Alt+R takes back everything
+within 2 m**; no material, no JSON, no ID. The
 profile's `fluid` block prints every term of `held == injected − removed − displaced`, and **the
 bare default headless run is not a streaming control any more**: it opens the played world and
 stands in its void (198 drawn at 100 quads a chunk). **The r6 control is, verbatim,**

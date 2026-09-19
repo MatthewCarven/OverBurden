@@ -38,9 +38,15 @@
   backlog under a 1,757-cell near tap is what did), which is why the Core tests carry that half.
   r6 control 2601 / 325 / 3446 at 411.
 
-The play check is the one sentence he opened with: the mounds draining with him underground —
-`no room` flat on the `M10:` line, `handed` climbing on the `M8b:` line while `near` is small.
-The solve's 294k cells a boundary stands as the next lever, in TODO under M10d.
+The play check was the one sentence he opened with, and it came back the same evening: *"the
+mounds are draining now"*. The solve's 294k cells a boundary stands as the next lever, in TODO
+under M10d. He is moving to a fresh world after this session and keeping the flooded one
+(*"to highlight what happens in infinite growth systems"*) — retired as the lever's measurement
+world, not deleted. And one more bind on the way out: **Ctrl+R pours 1,000,000 L** (*"drop
+100x amount of water as a test"*) — Ctrl rather than the Alt he named, because Alt+R is the
+take-back and Alt is the debug keys' inverse on the map he read back this morning, where Ctrl is
+"more". A 6.5 m ball at the crosshair, its top half landing at once and the rest offered every
+boundary until it fits, 53³ cells a boundary until then.
 
 ## 2026-09-19 (later still) — The outlets far from the player stall on their own mound: the far quota is the machines' ceiling
 
