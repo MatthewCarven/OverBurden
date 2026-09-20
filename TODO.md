@@ -5762,7 +5762,9 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
             courtyard's fourth wall on the lake's bank — the pool should stop being the lake's
             at the next boundary (`enclosed N kept` on the `M8b:` line, the plane gone from
             inside the walls) — and whether a courtyard on a slope reads right with its uphill
-            wall on the higher ground.
+            wall on the higher ground. **The first play (2026-09-21) ran out of memory** —
+            the cache unbounded, 5,884 regions as 16k entries each; a bitset a region and
+            `MaxRegions` 4,096 now, measured flat on the flooded world (WORKLOG, 2026-09-21).
       - [x] **A material that rejects water — Matthew, 2026-09-20: *"i like porous rock … should
             we have a material type that rejects water?"*** Already decided in shape:
             permeability is per material since M1 and read since M8c-1, `SeepIndex` treats a

@@ -6581,7 +6581,7 @@ public partial class Main : Node3D
                + $"removed {p.Removed / litre:N0} L, displaced {p.Displaced / litre:N0} L, "
                + $"handed {p.Handed / litre:N0} L to Tier A ({_handoff?.SubmergedHanded ?? 0:N0} cell(s) of it found inside a lake"
                + (_lakeCeiling is null ? string.Empty : $"; lake {_lakeCeiling.ChunkColumns:N0} column(s), {_lakeCeiling.Rebuilt:N0} rebuilt, {_lakeCeiling.WokenSubmerged:N0} woken")
-               + (_enclosure is null ? string.Empty : $"; enclosed {_handoff?.EnclosedKept ?? 0:N0} kept, {_enclosure.Floods:N0} flood(s) / {_enclosure.EnclosedFloods:N0} closed, {_enclosure.Regions:N0} region(s), {_lakeCeiling?.RebuiltForEnclosure ?? 0:N0} band(s) rebuilt for it") + ") — "
+               + (_enclosure is null ? string.Empty : $"; enclosed {_handoff?.EnclosedKept ?? 0:N0} kept, {_enclosure.Floods:N0} flood(s) / {_enclosure.EnclosedFloods:N0} closed, {_enclosure.Regions:N0} region(s) / {_enclosure.CachedCells:N0} cell(s) cached, {_enclosure.Evicted:N0} evicted, {_lakeCeiling?.RebuiltForEnclosure ?? 0:N0} band(s) rebuilt for it") + ") — "
                + $"pumped {p.Pumped / litre:N0} L, emitted {p.Emitted / litre:N0} L — "
                + $"held == injected + rained + drawn + seeped + loaded + emitted − removed − displaced − handed − evicted − pumped: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
                + $"received == handed: {HandoffIdentity()}, "
@@ -6726,7 +6726,7 @@ public partial class Main : Node3D
                   ? "enclosure off (--enclosure=0, or no water)\n"
                   : $"enclosure {_handoff.EnclosedLastPass:N0} cell(s) kept on the last pass, {_handoff.EnclosedKept:N0} in all; "
                     + $"{_enclosure.Floods:N0} flood(s), {_enclosure.EnclosedFloods:N0} closed, {_enclosure.CellsVisited:N0} cell(s) visited, "
-                    + $"{_enclosure.CacheHits:N0} hit(s), {_enclosure.Quiet:N0} quiet, {_enclosure.Dropped:N0} dropped; "
+                    + $"{_enclosure.CacheHits:N0} hit(s), {_enclosure.Quiet:N0} quiet, {_enclosure.Dropped:N0} dropped, {_enclosure.Evicted:N0} evicted; "
                     + $"{_enclosure.Regions:N0} region(s) / {_enclosure.CachedCells:N0} cell(s) cached, {_enclosure.EditedChunks:N0} edited chunk(s); "
                     + $"{_lakeCeiling?.RebuiltForEnclosure ?? 0:N0} band(s) rebuilt for it"
                     + (_waterSurface is null ? string.Empty : $", {_waterSurface.EnclosedSamples:N0} sample(s) undrawn") + "\n");
@@ -7342,7 +7342,11 @@ public partial class Main : Node3D
             $"{_freeQueue.PendingCount} to free | " +
             $"jobs {_pipeline.CompletedJobs} done / " +
             $"{_pipeline.DroppedJobs} dropped / {_pipeline.FaultedJobs} faulted | " +
-            QuadSummary());
+            QuadSummary() +
+            // The process's memory, on the line a play log keeps: the 2026-09-21 session died of
+            // a null from Godot's allocator with nothing in the log saying how much it held.
+            $" | memory {OS.GetStaticMemoryUsage() / (1024.0 * 1024.0):F0} MiB static, " +
+            $"{GC.GetTotalMemory(false) / (1024.0 * 1024.0):F0} MiB managed, {System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 / (1024.0 * 1024.0):F0} MiB working set, gen2 {GC.CollectionCount(2)}");
 
         if (_scheduler is not null)
         {

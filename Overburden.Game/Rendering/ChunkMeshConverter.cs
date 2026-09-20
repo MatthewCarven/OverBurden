@@ -1,4 +1,4 @@
-using Godot;
+﻿using Godot;
 using Overburden.Core.Meshing;
 
 namespace Overburden.Game.Rendering;
@@ -79,7 +79,11 @@ public static class ChunkMeshConverter
                 1f);
         }
 
-        var arrays = new Godot.Collections.Array();
+        // Disposed when the surface has its copy: a Godot array holds its packed arrays natively
+        // until it is disposed or finalised, and the finaliser is the GC's business — the Tier B
+        // surface was 40 MiB a rebuild four times a second on 2026-09-21 when the process ran out
+        // of memory inside AddSurfaceFromArrays.
+        using var arrays = new Godot.Collections.Array();
         arrays.Resize((int)Mesh.ArrayType.Max);
         arrays[(int)Mesh.ArrayType.Vertex] = vertices;
         arrays[(int)Mesh.ArrayType.Normal] = normals;

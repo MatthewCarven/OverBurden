@@ -1,5 +1,40 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-21 (small hours) — The first play ran out of memory: the enclosure's cache was unbounded
+
+*"um did I run out of memory?"* — the process did: four `ERROR: Parameter "mem" is null` from
+`alloc_static`, Godot's allocator refusing inside `FluidSurface.Install`'s `AddSurfaceFromArrays`,
+after 1,752 ticks on `default` (84 pumps, 121 outlets, 50 ML of Tier B, the surface mesh at 40 MiB
+a rebuild). The log had no memory figure, so the periodic `M2c:` line prints one now — `memory
+N MiB static, N MiB managed, N MiB working set, gen2 N` — and the first suspect was the Godot
+arrays every mesh install leaves to the finaliser, disposed now at all four sites (`using var`).
+**Measured windowed on a copy of the retired flooded world, 60 s standing, `--fluidnear=2
+--fluidjob=1`: the control's working set climbed 862 → 1,100 MiB, the dispose arm's 820 →
+1,196 — the same slope, ~4–6 MiB/s, and the *managed* heap was the half climbing.** Not the
+arrays. The enclosure's line on the crash log read `enclosed 19,060 kept, 5,884 flood(s) / 62
+closed` — **5,884 cached regions, one per level a lake's top passed through under rain and per
+level the surface sweep asked at, and nothing but an edit ever dropped one; at ~16k dictionary
+entries and ~44 B each, over 4 GB.** Two fixes, both measured:
+
+- **A cap** — the oldest regions evicted silently past it (`Evicted`, never `Changed`: nothing
+  in the world moved, and telling the ceiling would rebuild bands that would flood again). At
+  512k cells the working set went flat at ~1.45 GB **and the flooded world thrashed**: 15,195
+  floods in 120 s, ~200 a second, because a lake needs a region every 32 m of its footprint at
+  every level it stands at and the cap held thirty.
+- **A region is a bitset over its box** — `BitArray` of 129², 2 KB, indexed by (chunk column,
+  level) with a `Covers` test, in place of 16k dictionary entries — and the cap is
+  `MaxRegions` 4,096 (~12 MB, an estimate). **120 s windowed: working set flat at ~1.06 GB from
+  40 s on, managed ~280 MiB, 81 floods, 64 regions.** The wall's own cells are cleared from the
+  bits so a wall column is never answered by a region.
+
+Suite 1,689 → 1,690; r6 to the digit; the courtyard oracle unchanged (`handed 0 L`, six
+closed). **Two lessons.** A cache keyed by what was *asked* grows with the asking, and the
+surface sweep asks four times a second at whatever level the rain has moved the lake to — bound
+every cache by what it holds, not by what it was told; and *count the log's `ERROR` lines* was
+the right first move again, then the term that was new that day. The probe world `probe-mem`
+is deleted; Matthew's `default` has whatever the last autosave wrote (38 session saves on the
+line) — the crash was in a mesh install, after the boundary, so the world file is whole.
+
 ## 2026-09-20 (night) — The courtyard: the player's material encloses, nature's does not
 
 *"1 and 3 as recommended"* — this is 1, arm B, built after the fill's budget. **`Enclosure`** in

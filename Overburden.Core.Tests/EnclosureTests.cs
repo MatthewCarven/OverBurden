@@ -343,6 +343,47 @@ public class EnclosureTests
     }
 
     [Fact]
+    public void TheCacheIsCappedAndEvictsTheOldestRegionsWithoutTellingAnyReader()
+    {
+        // The 2026-09-21 crash: a region per level the lake's top passed through, never dropped,
+        // 5,884 of them at 16k cells. Open floods at distinct levels above one wall until the
+        // cap (rows loaded to 7 chunks up, so every level is inside the world) — 4,097 floods,
+        // cap is passed: the oldest go, the newest stay, nothing is dropped as a change and the
+        // ceiling is never told, because nothing about the world moved.
+        (World world, Enclosure enclosure) = Fixture();
+        world.LoadBox(-8, -8, 8, 8);
+        for (int cy = 1; cy <= (Enclosure.MaxRegions + 8) / 32 + 1; cy++)
+        for (int cz = -8; cz <= 8; cz++)
+        for (int cx = -8; cx <= 8; cx++)
+        {
+            world.Loaded.Add(new ChunkPos(cx, cy, cz));
+        }
+
+        Place(world, enclosure, new VoxelPos(0, Level, 0));
+        var told = new List<(int X, int Z)>();
+        enclosure.Changed += (column, _, _) => told.Add(column);
+
+        int levels = 0;
+        while (enclosure.Evicted == 0 && levels < Enclosure.MaxRegions + 8)
+        {
+            Assert.False(enclosure.IsEnclosed(8, 8, Level + levels));
+            levels++;
+        }
+
+        Assert.True(enclosure.Evicted > 0, "no eviction past the cap");
+        Assert.InRange(enclosure.Regions, 1, Enclosure.MaxRegions);
+        Assert.Equal(0, enclosure.Dropped);
+        Assert.Empty(told);
+
+        // The newest level is still cached, the first is not.
+        Assert.False(enclosure.IsEnclosed(8, 8, Level + levels - 1));
+        long floods = enclosure.Floods;
+        Assert.Equal(floods, enclosure.Floods);
+        enclosure.IsEnclosed(8, 8, Level);
+        Assert.Equal(floods + 1, enclosure.Floods);
+    }
+
+    [Fact]
     public void AForgetDropsTheRegionsInItsColumn()
     {
         (World world, Enclosure enclosure) = Fixture();

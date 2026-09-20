@@ -981,7 +981,9 @@ spawn's slope leaked at every level below its uphill wall's ground without it), 
 the hand-off (`EnclosedKept`), `LakeCeiling` (an enclosed column has no band; `MarkDirty` rebuilds
 a band whose top an edit may have moved) and `WaterSurface` (an enclosed sample draws no plane);
 `--enclosure=0` the control, `--courtyard=<m>` the provocation, the oracle `handed 0 L` against
-`handed 20,000 L`; read the 2026-09-20 amendment under M8b-3a's finding 1 in
+`handed 20,000 L`; **its first play ran out of memory — the cache was unbounded (5,884 regions
+as 16k entries each, over 4 GB); a region is a 2 KB bitset and `MaxRegions` is 4,096 now,
+measured flat windowed on the flooded world, and the `M2c:` line prints the process's memory**; read the 2026-09-20 amendment under M8b-3a's finding 1 in
 [docs/M8-PLAN.md](docs/M8-PLAN.md) and the play check in TODO under M8; (2) *clay* — **taken and built the same evening, *"2 please"*: `clay.json` at
 permeability 0, dirt's hardness, a support curve a metre steeper than dirt's (an estimate), a
 twelfth `LayerColour`, 64 cells a `P` press; the worldgen band is still WORLDGEN's; the play
@@ -998,7 +1000,7 @@ rediscover: **every recorded oracle runs `--fluidnear=0`**, where the carry is e
 seeded solve is byte-for-byte the old path — measure the solve on a *copy of a played world*
 with `--fluidnear=2 --fluidjob=1`; **`grep -a` the log**, and classify its `ERROR` lines before
 counting them; and **a debug door into a conserved quantity is a term** or the identity lies
-from then on. Suite 1,689 with clay, the fill's budget and the enclosure; the r6 control to the digit. The paragraph below is the 19th's
+from then on. Suite 1,690 with clay, the fill's budget and the enclosure; the r6 control to the digit. The paragraph below is the 19th's
 state, kept for the reasoning.
 
 **Pick up here (2026-09-19). Three things landed on the played world's day, all Matthew's

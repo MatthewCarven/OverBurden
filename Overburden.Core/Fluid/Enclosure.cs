@@ -65,6 +65,21 @@ public sealed class Enclosure
     /// </summary>
     public const int BoundVoxels = 64;
 
+    /// <summary>
+    /// The most regions the cache holds before the oldest are evicted, ~3 KB each — 4,096 is
+    /// ~12 MB. <b>An estimate, and load-bearing</b>: without a cap the first played session
+    /// (2026-09-21) cached 5,884 regions — one per level the lake's top passed through and per
+    /// level the surface sweep asked at, nothing but an edit ever dropping one — as 16k
+    /// dictionary entries each, over 4 GB, and the process died of a null from Godot's
+    /// allocator. A region is a bitset over its box now (2 KB) and the cap is by count; at
+    /// 512k cells the first cap thrashed on the flooded world at 200 floods a second, because a
+    /// lake needs a region per 32 m of its footprint at every level it stands at.
+    /// </summary>
+    public const int MaxRegions = 4096;
+
+    /// <summary>A region's box is the bound either side of its start: this many cells a side.</summary>
+    private const int BoxSide = (2 * BoundVoxels) + 1;
+
     /// <summary>Chunk columns either side of the start the pre-check looks at for edits: the bound in chunks, rounded up.</summary>
     private const int PrecheckChunks = (BoundVoxels + VoxelConstants.ChunkSize - 1) / VoxelConstants.ChunkSize;
 
@@ -78,16 +93,17 @@ public sealed class Enclosure
     private long _editVersion;
 
     private readonly Dictionary<int, Region> _regions = [];
-    private readonly Dictionary<(int X, int Z, int Y), int> _cellRegion = [];
+    private readonly Dictionary<(int X, int Z, int Y), List<int>> _index = [];
     private readonly Dictionary<(int X, int Z), HashSet<int>> _byColumn = [];
+    private readonly Queue<int> _order = new();
     private int _nextRegion = 1;
 
-    // The flood's scratch, reused: a queue and the visited set of one flood.
+    // The flood's scratch, reused: a queue and the visited bits of one flood over its box.
     private readonly Queue<(int X, int Z)> _queue = new();
-    private readonly HashSet<(int X, int Z)> _visited = [];
+    private readonly System.Collections.BitArray _visited = new(BoxSide * BoxSide);
     private readonly HashSet<(int X, int Z)> _columns = [];
     private readonly HashSet<(int X, int Z)> _unloaded = [];
-    private readonly List<(int X, int Z)> _cells = [];
+    private int _cells;
 
     public Enclosure(IVoxelWorld world, MaterialTable materials, ISurfaceHeights seed)
     {
@@ -125,11 +141,14 @@ public sealed class Enclosure
     /// <summary>Regions dropped by an edit, an arrival or a forget, over the lifetime.</summary>
     public long Dropped { get; private set; }
 
+    /// <summary>Regions evicted for the cache's cap, oldest first, over the lifetime — nothing changed, so no reader is told.</summary>
+    public long Evicted { get; private set; }
+
     /// <summary>Regions cached now.</summary>
     public int Regions => _regions.Count;
 
     /// <summary>Cells cached now, across every region.</summary>
-    public int CachedCells => _cellRegion.Count;
+    public long CachedCells { get; private set; }
 
     /// <summary>Chunks known to hold edits.</summary>
     public int EditedChunks => _edited.Count;
@@ -142,10 +161,16 @@ public sealed class Enclosure
     /// </summary>
     public bool IsEnclosed(int x, int z, int y)
     {
-        if (_cellRegion.TryGetValue((x, z, y), out int id))
+        if (_index.TryGetValue((x >> VoxelConstants.ChunkSizeLog2, z >> VoxelConstants.ChunkSizeLog2, y), out List<int>? ids))
         {
-            CacheHits++;
-            return _regions[id].Enclosed;
+            foreach (int id in ids)
+            {
+                if (_regions[id].Covers(x, z))
+                {
+                    CacheHits++;
+                    return _regions[id].Enclosed;
+                }
+            }
         }
 
         if (IsQuiet(x >> VoxelConstants.ChunkSizeLog2, z >> VoxelConstants.ChunkSizeLog2))
@@ -277,17 +302,20 @@ public sealed class Enclosure
     {
         Floods++;
         _queue.Clear();
-        _visited.Clear();
+        _visited.SetAll(false);
+        _walls.Clear();
         _columns.Clear();
         _unloaded.Clear();
-        _cells.Clear();
+        _cells = 0;
+        int originX = startX - BoundVoxels;
+        int originZ = startZ - BoundVoxels;
 
         bool open = false;
         _queue.Enqueue((startX, startZ));
-        _visited.Add((startX, startZ));
+        _visited[Bit(originX, originZ, startX, startZ)] = true;
         while (_queue.TryDequeue(out (int X, int Z) cell))
         {
-            _cells.Add(cell);
+            _cells++;
             _columns.Add((cell.X >> VoxelConstants.ChunkSizeLog2, cell.Z >> VoxelConstants.ChunkSizeLog2));
             if (Math.Abs(cell.X - startX) >= BoundVoxels || Math.Abs(cell.Z - startZ) >= BoundVoxels)
             {
@@ -296,26 +324,43 @@ public sealed class Enclosure
                 continue;
             }
 
-            Step(cell.X + 1, cell.Z, y, ref open);
-            Step(cell.X - 1, cell.Z, y, ref open);
-            Step(cell.X, cell.Z + 1, y, ref open);
-            Step(cell.X, cell.Z - 1, y, ref open);
+            Step(cell.X + 1, cell.Z, y, originX, originZ, ref open);
+            Step(cell.X - 1, cell.Z, y, originX, originZ, ref open);
+            Step(cell.X, cell.Z + 1, y, originX, originZ, ref open);
+            Step(cell.X, cell.Z - 1, y, originX, originZ, ref open);
         }
 
-        CellsVisited += _cells.Count;
+        CellsVisited += _cells;
         if (!open)
         {
             EnclosedFloods++;
         }
 
-        // The region: every cell visited shares the answer; every chunk column a cell or a wall
-        // stood in, and every column found unloaded, can drop it.
+        // The region: every cell visited shares the answer, as a bitset over the flood's box;
+        // every chunk column a cell or a wall stood in, and every column found unloaded, can
+        // drop it. Walls were marked visited too, so the bits are cleared for them here: a wall's
+        // own column is answered by the readers, never by a region.
         int id = _nextRegion++;
-        var region = new Region(y, !open, _cells.ToArray(), [.. _columns], [.. _unloaded]);
-        _regions[id] = region;
-        foreach ((int X, int Z) cell in region.Cells)
+        var region = new Region(y, !open, originX, originZ, new System.Collections.BitArray(_visited), _cells, [.. _columns], [.. _unloaded]);
+        foreach ((int X, int Z) wall in _walls)
         {
-            _cellRegion[(cell.X, cell.Z, y)] = id;
+            region.Bits[Bit(originX, originZ, wall.X, wall.Z)] = false;
+        }
+
+        _regions[id] = region;
+        CachedCells += _cells;
+        for (int cz = originZ >> VoxelConstants.ChunkSizeLog2; cz <= (originZ + BoxSide - 1) >> VoxelConstants.ChunkSizeLog2; cz++)
+        {
+            for (int cx = originX >> VoxelConstants.ChunkSizeLog2; cx <= (originX + BoxSide - 1) >> VoxelConstants.ChunkSizeLog2; cx++)
+            {
+                if (!_index.TryGetValue((cx, cz, y), out List<int>? ids))
+                {
+                    ids = [];
+                    _index[(cx, cz, y)] = ids;
+                }
+
+                ids.Add(id);
+            }
         }
 
         foreach ((int X, int Z) column in region.Columns)
@@ -328,15 +373,32 @@ public sealed class Enclosure
             Index(column, id);
         }
 
+        _order.Enqueue(id);
+        while (_regions.Count > MaxRegions && _order.TryDequeue(out int oldest))
+        {
+            if (oldest != id && _regions.ContainsKey(oldest))
+            {
+                Drop(oldest, notify: false);
+                Evicted++;
+            }
+        }
+
         return !open;
     }
 
-    private void Step(int x, int z, int y, ref bool open)
+    private static int Bit(int originX, int originZ, int x, int z) => ((z - originZ) * BoxSide) + (x - originX);
+
+    private readonly List<(int X, int Z)> _walls = [];
+
+    private void Step(int x, int z, int y, int originX, int originZ, ref bool open)
     {
-        if (!_visited.Add((x, z)))
+        int bit = Bit(originX, originZ, x, z);
+        if (_visited[bit])
         {
             return;
         }
+
+        _visited[bit] = true;
 
         if (!_world.TryGetMaterial(new VoxelPos(x, y, z), out int material))
         {
@@ -363,9 +425,10 @@ public sealed class Enclosure
 
         if (wall)
         {
-            // Not visited, but its column can drop the region, because taking the wall down is
-            // what re-opens it.
+            // Not a cell of the region — its bit is cleared when the region is made — but its
+            // column can drop the region, because taking the wall down is what re-opens it.
             _columns.Add((x >> VoxelConstants.ChunkSizeLog2, z >> VoxelConstants.ChunkSizeLog2));
+            _walls.Add((x, z));
             return;
         }
 
@@ -411,20 +474,38 @@ public sealed class Enclosure
         }
     }
 
-    private void Drop(int id)
+    private void Drop(int id, bool notify = true)
     {
         Region region = _regions[id];
         _regions.Remove(id);
-        Dropped++;
-        foreach ((int X, int Z) cell in region.Cells)
+        if (notify)
         {
-            _cellRegion.Remove((cell.X, cell.Z, region.Y));
+            Dropped++;
+        }
+
+        CachedCells -= region.CellCount;
+        for (int cz = region.OriginZ >> VoxelConstants.ChunkSizeLog2; cz <= (region.OriginZ + BoxSide - 1) >> VoxelConstants.ChunkSizeLog2; cz++)
+        {
+            for (int cx = region.OriginX >> VoxelConstants.ChunkSizeLog2; cx <= (region.OriginX + BoxSide - 1) >> VoxelConstants.ChunkSizeLog2; cx++)
+            {
+                if (_index.TryGetValue((cx, cz, region.Y), out List<int>? ids))
+                {
+                    ids.Remove(id);
+                    if (ids.Count == 0)
+                    {
+                        _index.Remove((cx, cz, region.Y));
+                    }
+                }
+            }
         }
 
         foreach ((int X, int Z) column in region.Columns)
         {
             Unindex(column, id);
-            Changed?.Invoke(column, region.Y, region.Y);
+            if (notify)
+            {
+                Changed?.Invoke(column, region.Y, region.Y);
+            }
         }
 
         foreach ((int X, int Z) column in region.Unloaded)
@@ -445,5 +526,13 @@ public sealed class Enclosure
         }
     }
 
-    private sealed record Region(int Y, bool Enclosed, (int X, int Z)[] Cells, HashSet<(int X, int Z)> Columns, HashSet<(int X, int Z)> Unloaded);
+    /// <summary>One flood's answer: the level, the verdict, and a bitset over the box round its start of the cells that share it.</summary>
+    private sealed record Region(int Y, bool Enclosed, int OriginX, int OriginZ, System.Collections.BitArray Bits, int CellCount, HashSet<(int X, int Z)> Columns, HashSet<(int X, int Z)> Unloaded)
+    {
+        public bool Covers(int x, int z)
+        {
+            int lx = x - OriginX, lz = z - OriginZ;
+            return lx >= 0 && lx < BoxSide && lz >= 0 && lz < BoxSide && Bits[(lz * BoxSide) + lx];
+        }
+    }
 }
