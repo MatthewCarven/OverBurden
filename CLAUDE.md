@@ -941,6 +941,38 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
+**Pick up here (2026-09-20). The fresh world's first night and day — six things built on his
+word, two decisions waiting on it, and M10d's play still the next thing.** Built 2026-09-19/20,
+each with its oracle in the worklog: *the machines are near* (`MachineTick.NearColumns` →
+`FluidSimulation.SetNearColumns`; a far outlet's mound was visited once in ~260 ticks and its
+pump stalled `no room` — *"the mounds are draining now"*); **Ctrl+R pours 1,000,000 L**; *rain
+drops Tier B cells* (`--rainshare=2`, each cell owed to the sky and paid from its next rain,
+`WaterSystem.DivertRain` — *"I loved seeing the tier b water blocks falling"*); **`Alt+P`'s pack
+half goes through `MachineTick.FillPack`** (a `Give` on the pack alone broke the pool identity by
+3,593 kJ for a session, 1,403 error lines); *the sheet solve is seeded from what changed* (a
+carried cell offered once and again only when woken — solve 92.8 → 5.3 ms a pass on a copy of
+the retired world, more sheets levelled); and **a fluid row naming an empty awake cell no longer
+holes a chunk** (the unview and eviction writers list held cells; the reader drops and counts,
+`M6:` lines). The flooded world is `worlds/retired-flooded-2026-09-19/`, the solve lever's
+measurement world; his `default` is fresh — 64 pumps, 127 outlets and 34 ML by midnight. **His
+word, waiting**: (1) *the courtyard* — a walled pool on grass is the lake outside, M8b-3a's
+pinned trigger fired; arm B in TODO under M8 (*the player's material encloses, nature's does
+not*: a flood at the plane's Y stopped only by placed voxels, one predicate for the hand-off,
+`LakeCeiling` and `WaterSurface`); (2) *clay* — permeability 0 is decided and named in
+MATERIALS-NOTES and every machine body ships at it; the material is one JSON file and a
+`LayerColour`, its source is WORLDGEN's pass, so ship-now-seeded or wait (TODO beside the
+courtyard); (3) still from the 19th, *the excavator's fill taking the bite's rule* (fills what
+the charge buys and stops; `Place` gains an `Unpowered` bucket) instead of refusing whole under
+1.64 MJ. **Recorded, unbuilt**: the solve's pass is O(sheet) on a 34 ML world with 191 machines
+(1.6 s mean, 4,282 of 4,295 boundaries waited — TODO under M10d, three levers); what drained a
+paused cell is unproved (the `M6:` count on a post-fix world is the tell). Three things not to
+rediscover: **every recorded oracle runs `--fluidnear=0`**, where the carry is empty and the
+seeded solve is byte-for-byte the old path — measure the solve on a *copy of a played world*
+with `--fluidnear=2 --fluidjob=1`; **`grep -a` the log**, and classify its `ERROR` lines before
+counting them; and **a debug door into a conserved quantity is a term** or the identity lies
+from then on. Suite 1,661; the r6 control to the digit. The paragraph below is the 19th's
+state, kept for the reasoning.
+
 **Pick up here (2026-09-19). Three things landed on the played world's day, all Matthew's
 words, all built and unplayed, and M10d's play is still the next thing.** *The modifier map
 read back*: Shift and Ctrl are movement only; Alt is precision on both buttons, crawl in fly,

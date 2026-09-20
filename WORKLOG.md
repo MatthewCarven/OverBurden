@@ -25,6 +25,13 @@ through (a natural pit below the lake is the lake's, by Tier A's own model), ope
 the bound; one predicate for the hand-off and the ceiling, cached per column, invalidated by an
 edit in its box. Nothing built.
 
+Then *"should we have a material type that rejects water?"* — sorted as already decided:
+permeability 0 (every machine body ships at it, `SeepIndex` grows no face on it), the material
+named clay in MATERIALS-NOTES, its source WORLDGEN's band; what is missing is the JSON and a
+seed, in TODO beside the courtyard with the lean (ship it now, seeded). *"see you in a fresh Code
+Chat"* — the session closes with three words waiting on him: the courtyard's arm B, clay, and
+the excavator's fill taking the bite's rule; CLAUDE.md's pick-up paragraph carries all three.
+
 ## 2026-09-20 (small hours) — A fluid row that named an empty awake cell holed a chunk for good
 
 *"i think i may have upset the chunk loader or the godot sync function in the 2nd screenshot"* —

@@ -5744,6 +5744,18 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
               the a-3 oracle to the digit (no placed voxels, so no flood ever stops).
             - C. Tier A reads the edited heights — rejected: M7's "no incremental watershed",
               and a 2 m sample cannot see a 0.25 m wall.
+      - [ ] **A material that rejects water — Matthew, 2026-09-20: *"i like porous rock … should
+            we have a material type that rejects water?"*** Already decided in shape:
+            permeability is per material since M1 and read since M8c-1, `SeepIndex` treats a
+            voxel as seep-rock only above 0, every machine body ships at 0.0, and the material
+            is named — MATERIALS-NOTES row 90, **clay**, *"the natural dam, and what a player
+            builds a dam from"*, a worldgen band in WORLDGEN-NOTES with a trigger on M8c's
+            decision 1. What it means here: seepage is the only way water crosses rock, so a 0
+            material is a lining that stops the sweat; it does nothing for the courtyard (Tier A).
+            Missing: the content and its source. Arms — **ship `clay.json` now, seeded off `P`
+            like the machines** (permeability 0.0, hardness dirt's, a seventh `LayerColour`
+            with its jitter entry or the game throws at first frame; the honest source comes
+            with worldgen) — the lean, an hour; or wait for WORLDGEN's band. His word.
       - [ ] **Rain drops Tier B cells — Matthew, 2026-09-19: *"rain to randomly drop tier b
             cells from the sky too please … not many but just to make you think about the water
             runoff"*.** Built the same evening: `--rainshare=<percent>` (2, an estimate; 0 off),
