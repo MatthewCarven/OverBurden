@@ -3777,10 +3777,12 @@ public partial class Main : Node3D
         int panel = MaterialId("overburden:solar_panel");
         int cell = MaterialId("overburden:vacuum_cell");
         int pack = MaterialId("overburden:lead_acid_pack");
+        int clay = MaterialId("overburden:clay");
         if (pump == MaterialIds.AirNumericId || outlet == MaterialIds.AirNumericId || computer == MaterialIds.AirNumericId
-            || panel == MaterialIds.AirNumericId || cell == MaterialIds.AirNumericId || pack == MaterialIds.AirNumericId)
+            || panel == MaterialIds.AirNumericId || cell == MaterialIds.AirNumericId || pack == MaterialIds.AirNumericId
+            || clay == MaterialIds.AirNumericId)
         {
-            GD.Print("M10: the relay pump, outlet, computer, solar panel, vacuum cell and lead-acid pack are not all in this world's content, so P seeds nothing");
+            GD.Print("M10: the relay pump, outlet, computer, solar panel, vacuum cell, lead-acid pack and clay are not all in this world's content, so P seeds nothing");
             return;
         }
 
@@ -3788,6 +3790,11 @@ public partial class Main : Node3D
         _inventory.Add(outlet, Cell);
         _inventory.Add(panel, Cell);
         _inventory.Add(cell, Cell);
+
+        // Clay (2026-09-20): the lining, at permeability 0 — a bulk material rather than a body,
+        // so a press seeds enough to line a small room (64 cells, 64,000 L) until worldgen
+        // puts a band of it in the ground and this seed goes the way of the relay pair.
+        _inventory.Add(clay, Cell * 64);
 
         // M10b: one computer, the item that opens a machine's ports — an item is counted by the
         // voxel and never spent, so one is enough for the session and P seeds it once. M10c: one
@@ -3802,7 +3809,7 @@ public partial class Main : Node3D
             _inventory.Add(pack, 1);
         }
 
-        GD.Print("M10: P — a relay pump, a relay outlet, a solar panel and a vacuum cell added to the inventory (64 voxels each), and a computer and a lead-acid pack once; pick them on the number row (right-click with the pack in hand equips it). Alt+P fills every placed cell and the pack");
+        GD.Print("M10: P — a relay pump, a relay outlet, a solar panel and a vacuum cell added to the inventory (64 voxels each), 64 cells of clay, and a computer and a lead-acid pack once; pick them on the number row (right-click with the pack in hand equips it). Alt+P fills every placed cell and the pack");
     }
 
     /// <summary>Every placed storage row charged to its capacity, through the set's one debug door.</summary>

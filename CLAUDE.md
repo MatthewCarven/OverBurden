@@ -955,13 +955,13 @@ the retired world, more sheets levelled); and **a fluid row naming an empty awak
 holes a chunk** (the unview and eviction writers list held cells; the reader drops and counts,
 `M6:` lines). The flooded world is `worlds/retired-flooded-2026-09-19/`, the solve lever's
 measurement world; his `default` is fresh — 64 pumps, 127 outlets and 34 ML by midnight. **His
-word, waiting**: (1) *the courtyard* — a walled pool on grass is the lake outside, M8b-3a's
+word, waiting — two of three; the third is built**: (1) *the courtyard* — a walled pool on grass is the lake outside, M8b-3a's
 pinned trigger fired; arm B in TODO under M8 (*the player's material encloses, nature's does
 not*: a flood at the plane's Y stopped only by placed voxels, one predicate for the hand-off,
-`LakeCeiling` and `WaterSurface`); (2) *clay* — permeability 0 is decided and named in
-MATERIALS-NOTES and every machine body ships at it; the material is one JSON file and a
-`LayerColour`, its source is WORLDGEN's pass, so ship-now-seeded or wait (TODO beside the
-courtyard); (3) still from the 19th, *the excavator's fill taking the bite's rule* (fills what
+`LakeCeiling` and `WaterSurface`); (2) *clay* — **taken and built the same evening, *"2 please"*: `clay.json` at
+permeability 0, dirt's hardness, a support curve a metre steeper than dirt's (an estimate), a
+twelfth `LayerColour`, 64 cells a `P` press; the worldgen band is still WORLDGEN's; the play
+check is the `seep` line's faces falling by a lined wall's count** (TODO beside the courtyard); (3) still from the 19th, *the excavator's fill taking the bite's rule* (fills what
 the charge buys and stops; `Place` gains an `Unpowered` bucket) instead of refusing whole under
 1.64 MJ. **Recorded, unbuilt**: the solve's pass is O(sheet) on a 34 ML world with 191 machines
 (1.6 s mean, 4,282 of 4,295 boundaries waited — TODO under M10d, three levers); what drained a
@@ -970,7 +970,7 @@ rediscover: **every recorded oracle runs `--fluidnear=0`**, where the carry is e
 seeded solve is byte-for-byte the old path — measure the solve on a *copy of a played world*
 with `--fluidnear=2 --fluidjob=1`; **`grep -a` the log**, and classify its `ERROR` lines before
 counting them; and **a debug door into a conserved quantity is a term** or the identity lies
-from then on. Suite 1,661; the r6 control to the digit. The paragraph below is the 19th's
+from then on. Suite 1,662 with clay; the r6 control to the digit. The paragraph below is the 19th's
 state, kept for the reasoning.
 
 **Pick up here (2026-09-19). Three things landed on the played world's day, all Matthew's

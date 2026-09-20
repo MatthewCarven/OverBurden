@@ -5744,7 +5744,7 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
               the a-3 oracle to the digit (no placed voxels, so no flood ever stops).
             - C. Tier A reads the edited heights — rejected: M7's "no incremental watershed",
               and a 2 m sample cannot see a 0.25 m wall.
-      - [ ] **A material that rejects water — Matthew, 2026-09-20: *"i like porous rock … should
+      - [x] **A material that rejects water — Matthew, 2026-09-20: *"i like porous rock … should
             we have a material type that rejects water?"*** Already decided in shape:
             permeability is per material since M1 and read since M8c-1, `SeepIndex` treats a
             voxel as seep-rock only above 0, every machine body ships at 0.0, and the material
@@ -5756,6 +5756,13 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
             like the machines** (permeability 0.0, hardness dirt's, a seventh `LayerColour`
             with its jitter entry or the game throws at first frame; the honest source comes
             with worldgen) — the lean, an hour; or wait for WORLDGEN's band. His word.
+            **Taken the same evening — *"2 please"* — and built**: `clay.json` (permeability
+            0.0, hardness 0.8, `supportDistance` 8, curve `[[1, 4], [2, 1]]` — an estimate),
+            a twelfth `LayerColour` with its jitter, `P` seeding 64 cells a press, the
+            content test and the old-world header test's count. Suite 1,662; r6 control to
+            the digit. **Play check**: line the wettest wall of a room under the lake and read
+            the `seep` line's faces fall by the wall's count; whether the colour reads as clay
+            beside dirt. The worldgen band is still WORLDGEN's pass.
       - [ ] **Rain drops Tier B cells — Matthew, 2026-09-19: *"rain to randomly drop tier b
             cells from the sky too please … not many but just to make you think about the water
             runoff"*.** Built the same evening: `--rainshare=<percent>` (2, an estimate; 0 off),

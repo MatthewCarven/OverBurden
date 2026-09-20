@@ -1,4 +1,4 @@
-using Overburden.Core.Content;
+﻿using Overburden.Core.Content;
 using Overburden.Core.Fluid;
 using Overburden.Core.Structure;
 using Overburden.Core.Voxels;
@@ -1028,8 +1028,9 @@ public class CollapseTests
         IReadOnlyList<Identifier> exported = content.Materials.ExportIdTable();
         Assert.Equal(saved, exported.Take(saved.Count));
         Identifier[] appended = [.. exported.Skip(saved.Count)];
-        Assert.Equal(7, appended.Length);
+        Assert.Equal(8, appended.Length);
         Assert.Contains(Identifier.Parse("overburden:rubble"), appended);
+        Assert.Contains(Identifier.Parse("overburden:clay"), appended);
         Assert.Contains(Identifier.Parse("overburden:computer"), appended);
         Assert.Contains(Identifier.Parse("overburden:solar_panel"), appended);
         Assert.Contains(Identifier.Parse("overburden:vacuum_cell"), appended);

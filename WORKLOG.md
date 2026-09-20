@@ -1,5 +1,30 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-20 (evening) — Clay ships, seeded off `P`: the first sealed rock a player can line a room with
+
+*"2 please"* — the clay question's lean, taken. `mods/overburden/materials/clay.json`: hardness
+0.8 (dirt's), `supportDistance` 8 with the curve `[[1, 4], [2, 1]]` — dirt's shape steepened by a
+metre, MATERIALS-NOTES' *"swells when wet and loads the shoring"* as a number and **an estimate
+until a play says otherwise** — permeability **0.0**, density 1,800, `textureLayer` 11. A twelfth
+`LayerColour` (a warm grey-tan between dirt and stone, unscreenshotted) and its jitter entry,
+because the two tables are asserted against each other at first frame. `P` seeds **64 cells
+(4,096 voxels, 64,000 L)** a press beside the machines' one body each — a lining is bulk, and
+the seed goes the way of the relay pair's once WORLDGEN's band puts clay in the ground.
+
+What it does and does not do, so the play reads it right. **Seepage is the only way water
+crosses rock**, and `SeepIndex` grows no face through a rock at 0 (`SealedRockIsNotAFaceAnd…`,
+M8c-1's test, the path every machine body already takes) — so a room lined in clay stops
+sweating at the lining, and a shaft lined on its way through dirt takes no seep from the dirt.
+It does nothing for the courtyard: that is Tier A's plane and the hand-off's seed rule, arm B in
+TODO, still his word. Nothing in Core changed; the one test added is content
+(`ClayIsTheSealedRockAPlayerCanLineARoomWith` — placeable, no machine, no item, litres, dirt's
+hardness and reach), and the old-world header test counts eight appended materials now. Suite
+1,661 → 1,662; the r6 control **2601 / 325 / 3446 at 411**, to the digit, no `ERROR` line.
+
+**Play check, one sentence back**: `P`, pick clay on the number row, line the wettest wall of a
+room under the lake and read the `seep` line's faces fall by the wall's count — and whether the
+colour reads as clay beside dirt.
+
 ## 2026-09-20 (afternoon) — The courtyard's pool is the lake outside: M8b-3a's pinned trigger fires
 
 *"i am looking at a pool of water in a courtyard but the water sheet appears to have become

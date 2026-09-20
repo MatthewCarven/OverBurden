@@ -1,0 +1,9 @@
+{
+  "id": "clay",
+  "hardness": 0.8,
+  "supportDistance": 8,
+  "supportUnderHead": [[1, 4], [2, 1]],
+  "permeability": 0.0,
+  "density": 1800,
+  "textureLayer": 11
+}

@@ -1,4 +1,4 @@
-using Overburden.Core.Content;
+﻿using Overburden.Core.Content;
 using Overburden.Core.Voxels;
 
 namespace Overburden.Core.Tests;
@@ -340,6 +340,32 @@ public class ShippedContentTests
         float stone = content.Materials.Get(Identifier.Parse("overburden:stone")).Permeability;
         float dirt = content.Materials.Get(Identifier.Parse("overburden:dirt")).Permeability;
         Assert.True(stone > 0f && dirt > stone, $"stone {stone}, dirt {dirt}");
+    }
+
+    [Fact]
+    public void ClayIsTheSealedRockAPlayerCanLineARoomWith()
+    {
+        // Every machine body ships at permeability 0 too, so the sealed end of the test above
+        // was satisfied before clay existed — by bodies nobody lines a wall with. Clay (Matthew,
+        // 2026-09-20: "should we have a material type that rejects water?") is the first sealed
+        // material that is a plain block: placeable, no machine, no item, so a room lined with
+        // it has no seep face and the sweat stops at the lining. The support curve is dirt's
+        // shape steepened one metre — MATERIALS-NOTES' "swells when wet and loads the shoring"
+        // as a number, an estimate until a play says otherwise.
+        var content = new GameContent();
+        content.Load(new DirectoryContentSource(ModsDirectory()));
+
+        var clay = content.Materials.Get(Identifier.Parse("overburden:clay"));
+        var dirt = content.Materials.Get(Identifier.Parse("overburden:dirt"));
+
+        Assert.Equal(0f, clay.Permeability);
+        Assert.True(clay.IsPlaceable, "clay is a block, not an item");
+        Assert.False(clay.IsMachine, "clay is a block, not a body");
+        Assert.False(clay.IsAir);
+        Assert.False(clay.IsFluid);
+        Assert.Equal(MaterialUnit.Litres, clay.Unit);
+        Assert.Equal(dirt.Hardness, clay.Hardness);
+        Assert.Equal(dirt.SupportDistance, clay.SupportDistance);
     }
 
     /// <summary>

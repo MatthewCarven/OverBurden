@@ -75,6 +75,11 @@ public static class VoxelMaterial
         new Color(0.12f, 0.20f, 0.42f),
         new Color(0.16f, 0.12f, 0.22f),
         new Color(0.40f, 0.40f, 0.38f),
+
+        // Clay (2026-09-20): the one rock a player lines a room with, at permeability 0. A
+        // warm grey-tan between dirt's brown and stone's grey, so a lining reads as a lining
+        // and not as more dirt. Unscreenshotted; a look call for the next play.
+        new Color(0.56f, 0.47f, 0.38f),
     ];
 
     /// <summary>The colour for a layer, or a flat grey for one this build has no texture for.</summary>
@@ -107,7 +112,7 @@ public static class VoxelMaterial
         // The relay pair (M10a-2) is smoother than rock — a cast body, not a face of it — and
         // the table is asserted against the colours so a sixth colour cannot ship without a sixth
         // jitter: the r6 control threw an IndexOutOfRange from here on the night the pair was added.
-        float[] jitter = [0.08f, 0.12f, 0.10f, 0.04f, 0.16f, 0.03f, 0.03f, 0.02f, 0.02f, 0.02f, 0.03f];
+        float[] jitter = [0.08f, 0.12f, 0.10f, 0.04f, 0.16f, 0.03f, 0.03f, 0.02f, 0.02f, 0.02f, 0.03f, 0.06f];
         if (jitter.Length != LayerColour.Length)
         {
             GD.PushError($"Overburden: {LayerColour.Length} layer colours but {jitter.Length} jitters; the two tables have drifted");

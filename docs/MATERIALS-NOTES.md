@@ -1,4 +1,4 @@
-# Materials notes — elements, and whether to "just implement chemistry"
+﻿# Materials notes — elements, and whether to "just implement chemistry"
 
 > Notes from a brainstorm with Matthew, 2026-09-03. **Not a milestone plan** — the M10-NOTES shape:
 > the reasoning captured while it is fresh, so whichever milestone first touches it (M8c, M9, M11)
@@ -87,7 +87,7 @@ that only looks different is a texture layer, not a material.
 | Material | Why it exists |
 |---|---|
 | **sand** | **Flows when saturated** — quicksand. Also glass. Cheap fill that holds no roof. |
-| **clay** | **Impermeable**: the natural dam, and what a player builds a dam from. Swells when wet and loads the shoring. |
+| **clay** | **Impermeable**: the natural dam, and what a player builds a dam from. Swells when wet and loads the shoring. **Shipped 2026-09-20** — `clay.json` at permeability 0, dirt's hardness, a support curve a metre steeper than dirt's (an estimate), seeded off `P` until WORLDGEN's band is its source. |
 | **gravel, dirt** | As now; dirt's short support distance is already the reason it collapses first. |
 
 ### Water's salts — what water carries
