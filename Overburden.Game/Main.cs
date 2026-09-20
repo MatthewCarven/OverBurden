@@ -635,6 +635,19 @@ public partial class Main : Node3D
     /// <summary><c>--injectlitres</c>: litres poured at the player once the measured window opens.</summary>
     private long _injectLitres;
 
+    /// <summary>
+    /// <c>--courtyard=&lt;metres&gt;</c>: a square ring of stone walls that wide (outer), one metre
+    /// thick and <c>--courtyardwalls=&lt;metres&gt;</c> (2) tall, on the ground round the player
+    /// when the measured window opens — before the relay's ball, so <c>--injectlitres</c> pours
+    /// inside it. The enclosure's headless provocation: with the walls up the pour rests and is
+    /// kept, with <c>--enclosure=0</c> it is handed to the basin as a tank on natural ground was.
+    /// </summary>
+    private int _courtyardMetres;
+
+    private int _courtyardWallMetres = 2;
+
+    private bool _courtyardBuilt;
+
     private bool _injected;
 
     private double _secondsSinceStart;
@@ -852,6 +865,16 @@ public partial class Main : Node3D
     /// bank treadmills in it. A measurement arm for the wrapper's cost on the visit, not a play arm.
     /// </summary>
     private bool _lakeBody = true;
+
+    /// <summary>
+    /// The courtyard (2026-09-20): the player's material encloses, nature's does not. One predicate
+    /// the hand-off, the ceiling and the surface sweep ask. Null without water or under
+    /// <c>--enclosure=0</c>, the pre-2026-09-20 arm in which a walled pool on grass is the lake
+    /// outside — the control, and not a play arm.
+    /// </summary>
+    private Enclosure? _enclosure;
+
+    private bool _enclosureOn = true;
 
     private long _handedAtWarm;
 
@@ -1164,16 +1187,28 @@ public partial class Main : Node3D
                 _portalTracker?.OnVoxelChanged(voxel);
                 // M10a-2: two lookups and a counter, never a write — the drain writes, once a frame.
                 _machines?.OnVoxelChanged(voxel, material);
+                // The courtyard: a wall placed or taken down drops the cached regions at its level
+                // in its column, and the ceiling rebuilds a band whose top is that level.
+                _enclosure?.VoxelChanged(voxel);
             },
             // M10a-2: an arrival with rows in it, or a palette that might hold a machine
             // material, is queued for the frame's drain. O(palette) here, no voxel read, no write:
             // this fires inside Complete before the neighbour push.
             onVoxelsReady: (position, hasEdits) =>
-                _machines?.ChunkArrived(position, hasEdits, _pipeline?.Streamer.Get(position)?.Voxels),
+            {
+                _machines?.ChunkArrived(position, hasEdits, _pipeline?.Streamer.Get(position)?.Voxels);
+                // The courtyard: a chunk with edits may hold walls; one a flood reached as unloaded
+                // changes the answer either way. Bookkeeping only — no read, no flood, here.
+                _enclosure?.ChunkArrived(position, hasEdits);
+            },
             chunkCacheBytes: _chunkCacheMiB * 1024 * 1024,
             distanceOrderedDerives: !_deriveFifo,
             // The forget, so the index never walks a chunk that is not here.
-            onChunkForgotten: position => _portalTracker?.OnChunkForgotten(position),
+            onChunkForgotten: position =>
+            {
+                _portalTracker?.OnChunkForgotten(position);
+                _enclosure?.ChunkForgotten(position);
+            },
             // The three arrival paths — generate, load, cache revival — through one callback, for
             // everything that is water. M8b-4a: the automaton wakes what the chunk's absence paused
             // and the faces beside it. M8b-4c moved both off onVoxelsReady onto this, which fires
@@ -1538,6 +1573,9 @@ public partial class Main : Node3D
                 case "lakebody" when int.TryParse(value, out int lakeBody):
                     _lakeBody = lakeBody != 0;
                     break;
+                case "enclosure" when int.TryParse(value, out int enclosure):
+                    _enclosureOn = enclosure != 0;
+                    break;
 
                 // The water's control arm, the same shape as --norain. The analysis is the only
                 // part of M7d that costs a worker anything, and one run with it and one without
@@ -1552,6 +1590,12 @@ public partial class Main : Node3D
                 // exactly what the milestone's oracle forbids, so it is a term rather than a secret.
                 case "injectlitres" when long.TryParse(value, out long inject) && inject > 0:
                     _injectLitres = inject;
+                    break;
+                case "courtyard" when int.TryParse(value, out int courtyard) && courtyard >= 3:
+                    _courtyardMetres = courtyard;
+                    break;
+                case "courtyardwalls" when int.TryParse(value, out int courtyardWalls) && courtyardWalls >= 1:
+                    _courtyardWallMetres = courtyardWalls;
                     break;
 
                 // M8b-2c's two seams. --fillbasin is the Tier A relay: litres into the basin
@@ -4897,6 +4941,7 @@ public partial class Main : Node3D
             ? "surface   not drawn (headless or --nowater)\n"
             : $"surface   {_waterSurface.QuadCount} quad(s) over {_waterSurface.WetBasins} basin(s), "
               + $"{_waterSurface.RingSamples} dry sample(s) drawing a neighbour's shore ({(_waterSurface.DilateShore ? "--shore=1" : "--shore=0")}), "
+              + $"{_waterSurface.EnclosedSamples} enclosed sample(s) undrawn, "
               + $"{_waterSurface.LastRebuildMillis:F2} ms to rebuild, "
               + $"{_waterSurface.Rebuilds} rebuild(s)\n";
 
@@ -5348,7 +5393,16 @@ public partial class Main : Node3D
         // bits never carry the band and a level moving a voxel costs no rebake. The seep index and
         // the portal index keep the bare terrain — a band cell is air to them, and a portal's
         // mouth is the dug voxel beside it.
-        _lakeCeiling = _water is null || !_lakeBody ? null : new LakeCeiling(_seedHeights, _water);
+        // The courtyard (2026-09-20): the predicate the ceiling, the hand-off and the surface ask,
+        // built before the ceiling because the ceiling's bands ask it at their tops. It reads the
+        // streamer as the world — the sim thread's own view — and the seed off the columns.
+        _enclosure = _water is null || !_enclosureOn ? null : new Enclosure(_pipeline.Streamer, _materials!, _seedHeights);
+        if (_waterSurface is not null)
+        {
+            _waterSurface.Enclosure = _enclosure;
+        }
+
+        _lakeCeiling = _water is null || !_lakeBody ? null : new LakeCeiling(_seedHeights, _water, _enclosure);
 
         // The field is a terrain over a terrain, so the simulation cannot tell which it was given
         // and every fixture and bench arm stays valid. See FluidField.
@@ -5416,11 +5470,18 @@ public partial class Main : Node3D
 
         // M8b-3a: the other direction. Water resting on the seed ground is the basin's, by the
         // rain model; measured to remove 99.3–99.5% of a surface spill's visits (--spill).
-        _handoff = _water is null ? null : new SurfaceHandoff(_seedHeights, _water, _fluid, _lakeCeiling);
+        _handoff = _water is null ? null : new SurfaceHandoff(_seedHeights, _water, _fluid, _lakeCeiling, _enclosure);
         GD.Print(_lakeCeiling is null
             ? $"M8d: no lakes to keep Tier B out of ({(_water is null ? "no water" : "--lakebody=0, the measurement arm: a hole in a bank treadmills")})"
             : "M8d: a lake is a body Tier B cannot enter — the band over a lake's bed up to its top is not holdable, "
               + "water resting on the top is handed to the basin, water found inside is handed whole");
+        if (_water is not null)
+        {
+            GD.Print(_enclosure is null
+                ? "M8: --enclosure=0 — the player's walls enclose nothing: a walled pool on natural ground is the lake outside (the pre-2026-09-20 arm, the control)"
+                : $"M8: the player's material encloses, nature's does not — a column walled in at a level by placed voxels is not the basin's and not the lake's "
+                  + $"(a flood at the level, {Enclosure.BoundVoxels} voxel(s) to the bound, an estimate; --enclosure=0 is the control)");
+        }
 
         // M8b-3b: the settle. Needs no Tier A, because a flooded mine has no Tier A body — the
         // sheets it levels are the ones the hand-off cannot reach.
@@ -5888,6 +5949,7 @@ public partial class Main : Node3D
     {
         if (_injected || _injectLitres <= 0 || _fluid is null)
         {
+            BuildCourtyardIfDue();
             return;
         }
 
@@ -5896,6 +5958,8 @@ public partial class Main : Node3D
         {
             return;
         }
+
+        BuildCourtyardIfDue();
 
         // On the ground under the player rather than at the player: a flying camera is four
         // metres up, the automaton falls one cell a tick, and a ball in mid-air drains from its
@@ -5914,6 +5978,72 @@ public partial class Main : Node3D
         GD.Print(
             $"M8b: injecting {_injectLitres:N0} L at {_relayAt}, a ball of radius {radius} voxels on "
             + "the ground under the player (--injectlitres)");
+    }
+
+    /// <summary>
+    /// <c>--courtyard</c>: the ring of walls, written through the pipeline's edit path so the
+    /// enclosure, the tracker and the automaton are told as a placed brush tells them. Each
+    /// column's wall stands on its own seed surface, so on a slope the ring follows the ground
+    /// and the flood at any level inside meets stone or the seed. Air voxels only, as a brush.
+    /// </summary>
+    private void BuildCourtyardIfDue()
+    {
+        if (_courtyardBuilt || _courtyardMetres <= 0 || _pipeline is null || _materials is null)
+        {
+            return;
+        }
+
+        bool due = _profiler is null ? _secondsSinceStart >= 3.0 : _profiler.Warm;
+        if (!due)
+        {
+            return;
+        }
+
+        _courtyardBuilt = true;
+        int stone = MaterialId("overburden:stone");
+        if (stone == MaterialIds.AirNumericId)
+        {
+            GD.Print("M8: --courtyard needs overburden:stone in this world's content; no walls built");
+            return;
+        }
+
+        VoxelPos here = PlayerVoxel();
+        int half = _courtyardMetres * BrushCell.Voxels / 2;
+        int x0 = here.X - half, x1 = here.X + half - 1;
+        int z0 = here.Z - half, z1 = here.Z + half - 1;
+        int height = _courtyardWallMetres * BrushCell.Voxels;
+        int written = 0, skipped = 0;
+        for (int z = z0; z <= z1; z++)
+        {
+            for (int x = x0; x <= x1; x++)
+            {
+                bool onRing = x < x0 + BrushCell.Voxels || x > x1 - BrushCell.Voxels
+                              || z < z0 + BrushCell.Voxels || z > z1 - BrushCell.Voxels;
+                if (!onRing)
+                {
+                    continue;
+                }
+
+                int surface = _seedHeights!.SurfaceHeightAt(x, z);
+                for (int y = surface + 1; y <= surface + height; y++)
+                {
+                    var voxel = new VoxelPos(x, y, z);
+                    if (_pipeline.Streamer.TryGetMaterial(voxel, out int existing) && existing == MaterialIds.AirNumericId
+                        && _pipeline.SetVoxel(voxel, stone))
+                    {
+                        written++;
+                    }
+                    else
+                    {
+                        skipped++;
+                    }
+                }
+            }
+        }
+
+        GD.Print(
+            $"M8: courtyard — a {_courtyardMetres} m square of stone walls {_courtyardWallMetres} m tall round the player at {here}: "
+            + $"{written:N0} voxel(s) written, {skipped:N0} not air or not loaded (--courtyard)");
     }
 
     /// <summary>
@@ -6450,7 +6580,8 @@ public partial class Main : Node3D
                + $"evicted {p.Evicted / litre:N0} L with {f.EvictedPanels:N0} panel(s), "
                + $"removed {p.Removed / litre:N0} L, displaced {p.Displaced / litre:N0} L, "
                + $"handed {p.Handed / litre:N0} L to Tier A ({_handoff?.SubmergedHanded ?? 0:N0} cell(s) of it found inside a lake"
-               + (_lakeCeiling is null ? string.Empty : $"; lake {_lakeCeiling.ChunkColumns:N0} column(s), {_lakeCeiling.Rebuilt:N0} rebuilt, {_lakeCeiling.WokenSubmerged:N0} woken") + ") — "
+               + (_lakeCeiling is null ? string.Empty : $"; lake {_lakeCeiling.ChunkColumns:N0} column(s), {_lakeCeiling.Rebuilt:N0} rebuilt, {_lakeCeiling.WokenSubmerged:N0} woken")
+               + (_enclosure is null ? string.Empty : $"; enclosed {_handoff?.EnclosedKept ?? 0:N0} kept, {_enclosure.Floods:N0} flood(s) / {_enclosure.EnclosedFloods:N0} closed, {_enclosure.Regions:N0} region(s), {_lakeCeiling?.RebuiltForEnclosure ?? 0:N0} band(s) rebuilt for it") + ") — "
                + $"pumped {p.Pumped / litre:N0} L, emitted {p.Emitted / litre:N0} L — "
                + $"held == injected + rained + drawn + seeped + loaded + emitted − removed − displaced − handed − evicted − pumped: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
                + $"received == handed: {HandoffIdentity()}, "
@@ -6590,7 +6721,15 @@ public partial class Main : Node3D
               + $"last pass ({_handoff.SubmergedLastPass:N0} inside a lake and handed whole, {_handoff.SubmergedHanded:N0} in all); "
               + $"handed {(handed - _handedAtWarm) / litre:N0} L in the window, {handed / litre:N0} L in "
               + $"all over {_handoff.Handoffs:N0} hand-off(s), {_handoff.PendingMillilitres:N0} mL pending in "
-              + $"{_handoff.PendingBasins:N0} basin(s) — Tier A received == Tier B handed: {HandoffIdentity()}\n";
+              + $"{_handoff.PendingBasins:N0} basin(s) — Tier A received == Tier B handed: {HandoffIdentity()}\n"
+              + (_enclosure is null
+                  ? "enclosure off (--enclosure=0, or no water)\n"
+                  : $"enclosure {_handoff.EnclosedLastPass:N0} cell(s) kept on the last pass, {_handoff.EnclosedKept:N0} in all; "
+                    + $"{_enclosure.Floods:N0} flood(s), {_enclosure.EnclosedFloods:N0} closed, {_enclosure.CellsVisited:N0} cell(s) visited, "
+                    + $"{_enclosure.CacheHits:N0} hit(s), {_enclosure.Quiet:N0} quiet, {_enclosure.Dropped:N0} dropped; "
+                    + $"{_enclosure.Regions:N0} region(s) / {_enclosure.CachedCells:N0} cell(s) cached, {_enclosure.EditedChunks:N0} edited chunk(s); "
+                    + $"{_lakeCeiling?.RebuiltForEnclosure ?? 0:N0} band(s) rebuilt for it"
+                    + (_waterSurface is null ? string.Empty : $", {_waterSurface.EnclosedSamples:N0} sample(s) undrawn") + "\n");
 
         string settle = _settle is null
             ? "settle    no sheet solve (--nowater)\n"

@@ -652,6 +652,28 @@ natural ground leaks into the basin**, exactly as rain inside its walls would �
 representation of a walled patch of catchment — and a tank on a placed floor does not, because the
 seam reads the *seed* surface and a cell on a block is not on the plane. Stated and pinned by a test
 rather than hidden; revisit trigger: the first play that builds one and reads the leak as wrong.
+**The trigger fired on 2026-09-20** — Matthew's walled pool in a courtyard on grass, *"attached to
+the one outside"* — **and the answer, built the same night, is `Enclosure`: the player's material
+encloses, nature's does not.** One predicate, three readers: a 4-neighbour flood over the voxel
+columns at one level from the column asked about, in which the only obstacle is the player's
+material — a solid voxel above its column's seed, or natural rock with such a voxel standing on it
+(a wall claims its footing; without that rule the headless courtyard on the spawn's slope leaked at
+every level below its uphill wall's ground) — natural rock with nothing on it walked through as air
+is (a natural pit's rim never encloses: the pit is the lake's, by this model), open at the bound
+(`Enclosure.BoundVoxels`, 64 — an estimate) or at an unloaded voxel, enclosed otherwise. The
+hand-off leaves a rested cell on the plane standing when its column is enclosed at the cell's own
+level (`EnclosedKept`); `LakeCeiling` gives a column no band when it is enclosed at the lake's top,
+and rebuilds a band whose top an edit, an arrival or a forget may have moved (`MarkDirty`,
+`RebuiltForEnclosure`), so a wall taken down lets the lake back in and the pour is handed as
+submerged; `WaterSurface` draws no plane over an enclosed sample and never dilates the shore into
+one. Cached per (x, z, level) with the flood's whole visited set sharing one answer, dropped per
+chunk column by the pipeline's three hooks (a footing edit drops every level below it), and
+answered open with no flood where no edited chunk stands within the bound — the r6 control's arm.
+Costs stated in the class: three walls and a hillside read as open unless the fourth stands on the
+hill; wider than 32 m reads as open; a gap at the level leaks, as the water would; below the seed a
+placed voxel is nature's (and a dug pit's water was never on the plane). `--enclosure=0` is the
+pre-2026-09-20 arm, the control; `--courtyard=<m>` builds the provocation. The tank test above keeps
+the old arm (no enclosure); its twin with one reads `handed 0`.
 **And the cell above a handed cell falls into the space it left and hands off in turn**: one cell a
 tick a column, the automaton's own rate, so only the cell on the plane is ever tested.
 

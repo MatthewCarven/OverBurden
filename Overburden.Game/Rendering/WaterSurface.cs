@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Godot;
 using Overburden.Core.Hydrology;
 using Overburden.Core.Voxels;
@@ -109,6 +109,16 @@ public sealed class WaterSurface
     public int Rebuilds { get; private set; }
 
     /// <summary>Dims the water with the sky, so a pond is not brighter than the ground beside it.</summary>
+    /// <summary>
+    /// The courtyard (2026-09-20): a sample whose column the player's walls close around at the
+    /// lake's level draws no plane, and the ring never dilates into one. Null draws every wet
+    /// sample, the pre-2026-09-20 arm.
+    /// </summary>
+    public Overburden.Core.Fluid.Enclosure? Enclosure { get; set; }
+
+    /// <summary>Wet or ring samples left undrawn on the last rebuild for being enclosed.</summary>
+    public int EnclosedSamples { get; private set; }
+
     public void SetBrightness(float brightness) =>
         _material.SetShaderParameter("sky_brightness", brightness);
 
@@ -162,14 +172,21 @@ public sealed class WaterSurface
         int samples = pitch * pitch;
         var drawLabel = new int[samples];
         var drawLevel = new double[samples];
+        EnclosedSamples = 0;
         for (int sz = 0; sz < pitch; sz++)
         {
             for (int sx = 0; sx < pitch; sx++)
             {
                 int i = (sz * pitch) + sx;
-                drawLabel[i] = IsWet(watershed, field, levels, sx, sz, out int label, out double level)
-                    ? label
-                    : Watershed.Outlet;
+                bool wet = IsWet(watershed, field, levels, sx, sz, out int label, out double level);
+                if (wet && Enclosure is not null && Enclosure.IsEnclosed(field.WorldXOf(sx), field.WorldZOf(sz), (int)System.Math.Floor(level)))
+                {
+                    // Walled in at the lake's level: not the lake's, whatever the level says.
+                    wet = false;
+                    EnclosedSamples++;
+                }
+
+                drawLabel[i] = wet ? label : Watershed.Outlet;
                 drawLevel[i] = level;
             }
         }
@@ -223,6 +240,13 @@ public sealed class WaterSurface
                             int own = watershed.LabelAt(nx, nz);
                             if (own < 0 || own >= levels.Length || levels[own] != level)
                             {
+                                continue;
+                            }
+
+                            // Never into a walled-in column: the shore stops at the wall.
+                            if (Enclosure is not null && Enclosure.IsEnclosed(field.WorldXOf(nx), field.WorldZOf(nz), (int)System.Math.Floor(level)))
+                            {
+                                EnclosedSamples++;
                                 continue;
                             }
 

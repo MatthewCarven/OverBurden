@@ -190,6 +190,22 @@ found inside a lake; lake columns / rebuilt / woken`, its surface term `N under 
 cells drawn full with no top because the lake's cell is above them — a bite in a lake's bed
 reads as the lake), and the `boundary` line a `lake` bracket.
 
+**The courtyard (2026-09-20) adds two.** **`--enclosure=0` builds no `Enclosure`** — the
+pre-2026-09-20 arm in which a walled pool on natural ground is the lake outside (the hand-off
+hands it, the ceiling puts its air in the lake, the plane draws through the walls), the control
+and not a play arm; on, the player's material encloses and nature's does not (a flood at the level,
+64 voxels to the bound — an estimate; a wall claims its footing). **`--courtyard=<metres>`** builds
+a square ring of stone walls that wide, `--courtyardwalls=<metres>` (2) tall, on the ground round
+the player when the window opens, before `--injectlitres` pours inside it — the provocation. The
+`M8b:` line's `handed` bracket carries `enclosed N kept, F flood(s) / C closed, R region(s), B
+band(s) rebuilt for it`, the profile has an `enclosure` line under `handoff`, and the `surface`
+line prints `N enclosed sample(s) undrawn`. **The oracle, verbatim, reads `handed 0 L` with
+`6 flood(s), 6 closed` and rests by tick ~85; with `--enclosure=0` it reads `handed 20,000 L`:**
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --courtyard=8 --injectlitres=20000 --measure=25
+```
+
 In the game **`--fluidsurface=debug`** is the pre-M8d-1 arm — one quad a surface cell *in Tier A's
 shader*, the geometry and the look every M8b and M8c screenshot had, the control for every M8d-2
 screenshot — and `nosides`, `nobottoms`, `notops`, `nomerge` leave one thing out of the mesh (in the
@@ -956,10 +972,17 @@ the retired world, more sheets levelled); and **a fluid row naming an empty awak
 holes a chunk** (the unview and eviction writers list held cells; the reader drops and counts,
 `M6:` lines). The flooded world is `worlds/retired-flooded-2026-09-19/`, the solve lever's
 measurement world; his `default` is fresh — 64 pumps, 127 outlets and 34 ML by midnight. **His
-word, given — *"1 and 3 as recommended"* — and (2) and (3) built, (1) in hand**: (1) *the courtyard* — a walled pool on grass is the lake outside, M8b-3a's
-pinned trigger fired; arm B in TODO under M8 (*the player's material encloses, nature's does
-not*: a flood at the plane's Y stopped only by placed voxels, one predicate for the hand-off,
-`LakeCeiling` and `WaterSurface`); (2) *clay* — **taken and built the same evening, *"2 please"*: `clay.json` at
+word, given — *"1 and 3 as recommended"* — and all three built the same night**: (1) *the
+courtyard* — a walled pool on grass is the lake outside, M8b-3a's pinned trigger fired; **arm B
+built as `Enclosure` in Core** (*the player's material encloses, nature's does not*: a flood at
+the level, the only obstacle a placed voxel above the seed or natural rock carrying one — **a
+wall claims its footing, the rule the pass did not have**, because the headless courtyard on the
+spawn's slope leaked at every level below its uphill wall's ground without it), one predicate for
+the hand-off (`EnclosedKept`), `LakeCeiling` (an enclosed column has no band; `MarkDirty` rebuilds
+a band whose top an edit may have moved) and `WaterSurface` (an enclosed sample draws no plane);
+`--enclosure=0` the control, `--courtyard=<m>` the provocation, the oracle `handed 0 L` against
+`handed 20,000 L`; read the 2026-09-20 amendment under M8b-3a's finding 1 in
+[docs/M8-PLAN.md](docs/M8-PLAN.md) and the play check in TODO under M8; (2) *clay* — **taken and built the same evening, *"2 please"*: `clay.json` at
 permeability 0, dirt's hardness, a support curve a metre steeper than dirt's (an estimate), a
 twelfth `LayerColour`, 64 cells a `P` press; the worldgen band is still WORLDGEN's; the play
 check is the `seep` line's faces falling by a lined wall's count** (TODO beside the courtyard); (3) *the excavator's fill taking the bite's rule* — **built the same evening**:
@@ -975,7 +998,7 @@ rediscover: **every recorded oracle runs `--fluidnear=0`**, where the carry is e
 seeded solve is byte-for-byte the old path — measure the solve on a *copy of a played world*
 with `--fluidnear=2 --fluidjob=1`; **`grep -a` the log**, and classify its `ERROR` lines before
 counting them; and **a debug door into a conserved quantity is a term** or the identity lies
-from then on. Suite 1,671 with clay and the fill's budget; the r6 control to the digit. The paragraph below is the 19th's
+from then on. Suite 1,689 with clay, the fill's budget and the enclosure; the r6 control to the digit. The paragraph below is the 19th's
 state, kept for the reasoning.
 
 **Pick up here (2026-09-19). Three things landed on the played world's day, all Matthew's

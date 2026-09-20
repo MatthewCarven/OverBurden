@@ -1,4 +1,4 @@
-using Overburden.Core.Hydrology;
+﻿using Overburden.Core.Hydrology;
 using Overburden.Core.Lighting;
 using Overburden.Core.Voxels;
 
@@ -29,7 +29,11 @@ namespace Overburden.Core.Fluid;
 /// the surface holding water: the seam reads the <i>seed</i> surface, never the edited one. A
 /// tank whose floor is the natural ground leaks into the basin, exactly as rain into it would,
 /// and that limit is stated rather than hidden — the revisit trigger is the first play that
-/// builds one and reads the leak as wrong.
+/// builds one and reads the leak as wrong. <b>That trigger fired on 2026-09-20</b> (Matthew's
+/// courtyard), and the answer is the <see cref="Enclosure"/>: a rested cell on the plane whose
+/// column the player's walls close around at the cell's own level is not handed — it is the
+/// courtyard's, not the basin's — and stays asleep where it rests. Nature's ground still leaks;
+/// the player's walls hold. Without an enclosure the pass is as it was.
 /// </para>
 /// <para>
 /// <b>Whole litres cross; the remainder is carried per pit, never dropped.</b> Tier A counts
@@ -76,9 +80,10 @@ public sealed class SurfaceHandoff
     private readonly WaterSystem _water;
     private readonly FluidSimulation _fluid;
     private readonly LakeCeiling? _ceiling;
+    private readonly Enclosure? _enclosure;
     private readonly Dictionary<(int X, int Z), int> _pending = [];
 
-    public SurfaceHandoff(ISurfaceHeights seed, WaterSystem water, FluidSimulation fluid, LakeCeiling? ceiling = null)
+    public SurfaceHandoff(ISurfaceHeights seed, WaterSystem water, FluidSimulation fluid, LakeCeiling? ceiling = null, Enclosure? enclosure = null)
     {
         ArgumentNullException.ThrowIfNull(seed);
         ArgumentNullException.ThrowIfNull(water);
@@ -88,6 +93,7 @@ public sealed class SurfaceHandoff
         _water = water;
         _fluid = fluid;
         _ceiling = ceiling;
+        _enclosure = enclosure;
     }
 
     /// <summary>Millilitres taken out of Tier B. Equals <see cref="FluidSimulation.HandedMillilitres"/>' growth since construction.</summary>
@@ -117,6 +123,12 @@ public sealed class SurfaceHandoff
     /// <summary>Basins with a remainder pending.</summary>
     public int PendingBasins => _pending.Count;
 
+    /// <summary>Cells on the plane left standing on the last pass because their column is enclosed at their level (the courtyard).</summary>
+    public int EnclosedLastPass { get; private set; }
+
+    /// <summary>Cells left standing for being enclosed, over the lifetime — counted on every pass that listed them, so a pool still levelling inside its walls counts its cells each time they rest.</summary>
+    public long EnclosedKept { get; private set; }
+
     /// <summary>
     /// One pass over the cells the last tick found at rest. Returns the millilitres handed off.
     /// Call at the tick boundary, before the next tick begins.
@@ -128,6 +140,7 @@ public sealed class SurfaceHandoff
         RestedLastPass = rested.Count;
         OnGroundLastPass = 0;
         SubmergedLastPass = 0;
+        EnclosedLastPass = 0;
         if (rested.Count == 0 && submerged.Count == 0)
         {
             return 0;
@@ -145,6 +158,16 @@ public sealed class SurfaceHandoff
             }
 
             OnGroundLastPass++;
+            if (_enclosure is not null && _enclosure.IsEnclosed(cell.X, cell.Z, cell.Y))
+            {
+                // The courtyard: on the plane, and walled in at its own level. Not the basin's.
+                // Left asleep where it rests — nothing wakes it but an edit or a neighbour, and
+                // a wall coming down is an edit.
+                EnclosedLastPass++;
+                EnclosedKept++;
+                continue;
+            }
+
             if (!windowed)
             {
                 // Nowhere to put it yet. Woken so it is visited, rests and is listed again next

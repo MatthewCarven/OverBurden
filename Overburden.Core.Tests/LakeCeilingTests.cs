@@ -1,4 +1,4 @@
-using Overburden.Core.Fluid;
+﻿using Overburden.Core.Fluid;
 using Overburden.Core.Hydrology;
 using Overburden.Core.Lighting;
 using Overburden.Core.Voxels;
@@ -42,7 +42,7 @@ public class LakeCeilingTests(ITestOutputHelper output)
         x >= 48 && x < 80 && z >= 48 && z < 80 ? Floor : Rim);
 
     /// <summary>Dug voxels and open air above the seed, less what was placed, inside the loaded box.</summary>
-    private sealed class EditedTerrain(ISurfaceHeights seed) : IFluidTerrain
+    private sealed class EditedTerrain(ISurfaceHeights seed) : IFluidTerrain, IVoxelWorld
     {
         public HashSet<VoxelPos> Dug { get; } = [];
 
@@ -54,23 +54,39 @@ public class LakeCeilingTests(ITestOutputHelper output)
             Loaded.Contains(v.Chunk)
             && !Placed.Contains(v)
             && (Dug.Contains(v) || v.Y > seed.SurfaceHeightAt(v.X, v.Z));
+
+        /// <summary>The same world to the enclosure's flood: unloaded is unknown, placed and undug rock is solid.</summary>
+        public bool TryGetMaterial(VoxelPos v, out int materialId)
+        {
+            if (!Loaded.Contains(v.Chunk))
+            {
+                materialId = PhysicsTestHelpers.Air;
+                return false;
+            }
+
+            materialId = !Placed.Contains(v) && (Dug.Contains(v) || v.Y > seed.SurfaceHeightAt(v.X, v.Z))
+                ? PhysicsTestHelpers.Air
+                : PhysicsTestHelpers.Stone;
+            return true;
+        }
     }
 
     private sealed class Twin
     {
-        public Twin(bool withCeiling = true)
+        public Twin(bool withCeiling = true, bool withEnclosure = false)
         {
             Seed = Bowl();
             Terrain = new EditedTerrain(Seed);
             Water = new WaterSystem(Seed, LakeCeilingTests.Seed, new BasinLedger(), Pitch);
             Water.Install(Water.AnalyseFor(64, 64));
-            Ceiling = withCeiling ? new LakeCeiling(Seed, Water) : null;
+            Enclosure = withEnclosure ? new Enclosure(Terrain, PhysicsTestHelpers.Table, Seed) : null;
+            Ceiling = withCeiling ? new LakeCeiling(Seed, Water, Enclosure) : null;
             IFluidTerrain terrain = Ceiling is null ? Terrain : new LakeBoundedTerrain(Terrain, Ceiling);
             Fluid = new FluidSimulation(terrain);
             Index = new PortalIndex(Seed, Terrain);
             Tracker = new PortalTracker(Index);
             Drain = new PortalDrain(Index, Water, Fluid);
-            Handoff = new SurfaceHandoff(Seed, Water, Fluid, Ceiling);
+            Handoff = new SurfaceHandoff(Seed, Water, Fluid, Ceiling, Enclosure);
 
             // Chunks X 0..2, Y 0..1, Z 1..2: the bowl, its walls, and room west of it for a chamber.
             for (int cz = 1; cz <= 2; cz++)
@@ -98,7 +114,25 @@ public class LakeCeilingTests(ITestOutputHelper output)
 
         public LakeCeiling? Ceiling { get; }
 
+        public Enclosure? Enclosure { get; }
+
         public FluidSimulation Fluid { get; }
+
+        /// <summary>A placed voxel, told to the enclosure and the tracker as the pipeline's edit hook would.</summary>
+        public void Place(VoxelPos v)
+        {
+            Terrain.Placed.Add(v);
+            Enclosure?.VoxelChanged(v);
+            Tracker.OnVoxelChanged(v);
+        }
+
+        public void Unplace(VoxelPos v)
+        {
+            Terrain.Placed.Remove(v);
+            Enclosure?.VoxelChanged(v);
+            Tracker.OnVoxelChanged(v);
+            Fluid.Disturb(v);
+        }
 
         public PortalIndex Index { get; }
 
@@ -344,6 +378,108 @@ public class LakeCeilingTests(ITestOutputHelper output)
         Assert.Equal(before + ((long)cells * Cap / FluidConstants.MillilitresPerLitre), twin.Water.StoredLitres);
         Assert.Equal(0L, twin.OnTheBed());
         output.WriteLine($"{cells} cells poured onto the lake rested and were handed in {ticks} ticks");
+    }
+
+    [Fact]
+    public void AWalledCourtyardBelowTheLakesLevelIsNotTheLakesAndKeepsItsOwnWater()
+    {
+        // The courtyard (Matthew, 2026-09-20): four walls on the bowl's bed, taller than the
+        // lake's top, around a 3 × 3 patch the nine cells fill exactly. Without the enclosure the patch's air is inside the
+        // lake — no cell there can hold, a pour is found submerged and handed whole. With it the
+        // column has no band: the pour lands, rests on the bed, is kept by the hand-off, and the
+        // lake's litres are untouched. Then the wall comes down and the lake takes it.
+        var twin = new Twin(withEnclosure: true);
+        twin.Water.Inject(twin.Basin, 4 * LitresPerVoxelOfDepth);
+        twin.Refresh();
+        int top = twin.Top;
+
+        for (int d = -2; d <= 2; d++)
+        {
+            for (int y = Floor + 1; y <= top + 2; y++)
+            {
+                twin.Place(new VoxelPos(60 + d, y, 58));
+                twin.Place(new VoxelPos(60 + d, y, 62));
+                twin.Place(new VoxelPos(58, y, 60 + d));
+                twin.Place(new VoxelPos(62, y, 60 + d));
+            }
+        }
+
+        twin.Refresh();
+        Assert.False(twin.Ceiling!.InLake(new VoxelPos(60, Floor + 1, 60)));
+        Assert.True(twin.Ceiling.InLake(new VoxelPos(50, Floor + 1, 50)));
+        Assert.True(twin.Ceiling.RebuiltForEnclosure > 0, "the wall's edit did not rebuild the band");
+
+        long lake = twin.Water.StoredLitres;
+        long poured = 0;
+        for (int x = 59; x <= 61; x++)
+        {
+            for (int z = 59; z <= 61; z++)
+            {
+                poured += Cap - twin.Fluid.Add(new VoxelPos(x, Floor + 1, z), Cap);
+            }
+        }
+
+        Assert.Equal(9L * Cap, poured);
+        twin.RunToRest();
+
+        Assert.Equal(poured, twin.Fluid.TotalMillilitres);
+        Assert.Equal(0L, twin.Handoff.HandedMillilitres);
+        Assert.Equal(lake, twin.Water.StoredLitres);
+        Assert.Equal(9L, twin.Handoff.EnclosedKept);
+        twin.AssertIdentity();
+
+        // The west wall taken down: the region is dropped, the band comes back over the
+        // courtyard, its cells are woken as submerged, and the lake takes the pour whole.
+        for (int y = Floor + 1; y <= top + 2; y++)
+        {
+            twin.Unplace(new VoxelPos(58, y, 60));
+        }
+
+        twin.RunToRest();
+        Assert.True(twin.Ceiling.InLake(new VoxelPos(60, Floor + 1, 60)));
+        Assert.Equal(0L, twin.Fluid.TotalMillilitres);
+        Assert.Equal(poured, twin.Handoff.HandedMillilitres);
+        Assert.Equal(lake + (poured / FluidConstants.MillilitresPerLitre), twin.Water.StoredLitres);
+        twin.AssertIdentity();
+    }
+
+    [Fact]
+    public void WithoutTheEnclosureTheSameCourtyardIsTheLakesAndItsPourIsHandedWhole()
+    {
+        // The guarded boundary is reached: the control arm, the world as it was on 2026-09-19.
+        var twin = new Twin(withEnclosure: false);
+        twin.Water.Inject(twin.Basin, 4 * LitresPerVoxelOfDepth);
+        twin.Refresh();
+        int top = twin.Top;
+        for (int d = -2; d <= 2; d++)
+        {
+            for (int y = Floor + 1; y <= top + 2; y++)
+            {
+                twin.Place(new VoxelPos(60 + d, y, 58));
+                twin.Place(new VoxelPos(60 + d, y, 62));
+                twin.Place(new VoxelPos(58, y, 60 + d));
+                twin.Place(new VoxelPos(62, y, 60 + d));
+            }
+        }
+
+        twin.Refresh();
+        Assert.True(twin.Ceiling!.InLake(new VoxelPos(60, Floor + 1, 60)));
+
+        long before = twin.Water.StoredLitres;
+        long poured = 0;
+        for (int x = 59; x <= 61; x++)
+        {
+            for (int z = 59; z <= 61; z++)
+            {
+                poured += Cap - twin.Fluid.Add(new VoxelPos(x, top + 1, z), Cap);
+            }
+        }
+
+        twin.RunToRest();
+        Assert.Equal(0L, twin.Fluid.TotalMillilitres);
+        Assert.Equal(poured, twin.Handoff.HandedMillilitres);
+        Assert.Equal(before + (poured / FluidConstants.MillilitresPerLitre), twin.Water.StoredLitres);
+        twin.AssertIdentity();
     }
 
     [Fact]

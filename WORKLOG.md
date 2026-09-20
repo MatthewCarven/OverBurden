@@ -1,5 +1,63 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-20 (night) — The courtyard: the player's material encloses, nature's does not
+
+*"1 and 3 as recommended"* — this is 1, arm B, built after the fill's budget. **`Enclosure`** in
+`Overburden.Core/Fluid/`: whether a column is walled off from the outside at a level, asked by
+the three readers Tier A has for a wall it cannot see. A 4-neighbour flood over the voxel columns
+at one level from the column asked about; the only obstacle is the player's material; open at the
+bound (`BoundVoxels` 64, 16 m — an estimate; an enclosure wider than 32 m reads as open) or at an
+unloaded voxel; enclosed otherwise. Cached per (x, z, level) with the flood's whole visited set
+sharing one answer, indexed by the chunk columns its cells *and its walls* stand in and the
+columns it reached as unloaded, and dropped by the pipeline's three hooks — an edit at its level,
+a chunk with edits arriving or leaving, an arrival of a column it could not see past. And **a
+column with no edited chunk within the bound is answered open with no flood and no cache**: no
+edits, no walls, nothing to enclose — the r6 control's arm, every oracle that places nothing.
+
+- **The rule the pass did not have: a wall claims its footing.** The pass's obstacle was *a solid
+  voxel above its column's seed*, natural rock walked through so a pit's rim never encloses. Built
+  that way, the headless courtyard on the spawn's slope handed 19,991 of 20,000 L: at every level
+  below the uphill wall's ground, that wall's columns are natural rock (their seed is above the
+  level) and the flood walked through them and out to the bound. So natural rock carrying a placed
+  voxel at its seed + 1 is an obstacle at every level below it — one read a rock column, the first
+  voxel above the ground, because a brush lands on the lattice and fills every air voxel of its
+  cell. A footing edit drops every cached level below it. A pit's rim with nothing on it is still
+  walked through; three walls and a hillside still read as open, and the fourth wall may stand on
+  the hill. **Both rules leave a courtyard on a slope open below its uphill *ground* if that
+  ground is inside the walls** — dig it level or floor it; a dug pit's water was never on the
+  plane and was never handed.
+- **The readers.** `SurfaceHandoff`: a rested cell on the plane whose column is enclosed at the
+  cell's own level is left standing (`EnclosedKept`, counted per pass it was listed — a pool still
+  levelling counts its cells each rest). `LakeCeiling`: a column enclosed at the lake's top has no
+  band, asked only where the level would otherwise put it in the lake; the enclosure's `Changed`
+  event (column, level range) marks a band dirty when one of its sample tops is in the range —
+  `AnyTopIn`, so a bite at the bottom of a mine under a lake rebuilds nothing — and the next
+  refresh rebuilds it past `SameTops` (`RebuiltForEnclosure`); a wall taken down grows the band
+  back, wakes the pool as submerged, and the lake takes it. `WaterSurface`: an enclosed sample at
+  the lake's level draws no plane and the ring never dilates into one (`EnclosedSamples`).
+- **Wire.** `Main` builds it before the ceiling over the streamer as the world and the columns'
+  seed; the three hooks feed it beside the tracker's; `--enclosure=0` is the control (printed);
+  `--courtyard=<m>` / `--courtyardwalls=<m>` build a ground-following ring of stone through the
+  pipeline's edit path before the relay's ball lands inside it — the provocation, because `--place`
+  builds a column and cannot ring anything. The `M8b:` line, the profile's `enclosure` and
+  `surface` lines carry the terms.
+- **Oracle.** `--profile --speed=0 --courtyard=8 --injectlitres=20000 --measure=25`: `handed 0 L`,
+  `6 flood(s), 6 closed` (one region a level of the slope's steps, 3,456 cells cached, 19,982
+  hits), the pool at rest by tick ~85 with every litre inside; `--enclosure=0`: `handed 20,000 L`
+  over 3,447 hand-offs. r6 to the digit (`0 flood(s)` — quiet). a-3 to the digit — and its
+  `enclosure` line reads `4 flood(s), 0 closed, 66,484 cell(s) visited`: the outlet body and the
+  breach's chunks make the lake's columns non-quiet, so the ceiling's rebuild floods four open
+  regions once and caches them — the open answer's price, ~16k reads a region, stated.
+- **Tests.** `EnclosureTests` (fourteen: four walls and three; the hill; the footing; per level;
+  the bound both sides; unloaded-then-arrived with no edits flips the answer; an arrival that
+  never reached it drops nothing; quiet; the pre-check's reach; a start that is not air; a wall in
+  the next chunk column drops the region; an edit at another level does not; the cache; a forget),
+  the courtyard twins in `SurfaceHandoffTests` (kept, then handed when a wall comes down; a natural
+  pit still handed with the enclosure on) and `LakeCeilingTests` (no band, kept, the lake
+  untouched; the wall down, band back, handed whole; the control arm reaches the guarded
+  boundary). One recipe run, caught: nature enclosing too (the seed check dropped) fails the hill
+  test alone. Suite 1,671 → 1,689.
+
 ## 2026-09-20 (evening, later) — The fill takes the bite's rule: lands what the charge buys and stops
 
 *"1 and 3 as recommended"*. This is 3, the smaller, built first. M10c-3's decision 6 gave the

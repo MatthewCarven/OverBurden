@@ -1,4 +1,4 @@
-using Overburden.Core.Fluid;
+﻿using Overburden.Core.Fluid;
 using Overburden.Core.Hydrology;
 using Overburden.Core.Lighting;
 using Overburden.Core.Voxels;
@@ -57,7 +57,7 @@ public class SurfaceHandoffTests(ITestOutputHelper output)
     });
 
     /// <summary>Holdability: open above the seed surface, less what was placed, plus what was dug, inside the loaded box.</summary>
-    private sealed class EditedTerrain(ISurfaceHeights seed) : IFluidTerrain
+    private sealed class EditedTerrain(ISurfaceHeights seed) : IFluidTerrain, IVoxelWorld
     {
         public HashSet<VoxelPos> Dug { get; } = [];
 
@@ -69,11 +69,26 @@ public class SurfaceHandoffTests(ITestOutputHelper output)
             Loaded.Contains(v.Chunk)
             && !Placed.Contains(v)
             && (Dug.Contains(v) || v.Y > seed.SurfaceHeightAt(v.X, v.Z));
+
+        /// <summary>The same world to the enclosure's flood: unloaded is unknown, placed and undug rock is solid.</summary>
+        public bool TryGetMaterial(VoxelPos v, out int materialId)
+        {
+            if (!Loaded.Contains(v.Chunk))
+            {
+                materialId = PhysicsTestHelpers.Air;
+                return false;
+            }
+
+            materialId = !Placed.Contains(v) && (Dug.Contains(v) || v.Y > seed.SurfaceHeightAt(v.X, v.Z))
+                ? PhysicsTestHelpers.Air
+                : PhysicsTestHelpers.Stone;
+            return true;
+        }
     }
 
     private sealed class Twin
     {
-        public Twin(bool installWindow = true)
+        public Twin(bool installWindow = true, bool withEnclosure = false)
         {
             Seed = BowlAndRamp();
             Terrain = new EditedTerrain(Seed);
@@ -84,7 +99,8 @@ public class SurfaceHandoffTests(ITestOutputHelper output)
             }
 
             Fluid = new FluidSimulation(Terrain);
-            Handoff = new SurfaceHandoff(Seed, Water, Fluid);
+            Enclosure = withEnclosure ? new Enclosure(Terrain, PhysicsTestHelpers.Table, Seed) : null;
+            Handoff = new SurfaceHandoff(Seed, Water, Fluid, enclosure: Enclosure);
 
             // Chunks X −1..3, Y 0..1, Z 1..2: voxels −32..127 by 0..63 by 32..95, which covers
             // the bowl, the ramp, a stretch of rim on every side and a column outside the window.
@@ -109,6 +125,21 @@ public class SurfaceHandoffTests(ITestOutputHelper output)
         public FluidSimulation Fluid { get; }
 
         public SurfaceHandoff Handoff { get; }
+
+        public Enclosure? Enclosure { get; }
+
+        /// <summary>A placed voxel, told to the enclosure as the pipeline's edit hook would.</summary>
+        public void Place(VoxelPos v)
+        {
+            Terrain.Placed.Add(v);
+            Enclosure?.VoxelChanged(v);
+        }
+
+        public void Unplace(VoxelPos v)
+        {
+            Terrain.Placed.Remove(v);
+            Enclosure?.VoxelChanged(v);
+        }
 
         public int Basin => Water.BasinAtSample(48 / Cell, 48 / Cell);
 
@@ -378,6 +409,71 @@ public class SurfaceHandoffTests(ITestOutputHelper output)
         Assert.Equal(0, twin.Fluid.TotalMillilitres);
         Assert.Equal(poured, twin.Handoff.HandedMillilitres);
         Assert.Equal(poured / 1000, twin.Water.ReceivedLitres);
+        twin.AssertIdentity();
+    }
+
+    [Fact]
+    public void ACourtyardOnNaturalGroundKeepsItsPourWhenThePlayersWallsEncloseIt()
+    {
+        // The trigger fired (Matthew, 2026-09-20) and this is the tank test's other arm: the same
+        // four walls on the bowl's floor, the same nine cells, with the enclosure on — nothing is
+        // handed, the water rests inside and stays, Tier B holds every millilitre, and the
+        // hand-off counts what it left. The identity is exact with nothing crossing.
+        var twin = new Twin(withEnclosure: true);
+        for (int d = -2; d <= 2; d++)
+        {
+            for (int y = Floor + 1; y <= Floor + 3; y++)
+            {
+                twin.Place(new VoxelPos(60 + d, y, 58));
+                twin.Place(new VoxelPos(60 + d, y, 62));
+                twin.Place(new VoxelPos(58, y, 60 + d));
+                twin.Place(new VoxelPos(62, y, 60 + d));
+            }
+        }
+
+        long poured = 0;
+        for (int x = 59; x <= 61; x++)
+        {
+            for (int z = 59; z <= 61; z++)
+            {
+                poured += Cap - twin.Fluid.Add(new VoxelPos(x, Floor + 1, z), Cap);
+            }
+        }
+
+        Assert.Equal(9L * Cap, poured);
+        twin.RunToRest();
+
+        Assert.Equal(poured, twin.Fluid.TotalMillilitres);
+        Assert.Equal(0L, twin.Handoff.HandedMillilitres);
+        Assert.Equal(0L, twin.Water.ReceivedLitres);
+        Assert.Equal(9L, twin.Handoff.EnclosedKept);
+        twin.AssertIdentity();
+
+        // A wall taken down is an edit: the region is dropped, the next rest is on open ground,
+        // and the pour goes to the basin as the tank's did. Disturbed as the pipeline's hook
+        // would, so the cells rest again and are listed.
+        twin.Unplace(new VoxelPos(58, Floor + 1, 60));
+        twin.Fluid.Disturb(new VoxelPos(58, Floor + 1, 60));
+        twin.RunToRest();
+
+        Assert.Equal(0L, twin.Fluid.TotalMillilitres);
+        Assert.Equal(poured, twin.Handoff.HandedMillilitres);
+        twin.AssertIdentity();
+    }
+
+    [Fact]
+    public void ANaturalPitInsideTheBasinIsStillHandedWithTheEnclosureOn()
+    {
+        // No walls anywhere: the enclosure has nothing to say, floods nothing, and the ground
+        // test is the tank test's — a spill on the slope ends in the basin.
+        var twin = new Twin(withEnclosure: true);
+        long poured = Cap - twin.Fluid.Add(new VoxelPos(64, Floor + 1, 64), Cap);
+        twin.RunToRest();
+
+        Assert.Equal(0L, twin.Fluid.TotalMillilitres);
+        Assert.Equal(poured, twin.Handoff.HandedMillilitres);
+        Assert.Equal(0L, twin.Enclosure!.Floods);
+        Assert.Equal(0L, twin.Handoff.EnclosedKept);
         twin.AssertIdentity();
     }
 

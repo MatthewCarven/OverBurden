@@ -1,4 +1,4 @@
-using Overburden.Core.Hydrology;
+﻿using Overburden.Core.Hydrology;
 using Overburden.Core.Voxels;
 using Overburden.Core.Lighting;
 
@@ -46,6 +46,16 @@ namespace Overburden.Core.Fluid;
 /// is how an old save's bed water migrates by itself. Woken, visited, listed as submerged, handed
 /// at the next boundary: two boundaries from a rise to the lake owning the water.
 /// </para>
+/// <para>
+/// <b>An enclosed column has no band (2026-09-20, the courtyard).</b> With an <see cref="Enclosure"/>
+/// the band asks, per column at the lake's top, whether the player's walls close around it; a
+/// column they do is not the lake's, whatever the level says, so a walled pool below the outside
+/// lake's level holds its own water and the lake's plane stops at the wall. Asked when a band is
+/// built, and a band whose columns' answer may have moved — an edit, an arrival or a forget in a
+/// column a cached region stood in — is rebuilt at the next refresh whether or not its sample
+/// tops moved (<see cref="MarkDirty"/>), which is how taking a wall down lets the lake back in:
+/// the band grows, the cells it grew to cover are woken as submerged, and the pool is handed.
+/// </para>
 /// </remarks>
 public sealed class LakeCeiling
 {
@@ -56,18 +66,49 @@ public sealed class LakeCeiling
 
     private readonly ISurfaceHeights _seed;
     private readonly WaterSystem _water;
+    private readonly Enclosure? _enclosure;
     private readonly Dictionary<(int X, int Z), ColumnBand> _bands = [];
     private readonly HashSet<(int X, int Z)> _seen = [];
+    private readonly HashSet<(int X, int Z)> _dirty = [];
     private readonly List<(int X, int Z)> _gone = [];
 
-    public LakeCeiling(ISurfaceHeights seed, WaterSystem water)
+    public LakeCeiling(ISurfaceHeights seed, WaterSystem water, Enclosure? enclosure = null)
     {
         ArgumentNullException.ThrowIfNull(seed);
         ArgumentNullException.ThrowIfNull(water);
         _seed = seed;
         _water = water;
+        _enclosure = enclosure;
+        if (enclosure is not null)
+        {
+            enclosure.Changed += OnEnclosureChanged;
+        }
+
         Live = new LakeCeilingView(_bands);
     }
+
+    /// <summary>
+    /// Marks a chunk column's band to be rebuilt at the next refresh even when its sample tops
+    /// have not moved — the enclosure's answer for its columns may have. Nothing without an
+    /// enclosure calls it.
+    /// </summary>
+    public void MarkDirty((int X, int Z) column) => _dirty.Add(column);
+
+    /// <summary>
+    /// The enclosure's answer for a column may have moved somewhere in a level range: the band is
+    /// rebuilt only when one of its sample tops is in that range, because a band asks at its tops
+    /// and nowhere else — a bite at the bottom of a mine under a lake rebuilds nothing.
+    /// </summary>
+    private void OnEnclosureChanged((int X, int Z) column, int yMin, int yMax)
+    {
+        if (_bands.TryGetValue(column, out ColumnBand? band) && band.AnyTopIn(yMin, yMax))
+        {
+            _dirty.Add(column);
+        }
+    }
+
+    /// <summary>Chunk columns rebuilt for a dirty mark with their tops unmoved, over the lifetime.</summary>
+    public long RebuiltForEnclosure { get; private set; }
 
     /// <summary>
     /// The bands as they stand, readable — what <see cref="LakeBoundedTerrain"/> reads on the
@@ -243,12 +284,18 @@ public sealed class LakeCeiling
             return;
         }
 
-        if (existing is not null && existing.SameTops(tops))
+        bool dirty = _dirty.Remove(key);
+        if (existing is not null && existing.SameTops(tops) && !dirty)
         {
             return;
         }
 
-        var band = new ColumnBand(existing, originX, originZ, _seed, tops, samplesPerChunk, cell);
+        if (dirty && existing is not null)
+        {
+            RebuiltForEnclosure++;
+        }
+
+        var band = new ColumnBand(existing, originX, originZ, _seed, tops, samplesPerChunk, cell, _enclosure);
         _bands[key] = band;
         Rebuilt++;
         RebuiltLastPass++;
@@ -269,7 +316,7 @@ public sealed class LakeCeiling
         private readonly int[] _top;
         private readonly int[] _sampleTops;
 
-        public ColumnBand(ColumnBand? previous, int originX, int originZ, ISurfaceHeights seed, ReadOnlySpan<int> tops, int samplesPerChunk, int cell)
+        public ColumnBand(ColumnBand? previous, int originX, int originZ, ISurfaceHeights seed, ReadOnlySpan<int> tops, int samplesPerChunk, int cell, Enclosure? enclosure = null)
         {
             // The seed never moves, so a rebuild keeps the previous floor rather than reading a
             // thousand surface heights again.
@@ -282,7 +329,17 @@ public sealed class LakeCeiling
                 {
                     int index = Index(lx, lz);
                     int top = tops[((lz / cell) * samplesPerChunk) + (lx / cell)];
-                    _top[index] = top != NoLake && top >= _floor[index] ? top : NoLake;
+                    bool inLake = top != NoLake && top >= _floor[index];
+
+                    // The courtyard: a column the player's walls close around at the lake's top
+                    // is not the lake's. Asked only where the level would otherwise put it in
+                    // the lake, so a dry column costs nothing.
+                    if (inLake && enclosure is not null && enclosure.IsEnclosed(originX + lx, originZ + lz, top))
+                    {
+                        inLake = false;
+                    }
+
+                    _top[index] = inLake ? top : NoLake;
                 }
             }
         }
@@ -297,6 +354,20 @@ public sealed class LakeCeiling
         public int TopAt(int lx, int lz) => _top[Index(lx, lz)];
 
         public bool SameTops(ReadOnlySpan<int> tops) => tops.SequenceEqual(_sampleTops);
+
+        /// <summary>Whether any sample top of this band lies in the range — the levels the band asked the enclosure about.</summary>
+        public bool AnyTopIn(int yMin, int yMax)
+        {
+            foreach (int top in _sampleTops)
+            {
+                if (top != NoLake && top >= yMin && top <= yMax)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         /// <summary>Calls back for every cell in this band that the previous band did not cover.</summary>
         public long WakeRisen(ColumnBand? previous, int originX, int originZ, Action<VoxelPos> submerged)

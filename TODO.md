@@ -5717,7 +5717,7 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
             Levers, unpriced: level a sheet at most every N boundaries while it is being fed
             (the settle's own wait, per sheet rather than per chunk); cap a pass's cells and carry
             the rest to the next; a smaller share for very large sheets.
-      - [ ] **A walled courtyard on grass is the lake outside — Matthew, 2026-09-20: *"the water
+      - [x] **A walled courtyard on grass is the lake outside — Matthew, 2026-09-20: *"the water
             sheet appears to have become attached to the one outside … limit this to sheets
             without rock/dirt or similar between them"*.** M8b-3a's pinned trigger, fired: the
             hand-off reads the seed plane (a tank on natural ground leaks into its basin), and
@@ -5748,6 +5748,21 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
               the a-3 oracle to the digit (no placed voxels, so no flood ever stops).
             - C. Tier A reads the edited heights — rejected: M7's "no incremental watershed",
               and a 2 m sample cannot see a 0.25 m wall.
+            **Taken — *"1 and 3 as recommended"* — and built the same night as arm B**, with one
+            rule the pass did not have: **a wall claims its footing** (natural rock carrying a
+            placed voxel at its seed + 1 is an obstacle at every level below), because the
+            headless courtyard on the spawn's slope leaked at every level below its uphill wall's
+            ground under the pass's rule. `Enclosure` in Core, the three readers, the hooks,
+            `--enclosure=0` the control, `--courtyard=<m>` the provocation. Oracle:
+            `--profile --speed=0 --courtyard=8 --injectlitres=20000 --measure=25` reads `handed
+            0 L`, `6 flood(s), 6 closed`, and rests by tick ~85; `--enclosure=0` reads `handed
+            20,000 L`. r6 and the a-3 oracle to the digit (a-3's enclosure line reads 4 open
+            floods over 66k cells — the outlet body and the breach make the lake's columns
+            non-quiet). Suite 1,671 → 1,689. **Play check, one sentence back**: build the
+            courtyard's fourth wall on the lake's bank — the pool should stop being the lake's
+            at the next boundary (`enclosed N kept` on the `M8b:` line, the plane gone from
+            inside the walls) — and whether a courtyard on a slope reads right with its uphill
+            wall on the higher ground.
       - [x] **A material that rejects water — Matthew, 2026-09-20: *"i like porous rock … should
             we have a material type that rejects water?"*** Already decided in shape:
             permeability is per material since M1 and read since M8c-1, `SeepIndex` treats a
