@@ -4181,8 +4181,9 @@ public partial class Main : Node3D
             // boundary and displaces through the simulation. Null water under --nowater.
             Machines = _machines,
             Water = _fluid,
-            // M10c-3: the fill at range pays the bite's price from the same pack, all or nothing
-            // on the shape's cost; the pack itself is handed over in SetUpPack.
+            // M10c-3: the fill at range pays the bite's price from the same pack — since
+            // 2026-09-20 under the bite's rule, landing what the charge buys and stopping; the
+            // pack itself is handed over in SetUpPack.
             PowerOff = _noGate,
         };
 
@@ -4307,15 +4308,16 @@ public partial class Main : Node3D
 
         if (_place.RefusedUnpoweredThisFrame && !_printedFillRefused)
         {
-            // Once, until a placement lands: the fill at range is all or nothing on the shape's
-            // cost, and the first refusal is the one a player has to be told about.
+            // Once, until a shape lands whole: the fill at range stops where the charge ends
+            // (2026-09-20, the bite's rule), and the first shape that stops short is the one a
+            // player has to be told about.
             _printedFillRefused = true;
             GD.Print(
-                $"M10: gate — the fill at range needs {MachinePanel.Joules(_place.LastRefusedNeedMillijoules)} in the pack and "
-                + (_pack is null ? "none is equipped" : $"it holds {MachinePanel.Joules(_pack.ChargeMillijoules)}")
-                + $"; refused whole ({_place.UnpoweredPlacements:N0} refused, {_place.VoxelsUnpowered:N0} voxel(s), this session)");
+                $"M10: gate — the fill at range stopped short: the rest of the shape needs {MachinePanel.Joules(_place.LastRefusedNeedMillijoules)} and the pack "
+                + (_pack is null ? "is not equipped" : $"holds {MachinePanel.Joules(_pack.ChargeMillijoules)}")
+                + $" ({_place.UnpoweredPlacements:N0} placement(s) stopped short, {_place.VoxelsUnpowered:N0} voxel(s) unpowered, this session)");
         }
-        else if (placed)
+        else if (placed && !_place.RefusedUnpoweredThisFrame)
         {
             _printedFillRefused = false;
         }
@@ -6879,6 +6881,13 @@ public partial class Main : Node3D
             $"{_place.VoxelsInsidePlayer / placements:F2} inside the player / " +
             $"{_place.VoxelsOutOfStock / placements:F2} unaffordable / " +
             $"{_place.VoxelsWet / placements:F2} wet per placement\n" +
+            // The fill's gate (2026-09-20): a shape that stops where the charge ends, and how
+            // much of it did, with the pack's price so the count is legible as joules.
+            (_place.VoxelsUnpowered > 0 || _place.MillijoulesPaid > 0
+                ? $"fillgate  {_place.VoxelsUnpowered:N0} voxel(s) unpowered over {_place.UnpoweredPlacements:N0} placement(s) that stopped short; "
+                  + $"paid {_place.MillijoulesPaid:N0} mJ ({MachinePanel.Joules(_place.MillijoulesPaid)}) at "
+                  + $"{_place.EntangledMillijoulesPerVoxel / MachineDefinition.PerMille:N0} J a voxel\n"
+                : string.Empty) +
             $"carrying  {_inventory.TotalLitres:F0} L across {_inventory.MaterialCount} material(s)\n" +
             // The number M6d-1 named and did not take. Its recorded hypothesis is that
             // precision placement costs twice a brush per click because one voxel dropped

@@ -1,4 +1,4 @@
-using Overburden.Core.Building;
+﻿using Overburden.Core.Building;
 using Overburden.Core.Fluid;
 using Overburden.Core.Inventory;
 using Overburden.Core.Voxels;
@@ -179,6 +179,34 @@ public class PlaceDisplacingTests
         Assert.Equal(16, water.Cells.Count);
         Assert.All(water.Cells.Keys, v => Assert.Equal(cell, BrushCell.FromVoxel(v)));
         Assert.All(water.Cells.Keys, v => Assert.Equal(0, v.Y - cell.OriginVoxel.Y));
+    }
+
+    [Fact]
+    public void AnUnpoweredVoxelPutsItsLiftedWaterStraightBackLikeTheStock()
+    {
+        // The budget refuses after the lift, as the stock does, and the water goes back into the
+        // voxel it came from: a fill that stopped short at range moves no water it did not
+        // cover. Budget 48 over a cell whose bottom row of 16 is wet: the walk is Z, X, Y, so the
+        // wet row is met a voxel at a time and the last four columns' worth are refused.
+        var cell = new BrushCell(1, 2, 3);
+        (TestWorld world, FakeWater water) = Pool(cell);
+        var displacing = new FillWater(water);
+
+        PlaceResult result = Accounted(Place.Cube(world, Table, cell, Stone, displacing: displacing, voxelBudget: 48));
+
+        Assert.Equal(48, result.Placed);
+        Assert.Equal(16, result.Unpowered);
+        Assert.Equal(0, result.Wet);
+        Assert.True(displacing.IsAccounted);
+        Assert.Equal(16 * Each, displacing.Lifted);
+        Assert.Equal(16 * Each, displacing.Returned);
+        Assert.Equal(0L, displacing.Displaced);
+        Assert.Equal(16 * Each, water.Cells.Values.Sum());
+
+        // The four unpowered wet voxels hold exactly what they held: put back, not returned.
+        var unpowered = water.Cells.Keys.Where(v => BrushCell.FromVoxel(v) == cell && world[v] == Air).ToList();
+        Assert.Equal(4, unpowered.Count);
+        Assert.All(unpowered, v => Assert.Equal(Each, water.Cells[v]));
     }
 
     [Fact]

@@ -1,4 +1,4 @@
-# M10 — The ladder: hand → steam → DC → AC → quantum, and the crafting under it
+﻿# M10 — The ladder: hand → steam → DC → AC → quantum, and the crafting under it
 
 > Planned 2026-09-15, evening, before any code, from Matthew's brief (below) and five things he
 > added while the pass ran. **Read [M10-PLAN.md](M10-PLAN.md) first** — its M10a–M10d are the
@@ -2431,6 +2431,29 @@ tier is the shape and the voxel is the price**, so the excavator is 1.64 MJ a ch
 a lead-acid pack — and *"only once you have the latest tier battery will it be as effective as it
 is now"* is M10i's number. Six recipes on the rules and the loader, six caught; the bite-that-stops
 oracle reads to the digit under `--entangle`; suite 1,627 → 1,638.
+
+**Amended 2026-09-20 — the fill takes the bite's rule (decision 6's fill half reversed, on
+Matthew's word: "1 and 3 as recommended").** The fill at range was refused whole under the
+shape's cost, which once the tier was the shape made the excavator's chunk 1.64 MJ or nothing —
+a cliff, the very thing decision 6 rejected for the bite. `Place` gains the bucket the pass said
+it did not need: `PlaceResult.Unpowered`, in `IsAccounted` and in the string when non-zero, and
+every brush shape takes `int voxelBudget = int.MaxValue`, `Put` asking it **last** — after the
+body, the read, occupied, wet and the stock, so a voxel the brush would not fill for any other
+reason never reaches the pack — and spending it after the write, with any water lifted for a
+displacing fill put straight back on refusal exactly as it is for the stock. `Machine` keeps its
+unit: a half-placed body is nothing. `PlaceController.VoxelBudget` is `Pack.VoxelsAffordable
+(cost)` (unbounded free or under `PowerOff`, zero with a price and no pack), passed to the click's
+shape and re-read at the boundary for the deferred chunk and wet fills; `NoteUnpowered` counts a
+shape that stopped short and what its rest would have cost; the one-off print reads `the fill at
+range stopped short: the rest of the shape needs 2,450 J and the pack holds 0 mJ`, and the profile
+gains a `fillgate` line beside the bite's `gate`. The fill arm's oracle moved: `--place --entangle
+--stock=64000 --pack --charge=3200 --pitch=-15` reads `paid 3,200 J` for 64 placed and then
+stops short, and at `--charge=1600` it lands 32 of the first cell and stops (`32 voxel(s)
+unpowered`, `paid 1,600 J`) where it refused the first whole. The bite's oracle, the a-3 oracle
+and the r6 control are unchanged to the digit. Nine tests (`PlaceBudgetTests`, and the put-back
+in `PlaceDisplacingTests`), two recipes run and caught — the budget never spent, and the budget
+asked before the stock, which only a fixture with both running out at the same voxel can see;
+suite 1,662 → 1,671.
 
 ## The inventory screen — folded into M10g (2026-09-18)
 

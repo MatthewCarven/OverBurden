@@ -5544,7 +5544,11 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
                (decision 16 amended twice; the arms are there).
             4. With the pack empty, right-click at range with `Q` on and a brush in hand — refused
                whole, `M10: gate — the fill at range needs 1,280 J`. *Is all-or-nothing on the fill
-               right, beside the bite's running-down?*
+               right, beside the bite's running-down?* **Answered 2026-09-20 — no: *"1 and 3 as
+               recommended"*; the fill takes the bite's rule** (the last amendment of "M10c-3 —
+               built" in M10-LADDER-PLAN): it lands what the charge buys and stops, the rest
+               `PlaceResult.Unpowered`, the print reads `stopped short: the rest of the shape
+               needs 1,280 J`, and a chunk fill on the excavator in two packs is two clicks.
             5. Place a vacuum cell (`P` seeds one), `Alt+P` — the pack on channel 0 recharges at
                125 J a boundary from it: 12.8 s a cube. Pick the computer, right-click the sky — the
                pack's panel; set the channel to 1 and watch the recharge stop. *One sentence on

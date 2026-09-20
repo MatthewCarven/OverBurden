@@ -781,8 +781,9 @@ the cycle since, with `ToolTiers.Default` starting a world on the strongest *fre
 gate is a voxel budget on every `Carve` shape** — what the equipped pack can pay for
 at the tool's price, asked after air and after `TooHard` so neither costs, the rest of the shape
 in `CarveResult.Unpowered` — and the pack pays for exactly what came away: *takes what the charge
-buys and stops*, a bite that ends mid-cube. The fill at range is all or nothing on the shape's
-cost and refused whole under it. **The pack rides header v4** (a presence byte, its material
+buys and stops*, a bite that ends mid-cube. The fill at range was all or nothing on the shape's
+cost and refused whole under it **until 2026-09-20, when it took the bite's rule** — lands what
+the charge buys, the rest `PlaceResult.Unpowered`. **The pack rides header v4** (a presence byte, its material
 through the table, its charge, its channel; a v3 world opens with none); a right-click edge with
 a pack in hand equips one from the count — the fullest carried, since 2026-09-18 — and swaps it
 for the one worn, **whose charge is stowed beside the count with it** (`CarriedPacks`, header v5;
@@ -955,22 +956,26 @@ the retired world, more sheets levelled); and **a fluid row naming an empty awak
 holes a chunk** (the unview and eviction writers list held cells; the reader drops and counts,
 `M6:` lines). The flooded world is `worlds/retired-flooded-2026-09-19/`, the solve lever's
 measurement world; his `default` is fresh — 64 pumps, 127 outlets and 34 ML by midnight. **His
-word, waiting — two of three; the third is built**: (1) *the courtyard* — a walled pool on grass is the lake outside, M8b-3a's
+word, given — *"1 and 3 as recommended"* — and (2) and (3) built, (1) in hand**: (1) *the courtyard* — a walled pool on grass is the lake outside, M8b-3a's
 pinned trigger fired; arm B in TODO under M8 (*the player's material encloses, nature's does
 not*: a flood at the plane's Y stopped only by placed voxels, one predicate for the hand-off,
 `LakeCeiling` and `WaterSurface`); (2) *clay* — **taken and built the same evening, *"2 please"*: `clay.json` at
 permeability 0, dirt's hardness, a support curve a metre steeper than dirt's (an estimate), a
 twelfth `LayerColour`, 64 cells a `P` press; the worldgen band is still WORLDGEN's; the play
-check is the `seep` line's faces falling by a lined wall's count** (TODO beside the courtyard); (3) still from the 19th, *the excavator's fill taking the bite's rule* (fills what
-the charge buys and stops; `Place` gains an `Unpowered` bucket) instead of refusing whole under
-1.64 MJ. **Recorded, unbuilt**: the solve's pass is O(sheet) on a 34 ML world with 191 machines
+check is the `seep` line's faces falling by a lined wall's count** (TODO beside the courtyard); (3) *the excavator's fill taking the bite's rule* — **built the same evening**:
+`PlaceResult.Unpowered`, a voxel budget on every brush shape asked last in `Put` (after the
+stock — the fixture that separates the orders has both run out at one voxel), the controller's
+`VoxelBudget` read at the click and again at the boundary, the `fillgate` profile line; the fill
+arm's oracle is `paid 3,200 J` for 64 placed at `--charge=3200` and 32 of the first cell at
+`--charge=1600` where it refused the first whole; read the 2026-09-20 amendment at the end of
+"M10c-3 — built". **Recorded, unbuilt**: the solve's pass is O(sheet) on a 34 ML world with 191 machines
 (1.6 s mean, 4,282 of 4,295 boundaries waited — TODO under M10d, three levers); what drained a
 paused cell is unproved (the `M6:` count on a post-fix world is the tell). Three things not to
 rediscover: **every recorded oracle runs `--fluidnear=0`**, where the carry is empty and the
 seeded solve is byte-for-byte the old path — measure the solve on a *copy of a played world*
 with `--fluidnear=2 --fluidjob=1`; **`grep -a` the log**, and classify its `ERROR` lines before
 counting them; and **a debug door into a conserved quantity is a term** or the identity lies
-from then on. Suite 1,662 with clay; the r6 control to the digit. The paragraph below is the 19th's
+from then on. Suite 1,671 with clay and the fill's budget; the r6 control to the digit. The paragraph below is the 19th's
 state, kept for the reasoning.
 
 **Pick up here (2026-09-19). Three things landed on the played world's day, all Matthew's

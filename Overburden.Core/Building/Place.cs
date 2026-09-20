@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using Overburden.Core.Content;
 using Overburden.Core.Fluid;
 using Overburden.Core.Inventory;
@@ -42,6 +42,14 @@ namespace Overburden.Core.Building;
 /// room cannot be filled until M10's pump has emptied it. Zero for every editor that does not
 /// answer <see cref="IVoxelEditor.HoldsWater"/>.
 /// </param>
+/// <param name="Unpowered">
+/// Voxels the brush would have filled and the budget could not pay for (2026-09-20, the
+/// bite's rule taken by the fill — <see cref="CarveResult.Unpowered"/>'s twin). <b>A partial
+/// shape is placed rather than none</b>, the <see cref="OutOfStock"/> rule a second time: the
+/// pack pays for exactly what landed and the count says what it was short. Until this date the
+/// fill at range was refused whole under the shape's cost, which for the excavator's chunk was
+/// 1.64 MJ or nothing. Zero for every caller that sets no budget.
+/// </param>
 public readonly record struct PlaceResult(
     int Candidates,
     int Placed,
@@ -49,7 +57,8 @@ public readonly record struct PlaceResult(
     int InsidePlayer,
     int Unreachable,
     int OutOfStock = 0,
-    int Wet = 0)
+    int Wet = 0,
+    int Unpowered = 0)
 {
     /// <summary>The whole brush was inside loaded, generated terrain.</summary>
     public bool Complete => Unreachable == 0;
@@ -62,11 +71,12 @@ public readonly record struct PlaceResult(
     /// and quietly loses voxels.
     /// </remarks>
     public bool IsAccounted =>
-        Candidates == Placed + Occupied + InsidePlayer + Unreachable + OutOfStock + Wet;
+        Candidates == Placed + Occupied + InsidePlayer + Unreachable + OutOfStock + Wet + Unpowered;
 
     public override string ToString() =>
         $"{Candidates} candidate(s): placed {Placed}, occupied {Occupied}, " +
-        $"inside player {InsidePlayer}, unreachable {Unreachable}, out of stock {OutOfStock}, wet {Wet}";
+        $"inside player {InsidePlayer}, unreachable {Unreachable}, out of stock {OutOfStock}, wet {Wet}" +
+        (Unpowered > 0 ? $", unpowered {Unpowered}" : string.Empty);
 }
 
 /// <summary>What <see cref="Place.MachineDisplacing"/> did: the placement, and where the water went.</summary>
@@ -292,13 +302,14 @@ public static class Place
         int materialId,
         Aabb? body = null,
         VolumetricInventory? from = null,
-        FillWater? displacing = null)
+        FillWater? displacing = null,
+        int voxelBudget = int.MaxValue)
     {
         (VoxelPos Min, VoxelPos Max)? bodyVoxels = Validate(world, materials, materialId, body);
 
         var tally = default(Tally);
         tally.Candidate();
-        tally.Add(Put(world, voxel, materialId, bodyVoxels, from, displacing));
+        tally.Add(Put(world, voxel, materialId, bodyVoxels, from, displacing, ref voxelBudget));
 
         displacing?.Settle(voxel, voxel);
         return tally.ToResult();
@@ -376,8 +387,9 @@ public static class Place
         int materialId,
         Aabb? body = null,
         VolumetricInventory? from = null,
-        FillWater? displacing = null) =>
-        Chunk(world, materials, TargetChunk(hit), materialId, body, from, displacing);
+        FillWater? displacing = null,
+        int voxelBudget = int.MaxValue) =>
+        Chunk(world, materials, TargetChunk(hit), materialId, body, from, displacing, voxelBudget);
 
     /// <summary>Fills a chunk named directly. The aim-free overload, for tests.</summary>
     public static PlaceResult Chunk(
@@ -387,7 +399,8 @@ public static class Place
         int materialId,
         Aabb? body = null,
         VolumetricInventory? from = null,
-        FillWater? displacing = null)
+        FillWater? displacing = null,
+        int voxelBudget = int.MaxValue)
     {
         (VoxelPos Min, VoxelPos Max)? bodyVoxels = Validate(world, materials, materialId, body);
 
@@ -408,7 +421,8 @@ public static class Place
                 materialId,
                 bodyVoxels,
                 from,
-                displacing));
+                displacing,
+                ref voxelBudget));
         }
 
         displacing?.Settle(
@@ -672,7 +686,8 @@ public static class Place
         int materialId,
         Aabb? body = null,
         VolumetricInventory? from = null,
-        FillWater? displacing = null)
+        FillWater? displacing = null,
+        int voxelBudget = int.MaxValue)
     {
         (VoxelPos Min, VoxelPos Max)? bodyVoxels = Validate(world, materials, materialId, body);
         var tally = default(Tally);
@@ -682,7 +697,7 @@ public static class Place
         for (int ly = 0; ly < BrushCell.Voxels; ly++)
         {
             tally.Candidate();
-            tally.Add(Put(world, cell.VoxelAt(lx, ly, lz), materialId, bodyVoxels, from, displacing));
+            tally.Add(Put(world, cell.VoxelAt(lx, ly, lz), materialId, bodyVoxels, from, displacing, ref voxelBudget));
         }
 
         displacing?.Settle(cell.OriginVoxel, cell.VoxelAt(BrushCell.Voxels - 1, BrushCell.Voxels - 1, BrushCell.Voxels - 1));
@@ -705,7 +720,8 @@ public static class Place
         int materialId,
         Aabb? body = null,
         VolumetricInventory? from = null,
-        FillWater? displacing = null)
+        FillWater? displacing = null,
+        int voxelBudget = int.MaxValue)
     {
         (VoxelPos Min, VoxelPos Max)? bodyVoxels = Validate(world, materials, materialId, body);
         var tally = default(Tally);
@@ -715,7 +731,7 @@ public static class Place
         for (int ly = 0; ly < BrushCell.Voxels / 2; ly++)
         {
             tally.Candidate();
-            tally.Add(Put(world, cell.VoxelAt(lx, ly, lz), materialId, bodyVoxels, from, displacing));
+            tally.Add(Put(world, cell.VoxelAt(lx, ly, lz), materialId, bodyVoxels, from, displacing, ref voxelBudget));
         }
 
         displacing?.Settle(cell.OriginVoxel, cell.VoxelAt(BrushCell.Voxels - 1, BrushCell.Voxels / 2 - 1, BrushCell.Voxels - 1));
@@ -751,7 +767,8 @@ public static class Place
         BrushFacing facing,
         Aabb? body = null,
         VolumetricInventory? from = null,
-        FillWater? displacing = null)
+        FillWater? displacing = null,
+        int voxelBudget = int.MaxValue)
     {
         (VoxelPos Min, VoxelPos Max)? bodyVoxels = Validate(world, materials, materialId, body);
         var tally = default(Tally);
@@ -764,7 +781,7 @@ public static class Place
             for (int ly = 0; ly < height; ly++)
             {
                 tally.Candidate();
-                tally.Add(Put(world, cell.VoxelAt(lx, ly, lz), materialId, bodyVoxels, from, displacing));
+                tally.Add(Put(world, cell.VoxelAt(lx, ly, lz), materialId, bodyVoxels, from, displacing, ref voxelBudget));
             }
         }
 
@@ -806,8 +823,9 @@ public static class Place
         int materialId,
         Aabb? body = null,
         VolumetricInventory? from = null,
-        FillWater? displacing = null) =>
-        Sphere(world, materials, cell.CentreMetres, radiusMetres, materialId, body, from, displacing);
+        FillWater? displacing = null,
+        int voxelBudget = int.MaxValue) =>
+        Sphere(world, materials, cell.CentreMetres, radiusMetres, materialId, body, from, displacing, voxelBudget);
 
     /// <summary>Fills a sphere at an arbitrary centre. The lattice-free overload, for tests.</summary>
     public static PlaceResult Sphere(
@@ -818,7 +836,8 @@ public static class Place
         int materialId,
         Aabb? body = null,
         VolumetricInventory? from = null,
-        FillWater? displacing = null)
+        FillWater? displacing = null,
+        int voxelBudget = int.MaxValue)
     {
         (VoxelPos Min, VoxelPos Max)? bodyVoxels = Validate(world, materials, materialId, body);
 
@@ -868,7 +887,7 @@ public static class Place
             // anywhere near the loaded edge, since the corners reach r(√3 − 1) further out than
             // the sphere ever does.
             tally.Candidate();
-            tally.Add(Put(world, voxel, materialId, bodyVoxels, from, displacing));
+            tally.Add(Put(world, voxel, materialId, bodyVoxels, from, displacing, ref voxelBudget));
         }
 
         displacing?.Settle(min, max);
@@ -894,6 +913,7 @@ public static class Place
         Unreachable,
         OutOfStock,
         Wet,
+        Unpowered,
     }
 
     /// <summary>
@@ -903,7 +923,10 @@ public static class Place
     /// <b>One definition of the gate, shared by every brush</b> — the counterpart to
     /// <c>Carve.Take</c>, and load-bearing for the reason M3c measured there: removing the
     /// hardness check from <c>Take</c> failed nine tests across both mining shapes, which a
-    /// forked copy in each shape would not have done.
+    /// forked copy in each shape would not have done. <b>The budget is the last refusal</b>
+    /// (2026-09-20, <c>Carve.Take</c>'s rule): a voxel that is inside the player, unreachable,
+    /// occupied, wet or out of stock never reaches it, so the pack pays for what landed and
+    /// nothing else; spent after the write, so what it counts is what was written.
     /// </remarks>
     private static Bucket Put(
         IVoxelEditor world,
@@ -911,7 +934,8 @@ public static class Place
         int materialId,
         in (VoxelPos Min, VoxelPos Max)? bodyVoxels,
         VolumetricInventory? from,
-        FillWater? displacing = null)
+        FillWater? displacing,
+        ref int voxelBudget)
     {
         // The body first, before the read. It is the cheaper test, and it is true regardless of
         // what is in the voxel — "we will not build that inside you" does not depend on whether
@@ -970,6 +994,14 @@ public static class Place
             return Bucket.OutOfStock;
         }
 
+        // The gate's other half, last: the brush would fill it and the pack cannot pay for it.
+        // Any water lifted goes straight back, as it does for the stock.
+        if (voxelBudget <= 0)
+        {
+            displacing?.PutBack(voxel, lifted);
+            return Bucket.Unpowered;
+        }
+
         // Should not happen: a read that succeeded means the chunk is loaded and generated, which
         // is the same condition the write tests. Reported rather than ignored so that an editor
         // whose two halves ever disagree surfaces the voxel instead of losing it.
@@ -981,8 +1013,10 @@ public static class Place
 
         // Debited after the write rather than before it, so that a write which fails costs
         // nothing. Checked-then-debited rather than taken-then-refunded because the sim thread is
-        // the only writer here, so nothing can come between the two.
+        // the only writer here, so nothing can come between the two. The budget is spent at the
+        // same moment for the same reason: what it counts is what was written.
         from?.Take(materialId, 1);
+        voxelBudget--;
         return Bucket.Placed;
     }
 
@@ -1057,6 +1091,7 @@ public static class Place
         private int _unreachable;
         private int _outOfStock;
         private int _wet;
+        private int _unpowered;
 
         /// <summary>One voxel is inside the brush. Called by the shape, before the gate.</summary>
         public void Candidate() => _candidates++;
@@ -1071,11 +1106,12 @@ public static class Place
                 case Bucket.InsidePlayer: _insidePlayer++; break;
                 case Bucket.OutOfStock: _outOfStock++; break;
                 case Bucket.Wet: _wet++; break;
+                case Bucket.Unpowered: _unpowered++; break;
                 default: _unreachable++; break;
             }
         }
 
         public readonly PlaceResult ToResult() =>
-            new(_candidates, _placed, _occupied, _insidePlayer, _unreachable, _outOfStock, _wet);
+            new(_candidates, _placed, _occupied, _insidePlayer, _unreachable, _outOfStock, _wet, _unpowered);
     }
 }

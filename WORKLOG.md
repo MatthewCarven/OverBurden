@@ -1,5 +1,55 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-20 (evening, later) — The fill takes the bite's rule: lands what the charge buys and stops
+
+*"1 and 3 as recommended"*. This is 3, the smaller, built first. M10c-3's decision 6 gave the
+bite a budget and the fill a cliff: *the fill at range is refused whole when the charge is under
+`64 × J`, so `Place` needs no bucket*. Half a wall is not a wall was the argument; on 2026-09-19
+the tier became the shape and the excavator's fill became 32,768 voxels at 50 J — **1.64 MJ or
+nothing, from a 3.6 MJ pack**, which is exactly the cliff decision 6 rejected for the bite,
+arrived at by the other verb. So `Place` has the bucket now.
+
+- **`PlaceResult.Unpowered`**, in `IsAccounted` and printed only when non-zero (so every recorded
+  `M6c:` line reads as before). `Bucket.Unpowered`, a tally, and `int voxelBudget = int.MaxValue`
+  on all eight brush entry points — `Voxel`, both `Chunk`s, `Cube`, `Slab`, `Ramp`, both
+  `Sphere`s — threaded by `ref` into the one `Put`. `Machine` is untouched: a body is a unit and
+  a half-placed one is nothing.
+- **The budget is asked last, after the stock.** `Carve.Take`'s rule, mirrored: a voxel that is
+  inside the player, unreachable, occupied, wet or out of stock never reaches the pack, and the
+  budget is spent after the write, so what it counts is what was written. A displacing fill that
+  lifted the voxel's water puts it straight back on the refusal, exactly as it does for the
+  stock. **The order between the stock and the budget is an identity except at one voxel** —
+  both running out at once — and that is the fixture that pins it (`StockIsAskedBeforeTheBudget…`,
+  stock 5, budget 5: the sixth reads `OutOfStock`, not `Unpowered`; the recipe that swaps them
+  fails it and nothing else).
+- **The controller's `VoxelBudget`** is `Pack.VoxelsAffordable(cost)`, unbounded free or under
+  `--nogate`, zero with a price and no pack; read at the click for the instant shapes and again
+  at the boundary for the deferred chunk and wet fills (a bite between the two may have spent
+  it). `CanAfford`/`RefuseUnpowered` are gone; `NoteUnpowered` counts a shape that stopped short
+  and prices its rest. A click with nothing to spend still runs the shape, places nothing and
+  takes the cooldown — a click is a click.
+- **The prints.** Once, until a shape lands whole: `M10: gate — the fill at range stopped short:
+  the rest of the shape needs 2,450 J and the pack holds 0 mJ (1 placement(s) stopped short, 49
+  voxel(s) unpowered, this session)`. The profile gains `fillgate  N voxel(s) unpowered over M
+  placement(s) that stopped short; paid X mJ at 50 J a voxel`, beside the bite's `gate`.
+- **The oracle moved and says the rule.** `--profile --speed=0 --place --entangle --stock=64000
+  --pack --charge=3200 --pitch=-15`: 64 placed across the first clicks and `paid 3,200 J` — the
+  identity `paid == placed × 50 J` to the joule — then a stop at 49 unpowered. At `--charge=1600`
+  it lands **32 of the first cell** and stops (`32 voxel(s) unpowered`, `paid 1,600 J`), where the
+  old arm refused the first whole. The bite's oracle (`removed 6, unpowered 57`; `6,840 over
+  120`), the a-3 oracle and the r6 control (2601 / 325 / 3446 at 411) are unchanged to the digit.
+- **Nine tests, two recipes, two caught.** `PlaceBudgetTests` (a budget of 40 lands 40; zero
+  lands nothing; no budget is the old behaviour to the voxel; occupied and the body cost nothing
+  — budget exactly the air half; the stock-before-budget fixture; every shape takes it — the
+  recipe for one `Put` site left without its `ref`; two clicks of 32 land one click of 64's
+  voxels) and the put-back in `PlaceDisplacingTests` (budget 48 over a wet bottom row: the four
+  unpowered wet voxels hold what they held). Recipe one, `voxelBudget--` removed: three fail.
+  Recipe two, the budget asked before the stock: one fails, the one written for it. Suite 1,662
+  → 1,671.
+
+The play question this answers is M10c's fourth (TODO): *is all-or-nothing on the fill right,
+beside the bite's running-down?* — no, and the excavator's chunk in two packs is two clicks now.
+
 ## 2026-09-20 (evening) — Clay ships, seeded off `P`: the first sealed rock a player can line a room with
 
 *"2 please"* — the clay question's lean, taken. `mods/overburden/materials/clay.json`: hardness

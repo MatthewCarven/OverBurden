@@ -366,7 +366,11 @@ public sealed class PlaceController(
 
     public int PackPanelOpens { get; private set; }
 
-    /// <summary>Placements at range refused whole for want of the shape's cost in the pack, and the voxels they would have offered.</summary>
+    /// <summary>
+    /// Placements at range that ran out of charge before the shape was full, and the voxels
+    /// they left unfilled for it (2026-09-20 — the bite's rule: the fill lands what the charge
+    /// buys and stops; until then a fill was refused whole under the shape's cost).
+    /// </summary>
     public int UnpoweredPlacements { get; private set; }
 
     public int VoxelsUnpowered { get; private set; }
@@ -374,26 +378,29 @@ public sealed class PlaceController(
     /// <summary>Millijoules the pack paid for placed voxels, over the session.</summary>
     public long MillijoulesPaid { get; private set; }
 
-    /// <summary>True on a frame a placement was refused for want of charge, for a one-off message.</summary>
+    /// <summary>True on a frame a placement stopped for want of charge, for a one-off message.</summary>
     public bool RefusedUnpoweredThisFrame { get; private set; }
 
-    /// <summary>What the last refused placement needed, in millijoules, for the message.</summary>
+    /// <summary>What the last stopped placement would have needed for the rest of its shape, in millijoules, for the message.</summary>
     public long LastRefusedNeedMillijoules { get; private set; }
 
     /// <summary>What a placement at range costs a voxel now: the tool's price unless the gate is off or the arm is the reach.</summary>
     private long FillCostMillijoules => Entangled && !PowerOff ? EntangledMillijoulesPerVoxel : 0;
 
     /// <summary>
-    /// Whether the pack can pay for <paramref name="voxels"/> at the fill's price — the
-    /// all-or-nothing rule (decision 6): a fill at range is refused whole under the shape's
-    /// cost rather than left as a partial cell, because half a wall is not a wall and the bite
-    /// already has the running-down. Free is always affordable.
+    /// How many voxels the pack can pay for at the fill's price — the shape's budget, the bite's
+    /// rule (2026-09-20, reversing M10c-3's decision 6: a fill at range was refused whole under
+    /// the shape's cost, which for the excavator was 1.64 MJ or nothing; it lands what the charge
+    /// buys and stops now, <c>PlaceResult.Unpowered</c> the rest). Unbounded when free; zero with
+    /// a price and no pack.
     /// </summary>
-    private bool CanAfford(int voxels, out long need)
+    private int VoxelBudget
     {
-        long cost = FillCostMillijoules;
-        need = cost * voxels;
-        return cost == 0 || (Pack is not null && Pack.VoxelsAffordable(cost) >= voxels);
+        get
+        {
+            long cost = FillCostMillijoules;
+            return cost == 0 ? int.MaxValue : Pack?.VoxelsAffordable(cost) ?? 0;
+        }
     }
 
     /// <summary>Pays the pack for what a placement put down, at the fill's price.</summary>
@@ -406,12 +413,18 @@ public sealed class PlaceController(
         }
     }
 
-    private void RefuseUnpowered(int voxels, long need)
+    /// <summary>Notes a shape that stopped short, with what the rest would have cost.</summary>
+    private void NoteUnpowered(PlaceResult result)
     {
+        if (result.Unpowered == 0)
+        {
+            return;
+        }
+
         UnpoweredPlacements++;
-        VoxelsUnpowered += voxels;
+        VoxelsUnpowered += result.Unpowered;
         RefusedUnpoweredThisFrame = true;
-        LastRefusedNeedMillijoules = need;
+        LastRefusedNeedMillijoules = FillCostMillijoules * result.Unpowered;
     }
 
     private bool _placingWasDown;
@@ -551,16 +564,12 @@ public sealed class PlaceController(
             return true;
         }
 
-        // M10c-3: the fill at range is all-or-nothing on the shape's cost — a voxel, a cell, a
-        // chunk — and refused whole under it. Asked before the shape runs, so nothing is placed
-        // that the pack then cannot pay for; the cooldown runs so a refused click is a click.
-        int offered = precise ? 1 : TakesWholeChunk ? VoxelConstants.ChunkVolume : BrushCell.Voxels * BrushCell.Voxels * BrushCell.Voxels;
-        if (!CanAfford(offered, out long need))
-        {
-            RefuseUnpowered(offered, need);
-            _cooldown = CooldownForShape(precise);
-            return false;
-        }
+        // The fill at range takes the bite's rule (2026-09-20): the shape runs under a voxel
+        // budget — what the pack can pay for at the tool's price — lands what the budget buys
+        // and reports the rest Unpowered, the pack paying for exactly what landed. A click with
+        // nothing to spend still runs the shape, places nothing and takes the cooldown: a click
+        // is a click.
+        int budget = VoxelBudget;
 
         if (!precise && TakesWholeChunk && DeferChunkFills)
         {
@@ -575,17 +584,17 @@ public sealed class PlaceController(
         }
 
         PlaceResult result = precise
-            ? Place.Voxel(pipeline, materials, TargetVoxel, MaterialId, body, inventory)
+            ? Place.Voxel(pipeline, materials, TargetVoxel, MaterialId, body, inventory, voxelBudget: budget)
             : TakesWholeChunk
-                ? Place.Chunk(pipeline, materials, TargetChunk, MaterialId, body, inventory)
+                ? Place.Chunk(pipeline, materials, TargetChunk, MaterialId, body, inventory, voxelBudget: budget)
                 : Brush switch
         {
-            BrushShape.Cube => Place.Cube(pipeline, materials, TargetCell, MaterialId, body, inventory),
-            BrushShape.Slab => Place.Slab(pipeline, materials, TargetCell, MaterialId, body, inventory),
+            BrushShape.Cube => Place.Cube(pipeline, materials, TargetCell, MaterialId, body, inventory, voxelBudget: budget),
+            BrushShape.Slab => Place.Slab(pipeline, materials, TargetCell, MaterialId, body, inventory, voxelBudget: budget),
             BrushShape.Ramp =>
-                Place.Ramp(pipeline, materials, TargetCell, MaterialId, Facing, body, inventory),
+                Place.Ramp(pipeline, materials, TargetCell, MaterialId, Facing, body, inventory, voxelBudget: budget),
             _ => Place.Sphere(
-                pipeline, materials, TargetCell, SphereRadiusMetres, MaterialId, body, inventory),
+                pipeline, materials, TargetCell, SphereRadiusMetres, MaterialId, body, inventory, voxelBudget: budget),
         };
 
         _cooldown = CooldownForShape(precise);
@@ -637,30 +646,25 @@ public sealed class PlaceController(
         long lifted = 0, returned = 0, displaced = 0;
         foreach (PendingFill fill in _pendingWetFills)
         {
-            // Asked again at the boundary for what is still to place — the wet count — because a
-            // bite between the click and the boundary may have spent what the click was
-            // budgeted against.
-            if (!CanAfford(fill.Wet, out long need))
-            {
-                RefuseUnpowered(fill.Wet, need);
-                continue;
-            }
-
+            // Budgeted again at the boundary, because a bite between the click and the boundary
+            // may have spent what the click had; the shape lands what is left and stops.
+            int budget = VoxelBudget;
             var displacing = new FillWater(Water);
             PlaceResult result = fill.Shape switch
             {
-                FillShape.Voxel => Place.Voxel(pipeline, materials, fill.Voxel, fill.MaterialId, body, inventory, displacing),
-                FillShape.Chunk => Place.Chunk(pipeline, materials, fill.Chunk, fill.MaterialId, body, inventory, displacing),
-                FillShape.Cube => Place.Cube(pipeline, materials, fill.Cell, fill.MaterialId, body, inventory, displacing),
-                FillShape.Slab => Place.Slab(pipeline, materials, fill.Cell, fill.MaterialId, body, inventory, displacing),
-                FillShape.Ramp => Place.Ramp(pipeline, materials, fill.Cell, fill.MaterialId, fill.Facing, body, inventory, displacing),
-                _ => Place.Sphere(pipeline, materials, fill.Cell, fill.RadiusMetres, fill.MaterialId, body, inventory, displacing),
+                FillShape.Voxel => Place.Voxel(pipeline, materials, fill.Voxel, fill.MaterialId, body, inventory, displacing, budget),
+                FillShape.Chunk => Place.Chunk(pipeline, materials, fill.Chunk, fill.MaterialId, body, inventory, displacing, budget),
+                FillShape.Cube => Place.Cube(pipeline, materials, fill.Cell, fill.MaterialId, body, inventory, displacing, budget),
+                FillShape.Slab => Place.Slab(pipeline, materials, fill.Cell, fill.MaterialId, body, inventory, displacing, budget),
+                FillShape.Ramp => Place.Ramp(pipeline, materials, fill.Cell, fill.MaterialId, fill.Facing, body, inventory, displacing, budget),
+                _ => Place.Sphere(pipeline, materials, fill.Cell, fill.RadiusMetres, fill.MaterialId, body, inventory, displacing, budget),
             };
 
             // Only what landed is recorded: the dry part was placed and tallied at the click and
             // reads Occupied now, and counting that again would inflate the session's occupied.
             VoxelsPlaced += result.Placed;
             WetVoxelsFilled += result.Placed;
+            NoteUnpowered(result);
             PayFor(result);
             FillLifted += displacing.Lifted;
             FillReturned += displacing.Returned;
@@ -671,7 +675,7 @@ public sealed class PlaceController(
             sum = new PlaceResult(
                 sum.Candidates + result.Candidates, sum.Placed + result.Placed, sum.Occupied + result.Occupied,
                 sum.InsidePlayer + result.InsidePlayer, sum.Unreachable + result.Unreachable,
-                sum.OutOfStock + result.OutOfStock, sum.Wet + result.Wet);
+                sum.OutOfStock + result.OutOfStock, sum.Wet + result.Wet, sum.Unpowered + result.Unpowered);
         }
 
         _pendingWetFills.Clear();
@@ -694,19 +698,15 @@ public sealed class PlaceController(
         var sum = default(PlaceResult);
         foreach ((ChunkPos chunk, int material) in _pendingChunkFills)
         {
-            // Asked again at the boundary, because a bite between the click and the boundary
-            // may have spent what the click was budgeted against — the fill pays exactly what
-            // it places or places nothing.
-            if (!CanAfford(VoxelConstants.ChunkVolume, out long need))
-            {
-                RefuseUnpowered(VoxelConstants.ChunkVolume, need);
-                continue;
-            }
+            // Budgeted at the boundary, not at the click, because a bite between the two may have
+            // spent what the click had — the fill pays exactly what it places and stops where the
+            // charge ends (the excavator's chunk is 1.64 MJ, two a lead-acid pack).
+            int budget = VoxelBudget;
 
             // With the water in hand since 2026-09-19: a chunk fill at the boundary is already
             // where the grid is free, so its wet voxels are filled displacing rather than left.
             FillWater? displacing = Water is null ? null : new FillWater(Water);
-            PlaceResult result = Place.Chunk(pipeline, materials, chunk, material, body, inventory, displacing);
+            PlaceResult result = Place.Chunk(pipeline, materials, chunk, material, body, inventory, displacing, budget);
             Placements++;
             ChunkPlacements++;
             Record(result);
@@ -720,7 +720,7 @@ public sealed class PlaceController(
             sum = new PlaceResult(
                 sum.Candidates + result.Candidates, sum.Placed + result.Placed, sum.Occupied + result.Occupied,
                 sum.InsidePlayer + result.InsidePlayer, sum.Unreachable + result.Unreachable,
-                sum.OutOfStock + result.OutOfStock, sum.Wet + result.Wet);
+                sum.OutOfStock + result.OutOfStock, sum.Wet + result.Wet, sum.Unpowered + result.Unpowered);
         }
 
         _pendingChunkFills.Clear();
@@ -776,6 +776,7 @@ public sealed class PlaceController(
         VoxelsOutOfStock += result.OutOfStock;
         VoxelsWet += result.Wet;
         RanOutThisFrame = result.OutOfStock > 0;
+        NoteUnpowered(result);
 
         if (!result.Complete)
         {
