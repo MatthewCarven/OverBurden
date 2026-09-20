@@ -1,5 +1,30 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-20 (afternoon) — The courtyard's pool is the lake outside: M8b-3a's pinned trigger fires
+
+*"i am looking at a pool of water in a courtyard but the water sheet appears to have become
+attached to the one outside? … I want to limit this to sheets without rock/dirt or similar
+between them"*. Not the sheet solve — it joins only through holdable cells at one Y, and a wall
+is not one. It is Tier A, twice, on rules that were pinned with this exact trigger. **Tier A has
+no representation of a walled patch of catchment** (M8-PLAN, M8b-3a's built section): the
+watershed is analysed on the seed heights and edits do not change it (M7's locked decision), so a
+courtyard on grass inside a basin is, to Tier A, part of that basin. Two things follow. The
+hand-off reads the *seed* plane: Tier B water resting on the courtyard's grass is handed to the
+basin under it — *a tank whose floor is the natural ground leaks into the basin, exactly as rain
+inside its walls would … revisit trigger: the first play that builds one and reads the leak as
+wrong* — so the pool drains into the lake outside. And once the outside lake stands above the
+courtyard floor (Tier A at 483.7% of the window's capacity on this world, 382 of 383 basins
+wet), the lake's plane draws through the walls at the outside level (`WaterSurface` sweeps seed
+heights against the solved level; the depth test clips it only where the *ground* is above the
+level) and the courtyard's air is inside the lake per `LakeCeiling` (`seed < Y ≤ floor(table)`,
+the seed surface by design), so anything poured there is *found inside a lake* and handed whole.
+That is "attached". The trigger has fired; the decision is his and is written up in TODO under
+M8 — the shape that matches his words is *the player's material encloses, nature's does not*:
+a flood at the plane's Y from the cell, stopped only by placed solid voxels, natural rock walked
+through (a natural pit below the lake is the lake's, by Tier A's own model), open if it reaches
+the bound; one predicate for the hand-off and the ceiling, cached per column, invalidated by an
+edit in its box. Nothing built.
+
 ## 2026-09-20 (small hours) — A fluid row that named an empty awake cell holed a chunk for good
 
 *"i think i may have upset the chunk loader or the godot sync function in the 2nd screenshot"* —

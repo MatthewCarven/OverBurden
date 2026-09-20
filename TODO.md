@@ -5713,6 +5713,37 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
             Levers, unpriced: level a sheet at most every N boundaries while it is being fed
             (the settle's own wait, per sheet rather than per chunk); cap a pass's cells and carry
             the rest to the next; a smaller share for very large sheets.
+      - [ ] **A walled courtyard on grass is the lake outside — Matthew, 2026-09-20: *"the water
+            sheet appears to have become attached to the one outside … limit this to sheets
+            without rock/dirt or similar between them"*.** M8b-3a's pinned trigger, fired: the
+            hand-off reads the seed plane (a tank on natural ground leaks into its basin), and
+            `LakeCeiling` and `WaterSurface` read seed heights against the lake's level, so a
+            courtyard below the outside level is inside the lake — its air unholdable, its
+            pour handed whole, the plane drawn through the walls. Not the sheet solve. **His
+            decision, recommended as arm B**:
+            - A. *A placed floor holds* — already true; the rule becomes "floor what you want to
+              keep". No code. Does not match his words (walls, not floors), and the lake's plane
+              still draws through the walls.
+            - B. *The player's material encloses; nature's does not.* `Enclosure`: at the plane's
+              Y, a 4-neighbour flood from the cell over the loaded voxels in which only a placed
+              solid voxel (differs from the seed, not air) is an obstacle and natural rock is
+              walked through; open if it reaches the bound (the loaded box's edge, or 64 m);
+              enclosed otherwise. One predicate, three readers: the hand-off (an enclosed rested
+              cell is not handed), `LakeCeiling` (an enclosed column has no band), `WaterSurface`
+              (an enclosed sample draws no plane — or the plane only where the ring's dry
+              sample is not enclosed). Cached per (x, z, Y) with the flood's whole visited set
+              sharing the answer; invalidated by any edit inside the region's box (the pipeline's
+              edit hook, per chunk). Costs stated: a natural pit below the lake stays the lake's
+              (by Tier A's own model — it is underwater); three placed walls and a hillside read
+              as open, because the hill is nature's and the flood walks through it (the fourth
+              wall is the fix, a rule a player can learn); an enclosure larger than the bound
+              reads as open; a wall with a gap under it on stepped ground reads as open (the
+              flood finds the gap — and so does the water). Tests: a courtyard on grass keeps its
+              pour with the lake above it; a natural pit inside the lake is still handed whole;
+              a wall taken down by a bite re-opens it at the next boundary; the r6 control and
+              the a-3 oracle to the digit (no placed voxels, so no flood ever stops).
+            - C. Tier A reads the edited heights — rejected: M7's "no incremental watershed",
+              and a 2 m sample cannot see a 0.25 m wall.
       - [ ] **Rain drops Tier B cells — Matthew, 2026-09-19: *"rain to randomly drop tier b
             cells from the sky too please … not many but just to make you think about the water
             runoff"*.** Built the same evening: `--rainshare=<percent>` (2, an estimate; 0 off),
