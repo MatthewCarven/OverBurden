@@ -958,7 +958,19 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
-**Pick up here (2026-09-20). The fresh world's first night and day — six things built on his
+**Pick up here (2026-09-21, small hours). Session closed with the three decisions built and the
+memory crash fixed; nothing waits on his word. Next, in order: (1) read the next play's log —
+`grep -a` it, count `ERROR` first, then the `memory` term on the `M2c:` line (flat working set is
+the pass), then `enclosed … region(s) / … evicted` on the `M8b:` line, then the three play checks in
+TODO under M8 (the courtyard's fourth wall, the clay-lined wall's `seep` faces, the excavator's
+fill stopping mid-chunk) — one sentence back on each; (2) M10d's play, still the next milestone
+thing, its recipe under M10d in TODO. Two levers recorded and not built, both from the crash log:
+the Tier B surface install is 40 MiB and 100+ ms a rebuild four times a second on a 50 ML world
+(TODO under M8b-4b, older, now with a number), and a `boundary` waited on 330 of 1,005 ticks
+there. `../Claude-Notebook.md` (the parent folder's) has this environment's gotchas — read its
+Code-tab section first. The paragraph below is the 20th's state, kept for the reasoning.**
+
+**Earlier (2026-09-20). The fresh world's first night and day — six things built on his
 word, two decisions waiting on it, and M10d's play still the next thing.** Built 2026-09-19/20,
 each with its oracle in the worklog: *the machines are near* (`MachineTick.NearColumns` →
 `FluidSimulation.SetNearColumns`; a far outlet's mound was visited once in ~260 ticks and its
