@@ -150,6 +150,12 @@ public sealed class FluidSurfaceMesher
     private const int NoPrev = int.MinValue;
     private readonly bool[] _layerHasSurface = new bool[N];
     private readonly bool[] _layerWet = new bool[N];
+
+    // Cells of each layer drawn full — water above them, or a lake's. A layer with all 1,024 has
+    // no side anywhere inside it (every neighbour is drawn as high), so the sides pass reads only
+    // its perimeter row against the panels beside; on a flooded mine that is most layers, and it
+    // was half the tick's worker wall (650 ms of 1,200 on the played world, 2026-09-21).
+    private readonly int[] _layerFull = new int[N];
     private readonly int[] _depthCarry = new int[LayerCells];
 
     // The previous build's surface, per panel, as parallel arrays of local index and amount in
@@ -723,6 +729,7 @@ public sealed class FluidSurfaceMesher
         VoxelPos origin = chunk.OriginVoxel;
         Array.Clear(_layerHasSurface);
         Array.Clear(_layerWet);
+        Array.Clear(_layerFull);
 
         _previous.TryGetValue(chunk, out _prevSame);
         _previous.TryGetValue(chunk.Offset(0, 1, 0), out _prevAbove);
@@ -778,7 +785,11 @@ public sealed class FluidSurfaceMesher
                     }
 
                     _drawnAmount[index] = (ushort)(above > 0 ? Cap : amount);
-                    if (above == 0)
+                    if (above > 0)
+                    {
+                        _layerFull[ly]++;
+                    }
+                    else
                     {
                         int prev = PreviousRelativeInPass(index, ly);
                         current.Add(index, amount);
@@ -907,7 +918,10 @@ public sealed class FluidSurfaceMesher
     private void SidesAlongX(FluidGrid grid, IFluidTerrain terrain, VoxelPos origin, ushort[] cells, int ly, int dz)
     {
         int y = origin.Y + ly;
-        for (int lz = 0; lz < N; lz++)
+        bool full = _layerFull[ly] == LayerCells;
+        int lzFirst = full ? (dz < 0 ? 0 : N - 1) : 0;
+        int lzLast = full ? lzFirst : N - 1;
+        for (int lz = lzFirst; lz <= lzLast; lz++)
         {
             int nz = lz + dz;
             bool inside = (uint)nz < N;
@@ -923,9 +937,15 @@ public sealed class FluidSurfaceMesher
                     int index = VoxelPos.Index(lx, ly, lz);
                     if (cells[index] > 0)
                     {
-                        int x = origin.X + lx;
-                        var neighbour = new VoxelPos(x, y, z + dz);
-                        key = SideBetween(grid, terrain, cells, index, inside ? index + (dz * StrideZ) : -1, new VoxelPos(x, y, z), neighbour);
+                        // The inside of a body first, without a call: a wet neighbour drawn at
+                        // least as high shows no face, and that is nearly every cell.
+                        int neighbourIndex = inside ? index + (dz * StrideZ) : -1;
+                        if (neighbourIndex < 0 || cells[neighbourIndex] == 0 || _drawnAmount[neighbourIndex] < _drawnAmount[index])
+                        {
+                            int x = origin.X + lx;
+                            var neighbour = new VoxelPos(x, y, z + dz);
+                            key = SideBetween(grid, terrain, cells, index, neighbourIndex, new VoxelPos(x, y, z), neighbour);
+                        }
                     }
                 }
 
@@ -951,7 +971,10 @@ public sealed class FluidSurfaceMesher
     private void SidesAlongZ(FluidGrid grid, IFluidTerrain terrain, VoxelPos origin, ushort[] cells, int ly, int dx)
     {
         int y = origin.Y + ly;
-        for (int lx = 0; lx < N; lx++)
+        bool full = _layerFull[ly] == LayerCells;
+        int lxFirst = full ? (dx < 0 ? 0 : N - 1) : 0;
+        int lxLast = full ? lxFirst : N - 1;
+        for (int lx = lxFirst; lx <= lxLast; lx++)
         {
             int nx = lx + dx;
             bool inside = (uint)nx < N;
@@ -967,9 +990,13 @@ public sealed class FluidSurfaceMesher
                     int index = VoxelPos.Index(lx, ly, lz);
                     if (cells[index] > 0)
                     {
-                        int z = origin.Z + lz;
-                        var neighbour = new VoxelPos(x + dx, y, z);
-                        key = SideBetween(grid, terrain, cells, index, inside ? index + (dx * StrideX) : -1, new VoxelPos(x, y, z), neighbour);
+                        int neighbourIndex = inside ? index + (dx * StrideX) : -1;
+                        if (neighbourIndex < 0 || cells[neighbourIndex] == 0 || _drawnAmount[neighbourIndex] < _drawnAmount[index])
+                        {
+                            int z = origin.Z + lz;
+                            var neighbour = new VoxelPos(x + dx, y, z);
+                            key = SideBetween(grid, terrain, cells, index, neighbourIndex, new VoxelPos(x, y, z), neighbour);
+                        }
                     }
                 }
 

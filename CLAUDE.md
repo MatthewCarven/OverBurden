@@ -218,8 +218,14 @@ surface they lerp from moved** — the lever M8b-4b recorded with the crash log'
 The `M8b:` line's `surface` term and the profile's `fluidsurf` line print quads `over N panel(s)`,
 tops / sides / bottoms / KiB of the whole surface, `last rebuild N panel(s) (own, new, neighbour,
 column, lake, previous; KiB) and N freed` with mesh + install ms, and `install mean / max over N
-rebuild(s)`. On the bench (`--surface`) a lake at rest went 837 KiB / 57 ms a build to 0 / 0.09;
-a flood rebuilds every panel it moves through and costs what it did.
+rebuild(s)`. On the bench (`--surface`) a lake at rest went 837 KiB / 40 ms a build to 0 / 0.09;
+a flood rebuilds every panel it moves through and costs what it did. **The walk's sides pass reads
+only a full layer's perimeter** (the same evening — the walk was 650 ms of a 1,200 ms tick on the
+played world, ~265 after). **`H` holds the water** — no tick begins until `H` again, a state
+stays one state — and **`Alt+H` runs a full collection and prints what survived it**; the `M2c:`
+line's `managed` is garbage included (a snapshot read 159 MB live in a 971 MB heap) and `live …
+at the last gen2` is the number a leak moves. `dotnet-gcdump collect -p <pid>` is the heap by
+type, one second on the running game.
 
 Measure **what a drip does to the automaton with nothing else awake** — the bodies number M8c's
 pass asked for, which the game's `awake at seeping boundaries` cannot give on a played world
@@ -966,19 +972,19 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
-**Pick up here (2026-09-21, afternoon). The Tier B surface install is per panel — built, tested
-(suite 1,702) and benched while Matthew played, on his word (*"the Tier B surface install, i'm
-playtesting now"*), so the Game binary he was running was never rebuilt: the Game project compiled
-clean into the scratchpad only. First thing next session, with the game closed: `dotnet build
-Overburden.Game`, the r6 control (headless builds no surface, so it must read to the digit), then
-the owed measurement in TODO under M10d — windowed on a copy of `worlds/retired-flooded-2026-09-19/`,
-the default against `--fluidsurface=full`, reading the `surface` term's `last rebuild N panel(s)`
-and `install mean / max` and the `M2c:` line's working set. If most of the 969 panels still
-rebuild every tick, the cause is the solve levelling whole sheets a boundary and the lever is that
-item, not this one. Read the 2026-09-21 (afternoon) worklog entry — the settle rule took three
-tries and the two wrong ones are in `FluidSurfaceMesher`'s remarks. Then the paragraph below's
-list, unchanged: the next play's log, and M10d's play. The paragraph below is the small hours'
-state, kept for the reasoning.**
+**Pick up here (2026-09-21, evening). The Tier B surface is per panel and its walk reads only a
+full layer's perimeter — built, tested (suite 1,703), benched, and measured on a copy of his
+`default` once he quit: the walk was half the tick on that world (650 of 1,200 ms) and is ~265
+now; the memory climb of his 85-minute play was garbage, not a leak (`dotnet-gcdump`: 159 MB live
+in a 971 MB heap), and the `M2c:` line prints `live` now. `H` holds the water and `Alt+H` reads
+the heap, on his offer. The Game is built and the r6 control is to the digit. Owed from his next
+play, not a probe: the settled state's `last rebuild N panel(s)` and `install mean` on the `M8b:`
+line and the `live` term's slope (TODO under M10d), and his one sentence each on the courtyard's
+fourth wall and the clay-lined wall. Read the 2026-09-21 (afternoon) worklog entry — the settle
+rule took three tries and the two wrong ones are in `FluidSurfaceMesher`'s remarks. The rest of
+the tick is the sheet solve (6.5 billion cells visited over that play, the lake ceiling waking 12.1
+million by rise) — the M10d lever with its number; M10d's play is still the next milestone thing.
+The paragraph below is the small hours' state, kept for the reasoning.**
 
 **Earlier (2026-09-21, small hours). Session closed with the three decisions built and the
 memory crash fixed; nothing waits on his word. Next, in order: (1) read the next play's log —

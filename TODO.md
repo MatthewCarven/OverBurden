@@ -5731,20 +5731,17 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
             **Owed with the surface A/B below**: the working set's slope on the new build, and
             whether the native side (working set − managed − static, ~1.2 GB at the snapshot)
             falls with the churn or is the renderer's own.
-      - [ ] **The Tier B surface install on a played world — measure it (2026-09-21).** The
-            per-panel update is built and benched (the 2026-09-21 worklog entry) and Matthew was
-            playing when it landed, so the one number it exists for is owed: windowed, on a copy
-            of `worlds/retired-flooded-2026-09-19/` (969 panels, 191 machines, the world the
-            40 MiB / 100+ ms figure came from), 60 s standing with `--fluidnear=2 --fluidjob=1`,
-            the default against `--fluidsurface=full` (the pre-2026-09-21 arm, every panel every
-            tick). Read the `M8b:` line's `surface` term — `last rebuild N panel(s) (own …,
-            neighbour …, previous …; KiB)` and `install … mean / … max over … rebuild(s)` — and
-            the `M2c:` line's working set: the pass is the install's mean falling by the share
-            of panels at rest, the managed heap flat where it climbed 4–6 MiB/s, and the picture
-            the same from the pumps' mounds. **If most of the 969 panels still rebuild every tick
-            the cause is the solve levelling whole sheets a boundary** (the item below), and the
-            lever is there, not here. The bench figures: a lake at rest 837 KiB / 57 ms → 0 / 0.09;
-            floods 8/8, 4/4, 27/27 panels — what moves costs what it did.
+      - [x] **The Tier B surface install on a played world — measured 2026-09-21 (evening) on a
+            copy of `default`, 75 s from the open, both arms.** The open wakes everything, so
+            the window shows the flood, not the rest: full 457/457 panels, default ~316/453,
+            install 50.6 → 44.7 ms mean. **The finding was the walk: 650 ms of a 1,200 ms
+            worker wall**, the sides pass over every held cell; cut to ~265 ms by the in-panel
+            test inline and the full-layer perimeter shortcut (the worklog entry). Still owed,
+            from his next play rather than a probe: **the settled state's `last rebuild N
+            panel(s)` and `install mean`** on the `M8b:` line, and the `live` term's slope —
+            the pass is a rebuilt count near the moving machines' panels and an install mean in
+            single-digit ms. If most panels still rebuild every tick at rest, the cause is the
+            solve levelling whole sheets a boundary (the item below), and the lever is there.
       - [ ] **The solve's pass on a 34 ML world with 191 machines is 1.6 s mean, 3.1 s longest**
             (2026-09-20, 64 pumps over 127 outlets, 2.25 M cells, 962k deferred, 4,282 of 4,295
             boundaries waited) — with the seeds bounded (66k a pass), the cost is the sheets it

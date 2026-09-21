@@ -727,6 +727,12 @@ public partial class Main : Node3D
 
     private bool _seedKeyHeld;
 
+    // H holds the water (2026-09-21, Matthew's offer of "a freeze function to stop at a specific
+    // state"): no tick begins while it is held, so a state can be looked at, screenshotted or
+    // heap-snapshotted with nothing moving. Alt+H is the heap read.
+    private bool _holdKeyHeld;
+    private bool _fluidHeld;
+
     private long _machineDrainCalls;
     private double _machineDrainMillisSum, _machineDrainMillisMax;
 
@@ -3788,6 +3794,54 @@ public partial class Main : Node3D
     }
 
     /// <summary>
+    /// <c>H</c> holds the water: no Tier B tick begins until <c>H</c> again, and every pour, edit
+    /// and hand-off that waits for a boundary waits with it, so what is on the screen is one
+    /// state and stays one. <c>Alt+H</c> reads the heap: a full collection, then the memory line
+    /// with what survived it — the number a leak moves — printed at once rather than at the next
+    /// report. Both debug binds, both printed; neither touches the world or any identity.
+    /// </summary>
+    private void HoldWaterIfPressed()
+    {
+        if (_camera is null || !_camera.MouseCaptured)
+        {
+            return;
+        }
+
+        bool pressed = Input.IsKeyPressed(Key.H);
+        bool edge = pressed && !_holdKeyHeld;
+        _holdKeyHeld = pressed;
+        if (!edge)
+        {
+            return;
+        }
+
+        if (Input.IsKeyPressed(Key.Alt))
+        {
+            long before = Stopwatch.GetTimestamp();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            double millis = Milliseconds(before, Stopwatch.GetTimestamp());
+            GD.Print(
+                $"M2c: Alt+H — a full collection in {millis:F1} ms: live {GC.GetTotalMemory(false) / (1024.0 * 1024.0):F0} MiB managed, "
+                + $"{OS.GetStaticMemoryUsage() / (1024.0 * 1024.0):F0} MiB static, {System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 / (1024.0 * 1024.0):F0} MiB working set, gen2 {GC.CollectionCount(2)}"
+                + (_fluid is null ? "" : $"; the automaton holds {_fluid.TotalMillilitres / 1000.0:N0} L, {_fluid.ActiveCellCount:N0} active"));
+            return;
+        }
+
+        if (_fluid is null)
+        {
+            GD.Print("M8b: H — no water to hold (--nowater)");
+            return;
+        }
+
+        _fluidHeld = !_fluidHeld;
+        GD.Print(_fluidHeld
+            ? $"M8b: H — the water is held at tick {_fluid.Ticks:N0}: no tick begins until H again ({(_fluid.GridOwnedByTick ? "the tick in flight lands first" : "nothing in flight")})"
+            : $"M8b: H — the water is released at tick {_fluid.Ticks:N0}");
+    }
+
+    /// <summary>
     /// <c>P</c> puts a relay pump and a relay outlet in the inventory — the debug bind M10-PLAN
     /// decision 7 named beside <c>R</c>, retired when M10g's recipe exists.
     /// </summary>
@@ -4535,6 +4589,7 @@ public partial class Main : Node3D
         PlaceDebugLamp();
         RelayWater();
         SeedMachines();
+        HoldWaterIfPressed();
 
         if (_highlight is null)
         {
@@ -5621,7 +5676,7 @@ public partial class Main : Node3D
         }
 
         _fluidSinceTick += delta;
-        bool begin = !_fluid.GridOwnedByTick && _fluidSinceTick >= FluidTickSeconds && !_fluidJobFaulted;
+        bool begin = !_fluid.GridOwnedByTick && _fluidSinceTick >= FluidTickSeconds && !_fluidJobFaulted && !_fluidHeld;
         long boundaryStarted = Stopwatch.GetTimestamp();
         if (begin)
         {

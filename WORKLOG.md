@@ -98,6 +98,31 @@ fill stopped mid-chunk (`unpowered 12603 of 32768`), and the sheet solve visited
 over the session with the lake ceiling waking 12.1 million by rise — the M10d lever's number,
 bigger.
 
+**The A/B on a copy of `default`, once he had quit (windowed, 75 s from the open, `--fluidnear=2
+--fluidjob=1`), and the finding it turned up.** The open wakes the whole 63 ML, so both arms are
+rebuilding most panels in that window — `--fluidsurface=full` 457 of 457, the default ~316 of
+453 (own 137, previous 196) — and the install went only 50.6 → 44.7 ms mean. **But the split
+inside the tick was the number: the surface walk was 650 ms of a 1,200 ms worker wall** — half
+the tick, on the worker, and the reason the tick ran nearer 1 Hz than 2 on this world. The cost
+is the sides pass: four `SideBetween` calls for every held cell, 2.8 M of them, nearly all full
+interior cells that cannot show a face. Two cuts, both exact: the in-panel test inline before
+the call (a wet neighbour drawn at least as high shows no face), and for a layer whose 1,024
+cells are all drawn full — most layers of a flooded mine — only its perimeter row against the
+panels beside. A test counts side faces by the definition over a full panel, a half-full one, a
+holed sheet and a column and holds the mesh to it face for face (and fails when the perimeter
+row is moved one in). **The walk at the open went 650 → ~265 ms** for the panels that moved, the
+bench's roof-open row 16.5 → 11.4 ms and the lake at rest 57 → 40 (its fixture is one wet layer,
+so the full-layer cut does not fire there). The rest of the ~1 s tick is visits and the solve —
+M10d's lever — and the settled state's `last rebuild` count is read off his next play. Suite
+1,702 → 1,703; the r6 control to the digit.
+
+**And on his offer — *"drop in any access to memory or objects you deem, even a freeze function
+to stop at a specific state"* — two binds.** `H` holds the water: no Tier B tick begins until `H`
+again (a tick in flight lands first, printed), so a state stays one state for a screenshot or a
+snapshot; `Alt+H` runs a full collection and prints what survived it with the working set and
+the automaton's litres and active count, at once rather than at the next report. Both printed,
+neither in any identity.
+
 ## 2026-09-21 (small hours) — The first play ran out of memory: the enclosure's cache was unbounded
 
 *"um did I run out of memory?"* — the process did: four `ERROR: Parameter "mem" is null` from

@@ -441,6 +441,89 @@ public sealed class FluidSurfaceIncrementalTests
         Assert.Equal(new FluidSurfaceMesher().Build(grid, floor).Positions, whole.Positions);
     }
 
+    // ----- the sides pass's shortcuts against the definition -----
+
+    [Fact]
+    public void SidesMatchTheDefinitionFaceForFaceThroughFullLayers()
+    {
+        // A full panel (every cell drawn full — the shortcut reads only its perimeter rows), a
+        // neighbour full to a level with a partial top, a thin sheet with a hole beside them and
+        // a column standing alone, tops unmerged so a surface cell is drawn at its own amount.
+        // The oracle counts cell-faces by the definition — a wet cell drawn higher than a
+        // sideways neighbour that is wet or air — and the mesh's side quads, summed by their
+        // length in cells, must equal it.
+        var grid = new FluidGrid();
+        for (int lx = 0; lx < N; lx++)
+        {
+            for (int lz = 0; lz < N; lz++)
+            {
+                for (int ly = 0; ly < N; ly++)
+                {
+                    grid.Fill(new VoxelPos(lx, ly, lz), Cap);
+                    if (ly < 16) grid.Fill(new VoxelPos(N + lx, ly, lz), Cap);
+                }
+
+                grid.Fill(new VoxelPos(N + lx, 16, lz), 7_000 + ((lx + lz) & 3) * 500);
+                if (lx != 5 || lz != 5) grid.Fill(new VoxelPos(lx, 2, N + lz), 3_000);
+                if (lx != 5 || lz != 5) grid.Fill(new VoxelPos(lx, 1, N + lz), Cap);
+                if (lx != 5 || lz != 5) grid.Fill(new VoxelPos(lx, 0, N + lz), Cap);
+            }
+        }
+
+        for (int y = 0; y < 40; y++)
+        {
+            grid.Fill(new VoxelPos(-8, y, -8), Cap);
+        }
+
+        var mesher = new FluidSurfaceMesher { Merge = false };
+        FluidSurfaceMesh mesh = mesher.Build(grid, new PredicateTerrain(_ => true));
+
+        int Drawn(VoxelPos c)
+        {
+            int amount = grid.AmountAt(c);
+            return amount == 0 ? 0 : grid.AmountAt(c.Offset(0, 1, 0)) > 0 ? Cap : amount;
+        }
+
+        int expected = 0;
+        foreach (VoxelPos cell in grid.HeldCells())
+        {
+            int a = Drawn(cell);
+            foreach ((int dx, int dz) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+            {
+                if (a > Drawn(cell.Offset(dx, 0, dz)))
+                {
+                    expected++;
+                }
+            }
+        }
+
+        int faces = 0;
+        for (int q = 0; q < mesh.QuadCount; q++)
+        {
+            int v = mesh.Indices[q * 6];
+            float nx = mesh.Normals[v * 3], nz = mesh.Normals[(v * 3) + 2];
+            if (nx == 0f && nz == 0f)
+            {
+                continue;
+            }
+
+            float min = float.MaxValue, max = float.MinValue;
+            for (int i = 0; i < 4; i++)
+            {
+                float along = nx != 0f ? mesh.Positions[((v + i) * 3) + 2] : mesh.Positions[(v + i) * 3];
+                min = Math.Min(min, along);
+                max = Math.Max(max, along);
+            }
+
+            faces += (int)MathF.Round((max - min) / VoxelConstants.VoxelSize);
+        }
+
+        Assert.True(expected > 5_000, $"the fixture has only {expected} side faces");
+        Assert.Equal(expected, faces);
+
+    }
+
+    // ----- helpers -----
     // ----- helpers -----
 
     private static void FillSheet(FluidGrid grid, int from, int to, int y, int millilitres)
