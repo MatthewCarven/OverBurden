@@ -1,5 +1,84 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-21 (afternoon) — The Tier B surface is per panel, rebuilt only where something moved
+
+*"the Tier B surface install, i'm playtesting now thanks Claude"* — the lever recorded at
+M8b-4b with the crash log's number (40 MiB a rebuild, 100+ ms, four times a second on a 50 ML
+world), built while he played, so everything here is Core, the bench and a Game build compiled
+into the scratchpad; the Game binary he is running is untouched and **the played-world figure is
+owed** (TODO under M10d — the windowed A/B against `--fluidsurface=full` on a copy of the flooded
+world). What it was: `FluidSurfaceMesher.Build` walked every held panel every tick and handed back
+one mesh for the whole wet surface, and `FluidSurface.Install` marshalled all of it into one
+`ArrayMesh` — whether or not anything had moved, which on a world of resting lakes is nearly
+nothing, and the garbage the crash log's managed heap was climbing on.
+
+**The mesh is one `ArrayMesh` an instance per wet panel now, and `FluidSurfaceMesher.Update`
+hands back only the panels it rebuilt and the ones that emptied.** A panel is rebuilt when
+something its build reads has moved, and nothing else:
+
+- **its own cells** — `FluidGrid` gives every panel a grid-wide stamp, moved by `Write` on a
+  change of value and by `Touch`; `Disturb` touches the panel of every held cell it wakes (rock
+  placed beside resting water: the visit finds nothing to move and writes nothing, and the face
+  against the new rock would otherwise stay), `ChunkArrived` touches the chunk and the neighbours
+  with water on its faces;
+- **a face neighbour's**, or a neighbour released — the sides at the shared face are drawn from
+  whichever cell holds more, and the cell above the top layer decides a top;
+- **the column below it**, up to `ColumnReach` (8) panels — the depth attribute is the wet cells
+  under a vertex carried across panel floors, so each record keeps the carry leaving its top
+  layer and a change at the bottom of a flooded shaft reaches the top's colour exactly;
+- **the lake band over its column** — `IFluidTerrain.LakeStamp`, the `ColumnBand`'s build count
+  through `LakeBoundedTerrain`: a lake draining off bed water exposes a top no cell write
+  announces;
+- **a previous surface it reads changed at the last build** — its own, so a panel whose water
+  moved is built once more with its previous equal to its current and the `tick_phase` lerp
+  settles instead of replaying at every install; or a neighbour's, because a side's bottom edge
+  and a fallen surface look up where the water stood in the panels beside and above — and the
+  fall search reads a sideways neighbour's *upper* panel, a diagonal dependency read off the code
+  and not guessable. A removed panel's previous stays through the pass that removes it (a surface
+  that fell out of the panel lerps down from where it was) and goes after, which rebuilds its
+  readers once more.
+
+**The settle rule took three tries, and the two wrong ones are in the class remarks.** *A vertex
+with its previous different from its current* is never satisfied by a side against a dry cell
+under a surface — its previous is a lookup that never returns its current — so a stepped lake
+rebuilt forever. *The arrays differ from the build before* (a per-panel hash) settles, but the
+settle build itself differs from the build before it in its previous-height attributes alone, so
+every change built twice. The right rule is about the *input* — the drawn surface compared entry
+for entry at the swap — and never builds twice for one change. **Dirty by the inputs a build
+reads, never by what its output did.**
+
+**The oracle is the other arm**: `ForceFull` is the pre-2026-09-21 mesher, and a test holds the
+two equal array for array across 220 ticks of a relay pour into one pit while a second pit rests
+under everything the run does to it — rock over the sheet, a lake band built and dropped, a cell
+drained at the bottom of a shaft through three panels, a panel drained and one evicted — with the
+incremental arm skipping over 600 panel builds and every equality exact; the clauses have a test
+each, the two wires from the simulation too. **Two fixtures were wrong first**: the pour alone
+kept every panel jittering for the whole run, so the arms agreed by doing the same work (the
+second pit is the skip), and the disturb wire's sheet was put down with `Add` and was still
+moving. Suite 1,690 → 1,702. `Build` is kept for the tests and the bench as the concatenation
+of retained panel meshes, in chunk order, so `TheSameGridBuildsTheSameArrays` still holds.
+
+**The bench (`--surface`, Release, 1.07× the reference):**
+
+```
+                                  full build           update (rebuilt / held, KiB, ms)
+lake at rest, 144 panels          837 KiB   57.5 ms        0 / 144       0     0.09
+lake, two levels, a step          563 KiB   27.4 ms        0 / 144       0     0.07
+flood of 10,000 L at tick 5       233 KiB    1.6 ms        8 / 8       239     1.33
+flood of 10,000 L at tick 100     675 KiB    1.1 ms        4 / 4       688     1.02
+roof open, 2x2x2 block, tick 20 4,154 KiB   16.5 ms       27 / 27   4,156    14.21
+```
+
+A lake at rest costs nothing; a flood in progress costs what it did, because every panel of it
+moves; the update's own overhead is under the noise. **What the game pays is the install of the
+update's KiB**, per panel, and each panel's instance carries its own bounds, so the renderer culls
+water behind the player that one mesh drew whole. `--fluidsurface=full` is the control. The
+`M8b:` line's `surface` term prints `over N panel(s)`, `last rebuild N panel(s) (own, new,
+neighbour, column, lake, previous; KiB) and N freed`, and `install mean / max over N rebuild(s)`;
+the profile's `fluidsurf` line the same with panels and KiB a rebuild. No recorded headless
+oracle can move — headless builds no surface — and the r6 control is re-run once the Game build
+can land.
+
 ## 2026-09-21 (small hours) — The first play ran out of memory: the enclosure's cache was unbounded
 
 *"um did I run out of memory?"* — the process did: four `ERROR: Parameter "mem" is null` from

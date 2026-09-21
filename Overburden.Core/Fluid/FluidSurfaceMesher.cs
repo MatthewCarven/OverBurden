@@ -66,13 +66,45 @@ namespace Overburden.Core.Fluid;
 /// <see cref="MaxDepthCells"/>. A pool over a flooded cave reads as its column.
 /// </para>
 /// <para>
-/// Stateful only in the previous surface and its scratch buffers, so one instance serves one
-/// simulation and is used by one thread at a time — the worker on the job arm, the sim thread on
-/// the other, never both, which is the grid's own rule.
+/// <b>A panel is rebuilt only when something it reads has moved (2026-09-21).</b> Until then every
+/// build walked every held panel and handed back one mesh for the whole wet surface — 40 MiB of
+/// arrays four times a second on a 50 ML world, whether or not anything moved, the largest
+/// main-thread term and the garbage the crash log's managed heap was climbing on. <see cref="Update"/>
+/// keeps a record per panel and rebuilds a panel when: its own <see cref="FluidGrid"/> stamp
+/// moved (an amount written to a new value, or a <see cref="FluidGrid.Touch"/> for terrain that
+/// changed beside it); a face neighbour's did, or a neighbour was released — the sides at the
+/// shared face are drawn from whichever cell holds more, and the cell above the top layer and
+/// below the bottom one decide a top and a bottom; a panel in the column below it did, up to
+/// <see cref="ColumnReach"/> panels down — the depth attribute is the contiguous wet cells under
+/// a vertex, carried across panel floors, so a change at the bottom of a flooded shaft darkens
+/// the top; the lake band over its column was rebuilt (<see cref="IFluidTerrain.LakeStamp"/>) —
+/// a lake draining off bed water exposes a top no cell write announces; or a previous surface it
+/// reads changed at the last build — its own, so a panel whose water moved is built once more
+/// with its previous equal to its current and the <c>tick_phase</c> lerp settles instead of
+/// replaying at every install; or a neighbour's, because a side's bottom edge and a fallen
+/// surface look up where the water stood in the panels beside and above. (Two rules were tried
+/// before this one: <i>a vertex with its previous different from its current</i>, which a side
+/// against a dry cell under a surface never satisfies, so a stepped lake rebuilt forever; and
+/// <i>the arrays differ from the build before</i>, which is true of the settle build itself and
+/// so built every change twice.) Everything else keeps the mesh it has. The rule is exact, not a heuristic: a mesher with
+/// <see cref="ForceFull"/> set is the pre-2026-09-21 arm, and a test holds the two equal quad for
+/// quad, attributes included, across a flood with bites, drains, a lake moving and a chunk leaving.
+/// </para>
+/// <para>
+/// Stateful in the previous surface, the per-panel records and its scratch buffers, so one
+/// instance serves one simulation and is used by one thread at a time — the worker on the job
+/// arm, the sim thread on the other, never both, which is the grid's own rule.
 /// </para>
 /// </remarks>
 public sealed class FluidSurfaceMesher
 {
+    /// <summary>
+    /// Panels below a changed one that are rebuilt for the depth carry: enough to cover
+    /// <see cref="MaxDepthCells"/> wet cells in a column, so a change that far down still reaches
+    /// the top's attribute exactly.
+    /// </summary>
+    public const int ColumnReach = (MaxDepthCells + VoxelConstants.ChunkSize - 1) / VoxelConstants.ChunkSize;
+
     /// <summary>Wet cells under a vertex are counted up to this and no further; 63.75 m of water is as dark as it gets.</summary>
     public const int MaxDepthCells = 255;
 
@@ -144,6 +176,25 @@ public sealed class FluidSurfaceMesher
             Count++;
         }
 
+        /// <summary>Whether this surface is the other, entry for entry.</summary>
+        public bool SameAs(PanelSurface other)
+        {
+            if (other.Count != Count)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < Count; i++)
+            {
+                if (Index[i] != other.Index[i] || Amount[i] != other.Amount[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         /// <summary>The amount at a local index, or −1. Binary search over the sorted indices.</summary>
         public int Find(int index)
         {
@@ -168,10 +219,74 @@ public sealed class FluidSurfaceMesher
         }
     }
 
-    private Dictionary<ChunkPos, PanelSurface> _previous = [];
-    private Dictionary<ChunkPos, PanelSurface> _current = [];
+    // Each panel's surface as of its own last build — kept across updates for the panels an
+    // update leaves alone, replaced from _built after the pass for the ones it rebuilt, so a
+    // rebuilt panel's neighbours read what is on the screen and never a surface from this pass.
+    private readonly Dictionary<ChunkPos, PanelSurface> _previous = [];
+    private readonly Dictionary<ChunkPos, PanelSurface> _built = [];
     private readonly Stack<PanelSurface> _pool = new();
     private int _previousCells;
+
+    // One record per held panel: the stamps it was last built at, its counts (so the whole
+    // surface's totals are a sum without a walk), the depth carry leaving its top layer (so a
+    // panel above can be rebuilt alone), and whether its last build drew motion.
+    private sealed class PanelRecord
+    {
+        public long Stamp = long.MinValue;
+        public long LakeStamp;
+        public long StampNow;
+        public long LakeStampNow;
+        public ushort[] Cells = [];
+        public bool IsNew = true;
+        public bool Dirty;
+        public int Seen;
+        public byte[]? CarryOut;
+        public int Tops, Sides, Bottoms, SurfaceCells, UnderLake, Quads, Vertices;
+        public long Bytes;
+
+        public void Reset()
+        {
+            Stamp = long.MinValue;
+            LakeStamp = 0;
+            IsNew = true;
+            Dirty = false;
+            Seen = 0;
+            Tops = Sides = Bottoms = SurfaceCells = UnderLake = Quads = Vertices = 0;
+            Bytes = 0;
+        }
+    }
+
+    private readonly Dictionary<ChunkPos, PanelRecord> _records = [];
+    private readonly Stack<PanelRecord> _recordPool = new();
+    private readonly Stack<byte[]> _carryPool = new();
+    private readonly List<ChunkPos> _changed = [];
+    private readonly List<ChunkPos> _removed = [];
+
+    // Panels whose entry in _previous changed at the last pass's swap — a new surface, a moved
+    // one, or one dropped — so the panels that read it are rebuilt at this pass.
+    private readonly List<ChunkPos> _previousMoved = [];
+    private readonly List<FluidSurfaceMesh> _rebuilt = [];
+    private int _pass;
+    private int _totalTops, _totalSides, _totalBottoms, _totalSurfaceCells, _totalUnderLake, _totalQuads, _totalVertices;
+    private long _totalBytes;
+
+    // Build()'s whole-surface arm keeps every panel's mesh so it can hand back one mesh the way it
+    // always has; Update() never fills this, so the game holds each panel's arrays once.
+    private readonly Dictionary<ChunkPos, FluidSurfaceMesh> _retained = [];
+    private bool _retaining;
+
+    /// <summary>
+    /// Rebuild every held panel on every build — the pre-2026-09-21 arm, the other mesher in the
+    /// incremental rule's oracle, and the bench's full column. Off, a panel is rebuilt only when
+    /// something it reads has moved.
+    /// </summary>
+    public bool ForceFull { get; set; }
+
+    /// <summary>Panels with a record: the held panels as of the last build.</summary>
+    public int PanelCount => _records.Count;
+
+    /// <summary>What the last <see cref="Build"/> or <see cref="Update"/> rebuilt, for a report or a test reading through the whole-surface arm.</summary>
+    public FluidSurfaceUpdate? LastUpdate { get; private set; }
 
     // Pass 1's view of the previous surface for the panel in hand: its own list with a cursor,
     // and the lists above and below it for the two boundary layers.
@@ -220,28 +335,157 @@ public sealed class FluidSurfaceMesher
     public bool Tops { get; set; } = true;
 
     /// <summary>
-    /// Builds the mesh for the grid as it stands. <paramref name="terrain"/> is asked only about
-    /// the dry neighbours of wet cells, and <c>IsLoaded</c> before <c>CanHold</c>, so a captured
-    /// view counts no refusal for the mesher's questions.
+    /// Builds the whole surface as one mesh — every held panel's geometry concatenated, in chunk
+    /// order — for the tests and the bench, which read one set of arrays. Incremental underneath:
+    /// the panels rebuilt are <see cref="Update"/>'s, and the rest come from the meshes this arm
+    /// keeps; the first call, or the first after an <see cref="Update"/>, rebuilds everything so
+    /// what it keeps is complete. <paramref name="terrain"/> is asked only about the dry
+    /// neighbours of wet cells, and <c>IsLoaded</c> before <c>CanHold</c>, so a captured view
+    /// counts no refusal for the mesher's questions.
     /// </summary>
     public FluidSurfaceMesh Build(FluidGrid grid, IFluidTerrain terrain)
+    {
+        bool force = ForceFull || !_retaining;
+        _retaining = true;
+        UpdateCore(grid, terrain, force);
+        return FluidSurfaceMesh.Concatenate(_retained.Values);
+    }
+
+    /// <summary>
+    /// Rebuilds the panels whose water, neighbours, column, lake or lerp moved since the last
+    /// build and hands back only those, with the panels that no longer hold anything — what the
+    /// game installs. The counts on the update are the whole surface's. See the class remarks for
+    /// the rule.
+    /// </summary>
+    public FluidSurfaceUpdate Update(FluidGrid grid, IFluidTerrain terrain) => UpdateCore(grid, terrain, ForceFull);
+
+    private FluidSurfaceUpdate UpdateCore(FluidGrid grid, IFluidTerrain terrain, bool force)
     {
         ArgumentNullException.ThrowIfNull(grid);
         ArgumentNullException.ThrowIfNull(terrain);
 
-        _positions.Clear();
-        _normals.Clear();
-        _attributes.Clear();
-        _indices.Clear();
-        _tops = _sides = _bottoms = _surfaceCells = _terrainAsks = _underLake = 0;
-
-        // Bottom-up through each column of panels so the depth carries across a panel's floor.
+        _pass++;
+        _terrainAsks = 0;
+        _changed.Clear();
+        _removed.Clear();
+        _rebuilt.Clear();
         _order.Clear();
-        foreach ((ChunkPos chunk, _) in grid.HeldPanels())
+        int own = 0, fresh = 0, neighbour = 0, column = 0, lake = 0, previous = 0;
+
+        // 1. What is held, against the records: a panel seen now is held; one not seen is gone.
+        foreach ((ChunkPos chunk, ushort[] cells, long stamp) in grid.HeldPanels())
         {
+            if (!_records.TryGetValue(chunk, out PanelRecord? record))
+            {
+                record = _recordPool.Count > 0 ? _recordPool.Pop() : new PanelRecord();
+                record.Reset();
+                _records[chunk] = record;
+            }
+
+            record.Seen = _pass;
+            record.Dirty = false;
+            record.Cells = cells;
+            record.StampNow = stamp;
+            record.LakeStampNow = terrain.LakeStamp(chunk);
             _order.Add(chunk);
         }
 
+        foreach ((ChunkPos chunk, PanelRecord record) in _records)
+        {
+            if (record.Seen != _pass)
+            {
+                _removed.Add(chunk);
+            }
+        }
+
+        foreach (ChunkPos chunk in _removed)
+        {
+            PanelRecord record = _records[chunk];
+            _records.Remove(chunk);
+            Subtract(record);
+            if (record.CarryOut is { } carry)
+            {
+                _carryPool.Push(carry);
+                record.CarryOut = null;
+            }
+
+            record.Cells = [];
+            _recordPool.Push(record);
+            _retained.Remove(chunk);
+
+            // Its previous surface stays for this pass: a surface that fell out of the panel into
+            // the one below lerps down from where it was, and the search for where it was reads
+            // the panel it left. Dropped after the pass with the rest of the previous.
+        }
+
+        // 2. The panel's own reasons, in the order they are reported: new, its stamp, its lake's
+        // stamp. A stamp that moved is also a source for its neighbours.
+        foreach (ChunkPos chunk in _order)
+        {
+            PanelRecord record = _records[chunk];
+            bool changed = force || record.IsNew || record.Stamp != record.StampNow;
+            if (changed)
+            {
+                record.Dirty = true;
+                _changed.Add(chunk);
+                if (record.IsNew) fresh++;
+                else if (record.Stamp != record.StampNow) own++;
+            }
+            else if (record.LakeStamp != record.LakeStampNow)
+            {
+                record.Dirty = true;
+                lake++;
+            }
+        }
+
+        // The previous surfaces that moved at the last pass: every panel whose build reads one
+        // of them — the panel itself (the settle), the panels above and below it, its four
+        // sideways neighbours and theirs above and below (a fallen surface is looked for in the
+        // panel over the cell, and a side's dry neighbour's previous under it).
+        foreach (ChunkPos chunk in _previousMoved)
+        {
+            previous += MarkIfHeld(chunk);
+            previous += MarkIfHeld(chunk.Offset(0, 1, 0));
+            previous += MarkIfHeld(chunk.Offset(0, -1, 0));
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                previous += MarkIfHeld(chunk.Offset(1, dy, 0));
+                previous += MarkIfHeld(chunk.Offset(-1, dy, 0));
+                previous += MarkIfHeld(chunk.Offset(0, dy, 1));
+                previous += MarkIfHeld(chunk.Offset(0, dy, -1));
+            }
+        }
+
+        _previousMoved.Clear();
+
+        // 3. What a change reaches: the six face neighbours (the shared face's sides, the cell
+        // above a top, the cell below a bottom) and the column above (the depth carry). A panel
+        // released reaches the same set, because its neighbours' faces against it were not drawn.
+        foreach (ChunkPos chunk in _changed)
+        {
+            neighbour += MarkFaces(chunk);
+            column += MarkColumn(chunk);
+        }
+
+        foreach (ChunkPos chunk in _removed)
+        {
+            neighbour += MarkFaces(chunk);
+            column += MarkColumn(chunk);
+        }
+
+        // 4. Build the dirty panels bottom-up through each column, so a rebuilt panel above a
+        // rebuilt one reads its fresh carry; a panel above one left alone reads the carry that
+        // panel kept from its own last build, which the column rule keeps current.
+        int keep = 0;
+        for (int i = 0; i < _order.Count; i++)
+        {
+            if (_records[_order[i]].Dirty)
+            {
+                _order[keep++] = _order[i];
+            }
+        }
+
+        _order.RemoveRange(keep, _order.Count - keep);
         _order.Sort(static (a, b) =>
         {
             int c = a.X.CompareTo(b.X);
@@ -250,48 +494,228 @@ public sealed class FluidSurfaceMesher
             return c != 0 ? c : a.Y.CompareTo(b.Y);
         });
 
-        ChunkPos? last = null;
         foreach (ChunkPos chunk in _order)
         {
-            ushort[]? cells = grid.PanelCells(chunk);
-            if (cells is null)
+            PanelRecord record = _records[chunk];
+            if (_records.TryGetValue(chunk.Offset(0, -1, 0), out PanelRecord? below) && below.Seen == _pass && below.CarryOut is { } carryIn)
             {
-                continue;
+                for (int i = 0; i < LayerCells; i++)
+                {
+                    _depthCarry[i] = carryIn[i];
+                }
             }
-
-            bool continues = last is { } below && below.X == chunk.X && below.Z == chunk.Z && below.Y == chunk.Y - 1;
-            if (!continues)
+            else
             {
                 Array.Clear(_depthCarry);
             }
 
-            BuildPanel(grid, terrain, chunk, cells);
-            last = chunk;
+            _positions.Clear();
+            _normals.Clear();
+            _attributes.Clear();
+            _indices.Clear();
+            _tops = _sides = _bottoms = _surfaceCells = _underLake = 0;
+            int asksBefore = _terrainAsks;
+
+            BuildPanel(grid, terrain, chunk, record.Cells);
+
+            bool carries = false;
+            for (int i = 0; i < LayerCells; i++)
+            {
+                if (_depthCarry[i] != 0)
+                {
+                    carries = true;
+                    break;
+                }
+            }
+
+            if (carries)
+            {
+                byte[] carryOut = record.CarryOut ?? (_carryPool.Count > 0 ? _carryPool.Pop() : new byte[LayerCells]);
+                for (int i = 0; i < LayerCells; i++)
+                {
+                    carryOut[i] = (byte)Math.Min(_depthCarry[i], MaxDepthCells);
+                }
+
+                record.CarryOut = carryOut;
+            }
+            else if (record.CarryOut is { } spare)
+            {
+                _carryPool.Push(spare);
+                record.CarryOut = null;
+            }
+
+            var mesh = new FluidSurfaceMesh(
+                _positions.ToArray(),
+                _normals.ToArray(),
+                _attributes.ToArray(),
+                _indices.ToArray(),
+                _tops,
+                _sides,
+                _bottoms,
+                _surfaceCells,
+                _terrainAsks - asksBefore,
+                _underLake,
+                chunk);
+
+            Subtract(record);
+            record.Tops = mesh.Tops;
+            record.Sides = mesh.Sides;
+            record.Bottoms = mesh.Bottoms;
+            record.SurfaceCells = mesh.SurfaceCells;
+            record.UnderLake = mesh.UnderLake;
+            record.Quads = mesh.QuadCount;
+            record.Vertices = mesh.VertexCount;
+            record.Bytes = mesh.Bytes;
+            Add(record);
+
+            record.Stamp = record.StampNow;
+            record.LakeStamp = record.LakeStampNow;
+            record.IsNew = false;
+            _rebuilt.Add(mesh);
+            if (_retaining)
+            {
+                _retained[chunk] = mesh;
+            }
         }
 
-        // This build's surface is the next build's previous; the old previous goes back to the pool.
-        foreach (PanelSurface spent in _previous.Values)
+        // 5. This pass's surfaces are the next pass's previous, for the panels it rebuilt; the
+        // rest keep theirs. A surface that is not what it was is what the next pass rebuilds
+        // its readers for.
+        foreach ((ChunkPos chunk, PanelSurface surface) in _built)
         {
-            spent.Count = 0;
-            _pool.Push(spent);
+            bool had = _previous.Remove(chunk, out PanelSurface? spent);
+            bool moved = had ? !spent!.SameAs(surface) : surface.Count > 0;
+            if (had)
+            {
+                spent!.Count = 0;
+                _pool.Push(spent);
+            }
+
+            if (surface.Count > 0)
+            {
+                _previous[chunk] = surface;
+            }
+            else
+            {
+                _pool.Push(surface);
+            }
+
+            if (moved)
+            {
+                _previousMoved.Add(chunk);
+            }
         }
 
-        _previous.Clear();
-        (_previous, _current) = (_current, _previous);
-        _previousCells = _surfaceCells;
+        _built.Clear();
+        foreach (ChunkPos chunk in _removed)
+        {
+            if (_previous.Remove(chunk, out PanelSurface? spent))
+            {
+                spent.Count = 0;
+                _pool.Push(spent);
+                _previousMoved.Add(chunk);
+            }
+        }
+
+        _previousCells = _totalSurfaceCells;
         _prevCacheValid = false;
 
-        return new FluidSurfaceMesh(
-            _positions.ToArray(),
-            _normals.ToArray(),
-            _attributes.ToArray(),
-            _indices.ToArray(),
-            _tops,
-            _sides,
-            _bottoms,
-            _surfaceCells,
+        long rebuiltBytes = 0;
+        foreach (FluidSurfaceMesh mesh in _rebuilt)
+        {
+            rebuiltBytes += mesh.Bytes;
+        }
+
+        return LastUpdate = new FluidSurfaceUpdate(
+            [.. _rebuilt],
+            [.. _removed],
+            _records.Count,
+            _rebuilt.Count,
+            own,
+            fresh,
+            neighbour,
+            column,
+            lake,
+            previous,
+            _totalQuads,
+            _totalVertices,
+            _totalTops,
+            _totalSides,
+            _totalBottoms,
+            _totalSurfaceCells,
+            _totalUnderLake,
             _terrainAsks,
-            _underLake);
+            rebuiltBytes,
+            _totalBytes);
+    }
+
+    private int MarkFaces(ChunkPos chunk)
+    {
+        int marked = 0;
+        marked += MarkIfHeld(chunk.Offset(1, 0, 0));
+        marked += MarkIfHeld(chunk.Offset(-1, 0, 0));
+        marked += MarkIfHeld(chunk.Offset(0, 1, 0));
+        marked += MarkIfHeld(chunk.Offset(0, -1, 0));
+        marked += MarkIfHeld(chunk.Offset(0, 0, 1));
+        marked += MarkIfHeld(chunk.Offset(0, 0, -1));
+        return marked;
+    }
+
+    /// <summary>The column above, while it is held: a gap in the column ends the carry.</summary>
+    private int MarkColumn(ChunkPos chunk)
+    {
+        int marked = 0;
+        for (int dy = 1; dy <= ColumnReach; dy++)
+        {
+            ChunkPos up = chunk.Offset(0, dy, 0);
+            if (!_records.TryGetValue(up, out PanelRecord? record) || record.Seen != _pass)
+            {
+                break;
+            }
+
+            if (!record.Dirty)
+            {
+                record.Dirty = true;
+                marked++;
+            }
+        }
+
+        return marked;
+    }
+
+    private int MarkIfHeld(ChunkPos chunk)
+    {
+        if (_records.TryGetValue(chunk, out PanelRecord? record) && record.Seen == _pass && !record.Dirty)
+        {
+            record.Dirty = true;
+            return 1;
+        }
+
+        return 0;
+    }
+
+    private void Add(PanelRecord record)
+    {
+        _totalTops += record.Tops;
+        _totalSides += record.Sides;
+        _totalBottoms += record.Bottoms;
+        _totalSurfaceCells += record.SurfaceCells;
+        _totalUnderLake += record.UnderLake;
+        _totalQuads += record.Quads;
+        _totalVertices += record.Vertices;
+        _totalBytes += record.Bytes;
+    }
+
+    private void Subtract(PanelRecord record)
+    {
+        _totalTops -= record.Tops;
+        _totalSides -= record.Sides;
+        _totalBottoms -= record.Bottoms;
+        _totalSurfaceCells -= record.SurfaceCells;
+        _totalUnderLake -= record.UnderLake;
+        _totalQuads -= record.Quads;
+        _totalVertices -= record.Vertices;
+        _totalBytes -= record.Bytes;
     }
 
     private void BuildPanel(FluidGrid grid, IFluidTerrain terrain, ChunkPos chunk, ushort[] cells)
@@ -397,14 +821,9 @@ public sealed class FluidSurfaceMesher
             current.Amount[i] = _drawnAmount[current.Index[i]];
         }
 
-        if (current.Count > 0)
-        {
-            _current[chunk] = current;
-        }
-        else
-        {
-            _pool.Push(current);
-        }
+        // Recorded empty as well as full, so the swap after the pass can drop a previous surface
+        // this build no longer has.
+        _built[chunk] = current;
 
         // Pass 3: the sides, runs along the wall. ±Z faces run along X; ±X faces run along Z.
         for (int ly = 0; ly < N; ly++)
@@ -958,8 +1377,12 @@ public sealed class FluidSurfaceMesh(
     int bottoms,
     int surfaceCells,
     int terrainAsks,
-    int underLake)
+    int underLake,
+    ChunkPos? chunk = null)
 {
+    /// <summary>The panel this mesh is of, or null for a whole surface (<see cref="Concatenate"/>).</summary>
+    public ChunkPos? Chunk { get; } = chunk;
+
     public float[] Positions { get; } = positions;
 
     public float[] Normals { get; } = normals;
@@ -993,4 +1416,145 @@ public sealed class FluidSurfaceMesh(
 
     /// <summary>Bytes the arrays occupy: what a job carries back.</summary>
     public long Bytes => (long)sizeof(float) * (Positions.Length + Normals.Length + Attributes.Length) + (long)sizeof(int) * Indices.Length;
+
+    /// <summary>
+    /// One mesh from many panels', in chunk order — (x, z, y), the mesher's own build order — so
+    /// the same panels give the same arrays whatever order they arrived in. Indices are offset
+    /// by the vertices before them; the counts are summed.
+    /// </summary>
+    public static FluidSurfaceMesh Concatenate(IEnumerable<FluidSurfaceMesh> panels)
+    {
+        ArgumentNullException.ThrowIfNull(panels);
+        var ordered = new List<FluidSurfaceMesh>(panels);
+        ordered.Sort(static (a, b) =>
+        {
+            ChunkPos ca = a.Chunk ?? ChunkPos.Zero, cb = b.Chunk ?? ChunkPos.Zero;
+            int c = ca.X.CompareTo(cb.X);
+            if (c != 0) return c;
+            c = ca.Z.CompareTo(cb.Z);
+            return c != 0 ? c : ca.Y.CompareTo(cb.Y);
+        });
+
+        int vertices = 0, indices = 0, tops = 0, sides = 0, bottoms = 0, cells = 0, asks = 0, underLake = 0;
+        foreach (FluidSurfaceMesh panel in ordered)
+        {
+            vertices += panel.VertexCount;
+            indices += panel.Indices.Length;
+            tops += panel.Tops;
+            sides += panel.Sides;
+            bottoms += panel.Bottoms;
+            cells += panel.SurfaceCells;
+            asks += panel.TerrainAsks;
+            underLake += panel.UnderLake;
+        }
+
+        var positions = new float[vertices * 3];
+        var normals = new float[vertices * 3];
+        var attributes = new float[vertices * 2];
+        var index = new int[indices];
+        int v = 0, i = 0;
+        foreach (FluidSurfaceMesh panel in ordered)
+        {
+            Array.Copy(panel.Positions, 0, positions, v * 3, panel.Positions.Length);
+            Array.Copy(panel.Normals, 0, normals, v * 3, panel.Normals.Length);
+            Array.Copy(panel.Attributes, 0, attributes, v * 2, panel.Attributes.Length);
+            int[] from = panel.Indices;
+            for (int k = 0; k < from.Length; k++)
+            {
+                index[i + k] = from[k] + v;
+            }
+
+            v += panel.VertexCount;
+            i += from.Length;
+        }
+
+        return new FluidSurfaceMesh(positions, normals, attributes, index, tops, sides, bottoms, cells, asks, underLake);
+    }
+}
+
+/// <summary>
+/// What one <see cref="FluidSurfaceMesher.Update"/> changed: the panels rebuilt, each as its own
+/// mesh, and the panels that hold nothing any more — the game installs the first and frees the
+/// second and touches nothing else. The counts are the whole surface's after the update, so a
+/// report reads the same numbers it always did; <see cref="RebuiltBytes"/> is what the job carried
+/// back and the install paid for, <see cref="SurfaceBytes"/> what every panel's arrays add up to.
+/// </summary>
+public sealed class FluidSurfaceUpdate(
+    IReadOnlyList<FluidSurfaceMesh> rebuilt,
+    IReadOnlyList<ChunkPos> removed,
+    int panelsHeld,
+    int panelsRebuilt,
+    int rebuiltForOwnChange,
+    int rebuiltNew,
+    int rebuiltForNeighbour,
+    int rebuiltForColumn,
+    int rebuiltForLake,
+    int rebuiltForPrevious,
+    int quadCount,
+    int vertexCount,
+    int tops,
+    int sides,
+    int bottoms,
+    int surfaceCells,
+    int underLake,
+    int terrainAsks,
+    long rebuiltBytes,
+    long surfaceBytes)
+{
+    /// <summary>The panels rebuilt this update, each mesh with its <see cref="FluidSurfaceMesh.Chunk"/> set; a panel with no quads is one to draw nothing for.</summary>
+    public IReadOnlyList<FluidSurfaceMesh> Rebuilt { get; } = rebuilt;
+
+    /// <summary>Panels that held water at the last update and hold none now: their meshes go.</summary>
+    public IReadOnlyList<ChunkPos> Removed { get; } = removed;
+
+    /// <summary>Panels holding water after this update.</summary>
+    public int PanelsHeld { get; } = panelsHeld;
+
+    /// <summary>Panels this update rebuilt, by every cause together.</summary>
+    public int PanelsRebuilt { get; } = panelsRebuilt;
+
+    /// <summary>Rebuilt because a cell of their own was written to a new value, or the terrain beside it touched.</summary>
+    public int RebuiltForOwnChange { get; } = rebuiltForOwnChange;
+
+    /// <summary>Rebuilt because they held nothing at the last update.</summary>
+    public int RebuiltNew { get; } = rebuiltNew;
+
+    /// <summary>Rebuilt for a face neighbour that changed or was released, and no reason of their own.</summary>
+    public int RebuiltForNeighbour { get; } = rebuiltForNeighbour;
+
+    /// <summary>Rebuilt for a change in the column under them, and no reason of their own.</summary>
+    public int RebuiltForColumn { get; } = rebuiltForColumn;
+
+    /// <summary>Rebuilt because the lake band over their column was rebuilt or dropped.</summary>
+    public int RebuiltForLake { get; } = rebuiltForLake;
+
+    /// <summary>
+    /// Rebuilt because a previous surface they read moved at the last build, and no reason of
+    /// their own: their own, so the lerp settles — a panel whose water moved is built once more
+    /// with its previous equal to its current — or a neighbour's.
+    /// </summary>
+    public int RebuiltForPrevious { get; } = rebuiltForPrevious;
+
+    public int QuadCount { get; } = quadCount;
+
+    public int VertexCount { get; } = vertexCount;
+
+    public int Tops { get; } = tops;
+
+    public int Sides { get; } = sides;
+
+    public int Bottoms { get; } = bottoms;
+
+    public int SurfaceCells { get; } = surfaceCells;
+
+    public int UnderLake { get; } = underLake;
+
+    /// <summary>Terrain questions this update put, over the panels it rebuilt.</summary>
+    public int TerrainAsks { get; } = terrainAsks;
+
+    /// <summary>Bytes of the rebuilt panels' arrays: what the job carried back and the install marshals.</summary>
+    public long RebuiltBytes { get; } = rebuiltBytes;
+
+    /// <summary>Bytes of every held panel's arrays: the surface as it stands.</summary>
+    public long SurfaceBytes { get; } = surfaceBytes;
 }

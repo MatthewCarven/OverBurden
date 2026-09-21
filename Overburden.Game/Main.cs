@@ -5513,10 +5513,16 @@ public partial class Main : Node3D
                     mesher.Tops = false;
                     GD.Print("M8d: the Tier B mesh without its tops (--fluidsurface)");
                     break;
+                case "full":
+                    // The pre-2026-09-21 arm: every held panel rebuilt and reinstalled every tick,
+                    // the control for the per-panel update's numbers on a played world.
+                    mesher.ForceFull = true;
+                    GD.Print("M8d: the Tier B mesh rebuilt whole every tick (--fluidsurface=full, the pre-2026-09-21 arm; the default rebuilds the panels that moved)");
+                    break;
                 case "mesh":
                     break;
                 default:
-                    GD.Print($"M8d: --fluidsurface={_fluidSurfaceMode} is not mesh, debug, nosides, nobottoms, notops or nomerge — the mesh it is");
+                    GD.Print($"M8d: --fluidsurface={_fluidSurfaceMode} is not mesh, debug, nosides, nobottoms, notops, nomerge or full — the mesh it is");
                     break;
             }
         }
@@ -6541,9 +6547,11 @@ public partial class Main : Node3D
 
         string surface = _fluidSurface is null
             ? " | no surface drawn (headless or --nowater)"
-            : $" | surface {_fluidSurface.QuadCount:N0} quad(s) ({_fluidSurface.Tops:N0} top(s) over {_fluidSurface.CellsWalked:N0} surface cell(s), {_fluidSurface.UnderLake:N0} under a lake, "
-              + $"{_fluidSurface.Sides:N0} side(s), {_fluidSurface.Bottoms:N0} bottom(s), {_fluidSurface.LastMeshBytes / 1024.0:N0} KiB), "
-              + $"{_fluidSurface.LastRebuildMillis:F2} ms to rebuild ({_fluidSurface.LastWalkMillis:F2} mesh + {_fluidSurface.LastInstallMillis:F2} install)";
+            : $" | surface {_fluidSurface.QuadCount:N0} quad(s) over {_fluidSurface.PanelsHeld:N0} panel(s) ({_fluidSurface.Tops:N0} top(s) over {_fluidSurface.CellsWalked:N0} surface cell(s), {_fluidSurface.UnderLake:N0} under a lake, "
+              + $"{_fluidSurface.Sides:N0} side(s), {_fluidSurface.Bottoms:N0} bottom(s), {_fluidSurface.SurfaceBytes / 1024.0:N0} KiB), "
+              + $"last rebuild {_fluidSurface.PanelsRebuilt:N0} panel(s) ({_fluidSurface.LastReasons}; {_fluidSurface.LastMeshBytes / 1024.0:N0} KiB) and {_fluidSurface.PanelsRemoved:N0} freed "
+              + $"in {_fluidSurface.LastRebuildMillis:F2} ms ({_fluidSurface.LastWalkMillis:F2} mesh + {_fluidSurface.LastInstallMillis:F2} install), "
+              + $"install {(_fluidSurface.Rebuilds > 0 ? _fluidSurface.InstallMillisSum / _fluidSurface.Rebuilds : 0):F2} mean / {_fluidSurface.InstallMillisMax:F2} max over {_fluidSurface.Rebuilds:N0} rebuild(s)";
 
         string settle = _settle is null
             ? string.Empty
@@ -6681,10 +6689,13 @@ public partial class Main : Node3D
 
         string surface = _fluidSurface is null
             ? "fluidsurf not drawn (headless or --nowater)\n"
-            : $"fluidsurf {_fluidSurface.QuadCount:N0} quad(s) — {_fluidSurface.Tops:N0} top(s) over {_fluidSurface.CellsWalked:N0} surface cell(s), {_fluidSurface.UnderLake:N0} under a lake, "
-              + $"{_fluidSurface.Sides:N0} side(s), {_fluidSurface.Bottoms:N0} bottom(s), {_fluidSurface.LastMeshBytes / 1024.0:N0} KiB — "
-              + $"{_fluidSurface.LastRebuildMillis:F2} ms ({_fluidSurface.LastWalkMillis:F2} mesh + {_fluidSurface.LastInstallMillis:F2} install) "
-              + $"to rebuild, {_fluidSurface.Rebuilds} rebuild(s)\n";
+            : $"fluidsurf {_fluidSurface.QuadCount:N0} quad(s) over {_fluidSurface.PanelsHeld:N0} panel(s) — {_fluidSurface.Tops:N0} top(s) over {_fluidSurface.CellsWalked:N0} surface cell(s), {_fluidSurface.UnderLake:N0} under a lake, "
+              + $"{_fluidSurface.Sides:N0} side(s), {_fluidSurface.Bottoms:N0} bottom(s), {_fluidSurface.SurfaceBytes / 1024.0:N0} KiB — "
+              + $"last rebuild {_fluidSurface.PanelsRebuilt:N0} panel(s) ({_fluidSurface.LastReasons}; {_fluidSurface.LastMeshBytes / 1024.0:N0} KiB) and {_fluidSurface.PanelsRemoved:N0} freed in "
+              + $"{_fluidSurface.LastRebuildMillis:F2} ms ({_fluidSurface.LastWalkMillis:F2} mesh + {_fluidSurface.LastInstallMillis:F2} install); "
+              + $"{_fluidSurface.Rebuilds} rebuild(s), {(_fluidSurface.Rebuilds > 0 ? (double)_fluidSurface.PanelsRebuiltSum / _fluidSurface.Rebuilds : 0):F1} panel(s) and "
+              + $"{(_fluidSurface.Rebuilds > 0 ? _fluidSurface.InstalledBytesSum / 1024.0 / _fluidSurface.Rebuilds : 0):N0} KiB a rebuild, "
+              + $"install {(_fluidSurface.Rebuilds > 0 ? _fluidSurface.InstallMillisSum / _fluidSurface.Rebuilds : 0):F2} ms mean / {_fluidSurface.InstallMillisMax:F2} max\n";
 
         long drawn = _drain?.DrawnMillilitres ?? 0;
         long seeped = _seepDrain?.SeepedMillilitres ?? 0;

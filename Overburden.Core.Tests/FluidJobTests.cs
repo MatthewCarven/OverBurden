@@ -1016,9 +1016,16 @@ public class FluidJobTests
         Assert.NotNull(walked.Surface);
         Assert.Equal(session.Sim.Grid.SurfaceCells().Count(), walked.Surface.SurfaceCells);
         Assert.True(walked.Surface.QuadCount > 0, "the mesh found no surface over the pour");
+
+        // The first walk this mesher ever ran, so every held panel is new and rebuilt: the update
+        // is the whole surface, and concatenated it is the arrays a fresh mesher builds now.
+        Assert.Equal(walked.Surface.PanelsHeld, walked.Surface.PanelsRebuilt);
+        Assert.Equal(walked.Surface.PanelsHeld, walked.Surface.RebuiltNew);
+        Assert.Empty(walked.Surface.Removed);
+        FluidSurfaceMesh whole = FluidSurfaceMesh.Concatenate(walked.Surface.Rebuilt);
         FluidSurfaceMesh again = new FluidSurfaceMesher().Build(session.Sim.Grid, field);
-        Assert.Equal(again.Positions, walked.Surface.Positions);
-        Assert.Equal(again.Indices, walked.Surface.Indices);
+        Assert.Equal(again.Positions, whole.Positions);
+        Assert.Equal(again.Indices, whole.Indices);
 
         session.Harness.Settle();
         Assert.Equal(61L, session.Sim.JobTicks);

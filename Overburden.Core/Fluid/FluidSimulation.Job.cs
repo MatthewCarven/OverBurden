@@ -201,9 +201,10 @@ public sealed partial class FluidSimulation
         if (job.WalkSurface)
         {
             // M8d-1: the mesh, not the cells — the arrays are built here so the main thread pays
-            // only the install. The captured view answers the mesher's questions about dry
-            // neighbours, IsLoaded first, so it counts no refusal for them.
-            job.Surface = _surfaceMesher.Build(_grid, _visitTerrain);
+            // only the install; and since 2026-09-21 only the panels that moved, so it pays for
+            // those. The captured view answers the mesher's questions about dry neighbours,
+            // IsLoaded first, so it counts no refusal for them.
+            job.Surface = _surfaceMesher.Update(_grid, _visitTerrain);
             job.WalkMillis = (Stopwatch.GetTimestamp() - visited) * 1000.0 / Stopwatch.Frequency;
         }
     }
@@ -215,14 +216,15 @@ public sealed partial class FluidSimulation
 
     /// <summary>
     /// The surface as geometry, built here and now (the sim-thread arm; the job arm builds it on
-    /// the worker and hands it back as <see cref="FluidTickJob.Surface"/>). Refuses while a job
-    /// owns the grid. One mesher serves both arms, so the previous-height attribute is continuous
-    /// across a build wherever it ran.
+    /// the worker and hands it back as <see cref="FluidTickJob.Surface"/>): the panels that moved
+    /// since the last build, and the ones that emptied. Refuses while a job owns the grid. One
+    /// mesher serves both arms, so the previous-height attribute is continuous across a build
+    /// wherever it ran.
     /// </summary>
-    public FluidSurfaceMesh BuildSurface()
+    public FluidSurfaceUpdate BuildSurface()
     {
         RefuseMidJob(nameof(BuildSurface));
-        return _surfaceMesher.Build(_grid, _visitTerrain);
+        return _surfaceMesher.Update(_grid, _visitTerrain);
     }
 
     /// <summary>
@@ -417,8 +419,8 @@ public sealed class FluidTickJob : IDetachedJob
     /// <summary>Cells in the batch the job was begun with.</summary>
     public int Batch { get; }
 
-    /// <summary>The surface as the worker left the grid, as geometry (M8d-1), when asked for; the caller installs it.</summary>
-    public FluidSurfaceMesh? Surface { get; internal set; }
+    /// <summary>The surface as the worker left the grid, as geometry (M8d-1) — the panels that moved and the ones that emptied — when asked for; the caller installs it.</summary>
+    public FluidSurfaceUpdate? Surface { get; internal set; }
 
     /// <summary>Wall time of the visits on the worker.</summary>
     public double VisitMillis { get; internal set; }

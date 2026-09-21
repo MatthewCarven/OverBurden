@@ -210,8 +210,16 @@ In the game **`--fluidsurface=debug`** is the pre-M8d-1 arm — one quad a surfa
 shader*, the geometry and the look every M8b and M8c screenshot had, the control for every M8d-2
 screenshot — and `nosides`, `nobottoms`, `notops`, `nomerge` leave one thing out of the mesh (in the
 new shader), which is
-how the ball's streaks were attributed to the slots in a falling column. The `M8b:` line's `surface`
-term and the profile's `fluidsurf` line print tops / sides / bottoms / KiB and mesh + install ms.
+how the ball's streaks were attributed to the slots in a falling column. **Since 2026-09-21 the
+mesh is one `ArrayMesh` a wet panel, and a tick rebuilds and reinstalls only the panels whose
+own cells, a face neighbour's, the column under them, the lake band over them or a previous
+surface they lerp from moved** — the lever M8b-4b recorded with the crash log's 40 MiB /
+100+ ms; `--fluidsurface=full` is the pre-2026-09-21 arm (every panel every tick), the control.
+The `M8b:` line's `surface` term and the profile's `fluidsurf` line print quads `over N panel(s)`,
+tops / sides / bottoms / KiB of the whole surface, `last rebuild N panel(s) (own, new, neighbour,
+column, lake, previous; KiB) and N freed` with mesh + install ms, and `install mean / max over N
+rebuild(s)`. On the bench (`--surface`) a lake at rest went 837 KiB / 57 ms a build to 0 / 0.09;
+a flood rebuilds every panel it moves through and costs what it did.
 
 Measure **what a drip does to the automaton with nothing else awake** — the bodies number M8c's
 pass asked for, which the game's `awake at seeping boundaries` cannot give on a played world
@@ -958,7 +966,21 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
-**Pick up here (2026-09-21, small hours). Session closed with the three decisions built and the
+**Pick up here (2026-09-21, afternoon). The Tier B surface install is per panel — built, tested
+(suite 1,702) and benched while Matthew played, on his word (*"the Tier B surface install, i'm
+playtesting now"*), so the Game binary he was running was never rebuilt: the Game project compiled
+clean into the scratchpad only. First thing next session, with the game closed: `dotnet build
+Overburden.Game`, the r6 control (headless builds no surface, so it must read to the digit), then
+the owed measurement in TODO under M10d — windowed on a copy of `worlds/retired-flooded-2026-09-19/`,
+the default against `--fluidsurface=full`, reading the `surface` term's `last rebuild N panel(s)`
+and `install mean / max` and the `M2c:` line's working set. If most of the 969 panels still
+rebuild every tick, the cause is the solve levelling whole sheets a boundary and the lever is that
+item, not this one. Read the 2026-09-21 (afternoon) worklog entry — the settle rule took three
+tries and the two wrong ones are in `FluidSurfaceMesher`'s remarks. Then the paragraph below's
+list, unchanged: the next play's log, and M10d's play. The paragraph below is the small hours'
+state, kept for the reasoning.**
+
+**Earlier (2026-09-21, small hours). Session closed with the three decisions built and the
 memory crash fixed; nothing waits on his word. Next, in order: (1) read the next play's log —
 `grep -a` it, count `ERROR` first, then the `memory` term on the `M2c:` line (flat working set is
 the pass), then `enclosed … region(s) / … evicted` on the `M8b:` line, then the three play checks in

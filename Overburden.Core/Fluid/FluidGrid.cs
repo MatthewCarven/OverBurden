@@ -68,6 +68,15 @@ public sealed class FluidGrid
 
         /// <summary>A bit flipped since <see cref="CollectWet"/> last copied this panel out.</summary>
         public bool WetChanged;
+
+        /// <summary>
+        /// The grid-wide count at this panel's last change that could move its mesh: an amount
+        /// written to a different value, or a <see cref="Touch"/>. The surface mesher rebuilds a
+        /// panel whose stamp moved and keeps the mesh of one whose stamp did not (2026-09-21).
+        /// Grid-wide rather than per panel so a panel released and re-obtained between two builds
+        /// cannot come back at the number the mesher recorded.
+        /// </summary>
+        public long Stamp;
     }
 
     /// <summary>Words in a panel's wet bitset: 32,768 cells over 64-bit words.</summary>
@@ -93,6 +102,7 @@ public sealed class FluidGrid
 
     private long _total;
     private int _held;
+    private long _stamp;
 
     /// <summary>Millilitres held everywhere in this grid.</summary>
     public long TotalMillilitres => _total;
@@ -553,15 +563,30 @@ public sealed class FluidGrid
     /// </remarks>
     public IEnumerable<ChunkPos> PanelChunks() => _panels.Keys;
 
-    /// <summary>Every panel holding anything, with its cells, for the surface mesher's scans. Read only.</summary>
-    internal IEnumerable<(ChunkPos Chunk, ushort[] Cells)> HeldPanels()
+    /// <summary>Every panel holding anything, with its cells and its stamp, for the surface mesher's scans. Read only.</summary>
+    internal IEnumerable<(ChunkPos Chunk, ushort[] Cells, long Stamp)> HeldPanels()
     {
         foreach ((ChunkPos chunk, Panel panel) in _panels)
         {
             if (panel.Held > 0)
             {
-                yield return (chunk, panel.Cells);
+                yield return (chunk, panel.Cells, panel.Stamp);
             }
+        }
+    }
+
+    /// <summary>
+    /// Marks a panel as changed for the surface mesher without writing a cell: the terrain beside
+    /// its water moved — a voxel placed or dug, a chunk arriving — so a face it draws or does not
+    /// draw may be wrong, and a cell woken by that edit that then finds nothing to do would
+    /// otherwise leave the mesh as it was. A chunk with no panel has no mesh and is left alone.
+    /// </summary>
+    public void Touch(ChunkPos chunk)
+    {
+        Panel? panel = Find(chunk);
+        if (panel is not null)
+        {
+            panel.Stamp = ++_stamp;
         }
     }
 
@@ -615,6 +640,10 @@ public sealed class FluidGrid
         int delta = amount - previous;
         panel.Total += delta;
         _total += delta;
+        if (delta != 0)
+        {
+            panel.Stamp = ++_stamp;
+        }
 
         if (previous == 0 && amount != 0)
         {

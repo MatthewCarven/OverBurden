@@ -2135,6 +2135,21 @@ first item.
 along a chunk boundary is two runs); and the debug arm's own install figure as a profile line,
 since the `fluidsurf` line prints one arm at a time.
 
+**Amended 2026-09-21 — the mesh is per panel, and only the panels that moved are rebuilt.** The
+whole-surface mesh above was 40 MiB an install four times a second on a 50 ML world (the crash of
+2026-09-21's small hours was inside its `AddSurfaceFromArrays`), whether or not anything had
+moved. `FluidSurfaceMesher.Update` keeps a record per panel and rebuilds one when something its
+build reads has moved — its own cells (a per-panel stamp on `FluidGrid`, moved by a write of a new
+value and by `Touch` from `Disturb` and `ChunkArrived`), a face neighbour's, the column under it
+up to eight panels (the depth carry, kept per record), the lake band over its column
+(`IFluidTerrain.LakeStamp`), or a previous surface it lerps from (its own, so the lerp settles; a
+neighbour's, up to the sideways neighbour's upper panel, which the fall search reads) — and hands
+back a `FluidSurfaceUpdate` of those and the panels that emptied; `FluidSurface` keeps one
+`ArrayMesh` an instance per wet panel. `ForceFull` is the arm above, `--fluidsurface=full` in the
+game, and the oracle is that the two arms build the same arrays across a flood with a resting pit
+beside it. Bench: the lake at rest 837 KiB / 57 ms → 0 / 0.09; floods unchanged. The worklog
+entry has the settle rule's three tries. The played-world figure is owed (TODO under M10d).
+
 ### M8d-2 — built, 2026-09-11, and handed to a person
 
 *"Ok lets continue with M8d-2"* — decisions 2, 3, 4 and 6 were already taken, so no pass: read

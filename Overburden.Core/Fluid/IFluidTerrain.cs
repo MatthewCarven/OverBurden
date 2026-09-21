@@ -63,6 +63,14 @@ public interface IFluidTerrain
     /// <see cref="LakeBoundedTerrain"/> answers it, from a <see cref="LakeCeiling"/>.
     /// </remarks>
     bool InLake(VoxelPos voxel) => false;
+
+    /// <summary>
+    /// A number that moves whenever <see cref="InLake"/>'s answers for a chunk column may have:
+    /// the lake ceiling's band over the column was rebuilt or dropped. Zero for a terrain with no
+    /// lakes. The surface mesher records it per panel and rebuilds the panel when it moves,
+    /// because a lake falling off a bed's water exposes a top no cell write announces.
+    /// </summary>
+    long LakeStamp(ChunkPos chunk) => 0;
 }
 
 /// <summary>

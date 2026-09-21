@@ -593,6 +593,12 @@ public sealed partial class FluidSimulation : IFluidPersistence
             Wake(cell);
             NoteInflow(cell);
             DisturbedCells++;
+
+            // The surface: a face this cell draws or does not draw may be wrong now — rock placed
+            // beside it, or dug away — and a visit that finds nothing to move writes nothing, so
+            // the mesher would keep the panel's mesh. Touched here, on the held cell's panel, and
+            // not on the edited voxel's chunk, which may have no panel (2026-09-21).
+            _grid.Touch(cell.Chunk);
         }
     }
 
@@ -1371,6 +1377,9 @@ public sealed partial class FluidSimulation : IFluidPersistence
             return;
         }
 
+        // The arrived chunk's own panel and every neighbour with water on the shared face: what
+        // they draw against this chunk read it as not loaded until now (2026-09-21).
+        _grid.Touch(chunk);
         foreach ((int dx, int dy, int dz) in Faces)
         {
             foreach (VoxelPos cell in _grid.HeldCellsOnFace(chunk, (dx, dy, dz)))
@@ -1382,8 +1391,15 @@ public sealed partial class FluidSimulation : IFluidPersistence
             }
 
             ChunkPos neighbour = chunk.Offset(dx, dy, dz);
+            bool touched = false;
             foreach (VoxelPos cell in _grid.HeldCellsOnFace(neighbour, (-dx, -dy, -dz)))
             {
+                if (!touched)
+                {
+                    _grid.Touch(neighbour);
+                    touched = true;
+                }
+
                 if (_terrain.IsLoaded(cell) && Wake(cell))
                 {
                     FaceWakes++;

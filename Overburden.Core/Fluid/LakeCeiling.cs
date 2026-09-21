@@ -71,6 +71,7 @@ public sealed class LakeCeiling
     private readonly HashSet<(int X, int Z)> _seen = [];
     private readonly HashSet<(int X, int Z)> _dirty = [];
     private readonly List<(int X, int Z)> _gone = [];
+    private long _bandStamp;
 
     public LakeCeiling(ISurfaceHeights seed, WaterSystem water, Enclosure? enclosure = null)
     {
@@ -295,7 +296,10 @@ public sealed class LakeCeiling
             RebuiltForEnclosure++;
         }
 
-        var band = new ColumnBand(existing, originX, originZ, _seed, tops, samplesPerChunk, cell, _enclosure);
+        var band = new ColumnBand(existing, originX, originZ, _seed, tops, samplesPerChunk, cell, _enclosure)
+        {
+            Stamp = ++_bandStamp,
+        };
         _bands[key] = band;
         Rebuilt++;
         RebuiltLastPass++;
@@ -343,6 +347,9 @@ public sealed class LakeCeiling
                 }
             }
         }
+
+        /// <summary>The ceiling's count at this band's build: <see cref="IFluidTerrain.LakeStamp"/> for its column.</summary>
+        public long Stamp { get; init; }
 
         public bool Contains(VoxelPos voxel)
         {
@@ -478,6 +485,9 @@ public sealed class LakeCeilingView
         return _cache is not null && _cache.Contains(voxel);
     }
 
+    /// <summary>See <see cref="IFluidTerrain.LakeStamp"/>: the band's stamp, or 0 with no band.</summary>
+    public long LakeStamp(ChunkPos chunk) => Band(chunk.X, chunk.Z)?.Stamp ?? 0;
+
     internal LakeCeiling.ColumnBand? Band(int chunkX, int chunkZ)
     {
         if (!_cached || _cacheX != chunkX || _cacheZ != chunkZ)
@@ -533,4 +543,6 @@ public sealed class LakeBoundedTerrain : IFluidTerrain
 
     /// <summary>In the lake: the inner terrain would hold water here and the band covers it.</summary>
     public bool InLake(VoxelPos voxel) => Inner.CanHold(voxel) && _bands.InLake(voxel);
+
+    public long LakeStamp(ChunkPos chunk) => _bands.LakeStamp(chunk);
 }

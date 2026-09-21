@@ -4276,7 +4276,7 @@ finding without the coarser-tolerance fallback.
             - [ ] **Lever, not built**: the snapshot copies the held cells as pairs on the sim
                   thread, one panel scan each — 0.5 ms a panel in Debug, measured above. Copy the
                   64 KiB panel whole and extract on the lane. Build when the hitch is reported.
-            - [ ] **The Tier B surface mesh is the play's largest stall, and nobody priced it.**
+            - [x] **The Tier B surface mesh is the play's largest stall, and nobody priced it.**
                   `FluidSurface` rebuilds on the main thread every 0.25 s while the water has
                   moved: **144,559 quads in 119.7 ms** on the flood after the restore, seven
                   frames four times a second for as long as the flood ran; 38,990 quads at
@@ -4285,6 +4285,14 @@ finding without the coarser-tolerance fallback.
                   whose water moved (per-chunk surface meshes, the terrain's own shape), or build
                   the arrays on a worker and apply under the mesh-apply budget. Wants its own
                   measurement arm before either — the bare number is from a play log.
+                  **✅ 2026-09-21 — the first lever, built**: the arrays went to the worker at
+                  M8d-1 and the mesh is per panel now, rebuilt only where something it reads
+                  moved (the grid's per-panel stamp, a face neighbour's, the column below, the
+                  lake band over it, a previous surface it lerps from); `FluidSurface` keeps one
+                  `ArrayMesh` an instance per wet panel and installs only the update. On the
+                  bench the lake at rest went 837 KiB / 57 ms a build to 0 KiB / 0.09 ms; a flood
+                  costs what it did. **The played-world figure is still owed** — see the item
+                  under M10d.
       - [ ] **The water thread — planned 2026-09-07 with Matthew, placed after 4c and before M8c;
             see [docs/WATER-THREAD-PLAN.md](docs/WATER-THREAD-PLAN.md).** Three slices, each
             useful alone: (1) the order — near cells (5×5 chunks, full height) visited every tick,
@@ -4413,10 +4421,13 @@ finding without the coarser-tolerance fallback.
                         - [x] **Played 2026-09-10**: worst frame 332 → 63.7 ms (field sync 43.9,
                               hand-off 24.7, pour 17.5, settle 0), one boundary waited over a
                               128,600-cell peak, identities exact. Accepted on the numbers.
-                        - [ ] **The surface install is the largest main-thread term left**:
+                        - [x] **The surface install is the largest main-thread term left**:
                               7.84 ms for 20,196 quads every tick, beside a walk the worker now
                               does in 9.09. Build the vertex arrays on the worker; only
-                              `AddSurfaceFromArrays` has to stay on the main thread.
+                              `AddSurfaceFromArrays` has to stay on the main thread. **✅ M8d-1
+                              built the arrays on the worker; 2026-09-21 made the install
+                              per panel and only for the panels that moved** (the M8b-4b item
+                              above, and the measurement owed under M10d).
                         - [ ] **Tier A stands at 387.8% of capacity** on the same play (41 ML in
                               basins of 10.7 ML, 648,611 L "would not fit back") — the hand-off
                               feeds a basin past its rim. Does a lake read higher than its bank?
@@ -5709,6 +5720,20 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
                   its captured view after the live terrain said the chunk left. If the `M6:`
                   count keeps climbing on a world written entirely after this fix, that is where
                   to look.
+      - [ ] **The Tier B surface install on a played world — measure it (2026-09-21).** The
+            per-panel update is built and benched (the 2026-09-21 worklog entry) and Matthew was
+            playing when it landed, so the one number it exists for is owed: windowed, on a copy
+            of `worlds/retired-flooded-2026-09-19/` (969 panels, 191 machines, the world the
+            40 MiB / 100+ ms figure came from), 60 s standing with `--fluidnear=2 --fluidjob=1`,
+            the default against `--fluidsurface=full` (the pre-2026-09-21 arm, every panel every
+            tick). Read the `M8b:` line's `surface` term — `last rebuild N panel(s) (own …,
+            neighbour …, previous …; KiB)` and `install … mean / … max over … rebuild(s)` — and
+            the `M2c:` line's working set: the pass is the install's mean falling by the share
+            of panels at rest, the managed heap flat where it climbed 4–6 MiB/s, and the picture
+            the same from the pumps' mounds. **If most of the 969 panels still rebuild every tick
+            the cause is the solve levelling whole sheets a boundary** (the item below), and the
+            lever is there, not here. The bench figures: a lake at rest 837 KiB / 57 ms → 0 / 0.09;
+            floods 8/8, 4/4, 27/27 panels — what moves costs what it did.
       - [ ] **The solve's pass on a 34 ML world with 191 machines is 1.6 s mean, 3.1 s longest**
             (2026-09-20, 64 pumps over 127 outlets, 2.25 M cells, 962k deferred, 4,282 of 4,295
             boundaries waited) — with the seeds bounded (66k a pass), the cost is the sheets it
