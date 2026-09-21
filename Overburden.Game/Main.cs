@@ -7333,6 +7333,18 @@ public partial class Main : Node3D
         ],
         MaterialId("overburden:stone"));
 
+    /// <summary>
+    /// What the last full collection left alive, in MiB: the heap after that collection less
+    /// what it reported fragmented. Zero before the first gen2.
+    /// </summary>
+    private static double LiveManagedMiB()
+    {
+        GCMemoryInfo blocking = GC.GetGCMemoryInfo(GCKind.FullBlocking);
+        GCMemoryInfo background = GC.GetGCMemoryInfo(GCKind.Background);
+        GCMemoryInfo last = blocking.Index >= background.Index ? blocking : background;
+        return last.Index == 0 ? 0 : (last.HeapSizeBytes - last.FragmentedBytes) / (1024.0 * 1024.0);
+    }
+
     private void Report(double delta)
     {
         _sinceReport += delta;
@@ -7356,8 +7368,13 @@ public partial class Main : Node3D
             QuadSummary() +
             // The process's memory, on the line a play log keeps: the 2026-09-21 session died of
             // a null from Godot's allocator with nothing in the log saying how much it held.
+            // 'managed' is GetTotalMemory, garbage included — a heap snapshot of a played world
+            // that evening read 159 MB live inside a 971 MB heap, the rest garbage the collector
+            // keeps under a 260 MB/s allocation rate — so 'live' is what the last gen2 promoted,
+            // the number a leak would move and a churn would not.
             $" | memory {OS.GetStaticMemoryUsage() / (1024.0 * 1024.0):F0} MiB static, " +
-            $"{GC.GetTotalMemory(false) / (1024.0 * 1024.0):F0} MiB managed, {System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 / (1024.0 * 1024.0):F0} MiB working set, gen2 {GC.CollectionCount(2)}");
+            $"{GC.GetTotalMemory(false) / (1024.0 * 1024.0):F0} MiB managed (garbage included), live {LiveManagedMiB():F0} MiB at the last gen2, " +
+            $"{System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 / (1024.0 * 1024.0):F0} MiB working set, gen2 {GC.CollectionCount(2)}");
 
         if (_scheduler is not null)
         {

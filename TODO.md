@@ -5720,6 +5720,17 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
                   its captured view after the live terrain said the chunk left. If the `M6:`
                   count keeps climbing on a world written entirely after this fix, that is where
                   to look.
+      - [x] **The evening's memory climb is garbage, not a leak (2026-09-21).** The 85-minute
+            play read `managed` 948 MiB → 2.3–4.0 GB sawtoothing and the working set 1.7 →
+            5.9 GB; `dotnet-gcdump` on the settled game read 159 MB live in a 971 MB heap —
+            `_queued` 69 MB for 2.2 M active cells, the tick's lists 25 MB, the surface arrays
+            17 MB. The rate is the surface's 33 MiB of arrays twice over plus the native mesh,
+            four times a second; the per-panel update is the fix, and the `M2c:` line prints
+            `live … at the last gen2` now. **The recipe**: `dotnet-gcdump collect -p <pid>` (one
+            second on a 1 GB heap, the game barely notices), `dotnet-gcdump report <file>`.
+            **Owed with the surface A/B below**: the working set's slope on the new build, and
+            whether the native side (working set − managed − static, ~1.2 GB at the snapshot)
+            falls with the churn or is the renderer's own.
       - [ ] **The Tier B surface install on a played world — measure it (2026-09-21).** The
             per-panel update is built and benched (the 2026-09-21 worklog entry) and Matthew was
             playing when it landed, so the one number it exists for is owed: windowed, on a copy

@@ -79,6 +79,25 @@ the profile's `fluidsurf` line the same with panels and KiB a rebuild. No record
 oracle can move — headless builds no surface — and the r6 control is re-run once the Game build
 can land.
 
+**The evening's play log, read the same day, and a heap snapshot of the running game.** His
+85-minute session (10,191 ticks on `default`, 63 ML of Tier B, 0 `ERROR` lines, every identity
+exact) had the `M2c:` line's managed figure climbing 948 MiB → 2.3–4.0 GB in a sawtooth and the
+working set 1.7 → 5.9 GB, with the enclosure cache at 142 regions and 0 evicted — not the
+small-hours cause. `dotnet-gcdump collect -p <pid>` on the game he had left running settled took
+one second and read **159 MB live in a 971 MB heap**: the largest object the automaton's
+`_queued` dictionary at 69 MB for 2.2 M active cells, then the tick's cell lists (25 MB) and the
+surface's float arrays (17 MB), nothing else over 12 MB. **No leak — the heap is garbage the
+collector keeps under the allocation rate, and the rate is the surface**: that session's line
+read `223,695 quad(s), 33,205 KiB, 236 ms to rebuild (150 mesh + 85 install)` — 33 MiB of arrays
+on the worker, 33 MiB more copied into Godot arrays on the main thread, and the native mesh, four
+times a second, ≈ 260 MB/s — which is what the per-panel update above removes. The `M2c:` line's
+`managed` was `GC.GetTotalMemory(false)`, garbage included, and now says so beside a `live N MiB
+at the last gen2` term (the heap less its fragmentation after the last full collection), the
+number a leak would move and a churn would not. The other two reads off the log: the excavator's
+fill stopped mid-chunk (`unpowered 12603 of 32768`), and the sheet solve visited 6.5 billion cells
+over the session with the lake ceiling waking 12.1 million by rise — the M10d lever's number,
+bigger.
+
 ## 2026-09-21 (small hours) — The first play ran out of memory: the enclosure's cache was unbounded
 
 *"um did I run out of memory?"* — the process did: four `ERROR: Parameter "mem" is null` from
