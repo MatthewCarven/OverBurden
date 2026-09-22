@@ -1001,10 +1001,19 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
-**Pick up here (2026-09-22, afternoon). Rain on the player's material is built — all eight
-decisions as recommended, the same day; read "Rain lands on the player's material — built" in
-[docs/M8-PLAN.md](docs/M8-PLAN.md), the forfeit being the one rule the build added. The play check
-is under M8 in TODO: the clay pond in the rain, one sentence back. Suite 1,713; the Game built, the r6 control to the digit, the rain oracle and the courtyard's read as recorded.** His clay pond was never leaking: its floor is
+**Pick up here (2026-09-22, session close — *"see you in a fresh Code Chat"*). Everything is
+committed and pushed through `3b70c7a` except that one commit's Game build: the roof fix (a random
+droplet no longer spawns under a roof) was committed while he played, so his binary is
+`dfc0518`'s. First thing next session, with the game closed: `dotnet build Overburden.Game`, the
+r6 control (2601 / 325 / 3446 at 411), and then his two play sentences — the clay pond filling in
+rain (`onto the player's material` climbing while `handed` does not), and no more water born under
+his roof (`skipped of which N under a roof` non-zero where it used to leak). Built today, all on
+his word: rain on the player's material (eight decisions as recommended — read "Rain lands on the
+player's material — built" in [docs/M8-PLAN.md](docs/M8-PLAN.md), the forfeit the one rule the
+build added); the surface's previous-readers rule reading what each build read (`own 2, previous
+26` → a handful on his settled world); the enclosure's *why*; the spread world retired as the load
+test. Suite 1,713. M10d's play is still the next milestone thing; the solve lever under M10d has
+its world now. Read the 2026-09-22 worklog entry first, then the paragraph below.** His clay pond was never leaking: its floor is
 placed, so its water is never on the seed plane and holds (`enclosed 0 kept, 306 flood(s) / 0
 closed` with 12,800 L held) — rain was not landing in it, because the watershed cannot see a
 placed floor and the 2% drops are scattered over the whole box. The rule: a column whose top is
