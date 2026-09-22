@@ -563,6 +563,18 @@ public sealed class FluidGrid
     /// </remarks>
     public IEnumerable<ChunkPos> PanelChunks() => _panels.Keys;
 
+    /// <summary>Every panel holding anything, with its millilitres — <see cref="UndergroundWater"/>'s read. Read only.</summary>
+    public IEnumerable<(ChunkPos Chunk, long Millilitres)> PanelTotals()
+    {
+        foreach ((ChunkPos chunk, Panel panel) in _panels)
+        {
+            if (panel.Total > 0)
+            {
+                yield return (chunk, panel.Total);
+            }
+        }
+    }
+
     /// <summary>Every panel holding anything, with its cells and its stamp, for the surface mesher's scans. Read only.</summary>
     internal IEnumerable<(ChunkPos Chunk, ushort[] Cells, long Stamp)> HeldPanels()
     {

@@ -113,6 +113,12 @@ public sealed partial class FluidSimulation
     public FluidPublished Published { get; private set; }
 
     /// <summary>
+    /// The mine's share of <c>held</c>, measured at every <see cref="Publish"/> when set — M10d-1's
+    /// "dry" oracle. Null publishes zero and the line says nothing.
+    /// </summary>
+    public UndergroundWater? Underground { get; set; }
+
+    /// <summary>
     /// Composes the next tick's batch and hands it to a job. At a boundary only; the caller submits
     /// the job and collects it through <see cref="FluidTickJob.OnResult"/>.
     /// </summary>
@@ -307,6 +313,7 @@ public sealed partial class FluidSimulation
             awake = _pending.Count + FarBacklog + _pausedCells;
         }
 
+        (long underground, int undergroundPanels) = Underground?.Measure(_grid) ?? (0, 0);
         Published = new FluidPublished(
             Ticks,
             _grid.TotalMillilitres,
@@ -324,7 +331,9 @@ public sealed partial class FluidSimulation
             LiftedMillilitres,
             ReturnedMillilitres,
             PumpedMillilitres,
-            EmittedMillilitres);
+            EmittedMillilitres,
+            underground,
+            undergroundPanels);
     }
 
     /// <summary>Refuses a read of state a worker is writing.</summary>
@@ -378,7 +387,9 @@ public readonly record struct FluidPublished(
     long Lifted,
     long Returned,
     long Pumped,
-    long Emitted)
+    long Emitted,
+    long UndergroundMillilitres = 0,
+    int UndergroundPanels = 0)
 {
     /// <summary><c>held == injected + drawn + loaded + emitted − removed − displaced − handed − evicted − pumped</c>, from one snapshot.</summary>
     public bool IdentityExact => TotalMillilitres == Added + Loaded + Emitted - Removed - Displaced - Handed - Evicted - Pumped;

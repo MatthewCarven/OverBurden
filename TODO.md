@@ -5582,7 +5582,9 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
       recommended, split d-1 / d-2 / d-3. Nothing is built for it but two instruments and one
       test; the seven recipes with the sentence wanted back on each are the pass's last section
       and replace the three play lists above (M10b's, M10c's, the tiers') as the one list.**
-      - [ ] **d-1 — the instruments, before the play** (one short session): `held` on the `M8b:`
+      - [x] **d-1 — the instruments, before the play — built 2026-09-22 (afternoon)**, read "M10d-1
+            — built" in the ladder plan; the oracle is the keystone, not a-3 (its shaft straddles the
+            rim). Suite 1,719. As planned: `held` on the `M8b:`
             line and the profile's `fluid` block gains `(Q L in R panel(s) below the seed
             surface)` — a panel whose chunk top is under the least seed height over its
             footprint, off the loaded sky columns, memoised per chunk column (decision 2; the

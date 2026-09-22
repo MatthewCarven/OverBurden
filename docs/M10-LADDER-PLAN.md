@@ -2777,7 +2777,7 @@ come off his log and cost nothing. `dotnet-gcdump` for the `live` slope if it mo
 
 | | What | Verifiable |
 |---|---|---|
-| **d-1** | Decision 2's term on the `M8b:` line and the `fluid` block; decision 5's three tests; the M9d recipe's flag; TODO's play list rewritten as one recipe pointing here | the r6 control to the digit; the a-3 oracle's `M8b:` line counting the shaft's lower chunk below the seed surface and its mouth chunk (which straddles the pit's rim) above; the pillar tests green and failing without the column |
+| **d-1** | Decision 2's term on the `M8b:` line and the `fluid` block; decision 5's three tests; the M9d recipe's flag; TODO's play list rewritten as one recipe pointing here | the r6 control to the digit; the keystone's `M8b:` line counting every litre in the bite below the seed surface, the a-3 oracle's counting none (its shaft is eight voxels deep and lives in the mouth chunk, which straddles the rim); the pillar tests green and failing without the column |
 | **d-2** | The play — the recipes below, on `default`, his sentences | Matthew's |
 | **d-3** | The solve's number on the load test, then its own pass | the `fluidjob` and `settle` lines at a minute; a lever priced before it is chosen |
 
@@ -2811,3 +2811,44 @@ arguments.
    Esc once with the field live. *Is one Esc or two what you expect?*
 7. **The pack across a quit.** Quit worn, reopen: `a pack equipped (header v4)` to the joule,
    `T` through the cycle. *Does Q costing while T does not read as the design?*
+
+### M10d-1 — built
+
+Built 2026-09-22 (afternoon), the same session as the pass, on *"As recommended, build d-1"*.
+Suite 1,713 → 1,719; the r6 control 2601 / 325 / 3446 at 411 to the digit; the a-3 oracle's
+identities exact.
+
+**The term.** `UndergroundWater` in `Overburden.Core/Fluid/`: a panel is underground when its
+chunk top is strictly below the least seed height over its 32 × 32 footprint, the least height
+memoised per chunk column and the memo cleared whole past 16,384 columns (the 2026-09-20 cache
+rule — a played world's walk is tens of thousands of columns); `FluidGrid.PanelTotals()` is its
+read; `FluidSimulation.Underground` is the hook and `Publish` measures it into two new
+`FluidPublished` terms, so the number is one consistent snapshot with the rest of the line and
+never a mid-tick read. `Main` sets the hook from `StreamerSeedHeights` — the same definition the
+hand-off and the ceiling read — and prints `held … (MiB; Q L in R panel(s) below the seed
+surface)` on the `M8b:` line and the profile's `fluid` block. Three tests, and the strictness
+mutation (`<` → `<=`) fails the one named for it.
+
+**The pass's oracle for it was wrong and the keystone is the right one.** The a-3 run reads
+`0 L in 0 panel(s) below` throughout, because `--breach=3` is eight voxels deep — its water sits
+in the pit's own chunk, which straddles the rim and counts as above, the stated cost in a
+picture. The keystone (`--bitechunks=2 --fillbasin=2000000 --fillbasinafter=5`) reads every litre
+below: `502 L in 7 panel(s)` as the lake arrives through the falls, `2,263 L in 8 panel(s)` at
+the window's end — the whole of `held`. So the mine reads as the mine and the surface as the
+surface, and the number a play calls *dry* is this one at zero.
+
+**The pillar.** Three tests on the plug fixture, `SupportFieldTests`: a stone column (the brush
+cell, 4 × 4 voxels, exactly the plug's footprint) from the floor to the roof reads `at risk 0`
+with the plug's underside at `K`; the same column one voxel short at the *top* reads the plug
+fixture's 20 and −8 exactly — one voxel of contact is the whole rule; a dirt column reads 0 with
+its top at `K`, which pins fact 4's *any material* as the stated cost. The gap-at-the-floor case
+is deliberately not that fixture: a column hanging from the plug adds its own voxels to the
+at-risk count and would read as a different question.
+
+**Read three times in passing: the keystone's at-risk count is 18,698–18,728 across runs against
+the recorded 18,718, and a roof may fall as 3,318 + 2,701 rather than ~6,200 in one** — the
+armed order follows the worker timing of the derives, the seeded draw is per arming. The shape
+(four ~6,200-voxel roofs, `lifted == returned`, `at risk 0` after) holds every time; the digits
+do not, and the record should be read as a shape.
+
+d-2 is Matthew's; d-3 waits for a session with the game closed.

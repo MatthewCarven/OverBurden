@@ -218,7 +218,12 @@ mesh is one `ArrayMesh` a wet panel, and a tick rebuilds and reinstalls only the
 own cells, a face neighbour's, the column under them, the lake band over them or a previous
 surface they lerp from moved** — the lever M8b-4b recorded with the crash log's 40 MiB /
 100+ ms; `--fluidsurface=full` is the pre-2026-09-21 arm (every panel every tick), the control.
-The `M8b:` line's `surface` term and the profile's `fluidsurf` line print quads `over N panel(s)`,
+**Since M10d-1 (2026-09-22) the `M8b:` line's `held` bracket and the profile's `fluid` block carry
+`Q L in R panel(s) below the seed surface`** — a panel whose chunk top is strictly under the least
+seed height over its footprint (`UndergroundWater`, off the loaded sky columns, measured at
+`Publish`); the mine's share, the number *pumped dry* reads at zero. A panel that straddles the
+surface counts as above, so a three-wide `--breach` reads `0 below` (its shaft is eight voxels
+deep) and the keystone reads every litre below. The `M8b:` line's `surface` term and the profile's `fluidsurf` line print quads `over N panel(s)`,
 tops / sides / bottoms / KiB of the whole surface, `last rebuild N panel(s) (own, new, neighbour,
 column, lake, previous; KiB) and N freed` with mesh + install ms, and `install mean / max over N
 rebuild(s)`. On the bench (`--surface`) a lake at rest went 837 KiB / 40 ms a build to 0 / 0.09;
@@ -1001,7 +1006,18 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
-**Pick up here (2026-09-22, afternoon). M10d is planned and not built — "M10d — the planning
+**Pick up here (2026-09-22, afternoon, later). M10d-1 is built and d-2 — the play, his seven
+recipes at the end of "M10d — the planning pass" in [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md)
+— is next and is Matthew's; d-3 (the solve's number on a copy of the load test) waits for a
+session with the game closed. Read "M10d-1 — built" first: the `below the seed surface` term on
+`held` (`UndergroundWater`, measured at `Publish`) reads the keystone's every litre as underground
+and the a-3 shaft's none, because a three-wide breach is eight voxels deep and its water sits in
+the mouth chunk, which straddles the rim — the a-3 oracle was the pass's wrong guess; the three
+pillar tests are green and the gap-at-the-top one reads the plug's 20 exactly; and the keystone's
+digits move run to run (18,698–18,728 at risk, a roof in two pieces) while its shape does not.
+Suite 1,719, r6 to the digit. The paragraph below is the pass's state, kept for the reasoning.**
+
+**Earlier (2026-09-22, afternoon). M10d is planned — "M10d — the planning
 pass" at the end of [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md), written while Matthew
 played: seven facts, nine decisions, all recommended, split d-1 / d-2 / d-3. Nothing is built for
 it but two instruments and one test. Build d-1 first, once he answers — the `below the seed

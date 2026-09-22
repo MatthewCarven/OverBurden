@@ -1,5 +1,29 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-22 (afternoon, later) — M10d-1 built: the mine's share of `held`, and the pillar by test
+
+On *"As recommended, build d-1"*, the same session as the pass. Suite 1,713 → 1,719, r6 to the digit,
+the a-3 identities exact. Read "M10d-1 — built" in [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md).
+
+- **`held` reads its underground share now** — `UndergroundWater` (a panel wholly under its
+  footprint's least seed height, memoised per column, capped), measured into `FluidPublished` at
+  `Publish` so it is one snapshot with the identity. **The pass named the wrong oracle**: a-3's
+  `--breach=3` is eight voxels deep and its water sits in the mouth chunk, which straddles the rim
+  and reads as above — the stated cost seen at once. The keystone reads `2,263 L in 8 panel(s)
+  below` — every litre.
+- **A pillar shores by test.** The brush cell from floor to roof clears the 2 × 2 plug (`at risk
+  0`, the underside at `K`); one voxel short at the top reads the fixture's 20 and −8 exactly; dirt
+  reads as stone. The strictness mutation on the term fails the test named for it.
+- **The keystone's digits are a shape, not a record.** Three runs: 18,698 / 18,728 / 18,698 at
+  risk against the recorded 18,718, one roof in two pieces (3,318 + 2,701) — the armed order is
+  the derives' worker timing. Four ~6,200 roofs, `lifted == returned`, `at risk 0` after, every
+  time. My first read of it was `tail -8` cutting past the big falls and looked like a regression
+  for a minute; the oracle is the whole run.
+
+Off his play log this afternoon, for his two sentences: `1,286 onto the player's material` over
+3,916 columns in 1,819 ticks, `264 skipped of which 0 under a roof` (he was never under the
+adaptive box's roof case), `enclosed 37,759 kept, 8 closed`, 0 `ERROR` lines.
+
 ## 2026-09-22 (afternoon) — M10d planned while he played
 
 "M10d — the planning pass" is the last section of [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md):

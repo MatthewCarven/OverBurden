@@ -130,6 +130,64 @@ public class SupportFieldTests
         Assert.Equal(8, corner.MaxDeficit);
     }
 
+    /// <summary>The plug fixture with a brush-cell column (4 × 4 voxels) from the floor up to <paramref name="topY"/>, inclusive.</summary>
+    private static SupportTestWorld PluggedRoomWithPillar(int material, int topY, out ChunkPos[] bites)
+    {
+        bites = [new(0, 0, 0), new(1, 0, 0), new(0, 0, 1), new(1, 0, 1)];
+        SupportTestWorld world = StoneBlock(new ChunkPos(-2, -2, -2), new ChunkPos(3, 2, 3), bites);
+        world.SetBox(new VoxelPos(30, 0, 30), new VoxelPos(33, topY, 33), material);
+        return world;
+    }
+
+    [Fact]
+    public void AStonePillarFromFloorToRoofShoresTheTwoByTwoPlug()
+    {
+        // M10d-1, decision 5: the pillar verdict's oracle before the play. The floor is the top of an
+        // analysed chunk at 120; a column standing on it rests to 120 at its top (Rest is
+        // min(K, below + refund)); the roof voxel touching it rests to 120 and the plug — 30..33,
+        // exactly the column's footprint — is held outright, with the rest of the roof within
+        // 30 voxels sideways of it. The room's floor is y = −1 and its roof y = 32, so the column
+        // is y 0..31.
+        SupportTestWorld world = PluggedRoomWithPillar(Stone, topY: 31, out ChunkPos[] bites);
+
+        SupportRegion region = Settled(world, bites);
+
+        Assert.Equal(0, region.AtRiskVoxels);
+        ChunkSupport corner = region.FieldAt(new ChunkPos(0, 1, 0))!;
+        Assert.Equal(K, corner.Budget(VoxelPos.Index(31, 0, 31)));
+    }
+
+    [Fact]
+    public void APillarOneVoxelShortOfTheRoofShoresNothing()
+    {
+        // The gap is under the roof, so the column stands at 120 to its own top and the roof is
+        // exactly the plug fixture's: one voxel of contact is the whole rule, and a pillar that
+        // does not reach reads as no pillar at all. (A gap at the floor is a different fixture —
+        // the column then hangs from the plug and adds its own voxels to the at-risk count.)
+        SupportTestWorld world = PluggedRoomWithPillar(Stone, topY: 30, out ChunkPos[] bites);
+
+        SupportRegion region = Settled(world, bites);
+
+        Assert.Equal(20, region.AtRiskVoxels);
+        Assert.Equal(-8, region.FieldAt(new ChunkPos(0, 1, 0))!.Budget(VoxelPos.Index(31, 0, 31)));
+    }
+
+    [Fact]
+    public void ADirtPillarShoresExactlyAsStoneDoes()
+    {
+        // The stated cost of the uniqueness proof: the refund is a world constant, so a climb
+        // through dirt (carries 8) rests to 120 exactly as a climb through stone (carries 30)
+        // does — the material's distance is spent sideways and hanging, never resting. If the
+        // play says a soft pillar holding a roof reads wrong, the lever is a per-material cap on
+        // the climb, never a per-material refund (which lets dirt-on-stone pump itself full).
+        SupportTestWorld world = PluggedRoomWithPillar(Dirt, topY: 31, out ChunkPos[] bites);
+
+        SupportRegion region = Settled(world, bites);
+
+        Assert.Equal(0, region.AtRiskVoxels);
+        Assert.Equal(K, region.FieldAt(new ChunkPos(0, 0, 0))!.Budget(VoxelPos.Index(31, 31, 31)));
+    }
+
     [Fact]
     public void AGalleryEightMetresWideNeverFallsInStoneHoweverLong()
     {

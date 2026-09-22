@@ -5494,6 +5494,8 @@ public partial class Main : Node3D
             GD.Print($"M8d: a visit falls at most {_fallCells} cell(s) (--fallcells; {FluidSimulation.DefaultFallCells} is the default, 1 the pre-M8d-3 arm)");
         }
         _fluid.FarFloorCells = _fluidFarFloor;
+        // M10d-1: the mine's share of held, off the loaded sky columns' seed heights — the "dry" oracle.
+        _fluid.Underground = new UndergroundWater(_seedHeights);
         _fluidBudgetTicks = FluidSimulation.BudgetTicks(_fluidBudget);
         GD.Print($"M8b: Tier B spread rule is {_spread.ToString().ToLowerInvariant()} (--spread=fixed|counted)");
         GD.Print(_field is null
@@ -6714,7 +6716,7 @@ public partial class Main : Node3D
               + $"{_fluidJobsWaited:N0} boundary(ies) waited; "
             : string.Empty;
         return $"{p.TotalMillilitres / litre:N0} L moving in {p.HeldCells:N0} cell(s) over "
-               + $"{p.Panels} panel(s) ({p.PanelBytes / 1024.0 / 1024.0:F1} MiB) at tick {p.Ticks:N0}; "
+               + $"{p.Panels} panel(s) ({p.PanelBytes / 1024.0 / 1024.0:F1} MiB; {p.UndergroundMillilitres / litre:N0} L in {p.UndergroundPanels:N0} panel(s) below the seed surface) at tick {p.Ticks:N0}; "
                + $"injected {(p.Added - drawn - seeped - _rainedIntoBMillilitres) / litre:N0} L, "
                + $"rained {_rainedIntoBMillilitres / litre:N0} L ({_rainDrops:N0} drop(s), {_rainDropsOntoPlaced:N0} onto the player's material over {_rainOnPlaced?.PlacedColumns ?? 0:N0} column(s), {_rainDropsSkipped:N0} skipped of which {_rainDropsUnderARoof:N0} under a roof"
                + (_rainOnPlaced is { Backlog: > 0 } or { Forfeited: > 0 } ? $"; {_rainOnPlaced!.Backlog:N0} cell(s) owed to placed columns, {_rainOnPlaced.Forfeited:N0} forfeited to the basin" : string.Empty)
@@ -6909,7 +6911,7 @@ public partial class Main : Node3D
                   + BoundaryLine();
 
         return $"fluid     {p.TotalMillilitres / litre:N0} L moving in {p.HeldCells:N0} cell(s) "
-               + $"over {p.Panels} panel(s) ({p.PanelBytes / 1024.0 / 1024.0:F1} MiB); "
+               + $"over {p.Panels} panel(s) ({p.PanelBytes / 1024.0 / 1024.0:F1} MiB; {p.UndergroundMillilitres / litre:N0} L in {p.UndergroundPanels:N0} panel(s) below the seed surface); "
                + $"injected {(p.Added - drawn - seeped) / litre:N0} L, drawn {drawn / litre:N0} L, seeped {seeped / litre:N0} L, "
                + $"loaded {p.Loaded / litre:N0} L from {f.RestoredPanels:N0} panel(s), "
                + $"evicted {p.Evicted / litre:N0} L with {f.EvictedPanels:N0} panel(s), "
