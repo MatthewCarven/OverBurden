@@ -5576,7 +5576,7 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             7. Quit and reopen — `a pack equipped (header v4)`, the charge to the joule. Then `T`
                through the tiers: the entangled miner is not on the cycle, and the steel pick is
                still free. *Does `Q` costing while `T` does not read as the design?*
-- [ ] **A three-step undo — planned 2026-09-22, not built; his ask, mid-play, after the quantum
+- [x] **A three-step undo — planned and built 2026-09-22; his ask, mid-play, after the quantum
       excavator: *"how hard to implement 3 step undo Claude? :-{D Just plan"*.**
       [docs/UNDO-PLAN.md](docs/UNDO-PLAN.md): six facts, ten decisions, all recommended, one
       session. **It is small because nothing derived has to be undone** — light, support, the
@@ -5589,7 +5589,15 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
       at three steps; the inventory is reversed exactly and a step that cannot pay is refused
       whole; no energy refund; a restore into water goes through M9d's displacing path and the
       water itself is not undone; no redo. Oracle: a click of every shape, undone, leaves the
-      world byte-identical.
+      world byte-identical. **Built the same evening** — read "Built" in UNDO-PLAN: the journal
+      hangs off `ChunkPipeline.SetVoxel` and `MachineSet` rather than seventeen verb signatures
+      (the previous material is already read for the early-out), a step is a frame rather than
+      a click, and the battery caught the undo journalling its own writes — the press after an
+      undo redid the edit. `--undo=<n>` / `--undoafter=`, the `M10:` line's `undo` term, suite
+      1,735, ten recipes and ten caught, r6 to the digit.
+      - [ ] **Its play check, three sentences** (under M10d's recipes): a chunk bite put back
+            and the inventory going down; three presses then a fourth; and a fall taking the
+            stack away — does losing the undo to a roof read as fair?
 - [ ] **M10d — the play**: the mine pumped dry by relay, the storm, the gate, the pillar verdict.
       **Planned 2026-09-22 (afternoon), while Matthew played — "M10d — the planning pass" at the
       end of [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md): seven facts, nine decisions, all

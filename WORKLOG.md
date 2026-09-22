@@ -1,5 +1,33 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-22 (evening, later) — The three-step undo, built
+
+Planned and built the same session, on *"Build it please Claude"*. Suite 1,719 → 1,735, ten
+break-recipes and ten caught, r6 and the a-3 oracle to the digit. Read "Built" in
+[docs/UNDO-PLAN.md](docs/UNDO-PLAN.md). Five things worth keeping:
+
+- **The plan put the journal one level too high.** Its decision 1 threaded a fourth
+  collaborator through seventeen verb signatures; the code offered two hooks instead —
+  `ChunkPipeline.SetVoxel` is the single write and already reads the previous material for its
+  own early-out, and `MachineSet` owns every row change. No verb signature moved, and a shape
+  that forgets to journal cannot be written.
+- **A step is a frame, not a click**, because a click's writing is not all in the click: the
+  wet fill defers to the boundary, the dismantle lands at the machine drain, the chunk fill is
+  queued. `EndStep()` after `DrainMachines()` catches all three.
+- **The battery's catch was the undo journalling its own writes** — the press after an undo
+  redid the edit, and three steps bounced between two states. Two tests failed on it, both on
+  the whole-world oracle; a counter-based assertion would have passed. `Undo` turns recording
+  off around its own writes, which is *no redo* falling out for free.
+- **Two edges that would have shipped as defects, both found by reading rather than by a
+  test.** `MachineSet.Restore` adds a row per stored machine, so a world opened with 141 of
+  them would have handed the player an undo whose first press deleted one — the journal is
+  attached after the restore. And the collapse sweep writes through `SetVoxel`, so the fall's
+  own rubble landed in a step and the clear reported it as the player's.
+- **The memory is four times the estimate and still small**: the dedupe wants a dictionary per
+  chunk, so an excavator bite is ~800 KB and three of them read `94,112 voxel(s) held` — about
+  2.5 MB at the worst case, nothing at rest. `EditHistory.Recording` is the off switch and has
+  no flag; named rather than built.
+
 ## 2026-09-22 (evening) — A three-step undo, planned
 
 His ask mid-play, after the quantum excavator took most of a world: *"how hard to implement 3

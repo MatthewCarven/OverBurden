@@ -5,6 +5,7 @@ using System.Linq;
 using Godot;
 using Overburden.Core.Building;
 using Overburden.Core.Content;
+using Overburden.Core.Editing;
 using Overburden.Core.Fluid;
 using Overburden.Core.Hydrology;
 using Overburden.Core.Inventory;
@@ -185,6 +186,12 @@ public partial class Main : Node3D
 
     /// <summary><c>--placeafter=&lt;seconds&gt;</c>: how long <c>--place</c> holds off — so a pour can arrive under the crosshair first.</summary>
     private double _placeAfterSeconds;
+
+    /// <summary><c>--undo=&lt;n&gt;</c>: presses Ctrl+Z that many times, one a frame, <see cref="_undoAfterSeconds"/> into the run.</summary>
+    private int _undoPressesWanted;
+
+    /// <summary><c>--undoafter=&lt;seconds&gt;</c>: when the scripted undos start. Three by default, after a <c>--mine</c> arm has bitten.</summary>
+    private double _undoAfterSeconds = 3.0;
     private bool _precisePlaceWhileProfiling;
     private long _startingStock;
     private BrushShape _startingBrush = BrushShape.Cube;
@@ -796,6 +803,12 @@ public partial class Main : Node3D
     /// <summary>The timers and the fall — swept at the fluid boundary, or every frame when there is no water.</summary>
     private CollapseScheduler? _collapse;
 
+    /// <summary>The last three edits, for Ctrl+Z (UNDO-PLAN). Always on; it costs a branch a voxel.</summary>
+    private readonly EditHistory _history = new();
+
+    /// <summary>Undos asked for by the key, so a profile can say the wire ran.</summary>
+    private int _undoPresses;
+
     /// <summary>Falls whose landing overlapped the body and the unstick lifted it clear / could not.</summary>
     private int _collapseFreed;
     private int _collapseBuried;
@@ -1232,6 +1245,14 @@ public partial class Main : Node3D
             {
                 _portalTracker?.OnChunkForgotten(position);
                 _enclosure?.ChunkForgotten(position);
+
+                // UNDO-PLAN decision 5: the chunk reloads its *edited* state when it comes
+                // back, so a step that touched it can neither be applied nor deferred.
+                int dropped = _history.Forget(position);
+                if (dropped > 0)
+                {
+                    GD.Print($"M10: undo — {dropped} step(s) dropped: {position} left the loaded box");
+                }
             },
             // The three arrival paths — generate, load, cache revival — through one callback, for
             // everything that is water. M8b-4a: the automaton wakes what the chunk's absence paused
@@ -2069,6 +2090,14 @@ public partial class Main : Node3D
                 // water can arrive (M6d-2's finding), so the wet fill's wire — a brush into the
                 // relay's pool, refused at the click, placed displacing at the boundary — needs the
                 // button held off until the pool is there. Seconds from the run's start.
+                case "undo" when int.TryParse(value, out int undos) && undos >= 0:
+                    _undoPressesWanted = undos;
+                    break;
+
+                case "undoafter" when double.TryParse(value, out double undoAfter) && undoAfter >= 0.0:
+                    _undoAfterSeconds = undoAfter;
+                    break;
+
                 case "placeafter" when double.TryParse(value, out double placeAfter) && placeAfter >= 0.0:
                     _placeAfterSeconds = placeAfter;
                     break;
@@ -2261,6 +2290,13 @@ public partial class Main : Node3D
         }
 
         // Q is not here: it is a hold, polled in UpdateQuantumKey beside P, R and L.
+
+        // Ctrl+Z, an edge and never a hold: one press is one step (UNDO-PLAN decision 3).
+        if (key.Keycode == Key.Z && key.CtrlPressed)
+        {
+            Undo();
+            return;
+        }
 
         if (key.Keycode == Key.B)
         {
@@ -3056,6 +3092,12 @@ public partial class Main : Node3D
         // After the update, so every arrival the update completed is queued before the drain
         // reconciles it; the hooks only queued.
         DrainMachines();
+
+        // UNDO-PLAN: a step is a frame in which something was written, closed after the
+        // drain so a dismantle and its bite are one step. A frame that wrote nothing closes
+        // nothing.
+        _history.EndStep();
+        PressScriptedUndo();
         AbortIfDue();
 
         if (_profiler is { Warm: true })
@@ -3525,6 +3567,11 @@ public partial class Main : Node3D
             GD.Print($"M10: at open — {report}");
         }
 
+        // The journal *after* the restore: Restore adds a row per stored machine, and a world
+        // opened with 141 of them would otherwise hand the player an undo whose first press
+        // deletes one. Nothing before the first frame is an edit (UNDO-PLAN).
+        _machines.Journal = _history;
+
         if (_abortAfterSeconds > 0)
         {
             GD.Print($"M10: this run ends with no save {_abortAfterSeconds:F0} s in (--abort) — the crash arm");
@@ -3810,6 +3857,77 @@ public partial class Main : Node3D
             GD.Print($"M10: drain — {report} in {millis:F2} ms");
         }
     }
+
+    /// <summary>
+    /// Puts the last step back — Ctrl+Z, and <c>--undo=&lt;n&gt;</c> headless (UNDO-PLAN).
+    /// </summary>
+    /// <remarks>
+    /// <b>After the drain, never inside a click.</b> The set refuses <c>Add</c> and
+    /// <c>Remove</c> while its tick runs, and a body and its row must never disagree — so the
+    /// undo runs where the reconcile runs, at the top of a frame, with the step it is undoing
+    /// already closed by the previous frame's <see cref="EditHistory.EndStep"/>.
+    /// </remarks>
+    private void Undo()
+    {
+        if (_pipeline is null || _materials is null)
+        {
+            return;
+        }
+
+        _undoPresses++;
+        UndoReport report = _history.Undo(_pipeline, _materials, _inventory, _machines);
+        const double litre = VolumetricInventory.LitresPerVoxel;
+        switch (report.Outcome)
+        {
+            case UndoOutcome.Undone:
+                GD.Print(
+                    $"M10: undo — {report.Voxels:N0} voxel(s) back in {report.Chunks} chunk(s)"
+                    + (report.MachineRows > 0 ? $", {report.MachineRows} machine row(s)" : string.Empty)
+                    + $"; {report.Debited * litre:N0} L out of the inventory, {report.Credited * litre:N0} L back in"
+                    + $"; {report.StepsLeft} step(s) left");
+                break;
+            case UndoOutcome.Empty:
+                GD.Print("M10: undo — nothing to undo");
+                break;
+            case UndoOutcome.OutOfStock:
+                GD.Print(
+                    $"M10: undo — refused whole: putting it back needs {report.RefusedShortfall * litre:N0} L more "
+                    + $"{Hud.DisplayName(Content.Materials, report.RefusedMaterialId)} than the inventory holds; "
+                    + $"the step is kept ({report.StepsLeft} step(s))");
+                break;
+            case UndoOutcome.Unreachable:
+                GD.Print($"M10: undo — refused whole: a voxel's chunk is not loaded; the step is kept ({report.StepsLeft} step(s))");
+                break;
+        }
+    }
+
+    /// <summary>
+    /// <c>--undo=&lt;n&gt;</c>: the key's wire without a key, one press a frame from
+    /// <c>--undoafter=</c> — headless has no Ctrl+Z, and a verb tested only through Core is
+    /// M5c-2's shape of hole.
+    /// </summary>
+    private void PressScriptedUndo()
+    {
+        if (_undoPressesWanted <= 0)
+        {
+            return;
+        }
+
+        if (_undoAfterSeconds > 0.0)
+        {
+            _undoAfterSeconds -= _lastFrameSeconds;
+            return;
+        }
+
+        _undoPressesWanted--;
+        Undo();
+    }
+
+    /// <summary>The undo's term on the periodic <c>M10:</c> line and the profile's machines block.</summary>
+    private string UndoSummary() =>
+        $" | undo {_history.Steps} step(s) / {_history.HeldVoxels:N0} voxel(s) held, "
+        + $"{_undoPresses} press(es), {_history.Refusals} refused, "
+        + $"cleared {_history.ClearedByFall} by a fall / {_history.ClearedByForget} by a forget / {_history.Dropped} off the end";
 
     /// <summary>
     /// <c>H</c> holds the water: no Tier B tick begins until <c>H</c> again, and every pour, edit
@@ -5130,7 +5248,22 @@ public partial class Main : Node3D
         }
 
         long t0 = Stopwatch.GetTimestamp();
-        IReadOnlyList<CollapseFire> fires = _collapse.Sweep(_clock.ElapsedMillis);
+
+        // The fall's own writes are not an edit: they are not the player's, they cannot be put
+        // back (the rubble is minted, UNDO-PLAN decision 4), and journalling them would make the
+        // clear below count the fall's step as one of the player's.
+        bool recording = _history.Recording;
+        _history.Recording = false;
+        IReadOnlyList<CollapseFire> fires;
+        try
+        {
+            fires = _collapse.Sweep(_clock.ElapsedMillis);
+        }
+        finally
+        {
+            _history.Recording = recording;
+        }
+
         double sweepMillis = Milliseconds(t0, Stopwatch.GetTimestamp());
         _collapseSweepMillisSum += sweepMillis;
         _collapseSweepMillisMax = Math.Max(_collapseSweepMillisMax, sweepMillis);
@@ -5142,6 +5275,15 @@ public partial class Main : Node3D
         // The sweep's time is the falls' when anything fell; a sweep over ~1,500 settled fields
         // with nothing due is microseconds, so the max is the fall's.
         _collapseFallMillisMax = Math.Max(_collapseFallMillisMax, sweepMillis);
+
+        // UNDO-PLAN decision 4: a fall mints rubble, so undoing the bite that brought a roof
+        // down would restore the roof *and* leave the rubble. The stack goes, and it goes
+        // before the falls are reported so the message reads in the right order.
+        if (_history.Steps > 0)
+        {
+            GD.Print($"M10: undo — the stack is cleared ({_history.Steps} step(s)): the roof came down");
+            _history.Clear();
+        }
         foreach (CollapseFire fire in fires)
         {
             CollapseResult r = fire.Result;
@@ -5460,6 +5602,10 @@ public partial class Main : Node3D
 
         // M8b-2c's seed surface off the columns (1.2 ms a bite against 10.3 with the function),
         // built first because M8d-5's ceiling reads it too.
+        // UNDO-PLAN: the pipeline is one of the two owners of undoable state; the machine set,
+        // the other, takes it in SetUpMachines, which runs before this.
+        _pipeline.Journal = _history;
+
         _seedHeights = new StreamerSeedHeights(_pipeline.Streamer, _generator!);
 
         // M8d-5: a lake is a body Tier B cannot enter. The band over every lake's bed, refreshed
@@ -7066,7 +7212,8 @@ public partial class Main : Node3D
                + $"{t.StalledNoRoom:N0} no room / {t.StalledUnloaded:N0} unloaded / {t.StalledUnanalysed:N0} unanalysed / {t.StalledUnpowered:N0} unpowered; "
                + $"{t.IntakeVoxelsRead:N0} intake voxel(s) read; "
                + $"{_machineTickCalls:N0} tick(s), {(_machineTickCalls > 0 ? _machineTickMillisSum / _machineTickCalls : 0):F3} ms mean, {_machineTickMillisMax:F3} max"
-               + PowerSummary(t);
+               + PowerSummary(t)
+               + UndoSummary();
     }
 
     /// <summary>The pool's half of the <c>M10:</c> line: what is stored, generated, drawn and clamped, and the identity over the session (M10c-2).</summary>

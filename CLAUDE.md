@@ -20,7 +20,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/M7-PLAN.md](docs/M7-PLAN.md) | M7, rain, split into M7a–M7d. Planned 2026-09-01, **built and played 2026-09-02**. Kept for the reasoning; **read SCALE.md before it**. Two places it was overtaken: splashes were cut (M7c-2) and the occlusion field's cost estimate was ten times out (M7d-1). |
 | [docs/M7-PLAY.md](docs/M7-PLAY.md) | M7's play: five questions, **all five answered 2026-09-02**, the flags that provoke weather without waiting for it, and how to read the `M7c:`/`M7d:` log lines. Kept for the verdicts. |
 | [docs/M10-NOTES.md](docs/M10-NOTES.md) | **The quantum machine family** — Matthew’s proposal, 2026-09-02: a fluid pump that teleports to a wireless output, and a general machine programmer. Notes rather than a plan, on the deferred-collapse precedent. **Read before planning M10, and before shipping any machine — it names the entity-storage change that header v4 rides on.** |
-| [docs/UNDO-PLAN.md](docs/UNDO-PLAN.md) | **A three-step undo** — Matthew's ask of 2026-09-22, mid-play, after the quantum excavator: planned, not built, one session. Six facts, ten decisions, all recommended. **Read decision 4 before anything**: a fall clears the stack, because bite → roof falls → undo would restore the roof *and* keep the rubble. Nothing derived is undone — it all repairs itself from `SetVoxel`. |
+| [docs/UNDO-PLAN.md](docs/UNDO-PLAN.md) | **A three-step undo** — Matthew's ask of 2026-09-22, mid-play, after the quantum excavator: **planned and built the same evening**. Six facts, ten decisions, all recommended, and a "Built" section with five departures. **Read decision 4 and the built section first**: a fall clears the stack (bite → roof falls → undo would restore the roof *and* keep the rubble), the journal hangs off `ChunkPipeline.SetVoxel` and `MachineSet` rather than the verbs, and an undo must not journal its own writes. Nothing derived is undone — it all repairs itself from `SetVoxel`. |
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | **Worldgen as content** — Matthew's thinking-ahead, 2026-09-11: ores, layers, trees, and what is permeable. Notes rather than a plan; what MATERIALS-NOTES already decided is listed so it is not re-litigated, and the three questions its pass wants from him are at the end. **Not scheduled — M8d, then M9.** |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md) | **Water bodies** — Matthew's question, 2026-09-10: resting water as one number over a connected void, DESIGN's *"stable cells merge into a Tier A body"* half that M8b never built. Notes rather than a plan, with the roof-open wake explained and six decisions. **Read before M8c's planning pass, which is where it belongs.** |
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | **Elements, and whether to "just implement chemistry"** — a brainstorm with Matthew, 2026-09-03. Notes rather than a plan. The recommendation is *geology that reacts to water, with machine recipes as the chemistry set*; the element table says why each material would exist. **Read before M8c reads `permeability` and before M9 reads `supportDistance` — both have been in the material JSON unread since M1, and the trap is a constant shipping green.** |
@@ -700,7 +700,14 @@ settled` can see the player's own neighbourhood deriving last: inside a mined-ou
 the player has geometry, and `light settled` is the whole box. **Read `near lit` for the order
 and `light settled` for the total**; the order moves the first and cannot move the second.
 
-**Building is bound to the right mouse button**, `B` cycles the brush (cube, slab, ramp, sphere),
+**Ctrl+Z undoes the last of three edits** (2026-09-22): the voxels, the inventory exactly
+inverted and the machine rows, written back through the same `SetVoxel` so light, support, the
+surface and the mesh repair themselves. **A fall clears the stack** (rubble is minted, so undoing
+the bite would restore the roof and keep the rubble) and **so does a chunk leaving the box** (it
+reloads its edited state), both printed; a step whose credit has been spent is refused whole and
+kept; no energy is charged or refunded, and the water is not undone. `--undo=<n>` presses it
+headless from `--undoafter=<seconds>` (3), and the `M10:` line carries `undo N step(s) / M
+voxel(s) held`. **Building is bound to the right mouse button**, `B` cycles the brush (cube, slab, ramp, sphere),
 and **`1`–`9` pick a material from the hotbar** (`V` still cycles to the next one). **`T` cycles
 the tool tier** — it was the number row until M6d-3, and the row went to materials because that is
 where a hand expects to find what it builds with. `--place` holds the button for a whole

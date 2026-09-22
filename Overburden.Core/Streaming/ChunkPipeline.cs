@@ -906,6 +906,9 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         return Fluid?.HoldsWater(voxel) ?? false;
     }
 
+    /// <summary>Told about every voxel this pipeline changes, for the undo. Null keeps nothing.</summary>
+    public Editing.IEditJournal? Journal { get; set; }
+
     public bool SetVoxel(VoxelPos voxel, int materialId)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -916,7 +919,8 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         }
 
         (int localX, int localY, int localZ) = voxel.Local;
-        if (chunk.Voxels.Get(localX, localY, localZ) == materialId)
+        int was = chunk.Voxels.Get(localX, localY, localZ);
+        if (was == materialId)
         {
             // Nothing changed, so nothing is stale. M3-PLAN justified this by "a sphere
             // carve rewrites air as air across most of its bounding box", which stopped
@@ -935,6 +939,12 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
         }
 
         chunk.Voxels.Set(localX, localY, localZ, materialId);
+
+        // The undo's journal, before anything derived is touched (UNDO-PLAN): the previous
+        // material was read above for the early-out, so this costs a branch and a dictionary
+        // write per changed voxel and nothing else. Here rather than in the verbs because
+        // this is the one write — a shape that forgets to journal cannot exist.
+        Journal?.Wrote(voxel, was, materialId);
 
         // Two flags, and they answer different questions — see StreamedChunk.DirtySinceSave.
         // HasEdits is permanent and says this chunk cannot come from the seed; DirtySinceSave is

@@ -148,3 +148,71 @@ alone is untestable in the way that matters (the clears are all in the wire).
 - DESIGN's M6 row (the verbs) gains a line: *an undo of the last three edits, in RAM, cleared by a
   fall or an unload*.
 - The `M10:` line gains `undo N step(s) / M voxel(s) held, K cleared (fall / forget / quit)`.
+
+## Built — 2026-09-22 (evening)
+
+Built the same session as the pass, on *"Build it please Claude"*. Suite 1,719 → 1,735; the r6
+control 2601 / 325 / 3446 at 411 to the digit; the a-3 pump oracle and the keystone unchanged.
+Ten break-recipes, ten caught. **Five departures from the plan, four of them found by the code
+and one by the battery.**
+
+**The journal hangs off the two owners of state, not off seventeen verb signatures** (decision 1
+rewritten). The plan's shape was a fourth collaborator on `Carve.Take` and `Place.Put`, threaded
+through every public entry point; the code offered a cheaper one — `ChunkPipeline.SetVoxel` is the
+single write and **already reads the previous material for its own early-out**, and `MachineSet`
+owns every row change. So `IEditJournal` has two methods, there are two call sites, no verb
+signature moved, and a shape that forgets to journal cannot be written. The plan's own fact 1 —
+"one gate each way" — was right about the principle and one level too high about where to put it.
+
+**A step is a frame in which something was written, not a click** (decision 1's other half). A
+click is not where all of a click's writing happens: a fill into water is deferred to the fluid
+boundary, a dismantle lands at the frame's machine drain, a chunk fill is queued. `EndStep()` runs
+once a frame after `DrainMachines()`, so a bite and the dismantle it caused are one step, and the
+one cost is that a click whose work is deferred to a later frame is two steps.
+
+**The battery's catch: an undo writes through the journal it feeds.** Every `SetVoxel` an undo
+makes was recorded as a fresh step, so the press after an undo *redid* the edit and three steps
+bounced between two states. Two tests failed on it, both on the whole-world oracle and neither on
+a counter. `Undo` turns recording off around its own writes — which is also decision 10, *no redo*,
+falling out for free.
+
+**Two things at the edges that would have shipped as defects.** `MachineSet.Restore` calls `Add`
+per stored row, so wiring the journal before the restore would hand a player who opened a world
+with 141 machines an undo whose first press deletes one — the journal is attached *after* the
+restore. And the collapse sweep writes through `SetVoxel` too, so the fall's own rubble landed in
+a step and the clear then reported the fall's step as the player's; recording is off for the
+duration of the sweep, and the clear's message now fires only when the player had something.
+
+**The memory is four times the plan's estimate and still small.** The plan said six bytes an
+entry; the dedupe wants a dictionary per chunk, so an excavator chunk bite is ~800 KB and the
+headless oracle reads `undo 3 step(s) / 94,112 voxel(s) held` for three of them — about 2.5 MB at
+the worst case there is, nothing at rest. A flat array per touched chunk would beat it for bites
+and lose for brushes; not built. **`EditHistory.Recording` is the off switch and has no flag** —
+named as the control arm if the memory is ever worth measuring.
+
+**What shipped as planned**: three steps; Ctrl+Z on the edge; the fall's clear and the forget's
+clear, both printed; the inventory as the exact inverse derived from the entries with a step that
+cannot pay refused *whole and kept*; no energy charged or refunded; the water not undone; no redo.
+
+**The seams.** `--undo=<n>` presses it that many times, one a frame, from `--undoafter=<seconds>`
+(3) — headless has no Ctrl+Z, and a verb tested only through Core is M5c-2's shape of hole. The
+`M10:` line carries `undo N step(s) / M voxel(s) held, P press(es), R refused, cleared F by a fall
+/ G by a forget / D off the end`. **The oracle, verbatim** — two chunk bites put back, 29,371
+voxels each, 458,922 L out of the inventory:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --mine --entangle --entanglechunk --nogate --pitch=-60 --undo=2 --undoafter=4 --measure=8
+```
+
+and the fall's clear, which reads `M10: undo — the stack is cleared (1 step(s)): the roof came
+down` exactly once before the first `M9: fell`:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --bitechunks=2 --collapseafter=1,2 --measure=20
+```
+
+**The play check, one sentence back on each**: (1) take a chunk with the excavator, Ctrl+Z — does
+the world come back, and does the inventory going *down* read right? (2) Three presses in a row
+after three bites, then a fourth — does "nothing to undo" arrive where you expect? (3) Bite
+something unstable, let the roof come down, Ctrl+Z — the log says the stack was cleared; does
+losing the undo to a fall read as fair?

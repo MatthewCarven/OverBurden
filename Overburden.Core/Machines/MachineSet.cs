@@ -170,6 +170,9 @@ public sealed class MachineSet : IMachineBodies
         _materials?.Machine(row.MaterialId) is { Kind: MachineKind.Storage, Carried: false } storage ? storage.CapacityMillijoules : 0;
 
     /// <summary>Adds a row. Refuses a second row at the same cell: one cell, one body.</summary>
+    /// <summary>Told about every row added or removed, for the undo (UNDO-PLAN). Null keeps nothing.</summary>
+    public Editing.IEditJournal? Journal { get; set; }
+
     public void Add(MachineRow row)
     {
         ArgumentNullException.ThrowIfNull(row);
@@ -188,6 +191,7 @@ public sealed class MachineSet : IMachineBodies
         rows.Add(row);
         StoredMillijoulesEntering += ChargeOf(row);
         Version++;
+        Journal?.MachineChanged(row, added: true);
     }
 
     /// <summary>Removes the row at <paramref name="cell"/>. False when there was none.</summary>
@@ -207,6 +211,7 @@ public sealed class MachineSet : IMachineBodies
 
         StoredMillijoulesLeaving += ChargeOf(row);
         Version++;
+        Journal?.MachineChanged(row, added: false);
         return true;
     }
 
