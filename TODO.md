@@ -5576,6 +5576,20 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             7. Quit and reopen — `a pack equipped (header v4)`, the charge to the joule. Then `T`
                through the tiers: the entangled miner is not on the cycle, and the steel pick is
                still free. *Does `Q` costing while `T` does not read as the design?*
+- [ ] **A three-step undo — planned 2026-09-22, not built; his ask, mid-play, after the quantum
+      excavator: *"how hard to implement 3 step undo Claude? :-{D Just plan"*.**
+      [docs/UNDO-PLAN.md](docs/UNDO-PLAN.md): six facts, ten decisions, all recommended, one
+      session. **It is small because nothing derived has to be undone** — light, support, the
+      surface, the mesh and the collider all repair themselves from the same `SetVoxel` — and
+      because `Carve.Take` and `Place.Put` are the one gate each way, with the prior material
+      already in hand. `IEditJournal` as a fourth collaborator beside `into` and `bodies`;
+      three steps grouped per chunk at six bytes an entry (192 KiB a chunk bite); Ctrl+Z on the
+      edge, run at the frame's drain; **the stack is cleared by a fall, by a chunk leaving and
+      by a quit** — the two traps are gravity and unloading, and clearing is the honest answer
+      at three steps; the inventory is reversed exactly and a step that cannot pay is refused
+      whole; no energy refund; a restore into water goes through M9d's displacing path and the
+      water itself is not undone; no redo. Oracle: a click of every shape, undone, leaves the
+      world byte-identical.
 - [ ] **M10d — the play**: the mine pumped dry by relay, the storm, the gate, the pillar verdict.
       **Planned 2026-09-22 (afternoon), while Matthew played — "M10d — the planning pass" at the
       end of [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md): seven facts, nine decisions, all

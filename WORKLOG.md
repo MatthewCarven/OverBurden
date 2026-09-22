@@ -1,5 +1,37 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-22 (evening) — A three-step undo, planned
+
+His ask mid-play, after the quantum excavator took most of a world: *"how hard to implement 3
+step undo Claude? :-{D Just plan um if its like too difficult i might skip it, ignoring water"*.
+[docs/UNDO-PLAN.md](docs/UNDO-PLAN.md) — six facts, ten decisions, all recommended, one session,
+not built. Four things worth keeping:
+
+- **It is small for a reason that is five milestones old.** Light, support, the fluid surface,
+  the mesh, the sky columns and the collider are all derived from the voxels and repair
+  themselves from `ChunkPipeline.SetVoxel`, so an undo that writes through it is a player
+  writing voxels by hand. What must be reversed is the voxels, the inventory and the machine
+  rows, and nothing else.
+- **The journal is free at the point of the write.** `Carve.Take` has read the material before
+  it writes air and `Place.Put` has read the voxel before it fills it, and both already take
+  three optional collaborators — so `IEditJournal` is a fourth parameter of a shape that is
+  already threaded through every shape, with no second copy of the geometry.
+- **The two traps are gravity and unloading, not water.** A fall mints rubble, so bite → roof
+  comes down → undo would restore the roof *and* leave the rubble: matter from nothing. A
+  chunk that leaves reloads its edited state from the store, so its journal entries can
+  neither be applied nor deferred. Both are answered by clearing the stack, printed — honest
+  at three steps, which is seconds of play. *Ignoring water* is the cheap half: M9d's
+  displacing path already exists, and the water simply is not undone.
+- **Two rules that would be exploits if taken the other way**: an undo refunds no joules (or
+  bite-undo-bite is free energy), and a step whose credit has since been spent is refused
+  whole rather than clamped (clamping mints or destroys volume, and this game's oracles are
+  exact totals).
+
+Also read off his session as it ran, for the play: `enclosed 82,543 kept / 1,052 closed` on the
+walled pool — the enclosure holds a 450 kL pour with `handed 0` from it — and the pumps at
+236,594 L against 1.9 ML drawn into the mine, `0 unpowered`, `45,846 no water`: the pumps are
+not where the water is, which is recipe 1's finding rather than a defect.
+
 ## 2026-09-22 (afternoon, later) — M10d-1 built: the mine's share of `held`, and the pillar by test
 
 On *"As recommended, build d-1"*, the same session as the pass. Suite 1,713 → 1,719, r6 to the digit,
