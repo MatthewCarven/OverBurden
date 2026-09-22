@@ -126,6 +126,29 @@ public sealed class Enclosure
     /// <summary>Floods run, over the lifetime.</summary>
     public long Floods { get; private set; }
 
+    /// <summary>
+    /// Why the open floods opened, over the lifetime — the instrument a pond that will not fill
+    /// wants (2026-09-22, *"water doesn't seem to be building up in my clay pond"*): reached
+    /// <see cref="BoundVoxels"/> from where they started, and of those how many walked through
+    /// natural ground at the level on the way (a hillside standing in for a wall) against only
+    /// through air (a gap, or a pond wider than the bound); or reached a chunk that was not
+    /// loaded. A flood counts once, under the first reason it met.
+    /// </summary>
+    public long OpenAtBound { get; private set; }
+
+    public long OpenAtBoundThroughGround { get; private set; }
+
+    public long OpenAtUnloaded { get; private set; }
+
+    /// <summary>The furthest an open flood ran from its start before it opened, in voxels, over the lifetime.</summary>
+    public int FarthestOpen { get; private set; }
+
+    /// <summary>The furthest a closed flood reached from its start, in voxels, over the lifetime — how big the biggest pond was.</summary>
+    public int FarthestClosed { get; private set; }
+
+    private bool _throughGround;
+    private int _reach;
+
     /// <summary>Of those, floods that ran out of cells — an enclosure found.</summary>
     public long EnclosedFloods { get; private set; }
 
@@ -311,29 +334,58 @@ public sealed class Enclosure
         int originZ = startZ - BoundVoxels;
 
         bool open = false;
+        bool atBound = false, atUnloaded = false;
+        _throughGround = false;
+        _reach = 0;
         _queue.Enqueue((startX, startZ));
         _visited[Bit(originX, originZ, startX, startZ)] = true;
         while (_queue.TryDequeue(out (int X, int Z) cell))
         {
             _cells++;
             _columns.Add((cell.X >> VoxelConstants.ChunkSizeLog2, cell.Z >> VoxelConstants.ChunkSizeLog2));
-            if (Math.Abs(cell.X - startX) >= BoundVoxels || Math.Abs(cell.Z - startZ) >= BoundVoxels)
+            int reach = Math.Max(Math.Abs(cell.X - startX), Math.Abs(cell.Z - startZ));
+            _reach = Math.Max(_reach, reach);
+            if (reach >= BoundVoxels)
             {
                 // The bound: whatever is past it, this flood cannot say the walls close.
                 open = true;
+                atBound = true;
                 continue;
             }
+
+            bool wasOpen = open;
 
             Step(cell.X + 1, cell.Z, y, originX, originZ, ref open);
             Step(cell.X - 1, cell.Z, y, originX, originZ, ref open);
             Step(cell.X, cell.Z + 1, y, originX, originZ, ref open);
             Step(cell.X, cell.Z - 1, y, originX, originZ, ref open);
+            if (open && !wasOpen)
+            {
+                atUnloaded = true;
+            }
         }
 
         CellsVisited += _cells;
         if (!open)
         {
             EnclosedFloods++;
+            FarthestClosed = Math.Max(FarthestClosed, _reach);
+        }
+        else
+        {
+            FarthestOpen = Math.Max(FarthestOpen, _reach);
+            if (atBound)
+            {
+                OpenAtBound++;
+                if (_throughGround)
+                {
+                    OpenAtBoundThroughGround++;
+                }
+            }
+            else if (atUnloaded)
+            {
+                OpenAtUnloaded++;
+            }
         }
 
         // The region: every cell visited shares the answer, as a bitset over the flood's box;
@@ -430,6 +482,13 @@ public sealed class Enclosure
             _columns.Add((x >> VoxelConstants.ChunkSizeLog2, z >> VoxelConstants.ChunkSizeLog2));
             _walls.Add((x, z));
             return;
+        }
+
+        if (solid)
+        {
+            // Natural ground at the level with nothing on it: walked through, and remembered, so
+            // an open flood can say whether a hillside was what it walked out through.
+            _throughGround = true;
         }
 
         _queue.Enqueue((x, z));

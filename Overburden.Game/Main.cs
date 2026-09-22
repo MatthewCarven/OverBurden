@@ -6644,7 +6644,9 @@ public partial class Main : Node3D
                + $"removed {p.Removed / litre:N0} L, displaced {p.Displaced / litre:N0} L, "
                + $"handed {p.Handed / litre:N0} L to Tier A ({_handoff?.SubmergedHanded ?? 0:N0} cell(s) of it found inside a lake"
                + (_lakeCeiling is null ? string.Empty : $"; lake {_lakeCeiling.ChunkColumns:N0} column(s), {_lakeCeiling.Rebuilt:N0} rebuilt, {_lakeCeiling.WokenSubmerged:N0} woken")
-               + (_enclosure is null ? string.Empty : $"; enclosed {_handoff?.EnclosedKept ?? 0:N0} kept, {_enclosure.Floods:N0} flood(s) / {_enclosure.EnclosedFloods:N0} closed, {_enclosure.Regions:N0} region(s) / {_enclosure.CachedCells:N0} cell(s) cached, {_enclosure.Evicted:N0} evicted, {_lakeCeiling?.RebuiltForEnclosure ?? 0:N0} band(s) rebuilt for it") + ") — "
+               + (_enclosure is null ? string.Empty : $"; enclosed {_handoff?.EnclosedKept ?? 0:N0} kept, {_enclosure.Floods:N0} flood(s) / {_enclosure.EnclosedFloods:N0} closed"
+                  + $" ({_enclosure.OpenAtBound:N0} open at the bound, {_enclosure.OpenAtBoundThroughGround:N0} of them out through natural ground; {_enclosure.OpenAtUnloaded:N0} at an unloaded chunk;"
+                  + $" farthest open {_enclosure.FarthestOpen:N0} / closed {_enclosure.FarthestClosed:N0} voxel(s) of {Enclosure.BoundVoxels}), {_enclosure.Regions:N0} region(s) / {_enclosure.CachedCells:N0} cell(s) cached, {_enclosure.Evicted:N0} evicted, {_lakeCeiling?.RebuiltForEnclosure ?? 0:N0} band(s) rebuilt for it") + ") — "
                + $"pumped {p.Pumped / litre:N0} L, emitted {p.Emitted / litre:N0} L — "
                + $"held == injected + rained + drawn + seeped + loaded + emitted − removed − displaced − handed − evicted − pumped: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
                + $"received == handed: {HandoffIdentity()}, "
@@ -6791,7 +6793,7 @@ public partial class Main : Node3D
               + (_enclosure is null
                   ? "enclosure off (--enclosure=0, or no water)\n"
                   : $"enclosure {_handoff.EnclosedLastPass:N0} cell(s) kept on the last pass, {_handoff.EnclosedKept:N0} in all; "
-                    + $"{_enclosure.Floods:N0} flood(s), {_enclosure.EnclosedFloods:N0} closed, {_enclosure.CellsVisited:N0} cell(s) visited, "
+                    + $"{_enclosure.Floods:N0} flood(s), {_enclosure.EnclosedFloods:N0} closed ({_enclosure.OpenAtBound:N0} open at the bound, {_enclosure.OpenAtBoundThroughGround:N0} through natural ground, {_enclosure.OpenAtUnloaded:N0} at an unloaded chunk; farthest open {_enclosure.FarthestOpen:N0} / closed {_enclosure.FarthestClosed:N0} of {Enclosure.BoundVoxels}), {_enclosure.CellsVisited:N0} cell(s) visited, "
                     + $"{_enclosure.CacheHits:N0} hit(s), {_enclosure.Quiet:N0} quiet, {_enclosure.Dropped:N0} dropped, {_enclosure.Evicted:N0} evicted; "
                     + $"{_enclosure.Regions:N0} region(s) / {_enclosure.CachedCells:N0} cell(s) cached, {_enclosure.EditedChunks:N0} edited chunk(s); "
                     + $"{_lakeCeiling?.RebuiltForEnclosure ?? 0:N0} band(s) rebuilt for it"
