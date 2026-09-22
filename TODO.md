@@ -5755,6 +5755,20 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
             Levers, unpriced: level a sheet at most every N boundaries while it is being fed
             (the settle's own wait, per sheet rather than per chunk); cap a pass's cells and carry
             the rest to the next; a smaller share for very large sheets.
+      - [ ] **Rain lands on the player's material — planned 2026-09-22, not built; Matthew: *"rain
+            on my stuff should land in it … just plan it for the moment"*.** His clay pond does
+            not fill from rain because 98% of the rain is Tier A's and goes to the seed terrain's
+            basin under the pond, and the 2% that falls as cells is scattered over the whole box.
+            The pass is in [docs/M8-PLAN.md](docs/M8-PLAN.md), "Rain lands on the player's
+            material — the planning pass": six facts, eight decisions, all recommended — rain over
+            a column whose top is above its seed (`OpenAboveY > SeedSurfaceY + 1`) lands as a
+            Tier B cell on that top, accrued per chunk column and cached against the sky column's
+            revision, owed by the basin under it rather than the global debt, the 2% drops
+            unchanged, the pending cap 64 → 256 with the backlog printed, `RainOnPlaced` in Core
+            with its tests, a sub-count under `rained`. A 10 × 10 m floor takes ~40 kL an hour at
+            the heaviest scaled weather. **Build on his word.** Not in it: rain into a dug pit (Tier
+            A delivers through the portals — DESIGN's cheap route), rain into a walled pool on
+            bare grass (the courtyard; *floor it* is the rule), a roof's run-off into a gutter.
       - [x] **A walled courtyard on grass is the lake outside — Matthew, 2026-09-20: *"the water
             sheet appears to have become attached to the one outside … limit this to sheets
             without rock/dirt or similar between them"*.** M8b-3a's pinned trigger, fired: the
@@ -5796,7 +5810,12 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
             0 L`, `6 flood(s), 6 closed`, and rests by tick ~85; `--enclosure=0` reads `handed
             20,000 L`. r6 and the a-3 oracle to the digit (a-3's enclosure line reads 4 open
             floods over 66k cells — the outlet body and the breach make the lake's columns
-            non-quiet). Suite 1,671 → 1,689. **Play check, one sentence back**: build the
+            non-quiet). Suite 1,671 → 1,689. **2026-09-22: the `enclosed` bracket says why a
+            flood opened** — `N open at the bound, M of them out through natural ground; U at an
+            unloaded chunk; farthest open / closed of 64` — because his clay pond's log read `116
+            flood(s) / 0 closed` and could not say which rule. (It was none of them: the pond's
+            floor is placed, its water is never on the plane, and it holds — rain was not landing
+            in it. The item below.) **Play check, one sentence back**: build the
             courtyard's fourth wall on the lake's bank — the pool should stop being the lake's
             at the next boundary (`enclosed N kept` on the `M8b:` line, the plane gone from
             inside the walls) — and whether a courtyard on a slope reads right with its uphill

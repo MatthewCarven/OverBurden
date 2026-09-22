@@ -977,7 +977,18 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
-**Pick up here (2026-09-21, evening). The Tier B surface is per panel and its walk reads only a
+**Pick up here (2026-09-22). Rain on the player's material is planned and not built — eight
+decisions, all recommended, in [docs/M8-PLAN.md](docs/M8-PLAN.md) "Rain lands on the player's
+material — the planning pass"; build on his word.** His clay pond was never leaking: its floor is
+placed, so its water is never on the seed plane and holds (`enclosed 0 kept, 306 flood(s) / 0
+closed` with 12,800 L held) — rain was not landing in it, because the watershed cannot see a
+placed floor and the 2% drops are scattered over the whole box. The rule: a column whose top is
+above its seed gets its rain as Tier B cells on that top, owed by the basin under it. The
+`enclosed` bracket says why a flood opened since the same day (built, committed, the Game
+rebuilt when his session ended). The spread world is retired as the load test
+(`worlds/retired-spread-2026-09-22/`). The paragraph below is the evening's state.**
+
+**Earlier (2026-09-21, evening). The Tier B surface is per panel and its walk reads only a
 full layer's perimeter — built, tested (suite 1,703), benched, and measured on a copy of his
 `default` once he quit: the walk was half the tick on that world (650 of 1,200 ms) and is ~265
 now; the memory climb of his 85-minute play was garbage, not a leak (`dotnet-gcdump`: 159 MB live

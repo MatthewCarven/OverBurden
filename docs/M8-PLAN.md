@@ -2557,6 +2557,100 @@ under the lake, against the control's one merged top. Suite 1,370.
 plane, and nothing stepped beneath it. `R` onto a lake should spread on its surface and vanish
 into the level at the next boundary.
 
+### Rain lands on the player's material — the planning pass, 2026-09-22
+
+*"can you check my world water doesnt seem to be building up in my clay pond"* — and it was
+not leaking. The log read `rained 10,016 L … handed 9,446 L, enclosed 0 kept, 306 flood(s) /
+0 closed` while the pond held 12,800 L of a relay outlet's water without a litre handed: its floor
+is his clay above the ground, so its water is never on the seed plane, never asked of the
+enclosure, and holds. **Rain was not landing in it.** 98% of the rain is Tier A's and goes to the
+basins of the *seed* terrain — the watershed cannot see a placed floor, so the rain over the pond's
+footprint is credited to the basin under it — and the 2% that falls as cells (2026-09-19) is
+scattered at random over the whole 96 m box, so a 10 m pond gets its area's share of a share: a
+few drops an hour. *"rain on my stuff should land in it"* — *"just plan it for the moment"*.
+
+**Six facts from the code.**
+
+1. **A column already knows whether its top is the player's.** `SkyColumn.SeedSurfaceY(lx, lz)`
+   is the topmost solid voxel of the unedited column and `OpenAboveY(lx, lz)` the Y above which
+   it is open now, moved by every edit (`ChunkPipeline.SkyHeightChanges` counts the moves). A
+   column with `OpenAboveY > SeedSurfaceY + 1` has something solid above the seed — a placed
+   floor, a wall's top, or a fall's rubble on the surface — and the air voxel at `OpenAboveY` is
+   where rain on it would land. A dug column reads the other way and is nature's bowl.
+2. **The debt exists.** A cell of rain landed in Tier B is owed to the sky through
+   `WaterSystem.DivertRain` and `BasinRainfall.OwedMicrolitres` pays it out of the next rain before
+   a litre reaches a basin — global, paid by whichever basin comes first in index order, and the
+   2026-09-19 entry says why that is fine for a 2% share: *which basin is a few litres lower is
+   noise*. For a pond's whole footprint it is not noise — 40 kL an hour taken from basin 0.
+3. **The drop machinery is the pour's.** `Main.AccrueRainDrops` turns the frame's depth over the
+   box into cells (`Weather.DepthNanometresOver × RainfallScale`, nanometres over square metres
+   being microlitres), picks each a column, and `DropRain` puts them down at the boundary through
+   `LakeCeiling.Cover` and `FluidSimulation.Add`, counting `rained` and diverting the debt. A
+   pending cap of 64 a boundary; what does not fit stays accrued.
+4. **A voxel column is 1/16 m².** At the shipped scale (20 mm/h at the heaviest weather × 20)
+   that is 1.6 cells an hour a column; a 10 × 10 m floor is 1,600 columns, 2,560 cells and 40 kL an
+   hour — a metre deep in two and a half hours of storm. A 100 × 100 m floor would be 71 cells a
+   second, over the cap; the rate is bounded by what the player floors.
+5. **The pit is Tier A's already, by the model.** Rain over a dug pit goes to its basin, the lake
+   rises, and the water arrives in the pit through the portals and the lake ceiling — DESIGN's
+   *rain finds your excavation* by the cheap route, one number a basin, no cell until the water
+   enters. The asymmetry that scopes this pass: below the seed Tier A still delivers; above it,
+   Tier A puts the water *under* the floor.
+6. **The walled pool on bare grass is a different case** (the courtyard): its columns' tops are
+   the seed's, so this rule would not fire, and its rain would need the enclosure's answer per
+   column — a region only exists once a resting cell has asked, so a dry courtyard could only be
+   bootstrapped by a 2% drop. Not this pass; the rule a player can learn is *floor it*.
+
+**Decisions, each with a recommendation.**
+
+1. **Scope: columns whose top is above the seed** — `OpenAboveY > SeedSurfaceY + 1` — and nothing
+   else. Rubble on the surface counts (rain on rubble lands on rubble). Dug columns stay Tier A's
+   (fact 5). Recommended. The alternative, enclosed columns at grade too, is recorded with its
+   trigger: a walled pool on grass that he wants rain-fed and will not floor.
+2. **Where a cell lands: the air voxel at `OpenAboveY`, through the pour's path** — the lake band
+   covered, `Add`, the same as a drop today. A wall's top gets its rain and sheds it to whichever
+   side it falls, which is the honest version and needs no rule. Recommended.
+3. **Accrual per chunk column, not per voxel column.** Each loaded chunk column keeps one
+   accumulator: `placed columns × depth / 16` microlitres a step; each whole cell is dropped at
+   one of that chunk column's placed columns, picked at random from the seeded `Random`, so the
+   total over the footprint is exact and the state is 169 accumulators at r6 rather than 173k. The
+   placed set and its count are cached per chunk column against `SkyColumn.Revision`, so the
+   1,024-column scan runs only when an edit moved a height there. Recommended over per-voxel
+   accumulators (exact per column, 173k longs, nothing gained the eye can see).
+4. **The debt is per basin for this source.** The chunk column's placed columns are in a basin
+   (`WaterSystem.TryBasinAtSample`); the cell's microlitres are owed by *that* basin —
+   `BasinRainfall.Divert(basin, µL)` beside the global `Divert` the 2% drops keep — so the basin
+   under the pond loses exactly its footprint's rain and no other basin pays for it. Cost stated:
+   a per-basin debt cannot survive a window move (basins renumber), so at a move what is still
+   owed per basin folds into the global debt, bounded by one cell a basin, stated beside the
+   remainder's cost. Recommended. Alternative: global only, as today — simpler, and basin 0 pays
+   for every pond in the box.
+5. **The 2% random drops stay as they are, over the whole box.** A random drop that lands on a
+   placed column is 2% on top of that column's own rain; the identity is exact either way and it
+   is inside the estimate. Recommended over excluding placed columns from the picks.
+6. **The pending cap goes 64 → 256 a boundary and the backlog is printed** (`owed to placed
+   columns N cell(s)`), so a large floor's rain is delivered late rather than dropped or
+   forfeited. Recommended; a cap is a cost decision and this one has a number (fact 4).
+7. **Core owns it.** `RainOnPlaced` in `Overburden.Core/Hydrology/`: given the loaded sky columns
+   (an `ISkyColumns` the streamer already answers for `StreamerSolarSky`), the depth over a step
+   and a basin lookup, it yields the cells to drop and the debt per basin; `Main` wires it beside
+   `AccrueRainDrops` and drops through `DropRain`. Tests: a 10 × 10 floor over an hour of rain
+   lands depth × area to the cell; a dug pit lands nothing; a wall top lands on the wall; the
+   basin under the floor is debited exactly and no other is; an hour in one step equals an hour
+   in steps; a window move folds the debt without creating a litre; the r6 control unchanged (no
+   placed voxels). Recommended.
+8. **Reported as a sub-count of the term that exists.** `rained N L (D drop(s), P onto the
+   player's material, S skipped)` on the `M8b:` line and the profile's `water` line; `rained into
+   it as cells` on `M7d:` unchanged; both identities carry it under `rained` as today. The
+   headless oracle: `--profile --speed=0 --place --stock=64000 --clockscale=20 --measure=40`
+   on the spawn's floor reads `P onto the player's material` non-zero against `--rainshare=0`
+   reading only that, and the two identities exact.
+
+**Not in it, named.** Rain into a dug pit as Tier B (fact 5 — Tier A delivers, and a 264 × 304 m
+excavation would be 285 cells a tick); rain into an enclosed pool on bare grass (fact 6); rain
+running off a roof into a gutter (a roof's rain lands on the roof and falls off its edge, which
+is the automaton's business).
+
 ---
 
 ## The open decision — settled by Matthew, 2026-09-02: option 3
