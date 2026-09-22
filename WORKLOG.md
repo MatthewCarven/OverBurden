@@ -116,6 +116,18 @@ so the full-layer cut does not fire there). The rest of the ~1 s tick is visits 
 M10d's lever — and the settled state's `last rebuild` count is read off his next play. Suite
 1,702 → 1,703; the r6 control to the digit.
 
+**The world is retired as the load test (2026-09-22, *"do you want to retire this world as a
+load test?"* — yes): `worlds/retired-spread-2026-09-22/`**, 66.6 ML in 2,393 rows, 209 machines,
+a lake let into the mine and spread thin over the plain. Its last session on the new build, read
+before the move: 0 `ERROR` lines, 3.4 M cells active (3.0 M deferred far water), the solve's
+longest pass 1.78 s, the worker wall 1.8 s mean, the surface 359k quads of which 294k are sides
+— a spreading front is all steps — with 447 of 591 panels rebuilt a tick (`own 204, previous
+144`) and the install at 92 ms mean; the working set flat at 2.8–2.9 GB. **The mesher's worst
+case by the state's shape, not the code's**: the per-panel rule saves nothing while three
+quarters of the panels move, and the tick is the visits and the solve. `H` held it at tick 12 and
+released at 13. It replaces `retired-flooded-2026-09-19` as the measurement world for the solve
+lever, the surface's settled-state read and the `live` term's slope.
+
 **And on his offer — *"drop in any access to memory or objects you deem, even a freeze function
 to stop at a specific state"* — two binds.** `H` holds the water: no Tier B tick begins until `H`
 again (a tick in flight lands first, printed), so a state stays one state for a screenshot or a

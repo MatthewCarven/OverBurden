@@ -5742,6 +5742,11 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
             the pass is a rebuilt count near the moving machines' panels and an install mean in
             single-digit ms. If most panels still rebuild every tick at rest, the cause is the
             solve levelling whole sheets a boundary (the item below), and the lever is there.
+            **The world for it is `worlds/retired-spread-2026-09-22/`** (retired 2026-09-22 on his
+            offer): 66.6 ML in 2,393 rows, 209 machines, 3.4 M active at its open, the surface at
+            359k quads — the first run on the new build read `last rebuild 447 of 591 panel(s)`
+            with the install at 92 ms mean because 75% of its panels move every tick at the open,
+            and the settled state is what a longer run reads.
       - [ ] **The solve's pass on a 34 ML world with 191 machines is 1.6 s mean, 3.1 s longest**
             (2026-09-20, 64 pumps over 127 outlets, 2.25 M cells, 962k deferred, 4,282 of 4,295
             boundaries waited) — with the seeds bounded (66k a pass), the cost is the sheets it

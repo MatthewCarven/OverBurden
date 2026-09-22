@@ -942,9 +942,14 @@ local folder, the remote URL, and the assistant's memory directory (see TODO's n
 **The played worlds now live under `app_userdata/Overburden/`; the `MinerCraft/` folder beside it
 is the pre-rename backup and is Matthew's to delete.** **The flooded world of 2026-09-19 —
 sixteen pumps, forty-three outlets, 21.1 ML of Tier B in 969 rows — is
-`worlds/retired-flooded-2026-09-19/`**, retired on his word after a clean quit: the measurement
-world for the solve lever (TODO under M10d), to be opened only as a copy with `--world=`; his
-`default` from that evening is a fresh world.
+`worlds/retired-flooded-2026-09-19/`**, retired on his word after a clean quit. **And the spread
+world of 2026-09-22 — 209 machines, 66.6 ML of Tier B in 2,393 rows, a lake let into the mine
+and spread thin over the plain, 3.4 M cells active at its open, the solve at 1.8 s a pass and the
+surface at its worst case (359k quads, 294k of them sides) — is `worlds/retired-spread-2026-09-22/`**,
+retired on his offer (*"do you want to retire this world as a load test?"*) after a clean quit:
+**the load test**, the measurement world for the solve lever, the surface's settled-state read and
+the memory `live` term, to be opened only as a copy with `--world=`; his `default` is fresh from
+the next launch.
 
 **Where the morning of 2026-09-06 left off. M8b-4a is built — the pause and the arrival — and M8b-4b, the store,
 is next and goes alone, because a defect there is permanent data loss.** Read M8-PLAN's "M8b-4 —
