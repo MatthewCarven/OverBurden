@@ -1,5 +1,17 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-22 (later) — start.cmd builds before it launches
+
+The roof fix (`3b70c7a`) was committed while Matthew played, so his binary was `dfc0518`'s until
+this morning's `dotnet build Overburden.Game` (5.6 s, two pre-existing warnings). He asked whether
+the build belongs in `start.cmd`; it does, because Godot launched with `--path` never rebuilds —
+it loads the DLL in `.godot/mono/temp/bin` as it stands — and the failure this produces (a Core
+change committed mid-play, the next play on the previous code) is silent. The launcher now runs
+`dotnet build Overburden.Game --nologo -v q` first and stops on a failed build rather than launching
+stale code. The r6 control after the build: 2601 / 325 / 3446 at 411, 0 faulted, no `ERROR` lines.
+Owed from his next play, unchanged: the clay pond filling in rain (`onto the player's material`
+climbing while `handed` does not) and `skipped of which N under a roof` non-zero where it used to leak.
+
 ## 2026-09-22 — The surface's previous-readers rule reads what each build read, and rain lands on the player's material
 
 Two things, both from his fresh world's log. **The settled-state read the surface change owed**
