@@ -197,9 +197,12 @@ and not a play arm; on, the player's material encloses and nature's does not (a 
 64 voxels to the bound — an estimate; a wall claims its footing). **`--courtyard=<metres>`** builds
 a square ring of stone walls that wide, `--courtyardwalls=<metres>` (2) tall, on the ground round
 the player when the window opens, before `--injectlitres` pours inside it — the provocation. The
-`M8b:` line's `handed` bracket carries `enclosed N kept, F flood(s) / C closed, R region(s), B
-band(s) rebuilt for it`, the profile has an `enclosure` line under `handoff`, and the `surface`
-line prints `N enclosed sample(s) undrawn`. **The oracle, verbatim, reads `handed 0 L` with
+`M8b:` line's `handed` bracket carries `enclosed N kept, F flood(s) / C closed (O open at the
+bound, G of them out through natural ground; U at an unloaded chunk; farthest open / closed of
+64), R region(s), B band(s) rebuilt for it` — the why since 2026-09-22, because a pond that
+would not fill read `116 flood(s) / 0 closed` and the log could not say which rule — the
+profile has an `enclosure` line under `handoff`, and the `surface` line prints `N enclosed
+sample(s) undrawn`. **The oracle, verbatim, reads `handed 0 L` with
 `6 flood(s), 6 closed` and rests by tick ~85; with `--enclosure=0` it reads `handed 20,000 L`:**
 
 ```bash
@@ -440,8 +443,10 @@ vertical box waits up to 64 cells a chunk column and then forfeits to the basin,
 term carries `P onto the player's material over C column(s)` and, when non-zero, `owed to placed
 columns / forfeited`; the profile's `water` line the same with rescans. **The oracle, verbatim**:
 `--profile --speed=0 --place --stock=64000 --clockscale=20 --measure=40` builds a column under
-the crosshair and reads `onto the player's material` non-zero with both identities exact, where
-`--rainshare=0` on the same run reads the placed cells alone.
+the crosshair and reads `21 onto the player's material over 144 column(s)` on the `M8b:` line
+(`642 cell(s) + 26 onto the player's material`, `0 owed, 0 forfeited` on the profile's `water`
+line) with both identities exact, where `--rainshare=0` on the same run reads `0 cell(s) + 26
+onto the player's material` — the placed rain alone.
 
 **Rain drops Tier B cells since 2026-09-19** — Matthew: *"not many but just to make you think
 about the water runoff"*. **`--rainshare=<percent>`** is the share of the rain over the drawn
@@ -997,7 +1002,7 @@ export with SQLitePCLRaw's natives is still the unverified step and was not need
 **Pick up here (2026-09-22, afternoon). Rain on the player's material is built — all eight
 decisions as recommended, the same day; read "Rain lands on the player's material — built" in
 [docs/M8-PLAN.md](docs/M8-PLAN.md), the forfeit being the one rule the build added. The play check
-is under M8 in TODO: the clay pond in the rain, one sentence back. Suite 1,713; the Game build, the r6 control and the oracle wait for his session to end.** His clay pond was never leaking: its floor is
+is under M8 in TODO: the clay pond in the rain, one sentence back. Suite 1,713; the Game built, the r6 control to the digit, the rain oracle and the courtyard's read as recorded.** His clay pond was never leaking: its floor is
 placed, so its water is never on the seed plane and holds (`enclosed 0 kept, 306 flood(s) / 0
 closed` with 12,800 L held) — rain was not landing in it, because the watershed cannot see a
 placed floor and the 2% drops are scattered over the whole box. The rule: a column whose top is
