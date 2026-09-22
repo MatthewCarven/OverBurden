@@ -221,7 +221,9 @@ column, lake, previous; KiB) and N freed` with mesh + install ms, and `install m
 rebuild(s)`. On the bench (`--surface`) a lake at rest went 837 KiB / 40 ms a build to 0 / 0.09;
 a flood rebuilds every panel it moves through and costs what it did. **The walk's sides pass reads
 only a full layer's perimeter** (the same evening — the walk was 650 ms of a 1,200 ms tick on the
-played world, ~265 after). **`H` holds the water** — no tick begins until `H` again, a state
+played world, ~265 after), **and a moved previous surface rebuilds only the panels whose build
+read it** (2026-09-22 — a settled world read `own 2, previous 26` under the geometric rule; the
+readers were a handful). **`H` holds the water** — no tick begins until `H` again, a state
 stays one state — and **`Alt+H` runs a full collection and prints what survived it**; the `M2c:`
 line's `managed` is garbage included (a snapshot read 159 MB live in a 971 MB heap) and `live …
 at the last gen2` is the number a leak moves. `dotnet-gcdump collect -p <pid>` is the heap by

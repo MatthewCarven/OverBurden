@@ -1,5 +1,26 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-22 — The surface's previous-readers rule reads what each build read, and rain lands on the player's material
+
+Two things, both from his fresh world's log. **The settled-state read the surface change owed**
+(TODO under M10d) came off a small world at rest — 2.3 ML in 36 panels, 965 active, 0 `ERROR`
+lines, `live 214 MiB` flat over 3,600 ticks, install 8 ms mean — and read `last rebuild 28
+panel(s) (own 2, previous 26)`: two panels moving a tick (the pump's mound) and twenty-six
+rebuilt because the geometric fifteen a moved previous surface *could* reach were all dirtied.
+The exact rule is what each build actually read: `PanelRecord.ReadPrevious` records every panel
+whose previous surface the build looked up — its own and the two in its column always, a sideways
+neighbour's and theirs above and below only where a side or a fall search reached into them —
+and a moved surface dirties only the readers that recorded it (`ReadAll` for a build that ran
+with no previous surface anywhere, which the first pass is). Exact by the same argument as the
+rest of the rule: the lookups a build performs depend on inputs that are dirty for their own
+reasons if they changed, so a panel that never read R last time would not read it now. The oracle
+held unchanged; the lake-band test's neighbours went 3 → 1 rebuilt, because they draw no side
+against the panel whose tops went and so never read it; the bench's flood at rest 12 → 6 of 16.
+
+**The rain rule** is its own entries in M8-PLAN (the pass and the built section) and TODO: his
+clay pond was never leaking, rain was not landing in it, and now a column whose top is above its
+seed gets its rain on that top, owed by the basin under it. Suite 1,713.
+
 ## 2026-09-21 (afternoon) — The Tier B surface is per panel, rebuilt only where something moved
 
 *"the Tier B surface install, i'm playtesting now thanks Claude"* — the lever recorded at

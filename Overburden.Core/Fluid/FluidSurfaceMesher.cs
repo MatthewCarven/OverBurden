@@ -82,7 +82,10 @@ namespace Overburden.Core.Fluid;
 /// reads changed at the last build — its own, so a panel whose water moved is built once more
 /// with its previous equal to its current and the <c>tick_phase</c> lerp settles instead of
 /// replaying at every install; or a neighbour's, because a side's bottom edge and a fallen
-/// surface look up where the water stood in the panels beside and above. (Two rules were tried
+/// surface look up where the water stood in the panels beside and above — and only the panels
+/// whose build actually read that surface, which each build records: the geometric fifteen a
+/// changed surface could reach rebuilt 26 panels a tick for two that moved on a settled world
+/// (2026-09-22), where the readers were a handful. (Two rules were tried
 /// before this one: <i>a vertex with its previous different from its current</i>, which a side
 /// against a dry cell under a surface never satisfies, so a stepped lake rebuilt forever; and
 /// <i>the arrays differ from the build before</i>, which is true of the settle build itself and
@@ -246,6 +249,14 @@ public sealed class FluidSurfaceMesher
         public bool IsNew = true;
         public bool Dirty;
         public int Seen;
+
+        // The previous surfaces this panel's last build looked up, by panel — its own and the
+        // ones above and below always, a sideways neighbour's and theirs above and below only
+        // where a side or a fall search reached into them — so a moved surface rebuilds exactly
+        // the panels that read it. ReadAll when the build ran with no previous surface anywhere
+        // and so looked nothing up: the first entry to appear would change what it would read.
+        public readonly HashSet<ChunkPos> ReadPrevious = [];
+        public bool ReadAll;
         public byte[]? CarryOut;
         public int Tops, Sides, Bottoms, SurfaceCells, UnderLake, Quads, Vertices;
         public long Bytes;
@@ -257,6 +268,8 @@ public sealed class FluidSurfaceMesher
             IsNew = true;
             Dirty = false;
             Seen = 0;
+            ReadPrevious.Clear();
+            ReadAll = false;
             Tops = Sides = Bottoms = SurfaceCells = UnderLake = Quads = Vertices = 0;
             Bytes = 0;
         }
@@ -271,6 +284,9 @@ public sealed class FluidSurfaceMesher
     // Panels whose entry in _previous changed at the last pass's swap — a new surface, a moved
     // one, or one dropped — so the panels that read it are rebuilt at this pass.
     private readonly List<ChunkPos> _previousMoved = [];
+
+    // The record being built, whose ReadPrevious every lookup of a previous surface adds to.
+    private PanelRecord? _building;
     private readonly List<FluidSurfaceMesh> _rebuilt = [];
     private int _pass;
     private int _totalTops, _totalSides, _totalBottoms, _totalSurfaceCells, _totalUnderLake, _totalQuads, _totalVertices;
@@ -450,15 +466,15 @@ public sealed class FluidSurfaceMesher
         // panel over the cell, and a side's dry neighbour's previous under it).
         foreach (ChunkPos chunk in _previousMoved)
         {
-            previous += MarkIfHeld(chunk);
-            previous += MarkIfHeld(chunk.Offset(0, 1, 0));
-            previous += MarkIfHeld(chunk.Offset(0, -1, 0));
+            previous += MarkIfRead(chunk, chunk);
+            previous += MarkIfRead(chunk.Offset(0, 1, 0), chunk);
+            previous += MarkIfRead(chunk.Offset(0, -1, 0), chunk);
             for (int dy = -1; dy <= 1; dy++)
             {
-                previous += MarkIfHeld(chunk.Offset(1, dy, 0));
-                previous += MarkIfHeld(chunk.Offset(-1, dy, 0));
-                previous += MarkIfHeld(chunk.Offset(0, dy, 1));
-                previous += MarkIfHeld(chunk.Offset(0, dy, -1));
+                previous += MarkIfRead(chunk.Offset(1, dy, 0), chunk);
+                previous += MarkIfRead(chunk.Offset(-1, dy, 0), chunk);
+                previous += MarkIfRead(chunk.Offset(0, dy, 1), chunk);
+                previous += MarkIfRead(chunk.Offset(0, dy, -1), chunk);
             }
         }
 
@@ -522,7 +538,11 @@ public sealed class FluidSurfaceMesher
             _tops = _sides = _bottoms = _surfaceCells = _underLake = 0;
             int asksBefore = _terrainAsks;
 
+            record.ReadPrevious.Clear();
+            record.ReadAll = false;
+            _building = record;
             BuildPanel(grid, terrain, chunk, record.Cells);
+            _building = null;
 
             bool carries = false;
             for (int i = 0; i < LayerCells; i++)
@@ -700,6 +720,19 @@ public sealed class FluidSurfaceMesher
         return 0;
     }
 
+    /// <summary>Marks a held panel dirty if its last build read <paramref name="moved"/>'s previous surface.</summary>
+    private int MarkIfRead(ChunkPos chunk, ChunkPos moved)
+    {
+        if (_records.TryGetValue(chunk, out PanelRecord? record) && record.Seen == _pass && !record.Dirty
+            && (record.ReadAll || record.ReadPrevious.Contains(moved)))
+        {
+            record.Dirty = true;
+            return 1;
+        }
+
+        return 0;
+    }
+
     private void Add(PanelRecord record)
     {
         _totalTops += record.Tops;
@@ -734,6 +767,12 @@ public sealed class FluidSurfaceMesher
         _previous.TryGetValue(chunk, out _prevSame);
         _previous.TryGetValue(chunk.Offset(0, 1, 0), out _prevAbove);
         _previous.TryGetValue(chunk.Offset(0, -1, 0), out _prevBelow);
+        if (_building is { } reading)
+        {
+            reading.ReadPrevious.Add(chunk);
+            reading.ReadPrevious.Add(chunk.Offset(0, 1, 0));
+            reading.ReadPrevious.Add(chunk.Offset(0, -1, 0));
+        }
         _prevCursor = 0;
         PanelSurface current = _pool.Count > 0 ? _pool.Pop() : new PanelSurface();
 
@@ -1033,6 +1072,11 @@ public sealed class FluidSurfaceMesher
     {
         if (_previous.Count == 0)
         {
+            if (_building is { } reading)
+            {
+                reading.ReadAll = true;
+            }
+
             return 0;
         }
 
@@ -1102,6 +1146,7 @@ public sealed class FluidSurfaceMesher
 
     private PanelSurface? PanelOf(ChunkPos chunk)
     {
+        _building?.ReadPrevious.Add(chunk);
         if (!_prevCacheValid || _prevCacheKey != chunk)
         {
             _previous.TryGetValue(chunk, out _prevCache);
@@ -1125,6 +1170,11 @@ public sealed class FluidSurfaceMesher
     {
         if (_previous.Count == 0)
         {
+            if (_building is { } reading)
+            {
+                reading.ReadAll = true;
+            }
+
             return 0;
         }
 

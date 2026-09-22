@@ -289,12 +289,13 @@ public sealed class FluidSurfaceIncrementalTests
         Assert.Equal(0, update.Rebuilt[0].Tops);
         Assert.Equal(3 * N * N, update.SurfaceCells);
 
-        // The panel's previous surface went with its tops, so it and the two neighbours that read
-        // it are built once more; an unchanged stamp with an unchanged answer rebuilds nothing
-        // after that.
+        // The panel's previous surface went with its tops, so it is built once more — and only
+        // it: its two neighbours draw no side against it (the shared face holds water at the same
+        // fill on both sides) and so never read its previous surface, which the build records.
+        // An unchanged stamp with an unchanged answer rebuilds nothing after that.
         FluidSurfaceUpdate settle = mesher.Update(grid, terrain);
-        Assert.Equal(3, settle.RebuiltForPrevious);
-        Assert.Equal(3, settle.PanelsRebuilt);
+        Assert.Equal(1, settle.RebuiltForPrevious);
+        Assert.Equal(1, settle.PanelsRebuilt);
         Assert.Equal(0, mesher.Update(grid, terrain).PanelsRebuilt);
     }
 
