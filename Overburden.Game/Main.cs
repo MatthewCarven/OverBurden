@@ -390,6 +390,11 @@ public partial class Main : Node3D
     private int _rainDrops;
     private int _rainDropsSkipped;
 
+    // Random drops not spawned because something solid stands above the box's top row at their
+    // column — a roof (2026-09-22, "is water falling through my roof?": the adaptive box's top
+    // row was under his roof and the drops spawned inside, falling from the ceiling like a leak).
+    private int _rainDropsUnderARoof;
+
     // Rain on the player's material (2026-09-22): the rain over every column whose top is above
     // its seed lands on that top as cells, owed by the basin under it — RainOnPlaced in Core, the
     // cells it yields waiting for the boundary here, and the session's counts.
@@ -5017,7 +5022,7 @@ public partial class Main : Node3D
                + $"{_water.InjectedLitres:N0} L injected, {_water.DrawnLitres:N0} L drawn into Tier B, "
                + $"{_water.SeepedLitres:N0} L seeped into it, {_water.ReceivedLitres:N0} L received from it, "
                + $"{_water.PumpedLitres:N0} L pumped out of lakes, {_water.EmittedLitres:N0} L emitted into basins, "
-               + $"{_water.RainDivertedMicrolitres / 1_000_000.0:N1} L rained into Tier B as {_rainDrops:N0} cell(s) + {_rainDropsOntoPlaced:N0} onto the player's material ({_water.RainOwedMicrolitres / 1_000_000.0:N1} L still owed, {_rainDropsSkipped:N0} drop(s) skipped; "
+               + $"{_water.RainDivertedMicrolitres / 1_000_000.0:N1} L rained into Tier B as {_rainDrops:N0} cell(s) + {_rainDropsOntoPlaced:N0} onto the player's material ({_water.RainOwedMicrolitres / 1_000_000.0:N1} L still owed, {_rainDropsSkipped:N0} drop(s) skipped of which {_rainDropsUnderARoof:N0} under a roof; "
                + $"placed {_rainOnPlaced?.PlacedColumns ?? 0:N0} column(s) in {_rainOnPlaced?.ChunkColumnsWithPlaced ?? 0:N0} chunk column(s), {_rainOnPlaced?.Rescans ?? 0:N0} rescan(s), {_rainOnPlaced?.Backlog ?? 0:N0} owed, {_rainOnPlaced?.Forfeited ?? 0:N0} forfeited), "
                + $"{held * 60.0 / seconds:N0} L per wall-clock minute at scale "
                + $"x{_water.RainfallScale}\n"
@@ -6420,11 +6425,25 @@ public partial class Main : Node3D
             _rainDropsAccrued -= 1.0;
             int x = originX + _rainDropsRandom.Next(span);
             int z = originZ + _rainDropsRandom.Next(span);
-            if (y <= _seedHeights.SurfaceHeightAt(x, z))
+
+            // The drop spawns at the box's top row only where nothing solid stands above that row
+            // in its column — the column's open height, which counts the player's roof as well as
+            // the ground. Under the ground the player is underground and the sky is above the
+            // loaded world; under a roof the box's top row is inside the building, and a drop
+            // there falls from the ceiling and reads as a leak (2026-09-22). No drop either way.
+            SkyColumn? column = _pipeline.Streamer.ColumnAt(x >> VoxelConstants.ChunkSizeLog2, z >> VoxelConstants.ChunkSizeLog2);
+            int seed = _seedHeights.SurfaceHeightAt(x, z);
+            int open = column is { IsSeeded: true }
+                ? column.OpenAboveY(x & VoxelConstants.ChunkMask, z & VoxelConstants.ChunkMask)
+                : seed + 1;
+            if (y < open)
             {
-                // The box's top is inside the ground here — the player is underground and the sky
-                // is above the loaded world. No drop: it would be rain under a roof.
                 _rainDropsSkipped++;
+                if (open > seed + 1)
+                {
+                    _rainDropsUnderARoof++;
+                }
+
                 continue;
             }
 
@@ -6697,7 +6716,7 @@ public partial class Main : Node3D
         return $"{p.TotalMillilitres / litre:N0} L moving in {p.HeldCells:N0} cell(s) over "
                + $"{p.Panels} panel(s) ({p.PanelBytes / 1024.0 / 1024.0:F1} MiB) at tick {p.Ticks:N0}; "
                + $"injected {(p.Added - drawn - seeped - _rainedIntoBMillilitres) / litre:N0} L, "
-               + $"rained {_rainedIntoBMillilitres / litre:N0} L ({_rainDrops:N0} drop(s), {_rainDropsOntoPlaced:N0} onto the player's material over {_rainOnPlaced?.PlacedColumns ?? 0:N0} column(s), {_rainDropsSkipped:N0} skipped"
+               + $"rained {_rainedIntoBMillilitres / litre:N0} L ({_rainDrops:N0} drop(s), {_rainDropsOntoPlaced:N0} onto the player's material over {_rainOnPlaced?.PlacedColumns ?? 0:N0} column(s), {_rainDropsSkipped:N0} skipped of which {_rainDropsUnderARoof:N0} under a roof"
                + (_rainOnPlaced is { Backlog: > 0 } or { Forfeited: > 0 } ? $"; {_rainOnPlaced!.Backlog:N0} cell(s) owed to placed columns, {_rainOnPlaced.Forfeited:N0} forfeited to the basin" : string.Empty)
                + $"), drawn {drawn / litre:N0} L, "
                + $"loaded {p.Loaded / litre:N0} L from {f.RestoredPanels:N0} panel(s), "

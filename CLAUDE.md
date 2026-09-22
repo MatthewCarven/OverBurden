@@ -453,7 +453,9 @@ about the water runoff"*. **`--rainshare=<percent>`** is the share of the rain o
 box that falls as 15.6 L cells from the top row of the drawn vertical box at a random column
 (2 by default, an estimate — a drop every second or so at the heaviest scaled weather; 0 is off,
 the arm every figure before that date was taken in); a drop is skipped where the box's top is
-inside the ground (underground, no sky) or the cell cannot hold. **A drop is rain, not water from
+inside the ground (underground, no sky), **under a roof (2026-09-22 — the adaptive box's top row
+was inside his building and the drops fell from the ceiling like a leak; `skipped of which N
+under a roof` on the rained terms)**, or the cell cannot hold. **A drop is rain, not water from
 nothing**: each landed cell is owed to the sky through `WaterSystem.DivertRain` and
 `BasinRainfall` pays it in microlitres out of the next rain before a litre reaches a basin, the
 debt carried across a window move and the first window (the sub-litre remainder's one stated

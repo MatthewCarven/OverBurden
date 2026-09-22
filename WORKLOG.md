@@ -21,6 +21,15 @@ against the panel whose tops went and so never read it; the bench's flood at res
 clay pond was never leaking, rain was not landing in it, and now a column whose top is above its
 seed gets its rain on that top, owed by the basin under it. Suite 1,713.
 
+**And a leak that was not one — *"Is water falling through my roof? Like there is a gap"*.** The
+2% random droplets spawn at the top row of the drawn vertical box and checked only that the row
+was not underground; with the adaptive radius the box is one ring while he moves, its top row
+8–16 m above his chunk, which can be *under* a roof — so a droplet spawned inside the building
+and fell from the ceiling. A drop now spawns only where nothing solid stands above its row in
+that column (the sky column's open height, which counts a roof as it counts the ground), and the
+ones it skips under a roof are counted on both rained terms (`skipped of which N under a roof`).
+Placed rain never had this: its cell lands above the column's topmost solid, or waits.
+
 ## 2026-09-21 (afternoon) — The Tier B surface is per panel, rebuilt only where something moved
 
 *"the Tier B surface install, i'm playtesting now thanks Claude"* — the lever recorded at
