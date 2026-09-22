@@ -5129,8 +5129,8 @@ the surface, where the plan's budget rule sheds a 20-voxel plug and holds.
       keystone reads `at risk 20` dry → `table 20` → `at risk 18,718 in 7` → four ~6,200-voxel
       falls, `lifted 30 == returned 30`, `displaced 0`, `at risk 0`; the three controls hold.
       - [ ] **The play — four questions as recipes, one sentence wanted back on each.** On
-            `default`, `start.cmd` with `--entanglechunk` (a 16 m room on the cube arm is 256
-            clicks). (1) *Settling*: `Q`, four chunk bites in a 2 × 2, 24 m down in stone; walk
+            `default`, `start.cmd` with `--entanglechunk --nogate` (a 16 m room on the cube arm is 256
+            clicks; the excavator costs 1.6 MJ a chunk since 2026-09-19, two a pack — M10d's pass, fact 5). (1) *Settling*: `Q`, four chunk bites in a 2 × 2, 24 m down in stone; walk
             back and wait the minute out, or `--collapseafter=2,10`; one `M9: fell 20` and the roof
             holds — did it read as the roof settling or as a glitch? (2) *Attributable*:
             `--collapse=0`, the same room, look up — could you say where it would go before it
@@ -5577,6 +5577,29 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
                through the tiers: the entangled miner is not on the cycle, and the steel pick is
                still free. *Does `Q` costing while `T` does not read as the design?*
 - [ ] **M10d — the play**: the mine pumped dry by relay, the storm, the gate, the pillar verdict.
+      **Planned 2026-09-22 (afternoon), while Matthew played — "M10d — the planning pass" at the
+      end of [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md): seven facts, nine decisions, all
+      recommended, split d-1 / d-2 / d-3. Nothing is built for it but two instruments and one
+      test; the seven recipes with the sentence wanted back on each are the pass's last section
+      and replace the three play lists above (M10b's, M10c's, the tiers') as the one list.**
+      - [ ] **d-1 — the instruments, before the play** (one short session): `held` on the `M8b:`
+            line and the profile's `fluid` block gains `(Q L in R panel(s) below the seed
+            surface)` — a panel whose chunk top is under the least seed height over its
+            footprint, off the loaded sky columns, memoised per chunk column (decision 2; the
+            "dry" oracle); three tests on the plug fixture — a stone column floor to roof reads
+            `at risk 0`, one voxel short reads 20, a clay column reads 0 (decision 5 — `Rest` is
+            material-independent by the uniqueness proof, stated as a cost); the M9d recipe's
+            `--entanglechunk` gains `--nogate`; the r6 control to the digit.
+      - [ ] **d-2 — the play**, Matthew's: the seven recipes in the pass. Outlets past a divide
+            or into a walled tank (never the mouth alone — a treadmill); the storm with no
+            cells, which his world is; the pillar under `--collapse=0`; M9d's four; the tiers
+            and the hold; the panel by hand; the pack across a quit. Watch for origin-order
+            draw starving later pumps under panels-only power (decision 4; the lever is the
+            outlets' ring on the pumps, not built until seen).
+      - [ ] **d-3 — the solve's number on the load test, after his session** (never beside a
+            play): a copy of `retired-spread-2026-09-22` with `--profile --fluidnear=2
+            --fluidjob=1 --speed=0 --measure=60`, the `fluidjob` line's `solve mean` and the
+            `settle` line at a minute; then the three levers below priced in their own pass.
       - [ ] **The quantum tiers and the hold (2026-09-19, unplayed)**: `T` cycles hand → steel →
             quantum miner → quantum excavator (a fresh world starts on steel); on the miner a
             click is one 1 m cell dug or the brush placed at range, on the excavator one 8 m

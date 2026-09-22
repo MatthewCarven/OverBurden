@@ -2613,3 +2613,201 @@ on the number row while fewer than ten materials are carried after it.
 - Decision 6's "v5 (millilitres)" reads as *the next version after the assignment's* — and v5
   itself went to the carried packs' charges the same day (the amendment at the end of "M10c-3 —
   built"), so the assignment is v6.
+
+## M10d — the planning pass
+
+> Planned 2026-09-22 (afternoon) while Matthew played, against `MachineTick`, `SupportRule`,
+> `FluidGrid`, the `M10:` and `M8b:` lines, and the play logs of 2026-09-19 to 22. **M10d is the
+> play of M10a–c and the measurement beside it — nothing new is built for it except two
+> instruments and one test.** The split's row: *the played mine pumped dry by relay; the storm;
+> the gate at the bite; the pillar verdict; M9d's four questions* — Matthew's sentence on each.
+> The recipes are at the end, numbered, each ending in the one sentence wanted back.
+
+### Seven facts from the code and the logs
+
+1. **Most of the row has already been played, unprompted, and answered.** The pumps work
+   (2026-09-19, *"the pumps seem to work well"* — 16 pumps, `pumped == emitted` exact, 101 L to
+   an unloaded outlet credited); the loop (*"if you load up the system too much you end up
+   flooding your mineshaft"* — 96% of what went up came back down through the portals, and the
+   outlets stalled `no room` once the lake stood over their mouths); the machines are near (*"the
+   mounds are draining now"*); the gate's price, twice (100 → 20 → 50 J); the swap's stow; the
+   fill's bite rule; the fill into water displacing. **What is unplayed**: the mine *dry*; the
+   storm dimming the pumps; the pillar; the quantum tiers on `T` and Q held; M9d's four
+   questions; M10b's panel by hand; the pack across a quit. That is the whole of the play list,
+   and none of it needs code except as the facts below say.
+2. **The relay's arithmetic puts the storm arm on the world he is playing now.** The relay pump
+   is 1,000 J/L at 100 L/s — 50 kJ a boundary flat out; a panel is 500 W × 500 ms = 250 J a
+   boundary, so one pump at its rate is 200 panels (the ladder's number). His `default` this
+   afternoon: 40 pumps, 48 outlets, **44 panels, 0 cells** (`Alt+P` never pressed), the pack at
+   3.4 MJ recharging off the channel — 11 kJ a boundary generated, 22 L/s across every pump,
+   **94% of it clamped** because there is nothing to store it and 3,394 of the pumps' visits
+   read `no water`. A storm on this world cuts the panels to `ratedWatts × 500 × (256 −
+   overcast)/256` with no cell behind them, which is decision 4's arm exactly. **And the draw is
+   origin order**: pumps take from the pool in the order they were placed, so under panels-only
+   power the first wet pumps run and the later ones stall `unpowered` — invisible today because
+   only one pump a tick is wet, visible the day the mine floods.
+3. **"Dry" has no instrument.** `held` on the `M8b:` line is every Tier B litre — the mine's, the
+   mounds', a tank's, a hillside spill's — and nothing splits it. The pumps' `no water` count is
+   the pumps' view, not the mine's: a wet room with no pump reads dry through it. `FluidGrid`
+   keeps a `Total` per panel already, and a panel is a chunk; every panel in RAM is a chunk in the
+   box, so its footprint's 1,024 seed heights are on the loaded `SkyColumn`s
+   (`StreamerSeedHeights` reads them for the hand-off). *A panel whose chunk top is below the
+   least seed height over its footprint is underground.* One comparison a panel a report, the
+   footprint minimum memoised per chunk column — the seed is immutable — so microseconds over 61
+   panels and a millisecond over the spread world's 2,393.
+4. **A pillar shores by the rule, and by any material.** `SupportRule.Rest` is `min(K, below +
+   Refund)` with the refund a world constant (4 a voxel) — the uniqueness proof's term, which is
+   why it cannot read the material. The floor of a dug room is the top of an analysed chunk whose
+   paths climbed 32 voxels of rest from the anchor below, so it stands at 120; a column standing
+   on it is at 120 at its top; the roof voxel touching it rests to 120 and the roof within 30
+   voxels sideways in stone (7.5 m; the 2 × 2 plug's underside was −4) is held. So **a stone
+   pillar and a clay pillar shore identically, one voxel of contact is enough, and a one-voxel
+   gap is no pillar at all**. The brush lattice is the chunk lattice's divisor, so eight cubes
+   from an excavated floor land on the roof exactly. **No fixture on the bench or in the suite has
+   a pillar** — `--support`'s seven wedges and `--collapse`'s stages are all rooms.
+5. **M9d's four-question recipe is stale in one flag.** It says `--entanglechunk`; that still
+   selects the excavator at open, but the excavator is a costing tier now — 32,768 voxels at
+   50 J is 1.6 MJ a chunk, two a pack — so a 2 × 2 bite is two packs and a swap, or `--nogate`.
+   The questions are about the roof, not the gate.
+6. **The measurement half is his log, then a probe, and the two cannot overlap.** Owed from the
+   play rather than a probe (TODO under M10d): the settled state's `last rebuild N panel(s)` and
+   `install mean` on the `M8b:` line, and the `live` term's slope. Owed from a probe: the solve's
+   pass on the load test (`worlds/retired-spread-2026-09-22/`, 66.6 ML, 3.4 M active at open),
+   whose predecessor read 1.6 s mean / 3.1 s longest with 4,282 of 4,295 boundaries waited — the
+   three levers under M10d in TODO, unpriced. **A headless run beside a play is a confound both
+   ways** (the machine-control finding; eight workers against his frame), so the probe waits for
+   his session to end.
+7. **A storm on a named world is waited for or scaled, never asked for by name.** `--clock=` is
+   overridden by a named world (what that world remembers is the thing under test), so on
+   `default` the levers are the forecast as it comes or `--clockscale=20`, under which a
+   two-minute episode is six seconds and every rate on screen is twenty times itself. `--weather=`
+   forces the look and *does* dim the panels (the overcast byte reads `_forcedWeather ??
+   OvercastAt`) — so `--weather=1` is a storm for the pool without a drop of rain, the arm M10c-2's
+   oracle already runs.
+
+### Decisions, each with a recommendation
+
+#### 1. Nothing is built for M10d but instruments and one test — *recommended*
+
+The play is the deliverable. The build is decision 2's term, decision 5's test, and the recipe
+edits below. No lever named in TODO moves before his sentences arrive, because three of them
+(the price, the swap, the fill's rule) already moved on a sentence and the play is where the
+next one comes from.
+
+#### 2. `held` gains a below-ground term — *recommended*
+
+The `M8b:` line's `held` reads `… L moving in N cell(s) over P panel(s) (Q L in R panel(s)
+below the seed surface)`, and the profile's `fluid` block prints the same; the classification is
+fact 3's, per panel per report, off the loaded sky columns' seed heights. **"Pumped dry" is that
+term reaching zero while `pumped` climbs and `drawn` does not** — drawn climbing with it is the
+loop of 2026-09-19 and reads as its own thing. The alternative — reading `no water` against the
+pump count — is rejected as the pumps' view. Cost: a panel straddling the surface (a chunk with
+both a hillside and a hollow) counts as above; the mine at 24–64 m has no such panel, and a
+mound on the surface has none below. A term a play check names is on the periodic line before
+the play, so this is d-1's.
+
+#### 3. Where the outlets go: past a divide first, a tank second, never the mouth alone — *recommended*
+
+The loop finding says what *dry* needs, and there are three shapes. **A. Outlets past a divide**
+— on ground whose 2 m sample drains to a basin that is not the lake over the mine: the hand-off
+credits that basin, its lake rises, Tier B holds nothing, and the cost is Tier A's one
+multiplication. The recipe, because it is the game's cheap route and the one the design argues
+for. **B. A walled tank on a placed floor** — the courtyard rule: an enclosed pool on the
+player's material is never handed, so the outlets fill a tank the player built; Tier B holds
+every litre as resting cells (a 4 ML mine is 256k cells asleep, and one merged top), and the
+surface draws it. The second recipe, and the one that shows the enclosure doing work. **C. The
+mouth above the level** — rejected and named so it is not retried: surface water is handed to
+the basin under its sample whatever height it fell from, and that basin is the lake that drains
+into the mine. A player cannot see a divide today; a lake rising elsewhere is the only tell, and
+whether that reads is the sentence wanted.
+
+#### 4. The storm arm is the world as it stands: no cells, panels only — *recommended*
+
+Fact 2 says his world is the arm. The recipe is to read the `M10:` line's per-report deltas —
+`generated`, `unpowered`, `pumped` — against `overcast N/256` through a rain episode, and the
+`M7d:` line's episode beside them; `--clockscale=20` if the forecast will not come, `--weather=1`
+for the pool's half alone. **The thing to watch beyond the row's question is origin order**: if
+the mine floods under panels-only power, the pumps placed first run and the rest stall
+`unpowered` in placement order, which a player did not choose and cannot see. The lever is the
+outlets' own ring applied to a channel's pumps — the smooth weighted round-robin already in
+`MachineTick`, so a fair share is the cursor moved rather than a rule written — and it is not
+built until a play sees the starvation, because a play may prefer the pumps nearest the water
+to be the ones that run, which is what origin order happens to give a mine dug outward.
+
+#### 5. The pillar: one Core test, then `--collapse=0` and the tint — *recommended*
+
+Before the play, a test in `Overburden.Core.Tests/Structure/` on the plug fixture (the 2 × 2
+bite at `--bitedepth=3`, `at risk 20`): a column of stone placed from the floor to the roof's
+centre reads `at risk 0` after the settle; the same column one voxel short reads `at risk 20`;
+a column of clay reads `at risk 0` too, pinning fact 4's *any material* as a stated cost rather
+than a surprise. Then the play under `--collapse=0` (every timer armed, none fired): the room,
+the tint on the plug, eight cubes up from the floor, the tint gone at the next settle and the
+`M9:` line's `at risk` at 0. **The cost stated: a clay pillar shores like stone.** If that reads
+wrong, the lever is *not* a per-material refund — that reopens the uniqueness proof, which is
+what makes the field a fixpoint — but a per-material cap on how far a climb may rest (`Rest`
+clamped at the material's own ceiling rather than `K`), which keeps every cycle negative and is a
+second constant in the JSON. Named, not built, waits on the sentence.
+
+#### 6. M9d's four questions fold into M10d's play with the flag corrected — *recommended*
+
+Same world, same session: the recipe gains `--nogate` (the questions are about the roof) and
+`T` twice to the excavator in place of the mode. The two unnamed checks under it — `R` into a
+hollow over a room reading `table` climb on the `M9:` line, and the fill into a pool — stay;
+the second is answered the other way already (the boundary fills displacing) and is a sentence
+on whether the displacement reads right rather than a refusal.
+
+#### 7. M10b's panel by hand and M10c's two open questions fold in — *recommended*
+
+The panel opened, edited and closed by hand (M10b's questions 1–3; question 3 is one Esc or
+two), the pack across a quit and `T` through the cycle (M10c's 7), and the quantum tiers and the
+hold (2026-09-19's item). One list, one session, one sentence each; the three TODO recipes point
+here rather than being copied.
+
+#### 8. The measurement half is a slice after the play, priced first — *recommended*
+
+The solve lever is not M10d's build. After his session ends: a copy of the load test opened
+with `--profile --world=<copy> --fluidnear=2 --fluidjob=1 --speed=0 --measure=60`, reading the
+`fluidjob` line's `solve mean`, the `settle` line's sheets and cells, and `boundary(ies)
+waited` — the settled state at a minute rather than the open's flood — then the three levers
+(a per-sheet wait while fed; a cell cap carried over; a smaller share for large sheets) priced
+against that number in their own planning pass. The play's own reads (decision 8's owed terms)
+come off his log and cost nothing. `dotnet-gcdump` for the `live` slope if it moves.
+
+#### 9. The split: d-1 the instruments, d-2 the play, d-3 the measurement — *recommended*
+
+| | What | Verifiable |
+|---|---|---|
+| **d-1** | Decision 2's term on the `M8b:` line and the `fluid` block; decision 5's three tests; the M9d recipe's flag; TODO's play list rewritten as one recipe pointing here | the r6 control to the digit; the a-3 oracle's `M8b:` line counting the shaft's lower chunk below the seed surface and its mouth chunk (which straddles the pit's rim) above; the pillar tests green and failing without the column |
+| **d-2** | The play — the recipes below, on `default`, his sentences | Matthew's |
+| **d-3** | The solve's number on the load test, then its own pass | the `fluidjob` and `settle` lines at a minute; a lever priced before it is chosen |
+
+### The recipes — one sentence wanted back on each
+
+On `default`, `start.cmd`, reading the log with `grep -a` after; the flags are `start.cmd`'s
+arguments.
+
+1. **Dry.** Place the outlets past a divide (a valley whose lake is not the one over the shaft)
+   or into a walled tank on a placed floor; let the pumps run. On the `M8b:` line, `below the
+   seed surface` falls while `pumped` climbs and `drawn` stays where it was; a lake rises where
+   the outlets pour, or the tank fills. *Did the mine read as being pumped out, and could you
+   tell where the water went?*
+2. **The storm.** No `Alt+P`. Wait for rain, or `--clockscale=20`. On the `M10:` line across the
+   episode: `generated` per report falls with `overcast`, `unpowered` climbs, `pumped` stalls;
+   the pump's panel reads `generating … (overcast B/256)`. *Did the rain read as cutting the
+   pumps — and if several pumps were wet, did the ones that kept running make sense?*
+3. **The pillar.** `--collapse=0`. `T` to the excavator (`--nogate` or two packs), a 2 × 2
+   bite three chunks down; walk back under it and wait for the tint (`M9:` `at risk 20`);
+   stand under the plug's centre, cube brush, stone, eight cubes floor to roof; the next settle
+   reads `at risk 0` and the tint is gone. Then once more in clay. *Did the pillar read as
+   shoring, and did clay holding the roof as well as stone read wrong?*
+4. **Settling, attributable, the soil patch, the water brought it down** — M9d's four, as
+   written in TODO under M9d, on the excavator with `--nogate`; `--collapseafter=2,10` for the
+   first, `--collapse=0` for the second, `--saturation=0` for the fourth's control. *One
+   sentence each, as the TODO asks.*
+5. **The tiers and the hold.** Fresh pack (`P`, right-click), `Alt+P`, `T` through hand →
+   steel → miner → excavator, Q held on each. *Does the excavator's two-chunk pack read as the
+   battery being the gate, and does the cycle's order read as a ladder?*
+6. **The panel by hand.** Computer in hand, right-click a pump: the arrows, typing, 99 → 15,
+   Esc once with the field live. *Is one Esc or two what you expect?*
+7. **The pack across a quit.** Quit worn, reopen: `a pack equipped (header v4)` to the joule,
+   `T` through the cycle. *Does Q costing while T does not read as the design?*

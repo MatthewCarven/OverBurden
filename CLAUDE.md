@@ -1001,7 +1001,25 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
-**Pick up here (2026-09-22, session close — *"see you in a fresh Code Chat"*). Everything is
+**Pick up here (2026-09-22, afternoon). M10d is planned and not built — "M10d — the planning
+pass" at the end of [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md), written while Matthew
+played: seven facts, nine decisions, all recommended, split d-1 / d-2 / d-3. Nothing is built for
+it but two instruments and one test. Build d-1 first, once he answers — the `below the seed
+surface` term on `held` (the "dry" oracle; a panel whose chunk top is under its footprint's least
+seed height, off the loaded sky columns), the three pillar tests on the plug fixture (a column
+floor to roof reads `at risk 0`; one short reads 20; clay reads 0 — `Rest` is material-independent
+by the uniqueness proof, a stated cost), the M9d recipe's `--nogate` — then d-2 is his seven
+recipes, and d-3 the solve's number on a copy of the load test after his session, never beside a
+play. Three things not to rediscover: **his world is the storm arm already** (40 pumps, 44 panels,
+0 cells, 94% of the generation clamped; the pool draws in origin order, so the first-placed wet
+pumps run under panels-only power — watch for it, the lever is the outlets' ring on the pumps);
+**"dry" needs the term** (`held` is every litre, `no water` is the pumps' view); and **a pillar
+shores in any material** because the refund is a world constant. `start.cmd` builds the Game
+before it launches since this morning (`e759421`); the r6 control read to the digit after it. His
+two play sentences from the morning are still owed — the clay pond in rain, no water born under
+his roof. The paragraph below is the session close's state, kept for the reasoning.**
+
+**Earlier (2026-09-22, session close — *"see you in a fresh Code Chat"*). Everything is
 committed and pushed through `3b70c7a` except that one commit's Game build: the roof fix (a random
 droplet no longer spawns under a roof) was committed while he played, so his binary is
 `dfc0518`'s. First thing next session, with the game closed: `dotnet build Overburden.Game`, the

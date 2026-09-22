@@ -1,5 +1,37 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-22 (afternoon) — M10d planned while he played
+
+"M10d — the planning pass" is the last section of [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md):
+seven facts, nine decisions, all recommended, split d-1 the instruments / d-2 the play / d-3 the
+measurement. The pass is a reading pass — nothing was run, because a headless probe beside his
+play is a confound both ways. Four things from it worth keeping:
+
+- **Most of the row is already played and answered** (the 19th, unprompted): the pumps, the
+  loop, the near machines, the price twice, the stow, the fill's rule. What is unplayed is the mine
+  *dry*, the storm, the pillar, the tiers on `T`, M9d's four, the panel by hand, the pack across
+  a quit — one list of seven recipes, each ending in the sentence wanted back.
+- **"Dry" has no instrument.** `held` is every Tier B litre; the pumps' `no water` is the pumps'
+  view. `FluidGrid` keeps a `Total` a panel and every panel in RAM is a chunk in the box with its
+  seed heights on the loaded sky columns, so *a panel whose chunk top is under its footprint's
+  least seed height is underground* — microseconds a report. d-1's term: `held … (Q L in R
+  panel(s) below the seed surface)`.
+- **The storm arm is the world he is on.** Relay pump 1,000 J/L at 100 L/s is 50 kJ a boundary; a
+  panel is 250 J a boundary; his `default` this afternoon is 40 pumps, 44 panels, **0 cells** —
+  22 L/s across every pump, 94% of the generation clamped. And the pool draws in origin order,
+  so under panels-only power the first-placed wet pumps run and the rest stall `unpowered`;
+  invisible while one pump a tick is wet, the thing to watch when the mine floods. The lever is
+  the outlets' ring on the pumps; not built until seen.
+- **A pillar shores by the rule, in any material.** `Rest` refunds a world constant (4 a voxel, the
+  uniqueness proof's term), so a column from an analysed floor stands at 120 at its top and holds
+  the roof within 30 voxels; clay shores like stone, one voxel of contact is enough, a one-voxel
+  gap is nothing. No fixture anywhere has a pillar — three tests in d-1 before the play. If clay
+  holding reads wrong the lever is a per-material cap on the climb, never a per-material refund.
+
+Also corrected: M9d's recipe said `--entanglechunk`, which is a costing tier now (1.6 MJ a chunk,
+two a pack) — it reads `--nogate` beside it. The solve lever on the load test is d-3, after his
+session.
+
 ## 2026-09-22 (later) — start.cmd builds before it launches
 
 The roof fix (`3b70c7a`) was committed while Matthew played, so his binary was `dfc0518`'s until
