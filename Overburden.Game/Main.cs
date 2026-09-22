@@ -390,8 +390,21 @@ public partial class Main : Node3D
     private int _rainDrops;
     private int _rainDropsSkipped;
 
-    /// <summary>Drops waiting for a boundary; a long frame under a downpour queues no more than this.</summary>
-    private const int RainDropsPendingCap = 64;
+    // Rain on the player's material (2026-09-22): the rain over every column whose top is above
+    // its seed lands on that top as cells, owed by the basin under it — RainOnPlaced in Core, the
+    // cells it yields waiting for the boundary here, and the session's counts.
+    private RainOnPlaced? _rainOnPlaced;
+    private readonly List<VoxelPos> _placedRainPending = [];
+    private long _rainedOntoPlacedMillilitres;
+    private int _rainDropsOntoPlaced;
+
+    /// <summary>
+    /// Drops waiting for a boundary, each list; a long frame under a downpour queues no more than
+    /// this. 64 until 2026-09-22, 256 since the placed rain joined — a 100 × 100 m floor at the
+    /// heaviest scaled weather is 71 cells a second — and what does not fit is the backlog
+    /// <see cref="RainOnPlaced.Backlog"/> prints, delivered late rather than dropped.
+    /// </summary>
+    private const int RainDropsPendingCap = 256;
 
     /// <summary>Which way the camera faces at spawn, for a screenshot that needs an angle.</summary>
     private float _spawnYawDegrees;
@@ -5004,7 +5017,8 @@ public partial class Main : Node3D
                + $"{_water.InjectedLitres:N0} L injected, {_water.DrawnLitres:N0} L drawn into Tier B, "
                + $"{_water.SeepedLitres:N0} L seeped into it, {_water.ReceivedLitres:N0} L received from it, "
                + $"{_water.PumpedLitres:N0} L pumped out of lakes, {_water.EmittedLitres:N0} L emitted into basins, "
-               + $"{_water.RainDivertedMicrolitres / 1_000_000.0:N1} L rained into Tier B as {_rainDrops:N0} cell(s) ({_water.RainOwedMicrolitres / 1_000_000.0:N1} L still owed, {_rainDropsSkipped:N0} drop(s) skipped), "
+               + $"{_water.RainDivertedMicrolitres / 1_000_000.0:N1} L rained into Tier B as {_rainDrops:N0} cell(s) + {_rainDropsOntoPlaced:N0} onto the player's material ({_water.RainOwedMicrolitres / 1_000_000.0:N1} L still owed, {_rainDropsSkipped:N0} drop(s) skipped; "
+               + $"placed {_rainOnPlaced?.PlacedColumns ?? 0:N0} column(s) in {_rainOnPlaced?.ChunkColumnsWithPlaced ?? 0:N0} chunk column(s), {_rainOnPlaced?.Rescans ?? 0:N0} rescan(s), {_rainOnPlaced?.Backlog ?? 0:N0} owed, {_rainOnPlaced?.Forfeited ?? 0:N0} forfeited), "
                + $"{held * 60.0 / seconds:N0} L per wall-clock minute at scale "
                + $"x{_water.RainfallScale}\n"
                + $"analysis  {_lastAnalysisMillis:F1} ms for a {_water.SpanMetres} m window "
@@ -5484,6 +5498,7 @@ public partial class Main : Node3D
         GD.Print(_rainSharePercent > 0.0
             ? $"M7d: {_rainSharePercent:0.#}% of the rain over the drawn box falls as Tier B cells, owed to the sky and paid from its next rain (--rainshare=0 is off)"
             : "M7d: no rain falls as Tier B cells (--rainshare=0)");
+        GD.Print("M7d: rain on the player's material lands on it — every column whose top is above its seed gets its rain as cells on that top, owed by the basin under it (2026-09-22)");
         GD.Print(_fluidNearRings > 0
             ? $"M8b: near water is {_fluidNearRings} ring(s) of chunks, visited every tick; far water "
               + $"is admitted at least {_fluidFarFloor:N0} cell(s) a tick (--fluidnear=0 is no order)"
@@ -6355,7 +6370,7 @@ public partial class Main : Node3D
     /// </remarks>
     private void AccrueRainDrops()
     {
-        if (_rainSharePercent <= 0.0 || _water is null || _fluid is null || _seedHeights is null)
+        if (_water is null || _fluid is null || _seedHeights is null || _pipeline is null)
         {
             return;
         }
@@ -6368,14 +6383,22 @@ public partial class Main : Node3D
 
         long depth = Weather.DepthNanometresOver(_settings.Seed, _rainDropsMillis, now) * _water.RainfallScale;
         _rainDropsMillis = now;
-        if (depth == 0)
+        _rainDropsRandom ??= new Random(unchecked((int)_settings.Seed));
+
+        // The rain over the player's material, first and whatever the share: every column whose
+        // top is above its seed gets its own rain, on that top. Advanced at zero depth too, so a
+        // backlog the cap left drains on a dry frame.
+        int rings = _radiusState.Horizontal;
+        _rainOnPlaced ??= new RainOnPlaced(_pipeline.Streamer, _rainDropsRandom);
+        _rainOnPlaced.Advance(depth, ViewerChunk(), rings, _radiusState.Vertical, _placedRainPending, RainDropsPendingCap);
+
+        if (_rainSharePercent <= 0.0 || depth == 0)
         {
             return;
         }
 
         // Nanometres over square metres is microlitres, exactly as the basins count it; the box is
         // the drawn horizontal radius in chunks of 8 m.
-        int rings = _radiusState.Horizontal;
         long sideMetres = ((2L * rings) + 1) * VoxelConstants.ChunkSize / VoxelConstants.VoxelsPerMetre;
         double microlitres = (double)depth * sideMetres * sideMetres;
         const double MicrolitresPerCell = FluidConstants.CellCapacityMillilitres * 1000.0;
@@ -6386,7 +6409,6 @@ public partial class Main : Node3D
             return;
         }
 
-        _rainDropsRandom ??= new Random(unchecked((int)_settings.Seed));
         ChunkPos viewer = ViewerChunk();
         int span = ((2 * rings) + 1) * VoxelConstants.ChunkSize;
         int originX = (viewer.X - rings) * VoxelConstants.ChunkSize;
@@ -6417,7 +6439,7 @@ public partial class Main : Node3D
     /// </summary>
     private void DropRain()
     {
-        if (_rainDropsPending.Count == 0 || _fluid is null || _water is null)
+        if ((_rainDropsPending.Count == 0 && _placedRainPending.Count == 0) || _fluid is null || _water is null)
         {
             return;
         }
@@ -6425,27 +6447,64 @@ public partial class Main : Node3D
         IFluidTerrain? terrain = _machineTerrain;
         foreach (VoxelPos drop in _rainDropsPending)
         {
-            if (terrain is null || !terrain.IsLoaded(drop) || !terrain.CanHold(drop))
-            {
-                _rainDropsSkipped++;
-                continue;
-            }
-
-            _lakeCeiling?.Cover(drop, drop, _fluid.WakeCell);
-            long refused = _fluid.Add(drop, FluidConstants.CellCapacityMillilitres);
-            long landed = FluidConstants.CellCapacityMillilitres - refused;
+            long landed = LandRainCell(terrain, drop);
             if (landed == 0)
             {
-                _rainDropsSkipped++;
                 continue;
             }
 
-            _rainedIntoBMillilitres += landed;
             _rainDrops++;
             _water.DivertRain(landed * 1000);
         }
 
         _rainDropsPending.Clear();
+
+        // The placed rain: owed by the basin under the cell, so the pond's own catchment pays and
+        // no other basin does; a sample no basin has — off the window — owes globally as a drop.
+        foreach (VoxelPos drop in _placedRainPending)
+        {
+            long landed = LandRainCell(terrain, drop);
+            if (landed == 0)
+            {
+                continue;
+            }
+
+            _rainDropsOntoPlaced++;
+            _rainedOntoPlacedMillilitres += landed;
+            (int sampleX, int sampleZ) = _water.SampleOf(drop.X, drop.Z);
+            if (_water.TryBasinAtSample(sampleX, sampleZ, out int basin))
+            {
+                _water.DivertRain(basin, landed * 1000);
+            }
+            else
+            {
+                _water.DivertRain(landed * 1000);
+            }
+        }
+
+        _placedRainPending.Clear();
+    }
+
+    /// <summary>One cell of rain into the sky at <paramref name="drop"/>, the pour's way; what landed, or 0 counted as skipped.</summary>
+    private long LandRainCell(IFluidTerrain? terrain, VoxelPos drop)
+    {
+        if (terrain is null || !terrain.IsLoaded(drop) || !terrain.CanHold(drop))
+        {
+            _rainDropsSkipped++;
+            return 0;
+        }
+
+        _lakeCeiling?.Cover(drop, drop, _fluid!.WakeCell);
+        long refused = _fluid!.Add(drop, FluidConstants.CellCapacityMillilitres);
+        long landed = FluidConstants.CellCapacityMillilitres - refused;
+        if (landed == 0)
+        {
+            _rainDropsSkipped++;
+            return 0;
+        }
+
+        _rainedIntoBMillilitres += landed;
+        return landed;
     }
 
     /// <summary>Offers what the relay still owes to every cell in its ball, as fast as they take it.</summary>
@@ -6638,7 +6697,9 @@ public partial class Main : Node3D
         return $"{p.TotalMillilitres / litre:N0} L moving in {p.HeldCells:N0} cell(s) over "
                + $"{p.Panels} panel(s) ({p.PanelBytes / 1024.0 / 1024.0:F1} MiB) at tick {p.Ticks:N0}; "
                + $"injected {(p.Added - drawn - seeped - _rainedIntoBMillilitres) / litre:N0} L, "
-               + $"rained {_rainedIntoBMillilitres / litre:N0} L ({_rainDrops:N0} drop(s), {_rainDropsSkipped:N0} skipped), drawn {drawn / litre:N0} L, "
+               + $"rained {_rainedIntoBMillilitres / litre:N0} L ({_rainDrops:N0} drop(s), {_rainDropsOntoPlaced:N0} onto the player's material over {_rainOnPlaced?.PlacedColumns ?? 0:N0} column(s), {_rainDropsSkipped:N0} skipped"
+               + (_rainOnPlaced is { Backlog: > 0 } or { Forfeited: > 0 } ? $"; {_rainOnPlaced!.Backlog:N0} cell(s) owed to placed columns, {_rainOnPlaced.Forfeited:N0} forfeited to the basin" : string.Empty)
+               + $"), drawn {drawn / litre:N0} L, "
                + $"loaded {p.Loaded / litre:N0} L from {f.RestoredPanels:N0} panel(s), "
                + $"evicted {p.Evicted / litre:N0} L with {f.EvictedPanels:N0} panel(s), "
                + $"removed {p.Removed / litre:N0} L, displaced {p.Displaced / litre:N0} L, "

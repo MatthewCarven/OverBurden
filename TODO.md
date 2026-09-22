@@ -5755,8 +5755,8 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
             Levers, unpriced: level a sheet at most every N boundaries while it is being fed
             (the settle's own wait, per sheet rather than per chunk); cap a pass's cells and carry
             the rest to the next; a smaller share for very large sheets.
-      - [ ] **Rain lands on the player's material — planned 2026-09-22, not built; Matthew: *"rain
-            on my stuff should land in it … just plan it for the moment"*.** His clay pond does
+      - [x] **Rain lands on the player's material — planned and built 2026-09-22 (*"As recommended,
+            build it please"*); Matthew: *"rain on my stuff should land in it"*.** His clay pond does
             not fill from rain because 98% of the rain is Tier A's and goes to the seed terrain's
             basin under the pond, and the 2% that falls as cells is scattered over the whole box.
             The pass is in [docs/M8-PLAN.md](docs/M8-PLAN.md), "Rain lands on the player's
@@ -5766,9 +5766,15 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
             revision, owed by the basin under it rather than the global debt, the 2% drops
             unchanged, the pending cap 64 → 256 with the backlog printed, `RainOnPlaced` in Core
             with its tests, a sub-count under `rained`. A 10 × 10 m floor takes ~40 kL an hour at
-            the heaviest scaled weather. **Build on his word.** Not in it: rain into a dug pit (Tier
+            the heaviest scaled weather. Not in it: rain into a dug pit (Tier
             A delivers through the portals — DESIGN's cheap route), rain into a walled pool on
             bare grass (the courtyard; *floor it* is the rule), a roof's run-off into a gutter.
+            **Built**: `RainOnPlaced` in Core with eleven tests, `BasinRainfall.Divert(basin, µL)`,
+            the forfeit past 64 cells a chunk column out of the vertical box (the build's one rule
+            the pass did not have), the `rained` term's `onto the player's material`; read "Rain
+            lands on the player's material — built" in M8-PLAN. **Play check, one sentence back**:
+            the clay pond in the rain — does it fill at a rate that reads as rain, and does the
+            `M8b:` line's `onto the player's material` climb while `handed` does not?
       - [x] **A walled courtyard on grass is the lake outside — Matthew, 2026-09-20: *"the water
             sheet appears to have become attached to the one outside … limit this to sheets
             without rock/dirt or similar between them"*.** M8b-3a's pinned trigger, fired: the

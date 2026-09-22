@@ -280,6 +280,36 @@ public class WaterSystemTests
     }
 
     [Fact]
+    public void RainOwedByABasinFoldsIntoTheGlobalDebtAtAWindowMove()
+    {
+        // Rain on the player's material is owed by the basin under it (2026-09-22); basins
+        // renumber at a move, so what one still owes folds into the global debt rather than
+        // being dropped — a drop nobody paid for is water from nothing — and before the first
+        // window it is the global debt from the start.
+        const long cell = 15_625_000;
+        WaterSystem system = NewSystem(rainfallScale: 1);
+        system.DivertRain(0, cell);
+        Assert.Equal(cell, system.RainOwedMicrolitres);
+        Assert.Equal(cell, system.RainDivertedOntoPlacedMicrolitres);
+
+        system.Install(system.AnalyseFor(0, 0));
+        Assert.Equal(cell, system.RainOwedMicrolitres);
+
+        int basin = system.BasinAtSample(0, 0);
+        Assert.True(basin != Watershed.Outlet, "the pit at the origin has no basin");
+        system.DivertRain(basin, cell);
+        Assert.Equal(2 * cell, system.RainOwedMicrolitres);
+
+        system.Install(system.AnalyseFor(0, 0));
+        Assert.Equal(2 * cell, system.RainOwedMicrolitres);
+
+        long time = RainUntilWet(system);
+        system.Advance(time + 3_600_000);
+        Assert.Equal(0L, system.RainOwedMicrolitres);
+        Assert.Equal(2 * cell, system.RainPaidMicrolitres);
+    }
+
+    [Fact]
     public void RainThatFellBeforeTheFirstWindowLandedIsDeliveredRatherThanLost()
     {
         // The first analysis takes tens of milliseconds on a worker and the world is not paused for

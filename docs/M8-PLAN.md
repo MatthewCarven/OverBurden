@@ -2651,6 +2651,46 @@ excavation would be 285 cells a tick); rain into an enclosed pool on bare grass 
 running off a roof into a gutter (a roof's rain lands on the roof and falls off its edge, which
 is the automaton's business).
 
+### Rain lands on the player's material — built, 2026-09-22
+
+*"As recommended, build it please"* — all eight, the same day. `RainOnPlaced` in
+`Overburden.Core/Hydrology/` over `ISkyColumns` (the streamer's `ColumnAt`, an interface now):
+one record a loaded chunk column in the box, the placed set — `OpenAboveY > SeedSurfaceY + 1` —
+rescanned only when the column's `Revision` moved, an accumulator in nanometre-columns (exact
+integers; `NanometreColumnsPerCell` is 250,000,000, sixteen columns to the square metre and
+15,625,000 µL a cell), and each whole cell yielded at one of the chunk column's placed columns
+picked from the seeded `Random`, at that column's open height. `BasinRainfall.Divert(basin, µL)`
+beside the global `Divert`, paid by that basin out of its own pending rain before the global debt
+is; `WaterSystem.DivertRain(basin, µL)` folds what a basin still owes into the global debt at a
+window move and owes globally before the first window. `Main` advances it every frame beside the
+2% drops — at zero depth too, so a backlog drains — and lands its cells at the boundary through
+the drops' path, the basin under each cell debited through `SampleOf` and `TryBasinAtSample`. The
+pending cap is 256 for both lists.
+
+**Two things the build had that the pass did not.** *The forfeit.* A placed column whose landing
+voxel is outside the loaded vertical box — a tower's top with the player deep underground —
+cannot be rained on; its rain waits, up to `ForfeitCells` (64) a chunk column, and past that goes
+to the basin under it as it did before the rule, counted (`forfeited to the basin`). Without it a
+chunk column out of reach would accrue forever. The caller's cap is not this: what the cap leaves
+is kept and delivered next, which the test separates. *The pick tries eight times.* A chunk
+column half in the vertical box would otherwise be called out of reach on the first pick that
+was; eight random picks before giving up is enough for a floor with a tower on it.
+
+**Tests** (`RainOnPlacedTests`, and one each in `RainfallTests` and `WaterSystemTests`): a 10 × 10
+floor over three cells' depth yields exactly 300 cells on its top and nowhere else, spread over
+the floor; an hour in one step equals an hour in sixty, cell for cell; a dug column and the seed
+yield nothing; a wall's top lands on the wall; the cap leaves a backlog delivered next with
+nothing forfeited; a column outside the vertical box waits, forfeits past the cap, and lands its
+backlog when the box reaches it; an edit rescans once and a column that leaves the box is
+dropped; a floor taken up stops accruing; a debt owed by one of two basins is paid by that basin
+alone and the outlet's owes globally; and a basin's debt folds into the global debt at a window
+move. Suite 1,703 → 1,713.
+
+**The M8b: line's `rained` term** reads `rained N L (D drop(s), P onto the player's material over
+C column(s), S skipped; B cell(s) owed to placed columns, F forfeited to the basin)`, the last
+bracket only when non-zero; the profile's `water` line carries the same with the chunk columns and
+rescans; the `M7d:` line is unchanged. The oracle is in CLAUDE.md.
+
 ---
 
 ## The open decision — settled by Matthew, 2026-09-02: option 3

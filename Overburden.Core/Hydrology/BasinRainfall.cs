@@ -57,6 +57,7 @@ public sealed class BasinRainfall
     private readonly int _rainfallScale;
     private readonly long[] _catchmentSquareMetres;
     private readonly long[] _pendingMicrolitres;
+    private readonly long[] _owedByBasinMicrolitres;
 
     public BasinRainfall(
         Watershed watershed,
@@ -83,6 +84,7 @@ public sealed class BasinRainfall
 
         _catchmentSquareMetres = new long[watershed.Basins.Count];
         _pendingMicrolitres = new long[watershed.Basins.Count];
+        _owedByBasinMicrolitres = new long[watershed.Basins.Count];
         for (int basin = 0; basin < _catchmentSquareMetres.Length; basin++)
         {
             _catchmentSquareMetres[basin] = watershed.Basins[basin].CatchmentSquareMetres;
@@ -120,6 +122,31 @@ public sealed class BasinRainfall
         OwedMicrolitres += microlitres;
     }
 
+    /// <summary>
+    /// Microlitres owed by particular basins — rain that fell on the player's material inside
+    /// their catchments (2026-09-22) — paid by each out of its own next rain before the global
+    /// debt is, so the basin under a floored pond loses exactly its footprint's rain and no other
+    /// pays for it. Not noise at a pond's whole footprint the way a 2% drop is: 40 kL an hour.
+    /// </summary>
+    public long OwedByBasinMicrolitres { get; private set; }
+
+    /// <summary>Owes <paramref name="microlitres"/> to <paramref name="basin"/>; a basin this sky has no row for owes it globally.</summary>
+    public void Divert(int basin, long microlitres)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(microlitres);
+        if (basin < 0 || basin >= _owedByBasinMicrolitres.Length)
+        {
+            OwedMicrolitres += microlitres;
+            return;
+        }
+
+        _owedByBasinMicrolitres[basin] += microlitres;
+        OwedByBasinMicrolitres += microlitres;
+    }
+
+    /// <summary>What <paramref name="basin"/> still owes.</summary>
+    public long OwedBy(int basin) => _owedByBasinMicrolitres[basin];
+
     /// <summary>Litres that have left the world since this object was made.</summary>
     public long SpilledLitres { get; private set; }
 
@@ -153,7 +180,17 @@ public sealed class BasinRainfall
 
             // What Tier B was given from this sky is paid first, in microlitres, so the drops
             // and the basins share one rain and an hour in one call still equals an hour in
-            // steps: the debt is paid from the same microlitres either way.
+            // steps: the debt is paid from the same microlitres either way. The basin's own debt
+            // — the rain over the player's material in its catchment — before the global one.
+            if (_owedByBasinMicrolitres[basin] > 0)
+            {
+                long pay = Math.Min(_owedByBasinMicrolitres[basin], _pendingMicrolitres[basin]);
+                _pendingMicrolitres[basin] -= pay;
+                _owedByBasinMicrolitres[basin] -= pay;
+                OwedByBasinMicrolitres -= pay;
+                PaidMicrolitres += pay;
+            }
+
             if (OwedMicrolitres > 0)
             {
                 long pay = Math.Min(OwedMicrolitres, _pendingMicrolitres[basin]);

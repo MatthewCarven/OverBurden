@@ -427,6 +427,66 @@ public class RainfallTests
     }
 
     [Fact]
+    public void RainOwedByABasinIsPaidByThatBasinAlone()
+    {
+        // Rain on the player's material inside one basin's catchment (2026-09-22): that basin
+        // receives a cell less than the same hour with nothing owed, every other basin receives
+        // exactly what it did, the debt is paid in full and none of it fell to the global debt.
+        const long hour = 3_600_000;
+        const long cell = 15_625_000;
+
+        (Watershed shedA, BasinWater plain) = TwoBowls();
+        var plainRain = new BasinRainfall(shedA, plain, Seed);
+        plainRain.AdvanceTo(hour);
+
+        (Watershed shedB, BasinWater owing) = TwoBowls();
+        var owingRain = new BasinRainfall(shedB, owing, Seed);
+        int payer = shedB.Basins.Count - 1;
+        owingRain.Divert(payer, cell);
+        Assert.Equal(cell, owingRain.OwedBy(payer));
+        Assert.Equal(cell, owingRain.OwedByBasinMicrolitres);
+        owingRain.AdvanceTo(hour);
+
+        Assert.Equal(0L, owingRain.OwedByBasinMicrolitres);
+        Assert.Equal(0L, owingRain.OwedMicrolitres);
+        Assert.Equal(cell, owingRain.PaidMicrolitres);
+        Assert.True(shedA.Basins.Count >= 2, "the fixture has one basin, so 'that basin alone' cannot be told from 'any basin'");
+
+        for (int basin = 0; basin < shedA.Basins.Count; basin++)
+        {
+            long plainTotal = (plain.StoredIn(basin) * 1_000_000) + plainRain.PendingMicrolitres(basin);
+            long owingTotal = (owing.StoredIn(basin) * 1_000_000) + owingRain.PendingMicrolitres(basin);
+            Assert.Equal(basin == payer ? cell : 0L, plainTotal - owingTotal);
+        }
+
+        // A basin this sky has no row for — the outlet, or a sample off the window — owes globally.
+        var stray = new BasinRainfall(shedB, owing, Seed, hour);
+        stray.Divert(Watershed.Outlet, cell);
+        Assert.Equal(cell, stray.OwedMicrolitres);
+        Assert.Equal(0L, stray.OwedByBasinMicrolitres);
+    }
+
+    /// <summary>Two bowls on one plateau, far enough apart to be two basins, so a debt on one can be told from a debt on any.</summary>
+    private static (Watershed Watershed, BasinWater Water) TwoBowls(int pitch = 24)
+    {
+        var samples = new int[40, 40];
+        for (int z = 0; z < 40; z++)
+        {
+            for (int x = 0; x < 40; x++)
+            {
+                double a = Math.Sqrt(((x - 10) * (x - 10)) + ((z - 10) * (z - 10)));
+                double b = Math.Sqrt(((x - 28) * (x - 28)) + ((z - 28) * (z - 28)));
+                double distance = Math.Min(a, b);
+                samples[z, x] = distance >= 6 ? 30 : 30 - (int)Math.Round(18 * (1.0 - (distance / 6)));
+            }
+        }
+
+        var field = HeightField.Sample(new SampleGrid(samples, 30), 0, 0, pitch);
+        var watershed = Watershed.Analyse(field);
+        return (watershed, new BasinWater(MergeTree.Build(watershed)));
+    }
+
+    [Fact]
     public void AnHourInOneStepEqualsAnHourInStepsWithRainOwed()
     {
         // The oracle again with a debt in it, because the debt is paid from the same microlitres

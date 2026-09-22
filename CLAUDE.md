@@ -426,6 +426,21 @@ shot of rain going into a shaft has to look down it; and **`--norain`**, which l
 the weather in place and removes only the particles. That is the arm that priced them, and the
 particles are the only part of M7c that costs GPU time.
 
+**Rain on the player's material lands on it since 2026-09-22** — Matthew: *"rain on my stuff
+should land in it"*, after his clay pond would not fill: every column whose top is above its
+seed surface (a placed floor, a wall's top, rubble on the ground — `OpenAboveY > SeedSurfaceY + 1`)
+gets the rain over it as 15.6 L cells on that top, accrued per chunk column against the sky
+column's revision (`RainOnPlaced` in Core), owed by the basin under it (`BasinRainfall.Divert(basin,
+µL)`, paid from that basin's own next rain, folded into the global debt at a window move); a dug
+column is nature's bowl and Tier A still delivers there through the portals; a column out of the
+vertical box waits up to 64 cells a chunk column and then forfeits to the basin, counted. A
+10 × 10 m floor takes ~40 kL an hour at the heaviest scaled weather. The `M8b:` line's `rained`
+term carries `P onto the player's material over C column(s)` and, when non-zero, `owed to placed
+columns / forfeited`; the profile's `water` line the same with rescans. **The oracle, verbatim**:
+`--profile --speed=0 --place --stock=64000 --clockscale=20 --measure=40` builds a column under
+the crosshair and reads `onto the player's material` non-zero with both identities exact, where
+`--rainshare=0` on the same run reads the placed cells alone.
+
 **Rain drops Tier B cells since 2026-09-19** — Matthew: *"not many but just to make you think
 about the water runoff"*. **`--rainshare=<percent>`** is the share of the rain over the drawn
 box that falls as 15.6 L cells from the top row of the drawn vertical box at a random column
@@ -977,9 +992,10 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
-**Pick up here (2026-09-22). Rain on the player's material is planned and not built — eight
-decisions, all recommended, in [docs/M8-PLAN.md](docs/M8-PLAN.md) "Rain lands on the player's
-material — the planning pass"; build on his word.** His clay pond was never leaking: its floor is
+**Pick up here (2026-09-22, afternoon). Rain on the player's material is built — all eight
+decisions as recommended, the same day; read "Rain lands on the player's material — built" in
+[docs/M8-PLAN.md](docs/M8-PLAN.md), the forfeit being the one rule the build added. The play check
+is under M8 in TODO: the clay pond in the rain, one sentence back. Suite 1,713; the Game build, the r6 control and the oracle wait for his session to end.** His clay pond was never leaking: its floor is
 placed, so its water is never on the seed plane and holds (`enclosed 0 kept, 306 flood(s) / 0
 closed` with 12,800 L held) — rain was not landing in it, because the watershed cannot see a
 placed floor and the 2% drops are scattered over the whole box. The rule: a column whose top is

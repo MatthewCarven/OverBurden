@@ -194,8 +194,11 @@ public sealed class WaterSystem : IWaterTable
     /// <summary>Microlitres of diverted rain paid off so far, across every window.</summary>
     public long RainPaidMicrolitres => _rainPaidBeforeWindow + (_rain?.PaidMicrolitres ?? 0);
 
-    /// <summary>Microlitres of diverted rain still to be paid from the next rain.</summary>
-    public long RainOwedMicrolitres => _rain?.OwedMicrolitres ?? _rainOwedBeforeWindow;
+    /// <summary>Microlitres of diverted rain still to be paid from the next rain — globally and by particular basins together.</summary>
+    public long RainOwedMicrolitres => _rain is null ? _rainOwedBeforeWindow : _rain.OwedMicrolitres + _rain.OwedByBasinMicrolitres;
+
+    /// <summary>Microlitres of rain that fell on the player's material and are owed by the basins under it (2026-09-22).</summary>
+    public long RainDivertedOntoPlacedMicrolitres { get; private set; }
 
     private long _rainPaidBeforeWindow;
     private long _rainOwedBeforeWindow;
@@ -217,6 +220,28 @@ public sealed class WaterSystem : IWaterTable
         else
         {
             _rain.Divert(microlitres);
+        }
+    }
+
+    /// <summary>
+    /// <see cref="DivertRain(long)"/> owed by the basin under the cell — rain that fell on the
+    /// player's material inside its catchment (2026-09-22), so that basin and no other loses it.
+    /// Before a window, or for a sample no basin has, the global debt as before; and at a window
+    /// move what a basin still owes folds into the global debt, because basins renumber — bounded
+    /// by a cell a basin, stated beside the remainder's cost.
+    /// </summary>
+    public void DivertRain(int basin, long microlitres)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(microlitres);
+        RainDivertedMicrolitres += microlitres;
+        RainDivertedOntoPlacedMicrolitres += microlitres;
+        if (_rain is null)
+        {
+            _rainOwedBeforeWindow += microlitres;
+        }
+        else
+        {
+            _rain.Divert(basin, microlitres);
         }
     }
 
@@ -354,7 +379,7 @@ public sealed class WaterSystem : IWaterTable
         // The diverted rain still owed crosses the move with the water, unlike the sub-litre
         // remainder above: it is whole cells, not a rounding, and a drop nobody paid for would be
         // water from nothing.
-        long owed = _rain?.OwedMicrolitres ?? _rainOwedBeforeWindow;
+        long owed = _rain is null ? _rainOwedBeforeWindow : _rain.OwedMicrolitres + _rain.OwedByBasinMicrolitres;
         _rainPaidBeforeWindow += _rain?.PaidMicrolitres ?? 0;
         _rainOwedBeforeWindow = 0;
         _rain = new BasinRainfall(

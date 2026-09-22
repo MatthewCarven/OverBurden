@@ -22,7 +22,7 @@ namespace Overburden.Core.Streaming;
 /// renderer and without threads.
 /// </para>
 /// </remarks>
-public sealed class ChunkStreamer : IVoxelWorld, ILightChunks, IFluidWorld
+public sealed class ChunkStreamer : IVoxelWorld, ILightChunks, IFluidWorld, ISkyColumns
 {
     /// <summary>
     /// How many chunks are loaded beyond what a viewer can actually see.
