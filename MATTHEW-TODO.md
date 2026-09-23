@@ -87,10 +87,9 @@ otherwise — flags go on the end of the `start.cmd` line.
       flat enough, are the mountains big enough, and do you hit one often enough? The dials to
       reach for are `--reliefbase` (lower = flatter plains), `--relief` (higher = bigger peaks)
       and `--reliefrare` (higher = rarer). All on a *new* world.
-- [ ] **The map is planned, not built** — `docs/MAP-NOTES.md`. Twelve decisions, ten with
-      recommendations I would just take. **Two are yours**: how wide the map should be by default
-      (2 km — one region — is my pick), and whether it hides where you have not been. Say go and
-      I will build it in three sessions.
+- [ ] **The map's first slice is built and invisible** — the projection and the renderer, in
+      Core, with tests. There is nothing to press yet: slice b is the panel and the F12 key. Say
+      go when you want it.
 - [ ] **You have a compass now.** The line above the status line reads `x 108  y 11  z 6 ·
       facing 315° NW · relief 8.1 m`. North is −Z, east is +X — so walking north makes z go *down*
       and walking east makes x go *up*. The relief number is how tall the terrain gets where you

@@ -162,3 +162,53 @@ inside it — probably *better*, because the regions become visible. That is a r
 also a reason to take the map's verdict on `--reliefbase` / `--relief` / `--reliefrare` as a
 *second* opinion rather than the final one. **The thing being tuned is how the world feels to walk
 through, not how it looks from above.**
+
+---
+
+## Slice a — built, 2026-09-23
+
+**Matthew took the two open decisions: 2 km across, and no fog of war.** The rest went as
+recommended. `Overburden.Core/Navigation/` now holds `MapProjection` (pixel ↔ world under a
+rotation) and `MapRenderer` (the sample grid, the hypsometric ramp, the hillshade), both
+Godot-free. Suite 1,772 → 1,796.
+
+**The oracle is that a place's colour does not depend on which way you are facing.** That is what
+"this is a picture of the world" means, and it catches a mirrored axis, a rotation applied twice,
+a rotation applied to the heights but not the shading, and — the one that would have survived every
+screenshot — a hillshade lit from the screen rather than from the ground, which would move every
+shadow as you turned. It is an *equality* rather than a tolerance because quarter turns permute the
+pixel grid exactly, and a second test pins that so the first cannot quietly become approximate.
+
+**The light is world-fixed and it cost nothing.** The map is a rigid rotation of the world, so the
+world-space gradient is the image-space gradient rotated by the same amount: three multiplies, no
+extra samples. A one-pixel apron gives the edge pixels the neighbours the gradient wants, for 3%.
+
+**Ten break-recipes, ten caught — but only after three of them exposed real gaps and two of the
+recipes turned out to be the thing that was wrong.** The first run read three greens. One was a
+recipe that changed nothing (a comment, not code). One was an *identity in practice* — `Render`
+clamps before `Ramp`, so `Ramp`'s own clamp is unreachable from there — closed by testing `Ramp`
+directly, which the overlays slice will do for its legend. The third was a genuine hole: every test
+passed a sea level of zero, so dropping the term entirely was invisible. And correcting the apron
+recipe surfaced a fourth thing nobody had tested — **a constant one-pixel offset between the render
+and the projection**, which every other test is blind to because they all compare the render
+against itself; `TheCentrePixelShowsTheGroundThePlayerIsStandingOn` closes it with the shading
+turned off so the boundary is exact.
+
+**The stale-build trap caught this pass too.** `shutil.copy2` preserves mtimes, so restoring the
+files after the battery left the incremental build holding the *last mutant* — and the sea-level
+test then failed against code that was already correct. The battery touches what it restores now.
+
+**Cost, measured on the real generator, and the estimate was three times out.** A 128 × 128 map is
+**3.5 ms on a shaped world** and 1.8–2.0 ms on a uniform one; the pass said 1.2 ms, from the old
+55 ns/sample figure taken before the relief field added a second noise evaluation. **Fact 2 holds
+exactly as claimed**: 3.46 ms at 2 km, 3.58 ms at 8 km, 2.17 ms at 131 km — the cost really does
+not change with the zoom.
+
+**What that moves: decision 9 stops being tidy and becomes required.** 3.5 ms is nothing once, and
+21% of a frame at 60 Hz, so "sample on open and when the player has moved a pixel's worth" is now
+the thing standing between the map and a visible cost rather than a preference. **Named lever, not
+built**: the renderer is pure and Godot-free precisely so it can go on a worker if that is ever not
+enough.
+
+**Slice b next** — `MapPanel`, F12, the ×3 nearest-neighbour scale, the north tick, the facing
+wedge, the sample-on-move rule and a `--map` flag for the screenshot.
