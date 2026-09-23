@@ -96,6 +96,8 @@ public sealed class WorldGenerator : ISurfaceHeights
     private readonly float _reliefRarity;
     private readonly bool _reliefVaries;
     private readonly float _reliefFrequency;
+    private readonly float _reliefOffsetX;
+    private readonly float _reliefOffsetZ;
 
     // Derived from CaveLatticeStep once, because all three are wanted per voxel. The step is
     // a power of two, so `& _caveStepMask` is the offset within a lattice cell and
@@ -176,6 +178,23 @@ public sealed class WorldGenerator : ISurfaceHeights
         // same question the defaults answer rather than a tolerance somebody has to think about.
         _reliefVaries = reliefBase != peak;
         _reliefFrequency = settings.SurfaceFrequency / ReliefFrequencyRatio;
+
+        // Where in its own lattice cell this world's origin sits. Without it every world is
+        // identical at the one place everybody starts: gradient noise is *exactly* zero at its
+        // lattice points, and world origin is one — so the relief sample at (0, 0) is 0 whatever
+        // the seed, and four worlds on four seeds all measured an amplitude at spawn of 34.6
+        // voxels, to the digit. A seed offsets its own origin by anything up to a whole region.
+        //
+        // **It cannot move a uniform world, which is why it is safe**: a uniform world never
+        // reaches the sample at all, so every recorded figure in this project — all of them taken
+        // on the uniform default — is untouched by construction rather than by care.
+        //
+        // The same is true of the *surface* noise, where the spawn column has been exactly sea
+        // level in every world this project has ever made. That one is left alone deliberately:
+        // offsetting it would move every landscape including the fixed profile seed's, and it
+        // costs a player nothing.
+        _reliefOffsetX = UnitFraction(Hash64.Mix(_reliefSeed ^ 0x0FF5E7A1UL));
+        _reliefOffsetZ = UnitFraction(Hash64.Mix(_reliefSeed ^ 0x0FF5E7B2UL));
     }
 
     public WorldGenSettings Settings => _settings;
@@ -240,8 +259,8 @@ public sealed class WorldGenerator : ISurfaceHeights
         float relief = Math.Clamp(
             GradientNoise.Sample2D(
                 _reliefSeed,
-                worldX * _reliefFrequency,
-                worldZ * _reliefFrequency),
+                (worldX * _reliefFrequency) + _reliefOffsetX,
+                (worldZ * _reliefFrequency) + _reliefOffsetZ),
             -1.0f,
             1.0f);
 
@@ -482,6 +501,9 @@ public sealed class WorldGenerator : ISurfaceHeights
     }
 
     private static float Lerp(float a, float b, float t) => a + ((b - a) * t);
+
+    /// <summary>A hash as a fraction in [0, 1) — twenty-four bits, which is a float's mantissa.</summary>
+    private static float UnitFraction(ulong hash) => (hash >> 40) * (1.0f / (1 << 24));
 
     /// <summary>One raw lattice sample. The world coordinates must be multiples of the step.</summary>
     private float LatticeAt(int worldX, int worldY, int worldZ)

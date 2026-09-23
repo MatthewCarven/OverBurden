@@ -87,7 +87,13 @@ otherwise — flags go on the end of the `start.cmd` line.
       flat enough, are the mountains big enough, and do you hit one often enough? The dials to
       reach for are `--reliefbase` (lower = flatter plains), `--relief` (higher = bigger peaks)
       and `--reliefrare` (higher = rarer). All on a *new* world.
-- [ ] **Regions1–7 and `default` are all still on disk** in
+- [ ] **Worlds made before 2026-09-23 evening look different now.** Every world used to start at
+      exactly the same relief, whatever its seed — the noise is zero at the world's origin, and
+      that is where you spawn — so a few new worlds in a row genuinely were the same where you
+      landed. Fixed: a seed now offsets its own origin, and of 32 seeds 30 start somewhere
+      different, from a plain to hills. **Your Regions worlds will have changed shape**, because
+      terrain is regenerated rather than stored. They were throwaway anyway.
+- [ ] **Regions1–9 and `default` are all still on disk** in
       `%APPDATA%\Godot\app_userdata\Overburden\worlds\`. The Regions ones were built while
       settling the shape and are throwaway — delete them whenever. `default` is your old game and
       is untouched.

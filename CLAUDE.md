@@ -969,6 +969,20 @@ once and builds a uniform world; the generator refuses it outright, as it refuse
 **A new world played rather than measured gets base 0.4×, peak 3×, rarity 0.25** — a measured row,
 53% flat / 37% rolling / 10% hilly over 1,024 windows in 32 km, peaks to 36 m.
 
+**Every world's origin sits somewhere different inside its own region, and before 2026-09-23 it did
+not.** Gradient noise is *exactly* zero at its lattice points and world origin is one, so the relief
+sample at (0, 0) was 0 whatever the seed: four worlds on four seeds all read an amplitude at spawn of
+**34.6 voxels, to the digit**, and the one place a player judges a world from was the one place that
+could not differ — which is what *"I tried a few worlds"* turned out to mean. A seed now offsets its
+own origin by up to a whole region (`_reliefOffsetX` / `_reliefOffsetZ`, a hash as a fraction of a
+lattice cell). Measured after: **30 distinct spawn amplitudes of 32 seeds, spanning 81% of the
+floor-to-ceiling range**, from a world that starts on a plain to one that starts in hills;
+`TwoWorldsDoNotLookTheSameWhereEveryoneStarts` reads `only 1 of 32` without it. **It cannot move a
+uniform world, which is why it needed no care**: a uniform world never reaches the sample, so the r6
+control is untouched by construction. **The same is true of the surface noise and is deliberately
+left alone** — the spawn column has been exactly sea level in every world this project has ever
+made, and offsetting that would move every landscape including the fixed profile seed's.
+
 **Two shapes were tried and the first was wrong, which is why the second is written down with its
 sweep.** v6 (one day, 2026-09-23) scaled the amplitude by `1 + variation × n` — a multiplier
 *centred on 1*, so the typical place gets the typical amplitude and turning the relief up makes

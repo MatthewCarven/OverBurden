@@ -406,6 +406,42 @@ public class WorldGeneratorTests
     }
 
     [Fact]
+    public void TwoWorldsDoNotLookTheSameWhereEveryoneStarts()
+    {
+        // The defect this caught, in a sentence Matthew found by playing: several new worlds in a
+        // row felt alike, and the reason was that they were -- at spawn, exactly.
+        //
+        // Gradient noise is *exactly zero* at its lattice points and world origin is one, so
+        // before the offset the relief sample at (0, 0) was 0 whatever the seed, and four worlds
+        // on four seeds all read an amplitude at spawn of 34.6 voxels to the digit. The one place
+        // a player judges a world from was the one place that could not differ.
+        //
+        // Measured with the offset in: 30 distinct values of 32, spanning 81% of the floor-to-
+        // ceiling range, from a genuine plain to near the summit. The bounds here are well under
+        // that, because this is standing over "the origin is special" and not over the hash.
+        var spawns = new List<float>();
+        for (ulong seed = 1; seed <= 32; seed++)
+        {
+            spawns.Add(new WorldGenerator(Shaped() with { Seed = seed }, Strata())
+                .SurfaceAmplitudeAt(0, 0));
+        }
+
+        WorldGenSettings shape = Shaped();
+        float span = shape.SurfaceAmplitudeVoxels - shape.ReliefBaseVoxels;
+        float spread = spawns.Max() - spawns.Min();
+
+        Assert.True(
+            spawns.Distinct().Count() >= 24,
+            $"only {spawns.Distinct().Count()} of 32 seeds start somewhere different — if this is "
+            + "1, the origin is sitting on the relief field's lattice point again.");
+
+        Assert.True(
+            spread >= span * 0.5f,
+            $"spawn amplitudes span {spread:0.0} voxels of a possible {span:0.0} — new worlds all "
+            + "start in the same kind of place.");
+    }
+
+    [Fact]
     public void AShapedWorldHasSomewhereFlatAndSomewhereMountainous()
     {
         // Matthew's sentence as a test: "I kind of want them somewhere but not everywhere."

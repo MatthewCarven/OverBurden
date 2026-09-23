@@ -1,5 +1,46 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-23 — Every world was identical at the one place you stand in it
+
+Matthew, after building several worlds with the new shape: *"I tried a few worlds do i need to hand
+in a command line parameter?"* — no, and the log said so: `Regions8` and `Regions9` both read
+`relief 19.2..144 voxel(s), mountains 25% rare` with no flags. So the setting was arriving and the
+worlds still felt alike, which is a better question than the one asked.
+
+**They were alike. Exactly, at spawn, on every seed.** Gradient noise is *zero at its lattice
+points* — that is what makes it gradient noise rather than value noise — and world origin is a
+lattice point of the relief field. So the relief sample at (0, 0) is 0 whatever the seed, and four
+of his worlds measured an amplitude at spawn of **34.6 voxels, to the digit, all four**. The one
+place a player judges a world from was the one place that could not differ.
+
+**The fix is a seed-derived offset into the relief field's own lattice cell**, a hash as a fraction
+in [0, 1) added to the sampled coordinates. Measured after: **30 distinct spawn amplitudes over 32
+seeds, spanning 81% of the floor-to-ceiling range** — 19.2 v (a world that starts on a plain, right
+on the floor) to 120.6 v (one that starts near the summit). On his own four seeds: 34.6 / 34.6 /
+34.6 / 34.6 became 71.4 / 43.4 / 19.3 / 32.8.
+
+**It needed no care about the recorded figures, which is the good kind of safe.** A uniform world
+never reaches the relief sample at all — that is the `_reliefVaries` early-out — so every
+measurement in this project is untouched *by construction* rather than by a guard somebody has to
+remember. The r6 control read 2601 / 325 / 3446 at 411 after it, as expected rather than as a
+relief.
+
+**The same defect is in the surface noise and is deliberately left there.** (0, 0) is a lattice
+point of every octave of the surface fBm too, so the spawn column has been **exactly sea level in
+every world this project has ever generated**. Fixing it means offsetting the surface sample, which
+moves every landscape including the fixed profile seed's and would retire every recorded figure —
+for a cosmetic detail no player can see. Recorded, not done.
+
+**Watched fail**: with the offsets zeroed the new test reads `only 1 of 32 seeds start somewhere
+different — if this is 1, the origin is sitting on the relief field's lattice point again`, which
+is the failure naming its own cause.
+
+The distance measurements that came with it, on the shipped shape: something hilly is **0.4–0.9 km**
+from spawn and something flat **0.1–0.5 km**, so the variety was always reachable in a minute or
+two of walking. It was only ever invisible from the doorstep.
+
+Suite 1,760 → 1,761.
+
 ## 2026-09-23 — Relief is a floor, a ceiling and a rarity; the multiplier lasted a day
 
 Matthew built the first world with regions in it and reported back: *"produced massive hills idk,
