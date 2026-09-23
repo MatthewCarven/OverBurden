@@ -29,6 +29,7 @@ public class WorldHeaderTests
         Seed = 0xFEEDFACECAFEBEEDUL,
         SeaLevelVoxels = -17,
         SurfaceAmplitudeVoxels = 33.5f,
+        ReliefVariation = 0.45f,
         SurfaceFrequency = 0.00725f,
         SurfaceOctaves = 6,
         Lacunarity = 2.75f,
@@ -453,7 +454,7 @@ public class WorldHeaderTests
         // a version 1 payload was.
         byte[] older = payload[..^(sizeof(int) + TrailerBytes)];
 
-        WorldHeader read = WorldHeaderBlob.Read(Reframe(older, version: 1));
+        WorldHeader read = WorldHeaderBlob.Read(Reframe(WithoutReliefVariation(older), version: 1));
 
         Assert.Equal([Air, Stone, Copper], read.MaterialIdTable);
         Assert.Empty(read.Inventory);
@@ -473,7 +474,7 @@ public class WorldHeaderTests
             Header(Air, Stone, Copper) with { Inventory = inventory, Player = player }));
 
         byte[] older = payload[..^(ClockAndLatticeBytes + PackAbsentBytes + CarriedAbsentBytes)];
-        WorldHeader read = WorldHeaderBlob.Read(Reframe(older, version: 2));
+        WorldHeader read = WorldHeaderBlob.Read(Reframe(WithoutReliefVariation(older), version: 2));
 
         Assert.Equal(0, read.ElapsedMillis);
         // A v2 world has no stored basins to be keyed on any lattice, so it takes this build's —
@@ -700,7 +701,7 @@ public class WorldHeaderTests
             Header(Air, Stone, Copper) with { Inventory = inventory, Player = player, ElapsedMillis = 42 }));
 
         byte[] older = payload[..^(PackAbsentBytes + CarriedAbsentBytes)];
-        WorldHeader read = WorldHeaderBlob.Read(Reframe(older, version: 3));
+        WorldHeader read = WorldHeaderBlob.Read(Reframe(WithoutReliefVariation(older), version: 3));
 
         Assert.Null(read.Pack);
         Assert.Equal(42, read.ElapsedMillis);
@@ -814,11 +815,45 @@ public class WorldHeaderTests
         byte[] payload = PayloadOf(WorldHeaderBlob.Write(WithInventory((2, 2)) with { Pack = pack, ElapsedMillis = 42 }));
 
         byte[] older = payload[..^CarriedAbsentBytes];
-        WorldHeader read = WorldHeaderBlob.Read(Reframe(older, version: 4));
+        WorldHeader read = WorldHeaderBlob.Read(Reframe(WithoutReliefVariation(older), version: 4));
 
         Assert.Empty(read.CarriedPacks);
         Assert.Equal(pack, read.Pack);
         Assert.Equal(42, read.ElapsedMillis);
+    }
+
+    [Fact]
+    public void AWorldWrittenBeforeRegionsExistedOpensWithEvenLumpiness()
+    {
+        // The fifth migration, and the first that is not a truncation. Every earlier bump appended
+        // a section, so an older header was the payload minus its tail; the relief variation sits
+        // at the end of the *settings block*, in the middle of the payload, so a v5 header is this
+        // one with four bytes cut out of its middle and everything after them shifted down. That
+        // is the whole reason SettingsBytesFor exists, and reading the block at the new length
+        // would silently take the material table's first four bytes as a float.
+        var pack = new PackSave(2, 99, 1);
+        byte[] payload = PayloadOf(WorldHeaderBlob.Write(
+            WithInventory((2, 2)) with { Pack = pack, ElapsedMillis = 42 }));
+
+        WorldHeader read = WorldHeaderBlob.Read(
+            Reframe(WithoutReliefVariation(payload), version: 5));
+
+        Assert.Equal(0.0f, read.Settings.ReliefVariation);
+
+        // Everything past the settings block still lands where the reader expects it, which is
+        // the half of this that a wrong offset would break.
+        Assert.Equal(pack, read.Pack);
+        Assert.Equal(42, read.ElapsedMillis);
+        Assert.Equal([new InventoryEntry(2, 2)], read.Inventory);
+        Assert.Equal(UnusualSettings() with { ReliefVariation = 0.0f }, read.Settings);
+    }
+
+    [Fact]
+    public void ThePlayedWorldsRealV3HeaderOpensWithEvenLumpiness()
+    {
+        // The real file again. Every world written before 2026-09-23 is a world of even
+        // lumpiness, and this is one of them rather than a blob the current writer produced.
+        Assert.Equal(0.0f, WorldHeaderBlob.Read(PlayedWorldV3Header()).Settings.ReliefVariation);
     }
 
     [Fact]
@@ -919,6 +954,28 @@ public class WorldHeaderTests
     }
 
     /// <summary>Wraps a payload back into a valid, uncompressed frame.</summary>
+    /// <summary>
+    /// The same payload as a build before v6 would have written it: the relief variation's four
+    /// bytes cut out of the end of the settings block, and everything after them shifted down.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every migration test needs this now, and that is what makes v6 different from the four
+    /// bumps before it.</b> Those appended a section, so an older header was this one minus its
+    /// tail and a test could build one by truncating. This one grew a block in the middle, so a
+    /// payload written by today's writer and simply relabelled v4 is not a v4 payload — it is a
+    /// v4 payload with four bytes of float wedged in front of its material table, which is how
+    /// all four of those tests failed the moment the field was added. They were right to.
+    /// </remarks>
+    private static byte[] WithoutReliefVariation(byte[] payload)
+    {
+        const int ReliefOffset = 53;
+
+        var older = new byte[payload.Length - sizeof(float)];
+        payload.AsSpan(0, ReliefOffset).CopyTo(older);
+        payload.AsSpan(ReliefOffset + sizeof(float)).CopyTo(older.AsSpan(ReliefOffset));
+        return older;
+    }
+
     private static byte[] Reframe(byte[] payload, byte version = WorldHeaderBlob.Version)
     {
         var blob = new byte[10 + payload.Length];

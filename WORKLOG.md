@@ -1,5 +1,71 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-23 — A world has regions, and how mountainous it is is a flag
+
+Matthew, after the measurement above: *"build 1, and 2 as recommended"* — a scaling knob for the
+world's highs and lows, and the regional variation that makes two worlds feel like different
+places rather than the same place reshuffled.
+
+**Half of it needed no design at all.** `SurfaceAmplitudeVoxels` has been one of the header's
+fields since M6a, so it is already per-world and already persisted; what was missing was a way to
+*ask* for it. `--relief=<x>` multiplies it and is resolved to an amplitude in voxels at creation,
+so the world carries a number rather than a multiplier and reopens with no flag at all. It follows
+`--seed=`'s rule exactly — new worlds only, refused out loud when mistyped, warned and ignored on a
+world that exists — and for `--cavestep`'s reason: an unedited chunk regenerates from the header,
+so honouring a relief flag on an existing world would rebuild the landscape *around* the chunks it
+has saved and leave the mine hanging in it.
+
+**The other half is the fourteenth worldgen field and header v6.** `ReliefVariation` multiplies the
+amplitude per column from a second noise field at `ReliefFrequencyRatio` times the surface's own
+wavelength, so a world has plains in one place and highlands in another. One octave, because a
+region is not a place to put more hills; the sample is clamped before use, because `Sample2D` is
+documented as only *roughly* in [-1, 1] and a negative factor does not read as flat — it mirrors
+the surface, valley for hill, with a cliff along the join.
+
+**The ratio was 8 and the measurement said no.** That put a region at 500 m — the same size as the
+watershed window — and the roughest place in a world came out 2.7× the calmest, which reads as one
+landscape with noisy edges rather than as somewhere to walk to. **The first version of the test was
+wrong in the same breath and in the opposite direction**: it fixed its windows at 128 m over a 1 km
+span, so every window straddled a peak and a trough of a 500 m field and the sample could not have
+seen the effect whatever the ratio was. Both are fixed by the same realisation — a window has to be
+small against a region and the span has to cover several of them — and the test derives its window,
+step and span from the constant now, so it states the property rather than a number. At 32 a region
+is 2 km, four times the watershed window, and the test passes at over 4×.
+
+**The default is 0 and that is a measurement decision, not a taste one.** Every recorded figure in
+this repo is a statement about the landscape the defaults produce, so a non-zero record default
+would have moved the ground under all of them with the suite green. The neutral value is what the
+record ships, what an old world reads back, and what a `--profile` run gets; the shipped 0.5 is
+applied in exactly one place — the `header is null` branch, beside the seed draw, under the same
+`_profiler is null` guard. **Verified rather than argued: the r6 control reads 2601 / 325 / 3446 at
+411 to the digit with regions shipped.**
+
+**v6 is the first bump that grows a section in the middle rather than appending one to the end**,
+and all four earlier migration tests went red the moment the field was added. They were right to:
+each builds a payload with today's writer and relabels it as an older version, which under every
+previous bump was a faithful old header and now is a v4 payload with four bytes of float wedged in
+front of its material table. `SettingsBytesFor(version)` is the reader's half and
+`WithoutReliefVariation` the tests'. The reflection test that counts the record's properties fired
+before the field had a reader, which is the whole of what it is for — the guard M6a wrote and
+nobody had ever seen work.
+
+**Cost, measured headless at r6, `--reliefvary=0.5` against `0`.** The fill's derive 1,680 → 1,722
+ms (+2.5%) and all-settled 4.03 → 4.05 s, so end to end it is not visible. The price is where M6d-2
+said it would be — the box-difference sweep, which is `SkyColumn.Seed`'s 1,024 surface evaluations
+per column: **`viewer ms` mean 3.85 → 4.37, p50 3.37 → 4.26**, half a millisecond against a 16.7 ms
+frame. Affordable, and stated rather than hidden. **Named lever, not built**: the relief factor is
+constant over 2 km, so it could ride a coarse lattice and be interpolated exactly the way cave noise
+already is, which would take it to nothing.
+
+The wire, headless and verbatim: a new world prints `relief 48 voxel(s) varying 50% by region`;
+`--relief=2 --reliefvary=0.25` prints `96 voxel(s) varying 25%`; reopening that world with
+`--relief=3` warns and keeps 96 at 25%, read back out of its own header through SQLite; and
+`--relief=lots` and `--reliefvary=7` are each refused out loud rather than falling through to
+"unknown flag", which is `--seed=`'s rule and its reason — from inside, one landscape looks much
+like another.
+
+Suite 1,738 → 1,749.
+
 ## 2026-09-23 — What a change of terrain shape costs, measured: eight tests, one fixture
 
 Matthew, thinking about a scaling knob for the world's highs and lows and about inserting

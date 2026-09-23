@@ -32,6 +32,24 @@ works** — it sets where in the forecast the world starts, and an existing worl
 with what it remembers, so `start.cmd "--world=storm test" --clock=900` is how you open straight
 into weather rather than waiting for it.
 
+**How mountainous your world is, and whether it changes as you walk.** Both are set when a
+world is created and neither can be changed afterwards — an unedited chunk is rebuilt from the
+world's own header, so a world that changed its relief would rebuild the landscape *around*
+whatever you had already dug, with your mine hanging in it. So they are new-world flags, and the
+game says so if you pass one to a world that exists.
+
+```bash
+start.cmd "--world=Big Country" --relief=2
+```
+
+`--relief=<x>` multiplies the hills: 2 is twice as mountainous, 0.5 is rolling country, 1 is
+what you have been playing. `--reliefvary=<0..1>` is the other half — how much that relief
+*changes from place to place*. Every world since 2026-09-23 gets 0.5 of it whether you ask or
+not, which means a region runs from half the base relief to one and a half times it, and a
+region is about 2 km across — a few minutes of walking. `--reliefvary=0` is the old world, one
+lumpiness everywhere. The `M6: new world` line prints both, as `relief 48 voxel(s) varying 50%
+by region`.
+
 **How to read a play afterwards.** The log is
 `%APPDATA%\Godot\app_userdata\Overburden\logs\godot.log` (the live or last session; the
 timestamped files beside it are older). Read it with `grep -a`, not plain grep — it has stray
@@ -55,6 +73,15 @@ I'll go and find the numbers.
 Ten recipes. Do them in any order, over as many sessions as you like; a sentence each is
 plenty, and "it was fine" is a real answer. Run `start.cmd` on `default` unless a recipe says
 otherwise — flags go on the end of the `start.cmd` line.
+
+### Owed from the relief change (2026-09-23)
+
+- [ ] **Does a world feel like it has somewhere else in it?** Launch a new world — `start.cmd
+      "--world=Regions"` — and walk or fly in one direction for a few minutes. Every world now
+      varies its relief by region, at 0.5, which is my estimate and nobody's measurement. One
+      sentence: does the landscape change enough as you travel, too much, or not enough? If it
+      wants more, `--reliefvary=0.8` on another new world is the arm; `--reliefvary=0` is the
+      world you had before.
 
 ### Owed from the rain play (two sentences, still outstanding)
 

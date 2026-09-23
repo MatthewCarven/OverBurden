@@ -82,6 +82,40 @@ public sealed record WorldGenSettings
     /// <summary>How far the surface deviates from <see cref="SeaLevelVoxels"/>, in voxels.</summary>
     public float SurfaceAmplitudeVoxels { get; init; } = 48.0f;
 
+    /// <summary>
+    /// How much <see cref="SurfaceAmplitudeVoxels"/> varies from region to region, as a share
+    /// of itself. 0 is a world of uniform lumpiness; 1 lets a region run from dead flat to twice
+    /// the base relief.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>What makes two worlds feel different is not one number, it is mountains here and plains
+    /// there.</b> A per-world amplitude makes a world uniformly lumpy or uniformly flat and gives
+    /// you nowhere to walk to; a second, much slower noise field multiplying the amplitude per
+    /// column gives a world regions. It is a multiplier rather than a second additive octave
+    /// deliberately: an octave adds detail everywhere, where this changes <em>how much of the
+    /// existing shape</em> a place gets, which is the thing being asked for.
+    /// </para>
+    /// <para>
+    /// <b>The default is 0, and that is a measurement decision rather than a taste one.</b> Every
+    /// recorded figure in this project is a statement about one landscape — the r6 control, the
+    /// keystone's at-risk count, "the first forty seconds of the profile seed are dry" — and all
+    /// of them are taken on the default settings at a fixed seed. A non-zero default would move
+    /// the ground under every one of them with the suite green. So the neutral value is what the
+    /// record ships, what an old world reads back, and what a profile run gets; a new world
+    /// created to be <em>played</em> is where the shipped value is applied, which is the same rule
+    /// and the same reason as the random seed. <c>ReliefVariationIsNeutralByDefault</c> holds the
+    /// bit-identity.
+    /// </para>
+    /// <para>
+    /// The field it modulates is one octave at <see cref="WorldGenerator.ReliefFrequencyRatio"/>
+    /// times the surface's wavelength — a derived number rather than a fourteenth setting,
+    /// because how large a region is, is a decision about the game's shape rather than about
+    /// one world.
+    /// </para>
+    /// </remarks>
+    public float ReliefVariation { get; init; } = 0.0f;
+
     public float SurfaceFrequency { get; init; } = 0.004f;
 
     public int SurfaceOctaves { get; init; } = 4;

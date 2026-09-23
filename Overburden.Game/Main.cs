@@ -300,6 +300,8 @@ public partial class Main : Node3D
     private double _loadSum;
 
     private int? _caveLatticeStep;
+    private float? _reliefScale;
+    private float? _reliefVariation;
     private TimeSpan? _applyBudget;
     private TimeSpan? _lightBudget;
     private bool _mineWhileProfiling;
@@ -1440,8 +1442,8 @@ public partial class Main : Node3D
     /// <summary>
     /// Reads <c>--profile</c>, <c>--radius</c>, <c>--vradius</c>, <c>--margin</c>,
     /// <c>--speed</c>, <c>--warmup</c>, <c>--measure</c>, <c>--cavestep</c>,
-    /// <c>--applybudget</c>, <c>--lightbudget</c> and <c>--ao</c> from the command line, after a bare
-    /// <c>--</c>.
+    /// <c>--applybudget</c>, <c>--lightbudget</c>, <c>--relief</c>, <c>--reliefvary</c> and
+    /// <c>--ao</c> from the command line, after a bare <c>--</c>.
     /// </summary>
     /// <remarks>
     /// Configurable from outside so a sweep is one shell loop rather than five edit-rebuild
@@ -1985,6 +1987,45 @@ public partial class Main : Node3D
                         GD.PushError(
                             $"--seed='{value}' is not a number; ignored. Decimal (--seed=12345) or "
                             + "hex (--seed=0x4D494E455243).");
+                    }
+
+                    break;
+
+                // How mountainous a world that does not exist yet is, as a multiple of the
+                // shipped amplitude: --relief=2 is twice the hills, --relief=0.5 is rolling
+                // country. It lands in the header as an amplitude in voxels, so the world itself
+                // carries a number rather than a multiplier, and reopening it needs no flag.
+                //
+                // Refused out loud rather than falling through, for --seed's reason: a mistyped
+                // scale that read as an unknown flag would build the default world and say
+                // nothing, and from inside one landscape looks much like another.
+                case "relief":
+                    if (float.TryParse(value, out float asked) && asked > 0.0f && float.IsFinite(asked))
+                    {
+                        _reliefScale = asked;
+                    }
+                    else
+                    {
+                        GD.PushError(
+                            $"--relief='{value}' is not a positive number; ignored. It multiplies "
+                            + "the surface amplitude, so --relief=2 is twice the relief.");
+                    }
+
+                    break;
+
+                // How much that relief differs from region to region, 0..1. Also new-world only,
+                // also refused out loud.
+                case "reliefvary":
+                    if (float.TryParse(value, out float variation) && variation >= 0.0f && variation <= 1.0f)
+                    {
+                        _reliefVariation = variation;
+                    }
+                    else
+                    {
+                        GD.PushError(
+                            $"--reliefvary='{value}' is not between 0 and 1; ignored. 0 is one "
+                            + "lumpiness everywhere, 1 lets a region run from flat to twice the "
+                            + "base relief.");
                     }
 
                     break;
@@ -7924,6 +7965,14 @@ public partial class Main : Node3D
                     settings = settings with { Seed = RandomWorldSeed() };
                 }
 
+                // Regions, under exactly the rule above and for exactly its reason. --reliefvary=
+                // has already been applied in NewWorldSettings if it was given, so this is the
+                // shipped value landing on a world that is being created to be played.
+                if (_reliefVariation is null && _profiler is null)
+                {
+                    settings = settings with { ReliefVariation = ShippedReliefVariation };
+                }
+
                 if (!LoadContent(null))
                 {
                     throw new InvalidOperationException("the content did not load cleanly (see above)");
@@ -7931,7 +7980,9 @@ public partial class Main : Node3D
 
                 GD.Print(
                     $"M6: new world at {path}, seed 0x{settings.Seed:X} "
-                    + $"(--seed={settings.Seed} builds this landscape again)");
+                    + $"(--seed={settings.Seed} builds this landscape again), relief "
+                    + $"{settings.SurfaceAmplitudeVoxels:0.##} voxel(s) varying "
+                    + $"{settings.ReliefVariation:P0} by region");
                 return true;
             }
 
@@ -7969,6 +8020,19 @@ public partial class Main : Node3D
                     $"--seed is ignored for an existing world: {_worldName} was made with "
                     + $"0x{settings.Seed:X} and regenerates from it. Name a world that does not "
                     + "exist yet to use a seed.");
+            }
+
+            if (_reliefScale is not null || _reliefVariation is not null)
+            {
+                // The third flag under the --cavestep rule, and the one most likely to be
+                // reached for by habit: an unedited chunk regenerates from the header, so a
+                // relief flag honoured here would rebuild the landscape *around* the chunks this
+                // world has saved and leave a mine hanging in it.
+                GD.PushWarning(
+                    $"--relief / --reliefvary are ignored for an existing world: {_worldName} "
+                    + $"was made at {settings.SurfaceAmplitudeVoxels:0.##} voxel(s) varying "
+                    + $"{settings.ReliefVariation:P0} and regenerates from that. Name a world "
+                    + "that does not exist yet.");
             }
 
             if (!LoadContent(world.MaterialIdTable))
@@ -8142,14 +8206,57 @@ public partial class Main : Node3D
     /// </remarks>
     private static ulong RandomWorldSeed() => (ulong)System.Random.Shared.NextInt64(1, 1_000_000_000);
 
+    /// <summary>
+    /// How much a new world's relief varies from region to region, unless <c>--reliefvary=</c>
+    /// says otherwise.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>An estimate.</b> Half means a region runs from half the base relief to one and a half
+    /// times it — a world with plains you cross and highlands you climb, rather than one
+    /// lumpiness everywhere — and it is a number a person standing in it should move, not one
+    /// anything here can derive. <c>--reliefvary=</c> is the sweep; 0 is the world as it was
+    /// before 2026-09-23.
+    /// </para>
+    /// <para>
+    /// <b>Applied where the seed is drawn and for the same reason</b>: only to a world being
+    /// created, and only when no profiler is running. A measurement keeps the flat default, so
+    /// the r6 control and every figure taken against a world with no file still describe the
+    /// landscape they were recorded on.
+    /// </para>
+    /// </remarks>
+    private const float ShippedReliefVariation = 0.5f;
+
     /// <summary>The settings a world is created with, before it has a header of its own.</summary>
     private WorldGenSettings NewWorldSettings()
     {
         var settings = new WorldGenSettings { Seed = _seedGiven ? _seed : NewWorldSeed };
 
-        return _caveLatticeStep is int step
-            ? settings with { CaveLatticeStep = step }
-            : settings;
+        if (_caveLatticeStep is int step)
+        {
+            settings = settings with { CaveLatticeStep = step };
+        }
+
+        // Resolved to an amplitude here rather than kept as a multiplier, because the header
+        // stores what the terrain *is* and not how it was asked for. A world built with
+        // --relief=2 reopens at twice the relief with no flag, which is the point.
+        if (_reliefScale is float scale)
+        {
+            settings = settings with
+            {
+                SurfaceAmplitudeVoxels = settings.SurfaceAmplitudeVoxels * scale,
+            };
+        }
+
+        // The flag wins wherever there is no header, including a run with no world file at all.
+        // The *shipped* variation is applied in OpenWorld beside the seed draw, because a run
+        // with no world file is usually a measurement and must keep the flat default.
+        if (_reliefVariation is float vary)
+        {
+            settings = settings with { ReliefVariation = vary };
+        }
+
+        return settings;
     }
 
     /// <summary>Loads the mods against the world's table. False refuses the run.</summary>

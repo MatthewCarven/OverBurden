@@ -47,10 +47,35 @@ public sealed class WorldGenerator : ISurfaceHeights
     /// <summary>Lattice samples per axis at step 1, which is the most there can ever be.</summary>
     private const int MaxLatticePitch = Size + 1;
 
+    /// <summary>
+    /// How many times longer the relief field's wavelength is than the surface's own.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A region has to be much larger than the hills inside it or it reads as a second set of
+    /// hills rather than as somewhere different. At the shipped surface frequency — a 62.5 m
+    /// wavelength — this makes a region about 2 km across: four times the 512 m watershed window,
+    /// so a basin is analysed inside one region rather than across several, and roughly five
+    /// minutes of walking at sprint. Derived rather than a fifteenth setting, because how large
+    /// somewhere-else is, is a decision about the game rather than about one world.
+    /// </para>
+    /// <para>
+    /// <b>8 first, and the measurement said no.</b> That put a region at 500 m — the same size as
+    /// the watershed window, and small enough that every sample window straddled a peak and a
+    /// trough of the relief field, so the roughest place in a world was only 2.7 times the
+    /// calmest and the whole thing read as one landscape with noisy edges. The wavelength is what
+    /// makes regions legible, not the variation.
+    /// </para>
+    /// </remarks>
+    public const float ReliefFrequencyRatio = 32.0f;
+
     private readonly WorldGenSettings _settings;
     private readonly StrataTable _strata;
     private readonly ulong _surfaceSeed;
     private readonly ulong _caveSeed;
+    private readonly ulong _reliefSeed;
+    private readonly float _reliefVariation;
+    private readonly float _reliefFrequency;
 
     // Derived from CaveLatticeStep once, because all three are wanted per voxel. The step is
     // a power of two, so `& _caveStepMask` is the offset within a lattice cell and
@@ -78,6 +103,22 @@ public sealed class WorldGenerator : ISurfaceHeights
                 + "from different corners — a seam that is invisible until it is in a screenshot.");
         }
 
+        // Written as a refusal of everything outside the range rather than as a test for the bad
+        // values, so that NaN is caught: every comparison with NaN is false, so `variation > 1`
+        // would wave it through and the factor would silently turn a whole world into air. M3c's
+        // NaN threshold, one field along.
+        float variation = settings.ReliefVariation;
+        if (!(variation >= 0.0f && variation <= 1.0f))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(settings),
+                variation,
+                $"{nameof(WorldGenSettings.ReliefVariation)} must be between 0 and 1 — it is a "
+                + "share of the surface amplitude, so 0 is a world of even lumpiness and 1 lets a "
+                + "region run from flat to twice the base relief. Anything outside that (or NaN) "
+                + "would put the ground somewhere nobody can predict.");
+        }
+
         _settings = settings;
         _strata = strata;
 
@@ -90,6 +131,10 @@ public sealed class WorldGenerator : ISurfaceHeights
         // the surface and vice versa.
         _surfaceSeed = Hash64.Mix(settings.Seed ^ 0x5EA51DE0UL);
         _caveSeed = Hash64.Mix(settings.Seed ^ 0xCA1E5000UL);
+        _reliefSeed = Hash64.Mix(settings.Seed ^ 0x5E11EF00UL);
+
+        _reliefVariation = variation;
+        _reliefFrequency = settings.SurfaceFrequency / ReliefFrequencyRatio;
     }
 
     public WorldGenSettings Settings => _settings;
@@ -99,9 +144,20 @@ public sealed class WorldGenerator : ISurfaceHeights
     /// <paramref name="worldZ"/>, before caves are carved.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Depends only on the two horizontal coordinates, which is what makes two chunks
     /// meeting at a boundary agree about the surface without either knowing the other
-    /// exists.
+    /// exists. The relief field is sampled from the same two coordinates and so keeps that.
+    /// </para>
+    /// <para>
+    /// <b>With <see cref="WorldGenSettings.ReliefVariation"/> at 0 this is bit for bit the
+    /// function it has always been</b>, and deliberately by skipping the arithmetic rather than
+    /// by multiplying by a factor of exactly one. The second would also be exact today, and would
+    /// stop being the moment anyone reordered the expression; the first cannot drift. It is also
+    /// what keeps a neutral world from paying for a noise sample it does not use — this is the
+    /// hottest function in the project after the cave lattice, at 1,024 evaluations per sky
+    /// column.
+    /// </para>
     /// </remarks>
     public int SurfaceHeightAt(int worldX, int worldZ)
     {
@@ -113,7 +169,40 @@ public sealed class WorldGenerator : ISurfaceHeights
             _settings.Lacunarity,
             _settings.Gain);
 
-        return _settings.SeaLevelVoxels + (int)MathF.Round(noise * _settings.SurfaceAmplitudeVoxels);
+        if (_reliefVariation <= 0.0f)
+        {
+            return _settings.SeaLevelVoxels + (int)MathF.Round(noise * _settings.SurfaceAmplitudeVoxels);
+        }
+
+        float amplitude = _settings.SurfaceAmplitudeVoxels * ReliefFactorAt(worldX, worldZ);
+        return _settings.SeaLevelVoxels + (int)MathF.Round(noise * amplitude);
+    }
+
+    /// <summary>
+    /// What share of <see cref="WorldGenSettings.SurfaceAmplitudeVoxels"/> this column gets:
+    /// 1 at the average, down toward 0 in a plain, up toward 2 in a highland.
+    /// </summary>
+    /// <remarks>
+    /// <b>One octave, and the sample is clamped before it is used.</b> A single octave is what a
+    /// region is — adding detail to it would put hills on the map of where the hills are — and
+    /// <see cref="GradientNoise.Sample2D"/> is documented as <em>roughly</em> in [-1, 1], which is
+    /// not a guarantee. Without the clamp a variation of 1 could hand back a negative factor,
+    /// which does not read as flat: it mirrors the surface, so a valley comes out where its
+    /// neighbours have a hill and the seam between them is a cliff.
+    /// </remarks>
+    public float ReliefFactorAt(int worldX, int worldZ)
+    {
+        if (_reliefVariation <= 0.0f)
+        {
+            return 1.0f;
+        }
+
+        float relief = GradientNoise.Sample2D(
+            _reliefSeed,
+            worldX * _reliefFrequency,
+            worldZ * _reliefFrequency);
+
+        return 1.0f + (_reliefVariation * Math.Clamp(relief, -1.0f, 1.0f));
     }
 
     /// <summary>

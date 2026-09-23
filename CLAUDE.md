@@ -951,6 +951,29 @@ arm in which the chunk set at a fixed radius is deterministic — so AO on again
 two numbers rather than two samples of a moving camera — and it was the one arm that could not
 be asked for.
 
+**How mountainous a world is, is set when it is created, and worlds differ from region to region
+since 2026-09-23.** `SurfaceAmplitudeVoxels` has been in the header since M6a and needed only a way
+to ask for it: **`--relief=<x>` multiplies it** (`--relief=2` is twice the hills, `--relief=0.5`
+rolling country), resolved to an amplitude in voxels at creation so the world carries a number
+rather than a multiplier and reopens with no flag. And **`ReliefVariation` is the fourteenth
+worldgen field, at header v6** — a second noise field at
+**`WorldGenerator.ReliefFrequencyRatio`** (32) times the surface's wavelength, about **2 km a
+region**, multiplying the amplitude per column so a world has plains in one place and highlands in
+another; **`--reliefvary=<0..1>`** is the sweep, 0.5 what a new world gets, and both flags follow
+the `--seed=` rule exactly — **new worlds only, refused out loud when mistyped, warned and ignored
+on a world that exists** (an unedited chunk regenerates from the header, so honouring one would
+rebuild the landscape around the chunks a world has saved). **The record's own default is 0 and a
+`--profile` run keeps it**, which is why every recorded figure still reads: the r6 control is 2601 /
+325 / 3446 at 411 to the digit with regions shipped. The ratio was 8 first and the measurement said
+no — that put a region at 500 m, the size of the watershed window, and the roughest place in a world
+was 2.7× the calmest, which reads as one landscape with noisy edges. **Cost, measured headless at
+r6**: the fill's derive 1,680 → 1,722 ms (+2.5%) and all-settled 4.03 → 4.05 s, but the box-difference
+sweep — `SkyColumn.Seed`'s 1,024 surface evaluations a column — goes **`viewer ms` mean 3.85 → 4.37,
+p50 3.37 → 4.26**, which is the real price and is 0.5 ms against a 16.7 ms frame. **Named lever, not
+built**: the relief factor is constant over 2 km, so it could ride a coarse lattice and be
+interpolated the way cave noise already is.
+
+
 **A profile run quits by itself, so it needs no `--quit-after` — and passing one usually
 truncates the run**, because 900 frames at ~145 fps is 6 s and the default window is 18.
 
@@ -3165,7 +3188,7 @@ Suite 559 → 614. Six things worth keeping:
   100,000 stored chunks. And **deserialisation is 21 µs a chunk against the plan's assumed
   0.1–0.3 ms**, which half-answers M6's headline worry about entering a dug-in world — the other
   half is SQLite's per-query overhead and is M6b's. Do not retire the concern on one number.
-- **`WorldGenSettings` is thirteen properties, not a seed, and all thirteen are written**, because
+- **`WorldGenSettings` is fourteen properties, not a seed, and all fourteen are written**, because
   an unedited chunk is *regenerated* rather than stored. **Explicit binary rather than JSON,
   because a JSON reader fills in a missing field's default and carries on** — which is exactly the
   silent world-reshaping this prevents. A reflection test counts the record's properties against

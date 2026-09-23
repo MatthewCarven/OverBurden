@@ -25,7 +25,7 @@ namespace Overburden.Core.Persistence;
 /// regenerated — and it regenerates from every field, not only <see cref="WorldGenSettings.Seed"/>.
 /// Change the default <see cref="WorldGenSettings.CaveLatticeStep"/> in a later build and the
 /// unstored terrain around a saved base comes back a different shape, with the saved chunks
-/// hanging in it. Thirteen fields, all of them load-bearing, all of them written.
+/// hanging in it. Fourteen fields, all of them load-bearing, all of them written.
 /// </para>
 /// </remarks>
 public sealed record WorldHeader
@@ -157,9 +157,11 @@ public readonly record struct PlayerSave(Vector3 FeetMetres, bool Flying);
 /// </para>
 /// <para>
 /// <b><see cref="SettingsBytes"/> is asserted against the record's actual property count by a
-/// test.</b> Adding a fourteenth field to <see cref="WorldGenSettings"/> and forgetting to write
+/// test.</b> Adding a fifteenth field to <see cref="WorldGenSettings"/> and forgetting to write
 /// it here would otherwise be invisible: the header would still round-trip, and the field would
-/// silently take its default on every reload.
+/// silently take its default on every reload. <b>That guard has now fired in anger once</b>:
+/// <see cref="WorldGenSettings.ReliefVariation"/> arrived at v6 and the test went red before
+/// the field had a reader, which is the whole of what it is for.
 /// </para>
 /// </remarks>
 public static class WorldHeaderBlob
@@ -169,12 +171,20 @@ public static class WorldHeaderBlob
     /// <b>Moved to 2 at M6c-2</b> for the player's position and the volumetric inventory,
     /// <b>to 3 at M7b-2</b> for the world clock and the watershed lattice, and <b>to 4 at
     /// M10c-3</b> for the equipped pack, and <b>to 5 on 2026-09-18</b> for the carried packs'
-    /// charges. All four are strictly additive, so all four migrate under the policy in
+    /// charges, and <b>to 6 on 2026-09-23</b> for the relief variation. All five are strictly
+    /// additive, so all five migrate under the policy in
     /// <see cref="OldestVersion"/>. During a milestone the only person holding a saved world is
     /// the one building it. (The inventory screen's hotbar assignment, folded into M10g, was
     /// written down as "v5" before this bump; the number is a counter and it takes the next.)
     /// </remarks>
-    public const byte Version = 5;
+    /// <remarks>
+    /// <b>v6 is the first bump that grows a section in the middle of the payload rather than
+    /// appending one to the end</b>, so it is the first where reading an old header means reading
+    /// a <em>shorter</em> block and then a different offset for everything after it — see
+    /// <see cref="SettingsBytesFor"/>. Still additive by the test that matters: no field changed
+    /// what it means.
+    /// </remarks>
+    public const byte Version = 6;
 
     /// <summary>The oldest layout this build can still read.</summary>
     /// <remarks>
@@ -185,7 +195,9 @@ public static class WorldHeaderBlob
     /// lattice, and a v3 header is a v4 one without its pack, so reading any of them means
     /// supplying documented defaults — no inventory, no saved player, no time elapsed, no pack
     /// equipped — and all of them are true statements about a world written before the field
-    /// existed. A v4 header is a v5 one without its carried packs, which reads as none charged.
+    /// existed. A v4 header is a v5 one without its carried packs, which reads as none charged,
+    /// and a v5 header is a v6 one without its relief variation, which reads as a world of even
+    /// lumpiness — which every world written before 2026-09-23 is.
     /// </para>
     /// <para>
     /// <b>This is not the thing M6a argued against.</b> That was a reader filling in a field the
@@ -207,16 +219,33 @@ public static class WorldHeaderBlob
     private const int PackBytes = sizeof(int) + sizeof(long) + sizeof(int);
 
     /// <summary>
-    /// Bytes one <see cref="WorldGenSettings"/> occupies: 8 + 4×2 + 4×6 + 1 + 4×3.
+    /// Bytes one <see cref="WorldGenSettings"/> occupies: 8 + 4×2 + 4×6 + 1 + 4×3, and
+    /// <see cref="WorldGenSettings.ReliefVariation"/>'s four on the end at v6.
     /// </summary>
     /// <remarks>
     /// A constant rather than a computed size, so that the test which counts the record's
     /// properties has something to compare against. See the class remarks.
     /// </remarks>
-    internal const int SettingsBytes = 53;
+    internal const int SettingsBytes = 57;
+
+    /// <summary>Bytes the settings block occupied before v6 added the relief variation.</summary>
+    internal const int SettingsBytesBeforeV6 = 53;
 
     /// <summary>How many fields <see cref="WriteSettings"/> handles. Pinned by a test.</summary>
-    internal const int SettingsFieldCount = 13;
+    internal const int SettingsFieldCount = 14;
+
+    /// <summary>
+    /// How long the settings block is in a header of this version.
+    /// </summary>
+    /// <remarks>
+    /// <b>The settings block sits in the middle of the payload, so growing it moves every
+    /// section after it</b> — which is why a field added here is a version bump and not simply a
+    /// longer record. It is still additive in the sense <see cref="OldestVersion"/> means: a v5
+    /// block is a v6 block without its last four bytes, and reading it as a relief variation of
+    /// zero is a true statement about a world written before regions existed.
+    /// </remarks>
+    private static int SettingsBytesFor(byte version) =>
+        version >= 6 ? SettingsBytes : SettingsBytesBeforeV6;
 
     private static readonly Identifier Air = MaterialIds.Air;
 
@@ -562,15 +591,17 @@ public static class WorldHeaderBlob
         ReadOnlySpan<byte> payload = BlobFormat.ReadPayload(
             blob, OldestVersion, Version, BlobFormat.FrameBytes, What, out _, out byte version);
 
-        if (payload.Length < SettingsBytes + sizeof(int))
+        int settingsBytes = SettingsBytesFor(version);
+
+        if (payload.Length < settingsBytes + sizeof(int))
         {
             throw new BlobFormatException(
                 $"{What}: {payload.Length} bytes is too short to hold the worldgen settings and a table length.");
         }
 
-        WorldGenSettings settings = ReadSettings(payload, What);
+        WorldGenSettings settings = ReadSettings(payload, What, version);
 
-        int offset = SettingsBytes;
+        int offset = settingsBytes;
         int count = BinaryPrimitives.ReadInt32LittleEndian(payload[offset..]);
         offset += sizeof(int);
 
@@ -937,9 +968,10 @@ public static class WorldHeaderBlob
         BinaryPrimitives.WriteSingleLittleEndian(destination[41..], settings.CaveThreshold);
         BinaryPrimitives.WriteInt32LittleEndian(destination[45..], settings.CaveSurfaceMarginVoxels);
         BinaryPrimitives.WriteInt32LittleEndian(destination[49..], settings.CaveLatticeStep);
+        BinaryPrimitives.WriteSingleLittleEndian(destination[53..], settings.ReliefVariation);
     }
 
-    private static WorldGenSettings ReadSettings(ReadOnlySpan<byte> payload, string what)
+    private static WorldGenSettings ReadSettings(ReadOnlySpan<byte> payload, string what, byte version)
     {
         byte caves = payload[32];
         if (caves > 1)
@@ -962,6 +994,11 @@ public static class WorldHeaderBlob
             CaveThreshold = BinaryPrimitives.ReadSingleLittleEndian(payload[41..]),
             CaveSurfaceMarginVoxels = BinaryPrimitives.ReadInt32LittleEndian(payload[45..]),
             CaveLatticeStep = BinaryPrimitives.ReadInt32LittleEndian(payload[49..]),
+
+            // A world written before v6 has no regions, which is exactly what zero means.
+            ReliefVariation = version >= 6
+                ? BinaryPrimitives.ReadSingleLittleEndian(payload[53..])
+                : 0.0f,
         };
     }
 }

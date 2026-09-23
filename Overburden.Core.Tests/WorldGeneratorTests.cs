@@ -349,6 +349,192 @@ public class WorldGeneratorTests
             + "nobody is digging through it for fun.");
     }
 
+
+    // -------------------------------------------------------------------------------------
+    // Regions. A second, much slower noise field multiplies the surface amplitude per column,
+    // so a world has mountains in one place and plains in another rather than one lumpiness
+    // everywhere. Neutral by default, because every recorded figure in this project is a
+    // statement about the landscape the defaults produce.
+    // -------------------------------------------------------------------------------------
+
+    [Fact]
+    public void ReliefVariationIsNeutralByDefault()
+    {
+        // The test that protects every measurement in the repo. The oracle is the formula spelled
+        // out here rather than a comparison against another generator, because two generators
+        // both consulting a relief field would agree with each other perfectly while the ground
+        // had moved under the r6 control, the keystone's at-risk count and the profile seed's
+        // dry first forty seconds.
+        var defaults = new WorldGenSettings { Seed = 0x5EEDUL };
+        Assert.Equal(0.0f, defaults.ReliefVariation);
+
+        var generator = new WorldGenerator(defaults, Strata());
+
+        for (int z = -192; z <= 192; z += 24)
+        {
+            for (int x = -192; x <= 192; x += 24)
+            {
+                float noise = GradientNoise.Fbm2D(
+                    Hash64.Mix(defaults.Seed ^ 0x5EA51DE0UL),
+                    x * defaults.SurfaceFrequency,
+                    z * defaults.SurfaceFrequency,
+                    defaults.SurfaceOctaves,
+                    defaults.Lacunarity,
+                    defaults.Gain);
+
+                int expected = defaults.SeaLevelVoxels
+                    + (int)MathF.Round(noise * defaults.SurfaceAmplitudeVoxels);
+
+                Assert.Equal(expected, generator.SurfaceHeightAt(x, z));
+                Assert.Equal(1.0f, generator.ReliefFactorAt(x, z));
+            }
+        }
+    }
+
+    [Fact]
+    public void ReliefVariationGivesAWorldSomewhereFlatAndSomewhereMountainous()
+    {
+        // What "regions" has to mean to be worth the field: not that heights differ — one noise
+        // field already does that — but that *how much they differ* differs from place to place.
+        // So this measures local relief in windows and asks whether the calmest window and the
+        // roughest one are a different kind of place.
+        //
+        // **The window and the span are derived from the region's own wavelength**, not written
+        // as metres, because the first version of this test fixed them at 128 m over a 1 km span
+        // and measured a relief field whose period was 500 m — every window straddled a peak and
+        // a trough, so it reported 2.7x and read as a failure of the feature when it was a
+        // failure of the sample. A window has to be small against a region and the span has to
+        // cover several of them. That measurement is what moved ReliefFrequencyRatio to 32.
+        var settings = Settings() with { ReliefVariation = 0.75f };
+        var generator = new WorldGenerator(settings, Strata());
+
+        int period = (int)(WorldGenerator.ReliefFrequencyRatio / settings.SurfaceFrequency);
+        int window = period / 16;
+        int step = period / 4;
+        int span = period * 4;
+
+        int calmest = int.MaxValue;
+        int roughest = 0;
+
+        for (int originZ = -span; originZ < span; originZ += step)
+        {
+            for (int originX = -span; originX < span; originX += step)
+            {
+                int low = int.MaxValue;
+                int high = int.MinValue;
+
+                for (int z = originZ; z < originZ + window; z += 16)
+                {
+                    for (int x = originX; x < originX + window; x += 16)
+                    {
+                        int height = generator.SurfaceHeightAt(x, z);
+                        low = Math.Min(low, height);
+                        high = Math.Max(high, height);
+                    }
+                }
+
+                calmest = Math.Min(calmest, high - low);
+                roughest = Math.Max(roughest, high - low);
+            }
+        }
+
+        Assert.True(
+            roughest >= calmest * 4,
+            $"over {window} voxels the roughest place in this world has {roughest} voxels of "
+            + $"relief and the calmest {calmest} — under four times, this reads as one landscape "
+            + "rather than as somewhere to walk to.");
+    }
+
+    [Fact]
+    public void TheReliefFieldNeverInvertsTheSurface()
+    {
+        // At variation 1 the factor runs to the edges of [0, 2], and Sample2D is documented as
+        // only *roughly* in [-1, 1] — so without the clamp a factor could go negative, which does
+        // not read as flat. It mirrors the surface: a valley where the neighbouring region has a
+        // hill, with a cliff along the join. The clamp is what this is standing over.
+        var generator = new WorldGenerator(Settings() with { ReliefVariation = 1.0f }, Strata());
+
+        float lowest = float.MaxValue;
+        float highest = float.MinValue;
+
+        for (int z = -4096; z <= 4096; z += 64)
+        {
+            for (int x = -4096; x <= 4096; x += 64)
+            {
+                float factor = generator.ReliefFactorAt(x, z);
+                lowest = MathF.Min(lowest, factor);
+                highest = MathF.Max(highest, factor);
+            }
+        }
+
+        Assert.True(lowest >= 0.0f, $"the relief factor reached {lowest}, which mirrors the terrain");
+        Assert.True(highest <= 2.0f, $"the relief factor reached {highest}, past twice the amplitude");
+    }
+
+    [Fact]
+    public void RegionsDoNotShowUpAsASeamBetweenChunks()
+    {
+        // The seam test again with the relief field on. It holds by construction — the field
+        // reads the same two world coordinates the surface does — and it is pinned because the
+        // way to break it is to reach for the chunk you are in, which is exactly the temptation
+        // a regional feature carries. Invisible until it is in a screenshot.
+        var generator = new WorldGenerator(
+            Settings(caves: false) with { ReliefVariation = 0.8f },
+            Strata());
+
+        VoxelChunk left = generator.GenerateTerrain(new ChunkPos(0, 0, 0));
+        VoxelChunk right = generator.GenerateTerrain(new ChunkPos(1, 0, 0));
+
+        for (int lz = 0; lz < Size; lz++)
+        {
+            AssertColumnMatchesSurface(generator, left, lx: Size - 1, lz, worldX: Size - 1, chunkY: 0);
+            AssertColumnMatchesSurface(generator, right, lx: 0, lz, worldX: Size, chunkY: 0);
+        }
+    }
+
+    [Fact]
+    public void RegionsSurviveTheOrderChunksAreGeneratedIn()
+    {
+        // The relief field is a second thing SurfaceHeightAt consults, so it is a second thing
+        // that could become a buffer reused across a chunk. It is not one today; this is what
+        // notices if it becomes one.
+        var settings = Settings() with { ReliefVariation = 0.8f };
+        ChunkPos[] positions =
+        [
+            new(0, 0, 0), new(3, 0, -2), new(-1, 0, 1), new(7, 0, 5),
+        ];
+
+        var forwards = new WorldGenerator(settings, Strata());
+        var backwards = new WorldGenerator(settings, Strata());
+
+        var expected = positions.Select(forwards.GenerateTerrain).ToArray();
+        VoxelChunk[] reversed = positions.Reverse()
+            .Select(backwards.GenerateTerrain)
+            .Reverse()
+            .ToArray();
+
+        for (int i = 0; i < positions.Length; i++)
+        {
+            AssertSameContent(expected[i], reversed[i]);
+        }
+    }
+
+    [Theory]
+    [InlineData(-0.001f)]
+    [InlineData(1.001f)]
+    [InlineData(float.NaN)]
+    [InlineData(float.PositiveInfinity)]
+    public void AReliefVariationOutsideItsRangeRefusesToConstruct(float variation)
+    {
+        // NaN is the one that matters and the one a range check written the obvious way lets
+        // through: every comparison with NaN is false, so `variation > 1` says no. M3c's NaN
+        // hardness threshold, which inverted a gate from "takes nothing" to "takes everything".
+        var error = Assert.Throws<ArgumentOutOfRangeException>(
+            () => new WorldGenerator(Settings() with { ReliefVariation = variation }, Strata()));
+
+        Assert.Contains("ReliefVariation", error.Message);
+    }
+
     [Fact]
     public void FeaturesStageIsAHookAndChangesNothingYet()
     {
