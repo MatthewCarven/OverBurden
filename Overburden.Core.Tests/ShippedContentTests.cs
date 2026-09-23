@@ -101,6 +101,30 @@ public class ShippedContentTests
     private const string QuantumExcavatorId = "overburden:quantum_excavator";
 
     [Fact]
+    public void TheQuantumTunnellerShipsBetweenTheMinerAndTheExcavator()
+    {
+        // Matthew, 2026-09-23: "a quantum tunneller that does about 2x2 meters to go between the
+        // quantum miner, and quantum excavator" — a 2 m cube, a bite a click, Q held at 0.25 s.
+        var content = new GameContent();
+        LoadResult result = content.Load(new DirectoryContentSource(ModsDirectory()));
+        Assert.True(result.Success, string.Join("; ", result.Errors));
+
+        ToolDefinition tunneller = content.Tools.Get(Identifier.Parse("overburden:quantum_tunneller"));
+        Assert.Equal(ToolBite.Tunnel, tunneller.Bite);
+        Assert.True(tunneller.AtRange);
+        Assert.Equal(0.25f, tunneller.CooldownSeconds);
+        Assert.Equal(5.0f, tunneller.HardnessThreshold);
+        Assert.Equal(50L, tunneller.Power!.JoulesPerVoxel);
+
+        string[] cycle = ToolTiers.Order(content.Tools.Entries().Select(e => e.Value).Where(t => !t.IsUnknown))
+            .Select(t => t.Id.ToString()).ToArray();
+        int miner = Array.IndexOf(cycle, QuantumMinerId);
+        int tunnel = Array.IndexOf(cycle, "overburden:quantum_tunneller");
+        int excavator = Array.IndexOf(cycle, QuantumExcavatorId);
+        Assert.True(miner >= 0 && tunnel == miner + 1 && excavator == tunnel + 1, string.Join(", ", cycle));
+    }
+
+    [Fact]
     public void TheQuantumTiersShipAsTwoCostingToolsOnTheCycleThatTakeAnything()
     {
         // Matthew's IDs and his split — "quantum (small scale) and quantum (large scale) … tiers
@@ -131,9 +155,11 @@ public class ShippedContentTests
             Assert.True(tool.HardnessThreshold >= hardest);
         }
 
-        // They are the last two on the cycle, miner before excavator, and neither is the start.
+        // They are the last three on the cycle — miner, tunneller (2026-09-23), excavator — and
+        // none is the start.
         var tiers = ToolTiers.Order(content.Tools.Entries().Select(e => e.Value));
-        Assert.Equal(QuantumMinerId, tiers[^2].Id.ToString());
+        Assert.Equal(QuantumMinerId, tiers[^3].Id.ToString());
+        Assert.Equal("overburden:quantum_tunneller", tiers[^2].Id.ToString());
         Assert.Equal(QuantumExcavatorId, tiers[^1].Id.ToString());
         Assert.True(ToolTiers.Default(tiers).IsFree);
 
@@ -148,6 +174,11 @@ public class ShippedContentTests
         long chunkMillijoules = excavator.Power.MillijoulesPerVoxel * Overburden.Core.Voxels.VoxelConstants.ChunkVolume;
         Assert.Equal(1125L, pack.Machine!.CapacityMillijoules / cubeMillijoules);
         Assert.Equal(2L, pack.Machine!.CapacityMillijoules / chunkMillijoules);
+
+        // The tunneller between them: 512 voxels a bite, 25.6 kJ, 140 bites a pack.
+        long tunnelMillijoules = miner.Power.MillijoulesPerVoxel * Overburden.Core.Mining.Carve.TunnelVoxels
+                                 * Overburden.Core.Mining.Carve.TunnelVoxels * Overburden.Core.Mining.Carve.TunnelVoxels;
+        Assert.Equal(140L, pack.Machine!.CapacityMillijoules / tunnelMillijoules);
     }
 
     [Fact]

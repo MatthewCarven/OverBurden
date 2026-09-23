@@ -106,7 +106,19 @@ public sealed class PlaceController(
     /// the 5 m brush into a one-click verb on its way past. The hold runs the bite and nothing
     /// else.
     /// </remarks>
-    public bool TakesCube => Entangled && !EntangledFillsChunk;
+    public bool TakesCube => Entangled && !EntangledFillsChunk && !EntangledFillsTunnel;
+
+    /// <summary>Whether an entangled placement fills the 2 m tunnel cube in front of the crosshair — the tunneller's fill (2026-09-23).</summary>
+    public bool EntangledFillsTunnel { get; set; }
+
+    /// <summary>A bare placement fills the 2 m cube of the tunnel lattice in front of the crosshair.</summary>
+    public bool TakesTunnel => Entangled && EntangledFillsTunnel && !EntangledFillsChunk;
+
+    /// <summary>The tunneller's fill cooldown — the bite's, so dig and fill pace the same.</summary>
+    public float TunnelCooldownSeconds { get; set; } = 0.25f;
+
+    /// <summary>A click is one fill rather than a hold that repeats — the cube arm and the tunneller.</summary>
+    public bool OneClickOneFill => TakesCube || TakesTunnel;
 
     /// <summary>
     /// How long between whole-chunk fills, in seconds.
@@ -176,6 +188,12 @@ public sealed class PlaceController(
 
     /// <summary>The whole chunk an entangled placement would fill. Drives the 8 m outline.</summary>
     public ChunkPos TargetChunk { get; private set; }
+
+    /// <summary>The origin of the 2 m cube a tunneller's fill would fill. Drives the 2 m outline.</summary>
+    public VoxelPos TargetTunnel { get; private set; }
+
+    /// <summary>Of <see cref="Placements"/>, how many filled a 2 m tunnel cube.</summary>
+    public int TunnelPlacements { get; private set; }
 
     /// <summary>Of <see cref="Placements"/>, how many filled a whole chunk.</summary>
     public int ChunkPlacements { get; private set; }
@@ -251,9 +269,9 @@ public sealed class PlaceController(
     /// slight amount of water"</i>.
     /// </remarks>
     private readonly record struct PendingFill(
-        FillShape Shape, VoxelPos Voxel, BrushCell Cell, ChunkPos Chunk, BrushFacing Facing, float RadiusMetres, int MaterialId, int Wet);
+        FillShape Shape, VoxelPos Voxel, BrushCell Cell, ChunkPos Chunk, VoxelPos Tunnel, BrushFacing Facing, float RadiusMetres, int MaterialId, int Wet);
 
-    private enum FillShape { Voxel, Cube, Slab, Ramp, Sphere, Chunk }
+    private enum FillShape { Voxel, Cube, Slab, Ramp, Sphere, Chunk, Tunnel }
 
     private readonly List<PendingFill> _pendingWetFills = [];
 
@@ -470,6 +488,7 @@ public sealed class PlaceController(
             TargetCell = Place.TargetCell(hit);
             TargetVoxel = Place.TargetVoxel(hit);
             TargetChunk = Place.TargetChunk(hit);
+            TargetTunnel = Place.TargetTunnel(hit);
             Facing = Place.FacingFrom(direction);
         }
 
@@ -587,7 +606,9 @@ public sealed class PlaceController(
             ? Place.Voxel(pipeline, materials, TargetVoxel, MaterialId, body, inventory, voxelBudget: budget)
             : TakesWholeChunk
                 ? Place.Chunk(pipeline, materials, TargetChunk, MaterialId, body, inventory, voxelBudget: budget)
-                : Brush switch
+                : TakesTunnel
+                    ? Place.Tunnel(pipeline, materials, TargetTunnel, MaterialId, body, inventory, voxelBudget: budget)
+                    : Brush switch
         {
             BrushShape.Cube => Place.Cube(pipeline, materials, TargetCell, MaterialId, body, inventory, voxelBudget: budget),
             BrushShape.Slab => Place.Slab(pipeline, materials, TargetCell, MaterialId, body, inventory, voxelBudget: budget),
@@ -608,6 +629,10 @@ public sealed class PlaceController(
         {
             ChunkPlacements++;
         }
+        else if (TakesTunnel)
+        {
+            TunnelPlacements++;
+        }
         Record(result);
         PayFor(result);
 
@@ -615,6 +640,7 @@ public sealed class PlaceController(
         {
             FillShape shape = precise ? FillShape.Voxel
                 : TakesWholeChunk ? FillShape.Chunk
+                : TakesTunnel ? FillShape.Tunnel
                 : Brush switch
                 {
                     BrushShape.Cube => FillShape.Cube,
@@ -622,7 +648,7 @@ public sealed class PlaceController(
                     BrushShape.Ramp => FillShape.Ramp,
                     _ => FillShape.Sphere,
                 };
-            _pendingWetFills.Add(new PendingFill(shape, TargetVoxel, TargetCell, TargetChunk, Facing, SphereRadiusMetres, MaterialId, result.Wet));
+            _pendingWetFills.Add(new PendingFill(shape, TargetVoxel, TargetCell, TargetChunk, TargetTunnel, Facing, SphereRadiusMetres, MaterialId, result.Wet));
             WetFillsDeferred++;
         }
 
@@ -654,6 +680,7 @@ public sealed class PlaceController(
             {
                 FillShape.Voxel => Place.Voxel(pipeline, materials, fill.Voxel, fill.MaterialId, body, inventory, displacing, budget),
                 FillShape.Chunk => Place.Chunk(pipeline, materials, fill.Chunk, fill.MaterialId, body, inventory, displacing, budget),
+                FillShape.Tunnel => Place.Tunnel(pipeline, materials, fill.Tunnel, fill.MaterialId, body, inventory, displacing, budget),
                 FillShape.Cube => Place.Cube(pipeline, materials, fill.Cell, fill.MaterialId, body, inventory, displacing, budget),
                 FillShape.Slab => Place.Slab(pipeline, materials, fill.Cell, fill.MaterialId, body, inventory, displacing, budget),
                 FillShape.Ramp => Place.Ramp(pipeline, materials, fill.Cell, fill.MaterialId, fill.Facing, body, inventory, displacing, budget),
@@ -816,6 +843,7 @@ public sealed class PlaceController(
     private double CooldownForShape(bool precise) => (Entangled, precise) switch
     {
         (true, false) when EntangledFillsChunk => ChunkCooldownSeconds,
+        (true, false) when EntangledFillsTunnel => TunnelCooldownSeconds,
         (true, false) => BrushCooldownSeconds,
         (true, _) => MiningController.EntangledCooldownSeconds,
         _ => CooldownSeconds,

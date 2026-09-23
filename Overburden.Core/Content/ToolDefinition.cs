@@ -197,6 +197,9 @@ public enum ToolBite
     /// <summary>One brush cell — a 4 × 4 × 4 voxel cube on the 1 m brush lattice — at range. The quantum miner.</summary>
     Cube,
 
+    /// <summary>A 2 m cube — 8 × 8 × 8 voxels on the tunnel lattice — at range. The quantum tunneller (2026-09-23).</summary>
+    Tunnel,
+
     /// <summary>The whole 8 m chunk the ray hit, at range. The quantum excavator.</summary>
     Chunk,
 }

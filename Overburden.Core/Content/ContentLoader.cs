@@ -406,9 +406,10 @@ public sealed class ContentLoader
                 {
                     case "sphere": bite = ToolBite.Sphere; break;
                     case "cube": bite = ToolBite.Cube; break;
+                    case "tunnel": bite = ToolBite.Tunnel; break;
                     case "chunk": bite = ToolBite.Chunk; break;
                     default:
-                        errors.Add($"{manifest.Id}/{path}: bite \"{biteName}\" is not a shape this build swings — sphere, cube or chunk.");
+                        errors.Add($"{manifest.Id}/{path}: bite \"{biteName}\" is not a shape this build swings — sphere, cube, tunnel or chunk.");
                         continue;
                 }
             }

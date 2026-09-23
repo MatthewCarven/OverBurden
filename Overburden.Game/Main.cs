@@ -174,6 +174,9 @@ public partial class Main : Node3D
     private const string QuantumMinerId = "overburden:quantum_miner";
     private const string QuantumExcavatorId = "overburden:quantum_excavator";
 
+    /// <summary>The quantum tunneller (2026-09-23): the 2 m cube, between the miner and the excavator.</summary>
+    private const string QuantumTunnellerId = "overburden:quantum_tunneller";
+
     /// <summary>Whether <c>--cubecooldown=</c> / <c>--chunkcooldown=</c> was given, so the file's number is the default and the flag the sweep.</summary>
     private bool _cubeCooldownSwept, _chunkCooldownSwept;
 
@@ -1916,6 +1919,11 @@ public partial class Main : Node3D
                     _tierAtOpen = QuantumExcavatorId;
                     break;
 
+                // The quantum tunneller selected at open (2026-09-23) — the 2 m cube.
+                case "entangletunnel":
+                    _tierAtOpen = QuantumTunnellerId;
+                    break;
+
                 // The chunk bite's rate, as a seam rather than a constant, for the reason
                 // --rainscale is one: the measurement can only bound a feel number, and the
                 // person judging it has to be able to move it without a rebuild. Unlike most
@@ -3103,6 +3111,8 @@ public partial class Main : Node3D
         {
             _place.Entangled = tier.AtRange;
             _place.EntangledFillsChunk = tier.Bite == ToolBite.Chunk;
+            _place.EntangledFillsTunnel = tier.Bite == ToolBite.Tunnel;
+            _place.TunnelCooldownSeconds = tier.Bite == ToolBite.Tunnel ? _mining.BareCooldownSeconds : 0.25f;
             _place.BrushCooldownSeconds = tier.Bite == ToolBite.Cube
                 ? _mining.BareCooldownSeconds
                 : MiningController.EntangledCooldownSeconds;
@@ -3127,6 +3137,13 @@ public partial class Main : Node3D
                 + $"{tier.Power?.JoulesPerVoxel ?? 0:N0} J a voxel from the pack. Alt chips one voxel; hold Q to run."
                 + "\n      Right mouse FILLS the whole chunk in front of the crosshair, at the same "
                 + "rate — only air is replaceable, so it fills holes and never overwrites rock.",
+            ToolBite.Tunnel =>
+                $"M3d: {tier.Id} — reach unlimited (bounded by the loaded world), one click one bite, "
+                + $"hold Q to run at {1.0f / _mining.BareCooldownSeconds:F0} bites/s; each takes a "
+                + $"{TunnelLattice.SizeMetres:F0} m cube on the tunnel lattice ({Carve.TunnelVoxels * Carve.TunnelVoxels * Carve.TunnelVoxels:N0} voxels) "
+                + $"at hardness <= {tier.HardnessThreshold:F1}, {tier.Power?.JoulesPerVoxel ?? 0:N0} J a voxel from the pack. Alt chips one voxel."
+                + "\n      Right mouse FILLS the 2 m cube in front of the crosshair, one click one fill — "
+                + "only air is replaceable, so it fills holes and never overwrites rock.",
             ToolBite.Cube =>
                 $"M3d: {tier.Id} — reach unlimited (bounded by the loaded world), "
                 + $"{1.0f / _mining.BareCooldownSeconds:F0} bites/s, one click one cell, "
@@ -4612,7 +4629,12 @@ public partial class Main : Node3D
             _mining.Tool = tier;
             float rate = _mining.BareCooldownSeconds;
             _mining.Tool = was;
-            bool swept = tier.Bite == ToolBite.Chunk ? _chunkCooldownSwept : _cubeCooldownSwept;
+            bool swept = tier.Bite switch
+            {
+                ToolBite.Chunk => _chunkCooldownSwept,
+                ToolBite.Cube => _cubeCooldownSwept,
+                _ => false,
+            };
             GD.Print(
                 $"M10: {tier.Id} — {tier.Bite.ToString().ToLowerInvariant()} at range, takes hardness <= {tier.HardnessThreshold:F1}, "
                 + $"{rate:F2} s a bite{(swept ? " (swept)" : string.Empty)}, "
@@ -4729,7 +4751,7 @@ public partial class Main : Node3D
         // One click, one cell on the cube arm, precise or not; see _leftWasDown. The fill's own
         // flag rather than the miner's, because the miner's includes the hold and a held Q from
         // the pick must not make the 5 m brush edge-triggered on its way past.
-        bool placing = _place.TakesCube ? rightPressed : rightDown;
+        bool placing = _place.OneClickOneFill ? rightPressed : rightDown;
 
         if (_placeWhileProfiling)
         {
@@ -4836,6 +4858,13 @@ public partial class Main : Node3D
             return;
         }
 
+        if (_place.TakesTunnel && !preciseNow)
+        {
+            (float tx, float ty, float tz) = _place.TargetTunnel.MinCornerMetres;
+            _cellHighlight.ShowAt(new Vector3(tx, ty, tz), TunnelLattice.SizeMetres);
+            return;
+        }
+
         (float x, float y, float z) = preciseNow
             ? _place.TargetVoxel.MinCornerMetres
             : _place.TargetCell.OriginVoxel.MinCornerMetres;
@@ -4923,7 +4952,7 @@ public partial class Main : Node3D
         bool precise = (leftDown || running) && Input.IsKeyPressed(Key.Alt);
 
         // One click, one cell on the cube arm, precise or not; the hold is the run. See _leftWasDown.
-        bool mining = running || (_mining.TakesCube ? leftPressed : leftDown);
+        bool mining = running || (_mining.OneClickOneBite ? leftPressed : leftDown);
 
         if (_mineWhileProfiling)
         {
@@ -4993,6 +5022,11 @@ public partial class Main : Node3D
         {
             (float cx, float cy, float cz) = _mining.Hit.Voxel.Chunk.OriginMetres;
             _highlight.ShowAt(new Vector3(cx, cy, cz), VoxelConstants.ChunkSizeMetres);
+        }
+        else if (_mining.TakesTunnel && !precise)
+        {
+            (float tx, float ty, float tz) = Carve.TunnelOrigin(_mining.Hit.Voxel).MinCornerMetres;
+            _highlight.ShowAt(new Vector3(tx, ty, tz), TunnelLattice.SizeMetres);
         }
         else if (_mining.TakesCube && !precise)
         {
@@ -7410,6 +7444,13 @@ public partial class Main : Node3D
                       ? "\n"
                       : " — MIXED with other shapes, so every per-swing mean above is a blend\n")
                 : string.Empty) +
+            (_mining.TunnelSwings > 0
+                ? $"tunnel    {_mining.TunnelSwings} of {_mining.Swings} swing(s) took a {TunnelLattice.SizeMetres:F0} m cube "
+                  + $"({_mining.TunnelSwings * Carve.TunnelVoxels * Carve.TunnelVoxels * Carve.TunnelVoxels:N0} voxels offered up)"
+                  + (_mining.TunnelSwings == _mining.Swings
+                      ? "\n"
+                      : " — MIXED with other shapes, so every per-swing mean above is a blend\n")
+                : string.Empty) +
             (_mining.CubeSwings > 0
                 ? $"cube      {_mining.CubeSwings} of {_mining.Swings} swing(s) took a "
                   + $"{Carve.CubeVoxels * VoxelConstants.VoxelSize:F0} m cube "
@@ -7552,7 +7593,11 @@ public partial class Main : Node3D
         // M3d records for chips sharing the swing line.
         string shape = _place.PrecisePlacements == _place.Placements
             ? "one voxel at a time"
-            : $"the {_place.Brush.ToString().ToLowerInvariant()} brush";
+            : _place.TunnelPlacements == _place.Placements
+                ? $"the tunneller's {TunnelLattice.SizeMetres:F0} m cube"
+                : _place.ChunkPlacements == _place.Placements
+                    ? "the whole chunk"
+                    : $"the {_place.Brush.ToString().ToLowerInvariant()} brush";
 
         return
             $"{_profiler!.Place.Line("place ms")}   (raycast + brush, sim thread)\n" +

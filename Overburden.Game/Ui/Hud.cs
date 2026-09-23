@@ -570,6 +570,7 @@ public sealed partial class Hud : CanvasLayer
         if (mining?.Running == true)
         {
             string shape = mining.TakesWholeChunk ? "WHOLE CHUNK"
+                : mining.TakesTunnel ? $"{TunnelLattice.SizeMetres:F0} M TUNNEL"
                 : mining.TakesCube ? $"{BrushCell.SizeMetres:F0} M CELL"
                 : "SPHERE";
             return $"RUNNING  (Q held)   ·   {shape}   ·   {tier}  (T)   ·   Alt: one voxel";
@@ -590,6 +591,12 @@ public sealed partial class Hud : CanvasLayer
         // The cube bite (2026-09-14): the dig is one brush cell and the fill is the brush at
         // range, so the line is the ordinary brush line with the mode named — the only thing Q
         // changed that a player cannot see is the reach.
+        // The tunneller (2026-09-23): a 2 m cube dug and filled, one click one bite, Q held runs it.
+        if (mining?.TakesTunnel == true)
+        {
+            return $"{TunnelLattice.SizeMetres:F0} M TUNNEL   ·   {tier}  (T)   ·   dig / fill at range, one click one bite   ·   Alt: one voxel   ·   hold Q: run";
+        }
+
         if (mining?.TakesCube == true)
         {
             return $"{BrushCell.SizeMetres:F0} M CELL   ·   {tier}  (T)   ·   "

@@ -1,5 +1,40 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-23 — The quantum tunneller
+
+Matthew, the same evening: *"a quantum tunneller that does about 2x2 meters to go between the
+quantum miner, and quantum excavator"*, and on the three decisions handed back — *"as
+recommended, 2m cube, but 2. the rate, under the condition q is pressed to initiate it else its
+just one bite like the chunk although you can set the cooldown on using it to 0.25 seconds"*.
+So: a click is one bite, Q held runs it at the file's 0.25 s, and the right click fills the same
+cube.
+
+**`tools/quantum_tunneller.json`** — `"bite": "tunnel"`, threshold 5.0, 0.25 s, 50 J a voxel. A
+bite is 512 voxels, 25.6 kJ, **140 bites a full lead-acid pack** (asserted beside the miner's
+1,125 and the excavator's 2). `ToolBite.Tunnel` sits between `Cube` and `Chunk`, so the T cycle
+reads miner, tunneller, excavator by size — not by ID, which would put "tunneller" last.
+
+**The lattice is `TunnelLattice` in `Building`**, one definition for both verbs (`Carve.Tunnel`
+takes the cube holding `hit.Voxel`, `Place.Tunnel` the one holding `hit.Previous`, the chunk's
+split one scale down). Eight voxels, a mask rather than a division, nesting both ways: eight
+cube bites are one tunnel bite, sixty-four tunnel bites one chunk, and no tunnel cube straddles
+a chunk face — all three tested as positions, not only as arithmetic. The cube's carve loop is
+now a private `Block(origin, edge)` both shapes call, so the gate is still the one `Take`.
+
+**One click, one bite** is `MiningController.OneClickOneBite` / `PlaceController.OneClickOneFill`
+(the cube and the tunnel), read where `TakesCube` was. **The excavator is unchanged and still
+repeats on a held button** — his message says "one bite like the chunk", which reads as though
+he believes the chunk is edge-triggered; it is not, and that is his to say (MATTHEW-TODO).
+
+Measured headless (`--entangletunnel --nogate --pitch=-60 --holdq`): 19 swings in the window,
+each exactly one cube (500 removed + 12 already air), swing mean 1.4 ms / max 3.3; the fill arm
+(`--place --entangletunnel --stock=64000`) 32.5 placed + 479.5 occupied a click. **The profile's
+`/s` reads low for every quantum tier** — the miner, nominal 10/s, reads 4.2 on the same run —
+so it is not a tunneller number. The `building` line named every non-brush arm "the cube
+brush"; it names the tunneller and the whole chunk now. Four break-recipes (division snap, fill
+from `Voxel`, bite from `Previous`, a 16-voxel edge), all caught. Suite 1,829; r6 control to the
+digit. `--entangletunnel` selects it at open.
+
 ## 2026-09-23 — A power switch on the vacuum cell
 
 Matthew, starting a world to build useful things in: *"can we add a power toggle to the quantum

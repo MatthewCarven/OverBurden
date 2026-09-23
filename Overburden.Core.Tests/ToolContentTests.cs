@@ -160,6 +160,7 @@ public class ToolContentTests
 
     [Theory]
     [InlineData("cube", ToolBite.Cube, true)]
+    [InlineData("tunnel", ToolBite.Tunnel, true)]
     [InlineData("chunk", ToolBite.Chunk, true)]
     [InlineData("sphere", ToolBite.Sphere, false)]
     [InlineData(null, ToolBite.Sphere, false)]

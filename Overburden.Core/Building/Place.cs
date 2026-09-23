@@ -705,6 +705,43 @@ public static class Place
     }
 
     /// <summary>
+    /// Which 2 m cube a tunneller's fill lands in: the one holding <see cref="VoxelHit.Previous"/>,
+    /// the space in front of what you point at — <see cref="TargetChunk"/>'s rule one lattice down,
+    /// so aiming at the far wall of a bore you just bit fills the bore and not the wall.
+    /// </summary>
+    public static VoxelPos TargetTunnel(in VoxelHit hit) => TunnelLattice.OriginOf(hit.Previous);
+
+    /// <summary>
+    /// Fills a whole 2 m cube of the tunnel lattice — 8×8×8 voxels — the quantum tunneller's fill
+    /// (2026-09-23), the mirror of <c>Carve.Tunnel</c>. Only air is replaceable, as everywhere.
+    /// </summary>
+    public static PlaceResult Tunnel(
+        IVoxelEditor world,
+        MaterialTable materials,
+        VoxelPos origin,
+        int materialId,
+        Aabb? body = null,
+        VolumetricInventory? from = null,
+        FillWater? displacing = null,
+        int voxelBudget = int.MaxValue)
+    {
+        (VoxelPos Min, VoxelPos Max)? bodyVoxels = Validate(world, materials, materialId, body);
+        var tally = default(Tally);
+        const int edge = TunnelLattice.Voxels;
+
+        for (int z = 0; z < edge; z++)
+        for (int x = 0; x < edge; x++)
+        for (int y = 0; y < edge; y++)
+        {
+            tally.Candidate();
+            tally.Add(Put(world, new VoxelPos(origin.X + x, origin.Y + y, origin.Z + z), materialId, bodyVoxels, from, displacing, ref voxelBudget));
+        }
+
+        displacing?.Settle(origin, new VoxelPos(origin.X + edge - 1, origin.Y + edge - 1, origin.Z + edge - 1));
+        return tally.ToResult();
+    }
+
+    /// <summary>
     /// Fills the bottom half of a cell — 4×2×4 voxels, half a metre thick.
     /// </summary>
     /// <remarks>

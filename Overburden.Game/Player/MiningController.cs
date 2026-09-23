@@ -168,6 +168,16 @@ public sealed class MiningController(
     /// <summary>Whether the next ordinary swing would take the 1 m cube, for the same outline reason.</summary>
     public bool TakesCube => Tool.Bite == ToolBite.Cube;
 
+    /// <summary>Whether the next ordinary swing would take the 2 m tunnel cube (2026-09-23), for the same outline reason.</summary>
+    public bool TakesTunnel => Tool.Bite == ToolBite.Tunnel;
+
+    /// <summary>
+    /// Whether a click is one bite rather than a hold that repeats: the cube and the tunnel
+    /// (Matthew, 2026-09-23 — <i>"q is pressed to initiate it else its just one bite"</i>). Q held
+    /// runs either at the file's cooldown; the chunk still repeats on a held button.
+    /// </summary>
+    public bool OneClickOneBite => TakesCube || TakesTunnel;
+
     /// <summary>
     /// The entangled reach. A backstop, not the real limit — the world is.
     /// </summary>
@@ -391,6 +401,9 @@ public sealed class MiningController(
     /// <summary>Of <see cref="Swings"/>, how many took a 1 m cube — the same denominator argument, one shape more.</summary>
     public int CubeSwings { get; private set; }
 
+    /// <summary>Of <see cref="Swings"/>, how many took a 2 m tunnel cube.</summary>
+    public int TunnelSwings { get; private set; }
+
     /// <summary>How far this swing actually reached, for the report.</summary>
     public float LastReachMetres { get; private set; }
 
@@ -498,7 +511,9 @@ public sealed class MiningController(
                 ? Carve.Chunk(pipeline, materials, hit, tool, Inventory, Bodies, budget)
                 : TakesCube
                     ? Carve.Cube(pipeline, materials, hit, tool, Inventory, Bodies, budget)
-                    : Carve.Swing(pipeline, materials, hit, tool, Inventory, Bodies, budget);
+                    : TakesTunnel
+                        ? Carve.Tunnel(pipeline, materials, hit, tool, Inventory, Bodies, budget)
+                        : Carve.Swing(pipeline, materials, hit, tool, Inventory, Bodies, budget);
 
         long paid = cost > 0 && Pack is not null ? Pack.Pay(result.Removed, cost) : 0;
         LastResult = result;
@@ -546,6 +561,11 @@ public sealed class MiningController(
         if (!precise && TakesCube)
         {
             CubeSwings++;
+        }
+
+        if (!precise && TakesTunnel)
+        {
+            TunnelSwings++;
         }
 
         VoxelsRemoved += result.Removed;

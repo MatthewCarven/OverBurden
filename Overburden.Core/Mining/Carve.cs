@@ -435,6 +435,74 @@ public static class Carve
                 + "so remove all of them. Use float.NegativeInfinity for a tool that takes nothing.");
         }
 
+        return Block(world, materials, origin, CubeVoxels, hardnessThreshold, into, bodies, voxelBudget);
+    }
+
+    /// <summary>The tunnel bite's edge in voxels: <see cref="TunnelLattice.Voxels"/>, a 2 m cube, 512 voxels, 64 to a chunk.</summary>
+    public const int TunnelVoxels = TunnelLattice.Voxels;
+
+    /// <summary>The 2 m cube of the tunnel lattice that holds <paramref name="voxel"/>, by its origin.</summary>
+    public static VoxelPos TunnelOrigin(VoxelPos voxel) => TunnelLattice.OriginOf(voxel);
+
+    /// <summary>
+    /// Takes the 2 m cube of the tunnel lattice that holds the hit voxel — the quantum
+    /// tunneller's bite (2026-09-23), between the miner's 1 m cube and the excavator's 8 m chunk.
+    /// </summary>
+    /// <remarks>
+    /// The cube's rule one lattice level up: snapped so consecutive bites tile into a
+    /// flat-walled 2 × 2 m bore, from <see cref="VoxelHit.Voxel"/> (mining names what you point
+    /// at), through the same <see cref="Take"/> and gate as every other shape. Five hundred and
+    /// twelve candidates exactly, whatever the aim.
+    /// </remarks>
+    public static CarveResult Tunnel(
+        IVoxelEditor world,
+        MaterialTable materials,
+        in VoxelHit hit,
+        ToolDefinition tool,
+        VolumetricInventory? into = null,
+        IMachineBodies? bodies = null,
+        int voxelBudget = int.MaxValue)
+    {
+        ArgumentNullException.ThrowIfNull(tool);
+
+        return Tunnel(world, materials, TunnelOrigin(hit.Voxel), tool.HardnessThreshold, into, bodies, voxelBudget);
+    }
+
+    /// <summary>Takes every voxel of the 2 m cube at <paramref name="origin"/> the threshold allows. Not snapped, like the cube's.</summary>
+    public static CarveResult Tunnel(
+        IVoxelEditor world,
+        MaterialTable materials,
+        VoxelPos origin,
+        float hardnessThreshold,
+        VolumetricInventory? into = null,
+        IMachineBodies? bodies = null,
+        int voxelBudget = int.MaxValue) =>
+        Block(world, materials, origin, TunnelVoxels, hardnessThreshold, into, bodies, voxelBudget);
+
+    /// <summary>The cube and the tunnel: every voxel of an axis-aligned cube <paramref name="edge"/> voxels a side, through <see cref="Take"/>.</summary>
+    private static CarveResult Block(
+        IVoxelEditor world,
+        MaterialTable materials,
+        VoxelPos origin,
+        int edge,
+        float hardnessThreshold,
+        VolumetricInventory? into,
+        IMachineBodies? bodies,
+        int voxelBudget)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(materials);
+
+        if (float.IsNaN(hardnessThreshold))
+        {
+            // The same failure-open trap the other shapes document.
+            throw new ArgumentOutOfRangeException(
+                nameof(hardnessThreshold),
+                hardnessThreshold,
+                "A hardness threshold of NaN would compare false against every material and "
+                + "so remove all of them. Use float.NegativeInfinity for a tool that takes nothing.");
+        }
+
         int candidates = 0;
         int removed = 0;
         int tooHard = 0;
@@ -442,10 +510,10 @@ public static class Carve
         int unreachable = 0;
         int unpowered = 0;
 
-        // Chunk's loop nest at the cube's size: Z outer, Y inner, the storage order.
-        for (int z = 0; z < CubeVoxels; z++)
-        for (int x = 0; x < CubeVoxels; x++)
-        for (int y = 0; y < CubeVoxels; y++)
+        // Chunk's loop nest at the block's size: Z outer, Y inner, the storage order.
+        for (int z = 0; z < edge; z++)
+        for (int x = 0; x < edge; x++)
+        for (int y = 0; y < edge; y++)
         {
             var voxel = new VoxelPos(origin.X + x, origin.Y + y, origin.Z + z);
             candidates++;

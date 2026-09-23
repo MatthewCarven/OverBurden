@@ -29,11 +29,14 @@ public sealed class ToolTiersTests
             Tool("overburden:quantum_excavator", 5.0f, ToolBite.Chunk, 50),
             Tool("overburden:steel_pick", 3.5f),
             Tool("overburden:quantum_miner", 5.0f, ToolBite.Cube, 50),
+            Tool("overburden:quantum_tunneller", 5.0f, ToolBite.Tunnel, 50),
             Tool("overburden:hand_pick", 1.0f),
         ]);
 
+        // The tunneller sits between the miner and the excavator (2026-09-23) because the bite
+        // is ordered by size, not because of its name — "tunneller" sorts after "excavator".
         Assert.Equal(
-            ["overburden:hand_pick", "overburden:steel_pick", "overburden:quantum_miner", "overburden:quantum_excavator"],
+            ["overburden:hand_pick", "overburden:steel_pick", "overburden:quantum_miner", "overburden:quantum_tunneller", "overburden:quantum_excavator"],
             ordered.Select(t => t.Id.ToString()).ToArray());
     }
 
