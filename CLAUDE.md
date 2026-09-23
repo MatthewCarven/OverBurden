@@ -1023,7 +1023,41 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
-**Pick up here (2026-09-22, afternoon, later). M10d-1 is built and d-2 — the play, his seven
+**Pick up here (2026-09-23, session close — *"see you in a fresh Code Chat"*). Everything is
+committed and pushed through `ac91996`, the tree is clean, and his `default` is gone: the next
+launch is a fresh world. `start.cmd` builds the Game before it launches now, so the binary is the
+tree by construction. Suite 1,735, r6 control 2601 / 325 / 3446 at 411 to the digit.**
+
+**Built this session, all on his word:** `start.cmd`'s guarded `dotnet build`; **M10d planned**
+(the pass at the end of [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) — seven facts, nine
+decisions, split d-1 / d-2 / d-3); **M10d-1 built** (`held` carries `Q L in R panel(s) below the
+seed surface`, the *dry* oracle; three pillar tests — a brush-cell column floor-to-roof clears the
+2 × 2 plug, one voxel short reads the plug's 20, **dirt shores as stone** because the refund is a
+world constant); **the three-step undo planned and built** ([docs/UNDO-PLAN.md](docs/UNDO-PLAN.md),
+Ctrl+Z, `--undo=<n>`), **played and confirmed** — *"Ctrl z feels good, disallow if something falls
+yes"*; and **the pool world retired** as `worlds/retired-pool-2026-09-22/`.
+
+**Next, in order:** (1) his two sentences from the rain play, still owed — the clay pond filling
+(`onto the player's material` climbing while `handed` does not) and no water born under his roof
+(`skipped of which N under a roof`); (2) **M10d-2, the play**, which is his — the seven recipes at
+the end of the M10d pass plus the undo's three, one sentence back on each; (3) **d-3**, the solve's
+number on a copy of `retired-spread-2026-09-22` with `--profile --fluidnear=2 --fluidjob=1
+--speed=0 --measure=60`, then its own pass over the three levers. **M10e (the conductor index) is
+after the play**, per the ladder's decision 23.
+
+**Four things not to rediscover.** **A hook on the one write path sees every writer** — the undo's
+own inverse (the press after an undo redid the edit), the collapse sweep's rubble, and
+`MachineSet.Restore`'s row-per-stored-machine at open; all three are suppressed and the built
+section says how. **The a-3 pump oracle reads `0 below the seed surface`** and that is correct: a
+three-wide `--breach` is eight voxels deep and its water sits in the mouth chunk, which straddles
+the rim — the keystone is the term's oracle, not a-3. **The keystone's digits move run to run**
+(18,698–18,728 at risk, a roof sometimes in two pieces) while its shape does not. And **Godot logs
+rotate at five**, so a handful of headless probes erases the play log you meant to read — copy it
+aside first.
+
+The paragraph below is the morning's state, kept for the reasoning.**
+
+**Earlier (2026-09-22, afternoon, later). M10d-1 is built and d-2 — the play, his seven
 recipes at the end of "M10d — the planning pass" in [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md)
 — is next and is Matthew's; d-3 (the solve's number on a copy of the load test) waits for a
 session with the game closed. Read "M10d-1 — built" first: the `below the seed surface` term on
