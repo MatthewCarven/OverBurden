@@ -3889,6 +3889,9 @@ public partial class Main : Node3D
             case UndoOutcome.Empty:
                 GD.Print("M10: undo — nothing to undo");
                 break;
+            case UndoOutcome.EmptyAfterAFall:
+                GD.Print("M10: undo — nothing to undo: the roof came down since your last edit, and rubble cannot be put back");
+                break;
             case UndoOutcome.OutOfStock:
                 GD.Print(
                     $"M10: undo — refused whole: putting it back needs {report.RefusedShortfall * litre:N0} L more "

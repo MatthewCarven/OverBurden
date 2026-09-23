@@ -250,6 +250,16 @@ public class EditHistoryTests
 
         Assert.Equal(0, fixture.History.Steps);
         Assert.Equal(1, fixture.History.ClearedByFall);
+
+        // His word on the first play: *disallow* if something falls, which is a press that says
+        // why rather than one that says nothing — so the outcome carries the fall until the next
+        // edit, and reads as an ordinary empty stack after it.
+        Assert.True(fixture.History.FellSinceLastEdit);
+        Assert.Equal(UndoOutcome.EmptyAfterAFall, fixture.History.Undo(fixture.Pipeline, materials, fixture.Inventory, null).Outcome);
+
+        Carve.Voxel(fixture.Pipeline, materials, new VoxelPos(Deep.OriginVoxel.X + 24, Deep.OriginVoxel.Y + 4, Deep.OriginVoxel.Z + 4), 3.5f, fixture.Inventory);
+        Assert.False(fixture.History.FellSinceLastEdit);
+        Assert.True(fixture.History.Undo(fixture.Pipeline, materials, fixture.Inventory, null).Ok);
         Assert.Equal(UndoOutcome.Empty, fixture.History.Undo(fixture.Pipeline, materials, fixture.Inventory, null).Outcome);
     }
 

@@ -1,5 +1,20 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-23 — The undo is played, and *disallow* is not *silently empty*
+
+First press, his words: **"Ctrl z feels good, disallow if something falls yes"**. UNDO-PLAN's
+decision 4 — a fall clears the stack — is settled by play rather than by argument, and the
+Ctrl+Z bind and the three-step depth go with it.
+
+**One thing his wording changed, and it is the difference between two words.** The build
+cleared the stack and printed why *at the moment of the fall*; a press afterwards read
+`nothing to undo`. That is *silently empty*, and the fall's own line has scrolled past while
+you are running out from under it. *Disallow* implies being told, so `FellSinceLastEdit`
+carries the reason until the next journalled write clears it, and the press now reads `nothing
+to undo: the roof came down since your last edit, and rubble cannot be put back`. One test
+asserts both halves in sequence — the fall's message, then an ordinary `nothing to undo` after
+one more edit. Suite unchanged at 1,735; the headless fall oracle prints both lines in order.
+
 ## 2026-09-23 — The pool world retired
 
 Matthew, after the session: *"can you either retire the world if you want it for testing or

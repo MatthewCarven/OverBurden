@@ -5595,9 +5595,12 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
       a click, and the battery caught the undo journalling its own writes — the press after an
       undo redid the edit. `--undo=<n>` / `--undoafter=`, the `M10:` line's `undo` term, suite
       1,735, ten recipes and ten caught, r6 to the digit.
-      - [ ] **Its play check, three sentences** (under M10d's recipes): a chunk bite put back
-            and the inventory going down; three presses then a fourth; and a fall taking the
-            stack away — does losing the undo to a roof read as fair?
+      - [x] **Played the same evening — *"Ctrl z feels good, disallow if something falls yes"*.**
+            Decision 4 is settled by play, and his *disallow* changed one thing: a press after a
+            fall said `nothing to undo`, which is *silently empty*, so `FellSinceLastEdit` carries
+            the reason until the next edit and the press reads `the roof came down since your last
+            edit, and rubble cannot be put back`. One test, suite 1,735; the bind and the
+            three-step depth confirmed with it.
 - [ ] **M10d — the play**: the mine pumped dry by relay, the storm, the gate, the pillar verdict.
       - [x] **The pool world is retired as the enclosure's fixture, 2026-09-22** —
             `worlds/retired-pool-2026-09-22/` (127 machines, 7.09 ML in 1,467 rows, 6.27 ML of

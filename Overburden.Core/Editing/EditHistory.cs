@@ -14,6 +14,9 @@ public enum UndoOutcome
     /// <summary>Nothing to undo.</summary>
     Empty,
 
+    /// <summary>Nothing to undo because a roof came down since the last edit (decision 4).</summary>
+    EmptyAfterAFall,
+
     /// <summary>Putting the material back would cost more than the inventory holds.</summary>
     OutOfStock,
 
@@ -147,6 +150,18 @@ public sealed class EditHistory : IEditJournal
     /// <summary>Whether recording is on. Off, every hook is a branch and nothing is kept.</summary>
     public bool Recording { get; set; } = true;
 
+    /// <summary>
+    /// A fall took the stack away and nothing has been edited since — so the next press can say
+    /// <em>why</em> there is nothing rather than only that there is nothing.
+    /// </summary>
+    /// <remarks>
+    /// Matthew's word on the first play, 2026-09-22: <i>"Ctrl z feels good, disallow if something
+    /// falls yes"</i>. <em>Disallow</em> rather than <em>silently empty</em> is the difference, and
+    /// it is a flag rather than a message because the fall's own print scrolls past while you are
+    /// running out of the way.
+    /// </remarks>
+    public bool FellSinceLastEdit { get; private set; }
+
     /// <inheritdoc />
     public void Wrote(VoxelPos voxel, int was, int now)
     {
@@ -155,6 +170,7 @@ public sealed class EditHistory : IEditJournal
             return;
         }
 
+        FellSinceLastEdit = false;
         Step step = _open ??= new Step();
         if (!step.Voxels.TryGetValue(voxel.Chunk, out Dictionary<ushort, (int Was, int Now)>? chunk))
         {
@@ -179,6 +195,7 @@ public sealed class EditHistory : IEditJournal
         }
 
         ArgumentNullException.ThrowIfNull(row);
+        FellSinceLastEdit = false;
         (_open ??= new Step()).Machines.Add((Copy(row), added));
     }
 
@@ -221,6 +238,7 @@ public sealed class EditHistory : IEditJournal
 
         _steps.Clear();
         _open = null;
+        FellSinceLastEdit = true;
     }
 
     /// <summary>
@@ -269,7 +287,7 @@ public sealed class EditHistory : IEditJournal
         if (_steps.Count == 0)
         {
             Refusals++;
-            return new UndoReport(UndoOutcome.Empty);
+            return new UndoReport(FellSinceLastEdit ? UndoOutcome.EmptyAfterAFall : UndoOutcome.Empty);
         }
 
         Step step = _steps[^1];

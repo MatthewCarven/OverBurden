@@ -704,7 +704,8 @@ and `light settled` for the total**; the order moves the first and cannot move t
 inverted and the machine rows, written back through the same `SetVoxel` so light, support, the
 surface and the mesh repair themselves. **A fall clears the stack** (rubble is minted, so undoing
 the bite would restore the roof and keep the rubble) and **so does a chunk leaving the box** (it
-reloads its edited state), both printed; a step whose credit has been spent is refused whole and
+reloads its edited state), both printed — and a press after a fall says so rather than saying
+nothing, his word on the first play (*"Ctrl z feels good, disallow if something falls yes"*); a step whose credit has been spent is refused whole and
 kept; no energy is charged or refunded, and the water is not undone. `--undo=<n>` presses it
 headless from `--undoafter=<seconds>` (3), and the `M10:` line carries `undo N step(s) / M
 voxel(s) held`. **Building is bound to the right mouse button**, `B` cycles the brush (cube, slab, ramp, sphere),

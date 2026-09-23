@@ -215,4 +215,23 @@ down` exactly once before the first `M9: fell`:
 the world come back, and does the inventory going *down* read right? (2) Three presses in a row
 after three bites, then a fourth — does "nothing to undo" arrive where you expect? (3) Bite
 something unstable, let the roof come down, Ctrl+Z — the log says the stack was cleared; does
-losing the undo to a fall read as fair?
+losing the undo to a fall read as fair? **Answered the same evening — see below.**
+
+### Played, the same evening — decision 4 confirmed, and *disallow* is not *silently empty*
+
+Matthew, first press: **"Ctrl z feels good, disallow if something falls yes"**. Decision 4 —
+a fall clears the stack — is settled by play rather than by argument, and decision 3's bind and
+the three-step depth go with it.
+
+**One thing his wording changed.** The build cleared the stack and printed *why* at the moment of
+the fall; a press after that read `nothing to undo`, which is the *silently empty* version, and
+the fall's own line has scrolled past while you are running out of the way. *Disallow* implies
+being told, so `EditHistory.FellSinceLastEdit` carries the reason until the next edit clears it,
+`UndoOutcome.EmptyAfterAFall` reports it, and the press reads:
+
+```
+M10: undo — nothing to undo: the roof came down since your last edit, and rubble cannot be put back
+```
+
+The flag is cleared by the first journalled write, so an ordinary empty stack still reads as
+`nothing to undo`. One test asserts both halves in sequence; suite unchanged at 1,735.
