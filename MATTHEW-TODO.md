@@ -6,6 +6,25 @@ two. Tick things off, scribble in the parking lot, delete anything you don't car
 keep it current at the end of each session and I'll add to the feedback section when something
 new wants a person's eye.
 
+**Starting a world by name.** `start.cmd --world=deepmine` — if no world of that name exists it
+is created, otherwise it is opened, and the `M6:` line says which (`new world at …` or
+`opened …`). **Spaces are fine, but the whole flag has to be quoted**, because otherwise the
+shell hands the game four separate words:
+
+```bash
+start.cmd "--world=Deep Mine"
+```
+
+`--world=Deep Mine` without quotes gives you errors in the log and lands you in `default`.
+Banned characters are Windows' usual `\ / : * ? " < > |`; everything else — spaces, dashes,
+apostrophes — is allowed, and the name is case-insensitive, so `Deep Mine` and `deep mine` are
+one world. Avoid a trailing space or dot; Windows trims those. Worlds live in
+`%APPDATA%\Godot\app_userdata\Overburden\worlds\<name>\`, one folder each, and deleting the
+folder deletes the world. **A brand-new named world is also the only place `--clock=<seconds>`
+works** — it sets where in the forecast the world starts, and an existing world overrides it
+with what it remembers, so `start.cmd "--world=storm test" --clock=900` is how you open straight
+into weather rather than waiting for it.
+
 **How to read a play afterwards.** The log is
 `%APPDATA%\Godot\app_userdata\Overburden\logs\godot.log` (the live or last session; the
 timestamped files beside it are older). Read it with `grep -a`, not plain grep — it has stray
@@ -18,8 +37,7 @@ I'll go and find the numbers.
 
 ## Now
 
-- [ ] **Push.** One commit is unpushed: `76f2791` (the session-close paragraph). Everything
-      before it is on the remote.
+- [x] **Push** — done 2026-09-23, `ac91996..5f338fd`. Nothing outstanding.
 - [ ] **M10d-2, the play** — the ten recipes below. This is the next milestone thing and it is
       entirely yours; nothing else is blocked on me.
 
