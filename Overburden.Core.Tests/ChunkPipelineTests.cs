@@ -765,10 +765,31 @@ internal sealed class PipelineHarness : IDisposable
     /// Caves off and a single octave. Caves are 80% of generation cost, and this suite cares
     /// about the state machine rather than about what the terrain looks like.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Every field that decides where the ground is, is stated here rather than defaulted,
+    /// and that is the point of the helper.</b> This harness backs the light, cache and
+    /// persistence suites as well as this one, and several of their fixtures place a lamp at a
+    /// literal voxel and need air around it. Leaving the shape to
+    /// <see cref="WorldGenSettings"/>'s own defaults coupled eight tests about the state machine
+    /// to three numbers about how mountainous the shipped world is: measured 2026-09-23, moving
+    /// the defaults to sea level 24 / amplitude 140 / frequency 0.0013 / six octaves failed
+    /// exactly those eight, every one of them reporting a lamp buried in rock.
+    /// </para>
+    /// <para>
+    /// The shipped defaults are a separate claim and are asserted separately — see
+    /// <c>WorldGeneratorTests.TheShippedDefaultsMakeAWorldYouCanStandOnAndDigInto</c>. A fixture
+    /// that says what terrain it needs and a test that says what the game ships are two
+    /// different tests, and this is the first.
+    /// </para>
+    /// </remarks>
     private static WorldGenerator Generator() => new(
         new WorldGenSettings
         {
             Seed = 0x5EEDUL,
+            SeaLevelVoxels = 0,
+            SurfaceAmplitudeVoxels = 48.0f,
+            SurfaceFrequency = 0.004f,
             SurfaceOctaves = 1,
             CavesEnabled = false,
         },

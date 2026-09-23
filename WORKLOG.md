@@ -1,5 +1,64 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-23 — What a change of terrain shape costs, measured: eight tests, one fixture
+
+Matthew, thinking about a scaling knob for the world's highs and lows and about inserting
+artifacts: *"how much am I going to break in the way of unit tests?"* Measured rather than
+reasoned about — the defaults moved hard (sea level 0 → 24, amplitude 48 → 140, frequency
+0.004 → 0.0013, four octaves → six), the suite run, the change reverted.
+
+**Eight of 1,735, and every one of them the same fixture.** Five `LightPipelineTests`, one
+`ChunkCacheLightTests`, one `PersistenceTests`, one `FluidPersistenceTests` — all four suites
+run on `PipelineHarness`, whose generator pinned `Seed`, `SurfaceOctaves` and `CavesEnabled`
+and left amplitude, frequency and sea level to the record's defaults. Their fixtures place a
+lamp at a literal voxel; move the ground and the lamp is inside it. The failures read
+`fixture: the lamp needs air around it to light anything`, which is the fixture saying so.
+
+**What survived is the more useful half.** Every hydrology, machine, fluid, portal, enclosure
+and collapse fixture runs on a synthetic `ISurfaceHeights` — `SampleGrid`, `AnalyticSurface`,
+`LightTestWorld` — and the sixteen sites that do build a real `WorldGenerator` state all their
+settings as literals. `WorldGeneratorTests` is entirely property-shaped: seam agreement, order
+independence, lattice exactness. Nothing in this repo asserts a height at a coordinate.
+
+**So the fix was three lines, and the interesting part is what those three lines cost.** The
+harness now states its shape. Re-run with the same aggressive change: **eight failures → zero.**
+But pinning every fixture means *nothing anywhere* would notice the shipped world becoming a
+plain or losing its caves — the immunity is bought, and it has to be paid for. Hence
+`TheShippedDefaultsMakeAWorldYouCanStandOnAndDigInto`, the one test that reads the defaults
+rather than stating its terrain: three seeds, bands rather than numbers, asserting the three
+things that make a world playable instead of a parameter set — relief of at least 8 voxels over
+512 m, a non-uniform chunk at the surface, and 0.2%–30% cave void in the 64 m under the cave
+margin. **Watched fail**: amplitude 0.4 gives `0 voxels of relief over 512 m, heights 24..24` on
+all three seeds and fires nothing else, which is the pinned harness being correctly indifferent.
+
+**Its first version was degenerate and the tall-and-lumpy arm is what said so.** The cave probe
+sampled a 128 m square and read 0.16% on one seed — not a world without caves, but one hillside
+whose field sat under the threshold. A share is a claim about a world; it is sampled over a
+kilometre now. The lesson is the familiar one in a new costume: the fixture was too small a
+sample to mean what its assertion said.
+
+**The real cost of a shape change is not the tests.** `Main` takes everything but the seed from
+the defaults, and `--profile` pins the fixed seed, so the r6 control, the keystone's 18,718 at
+risk and *"the first forty seconds of the profile seed are dry"* are statements about *this*
+landscape. Moving the defaults retires all of them with the suite green — the same hazard the
+`--seed=` work was written for, one field along. A world already on disk keeps its old shape,
+because the header carries all thirteen fields.
+
+**And for artifacts, the bill is where they are placed, not what they break.** Inside
+`GenerateTerrain` costs nothing: an artifact lattice sampled per chunk the way caves are lets a
+structure larger than 8 m be computed independently by every chunk it touches, with no neighbour
+peek, and `GenerationOrderDoesNotChangeTheResult` and `AdjacentChunksAgreeAcrossTheSeam` stand
+over it. `ApplyFeatures` costs one test by design (`FeaturesStageIsAHookAndChangesNothingYet`)
+**and cashes the revisit trigger recorded at `ChunkPipeline.AdvanceLight`** — light derives at
+`Terrain`, so anything written at `Features` is a voxel light has already been derived against,
+and it has to route through the relight path the way `SetVoxel` does, plus a lock over the
+3 × 3 × 3 if it writes into neighbours. A new `WorldGenSettings` field costs one test by
+construction (`TheSettingsLayoutCoversEveryPropertyOnTheRecord`, 13 → 14), `SettingsBytes`, the
+writer and reader, and a header bump to v6 — all of it avoidable by deriving an artifact
+sub-seed from `Settings.Seed` the way `_caveSeed` does.
+
+Suite 1,735 → 1,738.
+
 ## 2026-09-23 — A new world is a new landscape, and the seed is on the screen
 
 Matthew, after asking whether the world a `--world=` name creates is one of mine: every world

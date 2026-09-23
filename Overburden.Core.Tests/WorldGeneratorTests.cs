@@ -257,6 +257,98 @@ public class WorldGeneratorTests
         Assert.True(DiffersSomewhere(a, b), "two seeds produced identical terrain");
     }
 
+    /// <summary>
+    /// The one test that reads <see cref="WorldGenSettings"/>'s own defaults rather than stating
+    /// its terrain, because those defaults are what the game ships.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Every other fixture in this repo pins the shape it needs, and after 2026-09-23 that
+    /// includes the pipeline harness — so without this, nothing anywhere would notice the shipped
+    /// world becoming a flat plain or losing its caves.</b> That is the honest cost of pinning
+    /// fixtures: it buys immunity from tuning, and it has to be paid back by one test that is
+    /// deliberately not immune.
+    /// </para>
+    /// <para>
+    /// <b>Bands rather than numbers, over several seeds, because this must survive the tuning it
+    /// exists to guard.</b> It asserts the three things that make a world playable rather than a
+    /// parameter set — there is relief to walk over, there is a surface with air above it and
+    /// rock below, and there is cave void underground to find — and it should pass for any
+    /// setting a person would plausibly ship. A failure here means a knob went somewhere nobody
+    /// would want to play, not that a landscape moved.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(0x5EEDUL)]
+    [InlineData(0x4D494E455243UL)]
+    [InlineData(690930704UL)]
+    public void TheShippedDefaultsMakeAWorldYouCanStandOnAndDigInto(ulong seed)
+    {
+        var defaults = new WorldGenSettings { Seed = seed };
+        var generator = new WorldGenerator(defaults, Strata());
+
+        // Relief, over a span wide enough to cross several noise lattice cells.
+        int lowest = int.MaxValue;
+        int highest = int.MinValue;
+        for (int z = -256; z <= 256; z += 8)
+        {
+            for (int x = -256; x <= 256; x += 8)
+            {
+                int height = generator.SurfaceHeightAt(x, z);
+                lowest = Math.Min(lowest, height);
+                highest = Math.Max(highest, height);
+            }
+        }
+
+        int relief = highest - lowest;
+        Assert.True(
+            relief >= 8,
+            $"the shipped world is a plain: {relief} voxels of relief over 512 m, heights "
+            + $"{lowest}..{highest}. A world with nothing to walk over is a settings mistake, "
+            + "not a landscape.");
+
+        // Something to stand on: the chunk holding the surface has both rock and sky in it.
+        int surface = generator.SurfaceHeightAt(0, 0);
+        VoxelChunk band = generator.GenerateTerrain(
+            new ChunkPos(0, surface >> VoxelConstants.ChunkSizeLog2, 0));
+
+        Assert.False(
+            band.IsUniform,
+            $"the chunk holding the surface at y {surface} came out uniform — there is no ground "
+            + "to stand on where the player spawns.");
+
+        // Something to dig into: cave void well below the surface margin, and not so much that
+        // the rock is foam.
+        // Spread over a kilometre rather than one hillside. The first version of this probed a
+        // 128 m square and read 0.16% under a tall-and-lumpy arm — not because that world has no
+        // caves, but because one mountain's worth of the field happened to sit under the
+        // threshold. A share is a claim about a world; sample it like one.
+        int probed = 0;
+        int carved = 0;
+        for (int z = -512; z <= 512; z += 16)
+        {
+            for (int x = -512; x <= 512; x += 16)
+            {
+                int top = generator.SurfaceHeightAt(x, z);
+                for (int y = top - 64; y <= top - 16; y += 4)
+                {
+                    probed++;
+                    if (generator.IsCaveAt(x, y, z, top))
+                    {
+                        carved++;
+                    }
+                }
+            }
+        }
+
+        double share = (double)carved / probed;
+        Assert.True(
+            share is >= 0.002 and <= 0.30,
+            $"underground is {share:P2} cave void over {probed} samples in the 64 m below the "
+            + "surface margin. Outside 0.2%..30% the rock is either solid or foam — either way "
+            + "nobody is digging through it for fun.");
+    }
+
     [Fact]
     public void FeaturesStageIsAHookAndChangesNothingYet()
     {
