@@ -33,12 +33,12 @@ public class MapRendererTests
         // what keeps that true.
         AnalyticSurface world = Ridge();
         MapProjection north = At(0.0f);
-        MapColour[] facingNorth = MapRenderer.Render(world, north, 80.0f, 0);
+        MapColour[] facingNorth = MapRenderer.Render(world, north, MapRamp.Around(0, 80.0f));
 
         foreach (float bearing in new[] { 90.0f, 180.0f, 270.0f })
         {
             MapProjection turned = At(bearing);
-            MapColour[] rendered = MapRenderer.Render(world, turned, 80.0f, 0);
+            MapColour[] rendered = MapRenderer.Render(world, turned, MapRamp.Around(0, 80.0f));
 
             int compared = 0;
             for (int y = 8; y < Size - 8; y += 3)
@@ -71,7 +71,7 @@ public class MapRendererTests
         // gentle country comes out as a field of rounding noise; and a constant height must land
         // on one ramp colour rather than drifting across stops.
         var flat = new AnalyticSurface((_, _) => 17);
-        MapColour[] pixels = MapRenderer.Render(flat, At(33.0f), 80.0f, 0);
+        MapColour[] pixels = MapRenderer.Render(flat, At(33.0f), MapRamp.Around(0, 80.0f));
 
         Assert.Single(pixels.Distinct());
     }
@@ -84,8 +84,8 @@ public class MapRendererTests
         var low = new AnalyticSurface((_, _) => -70);
         var high = new AnalyticSurface((_, _) => 70);
 
-        MapColour dark = MapRenderer.Render(low, At(0.0f), 80.0f, 0)[0];
-        MapColour pale = MapRenderer.Render(high, At(0.0f), 80.0f, 0)[0];
+        MapColour dark = MapRenderer.Render(low, At(0.0f), MapRamp.Around(0, 80.0f))[0];
+        MapColour pale = MapRenderer.Render(high, At(0.0f), MapRamp.Around(0, 80.0f))[0];
 
         Assert.True(
             pale.R + pale.G + pale.B > dark.R + dark.G + dark.B,
@@ -101,8 +101,8 @@ public class MapRendererTests
         var atTheTop = new AnalyticSurface((_, _) => 80);
 
         Assert.Equal(
-            MapRenderer.Render(atTheTop, At(0.0f), 80.0f, 0)[0],
-            MapRenderer.Render(farAbove, At(0.0f), 80.0f, 0)[0]);
+            MapRenderer.Render(atTheTop, At(0.0f), MapRamp.Around(0, 80.0f))[0],
+            MapRenderer.Render(farAbove, At(0.0f), MapRamp.Around(0, 80.0f))[0]);
     }
 
     [Fact]
@@ -117,8 +117,8 @@ public class MapRendererTests
         var facingTheLight = new AnalyticSurface((x, z) => -(x + z) / 8);
         var facingAway = new AnalyticSurface((x, z) => (x + z) / 8);
 
-        MapColour lit = MapRenderer.Render(facingTheLight, At(0.0f), 400.0f, 0)[(Size / 2 * Size) + (Size / 2)];
-        MapColour shadowed = MapRenderer.Render(facingAway, At(0.0f), 400.0f, 0)[(Size / 2 * Size) + (Size / 2)];
+        MapColour lit = MapRenderer.Render(facingTheLight, At(0.0f), MapRamp.Around(0, 400.0f))[(Size / 2 * Size) + (Size / 2)];
+        MapColour shadowed = MapRenderer.Render(facingAway, At(0.0f), MapRamp.Around(0, 400.0f))[(Size / 2 * Size) + (Size / 2)];
 
         Assert.True(
             lit.R + lit.G + lit.B > shadowed.R + shadowed.G + shadowed.B,
@@ -133,7 +133,7 @@ public class MapRendererTests
         // the rest. A one-pixel wrong border is the kind of thing that is only ever noticed after
         // it ships.
         AnalyticSurface world = Ridge();
-        MapColour[] pixels = MapRenderer.Render(world, At(0.0f), 80.0f, 0);
+        MapColour[] pixels = MapRenderer.Render(world, At(0.0f), MapRamp.Around(0, 80.0f));
 
         // The top-left pixel and its inward neighbour sit on the same slope, so they should be
         // near-identical -- which they are not if the edge shaded against nothing.
@@ -148,35 +148,49 @@ public class MapRendererTests
     [Fact]
     public void TheCentrePixelShowsTheGroundThePlayerIsStandingOn()
     {
-        // The break battery asked for this one: sampling the apron at the wrong offset shifts the
-        // whole picture by a pixel against the projection, so the marker drawn at the centre would
-        // sit next to the ground it claims to be on. Every other test compares the render against
-        // itself and is blind to a constant offset.
+        // The break battery asked for this one: sampling the apron at the wrong offset shifts
+        // the whole picture by a pixel against the projection, so the marker drawn at the
+        // centre would sit next to the ground it claims to be on.
         //
-        // Shading off, so the colour is the ramp alone and the boundary is exact rather than
-        // muddied by a hillshade at a cliff.
-        var cliff = new AnalyticSurface((x, _) => x < 0 ? -80 : 80);
+        // **A linear slope, because the map box-filters its samples.** The first version used a
+        // cliff and stopped working the moment filtering arrived -- correctly, since a filter
+        // smears a cliff across the very pixels being compared. The mean of a linear function
+        // over a symmetric window is its value at the centre, so a slope passes through the
+        // filter untouched and the centre pixel must show exactly the ground at the centre.
+        // Shading off, so the colour is the ramp alone.
+        var slope = new AnalyticSurface((x, _) => x / 4);
         var unshaded = MapPalette.Default with { ShadeStrength = 0.0f };
 
         MapProjection map = At(0.0f);
         var pixels = new MapColour[Size * Size];
-        MapRenderer.Render(cliff, map, 80.0f, 0, unshaded, pixels);
+        MapRenderer.Render(slope, map, MapRamp.Around(0, 1024.0f), unshaded, pixels);
 
         int centre = map.CentrePixel;
-        Assert.Equal(unshaded.Stops[^1], pixels[(centre * Size) + centre]);
-        Assert.Equal(unshaded.Stops[0], pixels[(centre * Size) + centre - 1]);
+
+        // The ground at the player is height 0, dead centre of a ramp centred on 0.
+        Assert.Equal(
+            MapRenderer.Ramp(unshaded.Stops, 0.0f),
+            pixels[(centre * Size) + centre]);
+
+        // And not by accident: one pixel either side is visibly different ground.
+        Assert.NotEqual(
+            MapRenderer.Ramp(unshaded.Stops, 0.0f),
+            pixels[(centre * Size) + centre - 1]);
+        Assert.NotEqual(
+            MapRenderer.Ramp(unshaded.Stops, 0.0f),
+            pixels[(centre * Size) + centre + 1]);
     }
 
     [Fact]
-    public void SeaLevelMovesWhatCountsAsHighGround()
+    public void WhereTheRampIsCentredMovesWhatCountsAsHighGround()
     {
-        // Also the battery's: every other test passes a sea level of zero, so dropping the term
-        // entirely was an identity. A world generated with --sealevel elsewhere would have
-        // rendered as though its whole surface were a mountain range.
+        // Also the battery's: every other test centred the ramp on zero, so dropping that end of
+        // it was an identity. Ground at 200 voxels is a summit against a ramp centred on 0 and
+        // ordinary against one centred on itself, and the map has to be able to say both.
         var ground = new AnalyticSurface((_, _) => 200);
 
-        MapColour high = MapRenderer.Render(ground, At(0.0f), 80.0f, 0)[0];
-        MapColour ordinary = MapRenderer.Render(ground, At(0.0f), 80.0f, 200)[0];
+        MapColour high = MapRenderer.Render(ground, At(0.0f), MapRamp.Around(0, 80.0f))[0];
+        MapColour ordinary = MapRenderer.Render(ground, At(0.0f), MapRamp.Around(200, 80.0f))[0];
 
         Assert.NotEqual(high, ordinary);
         Assert.Equal(MapPalette.Default.Stops[^1], high);
@@ -197,13 +211,71 @@ public class MapRendererTests
     }
 
     [Fact]
+    public void AnAutoRampUsesTheWholePaletteOnOrdinaryGround()
+    {
+        // **The defect the first screenshot showed, as a test.** Handing the ramp the world's peak
+        // amplitude rather than the ground in view painted an entire map one shade of brown: a
+        // shaped world runs 19..144 voxels of amplitude, so an ordinary patch used 32% of the
+        // palette, centred. A hypsometric ramp belongs to the map, not to the world.
+        // Shading off in both arms, deliberately: with it on, the distinct-colour count is
+        // dominated by the hillshade and reads 60 against 57 for a map that is visibly one brown
+        // smear against a landscape. The claim is about the *ramp*, so the ramp is what is
+        // measured.
+        AnalyticSurface world = Ridge();
+        var unshaded = MapPalette.Default with { ShadeStrength = 0.0f };
+
+        var toTheWorld = new MapColour[Size * Size];
+        var fitted = new MapColour[Size * Size];
+        MapRenderer.Render(world, At(0.0f), MapRamp.Around(0, 400.0f), unshaded, toTheWorld);
+        MapRenderer.Render(world, At(0.0f), MapRamp.Auto, unshaded, fitted);
+
+        // Reaching both ends is what "uses the whole palette" means, and counting distinct
+        // colours is not: the ramp blends continuously, so even a fifth of it yields dozens of
+        // shades -- 47 against 35 for a picture that is a landscape against one that is a smear.
+        // The ridge's lowest and highest ground are both in view, so both ends must appear.
+        Assert.Contains(unshaded.Stops[0], fitted);
+        Assert.Contains(unshaded.Stops[^1], fitted);
+
+        // And against the world's own peak amplitude, neither end is reached at all.
+        Assert.DoesNotContain(unshaded.Stops[0], toTheWorld);
+        Assert.DoesNotContain(unshaded.Stops[^1], toTheWorld);
+    }
+
+    [Fact]
+    public void AnAutoRampOnFlatGroundDoesNotDivideByNothing()
+    {
+        // A perfectly level plain has a range of zero, and without a floor under it the shading
+        // and the ramp would both be 0/0. It should come out one colour from the middle of the
+        // palette, which is what featureless ought to look like.
+        var plain = new AnalyticSurface((_, _) => 42);
+        MapColour[] pixels = MapRenderer.Render(plain, At(0.0f), MapRamp.Auto);
+
+        Assert.Single(pixels.Distinct());
+        Assert.Equal(MapRenderer.Ramp(MapPalette.Default.Stops, 0.0f), pixels[0]);
+    }
+
+    [Fact]
+    public void RenderReportsTheRampItSettledOn()
+    {
+        // The panel prints it, because an auto ramp means two maps are not comparable by colour
+        // and the honest answer to that is to say what this one's colours mean.
+        AnalyticSurface world = Ridge();
+        var pixels = new MapColour[Size * Size];
+
+        MapRamp used = MapRenderer.Render(world, At(0.0f), MapRamp.Auto, MapPalette.Default, pixels);
+        MapRamp expected = MapRenderer.Fit(MapRenderer.SampleHeights(world, At(0.0f), Size + 2));
+
+        Assert.Equal(expected, used);
+    }
+
+    [Fact]
     public void ASpanTooSmallForTheMapIsRefused()
     {
         var flat = new AnalyticSurface((_, _) => 0);
         var pixels = new MapColour[10];
 
         Assert.Throws<ArgumentException>(
-            () => MapRenderer.Render(flat, At(0.0f), 80.0f, 0, MapPalette.Default, pixels));
+            () => MapRenderer.Render(flat, At(0.0f), MapRamp.Around(0, 80.0f), MapPalette.Default, pixels));
     }
 
     [Fact]
@@ -213,7 +285,7 @@ public class MapRendererTests
         var empty = At(0.0f) with { Size = 0 };
 
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => MapRenderer.Render(flat, empty, 80.0f, 0));
+            () => MapRenderer.Render(flat, empty, MapRamp.Around(0, 80.0f)));
     }
 
     [Fact]

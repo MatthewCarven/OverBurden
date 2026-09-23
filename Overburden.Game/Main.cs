@@ -117,6 +117,9 @@ public partial class Main : Node3D
 
     /// <summary>The computer's panel (M10b-2), built with the HUD and open on at most one machine.</summary>
     private MachinePanel? _panel;
+    private MapPanel? _map;
+    private bool _openMap;
+    private float? _mapMetresPerPixel;
 
     /// <summary><c>--openpanel</c>: open the panel on <c>--pump</c>'s pump as it is placed, for the screenshot.</summary>
     private bool _openPanel;
@@ -2046,6 +2049,22 @@ public partial class Main : Node3D
 
                     break;
 
+                // Opens the map as the world opens, so a screenshot can show it. Like
+                // --debuglamp and --openpanel it is a prop rather than a setting, and like them it
+                // does nothing under --profile, where the HUD and everything built with it is
+                // skipped.
+                case "map":
+                    _openMap = true;
+                    break;
+
+                // How much ground a map pixel covers, in metres. A look seam: the cost is flat
+                // across the whole range, so this is only ever a question about what reads
+                // well, and it is not profile-only because the only way to answer it is to
+                // look at it.
+                case "mapscale" when float.TryParse(value, out float metres) && metres > 0.0f:
+                    _mapMetresPerPixel = metres;
+                    break;
+
                 // No world file at all: the pipeline takes a null store, every chunk comes from
                 // the seed, and nothing is written. The world M2d and M5d measured.
                 case "nosave":
@@ -2370,6 +2389,27 @@ public partial class Main : Node3D
             return;
         }
 
+        // The map, before anything else that cares about a key: it is an overlay rather than a
+        // mode, so the world keeps running under it and Esc closes it the way it closes the
+        // machine panel. A pause would be the first in this game and the water, the collapse
+        // timers and the machine tick would all have to agree what it meant.
+        if (key.Keycode == Key.F12)
+        {
+            if (_map is not null)
+            {
+                GD.Print($"M12: the map is {(_map.Toggle() ? "open" : "closed")}");
+            }
+
+            return;
+        }
+
+        if (key.Keycode == Key.Escape && _map is { IsOpen: true })
+        {
+            _map.Close();
+            GD.Print("M12: the map is closed (Esc)");
+            return;
+        }
+
         // Q is not here: it is a hold, polled in UpdateQuantumKey beside P, R and L.
 
         // Ctrl+Z, an edge and never a hold: one press is one step (UNDO-PLAN decision 3).
@@ -2494,6 +2534,19 @@ public partial class Main : Node3D
             new System.Numerics.Vector3(eye.X, eye.Y, eye.Z),
             new System.Numerics.Vector3(forward.X, forward.Y, forward.Z),
             ReliefMetresAt(eye));
+
+        // The map reads the same two things the HUD line does, and decides for itself whether the
+        // picture is worth building again -- see MapPanel's thresholds. It asks the generator
+        // rather than the streamer, so it answers to the horizon and not to the loaded box.
+        if (_map is not null && _generator is not null)
+        {
+            _map.Refresh(
+                _generator,
+                (int)MathF.Floor(eye.X * VoxelConstants.VoxelsPerMetre),
+                (int)MathF.Floor(eye.Z * VoxelConstants.VoxelsPerMetre),
+                Overburden.Core.Navigation.Compass.BearingDegrees(forward.X, forward.Z),
+                delta);
+        }
     }
 
     /// <summary>
@@ -2551,6 +2604,24 @@ public partial class Main : Node3D
         // wants at the GUI stage and the keys it wants go to a focused field before anyone.
         _panel = new MachinePanel { Name = "MachinePanel" };
         AddChild(_panel);
+
+        // The map last, so it draws over everything -- it is a thing you open to look at, and
+        // anything drawn on top of it would be in the way of the one job it has.
+        _map = new MapPanel { Name = "MapPanel" };
+
+        if (_mapMetresPerPixel is float metresPerPixel)
+        {
+            _map.VoxelsPerPixel = Math.Max(
+                1, (int)MathF.Round(metresPerPixel * VoxelConstants.VoxelsPerMetre));
+        }
+
+        AddChild(_map);
+
+        if (_openMap)
+        {
+            _map.Toggle();
+            GD.Print("M12: the map is open (--map)");
+        }
     }
 
     /// <summary>

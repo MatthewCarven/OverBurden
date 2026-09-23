@@ -87,9 +87,14 @@ otherwise — flags go on the end of the `start.cmd` line.
       flat enough, are the mountains big enough, and do you hit one often enough? The dials to
       reach for are `--reliefbase` (lower = flatter plains), `--relief` (higher = bigger peaks)
       and `--reliefrare` (higher = rarer). All on a *new* world.
-- [ ] **The map's first slice is built and invisible** — the projection and the renderer, in
-      Core, with tests. There is nothing to press yet: slice b is the panel and the F12 key. Say
-      go when you want it.
+- [ ] **Press F12.** The map is in. It faces the way you do, the red tick on the rim is north,
+      the arrow in the middle is you, and the caption says how much ground it covers and what
+      heights its colours mean. Esc or F12 closes it.
+- [ ] **Is 2 km the right width?** Add `--mapscale=4` to the launch line for a half-kilometre map
+      and compare. 4 m a pixel reads as proper landscape; your 2 km is busier because the terrain's
+      own hills are only four pixels across at that scale. Going *wider* than 2 km makes it worse,
+      not calmer — the map starts aliasing and shows hills that are not there — so the useful range
+      is roughly 4 to 16 m a pixel. One sentence on which you would rather have as the default.
 - [ ] **You have a compass now.** The line above the status line reads `x 108  y 11  z 6 ·
       facing 315° NW · relief 8.1 m`. North is −Z, east is +X — so walking north makes z go *down*
       and walking east makes x go *up*. The relief number is how tall the terrain gets where you

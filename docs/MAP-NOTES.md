@@ -212,3 +212,60 @@ enough.
 
 **Slice b next** — `MapPanel`, F12, the ×3 nearest-neighbour scale, the north tick, the facing
 wedge, the sample-on-move rule and a `--map` flag for the screenshot.
+
+---
+
+## Slice b — built, 2026-09-23
+
+`MapPanel` in `Overburden.Game/Ui/`: F12, x3 nearest-neighbour, the north tick, the facing arrow,
+the rebuild rule, and `--map` / `--mapscale=<metres>` for the screenshot. Esc closes it. Suite
+1,796 -> 1,799; r6 control to the digit.
+
+**Three things the pass did not know, all found by looking at the picture.**
+
+**1. The ramp belongs to the map, not to the world.** The first screenshot was a uniform brown
+smear. Handing the ramp the world's peak amplitude is the obvious thing and it is wrong: a shaped
+world runs 19..144 voxels of amplitude, so an ordinary patch of it uses about a third of the
+palette, centred -- measured at 32%. `MapRamp.Auto` fits the ends to the ground in view, which is
+how every physical atlas has always done it. The panel prints the range it settled on, because the
+honest cost of an auto ramp is that two maps are not comparable by colour.
+
+**2. Turning is the expensive case, and the pass never considered it.** A facing-up map is a
+different picture at every yaw, and yaw moves continuously whenever anybody looks around. So the
+rebuild rule is not just "when you have moved a pixel" but also "when you have turned a degree" --
+one degree moves the outermost pixel by about one -- with a 15 Hz cap over both, which is what
+bounds the cost while somebody spins on the spot.
+
+**3. The map aliases, and the fix is a filter it was already paying for.** The terrain's four
+octaves have periods of 62, 31, 16 and 8 m, so at the shipped 16 m a pixel the top two fold
+straight into pixel hash. The second screenshot was noise. Sampling a two-pixel apron and
+box-filtering it down to one costs 6% more samples and removes most of it.
+
+**And the scale is bounded by that, which is the finding worth keeping.** Measured by screenshot at
+three scales on `Regions10`:
+
+| scale | across | reads as |
+|---|---|---|
+| 4 m a pixel | 0.5 km | **landscape** -- hills and valleys, unmistakable |
+| 16 m a pixel | 2 km | busy texture; structure and region-scale banding visible |
+| 64 m a pixel | 8 km | aliased mush, and the fitted range collapses to +/-4 m |
+
+**Coarser does not calm the map, it aliases harder** -- the box filter averages neighbouring pixel
+samples and cannot recover detail finer than the pitch it samples at. So **zooming out is not free
+after all**, and slice c's zoom should either stop at about 16 m a pixel or pay for supersampling,
+which is N squared in the factor and would cost 56 ms at 64 m. **Stopping is the recommendation**:
+past that the picture shows features that are not there, and a map that lies is worse than a map
+that does not go that far.
+
+Matthew's 2 km is right at the edge of legible and it is his call whether to keep it;
+`--mapscale=` is the seam, and it is deliberately not profile-only because the only way to answer
+the question is to look.
+
+**The bearing-independence oracle caught a real defect during this slice**, which is the best thing
+that happened here. Adding the filter shifted the sample grid by one pixel -- and a shift in
+*image* space is a different shift in the *world* at every bearing, so the test went red
+immediately. A constant offset is invisible to every other test in the file, because they all
+compare the render against itself.
+
+**Slice c next** -- the mine from the chunk index, the machines from `MachineSet`, the water and
+its window edge.
