@@ -34,6 +34,7 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 | [docs/SCALE.md](docs/SCALE.md) | **How many voxels and cells exist at each view distance, what one full sweep costs, and what each system actually iterates.** Read before designing anything that wants to check the world periodically — M7, M8 and M9 all start here. |
 | [docs/adr/](docs/adr/) | ADR-0001: why we build our own voxel engine rather than adopt godot_voxel, **with named revisit triggers** |
 | [TODO.md](TODO.md) | Milestones as checkable tasks, and the decisions still open. **M6's section is the plan as a checklist.** |
+| [MATTHEW-TODO.md](MATTHEW-TODO.md) | **Matthew's own short list — the play queue, the decisions waiting on his word, and the chores only he can run.** Made 2026-09-23 on his ask (*"i'm burdening you with too much on memory when i should really have one"*). One screen or two, never a record: everything with reasoning behind it stays in TODO and the plans. **Keep it current at the end of a session** — move a played check to answered, add a new play check when one is built, refresh its status block. Its "Notes to myself" section is his; fold anything he writes there into the right plan and leave the section empty. |
 | [WORKLOG.md](WORKLOG.md) | What happened and why, newest first. Findings worth keeping live here. |
 
 ## Non-negotiables

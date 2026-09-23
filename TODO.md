@@ -2,6 +2,12 @@
 
 See [docs/DESIGN.md](docs/DESIGN.md) for the reasoning behind all of this.
 
+**This file is the record — every task with the reasoning that produced it, newest work
+deepest. It is not a list anybody can act from.** For that, see
+[MATTHEW-TODO.md](MATTHEW-TODO.md): the play queue, the decisions waiting on Matthew's word and
+the chores only he can run, kept to a screen or two. A play check written here gets a line
+there when it is built; the answer comes back here.
+
 ## Decisions
 
 - [x] **Engine — Godot 4 + C#.** Decided 2026-08-23. Real threads, renderer for free,
