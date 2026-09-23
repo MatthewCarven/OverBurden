@@ -225,8 +225,9 @@ Nothing is blocked on these; they're all one-line changes when you have a view.
 
 - [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), eight decisions with my
       recommendations. Not scheduled; "as recommended" or any one of the eight back whenever
-      you like. The two that shape it most: blasted rock is a muck pile you dig out rather than
-      inventory (3), and a blast destroys machines it reaches (5).
+      you like. Yours already folded in: blasted voxels go nowhere (3), and the roof gets one
+      harsher support check at the blast (4). Still open, the biggest: a blast destroys machines
+      it reaches (5).
 
 - [ ] **A rock placed in a lake.** Right now you can build a pier out into a lake and it deletes
       no water. If that reads as wrong, I refuse it — one read. Your call after the play.

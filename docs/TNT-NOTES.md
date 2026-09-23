@@ -4,21 +4,26 @@
 > fresh so the eventual planning pass starts from it. **Not scheduled.** Written 2026-09-24 on
 > Matthew's ask, *"write up the TNT notes how you would"*, after *"also how do you feel about
 > tnt?"* the evening before. Every number here is an estimate unless it says where it came from.
+>
+> **Amended the same day with Matthew's own design**, which replaces decision 3's muck pile:
+> *"tnt just destroys outright voxels and they go nowhere no cleanup, but you could fire whatever
+> stress function you use around the place a little more pessimistically"*. So a blast deletes,
+> and the roof pays through a harsher support check at the moment of the blast (the shake, below).
 
 ## The short version
 
 **Yes, and it is cheaper to build than it looks, because almost all of it already exists.** A
 blast is a carve the game already has (`Carve.Sphere`, bounded at 4 m). What happens to the roof
-afterwards is M9's job, and M9 already does it. A charge waiting to go off is a machine row on a
+afterwards is M9's job, and M9 already does most of it. A charge waiting to go off is a machine row on a
 channel, which is M10a's entity and M10b's computer panel. The chain reaction is the collapse
 cascade's rule, one step per boundary. What is genuinely new is small: a `charge` machine kind, a
-fuse on it, a muck pile, and one call that makes armed roofs near a blast fall sooner.
+fuse on it, and the shake — a one-off harsher support check around the blast.
 
 **Why it earns its place.** The ladder has nothing between a pick and the quantum pack for moving
 a lot of rock. Blasting is how real mines do it, and in this game it is the tool that most
 directly argues with the antagonist: you get a big hole for no energy, and then you have to live
-under it. **The price is paid in the mine's own currency** — a roof that may come down, a floor
-buried in muck, and water that finds the new void — rather than in joules.
+under it. **The price is paid in the mine's own currency** — a roof that may come down and water
+that finds the new void — rather than in joules.
 
 ---
 
@@ -27,13 +32,13 @@ buried in muck, and water that finds the new void — rather than in joules.
 | Needed | Already there | What it means for blasting |
 |---|---|---|
 | Remove a sphere of rock | `Carve.Sphere`, `MaxRadiusMetres` 4 m, one `Take` gate | The blast is a carve with its own threshold. A 3 m blast is ~7,200 voxels, less than a quarter of a chunk bite (32,768), so its **cost is already measured and fits in a frame** |
-| The roof responding | M9: `SupportRegion` re-derives the edited chunks, `CollapseScheduler` arms at-risk chunks | **A blast needs no structural code at all to be dangerous.** Open a big void and the support field decides what is at risk, exactly as it does for a quantum bite |
-| Rubble | `overburden:rubble` (hardness 0.5, permeability 0.6), and the fall's column-run landing | The muck pile is rubble landed by the fall's own rule (see decision 3) |
+| The roof responding | M9: `SupportRegion` re-derives the edited chunks, `CollapseScheduler` arms at-risk chunks | **The void itself needs no structural code** — the support field judges it exactly as it judges a quantum bite. The shake adds two small pieces to M9 (see Costs) |
+| A harsher check | `SupportRule.DistanceScale` (the `--supportscale` seam), the fall's column run | The shake is one derive under a scaled rule; what it finds at risk falls by the fall's own rule |
 | A charge waiting | `MachineSet` rows, `machines` table at schema 4, ports, the computer's panel | A charge is a material plus a row, persisted and reconciled for free. **Its fuse and delay are ports**, so the computer sets them with no new UI |
 | Firing together | Channels 0–15, every row on a channel ticked at the boundary | **A detonator on channel N fires every charge on channel N** — a blasting circuit, which is how real mines fire a round |
 | A cascade that terminates | The collapse's *one roof per boundary* | A charge caught in a blast arms with zero fuse and fires at the **next** boundary: sympathetic detonation, one step per boundary, no recursion |
 | Machines in the blast | `IMachineBodies`: `Lost == Carved` dismantles with credit, `Lost > Carved` destroys | A blast takes a body whole or in part. **Recommend: anything a blast takes is destroyed, not credited** (decision 5) |
-| The undo | A fall clears the stack (UNDO-PLAN decision 4) | A blast mints rubble, so it clears the stack for the same reason |
+| The undo | A fall clears the stack (UNDO-PLAN decision 4) | A blast deletes voxels nothing can give back, so it clears the stack too |
 | Water | Tier B `Disturb`, the portal drain, seepage | A blast into a lake bed is a breach. **TNT is the most dangerous way there is to open one**, and the water side needs nothing new |
 
 ---
@@ -71,19 +76,21 @@ In origin order, every charge whose fuse has run out:
 
 1. **Carves a sphere** of radius `blastMetres` (3.0 in the JSON, under `MaxRadiusMetres`) centred
    on the body's centre, with the charge's own `hardnessThreshold` (3.5 in the JSON — takes stone,
-   dirt, clay and rubble, not a harder rock if worldgen adds one). **It credits nothing to the
-   inventory.** The rock is broken, not collected.
-2. **Lands the muck**: a share of what it removed (`swell`, 0.6 — an estimate, and see decision 3)
-   as rubble, column by column, onto the floor of the new void by the fall's own column-run
-   landing. You then dig the muck with a pick, and *that* credits your inventory, as rubble.
-3. **Shakes the roof**: every chunk within `shakeMetres` (8, one chunk) that has an armed collapse
-   timer has it shortened by `shake` (×0.25), through the rule that already exists — *a timer only
-   shortens* (M9d). **An unarmed roof is not armed by the shake.** Whether it becomes at risk is
-   the support field's call, on the geometry the carve left.
-4. **Arms its neighbours**: any charge whose body the sphere reached is lit with fuse 0 and fires
+   dirt, clay and rubble, not a harder rock if worldgen adds one). **The voxels go nowhere** —
+   Matthew's rule: no inventory credit, no muck, no cleanup. The rock is simply gone.
+2. **Shakes the roof** — Matthew's *"fire whatever stress function you use around the place a
+   little more pessimistically"*, made concrete. Once, at the blast, every chunk within
+   `shakeMetres` (8, one chunk) of the charge is derived under a **harsher rule**: every
+   material's support distance × `shakeScale` (0.75, an estimate — the existing `--supportscale`
+   seam, applied to this one derive). **Whatever is at risk under the harsh rule falls at the next
+   boundary**, by the fall's own column run, landing as rubble like any fall. **Nothing is
+   stored**: a roof that survives the shake is judged by the ordinary rule from then on. The
+   shock is a moment; if it holds through it, it holds. Separately, any collapse timer already
+   armed within 8 m is shortened ×0.25 through M9d's *a timer only shortens*.
+3. **Arms its neighbours**: any charge whose body the sphere reached is lit with fuse 0 and fires
    at the next boundary. Sympathetic detonation, one step a boundary, so a packed magazine goes
    off as a visible ripple and the loop is bounded by the charge count.
-5. **Clears the undo stack**, printed like a fall's.
+4. **Clears the undo stack**, printed like a fall's.
 
 A charge is consumed by its own blast.
 
@@ -93,8 +100,7 @@ A charge is consumed by its own blast.
 |---|---|---|
 | Blast radius | 3.0 m | Estimate. ~113 m³ a charge, about 14 tunneller bites or a fifth of a chunk |
 | Threshold | 3.5 | `steel_pick`'s, so a charge takes what steel takes |
-| Swell as muck | 0.6 of removed | Estimate. Real broken rock swells to ~1.5× its volume. Landing all of it would bury the void you made, so most of it "blows out" — a stated fiction |
-| Shake | armed timers ×0.25 within 8 m | Estimate; the lever for "blasting is risky" |
+| Shake | support distances × 0.75 for one derive within 8 m; armed timers ×0.25 | Estimate; **0.75 is the lever for "blasting is risky"** — lower is harsher |
 | Default fuse | 10 boundaries (5 s) | Estimate; enough to walk out of 3 m |
 | Recipe | charcoal + sulfur + saltpetre → black powder; powder + clay → charge | Real black powder. **Needs sulfur and saltpetre from worldgen, which is WORLDGEN-NOTES' pass** |
 
@@ -108,19 +114,22 @@ the relay pair today.
 1. **Where on the ladder.** *Recommend: the hand-to-steam boundary* — powder at the forge (tier 0),
    the charge after the furnace (tier 1). It is the bulk tool before quantum. **It stays useful
    after quantum** because it costs no joules: a 3 m charge is about 360 kJ of pack at 50 J a
-   voxel. The trade is pack against roof and muck.
+   voxel. The trade is pack against roof.
 2. **Fuse model: a lit charge, a detonator on a channel, or both.** *Recommend both*: a charge's
    panel lights that one charge, and a detonator's lights its channel. The detonator is the part that makes it a
    mining tool rather than a grenade, and it costs one small machine kind.
-3. **Where the rock goes.** *Recommend: no inventory credit; a muck pile you dig out.* The
-   alternative (credit it like a pick) makes TNT a strictly better quantum tool with no pack. The
-   muck is also the loop that makes blasting a rhythm: **drill, charge, fire, muck out, shore.**
-   Open question: a blast through an ore band later — does the muck carry the ore, or does it all
-   become rubble? *Recommend rubble for now, revisited at worldgen.*
-4. **Does a blast weaken rock it did not remove?** *Recommend no, not with stored damage.* A
-   per-voxel fracture state is new persistent data under every chunk, for a feel nobody has asked
-   for yet. Geometry plus the shake on armed timers is enough to make a blast dangerous.
-   **Revisit trigger: a play where blasting reads as too safe.**
+3. **Where the rock goes. — Matthew's: nowhere.** *"tnt just destroys outright voxels and they go
+   nowhere no cleanup"*. No credit, so TNT never competes with the quantum tools on yield; no muck,
+   so there is no landing to build or price. Ore in a blast later is simply lost — the cost of
+   blasting through a seam instead of picking it. (My draft had a muck pile you dug out; his is
+   simpler and loses nothing the game needs.)
+4. **Does a blast weaken rock it did not remove? — Matthew's: yes, pessimistically, at the moment.**
+   The shake above: one harsher derive, what fails it falls, **nothing stored**. My draft said no
+   and leaned on shortening armed timers alone, which would do nothing to a roof that was not
+   already failing — his version reaches the marginal roofs, which are the ones that make a blast
+   feel dangerous. A stored per-voxel fracture state stays rejected: it is new persistent data
+   under every chunk. **Revisit trigger: a blast that reads as too safe (lower `shakeScale`) or a
+   roof that falls a long way from a small charge (raise it).**
 5. **Machines in the blast.** *Recommend destroyed, never credited*, whether taken whole or in
    part. The risk of blasting beside your own pumps is the point. Cost: a mis-set channel can
    wreck an engine room, so the detonator's panel should list how many charges it will fire.
@@ -128,7 +137,8 @@ the relay pair today.
    really"*). *Recommend until then: nothing hurts you; the blast can take the floor you stand on,
    and you fall.* At M11 the damage is distance-based and comes with the respawn M11 already owns.
 7. **Charges and the undo.** *Recommend: placing a charge is undoable like any placement, and a
-   blast clears the stack* — UNDO-PLAN's decision 4, with rubble minted exactly as a fall mints it.
+   blast clears the stack* — UNDO-PLAN's decision 4: the blast deletes what nothing can give back,
+   and the shake's falls mint rubble exactly as a fall does.
 8. **Chain reactions and a bound.** *Recommend: sympathetic detonation one step a boundary, bounded
    by the charges placed* — nothing else. A thousand charges in one room is a thousand boundaries
    of ripple at the worst: slow, visible and finite. The collapse cascade already works this way.
@@ -148,8 +158,11 @@ the relay pair today.
   M9c-1b figure of 1.5 µs a voxel through the hook chain, that is ~11 ms Debug** — one frame's
   hitch per blast, and a round of ten on one boundary is ~110 ms. That is the measurement to take
   first. The lever if it bites is the one M9 already named: a per-chunk invalidation on a bulk edit.
-- **The muck landing** is the fall's column run over up to ~7,200 columns' worth of voxels, which
-  M9 prices at milliseconds a chunk.
+- **The shake needs two things M9 does not have yet.** The region derives under one rule
+  (`SupportRegion._rule`), so a derive under a scaled rule is a rule passed per derive. And a fall
+  today follows the chunk's settled at-risk set, so the shake's falls need the fall to take an
+  explicit set. Both are small; neither is free. The derive itself is a detached job, ~0.36 ms a
+  chunk optimised (M9b) — up to 27 chunks in an 8 m shake, on workers and not the frame.
 - **Nothing new to terminate.** No particles are required (dust is still M9c-2's optional
   cosmetic, and a blast is its obvious second customer). The chain is bounded by a count, and the
   water side is M8's existing seam.
@@ -158,9 +171,7 @@ the relay pair today.
 
 - **Worldgen never ships sulfur and saltpetre.** Then the recipe needs another route, or the
   charge stays a debug item. The mechanics above do not depend on it.
-- **The shake is invisible in play.** If armed roofs are rare enough that ×0.25 never matters, a
-  blast is only a free big hole. The first play tells, and the answer is decision 4's revisit
-  trigger rather than a bigger multiplier.
-- **Muck mucking is tedious rather than rhythmic.** Rubble at hardness 0.5 falls to a hand pick
-  quickly. If it still drags, swell is the one number to lower. Revisit trigger: his word after
-  the first round.
+- **The shake drops too much or too little.** `shakeScale` is the one number, and it is a
+  multiplier on distances every material already has, so it moves stone and dirt together. If
+  dirt roofs vanish at every blast while stone ones never move, the scale wants to be per
+  material — decide after the first round, on his word.
