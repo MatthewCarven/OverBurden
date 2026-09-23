@@ -986,7 +986,15 @@ surface at its worst case (359k quads, 294k of them sides) — is `worlds/retire
 retired on his offer (*"do you want to retire this world as a load test?"*) after a clean quit:
 **the load test**, the measurement world for the solve lever, the surface's settled-state read and
 the memory `live` term, to be opened only as a copy with `--world=`; his `default` is fresh from
-the next launch.
+the next launch. **And the pool world of 2026-09-22 — 127 machines, 7.09 ML of Tier B in 1,467
+rows, of which 6.27 ML is below the seed surface; a walled pool on the plain holding a 450 kL
+pour with `enclosed 82,543 kept / 1,052 closed`, pumps on stone pedestals, and a mine opened
+with the quantum excavator — is `worlds/retired-pool-2026-09-22/`**, retired on his offer
+(*"retire the world if you want it for testing"*) after a clean quit: **the enclosure's
+measurement world at scale, and the fixture for M10d's *dry* recipe**, since its underground and
+surface water are both large. It is also the first world written by a build with the enclosure,
+rain-on-placed and the undo in it. Open it only as a copy with `--world=`; his `default` is fresh
+from the next launch.
 
 **Where the morning of 2026-09-06 left off. M8b-4a is built — the pause and the arrival — and M8b-4b, the store,
 is next and goes alone, because a defect there is permanent data loss.** Read M8-PLAN's "M8b-4 —

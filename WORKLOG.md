@@ -1,5 +1,23 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-23 — The pool world retired
+
+Matthew, after the session: *"can you either retire the world if you want it for testing or
+delete and i'll start fresh?"*. Kept — `worlds/retired-pool-2026-09-22/`, 2 MB, a clean quit,
+and it is the only world with a **player-built enclosure at scale**: 127 machines, 7.09 ML of
+Tier B in 1,467 rows with 6.27 ML below the seed surface, `enclosed 82,543 kept / 1,052
+closed`, a walled pool holding a 450 kL pour with nothing handed from it, pumps on stone
+pedestals and a mine opened with the quantum excavator. It is also the first world written by
+a build carrying the enclosure, rain-on-placed and the undo.
+
+**What it is for, against the two already retired**: `retired-flooded-2026-09-19` is the
+solve lever's measurement world (21.1 ML, 16 pumps) and `retired-spread-2026-09-22` is the
+load test (66.6 ML, 209 machines, 3.4 M cells at its open). This one is neither — it is small.
+What it has that they do not is a large enclosure and a **large value in both halves of
+`held`**, so it is the natural fixture for M10d's *dry* recipe: the below-the-seed term at
+6.27 ML with 0.8 ML on the surface is exactly the state that recipe reads as it falls.
+His `default` is fresh from the next launch.
+
 ## 2026-09-22 (evening, later) — The three-step undo, built
 
 Planned and built the same session, on *"Build it please Claude"*. Suite 1,719 → 1,735, ten

@@ -5599,6 +5599,12 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             and the inventory going down; three presses then a fourth; and a fall taking the
             stack away — does losing the undo to a roof read as fair?
 - [ ] **M10d — the play**: the mine pumped dry by relay, the storm, the gate, the pillar verdict.
+      - [x] **The pool world is retired as the enclosure's fixture, 2026-09-22** —
+            `worlds/retired-pool-2026-09-22/` (127 machines, 7.09 ML in 1,467 rows, 6.27 ML of
+            it below the seed surface, `enclosed 82,543 kept / 1,052 closed`, a 450 kL walled
+            pool, pumps on pedestals, an excavated mine). His offer after the session; the
+            measurement world for the enclosure at scale and the natural fixture for the *dry*
+            recipe, since both halves of `held` are large in it. A copy with `--world=` only.
       **Planned 2026-09-22 (afternoon), while Matthew played — "M10d — the planning pass" at the
       end of [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md): seven facts, nine decisions, all
       recommended, split d-1 / d-2 / d-3. Nothing is built for it but two instruments and one
