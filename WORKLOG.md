@@ -1,5 +1,31 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-23 — A power switch on the vacuum cell
+
+Matthew, starting a world to build useful things in: *"can we add a power toggle to the quantum
+vacuum cell, will make debugging some of it easier"*. Built as a port rather than a verb, because
+the computer's panel already draws one box per declared port — `vacuum_cell.json` declares
+`"enabled": { default 1, min 0, max 1 }` and the panel has a switch with no UI code at all.
+
+**Off means out of the pool, not empty.** `MachineTick.Rebuild` leaves an off storage row out of
+its channel's list, so it is never summed into what the pumps may draw and never written back
+into — its charge stands still. `StoredMillijoules` still sums every row, so the pool identity
+sees the frozen charge on both sides and stays exact; nothing new is a term. A row whose material
+declares no `enabled` port is on, and a cell saved before today is restored with the default, so
+no world changes. `SetPort` moves the set's version, so the switch lands at the next boundary.
+
+Two tests (an off cell neither charges from a panel nor pays a pump, and resumes from where it
+stood; a pump on a channel whose only cell is off stalls `unpowered`), both watched failing with
+`IsEnabled` forced true. The panel's status line reads `OFF — holding …, out of channel N's
+pool`, and the `power:` term counts `N cell(s) (+M off)` — the first headless run read `0 cell(s)
+hold 5,000.0 MJ` with the cell switched off, which is true of the pool and reads as a lost cell.
+Headless wire: `--pump=100 --openpanel=cell --panelset=enabled=0` reads `enabled := 0: set to 0`,
+the pump `4 unpowered`, the cell still at 5,000 MJ, identity exact. Suite 1,813.
+
+Asked in the same message and not built: a 2 m tunneller tier between the 1 m miner and the 8 m
+excavator (decisions handed back — which grid "2x2 metres" means, its rate, what its fill is), and
+an opinion on TNT.
+
 ## 2026-09-23 — Where you are and which way you face
 
 Matthew, handed a bearing to a mountain: *"even if you find a mountain i have no compass and could

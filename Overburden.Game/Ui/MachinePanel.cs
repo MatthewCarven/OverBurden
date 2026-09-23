@@ -515,6 +515,11 @@ public sealed partial class MachinePanel : CanvasLayer
         {
             long capacity = _machines?.CapacityOf(row) ?? 0;
             long charge = _machines?.ChargeOf(row) ?? 0;
+            if (!MachineTick.IsEnabled(row))
+            {
+                return ($"OFF — holding {ChargeOf(charge, capacity)}, out of channel {channel}'s pool", StallText, null);
+            }
+
             return ($"charged {ChargeOf(charge, capacity)}   ·   pooled on channel {channel}", charge > 0 ? MovedText : DimText, null);
         }
 

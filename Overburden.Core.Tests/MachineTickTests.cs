@@ -94,7 +94,7 @@ public class MachineTickTests(ITestOutputHelper output)
         Carried = carried,
         RechargeWatts = rechargeWatts,
         Links = [new MachineLink("charge", MachineMedium.Power, MachineRole.Sink, MachineLink.ChannelVia, null, "channel")],
-        Ports = [new PortDefinition("channel", 0, 0, 15)],
+        Ports = [new PortDefinition("channel", 0, 0, 15), new PortDefinition(MachineTick.EnabledPort, 1, 0, 1)],
     };
 
     private static readonly MachineDefinition OutletDefinition = new()
@@ -612,6 +612,62 @@ public class MachineTickTests(ITestOutputHelper output)
         Assert.Equal(SmallCellCapacity, ChargeOf(second));
         Assert.Equal(50_000L, full.ClampedMillijoules);
         Assert.True(twin.Tick.PowerExact);
+    }
+
+    [Fact]
+    public void ACellSwitchedOffNeitherChargesNorPaysAndResumesWhereItStoodWhenSwitchedOn()
+    {
+        // The power toggle (2026-09-23): an off cell is out of its channel's pool — the panel's
+        // generation passes it by to the next cell, a pump cannot draw on it, and its charge
+        // stands still until it is switched back on. The identity counts it throughout.
+        var twin = new Twin();
+        twin.Place(Twin.RimOutlet, Panel, open: 4);
+        MachineRow first = twin.Place(Twin.RimOutletB, SmallCell, charge: 40_000);
+        MachineRow second = twin.Place(new BrushCell(12, 10, 9), SmallCell);
+        Assert.True(MachineTickOriginBefore(first, second));
+
+        Assert.Equal(PortWriteResult.Set, twin.Machines.SetPort(first.Cell, MachineTick.EnabledPort, 0).Result);
+        Assert.False(MachineTick.IsEnabled(first));
+
+        twin.Boundary(step: false);
+        Assert.Equal(40_000L, ChargeOf(first));
+        Assert.Equal(62_500L, ChargeOf(second));
+        Assert.True(twin.Tick.PowerExact);
+
+        // Everything off: the panel's output has nowhere to go and is clamped, printed.
+        twin.Machines.SetPort(second.Cell, MachineTick.EnabledPort, 0);
+        MachineTickReport dark = twin.Boundary(step: false);
+        Assert.Equal(62_500L, dark.ClampedMillijoules);
+        Assert.Equal(40_000L, ChargeOf(first));
+        Assert.Equal(62_500L, ChargeOf(second));
+        Assert.True(twin.Tick.PowerExact);
+
+        // Back on: the first cell fills from where it stood, in origin order.
+        twin.Machines.SetPort(first.Cell, MachineTick.EnabledPort, 1);
+        twin.Boundary(step: false);
+        Assert.Equal(SmallCellCapacity, ChargeOf(first));
+        Assert.Equal(62_500L, ChargeOf(second));
+        Assert.True(twin.Tick.PowerExact);
+    }
+
+    [Fact]
+    public void APumpCannotDrawOnACellSwitchedOff()
+    {
+        var twin = new Twin();
+        MachineRow pump = twin.Place(Twin.PumpCell, BilledPump);
+        twin.Place(Twin.RimOutlet, Outlet);
+        MachineRow cell = twin.Place(Twin.RoomOutlet, BigCell, charge: BigCellCapacity);
+        twin.PourIntoRoom(120 * Cap);
+        twin.Fluid.Settle(200);
+        twin.Machines.SetPort(cell.Cell, MachineTick.EnabledPort, 0);
+
+        MachineTickReport report = twin.Boundary(step: false);
+
+        Assert.Equal(0, report.Moved);
+        Assert.Equal(PumpStall.Unpowered, pump.LastStall);
+        Assert.Equal(BigCellCapacity, ChargeOf(cell));
+        Assert.True(twin.Tick.PowerExact);
+        twin.AssertIdentity();
     }
 
     private static bool MachineTickOriginBefore(MachineRow a, MachineRow b) =>

@@ -88,6 +88,15 @@ Ten recipes. Do them in any order, over as many sessions as you like; a sentence
 plenty, and "it was fine" is a real answer. Run `start.cmd` on `default` unless a recipe says
 otherwise — flags go on the end of the `start.cmd` line.
 
+
+### The vacuum cell's switch (2026-09-23)
+
+- [ ] Computer in hand, right-click a vacuum cell: the panel has an `enabled` box under
+      `channel`. Set it to 0 and the status line turns amber (`OFF — holding …`); pumps that
+      only had that cell stall `unpowered`, and panels on the channel charge the other cells
+      instead. Set it back to 1 and it picks up where it stood. One sentence: is a 0/1 box
+      good enough, or do you want a real on/off button?
+
 ### Owed from the relief change (2026-09-23)
 
 - [ ] **Does a world have somewhere flat and somewhere mountainous?** Launch a new world —

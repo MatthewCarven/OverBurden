@@ -13,7 +13,8 @@
       "charge": { "carries": "power", "role": "sink", "via": "channel", "port": "channel" }
     },
     "ports": {
-      "channel": { "default": 0, "min": 0, "max": 15 }
+      "channel": { "default": 0, "min": 0, "max": 15 },
+      "enabled": { "default": 1, "min": 0, "max": 1 }
     }
   }
 }

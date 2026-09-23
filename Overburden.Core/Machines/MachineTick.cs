@@ -172,6 +172,14 @@ public sealed class MachineTick
     /// <summary>The <c>weight</c> port a ring reads; an outlet whose material declares none weighs one.</summary>
     public const string WeightPort = "weight";
 
+    /// <summary>
+    /// The <c>enabled</c> port a storage row may declare (Matthew, 2026-09-23 — a power toggle on
+    /// the vacuum cell, for debugging). Zero takes the row out of its channel's pool: it neither
+    /// supplies nor charges, and its charge stands where it was. A row whose material declares
+    /// none is always on.
+    /// </summary>
+    public const string EnabledPort = "enabled";
+
     private long _builtAtVersion = -1;
     private readonly List<(MachineRow Row, MachineDefinition Definition)> _pumps = [];
     private readonly List<MachineRow>?[] _outlets = new List<MachineRow>?[Channels];
@@ -353,6 +361,10 @@ public sealed class MachineTick
     /// <summary>Converters and placed storage rows as the last rebuild left them.</summary>
     public int Converters => _converters.Count;
 
+    /// <summary>Placed storage rows switched off at the last rebuild — out of the pool, their charge still in <see cref="StoredMillijoules"/>.</summary>
+    public int StorageRowsOff { get; private set; }
+
+    /// <summary>Placed storage rows in the pool at the last rebuild; <see cref="StorageRowsOff"/> are the rest.</summary>
     public int StorageRows
     {
         get
@@ -721,6 +733,7 @@ public sealed class MachineTick
     {
         _pumps.Clear();
         _converters.Clear();
+        StorageRowsOff = 0;
         _nearColumns.Clear();
         Array.Clear(_outlets);
         Array.Clear(_storage);
@@ -750,7 +763,15 @@ public sealed class MachineTick
                     break;
                 case MachineKind.Storage when !definition.Carried:
                     // A carried storage is the pack, never a row; one that reached the set is
-                    // kept and ticks nothing, like a hole.
+                    // kept and ticks nothing, like a hole. A row switched off is out of the pool
+                    // the same way — never read, never written back — and still counted by
+                    // StoredMillijoules, so the identity sees its charge standing still.
+                    if (!IsEnabled(row))
+                    {
+                        StorageRowsOff++;
+                        break;
+                    }
+
                     (_storage[ChannelOf(row)] ??= []).Add((row, definition));
                     break;
             }
@@ -819,6 +840,10 @@ public sealed class MachineTick
     }
 
     /// <summary>The outlet's weight: its port, clamped to a positive number, or one where the material declares none.</summary>
+    /// <summary>Whether the row is on: its <see cref="EnabledPort"/> non-zero, or on where the material declares none.</summary>
+    public static bool IsEnabled(MachineRow row) =>
+        !row.TryGetPort(EnabledPort, out long enabled) || enabled != 0;
+
     private static long WeightOf(MachineRow row) =>
         row.TryGetPort(WeightPort, out long weight) ? Math.Max(1, weight) : 1;
 

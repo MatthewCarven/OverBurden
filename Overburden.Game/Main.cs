@@ -7471,7 +7471,7 @@ public partial class Main : Node3D
 
         long samples = t.SolarSampled + t.SolarUnsampled;
         string open = samples > 0 ? $"{t.OpenColumnsSum / (double)samples:F1}" : "–";
-        return $" | power: {t.StorageRows:N0} cell(s) hold {MachinePanel.Joules(t.StoredMillijoules)}, "
+        return $" | power: {t.StorageRows:N0} cell(s){(t.StorageRowsOff > 0 ? $" (+{t.StorageRowsOff:N0} off)" : "")} hold {MachinePanel.Joules(t.StoredMillijoules)}, "
                + $"pack {(t.Pack is null ? "none" : $"{MachinePanel.Joules(t.Pack.ChargeMillijoules)} of {MachinePanel.Joules(t.Pack.CapacityMillijoules)} (ch {t.Pack.Channel})")}, "
                + $"generated {MachinePanel.Joules(t.GeneratedMillijoules)} ({t.Converters:N0} panel(s), open {open}/16 mean, {t.SolarUnsampled:N0} unsampled, overcast {t.OvercastByte}/256), "
                + $"drawn {MachinePanel.Joules(t.DrawnByPumpsMillijoules)} by pumps + {MachinePanel.Joules(t.PackTakenMillijoules)} by the tool, clamped {MachinePanel.Joules(t.ClampedMillijoules)}, "
@@ -7532,7 +7532,7 @@ public partial class Main : Node3D
         long clamped = t.ClampedMillijoules - _clampedAtWarm;
         return $"power     in the window: generated {generated:N0} mJ, drawn {drawn:N0} by pumps, clamped {clamped:N0}; "
                + $"in all: generated {t.GeneratedMillijoules:N0} mJ, drawn {t.DrawnByPumpsMillijoules:N0} by pumps + {t.PackTakenMillijoules:N0} by the tool, clamped {t.ClampedMillijoules:N0}, pack given {t.PackGivenMillijoules:N0}, stowed {t.PackStowedMillijoules:N0}; "
-               + $"{t.StorageRows:N0} cell(s) hold {t.StoredMillijoules:N0} mJ ({MachinePanel.Joules(t.StoredMillijoules)}), pack {(t.Pack is null ? "none" : $"{t.Pack.ChargeMillijoules:N0} mJ ({MachinePanel.Joules(t.Pack.ChargeMillijoules)})")}; "
+               + $"{t.StorageRows:N0} cell(s){(t.StorageRowsOff > 0 ? $" (+{t.StorageRowsOff:N0} off)" : "")} hold {t.StoredMillijoules:N0} mJ ({MachinePanel.Joules(t.StoredMillijoules)}), pack {(t.Pack is null ? "none" : $"{t.Pack.ChargeMillijoules:N0} mJ ({MachinePanel.Joules(t.Pack.ChargeMillijoules)})")}; "
                + $"{t.Converters:N0} panel(s), sampled {t.SolarSampled:N0} / unsampled {t.SolarUnsampled:N0} (sky answered {_solarSky?.Answered ?? 0:N0}, no column {_solarSky?.Unanswered ?? 0:N0}), "
                + $"open {(t.SolarSampled + t.SolarUnsampled > 0 ? t.OpenColumnsSum / (double)(t.SolarSampled + t.SolarUnsampled) : 0):F2}/16 mean, overcast {t.OvercastByte}/256 at the last boundary; "
                + $"pool == entering − leaving + generated − drawn − clamped − stowed: {(t.PowerExact ? "exact" : "*** NO ***")}\n";
