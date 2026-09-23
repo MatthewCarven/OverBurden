@@ -69,12 +69,32 @@ public sealed class WorldGenerator : ISurfaceHeights
     /// </remarks>
     public const float ReliefFrequencyRatio = 32.0f;
 
+    /// <summary>
+    /// The lowest and highest the relief field is taken to go, and where its threshold sits at
+    /// <see cref="WorldGenSettings.ReliefRarity"/> 1.
+    /// </summary>
+    /// <remarks>
+    /// <b>±0.6 rather than ±1, and that is the difference between a rarity dial and a dead
+    /// one.</b> <see cref="GradientNoise.Sample2D"/> is documented as <em>roughly</em> in [-1, 1]
+    /// and in practice spans about ±0.7, so a threshold placed by assuming the full range simply
+    /// never fires — which is exactly how the first mask measured "0% hilly" and read as a
+    /// plausible setting rather than as a feature that was switched off. These are the numbers the
+    /// sweep is calibrated against; moving them moves what every rarity means.
+    /// </remarks>
+    private const float ReliefLowestSample = -0.6f;
+
+    private const float ReliefReachableSample = 0.6f;
+
+    private const float ReliefRarestThreshold = 0.5f;
+
     private readonly WorldGenSettings _settings;
     private readonly StrataTable _strata;
     private readonly ulong _surfaceSeed;
     private readonly ulong _caveSeed;
     private readonly ulong _reliefSeed;
-    private readonly float _reliefVariation;
+    private readonly float _reliefBase;
+    private readonly float _reliefRarity;
+    private readonly bool _reliefVaries;
     private readonly float _reliefFrequency;
 
     // Derived from CaveLatticeStep once, because all three are wanted per voxel. The step is
@@ -103,20 +123,35 @@ public sealed class WorldGenerator : ISurfaceHeights
                 + "from different corners — a seam that is invisible until it is in a screenshot.");
         }
 
-        // Written as a refusal of everything outside the range rather than as a test for the bad
-        // values, so that NaN is caught: every comparison with NaN is false, so `variation > 1`
-        // would wave it through and the factor would silently turn a whole world into air. M3c's
-        // NaN threshold, one field along.
-        float variation = settings.ReliefVariation;
-        if (!(variation >= 0.0f && variation <= 1.0f))
+        // Every one of these is written as a refusal of what is *not* allowed rather than as a
+        // test for what is wrong, so that NaN is caught: every comparison with NaN is false, so
+        // `rarity > 1` would wave it through and the amplitude would silently turn a whole world
+        // into air. M3c's NaN hardness threshold, three fields along.
+        float rarity = settings.ReliefRarity;
+        if (!(rarity >= 0.0f && rarity <= 1.0f))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(settings),
-                variation,
-                $"{nameof(WorldGenSettings.ReliefVariation)} must be between 0 and 1 — it is a "
-                + "share of the surface amplitude, so 0 is a world of even lumpiness and 1 lets a "
-                + "region run from flat to twice the base relief. Anything outside that (or NaN) "
-                + "would put the ground somewhere nobody can predict.");
+                rarity,
+                $"{nameof(WorldGenSettings.ReliefRarity)} must be between 0 and 1 — 0 ramps across "
+                + "the whole relief field and 1 leaves only its peaks. Anything outside that (or "
+                + "NaN) would put the ground somewhere nobody can predict.");
+        }
+
+        float reliefBase = settings.ReliefBaseVoxels;
+        float peak = settings.SurfaceAmplitudeVoxels;
+
+        if (!(reliefBase >= 0.0f && reliefBase <= peak))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(settings),
+                reliefBase,
+                $"{nameof(WorldGenSettings.ReliefBaseVoxels)} is the amplitude in the flattest "
+                + "places and must be between 0 and "
+                + $"{nameof(WorldGenSettings.SurfaceAmplitudeVoxels)} ({peak}), which is the "
+                + "amplitude in the most mountainous. A floor above its own ceiling is not a "
+                + "world with inverted mountains, it is a sign the two were passed the wrong way "
+                + "round.");
         }
 
         _settings = settings;
@@ -133,7 +168,13 @@ public sealed class WorldGenerator : ISurfaceHeights
         _caveSeed = Hash64.Mix(settings.Seed ^ 0xCA1E5000UL);
         _reliefSeed = Hash64.Mix(settings.Seed ^ 0x5E11EF00UL);
 
-        _reliefVariation = variation;
+        _reliefBase = reliefBase;
+        _reliefRarity = rarity;
+
+        // An exact equality, deliberately: this is the switch between "sample a second noise
+        // field per column" and "do what this function has always done", so it wants to be the
+        // same question the defaults answer rather than a tolerance somebody has to think about.
+        _reliefVaries = reliefBase != peak;
         _reliefFrequency = settings.SurfaceFrequency / ReliefFrequencyRatio;
     }
 
@@ -150,13 +191,13 @@ public sealed class WorldGenerator : ISurfaceHeights
     /// exists. The relief field is sampled from the same two coordinates and so keeps that.
     /// </para>
     /// <para>
-    /// <b>With <see cref="WorldGenSettings.ReliefVariation"/> at 0 this is bit for bit the
-    /// function it has always been</b>, and deliberately by skipping the arithmetic rather than
-    /// by multiplying by a factor of exactly one. The second would also be exact today, and would
-    /// stop being the moment anyone reordered the expression; the first cannot drift. It is also
-    /// what keeps a neutral world from paying for a noise sample it does not use — this is the
-    /// hottest function in the project after the cave lattice, at 1,024 evaluations per sky
-    /// column.
+    /// <b>In a uniform world — <see cref="WorldGenSettings.ReliefBaseVoxels"/> equal to
+    /// <see cref="WorldGenSettings.SurfaceAmplitudeVoxels"/> — this is bit for bit the function it
+    /// has always been</b>, and deliberately by skipping the arithmetic rather than by
+    /// interpolating to exactly one end. The second would also be exact today, and would stop
+    /// being the moment anyone reordered the expression; the first cannot drift. It is also what
+    /// keeps a uniform world from paying for a noise sample it does not use — this is the hottest
+    /// function in the project after the cave lattice, at 1,024 evaluations per sky column.
     /// </para>
     /// </remarks>
     public int SurfaceHeightAt(int worldX, int worldZ)
@@ -169,40 +210,74 @@ public sealed class WorldGenerator : ISurfaceHeights
             _settings.Lacunarity,
             _settings.Gain);
 
-        if (_reliefVariation <= 0.0f)
+        if (!_reliefVaries)
         {
             return _settings.SeaLevelVoxels + (int)MathF.Round(noise * _settings.SurfaceAmplitudeVoxels);
         }
 
-        float amplitude = _settings.SurfaceAmplitudeVoxels * ReliefFactorAt(worldX, worldZ);
-        return _settings.SeaLevelVoxels + (int)MathF.Round(noise * amplitude);
+        return _settings.SeaLevelVoxels + (int)MathF.Round(noise * SurfaceAmplitudeAt(worldX, worldZ));
     }
 
     /// <summary>
-    /// What share of <see cref="WorldGenSettings.SurfaceAmplitudeVoxels"/> this column gets:
-    /// 1 at the average, down toward 0 in a plain, up toward 2 in a highland.
+    /// How far the surface deviates from sea level in this column: between
+    /// <see cref="WorldGenSettings.ReliefBaseVoxels"/> in the flat places and
+    /// <see cref="WorldGenSettings.SurfaceAmplitudeVoxels"/> in the mountains.
     /// </summary>
     /// <remarks>
-    /// <b>One octave, and the sample is clamped before it is used.</b> A single octave is what a
-    /// region is — adding detail to it would put hills on the map of where the hills are — and
-    /// <see cref="GradientNoise.Sample2D"/> is documented as <em>roughly</em> in [-1, 1], which is
-    /// not a guarantee. Without the clamp a variation of 1 could hand back a negative factor,
-    /// which does not read as flat: it mirrors the surface, so a valley comes out where its
-    /// neighbours have a hill and the seam between them is a cliff.
+    /// <b>One octave of relief field, and the sample is clamped before it is shaped.</b> A single
+    /// octave is what a region is — adding detail to it would put hills on the map of where the
+    /// hills are — and <see cref="GradientNoise.Sample2D"/> is documented as <em>roughly</em> in
+    /// [-1, 1], which is not a guarantee, so the clamp is what keeps the result inside the floor
+    /// and the ceiling the caller asked for rather than somewhere past them.
     /// </remarks>
-    public float ReliefFactorAt(int worldX, int worldZ)
+    public float SurfaceAmplitudeAt(int worldX, int worldZ)
     {
-        if (_reliefVariation <= 0.0f)
+        if (!_reliefVaries)
         {
-            return 1.0f;
+            return _settings.SurfaceAmplitudeVoxels;
         }
 
-        float relief = GradientNoise.Sample2D(
-            _reliefSeed,
-            worldX * _reliefFrequency,
-            worldZ * _reliefFrequency);
+        float relief = Math.Clamp(
+            GradientNoise.Sample2D(
+                _reliefSeed,
+                worldX * _reliefFrequency,
+                worldZ * _reliefFrequency),
+            -1.0f,
+            1.0f);
 
-        return 1.0f + (_reliefVariation * Math.Clamp(relief, -1.0f, 1.0f));
+        float span = _settings.SurfaceAmplitudeVoxels - _reliefBase;
+        return _reliefBase + (span * ReliefShare(relief, _reliefRarity));
+    }
+
+    /// <summary>
+    /// How much of the way from the floor to the ceiling a column at this relief sample gets:
+    /// 0 in a plain, 1 on a summit.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A threshold that rarity slides, and a square ramp above it.</b> Both a rising threshold
+    /// and a rising exponent make mountains rarer, so shipping both would be two dials doing one
+    /// job; the threshold is the one with a legible meaning — <em>how much of the map is
+    /// mountain</em> — and the exponent is fixed at 2 so the foothills ease in rather than
+    /// starting at a crease.
+    /// </para>
+    /// <para>
+    /// <b>The threshold slides across <see cref="ReliefLowestSample"/>..<see
+    /// cref="ReliefRarestThreshold"/>, not across [-1, 1]</b>, and that is the whole reason this
+    /// dial does anything. Read the remarks on those constants before moving them.
+    /// </para>
+    /// </remarks>
+    public static float ReliefShare(float relief, float rarity)
+    {
+        float threshold = ReliefLowestSample
+            + ((ReliefRarestThreshold - ReliefLowestSample) * rarity);
+
+        float ramp = Math.Clamp(
+            (relief - threshold) / (ReliefReachableSample - threshold),
+            0.0f,
+            1.0f);
+
+        return ramp * ramp;
     }
 
     /// <summary>

@@ -351,14 +351,27 @@ public class WorldGeneratorTests
 
 
     // -------------------------------------------------------------------------------------
-    // Regions. A second, much slower noise field multiplies the surface amplitude per column,
-    // so a world has mountains in one place and plains in another rather than one lumpiness
-    // everywhere. Neutral by default, because every recorded figure in this project is a
+    // Regions. A much slower second noise field decides how far between a floor and a ceiling
+    // each column's amplitude sits, so a world has plains in one place and mountains in
+    // another. Uniform by default, because every recorded figure in this project is a
     // statement about the landscape the defaults produce.
+    //
+    // This replaced a multiplier centred on 1 (header v6, alive for one day). The tests that
+    // matter here are the two that killed it: something has to be flat, and something has to
+    // be mountainous, in the same world.
     // -------------------------------------------------------------------------------------
 
+    /// <summary>The shipped shape for a new world: a low floor, a high ceiling, mountains uncommon.</summary>
+    private static WorldGenSettings Shaped(float baseMul = 0.4f, float peakMul = 3.0f, float rarity = 0.25f) =>
+        Settings() with
+        {
+            SurfaceAmplitudeVoxels = 48.0f * peakMul,
+            ReliefBaseVoxels = 48.0f * baseMul,
+            ReliefRarity = rarity,
+        };
+
     [Fact]
-    public void ReliefVariationIsNeutralByDefault()
+    public void ReliefIsUniformByDefault()
     {
         // The test that protects every measurement in the repo. The oracle is the formula spelled
         // out here rather than a comparison against another generator, because two generators
@@ -366,7 +379,8 @@ public class WorldGeneratorTests
         // had moved under the r6 control, the keystone's at-risk count and the profile seed's
         // dry first forty seconds.
         var defaults = new WorldGenSettings { Seed = 0x5EEDUL };
-        Assert.Equal(0.0f, defaults.ReliefVariation);
+        Assert.Equal(defaults.SurfaceAmplitudeVoxels, defaults.ReliefBaseVoxels);
+        Assert.Equal(0.0f, defaults.ReliefRarity);
 
         var generator = new WorldGenerator(defaults, Strata());
 
@@ -386,100 +400,121 @@ public class WorldGeneratorTests
                     + (int)MathF.Round(noise * defaults.SurfaceAmplitudeVoxels);
 
                 Assert.Equal(expected, generator.SurfaceHeightAt(x, z));
-                Assert.Equal(1.0f, generator.ReliefFactorAt(x, z));
+                Assert.Equal(defaults.SurfaceAmplitudeVoxels, generator.SurfaceAmplitudeAt(x, z));
             }
         }
     }
 
     [Fact]
-    public void ReliefVariationGivesAWorldSomewhereFlatAndSomewhereMountainous()
+    public void AShapedWorldHasSomewhereFlatAndSomewhereMountainous()
     {
-        // What "regions" has to mean to be worth the field: not that heights differ — one noise
-        // field already does that — but that *how much they differ* differs from place to place.
-        // So this measures local relief in windows and asks whether the calmest window and the
-        // roughest one are a different kind of place.
+        // Matthew's sentence as a test: "I kind of want them somewhere but not everywhere."
         //
-        // **The window and the span are derived from the region's own wavelength**, not written
-        // as metres, because the first version of this test fixed them at 128 m over a 1 km span
-        // and measured a relief field whose period was 500 m — every window straddled a peak and
-        // a trough, so it reported 2.7x and read as a failure of the feature when it was a
-        // failure of the sample. A window has to be small against a region and the span has to
-        // cover several of them. That measurement is what moved ReliefFrequencyRatio to 32.
-        var settings = Settings() with { ReliefVariation = 0.75f };
+        // **This is the test the multiplier could not pass at any setting**, which is why the
+        // shape changed. Under `amplitude x (1 + vary x n)` the flattest 200 m window in 32 km
+        // still had 21.8 m of relief at --relief=3 --reliefvary=0.5, and 15.0 m at vary=1,
+        // because Perlin noise rarely reaches its extremes so the factor sits near 1 almost
+        // everywhere. A floor and a ceiling cannot have that problem.
+        //
+        // The window and the span are derived from the region's own wavelength, not written as
+        // metres: an earlier version fixed them at 128 m over a 1 km span and measured a field
+        // whose period was 500 m, so every window straddled a peak and a trough and the sample
+        // could not have seen the effect whatever the setting was.
+        var settings = Shaped();
         var generator = new WorldGenerator(settings, Strata());
 
         int period = (int)(WorldGenerator.ReliefFrequencyRatio / settings.SurfaceFrequency);
         int window = period / 16;
-        int step = period / 4;
+        int step = period / 8;
         int span = period * 4;
 
-        int calmest = int.MaxValue;
-        int roughest = 0;
+        int flattest = int.MaxValue;
+        int tallest = 0;
 
         for (int originZ = -span; originZ < span; originZ += step)
         {
             for (int originX = -span; originX < span; originX += step)
             {
-                int low = int.MaxValue;
-                int high = int.MinValue;
-
-                for (int z = originZ; z < originZ + window; z += 16)
-                {
-                    for (int x = originX; x < originX + window; x += 16)
-                    {
-                        int height = generator.SurfaceHeightAt(x, z);
-                        low = Math.Min(low, height);
-                        high = Math.Max(high, height);
-                    }
-                }
-
-                calmest = Math.Min(calmest, high - low);
-                roughest = Math.Max(roughest, high - low);
+                int relief = ReliefWithin(generator, originX, originZ, window);
+                flattest = Math.Min(flattest, relief);
+                tallest = Math.Max(tallest, relief);
             }
         }
 
+        // Somewhere genuinely flat: under 8 m of relief across 200 m of ground.
         Assert.True(
-            roughest >= calmest * 4,
-            $"over {window} voxels the roughest place in this world has {roughest} voxels of "
-            + $"relief and the calmest {calmest} — under four times, this reads as one landscape "
-            + "rather than as somewhere to walk to.");
+            flattest < 32,
+            $"the flattest place in this world has {flattest} voxels ({flattest * 0.25:0.0} m) of "
+            + "relief over a 200 m window — nowhere is actually flat, which is the defect the "
+            + "floor exists to prevent.");
+
+        // And somewhere that is not: over 20 m.
+        Assert.True(
+            tallest > 80,
+            $"the tallest place in this world has {tallest} voxels ({tallest * 0.25:0.0} m) of "
+            + "relief — the ceiling never gets reached, so the mountains are not there.");
+    }
+
+    [Theory]
+    [InlineData(0.0f, 0.25f)]
+    [InlineData(0.25f, 0.5f)]
+    [InlineData(0.5f, 0.75f)]
+    [InlineData(0.75f, 1.0f)]
+    public void RaisingTheRarityLeavesFewerMountains(float commoner, float rarer)
+    {
+        // The dial's own property, and the only one worth asserting about it: whichever way the
+        // threshold and the ramp are arranged inside, more rarity must mean less mountain. The
+        // arms share a seed and a span, so nothing but the dial differs.
+        Assert.True(MountainousShare(commoner) > MountainousShare(rarer));
     }
 
     [Fact]
-    public void TheReliefFieldNeverInvertsTheSurface()
+    public void TheRarestSettingStillLeavesTheSummitsReachable()
     {
-        // At variation 1 the factor runs to the edges of [0, 2], and Sample2D is documented as
-        // only *roughly* in [-1, 1] — so without the clamp a factor could go negative, which does
-        // not read as flat. It mirrors the surface: a valley where the neighbouring region has a
-        // hill, with a cliff along the join. The clamp is what this is standing over.
-        var generator = new WorldGenerator(Settings() with { ReliefVariation = 1.0f }, Strata());
+        // The trap this shape exists to avoid, as a test. The obvious mask -- max(0, n)^k --
+        // puts the threshold outside the noise field's own range once k is 2 or more, because 2D
+        // gradient noise spans about +-0.7 rather than +-1. The sweep then reads "0% hilly",
+        // which looks exactly like a plausible rarity setting and is in fact the feature being
+        // switched off. At rarity 1 mountains must be rare; they must not be absent.
+        Assert.True(MountainousShare(1.0f) > 0.0);
+    }
+
+    [Fact]
+    public void TheAmplitudeStaysBetweenTheFloorAndTheCeiling()
+    {
+        // Sample2D is documented as only *roughly* in [-1, 1], so the clamp inside is what keeps
+        // this true. Without it a column could be handed an amplitude outside the pair the caller
+        // asked for -- and below the floor means below zero, which mirrors the surface: a valley
+        // where the neighbouring region has a hill, with a cliff along the join.
+        var settings = Shaped(baseMul: 0.1f, peakMul: 6.0f, rarity: 0.0f);
+        var generator = new WorldGenerator(settings, Strata());
 
         float lowest = float.MaxValue;
         float highest = float.MinValue;
 
-        for (int z = -4096; z <= 4096; z += 64)
+        for (int z = -8192; z <= 8192; z += 64)
         {
-            for (int x = -4096; x <= 4096; x += 64)
+            for (int x = -8192; x <= 8192; x += 64)
             {
-                float factor = generator.ReliefFactorAt(x, z);
-                lowest = MathF.Min(lowest, factor);
-                highest = MathF.Max(highest, factor);
+                float amplitude = generator.SurfaceAmplitudeAt(x, z);
+                lowest = MathF.Min(lowest, amplitude);
+                highest = MathF.Max(highest, amplitude);
             }
         }
 
-        Assert.True(lowest >= 0.0f, $"the relief factor reached {lowest}, which mirrors the terrain");
-        Assert.True(highest <= 2.0f, $"the relief factor reached {highest}, past twice the amplitude");
+        Assert.True(lowest >= settings.ReliefBaseVoxels, $"amplitude reached {lowest}, under the floor");
+        Assert.True(highest <= settings.SurfaceAmplitudeVoxels, $"amplitude reached {highest}, over the ceiling");
     }
 
     [Fact]
     public void RegionsDoNotShowUpAsASeamBetweenChunks()
     {
-        // The seam test again with the relief field on. It holds by construction — the field
-        // reads the same two world coordinates the surface does — and it is pinned because the
+        // The seam test again with the relief field on. It holds by construction -- the field
+        // reads the same two world coordinates the surface does -- and it is pinned because the
         // way to break it is to reach for the chunk you are in, which is exactly the temptation
         // a regional feature carries. Invisible until it is in a screenshot.
         var generator = new WorldGenerator(
-            Settings(caves: false) with { ReliefVariation = 0.8f },
+            Shaped() with { CavesEnabled = false },
             Strata());
 
         VoxelChunk left = generator.GenerateTerrain(new ChunkPos(0, 0, 0));
@@ -498,7 +533,7 @@ public class WorldGeneratorTests
         // The relief field is a second thing SurfaceHeightAt consults, so it is a second thing
         // that could become a buffer reused across a chunk. It is not one today; this is what
         // notices if it becomes one.
-        var settings = Settings() with { ReliefVariation = 0.8f };
+        WorldGenSettings settings = Shaped();
         ChunkPos[] positions =
         [
             new(0, 0, 0), new(3, 0, -2), new(-1, 0, 1), new(7, 0, 5),
@@ -524,15 +559,79 @@ public class WorldGeneratorTests
     [InlineData(1.001f)]
     [InlineData(float.NaN)]
     [InlineData(float.PositiveInfinity)]
-    public void AReliefVariationOutsideItsRangeRefusesToConstruct(float variation)
+    public void AReliefRarityOutsideItsRangeRefusesToConstruct(float rarity)
     {
         // NaN is the one that matters and the one a range check written the obvious way lets
-        // through: every comparison with NaN is false, so `variation > 1` says no. M3c's NaN
+        // through: every comparison with NaN is false, so `rarity > 1` says no. M3c's NaN
         // hardness threshold, which inverted a gate from "takes nothing" to "takes everything".
         var error = Assert.Throws<ArgumentOutOfRangeException>(
-            () => new WorldGenerator(Settings() with { ReliefVariation = variation }, Strata()));
+            () => new WorldGenerator(Settings() with { ReliefRarity = rarity }, Strata()));
 
-        Assert.Contains("ReliefVariation", error.Message);
+        Assert.Contains(nameof(WorldGenSettings.ReliefRarity), error.Message);
+    }
+
+    [Theory]
+    [InlineData(-1.0f)]
+    [InlineData(float.NaN)]
+    [InlineData(48.001f)]
+    [InlineData(float.PositiveInfinity)]
+    public void AFloorThatIsNotUnderItsOwnCeilingRefusesToConstruct(float floor)
+    {
+        // A floor above the ceiling is not a world with inverted mountains -- the ramp would run
+        // backwards and the flat places would be the tall ones -- it is the two being passed the
+        // wrong way round. Refused rather than sorted, because sorting them hides the mistake.
+        var error = Assert.Throws<ArgumentOutOfRangeException>(
+            () => new WorldGenerator(Settings() with { ReliefBaseVoxels = floor }, Strata()));
+
+        Assert.Contains(nameof(WorldGenSettings.ReliefBaseVoxels), error.Message);
+    }
+
+    /// <summary>What share of 200 m windows over several regions are mountainous, at one rarity.</summary>
+    private static double MountainousShare(float rarity)
+    {
+        WorldGenSettings settings = Shaped(rarity: rarity);
+        var generator = new WorldGenerator(settings, Strata());
+
+        int period = (int)(WorldGenerator.ReliefFrequencyRatio / settings.SurfaceFrequency);
+        int window = period / 16;
+        int step = period / 8;
+        int span = period * 4;
+
+        int windows = 0;
+        int mountainous = 0;
+
+        for (int originZ = -span; originZ < span; originZ += step)
+        {
+            for (int originX = -span; originX < span; originX += step)
+            {
+                windows++;
+                if (ReliefWithin(generator, originX, originZ, window) >= 80)
+                {
+                    mountainous++;
+                }
+            }
+        }
+
+        return (double)mountainous / windows;
+    }
+
+    /// <summary>Highest minus lowest surface, in voxels, over a square of that many voxels.</summary>
+    private static int ReliefWithin(WorldGenerator generator, int originX, int originZ, int size)
+    {
+        int low = int.MaxValue;
+        int high = int.MinValue;
+
+        for (int z = originZ; z < originZ + size; z += 16)
+        {
+            for (int x = originX; x < originX + size; x += 16)
+            {
+                int height = generator.SurfaceHeightAt(x, z);
+                low = Math.Min(low, height);
+                high = Math.Max(high, height);
+            }
+        }
+
+        return high - low;
     }
 
     [Fact]

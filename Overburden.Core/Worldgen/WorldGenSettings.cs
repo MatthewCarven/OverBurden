@@ -79,42 +79,70 @@ public sealed record WorldGenSettings
     /// <summary>Voxel Y that a completely flat world would have as its topmost solid voxel.</summary>
     public int SeaLevelVoxels { get; init; } = 0;
 
-    /// <summary>How far the surface deviates from <see cref="SeaLevelVoxels"/>, in voxels.</summary>
+    /// <summary>
+    /// How far the surface deviates from <see cref="SeaLevelVoxels"/> <b>in the most mountainous
+    /// places</b>, in voxels. The flattest places get <see cref="ReliefBaseVoxels"/> instead, and
+    /// when the two are equal the world has one lumpiness everywhere.
+    /// </summary>
     public float SurfaceAmplitudeVoxels { get; init; } = 48.0f;
 
     /// <summary>
-    /// How much <see cref="SurfaceAmplitudeVoxels"/> varies from region to region, as a share
-    /// of itself. 0 is a world of uniform lumpiness; 1 lets a region run from dead flat to twice
-    /// the base relief.
+    /// How far the surface deviates from <see cref="SeaLevelVoxels"/> <b>in the flattest
+    /// places</b>, in voxels. Equal to <see cref="SurfaceAmplitudeVoxels"/> means a uniform world;
+    /// below it, the difference is what the mountains are made of.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>What makes two worlds feel different is not one number, it is mountains here and plains
-    /// there.</b> A per-world amplitude makes a world uniformly lumpy or uniformly flat and gives
-    /// you nowhere to walk to; a second, much slower noise field multiplying the amplitude per
-    /// column gives a world regions. It is a multiplier rather than a second additive octave
-    /// deliberately: an octave adds detail everywhere, where this changes <em>how much of the
-    /// existing shape</em> a place gets, which is the thing being asked for.
+    /// <b>A floor and a ceiling, rather than a multiplier centred on one — and that is a
+    /// correction, measured.</b> The first attempt at regions (2026-09-23, header v6) scaled the
+    /// amplitude by <c>1 + variation × n</c>, which makes the <em>typical</em> place get the
+    /// <em>typical</em> amplitude: turn the relief up and everywhere gets bigger together.
+    /// Matthew's verdict on the first world built that way was *"massive hills idk, like I kind of
+    /// want them somewhere but not everywhere"*, and the sweep agreed with him — at
+    /// <c>--relief=3 --reliefvary=0.5</c> the flattest 200 m window in 32 km still had 21.8 m of
+    /// relief, and **even at variation 1 nothing anywhere was flat**, because Perlin noise rarely
+    /// reaches its extremes so the factor sits near 1 almost everywhere. A floor and a ceiling
+    /// cannot have that problem: the flat places are flat because they are told to be.
     /// </para>
     /// <para>
-    /// <b>The default is 0, and that is a measurement decision rather than a taste one.</b> Every
-    /// recorded figure in this project is a statement about one landscape — the r6 control, the
-    /// keystone's at-risk count, "the first forty seconds of the profile seed are dry" — and all
-    /// of them are taken on the default settings at a fixed seed. A non-zero default would move
-    /// the ground under every one of them with the suite green. So the neutral value is what the
-    /// record ships, what an old world reads back, and what a profile run gets; a new world
-    /// created to be <em>played</em> is where the shipped value is applied, which is the same rule
-    /// and the same reason as the random seed. <c>ReliefVariationIsNeutralByDefault</c> holds the
-    /// bit-identity.
-    /// </para>
-    /// <para>
-    /// The field it modulates is one octave at <see cref="WorldGenerator.ReliefFrequencyRatio"/>
-    /// times the surface's wavelength — a derived number rather than a fourteenth setting,
-    /// because how large a region is, is a decision about the game's shape rather than about
-    /// one world.
+    /// <b>The default is equal to the ceiling, and that is a measurement decision rather than a
+    /// taste one.</b> Every recorded figure in this project is a statement about one landscape —
+    /// the r6 control, the keystone's at-risk count, "the first forty seconds of the profile seed
+    /// are dry" — and all of them are taken on the default settings at a fixed seed. A default
+    /// that shaped the terrain would move the ground under every one of them with the suite green.
+    /// So a uniform world is what the record ships, what an old world reads back, and what a
+    /// profile run gets; a new world created to be <em>played</em> is where the shipped shape is
+    /// applied, which is the same rule and the same reason as the random seed.
+    /// <c>ReliefIsUniformByDefault</c> holds the bit-identity.
     /// </para>
     /// </remarks>
-    public float ReliefVariation { get; init; } = 0.0f;
+    public float ReliefBaseVoxels { get; init; } = 48.0f;
+
+    /// <summary>
+    /// How rare the mountains are, 0..1. At 0 the ramp from
+    /// <see cref="ReliefBaseVoxels"/> to <see cref="SurfaceAmplitudeVoxels"/> spans the whole
+    /// relief field, so most places get something; at 1 only its very peaks do.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One dial rather than the threshold and the exponent it is made of</b>, because both make
+    /// mountains rarer and two knobs that do the same thing is two knobs nobody can set. It moves
+    /// a threshold across the part of the field the noise actually reaches, with a fixed square
+    /// ramp above it — see <see cref="WorldGenerator.ReliefShare"/>.
+    /// </para>
+    /// <para>
+    /// <b>The reachable part is the whole trick, and getting it wrong is invisible.</b> The
+    /// obvious mask, <c>max(0, n)^k</c>, puts the mountain threshold outside the field's own
+    /// range once <c>k</c> is 2 or more — 2D gradient noise spans about ±0.7 in practice, not
+    /// ±1 — so the sweep read "0% hilly" for what looked like a plausible rarity setting and was
+    /// in fact mountains never occurring at all. Measured, in the 2026-09-23 worklog entry.
+    /// </para>
+    /// <para>
+    /// Ignored when <see cref="ReliefBaseVoxels"/> equals <see cref="SurfaceAmplitudeVoxels"/>,
+    /// because then there is nothing to ramp between.
+    /// </para>
+    /// </remarks>
+    public float ReliefRarity { get; init; } = 0.0f;
 
     public float SurfaceFrequency { get; init; } = 0.004f;
 

@@ -1,5 +1,74 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-23 — Relief is a floor, a ceiling and a rarity; the multiplier lasted a day
+
+Matthew built the first world with regions in it and reported back: *"produced massive hills idk,
+like I kind of want them somewhere but not everywhere, i may have to experiment in another project
+with our noise function? Do we use like Perlin noise something like?"* — and then, on the
+recommendation, *"go, build base/peak/rarity as recommended"*.
+
+**The noise was never the problem.** It is Perlin — ours, `GradientNoise`: eight fixed 2D gradient
+directions, the quintic fade, corners hashed through `Hash64`, `Fbm2D` summing octaves under a
+*separate seed each* so octaves do not correlate their peaks. The problem was the mapping from the
+relief field to an amplitude. v6 used `amplitude × (1 + variation × n)` — **a multiplier centred on
+1**, so the typical place gets the typical amplitude and turning the relief up makes everywhere
+bigger together. That is exactly the sentence he wrote.
+
+**And it could not have been tuned out of it.** The sweep, over 1,024 two-hundred-metre windows
+across 32 km: at `--relief=3 --reliefvary=0.5` the flattest window in the world still held 21.8 m
+of relief and 89% of the map was hilly; **at variation 1 — the dial at its limit — the flattest was
+still 15.0 m and 0% of the world was flat**, because Perlin rarely reaches its extremes so the
+factor sits near 1 almost everywhere. A centred multiplier cannot produce a plain. A floor and a
+ceiling cannot fail to.
+
+**So: `ReliefBaseVoxels` and `ReliefRarity`, with `SurfaceAmplitudeVoxels` redefined as the
+ceiling.** A column's amplitude is `base + (peak − base) × share(n)`, where `share` is a square
+ramp above a threshold that rarity slides. **Equal floor and ceiling is uniform and skips the noise
+sample entirely** — the record's default, every older world's reading, and what a `--profile` run
+gets, which is what keeps the r6 control at 2601 / 325 / 3446 at 411 to the digit.
+
+**The replacement has its own trap and the table is what caught it.** The obvious mask,
+`max(0, n)^k`, reads "0% hilly" at k ≥ 2 — and that is not mountains being rare, it is mountains
+*never occurring*, because 2D gradient noise spans about ±0.7 and cubing puts the threshold outside
+the field's own range. By eye it is a plausible rarity setting. `ReliefLowestSample` and
+`ReliefReachableSample` are calibrated against the field's real reach, and
+`TheRarestSettingStillLeavesTheSummitsReachable` is the test standing over it.
+
+**The shipped shape is a measured row rather than an interpolated guess**: base 0.4×, peak 3×,
+rarity 0.25 — 53% flat, 37% rolling, 10% hilly, tallest places 36 m. The rows either side are in
+the sweep, so moving it is a lookup.
+
+**Header v7, and it is the one exception to "additive" this file has ever taken.** v6 lived for a
+day; a v6 header is read by keeping its stored amplitude as the ceiling and taking `A(1 − v)` — the
+flattest it could ever have produced — as the floor, so **a v6 world of even lumpiness comes back
+bit-identical**, which is every world anyone was playing, and only the half-dozen scratch worlds
+made while settling the shape change distribution. Written down in `OldestVersion` as grandfathered
+rather than as a precedent. The reflection test that counts the record's properties fired for the
+second time in one day, both times before the fields had a reader.
+
+**Two defects, and neither could have been caught where it was made.** The v6 migration fixture cut
+four bytes at offset 53, which removes the *floor* and leaves the rarity where the old variation
+was — so the migration read as "a world that never used the feature" and the test passed for the
+wrong reason until the expected value was wrong. And `WithRelief` read the amplitude off the
+settings it was given while being called twice per created world, so `--relief=4 --reliefbase=0.2`
+built `38.4..768` instead of `9.6..192`: **the multipliers applied twice, and no test in the suite
+could have seen it because none of them goes through `Main`.** The headless wire check is what
+found it, which is the M5c-2 lesson again — every layer tested, the wire between them not.
+
+**Cost, measured headless at r6, shaped against uniform in one session**: the fill's derive +2.5%
+and all-settled 4.03 → 4.05 s, invisible end to end; the box-difference sweep, which is
+`SkyColumn.Seed`'s 1,024 surface evaluations a column, goes **`viewer ms` mean 6.53 → 7.82, p50
+6.49 → 7.80** — about 1.3 ms against a 16.7 ms frame. Named lever, not built: the amplitude is
+near-constant over 2 km and could ride a coarse lattice the way cave noise already does.
+
+The wire, verbatim: a new world prints `relief 19.2..144 voxel(s), mountains 25% rare`;
+`--relief=4 --reliefbase=0.2 --reliefrare=0.6` prints `9.6..192 voxel(s), mountains 60% rare`;
+reopening it with `--relief=9` warns and keeps what the header holds; `--reliefbase=2 --relief=1`
+warns once and builds a uniform world; and `--relief=lots`, `--reliefbase=-1`, `--reliefrare=9` are
+each refused out loud.
+
+Suite 1,749 → 1,760.
+
 ## 2026-09-23 — A world has regions, and how mountainous it is is a flag
 
 Matthew, after the measurement above: *"build 1, and 2 as recommended"* — a scaling knob for the

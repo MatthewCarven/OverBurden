@@ -32,23 +32,28 @@ works** — it sets where in the forecast the world starts, and an existing worl
 with what it remembers, so `start.cmd "--world=storm test" --clock=900` is how you open straight
 into weather rather than waiting for it.
 
-**How mountainous your world is, and whether it changes as you walk.** Both are set when a
-world is created and neither can be changed afterwards — an unedited chunk is rebuilt from the
-world's own header, so a world that changed its relief would rebuild the landscape *around*
-whatever you had already dug, with your mine hanging in it. So they are new-world flags, and the
-game says so if you pass one to a world that exists.
+**How mountainous your world is, and where.** Three dials, all set when a world is created and
+none of them changeable afterwards — an unedited chunk is rebuilt from the world's own header, so
+a world that changed its relief would rebuild the landscape *around* whatever you had already dug,
+with your mine hanging in it. The game says so if you pass one to a world that exists.
 
 ```bash
-start.cmd "--world=Big Country" --relief=2
+start.cmd "--world=Big Country" --relief=4 --reliefbase=0.3 --reliefrare=0.4
 ```
 
-`--relief=<x>` multiplies the hills: 2 is twice as mountainous, 0.5 is rolling country, 1 is
-what you have been playing. `--reliefvary=<0..1>` is the other half — how much that relief
-*changes from place to place*. Every world since 2026-09-23 gets 0.5 of it whether you ask or
-not, which means a region runs from half the base relief to one and a half times it, and a
-region is about 2 km across — a few minutes of walking. `--reliefvary=0` is the old world, one
-lumpiness everywhere. The `M6: new world` line prints both, as `relief 48 voxel(s) varying 50%
-by region`.
+- **`--relief=<x>`** — how tall the mountains get. 1 is the old world, 3 is the shipped default, 6
+  is dramatic.
+- **`--reliefbase=<x>`** — how flat the flat places are. 0.4 is the default; lower means real
+  plains between the hills.
+- **`--reliefrare=<0..1>`** — how much of the map is mountain. 0 gives every region some height,
+  1 leaves it only on the summits. 0.25 is the default.
+
+All three are multiples of the same number, so `--reliefbase` wants to be smaller than `--relief`.
+A new world gets `0.4 / 3 / 0.25` whether you ask or not, which measures out as **roughly half the
+map flat, a third rolling, a tenth properly hilly, with the tallest places around 36 m**. The
+`M6: new world` line prints what you got, as `relief 19.2..144 voxel(s), mountains 25% rare`.
+
+If you want the old uniform world back: `--reliefbase=1 --relief=1`.
 
 **How to read a play afterwards.** The log is
 `%APPDATA%\Godot\app_userdata\Overburden\logs\godot.log` (the live or last session; the
@@ -76,12 +81,16 @@ otherwise — flags go on the end of the `start.cmd` line.
 
 ### Owed from the relief change (2026-09-23)
 
-- [ ] **Does a world feel like it has somewhere else in it?** Launch a new world — `start.cmd
-      "--world=Regions"` — and walk or fly in one direction for a few minutes. Every world now
-      varies its relief by region, at 0.5, which is my estimate and nobody's measurement. One
-      sentence: does the landscape change enough as you travel, too much, or not enough? If it
-      wants more, `--reliefvary=0.8` on another new world is the arm; `--reliefvary=0` is the
-      world you had before.
+- [ ] **Does a world have somewhere flat and somewhere mountainous?** Launch a new world —
+      `start.cmd "--world=Shaped"` — and travel in one direction for a few minutes. The shipped
+      shape is my estimate off a sweep, not anybody's judgement. One sentence: are the flat places
+      flat enough, are the mountains big enough, and do you hit one often enough? The dials to
+      reach for are `--reliefbase` (lower = flatter plains), `--relief` (higher = bigger peaks)
+      and `--reliefrare` (higher = rarer). All on a *new* world.
+- [ ] **Regions1–7 and `default` are all still on disk** in
+      `%APPDATA%\Godot\app_userdata\Overburden\worlds\`. The Regions ones were built while
+      settling the shape and are throwaway — delete them whenever. `default` is your old game and
+      is untouched.
 
 ### Owed from the rain play (two sentences, still outstanding)
 

@@ -25,7 +25,7 @@ namespace Overburden.Core.Persistence;
 /// regenerated — and it regenerates from every field, not only <see cref="WorldGenSettings.Seed"/>.
 /// Change the default <see cref="WorldGenSettings.CaveLatticeStep"/> in a later build and the
 /// unstored terrain around a saved base comes back a different shape, with the saved chunks
-/// hanging in it. Fourteen fields, all of them load-bearing, all of them written.
+/// hanging in it. Fifteen fields, all of them load-bearing, all of them written.
 /// </para>
 /// </remarks>
 public sealed record WorldHeader
@@ -157,11 +157,11 @@ public readonly record struct PlayerSave(Vector3 FeetMetres, bool Flying);
 /// </para>
 /// <para>
 /// <b><see cref="SettingsBytes"/> is asserted against the record's actual property count by a
-/// test.</b> Adding a fifteenth field to <see cref="WorldGenSettings"/> and forgetting to write
+/// test.</b> Adding a sixteenth field to <see cref="WorldGenSettings"/> and forgetting to write
 /// it here would otherwise be invisible: the header would still round-trip, and the field would
-/// silently take its default on every reload. <b>That guard has now fired in anger once</b>:
-/// <see cref="WorldGenSettings.ReliefVariation"/> arrived at v6 and the test went red before
-/// the field had a reader, which is the whole of what it is for.
+/// silently take its default on every reload. <b>That guard has now fired in anger twice in one
+/// day</b>: the relief variation arrived at v6 and its replacements at v7, and both times the test
+/// went red before the fields had a reader, which is the whole of what it is for.
 /// </para>
 /// </remarks>
 public static class WorldHeaderBlob
@@ -171,9 +171,10 @@ public static class WorldHeaderBlob
     /// <b>Moved to 2 at M6c-2</b> for the player's position and the volumetric inventory,
     /// <b>to 3 at M7b-2</b> for the world clock and the watershed lattice, and <b>to 4 at
     /// M10c-3</b> for the equipped pack, and <b>to 5 on 2026-09-18</b> for the carried packs'
-    /// charges, and <b>to 6 on 2026-09-23</b> for the relief variation. All five are strictly
-    /// additive, so all five migrate under the policy in
-    /// <see cref="OldestVersion"/>. During a milestone the only person holding a saved world is
+    /// charges, <b>to 6 on 2026-09-23</b> for the relief variation and <b>to 7 the same day</b>
+    /// for the floor and ceiling that replaced it. All six migrate under the policy in
+    /// <see cref="OldestVersion"/>, though v7 is the first that is not purely additive — see
+    /// there. During a milestone the only person holding a saved world is
     /// the one building it. (The inventory screen's hotbar assignment, folded into M10g, was
     /// written down as "v5" before this bump; the number is a counter and it takes the next.)
     /// </remarks>
@@ -181,10 +182,9 @@ public static class WorldHeaderBlob
     /// <b>v6 is the first bump that grows a section in the middle of the payload rather than
     /// appending one to the end</b>, so it is the first where reading an old header means reading
     /// a <em>shorter</em> block and then a different offset for everything after it — see
-    /// <see cref="SettingsBytesFor"/>. Still additive by the test that matters: no field changed
-    /// what it means.
+    /// <see cref="SettingsBytesFor"/>.
     /// </remarks>
-    public const byte Version = 6;
+    public const byte Version = 7;
 
     /// <summary>The oldest layout this build can still read.</summary>
     /// <remarks>
@@ -198,6 +198,21 @@ public static class WorldHeaderBlob
     /// existed. A v4 header is a v5 one without its carried packs, which reads as none charged,
     /// and a v5 header is a v6 one without its relief variation, which reads as a world of even
     /// lumpiness — which every world written before 2026-09-23 is.
+    /// </para>
+    /// <para>
+    /// <b>v7 is the one exception to "additive", and it is allowed for a reason that will not
+    /// come round again.</b> v6's single <c>ReliefVariation</c> scaled the amplitude by
+    /// <c>1 + v × n</c>; v7 stores a floor and a ceiling instead, because the multiplier was
+    /// measured to be the wrong shape the day after it shipped. A v6 header is read by taking its
+    /// stored amplitude as the new ceiling and the lowest amplitude it could ever have produced,
+    /// <c>A(1 − v)</c>, as the new floor, at rarity 0 — so <b>a v6 world of even lumpiness
+    /// (v = 0) comes back bit-identical</b>, which is every world anyone was playing, and a v6
+    /// world that actually used the variation keeps its flattest and its tallest places and
+    /// loses the half of its range that was above the old average. The only worlds in the second group are
+    /// the half-dozen scratch worlds made while settling the shape, so the honest cost of this
+    /// exception is zero and it is written down rather than hidden. <b>Do not take it as a
+    /// precedent</b>: the policy is still that a version changing what a field means is refused,
+    /// and this one is grandfathered by being one day old.
     /// </para>
     /// <para>
     /// <b>This is not the thing M6a argued against.</b> That was a reader filling in a field the
@@ -226,13 +241,16 @@ public static class WorldHeaderBlob
     /// A constant rather than a computed size, so that the test which counts the record's
     /// properties has something to compare against. See the class remarks.
     /// </remarks>
-    internal const int SettingsBytes = 57;
+    internal const int SettingsBytes = 61;
 
     /// <summary>Bytes the settings block occupied before v6 added the relief variation.</summary>
     internal const int SettingsBytesBeforeV6 = 53;
 
+    /// <summary>Bytes the settings block occupied at v6, with one relief float rather than two.</summary>
+    internal const int SettingsBytesAtV6 = 57;
+
     /// <summary>How many fields <see cref="WriteSettings"/> handles. Pinned by a test.</summary>
-    internal const int SettingsFieldCount = 14;
+    internal const int SettingsFieldCount = 15;
 
     /// <summary>
     /// How long the settings block is in a header of this version.
@@ -244,8 +262,12 @@ public static class WorldHeaderBlob
     /// block is a v6 block without its last four bytes, and reading it as a relief variation of
     /// zero is a true statement about a world written before regions existed.
     /// </remarks>
-    private static int SettingsBytesFor(byte version) =>
-        version >= 6 ? SettingsBytes : SettingsBytesBeforeV6;
+    private static int SettingsBytesFor(byte version) => version switch
+    {
+        >= 7 => SettingsBytes,
+        6 => SettingsBytesAtV6,
+        _ => SettingsBytesBeforeV6,
+    };
 
     private static readonly Identifier Air = MaterialIds.Air;
 
@@ -968,7 +990,43 @@ public static class WorldHeaderBlob
         BinaryPrimitives.WriteSingleLittleEndian(destination[41..], settings.CaveThreshold);
         BinaryPrimitives.WriteInt32LittleEndian(destination[45..], settings.CaveSurfaceMarginVoxels);
         BinaryPrimitives.WriteInt32LittleEndian(destination[49..], settings.CaveLatticeStep);
-        BinaryPrimitives.WriteSingleLittleEndian(destination[53..], settings.ReliefVariation);
+        BinaryPrimitives.WriteSingleLittleEndian(destination[53..], settings.ReliefBaseVoxels);
+        BinaryPrimitives.WriteSingleLittleEndian(destination[57..], settings.ReliefRarity);
+    }
+
+    /// <summary>
+    /// The floor and the rarity, whichever shape this version's settings block holds them in.
+    /// </summary>
+    /// <remarks>
+    /// <b>A world written before regions existed, and a v6 world that did not use them, both come
+    /// back with the floor equal to the ceiling</b> — which is what "uniform" is, and what makes
+    /// the migration bit-identical for every world anyone had. The v6 mapping is the one lossy
+    /// step in this file and <see cref="OldestVersion"/> says why it is allowed.
+    /// </remarks>
+    private static (float Base, float Rarity) ReadRelief(
+        ReadOnlySpan<byte> payload, byte version, float peak)
+    {
+        if (version >= 7)
+        {
+            return (
+                BinaryPrimitives.ReadSingleLittleEndian(payload[53..]),
+                BinaryPrimitives.ReadSingleLittleEndian(payload[57..]));
+        }
+
+        if (version < 6)
+        {
+            return (peak, 0.0f);
+        }
+
+        // v6: amplitude was peak x (1 + variation x n), so its flattest place was peak x (1 - v)
+        // and its typical one was peak. Take those as the new floor and ceiling.
+        float variation = BinaryPrimitives.ReadSingleLittleEndian(payload[53..]);
+        if (!(variation > 0.0f && variation <= 1.0f))
+        {
+            return (peak, 0.0f);
+        }
+
+        return (peak * (1.0f - variation), 0.0f);
     }
 
     private static WorldGenSettings ReadSettings(ReadOnlySpan<byte> payload, string what, byte version)
@@ -978,6 +1036,9 @@ public static class WorldHeaderBlob
         {
             throw new BlobFormatException($"{what}: CavesEnabled is {caves}, which is neither 0 nor 1.");
         }
+
+        float peak = BinaryPrimitives.ReadSingleLittleEndian(payload[12..]);
+        (float reliefBase, float rarity) = ReadRelief(payload, version, peak);
 
         return new WorldGenSettings
         {
@@ -994,11 +1055,8 @@ public static class WorldHeaderBlob
             CaveThreshold = BinaryPrimitives.ReadSingleLittleEndian(payload[41..]),
             CaveSurfaceMarginVoxels = BinaryPrimitives.ReadInt32LittleEndian(payload[45..]),
             CaveLatticeStep = BinaryPrimitives.ReadInt32LittleEndian(payload[49..]),
-
-            // A world written before v6 has no regions, which is exactly what zero means.
-            ReliefVariation = version >= 6
-                ? BinaryPrimitives.ReadSingleLittleEndian(payload[53..])
-                : 0.0f,
+            ReliefBaseVoxels = reliefBase,
+            ReliefRarity = rarity,
         };
     }
 }
