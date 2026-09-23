@@ -87,6 +87,10 @@ otherwise — flags go on the end of the `start.cmd` line.
       flat enough, are the mountains big enough, and do you hit one often enough? The dials to
       reach for are `--reliefbase` (lower = flatter plains), `--relief` (higher = bigger peaks)
       and `--reliefrare` (higher = rarer). All on a *new* world.
+- [ ] **You have a compass now.** The line above the status line reads `x 108  y 11  z 6 ·
+      facing 315° NW · relief 8.1 m`. North is −Z, east is +X — so walking north makes z go *down*
+      and walking east makes x go *up*. The relief number is how tall the terrain gets where you
+      are standing: near 4.8 m you are on a plain, near 36 m you are in the mountains.
 - [ ] **Worlds made before 2026-09-23 evening look different now.** Every world used to start at
       exactly the same relief, whatever its seed — the noise is zero at the world's origin, and
       that is where you spawn — so a few new worlds in a row genuinely were the same where you

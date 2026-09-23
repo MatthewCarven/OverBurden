@@ -969,6 +969,16 @@ once and builds a uniform world; the generator refuses it outright, as it refuse
 **A new world played rather than measured gets base 0.4×, peak 3×, rarity 0.25** — a measured row,
 53% flat / 37% rolling / 10% hilly over 1,024 windows in 32 km, peaks to 36 m.
 
+**The HUD says where you are since 2026-09-23** — `x 108  y 11  z 6 · facing 315° NW · relief
+8.1 m`, on its own line over the status line, at the status line's own 10 Hz. **The bearing is
+taken from the camera's forward vector through `Overburden.Core/Navigation/Compass.cs`, never from
+its yaw** (a yaw needs a sign convention, and a compass pointing consistently the wrong way looks
+exactly like a compass); **north is −Z and east is +X**, pinned by `CompassTests` and shared with
+every map this project prints. The relief term is `SurfaceAmplitudeAt` in metres — how you tell a
+plain from a highland while standing in one, which matters because a region is 2 km and the view is
+48 m. Built because a play check that said *"the hills are north-east"* could not be carried out:
+there was no position readout, no heading, and no sun since M5c-2.
+
 **Every world's origin sits somewhere different inside its own region, and before 2026-09-23 it did
 not.** Gradient noise is *exactly* zero at its lattice points and world origin is one, so the relief
 sample at (0, 0) was 0 whatever the seed: four worlds on four seeds all read an amplitude at spawn of

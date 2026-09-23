@@ -2481,11 +2481,41 @@ public partial class Main : Node3D
 
         bool precise = _camera is { MouseCaptured: true } && Input.IsKeyPressed(Key.Alt);
 
+        // The camera's own forward axis, not its yaw: Core's Compass turns a direction into a
+        // bearing, and a direction needs no sign convention to be right.
+        Vector3 eye = _camera.GlobalPosition;
+        Vector3 forward = -_camera.GlobalTransform.Basis.Z;
+
         _hud.Refresh(
             delta, _inventory, _materials, Content.Materials, _place, _mining, precise,
             _adaptiveRadius ? $"r{_radiusState.Horizontal}h/{_radiusState.Vertical}v" : null,
             _pack,
-            _place.SelectedIsPack ? _carriedPacks.FullestMillijoules(_place.MaterialId) : 0);
+            _place.SelectedIsPack ? _carriedPacks.FullestMillijoules(_place.MaterialId) : 0,
+            new System.Numerics.Vector3(eye.X, eye.Y, eye.Z),
+            new System.Numerics.Vector3(forward.X, forward.Y, forward.Z),
+            ReliefMetresAt(eye));
+    }
+
+    /// <summary>
+    /// The surface amplitude where the player is standing, in metres, for the HUD's relief term.
+    /// </summary>
+    /// <remarks>
+    /// Null with no generator, which is a world that has not opened yet. In a uniform world this
+    /// is the same number everywhere and says so honestly; in a shaped one it is how a player
+    /// tells a plain from a highland while standing in it, which no amount of looking can do when
+    /// a region is 2 km across and the view is 48 m.
+    /// </remarks>
+    private float? ReliefMetresAt(Vector3 eyeMetres)
+    {
+        if (_generator is null)
+        {
+            return null;
+        }
+
+        int voxelX = (int)MathF.Floor(eyeMetres.X * VoxelConstants.VoxelsPerMetre);
+        int voxelZ = (int)MathF.Floor(eyeMetres.Z * VoxelConstants.VoxelsPerMetre);
+
+        return _generator.SurfaceAmplitudeAt(voxelX, voxelZ) / VoxelConstants.VoxelsPerMetre;
     }
 
     /// <summary>Builds the hotbar, unless this run is a measurement.</summary>

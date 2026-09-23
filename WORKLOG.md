@@ -1,5 +1,34 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-23 — Where you are and which way you face
+
+Matthew, handed a bearing to a mountain: *"even if you find a mountain i have no compass and could
+not locate it"* — and he was right about more than the compass. The HUD had a hotbar, a crosshair,
+a status line and the seed banner, and **nothing at all saying where you are or which way you are
+pointing**; M5c-2 took the directional light away, so there is not even a sun to steer by. A play
+check that says "the hills are north-east" was not a check anybody could carry out, which makes it
+my error rather than a gap in the feature.
+
+The status line gained a line above it: `x 108  y 11  z 6 · facing 315° NW · relief 8.1 m`. The
+relief term is the surface amplitude where you stand, in metres — the thing `--reliefbase` and
+`--relief` set the ends of — because **that is how you tell a plain from a highland without being
+able to see 2 km**, which is the whole difficulty with a feature whose regions are larger than the
+view distance by a factor of forty.
+
+**The bearing comes from the camera's forward vector, not from its yaw, and that is the only
+interesting decision here.** A yaw needs a sign convention and a zero point to mean anything, and
+reasoning about those is wrong half the time and *invisible*: a compass pointing consistently the
+wrong way looks exactly like a compass. `Overburden.Core/Navigation/Compass.cs` takes a direction
+and returns a bearing, with the convention — **north is −Z, east is +X** — written down in Core
+with tests on the four cardinals, the four diagonals, the wrap at 360°, every one of the sixteen
+points being reachable, and a player looking straight down having no bearing at all. Confirmed in
+the real renderer too: the scene's own 45° camera yaw reads `315° NW`, which is what +45° about Y
+means when forward is −Z.
+
+It also gives the map that follows a convention to share rather than to re-derive.
+
+Suite 1,761 → 1,772.
+
 ## 2026-09-23 — Every world was identical at the one place you stand in it
 
 Matthew, after building several worlds with the new shape: *"I tried a few worlds do i need to hand

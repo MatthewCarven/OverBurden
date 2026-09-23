@@ -71,6 +71,7 @@ public sealed partial class Hud : CanvasLayer
     private readonly List<SlotView> _slots = [];
 
     private Label _status = null!;
+    private Label _where = null!;
     private double _sinceRefresh;
 
     private Label? _seed;
@@ -230,6 +231,18 @@ public sealed partial class Hud : CanvasLayer
         column.AddThemeConstantOverride("separation", 6);
         root.AddChild(column);
 
+        // Where you are and which way you are pointing, above the line that says what the
+        // click does. Built before the status line so it sits over it in the column.
+        _where = new Label
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        _where.AddThemeColorOverride("font_color", DimText);
+        _where.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.85f));
+        _where.AddThemeConstantOverride("outline_size", 4);
+        column.AddChild(_where);
+
         _status = new Label
         {
             HorizontalAlignment = HorizontalAlignment.Center,
@@ -331,7 +344,10 @@ public sealed partial class Hud : CanvasLayer
         bool precise,
         string? radius = null,
         Overburden.Core.Machines.EquippedPack? pack = null,
-        long carriedPackMillijoules = 0)
+        long carriedPackMillijoules = 0,
+        System.Numerics.Vector3 eyeMetres = default,
+        System.Numerics.Vector3 forward = default,
+        float? reliefMetres = null)
     {
         FadeSeed(delta);
 
@@ -357,6 +373,11 @@ public sealed partial class Hud : CanvasLayer
             // Unthrottled, always: this one is the answer to a key the player just pressed.
             view.Style.BorderColor =
                 materialId >= 0 && materialId == place.MaterialId ? SelectedBorder : IdleBorder;
+        }
+
+        if (refreshText || _where.Text.Length == 0)
+        {
+            _where.Text = WhereText(eyeMetres, forward, reliefMetres);
         }
 
         if (refreshText || _status.Text.Length == 0)
@@ -449,6 +470,41 @@ public sealed partial class Hud : CanvasLayer
     /// </remarks>
     internal static string DisplayName(Registry<MaterialDefinition> definitions, int materialId) =>
         definitions.GetIdentifier(materialId).Path.Replace('_', ' ');
+
+    /// <summary>Where the player is, which way they face, and what kind of country they are in.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Built because a play check could not be carried out without it.</b> Regions are 2 km
+    /// across and the view is 48 m, so "the hills are north-east" is not advice anybody can act
+    /// on: there is no compass, no coordinates, and since M5c-2 took the directional light away
+    /// there is not even a sun to steer by. Matthew, on being handed a bearing: *"even if you
+    /// find a mountain i have no compass and could not locate it"*.
+    /// </para>
+    /// <para>
+    /// <b>The bearing comes from the camera's own forward vector, through
+    /// <see cref="Overburden.Core.Navigation.Compass"/></b> — not from its yaw. A yaw needs a sign
+    /// convention and a zero point to mean anything, and a compass that points consistently the
+    /// wrong way looks exactly like a compass. The convention, and its tests, live in Core.
+    /// </para>
+    /// <para>
+    /// The relief term is the surface amplitude where you stand, in metres — the dial
+    /// <c>--reliefbase</c> and <c>--relief</c> set the ends of. It is what tells you whether you
+    /// are in a plain or a highland <em>without</em> being able to see 2 km, which is the whole
+    /// difficulty. Absent in a world with no generator to ask.
+    /// </para>
+    /// </remarks>
+    internal static string WhereText(
+        System.Numerics.Vector3 eyeMetres, System.Numerics.Vector3 forward, float? reliefMetres)
+    {
+        float bearing = Overburden.Core.Navigation.Compass.BearingDegrees(forward.X, forward.Z);
+
+        string relief = reliefMetres is float metres
+            ? $"   ·   relief {metres:0.0} m"
+            : string.Empty;
+
+        return $"x {eyeMetres.X:0}  y {eyeMetres.Y:0}  z {eyeMetres.Z:0}"
+            + $"   ·   facing {bearing:000}° {Overburden.Core.Navigation.Compass.Point(bearing)}{relief}";
+    }
 
     private static string StatusText(PlaceController place, MiningController? mining, bool precise, Overburden.Core.Machines.EquippedPack? pack, long carriedPackMillijoules)
     {
