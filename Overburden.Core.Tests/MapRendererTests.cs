@@ -163,7 +163,7 @@ public class MapRendererTests
 
         MapProjection map = At(0.0f);
         var pixels = new MapColour[Size * Size];
-        MapRenderer.Render(slope, map, MapRamp.Around(0, 1024.0f), unshaded, pixels);
+        MapRenderer.Render(slope, map, MapRamp.Around(0, 1024.0f), unshaded, MapOverlay.None, pixels);
 
         int centre = map.CentrePixel;
 
@@ -226,8 +226,8 @@ public class MapRendererTests
 
         var toTheWorld = new MapColour[Size * Size];
         var fitted = new MapColour[Size * Size];
-        MapRenderer.Render(world, At(0.0f), MapRamp.Around(0, 400.0f), unshaded, toTheWorld);
-        MapRenderer.Render(world, At(0.0f), MapRamp.Auto, unshaded, fitted);
+        MapRenderer.Render(world, At(0.0f), MapRamp.Around(0, 400.0f), unshaded, MapOverlay.None, toTheWorld);
+        MapRenderer.Render(world, At(0.0f), MapRamp.Auto, unshaded, MapOverlay.None, fitted);
 
         // Reaching both ends is what "uses the whole palette" means, and counting distinct
         // colours is not: the ramp blends continuously, so even a fifth of it yields dozens of
@@ -262,7 +262,7 @@ public class MapRendererTests
         AnalyticSurface world = Ridge();
         var pixels = new MapColour[Size * Size];
 
-        MapRamp used = MapRenderer.Render(world, At(0.0f), MapRamp.Auto, MapPalette.Default, pixels);
+        MapRamp used = MapRenderer.Render(world, At(0.0f), MapRamp.Auto, MapPalette.Default, MapOverlay.None, pixels);
         MapRamp expected = MapRenderer.Fit(MapRenderer.SampleHeights(world, At(0.0f), Size + 2));
 
         Assert.Equal(expected, used);
@@ -275,7 +275,7 @@ public class MapRendererTests
         var pixels = new MapColour[10];
 
         Assert.Throws<ArgumentException>(
-            () => MapRenderer.Render(flat, At(0.0f), MapRamp.Around(0, 80.0f), MapPalette.Default, pixels));
+            () => MapRenderer.Render(flat, At(0.0f), MapRamp.Around(0, 80.0f), MapPalette.Default, MapOverlay.None, pixels));
     }
 
     [Fact]

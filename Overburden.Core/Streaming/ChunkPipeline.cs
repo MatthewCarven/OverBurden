@@ -477,6 +477,19 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// <summary>How many chunks the store held when this pipeline opened, plus any written since.</summary>
     public int SavedChunkCount => _savedChunks.Count;
 
+    /// <summary>
+    /// Every chunk the store holds: read at open, and kept up to date as chunks are written
+    /// and dropped.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is where the map gets your mine from, and it costs nothing because it is
+    /// already here.</b> A stored chunk is one somebody edited -- an untouched chunk is
+    /// regenerated rather than saved -- so the set is exactly "where has anyone dug", at any
+    /// distance and with no streaming. Exposed read-only and read on the sim thread, which is
+    /// the only thread that mutates it.
+    /// </remarks>
+    public IReadOnlyCollection<ChunkPos> SavedChunks => _savedChunks;
+
     /// <summary>How many sky columns the store holds.</summary>
     public int SavedColumnCount => _savedColumns.Count;
 

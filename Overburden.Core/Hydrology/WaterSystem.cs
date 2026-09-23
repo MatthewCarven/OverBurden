@@ -603,6 +603,30 @@ public sealed class WaterSystem : IWaterTable
     /// edge leave the world, as rain on that catchment does; litres to a sample nobody has
     /// analysed would leave the world too if the two were one answer, and they are meant to stall.
     /// </remarks>
+    /// <summary>
+    /// <see cref="TryBasinAtSample"/> asked in world voxels, which is what every caller outside
+    /// the hydrology actually has.
+    /// </summary>
+    /// <remarks>
+    /// <b>The conversion belongs here because the cell size does.</b> A caller that divides by
+    /// <c>HeightField.DefaultCellVoxels</c> is guessing at a number this window owns and a world
+    /// header can change -- and the guess fails silently, as a basin that is never found, which
+    /// reads as ground nobody has analysed rather than as a bug. The map's first attempt did
+    /// exactly that. An arithmetic shift is not enough either: the cell size need not be a power
+    /// of two, so this floors properly for negative coordinates.
+    /// </remarks>
+    public bool TryBasinAtVoxel(int worldVoxelX, int worldVoxelZ, out int basin)
+    {
+        basin = Watershed.Outlet;
+        if (Window is null)
+        {
+            return false;
+        }
+
+        int cell = Window.Watershed.Field.CellVoxels;
+        return TryBasinAtSample(FloorDiv(worldVoxelX, cell), FloorDiv(worldVoxelZ, cell), out basin);
+    }
+
     public bool TryBasinAtSample(int worldSampleX, int worldSampleZ, out int basin)
     {
         basin = Watershed.Outlet;

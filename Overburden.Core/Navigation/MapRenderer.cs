@@ -72,6 +72,28 @@ public sealed record MapPalette
     /// <summary>How far the shading may lighten or darken a colour, as a share of it.</summary>
     public float ShadeStrength { get; init; } = 0.45f;
 
+    /// <summary>Shallow water, and water deep enough to have lost the bottom.</summary>
+    public MapColour Shallow { get; init; } = new(108, 148, 176);
+
+    public MapColour Deep { get; init; } = new(38, 62, 96);
+
+    /// <summary>Depth, in voxels, at which water reads as <see cref="Deep"/>. An estimate.</summary>
+    public float DeepAtVoxels { get; init; } = 32.0f;
+
+    /// <summary>
+    /// What dug ground is multiplied by: disturbed, not replaced.
+    /// </summary>
+    /// <remarks>
+    /// A darkening rather than a colour of its own, so the mine reads as ground that has been
+    /// worked over rather than as a second kind of terrain laid on top of the first. It also
+    /// means the hillshade still shows through it, so a mine on a slope still looks like a
+    /// slope.
+    /// </remarks>
+    public float DugShade { get; init; } = 0.55f;
+
+    /// <summary>The rim where the water analysis stops and the map stops knowing.</summary>
+    public MapColour WindowEdge { get; init; } = new(96, 108, 124);
+
     /// <summary>
     /// Rise per pixel at which shading reaches half strength, as a share of the ramp's own range.
     /// </summary>
@@ -130,6 +152,7 @@ public static class MapRenderer
     /// in view, which is what makes the picture read as landscape rather than as one flat tint.
     /// </param>
     /// <param name="palette">The look. <see cref="MapPalette.Default"/> unless a caller is sweeping it.</param>
+    /// <param name="overlay">Your mine, your machines and the water. <see cref="MapOverlay.None"/> for terrain alone.</param>
     /// <param name="pixels">Receives <c>Size * Size</c> colours.</param>
     /// <returns>The ramp actually used, which is worth printing when it was chosen here.</returns>
     public static MapRamp Render(
@@ -137,8 +160,11 @@ public static class MapRenderer
         MapProjection projection,
         MapRamp ramp,
         MapPalette palette,
+        MapOverlay overlay,
         Span<MapColour> pixels)
     {
+        ArgumentNullException.ThrowIfNull(overlay);
+
         ArgumentNullException.ThrowIfNull(heights);
         ArgumentNullException.ThrowIfNull(palette);
 
@@ -190,6 +216,10 @@ public static class MapRenderer
         // a field of rounding. Tested.
         float softness = MathF.Max(palette.SlopeSoftnessShareOfRange * span, 0.0001f);
 
+        // Which pixels the water analysis reaches, for the rim drawn afterwards. Allocated
+        // only when there is water to ask, because most maps have none.
+        bool[] covered = overlay.Water is null ? [] : new bool[size * size];
+
         for (int y = 0; y < size; y++)
         {
             for (int x = 0; x < size; x++)
@@ -211,9 +241,49 @@ public static class MapRenderer
 
                 // Into -1..1, which is what the ramp spans.
                 float t = Math.Clamp((((here - low) / span) * 2.0f) - 1.0f, -1.0f, 1.0f);
-                pixels[(y * size) + x] = Shaded(Ramp(palette.Stops, t), shade);
+                MapColour colour = Shaded(Ramp(palette.Stops, t), shade);
+
+                if (!overlay.IsEmpty)
+                {
+                    (float worldX, float worldZ) = projection.WorldAt(x, y);
+                    int wx = (int)MathF.Round(worldX);
+                    int wz = (int)MathF.Round(worldZ);
+
+                    // Water first: it covers the ground rather than tinting it, and a mine
+                    // under a lake is a mine you cannot see.
+                    if (overlay.Water is { } water)
+                    {
+                        covered[(y * size) + x] = water.Covers(wx, wz);
+
+                        if (water.TryLevelVoxels(wx, wz, out float level) && level > here)
+                        {
+                            float depth = Math.Clamp(
+                                (level - here) / MathF.Max(palette.DeepAtVoxels, 0.0001f), 0.0f, 1.0f);
+                            colour = Between(palette.Shallow, palette.Deep, depth);
+                        }
+                        else if (overlay.IsDug is { } dugUnderSky && dugUnderSky(
+                            wx >> VoxelConstants.ChunkSizeLog2, wz >> VoxelConstants.ChunkSizeLog2))
+                        {
+                            colour = Shaded(colour, palette.DugShade);
+                        }
+                    }
+                    else if (overlay.IsDug is { } dug && dug(
+                        wx >> VoxelConstants.ChunkSizeLog2, wz >> VoxelConstants.ChunkSizeLog2))
+                    {
+                        colour = Shaded(colour, palette.DugShade);
+                    }
+                }
+
+                pixels[(y * size) + x] = colour;
             }
         }
+
+        if (overlay.Water is not null)
+        {
+            MarkWindowEdge(covered, size, palette, pixels);
+        }
+
+        DrawPins(projection, overlay.Pins, pixels);
 
         return used;
     }
@@ -253,8 +323,12 @@ public static class MapRenderer
 
     /// <summary>The lowest and highest ground in the sample, with a floor under flat country.</summary>
     /// <remarks>
-    /// The floor matters: without it a perfectly level plain would have a range of zero and the
-    /// shading would divide by nothing. Half a metre is below anything a person would call relief.
+    /// <b>The floor is what stops a fitted ramp amplifying flat ground into noise</b>, and the
+    /// first version had it at half a metre, which is only enough to avoid dividing by zero. A
+    /// world with 9 m of relief across 2 km then had those 9 m stretched over the whole palette
+    /// and came out as a field of hash -- every wiggle in gentle country painted as though it were
+    /// a mountainside. Ten metres is the least relief worth spending a palette on; under that the
+    /// map says "flat" by looking flat, which is the truth.
     /// </remarks>
     internal static MapRamp Fit(ReadOnlySpan<int> sampled)
     {
@@ -267,7 +341,7 @@ public static class MapRenderer
             high = Math.Max(high, height);
         }
 
-        const float Least = 2.0f;
+        const float Least = 40.0f;
         if (high - low < Least)
         {
             float middle = (low + high) * 0.5f;
@@ -282,10 +356,13 @@ public static class MapRenderer
         ISurfaceHeights heights,
         MapProjection projection,
         MapRamp ramp,
-        MapPalette? palette = null)
+        MapPalette? palette = null,
+        MapOverlay? overlay = null)
     {
         var pixels = new MapColour[projection.Size * projection.Size];
-        Render(heights, projection, ramp, palette ?? MapPalette.Default, pixels);
+        Render(
+            heights, projection, ramp, palette ?? MapPalette.Default,
+            overlay ?? MapOverlay.None, pixels);
         return pixels;
     }
 
@@ -340,6 +417,128 @@ public static class MapRenderer
             Mix(a.G, b.G, blend),
             Mix(a.B, b.B, blend));
     }
+
+    /// <summary>
+    /// A one-pixel rim where the analysed window ends, so the map says where it stops knowing.
+    /// </summary>
+    /// <remarks>
+    /// <b>Drawn on the covered side, deliberately.</b> The rim is a statement about what has
+    /// been analysed, so it belongs to the ground that has been — putting it outside would
+    /// draw a line on terrain nobody has looked at, which is the very thing it exists to warn
+    /// about.
+    /// </remarks>
+    private static void MarkWindowEdge(
+        bool[] covered, int size, MapPalette palette, Span<MapColour> pixels)
+    {
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                if (!covered[(y * size) + x])
+                {
+                    continue;
+                }
+
+                bool onTheEdge =
+                    x == 0 || y == 0 || x == size - 1 || y == size - 1
+                    || !covered[(y * size) + x - 1]
+                    || !covered[(y * size) + x + 1]
+                    || !covered[((y - 1) * size) + x]
+                    || !covered[((y + 1) * size) + x];
+
+                if (onTheEdge && !(x == 0 || y == 0 || x == size - 1 || y == size - 1))
+                {
+                    pixels[(y * size) + x] = palette.WindowEdge;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// The pins: each one's colour at the pixel it stands on, outlined so it survives any
+    /// terrain.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A bare coloured pixel disappears against ground of a similar colour, and a pump you
+    /// cannot see on the map is the thing the pins exist to prevent. Off-map pins are dropped
+    /// rather than clamped to the rim: a pin on the edge would claim a position it does not
+    /// have, and walking to it would be walking to nothing.
+    /// </para>
+    /// <para>
+    /// <b>Every centre first, then the outlines around what is left</b>, because a mining
+    /// operation's machines stand close together: a hundred and twenty-seven of them in one
+    /// yard drew their outlines over each other's centres and came out as a black blob --
+    /// seen in the first screenshot with overlays on. In two passes a cluster reads as a patch
+    /// of machine colours with one dark rim around the whole of it, which is what you want
+    /// from a map of a base.
+    /// </para>
+    /// </remarks>
+    private static void DrawPins(
+        MapProjection projection, IReadOnlyList<MapPin> pins, Span<MapColour> pixels)
+    {
+        if (pins.Count == 0)
+        {
+            return;
+        }
+
+        int size = projection.Size;
+        var centre = new bool[size * size];
+
+        foreach (MapPin pin in pins)
+        {
+            (float px, float py) = projection.PixelAt(pin.VoxelX, pin.VoxelZ);
+            int cx = (int)MathF.Round(px);
+            int cy = (int)MathF.Round(py);
+
+            if (cx < 0 || cy < 0 || cx >= size || cy >= size)
+            {
+                continue;
+            }
+
+            centre[(cy * size) + cx] = true;
+            pixels[(cy * size) + cx] = pin.Colour;
+        }
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                if (centre[(y * size) + x] || !Beside(centre, size, x, y))
+                {
+                    continue;
+                }
+
+                pixels[(y * size) + x] = new MapColour(16, 16, 18);
+            }
+        }
+    }
+
+    private static bool Beside(bool[] centre, int size, int x, int y)
+    {
+        for (int dy = -1; dy <= 1; dy++)
+        {
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                int nx = x + dx;
+                int ny = y + dy;
+                if (nx < 0 || ny < 0 || nx >= size || ny >= size)
+                {
+                    continue;
+                }
+
+                if (centre[(ny * size) + nx])
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static MapColour Between(MapColour a, MapColour b, float t) =>
+        new(Mix(a.R, b.R, t), Mix(a.G, b.G, t), Mix(a.B, b.B, t));
 
     private static byte Mix(byte a, byte b, float t) =>
         (byte)Math.Clamp(MathF.Round(a + ((b - a) * t)), 0.0f, 255.0f);

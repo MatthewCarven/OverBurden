@@ -12,6 +12,7 @@ using Overburden.Core.Inventory;
 using Overburden.Core.Lighting;
 using Overburden.Core.Jobs;
 using Overburden.Core.Machines;
+using Overburden.Core.Navigation;
 using Overburden.Core.Meshing;
 using Overburden.Core.Mining;
 using Overburden.Core.Persistence;
@@ -120,6 +121,7 @@ public partial class Main : Node3D
     private MapPanel? _map;
     private bool _openMap;
     private float? _mapMetresPerPixel;
+    private MapWater? _mapWater;
 
     /// <summary><c>--openpanel</c>: open the panel on <c>--pump</c>'s pump as it is placed, for the screenshot.</summary>
     private bool _openPanel;
@@ -2545,6 +2547,7 @@ public partial class Main : Node3D
                 (int)MathF.Floor(eye.X * VoxelConstants.VoxelsPerMetre),
                 (int)MathF.Floor(eye.Z * VoxelConstants.VoxelsPerMetre),
                 Overburden.Core.Navigation.Compass.BearingDegrees(forward.X, forward.Z),
+                MapOverlayNow(),
                 delta);
         }
     }
@@ -2569,6 +2572,59 @@ public partial class Main : Node3D
         int voxelZ = (int)MathF.Floor(eyeMetres.Z * VoxelConstants.VoxelsPerMetre);
 
         return _generator.SurfaceAmplitudeAt(voxelX, voxelZ) / VoxelConstants.VoxelsPerMetre;
+    }
+
+    /// <summary>
+    /// What the map draws over the terrain: the mine, the machines, and the water.
+    /// </summary>
+    /// <remarks>
+    /// <b>All three are already in memory and none of them needs the streamer</b>, which is
+    /// what makes an operations board cost about the same as a terrain map. The stored-chunk
+    /// set is where anybody has dug -- an untouched chunk is regenerated rather than saved --
+    /// the machine rows were restored whole at open, and the water is the one thing bounded by
+    /// a window, which the map draws a rim around rather than pretending it is dry.
+    /// </remarks>
+    private MapOverlay MapOverlayNow()
+    {
+        // Rebuilt per map, not per frame -- MapPanel decides when a map is worth building, and
+        // this is called under that decision.
+        var dug = new HashSet<(int X, int Z)>();
+        if (_pipeline is not null)
+        {
+            foreach (ChunkPos chunk in _pipeline.SavedChunks)
+            {
+                dug.Add((chunk.X, chunk.Z));
+            }
+        }
+
+        var pins = new List<MapPin>();
+        if (_machines is not null)
+        {
+            foreach (MachineRow row in _machines.Rows)
+            {
+                // The machine's own colour, the same one the hotbar and the blocks use, so a
+                // pin is recognisably the thing it stands for rather than a legend to learn.
+                Color colour = VoxelMaterial.ColourForLayer(_materials.TextureLayer(row.MaterialId));
+                pins.Add(new MapPin(
+                    row.Origin.X,
+                    row.Origin.Z,
+                    new MapColour(
+                        (byte)(colour.R * 255f), (byte)(colour.G * 255f), (byte)(colour.B * 255f))));
+            }
+        }
+
+        if (_water is not null)
+        {
+            _mapWater ??= new MapWater(_water);
+            _mapWater.Forget();
+        }
+
+        return new MapOverlay
+        {
+            Water = _mapWater,
+            IsDug = dug.Count == 0 ? null : (cx, cz) => dug.Contains((cx, cz)),
+            Pins = pins,
+        };
     }
 
     /// <summary>Builds the hotbar, unless this run is a measurement.</summary>

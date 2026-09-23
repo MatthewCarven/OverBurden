@@ -56,6 +56,20 @@ public sealed partial class MapPanel : Control
 
     private const double MinimumIntervalSeconds = 1.0 / 15.0;
 
+    /// <summary>
+    /// How long an open map may go without being rebuilt, however still the player stands.
+    /// </summary>
+    /// <remarks>
+    /// <b>Thresholds on movement and heading are not enough, because the world changes on its
+    /// own.</b> Water rises, a collapse takes a hillside, an autosave adds chunks to the mine --
+    /// and standing perfectly still is exactly when somebody is reading the map. It was found the
+    /// obvious way: an open map on a played world reported "water not analysed here" forever,
+    /// because the watershed window installs a moment after the world opens and the map, having
+    /// built once and never moved, never looked again. A second costs 3.5 ms, which is a third of
+    /// one percent of the time the map is open.
+    /// </remarks>
+    private const double MaximumAgeSeconds = 1.0;
+
     private static readonly Color Frame = new(0.05f, 0.06f, 0.07f, 0.85f);
     private static readonly Color Rim = new(0.68f, 0.70f, 0.74f, 0.9f);
     private static readonly Color NorthTick = new(0.93f, 0.42f, 0.36f);
@@ -72,6 +86,7 @@ public sealed partial class MapPanel : Control
     private double _sinceBuild;
 
     private Label _caption = null!;
+    private string _reported = string.Empty;
 
     /// <summary>
     /// Ground a pixel covers. <c>--mapscale=</c> sweeps it; the default is 16 m, so 128 pixels
@@ -155,12 +170,14 @@ public sealed partial class MapPanel : Control
     /// <param name="centreVoxelX">Where the player is.</param>
     /// <param name="centreVoxelZ">Where the player is.</param>
     /// <param name="bearingDegrees">Which way they face, from <see cref="Compass"/>.</param>
+    /// <param name="overlay">Your mine, your machines and the water.</param>
     /// <param name="delta">Seconds since the last frame, for the rebuild interval.</param>
     public void Refresh(
         ISurfaceHeights heights,
         int centreVoxelX,
         int centreVoxelZ,
         float bearingDegrees,
+        MapOverlay overlay,
         double delta)
     {
         if (!IsOpen)
@@ -179,7 +196,7 @@ public sealed partial class MapPanel : Control
 
         if (ShouldRebuild(wanted))
         {
-            Build(heights, wanted);
+            Build(heights, wanted, overlay);
         }
 
         QueueRedraw();
@@ -197,6 +214,11 @@ public sealed partial class MapPanel : Control
             return false;
         }
 
+        if (_sinceBuild >= MaximumAgeSeconds)
+        {
+            return true;
+        }
+
         float movedPixels = MathF.Sqrt(
             (MathF.Pow(wanted.CentreVoxelX - _shown.CentreVoxelX, 2)
                 + MathF.Pow(wanted.CentreVoxelZ - _shown.CentreVoxelZ, 2)))
@@ -208,7 +230,7 @@ public sealed partial class MapPanel : Control
         return movedPixels >= MoveThresholdPixels || turned >= TurnThresholdDegrees;
     }
 
-    private void Build(ISurfaceHeights heights, MapProjection projection)
+    private void Build(ISurfaceHeights heights, MapProjection projection, MapOverlay overlay)
     {
         int size = projection.Size;
         if (_pixels.Length != size * size)
@@ -222,7 +244,7 @@ public sealed partial class MapPanel : Control
         // a shaped world in one shade of brown -- measured at 32% of the palette, and it is what
         // the first screenshot of this panel showed.
         MapRamp used = MapRenderer.Render(
-            heights, projection, MapRamp.Auto, MapPalette.Default, _pixels);
+            heights, projection, MapRamp.Auto, MapPalette.Default, overlay, _pixels);
 
         for (int i = 0; i < _pixels.Length; i++)
         {
@@ -252,6 +274,27 @@ public sealed partial class MapPanel : Control
         // colour, and saying what this one's colours mean is the honest answer to that.
         float low = used.LowVoxels / VoxelConstants.VoxelsPerMetre;
         float high = used.HighVoxels / VoxelConstants.VoxelsPerMetre;
+
+        // On a change, not on the first build: the watershed window installs on a worker a
+        // moment after the world opens, so a line printed at the first build reports "not
+        // analysed" about a map that has water by its second -- which is what it did, and read
+        // exactly like a broken overlay. What the map had to draw with is worth saying; saying it
+        // once, early, is worse than not saying it.
+        string state =
+            $"{overlay.Pins.Count} pin(s), "
+            + $"mine {(overlay.IsDug is null ? "not asked" : "drawn")}, "
+            + $"water {(overlay.Water is null ? "not asked"
+                : overlay.Water.Covers(projection.CentreVoxelX, projection.CentreVoxelZ)
+                    ? "analysed here" : "not analysed here")}";
+
+        if (state != _reported)
+        {
+            _reported = state;
+            GD.Print(
+                $"M12: map — {state}, range "
+                + $"{used.LowVoxels / VoxelConstants.VoxelsPerMetre:0.0}"
+                + $"..{used.HighVoxels / VoxelConstants.VoxelsPerMetre:0.0} m");
+        }
 
         _caption.Text =
             $"{_shown.SpanMetres / 1000.0f:0.0} km across   ·   "

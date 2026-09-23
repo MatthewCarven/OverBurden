@@ -269,3 +269,71 @@ compare the render against itself.
 
 **Slice c next** -- the mine from the chunk index, the machines from `MachineSet`, the water and
 its window edge.
+
+---
+
+## Slice c — built, 2026-09-23, with one thing left open
+
+The overlays: your mine from the stored-chunk set, your machines as pins in their own material's
+colour, and the water with a rim where Tier A stops knowing. `MapOverlay` and `IMapWater` in Core,
+`MapWater` over `WaterSystem` in the Game. Suite 1,799 -> 1,809; r6 control to the digit.
+
+**Two of the three are verified in the game.** A copy of the retired pool world reads
+`M12: map — 127 pin(s), mine drawn`, and the screenshot shows what this feature was for: the base
+as a patch of solar-panel blue and outlet orange, sitting in darkened dug ground with a corridor
+running north-west out of it. That is an operations board rather than a terrain map.
+
+**The water is not verified in the game and that is where this slice stops.** It reads
+`water not analysed here` at the player's own position on a world whose Tier A plainly has a window
+(`388/396 basin(s)`, `window 512 m`). The Core tests cover the drawing, and two real defects were
+found and fixed on the way to that line -- but the line is still wrong, and the last diagnostic
+says why it is not a water problem at all:
+
+> **The map is built exactly once.** `build 1`, and no more, across 2,400 frames -- with a
+> one-second maximum age in place that should have forced about forty rebuilds.
+
+So the panel's `Refresh` is not driving rebuilds the way it reads as doing, and the water overlay
+is almost certainly fine behind it. **Everything downstream of that was chasing a symptom**, which
+is where Matthew called it: *"Just a plan if things work out too hard"*.
+
+### What slice d should do, in order
+
+**1. Find out why the panel builds once.** `RefreshHud` is called unconditionally from `_Process`
+and `MapPanel.Refresh` accumulates `delta` into `_sinceBuild`, so one of those three is not true.
+The cheapest probe is a counter on `Refresh` itself printed beside `Builds` -- *is it being called,
+and is `_sinceBuild` growing* -- which separates "never called" from "called and refusing" in one
+run. **Do this before touching the water**, because a map that only ever draws its first frame is
+wrong for every overlay and every moving player, not just for the water.
+
+**2. Then re-check the water**, with the same `M12:` line. If it reads `analysed here` once the
+map rebuilds, nothing else is wrong and the rim can be judged by eye at 16 m a pixel, where the
+512 m window is a quarter of the map.
+
+**3. The overlay is rebuilt every frame and should not be.** `MapOverlayNow()` walks the whole
+stored-chunk set into a fresh `HashSet` and allocates a pin list, and it is passed as an argument
+-- so it runs at 60 Hz whether or not the map is open or rebuilding. It should be built inside the
+"is this worth rebuilding" decision, not outside it. On the played world that is 4,584 chunks a
+frame for a picture that changes once a second.
+
+**4. Then the play**: can you find the hills, and does the shipped relief shape read right now that
+you can see it.
+
+### Two defects the wire found, both fixed
+
+**The sample conversion belonged to the water system, not to the caller.** `MapWater` divided world
+voxels by `HeightField.DefaultCellVoxels` to reach the watershed's lattice -- guessing at a number
+the installed window owns and a world header can change. `WaterSystem.TryBasinAtVoxel` does the
+conversion now, with the window's own cell size and a proper floor for negative coordinates. **The
+guess failed silently, as a basin that is never found**, which reads as unanalysed ground rather
+than as a bug.
+
+**A map that only rebuilds when you move is stale about the world.** Water rises, a hillside comes
+down, an autosave grows the mine -- and standing still is exactly when somebody is reading the map.
+There is a one-second maximum age now. It is not yet doing anything, which is item 1.
+
+### And one the screenshot found
+
+**Pins drawn one at a time black each other out.** A mining operation's machines stand in a yard:
+127 of them drew their dark outlines over one another's centres and the whole base came out as a
+blob. Centres first, then outlines around what is left -- a cluster now reads as a patch of machine
+colours with one rim around the whole of it, which is what a map of a base should look like.

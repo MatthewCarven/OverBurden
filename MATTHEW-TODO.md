@@ -87,6 +87,10 @@ otherwise — flags go on the end of the `start.cmd` line.
       flat enough, are the mountains big enough, and do you hit one often enough? The dials to
       reach for are `--reliefbase` (lower = flatter plains), `--relief` (higher = bigger peaks)
       and `--reliefrare` (higher = rarer). All on a *new* world.
+- [ ] **Press F12.** The map now draws your mine as darkened ground, your machines as coloured
+      dots, and water where Tier A knows about it. **Two caveats**: the water overlay is not
+      working yet in the game (the reason is found and written down, it is not a water problem),
+      and the picture may not update while you stand still — same cause. Moving should refresh it.
 - [ ] **Press F12.** The map is in. It faces the way you do, the red tick on the rim is north,
       the arrow in the middle is you, and the caption says how much ground it covers and what
       heights its colours mean. Esc or F12 closes it.
