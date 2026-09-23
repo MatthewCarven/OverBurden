@@ -1,5 +1,50 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-23 — A new world is a new landscape, and the seed is on the screen
+
+Matthew, after asking whether the world a `--world=` name creates is one of mine: every world
+this project has ever made was created with the same constant, `0x4D494E455243` — ASCII for
+`MINERC`, a leftover from the old name — so a *fresh* world was a reset rather than a new place.
+His ask: `--seed=`, random by default, and the seed shown on screen for a while after launch.
+
+**The hazard was the default, not the flag.** Every recorded figure in this repo is a statement
+about one landscape — the r6 control's 2601 / 325 / 3446 at 411, the keystone's 18,718 at risk,
+*"the first forty seconds of the profile seed are dry"* — and a random seed applied everywhere
+would have retired all of them without a single test going red. **The rule: a measurement keeps
+the constant.** The draw happens in exactly one place, the `header is null` branch of
+`OpenWorld`, and only when no `--seed=` was given and `_profiler is null`; a run with no world
+file never reaches that branch and so keeps the constant too. `--seed=` still wins under
+`--profile`, so a measurement on other terrain can be asked for — it just has to be asked for.
+Verified rather than argued: `--profile --world=<new>` reads `seed 0x4D494E455243`, and the r6
+control reads 2601 / 325 / 3446 at 411 to the digit.
+
+**Nine digits, not sixty-four bits.** A seed is only worth having if it can be read off the
+screen and typed back in, so the draw is `[1, 10^9)`; splitmix64 decorrelates a small number as
+happily as a large one, and a billion landscapes is not the constraint. The log line carries
+both forms — `seed 0x292EC410 (--seed=690930704 builds this landscape again)` — because the hex
+is what every earlier line printed and the decimal is what you type.
+
+**Ignored on an existing world, with a word.** An unedited chunk is regenerated rather than
+stored, so honouring a seed on an opened world would rebuild the terrain *around* its saved
+chunks: the `--cavestep` rule, its reason and its warning, a second time. And a *mistyped* seed
+is refused out loud rather than falling through to `unknown flag`, because the quiet version
+hands you a random world and the two are indistinguishable from inside one.
+
+**The banner is the half headless cannot check, and it took a screenshot to believe.** Upper
+right, the world's name and `--seed=<n>`, plus one line for a world that is new; driven off the
+frame delta `Hud.Refresh` already takes rather than a tick count, which is what his own second
+message asked for once he saw what a per-tick hook would cost. Measured at seven settle times:
+full through ~8.5 s, 15% at 11 s, gone by 12.5 s. **The intermediate reading looked like a
+broken fade and was not** — at 9 s the banner is still at 0.89 alpha, because the clock starts
+when the HUD is built ~1.5 s in, and one screenshot at 20 s (gone) plus four more between
+turned an apparent defect into an offset. Eyeballing two screenshots said "identical"; sampling
+the pixels said 565 against 565, which is what made it worth chasing rather than shrugging at.
+
+**Also:** a world name may contain spaces, provided the whole flag is quoted
+(`start.cmd "--world=Deep Mine"`) — `%*` forwards the quotes and Windows hands the game one
+argument; unquoted it arrives as four and the run says so. Checked through a `cmd` stub and a
+create/reopen round trip.
+
 ## 2026-09-23 — The undo is played, and *disallow* is not *silently empty*
 
 First press, his words: **"Ctrl z feels good, disallow if something falls yes"**. UNDO-PLAN's

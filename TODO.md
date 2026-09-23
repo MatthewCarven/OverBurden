@@ -5607,6 +5607,38 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             the reason until the next edit and the press reads `the roof came down since your last
             edit, and rubble cannot be put back`. One test, suite 1,735; the bind and the
             three-step depth confirmed with it.
+- [x] **A new world is a new landscape — `--seed=<n>`, random by default, built 2026-09-23** on
+      his ask, after he asked whether a `--world=` name was one of mine. Every world this project
+      had ever made used the constant `0x4D494E455243` (ASCII `MINERC`), so a fresh world was a
+      reset rather than a new place. Decimal or `0x` hex; refused out loud rather than falling
+      through to `unknown flag`, because the quiet version hands you a random world.
+      - [x] **The rule that protects every recorded figure: a measurement keeps the constant.**
+            The draw is in one place — `OpenWorld`'s `header is null` branch — and only when no
+            `--seed=` was given and `_profiler is null`; a run with no world file never reaches
+            it. So `--profile --world=<new>` reads `0x4D494E455243` and the r6 control is
+            2601 / 325 / 3446 at 411 to the digit, both checked. **Without this rule the r6
+            control, the keystone's 18,718 and "the first forty seconds of the profile seed are
+            dry" would all have been retired silently, with the suite green.** `--seed=` still
+            wins under `--profile`, so other terrain can be measured on request.
+      - [x] **Nine digits rather than sixty-four bits**, because the point of a seed is being
+            written down; splitmix64 does not care. The log carries both forms.
+      - [x] **Ignored on an existing world, with a warning** — an unedited chunk regenerates, so
+            a seed there would rebuild the terrain around the saved chunks. `--cavestep`'s rule,
+            reason and warning a second time.
+      - [x] **The HUD banner** (`Hud.ShowSeed`, upper right, name + `--seed=<n>` + a line if the
+            world is new): driven off the frame delta `Refresh` already takes rather than a tick
+            count — his own correction once he saw what a per-tick hook cost. Full through
+            ~8.5 s, 15% at 11 s, gone by 12.5 s, measured by screenshot at seven settle times.
+            **The 9 s reading looked like a dead fade and was an offset**: the clock starts when
+            the HUD is built ~1.5 s in, and pixel sampling (565 against 565) is what made it
+            worth chasing where the eye said "identical". No banner under `--profile`, the HUD
+            being skipped there.
+      - [ ] **Not built, and nobody has asked**: a seed is not shown anywhere after the banner
+            fades — no pause screen, no `--world` listing. Trigger: the first time you want to
+            know the seed of a world you are already standing in.
+      - [ ] **Also unasked**: the strata, cave and surface settings are still thirteen fixed
+            fields, so a seed moves the landscape and never the *kind* of landscape. That is
+            WORLDGEN's pass, not this one.
 - [ ] **M10d — the play**: the mine pumped dry by relay, the storm, the gate, the pillar verdict.
       - [x] **The pool world is retired as the enclosure's fixture, 2026-09-22** —
             `worlds/retired-pool-2026-09-22/` (127 machines, 7.09 ML in 1,467 rows, 6.27 ML of

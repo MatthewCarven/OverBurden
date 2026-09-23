@@ -235,6 +235,9 @@ public partial class Main : Node3D
 
     private string _worldName = DefaultWorldName;
     private bool _worldNamed;
+    private ulong _seed;
+    private bool _seedGiven;
+    private bool _newWorld;
     private bool _persist = true;
     private double _autosaveSeconds = DefaultAutosaveSeconds;
     private double _sinceAutosave;
@@ -1965,6 +1968,27 @@ public partial class Main : Node3D
 
                     break;
 
+                // The terrain of a world that does not exist yet. Decimal or 0x hex, because the
+                // log prints the seed as hex and a number you cannot type back in is not a seed.
+                //
+                // Refused out loud rather than falling through to "unknown flag": a mistyped seed
+                // that reads as an unknown flag would hand you a *random* world instead of the one
+                // you asked for, and the two are indistinguishable until you are standing in it.
+                case "seed":
+                    if (TryParseSeed(value, out ulong seed))
+                    {
+                        _seed = seed;
+                        _seedGiven = true;
+                    }
+                    else
+                    {
+                        GD.PushError(
+                            $"--seed='{value}' is not a number; ignored. Decimal (--seed=12345) or "
+                            + "hex (--seed=0x4D494E455243).");
+                    }
+
+                    break;
+
                 // No world file at all: the pipeline takes a null store, every chunk comes from
                 // the seed, and nothing is written. The world M2d and M5d measured.
                 case "nosave":
@@ -2430,6 +2454,10 @@ public partial class Main : Node3D
 
         _hud = new Hud { Name = "Hud" };
         AddChild(_hud);
+
+        // After the world is open, so it says what was actually opened rather than what was
+        // asked for. A run with no world file still shows one: its terrain reproduces too.
+        _hud.ShowSeed(_persist ? _worldName : "no world file", _settings.Seed, _newWorld);
 
         // The panel with it, for the same reason and one more: it is added after the camera, so
         // it sees unhandled input first — which is nothing, since its frame stops the clicks it
@@ -7879,12 +7907,31 @@ public partial class Main : Node3D
             // never written to, which is the same thing.
             if (header is null)
             {
+                _newWorld = true;
+
+                // The one place a seed is ever drawn, because this is the one place a world is
+                // created. After this the header carries it and nothing here is consulted again.
+                //
+                // **A measurement keeps the constant, and that is the whole of the rule.** Every
+                // recorded figure in this project — the r6 control's 2601 / 325 / 3446 at 411, the
+                // keystone's 18,718 at risk, "the first forty seconds of the profile seed are dry"
+                // — is a statement about one landscape, and a random seed under --profile would
+                // retire all of them silently, which is the most expensive kind of silence there
+                // is. --seed= still wins here, so a measurement *can* be taken somewhere else; it
+                // just has to be asked for.
+                if (!_seedGiven && _profiler is null)
+                {
+                    settings = settings with { Seed = RandomWorldSeed() };
+                }
+
                 if (!LoadContent(null))
                 {
                     throw new InvalidOperationException("the content did not load cleanly (see above)");
                 }
 
-                GD.Print($"M6: new world at {path}, seed 0x{settings.Seed:X}");
+                GD.Print(
+                    $"M6: new world at {path}, seed 0x{settings.Seed:X} "
+                    + $"(--seed={settings.Seed} builds this landscape again)");
                 return true;
             }
 
@@ -7910,6 +7957,18 @@ public partial class Main : Node3D
                 GD.PushWarning(
                     "--cavestep is ignored for an existing world: its header decides how the "
                     + "unstored terrain regenerates. Use --world=<name> for a scratch world.");
+            }
+
+            if (_seedGiven)
+            {
+                // Same rule and the same reason as --cavestep above: an unedited chunk is
+                // regenerated rather than stored, so honouring a seed here would rebuild the
+                // terrain *around* the chunks this world has saved. A seed belongs to a world
+                // that does not exist yet.
+                GD.PushWarning(
+                    $"--seed is ignored for an existing world: {_worldName} was made with "
+                    + $"0x{settings.Seed:X} and regenerates from it. Name a world that does not "
+                    + "exist yet to use a seed.");
             }
 
             if (!LoadContent(world.MaterialIdTable))
@@ -8060,10 +8119,33 @@ public partial class Main : Node3D
         && name.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) < 0
         && name is not "." and not "..";
 
+    /// <summary>Whether <paramref name="text"/> is a seed: decimal, or hex behind <c>0x</c>.</summary>
+    private static bool TryParseSeed(string text, out ulong seed)
+    {
+        text = text.Trim();
+
+        return text.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
+            ? ulong.TryParse(
+                text.AsSpan(2),
+                System.Globalization.NumberStyles.HexNumber,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out seed)
+            : ulong.TryParse(text, out seed);
+    }
+
+    /// <summary>A seed for a brand new world, drawn fresh.</summary>
+    /// <remarks>
+    /// <b>Nine digits rather than sixty-four bits, because the point of it is being written down.</b>
+    /// A seed you cannot read off the screen and type back in is a seed you cannot use to build the
+    /// same landscape twice, and splitmix64 decorrelates a small number as happily as a large one —
+    /// a billion distinct worlds is not the constraint here.
+    /// </remarks>
+    private static ulong RandomWorldSeed() => (ulong)System.Random.Shared.NextInt64(1, 1_000_000_000);
+
     /// <summary>The settings a world is created with, before it has a header of its own.</summary>
     private WorldGenSettings NewWorldSettings()
     {
-        var settings = new WorldGenSettings { Seed = NewWorldSeed };
+        var settings = new WorldGenSettings { Seed = _seedGiven ? _seed : NewWorldSeed };
 
         return _caveLatticeStep is int step
             ? settings with { CaveLatticeStep = step }

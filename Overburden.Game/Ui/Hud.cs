@@ -56,10 +56,25 @@ public sealed partial class Hud : CanvasLayer
     /// </remarks>
     private const double RefreshSeconds = 0.1;
 
+    /// <summary>How long the seed sits at full strength before it starts going.</summary>
+    /// <remarks>
+    /// <b>Deliberately lossy.</b> Matthew's ask was "stay for some time after launch", and the
+    /// only thing that matters is that it outlasts the first look around — so it is driven off
+    /// the frame delta the hotbar already gets rather than off a tick count, and a frame dropped
+    /// during the opening fill shortens nothing that anybody can perceive.
+    /// </remarks>
+    private const double SeedHoldSeconds = 7.0;
+
+    /// <summary>How long it takes to fade once the hold has elapsed.</summary>
+    private const double SeedFadeSeconds = 3.0;
+
     private readonly List<SlotView> _slots = [];
 
     private Label _status = null!;
     private double _sinceRefresh;
+
+    private Label? _seed;
+    private double _sinceSeedShown;
 
     /// <summary>What each slot showed last, so a rebuild only happens when the row changes.</summary>
     private readonly List<int> _shownMaterials = [];
@@ -90,6 +105,63 @@ public sealed partial class Hud : CanvasLayer
 
         BuildCrosshair(root);
         BuildRow(root);
+        BuildSeed(root);
+    }
+
+    /// <summary>
+    /// The world's name and seed, upper right, for a few seconds after launch.
+    /// </summary>
+    /// <remarks>
+    /// <b>It exists so the landscape can be written down.</b> A seed is only useful if you can
+    /// read it off the screen and hand it back to <c>--seed=</c>, and the log line that carries it
+    /// scrolls past under the opening fill's own reports. Hidden until <see cref="ShowSeed"/> is
+    /// called, and it hides itself again — nothing removes it, because a <c>Label</c> at zero
+    /// alpha costs a rect nobody draws.
+    /// <para>
+    /// <b>Anchors and offsets directly, never a preset plus a <c>Size</c></b> — see
+    /// <see cref="BuildCrosshair"/> for the screenshot that rule came from.
+    /// </para>
+    /// </remarks>
+    private void BuildSeed(Control root)
+    {
+        _seed = new Label
+        {
+            Name = "Seed",
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            AnchorLeft = 1f,
+            AnchorRight = 1f,
+            AnchorTop = 0f,
+            AnchorBottom = 0f,
+            OffsetLeft = -460f,
+            OffsetRight = -20f,
+            OffsetTop = 18f,
+            OffsetBottom = 78f,
+            GrowHorizontal = Control.GrowDirection.Begin,
+            Visible = false,
+        };
+
+        _seed.AddThemeColorOverride("font_color", DimText);
+        _seed.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.85f));
+        _seed.AddThemeConstantOverride("outline_size", 4);
+        root.AddChild(_seed);
+    }
+
+    /// <summary>Puts the world's name and seed on screen, starting the fade.</summary>
+    /// <remarks>
+    /// The seed is offered in decimal, in the form that goes back on the command line, because
+    /// that is the only thing anybody wants to do with it. The log keeps the hex.
+    /// </remarks>
+    public void ShowSeed(string worldName, ulong seed, bool newWorld)
+    {
+        if (_seed is null) return;
+
+        _seed.Text =
+            $"{worldName}\n--seed={seed}"
+            + (newWorld ? "\nnew world — note it down to build this landscape again" : string.Empty);
+        _seed.Modulate = Colors.White;
+        _seed.Visible = true;
+        _sinceSeedShown = 0.0;
     }
 
     /// <summary>
@@ -261,6 +333,8 @@ public sealed partial class Hud : CanvasLayer
         Overburden.Core.Machines.EquippedPack? pack = null,
         long carriedPackMillijoules = 0)
     {
+        FadeSeed(delta);
+
         _sinceRefresh += delta;
         bool refreshText = _sinceRefresh >= RefreshSeconds;
         if (refreshText)
@@ -293,6 +367,29 @@ public sealed partial class Hud : CanvasLayer
             string text = StatusText(place, mining, precise, pack, carriedPackMillijoules);
             _status.Text = radius is null ? text : $"{text}   ·   view {radius}";
         }
+    }
+
+    /// <summary>Holds the seed at full strength, then fades it out and hides it.</summary>
+    /// <remarks>
+    /// Unthrottled, unlike the slot text: the refresh timer exists so a number a person is reading
+    /// does not flicker, and this one is an alpha ramp that would step visibly at ten hertz.
+    /// </remarks>
+    private void FadeSeed(double delta)
+    {
+        if (_seed is not { Visible: true }) return;
+
+        _sinceSeedShown += delta;
+
+        if (_sinceSeedShown >= SeedHoldSeconds + SeedFadeSeconds)
+        {
+            _seed.Visible = false;
+            return;
+        }
+
+        if (_sinceSeedShown <= SeedHoldSeconds) return;
+
+        float remaining = (float)((SeedHoldSeconds + SeedFadeSeconds - _sinceSeedShown) / SeedFadeSeconds);
+        _seed.Modulate = new Color(1f, 1f, 1f, remaining);
     }
 
     private static void FillSlot(

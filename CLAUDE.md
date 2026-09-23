@@ -919,6 +919,31 @@ screenshot prop does not open the played world**: `--profile`, `--fall` and `--d
 persistence off unless `--world=` names one, because `--mine` would carve up the world somebody
 plays and because a run that *loads* what an earlier one saved is not comparable with M2d's
 figures. Naming a world is the explicit opt back in, and it is how M6d measures the load path.
+**A name with spaces works and has to be quoted whole** — `start.cmd "--world=Deep Mine"`, because
+`start.cmd` forwards with `%*` and cmd splits on spaces; unquoted, `--world` arrives with an empty
+value, is refused out loud and the run opens `default`. Banned characters are Windows' own
+(`\ / : * ? " < > |`), the name is case-insensitive, and a world that does not exist is created.
+
+**A new world's seed is random since 2026-09-23, and `--seed=<n>` asks for one** — decimal or
+`0x` hex, refused out loud rather than as an unknown flag, because a mistyped seed falling through
+to the default would hand you a *random* world and the two are indistinguishable from inside.
+**It applies only to a world that does not exist yet**: an existing world regenerates its unstored
+chunks from its header, so a seed there would rebuild the terrain *around* the chunks it has saved
+— ignored with a warning, the `--cavestep` rule and its reason exactly. **A measurement keeps the
+fixed `0x4D494E455243` constant**: a new world created under `--profile` (and so `--fall`) is
+seeded with it, and so is every run with no world file, because the r6 control's 2601 / 325 / 3446
+at 411, the keystone's 18,718 at risk and *"the first forty seconds of the profile seed are dry"*
+are all statements about one landscape, and a random seed under `--profile` would retire every
+recorded figure in this repo silently. `--seed=` still wins there, so a measurement on other
+terrain can be asked for; it just has to be asked for. The draw is nine digits rather than
+sixty-four bits because the point of a seed is being written down, and splitmix64 decorrelates a
+small number as happily as a large one. The `M6: new world` line carries both forms
+(`seed 0x292EC410 (--seed=690930704 builds this landscape again)`), and **the HUD shows the world's
+name and seed in the upper right for the first few seconds** — full for ~8.5 s from launch, fading
+over ~3, gone by ~12.5 (measured by screenshot at seven settle times; the offset from his "ten
+seconds" is the ~1.5 s the world takes to open, and the whole thing is deliberately lossy). It is
+driven off the frame delta `Hud.Refresh` already takes, so **a profile run has no banner**, the HUD
+being skipped there.
 
 **`--speed=0` means a standing start and is distinct from omitting `--speed`**, which defaults a
 profile to 40 m/s. That distinction was added at M5d-1, because the standing start is the only

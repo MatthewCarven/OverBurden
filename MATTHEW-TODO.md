@@ -16,6 +16,13 @@ start.cmd "--world=Deep Mine"
 ```
 
 `--world=Deep Mine` without quotes gives you errors in the log and lands you in `default`.
+
+**Every new world now gets a random landscape**, and its seed is shown in the upper right for the
+first few seconds after launch, in the form you'd type back in — note it down if you like the
+place. `start.cmd "--world=Deep Mine" --seed=690930704` builds that landscape again, in a world
+of any name; the flag takes decimal or `0x` hex and only means anything for a world that does not
+exist yet (an existing one keeps its own seed, and says so if you pass one). Measurement runs
+(`--profile`, `--fall`) still get the old fixed seed, so my recorded numbers keep reproducing.
 Banned characters are Windows' usual `\ / : * ? " < > |`; everything else — spaces, dashes,
 apostrophes — is allowed, and the name is case-insensitive, so `Deep Mine` and `deep mine` are
 one world. Avoid a trailing space or dot; Windows trims those. Worlds live in
