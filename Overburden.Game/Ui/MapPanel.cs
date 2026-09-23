@@ -88,6 +88,7 @@ public sealed partial class MapPanel : Control
     private Label _caption = null!;
     private string _reported = string.Empty;
 
+
     /// <summary>
     /// Ground a pixel covers. <c>--mapscale=</c> sweeps it; the default is 16 m, so 128 pixels
     /// is one region.
@@ -170,14 +171,14 @@ public sealed partial class MapPanel : Control
     /// <param name="centreVoxelX">Where the player is.</param>
     /// <param name="centreVoxelZ">Where the player is.</param>
     /// <param name="bearingDegrees">Which way they face, from <see cref="Compass"/>.</param>
-    /// <param name="overlay">Your mine, your machines and the water.</param>
+    /// <param name="overlay">Your mine, your machines and the water. Called only when rebuilding.</param>
     /// <param name="delta">Seconds since the last frame, for the rebuild interval.</param>
     public void Refresh(
         ISurfaceHeights heights,
         int centreVoxelX,
         int centreVoxelZ,
         float bearingDegrees,
-        MapOverlay overlay,
+        Func<MapOverlay> overlay,
         double delta)
     {
         if (!IsOpen)
@@ -196,7 +197,11 @@ public sealed partial class MapPanel : Control
 
         if (ShouldRebuild(wanted))
         {
-            Build(heights, wanted, overlay);
+            // The overlay is gathered here and nowhere else, which is the point of taking a
+            // factory rather than a value: building it walks every stored chunk into a set and
+            // allocates a pin list, and at 60 Hz on a played world that is 4,584 chunks a frame
+            // for a picture that changes once a second.
+            Build(heights, wanted, overlay());
         }
 
         QueueRedraw();

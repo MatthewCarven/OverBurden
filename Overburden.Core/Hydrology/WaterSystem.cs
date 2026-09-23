@@ -428,9 +428,19 @@ public sealed class WaterSystem : IWaterTable
     }
 
     /// <summary>The water surface over a basin, in voxel Y, or null if it holds nothing.</summary>
+    /// <remarks>
+    /// <b><see cref="Watershed.Outlet"/> is a label, not a node, and it is answered here rather
+    /// than left to every caller to remember.</b> It used to walk into the merge tree's arrays and
+    /// throw <c>IndexOutOfRangeException</c> — which <see cref="TableAt"/> knew and guarded, and
+    /// the map did not. The cost of that asymmetry was a whole slice: the throw happened inside a
+    /// Godot callback, where it is caught and logged rather than crashing, so the symptom was not
+    /// an exception at all — it was a map that drew itself once and then quietly never updated
+    /// again. Water on an outlet leaves the world, so it has no level, and null is the true
+    /// answer.
+    /// </remarks>
     public double? LevelAt(int basin)
     {
-        if (Water is null || Window is null) return null;
+        if (Water is null || Window is null || basin == Watershed.Outlet) return null;
         return Water.StoredIn(basin) > 0 ? Water.LevelAt(basin) : null;
     }
 

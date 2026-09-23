@@ -337,3 +337,55 @@ There is a one-second maximum age now. It is not yet doing anything, which is it
 127 of them drew their dark outlines over one another's centres and the whole base came out as a
 blob. Centres first, then outlines around what is left -- a cluster now reads as a patch of machine
 colours with one rim around the whole of it, which is what a map of a base should look like.
+
+---
+
+## Slice d — built, 2026-09-23. The map is finished.
+
+All three overlays verified in the game. On a copy of the retired pool world the log reads
+`M12: map — 127 pin(s), mine drawn, water analysed here`, and the screenshot shows the analysed
+window as a **diamond** — a world-aligned square seen through a 315 degree rotation, which is what
+a facing-up map should do to it — with Tier A's ponds inside it and nothing claimed outside.
+
+### The one defect, and why it looked like three
+
+Slice c stopped at "the map builds exactly once", which read like a refresh-rule problem. It was
+not. The probe slice c's plan asked for settled it in one run: `Refresh` was being called every
+frame, `_sinceBuild` was growing to fifty-four seconds, and `ShouldRebuild` plainly had a
+one-second maximum age in it. All three facts were true and the map still built once.
+
+**`Build` was throwing.** `WaterSystem.LevelAt` walked into the merge tree's arrays with
+`Watershed.Outlet` — a label, not a node — and threw `IndexOutOfRangeException`. And because the
+throw happened inside a Godot callback, **it was caught and logged rather than crashing**: no
+failing test, no stopped process, just a map that drew its first picture and then silently never
+updated again.
+
+**It is fixed at the source rather than at the caller, and that asymmetry was the whole cost.**
+`TableAt` had guarded the outlet case for milestones — the author knew — but `LevelAt` itself
+threw, so every *other* caller had to know too, and the map did not. `LevelAt` answers null for an
+outlet now, which is the true answer: water there leaves the world, so it has no level.
+
+**The lesson worth keeping: an exception inside a Godot callback does not look like an
+exception.** It looks like a feature that works once. `grep` the run for the exception type before
+believing any behavioural theory about a UI that updates strangely — the whole of slice c's
+"water" investigation was chasing a symptom three layers downstream of a stack trace that was
+sitting in the log the entire time.
+
+### The other two items
+
+**The map now rebuilds while you stand still**, at most once a second, because the world changes
+on its own: water rises, a hillside comes down, an autosave grows the mine. Standing still is
+exactly when somebody is reading the map.
+
+**And the overlay is gathered only when the picture is rebuilt.** It was passed as an argument, so
+it ran at 60 Hz whether the map was open or not — walking every stored chunk into a fresh set and
+allocating a pin list, 4,584 chunks a frame on a played world for a picture that changes once a
+second. `Refresh` takes a factory now and calls it inside the rebuild decision.
+
+Suite 1,809; r6 control 2601 / 325 / 3446 at 411 to the digit.
+
+### What is left, and it is all Matthew's
+
+Nothing is blocked. The play checks are in `MATTHEW-TODO.md`: whether 2 km is the right default
+width, whether the shipped relief shape reads right now that it can be seen, and whether the map
+earns its key.

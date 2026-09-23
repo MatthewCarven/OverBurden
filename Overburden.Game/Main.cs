@@ -2547,7 +2547,7 @@ public partial class Main : Node3D
                 (int)MathF.Floor(eye.X * VoxelConstants.VoxelsPerMetre),
                 (int)MathF.Floor(eye.Z * VoxelConstants.VoxelsPerMetre),
                 Overburden.Core.Navigation.Compass.BearingDegrees(forward.X, forward.Z),
-                MapOverlayNow(),
+                MapOverlayNow,
                 delta);
         }
     }

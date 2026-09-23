@@ -35,7 +35,10 @@ internal sealed class MapWater(WaterSystem water) : IMapWater
     {
         levelVoxels = 0.0f;
 
-        if (!water.TryBasinAtVoxel(worldVoxelX, worldVoxelZ, out int basin))
+        // An outlet is ground the window covers and says drains off its edge: analysed, and with
+        // no level, because water there leaves the world.
+        if (!water.TryBasinAtVoxel(worldVoxelX, worldVoxelZ, out int basin)
+            || basin == Watershed.Outlet)
         {
             return false;
         }
