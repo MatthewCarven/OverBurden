@@ -1,5 +1,14 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-24 — The chunk is one click one bite too
+
+Matthew, answering the tunneller's question: *"yes make the chunk one click one bite too"*. So
+every quantum tier is edge-triggered now — `MiningController.OneClickOneBite` is `Tool.AtRange`
+and `PlaceController.OneClickOneFill` is `Entangled` — and a stream is Q held on any of them.
+The picks' sphere still repeats on a held button, as it always has. `--mine` and `--place` set
+the button every frame, so no recorded profile moves; the headless excavator with `--holdq`
+still runs at its file's 0.25 s.
+
 ## 2026-09-23 — The quantum tunneller
 
 Matthew, the same evening: *"a quantum tunneller that does about 2x2 meters to go between the

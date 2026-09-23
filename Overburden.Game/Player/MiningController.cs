@@ -172,11 +172,12 @@ public sealed class MiningController(
     public bool TakesTunnel => Tool.Bite == ToolBite.Tunnel;
 
     /// <summary>
-    /// Whether a click is one bite rather than a hold that repeats: the cube and the tunnel
-    /// (Matthew, 2026-09-23 — <i>"q is pressed to initiate it else its just one bite"</i>). Q held
-    /// runs either at the file's cooldown; the chunk still repeats on a held button.
+    /// Whether a click is one bite rather than a hold that repeats: every quantum tier — the
+    /// cube, the tunnel (Matthew, 2026-09-23 — <i>"q is pressed to initiate it else its just one
+    /// bite"</i>) and the chunk (2026-09-24, <i>"yes make the chunk one click one bite too"</i>).
+    /// Q held runs any of them at the file's cooldown; the picks still repeat on a held button.
     /// </summary>
-    public bool OneClickOneBite => TakesCube || TakesTunnel;
+    public bool OneClickOneBite => Tool.AtRange;
 
     /// <summary>
     /// The entangled reach. A backstop, not the real limit — the world is.

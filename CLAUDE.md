@@ -3870,8 +3870,10 @@ filled one, which `--entanglechunk` restores and which every bite figure below w
 **And on the cube arm one click is one click** — a bare press fires once and never repeats while
 held, **precise or not since 2026-09-19** (Alt kept a held repeat for fine work at range until the
 modifier map was read back and it turned out to be a 40/s voxel stream whenever you crawled and
-clicked in fly mode; the one way to stream is Q held now, and the sphere and chunk arms are
-unchanged). Alt still chips one voxel. Three things about it that are easy to undo by accident:
+clicked in fly mode; the one way to stream is Q held now). **Since 2026-09-23/24 every quantum
+tier is one click one bite, and its fill one click one fill** — the tunneller (a 2 m cube, the
+T cycle's middle tier) on Matthew's word, then the chunk (*"yes make the chunk one click one bite
+too"*); only the picks' sphere still repeats on a held button. Alt still chips one voxel. Three things about it that are easy to undo by accident:
 
 - **It was deliberately not a tool tier until M10c-3, and the reach half of that still
   holds.** *Reach is the player's, not the tool's* is locked twice — M3d, restated at M4c —

@@ -585,7 +585,7 @@ public sealed partial class Hud : CanvasLayer
             // Both verbs named, because both changed scale at the same keypress and the fill is
             // the one a player would not guess. "dig / fill" rather than "mine / place": the
             // pairing is what makes the mode safe to use, since the bite now has an undo.
-            return $"WHOLE CHUNK   ·   {tier}  (T)   ·   dig / fill at range   ·   Alt: one voxel   ·   hold Q: run";
+            return $"WHOLE CHUNK   ·   {tier}  (T)   ·   dig / fill at range, one click one bite   ·   Alt: one voxel   ·   hold Q: run";
         }
 
         // The cube bite (2026-09-14): the dig is one brush cell and the fill is the brush at

@@ -95,9 +95,8 @@ otherwise — flags go on the end of the `start.cmd` line.
 - [ ] `T` to `quantum_tunneller` (between the miner and the excavator). Click: one 2 m cube
       gone, with a 2 m outline showing which. Hold Q: one every 0.25 s. Right click: fills the
       2 m cube in front of the crosshair. One sentence: does 2 m feel like the right middle?
-- [ ] **The excavator still repeats on a held left button** — you wrote "one bite like the
-      chunk", so if you expected a click to be one chunk, say so and it becomes one click one
-      bite like the other two (one line).
+- [x] **The excavator is one click one bite too** — done 2026-09-24 on your word; hold Q to
+      run it, as with the other two.
 
 ### The vacuum cell's switch (2026-09-23)
 

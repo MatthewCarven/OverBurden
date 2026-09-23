@@ -117,8 +117,8 @@ public sealed class PlaceController(
     /// <summary>The tunneller's fill cooldown — the bite's, so dig and fill pace the same.</summary>
     public float TunnelCooldownSeconds { get; set; } = 0.25f;
 
-    /// <summary>A click is one fill rather than a hold that repeats — the cube arm and the tunneller.</summary>
-    public bool OneClickOneFill => TakesCube || TakesTunnel;
+    /// <summary>A click is one fill rather than a hold that repeats — every quantum tier's fill, the chunk's too since 2026-09-24.</summary>
+    public bool OneClickOneFill => Entangled;
 
     /// <summary>
     /// How long between whole-chunk fills, in seconds.
