@@ -1110,6 +1110,37 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
+**Pick up here (2026-09-23, late — session close, *"see you in a fresh Code Chat"*). Everything
+is committed through `3749b96`, the tree is clean, and the push is Matthew's — seven commits
+(`c417d89..3749b96`). Suite 1,809, r6 control 2601 / 325 / 3446 at 411 to the digit. Nothing is
+blocked on me; everything outstanding is a play.**
+
+**Built this session, all on his word:** the pipeline harness's terrain pinned with the shipped
+defaults asserted separately; **relief as a floor, a ceiling and a rarity** (`--relief`,
+`--reliefbase`, `--reliefrare`, header **v7**) after a multiplier centred on 1 shipped and was
+measured wrong the next day; **the relief field offset per seed**, because gradient noise is zero
+at its lattice points and world origin is one, so four worlds read the identical amplitude at
+spawn to the digit; **the HUD's position and heading line** with `Core/Navigation/Compass`; and
+**the map** — planned in [docs/MAP-NOTES.md](docs/MAP-NOTES.md) and built in four slices, a to d,
+all four documented there with their findings.
+
+**What is Matthew's, all of it play:** whether the shipped relief shape (`0.4 / 3 / 0.25`) reads
+right now that the map lets him see it; whether 2 km is the right default map width (`--mapscale=4`
+is the other end); and the older M10d recipes. `MATTHEW-TODO.md` has the three dials as a table
+with which way each scale runs.
+
+**Four things not to rediscover.** **An exception inside a Godot callback is caught and logged
+rather than crashing**, so it looks like a feature that works once — the map built exactly one
+picture for a whole slice while a stack trace sat in the log; grep a run for the exception type
+before believing any theory about a UI that updates strangely. **A display's scale belongs to what
+is on screen**, not to what the world could contain — and the fit needs a floor, or flat ground is
+amplified into noise. **Coarser does not calm a sampling-limited picture, it aliases harder**, so
+the map's zoom should stop around 16 m a pixel rather than pay N² for supersampling. And **the
+bearing-independence oracle earned itself twice**: it caught a one-pixel grid shift the slice after
+it was written, and it is the test to reach for on anything that draws the world from a viewpoint.
+
+The paragraph below is the morning's state, kept for the reasoning.
+
 **Pick up here (2026-09-23, session close — *"see you in a fresh Code Chat"*). Everything is
 committed and pushed through `ac91996`, the tree is clean, and his `default` is gone: the next
 launch is a fresh world. `start.cmd` builds the Game before it launches now, so the binary is the

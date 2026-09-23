@@ -32,28 +32,37 @@ works** — it sets where in the forecast the world starts, and an existing worl
 with what it remembers, so `start.cmd "--world=storm test" --clock=900` is how you open straight
 into weather rather than waiting for it.
 
-**How mountainous your world is, and where.** Three dials, all set when a world is created and
-none of them changeable afterwards — an unedited chunk is rebuilt from the world's own header, so
-a world that changed its relief would rebuild the landscape *around* whatever you had already dug,
-with your mine hanging in it. The game says so if you pass one to a world that exists.
+**How mountainous your world is, and where.** Three dials. All set when a world is created and
+none changeable afterwards — an unedited chunk is rebuilt from the world's own header, so a world
+that changed its relief would rebuild the landscape *around* whatever you had already dug, with
+your mine hanging in it. The game says so if you pass one to a world that exists.
 
 ```bash
 start.cmd "--world=Big Country" --relief=4 --reliefbase=0.3 --reliefrare=0.4
 ```
 
-- **`--relief=<x>`** — how tall the mountains get. 1 is the old world, 3 is the shipped default, 6
-  is dramatic.
-- **`--reliefbase=<x>`** — how flat the flat places are. 0.4 is the default; lower means real
-  plains between the hills.
-- **`--reliefrare=<0..1>`** — how much of the map is mountain. 0 gives every region some height,
-  1 leaves it only on the summits. 0.25 is the default.
+| flag | what it sets | low end | shipped | high end |
+|---|---|---|---|---|
+| `--relief=<x>` | **how tall the mountains get** | `0.5` — nowhere rises much | `3` | `6` — dramatic peaks |
+| `--reliefbase=<x>` | **how flat the flat places are** | `0.1` — real plains | `0.4` | `1` — nowhere is flat |
+| `--reliefrare=<0..1>` | **how much of the map is mountain** | `0` — hills almost everywhere | `0.25` | `1` — only rare summits |
 
-All three are multiples of the same number, so `--reliefbase` wants to be smaller than `--relief`.
-A new world gets `0.4 / 3 / 0.25` whether you ask or not, which measures out as **roughly half the
-map flat, a third rolling, a tenth properly hilly, with the tallest places around 36 m**. The
-`M6: new world` line prints what you got, as `relief 19.2..144 voxel(s), mountains 25% rare`.
+**All three scales run low = less, high = more of the thing named.** Nothing is inverted.
 
-If you want the old uniform world back: `--reliefbase=1 --relief=1`.
+- `--relief` and `--reliefbase` are **multiples of the same base number**, so `--reliefbase` wants
+  to be the *smaller* of the two. If you pass a base above the relief the game warns once and
+  builds a uniform world rather than guessing which you meant.
+- The two of them are the **ceiling and the floor** of the same quantity: how far the ground
+  deviates up and down. `--relief=6 --reliefbase=0.1` is "plains and mountains"; `--relief=1
+  --reliefbase=1` is the old world, one lumpiness everywhere.
+- `--reliefrare` only decides **how the map is shared out between those two ends**. At 0 nearly
+  everywhere gets some height; at 1 the floor is nearly everywhere and the ceiling is reached only
+  on rare summits. It changes nothing about how tall or how flat the two ends are.
+
+A region — one journey from flat to mountainous and back — is about **2 km**, a few minutes of
+walking. The `M6: new world` line prints what you got, as `relief 19.2..144 voxel(s), mountains
+25% rare`, and the HUD's `relief` term tells you which kind of country you are standing in right
+now: near the floor is a plain, near the ceiling is a highland.
 
 **How to read a play afterwards.** The log is
 `%APPDATA%\Godot\app_userdata\Overburden\logs\godot.log` (the live or last session; the
