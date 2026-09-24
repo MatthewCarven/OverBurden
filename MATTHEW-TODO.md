@@ -108,26 +108,30 @@ otherwise — flags go on the end of the `start.cmd` line.
 
 ### Owed from the relief change (2026-09-23)
 
+- [x] **Answered 2026-09-24 on `Regions12` at `--reliefrare=0.125`: *"I found the hills like
+      :-{D"*.** Open: should 0.125 (more of the map mountain) be the shipped default?
 - [ ] **Does a world have somewhere flat and somewhere mountainous?** Launch a new world —
       `start.cmd "--world=Shaped"` — and travel in one direction for a few minutes. The shipped
       shape is my estimate off a sweep, not anybody's judgement. One sentence: are the flat places
       flat enough, are the mountains big enough, and do you hit one often enough? The dials to
       reach for are `--reliefbase` (lower = flatter plains), `--relief` (higher = bigger peaks)
       and `--reliefrare` (higher = rarer). All on a *new* world.
-- [ ] **Press F12.** The map draws your mine as darkened ground, your machines as coloured dots
+- [x] **Press F12.** The map draws your mine as darkened ground, your machines as coloured dots
       in their own material's colour, and water where Tier A knows about it — with a rim showing
       where that knowledge stops. It updates about once a second whether or not you move. The
       rimmed shape looks like a diamond because it is a square in the world and the map is turned
       to face the way you are.
-- [ ] **Press F12.** The map is in. It faces the way you do, the red tick on the rim is north,
+- [x] **Press F12.** The map is in. It faces the way you do, the red tick on the rim is north,
       the arrow in the middle is you, and the caption says how much ground it covers and what
       heights its colours mean. Esc or F12 closes it.
-- [ ] **Is 2 km the right width?** Add `--mapscale=4` to the launch line for a half-kilometre map
+- [x] **Answered 2026-09-24: *"map at 2km feels right"* — stays the default.**
+- [ ] ~~**Is 2 km the right width?**~~ Add `--mapscale=4` to the launch line for a half-kilometre map
       and compare. 4 m a pixel reads as proper landscape; your 2 km is busier because the terrain's
       own hills are only four pixels across at that scale. Going *wider* than 2 km makes it worse,
       not calmer — the map starts aliasing and shows hills that are not there — so the useful range
       is roughly 4 to 16 m a pixel. One sentence on which you would rather have as the default.
-- [ ] **You have a compass now.** The line above the status line reads `x 108  y 11  z 6 ·
+- [x] **Answered 2026-09-24: *"love the compass"*.**
+- [ ] ~~**You have a compass now.**~~ The line above the status line reads `x 108  y 11  z 6 ·
       facing 315° NW · relief 8.1 m`. North is −Z, east is +X — so walking north makes z go *down*
       and walking east makes x go *up*. The relief number is how tall the terrain gets where you
       are standing: near 4.8 m you are on a plain, near 36 m you are in the mountains.

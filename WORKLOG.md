@@ -1,5 +1,15 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-24 — The map, the compass and the hills, played
+
+Matthew, on `Regions12` (made at `--reliefrare=0.125`, seed `0x353801C3`, 19.2..144 voxels):
+*"love the compass and map at 2km feels right"* and *"I found the hills like :-{D"*, with a
+screenshot at relief 35.9 m — the ceiling, 144 voxels. **2 km stays the map's default and
+`--mapscale=4` stays an arm.** His launcher, `start2.cmd`, is `start.cmd`'s four flags plus
+`--world=Regions12 --reliefrare=0.125`; the relief flag is ignored with a warning on every
+launch after the first, as designed. Open: whether 0.125 replaces the shipped 0.25 — he played
+at 0.125 and liked the hills, which is not yet a word on the default. Log clean, 0 `ERROR`.
+
 ## 2026-09-24 — The chunk is one click one bite too
 
 Matthew, answering the tunneller's question: *"yes make the chunk one click one bite too"*. So
