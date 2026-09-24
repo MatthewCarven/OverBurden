@@ -210,3 +210,111 @@ not move with the rate; the settle's quiet interval is in ticks and does. The `s
 `front advance N ring(s): M cell(s) in all`. Headless, a 50,000 L pour on the worker: shipped
 `2,899 cell(s)`, `--frontadvance=0` `no front advance`, `--fluidhz=4` 100 ticks in the window
 against 50; 0 `ERROR` and every identity exact in all three. Suite 1,863; r6 control to the digit.
+
+## Slice 2 — the planning pass (2026-09-24, evening)
+
+Matthew, after playing slices a–c on `Regions13`: *"very little difference to the 4, look overall
+its better so I am not complaining, do you have any other ideas how we could get more horizontal
+movement?"* — then *"yes write the slice 2 plan"*. Decision 6 promised this slice on his play, and
+the play's log is the reason it is shaped the way it is. **Not built.** Six facts, seven decisions,
+a split.
+
+### Six facts
+
+1. **His session's settle line: 39,735 sheets levelled, 101,991 left under the share, 184,380 left
+   alone for *still being fed*** — over 2,215 passes, ~83 fed sheets a pass against ~18 levelled.
+   9.86 ML was drawn from the lake into his pit in the session. So the advance reached the one sheet
+   in five that was levelled; the four others were fed, which is why 8 rings read like 4.
+2. **"Fed" is chunk-granular and volume-blind.** `NoteInflow` stamps the voxel's *chunk* with the
+   tick on every `Add` (the relay's `R`, the portal drain, seepage, rain drops, rain on the player's
+   material), every `Emit` (a pump's outlet), every disturbance under water and the collapse's
+   re-pour; `IsBeingFed` calls a sheet fed if any of its cells stands in a chunk stamped within the
+   quiet window (two ticks). One 15.6 L rain drop, or one litre sweated out of a wall, makes every
+   sheet touching that 8 m chunk "a stream" for a second.
+3. **Sweat-mode seepage delivers whole litres per group, and at the shipped scale a wet room's
+   wall owes a litre every boundary or two** (1.76 L/s through a 10 × 10 × 3 m stone room under
+   5 m of head). So every dug chunk under a lake's table with a seep face is fed more or less
+   permanently, and every sheet in it is never levelled — before the advance existed as well as
+   after. **An estimate, not a count**: the settle line does not say why a sheet was fed, which is
+   decision 1.
+4. **The quiet rule exists for streams** (`IsBeingFed`'s remarks): levelling a sheet under inflow
+   flattens the gradient that carries the flow, and a stream down a tunnel rises as a flat sheet
+   instead of flowing — the arm `--settleafter=0` keeps, and the one the recorded play figures
+   (80 s at 2 against 12 s at 0) turned on. Whatever changes must keep a real stream a stream.
+5. **A fed sheet is skipped after its flood completes** — it is not frozen and it is worth
+   levelling, so its cells, its total and its front are all known when `IsBeingFed` says no. Fed
+   sheets already pay the flood; the skip saves only the targets and the writes.
+6. **The advance and the levelling are separable.** `Advance` adds rings to the sheet; the targets
+   are a separate step (`LevelTargets` / `PackTargets`). A fed sheet can take the same rings with a
+   different target rule — one that does not flatten it.
+
+### Seven decisions
+
+#### 1. Count why a sheet was fed before changing what fed means — *recommended, first*
+
+The settle line gains the fed sheets split by **the inflow into their chunks over the quiet window
+as a share of the sheet's own total**: under 0.1%, under 1%, under 10%, and more. Source-blind on
+purpose — a litre is a litre whether it sweated, rained or was pumped — and it needs only a per-chunk
+millilitre count beside the tick `NoteInflow` already stamps. One play with it says how much of the
+184,380 is trickle and how much is stream, which is what decision 2's threshold is picked from.
+
+#### 2. A sheet is fed only when its inflow is a real share of it — *recommended*
+
+`IsBeingFed` becomes: the millilitres that entered the sheet's chunks within the quiet window are at
+least **X% of the sheet's total** (1%, an estimate until decision 1's count), not merely more than
+zero. A sweating wall, a rain drop, an edit under a still lake: trickles, levelled and advanced like
+any other sheet. A breach pouring a lake into a tunnel, a pump outlet: streams, left alone as now.
+A large lake touched by a small inflow is levelled, which is right — relative to its volume it is
+still. **`--fedshare=<percent>`**, and **0 is the old rule** (any inflow is fed), the control arm.
+Cost: a per-chunk millilitre sum aged over K + 1 ticks, and one sum over a fed sheet's distinct
+chunks — the chunks are already walked by `IsBeingFed`. The recorded settle-interval figures were
+taken on a breach, which stays fed, so they should hold; decision 7 checks.
+
+#### 3. A sheet that is still fed advances *pro rata* — *recommended, second*
+
+For a real stream, the rings are taken exactly as today (fronts, whole rings, the 2 L floor) and
+filled by **scaling the sheet** rather than levelling it: every existing cell keeps
+`cells / (cells + new)` of what it held, and each new cell gets the sheet's new mean. The profile —
+the gradient that makes the stream flow — keeps its shape, lowered by that factor; the edge moves
+out N cells a pass. Conservation is `Transfer`s inside the sheet as now, with the rounding remainder
+handed out a millilitre at a time in flood order, the level rule's way. **Rejected: lending from the
+edge band only** — a stream's edge is its thinnest water, so the 2 L floor would stop it almost
+every time. **Rejected: advancing a fed sheet by levelling it** — that is the flat sheet the quiet
+rule was built to prevent. Cost stated: the whole sheet is written, as a levelling is, and a stream
+of *n* cells that gains *m* loses `m / (n + m)` of its gradient for a tick, which the automaton's
+next visits restore from the inflow.
+
+#### 4. Order: 1, then 2, then 3 only if the play still wants it — *recommended*
+
+Decision 2 is cheap, source-blind and may by itself move most of the 184,380 into the levelled
+column. Decision 3 is a new target rule with its own proofs; build it only if a play after 2 still
+reads a stream as slow. Each is a slice with its own tests.
+
+#### 5. The thinness floor, the lip, the cap and the frozen sheet are unchanged — *recommended*
+
+The same `AdvanceFloorMillilitres`, the same `IsSupported`, the rings counted by the cap, and a
+sheet under the share still not advanced. Nothing in slices a–c is reopened.
+
+#### 6. Tests — *recommended*
+
+For 2: a puddle beside a sweating wall (inflow a trickle) is levelled and advanced; the same puddle
+under a pour of 10% of its volume a tick is fed and left; a large still lake touched by a litre is
+levelled; `--fedshare=0` is today's pass to the millilitre. For 3: along a channel fed at one end,
+the gradient's sign is kept cell for cell after a pro-rata pass (a stream is still a stream);
+conservation; quiescence after the settle; rings identical to the level rule's for the same sheet
+and N; the remainder never makes a cell exceed its capacity. A break-recipe battery on each.
+
+#### 7. The measurement and the look — *recommended*
+
+`--front` gains a fed arm (the ball poured over several ticks from a source that keeps pouring),
+radius at the checkpoints under `--fedshare=0` / 1 and with pro rata on or off. In the game, the
+settle line's fed split before and after on a copy of his `Regions13`, identities exact. And his
+sentence: does the breach's water run across the pit floor now, and does it still read as a stream.
+
+### The split
+
+| part | what | check |
+|---|---|---|
+| **2a — count** | per-chunk inflow millilitres; the fed split on the `settle` line | one play's split: trickle against stream |
+| **2b — volume-aware fed** | `IsBeingFed` by share, `--fedshare=` (1%; 0 the control) | the tests; the fed column falls on the copy; the bench's fed arm |
+| **2c — pro rata** | the scaled target rule for a sheet still fed, after the same rings | the stream test; the fed arm's radius; his play |

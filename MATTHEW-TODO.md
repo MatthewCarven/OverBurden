@@ -264,6 +264,13 @@ Nothing is blocked on these; they're all one-line changes when you have a view.
       already soaks into the lake below. Two things it deliberately doesn't do at first: water
       still being poured (a pump's outlet) spreads at today's pace, and a very big lake's edge
       still creeps. "As recommended" is enough to start.
+- [ ] **Water spreading faster, part 2** — the "Slice 2" section at the end of
+      [docs/FRONT-ADVANCE-PLAN.md](docs/FRONT-ADVANCE-PLAN.md), seven decisions. Your log showed four
+      puddles in five were skipped as "still being poured into" — and the game calls a puddle that
+      even if one rain drop or one litre of wall seepage landed anywhere in its 8 m chunk. The plan:
+      first count how much really pours into them; then only treat a puddle as a stream when the
+      inflow is a real share of it (seepage and rain stop counting); and only if streams still feel
+      slow after that, spread real streams too without flattening them. "As recommended" starts it.
 - [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), eight decisions with my
       recommendations. Not scheduled; "as recommended" or any one of the eight back whenever
       you like. Yours already folded in: blasted voxels go nowhere (3), and the roof gets one

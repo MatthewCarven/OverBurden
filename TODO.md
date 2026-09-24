@@ -5685,6 +5685,12 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             day: the solve 853/694 → 353/351 ms, 0.52 → 0.73/0.80 Hz, 30–32% of the wall, target
             met; a full sweep of the load test's heights takes ~6 s where it took one pass.**
             Left unpriced: reads a cell and seeds offered.
+      - [ ] **Front advance slice 2 — planned 2026-09-24 (evening), not built.** His play: 184,380
+            sheets left alone as *still being fed* against 39,735 levelled — and "fed" is
+            chunk-granular and volume-blind (a rain drop or a sweated litre marks an 8 m chunk).
+            Seven decisions in the plan's "Slice 2" section: count the inflow share first (2a),
+            then fed only above a share of the sheet (2b, `--fedshare=`), then a pro-rata advance
+            for real streams (2c) only if the play still wants it.
       - [x] **The front advance — planned and built 2026-09-24 (a–c), the look (d) is his; read
             [docs/FRONT-ADVANCE-PLAN.md](docs/FRONT-ADVANCE-PLAN.md).** Matthew: *"a way water can
             spread laterally out faster"*. The solve takes up to N rings (4, an estimate) of dry,

@@ -1,5 +1,18 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-24 — Planned: the front advance's slice 2
+
+Matthew tried `--frontadvance=8` on `Regions13`: *"very little difference to the 4, look overall its
+better"*. His log says why: the session's settle line reads 39,735 levelled against **184,380 left
+alone as still being fed**, so four sheets in five never met the advance. Reading `NoteInflow` found
+the cause is broader than streams: **"fed" is chunk-granular and volume-blind** — every `Add`,
+`Emit`, disturbance and re-pour stamps its 8 m chunk, so a rain drop or a litre sweated from a wall
+makes every sheet in that chunk "a stream" for a second, and a seeping mine is fed permanently. The
+plan ("Slice 2" in FRONT-ADVANCE-PLAN) counts the inflow as a share of each fed sheet first, then
+calls a sheet fed only above a share of it (`--fedshare=`, 0 the old rule), and only then — if the
+play still wants it — advances real streams pro rata, scaling the sheet so its gradient keeps its
+shape.
+
 ## 2026-09-24 — The front advance, built: five times faster to the walls
 
 Built on his word the same afternoon as the plan. A sheet the solve levels takes up to four whole
