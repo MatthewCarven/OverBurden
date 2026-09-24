@@ -128,7 +128,7 @@ public sealed partial class FluidSimulation
     /// </param>
     /// <param name="position">Where the player is, for the queue's distance band.</param>
     /// <param name="walkSurface">Whether the worker walks the surface after the visits.</param>
-    public FluidTickJob BeginTick(IFluidTerrain captured, ChunkPos position, bool walkSurface = false, (int Share, int QuietTicks)? settle = null)
+    public FluidTickJob BeginTick(IFluidTerrain captured, ChunkPos position, bool walkSurface = false, (int Share, int QuietTicks, int Cap)? settle = null)
     {
         ArgumentNullException.ThrowIfNull(captured);
         if (GridOwnedByTick)
@@ -198,7 +198,7 @@ public sealed partial class FluidSimulation
         // which is SheetSettle.AtBoundary's own test.
         if (job.SettleWith is { } settle && _pending.Count + FarBacklog > 0)
         {
-            job.Settle = SolveOnWorker(settle.Share, settle.QuietTicks);
+            job.Settle = SolveOnWorker(settle.Share, settle.QuietTicks, settle.Cap);
             long settled = Stopwatch.GetTimestamp();
             job.SettleMillis = (settled - visited) * 1000.0 / Stopwatch.Frequency;
             visited = settled;
@@ -400,7 +400,7 @@ public sealed class FluidTickJob : IDetachedJob
 {
     private readonly FluidSimulation _sim;
 
-    internal FluidTickJob(FluidSimulation sim, ChunkPos position, bool walkSurface, int batch, (int Share, int QuietTicks)? settle)
+    internal FluidTickJob(FluidSimulation sim, ChunkPos position, bool walkSurface, int batch, (int Share, int QuietTicks, int Cap)? settle)
     {
         _sim = sim;
         Position = position;
@@ -410,7 +410,7 @@ public sealed class FluidTickJob : IDetachedJob
     }
 
     /// <summary>The settle's parameters when the worker is to run the solve at the tail; null on the sim-thread settle.</summary>
-    public (int Share, int QuietTicks)? SettleWith { get; }
+    public (int Share, int QuietTicks, int Cap)? SettleWith { get; }
 
     /// <summary>What the solve did, when it ran on the worker; null when nothing was awake or the settle was not asked for.</summary>
     public SheetLevelResult? Settle { get; internal set; }

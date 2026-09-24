@@ -28,6 +28,8 @@ namespace Overburden.Core.Fluid;
 /// <param name="SortMillis">Copying and ordering the seeds by (Y, X, Z).</param>
 /// <param name="FloodMillis">The floods, every Y: finding the sheets and judging the share.</param>
 /// <param name="LevelMillis">The rest: the fed test, the targets, the transfers, the wake and the rested list.</param>
+/// <param name="Capped">The pass stopped at its cap and left the heights above for the next pass.</param>
+/// <param name="SeedsDeferred">Seeds at heights this pass did not reach — below where it resumed, or above where it stopped.</param>
 /// <remarks>
 /// The four phases exist because M10d-3's first number (2026-09-24, a copy of the retired spread
 /// world) read 810 ms a pass from 1.58 M seeds against 486 k cells visited — and the recorded
@@ -37,7 +39,7 @@ public readonly record struct SheetLevelResult(
     int Sheets, int Levelled, int Packed, int Skipped, int UnderShare, int Stepped, int LargestSheet,
     int CellsVisited, int CellsWritten, long MillilitresMoved, int CellsWoken, int Noisy,
     int Seeds = 0, double GatherMillis = 0, double SortMillis = 0, double FloodMillis = 0,
-    double LevelMillis = 0)
+    double LevelMillis = 0, bool Capped = false, int SeedsDeferred = 0)
 {
     /// <summary>A pass that found nothing to change.</summary>
     public bool Idle => CellsWritten == 0;
@@ -175,6 +177,13 @@ public sealed partial class FluidSimulation
     private List<int> _nextLayer = [];
     private readonly List<VoxelPos> _sheetSeeds = [];
     private long[] _seedKeys = new long[256];
+
+    // The pass cap (M10d-3, decision 4): the height a capped pass stopped at and the next resumes
+    // from, int.MinValue for the bottom; and the heights the last pass covered, [lo, hi), which is
+    // what MarkCarryOffered may mark offered.
+    private int _solveCursorY = int.MinValue;
+    private int _processedLo = int.MinValue;
+    private int _processedHi = int.MaxValue;
     private readonly List<int> _sheetOrder = [];
     private readonly List<int> _sheetGivers = [];
     private readonly List<int> _sheetTakers = [];
@@ -266,7 +275,7 @@ public sealed partial class FluidSimulation
     /// cells found from a few hundred seeds; a flooded mine's floor is one sheet found from its
     /// front.
     /// </remarks>
-    public SheetLevelResult LevelSheets(int share = 0, int quietTicks = 0)
+    public SheetLevelResult LevelSheets(int share = 0, int quietTicks = 0, int cap = 0)
     {
         RefuseMidTick(nameof(LevelSheets));
         if (TickInProgress)
@@ -276,7 +285,7 @@ public sealed partial class FluidSimulation
                 + "finish the tick with Step() first.");
         }
 
-        return SolveFromActiveSet(share, quietTicks, Ticks);
+        return SolveFromActiveSet(share, quietTicks, Ticks, cap);
     }
 
     /// <summary>
@@ -301,7 +310,7 @@ public sealed partial class FluidSimulation
                 + "finish the tick with Step() first.");
         }
 
-        return Solve(seeds, share, quietTicks, Ticks);
+        return Solve(seeds, share, quietTicks, Ticks, cap: 0);
     }
 
     /// <summary>
@@ -309,20 +318,20 @@ public sealed partial class FluidSimulation
     /// visits left it, told the tick number the boundary will have, so the quiet test and the
     /// order — settle, then hand-off, drain, pour, the next tick — are the sync arm's exactly.
     /// </summary>
-    internal SheetLevelResult SolveOnWorker(int share, int quietTicks) =>
-        SolveFromActiveSet(share, quietTicks, Ticks + 1);
+    internal SheetLevelResult SolveOnWorker(int share, int quietTicks, int cap = 0) =>
+        SolveFromActiveSet(share, quietTicks, Ticks + 1, cap);
 
     /// <summary>
     /// The solve over the active set: seeded from the pending list and the carry's changed part
     /// (see the near field's remarks — a carried cell is offered once, and again when woken
     /// again), the carry marked offered after.
     /// </summary>
-    private SheetLevelResult SolveFromActiveSet(int share, int quietTicks, long nowTick)
+    private SheetLevelResult SolveFromActiveSet(int share, int quietTicks, long nowTick, int cap)
     {
         long before = Stopwatch.GetTimestamp();
         IReadOnlyList<VoxelPos> seeds = SolveSeeds();
         double gather = Millis(before);
-        SheetLevelResult result = Solve(seeds, share, quietTicks, nowTick);
+        SheetLevelResult result = Solve(seeds, share, quietTicks, nowTick, cap);
         MarkCarryOffered();
         return result with { GatherMillis = gather };
     }
@@ -330,10 +339,11 @@ public sealed partial class FluidSimulation
     /// <summary>The tick number the last solve tested quiet against. Tests only: it pins the worker's +1.</summary>
     internal long LastSolveTick => _solveTick;
 
-    private SheetLevelResult Solve(IReadOnlyList<VoxelPos> seeds, int share, int quietTicks, long nowTick)
+    private SheetLevelResult Solve(IReadOnlyList<VoxelPos> seeds, int share, int quietTicks, long nowTick, int cap)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(share);
         ArgumentOutOfRangeException.ThrowIfNegative(quietTicks);
+        ArgumentOutOfRangeException.ThrowIfNegative(cap);
         _quietTicks = quietTicks;
         _solveTick = nowTick;
         long started = Stopwatch.GetTimestamp();
@@ -341,7 +351,14 @@ public sealed partial class FluidSimulation
         // A copy, because waking appends to the pending list this is usually a view of; and a
         // total order on position rather than the caller's order, so the same water in the same
         // cells solves the same way whichever cell happened to wake first.
-        SortSeeds(seeds);
+        // Counted now: the seeds are usually a view of the pending list, which the wakes below append to.
+        int offered = seeds.Count;
+        int fromY = cap > 0 ? ResumeHeight(seeds) : int.MinValue;
+        SortSeeds(seeds, fromY);
+        int deferred = offered - _sheetSeeds.Count;
+        bool capped = false;
+        int stopY = int.MaxValue;
+        long items = 0;
 
         int sheets = 0, levelled = 0, packed = 0, skipped = 0, underShare = 0, stepped = 0, noisy = 0;
         int largest = 0, visited = 0, written = 0, woken = 0;
@@ -431,41 +448,70 @@ public sealed partial class FluidSimulation
                 ListRested(sheet);
             }
 
+            items += (groupEnd - groupStart) + _cellCount;
             groupStart = groupEnd;
+            if (cap > 0 && items >= cap && groupStart < _sheetSeeds.Count)
+            {
+                // Stop at a height, never inside one: a sheet is one Y and its flood takes every
+                // seed of that Y at once, which is what the share's early stop relies on.
+                capped = true;
+                stopY = _sheetSeeds[groupStart].Y;
+                deferred += _sheetSeeds.Count - groupStart;
+                break;
+            }
+        }
+
+        _processedLo = fromY;
+        _processedHi = stopY;
+        if (cap > 0)
+        {
+            _solveCursorY = capped ? stopY : int.MinValue;
         }
 
         double floodMillis = floodTicks * 1000.0 / Stopwatch.Frequency;
         return new SheetLevelResult(
             sheets, levelled, packed, skipped, underShare, stepped, largest, visited, written, moved,
-            woken, noisy, _sheetSeeds.Count, 0, sortMillis, floodMillis,
-            Math.Max(0, Millis(started) - sortMillis - floodMillis));
+            woken, noisy, offered, 0, sortMillis, floodMillis,
+            Math.Max(0, Millis(started) - sortMillis - floodMillis), capped, deferred);
     }
 
     /// <summary>
     /// Fills <see cref="_sheetSeeds"/> with the seeds in (Y, X, Z) order: a primitive sort over
     /// packed keys, or the comparator for a pass holding a position the key cannot carry.
     /// </summary>
-    private void SortSeeds(IReadOnlyList<VoxelPos> seeds)
+    private void SortSeeds(IReadOnlyList<VoxelPos> seeds, int fromY = int.MinValue)
     {
-        int count = seeds.Count;
-        if (_seedKeys.Length < count)
+        int count = 0;
+        if (_seedKeys.Length < seeds.Count)
         {
-            _seedKeys = new long[Math.Max(count, _seedKeys.Length * 2)];
+            _seedKeys = new long[Math.Max(seeds.Count, _seedKeys.Length * 2)];
         }
 
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < seeds.Count; i++)
         {
             VoxelPos seed = seeds[i];
+            if (seed.Y < fromY)
+            {
+                continue;
+            }
+
             if (!SeedOrder.Fits(seed))
             {
                 SeedSortFallbacks++;
                 _sheetSeeds.Clear();
-                _sheetSeeds.AddRange(seeds);
+                foreach (VoxelPos s in seeds)
+                {
+                    if (s.Y >= fromY)
+                    {
+                        _sheetSeeds.Add(s);
+                    }
+                }
+
                 _sheetSeeds.Sort(SeedOrder.Compare);
                 return;
             }
 
-            _seedKeys[i] = SeedOrder.Pack(seed);
+            _seedKeys[count++] = SeedOrder.Pack(seed);
         }
 
         Array.Sort(_seedKeys, 0, count);
@@ -476,6 +522,36 @@ public sealed partial class FluidSimulation
             _sheetSeeds.Add(SeedOrder.Unpack(_seedKeys[i]));
         }
     }
+
+    /// <summary>
+    /// Where a capped pass starts: the height the last one stopped at, or the bottom when nothing
+    /// is left at or above it — so a cursor over water that has since drained wraps at once
+    /// rather than spending a pass on nothing.
+    /// </summary>
+    private int ResumeHeight(IReadOnlyList<VoxelPos> seeds)
+    {
+        if (_solveCursorY == int.MinValue)
+        {
+            return int.MinValue;
+        }
+
+        for (int i = 0; i < seeds.Count; i++)
+        {
+            if (seeds[i].Y >= _solveCursorY)
+            {
+                return _solveCursorY;
+            }
+        }
+
+        _solveCursorY = int.MinValue;
+        return int.MinValue;
+    }
+
+    /// <summary>Whether the last pass covered this height — what the carry may be marked offered for.</summary>
+    private bool CoveredLastPass(int y) => y >= _processedLo && y < _processedHi;
+
+    /// <summary>The height the next capped pass resumes from; <see cref="int.MinValue"/> for the bottom. Tests only.</summary>
+    internal int SolveCursorY => _solveCursorY;
 
     /// <summary>
     /// Passes whose seeds held a position outside <see cref="SeedOrder"/>'s range and were

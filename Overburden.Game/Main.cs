@@ -952,6 +952,14 @@ public partial class Main : Node3D
     private int _settleShare = SheetSettle.DefaultSettleShare;
 
     /// <summary>
+    /// <c>--solvecap=</c>: seeds and cells a solve pass may test before it stops at the next height
+    /// and leaves the rest to the next pass (M10d-3, decision 4). The game ships
+    /// <see cref="SheetSettle.DefaultSolveCap"/>; zero is no cap, the arm every figure before
+    /// 2026-09-24 was taken in, and the control.
+    /// </summary>
+    private int _solveCap = SheetSettle.DefaultSolveCap;
+
+    /// <summary>
     /// <c>--spread=fixed|counted</c>: what a cell divides its sideways surplus by. Fixed by
     /// default — M8a's rule, and the one every recorded figure was taken under; <c>counted</c>
     /// is the play's arm for the rule the bench priced on 2026-09-07 (see <see cref="SpreadRule"/>).
@@ -1785,6 +1793,11 @@ public partial class Main : Node3D
                 // its creeping edge — and the control arm.
                 case "settleshare" when int.TryParse(value, out int settleShare):
                     _settleShare = Math.Max(0, settleShare);
+                    break;
+
+                // The solve's pass cap (M10d-3, decision 4): zero is no cap, the control.
+                case "solvecap" when int.TryParse(value, out int solveCap):
+                    _solveCap = Math.Max(0, solveCap);
                     break;
 
                 // The spread rule: fixed (divide by five) or counted (one part for the cell and
@@ -5987,7 +6000,7 @@ public partial class Main : Node3D
 
         // M8b-3b: the settle. Needs no Tier A, because a flooded mine has no Tier A body — the
         // sheets it levels are the ones the hand-off cannot reach.
-        _settle = new SheetSettle(_fluid, _settleAfterTicks, _settleShare);
+        _settle = new SheetSettle(_fluid, _settleAfterTicks, _settleShare, _solveCap);
         if (windowed)
         {
             _fluidSurface = new FluidSurface(GetWorld3D(), debugView: _fluidSurfaceMode == "debug");
@@ -7194,7 +7207,10 @@ public partial class Main : Node3D
     private string SettlePhases()
     {
         long passes = Math.Max(1, _settle!.Settles);
-        return $"per pass {_settle.SeedsOffered / (double)passes:N0} seed(s), gather {_settle.GatherMillis / passes:F1} / "
+        string cap = _settle.SolveCap == 0
+            ? "no cap"
+            : $"cap {_settle.SolveCap:N0}: {_settle.CappedPasses:N0} pass(es) capped, {_settle.SeedsDeferred / (double)passes:N0} seed(s) a pass left to the next";
+        return $"{cap}; per pass {_settle.SeedsOffered / (double)passes:N0} seed(s), gather {_settle.GatherMillis / passes:F1} / "
                + $"sort {_settle.SortMillis / passes:F1} / flood {_settle.FloodMillis / passes:F1} / "
                + $"level {_settle.LevelMillis / passes:F1} ms mean";
     }

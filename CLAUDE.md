@@ -1156,7 +1156,9 @@ the active set's width, not the sheets. The levers' pass is "M10d-3" at the end 
 plan; he took it as recommended and **decisions 1 and 2 are built the same day** — the packed
 seed sort (228 → 57 ms a pass, same-session control) and the flood's index on his layered lookup
 table (0.90× the flood on `--solve`, the water identical). The target (solve under a third of the
-tick) is not met; the pass cap is the lever that meets it and waits on his word. **The machine
+tick) is met by **the pass cap, his word the same afternoon** (`--solvecap=`, 500 k shipped, 0 the
+control): 0.52 → 0.73–0.80 Hz on the load test, the solve 30–32% of the tick, a full sweep of its
+heights ~6 s — below the cap a pass is exactly the old pass. **The machine
 runs in two states ~3× apart minute to minute** — never compare two load-test runs without a
 same-session control. **Two things not to
 rediscover**: the profile's `/s` for a quantum tier reads well under its cooldown (the miner, 10/s

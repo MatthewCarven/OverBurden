@@ -1,5 +1,23 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-24 — The solve's pass cap: the target met, and the delay larger than I said
+
+Matthew said yes to the solve carrying into the next tick, and asked whether it would upset the
+tests. It did not, by construction: a pass under the cap is exactly the uncapped pass, and no
+fixture comes near 500 k; one test built the worker's settle tuple by hand and gained a field.
+A capped pass stops at a height boundary and the next resumes from that height, wrapping at the
+top; **the carry's offered-once rule was the trap** — it marks a prefix by index, so a capped pass
+that marked it whole would lose a far lake to the solve — and the pass marks only the heights it
+covered, re-listing the rest. Ten recipes, three missed on the first run (the re-woken branch,
+the wrap, the hand-picked cursor), each then given a test from the state it needs; ten caught.
+
+**Load test, control and capped alternated four times, all slow phase: 0.52 → 0.73 / 0.80 Hz, the
+solve 853 / 694 → 353 / 351 ms, 30–32% of the tick — decision 5's target, met.** Every identity
+exact, 0 `ERROR`. **The cost is bigger than I told him**: each pass leaves ~78% of its seeds to the
+next, so a full sweep is ~6 s here, not "a second or so", and the solve levels a third to three
+quarters fewer sheets a minute. An ordinary world's awake set is far under the cap and sees no
+change. Suite 1,850, r6 to the digit.
+
 ## 2026-09-24 — The flood's index, on Matthew's layered table: a tenth, not a half
 
 Decision 2 is built. `FloodIndex` is his 2D lookup table with a direct-indexed leaf — a chunk

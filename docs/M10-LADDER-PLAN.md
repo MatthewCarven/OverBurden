@@ -3003,3 +3003,46 @@ of the second for changing answers, and neither is priced. **Decision 5's target
 a third of the tick — is not met** (the solve is 55–60% of the wall in both phases), and the pass
 cap of decision 4 is the lever that meets it outright; it changes when a sheet is levelled, so it
 is Matthew's word, not a default.
+
+### M10d-3, decision 4 — the pass cap, built
+
+Matthew, 2026-09-24: *"Yes i'm fine with the solver carrying into the next tick"*. A pass from the
+active set tests seeds and cells until it has tested `cap` of them, then **stops at the next
+height boundary** — never inside a height, because a sheet is one Y and its flood takes every seed
+of that Y at once, which the share's early stop relies on — and the next pass **resumes from that
+height**, wrapping to the bottom when it reaches the top or when nothing is left at or above it.
+Seeds below where a pass resumed and above where it stopped are deferred, counted
+(`SeedsDeferred`), and come back through the ordinary wake rule: an unsettled cell stays awake.
+**The one place that needed care was the carry**: its offered-once rule marks a prefix of the carry
+by index, so a capped pass marks offered only the carried cells at heights it covered and re-lists
+the rest as re-woken, and the re-woken list's cells above the stop go back on it too — a far lake
+would otherwise be lost to the solve until something woke it again. A hand-picked solve (the
+unload method) passes no cap and leaves the cursor alone.
+
+`SheetSettle.DefaultSolveCap` is 500,000 — **an estimate**, sized off the load test's slow phase for
+a solve of about a third of the tick — and the game passes it (`--solvecap=<n>`, 0 the control).
+**The constructor defaults to no cap**, so every bench arm's recorded figure reproduces; below the
+cap a pass is exactly the uncapped pass (a test says so to the millilitre), and no ordinary world's
+awake set comes near 500 k. The `settle` line prints `cap N: M pass(es) capped, S seed(s) a pass
+left to the next`. Nine tests (`SolveCapTests`, and one tuple in `FluidJobTests` gained its third
+field); ten break-recipes, **seven caught on the first run** — the re-woken branch, the wrap and the
+hand-picked cursor were each given a test built from the state it needs, and all ten are caught.
+Suite 1,850; r6 control to the digit.
+
+**Measured on the load test, control and capped alternated four times, all four in the machine's
+slow phase:**
+
+| | control ×2 | capped at 500 k ×2 |
+|---|---|---|
+| ticks a second | 0.52 / 0.52 | **0.73 / 0.80** |
+| solve mean | 853 / 694 ms | **353 / 351 ms** |
+| solve / worker wall | 48% / 40% | **30% / 32%** |
+| sheets levelled in the minute | 4,117 / 11,053 | 2,802 / 2,780 |
+| cells written by the solve | 7.6 M / 4.9 M | 3.7 M / 3.4 M |
+
+0 `ERROR` and every identity exact in all four. **Decision 5's target is met, just.** The cost is
+the one Matthew accepted, larger than the pass stated it: each capped pass leaves ~78% of its seeds
+to the next (0.97 M / 0.83 M of 1.24 M / 1.08 M), so a full sweep of this world's heights is four
+to five passes — **about six seconds at 0.75 Hz, not the "second or so" he was told** — and the
+solve levels a third to three quarters fewer sheets a minute. On any world whose awake set is under
+the cap nothing changes at all.

@@ -49,21 +49,44 @@ public sealed class SheetSettle
     /// </summary>
     public const int DefaultSettleShare = 8;
 
+    /// <summary>
+    /// The pass cap the game ships with (M10d-3, decision 4, Matthew's word 2026-09-24): a pass stops
+    /// at the first height boundary after it has tested this many seeds and cells, and the next
+    /// pass resumes from that height. <b>An estimate</b>, sized off the load test's slow phase so the
+    /// solve is about a third of the tick (~540 ns an item there, 1.2 M items a pass uncapped);
+    /// <c>--solvecap=</c> is the sweep and 0 is no cap. <b>The constructor's default is 0, not
+    /// this</b>, because every bench arm's recorded figure was taken uncapped and several are big
+    /// enough that a default cap would move them without a word.
+    /// </summary>
+    public const int DefaultSolveCap = 500_000;
+
     private readonly FluidSimulation _fluid;
 
     public SheetSettle(
         FluidSimulation fluid,
         int settleAfterTicks = DefaultSettleAfterTicks,
-        int settleShare = DefaultSettleShare)
+        int settleShare = DefaultSettleShare,
+        int solveCap = 0)
     {
         ArgumentNullException.ThrowIfNull(fluid);
         ArgumentOutOfRangeException.ThrowIfNegative(settleAfterTicks);
         ArgumentOutOfRangeException.ThrowIfNegative(settleShare);
+        ArgumentOutOfRangeException.ThrowIfNegative(solveCap);
 
         _fluid = fluid;
         SettleAfterTicks = settleAfterTicks;
         SettleShare = settleShare;
+        SolveCap = solveCap;
     }
+
+    /// <summary>Seeds and cells a pass may test before it stops at the next height; zero is no cap.</summary>
+    public int SolveCap { get; }
+
+    /// <summary>Passes that stopped at the cap and left heights to the next.</summary>
+    public long CappedPasses { get; private set; }
+
+    /// <summary>Seeds offered to a pass at heights it did not reach, summed.</summary>
+    public long SeedsDeferred { get; private set; }
 
     /// <summary>Ticks with no inflow before a pass runs. Zero runs one at every boundary with anything awake.</summary>
     public int SettleAfterTicks { get; }
@@ -146,13 +169,13 @@ public sealed class SheetSettle
     public SheetLevelResult Run()
     {
         long before = Stopwatch.GetTimestamp();
-        SheetLevelResult result = _fluid.LevelSheets(SettleShare, SettleAfterTicks);
+        SheetLevelResult result = _fluid.LevelSheets(SettleShare, SettleAfterTicks, SolveCap);
         double millis = (Stopwatch.GetTimestamp() - before) * 1000.0 / Stopwatch.Frequency;
         return Record(result, millis);
     }
 
     /// <summary>The parameters a job's worker runs the solve with. See <see cref="FluidSimulation.BeginTick"/>.</summary>
-    public (int Share, int QuietTicks) ForWorker => (SettleShare, SettleAfterTicks);
+    public (int Share, int QuietTicks, int Cap) ForWorker => (SettleShare, SettleAfterTicks, SolveCap);
 
     /// <summary>Counts a pass that ran elsewhere — on a job's worker (slice 3c) — as one of this settle's.</summary>
     public SheetLevelResult Record(SheetLevelResult result, double millis)
@@ -179,6 +202,12 @@ public sealed class SheetSettle
         LongestMillis = Math.Max(LongestMillis, millis);
         TotalMillis += millis;
         SeedsOffered += result.Seeds;
+        SeedsDeferred += result.SeedsDeferred;
+        if (result.Capped)
+        {
+            CappedPasses++;
+        }
+
         GatherMillis += result.GatherMillis;
         SortMillis += result.SortMillis;
         FloodMillis += result.FloodMillis;

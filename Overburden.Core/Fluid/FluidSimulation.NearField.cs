@@ -365,16 +365,36 @@ public sealed partial class FluidSimulation
         int to = Math.Min(_farOfferPendingTo, _farCarry.Count);
         for (int i = from; i < to; i++)
         {
-            _queued[_farCarry[i]] = true;
+            // A capped pass (decision 4) marks only the heights it reached; a cell above where it
+            // stopped is re-listed as woken, unmarked, so the next pass offers it — the offered
+            // prefix moves past it either way, and a cell left in neither would never be offered.
+            VoxelPos carried = _farCarry[i];
+            if (CoveredLastPass(carried.Y))
+            {
+                _queued[carried] = true;
+            }
+            else
+            {
+                _farRewoken.Add(carried);
+            }
         }
 
         foreach (VoxelPos cell in _farRewokenTaken)
         {
             // Still carried — a cell admitted to a batch since it was re-woken is not queued
             // any more, and a cell that left and came back is pending and unmarked by index.
-            if (_queued.ContainsKey(cell))
+            if (!_queued.ContainsKey(cell))
+            {
+                continue;
+            }
+
+            if (CoveredLastPass(cell.Y))
             {
                 _queued[cell] = true;
+            }
+            else
+            {
+                _farRewoken.Add(cell);
             }
         }
 

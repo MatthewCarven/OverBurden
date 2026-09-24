@@ -231,11 +231,13 @@ Nothing is blocked on these; they're all one-line changes when you have a view.
 - [x] **The water solve's levers (d-3)** — *"As recommended"*; decisions 1 and 2 built 2026-09-24.
       The faster sort took the sort from 228 to 57 ms a pass; your layered lookup table became
       the flood's index and made the flood about 10% faster (the water identical either way).
-- [ ] **One lever left on the solve, and it changes behaviour.** Even after both, the solve is
-      still over half of each water tick on your big retired world. The lever that fixes that
-      outright is *capping how much one pass levels and carrying the rest to the next second* —
-      cheap and bounded, but a big lake would sometimes level a second or so later than it does
-      now. Say yes, no, or "only if you can't find another way", and I'll go from there.
+- [x] **The solve's pass cap** — your yes, 2026-09-24, built the same day. On your big retired
+      world the water now ticks 0.73–0.80 times a second instead of 0.52, the solve a third of
+      each tick. **One correction**: I said a big lake would level "a second or so" later; on
+      that world it is about six seconds for the solve to sweep every height. On a normal world
+      nothing changes — the cap only bites on an enormous amount of awake water. If a big flood
+      ever reads as settling too slowly, `--solvecap=0` is the old behaviour and a bigger number
+      is the middle ground.
 
 - [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), eight decisions with my
       recommendations. Not scheduled; "as recommended" or any one of the eight back whenever
