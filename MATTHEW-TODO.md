@@ -107,6 +107,16 @@ otherwise — flags go on the end of the `start.cmd` line.
       twice as fast, falling too). One sentence: does it read as water running across the floor,
       or as a sheet snapping outward?
 
+### Streams that spread (2026-09-24, night)
+
+- [ ] Water that is **still being fed** (your breach pit, a pump's outlet, a pour you keep
+      pressing `R` on) now pushes its tip out too: the last 4 m of the stream levels and takes up
+      to four more rows of dry floor a pass, while the body of the stream keeps its slope. Go to
+      the breach pit on `Regions13` and watch the water run across the pit floor. Compare with
+      `--fedadvance=0` (the old way). If the tip looks too flat, try `--fedband=2`; if it's still
+      slow, `--fedband=6`. One sentence: does the breach's water run across the floor now, and
+      does it still read as a stream?
+
 ### Far mode (2026-09-24)
 
 - [ ] **F11** turns far mode on: the view climbs toward 8 chunks out and 4 up/down, a ring every

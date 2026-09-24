@@ -37,6 +37,9 @@ namespace Overburden.Core.Fluid;
 /// <param name="InflowTenPercentPlus">… 10% or more.</param>
 /// <param name="InflowDisturbed">… disturbed in the window — an edit or a fall — which is fed whatever its volume.</param>
 /// <param name="TrickleLevelled">Sheets with inflow under the fed share, levelled rather than left: what slice 2 recovers.</param>
+/// <param name="FedAdvanced">Sheets still being fed whose tip was advanced (slice 2c) rather than left alone.</param>
+/// <param name="FedAdvancedCells">Dry cells those sheets took.</param>
+/// <param name="FedBandCells">Old cells of those sheets levelled with the new ones — the tips' band.</param>
 /// <remarks>
 /// The four phases exist because M10d-3's first number (2026-09-24, a copy of the retired spread
 /// world) read 810 ms a pass from 1.58 M seeds against 486 k cells visited — and the recorded
@@ -48,7 +51,8 @@ public readonly record struct SheetLevelResult(
     int Seeds = 0, double GatherMillis = 0, double SortMillis = 0, double FloodMillis = 0,
     double LevelMillis = 0, bool Capped = false, int SeedsDeferred = 0, int Advanced = 0,
     int InflowUnderTenthPercent = 0, int InflowUnderOnePercent = 0, int InflowUnderTenPercent = 0,
-    int InflowTenPercentPlus = 0, int InflowDisturbed = 0, int TrickleLevelled = 0)
+    int InflowTenPercentPlus = 0, int InflowDisturbed = 0, int TrickleLevelled = 0,
+    int FedAdvanced = 0, int FedAdvancedCells = 0, int FedBandCells = 0)
 {
     /// <summary>A pass that found nothing to change.</summary>
     public bool Idle => CellsWritten == 0;
@@ -226,6 +230,41 @@ public sealed partial class FluidSimulation
 
     // Scratch for IsBeingFed: the chunks of one sheet counted once each.
     private readonly HashSet<ChunkPos> _fedChunks = [];
+
+    // Whether the sheet IsBeingFed last judged was fed by a disturbance, which 2c never advances.
+    private bool _fedDisturbed;
+
+    /// <summary>
+    /// Whether a sheet still being fed takes the front advance's rings by levelling its tip
+    /// (FRONT-ADVANCE-PLAN slice 2c). False is the rule before it — a fed sheet is left to the
+    /// automaton — and the default, so every figure recorded before it reproduces; the game sets
+    /// <see cref="DefaultFedAdvance"/>. Needs a front advance to do anything. Set once, before any
+    /// tick; the worker's solve reads it.
+    /// </summary>
+    public bool FedAdvance { get; set; }
+
+    /// <summary>What the game ships (Matthew's word, 2026-09-24): fed sheets advance.</summary>
+    public const bool DefaultFedAdvance = true;
+
+    /// <summary>
+    /// How deep a fed sheet's tip band is, in rings from its dry edge, per ring of advance: 4, so
+    /// four rings level the last sixteen — four metres. <b>The pass's 2 was an estimate and the
+    /// bench (<c>--front --frontfed</c>, 2026-09-24) said it was shallow</b>: a natural stream's tip
+    /// is thin, so the band has to reach back into thicker water before the floor lets it take a
+    /// ring. At 100 L/s for 60 s, the open floor's radius went 17 (off) / 18 (2) / 21 (3) / 24 (4) /
+    /// 30 (6), the corridor's reach at 10 s 8 / 12 / 17 / 20 / 30 cells, nothing flowing back at
+    /// 3 and deeper. Deeper kept paying; how flat a tip may look is the eye's, which is why the
+    /// game has <c>--fedband=</c>. 4 is the middle, <b>an estimate for his play</b>.
+    /// </summary>
+    public const int DefaultFedBandRingsPerAdvance = 4;
+
+    /// <summary>The band's depth per ring of advance; <c>--fedband=</c>. Set once, before any tick.</summary>
+    public int FedBandRingsPerAdvance { get; set; } = DefaultFedBandRingsPerAdvance;
+
+    private const byte CellBand = 8;
+    private readonly List<int> _band = [];
+    private List<int> _bandRing = [];
+    private List<int> _bandNext = [];
 
     // The inflow split of the pass in progress (slice 2a): under 0.1%, 1%, 10%, over, disturbed,
     // and levelled under the share.
@@ -411,6 +450,7 @@ public sealed partial class FluidSimulation
 
         int sheets = 0, levelled = 0, packed = 0, skipped = 0, underShare = 0, stepped = 0, noisy = 0;
         int largest = 0, visited = 0, written = 0, woken = 0, advanced = 0;
+        int fedAdvanced = 0, fedAdvancedCells = 0, fedBand = 0;
         _inflowTenth = _inflowOne = _inflowTen = _inflowOver = _inflowDisturbed = _trickleLevelled = 0;
         long moved = 0;
         double sortMillis = Millis(started);
@@ -477,6 +517,24 @@ public sealed partial class FluidSimulation
                 // wrong now.
                 if (IsBeingFed(sheet))
                 {
+                    // Slice 2c: a stream still fed takes the same rings, and levels only its tip —
+                    // the band nearest its dry edge with the new cells — leaving its body's
+                    // gradient to the millilitre. Never a disturbance: that is terrain changing.
+                    if (FedAdvance && _advanceRings > 0 && !_fedDisturbed
+                        && AdvanceFed(s, sheet, out int band) is int fedCells and > 0)
+                    {
+                        fedAdvanced++;
+                        fedAdvancedCells += fedCells;
+                        fedBand += band;
+                        moved += Apply(sheet, out int fedWritten);
+                        written += fedWritten;
+                        woken += WakeAfterFedAdvance(sheet);
+
+                        // Nothing listed as resting: a fed sheet is not at rest, and the hand-off
+                        // reads that list (FRONT-ADVANCE-PLAN 2c, decision 5).
+                        continue;
+                    }
+
                     noisy++;
                     continue;
                 }
@@ -487,7 +545,7 @@ public sealed partial class FluidSimulation
                 // water to lend a ring.
                 if (_advanceRings > 0 && sheet.Total >= (long)AdvanceFloorMillilitres * (count + 1))
                 {
-                    advanced += Advance(s, sheet);
+                    advanced += Advance(s, sheet, sheet.Total, count);
                     count = sheet.Cells.Count;
                 }
 
@@ -533,7 +591,8 @@ public sealed partial class FluidSimulation
             sheets, levelled, packed, skipped, underShare, stepped, largest, visited, written, moved,
             woken, noisy, offered, 0, sortMillis, floodMillis,
             Math.Max(0, Millis(started) - sortMillis - floodMillis), capped, deferred, advanced,
-            _inflowTenth, _inflowOne, _inflowTen, _inflowOver, _inflowDisturbed, _trickleLevelled);
+            _inflowTenth, _inflowOne, _inflowTen, _inflowOver, _inflowDisturbed, _trickleLevelled,
+            fedAdvanced, fedAdvancedCells, fedBand);
     }
 
     /// <summary>
@@ -657,6 +716,7 @@ public sealed partial class FluidSimulation
             return false;
         }
 
+        _fedDisturbed = false;
         _fedChunks.Clear();
         long inflow = 0;
         bool any = false, disturbed = false;
@@ -680,6 +740,7 @@ public sealed partial class FluidSimulation
         }
 
         double percent = sheet.Total > 0 ? inflow * 100.0 / sheet.Total : double.PositiveInfinity;
+        _fedDisturbed = disturbed;
         if (disturbed) _inflowDisturbed++;
         else if (percent < 0.1) _inflowTenth++;
         else if (percent < 1.0) _inflowOne++;
@@ -1015,7 +1076,11 @@ public sealed partial class FluidSimulation
     /// the cells whose answer can have changed — the old front and the new cells — so the wake
     /// reaches the new edge and the old edge, now interior, is listed as resting.
     /// </remarks>
-    private int Advance(int root, Sheet sheet)
+    /// <param name="root">The sheet's index.</param>
+    /// <param name="sheet">The sheet.</param>
+    /// <param name="total">The water the floor is judged on: the sheet's, or its tip band's (2c).</param>
+    /// <param name="covered">The cells <paramref name="total"/> already covers.</param>
+    private int Advance(int root, Sheet sheet, long total, int covered)
     {
         int start = _cellCount;
         _ring.Clear();
@@ -1048,7 +1113,7 @@ public sealed partial class FluidSimulation
             }
 
             if (_ringNext.Count == 0
-                || sheet.Total < (long)AdvanceFloorMillilitres * (sheet.Cells.Count + _ringNext.Count))
+                || total < (long)AdvanceFloorMillilitres * (covered + (_cellCount - start) + _ringNext.Count))
             {
                 break;
             }
@@ -1106,6 +1171,175 @@ public sealed partial class FluidSimulation
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Slice 2c: a sheet still being fed takes the front advance's rings and levels them with its
+    /// tip — the band of its own cells within <c>rings × FedBandRingsPerAdvance</c> rings of its dry
+    /// edge — every other cell's target its own amount. Returns the cells added, zero when nothing
+    /// was taken (and then nothing is written); <paramref name="bandCells"/> is the old cells levelled.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Why the tip and not the whole sheet (the pass's fact 1).</b> Pro rata — every cell scaled,
+    /// the new ones given the mean — puts a ridge in front of any stream that tapers toward its edge,
+    /// because the mean is more than the edge holds; a flat extension of the edge advances nothing
+    /// under the floor. The band's level is its mean, which is no more than its thickest cell, its
+    /// innermost, which is no more than the interior cell behind it: the stream still falls toward
+    /// its edge, and its body keeps its gradient to the millilitre.
+    /// </para>
+    /// <para>
+    /// <b>The band floods from the dry edge only</b> — a front cell with a dry, holdable side — not
+    /// from a front beside falling water, which is where a stream fed from a shaft beside it meets
+    /// its own source. <b>The floor is the band's</b>: a ring is taken while the band's water still
+    /// covers the band and the new cells at <see cref="AdvanceFloorMillilitres"/>.
+    /// </para>
+    /// </remarks>
+    private int AdvanceFed(int root, Sheet sheet, out int bandCells)
+    {
+        bandCells = 0;
+        _band.Clear();
+        _bandRing.Clear();
+        foreach (int record in sheet.Cells)
+        {
+            if ((_cellFlags[record] & CellFront) != 0 && BordersDry(_cellPos[record]))
+            {
+                _cellFlags[record] |= CellBand;
+                _band.Add(record);
+                _bandRing.Add(record);
+            }
+        }
+
+        if (_band.Count == 0)
+        {
+            return 0;
+        }
+
+        int depth = _advanceRings * FedBandRingsPerAdvance;
+        for (int r = 1; r < depth && _bandRing.Count > 0; r++)
+        {
+            _bandNext.Clear();
+            foreach (int record in _bandRing)
+            {
+                foreach ((int dx, int dz) in Sideways)
+                {
+                    if (IndexTryGet(_cellPos[record].Offset(dx, 0, dz), out int other)
+                        && (_cellFlags[other] & CellBand) == 0
+                        && Find(_cellSheet[other]) == root)
+                    {
+                        _cellFlags[other] |= CellBand;
+                        _band.Add(other);
+                        _bandNext.Add(other);
+                    }
+                }
+            }
+
+            (_bandRing, _bandNext) = (_bandNext, _bandRing);
+        }
+
+        long bandTotal = 0;
+        foreach (int record in _band)
+        {
+            bandTotal += _cellAmount[record];
+        }
+
+        int added = 0;
+        int start = _cellCount;
+        if (bandTotal >= (long)AdvanceFloorMillilitres * (_band.Count + 1))
+        {
+            added = Advance(root, sheet, bandTotal, _band.Count);
+        }
+
+        if (added == 0)
+        {
+            foreach (int record in _band)
+            {
+                _cellFlags[record] &= unchecked((byte)~CellBand);
+            }
+
+            return 0;
+        }
+
+        for (int record = start; record < _cellCount; record++)
+        {
+            _cellFlags[record] |= CellBand;
+        }
+
+        // The band and the new cells level together, the remainder a millilitre each in flood
+        // order; every other cell's target is what it holds, so Apply writes the tip alone.
+        int count = _band.Count + added;
+        int share = (int)(bandTotal / count);
+        int remainder = (int)(bandTotal % count);
+        int i = 0;
+        foreach (int record in sheet.Cells)
+        {
+            _cellTarget[record] = (_cellFlags[record] & CellBand) != 0
+                ? share + (i++ < remainder ? 1 : 0)
+                : _cellAmount[record];
+        }
+
+        bandCells = _band.Count;
+        return added;
+    }
+
+    /// <summary>A dry, holdable sideways cell beside this one: the edge a stream advances into.</summary>
+    private bool BordersDry(VoxelPos cell)
+    {
+        foreach ((int dx, int dz) in Sideways)
+        {
+            VoxelPos side = cell.Offset(dx, 0, dz);
+            if (_grid.AmountAt(side) == 0 && _visitTerrain.CanHold(side))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// The wake after a fed advance, derived from the write rather than from "level" (the pass's
+    /// decision 5): every written cell and every held sideways neighbour of one that now has a move,
+    /// and the water over every cell drawn down. <see cref="WakeAfterSolve"/> assumes a level sheet —
+    /// its interior has no move — and a fed sheet's band borders its thicker body.
+    /// </summary>
+    private int WakeAfterFedAdvance(Sheet sheet)
+    {
+        int woken = 0;
+        Span<int> sides = stackalloc int[4];
+        foreach (int record in sheet.Cells)
+        {
+            if (_cellTarget[record] == _cellAmount[record])
+            {
+                continue;
+            }
+
+            VoxelPos cell = _cellPos[record];
+            if (_cellTarget[record] < _cellAmount[record])
+            {
+                VoxelPos above = Above(cell);
+                if (_grid.AmountAt(above) > 0 && Wake(above))
+                {
+                    woken++;
+                }
+            }
+
+            if (HasMove(cell, sides) && Wake(cell))
+            {
+                woken++;
+            }
+
+            foreach ((int dx, int dz) in Sideways)
+            {
+                VoxelPos side = cell.Offset(dx, 0, dz);
+                if (_grid.AmountAt(side) > 0 && HasMove(side, sides) && Wake(side))
+                {
+                    woken++;
+                }
+            }
+        }
+
+        return woken;
     }
 
     /// <summary>Even shares in flood order, the remainder one millilitre each to the first cells.</summary>

@@ -1,5 +1,24 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-24 (night) — Front advance 2c: a fed stream levels its tip, and the pass's own rule was wrong
+
+The pass found that the plan's pro-rata rule gives new cells the sheet's mean, which is more than a
+tapering stream's edge holds — a ridge ahead of every stream, dead water behind it — so 2c levels
+the tip band from the dry edge with the new cells and leaves the body alone. Built on *"As
+recommended"*: `AdvanceFed`, `WakeAfterFedAdvance` derived from the write (`HasMove`, shared with
+`FirstCellWithAMove`), nothing listed as resting, `FirstSleepingCellWithAMove` as the mid-flow oracle.
+Fourteen tests; eighteen recipes, sixteen caught, two identities. **The bench overruled the pass's
+depth**: 2N barely moved a natural stream (open floor r17 → r18 at 60 s) because its tip is thin and
+the 2 L floor refuses a band that has not reached thicker water; 4N gives r24 and a corridor's reach
+at 10 s 8 → 20, nothing flowing back from 3N on, the solve's cost unchanged. 4N ships and
+`--fedband=` is a game flag, because gains kept growing to 6N and the limit is the look. On a copy of
+`Regions13` in rain: 76 fed sheets advanced, both identities exact, 0 `ERROR`. Two things not to
+rediscover: **the battery's two new fixtures** — falling water beside the tip must hold under a
+litre or the sideways rule hides the room-below one, and a pour wakes its neighbours so the inflow
+must land away from the cell under test; and **headless probes rotate Godot's five logs** — tonight's
+play log went to four runs of this session's checks after it had been read. Suite 1,888; r6 control
+to the digit. Read "Slice 2c — built" in docs/FRONT-ADVANCE-PLAN.md.
+
 ## 2026-09-24 (night) — The front advance played; the lift line was a false alarm
 
 Matthew played the front advance: *"Playtested the latest water, loving it"*. The log had 0

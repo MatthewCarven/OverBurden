@@ -113,6 +113,16 @@ public sealed class SheetSettle
 
     public long TrickleLevelled { get; private set; }
 
+    /// <summary>
+    /// Slice 2c over every pass: sheets still being fed whose tip was advanced, the dry cells they
+    /// took, and the old cells of their tips levelled with them.
+    /// </summary>
+    public long FedSheetsAdvanced { get; private set; }
+
+    public long FedCellsAdvanced { get; private set; }
+
+    public long FedBandCells { get; private set; }
+
     /// <summary>Seeds and cells a pass may test before it stops at the next height; zero is no cap.</summary>
     public int SolveCap { get; }
 
@@ -245,6 +255,9 @@ public sealed class SheetSettle
         InflowTenPercentPlus += result.InflowTenPercentPlus;
         InflowDisturbed += result.InflowDisturbed;
         TrickleLevelled += result.TrickleLevelled;
+        FedSheetsAdvanced += result.FedAdvanced;
+        FedCellsAdvanced += result.FedAdvancedCells;
+        FedBandCells += result.FedBandCells;
         if (result.Capped)
         {
             CappedPasses++;

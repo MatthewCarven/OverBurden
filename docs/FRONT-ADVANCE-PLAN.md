@@ -489,3 +489,63 @@ does the breach's water run across the pit floor, and does it still read as a st
 - The cap counts the band and the rings.
 - A break-recipe battery on each, including one that swaps the wake back to `WakeAfterSolve` and one
   that calls `ListRested` — the two the pass exists to prevent.
+
+### Slice 2c — built (2026-09-24, night)
+
+On *"As recommended, build it please"*. 2c-1 and 2c-2 in one session; 2c-3, the look, is his.
+
+**Core.** At the fed branch of `Solve`, a sheet still fed — by volume, not by a disturbance — goes
+to `AdvanceFed`: the band floods inward from the front cells with a **dry** side (`BordersDry`),
+`FedBandRingsPerAdvance × N` rings deep; the rings are slice 1's `Advance`, which now takes the
+total and the cell count its floor is judged on (the sheet's for a level, the band's here); the
+band and the new cells level together and every other cell's target is its own amount, so `Apply`
+writes the tip alone. `WakeAfterFedAdvance` wakes every written cell and every held sideways
+neighbour of one that has a move (`HasMove`, the per-cell question `FirstCellWithAMove` now shares),
+and the water over every cell drawn down. **Nothing is listed as resting.** `FirstSleepingCellWithAMove`
+is the new oracle — whatever has a move must be queued — because `VerifyQuiescent` needs the grid
+at rest. `SheetLevelResult` and `SheetSettle` carry `FedAdvanced` / cells / band.
+
+**Three departures from the pass.** (1) **The band is 4N, not 2N**: the bench below says 2N barely
+moves a natural stream, whose tip is thin; the floor only lets a band take a ring once it reaches
+back into thicker water. (2) **So the depth is a game flag, `--fedband=<rings per ring>`**, against
+decision 2's "a constant, not a flag" — gains kept growing to 6N and how flat a tip may look is his
+eye's. (3) `FedAdvance` is a property set once, as `FedSharePercent` is, not a fifth member of the
+worker tuple.
+
+**Fourteen tests** (`FedAdvanceTests`), the pass's worked channel among them: the tip at 3 L behind
+a 9 L body cell, 1 ring at D = N taken on the floor's equality, nothing flowing back, the falling
+source not in the band, nothing listed, no sleeping cell with a move, the rest after the source
+stops, off and `advance 0` unchanged to the millilitre, a disturbed sheet untouched, a short sheet
+levelled whole, the remainder a millilitre a cell. **Eighteen recipes, sixteen caught.** The two
+misses are identities: the band's pre-floor repeats `Advance`'s first-ring test (a cost claim), and
+the written cell's own wake is always reached through a written neighbour, because the band and the
+rings are connected. **Two fixtures the battery forced**: falling water asleep beside the tip had to
+hold under a litre (a spreadable amount hid the room-below rule behind the sideways one) and its
+inflow had to land in a pocket elsewhere in the chunk (a pour at the shaft's foot woke it); and water
+standing on a full band cell, which no fixture had, for the above-wake.
+
+**The bench (`--front --frontfed`)**, 100 L/s for 60 s, Release, machine 1.04×:
+
+| band | open floor radius at 60 s (visible cells) | corridor reach at 10 s / 60 s | poured into the corridor | back |
+|---|---|---|---|---|
+| off | 17 (847) | 8 / 109 | 2,971 L | 5 / 0 |
+| 1N | 17 (848) | 9 / 141 | 3,270 L | 5 / 1 |
+| 2N | 18 (905) | 12 / 215 | 3,883 L | 2 / 0 |
+| 3N | 21 (1,195) | 17 / 215 | 3,996 L | 0 / 0 |
+| **4N** | **24 (1,488)** | **20 / 210** | 3,923 L | **0 / 0** |
+| 6N | 30 (2,237) | 30 / 298 | 5,059 L | 0 / 0 |
+
+`back` is pairs flowing toward the source (open floor / corridor), the defect the pass exists
+against: the automaton alone makes five; from 3N none. The corridor's source is throttled by its own
+cells filling, so a faster tip lets it pour more — throughput is part of the answer. The solve's
+cost did not move (60–100 ms over the minute on the floor, 3–11 ms in the corridor).
+
+**The wire.** `--fedadvance=` (1; 0 the control) and `--fedband=` (4); the `settle` line prints
+`fed advance (band 4N) S sheet(s): C cell(s), band B`. Headless: the r6 control 2601 / 325 / 3446 at
+411 to the digit; `--fillbasin=2000000 --breach=3` exact in both arms (one fed sheet advanced — the
+recipe is small); a copy of `Regions13` in rain (`--clockscale=20 --fluidnear=2 --fluidjob=1`, 60 s),
+0 `ERROR` and every identity exact in both arms: **76 fed sheets advanced by 699 cells, handed
+21,867 L against 18,623**, solve mean 14.5 against 13.8 ms; the worst tick 325 against 98 ms, one run
+each on a machine that runs in two speeds — a number to watch, not a finding. The breach is outside
+the loaded box at that save's standpoint (`drawn 0 L`), so the fed sheets there were rain puddles;
+**his breach pit is the play's.** Suite 1,888.

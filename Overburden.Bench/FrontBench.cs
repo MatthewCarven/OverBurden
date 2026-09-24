@@ -37,7 +37,7 @@ internal static class FrontBench
 
     internal static int Run(
         WorldGenerator generator, string machineControl, bool isDebug, long litres, int tickCap, SpreadRule[] spreads,
-        int fallCells = FluidSimulation.DefaultFallCells, int[]? advances = null)
+        int fallCells = FluidSimulation.DefaultFallCells, int[]? advances = null, bool fed = false)
     {
         Console.WriteLine("Front bench — the spread rule at a pool's edge: the relay's ball on a flat floor");
         if (isDebug)
@@ -71,6 +71,39 @@ internal static class FrontBench
             {
                 warm.Step();
             }
+        }
+
+        if (fed)
+        {
+            // Slice 2c (FRONT-ADVANCE-PLAN): a source that keeps pouring, so the pool is fed at every
+            // boundary and slice 1 never advances it. The control is fed advance off; the band's
+            // depth is swept at N to 6N rings (4N ships).
+            int rings = advances is { Length: > 0 } ? advances[0] : SheetSettle.DefaultFrontAdvance;
+            Console.WriteLine(
+                $"  Fed arm: {FedLitresPerTick * TicksPerSecond:N0} L/s poured onto the floor's centre for {FedTicks} ticks "
+                + $"({FedTicks / TicksPerSecond:N0} s), the solve after {SheetSettle.DefaultSettleAfterTicks} quiet tick(s), share 1 in "
+                + $"{SheetSettle.DefaultSettleShare}, fed share {FluidSimulation.DefaultFedSharePercent}%, advance {rings} ring(s). "
+                + "'back' counts pairs along ±X and ±Z from the centre in which the outer cell gives to the inner — water "
+                + "flowing toward the source — summed over the checkpoints; the automaton's own is the control's.");
+            Console.WriteLine();
+            RunFedArm(generator, spreads[0], fallCells, rings, fedAdvance: false, bandPerRing: 0);
+            foreach (int band in FedBands)
+            {
+                RunFedArm(generator, spreads[0], fallCells, rings, fedAdvance: true, bandPerRing: band);
+            }
+
+            // The stream the quiet rule exists for: a dug corridor a metre wide, fed at one end.
+            Console.WriteLine(
+                $"  Corridor: 4 voxels wide, {CorridorLength} long, fed at x 0..3 at the same rate; 'reach' is the furthest "
+                + "wet cell along it, 'back' pairs on its centreline flowing toward the source, summed over the checkpoints.");
+            Console.WriteLine();
+            RunFedCorridor(spreads[0], fallCells, rings, fedAdvance: false, bandPerRing: 0);
+            foreach (int band in FedBands)
+            {
+                RunFedCorridor(spreads[0], fallCells, rings, fedAdvance: true, bandPerRing: band);
+            }
+
+            return 0;
         }
 
         // Each rule twice: the automaton alone, and with M8b-3b's sheet solve at every boundary
@@ -222,6 +255,195 @@ internal static class FrontBench
         Console.WriteLine(Profile(sim, floorY, half, rested ? "profile at rest" : "profile at the cap"));
     }
 
+    private static readonly int[] FedBands = [1, 2, 3, 4, 6];
+    private const int CorridorLength = 400;
+
+    private static void RunFedCorridor(SpreadRule spread, int fallCells, int rings, bool fedAdvance, int bandPerRing)
+    {
+        // Floor at y = 1 over rock, x 0..CorridorLength−1, z 0..3; the source tops up x 0..3.
+        var terrain = new CorridorTerrain();
+        var sim = new FluidSimulation(terrain, spread: spread, fallCells: fallCells)
+        {
+            FedSharePercent = FluidSimulation.DefaultFedSharePercent,
+            FedAdvance = fedAdvance,
+            FedBandRingsPerAdvance = Math.Max(1, bandPerRing),
+        };
+        var settle = new SheetSettle(sim, SheetSettle.DefaultSettleAfterTicks, SheetSettle.DefaultSettleShare, solveCap: 0, frontAdvance: rings);
+
+        long pending = 0, poured = 0, back = 0;
+        var reaches = new List<string>();
+        for (int tick = 1; tick <= FedTicks; tick++)
+        {
+            settle.AtBoundary();
+            pending += FedLitresPerTick * FluidConstants.MillilitresPerLitre;
+            for (int x = 0; x < 4 && pending > 0; x++)
+            {
+                for (int z = 0; z < 4 && pending > 0; z++)
+                {
+                    long offered = Math.Min(pending, FluidConstants.CellCapacityMillilitres);
+                    long taken = offered - sim.Add(new VoxelPos(x, 1, z), offered);
+                    poured += taken;
+                    pending -= taken;
+                }
+            }
+
+            sim.Step();
+            if (Array.IndexOf(FedCheckpoints, tick) >= 0)
+            {
+                int reach = 0;
+                foreach (VoxelPos cell in sim.Grid.HeldCells())
+                {
+                    reach = Math.Max(reach, cell.X);
+                }
+
+                for (int x = 0; x < reach; x++)
+                {
+                    if (FluidRules.HorizontalTransfer(sim.Grid.AmountAt(new VoxelPos(x + 1, 1, 1)), sim.Grid.AmountAt(new VoxelPos(x, 1, 1))) > 0)
+                    {
+                        back++;
+                    }
+                }
+
+                reaches.Add(string.Create(CultureInfo.InvariantCulture, $"{tick}: {reach}"));
+            }
+        }
+
+        var line = new List<string>();
+        for (int x = 0; x < CorridorLength; x += 4)
+        {
+            int amount = sim.Grid.AmountAt(new VoxelPos(x, 1, 1));
+            if (amount == 0)
+            {
+                break;
+            }
+
+            line.Add(amount.ToString(CultureInfo.InvariantCulture));
+        }
+
+        bool conserved = sim.TotalMillilitres == sim.AddedMillilitres - sim.RemovedMillilitres - sim.DisplacedMillilitres;
+        string label = fedAdvance ? $"fed advance, band {bandPerRing}N" : "fed advance off (control)";
+        Console.WriteLine(
+            $"  {label}: poured {poured / 1000.0:N0} L; reach at tick {string.Join(", ", reaches)}; back {back:N0}; "
+            + $"{settle.FedSheetsAdvanced:N0} fed advanced ({settle.FedCellsAdvanced:N0} cells, band {settle.FedBandCells:N0}), "
+            + $"solve {settle.TotalMillis:F0} ms; conserved {(conserved ? "exact" : "*** NO ***")}");
+        Console.WriteLine($"             every 4th cell on the centreline (mL): {string.Join(" ", line)}");
+        Console.WriteLine();
+    }
+
+    private const long FedLitresPerTick = 50;
+    private const int FedTicks = 120;
+    private static readonly int[] FedCheckpoints = [5, 10, 20, 40, 60, 80, 100, 120];
+
+    private static void RunFedArm(
+        WorldGenerator generator, SpreadRule spread, int fallCells, int rings, bool fedAdvance, int bandPerRing)
+    {
+        var terrain = new ChamberTerrain(generator, 0, 0, shaftVoxels: 1, depthMetres: 2, chambers: 3);
+        int half = terrain.HalfSpan;
+        int floorY = terrain.FloorY;
+        for (int x = -half - 1; x <= half; x++)
+        {
+            for (int z = -half - 1; z <= half; z++)
+            {
+                terrain.CanHold(new VoxelPos(x, floorY, z));
+            }
+        }
+
+        var sim = new FluidSimulation(terrain, spread: spread, fallCells: fallCells)
+        {
+            FedSharePercent = FluidSimulation.DefaultFedSharePercent,
+            FedAdvance = fedAdvance,
+            FedBandRingsPerAdvance = Math.Max(1, bandPerRing),
+        };
+        var settle = new SheetSettle(sim, SheetSettle.DefaultSettleAfterTicks, SheetSettle.DefaultSettleShare, solveCap: 0, frontAdvance: rings);
+
+        long pending = 0;
+        long poured = 0;
+        long back = 0;
+        double tickMillis = 0;
+        var clock = new Stopwatch();
+        var radii = new List<string>();
+        for (int tick = 1; tick <= FedTicks; tick++)
+        {
+            settle.AtBoundary();
+            pending = FeedPour(sim, floorY, pending + (FedLitresPerTick * FluidConstants.MillilitresPerLitre), ref poured);
+
+            clock.Restart();
+            sim.Step();
+            tickMillis += clock.Elapsed.TotalMilliseconds;
+
+            if (Array.IndexOf(FedCheckpoints, tick) >= 0)
+            {
+                (int wet, int visible, int reach) = Front(sim);
+                back += FlowingBack(sim, floorY, half);
+                radii.Add(string.Create(CultureInfo.InvariantCulture, $"{tick}: r{reach} ({visible:N0} visible)"));
+            }
+        }
+
+        bool conserved = sim.TotalMillilitres == sim.AddedMillilitres - sim.RemovedMillilitres - sim.DisplacedMillilitres;
+        string label = fedAdvance ? $"fed advance, band {bandPerRing}N" : "fed advance off (control)";
+        Console.WriteLine(
+            $"  {label}: poured {poured / 1000.0:N0} L; radius at tick {string.Join(", ", radii)}; back {back:N0}; "
+            + $"conserved {(conserved ? "exact" : "*** NO ***")}");
+        Console.WriteLine(
+            $"           solve {settle.Settles:N0} pass(es), {settle.SheetsLevelled:N0} levelled / {settle.SheetsNoisy:N0} left fed / "
+            + $"{settle.FedSheetsAdvanced:N0} fed advanced ({settle.FedCellsAdvanced:N0} cells, band {settle.FedBandCells:N0}), "
+            + $"{settle.CellsWritten:N0} written, {settle.TotalMillis:F0} ms in all, longest {settle.LongestMillis:F2}; "
+            + $"ticks {tickMillis:F0} ms; inflow tested 10%+ {settle.InflowTenPercentPlus:N0}, 1-10% {settle.InflowUnderTenPercent:N0}, "
+            + $"<1% {settle.InflowUnderOnePercent + settle.InflowUnderTenthPercent:N0}");
+        Console.WriteLine(Profile(sim, floorY, half, "profile at the end"));
+        Console.WriteLine();
+    }
+
+    /// <summary>
+    /// A 3 × 3 source over the floor's centre: each cell topped up from the floor upward, so the
+    /// water lands in the floor's own chunk and stamps it (the fed test reads the chunk). Returns
+    /// what did not fit, carried to the next tick.
+    /// </summary>
+    private static long FeedPour(FluidSimulation sim, int floorY, long millilitres, ref long poured)
+    {
+        for (int dy = 0; dy < 4 && millilitres > 0; dy++)
+        {
+            for (int dx = -1; dx <= 1 && millilitres > 0; dx++)
+            {
+                for (int dz = -1; dz <= 1 && millilitres > 0; dz++)
+                {
+                    var cell = new VoxelPos(dx, floorY + dy, dz);
+                    if (cell.Chunk != new VoxelPos(0, floorY, 0).Chunk)
+                    {
+                        continue;
+                    }
+
+                    long offered = Math.Min(millilitres, FluidConstants.CellCapacityMillilitres);
+                    long left = sim.Add(cell, offered);
+                    poured += offered - left;
+                    millilitres -= offered - left;
+                }
+            }
+        }
+
+        return millilitres;
+    }
+
+    /// <summary>Pairs along the four axes from the centre in which the outer cell gives to the inner one.</summary>
+    private static int FlowingBack(FluidSimulation sim, int floorY, int half)
+    {
+        int count = 0;
+        foreach ((int dx, int dz) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+        {
+            for (int k = 1; k < half - 1; k++)
+            {
+                int inner = sim.Grid.AmountAt(new VoxelPos(dx * k, floorY, dz * k));
+                int outer = sim.Grid.AmountAt(new VoxelPos(dx * (k + 1), floorY, dz * (k + 1)));
+                if (FluidRules.HorizontalTransfer(outer, inner) > 0)
+                {
+                    count++;
+                }
+            }
+        }
+
+        return count;
+    }
+
     /// <summary>Wet cells, cells at or over the spread floor, and the furthest wet cell from the centre.</summary>
     private static (int Wet, int Visible, int Reach) Front(FluidSimulation sim)
     {
@@ -282,4 +504,10 @@ internal static class FrontBench
             : Environment.NewLine + $"                 one up: {string.Join(" ", above.Take(lastAbove + 1))}";
         return $"             {label}, +X from the centre (mL): {string.Join(" ", parts)}{second}";
     }
+}
+
+/// <summary>The fed arm's corridor: a floor at y = 1, a metre wide, over rock.</summary>
+internal sealed class CorridorTerrain : IFluidTerrain
+{
+    public bool CanHold(VoxelPos v) => v.Y == 1 && v.X >= 0 && v.X < 400 && v.Z >= 0 && v.Z < 4;
 }

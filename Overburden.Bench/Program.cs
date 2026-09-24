@@ -81,6 +81,7 @@ internal static class Program
           --front              the spread rule at a pool's edge: R's ball on a flat floor, the wet radius and the profile tick by tick, each rule with and without the sheet solve
           --frontlitres <n>    the ball, in litres (default 10000, which is one R)
           --frontticks <n>     tick cap for the front arm (default 20000)
+          --frontfed           the front advance's slice 2c: a steady 100 L/s onto the floor's centre for 60 s, fed advance off against on with the tip band at N, 2N and 3N rings; radius, solve ms and pairs flowing back toward the source
           --surface            M8d-1: the Tier B mesh against the debug surface on a lake at rest (--lakechambers) and a flood (--frontlitres)
           --fallcells <n>      M8d-3: cells a visit may fall through vacant air, for --fluid and --front (default 16; 1 is the pre-M8d-3 arm)
           --support            M9a: the support field over the plan's seven fixtures on real strata, the derive's ms and a cross-section of each wedge
@@ -121,6 +122,7 @@ internal static class Program
         bool lake = false;
         bool solveBench = false;
         int[]? frontAdvances = null;
+        bool frontFed = false;
         int solveChambers = 12;
         int solveRounds = 6;
         int solveHoles = 7;
@@ -233,6 +235,9 @@ internal static class Program
                         break;
                     case "--settleshare":
                         settleShare = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--frontfed":
+                        frontFed = true;
                         break;
                     case "--frontadvance":
                         frontAdvances = Next(args, ref i).Split(',').Select(s => int.Parse(s, CultureInfo.InvariantCulture)).ToArray();
@@ -411,7 +416,7 @@ internal static class Program
         {
             var frontGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
             return FrontBench.Run(
-                frontGenerator, MachineControl(frontGenerator), IsDebug(), frontLitres, frontTicks, spreads, fallCells, frontAdvances);
+                frontGenerator, MachineControl(frontGenerator), IsDebug(), frontLitres, frontTicks, spreads, fallCells, frontAdvances, frontFed);
         }
 
         if (solveBench)

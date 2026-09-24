@@ -671,6 +671,19 @@ public partial class Main : Node3D
     /// </summary>
     private double _fedShare = FluidSimulation.DefaultFedSharePercent;
 
+    /// <summary>
+    /// <c>--fedadvance=</c> (FRONT-ADVANCE-PLAN slice 2c): a sheet still being fed takes the front
+    /// advance's rings by levelling its tip. The game ships <see cref="FluidSimulation.DefaultFedAdvance"/>;
+    /// 0 leaves a fed sheet to the automaton, the control arm.
+    /// </summary>
+    private bool _fedAdvance = FluidSimulation.DefaultFedAdvance;
+
+    /// <summary>
+    /// <c>--fedband=</c>: how deep a fed sheet's tip band is, in rings per ring of advance. The game
+    /// ships <see cref="FluidSimulation.DefaultFedBandRingsPerAdvance"/>; the look is his to sweep.
+    /// </summary>
+    private int _fedBand = FluidSimulation.DefaultFedBandRingsPerAdvance;
+
     /// <summary>Litres one press of the relay pours. Enough to see; not enough to flood a mine.</summary>
     private const long RelayLitres = 10_000;
 
@@ -1843,6 +1856,15 @@ public partial class Main : Node3D
                 // The fed share (FRONT-ADVANCE-PLAN slice 2), in percent: zero is the old any-inflow rule.
                 case "fedshare" when double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double fedShare):
                     _fedShare = Math.Max(0.0, fedShare);
+                    break;
+
+                // A stream still fed advances its tip (slice 2c): 0 is the control.
+                case "fedadvance" when int.TryParse(value, out int fedAdvance):
+                    _fedAdvance = fedAdvance != 0;
+                    break;
+
+                case "fedband" when int.TryParse(value, out int fedBand):
+                    _fedBand = Math.Max(1, fedBand);
                     break;
 
                 case "frontadvance" when int.TryParse(value, out int frontAdvance):
@@ -5995,6 +6017,8 @@ public partial class Main : Node3D
         _fluid = new FluidSimulation(simTerrain, spread: _spread, fallCells: _fallCells)
         {
             FedSharePercent = _fedShare,
+            FedAdvance = _fedAdvance,
+            FedBandRingsPerAdvance = _fedBand,
         };
         _machineTerrain = simTerrain;
         if (_fallCells != FluidSimulation.DefaultFallCells)
@@ -7279,7 +7303,10 @@ public partial class Main : Node3D
         long passes = Math.Max(1, _settle!.Settles);
         string advance = _settle.FrontAdvance == 0
             ? "no front advance"
-            : $"front advance {_settle.FrontAdvance} ring(s): {_settle.CellsAdvanced:N0} cell(s) in all";
+            : $"front advance {_settle.FrontAdvance} ring(s): {_settle.CellsAdvanced:N0} cell(s) in all, "
+              + (_fluid!.FedAdvance
+                  ? $"fed advance (band {_fluid.FedBandRingsPerAdvance}N) {_settle.FedSheetsAdvanced:N0} sheet(s): {_settle.FedCellsAdvanced:N0} cell(s), band {_settle.FedBandCells:N0}"
+                  : "no fed advance (--fedadvance=0)");
         long withInflow = _settle.InflowUnderTenthPercent + _settle.InflowUnderOnePercent
             + _settle.InflowUnderTenPercent + _settle.InflowTenPercentPlus + _settle.InflowDisturbed;
         string fed = $"inflow into {withInflow:N0} sheet(s) tested: <0.1% {_settle.InflowUnderTenthPercent:N0} / "

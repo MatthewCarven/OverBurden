@@ -799,11 +799,30 @@ public sealed partial class FluidSimulation : IFluidPersistence
     /// right to stop. The diagnostic behind <see cref="VerifyQuiescent"/>, for a test that has to
     /// say which cell was stranded.
     /// </summary>
-    public (VoxelPos Cell, string Why)? FirstCellWithAMove()
+    public (VoxelPos Cell, string Why)? FirstCellWithAMove() => FirstWithAMove(sleepingOnly: false);
+
+    /// <summary>
+    /// The first held cell that is <i>not queued</i> for the next tick and would move if visited,
+    /// with why, or null. The oracle for a wake set mid-flow (FRONT-ADVANCE-PLAN 2c, decision 5),
+    /// where <see cref="VerifyQuiescent"/> cannot be asked because water is still moving: whatever
+    /// has a move must be awake. At a tick boundary only.
+    /// </summary>
+    public (VoxelPos Cell, string Why)? FirstSleepingCellWithAMove()
+    {
+        RefuseMidTick(nameof(FirstSleepingCellWithAMove));
+        return FirstWithAMove(sleepingOnly: true);
+    }
+
+    private (VoxelPos Cell, string Why)? FirstWithAMove(bool sleepingOnly)
     {
         Span<int> sides = stackalloc int[4];
         foreach (VoxelPos cell in _grid.HeldCells())
         {
+            if (sleepingOnly && _queued.ContainsKey(cell))
+            {
+                continue;
+            }
+
             if (!_terrain.CanHold(cell))
             {
                 if (!_terrain.IsLoaded(cell))
@@ -848,6 +867,42 @@ public sealed partial class FluidSimulation : IFluidPersistence
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Whether a visit to this cell would move water: room below, or a sideways transfer under this
+    /// simulation's divisor. <see cref="FirstWithAMove"/>'s question for one holdable cell, on the
+    /// visit terrain, for a wake that is derived from a write.
+    /// </summary>
+    private bool HasMove(VoxelPos cell, Span<int> sides)
+    {
+        if (!_visitTerrain.CanHold(cell))
+        {
+            return false;
+        }
+
+        VoxelPos below = Below(cell);
+        if (_visitTerrain.CanHold(below) && RoomAt(below) > 0)
+        {
+            return true;
+        }
+
+        int amount = _grid.AmountAt(cell);
+        if (!FluidRules.CanSpread(amount))
+        {
+            return false;
+        }
+
+        int divisor = ReadSides(cell, amount, sides);
+        for (int k = 0; k < sides.Length; k++)
+        {
+            if (sides[k] >= 0 && FluidRules.HorizontalTransfer(amount, sides[k], divisor) > 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private bool IsPaused(VoxelPos cell) =>
