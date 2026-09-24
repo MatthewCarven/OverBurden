@@ -334,6 +334,20 @@ rule as `--support`:
 DOTNET_TieredCompilation=0 dotnet run --project Overburden.Bench -c Release -- --support --collapse
 ```
 
+Measure **the sheet solve against a wide active set** — M10d-3's arm (2026-09-24): a chamber
+block's floor full, a noisy layer over it with one cell in `--solveholes` (7) dry, an unsupported
+noisy layer over that, every wet cell a shuffled seed; the flood's two-layer index against the
+dictionary it replaced (`FluidSimulation.HashedFloodIndex`), **arms interleaved in one process**
+because this machine sits in one of two speeds three to four times apart from minute to minute, and
+the run refuses to print a ratio unless both arms land the same water. Per pass: seeds, visited,
+written, sheets, and the solve's four phases. `--solvechambers` (12), `--solverounds` (6). The
+game's `settle` line carries the same phases (`per pass N seed(s), gather / sort / flood / level`).
+Release only:
+
+```bash
+dotnet run --project Overburden.Bench -c Release -- --solve
+```
+
 Measure **M8's Tier B automaton** — a lake draining into a mine, swept by breach width. Release
 only, and **the fixture bakes its terrain into a bitset before timing anything**, because the first
 version answered `CanHold` with `IsCaveAt` and reported 3.86 µs a visit against a true 0.2–0.3:
@@ -1139,7 +1153,12 @@ excavator's click) and the older M10d queue. **d-3 is taken (later the same day,
 closed)**: the load test ticks at 0.55–0.60 Hz, the solve is 810 ms of a 1.5 s wall, and its
 phase split — sort 220 / flood 436 / level 112 ms a pass over 683 k seeds — says the cost is
 the active set's width, not the sheets. The levers' pass is "M10d-3" at the end of the ladder
-plan, five decisions waiting on his word; the first is a packed-key sort, bitwise the same order. **Two things not to
+plan; he took it as recommended and **decisions 1 and 2 are built the same day** — the packed
+seed sort (228 → 57 ms a pass, same-session control) and the flood's index on his layered lookup
+table (0.90× the flood on `--solve`, the water identical). The target (solve under a third of the
+tick) is not met; the pass cap is the lever that meets it and waits on his word. **The machine
+runs in two states ~3× apart minute to minute** — never compare two load-test runs without a
+same-session control. **Two things not to
 rediscover**: the profile's `/s` for a quantum tier reads well under its cooldown (the miner, 10/s
 nominal, reads 4.2 under `--holdq`) — an instrument question, not a tier's, in TODO; and a Python
 edit script that writes `utf-8-sig` adds a BOM to a file that had none (ContentLoader.cs, caught

@@ -2952,3 +2952,54 @@ The estimate was 220 → 20–40 ms; the build is 57, a factor of four and not t
 is the next lever. The fast run is kept in the worklog as a finding about the machine: a whole
 process running three times faster for one minute, with no other change, is the 2.5× swing
 CLAUDE.md records, larger.
+
+### M10d-3, decision 2 — the flood's index, built, and what it was worth
+
+Built 2026-09-24 on *"go ahead with decision 2"*. **The shape is Matthew's**: his layered lookup
+tables (github.com/MatthewCarven/Python-Lookuptables, the 2D bench — a bucket by a key's first
+digit, then by its second) with a direct-indexed leaf where his scans a short list. `FloodIndex`
+in `Overburden.Core/Fluid/` is a chunk column's slot by its (x, z), then a flat 32 × 32 array by
+the cell's local (x, z); one flood is one Y so Y is not a layer (asserted in Debug). Nothing is
+cleared between floods — a slot's arrays are reused under a generation stamp — and the last slot
+is remembered, as `FluidGrid.Find`, the field's view and the lake band already remember their last
+chunk. 8 KiB a slot; 144 slots on the bench's 96 m block. The dictionary stays as the measurement
+arm, `FluidSimulation.HashedFloodIndex`, read at the start of each flood.
+
+**Priced first, on a new bench arm, `--solve`**: a chamber block's floor full, a noisy layer over
+it with one cell in *n* dry, an unsupported noisy layer over that (the falling water every awake
+world is full of), every wet cell a shuffled seed; the arms interleaved round by round in one
+process, and **both arms must land the same water** — a checksum over every cell after every pass
+and the pass's counts — or the run says it timed two different solves. Release, two runs and a
+fragmented variant:
+
+| `--solve` (Release) | dictionary | two-layer |
+|---|---|---|
+| 12 rounds, 61 sheets a pass: flood / solve ms | 60.7 / 113.0 | 54.6 / 106.9 |
+| `--solveholes 3`, 1,738 sheets a pass | 59.3 / 104.5 | 53.5 / 98.1 |
+| flood ns a seed-or-cell | 87.7 / 93.2 | 78.9 / 84.2 |
+
+**0.90× the flood and 0.94–0.95× the solve, every run, the water identical.** So the dictionary
+was a tenth of the flood and not the half the pass guessed: every other read the flood makes
+already had a last-chunk cache, and what the flood costs is the number of reads a cell — four
+sides, each an index probe, a grid read and a terrain read, and the seed's own tests. Kept,
+because it is correct by the bench's oracle and nine break-recipes, and costs nothing at run time.
+
+**The game cannot see it, and says why.** A load-test run with the index read the flood at 196 ms
+a pass over 1.27 M seeds, against 178 ms over 1.29 M in the earlier fast-phase run — the machine
+was in its fast phase again (1.43 Hz), and a 10% lever is inside a swing of three to four times
+between minutes. 0 `ERROR`, every identity exact on every line: the wire check the bench cannot
+make. **Across the day's seven load-test runs the machine sat in one of two states** — ~0.55 Hz
+with the flood at ~370 ns an item, or ~1.45 Hz at ~80 ns, which is the Release bench's figure —
+with no code between them; a same-session control is the only comparison that means anything on
+this box, and for a lever under 2× the interleaved bench is the instrument.
+
+**What is left of the solve is its reads, not its data structures.** Seventeen break-recipes caught
+across the two decisions; the solve 873 → 703 ms measured after the sort, ~650 with the index by
+arithmetic (the flood's −10% of ~470 ms), an estimate the game's noise cannot confirm. The remaining levers are fewer reads a cell (the four sides' grid and terrain reads
+share a panel; a cell's own `IsSheetCell` re-reads what its discoverer read) or fewer seeds (the
+whole awake set is offered every pass — 683 k seeds against 505 k cells visited, and how many seeds
+start nothing is not counted yet) — decision 3 rejected the cheap form
+of the second for changing answers, and neither is priced. **Decision 5's target — the solve under
+a third of the tick — is not met** (the solve is 55–60% of the wall in both phases), and the pass
+cap of decision 4 is the lever that meets it outright; it changes when a sheet is levelled, so it
+is Matthew's word, not a default.

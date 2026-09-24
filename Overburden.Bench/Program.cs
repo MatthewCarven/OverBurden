@@ -119,6 +119,10 @@ internal static class Program
         string fluidSolve = "wait";
         int settleShare = Overburden.Core.Fluid.SheetSettle.DefaultSettleShare;
         bool lake = false;
+        bool solveBench = false;
+        int solveChambers = 12;
+        int solveRounds = 6;
+        int solveHoles = 7;
         int lakeChambers = 12;
         int lakeTicks = 60;
         bool spill = false;
@@ -228,6 +232,18 @@ internal static class Program
                         break;
                     case "--settleshare":
                         settleShare = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--solve":
+                        solveBench = true;
+                        break;
+                    case "--solvechambers":
+                        solveChambers = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--solverounds":
+                        solveRounds = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--solveholes":
+                        solveHoles = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
                         break;
                     case "--lake":
                         lake = true;
@@ -392,6 +408,12 @@ internal static class Program
             var frontGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
             return FrontBench.Run(
                 frontGenerator, MachineControl(frontGenerator), IsDebug(), frontLitres, frontTicks, spreads, fallCells);
+        }
+
+        if (solveBench)
+        {
+            var solveGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
+            return SolveBench.Run(solveGenerator, MachineControl(solveGenerator), IsDebug(), solveChambers, solveRounds, solveHoles);
         }
 
         if (lake)

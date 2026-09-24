@@ -5674,10 +5674,16 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             sheets, so the three levers below were aimed at the wrong quantity.
       - [ ] **The solve's levers, five decisions — *"As recommended"*, 2026-09-24**: (1) sort
             on a packed `long` key, bitwise the same order — **built the same day, sort 228 →
-            57 ms a pass against a same-session control, the solve 873 → 703 ms**; (2) the flood's dictionary as a per-panel stamp array, benched with a
+            57 ms a pass against a same-session control, the solve 873 → 703 ms**; (2) the flood's index —
+            **built the same day as Matthew's layered table (`FloodIndex`), benched on `--solve`
+            at 0.90× the flood and 0.94× the solve, water identical; the dictionary was a tenth
+            of the flood, not the half the pass guessed**; (2) the flood's dictionary as a per-panel stamp array, benched with a
             wide active set before it is built; (3) seeds not pre-filtered (it changes
             answers); (4) the three recorded levers retired, the pass cap kept as fallback;
-            (5) target: the solve under a third of the tick on the load test.
+            (5) target: the solve under a third of the tick on the load test — **not met after 1
+            and 2** (55–60% of the wall); what is left is reads a cell and seeds offered, both
+            unpriced, and the pass cap (4) meets it outright at the cost of when a sheet levels —
+            his word before it is built.
       - [ ] **The quantum tiers and the hold (2026-09-19, unplayed)**: `T` cycles hand → steel →
             quantum miner → quantum excavator (a fresh world starts on steel); on the miner a
             click is one 1 m cell dug or the brush placed at range, on the excavator one 8 m

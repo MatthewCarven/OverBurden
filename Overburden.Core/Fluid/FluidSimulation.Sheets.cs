@@ -166,6 +166,8 @@ public sealed partial class FluidSimulation
     private byte[] _cellFlags = new byte[256];
     private int _cellCount;
     private readonly Dictionary<VoxelPos, int> _cellIndex = [];
+    private readonly FloodIndex _floodIndex = new();
+    private bool _hashedThisPass;
 
     private readonly List<Sheet> _sheets = [];
     private int _sheetCount;
@@ -536,7 +538,16 @@ public sealed partial class FluidSimulation
     private void Flood(int seedStart, int seedEnd, int share)
     {
         _cellCount = 0;
-        _cellIndex.Clear();
+        _hashedThisPass = HashedFloodIndex;
+        if (_hashedThisPass)
+        {
+            _cellIndex.Clear();
+        }
+        else
+        {
+            _floodIndex.Clear();
+        }
+
         _sheetCount = 0;
         _layer.Clear();
         _nextLayer.Clear();
@@ -544,7 +555,7 @@ public sealed partial class FluidSimulation
         for (int i = seedStart; i < seedEnd; i++)
         {
             VoxelPos seed = _sheetSeeds[i];
-            if (_cellIndex.ContainsKey(seed) || !IsSheetCell(seed))
+            if (IndexTryGet(seed, out _) || !IsSheetCell(seed))
             {
                 continue;
             }
@@ -615,7 +626,7 @@ public sealed partial class FluidSimulation
         {
             (int dx, int dz) = Sideways[k];
             VoxelPos side = cell.Offset(dx, 0, dz);
-            if (_cellIndex.TryGetValue(side, out int sideRecord))
+            if (IndexTryGet(side, out int sideRecord))
             {
                 // A member found from another cell, or this cell's own discoverer. Same sheet
                 // either way: two floods at one Y that touch are one sheet.
@@ -703,13 +714,33 @@ public sealed partial class FluidSimulation
         _cellAmount[record] = amount;
         _cellSheet[record] = sheet;
         _cellFlags[record] = 0;
-        _cellIndex[cell] = record;
+        if (_hashedThisPass)
+        {
+            _cellIndex[cell] = record;
+        }
+        else
+        {
+            _floodIndex.Add(cell, record);
+        }
 
         Sheet owner = _sheets[sheet];
         owner.Cells.Add(record);
         owner.Total += amount;
         return record;
     }
+
+    private bool IndexTryGet(VoxelPos cell, out int record) =>
+        _hashedThisPass ? _cellIndex.TryGetValue(cell, out record) : _floodIndex.TryGet(cell, out record);
+
+    /// <summary>
+    /// The flood's index as the dictionary it was before M10d-3's decision 2 — the measurement arm
+    /// the two-layer <see cref="FloodIndex"/> is priced against, read at the start of each flood.
+    /// Both arms find the same records in the same order, so the water is the same either way.
+    /// </summary>
+    public bool HashedFloodIndex { get; set; }
+
+    /// <summary>Chunk columns the two-layer index holds a slot for at its widest — 8 KiB each.</summary>
+    public int FloodIndexSlots => _floodIndex.SlotsAllocated;
 
     private int NewSheet()
     {

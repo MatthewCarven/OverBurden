@@ -1,5 +1,26 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-24 — The flood's index, on Matthew's layered table: a tenth, not a half
+
+Decision 2 is built. `FloodIndex` is his 2D lookup table with a direct-indexed leaf — a chunk
+column's slot, then a flat 32 × 32 array — replacing the flood's `Dictionary<VoxelPos, int>`,
+cleared by a stamp and remembering its last slot. **Priced before it was believed, on a new
+bench arm (`--solve`: a wide active set, arms interleaved in one process, the two arms' water
+compared cell for cell after every pass): the flood 0.90×, the solve 0.94–0.95×**, on three
+runs including a fragmented fixture of 1,738 sheets a pass. The pass had guessed the dictionary
+was half the flood; it was a tenth, because every other read the flood makes already remembered
+its last chunk. Kept — correct, nine recipes caught (one a hang: a flood that never indexes what
+it discovers never ends), free at run time. Suite 1,844, r6 to the digit, the load test's wire
+check 0 `ERROR` with every identity exact.
+
+**The machine has two states and the day's seven load-test runs split between them**: ~0.55 Hz
+with the flood at ~370 ns an item, and ~1.45 Hz at ~80 ns — the Release bench's own figure —
+with no code between them. A 10% lever is invisible in the game under that, so the interleaved
+bench is the instrument for anything under 2×. **Decision 5's target is not met** — the solve is
+still 55–60% of the tick — and what is left is the number of reads a cell and the seeds offered
+(the whole awake set, every pass; how many start nothing is not counted), both unpriced; the pass cap meets the target outright and changes when a
+sheet levels, so it waits on Matthew.
+
 ## 2026-09-24 — The packed seed sort, and a machine that ran three times faster for a minute
 
 Matthew took M10d-3's five decisions as recommended. Decision 1 is built: `SeedOrder` packs
