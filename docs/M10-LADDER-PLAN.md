@@ -2920,3 +2920,35 @@ every identity exact, the copy deleted after. Suite 1,829 green, r6 control 2601
 them; the `M8b:` line's settle term and the profile's `settle` line end in `per pass N seed(s),
 gather / sort / flood / level ms mean`. It costs two `Stopwatch` reads a Y group and four a pass. The record's
 equality now includes timing, and no test compared two results whole.
+
+### M10d-3, decision 1 — the packed sort, built
+
+Built 2026-09-24 on *"As recommended, build the packed sort first"*. `SeedOrder` in
+`Overburden.Core/Fluid/` packs (Y, X, Z) into one non-negative `long`, 21 bits each biased by
+2^20; `SortSeeds` sorts a reused `long[]` with `Array.Sort` and unpacks, falling back to
+`SeedOrder.Compare` — the old delegate, kept as the fallback and the tests' oracle — for a pass
+holding a position outside ±1,048,575, counted in `SeedSortFallbacks`. Eight tests
+(`SeedOrderTests`): the key's order equals the comparator's over 20,000 positions half of them on
+the range's edges; the round trip; the range on each axis; and **an order-sensitive fixture solved
+on both paths** — a floor at Y 0 that levelling draws below full under water at Y 1, seeds given
+top-down, so a pass that did not sort bottom-up would level the upper row. Eight recipes, eight
+caught. Suite 1,837.
+
+**Measured on the load test, and the first reading was the machine.** The first run with the sort
+read 1.47 Hz, visits 243 ms and the flood 178 — everything three times faster, including the two
+phases the sort cannot touch. A control with only `FluidSimulation.Sheets.cs` stashed read the old
+numbers (0.53 Hz, visits 780), and a second run of the sort build bracketed it:
+
+| same session | control (comparator) | packed sort |
+|---|---|---|
+| sort per pass | 228.3 ms | **56.6 ms** — ~81 ns a seed against ~327 |
+| flood / level | 459 / 123 ms | 478 / 113 ms |
+| solve mean | 873 ms | 703 ms |
+| visits mean | 780 ms | 767 ms |
+| ticks a second | 0.53 | 0.60 |
+
+The estimate was 220 → 20–40 ms; the build is 57, a factor of four and not ten, the unpack into
+`_sheetSeeds` and the key loop being the rest. **The flood is now 68% of the solve** and decision 2
+is the next lever. The fast run is kept in the worklog as a finding about the machine: a whole
+process running three times faster for one minute, with no other change, is the 2.5× swing
+CLAUDE.md records, larger.

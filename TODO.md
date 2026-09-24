@@ -5672,9 +5672,9 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             the solve 810–827 ms of a 1.5–1.6 s worker wall; per pass 683 k seeds, **sort
             220 / flood 436 / level 112 ms** — the cost is the active set's width, not the
             sheets, so the three levers below were aimed at the wrong quantity.
-      - [ ] **The solve's levers, five decisions, all recommended, waiting on Matthew**: (1) sort
-            on a packed `long` key, bitwise the same order, first and alone (220 → 20–40 ms,
-            an estimate); (2) the flood's dictionary as a per-panel stamp array, benched with a
+      - [ ] **The solve's levers, five decisions — *"As recommended"*, 2026-09-24**: (1) sort
+            on a packed `long` key, bitwise the same order — **built the same day, sort 228 →
+            57 ms a pass against a same-session control, the solve 873 → 703 ms**; (2) the flood's dictionary as a per-panel stamp array, benched with a
             wide active set before it is built; (3) seeds not pre-filtered (it changes
             answers); (4) the three recorded levers retired, the pass cap kept as fallback;
             (5) target: the solve under a third of the tick on the load test.

@@ -172,6 +172,7 @@ public sealed partial class FluidSimulation
     private List<int> _layer = [];
     private List<int> _nextLayer = [];
     private readonly List<VoxelPos> _sheetSeeds = [];
+    private long[] _seedKeys = new long[256];
     private readonly List<int> _sheetOrder = [];
     private readonly List<int> _sheetGivers = [];
     private readonly List<int> _sheetTakers = [];
@@ -338,10 +339,7 @@ public sealed partial class FluidSimulation
         // A copy, because waking appends to the pending list this is usually a view of; and a
         // total order on position rather than the caller's order, so the same water in the same
         // cells solves the same way whichever cell happened to wake first.
-        _sheetSeeds.Clear();
-        _sheetSeeds.AddRange(seeds);
-        _sheetSeeds.Sort(static (a, b) =>
-            a.Y != b.Y ? a.Y.CompareTo(b.Y) : a.X != b.X ? a.X.CompareTo(b.X) : a.Z.CompareTo(b.Z));
+        SortSeeds(seeds);
 
         int sheets = 0, levelled = 0, packed = 0, skipped = 0, underShare = 0, stepped = 0, noisy = 0;
         int largest = 0, visited = 0, written = 0, woken = 0;
@@ -440,6 +438,48 @@ public sealed partial class FluidSimulation
             woken, noisy, _sheetSeeds.Count, 0, sortMillis, floodMillis,
             Math.Max(0, Millis(started) - sortMillis - floodMillis));
     }
+
+    /// <summary>
+    /// Fills <see cref="_sheetSeeds"/> with the seeds in (Y, X, Z) order: a primitive sort over
+    /// packed keys, or the comparator for a pass holding a position the key cannot carry.
+    /// </summary>
+    private void SortSeeds(IReadOnlyList<VoxelPos> seeds)
+    {
+        int count = seeds.Count;
+        if (_seedKeys.Length < count)
+        {
+            _seedKeys = new long[Math.Max(count, _seedKeys.Length * 2)];
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            VoxelPos seed = seeds[i];
+            if (!SeedOrder.Fits(seed))
+            {
+                SeedSortFallbacks++;
+                _sheetSeeds.Clear();
+                _sheetSeeds.AddRange(seeds);
+                _sheetSeeds.Sort(SeedOrder.Compare);
+                return;
+            }
+
+            _seedKeys[i] = SeedOrder.Pack(seed);
+        }
+
+        Array.Sort(_seedKeys, 0, count);
+        _sheetSeeds.Clear();
+        _sheetSeeds.EnsureCapacity(count);
+        for (int i = 0; i < count; i++)
+        {
+            _sheetSeeds.Add(SeedOrder.Unpack(_seedKeys[i]));
+        }
+    }
+
+    /// <summary>
+    /// Passes whose seeds held a position outside <see cref="SeedOrder"/>'s range and were
+    /// sorted by the comparator instead. Zero on any world a body can reach.
+    /// </summary>
+    public long SeedSortFallbacks { get; private set; }
 
     private static double Millis(long since) =>
         (Stopwatch.GetTimestamp() - since) * 1000.0 / Stopwatch.Frequency;

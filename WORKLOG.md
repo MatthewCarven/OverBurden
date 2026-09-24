@@ -1,5 +1,30 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-24 — The packed seed sort, and a machine that ran three times faster for a minute
+
+Matthew took M10d-3's five decisions as recommended. Decision 1 is built: `SeedOrder` packs
+(Y, X, Z) into a `long` and the solve's seeds are sorted with `Array.Sort`, the old comparator
+kept as the fallback past ±262 km and as the tests' oracle. Eight tests, eight recipes caught,
+suite 1,837. **Same session on the load test: sort 228 → 57 ms a pass, the solve 873 → 703 ms,
+0.53 → 0.60 ticks a second**, the flood and the visits unmoved as they should be.
+
+**The first reading was wrong, and the control is what said so.** The sort build's first run
+read 1.47 Hz with the visits at 243 ms and the flood at 178 — three times faster in phases the
+sort does not touch. Stashing only `FluidSimulation.Sheets.cs` gave the old numbers back, and a
+second run of the sort build read 0.60 Hz. One minute of the whole process at three times its
+speed, nothing else changed: the machine swing CLAUDE.md records at 2.5×, larger, and on a
+measurement that would have been quoted as a 2.8× lever without the bracket.
+
+**His lookup tables** (github.com/MatthewCarven/Python-Lookuptables, the 2D and 3D benches):
+layered buckets keyed on a key's leading digits, the leaf a short list. Read against the solve:
+not for the sort — keeping the pending list bucketed as cells wake moves the cost into every
+wake, millions a tick, and the packed sort already made the sort the smallest phase but one —
+but **it is the shape of decision 2**: the flood's `Dictionary<VoxelPos, int>` replaced by two
+layers, the panel by its chunk and then a flat array by local (x, z), the leaf direct-indexed
+rather than scanned. `FluidGrid` already stores the water that way; the flood's index is the one
+place that hashes a position. His *memory greedy* cost is bounded here: a 32 × 32 int layer a
+panel touched, reused under a generation stamp so nothing is cleared, ~2 MB on the load test.
+
 ## 2026-09-24 — M10d-3: the solve's number, and where it goes
 
 The game closed, a copy of the load test (`retired-spread-2026-09-22`), the recorded recipe.
