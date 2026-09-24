@@ -969,7 +969,10 @@ on a world that exists (an unedited chunk regenerates from the header, so honour
 rebuild the landscape around the chunks a world has saved). A floor above its own ceiling warns
 once and builds a uniform world; the generator refuses it outright, as it refuses a NaN rarity.
 **A new world played rather than measured gets base 0.4×, peak 3×, rarity 0.25** — a measured row,
-53% flat / 37% rolling / 10% hilly over 1,024 windows in 32 km, peaks to 36 m.
+53% flat / 37% rolling / 10% hilly over 1,024 windows in 32 km, peaks to 36 m. **Judged in play
+2026-09-24 and kept** — *"Leave the default … hills seem common enough even if you dont directly
+see them from the start"* — after a world at rarity 0.125 read well too; the map's 2 km default
+and the compass were confirmed the same day.
 
 **The HUD says where you are since 2026-09-23** — `x 108  y 11  z 6 · facing 315° NW · relief
 8.1 m`, on its own line over the status line, at the status line's own 10 Hz. **The bearing is

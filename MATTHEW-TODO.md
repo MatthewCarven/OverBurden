@@ -109,8 +109,9 @@ otherwise — flags go on the end of the `start.cmd` line.
 ### Owed from the relief change (2026-09-23)
 
 - [x] **Answered 2026-09-24 on `Regions12` at `--reliefrare=0.125`: *"I found the hills like
-      :-{D"*.** Open: should 0.125 (more of the map mountain) be the shipped default?
-- [ ] **Does a world have somewhere flat and somewhere mountainous?** Launch a new world —
+      :-{D"*.** And on the shipped 0.25 (`Regions13`): *"Leave the default … hills seem common
+      enough even if you dont directly see them from the start"*. **The shape stays `0.4 / 3 / 0.25`.**
+- [x] ~~**Does a world have somewhere flat and somewhere mountainous?**~~ Launch a new world —
       `start.cmd "--world=Shaped"` — and travel in one direction for a few minutes. The shipped
       shape is my estimate off a sweep, not anybody's judgement. One sentence: are the flat places
       flat enough, are the mountains big enough, and do you hit one often enough? The dials to

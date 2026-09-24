@@ -7,8 +7,14 @@ Matthew, on `Regions12` (made at `--reliefrare=0.125`, seed `0x353801C3`, 19.2..
 screenshot at relief 35.9 m — the ceiling, 144 voxels. **2 km stays the map's default and
 `--mapscale=4` stays an arm.** His launcher, `start2.cmd`, is `start.cmd`'s four flags plus
 `--world=Regions12 --reliefrare=0.125`; the relief flag is ignored with a warning on every
-launch after the first, as designed. Open: whether 0.125 replaces the shipped 0.25 — he played
-at 0.125 and liked the hills, which is not yet a word on the default. Log clean, 0 `ERROR`.
+launch after the first, as designed. Log clean, 0 `ERROR`.
+
+**The default is answered the same afternoon, on a fresh world at the shipped shape** (`Regions13`,
+seed `0x2C51AB0E`, 19.2..144 voxels, 25% rare; relief 30.5 m in his screenshot): *"Leave the
+default … hills seem common enough even if you dont directly see them from the start"*. **The
+relief shape `0.4 / 3 / 0.25` stops being an estimate and is his judgement.** The clause about
+the start is the per-seed origin offset doing its job: a spawn may land on a plain, and the hills
+are a short walk away rather than guaranteed in view.
 
 ## 2026-09-24 — The chunk is one click one bite too
 
