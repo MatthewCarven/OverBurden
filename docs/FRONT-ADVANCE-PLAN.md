@@ -352,3 +352,140 @@ rest, without the weather, tested no fed sheet at all. **So 2b is right and cost
 matter in a mine sweating under a lake, and it does not move his breach pit.** Decision 4's
 condition for 2c — a play that still reads a stream as slow — is what the count predicts; 2c is the
 lever for his case, and it waits on his word.
+
+### Slice 2c — the planning pass (2026-09-24, night)
+
+Matthew played a–c and 2a/2b the same night (*"Playtested the latest water, loving it"*), and the
+play's own `settle` line confirmed the count above: at tick 56, 11,104 fed sheets left against
+1,828 levelled, and of 11,246 fed sheets tested 8,606 were fed by a tenth of themselves or more; the
+advance took 17,022 cells in the whole session. Then *"yes, start the 2c planning pass"*. **Not
+built.** Five facts from the code, eight decisions, a split, and the tests.
+
+#### Five facts
+
+1. **Decision 3's fill rule contradicts decision 6's own test.** Pro rata keeps every old cell at
+   `n / (n + m)` of itself and gives every new cell the new mean. A stream fed at one end is thinnest
+   at its edge, so the mean is *more* than the edge holds. Worked on a one-wide channel ten cells
+   long, 10 L falling to 1 L (55 L), N = 4: the old edge drops to 0.71 L — under the 1 L spread
+   threshold, dead water — and the four new cells stand at 3.93 L in front of it. **A 3.2 L ridge
+   ahead of the stream with a dip behind it**: the sign kept cell for cell (decision 6) fails at the
+   old edge on every stream this slice exists for, and in the game it would read as a sheet snapping
+   outward and sloshing back. *Arithmetic on a made-up profile, not a measurement* — but no
+   profile that tapers toward its edge escapes it.
+2. **The other obvious rule advances nothing.** Give each new cell its parent front cell's amount
+   and scale the whole sheet to fit (a flat extension of the edge): the sign is kept, but the new
+   cells hold what the thin edge held, and the 2 L floor (decision 3 of slice 1) refuses the ring
+   whenever the edge is under 2 L — which is decision 3's own reason for rejecting the edge band.
+3. **`ListRested` is the trap found closing the session, confirmed in the code.** It lists every
+   cell the pass wrote that is not a front and holds water (`_cellTarget != _cellAmount`, target > 0,
+   not `CellFront`), on the ground that *"a written cell that is not a front is level with its
+   sheet"*. That is true only of `LevelTargets` and `PackTargets`. Any target rule that is not level
+   leaves interior cells with a move, and the hand-off would take those on natural ground mid-flow.
+   Likewise `WakeAfterSolve` wakes only the fronts and the water over a drawn-down cell. Both rest on
+   "level" and neither can be reused as is.
+4. **`CellFront` is two things.** `Pop` flags a front for a holdable sideways cell that is not the
+   sheet's — *dry, or wet and falling*. A stream fed by water pouring down beside it has fronts at
+   its source as well as at its edge. `Advance` is safe with that (a ring takes only dry cells), but
+   anything measured *from* the front must say which front it means.
+5. **A fed sheet reaches the fed test with its flood finished and its fronts flagged** (slice 2's
+   fact 5): not frozen, the share or the step already passed. So 2c is a branch at `noisy++` in
+   `Solve`, with the sheet's cells, total and fronts known and nothing else to find.
+
+#### Eight decisions
+
+##### 1. Level the edge band, not the whole sheet — *recommended; amends decision 3*
+
+For a sheet still fed, after the same rings: level **the new cells together with the band of old
+cells within *D* rings of its dry edge** (the edge cell is the first ring; rings flood inward
+through the sheet's own cells), and leave every
+other cell of the sheet exactly as it was. The stream's body keeps its gradient to the millilitre;
+only its tip is flattened and pushed out. **The sign is kept wherever the profile falls toward the
+edge**: the band's level is its mean, no more than its thickest cell, which is its innermost, which
+is no more than the interior cell behind it. On fact 1's channel with D = 8 (cells 3–10, 36 L), four
+rings are taken and the band stands at 3 L behind an interior cell of 9 L — against a ridge (pro
+rata) or nothing (flat extension). **This is decision 3's rejected option made deep enough to have
+water to lend**: rejected there because a stream's edge is its thinnest water, and the band reaches
+back to thicker water for exactly that reason. Cost stated: the band has no gradient for a tick, so
+the tip flows only by being pushed from behind, which is what the woken fronts and the band's inner
+ring do the next tick; and **a fed sheet no longer than D from its dry edge is levelled whole**,
+which is the `--settleafter=0` arm for small sheets — for a pump's outlet mound that is the point
+(fact 7 of slice 1 complained it spreads at the automaton's pace); for a real stream it is only its
+last *D* cells.
+
+##### 2. The band's depth D is 2N — *recommended, an estimate the bench sweeps*
+
+With N = 4, eight rings, 2 m behind the edge. On fact 1's channel D = N (4 cells, 10 L) takes one
+ring before the floor stops it and D = 2N takes all four. Deeper takes more of the stream's shape
+away for no more rings. A constant tied to N, not a flag; the bench arm takes D = N, 2N and 3N.
+
+##### 3. The band is measured from the dry edge only — *recommended*
+
+The band floods inward from the front cells that border a **dry** holdable cell (`AmountAt == 0`),
+not from a front beside falling water (fact 4). Otherwise a stream fed from a shaft beside it pulls
+its own source into the band and flattens the inflow, which is the stream the quiet rule protects.
+
+##### 4. The floor is on the band — *recommended*
+
+A ring is taken while `band total ≥ 2 L × (band cells + new cells)` (`AdvanceFloorMillilitres`,
+unchanged), and not the one that would break it. Same constant, same whole-ring rule, the band in
+place of the sheet. No floor on the sheet as a whole: a stream with a thick body and a thin tip
+advances as far as its tip can carry.
+
+##### 5. It lists nothing as resting and wakes every cell it gave a move — *recommended; the trap*
+
+A fed sheet is not at rest, so **nothing of it goes on the rested list**, band included, and the
+hand-off takes none of it at this boundary. Once the inflow stops the ordinary level runs and lists
+as it does today. The wake is derived from the write rather than from "level": every written cell
+that, with the targets applied, has a transfer to or from a sideways neighbour
+(`FluidRules.HorizontalTransfer` either way, sheet or not), every front, and the water over every
+cell drawn down. The band's inner ring is the case that needs it: it borders the untouched interior,
+which is thicker. **Oracle: straight after the pass, no held cell outside the pending list has a
+move** — a test helper, stronger than `VerifyQuiescent`, which needs the whole grid at rest — and
+`VerifyQuiescent` once the source stops and the settle has rested.
+
+##### 6. A disturbed sheet is not advanced — *recommended*
+
+An edit or a fall under water is fed by rule whatever its volume (slice 2a); that is terrain
+changing, the water mostly falling into a hole, not a stream. It stays the automaton's.
+
+##### 7. `--fedadvance=<0|1>` — *recommended*
+
+1 shipped, 0 the constructor's default and the control arm — the cap's rule and slice 1's, so every
+recorded figure reproduces. N is `--frontadvance`'s; `--frontadvance=0` turns both off. The
+`settle` line gains `fed advance S sheet(s): C cell(s), band B`.
+
+##### 8. The measurement before the look — *recommended*
+
+The `--front` fed arm slice 2's decision 7 named, still not built: a source pouring a fixed rate at
+one end of a dug corridor and at the centre of the dug floor, radius at the checkpoints with
+`--fedadvance` 0 and 1 and D at N / 2N / 3N, **plus a count of pairs flowing toward the source after
+each pass** (fact 1's defect as a number, zero expected). In the game, the `settle` line before and
+after on a copy of his world with a breach, every identity exact, 0 `ERROR`. Then his sentence:
+does the breach's water run across the pit floor, and does it still read as a stream.
+
+#### The split
+
+| part | what | check |
+|---|---|---|
+| **2c-1 — Core** | the band flood from the dry edge, the band floor, the band's level, the move-derived wake, nothing listed, `--fedadvance` through `SheetSettle` and the worker tuple | the tests below; the battery; the suite at 0 |
+| **2c-2 — bench and wire** | the fed arm with the reversal count; the flag and the `settle` term; the headless run on a copy | radius against ticks; reversals 0; identities exact |
+| **2c-3 — the look** | his play | decision 8's sentence |
+
+2c-1 and 2c-2 fit one session, as a–c did.
+
+#### Tests, before any number is believed
+
+- `--fedadvance=0` is today's pass to the millilitre; a level sheet's rings are unchanged.
+- **Along a channel fed at one end, no pair flows toward the source after the pass**, and every cell
+  outside the band is unchanged to the millilitre.
+- Conservation exact; nothing crosses a Y.
+- The band floor stops a ring (fact 1's channel: D = N takes one ring, D = 2N four).
+- **A shaft pouring beside the sheet does not pull its source into the band.**
+- **No held cell outside the pending list has a move straight after the pass; nothing of a fed sheet
+  is on the rested list; on the seed plane the hand-off takes none of it that boundary.**
+- Source stopped: the ordinary level runs and `VerifyQuiescent` holds at rest.
+- A disturbed sheet is untouched; a fed sheet shorter than D is levelled whole (pinned, it is stated
+  behaviour).
+- The cap counts the band and the rings.
+- A break-recipe battery on each, including one that swaps the wake back to `WakeAfterSolve` and one
+  that calls `ListRested` — the two the pass exists to prevent.
