@@ -333,7 +333,8 @@ public sealed partial class FluidSimulation
             PumpedMillilitres,
             EmittedMillilitres,
             underground,
-            undergroundPanels);
+            undergroundPanels,
+            LiftDisplacedMillilitres);
     }
 
     /// <summary>Refuses a read of state a worker is writing.</summary>
@@ -389,8 +390,12 @@ public readonly record struct FluidPublished(
     long Pumped,
     long Emitted,
     long UndergroundMillilitres = 0,
-    int UndergroundPanels = 0)
+    int UndergroundPanels = 0,
+    long LiftDisplaced = 0)
 {
+    /// <summary><c>lifted == returned + lift-displaced</c> — the falls' and the displacing fills' line, from one snapshot.</summary>
+    public bool LiftExact => Lifted == Returned + LiftDisplaced;
+
     /// <summary><c>held == injected + drawn + loaded + emitted − removed − displaced − handed − evicted − pumped</c>, from one snapshot.</summary>
     public bool IdentityExact => TotalMillilitres == Added + Loaded + Emitted - Removed - Displaced - Handed - Evicted - Pumped;
 }

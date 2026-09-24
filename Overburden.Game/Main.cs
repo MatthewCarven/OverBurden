@@ -7241,7 +7241,7 @@ public partial class Main : Node3D
                + $"pumped {p.Pumped / litre:N0} L, emitted {p.Emitted / litre:N0} L — "
                + $"held == injected + rained + drawn + seeped + loaded + emitted − removed − displaced − handed − evicted − pumped: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
                + $"received == handed: {HandoffIdentity()}, "
-               + $"lifted {p.Lifted / litre:N0} L == returned {p.Returned / litre:N0} L by falls: {(p.Lifted == p.Returned ? "exact" : "*** NO ***")}; "
+               + $"lifted {p.Lifted / litre:N0} L == returned {p.Returned / litre:N0} L + displaced {p.LiftDisplaced / litre:N0} L by falls and fills: {(p.LiftExact ? "exact" : "*** NO ***")}; "
                + seep
                + job
                + $"{_relayPendingMillilitres / litre:N0} L still to pour; "
@@ -7509,7 +7509,7 @@ public partial class Main : Node3D
                + $"removed {p.Removed / litre:N0} L, displaced {p.Displaced / litre:N0} L, "
                + $"handed {p.Handed / litre:N0} L, pumped {p.Pumped / litre:N0} L, emitted {p.Emitted / litre:N0} L — "
                + $"held == injected + drawn + seeped + loaded + emitted − removed − displaced − handed − evicted − pumped: {(p.IdentityExact ? "exact" : "*** NO ***")}; "
-               + $"lifted {p.Lifted / litre:N0} L == returned {p.Returned / litre:N0} L by falls: {(p.Lifted == p.Returned ? "exact" : "*** NO ***")}; "
+               + $"lifted {p.Lifted / litre:N0} L == returned {p.Returned / litre:N0} L + displaced {p.LiftDisplaced / litre:N0} L by falls and fills: {(p.LiftExact ? "exact" : "*** NO ***")}; "
                + $"{_relayPendingMillilitres / litre:N0} L still to pour; "
                + $"paused {p.Paused:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
                + $"{f.ResumedCells:N0} resumed, {f.FaceWakes:N0} face wake(s), "

@@ -12,7 +12,8 @@ namespace Overburden.Core.Fluid;
 /// each with its own counter and nothing else — the same shape <see cref="HandOff"/> took beside
 /// <see cref="Remove"/>, for the same reason: the water is not gone and did not arrive, it moved
 /// from the cells the rubble landed in to the cells the rock left, and <c>lifted == returned</c>
-/// is the line a fall prints. <c>held == injected + loaded − removed − displaced − handed −
+/// is the line a fall prints — <c>lifted == returned + lift-displaced</c>, since a fill into water
+/// lifts through the same pair and displaces what will not go back.<c>held == injected + loaded − removed − displaced − handed −
 /// evicted</c> is untouched, because a lift subtracts from <c>held</c> exactly what the return adds
 /// back, and a remainder that could not be returned goes to <c>displaced</c> through
 /// <see cref="DisplaceLifted"/>, where the identity already counts it.
@@ -28,8 +29,22 @@ public sealed partial class FluidSimulation : ICollapseWater
     /// <summary>Millilitres lifted out of cells a fall landed rubble in, over the lifetime.</summary>
     public long LiftedMillilitres { get; private set; }
 
-    /// <summary>Millilitres returned into the cavities falls left, over the lifetime. Equals <see cref="LiftedMillilitres"/> less what went to <see cref="DisplacedMillilitres"/>.</summary>
+    /// <summary>Millilitres returned into the cavities falls left, over the lifetime. Equals <see cref="LiftedMillilitres"/> less <see cref="LiftDisplacedMillilitres"/>.</summary>
     public long ReturnedMillilitres { get; private set; }
+
+    /// <summary>
+    /// Millilitres lifted and never returned, over the lifetime — the share of
+    /// <see cref="DisplacedMillilitres"/> that came through <see cref="DisplaceLifted"/>.
+    /// <c>lifted == returned + this</c> is the lift's own line.
+    /// </summary>
+    /// <remarks>
+    /// Its own counter because <see cref="DisplacedMillilitres"/> also carries the automaton's
+    /// displacements, so the lift line cannot be read off it; and because a fill into water
+    /// (2026-09-19) displaces by design, <c>lifted == returned</c> alone went red on the first
+    /// play that filled chunks into a flood — 524,122 L lifted, 509,254 returned, 14,868 displaced,
+    /// no fall at all (2026-09-24).
+    /// </remarks>
+    public long LiftDisplacedMillilitres { get; private set; }
 
     /// <inheritdoc />
     public long Lift(VoxelPos cell)
@@ -74,6 +89,7 @@ public sealed partial class FluidSimulation : ICollapseWater
     {
         ArgumentOutOfRangeException.ThrowIfNegative(millilitres);
         DisplacedMillilitres += millilitres;
+        LiftDisplacedMillilitres += millilitres;
     }
 
     /// <inheritdoc />

@@ -100,7 +100,8 @@ otherwise — flags go on the end of the `start.cmd` line.
 
 ### Water that spreads faster (2026-09-24)
 
-- [ ] On a **dug or placed floor** (grass soaks a puddle into the lake below, so it hides this),
+- [x] **Played 2026-09-24 evening — *"Playtested the latest water, loving it"*.**
+      On a **dug or placed floor** (grass soaks a puddle into the lake below, so it hides this),
       press `R`. The puddle should race out to about 12 m in five seconds or so, then settle.
       Compare with `--frontadvance=0` (the old creep), and if you like `--fluidhz=4` (everything
       twice as fast, falling too). One sentence: does it read as water running across the floor,

@@ -153,6 +153,30 @@ public class FluidJobTests
     }
 
     [Fact]
+    public void ALiftThatCannotAllGoBackIsExactOnTheLiftLineAndOnTheIdentity()
+    {
+        // The shape of a chunk fill into a flood (2026-09-24's play): water lifted out of the
+        // cells the fill takes, part of it returned, the rest displaced. `lifted == returned`
+        // alone went red on that play with no fall in it; the line reads the displaced share now.
+        var terrain = new BoxTerrain(0, 0, 0, 23, 23, 23);
+        FluidSimulation sim = Pour(terrain);
+        VoxelPos cell = sim.AwakeHeldCells().First();
+
+        long taken = sim.Lift(cell);
+        Assert.True(taken > 1);
+        long half = taken / 2;
+        long overflow = sim.Return(cell, half);
+        sim.DisplaceLifted(taken - half + overflow);
+
+        sim.Publish();
+        FluidPublished p = sim.Published;
+        Assert.NotEqual(p.Lifted, p.Returned);
+        Assert.Equal(taken - half + overflow, p.LiftDisplaced);
+        Assert.True(p.LiftExact);
+        Assert.True(p.IdentityExact);
+    }
+
+    [Fact]
     public void APublishedSnapshotIsTheBoundarysNumbersAndTheIdentityIsExactInIt()
     {
         var terrain = new BoxTerrain(0, 0, 0, 23, 23, 23);

@@ -1,5 +1,22 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-24 (night) — The front advance played; the lift line was a false alarm
+
+Matthew played the front advance: *"Playtested the latest water, loving it"*. The log had 0
+`ERROR` lines and the main identity stayed exact throughout, but from tick ~30 the `M8b:` line
+read `lifted 524,122 L == returned 509,254 L by falls: *** NO ***`. **No fall fired in the
+session** (`M9:` reads `0 fired`); the lifted litres were six chunk fills into the flood, which
+since 2026-09-19 lift, return and *displace* what will not go back — the `M6c:` line's own
+accounting read `lifted 524,122.0 L, returned 509,254.0 L, displaced 14,868.1 L`, exact. The
+periodic line's check was the M9c-1 identity `lifted == returned`, written before the fill
+shared the pair and never updated. `FluidSimulation.LiftDisplacedMillilitres` counts what
+`DisplaceLifted` takes (the automaton's own displacements stay out of it), `FluidPublished`
+carries it with `LiftExact`, and both the `M8b:` line and the profile's `fluid` line read
+`lifted … == returned … + displaced … by falls and fills`. One test, watched failing with the
+counter removed; suite 1,874; the M9d fill recipe reads `lifted 1,129 L == returned 1,129 L +
+displaced 0 L … exact`. **Lesson (the observer rule again): a pair of counters that two writers
+share needs a line that names both writers' terms.**
+
 ## 2026-09-24 — Slice 2a/2b: fed by volume, and the count that said the estimate was wrong
 
 Built on his word: an eight-tick ring of millilitres per chunk (`InflowRing`), disturbances kept
