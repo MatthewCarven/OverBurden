@@ -295,6 +295,18 @@ public partial class Main : Node3D
     private double _growBelowLoad = ViewRadiusConfig.DefaultGrowBelowLoad;
     private double _cadenceSeconds = ViewRadiusConfig.DefaultCadenceSeconds;
     private ViewRadiusConfig _radiusConfig;
+
+    /// <summary>
+    /// Far mode (F11, <c>--far</c>; Matthew, 2026-09-24: <i>"just enable processing that far, dont
+    /// change the way we lazily load"</i>): the adaptive radius's ceiling raised to
+    /// <see cref="FarHorizontal"/>h/<see cref="FarVertical"/>v. Nothing else changes — the policy
+    /// still climbs a ring a cadence only while the derive backlog is empty and the light step
+    /// is under half its budget, and still falls to the floor while moving with a backlog.
+    /// </summary>
+    private bool _farMode;
+
+    private const int FarHorizontal = 8;
+    private const int FarVertical = 4;
     private ViewRadiusState _radiusState;
     private int _radiusShrinks;
     private int _radiusGrows;
@@ -1346,6 +1358,10 @@ public partial class Main : Node3D
 
         _viewer = _pipeline.Streamer.AddViewer(
             _lastViewerChunk, _radiusState.Horizontal, _radiusState.Vertical);
+        if (_farMode)
+        {
+            SetFarMode(true, "--far");
+        }
 
         SetUpMining();
         SetUpPlacement();
@@ -2156,6 +2172,10 @@ public partial class Main : Node3D
                 // The adaptive view radius and its three estimates. --adaptive alone is on;
                 // --adaptive=0 is the fixed radius, which is also the default, so a profile that
                 // names neither is the arm every recorded figure was taken in.
+                case "far":
+                    _farMode = value.Length == 0 || value != "0";
+                    break;
+
                 case "adaptive":
                     _adaptiveRadius = value.Length == 0 || value != "0";
                     break;
@@ -2426,6 +2446,13 @@ public partial class Main : Node3D
             return;
         }
 
+        // Far mode: the adaptive radius's ceiling, toggled. See SetFarMode.
+        if (key.Keycode == Key.F11)
+        {
+            SetFarMode(!_farMode, "F11");
+            return;
+        }
+
         if (key.Keycode == Key.Escape && _map is { IsOpen: true })
         {
             _map.Close();
@@ -2551,7 +2578,9 @@ public partial class Main : Node3D
 
         _hud.Refresh(
             delta, _inventory, _materials, Content.Materials, _place, _mining, precise,
-            _adaptiveRadius ? $"r{_radiusState.Horizontal}h/{_radiusState.Vertical}v" : null,
+            _adaptiveRadius || _farMode
+                ? $"r{_radiusState.Horizontal}h/{_radiusState.Vertical}v{(_farMode ? $" (far, to r{_radiusConfig.CeilingHorizontal}h/{_radiusConfig.CeilingVertical}v)" : string.Empty)}"
+                : null,
             _pack,
             _place.SelectedIsPack ? _carriedPacks.FullestMillijoules(_place.MaterialId) : 0,
             new System.Numerics.Vector3(eye.X, eye.Y, eye.Z),
@@ -7213,6 +7242,60 @@ public partial class Main : Node3D
         return $"{cap}; per pass {_settle.SeedsOffered / (double)passes:N0} seed(s), gather {_settle.GatherMillis / passes:F1} / "
                + $"sort {_settle.SortMillis / passes:F1} / flood {_settle.FloodMillis / passes:F1} / "
                + $"level {_settle.LevelMillis / passes:F1} ms mean";
+    }
+
+    /// <summary>
+    /// Raises or restores the view's ceiling. On, the adaptive radius climbs toward
+    /// r<see cref="FarHorizontal"/>h/<see cref="FarVertical"/>v at its own pace — a ring a cadence,
+    /// only while it can afford one — so turning it on costs nothing until the derive is idle.
+    /// Off, the box is trimmed to the configured ceiling at once, because the policy never
+    /// shrinks from above its ceiling by itself. Without <c>--adaptive=1</c> there is nothing to
+    /// climb lazily, and the box jumps.
+    /// </summary>
+    private void SetFarMode(bool on, string why)
+    {
+        _farMode = on;
+        int horizontal = on ? Math.Max(FarHorizontal, ViewDistanceHorizontal) : ViewDistanceHorizontal;
+        int vertical = on ? Math.Max(FarVertical, ViewDistanceVertical) : ViewDistanceVertical;
+        _radiusConfig = _radiusConfig with { CeilingHorizontal = horizontal, CeilingVertical = vertical };
+        if (_secondsAtRadius.Length < horizontal + 1)
+        {
+            Array.Resize(ref _secondsAtRadius, horizontal + 1);
+        }
+
+        string how;
+        if (!_adaptiveRadius)
+        {
+            _radiusState = ViewRadiusState.AtCeiling(_radiusConfig);
+            how = "the box jumps (the adaptive radius is off)";
+        }
+        else if (_radiusState.Horizontal > horizontal || _radiusState.Vertical > vertical)
+        {
+            int h = Math.Min(_radiusState.Horizontal, horizontal);
+            _radiusState = _radiusState with
+            {
+                Horizontal = h,
+                Vertical = _radiusConfig.VerticalFor(h),
+                SecondsSinceRadiusChange = 0.0,
+            };
+            how = "the box is trimmed now";
+        }
+        else
+        {
+            how = on
+                ? "the box climbs a ring at a time while the derive is idle"
+                : "the box is already inside it";
+        }
+
+        if (_pipeline is not null)
+        {
+            _pipeline.Streamer.UpdateViewer(
+                _viewer, new Viewer(ViewerChunk(), _radiusState.Horizontal, _radiusState.Vertical));
+        }
+
+        GD.Print(
+            $"M2c: far mode {(on ? "on" : "off")} ({why}) — ceiling r{horizontal}h/{vertical}v, "
+            + $"now r{_radiusState.Horizontal}h/{_radiusState.Vertical}v; {how}");
     }
 
     /// <summary>The boundary's cost by pass, mean per boundary over the window.</summary>

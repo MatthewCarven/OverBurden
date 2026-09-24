@@ -1,5 +1,24 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-24 — F11: far mode, the adaptive radius with a higher ceiling
+
+Matthew, over two screenshots of a lake in rain: *"can f11 toggle 'far' mode where it tries to
+render 8h4v? like just enable processing that far dont change the way we 'lazily' load"*. The
+adaptive radius (2026-09-06) already is the lazy part — it grows a ring a cadence only while the
+derive backlog is empty and the light step is under half its budget — so far mode is its ceiling,
+8h/4v against the configured 6h/2v, and nothing else. `SetFarMode` in `Main`; off trims the box
+at once because the policy never shrinks from above its ceiling; without `--adaptive=1` the box
+jumps. `--far` starts in it.
+
+**Standing start, headless, `--adaptive=1 --lightbudget=16`:** far climbs r1 → r8 in 22 s with no
+shrink and sits at r8h/4v — 5,733 tracked / 756 drawn / 272 k quads against 2,601 / 325 / 134 k,
+working set 254 against 203 MiB, light load mean 0.32 against 0.13, backlog peak 1,892 against
+1,041, first draw 0.95 against 0.82 s. 0 `ERROR`; the normal arm and the r6 control unchanged to
+the digit. **Two things it moves that are not the terrain**: the rain drops fall from the drawn
+box's top row, which is 16 m higher at 4v, over a box 1.7× the area; and the Tier B surface is
+drawn over the wider box. Toggling off is the one path headless cannot press — it is the same
+`UpdateViewer` a shrink makes, and his play is its check.
+
 ## 2026-09-24 — The solve's pass cap: the target met, and the delay larger than I said
 
 Matthew said yes to the solve carrying into the next tick, and asked whether it would upset the

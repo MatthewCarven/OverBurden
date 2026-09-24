@@ -98,6 +98,14 @@ otherwise — flags go on the end of the `start.cmd` line.
 - [x] **The excavator is one click one bite too** — done 2026-09-24 on your word; hold Q to
       run it, as with the other two.
 
+### Far mode (2026-09-24)
+
+- [ ] **F11** turns far mode on: the view climbs toward 8 chunks out and 4 up/down, a ring every
+      couple of seconds and only while the loader is idle — fly fast and it still drops back as
+      it always has. The HUD's view term says `(far, to r8h/4v)`. F11 again goes back to 6h/2v at
+      once. Costs about 50 MiB more memory and roughly twice the drawing. One sentence: does it
+      show you enough more to be worth it, and does turning it off feel instant?
+
 ### The vacuum cell's switch (2026-09-23)
 
 - [ ] Computer in hand, right-click a vacuum cell: the panel has an `enabled` box under

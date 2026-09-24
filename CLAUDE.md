@@ -697,6 +697,16 @@ and grows, seconds at each radius, the backlog and load it read, and the `fill` 
 the first moment the box stood at its ceiling with light settled — **the figure comparable with a
 fixed arm's `light settled`; under a growth the other milestones read the floor's box.**
 
+**F11 is far mode (2026-09-24)** — Matthew: *"just enable processing that far dont change the way
+we lazily load"*. It raises the adaptive radius's ceiling to r8h/4v and nothing else: the box
+climbs toward it a ring a cadence only while it can afford one, and falls to the floor while
+moving exactly as before. Off, the box is trimmed to the configured ceiling at once (the policy
+never shrinks from above its ceiling by itself). **`--far`** starts in it. Printed as `M2c: far
+mode on/off`, and the HUD's view term reads `r7h/4v (far, to r8h/4v)`. Standing start headless,
+`--adaptive=1`: at r8h/4v 22 s in, **5,733 tracked / 756 drawn against 2,601 / 325, working set
+254 against 203 MiB, the light step's mean load 0.32 against 0.13**; first draw unchanged. The
+profile's `grown` milestone still reads the configured ceiling (r6h), not far mode's.
+
 The retained-chunk cache adds two. **`--chunkcache=<MiB>` caps the cache, 64 by default, and 0 is
 off — the committed pre-cache behaviour and the control arm.** Not profile-only, because memory is
 something a play reports. **`--turnaround=<seconds>` reverses the scripted flythrough every N
