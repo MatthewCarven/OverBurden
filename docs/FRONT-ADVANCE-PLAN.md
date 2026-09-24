@@ -3,7 +3,8 @@
 Matthew, 2026-09-24, over a screenshot of a trench spilling into a valley: *"What I am dreaming of
 is a way water can spread laterally (horizontally) out faster"*. Of four ideas (the solve pushes
 the front; a sideways run in the tick like the fall rule; a faster tick; the counted divisor again)
-he took the first: *"yes write the plan for idea 1"*. **A planning pass, not built.** Seven facts
+he took the first: *"yes write the plan for idea 1"*. **Planned and built the same day — slices
+a to c; read "Built" at the end. Slice d, the look, is Matthew's.** Seven facts
 from the code, eight decisions each with a recommendation, a split, and the tests and measurements
 that come before anything is believed.
 
@@ -153,3 +154,59 @@ just ticking faster". Not a lever to ship; an arm to look at beside the advance.
 It does not make water faster down a slope, which is the fall rule and the automaton; it does not
 move water between Ys; it does not change Tier A, which already solves a lake's level in one go;
 and at slice 1 it does not touch a sheet that is being fed.
+
+## Built — slices a, b and c (2026-09-24)
+
+On *"As recommended, build it please"*, the same afternoon as the plan. Slice d, the look, is his.
+
+**Core.** `FluidSimulation.Advance` runs inside `Solve` for a sheet the pass levels, before its
+targets are set: whole rings from the sheet's front cells over dry, holdable, supported cells at
+its Y, each taken only while `total ≥ 2 L × cells` (`AdvanceFloorMillilitres`); the new cells are
+`Discover`ed into the sheet, so `Apply` fills them through `FluidGrid.Transfer` and conservation
+needs no term. Then the front is recomputed for the old front and the new cells (`IsFrontOf`: a
+holdable side that is not this sheet's, **including a cell of another sheet this pass reached
+across a gap**), so the wake reaches the new edge and the old edge is listed as resting.
+`SheetSettle.DefaultFrontAdvance` is 4 and the constructor defaults to 0 (the cap's rule); the
+worker tuple carries it; the hand-named-seeds overload takes it too, defaulting to 0, so the
+unload path is unchanged and a test can solve water nothing woke.
+
+**Thirteen tests** (`FrontAdvanceTests`), among them the definition against a brute-force flood,
+whole rings (24N + 2N(N − 1) from a 6 × 6 square — sideways steps, so a corner is two), the lip,
+the thinness stop computed from the pour's own total, the settle's quiescence after an advance,
+frozen and fed sheets untouched, two sheets across a gap in either order, the cap counting the
+rings, a sleeping puddle beside a ring keeping its water, and **a corridor closed at both ends,
+water put down asleep, where a seam between a deep and a shallow sheet is stranded unless each is
+the other's front** — in an open fixture the tick's own wake cascade repairs the seam from its ends,
+which is why the first battery missed it. Ten recipes, nine caught; the tenth (the pack test
+reading the pre-advance count) is an identity, because an advance only runs while the total covers
+2 L a cell, which is always above the pack's 999 mL on either count.
+
+**The bench found what the tests did not**: `_cellFlags[Discover(cell, root)] = …` reads the array
+before the call, and `Discover` grows the arrays — the write went into the old one the first time a
+pass crossed 256 records inside an advance. No fixture had; the front bench's first advance arm
+threw. Two statements now, and `AnAdvanceThatGrowsThePassPastItsRecordArrays…` throws on the
+one-liner and passes on the fix.
+
+**The bench (`--front --frontadvance 0,1,2,4,8`)**, 10,000 L on the flat floor of a 3-chamber
+block (walls 48 cells from the centre), the solve at the game's quiet interval:
+
+| rings | radius at tick 5 | 10 | 20 | wet at tick 10 | rested | solve ms in all |
+|---|---|---|---|---|---|---|
+| 0 | 11 | 16 | 26 | 1,047 | 45.0 s | 337 |
+| 1 | 15 | 25 | 45 | 1,705 | 37.5 s | 284 |
+| 2 | 19 | 34 | wall | 2,771 | 39.5 s | 143 |
+| **4** | **27** | **wall** | wall | **5,171** | 43.5 s | **116** |
+| 8 | 37 | wall | wall | 5,364 | 34.0 s | 90 |
+
+**At 4 the pool is at the walls, 12 m out, by tick 10 — five seconds — where it took ~25 s; the
+solve costs a third of what it did**, because a sheet that has spread needs less re-levelling. Every
+arm rests for real with every litre accounted for. 4 ships; 8 buys only the first two seconds. The
+freeze (fact 7) did not bite at this pour's size; a bigger floor is where it would show.
+
+**The wire.** `--frontadvance=<rings>` (4; 0 the control) and `--fluidhz=<n>` (2; 0.25–20). The tick
+length is a field now, handed to the machine tick's boundary and — for the first time — to the seep
+drain, which had been built with its own 0.5 s default, so a pump's and a wall's litres a second do
+not move with the rate; the settle's quiet interval is in ticks and does. The `settle` line prints
+`front advance N ring(s): M cell(s) in all`. Headless, a 50,000 L pour on the worker: shipped
+`2,899 cell(s)`, `--frontadvance=0` `no front advance`, `--fluidhz=4` 100 ticks in the window
+against 50; 0 `ERROR` and every identity exact in all three. Suite 1,863; r6 control to the digit.

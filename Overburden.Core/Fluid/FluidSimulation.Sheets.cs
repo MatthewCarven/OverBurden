@@ -30,6 +30,7 @@ namespace Overburden.Core.Fluid;
 /// <param name="LevelMillis">The rest: the fed test, the targets, the transfers, the wake and the rested list.</param>
 /// <param name="Capped">The pass stopped at its cap and left the heights above for the next pass.</param>
 /// <param name="SeedsDeferred">Seeds at heights this pass did not reach — below where it resumed, or above where it stopped.</param>
+/// <param name="Advanced">Dry cells the front advance added to the sheets it levelled (FRONT-ADVANCE-PLAN).</param>
 /// <remarks>
 /// The four phases exist because M10d-3's first number (2026-09-24, a copy of the retired spread
 /// world) read 810 ms a pass from 1.58 M seeds against 486 k cells visited — and the recorded
@@ -39,7 +40,7 @@ public readonly record struct SheetLevelResult(
     int Sheets, int Levelled, int Packed, int Skipped, int UnderShare, int Stepped, int LargestSheet,
     int CellsVisited, int CellsWritten, long MillilitresMoved, int CellsWoken, int Noisy,
     int Seeds = 0, double GatherMillis = 0, double SortMillis = 0, double FloodMillis = 0,
-    double LevelMillis = 0, bool Capped = false, int SeedsDeferred = 0)
+    double LevelMillis = 0, bool Capped = false, int SeedsDeferred = 0, int Advanced = 0)
 {
     /// <summary>A pass that found nothing to change.</summary>
     public bool Idle => CellsWritten == 0;
@@ -184,6 +185,20 @@ public sealed partial class FluidSimulation
     private int _solveCursorY = int.MinValue;
     private int _processedLo = int.MinValue;
     private int _processedHi = int.MaxValue;
+
+    // The front advance (docs/FRONT-ADVANCE-PLAN.md): rings a levelled sheet may take this pass,
+    // set for the length of one pass; and the ring flood's scratch.
+    private int _advanceRings;
+    private List<VoxelPos> _ring = [];
+    private List<VoxelPos> _ringNext = [];
+    private readonly HashSet<VoxelPos> _ringSeen = [];
+
+    /// <summary>
+    /// The thinnest a sheet may be spread by the front advance: twice the spread threshold, so a
+    /// pour ends as a puddle whose edge can still creep, never as a film the next pass packs.
+    /// An estimate (FRONT-ADVANCE-PLAN decision 3).
+    /// </summary>
+    public const int AdvanceFloorMillilitres = 2 * FluidConstants.MinimumSpreadMillilitres;
     private readonly List<int> _sheetOrder = [];
     private readonly List<int> _sheetGivers = [];
     private readonly List<int> _sheetTakers = [];
@@ -275,7 +290,7 @@ public sealed partial class FluidSimulation
     /// cells found from a few hundred seeds; a flooded mine's floor is one sheet found from its
     /// front.
     /// </remarks>
-    public SheetLevelResult LevelSheets(int share = 0, int quietTicks = 0, int cap = 0)
+    public SheetLevelResult LevelSheets(int share = 0, int quietTicks = 0, int cap = 0, int advance = 0)
     {
         RefuseMidTick(nameof(LevelSheets));
         if (TickInProgress)
@@ -285,7 +300,7 @@ public sealed partial class FluidSimulation
                 + "finish the tick with Step() first.");
         }
 
-        return SolveFromActiveSet(share, quietTicks, Ticks, cap);
+        return SolveFromActiveSet(share, quietTicks, Ticks, cap, advance);
     }
 
     /// <summary>
@@ -300,7 +315,7 @@ public sealed partial class FluidSimulation
     /// wake rule guarantees.
     /// </remarks>
     public SheetLevelResult LevelSheets(
-        IReadOnlyList<VoxelPos> seeds, int share = 0, int quietTicks = 0)
+        IReadOnlyList<VoxelPos> seeds, int share = 0, int quietTicks = 0, int advance = 0)
     {
         ArgumentNullException.ThrowIfNull(seeds);
         if (TickInProgress)
@@ -310,7 +325,7 @@ public sealed partial class FluidSimulation
                 + "finish the tick with Step() first.");
         }
 
-        return Solve(seeds, share, quietTicks, Ticks, cap: 0);
+        return Solve(seeds, share, quietTicks, Ticks, cap: 0, advance);
     }
 
     /// <summary>
@@ -318,20 +333,20 @@ public sealed partial class FluidSimulation
     /// visits left it, told the tick number the boundary will have, so the quiet test and the
     /// order — settle, then hand-off, drain, pour, the next tick — are the sync arm's exactly.
     /// </summary>
-    internal SheetLevelResult SolveOnWorker(int share, int quietTicks, int cap = 0) =>
-        SolveFromActiveSet(share, quietTicks, Ticks + 1, cap);
+    internal SheetLevelResult SolveOnWorker(int share, int quietTicks, int cap = 0, int advance = 0) =>
+        SolveFromActiveSet(share, quietTicks, Ticks + 1, cap, advance);
 
     /// <summary>
     /// The solve over the active set: seeded from the pending list and the carry's changed part
     /// (see the near field's remarks — a carried cell is offered once, and again when woken
     /// again), the carry marked offered after.
     /// </summary>
-    private SheetLevelResult SolveFromActiveSet(int share, int quietTicks, long nowTick, int cap)
+    private SheetLevelResult SolveFromActiveSet(int share, int quietTicks, long nowTick, int cap, int advance)
     {
         long before = Stopwatch.GetTimestamp();
         IReadOnlyList<VoxelPos> seeds = SolveSeeds();
         double gather = Millis(before);
-        SheetLevelResult result = Solve(seeds, share, quietTicks, nowTick, cap);
+        SheetLevelResult result = Solve(seeds, share, quietTicks, nowTick, cap, advance);
         MarkCarryOffered();
         return result with { GatherMillis = gather };
     }
@@ -339,8 +354,11 @@ public sealed partial class FluidSimulation
     /// <summary>The tick number the last solve tested quiet against. Tests only: it pins the worker's +1.</summary>
     internal long LastSolveTick => _solveTick;
 
-    private SheetLevelResult Solve(IReadOnlyList<VoxelPos> seeds, int share, int quietTicks, long nowTick, int cap)
+    private SheetLevelResult Solve(
+        IReadOnlyList<VoxelPos> seeds, int share, int quietTicks, long nowTick, int cap, int advance)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(advance);
+        _advanceRings = advance;
         ArgumentOutOfRangeException.ThrowIfNegative(share);
         ArgumentOutOfRangeException.ThrowIfNegative(quietTicks);
         ArgumentOutOfRangeException.ThrowIfNegative(cap);
@@ -361,7 +379,7 @@ public sealed partial class FluidSimulation
         long items = 0;
 
         int sheets = 0, levelled = 0, packed = 0, skipped = 0, underShare = 0, stepped = 0, noisy = 0;
-        int largest = 0, visited = 0, written = 0, woken = 0;
+        int largest = 0, visited = 0, written = 0, woken = 0, advanced = 0;
         long moved = 0;
         double sortMillis = Millis(started);
         long floodTicks = 0;
@@ -431,6 +449,16 @@ public sealed partial class FluidSimulation
                     continue;
                 }
 
+                // The front advance, on a sheet this pass is levelling anyway: rings of dry,
+                // supported floor beside it join it before its targets are set, so the level
+                // below spreads over them too. Never for a pack — a sheet that thin has no
+                // water to lend a ring.
+                if (_advanceRings > 0 && sheet.Total >= (long)AdvanceFloorMillilitres * (count + 1))
+                {
+                    advanced += Advance(s, sheet);
+                    count = sheet.Cells.Count;
+                }
+
                 if (sheet.Total <= (long)PackedCellMillilitres * count)
                 {
                     PackTargets(sheet);
@@ -472,7 +500,7 @@ public sealed partial class FluidSimulation
         return new SheetLevelResult(
             sheets, levelled, packed, skipped, underShare, stepped, largest, visited, written, moved,
             woken, noisy, offered, 0, sortMillis, floodMillis,
-            Math.Max(0, Millis(started) - sortMillis - floodMillis), capped, deferred);
+            Math.Max(0, Millis(started) - sortMillis - floodMillis), capped, deferred, advanced);
     }
 
     /// <summary>
@@ -890,6 +918,115 @@ public sealed partial class FluidSimulation
     /// </remarks>
     private static bool CanTransfer(int a, int b) =>
         FluidRules.HorizontalTransfer(a, b) > 0 || FluidRules.HorizontalTransfer(b, a) > 0;
+
+    /// <summary>
+    /// The front advance (FRONT-ADVANCE-PLAN): up to <see cref="_advanceRings"/> whole rings of
+    /// dry, holdable, supported cells at the sheet's Y, flooded sideways from its front, each taken
+    /// only while the sheet's total still covers every cell at <see cref="AdvanceFloorMillilitres"/>.
+    /// Returns the cells added; they are the sheet's from here, and <c>Apply</c> fills them.
+    /// </summary>
+    /// <remarks>
+    /// <b>Whole rings</b>, so the new edge is a contour rather than a patch that depends on the
+    /// flood's order. <b>A ring stops where the sheet's own definition stops</b> — rock, a lake's
+    /// band and an unloaded chunk by <c>CanHold</c>, a lip by <see cref="IsSupported"/> — so water
+    /// goes over a drop through the fall rule, never across it. <b>A cell of another sheet at this Y
+    /// is not dry</b>: it is in the index, so a gap between two sheets is claimed by whichever is
+    /// levelled first and the two are one sheet at the next pass. The front is then recomputed for
+    /// the cells whose answer can have changed — the old front and the new cells — so the wake
+    /// reaches the new edge and the old edge, now interior, is listed as resting.
+    /// </remarks>
+    private int Advance(int root, Sheet sheet)
+    {
+        int start = _cellCount;
+        _ring.Clear();
+        _ringSeen.Clear();
+        foreach (int record in sheet.Cells)
+        {
+            if ((_cellFlags[record] & CellFront) != 0)
+            {
+                _ring.Add(_cellPos[record]);
+            }
+        }
+
+        for (int r = 0; r < _advanceRings && _ring.Count > 0; r++)
+        {
+            _ringNext.Clear();
+            foreach (VoxelPos from in _ring)
+            {
+                foreach ((int dx, int dz) in Sideways)
+                {
+                    VoxelPos side = from.Offset(dx, 0, dz);
+                    if (_ringSeen.Contains(side) || IndexTryGet(side, out _)
+                        || _grid.AmountAt(side) != 0 || !_visitTerrain.CanHold(side) || !IsSupported(side))
+                    {
+                        continue;
+                    }
+
+                    _ringSeen.Add(side);
+                    _ringNext.Add(side);
+                }
+            }
+
+            if (_ringNext.Count == 0
+                || sheet.Total < (long)AdvanceFloorMillilitres * (sheet.Cells.Count + _ringNext.Count))
+            {
+                break;
+            }
+
+            foreach (VoxelPos cell in _ringNext)
+            {
+                // Two statements, not _cellFlags[Discover(...)]: C# reads the array before the call,
+                // and Discover grows the arrays, so the one-liner writes into the old one.
+                int record = Discover(cell, root);
+                _cellFlags[record] = CellPopped;
+            }
+
+            (_ring, _ringNext) = (_ringNext, _ring);
+        }
+
+        int added = _cellCount - start;
+        if (added == 0)
+        {
+            return 0;
+        }
+
+        foreach (int record in sheet.Cells)
+        {
+            if (record < start && (_cellFlags[record] & CellFront) == 0)
+            {
+                continue;
+            }
+
+            _cellFlags[record] = IsFrontOf(_cellPos[record], root)
+                ? (byte)(_cellFlags[record] | CellFront)
+                : (byte)(_cellFlags[record] & ~CellFront);
+        }
+
+        return added;
+    }
+
+    /// <summary>
+    /// Pop's front rule after an advance: a holdable side that is not this sheet's — dry, falling,
+    /// or a cell of another sheet this pass reached across a gap.
+    /// </summary>
+    private bool IsFrontOf(VoxelPos cell, int root)
+    {
+        foreach ((int dx, int dz) in Sideways)
+        {
+            VoxelPos side = cell.Offset(dx, 0, dz);
+            if (!_visitTerrain.CanHold(side))
+            {
+                continue;
+            }
+
+            if (!IndexTryGet(side, out int other) || Find(_cellSheet[other]) != root)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Even shares in flood order, the remainder one millilitre each to the first cells.</summary>
     private void LevelTargets(Sheet sheet)

@@ -120,6 +120,7 @@ internal static class Program
         int settleShare = Overburden.Core.Fluid.SheetSettle.DefaultSettleShare;
         bool lake = false;
         bool solveBench = false;
+        int[]? frontAdvances = null;
         int solveChambers = 12;
         int solveRounds = 6;
         int solveHoles = 7;
@@ -232,6 +233,9 @@ internal static class Program
                         break;
                     case "--settleshare":
                         settleShare = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--frontadvance":
+                        frontAdvances = Next(args, ref i).Split(',').Select(s => int.Parse(s, CultureInfo.InvariantCulture)).ToArray();
                         break;
                     case "--solve":
                         solveBench = true;
@@ -407,7 +411,7 @@ internal static class Program
         {
             var frontGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
             return FrontBench.Run(
-                frontGenerator, MachineControl(frontGenerator), IsDebug(), frontLitres, frontTicks, spreads, fallCells);
+                frontGenerator, MachineControl(frontGenerator), IsDebug(), frontLitres, frontTicks, spreads, fallCells, frontAdvances);
         }
 
         if (solveBench)

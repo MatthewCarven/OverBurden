@@ -5685,7 +5685,7 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             day: the solve 853/694 → 353/351 ms, 0.52 → 0.73/0.80 Hz, 30–32% of the wall, target
             met; a full sweep of the load test's heights takes ~6 s where it took one pass.**
             Left unpriced: reads a cell and seeds offered.
-      - [ ] **The front advance — planned 2026-09-24, not built; read
+      - [x] **The front advance — planned and built 2026-09-24 (a–c), the look (d) is his; read
             [docs/FRONT-ADVANCE-PLAN.md](docs/FRONT-ADVANCE-PLAN.md).** Matthew: *"a way water can
             spread laterally out faster"*. The solve takes up to N rings (4, an estimate) of dry,
             holdable, supported cells at a levelled sheet's Y, stopping before the share falls

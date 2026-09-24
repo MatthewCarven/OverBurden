@@ -330,7 +330,7 @@ public class FluidJobTests
         Assert.True(sim.ActiveCellCount > 0);
 
         int liveBefore = live.Asked;
-        FluidTickJob job = sim.BeginTick(captured, ChunkPos.Zero, settle: (8, 0, 0));
+        FluidTickJob job = sim.BeginTick(captured, ChunkPos.Zero, settle: (8, 0, 0, 0));
         job.Run(CancellationToken.None);
         Assert.True(captured.Asked > 0, "the worker asked the captured terrain nothing");
         Assert.NotNull(job.Settle);

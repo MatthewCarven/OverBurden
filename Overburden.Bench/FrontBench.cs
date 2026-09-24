@@ -37,7 +37,7 @@ internal static class FrontBench
 
     internal static int Run(
         WorldGenerator generator, string machineControl, bool isDebug, long litres, int tickCap, SpreadRule[] spreads,
-        int fallCells = FluidSimulation.DefaultFallCells)
+        int fallCells = FluidSimulation.DefaultFallCells, int[]? advances = null)
     {
         Console.WriteLine("Front bench — the spread rule at a pool's edge: the relay's ball on a flat floor");
         if (isDebug)
@@ -78,6 +78,28 @@ internal static class FrontBench
         // reaches in N ticks; the solve is the other, because a front advances one cell a tick at
         // most and only when the edge cell holds a divisor's worth of surplus, which a levelled
         // sheet keeps it holding. Both are printed so the play's question has both answers.
+        if (advances is not null)
+        {
+            // The front advance's sweep (docs/FRONT-ADVANCE-PLAN.md), at the game's own quiet
+            // interval rather than --settleafter=0: under the quiet rule a sheet still being poured
+            // into is not levelled, so it is not advanced, exactly as in play. Advance 0 in the
+            // same arm is the control.
+            Console.WriteLine(
+                $"  Front advance sweep: the solve after {SheetSettle.DefaultSettleAfterTicks} quiet tick(s), share 1 in "
+                + $"{SheetSettle.DefaultSettleShare}, advance {string.Join(", ", advances)} ring(s) a pass.");
+            Console.WriteLine();
+            foreach (SpreadRule spread in spreads)
+            {
+                foreach (int advance in advances)
+                {
+                    RunArm(generator, ml, radius, tickCap, spread, solve: true, fallCells, advance);
+                    Console.WriteLine();
+                }
+            }
+
+            return 0;
+        }
+
         foreach (SpreadRule spread in spreads)
         {
             RunArm(generator, ml, radius, tickCap, spread, solve: false, fallCells);
@@ -89,7 +111,9 @@ internal static class FrontBench
         return 0;
     }
 
-    private static void RunArm(WorldGenerator generator, long ml, int radius, int tickCap, SpreadRule spread, bool solve, int fallCells)
+    private static void RunArm(
+        WorldGenerator generator, long ml, int radius, int tickCap, SpreadRule spread, bool solve, int fallCells,
+        int advance = -1)
     {
         var terrain = new ChamberTerrain(generator, 0, 0, shaftVoxels: 1, depthMetres: 2, chambers: 3);
         int half = terrain.HalfSpan;
@@ -105,7 +129,12 @@ internal static class FrontBench
         }
 
         var sim = new FluidSimulation(terrain, spread: spread, fallCells: fallCells);
-        SheetSettle? settle = solve ? new SheetSettle(sim, settleAfterTicks: 0, settleShare: SheetSettle.DefaultSettleShare) : null;
+        // advance < 0 is the original arm (--settleafter=0's case); advance >= 0 is the sweep's.
+        SheetSettle? settle = !solve
+            ? null
+            : advance < 0
+                ? new SheetSettle(sim, settleAfterTicks: 0, settleShare: SheetSettle.DefaultSettleShare)
+                : new SheetSettle(sim, SheetSettle.DefaultSettleAfterTicks, SheetSettle.DefaultSettleShare, solveCap: 0, frontAdvance: advance);
         var at = new VoxelPos(0, floorY + 1 + radius, 0);
         long pending = ml;
         int deliveredAt = -1;
@@ -166,7 +195,7 @@ internal static class FrontBench
         bool conserved = sim.TotalMillilitres == sim.AddedMillilitres - sim.RemovedMillilitres - sim.DisplacedMillilitres;
 
         Console.WriteLine(
-            $"  {spread.ToString().ToLowerInvariant()}{(solve ? " + solve at every boundary" : string.Empty)}: delivered by tick "
+            $"  {spread.ToString().ToLowerInvariant()}{(!solve ? string.Empty : advance < 0 ? " + solve at every boundary" : $" + solve, advance {advance}")}: delivered by tick "
             + $"{(deliveredAt < 0 ? "never" : deliveredAt.ToString("N0", CultureInfo.InvariantCulture))}; "
             + (rested
                 ? $"rested after {restTick:N0} ticks ({restTick / TicksPerSecond:F1} s of world time)"
@@ -182,7 +211,7 @@ internal static class FrontBench
             Console.WriteLine(
                 $"           solve: {settle.Settles:N0} pass(es), {settle.SheetsLevelled:N0} levelled / {settle.SheetsPacked:N0} packed / "
                 + $"{settle.SheetsSkipped:N0} left alone / {settle.SheetsUnderShare:N0} under share, {settle.CellsVisited:N0} cells visited, "
-                + $"{settle.CellsWritten:N0} written, longest pass {settle.LongestMillis:F2} ms, {settle.TotalMillis:F0} ms in all");
+                + $"{settle.CellsWritten:N0} written, {settle.CellsAdvanced:N0} advanced, longest pass {settle.LongestMillis:F2} ms, {settle.TotalMillis:F0} ms in all");
         }
 
         foreach (string line in lines)

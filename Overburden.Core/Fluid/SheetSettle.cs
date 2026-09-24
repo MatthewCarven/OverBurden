@@ -60,24 +60,41 @@ public sealed class SheetSettle
     /// </summary>
     public const int DefaultSolveCap = 500_000;
 
+    /// <summary>
+    /// The front advance the game ships with (docs/FRONT-ADVANCE-PLAN.md, Matthew's word
+    /// 2026-09-24): rings of dry floor a levelled sheet may take a pass. <b>An estimate</b> — four
+    /// cells, a metre a pass — until the bench's sweep; <c>--frontadvance=</c> is the seam and 0 is
+    /// off. The constructor defaults to 0 for the reason <see cref="DefaultSolveCap"/> does.
+    /// </summary>
+    public const int DefaultFrontAdvance = 4;
+
     private readonly FluidSimulation _fluid;
 
     public SheetSettle(
         FluidSimulation fluid,
         int settleAfterTicks = DefaultSettleAfterTicks,
         int settleShare = DefaultSettleShare,
-        int solveCap = 0)
+        int solveCap = 0,
+        int frontAdvance = 0)
     {
         ArgumentNullException.ThrowIfNull(fluid);
         ArgumentOutOfRangeException.ThrowIfNegative(settleAfterTicks);
         ArgumentOutOfRangeException.ThrowIfNegative(settleShare);
         ArgumentOutOfRangeException.ThrowIfNegative(solveCap);
+        ArgumentOutOfRangeException.ThrowIfNegative(frontAdvance);
 
         _fluid = fluid;
         SettleAfterTicks = settleAfterTicks;
         SettleShare = settleShare;
         SolveCap = solveCap;
+        FrontAdvance = frontAdvance;
     }
+
+    /// <summary>Rings of dry floor a levelled sheet may take a pass; zero is off.</summary>
+    public int FrontAdvance { get; }
+
+    /// <summary>Dry cells the advance has added to sheets, summed over every pass.</summary>
+    public long CellsAdvanced { get; private set; }
 
     /// <summary>Seeds and cells a pass may test before it stops at the next height; zero is no cap.</summary>
     public int SolveCap { get; }
@@ -169,13 +186,14 @@ public sealed class SheetSettle
     public SheetLevelResult Run()
     {
         long before = Stopwatch.GetTimestamp();
-        SheetLevelResult result = _fluid.LevelSheets(SettleShare, SettleAfterTicks, SolveCap);
+        SheetLevelResult result = _fluid.LevelSheets(SettleShare, SettleAfterTicks, SolveCap, FrontAdvance);
         double millis = (Stopwatch.GetTimestamp() - before) * 1000.0 / Stopwatch.Frequency;
         return Record(result, millis);
     }
 
     /// <summary>The parameters a job's worker runs the solve with. See <see cref="FluidSimulation.BeginTick"/>.</summary>
-    public (int Share, int QuietTicks, int Cap) ForWorker => (SettleShare, SettleAfterTicks, SolveCap);
+    public (int Share, int QuietTicks, int Cap, int Advance) ForWorker =>
+        (SettleShare, SettleAfterTicks, SolveCap, FrontAdvance);
 
     /// <summary>Counts a pass that ran elsewhere — on a job's worker (slice 3c) — as one of this settle's.</summary>
     public SheetLevelResult Record(SheetLevelResult result, double millis)
@@ -203,6 +221,7 @@ public sealed class SheetSettle
         TotalMillis += millis;
         SeedsOffered += result.Seeds;
         SeedsDeferred += result.SeedsDeferred;
+        CellsAdvanced += result.Advanced;
         if (result.Capped)
         {
             CappedPasses++;

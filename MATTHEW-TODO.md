@@ -98,6 +98,14 @@ otherwise — flags go on the end of the `start.cmd` line.
 - [x] **The excavator is one click one bite too** — done 2026-09-24 on your word; hold Q to
       run it, as with the other two.
 
+### Water that spreads faster (2026-09-24)
+
+- [ ] On a **dug or placed floor** (grass soaks a puddle into the lake below, so it hides this),
+      press `R`. The puddle should race out to about 12 m in five seconds or so, then settle.
+      Compare with `--frontadvance=0` (the old creep), and if you like `--fluidhz=4` (everything
+      twice as fast, falling too). One sentence: does it read as water running across the floor,
+      or as a sheet snapping outward?
+
 ### Far mode (2026-09-24)
 
 - [ ] **F11** turns far mode on: the view climbs toward 8 chunks out and 4 up/down, a ring every
@@ -247,7 +255,8 @@ Nothing is blocked on these; they're all one-line changes when you have a view.
       ever reads as settling too slowly, `--solvecap=0` is the old behaviour and a bigger number
       is the middle ground.
 
-- [ ] **Water that spreads sideways faster** — [docs/FRONT-ADVANCE-PLAN.md](docs/FRONT-ADVANCE-PLAN.md),
+- [x] **Water that spreads sideways faster** — *built 2026-09-24*; the play check is in the queue
+      above. Was: [docs/FRONT-ADVANCE-PLAN.md](docs/FRONT-ADVANCE-PLAN.md),
       eight decisions, all with my recommendation. The short version: when the water-levelling
       step flattens a puddle, it also pushes the puddle's edge out up to 4 cells (1 m) onto flat
       dry floor each half-second, stopping at drops, rock, and before the water gets thinner than

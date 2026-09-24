@@ -1,5 +1,20 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-24 — The front advance, built: five times faster to the walls
+
+Built on his word the same afternoon as the plan. A sheet the solve levels takes up to four whole
+rings of dry, supported floor at its Y, while the total still covers 2 L a cell. **`--front`: a
+10,000 L pour reaches the block's walls, 12 m out, by tick 10 where it took ~50 ticks, and the
+solve's time in all falls 337 → 116 ms** (a spread sheet needs less re-levelling); every arm rests
+for real, every litre accounted for. Thirteen tests, ten recipes (nine caught, one identity). Two
+things worth keeping. **The bench threw where the tests did not**: `_cellFlags[Discover(...)]`
+reads the array before the call that grows it, and no fixture crossed the 256-record resize inside
+an advance; a test crosses it now. **And a seam between two sheets looked woken in every open
+fixture** because the tick's wake cascade repairs it from its ends — the recipe that dropped the
+other-sheet front passed until the fixture was a corridor closed at both ends with the water put
+down asleep. `--fluidhz=` beside it as the comparison arm; the seep drain was being built with its
+own 0.5 s default and now takes the game's tick. Headless wire check clean in all three arms.
+
 ## 2026-09-24 — Planned: the front advance
 
 Matthew: *"What I am dreaming of is a way water can spread laterally (horizontally) out faster"*.

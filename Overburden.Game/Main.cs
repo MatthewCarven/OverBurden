@@ -646,7 +646,22 @@ public partial class Main : Node3D
     /// accuracy</i> — which is why a stalled frame carries at most one tick of debt and never a
     /// burst.
     /// </remarks>
-    private const double FluidTickSeconds = 0.5;
+    private double _fluidTickSeconds = 0.5;
+
+    /// <summary>
+    /// <c>--fluidhz=</c> (FRONT-ADVANCE-PLAN decision 8): the tick rate as a comparison arm for the
+    /// front advance — every speed and every per-second cost of Tier B scale with it. The machine
+    /// tick's boundary and the seep drain are handed the same length, so a pump's and a wall's
+    /// litres a second do not move; the settle's quiet interval is in ticks and does.
+    /// </summary>
+    private const double MinFluidHz = 0.25, MaxFluidHz = 20.0;
+
+    /// <summary>
+    /// <c>--frontadvance=</c>: rings of dry floor a levelled sheet may take a pass
+    /// (docs/FRONT-ADVANCE-PLAN.md). The game ships <see cref="SheetSettle.DefaultFrontAdvance"/>;
+    /// zero is off, the arm every figure before 2026-09-24 was taken in.
+    /// </summary>
+    private int _frontAdvance = SheetSettle.DefaultFrontAdvance;
 
     /// <summary>Litres one press of the relay pours. Enough to see; not enough to flood a mine.</summary>
     private const long RelayLitres = 10_000;
@@ -1814,6 +1829,16 @@ public partial class Main : Node3D
                 // The solve's pass cap (M10d-3, decision 4): zero is no cap, the control.
                 case "solvecap" when int.TryParse(value, out int solveCap):
                     _solveCap = Math.Max(0, solveCap);
+                    break;
+
+                // The front advance (docs/FRONT-ADVANCE-PLAN.md): zero is off, the control.
+                case "frontadvance" when int.TryParse(value, out int frontAdvance):
+                    _frontAdvance = Math.Max(0, frontAdvance);
+                    break;
+
+                // The Tier B tick rate, a comparison arm (FRONT-ADVANCE-PLAN decision 8).
+                case "fluidhz" when double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double fluidHz):
+                    _fluidTickSeconds = 1.0 / Math.Clamp(fluidHz, MinFluidHz, MaxFluidHz);
                     break;
 
                 // The spread rule: fixed (divide by five) or counted (one part for the cell and
@@ -3888,7 +3913,7 @@ public partial class Main : Node3D
             _solarSky = new StreamerSolarSky(_pipeline!.Streamer);
             _machineTick = new MachineTick(
                 _machines, _materials!, _fluid, _machineTerrain, _seedHeights, _water,
-                boundaryMillis: (long)Math.Round(FluidTickSeconds * 1000.0))
+                boundaryMillis: (long)Math.Round(_fluidTickSeconds * 1000.0))
             {
                 PowerOff = _noGate,
                 Sky = _solarSky,
@@ -6005,7 +6030,7 @@ public partial class Main : Node3D
         _seeps = _water is not null && _seepScale > 0 ? new SeepIndex(_seedHeights, terrain) : null;
         _portalTracker = new PortalTracker(_portals, _seeps);
         _drain = _water is null ? null : new PortalDrain(_portals, _water, _fluid);
-        _seepDrain = _seeps is null ? null : new SeepDrain(_seeps, _water!, _fluid, _seepScale, mode: _seepMode);
+        _seepDrain = _seeps is null ? null : new SeepDrain(_seeps, _water!, _fluid, _seepScale, tickSeconds: _fluidTickSeconds, mode: _seepMode);
         GD.Print(_seepDrain is null
             ? $"M8c: seepage is off ({(_water is null ? "no water" : "--seepscale=0")}); the seep index is not built"
             : $"M8c: seepage at {_seepScale} L/(m²·m·s) — a dug chunk under a lake takes permeability × head × face area × that "
@@ -6029,7 +6054,7 @@ public partial class Main : Node3D
 
         // M8b-3b: the settle. Needs no Tier A, because a flooded mine has no Tier A body — the
         // sheets it levels are the ones the hand-off cannot reach.
-        _settle = new SheetSettle(_fluid, _settleAfterTicks, _settleShare, _solveCap);
+        _settle = new SheetSettle(_fluid, _settleAfterTicks, _settleShare, _solveCap, _frontAdvance);
         if (windowed)
         {
             _fluidSurface = new FluidSurface(GetWorld3D(), debugView: _fluidSurfaceMode == "debug");
@@ -6165,12 +6190,12 @@ public partial class Main : Node3D
         }
 
         _fluidSinceTick += delta;
-        bool begin = !_fluid.GridOwnedByTick && _fluidSinceTick >= FluidTickSeconds && !_fluidJobFaulted && !_fluidHeld;
+        bool begin = !_fluid.GridOwnedByTick && _fluidSinceTick >= _fluidTickSeconds && !_fluidJobFaulted && !_fluidHeld;
         long boundaryStarted = Stopwatch.GetTimestamp();
         if (begin)
         {
             // At most one tick of debt after a stall: the remainder is kept, the burst is not.
-            _fluidSinceTick = Math.Min(_fluidSinceTick - FluidTickSeconds, FluidTickSeconds);
+            _fluidSinceTick = Math.Min(_fluidSinceTick - _fluidTickSeconds, _fluidTickSeconds);
 
             // The seam, at the boundary and only there — like the relay, so the tick that follows
             // is the same tick the suite asserts is identical sliced or whole. The settle first,
@@ -6423,7 +6448,7 @@ public partial class Main : Node3D
         // 0 → 1 over the tick's half second, then held: a tick that takes longer than its period
         // leaves the surface where it arrived rather than moving it twice.
         double since = (Time.GetTicksMsec() - _fluidSurface.InstalledAtMsec) / 1000.0;
-        _fluidSurface.SetPhase((float)(since / FluidTickSeconds));
+        _fluidSurface.SetPhase((float)(since / _fluidTickSeconds));
 
         bool under = _fluidSurface.IsUnderwater(_camera.GlobalPosition);
         if (under != _underwater)
@@ -6453,7 +6478,7 @@ public partial class Main : Node3D
         _fluidJobWallMax = Math.Max(_fluidJobWallMax, wall);
         _fluidJobVisitSum += job.VisitMillis;
         _fluidJobWalkSum += job.WalkMillis;
-        if (wall > FluidTickSeconds * 1000.0)
+        if (wall > _fluidTickSeconds * 1000.0)
         {
             _fluidJobsWaited++;
         }
@@ -7210,7 +7235,7 @@ public partial class Main : Node3D
                + $"evicting {f.EvictingPanelCount:N0} panel(s), {f.ReclaimedPanels:N0} reclaimed, "
                + $"{f.Deferrals:N0} edit(s) deferred to a boundary, "
                + $"{_pipeline?.FluidArrivalsParked ?? 0:N0} arrival(s) parked | "
-               + $"{f.Ticks:N0} tick(s) at {1.0 / FluidTickSeconds:F0} Hz, {f.ActiveCellCount:N0} active "
+               + $"{f.Ticks:N0} tick(s) at {1.0 / _fluidTickSeconds:F0} Hz, {f.ActiveCellCount:N0} active "
                + (_fluidNearRings > 0
                    ? $"(last tick {f.NearAdmitted:N0} near + {f.FarAdmitted:N0} far, "
                      + $"{f.FarBacklog:N0} deferred; {f.NearColumnCount:N0} machine column(s) near), "
@@ -7236,10 +7261,13 @@ public partial class Main : Node3D
     private string SettlePhases()
     {
         long passes = Math.Max(1, _settle!.Settles);
+        string advance = _settle.FrontAdvance == 0
+            ? "no front advance"
+            : $"front advance {_settle.FrontAdvance} ring(s): {_settle.CellsAdvanced:N0} cell(s) in all";
         string cap = _settle.SolveCap == 0
             ? "no cap"
             : $"cap {_settle.SolveCap:N0}: {_settle.CappedPasses:N0} pass(es) capped, {_settle.SeedsDeferred / (double)passes:N0} seed(s) a pass left to the next";
-        return $"{cap}; per pass {_settle.SeedsOffered / (double)passes:N0} seed(s), gather {_settle.GatherMillis / passes:F1} / "
+        return $"{advance}; {cap}; per pass {_settle.SeedsOffered / (double)passes:N0} seed(s), gather {_settle.GatherMillis / passes:F1} / "
                + $"sort {_settle.SortMillis / passes:F1} / flood {_settle.FloodMillis / passes:F1} / "
                + $"level {_settle.LevelMillis / passes:F1} ms mean";
     }
@@ -7468,7 +7496,7 @@ public partial class Main : Node3D
                + seep
                + handoff
                + settle
-               + $"fluidtick {ticks:N0} tick(s) in the window at {1.0 / FluidTickSeconds:F0} Hz, "
+               + $"fluidtick {ticks:N0} tick(s) in the window at {1.0 / _fluidTickSeconds:F0} Hz, "
                + $"{visits:N0} visits ({visits / seconds:N0}/s against the ~520,000/s the light "
                + $"budget licenses), peak active {f.PeakActiveCells:N0}, {f.ActiveCellCount:N0} active at the end; "
                + $"{sliced:N0} tick(s) took more than one frame, longest {_fluidLongestTickFramesInWindow:N0} frame(s)\n"
