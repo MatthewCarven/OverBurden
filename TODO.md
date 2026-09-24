@@ -6450,6 +6450,16 @@ it.
       is better game design and costs nothing to adopt now**, but it means M11’s pipes are a
       deliberate tier rather than the default way fluid moves.
 
+- [ ] **The quantum tunneller and the one-click rule (2026-09-23/24)** — built, unplayed; the
+      play check is in MATTHEW-TODO. **Instrument question, found building it**: the profile's
+      `mining … (N/s)` under `--holdq` reads well below the tier's cooldown on every quantum tier
+      (the miner, 10/s nominal, reads 4.2; the tunneller, 4/s, 2.1). Find which denominator or
+      which frames the hold misses before quoting any quantum rate from a profile.
+- [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), not scheduled. Matthew's design is in
+      (voxels go nowhere; the shake, a one-off harsher support derive). Six decisions still his;
+      the first measurement when built is the boundary-time carve (~11 ms Debug a charge, est.).
+      Needs from M9 before the shake: a rule per derive, and a fall from an explicit set.
+
 ### M11 — v1.0
 
 - [ ] Drills, pipes, conveyors

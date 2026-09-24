@@ -1111,6 +1111,33 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
+**Pick up here (2026-09-24 — session close, *"see you in a fresh Code Chat"*). Everything is
+committed and pushed through `2afa9c8`; the tree is clean but for `start2.cmd`, which is
+Matthew's (a copy of `start.cmd` he made mid-session) and deliberately not committed. Suite
+1,829, r6 control 2601 / 325 / 3446 at 411 to the digit. Nothing is blocked on me.**
+
+**Built this session, all on his word, all unplayed:** *a power switch on the vacuum cell* —
+an `enabled` port (0/1), off takes the row out of its channel's pool with its charge frozen, the
+panel's box is the switch, the `power:` term counts `(+N off)` (WORKLOG 2026-09-23); *the quantum
+tunneller* — `tools/quantum_tunneller.json`, `ToolBite.Tunnel`, a 2 m cube on `TunnelLattice`
+(8 voxels, nesting inside the chunk and around the brush cell), 0.25 s, 50 J a voxel, 140 bites a
+lead-acid pack, the T cycle's middle quantum tier, `--entangletunnel` at open; and **every quantum
+tier one click one bite and one click one fill** (`OneClickOneBite` is `Tool.AtRange`), Q held
+the stream — the chunk too, on his *"yes make the chunk one click one bite too"*.
+
+**Written, not built: [docs/TNT-NOTES.md](docs/TNT-NOTES.md)** — a charge is a machine row with
+`fuse`/`delay` ports, a detonator fires a channel, sympathetic detonation one step a boundary;
+**his design folded in: blasted voxels go nowhere, and the shake** (one support derive around the
+blast under distances × 0.75, what fails it falls at the next boundary, nothing stored). Six
+decisions still his; machines destroyed by a blast (5) is the biggest.
+
+**Next, in order:** his play checks in `MATTHEW-TODO.md` (the cell's switch, the tunneller, the
+excavator's click) and the older M10d queue; then d-3 with the game closed. **Two things not to
+rediscover**: the profile's `/s` for a quantum tier reads well under its cooldown (the miner, 10/s
+nominal, reads 4.2 under `--holdq`) — an instrument question, not a tier's, in TODO; and a Python
+edit script that writes `utf-8-sig` adds a BOM to a file that had none (ContentLoader.cs, caught
+and stripped) — read the first three bytes and write back what was there.
+
 **Pick up here (2026-09-23, late — session close, *"see you in a fresh Code Chat"*). Everything
 is committed through `3749b96`, the tree is clean, and the push is Matthew's — seven commits
 (`c417d89..3749b96`). Suite 1,809, r6 control 2601 / 325 / 3446 at 411 to the digit. Nothing is

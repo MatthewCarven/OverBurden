@@ -308,7 +308,14 @@ what it means.*
 
 ## Status, kept current for you
 
-Updated **2026-09-23**.
+Updated **2026-09-24**.
+
+- **This session (all pushed, all unplayed):** the vacuum cell's on/off switch, the quantum
+  tunneller (2 m cube), every quantum tool one click one bite with Q held to run, and the TNT
+  notes with your design in them. Suite **1,829** green; r6 control to the digit.
+- `start2.cmd` is yours and I left it out of git — commit or delete it as you like.
+
+Earlier, **2026-09-23**:
 
 - Suite **1,735** green. The r6 streaming control reads to the digit. No errors in any of
   today's four play logs.
