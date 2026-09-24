@@ -1,5 +1,17 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-24 — Planned: the front advance
+
+Matthew: *"What I am dreaming of is a way water can spread laterally (horizontally) out faster"*.
+Four ideas offered (the solve pushes the front; a sideways run in the tick; a faster tick; the
+counted divisor again, already judged); he took the first. The pass is
+[docs/FRONT-ADVANCE-PLAN.md](docs/FRONT-ADVANCE-PLAN.md). Two facts from the code shaped it: **on
+natural ground the hand-off already gives a resting puddle to its basin**, so the advance is for
+dug and placed floors — his trench, a mine — and **the share and the quiet rule already decide
+which sheets a pass levels**, so a pour's edge advances until it is under one cell in eight of its
+sheet and a pump's outlet not at all at slice 1. And one that should make it look right for free:
+a newly wet cell already rises from its floor over the tick's lerp.
+
 ## 2026-09-24 — F11: far mode, the adaptive radius with a higher ceiling
 
 Matthew, over two screenshots of a lake in rain: *"can f11 toggle 'far' mode where it tries to

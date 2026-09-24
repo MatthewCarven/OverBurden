@@ -5685,6 +5685,13 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             day: the solve 853/694 → 353/351 ms, 0.52 → 0.73/0.80 Hz, 30–32% of the wall, target
             met; a full sweep of the load test's heights takes ~6 s where it took one pass.**
             Left unpriced: reads a cell and seeds offered.
+      - [ ] **The front advance — planned 2026-09-24, not built; read
+            [docs/FRONT-ADVANCE-PLAN.md](docs/FRONT-ADVANCE-PLAN.md).** Matthew: *"a way water can
+            spread laterally out faster"*. The solve takes up to N rings (4, an estimate) of dry,
+            holdable, supported cells at a levelled sheet's Y, stopping before the share falls
+            under 2 L a cell; frozen and fed sheets are not advanced at slice 1. Eight decisions,
+            all recommended, waiting on his word; split a Core / b bench / c wire / d look, with
+            `--fluidhz` as a comparison arm.
       - [ ] **The quantum tiers and the hold (2026-09-19, unplayed)**: `T` cycles hand → steel →
             quantum miner → quantum excavator (a fresh world starts on steel); on the miner a
             click is one 1 m cell dug or the brush placed at range, on the excavator one 8 m

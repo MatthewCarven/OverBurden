@@ -247,6 +247,14 @@ Nothing is blocked on these; they're all one-line changes when you have a view.
       ever reads as settling too slowly, `--solvecap=0` is the old behaviour and a bigger number
       is the middle ground.
 
+- [ ] **Water that spreads sideways faster** — [docs/FRONT-ADVANCE-PLAN.md](docs/FRONT-ADVANCE-PLAN.md),
+      eight decisions, all with my recommendation. The short version: when the water-levelling
+      step flattens a puddle, it also pushes the puddle's edge out up to 4 cells (1 m) onto flat
+      dry floor each half-second, stopping at drops, rock, and before the water gets thinner than
+      2 L a cell. It matters most in your mines and on placed floors — on natural grass a puddle
+      already soaks into the lake below. Two things it deliberately doesn't do at first: water
+      still being poured (a pump's outlet) spreads at today's pace, and a very big lake's edge
+      still creeps. "As recommended" is enough to start.
 - [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), eight decisions with my
       recommendations. Not scheduled; "as recommended" or any one of the eight back whenever
       you like. Yours already folded in: blasted voxels go nowhere (3), and the roof gets one
