@@ -1,5 +1,14 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-24 (late night) — 2c played at `--fedband=6`: the default is 6
+
+*"that hits deep i like it a lot will have to do more load testing like but i think its the one"* — on
+his breach pit, `Regions13`. 6 ships (4 an hour before it); load testing is his trigger. The log:
+0 `ERROR`, identities exact, 2,031 fed sheets advanced by 264,942 cells; the water ran at ~1 Hz
+(787 of 1,206 boundaries waited, job wall 952 ms mean over 1.08 M active cells), and the pass was
+flood 166 / level 46 ms — the flood's size, not the advance. The control his load test wants is
+`--fedadvance=0` on the same world in the same session.
+
 ## 2026-09-24 (night) — Front advance 2c: a fed stream levels its tip, and the pass's own rule was wrong
 
 The pass found that the plan's pro-rata rule gives new cells the sheet's mean, which is more than a

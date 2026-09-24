@@ -35,8 +35,8 @@ written (2026-09-24, night) and not built: the plan's pro-rata rule puts a ridge
 tapering stream (fact 1, arithmetic), so the recommendation is to level the stream's last 2N rings
 with the new ones and leave its body alone; a fed sheet lists nothing as resting and is woken by
 what the write gave a move. Eight decisions, all recommended, waiting on him.** **Built the same
-night on *"As recommended"*: `--fedadvance=` (1; 0 the control) and `--fedband=` (4 rings of band
-per ring of advance — the pass's 2 was shallow, the bench said so: a stream's tip is thin and the
+night on *"As recommended"*: `--fedadvance=` (1; 0 the control) and `--fedband=` (6 rings of band
+per ring of advance, **his play the same night at 6: *"that hits deep i like it a lot … i think its the one"*, with load testing still his** — the pass's 2 was shallow, the bench said so: a stream's tip is thin and the
 band has to reach back into thicker water; open floor r17 → r24 at 60 s, a corridor's reach at
 10 s 8 → 20 cells, nothing flowing back); the `settle` line prints `fed advance (band 4N) S
 sheet(s): C cell(s), band B`. Read "Slice 2c — built". The look on his breach pit is his.** The plan: seven facts, eight decisions, split a–d. The sheet solve takes up to *N* rings of dry, holdable, supported cells at a levelled sheet's Y — the fall rule on its side. **Read its facts 6 and 7 first**: on natural ground the hand-off already takes a resting puddle, so this is for dug and placed floors; and the share and the quiet rule bound which sheets advance — a frozen or fed sheet does not at slice 1. |

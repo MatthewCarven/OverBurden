@@ -109,13 +109,20 @@ otherwise — flags go on the end of the `start.cmd` line.
 
 ### Streams that spread (2026-09-24, night)
 
-- [ ] Water that is **still being fed** (your breach pit, a pump's outlet, a pour you keep
+- [x] **Played 2026-09-24 night at `--fedband=6` — *"that hits deep i like it a lot will have to do
+      more load testing like but i think its the one"*. 6 is the default now.**
+      Water that is **still being fed** (your breach pit, a pump's outlet, a pour you keep
       pressing `R` on) now pushes its tip out too: the last 4 m of the stream levels and takes up
       to four more rows of dry floor a pass, while the body of the stream keeps its slope. Go to
       the breach pit on `Regions13` and watch the water run across the pit floor. Compare with
       `--fedadvance=0` (the old way). If the tip looks too flat, try `--fedband=2`; if it's still
       slow, `--fedband=6`. One sentence: does the breach's water run across the floor now, and
       does it still read as a stream?
+- [ ] **The load test you wanted.** Same world, same spot, two short sessions back to back:
+      `start3` then `start3 --fedadvance=0`. Just play normally for a few minutes each and quit;
+      I'll read the two logs (copy `godot.log` aside between them, the logs rotate). Tonight's
+      6N session ran the water at about 1 Hz on 1.08 million moving cells, and the question is
+      how much of that is the fed advance — my read is very little, the flood's size is the cost.
 
 ### Far mode (2026-09-24)
 

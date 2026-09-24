@@ -549,3 +549,12 @@ recipe is small); a copy of `Regions13` in rain (`--clockscale=20 --fluidnear=2 
 each on a machine that runs in two speeds — a number to watch, not a finding. The breach is outside
 the loaded box at that save's standpoint (`drawn 0 L`), so the fed sheets there were rain puddles;
 **his breach pit is the play's.** Suite 1,888.
+
+**Played the same night at `--fedband=6`** on his breach pit (`Regions13`, start3): *"that hits
+deep i like it a lot will have to do more load testing like but i think its the one"* — **6 is the
+default from here**, the load testing his named trigger. The log: 1,206 ticks, 0 `ERROR`, every
+identity exact; 2,031 fed sheets advanced by 264,942 cells. The load is the flood's, not the
+advance's — 16.7 ML moving in 1.08 M cells, the job's wall 952 ms mean / 2.6 s max, 787 of 1,206
+boundaries waited (about 1 Hz), and per pass flood 166 ms against level 46 ms (the fed test, the
+bands, the targets and the writes together). A same-session `--fedadvance=0` arm on that world is
+the control his load test wants.

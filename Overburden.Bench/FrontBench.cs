@@ -77,7 +77,7 @@ internal static class FrontBench
         {
             // Slice 2c (FRONT-ADVANCE-PLAN): a source that keeps pouring, so the pool is fed at every
             // boundary and slice 1 never advances it. The control is fed advance off; the band's
-            // depth is swept at N to 6N rings (4N ships).
+            // depth is swept at N to 6N rings (6N ships, his play).
             int rings = advances is { Length: > 0 } ? advances[0] : SheetSettle.DefaultFrontAdvance;
             Console.WriteLine(
                 $"  Fed arm: {FedLitresPerTick * TicksPerSecond:N0} L/s poured onto the floor's centre for {FedTicks} ticks "

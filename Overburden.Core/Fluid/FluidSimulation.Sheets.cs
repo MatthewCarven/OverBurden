@@ -247,16 +247,19 @@ public sealed partial class FluidSimulation
     public const bool DefaultFedAdvance = true;
 
     /// <summary>
-    /// How deep a fed sheet's tip band is, in rings from its dry edge, per ring of advance: 4, so
-    /// four rings level the last sixteen — four metres. <b>The pass's 2 was an estimate and the
+    /// How deep a fed sheet's tip band is, in rings from its dry edge, per ring of advance: 6, so
+    /// four rings level the last twenty-four — six metres. <b>Matthew's play of 2026-09-24 on his
+    /// breach pit at <c>--fedband=6</c>: <i>"that hits deep i like it a lot will have to do more
+    /// load testing like but i think its the one"</i></b> — shipped 4 an hour before it, the middle
+    /// of the sweep below; the revisit trigger is his load testing. <b>The pass's 2 was an estimate and the
     /// bench (<c>--front --frontfed</c>, 2026-09-24) said it was shallow</b>: a natural stream's tip
     /// is thin, so the band has to reach back into thicker water before the floor lets it take a
     /// ring. At 100 L/s for 60 s, the open floor's radius went 17 (off) / 18 (2) / 21 (3) / 24 (4) /
     /// 30 (6), the corridor's reach at 10 s 8 / 12 / 17 / 20 / 30 cells, nothing flowing back at
     /// 3 and deeper. Deeper kept paying; how flat a tip may look is the eye's, which is why the
-    /// game has <c>--fedband=</c>. 4 is the middle, <b>an estimate for his play</b>.
+    /// game has <c>--fedband=</c>.
     /// </summary>
-    public const int DefaultFedBandRingsPerAdvance = 4;
+    public const int DefaultFedBandRingsPerAdvance = 6;
 
     /// <summary>The band's depth per ring of advance; <c>--fedband=</c>. Set once, before any tick.</summary>
     public int FedBandRingsPerAdvance { get; set; } = DefaultFedBandRingsPerAdvance;
