@@ -116,6 +116,18 @@ public sealed class SheetSettle
 
     public double TotalMillis { get; private set; }
 
+    /// <summary>Seeds offered over every pass — the pass's input, which a large carry can put far above the cells it visits.</summary>
+    public long SeedsOffered { get; private set; }
+
+    /// <summary>The four phases of every pass, summed; see <see cref="SheetLevelResult"/>.</summary>
+    public double GatherMillis { get; private set; }
+
+    public double SortMillis { get; private set; }
+
+    public double FloodMillis { get; private set; }
+
+    public double LevelMillis { get; private set; }
+
     /// <summary>
     /// The tick boundary. Returns the pass's result when one ran, null when the trigger did not
     /// fire. Call once per boundary, before anything pours into the next tick.
@@ -166,6 +178,11 @@ public sealed class SheetSettle
         LastMillis = millis;
         LongestMillis = Math.Max(LongestMillis, millis);
         TotalMillis += millis;
+        SeedsOffered += result.Seeds;
+        GatherMillis += result.GatherMillis;
+        SortMillis += result.SortMillis;
+        FloodMillis += result.FloodMillis;
+        LevelMillis += result.LevelMillis;
         return result;
     }
 }

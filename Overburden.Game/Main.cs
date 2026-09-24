@@ -7123,7 +7123,8 @@ public partial class Main : Node3D
               + $"{_settle.SheetsStepped:N0} levelled for a step, {_settle.CellsVisited:N0} cells visited, "
               + $"{_settle.CellsWritten:N0} written, "
               + $"largest sheet {_settle.LargestSheet:N0}, longest pass {_settle.LongestMillis:F1} ms, "
-              + $"last pass seeded {f.SolveSeedsLast:N0} ({f.SolveCarrySeedsLast:N0} from the carry)";
+              + $"last pass seeded {f.SolveSeedsLast:N0} ({f.SolveCarrySeedsLast:N0} from the carry), "
+              + SettlePhases();
 
         long drawn = _drain?.DrawnMillilitres ?? 0;
         long seeped = _seepDrain?.SeepedMillilitres ?? 0;
@@ -7184,6 +7185,19 @@ public partial class Main : Node3D
     private string BoundaryWorst() =>
         $"settle {_bSettleMax:F1} ms, hand-off and drain {_bHandoffMax:F1} ms, pour {_bPourMax:F1} ms, machines {_bMachinesMax:F2} ms, "
         + $"table {_bTableMax:F2} ms, collapse {_bCollapseMax:F1} ms, lake {_bLakeMax:F1} ms, field sync {_bSyncMax:F1} ms, publish {_bPublishMax:F1} ms";
+
+    /// <summary>
+    /// The sheet solve's four phases, mean per pass over the run, with the seeds they were given —
+    /// M10d-3's split, because 1.58 M seeds against 486 k cells visited could not say which half
+    /// the 810 ms was.
+    /// </summary>
+    private string SettlePhases()
+    {
+        long passes = Math.Max(1, _settle!.Settles);
+        return $"per pass {_settle.SeedsOffered / (double)passes:N0} seed(s), gather {_settle.GatherMillis / passes:F1} / "
+               + $"sort {_settle.SortMillis / passes:F1} / flood {_settle.FloodMillis / passes:F1} / "
+               + $"level {_settle.LevelMillis / passes:F1} ms mean";
+    }
 
     /// <summary>The boundary's cost by pass, mean per boundary over the window.</summary>
     private string BoundaryLine()
@@ -7317,7 +7331,8 @@ public partial class Main : Node3D
               + $"{_settle.CellsVisited:N0} cells visited, "
               + $"{_settle.CellsWritten:N0} written, {_settle.CellsWoken:N0} woken, largest sheet "
               + $"{_settle.LargestSheet:N0} cells, longest pass {_settle.LongestMillis:F2} ms, "
-              + $"{_settle.TotalMillis:F1} ms in all; last pass seeded {f.SolveSeedsLast:N0} ({f.SolveCarrySeedsLast:N0} from the carry)\n";
+              + $"{_settle.TotalMillis:F1} ms in all; last pass seeded {f.SolveSeedsLast:N0} ({f.SolveCarrySeedsLast:N0} from the carry); "
+              + SettlePhases() + "\n";
 
         FluidPublished p = f.Published;
         int jobs = _fluidJobs - _fluidJobsAtWarm;

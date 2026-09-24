@@ -5667,10 +5667,17 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             and the hold; the panel by hand; the pack across a quit. Watch for origin-order
             draw starving later pumps under panels-only power (decision 4; the lever is the
             outlets' ring on the pumps, not built until seen).
-      - [ ] **d-3 — the solve's number on the load test, after his session** (never beside a
-            play): a copy of `retired-spread-2026-09-22` with `--profile --fluidnear=2
-            --fluidjob=1 --speed=0 --measure=60`, the `fluidjob` line's `solve mean` and the
-            `settle` line at a minute; then the three levers below priced in their own pass.
+      - [x] **d-3 — the solve's number on the load test — taken 2026-09-24**, read "M10d-3 —
+            the number, and the levers' pass" in the ladder plan. 0.55–0.60 Hz against 2;
+            the solve 810–827 ms of a 1.5–1.6 s worker wall; per pass 683 k seeds, **sort
+            220 / flood 436 / level 112 ms** — the cost is the active set's width, not the
+            sheets, so the three levers below were aimed at the wrong quantity.
+      - [ ] **The solve's levers, five decisions, all recommended, waiting on Matthew**: (1) sort
+            on a packed `long` key, bitwise the same order, first and alone (220 → 20–40 ms,
+            an estimate); (2) the flood's dictionary as a per-panel stamp array, benched with a
+            wide active set before it is built; (3) seeds not pre-filtered (it changes
+            answers); (4) the three recorded levers retired, the pass cap kept as fallback;
+            (5) target: the solve under a third of the tick on the load test.
       - [ ] **The quantum tiers and the hold (2026-09-19, unplayed)**: `T` cycles hand → steel →
             quantum miner → quantum excavator (a fresh world starts on steel); on the miner a
             click is one 1 m cell dug or the brush placed at range, on the excavator one 8 m
@@ -5848,7 +5855,9 @@ the played mine 64 m deep), so the unloaded-outlet rule is M10a's.
             pass, and O(sheet) each. The M8b-3b "pass per boundary is O(sheet)" item proper.
             Levers, unpriced: level a sheet at most every N boundaries while it is being fed
             (the settle's own wait, per sheet rather than per chunk); cap a pass's cells and carry
-            the rest to the next; a smaller share for very large sheets.
+            the rest to the next; a smaller share for very large sheets. **Priced at d-3
+            (2026-09-24) and aimed at the wrong quantity**: the level phase all three act on is
+            14% of a pass; the sort (29%) and the flood (57%) over the seeds are the cost.
       - [x] **Rain lands on the player's material — planned and built 2026-09-22 (*"As recommended,
             build it please"*); Matthew: *"rain on my stuff should land in it"*.** His clay pond does
             not fill from rain because 98% of the rain is Tier A's and goes to the seed terrain's

@@ -228,6 +228,13 @@ press didn't reach.
 
 Nothing is blocked on these; they're all one-line changes when you have a view.
 
+- [ ] **The water solve's levers (d-3, measured 2026-09-24)** — five decisions at the end of
+      "M10d-3" in [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md). The short version: on your
+      big retired world the water ticks at 0.6 a second instead of 2, half of it is the sheet
+      solve, and the solve's time is spent sorting and flooding a million awake cells, not
+      levelling big sheets. My lean is a faster sort first (same answers, just quicker), then a
+      faster flood. "As recommended" is enough.
+
 - [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), eight decisions with my
       recommendations. Not scheduled; "as recommended" or any one of the eight back whenever
       you like. Yours already folded in: blasted voxels go nowhere (3), and the roof gets one

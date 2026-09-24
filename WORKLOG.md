@@ -1,5 +1,22 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-24 — M10d-3: the solve's number, and where it goes
+
+The game closed, a copy of the load test (`retired-spread-2026-09-22`), the recorded recipe.
+**0.55–0.60 ticks a second against 2; the worker wall 1.5–1.6 s, of which the sheet solve is
+810–827 ms and the visits the rest.** The recorded levers all assumed the solve's cost was the
+sheets it levels, so before pricing them the solve got a phase split (`SheetLevelResult.Seeds`
+and four times; the `settle` line's `per pass … gather / sort / flood / level`). **Per pass:
+683 k seeds, gather 2 ms / sort 220 / flood 436 / level 112.** The largest sheet is 59–75 k
+cells and ~140 are levelled a pass; the levelling is 14% of the time. **The cost is the width
+of the active set** — every awake cell is a seed, sorted by a three-key delegate at ~320 ns a
+seed and flooded through a `Dictionary<VoxelPos, int>`. The pass is "M10d-3 — the number, and
+the levers' pass" in the ladder plan: five decisions, the first a packed-key sort that is
+bitwise the same order. **Even a free solve leaves this world at ~1.25 Hz** — the visits are
+the other half, and the load test had 3.4 M cells active at its open. Suite 1,829, r6 to the
+digit, 0 `ERROR` in both runs, the probe deleted. His play log of the morning is copied to
+the session scratchpad before the headless runs rotated it.
+
 ## 2026-09-24 — The map, the compass and the hills, played
 
 Matthew, on `Regions12` (made at `--reliefrare=0.125`, seed `0x353801C3`, 19.2..144 voxels):

@@ -1135,7 +1135,11 @@ blast under distances × 0.75, what fails it falls at the next boundary, nothing
 decisions still his; machines destroyed by a blast (5) is the biggest.
 
 **Next, in order:** his play checks in `MATTHEW-TODO.md` (the cell's switch, the tunneller, the
-excavator's click) and the older M10d queue; then d-3 with the game closed. **Two things not to
+excavator's click) and the older M10d queue. **d-3 is taken (later the same day, the game
+closed)**: the load test ticks at 0.55–0.60 Hz, the solve is 810 ms of a 1.5 s wall, and its
+phase split — sort 220 / flood 436 / level 112 ms a pass over 683 k seeds — says the cost is
+the active set's width, not the sheets. The levers' pass is "M10d-3" at the end of the ladder
+plan, five decisions waiting on his word; the first is a packed-key sort, bitwise the same order. **Two things not to
 rediscover**: the profile's `/s` for a quantum tier reads well under its cooldown (the miner, 10/s
 nominal, reads 4.2 under `--holdq`) — an instrument question, not a tier's, in TODO; and a Python
 edit script that writes `utf-8-sig` adds a BOM to a file that had none (ContentLoader.cs, caught

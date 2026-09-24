@@ -1,4 +1,5 @@
-﻿using Overburden.Core.Voxels;
+﻿using System.Diagnostics;
+using Overburden.Core.Voxels;
 
 namespace Overburden.Core.Fluid;
 
@@ -22,9 +23,21 @@ namespace Overburden.Core.Fluid;
 /// <param name="CellsWritten">Cells whose contents changed.</param>
 /// <param name="MillilitresMoved">Millilitres transferred between cells of a sheet. Not a change in the world's water.</param>
 /// <param name="CellsWoken">Cells queued for the next tick because the solve gave them something to do.</param>
+/// <param name="Seeds">Cells the pass was seeded with, before any was tested as a sheet cell.</param>
+/// <param name="GatherMillis">Building the seed list from the pending list and the carry.</param>
+/// <param name="SortMillis">Copying and ordering the seeds by (Y, X, Z).</param>
+/// <param name="FloodMillis">The floods, every Y: finding the sheets and judging the share.</param>
+/// <param name="LevelMillis">The rest: the fed test, the targets, the transfers, the wake and the rested list.</param>
+/// <remarks>
+/// The four phases exist because M10d-3's first number (2026-09-24, a copy of the retired spread
+/// world) read 810 ms a pass from 1.58 M seeds against 486 k cells visited — and the recorded
+/// levers all assumed the cost was the sheets. A phase split says which it is before one is chosen.
+/// </remarks>
 public readonly record struct SheetLevelResult(
     int Sheets, int Levelled, int Packed, int Skipped, int UnderShare, int Stepped, int LargestSheet,
-    int CellsVisited, int CellsWritten, long MillilitresMoved, int CellsWoken, int Noisy)
+    int CellsVisited, int CellsWritten, long MillilitresMoved, int CellsWoken, int Noisy,
+    int Seeds = 0, double GatherMillis = 0, double SortMillis = 0, double FloodMillis = 0,
+    double LevelMillis = 0)
 {
     /// <summary>A pass that found nothing to change.</summary>
     public bool Idle => CellsWritten == 0;
@@ -303,9 +316,12 @@ public sealed partial class FluidSimulation
     /// </summary>
     private SheetLevelResult SolveFromActiveSet(int share, int quietTicks, long nowTick)
     {
-        SheetLevelResult result = Solve(SolveSeeds(), share, quietTicks, nowTick);
+        long before = Stopwatch.GetTimestamp();
+        IReadOnlyList<VoxelPos> seeds = SolveSeeds();
+        double gather = Millis(before);
+        SheetLevelResult result = Solve(seeds, share, quietTicks, nowTick);
         MarkCarryOffered();
-        return result;
+        return result with { GatherMillis = gather };
     }
 
     /// <summary>The tick number the last solve tested quiet against. Tests only: it pins the worker's +1.</summary>
@@ -317,6 +333,7 @@ public sealed partial class FluidSimulation
         ArgumentOutOfRangeException.ThrowIfNegative(quietTicks);
         _quietTicks = quietTicks;
         _solveTick = nowTick;
+        long started = Stopwatch.GetTimestamp();
 
         // A copy, because waking appends to the pending list this is usually a view of; and a
         // total order on position rather than the caller's order, so the same water in the same
@@ -329,6 +346,8 @@ public sealed partial class FluidSimulation
         int sheets = 0, levelled = 0, packed = 0, skipped = 0, underShare = 0, stepped = 0, noisy = 0;
         int largest = 0, visited = 0, written = 0, woken = 0;
         long moved = 0;
+        double sortMillis = Millis(started);
+        long floodTicks = 0;
 
         // One flood per Y, bottom-up: the seeds of a higher sheet are tested as sheet cells only
         // after every sheet below has been applied.
@@ -342,7 +361,9 @@ public sealed partial class FluidSimulation
                 groupEnd++;
             }
 
+            long floodStart = Stopwatch.GetTimestamp();
             Flood(groupStart, groupEnd, share);
+            floodTicks += Stopwatch.GetTimestamp() - floodStart;
             visited += _cellCount;
 
             for (int s = 0; s < _sheetCount; s++)
@@ -413,10 +434,15 @@ public sealed partial class FluidSimulation
             groupStart = groupEnd;
         }
 
+        double floodMillis = floodTicks * 1000.0 / Stopwatch.Frequency;
         return new SheetLevelResult(
             sheets, levelled, packed, skipped, underShare, stepped, largest, visited, written, moved,
-            woken, noisy);
+            woken, noisy, _sheetSeeds.Count, 0, sortMillis, floodMillis,
+            Math.Max(0, Millis(started) - sortMillis - floodMillis));
     }
+
+    private static double Millis(long since) =>
+        (Stopwatch.GetTimestamp() - since) * 1000.0 / Stopwatch.Frequency;
 
     /// <summary>
     /// Whether any chunk this sheet stands in has received within the wait.

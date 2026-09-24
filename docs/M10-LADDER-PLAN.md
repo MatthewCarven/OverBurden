@@ -2852,3 +2852,71 @@ armed order follows the worker timing of the derives, the seeded draw is per arm
 do not, and the record should be read as a shape.
 
 d-2 is Matthew's; d-3 waits for a session with the game closed.
+
+### M10d-3 — the number, and the levers' pass
+
+Taken 2026-09-24 with the game closed, on a copy of `worlds/retired-spread-2026-09-22/` as
+recorded: `--profile --world=<copy> --fluidnear=2 --fluidjob=1 --speed=0 --measure=60`, twice —
+the second run with the solve split into four phases, the instrument this pass built. 0 `ERROR`,
+every identity exact, the copy deleted after. Suite 1,829 green, r6 control 2601 / 325 / 3446 at
+411 to the digit.
+
+**Five facts.**
+
+1. **The tick runs at 0.55–0.60 Hz against 2.** Worker wall 1,529 / 1,605 ms mean (max 3.75 s);
+   the visits 716 / 774 ms, **the solve 810 / 827 ms — just over half the tick.** 25–31 of 33–36
+   boundaries waited. On the sim thread each boundary also pays hand-off and drain 36 ms, capture
+   and compose 37, field sync 27 (means) — about 110 ms a boundary, not the solve's and not this
+   pass's, recorded so it is not rediscovered.
+2. **The split, mean per pass over the run: 683 k seeds (1.2 M at the end, ~470 k of them from
+   the carry); gather 2 ms / sort 220 / flood 436 / level 112.** A pass visits ~505 k cells and
+   writes ~243 k. The flood is 57%, the sort 29%, the levelling 14%.
+3. **The recorded levers aimed at the wrong quantity.** All three (a per-sheet wait, a cap on a
+   pass's cells, a smaller share for very large sheets) assume the cost is the sheets it levels.
+   The largest sheet is 59–75 k cells; ~140 sheets are levelled a pass; the level phase, which is
+   the whole of what those levers act on, is 112 ms. *Still being fed* is 2,115 of ~49 k sheets
+   found — the flood that ends in that skip is not where the time goes either. **The cost is the
+   width of the active set**: the solve is seeded from every awake cell and the carry's new part,
+   sorts them all, and floods from each.
+4. **The sort is ~320 ns a seed**, `List<VoxelPos>.Sort` with a delegate comparing three keys.
+   The order has two uses and only two: seeds grouped by Y bottom-up (the no-siphons reason), and
+   a total order so the same water solves the same way whichever cell woke first.
+5. **A free solve leaves the tick at ~800 ms — about 1.25 Hz, not 2.** The visits are the other
+   half, over 740 k–1 M active cells on a world that had 3.4 M active at its open. The solve's
+   levers can halve this world's tick; they cannot make the load test run at 2 Hz, and the load
+   test is the extreme by design — his played worlds are smaller.
+
+**Five decisions, all recommended.**
+
+1. **Sort on a packed key — first, alone.** Encode (Y, X, Z) into one `long` whose ordering is
+   the comparator's (each coordinate biased to non-negative, 21 bits each), sort a `long[]` with
+   `Array.Sort` (primitive introsort, no delegate), decode. The order is the same order, so every
+   pass is bitwise the pass it was: the test is packed order == comparator order over random
+   positions including negatives and both extremes of the range, and the existing solve battery
+   unchanged. **Cost: a coordinate bound of ±1,048,575 voxels (±262 km)** — past M4a's float cap
+   by two orders; outside it the pass falls back to the comparator, counted rather than thrown.
+   Estimate, not a measurement: 220 → 20–40 ms a pass.
+2. **The flood's lookups — second, benched first.** The flood is a `Dictionary<VoxelPos, int>`
+   insert and four probes a cell, plus the grid's own panel lookups for `AmountAt` and the
+   terrain's for `CanHold`, ~370 ns per seed-or-cell. A flood is one Y at a time, so the index
+   can be a per-panel stamp array over the layer instead of a hash; the grid reads can take the
+   panel once per cell rather than per neighbour. Unpriced, so a bench arm with a wide active set
+   comes before the build — `--lake` is a quiet sheet and does not have this shape.
+3. **Seeds are not filtered before the sort.** Testing `IsSheetCell` up front would shrink the
+   sort, and it changes answers: a lower sheet's takers fill up during the pass and can support a
+   seed that was not supported when the pass began, which is exactly why the flood tests seeds
+   bottom-up against the grid the lower sheets left. Rejected, with that reason.
+4. **The three recorded levers are retired as first moves, and the pass cap is kept as the
+   fallback.** A per-sheet wait and a smaller large-sheet share act on 14% of the pass. A cap on
+   the cells a pass visits, the rest carried, is the one lever that bounds the solve whatever the
+   world does — and the only one of the three that changes what the water does (a sheet levelled
+   a boundary late). Built only if 1 and 2 leave the solve over the target.
+5. **The target: the solve under a third of the tick's wall on the load test** — ~400 ms against
+   today's 810 — read off the `settle` line's phases and the `fluidjob` line's `solve mean` on
+   the same recipe. Not 2 Hz, by fact 5; that would be the visits' pass, and nobody has asked
+   for it.
+
+**The instrument.** `SheetLevelResult` carries `Seeds` and four phase times; `SheetSettle` sums
+them; the `M8b:` line's settle term and the profile's `settle` line end in `per pass N seed(s),
+gather / sort / flood / level ms mean`. It costs two `Stopwatch` reads a Y group and four a pass. The record's
+equality now includes timing, and no test compared two results whole.
