@@ -264,7 +264,12 @@ Nothing is blocked on these; they're all one-line changes when you have a view.
       already soaks into the lake below. Two things it deliberately doesn't do at first: water
       still being poured (a pump's outlet) spreads at today's pace, and a very big lake's edge
       still creeps. "As recommended" is enough to start.
-- [ ] **Water spreading faster, part 2** — the "Slice 2" section at the end of
+- [ ] **Water spreading faster, part 2 — steps 1 and 2 built 2026-09-24; step 3 is your call.**
+      The count said my guess was wrong: on a copy of your world in rain, the puddles marked "still
+      being poured into" really were — each got a tenth of itself or more in a second (rain
+      drops landing in small puddles, and the breach). So step 2 is right but won't change your
+      pit. Step 3 — letting real streams spread without flattening them — is the one that would.
+      "Build step 3" or "leave it". Was: the "Slice 2" section at the end of
       [docs/FRONT-ADVANCE-PLAN.md](docs/FRONT-ADVANCE-PLAN.md), seven decisions. Your log showed four
       puddles in five were skipped as "still being poured into" — and the game calls a puddle that
       even if one rain drop or one litre of wall seepage landed anywhere in its 8 m chunk. The plan:

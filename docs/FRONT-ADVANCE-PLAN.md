@@ -318,3 +318,37 @@ sentence: does the breach's water run across the pit floor now, and does it stil
 | **2a — count** | per-chunk inflow millilitres; the fed split on the `settle` line | one play's split: trickle against stream |
 | **2b — volume-aware fed** | `IsBeingFed` by share, `--fedshare=` (1%; 0 the control) | the tests; the fed column falls on the copy; the bench's fed arm |
 | **2c — pro rata** | the scaled target rule for a sheet still fed, after the same rings | the stream test; the fed arm's radius; his play |
+
+### Slices 2a and 2b — built, and what the count said (2026-09-24, evening)
+
+On *"As recommended, build it please"*. **2a**: every chunk keeps an eight-tick ring of the
+millilitres it received (`InflowRing`), fed by `NoteInflow(voxel, millilitres)` — the volume from
+`Add` and `Emit`, and `InflowRing.Disturbance` from an edit under water and a fall's re-pour, which
+are fed whatever their volume as a changed terrain always was. `IsBeingFed` sums the litres that
+entered a sheet's distinct chunks within the quiet window and sorts every sheet it tests into
+under 0.1% / under 1% / under 10% / 10% or more / disturbed, on the `settle` line. **2b**: a sheet is
+fed only when that sum is at least `FedSharePercent` of it — 1% shipped (`--fedshare=`), 0 the old
+any-inflow rule and the constructor's default, so every recorded figure reproduces; a window longer
+than the ring keeps the old rule. Eleven tests (`FedShareTests`); ten recipes, nine caught on the
+first run — the miss was the 1–10% band, which no fixture had, and a test now pours 1.7% into it.
+Suite 1,873; r6 control to the digit.
+
+**The count, on a copy of `Regions13` with the weather sped up (`--clockscale=20`, ~100 rain drops
+in the minute), both arms 0 `ERROR` and every identity exact:**
+
+| fed sheets by inflow share | `--fedshare=0` | 1% |
+|---|---|---|
+| under 0.1% | 0 | 0 |
+| 0.1–1% | 0 | 0 |
+| 1–10% | 3 | 0 |
+| 10% or more | 1,306 | 869 |
+| disturbed | 6 | 0 |
+
+(The arms' totals differ with the rain's timing — 107 drops against 99 — not with the rule.)
+**Fact 3's estimate was wrong for this world: the sheets it calls fed are fed** — small puddles a
+15.6 L drop lands in and the breach's streams, a tenth of themselves or more within two ticks —
+and it had no seepage to count (`seeped 0 L`; the pit is not under the lake's table). The copy at
+rest, without the weather, tested no fed sheet at all. **So 2b is right and costs nothing, it will
+matter in a mine sweating under a lake, and it does not move his breach pit.** Decision 4's
+condition for 2c — a play that still reads a stream as slow — is what the count predicts; 2c is the
+lever for his case, and it waits on his word.

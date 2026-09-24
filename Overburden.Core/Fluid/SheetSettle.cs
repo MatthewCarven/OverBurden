@@ -96,6 +96,23 @@ public sealed class SheetSettle
     /// <summary>Dry cells the advance has added to sheets, summed over every pass.</summary>
     public long CellsAdvanced { get; private set; }
 
+    /// <summary>
+    /// The inflow split over every pass (FRONT-ADVANCE-PLAN slice 2a): sheets tested for feeding,
+    /// by the water that entered their chunks in the window as a share of them — under 0.1%, under
+    /// 1%, under 10%, 10% or more, disturbed — and those levelled for being under the fed share.
+    /// </summary>
+    public long InflowUnderTenthPercent { get; private set; }
+
+    public long InflowUnderOnePercent { get; private set; }
+
+    public long InflowUnderTenPercent { get; private set; }
+
+    public long InflowTenPercentPlus { get; private set; }
+
+    public long InflowDisturbed { get; private set; }
+
+    public long TrickleLevelled { get; private set; }
+
     /// <summary>Seeds and cells a pass may test before it stops at the next height; zero is no cap.</summary>
     public int SolveCap { get; }
 
@@ -222,6 +239,12 @@ public sealed class SheetSettle
         SeedsOffered += result.Seeds;
         SeedsDeferred += result.SeedsDeferred;
         CellsAdvanced += result.Advanced;
+        InflowUnderTenthPercent += result.InflowUnderTenthPercent;
+        InflowUnderOnePercent += result.InflowUnderOnePercent;
+        InflowUnderTenPercent += result.InflowUnderTenPercent;
+        InflowTenPercentPlus += result.InflowTenPercentPlus;
+        InflowDisturbed += result.InflowDisturbed;
+        TrickleLevelled += result.TrickleLevelled;
         if (result.Capped)
         {
             CappedPasses++;

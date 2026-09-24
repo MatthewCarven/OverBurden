@@ -174,6 +174,11 @@ public sealed partial class FluidSimulation : IFluidPersistence
     // grid is already keyed by it and the flood can read it once per cell for the price of a
     // cached lookup; per cell would be a timestamp on every voxel.
     private readonly Dictionary<ChunkPos, long> _inflowTick = [];
+
+    // What each chunk received, tick by tick, over the last InflowRing.Slots ticks, and when it was
+    // last disturbed (FRONT-ADVANCE-PLAN, slice 2): the stamp above says whether anything came in;
+    // this says how much, so a sheet can be called fed only when its inflow is a share of it.
+    private readonly Dictionary<ChunkPos, InflowRing> _inflowAmounts = [];
     private ChunkPos _inflowCacheKey;
     private long _inflowCacheValue = NeverInflowed;
     private bool _inflowCacheValid;
@@ -413,7 +418,7 @@ public sealed partial class FluidSimulation : IFluidPersistence
         if (accepted > 0)
         {
             AddedMillilitres += accepted;
-            NoteInflow(voxel);
+            NoteInflow(voxel, accepted);
             Wake(voxel);
             WakeNeighboursOf(voxel);
         }
@@ -591,7 +596,7 @@ public sealed partial class FluidSimulation : IFluidPersistence
             // Counted whether or not the cell was already awake: an edit under water that is
             // still moving is as much a disturbance as one under water at rest.
             Wake(cell);
-            NoteInflow(cell);
+            NoteInflow(cell, InflowRing.Disturbance);
             DisturbedCells++;
 
             // The surface: a face this cell draws or does not draw may be wrong now — rock placed
@@ -1498,11 +1503,22 @@ public sealed partial class FluidSimulation : IFluidPersistence
     private readonly List<ChunkPos> _reachScratch = [];
     private int _reachRingStart;
 
-    /// <summary>Records that this voxel's chunk received water or an edit on this tick.</summary>
-    private void NoteInflow(VoxelPos voxel)
+    /// <summary>
+    /// Records that this voxel's chunk received <paramref name="millilitres"/> of water on this tick,
+    /// or, with <see cref="InflowRing.Disturbance"/>, that the terrain or the water under it was
+    /// disturbed — an edit, a fall's re-pour — which is fed whatever its volume.
+    /// </summary>
+    private void NoteInflow(VoxelPos voxel, long millilitres)
     {
         ChunkPos chunk = voxel.Chunk;
         _inflowTick[chunk] = Ticks;
+        if (!_inflowAmounts.TryGetValue(chunk, out InflowRing? ring))
+        {
+            ring = new InflowRing();
+            _inflowAmounts[chunk] = ring;
+        }
+
+        ring.Note(Ticks, millilitres);
         if (_inflowCacheValid && _inflowCacheKey == chunk)
         {
             _inflowCacheValue = Ticks;
@@ -1530,10 +1546,26 @@ public sealed partial class FluidSimulation : IFluidPersistence
         return _inflowCacheValue;
     }
 
+    /// <summary>
+    /// Millilitres this chunk received within <paramref name="window"/> ticks of <paramref name="now"/>,
+    /// and whether it was disturbed in that window.
+    /// </summary>
+    internal long InflowWithin(ChunkPos chunk, long now, int window, out bool disturbed)
+    {
+        if (!_inflowAmounts.TryGetValue(chunk, out InflowRing? ring))
+        {
+            disturbed = false;
+            return 0;
+        }
+
+        return ring.Within(now, window, out disturbed);
+    }
+
     /// <summary>Drops a chunk's inflow stamp. Called where the grid drops the chunk.</summary>
     private void ForgetInflow(ChunkPos chunk)
     {
         _inflowTick.Remove(chunk);
+        _inflowAmounts.Remove(chunk);
         if (_inflowCacheValid && _inflowCacheKey == chunk)
         {
             _inflowCacheValid = false;

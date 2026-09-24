@@ -663,6 +663,14 @@ public partial class Main : Node3D
     /// </summary>
     private int _frontAdvance = SheetSettle.DefaultFrontAdvance;
 
+    /// <summary>
+    /// <c>--fedshare=</c> (FRONT-ADVANCE-PLAN slice 2): a sheet is still being fed only when
+    /// the water that entered its chunks within the quiet window is at least this share of it.
+    /// The game ships <see cref="FluidSimulation.DefaultFedSharePercent"/>; zero is the old rule
+    /// — any inflow at all — and the control arm.
+    /// </summary>
+    private double _fedShare = FluidSimulation.DefaultFedSharePercent;
+
     /// <summary>Litres one press of the relay pours. Enough to see; not enough to flood a mine.</summary>
     private const long RelayLitres = 10_000;
 
@@ -1832,6 +1840,11 @@ public partial class Main : Node3D
                     break;
 
                 // The front advance (docs/FRONT-ADVANCE-PLAN.md): zero is off, the control.
+                // The fed share (FRONT-ADVANCE-PLAN slice 2), in percent: zero is the old any-inflow rule.
+                case "fedshare" when double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double fedShare):
+                    _fedShare = Math.Max(0.0, fedShare);
+                    break;
+
                 case "frontadvance" when int.TryParse(value, out int frontAdvance):
                     _frontAdvance = Math.Max(0, frontAdvance);
                     break;
@@ -5979,7 +5992,10 @@ public partial class Main : Node3D
             simTerrain = new LakeBoundedTerrain(simTerrain, _lakeCeiling);
         }
 
-        _fluid = new FluidSimulation(simTerrain, spread: _spread, fallCells: _fallCells);
+        _fluid = new FluidSimulation(simTerrain, spread: _spread, fallCells: _fallCells)
+        {
+            FedSharePercent = _fedShare,
+        };
         _machineTerrain = simTerrain;
         if (_fallCells != FluidSimulation.DefaultFallCells)
         {
@@ -7264,10 +7280,18 @@ public partial class Main : Node3D
         string advance = _settle.FrontAdvance == 0
             ? "no front advance"
             : $"front advance {_settle.FrontAdvance} ring(s): {_settle.CellsAdvanced:N0} cell(s) in all";
+        long withInflow = _settle.InflowUnderTenthPercent + _settle.InflowUnderOnePercent
+            + _settle.InflowUnderTenPercent + _settle.InflowTenPercentPlus + _settle.InflowDisturbed;
+        string fed = $"inflow into {withInflow:N0} sheet(s) tested: <0.1% {_settle.InflowUnderTenthPercent:N0} / "
+            + $"<1% {_settle.InflowUnderOnePercent:N0} / <10% {_settle.InflowUnderTenPercent:N0} / "
+            + $"10%+ {_settle.InflowTenPercentPlus:N0} / disturbed {_settle.InflowDisturbed:N0}, "
+            + (_fluid!.FedSharePercent <= 0
+                ? "fed at any inflow (--fedshare=0)"
+                : $"fed at {_fluid.FedSharePercent:0.###}%: {_settle.TrickleLevelled:N0} levelled under it");
         string cap = _settle.SolveCap == 0
             ? "no cap"
             : $"cap {_settle.SolveCap:N0}: {_settle.CappedPasses:N0} pass(es) capped, {_settle.SeedsDeferred / (double)passes:N0} seed(s) a pass left to the next";
-        return $"{advance}; {cap}; per pass {_settle.SeedsOffered / (double)passes:N0} seed(s), gather {_settle.GatherMillis / passes:F1} / "
+        return $"{advance}; {fed}; {cap}; per pass {_settle.SeedsOffered / (double)passes:N0} seed(s), gather {_settle.GatherMillis / passes:F1} / "
                + $"sort {_settle.SortMillis / passes:F1} / flood {_settle.FloodMillis / passes:F1} / "
                + $"level {_settle.LevelMillis / passes:F1} ms mean";
     }

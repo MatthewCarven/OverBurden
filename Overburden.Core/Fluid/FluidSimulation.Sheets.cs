@@ -31,6 +31,12 @@ namespace Overburden.Core.Fluid;
 /// <param name="Capped">The pass stopped at its cap and left the heights above for the next pass.</param>
 /// <param name="SeedsDeferred">Seeds at heights this pass did not reach — below where it resumed, or above where it stopped.</param>
 /// <param name="Advanced">Dry cells the front advance added to the sheets it levelled (FRONT-ADVANCE-PLAN).</param>
+/// <param name="InflowUnderTenthPercent">Sheets tested for feeding whose inflow in the window was under 0.1% of them.</param>
+/// <param name="InflowUnderOnePercent">… 0.1% to under 1%.</param>
+/// <param name="InflowUnderTenPercent">… 1% to under 10%.</param>
+/// <param name="InflowTenPercentPlus">… 10% or more.</param>
+/// <param name="InflowDisturbed">… disturbed in the window — an edit or a fall — which is fed whatever its volume.</param>
+/// <param name="TrickleLevelled">Sheets with inflow under the fed share, levelled rather than left: what slice 2 recovers.</param>
 /// <remarks>
 /// The four phases exist because M10d-3's first number (2026-09-24, a copy of the retired spread
 /// world) read 810 ms a pass from 1.58 M seeds against 486 k cells visited — and the recorded
@@ -40,7 +46,9 @@ public readonly record struct SheetLevelResult(
     int Sheets, int Levelled, int Packed, int Skipped, int UnderShare, int Stepped, int LargestSheet,
     int CellsVisited, int CellsWritten, long MillilitresMoved, int CellsWoken, int Noisy,
     int Seeds = 0, double GatherMillis = 0, double SortMillis = 0, double FloodMillis = 0,
-    double LevelMillis = 0, bool Capped = false, int SeedsDeferred = 0, int Advanced = 0)
+    double LevelMillis = 0, bool Capped = false, int SeedsDeferred = 0, int Advanced = 0,
+    int InflowUnderTenthPercent = 0, int InflowUnderOnePercent = 0, int InflowUnderTenPercent = 0,
+    int InflowTenPercentPlus = 0, int InflowDisturbed = 0, int TrickleLevelled = 0)
 {
     /// <summary>A pass that found nothing to change.</summary>
     public bool Idle => CellsWritten == 0;
@@ -199,6 +207,29 @@ public sealed partial class FluidSimulation
     /// An estimate (FRONT-ADVANCE-PLAN decision 3).
     /// </summary>
     public const int AdvanceFloorMillilitres = 2 * FluidConstants.MinimumSpreadMillilitres;
+
+    /// <summary>
+    /// The fed share the game ships with (FRONT-ADVANCE-PLAN slice 2, Matthew's word 2026-09-24): a
+    /// sheet is still being fed when the water that entered its chunks within the quiet window is
+    /// at least this percent of the sheet. <b>An estimate</b> until the play's inflow split says
+    /// otherwise.
+    /// </summary>
+    public const double DefaultFedSharePercent = 1.0;
+
+    /// <summary>
+    /// The fed share in percent; zero is the rule before slice 2 — any inflow at all, a rain drop or
+    /// a sweated litre, makes every sheet in that chunk fed — and is the default, so every figure
+    /// recorded before it reproduces. The game sets <see cref="DefaultFedSharePercent"/>. Set once,
+    /// before any tick; the worker's solve reads it.
+    /// </summary>
+    public double FedSharePercent { get; set; }
+
+    // Scratch for IsBeingFed: the chunks of one sheet counted once each.
+    private readonly HashSet<ChunkPos> _fedChunks = [];
+
+    // The inflow split of the pass in progress (slice 2a): under 0.1%, 1%, 10%, over, disturbed,
+    // and levelled under the share.
+    private int _inflowTenth, _inflowOne, _inflowTen, _inflowOver, _inflowDisturbed, _trickleLevelled;
     private readonly List<int> _sheetOrder = [];
     private readonly List<int> _sheetGivers = [];
     private readonly List<int> _sheetTakers = [];
@@ -380,6 +411,7 @@ public sealed partial class FluidSimulation
 
         int sheets = 0, levelled = 0, packed = 0, skipped = 0, underShare = 0, stepped = 0, noisy = 0;
         int largest = 0, visited = 0, written = 0, woken = 0, advanced = 0;
+        _inflowTenth = _inflowOne = _inflowTen = _inflowOver = _inflowDisturbed = _trickleLevelled = 0;
         long moved = 0;
         double sortMillis = Millis(started);
         long floodTicks = 0;
@@ -500,7 +532,8 @@ public sealed partial class FluidSimulation
         return new SheetLevelResult(
             sheets, levelled, packed, skipped, underShare, stepped, largest, visited, written, moved,
             woken, noisy, offered, 0, sortMillis, floodMillis,
-            Math.Max(0, Millis(started) - sortMillis - floodMillis), capped, deferred, advanced);
+            Math.Max(0, Millis(started) - sortMillis - floodMillis), capped, deferred, advanced,
+            _inflowTenth, _inflowOne, _inflowTen, _inflowOver, _inflowDisturbed, _trickleLevelled);
     }
 
     /// <summary>
@@ -601,6 +634,22 @@ public sealed partial class FluidSimulation
     /// invalidated them. Levelling a sheet under inflow is what makes a stream down a tunnel rise
     /// as a flat sheet instead of flowing, which is the arm <c>--settleafter=0</c> keeps.
     /// </remarks>
+    /// <remarks>
+    /// <para>
+    /// <b>Slice 2 (FRONT-ADVANCE-PLAN): fed means the inflow is a share of the sheet.</b> Until then any
+    /// stamp on any of the sheet's chunks within the window made it fed — chunk-granular and
+    /// volume-blind, so one rain drop or one sweated litre anywhere in an 8 m chunk left every sheet
+    /// in it unlevelled, and the play's settle line read 184,380 fed against 39,735 levelled. Now the
+    /// litres that entered the sheet's distinct chunks within the window are summed and compared with
+    /// <see cref="FedSharePercent"/> of its total; a disturbance (an edit, a fall's re-pour) is fed
+    /// whatever its volume, as a changed terrain always was. Zero is the old rule. A window longer
+    /// than the ring keeps the old rule too, because the ring cannot say what came in before it.
+    /// </para>
+    /// <para>
+    /// Walks the whole sheet rather than stopping at the first fed cell, because the answer is a sum
+    /// now; the flood has already paid for every cell, and consecutive cells share a chunk.
+    /// </para>
+    /// </remarks>
     private bool IsBeingFed(Sheet sheet)
     {
         if (_quietTicks <= 0)
@@ -608,16 +657,47 @@ public sealed partial class FluidSimulation
             return false;
         }
 
+        _fedChunks.Clear();
+        long inflow = 0;
+        bool any = false, disturbed = false;
         foreach (int record in sheet.Cells)
         {
-            long inflow = InflowTickAt(_cellPos[record].Chunk);
-            if (inflow != NeverInflowed && _solveTick - inflow <= _quietTicks)
+            ChunkPos chunk = _cellPos[record].Chunk;
+            long stamp = InflowTickAt(chunk);
+            if (stamp == NeverInflowed || _solveTick - stamp > _quietTicks || !_fedChunks.Add(chunk))
             {
-                return true;
+                continue;
             }
+
+            any = true;
+            inflow += InflowWithin(chunk, _solveTick, _quietTicks, out bool d);
+            disturbed |= d;
         }
 
-        return false;
+        if (!any)
+        {
+            return false;
+        }
+
+        double percent = sheet.Total > 0 ? inflow * 100.0 / sheet.Total : double.PositiveInfinity;
+        if (disturbed) _inflowDisturbed++;
+        else if (percent < 0.1) _inflowTenth++;
+        else if (percent < 1.0) _inflowOne++;
+        else if (percent < 10.0) _inflowTen++;
+        else _inflowOver++;
+
+        if (FedSharePercent <= 0 || disturbed || _quietTicks >= InflowRing.Slots)
+        {
+            return true;
+        }
+
+        bool fed = percent >= FedSharePercent;
+        if (!fed)
+        {
+            _trickleLevelled++;
+        }
+
+        return fed;
     }
 
     /// <summary>The share rule, in one place: at least one cell in <paramref name="share"/> unsettled.</summary>

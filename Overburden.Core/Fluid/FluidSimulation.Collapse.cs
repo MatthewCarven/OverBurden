@@ -61,7 +61,7 @@ public sealed partial class FluidSimulation : ICollapseWater
         if (accepted > 0)
         {
             ReturnedMillilitres += accepted;
-            NoteInflow(cell);
+            NoteInflow(cell, InflowRing.Disturbance); // a fall's water: the world changed
             Wake(cell);
             WakeNeighboursOf(cell);
         }
@@ -140,7 +140,7 @@ public sealed partial class FluidSimulation : ICollapseWater
         if (accepted > 0)
         {
             EmittedMillilitres += accepted;
-            NoteInflow(voxel);
+            NoteInflow(voxel, accepted);
             Wake(voxel);
             WakeNeighboursOf(voxel);
         }

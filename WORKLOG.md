@@ -1,5 +1,18 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-24 — Slice 2a/2b: fed by volume, and the count that said the estimate was wrong
+
+Built on his word: an eight-tick ring of millilitres per chunk (`InflowRing`), disturbances kept
+fed whatever their volume, and a sheet fed only when its window's inflow is at least 1% of it
+(`--fedshare=`, 0 the old rule). Eleven tests, ten recipes (nine then ten caught — the 1–10% band
+had no fixture). **Then the count the plan asked for, on a copy of `Regions13`**: at rest the copy
+tested no fed sheet at all; with `--clockscale=20` and ~100 rain drops in the minute, **1,306 of
+1,315 fed sheets took 10% or more of themselves in two ticks, none under 1%**, and nothing seeped.
+The plan's fact 3 — that most of his 184,380 were trickles — was an estimate and it was wrong for
+this world: the fed sheets are small puddles a 15.6 L drop lands in, and the breach's streams. 2b
+is kept (correct, free, and the case it fixes — a mine sweating under a lake — is real elsewhere),
+and the lever for his pit is 2c, a stream spreading pro rata, which waits on his word.
+
 ## 2026-09-24 — Planned: the front advance's slice 2
 
 Matthew tried `--frontadvance=8` on `Regions13`: *"very little difference to the 4, look overall its

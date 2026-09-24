@@ -5685,7 +5685,10 @@ as decision 2 with the cheaper arm recommended (a presentation fill and a live l
             day: the solve 853/694 → 353/351 ms, 0.52 → 0.73/0.80 Hz, 30–32% of the wall, target
             met; a full sweep of the load test's heights takes ~6 s where it took one pass.**
             Left unpriced: reads a cell and seeds offered.
-      - [ ] **Front advance slice 2 — planned 2026-09-24 (evening), not built.** His play: 184,380
+      - [ ] **Front advance slice 2 — planned 2026-09-24 (evening); 2a and 2b built the same night,
+            2c waits on his word.** The count on a copy of `Regions13` in sped-up rain: every fed
+            sheet fed by 10% or more of itself, none under 1% — the trickle estimate was wrong for
+            that world, so 2b does not move his breach pit and 2c is the lever. Was: His play: 184,380
             sheets left alone as *still being fed* against 39,735 levelled — and "fed" is
             chunk-granular and volume-blind (a rain drop or a sweated litre marks an 8 m chunk).
             Seven decisions in the plan's "Slice 2" section: count the inflow share first (2a),
