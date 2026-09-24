@@ -1139,6 +1139,41 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
+**Pick up here (2026-09-24, evening — session close, *"see you in a fresh Code Chat"*). Everything
+is committed; the push is Matthew's. Suite 1,873, r6 control 2601 / 325 / 3446 at 411 to the digit.
+`start2.cmd` and `start3.cmd` are his and deliberately not committed.**
+
+**Built this session, all on his word:** d-3's number and the solve's phase split; **the packed seed
+sort** (228 → 57 ms a pass, same-session control); **the flood's index on his layered lookup table**
+(`FloodIndex`, 0.90× the flood on `--solve`); **the pass cap** (`--solvecap=`, 500 k; the load test
+0.52 → 0.73–0.80 Hz); **F11 far mode** (the adaptive radius's ceiling to r8h/4v); **the front
+advance** (`--frontadvance=`, 4 — a 10,000 L pour to 12 m in ~5 s where it took ~25) with
+`--fluidhz=` beside it; and **front-advance slice 2a/2b** (fed by volume, `--fedshare=`, 1%). Played
+and kept: the map at 2 km, the compass, the relief default (`0.4 / 3 / 0.25`).
+
+**Next, in order: front-advance slice 2c — a stream spreads pro rata — and it wants its code-level
+pass first, not straight code.** Decision 3 of "Slice 2" in [docs/FRONT-ADVANCE-PLAN.md](docs/FRONT-ADVANCE-PLAN.md)
+is the design; read "Slices 2a and 2b — built" first — the count on a copy of `Regions13` in rain
+says every fed sheet is fed by 10%+ of itself, so 2c is the lever for his breach pit and 2b is not.
+**The trap found while closing: `ListRested` lists every written, non-front cell of a solved sheet
+as resting because a *level* sheet has no move — a pro-rata sheet is not level, so its interior
+would be listed as resting and, on natural ground, handed to Tier A mid-flow.** The pass must decide
+what a pro-rata sheet lists and wakes (likely: lists nothing, wakes the cells whose gradient it
+changed) before any code, and prove it with `VerifyQuiescent` after the settle. Then the tests the
+plan names, the battery, the `--front` fed arm, and his look.
+
+**Four things not to rediscover.** **This machine runs in two speeds about three times apart, minute
+to minute** — the day's load-test runs split ~0.55 Hz / ~1.45 Hz with no code between them; alternate
+the arms (A B A B) or use the interleaved bench, never compare two runs across a phase. **`arr[Call()]`
+reads the array before the call** — `Discover` grows the record arrays, so the one-liner wrote into
+the old one; a fixture must cross the scratch arrays' growth boundary (256) at least once. **In an
+open fixture the tick's wake cascade repairs an unwoken seam from its ends** — close the corridor and
+put the water down asleep, or a missing wake reads as correct. **And `sed -i` in Git Bash writes a
+CRLF file back as LF** — edit with Python that keeps the line endings, or re-check-out the file after
+committing.
+
+The paragraph below is the morning's state, kept for the reasoning.
+
 **Pick up here (2026-09-24 — session close, *"see you in a fresh Code Chat"*). Everything is
 committed and pushed through `2afa9c8`; the tree is clean but for `start2.cmd`, which is
 Matthew's (a copy of `start.cmd` he made mid-session) and deliberately not committed. Suite

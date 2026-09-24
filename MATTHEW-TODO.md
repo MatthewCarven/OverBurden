@@ -361,9 +361,19 @@ what it means.*
 
 ## Status, kept current for you
 
-Updated **2026-09-24**.
+Updated **2026-09-24, evening**.
 
-- **This session (all pushed, all unplayed):** the vacuum cell's on/off switch, the quantum
+- **This session (committed; `git push` is yours):** the water solver made faster on your big
+  world (0.52 → about 0.8 ticks a second), **F11 far mode**, **water that spreads sideways
+  faster** (`--frontadvance`, and `--fluidhz` to compare), and part 2's first two steps. Played
+  and kept: the map at 2 km, the compass, the hills' default. Suite **1,873** green.
+- **Next on my side:** part 2's step 3 (streams spreading without being flattened) — planned,
+  and I found a trap while closing, so it starts next session with a look at the code first.
+- `start2.cmd` and `start3.cmd` are yours and left out of git.
+
+Earlier the same day:
+
+- **Morning (all pushed, all unplayed):** the vacuum cell's on/off switch, the quantum
   tunneller (2 m cube), every quantum tool one click one bite with Q held to run, and the TNT
   notes with your design in them. Suite **1,829** green; r6 control to the digit.
 - `start2.cmd` is yours and I left it out of git — commit or delete it as you like.
