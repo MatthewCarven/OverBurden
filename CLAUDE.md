@@ -1148,6 +1148,22 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
+**Pick up here (2026-09-24, late night — session close, *"pushed, see you in a fresh Code
+Chat"*). Pushed through `aa487c6`; `start2/3/4.cmd` are his and untracked. Suite 1,888, r6 control
+to the digit.** Built tonight, all on his word: the lift line's false alarm (`a618d81` — `lifted ==
+returned + displaced by falls and fills`, chunk fills displace by design); **front-advance slice
+2c** — its pass found the plan's pro-rata rule puts a ridge in front of every tapering stream, so a
+fed sheet levels its tip band from the dry edge with the new cells and leaves its body alone, lists
+nothing as resting, and is woken by what the write gave a move (`--fedadvance=`, `--fedband=`);
+**played at `--fedband=6` and 6 ships** (*"that hits deep … i think its the one"*). **Next: his
+load test** (in `MATTHEW-TODO.md` — `start3` against `start3 --fedadvance=0`, the log copied aside
+between them): tonight's 6N session ran the water at ~1 Hz over 1.08 M active cells with the pass
+at flood 166 / level 46 ms, so the read is that the flood's size is the cost, not the advance —
+one run, no control, a lean. Then the older play queue. **Copy `godot.log` aside before any
+headless probe** — tonight's four checks rotated his play log away after it had been read.
+
+The paragraph below is the evening's state, kept for the reasoning.
+
 **Pick up here (2026-09-24, evening — session close, *"see you in a fresh Code Chat"*). Everything
 is committed; the push is Matthew's. Suite 1,873, r6 control 2601 / 325 / 3446 at 411 to the digit.
 `start2.cmd` and `start3.cmd` are his and deliberately not committed.**
