@@ -98,6 +98,19 @@ decision for the pass, not a given.
    sheet solve levels *sheets* (sideways-connected at one Y), not voids. A body formed from resting
    cells with an unequal arm would level instantly on formation — bounded by the arm's volume,
    rare, and a physics change that is arguably a fix. Decide, and say which.
+   **Matthew's answer, 2026-09-26**, after the table showed his pond pouring into the diggings
+   under it: *"this i agree with but only if there is tier b water connecting like or the actual
+   sheets are side by side without anything solid or 'leaky' beside it, else just let natural
+   seepage take its course"*. **So a body is a connected component of water, not of void.** Two
+   arms level together only when water joins them face to face: a flooded bend, or wet cells side
+   by side with nothing between. An air gap, a solid wall or a permeable ("leaky") one keeps them
+   two bodies, and what crosses a leaky wall is M8c's seepage at its own rate. That has three
+   consequences. Decision 3's flood runs over wet voxels, bounded by the water rather than the
+   void, so its price only falls. The no-siphons rule stands, because water never crosses a dry
+   crest to level. And opening a wall between two bodies levels them by the automaton, as cells
+   through the gap, until they rest and join. **Still open:** a body formed from resting cells
+   whose arms already stand unequal, which is rare and bounded, levels at once or is left to the
+   automaton.
 2. **When cells become a body.** Rested *K* ticks with the sheet solved → absorb the connected
    void under the surface. A puddle on a ledge above the surface is its own body or stays cells.
    The transition must be exact in millilitres, both ways — the M8a oracle.
