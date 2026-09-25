@@ -82,6 +82,8 @@ public static class WaterGrid
         var loaded = new bool[side * side];
         var level = new double[side * side];
         Array.Fill(level, double.NaN);
+        var sourceX = new int[side * side];
+        var sourceZ = new int[side * side];
 
         var cellBuilt = new Dictionary<(int X, int Z), bool>();
         for (int z = 0; z < side; z++)
@@ -128,6 +130,8 @@ public static class WaterGrid
                 if (t is { } l)
                 {
                     level[i] = l;
+                    sourceX[i] = sample.Item1;
+                    sourceZ[i] = sample.Item2;
                     if (floor[i] < l)
                     {
                         seeds.Add((l, i));
@@ -164,12 +168,16 @@ public static class WaterGrid
                     int n = (nz * side) + nx;
                     if (!loaded[n] || !built[n] || !double.IsNaN(level[n]) || floor[n] >= l) return;
                     level[n] = l;
+                    sourceX[n] = sourceX[i];
+                    sourceZ[n] = sourceZ[i];
                     queue.Enqueue(n);
                 }
             }
         }
 
         var result = new double[N * N];
+        var resultX = new int[N * N];
+        var resultZ = new int[N * N];
         int reached = 0;
         for (int lz = 0; lz < N; lz++)
         {
@@ -177,11 +185,13 @@ public static class WaterGrid
             {
                 int i = ((lz + pad) * side) + lx + pad;
                 result[(lz * N) + lx] = level[i];
+                resultX[(lz * N) + lx] = sourceX[i];
+                resultZ[(lz * N) + lx] = sourceZ[i];
                 if (built[i] && !double.IsNaN(level[i])) reached++;
             }
         }
 
-        return new WaterColumns(chunkX, chunkZ, result, reached);
+        return new WaterColumns(chunkX, chunkZ, result, resultX, resultZ, reached);
     }
 
     private static bool AnyPlaced(SkyColumn column)
@@ -231,12 +241,16 @@ public sealed class WaterColumns
 {
     private const int N = VoxelConstants.ChunkSize;
     private readonly double[] _levels;
+    private readonly int[] _sourceX;
+    private readonly int[] _sourceZ;
 
-    internal WaterColumns(int chunkX, int chunkZ, double[] levels, int reached)
+    internal WaterColumns(int chunkX, int chunkZ, double[] levels, int[] sourceX, int[] sourceZ, int reached)
     {
         ChunkX = chunkX;
         ChunkZ = chunkZ;
         _levels = levels;
+        _sourceX = sourceX;
+        _sourceZ = sourceZ;
         BuiltColumnsReached = reached;
     }
 
@@ -252,5 +266,19 @@ public sealed class WaterColumns
     {
         level = _levels[(localZ * N) + localX];
         return !double.IsNaN(level);
+    }
+
+    /// <summary>
+    /// The world-lattice sample whose table this column's level came from — its own for an unbuilt
+    /// column, the seed the flood reached it from for a built-in one. The surface reads the live
+    /// level there, so a lake rising inside a voxel is not drawn a step lower where it meets a
+    /// wall; the grid's own level is the build's, correct to the voxel the band needs.
+    /// </summary>
+    public bool TryGetSource(int localX, int localZ, out int sampleX, out int sampleZ)
+    {
+        int i = (localZ * N) + localX;
+        sampleX = _sourceX[i];
+        sampleZ = _sourceZ[i];
+        return !double.IsNaN(_levels[i]);
     }
 }

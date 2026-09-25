@@ -126,8 +126,28 @@ public sealed class SurfaceHandoff
     /// <summary>Cells on the plane left standing on the last pass because their column is enclosed at their level (the courtyard).</summary>
     public int EnclosedLastPass { get; private set; }
 
+    /// <summary>
+    /// The raised watershed (docs/POND-PLAN.md, decision 6): with it, the enclosure is asked only
+    /// for a cell whose sample the player has built in — a pool narrower than a cell, which the
+    /// watershed cannot resolve. Anywhere else the basin under the sample is trusted, since a
+    /// walled pool wide enough to be a basin is its own basin now. Null asks everywhere, the
+    /// pre-2026-09-25 arm.
+    /// </summary>
+    public Hydrology.IRaisedSamples? Raised { get; set; }
+
     /// <summary>Cells left standing for being enclosed, over the lifetime — counted on every pass that listed them, so a pool still levelling inside its walls counts its cells each time they rest.</summary>
     public long EnclosedKept { get; private set; }
+
+    private bool AsksEnclosure(VoxelPos cell)
+    {
+        if (Raised is null)
+        {
+            return true;
+        }
+
+        (int sampleX, int sampleZ) = _water.SampleOf(cell.X, cell.Z);
+        return Raised.TryGetRaised(sampleX, sampleZ, out _);
+    }
 
     /// <summary>
     /// One pass over the cells the last tick found at rest. Returns the millilitres handed off.
@@ -158,7 +178,7 @@ public sealed class SurfaceHandoff
             }
 
             OnGroundLastPass++;
-            if (_enclosure is not null && _enclosure.IsEnclosed(cell.X, cell.Z, cell.Y))
+            if (_enclosure is not null && AsksEnclosure(cell) && _enclosure.IsEnclosed(cell.X, cell.Z, cell.Y))
             {
                 // The courtyard: on the plane, and walled in at its own level. Not the basin's.
                 // Left asleep where it rests — nothing wakes it but an edit or a neighbour, and

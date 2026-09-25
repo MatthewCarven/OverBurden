@@ -116,6 +116,24 @@ public sealed class WaterSurface
     /// </summary>
     public Overburden.Core.Fluid.Enclosure? Enclosure { get; set; }
 
+    /// <summary>
+    /// The water grids and the raise map (docs/POND-PLAN.md, decisions 9 and 10): a sample the
+    /// player has built in whose chunk column has a grid is drawn per voxel column from the grid —
+    /// the water meets the wall inside and stops at it outside — and the shore ring never spreads
+    /// into it. Both null is the pre-2026-09-25 arm. A raised sample with no grid (its chunk column
+    /// not loaded) is drawn as any other sample.
+    /// </summary>
+    public Overburden.Core.Fluid.WaterGrids? Grids { get; set; }
+
+    /// <inheritdoc cref="Grids"/>
+    public RaisedSurface? Raised { get; set; }
+
+    /// <summary>Samples drawn from a water grid on the last rebuild.</summary>
+    public int GridSamples { get; private set; }
+
+    /// <summary>Quads the grid samples drew on the last rebuild.</summary>
+    public int GridQuads { get; private set; }
+
     /// <summary>Wet or ring samples left undrawn on the last rebuild for being enclosed.</summary>
     public int EnclosedSamples { get; private set; }
 
@@ -173,13 +191,19 @@ public sealed class WaterSurface
         var drawLabel = new int[samples];
         var drawLevel = new double[samples];
         EnclosedSamples = 0;
+        bool[]? gridCell = GridCells(field, samples);
         for (int sz = 0; sz < pitch; sz++)
         {
             for (int sx = 0; sx < pitch; sx++)
             {
                 int i = (sz * pitch) + sx;
                 bool wet = IsWet(watershed, field, levels, sx, sz, out int label, out double level);
-                if (wet && Enclosure is not null && Enclosure.IsEnclosed(field.WorldXOf(sx), field.WorldZOf(sz), (int)System.Math.Floor(level)))
+                if (gridCell is not null && gridCell[i])
+                {
+                    // Drawn from its grid below, per voxel column.
+                    wet = false;
+                }
+                else if (wet && Enclosure is not null && Enclosure.IsEnclosed(field.WorldXOf(sx), field.WorldZOf(sz), (int)System.Math.Floor(level)))
                 {
                     // Walled in at the lake's level: not the lake's, whatever the level says.
                     wet = false;
@@ -223,7 +247,7 @@ public sealed class WaterSurface
                             int nx = sx + dx;
                             if (nx < 0 || nx >= pitch || (dx == 0 && dz == 0)) continue;
                             int n = (nz * pitch) + nx;
-                            if (wetLabel[n] != Watershed.Outlet)
+                            if (wetLabel[n] != Watershed.Outlet || (gridCell is not null && gridCell[n]))
                             {
                                 continue;
                             }
@@ -301,6 +325,14 @@ public sealed class WaterSurface
             }
         }
 
+        GridQuads = 0;
+        if (gridCell is not null)
+        {
+            int before = indices.Count;
+            DrawGridCells(water, field, gridCell, vertices, normals, indices);
+            GridQuads = (indices.Count - before) / 6;
+        }
+
         Install(vertices, normals, indices);
 
         QuadCount = indices.Count / 6;
@@ -308,6 +340,113 @@ public sealed class WaterSurface
         LastRebuildMillis =
             (System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1000.0
             / System.Diagnostics.Stopwatch.Frequency;
+    }
+
+    /// <summary>Marks the window's raised samples whose chunk column has a grid, or returns null when there are none.</summary>
+    private bool[]? GridCells(HeightField field, int samples)
+    {
+        GridSamples = 0;
+        if (Grids is null || Raised is null)
+        {
+            return null;
+        }
+
+        bool[]? cells = null;
+        var asked = new Dictionary<(int X, int Z), bool>();
+        int cell = field.CellVoxels;
+        int pitch = field.Pitch;
+        foreach (KeyValuePair<(int X, int Z), int> raised in Raised.Samples)
+        {
+            int sx = ((raised.Key.X * cell) - field.OriginX) / cell;
+            int sz = ((raised.Key.Z * cell) - field.OriginZ) / cell;
+            if (sx < 0 || sz < 0 || sx >= pitch || sz >= pitch)
+            {
+                continue;
+            }
+
+            var chunk = ((raised.Key.X * cell) >> VoxelConstants.ChunkSizeLog2, (raised.Key.Z * cell) >> VoxelConstants.ChunkSizeLog2);
+            if (!asked.TryGetValue(chunk, out bool hasGrid))
+            {
+                hasGrid = Grids.Get(chunk.Item1, chunk.Item2) is not null;
+                asked[chunk] = hasGrid;
+            }
+
+            if (hasGrid)
+            {
+                cells ??= new bool[samples];
+                cells[(sz * pitch) + sx] = true;
+                GridSamples++;
+            }
+        }
+
+        return cells;
+    }
+
+    /// <summary>
+    /// Draws every grid sample per voxel column: a run along X of columns sharing a source sample,
+    /// at that source's live level, so a lake rising inside a voxel meets the wall at the height
+    /// it stands at everywhere else.
+    /// </summary>
+    private void DrawGridCells(
+        WaterSystem water,
+        HeightField field,
+        bool[] gridCell,
+        List<Vector3> vertices,
+        List<Vector3> normals,
+        List<int> indices)
+    {
+        int cell = field.CellVoxels;
+        int pitch = field.Pitch;
+        for (int sz = 0; sz < pitch; sz++)
+        {
+            for (int sx = 0; sx < pitch; sx++)
+            {
+                if (!gridCell[(sz * pitch) + sx])
+                {
+                    continue;
+                }
+
+                int worldX0 = field.WorldXOf(sx);
+                int worldZ0 = field.WorldZOf(sz);
+                int chunkX = worldX0 >> VoxelConstants.ChunkSizeLog2;
+                int chunkZ = worldZ0 >> VoxelConstants.ChunkSizeLog2;
+                Overburden.Core.Fluid.WaterColumns? grid = Grids!.Get(chunkX, chunkZ);
+                if (grid is null)
+                {
+                    continue;
+                }
+
+                int lx0 = worldX0 - (chunkX << VoxelConstants.ChunkSizeLog2);
+                int lz0 = worldZ0 - (chunkZ << VoxelConstants.ChunkSizeLog2);
+                for (int dz = 0; dz < cell; dz++)
+                {
+                    int dx = 0;
+                    while (dx < cell)
+                    {
+                        if (!grid.TryGetSource(lx0 + dx, lz0 + dz, out int srcX, out int srcZ)
+                            || water.TableAt(srcX, srcZ) is not { } level)
+                        {
+                            dx++;
+                            continue;
+                        }
+
+                        int run = 1;
+                        while (dx + run < cell
+                               && grid.TryGetSource(lx0 + dx + run, lz0 + dz, out int nextX, out int nextZ)
+                               && nextX == srcX && nextZ == srcZ)
+                        {
+                            run++;
+                        }
+
+                        float x0 = (worldX0 + dx) * VoxelConstants.VoxelSize;
+                        float z0 = (worldZ0 + dz) * VoxelConstants.VoxelSize;
+                        float y = (float)(level * VoxelConstants.VoxelSize) - SurfaceBiasMetres;
+                        AddQuad(vertices, normals, indices, x0, x0 + (run * VoxelConstants.VoxelSize), z0, z0 + VoxelConstants.VoxelSize, y);
+                        dx += run;
+                    }
+                }
+            }
+        }
     }
 
     /// <summary>Whether this sample's terrain is under its basin's solved level.</summary>

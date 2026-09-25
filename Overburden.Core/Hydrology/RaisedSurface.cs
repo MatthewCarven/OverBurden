@@ -36,7 +36,7 @@ namespace Overburden.Core.Hydrology;
 /// whenever a sample's raise does, which is what the caller re-analyses on.
 /// </para>
 /// </remarks>
-public sealed class RaisedSurface
+public sealed class RaisedSurface : IRaisedSamples
 {
     private const int N = VoxelConstants.ChunkSize;
 
@@ -171,6 +171,9 @@ public sealed class RaisedSurface
 
         return read;
     }
+
+    /// <summary>Every raised sample and its plane — what the surface walks instead of asking all 65,536 samples of a window.</summary>
+    public IEnumerable<KeyValuePair<(int X, int Z), int>> Samples => _raised;
 
     /// <summary>An immutable copy for a worker's analysis.</summary>
     public RaisedSamples Snapshot() => new(new Dictionary<(int X, int Z), int>(_raised));

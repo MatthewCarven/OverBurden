@@ -295,3 +295,36 @@ level was built (`AnalyticSurface` under the fake columns). A flat world cannot 
 Suite 1,905 → 1,916.
 
 **Slice a is done.** b wires both halves into the game and needs the game closed.
+
+### b — the wire, first pass (2026-09-25, on `water-column-test`), and a finding that stops it
+
+Wired: `RaisedSurface` derived at open (`M7d: the player's material raises the watershed — N
+sample(s) raised from C stored column(s) in T ms`), observed each frame over the loaded box,
+passed as a snapshot to every analysis, and a same-origin re-analysis after a quiet second;
+`WaterGrids` (the cache: nine sky revisions and 36 samples' floor/ceil as the key) read by
+`LakeCeiling` (the band's tops from the grid where one exists) and by `WaterSurface` (built-in
+samples drawn per voxel column at the source's live level, the ring kept out of them); the
+enclosure off the ceiling and the surface under the raise, and asked by the hand-off only on a
+raised sample. `--raise=0` is the control. `--waterprobe=x,z` points the `M7d:` line's new
+`under …` term, `--fillbasin` and the analysis window at a column, and prints a watershed map
+and the raises' heights in the profile report — **built because the first two probes measured a
+basin near the world origin**: a profile's camera stands at the origin, so the window was 870 m
+from the pond and the pour fell back to the nearest basin there.
+
+**Measured.** The r6 control is to the digit. The courtyard: the basin under its centre has its
+pit inside the walls and holds the whole 20,000 L at 6.89 between floor 5 and the lowest wall top
+11, nothing else wet — decision 3's condition met. On a copy of `Regions16`: 297 samples raised
+from 169 stored columns in 88 ms Debug at open; his pond (pit (−3496, 1024)) sits in a 6 × 4 m
+ring of his edging, and a pour into it spills every litre at level 0.00 under `--raise=0`.
+
+**The finding.** With the raise on, the same pour holds — 100 kL, 1 ML, 3 ML, 10 ML, **30 ML at
+level 16.67, 0 L spilled**. His edging cannot hold that: **132 of the 297 raises stand more than
+16 voxels (4 m) over their seed plane, many at exactly plane 40** (a line at x = −3144,
+z = 1208…1248; another at (−3408…−3416, 1320)). Tall structures of his are damming the valley
+four metres deep. That is decision 2's stated cost — *an open height cannot tell a wall from a
+roof* — at a size the pass did not foresee on a played world. **Held here, on the working
+agreement's rule, with the fix proposed to him rather than built**: a raise is the top of the
+first solid run from the seed surface up (the first open voxel above the ground), so a roof or a
+platform over air raises nothing and a wall still does. It needs voxel reads per placed column
+(live from the streamer; at open from the stored chunk blobs), and it changes the grid's floor
+the same way.

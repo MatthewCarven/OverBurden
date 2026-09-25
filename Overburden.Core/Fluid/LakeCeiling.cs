@@ -67,19 +67,26 @@ public sealed class LakeCeiling
     private readonly ISurfaceHeights _seed;
     private readonly WaterSystem _water;
     private readonly Enclosure? _enclosure;
+    private readonly WaterGrids? _grids;
     private readonly Dictionary<(int X, int Z), ColumnBand> _bands = [];
     private readonly HashSet<(int X, int Z)> _seen = [];
     private readonly HashSet<(int X, int Z)> _dirty = [];
     private readonly List<(int X, int Z)> _gone = [];
     private long _bandStamp;
 
-    public LakeCeiling(ISurfaceHeights seed, WaterSystem water, Enclosure? enclosure = null)
+    /// <param name="grids">
+    /// The water grids (docs/POND-PLAN.md, decision 10): where one exists for a chunk column —
+    /// something is placed in it — its bands take their tops from the grid, so a wall is the lake's
+    /// edge to the voxel. Null is the pre-2026-09-25 arm, every band off its samples' tables.
+    /// </param>
+    public LakeCeiling(ISurfaceHeights seed, WaterSystem water, Enclosure? enclosure = null, WaterGrids? grids = null)
     {
         ArgumentNullException.ThrowIfNull(seed);
         ArgumentNullException.ThrowIfNull(water);
         _seed = seed;
         _water = water;
         _enclosure = enclosure;
+        _grids = grids;
         if (enclosure is not null)
         {
             enclosure.Changed += OnEnclosureChanged;
@@ -275,7 +282,12 @@ public sealed class LakeCeiling
         }
 
         _bands.TryGetValue(key, out ColumnBand? existing);
-        if (!any)
+
+        // A chunk column someone has built in answers from its grid, which can hold water even
+        // where its own samples have none — the inside strip of a wall on a chunk seam, fed from
+        // the neighbour's pond.
+        WaterColumns? grid = _grids?.Get(key.X, key.Z);
+        if (!any && grid is null)
         {
             if (existing is not null)
             {
@@ -286,7 +298,7 @@ public sealed class LakeCeiling
         }
 
         bool dirty = _dirty.Remove(key);
-        if (existing is not null && existing.SameTops(tops) && !dirty)
+        if (existing is not null && existing.SameTops(tops) && ReferenceEquals(existing.Grid, grid) && !dirty)
         {
             return;
         }
@@ -296,7 +308,7 @@ public sealed class LakeCeiling
             RebuiltForEnclosure++;
         }
 
-        var band = new ColumnBand(existing, originX, originZ, _seed, tops, samplesPerChunk, cell, _enclosure)
+        var band = new ColumnBand(existing, originX, originZ, _seed, tops, samplesPerChunk, cell, _enclosure, grid)
         {
             Stamp = ++_bandStamp,
         };
@@ -320,8 +332,9 @@ public sealed class LakeCeiling
         private readonly int[] _top;
         private readonly int[] _sampleTops;
 
-        public ColumnBand(ColumnBand? previous, int originX, int originZ, ISurfaceHeights seed, ReadOnlySpan<int> tops, int samplesPerChunk, int cell, Enclosure? enclosure = null)
+        public ColumnBand(ColumnBand? previous, int originX, int originZ, ISurfaceHeights seed, ReadOnlySpan<int> tops, int samplesPerChunk, int cell, Enclosure? enclosure = null, WaterColumns? grid = null)
         {
+            Grid = grid;
             // The seed never moves, so a rebuild keeps the previous floor rather than reading a
             // thousand surface heights again.
             _floor = previous?._floor ?? SeedFloor(originX, originZ, seed);
@@ -333,6 +346,13 @@ public sealed class LakeCeiling
                 {
                     int index = Index(lx, lz);
                     int top = tops[((lz / cell) * samplesPerChunk) + (lx / cell)];
+                    if (grid is not null)
+                    {
+                        // The grid's column: an unbuilt one is its sample's table, as above; a
+                        // built-in one is where the flood put the lake, or nowhere.
+                        top = grid.TryGetLevel(lx, lz, out double level) ? (int)Math.Floor(level) : NoLake;
+                    }
+
                     bool inLake = top != NoLake && top >= _floor[index];
 
                     // The courtyard: a column the player's walls close around at the lake's top
@@ -347,6 +367,9 @@ public sealed class LakeCeiling
                 }
             }
         }
+
+        /// <summary>The water grid this band was built from, or null — compared by reference, since the cache hands out a new one only when an input moved.</summary>
+        public WaterColumns? Grid { get; }
 
         /// <summary>The ceiling's count at this band's build: <see cref="IFluidTerrain.LakeStamp"/> for its column.</summary>
         public long Stamp { get; init; }
