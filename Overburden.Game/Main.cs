@@ -358,6 +358,9 @@ public partial class Main : Node3D
     private bool _ambientOcclusion = true;
     private bool _lightInMergeKey = true;
     private float _skyBrightness = 1f;
+
+    /// <summary><c>--glassalpha=</c>: glass's opacity, over the shader's own default (0.15 since 2026-09-26, his "about 15%"; 0.35 before).</summary>
+    private float? _glassAlpha;
     private float _fallHeightMetres = 600f;
     private int _restingSteps;
     private int _restedSteps;
@@ -1283,6 +1286,11 @@ public partial class Main : Node3D
         // After the overrides, not before: --skybrightness is a shader uniform set at build.
         _material = VoxelMaterial.Create(_skyBrightness);
         _glassMaterial = VoxelMaterial.CreateGlass(_material);
+        if (_glassAlpha is { } glassAlpha)
+        {
+            _glassMaterial.SetShaderParameter("glass_alpha", glassAlpha);
+        }
+
         SetVoxelParameter("tint_in_view_space", _tintInViewSpace);
 
         // Not created in a headless run: there is no renderer, so every particle is a buffer
@@ -1720,6 +1728,12 @@ public partial class Main : Node3D
                 // the face-tint A/B a comparison rather than an assertion.
                 case "yaw" when float.TryParse(value, out float degrees):
                     _spawnYawDegrees = degrees;
+                    break;
+
+                // Glass's opacity, 0 clear to 1 solid; the shader's default is 0.15 (his play,
+                // 2026-09-26: "about 15%"). A look sweep, so it is not profile-only.
+                case "glassalpha" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float alpha) && alpha >= 0f && alpha <= 1f:
+                    _glassAlpha = alpha;
                     break;
 
                 // The vertical half of --yaw. Negative looks down, which is what a shot of rain

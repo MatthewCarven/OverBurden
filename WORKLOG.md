@@ -1,5 +1,65 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 (morning) — Main against the pond branch, a table of watched functions
+
+Matthew: *"test both branches and profile cpu usage for the two in a table of watched
+functions"*, then *"can we include minimum, maximum and average call times"*. A sampler gives CPU
+share, not call times, so there are two instruments. **`CallWatch`** (Core, `--watch`) is a
+stopwatch round 21 coarse functions on main and 27 on the branch: calls, min / mean / max a call,
+wall and inclusive, over the whole run. **dotnet-trace** gives the CPU share, attached by PID.
+
+**The workload.** A fresh copy of `Regions16` each run, standing at his pond (`--at=` is on main
+too now, ported verbatim), the four `start.cmd` play flags, `--profile --speed=0
+--fillbasin=1000000 --measure=30 --watch`. Main ran three times and the branch three, alternated
+A B A B A B, both with the flat arrays. Two more branch runs had `--raise=0`, alternated with two
+of main, as the control.
+
+**What the pond does to the pour.** On main the pour spills whole: `poured 1,000,000 L into basin
+356, 1,000,000 L spilled, level now 0.00`. On the branch it holds, at `basin 515, 0 L spilled,
+level now 4.61`. Six runs, the same both ways.
+
+| function (mean of runs) | main: calls, min / **mean** / max ms | pond: calls, min / **mean** / max ms |
+|---|---|---|
+| fluid tick (the job, worker) | 65 × 1.9 / **33.5** / 93.8 | 65 × 10.0 / **200.2** / 353.1 |
+| sheet solve: a pass | 65 × 0.49 / **27.6** / 74.1 | 65 × 2.97 / **92.7** / 179.2 |
+| sheet solve: flood one Y | 2,675 × 0.0001 / **0.48** / 24.6 | 3,811 × 0.0001 / **1.13** / 36.6 |
+| lake ceiling: refresh | 66 × 0.32 / **8.2** / 76.4 | 66 × 1.40 / **7.8** / 58.8 |
+| hand-off: absorb | 66 × 0.04 / **5.0** / 35.7 | 66 × 0.21 / **7.2** / 26.3 |
+| enclosure: is enclosed | 391,273 × 0 / **0.0011** / 8.1 | 2,905 × 0 / **0.037** / 8.5 |
+| watershed: analyse a window | 1 × 147.7 / **151.9** / 159.9 | 3 × 87.4 / **129.0** / 162.5 |
+| raise: derive at open | — | 1 × 92.6 / **94.5** / 98.0 |
+| raise: observe the box (a frame) | — | 3,170 × 0.009 / **0.050** / 2.39 |
+| water grid: build a chunk column | — | 1,041 × 0 / **0.073** / 6.01 |
+| water grid: get (cached) | — | 17,937 × 0.004 / **0.014** / 6.47 |
+| generate / mesh / light derive / support | 2.66 / 7.63 / 0.83 / 1.68 mean | 2.60 / 7.47 / 0.83 / 1.77 mean |
+
+**The tick is 6× on the branch, and it is the water, not the code.** The branch with
+`--raise=0` reads as main within their spread: tick 35.0 against 28–33 ms, solve 28.5 against
+23–28. The raised pond keeps the million litres, and they go through portals into the dug ground
+under it: 406,584 L drawn into Tier B, 168,885 cells active against 95,569, and 7,904 sheets
+levelled against 861. The generate, mesh and light rows agree to 2% across every arm, which is
+the machine control: every run landed in one speed phase.
+
+**The pond code's own cost is small, and it saves the enclosure most of its work.** Observing the
+box costs 4.8 ms a second and the grid 9.7. The enclosure falls from 13.3 ms a second to 3.3,
+because it is asked only on a raised sample (2,905 calls against 391,273). So the net is about +1
+ms a second, plus 94.5 ms once at open and ~130 ms a re-analysis on a worker. **One call read
+past the plan's 5 ms bar, the worst grid build at 4.0–6.0 ms, and a probe the same morning
+showed it is the first build of a launch** (the JIT: build #1 at 5.4 ms on a light column, one at
+1.3 ms, the other 1,040 under a millisecond). So no cap was built, and POND-PLAN's criterion 5 is
+met.
+
+**The sampler, and its trap.** `dotnet-trace collect -- <godot>` cannot launch the game: the
+hosted runtime never connects to the reversed port. Attaching by PID works (`dotnet-trace ps`,
+then `collect -p`). **The trace needs `--duration` shorter than the run**, or the game exits
+before the rundown and every managed frame reads `?!?`. **And samples ending in `PollGCWorker`
+are threads parked at a safepoint**, by a GC or by the sampler's own suspension. They pile onto
+whatever loop polled: the per-frame raise loop read 3.7 s of CPU, and 0.9 s even with the raise
+off, where it returns at its first line. The stopwatch said 0.16 s. With those samples set apart,
+the CPU shares agree with the stopwatch: tick 2.7% → 19.5%, solve 2.2% → 8.8%, raise ~0.2%. Inside
+the flood the leaders are the same on both branches: `FluidGrid.AmountAt` 12–14%, `Pop` 10–12%,
+`VoxelPos.Chunk` / `Local` 13–15% together, `FloodIndex.TryGet` 4–6%.
+
 ## 2026-09-26 — The sheet flood on flat arrays: 0.76× the flood, the same water
 
 Matthew, after reading his CSharp-Lookuptables repo against the sheet solve: *"maybe a lookup
