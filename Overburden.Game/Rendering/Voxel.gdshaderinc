@@ -47,7 +47,7 @@ varying vec3 world_normal;
 // reflooding — relights the world every frame, and knowing that now is what stops someone
 // implementing it that way later.
 #ifdef VOXEL_GLASS
-uniform float glass_alpha : hint_range(0.0, 1.0) = 0.35;
+uniform float glass_alpha : hint_range(0.0, 1.0) = 0.15;
 #endif
 
 uniform float sky_brightness : hint_range(0.0, 2.0) = 1.0;

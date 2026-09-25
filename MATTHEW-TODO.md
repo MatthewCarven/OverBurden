@@ -84,7 +84,8 @@ I'll go and find the numbers.
 - [ ] **Glass is in (2026-09-25).** `P` gives you 64 cells of it (pick it with `V` if it isn't
       on the number row). Build a window, a wall and a roof. Light comes through the roof at full
       strength, rain stops on it, and a glass wall holds water like stone. Things to tell me: is it
-      too milky (the alpha is one number), does a floor under glass gleaming in a storm bother you,
+      too milky (**2026-09-26: yes — 0.35 → 0.15 opaque on your "about 15%"; `--glassalpha=` tries
+      others with no rebuild**), does a floor under glass gleaming in a storm bother you,
       and does water seen through glass ever draw in the wrong order?
 - [ ] **M10d-2, the play** — the ten recipes below. This is the next milestone thing and it is
       entirely yours; nothing else is blocked on me.
