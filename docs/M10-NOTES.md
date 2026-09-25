@@ -333,3 +333,41 @@ about the future"*. Recorded, not planned. Three things about it:
   `seepageScale` a stone room takes hours to stand ankle-deep; the arm that makes the early game
   *wade* is a higher scale for dirt (which sweats) than stone (which springs), and that is a
   per-material decision recorded against M8-PLAN's decision 5, not a mechanic of its own.
+
+---
+
+## The quantum storage container (Matthew, 2026-09-25)
+
+In his words, from the pond session: *"imagine loading a quantum storage container … it requires
+power to operate and is bigger on the inside than the out and requires a quantum vacuum storage
+'pack' … this is a component that goes into the quantum storage container, and should you let it
+go flat, suddenly it has to find 10,000,000 litres of water to dump or more depending on
+configuration … think building with variable components, like low grade, medium grade, and high
+grade, mythical grade, and god grade, and your battery tech maybe 19th century but your actual
+emitter/entangler could be a higher tech variation … and the dropping that discharging container
+somewhere near someone else's mine"* — and the valley he is walling off on `Regions16` is where
+it would be tested: *"i am deliberately going to flood that entire valley for spread and flood
+testing purposes"*.
+
+Notes, not a plan. How it sits against what is already decided:
+
+- **It is a machine with stock, which M10b left room for.** M10b shipped no stock tab because
+  nothing declared stock; this is the first thing that would. Its litres are a term in both tiers'
+  identities from the first line of code (*every door into an identity is a term*): stored,
+  loaded in, dumped out.
+- **The pack is a part, and grades are a second axis.** The ladder's parts are made earlier and
+  assembled later; a grade (low → medium → high → mythical → god) is the quality of a part within
+  its tier, so a 19th-century cell can feed a quantum emitter. Capacity from one part, hold time
+  from another, and the dump size is whatever the container held — a configuration, not a
+  constant.
+- **Going flat is a boundary event, and its cost is the dump.** Power is per channel at the
+  boundary (M10c's pool); a container whose pack cannot pay its hold empties there. Into Tier A
+  on the analytic ground it is one `Emit` into a basin — cheap at any size. Into Tier B, next to a
+  mine, **10 ML is about 640,000 cells, the load test's scale**, so the dump pours what fits and
+  owes the rest every boundary, as Ctrl+R's million already does. That is the flood test he wants
+  and the performance test in one.
+- **"Someone else's mine" is multiplayer**, which today is only a seam (non-negotiable 1). Noted
+  as the intent; nothing to decide until there is a second player.
+- **The raised watershed (docs/POND-PLAN.md) is what makes the valley hold it.** His dam walls
+  are raises; a dump behind them stands as a lake at the dam's height. That was confirmed on a
+  copy of `Regions16` the same evening: 30 ML held behind them at level 16.67, none spilled.
