@@ -1,5 +1,18 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 (midday) — The lake crosses a chunk column's edge between grids
+
+His play after the overhang pass: *"except the last two the filling under overhangs seems
+sorted"*. A temporary probe found a 2 m strip dry only because a grid never hands water to the
+next (116 columns), and nothing else wrong. Option 2, on his word: a built pad column a
+neighbour's grid holds wet seeds this one, at the source's live level and one hop more, capped at
+8. A grid's key holds its neighbours' versions. **The first measurement rebuilt the ring of
+grids every boundary** (8,363 builds in 30 s against ~1,400), because a rising lake moved every
+handed level by a fraction. A version moves on a whole voxel now: 1,972 builds, 6.7 ms a second.
+The strip reads wet on the copy of his world. POND-PLAN's last section has the three rules the
+option did not have. **And a battery that meant nothing**: the new test failed on the unbroken
+code, so all eight recipes read as caught. **Run a new test green before the battery.**
+
 ## 2026-09-26 (late morning) — The overhang pass: the lake reaches under what he builds
 
 His play on `start5`: *"from the right it is filling into it but I do not think we have a rule

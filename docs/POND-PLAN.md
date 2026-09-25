@@ -498,3 +498,40 @@ column's floor was missed by fixtures that only flooded upward, and now a roofed
 a raised floor catches it. Reading unloaded as open was missed because the fixture had no
 unloaded voxel. **Not covered by a test: `Main`'s three hook lines**, which his play covers — a
 block placed under an overhang changes the water under it at the next boundary.
+
+### Water across a chunk column's edge — built (2026-09-26, on `water-column-test`), his option 2
+
+**His next play showed two dry spots under the slab.** A temporary probe built every grid around
+it twice, once with the shipped pad and once with a 64-voxel pad (not committed). The probe found
+**116 columns dry only because of the pad**: a strip 2 m wide at the east edge of one chunk
+column, where the water beside it belonged to the next grid and a grid never handed it on.
+Nothing else in the area was wrong. All 1,718 other dry built columns were solid past the
+waterline, with no stranded air pockets. So the dry grass corner in his third shot is the pad
+limit, the stated cost in `WaterGrid`'s remarks. The fourth shot is not explained by the grid.
+
+**What was built.** A built pad column that the neighbouring grid holds wet is a seed, at its
+source's *live* level and one more hop. Within a level, lower hops flood first. The hop cap is
+`WaterGrid.MaxHops` = 8 (an estimate: 256 m of built ground). `WaterGrids` keeps a version per
+entry, moved only when a rebuild changed the water, and a grid's key holds its eight neighbours'
+versions. A neighbour is read from the cache, never built, so asking never recurses round the
+ring. **Three rules the option did not have, each found by a test or a measurement:**
+
+1. **A handed seed takes the source's live table, not the neighbour's stored level.** Otherwise a
+   drained lake lingers until the hop cap runs out. With it, the water goes within one round: the
+   east grid's key sees the drain, and its version tells the west.
+2. **The walk's height bound includes handed levels.** A window with no table of its own would
+   otherwise walk nothing, and an overhang reached only through the seam would read as a wall.
+3. **A version moves when the water moves by a whole voxel, not by a fraction.** The first
+   measurement read **8,363 grid builds in 30 s against ~1,400**: a rising lake moved every
+   handed level every boundary, and the ring of grids rebuilt each other. Every test the flood
+   makes is an integer against the level, and the surface reads the live level, so floor and
+   ceiling are what a neighbour needs to see.
+
+**Measured** on the pond workload, slow phase (light derive 0.84 ms): **1,972 builds, 6.7 ms a
+second of building** (3.1 before the change), lake ceiling refresh mean 10.1 ms (8.0), worst build
+5.3 ms (the first walking build). **Built-in columns under water: 3,583 → 3,654** on `Regions16`,
+and on the copy of `Regions16-pondlook` the probe's strip reads wet (4,338 → 4,454). The pour is
+`0 L spilled`, the courtyard `20,000 L at 6.89`, r6 to the digit, suite 1,945. **Battery: 8
+recipes, 8 caught.** The first run of it was void: the new test failed on the *unbroken* code,
+because the edit it made was inside the west grid's own nine columns, so every recipe read as
+caught. It was fixed and re-run from green.

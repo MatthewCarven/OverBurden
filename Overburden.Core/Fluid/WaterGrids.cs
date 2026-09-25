@@ -28,6 +28,13 @@ namespace Overburden.Core.Fluid;
 /// the pipeline's own hooks, and the nine counts are in the key.
 /// </para>
 /// <para>
+/// <b>And the eight neighbours' versions</b> (2026-09-26): a grid seeds from the water its
+/// neighbours' grids hold at its edge, so it rebuilds when one of them changed. A version moves
+/// only when a rebuild changed the water (<see cref="WaterColumns.SameAs"/>), never on a rebuild
+/// alone, or two neighbours would rebuild each other forever. Asked every boundary, a chain of
+/// grids converges a grid a boundary.
+/// </para>
+/// <para>
 /// <b>A chunk column with nothing placed is cached too</b>, as a null against its key, so an
 /// unbuilt column costs its key and not a scan of 1,024 columns each time it is asked.
 /// </para>
@@ -56,11 +63,13 @@ public sealed class WaterGrids
     private readonly int _keyLength;
     private readonly Dictionary<(int X, int Z), Entry> _entries = [];
     private long[] _scratch;
+    private long _versions;
 
     private sealed class Entry
     {
         public required long[] Key;
         public WaterColumns? Grid;
+        public long Version;
     }
 
     public WaterGrids(ISkyColumns sky, IWaterTable table, int cellVoxels, IVoxelWorld? voxels = null, MaterialTable? materials = null)
@@ -79,7 +88,7 @@ public sealed class WaterGrids
         _materials = materials;
         _cellsPerChunk = N / cellVoxels;
         int samples = _cellsPerChunk + 2;
-        _keyLength = 18 + (2 * samples * samples);
+        _keyLength = 18 + 8 + (2 * samples * samples);
         _scratch = new long[_keyLength];
     }
 
@@ -146,7 +155,7 @@ public sealed class WaterGrids
         }
 
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
-        WaterColumns? grid = WaterGrid.Build(chunkX, chunkZ, _sky, _table, _cellVoxels, _voxels, _materials);
+        WaterColumns? grid = WaterGrid.Build(chunkX, chunkZ, _sky, _table, _cellVoxels, _voxels, _materials, Neighbour);
         BuildMillis += (System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
         Builds++;
 
@@ -162,9 +171,19 @@ public sealed class WaterGrids
         }
 
         _scratch.CopyTo(entry.Key, 0);
+        bool same = grid is null ? entry.Grid is null && entry.Version != 0 : grid.SameAs(entry.Grid);
+        if (!same)
+        {
+            entry.Version = ++_versions;
+        }
+
         entry.Grid = grid;
         return grid;
     }
+
+    /// <summary>A neighbour's grid as last built — never a build, or asking would recurse round the ring.</summary>
+    private WaterColumns? Neighbour(int chunkX, int chunkZ) =>
+        _entries.TryGetValue((chunkX, chunkZ), out Entry? entry) ? entry.Grid : null;
 
     private void FillKey(int chunkX, int chunkZ, long[] key)
     {
@@ -176,6 +195,10 @@ public sealed class WaterGrids
                 SkyColumn? column = _sky.ColumnAt(chunkX + dx, chunkZ + dz);
                 key[k++] = column is null || !column.IsSeeded ? Absent : column.Revision;
                 key[k++] = _edits.TryGetValue((chunkX + dx, chunkZ + dz), out long edits) ? edits : 0;
+                if (dx != 0 || dz != 0)
+                {
+                    key[k++] = _entries.TryGetValue((chunkX + dx, chunkZ + dz), out Entry? near) ? near.Version : 0;
+                }
             }
         }
 

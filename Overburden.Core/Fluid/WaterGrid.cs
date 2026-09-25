@@ -54,6 +54,16 @@ namespace Overburden.Core.Fluid;
 /// water inside a wall. An unloaded voxel is solid: it ends a run.
 /// </para>
 /// <para>
+/// <b>Water crosses a chunk column's edge between grids</b> (2026-09-26, his option 2, after a probe
+/// on his pond found a 2 m strip dry beside a wet grid across the seam): a built column in the pad
+/// that the neighbouring chunk column's grid holds wet is a seed here too. It carries that
+/// water's source sample, at the source's live level, so a lake that drains takes it along. It
+/// also counts one more <b>hop</b>, capped at <see cref="MaxHops"/>. Two grids can otherwise keep
+/// each other wet after a wall cuts the lake off: each seeds from the other's last answer. The cap
+/// ends that loop within that many rebuilds, the distance-vector bound. Within a level, lower hops
+/// flood first, so water the window reaches for itself is never claimed second-hand.
+/// </para>
+/// <para>
 /// <b>Stated costs.</b> A neighbouring chunk column that is not loaded contributes nothing to the
 /// pad: no seeds and no passage. A built-in zone wider than the pad, with no unraised wet column
 /// within a cell of the chunk column, finds no seeds and reads dry. Both are the conservative
@@ -64,17 +74,27 @@ public static class WaterGrid
 {
     private const int N = VoxelConstants.ChunkSize;
 
+    /// <summary>
+    /// Chunk-column edges a lake may be handed across before it stops — 256 m of built ground from
+    /// the water's own ground. An estimate; it also bounds how long a lake cut off by a wall can
+    /// linger, in rebuilds.
+    /// </summary>
+    public const int MaxHops = 8;
+
     private static readonly int WatchBuild = CallWatch.Register("water grid: build a chunk column");
 
     /// <summary>
     /// Builds the water columns of chunk column (<paramref name="chunkX"/>, <paramref name="chunkZ"/>),
     /// or returns null when nothing is placed in it — its bands are today's and no grid is needed.
     /// With <paramref name="voxels"/> and <paramref name="materials"/> a placed column's run is read
-    /// off its voxels (the overhang pass); without, it is its top upward.
+    /// off its voxels (the overhang pass); without, it is its top upward. With
+    /// <paramref name="neighbour"/> — a neighbouring chunk column's grid as last built, never a build —
+    /// the water it holds at this grid's edge seeds this one.
     /// </summary>
     public static WaterColumns? Build(
         int chunkX, int chunkZ, ISkyColumns sky, IWaterTable table, int cellVoxels,
-        IVoxelWorld? voxels = null, MaterialTable? materials = null)
+        IVoxelWorld? voxels = null, MaterialTable? materials = null,
+        Func<int, int, WaterColumns?>? neighbour = null)
     {
         using CallWatch.Scope callWatch = CallWatch.Time(WatchBuild);
         ArgumentNullException.ThrowIfNull(sky);
@@ -106,6 +126,7 @@ public static class WaterGrid
         Array.Fill(level, double.NaN);
         var sourceX = new int[side * side];
         var sourceZ = new int[side * side];
+        var hops = new int[side * side];
 
         // The highest level any sample in the pad could bring. A run above it can hold nothing, so
         // a walk stops there: a tower is a few reads a column, not its height (the overhang pass
@@ -119,6 +140,43 @@ public static class WaterGrid
                 double? t = table.TableAt(sx, sz);
                 tables[(sx, sz)] = t;
                 if (t is { } l && l > highest) highest = l;
+            }
+        }
+
+        // The water the neighbouring grids hold in this pad, at each source's live level. Gathered
+        // before the walks, because a handed-over level can be above every table in the pad and the
+        // walks stop at the highest level in reach.
+        var handed = new Dictionary<int, (double Level, int SourceX, int SourceZ, int Hops)>();
+        if (neighbour is not null)
+        {
+            var grids = new Dictionary<(int X, int Z), WaterColumns?>();
+            for (int z = 0; z < side; z++)
+            {
+                for (int x = 0; x < side; x++)
+                {
+                    int worldX = originX + x, worldZ = originZ + z;
+                    int cx = FloorDiv(worldX, N), cz = FloorDiv(worldZ, N);
+                    if (cx == chunkX && cz == chunkZ) continue;
+                    if (!grids.TryGetValue((cx, cz), out WaterColumns? grid))
+                    {
+                        grid = neighbour(cx, cz);
+                        grids[(cx, cz)] = grid;
+                    }
+
+                    int nlx = worldX - (cx * N), nlz = worldZ - (cz * N);
+                    if (grid is null || !grid.TryGetSource(nlx, nlz, out int srcX, out int srcZ)) continue;
+                    int h = grid.HopsAt(nlx, nlz) + 1;
+                    if (h > MaxHops) continue;
+                    if (!tables.TryGetValue((srcX, srcZ), out double? live))
+                    {
+                        live = table.TableAt(srcX, srcZ);
+                        tables[(srcX, srcZ)] = live;
+                    }
+
+                    if (live is not { } l) continue;
+                    handed[(z * side) + x] = (l, srcX, srcZ, h);
+                    if (l > highest) highest = l;
+                }
             }
         }
 
@@ -159,7 +217,18 @@ public static class WaterGrid
         }
 
         // Unraised columns take their sample's table, as the band does; those under it are seeds.
-        var seeds = new List<(double Level, int Index)>();
+        // A built pad column a neighbour's grid holds wet is a seed at the level it was handed.
+        var seeds = new List<(double Level, int Hops, int Index)>();
+        foreach ((int i, (double l, int srcX, int srcZ, int h)) in handed)
+        {
+            if (!loaded[i] || !built[i] || floor[i] >= l) continue;
+            level[i] = l;
+            sourceX[i] = srcX;
+            sourceZ[i] = srcZ;
+            hops[i] = h;
+            seeds.Add((l, h, i));
+        }
+
         for (int z = 0; z < side; z++)
         {
             for (int x = 0; x < side; x++)
@@ -184,21 +253,24 @@ public static class WaterGrid
                     sourceZ[i] = sample.Item2;
                     if (floor[i] < l)
                     {
-                        seeds.Add((l, i));
+                        seeds.Add((l, 0, i));
                     }
                 }
             }
         }
 
-        // Ascending level, the first to reach a built-in column keeps it; the index breaks ties
-        // so the arithmetic is the same every time.
-        seeds.Sort(static (a, b) => a.Level != b.Level ? a.Level.CompareTo(b.Level) : a.Index.CompareTo(b.Index));
+        // Ascending level, the first to reach a built-in column keeps it; within a level, fewer
+        // hops first, so water the window reaches for itself is never claimed second-hand; the index
+        // breaks ties so the arithmetic is the same every time.
+        seeds.Sort(static (a, b) => a.Level != b.Level ? a.Level.CompareTo(b.Level)
+            : a.Hops != b.Hops ? a.Hops.CompareTo(b.Hops) : a.Index.CompareTo(b.Index));
         var queue = new Queue<int>();
         int s = 0;
         while (s < seeds.Count)
         {
             double l = seeds[s].Level;
-            for (; s < seeds.Count && seeds[s].Level == l; s++)
+            int hop = seeds[s].Hops;
+            for (; s < seeds.Count && seeds[s].Level == l && seeds[s].Hops == hop; s++)
             {
                 queue.Enqueue(seeds[s].Index);
             }
@@ -225,6 +297,7 @@ public static class WaterGrid
                     level[n] = l;
                     sourceX[n] = sourceX[i];
                     sourceZ[n] = sourceZ[i];
+                    hops[n] = hops[i];
                     queue.Enqueue(n);
                 }
             }
@@ -233,6 +306,7 @@ public static class WaterGrid
         var result = new double[N * N];
         var resultX = new int[N * N];
         var resultZ = new int[N * N];
+        var resultHops = new int[N * N];
         int reached = 0;
         for (int lz = 0; lz < N; lz++)
         {
@@ -242,11 +316,12 @@ public static class WaterGrid
                 result[(lz * N) + lx] = level[i];
                 resultX[(lz * N) + lx] = sourceX[i];
                 resultZ[(lz * N) + lx] = sourceZ[i];
+                resultHops[(lz * N) + lx] = hops[i];
                 if (built[i] && !double.IsNaN(level[i])) reached++;
             }
         }
 
-        return new WaterColumns(chunkX, chunkZ, result, resultX, resultZ, reached);
+        return new WaterColumns(chunkX, chunkZ, result, resultX, resultZ, resultHops, reached);
     }
 
     /// <summary>
@@ -332,9 +407,11 @@ public sealed class WaterColumns
     private readonly double[] _levels;
     private readonly int[] _sourceX;
     private readonly int[] _sourceZ;
+    private readonly int[] _hops;
 
-    internal WaterColumns(int chunkX, int chunkZ, double[] levels, int[] sourceX, int[] sourceZ, int reached)
+    internal WaterColumns(int chunkX, int chunkZ, double[] levels, int[] sourceX, int[] sourceZ, int[] hops, int reached)
     {
+        _hops = hops;
         ChunkX = chunkX;
         ChunkZ = chunkZ;
         _levels = levels;
@@ -369,5 +446,31 @@ public sealed class WaterColumns
         sampleX = _sourceX[i];
         sampleZ = _sourceZ[i];
         return !double.IsNaN(_levels[i]);
+    }
+
+    /// <summary>Chunk-column edges this column's water was handed across; 0 where its own window reached it.</summary>
+    public int HopsAt(int localX, int localZ) => _hops[(localZ * N) + localX];
+
+    /// <summary>
+    /// The same water in every column as a neighbour reads it — what its key is allowed to see move.
+    /// A level is compared by its floor and ceiling, as the grid's own key compares a table: every
+    /// test the flood makes is an integer against the level, and the band keeps the floor, while
+    /// the surface reads the live level through the source. Compared exactly, a lake rising inside
+    /// a voxel moved every handed level every boundary and rebuilt the whole ring of grids each
+    /// time (8,363 builds in 30 s on his pond, against ~1,400).
+    /// </summary>
+    public bool SameAs(WaterColumns? other)
+    {
+        if (other is null) return false;
+        for (int i = 0; i < _levels.Length; i++)
+        {
+            bool wet = !double.IsNaN(_levels[i]);
+            if (wet != !double.IsNaN(other._levels[i])) return false;
+            if (!wet) continue;
+            if (Math.Floor(_levels[i]) != Math.Floor(other._levels[i]) || Math.Ceiling(_levels[i]) != Math.Ceiling(other._levels[i])
+                || _sourceX[i] != other._sourceX[i] || _sourceZ[i] != other._sourceZ[i] || _hops[i] != other._hops[i]) return false;
+        }
+
+        return true;
     }
 }

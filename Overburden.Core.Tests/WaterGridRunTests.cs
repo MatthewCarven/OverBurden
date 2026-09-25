@@ -308,4 +308,145 @@ public sealed class WaterGridRunTests
 
         Assert.Null(Level(Build(world), 28, 28));
     }
+
+    // A built zone from x 16 to 48, wider than a grid's pad on either side of the seam at x 32: a
+    // pillar at each cell's corner marks the cell built and blocks only its own column. The lake is
+    // at x 48 and beyond (samples 6 up); west of it the land is dry (no table).
+    private static World BuiltAcrossTheSeam()
+    {
+        var world = new World();
+        for (int cx = 2; cx < 6; cx++)
+        {
+            for (int cz = -1; cz <= 4; cz++)
+            {
+                world.Place(cx * Cell, cz * Cell, Surface + 1, 60);
+            }
+        }
+
+        return world;
+    }
+
+    private static double? LakeFromSampleSix(int sampleX, int sampleZ) => sampleX >= 6 ? Pond : null;
+
+    [Fact]
+    public void ALakeCrossesTheSeamIntoABuiltZoneWiderThanThePad()
+    {
+        World world = BuiltAcrossTheSeam();
+
+        // And an overhang in the west, which only the handed water reaches: the west window has no
+        // table of its own, so its walks are bounded by the handed level or not made at all.
+        for (int x = 17; x < 24; x++)
+        {
+            for (int z = 17; z < 24; z++)
+            {
+                world.Place(x, z, 46, 47);
+            }
+        }
+        var grids = new WaterGrids(world, new Table(LakeFromSampleSix), Cell, world, Materials());
+
+        WaterColumns east = grids.Get(1, 0)!;
+        Assert.Equal(Pond, Level(east, 1, 10));   // x 33, reached from the lake in its own window
+        Assert.Equal(0, east.HopsAt(1, 10));
+
+        WaterColumns west = grids.Get(0, 0)!;
+        Assert.Equal(Pond, Level(west, 20, 10));  // x 20: 28 voxels from the lake, handed over the seam
+        Assert.Equal(1, west.HopsAt(20, 10));
+        Assert.True(west.TryGetSource(20, 10, out int sx, out _) && sx >= 6);
+        Assert.Equal(Pond, Level(west, 20, 20));   // under the overhang
+
+        // Without the neighbour the same grid is dry there: the pad alone cannot reach.
+        Assert.Null(Level(WaterGrid.Build(0, 0, world, new Table(LakeFromSampleSix), Cell, world, Materials())!, 20, 10));
+    }
+
+    [Fact]
+    public void ItConvergesWhicheverGridIsAskedFirst()
+    {
+        World world = BuiltAcrossTheSeam();
+        var grids = new WaterGrids(world, new Table(LakeFromSampleSix), Cell, world, Materials());
+
+        Assert.Null(Level(grids.Get(0, 0)!, 20, 10));   // no neighbour built yet
+        Assert.Equal(Pond, Level(grids.Get(1, 0)!, 1, 10));
+        Assert.Equal(Pond, Level(grids.Get(0, 0)!, 20, 10));   // the neighbour's version moved its key
+        long builds = grids.Builds;
+        grids.Get(1, 0);
+        grids.Get(0, 0);
+        Assert.Equal(builds + 1, grids.Builds);   // one more rebuild of the east to see the west, then at rest
+        grids.Get(1, 0);
+        grids.Get(0, 0);
+        Assert.Equal(builds + 1, grids.Builds);
+    }
+
+    [Fact]
+    public void ALakeCutOffByAWallDoesNotLingerPastTheHopCap()
+    {
+        World world = BuiltAcrossTheSeam();
+        var grids = new WaterGrids(world, new Table(LakeFromSampleSix), Cell, world, Materials());
+        grids.Get(1, 0);
+        grids.Get(0, 0);
+        grids.Get(1, 0);
+        Assert.Equal(Pond, Level(grids.Get(0, 0)!, 20, 10));
+
+        // A wall along x 48, taller than the water, the whole depth of both windows.
+        for (int z = -8; z < 40; z++)
+        {
+            world.Place(48, z, Surface + 1, 60);
+            grids.VoxelChanged(new VoxelPos(48, Surface + 1, z));
+        }
+
+        // The two grids would keep each other wet on each other's last answer; each rebuild adds a
+        // hop, and the cap ends it.
+        int rounds = 0;
+        while (rounds < 4 * WaterGrid.MaxHops
+            && (Level(grids.Get(1, 0)!, 1, 10) is not null | Level(grids.Get(0, 0)!, 20, 10) is not null))
+        {
+            rounds++;
+        }
+
+        Assert.Null(Level(grids.Get(1, 0)!, 1, 10));
+        Assert.Null(Level(grids.Get(0, 0)!, 20, 10));
+        Assert.InRange(rounds, 1, WaterGrid.MaxHops);
+    }
+
+    [Fact]
+    public void ALakeThatDrainsTakesTheHandedWaterWithItWithinOneRound()
+    {
+        // The west grid's key holds its own window's samples, not the far sample its water came
+        // from, so it sees the drain through the east grid's version: east first, then west. The
+        // hop cap is not what ends it — the source's live table is.
+        World world = BuiltAcrossTheSeam();
+        bool full = true;
+        var grids = new WaterGrids(world, new Table((sx, sz) => full ? LakeFromSampleSix(sx, sz) : null), Cell, world, Materials());
+        grids.Get(1, 0);
+        Assert.Equal(Pond, Level(grids.Get(0, 0)!, 20, 10));
+
+        full = false;
+        Assert.Null(Level(grids.Get(1, 0)!, 1, 10));
+        Assert.Null(Level(grids.Get(0, 0)!, 20, 10));
+    }
+
+    [Fact]
+    public void ALakeRisingInsideAVoxelDoesNotRebuildTheNeighbours()
+    {
+        // The east grid rebuilds for its own reason (an edit) while the lake has risen a fraction
+        // of a voxel. Its water reads the same to a neighbour, so the west grid is not rebuilt —
+        // compared exactly, every boundary of a rising lake rebuilt the ring of grids (8,363
+        // builds in 30 s on his pond).
+        World world = BuiltAcrossTheSeam();
+        double lake = Pond;
+        var grids = new WaterGrids(world, new Table((sx, _) => sx >= 6 ? lake : null), Cell, world, Materials());
+        grids.Get(1, 0);
+        grids.Get(0, 0);
+        grids.Get(1, 0);
+        grids.Get(0, 0);
+        long builds = grids.Builds;
+
+        lake = Pond + 0.3;   // 45.8: the same floor and ceiling
+
+        // In chunk column (2, 0): inside the east grid's nine, outside the west's, so the east
+        // rebuilds and the west has no reason of its own to.
+        grids.VoxelChanged(new VoxelPos(72, 70, 10));
+        grids.Get(1, 0);
+        grids.Get(0, 0);
+        Assert.Equal(builds + 1, grids.Builds);
+    }
 }
