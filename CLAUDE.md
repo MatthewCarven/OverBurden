@@ -346,6 +346,22 @@ rule as `--support`:
 DOTNET_TieredCompilation=0 dotnet run --project Overburden.Bench -c Release -- --support --collapse
 ```
 
+**`--watch` prints a table of watched functions under a profile's report** (2026-09-26, Matthew's
+ask): calls and min / mean / max ms a call for each function `CallWatch` names in Core and Game.
+That is 21 coarse ones on main (the tick job, the solve and its flood and apply, the lake ceiling,
+the hand-off, the enclosure, both surfaces, the watershed's four stages, light derive and
+propagate, mesh, generate, support, the pipeline update, machines) and six more on
+`water-column-test` (the grid, the raise). A time is wall and inclusive, over the whole run, the
+open included. Off, a watch is one flag read a call. The flood's inner reads are never watched,
+because they are tens of nanoseconds and a stopwatch would time itself; those are the sampler's.
+**`--at=x,y,z`** (metres, flying) puts a profile's camera at a subject, on both branches. **The
+sampler: attach by PID, never launch.** Run `dotnet-trace collect -p <pid> --profile
+dotnet-sampled-thread-time,dotnet-common --format Speedscope --duration 00:00:00:30`. The launch
+form cannot connect to Godot's hosted runtime. The duration must end before the game does, or
+every frame reads `?!?`. **Set samples ending in `PollGCWorker` apart**: they are threads parked
+at a safepoint and land on whatever loop polled. The recipe and both tables are the 2026-09-26
+(morning) worklog entry.
+
 Measure **the sheet solve against a wide active set** — M10d-3's arm (2026-09-24): a chamber
 block's floor full, a noisy layer over it with one cell in `--solveholes` (7) dry, an unsupported
 noisy layer over that, every wet cell a shuffled seed; the flood's two-layer index against the

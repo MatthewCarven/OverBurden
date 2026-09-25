@@ -246,6 +246,15 @@ ledger seeds it, it does not fit, and it leaves as `SeedOverflowLitres`: printed
 5. **The costs are printed and acceptable**: the open-time derive, the grid's ms a rebuild, and
    the re-analyses an editing session triggers. The bar is nothing he notices in play; a number
    past ~5 ms on the sim thread gets its lever named before the merge.
+   **Measured 2026-09-26** (WORKLOG, the table of watched functions: main against the branch
+   three runs each, alternated, on a copy of `Regions16` at his pond): the derive at open is
+   94.5 ms once; observing the box is 0.050 ms a frame (2.4 max); the grid build is 0.073 ms a
+   chunk column and its get 0.014 ms; a re-analysis is ~130 ms on a worker. **The enclosure
+   falls from 13.3 ms a second to 3.3**, so the net is about +1 ms a second. **One call passes
+   the bar: the worst grid build, 6.0 ms, on a cache miss.** Its lever is to cap the builds a
+   boundary and let a column without a grid read `Enclosure` until its grid lands. **The tick is
+   6× main's (200 against 33 ms), and that is his pond holding the pour**: 406 kL of it drains
+   into Tier B through the dug ground under it. The branch with `--raise=0` ticks as main does.
 6. **His word.** The play verdict decides. The five above are what a *"no"* would be read against.
 
 **Retired instead?** Then this section records which of the six failed and why, the branch is
