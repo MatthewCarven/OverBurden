@@ -161,7 +161,7 @@ in a storm** (fact 6, now true under glass); and **a solar panel under glass get
 because its openness reads the sky column. Triggers: either one noticed in play.
 
 **g-2.** `Voxel.gdshader`'s body moved into `Voxel.gdshaderinc`; `VoxelGlass.gdshader` includes
-it under `blend_mix` with `VOXEL_GLASS` defining `glass_alpha` (0.35, an estimate; **0.15 since 2026-09-26, his play: *"Loving the glass … can we make it about 15% transparent?"*, read as 15% opaque**, `--glassalpha=` the sweep); the thirteenth
+it under `blend_mix` with `VOXEL_GLASS` defining `glass_alpha` (0.35, an estimate; **0.20 since 2026-09-26, his sweep with `--glassalpha=`, and black: `glass_shade` 0 draws the pane's face black so it only takes light away — *"as it goes up it goes whiter, i think glass should reduce the overall light coming through"* — with `--glassshade=1` the old lit face**); the thirteenth
 layer colour (a pale blue-grey) and jitter; `VoxelMaterial.CreateGlass` shares the rock array;
 `Main.SetVoxelParameter` keeps sky brightness, wetness and the tint's space in step on both; `P`
 seeds 64 cells of glass. `--courtyardmaterial=<id>` and `--courtyardroof=1` build the screenshot's

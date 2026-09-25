@@ -47,7 +47,12 @@ varying vec3 world_normal;
 // reflooding — relights the world every frame, and knowing that now is what stops someone
 // implementing it that way later.
 #ifdef VOXEL_GLASS
-uniform float glass_alpha : hint_range(0.0, 1.0) = 0.15;
+uniform float glass_alpha : hint_range(0.0, 1.0) = 0.20;
+// How bright the pane's own face is: 0 is black glass, which only takes light away — a pane at
+// glass_alpha 0.2 passes 80% of what is behind it and adds nothing — and 1 is the lit texture
+// it drew before 2026-09-26, which whitened as the alpha rose. Matthew: "i think glass should
+// reduce the overall light coming through so can we have 'black' glass?"
+uniform float glass_shade : hint_range(0.0, 1.0) = 0.0;
 #endif
 
 uniform float sky_brightness : hint_range(0.0, 2.0) = 1.0;
@@ -162,6 +167,10 @@ void fragment() {
 	// chamber stays dark: the sign reads where there is light to read it by, which is where a
 	// lamp is, which is where the player is.
 	surface *= mix(vec3(1.0), strain_tint, strain * strain_amount);
+#ifdef VOXEL_GLASS
+	// Before the sheen, so black glass still carries the sky's reflection at a grazing angle.
+	surface *= glass_shade;
+#endif
 
 	// The sheen, and this one genuinely belongs in view space: it is a reflection, so NORMAL and
 	// the view vector are both wanted relative to the eye. VERTEX is the fragment in view space,
