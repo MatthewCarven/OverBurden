@@ -186,6 +186,21 @@ comes first.
 
 ## Needs a human eye
 
+- [ ] **Water under his clay roof (2026-09-26, `start5` on `Regions16-pondlook`)** — *"water seems
+      to be leaking through my clay roof not sure why it might be residual or horizontal travel
+      idk honestly"*. Clay is permeability 0 and a Tier B cell cannot enter a solid voxel, so the
+      question is where the water is born, not the roof. Candidates, cheapest first:
+      (1) **rain on placed tops lands on the roof as cells** and runs off an open edge or a gap
+      into the room;
+      (2) **Tier B travelling sideways** in from an opening — his pours and the diggings under
+      the pond were moving 1.7 ML;
+      (3) **sweat seepage from natural faces in a dug chunk** under the table (71 L that
+      session);
+      (4) water that was inside before the roof closed.
+      **What to capture next time**: the coordinates under the drip (the HUD line), a
+      screenshot looking up at it, and the `M8b:` line's `rained … onto the player's material`
+      and `seeped` terms at that moment. Not the overhang pass's; see POND-PLAN's last section.
+
 - [x] **Face winding — confirmed correct 2026-08-24.** Visually verified from three
       angles: grass top, dirt sides, stone underneath, solid convex silhouette. Godot's
       clockwise front-face convention is as documented, so no flip was needed. The

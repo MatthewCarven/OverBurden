@@ -357,3 +357,112 @@ holds it and stands 0.77 voxel higher, over the grass ridge and over the stone b
 the band's top is above the water**. The shore there is sawtoothed to the voxel, and no water
 shows outside a top that stands above it. The pond is part of the valley lake his dam walls
 hold, so its edge is the dam and not the edging. b is done bar his play.
+
+## The overhang pass (2026-09-26) — open air under the waterline, under something built
+
+**His play on `start5` (a copy of `Regions16`, the million-litre pour).** The pond fills to his
+wall and stays bound by the walls he built (criteria 1 and 2 on his word), and the glass is
+answered. Then: *"I might have created a situation sheets might not be compatible with uh i built
+above the water with overhangs"*. Then, looking under one: *"from the right it is filling into it
+but I do not think we have a rule for where there is open air but below the waterline only that
+it isn't falling in from the left side though"*.
+
+**He is right, and it is decision 2's stated cost met in play.** The lake (left) cannot reach
+under the overhang. The water coming in from the right is Tier B, from his diggings and pours,
+which works voxel by voxel. The sheets are fine with overhangs; the missing rule is Tier A's.
+
+### Facts from the code
+
+1. **The raise and the grid both read a column's highest placed top.** The raise is
+   `max(seed, OpenAboveY)` over a cell, and `WaterGrid.Build` sets a built column's floor to
+   `OpenAboveY` where it is above the seed plane (`WaterGrid.cs`, the floor loop). `OpenAboveY` is
+   the first open voxel above the *highest* solid, so an overhang reads as a wall up to its top.
+   To the grid, the air under it is not there.
+2. **The grid is built only for loaded chunk columns**, and only where a cell is built in. It
+   reads `ISkyColumns` today, but the streamer holds the chunks' voxels and can answer them.
+   **So reading voxels in the grid costs nothing at open**: the open-time derive (94 ms on
+   `Regions16`) feeds the raise, which does not change here.
+3. **A column's `Revision` moves only when its top moves** (`SkyColumn.cs`: an opaque write below
+   the top returns early, and a clear below it is not the topmost). A block placed or taken under
+   an overhang, or a doorway cut in a wall under a higher roof, moves nothing the grid's key
+   reads. **Nothing in the streamer counts edits per chunk column today.**
+4. **The band follows the grid.** `LakeCeiling` takes a built column's tops from the grid, and
+   Tier B found inside a band is handed whole. So a column the grid gives a level is the lake's,
+   and the Tier B water that ran in from the right is absorbed at the next boundary. No new
+   hand-off rule is needed.
+5. **A sealed room under a lake is why the raise must not simply drop.** If a roofed cell stopped
+   raising, every 2 m cell wholly inside a walled, roofed room would read as lake. That is the
+   courtyard problem in 3D, and the raise at 2 m cannot see the walls round it. The grid floods
+   by connection, so it can tell an overhang (open to the lake at the side) from a room (walls
+   all round).
+
+### Decisions
+
+1. **The rule lives in the grid, and the raise stays the highest top.** *Recommended.* Tier A
+   keeps treating covered cells as land: a sealed room stays dry, and the open-time derive does
+   not change. The grid decides what is actually reachable, voxel by voxel. **Stated cost**: the
+   covered volume is not in the basin's curve, so a lake with overhangs stands slightly higher
+   than its litres say, by the covered volume over the lake's area. The grid already makes that
+   trade for a wall's inside strip. *Rejected*: the raise reading the lowest gap floods every
+   sealed roofed room under a lake.
+2. **A column's water room is its lowest open run above the natural ground: `[floor, ceil)`.**
+   *Recommended.* `floor` is the first open voxel at or above the seed plane, and `ceil` the first
+   solid above that, unbounded where nothing is placed above. A natural column is `[seed plane,
+   ∞)`. Under an overhang the run is the ground up to the overhang's underside. For a wall the
+   run starts at its top, as today. **A window's run starts at its sill, and a doorway's at the
+   floor**, so water goes through each where it would really go. Only columns in built cells
+   whose top is above the seed plane are walked, up to `OpenAboveY` at most. **Open means not
+   `IsSolid`**, so glass is a wall, as it is to the sky.
+3. **A neighbour is entered only where the two runs overlap below the level.** *Recommended.*
+   The test is `max(floorA, floorB) < min(ceilA, ceilB, level)`, where today it is
+   `floor[n] < level`. So two runs stacked one above the other with no overlap do not connect,
+   and water never passes between them through a solid block. The flood's order, the lowest
+   level winning, the pad and the strict wall rule are unchanged.
+4. **The grid's key gains an edit count per chunk column.** *Recommended.* The grid now reads
+   voxels below the top, which the column's revision never sees (fact 3), and a rebuild rule is
+   dirtied by what a build reads, never by what it produced. `ChunkPipeline.SetVoxel` bumps a
+   counter for the chunk column on any edit, and so does a chunk arriving. The key holds the
+   counts of its nine columns beside their revisions. **Cost**: a bite anywhere in a built
+   column, digging underground included, rebuilds its grid, at 0.07 ms a build on the table's
+   numbers. *Rejected*: counting only edits above the seed plane, which saves nothing that
+   matters and adds a place for the key to be wrong.
+5. **Only the lowest run is modelled.** *Recommended, a stated cost.* In a column with two runs
+   under the level — a submerged roof over a sealed room, with lake above the roof — the water
+   above the roof is not drawn. The flood enters that column by the room's run, which the walls
+   close off. It is water missing, never water inside a wall: the conservative failure, like the
+   pad's. **Trigger**: a submerged building or an aquarium in play.
+6. **An unloaded voxel inside a walk is solid.** *Recommended.* It ends the run, so water stops
+   short where the world is not loaded. The fluid tier's rule, and the grid's own for an
+   unloaded column.
+
+### What it is measured against
+
+- **Tests (Core)**:
+  - an overhang beside a lake is wet under it at the lake's level, banded, and Tier B put there
+    is handed;
+  - a wall with a window holds to the sill;
+  - a doorway at floor level lets the lake into the room behind;
+  - a walled, roofed room under a lake stays dry;
+  - two stacked, non-overlapping runs do not connect;
+  - a block placed under an overhang (the top unchanged) rebuilds the grid, where today's key
+    would not;
+  - every existing grid, raise and courtyard test unchanged.
+- **Oracles**: the r6 control to the digit, the courtyard's `handed 0 L`, and the pond pour's
+  `0 L spilled, level 4.6` on a copy of `Regions16`.
+- **Cost**: `--watch`'s grid rows on the table's workload. The build walks voxels now; the bar is
+  the plan's 5 ms on the sim thread, with the first build's JIT noted as a one-off. *Estimate*: a
+  few tenths of a millisecond a build, since only placed columns walk and each walks a wall's
+  height.
+- **His play**: `start5` at the same overhang. The lake should reach under it from the left.
+
+### The split
+
+One session: the Core change with its tests, then the wire (the grids get the world and the
+material table), then the oracles and his play. Nothing here changes the world format.
+
+### Not this pass: the clay roof
+
+At the same quit he reported water *"leaking through my clay roof … might be residual or
+horizontal travel"*. Clay's permeability is 0 and a Tier B cell cannot enter a solid voxel, so
+the answer is where the water was born, not the roof. It is in TODO with the candidates and what
+to capture next time.
