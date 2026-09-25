@@ -328,3 +328,10 @@ first solid run from the seed surface up (the first open voxel above the ground)
 platform over air raises nothing and a wall still does. It needs voxel reads per placed column
 (live from the streamer; at open from the stored chunk blobs), and it changes the grid's floor
 the same way.
+
+**Answered the same evening — *"then damming it is honest, like i am deliberately going to flood
+that entire valley for spread and flood testing purposes"*.** The tall raises are his dam walls,
+built for it. Decision 2 stands as built and the first-solid-run rule is **not** built. Its
+revisit trigger: the first roof, platform or bridge over water that reads as a dam in play. The
+30 ML held behind them is the rule working. b continues with the look (a screenshot on a copy of
+his world) and then his play.
