@@ -1370,6 +1370,9 @@ public partial class Main : Node3D
                 // The courtyard: a wall placed or taken down drops the cached regions at its level
                 // in its column, and the ceiling rebuilds a band whose top is that level.
                 _enclosure?.VoxelChanged(voxel);
+                // The overhang pass: the water grid reads voxels under a column's top now, where
+                // an edit moves no sky revision, so it counts the edit. A counter, nothing else.
+                _waterGrids?.VoxelChanged(voxel);
             },
             // M10a-2: an arrival with rows in it, or a palette that might hold a machine
             // material, is queued for the frame's drain. O(palette) here, no voxel read, no write:
@@ -1380,6 +1383,7 @@ public partial class Main : Node3D
                 // The courtyard: a chunk with edits may hold walls; one a flood reached as unloaded
                 // changes the answer either way. Bookkeeping only — no read, no flood, here.
                 _enclosure?.ChunkArrived(position, hasEdits);
+                _waterGrids?.ChunkArrived(position);
             },
             chunkCacheBytes: _chunkCacheMiB * 1024 * 1024,
             distanceOrderedDerives: !_deriveFifo,
@@ -1388,6 +1392,7 @@ public partial class Main : Node3D
             {
                 _portalTracker?.OnChunkForgotten(position);
                 _enclosure?.ChunkForgotten(position);
+                _waterGrids?.ChunkForgotten(position);
 
                 // UNDO-PLAN decision 5: the chunk reloads its *edited* state when it comes
                 // back, so a step that touched it can neither be applied nor deferred.
@@ -6347,7 +6352,7 @@ public partial class Main : Node3D
         // to be a basin is its own basin, and the grid draws and bands the cells the player built
         // in — so the surface and the ceiling stop asking the enclosure. The hand-off still asks
         // it, on a raised sample only (decision 6).
-        _waterGrids = _water is null || _raised is null ? null : new WaterGrids(_pipeline.Streamer, _water, _water.CellVoxels);
+        _waterGrids = _water is null || _raised is null ? null : new WaterGrids(_pipeline.Streamer, _water, _water.CellVoxels, _pipeline.Streamer, _materials);
         if (_waterSurface is not null)
         {
             _waterSurface.Enclosure = _waterGrids is null ? _enclosure : null;

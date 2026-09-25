@@ -1,5 +1,26 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 (late morning) — The overhang pass: the lake reaches under what he builds
+
+His play on `start5`: *"from the right it is filling into it but I do not think we have a rule
+for where there is open air but below the waterline only that it isn't falling in from the left
+side"*. The raise and the water grid read a column's highest top, so an overhang was a wall to
+its top. The pass (POND-PLAN's last two sections) keeps the raise as it is, because at 2 m it
+cannot see a sealed room's walls and would flood every one. Instead the grid reads a built
+column's lowest open run above the natural ground, and connects neighbours whose runs overlap
+under the level. Taken as recommended and built the same morning. **Built-in columns under water
+on the pond workload: 2,240 → 3,583**, the pour still `0 L spilled`, the courtyard as recorded,
+r6 to the digit, suite 1,940.
+
+**One rule the pass did not have: a walk stops at the highest level in reach.** His ~30 m
+stone structures made the worst build 15.2 ms, walked ground to top. After the bound it is 4.6
+ms, the first walking build's JIT, and 1.2 ms after that, in the slow phase. **And a trap**: the
+first run's tick read 39 ms against 208 ms with the same water. The control rows (light derive
+0.13 against 0.83 ms) said it was the machine's fast phase.
+
+**Also logged: water under his clay roof** (TODO, *Needs a human eye*). Clay is permeability 0,
+so the question is where the water is born.
+
 ## 2026-09-26 (morning) — Main against the pond branch, a table of watched functions
 
 Matthew: *"test both branches and profile cpu usage for the two in a table of watched

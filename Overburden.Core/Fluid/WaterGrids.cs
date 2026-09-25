@@ -1,3 +1,4 @@
+using Overburden.Core.Content;
 using Overburden.Core.Lighting;
 using Overburden.Core.Voxels;
 using Overburden.Core.Diagnostics;
@@ -18,6 +19,13 @@ namespace Overburden.Core.Fluid;
 /// integer floor against the level (it changes only when the level crosses a whole voxel) and the
 /// band keeps the floor; a lake rising inside a voxel therefore costs thirty-six reads and no
 /// build, and the surface reads the live level through <see cref="WaterColumns.TryGetSource"/>.
+/// </para>
+/// <para>
+/// <b>And each column's edit count</b> (the overhang pass, 2026-09-26): a grid read with voxels
+/// reads below a column's top, where an edit moves no <see cref="SkyColumn.Revision"/> — a block
+/// placed under an overhang, a doorway cut under a higher roof. <see cref="VoxelChanged"/>,
+/// <see cref="ChunkArrived"/> and <see cref="ChunkForgotten"/> count them per chunk column, from
+/// the pipeline's own hooks, and the nine counts are in the key.
 /// </para>
 /// <para>
 /// <b>A chunk column with nothing placed is cached too</b>, as a null against its key, so an
@@ -41,6 +49,9 @@ public sealed class WaterGrids
     private readonly ISkyColumns _sky;
     private readonly IWaterTable _table;
     private readonly int _cellVoxels;
+    private readonly IVoxelWorld? _voxels;
+    private readonly MaterialTable? _materials;
+    private readonly Dictionary<(int X, int Z), long> _edits = [];
     private readonly int _cellsPerChunk;
     private readonly int _keyLength;
     private readonly Dictionary<(int X, int Z), Entry> _entries = [];
@@ -52,7 +63,7 @@ public sealed class WaterGrids
         public WaterColumns? Grid;
     }
 
-    public WaterGrids(ISkyColumns sky, IWaterTable table, int cellVoxels)
+    public WaterGrids(ISkyColumns sky, IWaterTable table, int cellVoxels, IVoxelWorld? voxels = null, MaterialTable? materials = null)
     {
         ArgumentNullException.ThrowIfNull(sky);
         ArgumentNullException.ThrowIfNull(table);
@@ -64,9 +75,11 @@ public sealed class WaterGrids
         _sky = sky;
         _table = table;
         _cellVoxels = cellVoxels;
+        _voxels = voxels;
+        _materials = materials;
         _cellsPerChunk = N / cellVoxels;
         int samples = _cellsPerChunk + 2;
-        _keyLength = 9 + (2 * samples * samples);
+        _keyLength = 18 + (2 * samples * samples);
         _scratch = new long[_keyLength];
     }
 
@@ -101,6 +114,24 @@ public sealed class WaterGrids
     /// <summary>Milliseconds spent building over the lifetime.</summary>
     public double BuildMillis { get; private set; }
 
+    /// <summary>A voxel was written: the grids that read its chunk column rebuild when next asked.</summary>
+    public void VoxelChanged(VoxelPos voxel) => Touch(FloorDiv(voxel.X, N), FloorDiv(voxel.Z, N));
+
+    /// <summary>A chunk's voxels arrived: what a walk read as unloaded may be open now.</summary>
+    public void ChunkArrived(ChunkPos chunk) => Touch(chunk.X, chunk.Z);
+
+    /// <summary>A chunk left: what a walk read as open is unloaded now.</summary>
+    public void ChunkForgotten(ChunkPos chunk) => Touch(chunk.X, chunk.Z);
+
+    private void Touch(int chunkX, int chunkZ)
+    {
+        _edits.TryGetValue((chunkX, chunkZ), out long count);
+        _edits[(chunkX, chunkZ)] = count + 1;
+    }
+
+    private static int FloorDiv(int value, int divisor) =>
+        value >= 0 ? value / divisor : -((-value + divisor - 1) / divisor);
+
     private static readonly int WatchGet = CallWatch.Register("water grid: get (cached)");
 
     /// <summary>The water grid of a chunk column, or null when nothing is placed in it.</summary>
@@ -115,7 +146,7 @@ public sealed class WaterGrids
         }
 
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
-        WaterColumns? grid = WaterGrid.Build(chunkX, chunkZ, _sky, _table, _cellVoxels);
+        WaterColumns? grid = WaterGrid.Build(chunkX, chunkZ, _sky, _table, _cellVoxels, _voxels, _materials);
         BuildMillis += (System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
         Builds++;
 
@@ -144,6 +175,7 @@ public sealed class WaterGrids
             {
                 SkyColumn? column = _sky.ColumnAt(chunkX + dx, chunkZ + dz);
                 key[k++] = column is null || !column.IsSeeded ? Absent : column.Revision;
+                key[k++] = _edits.TryGetValue((chunkX + dx, chunkZ + dz), out long edits) ? edits : 0;
             }
         }
 

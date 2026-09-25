@@ -1,3 +1,4 @@
+using Overburden.Core.Content;
 using Overburden.Core.Lighting;
 using Overburden.Core.Voxels;
 using Overburden.Core.Diagnostics;
@@ -42,6 +43,17 @@ namespace Overburden.Core.Fluid;
 /// the wall.
 /// </para>
 /// <para>
+/// <b>A column's water room is its lowest open run above the natural ground</b> (the overhang pass,
+/// 2026-09-26): <c>[floor, ceil)</c>, from the first open voxel at or above the seed plane to the
+/// first solid above that. Under an overhang that is the ground up to its underside, a wall's
+/// starts at its top, a window's at its sill and a doorway's at the floor. A neighbour is entered
+/// only where the two runs overlap below the level, so water never passes a solid block between
+/// two stacked runs. Given no voxels (<c>voxels</c> null) a placed column's run is its top upward,
+/// the rule before the pass: the overhang reads as a wall. Only the lowest run is modelled, so the
+/// lake over a submerged roof above a sealed room is not drawn, which is water missing, never
+/// water inside a wall. An unloaded voxel is solid: it ends a run.
+/// </para>
+/// <para>
 /// <b>Stated costs.</b> A neighbouring chunk column that is not loaded contributes nothing to the
 /// pad: no seeds and no passage. A built-in zone wider than the pad, with no unraised wet column
 /// within a cell of the chunk column, finds no seeds and reads dry. Both are the conservative
@@ -57,8 +69,12 @@ public static class WaterGrid
     /// <summary>
     /// Builds the water columns of chunk column (<paramref name="chunkX"/>, <paramref name="chunkZ"/>),
     /// or returns null when nothing is placed in it — its bands are today's and no grid is needed.
+    /// With <paramref name="voxels"/> and <paramref name="materials"/> a placed column's run is read
+    /// off its voxels (the overhang pass); without, it is its top upward.
     /// </summary>
-    public static WaterColumns? Build(int chunkX, int chunkZ, ISkyColumns sky, IWaterTable table, int cellVoxels)
+    public static WaterColumns? Build(
+        int chunkX, int chunkZ, ISkyColumns sky, IWaterTable table, int cellVoxels,
+        IVoxelWorld? voxels = null, MaterialTable? materials = null)
     {
         using CallWatch.Scope callWatch = CallWatch.Time(WatchBuild);
         ArgumentNullException.ThrowIfNull(sky);
@@ -82,12 +98,31 @@ public static class WaterGrid
         // Per padded column: its floor plane, whether its cell is built in, and whether it is
         // loaded at all. An unloaded column is neither a seed nor a passage.
         var floor = new int[side * side];
+        var ceil = new int[side * side];
+        Array.Fill(ceil, int.MaxValue);
         var built = new bool[side * side];
         var loaded = new bool[side * side];
         var level = new double[side * side];
         Array.Fill(level, double.NaN);
         var sourceX = new int[side * side];
         var sourceZ = new int[side * side];
+
+        // The highest level any sample in the pad could bring. A run above it can hold nothing, so
+        // a walk stops there: a tower is a few reads a column, not its height (the overhang pass
+        // measured 15 ms a build on his tall stone before this bound).
+        var tables = new Dictionary<(int X, int Z), double?>();
+        double highest = double.NegativeInfinity;
+        for (int sz = FloorDiv(originZ, cellVoxels); sz <= FloorDiv(originZ + side - 1, cellVoxels); sz++)
+        {
+            for (int sx = FloorDiv(originX, cellVoxels); sx <= FloorDiv(originX + side - 1, cellVoxels); sx++)
+            {
+                double? t = table.TableAt(sx, sz);
+                tables[(sx, sz)] = t;
+                if (t is { } l && l > highest) highest = l;
+            }
+        }
+
+        int limit = double.IsNegativeInfinity(highest) ? int.MinValue : (int)Math.Ceiling(highest) + 1;
 
         var cellBuilt = new Dictionary<(int X, int Z), bool>();
         for (int z = 0; z < side; z++)
@@ -106,14 +141,25 @@ public static class WaterGrid
                 int seedPlane = column.SeedSurfaceY(lx, lz) + 1;
                 int open = column.OpenAboveY(lx, lz);
                 loaded[i] = true;
-                floor[i] = open > seedPlane ? open : seedPlane;
+                if (open <= seedPlane)
+                {
+                    floor[i] = seedPlane;
+                }
+                else if (voxels is null || materials is null || seedPlane >= limit)
+                {
+                    floor[i] = open;
+                }
+                else
+                {
+                    (floor[i], ceil[i]) = Run(voxels, materials, worldX, worldZ, seedPlane, Math.Min(open, limit), open);
+                }
+
                 built[i] = CellBuilt(cellBuilt, column, FloorDiv(worldX, cellVoxels), FloorDiv(worldZ, cellVoxels), cellVoxels);
             }
         }
 
         // Unraised columns take their sample's table, as the band does; those under it are seeds.
         var seeds = new List<(double Level, int Index)>();
-        var tables = new Dictionary<(int X, int Z), double?>();
         for (int z = 0; z < side; z++)
         {
             for (int x = 0; x < side; x++)
@@ -170,7 +216,12 @@ public static class WaterGrid
                 {
                     if (nx < 0 || nz < 0 || nx >= side || nz >= side) return;
                     int n = (nz * side) + nx;
-                    if (!loaded[n] || !built[n] || !double.IsNaN(level[n]) || floor[n] >= l) return;
+                    if (!loaded[n] || !built[n] || !double.IsNaN(level[n])) return;
+
+                    // The two runs must overlap below the level: water crosses where both columns
+                    // are open at once, and never through a solid block between stacked runs.
+                    int lo = Math.Max(floor[i], floor[n]);
+                    if (lo >= Math.Min(ceil[i], ceil[n]) || lo >= l) return;
                     level[n] = l;
                     sourceX[n] = sourceX[i];
                     sourceZ[n] = sourceZ[i];
@@ -197,6 +248,40 @@ public static class WaterGrid
 
         return new WaterColumns(chunkX, chunkZ, result, resultX, resultZ, reached);
     }
+
+    /// <summary>
+    /// A placed column's lowest open run above the natural ground: up through solid from the seed
+    /// plane to the first open voxel, then up through open to the first solid. None below the top
+    /// is its top upward, as a wall's is. Both walks stop at <paramref name="bound"/> — the column's
+    /// top or the highest level in reach, whichever is lower — because above the level a run's
+    /// start holds nothing and its end changes no overlap under the level.
+    /// </summary>
+    private static (int Floor, int Ceil) Run(IVoxelWorld voxels, MaterialTable materials, int x, int z, int seedPlane, int bound, int open)
+    {
+        int floor = seedPlane;
+        while (floor < bound && !IsOpen(voxels, materials, x, floor, z))
+        {
+            floor++;
+        }
+
+        if (floor >= bound)
+        {
+            return (open, int.MaxValue);
+        }
+
+        int ceil = floor;
+        while (ceil < bound && IsOpen(voxels, materials, x, ceil, z))
+        {
+            ceil++;
+        }
+
+        // Stopped by the bound rather than by a solid: past the level, so as good as unbounded.
+        return (floor, ceil >= bound && bound < open ? int.MaxValue : ceil);
+    }
+
+    // Unloaded is not open: it ends a run, as it ends a fluid cell's move.
+    private static bool IsOpen(IVoxelWorld voxels, MaterialTable materials, int x, int y, int z) =>
+        voxels.TryGetMaterial(new VoxelPos(x, y, z), out int id) && !materials.IsSolid(id);
 
     private static bool AnyPlaced(SkyColumn column)
     {

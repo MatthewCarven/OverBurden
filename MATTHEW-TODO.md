@@ -81,6 +81,11 @@ I'll go and find the numbers.
       lake's rim (the pass is `docs/POND-PLAN.md`); once it's built, R into your ring on
       `Regions16` should fill it to the wall, and the water will stop vanishing when the ring
       closes. Nothing for you to do yet.
+- [ ] **Overhangs over the pond (2026-09-26, `start5`).** The lake should now reach under an
+      overhang from its own side, stop at a wall, come through a window whose sill is under the
+      water and through a doorway at the floor, and leave a walled, roofed room dry. Place a
+      block under an overhang and the water there should change at the next water tick. One
+      sentence back, plus a screenshot if anything looks wrong.
 - [ ] **Glass is in (2026-09-25).** `P` gives you 64 cells of it (pick it with `V` if it isn't
       on the number row). Build a window, a wall and a roof. Light comes through the roof at full
       strength, rain stops on it, and a glass wall holds water like stone. Things to tell me: is it

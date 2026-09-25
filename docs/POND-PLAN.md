@@ -466,3 +466,35 @@ At the same quit he reported water *"leaking through my clay roof … might be r
 horizontal travel"*. Clay's permeability is 0 and a Tier B cell cannot enter a solid voxel, so
 the answer is where the water was born, not the roof. It is in TODO with the candidates and what
 to capture next time.
+
+### The overhang pass — built (2026-09-26, on `water-column-test`), all six as recommended
+
+*"Yes please Claude."* `WaterGrid.Build` takes the world's voxels and the material table. A
+placed column's run is walked (`Run`): up through solid from the seed plane, then up through
+open. A neighbour is entered on `max(floorA, floorB) < min(ceilA, ceilB, level)`. `WaterGrids`
+counts edits per chunk column through `VoxelChanged` / `ChunkArrived` / `ChunkForgotten` — wired
+in `Main` beside the enclosure's three — and keeps the nine counts in the key. Given no voxels,
+the rule is the one before the pass, which is how the old tests still read and how the new
+overhang test proves it distinguishes the two.
+
+**One rule the pass did not have: a walk stops at the highest level in reach.** The first
+measurement on the pond workload read **15.2 ms for the worst build**, in the machine's fast
+phase: his stone structures are ~30 m tall, and a solid column was walked from the ground to its
+top. Above the highest table in the pad a run's start holds nothing, and its end changes no
+overlap under the level, so both walks stop at `⌈highest⌉ + 1`. After it, in the slow phase:
+worst build 4.6 ms, which is build #6, the first to walk (the JIT); every other build 1.2 ms or
+less, and the mean 0.075 ms against 0.085 before the pass. **The reach is identical: 3,583
+built-in columns under water, against 2,240 before the pass**, the lake now under his overhangs
+and through his gaps. The pour reads `0 L spilled, level 4.61`, the courtyard `20,000 L at 6.89`,
+and the r6 control is to the digit. Suite 1,940.
+
+**A trap, noted.** The first run after the change read the water tick at 39 ms against 208 ms,
+with the same water (407 kL drawn, as before). The machine-control rows said why: light derive
+0.13 ms against 0.83, mesh 2.35 against 7.8. It was the fast phase, not the change. **Read the
+generate / mesh / derive rows before any tick figure.**
+
+**The battery:** 7 recipes, 7 caught after two fixtures were added. Ignoring the current
+column's floor was missed by fixtures that only flooded upward, and now a roofed pocket beside
+a raised floor catches it. Reading unloaded as open was missed because the fixture had no
+unloaded voxel. **Not covered by a test: `Main`'s three hook lines**, which his play covers — a
+block placed under an overhang changes the water under it at the next boundary.
