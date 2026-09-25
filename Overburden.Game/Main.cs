@@ -359,8 +359,11 @@ public partial class Main : Node3D
     private bool _lightInMergeKey = true;
     private float _skyBrightness = 1f;
 
-    /// <summary><c>--glassalpha=</c>: glass's opacity, over the shader's own default (0.15 since 2026-09-26, his "about 15%"; 0.35 before).</summary>
+    /// <summary><c>--glassalpha=</c>: glass's opacity, over the shader's own default (0.20 since 2026-09-26, his sweep; 0.35 before).</summary>
     private float? _glassAlpha;
+
+    /// <summary><c>--glassshade=</c>: the pane's own brightness over the shader's default, 0 (black glass) to 1 (the lit texture it drew before).</summary>
+    private float? _glassShade;
     private float _fallHeightMetres = 600f;
     private int _restingSteps;
     private int _restedSteps;
@@ -1249,6 +1252,11 @@ public partial class Main : Node3D
             _glassMaterial.SetShaderParameter("glass_alpha", glassAlpha);
         }
 
+        if (_glassShade is { } glassShade)
+        {
+            _glassMaterial.SetShaderParameter("glass_shade", glassShade);
+        }
+
         SetVoxelParameter("tint_in_view_space", _tintInViewSpace);
 
         // Not created in a headless run: there is no renderer, so every particle is a buffer
@@ -1688,10 +1696,15 @@ public partial class Main : Node3D
                     _spawnYawDegrees = degrees;
                     break;
 
-                // Glass's opacity, 0 clear to 1 solid; the shader's default is 0.15 (his play,
-                // 2026-09-26: "about 15%"). A look sweep, so it is not profile-only.
+                // Glass's opacity, 0 clear to 1 solid; the shader's default is 0.20 (his sweep,
+                // 2026-09-26). A look sweep, so it is not profile-only.
                 case "glassalpha" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float alpha) && alpha >= 0f && alpha <= 1f:
                     _glassAlpha = alpha;
+                    break;
+
+                // The pane's own brightness: 0 black glass (the default, his ask), 1 the old lit face.
+                case "glassshade" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float shade) && shade >= 0f && shade <= 1f:
+                    _glassShade = shade;
                     break;
 
                 // The vertical half of --yaw. Negative looks down, which is what a shot of rain
