@@ -81,12 +81,11 @@ I'll go and find the numbers.
       lake's rim (the pass is `docs/POND-PLAN.md`); once it's built, R into your ring on
       `Regions16` should fill it to the wall, and the water will stop vanishing when the ring
       closes. Nothing for you to do yet.
-- [ ] **Glass — the pass is written** (`docs/GLASS-PLAN.md`), seven decisions, all
-      recommended. The big one: glass acts as a roof to rain and the sky, and as a window to
-      light — a glass-roofed room is bright but a little dimmer than outdoors, windows in walls
-      are exact, and a glass wall holds water like stone. Sand comes later with the furnace, and
-      never flows. One word from you (*"as recommended"* is fine) and I build it after your
-      pond verdict.
+- [ ] **Glass is in (2026-09-25).** `P` gives you 64 cells of it (pick it with `V` if it isn't
+      on the number row). Build a window, a wall and a roof. Light comes through the roof at full
+      strength, rain stops on it, and a glass wall holds water like stone. Things to tell me: is it
+      too milky (the alpha is one number), does a floor under glass gleaming in a storm bother you,
+      and does water seen through glass ever draw in the wrong order?
 - [ ] **M10d-2, the play** — the ten recipes below. This is the next milestone thing and it is
       entirely yours; nothing else is blocked on me.
 
