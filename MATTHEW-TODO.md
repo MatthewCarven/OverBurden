@@ -88,6 +88,8 @@ I'll go and find the numbers.
       takes light away; `--glassalpha=` and `--glassshade=` (0 black, 1 the old pale) try others with
       no rebuild**), does a floor under glass gleaming in a storm bother you,
       and does water seen through glass ever draw in the wrong order?
+      **The look is answered (2026-09-26, black glass at 0.20: *"Glass looks GOOD!"*).** Still
+      yours when they come up: the storm gleam and the water sort order.
 - [ ] **M10d-2, the play** — the ten recipes below. This is the next milestone thing and it is
       entirely yours; nothing else is blocked on me.
 
