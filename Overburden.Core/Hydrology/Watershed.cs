@@ -1,3 +1,5 @@
+using Overburden.Core.Diagnostics;
+
 namespace Overburden.Core.Hydrology;
 
 /// <summary>
@@ -76,8 +78,11 @@ public sealed class Watershed
         return label == Outlet ? null : Basins[label];
     }
 
+    private static readonly int WatchBasins = CallWatch.Register("watershed: flood the basins");
+
     public static Watershed Analyse(HeightField field)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchBasins);
         ArgumentNullException.ThrowIfNull(field);
 
         int pitch = field.Pitch;

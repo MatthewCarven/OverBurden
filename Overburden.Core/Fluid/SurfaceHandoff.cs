@@ -1,6 +1,7 @@
 ﻿using Overburden.Core.Hydrology;
 using Overburden.Core.Lighting;
 using Overburden.Core.Voxels;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Core.Fluid;
 
@@ -149,12 +150,15 @@ public sealed class SurfaceHandoff
         return Raised.TryGetRaised(sampleX, sampleZ, out _);
     }
 
+    private static readonly int WatchAbsorb = CallWatch.Register("hand-off: absorb");
+
     /// <summary>
     /// One pass over the cells the last tick found at rest. Returns the millilitres handed off.
     /// Call at the tick boundary, before the next tick begins.
     /// </summary>
     public long Absorb()
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchAbsorb);
         IReadOnlyList<VoxelPos> rested = _fluid.Rested;
         IReadOnlyList<VoxelPos> submerged = _fluid.Submerged;
         RestedLastPass = rested.Count;

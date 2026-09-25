@@ -1,6 +1,7 @@
 using Overburden.Core.Fluid;
 using Overburden.Core.Lighting;
 using Overburden.Core.Voxels;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Core.Hydrology;
 
@@ -306,6 +307,8 @@ public sealed class WaterSystem : IWaterTable
             || originZ != Window.Watershed.Field.OriginZ;
     }
 
+    private static readonly int WatchWindow = CallWatch.Register("watershed: analyse a window");
+
     /// <summary>
     /// Samples the terrain, floods it and builds the merge tree. <b>Pure — run it on a worker.</b>
     /// </summary>
@@ -318,6 +321,7 @@ public sealed class WaterSystem : IWaterTable
     public static WaterWindow Analyse(
         ISurfaceHeights heights, int originX, int originZ, int pitch, int cellVoxels, IRaisedSamples? raised = null)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchWindow);
         HeightField field = HeightField.Sample(heights, originX, originZ, pitch, cellVoxels, raised);
         Watershed watershed = Watershed.Analyse(field);
         return new WaterWindow(watershed, MergeTree.Build(watershed));

@@ -1,4 +1,5 @@
 using Overburden.Core.Persistence;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Core.Hydrology;
 
@@ -108,6 +109,8 @@ public sealed class BasinLedger
         }
     }
 
+    private static readonly int WatchRehome = CallWatch.Register("raise: re-home the ledger");
+
     /// <summary>
     /// Moves the water of every stored pit inside this window that the window no longer has as a
     /// pit to the basin whose catchment now holds that sample. Returns the pits moved, the litres
@@ -122,6 +125,7 @@ public sealed class BasinLedger
     /// </remarks>
     public (int Pits, long Litres, long Left) Rehome(Watershed watershed)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchRehome);
         ArgumentNullException.ThrowIfNull(watershed);
         HeightField field = watershed.Field;
         int span = field.Pitch * field.CellVoxels;

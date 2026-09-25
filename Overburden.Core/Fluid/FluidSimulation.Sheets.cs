@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using Overburden.Core.Voxels;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Core.Fluid;
 
@@ -182,6 +183,31 @@ public sealed partial class FluidSimulation
     private int _cellCount;
     private readonly Dictionary<VoxelPos, int> _cellIndex = [];
     private readonly FloodIndex _floodIndex = new();
+
+    /// <summary>
+    /// The union-find's parents, flat and indexed by sheet — the classic shape, and Matthew's
+    /// direct-indexed table applied to the sheets rather than the cells. <c>Find</c> walked
+    /// <c>Sheet</c> objects out of a list until 2026-09-26, 12% of the flood's profile.
+    /// </summary>
+    private int[] _parent = new int[64];
+
+    /// <summary>Per flood record, the next cell of its sheet's chain, or -1.</summary>
+    private int[] _cellNext = new int[256];
+
+    /// <summary>A sheet's cells as a list, for the two passes that address them by position.</summary>
+    private readonly List<int> _sheetCells = [];
+
+    /// <summary>The sheet's chain as an indexable list, in flood order. Reused; valid until the next call.</summary>
+    private List<int> CellsOf(Sheet sheet)
+    {
+        _sheetCells.Clear();
+        for (int record = sheet.Head; record >= 0; record = _cellNext[record])
+        {
+            _sheetCells.Add(record);
+        }
+
+        return _sheetCells;
+    }
     private bool _hashedThisPass;
 
     private readonly List<Sheet> _sheets = [];
@@ -290,8 +316,14 @@ public sealed partial class FluidSimulation
     /// </summary>
     private sealed class Sheet
     {
-        public int Parent;
-        public readonly List<int> Cells = [];
+        /// <summary>
+        /// The sheet's cells as a chain through <c>_cellNext</c>, in flood order: first, last and
+        /// how many. A chain rather than a list so a merge is one link rather than a copy of the
+        /// smaller sheet's cells (the flood's profile, 2026-09-26: ~10% of it was that copy).
+        /// </summary>
+        public int Head = -1;
+        public int Tail = -1;
+        public int Count;
         public readonly List<int> Frontier = [];
         public long Total;
         public int Unsettled;
@@ -299,10 +331,11 @@ public sealed partial class FluidSimulation
         public int BorderLow;
         public int BorderHigh;
 
-        public void Reset(int index)
+        public void Reset()
         {
-            Parent = index;
-            Cells.Clear();
+            Head = -1;
+            Tail = -1;
+            Count = 0;
             Frontier.Clear();
             Total = 0;
             Unsettled = 0;
@@ -427,9 +460,12 @@ public sealed partial class FluidSimulation
     /// <summary>The tick number the last solve tested quiet against. Tests only: it pins the worker's +1.</summary>
     internal long LastSolveTick => _solveTick;
 
+    private static readonly int WatchSolve = CallWatch.Register("sheet solve: a pass");
+
     private SheetLevelResult Solve(
         IReadOnlyList<VoxelPos> seeds, int share, int quietTicks, long nowTick, int cap, int advance)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchSolve);
         ArgumentOutOfRangeException.ThrowIfNegative(advance);
         _advanceRings = advance;
         ArgumentOutOfRangeException.ThrowIfNegative(share);
@@ -479,13 +515,13 @@ public sealed partial class FluidSimulation
             for (int s = 0; s < _sheetCount; s++)
             {
                 Sheet sheet = _sheets[s];
-                if (sheet.Parent != s)
+                if (_parent[s] != s)
                 {
                     continue;
                 }
 
                 sheets++;
-                int count = sheet.Cells.Count;
+                int count = sheet.Count;
                 if (sheet.Frozen)
                 {
                     underShare++;
@@ -549,7 +585,7 @@ public sealed partial class FluidSimulation
                 if (_advanceRings > 0 && sheet.Total >= (long)AdvanceFloorMillilitres * (count + 1))
                 {
                     advanced += Advance(s, sheet, sheet.Total, count);
-                    count = sheet.Cells.Count;
+                    count = sheet.Count;
                 }
 
                 if (sheet.Total <= (long)PackedCellMillilitres * count)
@@ -723,7 +759,7 @@ public sealed partial class FluidSimulation
         _fedChunks.Clear();
         long inflow = 0;
         bool any = false, disturbed = false;
-        foreach (int record in sheet.Cells)
+        for (int record = sheet.Head; record >= 0; record = _cellNext[record])
         {
             ChunkPos chunk = _cellPos[record].Chunk;
             long stamp = InflowTickAt(chunk);
@@ -778,6 +814,8 @@ public sealed partial class FluidSimulation
         return !_visitTerrain.CanHold(below) || RoomAt(below) == 0;
     }
 
+    private static readonly int WatchFlood = CallWatch.Register("sheet solve: flood one Y");
+
     /// <summary>
     /// Floods, layer by layer, from every seed of one Y at once, freezing a sheet the moment it
     /// is known to be under the share and joining floods that meet. Fills the records and the
@@ -785,6 +823,7 @@ public sealed partial class FluidSimulation
     /// </summary>
     private void Flood(int seedStart, int seedEnd, int share)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchFlood);
         _cellCount = 0;
         _hashedThisPass = HashedFloodIndex;
         if (_hashedThisPass)
@@ -835,7 +874,7 @@ public sealed partial class FluidSimulation
                     int record = _nextLayer[i];
                     Sheet sheet = _sheets[Find(_cellSheet[record])];
                     if (!sheet.Frozen && !sheet.Stepped
-                        && !WorthLevelling(share, sheet.Cells.Count, sheet.Unsettled))
+                        && !WorthLevelling(share, sheet.Count, sheet.Unsettled))
                     {
                         sheet.Frozen = true;
                     }
@@ -954,6 +993,7 @@ public sealed partial class FluidSimulation
             Array.Resize(ref _cellSheet, size);
             Array.Resize(ref _cellTarget, size);
             Array.Resize(ref _cellFlags, size);
+            Array.Resize(ref _cellNext, size);
         }
 
         int record = _cellCount++;
@@ -972,7 +1012,18 @@ public sealed partial class FluidSimulation
         }
 
         Sheet owner = _sheets[sheet];
-        owner.Cells.Add(record);
+        _cellNext[record] = -1;
+        if (owner.Head < 0)
+        {
+            owner.Head = record;
+        }
+        else
+        {
+            _cellNext[owner.Tail] = record;
+        }
+
+        owner.Tail = record;
+        owner.Count++;
         owner.Total += amount;
         return record;
     }
@@ -997,22 +1048,29 @@ public sealed partial class FluidSimulation
             _sheets.Add(new Sheet());
         }
 
-        _sheets[_sheetCount].Reset(_sheetCount);
+        _sheets[_sheetCount].Reset();
+        if (_sheetCount == _parent.Length)
+        {
+            Array.Resize(ref _parent, _parent.Length * 2);
+        }
+
+        _parent[_sheetCount] = _sheetCount;
         return _sheetCount++;
     }
 
     private int Find(int sheet)
     {
         int root = sheet;
-        while (_sheets[root].Parent != root)
+        int[] parent = _parent;
+        while (parent[root] != root)
         {
-            root = _sheets[root].Parent;
+            root = parent[root];
         }
 
-        while (_sheets[sheet].Parent != root)
+        while (parent[sheet] != root)
         {
-            int next = _sheets[sheet].Parent;
-            _sheets[sheet].Parent = root;
+            int next = parent[sheet];
+            parent[sheet] = root;
             sheet = next;
         }
 
@@ -1026,15 +1084,33 @@ public sealed partial class FluidSimulation
     /// </summary>
     private int Union(int a, int b)
     {
-        if (_sheets[a].Cells.Count < _sheets[b].Cells.Count)
+        if (_sheets[a].Count < _sheets[b].Count)
         {
             (a, b) = (b, a);
         }
 
         Sheet big = _sheets[a];
         Sheet small = _sheets[b];
-        small.Parent = a;
-        big.Cells.AddRange(small.Cells);
+        _parent[b] = a;
+
+        // The smaller chain spliced on after the bigger one's last cell: the same flood order
+        // AddRange gave, so levelling's "first cells take the remainder" and packing's ties are
+        // unchanged to the millilitre.
+        if (small.Count > 0)
+        {
+            if (big.Head < 0)
+            {
+                big.Head = small.Head;
+            }
+            else
+            {
+                _cellNext[big.Tail] = small.Head;
+            }
+
+            big.Tail = small.Tail;
+            big.Count += small.Count;
+        }
+
         big.Total += small.Total;
         big.Unsettled += small.Unsettled;
         big.BorderLow = Math.Min(big.BorderLow, small.BorderLow);
@@ -1042,7 +1118,9 @@ public sealed partial class FluidSimulation
         _nextLayer.AddRange(big.Frontier);
         _nextLayer.AddRange(small.Frontier);
         big.Frontier.Clear();
-        small.Cells.Clear();
+        small.Head = -1;
+        small.Tail = -1;
+        small.Count = 0;
         small.Frontier.Clear();
         big.Frozen = false;
         return a;
@@ -1088,7 +1166,7 @@ public sealed partial class FluidSimulation
         int start = _cellCount;
         _ring.Clear();
         _ringSeen.Clear();
-        foreach (int record in sheet.Cells)
+        for (int record = sheet.Head; record >= 0; record = _cellNext[record])
         {
             if ((_cellFlags[record] & CellFront) != 0)
             {
@@ -1138,7 +1216,7 @@ public sealed partial class FluidSimulation
             return 0;
         }
 
-        foreach (int record in sheet.Cells)
+        for (int record = sheet.Head; record >= 0; record = _cellNext[record])
         {
             if (record < start && (_cellFlags[record] & CellFront) == 0)
             {
@@ -1203,7 +1281,7 @@ public sealed partial class FluidSimulation
         bandCells = 0;
         _band.Clear();
         _bandRing.Clear();
-        foreach (int record in sheet.Cells)
+        for (int record = sheet.Head; record >= 0; record = _cellNext[record])
         {
             if ((_cellFlags[record] & CellFront) != 0 && BordersDry(_cellPos[record]))
             {
@@ -1274,7 +1352,7 @@ public sealed partial class FluidSimulation
         int share = (int)(bandTotal / count);
         int remainder = (int)(bandTotal % count);
         int i = 0;
-        foreach (int record in sheet.Cells)
+        for (int record = sheet.Head; record >= 0; record = _cellNext[record])
         {
             _cellTarget[record] = (_cellFlags[record] & CellBand) != 0
                 ? share + (i++ < remainder ? 1 : 0)
@@ -1310,7 +1388,7 @@ public sealed partial class FluidSimulation
     {
         int woken = 0;
         Span<int> sides = stackalloc int[4];
-        foreach (int record in sheet.Cells)
+        for (int record = sheet.Head; record >= 0; record = _cellNext[record])
         {
             if (_cellTarget[record] == _cellAmount[record])
             {
@@ -1348,7 +1426,7 @@ public sealed partial class FluidSimulation
     /// <summary>Even shares in flood order, the remainder one millilitre each to the first cells.</summary>
     private void LevelTargets(Sheet sheet)
     {
-        List<int> cells = sheet.Cells;
+        List<int> cells = CellsOf(sheet);
         int count = cells.Count;
         int share = (int)(sheet.Total / count);
         int remainder = (int)(sheet.Total % count);
@@ -1365,7 +1443,7 @@ public sealed partial class FluidSimulation
     /// </summary>
     private void PackTargets(Sheet sheet)
     {
-        List<int> cells = sheet.Cells;
+        List<int> cells = CellsOf(sheet);
         int count = cells.Count;
         int packedCells = (int)((sheet.Total + PackedCellMillilitres - 1) / PackedCellMillilitres);
 
@@ -1397,13 +1475,16 @@ public sealed partial class FluidSimulation
         }
     }
 
+    private static readonly int WatchApply = CallWatch.Register("sheet solve: apply a sheet");
+
     /// <summary>
     /// Moves water from the cells above their target to the cells below it, through
     /// <see cref="FluidGrid.Transfer"/> only. Returns the millilitres moved.
     /// </summary>
     private long Apply(Sheet sheet, out int cellsWritten)
     {
-        List<int> cells = sheet.Cells;
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchApply);
+        List<int> cells = CellsOf(sheet);
         _sheetGivers.Clear();
         _sheetTakers.Clear();
         foreach (int record in cells)
@@ -1466,7 +1547,7 @@ public sealed partial class FluidSimulation
     private int WakeAfterSolve(Sheet sheet)
     {
         int woken = 0;
-        foreach (int record in sheet.Cells)
+        for (int record = sheet.Head; record >= 0; record = _cellNext[record])
         {
             if ((_cellFlags[record] & CellFront) != 0 && Wake(_cellPos[record]))
             {
@@ -1505,7 +1586,7 @@ public sealed partial class FluidSimulation
     /// </remarks>
     private void ListRested(Sheet sheet)
     {
-        foreach (int record in sheet.Cells)
+        for (int record = sheet.Head; record >= 0; record = _cellNext[record])
         {
             if (_cellTarget[record] != _cellAmount[record] && _cellTarget[record] > 0
                 && (_cellFlags[record] & CellFront) == 0)

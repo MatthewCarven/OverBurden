@@ -1,4 +1,5 @@
 using Overburden.Core.Voxels;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Core.Fluid;
 
@@ -381,8 +382,11 @@ public sealed class FluidSurfaceMesher
     /// </summary>
     public FluidSurfaceUpdate Update(FluidGrid grid, IFluidTerrain terrain) => UpdateCore(grid, terrain, ForceFull);
 
+    private static readonly int WatchSurface = CallWatch.Register("Tier B surface: build");
+
     private FluidSurfaceUpdate UpdateCore(FluidGrid grid, IFluidTerrain terrain, bool force)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchSurface);
         ArgumentNullException.ThrowIfNull(grid);
         ArgumentNullException.ThrowIfNull(terrain);
 

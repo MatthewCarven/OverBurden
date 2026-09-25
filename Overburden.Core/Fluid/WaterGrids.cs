@@ -1,5 +1,6 @@
 using Overburden.Core.Lighting;
 using Overburden.Core.Voxels;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Core.Fluid;
 
@@ -100,9 +101,12 @@ public sealed class WaterGrids
     /// <summary>Milliseconds spent building over the lifetime.</summary>
     public double BuildMillis { get; private set; }
 
+    private static readonly int WatchGet = CallWatch.Register("water grid: get (cached)");
+
     /// <summary>The water grid of a chunk column, or null when nothing is placed in it.</summary>
     public WaterColumns? Get(int chunkX, int chunkZ)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchGet);
         FillKey(chunkX, chunkZ, _scratch);
         if (_entries.TryGetValue((chunkX, chunkZ), out Entry? entry) && entry.Key.AsSpan().SequenceEqual(_scratch))
         {

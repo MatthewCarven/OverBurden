@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using Godot;
 using Overburden.Core.Fluid;
 using Overburden.Core.Voxels;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Game.Rendering;
 
@@ -267,8 +268,11 @@ public sealed class FluidSurface
         Rebuild(update, walkMillisOnWorker);
     }
 
+    private static readonly int WatchInstall = CallWatch.Register("Tier B surface: install");
+
     private void Rebuild(FluidSurfaceUpdate update, double walkMillis)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchInstall);
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
 
         InstalledAtMsec = Time.GetTicksMsec();

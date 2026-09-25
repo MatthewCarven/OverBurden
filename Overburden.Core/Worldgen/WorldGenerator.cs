@@ -2,6 +2,7 @@ using System.Numerics;
 using Overburden.Core.Content;
 using Overburden.Core.Lighting;
 using Overburden.Core.Voxels;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Core.Worldgen;
 
@@ -366,9 +367,12 @@ public sealed class WorldGenerator : ISurfaceHeights
         return CaveNoiseAt(worldX, worldY, worldZ) > _settings.CaveThreshold;
     }
 
+    private static readonly int WatchGenerate = CallWatch.Register("generate a chunk");
+
     /// <summary>Generates the <see cref="GenerationStage.Terrain"/> stage of one chunk.</summary>
     public VoxelChunk GenerateTerrain(ChunkPos chunk)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchGenerate);
         int chunkMinY = chunk.Y << VoxelConstants.ChunkSizeLog2;
         int chunkMaxY = chunkMinY + Size - 1;
         int originX = chunk.X << VoxelConstants.ChunkSizeLog2;

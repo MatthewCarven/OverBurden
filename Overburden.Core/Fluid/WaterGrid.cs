@@ -1,5 +1,6 @@
 using Overburden.Core.Lighting;
 using Overburden.Core.Voxels;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Core.Fluid;
 
@@ -51,12 +52,15 @@ public static class WaterGrid
 {
     private const int N = VoxelConstants.ChunkSize;
 
+    private static readonly int WatchBuild = CallWatch.Register("water grid: build a chunk column");
+
     /// <summary>
     /// Builds the water columns of chunk column (<paramref name="chunkX"/>, <paramref name="chunkZ"/>),
     /// or returns null when nothing is placed in it — its bands are today's and no grid is needed.
     /// </summary>
     public static WaterColumns? Build(int chunkX, int chunkZ, ISkyColumns sky, IWaterTable table, int cellVoxels)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchBuild);
         ArgumentNullException.ThrowIfNull(sky);
         ArgumentNullException.ThrowIfNull(table);
         if (cellVoxels <= 0 || N % cellVoxels != 0)

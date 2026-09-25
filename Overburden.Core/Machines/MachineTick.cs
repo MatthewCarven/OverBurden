@@ -4,6 +4,7 @@ using Overburden.Core.Fluid;
 using Overburden.Core.Hydrology;
 using Overburden.Core.Lighting;
 using Overburden.Core.Voxels;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Core.Machines;
 
@@ -501,6 +502,8 @@ public sealed class MachineTick
         }
     }
 
+    private static readonly int WatchMachines = CallWatch.Register("machines: tick");
+
     /// <summary>One boundary: every pump, in origin order.</summary>
     /// <remarks>
     /// Refuses mid-tick through the simulation's own guard on the first <c>Pump</c> or
@@ -509,6 +512,7 @@ public sealed class MachineTick
     /// </remarks>
     public MachineTickReport Run()
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchMachines);
         Boundaries++;
         if (_builtAtVersion != _machines.Version)
         {

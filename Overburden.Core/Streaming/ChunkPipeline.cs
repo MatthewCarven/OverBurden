@@ -8,6 +8,7 @@ using Overburden.Core.Meshing;
 using Overburden.Core.Structure;
 using Overburden.Core.Voxels;
 using Overburden.Core.Worldgen;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Core.Streaming;
 
@@ -1057,6 +1058,8 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// </remarks>
     public int PendingResults => _scheduler.PendingResults;
 
+    private static readonly int WatchUpdate = CallWatch.Register("pipeline update (a frame)");
+
     /// <summary>
     /// One frame of pipeline work: apply what the workers finished, up to this frame's
     /// budget, then submit what the chunks need next.
@@ -1074,6 +1077,7 @@ public sealed class ChunkPipeline : IVoxelEditor, IDisposable
     /// <returns>How many jobs were submitted.</returns>
     public int Update(int maxSubmissions = 256)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchUpdate);
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         ApplyResults();

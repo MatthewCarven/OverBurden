@@ -1,6 +1,7 @@
 using Overburden.Core.Lighting;
 using Overburden.Core.Persistence;
 using Overburden.Core.Voxels;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Core.Hydrology;
 
@@ -73,12 +74,15 @@ public sealed class RaisedSurface : IRaisedSamples
     public bool TryGetRaised(int sampleX, int sampleZ, out int plane) =>
         _raised.TryGetValue((sampleX, sampleZ), out plane);
 
+    private static readonly int WatchObserve = CallWatch.Register("raise: observe a column");
+
     /// <summary>
     /// Reads one chunk column's placed tops, if its heights have moved since it was last seen, and
     /// updates its cells. Returns whether any sample's raise changed.
     /// </summary>
     public bool Observe(SkyColumn column)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchObserve);
         ArgumentNullException.ThrowIfNull(column);
         if (!column.IsSeeded)
         {
@@ -138,6 +142,8 @@ public sealed class RaisedSurface : IRaisedSamples
         return changed;
     }
 
+    private static readonly int WatchDerive = CallWatch.Register("raise: derive at open");
+
     /// <summary>
     /// Derives the map from every column the store holds — the open's half of decision 1. Returns
     /// how many columns it read.
@@ -150,6 +156,7 @@ public sealed class RaisedSurface : IRaisedSamples
     /// </remarks>
     public int DeriveFrom(IWorldStore store, ISurfaceHeights seed)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchDerive);
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(seed);
         int read = 0;

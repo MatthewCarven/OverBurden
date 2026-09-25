@@ -1,5 +1,6 @@
 using Overburden.Core.Lighting;
 using Overburden.Core.Voxels;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Core.Hydrology;
 
@@ -121,6 +122,8 @@ public sealed class HeightField
 
     public int WorldZOf(int sz) => OriginZ + (sz * CellVoxels);
 
+    private static readonly int WatchSample = CallWatch.Register("watershed: sample heights");
+
     /// <summary>Samples a square window. <paramref name="originX"/> and
     /// <paramref name="originZ"/> must lie on the lattice.</summary>
     /// <param name="raised">
@@ -136,6 +139,7 @@ public sealed class HeightField
         int cellVoxels = DefaultCellVoxels,
         IRaisedSamples? raised = null)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchSample);
         ArgumentNullException.ThrowIfNull(heights);
 
         if (cellVoxels < VoxelConstants.VoxelsPerMetre

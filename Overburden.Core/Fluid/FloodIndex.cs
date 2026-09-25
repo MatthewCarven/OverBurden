@@ -36,6 +36,21 @@ internal sealed class FloodIndex
     private const int LocalMask = Side - 1;
     private const int LeafSize = Side * Side;
 
+    /// <summary>
+    /// The first layer, flat (2026-09-26, Matthew's CSharp-Lookuptables <c>FlatTableBuckets</c>):
+    /// a window of <see cref="Window"/>² chunk columns anchored on the flood's first, the column's
+    /// offset in it the array index — no hashing on a crossing. A flood reaching past the window
+    /// (a sheet reaching more than 256 m from where its flood began) falls back to the dictionary, so the
+    /// window is a speed, never a limit. Cleared by the stamp, as the leaves are.
+    /// </summary>
+    private const int Window = 64;
+
+    private readonly int[] _flatSlot = new int[Window * Window];
+    private readonly int[] _flatStamp = new int[Window * Window];
+    private int _anchorX;
+    private int _anchorZ;
+    private bool _anchored;
+
     private readonly Dictionary<long, int> _slots = [];
     private int[][] _records = new int[16][];
     private int[][] _stamps = new int[16][];
@@ -52,6 +67,7 @@ internal sealed class FloodIndex
     public void Clear()
     {
         _slots.Clear();
+        _anchored = false;
         _slotCount = 0;
         _lastKey = long.MinValue;
         _lastSlot = -1;
@@ -63,6 +79,8 @@ internal sealed class FloodIndex
             {
                 Array.Clear(_stamps[s]);
             }
+
+            Array.Clear(_flatStamp);
 
             _stamp = 1;
         }
@@ -104,7 +122,24 @@ internal sealed class FloodIndex
             return _lastSlot;
         }
 
-        if (!_slots.TryGetValue(key, out int slot))
+        int cx = cell.X >> Log2, cz = cell.Z >> Log2;
+        if (!_anchored)
+        {
+            _anchorX = cx - (Window / 2);
+            _anchorZ = cz - (Window / 2);
+            _anchored = true;
+        }
+
+        int wx = cx - _anchorX, wz = cz - _anchorZ;
+        bool flat = (uint)wx < Window && (uint)wz < Window;
+        int flatIndex = flat ? (wx * Window) + wz : -1;
+
+        int slot;
+        if (flat ? _flatStamp[flatIndex] == _stamp : _slots.TryGetValue(key, out slot))
+        {
+            slot = flat ? _flatSlot[flatIndex] : _slots[key];
+        }
+        else
         {
             if (!create)
             {
@@ -125,7 +160,15 @@ internal sealed class FloodIndex
                 SlotsAllocated++;
             }
 
-            _slots[key] = slot;
+            if (flat)
+            {
+                _flatSlot[flatIndex] = slot;
+                _flatStamp[flatIndex] = _stamp;
+            }
+            else
+            {
+                _slots[key] = slot;
+            }
         }
 
         _lastKey = key;

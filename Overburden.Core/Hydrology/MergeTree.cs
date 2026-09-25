@@ -1,3 +1,5 @@
+using Overburden.Core.Diagnostics;
+
 namespace Overburden.Core.Hydrology;
 
 /// <summary>
@@ -98,8 +100,11 @@ public sealed class MergeTree
     /// <summary>Volume against level for the whole subtree, capped at <see cref="SpillHeight"/>.</summary>
     public VolumeCurve Curve(int node) => _curve[node];
 
+    private static readonly int WatchTree = CallWatch.Register("watershed: merge tree");
+
     public static MergeTree Build(Watershed watershed)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchTree);
         ArgumentNullException.ThrowIfNull(watershed);
 
         int leaves = watershed.Basins.Count;

@@ -1,6 +1,7 @@
 using Overburden.Core.Content;
 using Overburden.Core.Meshing;
 using Overburden.Core.Voxels;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Core.Lighting;
 
@@ -121,6 +122,8 @@ public sealed class ChunkLight
         HasDerived = false;
     }
 
+    private static readonly int WatchDerive = CallWatch.Register("light: derive a chunk");
+
     /// <summary>
     /// Recomputes conductance, emission and the sky-source flag for every cell.
     /// </summary>
@@ -144,6 +147,7 @@ public sealed class ChunkLight
         SkyColumn sky,
         ICollection<LightCellPos>? changed = null)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchDerive);
         for (int cz = 0; cz < LightCellPos.CellsPerChunk; cz++)
         for (int cx = 0; cx < LightCellPos.CellsPerChunk; cx++)
         for (int cy = 0; cy < LightCellPos.CellsPerChunk; cy++)

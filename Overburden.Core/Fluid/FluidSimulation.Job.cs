@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using Overburden.Core.Jobs;
 using Overburden.Core.Voxels;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Core.Fluid;
 
@@ -179,9 +180,12 @@ public sealed partial class FluidSimulation
     /// <summary>A gate the worker waits at before its first visit. Tests only: it is how a box is moved under a tick that is really out.</summary>
     internal ManualResetEventSlim? WorkerGate { get; set; }
 
+    private static readonly int WatchTick = CallWatch.Register("fluid tick (the job, worker)");
+
     /// <summary>The worker's half: every remaining visit in granules, polling cancellation between them, then the walk.</summary>
     internal void RunOnWorker(FluidTickJob job, CancellationToken cancellation)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchTick);
         WorkerGate?.Wait(cancellation);
         long started = Stopwatch.GetTimestamp();
         while (_cursor < _batch.Count)

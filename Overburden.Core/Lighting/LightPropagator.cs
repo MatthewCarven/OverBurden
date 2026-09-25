@@ -1,5 +1,6 @@
 using Overburden.Core.Meshing;
 using Overburden.Core.Voxels;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Core.Lighting;
 
@@ -369,6 +370,8 @@ public sealed class LightPropagator
     /// </remarks>
     public long Drain() => Drain(nowTicks: null, deadlineTicks: 0);
 
+    private static readonly int WatchDrain = CallWatch.Register("light: propagate (a step)");
+
     /// <summary>
     /// Runs both passes until the fixpoint or the deadline, whichever comes first. Returns the
     /// cells visited.
@@ -397,6 +400,7 @@ public sealed class LightPropagator
     /// </param>
     public long Drain(Func<long>? nowTicks, long deadlineTicks)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchDrain);
         _nowTicks = nowTicks;
         _deadlineTicks = deadlineTicks;
         _sinceClockCheck = 0;
