@@ -13,7 +13,7 @@ terrain — M7's locked *edits do not change the watershed*, whose trigger this 
 21,987 L `displaced` by the edging placed at the waterline.
 
 Planned on *"yeah write the pass, as recommended"*: **docs/POND-PLAN.md**, nine decisions, split
-a/b/c. The pass's findings the chat had not: the sample is one corner point (a raise must be the
+a/b/c — ten and a/b once his water grid was folded in (below). The pass's findings the chat had not: the sample is one corner point (a raise must be the
 cell's max); every edited column is already in the `columns` table, so the raise map is derived at
 open and decision 1's "small table" is not needed; the ledger strands the litres of a pit a raise
 covers; the lake ceiling bands by table not footprint, so a half-wall cell would band its outside;
@@ -21,6 +21,16 @@ and the courtyard check cannot read `handed 0 L` under the raise, because the co
 own basin — decision 3's condition reworded. DESIGN's locked line is amended. **Instrument gap**:
 `enclosed sample(s) undrawn` prints only in a profile report, so the play log showed the cause only
 sideways; slice b puts the raise's terms on the `M7d:` line.
+
+**Later the same evening, his idea folded in as decision 10:** *"water_column, and water_grid"*.
+Taken in its derived reading: Tier A keeps a level per basin, and a per-voxel-column grid,
+built only in chunk columns with a raised cell, records where that level stands, by a flood
+from the unraised wet cells that stops at any top at or above it. It replaces decisions 7 and
+9's 2 m compromises and slice c, and takes `Enclosure` off the surface and the ceiling. The
+simulated reading (a flowing heightfield) was rejected: one sheet a column cannot sit over a
+flooded tunnel, it exists only where loaded, and it would make Tier A a transient. **Told him
+plainly that this is an accuracy win and roughly even on cost**, since he asked on the
+strength of performance.
 
 ## 2026-09-24 (late night) — 2c played at `--fedband=6`: the default is 6
 

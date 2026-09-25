@@ -130,14 +130,12 @@ which is the original courtyard bug. So the rule is: **ask `Enclosure` only when
 cell's sample is raised** (the pool sits inside a wall cell, which the watershed cannot resolve).
 An unraised sample's basin is trusted. One predicate, and it is asked less than today.
 
-### 7. The ceiling bands only where the raised field is under the level — *new, recommended*
+### 7. The ceiling reads the water grid — *amended by decision 10*
 
-Fact 6's fix. A column is lake only if its cell is wet to the watershed — the raised sample
-below the table — the same test `WaterSurface.IsWet` makes. A wall cell above the level has no
-band, so neither of its halves is lake. **The stated cost:** a Tier B cell resting in a wall
-cell's inside strip is not "inside the lake". It rests, the hand-off hands it to the pond (the
-cell drains there), and the net is the same water. It is one boundary late at the rim, and
-invisible.
+Fact 6's fix. The pass first proposed banding a column only where its 2 m cell is wet to the
+watershed, which leaves a wall cell's inside strip out of the lake. **Superseded the same evening
+by decision 10**: in a raised cell the band is the water grid's column, so the inside strip is
+lake and the outside strip is not, to the voxel. An unraised cell bands exactly as today.
 
 ### 8. Re-analyse on a raise, after a quiet second — *new, recommended*
 
@@ -149,14 +147,58 @@ basin per install. It is bounded, and it happens a few times a building session.
 own revisit trigger names *anything that re-analyses often*, and this is not that. If a play
 shows a drizzle not accumulating, carry the remainder by pit as that trigger says.
 
-### 9. Slice b draws raised shore cells whole; slice c clips them per voxel — *new, recommended*
+### 9. The surface draws raised cells from the water grid — *amended by decision 10*
 
-Fact 7. The water reaching the wall matters more than a sliver past it: a dry strip inside the
-wall reads as *"it does not fill to the new height"*, which is the complaint. So b draws the
-ring into a raised cell whole, and the first screenshot says how much shows outside. **Slice c
-is the lever:** in a raised ring cell, draw the plane only over the voxel columns reached from
-the wet side without crossing a placed column. That is an 8 × 8 flood, on a handful of cells, on
-the sim thread at rebuild. Slice c is built only if the screenshot shows the sliver.
+Fact 7. The pass first proposed drawing a raised ring cell whole (a sliver past the wall), with
+a per-voxel clip as a later slice c. **Superseded by decision 10**: in the loaded box a raised
+cell draws one quad per run of water-grid columns, so the water meets the wall on the inside and
+stops at it on the outside. Slice c is gone. An unraised cell draws as today (one quad a cell,
+the terrain's depth clipping the natural shore), and so does a raised cell outside the loaded
+box, where there is no grid and a sliver at a kilometre does not matter.
+
+### 10. The water grid — *Matthew's, 2026-09-25, folded in on his word*
+
+*"What do you think of the idea of water_column, and water_grid? its only an idea and it might be
+a bad one"*, and on the reply, *"lets continue and fold it into the plan please"*. The reading
+taken is the **derived** one, not the simulated one: Tier A keeps one level per basin, and a
+**water grid** records, per voxel column in the loaded box, where that level stands as a
+**water column**, or that there is none. A simulated per-column water sheet (a heightfield that
+flows) was the other reading. It is rejected because one column holds one sheet, so it cannot
+put a lake over a flooded tunnel. It also exists only where the world is loaded, and it would
+make Tier A a transient that must terminate. The reply to him gives the three reasons.
+
+- **Where it is built: only in chunk columns with a raised cell.** An unraised cell's answer is
+  already exact per column (`LakeCeiling`: `seed < Y ≤ floor(level)`), so the grid there *is*
+  today's band and nothing is computed. A raised cell is where the 2 m answer is ambiguous, so
+  that is the only place the grid does work.
+- **How: a 4-neighbour flood over voxel columns, per raised component.** Seeds are the lake
+  columns of the unraised wet cells bordering the component, each carrying its basin and level.
+  The flood enters a column whose top (seed, or its placed top where it has one) is below the
+  level, and stops at one at or above it. So a wall of any thickness stops it, a gap at the water
+  line lets it through (truthfully, since the water would go there), and a submerged placed
+  block is water over a block. **Padded one cell (8 voxels) round the chunk column** so a wall
+  zone on a chunk seam finds its seeds.
+- **Two lakes reaching one column take the lower level.** This can happen only where the 2 m
+  analysis could not see that the lakes join. The lower level cannot draw water above where it
+  can stand.
+- **Rebuilt where `LakeCeiling` already rebuilds**: at the tick boundary, for a chunk column whose
+  sample tops moved, or whose raise or placed columns moved. The arrays are replaced rather than
+  mutated, so a worker's view keeps reading one consistent grid (M3a's copy-on-write, as the
+  bands are).
+- **Readers:** the ceiling (7) and the surface (9). **Not the hand-off**: a rested Tier B cell
+  in a wall cell that the grid calls dry is either a pool narrower than a cell or the outside
+  strip, and "is it closed off" is a question the grid cannot answer. So decision 6 stands
+  (`Enclosure`, asked on a raised sample only).
+- **Stated costs.** A wall zone wider than the pad, with no unraised wet cell within a cell of
+  the chunk column, finds no seeds and reads dry. That is the conservative failure: water
+  missing, never water outside a wall. A pond whose whole floor is placed has no unraised wet
+  cell and no grid water, and that is right, because its rain is Tier B's (`RainOnPlaced`) and
+  it holds no Tier A.
+- **Performance: roughly even, one modest win.** The flood is 48 × 48 columns at most, and only
+  in chunk columns you have built in. Against that, `Enclosure` stops being asked by the surface
+  (every wet sample within 16 m of an edit, up to 16,641 cells an open flood; 1,432 floods in his
+  session) and by the ceiling. The honest headline is accuracy: the shore is exact wherever you
+  have built.
 
 ---
 
@@ -164,9 +206,8 @@ the sim thread at rebuild. Slice c is built only if the screenshot shows the sli
 
 | Slice | What | Oracle |
 |---|---|---|
-| **a — Core** | `RaisedSurface` in `Overburden.Core/Hydrology/`: per chunk column, 16 cells' raise off a `SkyColumn` and the seed, cached by revision; a version; an immutable `Snapshot(window)` for the worker. `HeightField.Sample` takes an optional snapshot and takes the max. `BasinLedger` re-homes a vanished pit (5). | **No raise is byte-identical to today's field**, and the r6 control is to the digit. A ring of placed stone around a natural pond raises its saddle to the ring's lowest top, and the capacity grows by the ring's inside area × the rise. Removing the ring spills the excess. A pier over the pit re-homes its litres (the total is conserved). A roof over the pond reads as raised (the cost pinned). |
-| **b — the wire** | The open-time derive from the stored columns (1) with its ms printed; the live map fed where `RainOnPlaced` is fed; the re-analysis (8); the ceiling's raised-cell rule (7); the surface drawing raised ring cells (9) and dropping `Enclosure`; the hand-off's narrowed ask (6). `M7d:` gains `raised N sample(s) in M chunk column(s), K re-analysis(es) for an edit, derived at open in T ms`. | Headless: `--courtyard=8` with the pour lands in the courtyard's own basin, the outside unchanged (3); the r6 control to the digit; every identity exact. Then his play. |
-| **c — the look** | The per-voxel ring clip (9), only if b's screenshot shows water outside the wall. | A screenshot on a copy of his world, before and after. |
+| **a — Core** | `RaisedSurface` in `Overburden.Core/Hydrology/`: per chunk column, 16 cells' raise off a `SkyColumn` and the seed, cached by revision; a version; an immutable `Snapshot(window)` for the worker. `HeightField.Sample` takes an optional snapshot and takes the max. `BasinLedger` re-homes a vanished pit (5). **`WaterGrid` in `Overburden.Core/Fluid/`** (10): the padded flood over a raised component, one water column per voxel column, replaced rather than mutated. | **No raise is byte-identical to today's field**, and the r6 control is to the digit. A ring of placed stone around a natural pond raises its saddle to the ring's lowest top, and the capacity grows by the ring's inside area × the rise. Removing the ring spills the excess. A pier over the pit re-homes its litres (the total is conserved). A roof over the pond reads as raised (the cost pinned). **The grid:** a one-voxel wall across a cell's middle is lake inside and dry outside; a gap at the water line floods through it; a wall on a chunk seam finds its seeds through the pad; an unraised chunk column builds no grid and its bands are unchanged to the column. |
+| **b — the wire** | The open-time derive from the stored columns (1) with its ms printed; the live map fed where `RainOnPlaced` is fed; the re-analysis (8); `LakeCeiling` reading the grid in raised cells (7); the surface drawing raised cells from the grid and dropping `Enclosure` (9); the hand-off's narrowed ask (6). `M7d:` gains `raised N sample(s) in M chunk column(s), K re-analysis(es) for an edit, derived at open in T ms`, and the ceiling's line `grid G chunk column(s), C water column(s), F ms`. | Headless: `--courtyard=8` with the pour lands in the courtyard's own basin, the outside unchanged (3); the r6 control to the digit; every identity exact. A screenshot on a copy of his world: water to the wall inside, none outside. Then his play. |
 
 **Read before a's code:** `RainOnPlaced`'s placed-set scan (the predicate is reused, not copied),
 `Watershed.Analyse`'s packed key (the raised height must stay inside `MaxAbsoluteHeight`), and
