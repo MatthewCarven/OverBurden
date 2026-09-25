@@ -452,6 +452,9 @@ public partial class Main : Node3D
     /// <summary>Which way the camera faces at spawn, for a screenshot that needs an angle.</summary>
     private float _spawnYawDegrees;
 
+    /// <summary><c>--at=x,y,z</c>: the feet, in metres, flying — a screenshot's camera placed where the subject is rather than where the world was saved.</summary>
+    private System.Numerics.Vector3? _spawnAt;
+
     /// <summary>How far up or down it looks at spawn. Negative is down.</summary>
     private float _spawnPitchDegrees;
 
@@ -1482,6 +1485,15 @@ public partial class Main : Node3D
             mode = saved.Flying ? PlayerMode.Fly : PlayerMode.Walk;
         }
 
+        if (_spawnAt is { } at)
+        {
+            // --at= wins over the saved position and the spawn alike, flying, so the camera
+            // hangs where it was put.
+            feet = at;
+            mode = PlayerMode.Fly;
+            restored = true;
+        }
+
         if (_fallProfile)
         {
             // Spawned high rather than teleported up once the window opens. A teleport of
@@ -1706,6 +1718,12 @@ public partial class Main : Node3D
                     break;
                 case "enclosure" when int.TryParse(value, out int enclosure):
                     _enclosureOn = enclosure != 0;
+                    break;
+                case "at" when value.Split(',') is [string ax, string ay, string az]
+                               && float.TryParse(ax, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float atX)
+                               && float.TryParse(ay, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float atY)
+                               && float.TryParse(az, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float atZ):
+                    _spawnAt = new System.Numerics.Vector3(atX, atY, atZ);
                     break;
 
                 // The water's control arm, the same shape as --norain. The analysis is the only
