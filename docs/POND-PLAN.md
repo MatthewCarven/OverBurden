@@ -220,6 +220,37 @@ Rain fills it on its own at the scaled rate.
 
 ---
 
+## Built on a branch: `water-column-test`
+
+Matthew, 2026-09-25: *"lets fork here to water column test branch, because I'm not sure and the
+only to really know is to build … if it works out better we will merge it with the main if it
+works out worse we can retire the branch with the reason why"*. The branch forks from main at
+this commit. Slices a and b are built there, and main does not move for them.
+
+**Why the branch is cheap: no world-format change.** The raise map is derived from columns the
+store already holds (decision 1), so the branch writes nothing that main cannot read. A world
+played on the branch and reopened on main loses only the water standing above a natural rim. The
+ledger seeds it, it does not fit, and it leaves as `SeedOverflowLitres`: printed, not a fault.
+
+**"Better", fixed before the build so the verdict is made against it:**
+
+1. **His pond fills to his wall.** R into the stone ring on `Regions16` (or a copy) rises past
+   the natural rim and stops at the wall's lowest top; `spilled` does not climb while it is below
+   it.
+2. **The water stays when a ring closes**, and the shore meets the wall inside and stops at it
+   outside: a screenshot on a copy of his world.
+3. **The courtyard still holds**: `--courtyard=8` with a pour keeps the water inside it and
+   leaves the outside lake unchanged.
+4. **Nothing else moved**: the r6 control to the digit, the suite green, every identity exact,
+   the keystone and the a-3 pump oracles as recorded.
+5. **The costs are printed and acceptable**: the open-time derive, the grid's ms a rebuild, and
+   the re-analyses an editing session triggers. The bar is nothing he notices in play; a number
+   past ~5 ms on the sim thread gets its lever named before the merge.
+6. **His word.** The play verdict decides. The five above are what a *"no"* would be read against.
+
+**Retired instead?** Then this section records which of the six failed and why, the branch is
+deleted, and main's DESIGN amendment is reverted to *not built, and why*.
+
 ## Built
 
 *(Nothing yet.)*
