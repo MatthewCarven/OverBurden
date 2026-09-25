@@ -105,6 +105,9 @@ public partial class Main : Node3D
     private ViewerId _viewer;
     private FlyCam? _camera;
     private ShaderMaterial? _material;
+
+    /// <summary>The chunk mesh's transparent surface — glass (docs/GLASS-PLAN.md) — kept in step with <see cref="_material"/> by <see cref="SetVoxelParameter"/>.</summary>
+    private ShaderMaterial? _glassMaterial;
     private ChunkPos _lastViewerChunk;
     private double _sinceReport;
 
@@ -737,6 +740,12 @@ public partial class Main : Node3D
 
     private int _courtyardWallMetres = 2;
 
+    /// <summary><c>--courtyardmaterial=&lt;id&gt;</c>: what the courtyard is built of — stone by default; glass for its screenshot (docs/GLASS-PLAN.md).</summary>
+    private string _courtyardMaterial = "overburden:stone";
+
+    /// <summary><c>--courtyardroof=1</c>: a roof of the same material over the walls' tops.</summary>
+    private bool _courtyardRoof;
+
     private bool _courtyardBuilt;
 
     /// <summary>The courtyard's footprint, walls included, and the plane its walls rise from at its centre — what the raise's oracle reads the basin against.</summary>
@@ -1272,7 +1281,8 @@ public partial class Main : Node3D
 
         // After the overrides, not before: --skybrightness is a shader uniform set at build.
         _material = VoxelMaterial.Create(_skyBrightness);
-        _material.SetShaderParameter("tint_in_view_space", _tintInViewSpace);
+        _glassMaterial = VoxelMaterial.CreateGlass(_material);
+        SetVoxelParameter("tint_in_view_space", _tintInViewSpace);
 
         // Not created in a headless run: there is no renderer, so every particle is a buffer
         // allocated to be stepped and never drawn. It also keeps the default headless profile
@@ -1782,6 +1792,12 @@ public partial class Main : Node3D
                     break;
                 case "courtyardwalls" when int.TryParse(value, out int courtyardWalls) && courtyardWalls >= 1:
                     _courtyardWallMetres = courtyardWalls;
+                    break;
+                case "courtyardmaterial" when value.Contains(':'):
+                    _courtyardMaterial = value;
+                    break;
+                case "courtyardroof" when int.TryParse(value, out int courtyardRoof):
+                    _courtyardRoof = courtyardRoof != 0;
                     break;
 
                 // M8b-2c's two seams. --fillbasin is the Tier A relay: litres into the basin
@@ -3593,6 +3609,16 @@ public partial class Main : Node3D
     /// the face tint being in the shader rather than in the merge key.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Sets a parameter on the rock material and the glass one alike — the one place that keeps
+    /// the two in step, so a pane cannot stay lit through a storm that darkened the rock.
+    /// </summary>
+    private void SetVoxelParameter(StringName name, Variant value)
+    {
+        _material?.SetShaderParameter(name, value);
+        _glassMaterial?.SetShaderParameter(name, value);
+    }
+
     private void UpdateWeather(double delta)
     {
         _clock.Advance(delta * _clockScale);
@@ -3614,8 +3640,8 @@ public partial class Main : Node3D
 
         float dimming = 1f - (OvercastDimming * overcast);
 
-        _material.SetShaderParameter("wetness", wetness);
-        _material.SetShaderParameter("sky_brightness", _skyBrightness * dimming);
+        SetVoxelParameter("wetness", wetness);
+        SetVoxelParameter("sky_brightness", _skyBrightness * dimming);
 
         // The sky dome as well as the light, or a storm is a dark landscape under a bright sky
         // and reads as the terrain shader having broken rather than as weather. The two are dimmed
@@ -4510,11 +4536,12 @@ public partial class Main : Node3D
         int cell = MaterialId("overburden:vacuum_cell");
         int pack = MaterialId("overburden:lead_acid_pack");
         int clay = MaterialId("overburden:clay");
+        int glass = MaterialId("overburden:glass");
         if (pump == MaterialIds.AirNumericId || outlet == MaterialIds.AirNumericId || computer == MaterialIds.AirNumericId
             || panel == MaterialIds.AirNumericId || cell == MaterialIds.AirNumericId || pack == MaterialIds.AirNumericId
-            || clay == MaterialIds.AirNumericId)
+            || clay == MaterialIds.AirNumericId || glass == MaterialIds.AirNumericId)
         {
-            GD.Print("M10: the relay pump, outlet, computer, solar panel, vacuum cell, lead-acid pack and clay are not all in this world's content, so P seeds nothing");
+            GD.Print("M10: the relay pump, outlet, computer, solar panel, vacuum cell, lead-acid pack, clay and glass are not all in this world's content, so P seeds nothing");
             return;
         }
 
@@ -4527,6 +4554,10 @@ public partial class Main : Node3D
         // so a press seeds enough to line a small room (64 cells, 64,000 L) until worldgen
         // puts a band of it in the ground and this seed goes the way of the relay pair.
         _inventory.Add(clay, Cell * 64);
+
+        // Glass (2026-09-25, docs/GLASS-PLAN.md decision 4): the same 64 cells, until the
+        // ladder's furnace makes it from sand and coal and this seed retires.
+        _inventory.Add(glass, Cell * 64);
 
         // M10b: one computer, the item that opens a machine's ports — an item is counted by the
         // voxel and never spent, so one is enough for the session and P seeds it once. M10c: one
@@ -4541,7 +4572,7 @@ public partial class Main : Node3D
             _inventory.Add(pack, 1);
         }
 
-        GD.Print("M10: P — a relay pump, a relay outlet, a solar panel and a vacuum cell added to the inventory (64 voxels each), 64 cells of clay, and a computer and a lead-acid pack once; pick them on the number row (right-click with the pack in hand equips it). Alt+P fills every placed cell and the pack");
+        GD.Print("M10: P — a relay pump, a relay outlet, a solar panel and a vacuum cell added to the inventory (64 voxels each), 64 cells of clay and 64 of glass, and a computer and a lead-acid pack once; pick them on the number row (right-click with the pack in hand equips it). Alt+P fills every placed cell and the pack");
     }
 
     /// <summary>Every placed storage row charged to its capacity, through the set's one debug door.</summary>
@@ -6892,10 +6923,10 @@ public partial class Main : Node3D
         }
 
         _courtyardBuilt = true;
-        int stone = MaterialId("overburden:stone");
+        int stone = MaterialId(_courtyardMaterial);
         if (stone == MaterialIds.AirNumericId)
         {
-            GD.Print("M8: --courtyard needs overburden:stone in this world's content; no walls built");
+            GD.Print($"M8: --courtyard needs {_courtyardMaterial} in this world's content; no walls built");
             return;
         }
 
@@ -6911,12 +6942,24 @@ public partial class Main : Node3D
             {
                 bool onRing = x < x0 + BrushCell.Voxels || x > x1 - BrushCell.Voxels
                               || z < z0 + BrushCell.Voxels || z > z1 - BrushCell.Voxels;
+                int surface = _seedHeights!.SurfaceHeightAt(x, z);
                 if (!onRing)
                 {
+                    if (_courtyardRoof)
+                    {
+                        // One voxel thick, at the centre's wall top, so the roof is flat on a slope.
+                        int roofY = _seedHeights.SurfaceHeightAt(here.X, here.Z) + height;
+                        var roof = new VoxelPos(x, roofY, z);
+                        if (_pipeline.Streamer.TryGetMaterial(roof, out int under) && under == MaterialIds.AirNumericId
+                            && _pipeline.SetVoxel(roof, stone))
+                        {
+                            written++;
+                        }
+                    }
+
                     continue;
                 }
 
-                int surface = _seedHeights!.SurfaceHeightAt(x, z);
                 for (int y = surface + 1; y <= surface + height; y++)
                 {
                     var voxel = new VoxelPos(x, y, z);
@@ -6936,7 +6979,7 @@ public partial class Main : Node3D
         int floor = _seedHeights!.SurfaceHeightAt(here.X, here.Z) + 1;
         _courtyardBox = (x0, z0, x1, z1, floor, floor + height);
         GD.Print(
-            $"M8: courtyard — a {_courtyardMetres} m square of stone walls {_courtyardWallMetres} m tall round the player at {here}: "
+            $"M8: courtyard — a {_courtyardMetres} m square of {_courtyardMaterial} walls {_courtyardWallMetres} m tall{(_courtyardRoof ? ", roofed" : string.Empty)} round the player at {here}: "
             + $"{written:N0} voxel(s) written, {skipped:N0} not air or not loaded (--courtyard)");
     }
 
@@ -8317,7 +8360,7 @@ public partial class Main : Node3D
         // Re-meshing an existing chunk replaces its instance; M3 makes that the common case.
         OnMeshDiscarded(chunk.Position);
 
-        ArrayMesh? arrayMesh = ChunkMeshConverter.ToArrayMesh(mesh, _material!, _material!);
+        ArrayMesh? arrayMesh = ChunkMeshConverter.ToArrayMesh(mesh, _material!, _glassMaterial ?? _material!);
         if (arrayMesh is null)
         {
             // Nothing to draw — a chunk of open sky or of solid buried rock. Most chunks.

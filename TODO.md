@@ -4991,6 +4991,18 @@ own, flagged to him in the reply; the tenth is his water grid, folded in the sam
 - [ ] **His play**: `Regions16`'s pond, R or Ctrl+R into the raised ring — does it fill to the
       wall, and does the water stay when the ring closes?
 
+### Glass (planned 2026-09-25, not built — waiting on his word, then after the pond verdict)
+
+[docs/GLASS-PLAN.md](docs/GLASS-PLAN.md), seven decisions, all recommended.
+
+- [ ] **g-1 — Core.** The sky column's test on `IsSolid` (`SkyColumn` and `ChunkPipeline`);
+      `glass.json` (opaque false, hardness 0.4, support 6, permeability 0, density 2500, layer 12
+      — estimates); tests for the column, the 14 under a roof, the mesher's routing and culling,
+      holding water. Oracle: the r6 control to the digit.
+- [ ] **g-2 — the look.** A transparent voxel material over a shared `.gdshaderinc`; the
+      thirteenth layer colour and jitter; `P` seeds glass. A screenshot of a glass wall and roof
+      on a copy of his world; then his play.
+
 ### M9 — v0.5, the game exists
 
 **Planned 2026-09-11 — [docs/M9-PLAN.md](docs/M9-PLAN.md), split M9a–M9d, twelve decisions all

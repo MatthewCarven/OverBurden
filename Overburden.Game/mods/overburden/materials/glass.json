@@ -1,0 +1,9 @@
+{
+  "id": "glass",
+  "hardness": 0.4,
+  "supportDistance": 6,
+  "permeability": 0.0,
+  "density": 2500,
+  "textureLayer": 12,
+  "opaque": false
+}

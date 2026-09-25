@@ -1,5 +1,20 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-25 (night) — The glass pass: one line stands between opacity and a window
+
+Matthew, from his reservoir with window openings: *"how do you reckon we get to glass from here?"*,
+then *"write the glass pass please"*. **docs/GLASS-PLAN.md**, seven decisions, all recommended,
+not built. The route was already decided (the ladder's furnace: sand → glass). What the pass
+found: opacity is already end to end and glass would draw as a solid pale block only because
+`Main` hands the converter one material for both passes; every physical reader asks `IsSolid`, so
+glass holds water, carries a roof and stops you with no change; and the one real decision is the
+sky column, which asks opacity and feeds six readers (skylight, rain particles, rain on placed
+tops, the under-a-roof skip, solar, and on the pond branch the raise). Recommended: the sky column
+asks `IsSolid`, so glass is a roof to rain and a window to light by propagation. No shipped
+material is solid and non-opaque, so nothing stored moves. Two heights a column is the recorded
+other arm, with a greenhouse as its trigger. Sand ships plain with the furnace or WORLDGEN's band,
+never flowing, on his *"I don't really want to do a disturbable surface"*.
+
 ## 2026-09-25 (evening) — His pond: the ring hid the lake, and the lake could not see the ring
 
 Two play reports on `Regions16` while he edged a natural pond in stone: the water vanished as each

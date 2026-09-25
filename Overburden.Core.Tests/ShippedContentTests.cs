@@ -399,6 +399,40 @@ public class ShippedContentTests
         Assert.Equal(dirt.SupportDistance, clay.SupportDistance);
     }
 
+    [Fact]
+    public void GlassIsTheOneSolidBlockYouCanSeeThrough()
+    {
+        // docs/GLASS-PLAN.md, 2026-09-25: see-through (not opaque, so the mesher draws what is
+        // behind it and light crosses it) and solid (so it holds water, carries a roof and closes
+        // the sky column to rain). Fragile — under dirt's hardness — and spanning less than dirt:
+        // estimates, his to move. Sealed, like clay, so a glass wall has no seep face.
+        var content = new GameContent();
+        content.Load(new DirectoryContentSource(ModsDirectory()));
+
+        var glass = content.Materials.Get(Identifier.Parse("overburden:glass"));
+        var dirt = content.Materials.Get(Identifier.Parse("overburden:dirt"));
+        MaterialTable table = MaterialTable.From(content.Materials);
+        int id = content.Materials.GetNumericId(Identifier.Parse("overburden:glass"));
+
+        Assert.False(glass.IsOpaque);
+        Assert.True(table.IsSolid(id), "glass holds water and closes the sky column");
+        Assert.False(glass.IsFluid);
+        Assert.True(glass.IsPlaceable);
+        Assert.False(glass.IsMachine);
+        Assert.Equal(0f, glass.Permeability);
+        Assert.True(glass.Hardness < dirt.Hardness, $"glass {glass.Hardness}, dirt {dirt.Hardness}");
+        Assert.True(glass.SupportDistance < dirt.SupportDistance, $"glass {glass.SupportDistance}, dirt {dirt.SupportDistance}");
+
+        // The only shipped solid that is not opaque — the fact the sky column's switch to
+        // IsSolid rests on: every stored column reads the same as before under every other
+        // material.
+        foreach ((_, _, MaterialDefinition material) in content.Materials.Entries())
+        {
+            if (material.IsAir || material.IsFluid || material.Id == glass.Id) continue;
+            Assert.True(material.IsOpaque, $"{material.Id} is solid and not opaque; the sky column's rule changes what it reads");
+        }
+    }
+
     /// <summary>
     /// The <c>mods/</c> directory the game runs against, found by walking up to the solution.
     /// </summary>
