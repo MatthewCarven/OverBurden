@@ -1,6 +1,7 @@
 ﻿using Overburden.Core.Content;
 using Overburden.Core.Lighting;
 using Overburden.Core.Voxels;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Core.Fluid;
 
@@ -176,6 +177,8 @@ public sealed class Enclosure
     /// <summary>Chunks known to hold edits.</summary>
     public int EditedChunks => _edited.Count;
 
+    private static readonly int WatchEnclosed = CallWatch.Register("enclosure: is enclosed");
+
     /// <summary>
     /// True when the column at (x, z) is walled off from the outside at level <paramref name="y"/>
     /// — the voxel layer water at that level stands in. A start that is not air (rock, a placed
@@ -184,6 +187,7 @@ public sealed class Enclosure
     /// </summary>
     public bool IsEnclosed(int x, int z, int y)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchEnclosed);
         if (_index.TryGetValue((x >> VoxelConstants.ChunkSizeLog2, z >> VoxelConstants.ChunkSizeLog2, y), out List<int>? ids))
         {
             foreach (int id in ids)

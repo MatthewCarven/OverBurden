@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using Overburden.Core.Voxels;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Core.Fluid;
 
@@ -459,9 +460,12 @@ public sealed partial class FluidSimulation
     /// <summary>The tick number the last solve tested quiet against. Tests only: it pins the worker's +1.</summary>
     internal long LastSolveTick => _solveTick;
 
+    private static readonly int WatchSolve = CallWatch.Register("sheet solve: a pass");
+
     private SheetLevelResult Solve(
         IReadOnlyList<VoxelPos> seeds, int share, int quietTicks, long nowTick, int cap, int advance)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchSolve);
         ArgumentOutOfRangeException.ThrowIfNegative(advance);
         _advanceRings = advance;
         ArgumentOutOfRangeException.ThrowIfNegative(share);
@@ -810,6 +814,8 @@ public sealed partial class FluidSimulation
         return !_visitTerrain.CanHold(below) || RoomAt(below) == 0;
     }
 
+    private static readonly int WatchFlood = CallWatch.Register("sheet solve: flood one Y");
+
     /// <summary>
     /// Floods, layer by layer, from every seed of one Y at once, freezing a sheet the moment it
     /// is known to be under the share and joining floods that meet. Fills the records and the
@@ -817,6 +823,7 @@ public sealed partial class FluidSimulation
     /// </summary>
     private void Flood(int seedStart, int seedEnd, int share)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchFlood);
         _cellCount = 0;
         _hashedThisPass = HashedFloodIndex;
         if (_hashedThisPass)
@@ -1468,12 +1475,15 @@ public sealed partial class FluidSimulation
         }
     }
 
+    private static readonly int WatchApply = CallWatch.Register("sheet solve: apply a sheet");
+
     /// <summary>
     /// Moves water from the cells above their target to the cells below it, through
     /// <see cref="FluidGrid.Transfer"/> only. Returns the millilitres moved.
     /// </summary>
     private long Apply(Sheet sheet, out int cellsWritten)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchApply);
         List<int> cells = CellsOf(sheet);
         _sheetGivers.Clear();
         _sheetTakers.Clear();

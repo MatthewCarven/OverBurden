@@ -5,6 +5,7 @@ using System.Linq;
 using Godot;
 using Overburden.Core.Building;
 using Overburden.Core.Content;
+using Overburden.Core.Diagnostics;
 using Overburden.Core.Editing;
 using Overburden.Core.Fluid;
 using Overburden.Core.Hydrology;
@@ -1938,6 +1939,14 @@ public partial class Main : Node3D
                 // recipe carries it from c-3.
                 case "nogate":
                     _noGate = true;
+                    break;
+
+                // 2026-09-26, Matthew's table of watched functions: a stopwatch round each one
+                // CallWatch names — calls, min / mean / max a call — over the whole run, the open
+                // included (the window's analysis and the fill are costs a branch can move), and
+                // printed under the profile's report. Off, a watch is one flag read a call.
+                case "watch":
+                    CallWatch.Enabled = true;
                     break;
 
                 // --pump's charged cell beside the outlet, and the arm that omits it and reads
@@ -5379,6 +5388,11 @@ public partial class Main : Node3D
             _profiler.PlayerLines(_profiler.MeasuredSeconds) +
             $"{StreamingProfiler.RenderLine()}\n" +
             $"{StreamingProfiler.MemoryLine()}\n");
+
+        if (CallWatch.Enabled)
+        {
+            GD.Print(CallWatch.Table(Math.Max(_profiler.RunSeconds, 0.001)));
+        }
     }
 
     /// <summary>

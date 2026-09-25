@@ -1,6 +1,7 @@
 ﻿using Overburden.Core.Hydrology;
 using Overburden.Core.Voxels;
 using Overburden.Core.Lighting;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Core.Fluid;
 
@@ -162,6 +163,8 @@ public sealed class LakeCeiling
         return top == NoLake ? seed : Math.Max(seed, top);
     }
 
+    private static readonly int WatchRefresh = CallWatch.Register("lake ceiling: refresh");
+
     /// <summary>
     /// Recomputes the band of every chunk column any of <paramref name="reachable"/> stands in,
     /// drops the bands of columns no longer reachable, and calls <paramref name="submerged"/> for
@@ -170,6 +173,7 @@ public sealed class LakeCeiling
     /// </summary>
     public void Refresh(IReadOnlyCollection<ChunkPos> reachable, Action<VoxelPos>? submerged)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchRefresh);
         ArgumentNullException.ThrowIfNull(reachable);
         Refreshes++;
         RebuiltLastPass = 0;

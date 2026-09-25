@@ -2,6 +2,7 @@ using Overburden.Core.Content;
 using Overburden.Core.Lighting;
 using Overburden.Core.Structure;
 using Overburden.Core.Voxels;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Core.Meshing;
 
@@ -62,6 +63,8 @@ public sealed class GreedyMesher
         public bool HasFace => Material != MaterialIds.AirNumericId;
     }
 
+    private static readonly int WatchMesh = CallWatch.Register("mesh a chunk");
+
     /// <param name="light">
     /// The chunk's light cells with a border of its neighbours'. Null restores the pre-M5c shade
     /// — full skylight everywhere and no block light — which is the arm of M5d's measurement
@@ -74,6 +77,7 @@ public sealed class GreedyMesher
     public void Build(
         PaddedChunk voxels, MaterialTable materials, ChunkMesh output, PaddedLight? light = null, ChunkSupport? support = null)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchMesh);
         output.Reset();
 
         for (int face = 0; face < VoxelFace.Count; face++)

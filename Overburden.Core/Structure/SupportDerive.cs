@@ -1,6 +1,7 @@
 using Overburden.Core.Content;
 using Overburden.Core.Meshing;
 using Overburden.Core.Voxels;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Core.Structure;
 
@@ -81,6 +82,8 @@ public sealed class SupportDerive
         out SupportDeriveResult result) =>
         Derive(voxels, materials, rule, costs, faces, out result, closedForm: true);
 
+    private static readonly int WatchSupport = CallWatch.Register("support: derive a chunk");
+
     /// <summary>
     /// The derive with the closed form switchable off, so a test can hold the closed form to the
     /// search on the one input where both apply.
@@ -94,6 +97,7 @@ public sealed class SupportDerive
         out SupportDeriveResult result,
         bool closedForm)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchSupport);
         ArgumentNullException.ThrowIfNull(voxels);
         ArgumentNullException.ThrowIfNull(materials);
         ArgumentNullException.ThrowIfNull(rule);

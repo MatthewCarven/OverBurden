@@ -2,6 +2,7 @@
 using Godot;
 using Overburden.Core.Hydrology;
 using Overburden.Core.Voxels;
+using Overburden.Core.Diagnostics;
 
 namespace Overburden.Game.Rendering;
 
@@ -137,6 +138,8 @@ public sealed class WaterSurface
         Rebuild(water);
     }
 
+    private static readonly int WatchRebuild = CallWatch.Register("Tier A surface: rebuild");
+
     /// <summary>
     /// Sweeps the analysis grid and emits a horizontal quad for every sample under water.
     /// </summary>
@@ -149,6 +152,7 @@ public sealed class WaterSurface
     /// </remarks>
     private void Rebuild(WaterSystem water)
     {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchRebuild);
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
 
         Watershed watershed = water.Window!.Watershed;
