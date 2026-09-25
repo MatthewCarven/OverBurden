@@ -265,6 +265,12 @@ public sealed class WaterSystem : IWaterTable
     /// </remarks>
     public long SeedOverflowLitres { get; private set; }
 
+    /// <summary>Pits a same-origin re-analysis no longer had, whose water went to the basin now under them, over the lifetime.</summary>
+    public long RehomedPits { get; private set; }
+
+    /// <summary>Litres those pits carried to their new basins, over the lifetime.</summary>
+    public long RehomedLitres { get; private set; }
+
     /// <summary>
     /// The lattice-aligned origin of the window that should be analysed for a player at this
     /// position.
@@ -310,18 +316,18 @@ public sealed class WaterSystem : IWaterTable
     /// read is the one <see cref="Install"/> is about to replace.
     /// </remarks>
     public static WaterWindow Analyse(
-        ISurfaceHeights heights, int originX, int originZ, int pitch, int cellVoxels)
+        ISurfaceHeights heights, int originX, int originZ, int pitch, int cellVoxels, IRaisedSamples? raised = null)
     {
-        HeightField field = HeightField.Sample(heights, originX, originZ, pitch, cellVoxels);
+        HeightField field = HeightField.Sample(heights, originX, originZ, pitch, cellVoxels, raised);
         Watershed watershed = Watershed.Analyse(field);
         return new WaterWindow(watershed, MergeTree.Build(watershed));
     }
 
     /// <summary>Analyses the window this player position wants. A convenience over <see cref="Analyse"/>.</summary>
-    public WaterWindow AnalyseFor(int voxelX, int voxelZ)
+    public WaterWindow AnalyseFor(int voxelX, int voxelZ, IRaisedSamples? raised = null)
     {
         (int originX, int originZ) = WindowOriginFor(voxelX, voxelZ);
-        return Analyse(_heights, originX, originZ, Pitch, CellVoxels);
+        return Analyse(_heights, originX, originZ, Pitch, CellVoxels, raised);
     }
 
     /// <summary>
@@ -347,9 +353,27 @@ public sealed class WaterSystem : IWaterTable
                 nameof(window));
         }
 
+        bool sameOrigin = Window is not null
+            && Window.Watershed.Field.OriginX == window.Watershed.Field.OriginX
+            && Window.Watershed.Field.OriginZ == window.Watershed.Field.OriginZ
+            && Window.Watershed.Field.Pitch == window.Watershed.Field.Pitch;
+
         if (Window is not null && Water is not null)
         {
             Ledger.Absorb(Window.Watershed, Water);
+        }
+
+        if (sameOrigin)
+        {
+            // A re-analysis of the same ground can only differ by a raise (docs/POND-PLAN.md,
+            // decision 5), so a pit it no longer has was covered by one — a pier, a filled pond —
+            // and its water goes to the basin now under it rather than waiting in the ledger at
+            // a coordinate no basin has. Never on a window move: a pit that falls on a moved
+            // window's edge ring is still a pit, waiting for a window that holds it.
+            (int pits, long litres, long left) = Ledger.Rehome(window.Watershed);
+            RehomedPits += pits;
+            RehomedLitres += litres;
+            SeedOverflowLitres += left;
         }
 
         var water = new BasinWater(window.Tree);

@@ -253,4 +253,23 @@ deleted, and main's DESIGN amendment is reverted to *not built, and why*.
 
 ## Built
 
-*(Nothing yet.)*
+### a-1 — the raise and the ledger (2026-09-25, on `water-column-test`)
+
+`RaisedSurface` in `Overburden.Core/Hydrology/`: `Observe(SkyColumn)` rescans a chunk column's
+sixteen cells when its revision moves (the cell's max over `RainOnPlaced`'s placed predicate),
+`Version` moves only when a cell's answer does, `DeriveFrom(IWorldStore, ISurfaceHeights)` seeds
+each stored column and copies its heights over as the streamer's restore does, and `Snapshot()`
+freezes a copy for the worker behind `IRaisedSamples`. `HeightField.Sample` and
+`WaterSystem.Analyse`/`AnalyseFor` take an optional snapshot. `BasinLedger.Rehome` runs in
+`Install` on a same-origin re-analysis only, counted as `RehomedPits`/`RehomedLitres`, with water
+that now drains out folded into `SeedOverflowLitres`.
+
+**Seventeen tests, sixteen recipes, all caught after one fixture fix.** The miss was an x/z swap
+in the field's lookup, because the fixture's raised samples sat on the diagonal. **The window-move
+control is load-bearing**: *rehome on every install* fails only
+`AWindowMoveNeverRehomesAPitThatFallsOnItsEdge`, which is why the rehome is gated on the origin
+and not on "a pit went missing". Suite 1,888 → 1,905. The game passes no raise yet, so its
+behaviour is unchanged by construction; the r6 control is b's to read.
+
+**One thing not tested:** a re-homed pit whose sample now drains out of the window (`left`). The
+bowl fixture cannot make that happen without an edge-cell raise, and it is one line.

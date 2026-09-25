@@ -108,6 +108,66 @@ public sealed class BasinLedger
         }
     }
 
+    /// <summary>
+    /// Moves the water of every stored pit inside this window that the window no longer has as a
+    /// pit to the basin whose catchment now holds that sample. Returns the pits moved, the litres
+    /// they carried, and the litres that left because the sample now drains out of the world.
+    /// </summary>
+    /// <remarks>
+    /// <b>For a re-analysis of the same ground only</b> — see <see cref="WaterSystem.Install"/>.
+    /// There the only way a pit disappears is a raise over it (docs/POND-PLAN.md, fact 5), and
+    /// without this its litres would stay here at a coordinate no basin has: counted in every
+    /// total, drawn nowhere, forever. The litres join the new pit's entry as an addition, since
+    /// this is one basin's water arriving in another's and not a window's view being replaced.
+    /// </remarks>
+    public (int Pits, long Litres, long Left) Rehome(Watershed watershed)
+    {
+        ArgumentNullException.ThrowIfNull(watershed);
+        HeightField field = watershed.Field;
+        int span = field.Pitch * field.CellVoxels;
+
+        var pits = new HashSet<(int X, int Z)>();
+        foreach (Basin basin in watershed.Basins)
+        {
+            pits.Add((basin.PitX, basin.PitZ));
+        }
+
+        var moving = new List<((int X, int Z) From, long Litres)>();
+        foreach (KeyValuePair<(int X, int Z), long> entry in _litres)
+        {
+            (int x, int z) = entry.Key;
+            bool inside = x >= field.OriginX && x < field.OriginX + span
+                && z >= field.OriginZ && z < field.OriginZ + span;
+            if (inside && !pits.Contains(entry.Key))
+            {
+                moving.Add((entry.Key, entry.Value));
+            }
+        }
+
+        // Sorted, so a rehome is the same arithmetic every time — the ledger is a dictionary.
+        moving.Sort(static (a, b) => a.From.X != b.From.X ? a.From.X.CompareTo(b.From.X) : a.From.Z.CompareTo(b.From.Z));
+
+        long litres = 0, left = 0;
+        foreach (((int X, int Z) from, long amount) in moving)
+        {
+            _litres.Remove(from);
+            litres += amount;
+            Basin? target = watershed.BasinAt(
+                (from.X - field.OriginX) / field.CellVoxels,
+                (from.Z - field.OriginZ) / field.CellVoxels);
+            if (target is null)
+            {
+                left += amount;
+                continue;
+            }
+
+            var key = (target.PitX, target.PitZ);
+            _litres[key] = LitresAt(key.PitX, key.PitZ) + amount;
+        }
+
+        return (moving.Count, litres, left);
+    }
+
     /// <summary>Every basin holding water, in a fixed order.</summary>
     public IReadOnlyList<StoredBasin> Entries()
     {
