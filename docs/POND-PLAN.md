@@ -273,3 +273,25 @@ behaviour is unchanged by construction; the r6 control is b's to read.
 
 **One thing not tested:** a re-homed pit whose sample now drains out of the window (`left`). The
 bowl fixture cannot make that happen without an edge-cell raise, and it is one line.
+
+### a-2 — the water grid (2026-09-25, on `water-column-test`)
+
+`WaterGrid.Build(chunkX, chunkZ, ISkyColumns, IWaterTable, cellVoxels)` in
+`Overburden.Core/Fluid/`, returning a frozen `WaterColumns` (per voxel column a level or none)
+or **null for a chunk column with nothing placed in it**. An unbuilt cell's columns answer their
+sample's table exactly, as the band does. A built-in cell's columns are flooded 4-neighbour from
+the unbuilt columns under their table in the padded window (one cell round the chunk column),
+levels ascending, the first to reach a column keeping it, entering only a column whose floor
+(placed top, else the seed plane) is strictly under the level. **It reads "built in" off the
+sky columns themselves, not off `RaisedSurface`**, so the grid and the column it describes cannot
+disagree. The analysis's levels can lag a raise by the re-analysis delay; that is the table's
+business, not the grid's.
+
+**Eleven tests, thirteen recipes, all caught after one fixture fix and one new test.** The fixture
+fix: unloading the neighbour chunk column alone still let the pond reach the strip through the
+diagonal ones, and that is the truthful answer, so the test unloads the whole west side of the pad.
+The new test: *seeds at equal floor* passed until a natural ridge standing exactly at the lake's
+level was built (`AnalyticSurface` under the fake columns). A flat world cannot make that shape.
+Suite 1,905 → 1,916.
+
+**Slice a is done.** b wires both halves into the game and needs the game closed.
