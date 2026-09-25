@@ -250,9 +250,12 @@ ledger seeds it, it does not fit, and it leaves as `SeedOverflowLitres`: printed
    three runs each, alternated, on a copy of `Regions16` at his pond): the derive at open is
    94.5 ms once; observing the box is 0.050 ms a frame (2.4 max); the grid build is 0.073 ms a
    chunk column and its get 0.014 ms; a re-analysis is ~130 ms on a worker. **The enclosure
-   falls from 13.3 ms a second to 3.3**, so the net is about +1 ms a second. **One call passes
-   the bar: the worst grid build, 6.0 ms, on a cache miss.** Its lever is to cap the builds a
-   boundary and let a column without a grid read `Enclosure` until its grid lands. **The tick is
+   falls from 13.3 ms a second to 3.3**, so the net is about +1 ms a second. **One call read past
+   the bar, the worst grid build at 4.0–6.0 ms in every run, and it is the JIT, not a column.** A
+   probe printed every build over 1 ms: build #1 at 5.4 ms (a light column, nothing built in
+   reached), then one at 1.3 ms, and the other 1,040 under a millisecond. It is paid once a launch,
+   and a per-boundary cap could not bound one call, so none was built. **Criterion 5 is met.** The
+   tick is
    6× main's (200 against 33 ms), and that is his pond holding the pour**: 406 kL of it drains
    into Tier B through the dug ground under it. The branch with `--raise=0` ticks as main does.
 6. **His word.** The play verdict decides. The five above are what a *"no"* would be read against.

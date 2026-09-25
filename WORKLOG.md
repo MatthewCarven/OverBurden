@@ -43,9 +43,11 @@ the machine control: every run landed in one speed phase.
 **The pond code's own cost is small, and it saves the enclosure most of its work.** Observing the
 box costs 4.8 ms a second and the grid 9.7. The enclosure falls from 13.3 ms a second to 3.3,
 because it is asked only on a raised sample (2,905 calls against 391,273). So the net is about +1
-ms a second, plus 94.5 ms once at open and ~130 ms a re-analysis on a worker. **One call passes
-the plan's 5 ms bar: the worst grid build is 6.0 ms** (a cache miss inside `get`). That is
-POND-PLAN's criterion 5, with its lever named there.
+ms a second, plus 94.5 ms once at open and ~130 ms a re-analysis on a worker. **One call read
+past the plan's 5 ms bar, the worst grid build at 4.0–6.0 ms, and a probe the same morning
+showed it is the first build of a launch** (the JIT: build #1 at 5.4 ms on a light column, one at
+1.3 ms, the other 1,040 under a millisecond). So no cap was built, and POND-PLAN's criterion 5 is
+met.
 
 **The sampler, and its trap.** `dotnet-trace collect -- <godot>` cannot launch the game: the
 hosted runtime never connects to the reversed port. Attaching by PID works (`dotnet-trace ps`,
