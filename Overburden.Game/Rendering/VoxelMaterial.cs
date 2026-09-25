@@ -80,6 +80,11 @@ public static class VoxelMaterial
         // warm grey-tan between dirt's brown and stone's grey, so a lining reads as a lining
         // and not as more dirt. Unscreenshotted; a look call for the next play.
         new Color(0.56f, 0.47f, 0.38f),
+
+        // Glass (2026-09-25, docs/GLASS-PLAN.md): a pale blue-grey, drawn at the glass shader's
+        // alpha, so a pane reads as a pane over grass and over stone alike. Near-flat: a speckle
+        // on something you look through reads as dirt on it. A screenshot's call.
+        new Color(0.78f, 0.88f, 0.92f),
     ];
 
     /// <summary>The colour for a layer, or a flat grey for one this build has no texture for.</summary>
@@ -112,7 +117,7 @@ public static class VoxelMaterial
         // The relay pair (M10a-2) is smoother than rock — a cast body, not a face of it — and
         // the table is asserted against the colours so a sixth colour cannot ship without a sixth
         // jitter: the r6 control threw an IndexOutOfRange from here on the night the pair was added.
-        float[] jitter = [0.08f, 0.12f, 0.10f, 0.04f, 0.16f, 0.03f, 0.03f, 0.02f, 0.02f, 0.02f, 0.03f, 0.06f];
+        float[] jitter = [0.08f, 0.12f, 0.10f, 0.04f, 0.16f, 0.03f, 0.03f, 0.02f, 0.02f, 0.02f, 0.03f, 0.06f, 0.01f];
         if (jitter.Length != LayerColour.Length)
         {
             GD.PushError($"Overburden: {LayerColour.Length} layer colours but {jitter.Length} jitters; the two tables have drifted");
@@ -130,6 +135,27 @@ public static class VoxelMaterial
         var material = new ShaderMaterial { Shader = shader };
         material.SetShaderParameter("albedo", array);
         material.SetShaderParameter("sky_brightness", skyBrightness);
+        return material;
+    }
+
+    /// <summary>
+    /// The material for the chunk mesh's transparent surface — glass (docs/GLASS-PLAN.md) — sharing
+    /// the rock material's texture array, so the layer a pane's JSON names is the same layer.
+    /// The caller keeps the shared parameters (sky brightness, wetness, the tint's space) in step
+    /// on both; <c>Main.SetVoxelParameter</c> is the one place that does.
+    /// </summary>
+    public static ShaderMaterial CreateGlass(ShaderMaterial solid)
+    {
+        System.ArgumentNullException.ThrowIfNull(solid);
+        var shader = GD.Load<Shader>("res://Rendering/VoxelGlass.gdshader");
+        if (shader is null)
+        {
+            GD.PushError("Overburden: could not load res://Rendering/VoxelGlass.gdshader");
+        }
+
+        var material = new ShaderMaterial { Shader = shader };
+        material.SetShaderParameter("albedo", solid.GetShaderParameter("albedo"));
+        material.SetShaderParameter("sky_brightness", solid.GetShaderParameter("sky_brightness"));
         return material;
     }
 

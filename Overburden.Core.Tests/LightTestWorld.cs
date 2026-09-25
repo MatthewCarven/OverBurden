@@ -265,7 +265,7 @@ internal sealed class LightTestWorld : ILightChunks, IVoxelWorld
             {
                 int y = top + 1;
                 while (y > bottom
-                       && !Materials.IsOpaque(
+                       && !Materials.IsSolid(
                            Material(new VoxelPos(originX + lx, y - 1, originZ + lz))))
                 {
                     y--;

@@ -319,7 +319,7 @@ public sealed class SkyColumn
         int index = Index(lx, lz);
         int openAbove = _openAboveY[index];
 
-        bool opaque = IsOpaque(world, materials, changed);
+        bool opaque = BlocksSky(world, materials, changed);
 
         if (opaque)
         {
@@ -338,7 +338,7 @@ public sealed class SkyColumn
         int y = changed.Y;
         int limit = y - MaxScanVoxels;
 
-        while (y > limit && !IsOpaque(world, materials, new VoxelPos(changed.X, y - 1, changed.Z)))
+        while (y > limit && !BlocksSky(world, materials, new VoxelPos(changed.X, y - 1, changed.Z)))
         {
             y--;
         }
@@ -389,6 +389,14 @@ public sealed class SkyColumn
         return true;
     }
 
-    private static bool IsOpaque(IVoxelWorld world, MaterialTable materials, VoxelPos voxel) =>
-        !world.TryGetMaterial(voxel, out int material) || materials.IsOpaque(material);
+    /// <summary>
+    /// Whether a voxel closes the column to the sky: <b>solid, not opaque</b> (docs/GLASS-PLAN.md,
+    /// decision 1, 2026-09-25). One height feeds the skylight seed, the rain particles, the rain on
+    /// placed tops, the under-a-roof skip, solar openness and the raised watershed, so glass — solid
+    /// and see-through — is a roof to all of them, and its light reaches under it by propagation
+    /// (<see cref="ChunkLight"/>'s conductance still asks opacity). Until glass no shipped material
+    /// was solid and non-opaque, so every stored column read the same under both tests.
+    /// </summary>
+    private static bool BlocksSky(IVoxelWorld world, MaterialTable materials, VoxelPos voxel) =>
+        !world.TryGetMaterial(voxel, out int material) || materials.IsSolid(material);
 }

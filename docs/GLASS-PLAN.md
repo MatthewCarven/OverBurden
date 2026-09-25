@@ -135,3 +135,36 @@ and is built on main.
 **Read before g-1's code:** `SkyColumn.OnVoxelChanged` and `Seed` (the scan's predicate is in two
 places), `ChunkLight`'s sky-source rule (to confirm the 14), and `GreedyMesherTests`'
 `FluidsGoToTheTransparentSurface`, which is the template for glass's routing test.
+
+---
+
+## Built (2026-09-25, on main, the same night — *"glass as recommended please"*)
+
+He took all seven as recommended, and asked for it on main at once rather than after the pond
+verdict, which decision 7 had only been waiting on for tidiness. It is independent of the branch.
+
+**g-1.** `SkyColumn.BlocksSky` asks `IsSolid` (both call sites), `LightTestWorld`'s from-scratch
+oracle the same; `glass.json` (opaque false, hardness 0.4, support 6, permeability 0, density
+2500, layer 12); `ShippedContentTests.GlassIsTheOneSolidBlockYouCanSeeThrough` pins its numbers
+**and that it is the only shipped solid that is not opaque** — the fact the switch rests on; the
+old-world ID test counts one more appended material. `GlassTests`: a glass roof closes the column
+as stone does; the edit that closes a roof agrees with a rebuild; two panes draw no face between
+them and stone behind a pane draws its face. **Five recipes, five caught.** Suite 1,888 → 1,893;
+the r6 control to the digit.
+
+**The pass's light prediction was wrong, and better than predicted.** It said the room under a glass roof would
+read 14, then a level a metre down. **It reads 15 all the way down**: M5b's rule lets full
+skylight fall free through any face that conducts, and a pane conducts. Glass is a true skylight,
+which retires the recorded other arm's main reason (the dark greenhouse). **Two costs change with
+it and are stated:** the wet sheen is gated on skylight, so **a floor under a glass roof gleams
+in a storm** (fact 6, now true under glass); and **a solar panel under glass gets no sun**,
+because its openness reads the sky column. Triggers: either one noticed in play.
+
+**g-2.** `Voxel.gdshader`'s body moved into `Voxel.gdshaderinc`; `VoxelGlass.gdshader` includes
+it under `blend_mix` with `VOXEL_GLASS` defining `glass_alpha` (0.35, an estimate); the thirteenth
+layer colour (a pale blue-grey) and jitter; `VoxelMaterial.CreateGlass` shares the rock array;
+`Main.SetVoxelParameter` keeps sky brightness, wetness and the tint's space in step on both; `P`
+seeds 64 cells of glass. `--courtyardmaterial=<id>` and `--courtyardroof=1` build the screenshot's
+glass box. **Looked at**: from inside a roofed glass courtyard the hills show through the walls
+with a pale tint and the grass inside is at full daylight; looking up, the roof is a faint pane
+against the sky. **The glass reads a little milky at 0.35** — the alpha is his to move.
