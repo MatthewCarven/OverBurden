@@ -49,6 +49,49 @@ public class FloodIndexTests
     }
 
     [Fact]
+    public void AFloodReachingPastTheFlatWindowAnswersAsADictionaryDoesOnBothSidesOfItsEdge()
+    {
+        // The first layer is a flat window of 64 × 64 chunk columns anchored on the flood's first
+        // column, with a dictionary past it (2026-09-26). The fuzz above stays within ±3 columns,
+        // so it never leaves the window; this one spreads each flood over ±40, so about half its
+        // columns are the fallback's, and a Clear re-anchors somewhere else with stale flat stamps
+        // under it.
+        var random = new Random(0xED6E);
+        var index = new FloodIndex();
+        int span = 40 * VoxelConstants.ChunkSize;
+        for (int flood = 0; flood < 12; flood++)
+        {
+            int y = random.Next(-50, 50);
+            int ox = random.Next(-50_000, 50_000), oz = random.Next(-50_000, 50_000);
+            index.Clear();
+            var oracle = new Dictionary<VoxelPos, int>();
+            for (int op = 0; op < 6_000; op++)
+            {
+                var cell = new VoxelPos(ox + random.Next(-span, span), y, oz + random.Next(-span, span));
+                if (random.Next(2) == 0 && !oracle.ContainsKey(cell))
+                {
+                    oracle[cell] = op;
+                    index.Add(cell, op);
+                }
+
+                // Every add is asked back, and a random earlier cell too — a hit is what shows a
+                // slot was filed where the next lookup looks.
+                bool expected = oracle.TryGetValue(cell, out int want);
+                Assert.Equal(expected, index.TryGet(cell, out int got));
+                if (expected)
+                {
+                    Assert.Equal(want, got);
+                }
+            }
+
+            foreach ((VoxelPos cell, int want) in oracle)
+            {
+                Assert.True(index.TryGet(cell, out int got) && got == want, $"{cell} lost in flood {flood}");
+            }
+        }
+    }
+
+    [Fact]
     public void ACellAddedBeforeAClearIsGoneAfterItEvenWhenItsSlotIsTakenByAnotherColumn()
     {
         var index = new FloodIndex();
@@ -95,52 +138,8 @@ public class FloodIndexTests
     [InlineData(3)]
     public void TheDictionaryArmAndTheTwoLayerArmSolveTheSameWaterToTheMillilitre(int seed)
     {
-        // A floor straddling chunk faces on both signs, full; a noisy layer with holes over it; an
-        // unsupported noisy layer over that. Several passes, re-poured the same in both arms.
-        (long, string, int) Run(bool hashed)
-        {
-            var terrain = new BoxTerrain(-40, 0, -40, 39, 2, 39);
-            var sim = new FluidSimulation(terrain) { HashedFloodIndex = hashed };
-            var random = new Random(seed);
-            long checksum = 0;
-            string counts = string.Empty;
-            for (int pass = 0; pass < 4; pass++)
-            {
-                var seeds = new List<VoxelPos>();
-                for (int x = -40; x < 40; x++)
-                {
-                    for (int z = -40; z < 40; z++)
-                    {
-                        for (int y = 0; y <= 2; y++)
-                        {
-                            var cell = new VoxelPos(x, y, z);
-                            sim.Grid.Drain(cell, Cap);
-                            int amount = y == 0 ? Cap : random.Next(5) == 0 ? 0 : random.Next(500, 14_000);
-                            if (amount > 0)
-                            {
-                                sim.Grid.Fill(cell, amount);
-                                seeds.Add(cell);
-                            }
-                        }
-                    }
-                }
-
-                SheetLevelResult r = sim.LevelSheets(seeds, share: SheetSettle.DefaultSettleShare);
-                counts += $"{r.Sheets}/{r.Levelled}/{r.Packed}/{r.Skipped}/{r.UnderShare}/{r.CellsVisited}/{r.CellsWritten};";
-                for (int x = -40; x < 40; x++)
-                {
-                    for (int z = -40; z < 40; z++)
-                    {
-                        checksum = (checksum * 31) + sim.Grid.AmountAt(new VoxelPos(x, 1, z));
-                    }
-                }
-            }
-
-            return (checksum, counts, sim.FloodIndexSlots);
-        }
-
-        (long hashedSum, string hashedCounts, int hashedSlots) = Run(hashed: true);
-        (long layeredSum, string layeredCounts, int layeredSlots) = Run(hashed: false);
+        (long hashedSum, string hashedCounts, int hashedSlots) = Solve(seed, hashed: true);
+        (long layeredSum, string layeredCounts, int layeredSlots) = Solve(seed, hashed: false);
 
         // Each arm used the index it names — or the comparison is one arm against itself.
         Assert.Equal(0, hashedSlots);
@@ -148,5 +147,67 @@ public class FloodIndexTests
         Assert.Equal(hashedCounts, layeredCounts);
         Assert.Equal(hashedSum, layeredSum);
         Assert.Contains("/", hashedCounts);
+    }
+
+    /// <summary>
+    /// The arm test above compares two indexes over one solve, so it cannot see a change both
+    /// arms share — and the flat arrays of 2026-09-26 (the parents, the cells as a chain) are
+    /// under both. <b>Levelling hands its remainder to the first cells in flood order and packing
+    /// breaks ties by it</b>, so a merge that spliced the smaller sheet on the front instead of
+    /// the back lands different water with every count the same; the battery found nothing in the
+    /// suite catching it (only the bench's fingerprint did). These are the checksums the solve
+    /// landed before the change, taken from the old code and matched by the new.
+    /// </summary>
+    [Theory]
+    [InlineData(1, -6763331748501281662L)]
+    [InlineData(2, 3840366746218676025L)]
+    [InlineData(3, -7692377351435289986L)]
+    public void TheSolveLandsTheSameWaterItLandedBeforeTheFlatArrays(int seed, long expected)
+    {
+        Assert.Equal(expected, Solve(seed, hashed: false).Checksum);
+    }
+
+    // A floor straddling chunk faces on both signs, full; a noisy layer with holes over it; an
+    // unsupported noisy layer over that. Several passes, re-poured the same in both arms.
+    private static (long Checksum, string Counts, int Slots) Solve(int seed, bool hashed)
+    {
+        var terrain = new BoxTerrain(-40, 0, -40, 39, 2, 39);
+        var sim = new FluidSimulation(terrain) { HashedFloodIndex = hashed };
+        var random = new Random(seed);
+        long checksum = 0;
+        string counts = string.Empty;
+        for (int pass = 0; pass < 4; pass++)
+        {
+            var seeds = new List<VoxelPos>();
+            for (int x = -40; x < 40; x++)
+            {
+                for (int z = -40; z < 40; z++)
+                {
+                    for (int y = 0; y <= 2; y++)
+                    {
+                        var cell = new VoxelPos(x, y, z);
+                        sim.Grid.Drain(cell, Cap);
+                        int amount = y == 0 ? Cap : random.Next(5) == 0 ? 0 : random.Next(500, 14_000);
+                        if (amount > 0)
+                        {
+                            sim.Grid.Fill(cell, amount);
+                            seeds.Add(cell);
+                        }
+                    }
+                }
+            }
+
+            SheetLevelResult r = sim.LevelSheets(seeds, share: SheetSettle.DefaultSettleShare);
+            counts += $"{r.Sheets}/{r.Levelled}/{r.Packed}/{r.Skipped}/{r.UnderShare}/{r.CellsVisited}/{r.CellsWritten};";
+            for (int x = -40; x < 40; x++)
+            {
+                for (int z = -40; z < 40; z++)
+                {
+                    checksum = (checksum * 31) + sim.Grid.AmountAt(new VoxelPos(x, 1, z));
+                }
+            }
+        }
+
+        return (checksum, counts, sim.FloodIndexSlots);
     }
 }

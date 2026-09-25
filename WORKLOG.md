@@ -1,5 +1,40 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 — The sheet flood on flat arrays: 0.76× the flood, the same water
+
+Matthew, after reading his CSharp-Lookuptables repo against the sheet solve: *"maybe a lookup
+cache would be better"*, then *"install dotnet-trace and profile it"*, then *"build the three flat
+array fixes"*. dotnet-trace (10.0, sampled thread time, Speedscope) on `--solve` put the flood's
+time in: neighbour reads ~65% (inlined), `Find` ~13%, copying cell lists in `Union` ~10%, the
+index ~6%, interface casts ~5%, and the index's `Dictionary<long,int>` 1.6%. Three changes, one
+per finding that was a data structure:
+
+- **Union-find on a flat `int[] _parent`**, `Find` walking the array — no object per sheet on the
+  path.
+- **A sheet's cells as a chain** (`Head` / `Tail` / `Count`, an `int[] _cellNext` over the
+  records) — `Union` splices the smaller chain after the larger's tail in O(1) where it copied a
+  list. `CellsOf` materialises one list for the three readers that index it.
+- **`FloodIndex`'s first layer flat** — his `FlatTableBuckets`: a 64 × 64 window of chunk columns
+  anchored on the flood's first, the dictionary kept past it, so the window is a speed and never
+  a limit. Stamped like the leaves.
+
+**Measured old against new, alternated three rounds (A B A B A B, machine control 1.05–1.07× on
+every run), `--solve` Release:** the two-layer arm's flood **73.3 → 55.6 ms** a pass (0.76×), the
+solve **137.5 → 116.4 ms** (0.85×), 102–108 → 78–83 ns an item; the dictionary arm, which has the
+first two changes and not the window, 73.4 → 59.7 ms — so the flat parents and the chain are most
+of it and the window the rest. **Every run landed checksum `699103278A0A470B`, counts
+`57/4/0/53/0/270700/126448`**, the old code's.
+
+**The trap, and the test for it.** Levelling hands its remainder to the first cells in flood order
+and packing breaks ties by it, so **the order a merge splices the chains in is physics** — a
+splice of the smaller sheet on the front lands different water with every count the same. The
+battery (8 recipes, 8 caught) found the suite blind to it: the arm test compares two indexes over
+one solve and cannot see a change both share; only the bench's fingerprint caught it.
+`TheSolveLandsTheSameWaterItLandedBeforeTheFlatArrays` pins the old code's checksums on three
+seeds and catches it (3 fail). A second fuzz spreads floods over ±40 chunk columns so both sides
+of the window's edge answer as a dictionary does. Suite 1,897; r6 control 2601 / 325 / 3446 at
+411 to the digit. `--solve` prints the last round's checksum always now.
+
 ## 2026-09-25 (night) — The glass pass: one line stands between opacity and a window
 
 Matthew, from his reservoir with window openings: *"how do you reckon we get to glass from here?"*,

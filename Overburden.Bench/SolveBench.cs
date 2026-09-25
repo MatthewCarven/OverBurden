@@ -94,7 +94,7 @@ internal static class SolveBench
 
         Console.WriteLine();
         Console.WriteLine(agree
-            ? "  Both arms landed the same water on every pass (checksum and counts)."
+            ? $"  Both arms landed the same water on every pass (checksum and counts); the last round's checksum {totals[false].LastChecksum:X16}, counts {totals[false].LastCounts}."
             : "  *** The arms disagreed; the timings above compare two different solves. ***");
         Console.WriteLine(string.Create(
             CultureInfo.InvariantCulture,
