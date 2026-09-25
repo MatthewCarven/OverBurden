@@ -335,3 +335,13 @@ built for it. Decision 2 stands as built and the first-solid-run rule is **not**
 revisit trigger: the first roof, platform or bridge over water that reads as a dam in play. The
 30 ML held behind them is the rule working. b continues with the look (a screenshot on a copy of
 his world) and then his play.
+
+**The look, the same evening (screenshots on copies of `Regions16`, camera at (−874, 8, 266) m
+looking NW by the new `--at=x,y,z`).** With no pour the two arms are the same picture, and that
+is right: the lake stands where it stood and already met his stone band. The grid drew 190 of
+his samples as 428 quads, the whole surface rebuilding in 5.3 ms. **With 1 ML poured at the
+pond, `--raise=0` spills every litre and the picture does not move; with the raise the lake
+holds it and stands 0.77 voxel higher, over the grass ridge and over the stone band except where
+the band's top is above the water**. The shore there is sawtoothed to the voxel, and no water
+shows outside a top that stands above it. The pond is part of the valley lake his dam walls
+hold, so its edge is the dam and not the edging. b is done bar his play.
