@@ -77,6 +77,10 @@ I'll go and find the numbers.
 ## Now
 
 - [x] **Push** — done 2026-09-23, `ac91996..5f338fd`. Nothing outstanding.
+- [ ] **Your stone-edged pond** — planned tonight, not built. Walls you place will raise the
+      lake's rim (the pass is `docs/POND-PLAN.md`); once it's built, R into your ring on
+      `Regions16` should fill it to the wall, and the water will stop vanishing when the ring
+      closes. Nothing for you to do yet.
 - [ ] **M10d-2, the play** — the ten recipes below. This is the next milestone thing and it is
       entirely yours; nothing else is blocked on me.
 

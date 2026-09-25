@@ -1,5 +1,27 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-25 (evening) — His pond: the ring hid the lake, and the lake could not see the ring
+
+Two play reports on `Regions16` while he edged a natural pond in stone: the water vanished as each
+ring closed, and R into the raised pond did not fill it. **Both from the live log, neither a bug in
+the sense of broken code**: the enclosure's `closed` went 0 → 10 as the rings came round and
+`WaterSurface` leaves an enclosed sample undrawn — right for a courtyard beside a lake, wrong for a
+ring round the lake itself; Tier A climbed 52 → 86% through it, so no litre was lost. And the R
+pours (260,000 L) were handed to the lake (`handed 279,392 L`, 7,974 cells found inside it) and
+spilled at the natural rim (`spilled` 2.3 → 7.25 M L), because the watershed samples the seed
+terrain — M7's locked *edits do not change the watershed*, whose trigger this is. Also read:
+21,987 L `displaced` by the edging placed at the waterline.
+
+Planned on *"yeah write the pass, as recommended"*: **docs/POND-PLAN.md**, nine decisions, split
+a/b/c. The pass's findings the chat had not: the sample is one corner point (a raise must be the
+cell's max); every edited column is already in the `columns` table, so the raise map is derived at
+open and decision 1's "small table" is not needed; the ledger strands the litres of a pit a raise
+covers; the lake ceiling bands by table not footprint, so a half-wall cell would band its outside;
+and the courtyard check cannot read `handed 0 L` under the raise, because the courtyard becomes its
+own basin — decision 3's condition reworded. DESIGN's locked line is amended. **Instrument gap**:
+`enclosed sample(s) undrawn` prints only in a profile report, so the play log showed the cause only
+sideways; slice b puts the raise's terms on the `M7d:` line.
+
 ## 2026-09-24 (late night) — 2c played at `--fedband=6`: the default is 6
 
 *"that hits deep i like it a lot will have to do more load testing like but i think its the one"* — on

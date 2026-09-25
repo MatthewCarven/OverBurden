@@ -4970,6 +4970,26 @@ Three honest caveats, because the saving is not where it first appears:
       so the underwater ladder (oxygen → rebreather → entangled lungs, M10-NOTES *Being
       underwater*, survival-mode trigger) is on this item's path too.
 
+### The raised watershed — a pond you have shaped (planned 2026-09-25, not built)
+
+Matthew's stone-edged pond on `Regions16`; the pass is [docs/POND-PLAN.md](docs/POND-PLAN.md),
+nine decisions taken as recommended (*"yeah write the pass, as recommended"*; five were the pass's
+own, flagged to him in the reply).
+
+- [ ] **a — Core.** `RaisedSurface` (per chunk column, the cell max of placed tops by
+      `RainOnPlaced`'s predicate, cached by `SkyColumn.Revision`, versioned, snapshotted for the
+      worker); `HeightField.Sample` takes the snapshot; `BasinLedger` re-homes a vanished pit.
+      Oracles: no raise byte-identical; a ring raises the saddle and the capacity; removing it
+      spills; a pier over the pit conserves the total; a roof reads raised (pinned cost).
+- [ ] **b — the wire.** Open-time derive from the stored columns (ms printed); live map; re-analysis
+      after 1 s quiet; the ceiling's raised-cell rule; the surface drawing raised ring cells and
+      dropping `Enclosure`; the hand-off asking `Enclosure` only on a raised sample; `raised …`
+      terms on `M7d:`. Headless: `--courtyard=8` with a pour stays in the courtyard's own basin.
+- [ ] **c — the look**, only if b's screenshot shows water outside the wall: the per-voxel ring
+      clip in raised cells.
+- [ ] **His play**: `Regions16`'s pond, R or Ctrl+R into the raised ring — does it fill to the
+      wall, and does the water stay when the ring closes?
+
 ### M9 — v0.5, the game exists
 
 **Planned 2026-09-11 — [docs/M9-PLAN.md](docs/M9-PLAN.md), split M9a–M9d, twelve decisions all
