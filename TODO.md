@@ -4991,15 +4991,19 @@ own, flagged to him in the reply; the tenth is his water grid, folded in the sam
 - [ ] **His play**: `Regions16`'s pond, R or Ctrl+R into the raised ring — does it fill to the
       wall, and does the water stay when the ring closes?
 
-### Glass (planned 2026-09-25, not built — waiting on his word, then after the pond verdict)
+### Glass (built 2026-09-25 on main; the look played 2026-09-26)
 
-[docs/GLASS-PLAN.md](docs/GLASS-PLAN.md), seven decisions, all recommended.
+[docs/GLASS-PLAN.md](docs/GLASS-PLAN.md), seven decisions, all taken as recommended; read its
+"Built" section. **The look is his and answered: black at 0.20 — *"Glass looks GOOD!"*.**
 
-- [ ] **g-1 — Core.** The sky column's test on `IsSolid` (`SkyColumn` and `ChunkPipeline`);
+- [ ] **Two play checks left, both his**: a floor under a glass roof gleams in a storm (the wet
+      sheen is gated on skylight, and glass passes full skylight), and water seen through glass
+      may draw in the wrong order (two transparent passes). Triggers: either noticed in play.
+- [x] **g-1 — Core.** The sky column's test on `IsSolid` (`SkyColumn` and `ChunkPipeline`);
       `glass.json` (opaque false, hardness 0.4, support 6, permeability 0, density 2500, layer 12
       — estimates); tests for the column, the 14 under a roof, the mesher's routing and culling,
       holding water. Oracle: the r6 control to the digit.
-- [ ] **g-2 — the look.** A transparent voxel material over a shared `.gdshaderinc`; the
+- [x] **g-2 — the look.** A transparent voxel material over a shared `.gdshaderinc`; the
       thirteenth layer colour and jitter; `P` seeds glass. A screenshot of a glass wall and roof
       on a copy of his world; then his play.
 
@@ -6553,8 +6557,9 @@ it.
       is better game design and costs nothing to adopt now**, but it means M11’s pipes are a
       deliberate tier rather than the default way fluid moves.
 
-- [ ] **The quantum tunneller and the one-click rule (2026-09-23/24)** — built, unplayed; the
-      play check is in MATTHEW-TODO. **Instrument question, found building it**: the profile's
+- [x] **The quantum tunneller and the one-click rule (2026-09-23/24)** — built, and played
+      2026-09-26: *"I like the 2m cube"* — the 2 m cube stays the middle tier.
+- [ ] **Instrument question, found building the tunneller**: the profile's
       `mining … (N/s)` under `--holdq` reads well below the tier's cooldown on every quantum tier
       (the miner, 10/s nominal, reads 4.2; the tunneller, 4/s, 2.1). Find which denominator or
       which frames the hold misses before quoting any quantum rate from a profile.
