@@ -35,7 +35,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/WATER-THREAD-PLAN.md](docs/WATER-THREAD-PLAN.md) | The tick's near/far order, the field, and the tick as a worker job. **Built** (slices 1–3c). Read before touching the tick's order or its home. |
 | [docs/FRONT-ADVANCE-PLAN.md](docs/FRONT-ADVANCE-PLAN.md) | Water that spreads sideways faster: `--frontadvance=` (4), fed by volume (`--fedshare=`), streams level their tip band (`--fedadvance=`, `--fedband=` 6). **Built and played 2026-09-24**; his load test is still owed. |
 | [docs/M9-PLAN.md](docs/M9-PLAN.md) | M9, the mine kills you: the support field, the tint, the fall, the keystone. **M9a–M9d built and played.** Read its "two facts" first: there is no bedrock, and a literal distance rule opens a shaft to the surface over a 2 × 2 bite. |
-| [docs/COLLAPSE-NOTES.md](docs/COLLAPSE-NOTES.md), [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md) | **The slow-then-fast collapse, "Tetris gone bad"** (2026-09-26). Fourteen decisions taken; **part a (Core) built, part b (the wire) next** and it wants its own code-level pass. Read the notes' "What exists", then the plan's facts and "a-2 — built". |
+| [docs/COLLAPSE-NOTES.md](docs/COLLAPSE-NOTES.md), [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md) | **The slow-then-fast collapse, "Tetris gone bad"** (2026-09-26). Fourteen decisions taken; **part a (Core) built; part b's code-level pass written, fourteen more decisions his.** Read the notes' "What exists", then the plan's facts, "a-2 — built" and "Part b — the code-level pass". |
 | [docs/M10-NOTES.md](docs/M10-NOTES.md), [docs/M10-PLAN.md](docs/M10-PLAN.md) | The quantum machine family and M10's first plan. Read before planning any machine. |
 | [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) | **The ladder** — hand → steam → DC → AC → quantum and the crafting under it; twenty-three decisions, parts M10a–M10j. **M10a–M10c built; M10d is the play (his) and d-1/d-3 built; M10e (the conductor index) is next after the play.** Its one idea: connection is membership, movement a ledger transfer at the boundary. |
 | [docs/UNDO-PLAN.md](docs/UNDO-PLAN.md) | Ctrl+Z, three steps. **Built and played 2026-09-22.** A fall clears the stack; the journal hangs off `SetVoxel` and `MachineSet`; an undo must not journal its own writes. |
@@ -189,13 +189,16 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 `water-column-test` both match GitHub as of a fetch. `start2.cmd`–`start5.cmd` are Matthew's and
 deliberately untracked.
 
-**Next on my side: collapse part b, the wire.** Part a is built — `CollapsePace`, `Polycubes`,
+**Next on my side: collapse b-1, on his word.** Part a is built — `CollapsePace`, `Polycubes`,
 `PieceCutter`, `LandingSolver`, `CollapseEvent`, all Core — and the bench's
-`--support --collapse --pieces` holds every oracle on every fixture. Part b wants its own
-code-level pass first; TODO's "Next" lists what it carries. Half of a big collapse is rubble
-tumbling off the pile, and whether that reads as settling or churn is his once he can see it.
-**His next chat is the ideal machines — endgame tech first, for a creative-mode demo** — and the
-collapse sensor (plan decision 13) is designed there, so b may wait for it.
+`--support --collapse --pieces` holds every oracle on every fixture. **Part b's code-level pass
+is written** (COLLAPSE-PLAN, "Part b — the code-level pass"): eight facts, fourteen decisions
+with recommendations, handed back. b-1 is a Core `CollapseDirector` the bench drives too; b-2
+is the wire. The one to read first is fact 3: a wet piece lands after its cavity has filled, so
+`displaced 0` stops being a construction. Half of a big collapse is rubble tumbling off the
+pile, and whether that reads as settling or churn is his once he can see it (part c). The
+collapse sensor (part f) reads the director's events, so b does not wait for his
+ideal-machines chat.
 
 **Waiting on him** (all in MATTHEW-TODO): the pond branch's verdict (merge or retire
 `water-column-test`); the fed-advance load test (`start3` against `start3 --fedadvance=0`); the

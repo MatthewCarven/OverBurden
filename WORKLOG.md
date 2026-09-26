@@ -1,5 +1,28 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 (a new chat) — Collapse part b: the code-level pass
+
+Matthew: *"lets continue please … i think we were working on the tetris collapse system"*. Part
+b's paragraph read against `Main.SweepCollapse`, `CollapseScheduler`, `Collapse.TryFall`, the
+pipeline's `SetVoxel` and `HoldsWater`, `FillWater`, the quit and the bench's `PieceDrop`; written
+into COLLAPSE-PLAN as eight facts and fourteen decisions, nothing built.
+
+The facts that change the design:
+- **Placement already has the dry/wet split** — dry voxels on any frame, wet ones queued to the
+  boundary with `FillWater` — so decision 6's landing rule is an existing rule, race included.
+- **The cavity is not there when a wet piece lands.** The sweep returned lifted water into its
+  own run's cavity in the same sweep, so `displaced 0` was a construction. A piece lands a second
+  later and up to 2 m away, and a lake has filled its cavity by then. The return order becomes
+  box, cavity, up the column to the first room; `displaced 0` becomes a measurement.
+- **`CollapseFlight` never re-checks its path**, and **reservations are per event**. Both belong
+  to the caller, which is part b.
+- **A fast event goes in waves**: every write requeues seven chunks, so past ~20 s a member may
+  not settle until its queue runs dry, and a rescue registers early and not late.
+
+Split at the Core/wire seam: b-1 a Core `CollapseDirector` that the bench's `--pieces` drives
+too, b-2 the game. The default stays `sweep` until part c draws the fall. The sensor (part f)
+reads the director's events, so b does not wait for the ideal-machines chat.
+
 ## 2026-09-26 (late night) — TODO.md cut to the open work
 
 Matthew: *"TODO.md please wipe out anything we don't need"*. It was 559 KB and 6,600 lines, and

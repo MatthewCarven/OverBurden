@@ -2,7 +2,8 @@
 
 The planning pass for [COLLAPSE-NOTES.md](COLLAPSE-NOTES.md), 2026-09-26, on `main`. **All fourteen
 decisions taken the same day (*"as recommended"*); a-1 and a-2 are built (Core, all of part
-a); part b, the wire, is next and wants its own code-level pass** (TODO under M9).
+a); part b's code-level pass is written below (fourteen decisions, his), and b-1 — the
+Core director — is next on his word** (TODO's "Next").
 Read the notes first. They have his first brief, the demolition's numbers, and what M9 already does.
 
 ## His second brief (2026-09-26, the planning chat)
@@ -329,6 +330,188 @@ Five things it found:
 
 Release is capped at about two pieces a frame (~120/s) by the scheduling rule, which never banks
 more than one interval.
+
+## Part b — the code-level pass (2026-09-26, a new chat)
+
+Part b's paragraph read against the code it touches: `Main.SweepCollapse` and `UpdateSupport`,
+`CollapseScheduler`, `Collapse.TryFall`, `ChunkPipeline.SetVoxel` and `HoldsWater`, `FillWater`
+and the wet-fill queue in `PlaceController`, `FluidSimulation.Collapse`, `SupportRegion`'s settled
+reads, the quit in `_ExitTree` and the bench's `PieceDrop`. **Decisions only; nothing built.**
+
+### Eight facts from the code the pass did not have
+
+1. **Placement already has the dry/wet split this part needs.** A brush writes its dry voxels at
+   the click, on any frame, through `SetVoxel`; a voxel `HoldsWater` answers wet for (the published
+   copy, stale by at most one tick) is refused and queued, and the boundary runs it again with
+   `FillWater` in hand — lift, write, return over the shape's box grown by one brush cell,
+   `lifted == returned + displaced`. Decision 6's "a dry landing is written the frame it lands, a
+   wet one waits for the boundary" is that rule. It also inherits its one race: a cell dry in the
+   copy that water reached inside the running tick is written solid, and the automaton displaces
+   its water at the first visit. Placement has lived with that since 2026-09-19.
+2. **`Lift` and `Return` throw mid-tick** (`RefuseMidTick`), so a wet landing cannot be done off
+   the boundary, as the plan said. A release can: writing rock to air is a bite, and bites land
+   on any frame.
+3. **The cavity is not there any more when a wet piece lands.** `TryFall` returned the lifted
+   water into the cavity its own run left, in the same column and the same sweep, so it always
+   fitted and `displaced 0` was an oracle by construction. A piece is released, falls for a
+   second or more and lands up to 2 m sideways; under a lake the water has flowed into the cavity
+   by then. **The room is at the lake's surface, not beside the landing.** `FillWater`'s box
+   alone would displace nearly everything a piece lifts on a lake bed. Nothing has measured this
+   (decision 4).
+4. **`CollapseFlight` does not re-check its path.** Decision 7 says each step re-checks the world
+   under it; a-2's flight advances along a path solved at release, and the event reads no world.
+   The re-check belongs to the caller, which part b is (decision 8).
+5. **Reservations are per event.** `CollapseEvent._reserved` is private to one event, so two
+   events near each other can solve two pieces into the same cells — the bench's `landed on solid`
+   oracle, which only ever ran one event (decision 5).
+6. **A settle needs the chunk and its six to be neither queued nor in flight** (`IsSettled`), and
+   every release and landing requeues seven. At 3 releases a second the writes are ~330 ms apart
+   and a derive is milliseconds, so members settle between releases and a shore is seen. Past
+   ~20 s, with a write every frame or two, a member may not settle until the queue runs dry. **So
+   a fast event goes in waves** — cut, drain, settle, re-cut — **and a rescue registers early and
+   not late.** That is decision 5's "harder later" arriving by a second route. Unmeasured; b-2
+   prints it.
+7. **The gather and the cut have never been priced apart in the game's shape.** The bench's
+   gather scans every settled field in the region (2.4 ms a re-plan in the room); the game has
+   ~1,500 settled fields at open. The cut of a 47,600-voxel set has no number at all. Part b
+   gathers members only (decision 7) and prints the cut's ms.
+8. **Autosave runs every 30 s, and the quit can find the grid still a cancelled tick's.** Landing
+   everything in flight at every autosave would jump every piece to its rest twice a minute. At
+   the quit, `SaveAll` is already refused when the grid is still owned, so a `LandAll` that needs
+   `Lift` has the same gate the save has (decision 11).
+
+### Decisions (each with a recommendation)
+
+**1. Where the loop lives — a Core `CollapseDirector`, shared by the bench and the game.**
+Everything `PieceDrop` does between the event and the world — gather, re-plan, release, solve,
+write to air, advance, re-check, land, count — moves into Core as one class driven by a clock the
+caller passes. The bench's `--pieces` becomes a driver over it, so the bench's oracles test the
+code the game runs rather than a copy of it. Recommended. The alternative is the loop in `Main`,
+which leaves the bench proving a twin.
+
+**2. Two clocks.** The fuse — `CollapseScheduler.Sweep`, arming and firing — stays at the fluid
+boundary (2 Hz) where it is. A due fuse calls the director instead of `TryFall`. The director has
+`Frame(now)`, every frame from `UpdateSupport`: re-plans, releases, advances, re-checks and dry
+landings. It also has `Boundary(now, water)`, from `UpdateFluid`'s begin block where
+`SweepCollapse` sits now: the wet landings. Under `--nowater` both run every frame, as the sweep
+does today. Recommended.
+
+**3. Dry or wet — placement's rule.** A due piece whose rest voxels all read dry in the published
+copy, and whose chunks `IsReady`, lands in `Frame`. Any wet voxel sends the whole piece to the
+next `Boundary`, reserved and hovering at rest (invisible in b; up to half a second of hover in
+c, which decision 14's slower fall in water partly hides). Fact 1's one-tick race is accepted as
+placement accepts it, and the automaton's `displaced` is printed beside the event's line so a
+non-zero is seen. Recommended. **The alternative — every landing at the boundary while water is
+on — kills the race and makes every landing 2 Hz**, which c could not draw at ten steps a second.
+
+**4. Where a wet landing's water goes — up to the room.** Fact 3. In order:
+1. the rest box grown by one brush cell, bottom-up (`FillWater.Settle`, unchanged);
+2. the piece's own vacated cells, bottom-up — its cavity, if it is still air;
+3. up the landing's columns to the first cell with room, within the loaded box — the level rising,
+   which is where a stone dropped in a pool puts the water;
+4. and only then `displaced`.
+
+`lifted == returned + displaced` is by construction as before. **What changes is that
+`displaced 0` goes from a construction to a measurement:** the keystone oracle under a lake
+(decision 14) is where it is measured. Recommended. The cheaper arm, the fill's box alone, is
+known to displace on a lake bed, and I'd not ship it into the first wet collapse.
+
+**5. One reservation set for every event.** The director owns the set; each event adds and
+removes through it; the solver reads it. **Events never merge.** An armed chunk face-adjacent to
+two events joins the older, which has the higher pace — "good luck saving it". Recommended. The
+merge arm would move one event's queue and flights into another and re-base an age. That's more
+code for a case no play has shown.
+
+**6. Membership, concretely.** A due fuse on a chunk face-adjacent to any event's member joins
+that event; otherwise it starts one, with the origin at its deepest-deficit voxel (the bench's
+`Gather` rule). At every sweep, an **armed** chunk face-adjacent to a member joins at once and
+drops its timer: decision 3's "skips its own fuse". A member never arms. Rubble landing in a chunk
+nobody analysed digs it through `SetVoxel`, and if it is at risk it arms, is adjacent and joins.
+An event ends when every member reads settled `at risk 0`, nothing is queued and nothing is in
+flight, plus the 2 s grace. Recommended: it is the plan's rule with the joins made exact.
+
+**7. When to re-plan, and from what.** A re-plan fires when:
+- a member's `SettledField` is a new object and `!SameAtRiskSet` with the one the queue was cut
+  from;
+- the mino changed;
+- or the queue is empty and a settled member still has something at risk.
+
+The gather reads **members only**, and each member's voxels are read back as solid from the
+world. `StillAtRisk` at release reads the last settled snapshot. That is deliberate and is
+decision 5's stated lag, not a gate on now (the kept snapshot is a plan, and the world read is the
+gate). Fact 6's waves are accepted, and b-2 prints settles-between-releases and the cut's ms.
+**Named lever, not built: the cut on a worker**, triggered by a cut over 2 ms in the game.
+Recommended.
+
+**8. The path re-check (fact 4).** Each time a flight crosses a whole step, the shape at its new
+anchor is read against the world:
+- **Blocked:** the flight is re-solved straight down (spread 0) from the last clear anchor. That
+  is decision 7's "a block placed in its path is landed on".
+- **Blocked at its own start** (a block placed into the air the piece left, in the second it
+  fell): it rises to the first clear anchor above and is counted `lifted by a block`. The Σ(Y)
+  oracle excludes those, because the player put the mass under it.
+
+Cost: pieces in flight × voxels a piece, a few thousand reads a frame at the peak. Recommended.
+The cheaper arm, checking at landing only, would let part c draw a piece through a new block.
+
+**9. A landing past the loaded edge.** A player who flies off takes chunks with them. A rest voxel
+whose chunk is gone at landing makes `SetVoxel` answer false. The piece is counted
+`lost at the edge`, a term of the identity: `released == landed + in flight + lost`. It is
+expected zero, and it is the same class as the crash's loss. **No pre-eviction hook until one is
+seen.** Recommended.
+
+**10. Undo during an event — disallowed.** His words at UNDO-PLAN: *"disallow if something
+falls"*. The stack is cleared on every frame the director writes, and a press while an event is
+live reads `nothing to undo: a collapse is under way` (`FellSinceLastEdit`'s sibling). The
+director's writes are never journalled, with `Recording` off around `Frame` and `Boundary` as
+around the sweep. **Cost: a shore you place mid-collapse can't be undone.** Recommended.
+
+**11. The quit and the autosave.**
+- **The quit:** `LandAll` just before `SaveAll` in `_ExitTree`, with the water in hand, under the
+  save's own gate. When a cancelled tick still owns the grid, the save is refused as it already
+  is, and the flights are lost with the rest.
+- **The autosave does not land,** because of fact 8's jump. A crash loses what is in flight and
+  what was released since the last autosave: the stated cost, unchanged.
+
+Recommended.
+
+**12. The flags.**
+- `--collapsemode=sweep|pieces`.
+- `--collapsegrace=` (15), `--collapsedouble=` (5), `--collapsespread=` (2 m) and
+  `--collapsebudget=` (2 ms of landings a frame, then at most one solve), all onto `CollapsePace`
+  and the director.
+- **The default stays `sweep` through b.** With no visible drop, `pieces` reads as rock vanishing
+  and rubble appearing elsewhere a second later, which is worse to play than the sweep. It flips
+  to `pieces` on his verdict after part c draws the fall.
+
+Recommended.
+
+**13. The split — b-1 Core, b-2 the wire.**
+- **b-1:** `CollapseDirector`, the shared reservations, the re-check, the water's return order
+  and the edge term, with tests on a fake clock (the plug to `at risk 0`, wet waits for
+  `Boundary`, dry lands in `Frame`, two events never share a cell, a blocked path, `LandAll`, a
+  lost landing). The bench's `--pieces` is moved onto it with every a-2 oracle still green, and
+  it prints the cut's ms.
+- **b-2:** `Main` — the fuse's hand-off, the two calls, the flags, undo, the quit, the unstick
+  after a landing frame, the `M9: event` line, the identity and the new terms on the periodic
+  line, and the oracles.
+
+Recommended. It is the Core/wire seam, and each half is a session.
+
+**14. The oracles for b-2.**
+- **The plug:** `--collapsemode=pieces` on the plug oracle reads one `M9: event` line, about six
+  pieces and 20 voxels (the bench's figure), the identity, and `at risk 0`.
+- **The keystone:** it needs `--measure=` raised. The bench's room took 51 s for 47,600 voxels,
+  so 18,718 is an estimated 40 s, and the run should be 60. It reads `lifted == returned` with
+  `displaced` measured (decision 4).
+- **The sweep arm** reproduces both old oracles' lines to the digit.
+- **The r6 control** is unchanged, because nothing is at risk there.
+
+Recommended.
+
+**On waiting for the ideal-machines chat:** the sensor (part f) reads "an event exists within my
+radius", which is `CollapseDirector.Events` — members, age, pace — once b is built. So b is not
+blocked by that chat. It only has to expose the events, and it will.
 
 ## What would reverse this
 

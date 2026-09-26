@@ -99,6 +99,11 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 Nothing is blocked on these; each is a small change once you have a view.
 
+- [ ] **The collapse, part b — fourteen decisions.** [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md),
+      "Part b — the code-level pass". The two worth your eye: a piece landing under water
+      pushes its water *up to the surface* rather than into the hole it left (4), and the
+      default stays the old one-sweep fall until you can see pieces drop (12). "As
+      recommended" builds b-1, the Core half.
 - [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), six decisions still open. The biggest: a
       blast destroys the machines it reaches (5). "As recommended" or any one back.
 - [ ] **A rock placed in a lake.** A pier into a lake deletes no water today. If that reads wrong,

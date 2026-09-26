@@ -13,16 +13,20 @@ his word — and this file points at it rather than repeating it.
 
 ## Next, on my side
 
-- [ ] **Collapse part b — the wire, no visible drop.** [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md);
-      part a (Core) is built and the bench's `--support --collapse --pieces` holds every oracle.
-      Its own code-level pass first, against `Main.SweepCollapse`, `CollapseScheduler` and the
-      pipeline's write path. Carry in: a fire starts an event instead of `Collapse.TryFall`
-      (`--collapsemode=sweep` the control); pieces step every frame and only a wet landing waits
-      for the boundary; at most one solve a frame past 2 ms; re-plan off the chunks whose settled
-      at-risk set changed; land everything before a save; undo cleared at the first release; the
-      `M9: event` line and the identity on the periodic line; the headless plug oracle re-read in
-      pieces; the r6 control to the digit. **May wait for his ideal-machines chat**, where the
-      collapse sensor (part f) is designed.
+- [ ] **Collapse part b — the pass is written, the decisions are his.** [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md),
+      "Part b — the code-level pass": eight facts, fourteen decisions. On his word, in order:
+      1. **b-1, Core:** `CollapseDirector` (gather members, re-plan on a changed settled set,
+         release, solve, write to air, advance, re-check each step, dry landings in `Frame`, wet
+         ones in `Boundary`), one reservation set for every event, the wet return order (box,
+         cavity, up the column, then displaced), `lost at the edge` on the identity; tests on a
+         fake clock; the bench's `--pieces` moved onto it with every a-2 oracle green, printing
+         the cut's ms.
+      2. **b-2, the wire:** the fuse hands a due chunk to the director (`--collapsemode=sweep`
+         stays the default until c), `Frame` from `UpdateSupport`, `Boundary` where
+         `SweepCollapse` sits, the pace flags, undo disallowed while an event is live, `LandAll`
+         before `SaveAll` at the quit, the unstick after a landing frame, the `M9: event` line
+         and the terms; the plug and keystone oracles in pieces (`--measure=60` for the
+         keystone), both sweep oracles and r6 to the digit.
 - [ ] **Collapse parts c–f**, per the plan's split: **c** the look (the moving mesh, the steps,
       the steer, the corruption overlay on the queue, the slower fall in water) — screenshots;
       **d** the chimney, whichever arm he takes — a tunnel under a placed house, headless on a
