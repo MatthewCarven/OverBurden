@@ -1171,7 +1171,11 @@ export with SQLitePCLRaw's natives is still the unverified step and was not need
 **Pick up here (2026-09-26, evening). The collapse's planning pass is written —
 [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), twelve decisions, his three answered (the voxel
 with a growing mino, 1 → 10 m/s, the chimney to the sky once serious); the other nine wait on
-his word, then part a (Core: the cutter, the solver, the pace table) is built first.** The
+his word, then part a (Core: the cutter, the solver, the pace table) is built first. Decisions
+13 (a collapse sensor on a channel, his *"cut power … deliberately flood the place"* with the
+flood half answered no) and 14 (water slows a falling piece) were added on his yes. **His next
+chat moves around the project to "ideal" machines — endgame tech first, for a creative-mode
+demo people will want to test**; the sensor's design goes there.** The
 paragraph below is the afternoon's state, kept for the reasoning.
 
 **Earlier (2026-09-26, afternoon). The water waits; the Tetris collapse is next, in a

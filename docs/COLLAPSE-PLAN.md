@@ -199,15 +199,37 @@ there would be hundreds. On the bench, `--support --collapse --pieces` drops the
 piece by piece with the ASCII cross-sections before and after, checks the identities and the
 solver's oracle, and prints Σ(Y) strictly falling per piece.
 
+**13. The collapse sensor — the first machine that reacts to the mine.** His idea, 2026-09-26:
+*"if collapse detected, cut power to the water containers via quantum energy sharing and
+deliberately flood the place"*. The flood half fights a locked decision: here water weakens rock
+(the keystone: at risk 20 → 18,718 under a lake), so flooding a failing structure feeds it. In
+the real world, draining a mine causes subsidence and flooded workings stand, but that is water
+pressure holding the rock from inside, and this game's model does not do that by design. What
+fits is the **sensor**. `overburden:collapse_sensor` is a machine row with a `radius` port and a
+`channel`. While an event (decision 3) has a chunk within its radius, it raises a **signal on
+its channel** at the boundary. A row on that channel with an `onsignal` port (0 ignore, 1 off,
+2 on) follows it. The vacuum cell's `enabled` switch is the first reader, a pump the second, and
+TNT-NOTES's charges the third when they exist. This is the decision-11 signal wired into
+machines. It is the first automation that answers the mine rather than the player. Whether a
+response helps is left to the physics. Recommended; **its design goes with the "ideal machines"
+chat**, because a signal on a channel is new to the channel class (today a channel is a power pool
+and a pump's outlet ring). Part f, after the play.
+
+**14. Water slows a falling piece.** In flight a piece is only a picture (decision 6), so a step
+whose cells are in Tier B water (read off the published wet copy, never the grid) falls at a
+slower speed. Recommended: half the event's gravity, capped at 2 m/s (estimates). Cheap, and it
+looks right; it saves nothing, because the piece has already broken off. Part c.
+
 ## Split
 
 | Part | What | Verified by |
 |---|---|---|
 | **a** | Core, Godot-free: the cutter, the solver, the pace table, the event's state | The bench arm, ASCII, both oracles, tests |
 | **b** | The wire, with no visible drop: events replace the sweep's fall, and a piece lands at the time its steps would take. `--collapsemode=sweep` is the M9c-1 control | The headless plug oracle, re-read in pieces; the r6 control to the digit |
-| **c** | The look: the moving mesh, the steps, the steer, the corruption overlay on the queue (2b) | Screenshots |
+| **c** | The look: the moving mesh, the steps, the steer, the corruption overlay on the queue (2b), the slower fall in water (14) | Screenshots |
 | **d** | The chimney, whichever arm he takes | A tunnel under a placed house, headless on a scratch world |
 | **e** | The play, and the phonk hook if he wants it | His one sentence per question |
+| **f** | The collapse sensor (13), designed in the "ideal machines" chat | A headless event near a sensor switching a cell off, printed on the `M10:` line |
 
 **Measure on copies.** For the tower: `worlds/backup-Regions16-pondlook-2026-09-26/`, which still
 has the tower, with the support knocked out headless (`--at=` and a bite). Never on his

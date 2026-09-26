@@ -285,7 +285,9 @@ Nothing is blocked on these; they're all one-line changes when you have a view.
       serious). *"As recommended"* starts part a. The ones most worth a look: **2b**, where the
       next pieces glitch before they fall so you can see the corruption coming; **7**, where
       debris goes to the lowest spot within 2 m, away from what is still standing; and **6**,
-      where in flight a piece is only a picture, so you can walk through one.
+      where in flight a piece is only a picture, so you can walk through one. Two more on your
+      yes: **13**, a collapse sensor (designed in the ideal-machines chat), and **14**, pieces
+      falling slower through water.
 - [x] **The water solve's levers (d-3)** — *"As recommended"*; decisions 1 and 2 built 2026-09-24.
       The faster sort took the sort from 228 to 57 ms a pass; your layered lookup table became
       the flood's index and made the flood about 10% faster (the water identical either way).
