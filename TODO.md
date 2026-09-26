@@ -14,11 +14,9 @@ his word — and this file points at it rather than repeating it.
 ## Next, on my side
 
 - [ ] **Collapse b-2 — the wire.** [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part b" and
-      "b-1 — built". b-1 is done (`CollapseDirector`, 18 tests, the bench on it). In order:
-      1. **The cut on a worker, on his word** — decision 7's named lever, its trigger fired on the
-         bench (29 ms mean, 133 ms worst a re-plan in the room): the old queue keeps releasing
-         while the new one is cut, the result applied when it lands; a test of the async path
-         beside the synchronous one the bench and tests use.
+      "b-1 — built". b-1 is done (`CollapseDirector`, the bench on it), and so is step 1. In order:
+      1. ~~The cut on a worker~~ — built ("b-2, step 1" in the plan): `CutRunner`, p99 frame
+         249–277 → 8–9 ms in the room. The game passes `work => Task.Run(work)`.
       2. **The wire:** `--collapsemode=sweep|pieces` (sweep the default until c), the scheduler's
          `Director` set in `SetUpCollapse`, `Frame` from `UpdateSupport`, `Boundary` where
          `SweepCollapse` sits (both every frame under `--nowater`), `--collapsegrace=`,

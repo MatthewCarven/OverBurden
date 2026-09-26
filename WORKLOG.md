@@ -1,5 +1,19 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 (a new chat) — Collapse b-2, step 1: the cut on a worker
+
+Matthew: *"Yes please Claude thanks :-{D"*. The re-cut goes to `CollapseDirector.CutRunner`.
+The gather stays on the sim thread; the cut is pure. The old queue keeps releasing while a cut
+runs, and what it released comes out of the cut when the cut lands. Suite 1,955 → 1,961.
+
+- **The frame's p99 in the room went from 249–277 ms to 8–9 ms**, over alternated arms in the
+  machine's slow phase. The worst frame went from 300–330 ms to 30–40 ms; what is left of it is
+  the gather and a solve.
+- **The bench's simulated clock outran the worker**: the mid-air chunk's first cut never landed in
+  600 simulated seconds. A simulated frame now takes a real 16 ms while a cut is out.
+- **Battery: 9 recipes, 8 caught, 1 identity** (the released voxels taken out of the cut's set —
+  deleted). The two mino recipes missed until a test crossed 20 s with a cut held.
+
 ## 2026-09-26 (a new chat) — Collapse b-1: the director, in Core
 
 Matthew: *"As recommended please Claude"* — the part-b pass's fourteen decisions taken as

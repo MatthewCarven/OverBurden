@@ -275,7 +275,9 @@ DOTNET_TieredCompilation=0 dotnet run --project Overburden.Bench -c Release -- -
 **since b-1 it drives the game's own `CollapseDirector`** through the scheduler at a zero window, a
 boundary every 500 ms and a settle every 250 ms): the cutter, the solver and the events on a simulated
 60 Hz clock. It prints events started and chunks joined, pieces by mino, the solve's ms, the re-plan's
-gather and cut ms apart, rubble that fell again, rescued voxels, the four oracles (solid conserved, Σ(Y) down at
+gather and cut ms apart, **the frame's sim-thread ms (mean / p99 / max)**, and with **`--cutworker`** (b-2)
+the re-cut on a real worker thread as the game runs it, each simulated frame taking a real 16 ms while
+a cut is out — interleave it with the plain arm, because this machine's two speeds move the figures, rubble that fell again, rescued voxels, the four oracles (solid conserved, Σ(Y) down at
 every landing, the solver never above its own lowest, nothing landing on solid), and the picture
 before and after. Same tiering rule:
 

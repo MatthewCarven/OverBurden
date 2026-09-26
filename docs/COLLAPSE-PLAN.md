@@ -3,7 +3,7 @@
 The planning pass for [COLLAPSE-NOTES.md](COLLAPSE-NOTES.md), 2026-09-26, on `main`. **All fourteen
 decisions taken the same day (*"as recommended"*); a-1 and a-2 are built (Core, all of part
 a); part b's pass is written below and taken as recommended, and b-1 — the Core director — is
-built; b-2, the wire, is next, and should begin with the worker cut** (b-1's first finding).
+built, and so is b-2's first step, the cut on a worker; the wire itself is next** (TODO's "Next").
 Read the notes first. They have his first brief, the demolition's numbers, and what M9 already does.
 
 ## His second brief (2026-09-26, the planning chat)
@@ -598,6 +598,45 @@ Two things not to rediscover:
   pieces release. The rig lifts it, and the budget's rule is pinned at zero.
 - **A heredoc turned a battery recipe's `\n` into real newlines.** Write the harness, never a
   heredoc.
+
+## b-2, step 1 — the cut on a worker, built (2026-09-26)
+
+On his *"Yes please"*, and b-1's first finding. The gather stays on the sim thread, because it
+reads the world. The cut is pure, so it goes to `CollapseDirector.CutRunner`. Null cuts inline,
+which is what the bench and the tests use; the game will pass `work => Task.Run(work)`.
+
+While the cut runs, the old queue keeps releasing. When the cut lands, whatever was released
+meanwhile comes out of its pieces, so nothing falls twice and nothing that fell counts as rescued.
+One cut runs per event, and a trigger that arrives meanwhile is held and cut once the running one
+lands. The mino is judged against the cut in flight, not against the old queue. An event with a
+cut in flight is not at rest. A cut that throws throws on the sim thread when it lands, as a
+synchronous one would. Suite 1,955 → 1,961.
+
+The bench's `--cutworker` arm runs it on real threads. While a cut is on the worker, each
+simulated frame takes a real 16 ms: without that pacing the simulated clock outran the thread,
+and the mid-air chunk's first cut never landed in 600 simulated seconds. The arms ran alternately,
+worker, sync, worker, sync, all in the machine's slow phase (a sync cut in the room read 65–73 ms
+mean there, against b-1's 29):
+
+| fixture | frame p99, sync → worker | frame max, sync → worker |
+|---|---|---|
+| 4 × 4 room | 249–277 → 8–9 ms | 300–330 → 30–40 ms |
+| mid-air chunk | 162–177 → 11–12 ms | 180–199 → 51–61 ms |
+| 2 × 2 under 10 m | 57–63 → 7.6–8.5 ms | 67–78 → 16–19 ms |
+
+Every oracle holds in both arms. The worker arm has more churn: 57,588–68,630 voxels fall in the
+room against 49,236, because the old queue releases stale pieces while a slow cut runs (4,900
+voxels released meanwhile). That follows from the latency, and in the game it shrinks with the
+machine's fast phase. **What is left of the worst frame (30–60 ms, rare) is the gather (up to
+15 ms), a solve (up to 22 ms in the slow phase), and the landing of a cut.** The next lever, if
+the game shows it: the gather on the worker, which needs a record of what was released since
+each member's snapshot, because the worker cannot read the world.
+
+**Battery: nine recipes, eight caught, one identity.** The identity was taking the voxels
+released during a cut out of its *set*. That set is only read for the old queue's rescued count,
+and a released voxel is not queued, so the line is deleted. Two recipes missed at first, both
+about the mino growing while a cut runs. `TheMinoGrowingWhileACutRunsIsCutOnceAtTheNewMino` now
+catches both. A swallowed fault read HUNG in the first run and was caught cleanly when run alone.
 
 ## What would reverse this
 

@@ -99,11 +99,6 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 Nothing is blocked on these; each is a small change once you have a view.
 
-- [ ] **The collapse: move the piece-cutting off the main thread?** When a collapse re-cuts its
-      pieces, it takes 29 ms on average and 133 ms at worst on a big roof. A frame is 16 ms, so
-      that is a visible stutter several times a second at the peak. We planned to move it to a
-      worker thread only if the game showed the cost; the bench already shows it. My
-      recommendation: "yes", as the first step of b-2, before the collapse is wired into the game.
 - [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), six decisions still open. The biggest: a
       blast destroys the machines it reaches (5). "As recommended" or any one back.
 - [ ] **A rock placed in a lake.** A pier into a lake deletes no water today. If that reads wrong,

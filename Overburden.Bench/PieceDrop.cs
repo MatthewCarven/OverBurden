@@ -14,6 +14,14 @@ namespace Overburden.Bench;
 /// </summary>
 internal static class PieceDrop
 {
+    /// <summary>
+    /// <c>--cutworker</c>: the re-cut on a thread-pool worker, as the game runs it. The simulated
+    /// clock runs far faster than real time, so a cut lands more simulated frames late than it would
+    /// in the game and the old queue releases longer — the oracles hold either way, and the frame's
+    /// sim-thread milliseconds are the figure this arm is for.
+    /// </summary>
+    internal static bool CutOnWorker { get; set; }
+
     private const long FrameMillis = 16;
     private const long SettleMillis = 250;
     private const long BoundaryMillis = 500;
@@ -50,6 +58,12 @@ internal static class PieceDrop
         }
 
         var director = new CollapseDirector(region, editor, materials, rubbleId, seed: 0);
+        if (CutOnWorker)
+        {
+            director.CutRunner = work => Task.Run(work);
+        }
+
+        var frameMillis = new List<double>();
         var scheduler = new CollapseScheduler(region, editor, materials, rubbleId, 0, new CollapseWindow { MinSeconds = 0, MaxSeconds = 0 })
         {
             Director = director,
@@ -90,7 +104,9 @@ internal static class PieceDrop
                 scheduler.Sweep(t);
             }
 
+            long frameStarted = System.Diagnostics.Stopwatch.GetTimestamp();
             CollapseStep step = director.Frame(t);
+            frameMillis.Add(System.Diagnostics.Stopwatch.GetElapsedTime(frameStarted).TotalMilliseconds);
             dirty |= step.Wrote;
             peakInFlight = Math.Max(peakInFlight, director.InFlight);
             peakEvents = Math.Max(peakEvents, director.Events.Count);
@@ -120,6 +136,14 @@ internal static class PieceDrop
                 }
             }
 
+            // While a cut is on the worker, a simulated frame takes a real one: the clock may not
+            // run ahead of the thread it is waiting for, or a cut lands minutes of simulated time
+            // late (the mid-air chunk's first cut never landed in 600 s without this).
+            if (CutOnWorker && director.CutsStarted > director.CutsApplied)
+            {
+                Thread.Sleep((int)FrameMillis);
+            }
+
             if (!dirty && director.Events.Count == 0 && scheduler.Armed == 0 && region.SettledAtRiskVoxels == 0)
             {
                 break;
@@ -137,7 +161,7 @@ internal static class PieceDrop
             + $"rescued {director.RescuedVoxels:N0}; {director.Blocked} blocked; lost {director.LostVoxels}");
         Console.WriteLine(
             $"    solve ms mean {(director.Solves == 0 ? 0 : director.SolveMillisSum / director.Solves):F3} / max {director.SolveMillisMax:F3} over {director.Solves:N0}; "
-            + $"{director.Replans:N0} re-plan(s) over {settles:N0} settle(s): gather ms mean {(director.Replans == 0 ? 0 : director.GatherMillisSum / director.Replans):F3} / max {director.GatherMillisMax:F3}, cut ms mean {(director.Replans == 0 ? 0 : director.CutMillisSum / director.Replans):F3} / max {director.CutMillisMax:F3}");
+            + $"{director.Replans:N0} re-plan(s) over {settles:N0} settle(s): gather ms mean {(director.Replans == 0 ? 0 : director.GatherMillisSum / director.Replans):F3} / max {director.GatherMillisMax:F3}, cut ms mean {(director.Replans == 0 ? 0 : director.CutMillisSum / director.Replans):F3} / max {director.CutMillisMax:F3} ({(CutOnWorker ? $"on a worker: {director.CutsApplied:N0} landed, {director.ReleasedDuringCuts:N0} voxel(s) released meanwhile" : "on the sim thread")}); frame ms mean {frameMillis.Average():F3} / p99 {frameMillis.OrderBy(x => x).ElementAt((int)(frameMillis.Count * 0.99)):F3} / max {frameMillis.Max():F3} over {frameMillis.Count:N0}");
         foreach (CollapseEventSummary s in summaries)
         {
             Console.WriteLine(

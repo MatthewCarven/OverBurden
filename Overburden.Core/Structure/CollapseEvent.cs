@@ -169,6 +169,22 @@ public sealed class CollapseEvent
     {
         ArgumentNullException.ThrowIfNull(atRisk);
         var fresh = atRisk as IReadOnlySet<VoxelPos> ?? new HashSet<VoxelPos>(atRisk);
+        int mino = MinoFor(nowMillis);
+        ApplyCut(fresh, PieceCutter.Cut(fresh, Origin, mino, Seed), mino);
+    }
+
+    /// <summary>The mino the pace gives this age — what a cut started now is cut at.</summary>
+    public int MinoFor(long nowMillis) => Pace.MinoVoxels(AgeSeconds(nowMillis));
+
+    /// <summary>
+    /// Swaps in a queue cut elsewhere — on a worker (part b-2) — from <paramref name="fresh"/> at
+    /// <paramref name="mino"/>. Queued voxels not in <paramref name="fresh"/> are counted rescued,
+    /// as at a re-plan; the caller has taken out of both whatever was released while it was cut.
+    /// </summary>
+    internal void ApplyCut(IReadOnlySet<VoxelPos> fresh, List<CollapsePiece> pieces, int mino)
+    {
+        ArgumentNullException.ThrowIfNull(fresh);
+        ArgumentNullException.ThrowIfNull(pieces);
         for (int i = _next; i < _queue.Count; i++)
         {
             foreach (VoxelPos v in _queue[i].Voxels)
@@ -180,9 +196,9 @@ public sealed class CollapseEvent
             }
         }
 
-        _plannedMino = Pace.MinoVoxels(AgeSeconds(nowMillis));
+        _plannedMino = mino;
         _queue.Clear();
-        _queue.AddRange(PieceCutter.Cut(fresh, Origin, _plannedMino, Seed));
+        _queue.AddRange(pieces);
         _next = 0;
     }
 

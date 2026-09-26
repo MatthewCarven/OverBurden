@@ -676,6 +676,208 @@ public class CollapseDirectorTests
         Assert.Equal(4, rig.World.Count(Rubble));
     }
 
+    // ---- The cut on a worker (b-2's first step) ---------------------------------------------
+
+    /// <summary>A runner the test completes by hand: the async path, deterministic.</summary>
+    private sealed class HeldCuts
+    {
+        private readonly List<(Func<CollapseCut> Work, TaskCompletionSource<CollapseCut> Done)> _held = [];
+
+        public int Held => _held.Count;
+
+        public Task<CollapseCut> Run(Func<CollapseCut> work)
+        {
+            var done = new TaskCompletionSource<CollapseCut>();
+            _held.Add((work, done));
+            return done.Task;
+        }
+
+        public void CompleteAll()
+        {
+            foreach ((Func<CollapseCut> work, TaskCompletionSource<CollapseCut> done) in _held)
+            {
+                done.SetResult(work());
+            }
+
+            _held.Clear();
+        }
+    }
+
+    [Fact]
+    public void OnAWorkerTheOldQueueKeepsReleasingAndTheNewCutDropsWhatFellMeanwhile()
+    {
+        Rig rig = Slab(new VoxelPos(8, 50, 8), new VoxelPos(15, 50, 15));
+        var cuts = new HeldCuts();
+        rig.Director.CutRunner = cuts.Run;
+        Fire(rig, Sky);
+
+        // The first cut is on the worker: nothing to release until it lands.
+        rig.Run(0, settle: false, boundaries: false);
+        Assert.Equal(1, cuts.Held);
+        Assert.Equal(0, rig.Director.Released);
+        cuts.CompleteAll();
+        rig.Run(16, settle: false, boundaries: false);
+        Assert.Equal(1, rig.Director.Released);
+
+        // A settle changes the set: a second cut goes to the worker and is held there while the
+        // old queue goes on releasing.
+        rig.Region.Settle();
+        rig.Run(32, settle: false, boundaries: false);
+        Assert.Equal(1, cuts.Held);
+        rig.Run(2_000, settle: false, boundaries: false);
+        long releasedMeanwhile = rig.Director.Released;
+        Assert.True(releasedMeanwhile > 2, $"{releasedMeanwhile} released while the cut was held");
+
+        // It lands: what fell while it ran is out of it, so nothing falls twice and nothing that
+        // fell reads as rescued.
+        cuts.CompleteAll();
+        rig.Run(2_016, settle: false, boundaries: false);
+        Assert.True(rig.Director.ReleasedDuringCuts > 0);
+        for (long until = 2_032; until < 30_000; until += 16)
+        {
+            cuts.CompleteAll();
+            rig.Run(until);
+        }
+
+        Assert.Equal(64, rig.Director.ReleasedVoxels);
+        Assert.Equal(64, rig.Director.LandedVoxels);
+        Assert.Equal(0, rig.Director.RescuedVoxels);
+        Assert.Equal(64, rig.World.Count(Rubble));
+        Assert.Equal(0, rig.Editor.RubbleOnSolid);
+        Assert.Equal(rig.Director.CutsStarted, rig.Director.CutsApplied);
+    }
+
+    [Fact]
+    public void ATriggerWhileACutRunsIsHeldAndCutOnceItLands()
+    {
+        Rig rig = Slab(new VoxelPos(8, 50, 8), new VoxelPos(15, 50, 15));
+        var cuts = new HeldCuts();
+        rig.Director.CutRunner = cuts.Run;
+        Fire(rig, Sky);
+        rig.Run(0, settle: false, boundaries: false);
+
+        // A voxel added beside the slab grows the set while the first cut is held: one cut at a
+        // time, the trigger kept. (Nothing has been released yet — the queue is on the worker —
+        // so a settle alone would change nothing.)
+        rig.Editor.SetVoxel(new VoxelPos(16, 50, 8), Stone);
+        rig.Region.Settle();
+        rig.Run(16, settle: false, boundaries: false);
+        Assert.Equal(1, cuts.Held);
+        Assert.Equal(1, rig.Director.CutsStarted);
+
+        cuts.CompleteAll();
+        rig.Run(32, settle: false, boundaries: false);
+        Assert.Equal(1, rig.Director.CutsApplied);
+        Assert.Equal(2, rig.Director.CutsStarted);
+        Assert.Equal(1, cuts.Held);
+    }
+
+    [Fact]
+    public void AnEventWithACutInFlightIsNotAtRest()
+    {
+        Rig rig = Slab(new VoxelPos(8, 50, 8), new VoxelPos(9, 50, 9));
+        var cuts = new HeldCuts();
+        rig.Director.CutRunner = cuts.Run;
+        Fire(rig, Sky);
+        rig.Run(0, settle: false, boundaries: false);
+        cuts.CompleteAll();
+        rig.Run(10_000, settle: false, boundaries: false);
+        Assert.Equal(4, rig.Director.LandedVoxels);
+
+        // Settled at rest, and the re-cut of the empty set is held on the worker: past the grace,
+        // the event stays, because a cut in flight could still hold something.
+        rig.Region.Settle();
+        rig.Run(15_000, settle: false, boundaries: false);
+        Assert.Equal(1, cuts.Held);
+        Assert.Single(rig.Director.Events);
+
+        cuts.CompleteAll();
+        rig.Run(15_000 + CollapseDirector.DefaultGraceMillis + 100, settle: false, boundaries: false);
+        Assert.Empty(rig.Director.Events);
+    }
+
+    [Fact]
+    public void TheMinoGrowingWhileACutRunsIsCutOnceAtTheNewMino()
+    {
+        // A slab big enough to still be falling at 20 s, where the mino doubles.
+        Rig rig = Slab(new VoxelPos(4, 50, 4), new VoxelPos(27, 50, 27));
+        var cuts = new HeldCuts();
+        rig.Director.CutRunner = cuts.Run;
+        CollapseEvent ev = Fire(rig, Sky);
+        for (long until = 0; until < 20_000; until += 16)
+        {
+            cuts.CompleteAll();
+            rig.Run(until);
+        }
+
+        // At 20 s the mino grows: the cut that lands is swapped in, and the growth starts one cut
+        // at the new mino — held on the worker.
+        cuts.CompleteAll();
+        rig.Run(20_000, settle: false, boundaries: false);
+        Assert.Equal(1, ev.PlannedMino);
+        Assert.Equal(2, ev.MinoFor(20_000));
+        Assert.Equal(1, cuts.Held);
+        long started = rig.Director.CutsStarted;
+
+        // While it runs, the old queue at the old mino is not a reason for another.
+        rig.Run(20_500, settle: false, boundaries: false);
+        Assert.Equal(1, cuts.Held);
+        Assert.Equal(started, rig.Director.CutsStarted);
+
+        // It lands at the mino it was cut at, and nothing asks for it again.
+        cuts.CompleteAll();
+        rig.Run(20_532, settle: false, boundaries: false);
+        Assert.Equal(2, ev.PlannedMino);
+        Assert.Equal(0, cuts.Held);
+        Assert.Equal(started, rig.Director.CutsStarted);
+    }
+
+    [Fact]
+    public void ACutThatThrowsOnTheWorkerThrowsOnTheSimThreadWhenItLands()
+    {
+        Rig rig = Slab(new VoxelPos(8, 50, 8), new VoxelPos(9, 50, 9));
+        rig.Director.CutRunner = _ => Task.FromException<CollapseCut>(new InvalidOperationException("the cutter's own refusal"));
+        Fire(rig, Sky);
+        rig.Director.Frame(0);
+        InvalidOperationException thrown = Assert.Throws<InvalidOperationException>(() => rig.Director.Frame(16));
+        Assert.Equal("the cutter's own refusal", thrown.Message);
+    }
+
+    [Fact]
+    public void ThePlugComesDownTheSameWithItsCutsOnRealThreads()
+    {
+        var world = new SupportTestWorld();
+        world.FillBox(new ChunkPos(-2, -2, -2), new ChunkPos(3, 2, 3), Stone);
+        foreach (ChunkPos bite in TwoByTwo)
+        {
+            world.Fill(bite, Air);
+        }
+
+        Rig rig = NewRig(world, TwoByTwo, scheduler: true);
+        rig.Director.CutRunner = work => Task.Run(work);
+        (long solidBefore, _) = world.Census();
+
+        // Frames, and a real thread under each cut: the frame after a cut starts may or may not
+        // see it landed, and the end state may not care.
+        for (long until = 0; until < 60_000; until += 16)
+        {
+            rig.Run(until);
+            if (rig.Director.CutsStarted > rig.Director.CutsApplied)
+            {
+                Thread.Sleep(1);   // give the worker a moment; the frame after may still miss it
+            }
+        }
+
+        Assert.Equal(20, rig.Director.ReleasedVoxels);
+        Assert.Equal(20, rig.Director.LandedVoxels);
+        Assert.Equal(0, rig.Director.RescuedVoxels);
+        Assert.Equal(20, world.Count(Rubble));
+        Assert.Equal(0, rig.Region.SettledAtRiskVoxels);
+        Assert.Empty(rig.Director.Events);
+        Assert.Equal(solidBefore, world.Census().Solid);
+        Assert.Equal(rig.Director.CutsStarted, rig.Director.CutsApplied);
+    }
+
     // ---- Helpers ------------------------------------------------------------------------------
 
     private static List<VoxelPos> Rubbles(Rig rig)

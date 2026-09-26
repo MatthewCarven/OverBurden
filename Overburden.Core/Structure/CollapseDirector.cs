@@ -21,6 +21,9 @@ public readonly record struct CollapseEventSummary(
     double PeakMultiplier,
     int PeakMino);
 
+/// <summary>A cut made on a worker: the pieces, and the worker's milliseconds.</summary>
+public readonly record struct CollapseCut(List<CollapsePiece> Pieces, double Millis);
+
 /// <summary>What one <see cref="CollapseDirector.Frame"/> or <see cref="CollapseDirector.Boundary"/> did.</summary>
 /// <param name="Written">Chunks written this call — the director's own set, overwritten by the next call.</param>
 public readonly record struct CollapseStep(int Released, int Landed, int Voxels, IReadOnlyCollection<ChunkPos> Written)
@@ -50,6 +53,15 @@ public readonly record struct CollapseStep(int Released, int Landed, int Voxels,
 /// <see cref="CollapseEvent.TryRelease"/>'s check reads the same snapshots: the kept snapshot is a
 /// plan, and the world read is the gate. A shore registers at the next settle, and a member
 /// written every frame may not settle until its queue runs dry — the event then goes in waves.
+/// </para>
+/// <para>
+/// <b>The cut can run on a worker</b> (part b-2's first step — decision 7's named lever, its trigger
+/// fired on b-1's bench at 29 ms a re-plan, 133 ms at worst). The gather stays on the sim thread,
+/// because it reads the world; the cut is pure and goes to <see cref="CutRunner"/>. While it runs the
+/// old queue keeps releasing, and what it releases is taken out of the new queue and the new set when
+/// the cut lands, so nothing falls twice and nothing released reads as rescued. One cut in flight an
+/// event; a trigger meanwhile is held and cut again once it lands. An event with a cut in flight is
+/// not at rest. A cut that throws throws on the sim thread when it lands, as a synchronous one would.
 /// </para>
 /// <para>
 /// <b>A flight re-checks its path at every whole step</b> (decision 8), against the world only —
@@ -93,6 +105,17 @@ public sealed class CollapseDirector
         public double PeakMultiplier { get; set; }
 
         public int PeakMino { get; set; }
+
+        /// <summary>The cut on the worker, if one is.</summary>
+        public Task<CollapseCut>? Cut { get; set; }
+
+        /// <summary>The set that cut was made from, and its mino.</summary>
+        public HashSet<VoxelPos>? Gathered { get; set; }
+
+        public int CutMino { get; set; }
+
+        /// <summary>Voxels released while that cut ran — taken out of it when it lands.</summary>
+        public HashSet<VoxelPos> ReleasedDuringCut { get; } = [];
     }
 
     private readonly SupportRegion _region;
@@ -148,6 +171,22 @@ public sealed class CollapseDirector
 
     /// <summary>The grace before an event at rest ends.</summary>
     public long GraceMillis { get; init; } = DefaultGraceMillis;
+
+    /// <summary>
+    /// Where a cut runs: null cuts on the calling thread, inside <see cref="Frame"/> — the bench and
+    /// the tests; the game passes <c>work => Task.Run(work)</c>. A test passes a runner it completes
+    /// by hand, which is the async path made deterministic.
+    /// </summary>
+    public Func<Func<CollapseCut>, Task<CollapseCut>>? CutRunner { get; set; }
+
+    /// <summary>Cuts handed to the runner, and cuts that have landed.</summary>
+    public long CutsStarted { get; private set; }
+
+    /// <inheritdoc cref="CutsStarted"/>
+    public long CutsApplied { get; private set; }
+
+    /// <summary>Queued voxels a landed cut dropped because they had been released while it ran.</summary>
+    public long ReleasedDuringCuts { get; private set; }
 
     /// <summary>When set, told every solve with the placements it simulated — the bench's oracle input.</summary>
     public Action<CollapsePiece, LandingPlan, IReadOnlyList<LandingCandidate>>? Observer { get; set; }
@@ -333,6 +372,7 @@ public sealed class CollapseDirector
 
         foreach (Tracked t in _tracked)
         {
+            TryApplyCut(t);
             CheckReplan(t, nowMillis);
         }
 
@@ -483,7 +523,8 @@ public sealed class CollapseDirector
 
     private void CheckReplan(Tracked t, long nowMillis)
     {
-        bool need = t.NeedsReplan || t.Event.MinoChanged(nowMillis);
+        bool need = t.NeedsReplan
+            || (t.Cut is null ? t.Event.MinoChanged(nowMillis) : t.Event.MinoFor(nowMillis) != t.CutMino);
         foreach (ChunkPos member in t.Event.Members)
         {
             ChunkSupport? now = _region.SettledField(member);
@@ -506,8 +547,21 @@ public sealed class CollapseDirector
             return;
         }
 
+        if (t.Cut is not null)
+        {
+            // One cut an event at a time: this one is held, and cut once the one running lands.
+            t.NeedsReplan = true;
+            return;
+        }
+
         long started = Stopwatch.GetTimestamp();
-        var atRisk = new HashSet<VoxelPos>();
+        int capacity = 0;
+        foreach (ChunkPos member in t.Event.Members)
+        {
+            capacity += t.PlannedFrom.GetValueOrDefault(member)?.AtRiskCount ?? 0;
+        }
+
+        var atRisk = new HashSet<VoxelPos>(capacity);
         foreach (ChunkPos member in t.Event.Members)
         {
             ChunkSupport? field = t.PlannedFrom.GetValueOrDefault(member);
@@ -536,11 +590,85 @@ public sealed class CollapseDirector
         double gather = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
         GatherMillisSum += gather;
         GatherMillisMax = Math.Max(GatherMillisMax, gather);
-        started = Stopwatch.GetTimestamp();
-        t.Event.Replan(atRisk, nowMillis);
         t.NeedsReplan = false;
+        if (CutRunner is null)
+        {
+            started = Stopwatch.GetTimestamp();
+            t.Event.Replan(atRisk, nowMillis);
+            Replans++;
+            NoteCut(Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+            return;
+        }
+
+        CollapseEvent ev = t.Event;
+        int mino = ev.MinoFor(nowMillis);
+        VoxelPos origin = ev.Origin;
+        ulong seed = ev.Seed;
+        t.Gathered = atRisk;
+        t.CutMino = mino;
+        t.ReleasedDuringCut.Clear();
+        t.Cut = CutRunner(() =>
+        {
+            long began = Stopwatch.GetTimestamp();
+            List<CollapsePiece> pieces = PieceCutter.Cut(atRisk, origin, mino, seed);
+            return new CollapseCut(pieces, Stopwatch.GetElapsedTime(began).TotalMilliseconds);
+        });
+        CutsStarted++;
+    }
+
+    /// <summary>
+    /// Lands a finished cut: what was released while it ran comes out of its pieces, and the
+    /// event's queue is swapped for it at the mino it was cut at. A cut that threw throws here.
+    /// </summary>
+    private void TryApplyCut(Tracked t)
+    {
+        if (t.Cut is not { IsCompleted: true } task)
+        {
+            return;
+        }
+
+        t.Cut = null;
+        HashSet<VoxelPos> fresh = t.Gathered!;
+        t.Gathered = null;
+        CollapseCut cut = task.GetAwaiter().GetResult();
+        List<CollapsePiece> pieces = cut.Pieces;
+        if (t.ReleasedDuringCut.Count > 0)
+        {
+            // Out of the pieces only: the set is read for the old queue's rescued count, and what
+            // was released is no longer queued, so it cannot count there either way (the battery's
+            // recipe that left it in the set was an identity).
+            pieces = new List<CollapsePiece>(cut.Pieces.Count);
+            foreach (CollapsePiece piece in cut.Pieces)
+            {
+                if (!piece.Voxels.Any(t.ReleasedDuringCut.Contains))
+                {
+                    pieces.Add(piece);
+                    continue;
+                }
+
+                VoxelPos[] kept = piece.Voxels.Where(v => !t.ReleasedDuringCut.Contains(v)).ToArray();
+                ReleasedDuringCuts += piece.Voxels.Length - kept.Length;
+                if (kept.Length == 0)
+                {
+                    continue;
+                }
+
+                int shift = piece.MinoVoxels == 1 ? 0 : piece.MinoVoxels == 2 ? 1 : 2;
+                (int X, int Y, int Z)[] minos = kept.Select(v => (v.X >> shift, v.Y >> shift, v.Z >> shift)).Distinct().ToArray();
+                pieces.Add(piece with { Voxels = kept, Minos = minos });
+            }
+
+            t.ReleasedDuringCut.Clear();
+        }
+
+        t.Event.ApplyCut(fresh, pieces, t.CutMino);
         Replans++;
-        double millis = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        CutsApplied++;
+        NoteCut(cut.Millis);
+    }
+
+    private void NoteCut(double millis)
+    {
         CutMillisSum += millis;
         CutMillisMax = Math.Max(CutMillisMax, millis);
     }
@@ -595,6 +723,11 @@ public sealed class CollapseDirector
 
             _world.SetVoxel(v, MaterialIds.AirNumericId);
             _written.Add(v.Chunk);
+        }
+
+        if (t.Cut is not null)
+        {
+            t.ReleasedDuringCut.UnionWith(piece.Voxels);
         }
 
         t.Event.Launch(piece, plan, nowMillis);
@@ -842,7 +975,7 @@ public sealed class CollapseDirector
         for (int i = _tracked.Count - 1; i >= 0; i--)
         {
             Tracked t = _tracked[i];
-            if (!t.Event.IsIdle || !MembersAtRest(t))
+            if (!t.Event.IsIdle || t.Cut is not null || t.NeedsReplan || !MembersAtRest(t))
             {
                 t.IdleSinceMillis = -1;
                 continue;

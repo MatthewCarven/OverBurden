@@ -35,7 +35,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/WATER-THREAD-PLAN.md](docs/WATER-THREAD-PLAN.md) | The tick's near/far order, the field, and the tick as a worker job. **Built** (slices 1–3c). Read before touching the tick's order or its home. |
 | [docs/FRONT-ADVANCE-PLAN.md](docs/FRONT-ADVANCE-PLAN.md) | Water that spreads sideways faster: `--frontadvance=` (4), fed by volume (`--fedshare=`), streams level their tip band (`--fedadvance=`, `--fedband=` 6). **Built and played 2026-09-24**; his load test is still owed. |
 | [docs/M9-PLAN.md](docs/M9-PLAN.md) | M9, the mine kills you: the support field, the tint, the fall, the keystone. **M9a–M9d built and played.** Read its "two facts" first: there is no bedrock, and a literal distance rule opens a shaft to the surface over a 2 × 2 bite. |
-| [docs/COLLAPSE-NOTES.md](docs/COLLAPSE-NOTES.md), [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md) | **The slow-then-fast collapse, "Tetris gone bad"** (2026-09-26). Fourteen decisions taken; **part a and b-1 (all Core) built; b-2, the wire, next — beginning with the cut on a worker.** Read the notes' "What exists", then the plan's facts, "a-2 — built", "Part b — the code-level pass" and "b-1 — built". |
+| [docs/COLLAPSE-NOTES.md](docs/COLLAPSE-NOTES.md), [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md) | **The slow-then-fast collapse, "Tetris gone bad"** (2026-09-26). Fourteen decisions taken; **part a, b-1 and b-2's worker cut (all Core) built; the wire into `Main` next.** Read the notes' "What exists", then the plan's facts, "a-2 — built", "Part b — the code-level pass" and "b-1 — built". |
 | [docs/M10-NOTES.md](docs/M10-NOTES.md), [docs/M10-PLAN.md](docs/M10-PLAN.md) | The quantum machine family and M10's first plan. Read before planning any machine. |
 | [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) | **The ladder** — hand → steam → DC → AC → quantum and the crafting under it; twenty-three decisions, parts M10a–M10j. **M10a–M10c built; M10d is the play (his) and d-1/d-3 built; M10e (the conductor index) is next after the play.** Its one idea: connection is membership, movement a ledger transfer at the boundary. |
 | [docs/UNDO-PLAN.md](docs/UNDO-PLAN.md) | Ctrl+Z, three steps. **Built and played 2026-09-22.** A fall clears the stack; the journal hangs off `SetVoxel` and `MachineSet`; an undo must not journal its own writes. |
@@ -185,16 +185,15 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 ## Where things stand
 
-**2026-09-26, late night.** Suite **1,955**; the r6 control to the digit. `main` and
+**2026-09-26, late night.** Suite **1,961**; the r6 control to the digit. `main` and
 `water-column-test` both match GitHub as of a fetch. `start2.cmd`–`start5.cmd` are Matthew's and
 deliberately untracked.
 
 **Next on my side: collapse b-2, the wire.** Part a and b-1 are built, all Core:
 `CollapseDirector` sits between the events and the world, the scheduler hands it a due fuse,
 and the bench's `--support --collapse --pieces` drives it with every oracle holding. The game
-still runs the sweep. **b-1's first finding is that the re-cut costs 29 ms mean and 133 ms worst
-in the room**, so b-2 should begin with decision 7's named lever, the cut on a worker. That is
-his word to give; it is in MATTHEW-TODO. Half of a big collapse is rubble tumbling off the pile,
+still runs the sweep. **The re-cut runs on a worker** (b-2's first step, on his yes): the room's
+frame p99 went from ~260 ms to ~9 ms. The rest of b-2 is the wire into `Main`, listed in TODO. Half of a big collapse is rubble tumbling off the pile,
 and whether that reads as settling or churn is his once he can see it (part c). The collapse
 sensor (part f) reads `CollapseDirector.Events`.
 
