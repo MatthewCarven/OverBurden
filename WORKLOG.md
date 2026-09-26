@@ -1,5 +1,20 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 (a new chat) — Collapse part c: the code-level pass
+
+*"ok lets continue with part c please"*. Read against the voxel shader, the mesh apply, the light
+grid, the solver's rotations and his two plays: seven facts, ten decisions, nothing built. What
+changes the design:
+- **The shader is unshaded, with light baked per vertex**, so a piece needs light handed to it:
+  one sample of the grid at its centre a step, through an instance uniform.
+- **A chunk's remesh lands frames after the edit**, so a picture shown at release z-fights the
+  old rock, and one removed at landing leaves a hole. It waits on `NeedsRemesh` at both ends.
+- **The rotation is recoverable exactly**, so pieces fall in their own materials, voxel for voxel.
+- **The tower's 40 lifted pieces** were landings written into a picture. Fixed in Core: a landing
+  waits while another picture is drawn in its rest.
+- **A mesh per piece**, not decision 6's MultiMesh: 65 transforms at the tower's peak against 2,332
+  cubes rewritten a step.
+
 ## 2026-09-26 (a new chat) — "How much can the center spire support?" — reach, not weight
 
 *"hold on the restore … i want to know how much the center spire can support on its own"*. This

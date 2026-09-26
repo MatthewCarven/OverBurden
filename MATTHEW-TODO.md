@@ -114,6 +114,10 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 Nothing is blocked on these; each is a small change once you have a view.
 
+- [ ] **The collapse, part c — ten decisions** (COLLAPSE-PLAN, "Part c"). The ones worth your eye:
+      pieces fall in steps, not glides (4); a piece waits a frame rather than jumping when another
+      lands where it is drawn (6); the next second of pieces glitches before it goes (7). "As
+      recommended" builds c-1, the Core half.
 - [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), six decisions still open. The biggest: a
       blast destroys the machines it reaches (5). "As recommended" or any one back.
 - [ ] **A rock placed in a lake.** A pier into a lake deletes no water today. If that reads wrong,

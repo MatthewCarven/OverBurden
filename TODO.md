@@ -13,12 +13,23 @@ his word — and this file points at it rather than repeating it.
 
 ## Next, on my side
 
-- [ ] **Collapse parts c–f**, per the plan's split (a, b-1 and b-2 are built; `--collapsemode=pieces`
-      plays it, nothing drawn falling). **c** the look — first, its own pass against the renderer — (the moving mesh, the steps,
-      the steer, the corruption overlay on the queue, the slower fall in water) — screenshots;
-      **d** the chimney, whichever arm he takes — a tunnel under a placed house, headless on a
-      scratch world; **e** the play, and the phonk hook if he wants it; **f** the collapse sensor
-      (decision 13) — a headless event near a sensor switching a cell off, on the `M10:` line.
+- [ ] **Collapse part c — the pass is written, the decisions are his.** [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md),
+      "Part c — the code-level pass": seven facts, ten decisions. On his word, in order:
+      1. **c-1, Core:** the solver records its rotation; the director captures each released
+         voxel's material in the rotated shape's order; `CollapseEvent.Peek`; a per-flight water
+         factor in `Advance` (half the fall, capped at 2 m/s); a due flight waits while another
+         flight is drawn in its rest cells. Tests, and the bench's `blocked` near zero.
+      2. **c-2, the renderer:** `VoxelPiece.gdshader` (the include's `vertex()` behind a define,
+         light from an instance uniform), a mesh per piece built at release and moved a step at a
+         time, its light sampled from the grid once a step, the hand-off waiting on
+         `NeedsRemesh` at both ends (0.5 s cap), the glitch overlay on the next second's queue,
+         `--collapsepictures=0` the control, the lines; windowed screenshots on a scratch world,
+         then his tower on a copy of the backup.
+      3. The default flips to `pieces` on his verdict (decision 12).
+- [ ] **Collapse parts d–f**, per the plan's split: **d** the chimney, whichever arm he takes — a
+      tunnel under a placed house, headless on a scratch world; **e** the play, and the phonk hook
+      if he wants it; **f** the collapse sensor (decision 13) — a headless event near a sensor
+      switching a cell off, on the `M10:` line.
 - [ ] **M10e — the conductor index** (after the M10d play): `conductor` block, `ConductorTracker`
       marking a dirty set and nothing else in the hook, per-chunk summaries at schema 5 riding the
       batch write, `NetworkSet` with position-derived ids, `maxRunCells` as occupied brush cells,

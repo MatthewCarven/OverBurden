@@ -4,7 +4,7 @@ The planning pass for [COLLAPSE-NOTES.md](COLLAPSE-NOTES.md), 2026-09-26, on `ma
 decisions taken the same day (*"as recommended"*); a-1 and a-2 are built (Core, all of part
 a); part b's pass is written below and taken as recommended, and b-1 (the Core director) and b-2
 (the worker cut and the wire into `Main`) are built; `--collapsemode=pieces` plays it, with nothing
-drawn falling yet. Part c, the look, is next** (TODO's "Next").
+drawn falling yet. Part c's code-level pass is written below, ten decisions his** (TODO's "Next").
 Read the notes first. They have his first brief, the demolition's numbers, and what M9 already does.
 
 ## His second brief (2026-09-26, the planning chat)
@@ -703,6 +703,147 @@ ever built. Still open for part c:
 - ~~whether the pace wants a ceiling (×644 at 62 s)~~ — **his "cap the top please"**: capped at
   ×16 (`CollapsePace.MaxMultiplier`, `--collapsecap=`), decision 4's last row, reached at 35 s: 48
   pieces a second of 1 m minos. At ×644 the frame budget was what held it back, not the table.
+
+## Part c — the code-level pass (2026-09-26)
+
+On his *"ok lets continue with part c please"*. This is part c's paragraph (the moving picture,
+the steps, the steer, the corruption overlay on the queue, the slower fall in water), read
+against the renderer. The code it touches: `Voxel.gdshaderinc`, `VoxelMaterial`,
+`ChunkMeshConverter`, `OnMeshReady`, `ChunkPipeline`'s mesh apply, `StreamedChunk.NeedsRemesh`,
+the light grid (`ChunkLight` via the streamer), `Polycubes.Rotations`, `LandingSolver`,
+`CollapseFlight`, and `Rain`, which is the only thing already drawn that is not a chunk. His two
+plays fed it too. **Decisions only; nothing built.**
+
+### Seven facts from the code and the plays
+
+1. **The voxel shader is unshaded, and its light is baked per vertex.** `COLOR.r` is sky × AO and
+   `COLOR.g` is block × AO, both written by the mesher off the light grid. A falling piece has no
+   mesher, so it has no light unless the renderer gives it some. Drawn with the chunk material
+   as it stands, a piece would be black.
+2. **A chunk's new mesh lands one or more frames after the edit.** `SetVoxel` marks the remesh;
+   the job runs on a worker; `OnMeshReady` swaps the instance when it lands. So a piece drawn the
+   frame it is released sits on top of the old rock until the remesh lands, the same faces in the
+   same place, which z-fights. And a piece removed the frame it lands leaves a hole until the
+   rubble's remesh arrives. **Both ends of a flight flicker unless the picture waits for the
+   mesh.** `StreamedChunk.NeedsRemesh` is false when a mesh has caught up with every edit, and
+   that is the test to wait on.
+3. **The rotation at release is recoverable exactly.** `LandingSolver` picks an orientation from
+   `Polycubes.Orientations`, which dedupes the 24 `Polycubes.Rotations`. The rotation that made
+   the chosen shape can be found again, so each of the piece's voxels maps to its rotated cell.
+   **A piece can be drawn in its own materials, voxel for voxel:** a stone and glass piece stays
+   stone and glass in the air. Today the director reads a released voxel's material only to count
+   the tumble.
+4. **Pieces in flight at the tower's peak: 65 pieces, 2,332 voxels**, sampled on the periodic
+   line; the bench's room peaked at 70. Tens of pieces, a few thousand voxels.
+5. **The 40 pieces lifted in the tower** were flights blocked where they stood. Almost certainly
+   that was another flight landing, writing rubble into the cells a picture occupied. Pieces are
+   pictures to each other (decision 6), so nothing stopped it. Invisible in b; drawn, a piece
+   jumps up. Of the 96 blocked, the rest re-plotted downward, which draws as a piece stopping
+   early. That is fine.
+6. **Nothing in the Core reads water for a flight yet.** Decision 14 (half the gravity in water,
+   capped at 2 m/s) needs the flight's step rate to take a factor per flight. The published wet
+   copy (`HoldsWater`) is already on the editor, and the dry/wet landing rule uses it.
+7. **Headless draws nothing.** Every look question here is a windowed screenshot
+   (`screenshot.gd`, `--settle=`) on a scratch world, as with glass and the map.
+
+### Decisions (each with a recommendation)
+
+**1. What a piece is drawn as — one small mesh per piece, built at release, moved by its
+transform.** Decision 6 named a shared `MultiMeshInstance3D`. The code-level choice is between:
+- **A mesh per piece.** It holds only the piece's outer faces, in its materials (fact 3). Each
+  step is one transform write. At the peak that is ~65 instances and ~65 draw calls.
+- **One MultiMesh of voxel cubes.** One draw call, but every voxel's instance data is rewritten
+  whenever a piece steps: 2,332 cubes, and every hidden face with them.
+
+Recommended: a mesh per piece. The build happens once at release; the per-frame cost is 65
+transforms; and exact materials come free. Revisit trigger: draw calls show in a profile of a
+×16 collapse. Then the named lever is the MultiMesh.
+
+**2. What it looks like — its own materials, rotated at release, voxel for voxel** (fact 3).
+- The solver records the rotation, and the director captures each voxel's material before it
+  writes air.
+- The piece's opaque faces use the chunk material and its glass faces use the glass one, the way
+  `ChunkMeshConverter` splits a chunk.
+- It turns to its landing orientation the moment it lets go. That is Tetris's rotation, and the
+  plan's "rotates at release".
+
+Recommended. The cheaper arm, one majority material per piece, is not cheaper enough to be worth
+the wrong colour on a mixed piece.
+
+**3. Its light — sampled from the light grid at the piece's centre once a step, and passed as
+an instance uniform** (sky and block, no AO). A piece falling out of daylight into a dark pit
+darkens as it goes, and one falling in a lamp-lit chamber is lit by the lamp. That takes a new
+shader, `VoxelPiece.gdshader`, sharing the fragment with the chunks through the include, with its
+own `vertex()` that reads the instance's light. The include's `vertex()` moves behind a define.
+Recommended. Per-voxel light would mean rebuilding the mesh every step, for a shading difference
+across a piece a metre or two wide.
+
+**4. Steps, not glides.** The picture is drawn at `Anchor`, the path's whole tick. It moves a
+mino at a time: four steps a second at the start (0.25 m at 1 m/s) and ten at the cap (1 m at
+10 m/s). That is his *"falling by one voxel only per second"*, and Tetris's look at every size.
+Recommended, as decision 6 already said. The alternative, interpolating between ticks, reads as
+physics and not as Tetris.
+
+**5. The hand-off at both ends — the picture waits for the mesh** (fact 2).
+- **At release:** the picture is shown once every chunk the piece left has a mesh with no remesh
+  pending. Until then the old rock is still drawn where the piece is, so nothing is missing.
+- **At landing:** the picture stays until every chunk its rubble went into has a mesh with no
+  remesh pending.
+- **A cap of 0.5 s (an estimate) on both waits**, because a chunk written every frame by a fast
+  collapse might never be caught up. The cap flickers where it fires, and the line counts it.
+
+Recommended. The alternative, a fixed number of frames, is wrong on the slow phase of this
+machine, which is exactly when the remesh is slow.
+
+**6. The jumping pieces — a landing waits while another picture is drawn in its rest cells**
+(fact 5).
+- **The rule:** a due flight whose rest overlaps the cells another flight is drawn in now waits a
+  frame, and lands once that flight has stepped past. This is Core, from the flights' anchors and
+  shapes.
+- **No deadlock:** rests are reserved and disjoint, so a waiting flight sits in its own rest,
+  never in another's. The flight passing through is still moving, and a falling flight only
+  goes down, so it leaves.
+- **What stays:** a *player's* block placed into a picture still lifts it (decision 8's rule).
+  That is rare and the player's doing.
+
+Recommended. The alternative, reserving whole paths, makes the solver's search worse: more pieces
+wait, and the debris spreads less.
+
+**7. The corruption on the queue (decision 2b) — the next second's pieces drawn glitching.**
+- **What:** each event's next pieces, as many as its pace releases in one second (3 at the start,
+  48 at the cap), get an overlay over their cells while they are still rock.
+- **How:** a second per-piece mesh slightly larger than the cells, in a transparent shader with a
+  flicker and a small offset, animated by time in the shader. Nothing is remeshed, and nothing
+  enters the merge key.
+- **Needs:** a `Peek` on the event's queue in Core. The overlay is rebuilt when the queue's head
+  changes, which is a release or a re-plan.
+- **The rescue:** a shore that saves a queued piece clears its corruption at the next re-plan.
+
+Recommended. The look itself is his, at the screenshot.
+
+**8. Water slows a piece (decision 14).** Each step, a flight whose drawn cells hold water in the
+published copy advances at half the event's fall speed, capped at 2 m/s. A factor per flight in
+`Advance`, supplied by the director; the landing's timing follows. Recommended, as planned.
+
+**9. Verification — windowed screenshots on a scratch world, with a control.**
+- **The fixture:** `--bitechunks=2 --collapsemode=pieces --collapseafter=1,2` with `--inbite
+  --pitch=85`, at a few `--settle=` times: the fuse, the first pieces, the middle, the pile.
+- **The control:** a new flag, `--collapsepictures=0`, draws nothing, which is b's look. It is
+  the A/B the screenshots are judged against, and the arm that prices the drawing on the
+  profile's line.
+- **The instruments:** pictures drawn; held at release and at landing (frames, and cap hits);
+  landings that waited for a picture; overlay voxels; the ms the picture update takes.
+
+Then his tower, on a copy of the backup. Recommended.
+
+**10. The split — c-1 Core, c-2 the renderer.**
+- **c-1:** the rotation and the materials captured, `Peek`, the per-flight water factor, and the
+  landing that waits for a picture. Tests; the bench (its `blocked` should fall to about zero).
+- **c-2:** `VoxelPiece.gdshader` and the include's split, the piece meshes and their light, the
+  hand-off, the overlay, the flag, the lines and the screenshots.
+
+**The default flips to `pieces` on his verdict after c-2** (decision 12). Recommended: the same
+Core/renderer seam as b.
 
 ## What would reverse this
 

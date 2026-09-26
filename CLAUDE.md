@@ -189,7 +189,7 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 `water-column-test` both match GitHub as of a fetch. `start2.cmd`–`start5.cmd` are Matthew's and
 deliberately untracked.
 
-**Next on my side: collapse part c, the look — its own pass first.** Parts a and b are built:
+**Next on my side: collapse part c — the pass is written (COLLAPSE-PLAN, "Part c"), ten decisions his; c-1 is Core, c-2 the renderer.** Parts a and b are built:
 `--collapsemode=pieces` runs the Tetris collapse in the game (one `M9: event` line an event, a
 `pieces:` term on the `M9:` line), with nothing drawn falling. A piece is air at its release and
 rubble at its landing, which is why `sweep` stays the default. The re-cut runs on a worker (the
