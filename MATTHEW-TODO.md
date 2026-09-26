@@ -280,7 +280,7 @@ press didn't reach.
 
 Nothing is blocked on these; they're all one-line changes when you have a view.
 
-- [ ] **The Tetris collapse — nine decisions** in [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md),
+- [x] **The Tetris collapse — taken 2026-09-26, *"as recommended"*, and the first piece is built** (the speed table, the Tetris shapes, the cutter that spreads like corruption; nothing you can see in the game yet). Originally: **nine decisions** in [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md),
       all recommended. Your three are answered (voxel blocks, 1 → 10 m/s, to the sky once
       serious). *"As recommended"* starts part a. The ones most worth a look: **2b**, where the
       next pieces glitch before they fall so you can see the corruption coming; **7**, where
