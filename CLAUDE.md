@@ -530,7 +530,7 @@ without a profiler). **Sized rather than fixed, because a fixed ball is a hose**
 falls one cell a tick and spreads diffusively, so a source region drains only at its boundary's
 rate, and a run with one measures the hose rather than the flood. In play **`R` puts 10,000 L down
 at the crosshair, Ctrl+R 1,000,000 L (2026-09-19, *"100x … as a test"* — a 6.5 m ball, its top
-half at once and the rest offered every boundary until it fits), and Alt+R takes back everything
+half at once and the rest offered every boundary until it fits), and Alt+R — or Alt+G, since NVIDIA's overlay owns Alt+R on his machine (2026-09-26) — takes back everything
 within 2 m**; no material, no JSON, no ID. The
 profile's `fluid` block prints every term of `held == injected − removed − displaced`, and **the
 bare default headless run is not a streaming control any more**: it opens the played world and

@@ -733,6 +733,9 @@ public partial class Main : Node3D
 
     private bool _relayKeyHeld;
 
+    /// <summary>G's last state, for Alt+G's edge — the take-back's second key.</summary>
+    private bool _gatherKeyHeld;
+
     /// <summary><c>--injectlitres</c>: litres poured at the player once the measured window opens.</summary>
     private long _injectLitres;
 
@@ -7503,13 +7506,20 @@ public partial class Main : Node3D
         bool edge = pressed && !_relayKeyHeld;
         _relayKeyHeld = pressed;
 
-        if (!edge || !_mining.HasTarget)
+        // Alt+G takes back too (2026-09-26): NVIDIA's overlay owns Alt+R on Matthew's machine and
+        // swallows it before Godot sees it — his logs held eight R pours and not one Alt+R take.
+        // T is the tier cycle, so G ("gather"); a bare G does nothing.
+        bool gather = Input.IsKeyPressed(Key.G);
+        bool gatherEdge = gather && !_gatherKeyHeld && Input.IsKeyPressed(Key.Alt);
+        _gatherKeyHeld = gather;
+
+        if (!(edge || gatherEdge) || !_mining.HasTarget)
         {
             return;
         }
 
         VoxelPos at = _mining.Hit.Previous;
-        if (Input.IsKeyPressed(Key.Alt))
+        if (gatherEdge || Input.IsKeyPressed(Key.Alt))
         {
             // Cancels the pour at once and takes at the boundary, where the grid is ours.
             _relayPendingMillilitres = 0;
