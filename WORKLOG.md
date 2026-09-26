@@ -1,5 +1,31 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 (evening) — The collapse's planning pass
+
+[docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), on `main`. Nothing is built. His second brief
+added 3D Tetris shapes, a release rate of 2–4 a second, a fall climbing from one step a second
+to ten, *"height does not matter"* (the prank: tunnel under them and set off a collapse), debris
+going to the lowest point and spreading away from what is still standing, pieces that separate,
+and *"like digital corruption spreading"*.
+
+Three things the code said:
+- **The fall is pinned to the 2 Hz fluid boundary** because its water needs the grid. So a piece
+  steps every frame, and only a wet landing waits for the boundary.
+- **One release unsettles the chunk and its six neighbours.** At ten releases a second, derive
+  latency would set the pace. So a chunk's pieces are planned from one settled snapshot, and the
+  next settle prunes the plan. The pruning is also the rescue: a shored piece leaves the queue.
+- **A piece written into the world every step runs the whole hook chain**, and tears at chunk
+  seams. So the fall is render-only: one MultiMesh of cubes, and the world is written at the
+  landing.
+
+**His three answers.** The block is the voxel, with the shapes left to me. His tower is ~1,550
+voxel tetracubes, eight minutes at 3 a second, so the mino grows with the event's age: 0.25 m,
+then 0.5 m, then 1 m. The fall is 1 m/s climbing to 10 m/s. The chimney goes to the sky once the
+event is serious. He also set the timing: easy to rescue at first, accelerating from 15 s, past
+rebuilding by about 30 s. That became a table by age (flat 15 s, doubling every 5), replacing my
+first draft's Tetris levels by pieces released. The other nine decisions are recommended and
+wait on his word.
+
 ## 2026-09-26 (afternoon) — Controlled demolition, and the collapse he wants next
 
 He knocked out a support under a ~40 m placed stone tower on the pond world, having asked for
