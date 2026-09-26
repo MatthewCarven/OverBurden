@@ -160,6 +160,25 @@ public static class VoxelMaterial
     }
 
     /// <summary>
+    /// The same texture array and sky under another voxel shader — a falling piece's
+    /// (<c>VoxelPiece.gdshader</c>, COLLAPSE-PLAN part c) — kept in step by the caller like glass.
+    /// </summary>
+    public static ShaderMaterial CreateVariant(ShaderMaterial solid, string shaderPath)
+    {
+        System.ArgumentNullException.ThrowIfNull(solid);
+        var shader = GD.Load<Shader>(shaderPath);
+        if (shader is null)
+        {
+            GD.PushError($"Overburden: could not load {shaderPath}");
+        }
+
+        var material = new ShaderMaterial { Shader = shader };
+        material.SetShaderParameter("albedo", solid.GetShaderParameter("albedo"));
+        material.SetShaderParameter("sky_brightness", solid.GetShaderParameter("sky_brightness"));
+        return material;
+    }
+
+    /// <summary>
     /// Flat colour with per-pixel brightness jitter — enough texture to read as a
     /// surface and to make face orientation obvious while debugging the mesher.
     /// Deterministic, so screenshots are comparable between runs.

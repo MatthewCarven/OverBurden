@@ -28,20 +28,29 @@ func _initialize() -> void:
 
 	# `process_frame` carries no arguments, so it cannot be accumulated as a delta — the
 	# obvious `waited += await process_frame` adds null and spins forever.
-	var settle := SETTLE_MILLISECONDS
+	# `--settle=a,b,c` takes one shot at each time, suffixed -1, -2, … before the extension — a
+	# sequence of one run, for anything that moves (the collapse's falling pieces, part c).
+	var settles: Array[int] = [SETTLE_MILLISECONDS]
 	for argument in arguments:
 		if argument.begins_with("--settle="):
-			settle = int(argument.substr(9))
-	print("screenshot.gd: settling %d ms" % settle)
+			settles.clear()
+			for part in argument.substr(9).split(","):
+				settles.append(int(part))
+	print("screenshot.gd: settling %s ms" % [settles])
 
 	var start := Time.get_ticks_msec()
-	while Time.get_ticks_msec() - start < settle:
-		await process_frame
+	var failed := false
+	for index in settles.size():
+		while Time.get_ticks_msec() - start < settles[index]:
+			await process_frame
 
-	var image: Image = root.get_texture().get_image()
-	var error := image.save_png(arguments[0])
+		var path: String = arguments[0]
+		if settles.size() > 1:
+			path = "%s-%d.%s" % [path.get_basename(), index + 1, path.get_extension()]
+		var image: Image = root.get_texture().get_image()
+		var error := image.save_png(path)
+		failed = failed or error != OK
+		print("screenshot.gd: %s %s -> %s at %d ms" % [
+			"saved" if error == OK else "FAILED (%d)" % error, image.get_size(), path, Time.get_ticks_msec() - start])
 
-	print("screenshot.gd: %s %s -> %s" % [
-		"saved" if error == OK else "FAILED (%d)" % error, image.get_size(), arguments[0]])
-
-	quit(OK if error == OK else 1)
+	quit(1 if failed else OK)

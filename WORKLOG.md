@@ -1,5 +1,20 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 (a new chat) — Collapse c-2: the pieces drawn falling
+
+*"leave it, lets continue with c-2 please"*.
+- **Built:** a mesh per piece in its own materials through the mesher's own quads, lit from the
+  grid, moved a mino a step; the glitch on the next second's minos; `--collapsepictures=0`.
+- **Seen on a copy of his tower in daylight:** 1 m clay and stone tetrominoes in the air, the
+  pond pouring through, rubble spreading at the base.
+- **Three things the look runs changed:**
+  - the hand-off counts installed meshes (cap hits 94% → 45%);
+  - the corruption is keyed by mino, not piece (21 ms → 3.7 ms worst);
+  - a lamp is no light for a collapse, since it falls too.
+- **Decision 11 goes back to him:** his tower's copy lifted a piece 4.5 m, not the bench's 1 m.
+- Suite 1,976. He moved the mouse during two windowed runs; the shots that mattered were taken
+  with it off.
+
 ## 2026-09-26 (a new chat) — Collapse c-1: what the renderer needs, and fewer jumping pieces
 
 *"as recommended please"*. Core only:

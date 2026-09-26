@@ -280,6 +280,8 @@ due fuse starts an event, pieces release from a spreading front, and each is air
 rubble at its landing; **nothing is drawn falling until part c**, which is why `sweep` stays the
 default. Its knobs: **`--collapsegrace=`** (15 s flat), **`--collapsedouble=`** (5 s a doubling),
 **`--collapsecap=`** (×16, the pace's ceiling, reached at 35 s — his *"cap the top please"*),
+**`--collapsepictures=0`** (part c's control: nothing drawn in the air; a windowed run only, since
+headless draws nothing),
 **`--collapsespread=`** (2 m of steer) and **`--collapsebudget=`** (2 ms of releases a frame). Each
 event ends with one `M9: event N — …` line, and the `M9:` and `support` lines carry a `pieces:` term
 with the identity `released == landed + in flight + lost`. The plug in pieces reads one event of about

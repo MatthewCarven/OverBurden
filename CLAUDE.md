@@ -189,7 +189,7 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 `water-column-test` both match GitHub as of a fetch. `start2.cmd`–`start5.cmd` are Matthew's and
 deliberately untracked.
 
-**Next on my side: collapse c-2, the renderer.** c-1 (Core) is built: pieces carry their rotation and materials, the queue can be peeked, water slows a piece, and a landing waits for a picture in its rest. His decision 11 (the residual lifts) is open. Parts a and b are built:
+**Next: his play of part c, the pieces drawn falling.** c-1 and c-2 are built (COLLAPSE-PLAN, "c-2 — built"): 1 m tetrominoes fall in their own materials, the next second's minos glitch. Decision 11 is back with him (a 4.5 m lift on his tower). The default flips to `pieces` on his verdict. Parts a and b are built:
 `--collapsemode=pieces` runs the Tetris collapse in the game (one `M9: event` line an event, a
 `pieces:` term on the `M9:` line), with nothing drawn falling. A piece is air at its release and
 rubble at its landing, which is why `sweep` stays the default. The re-cut runs on a worker (the

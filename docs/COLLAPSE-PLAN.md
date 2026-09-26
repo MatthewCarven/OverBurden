@@ -4,8 +4,8 @@ The planning pass for [COLLAPSE-NOTES.md](COLLAPSE-NOTES.md), 2026-09-26, on `ma
 decisions taken the same day (*"as recommended"*); a-1 and a-2 are built (Core, all of part
 a); part b's pass is written below and taken as recommended, and b-1 (the Core director) and b-2
 (the worker cut and the wire into `Main`) are built; `--collapsemode=pieces` plays it, with nothing
-drawn falling yet. Part c's pass is written below and taken as recommended; c-1 (Core) is built, c-2 (the
-renderer) is next** (TODO's "Next").
+drawn falling yet. Part c's pass is written below and taken as recommended; c-1 (Core) and c-2 (the
+renderer) are built: pieces are drawn falling. The default flips on his verdict** (TODO's "Next").
 Read the notes first. They have his first brief, the demolition's numbers, and what M9 already does.
 
 ## His second brief (2026-09-26, the planning chat)
@@ -897,6 +897,62 @@ The lifts are small: 2–4 voxels each, 24 in all on the worst fixture, at most 
 
 **The water's 2 m/s cap cannot be reached at the start's pace** (half of 1 m/s is under it), so
 the director test cannot see it. `WaterFactor` is pulled out and tested at 1, 4 and 10 m/s.
+
+## c-2 — built (2026-09-26)
+
+On his *"leave it, lets continue with c-2 please"* (decision 11 as recommended; see the last
+point below).
+
+**What was built:**
+- **`PieceMesher` (Core):** a piece's faces through the greedy mesher's own `AddQuad` and corner
+  order. A one-voxel piece is the mesher's voxel quad for quad, held by a test, so the winding
+  cannot drift. Glass hides and shows faces as a chunk does.
+- **The shaders:** `VoxelPiece.gdshader` and its glass twin share the include; the include's
+  `vertex()` sits behind `VOXEL_PIECE`, reading the light from an `instance uniform`.
+- **The glitch:** `CollapseGlitch.gdshader` flickers in blocks and tears sideways, animated by
+  `TIME`.
+- **`CollapsePictures` (Game):** a mesh per piece in its materials, moved a mino a step and lit
+  from the grid at its middle; the hand-off at both ends; the corruption on the next second's
+  queue.
+- **The flag and the line:** `--collapsepictures=0` is the control, and a `pictures:` term is on
+  the `M9:` line. Headless builds no pictures, so every headless figure is unmoved.
+- **`screenshot.gd --settle=a,b,c`** takes a sequence from one run.
+
+Suite 1,973 → 1,976.
+
+**Verified on a copy of his tower's backup, in daylight.** The fixture:
+`--world=<copy> --profile --speed=0 --at=-826,30,279 --yaw=90 --pitch=5 --bitechunks=7
+--bitedepth=1 --collapseafter=1,2 --collapsemode=pieces`, which bites a 56 m slab through the
+tower at 16–24 m and films from 20 m off. What the shots show:
+- small pieces raining down the column through the pond's water;
+- by 50 s, 1 m tetrominoes in the air, clay L and S shapes and grey stone ones;
+- rubble piling at the base, and the glitch marking the next minos.
+
+Zero ERROR lines in every run. The copy was deleted after.
+
+**What the look runs found:**
+- **The hand-off rule the pass chose failed under load.** It was "meshed, no remesh pending",
+  and 478 of 509 pieces waited out the cap, because a chunk the collapse writes every frame is
+  never caught up. Built instead: count the meshes each chunk installs, and wait for one more
+  than at the edit, or two if a remesh was already running. Cap hits went down to 360 of 792
+  (45%). What is left is the remesh queue's own latency past half a second in a collapse this
+  size.
+  - **Named lever, not pulled:** a longer cap. It hides a piece longer at release and holds it
+    longer at landing, trading flicker for lateness, which a screenshot cannot judge; his eye
+    in play does.
+- **The corruption was the frame cost.** Keyed per piece, it rebuilt nearly everything at each
+  re-cut: 21 ms, then 11.7 ms a frame. Re-cuts regroup voxels into new pieces, but the minos
+  stay where they are, so it is now one overlay a mino, keyed on the lattice, sharing one cube
+  mesh a size. The update is now 0.05 ms typical, 8.1 ms worst; the corruption's worst is 3.7.
+- **A lamp cannot light a collapse:** the lamp in the roof fell with the roof. Look runs want
+  daylight.
+- **Decision 11's number was wrong for his tower.** The bench said lifts rise at most a mino
+  (4 voxels). His tower's copy lifted 20–21 pieces, all off a reservation, **one by 18 voxels
+  (4.5 m)**. He chose "leave it" on the bench's number, so the decision goes back to him with
+  this one.
+- **His window report,** during a run: *"the settler for the rubble was firing heavily i think"*.
+  Rubble falling again was 3% of what fell; the support field re-derived 7,742 times in ~75 s.
+  Which of those he saw is asked.
 
 ## What would reverse this
 

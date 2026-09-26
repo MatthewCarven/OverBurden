@@ -13,16 +13,11 @@ his word — and this file points at it rather than repeating it.
 
 ## Next, on my side
 
-- [ ] **Collapse c-2 — the renderer.** [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part c" and
-      "c-1 — built". c-1 is done (`VoxelCells`, `Materials`, `DrawnCells`, `Upcoming`, the water
-      factor, the landing that waits for a picture). His decision 11 (the residual lifts) is open.
-      2. **c-2, the renderer:** `VoxelPiece.gdshader` (the include's `vertex()` behind a define,
-         light from an instance uniform), a mesh per piece built at release and moved a step at a
-         time, its light sampled from the grid once a step, the hand-off waiting on
-         `NeedsRemesh` at both ends (0.5 s cap), the glitch overlay on the next second's queue,
-         `--collapsepictures=0` the control, the lines; windowed screenshots on a scratch world,
-         then his tower on a copy of the backup.
-      3. The default flips to `pieces` on his verdict (decision 12).
+- [ ] **Collapse part c — his play, then the default.** c-1 and c-2 are built
+      ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "c-2 — built"). Open: his look verdict
+      (the flip of `--collapsemode`'s default to `pieces`, decision 12); decision 11 back to him
+      (a lift of 4.5 m on his tower, not the bench's 1 m); what "the settler firing" was; the
+      hand-off's cap (45% hit under a big collapse — the lever is a longer cap).
 - [ ] **Collapse parts d–f**, per the plan's split: **d** the chimney, whichever arm he takes — a
       tunnel under a placed house, headless on a scratch world; **e** the play, and the phonk hook
       if he wants it; **f** the collapse sensor (decision 13) — a headless event near a sensor

@@ -908,6 +908,19 @@ public partial class Main : Node3D
     /// <summary>The events and their pieces, under <c>--collapsemode=pieces</c>; null under the sweep.</summary>
     private CollapseDirector? _collapseDirector;
 
+    /// <summary>
+    /// <c>--collapsepictures=0</c> draws nothing in the air — part b's look, the control part c's
+    /// screenshots are judged against (COLLAPSE-PLAN part c, decision 9).
+    /// </summary>
+    private bool _collapsePicturesOn = true;
+
+    /// <summary>The pieces in the air and the corruption on the queue; windowed runs under <c>pieces</c> only.</summary>
+    private CollapsePictures? _collapsePictures;
+
+    /// <summary>The falling pieces' rock and glass materials, kept in step with the chunks' by <see cref="SetVoxelParameter"/>.</summary>
+    private ShaderMaterial? _pieceMaterial;
+    private ShaderMaterial? _pieceGlassMaterial;
+
     private double _collapseFrameMillisSum;
     private double _collapseFrameMillisMax;
     private long _collapseFrames;
@@ -1282,6 +1295,19 @@ public partial class Main : Node3D
         if (_glassShade is { } glassShade)
         {
             _glassMaterial.SetShaderParameter("glass_shade", glassShade);
+        }
+
+        // Part c: the falling pieces' materials, the same texture array under the piece shader,
+        // and glass's two looks carried across so a falling pane matches a standing one.
+        _pieceMaterial = VoxelMaterial.CreateVariant(_material, "res://Rendering/VoxelPiece.gdshader");
+        _pieceGlassMaterial = VoxelMaterial.CreateVariant(_material, "res://Rendering/VoxelPieceGlass.gdshader");
+        foreach (string glass in new[] { "glass_alpha", "glass_shade" })
+        {
+            Variant look = _glassMaterial.GetShaderParameter(glass);
+            if (look.VariantType != Variant.Type.Nil)
+            {
+                _pieceGlassMaterial.SetShaderParameter(glass, look);
+            }
         }
 
         SetVoxelParameter("tint_in_view_space", _tintInViewSpace);
@@ -1857,6 +1883,9 @@ public partial class Main : Node3D
                 // COLLAPSE-PLAN part b: the collapse in Tetris pieces, and its four knobs.
                 case "collapsemode" when value is "sweep" or "pieces":
                     _collapsePieces = value == "pieces";
+                    break;
+                case "collapsepictures" when int.TryParse(value, out int pictures):
+                    _collapsePicturesOn = pictures != 0;
                     break;
                 case "collapsegrace" when double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double grace) && double.IsFinite(grace) && grace >= 0:
                     _collapsePace = _collapsePace with { GraceSeconds = grace };
@@ -3652,6 +3681,8 @@ public partial class Main : Node3D
     {
         _material?.SetShaderParameter(name, value);
         _glassMaterial?.SetShaderParameter(name, value);
+        _pieceMaterial?.SetShaderParameter(name, value);
+        _pieceGlassMaterial?.SetShaderParameter(name, value);
     }
 
     private void UpdateWeather(double delta)
@@ -5760,11 +5791,22 @@ public partial class Main : Node3D
                 CutRunner = work => System.Threading.Tasks.Task.Run(work),
             };
             _collapse.Director = _collapseDirector;
+
+            // Part c: the pictures, in a windowed run — headless draws nothing, and building
+            // meshes there would only move the headless profile every figure is compared against.
+            bool windowed = !DisplayServer.GetName().Equals("headless", StringComparison.Ordinal);
+            if (_collapsePicturesOn && windowed && _pieceMaterial is not null && _pieceGlassMaterial is not null)
+            {
+                _collapsePictures = new CollapsePictures(this, _pipeline, _materials, rubble, _pieceMaterial, _pieceGlassMaterial);
+            }
             GD.Print(
                 $"M9: collapse in pieces (--collapsemode=pieces) — a due fuse starts an event: Tetris pieces from a spreading front, "
                 + $"flat {_collapsePace.GraceSeconds:0.##} s then doubling every {_collapsePace.DoubleSeconds:0.##} s up to x{_collapsePace.MaxMultiplier:0.##} (--collapsegrace=, --collapsedouble=, --collapsecap=), "
                 + $"steering up to {_collapseSpread:0.##} m (--collapsespread=), {_collapseBudget:0.##} ms of releases a frame (--collapsebudget=), "
-                + $"the cut on a worker; nothing is drawn falling yet (part c) — a piece is air at its release and rubble at its landing");
+                + $"the cut on a worker; "
+                + (_collapsePictures is not null
+                    ? "each piece drawn falling in its own materials, a mino a step, and the next second's pieces glitching (--collapsepictures=0 draws none)"
+                    : _collapsePicturesOn ? "nothing drawn (headless)" : "nothing drawn (--collapsepictures=0) — a piece is air at its release and rubble at its landing"));
         }
         GD.Print(
             $"M9: collapse {(_collapseOn ? "on" : "arming only (--collapse=0)")} — a settled chunk with something at risk arms "
@@ -5881,6 +5923,8 @@ public partial class Main : Node3D
         {
             _history.Recording = recording;
         }
+
+        _collapsePictures?.Update(_collapseDirector, _clock.ElapsedMillis);
 
         double millis = Milliseconds(t0, Stopwatch.GetTimestamp());
         _collapseFrames++;
@@ -6012,7 +6056,13 @@ public partial class Main : Node3D
                + $"; {d.Replans:N0} re-plan(s), {d.CutsApplied:N0}/{d.CutsStarted:N0} worker cut(s) landed, {d.ReleasedDuringCuts:N0} voxel(s) released meanwhile, "
                + $"cut ms mean {(d.Replans > 0 ? d.CutMillisSum / d.Replans : 0):F2} / max {d.CutMillisMax:F1} (worker), gather max {d.GatherMillisMax:F1} ms, "
                + $"solve ms mean {(d.Solves > 0 ? d.SolveMillisSum / d.Solves : 0):F2} / max {d.SolveMillisMax:F1}, "
-               + $"frame ms mean {(_collapseFrames > 0 ? _collapseFrameMillisSum / _collapseFrames : 0):F3} / max {_collapseFrameMillisMax:F1}";
+               + $"frame ms mean {(_collapseFrames > 0 ? _collapseFrameMillisSum / _collapseFrames : 0):F3} / max {_collapseFrameMillisMax:F1}"
+               + $"; {d.WaitedForPicture:N0} landing-frame(s) waited for a picture, {d.SlowedInWater:N0} flight-frame(s) slowed in water, "
+               + $"{d.LiftedByABlock:N0} lifted ({d.LiftedOffAReservation:N0} off a reservation, {d.LiftVoxelsMax} voxel(s) at most)"
+               + (_collapsePictures is not { } pic
+                   ? "; no pictures"
+                   : $"; pictures: {pic.Made:N0} made, {pic.Drawn} drawn now, held {pic.HeldAtRelease:N0} frame(s) at release / {pic.HeldAtLanding:N0} at landing, "
+                     + $"{pic.CapHits:N0} cap hit(s), {pic.CorruptVoxels:N0} voxel(s) corrupted now ({pic.CorruptionBuilt:N0} overlay(s) built), update ms last {pic.LastMillis:F2} / max {pic.MaxMillis:F1} (corruption max {pic.MaxCorruptionMillis:F1})");
     }
 
     /// <summary>The bite provocation, and the <c>M9: at open</c> line once.</summary>
@@ -8313,6 +8363,8 @@ public partial class Main : Node3D
     /// </summary>
     private void OnMeshReady(StreamedChunk chunk, ChunkMesh mesh)
     {
+        _collapsePictures?.NoteMeshReady(chunk.Position);
+
         // Re-meshing an existing chunk replaces its instance; M3 makes that the common case.
         OnMeshDiscarded(chunk.Position);
 

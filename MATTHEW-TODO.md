@@ -38,6 +38,13 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 ### Recent builds
 
+- [ ] **The Tetris collapse, drawn.** Pieces now fall in the air, in their own materials, and the
+      next second's pieces glitch cyan before they go. Restore your tower first if you want a fresh
+      one ("restore my tower"), then:
+      `start.cmd "--world=Regions16-pondlook" --collapsemode=pieces --collapseafter=2,10`
+      and knock out a support in daylight. *Does it look like Tetris gone bad — and is the cyan
+      glitch the right warning, or too loud?* If you like it, "make it the default" flips it on.
+
 - [ ] **Your tower, in Tetris pieces.** Nothing is drawn falling yet (that's part c): rock
       vanishes a piece at a time from a spreading front, and rubble appears where each piece
       lands, a second or so later.
@@ -114,10 +121,12 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 Nothing is blocked on these; each is a small change once you have a view.
 
-- [ ] **The collapse: pieces that jump a little.** The fix for your tower's jumping pieces works,
-      but one piece in about 300 still hops up by at most a metre, late in a big collapse. I
-      recommend leaving it and judging it on the screenshots; the full fix is expensive (plan,
-      "c-1 — built"). "Leave it" or "fix it".
+- [ ] **The collapse: pieces that jump — I gave you the wrong size.** You said "leave it" when I
+      said "at most a metre". On a copy of your tower, one piece jumped 4.5 m (about 20 pieces in
+      800 jumped at all). Watch for it when you play: if you see a piece hop up, say "fix it" —
+      the fix is costlier to run, but it is the right one if it shows.
+- [ ] **"The settler for the rubble was firing heavily"** — what did you see: pieces hopping on the
+      pile, or lines scrolling in the console window?
 - [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), six decisions still open. The biggest: a
       blast destroys the machines it reaches (5). "As recommended" or any one back.
 - [ ] **A rock placed in a lake.** A pier into a lake deletes no water today. If that reads wrong,
