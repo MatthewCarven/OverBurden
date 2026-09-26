@@ -1,7 +1,7 @@
 ﻿# M8 — Water gets in
 
 > Planned 2026-09-02, before any code. Split M8a–M8d.
-> **Read [SCALE.md](SCALE.md) first**, and read M7's play findings in [TODO.md](../TODO.md) —
+> **Read [SCALE.md](SCALE.md) first**, and read M7's play findings in [TODO.md](TODO-HISTORY.md) —
 > two of them are inputs to this milestone rather than context for it.
 
 M7 built **Tier A**: analytic basins whose level is *solved, not simulated*. It fills the world's

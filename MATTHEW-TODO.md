@@ -1,6 +1,6 @@
 # Matthew's TODO
 
-Your file. `TODO.md` is the project's long record and mine to maintain; this is the short list of
+Your file. `TODO.md` is the project's open work and mine to maintain; this is the short list of
 things only you can do. Tick things off, scribble in the notes section, delete anything you don't
 care about. I keep it current at the end of each session.
 

@@ -336,7 +336,7 @@ That is not merely a good test. **It is precisely the property that "flew away m
 back" depends on**, so the assertion and the feature are the same statement — the same shape as
 M5b's *incremental light == from-scratch light*, and the reason both are worth more than a
 hand-checked scenario. It is also the concrete cash value of *[slower than realtime is accuracy,
-not approximation](../TODO.md)*: a tick that is allowed to be late is only allowed to be late
+not approximation](TODO-HISTORY.md)*: a tick that is allowed to be late is only allowed to be late
 because arriving late and arriving on time compute the same number.
 
 Also tested: a round trip through the store; overflow cascading two basins deep conserving volume

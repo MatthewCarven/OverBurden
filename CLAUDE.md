@@ -22,7 +22,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/DESIGN.md](docs/DESIGN.md) | Locked decisions, the five non-negotiables, per-system architecture, milestones, **and a list of rejected alternatives so they don't get re-litigated**. |
 | [docs/COMMANDS.md](docs/COMMANDS.md) | **Every bench arm, game flag and headless oracle, verbatim.** Grep it for a flag before a run that takes flags. |
 | [docs/STATUS-HISTORY.md](docs/STATUS-HISTORY.md) | Every earlier "where things stand", newest first, and the M2–M8 milestone summaries — the shortest account of why the engine is shaped as it is. |
-| [TODO.md](TODO.md) | Milestones as checkable tasks, and the decisions still open. The long record. |
+| [TODO.md](TODO.md) | **Open work only** — what is next, what waits on Matthew, owed checks, named levers, later milestones. Delete a line once it is done and recorded. Everything finished up to 2026-09-26, with its reasoning, is [docs/TODO-HISTORY.md](docs/TODO-HISTORY.md): an older "in TODO under M…" means that file. |
 | [MATTHEW-TODO.md](MATTHEW-TODO.md) | **Matthew's own short list** — the play queue, decisions waiting on his word, chores only he can run. One screen or two, never a record. **Keep it current at the end of a session**: move a played check to answered, add a new check when one is built, refresh the status block. Its "Notes to myself" section is his; fold what he writes there into the right plan and empty it. |
 | [WORKLOG.md](WORKLOG.md) | What happened and why, newest first. Findings worth keeping live here. |
 | [docs/SCALE.md](docs/SCALE.md) | How many voxels and cells exist at each view distance and what a full sweep costs. **Read before designing anything that checks the world periodically.** |
@@ -170,8 +170,9 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 ## Conventions
 
-- Append findings and decisions to WORKLOG.md; tick and add tasks in TODO.md. Both as you
-  go, not at the end.
+- Append findings and decisions to WORKLOG.md; tick and add tasks in TODO.md. Both as you go, not
+  at the end — and at the session's close, delete TODO's ticked lines once the finding is in the
+  worklog and its plan, so TODO stays the open work.
 - Commit with a message that explains *why*, and end with the `Co-Authored-By:` line the harness
   gives this session — never copy one from an older commit.
 - Matthew runs `git init` and `git push` himself — flag when either is needed. Remote is
@@ -191,7 +192,7 @@ deliberately untracked.
 **Next on my side: collapse part b, the wire.** Part a is built — `CollapsePace`, `Polycubes`,
 `PieceCutter`, `LandingSolver`, `CollapseEvent`, all Core — and the bench's
 `--support --collapse --pieces` holds every oracle on every fixture. Part b wants its own
-code-level pass first; TODO under M9 lists what it carries. Half of a big collapse is rubble
+code-level pass first; TODO's "Next" lists what it carries. Half of a big collapse is rubble
 tumbling off the pile, and whether that reads as settling or churn is his once he can see it.
 **His next chat is the ideal machines — endgame tech first, for a creative-mode demo** — and the
 collapse sensor (plan decision 13) is designed there, so b may wait for it.
