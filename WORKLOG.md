@@ -1,5 +1,12 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 (a new chat) — The pace capped at ×16
+
+*"cap the top please though"*. `CollapsePace.MaxMultiplier`, 16 by default, is decision 4's last
+row, reached at 35 s: 48 pieces a second of 1 m minos, and the fall at its 10 m/s cap since ×10.
+The tower's third event ran to ×644 at 62 s, and only the frame budget held it back.
+`--collapsecap=` moves it, and the pace test now reads 16 at 35, 40 and 62 s.
+
 ## 2026-09-26 (a new chat) — His verdict on the tower: slow to fast
 
 *"yes slow to fast, um that is sort of realistic like because buildings unless in earthquakes

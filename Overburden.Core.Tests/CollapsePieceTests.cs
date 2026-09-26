@@ -54,14 +54,28 @@ public class CollapsePieceTests
     [InlineData(20.0, 2.0, 6.0, 2.0, 2)]
     [InlineData(25.0, 4.0, 12.0, 4.0, 2)]
     [InlineData(30.0, 8.0, 24.0, 8.0, 4)]
-    [InlineData(40.0, 32.0, 96.0, 10.0, 4)]
-    public void ThePaceIsFlatThenDoublesEveryFiveSeconds(double age, double multiplier, double releases, double fall, int mino)
+    [InlineData(35.0, 16.0, 48.0, 10.0, 4)]
+    [InlineData(40.0, 16.0, 48.0, 10.0, 4)]
+    [InlineData(62.0, 16.0, 48.0, 10.0, 4)]
+    public void ThePaceIsFlatThenDoublesEveryFiveSecondsUpToItsCap(double age, double multiplier, double releases, double fall, int mino)
     {
         CollapsePace pace = CollapsePace.Default;
         Assert.Equal(multiplier, pace.Multiplier(age), 9);
         Assert.Equal(releases, pace.ReleasesPerSecond(age), 9);
         Assert.Equal(fall, pace.FallMetresPerSecond(age), 9);
         Assert.Equal(mino, pace.MinoVoxels(age));
+    }
+
+    [Fact]
+    public void TheCapMovesAndIsNeverBelowTheStart()
+    {
+        var pace = new CollapsePace { MaxMultiplier = 4 };
+        Assert.Equal(2.0, pace.Multiplier(20), 9);
+        Assert.Equal(4.0, pace.Multiplier(25), 9);
+        Assert.Equal(4.0, pace.Multiplier(600), 9);
+        Assert.Equal(2, pace.MinoVoxels(600));   // a cap under the metre mino keeps the half-metre one
+        Assert.Throws<ArgumentOutOfRangeException>(() => new CollapsePace { MaxMultiplier = 0.5 });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new CollapsePace { MaxMultiplier = double.PositiveInfinity });
     }
 
     [Fact]

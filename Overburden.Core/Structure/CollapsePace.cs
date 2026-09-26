@@ -31,6 +31,7 @@ public sealed record CollapsePace
     private readonly double _startFallMetresPerSecond = 1.0;
     private readonly double _maxFallMetresPerSecond = 10.0;
     private readonly double _seriousSeconds = 30.0;
+    private readonly double _maxMultiplier = 16.0;
 
     /// <summary>Seconds at the starting pace before the doubling begins.</summary>
     public double GraceSeconds
@@ -74,17 +75,31 @@ public sealed record CollapsePace
         init => _seriousSeconds = NonNegative(value, nameof(SeriousSeconds));
     }
 
+    /// <summary>
+    /// The pace's ceiling — his <i>"cap the top please"</i> (2026-09-26, after the tower reached ×644
+    /// at 62 s). 16 is decision 4's last row, reached at 35 s, five seconds past the age the plan
+    /// calls past saving: 48 pieces a second of 1 m minos, the fall long since at its own cap. An
+    /// estimate; <c>--collapsecap=</c> moves it.
+    /// </summary>
+    public double MaxMultiplier
+    {
+        get => _maxMultiplier;
+        init => _maxMultiplier = value >= 1.0 && double.IsFinite(value)
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(MaxMultiplier), value, "The cap is finite and at least 1, the starting pace.");
+    }
+
     /// <summary>The multiplier at which the mino becomes 2 voxels on a side.</summary>
     public const double HalfMetreMinoAt = 2.0;
 
     /// <summary>The multiplier at which the mino becomes the 1 m brush cell.</summary>
     public const double MetreMinoAt = 8.0;
 
-    /// <summary>1 at the start, then ×2 every <see cref="DoubleSeconds"/> past <see cref="GraceSeconds"/>.</summary>
+    /// <summary>1 at the start, then ×2 every <see cref="DoubleSeconds"/> past <see cref="GraceSeconds"/>, up to <see cref="MaxMultiplier"/>.</summary>
     public double Multiplier(double ageSeconds) =>
-        ageSeconds <= _graceSeconds ? 1.0 : Math.Pow(2.0, (ageSeconds - _graceSeconds) / _doubleSeconds);
+        ageSeconds <= _graceSeconds ? 1.0 : Math.Min(_maxMultiplier, Math.Pow(2.0, (ageSeconds - _graceSeconds) / _doubleSeconds));
 
-    /// <summary>The mean release rate at this age, pieces a second. No cap: a frame budget bounds the wire.</summary>
+    /// <summary>The mean release rate at this age, pieces a second — capped with the multiplier; a frame budget bounds the wire as well.</summary>
     public double ReleasesPerSecond(double ageSeconds) => _startReleasesPerSecond * Multiplier(ageSeconds);
 
     /// <summary>The fall's speed at this age, metres a second, capped.</summary>

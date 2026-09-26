@@ -700,7 +700,9 @@ an instruction. It names the one collapse with no warning, which is TNT-NOTES's 
 ever built. Still open for part c:
 - the look of the drop itself;
 - what a flight blocked where it stands does when it is drawn (96 blocked, 40 of them lifted);
-- whether the pace wants a ceiling (×644 at 62 s).
+- ~~whether the pace wants a ceiling (×644 at 62 s)~~ — **his "cap the top please"**: capped at
+  ×16 (`CollapsePace.MaxMultiplier`, `--collapsecap=`), decision 4's last row, reached at 35 s: 48
+  pieces a second of 1 m minos. At ×644 the frame budget was what held it back, not the table.
 
 ## What would reverse this
 

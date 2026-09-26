@@ -1864,6 +1864,9 @@ public partial class Main : Node3D
                 case "collapsedouble" when double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double doubling) && double.IsFinite(doubling) && doubling > 0:
                     _collapsePace = _collapsePace with { DoubleSeconds = doubling };
                     break;
+                case "collapsecap" when double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double cap) && double.IsFinite(cap) && cap >= 1:
+                    _collapsePace = _collapsePace with { MaxMultiplier = cap };
+                    break;
                 case "collapsespread" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float spread) && float.IsFinite(spread) && spread >= 0:
                     _collapseSpread = spread;
                     break;
@@ -5759,7 +5762,7 @@ public partial class Main : Node3D
             _collapse.Director = _collapseDirector;
             GD.Print(
                 $"M9: collapse in pieces (--collapsemode=pieces) — a due fuse starts an event: Tetris pieces from a spreading front, "
-                + $"flat {_collapsePace.GraceSeconds:0.##} s then doubling every {_collapsePace.DoubleSeconds:0.##} s (--collapsegrace=, --collapsedouble=), "
+                + $"flat {_collapsePace.GraceSeconds:0.##} s then doubling every {_collapsePace.DoubleSeconds:0.##} s up to x{_collapsePace.MaxMultiplier:0.##} (--collapsegrace=, --collapsedouble=, --collapsecap=), "
                 + $"steering up to {_collapseSpread:0.##} m (--collapsespread=), {_collapseBudget:0.##} ms of releases a frame (--collapsebudget=), "
                 + $"the cut on a worker; nothing is drawn falling yet (part c) — a piece is air at its release and rubble at its landing");
         }
