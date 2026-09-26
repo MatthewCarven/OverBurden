@@ -405,7 +405,29 @@ what it means.*
 
 ## Status, kept current for you
 
-Updated **2026-09-24, evening**.
+Updated **2026-09-26, late night**. Everything is committed and pushed; both branches match GitHub.
+
+- **The Tetris collapse:**
+  - **Planned:** [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), fourteen decisions, all yours or
+    taken as recommended.
+  - **Part a built:** the speed table, the 3D Tetris shapes, the cutter that spreads like
+    corruption, the landing solver, and the collapse's bookkeeping. All of it is in the engine's
+    core, and **not in the game yet**, so there's nothing to see.
+  - **On the bench:** every test room comes down piece by piece with every check holding. Half of
+    a big collapse is rubble tumbling off the pile; whether that looks right is yours to judge
+    once you can see it. Suite **1,937** green.
+  - **Next for it:** part b, putting it into the game. TODO under M9 lists what it needs, and it
+    gets its own look at the game code first.
+- **The pond branch** (`water-column-test`, overhangs and the lake across chunk seams) is still
+  waiting on your verdict before it's merged or retired.
+- **Your next chat:** the ideal machines, endgame tech first, for a creative-mode demo. The
+  collapse sensor (plan decision 13) is waiting on that chat.
+- **If you're reading everything:** start with this file, then the table at the top of
+  `CLAUDE.md`. It says what each doc in `docs/` is for and which ones are finished and kept only
+  for their reasoning. `TODO.md` is the long record; `WORKLOG.md` is the story, newest first.
+- `start2.cmd` to `start5.cmd` are yours and left out of git.
+
+Earlier, **2026-09-24, evening**:
 
 - **This session (committed; `git push` is yours):** the water solver made faster on your big
   world (0.52 → about 0.8 ticks a second), **F11 far mode**, **water that spreads sideways
