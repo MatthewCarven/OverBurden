@@ -1,5 +1,24 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 (afternoon) — Controlled demolition, and the collapse he wants next
+
+He knocked out a support under a ~40 m placed stone tower on the pond world, having asked for
+a backup first. **Four falls up one chunk column in 6.5 s, ~6,200 voxels, the last dropping 41
+m**, water exact (115 L lifted and returned), `at risk 0` after. I had bet on "a few voxels or
+nothing", because the reach rule has no load. A tower is one path, though, and every stage
+above hung on the one below. **Don't bet on a collapse from the rule; the bench's
+`--support --collapse` or a copy of the world answers it.**
+
+His idea from it: a collapse that goes *"slowly to quickly like the initial march … you might
+be able to fix it if you were quick, but if it was serious … good luck"* — Tetris gone bad.
+It's written up in his words in [docs/COLLAPSE-NOTES.md](docs/COLLAPSE-NOTES.md), with the
+four gaps against what M9 built: no pace that climbs, a chunk's whole set as the unit, nothing
+seen falling, and all-or-nothing saves. Six leanings are handed to a separate chat, on `main`.
+The water work waits. His building is restored from
+`worlds/backup-Regions16-pondlook-2026-09-26/`; the demolished world is kept as
+`worlds/Regions16-pondlook-demolished-2026-09-26/`, and the log as
+`logs/demolition-2026-09-26.log`.
+
 ## 2026-09-26 (midday) — The lake crosses a chunk column's edge between grids
 
 His play after the overhang pass: *"except the last two the filling under overhangs seems
