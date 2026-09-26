@@ -17,7 +17,7 @@
 
 ## The headline: our job queue is specified as the wrong data structure
 
-[TODO.md](../TODO.md) says *"`System.Threading.Channels` job queue for gen + mesh."*
+[TODO.md](TODO-HISTORY.md) says *"`System.Threading.Channels` job queue for gen + mesh."*
 That is wrong, and it is wrong in a way that is expensive to discover after the streaming
 code is built on top of it.
 

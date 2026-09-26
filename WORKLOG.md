@@ -1,5 +1,19 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 (late night) — TODO.md cut to the open work
+
+Matthew: *"TODO.md please wipe out anything we don't need"*. It was 559 KB and 6,600 lines, and
+said of itself that it was "not a list anybody can act from": 810 ticked boxes with their
+reasoning, and 353 unticked ones, most of them notes inside finished milestones or questions
+settled since (the collapse's debris, the power model, the deferred collapse, the drainable hole).
+
+The whole file moved unchanged to `docs/TODO-HISTORY.md` — only its title and its relative links
+changed — so every "in TODO under M…" in this worklog and the plans still resolves. The new
+TODO.md is 186 lines: next on my side (collapse b–f, M10e–j), what waits on his word, owed checks,
+the named levers with their triggers, and the later milestones. CLAUDE.md's convention now says to
+delete a ticked line at the session's close once its finding is here and in its plan, so TODO
+does not grow back into a record.
+
 ## 2026-09-26 (late night) — Collapse a-2: the landing solver and the event
 
 Part a is done, all in Core and not wired. `LandingSolver` gives each piece the lowest reachable
