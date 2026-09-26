@@ -1,5 +1,13 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 (a new chat) — The rain play's owed check 2, answered
+
+Matthew, after the glass play: *"so no rain inside now the roof is dry"*. It is MATTHEW-TODO's owed
+check "No rain under your roof", closed. The same session's log: rained 52,195 L in 1,378 drops,
+2,098 onto the player's material, **0 skipped under a roof**, and every water identity exact. The
+roof leak that was fixed was droplets spawned under the roof by the adaptive box's top row (see
+the memory "check where water is born"); this is the play that confirms it.
+
 ## 2026-09-26 (a new chat) — The first play in pieces: his glass
 
 Matthew played `Regions16-pondlook` with `--collapsemode=pieces --collapseafter=2,10` and building

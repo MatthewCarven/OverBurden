@@ -70,8 +70,6 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 - [ ] **1. The clay pond in the rain** (`--clockscale=20` if you don't want to wait). *Does it fill
       at a rate that reads as rain?*
-- [ ] **2. No rain under your roof.** Stand inside a roofed building while it rains. *Does water
-      still appear indoors?*
 
 ### M10d — the seven
 
@@ -166,6 +164,8 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Answered lately
 
+- **No rain under your roof** (2026-09-26): *"no rain inside now the roof is dry"* — the log
+  agrees: 52,195 L rained, 2,098 drops onto what you built, 0 spawned under a roof.
 - **The quantum tunneller** (2026-09-26): *"I like the 2m cube"* — the 2 m middle tier stays.
 - **Glass's look** (2026-09-26): black at 0.20 — *"Glass looks GOOD!"*
 - **The Tetris collapse's decisions** (2026-09-26): *"as recommended"*; part a is built.
