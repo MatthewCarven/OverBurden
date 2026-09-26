@@ -49,6 +49,9 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
       4. Quit when it settles. Then say **"restore my tower"** and I'll keep the collapsed world as
          a dated copy and put the backup back.
       *Does it read as slow-then-fast, like corruption spreading — even without the drop drawn?*
+      **Played in part, 2026-09-26:** your glass at the top came down in eight small collapses
+      (505 voxels, the biggest reaching 1 m pieces), *"after the glass settled i like it!"* — the
+      tower itself is still standing.
 
 - [ ] **The load test you wanted.** Same world, same spot, two short sessions back to back:
       `start3` then `start3 --fedadvance=0`. Play normally for a few minutes each and quit; copy

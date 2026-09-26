@@ -1,5 +1,26 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 (a new chat) — The first play in pieces: his glass
+
+Matthew played `Regions16-pondlook` with `--collapsemode=pieces --collapseafter=2,10` and building
+glass up at the tower's top (Y 128–144 voxels, 32–36 m): *"the glass behaves interestingly like i
+had to do a lot of cleanup :-{D … some of the cleanup made its way onto the clay roof … after the
+glass "settled" i like it!"* Three screenshots.
+
+From the log, which has zero ERROR lines:
+- **Eight events, all small:** 150 pieces, 505 voxels released == landed, 0 lost.
+- **The two big ones:** event 1 had 178 voxels in 32 s, reached pace ×11 and 1 m pieces. Event 6
+  had 192 voxels in 23 s.
+- **The water:** 131 landings went wet, 450 L lifted == returned, displaced 0, none needed to climb.
+- **The rest:** one unstick (0.25 m); the undo was cleared as the collapse wrote. The worst frame
+  was 23.5 ms; the cut took 0.30 ms mean.
+
+Why the glass: glass reaches 6 voxels (1.5 m), so glass hung more than 1.5 m from a support is at
+risk, and it came down piece by piece until what stood was held — "settled". What falls lands as
+rubble (M9c-1's rule), which is the cleanup. Debris steers up to 2 m to the lowest landing it can
+reach, away from where the event started, which put some of it on the clay roof. The tower itself
+has not been knocked down yet: the tower check in MATTHEW-TODO is still his.
+
 ## 2026-09-26 (a new chat) — Collapse b-2: the wire; the keystone is a race
 
 Matthew: *"ok Claude lets continue I cant wait to see my tower collapse"*. `--collapsemode=pieces`
