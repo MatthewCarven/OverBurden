@@ -2,8 +2,9 @@
 
 The planning pass for [COLLAPSE-NOTES.md](COLLAPSE-NOTES.md), 2026-09-26, on `main`. **All fourteen
 decisions taken the same day (*"as recommended"*); a-1 and a-2 are built (Core, all of part
-a); part b's pass is written below and taken as recommended, and b-1 — the Core director — is
-built, and so is b-2's first step, the cut on a worker; the wire itself is next** (TODO's "Next").
+a); part b's pass is written below and taken as recommended, and b-1 (the Core director) and b-2
+(the worker cut and the wire into `Main`) are built; `--collapsemode=pieces` plays it, with nothing
+drawn falling yet. Part c, the look, is next** (TODO's "Next").
 Read the notes first. They have his first brief, the demolition's numbers, and what M9 already does.
 
 ## His second brief (2026-09-26, the planning chat)
@@ -637,6 +638,52 @@ released during a cut out of its *set*. That set is only read for the old queue'
 and a released voxel is not queued, so the line is deleted. Two recipes missed at first, both
 about the mino growing while a cut runs. `TheMinoGrowingWhileACutRunsIsCutOnceAtTheNewMino` now
 catches both. A swallowed fault read HUNG in the first run and was caught cleanly when run alone.
+
+## b-2 — the wire, built (2026-09-26)
+
+On his *"ok Claude lets continue I cant wait to see my tower collapse"*. `Main` only; Core is
+untouched.
+
+- **`--collapsemode=sweep|pieces`**, with `sweep` the default until part c draws the fall
+  (decision 12).
+- **Under `pieces`,** `SetUpCollapse` builds the director with the water, the pace, the spread,
+  the budget and `CutRunner = work => Task.Run(work)`, and sets it as the scheduler's `Director`.
+- **`FrameCollapse` runs every frame** from `UpdateSupport`. `Boundary` runs inside
+  `SweepCollapse`, after the fuse and under the same recording-off bracket.
+- **`AfterCollapseStep`**: a step that wrote clears the undo stack (`M10: undo — the stack is
+  cleared … a collapse is under way`). A step that landed runs the unstick, which now takes the
+  written chunks rather than a fall. A press while an event is live reads `nothing to undo: a
+  collapse is under way`.
+- **The quit** lands what is in flight just before the save, under the save's own gate.
+- **The lines:** `M9: event N — from … over … chunk(s): P piece(s), V voxel(s) in T s, peak pace
+  ×…, mino …, R rescued (the pile's props count), L lost` when one ends, and a `pieces:` term on
+  the `M9:` line and the profile's `support` line.
+- **The flags** `--collapsegrace=`, `--collapsedouble=`, `--collapsespread=` and
+  `--collapsebudget=`.
+
+The oracles, headless, all with zero ERROR lines:
+
+| run | reads |
+|---|---|
+| r6 control | 2601 / 325 / 3446 at 411, to the digit |
+| plug, sweep | four `M9: fell` one boundary apart, 20 voxels, `at risk 0` — as recorded |
+| **plug, pieces** | **one `M9: event`: 6 pieces, 20 voxels in 12.1 s, released 20 == landed 20, `at risk 0`** — the bench's six |
+| **keystone, pieces** (`--measure=60`) | one event over 12 chunks, 1,184 pieces, 70,065 voxels released == landed (42,000 of them rubble falling again), **lifted 782 L == returned 782 L, 0 L up a column, displaced 0**, lost 0, `at risk 0` |
+
+**The keystone's sweep arm is not reproducible to the digit, and never was.** Its first run today
+read 9 falls and 18,207 voxels with no water lifted, against the recorded "four falls of ~6,200,
+30 L". I checked it against a control, the same command on the code before b-1, interleaved over
+five runs an arm:
+
+- **Today's code:** 15,985 / 18,207 / 21,696 / 24,973 / 24,973 voxels, and 0–30 L lifted.
+- **The code before b-1:** 15,985 / 21,380 / 24,973 / 24,973 / 24,973 voxels, and 0–31 L lifted.
+
+The same outcomes turn up on both sides, and one of today's runs reproduces the record exactly
+(peak 18,718, 30 L). **The mechanism is a race.** Three or four of the plug's falls land before
+the pour at 5 s, depending on when the worker derives settle. That decides which roof the lake
+stands over: the peak at risk reads 18,293–18,728 in 3 or 7 chunks, or 24,405–24,951 in 4 or 8.
+What holds in every run is `at risk 0` at the end and lifted == returned. COMMANDS says so beside
+the oracle now.
 
 ## What would reverse this
 

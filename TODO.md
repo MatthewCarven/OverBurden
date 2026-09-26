@@ -13,22 +13,8 @@ his word — and this file points at it rather than repeating it.
 
 ## Next, on my side
 
-- [ ] **Collapse b-2 — the wire.** [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part b" and
-      "b-1 — built". b-1 is done (`CollapseDirector`, the bench on it), and so is step 1. In order:
-      1. ~~The cut on a worker~~ — built ("b-2, step 1" in the plan): `CutRunner`, p99 frame
-         249–277 → 8–9 ms in the room. The game passes `work => Task.Run(work)`.
-      2. **The wire:** `--collapsemode=sweep|pieces` (sweep the default until c), the scheduler's
-         `Director` set in `SetUpCollapse`, `Frame` from `UpdateSupport`, `Boundary` where
-         `SweepCollapse` sits (both every frame under `--nowater`), `--collapsegrace=`,
-         `--collapsedouble=`, `--collapsespread=`, `--collapsebudget=`, `Recording` off around
-         both and the stack cleared on a frame that wrote (a press reads "a collapse is under
-         way"), `LandAll` before `SaveAll` in `_ExitTree` under the save's gate, the unstick
-         after a frame that landed, the `M9: event` line from `TakeEnded`, the identity and the
-         terms on the periodic line (rescued with "most of it the pile's props" beside it).
-      3. **The oracles:** the plug in pieces (one `M9: event` line or two — diagonal chunks do
-         not join), the keystone in pieces at `--measure=60` with `displaced` measured, both
-         sweep oracles and r6 to the digit.
-- [ ] **Collapse parts c–f**, per the plan's split: **c** the look (the moving mesh, the steps,
+- [ ] **Collapse parts c–f**, per the plan's split (a, b-1 and b-2 are built; `--collapsemode=pieces`
+      plays it, nothing drawn falling). **c** the look — first, its own pass against the renderer — (the moving mesh, the steps,
       the steer, the corruption overlay on the queue, the slower fall in water) — screenshots;
       **d** the chimney, whichever arm he takes — a tunnel under a placed house, headless on a
       scratch world; **e** the play, and the phonk hook if he wants it; **f** the collapse sensor

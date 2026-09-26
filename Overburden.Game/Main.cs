@@ -888,6 +888,30 @@ public partial class Main : Node3D
     /// <summary>The timers and the fall — swept at the fluid boundary, or every frame when there is no water.</summary>
     private CollapseScheduler? _collapse;
 
+    /// <summary>
+    /// <c>--collapsemode=pieces</c> (COLLAPSE-PLAN part b): a due fuse starts a Tetris event the
+    /// director runs a frame at a time. <c>sweep</c>, the default until part c draws the fall, is
+    /// M9c-1's one-sweep fall — decision 12: with nothing drawn in the air, pieces read as rock
+    /// vanishing and rubble appearing a second later.
+    /// </summary>
+    private bool _collapsePieces;
+
+    /// <summary><c>--collapsegrace=</c> and <c>--collapsedouble=</c>, world seconds: the pace table's flat start and its doubling (decision 4).</summary>
+    private CollapsePace _collapsePace = CollapsePace.Default;
+
+    /// <summary><c>--collapsespread=</c>, metres a piece may steer each way (decision 7).</summary>
+    private float _collapseSpread = LandingSolver.DefaultSpreadMetres;
+
+    /// <summary><c>--collapsebudget=</c>, milliseconds of releases a frame before one more solve (decision 4).</summary>
+    private double _collapseBudget = CollapseDirector.DefaultBudgetMillis;
+
+    /// <summary>The events and their pieces, under <c>--collapsemode=pieces</c>; null under the sweep.</summary>
+    private CollapseDirector? _collapseDirector;
+
+    private double _collapseFrameMillisSum;
+    private double _collapseFrameMillisMax;
+    private long _collapseFrames;
+
     /// <summary>The last three edits, for Ctrl+Z (UNDO-PLAN). Always on; it costs a branch a voxel.</summary>
     private readonly EditHistory _history = new();
 
@@ -1828,6 +1852,23 @@ public partial class Main : Node3D
                     break;
                 case "collapseafter" when TryParseWindow(value, out CollapseWindow window):
                     _collapseWindow = window;
+                    break;
+
+                // COLLAPSE-PLAN part b: the collapse in Tetris pieces, and its four knobs.
+                case "collapsemode" when value is "sweep" or "pieces":
+                    _collapsePieces = value == "pieces";
+                    break;
+                case "collapsegrace" when double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double grace) && double.IsFinite(grace) && grace >= 0:
+                    _collapsePace = _collapsePace with { GraceSeconds = grace };
+                    break;
+                case "collapsedouble" when double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double doubling) && double.IsFinite(doubling) && doubling > 0:
+                    _collapsePace = _collapsePace with { DoubleSeconds = doubling };
+                    break;
+                case "collapsespread" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float spread) && float.IsFinite(spread) && spread >= 0:
+                    _collapseSpread = spread;
+                    break;
+                case "collapsebudget" when double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double budget) && double.IsFinite(budget) && budget >= 0:
+                    _collapseBudget = budget;
                     break;
 
                 // M9b's provocation: an n × n square of chunks bitten under the player when the
@@ -4334,7 +4375,9 @@ public partial class Main : Node3D
                 GD.Print("M10: undo — nothing to undo");
                 break;
             case UndoOutcome.EmptyAfterAFall:
-                GD.Print("M10: undo — nothing to undo: the roof came down since your last edit, and rubble cannot be put back");
+                GD.Print(_collapseDirector is { Events.Count: > 0 }
+                    ? "M10: undo — nothing to undo: a collapse is under way, and rubble cannot be put back"
+                    : "M10: undo — nothing to undo: the roof came down since your last edit, and rubble cannot be put back");
                 break;
             case UndoOutcome.OutOfStock:
                 GD.Print(
@@ -5701,6 +5744,25 @@ public partial class Main : Node3D
         {
             FireEnabled = _collapseOn,
         };
+
+        if (_collapsePieces)
+        {
+            // Part b: the fuse hands a due chunk to the director. The cut runs on the pool (b-2's
+            // first step); the gather, the releases and the landings are the sim thread's.
+            _collapseDirector = new CollapseDirector(_support, _pipeline, _materials, rubble, _settings.Seed, _fluid)
+            {
+                Pace = _collapsePace,
+                SpreadMetres = _collapseSpread,
+                BudgetMillis = _collapseBudget,
+                CutRunner = work => System.Threading.Tasks.Task.Run(work),
+            };
+            _collapse.Director = _collapseDirector;
+            GD.Print(
+                $"M9: collapse in pieces (--collapsemode=pieces) — a due fuse starts an event: Tetris pieces from a spreading front, "
+                + $"flat {_collapsePace.GraceSeconds:0.##} s then doubling every {_collapsePace.DoubleSeconds:0.##} s (--collapsegrace=, --collapsedouble=), "
+                + $"steering up to {_collapseSpread:0.##} m (--collapsespread=), {_collapseBudget:0.##} ms of releases a frame (--collapsebudget=), "
+                + $"the cut on a worker; nothing is drawn falling yet (part c) — a piece is air at its release and rubble at its landing");
+        }
         GD.Print(
             $"M9: collapse {(_collapseOn ? "on" : "arming only (--collapse=0)")} — a settled chunk with something at risk arms "
             + $"{_collapseWindow.MinSeconds:0.##}–{_collapseWindow.MaxSeconds:0.##} s of world time by its deficit as the mean of a seeded exponential draw "
@@ -5738,6 +5800,22 @@ public partial class Main : Node3D
             _history.Recording = recording;
         }
 
+        // Part b: the wet landings, where the grid is the frame's — after the fuse, which may have
+        // just started an event, and inside the same recording-off bracket.
+        if (_collapseDirector is not null)
+        {
+            _history.Recording = false;
+            try
+            {
+                CollapseStep wet = _collapseDirector.Boundary(_clock.ElapsedMillis);
+                AfterCollapseStep(wet);
+            }
+            finally
+            {
+                _history.Recording = recording;
+            }
+        }
+
         double sweepMillis = Milliseconds(t0, Stopwatch.GetTimestamp());
         _collapseSweepMillisSum += sweepMillis;
         _collapseSweepMillisMax = Math.Max(_collapseSweepMillisMax, sweepMillis);
@@ -5772,7 +5850,66 @@ public partial class Main : Node3D
                 + water
                 + (fire.CascadeStage ? ", cascade" : string.Empty)
                 + $" at t {fire.WorldMillis / 1000.0:F1} s; the sweep took {sweepMillis:F1} ms");
-            UnstickAfterFall(r);
+            UnstickAfterFall(r.Written, $"the fall in chunk {r.Chunk}");
+        }
+    }
+
+    /// <summary>
+    /// Part b, every frame: the director's releases, flights and dry landings, with the fall's
+    /// three rules — nothing journalled, the undo stack cleared when the collapse writes, the body
+    /// lifted clear of a landing — and the <c>M9: event</c> line when one ends.
+    /// </summary>
+    private void FrameCollapse()
+    {
+        if (_collapseDirector is null)
+        {
+            return;
+        }
+
+        long t0 = Stopwatch.GetTimestamp();
+        bool recording = _history.Recording;
+        _history.Recording = false;
+        CollapseStep step;
+        try
+        {
+            step = _collapseDirector.Frame(_clock.ElapsedMillis);
+        }
+        finally
+        {
+            _history.Recording = recording;
+        }
+
+        double millis = Milliseconds(t0, Stopwatch.GetTimestamp());
+        _collapseFrames++;
+        _collapseFrameMillisSum += millis;
+        _collapseFrameMillisMax = Math.Max(_collapseFrameMillisMax, millis);
+        AfterCollapseStep(step);
+
+        foreach (CollapseEventSummary e in _collapseDirector.TakeEnded())
+        {
+            GD.Print(
+                $"M9: event {e.Id} — from {e.Origin} over {e.Members} chunk(s): {e.Pieces:N0} piece(s), {e.Voxels:N0} voxel(s) in {e.AgeSeconds:F1} s, "
+                + $"peak pace x{e.PeakMultiplier:0.#}, mino {e.PeakMino}, {e.RescuedVoxels:N0} rescued (the pile's props count), {e.LostVoxels:N0} lost");
+        }
+    }
+
+    /// <summary>A director step that wrote: the undo stack goes (UNDO-PLAN decision 4, his "disallow if something falls"), and a landing may have buried the body.</summary>
+    private void AfterCollapseStep(CollapseStep step)
+    {
+        if (!step.Wrote)
+        {
+            return;
+        }
+
+        if (_history.Steps > 0)
+        {
+            GD.Print($"M10: undo — the stack is cleared ({_history.Steps} step(s)): a collapse is under way");
+            _history.Clear();
+        }
+
+        if (step.Landed > 0)
+        {
+            UnstickAfterFall(step.Written, "a collapse's landing");
         }
     }
 
@@ -5782,7 +5919,7 @@ public partial class Main : Node3D
     /// <see cref="PlayerSpawn.TryUnstick"/> — up only, 4 m — or say it is buried and leave it,
     /// with <c>F</c> the only door until M11. Walking only: the flying body has no collision.
     /// </summary>
-    private void UnstickAfterFall(CollapseResult fall)
+    private void UnstickAfterFall(IReadOnlyCollection<ChunkPos> writtenChunks, string what)
     {
         if (_player is null || _pipeline is null || _materials is null || _player.Mode != PlayerMode.Walk)
         {
@@ -5792,7 +5929,7 @@ public partial class Main : Node3D
         Overburden.Core.Physics.Aabb box = _player.State.Box;
         (VoxelPos lo, VoxelPos hi) = box.VoxelBounds;
         bool overlaps = false;
-        foreach (ChunkPos written in fall.Written)
+        foreach (ChunkPos written in writtenChunks)
         {
             if (written.X >= lo.Chunk.X && written.X <= hi.Chunk.X
                 && written.Y >= lo.Chunk.Y && written.Y <= hi.Chunk.Y
@@ -5813,12 +5950,12 @@ public partial class Main : Node3D
             _collapseFreed++;
             float lifted = freed.Min.Y - box.Min.Y;
             _player.Teleport(freed.FeetCentre);
-            GD.Print($"M9: the player was freed {lifted:F2} m up after the fall in chunk {fall.Chunk}");
+            GD.Print($"M9: the player was freed {lifted:F2} m up after {what}");
         }
         else
         {
             _collapseBuried++;
-            GD.Print($"M9: the player is buried under the fall in chunk {fall.Chunk} — past the {PlayerSpawn.DefaultMaxUnstickMetres} m unstick; F is the door until M11");
+            GD.Print($"M9: the player is buried under {what} — past the {PlayerSpawn.DefaultMaxUnstickMetres} m unstick; F is the door until M11");
         }
     }
 
@@ -5847,7 +5984,32 @@ public partial class Main : Node3D
                + $"(mean drop {(voxels > 0 ? drop / (double)voxels : 0):F1}, deepest {c.DeepestDrop}), {stale:N0} stale skipped, "
                + (_fluid is null ? "no water" : $"lifted {lifted / litre:N0} L / returned {returned / litre:N0} L{(c.DisplacedMillilitres > 0 ? $" (*** {c.DisplacedMillilitres} mL DISPLACED ***)" : string.Empty)}")
                + $", {freed} freed / {buried} buried; {sweeps:N0} sweep(s), mean {(sweeps > 0 ? sweepMillis / sweeps : 0):F3} ms, "
-               + $"worst {_collapseSweepMillisMax:F1} ms, longest fall {_collapseFallMillisMax:F1} ms";
+               + $"worst {_collapseSweepMillisMax:F1} ms, longest fall {_collapseFallMillisMax:F1} ms"
+               + PieceTerms();
+    }
+
+    /// <summary>Part b's terms, over the lifetime: the events, the pieces, the identity, the water and the costs.</summary>
+    private string PieceTerms()
+    {
+        if (_collapseDirector is not { } d)
+        {
+            return "; pieces off (--collapsemode=sweep)";
+        }
+
+        const double litre = FluidConstants.MillilitresPerLitre;
+        long inFlight = d.InFlightVoxels;
+        bool identity = d.ReleasedVoxels == d.LandedVoxels + inFlight + d.LostVoxels;
+        return $"; pieces: {d.Events.Count} event(s) live ({d.Started:N0} started, {d.Ended:N0} ended, {d.Joined:N0} chunk(s) joined), "
+               + $"{d.Released:N0} piece(s) released / {d.Landed:N0} landed / {d.InFlight:N0} in flight; "
+               + $"voxels released {d.ReleasedVoxels:N0} == landed {d.LandedVoxels:N0} + in flight {inFlight:N0} + lost {d.LostVoxels:N0}"
+               + (identity ? string.Empty : " *** IDENTITY BROKEN ***")
+               + $", {d.RescuedVoxels:N0} rescued (the pile's props count), {d.RefallVoxels:N0} fell again, {d.Waited:N0} waited, {d.Blocked:N0} blocked ({d.LiftedByABlock:N0} lifted), "
+               + $"{d.WetLandings:N0} wet ({d.WetWaiting} waiting)"
+               + (_fluid is null ? string.Empty : $", lifted {d.LiftedMillilitres / litre:N0} L / returned {d.ReturnedMillilitres / litre:N0} L ({d.ClimbedMillilitres / litre:N0} L up a column) / displaced {d.DisplacedMillilitres / litre:N0} L")
+               + $"; {d.Replans:N0} re-plan(s), {d.CutsApplied:N0}/{d.CutsStarted:N0} worker cut(s) landed, {d.ReleasedDuringCuts:N0} voxel(s) released meanwhile, "
+               + $"cut ms mean {(d.Replans > 0 ? d.CutMillisSum / d.Replans : 0):F2} / max {d.CutMillisMax:F1} (worker), gather max {d.GatherMillisMax:F1} ms, "
+               + $"solve ms mean {(d.Solves > 0 ? d.SolveMillisSum / d.Solves : 0):F2} / max {d.SolveMillisMax:F1}, "
+               + $"frame ms mean {(_collapseFrames > 0 ? _collapseFrameMillisSum / _collapseFrames : 0):F3} / max {_collapseFrameMillisMax:F1}";
     }
 
     /// <summary>The bite provocation, and the <c>M9: at open</c> line once.</summary>
@@ -5867,6 +6029,9 @@ public partial class Main : Node3D
         {
             SweepCollapse();
         }
+
+        // Part b: the pieces move every frame; only a wet landing waits for the boundary.
+        FrameCollapse();
 
         // Once, when the fill has lit and every derive the open queued has landed — the moment
         // the at-risk count is the world's rather than a round's. A named world's open is what
@@ -8927,6 +9092,15 @@ public partial class Main : Node3D
             GD.Print(
                 $"M8b: finished the tick in flight before the quit — {remaining:N0} cell(s) in "
                 + $"{Milliseconds(before, Stopwatch.GetTimestamp()):F1} ms");
+        }
+
+        // Part b, decision 11: what is in flight lands where it would have, before the save —
+        // under the save's own gate, since a wet landing lifts through the grid.
+        if (_collapseDirector is { InFlight: > 0 } landing && _fluid is not { GridOwnedByTick: true })
+        {
+            _history.Recording = false;
+            CollapseStep landed = landing.LandAll(_clock.ElapsedMillis);
+            GD.Print($"M9: at quit — {landed.Landed} piece(s) in flight landed where they would have, {landed.Voxels:N0} voxel(s)");
         }
 
         // The water as it stands at the instant it is written, because the periodic line is up to

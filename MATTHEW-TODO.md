@@ -38,6 +38,18 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 ### Recent builds
 
+- [ ] **Your tower, in Tetris pieces.** Nothing is drawn falling yet (that's part c): rock
+      vanishes a piece at a time from a spreading front, and rubble appears where each piece
+      lands, a second or so later.
+      1. `start.cmd "--world=Regions16-pondlook" --collapsemode=pieces` (add `--collapseafter=2,10`
+         if you don't want to wait up to a minute for the fuse).
+      2. Knock out a ground support, as you did this afternoon, and stand well clear.
+      3. Watch the first 15 s. It should be slow, about three small pieces a second, then speed
+         up. Pieces grow to half a metre at ~20 s and a metre at ~30 s.
+      4. Quit when it settles. Then say **"restore my tower"** and I'll keep the collapsed world as
+         a dated copy and put the backup back.
+      *Does it read as slow-then-fast, like corruption spreading — even without the drop drawn?*
+
 - [ ] **The load test you wanted.** Same world, same spot, two short sessions back to back:
       `start3` then `start3 --fedadvance=0`. Play normally for a few minutes each and quit; copy
       `godot.log` aside between them. My read is that the flood's size is the cost, not the fed

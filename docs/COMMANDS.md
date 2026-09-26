@@ -251,7 +251,11 @@ write / return rule on every shape, `lifted == returned + displaced`; the `M6c:`
 carries `(N filled displacing at the boundary: lifted / returned / displaced)`, and **`--placeafter=<seconds>`**
 holds `--place` off so a pour can arrive first: `--profile --speed=0 --place --placeafter=6
 --stock=64000 --injectlitres=200000 --pitch=-60 --measure=12` reads `171 wet (93 filled displacing
-at the boundary: lifted 1,082.0 L, returned 1,082.0 L, displaced 0.0 L)`). **The keystone,
+at the boundary: lifted 1,082.0 L, returned 1,082.0 L, displaced 0.0 L)`). **The keystone is a race, not a fixed script** (found 2026-09-26, collapse b-2): whether three or four
+of the plug's falls land before the pour at 5 s depends on when the worker derives settle, and that
+decides the roof the lake stands over — five runs of the same binary read 15,985 to 24,973 voxels
+fallen and 0 to 31 L lifted. The figures below are one draw; `at risk 0` at the end and lifted ==
+returned hold in every run, and those are the oracle. **The keystone,
 verbatim, reads `at risk 20` at open, `table 20`, `at risk 18,718 voxel(s) in 7 settled chunk(s)` after the
 pour, four falls of ~6,200 voxels with `lifted 30 L == returned 30 L` and `displaced 0`, then `at risk 0`;
 `--saturation=0` sheds the plug's 20 and nothing more, `--tablemove=0` reads `table 0 (0 sweep(s))` and
@@ -269,6 +273,19 @@ rule as `--support`:
 
 ```bash
 DOTNET_TieredCompilation=0 dotnet run --project Overburden.Bench -c Release -- --support --collapse
+```
+
+**`--collapsemode=pieces`** (COLLAPSE-PLAN b-2) swaps the one-sweep fall for the Tetris collapse: a
+due fuse starts an event, pieces release from a spreading front, and each is air at its release and
+rubble at its landing; **nothing is drawn falling until part c**, which is why `sweep` stays the
+default. Its knobs: **`--collapsegrace=`** (15 s flat), **`--collapsedouble=`** (5 s a doubling),
+**`--collapsespread=`** (2 m of steer) and **`--collapsebudget=`** (2 ms of releases a frame). Each
+event ends with one `M9: event N — …` line, and the `M9:` and `support` lines carry a `pieces:` term
+with the identity `released == landed + in flight + lost`. The plug in pieces reads one event of about
+six pieces and 20 voxels; the keystone in pieces wants `--measure=60`:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --bitechunks=2 --collapseafter=1,2 --measure=20 --collapsemode=pieces
 ```
 
 **`--pieces` with `--support --collapse` drops them in Tetris pieces instead** (COLLAPSE-PLAN a-2;

@@ -1,5 +1,23 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 (a new chat) — Collapse b-2: the wire; the keystone is a race
+
+Matthew: *"ok Claude lets continue I cant wait to see my tower collapse"*. `--collapsemode=pieces`
+wires the director into `Main`: every frame, wet landings at the boundary, the undo cleared by
+the collapse's writes, the unstick after a landing, `LandAll` at the quit, the `M9: event` line
+and the `pieces:` term. The default stays `sweep` until part c draws the fall.
+
+- **The plug in pieces**: one event, 6 pieces, 20 voxels in 12.1 s, `at risk 0` — the bench's
+  six.
+- **The keystone in pieces**: 1,184 pieces, 70,065 voxels released == landed, lifted 782 L ==
+  returned, displaced 0.
+- r6 to the digit; the plug's sweep arm as recorded.
+- **The keystone's sweep arm read differently from its record, and the control showed why.**
+  Five runs an arm, today's code against the code before b-1, give the same spread (15,985 to
+  24,973 voxels, 0 to 31 L), and one of today's reproduces the record exactly. It is a race
+  between the plug's last fall and the pour at 5 s. COMMANDS says so now. A recorded oracle is
+  one draw until it has been run twice.
+
 ## 2026-09-26 (a new chat) — Collapse b-2, step 1: the cut on a worker
 
 Matthew: *"Yes please Claude thanks :-{D"*. The re-cut goes to `CollapseDirector.CutRunner`.

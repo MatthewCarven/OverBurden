@@ -35,7 +35,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/WATER-THREAD-PLAN.md](docs/WATER-THREAD-PLAN.md) | The tick's near/far order, the field, and the tick as a worker job. **Built** (slices 1–3c). Read before touching the tick's order or its home. |
 | [docs/FRONT-ADVANCE-PLAN.md](docs/FRONT-ADVANCE-PLAN.md) | Water that spreads sideways faster: `--frontadvance=` (4), fed by volume (`--fedshare=`), streams level their tip band (`--fedadvance=`, `--fedband=` 6). **Built and played 2026-09-24**; his load test is still owed. |
 | [docs/M9-PLAN.md](docs/M9-PLAN.md) | M9, the mine kills you: the support field, the tint, the fall, the keystone. **M9a–M9d built and played.** Read its "two facts" first: there is no bedrock, and a literal distance rule opens a shaft to the surface over a 2 × 2 bite. |
-| [docs/COLLAPSE-NOTES.md](docs/COLLAPSE-NOTES.md), [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md) | **The slow-then-fast collapse, "Tetris gone bad"** (2026-09-26). Fourteen decisions taken; **part a, b-1 and b-2's worker cut (all Core) built; the wire into `Main` next.** Read the notes' "What exists", then the plan's facts, "a-2 — built", "Part b — the code-level pass" and "b-1 — built". |
+| [docs/COLLAPSE-NOTES.md](docs/COLLAPSE-NOTES.md), [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md) | **The slow-then-fast collapse, "Tetris gone bad"** (2026-09-26). Fourteen decisions taken; **parts a and b built — `--collapsemode=pieces` plays it, nothing drawn falling; part c, the look, next.** Read the notes' "What exists", then the plan's facts, "a-2 — built", "Part b — the code-level pass" and "b-1 — built". |
 | [docs/M10-NOTES.md](docs/M10-NOTES.md), [docs/M10-PLAN.md](docs/M10-PLAN.md) | The quantum machine family and M10's first plan. Read before planning any machine. |
 | [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) | **The ladder** — hand → steam → DC → AC → quantum and the crafting under it; twenty-three decisions, parts M10a–M10j. **M10a–M10c built; M10d is the play (his) and d-1/d-3 built; M10e (the conductor index) is next after the play.** Its one idea: connection is membership, movement a ledger transfer at the boundary. |
 | [docs/UNDO-PLAN.md](docs/UNDO-PLAN.md) | Ctrl+Z, three steps. **Built and played 2026-09-22.** A fall clears the stack; the journal hangs off `SetVoxel` and `MachineSet`; an undo must not journal its own writes. |
@@ -189,11 +189,15 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 `water-column-test` both match GitHub as of a fetch. `start2.cmd`–`start5.cmd` are Matthew's and
 deliberately untracked.
 
-**Next on my side: collapse b-2, the wire.** Part a and b-1 are built, all Core:
-`CollapseDirector` sits between the events and the world, the scheduler hands it a due fuse,
-and the bench's `--support --collapse --pieces` drives it with every oracle holding. The game
-still runs the sweep. **The re-cut runs on a worker** (b-2's first step, on his yes): the room's
-frame p99 went from ~260 ms to ~9 ms. The rest of b-2 is the wire into `Main`, listed in TODO. Half of a big collapse is rubble tumbling off the pile,
+**Next on my side: collapse part c, the look — its own pass first.** Parts a and b are built:
+`--collapsemode=pieces` runs the Tetris collapse in the game (one `M9: event` line an event, a
+`pieces:` term on the `M9:` line), with nothing drawn falling. A piece is air at its release and
+rubble at its landing, which is why `sweep` stays the default. The re-cut runs on a worker (the
+room's frame p99 went from ~260 ms to ~9 ms). **His tower play is queued in MATTHEW-TODO**, on
+`Regions16-pondlook` with `--collapsemode=pieces`. Afterwards he wants it restored from
+`backup-Regions16-pondlook-2026-09-26`, with the collapsed world kept as a dated copy, never
+deleted. **The keystone oracle is a race** (COMMANDS): read `at risk 0` and lifted == returned,
+not its falls. Half of a big collapse is rubble tumbling off the pile,
 and whether that reads as settling or churn is his once he can see it (part c). The collapse
 sensor (part f) reads `CollapseDirector.Events`.
 
