@@ -52,7 +52,7 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
       **Played in part, 2026-09-26:** your glass at the top came down in eight small collapses
       (505 voxels, the biggest reaching 1 m pieces), *"after the glass settled i like it!"*
       **Then the tower:** four collapses, 902 pieces, 20,426 voxels, the biggest 48 s long and up
-      to 1 m pieces; the water exact. Waiting on your one sentence, and on "restore my tower".
+      to 1 m pieces; the water exact. Answered (below). Say "restore my tower" when you want it.
 
 - [ ] **The load test you wanted.** Same world, same spot, two short sessions back to back:
       `start3` then `start3 --fedadvance=0`. Play normally for a few minutes each and quit; copy
@@ -165,6 +165,8 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Answered lately
 
+- **The Tetris collapse, played on your tower** (2026-09-26): *"yes slow to fast … buildings unless
+  in earthquakes usually give signs before they collapse"* — the pace table stays as built.
 - **No rain under your roof** (2026-09-26): *"no rain inside now the roof is dry"* — the log
   agrees: 52,195 L rained, 2,098 drops onto what you built, 0 spawned under a roof.
 - **The quantum tunneller** (2026-09-26): *"I like the 2m cube"* — the 2 m middle tier stays.

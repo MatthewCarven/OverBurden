@@ -1,5 +1,12 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 (a new chat) — His verdict on the tower: slow to fast
+
+*"yes slow to fast, um that is sort of realistic like because buildings unless in earthquakes
+usually give signs before they collapse"*. Decisions 3 and 4 (the fuse, the flat 15 s, the
+doubling) stand as built, recorded in COLLAPSE-PLAN's "Played". The earthquake aside is colour; it
+names the no-warning collapse, which is TNT's shake if that is ever built.
+
 ## 2026-09-26 (a new chat) — The tower comes down in pieces
 
 Matthew mined out the bottom of his tower on `Regions16-pondlook` under `--collapsemode=pieces` and

@@ -685,6 +685,23 @@ stands over: the peak at risk reads 18,293–18,728 in 3 or 7 chunks, or 24,405�
 What holds in every run is `at risk 0` at the end and lifted == returned. COMMANDS says so beside
 the oracle now.
 
+## Played, 2026-09-26 — the pace is right
+
+His tower on `Regions16-pondlook`, under `--collapsemode=pieces`: four events, 902 pieces,
+20,426 voxels, the biggest 48 s long with pieces up to 1 m, and the water exact (the worklog has
+the table). His verdict:
+
+> "yes slow to fast, um that is sort of realistic like because buildings unless in earthquakes
+> usually give signs before they collapse"
+
+**Decisions 3 and 4 stand as built:** the fuse and the tint are the signs, the flat 15 s is the
+slow start, and the doubling from there is the fast end. His aside about earthquakes is colour, not
+an instruction. It names the one collapse with no warning, which is TNT-NOTES's shake if that is
+ever built. Still open for part c:
+- the look of the drop itself;
+- what a flight blocked where it stands does when it is drawn (96 blocked, 40 of them lifted);
+- whether the pace wants a ceiling (×644 at 62 s).
+
 ## What would reverse this
 
 - **Render-only (6):** if pieces landing on each other in flight read wrong, or a player wants to
