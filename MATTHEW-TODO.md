@@ -76,7 +76,12 @@ I'll go and find the numbers.
 
 ## Now
 
-- [x] **Push** — done 2026-09-23, `ac91996..5f338fd`. Nothing outstanding.
+- [ ] **Push, both branches (2026-09-26).** `main` (`git push origin main`) and
+      `water-column-test` (`git push`) are both ahead.
+- [ ] **The Tetris collapse (2026-09-26)**: a fresh Code chat on `main` that opens with *"read
+      docs/COLLAPSE-NOTES.md and do its planning pass"*. Your words and the six questions are in
+      there. Your building is restored; the demolished tower is kept as
+      `Regions16-pondlook-demolished-2026-09-26` for measuring.
 - [ ] **Your stone-edged pond** — planned tonight, not built. Walls you place will raise the
       lake's rim (the pass is `docs/POND-PLAN.md`); once it's built, R into your ring on
       `Regions16` should fill it to the wall, and the water will stop vanishing when the ring

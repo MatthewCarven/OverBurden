@@ -5005,6 +5005,12 @@ own, flagged to him in the reply; the tenth is his water grid, folded in the sam
 
 ### M9 — v0.5, the game exists
 
+- [ ] **The slow-then-fast collapse — "Tetris gone bad"** (Matthew, 2026-09-26). Notes, not a
+  plan: [docs/COLLAPSE-NOTES.md](docs/COLLAPSE-NOTES.md). It needs its planning pass first, in a
+  separate chat on `main`, over the notes' six questions. The measurement world is
+  `worlds/Regions16-pondlook-demolished-2026-09-26/` (open it only as a copy), and the log of the
+  first demolition is `logs/demolition-2026-09-26.log`.
+
 **Planned 2026-09-11 — [docs/M9-PLAN.md](docs/M9-PLAN.md), split M9a–M9d, twelve decisions all
 taken as recommended the same day (*"As planned"*). M9a is next, in its own session.** Two facts from the code open it: there is no bedrock (the
 anchor is the edge of the analysed set, M4a's *unloaded is solid* extended to *and holds*), and
