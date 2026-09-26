@@ -1,5 +1,18 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 (a new chat) — Collapse c-1: what the renderer needs, and fewer jumping pieces
+
+*"as recommended please"*. Core only:
+- **Built:** the rotation voxel by voxel (`VoxelCells`), each voxel's material at release, the
+  cells a piece is drawn in, the next second's queue (`Upcoming`), the water's factor, and a
+  landing that waits while another piece is drawn in its rest. Suite 1,961 → 1,973.
+- **On the bench,** landings no longer lift pieces. Ten lifts remain in ~3,000 pieces, all of them
+  a second mechanism: a re-plot's last clear spot inside another flight's reservation, chosen on
+  its path after it was solved. They rise 2–4 voxels. That goes to him as decision 11, with
+  "accept" recommended.
+- **Battery:** 13 recipes, 12 caught, 1 identity deleted; the boundary's wait was a hole, now
+  tested.
+
 ## 2026-09-26 (a new chat) — Collapse part c: the code-level pass
 
 *"ok lets continue with part c please"*. Read against the voxel shader, the mesh apply, the light

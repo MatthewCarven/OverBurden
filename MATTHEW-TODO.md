@@ -114,10 +114,10 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 Nothing is blocked on these; each is a small change once you have a view.
 
-- [ ] **The collapse, part c — ten decisions** (COLLAPSE-PLAN, "Part c"). The ones worth your eye:
-      pieces fall in steps, not glides (4); a piece waits a frame rather than jumping when another
-      lands where it is drawn (6); the next second of pieces glitches before it goes (7). "As
-      recommended" builds c-1, the Core half.
+- [ ] **The collapse: pieces that jump a little.** The fix for your tower's jumping pieces works,
+      but one piece in about 300 still hops up by at most a metre, late in a big collapse. I
+      recommend leaving it and judging it on the screenshots; the full fix is expensive (plan,
+      "c-1 — built"). "Leave it" or "fix it".
 - [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), six decisions still open. The biggest: a
       blast destroys the machines it reaches (5). "As recommended" or any one back.
 - [ ] **A rock placed in a lake.** A pier into a lake deletes no water today. If that reads wrong,
@@ -170,6 +170,7 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Answered lately
 
+- **The collapse, part c's ten decisions** (2026-09-26): *"as recommended"*; c-1 is built.
 - **The Tetris collapse, played on your tower** (2026-09-26): *"yes slow to fast … buildings unless
   in earthquakes usually give signs before they collapse"* — the pace table stays as built.
 - **No rain under your roof** (2026-09-26): *"no rain inside now the roof is dry"* — the log

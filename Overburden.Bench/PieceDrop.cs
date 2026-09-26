@@ -158,7 +158,7 @@ internal static class PieceDrop
             + $"; {director.Started} event(s) started, {director.Joined} chunk(s) joined, peak {peakEvents} live; "
             + $"by mino {string.Join(", ", byMino.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}: {kv.Value.Pieces:N0} ({kv.Value.Voxels:N0} voxels)"))}; "
             + $"peak {peakInFlight} in flight; {director.Waited:N0} waited; {director.RefallVoxels:N0} rubble voxel(s) fell again; "
-            + $"rescued {director.RescuedVoxels:N0}; {director.Blocked} blocked; lost {director.LostVoxels}");
+            + $"rescued {director.RescuedVoxels:N0}; {director.Blocked} blocked ({director.LiftedByABlock} lifted, {director.LiftedOffAReservation} off a reservation, rising {director.LiftVoxelsSum} voxel(s) in all, {director.LiftVoxelsMax} at most), {director.WaitedForPicture:N0} landing-frame(s) waited for a picture; lost {director.LostVoxels}");
         Console.WriteLine(
             $"    solve ms mean {(director.Solves == 0 ? 0 : director.SolveMillisSum / director.Solves):F3} / max {director.SolveMillisMax:F3} over {director.Solves:N0}; "
             + $"{director.Replans:N0} re-plan(s) over {settles:N0} settle(s): gather ms mean {(director.Replans == 0 ? 0 : director.GatherMillisSum / director.Replans):F3} / max {director.GatherMillisMax:F3}, cut ms mean {(director.Replans == 0 ? 0 : director.CutMillisSum / director.Replans):F3} / max {director.CutMillisMax:F3} ({(CutOnWorker ? $"on a worker: {director.CutsApplied:N0} landed, {director.ReleasedDuringCuts:N0} voxel(s) released meanwhile" : "on the sim thread")}); frame ms mean {frameMillis.Average():F3} / p99 {frameMillis.OrderBy(x => x).ElementAt((int)(frameMillis.Count * 0.99)):F3} / max {frameMillis.Max():F3} over {frameMillis.Count:N0}");

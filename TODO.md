@@ -13,12 +13,9 @@ his word — and this file points at it rather than repeating it.
 
 ## Next, on my side
 
-- [ ] **Collapse part c — the pass is written, the decisions are his.** [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md),
-      "Part c — the code-level pass": seven facts, ten decisions. On his word, in order:
-      1. **c-1, Core:** the solver records its rotation; the director captures each released
-         voxel's material in the rotated shape's order; `CollapseEvent.Peek`; a per-flight water
-         factor in `Advance` (half the fall, capped at 2 m/s); a due flight waits while another
-         flight is drawn in its rest cells. Tests, and the bench's `blocked` near zero.
+- [ ] **Collapse c-2 — the renderer.** [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part c" and
+      "c-1 — built". c-1 is done (`VoxelCells`, `Materials`, `DrawnCells`, `Upcoming`, the water
+      factor, the landing that waits for a picture). His decision 11 (the residual lifts) is open.
       2. **c-2, the renderer:** `VoxelPiece.gdshader` (the include's `vertex()` behind a define,
          light from an instance uniform), a mesh per piece built at release and moved a step at a
          time, its light sampled from the grid once a step, the hand-off waiting on

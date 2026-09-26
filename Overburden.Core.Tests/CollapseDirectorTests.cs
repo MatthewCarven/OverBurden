@@ -117,7 +117,7 @@ public class CollapseDirectorTests
         public List<CollapseEventSummary> Ended { get; } = [];
 
         /// <summary>Frames at 16 ms up to <paramref name="untilMillis"/>: a boundary (fuse, wet landings) every 31st, a settle at most every 250 ms after a write, the identity at every frame.</summary>
-        public void Run(long untilMillis, bool settle = true, bool boundaries = true)
+        public void Run(long untilMillis, bool settle = true, bool boundaries = true, bool identity = true)
         {
             for (; Now <= untilMillis; Now += 16)
             {
@@ -134,7 +134,10 @@ public class CollapseDirectorTests
                 }
 
                 Ended.AddRange(Director.TakeEnded());
-                Assert.Equal(Director.ReleasedVoxels, Director.LandedVoxels + Director.InFlightVoxels + Director.LostVoxels);
+                if (identity)
+                {
+                    Assert.Equal(Director.ReleasedVoxels, Director.LandedVoxels + Director.InFlightVoxels + Director.LostVoxels);
+                }
                 if (settle && Dirty && Now - LastSettle >= 250)
                 {
                     Region.Settle();
@@ -876,6 +879,234 @@ public class CollapseDirectorTests
         Assert.Empty(rig.Director.Events);
         Assert.Equal(solidBefore, world.Census().Solid);
         Assert.Equal(rig.Director.CutsStarted, rig.Director.CutsApplied);
+    }
+
+    // ---- Part c-1: what the renderer needs, and the landing that waits for a picture -------
+
+    [Fact]
+    public void EveryVoxelMapsToItsCellInTheRotatedShapeRigidly()
+    {
+        // Each free tetracube, dropped where the solver rotates it: the voxel-to-cell map is a
+        // bijection onto the shape and keeps every pairwise distance — a rotation, voxel for voxel.
+        var world = new SupportTestWorld();
+        world.FillBox(new ChunkPos(-1, 0, -1), new ChunkPos(1, 0, 1), Stone);
+        world.FillBox(new ChunkPos(-1, 1, -1), new ChunkPos(1, 2, 1), Air);
+        var editor = new SupportTestWorld.Editor(world, null);
+        int rotated = 0;
+        foreach ((int X, int Y, int Z)[] tetracube in Polycubes.FreeTetracubes)
+        {
+            VoxelPos[] voxels = [.. tetracube.Select(c => new VoxelPos(10 + c.X, 40 + c.Y, 10 + c.Z))];
+            var piece = new CollapsePiece(0, 1, tetracube, voxels, 0);
+            LandingPlan plan = LandingSolver.Solve(piece, editor, world.Materials, null, new VoxelPos(10, 40, 10), 2f, 3)!;
+
+            Assert.Equal(voxels.Length, plan.VoxelCells.Length);
+            Assert.Equal(plan.Shape.OrderBy(c => c).ToArray(), plan.VoxelCells.OrderBy(c => c).ToArray());
+            for (int i = 0; i < voxels.Length; i++)
+            for (int j = 0; j < voxels.Length; j++)
+            {
+                long dv = Sq(voxels[i].X - voxels[j].X) + Sq(voxels[i].Y - voxels[j].Y) + Sq(voxels[i].Z - voxels[j].Z);
+                long dc = Sq(plan.VoxelCells[i].X - plan.VoxelCells[j].X) + Sq(plan.VoxelCells[i].Y - plan.VoxelCells[j].Y) + Sq(plan.VoxelCells[i].Z - plan.VoxelCells[j].Z);
+                Assert.Equal(dv, dc);
+            }
+
+            if (plan.Orientation != 0)
+            {
+                rotated++;
+            }
+        }
+
+        // The fixture has to exercise a rotation, or the map is only ever the identity.
+        Assert.True(rotated > 0, "no tetracube was rotated");
+
+        static long Sq(int d) => (long)d * d;
+    }
+
+    [Fact]
+    public void AReleasedPieceKeepsEachVoxelsMaterial()
+    {
+        // A slab of stone and dirt in a checker: every flight carries what each voxel was.
+        Rig rig = Slab(new VoxelPos(8, 50, 8), new VoxelPos(11, 50, 11));
+        for (int x = 8; x <= 11; x++)
+        for (int z = 8; z <= 11; z++)
+        {
+            if ((x + z) % 2 == 0)
+            {
+                rig.World.Set(new VoxelPos(x, 50, z), SupportTestWorld.Dirt);
+            }
+        }
+
+        var original = new Dictionary<VoxelPos, int>();
+        for (int x = 8; x <= 11; x++)
+        for (int z = 8; z <= 11; z++)
+        {
+            original[new VoxelPos(x, 50, z)] = rig.World.Material(new VoxelPos(x, 50, z));
+        }
+
+        Fire(rig, Sky);
+        var seen = new HashSet<VoxelPos>();
+        for (long until = 0; until < 3_000; until += 16)
+        {
+            rig.Run(until, settle: false, boundaries: false);
+            foreach (CollapseFlight flight in rig.Director.Events.SelectMany(e => e.InFlight))
+            {
+                Assert.Equal(flight.Piece.Voxels.Length, flight.Materials.Length);
+                for (int i = 0; i < flight.Piece.Voxels.Length; i++)
+                {
+                    Assert.Equal(original[flight.Piece.Voxels[i]], flight.Materials[i]);
+                    seen.Add(flight.Piece.Voxels[i]);
+                }
+            }
+        }
+
+        Assert.Contains(seen, v => original[v] == SupportTestWorld.Dirt);
+        Assert.Contains(seen, v => original[v] == Stone);
+    }
+
+    [Fact]
+    public void UpcomingIsTheNextSecondsReleasesInOrder()
+    {
+        Rig rig = Slab(new VoxelPos(8, 50, 8), new VoxelPos(15, 50, 15));
+        CollapseEvent ev = Fire(rig, Sky);
+        rig.Run(0, settle: false, boundaries: false);
+        IReadOnlyList<CollapsePiece> upcoming = rig.Director.Upcoming(ev, rig.Now);
+
+        // Three pieces a second at the start, so three are shown, and they are the next three out.
+        Assert.Equal(3, upcoming.Count);
+        var released = new List<CollapsePiece>();
+        for (long until = 16; released.Count < 3; until += 16)
+        {
+            long before = rig.Director.Released;
+            rig.Run(until, settle: false, boundaries: false);
+            if (rig.Director.Released > before)
+            {
+                released.Add(ev.InFlight[^1].Piece);
+            }
+        }
+
+        Assert.Equal(upcoming, released);
+    }
+
+    [Fact]
+    public void WaterHalvesAPiecesFall()
+    {
+        // The same slab dry and falling through a pool from Y 49 down: at the start's 1 m/s, the
+        // pool's half is 0.5 m/s, so the eighteen voxels take about twice as long.
+        long LandedAt(bool water)
+        {
+            Rig rig = Slab(new VoxelPos(8, 50, 8), new VoxelPos(9, 50, 9), water: true);
+            if (water)
+            {
+                rig.Water!.Fill(new VoxelPos(-12, 32, -12), new VoxelPos(28, 49, 28));
+            }
+
+            Fire(rig, Sky);
+            for (long until = 0; until < 30_000; until += 16)
+            {
+                rig.Run(until);
+                if (rig.Director.LandedVoxels == 4)
+                {
+                    Assert.Equal(water, rig.Director.SlowedInWater > 0);
+                    return until;
+                }
+            }
+
+            throw new Xunit.Sdk.XunitException("the slab never landed");
+        }
+
+        long dry = LandedAt(false);
+        long wet = LandedAt(true);
+        Assert.InRange(wet, dry * 17 / 10, dry * 23 / 10);
+    }
+
+    [Theory]
+    [InlineData(1.0, 0.5)]     // the start: half of 1 m/s
+    [InlineData(4.0, 0.5)]     // 2 m/s exactly, the cap's edge
+    [InlineData(10.0, 0.2)]    // the fall's own cap: 2 m/s of 10
+    public void InWaterAPieceFallsAtHalfNeverPastTwoMetresASecond(double fall, double factor) =>
+        Assert.Equal(factor, CollapseDirector.WaterFactor(fall), 9);
+
+    [Fact]
+    public void ALandingWaitsWhileAnotherPieceIsDrawnInItsRest()
+    {
+        // Two flights by hand on one event: A falls from Y 40 to rest at 32 and is due at 2.0 s;
+        // B, launched at 1.392 s, passes through 32 on its way into a pit at 31 and is drawn there
+        // from 1.892 to 2.142 s. A waits, B lands, then A — and nothing is lifted or written into
+        // a picture.
+        // The event's own slab is ten voxels off, past the two metres its pieces can steer.
+        Rig rig = Slab(new VoxelPos(20, 50, 20), new VoxelPos(21, 50, 21));
+        rig.World.Set(new VoxelPos(10, 31, 10), Air);
+        CollapseEvent ev = Fire(rig, Sky);
+
+        static (CollapsePiece Piece, LandingPlan Plan) Straight(int order, int fromY, int toY)
+        {
+            var start = new VoxelPos(10, fromY, 10);
+            var piece = new CollapsePiece(order, 1, [(10, fromY, 10)], [start], 0);
+            var path = Enumerable.Range(0, fromY - toY + 1).Select(k => new VoxelPos(10, fromY - k, 10)).ToList();
+            return (piece, new LandingPlan(0, [(0, 0, 0)], start, new VoxelPos(10, toY, 10), path, 0) { VoxelCells = [(0, 0, 0)] });
+        }
+
+        (CollapsePiece pa, LandingPlan a) = Straight(1000, 40, 32);
+        (CollapsePiece pb, LandingPlan b) = Straight(1001, 34, 31);
+        // Launched by hand, so the director never counted them released: its identity is off here.
+        CollapseFlight fa = ev.Launch(pa, a, 0);
+        rig.Run(1_392 - 16, settle: false, boundaries: false, identity: false);
+        CollapseFlight fb = ev.Launch(pb, b, rig.Now);
+        Assert.Equal(1_392, fb.LaunchedAtMillis);
+
+        rig.Run(2_016, settle: false, boundaries: false, identity: false);
+        Assert.True(fa.IsDue);
+        Assert.Contains(fa, ev.InFlight);
+        Assert.True(rig.Director.WaitedForPicture > 0);
+        Assert.Equal(Air, rig.World.Material(new VoxelPos(10, 32, 10)));
+
+        rig.Run(3_000, settle: false, boundaries: false, identity: false);
+        Assert.DoesNotContain(fa, ev.InFlight);
+        Assert.DoesNotContain(fb, ev.InFlight);
+        Assert.Equal(Rubble, rig.World.Material(new VoxelPos(10, 31, 10)));
+        Assert.Equal(Rubble, rig.World.Material(new VoxelPos(10, 32, 10)));
+        Assert.Equal(0, rig.Director.LiftedByABlock);
+        Assert.Equal(0, rig.Editor.RubbleOnSolid);
+    }
+
+    [Fact]
+    public void AWetLandingAtTheBoundaryWaitsWhileAnotherPieceIsDrawnInItsRest()
+    {
+        // As above, with water in A's rest only: A is due at 2.0 s and goes to the boundary wet.
+        // B, launched at 1.968 s, reaches 32 at 2.468 s and lingers there twice as long in the
+        // water, to 2.968. The boundary at 2.480 s finds B drawn in A's rest, and A waits; A lands
+        // at the boundary of 2.976 s, the frame B lands at 31.
+        Rig rig = Slab(new VoxelPos(20, 50, 20), new VoxelPos(21, 50, 21), water: true);
+        rig.World.Set(new VoxelPos(10, 31, 10), Air);
+        rig.Water!.Cells[new VoxelPos(10, 32, 10)] = Cap;
+        CollapseEvent ev = Fire(rig, Sky);
+
+        static (CollapsePiece Piece, LandingPlan Plan) Straight(int order, int fromY, int toY)
+        {
+            var start = new VoxelPos(10, fromY, 10);
+            var piece = new CollapsePiece(order, 1, [(10, fromY, 10)], [start], 0);
+            var path = Enumerable.Range(0, fromY - toY + 1).Select(k => new VoxelPos(10, fromY - k, 10)).ToList();
+            return (piece, new LandingPlan(0, [(0, 0, 0)], start, new VoxelPos(10, toY, 10), path, 0) { VoxelCells = [(0, 0, 0)] });
+        }
+
+        (CollapsePiece pa, LandingPlan a) = Straight(1000, 40, 32);
+        (CollapsePiece pb, LandingPlan b) = Straight(1001, 34, 31);
+        CollapseFlight fa = ev.Launch(pa, a, 0);
+        rig.Run(1_968 - 16, settle: false, identity: false);
+        CollapseFlight fb = ev.Launch(pb, b, rig.Now);
+        Assert.Equal(1_968, fb.LaunchedAtMillis);
+
+        rig.Run(2_480, settle: false, identity: false);
+        Assert.True(fa.IsDue);
+        Assert.Contains(fa, ev.InFlight);
+        Assert.True(rig.Director.WaitedForPicture > 0);
+
+        rig.Run(3_500, settle: false, identity: false);
+        Assert.DoesNotContain(fa, ev.InFlight);
+        Assert.DoesNotContain(fb, ev.InFlight);
+        Assert.Equal(Rubble, rig.World.Material(new VoxelPos(10, 32, 10)));
+        Assert.Equal(Cap, rig.Director.LiftedMillilitres);
+        Assert.Equal(0, rig.Director.LiftedByABlock);
+        Assert.Equal(0, rig.Editor.RubbleOnSolid);
     }
 
     // ---- Helpers ------------------------------------------------------------------------------

@@ -19,6 +19,13 @@ public sealed record LandingPlan(
     IReadOnlyList<VoxelPos> Path,
     int Candidates)
 {
+    /// <summary>
+    /// Where each of the piece's voxels sits in <see cref="Shape"/>, in the piece's own order — the
+    /// rotation at release, voxel for voxel (COLLAPSE-PLAN part c, fact 3), so a piece can be drawn
+    /// in its own materials. Empty for a plan made without a piece to map.
+    /// </summary>
+    public (int X, int Y, int Z)[] VoxelCells { get; init; } = [];
+
     /// <summary>Ticks from release to rest: a tick is one mino down, and sideways one mino while steering.</summary>
     public int Steps => Path.Count - 1;
 
@@ -184,7 +191,42 @@ public static class LandingSolver
             }
         }
 
-        return best is null ? null : best with { Candidates = candidates };
+        return best is null ? null : best with { Candidates = candidates, VoxelCells = MapVoxels(local, best.Shape) };
+    }
+
+    /// <summary>
+    /// The rotation that turns the piece's own cells into <paramref name="shape"/>, applied voxel by
+    /// voxel: the orientations are the 24 rotations deduplicated, so one of them made it.
+    /// </summary>
+    private static (int X, int Y, int Z)[] MapVoxels((int X, int Y, int Z)[] local, (int X, int Y, int Z)[] shape)
+    {
+        var target = new HashSet<(int X, int Y, int Z)>(shape);
+        var cells = new (int X, int Y, int Z)[local.Length];
+        foreach (Func<(int X, int Y, int Z), (int X, int Y, int Z)> rotate in Polycubes.Rotations)
+        {
+            int minX = int.MaxValue, minY = int.MaxValue, minZ = int.MaxValue;
+            for (int i = 0; i < local.Length; i++)
+            {
+                cells[i] = rotate(local[i]);
+                minX = Math.Min(minX, cells[i].X);
+                minY = Math.Min(minY, cells[i].Y);
+                minZ = Math.Min(minZ, cells[i].Z);
+            }
+
+            bool match = true;
+            for (int i = 0; i < local.Length && match; i++)
+            {
+                cells[i] = (cells[i].X - minX, cells[i].Y - minY, cells[i].Z - minZ);
+                match = target.Contains(cells[i]);
+            }
+
+            if (match)
+            {
+                return cells;
+            }
+        }
+
+        throw new InvalidOperationException("No rotation of the piece makes the shape its plan rests in.");
     }
 
     /// <summary>

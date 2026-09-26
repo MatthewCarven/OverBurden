@@ -6,10 +6,11 @@ namespace Overburden.Core.Structure;
 /// <summary>A piece on its way down: its plan, and how many of the plan's ticks it has fallen.</summary>
 public sealed class CollapseFlight
 {
-    internal CollapseFlight(CollapsePiece piece, LandingPlan plan, long launchedAtMillis)
+    internal CollapseFlight(CollapsePiece piece, LandingPlan plan, long launchedAtMillis, int[]? materials = null)
     {
         Piece = piece;
         Plan = plan;
+        Materials = materials ?? [];
         LaunchedAtMillis = launchedAtMillis;
         AdvancedToMillis = launchedAtMillis;
     }
@@ -25,6 +26,26 @@ public sealed class CollapseFlight
 
     /// <summary>World time at release.</summary>
     public long LaunchedAtMillis { get; }
+
+    /// <summary>
+    /// What each of the piece's voxels was when it let go, in <see cref="CollapsePiece.Voxels"/>'s
+    /// order — the picture's materials (part c, decision 2); empty when the launcher gave none.
+    /// Where each is drawn is <see cref="LandingPlan.VoxelCells"/>.
+    /// </summary>
+    public int[] Materials { get; }
+
+    /// <summary>The cells the piece is drawn in now: the shape at <see cref="Anchor"/>.</summary>
+    public IEnumerable<VoxelPos> DrawnCells
+    {
+        get
+        {
+            VoxelPos at = Anchor;
+            foreach ((int X, int Y, int Z) s in Plan.Shape)
+            {
+                yield return at.Offset(s.X, s.Y, s.Z);
+            }
+        }
+    }
 
     /// <summary>Ticks fallen, fractional: the event's pace moves it, a tick at a time.</summary>
     public double Progress { get; internal set; }
@@ -120,6 +141,14 @@ public sealed class CollapseEvent
 
     /// <summary>Pieces still to release.</summary>
     public int Queued => _queue.Count - _next;
+
+    /// <summary>The next <paramref name="count"/> pieces to release, in order — the corruption the renderer draws on the queue (part c, decision 7).</summary>
+    public IReadOnlyList<CollapsePiece> Peek(int count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        int n = Math.Min(count, _queue.Count - _next);
+        return n <= 0 ? [] : _queue.GetRange(_next, n);
+    }
 
     /// <summary>Pieces released.</summary>
     public long Released { get; private set; }
@@ -252,11 +281,11 @@ public sealed class CollapseEvent
     }
 
     /// <summary>A released piece, its voxels now air, is falling along its plan.</summary>
-    public CollapseFlight Launch(CollapsePiece piece, LandingPlan plan, long nowMillis)
+    public CollapseFlight Launch(CollapsePiece piece, LandingPlan plan, long nowMillis, int[]? materials = null)
     {
         ArgumentNullException.ThrowIfNull(piece);
         ArgumentNullException.ThrowIfNull(plan);
-        var flight = new CollapseFlight(piece, plan, nowMillis);
+        var flight = new CollapseFlight(piece, plan, nowMillis, materials);
         _inFlight.Add(flight);
         foreach (VoxelPos v in plan.RestVoxels)
         {
@@ -269,11 +298,12 @@ public sealed class CollapseEvent
     }
 
     /// <summary>
-    /// Moves every piece in flight by the time since the last call, at the pace for this age,
-    /// and adds the ones now due to <paramref name="due"/>. A due piece stays in flight — reserved
+    /// Moves every piece in flight by the time since the last call, at the pace for this age —
+    /// scaled per flight by <paramref name="speed"/> when given (water, part c decision 8) — and
+    /// adds the ones now due to <paramref name="due"/>. A due piece stays in flight — reserved
     /// — until the caller has written it and calls <see cref="Land"/>.
     /// </summary>
-    public void Advance(long nowMillis, List<CollapseFlight> due)
+    public void Advance(long nowMillis, List<CollapseFlight> due, Func<CollapseFlight, double>? speed = null)
     {
         ArgumentNullException.ThrowIfNull(due);
         double age = AgeSeconds(nowMillis);
@@ -283,7 +313,8 @@ public sealed class CollapseEvent
             flight.AdvancedToMillis = Math.Max(flight.AdvancedToMillis, nowMillis);
             if (!flight.IsDue)
             {
-                flight.Progress = Math.Min(flight.Plan.Steps, flight.Progress + (dt / Pace.StepSeconds(age, flight.Piece.MinoVoxels)));
+                double factor = speed?.Invoke(flight) ?? 1.0;
+                flight.Progress = Math.Min(flight.Plan.Steps, flight.Progress + (dt * factor / Pace.StepSeconds(age, flight.Piece.MinoVoxels)));
             }
 
             if (flight.IsDue)

@@ -4,7 +4,8 @@ The planning pass for [COLLAPSE-NOTES.md](COLLAPSE-NOTES.md), 2026-09-26, on `ma
 decisions taken the same day (*"as recommended"*); a-1 and a-2 are built (Core, all of part
 a); part b's pass is written below and taken as recommended, and b-1 (the Core director) and b-2
 (the worker cut and the wire into `Main`) are built; `--collapsemode=pieces` plays it, with nothing
-drawn falling yet. Part c's code-level pass is written below, ten decisions his** (TODO's "Next").
+drawn falling yet. Part c's pass is written below and taken as recommended; c-1 (Core) is built, c-2 (the
+renderer) is next** (TODO's "Next").
 Read the notes first. They have his first brief, the demolition's numbers, and what M9 already does.
 
 ## His second brief (2026-09-26, the planning chat)
@@ -844,6 +845,58 @@ Then his tower, on a copy of the backup. Recommended.
 
 **The default flips to `pieces` on his verdict after c-2** (decision 12). Recommended: the same
 Core/renderer seam as b.
+
+## c-1 — built (2026-09-26)
+
+On his *"as recommended please"*. The pass's ten decisions are taken as written. Core only.
+
+- **The rotation, voxel for voxel.** `LandingPlan.VoxelCells` places each of the piece's voxels
+  in the rotated shape: the rotation that made the chosen orientation, found again among the 24.
+  `Replot` carries it with the shape.
+- **The materials.** `CollapseFlight.Materials` holds what each voxel was when it let go,
+  captured by the director before it writes air. `CollapseFlight.DrawnCells` gives the cells the
+  piece is drawn in now.
+- **The queue ahead.** `CollapseEvent.Peek(n)`, and `CollapseDirector.Upcoming(event, now)`: the
+  next second's releases at the event's pace. That is decision 7's corruption, for c-2 to draw.
+- **The water** (decision 8). `Advance` takes a factor for each flight. The director gives
+  `WaterFactor(fall)` — half the fall, never past 2 m/s — to any flight drawn in a cell the
+  published copy says is wet, and counts `SlowedInWater`.
+- **The landing waits for a picture** (decision 6). A due flight whose rest another flight is
+  drawn in waits a frame, in the frame and at the boundary alike; `WaitedForPicture` counts it.
+
+`CollapseDirectorTests` has eleven more tests; suite 1,961 → 1,973.
+
+**On the bench, the lifts that come from landings are gone, but not every lift.** Blocked flights
+now read room 9, soil roof 0, 2 m head 0, 5 m 1, 10 m 13, mid-air 3. Ten lifts remain across the
+seven fixtures (about one piece in 300). **Every one of them is `LiftedOffAReservation`**, a
+second mechanism the pass did not see:
+1. A flight's path was solved *before* another flight reserved a rest on it. Pictures pass through
+   reservations, so the solver let the second flight choose a rest on the first one's path.
+2. Rubble lands lower on the first flight's path.
+3. Its re-plot's last clear spot lies inside that reservation.
+4. The re-plot counts the reservation as solid, so it rises.
+
+The lifts are small: 2–4 voxels each, 24 in all on the worst fixture, at most one mino (4 voxels,
+1 m). They come only late in big collapses, when 1 m pieces are flying. That is **his decision
+11** in the list below. Three arms:
+- **Accept it**, recommended: a hitch of up to a metre, one piece in ~300, in the busiest moments
+  of a collapse. It is below what the eye will pick out in that churn, and the screenshot at c-2
+  says whether it is.
+- **Swap who pops:** land the blocked flight where it stands and re-plot the reservation's owner
+  on top. It is the same pop on the other piece.
+- **Forbid rests on other flights' paths:** no pop, but the solver has to test every candidate
+  against every remaining path. At ~65 flights × up to a hundred steps × up to 256 cells, that is
+  the release rate's budget.
+
+**Battery: thirteen recipes, twelve caught, one identity.**
+- **The identity:** the check that a flight's own rest does not count against it. The flight
+  asked about is always due, and due flights are skipped anyway, so the line is deleted.
+- **One hole, closed:** the boundary's wait was untested.
+  `AWetLandingAtTheBoundaryWaitsWhileAnotherPieceIsDrawnInItsRest` times a wet landing so that it
+  reaches the boundary while another piece is drawn in its rest, and it catches the recipe.
+
+**The water's 2 m/s cap cannot be reached at the start's pace** (half of 1 m/s is under it), so
+the director test cannot see it. `WaterFactor` is pulled out and tested at 1, 4 and 10 m/s.
 
 ## What would reverse this
 

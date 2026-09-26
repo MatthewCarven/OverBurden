@@ -263,11 +263,35 @@ public sealed class CollapseDirector
     /// <summary>Flights whose path was found blocked and re-plotted, over the lifetime.</summary>
     public long Blocked { get; private set; }
 
+    /// <summary>Of <see cref="LiftedByABlock"/>, lifts where the world was clear and another flight's reserved rest was what stood in the way.</summary>
+    public long LiftedOffAReservation { get; private set; }
+
+    /// <summary>How far lifted pieces rose, in voxels: the sum and the most — what a drawn piece would jump.</summary>
+    public long LiftVoxelsSum { get; private set; }
+
+    /// <inheritdoc cref="LiftVoxelsSum"/>
+    public int LiftVoxelsMax { get; private set; }
+
     /// <summary>Of those, flights blocked where they stood and lifted clear.</summary>
     public long LiftedByABlock { get; private set; }
 
     /// <summary>Landings sent to the boundary because the copy read water in them, over the lifetime.</summary>
     public long WetLandings { get; private set; }
+
+    /// <summary>
+    /// Landings put off a frame because another piece was drawn in their rest (part c, decision 6)
+    /// — where the tower's 40 lifted pieces came from — over the lifetime.
+    /// </summary>
+    public long WaitedForPicture { get; private set; }
+
+    /// <summary>Flight-steps taken slowed by water (decision 8), over the lifetime; a frame's count per flight in water.</summary>
+    public long SlowedInWater { get; private set; }
+
+    /// <summary>Half the event's fall in water (decision 14)…</summary>
+    public const double WaterFallShare = 0.5;
+
+    /// <summary>…and never faster than this, metres a second.</summary>
+    public const double MaxWaterFallMetresPerSecond = 2.0;
 
     /// <summary>Wet landings waiting for the boundary now.</summary>
     public int WetWaiting => _wetWaiting.Count;
@@ -417,6 +441,12 @@ public sealed class CollapseDirector
 
             foreach (CollapseFlight flight in _due)
             {
+                if (RestIsDrawnOn(flight))
+                {
+                    WaitedForPicture++;
+                    continue;
+                }
+
                 TryLand(t, flight, atBoundary: false);
             }
 
@@ -441,10 +471,20 @@ public sealed class CollapseDirector
             foreach ((CollapseFlight flight, Tracked t) in _wetWaiting.ToList())
             {
                 _wetWaiting.Remove(flight);
-                if (t.Event.InFlight.Contains(flight))
+                if (!t.Event.InFlight.Contains(flight))
                 {
-                    TryLand(t, flight, atBoundary: true);
+                    continue;
                 }
+
+                if (RestIsDrawnOn(flight))
+                {
+                    // Back to the frame, which lands it once the other has stepped past; wet
+                    // again there, it comes back here at the next boundary.
+                    WaitedForPicture++;
+                    continue;
+                }
+
+                TryLand(t, flight, atBoundary: true);
             }
         }
 
@@ -714,13 +754,16 @@ public sealed class CollapseDirector
         }
 
         Observer?.Invoke(piece, plan, seen!);
-        foreach (VoxelPos v in piece.Voxels)
+        var materials = new int[piece.Voxels.Length];
+        for (int i = 0; i < piece.Voxels.Length; i++)
         {
+            VoxelPos v = piece.Voxels[i];
             if (_world.TryGetMaterial(v, out int m) && m == _rubbleId)
             {
                 RefallVoxels++;
             }
 
+            materials[i] = m;
             _world.SetVoxel(v, MaterialIds.AirNumericId);
             _written.Add(v.Chunk);
         }
@@ -730,7 +773,7 @@ public sealed class CollapseDirector
             t.ReleasedDuringCut.UnionWith(piece.Voxels);
         }
 
-        t.Event.Launch(piece, plan, nowMillis);
+        t.Event.Launch(piece, plan, nowMillis, materials);
         Released++;
         ReleasedVoxels += piece.Voxels.Length;
         _stepReleased++;
@@ -749,7 +792,9 @@ public sealed class CollapseDirector
         }
 
         _due.Clear();
-        t.Event.Advance(nowMillis, _due);
+        double fall = Pace.FallMetresPerSecond(t.Event.AgeSeconds(nowMillis));
+        double inWater = WaterFactor(fall);
+        t.Event.Advance(nowMillis, _due, _water is null ? null : flight => DrawnInWater(flight) ? inWater : 1.0);
         foreach ((CollapseFlight flight, int was) in _steps)
         {
             LandingPlan plan = flight.Plan;
@@ -802,6 +847,13 @@ public sealed class CollapseDirector
         if (up > 0)
         {
             LiftedByABlock++;
+            LiftVoxelsMax = Math.Max(LiftVoxelsMax, up);
+            LiftVoxelsSum += up;
+            if (ShapeClearInWorld(old.Shape, from))
+            {
+                // Clear in the world, taken only by another flight's reserved rest.
+                LiftedOffAReservation++;
+            }
         }
 
         int mino = flight.Piece.MinoVoxels;
@@ -959,6 +1011,69 @@ public sealed class CollapseDirector
         LiftedMillilitres += lifted;
         ReturnedMillilitres += lifted - remaining;
         DisplacedMillilitres += remaining;
+    }
+
+    /// <summary>
+    /// Whether another piece is drawn in the cells <paramref name="flight"/> would land in — part c,
+    /// decision 6: the landing waits a frame rather than writing rubble into a picture, which is
+    /// what lifted the tower's 40 pieces. No deadlock: rests are reserved and disjoint, so a flight
+    /// waiting at its rest is never drawn in another's, and one passing through is still falling.
+    /// </summary>
+    internal bool RestIsDrawnOn(CollapseFlight flight)
+    {
+        HashSet<VoxelPos>? rest = null;
+        foreach (CollapseEvent ev in _events)
+        {
+            foreach (CollapseFlight other in ev.InFlight)
+            {
+                // Due flights are drawn at their own reserved rests, which are disjoint from this
+                // one's; and the flight asked about is itself due, so it is skipped here too.
+                if (other.IsDue)
+                {
+                    continue;
+                }
+
+                rest ??= [.. flight.Plan.RestVoxels];
+                foreach (VoxelPos cell in other.DrawnCells)
+                {
+                    if (rest.Contains(cell))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>What a fall of <paramref name="fallMetresPerSecond"/> is scaled by in water: half, and never past 2 m/s (decision 14).</summary>
+    internal static double WaterFactor(double fallMetresPerSecond) =>
+        Math.Min(fallMetresPerSecond * WaterFallShare, MaxWaterFallMetresPerSecond) / fallMetresPerSecond;
+
+    /// <summary>Whether any cell the piece is drawn in holds water in the published copy — the slower fall (decision 8).</summary>
+    private bool DrawnInWater(CollapseFlight flight)
+    {
+        foreach (VoxelPos cell in flight.DrawnCells)
+        {
+            if (_world.HoldsWater(cell))
+            {
+                SlowedInWater++;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// The next pieces an event releases in about a second at its pace now — decision 7's
+    /// corruption, drawn on the queue while it is still rock.
+    /// </summary>
+    public IReadOnlyList<CollapsePiece> Upcoming(CollapseEvent ev, long nowMillis)
+    {
+        ArgumentNullException.ThrowIfNull(ev);
+        return ev.Peek((int)Math.Ceiling(Pace.ReleasesPerSecond(ev.AgeSeconds(nowMillis))));
     }
 
     private void LoseFlight(Tracked t, CollapseFlight flight)
