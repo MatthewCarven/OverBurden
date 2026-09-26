@@ -5005,11 +5005,35 @@ own, flagged to him in the reply; the tenth is his water grid, folded in the sam
 
 ### M9 — v0.5, the game exists
 
-- [ ] **The slow-then-fast collapse — "Tetris gone bad"** (Matthew, 2026-09-26). Notes, not a
-  plan: [docs/COLLAPSE-NOTES.md](docs/COLLAPSE-NOTES.md). It needs its planning pass first, in a
-  separate chat on `main`, over the notes' six questions. The measurement world is
-  `worlds/Regions16-pondlook-demolished-2026-09-26/` (open it only as a copy), and the log of the
-  first demolition is `logs/demolition-2026-09-26.log`.
+- [ ] **The slow-then-fast collapse — "Tetris gone bad"** (Matthew, 2026-09-26). Planned:
+  [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), fourteen decisions, all taken (*"as
+  recommended"*). Split a–f; part a is split a-1 / a-2 at the solver.
+  - [x] **a-1 — the pace table, the tetracubes, the cutter** (Core, 2026-09-26). `CollapsePace`,
+        `Polycubes`, `PieceCutter`, `CollapsePieceTests`. Read the plan's "a-1 — built".
+  - [ ] **a-2 — the solver, the event, the bench arm** (Core). In order:
+        1. `LandingSolver`: a piece's voxels, its start, an `IVoxelWorld` + `MaterialTable`
+           (unloaded is solid), a reserved set; over `Polycubes.Rotations` of the piece's voxel
+           shape (deduped) and every offset within R minos (2 m / mino edge); the path simulated
+           (sideways one mino a step toward the target when clear, down one mino when clear, the
+           last partial step voxel-exact); the lowest resting bottom Y, then farthest from the
+           event's centre, then `Hash64`. Returns the target, the orientation and the path's
+           step count. Rotation at release must not overlap solid; an orientation that does is
+           skipped.
+        2. Its oracle as a test: no piece rests higher than any candidate its own search
+           simulated (a boolean over the candidates). Plus: a piece over a pit takes the pit; a
+           piece beside a wall spreads away from the centre; a reserved cell is solid.
+        3. Price it on the bench before optimising: 1 m minos are up to 256 voxels × 25 offsets ×
+           24 orientations. The named lever, not built: test only each column's bottom profile
+           when stepping down and the leading face when stepping sideways.
+        4. `CollapseEvent`: origin, start millis, member chunks, the queue (`PieceCutter.Cut` of
+           the members' settled at-risk sets, re-cut when a settle lands or the mino size
+           changes), pieces in flight, counts (released / landed / rescued / re-falls). A queued
+           piece whose voxels the latest settled field no longer marks is dropped as `rescued`.
+           Driven by the caller with the clock; writes nothing itself.
+        5. Bench: `--support --collapse --pieces` drops the seven fixtures piece by piece with
+           the solver, ASCII before and after, `released == landed + in flight`, Σ(Y) strictly
+           down per piece, and the solver's oracle.
+        Then part b, the wire, wants its own code-level pass against `Main.SweepCollapse`.
 
 **Planned 2026-09-11 — [docs/M9-PLAN.md](docs/M9-PLAN.md), split M9a–M9d, twelve decisions all
 taken as recommended the same day (*"As planned"*). M9a is next, in its own session.** Two facts from the code open it: there is no bedrock (the

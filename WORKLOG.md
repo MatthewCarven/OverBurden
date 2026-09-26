@@ -1,5 +1,15 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 (night) — Collapse a-1: the pace, the shapes, the cutter
+
+All fourteen decisions were taken on *"as recommended"*, and a-1 was built in Core the same
+session. `PieceCutter` cuts an at-risk set into tetracubes along a front spreading from the
+origin, with no mino released before the one it stands on. The constraint turned out to be one
+flag per mino, not a graph. 86% of the pieces lie flat, which is what reads as Tetris; the test
+for it came from a battery miss. Suite 1,922; the battery caught ten of twelve, and the misses
+were an identity and that hole. Details are in COLLAPSE-PLAN's "a-1 — built". Next is a-2, the
+landing solver and the event.
+
 ## 2026-09-26 (evening) — The collapse's planning pass
 
 [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), on `main`. Nothing is built. His second brief

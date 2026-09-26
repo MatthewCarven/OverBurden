@@ -1168,7 +1168,13 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
-**Pick up here (2026-09-26, evening). The collapse's planning pass is written —
+**Pick up here (2026-09-26, night). All fourteen collapse decisions are taken (*"as
+recommended"*), and a-1 is built: `CollapsePace`, `Polycubes`, `PieceCutter` in Core, suite 1,922.
+Next is a-2 (the landing solver, the event, the bench arm); its ordered brief is in TODO under M9.
+Read the plan's "a-1 — built" first. His next chat is the ideal machines, so a-2 may wait.** The
+paragraph below is the evening's state.
+
+**Earlier (2026-09-26, evening). The collapse's planning pass is written —
 [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), twelve decisions, his three answered (the voxel
 with a growing mino, 1 → 10 m/s, the chimney to the sky once serious); the other nine wait on
 his word, then part a (Core: the cutter, the solver, the pace table) is built first. Decisions

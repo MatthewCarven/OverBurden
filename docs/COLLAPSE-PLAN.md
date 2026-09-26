@@ -1,6 +1,8 @@
 # Collapse plan — "Tetris gone bad"
 
-The planning pass for [COLLAPSE-NOTES.md](COLLAPSE-NOTES.md), 2026-09-26, on `main`. **Not built.**
+The planning pass for [COLLAPSE-NOTES.md](COLLAPSE-NOTES.md), 2026-09-26, on `main`. **All fourteen
+decisions taken the same day (*"as recommended"*); a-1 is built; a-2, the solver and the event,
+is next** (its brief is in TODO under M9).
 Read the notes first. They have his first brief, the demolition's numbers, and what M9 already does.
 
 ## His second brief (2026-09-26, the planning chat)
@@ -234,6 +236,39 @@ looks right; it saves nothing, because the piece has already broken off. Part c.
 **Measure on copies.** For the tower: `worlds/backup-Regions16-pondlook-2026-09-26/`, which still
 has the tower, with the support knocked out headless (`--at=` and a bite). Never on his
 `Regions16-pondlook`. The demolished copy is the "after" picture.
+
+## a-1 — built (2026-09-26)
+
+On his *"as recommended"*, the same session as the pass. Core only, nothing wired.
+`CollapsePace` is decision 4's table. `Polycubes` holds the 24 rotations, a canonical name for a
+shape, and the tetracubes enumerated: 8 free and 86 fixed, both asserted, which pins the rotation
+group. `PieceCutter` is decisions 1, 2 and 2b. Suite 1,901 → 1,922, with 21 tests in
+`CollapsePieceTests`.
+
+Three things about it that the pass did not say:
+
+- **The constraint only ever points one mino down.** A voxel can only stand on another mino if
+  it is on its own mino's bottom layer, so "no mino leaves before what it stands on" is one flag
+  per mino: *does it depend on the mino below?* It is not a graph. So the cutter is a priority
+  queue with lazy re-enqueue, and a mino becomes free when the one under it leaves.
+- **The cutter never consults a shape table.** Any four face-connected cubes are a tetracube, so
+  growing a connected set is enough, and the test checks every whole piece's canonical name
+  against the enumeration. **86% of the tetracubes lie flat** on a 16 × 4 × 16 block (216 of 251)
+  with the same-layer preference, and 0% with it inverted, so the preference is what makes them
+  read as Tetris. 85%+ of a solid block's voxels fall as whole tetracubes; the rest are
+  fragments where the front strands a mino.
+- **On a flat slab the front only moves outward**, which is "digital corruption spreading" as an
+  assertion: the next piece's seed is the nearest remaining mino, and the minimum over a
+  shrinking set never goes down.
+
+**Battery: twelve recipes, ten caught.** The two misses:
+- **An identity:** at exactly the grace, `<` and `<=` give the same multiplier, 2⁰ = 1.
+- **A real hole, now closed:** nothing asserted the flat preference. `MostTetracubesLieFlat` was
+  added, measured in both arms.
+
+One thing not to rediscover: a mutant restored with `sed -i.bak` / `mv` keeps its old
+timestamp, so the next incremental build ran the mutant and a green file read red. Touch the
+file.
 
 ## What would reverse this
 
