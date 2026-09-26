@@ -1,8 +1,8 @@
 # Collapse plan — "Tetris gone bad"
 
 The planning pass for [COLLAPSE-NOTES.md](COLLAPSE-NOTES.md), 2026-09-26, on `main`. **All fourteen
-decisions taken the same day (*"as recommended"*); a-1 is built; a-2, the solver and the event,
-is next** (its brief is in TODO under M9).
+decisions taken the same day (*"as recommended"*); a-1 and a-2 are built (Core, all of part
+a); part b, the wire, is next and wants its own code-level pass** (TODO under M9).
 Read the notes first. They have his first brief, the demolition's numbers, and what M9 already does.
 
 ## His second brief (2026-09-26, the planning chat)
@@ -269,6 +269,66 @@ Three things about it that the pass did not say:
 One thing not to rediscover: a mutant restored with `sed -i.bak` / `mv` keeps its old
 timestamp, so the next incremental build ran the mutant and a green file read red. Touch the
 file.
+
+## a-2 — built (2026-09-26)
+
+Built on his *"a-2 please"*, the same session. `LandingSolver`, `CollapseEvent` and
+`CollapseFlight` in Core; `CollapseLandingTests` (15); on the bench, `--support --collapse
+--pieces` (`PieceDrop`) drops every fixture piece by piece on a simulated 60 Hz clock, re-settling
+and re-cutting every 250 ms (the game's settle latency, an estimate). Suite 1,922 → 1,937. **Every
+oracle holds on every fixture**: solid voxels are conserved, Σ(Y) goes down at every landing, the
+solver never rests above its own lowest, nothing lands on solid, and `at risk 0` after.
+
+The bench, Release with tiering off:
+
+| fixture | at risk | pieces | voxels fallen | simulated | rubble fell again | solve ms mean / p99 / max |
+|---|---|---|---|---|---|---|
+| 2 × 2 plug | 20 | 6 | 20 | 9.9 s | 0 | 5.6 / 31 / 31 (the first solves: JIT) |
+| 4 × 4 room | 47,600 | 1,695 | 110,853 | 50.7 s | 61,879 | 0.68 / 4.5 / 13.2 |
+| soil roof | 975 | 106 | 1,003 | 26.7 s | 28 | 0.90 / 5.5 / 5.8 |
+| 2 × 2 under 10 m | 14,060 | 579 | 26,438 | 40.5 s | 12,374 | 0.62 / 4.1 / 6.6 |
+| mid-air chunk | 32,768 | 1,008 | 64,032 | 45.6 s | 31,264 | 0.90 / 10.3 / 18.8 |
+
+Five things it found:
+
+- **The solve had to be made cheaper, and both levers are exact.** The first cut was 2–6 ms a
+  solve on average, 195 ms at worst. Two changes brought it to 0.5–0.9 ms mean and 19 ms worst:
+  - **Leading faces:** a one-voxel move only newly occupies the face in that direction, so only
+    the face is checked.
+  - **The column jump:** once steering ends, the rest of the fall is one jump, using a per-solve
+    memo of how far each column is free below it.
+
+  Both are held equal to the whole-shape, tick-by-tick arm by a test, placement for placement and
+  path for path (`Solve(…, wholeShape: true)`). What is left is candidates: 480–680 for a
+  1-voxel-mino piece over a 17 × 17 spread. **Named lever, not built:** cap the spread in minos, or
+  prune by a lower bound. Part b spends at most one solve per frame once the frame's 2 ms is gone.
+- **Half of what falls in a big collapse is rubble falling again**: 61,879 of 110,853 voxels in
+  the room, 31,264 of 64,032 in the mid-air chunk. Rubble reaches 2 voxels, and a tetracube can't
+  perch on a pile's edge, so it rolls off. That is his *"debris to not stack highly"* coming out of
+  the rule rather than being written in. The cost: the room comes down as 1,695 pieces over 51 s,
+  where the sweep made a handful of falls. **Whether it reads as a pile settling or as churn is
+  the play's question**, and rubble's `supportDistance` is the knob.
+- **"Rescued" is not only the player's work.** With no player, the room reads 7,938 voxels
+  rescued: rubble landing under a roof shores it. The count in play will include the pile's own
+  props.
+- **The battery found a real defect in the event.** A flight launched between two advances was
+  credited with the time before its launch: the whole gap since the event's last advance, 30 s in
+  the test. Each flight keeps its own clock now. It was found by the test written for a battery
+  miss (big minos stepping a metre a tick), not by the miss's own recipe.
+- **Re-plans cost on the sim thread.** The bench's gather over every at-risk chunk is ~2.4 ms a
+  re-plan in the room. **Part b's lever:** gather only chunks whose settled at-risk set changed
+  (`ChunkSupport.SameAtRiskSet` exists).
+
+**Battery: sixteen recipes, fourteen caught.** Both misses were holes and are closed by tests:
+- **A blocked steer retried every tick** was invisible. `ABlockedSteerGivesUpAndDropsStraight`
+  pins the plan's rule: give up and drop straight. That rule is also what keeps the column jump
+  available.
+- **Flights stepping at the 1-voxel mino always** was invisible, because every flight test used
+  1-voxel minos. `AnOldEventsBigPiecesStepAMetreATickAtTheFastFall` closes it, and it is the test
+  that found the defect above.
+
+Release is capped at about two pieces a frame (~120/s) by the scheduling rule, which never banks
+more than one interval.
 
 ## What would reverse this
 

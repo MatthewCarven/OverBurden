@@ -348,6 +348,16 @@ rule as `--support`:
 DOTNET_TieredCompilation=0 dotnet run --project Overburden.Bench -c Release -- --support --collapse
 ```
 
+**`--pieces` with `--support --collapse` drops them in Tetris pieces instead** (COLLAPSE-PLAN a-2):
+the cutter, the solver and the event on a simulated 60 Hz clock. It prints pieces by mino, the
+solve's ms, rubble that fell again, rescued voxels, the four oracles (solid conserved, Σ(Y) down at
+every landing, the solver never above its own lowest, nothing landing on solid), and the picture
+before and after. Same tiering rule:
+
+```bash
+DOTNET_TieredCompilation=0 dotnet run --project Overburden.Bench -c Release -- --support --collapse --pieces
+```
+
 **`--watch` prints a table of watched functions under a profile's report** (2026-09-26, Matthew's
 ask): calls and min / mean / max ms a call for each function `CallWatch` names in Core and Game.
 That is 21 coarse ones on main (the tick job, the solve and its flood and apply, the lake ceiling,
@@ -1168,11 +1178,16 @@ boundary field sync 21.5 → 4.0 ms mean), both identities exact, suite 1,412 gr
 before that date is an unoptimised-Debug figure; do not compare a profile across it.** The release
 export with SQLitePCLRaw's natives is still the unverified step and was not needed for this.
 
-**Pick up here (2026-09-26, night). All fourteen collapse decisions are taken (*"as
-recommended"*), and a-1 is built: `CollapsePace`, `Polycubes`, `PieceCutter` in Core, suite 1,922.
-Next is a-2 (the landing solver, the event, the bench arm); its ordered brief is in TODO under M9.
-Read the plan's "a-1 — built" first. His next chat is the ideal machines, so a-2 may wait.** The
-paragraph below is the evening's state.
+**Pick up here (2026-09-26, late night). The collapse's part a is built — a-1 and a-2, all Core:
+`CollapsePace`, `Polycubes`, `PieceCutter`, `LandingSolver`, `CollapseEvent`; suite 1,937; the
+bench's `--support --collapse --pieces` holds every oracle on every fixture. Next is part b, the
+wire, which wants its own code-level pass first (TODO under M9 lists what it carries). Read the
+plan's "a-2 — built": half of a big collapse is rubble tumbling off the pile, and whether that
+reads as settling or churn is his. His next chat is the ideal machines, so b may wait.** The
+paragraph below is the earlier state.
+
+**Earlier (2026-09-26, night). All fourteen collapse decisions are taken (*"as
+recommended"*), and a-1 is built: `CollapsePace`, `Polycubes`, `PieceCutter` in Core, suite 1,922.**
 
 **Earlier (2026-09-26, evening). The collapse's planning pass is written —
 [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), twelve decisions, his three answered (the voxel

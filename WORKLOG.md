@@ -1,5 +1,24 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 (late night) — Collapse a-2: the landing solver and the event
+
+Part a is done, all in Core and not wired. `LandingSolver` gives each piece the lowest reachable
+rest over its orientations and every steer within 2 m, with ties going away from the centre. Only
+descending placements count, which keeps the termination proof. `CollapseEvent` runs the queue,
+the pace, the flights and the counts, and writes nothing. On the bench (`--pieces`) every fixture
+comes down in pieces with every oracle holding.
+
+Three things came out of it:
+- **The solve went from 2–6 ms mean (195 max) to 0.5–0.9 ms (19 max)** through two exact levers,
+  leading faces and a column jump, both held equal to the naive arm by a test.
+- **Half of a big collapse is rubble tumbling off the pile.** Rubble reaches 2 voxels, and a
+  tetracube can't perch. Whether it reads as settling or as churn is a play question.
+- **A real defect:** a flight launched between two advances was credited with the time before
+  its launch. It was found by a test written for a battery miss.
+
+Suite 1,937; the battery caught fourteen of sixteen, and both misses are closed. Part b, the wire,
+wants its own pass.
+
 ## 2026-09-26 (night) — Collapse a-1: the pace, the shapes, the cutter
 
 All fourteen decisions were taken on *"as recommended"*, and a-1 was built in Core the same

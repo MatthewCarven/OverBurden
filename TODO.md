@@ -5010,7 +5010,8 @@ own, flagged to him in the reply; the tenth is his water grid, folded in the sam
   recommended"*). Split a–f; part a is split a-1 / a-2 at the solver.
   - [x] **a-1 — the pace table, the tetracubes, the cutter** (Core, 2026-09-26). `CollapsePace`,
         `Polycubes`, `PieceCutter`, `CollapsePieceTests`. Read the plan's "a-1 — built".
-  - [ ] **a-2 — the solver, the event, the bench arm** (Core). In order:
+  - [x] **a-2 — the solver, the event, the bench arm** (Core, 2026-09-26). Read the plan's
+        "a-2 — built". The brief it was built from:
         1. `LandingSolver`: a piece's voxels, its start, an `IVoxelWorld` + `MaterialTable`
            (unloaded is solid), a reserved set; over `Polycubes.Rotations` of the piece's voxel
            shape (deduped) and every offset within R minos (2 m / mino edge); the path simulated
@@ -5033,7 +5034,14 @@ own, flagged to him in the reply; the tenth is his water grid, folded in the sam
         5. Bench: `--support --collapse --pieces` drops the seven fixtures piece by piece with
            the solver, ASCII before and after, `released == landed + in flight`, Σ(Y) strictly
            down per piece, and the solver's oracle.
-        Then part b, the wire, wants its own code-level pass against `Main.SweepCollapse`.
+  - [ ] **b — the wire, no visible drop.** Its own code-level pass first, against
+        `Main.SweepCollapse`, `CollapseScheduler` and the pipeline's write path. Carry in: a fire
+        starts an event instead of `Collapse.TryFall` (`--collapsemode=sweep` the control);
+        pieces step every frame and only a wet landing waits for the boundary; at most one solve
+        a frame past 2 ms; re-plan off the chunks whose settled at-risk set changed; land
+        everything before a save; undo cleared at the first release; the `M9: event` line and
+        the identity on the periodic line; the headless plug oracle re-read in pieces; the r6
+        control to the digit.
 
 **Planned 2026-09-11 — [docs/M9-PLAN.md](docs/M9-PLAN.md), split M9a–M9d, twelve decisions all
 taken as recommended the same day (*"As planned"*). M9a is next, in its own session.** Two facts from the code open it: there is no bedrock (the

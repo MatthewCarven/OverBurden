@@ -88,6 +88,7 @@ internal static class Program
           --restrefund <n>     voxels of rest that refund one full budget, for --support (default 30, the shipped estimate)
           --supportscale <x>   multiplies every support distance, for --support (default 1)
           --collapse           M9c-1: with --support, drops every fixture stage by stage — voxels a stage, sum(Y) before and after, the picture after beside before — and floods fixture 2 first
+          --pieces             COLLAPSE-PLAN a-2: with --support --collapse, drops every fixture piece by piece instead — the cutter, the solver and the event on a simulated clock, the solver's ms and its oracle
           --pump               M10a-3: the relay pump's delivered rate on a flooded chamber at intake radius 1 and 2, the read priced both ways, the tick's cost at 1 / 100 / 500 pumps, and the loop
           --pumplitres <n>     the flood, in litres (default 200000, a 3 m depth over the chamber's floor)
           --pumprate <L/s>     every pump's rate in place of the content's 100 (default: the content's)
@@ -148,6 +149,7 @@ internal static class Program
         int frontTicks = 20_000;
         bool support = false;
         bool collapse = false;
+        bool pieces = false;
         bool pumpBench = false;
         long pumpLitres = 200_000;
         double? pumpRate = null;
@@ -328,6 +330,9 @@ internal static class Program
                     case "--collapse":
                         collapse = true;
                         break;
+                    case "--pieces":
+                        pieces = true;
+                        break;
                     case "--restrefund":
                         restRefund = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
                         break;
@@ -500,7 +505,8 @@ internal static class Program
                 IsDebug(),
                 restRefund,
                 supportScale,
-                collapse ? supportRubble : -1);
+                collapse ? supportRubble : -1,
+                pieces);
         }
 
         if (seep)
