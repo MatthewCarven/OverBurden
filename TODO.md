@@ -200,6 +200,15 @@ comes first.
       **What to capture next time**: the coordinates under the drip (the HUD line), a
       screenshot looking up at it, and the `M8b:` line's `rained … onto the player's material`
       and `seeped` terms at that moment. Not the overhang pass's; see POND-PLAN's last section.
+      **Looked at the same day on a copy, from his position (x -849 m, y 34 m, z 283 m), with
+      temporary probes (not committed): the roof is sound (stone 148-151, clay 152-155, no gap).
+      The drip he saw is rain running off the clay eave 2 m past his glass wall, falling outside
+      and seen through the glass. Separately the south glass wall (z 1140-1143) has a one-voxel
+      slot at y 134 through its whole thickness, found at x -3413, so the room's air reaches
+      open sky. The floor holds a sealed 1,550 L film (1 L a cell, y 128) that touches no outside
+      water, and nothing flowed through the slot while it rained, so the film most likely
+      predates the roof or came in from a ledge elsewhere along the slot. Told him: fill the
+      slot; a film that returns after a rainy session is a real path, traced the same way.**
 
 - [x] **Face winding — confirmed correct 2026-08-24.** Visually verified from three
       angles: grass top, dirt sides, stone underneath, solid convex silhouette. Godot's
