@@ -9,9 +9,11 @@ which needs more mining. No mobs, no combat — the mine is the antagonist.
 paragraph stacked on the last, and every flag's paragraph under Commands. Both moved out
 verbatim: the flag and recipe reference is [docs/COMMANDS.md](docs/COMMANDS.md), and every
 earlier "pick up here" with the M2–M8 milestone summaries is
-[docs/STATUS-HISTORY.md](docs/STATUS-HISTORY.md). Nothing was deleted. **Keep this file short**:
-at a session's close, replace "Where things stand" rather than stacking a paragraph on it — the
-old one belongs in STATUS-HISTORY if it says anything the plans and the worklog do not.
+[docs/STATUS-HISTORY.md](docs/STATUS-HISTORY.md). Nothing was deleted. **What prompted it was
+stale data, not length** — Matthew, the same night: *"feel free to store data that you wish kept
+in the project"*. So write freely, anywhere it belongs; the one rule is that **"Where things
+stand" describes now**. At a session's close, update it and move the superseded hand-over into
+STATUS-HISTORY, so nothing out of date reads as current.
 
 ## Read these before changing anything
 
