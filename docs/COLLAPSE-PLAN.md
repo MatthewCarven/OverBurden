@@ -2,8 +2,8 @@
 
 The planning pass for [COLLAPSE-NOTES.md](COLLAPSE-NOTES.md), 2026-09-26, on `main`. **All fourteen
 decisions taken the same day (*"as recommended"*); a-1 and a-2 are built (Core, all of part
-a); part b's code-level pass is written below (fourteen decisions, his), and b-1 — the
-Core director — is next on his word** (TODO's "Next").
+a); part b's pass is written below and taken as recommended, and b-1 — the Core director — is
+built; b-2, the wire, is next, and should begin with the worker cut** (b-1's first finding).
 Read the notes first. They have his first brief, the demolition's numbers, and what M9 already does.
 
 ## His second brief (2026-09-26, the planning chat)
@@ -512,6 +512,92 @@ Recommended.
 **On waiting for the ideal-machines chat:** the sensor (part f) reads "an event exists within my
 radius", which is `CollapseDirector.Events` — members, age, pace — once b is built. So b is not
 blocked by that chat. It only has to expose the events, and it will.
+
+## b-1 — built (2026-09-26)
+
+On his *"As recommended please"*. The pass's fourteen decisions are taken as written. All of b-1 is
+Core; the game is untouched, and the sweep is still what it runs.
+
+- **`CollapseDirector`**, between the events and the world. It starts and joins events at the
+  fuse's word and re-plans from the members' settled snapshots. It releases pieces to air, solves
+  each landing and advances the flights, re-checking every whole step. Dry landings go in `Frame`,
+  wet ones in `Boundary`, and `LandAll` is the quit. It also ends events after the grace, keeps
+  the counts, and hands back `CollapseEventSummary` for the line.
+- **`CollapseEvent`**: the reservation set can be shared (decision 5); `Replot` for a blocked
+  path; `Lose` for the edge term. The identity is `released == landed + in flight + lost`.
+- **`CollapseScheduler.Director`**: when set, a member never arms, an armed chunk beside a member
+  joins the older event, and a due fuse calls `Fire` instead of `TryFall`. Null is M9c-1's sweep,
+  unchanged.
+- **The bench's `--pieces` drives the director** through the scheduler, with a zero window, a
+  boundary every 500 ms and a settle every 250 ms. So its oracles are now about the game's code,
+  and it prints the gather and the cut apart.
+- **`CollapseDirectorTests`, eighteen.** Suite 1,937 → 1,955.
+
+The bench, Release with tiering off:
+
+| fixture | at risk | events / joined | pieces | voxels fallen | simulated | fell again | rescued | solve ms mean / max | cut ms mean / max |
+|---|---|---|---|---|---|---|---|---|---|
+| 2 × 2 plug | 20 | 2 / 2 | 7 | 20 | 11.3 s | 0 | 0 | 4.8 / 32 (JIT) | 3.3 / 25 (JIT) |
+| 4 × 4 room | 47,600 | 4 / 28 | 784 | 49,796 | 56.5 s | 17,572 | 22,868 | 0.51 / 7.7 | **29 / 133** |
+| soil roof | 975 | 1 / 1 | 105 | 994 | 28.3 s | 19 | 0 | 0.95 / 6.3 | 1.0 / 2.1 |
+| 2 × 2 under 10 m | 14,060 | 2 / 6 | 844 | 29,483 | 42.6 s | 15,419 | 752 | 0.60 / 9.0 | 6.9 / 31 |
+| mid-air chunk | 32,768 | 1 / 9 | 1,020 | 65,940 | 48.6 s | 33,172 | 555 | 0.87 / 22 | **29 / 103** |
+
+Every oracle holds on every fixture: solid conserved, Σ(Y) down at every landing, the solver never
+above its own lowest, no rubble written over solid, the identity at every frame, `at risk 0` after.
+
+What it found:
+
+- **The cut is the cost, and the named lever's trigger has fired on the bench.** A re-plan in the
+  room is 29 ms mean and 133 ms at worst. The gather is 1.3 ms of that, so the cut is the rest.
+  The profile has no hot spot. The cut is linear in the at-risk set, with a constant of about
+  twenty tuple-hash lookups a voxel. Decision 7 named the cut on a worker, triggered by "a cut over
+  2 ms in the game". The game runs this code at Debug-optimised speed, so running it only to see
+  that trigger fire would be a wasted run. **b-2 should begin with the worker cut** (his word, since
+  it is a named lever). The old queue keeps releasing while the new one is cut, and the result is
+  applied when it lands.
+- **A sort-once change to `FrontDistances` did not move the cut.** It re-sorted every unvisited
+  mino per component, which is quadratic in components, and I took that for the cost. The profile
+  said no: same pieces, same numbers. It is kept, because it is exact and bounds the worst case,
+  and its comment says it is a bound, not a speed-up.
+- **A test found a real defect in the budget.** The one solve allowed past the frame's 2 ms was
+  spent by asking an event with nothing due, so a second event with a piece waiting lost the
+  frame. It is now counted when a piece is released. `PastTheBudgetOneSolveIsLetThroughAFrame`
+  holds it at a budget of zero, the only deterministic budget. The rig lifts the budget, because a
+  wall-clock budget lets a cold JIT decide which releases a test sees. That is how the defect
+  showed: as a flake.
+- **The plug comes down as two events, not one,** when the fuse fires diagonal chunks in the same
+  sweep: the join is face-only, and diagonal chunks are not face-adjacent. b-2's headless oracle
+  may read one `M9: event` line or two, depending on the draw. That is stated here rather than
+  engineered away. Plan decision 3's "structure" is face-joined chunks.
+- **The solver lets a piece rest standing.** It ranks landings by the lowest bottom voxel, so an
+  O on edge ties an O lying flat. A test assertion found it. It is a-2's rule, unchanged. A Σ(Y)
+  tie-break would be a one-line lever if the pile reads too tall in part c.
+- **A block written in mid-air near an event is at risk, and comes down with the event.** The
+  first path-block fixture put a floating slab in the piece's path and got 24 voxels of rubble
+  from a 4-voxel piece. That is the collapse working correctly, and the fixture was changed to
+  stand the block on the floor.
+- **"Rescued" in the room is 22,868 voxels,** against 7,938 in a-2's own loop. Most of it is the
+  pile propping the roof above it, not anyone's shore. b-2's line should say so beside the count.
+
+**Battery: twenty-one recipes, twenty caught, one identity.** The first run of sixteen missed
+four; three were holes and are closed by tests:
+- **The box step removed**: the dry cavity took the water instead, and the test checked only the
+  totals. Now it asserts where the water went.
+- **The grace removed**, and **members read at rest while unsettled**: nothing asserted *when* an
+  event ends. `AnEventEndsTheGraceAfterItsMembersSettleAtRest` holds both, on either side of the
+  grace.
+- The fourth is **an identity**: the at-risk half of the release gate. The frame re-cuts from the
+  same snapshots before releasing, so no fixture can make that half decide anything. It is kept,
+  with a comment saying so. Its live twin, **the world read at release**, was untested too (a
+  voxel mined between two settles). `AQueuedVoxelMinedBeforeItsReleaseIsRescuedNotConjured`
+  catches it: without the read, a piece of air fell and landed as rubble.
+
+Two things not to rediscover:
+- **The frame budget is wall-clock**, so a test rig with a real budget lets a cold JIT choose which
+  pieces release. The rig lifts it, and the budget's rule is pinned at zero.
+- **A heredoc turned a battery recipe's `\n` into real newlines.** Write the harness, never a
+  heredoc.
 
 ## What would reverse this
 

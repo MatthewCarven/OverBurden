@@ -214,6 +214,8 @@ public static class PieceCutter
         var distance = new Dictionary<(int X, int Y, int Z), int>(all.Count);
         int farthest = 0;
         var frontier = new Queue<(int X, int Y, int Z)>();
+        List<(int X, int Y, int Z)>? byHeight = null;
+        int cursor = 0;
         while (true)
         {
             distance[start] = distance.Count == 0 ? 0 : farthest + 1;
@@ -239,11 +241,17 @@ public static class PieceCutter
                 return distance;
             }
 
-            start = all
-                .Where(c => !distance.ContainsKey(c))
-                .OrderBy(c => c.Y)
-                .ThenBy(c => Hash64.Combine(seed, c.X, c.Y, c.Z))
-                .First();
+            // The next component's start: its lowest mino, then hashed. Sorted once and walked, not
+            // re-sorted per component, which is quadratic in components — a bound, not a speed-up:
+            // the bench's room cut the same pieces in the same 29 ms either way (b-1), the cost
+            // being the hashing. Same order, same choice: the first unvisited in it.
+            byHeight ??= [.. all.OrderBy(c => c.Y).ThenBy(c => Hash64.Combine(seed, c.X, c.Y, c.Z))];
+            while (distance.ContainsKey(byHeight[cursor]))
+            {
+                cursor++;
+            }
+
+            start = byHeight[cursor];
         }
     }
 }

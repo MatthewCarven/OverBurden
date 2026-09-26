@@ -1,22 +1,22 @@
-using System.Diagnostics;
 using Overburden.Core.Content;
 using Overburden.Core.Fluid;
 using Overburden.Core.Structure;
 using Overburden.Core.Voxels;
-using Overburden.Core.Worldgen;
 
 namespace Overburden.Bench;
 
 /// <summary>
-/// COLLAPSE-PLAN a-2's bench arm: one fixture dropped in Tetris pieces on a simulated clock — the
-/// event releasing at its pace, the solver placing each piece, the flights advancing a frame at a
-/// time and landing as rubble, the region re-settled and the queue re-cut every quarter second
-/// (the game's settle latency, an estimate) — with the oracles checked at every landing.
+/// COLLAPSE-PLAN a-2's bench arm, driving part b-1's <see cref="CollapseDirector"/>: one fixture
+/// dropped in Tetris pieces on a simulated clock — the fuse at a zero window starting and joining
+/// events at every half-second boundary, the director's frame at 60 Hz, the region re-settled
+/// every quarter second (the game's settle latency, an estimate) — with the oracles checked at
+/// every landing. The game runs the same director, so these are its oracles.
 /// </summary>
 internal static class PieceDrop
 {
     private const long FrameMillis = 16;
-    private const long ReplanMillis = 250;
+    private const long SettleMillis = 250;
+    private const long BoundaryMillis = 500;
     private const long CapMillis = 600_000;
 
     internal static void Run(
@@ -36,124 +36,79 @@ internal static class PieceDrop
         }
 
         region.Settle();
-        var editor = new SupportBench.DictionaryEditor(chunks, region);
+        var editor = new Watched(new SupportBench.DictionaryEditor(chunks, region), materials, rubbleId);
         string before = slice(region);
         (long solidBefore, long sumBefore) = SupportBench.Census(chunks, materials);
-        (HashSet<VoxelPos> atRisk, VoxelPos origin) = Gather(region, editor, materials);
+        int atRiskBefore = region.SettledAtRiskVoxels;
 
         Console.WriteLine();
-        Console.WriteLine($"--- {name}: {atRisk.Count:N0} voxel(s) at risk; {solidBefore:N0} solid, sum(Y) {sumBefore:N0}");
-        if (atRisk.Count == 0)
+        Console.WriteLine($"--- {name}: {atRiskBefore:N0} voxel(s) at risk; {solidBefore:N0} solid, sum(Y) {sumBefore:N0}");
+        if (atRiskBefore == 0)
         {
             Console.WriteLine("    nothing at risk: nothing falls.");
             return;
         }
 
-        var ev = new CollapseEvent(1, origin, 0, CollapsePace.Default, 0);
-        ev.Replan(atRisk, 0);
-        Console.WriteLine($"    origin {origin}; the first cut: {ev.Queued:N0} piece(s) of 1-voxel minos");
+        var director = new CollapseDirector(region, editor, materials, rubbleId, seed: 0);
+        var scheduler = new CollapseScheduler(region, editor, materials, rubbleId, 0, new CollapseWindow { MinSeconds = 0, MaxSeconds = 0 })
+        {
+            Director = director,
+        };
 
-        var solveMillis = new List<double>();
-        long candidates = 0;
         long oracleBroken = 0;
         long descentBroken = 0;
-        long landedOnSolid = 0;
-        long refallVoxels = 0;
-        int peakInFlight = 0;
-        double settleMillis = 0;
-        double gatherMillis = 0;
-        int replans = 1;
         var byMino = new Dictionary<int, (long Pieces, long Voxels)>();
-        var due = new List<CollapseFlight>();
+        director.Observer = (piece, plan, seen) =>
+        {
+            int lowest = seen.Where(c => c.Descends).Min(c => c.RestBottomY);
+            if (plan.Rest.Y > lowest)
+            {
+                oracleBroken++;
+            }
+
+            if (plan.RestVoxels.Sum(v => (long)v.Y) >= piece.Voxels.Sum(v => (long)v.Y))
+            {
+                descentBroken++;
+            }
+
+            (long p, long vx) = byMino.GetValueOrDefault(piece.MinoVoxels);
+            byMino[piece.MinoVoxels] = (p + 1, vx + piece.Voxels.Length);
+        };
+
+        int peakInFlight = 0;
+        int peakEvents = 0;
+        long settles = 0;
         long t = 0;
-        long lastReplan = 0;
-        bool dirty = false;
+        long lastSettle = 0;
         long sumLast = sumBefore;
+        bool dirty = false;
+        var summaries = new List<CollapseEventSummary>();
         for (; t <= CapMillis; t += FrameMillis)
         {
-            // Releases: as many as the pace has due this frame.
-            while (ev.TryRelease(t, piece => StillAtRisk(piece, region, editor, materials), out CollapsePiece piece))
+            if (t % BoundaryMillis == 0)
             {
-                var seen = new List<LandingCandidate>();
-                long started = Stopwatch.GetTimestamp();
-                LandingPlan? plan = LandingSolver.Solve(piece, editor, materials, ev.Reserved, ev.Origin, LandingSolver.DefaultSpreadMetres, ev.Seed, seen);
-                solveMillis.Add(Stopwatch.GetElapsedTime(started).TotalMilliseconds);
-                if (plan is null)
-                {
-                    ev.Wait(piece);
-                    break;
-                }
-
-                candidates += plan.Candidates;
-                int lowest = seen.Where(c => c.Descends).Min(c => c.RestBottomY);
-                if (plan.Rest.Y > lowest)
-                {
-                    oracleBroken++;
-                }
-
-                if (plan.RestVoxels.Sum(v => (long)v.Y) >= piece.Voxels.Sum(v => (long)v.Y))
-                {
-                    descentBroken++;
-                }
-
-                foreach (VoxelPos v in piece.Voxels)
-                {
-                    editor.TryGetMaterial(v, out int m);
-                    if (m == rubbleId)
-                    {
-                        refallVoxels++;
-                    }
-
-                    editor.SetVoxel(v, MaterialIds.AirNumericId);
-                }
-
-                ev.Launch(piece, plan, t);
-                (long p, long vx) = byMino.GetValueOrDefault(piece.MinoVoxels);
-                byMino[piece.MinoVoxels] = (p + 1, vx + piece.Voxels.Length);
-                dirty = true;
+                scheduler.Sweep(t);
             }
 
-            peakInFlight = Math.Max(peakInFlight, ev.InFlight.Count);
+            CollapseStep step = director.Frame(t);
+            dirty |= step.Wrote;
+            peakInFlight = Math.Max(peakInFlight, director.InFlight);
+            peakEvents = Math.Max(peakEvents, director.Events.Count);
+            summaries.AddRange(director.TakeEnded());
 
-            // Landings.
-            due.Clear();
-            ev.Advance(t, due);
-            foreach (CollapseFlight flight in due)
+            if (director.ReleasedVoxels != director.LandedVoxels + director.InFlightVoxels + director.LostVoxels)
             {
-                foreach (VoxelPos v in flight.Plan.RestVoxels)
-                {
-                    if (editor.TryGetMaterial(v, out int m) && materials.IsSolid(m))
-                    {
-                        landedOnSolid++;
-                    }
-
-                    editor.SetVoxel(v, rubbleId);
-                }
-
-                ev.Land(flight);
-                dirty = true;
-            }
-
-            if (ev.ReleasedVoxels != ev.LandedVoxels + ev.InFlightVoxels)
-            {
-                Console.WriteLine($"    *** IDENTITY BROKEN at t {t} ms: released {ev.ReleasedVoxels} != landed {ev.LandedVoxels} + in flight {ev.InFlightVoxels} ***");
+                Console.WriteLine($"    *** IDENTITY BROKEN at t {t} ms: released {director.ReleasedVoxels} != landed {director.LandedVoxels} + in flight {director.InFlightVoxels} + lost {director.LostVoxels} ***");
                 return;
             }
 
-            // The settle and the re-cut, at the game's latency.
-            if ((dirty && t - lastReplan >= ReplanMillis) || ev.MinoChanged(t))
+            if (dirty && t - lastSettle >= SettleMillis)
             {
-                long started = Stopwatch.GetTimestamp();
                 region.Settle();
-                settleMillis += Stopwatch.GetElapsedTime(started).TotalMilliseconds;
-                started = Stopwatch.GetTimestamp();
-                (atRisk, _) = Gather(region, editor, materials);
-                gatherMillis += Stopwatch.GetElapsedTime(started).TotalMilliseconds;
-                ev.Replan(atRisk, t);
-                replans++;
-                lastReplan = t;
+                settles++;
+                lastSettle = t;
                 dirty = false;
-                if (ev.InFlight.Count == 0)
+                if (director.InFlight == 0)
                 {
                     (_, long sumNow) = SupportBench.Census(chunks, materials);
                     if (sumNow > sumLast)
@@ -165,7 +120,7 @@ internal static class PieceDrop
                 }
             }
 
-            if (ev.IsIdle && !dirty && atRisk.Count == 0)
+            if (!dirty && director.Events.Count == 0 && scheduler.Armed == 0 && region.SettledAtRiskVoxels == 0)
             {
                 break;
             }
@@ -173,22 +128,28 @@ internal static class PieceDrop
 
         region.Settle();
         (long solidAfter, long sumAfter) = SupportBench.Census(chunks, materials);
-        double mean = solveMillis.Count == 0 ? 0 : solveMillis.Average();
-        double max = solveMillis.Count == 0 ? 0 : solveMillis.Max();
-        double p99 = solveMillis.Count == 0 ? 0 : solveMillis.OrderBy(x => x).ElementAt((int)(solveMillis.Count * 0.99));
         Console.WriteLine(
-            $"    {ev.Released:N0} piece(s), {ev.ReleasedVoxels:N0} voxel(s) in {t / 1000.0:F1} s simulated"
+            $"    {director.Released:N0} piece(s), {director.ReleasedVoxels:N0} voxel(s) in {t / 1000.0:F1} s simulated"
             + (t > CapMillis ? " *** CAP HIT ***" : string.Empty)
-            + $"; by mino {string.Join(", ", byMino.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}: {kv.Value.Pieces:N0} ({kv.Value.Voxels:N0} voxels)"))}; "
-            + $"peak {peakInFlight} in flight; {ev.Waited:N0} waited; {refallVoxels:N0} rubble voxel(s) fell again; rescued {ev.RescuedVoxels:N0}");
+            + $"; {director.Started} event(s) started, {director.Joined} chunk(s) joined, peak {peakEvents} live; "
+            + $"by mino {string.Join(", ", byMino.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}: {kv.Value.Pieces:N0} ({kv.Value.Voxels:N0} voxels)"))}; "
+            + $"peak {peakInFlight} in flight; {director.Waited:N0} waited; {director.RefallVoxels:N0} rubble voxel(s) fell again; "
+            + $"rescued {director.RescuedVoxels:N0}; {director.Blocked} blocked; lost {director.LostVoxels}");
         Console.WriteLine(
-            $"    solve ms mean {mean:F3} / p99 {p99:F3} / max {max:F3} over {solveMillis.Count:N0} (candidates {(ev.Released == 0 ? 0 : candidates / ev.Released):N0} a piece); "
-            + $"{replans:N0} re-plan(s): settle {settleMillis:F0} ms, gather {gatherMillis:F0} ms in all");
+            $"    solve ms mean {(director.Solves == 0 ? 0 : director.SolveMillisSum / director.Solves):F3} / max {director.SolveMillisMax:F3} over {director.Solves:N0}; "
+            + $"{director.Replans:N0} re-plan(s) over {settles:N0} settle(s): gather ms mean {(director.Replans == 0 ? 0 : director.GatherMillisSum / director.Replans):F3} / max {director.GatherMillisMax:F3}, cut ms mean {(director.Replans == 0 ? 0 : director.CutMillisSum / director.Replans):F3} / max {director.CutMillisMax:F3}");
+        foreach (CollapseEventSummary s in summaries)
+        {
+            Console.WriteLine(
+                $"    event {s.Id} from {s.Origin}: {s.Members} chunk(s), {s.Pieces:N0} piece(s), {s.Voxels:N0} voxel(s), {s.AgeSeconds:F1} s, "
+                + $"peak pace x{s.PeakMultiplier:0.#}, mino {s.PeakMino}, {s.RescuedVoxels:N0} rescued");
+        }
+
         Console.WriteLine(
             $"    oracles: solid {solidBefore:N0} → {solidAfter:N0} ({(solidBefore == solidAfter ? "conserved" : "*** NOT CONSERVED ***")}), "
             + $"sum(Y) {sumBefore:N0} → {sumAfter:N0} ({(sumAfter < sumBefore && descentBroken == 0 ? "down at every landing" : "*** NOT STRICTLY DOWN ***")}), "
             + $"solver {(oracleBroken == 0 ? "never above its own lowest" : $"*** ABOVE ITS LOWEST {oracleBroken} TIME(S) ***")}, "
-            + $"{(landedOnSolid == 0 ? "no landing on solid" : $"*** {landedOnSolid} VOXEL(S) LANDED ON SOLID ***")}; "
+            + $"{(editor.RubbleOnSolid == 0 ? "no landing on solid" : $"*** {editor.RubbleOnSolid} VOXEL(S) LANDED ON SOLID ***")}; "
             + $"{region.SettledAtRiskVoxels:N0} at risk after");
 
         Console.WriteLine("    before                                    |   after ('o' is held rubble; '#' at-risk rubble or rock)");
@@ -208,64 +169,21 @@ internal static class PieceDrop
         }
     }
 
-    /// <summary>Every solid voxel the settled fields mark at risk, and the one with the largest deficit (lowest, then hashed) as the origin.</summary>
-    private static (HashSet<VoxelPos> AtRisk, VoxelPos Origin) Gather(SupportRegion region, IVoxelWorld world, MaterialTable materials)
+    /// <summary>The editor, counting rubble written over a solid voxel — the landing oracle, read at the write.</summary>
+    private sealed class Watched(IVoxelEditor inner, MaterialTable materials, int rubbleId) : IVoxelEditor
     {
-        var set = new HashSet<VoxelPos>();
-        VoxelPos origin = default;
-        (int Deficit, int NegY, ulong Tie) best = (-1, 0, 0);
-        foreach ((ChunkPos chunk, ChunkSupport field) in region.SettledFields)
+        public long RubbleOnSolid { get; private set; }
+
+        public bool TryGetMaterial(VoxelPos voxel, out int materialId) => inner.TryGetMaterial(voxel, out materialId);
+
+        public bool SetVoxel(VoxelPos voxel, int materialId)
         {
-            if (field.AtRiskCount == 0)
+            if (materialId == rubbleId && inner.TryGetMaterial(voxel, out int was) && materials.IsSolid(was))
             {
-                continue;
+                RubbleOnSolid++;
             }
 
-            VoxelPos o = chunk.OriginVoxel;
-            for (int i = 0; i < VoxelConstants.ChunkVolume; i++)
-            {
-                byte value = field.Value(i);
-                if (!ChunkSupport.IsAtRisk(value))
-                {
-                    continue;
-                }
-
-                (int lx, int ly, int lz) = VoxelPos.FromIndex(i);
-                var v = new VoxelPos(o.X + lx, o.Y + ly, o.Z + lz);
-                if (!world.TryGetMaterial(v, out int m) || !materials.IsSolid(m))
-                {
-                    continue;
-                }
-
-                set.Add(v);
-                (int, int, ulong) score = (ChunkSupport.Deficit(value), -v.Y, ~Hash64.Combine(0, v.X, v.Y, v.Z));
-                if (score.CompareTo(best) > 0)
-                {
-                    best = score;
-                    origin = v;
-                }
-            }
+            return inner.SetVoxel(voxel, materialId);
         }
-
-        return (set, origin);
-    }
-
-    private static bool StillAtRisk(CollapsePiece piece, SupportRegion region, IVoxelWorld world, MaterialTable materials)
-    {
-        foreach (VoxelPos v in piece.Voxels)
-        {
-            if (!world.TryGetMaterial(v, out int m) || !materials.IsSolid(m))
-            {
-                return false;
-            }
-
-            ChunkSupport? field = region.SettledField(v.Chunk);
-            if (field is null || !field.IsAtRisk(v.LocalIndex))
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 }

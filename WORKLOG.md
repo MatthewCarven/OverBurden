@@ -1,5 +1,32 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 (a new chat) — Collapse b-1: the director, in Core
+
+Matthew: *"As recommended please Claude"* — the part-b pass's fourteen decisions taken as
+written. `CollapseDirector` sits between the events and the world. It starts and joins events at
+the fuse's word, re-plans from the members' snapshots, releases, solves, re-checks each step,
+lands dry pieces in the frame and wet ones at the boundary, returns the water up to the room, and
+keeps `released == landed + in flight + lost`. The scheduler hands a due fuse to it when its
+`Director` is set. The bench's `--pieces` now drives it, and every oracle holds on every fixture.
+Suite 1,937 → 1,955. The game is untouched.
+
+- **The re-cut is the cost: 29 ms mean, 133 ms worst in the room.** The profile has no hot spot:
+  it is linear in the at-risk set, at about twenty tuple-hash lookups a voxel. Decision 7's
+  named lever, the cut on a worker, has its trigger fired on the bench. b-2 should start there,
+  on his word.
+- **I guessed the cost wrong first.** `FrontDistances` re-sorted per component, which is
+  quadratic. Fixed it exactly, and the numbers did not move. Kept as a bound, and its comment
+  says so.
+- **A test found a defect in the frame budget:** the one solve past 2 ms was spent by asking an
+  event with nothing due. It showed as a flake, because the budget is wall-clock.
+- **The battery:** 21 recipes, 20 caught, 1 identity (the at-risk half of the release gate,
+  redundant by construction). Three holes were closed: where wet water goes first, when an event
+  ends, and a voxel mined out of the queue — without the world read it fell as rubble made from
+  air.
+- The plug comes down as one event or two, since diagonal chunks do not join. The solver lets a
+  piece rest standing, because it ranks by bottom voxel. "Rescued" in the room is mostly the
+  pile propping the roof.
+
 ## 2026-09-26 (a new chat) — Collapse part b: the code-level pass
 
 Matthew: *"lets continue please … i think we were working on the tetris collapse system"*. Part

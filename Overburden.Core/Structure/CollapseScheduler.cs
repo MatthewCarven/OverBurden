@@ -154,6 +154,13 @@ public sealed class CollapseScheduler
     /// <summary>False arms and never fires — <c>--collapse=0</c>.</summary>
     public bool FireEnabled { get; set; } = true;
 
+    /// <summary>
+    /// The collapse in pieces (COLLAPSE-PLAN part b): when set, a due timer starts or joins an event
+    /// rather than falling in one sweep, a member never arms, and an armed chunk beside a member joins
+    /// at once. Null is M9c-1's sweep — <c>--collapsemode=sweep</c>, the control.
+    /// </summary>
+    public CollapseDirector? Director { get; set; }
+
     /// <summary>Chunks with a timer.</summary>
     public int Armed => _timers.Count;
 
@@ -266,6 +273,14 @@ public sealed class CollapseScheduler
                 continue;
             }
 
+            // COLLAPSE-PLAN part b, decision 6: a member of an event never arms — its set is the
+            // event's, re-planned at the event's pace.
+            if (Director is { } members && members.IsMember(chunk))
+            {
+                _timers.Remove(chunk);
+                continue;
+            }
+
             if (!_timers.TryGetValue(chunk, out CollapseTimer timer))
             {
                 timer = Arm(chunk, field.MaxDeficit, worldMillis);
@@ -291,6 +306,14 @@ public sealed class CollapseScheduler
                 _timers[chunk] = timer;
             }
 
+            // An armed chunk beside an event's member skips its own fuse and joins it (decision 3):
+            // stage five of a tower comes at the event's pace, not at a fresh draw from its deficit.
+            if (FireEnabled && Director is { } director && director.TryJoin(chunk))
+            {
+                _timers.Remove(chunk);
+                continue;
+            }
+
             if (timer.DueAtMillis > worldMillis)
             {
                 continue;
@@ -299,6 +322,20 @@ public sealed class CollapseScheduler
             Due++;
             if (!FireEnabled)
             {
+                continue;
+            }
+
+            if (Director is { } fuse)
+            {
+                // The fuse has burnt down: an event starts here, and the pieces are the director's.
+                // Null is every marked voxel stale — the timer goes, and a settle re-arms it.
+                Due--;
+                _timers.Remove(chunk);
+                if (fuse.Fire(chunk, field, worldMillis) is null)
+                {
+                    StaleSkipped += field.AtRiskCount;
+                }
+
                 continue;
             }
 

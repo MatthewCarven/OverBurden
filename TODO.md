@@ -13,20 +13,23 @@ his word — and this file points at it rather than repeating it.
 
 ## Next, on my side
 
-- [ ] **Collapse part b — the pass is written, the decisions are his.** [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md),
-      "Part b — the code-level pass": eight facts, fourteen decisions. On his word, in order:
-      1. **b-1, Core:** `CollapseDirector` (gather members, re-plan on a changed settled set,
-         release, solve, write to air, advance, re-check each step, dry landings in `Frame`, wet
-         ones in `Boundary`), one reservation set for every event, the wet return order (box,
-         cavity, up the column, then displaced), `lost at the edge` on the identity; tests on a
-         fake clock; the bench's `--pieces` moved onto it with every a-2 oracle green, printing
-         the cut's ms.
-      2. **b-2, the wire:** the fuse hands a due chunk to the director (`--collapsemode=sweep`
-         stays the default until c), `Frame` from `UpdateSupport`, `Boundary` where
-         `SweepCollapse` sits, the pace flags, undo disallowed while an event is live, `LandAll`
-         before `SaveAll` at the quit, the unstick after a landing frame, the `M9: event` line
-         and the terms; the plug and keystone oracles in pieces (`--measure=60` for the
-         keystone), both sweep oracles and r6 to the digit.
+- [ ] **Collapse b-2 — the wire.** [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part b" and
+      "b-1 — built". b-1 is done (`CollapseDirector`, 18 tests, the bench on it). In order:
+      1. **The cut on a worker, on his word** — decision 7's named lever, its trigger fired on the
+         bench (29 ms mean, 133 ms worst a re-plan in the room): the old queue keeps releasing
+         while the new one is cut, the result applied when it lands; a test of the async path
+         beside the synchronous one the bench and tests use.
+      2. **The wire:** `--collapsemode=sweep|pieces` (sweep the default until c), the scheduler's
+         `Director` set in `SetUpCollapse`, `Frame` from `UpdateSupport`, `Boundary` where
+         `SweepCollapse` sits (both every frame under `--nowater`), `--collapsegrace=`,
+         `--collapsedouble=`, `--collapsespread=`, `--collapsebudget=`, `Recording` off around
+         both and the stack cleared on a frame that wrote (a press reads "a collapse is under
+         way"), `LandAll` before `SaveAll` in `_ExitTree` under the save's gate, the unstick
+         after a frame that landed, the `M9: event` line from `TakeEnded`, the identity and the
+         terms on the periodic line (rescued with "most of it the pile's props" beside it).
+      3. **The oracles:** the plug in pieces (one `M9: event` line or two — diagonal chunks do
+         not join), the keystone in pieces at `--measure=60` with `displaced` measured, both
+         sweep oracles and r6 to the digit.
 - [ ] **Collapse parts c–f**, per the plan's split: **c** the look (the moving mesh, the steps,
       the steer, the corruption overlay on the queue, the slower fall in water) — screenshots;
       **d** the chimney, whichever arm he takes — a tunnel under a placed house, headless on a

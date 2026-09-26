@@ -271,9 +271,11 @@ rule as `--support`:
 DOTNET_TieredCompilation=0 dotnet run --project Overburden.Bench -c Release -- --support --collapse
 ```
 
-**`--pieces` with `--support --collapse` drops them in Tetris pieces instead** (COLLAPSE-PLAN a-2):
-the cutter, the solver and the event on a simulated 60 Hz clock. It prints pieces by mino, the
-solve's ms, rubble that fell again, rescued voxels, the four oracles (solid conserved, Σ(Y) down at
+**`--pieces` with `--support --collapse` drops them in Tetris pieces instead** (COLLAPSE-PLAN a-2;
+**since b-1 it drives the game's own `CollapseDirector`** through the scheduler at a zero window, a
+boundary every 500 ms and a settle every 250 ms): the cutter, the solver and the events on a simulated
+60 Hz clock. It prints events started and chunks joined, pieces by mino, the solve's ms, the re-plan's
+gather and cut ms apart, rubble that fell again, rescued voxels, the four oracles (solid conserved, Σ(Y) down at
 every landing, the solver never above its own lowest, nothing landing on solid), and the picture
 before and after. Same tiering rule:
 

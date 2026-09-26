@@ -20,8 +20,8 @@ public sealed class CollapseFlight
     /// <summary>The piece.</summary>
     public CollapsePiece Piece { get; }
 
-    /// <summary>Where it rests and how it gets there.</summary>
-    public LandingPlan Plan { get; }
+    /// <summary>Where it rests and how it gets there — replaced when its path is found blocked (part b, decision 8).</summary>
+    public LandingPlan Plan { get; internal set; }
 
     /// <summary>World time at release.</summary>
     public long LaunchedAtMillis { get; }
@@ -54,14 +54,20 @@ public sealed class CollapseFlight
 /// finds no longer at risk at its release is dropped the same way.
 /// </para>
 /// <para>
-/// The identity: <c>released voxels == landed voxels + voxels in flight</c>, printed by the caller.
+/// The identity: <c>released voxels == landed voxels + voxels in flight + voxels lost at the edge</c>,
+/// printed by the caller.
+/// </para>
+/// <para>
+/// <b>The reservations can be shared</b> (part b, decision 5): the director hands every event one
+/// set, so two events near each other never solve two pieces into the same cells. An event made
+/// on its own keeps its own.
 /// </para>
 /// </remarks>
 public sealed class CollapseEvent
 {
     private readonly List<CollapsePiece> _queue = [];
     private readonly List<CollapseFlight> _inFlight = [];
-    private readonly HashSet<VoxelPos> _reserved = [];
+    private readonly HashSet<VoxelPos> _reserved;
     private readonly HashSet<ChunkPos> _members = [];
     private int _next;
     private long _nextReleaseMillis;
@@ -69,8 +75,16 @@ public sealed class CollapseEvent
 
     /// <summary>A new event, started at <paramref name="startMillis"/> from <paramref name="origin"/>.</summary>
     public CollapseEvent(int id, VoxelPos origin, long startMillis, CollapsePace pace, ulong worldSeed)
+        : this(id, origin, startMillis, pace, worldSeed, [])
+    {
+    }
+
+    /// <summary>A new event reserving its landings in <paramref name="reserved"/>, which other events share.</summary>
+    internal CollapseEvent(int id, VoxelPos origin, long startMillis, CollapsePace pace, ulong worldSeed, HashSet<VoxelPos> reserved)
     {
         ArgumentNullException.ThrowIfNull(pace);
+        ArgumentNullException.ThrowIfNull(reserved);
+        _reserved = reserved;
         Id = id;
         Origin = origin;
         StartMillis = startMillis;
@@ -121,6 +135,12 @@ public sealed class CollapseEvent
 
     /// <summary>Voxels in flight now.</summary>
     public long InFlightVoxels => _inFlight.Sum(f => (long)f.Piece.Voxels.Length);
+
+    /// <summary>Pieces whose landing had left the loaded world by the time they were due.</summary>
+    public long Lost { get; private set; }
+
+    /// <summary>Voxels in those pieces — the identity's fourth term, expected zero.</summary>
+    public long LostVoxels { get; private set; }
 
     /// <summary>Voxels that were queued and left without falling: shored, or mined.</summary>
     public long RescuedVoxels { get; private set; }
@@ -273,6 +293,51 @@ public sealed class CollapseEvent
 
         Landed++;
         LandedVoxels += flight.Piece.Voxels.Length;
+    }
+
+    /// <summary>
+    /// A flight's path was found blocked: it goes on along <paramref name="plan"/> from its start,
+    /// with its reservation moved to the new rest. Its own clock is kept.
+    /// </summary>
+    internal void Replot(CollapseFlight flight, LandingPlan plan)
+    {
+        ArgumentNullException.ThrowIfNull(flight);
+        ArgumentNullException.ThrowIfNull(plan);
+        if (!_inFlight.Contains(flight))
+        {
+            throw new InvalidOperationException("Only a piece in flight can be re-plotted.");
+        }
+
+        foreach (VoxelPos v in flight.Plan.RestVoxels)
+        {
+            _reserved.Remove(v);
+        }
+
+        foreach (VoxelPos v in plan.RestVoxels)
+        {
+            _reserved.Add(v);
+        }
+
+        flight.Plan = plan;
+        flight.Progress = 0;
+    }
+
+    /// <summary>A due piece whose landing left the loaded world: out of flight, unreserved, and counted lost.</summary>
+    internal void Lose(CollapseFlight flight)
+    {
+        ArgumentNullException.ThrowIfNull(flight);
+        if (!_inFlight.Remove(flight))
+        {
+            throw new InvalidOperationException("Only a piece in flight can be lost.");
+        }
+
+        foreach (VoxelPos v in flight.Plan.RestVoxels)
+        {
+            _reserved.Remove(v);
+        }
+
+        Lost++;
+        LostVoxels += flight.Piece.Voxels.Length;
     }
 
     /// <summary>Lands everything in flight at once — the quit's rule (decision 6) — adding each to <paramref name="landed"/> for the caller to write.</summary>
