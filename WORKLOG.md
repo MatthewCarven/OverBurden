@@ -1,5 +1,19 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 (a new chat) — "How much can the center spire support?" — reach, not weight
+
+*"hold on the restore … i want to know how much the center spire can support on its own"*. This
+was already decided: M9-PLAN decision 1, reach not load, rejected because weight loses the unique
+fixpoint the tint and the collapse depend on. The answer, from `SupportRule` and the content:
+- **Up:** any height; rest refunds to the cap.
+- **A flat stone arm:** 7.5 m (30 voxels at cost 4).
+- **Hanging:** 3.75 m (cost 8).
+- **A 45° corbel:** unlimited — a step out and a step up net zero, the arch.
+- **Other materials:** clay 2 m, glass 1.5 m, rubble 0.5 m.
+
+`--collapse=0` is the tool for testing it without losses. Weight, if he ever wants it, is a new
+pass against a locked decision, with the tint's guarantee as the cost. The restore is held.
+
 ## 2026-09-26 (a new chat) — The pace capped at ×16
 
 *"cap the top please though"*. `CollapsePace.MaxMultiplier`, 16 by default, is decision 4's last

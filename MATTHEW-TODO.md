@@ -52,7 +52,8 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
       **Played in part, 2026-09-26:** your glass at the top came down in eight small collapses
       (505 voxels, the biggest reaching 1 m pieces), *"after the glass settled i like it!"*
       **Then the tower:** four collapses, 902 pieces, 20,426 voxels, the biggest 48 s long and up
-      to 1 m pieces; the water exact. Answered (below). Say "restore my tower" when you want it.
+      to 1 m pieces; the water exact. Answered (below). **Restore on hold** while you test the
+      spire — `--collapse=0` shows the tint and drops nothing. Say "restore my tower" when done.
 
 - [ ] **The load test you wanted.** Same world, same spot, two short sessions back to back:
       `start3` then `start3 --fedadvance=0`. Play normally for a few minutes each and quit; copy

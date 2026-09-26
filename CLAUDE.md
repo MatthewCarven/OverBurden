@@ -194,7 +194,9 @@ deliberately untracked.
 `pieces:` term on the `M9:` line), with nothing drawn falling. A piece is air at its release and
 rubble at its landing, which is why `sweep` stays the default. The re-cut runs on a worker (the
 room's frame p99 went from ~260 ms to ~9 ms). **Played on his tower 2026-09-26: *"yes slow to
-fast"*** — the pace stands; part c's open questions are in the plan's "Played". He wants the tower restored from
+fast"*** — the pace stands; part c's open questions are in the plan's "Played". **The restore is
+on hold** — he is testing what the half-standing spire holds (no weight, reach only: the answer is
+in the worklog). When he asks, restore from
 `backup-Regions16-pondlook-2026-09-26`, with the collapsed world kept as a dated copy, never
 deleted. **The keystone oracle is a race** (COMMANDS): read `at risk 0` and lifted == returned,
 not its falls. Half of a big collapse is rubble tumbling off the pile,
