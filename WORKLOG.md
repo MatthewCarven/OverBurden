@@ -1,5 +1,43 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-26 (a new chat) — The tower comes down in pieces
+
+Matthew mined out the bottom of his tower on `Regions16-pondlook` under `--collapsemode=pieces` and
+sent twelve screenshots, no words yet. The log has zero ERROR lines.
+
+**Four events:**
+
+| event | from | chunks | pieces | voxels | time | peak pace | mino |
+|---|---|---|---|---|---|---|---|
+| 1 | Y 96 voxels (24 m) | 17 | 450 | 12,653 | 48.4 s | ×102 | 1 m |
+| 2 | underground | 1 | 22 | 65 | 13.4 s | ×1 | 0.25 m |
+| 3 | Y 43 voxels | 7 | 219 | 5,365 | 61.7 s | ×644 | 1 m |
+| 4 | underground | 5 | 211 | 2,343 | 34.2 s | ×14 | 1 m |
+
+**Totals:**
+- **The identity:** 902 pieces; 20,426 voxels released == landed, 0 lost. 10,328 of them were
+  rubble falling again, the tumble.
+- **The water:** 130 wet landings, lifted 8,802 L == returned 8,802 L, displaced 0, none had to
+  climb. It is ten times the glass session's water, and still exact.
+- **The costs:** worst frame 51.8 ms, solve max 41.8 ms, cut max 25.6 ms on the worker.
+
+What the pictures show:
+- **The corruption front:** the tower's underside and its pillar are eaten in a checkerboard of
+  1 m pieces — Tetris gone bad, as he described it.
+- **The strain tint** on the pink column that went next.
+- **Water from the pond on the roof** pouring through the gaps.
+- **The rubble spread wide** around the lake's edge at the base, not heaped: his *"debris to not
+  stack highly"*.
+
+**Two things for part c:**
+- **96 flights were blocked, 40 of them where they stood** and lifted clear. With nothing drawn,
+  that is invisible. Drawn, a piece would jump up. The likely cause is a landing written into the
+  cells a picture occupies. Pieces are pictures to each other (decision 6), so c has to choose
+  between a pop, a reservation of the path, or landing it where it stands.
+- **The pace has no ceiling:** ×644 at 62 s. The frame budget holds it (the worst frame was 52
+  ms), but the table in decision 4 was never meant to run that far. A cap on the multiplier is a
+  one-number lever if c's look wants one.
+
 ## 2026-09-26 (a new chat) — The rain play's owed check 2, answered
 
 Matthew, after the glass play: *"so no rain inside now the roof is dry"*. It is MATTHEW-TODO's owed
