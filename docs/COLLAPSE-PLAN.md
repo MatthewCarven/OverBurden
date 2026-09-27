@@ -1017,6 +1017,37 @@ comes before d (the chimney) because it is small and he asked for it.
 
 **Split:** one piece, Game-side only, no Core change. It is small enough not to cut.
 
+## Part e — built (2026-09-27)
+
+On his *"as recommended please Claude love the ideas!"*, all eight as written. He will remix
+Korobeiniki himself for a release (*"will remix the original for release"*, in FL Studio), so
+decision 8's licence question has its answer: his own arrangement ships and the download does not.
+
+**What was built:**
+- **`CollapseMusicCue` (Core):** the rules without the player — start from the top when a
+  collapse starts with none live, no restart while one is live or fading, a fade back to full if a
+  collapse starts mid-fade, a fade out over 2 s, and the pitch 1 + (max − 1) × log2(m) / log2(cap).
+  12 tests; suite 1,976 → 1,988.
+  - **A departure from the pass's "no Core change":** the rules sit in Core so they can be tested.
+    The player itself is Game-side.
+- **`CollapseMusic` (Game, `Audio/`):** an `AudioStreamPlayer` on the Master bus, the MP3 read from
+  its bytes with `Loop` on. Pitch and volume are set each frame from the cue.
+- **The wire:** `FrameCollapse` hands it the fastest live event's multiplier. The flags are
+  `--collapsemusic=<path>|0` (a relative path is against the repo's root),
+  `--collapsemusicmax=` (1.25) and `--collapsevolume=` (−6 dB). There are `M9: music` lines (setup,
+  start, a speed step at most once a second, the fade) and a `music` term on the `M9:` line.
+
+**Verified headless** (the dummy driver plays nothing, but the lines print), zero ERROR lines:
+- The plug: one start at ×1, one fade, `1 start(s) / 1 fade(s)`.
+- `--collapsemusic=0` prints `off`, and a missing file prints `off — no file at …`. Both collapse
+  exactly as before.
+- The keystone in pieces (`--measure=60`): 20 speed steps from ×1.01 to ×1.248 as the pace
+  climbed to ×15.7, then the fade after the event (812 pieces, 43,640 voxels, 50.5 s), `at risk 0`.
+
+**Owed:** his ear. Whether ×1.25 at the top is too tame or too chipmunk is `--collapsemusicmax=`;
+the loudness is `--collapsevolume=`. The −6 dB default leaves headroom for a downloaded track that
+may clip; he says his own remix will not, so it can go to 0 dB when it arrives.
+
 ## What would reverse this
 
 - **Render-only (6):** if pieces landing on each other in flight read wrong, or a player wants to

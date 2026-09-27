@@ -285,7 +285,12 @@ every earlier M9 figure was taken at. Its knobs: **`--collapsegrace=`** (15 s fl
 **`--collapsecap=`** (×16, the pace's ceiling, reached at 35 s — his *"cap the top please"*),
 **`--collapsepictures=0`** (part c's control: nothing drawn in the air; a windowed run only, since
 headless draws nothing),
-**`--collapsespread=`** (2 m of steer) and **`--collapsebudget=`** (2 ms of releases a frame). Each
+**`--collapsespread=`** (2 m of steer) and **`--collapsebudget=`** (2 ms of releases a frame).
+**The phonk (part e, 2026-09-27):** **`--collapsemusic=<path>`** (default `media/TETRIS_PHONK.mp3`,
+relative to the repo's root, gitignored; `0` silences it), **`--collapsemusicmax=`** (1.25, the
+speed at the pace's cap) and **`--collapsevolume=`** (−6 dB). It prints `M9: music` lines — setup,
+start, a speed step at most once a second, the fade — and a `music` term on the `M9:` line, headless
+too (the dummy driver plays nothing). A missing file prints `M9: music off — no file at …`. Each
 event ends with one `M9: event N — …` line, and the `M9:` and `support` lines carry a `pieces:` term
 with the identity `released == landed + in flight + lost`. The plug in pieces reads one event of about
 six pieces and 20 voxels (eight on 2026-09-27, at the default); the keystone in pieces wants

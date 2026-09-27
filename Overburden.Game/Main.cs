@@ -25,6 +25,7 @@ using Overburden.Core.Worldgen;
 using Overburden.Game.Diagnostics;
 using Overburden.Game.Machines;
 using Overburden.Game.Player;
+using Overburden.Game.Audio;
 using Overburden.Game.Rendering;
 using Overburden.Game.Ui;
 using Overburden.Persistence;
@@ -920,6 +921,23 @@ public partial class Main : Node3D
     /// <summary>The falling pieces' rock and glass materials, kept in step with the chunks' by <see cref="SetVoxelParameter"/>.</summary>
     private ShaderMaterial? _pieceMaterial;
     private ShaderMaterial? _pieceGlassMaterial;
+
+    /// <summary>
+    /// <c>--collapsemusic=</c>: the phonk's file (COLLAPSE-PLAN part e) — a path, relative ones
+    /// against the repo's root, or <c>0</c> for silence. Default <c>media/TETRIS_PHONK.mp3</c>, his
+    /// track, gitignored.
+    /// </summary>
+    private string _collapseMusicPath = "media/TETRIS_PHONK.mp3";
+
+    /// <summary><c>--collapsemusicmax=</c>, the music's speed at the pace's cap (decision 3), and <c>--collapsevolume=</c>, its dB (decision 6).</summary>
+    private double _collapseMusicMax = CollapseMusicCue.DefaultMaxPitch;
+    private float _collapseVolumeDb = -6f;
+
+    /// <summary>The phonk's player, under <c>pieces</c> when the file is there; null otherwise.</summary>
+    private CollapseMusic? _collapseMusic;
+
+    /// <summary>Why there is no music, for the <c>M9:</c> line.</summary>
+    private string _collapseMusicOff = "not set up";
 
     private double _collapseFrameMillisSum;
     private double _collapseFrameMillisMax;
@@ -1886,6 +1904,17 @@ public partial class Main : Node3D
                     break;
                 case "collapsepictures" when int.TryParse(value, out int pictures):
                     _collapsePicturesOn = pictures != 0;
+                    break;
+
+                // Part e: the phonk — its file, its speed at the cap and its volume.
+                case "collapsemusic" when value.Length > 0:
+                    _collapseMusicPath = value;
+                    break;
+                case "collapsemusicmax" when double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double musicMax) && double.IsFinite(musicMax) && musicMax >= 1 && musicMax <= 4:
+                    _collapseMusicMax = musicMax;
+                    break;
+                case "collapsevolume" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float volume) && float.IsFinite(volume) && volume <= 24:
+                    _collapseVolumeDb = volume;
                     break;
                 case "collapsegrace" when double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double grace) && double.IsFinite(grace) && grace >= 0:
                     _collapsePace = _collapsePace with { GraceSeconds = grace };
@@ -5799,6 +5828,8 @@ public partial class Main : Node3D
             {
                 _collapsePictures = new CollapsePictures(this, _pipeline, _materials, rubble, _pieceMaterial, _pieceGlassMaterial);
             }
+
+            SetUpCollapseMusic();
             GD.Print(
                 $"M9: collapse in pieces (--collapsemode=pieces) — a due fuse starts an event: Tetris pieces from a spreading front, "
                 + $"flat {_collapsePace.GraceSeconds:0.##} s then doubling every {_collapsePace.DoubleSeconds:0.##} s up to x{_collapsePace.MaxMultiplier:0.##} (--collapsegrace=, --collapsedouble=, --collapsecap=), "
@@ -5813,6 +5844,32 @@ public partial class Main : Node3D
             + $"{_collapseWindow.MinSeconds:0.##}–{_collapseWindow.MaxSeconds:0.##} s of world time by its deficit as the mean of a seeded exponential draw "
             + $"(--collapseafter=min,max); rubble is ID {rubble}; the sweep runs "
             + $"{(_fluid is null ? "every frame, no water to wait for (--nowater)" : "at each fluid boundary, waiting on fluid-pending chunks")}");
+    }
+
+    /// <summary>
+    /// Part e: the phonk, when its file is there. Headless loads and steps it too — the dummy driver
+    /// plays nothing, but the <c>M9: music</c> lines print, so its timing is a headless check.
+    /// </summary>
+    private void SetUpCollapseMusic()
+    {
+        if (_collapseMusicPath == "0")
+        {
+            _collapseMusicOff = "off (--collapsemusic=0)";
+        }
+        else
+        {
+            string path = System.IO.Path.IsPathRooted(_collapseMusicPath)
+                ? _collapseMusicPath
+                : System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), "..", _collapseMusicPath));
+            var cue = new CollapseMusicCue { MaxPitch = _collapseMusicMax, CapMultiplier = _collapsePace.MaxMultiplier };
+            _collapseMusic = CollapseMusic.Load(this, path, cue, _collapseVolumeDb, out string why);
+            _collapseMusicOff = $"off — {why}";
+        }
+
+        GD.Print(_collapseMusic is { } music
+            ? $"M9: music — {System.IO.Path.GetFileName(music.Path)} ({music.LengthSeconds:F0} s, looped) while a collapse is live, from x1 speed to x{_collapseMusicMax:0.###} at the pace's x{_collapsePace.MaxMultiplier:0.#}, "
+              + $"{_collapseVolumeDb:0.#} dB, fading over {CollapseMusicCue.DefaultFadeSeconds:0.#} s (--collapsemusic=<path>|0, --collapsemusicmax=, --collapsevolume=)"
+            : $"M9: music {_collapseMusicOff}");
     }
 
     /// <summary>
@@ -5925,6 +5982,17 @@ public partial class Main : Node3D
         }
 
         _collapsePictures?.Update(_collapseDirector, _clock.ElapsedMillis);
+        if (_collapseMusic is not null)
+        {
+            double? fastest = null;
+            foreach (CollapseEvent ev in _collapseDirector.Events)
+            {
+                double multiplier = ev.Pace.Multiplier(ev.AgeSeconds(_clock.ElapsedMillis));
+                fastest = Math.Max(fastest ?? 0, multiplier);
+            }
+
+            _collapseMusic.Update(fastest);
+        }
 
         double millis = Milliseconds(t0, Stopwatch.GetTimestamp());
         _collapseFrames++;
@@ -6059,6 +6127,9 @@ public partial class Main : Node3D
                + $"frame ms mean {(_collapseFrames > 0 ? _collapseFrameMillisSum / _collapseFrames : 0):F3} / max {_collapseFrameMillisMax:F1}"
                + $"; {d.WaitedForPicture:N0} landing-frame(s) waited for a picture, {d.SlowedInWater:N0} flight-frame(s) slowed in water, "
                + $"{d.LiftedByABlock:N0} lifted ({d.LiftedOffAReservation:N0} off a reservation, {d.LiftVoxelsMax} voxel(s) at most)"
+               + (_collapseMusic is not { } music
+                   ? $"; music {_collapseMusicOff}"
+                   : $"; music {(music.Cue.Playing ? $"playing at x{music.Cue.Pitch:0.###}" : "quiet")}, {music.Cue.Starts:N0} start(s) / {music.Cue.Stops:N0} fade(s)")
                + (_collapsePictures is not { } pic
                    ? "; no pictures"
                    : $"; pictures: {pic.Made:N0} made, {pic.Drawn} drawn now, held {pic.HeldAtRelease:N0} frame(s) at release / {pic.HeldAtLanding:N0} at landing, "

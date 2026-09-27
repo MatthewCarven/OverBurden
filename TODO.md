@@ -17,7 +17,8 @@ his word — and this file points at it rather than repeating it.
       ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part c — played"). Open: decision 11
       (lifts off a reservation, up to 4.5 m on a copy, 3.25 m in his play) on his "fix it"; the
       hand-off's cap (22–45% hit under a big collapse — the lever is a longer cap).
-- [ ] **Collapse parts d–f**, per the plan's split: **d** the chimney, whichever arm he takes — a
+- [ ] **Collapse parts d and f**, per the plan's split (e, the phonk, is built 2026-09-27; his ear
+      is owed): **d** the chimney, whichever arm he takes — a
       tunnel under a placed house, headless on a scratch world; **e** the play, and the phonk hook
       if he wants it; **f** the collapse sensor (decision 13) — a headless event near a sensor
       switching a cell off, on the `M10:` line.

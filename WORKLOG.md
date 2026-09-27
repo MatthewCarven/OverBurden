@@ -1,5 +1,16 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-27 — Collapse part e: the phonk
+
+*"as recommended please Claude love the ideas!"*
+- **Built:** his track plays while a collapse is live, from the top, looped, sped up to ×1.25 at
+  the pace's cap, faded over 2 s. The rules are in Core (`CollapseMusicCue`, 12 tests; suite
+  1,988) and the player in Game.
+- **Headless:** the keystone in pieces printed 20 speed steps (×1.01 → ×1.248) and one fade.
+- **His release plan:** he owns FL Studio Producer Edition and will remix Korobeiniki himself
+  (*"will remix the original for release"*, *"My remix wont clip the stereo either"*). The
+  downloaded track stays out of the repo; his remix is the one that ships.
+
 ## 2026-09-27 — The Tetris collapse is the default
 
 *"make it the default please"*, and the glitch: *"like they turn cyan yeah like it"*.

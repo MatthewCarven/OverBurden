@@ -38,6 +38,15 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 ### Recent builds
 
+- [ ] **The phonk.** Your track now plays while a collapse runs. It starts from the top, speeds up
+      with the collapse (up to 25% faster at the top), and fades out over 2 s when the last piece
+      lands. Knock your tower down with the sound on:
+      `start.cmd "--world=Regions16-pondlook" --collapseafter=2,10`
+      *Is the top speed right — too tame, or too chipmunk? And is the volume right?* Say "faster",
+      "slower", "louder" or "quieter" (the settings are `--collapsemusicmax=` and
+      `--collapsevolume=`). When your remix is ready, drop it in `media/` under the same name, or
+      point `--collapsemusic=` at it.
+
 - [ ] **The load test you wanted.** Same world, same spot, two short sessions back to back:
       `start3` then `start3 --fedadvance=0`. Play normally for a few minutes each and quit; copy
       `godot.log` aside between them. My read is that the flood's size is the cost, not the fed

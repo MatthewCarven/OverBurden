@@ -191,8 +191,8 @@ deliberately untracked.
 
 **The Tetris collapse is the default since 2026-09-27** — played on his tower with the pieces
 drawn: *"make it the default please"*, and the cyan glitch *"like it"* (COLLAPSE-PLAN, "Part c —
-played"). **Every M9 oracle recorded before then wants `--collapsemode=sweep`** (COMMANDS). Next
-are parts d–f; decision 11 (lifts off a reservation, up to 4.5 m) waits on his "fix it". One
+played"). **Every M9 oracle recorded before then wants `--collapsemode=sweep`** (COMMANDS). **The phonk is built (part e)**: his track in `media/` (gitignored) plays while a collapse is
+live, sped up with its pace — his ear is owed. Next are parts d and f; decision 11 (lifts off a reservation, up to 4.5 m) waits on his "fix it". One
 `M9: event` line an event, a `pieces:` term on the `M9:` line. The re-cut runs on a worker (the
 room's frame p99 went from ~260 ms to ~9 ms). **Played on his tower 2026-09-26: *"yes slow to
 fast"*** — the pace stands; part c's open questions are in the plan's "Played". **His tower was restored 2026-09-27** from
