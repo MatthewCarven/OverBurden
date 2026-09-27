@@ -1210,6 +1210,10 @@ public partial class Main : Node3D
     /// session did.
     /// </remarks>
     private int _remeshesAtWarm = -1;
+
+    /// <summary>The fluid's visits and millilitres by move size at the first warm frame, for the <c>fluidmove</c> line.</summary>
+    private long[]? _visitsByMoveAtWarm;
+    private long[]? _millilitresByMoveAtWarm;
     private int _relightsAtWarm = -1;
 
     /// <summary>
@@ -3656,6 +3660,8 @@ public partial class Main : Node3D
             {
                 _remeshesAtWarm = _pipeline.EditRemeshes;
                 _relightsAtWarm = _pipeline.RelightRemeshes;
+                _visitsByMoveAtWarm = (long[]?)_fluid?.VisitsByMove.Clone();
+                _millilitresByMoveAtWarm = (long[]?)_fluid?.MillilitresByMove.Clone();
                 _sweepsAtWarm = _scheduler!.Sweeps;
             }
 
@@ -7983,9 +7989,41 @@ public partial class Main : Node3D
                + $"{f.NearCellsVisited - _fluidNearAtWarm:N0} near visit(s) against "
                + $"{f.FarCellsVisited - _fluidFarAtWarm:N0} far, {f.FarBacklog:N0} deferred at the end, "
                + $"{f.ThrottledTicks - _fluidThrottledAtWarm:N0} tick(s) deferred something\n"
+               + FluidMoveLine(f)
                + tick
                + field
                + surface;
+    }
+
+    /// <summary>
+    /// The <c>fluidmove</c> line (2026-09-27): the window's visits by how much each moved, and the
+    /// litres each size carried — whether an awake set is flowing or dithering.
+    /// </summary>
+    private string FluidMoveLine(FluidSimulation f)
+    {
+        string[] names = ["rested", "<10 mL", "10-99 mL", "0.1-1 L", "1-5 L", ">=5 L", "empty/other"];
+        var visits = new long[FluidSimulation.MoveBuckets];
+        var millilitres = new long[FluidSimulation.MoveBuckets];
+        long total = 0, moved = 0;
+        for (int i = 0; i < visits.Length; i++)
+        {
+            visits[i] = f.VisitsByMove[i] - (_visitsByMoveAtWarm?[i] ?? 0);
+            millilitres[i] = f.MillilitresByMove[i] - (_millilitresByMoveAtWarm?[i] ?? 0);
+            total += visits[i];
+            moved += millilitres[i];
+        }
+
+        var parts = new List<string>();
+        for (int i = 0; i < visits.Length; i++)
+        {
+            double share = total > 0 ? 100.0 * visits[i] / total : 0;
+            double carried = moved > 0 ? 100.0 * millilitres[i] / moved : 0;
+            parts.Add(i is 0 or 6
+                ? $"{names[i]} {visits[i]:N0} ({share:F1}%)"
+                : $"{names[i]} {visits[i]:N0} ({share:F1}%, {millilitres[i] / 1000.0:N0} L = {carried:F1}% of the volume)");
+        }
+
+        return $"fluidmove {total:N0} visit(s) in the window, {moved / 1000.0:N0} L moved: " + string.Join(", ", parts) + "\n";
     }
 
     /// <summary>The range the wet term covered while measuring, so a zero has a denominator.</summary>

@@ -442,6 +442,11 @@ called `--weather` that silently failed to fill a basin would be the worse instr
 a view-dependent artefact is invisible in one picture by definition, so the face-tint A/B needs the
 same wall from two angles. `--viewnormal=1` is that A/B's other arm.
 
+**The `fluidmove` profile line** (2026-09-27) sorts the window's cell visits by how much each
+moved: rested, under 10 mL, 10–99 mL, 0.1–1 L, 1–5 L, 5 L and over, and empty or other. Beside each
+it prints the litres that size carried and its share of the volume. It says whether a big awake set
+is flowing or dithering. It is on every profile report and needs no flag.
+
 The lake over a quarry (2026-09-27) adds **`--lakeoverbite=1`**, the control arm: the plane draws
 over every bite as before. By default a sample that is mostly a dug pit not yet full to the seed
 draws no plane (`BiteFill`, M8-PLAN "The lake over a quarry — built"). The `M7d:` line carries

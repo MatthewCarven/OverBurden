@@ -394,6 +394,23 @@ public sealed partial class FluidSimulation : IFluidPersistence
     /// <summary>Cells examined across every tick. The cost, against the light budget's ~520,000/s.</summary>
     public long CellVisits { get; private set; }
 
+    /// <summary>
+    /// Visits by how much they moved, over the lifetime (2026-09-27, his *"measure it"*: is a big
+    /// pour's awake set flowing, or dithering?). Index 0 is held water that moved nothing (it
+    /// rests); 1 under 10 mL; 2 10–99 mL; 3 100–999 mL; 4 1–5 L; 5 5 L and over; 6 an empty cell or
+    /// one paused, submerged or displaced. Written by the visit loop, on the worker under the job.
+    /// </summary>
+    public long[] VisitsByMove { get; } = new long[MoveBuckets];
+
+    /// <summary>Millilitres moved by the visits in each of <see cref="VisitsByMove"/>'s buckets.</summary>
+    public long[] MillilitresByMove { get; } = new long[MoveBuckets];
+
+    /// <summary>The number of buckets in <see cref="VisitsByMove"/>.</summary>
+    public const int MoveBuckets = 7;
+
+    private static int MoveBucket(long millilitres) =>
+        millilitres < 10 ? 1 : millilitres < 100 ? 2 : millilitres < 1_000 ? 3 : millilitres < 5_000 ? 4 : 5;
+
     /// <summary>The largest active set seen. The number M8a exists to take.</summary>
     public int PeakActiveCells { get; private set; }
 
@@ -651,14 +668,22 @@ public sealed partial class FluidSimulation : IFluidPersistence
             {
                 _tickCellsMoved++;
                 _tickMillilitresMoved += here;
+                int bucket = MoveBucket(here);
+                VisitsByMove[bucket]++;
+                MillilitresByMove[bucket] += here;
             }
             else if (!notResting && _grid.AmountAt(cell) > 0)
             {
+                VisitsByMove[0]++;
                 // Held water with no move: at rest, by the automaton's own test. An empty cell
                 // visited is not resting water, a cell Displace emptied is not either, and a
                 // paused cell is not — the hand-off reads this list, and water whose ground the
                 // world cannot answer for is not the basin's.
                 _rested.Add(cell);
+            }
+            else
+            {
+                VisitsByMove[6]++;
             }
         }
 

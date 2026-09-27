@@ -1,5 +1,48 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-27 — Tier B at scale, measured: the pour is flowing, not dithering
+
+His *"what would you do to speed up the tier b water"*, then *"water being slow to move, more the
+whole thing seems to cpu intensive am i asking to much or have i set a condition on the abstraction
+that has caused this path to be expensive"*, then *"measure it"*.
+
+**Built:** the `fluidmove` line (`FluidSimulation.VisitsByMove` / `MillilitresByMove`).
+
+**The run:** a copy of TajMahal after his second play, which holds 18.7 ML in 1.23 M cells
+(8.5 ML below the seed). It was measured for 120 s at the play arms (`--fluidnear=2
+--fluidjob=1`), with zero ERROR lines.
+
+**Visits:** 32.4 M in 99 ticks. 20.4 ML were moved — more than the water there is.
+
+| Move per visit | Share of visits | Share of the volume moved |
+|---|---|---|
+| rested | 7.9% | — |
+| under 10 mL | 3.4% | 0.0% |
+| 10–99 mL | 16.2% | 1.3% |
+| 0.1–1 L | 50.1% | 29.8% |
+| 1–5 L | 15.9% | 51.7% |
+| 5 L and over | 1.6% | 17.2% |
+| empty or other | 4.9% | — |
+
+- **It is flowing, not dithering.** A sleep threshold at 100 mL would drop a fifth of the visits
+  and 1.3% of the volume. That is not the lever.
+- **The tick is 0.82 Hz against 2** (1,136 ms wall), so water runs at 41% of its speed.
+  - The visits are 877 ms of it (77%). There are 270 k visits a second, ~2.7 µs a visit.
+  - The sheet solve is 253 ms, and it hit its 500 k cap in 60 of 99 passes (378 k seeds left).
+- **The boundary** costs 60 ms mean on the main thread: capture 24, hand-off and drain 24, field
+  sync 9.
+- **Near against far visits:** 16.5 M against 15.9 M; 361 k were deferred at the end.
+- **The lake loop is still running:** handed 353 kL and drawn 199 kL in the 2 minutes.
+
+**What it means:** WATER-THREAD-PLAN's colour-wave trigger was closed on 2026-09-19 because the
+solve dominated. It now reads the other way — the visits are 77% of the tick — which is the
+condition that note set for believing it again. The levers in order are:
+1. a profile of the visit loop (a single-thread 2× would be cheap);
+2. colour waves across cores (the big one, since visit order is physics);
+3. water bodies (WATER-BODIES-NOTES), which retire a settled pool but not a levelling one.
+
+His answer on direction is owed.
+
 ## 2026-09-27 — The lake over a quarry: built
 
 *"as recommended please Claude"*.
