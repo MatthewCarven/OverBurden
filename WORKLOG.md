@@ -1,5 +1,22 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-27 — His first play of the drawn collapse; the tower restored
+
+- **He played part c on his tower** (eight screenshots: tetrominoes in the air, the cyan glitch
+  crawling over the roof, the pile at the base). Log kept as
+  `app_userdata/Overburden/logs/tower-pictures-2026-09-27.log`; its one `ERROR` match is the mod
+  loader's "0 error(s)".
+- **The log's numbers:** 8 events, 5,036 pieces, 268,699 voxels, released == landed, 0 lost;
+  lifted 22,879 L == returned; 8 lifts, all off a reservation, at most 13 voxels; pictures 5,021
+  made, 1,117 cap hits (22%); update max 15.0 ms, corruption max 3.5 ms.
+- **"The settler firing" is the pile tumbling:** 174,529 of 268,699 voxels (65%) fell again. The
+  probe's 3% was a smaller bite, so the refall share grows with the collapse's size.
+- **Some pieces were drawn black** in one shot, mid-fall inside the tower. The likely cause is a
+  piece lit from a cell with no light (inside rock or under the roof); not yet checked.
+- **Restored on his "Restore my backup please":** `Regions16-pondlook` now holds
+  `backup-Regions16-pondlook-2026-09-26` (same size); the collapsed world was kept as
+  `Regions16-pondlook-pieces-2026-09-27`, never deleted.
+
 ## 2026-09-26 (a new chat) — Collapse c-2: the pieces drawn falling
 
 *"leave it, lets continue with c-2 please"*.
