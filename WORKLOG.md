@@ -10,6 +10,9 @@
 - **His release plan:** he owns FL Studio Producer Edition and will remix Korobeiniki himself
   (*"will remix the original for release"*, *"My remix wont clip the stereo either"*). The
   downloaded track stays out of the repo; his remix is the one that ships.
+- **He played it on his tower** (log `tower-phonk-2026-09-27.log` under `app_userdata`): one
+  collapse, the music from ×1 to ×1.248 and one fade. On *"restore my tower please"* the backup went
+  back again; that collapse is kept as `Regions16-pondlook-pieces-2026-09-27-2`.
 
 ## 2026-09-27 — The Tetris collapse is the default
 
