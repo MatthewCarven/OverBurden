@@ -189,8 +189,21 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 ## Where things stand
 
-**2026-09-26, late night.** Suite **1,961**; the r6 control to the digit. `main` and
-`water-column-test` both match GitHub as of a fetch. `start2.cmd`–`start5.cmd` and `pondlook.cmd` (his tower) are Matthew's and
+**2026-09-28, small hours.** Suite **1,996**; the r6 control to the digit. `main` is ahead of
+GitHub by the session's unpushed commits (he pushes).
+
+**Next on my side: water bodies, part a (rest)** — [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md),
+nine decisions taken as recommended. Start with the clean-fixture bench (a flat box poured once, no
+lake, timed to rest), because his TajMahal pool mixes a lake feed, 235 terraces and a still interior.
+- **The session's big find:** Core was built unoptimised under `start.cmd` since 2026-09-15. Fixed
+  2026-09-28, the water tick is 5.5× faster (see Commands).
+- **Also built:** the lake over a quarry (`BiteFill`); the collapse is Tetris by default with the
+  phonk (part e) and a 10–20 s fuse.
+- **His worlds:** TajMahal is backed up as `backup-TajMahal-2026-09-28`, and he is slimming it.
+  His tower restores from `backup-Regions16-pondlook-2026-09-26` on "restore my tower"; the
+  collapsed copies are kept, dated.
+
+The paragraphs below are 2026-09-26's; their collapse items are current up to part e. `start2.cmd`–`start5.cmd` and `pondlook.cmd` (his tower) are Matthew's and
 deliberately untracked.
 
 **The Tetris collapse is the default since 2026-09-27** — played on his tower with the pieces
