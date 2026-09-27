@@ -12,7 +12,9 @@
 - **"The settler firing" is the pile tumbling:** 174,529 of 268,699 voxels (65%) fell again. The
   probe's 3% was a smaller bite, so the refall share grows with the collapse's size.
 - **Some pieces were drawn black** in one shot, mid-fall inside the tower. The likely cause is a
-  piece lit from a cell with no light (inside rock or under the roof); not yet checked.
+  piece lit from a cell with no light (inside rock or under the roof). **He keeps it:** *"I like
+  that they are not the original colour like its indicitave that you aint getting that back"* —
+  not a defect, don't fix it.
 - **Restored on his "Restore my backup please":** `Regions16-pondlook` now holds
   `backup-Regions16-pondlook-2026-09-26` (same size); the collapsed world was kept as
   `Regions16-pondlook-pieces-2026-09-27`, never deleted.
