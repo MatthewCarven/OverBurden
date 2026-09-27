@@ -970,6 +970,53 @@ Zero ERROR lines in every run. The copy was deleted after.
   Rubble falling again was 3% of what fell; the support field re-derived 7,742 times in ~75 s.
   Which of those he saw is asked.
 
+## Part e, the phonk — the code-level pass (2026-09-27)
+
+He dropped the track in on the day part c was played: *"also .\\media\\TETRIS_PHONK.mp3 :-{D"*.
+It is a 66 s MP3 (2.5 MB) in `media/`, which is now gitignored per decision 11. Part e was "the
+play, and the phonk hook if he wants it"; the play is done, so this pass is the hook alone. It
+comes before d (the chimney) because it is small and he asked for it.
+
+**Facts from the code:**
+- The game has no audio at all. Nothing in `Overburden.Game` names `Audio`, and there is no bus
+  layout, so the Master bus is the default one.
+- The signal already exists: `CollapseDirector.Events` (live events), each with its age, and
+  `CollapsePace.Multiplier(age)` (1 to 16).
+- Godot 4.7 loads an MP3 at run time from bytes (`AudioStreamMP3` with `Data`), so the file needs
+  no import and no `res://` path. A path outside the project is fine.
+- Headless runs use the dummy audio driver. The hook can still run and print there, but nothing
+  is heard, so whether it sounds right is a windowed question, his ear.
+
+**Decisions:**
+
+1. **Where the track comes from.** Recommended: `media/TETRIS_PHONK.mp3` beside the project,
+   read at start-up; `--collapsemusic=<path>` points elsewhere, `--collapsemusic=0` silences it. A
+   missing file prints one line and the game plays silent. *Reverse if* he wants a playlist.
+2. **When it plays.** Recommended: it starts from the top when an event starts with none live,
+   loops (66 s is shorter than a big collapse), and fades out over 2 s once the last event ends.
+   A new event while it plays does not restart it.
+3. **What speeds up — the Tetris move.** Recommended: `pitch_scale` follows the pace. That raises
+   pitch and tempo together, the way the old games did it. It goes from 1.0 at ×1 to **1.25 at
+   ×16**, linear in doublings: 1 + 0.0625 × log2(multiplier). The other arm is tempo only
+   (pitch_scale up with an `AudioEffectPitchShift` pulling the pitch back down), which is phonk-
+   faithful but smears the bass. *Reverse if* his ear says 1.25 is too tame or too chipmunk; the
+   ceiling is one flag, `--collapsemusicmax=`.
+4. **Which event sets the speed.** Recommended: the fastest live one. Several collapses at once
+   play at the worst one's pace.
+5. **Where it is heard.** Recommended: everywhere, not positional. It is a warning, and a
+   collapse behind a wall is exactly the one to hear. The other arm, an `AudioStreamPlayer3D` at
+   the event, fades with distance but goes quiet for the collapse you cannot see.
+6. **How loud.** Recommended: −6 dB on the Master bus, `--collapsevolume=<dB>`. No settings menu
+   yet; the game has none.
+7. **Instruments.** One `M9: music` line when it starts, when it changes speed by a step
+   (printed at most once a second), and when it stops, plus a `music` term on the `M9:` line
+   (playing or not, pitch). It is headless-testable: the line prints under the dummy driver.
+8. **The licence.** No change: the file stays his, out of the repo. The day the game ships, the
+   track needs a licence or a replacement. Korobeiniki itself is public domain, so an own
+   arrangement is always possible.
+
+**Split:** one piece, Game-side only, no Core change. It is small enough not to cut.
+
 ## What would reverse this
 
 - **Render-only (6):** if pieces landing on each other in flight read wrong, or a player wants to
