@@ -16,10 +16,11 @@ his word — and this file points at it rather than repeating it.
 - [ ] **The lake over a quarry — built 2026-09-27, his look owed.** The plane draws no sheet over
       a pit that is not yet full ([docs/M8-PLAN.md](docs/M8-PLAN.md), "built"). Open: his eye on
       TajMahal; the named lever if the rim reads badly is clipping the quad against the seed.
-- [ ] **Tier B at scale — his direction owed** (WORKLOG 2026-09-27, "Tier B at scale, measured").
-      On TajMahal (18.7 ML, 1.23 M cells) the pour is flowing, not dithering. The tick is 0.82 Hz,
-      and the visits are 77% of it. Levers in order: profile the visit loop (~2.7 µs a visit); colour
-      waves across cores (WATER-THREAD-PLAN's trigger, now reading visits-bound); water bodies.
+- [ ] **Tier B at scale — re-read on the fixed build.** On 2026-09-28 the cause was found: Core
+      was built unoptimised under `dotnet build Overburden.Game` (WORKLOG). Fixed, his quarry's
+      tick is 185 ms at 2.00 Hz (it was ~1 s at 0.9 Hz). Colour waves and bodies wait for a pour
+      that is slow on the fixed build. **Owed:** his play on the fixed build, and a re-check of any
+      headless oracle recorded since 2026-09-15 that reads a time.
 - [ ] **For the load test:** TajMahal's 8 ML pour in motion costs `hand-off: absorb` 32 ms a
       boundary (65 worst), from 530k awake cells.
 - [ ] **Collapse part c — two loose ends.** Played and the default flipped 2026-09-27

@@ -95,9 +95,13 @@ start.cmd
 `-- --lightbudget=16 --adaptive=1 --fluidnear=2 --fluidjob=1` itself; anything you give it lands
 after those as a game flag, and a later value wins. **The code's defaults are the other arms of
 all four**, because every recorded measurement was taken at them and a profile does not go through
-`start.cmd`. The Debug build it launches is **JIT-optimised since 2026-09-15**
-(`Directory.Build.props`); every play or profile figure before that date is an unoptimised figure
-and is not comparable.
+`start.cmd`. The Debug build it launches is **JIT-optimised** (`Directory.Build.props`). **But
+until 2026-09-28 only the Game project was.** `Overburden.Core` and `Overburden.Persistence`, built
+as the Game's references by `dotnet build Overburden.Game`, got an empty Configuration at props
+time and were built unoptimised. A `dotnet test` or solution build in between optimised them, so
+**which one a play or headless figure ran against depended on the last build command.** On his
+quarry the fix made the water tick 5.5× faster (see the worklog). Check a DLL with its
+`DebuggableAttribute`: 2 is optimised, 263 is not.
 
 Benches are **Release only** — Debug is 3–10× slower and reads like a real number:
 

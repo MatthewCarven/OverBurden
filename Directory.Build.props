@@ -11,8 +11,15 @@
        One file rather than three csproj edits so the bench's Debug arm and the test suite take
        the same rule, and a "Debug" figure means one thing everywhere. Every play-log figure
        recorded before 2026-09-15 is an unoptimised-Debug figure; see the worklog entry of that
-       date for the two controls that bracket the change. -->
-  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+       date for the two controls that bracket the change.
+
+       Empty counts as Debug (2026-09-28). This file is imported before the SDK defaults
+       Configuration, so a project built with no configuration given - Overburden.Core as the
+       Game's reference under `dotnet build Overburden.Game`, which is what start.cmd runs - saw
+       '' here and was built unoptimised, while the Game itself (whose SDK sets Configuration
+       first) was optimised. A profile of the water tick found it: VoxelPos.Chunk and its kin
+       were real calls, and the DLL carried DisableOptimizations. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug' or '$(Configuration)' == ''">
     <Optimize>true</Optimize>
   </PropertyGroup>
 

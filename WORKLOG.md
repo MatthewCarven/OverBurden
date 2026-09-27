@@ -1,5 +1,49 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-28 — The water was slow because Core was built unoptimised
+
+*"profile it please Claude"*. The sampler, attached to the game process (not the console wrapper,
+whose 5 threads hold no managed frames), on a copy of TajMahal (18.7 ML, 1.2 M cells). Under
+`FluidSimulation.Advance`, 22.6 s on the CPU:
+- `Record` → `Wake` → `WakeNeighboursOf` took 47%;
+- `CanHold` through `LakeBoundedTerrain` → `FluidFieldView` took 40%;
+- `VoxelPos.get_Chunk` alone was 12% self, `get_Local` 10%, `ChunkPos.Equals` 6%.
+
+**One-line getters as real call frames mean the JIT did not optimise them.**
+- `DOTNET_TieredCompilation=0` changed nothing (0.84 / 1.00 Hz against 0.91 / 0.89 tiered,
+  interleaved).
+- The Core DLL the game loads carried `DebuggableAttribute(263)`, which is DisableOptimizations.
+- `dotnet msbuild -getProperty:Optimize` read `true` for the Game and `false` for Core.
+
+**The mechanism:** `Directory.Build.props` is imported before the SDK defaults Configuration. So a
+project given no configuration sees `''` at the 2026-09-15 condition `'$(Configuration)' ==
+'Debug'` and is not optimised. The Game's own SDK sets Configuration first, which is why the
+2026-09-15 fix looked whole. Core and Persistence, built as the Game's references by `dotnet build
+Overburden.Game` (start.cmd's build), were not optimised. A `dotnet test` or solution build in
+between (Configuration global) optimised them. **So which build a play ran on depended on the last
+build command.**
+
+**The fix:** `'$(Configuration)' == 'Debug' or '$(Configuration)' == ''`. All four projects read
+`Optimize true`, and the game's Core DLL carries 2.
+
+**Measured, alternating old and fixed four times on fresh copies, 45 s each:**
+
+| | old | fixed |
+|---|---|---|
+| tick wall | 1,021 / 922 ms | **185 / 184 ms** |
+| tick rate | 0.89 / 0.96 Hz | **2.00 / 2.00 Hz** |
+| visits | 778 / 679 ms | **118 / 119 ms** |
+| sheet solve | 238 / 235 ms | **63 / 62 ms** |
+| visits a second | 269 k / 278 k | **676 k / 672 k** |
+| boundary on the main thread | 79 / 73 ms | **20 / 20 ms** |
+
+Also: the r6 control holds (2601 / 325 / 3446 at 411), and the suite passes at 1,996.
+
+**So the water on his quarry runs at full speed.** Yesterday's levers (colour waves, bodies) are
+re-read against the fixed build before any is taken. *Possibly related, not claimed:* some of this
+machine's "two speeds" readings may have been an unoptimised Core; any figure taken through
+`dotnet build Overburden.Game` since 2026-09-15 is suspect.
+
 ## 2026-09-27 — Tier B at scale, measured: the pour is flowing, not dithering
 
 His *"what would you do to speed up the tier b water"*, then *"water being slow to move, more the
