@@ -20,7 +20,13 @@
 
 **So rest comes before bodies.** A body forms from resting cells, and this pool never rests. The
 2026-09-27 "a sleep threshold saves a fifth" was read on the unoptimised build. Nine decisions are
-in WATER-BODIES-PLAN; a 20-minute run tests whether it rests on its own.
+in WATER-BODIES-PLAN.
+
+**The 20-minute falsifier:**
+- 1.16 M of 1.39 M cells are still awake.
+- The lake keeps feeding the quarry at ~1.4 kL/s (1.67 ML drawn).
+- 59% of the visits move under 100 mL.
+It does not rest on its own, so part a stands, with the inflow and the dithering to separate.
 
 ## 2026-09-28 — The water was slow because Core was built unoptimised
 

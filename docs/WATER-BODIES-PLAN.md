@@ -76,6 +76,25 @@ All runs were on copies of TajMahal (backed up as `backup-TajMahal-2026-09-28`),
    - the surface mesh;
    - pressure for M10's underwater ladder.
 
+## The falsifier, run: twenty minutes does not rest it
+
+1,200 s into a session on a fresh copy, with zero ERROR lines:
+- **The water:** 1,393,750 cells and 21.28 ML in 822 components. The largest is 1,380,516 cells
+  (99.6%), 52% full.
+- **Still awake: 1,157,586.**
+- **The lake's feed never stops.** Drawn climbs steadily (9 kL at tick 9, 1.67 ML at tick 2,412,
+  ~1.4 kL/s), and Tier B's total rises from 20.4 to 21.3 ML.
+- **The visits:** 59% of 450 M move under 100 mL and carry 9.8% of the volume. 2.3% move 1 L or
+  more and carry 63%.
+
+**So the pool does not rest on its own, and part a stands.** Two causes are mixed in it, and part
+a must separate them:
+- **real inflow:** the valley lake draining through the rim for as long as it holds water;
+- **the interior's dithering:** most of the visits.
+
+A rest rule that let the fed rim stay awake and the still interior sleep is the shape wanted. The
+question part a's pass opens with is how far one rim feed keeps the whole sheet awake.
+
 ## Decisions, each with a recommendation
 
 1. **Rest comes first, as its own sub-part, before any body.** Recommended. Find why a still pool
