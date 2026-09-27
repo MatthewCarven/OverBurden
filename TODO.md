@@ -16,6 +16,10 @@ his word — and this file points at it rather than repeating it.
 - [ ] **The lake over a quarry — built 2026-09-27, his look owed.** The plane draws no sheet over
       a pit that is not yet full ([docs/M8-PLAN.md](docs/M8-PLAN.md), "built"). Open: his eye on
       TajMahal; the named lever if the rim reads badly is clipping the quad against the seed.
+- [ ] **Water bodies — the pass is written, nine decisions his**
+      ([docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md)). Part a (rest) comes first: his
+      pool is 1.2 M cells still awake after 5.5 minutes. A 20-minute `--bodyprobe` run is the
+      falsifier.
 - [ ] **Tier B at scale — re-read on the fixed build.** On 2026-09-28 the cause was found: Core
       was built unoptimised under `dotnet build Overburden.Game` (WORKLOG). Fixed, his quarry's
       tick is 185 ms at 2.00 Hz (it was ~1 s at 0.9 Hz). Colour waves and bodies wait for a pour

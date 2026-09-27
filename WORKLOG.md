@@ -1,5 +1,27 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-28 — Water bodies: the pass, and the pool that never rests
+
+*"plan the water bodies with me please Claude"*.
+- **Two code maps:**
+  - storage and persistence: the world file is at schema 4, so bodies would be 5;
+  - the lake machinery: `VolumeCurve` is a heightfield and cannot hold a 3D void, and no 3D flood
+    over water exists yet.
+- **The measurement:** `WaterComponents` and `--bodyprobe=`. Its first two runs fired at open,
+  because the trigger compared the world's age (7,303 s); it now counts from the session.
+- **Backed up** his world as `backup-TajMahal-2026-09-28`, on his *"once i have a backup"*.
+
+**His TajMahal at 320 s:** 1.35 M cells, 20.5 ML, in 838 components.
+- One component holds **99.6%**: the quarry pool, 28 m tall, all below the seed, 44% full cells.
+- 811 components are films and puddles under 64 cells, mostly ~1 L of rain on his build's floors.
+- **1.2 M cells are still awake after 5.5 minutes at full speed.** 58% of the visits move under
+  100 mL.
+- One whole flood costs 285–382 ms.
+
+**So rest comes before bodies.** A body forms from resting cells, and this pool never rests. The
+2026-09-27 "a sleep threshold saves a fifth" was read on the unoptimised build. Nine decisions are
+in WATER-BODIES-PLAN; a 20-minute run tests whether it rests on its own.
+
 ## 2026-09-28 — The water was slow because Core was built unoptimised
 
 *"profile it please Claude"*. The sampler, attached to the game process (not the console wrapper,

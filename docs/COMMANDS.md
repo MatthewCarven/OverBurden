@@ -442,6 +442,11 @@ called `--weather` that silently failed to fill a basin would be the worse instr
 a view-dependent artefact is invisible in one picture by definition, so the face-tint A/B needs the
 same wall from two angles. `--viewnormal=1` is that A/B's other arm.
 
+**`--bodyprobe=<seconds>`** (2026-09-28, WATER-BODIES-PLAN) splits Tier B's held water into
+face-connected components once, that many seconds into the session, not the world's age. It prints
+`M8e:` lines: the count, single cells, small and large components, the awake count, the flood's ms,
+then the twelve largest with litres, full share, Y span, share below the seed and lowest voxel.
+
 **The `fluidmove` profile line** (2026-09-27) sorts the window's cell visits by how much each
 moved: rested, under 10 mL, 10–99 mL, 0.1–1 L, 1–5 L, 5 L and over, and empty or other. Beside each
 it prints the litres that size carried and its share of the volume. It says whether a big awake set

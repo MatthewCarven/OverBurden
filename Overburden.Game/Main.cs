@@ -993,6 +993,15 @@ public partial class Main : Node3D
     private BiteFill? _biteFill;
     private bool _lakeOverBite;
 
+    /// <summary>
+    /// <c>--bodyprobe=&lt;seconds&gt;</c> (the water-bodies pass, 2026-09-28): at that world time, once,
+    /// Tier B's held water split into connected components, printed. Negative is off.
+    /// </summary>
+    private double _bodyProbeSeconds = -1;
+
+    /// <summary>World milliseconds at the first boundary that asked — the probe's zero, because a restored world's clock starts at its saved age.</summary>
+    private long _bodyProbeBase = -1;
+
     private long _drawnAtWarm;
 
     // ------------------------------------------------------------ M8c-2: Tier C, seepage
@@ -1831,6 +1840,9 @@ public partial class Main : Node3D
                     break;
                 case "lakeoverbite" when int.TryParse(value, out int overBite):
                     _lakeOverBite = overBite != 0;
+                    break;
+                case "bodyprobe" when double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double probe):
+                    _bodyProbeSeconds = probe;
                     break;
                 case "at" when value.Split(',') is [string ax, string ay, string az]
                                && float.TryParse(ax, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float atX)
@@ -6664,6 +6676,17 @@ public partial class Main : Node3D
             long t1 = Stopwatch.GetTimestamp();
             _handoff?.Absorb();
             _drain?.Draw();
+            if (_bodyProbeSeconds >= 0 && _bodyProbeBase < 0)
+            {
+                _bodyProbeBase = _clock.ElapsedMillis;
+            }
+
+            if (_bodyProbeSeconds >= 0 && _clock.ElapsedMillis - _bodyProbeBase >= _bodyProbeSeconds * 1000.0 && _fluid is not null)
+            {
+                _bodyProbeSeconds = -1;
+                PrintBodyProbe();
+            }
+
             _biteFill?.Refresh(_water is null ? null : (sx, sz) =>
             {
                 // The drain's own test: a sample whose basin holds nothing draws no plane.
@@ -7993,6 +8016,32 @@ public partial class Main : Node3D
                + tick
                + field
                + surface;
+    }
+
+    /// <summary>The water-bodies pass's measurement: components of held water, largest first.</summary>
+    private void PrintBodyProbe()
+    {
+        WaterComponents.Report r = WaterComponents.Measure(_fluid!.Grid, _seedHeights);
+        long total = 0;
+        foreach (WaterComponents.Component c in r.Components)
+        {
+            total += c.Millilitres;
+        }
+
+        int single = r.Components.Count(c => c.Cells == 1);
+        int small = r.Components.Count(c => c.Cells is > 1 and < 64);
+        int big = r.Components.Count(c => c.Cells >= 64);
+        long bigLitres = r.Components.Where(c => c.Cells >= 64).Sum(c => c.Millilitres) / 1000;
+        GD.Print(
+            $"M8e: body probe {(_clock.ElapsedMillis - _bodyProbeBase) / 1000.0:F0} s into the session — {r.HeldCells:N0} held cell(s), {total / 1000:N0} L, "
+            + $"{r.Components.Count:N0} component(s) ({single:N0} single cells, {small:N0} of 2-63, {big:N0} of 64 or more holding {bigLitres:N0} L), "
+            + $"{_fluid.ActiveCellCount:N0} awake; the flood took {r.Millis:F0} ms");
+        foreach (WaterComponents.Component c in r.Components.Take(12))
+        {
+            GD.Print(
+                $"M8e:   {c.Cells:N0} cell(s), {c.Millilitres / 1000:N0} L, {100.0 * c.FullCells / c.Cells:F0}% full, "
+                + $"Y {c.MinY}..{c.MaxY}, {100.0 * c.BelowSeed / c.Cells:F0}% below the seed, lowest {c.Lowest}");
+        }
     }
 
     /// <summary>

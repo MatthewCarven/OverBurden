@@ -47,7 +47,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md) | The retained-chunk cache. **Built.** Read slice 2's section before touching `LightPropagator`. |
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | Elements, and why not "just implement chemistry": geology that reacts to water, machine recipes as the chemistry set. |
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | Ores, layers, trees, permeability — his thinking-ahead. Not scheduled; its three questions are his. |
-| [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md) | Resting water as one number over a void. Deferred: a drip did not force bodies (M8c's measurement). |
+| [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written (2026-09-28), nine decisions waiting on his word**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a is rest before any body. `--bodyprobe=` measures it. |
 
 ## Non-negotiables
 

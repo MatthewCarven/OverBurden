@@ -1,5 +1,8 @@
 # Water bodies — resting water as one number over a void
 
+**The planning pass is [WATER-BODIES-PLAN.md](WATER-BODIES-PLAN.md) (2026-09-28)**, with his world's
+numbers: one component holds 99.6% of TajMahal's water, and it never comes to rest.
+
 Matthew's question, 2026-09-10, late: *"could we derive a speed improvement through joining these
 sheets into more like 3d blobs? … I'm looking for more of a way for water to be static 3d when at
 rest."* Notes rather than a plan. **Not started; Matthew said "not yet."** Read before M8c's
