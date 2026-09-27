@@ -1002,6 +1002,9 @@ public partial class Main : Node3D
     /// <summary>World milliseconds at the first boundary that asked — the probe's zero, because a restored world's clock starts at its saved age.</summary>
     private long _bodyProbeBase = -1;
 
+    /// <summary>The terrain the simulation was built over, kept for the body probe's "can this voxel hold water".</summary>
+    private IFluidTerrain? _probeTerrain;
+
     private long _drawnAtWarm;
 
     // ------------------------------------------------------------ M8c-2: Tier C, seepage
@@ -6425,6 +6428,7 @@ public partial class Main : Node3D
         // and every fixture and bench arm stays valid. See FluidField.
         _field = _fluidFieldOn ? new FluidField(terrain) : null;
         IFluidTerrain simTerrain = (IFluidTerrain?)_field ?? terrain;
+        _probeTerrain = terrain;
         if (_lakeCeiling is not null)
         {
             simTerrain = new LakeBoundedTerrain(simTerrain, _lakeCeiling);
@@ -8041,6 +8045,18 @@ public partial class Main : Node3D
             GD.Print(
                 $"M8e:   {c.Cells:N0} cell(s), {c.Millilitres / 1000:N0} L, {100.0 * c.FullCells / c.Cells:F0}% full, "
                 + $"Y {c.MinY}..{c.MaxY}, {100.0 * c.BelowSeed / c.Cells:F0}% below the seed, lowest {c.Lowest}");
+        }
+
+        if (_probeTerrain is not null)
+        {
+            IFluidTerrain sim = (IFluidTerrain?)_field ?? _probeTerrain;
+            WaterComponents.Kinds k = WaterComponents.Classify(_fluid.Grid, _fluid.AwakeHeldCells(), _probeTerrain.CanHold, sim.CanHold);
+            static string Bands(string[] names, long[] counts) =>
+                string.Join(", ", names.Select((n, i) => $"{n} {counts[i]:N0}"));
+            GD.Print($"M8e: kinds, awake — {Bands(WaterComponents.KindNames, k.Awake)}; asleep — {Bands(WaterComponents.KindNames, k.Asleep)} ({k.Millis:F0} ms)");
+            GD.Print($"M8e: surface cells at {k.SurfaceLevels:N0} distinct Y level(s); their largest difference to a side, awake — {Bands(WaterComponents.DiffNames, k.SurfaceDiffAwake)}; asleep — {Bands(WaterComponents.DiffNames, k.SurfaceDiffAsleep)}");
+            GD.Print($"M8e: awake surface cells by amount — {Bands(WaterComponents.AmountNames, k.SurfaceAmountAwake)}");
+            GD.Print($"M8e: awake cells over room, the voxel below as the simulation's terrain answers — {Bands(WaterComponents.OverRoomNames, k.OverRoomWhy)}");
         }
     }
 

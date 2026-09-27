@@ -144,6 +144,51 @@ question part a's pass opens with is how far one rim feed keeps the whole sheet 
 2 Hz and no frame. That is affordable for one quarry, and it grows with every pool a player
 fills.
 
+## Taken, and part a begun (2026-09-28)
+
+**All nine decisions taken:** *"as recommended"*. Part a (rest) opened with a measurement before
+any rule. The probe now sorts the awake cells (`M8e: kinds`, `surface cells`, `awake cells over
+room`), and a runner alternates arms on fresh copies of the backup.
+
+**What the awake set is**, on a copy of TajMahal, zero ERROR lines, identity exact:
+
+| 120 s into the session | cells |
+|---|---|
+| awake | 1,298,709 of 1,330,726 held |
+| full cells, awake (nothing to move while their sides are full) | 465,749 |
+| surface cells, awake | 392,024, of which **288,066 are within 5 mL of every side — level by the rule** |
+| surface cells within 5–99 mL (dithering) / 0.1–1 L / 1 L or more | 74,960 / 17,827 / 11,171 |
+| partial cells over room, awake | 369,780 — **the simulation's own terrain says the voxel below has room for every one** |
+| distinct Y levels the surface stands at | 235 |
+
+The runs at 300 s agree (1.15 M awake: 403 k full, 223 k level surface, 349 k over room).
+
+**Three readings:**
+1. **More than half the awake set has nothing to do.** Full cells and level surface cells are
+   awake because a neighbour moved: `Record` wakes the six neighbours of a move's source, and the
+   solve wakes its front. Each costs a visit that finds nothing, and the carry holds them across
+   ticks.
+2. **The over-room cells are the pool levelling through its depth.** Water moves sideways at every
+   layer, and the column above refills the cells that gave. It is not a stuck field: the field
+   answers "room" for all 369,780.
+3. **The surface is 235 levels, not one.** His quarry floor is terraced, and the pour stood in
+   mounds, so water is still cascading between terraces. Some of the awake set is real flow, and
+   no rest rule should stop it.
+
+**One lever tested and ruled out:** levelling fed sheets too. With `--fedshare=100` against the
+default at 120 s:
+- awake 1,253,372 against 1,260,802;
+- tick wall 163 against 173 ms.
+Being fed is not what keeps it awake.
+
+**What part a's rule turns on, now:** TajMahal mixes three things — a lake feeding it at
+~1.4 kL/s, 235 terraces, and a still interior. So it cannot say whether the automaton's rest is
+at fault. **Next step, recommended:** a clean fixture. A large flat-floored box, poured once, with
+no lake and no terraces, timed to rest on the bench (`--lake`'s shape). If it rests in reasonable
+time, TajMahal's awake set is its feed and its terraces, and the rule is about waking less (the
+full and level cells above). If it does not, the automaton's rest itself is the defect. That run
+decides the rule, and it is the start of the next session.
+
 ## What would reverse this
 
 - The pool resting on its own within minutes. Then part a is unneeded and b starts at once.

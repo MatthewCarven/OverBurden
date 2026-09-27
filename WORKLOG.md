@@ -1,5 +1,20 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-28 — Water bodies part a: what the awake set is
+
+*"as recommended"* took all nine decisions. Part a opened with a measurement:
+- The probe sorts the awake cells, and the simulation's own terrain is asked about the cells over
+  room.
+- On a TajMahal copy at 120 s, of 1.30 M awake: 466 k full cells and 288 k level surface cells
+  (more than half with nothing to do), 370 k partial cells over room (the pool levelling through
+  its depth; the field agrees there is room), and 104 k unlevel surface cells.
+- The surface stands at 235 distinct levels (his terraces).
+- **Ruled out:** levelling fed sheets (`--fedshare=100`: 1.25 M awake against 1.26 M).
+- **Next:** a clean fixture (a flat box poured once, no lake) to separate the automaton's rest
+  from his world's feed and terraces (WATER-BODIES-PLAN, "Taken, and part a begun").
+- Two probe runs fell into a new empty world while his game was open. Every runner now checks
+  the process list first.
+
 ## 2026-09-28 — Water bodies: the pass, and the pool that never rests
 
 *"plan the water bodies with me please Claude"*.
