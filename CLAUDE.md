@@ -186,7 +186,7 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 ## Where things stand
 
 **2026-09-26, late night.** Suite **1,961**; the r6 control to the digit. `main` and
-`water-column-test` both match GitHub as of a fetch. `start2.cmd`–`start5.cmd` are Matthew's and
+`water-column-test` both match GitHub as of a fetch. `start2.cmd`–`start5.cmd` and `pondlook.cmd` (his tower) are Matthew's and
 deliberately untracked.
 
 **The Tetris collapse is the default since 2026-09-27** — played on his tower with the pieces
