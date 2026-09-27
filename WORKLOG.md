@@ -1,5 +1,12 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-27 — A lake sheet over his dry quarry (reported, not yet investigated)
+
+On TajMahal, a new world, he dug a quarry into a valley and poured ~8.1 ML. Flat Tier A sheets
+hang over dry pit floor (screenshot). His log: drawn 1.29 ML and handed 1.76 ML both climbing (a
+treadmill), 1,231 enclosure floods all open at the bound, every identity exact. It is in TODO with
+the likely mechanism; it waits on his word to investigate.
+
 ## 2026-09-27 — The fuse is 10–20 s, bounded, leaning with the deficit
 
 His *"ideally the time would be from 10-20 seconds but randomly so people dont fully know until they
