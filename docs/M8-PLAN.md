@@ -2693,6 +2693,80 @@ rescans; the `M7d:` line is unchanged. The oracle is in CLAUDE.md.
 
 ---
 
+### The lake over a quarry — the planning pass, 2026-09-27, from a play finding
+
+*"teir a water the sheets like sometimes they construct over empty areas i'm not sure how to address
+it"* — then *"look into the water please"*. On TajMahal, a new world, he dug a quarry tens of metres
+across into a valley that already held a rain lake, and poured ~8.1 ML into it. His screenshot shows
+Tier A's flat sheet over dry quarry floor beside dark mounds of Tier B. His log is kept as
+`tajmahal-quarry-2026-09-27.log` under `app_userdata`.
+
+**Seven facts, from the code and two runs on a copy.**
+
+1. **The plane knows nothing about voxels.** `WaterSurface.Rebuild` (Game) sweeps the watershed's
+   `HeightField`, which is the seed terrain by construction. A 2 m sample is wet when its basin's
+   level is above the seed height there. The plane is drawn at the level over the sample's whole
+   8 × 8 footprint and is clipped only by the depth test against the dug terrain. Its only
+   voxel-aware skip is `Enclosure.IsEnclosed`, the courtyard. It is rebuilt every 0.25 s.
+2. **Over a bite the plane draws by design.** This is M8d-5's reversal of decision 7: *"the plane
+   must draw over the bite, because the water above the seed there is the lake's"*. It assumes the
+   bite below is full to the seed. `PortalDrain` fills a bite from the lake at 30 L/s a portal, so
+   M8d-5's 4 × 4 pit four deep was full in 34 ticks.
+3. **A quarry breaks that assumption for minutes.** In a 5-minute headless run on a copy the lake
+   drew a steady ~850 L a tick (~1.7 kL/s) into the quarry, and the bite was still not full at the
+   end. Until it is, the plane hangs at the level over air, or over Tier B's own lower surface.
+   M7-PLAY and TODO-HISTORY named this shape in 2026-09 (*"the water plane hangs in air over the
+   hole"*) as the one worth a cosmetic guard if a play ever saw it. His play has now seen it.
+4. **Water below the seed is never handed.** `SurfaceHandoff` hands only a cell resting at
+   `PlaneAt + 1` (the seed or the lake's top), or one inside the lake band (`Submerged`). A pit's
+   water below the seed is neither. So the enclosure's bound (`BoundVoxels` 64, 16 m) is not the
+   mechanism. Its 1,231 floods, all open at the bound, were asked by cells on the plane: the tops
+   of his pour's mounds and the water around the quarry's rim.
+5. **The drawn/handed loop was his pour.** In play, drawn 1.29 ML and handed 1.76 ML climbed
+   together. His debug pour stood in mounds taller than the seed, the mounds' tops were inside the
+   lake band and were handed, and the portals drew the water back. In the headless run with no
+   pour, handed rose by 10 kL in 5 minutes while drawn rose by 320 kL. That is the lake draining
+   into the quarry and nothing circling. No rule is needed.
+6. **The pour is slow to spread.** 5 minutes after opening the copy, 546,000 cells are still awake
+   (8.2 ML). The far quota and the 2 ms tick budget spread it over minutes, so the mounds stand.
+   That is not this pass's subject; it is recorded for the load test he still owes.
+7. **Every identity is exact** in his session and in both runs, and there were zero ERROR lines.
+   Nothing is lost; the defect is what is drawn.
+
+**Decisions, each with a recommendation.**
+
+1. **The guard: the plane draws over a bite only where the bite is full.** Recommended. A wet or
+   ring sample draws no plane when more than half of its 64 columns are dug at the seed height and
+   hold less than a full cell of water there. In that case the pit's own water shows at its true
+   height, and the lake shows over the undug part of its valley. A full bite still gets the plane,
+   which is M8d-5's fix kept. Decision 7's skip was the unconditional version of this rule and left
+   a hole over a full bite; conditioning on the fill is what that version lacked.
+   - *Reverse if* the edge reads badly: a 2 m sample at the rim is either drawn over up to 2 m of
+     air or left short of the wall. The next step is HeightField's named lever, clipping the quad
+     against the seed inside a cell.
+2. **Half the footprint, not any column and not all of them.** Recommended. "Any" drops the plane
+   over a rim sample that is mostly lake. "All" keeps a sheet over a pit that is mostly dry.
+3. **The check is a Core predicate, asked like the enclosure's.** Recommended. It reads seed
+   heights, whether a voxel is solid, and Tier B's amount, so it can be tested without Godot.
+   `WaterSurface` asks it per wet and ring sample, and only for samples whose chunk is edited. The
+   same precheck the enclosure uses keeps an untouched lake's cost at zero. Budget: under 1 ms a
+   rebuild on his quarry, measured on the copy; if it is over, cache the answer per sample at the
+   fluid boundary.
+4. **A control arm, `--lakeoverbite=1`, draws the plane as today.** Recommended. It exists for the
+   A/B screenshot on the copy. M8d-5 dropped `--lakeoverdug` because that arm was a hole in a
+   lake; this one is the shipped look, kept as the control.
+5. **Instruments.** The `M7d:` surface term gains `N sample(s) over an unfilled bite`, beside the
+   enclosure's `enclosed`. Recommended.
+6. **The fill rate is not touched.** The portal rate (30 L/s a portal) is a named lever with a
+   trigger: with the guard in, if a quarry filling reads too slow to him, the lever is the rate,
+   benched for the automaton's cost first. Recommended to leave.
+7. **No rule on the hand-off.** Fact 5: without the pour's mounds there is no loop to cut.
+   Recommended.
+
+**Split:** one piece. Core holds the predicate and its tests (a lake over a 4 × 4 bite: dry draws
+no plane, full draws it, and the half boundary built exactly); Game holds the call and the counter.
+Then the A/B screenshot on a copy of TajMahal.
+
 ## The open decision — settled by Matthew, 2026-09-02: option 3
 
 **M8 makes the mine floodable and nothing fights back until M10.**

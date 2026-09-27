@@ -13,18 +13,11 @@ his word — and this file points at it rather than repeating it.
 
 ## Next, on my side
 
-- [ ] **Lake sheets over his empty quarry (TajMahal, 2026-09-27)** — *"teir a water the sheets like
-      sometimes they construct over empty areas i'm not sure how to address it"*. He dug a quarry
-      into a valley and poured ~8.1 ML in; a flat sheet hangs over the dry pit floor. His log:
-      - drawn 1.29 ML and handed 1.76 ML are both climbing — memory's lake-to-hole treadmill;
-      - `1,231 flood(s) / 0 closed (1,231 open at the bound)` — the enclosure flood never proves
-        the quarry closed, so resting water is handed to the valley's lake;
-      - every identity exact.
-      Likely mechanism: the handed water raises the seed valley's lake, whose plane is drawn over
-      its seed footprint, which his quarry now lies under (M8 decision 7's rule: the plane draws over
-      a bite, because Tier B is meant to fill it to the seed below). A planning pass, measured on a
-      copy of TajMahal with a windowed screenshot; not started.
-
+- [ ] **The lake over a quarry — the pass is written, seven decisions waiting on his word**
+      ([docs/M8-PLAN.md](docs/M8-PLAN.md), "The lake over a quarry"). The plane draws over a bite
+      assuming it is full; his quarry fills at ~1.7 kL/s and stays under-filled for minutes. The
+      recommendation: draw over a bite only where it is full (more than half the sample's columns).
+      The drawn/handed loop was his pour's mounds, not a standing loop.
 - [ ] **Collapse part c — two loose ends.** Played and the default flipped 2026-09-27
       ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part c — played"). Open: decision 11
       (lifts off a reservation, up to 4.5 m on a copy, 3.25 m in his play) on his "fix it"; the

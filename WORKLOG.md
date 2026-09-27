@@ -1,5 +1,17 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-27 — The lake over a quarry: the pass
+
+*"look into the water please"*. Two code maps (the hand-off and the plane) and two runs on copies of
+TajMahal:
+- a 5-minute headless run;
+- one usable windowed shot (one of three: one faced away, one did not save).
+**The plane assumes a bite under a lake is already full.** His quarry fills at ~1.7 kL/s, so the
+sheet hangs over dry floor for minutes. The drawn/handed loop was his pour: without it, handed rose
+10 kL in 5 minutes against 320 kL drawn. The enclosure's bound is not the mechanism, since water
+below the seed is never handed. Seven decisions are in M8-PLAN; recommended: draw over a bite only
+where it is full.
+
 ## 2026-09-27 — A lake sheet over his dry quarry (reported, not yet investigated)
 
 On TajMahal, a new world, he dug a quarry into a valley and poured ~8.1 ML. Flat Tier A sheets
