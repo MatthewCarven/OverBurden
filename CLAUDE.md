@@ -189,18 +189,16 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 `water-column-test` both match GitHub as of a fetch. `start2.cmd`–`start5.cmd` are Matthew's and
 deliberately untracked.
 
-**Next: his play of part c, the pieces drawn falling.** c-1 and c-2 are built (COLLAPSE-PLAN, "c-2 — built"): 1 m tetrominoes fall in their own materials, the next second's minos glitch. Decision 11 is back with him (a 4.5 m lift on his tower). The default flips to `pieces` on his verdict. Parts a and b are built:
-`--collapsemode=pieces` runs the Tetris collapse in the game (one `M9: event` line an event, a
-`pieces:` term on the `M9:` line), with nothing drawn falling. A piece is air at its release and
-rubble at its landing, which is why `sweep` stays the default. The re-cut runs on a worker (the
+**The Tetris collapse is the default since 2026-09-27** — played on his tower with the pieces
+drawn: *"make it the default please"*, and the cyan glitch *"like it"* (COLLAPSE-PLAN, "Part c —
+played"). **Every M9 oracle recorded before then wants `--collapsemode=sweep`** (COMMANDS). Next
+are parts d–f; decision 11 (lifts off a reservation, up to 4.5 m) waits on his "fix it". One
+`M9: event` line an event, a `pieces:` term on the `M9:` line. The re-cut runs on a worker (the
 room's frame p99 went from ~260 ms to ~9 ms). **Played on his tower 2026-09-26: *"yes slow to
-fast"*** — the pace stands; part c's open questions are in the plan's "Played". **The restore is
-on hold** — he is testing what the half-standing spire holds (no weight, reach only: the answer is
-in the worklog). When he asks, restore from
-`backup-Regions16-pondlook-2026-09-26`, with the collapsed world kept as a dated copy, never
-deleted. **The keystone oracle is a race** (COMMANDS): read `at risk 0` and lifted == returned,
-not its falls. Half of a big collapse is rubble tumbling off the pile,
-and whether that reads as settling or churn is his once he can see it (part c). The collapse
+fast"*** — the pace stands; part c's open questions are in the plan's "Played". **His tower was restored 2026-09-27** from
+`backup-Regions16-pondlook-2026-09-26`; the collapsed one is `Regions16-pondlook-pieces-2026-09-27`.
+Restore the same way again when he asks — never a delete. **The keystone oracle is a race** (COMMANDS): read `at risk 0` and lifted == returned,
+not its falls. Two-thirds of a big collapse is rubble tumbling off the pile (65% in his play). The collapse
 sensor (part f) reads `CollapseDirector.Events`.
 
 **Waiting on him** (all in MATTHEW-TODO): the pond branch's verdict (merge or retire

@@ -13,11 +13,10 @@ his word — and this file points at it rather than repeating it.
 
 ## Next, on my side
 
-- [ ] **Collapse part c — his play, then the default.** c-1 and c-2 are built
-      ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "c-2 — built"). Open: his look verdict
-      (the flip of `--collapsemode`'s default to `pieces`, decision 12); decision 11 back to him
-      (a lift of 4.5 m on his tower, not the bench's 1 m); what "the settler firing" was; the
-      hand-off's cap (45% hit under a big collapse — the lever is a longer cap).
+- [ ] **Collapse part c — two loose ends.** Played and the default flipped 2026-09-27
+      ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part c — played"). Open: decision 11
+      (lifts off a reservation, up to 4.5 m on a copy, 3.25 m in his play) on his "fix it"; the
+      hand-off's cap (22–45% hit under a big collapse — the lever is a longer cap).
 - [ ] **Collapse parts d–f**, per the plan's split: **d** the chimney, whichever arm he takes — a
       tunnel under a placed house, headless on a scratch world; **e** the play, and the phonk hook
       if he wants it; **f** the collapse sensor (decision 13) — a headless event near a sensor

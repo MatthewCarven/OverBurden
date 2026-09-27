@@ -231,10 +231,12 @@ fluid-pending), fired, voxels fallen, stale skipped, lifted / returned L, freed 
 walking body with rubble in its box is lifted through `TryUnstick` (`M9: the player was freed N m up`)
 or left (`M9: the player is buried`, `F` the door until M11). Both identity lines carry `lifted L ==
 returned L by falls`. **The headless oracle, verbatim, reads four `M9: fell` lines one boundary apart,
-`20 voxel(s) fallen` and `at risk 0`, with the r6 control unchanged to the digit:**
+`20 voxel(s) fallen` and `at risk 0`, with the r6 control unchanged to the digit.** **Since
+2026-09-27 `pieces` is the default, so every M9 oracle recorded before then wants
+`--collapsemode=sweep` to reproduce** — it is on the two below; older records elsewhere omit it:
 
 ```bash
-../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --bitechunks=2 --collapseafter=1,2 --measure=20
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --bitechunks=2 --collapseafter=1,2 --measure=20 --collapsemode=sweep
 ```
 
 M9d (2026-09-15) adds the keystone's three. **`--saturation=0` derives every field dry with the water
@@ -262,7 +264,7 @@ pour, four falls of ~6,200 voxels with `lifted 30 L == returned 30 L` and `displ
 stays at 20, and the r6 control is unchanged:**
 
 ```bash
-../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --bitechunks=2 --fillbasin=2000000 --fillbasinafter=5 --collapseafter=1,2 --measure=25
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --bitechunks=2 --fillbasin=2000000 --fillbasinafter=5 --collapseafter=1,2 --measure=25 --collapsemode=sweep
 ```
 
 On the bench **`--support --collapse`** drops every fixture stage by stage with a zero window —
@@ -275,17 +277,19 @@ rule as `--support`:
 DOTNET_TieredCompilation=0 dotnet run --project Overburden.Bench -c Release -- --support --collapse
 ```
 
-**`--collapsemode=pieces`** (COLLAPSE-PLAN b-2) swaps the one-sweep fall for the Tetris collapse: a
-due fuse starts an event, pieces release from a spreading front, and each is air at its release and
-rubble at its landing; **nothing is drawn falling until part c**, which is why `sweep` stays the
-default. Its knobs: **`--collapsegrace=`** (15 s flat), **`--collapsedouble=`** (5 s a doubling),
+**`--collapsemode=pieces`** (COLLAPSE-PLAN b-2) is the Tetris collapse: a due fuse starts an event,
+pieces release from a spreading front, and each is air at its release and rubble at its landing,
+drawn falling between since part c. **It is the default since 2026-09-27**, on his play of part c
+(*"make it the default please"*); **`--collapsemode=sweep`** is M9c-1's one-sweep fall, the arm
+every earlier M9 figure was taken at. Its knobs: **`--collapsegrace=`** (15 s flat), **`--collapsedouble=`** (5 s a doubling),
 **`--collapsecap=`** (×16, the pace's ceiling, reached at 35 s — his *"cap the top please"*),
 **`--collapsepictures=0`** (part c's control: nothing drawn in the air; a windowed run only, since
 headless draws nothing),
 **`--collapsespread=`** (2 m of steer) and **`--collapsebudget=`** (2 ms of releases a frame). Each
 event ends with one `M9: event N — …` line, and the `M9:` and `support` lines carry a `pieces:` term
 with the identity `released == landed + in flight + lost`. The plug in pieces reads one event of about
-six pieces and 20 voxels; the keystone in pieces wants `--measure=60`:
+six pieces and 20 voxels (eight on 2026-09-27, at the default); the keystone in pieces wants
+`--measure=60`:
 
 ```bash
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --bitechunks=2 --collapseafter=1,2 --measure=20 --collapsemode=pieces

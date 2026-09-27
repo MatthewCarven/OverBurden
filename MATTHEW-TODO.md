@@ -38,30 +38,6 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 ### Recent builds
 
-- [ ] **The Tetris collapse, drawn.** Pieces now fall in the air, in their own materials, and the
-      next second's pieces glitch cyan before they go. Restore your tower first if you want a fresh
-      one ("restore my tower"), then:
-      `start.cmd "--world=Regions16-pondlook" --collapsemode=pieces --collapseafter=2,10`
-      and knock out a support in daylight. *Does it look like Tetris gone bad — and is the cyan
-      glitch the right warning, or too loud?* If you like it, "make it the default" flips it on.
-
-- [ ] **Your tower, in Tetris pieces.** Nothing is drawn falling yet (that's part c): rock
-      vanishes a piece at a time from a spreading front, and rubble appears where each piece
-      lands, a second or so later.
-      1. `start.cmd "--world=Regions16-pondlook" --collapsemode=pieces` (add `--collapseafter=2,10`
-         if you don't want to wait up to a minute for the fuse).
-      2. Knock out a ground support, as you did this afternoon, and stand well clear.
-      3. Watch the first 15 s. It should be slow, about three small pieces a second, then speed
-         up. Pieces grow to half a metre at ~20 s and a metre at ~30 s.
-      4. Quit when it settles. Then say **"restore my tower"** and I'll keep the collapsed world as
-         a dated copy and put the backup back.
-      *Does it read as slow-then-fast, like corruption spreading — even without the drop drawn?*
-      **Played in part, 2026-09-26:** your glass at the top came down in eight small collapses
-      (505 voxels, the biggest reaching 1 m pieces), *"after the glass settled i like it!"*
-      **Then the tower:** four collapses, 902 pieces, 20,426 voxels, the biggest 48 s long and up
-      to 1 m pieces; the water exact. Answered (below). **Restore on hold** while you test the
-      spire — `--collapse=0` shows the tint and drops nothing. Say "restore my tower" when done.
-
 - [ ] **The load test you wanted.** Same world, same spot, two short sessions back to back:
       `start3` then `start3 --fedadvance=0`. Play normally for a few minutes each and quit; copy
       `godot.log` aside between them. My read is that the flood's size is the cost, not the fed
@@ -125,8 +101,6 @@ Nothing is blocked on these; each is a small change once you have a view.
       said "at most a metre". On a copy of your tower, one piece jumped 4.5 m (about 20 pieces in
       800 jumped at all). Watch for it when you play: if you see a piece hop up, say "fix it" —
       the fix is costlier to run, but it is the right one if it shows.
-- [ ] **"The settler for the rubble was firing heavily"** — what did you see: pieces hopping on the
-      pile, or lines scrolling in the console window?
 - [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), six decisions still open. The biggest: a
       blast destroys the machines it reaches (5). "As recommended" or any one back.
 - [ ] **A rock placed in a lake.** A pier into a lake deletes no water today. If that reads wrong,
@@ -179,6 +153,10 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Answered lately
 
+- **The Tetris collapse, drawn** (2026-09-27): *"make it the default please"* — it is; the old
+  one-sweep fall is `--collapsemode=sweep`. The cyan: *"like they turn cyan yeah like it"*. The
+  black pieces stay: *"indicitave that you aint getting that back"*. The settler you saw was the
+  pile tumbling — 65% of what fell fell again. There is no sound in the game yet; that was the tablet.
 - **The collapse, part c's ten decisions** (2026-09-26): *"as recommended"*; c-1 is built.
 - **The Tetris collapse, played on your tower** (2026-09-26): *"yes slow to fast … buildings unless
   in earthquakes usually give signs before they collapse"* — the pace table stays as built.

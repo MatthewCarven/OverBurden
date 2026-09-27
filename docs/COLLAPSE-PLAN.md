@@ -5,7 +5,9 @@ decisions taken the same day (*"as recommended"*); a-1 and a-2 are built (Core, 
 a); part b's pass is written below and taken as recommended, and b-1 (the Core director) and b-2
 (the worker cut and the wire into `Main`) are built; `--collapsemode=pieces` plays it, with nothing
 drawn falling yet. Part c's pass is written below and taken as recommended; c-1 (Core) and c-2 (the
-renderer) are built: pieces are drawn falling. The default flips on his verdict** (TODO's "Next").
+renderer) are built: pieces are drawn falling. **Played 2026-09-27, and `pieces` is the default**
+(*"make it the default please"*; the glitch: *"like they turn cyan yeah like it"*). Parts d–f are
+next** (TODO's "Next").
 Read the notes first. They have his first brief, the demolition's numbers, and what M9 already does.
 
 ## His second brief (2026-09-26, the planning chat)
@@ -646,7 +648,7 @@ On his *"ok Claude lets continue I cant wait to see my tower collapse"*. `Main` 
 untouched.
 
 - **`--collapsemode=sweep|pieces`**, with `sweep` the default until part c draws the fall
-  (decision 12).
+  (decision 12). **Flipped to `pieces` 2026-09-27** on his play of c-2.
 - **Under `pieces`,** `SetUpCollapse` builds the director with the water, the pace, the spread,
   the budget and `CutRunner = work => Task.Run(work)`, and sets it as the scheduler's `Director`.
 - **`FrameCollapse` runs every frame** from `UpdateSupport`. `Boundary` runs inside
@@ -845,6 +847,20 @@ Then his tower, on a copy of the backup. Recommended.
 
 **The default flips to `pieces` on his verdict after c-2** (decision 12). Recommended: the same
 Core/renderer seam as b.
+
+## Part c — played (2026-09-27)
+
+He knocked his tower down with the pieces drawn (eight screenshots; log
+`logs/tower-pictures-2026-09-27.log` under `app_userdata`). **Three verdicts:**
+- **The default:** *"make it the default please"* — `_collapsePieces = true`. The r6 control reads
+  2601 / 325 / 3446 at 411 after the flip; the plug at the default reads one event, 8 pieces,
+  20 voxels, `at risk 0`; under `--collapsemode=sweep` it still reads 4 falls, 20 voxels, `at risk 0`.
+- **The glitch:** *"like they turn cyan yeah like it"* — decision 7 stands as built.
+- **The black pieces** (a piece lit from a cell with no light): *"I like that they are not the
+  original colour like its indicitave that you aint getting that back"* — kept, not a defect.
+
+**The settler:** 65% of what fell (174,529 of 268,699 voxels) was rubble falling again — the pile
+tumbling. He did not call it churn. Decision 11 stays open: 8 lifts, at most 13 voxels (3.25 m).
 
 ## c-1 — built (2026-09-26)
 

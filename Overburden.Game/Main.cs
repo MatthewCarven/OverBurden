@@ -890,11 +890,11 @@ public partial class Main : Node3D
 
     /// <summary>
     /// <c>--collapsemode=pieces</c> (COLLAPSE-PLAN part b): a due fuse starts a Tetris event the
-    /// director runs a frame at a time. <c>sweep</c>, the default until part c draws the fall, is
-    /// M9c-1's one-sweep fall — decision 12: with nothing drawn in the air, pieces read as rock
-    /// vanishing and rubble appearing a second later.
+    /// director runs a frame at a time. <b>The default since 2026-09-27</b>, on his play of part c
+    /// (decision 12): *"make it the default please"*. <c>sweep</c> is M9c-1's one-sweep fall, the
+    /// arm every M9 oracle before that date was recorded at.
     /// </summary>
-    private bool _collapsePieces;
+    private bool _collapsePieces = true;
 
     /// <summary><c>--collapsegrace=</c> and <c>--collapsedouble=</c>, world seconds: the pace table's flat start and its doubling (decision 4).</summary>
     private CollapsePace _collapsePace = CollapsePace.Default;

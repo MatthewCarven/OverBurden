@@ -1,5 +1,17 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-27 — The Tetris collapse is the default
+
+*"make it the default please"*, and the glitch: *"like they turn cyan yeah like it"*.
+- `_collapsePieces = true`; `--collapsemode=sweep` is the old fall.
+- **Checked after the flip, zero ERROR lines each:**
+  - the r6 control reads 2601 / 325 / 3446 at 411;
+  - the plug at the default reads one event, 8 pieces, 20 voxels, `at risk 0`;
+  - the plug under `--collapsemode=sweep` reads 4 falls, 20 voxels, `at risk 0`, as recorded.
+- COMMANDS' two M9 oracles now carry `--collapsemode=sweep`.
+- **He asked about a sound effect:** the game has no audio at all (no `Audio` anywhere in
+  `Overburden.Game`), so it was his mum's tablet.
+
 ## 2026-09-27 — His first play of the drawn collapse; the tower restored
 
 - **He played part c on his tower** (eight screenshots: tetrominoes in the air, the cyan glitch
