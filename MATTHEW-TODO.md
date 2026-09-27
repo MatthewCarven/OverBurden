@@ -41,7 +41,7 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 - [ ] **The phonk.** Your track now plays while a collapse runs. It starts from the top, speeds up
       with the collapse (up to 25% faster at the top), and fades out over 2 s when the last piece
       lands. Knock your tower down with the sound on:
-      `start.cmd "--world=Regions16-pondlook" --collapseafter=2,10`
+      `start.cmd "--world=Regions16-pondlook"` (the fuse is 10–20 s by default now)
       *Is the top speed right — too tame, or too chipmunk? And is the volume right?* Say "faster",
       "slower", "louder" or "quieter" (the settings are `--collapsemusicmax=` and
       `--collapsevolume=`). When your remix is ready, drop it in `media/` under the same name, or
@@ -114,8 +114,6 @@ Nothing is blocked on these; each is a small change once you have a view.
       blast destroys the machines it reaches (5). "As recommended" or any one back.
 - [ ] **A rock placed in a lake.** A pier into a lake deletes no water today. If that reads wrong,
       I refuse it. (*"not sure about 3 yet"*, from M9d.)
-- [ ] **The collapse delay's spread.** A thin lip goes in about a minute, occasionally three. Say
-      "wider" or "tighter" after a session with a few falls.
 - [ ] **The hotbar's unit.** `1,767,903,281 L` doesn't fit a slot. My lean: litres under a cubic
       metre, m³ above. Due with the inventory screen (M10g).
 - [ ] **Dust when a roof comes down** (M9c-2). Optional; only if falls read as too quiet.
@@ -162,6 +160,9 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Answered lately
 
+- **The fuse** (2026-09-27): *"ideally the time would be from 10-20 seconds but randomly"* — arm 2
+  is built: 10–20 s, and the more overloaded the rock, the more it leans toward 10 (a gutted roof
+  draws in 10–15 s). `--collapseafter=` still changes it.
 - **The Tetris collapse, drawn** (2026-09-27): *"make it the default please"* — it is; the old
   one-sweep fall is `--collapsemode=sweep`. The cyan: *"like they turn cyan yeah like it"*. The
   black pieces stay: *"indicitave that you aint getting that back"*. The settler you saw was the

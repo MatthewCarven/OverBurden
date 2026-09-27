@@ -282,6 +282,12 @@ ceiling.
 > **Amended at M9d (2026-09-15, decision 7):** the jitter is exponential with the deficit's delay
 > as its mean — `× −ln(1 − u)` — after the first play read the uniform draw as a timer; and a timer
 > only shortens (M9d decision 2), so a lake rising over an armed roof redraws it earlier.
+>
+> **Amended again 2026-09-27, his arm 2:** *"ideally the time would be from 10-20 seconds but
+> randomly so people dont fully know until they have played a few times"*. The window is 10–20 s
+> and the draw is bounded inside it: `min + (max − min) × u × (1 − deficit / 2K)`, so a thin lip
+> goes in 10–20 s and a gutted roof in 10–15 s. The Tetris collapse's own 15 s slow start is now
+> the second warning, which is why the exponential's long tail is no longer needed.
 
 Per analysed chunk, one timer, started when the chunk's deficit set becomes non-empty and left
 running by later derives that keep it so. Delay = `lerp(max, min, clamp(deficit / K, 0, 1)) ×

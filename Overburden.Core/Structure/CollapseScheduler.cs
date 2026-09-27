@@ -13,30 +13,34 @@ public readonly record struct CollapseFire(CollapseResult Result, long WorldMill
 
 /// <summary>
 /// The delay window (M9-PLAN decision 8): world seconds between a roof marking at risk and its
-/// fall, shortened by the deficit and jittered by a seeded draw. Min 2 s, max 60 s, estimates
-/// — <c>--collapseafter=&lt;min&gt;,&lt;max&gt;</c> is the sweep.
+/// fall, a seeded draw inside the window that leans shorter with the deficit. <b>10 to 20 s since
+/// 2026-09-27</b> — <c>--collapseafter=&lt;min&gt;,&lt;max&gt;</c> is the sweep.
 /// </summary>
 /// <remarks>
-/// <b>The jitter is exponential since M9d (decision 7), with the deficit's delay as its mean.</b>
-/// The first play's draw was <c>U(0.5, 1.5)</c> and a thin lip always went in about a minute —
-/// Matthew: <i>"I want it to be unpredictable like, like you know if you have left too much
-/// overhang"</i>. An exponential keeps the lean (more overhang falls sooner on average) and lets
-/// the same lip go in five seconds or three minutes: the median is 0.69 of the mean, one draw in
-/// twenty is under 0.05 of it and one in twenty over three times it. The window's two numbers are
-/// the mean's ends now rather than the draw's, and <c>--collapseafter=</c> still sets them.
+/// <para>
+/// <b>Bounded since 2026-09-27, his arm 2:</b> <i>"ideally the time would be from 10-20 seconds but
+/// randomly so people dont fully know until they have played a few times"</i>. The draw is uniform
+/// from the minimum to an upper end that the deficit pulls halfway in:
+/// <c>min + (max − min) × u × (1 − share / 2)</c>, share = deficit / K. A thin lip draws anywhere in
+/// 10–20 s, a gutted roof in 10–15 s — unpredictable each time, with a lean a player learns.
+/// </para>
+/// <para>
+/// <b>What it replaced:</b> from M9d (decision 7) the draw was an exponential with
+/// <c>lerp(max, min, share)</c> as its mean, over a 2–60 s window, so the same lip could go in five
+/// seconds or three minutes — his <i>"I want it to be unpredictable"</i> when the fuse was the only
+/// warning. Since the Tetris collapse, the event's own 15 s slow start is a second warning, so the
+/// fuse no longer needs the long tail to feel unpredictable.
+/// </para>
 /// </remarks>
 public sealed record CollapseWindow
 {
     /// <summary>The estimates as shipped.</summary>
     public static readonly CollapseWindow Default = new();
 
-    /// <summary>The unit at which the exponential draw is exactly its mean: <c>1 − e⁻¹</c>. For tests.</summary>
-    public const float MeanUnit = 0.63212056f;
+    private readonly double _minSeconds = 10.0;
+    private readonly double _maxSeconds = 20.0;
 
-    private readonly double _minSeconds = 2.0;
-    private readonly double _maxSeconds = 60.0;
-
-    /// <summary>The delay at a deficit of <c>K</c> or more, before the jitter.</summary>
+    /// <summary>The shortest delay, at any deficit.</summary>
     public double MinSeconds
     {
         get => _minSeconds;
@@ -51,7 +55,7 @@ public sealed record CollapseWindow
         }
     }
 
-    /// <summary>The delay at a deficit of one, before the jitter.</summary>
+    /// <summary>The longest delay, at a deficit near zero; a deficit of <c>K</c> or more pulls it halfway to the minimum.</summary>
     public double MaxSeconds
     {
         get => _maxSeconds;
@@ -67,17 +71,17 @@ public sealed record CollapseWindow
     }
 
     /// <summary>
-    /// The delay for a chunk whose worst voxel is <paramref name="maxDeficit"/> below zero:
-    /// <c>lerp(max, min, deficit / K) × Exp(1)</c>, the exponential's unit drawn from
-    /// <paramref name="unit"/> in [0, 1) as <c>−ln(1 − unit)</c>.
+    /// The delay for a chunk whose worst voxel is <paramref name="maxDeficit"/> below zero, for a
+    /// seeded <paramref name="unit"/> in [0, 1]: <c>min + (max − min) × unit × (1 − share / 2)</c>.
+    /// Never below the minimum nor above the maximum; strictly increasing in the unit when the
+    /// window is open, and never longer for a larger deficit.
     /// </summary>
     public double DelaySeconds(int maxDeficit, float unit)
     {
         double share = Math.Clamp(maxDeficit / (double)SupportRule.MaxBudget, 0.0, 1.0);
-        double max = Math.Max(_minSeconds, _maxSeconds);
-        double nominal = max + ((_minSeconds - max) * share);
-        double clamped = Math.Clamp(unit, 0.0, 0.999999);
-        return nominal * -Math.Log(1.0 - clamped);
+        double span = Math.Max(0.0, _maxSeconds - _minSeconds);
+        double clamped = Math.Clamp(unit, 0.0, 1.0);
+        return _minSeconds + (span * clamped * (1.0 - (share / 2.0)));
     }
 }
 

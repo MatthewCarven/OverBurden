@@ -1,5 +1,19 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-27 — The fuse is 10–20 s, bounded, leaning with the deficit
+
+His *"ideally the time would be from 10-20 seconds but randomly so people dont fully know until they
+have played a few times"*; arm 2 of two (*"2 please"*).
+- **The draw:** `min + (max − min) × u × (1 − deficit / 2K)`. A thin lip goes in 10–20 s, a gutted
+  roof in 10–15 s. It replaces M9d's exponential over 2–60 s, which was right while the fuse was the
+  only warning; the Tetris collapse's 15 s slow start is now a second one.
+- **Test:** rewritten, with a battery of 5 recipes, all caught. Suite 1,988.
+- **Headless, zero ERROR lines:**
+  - the plug under `--collapsemode=sweep --collapseafter=1,2` still reads four falls one boundary
+    apart, 20 voxels, `at risk 0`;
+  - in pieces, one event, 20 voxels;
+  - at the new default, the event started between 10 and 15 s into the window.
+
 ## 2026-09-27 — Collapse part e: the phonk
 
 *"as recommended please Claude love the ideas!"*

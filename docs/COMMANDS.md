@@ -218,11 +218,13 @@ figure against the Debug bench with tiering on** (`dotnet run --project Overburd
 
 M9c-1 (2026-09-14) adds the fall's two. **`--collapse=0` arms every timer and fires none** — the
 warning-only arm, for walking under a marked roof to judge the marking; **`--collapseafter=<min>,<max>`**
-is the delay window in world seconds (2, 60 — decision 8's estimates; a settled chunk with something
-at risk arms `lerp(max, min, deficit / K) × −ln(1 − u)`, seeded — **an exponential with the deficit's
-delay as its mean since M9d, 2026-09-15**, so the 2 × 2 plug's deficit of 8 has a mean near the 60 s end,
-a median of 39 s and one draw in twenty over 168 s, and `--clockscale` shortens it the way it shortens
-the weather; **a timer only shortens** — a lake rising over an armed roof redraws it earlier). The sweep runs
+is the delay window in world seconds (**10, 20 since 2026-09-27**, his *"from 10-20 seconds but
+randomly"*; a settled chunk with something at risk arms `min + (max − min) × u × (1 − deficit / 2K)`,
+seeded — **bounded inside the window, and a deficit of K pulls the top halfway in**, so the plug's
+thin lip draws in 10–20 s and a gutted roof in 10–15 s. From M9d until then it was 2–60 s with an
+exponential draw, so **a figure recorded before 2026-09-27 at `--collapseafter=1,2` came from a
+different draw**; the plug still reads its four falls, 20 voxels and `at risk 0`. `--clockscale`
+shortens it the way it shortens the weather; **a timer only shortens** — a lake rising over an armed roof redraws it earlier). The sweep runs
 at each fluid boundary — its own `collapse` term on the `boundary` line — or every frame under
 `--nowater`. **Each fall prints one `M9: fell` line** (chunk, voxels, columns, deepest and mean drop,
 chunks fell from and written into, litres lifted / returned, `cascade`, the world time, the sweep's ms),

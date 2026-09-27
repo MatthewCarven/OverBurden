@@ -5841,7 +5841,7 @@ public partial class Main : Node3D
         }
         GD.Print(
             $"M9: collapse {(_collapseOn ? "on" : "arming only (--collapse=0)")} — a settled chunk with something at risk arms "
-            + $"{_collapseWindow.MinSeconds:0.##}–{_collapseWindow.MaxSeconds:0.##} s of world time by its deficit as the mean of a seeded exponential draw "
+            + $"{_collapseWindow.MinSeconds:0.##}–{_collapseWindow.MaxSeconds:0.##} s of world time, a seeded draw whose upper end the deficit pulls up to halfway in "
             + $"(--collapseafter=min,max); rubble is ID {rubble}; the sweep runs "
             + $"{(_fluid is null ? "every frame, no water to wait for (--nowater)" : "at each fluid boundary, waiting on fluid-pending chunks")}");
     }
