@@ -13,11 +13,11 @@ his word — and this file points at it rather than repeating it.
 
 ## Next, on my side
 
-- [ ] **The lake over a quarry — the pass is written, seven decisions waiting on his word**
-      ([docs/M8-PLAN.md](docs/M8-PLAN.md), "The lake over a quarry"). The plane draws over a bite
-      assuming it is full; his quarry fills at ~1.7 kL/s and stays under-filled for minutes. The
-      recommendation: draw over a bite only where it is full (more than half the sample's columns).
-      The drawn/handed loop was his pour's mounds, not a standing loop.
+- [ ] **The lake over a quarry — built 2026-09-27, his look owed.** The plane draws no sheet over
+      a pit that is not yet full ([docs/M8-PLAN.md](docs/M8-PLAN.md), "built"). Open: his eye on
+      TajMahal; the named lever if the rim reads badly is clipping the quad against the seed.
+- [ ] **For the load test:** TajMahal's 8 ML pour in motion costs `hand-off: absorb` 32 ms a
+      boundary (65 worst), from 530k awake cells.
 - [ ] **Collapse part c — two loose ends.** Played and the default flipped 2026-09-27
       ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part c — played"). Open: decision 11
       (lifts off a reservation, up to 4.5 m on a copy, 3.25 m in his play) on his "fix it"; the

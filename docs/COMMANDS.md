@@ -442,6 +442,13 @@ called `--weather` that silently failed to fill a basin would be the worse instr
 a view-dependent artefact is invisible in one picture by definition, so the face-tint A/B needs the
 same wall from two angles. `--viewnormal=1` is that A/B's other arm.
 
+The lake over a quarry (2026-09-27) adds **`--lakeoverbite=1`**, the control arm: the plane draws
+over every bite as before. By default a sample that is mostly a dug pit not yet full to the seed
+draws no plane (`BiteFill`, M8-PLAN "The lake over a quarry — built"). The `M7d:` line carries
+`N sample(s) over an unfilled bite (asked, dry of lake, seed cells read)`, and its surface term
+carries `N undrawn over an unfilled bite`. The A/B wants a windowed screenshot on two identical
+copies.
+
 The shore's ring dilation (2026-09-10) adds **`--shore=<0|1>`**: a dry sample beside a wet one draws
 the wet one's plane and the terrain's depth clips it to the voxel; 0 is the stair-stepped arm
 every M7 screenshot was taken in. Not profile-only. The `M7d:` line's `surface` term prints the

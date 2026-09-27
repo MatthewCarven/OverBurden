@@ -985,6 +985,14 @@ public partial class Main : Node3D
     /// <summary>Draws whole litres out of Tier A into Tier B at each tick boundary.</summary>
     private PortalDrain? _drain;
 
+    /// <summary>
+    /// The lake over a quarry (M8-PLAN, 2026-09-27): which samples are mostly a dug pit not yet
+    /// full to the seed, refreshed at the boundary after the drain; the surface draws no plane
+    /// over them. Null under <c>--lakeoverbite=1</c>, the control arm that draws as before.
+    /// </summary>
+    private BiteFill? _biteFill;
+    private bool _lakeOverBite;
+
     private long _drawnAtWarm;
 
     // ------------------------------------------------------------ M8c-2: Tier C, seepage
@@ -1816,6 +1824,9 @@ public partial class Main : Node3D
                     break;
                 case "enclosure" when int.TryParse(value, out int enclosure):
                     _enclosureOn = enclosure != 0;
+                    break;
+                case "lakeoverbite" when int.TryParse(value, out int overBite):
+                    _lakeOverBite = overBite != 0;
                     break;
                 case "at" when value.Split(',') is [string ax, string ay, string az]
                                && float.TryParse(ax, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float atX)
@@ -5598,10 +5609,14 @@ public partial class Main : Node3D
                + $"window {water.SpanMetres} m x{water.WindowsInstalled}, "
                + $"{_lastAnalysisMillis:F1} ms to analyse, scale x{water.RainfallScale}"
                + overflow
+               + (_biteFill is null
+                   ? " | the plane draws over every bite (--lakeoverbite=1)"
+                   : $" | {_biteFill.UnfilledSamples} sample(s) over an unfilled bite ({_biteFill.SamplesAsked:N0} asked, {_biteFill.SamplesSkipped:N0} dry of lake, {_biteFill.CellsRead:N0} seed cell(s) read)")
                + (_waterSurface is null
                    ? " | no surface drawn (headless or --nowater)"
                    : $" | surface {_waterSurface.QuadCount} quad(s) over "
                      + $"{_waterSurface.WetBasins} basin(s), {_waterSurface.RingSamples} shore sample(s), "
+                     + $"{_waterSurface.UnfilledBiteSamples} undrawn over an unfilled bite, "
                      + $"{_waterSurface.LastRebuildMillis:F2} ms");
     }
 
@@ -5713,6 +5728,7 @@ public partial class Main : Node3D
             : $"surface   {_waterSurface.QuadCount} quad(s) over {_waterSurface.WetBasins} basin(s), "
               + $"{_waterSurface.RingSamples} dry sample(s) drawing a neighbour's shore ({(_waterSurface.DilateShore ? "--shore=1" : "--shore=0")}), "
               + $"{_waterSurface.EnclosedSamples} enclosed sample(s) undrawn, "
+              + $"{_waterSurface.UnfilledBiteSamples} over an unfilled bite undrawn (--lakeoverbite=1 draws them), "
               + $"{_waterSurface.LastRebuildMillis:F2} ms to rebuild, "
               + $"{_waterSurface.Rebuilds} rebuild(s)\n";
 
@@ -6452,6 +6468,11 @@ public partial class Main : Node3D
         _seeps = _water is not null && _seepScale > 0 ? new SeepIndex(_seedHeights, terrain) : null;
         _portalTracker = new PortalTracker(_portals, _seeps);
         _drain = _water is null ? null : new PortalDrain(_portals, _water, _fluid);
+        _biteFill = _water is null || _lakeOverBite ? null : new BiteFill(_portals, _fluid.Grid);
+        if (_waterSurface is not null)
+        {
+            _waterSurface.BiteFill = _biteFill;
+        }
         _seepDrain = _seeps is null ? null : new SeepDrain(_seeps, _water!, _fluid, _seepScale, tickSeconds: _fluidTickSeconds, mode: _seepMode);
         GD.Print(_seepDrain is null
             ? $"M8c: seepage is off ({(_water is null ? "no water" : "--seepscale=0")}); the seep index is not built"
@@ -6637,6 +6658,12 @@ public partial class Main : Node3D
             long t1 = Stopwatch.GetTimestamp();
             _handoff?.Absorb();
             _drain?.Draw();
+            _biteFill?.Refresh(_water is null ? null : (sx, sz) =>
+            {
+                // The drain's own test: a sample whose basin holds nothing draws no plane.
+                int basin = _water.BasinAtSample(sx, sz);
+                return basin != Watershed.Outlet && _water.Water is not null && _water.Water.StoredIn(basin) > 0;
+            });
 
             // M8c-2: the flush re-scans any chunk a burst of edits left stale, then the seep
             // drain reads the index. Timed apart from the drains it sits beside, because the

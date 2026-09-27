@@ -38,6 +38,12 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 ### Recent builds
 
+- [ ] **The lake over your quarry.** A pit the lake hasn't filled yet no longer gets the lake's
+      sheet over it — you see the pit's own water at its real height instead. Open TajMahal
+      (`start.cmd "--world=TajMahal"`) and look at the quarry. *Does the lake's edge at the quarry
+      rim read right, or does it stop short or overhang?* (For comparison, `--lakeoverbite=1`
+      draws it the old way.)
+
 - [ ] **The phonk.** Your track now plays while a collapse runs. It starts from the top, speeds up
       with the collapse (up to 25% faster at the top), and fades out over 2 s when the last piece
       lands. Knock your tower down with the sound on:

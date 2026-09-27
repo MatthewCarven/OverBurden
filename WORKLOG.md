@@ -1,5 +1,19 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-27 — The lake over a quarry: built
+
+*"as recommended please Claude"*.
+- **Built:** `BiteFill` (Core) and the surface's skip: no plane over a sample that is mostly a dug
+  pit not yet full; `--lakeoverbite=1` is the old arm.
+- **The budget forced a cheaper refresh** (6.8 → 0.86 ms mean on his quarry): only wet samples,
+  stop once decided, one slice in four a boundary.
+- **Verified:**
+  - the windowed A/B on two identical copies shows the squared sheet gone;
+  - the r6 control holds;
+  - suite 1,996, and both batteries (6 and 8 recipes) caught everything.
+- **Found:** the hand-off costs 32 ms a boundary with his pour in motion (TODO, for the load test).
+- A heredoc mangled `\n` in a battery script again. It failed before running, so nothing changed.
+
 ## 2026-09-27 — The lake over a quarry: the pass
 
 *"look into the water please"*. Two code maps (the hand-off and the plane) and two runs on copies of

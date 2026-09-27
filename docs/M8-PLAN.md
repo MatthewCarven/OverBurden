@@ -2767,6 +2767,45 @@ Tier A's flat sheet over dry quarry floor beside dark mounds of Tier B. His log 
 no plane, full draws it, and the half boundary built exactly); Game holds the call and the counter.
 Then the A/B screenshot on a copy of TajMahal.
 
+### The lake over a quarry — built, 2026-09-27
+
+On his *"as recommended please Claude"*, all seven decisions as written, with one departure forced
+by the budget.
+
+**What was built:**
+- **`BiteFill` (Core, `Fluid/`):** reads the portal index the drain already keeps. A pit portal is a
+  column dug at its seed, and one whose seed cell could still take a whole litre is dry. A sample
+  is unfilled when more than half its 64 columns are dry pits. It is refreshed at the boundary
+  right after `PortalDrain.Draw`, where Tier B's grid is the sim thread's. 8 tests; the battery of
+  8 recipes caught all 8.
+- **`WaterSurface`:** draws no plane over an unfilled sample, and the shore ring never dilates into
+  one. `UnfilledBiteSamples` is on the `M7d:` surface term, and the headless `M7d:` line carries
+  `N sample(s) over an unfilled bite (asked, dry of lake, seed cells read)`.
+- **`--lakeoverbite=1`** is the control arm, drawing the plane as before.
+
+**The departure — the refresh is cheaper than the pass planned.** The pass's version read every
+pit of every sample: 6.8 ms a refresh on his quarry, 14 ms at worst, against a budget of 1 ms.
+Three cuts, each measured on a copy of TajMahal:
+- asking only samples whose basin holds water, which is the drain's own test;
+- stopping a sample once its answer is decided;
+- asking one slice in four a boundary, chosen by a hash of the sample, so every sample is re-asked
+  every 2 s.
+
+The mean went 6.8 → 2.8 → **0.86 ms**, the worst to 3.1. Two seconds of staleness is nothing
+against a quarry that fills over minutes.
+
+**Verified:**
+- The r6 control reads 2601 / 325 / 3446 at 411; an untouched world asks nothing.
+- On a copy of TajMahal, the guard left 548 samples unfilled of 163 asked a slice.
+- The windowed A/B from one spot on two identical copies:
+  - `--lakeoverbite=1` shows the flat, squared-off sheet over the middle of the quarry;
+  - the guard shows Tier B's own surface there (43 samples undrawn in that view).
+- Suite 1,988 → 1,996, zero ERROR lines.
+
+**Found on the way, not this pass's:** on TajMahal with his 8 ML pour in motion, `hand-off:
+absorb` costs 32 ms a boundary on average (65 ms worst). That is the rested list of 530k awake
+cells. It belongs to the load test he owes, beside fact 6.
+
 ## The open decision — settled by Matthew, 2026-09-02: option 3
 
 **M8 makes the mine floodable and nothing fights back until M10.**
