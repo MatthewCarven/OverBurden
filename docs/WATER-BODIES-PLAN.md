@@ -310,6 +310,21 @@ Decisions for him:
 3. **Or leave it.** The order-on pool costs ~300 ms of worker at 2 Hz, no frame time. Part b (bodies)
    needs rest, so this shelves bodies too.
 
+**Two more variations, run on his word (2026-09-29):**
+- **c-2, `--solvefrontnear=2`** (the carried front pulled near too): 141 k awake against a
+  control's 187 k, far levellings down a quarter, worker wall 211 against 322 ms. Partly the lag,
+  not the whole loop.
+- **His "settle down but not up", `--solvewakeup=0`:** 99% of the solve's wakes are the cell
+  above a drained sheet cell. Off, the solve's wakes fall 13× but its far levellings rise (1.48 M
+  against 1.02 M), and 7,091 cells hang asleep over room. The solve's wakes are not the loop.
+
+**What they point at together:** the re-levelled far sheets are layers with water above them,
+inside the pool's depth, and something in the automaton's own visits keeps unsettling them.
+**The measurement needs fixing first:** the order-on control reads 187–668 k awake at 900 s over
+six runs, so one probe cannot rank arms inside that spread. Next, recommended: (1) a steadier
+quantity (the queued curve's mean over the last five minutes) with repeats, and (2) option 1's
+observation, now aimed: what, sheet by sheet, unsettles an interior far layer between two passes.
+
 ## What would reverse this
 
 - The pool resting on its own within minutes. Then part a is unneeded and b starts at once.

@@ -25,8 +25,10 @@ his word — and this file points at it rather than repeating it.
       counts say it is a loop:** under the order 95% of levellings are far sheets, levelled over
       and over, and they cause 90% of the solve's wakes. Candidate a (`--solvecarry=0`)
       fails: far sheets reach the solve through the pending list anyway. Candidate c
-      (`--solvefrontnear=1`) fails too. **Waiting on his decision** (plan, "Candidate c, run"): look
-      at the re-levelled sheets first (recommended), or switch the order on only above an awake count.
+      (`--solvefrontnear=1`) fails too; c-2 (`--solvefrontnear=2`) helps a little (141 k); his
+      "settle down but not up" (`--solvewakeup=0`) shows 99% of the solve's wakes are upward, but
+      they are not the loop. **Next:** a steadier measure than one probe (controls read 187–668 k),
+      then observe what unsettles an interior far layer between passes (plan, "Two more variations").
 - [ ] **Tier B at scale — re-read on the fixed build.** On 2026-09-28 the cause was found: Core
       was built unoptimised under `dotnet build Overburden.Game` (WORKLOG). Fixed, his quarry's
       tick is 185 ms at 2.00 Hz (it was ~1 s at 0.9 Hz). Colour waves and bodies wait for a pour

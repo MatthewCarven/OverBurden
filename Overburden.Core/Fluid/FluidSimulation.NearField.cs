@@ -389,10 +389,36 @@ public sealed partial class FluidSimulation
     // The far cells the solve woke since the last composition, classed near there once.
     private readonly HashSet<VoxelPos> _solvePromoted = [];
 
-    /// <summary>Records a cell the solve just woke, when <see cref="SolveFrontNear"/> is on and the cell is far.</summary>
-    private void PromoteSolveWake(VoxelPos cell)
+    /// <summary>
+    /// Candidate c's second arm (2026-09-28, <c>--solvefrontnear=2</c>): a front cell the solve touches
+    /// that is already waiting in the far carry is promoted too, pulled out through the carry's
+    /// reclassify walk (the path a viewer move takes). That walk is O(backlog) on every tick that
+    /// promotes, which is a measurement arm's price.
+    /// </summary>
+    public bool SolveFrontNearCarried { get; set; }
+
+    /// <summary>
+    /// Records a far cell the solve's writes reached, when <see cref="SolveFrontNear"/> is on: one it
+    /// newly woke, or with <see cref="SolveFrontNearCarried"/> one already queued.
+    /// </summary>
+    private void PromoteSolveWake(VoxelPos cell, bool newlyWoken)
     {
-        if (SolveFrontNear && _nearRings > 0 && !IsNear(cell) && _solvePromoted.Add(cell))
+        if (!SolveFrontNear || _nearRings <= 0 || IsNear(cell))
+        {
+            return;
+        }
+
+        if (!newlyWoken)
+        {
+            if (!SolveFrontNearCarried || !_queued.ContainsKey(cell))
+            {
+                return;
+            }
+
+            _reclassifyCarry = true;
+        }
+
+        if (_solvePromoted.Add(cell))
         {
             SolveFrontPromoted++;
         }
@@ -515,7 +541,7 @@ public sealed partial class FluidSimulation
             for (int i = _farHead; i < _farCarry.Count; i++)
             {
                 VoxelPos cell = _farCarry[i];
-                if (IsNear(cell))
+                if (IsNear(cell) || (_solvePromoted.Count > 0 && _solvePromoted.Contains(cell)))
                 {
                     _nearScratch.Add(cell);
                 }

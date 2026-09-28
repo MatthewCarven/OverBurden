@@ -1200,6 +1200,10 @@ public partial class Main : Node3D
 
     /// <summary><c>--solvefrontnear=1</c> (2026-09-28): candidate c. See <see cref="FluidSimulation.SolveFrontNear"/>.</summary>
     private bool _solveFrontNear;
+    private bool _solveFrontNearCarried;
+
+    /// <summary><c>--solvewakeup=0</c> (2026-09-28): the solve does not wake the cell above one it drained. See <see cref="FluidSimulation.SolveWakesAbove"/>.</summary>
+    private bool _solveWakeUp = true;
 
     /// <summary>The rain, or null in a run that has no renderer to draw it with.</summary>
     private Rain? _rain;
@@ -1998,8 +2002,13 @@ public partial class Main : Node3D
 
                 // M8c-2: the seepage rate's sweep, rainfallScale's shape. Zero is off — no index,
                 // no drain, no scans — which is the control arm and the back-out.
+                case "solvewakeup":
+                    _solveWakeUp = value.Length == 0 || value != "0";
+                    break;
                 case "solvefrontnear":
+                    // 1: cells the solve newly wakes; 2: and those already waiting in the carry.
                     _solveFrontNear = value.Length == 0 || value != "0";
+                    _solveFrontNearCarried = value == "2";
                     break;
                 case "solvecarry":
                     _solveCarry = value.Length == 0 || value != "0";
@@ -6483,9 +6492,17 @@ public partial class Main : Node3D
         _fluid.FarFloorCells = _fluidFarFloor;
         _fluid.SolveSeedsFromCarry = _solveCarry;
         _fluid.SolveFrontNear = _solveFrontNear;
+        _fluid.SolveFrontNearCarried = _solveFrontNearCarried;
+        _fluid.SolveWakesAbove = _solveWakeUp;
+        if (!_solveWakeUp)
+        {
+            GD.Print("M8b: --solvewakeup=0 — the solve does not wake the cell above one it drained (a measurement arm)");
+        }
         if (_solveFrontNear)
         {
-            GD.Print("M8b: --solvefrontnear=1 — a far cell the solve wakes is visited as near at the next tick (a measurement arm)");
+            GD.Print(_solveFrontNearCarried
+                ? "M8b: --solvefrontnear=2 — every far cell of a levelled sheet's front, woken or already carried, is visited as near at the next tick (a measurement arm)"
+                : "M8b: --solvefrontnear=1 — a far cell the solve wakes is visited as near at the next tick (a measurement arm)");
         }
         if (!_solveCarry)
         {
@@ -7744,7 +7761,7 @@ public partial class Main : Node3D
               + $"{_settle.CellsWritten:N0} written, "
               + $"largest sheet {_settle.LargestSheet:N0}, longest pass {_settle.LongestMillis:F1} ms, "
               + $"last pass seeded {f.SolveSeedsLast:N0} ({f.SolveCarrySeedsLast:N0} from the carry), "
-              + $"woke {f.SolveCellsWoken:N0} cell(s) ({f.SolveFarSheetsLevelled:N0} far sheet(s) levelled or packed woke {f.SolveFarCellsWoken:N0}; {f.SolveFrontPromoted:N0} promoted near), "
+              + $"woke {f.SolveCellsWoken:N0} cell(s) ({f.SolveFarSheetsLevelled:N0} far sheet(s) levelled or packed woke {f.SolveFarCellsWoken:N0}; {f.SolveAboveWoken:N0} of all above a drained cell; {f.SolveFrontPromoted:N0} promoted near), "
               + SettlePhases();
 
         long drawn = _drain?.DrawnMillilitres ?? 0;

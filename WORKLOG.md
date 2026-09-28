@@ -1,5 +1,30 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 — Two more variations: the carried front, and settle down but not up
+
+*"nah try the 3rd variation … maybe better info"*, then *"prioritize settle down but not up … in a 4th"*.
+Both measurement arms, defaults unchanged, suite 1,999; his backup, fed, order on, in the quarry,
+`--rainshare=0`, 900 s, 0 ERROR lines, pool loaded, each against its own control.
+
+- **Third, `--solvefrontnear=2`:** candidate c plus the front cells already waiting in the carry,
+  pulled out through the carry's reclassify walk. **141,079 awake** against its control's 187,413;
+  far levellings 808 k against ~1.1 M; worker wall 211 against 322 ms (max 1.5 s: the walk). 55 M
+  cells promoted. The lowest order-on reading yet, and still 5× the order-off 27 k.
+- **Fourth, `--solvewakeup=0`:** the solve no longer wakes the cell above one it drained. The new
+  count (`N of all above a drained cell`) says **99% of the solve's wakes are that upward wake**
+  (10.76 M of 10.90 M in the control). Off, the solve woke 0.82 M, but it levelled **more** far
+  sheets (1.48 M against 1.02 M), 527,880 awake against its control's 667,872, and **7,091 cells
+  slept with room below them**: water left hanging, as expected.
+
+**What the fourth says:** the solve's own wakes are not what unsettles the far sheets; the
+automaton's visits are. And the upward wake names which sheets they are: layers with water above
+them, inside the pool's depth, not its surface.
+
+**The controls are too noisy for one probe:** six order-on runs read 187 k, 215 k, 218 k, 310 k,
+370 k and **668 k** awake at 900 s. Only the order-off arm (27 k, twice) and perhaps the third
+variant stand clear of that. A ranking wants a steadier quantity, such as the queued curve's
+mean over the last five minutes, or the time to fall under 10%, and repeats.
+
 ## 2026-09-28 — Candidate c fails too; back to planning
 
 *"try candidate c please Claude"*. `FluidSimulation.SolveFrontNear` (default false) and
