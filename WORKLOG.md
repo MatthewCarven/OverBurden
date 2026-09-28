@@ -1,5 +1,30 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-28 — Candidate a fails: the loop does not run through the carry's seeds
+
+*"try candidate a please Claude"*. `FluidSimulation.SolveSeedsFromCarry` (default true) and
+`--solvecarry=0`: the solve is seeded from the pending list only. A measurement arm; the suite is
+unchanged at 1,999 and it has no test of its own.
+
+His backup, fed, order on, viewer in the quarry, `--rainshare=0`, 900 s, 0 ERROR lines, pool loaded:
+
+| | candidate a | order-on control |
+|---|---|---|
+| awake at 900 s | 415,160 | 214,900 |
+| levelled by ~1,000 passes | 1.34 M (0 carry seeds, every pass) | 0.96 M |
+| worker wall mean | 243 ms | 310 ms |
+| boundaries waited | 12 | 234 |
+
+**The far sheets are still re-levelled every pass, reached through the pending list alone.** The
+order-on arm's awake at 900 s also varies a lot between runs (214,900, 309,642, 369,661), so one probe
+cannot rank a candidate within that range; candidate a sits at its top, nowhere near the order-off 27 k.
+
+**A sharper reading of the loop:** a sheet that straddles the near/far edge. Its near half is visited
+every tick and its far half late, so near cells keep moving water against stale far neighbours and
+unsettle it; the solve re-levels the whole sheet, and its writes wake the far front, which waits
+again. **Next:** candidate c (the plan): the front a levelled sheet wakes is admitted as near for
+one tick, so the automaton settles it at once, as with the order off.
+
 ## 2026-09-28 — The solve counts: far sheets levelled over and over, waking what they level
 
 *"start on the solve counts please Claude"*. Three lifetime counters on `FluidSimulation`, printed on

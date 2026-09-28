@@ -1195,6 +1195,9 @@ public partial class Main : Node3D
     /// </summary>
     private bool _portalDrainOn = true;
 
+    /// <summary><c>--solvecarry=0</c> (2026-09-28): the solve is not seeded from the far carry. See <see cref="FluidSimulation.SolveSeedsFromCarry"/>.</summary>
+    private bool _solveCarry = true;
+
     /// <summary>The rain, or null in a run that has no renderer to draw it with.</summary>
     private Rain? _rain;
 
@@ -1992,6 +1995,9 @@ public partial class Main : Node3D
 
                 // M8c-2: the seepage rate's sweep, rainfallScale's shape. Zero is off — no index,
                 // no drain, no scans — which is the control arm and the back-out.
+                case "solvecarry":
+                    _solveCarry = value.Length == 0 || value != "0";
+                    break;
                 case "portaldrain":
                     _portalDrainOn = value.Length == 0 || value != "0";
                     break;
@@ -6469,6 +6475,11 @@ public partial class Main : Node3D
             GD.Print($"M8d: a visit falls at most {_fallCells} cell(s) (--fallcells; {FluidSimulation.DefaultFallCells} is the default, 1 the pre-M8d-3 arm)");
         }
         _fluid.FarFloorCells = _fluidFarFloor;
+        _fluid.SolveSeedsFromCarry = _solveCarry;
+        if (!_solveCarry)
+        {
+            GD.Print("M8b: --solvecarry=0 — the solve is seeded from the pending list only, not the far carry (a measurement arm)");
+        }
         // M10d-1: the mine's share of held, off the loaded sky columns' seed heights — the "dry" oracle.
         _fluid.Underground = new UndergroundWater(_seedHeights);
         _fluidBudgetTicks = FluidSimulation.BudgetTicks(_fluidBudget);

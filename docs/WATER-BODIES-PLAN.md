@@ -283,6 +283,14 @@ late, and the next pass, seeded from the carry, finds the sheet unsettled again.
   it at once, as it does with the order off. Touches the order, not the solve.
 Recommended: a first, as the measurement that says whether the seeds are the whole loop.
 
+**Candidate a, run (2026-09-28): it fails.** `--solvecarry=0`, 900 s: 415,160 awake against a
+control's 214,900; 1.34 M levellings by ~1,000 passes with no carry seed at all, against 0.96 M.
+The far sheets reach the solve through the pending list anyway. The likelier loop is a sheet
+straddling the near/far edge: its near half dithers against its stale far half, the solve
+re-levels the whole sheet, and the far front it wakes waits again. **Candidate c is next.** The
+order-on arm's awake at 900 s varies 215–370 k between runs, so a candidate has to land well outside
+that range to count.
+
 ## What would reverse this
 
 - The pool resting on its own within minutes. Then part a is unneeded and b starts at once.

@@ -325,6 +325,17 @@ public sealed partial class FluidSimulation
     /// </summary>
     private IReadOnlyList<VoxelPos> SolveSeeds()
     {
+        if (!SolveSeedsFromCarry && FarBacklog > 0)
+        {
+            // Water bodies part a's candidate a: the pending list only. Nothing from the carry is
+            // offered, so nothing is marked: the offered range is left empty.
+            _farRewoken.Clear();
+            _farOfferPendingTo = Math.Max(_farOfferedEnd, _farHead);
+            SolveSeedsLast = _pending.Count;
+            SolveCarrySeedsLast = 0;
+            return _pending;
+        }
+
         if (FarBacklog == 0)
         {
             // A re-wake listed while the carry still stood is a cell since admitted and visited;
@@ -352,6 +363,16 @@ public sealed partial class FluidSimulation
         _farRewoken.Clear();
         return _seedScratch;
     }
+
+    /// <summary>
+    /// Whether a solve from the active set is seeded from the far carry as well as the pending list.
+    /// True, the default, is every figure since 2026-09-19. False is water bodies part a's candidate
+    /// a (2026-09-28): under the order, the solve levels far sheets whose woken front waits in the
+    /// carry, and the next pass, seeded from the carry, levels them again (95% of his pool's
+    /// levellings, 90% of the solve's wakes). The cost: a sheet that is wholly carried is levelled by
+    /// the automaton alone until a visit wakes a cell of it into the pending list.
+    /// </summary>
+    public bool SolveSeedsFromCarry { get; set; } = true;
 
     /// <summary>After a solve from <see cref="SolveSeeds"/>: the carry's cells it was given are marked offered and the re-woken list it took is spent.</summary>
     private void MarkCarryOffered()
