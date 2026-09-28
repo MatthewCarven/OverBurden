@@ -21,8 +21,10 @@ his word — and this file points at it rather than repeating it.
       order off"). The clean box rests, and so does his pool with the order off (2% awake at 900 s,
       fed; 26% with `--fluidnear=2`). **Next:** the load-test world, order off against on,
       alternated — **done: the order off ticks 1.16–1.33 Hz there against 1.83–1.91, so option 1
-      is out.** **Next:** sweep the far floor (`--fluidfar=` 250 k / 500 k / 1 M) on both worlds:
-      the load test at 1.5 Hz or more, TajMahal's awake at 900 s near 2%. Then his decision.
+      is out.** The far floor fails too (250 k does nothing, 500 k halves the rate). **Next:** the
+      solve under the order levels 8.4× as many sheets on TajMahal. Count, under the order, the
+      levelled sheets from far-carry seeds and the cells the solve's writes wake (plan, "The floor
+      sweep, run").
 - [ ] **Tier B at scale — re-read on the fixed build.** On 2026-09-28 the cause was found: Core
       was built unoptimised under `dotnet build Overburden.Game` (WORKLOG). Fixed, his quarry's
       tick is 185 ms at 2.00 Hz (it was ~1 s at 0.9 Hz). Colour waves and bodies wait for a pour

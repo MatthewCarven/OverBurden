@@ -1,5 +1,37 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-28 — The far floor fails too; the lead is the solve under the order
+
+*"yes start the load test sweep please Claude"*. On mains (checked), copies of `retired-spread`, the
+order on, 480 s each, the default floor bracketing the sweep, 0 ERROR lines, 47.8 ML loaded in all:
+
+| `--fluidfar=` | ticks by 480 s | rate | worker wall mean | awake |
+|---|---|---|---|---|
+| 512 (before) | 944 | 1.97 Hz | 426 ms | 2.63 M |
+| 250 k | 929 | 1.94 Hz | 439 ms | 2.68 M |
+| 500 k | 459 | 0.96 Hz | 951 ms | 2.66 M |
+| 1 M | 449 | 0.94 Hz | 958 ms | 2.18 M |
+| 512 (after) | 945 | 1.97 Hz | 416 ms | 2.73 M |
+
+**Option 4 fails.** 250 k barely binds, because near admission is already ~250 k here. From 500 k
+the job passes the 500 ms boundary and the rate halves: the boundary quantises it, and a tick
+that misses one waits for the next. The wall rises more than the visits do (~670 k at 951 ms
+against ~610 k at 426 ms), which is unexplained and worth a profile.
+
+**And the throttle cannot be the whole of TajMahal.** There, with the order on, far admission was
+117–253 k a tick against 157–187 k deferred, so the queue is nearly all admitted every tick, yet the
+pool stayed 13× more awake. From the 900 s logs already taken (fed, order off against on):
+- sheets levelled 149,865 against **1,264,716** (8.4×), in 1,785 against 1,713 passes;
+- sheets left alone 1.05 M against 4.63 M; seeds a pass 554 k against 1.05 M; capped passes 733
+  against 1,128.
+
+**The lead, a hypothesis:** under the order the solve is seeded with the far carry. It levels far
+sheets the automaton has not finished, its writes wake those cells, and they never stay still long
+enough to sleep. With the order off, the automaton levels the pool itself and the solve leaves it
+alone. **Next:** count, under the order, how many levelled sheets came from carry seeds and how many
+cells the solve's writes wake. If that is the loop, the fix is in what the solve is seeded with,
+not in the quota. Nothing ran after this: his game was open.
+
 ## 2026-09-28 — The load test: the order off is too slow there, so option 1 is out
 
 *"carry on with the load test please Claude"*, on mains power (checked). A fresh alternation, off /

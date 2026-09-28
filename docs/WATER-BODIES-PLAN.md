@@ -256,6 +256,18 @@ count. No code: a sweep of 250 k, 500 k and 1 M on both worlds, alternated. It p
 test holds 1.5 Hz or more and TajMahal's awake at 900 s comes near the order-off 2%. The
 decision is then his: the default floor, or `start.cmd` passing it.
 
+**The floor sweep, run (2026-09-28): option 4 fails.** On the load test at 480 s, the floor 250 k
+changes nothing (1.94 Hz; near admission is already ~250 k), and 500 k and 1 M halve the rate
+(0.96 / 0.94 Hz, worker wall ~955 ms), bracketed by two 512 controls at 1.97 Hz.
+
+**The throttle is not the whole of it.** On TajMahal with the order on, far admission (117–253 k a
+tick) nearly covers the deferred set (157–187 k), yet the pool is 13× more awake than with the order
+off. The same 900 s runs show the solve levelling **8.4× as many sheets** with the order on
+(1,264,716 against 149,865, over the same number of passes), with twice the seeds a pass. The lead:
+the solve, seeded with the far carry, levels far sheets the automaton has not finished, and its
+writes keep waking them. **Next:** count under the order the levelled sheets from carry seeds and the
+cells the solve's writes wake. If that is the loop, part a's fix is in the solve's seeds.
+
 ## What would reverse this
 
 - The pool resting on its own within minutes. Then part a is unneeded and b starts at once.
