@@ -195,9 +195,9 @@ at `c599f1a`; the session's close-out commit after it is his to push.
 **Next on my side: water bodies, part a (rest)** — [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md),
 "His pool rests with the near/far order off". The bench's `--rest` box rests (the automaton is not
 the defect), and at 900 s his pool is 2% awake with the order off, fed, against 26% with the play
-arm's `--fluidnear=2`. **Next:** the load-test world, order off against on, to see whether turning it
-off slows near water (one order-on arm done, three owed, on mains power); then the decision (option 1
-recommended). **A TajMahal probe needs
+arm's `--fluidnear=2`. The load test rules out turning the order off (1.2–1.3 Hz there against 1.9).
+**Next:** sweep the far floor, `--fluidfar=` 250 k / 500 k / 1 M, on both worlds (the plan's option 4);
+then his decision. **A TajMahal probe needs
 `--at=-268,-5,1284`**: his saved spawn is nine chunk layers above the pool, which then never loads.
 - **The session's big find:** Core was built unoptimised under `start.cmd` since 2026-09-15. Fixed
   2026-09-28, the water tick is 5.5× faster (see Commands).

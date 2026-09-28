@@ -244,6 +244,18 @@ longer to level. It also costs the worker more wall, because the awake set it ke
 Recommended: measure 1's load test first. If it holds, take 1, and pumps' near columns keep
 their meaning only on the sim-thread arm.
 
+**The load test, run (2026-09-28): option 1 fails its trigger.** On `retired-spread-2026-09-22`
+(3.1 M cells loaded, 209 machines), alternated, at 480 s: order off ticks 1.33 and 1.16 Hz (worker
+wall mean 692 / 821 ms), order on 1.91 and 1.83 Hz (452 / 477 ms). The order off rests more (49%
+awake against 81–84%) but the water beside you updates ~35% slower, under 1.5 Hz.
+
+**Option 4, now recommended: raise the far floor** (`--fluidfar=<cells>`, default 512). Far
+admission is max(floor, near awake); the 512 floor is what starves far water once little near it is
+awake. A floor in the hundreds of thousands is option 2's effect without a clock, since it is a
+count. No code: a sweep of 250 k, 500 k and 1 M on both worlds, alternated. It passes if the load
+test holds 1.5 Hz or more and TajMahal's awake at 900 s comes near the order-off 2%. The
+decision is then his: the default floor, or `start.cmd` passing it.
+
 ## What would reverse this
 
 - The pool resting on its own within minutes. Then part a is unneeded and b starts at once.

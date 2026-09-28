@@ -1,5 +1,28 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-28 — The load test: the order off is too slow there, so option 1 is out
+
+*"carry on with the load test please Claude"*, on mains power (checked). A fresh alternation, off /
+on / off / on, on copies of `retired-spread-2026-09-22` at the saved spawn (47.8 ML in 3.1 M cells,
+209 machines loaded), 480 s each, 0 ERROR lines, every copy deleted:
+
+| arm | ticks by 480 s | rate | worker wall mean / max | boundaries waited | awake |
+|---|---|---|---|---|---|
+| order off | 640 / 558 | 1.33 / 1.16 Hz | 692 / 821 ms, max 1.4 s | 470 / 533 | 1.56 M / 1.57 M (49%) |
+| order on | 919 / 876 | 1.91 / 1.83 Hz | 452 / 477 ms, max 0.79 s | 253 / 371 | 2.59 M / 2.68 M (81–84%) |
+
+**With the order off the water beside you ticks ~35% slower here**, under the plan's 1.5 Hz reverse
+trigger, so option 1 (drop `--fluidnear=2`) is out as it stands. It still rests more (49% against
+~83% awake). The worst frame is the same either way (245–325 ms), because the tick is on the worker.
+This afternoon's single order-on arm (82%, 416 ms) agrees with today's pair.
+
+**The middle road needs no code:** `--fluidfar=<cells>`, the far floor. Far admission is
+max(floor, near awake), and the floor is 512, which is what starves a pool once the near side is
+small (the bench's 236 near cells holding 36 k far). A floor of a few hundred thousand admits far
+water in bulk, and it is a count, not a clock, so the order's determinism holds. **Next:** a floor
+sweep (say 250 k, 500 k, 1 M), both worlds: the load test's tick rate must stay at 1.5 Hz or more,
+and his TajMahal pool's awake at 900 s should approach the order-off arm's 2%.
+
 ## 2026-09-28 — The load test, order on against off: one arm of four, held
 
 *"yes run the load test comparison please Claude"*, then *"hold here … going onto battery power"*.
