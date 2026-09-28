@@ -23,8 +23,9 @@ his word — and this file points at it rather than repeating it.
       alternated — **done: the order off ticks 1.16–1.33 Hz there against 1.83–1.91, so option 1
       is out.** The far floor fails too (250 k does nothing, 500 k halves the rate). **The solve
       counts say it is a loop:** under the order 95% of levellings are far sheets, levelled over
-      and over, and they cause 90% of the solve's wakes. **Next:** candidate a (plan, "The solve
-      counts, run"): a flag leaving the far carry out of the solve's seeds, the same 900 s run.
+      and over, and they cause 90% of the solve's wakes. Candidate a (`--solvecarry=0`)
+      fails: far sheets reach the solve through the pending list anyway. **Next:** candidate c, a
+      levelled sheet's woken front admitted as near for one tick (plan, "Candidate a, run").
 - [ ] **Tier B at scale — re-read on the fixed build.** On 2026-09-28 the cause was found: Core
       was built unoptimised under `dotnet build Overburden.Game` (WORKLOG). Fixed, his quarry's
       tick is 185 ms at 2.00 Hz (it was ~1 s at 0.9 Hz). Colour waves and bodies wait for a pour

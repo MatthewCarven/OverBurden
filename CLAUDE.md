@@ -197,8 +197,9 @@ at `c599f1a`; the session's close-out commit after it is his to push.
 the defect), and at 900 s his pool is 2% awake with the order off, fed, against 26% with the play
 arm's `--fluidnear=2`. The load test rules out turning the order off (1.2–1.3 Hz there against 1.9),
 and the far floor fails too. The solve counts show a loop: under the order 95% of the solve's
-levellings are far sheets levelled over and over, causing 90% of its wakes. **Next:** candidate a in the
-plan, a flag leaving the far carry out of the solve's seeds, on the same 900 s TajMahal run. **A TajMahal probe needs
+levellings are far sheets levelled over and over, causing 90% of its wakes. Candidate a
+(`--solvecarry=0`) fails. **Next:** candidate c, a levelled sheet's woken front admitted as near for one
+tick, on the same 900 s TajMahal run; the control varies 215–370 k awake, so it must land well outside. **A TajMahal probe needs
 `--at=-268,-5,1284`**: his saved spawn is nine chunk layers above the pool, which then never loads.
 - **The session's big find:** Core was built unoptimised under `start.cmd` since 2026-09-15. Fixed
   2026-09-28, the water tick is 5.5× faster (see Commands).
