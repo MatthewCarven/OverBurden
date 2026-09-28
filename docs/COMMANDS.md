@@ -747,6 +747,15 @@ mode on/off`, and the HUD's view term reads `r7h/4v (far, to r8h/4v)`. Standing 
 254 against 203 MiB, the light step's mean load 0.32 against 0.13**; first draw unchanged. The
 profile's `grown` milestone still reads the configured ceiling (r6h), not far mode's.
 
+**A second rung, r10h/6v (2026-09-28)** — Matthew: *"6 horizontal to 8 and 10 with the vertical
+distances set in increasing values respectively"*. F11 now steps 6h/2v → 8h/4v → 10h/6v → 6h/2v:
+up a rung climbs lazily as before, and back to the start trims at once. **`--far` or `--far=1`**
+starts on the first rung, **`--far=2`** on the second, `--far=0` is off. The `M2c:` line reads
+`far mode on, rung 2 of 2`, the HUD `(far 2, to r10h/6v)`. Headless, `--nosave --adaptive=1
+--lightbudget=16`, 4,000 frames, one run each: **rung 2 at r10h/6v is 10,625 tracked / 1,486 drawn
+/ 499 k quads, working set 375 MiB, against rung 1's 5,733 / 756 / 272 k and 281 MiB**. 0 `ERROR`;
+the r6 control unchanged to the digit.
+
 The retained-chunk cache adds two. **`--chunkcache=<MiB>` caps the cache, 64 by default, and 0 is
 off — the committed pre-cache behaviour and the control arm.** Not profile-only, because memory is
 something a play reports. **`--turnaround=<seconds>` reverses the scripted flythrough every N

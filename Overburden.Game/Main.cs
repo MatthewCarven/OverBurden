@@ -303,15 +303,21 @@ public partial class Main : Node3D
 
     /// <summary>
     /// Far mode (F11, <c>--far</c>; Matthew, 2026-09-24: <i>"just enable processing that far, dont
-    /// change the way we lazily load"</i>): the adaptive radius's ceiling raised to
-    /// <see cref="FarHorizontal"/>h/<see cref="FarVertical"/>v. Nothing else changes — the policy
-    /// still climbs a ring a cadence only while the derive backlog is empty and the light step
-    /// is under half its budget, and still falls to the floor while moving with a backlog.
+    /// change the way we lazily load"</i>): the adaptive radius's ceiling raised a rung of
+    /// <see cref="FarRungs"/>. Nothing else changes — the policy still climbs a ring a cadence only
+    /// while the derive backlog is empty and the light step is under half its budget, and still
+    /// falls to the floor while moving with a backlog. 0 is the configured ceiling; F11 steps
+    /// 0 → 1 → 2 → 0 (the third rung on his word, 2026-09-28).
     /// </summary>
-    private bool _farMode;
+    private int _farRung;
 
-    private const int FarHorizontal = 8;
-    private const int FarVertical = 4;
+    /// <summary>
+    /// The far rungs' ceilings, horizontal and vertical, rung 1 first: 8h/4v (2026-09-24) and 10h/6v
+    /// (2026-09-28, <i>"6 horizontal to 8 and 10 with the vertical distances set in increasing
+    /// values respectively"</i>). The 10h/6v box is 5,733 chunks against 2,601 at 8h/4v and 845 at
+    /// 6h/2v.
+    /// </summary>
+    private static readonly (int Horizontal, int Vertical)[] FarRungs = [(8, 4), (10, 6)];
     private ViewRadiusState _radiusState;
     private int _radiusShrinks;
     private int _radiusGrows;
@@ -1519,9 +1525,9 @@ public partial class Main : Node3D
 
         _viewer = _pipeline.Streamer.AddViewer(
             _lastViewerChunk, _radiusState.Horizontal, _radiusState.Vertical);
-        if (_farMode)
+        if (_farRung > 0)
         {
-            SetFarMode(true, "--far");
+            SetFarRung(_farRung, "--far");
         }
 
         SetUpMining();
@@ -2438,7 +2444,12 @@ public partial class Main : Node3D
                 // --adaptive=0 is the fixed radius, which is also the default, so a profile that
                 // names neither is the arm every recorded figure was taken in.
                 case "far":
-                    _farMode = value.Length == 0 || value != "0";
+                    // --far alone or --far=1 is the first rung, --far=2 the second, --far=0 off.
+                    _farRung = value.Length == 0
+                        ? 1
+                        : int.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int rung)
+                            ? Math.Clamp(rung, 0, FarRungs.Length)
+                            : 1;
                     break;
 
                 case "adaptive":
@@ -2711,10 +2722,11 @@ public partial class Main : Node3D
             return;
         }
 
-        // Far mode: the adaptive radius's ceiling, toggled. See SetFarMode.
+        // Far mode: the adaptive radius's ceiling, a rung up each press and back to the configured
+        // ceiling after the last. See SetFarRung.
         if (key.Keycode == Key.F11)
         {
-            SetFarMode(!_farMode, "F11");
+            SetFarRung((_farRung + 1) % (FarRungs.Length + 1), "F11");
             return;
         }
 
@@ -2843,8 +2855,8 @@ public partial class Main : Node3D
 
         _hud.Refresh(
             delta, _inventory, _materials, Content.Materials, _place, _mining, precise,
-            _adaptiveRadius || _farMode
-                ? $"r{_radiusState.Horizontal}h/{_radiusState.Vertical}v{(_farMode ? $" (far, to r{_radiusConfig.CeilingHorizontal}h/{_radiusConfig.CeilingVertical}v)" : string.Empty)}"
+            _adaptiveRadius || _farRung > 0
+                ? $"r{_radiusState.Horizontal}h/{_radiusState.Vertical}v{(_farRung > 0 ? $" (far {_farRung}, to r{_radiusConfig.CeilingHorizontal}h/{_radiusConfig.CeilingVertical}v)" : string.Empty)}"
                 : null,
             _pack,
             _place.SelectedIsPack ? _carriedPacks.FullestMillijoules(_place.MaterialId) : 0,
@@ -7785,18 +7797,19 @@ public partial class Main : Node3D
     }
 
     /// <summary>
-    /// Raises or restores the view's ceiling. On, the adaptive radius climbs toward
-    /// r<see cref="FarHorizontal"/>h/<see cref="FarVertical"/>v at its own pace — a ring a cadence,
-    /// only while it can afford one — so turning it on costs nothing until the derive is idle.
-    /// Off, the box is trimmed to the configured ceiling at once, because the policy never
-    /// shrinks from above its ceiling by itself. Without <c>--adaptive=1</c> there is nothing to
-    /// climb lazily, and the box jumps.
+    /// Sets the view's ceiling to a far rung, or restores it at rung 0. Up a rung, the adaptive
+    /// radius climbs toward the rung's ceiling at its own pace — a ring a cadence, only while it
+    /// can afford one — so raising it costs nothing until the derive is idle. Down (rung 0 after
+    /// the last), the box is trimmed to the new ceiling at once, because the policy never shrinks
+    /// from above its ceiling by itself. Without <c>--adaptive=1</c> there is nothing to climb
+    /// lazily, and the box jumps.
     /// </summary>
-    private void SetFarMode(bool on, string why)
+    private void SetFarRung(int rung, string why)
     {
-        _farMode = on;
-        int horizontal = on ? Math.Max(FarHorizontal, ViewDistanceHorizontal) : ViewDistanceHorizontal;
-        int vertical = on ? Math.Max(FarVertical, ViewDistanceVertical) : ViewDistanceVertical;
+        _farRung = rung;
+        bool on = rung > 0;
+        int horizontal = on ? Math.Max(FarRungs[rung - 1].Horizontal, ViewDistanceHorizontal) : ViewDistanceHorizontal;
+        int vertical = on ? Math.Max(FarRungs[rung - 1].Vertical, ViewDistanceVertical) : ViewDistanceVertical;
         _radiusConfig = _radiusConfig with { CeilingHorizontal = horizontal, CeilingVertical = vertical };
         if (_secondsAtRadius.Length < horizontal + 1)
         {
@@ -7834,7 +7847,7 @@ public partial class Main : Node3D
         }
 
         GD.Print(
-            $"M2c: far mode {(on ? "on" : "off")} ({why}) — ceiling r{horizontal}h/{vertical}v, "
+            $"M2c: far mode {(on ? $"on, rung {rung} of {FarRungs.Length}" : "off")} ({why}) — ceiling r{horizontal}h/{vertical}v, "
             + $"now r{_radiusState.Horizontal}h/{_radiusState.Vertical}v; {how}");
     }
 

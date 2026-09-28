@@ -57,9 +57,11 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
       `start3` then `start3 --fedadvance=0`. Play normally for a few minutes each and quit; copy
       `godot.log` aside between them. My read is that the flood's size is the cost, not the fed
       advance — this says whether I'm right.
-- [ ] **F11, far mode.** The view climbs toward 8 chunks out and 4 up/down while the loader is
-      idle; F11 again drops back to 6h/2v at once. About 50 MiB more and twice the drawing. *Worth
-      it, and does turning it off feel instant?*
+- [ ] **F11, far mode — now three steps.** Each press goes up a step: 6 out and 2 up/down, then
+      8 and 4, then 10 and 6, then back to 6 and 2 at once. The view climbs to each step while the
+      loader is idle. The 10/6 step is about twice the drawing of 8/4 and about 95 MiB more.
+      *Is 10/6 worth it, does it stutter while it climbs, and does the drop back feel instant?*
+      (`start.cmd --far=2` starts on the top step.)
 - [ ] **The vacuum cell's switch.** Computer in hand, right-click a cell: set `enabled` to 0 and
       the status goes amber (`OFF — holding …`), pumps that only had that cell stall. *Is a 0/1
       box good enough, or do you want a real button?*

@@ -1,5 +1,19 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-28 — F11 gets a third rung: r10h/6v
+
+*"extending the draw distance a 3rd time via f11 … 6 horizontal to 8 and 10 with the vertical
+distances set in increasing values respectively"*. Far mode is now a rung, not a bool: F11 steps
+6h/2v → 8h/4v → 10h/6v → 6h/2v. `FarRungs` in `Main`, `SetFarRung`, `--far=2` starts on the top.
+Nothing else about the lazy climb changes. Vertical follows horizontal up to the ceiling
+(`VerticalFor`), so 6v is reached as the box climbs.
+
+Headless, `--nosave --adaptive=1 --lightbudget=16`, 4,000 frames, one run each: rung 2 at r10h/6v
+is **10,625 tracked / 1,486 drawn / 499 k quads, working set 375 MiB**, against rung 1's 5,733 / 756 /
+272 k and 281 MiB. 0 `ERROR`; the r6 control 2601 / 325 / 3446 at 411. The step down from 10h is
+the same trim as from 8h, and his play is its check, as before. **Owed:** his eye on whether 10h/6v
+is worth its drawing, and whether the climb stutters in a played world, which headless cannot say.
+
 ## 2026-09-28 — Water bodies part a: the clean pool rests, and his pool is not a queue
 
 *"start the clean test pool yes please Claude"*. The bench's new `--rest` arm: a walled box with a
