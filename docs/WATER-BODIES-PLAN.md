@@ -209,15 +209,40 @@ stays awake; it is under 1% about 200 ticks after the feed stops. The near/far o
 slump's rest, and a few hundred near cells hold far water at the 512-cell floor. That is the
 named cliff, and it slows rest without preventing it.
 
-**His pool is not a queue either.** Standing in the quarry (`--at=-268,-5,1284`; his saved spawn
-is nine chunk layers above the pool, which never loads), the order on and off give the same
-~1 M awake at 120 s: 1.01 M and 1.14 M on, 1.00 M and 0.95 M off.
+**At 120 s the order made no difference**, standing in the quarry (`--at=-268,-5,1284`; his saved
+spawn is nine chunk layers above the pool, which then never loads): ~1 M awake either way. That
+was too early to tell; the pool takes about 12 minutes to settle.
 
-**What is left:** his pool has a feed that never stops, 213–215 surface levels and five times the
-box's cells. **Next:** his backup with no lakes (`--nowater`, so no drain), the order off, in the
-quarry, 10–20 minutes. If it rests, the rule is a fed rim that stays awake and an interior that
-sleeps (decision 1's third lever). If it does not, the terraces are the question, and the bench
-wants a stepped floor.
+## His pool rests with the near/far order off (2026-09-28)
+
+At 900 s, viewer in the quarry, `--rainshare=0`, the whole pool loaded, 0 ERROR lines:
+
+| arm | awake | of held | worker wall mean |
+|---|---|---|---|
+| order off, unfed (`--portaldrain=0`) | 3,959 | 0.3% | 186 ms |
+| order off, fed | 28,657 | 2.0% | 246 ms |
+| order on (`--fluidnear=2`, the play arm), fed | 369,661 | 26% | 339 ms |
+
+**So part a's defect is the near/far order, not the automaton, the feed or the terraces.** With
+the order off, a fed rim stays awake and the interior sleeps without any new rule. With it on,
+far cells are admitted at the near side's count a tick, visited late, and a lagged pool takes far
+longer to level. It also costs the worker more wall, because the awake set it keeps is visited.
+
+**The options, for a decision after one measurement:**
+1. **The order off on the worker arm** (`start.cmd` drops `--fluidnear=2`). The cheapest by far:
+   one flag. It reverses the reason the order exists, which is that a far flood must not slow the
+   water beside you. On the worker, that is the tick's wall: 246 ms here against a 500 ms budget.
+   *The measurement that decides it:* the load-test world (`retired-spread-2026-09-22`, 3.4 M
+   cells active at open), order off against on, alternated. The near water's tick rate is the
+   quantity. *Reverse if* the tick there falls under ~1.5 Hz with the order off.
+2. **Keep the order and stop it throttling a tick with room to spare.** Far admission would come
+   from the tick's measured wall, not the near count. More code, and a clock in admission, which
+   the order's deterministic-slices property rules out on the sim-thread arm.
+3. **A rest rule for far cells.** Not recommended: the automaton already rests them when it visits
+   them in time.
+
+Recommended: measure 1's load test first. If it holds, take 1, and pumps' near columns keep
+their meaning only on the sim-thread arm.
 
 ## What would reverse this
 

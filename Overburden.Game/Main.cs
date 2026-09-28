@@ -1187,6 +1187,14 @@ public partial class Main : Node3D
     /// <summary>Suppresses the water entirely. The control arm for the measurement.</summary>
     private bool _noWater;
 
+    /// <summary>
+    /// <c>--portaldrain=0</c> (2026-09-28, water bodies part a): the lakes stop draining into Tier B
+    /// through dug portals. A measurement arm — his quarry pool unfed — and nothing a play should
+    /// set: the drain object stays, so the identity's <c>drawn</c> term reads zero rather than
+    /// vanishing.
+    /// </summary>
+    private bool _portalDrainOn = true;
+
     /// <summary>The rain, or null in a run that has no renderer to draw it with.</summary>
     private Rain? _rain;
 
@@ -1984,6 +1992,9 @@ public partial class Main : Node3D
 
                 // M8c-2: the seepage rate's sweep, rainfallScale's shape. Zero is off — no index,
                 // no drain, no scans — which is the control arm and the back-out.
+                case "portaldrain":
+                    _portalDrainOn = value.Length == 0 || value != "0";
+                    break;
                 case "seepscale" when double.TryParse(value, out double seepScale):
                     _seepScale = Math.Max(0.0, seepScale);
                     break;
@@ -6502,6 +6513,10 @@ public partial class Main : Node3D
         _seeps = _water is not null && _seepScale > 0 ? new SeepIndex(_seedHeights, terrain) : null;
         _portalTracker = new PortalTracker(_portals, _seeps);
         _drain = _water is null ? null : new PortalDrain(_portals, _water, _fluid);
+        if (_drain is not null && !_portalDrainOn)
+        {
+            GD.Print("M8b: --portaldrain=0 — the lakes do not drain into Tier B through dug portals (a measurement arm)");
+        }
         _biteFill = _water is null || _lakeOverBite ? null : new BiteFill(_portals, _fluid.Grid);
         if (_waterSurface is not null)
         {
@@ -6691,7 +6706,10 @@ public partial class Main : Node3D
 
             long t1 = Stopwatch.GetTimestamp();
             _handoff?.Absorb();
-            _drain?.Draw();
+            if (_portalDrainOn)
+            {
+                _drain?.Draw();
+            }
             if (_bodyProbeSeconds >= 0 && _bodyProbeBase < 0)
             {
                 _bodyProbeBase = _clock.ElapsedMillis;
@@ -7722,7 +7740,7 @@ public partial class Main : Node3D
               + $"{_fluidJobsWaited:N0} boundary(ies) waited; "
             : string.Empty;
         return $"{p.TotalMillilitres / litre:N0} L moving in {p.HeldCells:N0} cell(s) over "
-               + $"{p.Panels} panel(s) ({p.PanelBytes / 1024.0 / 1024.0:F1} MiB; {p.UndergroundMillilitres / litre:N0} L in {p.UndergroundPanels:N0} panel(s) below the seed surface) at tick {p.Ticks:N0}; "
+               + $"{p.Panels} panel(s) ({p.PanelBytes / 1024.0 / 1024.0:F1} MiB; {p.UndergroundMillilitres / litre:N0} L in {p.UndergroundPanels:N0} panel(s) below the seed surface) at tick {p.Ticks:N0}, {p.AwakeHeld:N0} queued (awake cells held or not, plus paused); "
                + $"injected {(p.Added - drawn - seeped - _rainedIntoBMillilitres) / litre:N0} L, "
                + $"rained {_rainedIntoBMillilitres / litre:N0} L ({_rainDrops:N0} drop(s), {_rainDropsOntoPlaced:N0} onto the player's material over {_rainOnPlaced?.PlacedColumns ?? 0:N0} column(s), {_rainDropsSkipped:N0} skipped of which {_rainDropsUnderARoof:N0} under a roof"
                + (_rainOnPlaced is { Backlog: > 0 } or { Forfeited: > 0 } ? $"; {_rainOnPlaced!.Backlog:N0} cell(s) owed to placed columns, {_rainOnPlaced.Forfeited:N0} forfeited to the basin" : string.Empty)

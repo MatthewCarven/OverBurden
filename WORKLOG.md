@@ -1,5 +1,35 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-28 — Water bodies part a: his pool rests with the near/far order off
+
+*"carry on with the unfed pool run please Claude"*. `--nowater` turned out to remove Tier B too,
+so two measurement flags went in instead:
+- **`--portaldrain=0`**: the lakes stop draining into Tier B (the drain stays, `drawn` reads 0);
+- **the queued count on the `M8b:` line**, from the published snapshot: awake cells held or not,
+  plus paused (no 15 ms walk), so a run has a curve and not one probe.
+
+His backup, viewer in the quarry (`--at=-268,-5,1284`), `--rainshare=0`, probed at 900 s, 0 ERROR
+lines in every run, the whole pool loaded:
+
+| arm | awake at 900 s | of held | worker wall mean | boundaries waited |
+|---|---|---|---|---|
+| order off, unfed | 3,959 | 0.3% | 186 ms | 22 |
+| order off, fed (1.63 ML drawn) | 28,657 | 2.0% | 246 ms | 119 |
+| **order on (the play arm), fed** | **369,661** | **26%** | 339 ms | 328 |
+
+**The near/far order is what keeps his pool awake.** With it off the pool rests in about 12–14
+minutes, fed or not, and a fed rim staying awake while the interior sleeps is what happens by
+itself (the fed arm's 2%). One run per arm; the 13× gap is far beyond the machine's two speeds.
+
+**This morning's "his pool is not a queue" was wrong**, read at 120 s, before the pool had time to
+settle whatever the order. Corrected in the plan, CLAUDE.md, TODO and his status. The bench had
+already said the order slows a slump's rest 2×; on his pool it is 13× at 15 minutes.
+
+**Next, before any rule:** the order exists so a far flood cannot slow near water (the sim-thread
+slices, M8b; pumps' columns since 2026-09-19). On the worker arm that is a question of tick wall.
+The load-test world (`retired-spread-2026-09-22`, 3.4 M cells active at open) with the order off
+against on says whether turning it off costs his near water anything. The plan names the options.
+
 ## 2026-09-28 — F11 gets a third rung: r10h/6v
 
 *"extending the draw distance a 3rd time via f11 … 6 horizontal to 8 and 10 with the vertical
@@ -37,7 +67,7 @@ code's own comment names is real: at tick 500, 236 near cells were awake and far
 the 512-cell floor with 36 k queued. The fed pool fell under 1% awake at the same tick either way
 (7,058 against 7,062).
 
-**His pool is not a queue.** Last night's log read 1.03 M of 1.18 M "awake" as deferred far cells,
+**His pool is not a queue** (*superseded the same day: at 900 s it is the order — see above*). Last night's log read 1.03 M of 1.18 M "awake" as deferred far cells,
 so I ran his backup with the order on and off, alternated. The first four runs measured the wrong
 water: a probe spawns at his saved position, y 62 m, and the quarry (chunk layer −2) is nine layers
 below the view's vertical reach, so 77 kL of films loaded and the pool never did. **A TajMahal
