@@ -7722,6 +7722,7 @@ public partial class Main : Node3D
               + $"{_settle.CellsWritten:N0} written, "
               + $"largest sheet {_settle.LargestSheet:N0}, longest pass {_settle.LongestMillis:F1} ms, "
               + $"last pass seeded {f.SolveSeedsLast:N0} ({f.SolveCarrySeedsLast:N0} from the carry), "
+              + $"woke {f.SolveCellsWoken:N0} cell(s) ({f.SolveFarSheetsLevelled:N0} far sheet(s) levelled or packed woke {f.SolveFarCellsWoken:N0}), "
               + SettlePhases();
 
         long drawn = _drain?.DrawnMillilitres ?? 0;

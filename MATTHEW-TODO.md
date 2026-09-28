@@ -195,7 +195,7 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-09-28, midday**. One commit to push: the far-floor sweep and the new lead.
+Updated **2026-09-28, midday**. One commit to push: the solve counts, which confirm the loop.
 
 - **The Tetris collapse** is the default. It has the pieces drawn, the cyan glitch, your phonk
   and a 10–20 s fuse. Owed from you: your ear on the phonk ("faster/slower/louder/quieter").
@@ -208,8 +208,9 @@ Updated **2026-09-28, midday**. One commit to push: the far-floor sweep and the 
   you get processed first, and it starves the rest of your pool. After 15 minutes it's 2% awake with
   the setting off and 26% with it on (what you play). But on your biggest world, turning it off
   slows the water near you by about a third, and letting far water through in bigger batches
-  halves the speed, so both are out. The real culprit looks like the part that levels pools off:
-  with the setting on, it re-levels 8× as often and keeps waking the water. That's next.
+  halves the speed, so both are out. The culprit is confirmed: the part that levels pools off
+  keeps re-levelling the same far patches of water hundreds of times, and each time it wakes them
+  up again. Next: trying a fix for that loop.
 - **Backups:** TajMahal is `backup-TajMahal-2026-09-28`; your tower is
   `backup-Regions16-pondlook-2026-09-26`. Say "restore TajMahal" or "restore my tower".
 - `start2.cmd` to `start5.cmd` and `pondlook.cmd` are yours and left out of git.

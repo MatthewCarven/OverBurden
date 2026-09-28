@@ -1,5 +1,36 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-28 — The solve counts: far sheets levelled over and over, waking what they level
+
+*"start on the solve counts please Claude"*. Three lifetime counters on `FluidSimulation`, printed on
+the settle term as `woke N cell(s) (F far sheet(s) levelled or packed woke W)`:
+- `SolveCellsWoken`: cells a levelled or packed sheet's writes woke that were not awake;
+- `SolveFarSheetsLevelled` and `SolveFarCellsWoken`: the same for sheets whose first cell is far.
+Three tests (`SolveWakeCountTests`); a battery of three recipes, each caught (2, 3, 1 failing).
+Suite 1,999.
+
+His backup, fed, viewer in the quarry, `--rainshare=0`, 900 s, 0 ERROR lines, pool loaded:
+
+| | order on | order off |
+|---|---|---|
+| awake at 900 s | 309,642 | 27,126 |
+| passes | 1,774 | 1,800 |
+| sheets levelled + packed | 1,172,966 | 199,230 |
+| of them far | **1,109,252 (95%)** | — |
+| cells the solve woke | 10,234,529 | 5,977,072 |
+| of them by far sheets | **9,176,886 (90%)** | — |
+| worker wall mean | 285 ms | 205 ms |
+
+**The lead holds.** Under the order the extra levellings are far sheets, ~625 a pass, on a pool
+whose far part is a few thousand sheets, so the same sheets are levelled hundreds of times. Each
+levelling wakes its front, the woken far cells go to the carry and are visited late, and the next
+pass is seeded from the carry and finds the sheet unsettled again. With the order off the automaton
+visits the front next tick and the sheet settles.
+
+**Next:** an arm that stops the loop, measured the same way. The cheapest is a flag that leaves the far
+carry out of the solve's seeds (the pending set only). It costs what the carry seeds were added
+for on 2026-09-19: a wholly far sheet is invisible to the solve and levels by the automaton alone.
+
 ## 2026-09-28 — The far floor fails too; the lead is the solve under the order
 
 *"yes start the load test sweep please Claude"*. On mains (checked), copies of `retired-spread`, the

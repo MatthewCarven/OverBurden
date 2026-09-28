@@ -314,6 +314,19 @@ public sealed partial class FluidSimulation
     /// One flood's bookkeeping. <see cref="Parent"/> is union-find: a sheet whose parent is not
     /// itself was joined to another and its lists are empty.
     /// </summary>
+    /// <summary>
+    /// Cells a solve's writes woke that were not awake already, over the lifetime (2026-09-28, water
+    /// bodies part a: is the solve under the near/far order waking the pool it levels?). Levelled
+    /// and packed sheets only; the fed advance's wakes are not in it.
+    /// </summary>
+    public long SolveCellsWoken { get; private set; }
+
+    /// <summary>Sheets levelled or packed whose first cell is far from the viewer, over the lifetime. Zero with no near/far order.</summary>
+    public long SolveFarSheetsLevelled { get; private set; }
+
+    /// <summary>The part of <see cref="SolveCellsWoken"/> woken by those far sheets.</summary>
+    public long SolveFarCellsWoken { get; private set; }
+
     private sealed class Sheet
     {
         /// <summary>
@@ -601,7 +614,15 @@ public sealed partial class FluidSimulation
 
                 moved += Apply(sheet, out int cellsWritten);
                 written += cellsWritten;
-                woken += WakeAfterSolve(sheet);
+                int sheetWoken = WakeAfterSolve(sheet);
+                woken += sheetWoken;
+                SolveCellsWoken += sheetWoken;
+                if (_nearRings > 0 && !IsNear(_cellPos[sheet.Head]))
+                {
+                    SolveFarSheetsLevelled++;
+                    SolveFarCellsWoken += sheetWoken;
+                }
+
                 ListRested(sheet);
             }
 

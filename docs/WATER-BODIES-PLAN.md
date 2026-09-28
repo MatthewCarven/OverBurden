@@ -268,6 +268,21 @@ the solve, seeded with the far carry, levels far sheets the automaton has not fi
 writes keep waking them. **Next:** count under the order the levelled sheets from carry seeds and the
 cells the solve's writes wake. If that is the loop, part a's fix is in the solve's seeds.
 
+**The solve counts, run (2026-09-28): it is the loop.** At 900 s, fed, order on against off: 1,172,966
+against 199,230 sheets levelled or packed, **95% of them far**; the solve woke 10.2 M cells against
+6.0 M, **90% of them from far sheets**; 309,642 against 27,126 awake. The same far sheets are levelled
+hundreds of times: each levelling wakes its front, the front goes to the far carry and is visited
+late, and the next pass, seeded from the carry, finds the sheet unsettled again.
+
+**Candidate fixes, each an arm on this same run before any is chosen:**
+- **a. Leave the far carry out of the solve's seeds** (a flag). Cheapest. It gives back the
+  2026-09-19 reason for them: a wholly far sheet is then levelled by the automaton alone.
+- **b. Seed the solve from the carry only once its cells have been visited**, not while they wait.
+  Keeps far sheets solvable; more bookkeeping in the carry.
+- **c. Admit a levelled far sheet's woken front as near for one tick**, so the automaton settles
+  it at once, as it does with the order off. Touches the order, not the solve.
+Recommended: a first, as the measurement that says whether the seeds are the whole loop.
+
 ## What would reverse this
 
 - The pool resting on its own within minutes. Then part a is unneeded and b starts at once.
