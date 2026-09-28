@@ -291,6 +291,25 @@ re-levels the whole sheet, and the far front it wakes waits again. **Candidate c
 order-on arm's awake at 900 s varies 215–370 k between runs, so a candidate has to land well outside
 that range to count.
 
+**Candidate c, run (2026-09-28): it fails too.** `--solvefrontnear=1`, 900 s: 338,638 awake against a
+control's 217,876; far levellings unchanged (1.09 M); 4.59 M of 8.84 M solve-woken far cells promoted,
+the rest already in the carry. The order-on arm reads 215–370 k over four runs; neither a nor c comes
+near the order-off arm's 27 k.
+
+**Two guesses at the loop have failed, so the next step is an observation, not a third fix.**
+Decisions for him:
+1. **Look before fixing (recommended).** One instrumented run logging, for the most often re-levelled
+   far sheets, where they are, how big, whether they straddle the near edge, and what unsettled
+   each one since its last levelling (a visit, the lake's feed, a wake from above). About an hour
+   with the run. *Reverse if* the sheets turn out to be one kind the rules below would simply cover.
+2. **Or sidestep: the order only when it is needed.** The order-off arm holds 2.0 Hz on TajMahal
+   (1.35 M cells) and rests it; it fails only on the load test (3.2 M cells, 1.2–1.3 Hz). A switch
+   that turns the order on above an awake count (say 2 M, with hysteresis) would give his pool the
+   order-off behaviour and the load test the order's. Cheap to build, and measurable on both worlds,
+   but the loop stays for anyone past the threshold, and the threshold is machine-dependent.
+3. **Or leave it.** The order-on pool costs ~300 ms of worker at 2 Hz, no frame time. Part b (bodies)
+   needs rest, so this shelves bodies too.
+
 ## What would reverse this
 
 - The pool resting on its own within minutes. Then part a is unneeded and b starts at once.

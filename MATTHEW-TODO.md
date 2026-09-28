@@ -114,6 +114,10 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 Nothing is blocked on these; each is a small change once you have a view.
 
+- [ ] **Your quarry pool that won't sleep: look first, or sidestep?** Two fixes for the loop failed.
+      *Look first* (my lean): one test run that records which far patches get re-levelled and why,
+      about an hour. *Sidestep*: switch the near/far order on only when a lot of water is awake
+      (your quarry would then sleep; the huge load-test world keeps the order). *Or leave it* for now.
 - [ ] **The collapse: pieces that jump — I gave you the wrong size.** You said "leave it" when I
       said "at most a metre". On a copy of your tower, one piece jumped 4.5 m (about 20 pieces in
       800 jumped at all). Watch for it when you play: if you see a piece hop up, say "fix it" —
@@ -195,7 +199,7 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-09-28, midday**. Two commits to push: the first fix for the loop, tried and ruled out.
+Updated **2026-09-28, midday**. One commit to push: the second fix for the loop, tried and ruled out.
 
 - **The Tetris collapse** is the default. It has the pieces drawn, the cyan glitch, your phonk
   and a 10–20 s fuse. Owed from you: your ear on the phonk ("faster/slower/louder/quieter").
@@ -210,7 +214,7 @@ Updated **2026-09-28, midday**. Two commits to push: the first fix for the loop,
   slows the water near you by about a third, and letting far water through in bigger batches
   halves the speed, so both are out. The culprit is confirmed: the part that levels pools off
   keeps re-levelling the same far patches of water hundreds of times, and each time it wakes them
-  up again. The first fix I tried didn't help: it cut off the wrong way in. Next: the second.
+  up again. Two fixes tried, neither helped. **Your call** (it's in "Waiting on your word" too).
 - **Backups:** TajMahal is `backup-TajMahal-2026-09-28`; your tower is
   `backup-Regions16-pondlook-2026-09-26`. Say "restore TajMahal" or "restore my tower".
 - `start2.cmd` to `start5.cmd` and `pondlook.cmd` are yours and left out of git.

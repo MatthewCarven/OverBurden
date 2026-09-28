@@ -1198,6 +1198,9 @@ public partial class Main : Node3D
     /// <summary><c>--solvecarry=0</c> (2026-09-28): the solve is not seeded from the far carry. See <see cref="FluidSimulation.SolveSeedsFromCarry"/>.</summary>
     private bool _solveCarry = true;
 
+    /// <summary><c>--solvefrontnear=1</c> (2026-09-28): candidate c. See <see cref="FluidSimulation.SolveFrontNear"/>.</summary>
+    private bool _solveFrontNear;
+
     /// <summary>The rain, or null in a run that has no renderer to draw it with.</summary>
     private Rain? _rain;
 
@@ -1995,6 +1998,9 @@ public partial class Main : Node3D
 
                 // M8c-2: the seepage rate's sweep, rainfallScale's shape. Zero is off — no index,
                 // no drain, no scans — which is the control arm and the back-out.
+                case "solvefrontnear":
+                    _solveFrontNear = value.Length == 0 || value != "0";
+                    break;
                 case "solvecarry":
                     _solveCarry = value.Length == 0 || value != "0";
                     break;
@@ -6476,6 +6482,11 @@ public partial class Main : Node3D
         }
         _fluid.FarFloorCells = _fluidFarFloor;
         _fluid.SolveSeedsFromCarry = _solveCarry;
+        _fluid.SolveFrontNear = _solveFrontNear;
+        if (_solveFrontNear)
+        {
+            GD.Print("M8b: --solvefrontnear=1 — a far cell the solve wakes is visited as near at the next tick (a measurement arm)");
+        }
         if (!_solveCarry)
         {
             GD.Print("M8b: --solvecarry=0 — the solve is seeded from the pending list only, not the far carry (a measurement arm)");
@@ -7733,7 +7744,7 @@ public partial class Main : Node3D
               + $"{_settle.CellsWritten:N0} written, "
               + $"largest sheet {_settle.LargestSheet:N0}, longest pass {_settle.LongestMillis:F1} ms, "
               + $"last pass seeded {f.SolveSeedsLast:N0} ({f.SolveCarrySeedsLast:N0} from the carry), "
-              + $"woke {f.SolveCellsWoken:N0} cell(s) ({f.SolveFarSheetsLevelled:N0} far sheet(s) levelled or packed woke {f.SolveFarCellsWoken:N0}), "
+              + $"woke {f.SolveCellsWoken:N0} cell(s) ({f.SolveFarSheetsLevelled:N0} far sheet(s) levelled or packed woke {f.SolveFarCellsWoken:N0}; {f.SolveFrontPromoted:N0} promoted near), "
               + SettlePhases();
 
         long drawn = _drain?.DrawnMillilitres ?? 0;

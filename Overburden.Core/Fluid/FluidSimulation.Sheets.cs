@@ -1573,6 +1573,7 @@ public sealed partial class FluidSimulation
             if ((_cellFlags[record] & CellFront) != 0 && Wake(_cellPos[record]))
             {
                 woken++;
+                PromoteSolveWake(_cellPos[record]);
             }
 
             if (_cellTarget[record] < _cellAmount[record])
@@ -1581,6 +1582,7 @@ public sealed partial class FluidSimulation
                 if (_grid.AmountAt(above) > 0 && Wake(above))
                 {
                     woken++;
+                    PromoteSolveWake(above);
                 }
             }
         }

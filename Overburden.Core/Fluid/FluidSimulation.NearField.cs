@@ -374,6 +374,30 @@ public sealed partial class FluidSimulation
     /// </summary>
     public bool SolveSeedsFromCarry { get; set; } = true;
 
+    /// <summary>
+    /// Whether a far cell the solve newly wakes is visited as near at the next tick (2026-09-28, water
+    /// bodies part a's candidate c). False, the default, is every figure before it. The loop it aims
+    /// at: under the order, the solve levels a far sheet, its writes wake the sheet's front, the front
+    /// waits in the carry, and the next pass finds the sheet unsettled again. A front already waiting
+    /// in the carry is not promoted; only the cells this wake put in the pending list.
+    /// </summary>
+    public bool SolveFrontNear { get; set; }
+
+    /// <summary>Far cells promoted to near by <see cref="SolveFrontNear"/>, over the lifetime.</summary>
+    public long SolveFrontPromoted { get; private set; }
+
+    // The far cells the solve woke since the last composition, classed near there once.
+    private readonly HashSet<VoxelPos> _solvePromoted = [];
+
+    /// <summary>Records a cell the solve just woke, when <see cref="SolveFrontNear"/> is on and the cell is far.</summary>
+    private void PromoteSolveWake(VoxelPos cell)
+    {
+        if (SolveFrontNear && _nearRings > 0 && !IsNear(cell) && _solvePromoted.Add(cell))
+        {
+            SolveFrontPromoted++;
+        }
+    }
+
     /// <summary>After a solve from <see cref="SolveSeeds"/>: the carry's cells it was given are marked offered and the re-woken list it took is spent.</summary>
     private void MarkCarryOffered()
     {
@@ -513,9 +537,10 @@ public sealed partial class FluidSimulation
 
         foreach (VoxelPos cell in _batch)
         {
-            (IsNear(cell) ? _nearScratch : _farScratch).Add(cell);
+            (IsNear(cell) || (_solvePromoted.Count > 0 && _solvePromoted.Contains(cell)) ? _nearScratch : _farScratch).Add(cell);
         }
 
+        _solvePromoted.Clear();
         CompactCarry();
         _farCarry.AddRange(_farScratch);
     }

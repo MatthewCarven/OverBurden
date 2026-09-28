@@ -1,5 +1,29 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-28 — Candidate c fails too; back to planning
+
+*"try candidate c please Claude"*. `FluidSimulation.SolveFrontNear` (default false) and
+`--solvefrontnear=1`: a far cell the solve newly wakes is classed near at the next composition. A
+front cell already in the carry is not promoted. The settle term's wake count carries `N promoted
+near`. A measurement arm; suite 1,999, no test of its own.
+
+His backup, fed, order on, in the quarry, `--rainshare=0`, 900 s, 0 ERROR lines, pool loaded:
+
+| | candidate c | order-on control |
+|---|---|---|
+| awake at 900 s | 338,638 | 217,876 |
+| far sheets levelled or packed | 1,088,615 | about the same as every order-on run |
+| far cells the solve woke / promoted near | 8.84 M / 4.59 M | — |
+| worker wall mean | 297 ms | 321 ms |
+
+**It did what it was built to do and it did not help:** half the far front it woke was promoted,
+and the far levellings are as many as ever. The other half was already waiting in the carry.
+
+The order-on arm now reads 215 k, 218 k, 310 k and 370 k awake across four runs; candidates a and
+c read 415 k and 339 k. Neither fix gets near the order-off arm's 27 k. **Two guesses at the loop
+have failed, so this drops back to planning** (the working agreement): the next step is an
+observation, not a third variation. The plan names it and a pragmatic alternative.
+
 ## 2026-09-28 — Candidate a fails: the loop does not run through the carry's seeds
 
 *"try candidate a please Claude"*. `FluidSimulation.SolveSeedsFromCarry` (default true) and
