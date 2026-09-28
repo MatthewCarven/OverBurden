@@ -193,16 +193,16 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-09-26, late night**. Everything is committed; `main` and `water-column-test` both
-match GitHub.
+Updated **2026-09-28, small hours**. Everything is committed and pushed.
 
-- **The Tetris collapse:** planned, all fourteen decisions taken, and part a built in the engine's
-  core — **not in the game yet**, so nothing to see. Part b puts it in the game and starts with a
-  look at the game code. Suite **1,937** green.
-- **The pond branch** waits on your verdict (Now, above).
-- **Your next chat:** the ideal machines, endgame tech first, for a creative-mode demo. The
-  collapse sensor waits on it.
-- **The docs were consolidated** the same night: `CLAUDE.md` is short again, the flag reference is
-  `docs/COMMANDS.md`, and the old session hand-overs are `docs/STATUS-HISTORY.md` — moved, nothing
-  deleted.
-- `start2.cmd` to `start5.cmd` are yours and left out of git.
+- **The Tetris collapse** is the default. It has the pieces drawn, the cyan glitch, your phonk
+  and a 10–20 s fuse. Owed from you: your ear on the phonk ("faster/slower/louder/quieter").
+- **The big find:** the game's core code was being built unoptimised by `start.cmd` since
+  2026-09-15. It is fixed, and water on your quarry runs 5.5× faster (full speed).
+- **The lake over your quarry** no longer hangs a sheet over dry floor. Your look is owed.
+- **Water bodies:** planned, all nine decisions taken. Part a (rest) has begun — your pool never
+  goes to sleep, and more than half its awake cells have nothing to do. Next session starts with a
+  clean test pool.
+- **Backups:** TajMahal is `backup-TajMahal-2026-09-28`; your tower is
+  `backup-Regions16-pondlook-2026-09-26`. Say "restore TajMahal" or "restore my tower".
+- `start2.cmd` to `start5.cmd` and `pondlook.cmd` are yours and left out of git.

@@ -13,6 +13,24 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md on 2026-09-28** (the 2026-09-26 hand-over, as it stood with its 2026-09-27 amendments):
+
+The paragraphs below are 2026-09-26's; their collapse items are current up to part e. `start2.cmd`–`start5.cmd` and `pondlook.cmd` (his tower) are Matthew's and
+deliberately untracked.
+
+**The Tetris collapse is the default since 2026-09-27** — played on his tower with the pieces
+drawn: *"make it the default please"*, and the cyan glitch *"like it"* (COLLAPSE-PLAN, "Part c —
+played"). **Every M9 oracle recorded before then wants `--collapsemode=sweep`** (COMMANDS). **The phonk is built (part e)**: his track in `media/` (gitignored) plays while a collapse is
+live, sped up with its pace — his ear is owed. Next are parts d and f; decision 11 (lifts off a reservation, up to 4.5 m) waits on his "fix it". One
+`M9: event` line an event, a `pieces:` term on the `M9:` line. The re-cut runs on a worker (the
+room's frame p99 went from ~260 ms to ~9 ms). **Played on his tower 2026-09-26: *"yes slow to
+fast"*** — the pace stands; part c's open questions are in the plan's "Played". **His tower was restored 2026-09-27** from
+`backup-Regions16-pondlook-2026-09-26`; the collapsed one is `Regions16-pondlook-pieces-2026-09-27`.
+Restore the same way again when he asks — never a delete. **The keystone oracle is a race** (COMMANDS): read `at risk 0` and lifted == returned,
+not its falls. Two-thirds of a big collapse is rubble tumbling off the pile (65% in his play). The collapse
+sensor (part f) reads `CollapseDirector.Events`.
+
+
 **The game is Overburden as of 2026-09-03, and stages 1–3 of the rename are done** — the
 decision; the solution, projects, folders and namespaces; and the content namespace, the mod
 folder, `config/name` and the `user://` folder. **Stage 4 is Matthew's**: the GitHub repo, the

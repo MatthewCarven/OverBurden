@@ -35,7 +35,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/WATER-THREAD-PLAN.md](docs/WATER-THREAD-PLAN.md) | The tick's near/far order, the field, and the tick as a worker job. **Built** (slices 1–3c). Read before touching the tick's order or its home. |
 | [docs/FRONT-ADVANCE-PLAN.md](docs/FRONT-ADVANCE-PLAN.md) | Water that spreads sideways faster: `--frontadvance=` (4), fed by volume (`--fedshare=`), streams level their tip band (`--fedadvance=`, `--fedband=` 6). **Built and played 2026-09-24**; his load test is still owed. |
 | [docs/M9-PLAN.md](docs/M9-PLAN.md) | M9, the mine kills you: the support field, the tint, the fall, the keystone. **M9a–M9d built and played.** Read its "two facts" first: there is no bedrock, and a literal distance rule opens a shaft to the surface over a 2 × 2 bite. |
-| [docs/COLLAPSE-NOTES.md](docs/COLLAPSE-NOTES.md), [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md) | **The slow-then-fast collapse, "Tetris gone bad"** (2026-09-26). Fourteen decisions taken; **parts a and b built — `--collapsemode=pieces` plays it, nothing drawn falling; part c, the look, next.** Read the notes' "What exists", then the plan's facts, "a-2 — built", "Part b — the code-level pass" and "b-1 — built". |
+| [docs/COLLAPSE-NOTES.md](docs/COLLAPSE-NOTES.md), [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md) | **The slow-then-fast collapse, "Tetris gone bad"** (2026-09-26). **Parts a–c and e built and played; pieces are the default (2026-09-27)**, drawn falling with the cyan glitch, the phonk and a 10–20 s fuse. Open: d (the chimney), f (the sensor), decision 11. Read the notes' "What exists", then the plan's "c-2 — built", "Part c — played" and "Part e — built". |
 | [docs/M10-NOTES.md](docs/M10-NOTES.md), [docs/M10-PLAN.md](docs/M10-PLAN.md) | The quantum machine family and M10's first plan. Read before planning any machine. |
 | [docs/M10-LADDER-PLAN.md](docs/M10-LADDER-PLAN.md) | **The ladder** — hand → steam → DC → AC → quantum and the crafting under it; twenty-three decisions, parts M10a–M10j. **M10a–M10c built; M10d is the play (his) and d-1/d-3 built; M10e (the conductor index) is next after the play.** Its one idea: connection is membership, movement a ledger transfer at the boundary. |
 | [docs/UNDO-PLAN.md](docs/UNDO-PLAN.md) | Ctrl+Z, three steps. **Built and played 2026-09-22.** A fall clears the stack; the journal hangs off `SetVoxel` and `MachineSet`; an undo must not journal its own writes. |
@@ -47,7 +47,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md) | The retained-chunk cache. **Built.** Read slice 2's section before touching `LightPropagator`. |
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | Elements, and why not "just implement chemistry": geology that reacts to water, machine recipes as the chemistry set. |
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | Ores, layers, trees, permeability — his thinking-ahead. Not scheduled; its three questions are his. |
-| [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written (2026-09-28), nine decisions waiting on his word**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a is rest before any body. `--bodyprobe=` measures it. |
+| [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written and taken as recommended (2026-09-28)**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a (rest) comes before any body. **Part a is begun**: more than half the awake set has nothing to do; next is a clean-fixture bench. `--bodyprobe=` measures it. |
 
 ## Non-negotiables
 
@@ -189,8 +189,8 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 ## Where things stand
 
-**2026-09-28, small hours.** Suite **1,996**; the r6 control to the digit. `main` is ahead of
-GitHub by the session's unpushed commits (he pushes).
+**2026-09-28, small hours.** Suite **1,996**; the r6 control to the digit. `main` matched GitHub
+at `c599f1a`; the session's close-out commit after it is his to push.
 
 **Next on my side: water bodies, part a (rest)** — [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md),
 nine decisions taken as recommended. Start with the clean-fixture bench (a flat box poured once, no
@@ -203,20 +203,17 @@ lake, timed to rest), because his TajMahal pool mixes a lake feed, 235 terraces 
   His tower restores from `backup-Regions16-pondlook-2026-09-26` on "restore my tower"; the
   collapsed copies are kept, dated.
 
-The paragraphs below are 2026-09-26's; their collapse items are current up to part e. `start2.cmd`–`start5.cmd` and `pondlook.cmd` (his tower) are Matthew's and
+`start2.cmd`–`start5.cmd` and `pondlook.cmd` (his tower) are Matthew's, recycled as he tests, and
 deliberately untracked.
 
-**The Tetris collapse is the default since 2026-09-27** — played on his tower with the pieces
-drawn: *"make it the default please"*, and the cyan glitch *"like it"* (COLLAPSE-PLAN, "Part c —
-played"). **Every M9 oracle recorded before then wants `--collapsemode=sweep`** (COMMANDS). **The phonk is built (part e)**: his track in `media/` (gitignored) plays while a collapse is
-live, sped up with its pace — his ear is owed. Next are parts d and f; decision 11 (lifts off a reservation, up to 4.5 m) waits on his "fix it". One
-`M9: event` line an event, a `pieces:` term on the `M9:` line. The re-cut runs on a worker (the
-room's frame p99 went from ~260 ms to ~9 ms). **Played on his tower 2026-09-26: *"yes slow to
-fast"*** — the pace stands; part c's open questions are in the plan's "Played". **His tower was restored 2026-09-27** from
-`backup-Regions16-pondlook-2026-09-26`; the collapsed one is `Regions16-pondlook-pieces-2026-09-27`.
-Restore the same way again when he asks — never a delete. **The keystone oracle is a race** (COMMANDS): read `at risk 0` and lifted == returned,
-not its falls. Two-thirds of a big collapse is rubble tumbling off the pile (65% in his play). The collapse
-sensor (part f) reads `CollapseDirector.Events`.
+**The collapse** ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md)): parts a–c and e built and played.
+- Tetris pieces are the default; every M9 oracle recorded before 2026-09-27 wants
+  `--collapsemode=sweep`.
+- Also built: the cyan glitch (*"like it"*), black pieces kept on his word, the phonk from `media/`
+  (gitignored; his ear on speed and volume is owed), and the 10–20 s fuse leaning with the deficit.
+- Open: parts d (the chimney) and f (the sensor, which reads `CollapseDirector.Events`), and
+  decision 11 (lifts off a reservation, up to 4.5 m) on his "fix it".
+- **The keystone oracle is a race**: read `at risk 0` and lifted == returned, not its falls.
 
 **Waiting on him** (all in MATTHEW-TODO): the pond branch's verdict (merge or retire
 `water-column-test`); the fed-advance load test (`start3` against `start3 --fedadvance=0`); the
