@@ -195,7 +195,7 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-09-28, midday**. Two commits to push: last night's close-out and today's clean pool.
+Updated **2026-09-28, midday**. Three commits to push: last night's close-out, today's clean pool, and F11's third step.
 
 - **The Tetris collapse** is the default. It has the pieces drawn, the cyan glitch, your phonk
   and a 10–20 s fuse. Owed from you: your ear on the phonk ("faster/slower/louder/quieter").
