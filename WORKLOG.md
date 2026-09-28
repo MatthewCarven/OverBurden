@@ -1,5 +1,43 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-28 — Water bodies part a: the clean pool rests, and his pool is not a queue
+
+*"start the clean test pool yes please Claude"*. The bench's new `--rest` arm: a walled box with a
+flat floor, filled once, ticked at the game's own settle until nothing is awake. Tick counts are
+deterministic, so they hold across the machine's two speeds.
+
+**The automaton rests a pool.** The same volume three ways, half full:
+- **level** (the control): rests in 1 tick at every size.
+- **block** (a block half the width that slumps, a dam break): rests in 149 ticks at 8 m square,
+  217 at 16 m, 452 at 32 m (3.8 min), all 8 m deep. At his quarry's 28 m depth, 16 m square: 410
+  ticks (3.4 min).
+- **edge** (4.1 ML poured along one wall at ~700 L/tick, his lake's rate, then stopped), 32 m
+  square: about 28% of the pool stays awake while it is fed. It rests 533 ticks (4.4 min) after the
+  feed stops. Every rest is real (`VerifyQuiescent`) and conserved exact.
+- My first inlet, a 4 × 4 corner, choked at ~120 L/tick; its arms never delivered and are not a
+  result.
+
+**The near/far order slows rest without stopping it** (`--restnear 1`, the viewer in the corner
+chunk). The 32 m block rests at tick 908 against 452, on the same total visits. The cliff the
+code's own comment names is real: at tick 500, 236 near cells were awake and far water was held at
+the 512-cell floor with 36 k queued. The fed pool fell under 1% awake at the same tick either way
+(7,058 against 7,062).
+
+**His pool is not a queue.** Last night's log read 1.03 M of 1.18 M "awake" as deferred far cells,
+so I ran his backup with the order on and off, alternated. The first four runs measured the wrong
+water: a probe spawns at his saved position, y 62 m, and the quarry (chunk layer −2) is nine layers
+below the view's vertical reach, so 77 kL of films loaded and the pool never did. **A TajMahal
+probe needs `--at=-268,-5,1284`.** Standing in the quarry, all four arms loaded 20.1 ML from 255
+panels, 0 ERROR lines, at 120 s:
+- order on: 1.01 M and 1.14 M awake, ~230 k deferred, ~400 k near visited a tick;
+- order off: 1.00 M and 0.95 M awake, every awake cell visited every tick.
+Last night's million deferred depended on where the viewer stood.
+
+**So part a's rule is not about the automaton's rest, nor the queue.** What his pool has that the
+box does not is a feed that never stops, 213–215 surface levels, and five times the cells. **Next:**
+his backup with the lake's feed gone (`--nowater`, which removes every lake, so no drain) and the
+order off, standing in the quarry, for 10–20 minutes. If it rests, the rule is about the feed.
+
 ## 2026-09-28 — Water bodies part a: what the awake set is
 
 *"as recommended"* took all nine decisions. Part a opened with a measurement:

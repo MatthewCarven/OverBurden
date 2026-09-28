@@ -189,6 +189,36 @@ time, TajMahal's awake set is its feed and its terraces, and the rule is about w
 full and level cells above). If it does not, the automaton's rest itself is the defect. That run
 decides the rule, and it is the start of the next session.
 
+## The clean fixture, run (2026-09-28)
+
+The bench's `--rest` arm (COMMANDS.md). A walled box, flat floor, half full, at the game's settle;
+tick counts, which do not depend on the machine's speed.
+
+| Fill | Size (wide × deep) | Rested at tick | Minutes |
+|---|---|---|---|
+| level | every size | 1 | 0 |
+| block | 8 × 8 m | 149 | 1.2 |
+| block | 16 × 8 m | 217 | 1.8 |
+| block | 32 × 8 m | 452 | 3.8 |
+| block | 16 × 28 m (his depth) | 410 | 3.4 |
+| block, near/far on | 32 × 8 m | 908 | 7.6 |
+| edge, fed then stopped | 32 × 8 m | 7,194 (533 after the feed) | 4.4 after |
+
+**The automaton rests a pool, so its rest is not the defect.** While fed, about 28% of the pool
+stays awake; it is under 1% about 200 ticks after the feed stops. The near/far order doubles a
+slump's rest, and a few hundred near cells hold far water at the 512-cell floor. That is the
+named cliff, and it slows rest without preventing it.
+
+**His pool is not a queue either.** Standing in the quarry (`--at=-268,-5,1284`; his saved spawn
+is nine chunk layers above the pool, which never loads), the order on and off give the same
+~1 M awake at 120 s: 1.01 M and 1.14 M on, 1.00 M and 0.95 M off.
+
+**What is left:** his pool has a feed that never stops, 213–215 surface levels and five times the
+box's cells. **Next:** his backup with no lakes (`--nowater`, so no drain), the order off, in the
+quarry, 10–20 minutes. If it rests, the rule is a fed rim that stays awake and an interior that
+sleeps (decision 1's third lever). If it does not, the terraces are the question, and the bench
+wants a stepped floor.
+
 ## What would reverse this
 
 - The pool resting on its own within minutes. Then part a is unneeded and b starts at once.

@@ -193,8 +193,10 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 at `c599f1a`; the session's close-out commit after it is his to push.
 
 **Next on my side: water bodies, part a (rest)** — [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md),
-nine decisions taken as recommended. Start with the clean-fixture bench (a flat box poured once, no
-lake, timed to rest), because his TajMahal pool mixes a lake feed, 235 terraces and a still interior.
+"The clean fixture, run". The bench's `--rest` box rests (the automaton is not the defect), and his
+pool's ~1 M awake does not change with the near/far order off (it is not a queue). Next: his backup
+unfed (`--nowater --fluidnear=0`) for 10–20 minutes. **A TajMahal probe needs
+`--at=-268,-5,1284`**: his saved spawn is nine chunk layers above the pool, which then never loads.
 - **The session's big find:** Core was built unoptimised under `start.cmd` since 2026-09-15. Fixed
   2026-09-28, the water tick is 5.5× faster (see Commands).
 - **Also built:** the lake over a quarry (`BiteFill`); the collapse is Tetris by default with the

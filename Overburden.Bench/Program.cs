@@ -82,6 +82,13 @@ internal static class Program
           --frontlitres <n>    the ball, in litres (default 10000, which is one R)
           --frontticks <n>     tick cap for the front arm (default 20000)
           --frontfed           the front advance's slice 2c: a steady 100 L/s onto the floor's centre for 60 s, fed advance off against on with the tip band at N, 2N and 3N rings; radius, solve ms and pairs flowing back toward the source
+          --rest               water bodies part a: a walled box filled once (level, a slumping block, an edge pour), ticked to rest; awake cells by kind at each checkpoint
+          --restwidths a,b     the box widths to sweep, in voxels (default 32,64)
+          --restdepth <n>      the box's depth in voxels (default 32)
+          --restfill <pct>     how full, in percent of the box (default 50)
+          --restfills a,b      which fills: level, block, edge (default all three)
+          --restnear <rings>   the game's near/far order, the viewer in the box's corner chunk (default 0, off)
+          --restticks <n>      tick cap per arm (default 7200, an hour of world time)
           --surface            M8d-1: the Tier B mesh against the debug surface on a lake at rest (--lakechambers) and a flood (--frontlitres)
           --fallcells <n>      M8d-3: cells a visit may fall through vacant air, for --fluid and --front (default 16; 1 is the pre-M8d-3 arm)
           --support            M9a: the support field over the plan's seven fixtures on real strata, the derive's ms and a cross-section of each wedge
@@ -140,6 +147,13 @@ internal static class Program
         int evictLayers = 4;
         string spread = "fixed";
         bool front = false;
+        bool rest = false;
+        int[] restWidths = [32, 64];
+        int restDepth = 32;
+        int restFill = 50;
+        string[] restFills = ["level", "block", "corner"];
+        int restTicks = 7_200;
+        int restNear = 0;
         bool surface = false;
         int fallCells = FluidSimulation.DefaultFallCells;
         bool terrain = false;
@@ -304,6 +318,27 @@ internal static class Program
                     case "--front":
                         front = true;
                         break;
+                    case "--rest":
+                        rest = true;
+                        break;
+                    case "--restwidths":
+                        restWidths = Next(args, ref i).Split(',').Select(s => int.Parse(s, CultureInfo.InvariantCulture)).ToArray();
+                        break;
+                    case "--restdepth":
+                        restDepth = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--restfill":
+                        restFill = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--restfills":
+                        restFills = Next(args, ref i).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                        break;
+                    case "--restnear":
+                        restNear = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
+                    case "--restticks":
+                        restTicks = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture);
+                        break;
                     case "--surface":
                         surface = true;
                         break;
@@ -419,6 +454,12 @@ internal static class Program
         {
             var surfaceGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
             return SurfaceBench.Run(surfaceGenerator, MachineControl(surfaceGenerator), IsDebug(), lakeChambers, frontLitres);
+        }
+
+        if (rest)
+        {
+            var restGenerator = new WorldGenerator(new WorldGenSettings { Seed = seed }, strata);
+            return RestBench.Run(MachineControl(restGenerator), IsDebug(), restWidths, restDepth, restFill, restTicks, restFills, restNear);
         }
 
         if (front)

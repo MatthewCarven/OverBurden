@@ -447,6 +447,31 @@ face-connected components once, that many seconds into the session, not the worl
 `M8e:` lines: the count, single cells, small and large components, the awake count, the flood's ms,
 then the twelve largest with litres, full share, Y span, share below the seed and lowest voxel.
 
+**The bench's `--rest` arm** (2026-09-28, water bodies part a) is the clean fixture. A walled box
+with a flat floor is filled once and ticked at the game's own settle until nothing is awake, with
+no near/far order and no worker. The volume is the same in three fills: `level` (put down level,
+the control, which must rest in a tick), `block` (a block over the centre, half the width, that
+slumps), and `edge` (poured along one wall, x 0..3, at 700 L/tick, his lake's rate, then stopped;
+a 4 × 4 corner was the first inlet and choked at ~120 L/tick). `--restnear <rings>` turns on the
+game's near/far order with the viewer in the box's corner chunk, and each checkpoint then prints
+the far queue.
+Each checkpoint prints the awake cells by kind with the same `WaterComponents.Classify` the
+`--bodyprobe` lines use, and the window's visits by move. The summary gives the tick the awake set
+fell under 10% and 1% of held, and the tick it rested. Tick counts are deterministic, so they
+compare across the machine's two speeds; the ms do not.
+
+```bash
+dotnet run --project Overburden.Bench -c Release -- --rest --restwidths 32,64,128 --restdepth 32 --restticks 7200
+```
+
+`--restwidths` (32,64), `--restdepth` (32), `--restfill <percent>` (50), `--restfills level,block,corner`,
+`--restticks` (7200, an hour of world time), `--restnear` (0, off).
+
+**A probe of his TajMahal needs `--at=-268,-5,1284`** (2026-09-28). His saved spawn is at y 62 m,
+chunk layer 7, and the quarry pool is at layer −2, beyond the view's vertical reach: without it a
+run loads 77 kL of films on his building and reads them as his water. Check the `loaded … L from N
+panel(s)` term on the first `M8b:` line: 20,075,433 L from 255 panels is the pool.
+
 **The `fluidmove` profile line** (2026-09-27) sorts the window's cell visits by how much each
 moved: rested, under 10 mL, 10–99 mL, 0.1–1 L, 1–5 L, 5 L and over, and empty or other. Beside each
 it prints the litres that size carried and its share of the volume. It says whether a big awake set

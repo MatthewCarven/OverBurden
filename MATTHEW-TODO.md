@@ -193,16 +193,17 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-09-28, small hours**. Everything is committed and pushed.
+Updated **2026-09-28, midday**. Two commits to push: last night's close-out and today's clean pool.
 
 - **The Tetris collapse** is the default. It has the pieces drawn, the cyan glitch, your phonk
   and a 10–20 s fuse. Owed from you: your ear on the phonk ("faster/slower/louder/quieter").
 - **The big find:** the game's core code was being built unoptimised by `start.cmd` since
   2026-09-15. It is fixed, and water on your quarry runs 5.5× faster (full speed).
 - **The lake over your quarry** no longer hangs a sheet over dry floor. Your look is owed.
-- **Water bodies:** planned, all nine decisions taken. Part a (rest) has begun — your pool never
-  goes to sleep, and more than half its awake cells have nothing to do. Next session starts with a
-  clean test pool.
+- **Water bodies:** the clean test pool is built and it goes to sleep: a slumping pool in 1–4
+  minutes, and a fed one about 4 minutes after its feed stops. So the water rules can rest a pool.
+  Your quarry still has ~1 M cells awake, and that isn't the near/far queue either. Next: your pool
+  with the lake's feed taken away, to see if the feed is what keeps it busy.
 - **Backups:** TajMahal is `backup-TajMahal-2026-09-28`; your tower is
   `backup-Regions16-pondlook-2026-09-26`. Say "restore TajMahal" or "restore my tower".
 - `start2.cmd` to `start5.cmd` and `pondlook.cmd` are yours and left out of git.
