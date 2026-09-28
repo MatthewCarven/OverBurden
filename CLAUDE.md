@@ -196,7 +196,8 @@ at `c599f1a`; the session's close-out commit after it is his to push.
 "His pool rests with the near/far order off". The bench's `--rest` box rests (the automaton is not
 the defect), and at 900 s his pool is 2% awake with the order off, fed, against 26% with the play
 arm's `--fluidnear=2`. **Next:** the load-test world, order off against on, to see whether turning it
-off slows near water; then the decision (option 1 recommended). **A TajMahal probe needs
+off slows near water (one order-on arm done, three owed, on mains power); then the decision (option 1
+recommended). **A TajMahal probe needs
 `--at=-268,-5,1284`**: his saved spawn is nine chunk layers above the pool, which then never loads.
 - **The session's big find:** Core was built unoptimised under `start.cmd` since 2026-09-15. Fixed
   2026-09-28, the water tick is 5.5× faster (see Commands).

@@ -20,7 +20,9 @@ his word — and this file points at it rather than repeating it.
       ([docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md), "His pool rests with the near/far
       order off"). The clean box rests, and so does his pool with the order off (2% awake at 900 s,
       fed; 26% with `--fluidnear=2`). **Next:** the load-test world, order off against on,
-      alternated: does the order off slow near water? Then his decision on the plan's option 1.
+      alternated: does the order off slow near water? One order-on arm is done (WORKLOG, 82% awake
+      at 480 s, worker wall 416 ms); the order-off arm and both repeats are owed, on mains power.
+      Then his decision on the plan's option 1.
 - [ ] **Tier B at scale — re-read on the fixed build.** On 2026-09-28 the cause was found: Core
       was built unoptimised under `dotnet build Overburden.Game` (WORKLOG). Fixed, his quarry's
       tick is 185 ms at 2.00 Hz (it was ~1 s at 0.9 Hz). Colour waves and bodies wait for a pour

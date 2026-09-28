@@ -195,7 +195,7 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-09-28, midday**. One commit to push: your pool resting with the near/far order off.
+Updated **2026-09-28, midday**. One commit to push: the load test's first run, held for battery.
 
 - **The Tetris collapse** is the default. It has the pieces drawn, the cyan glitch, your phonk
   and a 10–20 s fuse. Owed from you: your ear on the phonk ("faster/slower/louder/quieter").

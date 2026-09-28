@@ -1,5 +1,21 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-28 — The load test, order on against off: one arm of four, held
+
+*"yes run the load test comparison please Claude"*, then *"hold here … going onto battery power"*.
+Four arms were planned on fresh copies of `retired-spread-2026-09-22`, alternated on / off / on /
+off, 480 s each, the saved spawn (<-57.6, 0.25, -9.5>), which loads 47.8 ML in 3.1 M cells from
+578 panels with 209 machines. **Only the first arm finished**; the second was stopped and its copy
+deleted. Battery power would have skewed the timing arms anyway.
+
+**Order on, 480 s, 0 ERROR:** 2,594,586 awake of 3,178,110 held (82%); the queued curve 3.36 M →
+2.75 M over 840 ticks; 236,743 near + the same far a tick with 2.11 M deferred; worker wall mean
+416 ms, max 780, 125 boundaries waited. **Owed:** the order-off arm and the repeat of each. The
+quantity is the tick rate the near water gets with the order off. The probe runner is
+`taj_arm.sh` in the session scratchpad; its recipe is `SRC=<world> taj_arm.sh <fluidnear> <tag>
+"<flags>" <probe seconds> <wait seconds>`: copy, check the game is closed, run headless, kill by PID,
+delete the copy.
+
 ## 2026-09-28 — Water bodies part a: his pool rests with the near/far order off
 
 *"carry on with the unfed pool run please Claude"*. `--nowater` turned out to remove Tier B too,
