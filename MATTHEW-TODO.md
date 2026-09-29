@@ -117,6 +117,12 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 Nothing is blocked on these; each is a small change once you have a view.
 
+- [ ] **IM-1's eight decisions** — [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "IM-1 — the
+      code-level pass". IM-1 is the mod-file rules underneath the machines: a misspelt key refused with a
+      "did you mean", a `format` number on each mod, the six extras' grammar and table, and the computer
+      as the one item that opens panels. The two that change the plan: IM-1 goes before the collapse
+      sensor (f-1 builds on it), and each extra is refused on a machine until the slice that reads it
+      lands. "As recommended" builds it, and nothing you play changes.
 - [ ] **A minute of your screen, whenever suits.** The last IM-0 measurement (what drawing a big flood's
       surface costs) only shows in a windowed run, which takes over the screen for about a minute. Say
       "run the windowed one" when you're not playing.

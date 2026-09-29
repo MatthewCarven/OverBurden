@@ -1,5 +1,34 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 (late) — IM-1's code-level pass: eight decisions handed back
+
+*"start on IM-1 please Claude"*. The hand-over said to hold a short code-level pass if decisions 1–6
+didn't fit the code, and four places didn't:
+- **Collapse f-1 is not built**, so IM-1 cannot "move f-1's `onsignal`", and nothing is saved under f-1 to
+  restore.
+- **Every extra's reader is a later slice** (f-1, IM-2, IM-9), so any opt-in in IM-1 would load and do
+  nothing, which the strict loader exists to refuse.
+- **There is no medium registry**, and the one served medium is the engine word `channel`, against decision
+  3's "namespaced content IDs".
+- **System.Text.Json on net8 can't be made strict the way the plan wants.** A throwaway probe on .NET 8.0.31
+  read three things. A key given twice loads the second silently, `"kind"` against `"Kind"` included. A
+  `$comment` inside `links` throws. The built-in `Disallow` stops at the first key, names the loader's
+  private class, refuses `$comment`, and suggests nothing.
+
+The pass is in the plan ("IM-1 — the code-level pass"). Its eight recommendations:
+- IM-1 goes before f-1, and f-1 builds on it.
+- An extra is refused on a machine until its reader lands, naming the slice.
+- A medium is named and checked as a `via` is.
+- The grammar, with the base game's `extras.json` quantum row and five reserved lower forms.
+- One (extra, medium) pair has one owner.
+- A reflection-driven strict walk: every unknown key with a did-you-mean, duplicates refused, `$` keys
+  dropped.
+- `format` reads as 1 when absent.
+- `programmer` is answered by the table.
+
+Every key in the shipped files is bound today, so the walk refuses none of them. COLLAPSE-PLAN's part-f
+amendment points at decision 1. Nothing is built.
+
 ## 2026-09-29 (close) — the panel's papers kept, and the session handed to a fresh chat
 
 *"Please commit anything you please to memory and/or markdown files along with anything we need

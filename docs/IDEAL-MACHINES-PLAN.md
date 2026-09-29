@@ -8,7 +8,8 @@ repeated here. **Nothing is built.** This is the planning pass; it ended with th
 Claude"*. **IM-0b is built** (2026-09-29, [UNDO-PLAN.md](UNDO-PLAN.md), "The machine drain was
 journalled"). It is wider than the split's row: the reconcile's four branches were the same mint, so
 the rule is that only a pick's dismantle is journalled. **IM-0 is measured** (the same night, "IM-0 —
-measured" below), and he took the 2 m quarry bite. IM-1 is next.
+measured" below), and he took the 2 m quarry bite. **IM-1's code-level pass is written** ("IM-1 — the
+code-level pass" below): eight decisions wait on his word.
 
 **How it was made.** As a design panel (the ladder's method):
 - five readers mapped the machine code, the plans, the inventory and the store, the creative-mode
@@ -612,7 +613,7 @@ name, bounds or default.
 |---|---|---|
 | **IM-0** | **Measurements on the fixed build, no code.** On a dated copy of `retired-TajMahal-2026-09-29` (`--world=probe-…`, `--at=-268,-5,1284`, `--fluidnear=2 --fluidjob=1`): `machines` and `boundary worst`. Then `--profile --entangle --nogate --pitch=-60 --holdq` and `--entangletunnel --nogate --pitch=-60 --holdq`, dry and with `--fillbasin`: `swing ms` and remeshes a swing. Then `--injectlitres=1000000` and `=10000000`: `pour`, a minute of tick wall, and the surface install in a windowed run. Also: add `--entangletunnel` to COMMANDS.md, where it is missing. | The numbers decisions 32, 33 and 45 wait on. |
 | **IM-0b** | **The live bug (fact 3), a fix to shipped code.** The drain's destroy branch runs with recording off, for every machine. | A pump destroyed by a fall, drained, then Ctrl+Z re-adds nothing, and the next arrival rebuilds nothing; a pure pick's dismantle is still undoable. |
-| **IM-1** Core | The strict loader; `extras`, the flag set, the per-material bit, `extras.json` (quantum row), its union and media check; `programmer`. | Every shipped file loads; a misspelt key at each level is refused, naming it; two mods giving one (extra, medium) pair are refused; a misspelt medium is refused; a mod with a newer `format` fails in one line; water and parts no longer open a panel; a three-mod fixture loads the same in every order; rows saved under f-1 restore unchanged. Mutation: disable the refusal, and the misspelt-key fixture goes red. |
+| **IM-1** Core (amended by its pass, below) | The strict loader; `extras`, the flag set, the per-material bit, `extras.json` (quantum row), its union and media check; `programmer`. | Every shipped file loads; a misspelt key at each level is refused, naming it; two mods giving one (extra, medium) pair are refused; a misspelt medium is refused; a mod with a newer `format` fails in one line; water and parts no longer open a panel; a three-mod fixture loads the same in every order; rows saved under f-1 restore unchanged. Mutation: disable the refusal, and the misspelt-key fixture goes red. |
 | **IM-2** Core | The window (7, 8): the backpack's JSON, the validator's exemption, `RechargePack`, `FillPack` and `Give` refusing a window, the direct draw; the priority consumer list; `packInitial` printed. | `PowerExact` exact over a thousand random bites and boundaries; the worn backpack's saved charge is 0 after a hundred boundaries, Alt+P and a save; a draw inside `Run` throws. Mutations: drop the `packTaken` credit, red; write the draw through `SetCharge`, red. Equal priorities reproduce position order. |
 | **IM-3** Core | The `vault` kind and the crate; the codec; the store view and fill order; the bill (`held`) and its order before signal overrides; the fuse; every row-removal rule of 17; the store's voxel identity. | Identity exact over a thousand random operations, the undo included; a signalled cell never unpays a hold; two vaults both bill; a save during a fuse resumes at the saved milliseconds; a wreck survives a reopen and is never rebuilt; both reconcile branches keep contents; an unknown codec version refuses the pick and the undo; `overfull` at restore; a refused pick carves nothing; the undo refusal is a pre-flight; `SetPort` moves contents with the row. Mutations: journal a full row, red; bill with no `held` term, red. |
 | **IM-4** Core | Water's doors: the ID, the pocket's refusal, the siphon's queue and rules, the vault in the outlet ring, the twins, `pumped == emitted + vaulted`, the store's water line. | M8's oracle unmoved with no vault; a siphon take then pour restores a basin exactly; a click then a quit moves nothing; a take on a Tier A lake draws the basin; the pump stalls `full` only when every ring entry refuses. Mutation: drop `vaulted`, red. |
@@ -684,6 +685,122 @@ Tier B whole and costs more, and there is no headless fixture for that yet (IM-5
 
 **Not run: the surface install in a windowed run.** Headless builds no surface. A windowed run takes
 his focus, so it waits for his say-so; the install was 92 ms mean on the load test's front (pre-fix).
+
+## IM-1 — the code-level pass (2026-09-29)
+
+Decisions 1–6 read against the loader (`ContentLoader.cs`), the validator (`MachineDefinition.cs`), the
+material table and the computer's verb. Five facts from the code, then eight decisions, each with a
+recommendation. **Nothing is built; the eight wait on his word.**
+
+**Five facts.**
+
+1. **Collapse f-1 is not built.** Nothing in the C# reads or declares `onsignal`. The split assumed f-1
+   lands first: *"IM-1 moves f-1's `onsignal` under the sense extra"*, tested by *"rows saved under f-1
+   restore unchanged"*.
+2. **Every extra's reader lands in a later slice**: sense in collapse f-1; charge and priority in IM-2;
+   recall, remote and telemetry in IM-9. In IM-1, a machine that opted into any extra would load and do
+   nothing. That is the state decision 4, and M10a's refusal of an unserved `via`, exist to refuse.
+3. **There is no medium registry, and the one served medium is an engine word.** A link's `via` is
+   `channel` (served), `solar` (served, but the sky feeds a converter and reaches no one), an engine word
+   (`crank`, `burner`, `surround`, `adjacent:`; refused naming M10f), or any other identifier, a conductor
+   class (refused naming M10e). Ladder decision 21 made conductor classes free class strings; decision 3
+   here calls media "namespaced content IDs". Both cannot be literal.
+4. **System.Text.Json on this build** (a throwaway probe, .NET 8.0.31):
+   - a key given twice loads the second silently, `"kind"` against `"Kind"` included;
+   - a `$comment` inside a name-keyed map (`links`, `ports`) throws, because it is read as a link;
+   - the built-in strict mode (`UnmappedMemberHandling.Disallow`) stops at the first unknown key, names
+     the loader's private class, refuses `$comment` too, and suggests nothing.
+5. **The computer's verb is on the Game side.** `PlaceController.cs:524-552` opens a panel for any
+   non-placeable material that is not a pack, and the HUD calls every such item `COMPUTER`
+   (`Hud.cs:536-541`). Only the computer ships as an item today, so the fix is invisible in play.
+
+**Decisions.**
+
+1. **IM-1 lands before f-1, and f-1 builds on it.** IM-1 builds the sense extra's load-time half: a
+   machine that opts into `sense` must declare `onsignal` at f-1's bounds (min 0, max 2; the default is
+   its own, 0 for f-1's readers and 1 for the quarry, decision 38). f-1 then gives its two readers
+   `"extras": { "sense": {} }` and the port, and switches `sense` on (decision 2 below). f-1's name, bounds
+   and defaults are unchanged; its restore test moves to f-1, since nothing is saved under f-1 before it
+   exists. *Cost:* one JSON line a reader in f-1. *Revisit:* he wants f-1 in his hands first; then f-1
+   builds `onsignal` plain, and IM-1 moves it, as the split said.
+2. **An extra is refused on a machine until its reader lands, naming the slice**, as an unserved `via` is.
+   The whole grammar is read and checked first (names, forms, the machine's medium, the table, required
+   ports); the last check refuses `sense` as collapse f-1's, `charge` and `priority` as IM-2's, and
+   `recall`, `remote` and `telemetry` as IM-9's. Each of those slices switches its own on, so no shipped
+   machine opts into an extra in IM-1. **The table's rows are not refused**: a row states reach, as the
+   `via` rules the build knows do, and decision 3 ships the quantum row now. Tests reach the served path
+   through the loader's served set, a constructor argument the game never passes. *Cost:* IM-1 changes
+   nothing a player sees; its shipped effects are the strict loader, `format`, `programmer` and the
+   table. *Revisit:* none; each slice flips its own.
+3. **A medium is named as a `via` is, and checked by the same rule.** `channel` is the one medium an
+   extra can reach today. `solar` is refused (the sky reaches no one), an engine word names M10f, and any
+   other identifier is a conductor class naming M10e. So a misspelt medium is refused today by the rule
+   that already refuses a misspelt `via`, with no registry to add, and when M10e decides how a conductor
+   is spelt, the table follows. **This replaces decision 3's "namespaced content IDs".** A machine's
+   medium is its links' `via`, `solar` aside; a machine with extras and no such link is refused (f-1's
+   sensor, with no links, takes none). *Cost:* none. *Revisit:* M10e's conductor names.
+4. **The grammar.** A machine opts in inside its `machine` block, `"extras": { "sense": {} }`; each inner
+   object takes no key yet. `charge` is a carried storage's extra and the other five a placed machine's,
+   since a pack has no body, no row and no pin. `sense` needs `onsignal` 0..2 (decision 1 above);
+   `priority` needs `priority` 0..9 (decision 41). `mods/<mod>/extras.json` maps extra → medium → form,
+   and every mod's is read before any material. The base game's:
+
+   ```json
+   {
+     "$comment": "How far each extra reaches on each medium. The lower tiers' rows land with their membership (M10e/f).",
+     "sense":     { "channel": "switch" },
+     "recall":    { "channel": "return" },
+     "remote":    { "channel": "board" },
+     "charge":    { "channel": "window" },
+     "priority":  { "channel": "port" },
+     "telemetry": { "channel": "state" }
+   }
+   ```
+
+   Forms are a closed C# set per extra, named from section F's table. The lower tiers' forms (`bell`,
+   `station`, `dock`, `position`, `pin`) are reserved and refused naming M10e or M10f, as reserved `via`
+   names are; any other form is unknown, with a did-you-mean. An extra with no row for a machine's medium
+   is refused on that machine. *Cost:* five reserved names. *Revisit:* M10e/f.
+5. **One (extra, medium) pair, one owner**, as one ID has one definition. A second mod giving a pair
+   already given is refused naming both files, whatever form it gives, and the first in load order keeps
+   it. Load order is sorted (the base game, then by ID), so a fixture loads the same whatever order its
+   mods are listed in. This follows the split's test (*"two mods giving one (extra, medium) pair are
+   refused"*) rather than decision 3's *"given two forms"*, and it is the only reading reachable today:
+   over `channel` each extra has one form, so two different valid forms cannot be written until a medium
+   has two. *Cost:* a mod cannot restate the base's row. *Revisit:* M10e, if mods want to add forms over
+   one another's media.
+6. **The strict walk, not `Disallow`** (fact 4). Every file (`mod.json`, materials, tools,
+   `extras.json`) is parsed once and walked against the loader's own classes, their properties read by
+   reflection, so the walk and the binding cannot disagree. It reports every unknown key in the file, each
+   with its path (`machine.links.power.carrys`) and the nearest known name within two edits (one for a
+   name of four letters or fewer), case ignored. It refuses a key given twice at one level, the same
+   silent-data class. It allows and drops `$` keys at every level, maps included. Binding stays
+   case-insensitive, strict about names and not their case, so no mod that loads today on a capitalised
+   key breaks. A refused file is skipped whole, as today. *Cost:* one more parse a file at startup, a few
+   dozen small files. *Revisit:* none.
+7. **`format`: absent reads as 1, and this build reads 1.** The base game declares `"format": 1`. A mod
+   whose format is higher is skipped with one line (*"written for content format 2; this build reads
+   1"*), checked before the manifest's own keys, so none of its files is read; a mod that depends on it
+   says it was skipped, not that it is missing. Zero, negative or fractional is refused. *Cost:* none;
+   format 1 is this grammar, the strict walk included. *Revisit:* the first format 2.
+8. **`programmer` is a material key, and the table answers it.** `"programmer": true` goes on
+   `computer.json`, and is refused on a placeable material or a machine (a programmer is an item in the
+   hand). `MaterialTable.IsProgrammer(id)` projects it. `PlaceController`'s item branch opens panels only
+   for a programmer; any other item's click does nothing, and the HUD's `COMPUTER` line names the item
+   instead. This is IM-1's one Game edit, so the slice closes on the r6 control. *Cost:* a Game build,
+   invisible in play.
+
+**IM-1's tests, restated for the above.** Every shipped file loads. A misspelt key at each of nine levels
+(manifest, material, machine, link, port, tool, tool power, an extra's object, the table) is refused
+naming the file, the path and the suggestion. `$comment` at every level, maps included, loads. A key given
+twice is refused. Two mods giving one pair are refused naming both, and a three-mod fixture gives the same
+table, IDs and errors in every listing order. A misspelt medium, `solar`, an engine word and a conductor
+class are each refused with their reason; so are an unknown form and a reserved one, and `onsignal` or
+`priority` missing or mis-bounded. Each extra is refused on a machine naming its slice, and with the
+served set its bit and form land on the table. A newer format fails in one line with its files unread and
+its dependant told. The computer is a programmer and a part-like item is not. **Mutations, one a rule:**
+the unknown-key refusal, the `$` skip, the duplicate check, the pair's owner, the medium check, the format
+check, the programmer gate. *Estimate:* one session, about 45 tests.
 
 ## Must not ship
 

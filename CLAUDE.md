@@ -202,15 +202,17 @@ machine with a shared budget, only where you are; water is an inventory item thr
 header byte and a kit. **IM-0b is built** (the drain's world-side writes unjournalled, so Ctrl+Z no longer
 mints machines; UNDO-PLAN's last section). **IM-0 is measured** (the plan's "IM-0 — measured"): `machines`
 0.63–0.88 ms mean on 127 and 209 rows; the 2 m bite 0.42–0.53 ms, and he took it for the quarry; Tier B
-insertion 0.5–1.1 µs a cell, a 10 ML pour carried at 2 Hz. **Next, in a fresh chat: IM-1** (the strict
-loader and the extras; Core and tests). Start from the plan's decisions 1–6 and the IM-1 row of its split,
-then `docs/panel/ideal-machines-2026-09-29/readers/A-engine.md` §2 (the loader, every key it accepts) and
-§1.7 (the twenty `MachineKind` sites). If anything in decisions 1–6 doesn't fit the code, hold a short
-code-level pass first, as the collapse's parts did.
+insertion 0.5–1.1 µs a cell, a 10 ML pour carried at 2 Hz. **IM-1's code-level pass is written** (the
+plan, "IM-1 — the code-level pass"): five facts from the code and eight decisions, waiting on his word. On
+"as recommended", build IM-1 from that section: the strict walk (reflection over the loader's DTOs, not
+`Disallow`), `format`, the extras grammar and `extras.json`, every extra refused on a machine until its
+slice, `programmer` (one Game edit in `PlaceController`, so the r6 control closes it). Then
+`docs/panel/ideal-machines-2026-09-29/readers/A-engine.md` §2 is the loader's key map.
 
 **Buildable alongside: collapse part f, slice f-1** (Core and tests), thirteen decisions taken
 ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part f"). The ideal-machines plan's three amendments there are
-taken too; none changes f-1. Build in a worktree if he is playing, because `start.cmd` builds whatever the main
+taken too; none changes f-1. IM-1's pass proposes IM-1 first, with f-1 declaring its readers through the
+`sense` extra (its decision 1). Build in a worktree if he is playing, because `start.cmd` builds whatever the main
 folder holds.
 
 **TajMahal is retired** (2026-09-29, his word: *"I borked the supports so want to restart"*): moved to

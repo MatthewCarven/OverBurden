@@ -1177,7 +1177,10 @@ planned** ([IDEAL-MACHINES-PLAN.md](IDEAL-MACHINES-PLAN.md), decisions 10 and 38
 - **A sensor whose own chunk is unloaded reads false without looking**, bounding the (2r+1)³ lookups
   on a server. It lands in the plan's IM-9.
 - `onsignal` moves under the plan's `sense` extra in IM-1, with its name, bounds and default unchanged,
-  so rows saved under f-1 restore as they are.
+  so rows saved under f-1 restore as they are. **IM-1's code-level pass (2026-09-29) proposes the other
+  order**, since f-1 is not built: IM-1 lands first with the sense extra's load-time half (`onsignal`
+  0..2 required), and f-1 gives its readers `"extras": { "sense": {} }` and switches the extra on. Its
+  decision 1, waiting on his word.
 
 ## What would reverse this
 
