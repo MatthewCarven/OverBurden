@@ -1,5 +1,13 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 (late) — his new TajMahal renamed TajMahal2
+
+*"Can you rename my new Taj Mahal world to Taj Mahal 2 so when we retire it it does not conflict"*. With
+Godot closed, `worlds/TajMahal` (one `world.db`, last written 6:46 PM) moved to `worlds/TajMahal2`, and
+`start.cmd` names `--world=TajMahal2`. A world's name is only its folder (`Main.cs:9189`), so nothing inside
+the file needed changing. Spelt without spaces to match the old name and to need no quoting on a command line.
+None of his own launchers (`start2`–`start5`, `pondlook`) named TajMahal.
+
 ## 2026-09-29 (late) — IM-1's code-level pass: eight decisions handed back
 
 *"start on IM-1 please Claude"*. The hand-over said to hold a short code-level pass if decisions 1–6

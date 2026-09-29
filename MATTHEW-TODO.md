@@ -227,8 +227,8 @@ Updated **2026-09-29, night**. Commits to push: `git fetch`, then `git log origi
 - **The undo bug is fixed** (IM-0b): a machine a fall destroys can no longer come back free after
   Ctrl+Z. The build you started at 4:49 PM already has it. A Ctrl+Z right after a roof comes down now
   says *the roof came down*, as it should.
-- **TajMahal is retired** as `retired-TajMahal-2026-09-29`; `start.cmd` makes a fresh one next launch,
-  with a new seed.
+- **Your new world is `TajMahal2` now** (renamed at your ask), and `start.cmd` opens it. The old one is
+  retired as `retired-TajMahal-2026-09-29`.
 - **The collapse sensor:** all thirteen decisions taken, the first build step is ready.
 - **The Tetris collapse** is the default, with the cyan glitch, your phonk and a 10–20 s fuse. Your
   ear on the phonk is still owed.
@@ -239,5 +239,5 @@ Updated **2026-09-29, night**. Commits to push: `git fetch`, then `git log origi
   fix with it on failed on your biggest world. What you play is unchanged.
 - **Backups:** the old TajMahal is `retired-TajMahal-2026-09-29`, with `backup-TajMahal-2026-09-28`
   beside it; your tower is `backup-Regions16-pondlook-2026-09-26`. Say "restore my tower", or "bring the
-  old TajMahal back" (the fresh one would be kept, dated).
+  old TajMahal back" (it would come back as `TajMahal`, and `TajMahal2` stays as it is).
 - `start2.cmd` to `start5.cmd` and `pondlook.cmd` are yours and left out of git.

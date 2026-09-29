@@ -216,8 +216,9 @@ taken too; none changes f-1. IM-1's pass proposes IM-1 first, with f-1 declaring
 folder holds.
 
 **TajMahal is retired** (2026-09-29, his word: *"I borked the supports so want to restart"*): moved to
-`retired-TajMahal-2026-09-29`. `start.cmd` still names `--world=TajMahal`, so his next launch creates a fresh
-world by that name, with a new seed and the shipped relief.
+`retired-TajMahal-2026-09-29`. **His fresh one is `TajMahal2`** (renamed the same night at his ask, *"so when
+we retire it it does not conflict"*), and `start.cmd` names `--world=TajMahal2`. A world's name is only its
+folder under `worlds/`, so a rename is a folder move with the game closed.
 
 - **Water bodies part a is parked** ([docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md), "c-3,
   run"). His pool rests with the near/far order off (2% awake at 900 s), but every cheap fix under the
@@ -228,7 +229,7 @@ world by that name, with a new seed and the shipped relief.
   the water main spills ([docs/POND-PLAN.md](docs/POND-PLAN.md), "Re-measured"). The verdict is his look.
 - **F11 has a third rung**, r10h/6v; he played it to the top.
 - **Where a probe must stand:** the old TajMahal's pool `--at=-268,-5,1284` (a copy of
-  `retired-TajMahal-2026-09-29`, never the new TajMahal), his pond on `Regions16` `--at=-852,34,282`. A saved
+  `retired-TajMahal-2026-09-29`, never `TajMahal2`), his pond on `Regions16` `--at=-852,34,282`. A saved
   spawn loads the wrong water; read the first `M8b:` line's `loaded`.
 - **His worlds:** the old TajMahal is `retired-TajMahal-2026-09-29`, with `backup-TajMahal-2026-09-28` beside
   it. His tower restores from `backup-Regions16-pondlook-2026-09-26` on "restore my tower"; the collapsed
