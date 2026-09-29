@@ -171,8 +171,6 @@ His answers of 2026-09-29 to MATTHEW-TODO's "things I'd like your eye on", as wo
   rain? I do have some prerecorded storm sounds"*. That is sound raised a second time (the phonk was the
   first), which is the cosmetics pass's trigger below. His recordings are the first source to try;
   PySynthRack is his other project.
-- **The time on the HUD** deep in a mine: *"I'm leaning on the local time"*. Whether that means the world's
-  time of day or the computer's clock is asked in MATTHEW-TODO.
 - **Reach by tool tier**: *"yeah but only for the lower tier tools you can increase this depending on tech
   level like hands would be a bit punishing to start with"*. So 5 m stays for the low tiers, reach grows
   with the ladder, and bare hands are not the start. This goes into M10g's tools and the game-mode item

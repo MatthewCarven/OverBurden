@@ -377,7 +377,7 @@ public sealed partial class Hud : CanvasLayer
 
         if (refreshText || _where.Text.Length == 0)
         {
-            _where.Text = WhereText(eyeMetres, forward, reliefMetres);
+            _where.Text = WhereText(eyeMetres, forward, reliefMetres) + $"   ·   {ClockText()}";
         }
 
         if (refreshText || _status.Text.Length == 0)
@@ -505,6 +505,16 @@ public sealed partial class Hud : CanvasLayer
         return $"x {eyeMetres.X:0}  y {eyeMetres.Y:0}  z {eyeMetres.Z:0}"
             + $"   ·   facing {bearing:000}° {Overburden.Core.Navigation.Compass.Point(bearing)}{relief}";
     }
+
+    /// <summary>The computer's clock, in its own short format — a wristwatch in the mine.</summary>
+    /// <remarks>
+    /// <b>His, 2026-09-30</b> (*"the time would be useful … I'm leaning on the local time"*, and the
+    /// computer's clock taken as recommended): deep in a mine there is no sky to read, and the world has
+    /// no day and night to tell (the panel's solar sum has no time of day), so the time worth showing is
+    /// the player's own. Windows' short time pattern, so it reads as the taskbar does. <b>Revisit
+    /// trigger: a day cycle</b> — then the world's time of day is a second, different clock.
+    /// </remarks>
+    internal static string ClockText() => System.DateTime.Now.ToShortTimeString();
 
     private static string StatusText(PlaceController place, MiningController? mining, bool precise, Overburden.Core.Machines.EquippedPack? pack, long carriedPackMillijoules)
     {

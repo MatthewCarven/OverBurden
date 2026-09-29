@@ -1,5 +1,13 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-30 — the computer's clock on the HUD
+
+*"1 and 2 as recommended"*, 2 being the HUD's time. It is the computer's clock, in Windows' short time format,
+at the end of the "where" line (coordinates, bearing, relief), refreshed with it at 10 Hz. The world has no
+day and night, since the panel's solar sum has no time of day, so the player's own time is the one worth
+showing. A day cycle is the revisit trigger, and would be a second clock. No screenshot, because he was
+playing; his next look is the check.
+
 ## 2026-09-29 (night) — IM-3b's r6, and his answers to "things I'd like your eye on", folded
 
 The r6 control on the merged IM-3b build read `2601 / 325 / 3446 at 411`, 0 `ERROR`. His TajMahal2 session,
