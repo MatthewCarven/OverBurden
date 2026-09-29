@@ -5192,7 +5192,9 @@ public partial class Main : Node3D
             _printedFillRefused = true;
             GD.Print(
                 $"M10: gate — the fill at range stopped short: the rest of the shape needs {MachinePanel.Joules(_place.LastRefusedNeedMillijoules)} and the pack "
-                + (_pack is null ? "is not equipped" : $"holds {MachinePanel.Joules(_pack.ChargeMillijoules)}")
+                + (_pack is null ? "is not equipped"
+                    : _pack.IsWindow ? $"is a window on a bank of {MachinePanel.Joules(_pack.SpendableMillijoules)}"
+                    : $"holds {MachinePanel.Joules(_pack.ChargeMillijoules)}")
                 + $" ({_place.UnpoweredPlacements:N0} placement(s) stopped short, {_place.VoxelsUnpowered:N0} voxel(s) unpowered, this session)");
         }
         else if (placed && !_place.RefusedUnpoweredThisFrame)
