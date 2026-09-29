@@ -133,23 +133,31 @@ public sealed partial class MachineSet : IMachineBodies
     public bool HasRowsIn(ChunkPos chunk) => _byChunk.ContainsKey(chunk);
 
     /// <summary>
-    /// Millijoules of charge that entered the set on storage rows — added, placed or restored —
-    /// over the session. With <see cref="StoredMillijoulesLeaving"/>, the pool identity's
-    /// <c>loaded</c> and <c>stowed</c> terms in one pair (M10c).
+    /// Millijoules of charge that entered the set on storage rows and vaults' own charges — added,
+    /// placed or restored — over the session. With <see cref="StoredMillijoulesLeaving"/>, the pool
+    /// identity's <c>loaded</c> and <c>stowed</c> terms in one pair (M10c).
     /// </summary>
     public long StoredMillijoulesEntering { get; private set; }
 
-    /// <summary>Millijoules of charge that left the set on storage rows removed — dismantled, destroyed, or replaced at a restore.</summary>
+    /// <summary>Millijoules of charge that left the set on rows removed — dismantled, destroyed, or replaced at a restore.</summary>
     public long StoredMillijoulesLeaving { get; private set; }
 
-    /// <summary>The charge on a row, or zero when its material is not a storage here.</summary>
+    /// <summary>The charge on a row: a placed cell's, or a vault's own (IM-3b); zero for anything else here.</summary>
     /// <remarks>
     /// Through the table, never by reading the bytes alone: another kind's state could carry a
     /// version byte of 1 and eight bytes after it, and a set built without a table (a test's)
-    /// counts no charge at all rather than guessing.
+    /// counts no charge at all rather than guessing. <b>A vault's own charge is counted here</b>, so
+    /// the pool identity carries it with no term of its own: a bill it pays is <c>held</c>, a
+    /// recharge or a return is a transfer inside <c>stored</c>, and a pick, Ctrl+Z and a reopen count
+    /// it as they count a cell's (IM-3b's pass, fact 3). A vault whose bytes this build cannot read
+    /// counts none, as it counts no contents.
     /// </remarks>
-    public long ChargeOf(MachineRow row) =>
-        _materials?.Machine(row.MaterialId) is { Kind: MachineKind.Storage, Carried: false } ? StorageState.Read(row) : 0;
+    public long ChargeOf(MachineRow row) => _materials?.Machine(row.MaterialId) switch
+    {
+        { Kind: MachineKind.Storage, Carried: false } => StorageState.Read(row),
+        { Kind: MachineKind.Vault } => VaultState.TryRead(row, out VaultContents contents) ? contents.OwnChargeMillijoules : 0,
+        _ => 0,
+    };
 
     /// <summary>
     /// Sets the charge on the storage row at <paramref name="cell"/>, clamped to its capacity,

@@ -53,6 +53,9 @@ public class MachineTickTests(ITestOutputHelper output)
     // IM-2: the relay with the priority extra (decision 41), and the quantum backpack's window (decision 7).
     private const int PriorityPump = 12, WindowPack = 13;
 
+    // IM-3b: a small vault — 1 m³ at the low grade's rates — to stand beside a pump on its channel.
+    private const int SmallVault = 14;
+
     /// <summary>The relay's rate: 100 L/s is 50,000 mL a boundary, 3.2 cells.</summary>
     private const long RelayMillilitresPerBoundary = 50_000;
 
@@ -107,6 +110,17 @@ public class MachineTickTests(ITestOutputHelper output)
         Ports = [new PortDefinition("channel", 0, 0, 15), new PortDefinition("weight", 1, 1, 100)],
     };
 
+    private static readonly MachineDefinition SmallVaultDefinition = new()
+    {
+        Kind = MachineKind.Vault,
+        InsideMillilitres = MachineDefinition.MillilitresPerCubicMetre,
+        WaterHoldMilliwattsPerCubicMetre = 25_000,
+        BlockHoldMilliwattsPerCubicMetre = 2_500,
+        HoldsWater = true,
+        Links = [new MachineLink("power", MachineMedium.Power, MachineRole.Sink, MachineLink.ChannelVia, null, "channel")],
+        Ports = [new PortDefinition("channel", 0, 0, 15), new PortDefinition(MachineTick.EnabledPort, 1, 0, 1)],
+    };
+
     /// <summary>The billed relay with the priority extra and its port, 0–9 at 5, as the shipped relay has since IM-2.</summary>
     private static MachineDefinition PriorityPumpAt(long millilitresPerSecond, long joulesPerLitre)
     {
@@ -124,25 +138,25 @@ public class MachineTickTests(ITestOutputHelper output)
     }
 
     internal static readonly MaterialTable Materials = MaterialTable.ForTesting(
-        //             air    stone  pump   outlet slow   wide   panel  dim    big    small  billed pack   prio   window
-        isOpaque: [false, true, true, true, true, true, true, true, true, true, true, true, true, true],
-        isFluid: [false, false, false, false, false, false, false, false, false, false, false, false, false, false],
-        textureLayer: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
-        hardness: [0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 1.0f, 1.0f, 3.0f, 3.0f, 3.0f, 1.0f, 3.0f, 1.0f],
+        //             air    stone  pump   outlet slow   wide   panel  dim    big    small  billed pack   prio   window vault
+        isOpaque: [false, true, true, true, true, true, true, true, true, true, true, true, true, true, true],
+        isFluid: [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false],
+        textureLayer: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+        hardness: [0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 1.0f, 1.0f, 3.0f, 3.0f, 3.0f, 1.0f, 3.0f, 1.0f, 3.0f],
         machine:
         [
             null, null, PumpAt(100_000), OutletDefinition, PumpAt(470), PumpAt(100_000, radius: 2),
             PanelAt(500), PanelAt(500, 900), CellOf(BigCellCapacity), CellOf(SmallCellCapacity),
             PumpAt(100_000, joulesPerLitre: RelayBill), CellOf(PackCapacity, carried: true, rechargeWatts: 1000),
-            PriorityPumpAt(100_000, RelayBill), WindowTests.WindowDefinition,
+            PriorityPumpAt(100_000, RelayBill), WindowTests.WindowDefinition, SmallVaultDefinition,
         ],
         unit:
         [
             default, default, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells,
             MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Count,
-            MaterialUnit.Cells, MaterialUnit.Count,
+            MaterialUnit.Cells, MaterialUnit.Count, MaterialUnit.Cells,
         ],
-        placeable: [true, true, true, true, true, true, true, true, true, true, true, false, true, false]);
+        placeable: [true, true, true, true, true, true, true, true, true, true, true, false, true, false, true]);
 
     /// <summary>The sky a test dictates: a cell's open columns, or nothing loaded over it.</summary>
     private sealed class DictatedSky : ISolarSky
@@ -771,6 +785,41 @@ public class MachineTickTests(ITestOutputHelper output)
 
         // The cell is spent: both stall at the next boundary, with water and room still there.
         Assert.Equal(2, twin.Boundary(step: false).Unpowered);
+        Assert.True(twin.Tick.PowerExact);
+        twin.AssertIdentity();
+    }
+
+    [Fact]
+    public void AVaultsBillComesBeforeThePumpAndItsMinuteRefillsOnlyFromWhatThePumpLeaves()
+    {
+        // IM-3b's pass, decisions 4 and 6. A full small vault bills 1.25 J a boundary and carries a
+        // minute of it, 150 J; this one is 10 J short. The cell holds the bill and 25 L of pumping. The
+        // pool pays the bill (never the vault's own charge while the pool can), the pump drinks the rest,
+        // and the minute gets nothing, because the spare is what is left after the consumers.
+        var twin = new Twin();
+        MachineRow pump = twin.Place(Twin.PumpCell, BilledPump);
+        twin.Place(Twin.RimOutlet, Outlet);
+        MachineRow cell = twin.Place(Twin.RoomOutlet, BigCell, charge: 1_250 + (25_000L * RelayBill));
+
+        var contents = new VaultContents { OwnChargeMillijoules = 140_000 };
+        contents.Add(Stone, 64);
+        var vault = new MachineRow(new BrushCell(8, 2, 8), SmallVault, BrushFacing.PositiveX, SmallVaultDefinition.DefaultPorts());
+        VaultState.Write(vault, contents);
+        twin.Machines.Add(vault);
+        Assert.Equal(1_250 + (25_000L * RelayBill) + 140_000, twin.Machines.StoredMillijoulesEntering);
+
+        twin.PourIntoRoom(120 * Cap);
+        twin.Fluid.Settle(200);
+
+        MachineTickReport report = twin.Boundary(step: false);
+
+        Assert.Equal(1_250, report.HeldMillijoules);
+        Assert.Equal(0, report.HeldFromOwnMillijoules);
+        Assert.Equal(25_000L, pump.LastMovedMillilitres);
+        Assert.Equal(0, report.OwnGivenMillijoules);
+        Assert.True(VaultState.TryRead(vault, out VaultContents after));
+        Assert.Equal(140_000, after.OwnChargeMillijoules);
+        Assert.Equal(0L, ChargeOf(cell));
         Assert.True(twin.Tick.PowerExact);
         twin.AssertIdentity();
     }

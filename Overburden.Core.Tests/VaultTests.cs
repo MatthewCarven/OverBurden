@@ -245,7 +245,7 @@ public class VaultTests
     [Fact]
     public void TheCodecRoundTripsEveryFieldAndAFreshVaultIsEmpty()
     {
-        var contents = new VaultContents { WaterMillilitres = 1_234_567, Phase = VaultPhase.Fusing, FuseMillisLeft = 14_250, Wreck = true };
+        var contents = new VaultContents { WaterMillilitres = 1_234_567, Phase = VaultPhase.Fusing, FuseMillisLeft = 14_250, Wreck = true, OwnChargeMillijoules = 987_654_321_012 };
         contents.Add(Dirt, 40);
         contents.Add(Stone, 7);
 
@@ -255,6 +255,7 @@ public class VaultTests
         Assert.Equal(1_234_567, read.WaterMillilitres);
         Assert.Equal(VaultPhase.Fusing, read.Phase);
         Assert.Equal(14_250, read.FuseMillisLeft);
+        Assert.Equal(987_654_321_012, read.OwnChargeMillijoules);
         Assert.True(read.Wreck);
         Assert.Equal((47 * MachineDefinition.VoxelMillilitres) + 1_234_567, read.UsedMillilitres);
 
@@ -284,7 +285,8 @@ public class VaultTests
             { "a flag this build does not know", Changed(b => b[1] = 2) },
             { "a phase past dumping", Changed(b => b[2] = 3) },
             { "a zero entry", Changed(b => b[^8] = 0) },
-            { "entries out of order", Changed(b => { (b[19], b[31]) = (b[31], b[19]); }) },
+            { "entries out of order", Changed(b => { (b[VaultState.HeaderBytes], b[VaultState.HeaderBytes + VaultState.EntryBytes]) = (b[VaultState.HeaderBytes + VaultState.EntryBytes], b[VaultState.HeaderBytes]); }) },
+            { "a negative own charge", Changed(b => b[14] = 0x80) },
         };
     }
 
@@ -326,11 +328,64 @@ public class VaultTests
         Assert.True(vault.HoldsWater);
         Assert.True(vault.IsChannelVault);
 
+        // IM-3b, decision 1: a file that says nothing carries his minute.
+        Assert.Null(vault.OwnChargeSeconds);
+        Assert.Equal(60_000, vault.OwnChargeMillis);
+
         (GameContent crateContent, LoadResult crateResult) = LoadMachine("""{ "id": "box", "unit": "cells", "machine": { "kind": "vault", "insideCubicMetres": 1 } }""");
         Assert.True(crateResult.Success, string.Join("; ", crateResult.Errors));
         MachineDefinition crate = crateContent.Materials.Get(Identifier.Parse("vaults:box")).Machine!;
         Assert.False(crate.IsChannelVault);
         Assert.False(crate.HoldsWater);
+        Assert.Equal(0, crate.OwnChargeMillis);
+
+        (GameContent tunedContent, LoadResult tunedResult) = LoadMachine("""
+            { "id": "box", "unit": "cells",
+              "machine": { "kind": "vault", "insideCubicMetres": 100, "holdWattsPerCubicMetre": { "water": 25 }, "holdsWater": true, "ownChargeSeconds": 90,
+                "links": { "power": { "carries": "power", "role": "sink", "via": "channel", "port": "channel" } },
+                "ports": { "channel": { "default": 0, "min": 0, "max": 15 } } } }
+            """);
+        Assert.True(tunedResult.Success, string.Join("; ", tunedResult.Errors));
+        Assert.Equal(90_000, tunedContent.Materials.Get(Identifier.Parse("vaults:box")).Machine!.OwnChargeMillis);
+    }
+
+    private const string ChannelVaultLinks = """
+        "links": { "power": { "carries": "power", "role": "sink", "via": "channel", "port": "channel" } },
+        "ports": { "channel": { "default": 0, "min": 0, "max": 15 } }
+        """;
+
+    [Theory]
+    [InlineData("0", "ownChargeSeconds must be within 1..3,600")]
+    [InlineData("3601", "ownChargeSeconds must be within 1..3,600")]
+    [InlineData("-5", "ownChargeSeconds must be within 1..3,600")]
+    public void AnOwnChargeOfNothingOrOverAnHourIsRefused(string seconds, string mentioning)
+    {
+        (_, LoadResult result) = LoadMachine($$"""
+            { "id": "box", "unit": "cells", "machine": { "kind": "vault", "insideCubicMetres": 1, "ownChargeSeconds": {{seconds}}, {{ChannelVaultLinks}} } }
+            """);
+
+        Assert.Contains(result.Errors, e => e.Contains("box.json") && e.Contains(mentioning));
+    }
+
+    [Fact]
+    public void OnlyAVaultOnAChannelDeclaresAnOwnCharge()
+    {
+        (_, LoadResult crate) = LoadMachine("""{ "id": "box", "unit": "cells", "machine": { "kind": "vault", "insideCubicMetres": 1, "ownChargeSeconds": 60 } }""");
+        Assert.Contains(crate.Errors, e => e.Contains("box.json") && e.Contains("declares no ownChargeSeconds"));
+
+        var pump = new MachineDefinition
+        {
+            Kind = MachineKind.Pump,
+            MillilitresPerSecond = 1_000,
+            OwnChargeSeconds = 60,
+        };
+        Assert.False(pump.TryValidate(out string? error));
+        Assert.Contains("belongs to a vault on a channel", error);
+
+        (_, LoadResult misspelt) = LoadMachine($$"""
+            { "id": "box", "unit": "cells", "machine": { "kind": "vault", "insideCubicMetres": 1, "ownChargeSecond": 60, {{ChannelVaultLinks}} } }
+            """);
+        Assert.Contains(misspelt.Errors, e => e.Contains("box.json") && e.Contains("did you mean 'ownChargeSeconds'"));
     }
 
     [Theory]
@@ -484,9 +539,14 @@ public class VaultTests
 
         // 1.25 J for the small one's cubic metre, 0.4 W × 10 m³ × 0.5 s = 2 J for the high one.
         Assert.Equal(1_250 + 2_000, report.HeldMillijoules);
-        Assert.Equal(1_000_000 - 3_250, StorageState.Read(cell));
         Assert.Equal(2, rig.Tick.VaultBillsPaid);
         Assert.Equal(VaultPhase.Holding, rig.Contents(A).Phase);
+
+        // IM-3b: then the spare fills each one's minute — 150 J and 240 J — and the cell falls by both.
+        Assert.Equal(150_000 + 240_000, report.OwnGivenMillijoules);
+        Assert.Equal(150_000, rig.Contents(A).OwnChargeMillijoules);
+        Assert.Equal(240_000, rig.Contents(B).OwnChargeMillijoules);
+        Assert.Equal(1_000_000 - 3_250 - 390_000, StorageState.Read(cell));
         rig.AssertBooks();
     }
 
@@ -505,31 +565,60 @@ public class VaultTests
         Assert.Equal(VaultPhase.Holding, rig.Contents(B).Phase);
         Assert.Equal(VaultPhase.Fusing, rig.Contents(A).Phase);
         Assert.Equal(2_000, rig.Tick.HeldMillijoules);
+
+        // IM-3b, decision 6: the 0.5 J the bills left fills minutes in the same order, the high one first.
+        Assert.Equal(500, rig.Contents(B).OwnChargeMillijoules);
+        Assert.Equal(0, rig.Contents(A).OwnChargeMillijoules);
         rig.AssertBooks();
     }
 
     [Fact]
-    public void AnUnpaidBillLightsTheFuseAPaidOnePutsItOutAndAFuseBurnedThroughDumps()
+    public void AnUnpaidBillLightsTheFuseAPaidOnePausesItAWholeMinutePutsItOutAndAFuseBurnedThroughDumps()
     {
         var rig = new Rig();
         rig.Place(A, Small);
         rig.Fill(A, Dirt, 64);
 
+        // A vault just filled has no minute yet, and nothing pays: it lights.
         rig.Tick.Run();
         VaultContents lit = rig.Contents(A);
         Assert.Equal(VaultPhase.Fusing, lit.Phase);
         Assert.InRange(lit.FuseMillisLeft, MachineTick.FuseMinMillis, MachineTick.FuseMaxMillis);
         Assert.Equal(1, rig.Tick.FusesArmed);
+        Assert.False(rig.Row(A).LastHoldPaid);
 
-        // A boundary that pays in full disarms it.
+        // IM-3b, decision 5: a boundary that pays the bill and no more pauses it — never puts it out.
         MachineRow cell = rig.Charged(D, 1_250);
+        rig.Tick.Run();
+        Assert.Equal(VaultPhase.Fusing, rig.Contents(A).Phase);
+        Assert.Equal(lit.FuseMillisLeft, rig.Contents(A).FuseMillisLeft);
+        Assert.True(rig.Row(A).LastHoldPaid);
+        Assert.Equal(1, rig.Tick.FusesPaused);
+        Assert.Equal(0, rig.Tick.FusesDisarmed);
+
+        // The bill and the vault's whole minute: out.
+        rig.Set.SetCharge(cell.Cell, 1_250 + 150_000);
         rig.Tick.Run();
         Assert.Equal(VaultPhase.Holding, rig.Contents(A).Phase);
         Assert.Equal(0, rig.Contents(A).FuseMillisLeft);
+        Assert.Equal(150_000, rig.Contents(A).OwnChargeMillijoules);
         Assert.Equal(1, rig.Tick.FusesDisarmed);
+        Assert.Equal(0, StorageState.Read(cell));
 
-        // Broke again: it lights, and burns down by the boundary's milliseconds to the dump.
-        rig.Tick.Run();
+        // Broke again, the minute pays: 120 boundaries of 1.25 J, and not one more, before it lights.
+        int held = 0;
+        while (rig.Contents(A).Phase == VaultPhase.Holding)
+        {
+            rig.Tick.Run();
+            held++;
+            Assert.True(held < 200, "the minute never ran out");
+        }
+
+        Assert.Equal(121, held);
+        Assert.Equal(120 * 1_250, rig.Tick.HeldFromOwnMillijoules);
+        Assert.Equal(0, rig.Contents(A).OwnChargeMillijoules);
+
+        // And it burns down by the boundary's milliseconds to the dump.
         int length = rig.Contents(A).FuseMillisLeft;
         int boundaries = 0;
         while (rig.Contents(A).Phase == VaultPhase.Fusing)
@@ -547,10 +636,13 @@ public class VaultTests
         Assert.Equal(0, rig.Set.HeldVoxels);
         Assert.Empty(rig.Set.StoreOf(0));
 
-        // Once it burned out nothing saves it (decision 34): power back pays nothing and changes nothing.
+        // Once it burned out nothing saves it (decision 34): power back pays nothing, charges nothing and changes nothing.
         rig.Set.SetCharge(cell.Cell, 1_000_000);
+        long given = rig.Tick.OwnChargeGivenMillijoules;
         rig.Tick.Run();
         Assert.Equal(VaultPhase.Dumping, rig.Contents(A).Phase);
+        Assert.Equal(0, rig.Contents(A).OwnChargeMillijoules);
+        Assert.Equal(given, rig.Tick.OwnChargeGivenMillijoules);
         Assert.Equal(1, rig.Tick.FusesBurnt);
         rig.AssertBooks();
     }
@@ -580,6 +672,7 @@ public class VaultTests
         rig.Tick.Run();
 
         Assert.Equal(1_250, rig.Tick.HeldMillijoules);
+        Assert.Equal(150_000, rig.Contents(A).OwnChargeMillijoules); // and its minute is kept (IM-3b, decision 6)
         rig.Pocket.Add(Dirt, 1);
         Assert.Equal(0, rig.Set.DepositInto(A, Dirt, 1, rig.Pocket));
     }
@@ -625,6 +718,240 @@ public class VaultTests
             Assert.InRange(broke, 10_000, 15_000);
             Assert.True(Draw(seed, 1_249) >= broke, "a channel just short never draws shorter than a broke one");
         }
+    }
+
+    // ---------------------------------------------------------------- the vault's own charge (IM-3b)
+
+    [Fact]
+    public void TheOwnChargeIsAMinuteOfTheBillAsItStands()
+    {
+        // Decision 2: the grade table's minutes when full — 2.5 kW and 40 kW for sixty seconds.
+        MachineDefinition low = VaultOf(100, 25_000, 2_500);
+        MachineDefinition high = VaultOf(10_000, 4_000, 400);
+        Assert.Equal(150_000_000, MachineTick.OwnChargeCapacity(low, new VaultContents { WaterMillilitres = 100 * MachineDefinition.MillilitresPerCubicMetre }));
+        Assert.Equal(2_400_000_000, MachineTick.OwnChargeCapacity(high, new VaultContents { WaterMillilitres = 10_000 * MachineDefinition.MillilitresPerCubicMetre }));
+
+        // The demo's vault, 500 m³ of water in a high one, bills 2 kW: its minute is 120 kJ, not the full vault's 2.4 MJ.
+        Assert.Equal(120_000_000, MachineTick.OwnChargeCapacity(high, new VaultContents { WaterMillilitres = 500 * MachineDefinition.MillilitresPerCubicMetre }));
+
+        // An empty vault holds no minute, and a crate none at all.
+        Assert.Equal(0, MachineTick.OwnChargeCapacity(high, new VaultContents()));
+        var clay = new VaultContents();
+        clay.Add(Clay, 64);
+        Assert.Equal(0, MachineTick.OwnChargeCapacity(CrateDefinition, clay));
+
+        // A file's ninety seconds is ninety seconds of it.
+        var tuned = new MachineDefinition
+        {
+            Kind = MachineKind.Vault,
+            InsideMillilitres = 100 * MachineDefinition.MillilitresPerCubicMetre,
+            WaterHoldMilliwattsPerCubicMetre = 25_000,
+            HoldsWater = true,
+            OwnChargeSeconds = 90,
+            Links = [PowerSink],
+            Ports = [Channel],
+        };
+        Assert.Equal(225_000_000, MachineTick.OwnChargeCapacity(tuned, new VaultContents { WaterMillilitres = 100 * MachineDefinition.MillilitresPerCubicMetre }));
+    }
+
+    [Fact]
+    public void ThePoolPaysAsFarAsItGoesTheOwnChargeTheRestAndABillBothCannotMeetTakesNothing()
+    {
+        var rig = new Rig();
+        rig.Place(A, Small);
+        rig.Fill(A, Dirt, 64);
+        MachineRow cell = rig.Charged(D, 1_250 + 150_000);
+        rig.Tick.Run();
+        Assert.Equal(150_000, rig.Contents(A).OwnChargeMillijoules);
+
+        // Decision 4: 0.5 J in the pool pays that much of the 1.25 J bill, and the own charge the rest.
+        rig.Set.SetCharge(cell.Cell, 500);
+        MachineTickReport shared = rig.Tick.Run();
+        Assert.Equal(1_250, shared.HeldMillijoules);
+        Assert.Equal(750, shared.HeldFromOwnMillijoules);
+        Assert.Equal(0, StorageState.Read(cell));
+        Assert.Equal(150_000 - 750, rig.Contents(A).OwnChargeMillijoules);
+
+        // Nothing coming in, the minute pays whole bills until less than one is left.
+        while (rig.Contents(A).OwnChargeMillijoules >= 1_250)
+        {
+            rig.Tick.Run();
+        }
+
+        Assert.Equal(500, rig.Contents(A).OwnChargeMillijoules);
+        Assert.Equal(VaultPhase.Holding, rig.Contents(A).Phase);
+
+        // 0.7 J and the vault's 0.5 J fall short of 1.25 J together: neither is touched, and it lights.
+        rig.Set.SetCharge(cell.Cell, 700);
+        long held = rig.Tick.HeldMillijoules;
+        MachineTickReport shortOfIt = rig.Tick.Run();
+        Assert.Equal(held, rig.Tick.HeldMillijoules);
+        Assert.Equal(VaultPhase.Fusing, rig.Contents(A).Phase);
+        Assert.False(rig.Row(A).LastHoldPaid);
+
+        // The 0.7 J the bill could not use went into the minute after it, as spare.
+        Assert.Equal(700, shortOfIt.OwnGivenMillijoules);
+        Assert.Equal(1_200, rig.Contents(A).OwnChargeMillijoules);
+
+        // 0.05 J more and together they pay: the pool first, then the own charge, and the fuse waits.
+        rig.Set.SetCharge(cell.Cell, 50);
+        MachineTickReport together = rig.Tick.Run();
+        Assert.Equal(1_250, together.HeldMillijoules);
+        Assert.Equal(1_200, together.HeldFromOwnMillijoules);
+        Assert.Equal(0, rig.Contents(A).OwnChargeMillijoules);
+        Assert.Equal(VaultPhase.Fusing, rig.Contents(A).Phase);
+        Assert.True(rig.Row(A).LastHoldPaid);
+        rig.AssertBooks();
+    }
+
+    [Fact]
+    public void AFuseFollowsTheChannelsAverageSoNoShareOfTheBillHoldsAVaultForEver()
+    {
+        // IM-3b's pass, fact 1: under IM-3's rule a cell holding the unpaid pool paid the whole bill one
+        // boundary in twenty, put the fuse out each time, and held a vault on 5% of its bill for 4,000
+        // boundaries. Now a fuse waits on a paid boundary and goes out only when the minute is whole, so
+        // every share short of the bill lets the vault go — later the more the channel pays.
+        static int BoundariesToDump(int percent)
+        {
+            var rig = new Rig();
+            rig.Place(A, Small);
+            rig.Fill(A, Dirt, 64);
+            MachineRow cell = rig.Charged(D, 0);
+            long income = 1_250L * percent / 100;
+            for (int boundary = 1; boundary <= 20_000; boundary++)
+            {
+                rig.Set.SetCharge(cell.Cell, StorageState.Read(cell) + income);
+                rig.Tick.Run();
+                if (rig.Contents(A).Phase == VaultPhase.Dumping)
+                {
+                    rig.AssertBooks();
+                    return boundary;
+                }
+            }
+
+            rig.AssertBooks();
+            Assert.Equal(0, rig.Tick.FusesArmed);
+            return int.MaxValue;
+        }
+
+        int five = BoundariesToDump(5), half = BoundariesToDump(50), most = BoundariesToDump(95), nearly = BoundariesToDump(99);
+        // Recorded 2026-09-29, from a vault with no minute yet: 28, 57, 596 and 2,885 boundaries.
+        Assert.True(five < half && half < most && most < nearly && nearly < 20_000, $"5% {five}, 50% {half}, 95% {most}, 99% {nearly} boundaries to the dump");
+
+        // A channel that pays the whole bill never lights one.
+        Assert.Equal(int.MaxValue, BoundariesToDump(100));
+    }
+
+    [Fact]
+    public void AWithdrawalGivesTheExcessBackToThePoolAtTheNextBoundaryBeforeTheBill()
+    {
+        var rig = new Rig();
+        rig.Place(A, Small);
+        rig.Fill(A, Dirt, 64);
+        MachineRow cell = rig.Charged(D, 1_250 + 150_000);
+        rig.Tick.Run();
+        Assert.Equal(0, StorageState.Read(cell));
+
+        // Half out: a minute of what is left is 75 J, and the other 75 J is the pool's — enough to
+        // pay this boundary's 0.625 J bill from the pool, the rest written back to the cell.
+        Assert.Equal(32, rig.Set.WithdrawFrom(A, Dirt, 32, rig.Pocket));
+        MachineTickReport half = rig.Tick.Run();
+        Assert.Equal(75_000, half.OwnReturnedMillijoules);
+        Assert.Equal(625, half.HeldMillijoules);
+        Assert.Equal(0, half.HeldFromOwnMillijoules);
+        Assert.Equal(75_000, rig.Contents(A).OwnChargeMillijoules);
+        Assert.Equal(75_000 - 625, StorageState.Read(cell));
+
+        // Emptied, the whole minute goes back: an empty vault holds none.
+        rig.Set.WithdrawFrom(A, Dirt, 32, rig.Pocket);
+        rig.Tick.Run();
+        Assert.Equal(0, rig.Contents(A).OwnChargeMillijoules);
+        Assert.Equal(150_000 - 625, StorageState.Read(cell));
+        Assert.Equal(150_000, rig.Tick.OwnChargeReturnedMillijoules);
+        rig.AssertBooks();
+    }
+
+    [Fact]
+    public void APickedVaultsOwnChargeLeavesWithItsRowAndCtrlZBringsItBack()
+    {
+        var rig = new Rig(journal: true);
+        rig.Place(A, Small);
+        rig.Place(C, High);
+        rig.History.EndStep();
+        rig.Fill(A, Dirt, 64);
+        rig.History.Recording = false; // the bank is the rig's, not an edit the undo could take back
+        MachineRow cell = rig.Charged(D, 1_000_000);
+        rig.History.Recording = true;
+        rig.Tick.Run();
+        Assert.Equal(150_000, rig.Contents(A).OwnChargeMillijoules);
+
+        // Fact 4: the move empties the vault into C and leaves the own charge on the row.
+        long leaving = rig.Set.StoredMillijoulesLeaving;
+        Assert.Equal(1, Carve.Voxel(rig.World, Materials, A.VoxelAt(1, 1, 1), Pick, rig.Pocket, rig.Set).Removed);
+        Assert.Equal(64, rig.Contents(C).VoxelsOf(Dirt));
+        Assert.True(rig.Contents(A).IsEmpty);
+        Assert.Equal(150_000, rig.Contents(A).OwnChargeMillijoules);
+        rig.AssertBooks();
+
+        // Dismantled at the drain, it leaves with the row, as a cell's charge does.
+        rig.Drain();
+        rig.History.EndStep();
+        Assert.False(rig.Set.TryGet(A, out _));
+        Assert.Equal(leaving + 150_000, rig.Set.StoredMillijoulesLeaving);
+        rig.AssertBooks();
+
+        // Ctrl+Z puts the row back with its charge, and the next boundary gives it to the pool,
+        // since an empty vault holds no minute; C, now holding 1 m³ of blocks, takes its own 24 J.
+        Assert.Equal(UndoOutcome.Undone, rig.History.Undo(rig.World, Materials, rig.Pocket, rig.Set).Outcome);
+        Assert.Equal(150_000, rig.Contents(A).OwnChargeMillijoules);
+        rig.AssertBooks();
+        long before = StorageState.Read(cell);
+        MachineTickReport report = rig.Tick.Run();
+        Assert.Equal(150_000, report.OwnReturnedMillijoules);
+        Assert.Equal(0, rig.Contents(A).OwnChargeMillijoules);
+        Assert.Equal(24_000, rig.Contents(C).OwnChargeMillijoules);
+        Assert.Equal(before + 150_000 - 200 - 24_000, StorageState.Read(cell));
+        rig.AssertBooks();
+    }
+
+    [Fact]
+    public void AWreckKeepsItsChargeAndIsNeitherBilledNorCharged()
+    {
+        var rig = new Rig();
+        rig.Place(A, Small);
+        rig.Fill(A, Dirt, 40);
+        rig.Charged(D, 1_000_000);
+        rig.Tick.Run();
+
+        // 40 voxels are 0.625 m³ at 2.5 W: 1.5625 W for a minute, 93.75 J.
+        Assert.Equal(93_750, rig.Contents(A).OwnChargeMillijoules);
+
+        rig.Fall(A, voxels: 20);
+        Assert.True(rig.Contents(A).Wreck);
+        Assert.Equal(93_750, rig.Contents(A).OwnChargeMillijoules);
+
+        MachineTickReport report = rig.Tick.Run();
+        Assert.Equal(0, report.HeldMillijoules);
+        Assert.Equal(0, report.OwnGivenMillijoules);
+        Assert.Equal(0, report.OwnReturnedMillijoules);
+        Assert.Equal(93_750, rig.Contents(A).OwnChargeMillijoules);
+        rig.AssertBooks();
+    }
+
+    [Fact]
+    public void TheWindowNeverDrawsAVaultsOwnCharge()
+    {
+        // Decision 3: the bank a window spends is the enabled cells, and a vault's minute is not one.
+        var rig = new Rig();
+        rig.Place(A, Small);
+        rig.Fill(A, Dirt, 64);
+        rig.Charged(D, 1_250 + 150_000 + 10_000);
+        rig.Tick.Run();
+
+        IChannelBank bank = rig.Tick;
+        Assert.Equal(10_000, bank.BankMillijoules(0));
+        Assert.Equal(10_000, bank.Draw(0, 1_000_000));
+        Assert.Equal(150_000, rig.Contents(A).OwnChargeMillijoules);
     }
 
     // ---------------------------------------------------------------- the pick (decisions 3, 4)
@@ -893,6 +1220,7 @@ public class VaultTests
     {
         var rig = new Rig(journal: true);
         var random = new Random(0x13);
+        var charges = new Random(0x3B);
         BrushCell[] cells = [.. Enumerable.Range(0, 10).Select(i => new BrushCell(2 + (2 * i), 3, 2))];
         int[] kinds = [Small, High, Small, Crate, Small, High, Small, Small, Crate, Small];
         rig.History.Recording = false; // the bank is the rig's, not an edit the undo could take back
@@ -954,7 +1282,15 @@ public class VaultTests
                     break;
                 case 8:
                 case 9:
-                    if (random.Next(20) == 0) rig.Set.SetCharge(power.Cell, random.Next(0, 5_000));
+                    // IM-3b: now and then enough to fill the vaults' minutes, so their own charges pay,
+                    // come back on a withdrawal and leave with a pick among the rest.
+                    // Drawn from their own stream, so IM-3's path through the other operations is unchanged.
+                    if (random.Next(20) == 0)
+                    {
+                        long small = random.Next(0, 5_000);
+                        rig.Set.SetCharge(power.Cell, charges.Next(3) == 0 ? charges.Next(0, 2_000_000) : small);
+                    }
+
                     rig.Tick.Run();
                     seen.Add("boundary");
                     break;
@@ -969,5 +1305,8 @@ public class VaultTests
         Assert.True(rig.Tick.FusesArmed > 0, "no bill ever went unpaid");
         Assert.True(rig.Set.VaultMovesAtPick > 0, "no pick ever moved contents");
         Assert.True(rig.Set.VaultsWrecked > 0, "no fall ever made a wreck");
+        Assert.True(rig.Tick.HeldFromOwnMillijoules > 0, "no own charge ever paid a bill");
+        Assert.True(rig.Tick.OwnChargeGivenMillijoules > 0, "no own charge was ever filled");
+        Assert.True(rig.Tick.OwnChargeReturnedMillijoules > 0, "no own charge ever went back to the pool");
     }
 }

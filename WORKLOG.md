@@ -1,5 +1,24 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 (night) — IM-3b built: the vault's own minute, and a fuse that follows the average
+
+*"As recommended please Claude thanks Claude we seem to be in tune on this like"* took the pass's seven. It was
+built in a worktree, since he was playing TajMahal2 when it started; he quit mid-build, and his log read 0
+`ERROR`. The plan's "IM-3b — built" has the file list.
+
+- **The own charge rides `ChargeOf`**, so `PowerExact` needed no new term. The pass had found this before
+  any code, correcting TODO.
+- **The hole is closed and measured.** A vault on 5, 50, 95 and 99% of its bill now dumps after 28, 57, 596
+  and 2,885 boundaries; under IM-3's rule, 5% had held for 4,000.
+- **Eleven mutations, eleven red**, each on its own test, among them "a paid boundary puts the fuse out".
+- Suite **2,140** (+13).
+
+One lesson from the build: **a coverage assertion in a randomised test is a claim about the random stream,
+not just the code.** The thousand-operation identity test asked its one stream for a new number, and every
+later operation moved; the identity held, but no pick moved contents any more. The new draws come from a
+second stream now, so IM-3's path is unchanged. Next time a random battery gains an operation, give it its
+own stream.
+
 ## 2026-09-29 (night) — IM-3's r6 control, and IM-3b's code-level pass: seven decisions handed back
 
 *"IM-3b, next please Claude thanks!"*. First, the check IM-3 owed: the r6 control on its build read `2601 / 325

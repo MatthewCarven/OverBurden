@@ -19,12 +19,12 @@ his word — and this file points at it rather than repeating it.
       suite 2,076, twelve mutations red, the r6 control to the digit). **IM-2 is built** (the plan,
       "IM-2 — built"; the backpack is a window, pumps are paid by priority; suite 2,088). **IM-3 is
       built** (the plan, "IM-3 — built"; the vault and the crate; suite 2,127, twelve mutations red;
-      its r6 control read to the digit). **IM-3b's pass is written, seven decisions wait on his word**
-      (the plan, "IM-3b — the code-level pass"). Its two findings: IM-3's fuse is put out by any cell
-      (a channel paying 5% of a vault's bill holds it for ever, measured), and a minute of the *full*
-      bill gives the demo's vault 27 minutes. The own charge needs no `PowerExact` term (`ChargeOf`
-      carries it). **On his word: build IM-3b** in the pass's split, then propagate its six
-      amendments (the pass's last paragraph). **Into IM-6's panel:** his warranty line on the
+      its r6 control read to the digit). **IM-3b is built** (the plan, "IM-3b — built"; the vault's own
+      minute of its bill as it stands, and a fuse that waits on a paid boundary and goes out only when the
+      minute is whole; suite 2,140, eleven mutations red; its six amendments propagated). **Next: IM-4**
+      (water's doors) gets its code-level pass first; his note for it: siphon sizes to match the quantum
+      miner, tunneller and excavator. **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
+      runway counting the recharge and the return as transfers. **Into IM-6's panel:** his warranty line on the
       vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;
       files stay in watts). Then IM-4 (water's doors). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his
       say-so, it takes his focus); a bite under a lake (IM-7's bench); a dump underground (IM-5's).

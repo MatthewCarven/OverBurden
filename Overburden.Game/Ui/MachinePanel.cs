@@ -555,8 +555,9 @@ public sealed partial class MachinePanel : CanvasLayer
     }
 
     /// <summary>
-    /// A vault's line: <c>VAULT — holds 40 voxels, 0.6 of 1.0 m³ (62.5%) · bill 1.25 J a boundary ·
-    /// HOLDING</c>, the phase as <c>FUSE 12.0 s</c>, <c>DUMPING</c> or <c>WRECK</c>; a crate says so.
+    /// A vault's line: <c>VAULT — holds 40 voxels, 0.6 of 1.0 m³ (62.5%) · bill 1.25 J a boundary on
+    /// channel 0, own 93.8 J of 93.8 J (100.0%) · HOLDING</c>, the phase as <c>FUSE 12.0 s</c> (or
+    /// <c>(paused)</c>), <c>DUMPING</c> or <c>WRECK</c>; a crate says so.
     /// </summary>
     private (string Text, Color Colour, PumpStall? Stall) VaultStatus(MachineRow row, long channel)
     {
@@ -578,16 +579,22 @@ public sealed partial class MachinePanel : CanvasLayer
         }
 
         long bill = MachineTick.BillOf(definition, contents, _tick?.BoundaryMillis ?? MachineTick.DefaultBoundaryMillis);
+
+        // IM-3b's pass, decisions 5 and 7: its own minute beside the bill, and a lit fuse whose bill was
+        // paid at the last boundary says it is waiting, not burning.
+        string own = $"own {ChargeOf(contents.OwnChargeMillijoules, MachineTick.OwnChargeCapacity(definition, contents))}";
         (string phase, Color colour) = contents switch
         {
             { Wreck: true } => ("WRECK — its contents are owed to the world", StallText),
             { Phase: VaultPhase.Dumping } => ("DUMPING — its contents are owed to the world", StallText),
+            { Phase: VaultPhase.Fusing } when row.LastHoldPaid =>
+                ($"FUSE {contents.FuseMillisLeft / 1000.0:N1} s (paused) — the bill is paid; out when its minute is back", StallText),
             { Phase: VaultPhase.Fusing } => ($"FUSE {contents.FuseMillisLeft / 1000.0:N1} s — the bill went unpaid", StallText),
             _ when !MachineTick.IsEnabled(row) => ("HOLDING, closed to deposits (enabled 0)", DimText),
             _ => ("HOLDING", contents.IsEmpty ? DimText : MovedText),
         };
 
-        return ($"VAULT — {holds}   ·   bill {Joules(bill)} a boundary on channel {channel}   ·   {phase}", colour, null);
+        return ($"VAULT — {holds}   ·   bill {Joules(bill)} a boundary on channel {channel}, {own}   ·   {phase}", colour, null);
     }
 
     /// <summary>Millijoules in the unit a person reads: mJ under a joule, then J, kJ, MJ, GJ.</summary>

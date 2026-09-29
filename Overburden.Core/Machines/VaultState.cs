@@ -33,6 +33,14 @@ public sealed class VaultContents
     public int FuseMillisLeft { get; set; }
 
     /// <summary>
+    /// The vault's own charge, in millijoules (IM-3b): what pays its bill when its channel's pool
+    /// can't, refilled from the channel's spare up to a minute of its bill as it stands. Part of the
+    /// pool's <c>stored</c> through <see cref="MachineSet.ChargeOf"/>, so it enters and leaves with
+    /// the row as a cell's charge does. Never the bank's: the window cannot draw it.
+    /// </summary>
+    public long OwnChargeMillijoules { get; set; }
+
+    /// <summary>
     /// A vault a fall took while it held something (decision 17): no body, the row kept, its contents
     /// owed, removed only once empty.
     /// </summary>
@@ -105,8 +113,10 @@ public sealed class VaultContents
 /// </para>
 /// <para>
 /// Version 1: the version; a flags byte (bit 0, wreck); the phase; the fuse's milliseconds left, an
-/// int32; the water in millilitres, an int64; the count of materials, an int32; then each material's
-/// numeric ID (int32) and voxels (int64), sorted by ID, none zero. Little-endian, as every blob here.
+/// int32; the own charge in millijoules, an int64 (IM-3b, with no version of its own: no vault's
+/// bytes were saved before it); the water in millilitres, an int64; the count of materials, an
+/// int32; then each material's numeric ID (int32) and voxels (int64), sorted by ID, none zero.
+/// Little-endian, as every blob here.
 /// </para>
 /// </remarks>
 public static class VaultState
@@ -115,8 +125,11 @@ public static class VaultState
     public const byte Version = 1;
 
     private const byte WreckFlag = 1;
-    private const int HeaderBytes = 1 + 1 + 1 + sizeof(int) + sizeof(long) + sizeof(int);
-    private const int EntryBytes = sizeof(int) + sizeof(long);
+    /// <summary>The bytes before the first material entry.</summary>
+    internal const int HeaderBytes = 1 + 1 + 1 + sizeof(int) + sizeof(long) + sizeof(long) + sizeof(int);
+
+    /// <summary>One material entry's bytes: its ID and its voxels.</summary>
+    internal const int EntryBytes = sizeof(int) + sizeof(long);
 
     /// <summary>
     /// Reads the row's contents. False for a version this build does not know or bytes that do not
@@ -145,9 +158,10 @@ public static class VaultState
         byte flags = state[1];
         byte phase = state[2];
         int fuse = BinaryPrimitives.ReadInt32LittleEndian(state[3..]);
-        long water = BinaryPrimitives.ReadInt64LittleEndian(state[7..]);
-        int count = BinaryPrimitives.ReadInt32LittleEndian(state[15..]);
-        if ((flags & ~WreckFlag) != 0 || phase > (byte)VaultPhase.Dumping || fuse < 0 || water < 0
+        long own = BinaryPrimitives.ReadInt64LittleEndian(state[7..]);
+        long water = BinaryPrimitives.ReadInt64LittleEndian(state[15..]);
+        int count = BinaryPrimitives.ReadInt32LittleEndian(state[23..]);
+        if ((flags & ~WreckFlag) != 0 || phase > (byte)VaultPhase.Dumping || fuse < 0 || own < 0 || water < 0
             || count < 0 || state.Length != HeaderBytes + ((long)count * EntryBytes))
         {
             return false;
@@ -156,6 +170,7 @@ public static class VaultState
         contents.Wreck = (flags & WreckFlag) != 0;
         contents.Phase = (VaultPhase)phase;
         contents.FuseMillisLeft = fuse;
+        contents.OwnChargeMillijoules = own;
         contents.WaterMillilitres = water;
         int previous = int.MinValue;
         for (int i = 0; i < count; i++)
@@ -185,8 +200,9 @@ public static class VaultState
         state[1] = contents.Wreck ? WreckFlag : (byte)0;
         state[2] = (byte)contents.Phase;
         BinaryPrimitives.WriteInt32LittleEndian(state.AsSpan(3), contents.FuseMillisLeft);
-        BinaryPrimitives.WriteInt64LittleEndian(state.AsSpan(7), contents.WaterMillilitres);
-        BinaryPrimitives.WriteInt32LittleEndian(state.AsSpan(15), contents.Voxels.Count);
+        BinaryPrimitives.WriteInt64LittleEndian(state.AsSpan(7), contents.OwnChargeMillijoules);
+        BinaryPrimitives.WriteInt64LittleEndian(state.AsSpan(15), contents.WaterMillilitres);
+        BinaryPrimitives.WriteInt32LittleEndian(state.AsSpan(23), contents.Voxels.Count);
         int offset = HeaderBytes;
         foreach ((int material, long voxels) in contents.Voxels)
         {

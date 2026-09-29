@@ -8325,7 +8325,10 @@ public partial class Main : Node3D
                + $"pack initial {MachinePanel.Joules(t.PackInitialMillijoules)}"
                + (t.PackDebugMillijoules > 0 ? $", {MachinePanel.Joules(t.PackDebugMillijoules)} debug-filled into the pack" : string.Empty)
                + (t.HeldMillijoules + t.VaultBillsUnpaid > 0
-                   ? $", held {MachinePanel.Joules(t.HeldMillijoules)} by {t.VaultBillsPaid:N0} vault bill(s) ({t.VaultBillsUnpaid:N0} unpaid; fuses {t.FusesArmed:N0} lit, {t.FusesDisarmed:N0} out, {t.FusesBurnt:N0} burnt)"
+                   ? $", held {MachinePanel.Joules(t.HeldMillijoules)} by {t.VaultBillsPaid:N0} vault bill(s), {MachinePanel.Joules(t.HeldFromOwnMillijoules)} of it from their own charges "
+                     + $"({t.VaultBillsUnpaid:N0} unpaid; fuses {t.FusesArmed:N0} lit, {t.FusesPaused:N0} boundary(ies) paused, {t.FusesDisarmed:N0} out, {t.FusesBurnt:N0} burnt); "
+                     + $"own charges hold {MachinePanel.Joules(t.VaultOwnChargeMillijoules)} of the {MachinePanel.Joules(t.StoredMillijoules)} stored, "
+                     + $"given {MachinePanel.Joules(t.OwnChargeGivenMillijoules)}, returned {MachinePanel.Joules(t.OwnChargeReturnedMillijoules)}"
                    : string.Empty)
                + $" — pool == entering − leaving + generated − drawn − clamped − held + initial − taken − stowed{(t.PackDebugMillijoules > 0 ? " + debug" : string.Empty)}: {(t.PowerExact ? "exact" : "*** NO ***")}";
     }

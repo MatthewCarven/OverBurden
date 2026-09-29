@@ -86,6 +86,24 @@ public sealed partial class MachineSet
     public bool StoreExact =>
         HeldVoxels + OwedVoxels == VaultVoxelsEntering - VaultVoxelsLeaving + DepositedVoxels - WithdrawnVoxels;
 
+    /// <summary>Millijoules in every vault's own charge (IM-3b) — inside the pool's <c>stored</c>, printed apart from the cells'.</summary>
+    public long VaultOwnChargeMillijoules
+    {
+        get
+        {
+            long sum = 0;
+            foreach (MachineRow row in _rows.Values)
+            {
+                if (IsVault(row) && VaultState.TryRead(row, out VaultContents contents))
+                {
+                    sum += contents.OwnChargeMillijoules;
+                }
+            }
+
+            return sum;
+        }
+    }
+
     /// <summary>Vault rows whose bytes this build cannot read — kept, inert, outside the identity's sums.</summary>
     public int UnreadableVaults => _rows.Values.Count(row => IsVault(row) && !VaultState.TryRead(row, out _));
 
@@ -388,7 +406,10 @@ public sealed partial class MachineSet
 
         VaultMovesAtPick++;
         VoxelsMovedAtPick += contents.TotalVoxels;
-        VaultState.Write(row, new VaultContents());
+
+        // IM-3b's pass, fact 4: the own charge stays on the row, and leaves with it at the drain as a
+        // cell's charge does. A fresh VaultContents here would take it out of the books with no term.
+        VaultState.Write(row, new VaultContents { OwnChargeMillijoules = contents.OwnChargeMillijoules });
     }
 
     /// <summary>Makes a wreck of a vault that holds what it holds: flagged, dumping, its contents owed (decision 17).</summary>

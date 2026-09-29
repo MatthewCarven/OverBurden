@@ -122,7 +122,8 @@ The rest are engineering, and "as recommended" takes them. **Each fork is marked
   with *"your battery tech maybe 19th century but your actual emitter/entangler could be a higher tech
   variation"*. Under one pool the vault has no private pack: **the channel's cells are its pack**, and the
   vault's grade is the emitter. So your mix is a god vault run off old cells, and it lets go when they go
-  flat. Parts you install wait for crafting (M10g). Adding them now would open an install door the undo
+  flat. *(Amended by IM-3b, his word 2026-09-29: for its bill only, a vault carries a minute of it in its own
+  charge, and lets go a minute after its cells go flat.)* Parts you install wait for crafting (M10g). Adding them now would open an install door the undo
   cannot see, and the Core judge found it minting in both designs that tried.
 - **◆ 23. Water shows on the hotbar**, as its own ID, while the quantum backpack is worn. It is never
   placed by an ordinary right-click; the siphon is its only door. That is taken 8 read literally. The
@@ -230,7 +231,8 @@ Each one is a recommendation, then its cost, then the trigger that would reverse
 12. **The failure is a sequence you can watch, and the weather finishes it.** The runway goes amber, then
     red. Consumers stall by priority (the quarry's pin goes amber, then the pumps'). The tool fails. While
     the sun still covers the vaults' bills, that is all: a broke channel stalls and waits. When a storm cuts
-    the sun below the bills, a vault's fuse starts (28), then the dump (30–37). That is a real property of
+    the sun below the bills, each vault spends the minute of its bill it carries (IM-3b), then its fuse
+    starts (28), then the dump (30–37). That is a real property of
     the design, and his to like or not: **the mine's weather, not the player's last click, lets the vault
     go.** Every rung is caused by the player, readable in advance, and recoverable slowly: the sun returns,
     the steel pick costs nothing, the heap is your own materials, and the lake can be siphoned back once you
@@ -281,8 +283,8 @@ Each one is a recommendation, then its cost, then the trigger that would reverse
     - **A vault whose codec version is unknown** is kept opaque and inert, and reads as holding something
       to every rule above.
     - **`SetPort` to another channel** moves the row, contents and all, and moves nothing out of the books.
-      A fusing vault moved to a solvent channel is disarmed at its next paid boundary; a dumping vault or a
-      wreck keeps dumping.
+      A fusing vault moved to a solvent channel waits at its next paid boundary and goes out once the new
+      channel's spare has refilled its minute (IM-3b); a dumping vault or a wreck keeps dumping.
 18. **◆ Grades live in the vault's ID**: five files, `quantum_vault/low` to `/god`, labelled with his words
     in brackets. See the fork above. *Cost:* five permanent IDs and one texture layer (a tint each later).
     *The other arm:* an entangler part and a cell part in slots (ten IDs, an install verb, and an undo
@@ -379,8 +381,11 @@ full high vault of water for about 35 hours with no sun; a full god vault for ab
     arm:* `enabled` 0 set by hand starts the fuse, a flood valve, amending decision 10 for the hand.
 28. **The fuse is 10–20 s, leaning toward 10 the further the channel falls short**, like his collapse fuse
     (*"ideally the time would be from 10-20 seconds but randomly"*). The body glitches cyan, and the HUD reads
-    `VAULT LOSING CONTAINMENT — 14 s`. A boundary that pays in full disarms it. It counts boundary
-    milliseconds, so a late boundary is a slower fuse, never a wrong one.
+    `VAULT LOSING CONTAINMENT — 14 s`. ~~A boundary that pays in full disarms it.~~ **Amended by IM-3b (his
+    word, 2026-09-29):** a fuse lights once the vault's own minute is spent, waits on each boundary the bill
+    is paid, and goes out only when the spare has refilled the minute. As first written, a cell holding the
+    unpaid pool put it out one boundary in twenty, and a vault held on 5% of its bill for ever. It counts
+    boundary milliseconds, so a late boundary is a slower fuse, never a wrong one.
 29. **The visual rule: cyan is entanglement at work, black is gone, colour is yours.** Collapse rubble stays
     black (*"you aint getting that back"*). A dump comes back in colour (*"mine to get it back"*).
 30. **◆ The dump's blocks are a pile written straight into the world at voxel grain**: bottom-up first, then
@@ -584,7 +589,7 @@ rubble.
 | 1:30 | Digging toward the lake, the wall under its head tints and gives, and the lake breaks in. | The water finds you. |
 | 2:00 | Seal the breach with clay. The siphon drinks the pit into the vault, about 500 m³ in two minutes for 500 MJ; the runway goes amber while Q is held. The vault now bills 2 kW, and the sun pays it. | Water is what costs. |
 | 4:00 | The quarry goes on the rim with an 8 m box and digs every half second. The board lists everything. The pit floods again; the quarry stalls `flooded`; pumps go in, into the vault or over the hill. | Depth is a water bill. |
-| 5:00 | **The storm, and the fork.** Greedy: hold the siphon or the excavator, and the bank hits zero in about two minutes. Pumps and the quarry stall, the tool fails, and with the sun at 0.5 kW against a 2 kW bill the vault glitches cyan, `LOSING CONTAINMENT — 12 s`. The lake rises over ten seconds, and the spoil piles up around the vault in colour. Careful: at amber he turns the quarry off from the board, and the vault holds through the storm. | Bankruptcy is a feature. |
+| 5:00 | **The storm, and the fork.** Greedy: hold the siphon or the excavator, and the bank hits zero in about two minutes. Pumps and the quarry stall, the tool fails, and with the sun at 0.5 kW against a 2 kW bill the vault spends its own minute (120 kJ, about 80 s at that deficit; IM-3b), then glitches cyan, `LOSING CONTAINMENT — 12 s`, about a minute and a half after the bank hit zero (arithmetic). The lake rises over ten seconds, and the spoil piles up around the vault in colour. Careful: at amber he turns the quarry off from the board, and the vault holds through the storm. | Bankruptcy is a feature. |
 
 **The honest limit:** the drama needs a lake and a storm. Rock weakens under Tier A's head only, and a vault
 lets go only when the sun can't pay it. A player who digs on a dry ridge in sunshine gets a quiet five
@@ -624,7 +629,7 @@ name, bounds or default.
 | **IM-3** Core (amended by its pass, below) | The `vault` kind and the crate; the codec; the store view and fill order; the bill (`held`) and its order before signal overrides; the fuse; every row-removal rule of 17; the store's voxel identity. | Identity exact over a thousand random operations, the undo included; a signalled cell never unpays a hold; two vaults both bill; a save during a fuse resumes at the saved milliseconds; a wreck survives a reopen and is never rebuilt; both reconcile branches keep contents; an unknown codec version refuses the pick and the undo; `overfull` at restore; a refused pick carves nothing; the undo refusal is a pre-flight; `SetPort` moves contents with the row. Mutations: journal a full row, red; bill with no `held` term, red. |
 | **IM-4** Core | Water's doors: the ID, the pocket's refusal, the siphon's queue and rules, the vault in the outlet ring, the twins, `pumped == emitted + vaulted`, the store's water line. | M8's oracle unmoved with no vault; a siphon take then pour restores a basin exactly; a click then a quit moves nothing; a take on a Tier A lake draws the basin; the pump stalls `full` only when every ring entry refuses. Mutation: drop `vaulted`, red. |
 | **IM-5** Core | The dump: the pile writer, the Tier A release, the Tier B ball with its twin sized to the budget, the ceilings and decoherence, the global budgets, owed while unloaded, the unload batch's session, the dead state; a heap-writer bench arm. | A fixture room receives every voxel once; a pile into a chunk that unloads, then a kill with no session save, then a reopen, counts every voxel once; the unloaded arm releases at arrival; N vaults dumping share the budget exactly; the Tier B ceiling decoheres the excess; power returning after the fuse does nothing; Ctrl+Z cannot touch the pile; Tier B exact, Tier A's counters seam-checked. Mutation: route the dump through `Add`, and the seam goes red. |
-| **IM-6** Wire | Header v8, the mode and `--mode=creative`; kits and the first cell's grant; the debug keys off in creative; the card; the HUD bank line, runway and store percentage; the panel's stock section; the siphon on T; the vault and crate JSON and textures; `M10:` store terms. | r6 to the digit; a v7 world opens as sandbox; the kit is granted once and not on reopen; every creative-off key does nothing; headless: a new creative world (`--world=probe-creative --mode=creative`) with `--placeat=` vaults and cells bankrupts channel 0 under a storm clock, and the log reads fuse, then dump, every identity exact. **Playable: the bank, the vault, water and the dump.** |
+| **IM-6** Wire | Header v8, the mode and `--mode=creative`; kits and the first cell's grant; the debug keys off in creative; the card; the HUD bank line, runway and store percentage; the panel's stock section; the siphon on T; the vault and crate JSON and textures; `M10:` store terms. | r6 to the digit; a v7 world opens as sandbox; the kit is granted once and not on reopen; every creative-off key does nothing; headless: a new creative world (`--world=probe-creative --mode=creative`) with `--placeat=` vaults and cells bankrupts channel 0 under a storm clock, and the log reads own charge spent, then fuse, then dump (IM-3b), every identity exact. **Playable: the bank, the vault, water and the dump.** |
 | **IM-7** Core | The `quarry` kind: the box, `Facing`, the cursor, the skips, the scan cap, the stalls, the allotment and the carve's draw (`dug`), recording off with the chunk forget. | Digs a fixture box once, top down; never a machine or a full vault; pays exactly the voxels removed × 50 J; `OFF SITE` on an unloaded chunk; `flooded`; the cursor survives a save; Ctrl+Z on a hand dig in a chunk the quarry wrote is dropped, and in an untouched chunk still works; a Release bench arm at 1, 4 and 16 quarries. Mutation: quarry writes with recording on, red. |
 | **IM-8** Wire | Quarry wiring: the `quarry` bracket, the panel, the pins, the README's OH&S line. | Headless on the fixed seed: bites, and `quarry` against the 1 ms line; r6. **Playable: quarries.** |
 | **IM-9** Core+wire | Recall, the board, pin states, the power sensor, the unloaded-sensor guard. | `released == landed + in flight + lost + recalled` in both collapse modes and under `--bitechunks`; a part-picked machine credits `cleared + Recalled`, not 64; a bankrupt channel recalls nothing; a recalled pump is 64 in the pocket and none of it rubble; after the drain, Ctrl+Z re-adds nothing and the next arrival rebuilds nothing. Mutation: credit 64, red. A sensors × radius arm against `machines`. |
@@ -971,8 +976,9 @@ Seven facts from the code, then twelve decisions. **Nothing is built; the twelve
 7. **The fuse, by the collapse's own formula**: 10–20 s, as `10 + 10 × u × (1 − shortfall ÷ bill ÷ 2)`
    with `u` from `Hash64(fuse seed ^ boundary, cell)`. The tick takes a `FuseSeed` (Main passes the
    world's seed). The fuse is saved as milliseconds left and counted down by each boundary's
-   milliseconds; a boundary that pays in full disarms it. At zero the vault is `dumping` and its contents
-   are owed (fact 5). An empty vault can't fuse.
+   milliseconds; a boundary that pays in full disarms it (*amended by IM-3b: it waits, and goes out only
+   when the vault's own minute is whole again; the shortfall is past the pool and the own charge both*).
+   At zero the vault is `dumping` and its contents are owed (fact 5). An empty vault can't fuse.
 8. **The codec, one owner of the blob**, version 1:
    - flags (wreck);
    - phase (holding, fusing, dumping);
@@ -993,7 +999,8 @@ Seven facts from the code, then twelve decisions. **Nothing is built; the twelve
     an out-of-stock step does.
 11. **Restore never clamps contents.** An overfull vault keeps what it holds, refuses deposits, and is
     counted `overfull` on the restore line. `SetPort` to another channel carries the contents on the row
-    with nothing to do; a fusing vault moved to a solvent channel disarms at its next paid boundary.
+    with nothing to do; a fusing vault moved to a solvent channel disarms at its next paid boundary
+    (*amended by IM-3b: once that channel's spare has refilled its minute, usually the same boundary*).
 12. **A minimal panel branch lands now**: `VAULT — holds N of M (p%) · bill X · HOLDING | FUSE 12 s |
     DUMPING`, one Game edit. A third-party mod could ship a vault the day IM-3 lands, and the panel's
     fall-through is pump text (must-not-ship 14). The full stock section stays IM-6's. *Cost:* the r6
@@ -1069,7 +1076,8 @@ pass).
   150 kJ, medium 600 kJ, high 2.4 MJ, god 38 MJ). It pays the bill when the channel can't, recharges from
   the channel's spare, and the fuse lights only once both are empty. This amends decision 18 ("the
   channel's cells are its pack") for the bill only. No vault's bytes are saved before IM-6, so the codec
-  can take the field without a version.
+  can take the field without a version. *IM-3b's pass (taken) made it a minute of the bill **as it
+  stands**, not when full, and built it; see "IM-3b — built".*
 - **A lock on the vault panel's channel box**, so a vault can't be moved to an unpowered channel by accident.
   It lands in IM-6's panel.
 - **Power auto-scales on screen** (W, kW, MW), as energy already does; the mod files stay in watts.
@@ -1079,7 +1087,8 @@ pass).
 The vault's own energy, as taken during IM-3's build, read against `MachineTick`'s pool (`BeginPower`,
 `PayHolds`, the pack, `WriteBack`), `VaultState`, `MachineSet.ChargeOf` and the vault half of the set. The
 r6 control on the IM-3 build ran first: `2601 / 325 / 3446 at 411`, 0 `ERROR`. Five facts, then seven
-decisions. **Nothing is built; the seven wait on his word.**
+decisions. **All seven taken as recommended the same night** (*"As recommended please Claude thanks Claude
+we seem to be in tune on this like"*), **and built: "IM-3b — built", below.**
 
 **Five facts.**
 
@@ -1238,6 +1247,57 @@ tests pin, and they must be re-read, not just re-greened.
 - the storm oracle in IM-6's row ("own charge, then fuse, then dump");
 - TODO's "a `PowerExact` term".
 
+## IM-3b — built (2026-09-29)
+
+All seven decisions as recommended, built the same night in a worktree (he was playing TajMahal2 at the start),
+then merged. **Suite 2,140** (+13). **Eleven mutations, eleven red**, each on its own test:
+- a paid boundary puts the fuse out;
+- the own charge pays before the pool;
+- the recharge before the consumers;
+- the recharge after the write-back;
+- the pick's move writing a fresh `VaultContents`;
+- no return of the excess;
+- `ChargeOf` blind to vaults;
+- a minute of the full bill, not the bill as it stands;
+- a bill both cannot meet taking the pool anyway;
+- a lenient codec for a negative own charge;
+- zero seconds allowed.
+
+What it is:
+- **`ownChargeSeconds`** on a vault with a channel, 1–3,600, 60 when absent, refused on a crate and on any
+  other kind. `MachineDefinition.OwnChargeMillis` is what the tick reads.
+- **`VaultContents.OwnChargeMillijoules`**, in the codec's version 1 after the fuse.
+- **`MachineSet.ChargeOf` reads it**, so `stored`, `entering` and `leaving` carry it, and `PowerExact` has
+  no new term. `MoveAtPick` keeps it on the row.
+- **`MachineTick.OwnChargeCapacity`**: `BillOf` for the minute, from the contents as they stand.
+- **`PayHolds`** returns an own charge's excess to the pool first, then pays each bill from the pool as far
+  as it goes and the own charge for the rest, all or nothing. A paid bill pauses a lit fuse.
+- **`RechargeVaults`**, after the consumers and before the pack, fills the minutes in fill order, and is
+  the one place a fuse goes out.
+- **Counters:** `HeldFromOwnMillijoules`, `OwnChargeGivenMillijoules`, `OwnChargeReturnedMillijoules`,
+  `FusesPaused`; the report carries the boundary's three.
+- **Game:** the panel's vault line gains `own X of Y (p%)` and `FUSE 12.0 s (paused)` (from a session-only
+  `MachineRow.LastHoldPaid`); the `M10:` power line gains the own charges' share of `stored`, what they
+  paid, what was given and returned, and the paused count.
+
+**The hole, closed and measured** (the pass's fact 1 re-run as a test, a small vault with no minute yet,
+income a share of its 1.25 J bill each boundary, fixed fuse seed):
+
+| Share of the bill | 5% | 50% | 95% | 99% | 100% |
+|---|---|---|---|---|---|
+| Boundaries to the dump | 28 | 57 | 596 | 2,885 | never lights |
+
+Under IM-3's rule, 5% held for 4,000 boundaries and 6% to 99% never dumped. The four fall inside the pass's
+arithmetic (21–32, 40–70, 380–760 and 1,900–3,850).
+
+One thing the build found: **a test that changes what a random stream is asked for changes the whole run
+after it.** The thousand-operation identity test's bigger charges first came from its one stream. The identity
+held, but no pick in the new path moved contents, so a coverage assertion failed. The bigger charges now come
+from a second stream, and the first is asked exactly what IM-3 asked it.
+
+**Owed:** nothing on my side; IM-6 ships the grade files at 60 s and counts the recharge and the return as
+transfers on the runway.
+
 ## Must not ship
 
 1. A reserve floor under any name: a percentage kept back, a quarry that stops itself without a sensor he
@@ -1274,6 +1334,8 @@ tests pin, and they must be re-read, not just re-greened.
 - **Measured by IM-0 (fixed build):** the `machines` bracket at 0.63–0.88 ms mean on 127 and 209 rows; the
   1 m and 2 m bites at 0.16–0.20 and 0.42–0.53 ms mean; Tier B insertion at 0.5–1.1 µs a cell; a 10 ML
   pour carried at 2 Hz. See "IM-0 — measured".
+- **Measured by IM-3b (a Core test):** under IM-3's fuse rule a vault held on 5% of its bill for 4,000
+  boundaries; under IM-3b's it dumps after 28, 57, 596 and 2,885 boundaries at 5, 50, 95 and 99%.
 - **Estimated, owed a slice's bench:** the heap's ceiling and budget (10,000 m³, 512 voxels a boundary), a
   bite under a lake, a dump underground, and every "crosses the 1 ms line at N" figure.
 - **Invented, his to tune:** the grade table, the hold rates and the ten-to-one water ratio, the fuse's lean,
@@ -1291,6 +1353,9 @@ tests pin, and they must be re-read, not just re-greened.
   stored charge only.
 - **Decoherence (32):** the fixed build measured able to carry a bigger dump into Tier B.
 - **The dead state (34):** a play where it reads as too harsh.
+- **The vault's minute (IM-3b, 2):** his play of the storm, or he wants a nearly empty vault to be safe;
+  then the other arm, a minute of the full bill.
+- **The fuse that waits (IM-3b, 5):** a play where a paused fuse reads as a bug.
 - **One boolean a channel (38):** a play wanting power and collapse signals apart.
 - **The quarry's beat (47):** his eye on the half-second bite; the lever is a second rate beside the
   boundary.

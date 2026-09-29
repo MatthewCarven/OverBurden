@@ -141,6 +141,15 @@ public sealed class MachineDefinition
     /// <summary>The dearest hold a vault may declare, in milliwatts a cubic metre: a megawatt, so a full god vault's bill stays inside a long.</summary>
     public const long MaxHoldMilliwattsPerCubicMetre = 1_000_000_000L;
 
+    /// <summary>What a vault on a channel carries of its own when its file says nothing: a minute of its bill (IM-3b, his minute).</summary>
+    public const long DefaultOwnChargeSeconds = 60;
+
+    /// <summary>
+    /// The most a vault may carry: an hour of its bill, so a full god vault at the dearest hold
+    /// (10⁹ mW a m³ × 10⁶ m³ × 3,600 s, 3.6 × 10¹⁸ mJ) stays inside a long.
+    /// </summary>
+    public const long MaxOwnChargeSeconds = 3_600;
+
     public required MachineKind Kind { get; init; }
 
     /// <summary>A converter's output at full input, in watts. Zero for a kind that has none.</summary>
@@ -187,6 +196,18 @@ public sealed class MachineDefinition
     /// link via <c>channel</c>. A crate has none (decision 22).
     /// </summary>
     public bool IsChannelVault => Kind == MachineKind.Vault && Links.Any(l => l.IsChannel);
+
+    /// <summary>
+    /// Seconds of its bill a vault carries in its own charge, as the file declared it (IM-3b,
+    /// decision 1); null reads <see cref="DefaultOwnChargeSeconds"/>. A crate declares none.
+    /// </summary>
+    public long? OwnChargeSeconds { get; init; }
+
+    /// <summary>
+    /// The milliseconds of its bill a vault's own charge holds — what <see cref="MachineTick.OwnChargeCapacity"/>
+    /// multiplies its bill by. Zero for anything but a vault on a channel.
+    /// </summary>
+    public long OwnChargeMillis => IsChannelVault ? (OwnChargeSeconds ?? DefaultOwnChargeSeconds) * 1000 : 0;
 
     public IReadOnlyList<MachineLink> Links { get; init; } = [];
 
@@ -314,6 +335,12 @@ public sealed class MachineDefinition
                 error = $"port '{port.Name}' is declared twice.";
                 return false;
             }
+        }
+
+        if (Kind != MachineKind.Vault && OwnChargeSeconds is not null)
+        {
+            error = "ownChargeSeconds belongs to a vault on a channel: it is the vault's own charge, a share of its bill.";
+            return false;
         }
 
         if (Kind == MachineKind.Pump)
@@ -558,6 +585,12 @@ public sealed class MachineDefinition
                 return false;
             }
 
+            if (OwnChargeSeconds is not null)
+            {
+                error = "a vault with no links is a crate: it bills nothing, so it declares no ownChargeSeconds.";
+                return false;
+            }
+
             error = null;
             return true;
         }
@@ -565,6 +598,14 @@ public sealed class MachineDefinition
         if (Links.Count != 1 || Links[0] is not { Carries: MachineMedium.Power, Role: MachineRole.Sink, IsChannel: true })
         {
             error = "a vault declares exactly one link, a power sink via channel — the pool its bill is paid from — or none, as a crate.";
+            return false;
+        }
+
+        // IM-3b, decision 1: never zero, because a lit fuse goes out only when the own charge is
+        // whole again (decision 5), and a charge of nothing is always whole.
+        if (OwnChargeSeconds is { } seconds && (seconds < 1 || seconds > MaxOwnChargeSeconds))
+        {
+            error = $"ownChargeSeconds must be within 1..{MaxOwnChargeSeconds:N0} for a vault on a channel.";
             return false;
         }
 

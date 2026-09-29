@@ -1001,6 +1001,7 @@ public sealed class ContentLoader
             WaterHoldMilliwattsPerCubicMetre = waterHold,
             BlockHoldMilliwattsPerCubicMetre = blockHold,
             HoldsWater = dto.HoldsWater ?? false,
+            OwnChargeSeconds = dto.OwnChargeSeconds,
             Links = links,
             Ports = ports,
             ExtraForms = forms,
@@ -1082,6 +1083,7 @@ public sealed class ContentLoader
         public long? InsideCubicMetres { get; set; }
         public HoldJson? HoldWattsPerCubicMetre { get; set; }
         public bool? HoldsWater { get; set; }
+        public long? OwnChargeSeconds { get; set; }
     }
 
     /// <summary>A vault's hold, in watts a cubic metre: water and blocks apart (decision 16).</summary>
