@@ -1,4 +1,5 @@
 ﻿using Overburden.Core.Content;
+using Overburden.Core.Machines;
 using Overburden.Core.Voxels;
 
 namespace Overburden.Core.Tests;
@@ -240,6 +241,53 @@ public class ShippedContentTests
         }
 
         Assert.Equal(2, notPlaceable);
+    }
+
+    [Fact]
+    public void TheComputerIsTheOneShippedProgrammer()
+    {
+        // IDEAL-MACHINES-PLAN decision 6: the verb is keyed by "programmer", so the pack — the other
+        // shipped item — and every item to come (water, parts) never opens a panel.
+        var content = new GameContent();
+        LoadResult result = content.Load(new DirectoryContentSource(ModsDirectory()));
+        Assert.True(result.Success, string.Join("; ", result.Errors));
+
+        MaterialTable table = MaterialTable.From(content.Materials);
+        int computer = content.Materials.GetNumericId(Identifier.Parse("overburden:computer"));
+        Assert.True(table.IsProgrammer(computer));
+        Assert.Equal([computer], Enumerable.Range(0, table.Count).Where(table.IsProgrammer));
+    }
+
+    [Fact]
+    public void TheBaseGameShipsFormatOneAndTheQuantumRowAndNoMachineOptsIntoAnExtraYet()
+    {
+        // IM-1's pass: the manifest declares the format it was written for (decision 7); the table
+        // ships the quantum row now (decision 3); and no machine opts into an extra until the slice
+        // that reads it lands (decision 2), so the whole of IM-1 is invisible in play.
+        string mods = ModsDirectory();
+        var content = new GameContent();
+        LoadResult result = content.Load(new DirectoryContentSource(mods));
+        Assert.True(result.Success, string.Join("; ", result.Errors));
+
+        using (var manifest = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(mods, Identifier.BaseNamespace, "mod.json"))))
+        {
+            Assert.Equal(ModManifest.CurrentFormat, manifest.RootElement.GetProperty("format").GetInt32());
+        }
+
+        Assert.Equal(6, result.ExtrasLoaded);
+        Assert.Equal(
+            [
+                new ExtraReach(MachineExtra.Sense, "channel", ExtraForm.Switch, "overburden/extras.json"),
+                new ExtraReach(MachineExtra.Recall, "channel", ExtraForm.Return, "overburden/extras.json"),
+                new ExtraReach(MachineExtra.Remote, "channel", ExtraForm.Board, "overburden/extras.json"),
+                new ExtraReach(MachineExtra.Charge, "channel", ExtraForm.Window, "overburden/extras.json"),
+                new ExtraReach(MachineExtra.Priority, "channel", ExtraForm.Port, "overburden/extras.json"),
+                new ExtraReach(MachineExtra.Telemetry, "channel", ExtraForm.State, "overburden/extras.json"),
+            ],
+            content.Extras.Entries());
+
+        MaterialTable table = MaterialTable.From(content.Materials);
+        Assert.All(table.MachineIds, id => Assert.Equal(MachineExtra.None, table.Machine(id)!.Extras));
     }
 
     [Fact]

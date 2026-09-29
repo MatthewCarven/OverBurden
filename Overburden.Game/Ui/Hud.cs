@@ -533,6 +533,13 @@ public sealed partial class Hud : CanvasLayer
                 : $"{held}   ·   right-click to swap — the worn one keeps its charge   ·   {tier}  (T)   ·   1-9 material, V cycle";
         }
 
+        if (place.SelectedIsItem && !place.SelectedIsProgrammer)
+        {
+            // IM-1: an item that is not a programmer has no verb yet, so the line says so rather
+            // than calling it a computer. None ships today; water is the first (IM-4).
+            return $"ITEM  (in hand)   ·   nothing to place or open   ·   {tier}  (T)   ·   1-9 material, V cycle";
+        }
+
         if (place.SelectedIsItem)
         {
             return pack is null

@@ -2,5 +2,6 @@
   "id": "overburden",
   "name": "Overburden",
   "version": "0.1.0",
+  "format": 1,
   "dependencies": []
 }

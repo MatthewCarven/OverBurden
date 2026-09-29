@@ -128,6 +128,14 @@ public sealed class MaterialDefinition
     public bool IsPlaceable { get; init; } = true;
 
     /// <summary>
+    /// Whether this item is a programmer: in the hand, a right-click opens the machine under the
+    /// crosshair, or the worn pack's panel (IDEAL-MACHINES-PLAN decision 6). The computer, and only
+    /// an item: the loader refuses it on a block or a machine. Before IM-1 every non-placeable item
+    /// opened panels, so water, parts and ingots would have.
+    /// </summary>
+    public bool IsProgrammer { get; init; }
+
+    /// <summary>
     /// How the hotbar counts this material: litres (the default), one voxel a part
     /// (<c>count</c>), or 64 voxels a body (<c>cells</c>). Presentation only — the inventory
     /// counts voxels whatever the unit (the ladder's decision 6).

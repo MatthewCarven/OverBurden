@@ -335,6 +335,13 @@ public sealed class PlaceController(
     public bool SelectedIsItem => MaterialId >= 0 && !materials.IsPlaceable(MaterialId);
 
     /// <summary>
+    /// Whether the selected item is a programmer — the computer — whose right-click opens panels
+    /// (IDEAL-MACHINES-PLAN decision 6). Any other item has no verb yet: water, parts and ingots
+    /// never open a panel.
+    /// </summary>
+    public bool SelectedIsProgrammer => SelectedIsItem && materials.IsProgrammer(MaterialId);
+
+    /// <summary>
     /// The row a right-click edge with the computer selected landed on this frame, for the
     /// panel to open (b-2); null on every other frame. Set and consumed within one update.
     /// </summary>
@@ -528,7 +535,13 @@ public sealed class PlaceController(
             // the pass. The computer's verb is a right-click edge on a machine body under the
             // crosshair — the hit voxel's cell, mining's aim rather than building's — and on
             // anything else the click opens the equipped pack's panel (M10c-3) or, with none,
-            // does nothing at all.
+            // does nothing at all. Only a programmer has that verb (IM-1): any other item's click
+            // does nothing, rather than opening a panel because it happens not to be a block.
+            if (!SelectedIsProgrammer)
+            {
+                return false;
+            }
+
             if (clicked && Outcome == RayOutcome.Hit
                 && Machines is not null
                 && pipeline.TryGetMaterial(hit.Voxel, out int hitMaterial)

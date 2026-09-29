@@ -117,12 +117,9 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 Nothing is blocked on these; each is a small change once you have a view.
 
-- [ ] **IM-1's eight decisions** — [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "IM-1 — the
-      code-level pass". IM-1 is the mod-file rules underneath the machines: a misspelt key refused with a
-      "did you mean", a `format` number on each mod, the six extras' grammar and table, and the computer
-      as the one item that opens panels. The two that change the plan: IM-1 goes before the collapse
-      sensor (f-1 builds on it), and each extra is refused on a machine until the slice that reads it
-      lands. "As recommended" builds it, and nothing you play changes.
+- [ ] **Close the game when you're done playing, and say so.** IM-1 needs one headless check (the r6
+      control) and I won't run it beside your session: it would steal your CPU and shuffle the log you're
+      writing. About two minutes.
 - [ ] **A minute of your screen, whenever suits.** The last IM-0 measurement (what drawing a big flood's
       surface costs) only shows in a windowed run, which takes over the screen for about a minute. Say
       "run the windowed one" when you're not playing.
@@ -181,6 +178,11 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Answered lately
 
+- **IM-1's eight decisions** (2026-09-29): *"as recommended please Claude"*. Built the same night: mod
+  files are strict now (a misspelt key is refused with a "did you mean"), each mod declares a `format`, the
+  six extras have their grammar and table, and only the computer opens panels. Nothing you play changes.
+- **Your new world renamed** (2026-09-29): `TajMahal2`, and `start.cmd` opens it.
+
 - **The quarry's bite** (2026-09-29): *"go with the 2m bite for the quarry"*. The measurement agreed:
   a 2 m bite costs about half a millisecond on the fixed build.
 - **The ideal machines' ten forks and sixty-one decisions** (2026-09-29): *"Yes as recommended please
@@ -223,7 +225,8 @@ Updated **2026-09-29, night**. Commits to push: `git fetch`, then `git log origi
 
 - **The ideal machines plan is taken**, [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md): the
   bank, the vault and its dump, water in the inventory, the quarry (your 2 m bite), the six extras, and a
-  creative mode with a kit. The measurements are done; the build starts at IM-1.
+  creative mode with a kit. **IM-1 is built** (the mod-file rules underneath); IM-2, the bank's window, is
+  next. The first thing you can play is IM-6.
 - **The undo bug is fixed** (IM-0b): a machine a fall destroys can no longer come back free after
   Ctrl+Z. The build you started at 4:49 PM already has it. A Ctrl+Z right after a roof comes down now
   says *the roof came down*, as it should.

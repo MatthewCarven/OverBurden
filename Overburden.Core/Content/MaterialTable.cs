@@ -24,6 +24,8 @@ public sealed class MaterialTable
     private readonly MachineDefinition?[] _machine;
     private readonly MaterialUnit[] _unit;
     private readonly bool[] _isPlaceable;
+    private readonly bool[] _isProgrammer;
+    private readonly MachineExtra[] _extras;
     private readonly int[] _machineIds;
 
     private MaterialTable(
@@ -37,7 +39,8 @@ public sealed class MaterialTable
         SupportPoint[][] supportCurve,
         MachineDefinition?[] machine,
         MaterialUnit[] unit,
-        bool[] isPlaceable)
+        bool[] isPlaceable,
+        bool[] isProgrammer)
     {
         _isOpaque = isOpaque;
         _isFluid = isFluid;
@@ -50,11 +53,15 @@ public sealed class MaterialTable
         _machine = machine;
         _unit = unit;
         _isPlaceable = isPlaceable;
+        _isProgrammer = isProgrammer;
+        _extras = new MachineExtra[machine.Length];
 
         var ids = new List<int>();
         for (int id = 0; id < machine.Length; id++)
         {
-            if (machine[id] is not null) ids.Add(id);
+            if (machine[id] is not { } block) continue;
+            ids.Add(id);
+            _extras[id] = block.Extras;
         }
 
         _machineIds = [.. ids];
@@ -76,6 +83,15 @@ public sealed class MaterialTable
 
     /// <summary>Whether the brush may put the material into the world; false for an item in the hand (M10b).</summary>
     public bool IsPlaceable(int materialId) => _isPlaceable[materialId];
+
+    /// <summary>Whether the material is a programmer, the one kind of item whose click opens a panel (IDEAL-MACHINES-PLAN decision 6).</summary>
+    public bool IsProgrammer(int materialId) => _isProgrammer[materialId];
+
+    /// <summary>
+    /// Whether a body of the material opted into <paramref name="extra"/> — a bit a material, one
+    /// array read (decision 2). False for a material that is not a machine.
+    /// </summary>
+    public bool HasExtra(int materialId, MachineExtra extra) => (_extras[materialId] & extra) != 0;
 
     public bool IsOpaque(int materialId) => _isOpaque[materialId];
 
@@ -194,6 +210,7 @@ public sealed class MaterialTable
         var machine = new MachineDefinition?[count];
         var unit = new MaterialUnit[count];
         var isPlaceable = new bool[count];
+        var isProgrammer = new bool[count];
 
         for (int id = 0; id < count; id++)
         {
@@ -246,11 +263,12 @@ public sealed class MaterialTable
             machine[id] = definition.Machine is { } block && block.TryValidate(out _) ? block : null;
             unit[id] = definition.Unit;
             isPlaceable[id] = definition.IsPlaceable;
+            isProgrammer[id] = definition.IsProgrammer;
         }
 
         return new MaterialTable(
             isOpaque, isFluid, textureLayer, hardness, lightEmission, permeability, supportDistance, supportCurve,
-            machine, unit, isPlaceable);
+            machine, unit, isPlaceable, isProgrammer);
     }
 
     /// <summary>What a hole with no identifier carries: the named placeholder's distance, one number.</summary>
@@ -281,6 +299,7 @@ public sealed class MaterialTable
     /// sees everything fall rather than everything stand.
     /// </param>
     /// <param name="supportCurve">Optional; absent is dry everywhere.</param>
+    /// <param name="programmer">Optional; absent is no programmer, the closed default — nothing opens a panel.</param>
     internal static MaterialTable ForTesting(
         bool[] isOpaque,
         bool[] isFluid,
@@ -292,7 +311,8 @@ public sealed class MaterialTable
         SupportPoint[][]? supportCurve = null,
         MachineDefinition?[]? machine = null,
         MaterialUnit[]? unit = null,
-        bool[]? placeable = null) =>
+        bool[]? placeable = null,
+        bool[]? programmer = null) =>
         new(isOpaque, isFluid, textureLayer, hardness,
             lightEmission ?? new byte[isOpaque.Length],
             permeability is null
@@ -304,5 +324,6 @@ public sealed class MaterialTable
             supportCurve ?? Enumerable.Repeat(Array.Empty<SupportPoint>(), isOpaque.Length).ToArray(),
             machine ?? new MachineDefinition?[isOpaque.Length],
             unit ?? new MaterialUnit[isOpaque.Length],
-            placeable ?? Enumerable.Repeat(true, isOpaque.Length).ToArray());
+            placeable ?? Enumerable.Repeat(true, isOpaque.Length).ToArray(),
+            programmer ?? new bool[isOpaque.Length]);
 }

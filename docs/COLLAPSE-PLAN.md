@@ -1154,7 +1154,7 @@ signal medium later, and nothing here would have to be undone for it.
 
 | Slice | What | Verified by |
 |---|---|---|
-| **f-1** | Core: the `sensor` kind (loader, validate), `onsignal`, the per-channel signal and the override in `MachineTick`, stall reason `signalled`. A small `ICollapseSense` interface (`Armed(chunk)`, `Member(chunk)`, `FuseLeft(chunk)`) so the tick never holds the director. | Tests with a fake sense: a fuse trips it, an event trips it, out of radius does not, 0 / 1 / 2 on a cell and a pump, the pool identity exact through a signal, a signal never written to a port or the blob. A mutation battery. |
+| **f-1** | Core: the `sensor` kind (loader, validate), `onsignal` (its readers opt in through IM-1's `sense` extra, and f-1 switches it on), the per-channel signal and the override in `MachineTick`, stall reason `signalled`. A small `ICollapseSense` interface (`Armed(chunk)`, `Member(chunk)`, `FuseLeft(chunk)`) so the tick never holds the director. | Tests with a fake sense: a fuse trips it, an event trips it, out of radius does not, 0 / 1 / 2 on a cell and a pump, the pool identity exact through a signal, a signal never written to a port or the blob. A mutation battery. |
 | **f-2** | The wire: `Main` hands the tick a sense over the scheduler and director, the panel status, the `M10:` terms and one-off lines, `P` seeds a sensor, the texture, `--placeat=`. | **The oracle:** on a scratch world, `--bitechunks=2 --collapseafter=10,10`, a sensor and a cell (`onsignal=1`) beside the bite on channel 0. `M10:` reads the channel signalled while the fuse burns, the cell out of the pool, cleared after the event ends. Plus the r6 control to the digit. |
 | **f-3** | His play: a sensor by a failing roof, a cell on its channel set to go off. | His sentence. |
 
@@ -1177,10 +1177,11 @@ planned** ([IDEAL-MACHINES-PLAN.md](IDEAL-MACHINES-PLAN.md), decisions 10 and 38
 - **A sensor whose own chunk is unloaded reads false without looking**, bounding the (2r+1)³ lookups
   on a server. It lands in the plan's IM-9.
 - `onsignal` moves under the plan's `sense` extra in IM-1, with its name, bounds and default unchanged,
-  so rows saved under f-1 restore as they are. **IM-1's code-level pass (2026-09-29) proposes the other
-  order**, since f-1 is not built: IM-1 lands first with the sense extra's load-time half (`onsignal`
-  0..2 required), and f-1 gives its readers `"extras": { "sense": {} }` and switches the extra on. Its
-  decision 1, waiting on his word.
+  so rows saved under f-1 restore as they are. **Superseded by IM-1's code-level pass (2026-09-29, its
+  decision 1, taken as recommended)**, since f-1 was not built: IM-1 lands first with the sense extra's
+  load-time half (`onsignal` 0..2 required), and **f-1 gives its two readers `"extras": { "sense": {} }`
+  beside the port and switches `sense` on in the loader's served set.** Name, bounds and default are
+  unchanged; the restore test is f-1's own.
 
 ## What would reverse this
 

@@ -8,8 +8,8 @@ repeated here. **Nothing is built.** This is the planning pass; it ended with th
 Claude"*. **IM-0b is built** (2026-09-29, [UNDO-PLAN.md](UNDO-PLAN.md), "The machine drain was
 journalled"). It is wider than the split's row: the reconcile's four branches were the same mint, so
 the rule is that only a pick's dismantle is journalled. **IM-0 is measured** (the same night, "IM-0 —
-measured" below), and he took the 2 m quarry bite. **IM-1's code-level pass is written** ("IM-1 — the
-code-level pass" below): eight decisions wait on his word.
+measured" below), and he took the 2 m quarry bite. **IM-1 is built** ("IM-1 — the code-level pass" and
+"IM-1 — built" below; its eight decisions taken as recommended). IM-2 is next.
 
 **How it was made.** As a design panel (the ladder's method):
 - five readers mapped the machine code, the plans, the inventory and the store, the creative-mode
@@ -48,8 +48,8 @@ on are owed a measurement (IM-0) before they are believed.
    the tick. So an extra "inherited down the ladder" has nothing to read yet; the brief's "cheap, since
    membership is already computed" is true for quantum only.
 2. **Kinds are C#, and unknown JSON keys vanish.** `MachineKind` is a closed enum of four, with about
-   twenty sites that switch on it. `storage` already means joules. The loader ignores an unknown key
-   without a word, so a misspelt `"recal": false` would load with recall on.
+   twenty sites that switch on it. `storage` already means joules. Until IM-1, the loader ignored an unknown key
+   without a word, so a misspelt `"recal": false` would have loaded with recall on.
 3. **The undo can mint, today.** Three facts combine:
    - The machine drain runs with recording on (`Main.cs:4465`), so the destroy that follows a fall
      lands in a fresh undoable step.
@@ -613,7 +613,7 @@ name, bounds or default.
 |---|---|---|
 | **IM-0** | **Measurements on the fixed build, no code.** On a dated copy of `retired-TajMahal-2026-09-29` (`--world=probe-…`, `--at=-268,-5,1284`, `--fluidnear=2 --fluidjob=1`): `machines` and `boundary worst`. Then `--profile --entangle --nogate --pitch=-60 --holdq` and `--entangletunnel --nogate --pitch=-60 --holdq`, dry and with `--fillbasin`: `swing ms` and remeshes a swing. Then `--injectlitres=1000000` and `=10000000`: `pour`, a minute of tick wall, and the surface install in a windowed run. Also: add `--entangletunnel` to COMMANDS.md, where it is missing. | The numbers decisions 32, 33 and 45 wait on. |
 | **IM-0b** | **The live bug (fact 3), a fix to shipped code.** The drain's destroy branch runs with recording off, for every machine. | A pump destroyed by a fall, drained, then Ctrl+Z re-adds nothing, and the next arrival rebuilds nothing; a pure pick's dismantle is still undoable. |
-| **IM-1** Core (amended by its pass, below) | The strict loader; `extras`, the flag set, the per-material bit, `extras.json` (quantum row), its union and media check; `programmer`. | Every shipped file loads; a misspelt key at each level is refused, naming it; two mods giving one (extra, medium) pair are refused; a misspelt medium is refused; a mod with a newer `format` fails in one line; water and parts no longer open a panel; a three-mod fixture loads the same in every order; rows saved under f-1 restore unchanged. Mutation: disable the refusal, and the misspelt-key fixture goes red. |
+| **IM-1** Core (amended by its pass, below; **built 2026-09-29**) | The strict loader; `extras`, the flag set, the per-material bit, `extras.json` (quantum row), its union and media check; `programmer`. | Every shipped file loads; a misspelt key at each level is refused, naming it; two mods giving one (extra, medium) pair are refused; a misspelt medium is refused; a mod with a newer `format` fails in one line; water and parts no longer open a panel; a three-mod fixture loads the same in every order; rows saved under f-1 restore unchanged. Mutation: disable the refusal, and the misspelt-key fixture goes red. |
 | **IM-2** Core | The window (7, 8): the backpack's JSON, the validator's exemption, `RechargePack`, `FillPack` and `Give` refusing a window, the direct draw; the priority consumer list; `packInitial` printed. | `PowerExact` exact over a thousand random bites and boundaries; the worn backpack's saved charge is 0 after a hundred boundaries, Alt+P and a save; a draw inside `Run` throws. Mutations: drop the `packTaken` credit, red; write the draw through `SetCharge`, red. Equal priorities reproduce position order. |
 | **IM-3** Core | The `vault` kind and the crate; the codec; the store view and fill order; the bill (`held`) and its order before signal overrides; the fuse; every row-removal rule of 17; the store's voxel identity. | Identity exact over a thousand random operations, the undo included; a signalled cell never unpays a hold; two vaults both bill; a save during a fuse resumes at the saved milliseconds; a wreck survives a reopen and is never rebuilt; both reconcile branches keep contents; an unknown codec version refuses the pick and the undo; `overfull` at restore; a refused pick carves nothing; the undo refusal is a pre-flight; `SetPort` moves contents with the row. Mutations: journal a full row, red; bill with no `held` term, red. |
 | **IM-4** Core | Water's doors: the ID, the pocket's refusal, the siphon's queue and rules, the vault in the outlet ring, the twins, `pumped == emitted + vaulted`, the store's water line. | M8's oracle unmoved with no vault; a siphon take then pour restores a basin exactly; a click then a quit moves nothing; a take on a Tier A lake draws the basin; the pump stalls `full` only when every ring entry refuses. Mutation: drop `vaulted`, red. |
@@ -690,7 +690,7 @@ his focus, so it waits for his say-so; the install was 92 ms mean on the load te
 
 Decisions 1–6 read against the loader (`ContentLoader.cs`), the validator (`MachineDefinition.cs`), the
 material table and the computer's verb. Five facts from the code, then eight decisions, each with a
-recommendation. **Nothing is built; the eight wait on his word.**
+recommendation. **All eight taken as recommended (2026-09-29): *"as recommended please Claude"*.**
 
 **Five facts.**
 
@@ -801,6 +801,40 @@ served set its bit and form land on the table. A newer format fails in one line 
 its dependant told. The computer is a programmer and a part-like item is not. **Mutations, one a rule:**
 the unknown-key refusal, the `$` skip, the duplicate check, the pair's owner, the medium check, the format
 check, the programmer gate. *Estimate:* one session, about 45 tests.
+
+## IM-1 — built (2026-09-29)
+
+All eight as recommended, the same night. **Suite 2,076** (2,006 + 70). **Twelve mutations, twelve red**,
+each on the test named for its rule, every file restored byte-identical: the unknown-key refusal, the `$`
+skip, the duplicate check, the pair's owner, the medium check, the format check, the table's programmer bit
+(set back to "not placeable", the old rule), the programmer-is-an-item rule, the served check, the required
+port, the carried rule, and the missing-row refusal.
+
+What it is, by file:
+- **`Content/StrictJson.cs`**, the walk. It parses once, checks every object against the loader class it
+  binds to (public settable properties by reflection, camelCase for messages, case ignored), and returns the
+  original text when no `$` key was dropped, so the serialiser's messages keep their line numbers. Maps
+  (`links`, `ports`, `extras`, the table) accept any name, and refuse only notes and exact repeats.
+- **`Machines/MachineExtras.cs`**: `MachineExtra` (six bits), `ExtraForm` (the six quantum forms), the
+  names, reserved lower forms, required ports and serving slice in one table; `ExtrasTable` and
+  `ExtraReach`. `MachineExtras.Served` is `None`; f-1 sets `Sense`, IM-2 `Charge | Priority`, IM-9 the rest.
+- **`MachineDefinition`**: `ExtraForms`, `Extras`, `Has`, `FormOf`, `MediumOf`; `TryValidate` holds a
+  definition built without the loader to the same extras rules. `ViaIsServed` takes a noun, so a medium is
+  refused in a medium's words.
+- **`ContentLoader`**: the format read first and alone; every file through the walk; every mod's table
+  before any material; `programmer`; the served check last. `LoadResult` gains `ExtrasLoaded`, so the
+  `Content:` line reads `… 6 extra reach(es) …`. `GameContent` gains `Extras` and a served-set argument the
+  game never passes.
+- **`MaterialTable`**: `IsProgrammer(id)` and `HasExtra(id, extra)`, one array read each.
+- **The Game's one edit**: `PlaceController.SelectedIsProgrammer` gates the computer's verb, and the HUD
+  reads `ITEM (in hand) · nothing to place or open` for any other item. No such item ships, so nothing a
+  player sees changes.
+- **Shipped**: `mod.json` declares `"format": 1`, `computer.json` `"programmer": true`, and
+  `extras.json` the quantum row. Every key the shipped files use was already bound, so the walk refused none.
+
+**Owed: the r6 control.** He was playing through the build (started 7:17 PM on `TajMahal2`, on a binary with
+no IM-1 loader in it: his `Content:` line has no extras term and 0 `ERROR`). A headless run beside him
+steals his CPU and rotates the log he is writing, so it waits for the game to close. The Game builds clean.
 
 ## Must not ship
 

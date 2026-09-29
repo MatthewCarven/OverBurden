@@ -1,5 +1,35 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 (late) — IM-1 built: the strict loader, format, the extras and their table, programmer
+
+*"as recommended please Claude"* took the pass's eight decisions, and IM-1 was built the same session.
+Suite **2,076** (+70). The plan's "IM-1 — built" has the file-by-file account.
+
+- **The strict walk** (`StrictJson`) reads the loader's own classes by reflection, so it and the binding
+  cannot disagree. It reports every unknown key with its path and nearest name (`machine.links.charge.carrys
+  — did you mean 'carries'?`), refuses a key given twice, and drops `$` notes at every level, maps included.
+  It hands the serialiser the original text when nothing was dropped, so type errors keep their line numbers.
+- **The existing 2,006 passed under it unchanged.** No fixture or shipped file used a key the loader does not
+  bind.
+- **`format`** is read alone, before the manifest's keys. A newer mod fails in one line with none of its files
+  read, and a mod depending on it is told "skipped", not "not installed".
+- **The extras.** Six bits and six quantum forms. The base game's `extras.json` ships the quantum row. Media
+  are checked by the `via` rule, with a did-you-mean for `channel`. One (extra, medium) pair has one owner.
+  Every extra is refused on a machine, naming its slice, until that slice switches it on in
+  `MachineExtras.Served`.
+- **The three-mod fixture** loads identically in all 24 listing orders. It has three conflicts, one between
+  two third-party mods.
+- **`programmer`** keys the computer's verb in `PlaceController`; any other item's click does nothing.
+
+**The mutation battery: twelve rules, twelve red**, each on its own test, and files restored byte-identical
+(hash-checked). My first draft of the three-mod fixture asserted two conflicts where it built three; I caught
+it by recounting the fixture before the first run.
+
+**He was playing through the build.** `start.cmd` launched at 7:17 PM on `TajMahal2`, and his log's `Content:`
+line has no extras term and 0 `ERROR`, so his binary predates the loader change. The Game DLL on disk is IM-1's
+now, and his next launch rebuilds anyway. **The r6 control is owed.** It waits for the game to close, per the
+probing rule (a headless run beside him steals CPU and rotates his log).
+
 ## 2026-09-29 (late) — his new TajMahal renamed TajMahal2
 
 *"Can you rename my new Taj Mahal world to Taj Mahal 2 so when we retire it it does not conflict"*. With

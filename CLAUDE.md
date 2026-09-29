@@ -48,7 +48,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | Elements, and why not "just implement chemistry": geology that reacts to water, machine recipes as the chemistry set. |
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | Ores, layers, trees, permeability — his thinking-ahead. Not scheduled; its three questions are his. |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written and taken as recommended (2026-09-28)**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a (rest) comes before any body. **Part a is parked (2026-09-29)**: the pool rests with the near/far order off, but every cheap fix under the order failed the load test; a carry with O(1) removal is the open piece. `--bodyprobe=` and `--rest` measure it. |
-| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b, IM-0, then IM-1.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
+| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b, IM-0 and IM-1 done, IM-2 next.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
 
 ## Non-negotiables
 
@@ -191,8 +191,9 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 ## Where things stand
 
 **2026-09-29, night — the ideal machines pass is done, all sixty-one decisions are taken as
-recommended** (*"Yes as recommended please Claude"*), **IM-0b is built and IM-0 measured.** Suite **2,006**;
-the r6 control to the digit after IM-0b. Unpushed commits are his to push; `git fetch` then
+recommended** (*"Yes as recommended please Claude"*), **IM-0b is built, IM-0 measured, and IM-1 built.**
+Suite **2,076**. The r6 control read to the digit after IM-0b and **is owed after IM-1** (he was playing
+through the build; run it once the game is closed). Unpushed commits are his to push; `git fetch` then
 `git log origin/main..main` lists them.
 
 **The plan to build: [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md).** The shape: a channel is an
@@ -202,17 +203,19 @@ machine with a shared budget, only where you are; water is an inventory item thr
 header byte and a kit. **IM-0b is built** (the drain's world-side writes unjournalled, so Ctrl+Z no longer
 mints machines; UNDO-PLAN's last section). **IM-0 is measured** (the plan's "IM-0 — measured"): `machines`
 0.63–0.88 ms mean on 127 and 209 rows; the 2 m bite 0.42–0.53 ms, and he took it for the quarry; Tier B
-insertion 0.5–1.1 µs a cell, a 10 ML pour carried at 2 Hz. **IM-1's code-level pass is written** (the
-plan, "IM-1 — the code-level pass"): five facts from the code and eight decisions, waiting on his word. On
-"as recommended", build IM-1 from that section: the strict walk (reflection over the loader's DTOs, not
-`Disallow`), `format`, the extras grammar and `extras.json`, every extra refused on a machine until its
-slice, `programmer` (one Game edit in `PlaceController`, so the r6 control closes it). Then
-`docs/panel/ideal-machines-2026-09-29/readers/A-engine.md` §2 is the loader's key map.
+insertion 0.5–1.1 µs a cell, a 10 ML pour carried at 2 Hz. **IM-1 is built** (the plan, "IM-1 — the
+code-level pass" and "IM-1 — built"; eight decisions taken as recommended): mod files are strict (a walk over
+the loader's own classes, every unknown key with a did-you-mean, duplicates refused, `$` notes), `mod.json`
+declares `format` 1, the six extras have their grammar and the base game's `extras.json`, and only a
+`programmer` opens panels. **Every extra is refused on a machine until its slice switches it on in
+`MachineExtras.Served`**: f-1 `Sense`, IM-2 `Charge` and `Priority`, IM-9 the other three. **Next: IM-2**
+(the window: decisions 7–9 and 41). Read them against `MachineTick`, `EquippedPack` and `CarriedPacks` first,
+and hold a short code-level pass if anything doesn't fit, as IM-1's did.
 
 **Buildable alongside: collapse part f, slice f-1** (Core and tests), thirteen decisions taken
 ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part f"). The ideal-machines plan's three amendments there are
-taken too; none changes f-1. IM-1's pass proposes IM-1 first, with f-1 declaring its readers through the
-`sense` extra (its decision 1). Build in a worktree if he is playing, because `start.cmd` builds whatever the main
+taken too; none changes f-1. **IM-1 landed first** (its pass's decision 1, taken), so f-1 gives its two
+readers `"extras": { "sense": {} }` beside `onsignal` and switches `Sense` on in `MachineExtras.Served`. Build in a worktree if he is playing, because `start.cmd` builds whatever the main
 folder holds.
 
 **TajMahal is retired** (2026-09-29, his word: *"I borked the supports so want to restart"*): moved to

@@ -2,13 +2,16 @@ using Overburden.Core.Content;
 
 namespace Overburden.Core.Machines;
 
-/// <summary>The engine behaviours a machine can pick by name. Two in M10a; the rest are reserved.</summary>
+/// <summary>The engine behaviours a machine can pick by name: four built (M10a–c); the rest are reserved.</summary>
 /// <remarks>
 /// <b>A kind is an engine behaviour keyed by a name, with the JSON supplying its numbers</b>
 /// (M10-PLAN decision 1) — the way <c>lightEmission</c> is an engine behaviour keyed by a number.
-/// A mod can ship a faster pump or a cheaper outlet; a new kind is M12's scripting. The reserved
-/// names — <c>generator</c>, <c>converter</c>, <c>storage</c>, <c>station</c> — are refused by the
-/// loader naming the part that will serve them, rather than loaded as machines that tick nothing.
+/// A mod can ship a faster pump or a cheaper outlet; a new kind is M12's scripting, with the named
+/// exceptions the plans take (collapse f's <c>sensor</c>, the ideal machines' <c>vault</c> and
+/// <c>quarry</c>). The reserved names — <c>generator</c>, <c>station</c> — are refused by the loader
+/// naming the part that will serve them, rather than loaded as machines that tick nothing. A
+/// capability that is not a home for a conserved quantity is an extra (<see cref="MachineExtra"/>),
+/// never a kind.
 /// </remarks>
 public enum MachineKind : byte
 {
@@ -148,6 +151,60 @@ public sealed class MachineDefinition
     public IReadOnlyList<MachineLink> Links { get; init; } = [];
 
     public IReadOnlyList<PortDefinition> Ports { get; init; } = [];
+
+    /// <summary>
+    /// The extras the machine opted into, each with the form it takes over the machine's medium,
+    /// resolved at load from every mod's <c>extras.json</c> (IDEAL-MACHINES-PLAN decisions 2 and 3).
+    /// Empty for a machine with none.
+    /// </summary>
+    public IReadOnlyDictionary<MachineExtra, ExtraForm> ExtraForms { get; init; } = NoExtras;
+
+    private static readonly IReadOnlyDictionary<MachineExtra, ExtraForm> NoExtras = new Dictionary<MachineExtra, ExtraForm>();
+
+    /// <summary>The extras as bits — what the material table projects, one byte a material.</summary>
+    public MachineExtra Extras
+    {
+        get
+        {
+            MachineExtra bits = MachineExtra.None;
+            foreach (MachineExtra extra in ExtraForms.Keys) bits |= extra;
+            return bits;
+        }
+    }
+
+    /// <summary>Whether the machine opted into <paramref name="extra"/>.</summary>
+    public bool Has(MachineExtra extra) => ExtraForms.ContainsKey(extra);
+
+    /// <summary>The form <paramref name="extra"/> takes on this machine, or <see cref="ExtraForm.None"/>.</summary>
+    public ExtraForm FormOf(MachineExtra extra) => ExtraForms.TryGetValue(extra, out ExtraForm form) ? form : ExtraForm.None;
+
+    /// <summary>
+    /// The medium a machine's extras reach over: its links' <c>via</c>, the sky aside (IM-1's pass,
+    /// decision 3). Null, with the reason, when it names none or two.
+    /// </summary>
+    public static string? MediumOf(IReadOnlyList<MachineLink> links, out string? error)
+    {
+        string? medium = null;
+        foreach (MachineLink link in links)
+        {
+            if (link.Via == SolarVia) continue;
+
+            if (medium is null)
+            {
+                medium = link.Via;
+            }
+            else if (medium != link.Via)
+            {
+                error = $"an extra reaches over one medium, and this machine's links name two ('{medium}' and '{link.Via}').";
+                return null;
+            }
+        }
+
+        error = medium is null
+            ? "an extra reaches as far as its machine's medium, and this machine names none (no link but the sky's)."
+            : null;
+        return medium;
+    }
 
     /// <summary>The link called <paramref name="name"/>, or null.</summary>
     public MachineLink? Link(string name)
@@ -402,16 +459,71 @@ public sealed class MachineDefinition
             }
         }
 
-        error = null;
-        return true;
+        return TryValidateExtras(out error);
+    }
+
+    /// <summary>
+    /// The extras' rules that need no table (IM-1's pass, decisions 1, 3 and 4): each a known extra
+    /// in one of its own forms; <c>charge</c> a carried storage's and the other five a placed
+    /// machine's; the port an extra reads declared at its exact bounds; one medium to reach over.
+    /// Whether this build serves an extra is the loader's question, asked last.
+    /// </summary>
+    private bool TryValidateExtras(out string? error)
+    {
+        if (ExtraForms.Count == 0)
+        {
+            error = null;
+            return true;
+        }
+
+        foreach ((MachineExtra extra, ExtraForm form) in ExtraForms)
+        {
+            if (!MachineExtras.Each.Contains(extra))
+            {
+                error = $"extra {extra} is not one extra.";
+                return false;
+            }
+
+            string name = MachineExtras.NameOf(extra);
+            if (!MachineExtras.IsFormOf(extra, form))
+            {
+                error = $"extra '{name}' takes form {form}, which is not one of its own.";
+                return false;
+            }
+
+            if (MachineExtras.IsCarriedExtra(extra) != Carried)
+            {
+                error = Carried
+                    ? $"extra '{name}' is a placed machine's, and a carried storage has no body, no row and no pin."
+                    : $"extra '{name}' is a carried storage's; a placed machine is not a window.";
+                return false;
+            }
+
+            if (MachineExtras.RequiredPort(extra) is { } required)
+            {
+                if (Port(required.Name) is not { } port || port.Min != required.Min || port.Max != required.Max)
+                {
+                    error = $"extra '{name}' reads a port '{required.Name}' declared {required.Min}..{required.Max}; declare it with exactly those bounds.";
+                    return false;
+                }
+            }
+        }
+
+        return MediumOf(Links, out error) is not null;
     }
 
     /// <summary>Whether this build's tick can serve a <c>via</c>, and if not which part will.</summary>
-    public static bool ViaIsServed(string via, out string? error)
+    public static bool ViaIsServed(string via, out string? error) => ViaIsServed(via, "via", out error);
+
+    /// <summary>
+    /// <see cref="ViaIsServed(string, out string?)"/>, with the messages naming <paramref name="noun"/>:
+    /// an extra's medium is checked by the same rule (IM-1's pass, decision 3).
+    /// </summary>
+    public static bool ViaIsServed(string via, string noun, out string? error)
     {
         if (string.IsNullOrEmpty(via))
         {
-            error = "via is empty.";
+            error = $"{noun} is empty.";
             return false;
         }
 
@@ -423,17 +535,17 @@ public sealed class MachineDefinition
 
         if (ReservedVia.Contains(via) || via.StartsWith(AdjacentViaPrefix, StringComparison.Ordinal))
         {
-            error = $"via '{via}' is an engine rule this build does not serve yet (M10f).";
+            error = $"{noun} '{via}' is an engine rule this build does not serve yet (M10f).";
             return false;
         }
 
         if (!Identifier.IsValidNamespace(via))
         {
-            error = $"via '{via}' is not a rule name: lowercase letters, digits, '_', '-' or '.'.";
+            error = $"{noun} '{via}' is not a rule name: lowercase letters, digits, '_', '-' or '.'.";
             return false;
         }
 
-        error = $"via '{via}' is a conductor class, and the conductor index is M10e.";
+        error = $"{noun} '{via}' is a conductor class, and the conductor index is M10e.";
         return false;
     }
 }

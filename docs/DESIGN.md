@@ -375,7 +375,11 @@ decoupled from render framerate. Keeps it deterministic for possible multiplayer
   `ChunkGenerated`, `PlayerTick`, `ToolUsed`, `RecipeCrafted`. These are also
   approximately the multiplayer packets.
 - **Tier 1 (M1)**: data mods — JSON/TOML defs + textures from `mods/`. No code
-  execution, no security surface. Roughly 80% of what mods actually do.
+  execution, no security surface. Roughly 80% of what mods actually do. **Strict since
+  IM-1** (2026-09-29, IDEAL-MACHINES-PLAN decision 4): an unknown key at any level is
+  refused naming the file, its path and the nearest key; a key given twice is refused;
+  `$` keys are notes; `mod.json` declares a `format` (1), and a newer one is skipped in
+  one line. A machine's extras are declared in `extras.json`, one owner a pair.
 - **Tier 2 (M12)**: MoonSharp Lua. Pure C#, no native deps, works with Godot,
   sandboxable. Deferred until the API surface has settled and we know what is worth
   exposing.
