@@ -121,6 +121,12 @@ Nothing is blocked on these; each is a small change once you have a view.
       said "at most a metre". On a copy of your tower, one piece jumped 4.5 m (about 20 pieces in
       800 jumped at all). Watch for it when you play: if you see a piece hop up, say "fix it" —
       the fix is costlier to run, but it is the right one if it shows.
+- [ ] **The collapse sensor, thirteen decisions** — [docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md),
+      "Part f". The big ones: it goes off during the 10–20 s fuse, not only once pieces fall (1);
+      it speaks on the same channel number as power, as you described it (3); a cell or pump set to
+      listen goes off (or on) only while signalled, and your own on/off setting is never touched (4);
+      it needs no power (8). The "ideal machines" chat it was waiting for never happened, so it's
+      kept small enough not to box that chat in. "As recommended" or any one back.
 - [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), six decisions still open. The biggest: a
       blast destroys the machines it reaches (5). "As recommended" or any one back.
 - [ ] **A rock placed in a lake.** A pier into a lake deletes no water today. If that reads wrong,
@@ -198,7 +204,7 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-09-28, midday**. One commit to push: c-3's result, and the fix search parked.
+Updated **2026-09-28, midday**. One commit to push: the collapse sensor's planning pass.
 
 - **The Tetris collapse** is the default. It has the pieces drawn, the cyan glitch, your phonk
   and a 10–20 s fuse. Owed from you: your ear on the phonk ("faster/slower/louder/quieter").

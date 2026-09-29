@@ -1048,6 +1048,122 @@ decision 8's licence question has its answer: his own arrangement ships and the 
 the loudness is `--collapsevolume=`. The −6 dB default leaves headroom for a downloaded track that
 may clip; he says his own remix will not, so it can go to 0 dB when it arrives.
 
+## Part f, the collapse sensor — the code-level pass (2026-09-29)
+
+*"start on collapse part f please Claude"*. Decision 13 read against the code it touches: the machine
+tick (`MachineTick`), the ports and panel (`MachineSet`, `MachinePanel`), the content loader, and the
+collapse's state (`CollapseDirector`, `CollapseScheduler`). Nothing is built.
+
+**The "ideal machines" chat never happened.** Decision 13 put the sensor's design there, because a
+signal on a channel is new; no record of the chat exists, and it was meant to be broader (endgame
+tech for a creative-mode demo). So this pass keeps the signal as small as it can be: one boolean
+a channel, recomputed at each boundary, never stored. That leaves the chat free to design a real
+signal medium later, and nothing here would have to be undone for it.
+
+### Six facts from the code
+
+1. **An event exists only once the fuse has burnt down.** `CollapseDirector.Events` is the live
+   events, created by `Fire` when a chunk's fuse ends. The warning, the 10–20 s fuse, lives in
+   `CollapseScheduler`'s private timers, reachable only chunk by chunk through `TryGetTimer`
+   (O(1)), and an armed chunk is never a member (the two are disjoint). A sensor that reads only
+   `Events` hears the collapse when the first piece is already falling. His own line argues for
+   the fuse: *"buildings unless in earthquakes usually give signs before they collapse"*.
+2. **A channel is only an integer port.** There is no channel class. `MachineTick.ChannelOf`
+   clamps the `channel` port to 0–15, and `Rebuild` groups rows into per-channel arrays
+   (outlet rings, storage, the power pool). A signal needs no new class, only a per-channel
+   boolean in the tick.
+3. **`enabled` is the player's setting, and it is saved.** It is a port like any other: written
+   by the panel through `SetPort`, persisted in the row blob, and read only at `Rebuild`. So the
+   paragraph's "switching a cell off" cannot be a write to `enabled`. That would put the signal
+   into the save and fight the panel. The signal must be an override the tick applies on top,
+   never stored.
+4. **The machine tick runs before this boundary's collapse sweep.** Order at a boundary: pours,
+   `RunMachineTick`, `CheckTable`, then `SweepCollapse` (the fuse sweep, then
+   `director.Boundary`). So the tick sees last boundary's timers and events: **one boundary
+   (0.5 s) late**. Against a 10–20 s fuse that is noise, and it is the same thread, so the read
+   is safe.
+5. **A new machine kind is C#, not JSON.** `MachineKind` is a closed enum (pump, outlet, converter,
+   storage), with a string switch in the loader, a switch in `Rebuild` and one in the panel's
+   status. `via` accepts `channel` and `solar`, and `carries` accepts power and fluid.
+   `M10-PLAN` puts new kinds in M12's scripting, but decision 13 already took this one. The mod
+   rule holds as long as the JSON declares it the way a mod would (`"kind": "sensor"`).
+6. **There is no headless way to put a machine at a spot.** `--place` places where the camera
+   aims, and machines enter play through `P` (`SeedMachines`). The oracle needs a sensor and a
+   cell at known positions beside a bite.
+
+### Decisions, each with a recommendation
+
+1. **What trips it: a fuse or an event within the radius** (armed chunk, or event member).
+   Recommended. It is the earliest warning the game has, 10–20 s before the first piece. *The
+   other arm:* events only, a sensor that reacts as the roof comes down. *Revisit if* sensors
+   trip so often on fuses that never fire (a fuse disarms when the deficit clears) that they read
+   as noise; then a `trip` port with 0 fuse, 1 falling.
+2. **The radius is in chunks, 3D Chebyshev, 0–4, default 1.** The collapse's state is per chunk,
+   so a voxel radius would only be rounded to chunks anyway. At radius r the tick asks
+   (2r+1)³ chunks, two O(1) lookups each: 250 at r = 2, about 1,460 at the maximum, per sensor per
+   boundary (an estimate; a handful of sensors costs microseconds). A radius of 0 is its own chunk.
+3. **The signal travels on the power channel number**, the same `channel` port. His words were
+   *"cut power to the water containers via quantum energy sharing"*, so a sensor on channel 3
+   speaking to the cells on channel 3 is what he described. No second number to set on the
+   panel. *The other arm:* a separate `signal` port 0–15 keeps power and signal apart, at one
+   more box on every reader. *Revisit if* the ideal-machines chat wants signals routed
+   independently of power.
+4. **Readers take an `onsignal` port: 0 ignore (the default), 1 off while signalled, 2 on only
+   while signalled.** The signal is an override applied in the tick, never written to `enabled`,
+   never saved. A signal change bumps the tick's own rebuild, not `MachineSet.Version`. The
+   default of 0 means every existing world opens unchanged: `Restore` fills a missing port with its
+   default, so there is no schema change. Recommended as written in decision 13.
+5. **Readers now: the vacuum cell and the pump.** A signalled-off cell leaves its channel's
+   pool, as `enabled = 0` does; its charge stays and it still counts in `PowerExact`. A
+   signalled-off pump stalls with a new reason, `signalled`, on the panel and the `M10:` stall
+   list. The outlet is not a reader: a stopped pump already stops its outlets. TNT's charges are
+   the third reader when TNT exists.
+6. **The kind is `sensor`, with `"senses": "collapse"` in its JSON.** A later sensor (water
+   level, power low) reuses the kind with a different `senses` string, instead of each being a
+   new enum member. It takes no `links` (it neither draws nor gives power in this pass).
+   *Costs:* the loader, `TryValidate` (a sensor needs a `channel` port and a known `senses`) and
+   the panel's status learn a fifth kind. Recommended.
+7. **Its panel status says what it sees.** `QUIET`, or `ARMED — fuse 12 s, 1 chunk away`, or
+   `FALLING — event 4, 2 chunks away`, plus `signalling channel N`. It shows the nearest fuse's
+   seconds left, read through `TryGetTimer`. It is the player's first readable view of the fuse
+   short of the tint. Recommended.
+8. **It is not powered in this pass.** A sensor that needs power stops warning when the power
+   fails, which is the moment a collapse is likeliest to matter. *Revisit* with M10f's
+   generators, if a free machine reads as wrong.
+9. **Getting one: `P` seeds a collapse sensor** beside the relay pump and outlet, until M10g's
+   recipes exist. It gets its own texture in the texture array (one new 16 × 16 layer; his to
+   draw, or a placeholder from me).
+10. **Deliberately flooding stays out.** His original idea flooded the place on a collapse. Water
+    weakens rock here (the keystone: 20 → 18,718 at risk under a lake), so flooding feeds the
+    collapse. The sensor can switch pumps off (reader 2), and what follows is left to the
+    physics, as decision 13 said.
+11. **The one-boundary lag is accepted** (fact 4). The other arm moves the machine tick after
+    `SweepCollapse`, a reordering of the boundary that every machine figure since M10a was
+    measured under. Not worth it for 0.5 s.
+12. **Instruments.** On the `M10:` line: `signal: N channel(s) raised, S sensor(s) tripped (F by a
+    fuse, E by an event), R reader(s) overridden (C cells, P pumps)`, and on the stall list
+    `signalled N`. On each change, a one-off line: `M10: channel 3 signalled — sensor at …, fuse
+    12 s, 1 chunk away`, and `… cleared`.
+13. **A headless placement flag, `--placeat=<id>@x,y,z[,port=value…]`,** places a machine at a
+    voxel with ports set, as a profile warms. It is a debug door, but not into a conserved
+    quantity, so it needs no identity term. It is the oracle's only way in.
+
+### The split
+
+| Slice | What | Verified by |
+|---|---|---|
+| **f-1** | Core: the `sensor` kind (loader, validate), `onsignal`, the per-channel signal and the override in `MachineTick`, stall reason `signalled`. A small `ICollapseSense` interface (`Armed(chunk)`, `Member(chunk)`, `FuseLeft(chunk)`) so the tick never holds the director. | Tests with a fake sense: a fuse trips it, an event trips it, out of radius does not, 0 / 1 / 2 on a cell and a pump, the pool identity exact through a signal, a signal never written to a port or the blob. A mutation battery. |
+| **f-2** | The wire: `Main` hands the tick a sense over the scheduler and director, the panel status, the `M10:` terms and one-off lines, `P` seeds a sensor, the texture, `--placeat=`. | **The oracle:** on a scratch world, `--bitechunks=2 --collapseafter=10,10`, a sensor and a cell (`onsignal=1`) beside the bite on channel 0. `M10:` reads the channel signalled while the fuse burns, the cell out of the pool, cleared after the event ends. Plus the r6 control to the digit. |
+| **f-3** | His play: a sensor by a failing roof, a cell on its channel set to go off. | His sentence. |
+
+**The riskiest part is f-2's oracle.** The bite, the fuse and the placement all have to line up
+in one headless run.
+
+**What would reverse this:**
+- The ideal-machines chat designing a general signal medium first. Then f-1's per-channel boolean
+  becomes that medium's first user, and decisions 3 and 6 move with it.
+- Sensors reading as noise in play (decision 1's revisit).
+
 ## What would reverse this
 
 - **Render-only (6):** if pieces landing on each other in flight read wrong, or a player wants to

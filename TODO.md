@@ -43,11 +43,13 @@ his word — and this file points at it rather than repeating it.
       ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part c — played"). Open: decision 11
       (lifts off a reservation, up to 4.5 m on a copy, 3.25 m in his play) on his "fix it"; the
       hand-off's cap (22–45% hit under a big collapse — the lever is a longer cap).
-- [ ] **Collapse parts d and f**, per the plan's split (e, the phonk, is built 2026-09-27; his ear
-      is owed): **d** the chimney, whichever arm he takes — a
-      tunnel under a placed house, headless on a scratch world; **e** the play, and the phonk hook
-      if he wants it; **f** the collapse sensor (decision 13) — a headless event near a sensor
-      switching a cell off, on the `M10:` line.
+- [ ] **Collapse part d**, per the plan's split: the chimney, whichever arm he takes — a tunnel
+      under a placed house, headless on a scratch world. (e, the phonk, is built; his ear is owed.)
+- [ ] **Collapse part f — the pass is written (2026-09-29), waiting on his decisions**
+      ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part f, the collapse sensor"). Thirteen
+      decisions; the sensor trips on a fuse, not only a fall, and its signal is an unsaved override,
+      never a write to `enabled`. Slices f-1 (Core and tests), f-2 (wire, `--placeat=`, the
+      oracle), f-3 (his play). Build f-1 in a worktree if he is playing.
 - [ ] **M10e — the conductor index** (after the M10d play): `conductor` block, `ConductorTracker`
       marking a dirty set and nothing else in the hook, per-chunk summaries at schema 5 riding the
       batch write, `NetworkSet` with position-derived ids, `maxRunCells` as occupied brush cells,

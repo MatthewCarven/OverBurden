@@ -1,5 +1,23 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 — Collapse part f: the sensor's pass
+
+*"start on collapse part f please Claude"*, with him testing alongside, so the pass is docs only and
+any code goes in a worktree. Three read-only maps (the machine tick and ports, the collapse's state,
+the docs on signals), then decision 13 read against them (COLLAPSE-PLAN, "Part f").
+- **The paragraph sat one level above the answer twice.** `CollapseDirector.Events` exists only once
+  a fuse has burnt down, and the warning, the 10–20 s fuse, is in the scheduler's private timers
+  (reachable per chunk by `TryGetTimer`). And "switching a cell off" cannot write `enabled`, which
+  is his saved panel setting; the signal is an override in the tick, never stored.
+- **The machine tick runs before the collapse sweep**, so a sensor sees the collapse one boundary
+  (0.5 s) late. Accepted.
+- **A new kind is C#** (`MachineKind` is a closed enum). `sensor` with `"senses": "collapse"`, so a
+  later sensor reuses the kind.
+- **The "ideal machines" chat the design waited for never happened**, so the signal is kept to a
+  per-channel boolean recomputed each boundary, which that chat could replace without undoing.
+- Thirteen decisions and a three-slice split (f-1 Core, f-2 wire with `--placeat=` and the oracle,
+  f-3 his play) are handed back.
+
 ## 2026-09-29 — The pond branch re-measured on the optimised build: 1.9×, and still the water
 
 *"the water-column-test proved to be slower than the original solver didn't it?"*, then *"you might
