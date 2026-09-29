@@ -1,5 +1,34 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 (night) — IM-3's r6 control, and IM-3b's code-level pass: seven decisions handed back
+
+*"IM-3b, next please Claude thanks!"*. First, the check IM-3 owed: the r6 control on its build read `2601 / 325
+/ 3446 at 411`, 0 `ERROR`, with the game closed and his log copied aside first.
+
+IM-3b is a new part (his vault's own energy, taken mid-build), so it got its pass: the paragraph read against
+`MachineTick`'s pool, `VaultState`, `ChargeOf` and the vault half of the set. Five facts; two of them change
+what was taken.
+
+- **IM-3's fuse is put out by any cell, measured.** The unpaid pool is written back into the cells, builds up,
+  and pays the whole bill one boundary in N. One paid boundary puts the fuse out, and a broke channel's fuse is
+  10–15 s. So a throwaway test (reverted) held a vault for 4,000 boundaries on 5% of its bill; at 3% it
+  dumped in 25. The demo's storm is 25% of its vault's bill, so decision 12's "the weather finishes it" never
+  happens. Nothing a player can reach (no vault ships before IM-6). An own charge refilled from the spare is
+  the same store as the cell, so it would not close this by itself.
+- **A minute of the *full* bill is a capacity, not a time.** The demo's vault is 5% full, and 2.4 MJ against a
+  1.5 kW deficit lasts about 27 minutes, through every storm. The varying parameter is the fill.
+- The own charge needs **no `PowerExact` term**: `ChargeOf` already carries a row's stored energy into the
+  identity. TODO said it would need one.
+- `MoveAtPick`'s fresh `VaultContents()` is the one write that would drop the charge out of the books.
+- The pool's "spare" includes the cells.
+
+The seven recommendations are in the plan ("IM-3b — the code-level pass"). The two forks:
+- **A minute of its bill as it stands** (capacity recomputed each boundary, the excess back to the pool),
+  against the fixed minute of the full bill he took.
+- **A paid boundary pauses a lit fuse and only a full own charge puts it out**, amending 28.
+
+Nothing is built.
+
 ## 2026-09-29 (late) — IM-3 built: the vault and the crate
 
 *"as recommended please Claude"* took the pass's twelve decisions. It was built in a worktree

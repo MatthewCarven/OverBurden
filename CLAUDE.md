@@ -48,7 +48,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | Elements, and why not "just implement chemistry": geology that reacts to water, machine recipes as the chemistry set. |
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | Ores, layers, trees, permeability — his thinking-ahead. Not scheduled; its three questions are his. |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written and taken as recommended (2026-09-28)**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a (rest) comes before any body. **Part a is parked (2026-09-29)**: the pool rests with the near/far order off, but every cheap fix under the order failed the load test; a carry with O(1) removal is the open piece. `--bodyprobe=` and `--rest` measure it. |
-| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b, IM-0 and IM-1 done, IM-2 next.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
+| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-3 done; IM-3b's pass waits on his word.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
 
 ## Non-negotiables
 
@@ -191,8 +191,8 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 ## Where things stand
 
 **2026-09-29, night — the ideal machines pass is done, all sixty-one decisions are taken as
-recommended** (*"Yes as recommended please Claude"*), **IM-0b is built, IM-0 measured, and IM-1 and IM-2
-built.** Suite **2,088**; the r6 control to the digit after IM-2. Unpushed commits are his to push; `git fetch` then
+recommended** (*"Yes as recommended please Claude"*), **IM-0b is built, IM-0 measured, IM-1 to IM-3 built,
+and IM-3b's pass written.** Suite **2,127**; the r6 control to the digit after IM-3. Unpushed commits are his to push; `git fetch` then
 `git log origin/main..main` lists them.
 
 **The plan to build: [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md).** The shape: a channel is an
@@ -213,10 +213,16 @@ its channel's enabled cells through an internal `IChannelBank`, last-filled firs
 relay pump has a `priority` port (0–9 at 5), and consumers are paid by priority then position. `P` does not
 seed the backpack until IM-6; `--pack=overburden:quantum_backpack` wears one. **IM-3 is built** (the plan,
 "IM-3 — built"; suite 2,127): the vault and the crate, the store and its doors, the pick that asks first and
-moves at `Taken`, wrecks, the bill and the fuse, `UndoOutcome.VaultHolds`. **Next session, first:** the r6
-control on the IM-3 build (it was closed early). **Then IM-3b, the vault's own energy** (his, 2026-09-29: one minute of its full bill, a per-grade knob;
-TODO has the shape), **then IM-4.** IM-6's panel owes his warranty line, a lock on the channel box, and
-power auto-scaled on screen.
+moves at `Taken`, wrecks, the bill and the fuse, `UndoOutcome.VaultHolds`. Its r6 control read to the digit.
+**IM-3b's pass is written; seven decisions wait on his word** (the plan's "IM-3b — the code-level pass").
+IM-3b is the vault's own energy. Two findings reshape it:
+- **IM-3's fuse is put out by any cell.** A channel paying 5% of a vault's bill held it for 4,000 boundaries
+  in a throwaway test, so a storm never lets a vault go.
+- **A minute of the *full* bill is a capacity.** The demo's 5%-full vault would hold 27 minutes.
+
+The two forks recommend a minute of the bill as it stands, and a fuse that pauses on a paid boundary and goes
+out only when the minute is refilled. **On his word: build IM-3b, propagate its six amendments, then IM-4.**
+IM-6's panel owes his warranty line, a lock on the channel box, and power auto-scaled on screen.
 
 **Buildable alongside: collapse part f, slice f-1** (Core and tests), thirteen decisions taken
 ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part f"). The ideal-machines plan's three amendments there are

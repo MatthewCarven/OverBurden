@@ -1061,7 +1061,8 @@ Two things the build found:
 - **A wreck cleared with its row standing re-marks itself**, which would have modified the damaged list
   mid-walk. The fix is to flag the wreck first, have the hook skip wrecks, and walk a snapshot.
 
-**Owed:** the r6 control on this build (see TODO).
+**The r6 control on this build** read `2601 / 325 / 3446 at 411`, 0 `ERROR`, the next session (before IM-3b's
+pass).
 
 **Taken during the build, for later slices** (his words 2026-09-29, both options as recommended):
 - **The vault carries its own energy: one minute of its own full bill, a knob in each grade's file** (low
@@ -1072,6 +1073,170 @@ Two things the build found:
 - **A lock on the vault panel's channel box**, so a vault can't be moved to an unpowered channel by accident.
   It lands in IM-6's panel.
 - **Power auto-scales on screen** (W, kW, MW), as energy already does; the mod files stay in watts.
+
+## IM-3b — the code-level pass (2026-09-29)
+
+The vault's own energy, as taken during IM-3's build, read against `MachineTick`'s pool (`BeginPower`,
+`PayHolds`, the pack, `WriteBack`), `VaultState`, `MachineSet.ChargeOf` and the vault half of the set. The
+r6 control on the IM-3 build ran first: `2601 / 325 / 3446 at 411`, 0 `ERROR`. Five facts, then seven
+decisions. **Nothing is built; the seven wait on his word.**
+
+**Five facts.**
+
+1. **IM-3's fuse is put out by any cell, and a storm never lets a vault go.** The unpaid pool is not spent:
+   `WriteBack` puts it back into the channel's cells, so it builds up and pays the whole bill one boundary
+   in N. One paid boundary puts the fuse out (28), and a broke channel's fuse is 10–15 s (20–30
+   boundaries). So any income above about a twentieth of the bill holds a vault for ever. Measured with a
+   throwaway test (a small vault, a 1,250 mJ bill, an empty cell, income a share of the bill each
+   boundary; reverted after):
+
+   | Income, share of the bill | 1% | 3% | 5% | 6% | 10% | 25% | 50% | 99% |
+   |---|---|---|---|---|---|---|---|---|
+   | Dumped after (boundaries) | 25 | 25 | never in 4,000 | never | never | never | never | never |
+   | Bills paid in full | 0 | 0 | 198 | 240 | 400 | 998 | 2,000 | 3,958 |
+
+   At 5% the vault paid a twentieth of its bill for 33 minutes and held. So decision 12's storm, which
+   leaves eight panels 0.5 kW against a 2 kW bill (25%), never lets the demo's vault go (55). No player can
+   reach this: no vault ships before IM-6. **The vault's own energy does not close it by itself.** An own
+   charge refilled from the spare is the same store the cell was, and it pays one boundary in N the same
+   way.
+2. **"A minute of its full bill" is a capacity, and the time it buys depends on how full the vault is.**
+   The own charge is a number of joules: one minute of the bill the vault would have if it were full of water.
+   It drains at the deficit, which is the bill the vault actually has, less what the channel pays. So a
+   full vault gets one minute, and one a twentieth full gets twenty. The demo's vault is a high vault holding
+   500 m³ (a 2 kW bill, 5% of full). With the bank at zero and 0.5 kW of storm sun, 2.4 MJ lasts 1,600 s,
+   about **27 minutes**. A weather episode is two minutes (`Weather.EpisodeMillis`), with the cloud a minute
+   ahead of it and two behind, so a storm's dark is a few minutes (an estimate). The demo's vault would hold
+   through every storm. And spreading a store thin over many vaults multiplies the grace, since there is no
+   limit on vaults (14).
+3. **The identity already carries a row's stored energy, so no new term is needed.** `PowerExact` sums
+   `MachineSet.ChargeOf` over every row, and `Add`, `Remove` and `Restore` count it as `entering` and
+   `leaving`. If `ChargeOf` reads a vault's own charge, then:
+   - a bill paid from it is still `held`;
+   - a recharge or a return is a transfer inside `stored`;
+   - a pick, Ctrl+Z and a reopen count it as they count a cell's charge.
+
+   TODO said IM-3b needs a `PowerExact` term. It doesn't.
+4. **One write drops everything but the contents.** `MoveAtPick` writes a fresh `VaultContents()` onto the
+   picked vault (`MachineSet.Vaults.cs:391`). With an own charge in the codec, that write would take the
+   charge out of the books with no term, and the identity would go red at the next check. It is the only
+   such write (grep); every other write decodes, changes and writes back.
+5. **The pool's spare includes the cells.** `_available` is this boundary's sun plus every enabled cell's
+   charge, and what is left after the consumers and the pack is written back. So "recharges from the
+   channel's spare" can mean the pool's remainder, cells included, or the sun's surplus alone. It only
+   matters after the channel has recovered. Sun only would leave a vault that spent its minute at night
+   empty until morning, even beside a full cell.
+
+**Decisions.**
+
+1. **The knob: `ownChargeSeconds`**, whole seconds of the vault's bill. It is 60 when absent, 1–3,600 on a
+   vault with a channel, and refused on a crate, which has no bill. Zero is refused because decision 5's
+   rule needs a charge that can be full or not. The five grade files ship 60 (IM-6). It is called a
+   charge, the code's word for stored energy, and never a reserve, so nobody reads it as must-not-ship 1's
+   floor. The bank never refuses a spend for it.
+   *Cost:* no vault can have no grace at all; the least is one second, two boundaries.
+2. **◆ A minute of its bill as it stands, not its bill when full** (fact 2). The own charge's capacity is
+   `BillOf(its contents, ownChargeSeconds)`, the same rounded-up 128-bit formula as the bill. It is
+   recomputed at each boundary, and a charge over it goes back to the pool before the bills are paid. So
+   every vault on a dead channel holds for exactly a minute, full or nearly empty. The demo's vault
+   (120 kJ against a 1.5 kW deficit) lasts about 80 s, then its fuse, and goes about a minute and a half into
+   the storm (arithmetic). An empty vault has a capacity of 0 and holds no charge.
+   *Cost:*
+   - Each deposit raises the capacity, and the next spare fills it, so a deposit into a store on a broke
+     channel has less than a minute's grace.
+   - A withdrawal gives joules back to the pool at the next boundary.
+
+   *The other arm, as taken:* a fixed capacity, a minute of the full bill (low 150 kJ, medium 600 kJ, high
+   2.4 MJ, mythical 9.6 MJ, god 38.4 MJ). It is simpler: nothing moves back. But its grace scales with how
+   empty the vault is, and 55's storm beat needs a vault at least a third full to fire (2.4 MJ spent within
+   three minutes needs a 13 kW deficit).
+   *Revisit:* his play of the storm, or he wants a nearly empty vault to be safe.
+3. **Where it lives.** An int64 in the codec's version 1, after the fuse, with no version bump: no vault's
+   bytes have been saved (no vault ships before IM-6, and none is in `mods/`).
+   - `ChargeOf` reads it, so the identity needs no new term (fact 3).
+   - `MoveAtPick` keeps it (fact 4).
+   - A wreck keeps it and never bills or recharges. It leaves with the row, in IM-5.
+   - A picked vault's charge leaves with the row, as a cell's does, and Ctrl+Z brings it back.
+   - The window never draws on it: the bank is the enabled cells.
+   - Restore clamps nothing; the next boundary returns any excess (2).
+   - An unreadable codec reads as no charge, as it reads as no contents.
+4. **Who pays: the pool as far as it goes, then the vault's own charge for the rest, all or nothing.** This
+   stays in fill order and before any consumer (decision 9), so in a shortage the first-filled vaults take
+   the pool and the later ones spend their own minute. A consumer never drinks the pool while a vault is
+   spending its own charge. A bill is unpaid only when the pool and the own charge together fall short of
+   it, which is "both empty" to within one boundary's bill. The fuse's lean reads the shortfall past both.
+   `held` stays one term, and `of which own` is printed beside it.
+   *The other arm:* the own charge first, then the pool. It lets pumps drink the pool while vaults burn
+   their minute.
+5. **◆ The fuse (fact 1): a paid boundary pauses a lit fuse, and only a full own charge puts it out.** The
+   fuse lights when the vault's minute is spent. It burns on each boundary the bill goes unpaid and waits on
+   each one it is paid. It goes out when the spare has refilled the vault's minute. This makes the fuse
+   follow the channel's average, not its best boundary (arithmetic, under 2):
+   - at 50% of the bill the minute lasts two minutes, then the fuse burns every other boundary and the
+     vault goes 20–35 s later;
+   - at 95% the minute lasts twenty minutes, then the fuse burns one boundary in twenty, and the vault goes
+     3–7 minutes later;
+   - at 100% it never lights;
+   - a solvent channel with a little spare pauses it at once and puts it out once the minute is back.
+
+   "Recoverable slowly" (12) holds, and the HUD's `LOSING CONTAINMENT — 14 s` counts unpaid time. This
+   amends decision 28's *"a boundary that pays in full disarms it"* and IM-3's pass decisions 7 and 11.
+   *Cost:* a fuse that is paused but not out still reads `FUSE`, so the panel says `FUSE 12 s (paused)`.
+   *The other arms:*
+   - Keep 28 as built. Any channel paying a twentieth of the bill holds a vault for ever, and 12's storm
+     never happens.
+   - Burn through once lit. Nothing but refilling the whole minute within 10–20 s saves it; a high vault
+     would need about 240 kW of spare.
+
+   *Revisit:* a play where a fuse that pauses reads as a bug.
+6. **The recharge: after the consumers, before the lead-acid pack and the write-back, from what the pool
+   has left, cells included** (fact 5). It goes in fill order, each vault to its capacity, with no rate
+   cap. Every vault with a channel is charged except a dumping one, a wreck and an unreadable one; one
+   switched off is charged too (it keeps paying, 27). The pack still draws last.
+   *Cost:* a vault takes its minute from the bank at the first boundary after a deposit: 2.4 MJ for a full
+   high vault and 38 MJ for a full god one, against a 5 GJ cell or the kit's 1 GJ. IM-6's runway should
+   count the recharge and the return as transfers, not outflow, or a full god vault's first boundary puts
+   38 MJ into the 10 s average: 3.8 MW of outflow for ten seconds.
+7. **What shows, now:**
+   - IM-3's panel line gains `own 118 kJ of 120 kJ` and `(paused)` on a waiting fuse.
+   - The `vaults` log line gains the own charge summed, and `held … of which own …`.
+   - The `M10:` power line prints nothing new: the own charge is inside `stored`.
+
+   IM-6's stock section shows the same.
+
+**IM-3b's tests.**
+- The codec round-trips the own charge; the loader's default, bounds, zero refused and crate refused.
+- The capacity is `BillOf` for 60 s, exact for a full low vault (150 kJ) and a full high one (2.4 MJ).
+- The pool pays as far as it goes and the own charge the rest; unpaid only past both; `held` covers both.
+- A consumer on the channel is paid before the recharge; the pack after it; the write-back gets the rest.
+- A full vault, full own charge, no power: paid for 120 boundaries, then the fuse, then the dump.
+- **The hole closed:** fact 1's table re-run as a test. At 5, 10, 50 and 95% the vault dumps, later the higher
+  the share; at 100% it never lights.
+- A paused fuse holds its milliseconds, and the spare refilling the minute puts it out.
+- A withdrawal lowers the capacity, and the next boundary returns the excess to the cells.
+- A pick keeps the books with a charged vault; Ctrl+Z brings its charge back.
+- A wreck and a dumping vault are never charged.
+- The window never draws the own charge.
+- `PowerExact` and `StoreExact` exact over a thousand random operations with charged vaults among them.
+
+**Mutations:**
+- a paid boundary puts the fuse out (red on the hole);
+- the own charge pays before the pool (red on the consumer's test);
+- the recharge before the consumers (red on the same);
+- `MoveAtPick` writing a fresh `VaultContents` (red on `PowerExact`);
+- no return of the excess (red on the withdrawal);
+- `ChargeOf` blind to vaults (red on the identity).
+
+*Estimate:* half a session, about fifteen tests. **The riskiest part is 5**, because it changes a rule IM-3's
+tests pin, and they must be re-read, not just re-greened.
+
+**Taken with it, to propagate:**
+- decision 12's sequence (the vaults' minutes drain first, then the fuses light);
+- 28's disarm;
+- IM-3's pass decisions 7 and 11;
+- 55's timings;
+- the storm oracle in IM-6's row ("own charge, then fuse, then dump");
+- TODO's "a `PowerExact` term".
 
 ## Must not ship
 

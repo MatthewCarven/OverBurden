@@ -18,12 +18,13 @@ his word — and this file points at it rather than repeating it.
       measured (the quarry takes the 2 m bite, his word). **IM-1 is built** (the plan, "IM-1 — built";
       suite 2,076, twelve mutations red, the r6 control to the digit). **IM-2 is built** (the plan,
       "IM-2 — built"; the backpack is a window, pumps are paid by priority; suite 2,088). **IM-3 is
-      built** (the plan, "IM-3 — built"; the vault and the crate; suite 2,127, twelve mutations red).
-      **Owed first next session:** the r6 control on the IM-3 build (game closed; `2601 / 325 / 3446 at
-      411`). **Then IM-3b**, taken 2026-09-29: **the vault's own energy**, one minute
-      of its full bill as a per-grade knob; it pays when the channel can't, recharges from the spare,
-      and the fuse lights only when both are empty. It needs a codec field (no version bump: nothing
-      saved before IM-6) and a `PowerExact` term. **Into IM-6's panel:** his warranty line on the
+      built** (the plan, "IM-3 — built"; the vault and the crate; suite 2,127, twelve mutations red;
+      its r6 control read to the digit). **IM-3b's pass is written, seven decisions wait on his word**
+      (the plan, "IM-3b — the code-level pass"). Its two findings: IM-3's fuse is put out by any cell
+      (a channel paying 5% of a vault's bill holds it for ever, measured), and a minute of the *full*
+      bill gives the demo's vault 27 minutes. The own charge needs no `PowerExact` term (`ChargeOf`
+      carries it). **On his word: build IM-3b** in the pass's split, then propagate its six
+      amendments (the pass's last paragraph). **Into IM-6's panel:** his warranty line on the
       vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;
       files stay in watts). Then IM-4 (water's doors). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his
       say-so, it takes his focus); a bite under a lake (IM-7's bench); a dump underground (IM-5's).

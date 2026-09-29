@@ -22,6 +22,16 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
+- [ ] **IM-3b's seven decisions** (the vault's own energy) — the plan's "IM-3b — the code-level pass".
+      Two change what you took, so they want your word:
+      - **A minute of the vault's bill as it stands** (recommended), rather than a minute of its bill
+        when full. As taken, a vault a twentieth full gets twenty minutes, and the demo's storm vault
+        (500 m³ in a high vault) would hold about 27 minutes, through every storm.
+      - **The fuse: a paid boundary pauses it, and only the vault's minute refilled puts it out**
+        (recommended). As built, any cell lets a channel paying 5% of a vault's bill hold it for ever
+        (I measured it), so a storm never lets a vault go.
+
+      "As recommended" takes all seven.
 - [ ] **The pond branch's verdict.** `water-column-test` has the raised watershed and your water
       grid built (walls you place raise the lake's rim; the lake reaches under what you build).
       To play it: `git checkout water-column-test`, `start.cmd "--world=Regions16"` (or a copy),
