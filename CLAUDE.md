@@ -214,8 +214,7 @@ relay pump has a `priority` port (0–9 at 5), and consumers are paid by priorit
 seed the backpack until IM-6; `--pack=overburden:quantum_backpack` wears one. **IM-3 is built** (the plan,
 "IM-3 — built"; suite 2,127): the vault and the crate, the store and its doors, the pick that asks first and
 moves at `Taken`, wrecks, the bill and the fuse, `UndoOutcome.VaultHolds`. **Next session, first:** the r6
-control on the IM-3 build (it was closed early), and the worktree `.claude/worktrees/im3` removed if still
-there. **Then IM-3b, the vault's own energy** (his, 2026-09-29: one minute of its full bill, a per-grade knob;
+control on the IM-3 build (it was closed early). **Then IM-3b, the vault's own energy** (his, 2026-09-29: one minute of its full bill, a per-grade knob;
 TODO has the shape), **then IM-4.** IM-6's panel owes his warranty line, a lock on the channel box, and
 power auto-scaled on screen.
 

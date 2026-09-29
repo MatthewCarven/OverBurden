@@ -20,8 +20,7 @@ his word — and this file points at it rather than repeating it.
       "IM-2 — built"; the backpack is a window, pumps are paid by priority; suite 2,088). **IM-3 is
       built** (the plan, "IM-3 — built"; the vault and the crate; suite 2,127, twelve mutations red).
       **Owed first next session:** the r6 control on the IM-3 build (game closed; `2601 / 325 / 3446 at
-      411`), and remove the worktree `.claude/worktrees/im3` if `git worktree remove` failed at the
-      close (see the worklog). **Then IM-3b**, taken 2026-09-29: **the vault's own energy**, one minute
+      411`). **Then IM-3b**, taken 2026-09-29: **the vault's own energy**, one minute
       of its full bill as a per-grade knob; it pays when the channel can't, recharges from the spare,
       and the fuse lights only when both are empty. It needs a codec field (no version bump: nothing
       saved before IM-6) and a `PowerExact` term. **Into IM-6's panel:** his warranty line on the
