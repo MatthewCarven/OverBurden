@@ -15,8 +15,8 @@ What the build found:
 - `VolumetricInventory.Reset` goes through `Add`, so one refusal covers the world file's restore too:
   ten doors, not nine.
 
-**He closed the session here** (*"see you in a fresh Code Chat"*), so the mutation battery and the r6 control
-on this build are owed first next session, in TODO.
+**He closed the session here** (*"see you in a fresh Code Chat"*). The r6 control after the merge read
+`2601 / 325 / 3446 at 411`, 0 `ERROR`. The mutation battery is owed first next session, in TODO.
 
 ## 2026-09-30 — IM-4's code-level pass: twelve decisions handed back, and the lake fill held
 

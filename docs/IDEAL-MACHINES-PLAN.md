@@ -1498,8 +1498,8 @@ Ten facts, then twelve decisions. **Nothing is built; the twelve wait on his wor
 ## IM-4a — built (2026-09-30)
 
 Built in a worktree, then merged. **Suite 2,157** (+17 in `SiphonTests`, plus the four guards in `FluidJobTests`),
-green first time but for one fixture that overfilled the bowl. **Closed early at his word; owed next session:
-the mutation battery and the r6 control** (TODO lists both).
+green first time but for one fixture that overfilled the bowl. **Closed early at his word.** The r6 control after the merge
+read `2601 / 325 / 3446 at 411`, 0 `ERROR`. **Owed next session: the mutation battery** (TODO lists it).
 
 What it is:
 - **`Siphon`** (`Overburden.Core/Machines/Siphon.cs`):

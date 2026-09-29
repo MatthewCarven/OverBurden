@@ -22,8 +22,9 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
-- [ ] **IM-4's twelve decisions** (the siphon, the vault taking a pump's water, and placing in a lake) —
-      the plan's "IM-4 — the code-level pass". Two want your eye:
+- [x] **IM-4's twelve decisions** — *"As recommended please Claude, build IM-4a"*. **IM-4a is built**:
+      the siphon, underneath. Nothing you play changes yet, because the siphon arrives on T in IM-6. Next:
+      IM-4b (a vault taking a pump's water), then IM-4c (placing in a lake, priced). What you took:
       - **Placing in a lake** (you took "delete"; I held it before building). A free delete turns
         fill-then-dig into a lake drain: the excavator deletes 512,000 L for about 3.3 MJ, 150 times
         cheaper than a pump. **Recommended: the block still deletes the water, but pays the siphon's
@@ -33,7 +34,6 @@ care about. I keep it current at the end of each session.
       - **The siphon in your three sizes** (1 m, 2 m, 8 m) is three tools on T, so T has eight stops.
         The other option is one siphon whose size B changes.
 
-      "As recommended" takes all twelve, and I'll build IM-4a (the siphon itself, underneath) first.
 - [ ] **The pond branch's verdict.** `water-column-test` has the raised watershed and your water
       grid built (walls you place raise the lake's rim; the lake reaches under what you build).
       To play it: `git checkout water-column-test`, `start.cmd "--world=Regions16"` (or a copy),

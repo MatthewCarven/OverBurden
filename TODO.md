@@ -28,7 +28,7 @@ his word — and this file points at it rather than repeating it.
       drain it would open). **All twelve taken 2026-09-30; IM-4a is built** (the plan, "IM-4a — built";
       suite 2,157). **Owed first:** its mutation battery (the pass lists them: the siphon through `Add`, a
       take with no room check, the pocket's refusal removed, `Cover` skipped; add: the sort rule, a guard,
-      the identity's terms) and the r6 control. **Then IM-4b** (the vault in the ring; its pump door must
+      the identity's terms); its r6 control read to the digit. **Then IM-4b** (the vault in the ring; its pump door must
       not be `DepositWater`), **then IM-4c** (the lake fill, priced). **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
       runway counting the recharge and the return as transfers. **Into IM-6's panel:** his warranty line on the
       vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;
@@ -125,8 +125,6 @@ his word — and this file points at it rather than repeating it.
 
 ## Owed checks
 
-- [ ] **The r6 control on the IM-4a build** (`2601 / 325 / 3446 at 411`), with the game closed. The one
-      on `3db5e60` read to the digit.
 
 - [ ] **Re-judge `start.cmd`'s `--lightbudget=16` on a play** — it answered a 1.4 ms unoptimised
       derive that is ~0.36 ms since the JIT optimiser (2026-09-15); and re-take the Debug bench
