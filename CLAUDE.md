@@ -215,8 +215,10 @@ and hold a short code-level pass if anything doesn't fit, as IM-1's did.
 **Buildable alongside: collapse part f, slice f-1** (Core and tests), thirteen decisions taken
 ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part f"). The ideal-machines plan's three amendments there are
 taken too; none changes f-1. **IM-1 landed first** (its pass's decision 1, taken), so f-1 gives its two
-readers `"extras": { "sense": {} }` beside `onsignal` and switches `Sense` on in `MachineExtras.Served`. Build in a worktree if he is playing, because `start.cmd` builds whatever the main
-folder holds.
+readers `"extras": { "sense": {} }` beside `onsignal` and switches `Sense` on in `MachineExtras.Served`.
+**Build in a worktree if he is playing or may start**, because `start.cmd` builds whatever the main folder
+holds, half-edited or not. On 2026-09-29 he launched mid-IM-1 and his build caught the tree before the loader
+change, harmlessly; a tree that compiled halfway through a change would have put half of it in his hands.
 
 **TajMahal is retired** (2026-09-29, his word: *"I borked the supports so want to restart"*): moved to
 `retired-TajMahal-2026-09-29`. **His fresh one is `TajMahal2`** (renamed the same night at his ask, *"so when
