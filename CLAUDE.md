@@ -48,7 +48,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | Elements, and why not "just implement chemistry": geology that reacts to water, machine recipes as the chemistry set. |
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | Ores, layers, trees, permeability — his thinking-ahead. Not scheduled; its three questions are his. |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written and taken as recommended (2026-09-28)**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a (rest) comes before any body. **Part a is parked (2026-09-29)**: the pool rests with the near/far order off, but every cheap fix under the order failed the load test; a carry with O(1) removal is the open piece. `--bodyprobe=` and `--rest` measure it. |
-| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md) | **The ideal machines: the brief for the next planning pass (2026-09-29).** His words and three answers (all six extras; inheritance in JSON; the creative-mode demo first), the extras rule, the container ladder with the quantum vault's dump, grades, and automated mining deferred. Run as the design panel; the plan becomes `docs/IDEAL-MACHINES-PLAN.md`. |
+| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, ten forks with him.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). |
 
 ## Non-negotiables
 
@@ -190,18 +190,25 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 ## Where things stand
 
-**2026-09-29, evening — the session closed here for a fresh chat.** Suite **1,999**; the r6 control to
-the digit. Unpushed commits are his to push; `git fetch` then `git log origin/main..main` lists them.
+**2026-09-29, night — the ideal machines pass is done and handed back.** Suite **1,999** (docs only this
+session; no code changed); the r6 control to the digit as of the evening. Unpushed commits are his to push;
+`git fetch` then `git log origin/main..main` lists them.
 
-**Next: the ideal machines planning pass**, in a fresh chat, from
-[docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md): his words, his three answers (all six
-extras; inheritance declared in JSON; the creative-mode demo first), the recommendations he agreed to,
-the scope, and the panel method. **First, ask for the data he said he would submit.** Run it as the design
-panel, write `docs/IDEAL-MACHINES-PLAN.md`, and end at the pass with the decisions handed back.
+**Waiting on him: the ideal machines' ten forks**, [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md),
+"The forks worth your eye". Sixty-one decisions from a five-reader, four-designer, three-judge panel plus a
+critic. The shape: a channel is an account (one bank, one store); the quantum backpack is a window that holds
+nothing; a vault bills for what it holds, and an unpaid bill fuses it (10–20 s, cyan) and dumps it; a storm is
+when vaults let go; the quarry is a machine with a shared budget, only where you are; water is an inventory
+item through the siphon; creative is a header byte and a kit. **Nothing of it needs his word to start IM-0**
+(measurements on the fixed build, no code).
 
-**Ready to build in parallel: collapse part f, slice f-1** (Core and tests): thirteen decisions taken
-([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part f"). Build it in a worktree if he is playing,
-because `start.cmd` builds whatever the main folder holds.
+**Ready to build now, neither waiting on him:**
+- **IM-0b, a live undo bug:** a machine a fall destroys comes back free after Ctrl+Z and a re-arrival (the
+  drain's destroy branch is journalled, and the reconcile rebuilds an all-air body). Recording off for that
+  branch only.
+- **Collapse part f, slice f-1** (Core and tests): thirteen decisions taken ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md),
+  "Part f"). The ideal-machines plan proposes three small amendments there, none changing f-1. Build in a
+  worktree if he is playing, because `start.cmd` builds whatever the main folder holds.
 
 - **Water bodies part a is parked** ([docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md), "c-3,
   run"). His pool rests with the near/far order off (2% awake at 900 s), but every cheap fix under the

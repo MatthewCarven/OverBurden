@@ -22,6 +22,11 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
+- [ ] **The ideal machines: ten forks.** The plan is written:
+      [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md). Read its "The forks worth your eye",
+      one short paragraph each. "As recommended" takes all ten and the other fifty-one decisions, or send
+      back any one by its number. The one I'd most like your eye on is **12, the storm**: a broke
+      channel only stalls while the sun pays the vaults, and it's a storm that makes them let go.
 - [ ] **The pond branch's verdict.** `water-column-test` has the raised watershed and your water
       grid built (walls you place raise the lake's rim; the lake reaches under what you build).
       To play it: `git checkout water-column-test`, `start.cmd "--world=Regions16"` (or a copy),
@@ -171,6 +176,11 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Answered lately
 
+- **The ideal machines, during the pass** (2026-09-29): *"One pool please Claude you should be able to
+  bankrupt yourself energy wise at the last tech"*; automated quarries and materials in; *"happy to have
+  water as an inventory item"* through a tool or machine at the last tech; the quarry only where chunks
+  are loaded, *"for OH&S reasons"* and so players can't lag a server; a per-player machine cap as a
+  trigger only; each player their own channels on servers (in TODO, its own pass).
 - **The collapse sensor's thirteen decisions** (2026-09-29): *"as recommended please Claude"*.
 - **The fuse** (2026-09-27): *"ideally the time would be from 10-20 seconds but randomly"* — arm 2
   is built: 10–20 s, and the more overloaded the rock, the more it leans toward 10 (a gutted roof
@@ -199,11 +209,13 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-09-29, evening**. Two commits to push: the sensor's decisions taken, and the session's close with the ideal machines brief.
+Updated **2026-09-29, night**. Commits to push: `git fetch`, then `git log origin/main..main` lists them.
 
-- **Next session: the ideal machines plan.** Your answers are written up in
-  [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md). **Bring the data you mentioned**, and
-  I'll fold it in before designing.
+- **The ideal machines plan is written**, [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md): the
+  bank, the vault and its dump, water in the inventory, the quarry, the six extras, and a creative mode
+  with a kit. Ten forks are yours (above). The first step, IM-0, is measurements only and can run now.
+- **A live undo bug turned up**: a machine a fall destroys can come back free after Ctrl+Z and a walk
+  away and back. The fix is small (the plan's IM-0b) and waits on nothing.
 - **The collapse sensor:** all thirteen decisions taken, the first build step is ready.
 - **The Tetris collapse** is the default, with the cyan glitch, your phonk and a 10–20 s fuse. Your
   ear on the phonk is still owed.

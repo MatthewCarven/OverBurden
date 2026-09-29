@@ -1,5 +1,37 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 (night) — The ideal machines: the planning pass, run as a panel
+
+*"IDEAL-MACHINES-BRIEF.md please Claude … Lets design"*. His data arrived first: *"a handover crossover
+… between your mobile batter and quantum storage … same with quantum backpacks and quantum storage
+containers about the same size as the current machine blocks"*. Six more taken during the pass, all in
+the brief verbatim: **one pool** (*"you should be able to bankrupt yourself energy wise at the last
+tech"*); the scope; **automated quarries**; **materials**; **water in the inventory** at the last tech
+through a tool or machine made for it; **the quarry only where chunks are loaded** (*"OH&S reasons"*, and
+for servers), with a per-player machine cap as a trigger only; and **each player their own channels on
+servers**, which went into TODO's new multiplayer section.
+
+The panel: five readers, four designers (engine cost, gameplay, mod format, physical plausibility), three
+judges (Core, CPU, gameplay). The engine design won two lenses and the gameplay design one. Two findings
+worth keeping beyond this plan:
+- **A live bug in the shipped game.** The machine drain's destroy branch is journalled (`Main.cs:4465`)
+  and the reconcile rebuilds an all-air body from its row (`MachineSet.cs:446-457`), so a pump destroyed
+  by a fall, then Ctrl+Z, then its chunk arriving, comes back free. The plan's IM-0b fixes it.
+- **Under one pool, collapse f-1's cell reader starves a vault.** A signalled-off cell unpays the vault's
+  bill and it dumps: decision 10's rejected flood by another road. Three of four designs missed it; the fix
+  is to pay the hold before signal overrides.
+
+I wrote the synthesis myself as the plan, then ran a completeness critic on it. **It found ten must-fix
+defects**: the demo's climax could not fire (the sun paid a part-full vault's bill), three figures were
+7–10× out, the Tier B ceiling was per vault with vaults unlimited, two reconcile branches removed full
+vaults, the backpack's JSON was unpinned (so it would have been two pools), the hand valve reopened
+decision 10 on a misread quote, the hold had no `PowerExact` term. All fixed in the plan. One change of
+substance came out of it: **a broke channel only stalls while the sun covers the bills; a storm is when
+vaults let go.** That is decision 12, and his to like or not.
+
+**[docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md)**: sixty-one decisions, ten forks, a split of
+IM-0 (measurements, no code), IM-0b (the live bug), and IM-1 to IM-10. Handed back.
+
 ## 2026-09-29 (evening) — The ideal machines chat, and the session closed for a fresh one
 
 *"lets have that ideal machine tier chat now … a few "extras" that the previous tier may or may not

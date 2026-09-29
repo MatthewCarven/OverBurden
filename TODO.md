@@ -13,9 +13,14 @@ his word — and this file points at it rather than repeating it.
 
 ## Next, on my side
 
-- [ ] **The ideal machines planning pass — next session, fresh chat.** From
-      [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md): ask for his data first, run the
-      design panel, write `docs/IDEAL-MACHINES-PLAN.md`, hand the decisions back.
+- [ ] **A live undo bug: a machine destroyed by a fall comes back free.** The drain's destroy branch
+      is journalled (`Main.cs:4465`), and the reconcile rebuilds an all-air body from a re-added row
+      (`MachineSet.cs:446-457`): fall, Ctrl+Z, walk away and back, and the pump stands again. The fix
+      is recording off for the destroy branch only (a pick's dismantle stays undoable). It is the
+      ideal-machines plan's IM-0b, and needs none of the rest of that plan.
+- [ ] **The ideal machines — the plan is written, sixty-one decisions and ten forks with him**
+      ([docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md)). On his word: IM-0 (measurements on
+      the fixed build, no code), then IM-1 onward. IM-0 needs nothing from him and can run now.
 - [ ] **The lake over a quarry — built 2026-09-27, his look owed.** The plane draws no sheet over
       a pit that is not yet full ([docs/M8-PLAN.md](docs/M8-PLAN.md), "built"). Open: his eye on
       TajMahal; the named lever if the rim reads badly is clipping the quad against the seed.
@@ -80,6 +85,8 @@ his word — and this file points at it rather than repeating it.
 
 ## Waiting on his word — the detail is in MATTHEW-TODO
 
+- [ ] **The ideal machines' ten forks** ([docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md),
+      "The forks worth your eye"); "as recommended" takes the other fifty-one decisions.
 - [ ] **The pond branch**: merge or retire `water-column-test` (the raised watershed and his water
       grid, [docs/POND-PLAN.md](docs/POND-PLAN.md), built there, not on main).
 - [ ] **M10d-2, the play** — the seven recipes in the ladder plan's "M10d — the planning pass".
@@ -164,6 +171,22 @@ Each waits on its trigger; the history has the measurement behind each (grep it 
   line).
 - **The seed after the banner fades** — no pause screen or world listing shows it. Trigger: the
   first time he wants the seed of a world he is standing in.
+
+### Multiplayer / servers — its own full planning pass
+
+Not scheduled; *"It will get a full planning pass too"* (2026-09-29). What it starts from:
+
+- [ ] **Each player gets their own channels.** Today channels 0–15 are per world, so on a server a
+      second player on channel 0 would spend your bank and fill your vault (found by the
+      ideal-machines panel's gameplay judge, 2026-09-29). His word: *"give each player their own
+      channels on servers"*. Deliberate sharing ("someone else's mine", M10-NOTES) is the pass's to
+      design on top.
+- [ ] **Machines work only inside the players' loaded boxes** (ideal-machines taken 9): *"it prevents
+      players lagging out the server by placing a machine in every chunk of it."* Keep-loaded stays
+      rejected.
+- [ ] **A per-player machine cap is a revisit trigger, not built**: rows still tick unloaded for
+      their row-local terms (about 0.02 ms per 500 dry rows, Release bench). It fires when the row
+      tick alone passes 1 ms on a server, the same line as the machine cap above.
 
 ### M11 — v1.0
 

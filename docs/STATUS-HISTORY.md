@@ -13,6 +13,21 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md on 2026-09-29, night** (the evening hand-over, superseded by the ideal machines pass):
+
+**2026-09-29, evening — the session closed here for a fresh chat.** Suite **1,999**; the r6 control to
+the digit. Unpushed commits are his to push; `git fetch` then `git log origin/main..main` lists them.
+
+**Next: the ideal machines planning pass**, in a fresh chat, from
+[docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md): his words, his three answers (all six
+extras; inheritance declared in JSON; the creative-mode demo first), the recommendations he agreed to,
+the scope, and the panel method. **First, ask for the data he said he would submit.** Run it as the design
+panel, write `docs/IDEAL-MACHINES-PLAN.md`, and end at the pass with the decisions handed back.
+
+**Ready to build in parallel: collapse part f, slice f-1** (Core and tests): thirteen decisions taken
+([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part f"). Build it in a worktree if he is playing,
+because `start.cmd` builds whatever the main folder holds.
+
 **Moved from CLAUDE.md on 2026-09-29** (the 2026-09-29 morning hand-over, as it stood at the evening close):
 
 **2026-09-29, early.** Suite **1,999**; the r6 control to the digit. Unpushed commits are his to push;
