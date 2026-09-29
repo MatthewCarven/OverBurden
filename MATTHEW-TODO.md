@@ -117,6 +117,10 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 Nothing is blocked on these; each is a small change once you have a view.
 
+- [ ] **A minute of your screen, whenever suits.** The last IM-0 measurement (what drawing a big flood's
+      surface costs) only shows in a windowed run, which takes over the screen for about a minute. Say
+      "run the windowed one" when you're not playing.
+
 - [ ] **The collapse: pieces that jump — I gave you the wrong size.** You said "leave it" when I
       said "at most a metre". On a copy of your tower, one piece jumped 4.5 m (about 20 pieces in
       800 jumped at all). Watch for it when you play: if you see a piece hop up, say "fix it" —

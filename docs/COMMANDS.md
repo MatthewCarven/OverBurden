@@ -380,6 +380,15 @@ settled` rather than `first draw`**: inside a mined-out void every mesh is corre
 `first draw` never fires and the report reads as a stall. The world file is SQLite; count
 `chunks` rows and their `length(blob)` (uniform ≈ 52–63 B) before deciding what a run measured.
 
+**A profile never restores the saved position** (`Main.cs`, the spawn: *"never during a profile, where
+the spawn is a measurement input"*), so a played world under `--profile` stands at the scene's spawn
+unless `--at=` names a spot. To measure a world where its player stood, run it played-style instead:
+`--world=<copy>` with `start.cmd`'s four flags and `--quit-after`, reading the periodic `M10:` line's
+`tick:` mean and max and the `M8b:` line's `boundary worst` (IM-0, 2026-09-29). **Headless runs at about
+130 frames a second there, so 5,400 frames is about 40 s**, 70–80 boundaries. And **a `--mine` flythrough
+leaves `--fillbasin`'s basin behind**: IM-0's "wet" bite arms read no fluid field at all, so a bite
+under a lake needs a fixture that stands in it.
+
 Verify headlessly — no display needed, catches scene and script errors and prints the
 diagnostics:
 

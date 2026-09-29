@@ -1,5 +1,15 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 (close) — the panel's papers kept, and the session handed to a fresh chat
+
+*"Please commit anything you please to memory and/or markdown files along with anything we need
+saved"*. The panel's working papers were only in the session's scratchpad, and the plan cites them by
+name, so they are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/):
+the briefs, the five reader maps, the four designs, the three verdicts, the critic's review, and IM-0's
+batch script. They are snapshots at `71e6eed`, and the README says the plan won wherever they disagree.
+COMMANDS.md gained IM-0's two recipe facts: a profile never restores the saved position, and a
+flythrough leaves a basin behind. **Next, in a fresh chat: IM-1** (CLAUDE.md, "Where things stand").
+
 ## 2026-09-29 (night) — IM-0: the measurements on the fixed build, and the quarry's 2 m bite
 
 *"start on IM-0 please Claude"*, with his note that TajMahal has no active machines, so the machine

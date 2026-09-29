@@ -48,7 +48,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | Elements, and why not "just implement chemistry": geology that reacts to water, machine recipes as the chemistry set. |
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | Ores, layers, trees, permeability — his thinking-ahead. Not scheduled; its three questions are his. |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written and taken as recommended (2026-09-28)**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a (rest) comes before any body. **Part a is parked (2026-09-29)**: the pool rests with the near/far order off, but every cheap fix under the order failed the load test; a carry with O(1) removal is the open piece. `--bodyprobe=` and `--rest` measure it. |
-| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b, IM-0, then IM-1.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). |
+| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b, IM-0, then IM-1.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
 
 ## Non-negotiables
 
@@ -202,7 +202,11 @@ machine with a shared budget, only where you are; water is an inventory item thr
 header byte and a kit. **IM-0b is built** (the drain's world-side writes unjournalled, so Ctrl+Z no longer
 mints machines; UNDO-PLAN's last section). **IM-0 is measured** (the plan's "IM-0 — measured"): `machines`
 0.63–0.88 ms mean on 127 and 209 rows; the 2 m bite 0.42–0.53 ms, and he took it for the quarry; Tier B
-insertion 0.5–1.1 µs a cell, a 10 ML pour carried at 2 Hz. **Next: IM-1** (the strict loader and the extras).
+insertion 0.5–1.1 µs a cell, a 10 ML pour carried at 2 Hz. **Next, in a fresh chat: IM-1** (the strict
+loader and the extras; Core and tests). Start from the plan's decisions 1–6 and the IM-1 row of its split,
+then `docs/panel/ideal-machines-2026-09-29/readers/A-engine.md` §2 (the loader, every key it accepts) and
+§1.7 (the twenty `MachineKind` sites). If anything in decisions 1–6 doesn't fit the code, hold a short
+code-level pass first, as the collapse's parts did.
 
 **Buildable alongside: collapse part f, slice f-1** (Core and tests), thirteen decisions taken
 ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part f"). The ideal-machines plan's three amendments there are

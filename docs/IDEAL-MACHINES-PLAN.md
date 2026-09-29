@@ -19,6 +19,10 @@ measured" below), and he took the 2 m quarry bite. IM-1 is next.
   Matthew;
 - the synthesis (this plan) went to a completeness critic, whose ten must-fix findings are folded in.
 
+The panel's papers (the briefs, the five reader maps, the four designs, the three verdicts and the
+critique) are kept as dated snapshots in [panel/ideal-machines-2026-09-29/](panel/ideal-machines-2026-09-29/).
+The reader maps are the place to start when building a slice.
+
 The engine design won two lenses and the gameplay design the third. This plan is the engine design's
 structure with the gameplay design's loop, plus a graft from each of the other two where a judge showed
 it was better. Every figure says where it came from; **most are estimates**, and the ones the plan leans
@@ -627,7 +631,9 @@ slice is IM-5**: four destinations, owed amounts across unload, the undo and a c
 On the fixed build, headless, the r6 control first (`2601 / 325 / 3446 at 411`, to the digit, 0 `ERROR`).
 Every arm ran twice, alternated; the rounds agree to within a few percent (the fluid arms to the visit),
 so the machine's two speeds did not move them. 0 `ERROR` in all 22 runs. Played worlds ran on fresh
-copies, deleted after. The script and every output are in the session's scratchpad (`im0/`).
+copies, deleted after. The batch script and its readers are kept in
+[panel/ideal-machines-2026-09-29/im0/](panel/ideal-machines-2026-09-29/im0/); the outputs were not kept,
+and the tables below are what they said.
 
 **The machine bracket, on his retired machine worlds** (played-style, `start.cmd`'s four flags, 5,400
 frames, about 70–80 boundaries each; he has no machines in TajMahal):
