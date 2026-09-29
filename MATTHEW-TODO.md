@@ -27,6 +27,9 @@ care about. I keep it current at the end of each session.
       To play it: `git checkout water-column-test`, `start.cmd "--world=Regions16"` (or a copy),
       R or Ctrl+R into your stone ring. *Does it fill to the wall, and does the water stay when
       the ring closes?* Then `git checkout main`. "Merge it" or "retire it" is the verdict.
+      *Speed, re-measured 2026-09-29 on the optimised build:* the branch's water costs 1.9× main
+      at your pond, not 6×, and only because the pond keeps the water main spills. With the
+      raise off it's as fast as main. So speed isn't a reason to retire it.
 - [ ] **M10d-2, the play** — the recipes below. Nothing else is blocked on me.
 
 ---

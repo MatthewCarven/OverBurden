@@ -266,3 +266,21 @@ deleted, and main's DESIGN amendment is reverted to *not built, and why*.
 ## Built
 
 *(Nothing yet.)*
+
+## Re-measured on the optimised build (2026-09-29)
+
+The 2026-09-26 comparison (the branch's tick 6× main's) ran on an unoptimised Core. Re-run with main
+merged into a scratch worktree of the branch, both DLLs checked optimised, at the pond
+(**`--at=-852,34,282`** on a copy of `Regions16`, recovered from `Regions16-pondlook`'s spawn), the play
+flags and `--profile --speed=0 --fillbasin=1000000 --measure=30 --watch`, alternated:
+
+| `--watch` mean, 65 ticks a run | runs | fluid tick | sheet solve, a pass | the pour |
+|---|---|---|---|---|
+| main | 5 | 16.7–18.9 ms | 11.1–12.2 ms | basin 342: all 1,000,000 L spilled, level 0.00 |
+| pond branch (main merged) | 3 | **32.6–34.9 ms** | 19.1–20.0 ms | basin 512: **0 L spilled, level 4.71** |
+| pond branch, `--raise=0` | 2 | 17.3–18.0 ms | 11.3–11.8 ms | basin 342: all spilled |
+
+**1.9× now, and the reason is unchanged:** the raised pond keeps the pour, and with the raise off the
+branch ticks as main. The pond's own watched cost nets about +10 ms/s (observing the box and columns
+5.3 ms/s, the grid 9.3 ms/s, the enclosure down 4.2 ms/s), plus 92 ms once at open. Speed is not an
+argument against the merge; the verdict is his look at the pond.

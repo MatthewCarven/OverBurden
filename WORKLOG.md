@@ -1,5 +1,33 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 — The pond branch re-measured on the optimised build: 1.9×, and still the water
+
+*"the water-column-test proved to be slower than the original solver didn't it?"*, then *"you might
+want to re run it given optimisation"*. The 2026-09-26 table (branch tick 6× main) was taken while
+Core was built unoptimised. Re-run in the same shape: a scratch worktree of `water-column-test` with
+today's main merged in (conflicts in `Main.cs` and `WaterSurface.cs` were keep-both; its suite 2,043
+passing; never pushed, and the worktree removed after). Both Core DLLs checked optimised
+(DebuggableAttribute 2). A fresh copy of `Regions16` each run, the play flags plus `--profile --speed=0
+--fillbasin=1000000 --measure=30 --watch`, alternated, 0 ERROR lines in all ten.
+
+**Where the pond is, recovered:** 2026-09-26 never wrote the `--at=` down. `Regions16`'s saved spawn
+pours into basin 214; `Regions16-pondlook`'s spawn, from the demolition log, is <-852, 32, 282>, and
+**`--at=-852,34,282`** is the pond: main spills there, and the branch holds (basin 512, level 4.71,
+against 515 and 4.61 on 2026-09-26).
+
+| `--watch` mean, 65 ticks a run | runs | fluid tick | sheet solve, a pass | the pour |
+|---|---|---|---|---|
+| main | 5 | 16.7–18.9 ms | 11.1–12.2 ms | basin 342: all 1,000,000 L spilled, level 0.00 |
+| pond branch (main merged) | 3 | **32.6–34.9 ms** | 19.1–20.0 ms | basin 512: **0 L spilled, level 4.71** |
+| pond branch, `--raise=0` | 2 | 17.3–18.0 ms | 11.3–11.8 ms | basin 342: all spilled |
+
+**The branch is 1.9× main now, not 6×, and it is still the water, not the code.** With the raise off it
+ticks as main does; with it on, the pond keeps the million litres main spills. Against 2026-09-26 both
+arms are faster: main's tick 33.5 → ~18 ms, the branch's 200 → ~34 ms. The pond code's own watched
+cost: observing the box and its columns 5.3 ms/s, the grid's builds and reads 9.3 ms/s, against the
+enclosure falling from 4.8 to 0.65 ms/s. That is about +10 ms/s, with 92 ms once at open. One call
+passes the plan's 5 ms bar: a cached grid read peaked at 16 ms once.
+
 ## 2026-09-29 — c-3 fails, and part a's fix search stops here
 
 *"yes build c-3 please Claude"*, and *"do not worry if we don't end up with something better than what
