@@ -199,9 +199,10 @@ arm's `--fluidnear=2`. The load test rules out turning the order off (1.2–1.3 
 and the far floor fails too. The solve counts show a loop: under the order 95% of the solve's
 levellings are far sheets levelled over and over, causing 90% of its wakes. Candidate a
 (`--solvecarry=0`) and c (`--solvefrontnear=1`) fail; c-2 (`--solvefrontnear=2`) helps a little; his
-`--solvewakeup=0` shows 99% of the solve's wakes are upward but not the loop. **Next** (plan, "Two more
-variations"): a steadier measure (order-on controls read 187–668 k awake at 900 s over six runs), then
-observe what unsettles an interior far layer between two solve passes. **A TajMahal probe needs
+`--solvewakeup=0` shows 99% of the solve's wakes are upward but not the loop. On the five-minute queued
+mean (the single probe is too noisy), **c-2 holds over two rounds**: 198 k and 236 k against controls'
+351–451 k and the order off's 80–180 k. **Next** (plan, "The second round"): c-2 on the load test, then
+tests, then his decision on making it the default. **A TajMahal probe needs
 `--at=-268,-5,1284`**: his saved spawn is nine chunk layers above the pool, which then never loads.
 - **The session's big find:** Core was built unoptimised under `start.cmd` since 2026-09-15. Fixed
   2026-09-28, the water tick is 5.5× faster (see Commands).

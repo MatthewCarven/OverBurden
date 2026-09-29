@@ -1,5 +1,30 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 — A steadier measure and a second round: c-2 holds
+
+*"maybe we re run benchmarks for a 2nd run?"* First the measure: the probe's single awake count
+read 187–668 k over six order-on controls. The periodic `queued` term averaged over each run's last
+five minutes (61 samples, 5 s apart) reads 351–451 k over the same runs. Then a second round, on
+mains, alternated (control, c-2, order off, 4th), 0 ERROR lines, pool loaded, copies deleted:
+
+| arm | runs | queued, mean over the last 5 min | worker wall mean |
+|---|---|---|---|
+| order off | 4 | 80 k, 109 k (unfed), 174 k, 180 k | 186–217 ms |
+| **c-2, `--solvefrontnear=2`** | 2 | **198 k, 236 k** | 211–224 ms |
+| candidate a, `--solvecarry=0` | 1 | 314 k | 243 ms |
+| candidate c, `--solvefrontnear=1` | 1 | 331 k | 297 ms |
+| order on, controls | 7 | 351–451 k | 285–322 ms |
+| 4th, `--solvewakeup=0` | 2 | 434 k, 444 k | 335–340 ms |
+
+**c-2 holds up in both rounds**, below all seven controls and closing about two thirds of the gap to
+the order off, at the order off's worker cost. **The 4th makes no difference, twice.** The single probe
+is noisy even with the order off (round 2 read 235 k where two earlier runs read 27 k), so rankings
+now use the five-minute mean (`tail_mean.py` in the session scratchpad; it reads `at tick N, Q queued`).
+
+**Before c-2 could be a default:** the load test (does it keep ~1.9 Hz on 3.2 M cells, when its
+reclassify walk is O(backlog) a tick?), then tests and a mutation battery. The worker wall's max
+(1.5 s once in round 1) is the walk's cost to watch.
+
 ## 2026-09-29 — Two more variations: the carried front, and settle down but not up
 
 *"nah try the 3rd variation … maybe better info"*, then *"prioritize settle down but not up … in a 4th"*.

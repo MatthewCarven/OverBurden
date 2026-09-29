@@ -325,6 +325,25 @@ six runs, so one probe cannot rank arms inside that spread. Next, recommended: (
 quantity (the queued curve's mean over the last five minutes) with repeats, and (2) option 1's
 observation, now aimed: what, sheet by sheet, unsettles an interior far layer between two passes.
 
+**The second round, on the five-minute mean (2026-09-29).** The probe's single count is too noisy; the
+`queued` term averaged over a run's last five minutes is steadier (controls 351–451 k where the probe
+read 187–668 k):
+
+| arm | runs | queued, mean over the last 5 min | worker wall mean |
+|---|---|---|---|
+| order off | 4 | 80 k, 109 k (unfed), 174 k, 180 k | 186–217 ms |
+| **c-2, `--solvefrontnear=2`** | 2 | **198 k, 236 k** | 211–224 ms |
+| candidate a, `--solvecarry=0` | 1 | 314 k | 243 ms |
+| candidate c, `--solvefrontnear=1` | 1 | 331 k | 297 ms |
+| order on, controls | 7 | 351–451 k | 285–322 ms |
+| 4th, `--solvewakeup=0` | 2 | 434 k, 444 k | 335–340 ms |
+
+**c-2 is the one variation that holds**, twice: two thirds of the way from the order on to the order
+off, at the order off's worker cost. **Next, recommended:** c-2 on the load test against the order-on
+control (the quantity is the tick rate, ~1.9 Hz there; c-2 adds an O(backlog) walk a tick), then tests
+and a battery, then his decision on making it the default. The observation of what unsettles the
+remaining third stays open.
+
 ## What would reverse this
 
 - The pool resting on its own within minutes. Then part a is unneeded and b starts at once.
