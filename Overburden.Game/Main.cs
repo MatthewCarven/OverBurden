@@ -4217,6 +4217,9 @@ public partial class Main : Node3D
             {
                 PowerOff = _noGate,
                 Sky = _solarSky,
+
+                // IM-3: a vault's fuse is a property of the world and the boundary (decision 28).
+                FuseSeed = _settings.Seed,
             };
             if (_noGate)
             {
@@ -8321,7 +8324,10 @@ public partial class Main : Node3D
                + $"pack given {MachinePanel.Joules(t.PackGivenMillijoules)}, stowed {MachinePanel.Joules(t.PackStowedMillijoules)} by {t.PacksUnequipped:N0} swap(s), "
                + $"pack initial {MachinePanel.Joules(t.PackInitialMillijoules)}"
                + (t.PackDebugMillijoules > 0 ? $", {MachinePanel.Joules(t.PackDebugMillijoules)} debug-filled into the pack" : string.Empty)
-               + $" — pool == entering − leaving + generated − drawn − clamped + initial − taken − stowed{(t.PackDebugMillijoules > 0 ? " + debug" : string.Empty)}: {(t.PowerExact ? "exact" : "*** NO ***")}";
+               + (t.HeldMillijoules + t.VaultBillsUnpaid > 0
+                   ? $", held {MachinePanel.Joules(t.HeldMillijoules)} by {t.VaultBillsPaid:N0} vault bill(s) ({t.VaultBillsUnpaid:N0} unpaid; fuses {t.FusesArmed:N0} lit, {t.FusesDisarmed:N0} out, {t.FusesBurnt:N0} burnt)"
+                   : string.Empty)
+               + $" — pool == entering − leaving + generated − drawn − clamped − held + initial − taken − stowed{(t.PackDebugMillijoules > 0 ? " + debug" : string.Empty)}: {(t.PowerExact ? "exact" : "*** NO ***")}";
     }
 
     /// <summary>The profile's <c>machines</c> block, with the window's own denominators.</summary>
@@ -8338,7 +8344,13 @@ public partial class Main : Node3D
                       + $"{_machines.DestroyedAtArrival} destroyed, {_machines.OrphanVoxelsCleared} orphan voxel(s) cleared, "
                       + $"{_machines.ChunksSkippedByPalette} skipped by palette; "
                       + $"drain {_machineDrainCalls} call(s), {(_machineDrainCalls > 0 ? _machineDrainMillisSum / _machineDrainCalls : 0):F2} ms mean, {_machineDrainMillisMax:F2} max; "
-                      + $"port writes {_machines.PortWrites} ({_machines.PortWritesClamped} clamped), computer {_place?.ComputerOpens ?? 0} open(s) / {_place?.ComputerMisses ?? 0} miss(es)\n";
+                      + $"port writes {_machines.PortWrites} ({_machines.PortWritesClamped} clamped), computer {_place?.ComputerOpens ?? 0} open(s) / {_place?.ComputerMisses ?? 0} miss(es)\n"
+                      + (_machines.VaultVoxelsEntering + _machines.DepositedVoxels + _machines.VaultsWrecked > 0
+                          ? $"vaults    held {_machines.HeldVoxels:N0} + owed {_machines.OwedVoxels:N0} voxel(s) == entering {_machines.VaultVoxelsEntering:N0} − leaving {_machines.VaultVoxelsLeaving:N0} "
+                            + $"+ deposited {_machines.DepositedVoxels:N0} − withdrawn {_machines.WithdrawnVoxels:N0}: {(_machines.StoreExact ? "exact" : "*** NO ***")}; "
+                            + $"{_machines.VaultsWrecked:N0} wreck(s), {_machines.VaultMovesAtPick:N0} pick move(s) ({_machines.VoxelsMovedAtPick:N0} voxel(s)), {_machines.PickVoxelsRefused:N0} body voxel(s) refused, "
+                            + $"{_machines.UnreadableVaults:N0} unreadable\n"
+                          : string.Empty);
         if (_machineTick is null)
         {
             return rows + "machtick  none (--nowater)\n";

@@ -315,6 +315,10 @@ full high vault of water for about 35 hours with no sun; a full god vault for ab
     water, the bill, the state (`HOLDING`, `FUSE 12 s`, `DUMPING — owes 3.1 ML`), and the to-pocket and
     to-store verbs. It opens on a vault, and on the backpack (the computer's right-click on nothing). It is
     M10b's deferred stock tab, with something to show at last. The HUD adds `store 68%` beside the bank line.
+    **His warranty line goes on the vault** (2026-09-29, during IM-3's build, verbatim): *"While all care is
+    taken please understand that warranty in case of battery discharge or negligence, is not implied or
+    otherwise available under these circumstances."* It lands with IM-6's stock section, at the foot of a
+    vault's panel. The quarry's README gets his OH&S line the same way (decision 47).
 22. **The ladder's bottom rung ships: a plain `crate`**, his *"the ability at lower levels to construct
     storage containers for your stuff"*. It is the vault kind with no hold, no channel, no fuse and no dump,
     holding its outside volume in blocks only, opened with the computer. Once the vault exists it costs a
@@ -1017,6 +1021,57 @@ any override exists, and f-1's override must keep it so.
 instead of at `Taken` (red on the two-vault swing); rebuild a wreck (red). *Estimate:* one long session,
 about 50 tests. **The riskiest part is 4, 5 and 10**, the three places a vault's contents could leave the
 books.
+
+## IM-3 — built (2026-09-29)
+
+All twelve of the pass's decisions as recommended (*"as recommended please Claude"*). Built in a worktree while
+he might play, then merged. **Suite 2,127** (+39 in `VaultTests`). **Twelve mutations, twelve red**, each on its
+own test:
+- the move at the drain instead of at `Taken`;
+- no `held` term;
+- rebuilding a wreck;
+- no undo pre-flight;
+- the carve not asking;
+- at range answered as the pick is;
+- a fall removing;
+- the returned branch removing;
+- a lenient codec;
+- no disarm;
+- fill by position;
+- a floored bill.
+
+What it is:
+- **`MachineKind.Vault`** (the crate is a vault with no links), with `insideCubicMetres`,
+  `holdWattsPerCubicMetre { water, blocks }` and `holdsWater`.
+- **`VaultState`**: the strict codec.
+- **`MachineSet.Vaults.cs`**: the store view, `Deposit`/`Withdraw`/`DepositInto`/`WithdrawFrom`, `Refuses`,
+  `MoveAtPick`, the wreck, `StoreExact`, and `AtRange`.
+- **The drain and reconcile** yield to a vault holding anything; the hook ignores a wreck; the drain walks a
+  snapshot.
+- **`IMachineBodies.Refuses`**, asked by `Carve.Take` before the hardness check.
+- **`MachineTick.PayHolds`**, `BillOf` (Int128, ceiled), the fuse by the collapse formula, and the `held`
+  term.
+- **`UndoOutcome.VaultHolds`**, and `RestoreReport.Overfull`.
+- **Game**: the miner hands at-range swings `MachineSet.AtRange`; the panel's vault line; the fuse seed from
+  the world's; `held` and a `vaults` line on the log.
+
+Two things the build found:
+- **The world's write hook marks a row damaged before the carve's `Taken`**, so the move can't be guarded
+  by the damage mark. It names the row instead, and does nothing once the vault is empty.
+- **A wreck cleared with its row standing re-marks itself**, which would have modified the damaged list
+  mid-walk. The fix is to flag the wreck first, have the hook skip wrecks, and walk a snapshot.
+
+**Owed:** the r6 control on this build (see TODO).
+
+**Taken during the build, for later slices** (his words 2026-09-29, both options as recommended):
+- **The vault carries its own energy: one minute of its own full bill, a knob in each grade's file** (low
+  150 kJ, medium 600 kJ, high 2.4 MJ, god 38 MJ). It pays the bill when the channel can't, recharges from
+  the channel's spare, and the fuse lights only once both are empty. This amends decision 18 ("the
+  channel's cells are its pack") for the bill only. No vault's bytes are saved before IM-6, so the codec
+  can take the field without a version.
+- **A lock on the vault panel's channel box**, so a vault can't be moved to an unpowered channel by accident.
+  It lands in IM-6's panel.
+- **Power auto-scales on screen** (W, kW, MW), as energy already does; the mod files stay in watts.
 
 ## Must not ship
 

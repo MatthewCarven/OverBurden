@@ -1,5 +1,29 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 (late) — IM-3 built: the vault and the crate
+
+*"as recommended please Claude"* took the pass's twelve decisions. It was built in a worktree
+(`.claude/worktrees/im3`, branched from local `HEAD`, not `origin/main`), since he might start playing, then
+fast-forwarded into main. The suite is **2,127** (+39), and **twelve mutations went red**. The plan's "IM-3 —
+built" has the file list.
+
+Two bugs the tests found before any play could:
+- **The pick's move never ran.** The world's write hook marks the row damaged before the carve calls
+  `Taken`, so a "not damaged yet" guard skipped every move.
+- **A drain enumeration hazard.** A wreck cleared with its row standing re-marks itself and would have
+  modified the damaged list mid-walk.
+
+One test-harness lesson: **a reopen in a test must restore before wiring the journal**, as Main does, or
+the restore's re-adds become an undoable step.
+
+His three asks mid-build were taken as recommended and put in TODO, not built:
+- the vault's own energy (one minute of its bill; IM-3b);
+- a lock on the vault's channel box (IM-6);
+- power auto-scaled on screen (IM-6).
+
+His warranty line is in the plan for the vault's panel. **He asked for an early close** because of the
+context window. The r6 control on this build is owed.
+
 ## 2026-09-29 (late) — IM-3's code-level pass: twelve decisions handed back
 
 *"start on IM-3 please Claude"*. IM-3 is the first new kind since the sensor was planned, and rule 17's

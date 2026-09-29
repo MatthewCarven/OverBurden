@@ -17,10 +17,16 @@ his word — and this file points at it rather than repeating it.
       ([docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "The split"). IM-0b is built and IM-0
       measured (the quarry takes the 2 m bite, his word). **IM-1 is built** (the plan, "IM-1 — built";
       suite 2,076, twelve mutations red, the r6 control to the digit). **IM-2 is built** (the plan,
-      "IM-2 — built"; the backpack is a window, pumps are paid by priority; suite 2,088). **IM-3's
-      code-level pass is written** (the plan, "IM-3 — the code-level pass"): twelve decisions wait on
-      his word, then IM-3 builds (the vault kind and the crate; about 50 tests, one long session; the
-      riskiest part is decisions 4, 5 and 10). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his
+      "IM-2 — built"; the backpack is a window, pumps are paid by priority; suite 2,088). **IM-3 is
+      built** (the plan, "IM-3 — built"; the vault and the crate; suite 2,127, twelve mutations red).
+      **Owed first next session:** the r6 control on the IM-3 build (game closed; `2601 / 325 / 3446 at
+      411`), and remove the worktree `.claude/worktrees/im3` if `git worktree remove` failed at the
+      close (see the worklog). **Then IM-3b**, taken 2026-09-29: **the vault's own energy**, one minute
+      of its full bill as a per-grade knob; it pays when the channel can't, recharges from the spare,
+      and the fuse lights only when both are empty. It needs a codec field (no version bump: nothing
+      saved before IM-6) and a `PowerExact` term. **Into IM-6's panel:** his warranty line on the
+      vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;
+      files stay in watts). Then IM-4 (water's doors). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his
       say-so, it takes his focus); a bite under a lake (IM-7's bench); a dump underground (IM-5's).
 - [ ] **The lake over a quarry — built 2026-09-27, his look owed.** The plane draws no sheet over
       a pit that is not yet full ([docs/M8-PLAN.md](docs/M8-PLAN.md), "built"). Open: his eye on the

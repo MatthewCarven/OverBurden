@@ -790,6 +790,7 @@ public sealed class ContentLoader
             case "outlet": kind = MachineKind.Outlet; break;
             case "converter": kind = MachineKind.Converter; break;
             case "storage": kind = MachineKind.Storage; break;
+            case "vault": kind = MachineKind.Vault; break;
             case "generator":
                 error = "kind 'generator' is not in this build — the burner and the crank are M10f.";
                 return false;
@@ -851,6 +852,31 @@ public sealed class ContentLoader
             }
 
             capacityMillijoules = capacityJoules * MachineDefinition.PerMille;
+        }
+
+        // IM-3's pass, decision 1: the vault's inside in whole cubic metres, and its hold in watts a
+        // cubic metre read as whole milliwatts — a fraction the bill cannot hold exactly is refused
+        // rather than rounded, efficiency's rule, so the file and the pool agree.
+        long insideMillilitres = 0;
+        if (dto.InsideCubicMetres is { } inside)
+        {
+            if (inside <= 0 || inside > MachineDefinition.MaxInsideCubicMetres)
+            {
+                error = $"insideCubicMetres must be within 1..{MachineDefinition.MaxInsideCubicMetres:N0}.";
+                return false;
+            }
+
+            insideMillilitres = inside * MachineDefinition.MillilitresPerCubicMetre;
+        }
+
+        long waterHold = 0, blockHold = 0;
+        if (dto.HoldWattsPerCubicMetre is { } hold)
+        {
+            if (!TryReadMilliwatts(hold.Water, "water", out waterHold, out error)
+                || !TryReadMilliwatts(hold.Blocks, "blocks", out blockHold, out error))
+            {
+                return false;
+            }
         }
 
         var links = new List<MachineLink>();
@@ -971,6 +997,10 @@ public sealed class ContentLoader
             CapacityMillijoules = capacityMillijoules,
             Carried = dto.Carried ?? false,
             RechargeWatts = dto.RechargeWatts,
+            InsideMillilitres = insideMillilitres,
+            WaterHoldMilliwattsPerCubicMetre = waterHold,
+            BlockHoldMilliwattsPerCubicMetre = blockHold,
+            HoldsWater = dto.HoldsWater ?? false,
             Links = links,
             Ports = ports,
             ExtraForms = forms,
@@ -993,6 +1023,33 @@ public sealed class ContentLoader
         }
 
         machine = read;
+        return true;
+    }
+
+    /// <summary>A hold in watts a cubic metre as whole milliwatts, three decimals at most; absent is nothing.</summary>
+    private static bool TryReadMilliwatts(double? watts, string what, out long milliwatts, out string? error)
+    {
+        milliwatts = 0;
+        error = null;
+        if (watts is not { } value)
+        {
+            return true;
+        }
+
+        double thousandths = value * MachineDefinition.PerMille;
+        if (double.IsNaN(thousandths) || double.IsInfinity(thousandths) || thousandths != Math.Round(thousandths))
+        {
+            error = $"holdWattsPerCubicMetre.{what} must be a whole number of milliwatts (three decimals at most).";
+            return false;
+        }
+
+        if (thousandths < 0 || thousandths > MachineDefinition.MaxHoldMilliwattsPerCubicMetre)
+        {
+            error = $"holdWattsPerCubicMetre.{what} must be within 0..{MachineDefinition.MaxHoldMilliwattsPerCubicMetre / MachineDefinition.PerMille:N0}.";
+            return false;
+        }
+
+        milliwatts = (long)Math.Round(thousandths);
         return true;
     }
 
@@ -1022,6 +1079,16 @@ public sealed class ContentLoader
         public Dictionary<string, MachineLinkJson?>? Links { get; set; }
         public Dictionary<string, MachinePortJson?>? Ports { get; set; }
         public Dictionary<string, ExtraJson?>? Extras { get; set; }
+        public long? InsideCubicMetres { get; set; }
+        public HoldJson? HoldWattsPerCubicMetre { get; set; }
+        public bool? HoldsWater { get; set; }
+    }
+
+    /// <summary>A vault's hold, in watts a cubic metre: water and blocks apart (decision 16).</summary>
+    private sealed class HoldJson
+    {
+        public double? Water { get; set; }
+        public double? Blocks { get; set; }
     }
 
     /// <summary>An extra's options: none yet, so the strict walk refuses any key inside one.</summary>

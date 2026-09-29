@@ -118,13 +118,6 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 Nothing is blocked on these; each is a small change once you have a view.
 
-- [ ] **IM-3's twelve decisions**: [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "IM-3 — the
-      code-level pass". The vault and the crate underneath: how a vault is written in a mod file, its
-      bill and fuse, and the rules that keep a vault's contents from ever leaving the books. The two
-      that change the plan's wording: a vault's contents move to its sisters at the moment the pick
-      first touches it, not a frame later (one swing can take two vaults); and a wreck (a vault a fall
-      took, still holding things) keeps its cell until IM-5's dump empties it. "As recommended" builds
-      it; nothing you play changes.
 
 - [ ] **A minute of your screen, whenever suits.** The last IM-0 measurement (what drawing a big flood's
       surface costs) only shows in a windowed run, which takes over the screen for about a minute. Say
@@ -183,6 +176,12 @@ Nothing is blocked on these; each is a small change once you have a view.
 ---
 
 ## Answered lately
+
+- **IM-3's twelve decisions** (2026-09-29): *"as recommended please Claude"*. Built the same night: the vault
+  and the crate underneath (nothing you play changes until IM-6). Your warranty line is saved for the vault's
+  panel. **Your three asks mid-build, taken as recommended:** a vault carries a minute of its own bill in
+  energy (next, IM-3b); a lock on the vault panel's channel box; power shown as W/kW/MW on screen, the files
+  staying in watts (both IM-6).
 
 - **IM-1's eight decisions** (2026-09-29): *"as recommended please Claude"*. Built the same night: mod
   files are strict now (a misspelt key is refused with a "did you mean"), each mod declares a `format`, the

@@ -22,6 +22,13 @@ namespace Overburden.Core.Machines;
 /// </remarks>
 public interface IMachineBodies
 {
+    /// <summary>
+    /// Whether a machine voxel reads as too hard to the tool asking — asked before the hardness check,
+    /// for a machine material only (IDEAL-MACHINES-PLAN decision 17; IM-3's pass, decision 3). A vault
+    /// holding anything is, unless its sisters can take everything; at range, whatever the room.
+    /// </summary>
+    bool Refuses(VoxelPos voxel, int materialId);
+
     /// <summary>A voxel of a machine material was removed by a pick and credited to the inventory.</summary>
     void Taken(VoxelPos voxel, int materialId);
 }

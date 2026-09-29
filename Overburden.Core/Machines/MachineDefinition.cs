@@ -23,6 +23,13 @@ public enum MachineKind : byte
 
     /// <summary>Holds joules between boundaries — a placed cell, or a carried pack (M10c).</summary>
     Storage,
+
+    /// <summary>
+    /// Holds blocks, and water, inside a 1 m body that is bigger on the inside — the quantum vault
+    /// (IDEAL-MACHINES-PLAN decisions 14–20, IM-3) — and, with no channel and no bill, the crate
+    /// (decision 22). A home for a conserved quantity, so a kind and not an extra (decision 1).
+    /// </summary>
+    Vault,
 }
 
 /// <summary>What a link carries.</summary>
@@ -119,6 +126,21 @@ public sealed class MachineDefinition
     /// <summary>Efficiency's unit: a converter's <c>efficiency</c> is read as a whole number of thousandths, never a float in the tick (decision 10).</summary>
     public const int PerMille = 1000;
 
+    /// <summary>A cubic metre in millilitres — the vault's volume unit, shared by blocks and water (IM-3).</summary>
+    public const long MillilitresPerCubicMetre = 1_000_000L;
+
+    /// <summary>
+    /// What one voxel takes inside a vault: a sixty-fourth of a cubic metre, 15.625 L (decision 15:
+    /// blocks and water share the inside volume).
+    /// </summary>
+    public const long VoxelMillilitres = MillilitresPerCubicMetre / 64;
+
+    /// <summary>The largest inside a vault may declare: the god grade's million cubic metres, an engine maximum (decision 5).</summary>
+    public const long MaxInsideCubicMetres = 1_000_000L;
+
+    /// <summary>The dearest hold a vault may declare, in milliwatts a cubic metre: a megawatt, so a full god vault's bill stays inside a long.</summary>
+    public const long MaxHoldMilliwattsPerCubicMetre = 1_000_000_000L;
+
     public required MachineKind Kind { get; init; }
 
     /// <summary>A converter's output at full input, in watts. Zero for a kind that has none.</summary>
@@ -147,6 +169,24 @@ public sealed class MachineDefinition
 
     /// <summary>The box a pump reads, in brush cells each way from its body: 1 is 3 × 3 × 3.</summary>
     public int IntakeRadiusCells { get; init; } = MinIntakeRadiusCells;
+
+    /// <summary>A vault's inside, in millilitres — its <c>insideCubicMetres</c>. Zero for a kind that has none.</summary>
+    public long InsideMillilitres { get; init; }
+
+    /// <summary>What a cubic metre of water costs to hold, in milliwatts (decision 16). Zero for a crate.</summary>
+    public long WaterHoldMilliwattsPerCubicMetre { get; init; }
+
+    /// <summary>What a cubic metre of blocks costs to hold, in milliwatts — a tenth of water's in the shipped grades.</summary>
+    public long BlockHoldMilliwattsPerCubicMetre { get; init; }
+
+    /// <summary>Whether the vault takes water (IM-4 reads it); false for a crate (decision 22).</summary>
+    public bool HoldsWater { get; init; }
+
+    /// <summary>
+    /// Whether this vault belongs to a channel's store and pays a bill from its pool: it has a power
+    /// link via <c>channel</c>. A crate has none (decision 22).
+    /// </summary>
+    public bool IsChannelVault => Kind == MachineKind.Vault && Links.Any(l => l.IsChannel);
 
     public IReadOnlyList<MachineLink> Links { get; init; } = [];
 
@@ -475,7 +515,61 @@ public sealed class MachineDefinition
             }
         }
 
+        if (Kind == MachineKind.Vault && !TryValidateVault(out error))
+        {
+            return false;
+        }
+
         return TryValidateExtras(out error);
+    }
+
+    /// <summary>
+    /// The vault's rules (IM-3's pass, decisions 1 and 2): an inside within the engine's maximum;
+    /// holds never negative and never over the maximum; a vault on a channel has exactly one power
+    /// link, a sink, the pool its bill is paid from; a crate has no links, no bill and no water.
+    /// </summary>
+    private bool TryValidateVault(out string? error)
+    {
+        if (InsideMillilitres <= 0 || InsideMillilitres > MaxInsideCubicMetres * MillilitresPerCubicMetre)
+        {
+            error = $"insideCubicMetres must be more than 0 and at most {MaxInsideCubicMetres:N0} for a vault.";
+            return false;
+        }
+
+        if (WaterHoldMilliwattsPerCubicMetre is < 0 or > MaxHoldMilliwattsPerCubicMetre
+            || BlockHoldMilliwattsPerCubicMetre is < 0 or > MaxHoldMilliwattsPerCubicMetre)
+        {
+            error = $"holdWattsPerCubicMetre must be within 0..{MaxHoldMilliwattsPerCubicMetre / PerMille:N0} for water and for blocks.";
+            return false;
+        }
+
+        if (Carried)
+        {
+            error = "a vault is a body; it cannot be carried.";
+            return false;
+        }
+
+        if (Links.Count == 0)
+        {
+            // The crate: no channel, so no store, no bill and no fuse — a box you open by hand.
+            if (WaterHoldMilliwattsPerCubicMetre != 0 || BlockHoldMilliwattsPerCubicMetre != 0 || HoldsWater)
+            {
+                error = "a vault with no links is a crate: it holds blocks only and bills nothing, so it declares no hold and no water.";
+                return false;
+            }
+
+            error = null;
+            return true;
+        }
+
+        if (Links.Count != 1 || Links[0] is not { Carries: MachineMedium.Power, Role: MachineRole.Sink, IsChannel: true })
+        {
+            error = "a vault declares exactly one link, a power sink via channel — the pool its bill is paid from — or none, as a crate.";
+            return false;
+        }
+
+        error = null;
+        return true;
     }
 
     /// <summary>

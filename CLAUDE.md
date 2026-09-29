@@ -211,12 +211,13 @@ declares `format` 1, the six extras have their grammar and the base game's `extr
 built** (the plan's "IM-2 — built"): `quantum_backpack` is a window, and a tool paying through it draws on
 its channel's enabled cells through an internal `IChannelBank`, last-filled first, never inside `Run`. The
 relay pump has a `priority` port (0–9 at 5), and consumers are paid by priority then position. `P` does not
-seed the backpack until IM-6; `--pack=overburden:quantum_backpack` wears one. **IM-3's code-level pass is
-written** (the plan, "IM-3 — the code-level pass"): seven facts and twelve decisions, waiting on his word. On
-"as recommended", build from that section. The load-bearing ones: `IMachineBodies.Refuses`, asked before the
-carve's hardness check; contents moved to the sisters at the first `Taken`, not at the drain; a wreck flag
-every remove path yields to; the bill in 128-bit, ceiled; the fuse by the collapse scheduler's formula; a
-codec that owns the whole blob; `UndoOutcome.VaultHolds` as a pre-flight.
+seed the backpack until IM-6; `--pack=overburden:quantum_backpack` wears one. **IM-3 is built** (the plan,
+"IM-3 — built"; suite 2,127): the vault and the crate, the store and its doors, the pick that asks first and
+moves at `Taken`, wrecks, the bill and the fuse, `UndoOutcome.VaultHolds`. **Next session, first:** the r6
+control on the IM-3 build (it was closed early), and the worktree `.claude/worktrees/im3` removed if still
+there. **Then IM-3b, the vault's own energy** (his, 2026-09-29: one minute of its full bill, a per-grade knob;
+TODO has the shape), **then IM-4.** IM-6's panel owes his warranty line, a lock on the channel box, and
+power auto-scaled on screen.
 
 **Buildable alongside: collapse part f, slice f-1** (Core and tests), thirteen decisions taken
 ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part f"). The ideal-machines plan's three amendments there are

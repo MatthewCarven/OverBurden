@@ -5,6 +5,7 @@ using Overburden.Core.Hydrology;
 using Overburden.Core.Lighting;
 using Overburden.Core.Voxels;
 using Overburden.Core.Diagnostics;
+using Overburden.Core.Worldgen;
 
 namespace Overburden.Core.Machines;
 
@@ -54,7 +55,8 @@ public readonly record struct MachineTickReport(
     long GeneratedMillijoules = 0,
     long DrawnMillijoules = 0,
     long ClampedMillijoules = 0,
-    long PackGivenMillijoules = 0)
+    long PackGivenMillijoules = 0,
+    long HeldMillijoules = 0)
 {
     /// <summary>Everything a pump took this boundary, in millilitres, both tiers.</summary>
     public long PumpedInAll => PumpedMillilitres + (PumpedLitres * FluidConstants.MillilitresPerLitre);
@@ -69,7 +71,7 @@ public readonly record struct MachineTickReport(
         $"{Pumps} pump(s) over {Outlets} outlet(s), {Moved} moved; pumped {PumpedMillilitres:N0} mL + {PumpedLitres:N0} L, "
         + $"emitted {EmittedMillilitres:N0} mL + {EmittedLitres:N0} L ({(Exact ? "exact" : "*** NOT EXACT ***")}); "
         + $"stalled: {NoOutlet} no outlet, {NoWater} no water, {NoRoom} no room, {Unloaded} unloaded, {Unanalysed} unanalysed, {Unpowered} unpowered; "
-        + $"power: generated {GeneratedMillijoules:N0} mJ, drawn {DrawnMillijoules:N0}, clamped {ClampedMillijoules:N0}, pack given {PackGivenMillijoules:N0}";
+        + $"power: generated {GeneratedMillijoules:N0} mJ, drawn {DrawnMillijoules:N0}, clamped {ClampedMillijoules:N0}, pack given {PackGivenMillijoules:N0}, held {HeldMillijoules:N0}";
 }
 
 /// <summary>
@@ -218,6 +220,9 @@ public sealed class MachineTick : IChannelBank
     private readonly List<(MachineRow Row, MachineDefinition Definition, int Channel)> _converters = [];
     private readonly List<(MachineRow Row, MachineDefinition Definition)>?[] _storage = new List<(MachineRow, MachineDefinition)>?[Channels];
     private readonly long[] _available = new long[Channels];
+
+    // IM-3: each channel's vaults in fill order, whose bills are paid before any consumer (decision 9).
+    private readonly List<(MachineRow Row, MachineDefinition Definition)>?[] _vaults = new List<(MachineRow, MachineDefinition)>?[Channels];
 
     /// <param name="machines">The rows; the tick reads them and never writes a row.</param>
     /// <param name="materials">Which rows are pumps and outlets, and at what rate.</param>
@@ -374,6 +379,33 @@ public sealed class MachineTick : IChannelBank
     /// <summary>Boundaries run.</summary>
     public long Boundaries { get; private set; }
 
+    /// <summary>The shortest a vault's fuse burns: ten seconds, his collapse fuse's (decision 28).</summary>
+    public const long FuseMinMillis = 10_000;
+
+    /// <summary>The longest, at a shortfall near zero; a channel that pays nothing pulls it halfway to the minimum.</summary>
+    public const long FuseMaxMillis = 20_000;
+
+    /// <summary>
+    /// What a fuse's draw is seeded from — the world's seed, set by the game — so a fuse is a property
+    /// of the world and the boundary, never of <c>Random.Shared</c> (M10-PLAN D5). Zero in a test.
+    /// </summary>
+    public ulong FuseSeed { get; set; }
+
+    /// <summary>Millijoules vault bills took from their channels' pools, over the lifetime — the pool identity's <c>held</c> term (decision 16).</summary>
+    public long HeldMillijoules { get; private set; }
+
+    /// <summary>Vault-boundaries whose bill was paid in full, and those that were not.</summary>
+    public long VaultBillsPaid { get; private set; }
+
+    public long VaultBillsUnpaid { get; private set; }
+
+    /// <summary>Fuses lit by an unpaid bill, put out by a paid one, and burned through to the dump.</summary>
+    public long FusesArmed { get; private set; }
+
+    public long FusesDisarmed { get; private set; }
+
+    public long FusesBurnt { get; private set; }
+
     /// <summary>Millijoules every converter generated, over the lifetime.</summary>
     public long GeneratedMillijoules { get; private set; }
 
@@ -442,7 +474,7 @@ public sealed class MachineTick : IChannelBank
     public bool PowerExact =>
         StoredMillijoules + (Pack?.ChargeMillijoules ?? 0)
         == _machines.StoredMillijoulesEntering - _machines.StoredMillijoulesLeaving
-            + GeneratedMillijoules - DrawnByPumpsMillijoules - ClampedMillijoules
+            + GeneratedMillijoules - DrawnByPumpsMillijoules - ClampedMillijoules - HeldMillijoules
             + PackInitialMillijoules + PackDebugMillijoules - PackTakenMillijoules - PackStowedMillijoules;
 
     /// <summary>Pump-boundaries that moved anything.</summary>
@@ -589,6 +621,9 @@ public sealed class MachineTick : IChannelBank
         // M10c: the pool before the pumps — what every channel can pay this boundary.
         long generated = PowerOff ? 0 : BeginPower();
 
+        // IM-3: every vault's hold before any consumer, in fill order, each all or nothing (decision 9).
+        long held = PowerOff ? 0 : PayHolds();
+
         foreach ((MachineRow row, MachineDefinition definition) in _pumps)
         {
             long b0 = PumpedMillilitres, a0 = PumpedLitres, eb0 = EmittedMillilitres, ea0 = EmittedLitres;
@@ -647,7 +682,7 @@ public sealed class MachineTick : IChannelBank
         Last = new MachineTickReport(
             pumps, outlets, moved, pumpedB, pumpedA, emittedB, emittedA,
             noOutlet, noWater, noRoom, unloaded, unanalysed, unpowered,
-            generated, drawn, clamped, packGiven);
+            generated, drawn, clamped, packGiven, held);
         return Last;
     }
 
@@ -735,6 +770,104 @@ public sealed class MachineTick : IChannelBank
         millijoules = millijoules * (256 - overcastByte) / 256;
         millijoules = millijoules * definition.EfficiencyPerMille / MachineDefinition.PerMille;
         return millijoules;
+    }
+
+    /// <summary>
+    /// A vault's bill for one boundary, in millijoules (decision 16; IM-3's pass, decision 6): water
+    /// and blocks at their rates a cubic metre, for the boundary's milliseconds, rounded up so a vault
+    /// holding anything always costs something, in 128-bit arithmetic because a full god vault's
+    /// numerator is past a long.
+    /// </summary>
+    public static long BillOf(MachineDefinition definition, VaultContents contents, long boundaryMillis)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        ArgumentNullException.ThrowIfNull(contents);
+
+        // Milliwatts a cubic metre × millilitres × milliseconds ÷ (10⁶ mL a m³ × 10³ ms a s) = millijoules.
+        Int128 blocks = (Int128)definition.BlockHoldMilliwattsPerCubicMetre * contents.TotalVoxels * MachineDefinition.VoxelMillilitres;
+        Int128 water = (Int128)definition.WaterHoldMilliwattsPerCubicMetre * contents.WaterMillilitres;
+        Int128 numerator = (blocks + water) * boundaryMillis;
+        Int128 denominator = MachineDefinition.MillilitresPerCubicMetre * 1000;
+        Int128 bill = (numerator + denominator - 1) / denominator;
+        return bill > long.MaxValue ? long.MaxValue : (long)bill;
+    }
+
+    /// <summary>
+    /// Every vault on every channel, in fill order: a paid bill leaves the pool and puts out a fuse;
+    /// an unpaid one lights it, or burns it down by the boundary's milliseconds, and a fuse burned
+    /// through leaves the vault dumping with its contents owed (decisions 27, 28 and 34). A wreck and a
+    /// dumping vault pay nothing; an empty vault costs nothing and cannot fuse. Returns what was paid.
+    /// </summary>
+    private long PayHolds()
+    {
+        long paid = 0;
+        for (int channel = 0; channel < Channels; channel++)
+        {
+            List<(MachineRow Row, MachineDefinition Definition)>? vaults = _vaults[channel];
+            if (vaults is null)
+            {
+                continue;
+            }
+
+            foreach ((MachineRow row, MachineDefinition definition) in vaults)
+            {
+                if (!VaultState.TryRead(row, out VaultContents contents) || contents.Owes)
+                {
+                    continue;
+                }
+
+                long bill = BillOf(definition, contents, _boundaryMillis);
+                if (bill == 0 || _available[channel] >= bill)
+                {
+                    _available[channel] -= bill;
+                    paid += bill;
+                    if (bill > 0) VaultBillsPaid++;
+                    if (contents.Phase == VaultPhase.Fusing)
+                    {
+                        contents.Phase = VaultPhase.Holding;
+                        contents.FuseMillisLeft = 0;
+                        VaultState.Write(row, contents);
+                        FusesDisarmed++;
+                    }
+
+                    continue;
+                }
+
+                VaultBillsUnpaid++;
+                if (contents.Phase == VaultPhase.Holding)
+                {
+                    contents.Phase = VaultPhase.Fusing;
+                    contents.FuseMillisLeft = DrawFuseMillis(row, bill - _available[channel], bill);
+                    FusesArmed++;
+                }
+                else
+                {
+                    contents.FuseMillisLeft = (int)Math.Max(0, contents.FuseMillisLeft - _boundaryMillis);
+                    if (contents.FuseMillisLeft == 0)
+                    {
+                        contents.Phase = VaultPhase.Dumping;
+                        FusesBurnt++;
+                    }
+                }
+
+                VaultState.Write(row, contents);
+            }
+        }
+
+        HeldMillijoules += paid;
+        return paid;
+    }
+
+    /// <summary>
+    /// A fuse's length, by the collapse scheduler's own formula (IM-3's pass, decision 7):
+    /// <c>min + (max − min) × u × (1 − share / 2)</c>, the share the part of the bill the channel
+    /// could not pay, so a channel that pays nothing draws 10–15 s and one just short 10–20 s.
+    /// </summary>
+    private int DrawFuseMillis(MachineRow row, long shortfall, long bill)
+    {
+        double share = Math.Clamp(shortfall / (double)bill, 0.0, 1.0);
+        float unit = Hash64.ToUnitFloat(Hash64.Combine(FuseSeed ^ (ulong)Boundaries, row.Cell.X, row.Cell.Y, row.Cell.Z));
+        return (int)(FuseMinMillis + Math.Round((FuseMaxMillis - FuseMinMillis) * unit * (1.0 - (share / 2.0))));
     }
 
     /// <summary>The pack draws last from its channel, to its capacity and its recharge bound. Returns what it took.</summary>
@@ -898,6 +1031,7 @@ public sealed class MachineTick : IChannelBank
         _nearColumns.Clear();
         Array.Clear(_outlets);
         Array.Clear(_storage);
+        Array.Clear(_vaults);
 
         foreach (MachineRow row in _machines.Rows)
         {
@@ -935,7 +1069,21 @@ public sealed class MachineTick : IChannelBank
 
                     (_storage[ChannelOf(row)] ??= []).Add((row, definition));
                     break;
+                case MachineKind.Vault when definition.IsChannelVault:
+                    // A crate has no channel and no bill; a channel vault's bill is read each
+                    // boundary from its bytes, so a wreck or a dump in the list is simply skipped.
+                    (_vaults[ChannelOf(row)] ??= []).Add((row, definition));
+                    break;
             }
+        }
+
+        foreach (List<(MachineRow Row, MachineDefinition Definition)>? vaults in _vaults)
+        {
+            vaults?.Sort(static (a, b) =>
+            {
+                int byRate = a.Definition.BlockHoldMilliwattsPerCubicMetre.CompareTo(b.Definition.BlockHoldMilliwattsPerCubicMetre);
+                return byRate != 0 ? byRate : CompareOrigin(a.Row, b.Row);
+            });
         }
 
         // Decision 9 and 41: consumers are paid by priority, higher first, then by position (X, then
@@ -1013,6 +1161,9 @@ public sealed class MachineTick : IChannelBank
 
     private static long WeightOf(MachineRow row) =>
         row.TryGetPort(WeightPort, out long weight) ? Math.Max(1, weight) : 1;
+
+    /// <summary>Position order, X then Y then Z — the tick's tie-break, shared with the store's fill order.</summary>
+    internal static int CompareOriginOf(MachineRow a, MachineRow b) => CompareOrigin(a, b);
 
     private static int CompareOrigin(MachineRow a, MachineRow b)
     {
