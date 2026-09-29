@@ -1,5 +1,40 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 (night) — IM-3b's r6, and his answers to "things I'd like your eye on", folded
+
+The r6 control on the merged IM-3b build read `2601 / 325 / 3446 at 411`, 0 `ERROR`. His TajMahal2 session,
+which ended mid-build (*"i just quit"*), was copied aside first: 0 `ERROR`, thousands of voxels placed, none of
+them wet.
+
+He answered seven of MATTHEW-TODO's eight unscheduled questions in his notes. Verbatim, with where each went:
+- *"Is deleteing tier a water when placing voxels on the todo?"* It is TODO's "a rock placed in a lake".
+  Today placement under a lake takes no water. The rule (delete, displace or refuse) went back to him, with
+  delete recommended: Minecraft's rule, and cheap.
+- *Antagonist:* *"Water is increasingly becoming a problem, but my main focus has been on water until
+  recently, also I have nothing to dig for, like we need to do iron coal etc and tree pass at some point"*.
+  Into WORLDGEN-NOTES.
+- *Reach:* *"yeah but only for the lower tier tools you can increase this depending on tech level like hands
+  would be a bit punishing to start with i reckon"*. Into TODO's Later, for M10g and the game mode.
+- *The excavator:* *"excellent tool, like you will want hallways and big rooms also the more you have to mine
+  through in multiplayer, if we go that route eventually, will give more time to offset damage like also
+  mines manually faster"*. A verdict; nothing changes.
+- *Twenty minutes:* *"dreaming of a lithium ion,li poly or quantum portable(wearable) battery/storage backpack
+  like some sort of fluid capture gun that can take out chunks of water at sizes to match the quantum
+  miner/tunneler/excavator"*. The quantum backpack is IM-2's window, and the gun is IM-4's siphon. His sizes
+  went into decision 26 for IM-4's pass, and the lithium packs into decision 7 as M10g's middle rungs.
+- *Under the water:* *"under tier b water looks real under tier A not so much like i was going to get you to
+  match the colour and transparency of the tier b water, and you can do this now i think the engine for water
+  is as good as its gonna get"*. Into TODO's Later, buildable alongside IM-4.
+- *Silence:* *"do you reckon you could pysynthrack to generate the sounds of wind and rain? I do have some
+  prerecorded storm sounds i have recorded maybe something like that when it rains like?"*. Into TODO's
+  Later. This is sound raised a second time, the cosmetics pass's trigger.
+- *The HUD:* *"the time would be useful but are we talking time as in ticks or the local time? I'm leaning on
+  the local time you were too?"*. There is no day and night (the panel's solar sum has no time of day), so
+  "local time" went back to him as a question, with his computer's clock recommended for now.
+
+Found while folding: the pass and a comment in `RechargeVaults` said "at night". There is no night; both now
+say "in a storm".
+
 ## 2026-09-29 (night) — IM-3b built: the vault's own minute, and a fuse that follows the average
 
 *"As recommended please Claude thanks Claude we seem to be in tune on this like"* took the pass's seven. It was

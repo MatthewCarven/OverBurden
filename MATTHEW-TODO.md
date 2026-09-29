@@ -22,16 +22,18 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
-- [ ] **IM-3b's seven decisions** (the vault's own energy) — the plan's "IM-3b — the code-level pass".
-      Two change what you took, so they want your word:
-      - **A minute of the vault's bill as it stands** (recommended), rather than a minute of its bill
-        when full. As taken, a vault a twentieth full gets twenty minutes, and the demo's storm vault
-        (500 m³ in a high vault) would hold about 27 minutes, through every storm.
-      - **The fuse: a paid boundary pauses it, and only the vault's minute refilled puts it out**
-        (recommended). As built, any cell lets a channel paying 5% of a vault's bill hold it for ever
-        (I measured it), so a storm never lets a vault go.
-
-      "As recommended" takes all seven.
+- [ ] **Placing blocks in a lake** (your note: *"Is deleteing tier a water when placing voxels on the
+      todo?"* — yes, it's there). Today a block placed under a lake's surface takes no water: a lake is
+      one number, so its level doesn't move and the block just sits in the water. Pick one:
+      - **The block deletes the water it fills** (recommended): 15.6 L a voxel leaves the lake, printed
+        as a term so nothing vanishes unseen. That's what Minecraft does to a water block, and it's cheap.
+      - The water is pushed up: the lake rises by what the blocks fill. That's the real physics, and the
+        dearest, because a lake's level comes from the ground's shape.
+      - Refused: you can't place into a lake at all.
+- [ ] **The time on the HUD** (your note: *"I'm leaning on the local time"*). The game has no day and
+      night yet, so "local time" is either **your computer's clock** (recommended for now: one line, like
+      a wristwatch in the mine) or the world's time of day once there's a sun to go down. Which did you
+      mean?
 - [ ] **The pond branch's verdict.** `water-column-test` has the raised watershed and your water
       grid built (walls you place raise the lake's rim; the lake reaches under what you build).
       To play it: `git checkout water-column-test`, `start.cmd "--world=Regions16"` (or a copy),
@@ -165,14 +167,6 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Things I'd like your eye on — not scheduled
 
-- [ ] **Does the mine read as the antagonist yet?** Or as a pleasant sandbox with weather?
-- [ ] **Twenty minutes with nobody asking you to test anything.** What did you reach for that
-      isn't there?
-- [ ] **Is 5 m reach still right**, now that the quantum tiers reach as far as the world exists?
-- [ ] **The excavator** — a powerful tool, or the game switched off?
-- [ ] **Under the water**, looking up — does it read as underwater or as a bug?
-- [ ] **Silence.** No audio at all. Noticeable yet?
-- [ ] **What's missing from the HUD deep in a mine?** Depth, the water above you, the time?
 - [ ] **The pumps as a system** — building an operation, or chores?
 
 ---
@@ -186,6 +180,26 @@ Nothing is blocked on these; each is a small change once you have a view.
 ---
 
 ## Answered lately
+
+- **IM-3b's seven decisions** (2026-09-29): *"As recommended please Claude thanks Claude we seem to be in
+  tune on this like"*. Built the same night, while you played. A vault now carries a minute of its bill as
+  it stands, and its fuse waits while the bill is paid and goes out only when that minute is back. Before
+  this, a channel paying 5% of a vault's bill held it for ever. Nothing you play changes until IM-6.
+- **Your answers to "things I'd like your eye on"** (2026-09-29), folded:
+  - *The mine as antagonist*: water is landing, and you have nothing to dig for yet. Ores (iron, coal)
+    and a tree pass went into the worldgen notes.
+  - *5 m reach*: right for the low tiers, growing with tech; bare hands too punishing to start with. Into
+    the tools' plan (M10g).
+  - *The excavator*: *"excellent tool"*, for hallways and big rooms, and faster than mining by hand.
+    Noted; nothing changes.
+  - *Twenty minutes free*: your wearable quantum battery is IM-2's backpack, already built. The water
+    gun is IM-4's siphon, and your sizes (the miner's, the tunneller's and the excavator's) went into
+    IM-4's plan. Lithium-ion and li-poly packs are the middle rungs, for M10g.
+  - *Under the water*: Tier A should match Tier B's colour and see-through. Into TODO, buildable
+    alongside IM-4 on your word; it'll need a few screenshots.
+  - *Silence*: rain and wind, from your storm recordings first, PySynthRack if not. Into TODO's
+    cosmetics pass.
+  - *The HUD*: the time. Your question is above.
 
 - **IM-3's twelve decisions** (2026-09-29): *"as recommended please Claude"*. Built the same night: the vault
   and the crate underneath (nothing you play changes until IM-6). Your warranty line is saved for the vault's

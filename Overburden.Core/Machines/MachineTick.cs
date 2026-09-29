@@ -947,7 +947,8 @@ public sealed class MachineTick : IChannelBank
     /// <summary>
     /// IM-3b's pass, decisions 5 and 6: what each channel's pool has left after the consumers tops its
     /// vaults' own charges up to a minute of their bills, in fill order, with no rate cap — the cells'
-    /// charge counts as spare, so a vault that spent its minute at night refills beside a full cell.
+    /// charge counts as spare, so a vault that spent its minute in a storm refills from a charged cell
+    /// before the sky clears.
     /// A lit fuse whose vault is whole again goes out here, the only place one does. Before the pack,
     /// which still draws last. Returns what went in.
     /// </summary>

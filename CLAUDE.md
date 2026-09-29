@@ -219,7 +219,10 @@ recommended). A vault carries a minute of its bill as it stands (`ownChargeSecon
 can't, is refilled from the spare after the consumers, and rides `ChargeOf`, so `PowerExact` has no new term. A
 fuse lights once the minute is spent, waits on a paid boundary, and goes out only when the minute is whole.
 That closed IM-3's hole, where any cell held a vault on 5% of its bill for ever. Suite 2,140; the r6 control
-after the merge. **Next: IM-4's code-level pass** (water's doors); his note for it is siphon sizes to match
+to the digit after the merge. **His answers to MATTHEW-TODO's unscheduled questions are folded** (WORKLOG,
+2026-09-29): ores and trees into WORLDGEN-NOTES, the siphon's sizes into IM-4's decision 26, and Tier A's
+underwater look, weather sound and reach by tier into TODO's Later. Two small questions went back to him:
+placing into a lake, and which clock the HUD shows. **Next: IM-4's code-level pass** (water's doors); his note for it is siphon sizes to match
 the three quantum tools. IM-6's panel owes his warranty line, a lock on the channel box, and power
 auto-scaled on screen.
 

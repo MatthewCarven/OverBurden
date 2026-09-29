@@ -207,6 +207,11 @@ Each one is a recommendation, then its cost, then the trigger that would reverse
    header field. A stowed backpack forgets its channel, as a flat lead-acid pack does; the panel sets it
    again. The lead-acid pack is unchanged. *Cost:* a dead bank is a dead tool. *Revisit:* he wants a
    carried buffer, which is two pools again.
+   **His note, 2026-09-29** (verbatim): *"dreaming of a lithium ion, li poly or quantum portable(wearable)
+   battery/storage backpack"*. The quantum one is this window, built in IM-2. Lithium-ion and lithium-polymer
+   are the middle rungs of the carried pack, between lead-acid and the window. Each would be a storage like
+   lead-acid, with its own `capacityJoules` and `rechargeWatts`, and would wait on M10g's recipes. They are
+   carried buffers, but on the lower rungs, where there is no one pool, so this revisit does not fire.
 8. **A tool's spend debits its channel's cells directly**, last-filled first, between boundaries and never
    inside the tick's run. `PowerExact` needs no new term for it: the rows fall by X and `packTaken` rises
    by X (the Core judge checked this against `MachineTick.cs:404-408`). The debit writes the cells' charge
@@ -373,6 +378,11 @@ full high vault of water for about 35 hours with no sun; a full god vault for ab
     moves nothing. It takes by the pump's
     intake rule (a Tier A lake's basin in whole litres, otherwise Tier B cells) and pours by the outlet's
     delivery rule.
+    **His note for IM-4's pass** (2026-09-29, verbatim): *"some sort of fluid capture gun that can take out
+    chunks of water at sizes to match the quantum miner/tunneler/excavator"*. So the siphon's take comes in
+    the quantum tools' sizes: the miner's 1 m cube (24's 1,000 L), the tunneller's 2 m cube (8,000 L) and
+    the excavator's bite. Priced at 1,000 J/L, the excavator's size is where 25's 4 MW on Q grows, so IM-4's
+    pass prices each size.
 
 ### E. The fuse and the dump
 
@@ -1133,8 +1143,9 @@ we seem to be in tune on this like"*), **and built: "IM-3b — built", below.**
 5. **The pool's spare includes the cells.** `_available` is this boundary's sun plus every enabled cell's
    charge, and what is left after the consumers and the pack is written back. So "recharges from the
    channel's spare" can mean the pool's remainder, cells included, or the sun's surplus alone. It only
-   matters after the channel has recovered. Sun only would leave a vault that spent its minute at night
-   empty until morning, even beside a full cell.
+   matters after the channel has recovered. Sun only would leave a vault that spent its minute in a storm
+   empty until the sky clears, even beside a cell he has since charged. (There is no night: the panel's
+   sum has no time of day.)
 
 **Decisions.**
 
@@ -1295,8 +1306,8 @@ after it.** The thousand-operation identity test's bigger charges first came fro
 held, but no pick in the new path moved contents, so a coverage assertion failed. The bigger charges now come
 from a second stream, and the first is asked exactly what IM-3 asked it.
 
-**Owed:** nothing on my side; IM-6 ships the grade files at 60 s and counts the recharge and the return as
-transfers on the runway.
+**The r6 control after the merge** read `2601 / 325 / 3446 at 411`, 0 `ERROR`. **Owed:** nothing on my side.
+IM-6 ships the grade files at 60 s and counts the recharge and the return as transfers on the runway.
 
 ## Must not ship
 

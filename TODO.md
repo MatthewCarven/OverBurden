@@ -105,7 +105,10 @@ his word — and this file points at it rather than repeating it.
       wrong order. Triggers: either noticed in play.
 - [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), six decisions. Needs from M9 before the
       shake: a rule per derive, and a fall from an explicit set.
-- [ ] **A rock placed in a lake** (M9-PLAN decision 3's edge). If it reads wrong, the refusal is
+- [ ] **A rock placed in a lake** — he asked, 2026-09-29: *"Is deleteing tier a water when placing
+      voxels on the todo?"* Yes, it is this line. Today placement under a Tier A lake is allowed and takes
+      no water (a lake is one number, so its level does not move); which rule he wants is in
+      MATTHEW-TODO. (M9-PLAN decision 3's edge.) If it reads wrong, the refusal is
       one read: `LakeCeiling.InLake` beside `HoldsWater` in `ChunkPipeline`.
 - [ ] **Dust when a roof comes down** (M9c-2), optional, only if falls read as too quiet.
 - [ ] **Precision mining's key: Ctrl or Alt.** Ctrl descends in fly mode (~1.8 m sunk between
@@ -158,6 +161,24 @@ Each waits on its trigger; the history has the measurement behind each (grep it 
       bake fields as jobs.
 
 ## Later — not scheduled
+
+His answers of 2026-09-29 to MATTHEW-TODO's "things I'd like your eye on", as work (verbatim in WORKLOG):
+- **Tier A water seen from under it** should match Tier B's colour and transparency: *"under tier b water
+  looks real under tier A not so much"*, and *"you can do this now i think the engine for water is as good
+  as its gonna get"*. It is a look question, so it wants screenshot pairs on a copy of a played world (a
+  windowed run takes his focus). Buildable alongside IM-4 on his word.
+- **Weather sound**, rain and wind: *"do you reckon you could pysynthrack to generate the sounds of wind and
+  rain? I do have some prerecorded storm sounds"*. That is sound raised a second time (the phonk was the
+  first), which is the cosmetics pass's trigger below. His recordings are the first source to try;
+  PySynthRack is his other project.
+- **The time on the HUD** deep in a mine: *"I'm leaning on the local time"*. Whether that means the world's
+  time of day or the computer's clock is asked in MATTHEW-TODO.
+- **Reach by tool tier**: *"yeah but only for the lower tier tools you can increase this depending on tech
+  level like hands would be a bit punishing to start with"*. So 5 m stays for the low tiers, reach grows
+  with the ladder, and bare hands are not the start. This goes into M10g's tools and the game-mode item
+  below.
+- **Something to dig for**: ores (iron and coal) and a tree pass,
+  [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md), "His word, 2026-09-29".
 
 - **Hand mining one voxel at a time as the bare click** — deferred to tools and tiers (M10g, M11
   at the latest). Deferring is free: which carve a bare click calls is one line.
