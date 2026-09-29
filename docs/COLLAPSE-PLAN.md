@@ -1060,6 +1060,8 @@ tech for a creative-mode demo). So this pass keeps the signal as small as it can
 a channel, recomputed at each boundary, never stored. That leaves the chat free to design a real
 signal medium later, and nothing here would have to be undone for it.
 
+**Taken as recommended, all thirteen (2026-09-29):** *"as recommended please Claude"*. f-1 is next.
+
 ### Six facts from the code
 
 1. **An event exists only once the fuse has burnt down.** `CollapseDirector.Events` is the live

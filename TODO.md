@@ -45,7 +45,7 @@ his word — and this file points at it rather than repeating it.
       hand-off's cap (22–45% hit under a big collapse — the lever is a longer cap).
 - [ ] **Collapse part d**, per the plan's split: the chimney, whichever arm he takes — a tunnel
       under a placed house, headless on a scratch world. (e, the phonk, is built; his ear is owed.)
-- [ ] **Collapse part f — the pass is written (2026-09-29), waiting on his decisions**
+- [ ] **Collapse part f — thirteen decisions taken as recommended (2026-09-29); f-1 next**
       ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part f, the collapse sensor"). Thirteen
       decisions; the sensor trips on a fuse, not only a fall, and its signal is an unsaved override,
       never a write to `enabled`. Slices f-1 (Core and tests), f-2 (wire, `--placeat=`, the

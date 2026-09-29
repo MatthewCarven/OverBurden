@@ -222,8 +222,7 @@ deliberately untracked.
   `--collapsemode=sweep`.
 - Also built: the cyan glitch (*"like it"*), black pieces kept on his word, the phonk from `media/`
   (gitignored; his ear on speed and volume is owed), and the 10–20 s fuse leaning with the deficit.
-- Open: part d (the chimney); **part f (the sensor) has its pass written 2026-09-29**, thirteen
-  decisions waiting on him; decision 11 (lifts off a reservation, up to 4.5 m) on his "fix it".
+- Open: part d (the chimney); **part f (the sensor): thirteen decisions taken 2026-09-29, f-1 next**; decision 11 (lifts off a reservation, up to 4.5 m) on his "fix it".
 - **The keystone oracle is a race**: read `at risk 0` and lifted == returned, not its falls.
 
 **Waiting on him** (all in MATTHEW-TODO): the pond branch's verdict (merge or retire
