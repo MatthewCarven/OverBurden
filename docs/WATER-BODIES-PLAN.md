@@ -353,6 +353,22 @@ taken), so `AdmitFromCarry` skips it. O(promoted) a tick. It passes if the load 
 and TajMahal's five-minute mean stays near c-2's 198–236 k. *Reverse if* the promotion itself
 (~64 k cells a tick on the load test) is the cost: then promote only a sheet's first N front cells.
 
+**c-3, run (2026-09-29): it fails, and the search stops.** Tombstones in place of the walk: the load test
+fell to ticks 440 / 458 (~0.9 Hz) and the reported awake count rose to 16–23 M, five times the held
+cells. A tombstoned cell woken again is back in `_queued`, so its stale entry revives beside the new
+one and the carry fills with duplicates. The code was reverted.
+
+**Where part a stands, on his word that limits are fine:**
+- **Kept:** the order-on default (1.9 Hz on the load test, 351–451 k queued on his pool); the bench's
+  `--rest` box; the measurement flags (`--portaldrain=0`, `--solvecarry=0`, `--solvefrontnear=1|2`,
+  `--solvewakeup=0`) and the solve's wake counts; the five-minute queued mean as the ranking measure.
+- **Learned:** the automaton rests a pool; the far carry's lag is most of the loop (c-2, two rounds);
+  99% of the solve's wakes are upward and are not the loop.
+- **Open, a planned piece if ever taken up:** a carry with O(1) removal (a generation stamp per entry,
+  or a per-cell index into the carry), which c-2's promotion needs to be cheap at a 2 M backlog. It
+  passes if the load test holds ~1.9 Hz and his pool's five-minute mean comes near c-2's 198–236 k.
+- **Bodies (part b onward) wait on this**, since a body forms from resting water.
+
 ## What would reverse this
 
 - The pool resting on its own within minutes. Then part a is unneeded and b starts at once.

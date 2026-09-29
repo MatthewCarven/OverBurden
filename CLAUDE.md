@@ -47,7 +47,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md) | The retained-chunk cache. **Built.** Read slice 2's section before touching `LightPropagator`. |
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | Elements, and why not "just implement chemistry": geology that reacts to water, machine recipes as the chemistry set. |
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | Ores, layers, trees, permeability — his thinking-ahead. Not scheduled; its three questions are his. |
-| [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written and taken as recommended (2026-09-28)**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a (rest) comes before any body. **Part a is begun**: more than half the awake set has nothing to do; next is a clean-fixture bench. `--bodyprobe=` measures it. |
+| [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written and taken as recommended (2026-09-28)**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a (rest) comes before any body. **Part a is parked (2026-09-29)**: the pool rests with the near/far order off, but every cheap fix under the order failed the load test; a carry with O(1) removal is the open piece. `--bodyprobe=` and `--rest` measure it. |
 
 ## Non-negotiables
 
@@ -202,8 +202,9 @@ levellings are far sheets levelled over and over, causing 90% of its wakes. Cand
 `--solvewakeup=0` shows 99% of the solve's wakes are upward but not the loop. On the five-minute queued
 mean (the single probe is too noisy), **c-2 holds over two rounds**: 198 k and 236 k against controls'
 351–451 k and the order off's 80–180 k, but it falls to ~0.8 Hz on the load test because its promotion
-walks the whole far carry every tick. **Next** (plan, "c-2 on the load test"): c-3, the same promotion
-with tombstones instead of the walk, on both worlds; then tests, then his decision. **A TajMahal probe needs
+walks the whole far carry every tick, and c-3's tombstones leak duplicates (reverted). **Parked** on his
+word that limits are fine (plan, "c-3, run"): the order-on default stands; a cheap c-2 needs a far carry
+with O(1) removal, a planned piece of its own, and bodies wait on it. **A TajMahal probe needs
 `--at=-268,-5,1284`**: his saved spawn is nine chunk layers above the pool, which then never loads.
 - **The session's big find:** Core was built unoptimised under `start.cmd` since 2026-09-15. Fixed
   2026-09-28, the water tick is 5.5× faster (see Commands).

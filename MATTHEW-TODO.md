@@ -195,7 +195,7 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-09-28, midday**. Two commits to push: the second round, and c-2's load test.
+Updated **2026-09-28, midday**. One commit to push: c-3's result, and the fix search parked.
 
 - **The Tetris collapse** is the default. It has the pieces drawn, the cyan glitch, your phonk
   and a 10–20 s fuse. Owed from you: your ear on the phonk ("faster/slower/louder/quieter").
@@ -214,7 +214,9 @@ Updated **2026-09-28, midday**. Two commits to push: the second round, and c-2's
   not up" found where 99% of its wakes come from, though they turned out not to be the loop.
   The second round agrees: pulling the whole far edge near ("c-2") gets two thirds of the way to
   the setting-off result, twice, at the same low cost. But on your biggest world it more than halves
-  the update rate, because of how I built it, not the idea. Next: a cheaper build of the same idea.
+  the update rate, because of how I built it, not the idea. The cheaper build leaked, so it's
+  reverted. **Parked, as you said**: what you play stays as it is. Doing c-2 cheaply needs the water
+  queue rebuilt, a job of its own for another day, and water bodies wait on it.
 - **Backups:** TajMahal is `backup-TajMahal-2026-09-28`; your tower is
   `backup-Regions16-pondlook-2026-09-26`. Say "restore TajMahal" or "restore my tower".
 - `start2.cmd` to `start5.cmd` and `pondlook.cmd` are yours and left out of git.

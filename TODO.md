@@ -29,8 +29,9 @@ his word — and this file points at it rather than repeating it.
       "settle down but not up" (`--solvewakeup=0`) shows 99% of the solve's wakes are upward, but
       they are not the loop. On a steadier measure (the five-minute queued mean), **c-2 holds in two
       rounds: 198 k and 236 k against controls' 351–451 k.** On the load test c-2 falls to ~0.8 Hz
-      (its carry walk is O(backlog)). **Next:** c-3, the same promotion with tombstones instead of
-      the walk, on both worlds (plan, "c-2 on the load test").
+      (its carry walk is O(backlog)), and c-3's tombstones leak duplicates (reverted). **Parked**
+      on his word that limits are fine: a cheap c-2 needs a carry with O(1) removal, a planned
+      piece of its own (plan, "c-3, run"). Bodies wait on it.
 - [ ] **Tier B at scale — re-read on the fixed build.** On 2026-09-28 the cause was found: Core
       was built unoptimised under `dotnet build Overburden.Game` (WORKLOG). Fixed, his quarry's
       tick is 185 ms at 2.00 Hz (it was ~1 s at 0.9 Hz). Colour waves and bodies wait for a pour

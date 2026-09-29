@@ -1,5 +1,28 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 — c-3 fails, and part a's fix search stops here
+
+*"yes build c-3 please Claude"*, and *"do not worry if we don't end up with something better than what
+we had … there are limits"*. c-3 was c-2's promotion without the walk: a promoted carried cell joined
+the near batch and left `_queued`, its carry entry a tombstone that admission skipped. Suite 1,999 with
+it. On the load test (copies of `retired-spread`, 480 s, alternated, 0 ERROR lines):
+
+| arm | last tick | worker wall mean | awake as reported |
+|---|---|---|---|
+| control | 929 / 937 | 404 / 421 ms | 2.69 M / 2.70 M |
+| c-3 | 440 / 458 | 968 / 932 ms | **16.2 M / 22.7 M** |
+
+**An awake count five times the held cells is the carry growing, a leak in the tombstone scheme:** a
+tombstoned cell woken again is back in `_queued`, so its old entry comes alive beside the new one, and
+duplicates pile up (10 M and 7.7 M tombstones skipped, 37–40 M promotions). Mending it wants a
+generation stamp per carry entry, a restructure of the carry rather than a tweak. **The code was
+reverted, not committed.**
+
+**Where part a stops:** the order-on default stands (the play arm, 1.9 Hz on the load test). The
+finding kept is c-2's: promoting the whole far front of a levelled sheet closes two thirds of the
+order-on/off gap on his pool, so the lag is most of the loop. A cheap way to promote needs O(1) removal
+from the carry, and that is a planned piece of its own, not a session's variation.
+
 ## 2026-09-29 — c-2 on the load test: the idea holds, the walk does not
 
 *"yes please Claude"*. On mains, copies of `retired-spread-2026-09-22` (47.8 ML in 3.1 M cells, 209
