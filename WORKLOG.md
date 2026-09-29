@@ -1,5 +1,12 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 (late) — IM-1's r6 control, to the digit
+
+*"game's closed, run the r6 check please Claude"*. His play log (7:17–9:22 PM on `TajMahal2`) was copied aside
+first, the Game rebuilt, and the control run headless: `2601 viewed / 325 drawn / 3446 jobs` at 411 quads a
+drawn chunk, 0 `ERROR`, in 18 s. The game's content line reads `6 extra reach(es), 0 error(s)`, so the strict
+loader passed the shipped files inside Godot as well as in the suite. IM-1 is closed.
+
 ## 2026-09-29 (late) — IM-1 built: the strict loader, format, the extras and their table, programmer
 
 *"as recommended please Claude"* took the pass's eight decisions, and IM-1 was built the same session.

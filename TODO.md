@@ -16,8 +16,7 @@ his word — and this file points at it rather than repeating it.
 - [ ] **The ideal machines — all sixty-one decisions taken as recommended (2026-09-29)**
       ([docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "The split"). IM-0b is built and IM-0
       measured (the quarry takes the 2 m bite, his word). **IM-1 is built** (the plan, "IM-1 — built";
-      suite 2,076, twelve mutations red). **Owed from IM-1: the r6 control**, once his game is closed.
-      **Next: IM-2** (the window, decisions 7–9 and 41; it switches `Charge` and `Priority` on in
+      suite 2,076, twelve mutations red, the r6 control to the digit). **Next: IM-2** (the window, decisions 7–9 and 41; it switches `Charge` and `Priority` on in
       `MachineExtras.Served`). Read its decisions against `MachineTick`, `EquippedPack` and `CarriedPacks`
       first, and hold a short code-level pass if anything doesn't fit. Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his
       say-so, it takes his focus); a bite under a lake (IM-7's bench); a dump underground (IM-5's).

@@ -832,9 +832,9 @@ What it is, by file:
 - **Shipped**: `mod.json` declares `"format": 1`, `computer.json` `"programmer": true`, and
   `extras.json` the quantum row. Every key the shipped files use was already bound, so the walk refused none.
 
-**Owed: the r6 control.** He was playing through the build (started 7:17 PM on `TajMahal2`, on a binary with
-no IM-1 loader in it: his `Content:` line has no extras term and 0 `ERROR`). A headless run beside him
-steals his CPU and rotates the log he is writing, so it waits for the game to close. The Game builds clean.
+**The r6 control, to the digit** (run once his game closed; he had played through the build on a binary with
+no IM-1 loader in it): `2601 viewed / 325 drawn / 3446 jobs` at 411 quads a drawn chunk, 0 `ERROR`, and the
+game's own content line reads `1 mod(s), 14 material(s), 5 tool(s), 6 extra reach(es), 0 error(s)`.
 
 ## Must not ship
 

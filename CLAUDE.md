@@ -192,8 +192,7 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 **2026-09-29, night — the ideal machines pass is done, all sixty-one decisions are taken as
 recommended** (*"Yes as recommended please Claude"*), **IM-0b is built, IM-0 measured, and IM-1 built.**
-Suite **2,076**. The r6 control read to the digit after IM-0b and **is owed after IM-1** (he was playing
-through the build; run it once the game is closed). Unpushed commits are his to push; `git fetch` then
+Suite **2,076**; the r6 control to the digit after IM-1. Unpushed commits are his to push; `git fetch` then
 `git log origin/main..main` lists them.
 
 **The plan to build: [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md).** The shape: a channel is an

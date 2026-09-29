@@ -117,9 +117,6 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 Nothing is blocked on these; each is a small change once you have a view.
 
-- [ ] **Close the game when you're done playing, and say so.** IM-1 needs one headless check (the r6
-      control) and I won't run it beside your session: it would steal your CPU and shuffle the log you're
-      writing. About two minutes.
 - [ ] **A minute of your screen, whenever suits.** The last IM-0 measurement (what drawing a big flood's
       surface costs) only shows in a windowed run, which takes over the screen for about a minute. Say
       "run the windowed one" when you're not playing.
