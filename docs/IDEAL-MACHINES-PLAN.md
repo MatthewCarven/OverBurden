@@ -637,7 +637,7 @@ name, bounds or default.
 | **IM-1** Core (amended by its pass, below; **built 2026-09-29**) | The strict loader; `extras`, the flag set, the per-material bit, `extras.json` (quantum row), its union and media check; `programmer`. | Every shipped file loads; a misspelt key at each level is refused, naming it; two mods giving one (extra, medium) pair are refused; a misspelt medium is refused; a mod with a newer `format` fails in one line; water and parts no longer open a panel; a three-mod fixture loads the same in every order; rows saved under f-1 restore unchanged. Mutation: disable the refusal, and the misspelt-key fixture goes red. |
 | **IM-2** Core (**built 2026-09-29**) | The window (7, 8): the backpack's JSON, the validator's exemption, `RechargePack`, `FillPack` and `Give` refusing a window, the direct draw; the priority consumer list; `packInitial` printed. | `PowerExact` exact over a thousand random bites and boundaries; the worn backpack's saved charge is 0 after a hundred boundaries, Alt+P and a save; a draw inside `Run` throws. Mutations: drop the `packTaken` credit, red; write the draw through `SetCharge`, red. Equal priorities reproduce position order. |
 | **IM-3** Core (amended by its pass, below) | The `vault` kind and the crate; the codec; the store view and fill order; the bill (`held`) and its order before signal overrides; the fuse; every row-removal rule of 17; the store's voxel identity. | Identity exact over a thousand random operations, the undo included; a signalled cell never unpays a hold; two vaults both bill; a save during a fuse resumes at the saved milliseconds; a wreck survives a reopen and is never rebuilt; both reconcile branches keep contents; an unknown codec version refuses the pick and the undo; `overfull` at restore; a refused pick carves nothing; the undo refusal is a pre-flight; `SetPort` moves contents with the row. Mutations: journal a full row, red; bill with no `held` term, red. |
-| **IM-4** Core | Water's doors: the ID, the pocket's refusal, the siphon's queue and rules, the vault in the outlet ring, the twins, `pumped == emitted + vaulted`, the store's water line. | M8's oracle unmoved with no vault; a siphon take then pour restores a basin exactly; a click then a quit moves nothing; a take on a Tier A lake draws the basin; the pump stalls `full` only when every ring entry refuses. Mutation: drop `vaulted`, red. |
+| **IM-4** Core (its pass, 2026-09-30, splits it into 4a–4c; twelve decisions wait on his word) | Water's doors: the ID, the pocket's refusal, the siphon's queue and rules, the vault in the outlet ring, the twins, `pumped == emitted + vaulted`, the store's water line. | M8's oracle unmoved with no vault; a siphon take then pour restores a basin exactly; a click then a quit moves nothing; a take on a Tier A lake draws the basin; the pump stalls `full` only when every ring entry refuses. Mutation: drop `vaulted`, red. |
 | **IM-5** Core | The dump: the pile writer, the Tier A release, the Tier B ball with its twin sized to the budget, the ceilings and decoherence, the global budgets, owed while unloaded, the unload batch's session, the dead state; a heap-writer bench arm. | A fixture room receives every voxel once; a pile into a chunk that unloads, then a kill with no session save, then a reopen, counts every voxel once; the unloaded arm releases at arrival; N vaults dumping share the budget exactly; the Tier B ceiling decoheres the excess; power returning after the fuse does nothing; Ctrl+Z cannot touch the pile; Tier B exact, Tier A's counters seam-checked. Mutation: route the dump through `Add`, and the seam goes red. |
 | **IM-6** Wire | Header v8, the mode and `--mode=creative`; kits and the first cell's grant; the debug keys off in creative; the card; the HUD bank line, runway and store percentage; the panel's stock section; the siphon on T; the vault and crate JSON and textures; `M10:` store terms. | r6 to the digit; a v7 world opens as sandbox; the kit is granted once and not on reopen; every creative-off key does nothing; headless: a new creative world (`--world=probe-creative --mode=creative`) with `--placeat=` vaults and cells bankrupts channel 0 under a storm clock, and the log reads own charge spent, then fuse, then dump (IM-3b), every identity exact. **Playable: the bank, the vault, water and the dump.** |
 | **IM-7** Core | The `quarry` kind: the box, `Facing`, the cursor, the skips, the scan cap, the stalls, the allotment and the carve's draw (`dug`), recording off with the chunk forget. | Digs a fixture box once, top down; never a machine or a full vault; pays exactly the voxels removed × 50 J; `OFF SITE` on an unloaded chunk; `flooded`; the cursor survives a save; Ctrl+Z on a hand dig in a chunk the quarry wrote is dropped, and in an untouched chunk still works; a Release bench arm at 1, 4 and 16 quarries. Mutation: quarry writes with recording on, red. |
@@ -1308,6 +1308,190 @@ from a second stream, and the first is asked exactly what IM-3 asked it.
 
 **The r6 control after the merge** read `2601 / 325 / 3446 at 411`, 0 `ERROR`. **Owed:** nothing on my side.
 IM-6 ships the grade files at 60 s and counts the recharge and the return as transfers on the runway.
+
+## IM-4 — the code-level pass (2026-09-30)
+
+Decisions 23–26 and IM-4's row, read against the water engine (`WaterSystem`, `BasinWater`, `LakeCeiling`,
+`FluidSimulation` and its partials), `MachineTick`'s outlet ring, the tools and their loader, the pocket, and
+the boundary in `Main`. The reading was done by three read-only searches, each reporting file and line; the
+facts below are theirs, checked where they turned a decision. His two notes from 2026-09-29 are folded in:
+- the siphon in the quantum tools' sizes;
+- *"Is deleteing tier a water when placing voxels on the todo?"* (he took "delete" the next morning, and
+  the cost below was found before building it).
+
+Ten facts, then twelve decisions. **Nothing is built; the twelve wait on his word.**
+
+**Ten facts.**
+
+1. **`PourPending` is not the relay pump's.** It belongs to the debug relay, the R keys (`Main.cs:7595`).
+   - It is one global slot: each R press overwrites it, and Alt+R zeroes it.
+   - It pours through `FluidSimulation.Add`, which the identity counts as `injected`.
+
+   So decision 26's "with the relay's pending pours" names the wrong thing. The right place is the
+   boundary's safe window, `Main.cs:6734–6876`: after the hand-off and the portal drain, where `TakePending`
+   and `PourPending` already run (6800–6801), and before the fills, the machine tick and `Publish`.
+2. **The obvious counters are taken.** `MachineTick`'s pumped and emitted counters are documented equal to
+   the growth of `FluidSimulation.Pumped`/`Emitted` and `WaterSystem.PumpedLitres`/`EmittedLitres`
+   (`MachineTick.cs:519, 525`). Tests pin that (`MachineTickTests.cs:479, 2223`). So a siphon going through
+   `Pump` or `Emit` would break those equalities. "Twin counters" has to mean new counters on both
+   engines, the way `Lift` and `HandOff` got theirs.
+3. **Tier A's identity is never evaluated in the game.** It lives in comments (`WaterSystem.cs:157–179`) and
+   one test (`WaterSystemTests.cs:144`). The `M7d:` line prints Tier A's terms and checks nothing. Tier B's
+   is checked, as `FluidPublished.IdentityExact`, `FluidSimulation.Job.cs:404`:
+   `Total == Added + Loaded + Emitted − Removed − Displaced − Handed − Evicted − Pumped`.
+4. **The crosshair passes through water.** `VoxelRay.Cast` stops at the first non-air material, and water
+   isn't one (`VoxelRay.cs:126`), so nothing reports water at the crosshair. On top of that,
+   `LakeCeiling.InLake` answers false wherever no band exists. Bands exist only for reachable columns or
+   ones passed to `Cover()`, which the relay and the rain call first (`LakeCeiling.cs:146, 217`). The
+   machine tick's lake intake does not call it.
+5. **The tool format can't say "siphon".** The loader reads six keys: `id`, `radiusMetres`,
+   `hardnessThreshold`, `cooldownSeconds`, `power {via, joulesPerVoxel}` and `bite`. It is strict, so a
+   `takes` key fails to load (`ContentLoader.cs:1136–1150`). There is no "a tool with takes sorts last" rule:
+   T sorts by threshold, then bite, then ID (`ToolTiers.cs:30–38`), so a siphon at threshold 0 would come
+   first. Power is per voxel only, so 1,000 J a litre can't be written today.
+6. **The store holds water as a field, not an ID.** It is `VaultContents.WaterMillilitres`, and nothing
+   writes it in play; `overburden:water` does not exist. The pocket, meanwhile, has nine doors, all
+   listed. One of them, `--stock=`, seeds every material the table has (`Main.cs:5089`), so an ID with no
+   refusal would put water in the pocket the first time the flag ran.
+7. **A vault may not declare a fluid link.** It has exactly one link, a power sink
+   (`MachineDefinition.cs:598`), and `VaultTests` pins a vault with a fluid sink as refused. The ring holds
+   bare `MachineRow`s, and `RoomAt` knows outlets only: a mouth, `IsLoaded`, `InLake` and the grid.
+   `VaultState.Write` bumps no version (`VaultState.cs:218`), so a vault that fuses, dumps or is switched off
+   is never noticed by a rebuild. Its room has to be read every boundary.
+8. **The pump's stall is the first refusal it meets, not "full".** With an unloaded outlet first in the ring
+   and a full vault second, it reports `Unloaded` (`MachineTick.cs:1420–1423, 1492`). The `NoRoom` comment
+   (`:23`) claims more than that. And `Unpowered` is decided before any room is read (`:1398`).
+9. **Placing into a lake: deleting the water can be exploited.** A fill-then-dig loop would become a lake drain. The excavator fills an
+   8 m cube into a lake, deleting 512 kL, and digs it back out; the pair costs about 3.3 MJ at 50 J a voxel,
+   which is 6 J a litre against a pump's 1,000. The same loop exists today in a flooded room with no room
+   around it, where `FillWater` counts the rest `displaced`. Today placement into a lake takes no water at
+   all: the lake is one number, and `HoldsWater` answers for Tier B only.
+10. **Two doors lack the mid-tick guard.** `RefuseMidTick` guards `Add`, `Remove`, `Pump`, `Emit`, `Lift` and
+    `Return`, but not `HandOff` or `DisplaceLifted` (`FluidSimulation.Ownership.cs:163`). Both are only called
+    at the boundary today, so it is latent.
+
+**Decisions.**
+
+1. **Split IM-4 into three.**
+   - **IM-4a (Core):** the siphon's queue, its two doors and their twins, the water ray, the ID and the
+     pocket's refusal, and the guards.
+   - **IM-4b (Core):** the vault in the ring.
+   - **IM-4c (Core and a little wire):** the lake fill, decision 10.
+
+   The siphon on T, its right click and the hotbar slot stay IM-6's, as the split says.
+   *Cost:* three sessions, not one. *Estimate:* 4a is a long session of about thirty tests, 4b and 4c
+   half a session each.
+2. **The queue lives in Core, in a `Siphon` class, and drains in the safe window** (fact 1), right after
+   `TakePending` and `PourPending` and before the fills and the machine tick. A click only enqueues. The
+   joules, the store and the water all move at the boundary. A quit before it moves nothing and pays
+   nothing. This is decision 26's rule, placed where the code has room for it.
+3. **New twins on both engines, never `Add`, `Emit`, `Pump` or `Remove`** (fact 2).
+   - Tier B gets `SiphonedMillilitres` and `PouredMillilitres`, both mid-tick guarded, and its checked
+     identity gains `+ Poured − Siphoned`.
+   - Tier A gets `SiphonedLitres` and `PouredLitres`, seam-checked against the siphon's own counters (fact 3:
+     there is nothing else to check them against). A pour into a lake whose basin spills counts the spill
+     through `SpilledLitres`, as an outlet's does.
+   - The store's water line is `held + owed == entering − leaving + vaulted + siphoned − poured`; the dump
+     adds its terms in IM-5.
+4. **The aim: a Core water ray** (fact 4). It walks the view and stops at the first voxel that holds Tier B
+   water or lies in a lake, calling `Cover` for the columns it crosses. It gives up at the first solid.
+   - **A take** anchors its shape on that voxel.
+   - **A pour** anchors on `Hit.Previous`, the air before the surface, as the fill does.
+
+   Both snap to the tool's lattice.
+   *Cost:* one ray walk a click; `Cover` is the relay's own call.
+5. **His sizes: three siphon files**, one each in the miner's, the tunneller's and the excavator's bite:
+   - the 1 m cube, 1,000 L, 1 MJ;
+   - the 2 m cube, 8,000 L, 8 MJ;
+   - the 8 m chunk, 512,000 L, 512 MJ.
+
+   The tool format gains two keys, `takes: "water"` and `power.joulesPerLitre`, in place of
+   `joulesPerVoxel`. T sorts every water tool after every rock tool (fact 5's missing rule). Cooldowns match
+   the rock tools'.
+   *Cost:* T has eight stops, not five. *The other arm:* one siphon whose size B cycles, which puts a
+   second meaning on a key.
+   *Revisit:* he finds eight presses too many.
+6. **A budget per boundary, and one boundary's worth of waiting.** A Tier B take or pour touches at most
+   3,200 cells a boundary. That is the dump's figure (decision 33), measured at 2–4 ms by IM-0; the siphon
+   gets its own budget until IM-5 decides whether the two share one. A Tier A op is one number and lands
+   whole. So a chunk-sized Tier B take spreads over up to eleven boundaries, about 5 s, and pays as it
+   moves. A click is refused `busy` only while a whole boundary's budget is already queued, so the 1 m
+   siphon held on Q is never slowed. An estimate: 3,200 cells is the dump's budget, not a siphon
+   measurement.
+7. **Never take what the store can't hold, and never take on credit.**
+   - A take is cut to the free room of the backpack's channel. Water goes to vaults that hold water, in
+     fill order.
+   - It is cut again to what the bank can pay at 1,000 J a litre, as the fill at range is: a partial move,
+     never a refusal of the whole.
+   - A pour takes from the last-filled vault first. What doesn't fit where it lands stays in the store.
+   - The bank is drawn before the machine tick runs, so decision 8's window draw is legal there.
+8. **The water ID ships in 4a, and the pocket refuses fluids at one door** (fact 6).
+   - `water.json` is fluid and not placeable.
+   - `VolumetricInventory` is handed the table's fluid IDs and refuses them in `Add`, with a counter.
+     That one site covers all nine doors, `--stock=` included, and is decision 23's "by every path" made a
+     single test.
+   - The ID's other reader, the hotbar slot, is IM-6's.
+   - The store keeps water as millilitres on the row, not as the ID.
+9. **A vault joins the ring by kind and `holdsWater`, not by a link** (fact 7). The validator and its test
+   stand.
+   - The ring's entries are tagged, outlet or vault.
+   - A vault's room is `FreeMillilitres`, read every boundary. A vault that is switched off, dumping, a
+     wreck or unreadable refuses.
+   - It weighs its `weight` port if it declares one, else 1.
+   - What a pump puts in it is `vaulted`, never `emitted`, so `pumped == emitted + vaulted`.
+
+   *Cost:* a mod can't make a water vault that pumps skip. *The other arm:* let a vault declare a fluid
+   sink, which changes the validator and its test.
+10. **◆ The lake fill: a placement pays 1,000 J for every litre it deletes** (fact 9; this is his "delete",
+    with its price). A voxel placed in a lake deletes 15.625 L, so a 1 m cube costs 1 MJ. The deleted litres
+    are a printed Tier A term, with a millilitre carry per basin. Tier B's `displaced` remainder, in a full
+    room, pays the same. With no bank to pay, the deleting voxels are refused `Wet` and the rest of the shape
+    lands. So no door removes water for less than the siphon's price.
+    - `HoldsWater` answers for lake voxels too, after `Cover`, which is the one read TODO named. So a
+      placement in a lake queues to the boundary, as a wet one does.
+    - Water only moved around the shape stays free.
+
+    *Cost:*
+    - Building in a lake needs a charged bank, or a lead-acid pack, before quantum.
+    - Every placement near a lake takes the boundary path.
+    - The full-room rule changes a played behaviour, from free to priced.
+
+    *The other arms:*
+    - Delete for free, as taken. The drain stays, printed.
+    - Keep today's rule: nothing moves, and the lake doesn't see the rock.
+
+    *Revisit:* building in lakes reads as blocked in play.
+11. **The stall stays `NoRoom`, the first reason met** (fact 8). A full vault in the ring reads `NoRoom`.
+    The enum's comment is corrected. No `Full` is added.
+    *The other arm:* a `Full` stall, which every switch on `PumpStall` would have to learn.
+12. **Guard `HandOff` and `DisplaceLifted`** in 4a (fact 10). They are one line each, and the rule becomes
+    total.
+
+**IM-4's tests.**
+- M8's oracle and the machine tests unmoved with no vault and no siphon.
+- A take then a pour on a Tier A lake restores the basin exactly.
+- A Tier B take then a pour: `IdentityExact` holds with the new terms.
+- A click then a quit moves nothing and pays nothing.
+- A take is cut to the store's room and to the bank; a chunk take spreads over boundaries and pays as it moves.
+- The water ray finds a lake with no band until `Cover`.
+- The pocket refuses water from `--stock=`, `Add`, a withdrawal and an undo.
+- A pump fills a vault in the ring, and `pumped == emitted + vaulted` holds.
+- A switched-off or dumping vault refuses the ring.
+- (IM-4c) A cube in a lake costs 1 MJ and deletes 1,000 L. With no bank it is refused `Wet`. A full room's
+  displaced water pays too.
+
+**Mutations:**
+- the siphon through `Add` (red on the Tier B identity);
+- `vaulted` counted as `emitted` (red);
+- a take with no room check (red on the store's line);
+- the pocket's refusal removed (red on `--stock=`);
+- `Cover` skipped in the ray (red on the band test);
+- the lake fill unpriced (red on 4c).
+
+**The riskiest part is 4a's twins across two engines inside the boundary window.** The second riskiest is
+4c's change to `HoldsWater`, which moves every placement near a lake onto the boundary path.
+
+**Found alongside, fixed:** the fill-stopped-short line printed a window's own charge, always 0 mJ.
 
 ## Must not ship
 

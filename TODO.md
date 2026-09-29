@@ -21,12 +21,14 @@ his word — and this file points at it rather than repeating it.
       built** (the plan, "IM-3 — built"; the vault and the crate; suite 2,127, twelve mutations red;
       its r6 control read to the digit). **IM-3b is built** (the plan, "IM-3b — built"; the vault's own
       minute of its bill as it stands, and a fuse that waits on a paid boundary and goes out only when the
-      minute is whole; suite 2,140, eleven mutations red; its six amendments propagated). **Next: IM-4**
-      (water's doors) gets its code-level pass first; his note for it: siphon sizes to match the quantum
-      miner, tunneller and excavator. **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
+      minute is whole; suite 2,140, eleven mutations red; its six amendments propagated). **IM-4's pass is
+      written, twelve decisions wait on his word** (the plan, "IM-4 — the code-level pass"): split into 4a
+      (the siphon's queue, doors and twins, the water ray, the ID and the pocket's refusal), 4b (the vault
+      in the ring) and 4c (the lake fill, priced at the siphon's 1,000 J a litre, his "delete" with the
+      drain it would open). **On his word: build IM-4a.** **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
       runway counting the recharge and the return as transfers. **Into IM-6's panel:** his warranty line on the
       vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;
-      files stay in watts). Then IM-4 (water's doors). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his
+      files stay in watts). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his
       say-so, it takes his focus); a bite under a lake (IM-7's bench); a dump underground (IM-5's).
 - [ ] **The lake over a quarry — built 2026-09-27, his look owed.** The plane draws no sheet over
       a pit that is not yet full ([docs/M8-PLAN.md](docs/M8-PLAN.md), "built"). Open: his eye on the
@@ -106,10 +108,10 @@ his word — and this file points at it rather than repeating it.
 - [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), six decisions. Needs from M9 before the
       shake: a rule per derive, and a fall from an explicit set.
 - [ ] **A rock placed in a lake** — he asked, 2026-09-29: *"Is deleteing tier a water when placing
-      voxels on the todo?"* Yes, it is this line. Today placement under a Tier A lake is allowed and takes
-      no water (a lake is one number, so its level does not move); which rule he wants is in
-      MATTHEW-TODO. (M9-PLAN decision 3's edge.) If it reads wrong, the refusal is
-      one read: `LakeCeiling.InLake` beside `HoldsWater` in `ChunkPipeline`.
+      voxels on the todo?"*, and took "delete" on 2026-09-30. Before building it, the cost turned up: a
+      fill-then-dig loop would drain a lake at about 6 J a litre. So it became IM-4's decision 10 (IM-4c),
+      the deletion priced at the siphon's 1,000 J a litre; it waits on his word with the rest of IM-4.
+      (M9-PLAN decision 3's edge; the one read is `LakeCeiling.InLake` beside `HoldsWater`, after `Cover`.)
 - [ ] **Dust when a roof comes down** (M9c-2), optional, only if falls read as too quiet.
 - [ ] **Precision mining's key: Ctrl or Alt.** Ctrl descends in fly mode (~1.8 m sunk between
       chips); Alt means *crawl* there, so it pairs. One line in `MiningController`.

@@ -1,5 +1,35 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-30 — IM-4's code-level pass: twelve decisions handed back, and the lake fill held
+
+*"1 and 2 as recommended, then IM-4's pass please Claude"*. He was playing, so this ran in a worktree.
+- **2**, the HUD's clock, is built (its own entry below).
+- **1**, "a block deletes the lake water it fills", was held before any code. Priced out, a free delete
+  makes fill-then-dig a lake drain: the excavator's 8 m fill and dig cost about 3.3 MJ for 512 kL, 6 J a
+  litre against a pump's 1,000. The same loop already exists in a flooded room with no room around it.
+  That is a price on a door into the water, which is IM-4's subject, so it became the pass's decision 10.
+  My recommendation of the day before hadn't stated this cost.
+
+The pass read decisions 23–26 against the code through three read-only searches, each reporting file and
+line. Ten facts; the ones that move the plan's wording:
+- `PourPending` is the debug relay's (the R keys), a single slot through `Add`, not the relay pump's.
+- The machine tick's pumped and emitted counters are pinned equal to both engines', so the siphon needs new
+  twins.
+- Tier A's identity is never evaluated in the game.
+- The crosshair ray passes through water, and `InLake` is false without `Cover`.
+- The tool format can't say "siphon" (no `takes`, no per-litre price, and T would sort it first).
+- The store holds water as a field, and `--stock=` would put an unrefused ID in the pocket.
+- A vault may not declare a fluid link.
+- The pump's stall is the first refusal met.
+- `HandOff` and `DisplaceLifted` have no mid-tick guard.
+
+The twelve are in the plan. The split is 4a (the siphon's queue, doors and twins, the ray, the ID and the
+pocket's refusal, the guards), 4b (the vault in the ring) and 4c (the lake fill, priced at 1,000 J a litre,
+refused `Wet` with no bank).
+
+Found alongside and fixed: the "fill at range stopped short" line printed a window's own charge, always 0 mJ;
+it names the bank now.
+
 ## 2026-09-30 — the computer's clock on the HUD
 
 *"1 and 2 as recommended"*, 2 being the HUD's time. It is the computer's clock, in Windows' short time format,
