@@ -344,6 +344,15 @@ control (the quantity is the tick rate, ~1.9 Hz there; c-2 adds an O(backlog) wa
 and a battery, then his decision on making it the default. The observation of what unsettles the
 remaining third stays open.
 
+**c-2 on the load test (2026-09-29): it fails as built.** At 480 s, alternated, c-2 reached ticks
+397 / 395 against the control's 918 / 947 (~0.8 Hz against ~1.9), worker wall ~1,070 ms against
+~425. Its promotion of an already-carried cell sets the carry's reclassify walk, O(backlog) — about 2 M
+cells a tick here. **c-3, next, recommended:** the same promotion without the walk. A promoted carried
+cell joins the near batch directly and is tombstoned in the carry (its `_queued` entry marks it
+taken), so `AdmitFromCarry` skips it. O(promoted) a tick. It passes if the load test holds ~1.9 Hz
+and TajMahal's five-minute mean stays near c-2's 198–236 k. *Reverse if* the promotion itself
+(~64 k cells a tick on the load test) is the cost: then promote only a sheet's first N front cells.
+
 ## What would reverse this
 
 - The pool resting on its own within minutes. Then part a is unneeded and b starts at once.

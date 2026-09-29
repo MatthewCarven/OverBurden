@@ -28,8 +28,9 @@ his word — and this file points at it rather than repeating it.
       (`--solvefrontnear=1`) fails too; c-2 (`--solvefrontnear=2`) helps a little (141 k); his
       "settle down but not up" (`--solvewakeup=0`) shows 99% of the solve's wakes are upward, but
       they are not the loop. On a steadier measure (the five-minute queued mean), **c-2 holds in two
-      rounds: 198 k and 236 k against controls' 351–451 k.** **Next:** c-2 on the load test (tick
-      rate), then tests and a battery, then his decision (plan, "The second round").
+      rounds: 198 k and 236 k against controls' 351–451 k.** On the load test c-2 falls to ~0.8 Hz
+      (its carry walk is O(backlog)). **Next:** c-3, the same promotion with tombstones instead of
+      the walk, on both worlds (plan, "c-2 on the load test").
 - [ ] **Tier B at scale — re-read on the fixed build.** On 2026-09-28 the cause was found: Core
       was built unoptimised under `dotnet build Overburden.Game` (WORKLOG). Fixed, his quarry's
       tick is 185 ms at 2.00 Hz (it was ~1 s at 0.9 Hz). Colour waves and bodies wait for a pour

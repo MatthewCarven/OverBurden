@@ -1,5 +1,24 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 — c-2 on the load test: the idea holds, the walk does not
+
+*"yes please Claude"*. On mains, copies of `retired-spread-2026-09-22` (47.8 ML in 3.1 M cells, 209
+machines), order on, 480 s, alternated control / c-2 / control / c-2, 0 ERROR lines, copies deleted:
+
+| arm | last tick | rate | worker wall mean / max | promoted near |
+|---|---|---|---|---|
+| control | 918 / 947 | ~1.9 Hz | 443 / 408 ms, max 687 / 623 | — |
+| c-2 (`--solvefrontnear=2`) | 397 / 395 | ~0.8 Hz | 1,062 / 1,080 ms, max 1,678 / 1,650 | 30.5 M |
+
+**c-2 as built more than halves the load test's tick rate.** The cost is its implementation: every
+tick that promotes a carried cell walks the whole far carry (~2 M cells here) through the reclassify
+path, and it promotes ~64 k cells a tick. On TajMahal the carry is ~200 k and the walk was cheap.
+
+**The idea still stands** (two thirds of the order-on/off gap on his pool, twice). **Next:** c-2
+without the walk. Promoted carried cells go straight into the near batch and are tombstoned in the
+carry, so admission skips them. That is O(promoted) a tick rather than O(backlog). Then both worlds
+again, alternated.
+
 ## 2026-09-29 — A steadier measure and a second round: c-2 holds
 
 *"maybe we re run benchmarks for a 2nd run?"* First the measure: the probe's single awake count

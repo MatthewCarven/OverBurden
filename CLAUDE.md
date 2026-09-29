@@ -189,8 +189,8 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 ## Where things stand
 
-**2026-09-28, small hours.** Suite **1,999**; the r6 control to the digit. `main` matched GitHub
-at `c599f1a`; the session's close-out commit after it is his to push.
+**2026-09-29, early.** Suite **1,999**; the r6 control to the digit. Unpushed commits are his to push;
+`git fetch` then `git log origin/main..main` lists them.
 
 **Next on my side: water bodies, part a (rest)** — [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md),
 "His pool rests with the near/far order off". The bench's `--rest` box rests (the automaton is not
@@ -201,8 +201,9 @@ levellings are far sheets levelled over and over, causing 90% of its wakes. Cand
 (`--solvecarry=0`) and c (`--solvefrontnear=1`) fail; c-2 (`--solvefrontnear=2`) helps a little; his
 `--solvewakeup=0` shows 99% of the solve's wakes are upward but not the loop. On the five-minute queued
 mean (the single probe is too noisy), **c-2 holds over two rounds**: 198 k and 236 k against controls'
-351–451 k and the order off's 80–180 k. **Next** (plan, "The second round"): c-2 on the load test, then
-tests, then his decision on making it the default. **A TajMahal probe needs
+351–451 k and the order off's 80–180 k, but it falls to ~0.8 Hz on the load test because its promotion
+walks the whole far carry every tick. **Next** (plan, "c-2 on the load test"): c-3, the same promotion
+with tombstones instead of the walk, on both worlds; then tests, then his decision. **A TajMahal probe needs
 `--at=-268,-5,1284`**: his saved spawn is nine chunk layers above the pool, which then never loads.
 - **The session's big find:** Core was built unoptimised under `start.cmd` since 2026-09-15. Fixed
   2026-09-28, the water tick is 5.5× faster (see Commands).
