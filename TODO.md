@@ -121,6 +121,9 @@ his word — and this file points at it rather than repeating it.
 
 ## Owed checks
 
+- [ ] **The r6 control on `d21afd5`** (the HUD's clock and the window's gate print, both Game-only),
+      once he has quit: `2601 / 325 / 3446 at 411`. He was playing when they merged.
+
 - [ ] **Re-judge `start.cmd`'s `--lightbudget=16` on a play** — it answered a 1.4 ms unoptimised
       derive that is ~0.36 ms since the JIT optimiser (2026-09-15); and re-take the Debug bench
       figures quoted against game numbers (`-c Debug -- --support`'s 0.83 + 4.4 ms) before quoting

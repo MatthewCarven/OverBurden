@@ -22,18 +22,18 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
-- [ ] **Placing blocks in a lake** (your note: *"Is deleteing tier a water when placing voxels on the
-      todo?"* — yes, it's there). Today a block placed under a lake's surface takes no water: a lake is
-      one number, so its level doesn't move and the block just sits in the water. Pick one:
-      - **The block deletes the water it fills** (recommended): 15.6 L a voxel leaves the lake, printed
-        as a term so nothing vanishes unseen. That's what Minecraft does to a water block, and it's cheap.
-      - The water is pushed up: the lake rises by what the blocks fill. That's the real physics, and the
-        dearest, because a lake's level comes from the ground's shape.
-      - Refused: you can't place into a lake at all.
-- [ ] **The time on the HUD** (your note: *"I'm leaning on the local time"*). The game has no day and
-      night yet, so "local time" is either **your computer's clock** (recommended for now: one line, like
-      a wristwatch in the mine) or the world's time of day once there's a sun to go down. Which did you
-      mean?
+- [ ] **IM-4's twelve decisions** (the siphon, the vault taking a pump's water, and placing in a lake) —
+      the plan's "IM-4 — the code-level pass". Two want your eye:
+      - **Placing in a lake** (you took "delete"; I held it before building). A free delete turns
+        fill-then-dig into a lake drain: the excavator deletes 512,000 L for about 3.3 MJ, 150 times
+        cheaper than a pump. **Recommended: the block still deletes the water, but pays the siphon's
+        price,** 1 MJ for a 1 m cube in a lake. With no power to pay, the lake part is refused and the rest
+        of the shape lands. The other options: delete for free (the drain stays), or keep today's rule
+        (nothing moves).
+      - **The siphon in your three sizes** (1 m, 2 m, 8 m) is three tools on T, so T has eight stops.
+        The other option is one siphon whose size B changes.
+
+      "As recommended" takes all twelve, and I'll build IM-4a (the siphon itself, underneath) first.
 - [ ] **The pond branch's verdict.** `water-column-test` has the raised watershed and your water
       grid built (walls you place raise the lake's rim; the lake reaches under what you build).
       To play it: `git checkout water-column-test`, `start.cmd "--world=Regions16"` (or a copy),
@@ -180,6 +180,10 @@ Nothing is blocked on these; each is a small change once you have a view.
 ---
 
 ## Answered lately
+
+- **Your two answers** (2026-09-30): *"1 and 2 as recommended"*. **2 is built:** your computer's clock is
+  at the end of the HUD's coordinates line; have a look next time you play. **1 is held**, for the reason
+  above; it's IM-4's decision 10 now.
 
 - **IM-3b's seven decisions** (2026-09-29): *"As recommended please Claude thanks Claude we seem to be in
   tune on this like"*. Built the same night, while you played. A vault now carries a minute of its bill as
