@@ -1649,6 +1649,9 @@ refusals of a switched-off vault; a vault joining by kind alone; a vault-only ri
 store's line, `CrossTierExact` and the report's `Exact` each without `vaulted`; the door uncounted; the door
 never writing the vault; the ring's tag never cleared; the room read only once a boundary.
 
+**The r6 control after the merge** read `2601 / 325 / 3446 at 411`, 0 `ERROR`, and its `M10:` line prints
+`0 vault(s)` and `pumped == emitted + vaulted across the tiers: exact`.
+
 ## Must not ship
 
 1. A reserve floor under any name: a percentage kept back, a quarry that stops itself without a sensor he
