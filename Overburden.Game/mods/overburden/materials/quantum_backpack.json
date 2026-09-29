@@ -1,0 +1,23 @@
+{
+  "$comment": "The quantum backpack (IDEAL-MACHINES-PLAN decision 7): a window onto its channel's cells that holds nothing itself. A tool paying through it draws straight out of the bank.",
+  "id": "quantum_backpack",
+  "hardness": 1.0,
+  "supportDistance": 2,
+  "permeability": 0.0,
+  "density": 2000,
+  "textureLayer": 13,
+  "unit": "count",
+  "placeable": false,
+  "programmer": false,
+  "machine": {
+    "kind": "storage",
+    "carried": true,
+    "extras": { "charge": {} },
+    "links": {
+      "charge": { "carries": "power", "role": "sink", "via": "channel", "port": "channel" }
+    },
+    "ports": {
+      "channel": { "default": 0, "min": 0, "max": 15 }
+    }
+  }
+}

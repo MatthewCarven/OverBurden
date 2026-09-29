@@ -1002,6 +1002,24 @@ pack equipped (header v4)` and `equipped from the world file: 1,000 J`; delete t
 placeable material first — every `--place` profile since M10b-1 had selected the computer and
 placed nothing (`computer 0 open(s) / 1 miss(es)` where its placements should have been).
 
+**IM-2 adds the quantum backpack, a window, and the pumps' priority (2026-09-29,
+IDEAL-MACHINES-PLAN decisions 7–9 and 41).** `overburden:quantum_backpack` holds nothing: a tool
+paying through it draws straight out of its channel's enabled cells, last-filled first, between
+boundaries. The recharge and `Alt+P` give it nothing, and the header saves its charge as 0. `P` does
+not seed one until IM-6 gives the HUD a bank line; **`--pack=overburden:quantum_backpack`** wears one
+at open, and `--stock=` carries one. The open line reads `a window onto channel 0's cells, … in the
+bank`, the gate's lines say `the bank on channel 0`, and the `power:` term prints `pack initial` and
+ends `pool == entering − leaving + generated − drawn − clamped + initial − taken − stowed`. The relay
+pump's panel gains a **`priority`** box, 0–9 at 5, higher paid first and ties by position (X, then Y,
+then Z); `--port=pump:priority=9` sets it headless. **The window's oracle, verbatim, reads `paid
+306,650,000 mJ` and `drawn 921,426,000 by pumps + 306,650,000 by the tool … exact`, twice alike**:
+the swings before `--pump` places its cell meet an empty bank (`the bank on channel 0 is spent`,
+1,638 voxels unpowered over 26 swings), and every swing after it pays from the cell:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --fillbasin=2000000 --breach=3 --pump=100 --pack=overburden:quantum_backpack --mine --entangle --measure=10
+```
+
 Measure **the relay pump** — the number every pump cap in the ladder was fiction until, and the read
 priced both ways. The chamber fixture flooded and settled, a relay pump on its floor's centre, an
 outlet on the surface with a sink under it standing in for the hand-off: the delivered rate against

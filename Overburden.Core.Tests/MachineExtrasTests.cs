@@ -35,9 +35,10 @@ public class MachineExtrasTests
             "ports": { "channel": { "default": 0, "min": 0, "max": 15 }{{ports}} } } }
         """;
 
-    private static string Pack(string extras) => $$"""
+    /// <summary>A carried storage; with <paramref name="window"/> it declares no capacity, as decision 7's window must.</summary>
+    private static string Pack(string extras, bool window = false) => $$"""
         { "id": "pack", "hardness": 1.0, "unit": "count", "placeable": false,
-          "machine": { "kind": "storage", "carried": true, "capacityJoules": 3600000, {{extras}}
+          "machine": { "kind": "storage", "carried": true, {{(window ? "" : "\"capacityJoules\": 3600000,")}} {{extras}}
             "links": { "charge": { "carries": "power", "role": "sink", "via": "channel", "port": "channel" } },
             "ports": { "channel": { "default": 0, "min": 0, "max": 15 } } } }
         """;
@@ -71,27 +72,21 @@ public class MachineExtrasTests
         return (content, content.Load(source));
     }
 
-    public static TheoryData<string, string, string> EveryExtraAndItsSlice => new()
+    public static TheoryData<string, string, string> EveryUnservedExtraAndItsSlice => new()
     {
         { "sense", "pump", "collapse f-1" },
         { "recall", "pump", "IM-9" },
         { "remote", "pump", "IM-9" },
-        { "charge", "pack", "IM-2" },
-        { "priority", "pump", "IM-2" },
         { "telemetry", "pump", "IM-9" },
     };
 
     [Theory]
-    [MemberData(nameof(EveryExtraAndItsSlice))]
-    public void EachExtraIsRefusedOnAMachineNamingTheSliceThatReadsIt(string extra, string machine, string slice)
+    [MemberData(nameof(EveryUnservedExtraAndItsSlice))]
+    public void EachExtraNotYetServedIsRefusedOnAMachineNamingTheSliceThatReadsIt(string extra, string machine, string slice)
     {
-        // IM-1's pass, decision 2: every extra's reader is a later slice, so an opt-in today would
-        // load and do nothing — the via precedent refuses it naming the part that will serve it.
-        string json = machine == "pack"
-            ? Pack($$"""
-                "extras": { "{{extra}}": {} },
-                """)
-            : Pump($$"""
+        // IM-1's pass, decision 2: an extra whose reader is a later slice would load and do
+        // nothing — the via precedent refuses it naming the part that will serve it.
+        string json = Pump($$"""
                 "extras": { "{{extra}}": {} },
                 """, OnSignal + Priority);
 
@@ -105,6 +100,28 @@ public class MachineExtrasTests
     }
 
     [Fact]
+    public void ChargeAndPriorityAreServedFromIM2()
+    {
+        // IM-2 read both, and switched them on: the window (decisions 7 and 8) and the consumers'
+        // order (decision 41). The game's own served set loads them.
+        Assert.Equal(MachineExtra.Charge | MachineExtra.Priority, MachineExtras.Served);
+
+        (GameContent content, LoadResult result) = Load(
+            MachineExtras.Served,
+            true,
+            ("pack.json", Pack("""
+                "extras": { "charge": {} },
+                """, window: true)),
+            ("pump.json", Pump("""
+                "extras": { "priority": {} },
+                """, Priority)));
+
+        Assert.True(result.Success, string.Join("; ", result.Errors));
+        Assert.True(content.Materials.Get(Identifier.Parse("machines:pack")).Machine!.IsWindow);
+        Assert.Equal(ExtraForm.Port, content.Materials.Get(Identifier.Parse("machines:pump")).Machine!.FormOf(MachineExtra.Priority));
+    }
+
+    [Fact]
     public void WithTheServedSetEachBitAndFormLandsOnTheTable()
     {
         (GameContent content, LoadResult result) = Load(
@@ -115,7 +132,7 @@ public class MachineExtrasTests
                 """, OnSignal + Priority)),
             ("pack.json", Pack("""
                 "extras": { "charge": {} },
-                """)),
+                """, window: true)),
             ("cell.json", Cell(string.Empty)));
         Assert.True(result.Success, string.Join("; ", result.Errors));
 
@@ -189,10 +206,12 @@ public class MachineExtrasTests
     [InlineData("pack", "telemetry", "is a placed machine's")]
     public void ChargeIsACarriedStoragesExtraAndTheOtherFiveAPlacedMachines(string machine, string extra, string mentioning)
     {
+        // The placed cell is written as a window would be — no capacity — so the refusal is the
+        // carried rule and not the window's own.
         string json = machine == "cell"
             ? Cell($$"""
                 "extras": { "{{extra}}": {} },
-                """)
+                """).Replace("\"capacityJoules\": 5000000000,", string.Empty)
             : Pack($$"""
                 "extras": { "{{extra}}": {} },
                 """);

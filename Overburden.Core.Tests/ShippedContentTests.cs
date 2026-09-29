@@ -207,7 +207,7 @@ public class ShippedContentTests
         Assert.True(outlet.Hardness <= tallest, "no shipped tier can take a relay outlet body, so none can be dismantled");
 
         MaterialTable table = MaterialTable.From(content.Materials);
-        Assert.Equal(5, table.MachineIds.Count);
+        Assert.Equal(6, table.MachineIds.Count); // IM-2 added the quantum backpack
 
         // M10b: only a ring has weights, so the pump declares none and the outlet does; a port
         // the panel would list that nothing reads is the thing decision 11 refuses a via for.
@@ -232,15 +232,45 @@ public class ShippedContentTests
         int id = content.Materials.GetNumericId(Identifier.Parse("overburden:computer"));
         Assert.False(table.IsPlaceable(id));
 
-        // Every shipped block is placeable; the computer and the pack are the two things that
-        // are not (M10c-2 added the pack).
+        // Every shipped block is placeable; the computer and the two packs are the things that
+        // are not (M10c-2 added the lead-acid pack, IM-2 the quantum backpack).
         int notPlaceable = 0;
         for (int i = 0; i < table.Count; i++)
         {
             if (!table.IsPlaceable(i)) notPlaceable++;
         }
 
-        Assert.Equal(2, notPlaceable);
+        Assert.Equal(3, notPlaceable);
+    }
+
+    [Fact]
+    public void TheQuantumBackpackShipsAsAWindowAndTheRelayPumpWithAPriority()
+    {
+        // IM-2: decision 7's JSON, pinned — a carried storage with the charge extra's window form,
+        // no capacity, no recharge, not a programmer — and decision 41's port on the one shipped
+        // consumer, at the middle so every played world keeps its order.
+        var content = new GameContent();
+        LoadResult result = content.Load(new DirectoryContentSource(ModsDirectory()));
+        Assert.True(result.Success, string.Join("; ", result.Errors));
+
+        MaterialDefinition backpack = content.Materials.Get(Identifier.Parse("overburden:quantum_backpack"));
+        Assert.False(backpack.IsPlaceable);
+        Assert.False(backpack.IsProgrammer);
+        Assert.Equal(MaterialUnit.Count, backpack.Unit);
+        Assert.Equal(13, backpack.TextureLayer);
+        MachineDefinition window = backpack.Machine!;
+        Assert.True(window.IsWindow);
+        Assert.True(window.Carried);
+        Assert.Equal(0L, window.CapacityMillijoules);
+        Assert.Null(window.RechargeWatts);
+        Assert.True(window.Link("charge")!.IsChannel);
+
+        MachineDefinition relay = content.Materials.Get(Identifier.Parse("overburden:relay_pump")).Machine!;
+        Assert.Equal(ExtraForm.Port, relay.FormOf(MachineExtra.Priority));
+        Assert.Equal(new PortDefinition(MachineTick.PriorityPort, MachineTick.DefaultPriority, 0, 9), relay.Port(MachineTick.PriorityPort));
+
+        // The lead-acid pack is unchanged (decision 7): it still holds its own charge.
+        Assert.False(content.Materials.Get(Identifier.Parse("overburden:lead_acid_pack")).Machine!.IsWindow);
     }
 
     [Fact]
@@ -259,11 +289,11 @@ public class ShippedContentTests
     }
 
     [Fact]
-    public void TheBaseGameShipsFormatOneAndTheQuantumRowAndNoMachineOptsIntoAnExtraYet()
+    public void TheBaseGameShipsFormatOneAndTheQuantumRowAndOptsIntoOnlyServedExtras()
     {
         // IM-1's pass: the manifest declares the format it was written for (decision 7); the table
-        // ships the quantum row now (decision 3); and no machine opts into an extra until the slice
-        // that reads it lands (decision 2), so the whole of IM-1 is invisible in play.
+        // ships the quantum row now (decision 3); and a machine opts into an extra only once the
+        // slice that reads it has landed (decision 2) — IM-2's window and the pump's priority.
         string mods = ModsDirectory();
         var content = new GameContent();
         LoadResult result = content.Load(new DirectoryContentSource(mods));
@@ -287,7 +317,11 @@ public class ShippedContentTests
             content.Extras.Entries());
 
         MaterialTable table = MaterialTable.From(content.Materials);
-        Assert.All(table.MachineIds, id => Assert.Equal(MachineExtra.None, table.Machine(id)!.Extras));
+        Assert.All(table.MachineIds, id => Assert.Equal(MachineExtra.None, table.Machine(id)!.Extras & ~MachineExtras.Served));
+
+        int Id(string path) => content.Materials.GetNumericId(Identifier.Parse($"overburden:{path}"));
+        Assert.Equal(MachineExtra.Charge, table.Machine(Id("quantum_backpack"))!.Extras);
+        Assert.Equal(MachineExtra.Priority, table.Machine(Id("relay_pump"))!.Extras);
     }
 
     [Fact]

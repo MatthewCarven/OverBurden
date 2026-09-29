@@ -9,7 +9,8 @@ Claude"*. **IM-0b is built** (2026-09-29, [UNDO-PLAN.md](UNDO-PLAN.md), "The mac
 journalled"). It is wider than the split's row: the reconcile's four branches were the same mint, so
 the rule is that only a pick's dismantle is journalled. **IM-0 is measured** (the same night, "IM-0 —
 measured" below), and he took the 2 m quarry bite. **IM-1 is built** ("IM-1 — the code-level pass" and
-"IM-1 — built" below; its eight decisions taken as recommended). IM-2 is next.
+"IM-1 — built" below; its eight decisions taken as recommended). **IM-2 is built** ("IM-2 — built"
+below): the backpack is a window and consumers are paid by priority. IM-3, the vault, is next.
 
 **How it was made.** As a design panel (the ladder's method):
 - five readers mapped the machine code, the plans, the inventory and the store, the creative-mode
@@ -614,7 +615,7 @@ name, bounds or default.
 | **IM-0** | **Measurements on the fixed build, no code.** On a dated copy of `retired-TajMahal-2026-09-29` (`--world=probe-…`, `--at=-268,-5,1284`, `--fluidnear=2 --fluidjob=1`): `machines` and `boundary worst`. Then `--profile --entangle --nogate --pitch=-60 --holdq` and `--entangletunnel --nogate --pitch=-60 --holdq`, dry and with `--fillbasin`: `swing ms` and remeshes a swing. Then `--injectlitres=1000000` and `=10000000`: `pour`, a minute of tick wall, and the surface install in a windowed run. Also: add `--entangletunnel` to COMMANDS.md, where it is missing. | The numbers decisions 32, 33 and 45 wait on. |
 | **IM-0b** | **The live bug (fact 3), a fix to shipped code.** The drain's destroy branch runs with recording off, for every machine. | A pump destroyed by a fall, drained, then Ctrl+Z re-adds nothing, and the next arrival rebuilds nothing; a pure pick's dismantle is still undoable. |
 | **IM-1** Core (amended by its pass, below; **built 2026-09-29**) | The strict loader; `extras`, the flag set, the per-material bit, `extras.json` (quantum row), its union and media check; `programmer`. | Every shipped file loads; a misspelt key at each level is refused, naming it; two mods giving one (extra, medium) pair are refused; a misspelt medium is refused; a mod with a newer `format` fails in one line; water and parts no longer open a panel; a three-mod fixture loads the same in every order; rows saved under f-1 restore unchanged. Mutation: disable the refusal, and the misspelt-key fixture goes red. |
-| **IM-2** Core | The window (7, 8): the backpack's JSON, the validator's exemption, `RechargePack`, `FillPack` and `Give` refusing a window, the direct draw; the priority consumer list; `packInitial` printed. | `PowerExact` exact over a thousand random bites and boundaries; the worn backpack's saved charge is 0 after a hundred boundaries, Alt+P and a save; a draw inside `Run` throws. Mutations: drop the `packTaken` credit, red; write the draw through `SetCharge`, red. Equal priorities reproduce position order. |
+| **IM-2** Core (**built 2026-09-29**) | The window (7, 8): the backpack's JSON, the validator's exemption, `RechargePack`, `FillPack` and `Give` refusing a window, the direct draw; the priority consumer list; `packInitial` printed. | `PowerExact` exact over a thousand random bites and boundaries; the worn backpack's saved charge is 0 after a hundred boundaries, Alt+P and a save; a draw inside `Run` throws. Mutations: drop the `packTaken` credit, red; write the draw through `SetCharge`, red. Equal priorities reproduce position order. |
 | **IM-3** Core | The `vault` kind and the crate; the codec; the store view and fill order; the bill (`held`) and its order before signal overrides; the fuse; every row-removal rule of 17; the store's voxel identity. | Identity exact over a thousand random operations, the undo included; a signalled cell never unpays a hold; two vaults both bill; a save during a fuse resumes at the saved milliseconds; a wreck survives a reopen and is never rebuilt; both reconcile branches keep contents; an unknown codec version refuses the pick and the undo; `overfull` at restore; a refused pick carves nothing; the undo refusal is a pre-flight; `SetPort` moves contents with the row. Mutations: journal a full row, red; bill with no `held` term, red. |
 | **IM-4** Core | Water's doors: the ID, the pocket's refusal, the siphon's queue and rules, the vault in the outlet ring, the twins, `pumped == emitted + vaulted`, the store's water line. | M8's oracle unmoved with no vault; a siphon take then pour restores a basin exactly; a click then a quit moves nothing; a take on a Tier A lake draws the basin; the pump stalls `full` only when every ring entry refuses. Mutation: drop `vaulted`, red. |
 | **IM-5** Core | The dump: the pile writer, the Tier A release, the Tier B ball with its twin sized to the budget, the ceilings and decoherence, the global budgets, owed while unloaded, the unload batch's session, the dead state; a heap-writer bench arm. | A fixture room receives every voxel once; a pile into a chunk that unloads, then a kill with no session save, then a reopen, counts every voxel once; the unloaded arm releases at arrival; N vaults dumping share the budget exactly; the Tier B ceiling decoheres the excess; power returning after the fuse does nothing; Ctrl+Z cannot touch the pile; Tier B exact, Tier A's counters seam-checked. Mutation: route the dump through `Add`, and the seam goes red. |
@@ -835,6 +836,60 @@ What it is, by file:
 **The r6 control, to the digit** (run once his game closed; he had played through the build on a binary with
 no IM-1 loader in it): `2601 viewed / 325 drawn / 3446 jobs` at 411 quads a drawn chunk, 0 `ERROR`, and the
 game's own content line reads `1 mod(s), 14 material(s), 5 tool(s), 6 extra reach(es), 0 error(s)`.
+
+## IM-2 — built (2026-09-29)
+
+*"start on IM-2 please Claude"*. Decisions 7, 8, 9 and 41 read against `EquippedPack`, `MachineTick`,
+`CarriedPacks` and the two tool call sites, and they fit as written, so there was no pass to hand back:
+- **The tools pay only through the pack.** `MiningController` and `PlaceController` call
+  `VoxelsAffordable` and `Pay`, so a window that answers both from its channel's cells changes no call site.
+- **The pool is re-summed from the cells every boundary**, and the write-back fills them in position order.
+  So "last-filled first" is the write-back read backwards, and it only matters to a cell removed before
+  the next boundary.
+- **`SetCharge` counts a fall as `leaving`**, so the draw writes `StorageState` directly, as decision 8 says.
+- **A window's capacity is 0**, so the recharge, the fill and `Give` already give it nothing by arithmetic.
+  The explicit refusals say so out loud; a mutation that removes one stays green, as predicted.
+
+The one choice taken without a pass: **`P` does not seed the backpack until IM-6**, when the HUD has a bank
+line to show; `--pack=overburden:quantum_backpack` and `--stock=` reach it meanwhile.
+
+What it is:
+- **`EquippedPack`**: `IsWindow`, an internal `Bank`, and `SpendableMillijoules` (the bank for a window,
+  the charge otherwise). `Take` draws through the bank and counts `taken`; `Give` refuses a window.
+- **`IChannelBank`** (internal, new): `BankMillijoules` and `Draw`, implemented explicitly by `MachineTick`,
+  so the one way to debit the cells from outside the tick is through a pack that counts what it takes.
+  `EquipPack` attaches it to an incoming window and detaches it from an outgoing one.
+- **`MachineTick`**: `Run` sets a running flag, and `Draw` throws inside it. `RechargePack` and `FillPack`
+  skip a window. Pumps are sorted by `PriorityOf` (the port, 0–9, where the material has the extra; 5
+  otherwise), then position. An internal `PumpOrder` is kept for tests.
+- **`MachineDefinition`**: `IsWindow`. The validator refuses a window with a `capacityJoules` or a
+  `rechargeWatts`, and every other storage still needs a capacity.
+- **`MachineExtras.Served`** is `Charge | Priority`.
+- **Shipped**: `quantum_backpack.json` (decision 7's JSON, texture layer 13, a cyan swatch) and the relay
+  pump's `"extras": { "priority": {} }` with `priority` 0–9 at 5. An existing world's pumps take the new
+  port at its default when they open (`defaulted` on the restore line). The three hard counts moved as
+  decision 50 said: machine materials 5 → 6, non-placeable 2 → 3, and IDs appended to the v3 fixture 9 → 10.
+- **The prints**: the open line, the gate's lines and the profile's `gate` line say `the bank on channel N`
+  for a window, and the `power:` term prints `pack initial` with the full formula.
+
+**Suite 2,088** (+12). **Ten mutations**: nine red, each on its test, and the tenth (the fill's explicit
+refusal) green as predicted, the capacity rule being the one that bites. The nine:
+- the `taken` credit dropped;
+- the draw written through `SetCharge`;
+- the run guard removed;
+- the priority sort removed;
+- the draw's order reversed;
+- the bank not attached;
+- the bank not detached;
+- `Charge` unserved;
+- the window's capacity rule removed.
+
+**Headless:**
+- **The r6 control to the digit** (`2601 / 325 / 3446` at 411, 15 materials, 0 `ERROR`).
+- **M10a-3's loaded arm holds** with the priority port on the shipped pump: `drawn 1,000 == pumped 1,000 ==
+  emitted 1,000`, every identity exact.
+- **The window's oracle** (COMMANDS.md, "IM-2 adds") reads `paid 306,650,000 mJ` straight out of the
+  `--pump` cell, `… + 306,650,000 by the tool … exact`, identically on two runs.
 
 ## Must not ship
 

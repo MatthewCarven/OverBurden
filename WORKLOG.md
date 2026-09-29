@@ -1,5 +1,35 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 (late) — IM-2 built: the quantum backpack is a window, and consumers are paid by priority
+
+*"start on IM-2 please Claude"*. Decisions 7, 8, 9 and 41 were read against the pack, the tick and the tool
+call sites first, and they fit, so no pass was handed back. The deciding fact: the tools pay only through
+`EquippedPack.VoxelsAffordable` and `Pay`, so a window answering both from its channel's cells changes no
+call site. The plan's "IM-2 — built" has the file-by-file account.
+
+- **The draw** is behind an internal `IChannelBank` that `MachineTick` implements explicitly. It takes the
+  last-filled cell first (the write-back read backwards), writes `StorageState` directly, and throws inside
+  `Run`. The pack counts what it takes as `taken`, so `PowerExact` needed no new term: 1,000 random
+  operations of every door into the pool, exact after each.
+- **Priority**: the relay pump ships `priority` 0–9 at 5, and a pump without the extra reads 5, so every
+  existing test passed unchanged. That was the "equal priorities are position order" check, for free.
+  Played worlds' pumps take the port at its default on open.
+- **Shipped**: `quantum_backpack.json` with a cyan swatch on layer 13. `P` does not seed it until IM-6's bank
+  line; `--pack=overburden:quantum_backpack` wears one.
+- **The prints name the bank** for a window, and the power line prints `pack initial` with the full formula.
+  The first oracle run printed `the pack at 0 mJ of 0 mJ` for a window, which would have misled the next
+  person reading a log.
+
+**Checks:**
+- Suite **2,088**.
+- **Ten mutations**: nine red on their own tests, one green as predicted (a window's zero capacity already
+  refuses the fill).
+- The r6 control to the digit.
+- M10a-3's loaded arm exact.
+- The window's own oracle: `306,650,000 by the tool`, the same on two runs. Its 26 unpowered swings are the
+  ones before `--pump` places the cell, as the log's order shows. `--port=pump:priority=9` sets and 42
+  clamps to 9, checked headless before COMMANDS.md claimed it.
+
 ## 2026-09-29 (late) — IM-1's r6 control, to the digit
 
 *"game's closed, run the r6 check please Claude"*. His play log (7:17–9:22 PM on `TajMahal2`) was copied aside

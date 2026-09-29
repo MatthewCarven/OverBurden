@@ -117,7 +117,7 @@ public readonly record struct MachineTickReport(
 /// <b>The cursor is the channel's, in memory, reset at open</b> (decision 9): sixteen integers,
 /// advanced once per pump that moved anything, so two pumps on one channel reach two outlets in
 /// one boundary and one pump with two outlets alternates. Determinism is within a session from
-/// the same open — pumps in origin order, outlets per channel in origin order, both rebuilt when
+/// the same open — pumps by priority then origin order (decision 41), outlets per channel in origin order, both rebuilt when
 /// the set's version moves.
 /// </para>
 /// <para>
@@ -135,6 +135,13 @@ public readonly record struct MachineTickReport(
 /// no generation, no bill, no write-back — the game's <c>--nogate</c>.
 /// </para>
 /// <para>
+/// <b>A window is paid out of the cells between boundaries</b> (IDEAL-MACHINES-PLAN decisions 7
+/// and 8): the quantum backpack holds nothing, the recharge skips it, and a tool spending through
+/// it draws on its channel's enabled cells through <see cref="IChannelBank"/>, last-filled first.
+/// The run sums the pool from the cells as the draws left them, so the hand's spend has already
+/// happened when the consumers are paid, by priority then position (decisions 9 and 41).
+/// </para>
+/// <para>
 /// <b>Weights are the ring, not a second rule</b> (M10b, decision 5). A channel's ring is its
 /// outlets in origin order expanded by their <c>weight</c> port through the smooth weighted
 /// round-robin — each turn picks the outlet with the largest running credit, every credit grows by
@@ -145,7 +152,7 @@ public readonly record struct MachineTickReport(
 /// hundred is one room read, not a hundred.
 /// </para>
 /// </remarks>
-public sealed class MachineTick
+public sealed class MachineTick : IChannelBank
 {
     /// <summary>The port every channel link reads.</summary>
     public const string ChannelPort = MachineLink.ChannelVia;
@@ -181,7 +188,22 @@ public sealed class MachineTick
     /// </summary>
     public const string EnabledPort = "enabled";
 
+    /// <summary>
+    /// The port a consumer with the <c>priority</c> extra declares, 0–9, higher paid first
+    /// (IDEAL-MACHINES-PLAN decision 41).
+    /// </summary>
+    public const string PriorityPort = MachineExtras.PriorityPort;
+
+    /// <summary>
+    /// What a consumer without the extra reads, and what every shipped one defaults to: the middle,
+    /// so equal priorities are today's position order and no M10 oracle moves.
+    /// </summary>
+    public const long DefaultPriority = 5;
+
     private long _builtAtVersion = -1;
+
+    // Decision 8: a window draws between boundaries, never inside the run; the draw asks this.
+    private bool _running;
     private readonly List<(MachineRow Row, MachineDefinition Definition)> _pumps = [];
     private readonly List<MachineRow>?[] _outlets = new List<MachineRow>?[Channels];
     private readonly int[] _outletCount = new int[Channels];
@@ -280,9 +302,18 @@ public sealed class MachineTick
             _packTakenSum += outgoing.TakenMillijoules;
             PackStowedMillijoules += stowed;
             PacksUnequipped++;
+
+            // An unequipped window draws on nothing: a stale reference would be a door into the
+            // pool whose taken no longer lands in the sums above.
+            outgoing.Bank = null;
         }
 
         Pack = pack;
+        if (pack is { IsWindow: true })
+        {
+            pack.Bank = this;
+        }
+
         return stowed;
     }
 
@@ -314,6 +345,13 @@ public sealed class MachineTick
         if (Pack is null)
         {
             return -1;
+        }
+
+        // Decision 7: a window holds nothing, so the debug fill gives it nothing — Alt+P fills
+        // the cells, never the window.
+        if (Pack.IsWindow)
+        {
+            return 0;
         }
 
         long given = Pack.Give(millijoules);
@@ -504,13 +542,31 @@ public sealed class MachineTick
 
     private static readonly int WatchMachines = CallWatch.Register("machines: tick");
 
-    /// <summary>One boundary: every pump, in origin order.</summary>
+    /// <summary>One boundary: every pump, by priority and then in origin order (IDEAL-MACHINES-PLAN decision 41).</summary>
     /// <remarks>
     /// Refuses mid-tick through the simulation's own guard on the first <c>Pump</c> or
     /// <c>Emit</c>; a caller that reaches here inside a tick has not been taught to wait, and
     /// the grid read before the refusal would be a worker's.
     /// </remarks>
     public MachineTickReport Run()
+    {
+        if (_running)
+        {
+            throw new InvalidOperationException("The machine tick is already running; a boundary does not nest.");
+        }
+
+        _running = true;
+        try
+        {
+            return RunBoundary();
+        }
+        finally
+        {
+            _running = false;
+        }
+    }
+
+    private MachineTickReport RunBoundary()
     {
         using CallWatch.Scope callWatch = CallWatch.Time(WatchMachines);
         Boundaries++;
@@ -684,7 +740,8 @@ public sealed class MachineTick
     /// <summary>The pack draws last from its channel, to its capacity and its recharge bound. Returns what it took.</summary>
     private long RechargePack()
     {
-        if (Pack is null)
+        // A window takes no charge (decision 7): it holds nothing, and its channel's cells are the bank.
+        if (Pack is null || Pack.IsWindow)
         {
             return 0;
         }
@@ -732,7 +789,107 @@ public sealed class MachineTick
         return clamped;
     }
 
-    /// <summary>The pumps and the per-channel outlets, in origin order, from the set as it stands.</summary>
+    /// <summary>What <paramref name="channel"/>'s enabled cells hold now — the bank a window spends (decision 8).</summary>
+    long IChannelBank.BankMillijoules(int channel)
+    {
+        if (_builtAtVersion != _machines.Version)
+        {
+            Rebuild();
+        }
+
+        long bank = 0;
+        List<(MachineRow Row, MachineDefinition Definition)>? rows = _storage[Math.Clamp(channel, 0, Channels - 1)];
+        if (rows is not null)
+        {
+            foreach ((MachineRow row, _) in rows)
+            {
+                bank += StorageState.Read(row);
+            }
+        }
+
+        return bank;
+    }
+
+    /// <summary>
+    /// Decision 8's draw: up to <paramref name="millijoules"/> out of the channel's enabled cells,
+    /// between boundaries, last-filled first.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Last-filled first</b> is the write-back read backwards: it fills the cells in position
+    /// order, each to capacity, so the last cells in that order are the emptiest, and a draw that
+    /// takes from them keeps the first ones full. The next boundary sums them all again, so the
+    /// order only matters to a cell removed before it — whose charge leaves as <c>leaving</c>.
+    /// </para>
+    /// <para>
+    /// <b>The charge is written directly</b>, never through <see cref="MachineSet.SetCharge"/>,
+    /// which would count the fall as <c>leaving</c> too and the caller's term would count it twice.
+    /// And <b>never inside the run</b>: the pool is summed at its start and written back at its end,
+    /// so a draw in between would be spent twice or lost to the write-back.
+    /// </para>
+    /// </remarks>
+    long IChannelBank.Draw(int channel, long millijoules)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(millijoules);
+        if (_running)
+        {
+            throw new InvalidOperationException("A window draws between boundaries, never inside the machine tick's run (decision 8).");
+        }
+
+        if (_builtAtVersion != _machines.Version)
+        {
+            Rebuild();
+        }
+
+        List<(MachineRow Row, MachineDefinition Definition)>? rows = _storage[Math.Clamp(channel, 0, Channels - 1)];
+        if (rows is null || millijoules == 0)
+        {
+            return 0;
+        }
+
+        long remaining = millijoules;
+        for (int i = rows.Count - 1; i >= 0 && remaining > 0; i--)
+        {
+            MachineRow row = rows[i].Row;
+            long held = StorageState.Read(row);
+            long take = Math.Min(held, remaining);
+            if (take <= 0)
+            {
+                continue;
+            }
+
+            StorageState.Write(row, held - take);
+            remaining -= take;
+        }
+
+        return millijoules - remaining;
+    }
+
+    /// <summary>
+    /// A consumer's priority (decision 41): its <see cref="PriorityPort"/> clamped to 0–9 when its
+    /// material has the <c>priority</c> extra, else <see cref="DefaultPriority"/> — the extra's one
+    /// reading site.
+    /// </summary>
+    public static long PriorityOf(MachineRow row, MachineDefinition definition) =>
+        definition.Has(MachineExtra.Priority) && row.TryGetPort(PriorityPort, out long priority)
+            ? Math.Clamp(priority, 0, 9)
+            : DefaultPriority;
+
+    /// <summary>The pumps in the order they are paid and ticked, as the last rebuild left them — priority, then position.</summary>
+    internal IReadOnlyList<MachineRow> PumpOrder
+    {
+        get
+        {
+            if (_builtAtVersion != _machines.Version)
+            {
+                Rebuild();
+            }
+
+            return _pumps.Select(p => p.Row).ToList();
+        }
+    }
+
+    /// <summary>The pumps by priority then origin order, and the per-channel outlets in origin order, from the set as it stands.</summary>
     private void Rebuild()
     {
         _pumps.Clear();
@@ -781,7 +938,13 @@ public sealed class MachineTick
             }
         }
 
-        _pumps.Sort(static (a, b) => CompareOrigin(a.Row, b.Row));
+        // Decision 9 and 41: consumers are paid by priority, higher first, then by position (X, then
+        // Y, then Z). Equal priorities are position order, which is every pump before IM-2.
+        _pumps.Sort(static (a, b) =>
+        {
+            int byPriority = PriorityOf(b.Row, b.Definition).CompareTo(PriorityOf(a.Row, a.Definition));
+            return byPriority != 0 ? byPriority : CompareOrigin(a.Row, b.Row);
+        });
         _converters.Sort(static (a, b) => CompareOrigin(a.Row, b.Row));
         foreach (List<(MachineRow Row, MachineDefinition Definition)>? rows in _storage)
         {

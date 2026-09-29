@@ -71,11 +71,11 @@ public static class MachineExtras
         | MachineExtra.Charge | MachineExtra.Priority | MachineExtra.Telemetry;
 
     /// <summary>
-    /// The extras this build serves on a machine (IM-1's pass, decision 2): none, since every
-    /// extra's reader is a later slice. Each slice switches its own on here — f-1 <c>Sense</c>,
-    /// IM-2 <c>Charge</c> and <c>Priority</c>, IM-9 the other three.
+    /// The extras this build serves on a machine (IM-1's pass, decision 2): each is switched on
+    /// here by the slice that reads it — IM-2 <c>Charge</c> (the window) and <c>Priority</c> (the
+    /// consumers' order); collapse f-1 <c>Sense</c>; IM-9 the other three.
     /// </summary>
-    public const MachineExtra Served = MachineExtra.None;
+    public const MachineExtra Served = MachineExtra.Charge | MachineExtra.Priority;
 
     /// <summary>The port <c>sense</c> needs: collapse f-1's <c>onsignal</c>, 0 ignore, 1 off while signalled, 2 on only while signalled.</summary>
     public const string OnSignalPort = "onsignal";

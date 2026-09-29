@@ -19,6 +19,14 @@ namespace Overburden.Core.Machines;
 /// clamped + initial − taken</c> is the pool's identity with the pack inside it, and every term
 /// is a long in millijoules.
 /// </para>
+/// <para>
+/// <b>A window holds nothing</b> (IDEAL-MACHINES-PLAN decisions 7 and 8): a pack whose <c>charge</c>
+/// extra takes the <c>window</c> form has no capacity and no charge of its own, and a tool paying
+/// through it draws straight out of its channel's cells — the <see cref="Bank"/> the tick attaches
+/// when it is equipped. The cells fall by what the pack's <see cref="TakenMillijoules"/> rises by,
+/// so the pool's identity needs no new term. The recharge, the debug fill and <see cref="Give"/>
+/// give a window nothing.
+/// </para>
 /// </remarks>
 public sealed class EquippedPack
 {
@@ -44,11 +52,27 @@ public sealed class EquippedPack
     /// <summary>The material's machine block — the capacity and the recharge bound.</summary>
     public MachineDefinition Definition { get; }
 
+    /// <summary>Whether the pack is a window onto its channel's cells, holding nothing itself (decision 7).</summary>
+    public bool IsWindow => Definition.IsWindow;
+
+    /// <summary>
+    /// What a window draws on: the tick it is equipped on, attached and detached by
+    /// <see cref="MachineTick.EquipPack"/>. Null for a pack that holds its own charge, and for a
+    /// window nobody has equipped, which buys nothing.
+    /// </summary>
+    internal IChannelBank? Bank { get; set; }
+
     /// <summary>What it holds now, in millijoules, never over the capacity.</summary>
     public long ChargeMillijoules { get; private set; }
 
     /// <summary>The channel it recharges from — a port on the header, not on a row.</summary>
     public int Channel { get; set; }
+
+    /// <summary>
+    /// What a tool paying through the pack can spend now: its own charge, or for a window the bank
+    /// its channel's enabled cells hold (decision 8) — the one number the gate, the log and the HUD read.
+    /// </summary>
+    public long SpendableMillijoules => IsWindow ? Bank?.BankMillijoules(Channel) ?? 0 : ChargeMillijoules;
 
     public long CapacityMillijoules => Definition.CapacityMillijoules;
 
@@ -62,19 +86,32 @@ public sealed class EquippedPack
     public long GivenMillijoules { get; private set; }
 
     /// <summary>Takes up to <paramref name="millijoules"/>; returns what came out.</summary>
+    /// <remarks>A window takes it out of its channel's cells (decision 8), and counts it here as any pack does.</remarks>
     public long Take(long millijoules)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(millijoules);
+        if (IsWindow)
+        {
+            long drawn = Bank?.Draw(Channel, millijoules) ?? 0;
+            TakenMillijoules += drawn;
+            return drawn;
+        }
+
         long taken = Math.Min(millijoules, ChargeMillijoules);
         ChargeMillijoules -= taken;
         TakenMillijoules += taken;
         return taken;
     }
 
-    /// <summary>Gives up to <paramref name="millijoules"/>, to the capacity; returns what went in.</summary>
+    /// <summary>Gives up to <paramref name="millijoules"/>, to the capacity; returns what went in. A window takes nothing.</summary>
     public long Give(long millijoules)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(millijoules);
+        if (IsWindow)
+        {
+            return 0;
+        }
+
         long given = Math.Min(millijoules, CapacityMillijoules - ChargeMillijoules);
         ChargeMillijoules += given;
         GivenMillijoules += given;
@@ -99,7 +136,7 @@ public sealed class EquippedPack
             return int.MaxValue;
         }
 
-        return (int)Math.Min(int.MaxValue, ChargeMillijoules / millijoulesPerVoxel);
+        return (int)Math.Min(int.MaxValue, SpendableMillijoules / millijoulesPerVoxel);
     }
 
     /// <summary>Pays for <paramref name="voxels"/> at <paramref name="millijoulesPerVoxel"/>; returns what was taken.</summary>

@@ -2727,8 +2727,11 @@ Fact 2 says his world is the arm. The recipe is to read the `M10:` line's per-re
 `generated`, `unpowered`, `pumped` — against `overcast N/256` through a rain episode, and the
 `M7d:` line's episode beside them; `--clockscale=20` if the forecast will not come, `--weather=1`
 for the pool's half alone. **The thing to watch beyond the row's question is origin order**: if
-the mine floods under panels-only power, the pumps placed first run and the rest stall
-`unpowered` in placement order, which a player did not choose and cannot see. The lever is the
+the mine floods under panels-only power, the pumps first in position order run and the rest stall
+`unpowered` in position order (X, then Y, then Z — IDEAL-MACHINES-PLAN decision 41 corrected this
+from "placement order"), which a player did not choose and cannot see. **Since IM-2 (2026-09-29) a
+player can choose**: the relay pump has a `priority` port, 0–9 at 5, higher paid first, ties by
+position (decision 41); the fair-share lever below stays unbuilt. The lever is the
 outlets' own ring applied to a channel's pumps — the smooth weighted round-robin already in
 `MachineTick`, so a fair share is the cursor moved rather than a rule written — and it is not
 built until a play sees the starvation, because a play may prefer the pumps nearest the water

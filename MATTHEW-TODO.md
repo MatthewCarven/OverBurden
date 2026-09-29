@@ -82,7 +82,8 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
       run. *Did the mine read as pumped out, and could you tell where the water went?*
 - [ ] **4. The storm.** No `Alt+P`. Wait for rain or `--clockscale=20`. *Did the rain read as
       cutting the pumps, and did the ones that kept running make sense?* (Watch for the
-      first-placed pumps hogging the channel.)
+      pumps first in position order — west first — hogging the channel. Each pump's panel now has
+      a `priority` box, 0–9 at 5: higher is paid first, if you want to pick who runs.)
 - [ ] **5. The pillar.** `--collapse=0`, the excavator (`--nogate`), a 2 × 2 bite three chunks
       down, wait for the tint, then a stone column floor to roof under the plug's centre. Then
       clay. *Did the pillar read as shoring, and did clay holding as well as stone read wrong?*
@@ -222,8 +223,10 @@ Updated **2026-09-29, night**. Commits to push: `git fetch`, then `git log origi
 
 - **The ideal machines plan is taken**, [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md): the
   bank, the vault and its dump, water in the inventory, the quarry (your 2 m bite), the six extras, and a
-  creative mode with a kit. **IM-1 is built** (the mod-file rules underneath); IM-2, the bank's window, is
-  next. The first thing you can play is IM-6.
+  creative mode with a kit. **IM-1 and IM-2 are built**: the mod-file rules underneath; the quantum
+  backpack as a window onto your cells (not handed out by `P` until IM-6); and a `priority` box on
+  each pump's panel, 0–9 at 5, higher paid first. IM-3, the vault, is next. The first thing you can
+  play is IM-6.
 - **The undo bug is fixed** (IM-0b): a machine a fall destroys can no longer come back free after
   Ctrl+Z. The build you started at 4:49 PM already has it. A Ctrl+Z right after a roof comes down now
   says *the roof came down*, as it should.

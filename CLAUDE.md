@@ -191,8 +191,8 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 ## Where things stand
 
 **2026-09-29, night — the ideal machines pass is done, all sixty-one decisions are taken as
-recommended** (*"Yes as recommended please Claude"*), **IM-0b is built, IM-0 measured, and IM-1 built.**
-Suite **2,076**; the r6 control to the digit after IM-1. Unpushed commits are his to push; `git fetch` then
+recommended** (*"Yes as recommended please Claude"*), **IM-0b is built, IM-0 measured, and IM-1 and IM-2
+built.** Suite **2,088**; the r6 control to the digit after IM-2. Unpushed commits are his to push; `git fetch` then
 `git log origin/main..main` lists them.
 
 **The plan to build: [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md).** The shape: a channel is an
@@ -207,9 +207,13 @@ code-level pass" and "IM-1 — built"; eight decisions taken as recommended): mo
 the loader's own classes, every unknown key with a did-you-mean, duplicates refused, `$` notes), `mod.json`
 declares `format` 1, the six extras have their grammar and the base game's `extras.json`, and only a
 `programmer` opens panels. **Every extra is refused on a machine until its slice switches it on in
-`MachineExtras.Served`**: f-1 `Sense`, IM-2 `Charge` and `Priority`, IM-9 the other three. **Next: IM-2**
-(the window: decisions 7–9 and 41). Read them against `MachineTick`, `EquippedPack` and `CarriedPacks` first,
-and hold a short code-level pass if anything doesn't fit, as IM-1's did.
+`MachineExtras.Served`**: f-1 `Sense`, IM-2 `Charge` and `Priority` (on), IM-9 the other three. **IM-2 is
+built** (the plan's "IM-2 — built"): `quantum_backpack` is a window, and a tool paying through it draws on
+its channel's enabled cells through an internal `IChannelBank`, last-filled first, never inside `Run`. The
+relay pump has a `priority` port (0–9 at 5), and consumers are paid by priority then position. `P` does not
+seed the backpack until IM-6; `--pack=overburden:quantum_backpack` wears one. **Next: IM-3** (the `vault` kind
+and the crate, decisions 13–22), the first new kind through the twenty `MachineKind` sites. Hold a code-level
+pass first; its row-removal rules (17) touch the reconcile, the drain, the undo and restore.
 
 **Buildable alongside: collapse part f, slice f-1** (Core and tests), thirteen decisions taken
 ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part f"). The ideal-machines plan's three amendments there are

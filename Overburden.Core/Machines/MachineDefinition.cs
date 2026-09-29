@@ -175,6 +175,12 @@ public sealed class MachineDefinition
     /// <summary>Whether the machine opted into <paramref name="extra"/>.</summary>
     public bool Has(MachineExtra extra) => ExtraForms.ContainsKey(extra);
 
+    /// <summary>
+    /// Whether this is a window (decision 7): a carried storage whose <c>charge</c> takes the
+    /// window form, holding nothing and drawing on its channel's cells.
+    /// </summary>
+    public bool IsWindow => FormOf(MachineExtra.Charge) == ExtraForm.Window;
+
     /// <summary>The form <paramref name="extra"/> takes on this machine, or <see cref="ExtraForm.None"/>.</summary>
     public ExtraForm FormOf(MachineExtra extra) => ExtraForms.TryGetValue(extra, out ExtraForm form) ? form : ExtraForm.None;
 
@@ -314,7 +320,17 @@ public sealed class MachineDefinition
 
         if (Kind == MachineKind.Storage)
         {
-            if (CapacityMillijoules <= 0 || CapacityMillijoules > MaxCapacityJoules * PerMille)
+            // Decision 7: a window holds nothing, so it declares no capacity and takes no charge;
+            // every other storage declares one. Refused, not zeroed, for the loader's reason.
+            if (IsWindow)
+            {
+                if (CapacityMillijoules != 0 || RechargeWatts is not null)
+                {
+                    error = "a window holds nothing: it declares no capacityJoules and no rechargeWatts.";
+                    return false;
+                }
+            }
+            else if (CapacityMillijoules <= 0 || CapacityMillijoules > MaxCapacityJoules * PerMille)
             {
                 error = $"capacityJoules must be more than 0 and at most {MaxCapacityJoules:N0} for a storage.";
                 return false;

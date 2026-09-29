@@ -3117,7 +3117,9 @@ public partial class Main : Node3D
         {
             GD.Print(
                 $"M10: pack — {Hud.DisplayName(Content.Materials, pack.MaterialId)} equipped {how}: "
-                + $"{MachinePanel.ChargeOf(pack.ChargeMillijoules, pack.CapacityMillijoules)} on channel {pack.Channel}"
+                + (pack.IsWindow
+                    ? $"a window onto channel {pack.Channel}'s cells, {MachinePanel.Joules(pack.SpendableMillijoules)} in the bank"
+                    : $"{MachinePanel.ChargeOf(pack.ChargeMillijoules, pack.CapacityMillijoules)} on channel {pack.Channel}")
                 + (_mining is { MillijoulesPerVoxel: > 0 } m ? $" — {pack.VoxelsAffordable(m.MillijoulesPerVoxel):N0} voxel(s) at {m.MillijoulesPerVoxel / MachineDefinition.PerMille:N0} J each" : string.Empty));
         }
 
@@ -5281,17 +5283,20 @@ public partial class Main : Node3D
         {
             _printedGateRanOut = true;
             GD.Print(
-                $"M10: gate — the pack ran out mid-bite: removed {last.Removed}, unpowered {last.Unpowered} of {last.Candidates}; "
-                + $"paid {MachinePanel.Joules(_mining.LastPaidMillijoules)}, the pack at {MachinePanel.Joules(_pack.ChargeMillijoules)}");
+                $"M10: gate — the {PackNoun()} ran out mid-bite: removed {last.Removed}, unpowered {last.Unpowered} of {last.Candidates}; "
+                + $"paid {MachinePanel.Joules(_mining.LastPaidMillijoules)}, the {PackNoun()} at {MachinePanel.Joules(_pack.SpendableMillijoules)}");
         }
         else if (last.Removed == 0 && !_printedGateEmpty)
         {
             _printedGateEmpty = true;
             GD.Print(
-                $"M10: gate — the pack is spent: removed 0, unpowered {last.Unpowered} of {last.Candidates}; "
-                + $"the pack at {MachinePanel.Joules(_pack.ChargeMillijoules)} buys nothing at {_mining.MillijoulesPerVoxel / MachineDefinition.PerMille:N0} J a voxel");
+                $"M10: gate — the {PackNoun()} is spent: removed 0, unpowered {last.Unpowered} of {last.Candidates}; "
+                + $"the {PackNoun()} at {MachinePanel.Joules(_pack.SpendableMillijoules)} buys nothing at {_mining.MillijoulesPerVoxel / MachineDefinition.PerMille:N0} J a voxel");
         }
     }
+
+    /// <summary>What the gate's lines call what the tool spends: the pack, or for a window its channel's bank (IM-2).</summary>
+    private string PackNoun() => _pack is { IsWindow: true } window ? $"bank on channel {window.Channel}" : "pack";
 
     private void UpdateMining(double delta)
     {
@@ -8218,7 +8223,9 @@ public partial class Main : Node3D
                     : $"gate      {_mining.VoxelsUnpowered:N0} voxel(s) unpowered over {_mining.UnpoweredSwings:N0} swing(s), "
                       + $"{_mining.SwingsWithNoPack:N0} swing(s) with no pack; paid {_mining.MillijoulesPaid:N0} mJ ({MachinePanel.Joules(_mining.MillijoulesPaid)}) at "
                       + $"{_mining.MillijoulesPerVoxel / MachineDefinition.PerMille:N0} J a voxel; the pack "
-                      + (_pack is null ? "none" : $"at {_pack.ChargeMillijoules:N0} mJ ({MachinePanel.Joules(_pack.ChargeMillijoules)}) of {MachinePanel.Joules(_pack.CapacityMillijoules)}")
+                      + (_pack is null ? "none"
+                          : _pack.IsWindow ? $"is a window onto channel {_pack.Channel}, the bank at {_pack.SpendableMillijoules:N0} mJ ({MachinePanel.Joules(_pack.SpendableMillijoules)})"
+                          : $"at {_pack.ChargeMillijoules:N0} mJ ({MachinePanel.Joules(_pack.ChargeMillijoules)}) of {MachinePanel.Joules(_pack.CapacityMillijoules)}")
                       + $"; last swing {_mining.LastResult}\n")
                 : _noGate && _mining.EntangledSwings > 0 ? "gate      off (--nogate)\n" : string.Empty) +
             (_mining.EntangledSwings > 0
@@ -8308,12 +8315,13 @@ public partial class Main : Node3D
         long samples = t.SolarSampled + t.SolarUnsampled;
         string open = samples > 0 ? $"{t.OpenColumnsSum / (double)samples:F1}" : "–";
         return $" | power: {t.StorageRows:N0} cell(s){(t.StorageRowsOff > 0 ? $" (+{t.StorageRowsOff:N0} off)" : "")} hold {MachinePanel.Joules(t.StoredMillijoules)}, "
-               + $"pack {(t.Pack is null ? "none" : $"{MachinePanel.Joules(t.Pack.ChargeMillijoules)} of {MachinePanel.Joules(t.Pack.CapacityMillijoules)} (ch {t.Pack.Channel})")}, "
+               + $"pack {(t.Pack is null ? "none" : t.Pack.IsWindow ? $"a window on ch {t.Pack.Channel}" : $"{MachinePanel.Joules(t.Pack.ChargeMillijoules)} of {MachinePanel.Joules(t.Pack.CapacityMillijoules)} (ch {t.Pack.Channel})")}, "
                + $"generated {MachinePanel.Joules(t.GeneratedMillijoules)} ({t.Converters:N0} panel(s), open {open}/16 mean, {t.SolarUnsampled:N0} unsampled, overcast {t.OvercastByte}/256), "
                + $"drawn {MachinePanel.Joules(t.DrawnByPumpsMillijoules)} by pumps + {MachinePanel.Joules(t.PackTakenMillijoules)} by the tool, clamped {MachinePanel.Joules(t.ClampedMillijoules)}, "
-               + $"pack given {MachinePanel.Joules(t.PackGivenMillijoules)}, stowed {MachinePanel.Joules(t.PackStowedMillijoules)} by {t.PacksUnequipped:N0} swap(s)"
+               + $"pack given {MachinePanel.Joules(t.PackGivenMillijoules)}, stowed {MachinePanel.Joules(t.PackStowedMillijoules)} by {t.PacksUnequipped:N0} swap(s), "
+               + $"pack initial {MachinePanel.Joules(t.PackInitialMillijoules)}"
                + (t.PackDebugMillijoules > 0 ? $", {MachinePanel.Joules(t.PackDebugMillijoules)} debug-filled into the pack" : string.Empty)
-               + $" — pool == entering − leaving + generated − drawn − clamped − stowed{(t.PackDebugMillijoules > 0 ? " + debug" : string.Empty)}: {(t.PowerExact ? "exact" : "*** NO ***")}";
+               + $" — pool == entering − leaving + generated − drawn − clamped + initial − taken − stowed{(t.PackDebugMillijoules > 0 ? " + debug" : string.Empty)}: {(t.PowerExact ? "exact" : "*** NO ***")}";
     }
 
     /// <summary>The profile's <c>machines</c> block, with the window's own denominators.</summary>
@@ -8367,11 +8375,11 @@ public partial class Main : Node3D
         long drawn = t.DrawnByPumpsMillijoules - _drawnByPumpsAtWarm;
         long clamped = t.ClampedMillijoules - _clampedAtWarm;
         return $"power     in the window: generated {generated:N0} mJ, drawn {drawn:N0} by pumps, clamped {clamped:N0}; "
-               + $"in all: generated {t.GeneratedMillijoules:N0} mJ, drawn {t.DrawnByPumpsMillijoules:N0} by pumps + {t.PackTakenMillijoules:N0} by the tool, clamped {t.ClampedMillijoules:N0}, pack given {t.PackGivenMillijoules:N0}, stowed {t.PackStowedMillijoules:N0}; "
+               + $"in all: generated {t.GeneratedMillijoules:N0} mJ, drawn {t.DrawnByPumpsMillijoules:N0} by pumps + {t.PackTakenMillijoules:N0} by the tool, clamped {t.ClampedMillijoules:N0}, pack given {t.PackGivenMillijoules:N0}, stowed {t.PackStowedMillijoules:N0}, pack initial {t.PackInitialMillijoules:N0}; "
                + $"{t.StorageRows:N0} cell(s){(t.StorageRowsOff > 0 ? $" (+{t.StorageRowsOff:N0} off)" : "")} hold {t.StoredMillijoules:N0} mJ ({MachinePanel.Joules(t.StoredMillijoules)}), pack {(t.Pack is null ? "none" : $"{t.Pack.ChargeMillijoules:N0} mJ ({MachinePanel.Joules(t.Pack.ChargeMillijoules)})")}; "
                + $"{t.Converters:N0} panel(s), sampled {t.SolarSampled:N0} / unsampled {t.SolarUnsampled:N0} (sky answered {_solarSky?.Answered ?? 0:N0}, no column {_solarSky?.Unanswered ?? 0:N0}), "
                + $"open {(t.SolarSampled + t.SolarUnsampled > 0 ? t.OpenColumnsSum / (double)(t.SolarSampled + t.SolarUnsampled) : 0):F2}/16 mean, overcast {t.OvercastByte}/256 at the last boundary; "
-               + $"pool == entering − leaving + generated − drawn − clamped − stowed: {(t.PowerExact ? "exact" : "*** NO ***")}\n";
+               + $"pool == entering − leaving + generated − drawn − clamped + initial − taken − stowed: {(t.PowerExact ? "exact" : "*** NO ***")}\n";
     }
 
     private string PlacementLines()

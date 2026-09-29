@@ -50,6 +50,9 @@ public class MachineTickTests(ITestOutputHelper output)
     // relay with its bill, and a pack.
     private const int Panel = 6, DimPanel = 7, BigCell = 8, SmallCell = 9, BilledPump = 10, PackMaterial = 11;
 
+    // IM-2: the relay with the priority extra (decision 41), and the quantum backpack's window (decision 7).
+    private const int PriorityPump = 12, WindowPack = 13;
+
     /// <summary>The relay's rate: 100 L/s is 50,000 mL a boundary, 3.2 cells.</summary>
     private const long RelayMillilitresPerBoundary = 50_000;
 
@@ -104,24 +107,42 @@ public class MachineTickTests(ITestOutputHelper output)
         Ports = [new PortDefinition("channel", 0, 0, 15), new PortDefinition("weight", 1, 1, 100)],
     };
 
+    /// <summary>The billed relay with the priority extra and its port, 0–9 at 5, as the shipped relay has since IM-2.</summary>
+    private static MachineDefinition PriorityPumpAt(long millilitresPerSecond, long joulesPerLitre)
+    {
+        MachineDefinition plain = PumpAt(millilitresPerSecond, joulesPerLitre: joulesPerLitre);
+        return new MachineDefinition
+        {
+            Kind = plain.Kind,
+            MillilitresPerSecond = plain.MillilitresPerSecond,
+            JoulesPerLitre = plain.JoulesPerLitre,
+            IntakeRadiusCells = plain.IntakeRadiusCells,
+            Links = plain.Links,
+            Ports = [.. plain.Ports, new PortDefinition(MachineTick.PriorityPort, MachineTick.DefaultPriority, 0, 9)],
+            ExtraForms = new Dictionary<MachineExtra, ExtraForm> { [MachineExtra.Priority] = ExtraForm.Port },
+        };
+    }
+
     internal static readonly MaterialTable Materials = MaterialTable.ForTesting(
-        //             air    stone  pump   outlet slow   wide   panel  dim    big    small  billed pack
-        isOpaque: [false, true, true, true, true, true, true, true, true, true, true, true],
-        isFluid: [false, false, false, false, false, false, false, false, false, false, false, false],
-        textureLayer: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-        hardness: [0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 1.0f, 1.0f, 3.0f, 3.0f, 3.0f, 1.0f],
+        //             air    stone  pump   outlet slow   wide   panel  dim    big    small  billed pack   prio   window
+        isOpaque: [false, true, true, true, true, true, true, true, true, true, true, true, true, true],
+        isFluid: [false, false, false, false, false, false, false, false, false, false, false, false, false, false],
+        textureLayer: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+        hardness: [0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 1.0f, 1.0f, 3.0f, 3.0f, 3.0f, 1.0f, 3.0f, 1.0f],
         machine:
         [
             null, null, PumpAt(100_000), OutletDefinition, PumpAt(470), PumpAt(100_000, radius: 2),
             PanelAt(500), PanelAt(500, 900), CellOf(BigCellCapacity), CellOf(SmallCellCapacity),
             PumpAt(100_000, joulesPerLitre: RelayBill), CellOf(PackCapacity, carried: true, rechargeWatts: 1000),
+            PriorityPumpAt(100_000, RelayBill), WindowTests.WindowDefinition,
         ],
         unit:
         [
             default, default, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells,
             MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Count,
+            MaterialUnit.Cells, MaterialUnit.Count,
         ],
-        placeable: [true, true, true, true, true, true, true, true, true, true, true, false]);
+        placeable: [true, true, true, true, true, true, true, true, true, true, true, false, true, false]);
 
     /// <summary>The sky a test dictates: a cell's open columns, or nothing loaded over it.</summary>
     private sealed class DictatedSky : ISolarSky
@@ -750,6 +771,69 @@ public class MachineTickTests(ITestOutputHelper output)
 
         // The cell is spent: both stall at the next boundary, with water and room still there.
         Assert.Equal(2, twin.Boundary(step: false).Unpowered);
+        Assert.True(twin.Tick.PowerExact);
+        twin.AssertIdentity();
+    }
+
+    [Fact]
+    public void TheBankPaysTheHigherPriorityPumpFirstAndEqualPrioritiesByPosition()
+    {
+        // IDEAL-MACHINES-PLAN decisions 9 and 41, on the fixture of the origin-order test above: 75 L
+        // of joules for two 50 L pumps. At equal priority the first in position order is paid in
+        // full; raise the second to 9 and it is.
+        foreach (bool raised in new[] { false, true })
+        {
+            var twin = new Twin();
+            MachineRow a = twin.Place(Twin.PumpCell, PriorityPump);
+            MachineRow b = twin.Place(new BrushCell(11, 2, 10), PriorityPump);
+            Assert.True(MachineTickOriginBefore(a, b));
+            twin.Place(Twin.RimOutlet, Outlet);
+            twin.Place(Twin.RimOutletB, Outlet);
+            twin.Place(Twin.RoomOutlet, BigCell, charge: 75_000L * RelayBill);
+            twin.PourIntoRoom(200 * Cap);
+            twin.Fluid.Settle(200);
+            if (raised)
+            {
+                Assert.Equal(PortWriteResult.Set, twin.Machines.SetPort(b.Cell, MachineTick.PriorityPort, 9).Result);
+            }
+
+            MachineTickReport report = twin.Boundary(step: false);
+
+            Assert.Equal(2, report.Moved);
+            Assert.Equal(raised ? 25_000L : RelayMillilitresPerBoundary, a.LastMovedMillilitres);
+            Assert.Equal(raised ? RelayMillilitresPerBoundary : 25_000L, b.LastMovedMillilitres);
+            Assert.Equal(75_000L * RelayBill, report.DrawnMillijoules);
+            Assert.True(twin.Tick.PowerExact);
+            twin.AssertIdentity();
+        }
+    }
+
+    [Fact]
+    public void AWindowsSpendComesOutOfTheBankBeforeThePumpsArePaid()
+    {
+        // Decision 9: "The hand's spend has already happened." 75 L of joules in the cell; the tool
+        // spends 25 L's worth through the window between boundaries; the pump is paid from what is
+        // left, 50 L, and the next boundary it stalls unpowered.
+        var twin = new Twin();
+        MachineRow pump = twin.Place(Twin.PumpCell, BilledPump);
+        twin.Place(Twin.RimOutlet, Outlet);
+        MachineRow cell = twin.Place(Twin.RoomOutlet, BigCell, charge: 75_000L * RelayBill);
+        twin.PourIntoRoom(120 * Cap);
+        twin.Fluid.Settle(200);
+        var window = new EquippedPack(WindowPack, Materials.Machine(WindowPack)!, chargeMillijoules: 0, channel: 0);
+        twin.Tick.EquipPack(window);
+
+        Assert.Equal(25_000L * RelayBill, window.Take(25_000L * RelayBill));
+        Assert.Equal(50_000L * RelayBill, ChargeOf(cell));
+
+        MachineTickReport report = twin.Boundary(step: false);
+        Assert.Equal(RelayMillilitresPerBoundary, pump.LastMovedMillilitres);
+        Assert.Equal(0L, ChargeOf(cell));
+        Assert.Equal(0L, report.PackGivenMillijoules);
+        Assert.True(twin.Tick.PowerExact);
+
+        twin.Boundary(step: false);
+        Assert.Equal(PumpStall.Unpowered, pump.LastStall);
         Assert.True(twin.Tick.PowerExact);
         twin.AssertIdentity();
     }

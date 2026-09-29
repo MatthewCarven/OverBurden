@@ -85,6 +85,11 @@ public static class VoxelMaterial
         // alpha, so a pane reads as a pane over grass and over stone alike. Near-flat: a speckle
         // on something you look through reads as dirt on it. A screenshot's call.
         new Color(0.78f, 0.88f, 0.92f),
+
+        // The quantum backpack (IM-2, IDEAL-MACHINES-PLAN decision 7): a hotbar swatch only, in the
+        // entanglement's cyan (decision 29, "cyan is entanglement at work") on a dark body, so the
+        // window reads apart from the lead-acid pack's battery grey. Unscreenshotted.
+        new Color(0.16f, 0.52f, 0.56f),
     ];
 
     /// <summary>The colour for a layer, or a flat grey for one this build has no texture for.</summary>
@@ -117,7 +122,7 @@ public static class VoxelMaterial
         // The relay pair (M10a-2) is smoother than rock — a cast body, not a face of it — and
         // the table is asserted against the colours so a sixth colour cannot ship without a sixth
         // jitter: the r6 control threw an IndexOutOfRange from here on the night the pair was added.
-        float[] jitter = [0.08f, 0.12f, 0.10f, 0.04f, 0.16f, 0.03f, 0.03f, 0.02f, 0.02f, 0.02f, 0.03f, 0.06f, 0.01f];
+        float[] jitter = [0.08f, 0.12f, 0.10f, 0.04f, 0.16f, 0.03f, 0.03f, 0.02f, 0.02f, 0.02f, 0.03f, 0.06f, 0.01f, 0.02f];
         if (jitter.Length != LayerColour.Length)
         {
             GD.PushError($"Overburden: {LayerColour.Length} layer colours but {jitter.Length} jitters; the two tables have drifted");

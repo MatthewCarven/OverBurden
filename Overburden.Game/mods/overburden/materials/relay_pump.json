@@ -12,12 +12,14 @@
     "headMetres": null,
     "joulesPerLitre": 1000,
     "intakeRadiusCells": 1,
+    "extras": { "priority": {} },
     "links": {
       "power": { "carries": "power", "role": "sink",   "via": "channel", "port": "channel" },
       "water": { "carries": "fluid", "role": "source", "via": "channel", "port": "channel" }
     },
     "ports": {
-      "channel": { "default": 0, "min": 0, "max": 15 }
+      "channel": { "default": 0, "min": 0, "max": 15 },
+      "priority": { "default": 5, "min": 0, "max": 9 }
     }
   }
 }
