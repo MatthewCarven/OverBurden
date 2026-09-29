@@ -465,6 +465,8 @@ public sealed partial class FluidSimulation : IFluidPersistence
     /// </remarks>
     public long HandOff(VoxelPos voxel, long millilitres)
     {
+        // IM-4's pass, decision 12: guarded like every other door, though only the boundary calls it.
+        RefuseMidTick(nameof(HandOff));
         long taken = Take(voxel, millilitres);
         HandedMillilitres += taken;
         return taken;

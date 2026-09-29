@@ -824,6 +824,10 @@ public partial class Main : Node3D
     /// </summary>
     private MachineTick? _machineTick;
 
+    // IM-4a: the siphon's queue, drained in the boundary's window before the machine tick. Nothing
+    // enqueues yet: the siphon on T and its clicks are IM-6's.
+    private Siphon? _siphon;
+
     /// <summary>The live simulation terrain the tick reads — the field wrapped in the lake ceiling, never a captured view.</summary>
     private IFluidTerrain? _machineTerrain;
 
@@ -1415,6 +1419,11 @@ public partial class Main : Node3D
         _generator = new WorldGenerator(settings, BuildStrata());
         SetUpWater();
         _materials = MaterialTable.From(Content.Materials);
+
+        // IM-4's pass, decision 8: water lives in the store, never the pocket. One refusal at Add
+        // covers every door — the world file's restore, --stock= (which seeds every material), P,
+        // a withdrawal, an undo's refund — because every one of them reaches Add.
+        _inventory.RefuseMaterials(_materials.Fluids());
 
         var viewers = new ViewerSet();
         _scheduler = new JobScheduler(viewers);
@@ -4221,6 +4230,9 @@ public partial class Main : Node3D
                 // IM-3: a vault's fuse is a property of the world and the boundary (decision 28).
                 FuseSeed = _settings.Seed,
             };
+
+            // IM-4a: the siphon — the miner's ray world, the lake bands it covers, the store and the bank.
+            _siphon = new Siphon(_fluid, _water, _lakeCeiling, _pipeline!, _machines, _machineTick, _fluid.WakeCell);
             if (_noGate)
             {
                 GD.Print("M10: --nogate — the pool is off and every pump is free (the pre-M10c arm)");
@@ -4247,6 +4259,30 @@ public partial class Main : Node3D
     }
 
     /// <summary>The <c>machines</c> bracket's second half: every pump, once, through the tick.</summary>
+    /// <summary>
+    /// IM-4a: the siphon's queue at the boundary (its pass, decision 2) — where the fluid's ownership has
+    /// cleared and before the machine tick, whose run the bank's draw may not enter. Every twin checked
+    /// after it, as the machine tick's own line is.
+    /// </summary>
+    private void RunSiphon()
+    {
+        if (_siphon is null || _siphon.Waiting == 0)
+        {
+            return;
+        }
+
+        SiphonReport report = _siphon.Apply();
+        if (report.DidAnything)
+        {
+            GD.Print($"M10: siphon — {report}");
+        }
+
+        if (!_siphon.Exact)
+        {
+            GD.PushError($"M10: siphon — a twin disagrees with the siphon's own counters after {report}");
+        }
+    }
+
     private void RunMachineTick()
     {
         if (_machineTick is null || _machines is null || _machines.Count == 0)
@@ -5811,6 +5847,7 @@ public partial class Main : Node3D
                + $"{_water.InjectedLitres:N0} L injected, {_water.DrawnLitres:N0} L drawn into Tier B, "
                + $"{_water.SeepedLitres:N0} L seeped into it, {_water.ReceivedLitres:N0} L received from it, "
                + $"{_water.PumpedLitres:N0} L pumped out of lakes, {_water.EmittedLitres:N0} L emitted into basins, "
+               + (_water.SiphonedLitres + _water.PouredLitres > 0 ? $"{_water.SiphonedLitres:N0} L siphoned out of lakes, {_water.PouredLitres:N0} L poured into them, " : string.Empty)
                + $"{_water.RainDivertedMicrolitres / 1_000_000.0:N1} L rained into Tier B as {_rainDrops:N0} cell(s) + {_rainDropsOntoPlaced:N0} onto the player's material ({_water.RainOwedMicrolitres / 1_000_000.0:N1} L still owed, {_rainDropsSkipped:N0} drop(s) skipped of which {_rainDropsUnderARoof:N0} under a roof; "
                + $"placed {_rainOnPlaced?.PlacedColumns ?? 0:N0} column(s) in {_rainOnPlaced?.ChunkColumnsWithPlaced ?? 0:N0} chunk column(s), {_rainOnPlaced?.Rescans ?? 0:N0} rescan(s), {_rainOnPlaced?.Backlog ?? 0:N0} owed, {_rainOnPlaced?.Forfeited ?? 0:N0} forfeited), "
                + $"{held * 60.0 / seconds:N0} L per wall-clock minute at scale "
@@ -6801,6 +6838,7 @@ public partial class Main : Node3D
             long t2 = Stopwatch.GetTimestamp();
             TakePending();
             PourPending();
+            RunSiphon();
             DropRain();
             RunPendingFills();
             long t2m = Stopwatch.GetTimestamp();
@@ -7804,7 +7842,8 @@ public partial class Main : Node3D
                   + $" ({_enclosure.OpenAtBound:N0} open at the bound, {_enclosure.OpenAtBoundThroughGround:N0} of them out through natural ground; {_enclosure.OpenAtUnloaded:N0} at an unloaded chunk;"
                   + $" farthest open {_enclosure.FarthestOpen:N0} / closed {_enclosure.FarthestClosed:N0} voxel(s) of {Enclosure.BoundVoxels}), {_enclosure.Regions:N0} region(s) / {_enclosure.CachedCells:N0} cell(s) cached, {_enclosure.Evicted:N0} evicted, {_lakeCeiling?.RebuiltForEnclosure ?? 0:N0} band(s) rebuilt for it") + ") — "
                + $"pumped {p.Pumped / litre:N0} L, emitted {p.Emitted / litre:N0} L — "
-               + $"held == injected + rained + drawn + seeped + loaded + emitted − removed − displaced − handed − evicted − pumped: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
+               + (p.Siphoned + p.Poured > 0 ? $"siphoned {p.Siphoned / litre:N0} L, poured {p.Poured / litre:N0} L — " : string.Empty)
+               + $"held == injected + rained + drawn + seeped + loaded + emitted{(p.Siphoned + p.Poured > 0 ? " + poured" : string.Empty)} − removed − displaced − handed − evicted − pumped{(p.Siphoned + p.Poured > 0 ? " − siphoned" : string.Empty)}: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
                + $"received == handed: {HandoffIdentity()}, "
                + $"lifted {p.Lifted / litre:N0} L == returned {p.Returned / litre:N0} L + displaced {p.LiftDisplaced / litre:N0} L by falls and fills: {(p.LiftExact ? "exact" : "*** NO ***")}; "
                + seep
@@ -8077,7 +8116,8 @@ public partial class Main : Node3D
                + $"evicted {p.Evicted / litre:N0} L with {f.EvictedPanels:N0} panel(s), "
                + $"removed {p.Removed / litre:N0} L, displaced {p.Displaced / litre:N0} L, "
                + $"handed {p.Handed / litre:N0} L, pumped {p.Pumped / litre:N0} L, emitted {p.Emitted / litre:N0} L — "
-               + $"held == injected + drawn + seeped + loaded + emitted − removed − displaced − handed − evicted − pumped: {(p.IdentityExact ? "exact" : "*** NO ***")}; "
+               + (p.Siphoned + p.Poured > 0 ? $"siphoned {p.Siphoned / litre:N0} L, poured {p.Poured / litre:N0} L — " : string.Empty)
+               + $"held == injected + drawn + seeped + loaded + emitted{(p.Siphoned + p.Poured > 0 ? " + poured" : string.Empty)} − removed − displaced − handed − evicted − pumped{(p.Siphoned + p.Poured > 0 ? " − siphoned" : string.Empty)}: {(p.IdentityExact ? "exact" : "*** NO ***")}; "
                + $"lifted {p.Lifted / litre:N0} L == returned {p.Returned / litre:N0} L + displaced {p.LiftDisplaced / litre:N0} L by falls and fills: {(p.LiftExact ? "exact" : "*** NO ***")}; "
                + $"{_relayPendingMillilitres / litre:N0} L still to pour; "
                + $"paused {p.Paused:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
@@ -8332,7 +8372,8 @@ public partial class Main : Node3D
                      + $"own charges hold {MachinePanel.Joules(t.VaultOwnChargeMillijoules)} of the {MachinePanel.Joules(t.StoredMillijoules)} stored, "
                      + $"given {MachinePanel.Joules(t.OwnChargeGivenMillijoules)}, returned {MachinePanel.Joules(t.OwnChargeReturnedMillijoules)}"
                    : string.Empty)
-               + $" — pool == entering − leaving + generated − drawn − clamped − held + initial − taken − stowed{(t.PackDebugMillijoules > 0 ? " + debug" : string.Empty)}: {(t.PowerExact ? "exact" : "*** NO ***")}";
+               + (t.SiphonPaidMillijoules > 0 ? $", siphon paid {MachinePanel.Joules(t.SiphonPaidMillijoules)}" : string.Empty)
+               + $" — pool == entering − leaving + generated − drawn − clamped − held + initial − taken − stowed{(t.PackDebugMillijoules > 0 ? " + debug" : string.Empty)}{(t.SiphonPaidMillijoules > 0 ? " − siphonPaid" : string.Empty)}: {(t.PowerExact ? "exact" : "*** NO ***")}";
     }
 
     /// <summary>The profile's <c>machines</c> block, with the window's own denominators.</summary>

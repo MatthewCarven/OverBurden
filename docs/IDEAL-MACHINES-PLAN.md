@@ -1493,6 +1493,55 @@ Ten facts, then twelve decisions. **Nothing is built; the twelve wait on his wor
 
 **Found alongside, fixed:** the fill-stopped-short line printed a window's own charge, always 0 mJ.
 
+**Taken as recommended, all twelve, 2026-09-30** (*"As recommended please Claude, build IM-4a"*).
+
+## IM-4a — built (2026-09-30)
+
+Built in a worktree, then merged. **Suite 2,157** (+17 in `SiphonTests`, plus the four guards in `FluidJobTests`),
+green first time but for one fixture that overfilled the bowl. **Closed early at his word; owed next session:
+the mutation battery and the r6 control** (TODO lists both).
+
+What it is:
+- **`Siphon`** (`Overburden.Core/Machines/Siphon.cs`):
+  - `Enqueue` refuses a rock tool, no quantum backpack, or `Busy` (a boundary's worth already waiting).
+  - `Apply` runs at the boundary and resolves each op's ray there. **The aim is resolved at the boundary,
+    not the click**, one level below the pass's "a click only enqueues": the Tier B grid refuses reads
+    while a worker owns it, so the op keeps the ray.
+  - A lake op is whole litres, done in one go. A room op walks the shape's cells within
+    `CellsPerBoundary` (3,200), top down for a take and bottom up for a pour.
+  - A take is cut to the store's room and the bank. `Exact` checks every twin against the siphon's own
+    counters.
+- **The twins.**
+  - `FluidSimulation.Siphon`, `Pour`, `RoomFor` and `HeldAt`, mid-tick guarded.
+  - `FluidPublished` gains `Siphoned` and `Poured`, and `IdentityExact` gains `+ poured − siphoned`.
+  - `WaterSystem.Siphon` and `Pour` count `SiphonedLitres` and `PouredLitres`; a spill counts in
+    `SpilledLitres`.
+- **The store's water.** `MachineSet.DepositWater`, `WithdrawWater`, `WaterRoomOf` and `StoredWaterOf`,
+  and a water line, `StoreWaterExact`, with water counted at add, remove and restore. IM-4b's pump into a
+  vault must use a door of its own, not `DepositWater`, or the siphon's seam reads it as a siphon.
+- **The bank.** `MachineTick.PaySiphon`, a new `PowerExact` term, `siphonPaid`, which is `IChannelBank`'s
+  rule that every drawer counts its own.
+- **The aim.** `VoxelRay.Cast` gains a stop predicate, the ray's own recorded revisit trigger.
+- **The tool grammar.** `takes: "water"` and `power.joulesPerLitre`: a water tool refuses the sphere and
+  `joulesPerVoxel`, and a rock tool refuses `joulesPerLitre`. `ToolTiers.Order` puts water tools after
+  every rock tool, and `Default` never starts a world on a siphon.
+- **The pocket.** `VolumetricInventory.RefuseMaterials` and `MaterialTable.Fluids()`. `Main` wires them
+  before the restore, so `Reset`, `--stock=` and `P` all meet the one refusal.
+- **`water.json`**: fluid, not placeable.
+- **The guards** on `HandOff` and `DisplaceLifted`.
+- **Game.** `Main` builds the siphon beside the tick and drains it after `PourPending`, before the rain and
+  the machine tick. `M10: siphon — …` is printed when it did anything, and `PushError` fires if a twin
+  disagrees. The M8b line gains `siphoned`, `poured` and the terms; M7d gains the litres; the power line
+  gains `siphonPaid`. **Nothing enqueues in the game yet**: the three tool files, T, the clicks and the
+  hotbar slot are IM-6's, so no dead tool sits on T.
+
+**Figures from the tests** (the bowl fixture):
+- A 1 m take from a lake: 1,000 L and 1 MJ. The pour back restores the basin to the litre.
+- The excavator's chunk take on a flooded floor: 11 boundaries, never over 3,200 cells, paid as it moved.
+- The tunneller's size into a 1 m³ store: cut to 1,000 L. A 500 L bank: cut to 500 L.
+- Two hundred random takes and pours on both tiers: every line exact after each, and the lake's litres
+  equal to its start less taken, plus poured, less spilled.
+
 ## Must not ship
 
 1. A reserve floor under any name: a percentage kept back, a quarry that stops itself without a sensor he

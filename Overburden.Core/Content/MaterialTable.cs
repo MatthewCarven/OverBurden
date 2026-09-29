@@ -97,6 +97,15 @@ public sealed class MaterialTable
 
     public bool IsFluid(int materialId) => _isFluid[materialId];
 
+    /// <summary>Every fluid material's numeric ID — what the pocket refuses (IM-4's pass, decision 8).</summary>
+    public IEnumerable<int> Fluids()
+    {
+        for (int id = 0; id < _isFluid.Length; id++)
+        {
+            if (_isFluid[id]) yield return id;
+        }
+    }
+
     public int TextureLayer(int materialId) => _textureLayer[materialId];
 
     /// <summary>Relative effort to mine. A carve removes a voxel only when a tool's

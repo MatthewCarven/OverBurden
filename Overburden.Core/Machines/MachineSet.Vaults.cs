@@ -38,6 +38,127 @@ public sealed partial class MachineSet
     /// <summary>Voxels moved from a store or a crate into the pocket, over the session.</summary>
     public long WithdrawnVoxels { get; private set; }
 
+    // ---- the store's water line (IM-4a; decision 24): held + owed == entering − leaving + deposited − withdrawn ----
+
+    /// <summary>Millilitres of water that entered the set in vault rows — added or restored — over the session.</summary>
+    public long VaultWaterEntering { get; private set; }
+
+    /// <summary>Millilitres of water that left the set in vault rows removed. Zero in play, as the voxels' is.</summary>
+    public long VaultWaterLeaving { get; private set; }
+
+    /// <summary>
+    /// Millilitres put into a store through <see cref="DepositWater"/>, over the session — the siphon's
+    /// take today; IM-4b's pump into a vault is a second door with a counter of its own.
+    /// </summary>
+    public long WaterDepositedMillilitres { get; private set; }
+
+    /// <summary>Millilitres taken out of a store through <see cref="WithdrawWater"/>, over the session — the siphon's pour.</summary>
+    public long WaterWithdrawnMillilitres { get; private set; }
+
+    /// <summary>Water in vaults that are stores, over every channel.</summary>
+    public long HeldWaterMillilitres => SumVaultWater(owed: false);
+
+    /// <summary>Water owed to the world by wrecks and dumping vaults.</summary>
+    public long OwedWaterMillilitres => SumVaultWater(owed: true);
+
+    /// <summary>The store's water line: <c>held + owed == entering − leaving + deposited − withdrawn</c>; the dump adds its terms in IM-5.</summary>
+    public bool StoreWaterExact =>
+        HeldWaterMillilitres + OwedWaterMillilitres
+        == VaultWaterEntering - VaultWaterLeaving + WaterDepositedMillilitres - WaterWithdrawnMillilitres;
+
+    private long SumVaultWater(bool owed)
+    {
+        long sum = 0;
+        foreach (MachineRow row in _rows.Values)
+        {
+            if (IsVault(row) && VaultState.TryRead(row, out VaultContents contents) && contents.Owes == owed)
+            {
+                sum += contents.WaterMillilitres;
+            }
+        }
+
+        return sum;
+    }
+
+    private long KnownVaultWater(MachineRow row) =>
+        IsVault(row) && VaultState.TryRead(row, out VaultContents contents) ? contents.WaterMillilitres : 0;
+
+    /// <summary>What the channel's store can still take in water: the free room of every vault in it that holds water.</summary>
+    public long WaterRoomOf(int channel)
+    {
+        long room = 0;
+        foreach (MachineRow row in StoreOf(channel))
+        {
+            MachineDefinition definition = VaultDefinitionOf(row)!;
+            if (definition.HoldsWater && VaultState.TryRead(row, out VaultContents contents))
+            {
+                room += FreeMillilitres(definition, contents);
+            }
+        }
+
+        return room;
+    }
+
+    /// <summary>The water in the channel's store now.</summary>
+    public long StoredWaterOf(int channel)
+    {
+        long held = 0;
+        foreach (MachineRow row in StoreOf(channel))
+        {
+            if (VaultState.TryRead(row, out VaultContents contents))
+            {
+                held += contents.WaterMillilitres;
+            }
+        }
+
+        return held;
+    }
+
+    /// <summary>
+    /// Puts up to <paramref name="millilitres"/> of water into the channel's store, in fill order, into
+    /// vaults that hold water (decision 14's order, the one deposits of blocks follow). Returns what went in.
+    /// </summary>
+    public long DepositWater(int channel, long millilitres)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(millilitres);
+        long remaining = millilitres;
+        foreach (MachineRow row in StoreOf(channel))
+        {
+            if (remaining == 0) break;
+            MachineDefinition definition = VaultDefinitionOf(row)!;
+            if (!definition.HoldsWater || !VaultState.TryRead(row, out VaultContents contents)) continue;
+            long put = Math.Min(remaining, FreeMillilitres(definition, contents));
+            if (put <= 0) continue;
+            contents.WaterMillilitres += put;
+            VaultState.Write(row, contents);
+            remaining -= put;
+        }
+
+        long moved = millilitres - remaining;
+        WaterDepositedMillilitres += moved;
+        return moved;
+    }
+
+    /// <summary>Takes up to <paramref name="millilitres"/> of water out of the channel's store, last-filled first. Returns what came out.</summary>
+    public long WithdrawWater(int channel, long millilitres)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(millilitres);
+        long remaining = millilitres;
+        IReadOnlyList<MachineRow> store = StoreOf(channel);
+        for (int i = store.Count - 1; i >= 0 && remaining > 0; i--)
+        {
+            if (!VaultState.TryRead(store[i], out VaultContents contents) || contents.WaterMillilitres == 0) continue;
+            long take = Math.Min(remaining, contents.WaterMillilitres);
+            contents.WaterMillilitres -= take;
+            VaultState.Write(store[i], contents);
+            remaining -= take;
+        }
+
+        long moved = millilitres - remaining;
+        WaterWithdrawnMillilitres += moved;
+        return moved;
+    }
+
     // ---- what the rules did, for the M10: line ----
 
     /// <summary>Vaults turned into wrecks — by a fall at the drain, or at a chunk's arrival.</summary>

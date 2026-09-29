@@ -22,7 +22,12 @@ namespace Overburden.Core.Content;
 /// Q with a steel pick at nothing. The draw itself is the caller's — the pack is Game-side
 /// state — and Core's shapes take the budget it computes (<c>Carve</c>'s <c>voxelBudget</c>).
 /// </remarks>
-public sealed record ToolPower(string Via, long JoulesPerVoxel)
+/// <param name="JoulesPerLitre">
+/// What one litre a water tool takes costs (IM-4's pass, decision 5) — a water tool's price, as
+/// <paramref name="JoulesPerVoxel"/> is a rock tool's; each kind declares only its own. A joule a
+/// litre is a millijoule a millilitre, the pump's rule.
+/// </param>
+public sealed record ToolPower(string Via, long JoulesPerVoxel, long JoulesPerLitre = 0)
 {
     /// <summary>The largest <see cref="JoulesPerVoxel"/> the format accepts — a gigajoule a voxel, a sanity bound.</summary>
     public const long MaxJoulesPerVoxel = 1_000_000_000L;
@@ -30,10 +35,25 @@ public sealed record ToolPower(string Via, long JoulesPerVoxel)
     /// <summary>Millijoules one removed voxel costs, the pool's unit.</summary>
     public long MillijoulesPerVoxel => JoulesPerVoxel * MachineDefinition.PerMille;
 
-    /// <summary>Whether this block draws anything at all.</summary>
-    public bool IsFree => JoulesPerVoxel == 0;
+    /// <summary>Millijoules one millilitre a water tool takes costs — the same number as <see cref="JoulesPerLitre"/>.</summary>
+    public long MillijoulesPerMillilitre => JoulesPerLitre;
 
-    public override string ToString() => $"{JoulesPerVoxel:N0} J a voxel via {Via}";
+    /// <summary>Whether this block draws anything at all.</summary>
+    public bool IsFree => JoulesPerVoxel == 0 && JoulesPerLitre == 0;
+
+    public override string ToString() =>
+        JoulesPerLitre > 0 ? $"{JoulesPerLitre:N0} J a litre via {Via}" : $"{JoulesPerVoxel:N0} J a voxel via {Via}";
+}
+
+/// <summary>What a tool takes (IM-4's pass, decision 5): rock, as every tool did before the siphon, or water.</summary>
+/// <remarks>Ordered, and the order is read: <see cref="ToolTiers.Order"/> puts every water tool after every rock tool.</remarks>
+public enum ToolTakes
+{
+    /// <summary>Voxels, through <c>Carve</c> — the picks and the quantum tools.</summary>
+    Rock,
+
+    /// <summary>Water, through the siphon's queue — never a voxel, never through <c>Carve</c>.</summary>
+    Water,
 }
 
 /// <summary>
@@ -147,6 +167,13 @@ public sealed class ToolDefinition
 
     /// <summary>Whether a swing reaches to the loaded world's edge rather than the arm — every bite but the sphere.</summary>
     public bool AtRange => Bite != ToolBite.Sphere;
+
+    /// <summary>
+    /// What the tool takes: rock, or water (IM-4's pass, decision 5 — the siphon, in the quantum
+    /// tools' three sizes, his note of 2026-09-29). A water tool takes a lattice shape, never the
+    /// sphere, and is priced a litre, never a voxel.
+    /// </summary>
+    public ToolTakes Takes { get; init; } = ToolTakes.Rock;
 
     /// <summary>True for a tool whose defining mod is not installed.</summary>
     public bool IsUnknown { get; init; }

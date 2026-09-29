@@ -88,6 +88,9 @@ public sealed partial class FluidSimulation : ICollapseWater
     public void DisplaceLifted(long millilitres)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(millilitres);
+
+        // IM-4's pass, decision 12: guarded like Lift and Return, though only the boundary calls it.
+        RefuseMidTick(nameof(DisplaceLifted));
         DisplacedMillilitres += millilitres;
         LiftDisplacedMillilitres += millilitres;
     }

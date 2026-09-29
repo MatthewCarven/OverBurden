@@ -232,15 +232,15 @@ public class ShippedContentTests
         int id = content.Materials.GetNumericId(Identifier.Parse("overburden:computer"));
         Assert.False(table.IsPlaceable(id));
 
-        // Every shipped block is placeable; the computer and the two packs are the things that
-        // are not (M10c-2 added the lead-acid pack, IM-2 the quantum backpack).
+        // Every shipped block is placeable; the computer, the two packs and water are the things
+        // that are not (M10c-2 added the lead-acid pack, IM-2 the quantum backpack, IM-4a water).
         int notPlaceable = 0;
         for (int i = 0; i < table.Count; i++)
         {
             if (!table.IsPlaceable(i)) notPlaceable++;
         }
 
-        Assert.Equal(3, notPlaceable);
+        Assert.Equal(4, notPlaceable);
     }
 
     [Fact]

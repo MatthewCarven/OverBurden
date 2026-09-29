@@ -292,6 +292,12 @@ public class FluidJobTests
         Assert.Throws<InvalidOperationException>(() => sim.BeginTick(terrain, ChunkPos.Zero));
         Assert.Throws<InvalidOperationException>(() => sim.Add(new VoxelPos(1, 22, 1), Cap));
 
+        // IM-4a: the siphon's two doors, and the two that had no guard until its pass (decision 12).
+        Assert.Throws<InvalidOperationException>(() => sim.Siphon(new VoxelPos(1, 22, 1), Cap));
+        Assert.Throws<InvalidOperationException>(() => sim.Pour(new VoxelPos(1, 22, 1), Cap));
+        Assert.Throws<InvalidOperationException>(() => sim.HandOff(new VoxelPos(1, 22, 1), Cap));
+        Assert.Throws<InvalidOperationException>(() => sim.DisplaceLifted(1));
+
         // A move lands at the next begin rather than under the worker — and so does a machine
         // column named while the worker is out.
         sim.SetNearField(new ChunkPos(3, 0, 3), 2);

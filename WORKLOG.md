@@ -1,5 +1,23 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-30 — IM-4a built: the siphon underneath, closed early
+
+*"As recommended please Claude, build IM-4a"* took the pass's twelve. First the owed r6 control on `3db5e60`
+(the HUD's clock and the window's gate print): `2601 / 325 / 3446 at 411`, 0 `ERROR`, and his morning session
+on TajMahal2 was clean. IM-4a was built in a worktree; the plan's "IM-4a — built" has the file list.
+**Suite 2,157**, green but for one fixture that overfilled the bowl (200,000 L spilled 32,000; now 120,000).
+
+What the build found:
+- **The aim cannot be resolved at the click.** The Tier B grid refuses reads while the worker owns it,
+  which is most of the time between boundaries. So the op keeps the ray, and the boundary casts it.
+- **`IChannelBank`'s contract** (every drawer counts its own term) meant the siphon's payment is a new
+  `PowerExact` term, `siphonPaid`. The pass had it as "the bank's draw".
+- `VolumetricInventory.Reset` goes through `Add`, so one refusal covers the world file's restore too:
+  ten doors, not nine.
+
+**He closed the session here** (*"see you in a fresh Code Chat"*), so the mutation battery and the r6 control
+on this build are owed first next session, in TODO.
+
 ## 2026-09-30 — IM-4's code-level pass: twelve decisions handed back, and the lake fill held
 
 *"1 and 2 as recommended, then IM-4's pass please Claude"*. He was playing, so this ran in a worktree.

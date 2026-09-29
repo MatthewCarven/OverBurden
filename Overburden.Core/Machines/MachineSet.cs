@@ -212,6 +212,7 @@ public sealed partial class MachineSet : IMachineBodies
         rows.Add(row);
         StoredMillijoulesEntering += ChargeOf(row);
         VaultVoxelsEntering += KnownVaultVoxels(row);
+        VaultWaterEntering += KnownVaultWater(row);
         Version++;
         Journal?.MachineChanged(row, added: true);
     }
@@ -233,6 +234,7 @@ public sealed partial class MachineSet : IMachineBodies
 
         StoredMillijoulesLeaving += ChargeOf(row);
         VaultVoxelsLeaving += KnownVaultVoxels(row);
+        VaultWaterLeaving += KnownVaultWater(row);
         Version++;
         Journal?.MachineChanged(row, added: false);
         return true;
@@ -792,6 +794,7 @@ public sealed partial class MachineSet : IMachineBodies
         {
             StoredMillijoulesLeaving += ChargeOf(leaving);
             VaultVoxelsLeaving += KnownVaultVoxels(leaving);
+            VaultWaterLeaving += KnownVaultWater(leaving);
         }
 
         _rows.Clear();

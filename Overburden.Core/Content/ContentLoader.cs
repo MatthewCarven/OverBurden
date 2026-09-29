@@ -618,6 +618,27 @@ public sealed class ContentLoader
                 }
             }
 
+            // IM-4's pass, decision 5: what the tool takes, rock when absent. A water tool takes a
+            // lattice shape — the siphon comes in the quantum tools' three sizes — never the sphere.
+            ToolTakes takes = ToolTakes.Rock;
+            if (dto.Takes is { } takesName)
+            {
+                switch (takesName)
+                {
+                    case "rock": takes = ToolTakes.Rock; break;
+                    case "water": takes = ToolTakes.Water; break;
+                    default:
+                        errors.Add($"{manifest.Id}/{path}: takes \"{takesName}\" is not something a tool takes — rock or water.");
+                        continue;
+                }
+            }
+
+            if (takes == ToolTakes.Water && bite == ToolBite.Sphere)
+            {
+                errors.Add($"{manifest.Id}/{path}: a tool that takes water takes a lattice shape — bite cube, tunnel or chunk, never the sphere.");
+                continue;
+            }
+
             // Rejected at the door rather than clamped, so that every tool the registry
             // hands out is one the carve can be swung with unconditionally. A NaN radius
             // clamped to something sensible would hide the typo; a NaN radius reaching
@@ -661,6 +682,16 @@ public sealed class ContentLoader
                     continue;
                 }
 
+                // Each kind of tool is priced in its own unit, and the other unit is refused rather
+                // than ignored: a siphon written with joulesPerVoxel would otherwise load free.
+                if (takes == ToolTakes.Water ? powerDto.JoulesPerVoxel is not null : powerDto.JoulesPerLitre is not null)
+                {
+                    errors.Add(takes == ToolTakes.Water
+                        ? $"{manifest.Id}/{path}: a tool that takes water is priced power.joulesPerLitre, not joulesPerVoxel."
+                        : $"{manifest.Id}/{path}: power.joulesPerLitre prices a tool that takes water; this one takes rock (joulesPerVoxel).");
+                    continue;
+                }
+
                 long joules = powerDto.JoulesPerVoxel ?? 0;
                 if (joules < 0 || joules > ToolPower.MaxJoulesPerVoxel)
                 {
@@ -668,7 +699,14 @@ public sealed class ContentLoader
                     continue;
                 }
 
-                power = new ToolPower(powerDto.Via, joules);
+                long perLitre = powerDto.JoulesPerLitre ?? 0;
+                if (perLitre < 0 || perLitre > MachineDefinition.MaxJoulesPerLitre)
+                {
+                    errors.Add($"{manifest.Id}/{path}: power.joulesPerLitre must be within 0..{MachineDefinition.MaxJoulesPerLitre:N0}.");
+                    continue;
+                }
+
+                power = new ToolPower(powerDto.Via, joules, perLitre);
             }
 
             try
@@ -681,6 +719,7 @@ public sealed class ContentLoader
                     CooldownSeconds = cooldown,
                     Power = power,
                     Bite = bite,
+                    Takes = takes,
                 });
 
                 loaded++;
@@ -1141,11 +1180,13 @@ public sealed class ContentLoader
         public float? CooldownSeconds { get; set; }
         public ToolPowerJson? Power { get; set; }
         public string? Bite { get; set; }
+        public string? Takes { get; set; }
     }
 
     private sealed class ToolPowerJson
     {
         public string? Via { get; set; }
         public long? JoulesPerVoxel { get; set; }
+        public long? JoulesPerLitre { get; set; }
     }
 }

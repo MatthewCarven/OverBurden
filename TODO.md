@@ -25,7 +25,11 @@ his word — and this file points at it rather than repeating it.
       written, twelve decisions wait on his word** (the plan, "IM-4 — the code-level pass"): split into 4a
       (the siphon's queue, doors and twins, the water ray, the ID and the pocket's refusal), 4b (the vault
       in the ring) and 4c (the lake fill, priced at the siphon's 1,000 J a litre, his "delete" with the
-      drain it would open). **On his word: build IM-4a.** **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
+      drain it would open). **All twelve taken 2026-09-30; IM-4a is built** (the plan, "IM-4a — built";
+      suite 2,157). **Owed first:** its mutation battery (the pass lists them: the siphon through `Add`, a
+      take with no room check, the pocket's refusal removed, `Cover` skipped; add: the sort rule, a guard,
+      the identity's terms) and the r6 control. **Then IM-4b** (the vault in the ring; its pump door must
+      not be `DepositWater`), **then IM-4c** (the lake fill, priced). **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
       runway counting the recharge and the return as transfers. **Into IM-6's panel:** his warranty line on the
       vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;
       files stay in watts). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his
@@ -121,8 +125,8 @@ his word — and this file points at it rather than repeating it.
 
 ## Owed checks
 
-- [ ] **The r6 control on `d21afd5`** (the HUD's clock and the window's gate print, both Game-only),
-      once he has quit: `2601 / 325 / 3446 at 411`. He was playing when they merged.
+- [ ] **The r6 control on the IM-4a build** (`2601 / 325 / 3446 at 411`), with the game closed. The one
+      on `3db5e60` read to the digit.
 
 - [ ] **Re-judge `start.cmd`'s `--lightbudget=16` on a play** — it answered a 1.4 ms unoptimised
       derive that is ~0.36 ms since the JIT optimiser (2026-09-15); and re-take the Debug bench

@@ -330,8 +330,8 @@ internal static class PumpBench
         }
 
         public bool IdentityExact =>
-            Fluid.TotalMillilitres == Fluid.AddedMillilitres + Fluid.EmittedMillilitres - Fluid.RemovedMillilitres
-                - Fluid.DisplacedMillilitres - Fluid.PumpedMillilitres;
+            Fluid.TotalMillilitres == Fluid.AddedMillilitres + Fluid.EmittedMillilitres + Fluid.PouredMillilitres - Fluid.RemovedMillilitres
+                - Fluid.DisplacedMillilitres - Fluid.PumpedMillilitres - Fluid.SiphonedMillilitres;
     }
 
     private static void RunDelivery(

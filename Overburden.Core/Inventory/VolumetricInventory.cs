@@ -54,6 +54,32 @@ public sealed class VolumetricInventory
 
     private readonly Dictionary<int, long> _voxels = [];
 
+    // IM-4's pass, decision 8: the materials this pocket never holds — the table's fluids, water first.
+    private HashSet<int>? _refused;
+
+    /// <summary>
+    /// Makes this pocket refuse <paramref name="materialIds"/> at its one door, <see cref="Add"/> — the
+    /// table's fluids (IDEAL-MACHINES-PLAN decision 23: water lives in the store, never the pocket).
+    /// </summary>
+    /// <remarks>
+    /// <b>One site for nine doors.</b> Every way a material enters the pocket — the carve's credit,
+    /// <c>--stock=</c> (which seeds every material the table has), <c>P</c>, a withdrawal, an undo's refund,
+    /// a dismantle, a pack handed back, a restore and the debug seeds — reaches <see cref="Add"/>, so a
+    /// refusal here is decision 23's "by every path" made one test. Counted, not thrown: a seed that
+    /// offers water is doing its job, and the count says it was turned away.
+    /// </remarks>
+    public void RefuseMaterials(IEnumerable<int> materialIds)
+    {
+        ArgumentNullException.ThrowIfNull(materialIds);
+        _refused = [.. materialIds];
+    }
+
+    /// <summary>Whether this pocket refuses <paramref name="materialId"/>.</summary>
+    public bool Refuses(int materialId) => _refused?.Contains(materialId) == true;
+
+    /// <summary>Voxels <see cref="Add"/> turned away because the pocket refuses their material, over its lifetime.</summary>
+    public long RefusedVoxels { get; private set; }
+
     /// <summary>How many voxels' worth of <paramref name="materialId"/> is held.</summary>
     public long Voxels(int materialId) =>
         _voxels.TryGetValue(materialId, out long held) ? held : 0L;
@@ -105,6 +131,12 @@ public sealed class VolumetricInventory
         }
 
         if (voxels == 0) return;
+
+        if (Refuses(materialId))
+        {
+            RefusedVoxels += voxels;
+            return;
+        }
 
         _voxels[materialId] = Voxels(materialId) + voxels;
     }

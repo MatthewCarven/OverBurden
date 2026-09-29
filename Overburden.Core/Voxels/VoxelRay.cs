@@ -82,6 +82,26 @@ public static class VoxelRay
         Vector3 originMetres,
         Vector3 direction,
         float maxDistanceMetres,
+        out VoxelHit hit) =>
+        Cast(world, originMetres, direction, maxDistanceMetres, stopAt: null, out hit);
+
+    /// <summary>
+    /// <see cref="Cast(IVoxelWorld, Vector3, Vector3, float, out VoxelHit)"/> that also stops at the first
+    /// air voxel <paramref name="stopAt"/> answers true for — the stop predicate this class's remarks
+    /// named as M8's revisit trigger, arriving with the siphon (IM-4's pass, decision 4), which aims at
+    /// water the plain ray passes through.
+    /// </summary>
+    /// <remarks>
+    /// A stop reads as <see cref="RayOutcome.Hit"/> with <see cref="VoxelHit.Voxel"/> an air voxel,
+    /// so a caller tells the two apart by the material there; no new outcome, so no switch on
+    /// <see cref="RayOutcome"/> has to learn one. Asked only of air: water is never in a solid voxel.
+    /// </remarks>
+    public static RayOutcome Cast(
+        IVoxelWorld world,
+        Vector3 originMetres,
+        Vector3 direction,
+        float maxDistanceMetres,
+        Func<VoxelPos, bool>? stopAt,
         out VoxelHit hit)
     {
         ArgumentNullException.ThrowIfNull(world);
@@ -123,7 +143,7 @@ public static class VoxelRay
                 return RayOutcome.Blocked;
             }
 
-            if (material != MaterialIds.AirNumericId)
+            if (material != MaterialIds.AirNumericId || (stopAt is not null && stopAt(voxel)))
             {
                 hit = new VoxelHit(voxel, previous, normal, travelled);
                 return RayOutcome.Hit;

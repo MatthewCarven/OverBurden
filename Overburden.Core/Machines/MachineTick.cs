@@ -411,6 +411,27 @@ public sealed class MachineTick : IChannelBank
     /// <summary>Millijoules vault bills took from their channels' pools, over the lifetime — the pool identity's <c>held</c> term (decision 16).</summary>
     public long HeldMillijoules { get; private set; }
 
+    /// <summary>
+    /// Millijoules the siphon drew from its channels' banks, over the lifetime — the pool identity's
+    /// <c>siphonPaid</c> (IM-4a). <see cref="IChannelBank"/>'s rule: every caller of its draw counts
+    /// what came out in a term of its own, as the pack counts <c>taken</c>.
+    /// </summary>
+    public long SiphonPaidMillijoules { get; private set; }
+
+    /// <summary>What a channel's enabled cells hold now — what a siphon's take can afford.</summary>
+    internal long BankOf(int channel) => ((IChannelBank)this).BankMillijoules(channel);
+
+    /// <summary>
+    /// The siphon's draw on a channel's bank, last-filled first, counted <c>siphonPaid</c>. Between
+    /// boundaries or in the boundary's window before the run, never inside it: the draw throws there.
+    /// </summary>
+    internal long PaySiphon(int channel, long millijoules)
+    {
+        long drawn = ((IChannelBank)this).Draw(channel, millijoules);
+        SiphonPaidMillijoules += drawn;
+        return drawn;
+    }
+
     /// <summary>Of <see cref="HeldMillijoules"/>, what the vaults' own charges paid (IM-3b's pass, decision 4) — printed, never a term of its own.</summary>
     public long HeldFromOwnMillijoules { get; private set; }
 
@@ -508,7 +529,8 @@ public sealed class MachineTick : IChannelBank
         StoredMillijoules + (Pack?.ChargeMillijoules ?? 0)
         == _machines.StoredMillijoulesEntering - _machines.StoredMillijoulesLeaving
             + GeneratedMillijoules - DrawnByPumpsMillijoules - ClampedMillijoules - HeldMillijoules
-            + PackInitialMillijoules + PackDebugMillijoules - PackTakenMillijoules - PackStowedMillijoules;
+            + PackInitialMillijoules + PackDebugMillijoules - PackTakenMillijoules - PackStowedMillijoules
+            - SiphonPaidMillijoules;
 
     /// <summary>Pump-boundaries that moved anything.</summary>
     public long Moves { get; private set; }
