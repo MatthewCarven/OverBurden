@@ -13,6 +13,9 @@ his word — and this file points at it rather than repeating it.
 
 ## Next, on my side
 
+- [ ] **The ideal machines planning pass — next session, fresh chat.** From
+      [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md): ask for his data first, run the
+      design panel, write `docs/IDEAL-MACHINES-PLAN.md`, hand the decisions back.
 - [ ] **The lake over a quarry — built 2026-09-27, his look owed.** The plane draws no sheet over
       a pit that is not yet full ([docs/M8-PLAN.md](docs/M8-PLAN.md), "built"). Open: his eye on
       TajMahal; the named lever if the rim reads badly is clipping the quad against the seed.

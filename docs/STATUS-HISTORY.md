@@ -13,6 +13,33 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md on 2026-09-29** (the 2026-09-29 morning hand-over, as it stood at the evening close):
+
+**2026-09-29, early.** Suite **1,999**; the r6 control to the digit. Unpushed commits are his to push;
+`git fetch` then `git log origin/main..main` lists them.
+
+**Next on my side: water bodies, part a (rest)** — [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md),
+"His pool rests with the near/far order off". The bench's `--rest` box rests (the automaton is not
+the defect), and at 900 s his pool is 2% awake with the order off, fed, against 26% with the play
+arm's `--fluidnear=2`. The load test rules out turning the order off (1.2–1.3 Hz there against 1.9),
+and the far floor fails too. The solve counts show a loop: under the order 95% of the solve's
+levellings are far sheets levelled over and over, causing 90% of its wakes. Candidate a
+(`--solvecarry=0`) and c (`--solvefrontnear=1`) fail; c-2 (`--solvefrontnear=2`) helps a little; his
+`--solvewakeup=0` shows 99% of the solve's wakes are upward but not the loop. On the five-minute queued
+mean (the single probe is too noisy), **c-2 holds over two rounds**: 198 k and 236 k against controls'
+351–451 k and the order off's 80–180 k, but it falls to ~0.8 Hz on the load test because its promotion
+walks the whole far carry every tick, and c-3's tombstones leak duplicates (reverted). **Parked** on his
+word that limits are fine (plan, "c-3, run"): the order-on default stands; a cheap c-2 needs a far carry
+with O(1) removal, a planned piece of its own, and bodies wait on it. **A TajMahal probe needs
+`--at=-268,-5,1284`**: his saved spawn is nine chunk layers above the pool, which then never loads.
+- **The session's big find:** Core was built unoptimised under `start.cmd` since 2026-09-15. Fixed
+  2026-09-28, the water tick is 5.5× faster (see Commands).
+- **Also built:** the lake over a quarry (`BiteFill`); the collapse is Tetris by default with the
+  phonk (part e) and a 10–20 s fuse.
+- **His worlds:** TajMahal is backed up as `backup-TajMahal-2026-09-28`, and he is slimming it.
+  His tower restores from `backup-Regions16-pondlook-2026-09-26` on "restore my tower"; the
+  collapsed copies are kept, dated.
+
 **Moved from CLAUDE.md on 2026-09-28** (the 2026-09-26 hand-over, as it stood with its 2026-09-27 amendments):
 
 The paragraphs below are 2026-09-26's; their collapse items are current up to part e. `start2.cmd`–`start5.cmd` and `pondlook.cmd` (his tower) are Matthew's and

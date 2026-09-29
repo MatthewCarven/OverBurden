@@ -48,6 +48,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | Elements, and why not "just implement chemistry": geology that reacts to water, machine recipes as the chemistry set. |
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | Ores, layers, trees, permeability — his thinking-ahead. Not scheduled; its three questions are his. |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written and taken as recommended (2026-09-28)**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a (rest) comes before any body. **Part a is parked (2026-09-29)**: the pool rests with the near/far order off, but every cheap fix under the order failed the load test; a carry with O(1) removal is the open piece. `--bodyprobe=` and `--rest` measure it. |
+| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md) | **The ideal machines: the brief for the next planning pass (2026-09-29).** His words and three answers (all six extras; inheritance in JSON; the creative-mode demo first), the extras rule, the container ladder with the quantum vault's dump, grades, and automated mining deferred. Run as the design panel; the plan becomes `docs/IDEAL-MACHINES-PLAN.md`. |
 
 ## Non-negotiables
 
@@ -189,30 +190,31 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 ## Where things stand
 
-**2026-09-29, early.** Suite **1,999**; the r6 control to the digit. Unpushed commits are his to push;
-`git fetch` then `git log origin/main..main` lists them.
+**2026-09-29, evening — the session closed here for a fresh chat.** Suite **1,999**; the r6 control to
+the digit. Unpushed commits are his to push; `git fetch` then `git log origin/main..main` lists them.
 
-**Next on my side: water bodies, part a (rest)** — [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md),
-"His pool rests with the near/far order off". The bench's `--rest` box rests (the automaton is not
-the defect), and at 900 s his pool is 2% awake with the order off, fed, against 26% with the play
-arm's `--fluidnear=2`. The load test rules out turning the order off (1.2–1.3 Hz there against 1.9),
-and the far floor fails too. The solve counts show a loop: under the order 95% of the solve's
-levellings are far sheets levelled over and over, causing 90% of its wakes. Candidate a
-(`--solvecarry=0`) and c (`--solvefrontnear=1`) fail; c-2 (`--solvefrontnear=2`) helps a little; his
-`--solvewakeup=0` shows 99% of the solve's wakes are upward but not the loop. On the five-minute queued
-mean (the single probe is too noisy), **c-2 holds over two rounds**: 198 k and 236 k against controls'
-351–451 k and the order off's 80–180 k, but it falls to ~0.8 Hz on the load test because its promotion
-walks the whole far carry every tick, and c-3's tombstones leak duplicates (reverted). **Parked** on his
-word that limits are fine (plan, "c-3, run"): the order-on default stands; a cheap c-2 needs a far carry
-with O(1) removal, a planned piece of its own, and bodies wait on it. **A TajMahal probe needs
-`--at=-268,-5,1284`**: his saved spawn is nine chunk layers above the pool, which then never loads.
-- **The session's big find:** Core was built unoptimised under `start.cmd` since 2026-09-15. Fixed
-  2026-09-28, the water tick is 5.5× faster (see Commands).
-- **Also built:** the lake over a quarry (`BiteFill`); the collapse is Tetris by default with the
-  phonk (part e) and a 10–20 s fuse.
-- **His worlds:** TajMahal is backed up as `backup-TajMahal-2026-09-28`, and he is slimming it.
-  His tower restores from `backup-Regions16-pondlook-2026-09-26` on "restore my tower"; the
-  collapsed copies are kept, dated.
+**Next: the ideal machines planning pass**, in a fresh chat, from
+[docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md): his words, his three answers (all six
+extras; inheritance declared in JSON; the creative-mode demo first), the recommendations he agreed to,
+the scope, and the panel method. **First, ask for the data he said he would submit.** Run it as the design
+panel, write `docs/IDEAL-MACHINES-PLAN.md`, and end at the pass with the decisions handed back.
+
+**Ready to build in parallel: collapse part f, slice f-1** (Core and tests): thirteen decisions taken
+([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part f"). Build it in a worktree if he is playing,
+because `start.cmd` builds whatever the main folder holds.
+
+- **Water bodies part a is parked** ([docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md), "c-3,
+  run"). His pool rests with the near/far order off (2% awake at 900 s), but every cheap fix under the
+  order failed the load test. c-2 (promote a levelled sheet's far front) closes two thirds of the gap
+  and needs a far carry with O(1) removal, a planned piece of its own. Bodies wait on it. The ranking
+  measure is the five-minute queued mean, not one probe.
+- **The pond branch is 1.9× main at his pond on the optimised build, not 6×**, and only because it keeps
+  the water main spills ([docs/POND-PLAN.md](docs/POND-PLAN.md), "Re-measured"). The verdict is his look.
+- **F11 has a third rung**, r10h/6v; he played it to the top.
+- **Where a probe must stand:** TajMahal's pool `--at=-268,-5,1284`, his pond on `Regions16`
+  `--at=-852,34,282`. A saved spawn loads the wrong water; read the first `M8b:` line's `loaded`.
+- **His worlds:** TajMahal is backed up as `backup-TajMahal-2026-09-28`. His tower restores from
+  `backup-Regions16-pondlook-2026-09-26` on "restore my tower"; the collapsed copies are kept, dated.
 
 `start2.cmd`–`start5.cmd` and `pondlook.cmd` (his tower) are Matthew's, recycled as he tests, and
 deliberately untracked.

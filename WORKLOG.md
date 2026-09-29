@@ -1,5 +1,21 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 (evening) — The ideal machines chat, and the session closed for a fresh one
+
+*"lets have that ideal machine tier chat now … a few "extras" that the previous tier may or may not
+inherit"*. Recommended, and agreed:
+- **The extras rule:** defined once, opted into in JSON, reaching as far as the tier's membership.
+- **Six extras:** sense and respond, recall, remote panel, remote charge, priority, map telemetry.
+- **A storage container ladder** up to his quantum vault, *"bigger on the inside"*, which dumps its
+  water and voxels when its power fails.
+- **Grades** on parts, from his 2026-09-25 words.
+- **Automated mining kept but deferred** past the demo, with conveyors as membership, not belts.
+
+His three answers: all six; inheritance in JSON; the creative-mode demo first. He asked to plan in a
+fresh chat with a bigger context. **The brief is [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md)**:
+his words verbatim, the constraints numbered for the panel's agents, and the method. He said he would
+submit some data; it had not arrived at the close, and the brief says to ask for it first.
+
 ## 2026-09-29 — Collapse part f: the sensor's pass
 
 *"start on collapse part f please Claude"*, with him testing alongside, so the pass is docs only and

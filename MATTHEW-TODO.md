@@ -199,28 +199,19 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-09-28, midday**. One commit to push: the sensor's decisions, taken.
+Updated **2026-09-29, evening**. Two commits to push: the sensor's decisions taken, and the session's close with the ideal machines brief.
 
-- **The Tetris collapse** is the default. It has the pieces drawn, the cyan glitch, your phonk
-  and a 10–20 s fuse. Owed from you: your ear on the phonk ("faster/slower/louder/quieter").
-- **The big find:** the game's core code was being built unoptimised by `start.cmd` since
-  2026-09-15. It is fixed, and water on your quarry runs 5.5× faster (full speed).
-- **The lake over your quarry** no longer hangs a sheet over dry floor. Your look is owed.
-- **Water bodies:** the clean test pool is built and it goes to sleep: a slumping pool in 1–4
-  minutes, and a fed one about 4 minutes after its feed stops. So the water rules can rest a pool.
-  Your quarry does rest too, once a setting called the near/far order is off. It makes water near
-  you get processed first, and it starves the rest of your pool. After 15 minutes it's 2% awake with
-  the setting off and 26% with it on (what you play). But on your biggest world, turning it off
-  slows the water near you by about a third, and letting far water through in bigger batches
-  halves the speed, so both are out. The culprit is confirmed: the part that levels pools off
-  keeps re-levelling the same far patches of water hundreds of times, and each time it wakes them
-  up again. Four variations tried. Pulling the far edge near helps a little. Your "settle down but
-  not up" found where 99% of its wakes come from, though they turned out not to be the loop.
-  The second round agrees: pulling the whole far edge near ("c-2") gets two thirds of the way to
-  the setting-off result, twice, at the same low cost. But on your biggest world it more than halves
-  the update rate, because of how I built it, not the idea. The cheaper build leaked, so it's
-  reverted. **Parked, as you said**: what you play stays as it is. Doing c-2 cheaply needs the water
-  queue rebuilt, a job of its own for another day, and water bodies wait on it.
+- **Next session: the ideal machines plan.** Your answers are written up in
+  [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md). **Bring the data you mentioned**, and
+  I'll fold it in before designing.
+- **The collapse sensor:** all thirteen decisions taken, the first build step is ready.
+- **The Tetris collapse** is the default, with the cyan glitch, your phonk and a 10–20 s fuse. Your
+  ear on the phonk is still owed.
+- **F11** now goes 6 → 8 → 10 chunks out; you've played it to the top.
+- **Your pond branch** re-measured: 1.9× main's water cost at your pond, only because it keeps the
+  water main spills. Speed isn't a reason to retire it; your look decides.
+- **Water bodies are parked.** Your quarry does rest with the near/far setting off, but every cheap
+  fix with it on failed on your biggest world. What you play is unchanged.
 - **Backups:** TajMahal is `backup-TajMahal-2026-09-28`; your tower is
   `backup-Regions16-pondlook-2026-09-26`. Say "restore TajMahal" or "restore my tower".
 - `start2.cmd` to `start5.cmd` and `pondlook.cmd` are yours and left out of git.
