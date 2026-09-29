@@ -13,12 +13,11 @@ his word — and this file points at it rather than repeating it.
 
 ## Next, on my side
 
-- [ ] **The r6 control after IM-0b** — owed; he was playing when it would have run. Core changed
-      (the drain's journal rule), so read `2601 / 325 / 3446 at 411` when the game is closed.
 - [ ] **The ideal machines — all sixty-one decisions taken as recommended (2026-09-29)**
-      ([docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "The split"). IM-0b is built. Next:
-      IM-0 (measurements on the fixed build, no code, on a copy of `retired-TajMahal-2026-09-29`), then
-      IM-1 onward. Plays after IM-6, IM-8 and IM-9.
+      ([docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "The split"). IM-0b is built and IM-0
+      measured (the quarry takes the 2 m bite, his word). **Next: IM-1** (the strict loader and the
+      extras). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his
+      say-so, it takes his focus); a bite under a lake (IM-7's bench); a dump underground (IM-5's).
 - [ ] **The lake over a quarry — built 2026-09-27, his look owed.** The plane draws no sheet over
       a pit that is not yet full ([docs/M8-PLAN.md](docs/M8-PLAN.md), "built"). Open: his eye on the
       old TajMahal's quarry (now `retired-TajMahal-2026-09-29`), or on any pit beside a lake in his new

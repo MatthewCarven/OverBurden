@@ -7,7 +7,8 @@ repeated here. **Nothing is built.** This is the planning pass; it ended with th
 **Taken as recommended, all sixty-one and the ten forks (2026-09-29):** *"Yes as recommended please
 Claude"*. **IM-0b is built** (2026-09-29, [UNDO-PLAN.md](UNDO-PLAN.md), "The machine drain was
 journalled"). It is wider than the split's row: the reconcile's four branches were the same mint, so
-the rule is that only a pick's dismantle is journalled. IM-0 is next.
+the rule is that only a pick's dismantle is journalled. **IM-0 is measured** (the same night, "IM-0 —
+measured" below), and he took the 2 m quarry bite. IM-1 is next.
 
 **How it was made.** As a design panel (the ladder's method):
 - five readers mapped the machine code, the plans, the inventory and the store, the creative-mode
@@ -390,11 +391,14 @@ full high vault of water for about 35 hours with no sun; a full god vault for ab
     ordinary physics, bounded by the mine's volume. Underground, **all dumping vaults together may owe at
     most 10 ML to Tier B at once**, and **any one dump heaps at most 10,000 m³ of blocks**, on the surface or
     below. Whatever is over a ceiling is `decohered`: gone, printed on the store's line, and announced on the
-    HUD. Both ceilings are estimates set from IM-0. *Revisit:* the fixed build is measured able to carry more.
+    HUD. The 10 ML is measured (IM-0: a 10 ML pour held 2 Hz on the fixed build, at 385 ms of tick wall
+    and about 16 ms of main thread a boundary, so heavily); the 10,000 m³ is still an estimate, for IM-5's
+    bench. *Revisit:* the fixed build is measured able to carry more.
 33. **One budget across every dump, and its own bracket.** At most about 3,200 Tier B cells (50 kL) and 512
     voxels a boundary across all vaults together, whole units, round-robin by position with the remainder to
-    the first. These are estimates, aiming at 5–8 ms of added boundary while a dump runs, and are set from
-    IM-0's `--injectlitres` and IM-5's heap bench. At those rates, 10 ML of water pours in about 100 s and a
+    the first. They aim at 5–8 ms of added boundary while a dump runs. The water half is now measured:
+    IM-0 read insertion at 0.5–1.1 µs a cell, so 3,200 cells is about 2–4 ms. The heap half waits for
+    IM-5's bench. At those rates, 10 ML of water pours in about 100 s and a
     10,000 m³ pile takes about 10 minutes; the demo's 700 m³ of spoil takes about 45 s (arithmetic). The dump
     gets its own `dump` term on the boundary line, never folded into `machines` or `pour`.
 34. **◆ Once the fuse burns out, the dump runs to the end.** While dumping, the vault is not a store:
@@ -484,7 +488,11 @@ plus O(rows) at the map's rebuild.
     otherwise: four 1 m cubes (256 voxels) a boundary, at most 26 kW. Under a lake, every 2 m bite also
     exceeds the seep tracker's 64-edit burst and rescans its chunk (0.56–1 ms, Release). The budget is what
     makes taken 9 a server bound: the loaded box bounds where quarries dig, and the budget bounds how many can.
-    A second quarry makes each slower, never the game.
+    A second quarry makes each slower, never the game. **Settled: the 2 m bite** (2026-09-29, *"go with the
+    2m bite for the quarry"*). IM-0 read a 2 m cut at 0.42–0.53 ms mean on the fixed build (~294 voxels a
+    bite, 4.2 remeshes). Its worst, 7.4–8.0 ms, failed the 5 ms line, but the 1 m cube's worst was as
+    high (8.5–8.8 ms), so the worst is an outlier both arms share and cannot tell them apart. The budget
+    is one 2 m bite a boundary across every quarry.
 46. **It never digs a machine body**, its own or another's; a pump in the footprint is left on a pillar. It
     skips a vault that holds anything, skips air with a scan cap of 64 cells a boundary, and leaves anything
     harder than its threshold standing.
@@ -614,6 +622,63 @@ name, bounds or default.
 **Plays after IM-6, IM-8 and IM-9.** About sixty tests and ten mutation batteries (estimate). **The riskiest
 slice is IM-5**: four destinations, owed amounts across unload, the undo and a crash, all at once.
 
+## IM-0 — measured (2026-09-29)
+
+On the fixed build, headless, the r6 control first (`2601 / 325 / 3446 at 411`, to the digit, 0 `ERROR`).
+Every arm ran twice, alternated; the rounds agree to within a few percent (the fluid arms to the visit),
+so the machine's two speeds did not move them. 0 `ERROR` in all 22 runs. Played worlds ran on fresh
+copies, deleted after. The script and every output are in the session's scratchpad (`im0/`).
+
+**The machine bracket, on his retired machine worlds** (played-style, `start.cmd`'s four flags, 5,400
+frames, about 70–80 boundaries each; he has no machines in TajMahal):
+
+| World | Rows | `machines` mean | max |
+|---|---|---|---|
+| `retired-pool-2026-09-22` | 127 (48 pumps) | 0.880 / 0.882 ms | 16.6 / 15.5 ms |
+| `retired-spread-2026-09-22` (the load test) | 209 (82 pumps) | 0.682 / 0.626 ms | 11.9 / 10.8 ms |
+
+Both means sit under the 1 ms trigger, with 0.1–0.4 ms of room. The max is the opening boundary, the
+rebuild and the first intake reads; the mean without it is about 0.65 ms on the pool world (arithmetic).
+So vault bills and the priority sort have little room inside `machines`, and **the quarry's own `quarry`
+bracket (46) is confirmed as the right call**.
+
+**TajMahal's boundary, on `retired-TajMahal-2026-09-29` at the pool** (30.2 ML loaded, the subject):
+the worst passes over a run are hand-off 33–35 ms, field sync 26 ms, lake 24 ms, collapse 11–12 ms,
+table 10 ms, pour 1.4 ms, machines 0.5 ms.
+
+**The bite** (`--profile --speed=6 --radius=4 --vradius=2 --mine --nogate --measure=20`, the recorded
+cube figure's flythrough):
+
+| Arm | Swings/s | Voxels removed a swing | `swing ms` mean / p95 / max | Remeshes a swing |
+|---|---|---|---|---|
+| 1 m cube (`--entangle`) | 9.5 | 41–42 of 64 | 0.16–0.20 / 0.48–0.52 / 8.5–8.8 | 2.4 |
+| 2 m tunneller (`--entangletunnel`) | 3.9 | 290–298 of 512 | 0.42–0.53 / 0.69–1.07 / 7.4–8.0 | 4.2–4.3 |
+
+Per voxel that is 4.1 µs (cube) and 1.6 µs (2 m), both about 2–2.5× cheaper than the pre-fix figures
+this plan quoted (8.9 and 3.4). A solid 2 m bite of 512 voxels projects to about 0.85 ms (arithmetic).
+**He took the 2 m bite** (decision 45). **The "wet" arms were not wet**: the flythrough left
+`--fillbasin`'s basin behind, with no fluid field in any run, so a bite under a lake is still unmeasured
+(it is IM-7's bench).
+
+**Tier B** (`--profile --speed=0 --fluidnear=2 --fluidjob=1 --measure=60 --injectlitres=`):
+
+| Pour | Insertion, once | Tick wall mean / max | Main thread a boundary, mean | At 60 s |
+|---|---|---|---|---|
+| 1 ML | 72 ms (≈1.1 µs a cell) | 20 ms / 214 ms | ≈4 ms | all handed to the lake |
+| 10 ML | 305–309 ms (≈0.5 µs a cell) | 385 ms / 534 ms | ≈16 ms (hand-off 5.6, compose 4.5, field sync 3.0, pour 2.6) | 3.2 ML in 371,000 cells, 449,000 awake |
+
+The 10 ML arm held 2.00 Hz, with 15 of 120 boundaries waiting on a slow tick. **Two decisions are now
+measured rather than guessed:**
+- **32's 10 ML ceiling stands.** 10 ML is carried at 2 Hz, but heavily, and more would not be.
+- **33's per-boundary pour budget stands.** 3,200 cells is about 2–4 ms at the measured rate. The insertion
+  hitch comes only from pouring everything at once, which the budget exists to prevent.
+
+The caveat: both pours landed on open ground, where two thirds became lake. A dump underground stays in
+Tier B whole and costs more, and there is no headless fixture for that yet (IM-5's).
+
+**Not run: the surface install in a windowed run.** Headless builds no surface. A windowed run takes
+his focus, so it waits for his say-so; the install was 92 ms mean on the load test's front (pre-fix).
+
 ## Must not ship
 
 1. A reserve floor under any name: a percentage kept back, a quarry that stops itself without a sensor he
@@ -647,8 +712,11 @@ slice is IM-5**: four destinations, owed amounts across unload, the undo and a c
   head) and 32 m square (47,600 voxels); one `HeldIn` at 10 ns; the autosave at 17–100 ms; the seep rescan at
   0.56–1 ms (Release).
 - **Derived from a rule:** a stone gallery 8 m wide never falls (every roof voxel within 4 m of a wall).
-- **Estimated, owed IM-0 or a slice's bench:** the dump's ceilings (10 ML, 10,000 m³) and budgets (3,200
-  cells, 512 voxels a boundary), the quarry's bite and budget, and every "crosses the 1 ms line at N" figure.
+- **Measured by IM-0 (fixed build):** the `machines` bracket at 0.63–0.88 ms mean on 127 and 209 rows; the
+  1 m and 2 m bites at 0.16–0.20 and 0.42–0.53 ms mean; Tier B insertion at 0.5–1.1 µs a cell; a 10 ML
+  pour carried at 2 Hz. See "IM-0 — measured".
+- **Estimated, owed a slice's bench:** the heap's ceiling and budget (10,000 m³, 512 voxels a boundary), a
+  bite under a lake, a dump underground, and every "crosses the 1 ms line at N" figure.
 - **Invented, his to tune:** the grade table, the hold rates and the ten-to-one water ratio, the fuse's lean,
   the runway's thresholds, the siphon's 1,000 J/L, free pour and 0.25 s cooldown, the kit and its 1 GJ, the
   power sensor's default.

@@ -1,5 +1,28 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 (night) — IM-0: the measurements on the fixed build, and the quarry's 2 m bite
+
+*"start on IM-0 please Claude"*, with his note that TajMahal has no active machines, so the machine
+bracket was read on `retired-pool` (127 rows) and `retired-spread` (209, the load test) instead. His new
+TajMahal session (4:49–5:10 PM, the IM-0b build) was copied aside first: 0 `ERROR`, nine collapses
+clearing the undo as they should.
+
+The r6 control read `2601 / 325 / 3446 at 411` to the digit, which closes IM-0b's owed control. Then 22
+headless runs, every arm twice and alternated, 0 `ERROR` in all:
+- **`machines`: 0.63–0.88 ms mean**, under the 1 ms trigger with little room. The 11–17 ms max is the
+  opening boundary.
+- **The bite: the 2 m cut is 0.42–0.53 ms mean** and the 1 m cube 0.16–0.20 ms, 2–2.5× cheaper per voxel
+  than the pre-fix figures. The worst (7.4–8.8 ms) is the same for both arms, so it cannot choose between
+  them. **He took the 2 m bite** for the quarry: *"go with the 2m bite for the quarry"*.
+- **Tier B: insertion at 0.5–1.1 µs a cell.** A 10 ML pour held 2 Hz at 385 ms of tick wall and ~16 ms of
+  main thread a boundary, heavy but carried. The plan's 10 ML ceiling and 3,200-cell budget both stand,
+  now measured.
+
+**Two things did not measure what they were meant to.** The "wet" bite arms were dry, because the
+flythrough left `--fillbasin`'s basin behind, so a bite under a lake is IM-7's bench. The windowed
+surface install waits for his say-so, since a windowed run takes his focus. `--entangletunnel` is in
+COMMANDS.md now. The plan's "IM-0 — measured" has the tables.
+
 ## 2026-09-29 (night) — IM-0b: Ctrl+Z minted machines, and the drain's world-side writes are unjournalled
 
 *"start on IM-0b please Claude"*. **Reproduced first, on the unfixed code**, with a throwaway probe

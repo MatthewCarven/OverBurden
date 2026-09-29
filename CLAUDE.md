@@ -191,17 +191,18 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 ## Where things stand
 
 **2026-09-29, night — the ideal machines pass is done, all sixty-one decisions are taken as
-recommended** (*"Yes as recommended please Claude"*), **and IM-0b is built.** Suite **2,006**. **The r6
-control is owed** since IM-0b changed Core (he was playing). Unpushed commits are his to push; `git fetch`
-then `git log origin/main..main` lists them.
+recommended** (*"Yes as recommended please Claude"*), **IM-0b is built and IM-0 measured.** Suite **2,006**;
+the r6 control to the digit after IM-0b. Unpushed commits are his to push; `git fetch` then
+`git log origin/main..main` lists them.
 
 **The plan to build: [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md).** The shape: a channel is an
 account (one bank, one store); the quantum backpack is a window that holds nothing; a vault bills for what it
 holds, and an unpaid bill fuses it (10–20 s, cyan) and dumps it; a storm is when vaults let go; the quarry is a
 machine with a shared budget, only where you are; water is an inventory item through the siphon; creative is a
 header byte and a kit. **IM-0b is built** (the drain's world-side writes unjournalled, so Ctrl+Z no longer
-mints machines; UNDO-PLAN's last section). **Next: IM-0** (measurements on the fixed build, no code), then
-**IM-1**.
+mints machines; UNDO-PLAN's last section). **IM-0 is measured** (the plan's "IM-0 — measured"): `machines`
+0.63–0.88 ms mean on 127 and 209 rows; the 2 m bite 0.42–0.53 ms, and he took it for the quarry; Tier B
+insertion 0.5–1.1 µs a cell, a 10 ML pour carried at 2 Hz. **Next: IM-1** (the strict loader and the extras).
 
 **Buildable alongside: collapse part f, slice f-1** (Core and tests), thirteen decisions taken
 ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part f"). The ideal-machines plan's three amendments there are

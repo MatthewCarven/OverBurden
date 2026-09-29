@@ -171,6 +171,8 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Answered lately
 
+- **The quarry's bite** (2026-09-29): *"go with the 2m bite for the quarry"*. The measurement agreed:
+  a 2 m bite costs about half a millisecond on the fixed build.
 - **The ideal machines' ten forks and sixty-one decisions** (2026-09-29): *"Yes as recommended please
   Claude"*. **TajMahal retired** the same night (*"I borked the supports so want to restart"*): it is now
   `retired-TajMahal-2026-09-29`, and your next `start.cmd` makes a fresh TajMahal.
@@ -210,8 +212,8 @@ Nothing is blocked on these; each is a small change once you have a view.
 Updated **2026-09-29, night**. Commits to push: `git fetch`, then `git log origin/main..main` lists them.
 
 - **The ideal machines plan is taken**, [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md): the
-  bank, the vault and its dump, water in the inventory, the quarry, the six extras, and a creative mode
-  with a kit. Next on my side: the undo bug below, the measurements, then the build.
+  bank, the vault and its dump, water in the inventory, the quarry (your 2 m bite), the six extras, and a
+  creative mode with a kit. The measurements are done; the build starts at IM-1.
 - **The undo bug is fixed** (IM-0b): a machine a fall destroys can no longer come back free after
   Ctrl+Z. The build you started at 4:49 PM already has it. A Ctrl+Z right after a roof comes down now
   says *the roof came down*, as it should.

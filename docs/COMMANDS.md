@@ -416,7 +416,12 @@ than straight down — see below; **a `--mine --entangle` run takes nothing unle
 lattice** (`Carve.Cube`, `CubeVoxels = BrushCell.Voxels`, 64 voxels, 10/s on Matthew's word),
 **and its fill is the brush at range on the same lattice at the same rate**; **`--entanglechunk`
 selects the excavator** — the whole-chunk bite and fill that was the default from 2026-09-03 to
-2026-09-14, the arm every recorded bite figure was taken in; **`--entanglesphere` is retired**
+2026-09-14, the arm every recorded bite figure was taken in; **`--entangletunnel` selects the
+quantum tunneller**, the 2 m cube (2026-09-23), at its file's 0.25 s — IM-0 (2026-09-29, the fixed
+build, two rounds) read `--profile --speed=6 --radius=4 --vradius=2 --mine --entangletunnel --nogate
+--measure=20` at 3.9 swings/s, ~294 voxels removed a swing (the rest already air), `swing ms`
+0.42–0.53 mean and 7.4–8.0 max, 4.2 remeshes a swing, against the cube's `--entangle` arm on the same
+recipe at 9.5/s, 41 voxels, 0.16–0.20 ms mean and 8.5–8.8 max, 2.4 remeshes; **`--entanglesphere` is retired**
 (2026-09-19 — the pick's sphere at range is no tier's shape; its figures are in the worklog, and
 it prints that it is retired); **`--chunkcooldown=<seconds>` and `--cubecooldown=<seconds>` sweep
 the two files' `cooldownSeconds` and are deliberately not profile-only**, because `T` is a play
