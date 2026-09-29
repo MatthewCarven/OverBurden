@@ -18,12 +18,14 @@ his word — and this file points at it rather than repeating it.
       (`MachineSet.cs:446-457`): fall, Ctrl+Z, walk away and back, and the pump stands again. The fix
       is recording off for the destroy branch only (a pick's dismantle stays undoable). It is the
       ideal-machines plan's IM-0b, and needs none of the rest of that plan.
-- [ ] **The ideal machines — the plan is written, sixty-one decisions and ten forks with him**
-      ([docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md)). On his word: IM-0 (measurements on
-      the fixed build, no code), then IM-1 onward. IM-0 needs nothing from him and can run now.
+- [ ] **The ideal machines — all sixty-one decisions taken as recommended (2026-09-29)**
+      ([docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "The split"). Next: IM-0
+      (measurements on the fixed build, no code, on a copy of `retired-TajMahal-2026-09-29`), then IM-1
+      onward. Plays after IM-6, IM-8 and IM-9.
 - [ ] **The lake over a quarry — built 2026-09-27, his look owed.** The plane draws no sheet over
-      a pit that is not yet full ([docs/M8-PLAN.md](docs/M8-PLAN.md), "built"). Open: his eye on
-      TajMahal; the named lever if the rim reads badly is clipping the quad against the seed.
+      a pit that is not yet full ([docs/M8-PLAN.md](docs/M8-PLAN.md), "built"). Open: his eye on the
+      old TajMahal's quarry (now `retired-TajMahal-2026-09-29`), or on any pit beside a lake in his new
+      world; the named lever if the rim reads badly is clipping the quad against the seed.
 - [ ] **Water bodies — part a (rest)**
       ([docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md), "His pool rests with the near/far
       order off"). The clean box rests, and so does his pool with the order off (2% awake at 900 s,
@@ -85,8 +87,6 @@ his word — and this file points at it rather than repeating it.
 
 ## Waiting on his word — the detail is in MATTHEW-TODO
 
-- [ ] **The ideal machines' ten forks** ([docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md),
-      "The forks worth your eye"); "as recommended" takes the other fifty-one decisions.
 - [ ] **The pond branch**: merge or retire `water-column-test` (the raised watershed and his water
       grid, [docs/POND-PLAN.md](docs/POND-PLAN.md), built there, not on main).
 - [ ] **M10d-2, the play** — the seven recipes in the ladder plan's "M10d — the planning pass".

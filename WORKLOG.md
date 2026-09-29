@@ -1,5 +1,18 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 (night, later) — The ideal machines taken as recommended; TajMahal retired
+
+*"Yes as recommended please Claude"*: all sixty-one decisions and the ten forks. The plan, the brief, the
+collapse plan's part f (its three amendments) and CLAUDE.md say so. Next on my side: IM-0b (the live undo
+bug), IM-0 (measurements), then IM-1.
+
+*"can you also either retire or delete my Taj Mahal world please I borked the supports so want to
+restart"*. Retired, not deleted, as the other played worlds were: with Godot checked closed, `TajMahal/`
+moved to `retired-TajMahal-2026-09-29/` (6 MB), beside `backup-TajMahal-2026-09-28`. It stays the
+measurement world for the water-bodies probes and IM-0 (`--at=-268,-5,1284`, on a copy). `start.cmd` still
+names `--world=TajMahal`, so his next launch creates a fresh world by that name with a new seed; no other
+start script of his opens it.
+
 ## 2026-09-29 (night) — The ideal machines: the planning pass, run as a panel
 
 *"IDEAL-MACHINES-BRIEF.md please Claude … Lets design"*. His data arrived first: *"a handover crossover

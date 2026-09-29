@@ -48,7 +48,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | Elements, and why not "just implement chemistry": geology that reacts to water, machine recipes as the chemistry set. |
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | Ores, layers, trees, permeability — his thinking-ahead. Not scheduled; its three questions are his. |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written and taken as recommended (2026-09-28)**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a (rest) comes before any body. **Part a is parked (2026-09-29)**: the pool rests with the near/far order off, but every cheap fix under the order failed the load test; a carry with O(1) removal is the open piece. `--bodyprobe=` and `--rest` measure it. |
-| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, ten forks with him.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). |
+| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b, IM-0, then IM-1.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). |
 
 ## Non-negotiables
 
@@ -190,25 +190,27 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 ## Where things stand
 
-**2026-09-29, night — the ideal machines pass is done and handed back.** Suite **1,999** (docs only this
-session; no code changed); the r6 control to the digit as of the evening. Unpushed commits are his to push;
-`git fetch` then `git log origin/main..main` lists them.
+**2026-09-29, night — the ideal machines pass is done, and all sixty-one decisions are taken as
+recommended** (*"Yes as recommended please Claude"*). Suite **1,999** (docs only this session; no code
+changed); the r6 control to the digit as of the evening. Unpushed commits are his to push; `git fetch` then
+`git log origin/main..main` lists them.
 
-**Waiting on him: the ideal machines' ten forks**, [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md),
-"The forks worth your eye". Sixty-one decisions from a five-reader, four-designer, three-judge panel plus a
-critic. The shape: a channel is an account (one bank, one store); the quantum backpack is a window that holds
-nothing; a vault bills for what it holds, and an unpaid bill fuses it (10–20 s, cyan) and dumps it; a storm is
-when vaults let go; the quarry is a machine with a shared budget, only where you are; water is an inventory
-item through the siphon; creative is a header byte and a kit. **Nothing of it needs his word to start IM-0**
-(measurements on the fixed build, no code).
+**The plan to build: [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md).** The shape: a channel is an
+account (one bank, one store); the quantum backpack is a window that holds nothing; a vault bills for what it
+holds, and an unpaid bill fuses it (10–20 s, cyan) and dumps it; a storm is when vaults let go; the quarry is a
+machine with a shared budget, only where you are; water is an inventory item through the siphon; creative is a
+header byte and a kit. **Next, in order: IM-0b** (a live undo bug: a machine a fall destroys comes back free
+after Ctrl+Z and a re-arrival, because the drain's destroy branch is journalled; recording off for that branch
+only), **IM-0** (measurements on the fixed build, no code), then **IM-1**.
 
-**Ready to build now, neither waiting on him:**
-- **IM-0b, a live undo bug:** a machine a fall destroys comes back free after Ctrl+Z and a re-arrival (the
-  drain's destroy branch is journalled, and the reconcile rebuilds an all-air body). Recording off for that
-  branch only.
-- **Collapse part f, slice f-1** (Core and tests): thirteen decisions taken ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md),
-  "Part f"). The ideal-machines plan proposes three small amendments there, none changing f-1. Build in a
-  worktree if he is playing, because `start.cmd` builds whatever the main folder holds.
+**Buildable alongside: collapse part f, slice f-1** (Core and tests), thirteen decisions taken
+([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part f"). The ideal-machines plan's three amendments there are
+taken too; none changes f-1. Build in a worktree if he is playing, because `start.cmd` builds whatever the main
+folder holds.
+
+**TajMahal is retired** (2026-09-29, his word: *"I borked the supports so want to restart"*): moved to
+`retired-TajMahal-2026-09-29`. `start.cmd` still names `--world=TajMahal`, so his next launch creates a fresh
+world by that name, with a new seed and the shipped relief.
 
 - **Water bodies part a is parked** ([docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md), "c-3,
   run"). His pool rests with the near/far order off (2% awake at 900 s), but every cheap fix under the
@@ -218,10 +220,12 @@ item through the siphon; creative is a header byte and a kit. **Nothing of it ne
 - **The pond branch is 1.9× main at his pond on the optimised build, not 6×**, and only because it keeps
   the water main spills ([docs/POND-PLAN.md](docs/POND-PLAN.md), "Re-measured"). The verdict is his look.
 - **F11 has a third rung**, r10h/6v; he played it to the top.
-- **Where a probe must stand:** TajMahal's pool `--at=-268,-5,1284`, his pond on `Regions16`
-  `--at=-852,34,282`. A saved spawn loads the wrong water; read the first `M8b:` line's `loaded`.
-- **His worlds:** TajMahal is backed up as `backup-TajMahal-2026-09-28`. His tower restores from
-  `backup-Regions16-pondlook-2026-09-26` on "restore my tower"; the collapsed copies are kept, dated.
+- **Where a probe must stand:** the old TajMahal's pool `--at=-268,-5,1284` (a copy of
+  `retired-TajMahal-2026-09-29`, never the new TajMahal), his pond on `Regions16` `--at=-852,34,282`. A saved
+  spawn loads the wrong water; read the first `M8b:` line's `loaded`.
+- **His worlds:** the old TajMahal is `retired-TajMahal-2026-09-29`, with `backup-TajMahal-2026-09-28` beside
+  it. His tower restores from `backup-Regions16-pondlook-2026-09-26` on "restore my tower"; the collapsed
+  copies are kept, dated.
 
 `start2.cmd`–`start5.cmd` and `pondlook.cmd` (his tower) are Matthew's, recycled as he tests, and
 deliberately untracked.
@@ -241,11 +245,12 @@ decisions. **Played 2026-09-26: the quantum tunneller's 2 m cube is the right mi
 *"I like the 2m cube"*.**
 
 **Worlds.** His played worlds are under `app_userdata/Overburden/worlds/`; the `MinerCraft/`
-folder beside it is the pre-rename backup and his to delete. **Three are retired measurement
+folder beside it is the pre-rename backup and his to delete. **Four are retired measurement
 worlds — open them only as copies with `--world=`**: `retired-flooded-2026-09-19` (16 pumps,
 21.1 ML of Tier B), `retired-spread-2026-09-22` (**the load test** — 209 machines, 66.6 ML,
 3.4 M cells active at open), `retired-pool-2026-09-22` (the enclosure at scale and M10d's *dry*
-fixture — 127 machines, 7.09 ML). His demolished tower is `Regions16-pondlook-demolished-2026-09-26`
+fixture — 127 machines, 7.09 ML), and `retired-TajMahal-2026-09-29` (his quarry and pool, the water
+bodies' measurement world and IM-0's; its supports borked in play). His demolished tower is `Regions16-pondlook-demolished-2026-09-26`
 (the collapse's measurement world, a copy only) with its log at `logs/demolition-2026-09-26.log`.
 
 **The rename.** The game is Overburden; stages 1–3 (solution, namespaces, content namespace, mod

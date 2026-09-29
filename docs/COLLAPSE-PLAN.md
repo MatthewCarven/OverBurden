@@ -1166,8 +1166,9 @@ in one headless run.
   becomes that medium's first user, and decisions 3 and 6 move with it.
 - Sensors reading as noise in play (decision 1's revisit).
 
-**The ideal-machines plan (2026-09-29) proposes three amendments, none of which changes f-1 as
-planned** ([IDEAL-MACHINES-PLAN.md](IDEAL-MACHINES-PLAN.md), decisions 10 and 38; not yet taken):
+**The ideal-machines plan (2026-09-29) makes three amendments, none of which changes f-1 as
+planned** ([IDEAL-MACHINES-PLAN.md](IDEAL-MACHINES-PLAN.md), decisions 10 and 38; taken as recommended
+2026-09-29):
 - **Decision 5, for one consumer:** a vault's hold bill is paid from the channel's `enabled` cells
   *before* signal overrides apply, so a signalled-off cell can never starve a vault into dumping.
   Under one pool that road would rebuild the flood decision 10 kept out. It lands with the vault.

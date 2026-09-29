@@ -7,7 +7,7 @@ and how to run the pass. **Nothing is decided beyond his three answers below.** 
 is a recommendation for the panel to test.
 
 **The pass ran on 2026-09-29, and its plan is [IDEAL-MACHINES-PLAN.md](IDEAL-MACHINES-PLAN.md)**, with
-sixty-one decisions and ten forks handed back. Two of this brief's statements were wrong against the
+sixty-one decisions and ten forks, all taken as recommended the same night. Two of this brief's statements were wrong against the
 code: constraint 4 (the header and machine table already save in one transaction) and extra 4's
 "exists" (there is no dock; the lead-acid pack recharges wirelessly). The plan's "Eight facts" has the
 corrections.

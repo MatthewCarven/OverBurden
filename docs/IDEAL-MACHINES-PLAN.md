@@ -2,7 +2,10 @@
 
 The top tier of the machine ladder, designed first, for the creative-mode demo. His brief, his data
 and his nine taken decisions are in [IDEAL-MACHINES-BRIEF.md](IDEAL-MACHINES-BRIEF.md) and are not
-repeated here. **Nothing is built.** This is the planning pass; it ends with the decisions handed back.
+repeated here. **Nothing is built.** This is the planning pass; it ended with the decisions handed back.
+
+**Taken as recommended, all sixty-one and the ten forks (2026-09-29):** *"Yes as recommended please
+Claude"*. IM-0b and IM-0 are next.
 
 **How it was made.** As a design panel (the ladder's method):
 - five readers mapped the machine code, the plans, the inventory and the store, the creative-mode
@@ -593,7 +596,7 @@ name, bounds or default.
 
 | Slice | What | Test or oracle |
 |---|---|---|
-| **IM-0** | **Measurements on the fixed build, no code.** On a dated copy of TajMahal (`--world=probe-…`, `--at=-268,-5,1284`, `--fluidnear=2 --fluidjob=1`): `machines` and `boundary worst`. Then `--profile --entangle --nogate --pitch=-60 --holdq` and `--entangletunnel --nogate --pitch=-60 --holdq`, dry and with `--fillbasin`: `swing ms` and remeshes a swing. Then `--injectlitres=1000000` and `=10000000`: `pour`, a minute of tick wall, and the surface install in a windowed run. Also: add `--entangletunnel` to COMMANDS.md, where it is missing. | The numbers decisions 32, 33 and 45 wait on. |
+| **IM-0** | **Measurements on the fixed build, no code.** On a dated copy of `retired-TajMahal-2026-09-29` (`--world=probe-…`, `--at=-268,-5,1284`, `--fluidnear=2 --fluidjob=1`): `machines` and `boundary worst`. Then `--profile --entangle --nogate --pitch=-60 --holdq` and `--entangletunnel --nogate --pitch=-60 --holdq`, dry and with `--fillbasin`: `swing ms` and remeshes a swing. Then `--injectlitres=1000000` and `=10000000`: `pour`, a minute of tick wall, and the surface install in a windowed run. Also: add `--entangletunnel` to COMMANDS.md, where it is missing. | The numbers decisions 32, 33 and 45 wait on. |
 | **IM-0b** | **The live bug (fact 3), a fix to shipped code.** The drain's destroy branch runs with recording off, for every machine. | A pump destroyed by a fall, drained, then Ctrl+Z re-adds nothing, and the next arrival rebuilds nothing; a pure pick's dismantle is still undoable. |
 | **IM-1** Core | The strict loader; `extras`, the flag set, the per-material bit, `extras.json` (quantum row), its union and media check; `programmer`. | Every shipped file loads; a misspelt key at each level is refused, naming it; two mods giving one (extra, medium) pair are refused; a misspelt medium is refused; a mod with a newer `format` fails in one line; water and parts no longer open a panel; a three-mod fixture loads the same in every order; rows saved under f-1 restore unchanged. Mutation: disable the refusal, and the misspelt-key fixture goes red. |
 | **IM-2** Core | The window (7, 8): the backpack's JSON, the validator's exemption, `RechargePack`, `FillPack` and `Give` refusing a window, the direct draw; the priority consumer list; `packInitial` printed. | `PowerExact` exact over a thousand random bites and boundaries; the worn backpack's saved charge is 0 after a hundred boundaries, Alt+P and a save; a draw inside `Run` throws. Mutations: drop the `packTaken` credit, red; write the draw through `SetCharge`, red. Equal priorities reproduce position order. |

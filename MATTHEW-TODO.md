@@ -22,11 +22,6 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
-- [ ] **The ideal machines: ten forks.** The plan is written:
-      [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md). Read its "The forks worth your eye",
-      one short paragraph each. "As recommended" takes all ten and the other fifty-one decisions, or send
-      back any one by its number. The one I'd most like your eye on is **12, the storm**: a broke
-      channel only stalls while the sun pays the vaults, and it's a storm that makes them let go.
 - [ ] **The pond branch's verdict.** `water-column-test` has the raised watershed and your water
       grid built (walls you place raise the lake's rim; the lake reaches under what you build).
       To play it: `git checkout water-column-test`, `start.cmd "--world=Regions16"` (or a copy),
@@ -47,10 +42,10 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 ### Recent builds
 
 - [ ] **The lake over your quarry.** A pit the lake hasn't filled yet no longer gets the lake's
-      sheet over it — you see the pit's own water at its real height instead. Open TajMahal
-      (`start.cmd "--world=TajMahal"`) and look at the quarry. *Does the lake's edge at the quarry
-      rim read right, or does it stop short or overhang?* (For comparison, `--lakeoverbite=1`
-      draws it the old way.)
+      sheet over it — you see the pit's own water at its real height instead. Your old quarry is in
+      the retired TajMahal (`start.cmd "--world=retired-TajMahal-2026-09-29"`), or dig a pit beside a
+      lake in your new world. *Does the lake's edge at the pit's rim read right, or does it stop short
+      or overhang?* (For comparison, `--lakeoverbite=1` draws it the old way.)
 
 - [ ] **The phonk.** Your track now plays while a collapse runs. It starts from the top, speeds up
       with the collapse (up to 25% faster at the top), and fades out over 2 s when the last piece
@@ -176,6 +171,9 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Answered lately
 
+- **The ideal machines' ten forks and sixty-one decisions** (2026-09-29): *"Yes as recommended please
+  Claude"*. **TajMahal retired** the same night (*"I borked the supports so want to restart"*): it is now
+  `retired-TajMahal-2026-09-29`, and your next `start.cmd` makes a fresh TajMahal.
 - **The ideal machines, during the pass** (2026-09-29): *"One pool please Claude you should be able to
   bankrupt yourself energy wise at the last tech"*; automated quarries and materials in; *"happy to have
   water as an inventory item"* through a tool or machine at the last tech; the quarry only where chunks
@@ -211,11 +209,13 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 Updated **2026-09-29, night**. Commits to push: `git fetch`, then `git log origin/main..main` lists them.
 
-- **The ideal machines plan is written**, [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md): the
+- **The ideal machines plan is taken**, [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md): the
   bank, the vault and its dump, water in the inventory, the quarry, the six extras, and a creative mode
-  with a kit. Ten forks are yours (above). The first step, IM-0, is measurements only and can run now.
+  with a kit. Next on my side: the undo bug below, the measurements, then the build.
 - **A live undo bug turned up**: a machine a fall destroys can come back free after Ctrl+Z and a walk
-  away and back. The fix is small (the plan's IM-0b) and waits on nothing.
+  away and back. The fix is small (the plan's IM-0b) and comes first.
+- **TajMahal is retired** as `retired-TajMahal-2026-09-29`; `start.cmd` makes a fresh one next launch,
+  with a new seed.
 - **The collapse sensor:** all thirteen decisions taken, the first build step is ready.
 - **The Tetris collapse** is the default, with the cyan glitch, your phonk and a 10–20 s fuse. Your
   ear on the phonk is still owed.
@@ -224,6 +224,7 @@ Updated **2026-09-29, night**. Commits to push: `git fetch`, then `git log origi
   water main spills. Speed isn't a reason to retire it; your look decides.
 - **Water bodies are parked.** Your quarry does rest with the near/far setting off, but every cheap
   fix with it on failed on your biggest world. What you play is unchanged.
-- **Backups:** TajMahal is `backup-TajMahal-2026-09-28`; your tower is
-  `backup-Regions16-pondlook-2026-09-26`. Say "restore TajMahal" or "restore my tower".
+- **Backups:** the old TajMahal is `retired-TajMahal-2026-09-29`, with `backup-TajMahal-2026-09-28`
+  beside it; your tower is `backup-Regions16-pondlook-2026-09-26`. Say "restore my tower", or "bring the
+  old TajMahal back" (the fresh one would be kept, dated).
 - `start2.cmd` to `start5.cmd` and `pondlook.cmd` are yours and left out of git.
