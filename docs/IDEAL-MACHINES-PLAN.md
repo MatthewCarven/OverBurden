@@ -5,7 +5,9 @@ and his nine taken decisions are in [IDEAL-MACHINES-BRIEF.md](IDEAL-MACHINES-BRI
 repeated here. **Nothing is built.** This is the planning pass; it ended with the decisions handed back.
 
 **Taken as recommended, all sixty-one and the ten forks (2026-09-29):** *"Yes as recommended please
-Claude"*. IM-0b and IM-0 are next.
+Claude"*. **IM-0b is built** (2026-09-29, [UNDO-PLAN.md](UNDO-PLAN.md), "The machine drain was
+journalled"). It is wider than the split's row: the reconcile's four branches were the same mint, so
+the rule is that only a pick's dismantle is journalled. IM-0 is next.
 
 **How it was made.** As a design panel (the ladder's method):
 - five readers mapped the machine code, the plans, the inventory and the store, the creative-mode

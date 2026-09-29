@@ -1,5 +1,24 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 (night) — IM-0b: Ctrl+Z minted machines, and the drain's world-side writes are unjournalled
+
+*"start on IM-0b please Claude"*. **Reproduced first, on the unfixed code**, with a throwaway probe
+(deleted after): a pump whose whole body fell, then Ctrl+Z (`Undone; rows 1`), then its chunk arriving
+(`1 rebuilt … body voxels standing 64; pump in inventory 0`). A whole machine for nothing, and it needs no
+stock, because a whole-body fall leaves nothing in the step to pay for.
+
+**Wider than the plan's row.** Reading the drain showed the reconcile's four branches were journalled
+too, and each was a mint through Ctrl+Z: an undone rebuild credits 64 voxels and leaves the row to be
+rebuilt again; an undone return gives the row back to be returned and credited again. So the rule is **only
+a pick's dismantle is the player's edit**; the reconcile and the destroy after a fall run with the journal
+off. `IEditJournal` gained `Recording` so `MachineSet` can switch it (Main wires both hooks to one history).
+
+Seven cases in `MachineDrainTests`, six of which failed against the old code. A four-mutation battery was
+caught at exactly its expected counts (1, 4, 2 and 6), with the file restored byte-identical. Suite
+**2,006**; the Game compiles (to a scratch folder). **The r6 control is owed**: he relaunched at 4:49 PM,
+and `start.cmd`'s build already carries the fix. The old TajMahal's last play log is copied aside as
+`logs/play-2026-09-29-TajMahal-last-before-retiring.log`. Written up in UNDO-PLAN.
+
 ## 2026-09-29 (night, later) — The ideal machines taken as recommended; TajMahal retired
 
 *"Yes as recommended please Claude"*: all sixty-one decisions and the ten forks. The plan, the brief, the

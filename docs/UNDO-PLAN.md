@@ -235,3 +235,47 @@ M10: undo — nothing to undo: the roof came down since your last edit, and rubb
 
 The flag is cleared by the first journalled write, so an ordinary empty stack still reads as
 `nothing to undo`. One test asserts both halves in sequence; suite unchanged at 1,735.
+
+## The machine drain was journalled, and Ctrl+Z minted machines — fixed 2026-09-29 (IM-0b)
+
+Found by the ideal-machines panel's Core judge ([IDEAL-MACHINES-PLAN.md](IDEAL-MACHINES-PLAN.md),
+fact 3), and **reproduced on the shipped code before the fix**: place a pump, let a fall take its
+whole body, Ctrl+Z, and let the chunk arrive again. The log read `Ctrl+Z: Undone; rows 1`, then `1
+rebuilt … body voxels standing 64; pump in inventory 0`: a whole pump for nothing, with no stock
+needed, because a whole-body fall leaves nothing in the step to pay for.
+
+**The cause is decision 4's own rule, applied to a writer it missed.** The fall's writes run with
+recording off and clear the stack. But the machine drain runs later in the same frame, with
+recording on, so the destroy that follows a fall landed in a fresh undoable step. The journal copies
+the row, and `Undo` re-added it over the air the fall left. At the chunk's next arrival, the reconcile
+found a row over air and rebuilt its body from the row. **The reconcile's other branches were the same
+class**:
+- an undone rebuild credited its 64 voxels and left the row to be rebuilt again;
+- an undone "returned at arrival" gave the row back to be returned, and credited, again;
+- an undone "destroyed at arrival" or orphan clear put back a body the reconcile had already judged.
+
+**The rule now: only a pick's dismantle is the player's edit.** It stays journalled, in the step with
+the swing that caused it, so Ctrl+Z still puts a picked machine back whole with its ports. The drain
+switches the journal off around everything else it writes: the whole reconcile, and the destroy after
+a fall. `IEditJournal` gained `Recording` so that `MachineSet` can do this; the set's `Journal` must be
+the journal its editor writes to, which Main has always wired to one `EditHistory`. After the fix, a
+press following a fall still reads *the roof came down*, because the destroy no longer clears
+`FellSinceLastEdit`.
+
+**Tests** (`MachineDrainTests`, seven cases):
+- a fall of the whole body and of half of it: nothing journalled, Ctrl+Z refused as after a fall, and
+  the next arrival rebuilds nothing;
+- a pick's dismantle undone whole, ports included;
+- each of the reconcile's four branches: nothing to undo, and a second arrival repeats nothing.
+
+**A mutation battery of four, each caught at exactly its expected count:**
+
+| Mutation | Tests failed |
+|---|---|
+| the journal switched off for the pick's dismantle too | 1 |
+| the reconcile journalled again | 4 |
+| the destroy journalled again | 2 |
+| the journal left off after the world's writes | 6 |
+
+Suite **2,006**. The Game compiles against it (built to a scratch folder). **The r6 control is owed**:
+he was playing when it would have run.

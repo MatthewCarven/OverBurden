@@ -1,5 +1,6 @@
 using Overburden.Core.Building;
 using Overburden.Core.Content;
+using Overburden.Core.Editing;
 using Overburden.Core.Inventory;
 using Overburden.Core.Machines;
 using Overburden.Core.Mining;
@@ -44,6 +45,9 @@ public class MachineDrainTests
 
         public int WritesDuringHooks { get; private set; }
 
+        /// <summary>The undo's journal, told about each changed write before the hook, as the pipeline tells it.</summary>
+        public IEditJournal? Journal { get; set; }
+
         private bool _inHook;
 
         public int this[VoxelPos voxel] => _inner[voxel];
@@ -57,9 +61,11 @@ public class MachineDrainTests
         public bool SetVoxel(VoxelPos voxel, int materialId)
         {
             if (_inHook) WritesDuringHooks++;
-            if (_inner[voxel] == materialId) return true;
+            int was = _inner[voxel];
+            if (was == materialId) return true;
             if (!_inner.SetVoxel(voxel, materialId)) return false;
 
+            Journal?.Wrote(voxel, was, materialId);
             _inHook = true;
             Set.OnVoxelChanged(voxel, materialId);
             _inHook = false;
@@ -472,5 +478,143 @@ public class MachineDrainTests
         Assert.Equal(0, report.DestroyedAtDrain);
         Assert.Equal(0L, inventory.Voxels(Pump));
         Assert.Equal(0, world.Set.Count);
+    }
+
+    // ------------------------------------------------------------------------------ the undo
+
+    /// <summary>One journal for the world's writes and the set's rows, as Main wires both to one history.</summary>
+    private static EditHistory Journalled(HookedWorld world)
+    {
+        var history = new EditHistory();
+        world.Journal = history;
+        world.Set.Journal = history;
+        return history;
+    }
+
+    private static void SeedBody(HookedWorld world, BrushCell cell)
+    {
+        for (int lz = 0; lz < BrushCell.Voxels; lz++)
+        for (int lx = 0; lx < BrushCell.Voxels; lx++)
+        for (int ly = 0; ly < BrushCell.Voxels; ly++)
+        {
+            world.Seed(cell.VoxelAt(lx, ly, lz), Pump);
+        }
+    }
+
+    [Theory]
+    [InlineData(64)]
+    [InlineData(32)]
+    public void AMachineAFallDestroyedCannotBeUndoneBackIntoTheWorld(int fell)
+    {
+        // IM-0b, a live bug until 2026-09-29. The drain's destroy was journalled, in a fresh step
+        // after the fall had cleared the stack, so Ctrl+Z re-added the row over the air the fall
+        // left, and the chunk's next arrival rebuilt the whole body from the row: a machine for
+        // nothing. The fall's own writes are unjournalled (Main's bracket, reproduced here), and the
+        // destroy that follows them must be too.
+        (HookedWorld world, VolumetricInventory inventory) = Placed();
+        inventory.Add(Pump, Cell64); // stock the undo could pay with, so only the rule can refuse it
+        EditHistory history = Journalled(world);
+
+        history.Recording = false;
+        for (int i = 0; i < fell; i++)
+        {
+            world.SetVoxel(Cell.VoxelAt(i % 4, i / 4 % 4, i / 16), Air);
+        }
+
+        history.Recording = true;
+        history.Clear();
+
+        Assert.Equal(1, Drain(world, inventory).DestroyedAtDrain);
+        history.EndStep();
+
+        Assert.True(history.Recording, "the drain must hand the journal back on, or every later edit is lost to the undo");
+        Assert.Equal(0, history.Steps);
+        Assert.Equal(UndoOutcome.EmptyAfterAFall, history.Undo(world, Materials, inventory, world.Set).Outcome);
+        Assert.Equal(0, world.Set.Count);
+        Assert.Equal(Cell64, inventory.Voxels(Pump));
+
+        Assert.False(Arrive(world, inventory).DidAnything);
+        Assert.Equal(0, world.Set.Count);
+        Assert.Equal(0, world.BodyVoxelsAt(Cell, Pump));
+        Assert.Equal(Cell64, inventory.Voxels(Pump));
+    }
+
+    [Fact]
+    public void APicksDismantleIsStillThePlayersEditAndUndoesWhole()
+    {
+        // The other half of the rule: only the world's writes leave the journal. A chip that
+        // dismantles a pump is the player's edit, and Ctrl+Z puts the pump back as it stood.
+        (HookedWorld world, VolumetricInventory inventory) = Placed();
+        world.Set.SetPort(Cell, "channel", 7);
+        EditHistory history = Journalled(world);
+
+        Carve.Voxel(world, Materials, Cell.VoxelAt(3, 3, 3), SteelPick, inventory, world.Set);
+        Assert.Equal(1, Drain(world, inventory).Dismantled);
+        Assert.Equal(Cell64, inventory.Voxels(Pump));
+        history.EndStep();
+
+        Assert.Equal(UndoOutcome.Undone, history.Undo(world, Materials, inventory, world.Set).Outcome);
+        Assert.True(world.Set.TryGet(Cell, out MachineRow back));
+        Assert.Equal(7, back.Ports["channel"]);
+        Assert.Equal(Cell64, world.BodyVoxelsAt(Cell, Pump));
+        Assert.Equal(0L, inventory.Voxels(Pump));
+    }
+
+    [Theory]
+    [InlineData("rebuilt")]
+    [InlineData("returned")]
+    [InlineData("destroyed")]
+    [InlineData("orphan")]
+    public void TheReconcileIsTheWorldsAndLeavesNothingToUndo(string branch)
+    {
+        // Each branch, journalled, was a mint through Ctrl+Z: a rebuild undone credited its 64
+        // voxels and left the row to be rebuilt at the next arrival; a return undone gave the row
+        // back to be returned, and credited, again; a destroy or an orphan clear undone put back a
+        // body the reconcile had already judged. None of it is the player's edit.
+        var world = new HookedWorld();
+        var inventory = new VolumetricInventory();
+        inventory.Add(Pump, Cell64); // stock an undo could pay with
+        switch (branch)
+        {
+            case "rebuilt":
+                world.Set.Add(new MachineRow(Cell, Pump, BrushFacing.PositiveX, PipelineHarness.PumpDefinition.DefaultPorts()));
+                break;
+            case "returned":
+                world.Seed(Cell.VoxelAt(2, 2, 2), Stone);
+                world.Set.Add(new MachineRow(Cell, Pump, BrushFacing.PositiveX));
+                break;
+            case "destroyed":
+                SeedBody(world, Cell);
+                for (int i = 0; i < 20; i++)
+                {
+                    world.Seed(Cell.VoxelAt(i % 4, i / 4 % 4, i / 16), Air);
+                }
+
+                world.Set.Add(new MachineRow(Cell, Pump, BrushFacing.PositiveX));
+                break;
+            case "orphan":
+                SeedBody(world, Cell);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(branch), branch, "not a branch");
+        }
+
+        EditHistory history = Journalled(world);
+        Assert.True(Arrive(world, inventory).DidAnything, $"the {branch} arm did nothing, so there is nothing to prove");
+        history.EndStep();
+
+        int body = world.BodyVoxelsAt(Cell, Pump);
+        long stock = inventory.Voxels(Pump);
+        int rows = world.Set.Count;
+
+        Assert.True(history.Recording, "the drain must hand the journal back on, or every later edit is lost to the undo");
+        Assert.Equal(0, history.Steps);
+        Assert.Equal(UndoOutcome.Empty, history.Undo(world, Materials, inventory, world.Set).Outcome);
+
+        // And a second arrival finds nothing left to do: no second rebuild, no second return.
+        Assert.False(Arrive(world, inventory).DidAnything);
+        Assert.Equal(body, world.BodyVoxelsAt(Cell, Pump));
+        Assert.Equal(stock, inventory.Voxels(Pump));
+        Assert.Equal(rows, world.Set.Count);
     }
 }

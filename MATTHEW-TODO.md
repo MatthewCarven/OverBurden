@@ -212,8 +212,9 @@ Updated **2026-09-29, night**. Commits to push: `git fetch`, then `git log origi
 - **The ideal machines plan is taken**, [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md): the
   bank, the vault and its dump, water in the inventory, the quarry, the six extras, and a creative mode
   with a kit. Next on my side: the undo bug below, the measurements, then the build.
-- **A live undo bug turned up**: a machine a fall destroys can come back free after Ctrl+Z and a walk
-  away and back. The fix is small (the plan's IM-0b) and comes first.
+- **The undo bug is fixed** (IM-0b): a machine a fall destroys can no longer come back free after
+  Ctrl+Z. The build you started at 4:49 PM already has it. A Ctrl+Z right after a roof comes down now
+  says *the roof came down*, as it should.
 - **TajMahal is retired** as `retired-TajMahal-2026-09-29`; `start.cmd` makes a fresh one next launch,
   with a new seed.
 - **The collapse sensor:** all thirteen decisions taken, the first build step is ready.

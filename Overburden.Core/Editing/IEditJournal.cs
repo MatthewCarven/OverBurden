@@ -30,4 +30,10 @@ public interface IEditJournal
 
     /// <summary>A machine row was added to, or removed from, the set.</summary>
     void MachineChanged(MachineRow row, bool added);
+
+    /// <summary>
+    /// Whether changes are kept. Switched off around the world's own writes (a fall, the machine
+    /// drain's reconcile and destroy, an undo's inverse), which are never the player's edit.
+    /// </summary>
+    bool Recording { get; set; }
 }

@@ -36,6 +36,15 @@ namespace Overburden.Core.Machines;
 /// and a row that lost a voxel to anything else is destroyed without — whether it fell whole or
 /// half, however far the rubble went, and the voxels the player mined off it first are theirs.
 /// </para>
+/// <para>
+/// <b>Only a pick's dismantle is the player's edit; everything else the drain writes is the
+/// world's</b> (IM-0b, 2026-09-29). The dismantle lands in the player's undo step with the swing
+/// that caused it, so Ctrl+Z puts the machine back whole. The reconcile and the destroy after a
+/// fall run with the journal off: journalled, each was a mint through Ctrl+Z. An undone destroy
+/// re-added the row over the air the fall left, and the chunk's next arrival rebuilt the body from
+/// it; an undone rebuild credited its 64 voxels and left the row to be rebuilt again; an undone
+/// return gave the row back to be returned again.
+/// </para>
 /// </remarks>
 public sealed class MachineSet : IMachineBodies
 {
@@ -169,10 +178,14 @@ public sealed class MachineSet : IMachineBodies
     public long CapacityOf(MachineRow row) =>
         _materials?.Machine(row.MaterialId) is { Kind: MachineKind.Storage, Carried: false } storage ? storage.CapacityMillijoules : 0;
 
-    /// <summary>Adds a row. Refuses a second row at the same cell: one cell, one body.</summary>
-    /// <summary>Told about every row added or removed, for the undo (UNDO-PLAN). Null keeps nothing.</summary>
+    /// <summary>
+    /// Told about every row added or removed, for the undo (UNDO-PLAN). Null keeps nothing. It must be
+    /// the journal the drain's editor writes to as well (Main wires both to one history), because the
+    /// drain switches it off around the world's own writes.
+    /// </summary>
     public Editing.IEditJournal? Journal { get; set; }
 
+    /// <summary>Adds a row. Refuses a second row at the same cell: one cell, one body.</summary>
     public void Add(MachineRow row)
     {
         ArgumentNullException.ThrowIfNull(row);
@@ -376,21 +389,30 @@ public sealed class MachineSet : IMachineBodies
 
         if (_arrivals.Count > 0)
         {
-            foreach (ChunkPos chunk in _arrivals)
+            // The reconcile is the world keeping rows and bodies agreeing, never the player's edit.
+            bool recording = PauseJournal();
+            try
             {
-                _queued.Remove(chunk);
-
-                VoxelChunk? voxels = voxelsOf(chunk);
-                if (voxels is null)
+                foreach (ChunkPos chunk in _arrivals)
                 {
-                    ChunksLeftBeforeDrain++;
-                    report.Left++;
-                    continue;
-                }
+                    _queued.Remove(chunk);
 
-                Reconcile(chunk, voxels, world, inventory, ref report);
-                ChunksReconciled++;
-                report.Reconciled++;
+                    VoxelChunk? voxels = voxelsOf(chunk);
+                    if (voxels is null)
+                    {
+                        ChunksLeftBeforeDrain++;
+                        report.Left++;
+                        continue;
+                    }
+
+                    Reconcile(chunk, voxels, world, inventory, ref report);
+                    ChunksReconciled++;
+                    report.Reconciled++;
+                }
+            }
+            finally
+            {
+                ResumeJournal(recording);
             }
 
             _arrivals.Clear();
@@ -539,25 +561,55 @@ public sealed class MachineSet : IMachineBodies
             return;
         }
 
-        bool credit = row.Lost == row.Carved;
-
-        // The row first, so the writes below are not damage the hook counts against a row that
-        // no longer exists.
-        Remove(row.Cell);
-        int cleared = ClearBodyVoxels(world, row.Cell, row.MaterialId);
-
-        if (credit)
+        // In both arms the row goes first, so the writes after it are not damage the hook counts
+        // against a row that no longer exists.
+        if (row.Lost == row.Carved)
         {
+            // A pick did it: the player's edit, journalled into their step.
+            Remove(row.Cell);
+            int cleared = ClearBodyVoxels(world, row.Cell, row.MaterialId);
             inventory?.Add(row.MaterialId, cleared);
             Dismantled++;
             DismantledVoxelsCredited += cleared;
             report.Dismantled++;
             report.CreditedVoxels += cleared;
+            return;
         }
-        else
+
+        // Something else took a voxel, a fall: the world's write, which the undo must never see.
+        bool recording = PauseJournal();
+        try
         {
-            Destroyed++;
-            report.DestroyedAtDrain++;
+            Remove(row.Cell);
+            ClearBodyVoxels(world, row.Cell, row.MaterialId);
+        }
+        finally
+        {
+            ResumeJournal(recording);
+        }
+
+        Destroyed++;
+        report.DestroyedAtDrain++;
+    }
+
+    /// <summary>Switches the journal off for the world's own writes; returns what it was, for <see cref="ResumeJournal"/>.</summary>
+    private bool PauseJournal()
+    {
+        if (Journal is null)
+        {
+            return false;
+        }
+
+        bool was = Journal.Recording;
+        Journal.Recording = false;
+        return was;
+    }
+
+    private void ResumeJournal(bool was)
+    {
+        if (Journal is not null)
+        {
+            Journal.Recording = was;
         }
     }
 

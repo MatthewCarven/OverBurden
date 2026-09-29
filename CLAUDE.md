@@ -190,18 +190,18 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 ## Where things stand
 
-**2026-09-29, night — the ideal machines pass is done, and all sixty-one decisions are taken as
-recommended** (*"Yes as recommended please Claude"*). Suite **1,999** (docs only this session; no code
-changed); the r6 control to the digit as of the evening. Unpushed commits are his to push; `git fetch` then
-`git log origin/main..main` lists them.
+**2026-09-29, night — the ideal machines pass is done, all sixty-one decisions are taken as
+recommended** (*"Yes as recommended please Claude"*), **and IM-0b is built.** Suite **2,006**. **The r6
+control is owed** since IM-0b changed Core (he was playing). Unpushed commits are his to push; `git fetch`
+then `git log origin/main..main` lists them.
 
 **The plan to build: [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md).** The shape: a channel is an
 account (one bank, one store); the quantum backpack is a window that holds nothing; a vault bills for what it
 holds, and an unpaid bill fuses it (10–20 s, cyan) and dumps it; a storm is when vaults let go; the quarry is a
 machine with a shared budget, only where you are; water is an inventory item through the siphon; creative is a
-header byte and a kit. **Next, in order: IM-0b** (a live undo bug: a machine a fall destroys comes back free
-after Ctrl+Z and a re-arrival, because the drain's destroy branch is journalled; recording off for that branch
-only), **IM-0** (measurements on the fixed build, no code), then **IM-1**.
+header byte and a kit. **IM-0b is built** (the drain's world-side writes unjournalled, so Ctrl+Z no longer
+mints machines; UNDO-PLAN's last section). **Next: IM-0** (measurements on the fixed build, no code), then
+**IM-1**.
 
 **Buildable alongside: collapse part f, slice f-1** (Core and tests), thirteen decisions taken
 ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part f"). The ideal-machines plan's three amendments there are
