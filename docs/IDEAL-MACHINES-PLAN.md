@@ -352,7 +352,9 @@ full high vault of water for about 35 hours with no sun; a full god vault for ab
     - **The siphon's right click** pours up to 1,000 L from the store at the crosshair.
     - **A pump into a vault.** A vault joins its channel's outlet ring with a `weight`, and litres a pump
       delivers to it are `vaulted`, not emitted. The pump stalls `full` only when every entry in its ring
-      refuses. Priority orders consumers; the ring orders a pump's outlets; the two are unrelated.
+      refuses. *(Superseded by IM-4's pass, decision 11: there is no `full`; the stall is the first refusal
+      met, and a full vault reads `NoRoom`. Built in IM-4b.)* Priority orders consumers; the ring orders a
+      pump's outlets; the two are unrelated.
     - **The dump** (30–37).
 
     The lines: `pumped == emitted + vaulted` across both tiers every boundary. Tier B's line gains
@@ -637,7 +639,7 @@ name, bounds or default.
 | **IM-1** Core (amended by its pass, below; **built 2026-09-29**) | The strict loader; `extras`, the flag set, the per-material bit, `extras.json` (quantum row), its union and media check; `programmer`. | Every shipped file loads; a misspelt key at each level is refused, naming it; two mods giving one (extra, medium) pair are refused; a misspelt medium is refused; a mod with a newer `format` fails in one line; water and parts no longer open a panel; a three-mod fixture loads the same in every order; rows saved under f-1 restore unchanged. Mutation: disable the refusal, and the misspelt-key fixture goes red. |
 | **IM-2** Core (**built 2026-09-29**) | The window (7, 8): the backpack's JSON, the validator's exemption, `RechargePack`, `FillPack` and `Give` refusing a window, the direct draw; the priority consumer list; `packInitial` printed. | `PowerExact` exact over a thousand random bites and boundaries; the worn backpack's saved charge is 0 after a hundred boundaries, Alt+P and a save; a draw inside `Run` throws. Mutations: drop the `packTaken` credit, red; write the draw through `SetCharge`, red. Equal priorities reproduce position order. |
 | **IM-3** Core (amended by its pass, below) | The `vault` kind and the crate; the codec; the store view and fill order; the bill (`held`) and its order before signal overrides; the fuse; every row-removal rule of 17; the store's voxel identity. | Identity exact over a thousand random operations, the undo included; a signalled cell never unpays a hold; two vaults both bill; a save during a fuse resumes at the saved milliseconds; a wreck survives a reopen and is never rebuilt; both reconcile branches keep contents; an unknown codec version refuses the pick and the undo; `overfull` at restore; a refused pick carves nothing; the undo refusal is a pre-flight; `SetPort` moves contents with the row. Mutations: journal a full row, red; bill with no `held` term, red. |
-| **IM-4** Core (its pass, 2026-09-30, splits it into 4a–4c; twelve decisions wait on his word) | Water's doors: the ID, the pocket's refusal, the siphon's queue and rules, the vault in the outlet ring, the twins, `pumped == emitted + vaulted`, the store's water line. | M8's oracle unmoved with no vault; a siphon take then pour restores a basin exactly; a click then a quit moves nothing; a take on a Tier A lake draws the basin; the pump stalls `full` only when every ring entry refuses. Mutation: drop `vaulted`, red. |
+| **IM-4** Core (its pass, 2026-09-30, splits it into 4a–4c, twelve decisions taken; **4a and 4b built**, 4c next) | Water's doors: the ID, the pocket's refusal, the siphon's queue and rules, the vault in the outlet ring, the twins, `pumped == emitted + vaulted`, the store's water line. | M8's oracle unmoved with no vault; a siphon take then pour restores a basin exactly; a click then a quit moves nothing; a take on a Tier A lake draws the basin; ~~the pump stalls `full` only when every ring entry refuses~~ a full vault reads `NoRoom`, the first refusal met (the pass's decision 11). Mutation: drop `vaulted`, red. |
 | **IM-5** Core | The dump: the pile writer, the Tier A release, the Tier B ball with its twin sized to the budget, the ceilings and decoherence, the global budgets, owed while unloaded, the unload batch's session, the dead state; a heap-writer bench arm. | A fixture room receives every voxel once; a pile into a chunk that unloads, then a kill with no session save, then a reopen, counts every voxel once; the unloaded arm releases at arrival; N vaults dumping share the budget exactly; the Tier B ceiling decoheres the excess; power returning after the fuse does nothing; Ctrl+Z cannot touch the pile; Tier B exact, Tier A's counters seam-checked. Mutation: route the dump through `Add`, and the seam goes red. |
 | **IM-6** Wire | Header v8, the mode and `--mode=creative`; kits and the first cell's grant; the debug keys off in creative; the card; the HUD bank line, runway and store percentage; the panel's stock section; the siphon on T; the vault and crate JSON and textures; `M10:` store terms. | r6 to the digit; a v7 world opens as sandbox; the kit is granted once and not on reopen; every creative-off key does nothing; headless: a new creative world (`--world=probe-creative --mode=creative`) with `--placeat=` vaults and cells bankrupts channel 0 under a storm clock, and the log reads own charge spent, then fuse, then dump (IM-3b), every identity exact. **Playable: the bank, the vault, water and the dump.** |
 | **IM-7** Core | The `quarry` kind: the box, `Facing`, the cursor, the skips, the scan cap, the stalls, the allotment and the carve's draw (`dug`), recording off with the chunk forget. | Digs a fixture box once, top down; never a machine or a full vault; pays exactly the voxels removed × 50 J; `OFF SITE` on an unloaded chunk; `flooded`; the cursor survives a save; Ctrl+Z on a hand dig in a chunk the quarry wrote is dropped, and in an untouched chunk still works; a Release bench arm at 1, 4 and 16 quarries. Mutation: quarry writes with recording on, red. |
@@ -1591,6 +1593,61 @@ byte-identical (hash-checked). No Core or Game source changed, so no r6 control 
 
 The pass's other two mutations, `vaulted` counted as `emitted` and the lake fill unpriced, belong to IM-4b
 and IM-4c and run with them.
+
+## IM-4b — built (2026-09-30)
+
+The pass's decisions 9 and 11 fitted the code as written, so no new pass was needed; built the same day in a
+worktree, on his *"yes please Claude, start IM-4b"*. **Suite 2,175** (+12 in `MachineTickTests`). Every test
+that existed stayed green with the change in and no test touched, which is the pass's first test (M8's oracle
+and the machine tests unmoved with no vault).
+
+What it is:
+- **Membership.** A channel vault with `holdsWater` joins its channel's ring in `Rebuild`, among the outlets
+  in origin order, weighing its `weight` port (one when it declares none). A dictionary is the ring's tag,
+  vault or outlet. A channel vault that holds blocks only, and a crate, never join. `RingOn` lists the vaults,
+  `RingVaults` counts them, and `NoOutlet` now means an empty ring.
+- **Room, every boundary.** `MachineSet.VaultWaterRoom`: its free millilitres, and none when it is switched
+  off, dumping, a wreck or unreadable, which are the store view's own refusals. It is read off the bytes each
+  time a pump reaches the vault, because a vault's writes move no version; two pumps on one vault each read it
+  afresh.
+- **The door.** `MachineSet.VaultWater`, the pump's own, counted `WaterVaultedMillilitres`. It throws on a
+  shortfall, the outlet's rule. `DepositWater` stays the siphon's alone, so the siphon's seam never reads a
+  pump's water as a take.
+- **The lines.** `MachineTick.VaultedMillilitres`. `CrossTierExact` and the report's `Exact` are
+  `pumped == emitted + vaulted`, and the store's water line gains `+ vaulted`. The equalities the pass found
+  pinned (the tick's pumped and emitted against both engines') are unmoved.
+- **Decision 11.** No `Full`; `NoRoom`'s comment now says it is the first refusal met.
+- **Game.** The `M10:` tick line and the profile's `machtick` line print `vaulted` and the identity as
+  `pumped == emitted + vaulted`; the profile's vaults line gains the store's water line. Nothing places a
+  water vault in play until IM-6 ships the vault files.
+
+**The tests:** a pump fills a vault alone in its ring; a lake pump fills one in whole litres; a vault with less
+room than the offer passes the rest on; a full vault alone stalls `NoRoom`, and first in a ring lets the pump
+move; switched off, dumping, a wreck and unreadable each refuse, noticed with no rebuild; a vault weighs its
+port and a block-only vault is not in the ring; two pumps read one vault's room afresh; a lake pump passes over
+a vault with under a litre of room; and a hundred random boundaries of the pump and the siphon sharing one
+store, the vault switched on and off, with every line exact after each. The fixture's whole-world identity
+counts the vaults now: the world is the tiers plus what the vaults hold, less what entered in restored rows.
+
+**The mutation battery: sixteen, all red now.** Thirteen went red on the first run. Three did not, and each
+found a weak or missing test:
+- **A dumping or wrecked vault taking water, and an unreadable one read as empty, passed the whole suite**,
+  though the refusal test had a row for each. After its first boundary the channel's cursor moved on to the
+  outlet after the vault, which took the whole offer, so the second boundary never asked the vault. The test
+  now stands the vault alone in its ring, and both are red. A switched-off vault had been caught only by the
+  random run, for the same reason.
+- **A lake pump's take into a vault not rounded to whole litres** I predicted green as equivalent, since the
+  lake path recomputes the take from the litres `Pump` hands back. It is not equivalent. With under a litre of
+  room, the pump asks the lake for no litres, reads that as a dry lake, and stops walking the ring, so the
+  outlet after the vault gets nothing. A vault's room can be a fraction of a litre after Tier B water, so this
+  is reachable. `ALakePumpPassesOverAVaultWithLessThanALitreOfRoom` pins it.
+- One prediction was wrong the safe way: the outlet count not cleared on a rebuild, predicted green, was
+  already caught by the ring's rebuild test.
+
+The others: `vaulted` counted as `emitted` (the pass's mutation); the pump's door through `DepositWater`; the
+refusals of a switched-off vault; a vault joining by kind alone; a vault-only ring stalling `NoOutlet`; the
+store's line, `CrossTierExact` and the report's `Exact` each without `vaulted`; the door uncounted; the door
+never writing the vault; the ring's tag never cleared; the room read only once a boundary.
 
 ## Must not ship
 

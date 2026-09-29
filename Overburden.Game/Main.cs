@@ -8336,11 +8336,12 @@ public partial class Main : Node3D
         MachineTick t = _machineTick;
         const double litre = FluidConstants.MillilitresPerLitre;
         MachineTickReport last = t.Last;
-        return $" | tick: {last.Pumps} pump(s) over {last.Outlets} outlet(s), "
+        return $" | tick: {last.Pumps} pump(s) over {last.Outlets} outlet(s) and {last.Vaults} vault(s), "
                + $"pumped {t.PumpedMillilitres / litre:N0} L from Tier B + {t.PumpedLitres:N0} L from Tier A, "
                + $"emitted {t.EmittedMillilitres / litre:N0} L into Tier B + {t.EmittedLitres:N0} L into Tier A "
-               + $"({t.EmittedLitresIntoLakes:N0} into a lake, {t.EmittedLitresToUnloadedOutlets:N0} to an outlet the box has not loaded) — "
-               + $"pumped == emitted across the tiers: {(t.CrossTierExact ? "exact" : "*** NO ***")}; "
+               + $"({t.EmittedLitresIntoLakes:N0} into a lake, {t.EmittedLitresToUnloadedOutlets:N0} to an outlet the box has not loaded), "
+               + $"vaulted {t.VaultedMillilitres / litre:N0} L — "
+               + $"pumped == emitted + vaulted across the tiers: {(t.CrossTierExact ? "exact" : "*** NO ***")}; "
                + $"{t.Moves:N0} move(s), stalled {t.StalledNoOutlet:N0} no outlet / {t.StalledNoWater:N0} no water ({t.IntakesSkippedDry:N0} off the panel counts) / "
                + $"{t.StalledNoRoom:N0} no room / {t.StalledUnloaded:N0} unloaded / {t.StalledUnanalysed:N0} unanalysed / {t.StalledUnpowered:N0} unpowered; "
                + $"{t.IntakeVoxelsRead:N0} intake voxel(s) read; "
@@ -8396,6 +8397,11 @@ public partial class Main : Node3D
                             + $"+ deposited {_machines.DepositedVoxels:N0} − withdrawn {_machines.WithdrawnVoxels:N0}: {(_machines.StoreExact ? "exact" : "*** NO ***")}; "
                             + $"{_machines.VaultsWrecked:N0} wreck(s), {_machines.VaultMovesAtPick:N0} pick move(s) ({_machines.VoxelsMovedAtPick:N0} voxel(s)), {_machines.PickVoxelsRefused:N0} body voxel(s) refused, "
                             + $"{_machines.UnreadableVaults:N0} unreadable\n"
+                          : string.Empty)
+                      + (_machines.VaultWaterEntering + _machines.WaterDepositedMillilitres + _machines.WaterVaultedMillilitres > 0
+                          ? $"vaults    water held {_machines.HeldWaterMillilitres:N0} + owed {_machines.OwedWaterMillilitres:N0} mL == entering {_machines.VaultWaterEntering:N0} − leaving {_machines.VaultWaterLeaving:N0} "
+                            + $"+ siphoned {_machines.WaterDepositedMillilitres:N0} − poured {_machines.WaterWithdrawnMillilitres:N0} + vaulted by pumps {_machines.WaterVaultedMillilitres:N0}: "
+                            + $"{(_machines.StoreWaterExact ? "exact" : "*** NO ***")}\n"
                           : string.Empty);
         if (_machineTick is null)
         {
@@ -8414,7 +8420,7 @@ public partial class Main : Node3D
                + $"machtick  {ticks:N0} tick(s) in the window over {t.Last.Pumps} pump(s) and {t.Last.Outlets} outlet(s), {moves:N0} move(s); "
                + $"pumped {pumpedB / litre:N0} L from Tier B + {pumpedA:N0} L from Tier A ({pumpedInWindow / seconds:N1} L/s over the window), "
                + $"emitted {emittedB / litre:N0} L into Tier B + {emittedA:N0} L into Tier A; in all pumped {t.PumpedMillilitres / litre:N0} + {t.PumpedLitres:N0} L, "
-               + $"emitted {t.EmittedMillilitres / litre:N0} + {t.EmittedLitres:N0} L — pumped == emitted across the tiers: {(t.CrossTierExact ? "exact" : "*** NO ***")}; "
+               + $"emitted {t.EmittedMillilitres / litre:N0} + {t.EmittedLitres:N0} L, vaulted {t.VaultedMillilitres / litre:N0} L — pumped == emitted + vaulted across the tiers: {(t.CrossTierExact ? "exact" : "*** NO ***")}; "
                + $"stalled {t.StalledNoOutlet:N0} no outlet / {t.StalledNoWater:N0} no water / {t.StalledNoRoom:N0} no room / {t.StalledUnloaded:N0} unloaded / {t.StalledUnanalysed:N0} unanalysed / {t.StalledUnpowered:N0} unpowered; "
                + $"{t.IntakeVoxelsRead:N0} intake voxel(s) read in all, {t.IntakesSkippedDry:N0} intake(s) answered dry off the panel counts; "
                + $"tick {(ticks > 0 ? (_machineTickMillisSum - _machineTickMillisSumAtWarm) / ticks : 0):F3} ms mean in the window, {_machineTickMillisMax:F3} max over the run\n"

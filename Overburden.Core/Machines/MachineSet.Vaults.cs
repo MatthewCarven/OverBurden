@@ -38,7 +38,7 @@ public sealed partial class MachineSet
     /// <summary>Voxels moved from a store or a crate into the pocket, over the session.</summary>
     public long WithdrawnVoxels { get; private set; }
 
-    // ---- the store's water line (IM-4a; decision 24): held + owed == entering − leaving + deposited − withdrawn ----
+    // ---- the store's water line (IM-4a and IM-4b; decision 24): held + owed == entering − leaving + deposited − withdrawn + vaulted ----
 
     /// <summary>Millilitres of water that entered the set in vault rows — added or restored — over the session.</summary>
     public long VaultWaterEntering { get; private set; }
@@ -48,12 +48,20 @@ public sealed partial class MachineSet
 
     /// <summary>
     /// Millilitres put into a store through <see cref="DepositWater"/>, over the session — the siphon's
-    /// take today; IM-4b's pump into a vault is a second door with a counter of its own.
+    /// take, and only the siphon's: its <c>Exact</c> reads this counter's growth as its own.
     /// </summary>
     public long WaterDepositedMillilitres { get; private set; }
 
     /// <summary>Millilitres taken out of a store through <see cref="WithdrawWater"/>, over the session — the siphon's pour.</summary>
     public long WaterWithdrawnMillilitres { get; private set; }
+
+    /// <summary>
+    /// Millilitres pumps put into vaults in their rings through <see cref="VaultWater"/>, over the session
+    /// (IM-4b; IM-4's pass, decision 9) — the second door, with a counter of its own, so the siphon's
+    /// seam never reads a pump's water as a take. Equals <see cref="MachineTick.VaultedMillilitres"/>'
+    /// growth, the tick's <c>vaulted</c>.
+    /// </summary>
+    public long WaterVaultedMillilitres { get; private set; }
 
     /// <summary>Water in vaults that are stores, over every channel.</summary>
     public long HeldWaterMillilitres => SumVaultWater(owed: false);
@@ -61,10 +69,48 @@ public sealed partial class MachineSet
     /// <summary>Water owed to the world by wrecks and dumping vaults.</summary>
     public long OwedWaterMillilitres => SumVaultWater(owed: true);
 
-    /// <summary>The store's water line: <c>held + owed == entering − leaving + deposited − withdrawn</c>; the dump adds its terms in IM-5.</summary>
+    /// <summary>
+    /// The store's water line: <c>held + owed == entering − leaving + deposited − withdrawn + vaulted</c>,
+    /// the siphon's two doors and the pump's; the dump adds its terms in IM-5.
+    /// </summary>
     public bool StoreWaterExact =>
         HeldWaterMillilitres + OwedWaterMillilitres
-        == VaultWaterEntering - VaultWaterLeaving + WaterDepositedMillilitres - WaterWithdrawnMillilitres;
+        == VaultWaterEntering - VaultWaterLeaving + WaterDepositedMillilitres - WaterWithdrawnMillilitres + WaterVaultedMillilitres;
+
+    /// <summary>
+    /// What a pump may put into <paramref name="row"/>, a vault in its ring, this boundary (IM-4's pass,
+    /// decision 9): its free millilitres, and nothing when it is switched off, dumping, a wreck, or bytes
+    /// this build cannot read. Asked every boundary, because <see cref="VaultState.Write"/> moves no
+    /// version and a ring rebuilt on the version would miss a vault that fused, dumped or filled.
+    /// </summary>
+    internal static long VaultWaterRoom(MachineRow row, MachineDefinition definition) =>
+        MachineTick.IsEnabled(row) && VaultState.TryRead(row, out VaultContents contents) && !contents.Owes
+            ? FreeMillilitres(definition, contents)
+            : 0;
+
+    /// <summary>
+    /// The pump's door into a vault: puts exactly <paramref name="millilitres"/> of water into
+    /// <paramref name="row"/>, counted <see cref="WaterVaultedMillilitres"/>. Never <see cref="DepositWater"/>,
+    /// which is the siphon's and spreads over a channel's store in fill order; a pump's ring names the vault.
+    /// </summary>
+    /// <remarks>
+    /// The tick read <see cref="VaultWaterRoom"/> this boundary and nothing has written the row since,
+    /// so a shortfall is the wiring being wrong, and it throws rather than refunds — the outlet's rule.
+    /// </remarks>
+    internal void VaultWater(MachineRow row, MachineDefinition definition, long millilitres)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(millilitres);
+        long room = VaultWaterRoom(row, definition);
+        if (millilitres > room || !VaultState.TryRead(row, out VaultContents contents))
+        {
+            throw new InvalidOperationException(
+                $"Vault at {row.Cell}: a pump brought {millilitres:N0} mL and it has room for {room:N0}; the room was read this boundary.");
+        }
+
+        contents.WaterMillilitres += millilitres;
+        VaultState.Write(row, contents);
+        WaterVaultedMillilitres += millilitres;
+    }
 
     private long SumVaultWater(bool owed)
     {

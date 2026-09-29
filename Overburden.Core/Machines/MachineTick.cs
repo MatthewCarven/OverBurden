@@ -14,13 +14,18 @@ public enum PumpStall : byte
 {
     None,
 
-    /// <summary>No outlet on the pump's channel.</summary>
+    /// <summary>Nothing in the pump's ring: no outlet and no vault that holds water on its channel.</summary>
     NoOutlet,
 
     /// <summary>Nothing in the intake box, or the lake the mouth stands in is dry.</summary>
     NoWater,
 
-    /// <summary>Every outlet it reached is loaded and has no room in the layer above its top.</summary>
+    /// <summary>
+    /// The first refusal it met was no room: an outlet loaded with its layer above full, or a vault in
+    /// the ring full, switched off, dumping, a wreck or unreadable (IM-4b). Only the first reason a
+    /// boundary is kept (IM-4's pass, decision 11), so a full ring whose first entry is an unloaded
+    /// outlet reads <see cref="Unloaded"/>; there is no separate "full".
+    /// </summary>
     NoRoom,
 
     /// <summary>A chunk of the intake box is not loaded to the water, or an outlet is unloaded and underground.</summary>
@@ -42,6 +47,8 @@ public enum PumpStall : byte
 /// <param name="HeldFromOwnMillijoules">Of that, what the vaults' own charges paid (IM-3b).</param>
 /// <param name="OwnGivenMillijoules">What the spare put into the vaults' own charges, after the consumers.</param>
 /// <param name="OwnReturnedMillijoules">What own charges over a minute of their bills gave back to the pools, before the bills.</param>
+/// <param name="VaultedMillilitres">What pumps put into vaults in their rings this boundary (IM-4b): neither tier's, so not emitted.</param>
+/// <param name="Vaults">Vaults that hold water in the rings, beside <paramref name="Outlets"/>.</param>
 public readonly record struct MachineTickReport(
     int Pumps,
     int Outlets,
@@ -63,7 +70,9 @@ public readonly record struct MachineTickReport(
     long HeldMillijoules = 0,
     long HeldFromOwnMillijoules = 0,
     long OwnGivenMillijoules = 0,
-    long OwnReturnedMillijoules = 0)
+    long OwnReturnedMillijoules = 0,
+    long VaultedMillilitres = 0,
+    int Vaults = 0)
 {
     /// <summary>Everything a pump took this boundary, in millilitres, both tiers.</summary>
     public long PumpedInAll => PumpedMillilitres + (PumpedLitres * FluidConstants.MillilitresPerLitre);
@@ -71,12 +80,12 @@ public readonly record struct MachineTickReport(
     /// <summary>Everything an outlet gave this boundary, in millilitres, both tiers.</summary>
     public long EmittedInAll => EmittedMillilitres + (EmittedLitres * FluidConstants.MillilitresPerLitre);
 
-    /// <summary>The machine layer's own identity, per boundary: nothing is in flight after the call.</summary>
-    public bool Exact => PumpedInAll == EmittedInAll;
+    /// <summary>The machine layer's own identity, per boundary — <c>pumped == emitted + vaulted</c>: nothing is in flight after the call.</summary>
+    public bool Exact => PumpedInAll == EmittedInAll + VaultedMillilitres;
 
     public override string ToString() =>
-        $"{Pumps} pump(s) over {Outlets} outlet(s), {Moved} moved; pumped {PumpedMillilitres:N0} mL + {PumpedLitres:N0} L, "
-        + $"emitted {EmittedMillilitres:N0} mL + {EmittedLitres:N0} L ({(Exact ? "exact" : "*** NOT EXACT ***")}); "
+        $"{Pumps} pump(s) over {Outlets} outlet(s) and {Vaults} vault(s), {Moved} moved; pumped {PumpedMillilitres:N0} mL + {PumpedLitres:N0} L, "
+        + $"emitted {EmittedMillilitres:N0} mL + {EmittedLitres:N0} L, vaulted {VaultedMillilitres:N0} mL ({(Exact ? "exact" : "*** NOT EXACT ***")}); "
         + $"stalled: {NoOutlet} no outlet, {NoWater} no water, {NoRoom} no room, {Unloaded} unloaded, {Unanalysed} unanalysed, {Unpowered} unpowered; "
         + $"power: generated {GeneratedMillijoules:N0} mJ, drawn {DrawnMillijoules:N0}, clamped {ClampedMillijoules:N0}, pack given {PackGivenMillijoules:N0}, held {HeldMillijoules:N0} ({HeldFromOwnMillijoules:N0} from own charges), own given {OwnGivenMillijoules:N0}, own returned {OwnReturnedMillijoules:N0}";
 }
@@ -96,8 +105,9 @@ public readonly record struct MachineTickReport(
 /// through the rock); the offer is the smaller of the budget and what is there; and from the
 /// channel's cursor over its outlets, each outlet takes the smaller of its room and what is
 /// left of the offer, the intake is drained by exactly that, the outlet is given exactly that.
-/// <c>pumped == emitted</c> holds per pump per boundary by construction — the room is read, then
-/// exactly that much moves — and the world's total is a constant of this layer.
+/// <c>pumped == emitted + vaulted</c> holds per pump per boundary by construction — the room is
+/// read, then exactly that much moves — and the world's total, the tiers' and what vaults took
+/// (IM-4b), is a constant of this layer.
 /// </para>
 /// <para>
 /// <b>The cheap read first, then the cells</b> (decision 7): up to eight <see cref="IFluidTerrain.IsLoaded"/>
@@ -170,6 +180,17 @@ public readonly record struct MachineTickReport(
 /// the ring; a pump walking it skips an outlet it already reached this boundary, so a weight of a
 /// hundred is one room read, not a hundred.
 /// </para>
+/// <para>
+/// <b>A vault that holds water is in its channel's ring</b> (IM-4b; IM-4's pass, decision 9), by its
+/// kind and <see cref="MachineDefinition.HoldsWater"/> and not by a link — a vault declares exactly one,
+/// its power sink. It sits among the outlets in origin order and weighs its <c>weight</c> port, one if
+/// it declares none. Its room is its free millilitres, read every boundary off its bytes, because a
+/// vault's writes move no version: switched off, dumping, a wreck or unreadable, it has none. What a
+/// pump puts in it is <c>vaulted</c> — in neither tier, so never <c>emitted</c> — through the store's
+/// own door for pumps, never the siphon's; the line is <c>pumped == emitted + vaulted</c>, and the
+/// world's water is the tiers' plus what the vaults took. A lake pump fills it in whole litres, as it
+/// fills a basin.
+/// </para>
 /// </remarks>
 public sealed class MachineTick : IChannelBank
 {
@@ -229,6 +250,9 @@ public sealed class MachineTick : IChannelBank
     private readonly int[] _cursor = new int[Channels];
     private readonly List<ChunkPos> _boxChunks = new(8);
     private readonly HashSet<MachineRow> _reached = [];
+
+    // IM-4b: the ring's tag — which of its entries are vaults, with their definitions; the rest are outlets.
+    private readonly Dictionary<MachineRow, MachineDefinition> _ringVaults = [];
 
     // The chunk columns the tick reads or writes water in, rebuilt with the rings (2026-09-19).
     private readonly HashSet<(int X, int Z)> _nearColumns = [];
@@ -553,7 +577,16 @@ public sealed class MachineTick : IChannelBank
     /// <summary>Of the litres emitted, litres delivered to an outlet whose mouth stands in a lake.</summary>
     public long EmittedLitresIntoLakes { get; private set; }
 
-    /// <summary>Pump-boundaries that found no outlet on their channel.</summary>
+    /// <summary>
+    /// Millilitres pumps put into vaults in their rings, over the lifetime (IM-4b) — the third term of
+    /// <see cref="CrossTierExact"/>. Equals <see cref="MachineSet.WaterVaultedMillilitres"/>' growth.
+    /// </summary>
+    public long VaultedMillilitres { get; private set; }
+
+    /// <summary>Vault room reads, over the lifetime — one per vault a pump reached, whatever its weight.</summary>
+    public long VaultRoomReads { get; private set; }
+
+    /// <summary>Pump-boundaries that found nothing in their ring: no outlet and no vault that holds water on their channel.</summary>
     public long StalledNoOutlet { get; private set; }
 
     /// <summary>Pump-boundaries that found nothing to take.</summary>
@@ -582,16 +615,20 @@ public sealed class MachineTick : IChannelBank
 
     /// <summary>
     /// The machine layer's own identity over the lifetime: everything pumped, on either tier,
-    /// equals everything emitted, on either tier. Nothing is in flight after a call.
+    /// equals everything emitted, on either tier, plus everything put into vaults (IM-4b). Nothing
+    /// is in flight after a call.
     /// </summary>
     public bool CrossTierExact =>
         PumpedMillilitres + (PumpedLitres * FluidConstants.MillilitresPerLitre)
-        == EmittedMillilitres + (EmittedLitres * FluidConstants.MillilitresPerLitre);
+        == EmittedMillilitres + (EmittedLitres * FluidConstants.MillilitresPerLitre) + VaultedMillilitres;
 
     /// <summary>The cursor on <paramref name="channel"/>: which ring entry the next pump that moves anything reaches first.</summary>
     public int CursorOn(int channel) => _cursor[channel];
 
-    /// <summary>The ring on <paramref name="channel"/> as the last rebuild left it — the outlets expanded by weight, in turn order.</summary>
+    /// <summary>Vaults that hold water in the rings, as the last rebuild left them.</summary>
+    public int RingVaults => _ringVaults.Count;
+
+    /// <summary>The ring on <paramref name="channel"/> as the last rebuild left it — the outlets and the vaults that hold water, expanded by weight, in turn order.</summary>
     public IReadOnlyList<MachineRow> RingOn(int channel)
     {
         if (_builtAtVersion != _machines.Version)
@@ -670,7 +707,7 @@ public sealed class MachineTick : IChannelBank
         }
 
         int moved = 0;
-        long pumpedB = 0, pumpedA = 0, emittedB = 0, emittedA = 0;
+        long pumpedB = 0, pumpedA = 0, emittedB = 0, emittedA = 0, vaulted = 0;
         int noOutlet = 0, noWater = 0, noRoom = 0, unloaded = 0, unanalysed = 0, unpowered = 0;
 
         // M10c: the pool before the pumps — what every channel can pay this boundary.
@@ -682,12 +719,13 @@ public sealed class MachineTick : IChannelBank
 
         foreach ((MachineRow row, MachineDefinition definition) in _pumps)
         {
-            long b0 = PumpedMillilitres, a0 = PumpedLitres, eb0 = EmittedMillilitres, ea0 = EmittedLitres;
+            long b0 = PumpedMillilitres, a0 = PumpedLitres, eb0 = EmittedMillilitres, ea0 = EmittedLitres, v0 = VaultedMillilitres;
             PumpStall stall = TickPump(row, definition);
             pumpedB += PumpedMillilitres - b0;
             pumpedA += PumpedLitres - a0;
             emittedB += EmittedMillilitres - eb0;
             emittedA += EmittedLitres - ea0;
+            vaulted += VaultedMillilitres - v0;
 
             // What the panel reads beside the number the player typed (M10b, decision 6).
             row.LastStall = stall;
@@ -740,7 +778,8 @@ public sealed class MachineTick : IChannelBank
         Last = new MachineTickReport(
             pumps, outlets, moved, pumpedB, pumpedA, emittedB, emittedA,
             noOutlet, noWater, noRoom, unloaded, unanalysed, unpowered,
-            generated, drawn, clamped, packGiven, held, _heldFromOwnThisBoundary, ownGiven, _ownReturnedThisBoundary);
+            generated, drawn, clamped, packGiven, held, _heldFromOwnThisBoundary, ownGiven, _ownReturnedThisBoundary,
+            vaulted, _ringVaults.Count);
         return Last;
     }
 
@@ -1195,8 +1234,10 @@ public sealed class MachineTick : IChannelBank
         StorageRowsOff = 0;
         _nearColumns.Clear();
         Array.Clear(_outlets);
+        Array.Clear(_outletCount);
         Array.Clear(_storage);
         Array.Clear(_vaults);
+        _ringVaults.Clear();
 
         foreach (MachineRow row in _machines.Rows)
         {
@@ -1216,6 +1257,7 @@ public sealed class MachineTick : IChannelBank
                 case MachineKind.Outlet:
                     int channel = ChannelOf(row);
                     (_outlets[channel] ??= []).Add(row);
+                    _outletCount[channel]++;
                     AddNearColumns(row.Cell, 1);
                     break;
                 case MachineKind.Converter:
@@ -1237,7 +1279,17 @@ public sealed class MachineTick : IChannelBank
                 case MachineKind.Vault when definition.IsChannelVault:
                     // A crate has no channel and no bill; a channel vault's bill is read each
                     // boundary from its bytes, so a wreck or a dump in the list is simply skipped.
-                    (_vaults[ChannelOf(row)] ??= []).Add((row, definition));
+                    int vaultChannel = ChannelOf(row);
+                    (_vaults[vaultChannel] ??= []).Add((row, definition));
+
+                    // IM-4b: one that holds water is in its channel's ring too, by kind and not by a
+                    // link, whatever state it is in — its room is read each boundary, never here.
+                    if (definition.HoldsWater)
+                    {
+                        (_outlets[vaultChannel] ??= []).Add(row);
+                        _ringVaults.Add(row, definition);
+                    }
+
                     break;
             }
         }
@@ -1267,7 +1319,6 @@ public sealed class MachineTick : IChannelBank
         for (int channel = 0; channel < Channels; channel++)
         {
             List<MachineRow>? outlets = _outlets[channel];
-            _outletCount[channel] = outlets?.Count ?? 0;
             if (outlets is null)
             {
                 _cursor[channel] = 0;
@@ -1437,8 +1488,24 @@ public sealed class MachineTick : IChannelBank
                 continue;
             }
 
-            OutletRoomReads++;
-            long room = RoomAt(outlet, out bool toBasin, out int basin, out bool intoLake, out PumpStall reason);
+            bool toBasin = false, intoLake = false;
+            int basin = Watershed.Outlet;
+            long room;
+            PumpStall reason;
+            bool isVault = _ringVaults.TryGetValue(outlet, out MachineDefinition? vaultDefinition);
+            if (isVault)
+            {
+                // IM-4b: a vault's room is off its bytes, now; refusing, it has none (decision 11).
+                VaultRoomReads++;
+                room = MachineSet.VaultWaterRoom(outlet, vaultDefinition!);
+                reason = room == 0 ? PumpStall.NoRoom : PumpStall.None;
+            }
+            else
+            {
+                OutletRoomReads++;
+                room = RoomAt(outlet, out toBasin, out basin, out intoLake, out reason);
+            }
+
             if (room == 0)
             {
                 if (first == PumpStall.None) first = reason;
@@ -1477,8 +1544,13 @@ public sealed class MachineTick : IChannelBank
                 PumpedMillilitres += take;
             }
 
-            // And the outlet is given exactly that.
-            if (toBasin)
+            // And the outlet is given exactly that — or the vault, through the pump's own door.
+            if (isVault)
+            {
+                _machines.VaultWater(outlet, vaultDefinition!, take);
+                VaultedMillilitres += take;
+            }
+            else if (toBasin)
             {
                 long litres = take / FluidConstants.MillilitresPerLitre;
                 _water!.Emit(basin, litres);

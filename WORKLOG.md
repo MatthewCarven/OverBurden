@@ -1,5 +1,32 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-30 — IM-4b built: the vault in the ring
+
+*"yes please Claude, start IM-4b"*, after he closed the game (his log: 0 `ERROR`, TajMahal2 saved on quit). The
+pass's decisions 9 and 11 fitted the code, so it went straight to building, in a worktree. The plan's "IM-4b —
+built" has the file list.
+- A channel vault that holds water joins its channel's ring by kind, weighs its `weight` port, and has its
+  room read off its bytes every time a pump reaches it. Switched off, dumping, a wreck or unreadable, it has
+  none. What goes in is `vaulted` through the pump's own door, so `pumped == emitted + vaulted`, and the
+  store's water line gains the term. There is no `Full` stall (decision 11).
+- **Every existing test stayed green with the change in** and no test touched: the pass's "unmoved with no
+  vault". IM-3b's vault beside a pump is full of stone, so it takes nothing.
+- **Suite 2,175** (+12). Sixteen mutations, all red now.
+
+What the battery found, three weak or missing tests in my own new ones:
+- **The refusal test passed with the dumping, wreck and unreadable refusals removed.** After its first
+  boundary the channel's cursor moved on to the outlet after the vault, which took everything, so the second
+  boundary never asked the vault. Standing the vault alone in its ring made all three red. It's the old lesson
+  (a scenario where both arms agree tests nothing), met this time through the round-robin.
+- **A mutation I called equivalent wasn't.** Without the whole-litre rounding, a lake pump reaching a vault
+  with under a litre of room asks the lake for no litres, reads a dry lake and stops walking the ring. A test
+  pins it now.
+- One prediction was wrong the safe way (an existing ring test already counted outlets across a rebuild).
+
+Also, his question on the startup warnings: they are the build's, ten of them, and lint as he thought. The
+one that looked like it could bite (CA2014, a `stackalloc` in a loop) is six passes of 12 bytes. They're in
+TODO as a small chore.
+
 ## 2026-09-30 — IM-4a's mutation battery: thirty-six red, twelve after six new tests
 
 *"IM-4a's deliberate code-breaking check, which I skipped to close on time."* He was playing TajMahal2, so it
