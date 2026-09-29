@@ -23,7 +23,9 @@ care about. I keep it current at the end of each session.
 ## Now
 
 - [x] **IM-4's twelve decisions** — *"As recommended please Claude, build IM-4a"*. **IM-4a is built**:
-      the siphon, underneath. Nothing you play changes yet, because the siphon arrives on T in IM-6. Next:
+      the siphon, underneath. Nothing you play changes yet, because the siphon arrives on T in IM-6. **Its
+      code-breaking check ran 2026-09-30:** 36 deliberate breakages; 24 were caught straight away, and the 12
+      that got through are caught now by 6 new tests. Next:
       IM-4b (a vault taking a pump's water), then IM-4c (placing in a lake, priced). What you took:
       - **Placing in a lake** (you took "delete"; I held it before building). A free delete turns
         fill-then-dig into a lake drain: the excavator deletes 512,000 L for about 3.3 MJ, 150 times

@@ -298,6 +298,10 @@ public class FluidJobTests
         Assert.Throws<InvalidOperationException>(() => sim.HandOff(new VoxelPos(1, 22, 1), Cap));
         Assert.Throws<InvalidOperationException>(() => sim.DisplaceLifted(1));
 
+        // And the siphon's two reads: the reason its aim waits for the boundary (IM-4a's mutation battery).
+        Assert.Throws<InvalidOperationException>(() => sim.HeldAt(new VoxelPos(1, 22, 1)));
+        Assert.Throws<InvalidOperationException>(() => sim.RoomFor(new VoxelPos(1, 22, 1)));
+
         // A move lands at the next begin rather than under the worker — and so does a machine
         // column named while the worker is out.
         sim.SetNearField(new ChunkPos(3, 0, 3), 2);

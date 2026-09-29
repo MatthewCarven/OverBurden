@@ -320,6 +320,103 @@ public class SiphonTests
         rig.AssertBooks();
     }
 
+    [Fact]
+    public void ATakeFillsTheStoreInFillOrderAndAPourEmptiesTheLastFilledFirst()
+    {
+        // Decision 7. Two vaults alike but for size bill at one rate, so the fill order is the
+        // origins': the small one at x 0 first. (IM-4a's mutation battery: no test had two vaults
+        // with room, so either order passed.)
+        var rig = new Rig();
+        rig.Lake(100_000);
+        MachineRow first = rig.Vault(new BrushCell(0, 10, 0), SmallVault);
+        MachineRow last = rig.Vault(new BrushCell(2, 10, 0));
+        rig.Charged(new BrushCell(1, 10, 0), 10_000L * PerLitre);
+        Vector3 eye = Rig.Above(64, 60, 64);
+
+        // The tunneller's 8,000 L: the small vault's 1,000 first, the rest into the big one.
+        rig.Click(SiphonVerb.Take, eye, SiphonOf(ToolBite.Tunnel));
+        Assert.Equal(8_000, rig.Siphon.Apply().TakenLitres);
+        Assert.Equal(1_000_000, rig.Contents(first).WaterMillilitres);
+        Assert.Equal(7_000_000, rig.Contents(last).WaterMillilitres);
+
+        // A cube's pour, 1,000 L, comes out of the last-filled vault; the first keeps its own.
+        rig.Click(SiphonVerb.Pour, eye);
+        Assert.Equal(1_000, rig.Siphon.Apply().PouredLitres);
+        Assert.Equal(1_000_000, rig.Contents(first).WaterMillilitres);
+        Assert.Equal(6_000_000, rig.Contents(last).WaterMillilitres);
+        rig.AssertBooks();
+
+        // The tunneller's pour asks 8,000 L of a store holding 7,000: cut to what it holds, and both
+        // vaults empty. (Only the random battery reached this cut before.)
+        rig.Click(SiphonVerb.Pour, eye, SiphonOf(ToolBite.Tunnel));
+        Assert.Equal(7_000, rig.Siphon.Apply().PouredLitres);
+        Assert.Equal(0, rig.Machines.StoredWaterOf(0));
+        rig.AssertBooks();
+    }
+
+    [Fact]
+    public void TheStoresWaterLineHoldsAcrossAReopenAndARemoveWithWaterInAVault()
+    {
+        // The line's entering and leaving terms: a world saved with water in a vault restores
+        // through Add, and a vault removed with water in it takes it out of the line. Zero in play
+        // for the remove, as the blocks' is, but the terms are the line's. (IM-4a's mutation battery:
+        // every other test added its vaults empty.)
+        var rig = new Rig();
+        rig.Lake(100_000);
+        rig.Vault(new BrushCell(0, 10, 0));
+        rig.Charged(new BrushCell(1, 10, 0), 10_000L * PerLitre);
+        rig.Click(SiphonVerb.Take, Rig.Above(64, 60, 64));
+        Assert.Equal(1_000, rig.Siphon.Apply().TakenLitres);
+
+        RestoreReport report = rig.Machines.Restore(rig.Machines.Snapshot(), id => Materials.Machine(id)?.Ports);
+        Assert.Equal(0, report.Clamped + report.Dropped + report.Defaulted);
+        Assert.Equal(1_000_000, rig.Machines.StoredWaterOf(0));
+        Assert.Equal(1_000_000, rig.Machines.VaultWaterEntering);
+        Assert.Equal(1_000_000, rig.Machines.VaultWaterLeaving);
+        rig.AssertBooks();
+
+        Assert.True(rig.Machines.Remove(new BrushCell(0, 10, 0)));
+        Assert.Equal(0, rig.Machines.StoredWaterOf(0));
+        Assert.Equal(2_000_000, rig.Machines.VaultWaterLeaving);
+        rig.AssertBooks();
+    }
+
+    [Fact]
+    public void APourIntoABrimmingLakeSpillsAndBothEnginesCountTheSpill()
+    {
+        // Tier A's identity is never evaluated in the game (IM-4's pass, fact 3), so its siphon terms
+        // are checked here, across a pour that spills: held == injected + poured - spilled - siphoned
+        // in this rig, which neither rains nor draws. (IM-4a's mutation battery: the random battery's
+        // lake never filled, so no pour had spilled.)
+        var rig = new Rig();
+        rig.Lake(100_000);
+        rig.Vault(new BrushCell(0, 10, 0));
+        rig.Charged(new BrushCell(1, 10, 0), 10_000L * PerLitre);
+        Vector3 eye = Rig.Above(64, 60, 64);
+        rig.Click(SiphonVerb.Take, eye);
+        Assert.Equal(1_000, rig.Siphon.Apply().TakenLitres);
+
+        // Brim the basin's tree, then pour the take back into it.
+        long capacity = rig.WaterSystem.Water!.Tree.Capacity(rig.Basin);
+        rig.WaterSystem.Inject(rig.Basin, capacity);
+        rig.Refresh();
+        long stored = rig.WaterSystem.StoredLitres;
+        long spilledBefore = rig.WaterSystem.SpilledLitres;
+
+        rig.Click(SiphonVerb.Pour, eye);
+        SiphonReport poured = rig.Siphon.Apply();
+        Assert.Equal(1_000, poured.PouredLitres);
+        Assert.Equal(1_000, poured.SpilledLitres);
+        Assert.Equal(1_000, rig.WaterSystem.SpilledLitres - spilledBefore);
+        Assert.Equal(stored, rig.WaterSystem.StoredLitres);
+        Assert.Equal(0, rig.Machines.StoredWaterOf(0));
+
+        WaterSystem w = rig.WaterSystem;
+        Assert.Equal(w.InjectedLitres + w.PouredLitres - w.SpilledLitres - w.SiphonedLitres, w.StoredLitres);
+        Assert.Equal(0, w.ReceivedLitres + w.EmittedLitres + w.DrawnLitres + w.SeepedLitres + w.PumpedLitres);
+        rig.AssertBooks();
+    }
+
     // ---------------------------------------------------------------- Tier B (the room)
 
     [Fact]
@@ -389,6 +486,67 @@ public class SiphonTests
         Assert.Equal(put, taken);
         Assert.Equal(put * (PerLitre / 1_000), paid);
         Assert.Equal(32_768, rig.Siphon.CellsVisited);
+    }
+
+    [Fact]
+    public void ARoomTakeIsCutToTheStoresRoom()
+    {
+        // Decision 7 for Tier B: the excavator's chunk over the room's flooded floor, 6,250 L, into a
+        // store with room for 1,000. The take stops there and finishes, and the rest stays on the
+        // floor. (IM-4a's mutation battery: the room check could go and every test stayed green, since
+        // no Tier B take had met a full store.)
+        var rig = new Rig();
+        MachineRow small = rig.Vault(new BrushCell(0, 10, 0), SmallVault);
+        rig.Charged(new BrushCell(1, 10, 0), 100_000L * PerLitre);
+        long put = rig.FloorWater(Rig.RoomMin, Rig.RoomMax);
+
+        rig.Click(SiphonVerb.Take, Rig.Above(40, 20, 40), SiphonOf(ToolBite.Chunk));
+        long taken = 0;
+        for (int boundary = 0; boundary < 20 && rig.Siphon.Waiting > 0; boundary++)
+        {
+            taken += rig.Siphon.Apply().TakenMillilitres;
+            rig.AssertBooks();
+        }
+
+        Assert.Equal(0, rig.Siphon.Waiting);
+        Assert.Equal(1_000_000, taken);
+        Assert.Equal(1_000_000, rig.Contents(small).WaterMillilitres);
+        long left = 0;
+        for (int z = Rig.RoomMin; z <= Rig.RoomMax; z++)
+        for (int x = Rig.RoomMin; x <= Rig.RoomMax; x++)
+        {
+            left += rig.Fluid.HeldAt(new VoxelPos(x, Rig.RoomFloor, z));
+        }
+
+        Assert.Equal(put - 1_000_000, left);
+    }
+
+    [Fact]
+    public void APartialTakeLowersTheLevelFromTheTop()
+    {
+        // Decision 7's partial take and the walk's order: water two layers deep, a bank that pays
+        // for one layer, and the take lowers the level — never a hole under standing water.
+        // (IM-4a's mutation battery: every take so far emptied its shape, and either order does that.)
+        var rig = new Rig();
+        rig.Vault(new BrushCell(0, 10, 0));
+        rig.Charged(new BrushCell(1, 10, 0), 250 * PerLitre);
+        for (int y = Rig.RoomFloor; y <= Rig.RoomFloor + 1; y++)
+        for (int z = 40; z <= 43; z++)
+        for (int x = 40; x <= 43; x++)
+        {
+            Assert.Equal(0L, rig.Fluid.Add(new VoxelPos(x, y, z), Cap));
+        }
+
+        rig.Click(SiphonVerb.Take, Rig.Above(40, 20, 40));
+        Assert.Equal(16L * Cap, rig.Siphon.Apply().TakenMillilitres);
+        for (int z = 40; z <= 43; z++)
+        for (int x = 40; x <= 43; x++)
+        {
+            Assert.Equal(0, rig.Fluid.HeldAt(new VoxelPos(x, Rig.RoomFloor + 1, z)));
+            Assert.Equal(Cap, rig.Fluid.HeldAt(new VoxelPos(x, Rig.RoomFloor, z)));
+        }
+
+        rig.AssertBooks();
     }
 
     // ---------------------------------------------------------------- the click

@@ -26,9 +26,9 @@ his word — and this file points at it rather than repeating it.
       (the siphon's queue, doors and twins, the water ray, the ID and the pocket's refusal), 4b (the vault
       in the ring) and 4c (the lake fill, priced at the siphon's 1,000 J a litre, his "delete" with the
       drain it would open). **All twelve taken 2026-09-30; IM-4a is built** (the plan, "IM-4a — built";
-      suite 2,157). **Owed first:** its mutation battery (the pass lists them: the siphon through `Add`, a
-      take with no room check, the pocket's refusal removed, `Cover` skipped; add: the sort rule, a guard,
-      the identity's terms); its r6 control read to the digit. **Then IM-4b** (the vault in the ring; its pump door must
+      suite 2,157, its r6 control to the digit). **Its mutation battery ran 2026-09-30: thirty-six red**, twelve of them
+      only after six new tests closed the holes they found (the plan, "IM-4a — the mutation battery"; suite
+      2,163). **Next: IM-4b** (the vault in the ring; its pump door must
       not be `DepositWater`), **then IM-4c** (the lake fill, priced). **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
       runway counting the recharge and the return as transfers. **Into IM-6's panel:** his warranty line on the
       vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;

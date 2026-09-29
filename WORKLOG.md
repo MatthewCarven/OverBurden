@@ -1,5 +1,31 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-30 — IM-4a's mutation battery: thirty-six red, twelve after six new tests
+
+*"IM-4a's deliberate code-breaking check, which I skipped to close on time."* He was playing TajMahal2, so it
+ran in a worktree, and nothing in it touched Core or Game source. Thirty-six mutations, each applied to a pristine
+file, run against the siphon's six test classes, and restored byte-identical (hash-checked). Any that stayed
+green was re-run against the whole suite before being called a hole. Every colour was predicted before the run,
+and every prediction held.
+- **Twenty-four red first time**, each on a named test: TODO's seven (the siphon through `Add`, no room check,
+  the pocket's refusal, `Cover`, the sort rule, a guard, the identity's terms) and seventeen more across the
+  bank, the cuts, the queue and the grammar.
+- **Twelve green on all 2,157**, as predicted. Six new tests and two asserts close them, and all twelve are red
+  now: a Tier B take meeting a full store, a free siphon as the default, the siphon's two reads mid-tick, the
+  store's fill order and last-filled-first, its water line across a reopen and a remove, a partial take lowering
+  the level from the top, and a pour into a brimming lake that spills. The plan's "IM-4a — the mutation battery"
+  has the table.
+- **Suite 2,163** (+6). No r6 control is owed, since only tests and docs changed.
+
+What it found:
+- **The siphon through `Add` or `Remove` keeps Tier B's identity exact**, because those doors count `injected`
+  and `removed`. Only the siphon's `Exact` catches the wrong door, so the pass's "red on the identity" named
+  the wrong line. In the game, the detector is the `PushError` on `!_siphon.Exact`.
+- **Two cuts were caught only by the random battery** (a room take cut to the bank, a lake pour cut to the
+  store): IM-3b's stream-fragility in a new place. Both have dedicated assertions now.
+- **Tier A's identity is checked with the siphon's terms for the first time**, across a spill: 1,000 L poured
+  into a brimming bowl spills 1,000, and both engines count it.
+
 ## 2026-09-30 — IM-4a built: the siphon underneath, closed early
 
 *"As recommended please Claude, build IM-4a"* took the pass's twelve. First the owed r6 control on `3db5e60`

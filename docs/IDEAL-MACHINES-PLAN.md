@@ -1481,7 +1481,8 @@ Ten facts, then twelve decisions. **Nothing is built; the twelve wait on his wor
   displaced water pays too.
 
 **Mutations:**
-- the siphon through `Add` (red on the Tier B identity);
+- the siphon through `Add` (red on the Tier B identity; *run, it is red on the siphon's `Exact`, not the identity,
+  because `Add` counts `injected` and the identity balances*);
 - `vaulted` counted as `emitted` (red);
 - a take with no room check (red on the store's line);
 - the pocket's refusal removed (red on `--stock=`);
@@ -1499,7 +1500,8 @@ Ten facts, then twelve decisions. **Nothing is built; the twelve wait on his wor
 
 Built in a worktree, then merged. **Suite 2,157** (+17 in `SiphonTests`, plus the four guards in `FluidJobTests`),
 green first time but for one fixture that overfilled the bowl. **Closed early at his word.** The r6 control after the merge
-read `2601 / 325 / 3446 at 411`, 0 `ERROR`. **Owed next session: the mutation battery** (TODO lists it).
+read `2601 / 325 / 3446 at 411`, 0 `ERROR`. **Its mutation battery ran the next session: thirty-six, all red**, twelve of
+them only after six new tests closed the holes they found ("IM-4a — the mutation battery", below).
 
 What it is:
 - **`Siphon`** (`Overburden.Core/Machines/Siphon.cs`):
@@ -1541,6 +1543,54 @@ What it is:
 - The tunneller's size into a 1 m³ store: cut to 1,000 L. A 500 L bank: cut to 500 L.
 - Two hundred random takes and pours on both tiers: every line exact after each, and the lake's litres
   equal to its start less taken, plus poured, less spilled.
+
+## IM-4a — the mutation battery (2026-09-30)
+
+Owed from the build and run the next session, in a worktree because he was playing TajMahal2. **Thirty-six
+mutations, each with its colour predicted before the run, and every prediction held.** Twenty-four went red
+first time, each on a named test. Twelve stayed green on all 2,157 tests, so each was a hole; six new tests
+and two asserts close them, and all twelve are red now. **Suite 2,163** (+6). Every file was restored
+byte-identical (hash-checked). No Core or Game source changed, so no r6 control is owed.
+
+**Red first time:**
+- the pass's list: the siphon's pour through `Add` and its take through `Remove`, a lake take through `Pump`,
+  a lake take with no room check, the pocket's refusal removed, `Cover` skipped;
+- TODO's additions: the sort rule; `HandOff` and `DisplaceLifted` unguarded; the identity without
+  `+ poured`, without `− siphoned`, and with the two swapped in the snapshot;
+- the bank: `PowerExact` without `siphonPaid`, and `PaySiphon` uncounted;
+- the cuts: a room take not cut to the bank, a lake pour not cut to the store;
+- the shape and the queue: a pour filled top down, never `Busy`, a take that ignores the budget, a take
+  anchored on the air before the surface, the lead-acid pack opening the store;
+- the ID and the grammar: `Fluids()` listing every material, a water tool taking the sphere, `IsFree` blind
+  to the litre price.
+
+**Green on the whole suite, and what catches each now:**
+
+| Mutation | Why nothing caught it | Caught now by |
+|---|---|---|
+| a room take with no room check | no Tier B take had met a full store | `ARoomTakeIsCutToTheStoresRoom` |
+| a fresh world may start on a free siphon | the only siphon in a test costs, so `IsFree` ruled it out first | `AFreeSiphonSortedLastIsNeverTheDefault` |
+| `HeldAt` unguarded; `RoomFor` unguarded | the guard test listed the siphon's doors, not its reads | two asserts in `ReadsRefuseWhileAJobIsInFlight` |
+| a pour from the first-filled vault; a take filling the store in reverse | no test had two vaults with room | `ATakeFillsTheStoreInFillOrderAndAPourEmptiesTheLastFilledFirst` |
+| the store's water line forgetting water entering at `Add`, leaving at a restore, or leaving at `Remove` | every vault was added empty | `TheStoresWaterLineHoldsAcrossAReopenAndARemoveWithWaterInAVault` |
+| a take emptying its shape bottom up | every take emptied its whole shape, and either order does that | `APartialTakeLowersTheLevelFromTheTop` |
+| a pour's spill left uncounted, by Tier A or by the siphon | the random battery's lake never filled, so nothing spilled | `APourIntoABrimmingLakeSpillsAndBothEnginesCountTheSpill` |
+
+**What it found:**
+- **The siphon through `Add` or `Remove` leaves Tier B's identity exact.** `Add` counts `injected` and
+  `Remove` counts `removed`, so the identity balances whichever door the water takes. Only the siphon's own
+  `Exact` names the wrong door; in the game, that is the `PushError` on `!_siphon.Exact`. The pass predicted
+  "red on the Tier B identity", but the twin check is the line that catches it.
+- **Two rules were caught only by the random battery**: a room take cut to the bank, and a lake pour cut to
+  the store. By IM-3b's lesson, a random stream is a claim about the stream, and the next op added to it
+  could move them. Each has a dedicated assertion now (`APartialTakeLowersTheLevelFromTheTop`, and a
+  tunneller's pour at the end of the fill-order test).
+- **The spill, measured:** a 1,000 L pour into a brimming bowl spills all 1,000 L, both engines count it, and
+  Tier A's line with the siphon's terms (`held == injected + poured − spilled − siphoned`, the rig neither
+  raining nor drawing) holds. It is the first place Tier A's identity is checked with them.
+
+The pass's other two mutations, `vaulted` counted as `emitted` and the lake fill unpriced, belong to IM-4b
+and IM-4c and run with them.
 
 ## Must not ship
 

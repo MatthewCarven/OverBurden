@@ -48,7 +48,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | Elements, and why not "just implement chemistry": geology that reacts to water, machine recipes as the chemistry set. |
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | Ores, layers, trees, permeability — his thinking-ahead. Not scheduled; its three questions are his. |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written and taken as recommended (2026-09-28)**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a (rest) comes before any body. **Part a is parked (2026-09-29)**: the pool rests with the near/far order off, but every cheap fix under the order failed the load test; a carry with O(1) removal is the open piece. `--bodyprobe=` and `--rest` measure it. |
-| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-4a done; IM-4a's mutations owed, then IM-4b.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
+| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-4a done, IM-4a's mutation battery thirty-six red; IM-4b next.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
 
 ## Non-negotiables
 
@@ -192,7 +192,7 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 **2026-09-29, night — the ideal machines pass is done, all sixty-one decisions are taken as
 recommended** (*"Yes as recommended please Claude"*), **IM-0b is built, IM-0 measured, IM-1 to IM-3b
-built, and IM-4a.** Suite **2,157**. Unpushed commits are his to push; `git fetch` then
+built, and IM-4a, whose mutation battery ran 2026-09-30.** Suite **2,163**. Unpushed commits are his to push; `git fetch` then
 `git log origin/main..main` lists them.
 
 **The plan to build: [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md).** The shape: a channel is an
@@ -226,9 +226,9 @@ underwater look, weather sound and reach by tier into TODO's Later. His two answ
 building it, because a free delete opens a fill-then-dig drain at about 6 J a litre, and went into IM-4's pass.
 **IM-4's pass is written, all twelve decisions taken, and IM-4a is built** (the plan's "IM-4 — the
 code-level pass" and "IM-4a — built"; suite 2,157). Its r6 control read to the digit after the merge.
-**Next session, first:** IM-4a's mutation battery (the session was closed early; TODO lists the
-mutations). **Then IM-4b** (the vault in the ring),
-**then IM-4c** (the lake fill, priced).
+**IM-4a's mutation battery is done** (the plan's "IM-4a — the mutation battery"): thirty-six mutations, all
+red, twelve of them after six new tests closed the holes they found; suite 2,163. **Next: IM-4b** (the vault
+in the ring), **then IM-4c** (the lake fill, priced).
 It splits into 4a (the siphon's queue, doors and twins, the water ray, the ID and the pocket's refusal),
 4b (the vault in the ring) and 4c (the lake fill, priced). The facts it turned up include:
 - `PourPending` is the debug R key's, not the relay's;
