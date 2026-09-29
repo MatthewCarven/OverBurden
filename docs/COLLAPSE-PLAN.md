@@ -1172,6 +1172,8 @@ planned** ([IDEAL-MACHINES-PLAN.md](IDEAL-MACHINES-PLAN.md), decisions 10 and 38
 - **Decision 5, for one consumer:** a vault's hold bill is paid from the channel's `enabled` cells
   *before* signal overrides apply, so a signalled-off cell can never starve a vault into dumping.
   Under one pool that road would rebuild the flood decision 10 kept out. It lands with the vault.
+  **IM-3's pass (2026-09-29, waiting on his word) moves the test here** if IM-3 lands first, as it is set
+  to: f-1's override must leave the hold paid, so a signalled-off cell never unpays a vault's bill.
 - **Decision 3 is kept, not generalised:** a power sensor (`senses: "power"`) raises the same
   per-channel boolean, at a stated cost (an `onsignal` 2 pump also runs while the bank is low).
 - **A sensor whose own chunk is unloaded reads false without looking**, bounding the (2r+1)³ lookups

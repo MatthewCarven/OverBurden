@@ -211,9 +211,12 @@ declares `format` 1, the six extras have their grammar and the base game's `extr
 built** (the plan's "IM-2 — built"): `quantum_backpack` is a window, and a tool paying through it draws on
 its channel's enabled cells through an internal `IChannelBank`, last-filled first, never inside `Run`. The
 relay pump has a `priority` port (0–9 at 5), and consumers are paid by priority then position. `P` does not
-seed the backpack until IM-6; `--pack=overburden:quantum_backpack` wears one. **Next: IM-3** (the `vault` kind
-and the crate, decisions 13–22), the first new kind through the twenty `MachineKind` sites. Hold a code-level
-pass first; its row-removal rules (17) touch the reconcile, the drain, the undo and restore.
+seed the backpack until IM-6; `--pack=overburden:quantum_backpack` wears one. **IM-3's code-level pass is
+written** (the plan, "IM-3 — the code-level pass"): seven facts and twelve decisions, waiting on his word. On
+"as recommended", build from that section. The load-bearing ones: `IMachineBodies.Refuses`, asked before the
+carve's hardness check; contents moved to the sisters at the first `Taken`, not at the drain; a wreck flag
+every remove path yields to; the bill in 128-bit, ceiled; the fuse by the collapse scheduler's formula; a
+codec that owns the whole blob; `UndoOutcome.VaultHolds` as a pre-flight.
 
 **Buildable alongside: collapse part f, slice f-1** (Core and tests), thirteen decisions taken
 ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part f"). The ideal-machines plan's three amendments there are

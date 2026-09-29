@@ -10,7 +10,8 @@ journalled"). It is wider than the split's row: the reconcile's four branches we
 the rule is that only a pick's dismantle is journalled. **IM-0 is measured** (the same night, "IM-0 —
 measured" below), and he took the 2 m quarry bite. **IM-1 is built** ("IM-1 — the code-level pass" and
 "IM-1 — built" below; its eight decisions taken as recommended). **IM-2 is built** ("IM-2 — built"
-below): the backpack is a window and consumers are paid by priority. IM-3, the vault, is next.
+below): the backpack is a window and consumers are paid by priority. **IM-3's code-level pass is written**
+("IM-3 — the code-level pass" below): twelve decisions wait on his word.
 
 **How it was made.** As a design panel (the ladder's method):
 - five readers mapped the machine code, the plans, the inventory and the store, the creative-mode
@@ -616,7 +617,7 @@ name, bounds or default.
 | **IM-0b** | **The live bug (fact 3), a fix to shipped code.** The drain's destroy branch runs with recording off, for every machine. | A pump destroyed by a fall, drained, then Ctrl+Z re-adds nothing, and the next arrival rebuilds nothing; a pure pick's dismantle is still undoable. |
 | **IM-1** Core (amended by its pass, below; **built 2026-09-29**) | The strict loader; `extras`, the flag set, the per-material bit, `extras.json` (quantum row), its union and media check; `programmer`. | Every shipped file loads; a misspelt key at each level is refused, naming it; two mods giving one (extra, medium) pair are refused; a misspelt medium is refused; a mod with a newer `format` fails in one line; water and parts no longer open a panel; a three-mod fixture loads the same in every order; rows saved under f-1 restore unchanged. Mutation: disable the refusal, and the misspelt-key fixture goes red. |
 | **IM-2** Core (**built 2026-09-29**) | The window (7, 8): the backpack's JSON, the validator's exemption, `RechargePack`, `FillPack` and `Give` refusing a window, the direct draw; the priority consumer list; `packInitial` printed. | `PowerExact` exact over a thousand random bites and boundaries; the worn backpack's saved charge is 0 after a hundred boundaries, Alt+P and a save; a draw inside `Run` throws. Mutations: drop the `packTaken` credit, red; write the draw through `SetCharge`, red. Equal priorities reproduce position order. |
-| **IM-3** Core | The `vault` kind and the crate; the codec; the store view and fill order; the bill (`held`) and its order before signal overrides; the fuse; every row-removal rule of 17; the store's voxel identity. | Identity exact over a thousand random operations, the undo included; a signalled cell never unpays a hold; two vaults both bill; a save during a fuse resumes at the saved milliseconds; a wreck survives a reopen and is never rebuilt; both reconcile branches keep contents; an unknown codec version refuses the pick and the undo; `overfull` at restore; a refused pick carves nothing; the undo refusal is a pre-flight; `SetPort` moves contents with the row. Mutations: journal a full row, red; bill with no `held` term, red. |
+| **IM-3** Core (amended by its pass, below) | The `vault` kind and the crate; the codec; the store view and fill order; the bill (`held`) and its order before signal overrides; the fuse; every row-removal rule of 17; the store's voxel identity. | Identity exact over a thousand random operations, the undo included; a signalled cell never unpays a hold; two vaults both bill; a save during a fuse resumes at the saved milliseconds; a wreck survives a reopen and is never rebuilt; both reconcile branches keep contents; an unknown codec version refuses the pick and the undo; `overfull` at restore; a refused pick carves nothing; the undo refusal is a pre-flight; `SetPort` moves contents with the row. Mutations: journal a full row, red; bill with no `held` term, red. |
 | **IM-4** Core | Water's doors: the ID, the pocket's refusal, the siphon's queue and rules, the vault in the outlet ring, the twins, `pumped == emitted + vaulted`, the store's water line. | M8's oracle unmoved with no vault; a siphon take then pour restores a basin exactly; a click then a quit moves nothing; a take on a Tier A lake draws the basin; the pump stalls `full` only when every ring entry refuses. Mutation: drop `vaulted`, red. |
 | **IM-5** Core | The dump: the pile writer, the Tier A release, the Tier B ball with its twin sized to the budget, the ceilings and decoherence, the global budgets, owed while unloaded, the unload batch's session, the dead state; a heap-writer bench arm. | A fixture room receives every voxel once; a pile into a chunk that unloads, then a kill with no session save, then a reopen, counts every voxel once; the unloaded arm releases at arrival; N vaults dumping share the budget exactly; the Tier B ceiling decoheres the excess; power returning after the fuse does nothing; Ctrl+Z cannot touch the pile; Tier B exact, Tier A's counters seam-checked. Mutation: route the dump through `Add`, and the seam goes red. |
 | **IM-6** Wire | Header v8, the mode and `--mode=creative`; kits and the first cell's grant; the debug keys off in creative; the card; the HUD bank line, runway and store percentage; the panel's stock section; the siphon on T; the vault and crate JSON and textures; `M10:` store terms. | r6 to the digit; a v7 world opens as sandbox; the kit is granted once and not on reopen; every creative-off key does nothing; headless: a new creative world (`--world=probe-creative --mode=creative`) with `--placeat=` vaults and cells bankrupts channel 0 under a storm clock, and the log reads fuse, then dump, every identity exact. **Playable: the bank, the vault, water and the dump.** |
@@ -890,6 +891,132 @@ refusal) green as predicted, the capacity rule being the one that bites. The nin
   emitted 1,000`, every identity exact.
 - **The window's oracle** (COMMANDS.md, "IM-2 adds") reads `paid 306,650,000 mJ` straight out of the
   `--pump` cell, `… + 306,650,000 by the tool … exact`, identically on two runs.
+
+## IM-3 — the code-level pass (2026-09-29)
+
+Decisions 13–22, 27, 28 and 34 read against `MachineSet` (add, remove, the drain, the reconcile,
+restore), the carve's gate, `EditHistory`'s undo, `MachineTick`'s pool and the collapse scheduler's fuse.
+Seven facts from the code, then twelve decisions. **Nothing is built; the twelve wait on his word.**
+
+**Seven facts.**
+
+1. **The carve tells the set about a body voxel only after taking it.** `Carve.Take` checks hardness,
+   writes air, credits, then calls `IMachineBodies.Taken` (`Carve.cs:739-773`). 17's "too hard unless its
+   sisters have room, asked before the carve" needs a question before the hardness check, and the seam
+   has none. Nor does the carve know whether its tool is at range; `MiningController` does
+   (`tier.AtRange`).
+2. **One picked voxel dismantles the whole machine at the drain** (`Lost == Carved`,
+   `MachineSet.cs:566-576`), and one swing can take voxels of two vaults. If the contents move at the
+   drain, as 17 says, two full vaults picked in one swing can each have been allowed on the other's room.
+   The second move then fails with its body already credited: the holed-and-credited state 17 exists to
+   prevent.
+3. **A wreck is a row with no body, and the set is keyed by cell** (`MachineSet.cs:51`, `Place.cs:593`).
+   So a wreck keeps its cell, and no machine can be placed there. A block placed in that cell marks it
+   damaged (`OnVoxelChanged`), and today's drain would then destroy it. The reconcile's "all air" branch
+   rebuilds a body from its row (`:468-479`), which would rebuild a wreck.
+4. **"Returned at arrival" credits all 64 body voxels** (`:480-489`): the cell regenerated as rock, and
+   the row says the player owns the machine. 17 makes a vault holding anything a wreck there, and its
+   body still can't stand in rock.
+5. **The dump is IM-5.** In IM-3, a fuse that burns out leaves the vault `dumping` with its contents owed,
+   and nothing releases them until IM-5; a wreck is the same. No vault ships until IM-6, after IM-5, so
+   nothing a player can reach strands.
+6. **A small bill rounds to nothing, and a big one overflows.** A god vault's block rate is 64 mW/m³; one
+   voxel (1/64 m³) for half a second is 0.5 mJ, and a floor makes it free. At the top,
+   rate × millilitres × milliseconds is 10^6 × 10^12 × 500, past a long.
+7. **Two borrowed pieces.** "A signalled cell never unpays a hold" has no signal to test, since f-1 is
+   not built. The collapse scheduler's fuse, `min + (max − min) × u × (1 − share / 2)` seeded through
+   `Hash64`, is the shape 28 names, and the tick has no seed of its own.
+
+**Decisions.**
+
+1. **The vault's grammar.** `"kind": "vault"` with:
+   - `insideCubicMetres`, 1 to 1,000,000, an engine maximum refused above (decision 5);
+   - `holdWattsPerCubicMetre: { "water": …, "blocks": … }`, read as whole milliwatts (three decimals at
+     most, as `efficiency` is);
+   - `holdsWater`, true for a vault (IM-4 reads it);
+   - one power sink via `channel`, the bill's channel;
+   - an `enabled` port 0–1: at 0 it is closed to deposits and withdrawals, and keeps paying (27).
+
+   The five grade files and their textures ship in IM-6, as the split says; IM-3's tests use fixtures.
+   *Cost:* one nested key. *Revisit:* his tuning.
+2. **The crate is the vault kind with nothing else** (22): `insideCubicMetres: 1`, no hold,
+   `holdsWater: false`, no links and no channel. So it is in no store, never bills and never fuses, and
+   deposits and withdrawals name its row. Its JSON ships in IM-6 too.
+3. **The pick asks first, through the bodies seam.** `IMachineBodies` gains `Refuses(voxel, material)`,
+   asked before the hardness check for a machine material. The set answers yes for a vault or crate
+   holding anything whose sisters on its channel can't take its contents. A sister is a vault on the same
+   channel that isn't dumping, isn't a wreck, isn't already damaged, and has the room; a crate has no
+   sisters. At-range tools skip a holding vault whatever the room: `MiningController` hands an at-range
+   swing a wrapper that answers yes for any holding vault, so no carve signature changes. *Cost:* one
+   dictionary read a machine voxel.
+4. **The contents move at the first `Taken`, not at the drain** (fact 2). The carve's own call moves
+   them to the sisters in fill order, at the same instant as the ask. The drain then dismantles an empty
+   vault, and `Remove` journals the empty copy, so Ctrl+Z re-adds an empty vault: 17's rule, one level
+   down. Two vaults in one swing can't count on each other, because the first is marked damaged and stops
+   being a sister. *Cost:* a row's bytes written from the carve's call. The hooks' "queue, never write"
+   rule is about voxels written from the pipeline, and this is neither.
+5. **A wreck is a flag in the codec, and every remove path yields to it.** The drain's destroy branch and
+   the reconcile's two remove branches turn a vault holding anything into a wreck, never a removal.
+   Returned-at-arrival still credits the body, which can't stand in rock (fact 4); destroyed-at-arrival
+   credits nothing, as today. A wreck is skipped by the drain and the reconcile (never rebuilt), never
+   bills, holds its cell (fact 3) and owes its contents. It is removed only once empty, which is IM-5's
+   work. *Cost:* a cell nobody can build a machine in until the dump is done.
+6. **The bill: all or nothing a vault, in fill order, before the consumers**, from the channel's pool
+   (solar and enabled cells). It is `ceil(rate × volume × time)` in 128-bit arithmetic (fact 6), so a
+   vault holding anything always costs something, and it is a new `PowerExact` term, `held`.
+7. **The fuse, by the collapse's own formula**: 10–20 s, as `10 + 10 × u × (1 − shortfall ÷ bill ÷ 2)`
+   with `u` from `Hash64(fuse seed ^ boundary, cell)`. The tick takes a `FuseSeed` (Main passes the
+   world's seed). The fuse is saved as milliseconds left and counted down by each boundary's
+   milliseconds; a boundary that pays in full disarms it. At zero the vault is `dumping` and its contents
+   are owed (fact 5). An empty vault can't fuse.
+8. **The codec, one owner of the blob**, version 1:
+   - flags (wreck);
+   - phase (holding, fusing, dumping);
+   - fuse milliseconds left;
+   - water in millilitres (0 until IM-4);
+   - the contents as (material, voxels) pairs sorted by material.
+
+   An unknown version is kept opaque and inert, and reads as holding something to every rule: it refuses
+   the pick and the undo, is out of the store, and never bills.
+9. **The store: a view, and the pocket's two doors.** It is the channel's vaults in fill order (the
+   lowest block rate first, then position), leaving out `enabled` 0, dumping vaults, wrecks and unknown
+   codecs. Core gets `Deposit` and `Withdraw` between the pocket and the store, and a crate's by its row:
+   the only doors in IM-3, before the quarry and water add theirs. The identity is global,
+   `held + owed == entering − leaving + deposited − withdrawn`, with `entering` and `leaving` counted by
+   `Add` and `Remove` (zero in play, by decision 5).
+10. **The undo refuses a step that would remove a vault holding anything**, a wreck or an unknown codec.
+    It is a pre-flight beside the cost check, with a new `UndoOutcome.VaultHolds`, and the step stays, as
+    an out-of-stock step does.
+11. **Restore never clamps contents.** An overfull vault keeps what it holds, refuses deposits, and is
+    counted `overfull` on the restore line. `SetPort` to another channel carries the contents on the row
+    with nothing to do; a fusing vault moved to a solvent channel disarms at its next paid boundary.
+12. **A minimal panel branch lands now**: `VAULT — holds N of M (p%) · bill X · HOLDING | FUSE 12 s |
+    DUMPING`, one Game edit. A third-party mod could ship a vault the day IM-3 lands, and the panel's
+    fall-through is pump text (must-not-ship 14). The full stock section stays IM-6's. *Cost:* the r6
+    control closes the slice.
+
+**Moved to f-1:** *"a signalled cell never unpays a hold"* (fact 7). The bill is paid from the pool before
+any override exists, and f-1's override must keep it so.
+
+**IM-3's tests, restated.**
+- The store's identity exact over a thousand random operations, among them deposits, withdrawals, picks
+  with a move, falls into wrecks, arrivals, restores and Ctrl+Z.
+- Two vaults both bill, and an unpaid one fuses.
+- A save during a fuse resumes at the saved milliseconds.
+- A wreck survives a reopen and is never rebuilt.
+- Both reconcile branches keep contents.
+- An unknown codec version refuses the pick and the undo.
+- `overfull` at restore.
+- A refused pick carves nothing.
+- The undo's refusal is a pre-flight.
+- Two full vaults in one swing never strand a body.
+- At range skips a holding vault.
+- A crate refuses the pick while it holds anything.
+
+**Mutations:** journal a full row (red); bill with no `held` term (red); move the contents at the drain
+instead of at `Taken` (red on the two-vault swing); rebuild a wreck (red). *Estimate:* one long session,
+about 50 tests. **The riskiest part is 4, 5 and 10**, the three places a vault's contents could leave the
+books.
 
 ## Must not ship
 

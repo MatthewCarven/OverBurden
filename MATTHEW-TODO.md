@@ -118,6 +118,14 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 Nothing is blocked on these; each is a small change once you have a view.
 
+- [ ] **IM-3's twelve decisions**: [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "IM-3 — the
+      code-level pass". The vault and the crate underneath: how a vault is written in a mod file, its
+      bill and fuse, and the rules that keep a vault's contents from ever leaving the books. The two
+      that change the plan's wording: a vault's contents move to its sisters at the moment the pick
+      first touches it, not a frame later (one swing can take two vaults); and a wreck (a vault a fall
+      took, still holding things) keeps its cell until IM-5's dump empties it. "As recommended" builds
+      it; nothing you play changes.
+
 - [ ] **A minute of your screen, whenever suits.** The last IM-0 measurement (what drawing a big flood's
       surface costs) only shows in a windowed run, which takes over the screen for about a minute. Say
       "run the windowed one" when you're not playing.

@@ -1,5 +1,22 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-29 (late) — IM-3's code-level pass: twelve decisions handed back
+
+*"start on IM-3 please Claude"*. IM-3 is the first new kind since the sensor was planned, and rule 17's
+row-removal paths cross the carve, the drain, the reconcile, the undo and restore, so it got its pass. Seven
+facts from the code. Four put the plan's wording one level above where the answer sits:
+- **The carve has no question to ask before it takes a body voxel**: `Taken` comes after the write and the
+  credit.
+- **One swing can take two vaults**, and one picked voxel dismantles a whole machine. So moving contents
+  "at the drain" can fail with a body already credited. They move at the first `Taken` instead.
+- **A wreck is a row with no body**, keyed by cell. The drain would destroy it when a block lands in its cell,
+  and the reconcile would rebuild it.
+- **A god vault's bill** for one voxel is 0.5 mJ, which floors to free, and its full bill overflows a long.
+
+The twelve recommendations are in the plan ("IM-3 — the code-level pass"). The fuse reuses the collapse
+scheduler's formula and `Hash64` seeding; "a signalled cell never unpays a hold" moves to f-1, since there
+is no signal to test yet. Nothing is built.
+
 ## 2026-09-29 (late) — IM-2 built: the quantum backpack is a window, and consumers are paid by priority
 
 *"start on IM-2 please Claude"*. Decisions 7, 8, 9 and 41 were read against the pack, the tick and the tool
