@@ -207,6 +207,28 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
       ([docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md), "His wish").
 - [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), six decisions. Needs from M9 before the
       shake: a rule per derive, and a fall from an explicit set.
+- [ ] **Make `start.cmd`'s four flags the code defaults?** His question, 2026-10-01. My recommendation: not
+      yet; do it in the pass that makes the first build someone else plays (the creative demo's export), when
+      the defaults start meaning "what a player gets". Until then `start.cmd` is the only way anyone plays, so
+      the defaults only serve measurement. The facts (Main.cs lines as of `b7d6fe7`):
+      - **Tests are untouched either way.** Core keeps its own defaults: `ChunkPipeline.DefaultLightBudget`
+        4 ms (`ChunkPipeline.cs:89`) and `_nearRings` 0 (`FluidSimulation.NearField.cs:101`). Adaptive and
+        the fluid job are Main-only.
+      - **The r6 control would break on adaptive alone.** The box starts at r1 and grows a ring per ~2 s at
+        best, so a ~18 s run may not reach r6. fluidnear and fluidjob can't move it: the seed is dry for 40 s,
+        and a detached job is not counted in `CompletedJobs`. A 16 ms light budget probably keeps viewed,
+        drawn and quads, but jobs could move through relight remeshes; it has never been measured.
+      - **Nearly every recorded recipe relies on today's defaults**: 18 fenced and ~33 of ~35 inline name none
+        of the four.
+      - **The light budget and adaptive are coupled.** Growth needs `LastLightStepMillis / budget` under 0.5
+        (`Main.cs:3682`), so flipping the budget alone changes growth too. And 16 ms has an owed re-judge
+        (Owed checks): it answered a 1.4 ms unoptimised derive that is ~0.36 ms now.
+      - **`screenshot.gd` waits 8 s by the clock**, so with adaptive on it would shoot a partly grown box.
+      - **`--adaptive=false` turns adaptive *on*** (any value but "0", `Main.cs:2497`). A trap to fix in any
+        case.
+
+      The shape when it comes: flip all four, have the measurement modes (`--profile`, `--fall`, headless)
+      imply the old arms unless a flag says otherwise, and re-judge the light budget first.
 - [ ] **Dust when a roof comes down** (M9c-2), optional, only if falls read as too quiet.
 - [ ] **Precision mining's key: Ctrl or Alt.** Ctrl descends in fly mode (~1.8 m sunk between
       chips); Alt means *crawl* there, so it pairs. One line in `MiningController`.

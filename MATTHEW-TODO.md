@@ -133,6 +133,9 @@ Nothing is blocked on these; each is a small change once you have a view.
       the fix is costlier to run, but it is the right one if it shows.
 - [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), six decisions still open. The biggest: a
       blast destroys the machines it reaches (5). "As recommended" or any one back.
+- [ ] **Make `start.cmd`'s settings the game's own defaults?** (your question, 2026-10-01). My lean: not
+      yet, but when we make the first build someone else plays. The reasoning is in TODO under "Waiting on
+      his word". "Now", "later" or "as recommended".
 - [ ] **The hotbar's unit.** `1,767,903,281 L` doesn't fit a slot. My lean: litres under a cubic
       metre, m³ above. **Due before IM-6 now**, which puts water in the hotbar's last slot.
 - [ ] **Dust when a roof comes down** (M9c-2). Optional; only if falls read as too quiet.
