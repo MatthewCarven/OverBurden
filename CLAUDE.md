@@ -48,7 +48,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | Elements, and why not "just implement chemistry": geology that reacts to water, machine recipes as the chemistry set. |
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | Ores, layers, trees, permeability — his thinking-ahead. Not scheduled; its three questions are his. |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written and taken as recommended (2026-09-28)**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a (rest) comes before any body. **Part a is parked (2026-09-29)**: the pool rests with the near/far order off, but every cheap fix under the order failed the load test; a carry with O(1) removal is the open piece. `--bodyprobe=` and `--rest` measure it. |
-| [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md) | **Building in a lake** (2026-09-30): his words verbatim on displacement, a wall breaking a lake's sheet, and a sooner Tier B → A hand-back, with what the code offers and four questions. Not scheduled; he wants to talk it through. Today a block in a lake is a pier. |
+| [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md) | **Building in a lake** (2026-09-30): his words verbatim on displacement, a wall breaking a lake's sheet, and a sooner Tier B → A hand-back, with what the code offers and four questions. **The next session's plan (2026-10-01, his pick): Tier A → B where voxels are placed, so a wall separates a filled basin's water.** Today a block in a lake is a pier. |
 | [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-4c done (2026-09-30; 4c kept today's lake rule at his word); IM-5's sixteen decisions taken (2026-09-30), not built; TODO's "Order and collisions" says what comes first.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
 
 ## Non-negotiables
@@ -191,13 +191,19 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 ## Where things stand
 
-**2026-09-30, session close — the ideal machines plan is half built.** All sixty-one decisions were taken
-on 2026-09-29. **Built:** IM-0b, IM-1 to IM-3b, IM-4a (with its mutation battery, thirty-six red), IM-4b (a
-vault in its pump's ring, `pumped == emitted + vaulted`) and IM-4c, reduced at his word (a block in a lake stays
-a pier; Ctrl+Z cancels placements still waiting for the boundary). **Taken and not built:** IM-5, the dump,
-split into 5a (the water) and 5b (the pile). Suite **2,175**; the r6 control read to the digit on the last
-build. Pull request #2 is merged, and the branches are `main` and `water-column-test` only; the session-close
-commit is his to push.
+**2026-10-01 — the next session is his lake plan, and the flaky scheduler test is fixed.** The ideal machines
+plan is half built: all sixty-one decisions were taken on 2026-09-29. **Built:** IM-0b, IM-1 to IM-3b, IM-4a
+(with its mutation battery, thirty-six red), IM-4b (a vault in its pump's ring, `pumped == emitted + vaulted`)
+and IM-4c, reduced at his word (a block in a lake stays a pier; Ctrl+Z cancels placements still waiting for the
+boundary). **Taken and not built:** IM-5, the dump, split into 5a (the water) and 5b (the pile). Suite
+**2,175**. The branches are `main` and `water-column-test` only; this session's commit is his to push.
+
+**Next session, his pick (2026-10-01): the plan for converting Tier A to Tier B where voxels are placed**, so a
+wall built through a filled basin separates its water and one walled area can be flooded on its own
+([docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md), "Chosen as the next session's topic", his words
+verbatim). A plan, not a build. He is making a test world for it: ask its name, and read TODO's collisions 1,
+2 and 7 first (water bodies part a, the pond branch and the look under a lake share the hand-off and the
+watershed).
 
 **The plan to build: [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md).** The shape: a channel is an
 account (one bank, one store); the quantum backpack is a window that holds nothing; a vault bills for what it
@@ -206,8 +212,8 @@ machine with a shared budget, only where you are; water is an inventory item thr
 header byte and a kit. Each slice has a "code-level pass" and a "built" section in the plan; the previous
 hand-over, slice by slice, is in [docs/STATUS-HISTORY.md](docs/STATUS-HISTORY.md).
 
-**Next session, first: TODO's "Order and collisions"**, at the top of TODO. Before IM-5a:
-- the flaky `JobSchedulerTests` test (5a ends in a mutation battery);
+**Before IM-5a: TODO's "Order and collisions"**, at the top of TODO:
+- ~~the flaky `JobSchedulerTests` test~~, done 2026-10-01 (WORKLOG);
 - the clay pond's suspected leak: ask him which world and where;
 - IM-0's windowed surface install, which needs his screen for about a minute (the 10 ML ceiling's render half);
 - main merged into `water-column-test`, or his verdict on it.
@@ -237,9 +243,10 @@ holds, half-edited or not. On 2026-09-29 he launched mid-IM-1 and his build caug
 change, harmlessly; a tree that compiled halfway through a change would have put half of it in his hands.
 
 **TajMahal is retired** (2026-09-29, his word: *"I borked the supports so want to restart"*): moved to
-`retired-TajMahal-2026-09-29`. **His fresh one is `TajMahal2`** (renamed the same night at his ask, *"so when
-we retire it it does not conflict"*), and `start.cmd` names `--world=TajMahal2`. A world's name is only its
-folder under `worlds/`, so a rename is a folder move with the game closed.
+`retired-TajMahal-2026-09-29`. **TajMahal2 is retired too** (2026-10-01, his word: *"you can delete or retire
+tajmahal2 as you please"*), as `retired-TajMahal2-2026-10-01`. `start.cmd` still names `--world=TajMahal2`, so
+a bare `start.cmd` makes a fresh empty one; change it to his test world's name when he gives it. A world's name
+is only its folder under `worlds/`, so a rename is a folder move with the game closed.
 
 - **Water bodies part a is parked** ([docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md), "c-3,
   run"). His pool rests with the near/far order off (2% awake at 900 s), but every cheap fix under the

@@ -13,6 +13,23 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md on 2026-10-01** (superseded when the flaky scheduler test was fixed and he picked the
+lake plan for the next session):
+
+**2026-09-30, session close — the ideal machines plan is half built.** All sixty-one decisions were taken
+on 2026-09-29. **Built:** IM-0b, IM-1 to IM-3b, IM-4a (with its mutation battery, thirty-six red), IM-4b (a
+vault in its pump's ring, `pumped == emitted + vaulted`) and IM-4c, reduced at his word (a block in a lake stays
+a pier; Ctrl+Z cancels placements still waiting for the boundary). **Taken and not built:** IM-5, the dump,
+split into 5a (the water) and 5b (the pile). Suite **2,175**; the r6 control read to the digit on the last
+build. Pull request #2 is merged, and the branches are `main` and `water-column-test` only; the session-close
+commit is his to push.
+
+**Next session, first: TODO's "Order and collisions"**, at the top of TODO. Before IM-5a:
+- the flaky `JobSchedulerTests` test (5a ends in a mutation battery);
+
+**His fresh one is `TajMahal2`** (renamed the same night at his ask, *"so when we retire it it does not
+conflict"*), and `start.cmd` names `--world=TajMahal2`.
+
 **Moved from CLAUDE.md on 2026-09-30, at the session's close** (the day's running hand-over, from IM-4a's
 mutation battery to IM-5's taken decisions, superseded by a short one):
 

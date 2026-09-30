@@ -1,6 +1,7 @@
 # Building in a lake — notes (2026-09-30)
 
-Not scheduled. Opened when IM-4c kept today's rule at his word (*"keep today's rule, plan displacement"*):
+**Next session's plan (2026-10-01, his word): the A → B conversion where voxels are placed, so walls separate
+a filled basin's water.** Opened when IM-4c kept today's rule at his word (*"keep today's rule, plan displacement"*):
 a block placed in a lake is a pier, deleting nothing. His next water pass on building in lakes starts
 here. Nothing below is decided.
 
@@ -26,6 +27,19 @@ On a rock placed in a lake:
 
 > um if we can displace the water, or as a worst case just drop it from the sky into the same position
 > like
+
+**Chosen as the next session's topic (2026-10-01, in chat), with the reason:**
+
+> next session we can cover the plan for the tier a to tier b conversion upon voxels being placed I just
+> want a way to seperate tier a water sections from each other after the basin has filled a bit like other
+> wise you have to make to big a wall/it isn't possible to flood only a specific area like the walled area
+> beneath tajmahal2
+
+So the goal is **separation**: once a basin has filled, a wall built through its lake should cut off the water
+on each side, so an area can be walled off and flooded (or kept dry) on its own. Today the only way is a wall
+taller than the lake's level all round, and for the walled area under TajMahal2 even that was not possible.
+His means is the A → B conversion where voxels are placed (question 4 below). He retired TajMahal2 the same
+day (`retired-TajMahal2-2026-10-01`) and is making a test world for it.
 
 ## What he is asking for (my reading, to confirm with him)
 

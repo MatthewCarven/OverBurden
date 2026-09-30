@@ -23,9 +23,11 @@ care about. I keep it current at the end of each session.
 ## Now
 
 - [ ] **Four things need you before the next builds**, three before IM-5 and one before IM-6 (TODO's
-      "Order and collisions" has the whole list of what should come first and what collides):
+      "Order and collisions" has the whole list of what should come first and what collides). The one
+      that was mine, the test that failed at random, is done (2026-10-01).
       - **The clay pond leak: which world, and where?** The dump floods through the same water, so a leak
-        under it would look like the dump's fault.
+        under it would look like the dump's fault. If the pond was in TajMahal2, it's retired now, but
+        a copy of it still opens for a probe.
       - **A minute of your screen** for the windowed run (below, under "Waiting on your word"). It
         measures what drawing a big flood costs, which the dump's 10 ML limit rests on.
       - **The pond branch**: at least let me merge main into it, since the dump changes the same water
@@ -39,10 +41,12 @@ care about. I keep it current at the end of each session.
       A shape half in water puts its dry half down at the click: the first press cancels the wet half,
       and a second takes back the dry half.
 
-- [ ] **Building in lakes, the talk you wanted** ([docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md)):
-      your three notes verbatim (displace the water, a wall breaking a lake's sheet, handing Tier B back
-      sooner at ~95%), what the code already has toward each, and four questions. Today a block in a
-      lake keeps the lake's water, as you chose. Say when you want to talk it through.
+- [ ] **Next session: the plan for walls that split a lake** ([docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md)),
+      your pick (2026-10-01): Tier A water turned into Tier B where you place voxels, so a wall through a
+      filled basin separates the water on each side and you can flood just the walled-off part. Your notes
+      are there verbatim with four questions. **Make your test world first**: `start.cmd` still says
+      `TajMahal2`, so a bare `start.cmd` now makes a fresh, empty world with that name. Use
+      `start.cmd "--world=<name>"`, or tell me the name and I'll put it in `start.cmd`.
 
 - [ ] **The pond branch's verdict.** `water-column-test` has the raised watershed and your water
       grid built (walls you place raise the lake's rim; the lake reaches under what you build).
@@ -164,6 +168,12 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Answered lately
 
+- **TajMahal2 and the lakes** (2026-10-01): *"you can delete or retire tajmahal2 as you please"*. It is
+  retired, `retired-TajMahal2-2026-10-01`, moved and not deleted, so it can come back. Next session's plan
+  is the one you named, walls that split a lake, in LAKE-EDIT-NOTES with your words verbatim.
+- **The test that failed at random** (2026-10-01): fixed. Its failures may all have been one race, which
+  was fixed on 09-06, and the test was mostly not checking what its name says. Now it checks that every
+  run. Nothing you play changes.
 - **IM-5's sixteen decisions, the dump** (2026-09-30): *"As recommended please Claude uh just a plan"*.
   Taken, not built yet: the water first (5a), then the blocks (5b). You also asked what in the TODO
   should come first and what collides with planned work: that is TODO's new "Order and collisions" at
@@ -259,9 +269,8 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-09-30, at the session's close**. One commit to push (the close); `git fetch`, then
-`git log origin/main..main` lists it. **Branches:** `main` and `water-column-test` only. Pull request #2 is
-merged, and `im5-plan` and the old `todo-cleanup` are deleted.
+Updated **2026-10-01**. Pushed up to the 2026-09-30 close; this session's commit is yours to push.
+**Branches:** `main` and `water-column-test` only.
 
 - **The ideal machines plan is taken**, [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md): the
   bank, the vault and its dump, water in the inventory, the quarry (your 2 m bite), the six extras, and a
@@ -272,8 +281,9 @@ merged, and `im5-plan` and the old `todo-cleanup` are deleted.
 - **The undo bug is fixed** (IM-0b): a machine a fall destroys can no longer come back free after
   Ctrl+Z. The build you started at 4:49 PM already has it. A Ctrl+Z right after a roof comes down now
   says *the roof came down*, as it should.
-- **Your new world is `TajMahal2` now** (renamed at your ask), and `start.cmd` opens it. The old one is
-  retired as `retired-TajMahal-2026-09-29`.
+- **TajMahal2 is retired too** (2026-10-01, your word), as `retired-TajMahal2-2026-10-01`. `start.cmd`
+  still names `TajMahal2`, so a bare `start.cmd` makes a fresh one; give it your test world's name. The
+  first TajMahal is `retired-TajMahal-2026-09-29`.
 - **The collapse sensor:** all thirteen decisions taken, the first build step is ready.
 - **The Tetris collapse** is the default, with the cyan glitch, your phonk (left as is, your word) and a
   10–20 s fuse.

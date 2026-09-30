@@ -19,8 +19,10 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
 (M10e–j). Each line names the slice it must come before.
 
 **Do first, before the slice named:**
-1. **The flaky `JobSchedulerTests` test — before IM-5a.** IM-5a ends in a mutation battery, and a test that
-   fails at random reads as a mutation caught or missed (Owed checks).
+1. ~~**The flaky `JobSchedulerTests` test — before IM-5a.**~~ **Done 2026-10-01** (WORKLOG): one race, fixed on
+   09-06, may account for every sighting; the test now submits the survivor after the thrower reports, so it
+   tests its name every run instead of about one in twenty-five (none under load), and each failure says
+   which cause it saw.
 2. **The clay pond's suspected leak — before IM-5a.** IM-5a floods through the same Tier B engine, and a leak
    under it would read as the dump's. Blocked on his answer: which world, and where.
 3. **IM-0's windowed surface install — before IM-5a fixes the 10 ML ceiling.** The ceiling rests on IM-0's
@@ -108,7 +110,11 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
       say-so, it takes his focus); a bite under a lake (IM-7's bench); a dump underground (IM-5's).
 - [ ] **Building in a lake: displacement, a wall breaking a sheet, and a sooner hand-back** — his notes,
       2026-09-30, verbatim in [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md) with what the code already
-      offers and four questions. Its own pass, when he wants it; he said he has to talk it through. (The
+      offers and four questions. **His pick for the next session (2026-10-01): the plan for converting Tier
+      A to Tier B where voxels are placed**, so a wall built through a filled basin separates its water and
+      one walled area can be flooded on its own (the notes' "Chosen as the next session's topic"). He is
+      making a test world for it; TajMahal2 is retired. Read collisions 1, 2 and 7 above first: the pond
+      branch and water bodies part a touch the same hand-off and watershed. (The
       lake over a quarry, his look 2026-09-30: *"draws nearly perfectly"*, a small gap sometimes, filled
       by Tier B soon after.)
 - [ ] **F11: six rungs**, his ask (2026-09-30): 6h/2v, 8h/4v, 10h/6v, 12h/8v, 14h/10v, 16h/12v, and
@@ -226,8 +232,8 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
 - [ ] **What drained a paused cell is unproved.** If the `M6:` count of awake indexes dropped for
       holding nothing keeps climbing on a world written entirely after the fix, look at the
       hand-off taking from a cell the worker levelled on its captured view after the chunk left.
-- [ ] **`JobSchedulerTests.AThrowingJobFaultsWithoutTakingTheWorkerDownWithIt` has failed
-      intermittently** — not a flake until the reason is found.
+- [x] **`JobSchedulerTests.AThrowingJobFaultsWithoutTakingTheWorkerDownWithIt` has failed
+      intermittently** — not a flake until the reason is found. **Closed 2026-10-01** (WORKLOG).
 - [ ] **The clay pond in the rain may leak** — his note (2026-09-30): *"IDK i think we have a leak
       bug"*, on the rain play's clay pond check. Ask which world and where before probing; then a copy,
       the `seep` line's face count and the pond's litres over a storm (`--clockscale=20`).

@@ -53,8 +53,15 @@ public class JobSchedulerTests
     [Fact]
     public void AThrowingJobFaultsWithoutTakingTheWorkerDownWithIt()
     {
-        // One worker, so if the exception killed the thread the second job could never
-        // report Completed — it would come back Dropped from the shutdown sweep instead.
+        // One worker, and the survivor is submitted only once the thrower has reported, so the
+        // survivor can run only on a worker that outlived the exception.
+        //
+        // Submitting both at once, as this test did until 2026-10-01, tested that about one run
+        // in twenty-five, and never under load. Before its first sweep the queue pops
+        // newest-first, so the survivor nearly always ran *before* the thrower, and a worker
+        // killed by the exception passed. It also raced the shutdown against the thrower still
+        // queued: the flake diagnosed on 2026-09-06, which may be every sighting recorded before
+        // it (a replica of this test, over 12,000 runs an arm; WORKLOG, 2026-10-01).
         var scheduler = new JobScheduler(JobTestHelpers.ViewerAt(0), threadCount: 1);
         var survivorRan = new ManualResetEventSlim();
 
@@ -64,36 +71,30 @@ public class JobSchedulerTests
             new ChunkPos(2, 0, 0), body: _ => survivorRan.Set());
 
         scheduler.Submit(thrower);
-        scheduler.Submit(survivor);
-
-        if (!survivorRan.Wait(Patience))
+        if (!SpinWait.SpinUntil(() => scheduler.PendingResults == 1, Patience))
         {
-            // This wait has expired twice under load — during M6b-3 and again during M6c-1 — and
-            // both times the run recorded nothing but the test's name, which is not enough to say
-            // whether it is a starved thread or a real hole in the exactly-once invariant.
-            //
-            // Shutting down and draining separates them: JobScheduler.Dispose joins the workers,
-            // so a survivor that was merely never scheduled comes back **Completed** afterwards,
-            // while one whose worker really died with the exception is still queued and comes back
-            // **Dropped** from the shutdown sweep. Report which, rather than asserting again.
-            string outcomes = string.Join(
-                ", ",
-                RunToCompletion(scheduler).Select(r => $"{r.Job.Position} {r.Outcome}"));
-
             Assert.Fail(
-                $"the survivor did not run within {Patience.TotalSeconds:F0} s. After shutdown: "
-                + $"[{outcomes}] — Completed means a starved thread, Dropped means the worker died.");
+                $"the thrower did not report within {Patience.TotalSeconds:F0} s; it ran "
+                + $"{thrower.RunCount} time(s) — 0 is a starved worker, 1 a fault never reported.");
         }
 
-        // Both results, not only the survivor's event. Before its first sweep the queue pops
-        // newest-first, so the survivor usually runs *before* the thrower, and disposing on its
-        // event alone races the worker's next take against the shutdown: the thrower comes back
-        // Dropped from DropAll with the worker alive and well. Two runs in five on 2026-09-06,
-        // with the change under test stashed. If the worker really died the survivor ran first
-        // and the thrower never posts, so this wait expires and the assertion below reads
-        // Dropped — which is still the right verdict for a dead worker.
-        SpinWait.SpinUntil(() => scheduler.PendingResults == 2, Patience);
+        scheduler.Submit(survivor);
+        if (!survivorRan.Wait(Patience))
+        {
+            // A second wait tells the two readings apart: a worker starved of the CPU runs the
+            // survivor late, and one that left its loop with the exception never does. Shutting
+            // down first cannot tell them apart, although this test's report of M6c-1 claimed to:
+            // a starved worker woken by the shutdown leaves its loop without taking, so the
+            // survivor comes back Dropped either way.
+            bool late = survivorRan.Wait(Patience);
+            Assert.Fail(
+                late
+                    ? $"the survivor ran only after {Patience.TotalSeconds:F0} s — a starved worker, not a dead one."
+                    : $"the survivor never ran in {2 * Patience.TotalSeconds:F0} s — the worker did not survive the exception.");
+        }
 
+        // The survivor's result is posted before its worker next checks for shutdown, and
+        // Dispose joins that worker, so both results are in once this returns.
         List<JobResult> results = RunToCompletion(scheduler);
 
         JobResult faulted = Assert.Single(results, r => ReferenceEquals(r.Job, thrower));

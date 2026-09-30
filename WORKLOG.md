@@ -1,5 +1,66 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-01 — the scheduler flake: one race may be every sighting, and the test now tests its name
+
+TODO's "Do first" 1, before IM-5a, whose mutation battery can't have a random red. He asked for the TODO read
+for what comes first (*"please Claude"*), and this was the one item that was mine alone.
+
+**The history, read first.** Every sighting of
+`JobSchedulerTests.AThrowingJobFaultsWithoutTakingTheWorkerDownWithIt` from M3c to M6c-1 recorded only the test's
+name. The "ten-second wait expired" reading in the M6b-3 and M6c-1 entries was inferred, never read off a message.
+And the test as M2a wrote it (`d2cef3a`) disposed on the survivor's event, which is the race diagnosed on
+2026-09-06 (`d97f789`). **So one race may account for every sighting.** None has been recorded since the fix.
+
+**A replica, run many times.** A file-based app in the scratchpad, pinned to net8.0 (runtime 8.0.31) with
+`#:property TargetFramework=net8.0`, runs the test body with its arms interleaved per iteration:
+
+| Run | control (pre-09-06) | today (09-06) | new |
+|---|---|---|---|
+| idle, 10,000 an arm | **6,925 failed** (thrower `Dropped`) | 10,000 passed | — |
+| 16 spinning threads + his chess tables run, 300 an arm | 1 failed | 300 passed | 300 passed |
+| 32 spinning threads, 50 an arm | 50 passed | 50 passed | — |
+
+The longest the survivor waited was 1.6 ms idle and 102 ms under 32 spinning threads, against the test's 10 s
+patience. A 10 s starvation was never seen. (The first 2,000-an-arm run was on .NET 10 by accident, before the
+pin: control 867 failed, today none.)
+
+**Two faults in the test itself, found while reading it:**
+- **It mostly didn't test its name.** Newest-first before the first sweep means the survivor ran *before*
+  the thrower in 9,620 of 10,000 idle runs and in all 300 under load, so a worker killed by the exception
+  passed. Mutation MA below, a fault that ends the worker, was caught 12 times in 300 (4%).
+- **M6c-1's diagnostic couldn't tell its two causes apart.** It said "Completed means a starved thread,
+  Dropped means the worker died". But a starved worker woken by the shutdown leaves its loop at the top
+  (`_shutdown` checked, or the wait's `OperationCanceledException`) without taking the job, so the survivor
+  comes back Dropped either way.
+
+**The fix, test only; nothing in Core changed.** The survivor is submitted once the thrower has reported
+(`PendingResults == 1`), so it can run only on a worker that outlived the exception, and neither race is left.
+Each failure path now names its cause:
+- the thrower's wait reports its `RunCount`: 0 is a starved worker, 1 a fault never reported;
+- the survivor's expiry waits a second `Patience`: late is starved, never is a worker gone.
+
+**Its mutation battery**, three mutations to `JobScheduler.RunEntry`, against the replica's three arms (300 each,
+300 ms patience) and the real test:
+
+| Mutation | control | today | new | the real test says |
+|---|---|---|---|---|
+| MA: a fault ends the worker (`_shutdown.Cancel()` in the catch) | 237 | **12** | **300** | *"the survivor never ran in 20 s — the worker did not survive the exception."* |
+| MB: a fault never posted | 300 | 300 | 300 | *"the thrower did not report within 10 s; it ran 1 time(s) — … 1 a fault never reported."* |
+| MC: a fault reported `Completed` | 300 | 300 | 300 | `Assert.Equal() Failure` on the outcome |
+
+`EverySubmittedJobReportsExactlyOnce` caught MA and MB as well. Source restored byte for byte after each.
+
+**Suite 2,175 of 2,175; the scheduler class 25 of 25 in the real test host.** The owed check is closed. If
+the test ever fails again, its message says which of the three it was.
+
+**Also today, his word on two things:**
+- *"you can delete or retire tajmahal2 as you please"*: retired as `retired-TajMahal2-2026-10-01` (a dated move,
+  10.4 MB). `start.cmd` still names it, so a bare `start.cmd` makes a fresh empty one until he names his test
+  world.
+- **The next session is the lake plan**: *"the plan for the tier a to tier b conversion upon voxels being
+  placed I just want a way to seperate tier a water sections from each other after the basin has filled"*.
+  Verbatim in LAKE-EDIT-NOTES, "Chosen as the next session's topic".
+
 ## 2026-09-30 — session close: pull request #2 merged, branches tidied
 
 He clicked "Create PR" on `main`. The two unpushed IM-5 planning commits went up on a branch, `im5-plan`,
