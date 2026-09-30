@@ -639,7 +639,7 @@ name, bounds or default.
 | **IM-1** Core (amended by its pass, below; **built 2026-09-29**) | The strict loader; `extras`, the flag set, the per-material bit, `extras.json` (quantum row), its union and media check; `programmer`. | Every shipped file loads; a misspelt key at each level is refused, naming it; two mods giving one (extra, medium) pair are refused; a misspelt medium is refused; a mod with a newer `format` fails in one line; water and parts no longer open a panel; a three-mod fixture loads the same in every order; rows saved under f-1 restore unchanged. Mutation: disable the refusal, and the misspelt-key fixture goes red. |
 | **IM-2** Core (**built 2026-09-29**) | The window (7, 8): the backpack's JSON, the validator's exemption, `RechargePack`, `FillPack` and `Give` refusing a window, the direct draw; the priority consumer list; `packInitial` printed. | `PowerExact` exact over a thousand random bites and boundaries; the worn backpack's saved charge is 0 after a hundred boundaries, Alt+P and a save; a draw inside `Run` throws. Mutations: drop the `packTaken` credit, red; write the draw through `SetCharge`, red. Equal priorities reproduce position order. |
 | **IM-3** Core (amended by its pass, below) | The `vault` kind and the crate; the codec; the store view and fill order; the bill (`held`) and its order before signal overrides; the fuse; every row-removal rule of 17; the store's voxel identity. | Identity exact over a thousand random operations, the undo included; a signalled cell never unpays a hold; two vaults both bill; a save during a fuse resumes at the saved milliseconds; a wreck survives a reopen and is never rebuilt; both reconcile branches keep contents; an unknown codec version refuses the pick and the undo; `overfull` at restore; a refused pick carves nothing; the undo refusal is a pre-flight; `SetPort` moves contents with the row. Mutations: journal a full row, red; bill with no `held` term, red. |
-| **IM-4** Core (its pass, 2026-09-30, splits it into 4a–4c, twelve decisions taken; **4a and 4b built**, 4c next) | Water's doors: the ID, the pocket's refusal, the siphon's queue and rules, the vault in the outlet ring, the twins, `pumped == emitted + vaulted`, the store's water line. | M8's oracle unmoved with no vault; a siphon take then pour restores a basin exactly; a click then a quit moves nothing; a take on a Tier A lake draws the basin; ~~the pump stalls `full` only when every ring entry refuses~~ a full vault reads `NoRoom`, the first refusal met (the pass's decision 11). Mutation: drop `vaulted`, red. |
+| **IM-4** Core (its pass, 2026-09-30, splits it into 4a–4c, twelve decisions taken; **4a and 4b built**; 4c's code-level pass written, ten decisions wait on his word) | Water's doors: the ID, the pocket's refusal, the siphon's queue and rules, the vault in the outlet ring, the twins, `pumped == emitted + vaulted`, the store's water line. | M8's oracle unmoved with no vault; a siphon take then pour restores a basin exactly; a click then a quit moves nothing; a take on a Tier A lake draws the basin; ~~the pump stalls `full` only when every ring entry refuses~~ a full vault reads `NoRoom`, the first refusal met (the pass's decision 11). Mutation: drop `vaulted`, red. |
 | **IM-5** Core | The dump: the pile writer, the Tier A release, the Tier B ball with its twin sized to the budget, the ceilings and decoherence, the global budgets, owed while unloaded, the unload batch's session, the dead state; a heap-writer bench arm. | A fixture room receives every voxel once; a pile into a chunk that unloads, then a kill with no session save, then a reopen, counts every voxel once; the unloaded arm releases at arrival; N vaults dumping share the budget exactly; the Tier B ceiling decoheres the excess; power returning after the fuse does nothing; Ctrl+Z cannot touch the pile; Tier B exact, Tier A's counters seam-checked. Mutation: route the dump through `Add`, and the seam goes red. |
 | **IM-6** Wire | Header v8, the mode and `--mode=creative`; kits and the first cell's grant; the debug keys off in creative; the card; the HUD bank line, runway and store percentage; the panel's stock section; the siphon on T; the vault and crate JSON and textures; `M10:` store terms. | r6 to the digit; a v7 world opens as sandbox; the kit is granted once and not on reopen; every creative-off key does nothing; headless: a new creative world (`--world=probe-creative --mode=creative`) with `--placeat=` vaults and cells bankrupts channel 0 under a storm clock, and the log reads own charge spent, then fuse, then dump (IM-3b), every identity exact. **Playable: the bank, the vault, water and the dump.** |
 | **IM-7** Core | The `quarry` kind: the box, `Facing`, the cursor, the skips, the scan cap, the stalls, the allotment and the carve's draw (`dug`), recording off with the chunk forget. | Digs a fixture box once, top down; never a machine or a full vault; pays exactly the voxels removed × 50 J; `OFF SITE` on an unloaded chunk; `flooded`; the cursor survives a save; Ctrl+Z on a hand dig in a chunk the quarry wrote is dropped, and in an untouched chunk still works; a Release bench arm at 1, 4 and 16 quarries. Mutation: quarry writes with recording on, red. |
@@ -1651,6 +1651,120 @@ never writing the vault; the ring's tag never cleared; the room read only once a
 
 **The r6 control after the merge** read `2601 / 325 / 3446 at 411`, 0 `ERROR`, and its `M10:` line prints
 `0 vault(s)` and `pumped == emitted + vaulted across the tiers: exact`.
+
+## IM-4c — the code-level pass (2026-09-30)
+
+His *"start IM-4c please Claude"*. IM-4's pass took the lake fill as its decision 10: a placement pays 1,000 J
+for every litre it deletes; `HoldsWater` answers for lake voxels after `Cover`; a full room's displaced water
+pays the same; with no bank the deleting voxels are refused `Wet`. The placement paths, the payment paths and
+Tier A were read before building, by three read-only searches, each reporting file and line; the facts that
+turn a decision were checked. **Decision 10 does not fit the code as written**, in four places, so this pass
+holds the build. Nothing is built; the decisions below wait on his word.
+
+**Eleven facts.**
+
+1. **The collapse asks `HoldsWater` too** (`CollapseDirector.cs:901`, `:1059`). Rubble landing on a wet voxel
+   waits for the boundary, and a piece falling through water slows. So `HoldsWater` answering for lakes would
+   change the collapse in every lake, and a test pins the pipeline's count of the question
+   (`FluidPersistenceTests.cs:505`, 64).
+2. **A lake is decided before the write, and needs a band.** `LakeBoundedTerrain.InLake` is false for a solid
+   voxel (`LakeCeiling.cs:549`), and `InLake` is false wherever no band is built. `Cover` wakes Tier B cells,
+   which the worker may own at the click, so the exact answer belongs at the boundary, as the siphon's does.
+3. **Placement has one budget, a count of voxels at one price, and only a fill at range pays**
+   (`PlaceController.cs:413`, `FillCostMillijoules` is zero unless entangled). A hand placement has no price
+   path, and `Place.Put`'s budget cannot mix a 50 J voxel with a 15,625 J one.
+4. **`Pack.Pay` covers both packs with no new term.** A lead-acid pack pays from its own charge and a window
+   from its channel's cells, and both are counted in `packTaken` (`EquippedPack.cs:93–103`). The siphon's
+   path, `PaySiphon`, refuses a lead-acid pack at the click, and would break `Siphon.Exact` if shared.
+5. **Tier B's displaced water is known only after the write.** `FillWater.Settle` returns lifted water over
+   the shape's box grown by four voxels and counts the rest `displaced` (`Place.cs:162–185`). Pricing it after
+   the write is payment on credit.
+6. **The band's top voxel is only part under water**: a band runs from seed + 1 to `floor(level)`
+   (`LakeCeiling.cs:358`), so a flat 15.625 L there over-deletes by up to all of it.
+7. **No carry of part-litres survives a save.** Tier A counts whole litres; the nearest precedent is the
+   hand-off's per-pit millilitres, lost at quit (`SurfaceHandoff.cs:85`).
+8. **Machines, rubble and five other writers bypass placement's checks**: the lamp, the courtyard, `--pump`
+   bodies, the reconcile rebuild and the undo write raw. A machine cell with one wet voxel defers whole, and
+   machine placement has no budget at all (`PlaceController.cs:800`).
+9. **A live bug, in shipped code: Ctrl+Z does not drop the pending fills.** The boundary replays a queued
+   shape whole (`PlaceController.cs:686`), so an undo pressed in the half second before it is silently redone,
+   dry voxels and all. Today only wet and chunk fills take that path; under this slice every placement under a
+   lake would.
+10. **The periodic `M7d:` line never printed the pump's, the outlet's or the siphon's Tier A terms**; only
+    the profile does (`Main.cs:5714`, `:5849`). Tier A's identity cannot be closed in the game (no rain
+    counter, and the counters are the session's while `held` is saved).
+11. **The watershed is locked against edits** (M9-PLAN), and `IVoxelEditor`'s remarks say a fill in a lake
+    "is a pier and deletes nothing". Deleting litres leaves the watershed alone; the remark is what changes.
+    The unmerged `water-column-test` makes edits raise the watershed, so there a block would also cut the
+    lake's capacity.
+
+**What the lead-acid pack pays** (its file: 3.6 MJ, 250 W recharge): a full pack fills 3.6 m³ of lake, and
+each cubic metre after that takes 67 minutes of recharge. With the quantum backpack, the channel's bank pays.
+
+**Ten decisions.** Four amend decision 10 (marked).
+
+1. **◆ The lake is its own question, not `HoldsWater`** (amends decision 10). `IVoxelEditor` gains a lake read
+   that placement asks before the write, after `HoldsWater`. `HoldsWater` stays Tier B's, so the collapse and
+   its test do not move.
+   *Cost:* one interface member and its pipeline forwarder. *The other arm:* the pass's `HoldsWater`, which
+   makes rubble wait in lakes and pieces slow through them. *Revisit:* he wants rubble to delete lake water.
+2. **A placement under a lake's level waits for the boundary** (as taken). At the click, a pure read (the
+   basin's level against the seed surface, no `Cover`) decides "might be in a lake" and queues it with the wet
+   fills. At the boundary the shape's columns are covered and the answer is exact.
+   *Cost:* up to half a second before a block lands under a lake.
+3. **The price: 1,000 J for each litre deleted, at arm's reach too.** A voxel wholly under the level deletes
+   15.625 L (15,625 J); the band's top voxel deletes the part of it under the level. `Place.Put`'s budget
+   becomes millijoules, the at-range price and the lake price added per voxel.
+   *Cost:* `Put`'s budget changes shape, and every place call passes it. *The other arm:* whole voxels at
+   15.625 L, over-charging the top one.
+4. **Paid from the pack that is worn, lead-acid or window, through `Pack.Pay`'s path.** It is counted in
+   `packTaken`, so `PowerExact` gains no term, and the lake's share is printed apart as `lakeFillPaid`. Never
+   on credit: lake voxels past what the pack can pay are refused, and the rest of the shape lands.
+   *Cost:* before quantum, 3.6 m³ a full pack. *The other arm:* the bank only, the siphon's path, which
+   refuses a lead-acid pack and makes building in a lake impossible before quantum.
+5. **◆ The refusal is `Unpowered`, not `Wet`** (amends decision 10). `Unpowered` already means "couldn't pay",
+   and the log explains it. `Wet` would say there is water there, which a player can see, and not why.
+6. **Tier A's door is `WaterSystem.Delete(basin, litres)`, counted `DeletedLitres`**, guarding the outlet as
+   `Pump` does. Part-litres ride a per-lake carry keyed by pit, as the hand-off's does, for the session only:
+   a quit leaves under a litre per lake in it, already paid for. `M7d:` prints the new term, and gains the
+   pump's, the outlet's and the siphon's, which it never had (fact 10).
+7. **◆ Tier B's full-room `displaced` stays unpriced in 4c** (amends decision 10). It is known only after the
+   write, so pricing it needs a pre-count of the grown box's room, a piece of its own. The flooded-room drain
+   is today's and stays, printed as `displaced`; the lake drain is the one this slice's rule would have opened,
+   and it is priced.
+   *Cost:* a player can still delete Tier B water by filling a sealed flooded room, for the fill's price
+   (nothing at arm's reach). *Lever:* the pre-count. *Trigger:* `displaced` climbs in a play log.
+8. **Only the player's blocks delete. Machines, rubble and the debug writers stay piers**, deleting nothing.
+   A pump stands in a lake on purpose (M10a's lake intake), and machines have no budget. A pier moves no water,
+   so no free door opens.
+   *The other arm:* a machine pays 1 MJ a cell placed in a lake.
+9. **Ctrl+Z gives back neither the litres nor the joules**, as for a fill at range today; the lake shows
+   through at the level it has. So a fill and its undo cost the siphon's price, never less. **And Ctrl+Z drops
+   the pending fills**, fixing fact 9's live bug, in this slice because this slice sends many more placements
+   down that path.
+10. **The remark and the branch.** `IVoxelEditor`'s "a pier" becomes "a block placed in a lake deletes what it
+    fills, priced"; M9's locked watershed stands. *Revisit:* if `water-column-test` merges, a placed block cuts
+    capacity too, and deleting as well would count it twice.
+
+**Every door, priced after 4c** (the "price a door before recommending" rule):
+
+| Door | Deletes | Costs |
+|---|---|---|
+| A block in a lake, then dug out | the litres under the level | 1,000 J a litre, the siphon's |
+| A block in a lake, then Ctrl+Z | the same | the same; nothing refunded |
+| A machine placed in a lake, then picked | nothing (a pier) | nothing |
+| Rubble landing in a lake | nothing (a pier) | nothing |
+| A block filling a sealed flooded room | Tier B's `displaced` | the fill's price, as today (decision 7) |
+
+**IM-4c's tests** (as the pass had them, adjusted): a 1 m cube in a lake costs 1 MJ and deletes 1,000 L; one
+voxel deletes 15 L and carries 625 mL; the top voxel is charged its fraction; with nothing to pay the lake
+voxels are refused `Unpowered` and the dry ones land; a lead-acid pack pays and so does a window; arm's reach
+pays; a collapse and a machine in a lake move no water; Ctrl+Z drops a pending fill; `PowerExact` exact
+throughout. **Mutations:** the lake fill unpriced (the pass's), the top voxel charged whole, the carry
+dropped, the pending fills kept on undo.
+
+**The riskiest part is decision 3**: `Put`'s budget changes shape under every placement. *Estimate:* one
+session, Core (`Place`, `WaterSystem`, the lake read) and the wire (`PlaceController`, `Main`'s prints).
 
 ## Must not ship
 

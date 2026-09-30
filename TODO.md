@@ -30,7 +30,11 @@ his word — and this file points at it rather than repeating it.
       only after six new tests closed the holes they found (the plan, "IM-4a — the mutation battery"; suite
       2,163). **IM-4b is built** (the plan, "IM-4b — built"; the vault in the ring, `pumped == emitted +
       vaulted`, the pump's own door; suite 2,175, sixteen mutations red; its r6 control read to the digit after
-      the merge). **Next: IM-4c** (the lake fill, priced). **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
+      the merge). **IM-4c's code-level pass is written, ten decisions wait on his word** (the plan, "IM-4c —
+      the code-level pass"): decision 10 did not fit the code in four places (the collapse asks `HoldsWater`,
+      only fills at range pay, Tier B's displaced is known after the write, and "refused `Wet`"). **Owed in
+      4c either way:** Ctrl+Z drops the pending fills, a live bug (an undo in the half second before the
+      boundary is redone by the replay). **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
       runway counting the recharge and the return as transfers. **Into IM-6's panel:** his warranty line on the
       vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;
       files stay in watts). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his

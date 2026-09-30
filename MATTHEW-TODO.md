@@ -22,6 +22,21 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
+- [ ] **IM-4c's ten decisions: placing in a lake, priced** (the plan's "IM-4c — the code-level pass").
+      Reading the code first showed your "delete, priced" doesn't fit it as I'd written it, in four places,
+      so I held the build. The recommendations:
+      - **A block you place in a lake deletes the water under the lake's surface and pays 1,000 J a litre**
+        (a 1 m cube is 1 MJ), at arm's reach too, from whatever pack you wear. A lead-acid pack pays too: a
+        full one fills 3.6 m³ of lake, then 67 minutes of recharge for each more. What you can't pay for
+        doesn't land, reported as "unpowered".
+      - **Falling rubble and machines don't delete anything**, as today. A pump is meant to stand in a lake.
+      - **Filling a sealed, flooded room stays as it is today** (the water that can't move is deleted free,
+        and printed). Pricing it needs a separate piece of work.
+      - **Ctrl+Z gives back neither the water nor the joules**, same as a fill at range today.
+
+      Found alongside, a bug I'd fix either way: Ctrl+Z pressed in the half second before a wet placement
+      lands gets undone by the placement landing anyway. "As recommended" takes all ten.
+
 - [x] **IM-4's twelve decisions** — *"As recommended please Claude, build IM-4a"*. **IM-4a is built**:
       the siphon, underneath. Nothing you play changes yet, because the siphon arrives on T in IM-6. **Its
       code-breaking check ran 2026-09-30:** 36 deliberate breakages; 24 were caught straight away, and the 12

@@ -1,5 +1,26 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-30 — IM-4c's code-level pass: decision 10 did not fit, ten decisions handed back
+
+*"start IM-4c please Claude"* (he pushed IM-4b first). Three read-only searches mapped the placement paths,
+the payment paths and Tier A, each reporting file and line; I checked the facts the recommendation turns on.
+IM-4's decision 10 does not fit the code in four places, so the build is held:
+- **The collapse asks `HoldsWater`** at a landing and while a piece falls. Making it answer for lakes would
+  change every collapse in a lake and a pinned test. Recommended: a lake read of its own.
+- **Only a fill at range pays**, and `Place.Put`'s budget is a voxel count at one price. Recommended: a
+  millijoule budget, priced at arm's reach too, paid through `Pack.Pay` (lead-acid or window, no new
+  `PowerExact` term).
+- **Tier B's displaced water is known only after the write**, so pricing it is credit. Recommended: leave the
+  flooded-room door as it is today, printed, with a pre-count as a named lever.
+- **"Refused `Wet`"**: `Unpowered` already means "couldn't pay". Recommended.
+
+Also: machines, rubble and the debug writers stay piers; part-litres ride a session carry per lake; the top
+voxel of a band is charged its fraction. The price in lead-acid terms: a full pack fills 3.6 m³ of lake, and
+67 minutes of recharge buys each further cubic metre.
+
+**A live bug found alongside:** Ctrl+Z does not drop the pending fills, so an undo in the half second before
+the boundary is redone by the replay, dry voxels and all. It is fixed in 4c whichever way the decisions go.
+
 ## 2026-09-30 — IM-4b built: the vault in the ring
 
 *"yes please Claude, start IM-4b"*, after he closed the game (his log: 0 `ERROR`, TajMahal2 saved on quit). The
