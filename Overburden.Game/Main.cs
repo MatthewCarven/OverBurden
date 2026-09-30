@@ -2012,18 +2012,39 @@ public partial class Main : Node3D
                 // M8c-2: the seepage rate's sweep, rainfallScale's shape. Zero is off — no index,
                 // no drain, no scans — which is the control arm and the back-out.
                 case "solvewakeup":
-                    _solveWakeUp = value.Length == 0 || value != "0";
+                    if (TryParseSwitch("solvewakeup", value, out bool solveWakeUp))
+                    {
+                        _solveWakeUp = solveWakeUp;
+                    }
+
                     break;
                 case "solvefrontnear":
                     // 1: cells the solve newly wakes; 2: and those already waiting in the carry.
-                    _solveFrontNear = value.Length == 0 || value != "0";
-                    _solveFrontNearCarried = value == "2";
+                    if (value.Trim() == "2")
+                    {
+                        _solveFrontNear = true;
+                        _solveFrontNearCarried = true;
+                    }
+                    else if (TryParseSwitch("solvefrontnear", value, out bool solveFrontNear))
+                    {
+                        _solveFrontNear = solveFrontNear;
+                        _solveFrontNearCarried = false;
+                    }
+
                     break;
                 case "solvecarry":
-                    _solveCarry = value.Length == 0 || value != "0";
+                    if (TryParseSwitch("solvecarry", value, out bool solveCarry))
+                    {
+                        _solveCarry = solveCarry;
+                    }
+
                     break;
                 case "portaldrain":
-                    _portalDrainOn = value.Length == 0 || value != "0";
+                    if (TryParseSwitch("portaldrain", value, out bool portalDrain))
+                    {
+                        _portalDrainOn = portalDrain;
+                    }
+
                     break;
                 case "seepscale" when double.TryParse(value, out double seepScale):
                     _seepScale = Math.Max(0.0, seepScale);
@@ -2482,8 +2503,8 @@ public partial class Main : Node3D
                     break;
 
                 // The adaptive view radius and its three estimates. --adaptive alone is on;
-                // --adaptive=0 is the fixed radius, which is also the default, so a profile that
-                // names neither is the arm every recorded figure was taken in.
+                // --adaptive=0 (or false, off, no) is the fixed radius, which is also the default, so
+                // a profile that names neither is the arm every recorded figure was taken in.
                 case "far":
                     // --far alone or --far=1 is the first rung, --far=2 the second, --far=0 off.
                     _farRung = value.Length == 0
@@ -2494,7 +2515,11 @@ public partial class Main : Node3D
                     break;
 
                 case "adaptive":
-                    _adaptiveRadius = value.Length == 0 || value != "0";
+                    if (TryParseSwitch("adaptive", value, out bool adaptive))
+                    {
+                        _adaptiveRadius = adaptive;
+                    }
+
                     break;
 
                 case "minradius" when int.TryParse(value, out int minRadius) && minRadius >= 1:
@@ -9287,6 +9312,45 @@ public partial class Main : Node3D
         name.Length > 0
         && name.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) < 0
         && name is not "." and not "..";
+
+    /// <summary>
+    /// An on/off flag's value. The bare flag (<c>--adaptive</c>) is on, and so are 1, true, on and yes;
+    /// 0, false, off and no are off, in any case. Anything else is refused out loud and leaves the
+    /// setting as it was.
+    /// </summary>
+    /// <remarks>
+    /// <b>Refused rather than read, for <c>--seed</c>'s reason.</b> Until 2026-10-01 these flags read
+    /// "anything but 0 is on", so <c>--adaptive=false</c> turned the adaptive radius <em>on</em> and
+    /// said nothing: a headless run started at r3 and grew, where <c>--adaptive=0</c> sat at r6. A
+    /// switch that reads the word for off as on is a play of the wrong arm that looks like the right one.
+    /// </remarks>
+    private static bool TryParseSwitch(string name, string value, out bool on)
+    {
+        switch (value.Trim().ToLowerInvariant())
+        {
+            case "":
+            case "1":
+            case "true":
+            case "on":
+            case "yes":
+                on = true;
+                return true;
+
+            case "0":
+            case "false":
+            case "off":
+            case "no":
+                on = false;
+                return true;
+
+            default:
+                on = false;
+                GD.PushError(
+                    $"--{name}='{value}' is not on or off; ignored. 1 or 0 (true/false, on/off and "
+                    + $"yes/no work too), or the bare --{name} for on.");
+                return false;
+        }
+    }
 
     /// <summary>Whether <paramref name="text"/> is a seed: decimal, or hex behind <c>0x</c>.</summary>
     private static bool TryParseSeed(string text, out ulong seed)

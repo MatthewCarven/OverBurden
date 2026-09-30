@@ -133,9 +133,6 @@ Nothing is blocked on these; each is a small change once you have a view.
       the fix is costlier to run, but it is the right one if it shows.
 - [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), six decisions still open. The biggest: a
       blast destroys the machines it reaches (5). "As recommended" or any one back.
-- [ ] **Make `start.cmd`'s settings the game's own defaults?** (your question, 2026-10-01). My lean: not
-      yet, but when we make the first build someone else plays. The reasoning is in TODO under "Waiting on
-      his word". "Now", "later" or "as recommended".
 - [ ] **The hotbar's unit.** `1,767,903,281 L` doesn't fit a slot. My lean: litres under a cubic
       metre, m³ above. **Due before IM-6 now**, which puts water in the hotbar's last slot.
 - [ ] **Dust when a roof comes down** (M9c-2). Optional; only if falls read as too quiet.
@@ -174,6 +171,11 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Answered lately
 
+- **`start.cmd`'s settings as the game's defaults** (2026-10-01): *"as recommended"*. Not now; they
+  flip when we make the first build someone else plays (in TODO under "Later", with the reasons).
+  **And the `--adaptive=false` bug is fixed**: it and four other on/off flags now read 1/0, true/false,
+  on/off or yes/no, and anything else is refused with an error instead of quietly meaning "on". Nothing
+  you play changes, since `start.cmd` passes `--adaptive=1`.
 - **The pond branch merge** (2026-10-01): *"go ahead and merge main into the pond branch"*. Done: 99
   commits, two small code conflicts (both sides had added things side by side), all 2,219 tests pass and
   the r6 check reads to the digit. The clay-roof drip you reported on 09-26 lived only on the branch; it's

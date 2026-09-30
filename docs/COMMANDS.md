@@ -757,7 +757,10 @@ a pass and levelled more, not fewer. `--fluidnear=0` has no carry and is unchang
 
 The adaptive view radius (2026-09-06) adds six. **`--adaptive=1` turns it on; off is the default
 and the arm every recorded streaming figure was taken in, and `start.cmd` passes it on** the way
-it passes the light budget. The box starts at the floor, falls a ring at a time while the viewer
+it passes the light budget. **An on/off flag reads 1/0, true/false, on/off or yes/no, and the bare flag
+is on** (`--adaptive`, `--solvewakeup`, `--solvefrontnear`, `--solvecarry`, `--portaldrain`); anything
+else is refused with an error and changes nothing. Until 2026-10-01 they read "anything but 0 is on",
+so `--adaptive=false` turned it *on*: a headless run started at r3 and grew. The box starts at the floor, falls a ring at a time while the viewer
 is moving with a derive backlog over `--shrinkslabs=` (2) slabs of the current box, and climbs a
 ring at a time while the backlog is empty and the light step's averaged share of its budget is
 under `--growbelow=` (0.5); `--cadence=` (2 s) is the least time between changes, the grace after a

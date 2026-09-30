@@ -1,5 +1,29 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-01 — the defaults stay the measurement arms for now; `--adaptive=false` no longer means on
+
+**His question, then *"as recommended"*: should `start.cmd`'s four flags (`--lightbudget=16 --adaptive=1
+--fluidnear=2 --fluidjob=1`) become the code defaults?** Not now. They flip in the pass that makes the first
+build someone else plays, because until then `start.cmd` is the only way anyone plays. A read-only search
+priced it, and the facts are in TODO under "Later":
+- the r6 control would break on adaptive alone (the box starts at r1);
+- nearly every recorded recipe relies on today's defaults;
+- the light budget is coupled to adaptive's growth, and 16 ms has an owed re-judge;
+- tests are untouched either way.
+
+**The bug the search found, fixed at his word.** Five flags read "anything but 0 is on": `--adaptive`,
+`--solvewakeup`, `--solvefrontnear`, `--solvecarry` and `--portaldrain`. So `--adaptive=false` turned adaptive
+on, silently. Reproduced first on the unfixed build: headless `--nosave --adaptive=false` read `r3h/2v`,
+growing, against `--adaptive=0`'s `r6h/2v`. Now all five go through one helper, `Main.TryParseSwitch`:
+- bare, 1, true, on, yes are on, in any case;
+- 0, false, off, no are off;
+- anything else is refused with a `GD.PushError` naming the flag and changes nothing, as `--seed` and
+  `--relief` refuse;
+- `--solvefrontnear=2` keeps its own meaning.
+
+After the fix, headless: `false` and `OFF` read r6 (2601 / 325 / 3446, the r6 control's triple), `true` and
+the bare flag read r3 and growing, and `maybe` printed the error and stayed at r6.
+
 ## 2026-10-01 — main merged into the pond branch
 
 *"go ahead and merge main into the pond branch please Claude"*: TODO's "Do first" 4, before IM-5a adds a Tier A
