@@ -1,5 +1,13 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-01 — main merged into the pond branch a second time
+
+*"pushed, merge main into the pond branch again please Claude"*. `964165e` on `water-column-test`: main's three
+commits since the first merge (its records, the defaults question, the on/off flag fix). **No conflicts**: the
+clay-roof item and the overhang check had gone into main byte-identical to the branch's copies, so each merged as
+one change and landed once. Done in a worktree again. **Suite 2,219 of 2,219; the r6 control 2601 / 325 / 3446
+at 411**, to the digit. His push went up before `c9e83b3`, so main was one commit ahead at the time.
+
 ## 2026-10-01 — the defaults stay the measurement arms for now; `--adaptive=false` no longer means on
 
 **His question, then *"as recommended"*: should `start.cmd`'s four flags (`--lightbudget=16 --adaptive=1

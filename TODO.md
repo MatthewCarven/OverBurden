@@ -33,7 +33,8 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
 4. **The pond branch — at least merge main into it before IM-5a; better, his verdict.** IM-5a adds a Tier A
    door to `WaterSystem` while the branch rewrites the watershed, so each slice on main widens the merge. The
    verdict also decides where a surface dump into a walled pond goes. **The merge is done (2026-10-01, his
-   word, `927daef`; WORKLOG): 99 commits, suite 2,219, r6 to the digit.** The verdict is still his.
+   word, `927daef`, and again as `964165e` after his push; WORKLOG): suite 2,219, r6 to the digit.** The
+   verdict is still his.
 5. **The hotbar's unit (his, in MATTHEW-TODO) — before IM-6.** IM-6 puts water in the hotbar's last slot
    (decision 23), so *"1,767,903,281 L doesn't fit"* arrives with IM-6, not M10g.
 6. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.
