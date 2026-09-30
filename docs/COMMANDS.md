@@ -19,8 +19,10 @@ Run the game:
 start.cmd
 ```
 
-**`start.cmd` passes `-- --lightbudget=16 --adaptive=1` itself** — the first since 2026-09-03,
-Matthew's "lighting switch", and the second since 2026-09-06, the adaptive view radius. (It carried
+**`start.cmd` passes `-- --lightbudget=16 --adaptive=1 --fluidnear=2 --fluidjob=1` itself, then
+`"--world=<his world>"`** (`LakeTest` since 2026-10-01) — the first since 2026-09-03, Matthew's "lighting
+switch", the second since 2026-09-06, the adaptive view radius, and the two water flags since the water
+thread's slices 1 and 3b (2026-09-09 and 09-10). (It carried
 `--spread=counted` from 2026-09-07 to 2026-09-09 for the counted divisor's play; the A/B read the same
 under both rules and the flag came out — pass it yourself to see that arm.) It launches the Debug build — **which
 since the evening of 2026-09-15 is JIT-optimised: `Directory.Build.props` sets `Optimize` for the
@@ -755,7 +757,10 @@ a pass and levelled more, not fewer. `--fluidnear=0` has no carry and is unchang
 
 The adaptive view radius (2026-09-06) adds six. **`--adaptive=1` turns it on; off is the default
 and the arm every recorded streaming figure was taken in, and `start.cmd` passes it on** the way
-it passes the light budget. The box starts at the floor, falls a ring at a time while the viewer
+it passes the light budget. **An on/off flag reads 1/0, true/false, on/off or yes/no, and the bare flag
+is on** (`--adaptive`, `--solvewakeup`, `--solvefrontnear`, `--solvecarry`, `--portaldrain`); anything
+else is refused with an error and changes nothing. Until 2026-10-01 they read "anything but 0 is on",
+so `--adaptive=false` turned it *on*: a headless run started at r3 and grew. The box starts at the floor, falls a ring at a time while the viewer
 is moving with a derive backlog over `--shrinkslabs=` (2) slabs of the current box, and climbs a
 ring at a time while the backlog is empty and the light step's averaged share of its budget is
 under `--growbelow=` (0.5); `--cadence=` (2 s) is the least time between changes, the grace after a

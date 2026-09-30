@@ -1,5 +1,59 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-01 — the defaults stay the measurement arms for now; `--adaptive=false` no longer means on
+
+**His question, then *"as recommended"*: should `start.cmd`'s four flags (`--lightbudget=16 --adaptive=1
+--fluidnear=2 --fluidjob=1`) become the code defaults?** Not now. They flip in the pass that makes the first
+build someone else plays, because until then `start.cmd` is the only way anyone plays. A read-only search
+priced it, and the facts are in TODO under "Later":
+- the r6 control would break on adaptive alone (the box starts at r1);
+- nearly every recorded recipe relies on today's defaults;
+- the light budget is coupled to adaptive's growth, and 16 ms has an owed re-judge;
+- tests are untouched either way.
+
+**The bug the search found, fixed at his word.** Five flags read "anything but 0 is on": `--adaptive`,
+`--solvewakeup`, `--solvefrontnear`, `--solvecarry` and `--portaldrain`. So `--adaptive=false` turned adaptive
+on, silently. Reproduced first on the unfixed build: headless `--nosave --adaptive=false` read `r3h/2v`,
+growing, against `--adaptive=0`'s `r6h/2v`. Now all five go through one helper, `Main.TryParseSwitch`:
+- bare, 1, true, on, yes are on, in any case;
+- 0, false, off, no are off;
+- anything else is refused with a `GD.PushError` naming the flag and changes nothing, as `--seed` and
+  `--relief` refuse;
+- `--solvefrontnear=2` keeps its own meaning.
+
+After the fix, headless: `false` and `OFF` read r6 (2601 / 325 / 3446, the r6 control's triple), `true` and
+the bare flag read r3 and growing, and `maybe` printed the error and stayed at r6.
+
+## 2026-10-01 — main merged into the pond branch
+
+*"go ahead and merge main into the pond branch please Claude"*: TODO's "Do first" 4, before IM-5a adds a Tier A
+door to `WaterSystem` while the branch rewrites the watershed. Done in a worktree, so his main folder and
+`start.cmd` stayed on `main` throughout. `927daef` on `water-column-test`: **99 commits in from main, the
+branch's 16 kept.**
+
+- **Code: two conflicts, both "each side added a line here".** `Main.cs` keeps `--raise` beside main's
+  `--lakeoverbite` and `--bodyprobe`, and the water and surface lines print both the raise/grid terms and main's
+  unfilled-bite terms. `WaterSurface.Rebuild` keeps the grid cells and main's bite-fill counter; the auto-merged
+  loop already ran the two checks in turn. `WaterSystem.cs` merged by itself. Against main the merged code
+  differs in the branch's same 13 files.
+- **Suite 2,219 of 2,219** (main's 2,175 and the branch's 44). **The r6 control on the merged branch: 2601 / 325
+  / 3446 at 411**, to the digit, from the worktree after a `--headless --import`.
+- **Docs: main's version of each**, since main consolidated CLAUDE.md and TODO on 09-26, with what only the
+  branch had re-homed:
+  - its two 09-26 overhang worklog entries, in date order;
+  - its last hand-over paragraph, into STATUS-HISTORY;
+  - POND-PLAN's built sections, before main's 09-29 re-measure;
+  - the overhang play check, under his pond verdict;
+  - **the 09-26 clay-roof drip**, which main never had, beside the clay pond leak it may explain.
+
+  COLLAPSE-NOTES was byte-identical on both sides at the fork, so main's grown copy stands. The clay-roof item
+  and the overhang check went into main too, byte-identical and in the same place, so the next merge sees one
+  identical change on both sides.
+- **He played while it ran**: two sessions on his new test world `LakeTest` (seed `0x2C15F365`), 00:10–00:54
+  and 00:55, no `ERROR` lines, logs copied aside as `play-LakeTest-2026-10-01-*.log`. His build (00:10:25) came
+  after the scheduler battery's last restore (00:03:37) and its commit (00:08:03), so it was the clean tree. He
+  pointed `start.cmd` at `LakeTest` himself.
+
 ## 2026-10-01 — the scheduler flake: one race may be every sighting, and the test now tests its name
 
 TODO's "Do first" 1, before IM-5a, whose mutation battery can't have a random red. He asked for the TODO read

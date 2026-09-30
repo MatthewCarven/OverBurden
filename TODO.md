@@ -32,7 +32,8 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
    the size of cost a 10 ML dump creates, and it predates the fixed build.
 4. **The pond branch — at least merge main into it before IM-5a; better, his verdict.** IM-5a adds a Tier A
    door to `WaterSystem` while the branch rewrites the watershed, so each slice on main widens the merge. The
-   verdict also decides where a surface dump into a walled pond goes.
+   verdict also decides where a surface dump into a walled pond goes. **The merge is done (2026-10-01, his
+   word, `927daef`; WORKLOG): 99 commits, suite 2,219, r6 to the digit.** The verdict is still his.
 5. **The hotbar's unit (his, in MATTHEW-TODO) — before IM-6.** IM-6 puts water in the hotbar's last slot
    (decision 23), so *"1,767,903,281 L doesn't fit"* arrives with IM-6, not M10g.
 6. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.
@@ -112,8 +113,8 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
       2026-09-30, verbatim in [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md) with what the code already
       offers and four questions. **His pick for the next session (2026-10-01): the plan for converting Tier
       A to Tier B where voxels are placed**, so a wall built through a filled basin separates its water and
-      one walled area can be flooded on its own (the notes' "Chosen as the next session's topic"). He is
-      making a test world for it; TajMahal2 is retired. Read collisions 1, 2 and 7 above first: the pond
+      one walled area can be flooded on its own (the notes' "Chosen as the next session's topic"). His test
+      world for it is `LakeTest` (`start.cmd` names it); TajMahal2 is retired. Read collisions 1, 2 and 7 above first: the pond
       branch and water bodies part a touch the same hand-off and watershed. (The
       lake over a quarry, his look 2026-09-30: *"draws nearly perfectly"*, a small gap sometimes, filled
       by Tier B soon after.)
@@ -293,6 +294,28 @@ Each waits on its trigger; the history has the measurement behind each (grep it 
       accepted lag). Its own pass. Trigger: before IM-7, whose quarry writes every boundary.
 
 ## Later — not scheduled
+
+- **`start.cmd`'s four flags become the code defaults with the first build someone else plays** — his
+      question, 2026-10-01, taken as recommended the same night (*"as recommended"*). Not now: until that
+      build (the creative demo's export) `start.cmd` is the only way anyone plays, so the defaults only serve
+      measurement. **Trigger: the pass that makes an exported build.** The facts (Main.cs lines as of
+      `b7d6fe7`):
+      - **Tests are untouched either way.** Core keeps its own defaults: `ChunkPipeline.DefaultLightBudget`
+        4 ms (`ChunkPipeline.cs:89`) and `_nearRings` 0 (`FluidSimulation.NearField.cs:101`). Adaptive and
+        the fluid job are Main-only.
+      - **The r6 control would break on adaptive alone.** The box starts at r1 and grows a ring per ~2 s at
+        best, so a ~18 s run may not reach r6. fluidnear and fluidjob can't move it: the seed is dry for 40 s,
+        and a detached job is not counted in `CompletedJobs`. A 16 ms light budget probably keeps viewed,
+        drawn and quads, but jobs could move through relight remeshes; it has never been measured.
+      - **Nearly every recorded recipe relies on today's defaults**: 18 fenced and ~33 of ~35 inline name none
+        of the four.
+      - **The light budget and adaptive are coupled.** Growth needs `LastLightStepMillis / budget` under 0.5
+        (`Main.cs:3682`), so flipping the budget alone changes growth too. And 16 ms has an owed re-judge
+        (Owed checks): it answered a 1.4 ms unoptimised derive that is ~0.36 ms now.
+      - **`screenshot.gd` waits 8 s by the clock**, so with adaptive on it would shoot a partly grown box.
+
+      The shape when it comes: flip all four, have the measurement modes (`--profile`, `--fall`, headless)
+      imply the old arms unless a flag says otherwise, and re-judge the light budget first.
 
 His answers of 2026-09-29 to MATTHEW-TODO's "things I'd like your eye on", as work (verbatim in WORKLOG):
 - **Tier A water seen from under it** should match Tier B's colour and transparency: *"under tier b water
