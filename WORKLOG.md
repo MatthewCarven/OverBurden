@@ -1,5 +1,30 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-30 — IM-5's code-level pass: the dump, split in two, sixteen decisions handed back
+
+*"start IM-5 please Claude"*. The plan's riskiest slice, read before building through three read-only
+searches: the vault's end of life, the world's write path, and the water's doors and the disk. Fourteen facts;
+the ones that change the plan:
+- **A dump has no end in the code.** A burnt-out vault stays `Dumping` for ever, an emptied one can be picked,
+  and Ctrl+Z would revive it dead. Wrecks are never removed. Recommended: an empty vault goes back to
+  `Holding`, and an empty wreck is removed with the journal paused.
+- **Decision 36's session carry is not a consistent cut.** An unload batch holds only the unloading chunks,
+  while the session holds the pocket and every machine row. Carrying them together trades the duplicate for
+  new mints and losses, and the one consistent write throws mid-tick. The duplicate itself is M10-PLAN's
+  accepted placement lag since M6c. Recommended: accept it, and pin written chunks until the autosave,
+  engine-wide, as its own slice.
+- **The write path checks no material**, and vaults can hold pumps, cells, panels and packs. A loose pump
+  voxel is cleared without credit at its chunk's next arrival. Recommended: decohere what can't lie loose.
+- `RoomAt` can't be reused (one layer's room, no `Cover`), and decision 31 contradicts itself for a loaded
+  surface mouth; the siphon owns the pour twins. The row's spare fuse clock can time the 10 s release with no
+  codec change.
+- **The heap half of the budget is unmeasured**; every pile write drives the whole hook (the field's clone,
+  the portal scan, support re-derives, remesh). So 5b starts with its bench.
+
+The split: **5a** the water (two twins, the Tier A release, the Tier B ball on its own budget, the ceilings,
+the end of a dump, the `dump` bracket) and **5b** the pile (a supported heap, the refusals, the material
+guard, the undo's forget, the bench). The cyan glitch on a pile goes to IM-6.
+
 ## 2026-09-30 — IM-4c built, reduced at his word; his list's notes folded
 
 *"As recommended please Claude, build IM-4c also I updated my todo"*. His list's notes, written in the same

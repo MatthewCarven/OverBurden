@@ -22,6 +22,28 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
+- [ ] **IM-5's sixteen decisions: the dump** (the plan's "IM-5 — the code-level pass"). The dump is what
+      happens when a vault's fuse burns out. Reading the code first changed three things, so I held the
+      build. The recommendations, in play terms:
+      - **Two steps, not one**: the water first (5a), then the blocks (5b), which get timed on your machine
+        before their speed is set.
+      - **The water**: a vault on the surface or in a lake empties into the lake over about 10 seconds, so
+        you see it rise. A vault down in your workings pours out as real water around itself, a ball at a
+        time, and floods the mine. One down in a chunk that isn't loaded waits until you walk back to it.
+      - **The blocks** land as a heap around the vault, built from the bottom up so it stands, within 32 m.
+        Not in water, not in a lake, not in a machine, not on you. Ctrl+Z can't touch it.
+      - **When it's done**, the empty vault is an ordinary empty vault again, not a dead one. A wreck (a
+        vault a collapse took) disappears once empty.
+      - **Pumps, panels and packs stored in a vault can't be dumped as loose blocks**, so they're lost
+        ("decohered"), and the log says what. The same goes for anything past the big limits (10 ML of
+        flood water at once underground, 10,000 m³ of blocks per dump).
+      - **A crash can double a dump**, if the pile's chunk was saved and the game dies before the next
+        30-second save. Building a wall already has exactly this, and it was accepted back at M6c. The
+        plan's fix for it turned out to cause new losses elsewhere, so I recommend accepting it for now,
+        and one proper fix later for everything that writes to the world.
+
+      "As recommended" takes all sixteen.
+
 - [ ] **Ctrl+Z on a fill that's still waiting** (IM-4c, built 2026-09-30): place a single block right into
       water (or fill a chunk at range) and press Ctrl+Z at once. *Nothing should land.* Before, it came
       back half a second later. The log says `undo — 1 placement(s) waiting for the boundary cancelled`.

@@ -33,7 +33,12 @@ his word — and this file points at it rather than repeating it.
       the merge). **IM-4c is built, reduced at his word** (the plan, "IM-4c — built"): his answer kept
       today's lake rule (a pier) and asked for displacement as its own pass, so decision 10 is withdrawn.
       Built: Ctrl+Z cancels placements waiting for the boundary (a live bug), and `M7d:` prints Tier A's
-      machine and siphon terms; r6 to the digit after the merge. **Next on this plan: IM-5** (the dump). **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
+      machine and siphon terms; r6 to the digit after the merge. **IM-5's code-level pass is written,
+      sixteen decisions wait on his word** (the plan, "IM-5 — the code-level pass"): split into 5a (the
+      water, the end of a dump, the bracket) and 5b (the pile, with its bench first). Three amend the plan: a
+      dump's end (an empty vault back to `Holding`, an empty wreck removed), decision 36's session carry
+      replaced by accepting placement's crash lag (an unload batch is not a consistent cut), and machine
+      materials decohered rather than piled. **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
       runway counting the recharge and the return as transfers. **Into IM-6's panel:** his warranty line on the
       vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;
       files stay in watts). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his

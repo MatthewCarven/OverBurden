@@ -640,7 +640,7 @@ name, bounds or default.
 | **IM-2** Core (**built 2026-09-29**) | The window (7, 8): the backpack's JSON, the validator's exemption, `RechargePack`, `FillPack` and `Give` refusing a window, the direct draw; the priority consumer list; `packInitial` printed. | `PowerExact` exact over a thousand random bites and boundaries; the worn backpack's saved charge is 0 after a hundred boundaries, Alt+P and a save; a draw inside `Run` throws. Mutations: drop the `packTaken` credit, red; write the draw through `SetCharge`, red. Equal priorities reproduce position order. |
 | **IM-3** Core (amended by its pass, below) | The `vault` kind and the crate; the codec; the store view and fill order; the bill (`held`) and its order before signal overrides; the fuse; every row-removal rule of 17; the store's voxel identity. | Identity exact over a thousand random operations, the undo included; a signalled cell never unpays a hold; two vaults both bill; a save during a fuse resumes at the saved milliseconds; a wreck survives a reopen and is never rebuilt; both reconcile branches keep contents; an unknown codec version refuses the pick and the undo; `overfull` at restore; a refused pick carves nothing; the undo refusal is a pre-flight; `SetPort` moves contents with the row. Mutations: journal a full row, red; bill with no `held` term, red. |
 | **IM-4** Core (its pass, 2026-09-30, splits it into 4a–4c, twelve decisions taken; **4a, 4b and 4c built**; 4c kept today's lake rule at his word, displacement is its own pass) | Water's doors: the ID, the pocket's refusal, the siphon's queue and rules, the vault in the outlet ring, the twins, `pumped == emitted + vaulted`, the store's water line. | M8's oracle unmoved with no vault; a siphon take then pour restores a basin exactly; a click then a quit moves nothing; a take on a Tier A lake draws the basin; ~~the pump stalls `full` only when every ring entry refuses~~ a full vault reads `NoRoom`, the first refusal met (the pass's decision 11). Mutation: drop `vaulted`, red. |
-| **IM-5** Core | The dump: the pile writer, the Tier A release, the Tier B ball with its twin sized to the budget, the ceilings and decoherence, the global budgets, owed while unloaded, the unload batch's session, the dead state; a heap-writer bench arm. | A fixture room receives every voxel once; a pile into a chunk that unloads, then a kill with no session save, then a reopen, counts every voxel once; the unloaded arm releases at arrival; N vaults dumping share the budget exactly; the Tier B ceiling decoheres the excess; power returning after the fuse does nothing; Ctrl+Z cannot touch the pile; Tier B exact, Tier A's counters seam-checked. Mutation: route the dump through `Add`, and the seam goes red. |
+| **IM-5** Core (its pass, 2026-09-30, splits it into 5a, the water, and 5b, the pile; sixteen decisions wait on his word) | The dump: the pile writer, the Tier A release, the Tier B ball with its twin sized to the budget, the ceilings and decoherence, the global budgets, owed while unloaded, the unload batch's session, the dead state; a heap-writer bench arm. | A fixture room receives every voxel once; a pile into a chunk that unloads, then a kill with no session save, then a reopen, counts every voxel once; the unloaded arm releases at arrival; N vaults dumping share the budget exactly; the Tier B ceiling decoheres the excess; power returning after the fuse does nothing; Ctrl+Z cannot touch the pile; Tier B exact, Tier A's counters seam-checked. Mutation: route the dump through `Add`, and the seam goes red. |
 | **IM-6** Wire | Header v8, the mode and `--mode=creative`; kits and the first cell's grant; the debug keys off in creative; the card; the HUD bank line, runway and store percentage; the panel's stock section; the siphon on T; the vault and crate JSON and textures; `M10:` store terms. | r6 to the digit; a v7 world opens as sandbox; the kit is granted once and not on reopen; every creative-off key does nothing; headless: a new creative world (`--world=probe-creative --mode=creative`) with `--placeat=` vaults and cells bankrupts channel 0 under a storm clock, and the log reads own charge spent, then fuse, then dump (IM-3b), every identity exact. **Playable: the bank, the vault, water and the dump.** |
 | **IM-7** Core | The `quarry` kind: the box, `Facing`, the cursor, the skips, the scan cap, the stalls, the allotment and the carve's draw (`dug`), recording off with the chunk forget. | Digs a fixture box once, top down; never a machine or a full vault; pays exactly the voxels removed × 50 J; `OFF SITE` on an unloaded chunk; `flooded`; the cursor survives a save; Ctrl+Z on a hand dig in a chunk the quarry wrote is dropped, and in an untouched chunk still works; a Release bench arm at 1, 4 and 16 quarries. Mutation: quarry writes with recording on, red. |
 | **IM-8** Wire | Quarry wiring: the `quarry` bracket, the panel, the pins, the README's OH&S line. | Headless on the fixed seed: bites, and `quarry` against the 1 ms line; r6. **Playable: quarries.** |
@@ -1799,6 +1799,167 @@ reference, so this is the one piece of the slice with no unit test; it is ten li
 the r6 control after the merge read `2601 / 325 / 3446 at 411`, 0 `ERROR`, its `M7d:` line printing the new
 terms. The hand check is his: click a fill into water, press Ctrl+Z at
 once, and nothing should land.
+
+## IM-5 — the code-level pass (2026-09-30)
+
+His *"start IM-5 please Claude"*. Decisions 27–37 and IM-5's row, read against the vault's end of life
+(`MachineTick.PayHolds`, the wrecks, the store's lines), the world's write path (`ChunkPipeline.SetVoxel` and
+its hook, the undo, the support field and the collapse), and the water's doors and the disk (the relay's ball,
+`RoomAt`, Tier A's doors, `SaveWorldJob`, the session). The reading was three read-only searches, each
+reporting file and line; the facts that turn a decision were checked. **Nothing is built; the decisions below
+wait on his word.** The slice is the plan's riskiest, and the reading bears that out.
+
+**Fourteen facts.**
+
+1. **A dumping vault has no way out.** The fuse burns to `Dumping` and leaves `FuseMillisLeft` at 0
+   (`MachineTick.cs:990–995`); from then on the vault is skipped by the bill, the return and the recharge, its
+   own charge stranded in `stored`. Once emptied it can be picked (`MachineSet.Vaults.cs:454`), and the
+   journalled copy keeps `Dumping`, so Ctrl+Z would bring back a dead, empty dumping vault.
+2. **Nothing removes a wreck.** `HoldsAnything` is true for any wreck, even an empty one (`:243`). The plan's
+   "removed only once empty" was never built. Removing one through `Remove` journals it, so an unpaused
+   removal would let Ctrl+Z re-add it and re-mint its own charge through `entering`.
+3. **Vaults bill, fuse and dump unloaded.** `MachineSet` holds every row whether or not its chunk is loaded,
+   and `PayHolds` has no loaded check. Arrivals are handled every frame, outside the boundary, and water is
+   loaded later than voxels (`onFluidReady`), so a release at arrival has to wait for a boundary with the
+   water in.
+4. **The siphon owns the pour twins.** `Siphon.Exact` reads every millilitre of `PouredMillilitres`,
+   `PouredLitres` and the store's water doors as its own (`Siphon.cs:215–222`). A dump through any of them
+   would light the siphon's error every boundary.
+5. **`RoomAt` can't be reused as it is** (`MachineTick.cs:1595–1668`, private). Its dry room is one 8 × 8
+   layer (1,000 L at most), not a ball, it never calls `Cover`, so a lake with no band reads dry, and it asks
+   `IsLoaded` of one voxel. Its classification (lake, ground, underground, off the window) can be lifted into
+   a helper; it reads only the row's cell and origin.
+6. **Decision 31 contradicts itself.** "Where an outlet's would" sends a loaded dry mouth on the ground to
+   Tier B's layer; "loaded or not" sends it to Tier A. The two differ exactly there.
+7. **Tier A's release needs a clock**, and the row has one to spare. `FuseMillisLeft` is 0 once burnt, and
+   owed water is already on the row and saved (`VaultContents.WaterMillilitres` under `Owes`). A new field
+   would mean a codec version, which `TryRead` treats as unreadable.
+8. **Decision 36 is not a consistent cut.** An unload batch holds only the chunks unloading. The session
+   holds the header's pocket and every machine row, while other loaded, edited chunks and all Tier B panels
+   (which leave a tick after their voxels) are not in it. Carried together, a crash would mint mining credit
+   for a hole never saved, lose a placement's debit, or lose a pile in a second chunk. `SaveAll`, the one
+   consistent write, throws while a worker owns the grid, and unloads happen then.
+9. **The duplicate decision 36 guards against is not new.** M10-PLAN decision 4 records it: the chunk is
+   written at unload and the header at autosave, so every brush placement since M6c can be doubled by a
+   crash between the two, "accepted". A dump's pile after a crash is that lag again.
+10. **The world's write path checks no material.** `SetVoxel` writes any ID; only `Place.Validate` refuses
+    air, unplaceable IDs and IDs past the table (`Place.cs:1077–1107`). Vaults hold whatever the pocket held,
+    pumps, cells, panels and packs included. A loose voxel of a machine material is cleared to air **with no
+    credit** at its chunk's next arrival (`MachineSet.cs:581–606`).
+11. **Every write drives the whole hook**: the field's 4 KiB clone, `Disturb`, the portal tracker's full
+    chunk scan on its first edit and a rescan after 64, the enclosure, the support field (the chunk and six
+    neighbours re-derived, so natural overhangs beside a pile can arm), light, and a remesh of up to eight
+    chunks. A chunk written every boundary never settles, so collapses in and beside it wait. The only cost
+    figure is 1.5 µs a voxel, Debug, from before the build fix. **The heap half of decision 33 is unmeasured.**
+12. **The undo writes each step's old material back blindly** (`EditHistory.cs:395–402`), so a pile needs
+    `Forget` on every chunk it writes; its only caller today prints "left the loaded box".
+13. **`HoldsWater` is a tick stale at the dump's place in the boundary** (the publish follows the machine
+    tick), and a chunk whose water hasn't loaded reads dry; the collapse waits on `IsReady` for the same
+    reason. Wreck cells are not protected from block placement, so the pile has to ask `MachineSet.TryGet`.
+14. **The collapse's cyan glitch is one mesh node per piece** (`CollapsePictures.cs:337–386`), 11.7–21 ms a
+    frame when it was tried at scale. Glitching a pile's voxels as they appear needs a MultiMesh with its own
+    per-instance data: wire work.
+
+**Sixteen decisions.** Three amend the plan (marked ◆).
+
+1. **Split IM-5 in two.** **IM-5a (Core):** the water, the end of a dump, the bracket. **IM-5b (Core and a
+   bench arm):** the pile. The water mirrors IM-4a's twins; the pile runs under every hook in fact 11 and needs
+   its bench before its budget is real.
+   *Cost:* two sessions, not one.
+
+   **IM-5a**
+2. **Where the water goes** (decision 31, made exact). The mouth is the cell above the vault's top, as an
+   outlet's. It goes to **Tier A** if the mouth is in a lake (asked after `Cover`), or if it is above the seed
+   surface inside the window, loaded or not: decision 31's letter. It goes to **Tier B** if the mouth is at
+   or under the seed surface (a vault in the workings) and its chunk is loaded to the water. Otherwise it is
+   **owed**. `RoomAt`'s classification moves into a helper both use; its room does not.
+   *Cost:* a vault on the surface raises its basin's lake, which may be some way off. *The other arm:* the
+   outlet's rule, a loaded surface mouth pouring Tier B at the vault, a local flood through the automaton at
+   up to the 10 ML ceiling.
+3. **Tier A's door: `WaterSystem.Dump(basin, litres)`, counted `DumpedLitres`**, a spill counted in
+   `SpilledLitres` as `Pour`'s is, the outlet guarded. **The release clock is `FuseMillisLeft`**, set to
+   10,000 when the fuse burns out (and when a wreck is made). Each boundary pays `ceil(owed litres ÷ boundaries
+   left)`, so any size lands in about 10 s. What is under a litre at the end is decohered. No codec change.
+4. **Tier B's door: `FluidSimulation.Dump(voxel, millilitres)`, counted `DumpedMillilitres`**, mid-tick
+   guarded, and `IdentityExact` gains `+ dumped`. **The ball**: around the mouth, the lake ceiling covered
+   first, filled bottom-up layer by layer through `RoomFor`, visiting at most the boundary's budget of cells,
+   as the siphon's `PourB` does. **Its own budget**, 3,200 cells a boundary across all dumping vaults,
+   round-robin by position with the remainder to the first, apart from the siphon's.
+   *Cost:* both at once bound the worst at about 8 ms. *Revisit:* the boundary line's `dump` and `pour` terms
+   together pass 8 ms.
+5. **The ceilings, applied when the fuse burns out.** All dumping vaults together owe Tier B at most 10 ML;
+   what a new dump would add past that is decohered at once, whole. Tier A has no ceiling. (The heap's
+   10,000 m³ is 5b's.)
+6. **◆ The end of a dump** (fact 1; amends decision 34, which never said what "the end" is). When the last of
+   its contents has left, **a standing vault goes back to `Holding`**: empty, billing nothing, its own charge
+   kept and refilled as any vault's is. **A wreck with nothing left is removed with the journal paused**, its
+   stranded own charge leaving through `leaving`. So Ctrl+Z can't revive a dead vault, and a wreck doesn't
+   linger for ever.
+   *The other arm:* the dump destroys the vault at its end.
+7. **Owed while unloaded, released at a boundary** (decision 35, made exact). Water bound for Tier B waits
+   until the mouth's chunk is loaded to the water, then goes at the next boundary. It never goes at the
+   arrival, which runs every frame outside the boundary. Surface water goes to the basin either way.
+8. **◆ The crash lag is accepted, as placement's is** (facts 8 and 9; amends decision 36). A pile, or a ball's
+   water, in a chunk that unloads, followed by a crash before the next autosave, reopens with the pile and a
+   vault still owing it. That is M10-PLAN's accepted lag, which every brush placement has had since M6c.
+   **The lever is engine-wide and its own slice:** a chunk any door wrote (a placement, an outlet, the
+   siphon's pour, a dump, a quarry) stays loaded until the next autosave, at most 30 s, so the chunk and the
+   session land together.
+   *Cost:* a game killed within 30 s of walking away from a dump reopens with the pile and a full vault, as
+   it would with a wall just built. *The other arm:* decision 36 as written, which trades this duplicate for
+   new mints and losses elsewhere (fact 8).
+9. **The bracket: `dump`, after `RunMachineTick` and before the table check**, so a fuse that burns out
+   releases in the same boundary, and a lake's rise lands before the ceiling's refresh. Its own term on the
+   boundary line, never folded into `machines`, `pour` or `collapse`. Inside it: Tier A, then the ball, then
+   (5b) the pile.
+10. **The dump's own `Exact`**, its counters against every twin, with a `PushError` on a miss, as the
+    siphon's. The store's water line gains `− dumpedA − dumpedB − decohered`; the voxel line gains its terms
+    in 5b.
+
+    **IM-5b**
+11. **The heap: each voxel lands on the lowest dry air voxel resting on something solid, in the nearest
+    column, ring by ring out from the vault, within 32 m** (decision 30's "bottom-up, then nearest", made a
+    heap). A heap is supported as it grows, so the director rarely finds a pile voxel at risk. A voxel is
+    refused if it is unloaded or its water hasn't loaded, wet (the grid's own answer, not the published one),
+    in a lake band (after `Cover`), in a machine's or a wreck's cell, inside the player, or reserved by a
+    landing collapse. Each dump keeps a cursor per column. With no room left inside 32 m, it waits, printed
+    `no room`.
+12. **◆ Only what can lie loose is piled** (fact 10; amends decision 30's "in their own colours"). Machine
+    materials, items that aren't placeable (the packs, the computer), fluids and air are decohered, printed by
+    material. A hole left by a removed mod piles as a hole. A loose pump voxel would be cleared without credit
+    at its chunk's next arrival anyway.
+    *The other arm:* they stay owed, and a dump holding a pump never ends.
+13. **The undo forgets every chunk the pile writes**, with its own line and counter, and recording is off.
+14. **The heap's ceiling: 10,000 m³ (640,000 voxels) a dump**, the excess decohered when the fuse burns out.
+    Still the plan's estimate, and the bench checks it.
+15. **The bench arm first**: voxels a boundary against decision 33's 5–8 ms, the field's clone and the seep
+    rescan included, on the fixed build. The 512 a boundary stands until the bench says otherwise.
+16. **The cyan glitch as blocks appear is IM-6's** (fact 14): a MultiMesh with per-instance data, drawn by the
+    wire. 5b's pile appears plain.
+
+**Every door, priced** (the rule from IM-4c: run each round trip before recommending):
+
+| Door | What moves | Mints or loses |
+|---|---|---|
+| A fuse burns out, the dump lands | the vault's contents into the world | neither; every term counted |
+| Power comes back mid-dump | nothing (decision 34) | neither |
+| Ctrl+Z after a dump | nothing (5b forgets the chunks) | neither |
+| The emptied vault picked, then Ctrl+Z | an empty `Holding` vault (decision 6) | neither |
+| Over a ceiling, a pump in the vault | decohered, printed | loses, by design |
+| A crash after a pile's chunk unloads | the pile twice | mints, as placement's lag does (decision 8) |
+
+**Tests, 5a:** a Tier A release lands every litre in about 20 boundaries, the rest decohered; a Tier B dump
+stays inside the budget and `IdentityExact` holds with `dumped`; two vaults share the budget round-robin
+exactly; the 10 ML ceiling decoheres the excess; power returning after the burnout does nothing; an unloaded
+vault in the workings owes until its chunk's water is in, then pours at a boundary; an emptied vault is
+`Holding` again, and an empty wreck is gone with nothing for Ctrl+Z to bring back; the store's water line
+exact throughout. **Mutations:** the dump through `Add` (red on the dump's `Exact`, IM-4a's lesson being
+that the identity itself stays exact); the release clock never set; the ceiling skipped; the end state left
+`Dumping`; the wreck removed with the journal on.
+**Tests, 5b:** a fixture room takes every voxel once, as a supported heap; each refusal; a pump in the vault
+decohered; Ctrl+Z can't touch the pile; the heap's ceiling; the bench.
+
+**The riskiest part is 5b**: writes under every hook, beside the collapse and the support field.
 
 ## Must not ship
 
