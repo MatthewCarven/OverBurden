@@ -1,5 +1,9 @@
 # Collapse notes — the slow-then-fast fall ("Tetris gone bad")
 
+**The planning pass is [COLLAPSE-PLAN.md](COLLAPSE-PLAN.md) (2026-09-26).** It takes these notes' six
+leanings as follows: 1 and 3 as leaned; 2 by age rather than stage; 4 render-only, moved up;
+5 retired (the piece is the unit of saving); 6 not built.
+
 Matthew's idea, 2026-09-26, after demolishing one of his own towers on the pond world. **Notes
 rather than a plan, not built; the design and the build are a separate chat, on `main`.** Read
 this, then M9-PLAN's "M9c-1 — the planning pass" and "M9d — built", then `CollapseScheduler`

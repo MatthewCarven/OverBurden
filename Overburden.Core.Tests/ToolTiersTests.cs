@@ -74,6 +74,21 @@ public sealed class ToolTiersTests
     }
 
     [Fact]
+    public void AFreeSiphonSortedLastIsNeverTheDefault()
+    {
+        // IM-4's pass, decision 5. The default walks back from the end for the strongest free tool,
+        // and every water tool sorts after every rock tool; a siphon priced nothing is free, so
+        // without the rock rule a fresh world would start on it. (IM-4a's mutation battery: the
+        // shipped siphons cost, so no other test reached this.)
+        var siphon = new ToolDefinition { Id = Identifier.Parse("test:free_siphon"), Bite = ToolBite.Cube, Takes = ToolTakes.Water };
+        var ordered = ToolTiers.Order([siphon, Tool("overburden:hand_pick", 1.0f)]);
+
+        Assert.True(siphon.IsFree);
+        Assert.Same(siphon, ordered[^1]);
+        Assert.Equal("overburden:hand_pick", ToolTiers.Default(ordered).Id.ToString());
+    }
+
+    [Fact]
     public void WithNoFreeToolTheDefaultIsTheFirst()
     {
         var ordered = ToolTiers.Order([Tool("overburden:big", 5.0f, ToolBite.Chunk, 50), Tool("overburden:small", 5.0f, ToolBite.Cube, 50)]);

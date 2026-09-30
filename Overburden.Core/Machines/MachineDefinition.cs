@@ -2,13 +2,16 @@ using Overburden.Core.Content;
 
 namespace Overburden.Core.Machines;
 
-/// <summary>The engine behaviours a machine can pick by name. Two in M10a; the rest are reserved.</summary>
+/// <summary>The engine behaviours a machine can pick by name: four built (M10a–c); the rest are reserved.</summary>
 /// <remarks>
 /// <b>A kind is an engine behaviour keyed by a name, with the JSON supplying its numbers</b>
 /// (M10-PLAN decision 1) — the way <c>lightEmission</c> is an engine behaviour keyed by a number.
-/// A mod can ship a faster pump or a cheaper outlet; a new kind is M12's scripting. The reserved
-/// names — <c>generator</c>, <c>converter</c>, <c>storage</c>, <c>station</c> — are refused by the
-/// loader naming the part that will serve them, rather than loaded as machines that tick nothing.
+/// A mod can ship a faster pump or a cheaper outlet; a new kind is M12's scripting, with the named
+/// exceptions the plans take (collapse f's <c>sensor</c>, the ideal machines' <c>vault</c> and
+/// <c>quarry</c>). The reserved names — <c>generator</c>, <c>station</c> — are refused by the loader
+/// naming the part that will serve them, rather than loaded as machines that tick nothing. A
+/// capability that is not a home for a conserved quantity is an extra (<see cref="MachineExtra"/>),
+/// never a kind.
 /// </remarks>
 public enum MachineKind : byte
 {
@@ -20,6 +23,13 @@ public enum MachineKind : byte
 
     /// <summary>Holds joules between boundaries — a placed cell, or a carried pack (M10c).</summary>
     Storage,
+
+    /// <summary>
+    /// Holds blocks, and water, inside a 1 m body that is bigger on the inside — the quantum vault
+    /// (IDEAL-MACHINES-PLAN decisions 14–20, IM-3) — and, with no channel and no bill, the crate
+    /// (decision 22). A home for a conserved quantity, so a kind and not an extra (decision 1).
+    /// </summary>
+    Vault,
 }
 
 /// <summary>What a link carries.</summary>
@@ -116,6 +126,30 @@ public sealed class MachineDefinition
     /// <summary>Efficiency's unit: a converter's <c>efficiency</c> is read as a whole number of thousandths, never a float in the tick (decision 10).</summary>
     public const int PerMille = 1000;
 
+    /// <summary>A cubic metre in millilitres — the vault's volume unit, shared by blocks and water (IM-3).</summary>
+    public const long MillilitresPerCubicMetre = 1_000_000L;
+
+    /// <summary>
+    /// What one voxel takes inside a vault: a sixty-fourth of a cubic metre, 15.625 L (decision 15:
+    /// blocks and water share the inside volume).
+    /// </summary>
+    public const long VoxelMillilitres = MillilitresPerCubicMetre / 64;
+
+    /// <summary>The largest inside a vault may declare: the god grade's million cubic metres, an engine maximum (decision 5).</summary>
+    public const long MaxInsideCubicMetres = 1_000_000L;
+
+    /// <summary>The dearest hold a vault may declare, in milliwatts a cubic metre: a megawatt, so a full god vault's bill stays inside a long.</summary>
+    public const long MaxHoldMilliwattsPerCubicMetre = 1_000_000_000L;
+
+    /// <summary>What a vault on a channel carries of its own when its file says nothing: a minute of its bill (IM-3b, his minute).</summary>
+    public const long DefaultOwnChargeSeconds = 60;
+
+    /// <summary>
+    /// The most a vault may carry: an hour of its bill, so a full god vault at the dearest hold
+    /// (10⁹ mW a m³ × 10⁶ m³ × 3,600 s, 3.6 × 10¹⁸ mJ) stays inside a long.
+    /// </summary>
+    public const long MaxOwnChargeSeconds = 3_600;
+
     public required MachineKind Kind { get; init; }
 
     /// <summary>A converter's output at full input, in watts. Zero for a kind that has none.</summary>
@@ -145,9 +179,99 @@ public sealed class MachineDefinition
     /// <summary>The box a pump reads, in brush cells each way from its body: 1 is 3 × 3 × 3.</summary>
     public int IntakeRadiusCells { get; init; } = MinIntakeRadiusCells;
 
+    /// <summary>A vault's inside, in millilitres — its <c>insideCubicMetres</c>. Zero for a kind that has none.</summary>
+    public long InsideMillilitres { get; init; }
+
+    /// <summary>What a cubic metre of water costs to hold, in milliwatts (decision 16). Zero for a crate.</summary>
+    public long WaterHoldMilliwattsPerCubicMetre { get; init; }
+
+    /// <summary>What a cubic metre of blocks costs to hold, in milliwatts — a tenth of water's in the shipped grades.</summary>
+    public long BlockHoldMilliwattsPerCubicMetre { get; init; }
+
+    /// <summary>Whether the vault takes water (IM-4 reads it); false for a crate (decision 22).</summary>
+    public bool HoldsWater { get; init; }
+
+    /// <summary>
+    /// Whether this vault belongs to a channel's store and pays a bill from its pool: it has a power
+    /// link via <c>channel</c>. A crate has none (decision 22).
+    /// </summary>
+    public bool IsChannelVault => Kind == MachineKind.Vault && Links.Any(l => l.IsChannel);
+
+    /// <summary>
+    /// Seconds of its bill a vault carries in its own charge, as the file declared it (IM-3b,
+    /// decision 1); null reads <see cref="DefaultOwnChargeSeconds"/>. A crate declares none.
+    /// </summary>
+    public long? OwnChargeSeconds { get; init; }
+
+    /// <summary>
+    /// The milliseconds of its bill a vault's own charge holds — what <see cref="MachineTick.OwnChargeCapacity"/>
+    /// multiplies its bill by. Zero for anything but a vault on a channel.
+    /// </summary>
+    public long OwnChargeMillis => IsChannelVault ? (OwnChargeSeconds ?? DefaultOwnChargeSeconds) * 1000 : 0;
+
     public IReadOnlyList<MachineLink> Links { get; init; } = [];
 
     public IReadOnlyList<PortDefinition> Ports { get; init; } = [];
+
+    /// <summary>
+    /// The extras the machine opted into, each with the form it takes over the machine's medium,
+    /// resolved at load from every mod's <c>extras.json</c> (IDEAL-MACHINES-PLAN decisions 2 and 3).
+    /// Empty for a machine with none.
+    /// </summary>
+    public IReadOnlyDictionary<MachineExtra, ExtraForm> ExtraForms { get; init; } = NoExtras;
+
+    private static readonly IReadOnlyDictionary<MachineExtra, ExtraForm> NoExtras = new Dictionary<MachineExtra, ExtraForm>();
+
+    /// <summary>The extras as bits — what the material table projects, one byte a material.</summary>
+    public MachineExtra Extras
+    {
+        get
+        {
+            MachineExtra bits = MachineExtra.None;
+            foreach (MachineExtra extra in ExtraForms.Keys) bits |= extra;
+            return bits;
+        }
+    }
+
+    /// <summary>Whether the machine opted into <paramref name="extra"/>.</summary>
+    public bool Has(MachineExtra extra) => ExtraForms.ContainsKey(extra);
+
+    /// <summary>
+    /// Whether this is a window (decision 7): a carried storage whose <c>charge</c> takes the
+    /// window form, holding nothing and drawing on its channel's cells.
+    /// </summary>
+    public bool IsWindow => FormOf(MachineExtra.Charge) == ExtraForm.Window;
+
+    /// <summary>The form <paramref name="extra"/> takes on this machine, or <see cref="ExtraForm.None"/>.</summary>
+    public ExtraForm FormOf(MachineExtra extra) => ExtraForms.TryGetValue(extra, out ExtraForm form) ? form : ExtraForm.None;
+
+    /// <summary>
+    /// The medium a machine's extras reach over: its links' <c>via</c>, the sky aside (IM-1's pass,
+    /// decision 3). Null, with the reason, when it names none or two.
+    /// </summary>
+    public static string? MediumOf(IReadOnlyList<MachineLink> links, out string? error)
+    {
+        string? medium = null;
+        foreach (MachineLink link in links)
+        {
+            if (link.Via == SolarVia) continue;
+
+            if (medium is null)
+            {
+                medium = link.Via;
+            }
+            else if (medium != link.Via)
+            {
+                error = $"an extra reaches over one medium, and this machine's links name two ('{medium}' and '{link.Via}').";
+                return null;
+            }
+        }
+
+        error = medium is null
+            ? "an extra reaches as far as its machine's medium, and this machine names none (no link but the sky's)."
+            : null;
+        return medium;
+    }
 
     /// <summary>The link called <paramref name="name"/>, or null.</summary>
     public MachineLink? Link(string name)
@@ -213,6 +337,12 @@ public sealed class MachineDefinition
             }
         }
 
+        if (Kind != MachineKind.Vault && OwnChargeSeconds is not null)
+        {
+            error = "ownChargeSeconds belongs to a vault on a channel: it is the vault's own charge, a share of its bill.";
+            return false;
+        }
+
         if (Kind == MachineKind.Pump)
         {
             if (MillilitresPerSecond <= 0 || MillilitresPerSecond > MaxMillilitresPerSecond)
@@ -257,7 +387,17 @@ public sealed class MachineDefinition
 
         if (Kind == MachineKind.Storage)
         {
-            if (CapacityMillijoules <= 0 || CapacityMillijoules > MaxCapacityJoules * PerMille)
+            // Decision 7: a window holds nothing, so it declares no capacity and takes no charge;
+            // every other storage declares one. Refused, not zeroed, for the loader's reason.
+            if (IsWindow)
+            {
+                if (CapacityMillijoules != 0 || RechargeWatts is not null)
+                {
+                    error = "a window holds nothing: it declares no capacityJoules and no rechargeWatts.";
+                    return false;
+                }
+            }
+            else if (CapacityMillijoules <= 0 || CapacityMillijoules > MaxCapacityJoules * PerMille)
             {
                 error = $"capacityJoules must be more than 0 and at most {MaxCapacityJoules:N0} for a storage.";
                 return false;
@@ -402,16 +542,139 @@ public sealed class MachineDefinition
             }
         }
 
+        if (Kind == MachineKind.Vault && !TryValidateVault(out error))
+        {
+            return false;
+        }
+
+        return TryValidateExtras(out error);
+    }
+
+    /// <summary>
+    /// The vault's rules (IM-3's pass, decisions 1 and 2): an inside within the engine's maximum;
+    /// holds never negative and never over the maximum; a vault on a channel has exactly one power
+    /// link, a sink, the pool its bill is paid from; a crate has no links, no bill and no water.
+    /// </summary>
+    private bool TryValidateVault(out string? error)
+    {
+        if (InsideMillilitres <= 0 || InsideMillilitres > MaxInsideCubicMetres * MillilitresPerCubicMetre)
+        {
+            error = $"insideCubicMetres must be more than 0 and at most {MaxInsideCubicMetres:N0} for a vault.";
+            return false;
+        }
+
+        if (WaterHoldMilliwattsPerCubicMetre is < 0 or > MaxHoldMilliwattsPerCubicMetre
+            || BlockHoldMilliwattsPerCubicMetre is < 0 or > MaxHoldMilliwattsPerCubicMetre)
+        {
+            error = $"holdWattsPerCubicMetre must be within 0..{MaxHoldMilliwattsPerCubicMetre / PerMille:N0} for water and for blocks.";
+            return false;
+        }
+
+        if (Carried)
+        {
+            error = "a vault is a body; it cannot be carried.";
+            return false;
+        }
+
+        if (Links.Count == 0)
+        {
+            // The crate: no channel, so no store, no bill and no fuse — a box you open by hand.
+            if (WaterHoldMilliwattsPerCubicMetre != 0 || BlockHoldMilliwattsPerCubicMetre != 0 || HoldsWater)
+            {
+                error = "a vault with no links is a crate: it holds blocks only and bills nothing, so it declares no hold and no water.";
+                return false;
+            }
+
+            if (OwnChargeSeconds is not null)
+            {
+                error = "a vault with no links is a crate: it bills nothing, so it declares no ownChargeSeconds.";
+                return false;
+            }
+
+            error = null;
+            return true;
+        }
+
+        if (Links.Count != 1 || Links[0] is not { Carries: MachineMedium.Power, Role: MachineRole.Sink, IsChannel: true })
+        {
+            error = "a vault declares exactly one link, a power sink via channel — the pool its bill is paid from — or none, as a crate.";
+            return false;
+        }
+
+        // IM-3b, decision 1: never zero, because a lit fuse goes out only when the own charge is
+        // whole again (decision 5), and a charge of nothing is always whole.
+        if (OwnChargeSeconds is { } seconds && (seconds < 1 || seconds > MaxOwnChargeSeconds))
+        {
+            error = $"ownChargeSeconds must be within 1..{MaxOwnChargeSeconds:N0} for a vault on a channel.";
+            return false;
+        }
+
         error = null;
         return true;
     }
 
+    /// <summary>
+    /// The extras' rules that need no table (IM-1's pass, decisions 1, 3 and 4): each a known extra
+    /// in one of its own forms; <c>charge</c> a carried storage's and the other five a placed
+    /// machine's; the port an extra reads declared at its exact bounds; one medium to reach over.
+    /// Whether this build serves an extra is the loader's question, asked last.
+    /// </summary>
+    private bool TryValidateExtras(out string? error)
+    {
+        if (ExtraForms.Count == 0)
+        {
+            error = null;
+            return true;
+        }
+
+        foreach ((MachineExtra extra, ExtraForm form) in ExtraForms)
+        {
+            if (!MachineExtras.Each.Contains(extra))
+            {
+                error = $"extra {extra} is not one extra.";
+                return false;
+            }
+
+            string name = MachineExtras.NameOf(extra);
+            if (!MachineExtras.IsFormOf(extra, form))
+            {
+                error = $"extra '{name}' takes form {form}, which is not one of its own.";
+                return false;
+            }
+
+            if (MachineExtras.IsCarriedExtra(extra) != Carried)
+            {
+                error = Carried
+                    ? $"extra '{name}' is a placed machine's, and a carried storage has no body, no row and no pin."
+                    : $"extra '{name}' is a carried storage's; a placed machine is not a window.";
+                return false;
+            }
+
+            if (MachineExtras.RequiredPort(extra) is { } required)
+            {
+                if (Port(required.Name) is not { } port || port.Min != required.Min || port.Max != required.Max)
+                {
+                    error = $"extra '{name}' reads a port '{required.Name}' declared {required.Min}..{required.Max}; declare it with exactly those bounds.";
+                    return false;
+                }
+            }
+        }
+
+        return MediumOf(Links, out error) is not null;
+    }
+
     /// <summary>Whether this build's tick can serve a <c>via</c>, and if not which part will.</summary>
-    public static bool ViaIsServed(string via, out string? error)
+    public static bool ViaIsServed(string via, out string? error) => ViaIsServed(via, "via", out error);
+
+    /// <summary>
+    /// <see cref="ViaIsServed(string, out string?)"/>, with the messages naming <paramref name="noun"/>:
+    /// an extra's medium is checked by the same rule (IM-1's pass, decision 3).
+    /// </summary>
+    public static bool ViaIsServed(string via, string noun, out string? error)
     {
         if (string.IsNullOrEmpty(via))
         {
-            error = "via is empty.";
+            error = $"{noun} is empty.";
             return false;
         }
 
@@ -423,17 +686,17 @@ public sealed class MachineDefinition
 
         if (ReservedVia.Contains(via) || via.StartsWith(AdjacentViaPrefix, StringComparison.Ordinal))
         {
-            error = $"via '{via}' is an engine rule this build does not serve yet (M10f).";
+            error = $"{noun} '{via}' is an engine rule this build does not serve yet (M10f).";
             return false;
         }
 
         if (!Identifier.IsValidNamespace(via))
         {
-            error = $"via '{via}' is not a rule name: lowercase letters, digits, '_', '-' or '.'.";
+            error = $"{noun} '{via}' is not a rule name: lowercase letters, digits, '_', '-' or '.'.";
             return false;
         }
 
-        error = $"via '{via}' is a conductor class, and the conductor index is M10e.";
+        error = $"{noun} '{via}' is a conductor class, and the conductor index is M10e.";
         return false;
     }
 }

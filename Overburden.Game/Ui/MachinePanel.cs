@@ -523,6 +523,13 @@ public sealed partial class MachinePanel : CanvasLayer
             return ($"charged {ChargeOf(charge, capacity)}   ·   pooled on channel {channel}", charge > 0 ? MovedText : DimText, null);
         }
 
+        // IM-3's pass, decision 12: a vault's own line, so a vault never reads as a pump's stall.
+        // The full stock section — a row a material, the verbs, his warranty line — is IM-6's.
+        if (_kind == MachineKind.Vault)
+        {
+            return VaultStatus(row, channel);
+        }
+
         if (_kind == MachineKind.Converter)
         {
             int open = ConverterState.ReadOpenColumns(row);
@@ -545,6 +552,49 @@ public sealed partial class MachinePanel : CanvasLayer
             PumpStall.Unpowered => ($"stalled: no power on channel {channel}", StallText, PumpStall.Unpowered),
             _ => (row.LastStall.ToString(), StallText, row.LastStall),
         };
+    }
+
+    /// <summary>
+    /// A vault's line: <c>VAULT — holds 40 voxels, 0.6 of 1.0 m³ (62.5%) · bill 1.25 J a boundary on
+    /// channel 0, own 93.8 J of 93.8 J (100.0%) · HOLDING</c>, the phase as <c>FUSE 12.0 s</c> (or
+    /// <c>(paused)</c>), <c>DUMPING</c> or <c>WRECK</c>; a crate says so.
+    /// </summary>
+    private (string Text, Color Colour, PumpStall? Stall) VaultStatus(MachineRow row, long channel)
+    {
+        MachineDefinition? definition = _machines?.VaultDefinitionOf(row);
+        if (definition is null || !VaultState.TryRead(row, out VaultContents contents))
+        {
+            return ("VAULT — its state is from a newer build: kept as it is, holding whatever it holds", StallText, null);
+        }
+
+        string used = $"{contents.UsedMillilitres / (double)MachineDefinition.MillilitresPerCubicMetre:N1} of "
+                      + $"{definition.InsideMillilitres / (double)MachineDefinition.MillilitresPerCubicMetre:N1} m³ "
+                      + $"({Share(contents.UsedMillilitres, definition.InsideMillilitres)})";
+        string holds = $"holds {contents.TotalVoxels:N0} voxel(s)"
+                       + (contents.WaterMillilitres > 0 ? $" and {Litres(contents.WaterMillilitres)}" : string.Empty)
+                       + $", {used}";
+        if (!definition.IsChannelVault)
+        {
+            return ($"CRATE — {holds}   ·   no channel, no bill", contents.IsEmpty ? DimText : MovedText, null);
+        }
+
+        long bill = MachineTick.BillOf(definition, contents, _tick?.BoundaryMillis ?? MachineTick.DefaultBoundaryMillis);
+
+        // IM-3b's pass, decisions 5 and 7: its own minute beside the bill, and a lit fuse whose bill was
+        // paid at the last boundary says it is waiting, not burning.
+        string own = $"own {ChargeOf(contents.OwnChargeMillijoules, MachineTick.OwnChargeCapacity(definition, contents))}";
+        (string phase, Color colour) = contents switch
+        {
+            { Wreck: true } => ("WRECK — its contents are owed to the world", StallText),
+            { Phase: VaultPhase.Dumping } => ("DUMPING — its contents are owed to the world", StallText),
+            { Phase: VaultPhase.Fusing } when row.LastHoldPaid =>
+                ($"FUSE {contents.FuseMillisLeft / 1000.0:N1} s (paused) — the bill is paid; out when its minute is back", StallText),
+            { Phase: VaultPhase.Fusing } => ($"FUSE {contents.FuseMillisLeft / 1000.0:N1} s — the bill went unpaid", StallText),
+            _ when !MachineTick.IsEnabled(row) => ("HOLDING, closed to deposits (enabled 0)", DimText),
+            _ => ("HOLDING", contents.IsEmpty ? DimText : MovedText),
+        };
+
+        return ($"VAULT — {holds}   ·   bill {Joules(bill)} a boundary on channel {channel}, {own}   ·   {phase}", colour, null);
     }
 
     /// <summary>Millijoules in the unit a person reads: mJ under a joule, then J, kJ, MJ, GJ.</summary>

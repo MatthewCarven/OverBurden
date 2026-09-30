@@ -5,6 +5,7 @@ using Overburden.Core.Hydrology;
 using Overburden.Core.Lighting;
 using Overburden.Core.Voxels;
 using Overburden.Core.Diagnostics;
+using Overburden.Core.Worldgen;
 
 namespace Overburden.Core.Machines;
 
@@ -13,13 +14,18 @@ public enum PumpStall : byte
 {
     None,
 
-    /// <summary>No outlet on the pump's channel.</summary>
+    /// <summary>Nothing in the pump's ring: no outlet and no vault that holds water on its channel.</summary>
     NoOutlet,
 
     /// <summary>Nothing in the intake box, or the lake the mouth stands in is dry.</summary>
     NoWater,
 
-    /// <summary>Every outlet it reached is loaded and has no room in the layer above its top.</summary>
+    /// <summary>
+    /// The first refusal it met was no room: an outlet loaded with its layer above full, or a vault in
+    /// the ring full, switched off, dumping, a wreck or unreadable (IM-4b). Only the first reason a
+    /// boundary is kept (IM-4's pass, decision 11), so a full ring whose first entry is an unloaded
+    /// outlet reads <see cref="Unloaded"/>; there is no separate "full".
+    /// </summary>
     NoRoom,
 
     /// <summary>A chunk of the intake box is not loaded to the water, or an outlet is unloaded and underground.</summary>
@@ -37,6 +43,12 @@ public enum PumpStall : byte
 /// <param name="DrawnMillijoules">What the pumps paid this boundary.</param>
 /// <param name="ClampedMillijoules">What no storage row could hold after the write-back — reported, never tolerated.</param>
 /// <param name="PackGivenMillijoules">What the equipped pack took from its channel, last.</param>
+/// <param name="HeldMillijoules">What vault bills took this boundary, from the pools and the vaults' own charges together.</param>
+/// <param name="HeldFromOwnMillijoules">Of that, what the vaults' own charges paid (IM-3b).</param>
+/// <param name="OwnGivenMillijoules">What the spare put into the vaults' own charges, after the consumers.</param>
+/// <param name="OwnReturnedMillijoules">What own charges over a minute of their bills gave back to the pools, before the bills.</param>
+/// <param name="VaultedMillilitres">What pumps put into vaults in their rings this boundary (IM-4b): neither tier's, so not emitted.</param>
+/// <param name="Vaults">Vaults that hold water in the rings, beside <paramref name="Outlets"/>.</param>
 public readonly record struct MachineTickReport(
     int Pumps,
     int Outlets,
@@ -54,7 +66,13 @@ public readonly record struct MachineTickReport(
     long GeneratedMillijoules = 0,
     long DrawnMillijoules = 0,
     long ClampedMillijoules = 0,
-    long PackGivenMillijoules = 0)
+    long PackGivenMillijoules = 0,
+    long HeldMillijoules = 0,
+    long HeldFromOwnMillijoules = 0,
+    long OwnGivenMillijoules = 0,
+    long OwnReturnedMillijoules = 0,
+    long VaultedMillilitres = 0,
+    int Vaults = 0)
 {
     /// <summary>Everything a pump took this boundary, in millilitres, both tiers.</summary>
     public long PumpedInAll => PumpedMillilitres + (PumpedLitres * FluidConstants.MillilitresPerLitre);
@@ -62,14 +80,14 @@ public readonly record struct MachineTickReport(
     /// <summary>Everything an outlet gave this boundary, in millilitres, both tiers.</summary>
     public long EmittedInAll => EmittedMillilitres + (EmittedLitres * FluidConstants.MillilitresPerLitre);
 
-    /// <summary>The machine layer's own identity, per boundary: nothing is in flight after the call.</summary>
-    public bool Exact => PumpedInAll == EmittedInAll;
+    /// <summary>The machine layer's own identity, per boundary — <c>pumped == emitted + vaulted</c>: nothing is in flight after the call.</summary>
+    public bool Exact => PumpedInAll == EmittedInAll + VaultedMillilitres;
 
     public override string ToString() =>
-        $"{Pumps} pump(s) over {Outlets} outlet(s), {Moved} moved; pumped {PumpedMillilitres:N0} mL + {PumpedLitres:N0} L, "
-        + $"emitted {EmittedMillilitres:N0} mL + {EmittedLitres:N0} L ({(Exact ? "exact" : "*** NOT EXACT ***")}); "
+        $"{Pumps} pump(s) over {Outlets} outlet(s) and {Vaults} vault(s), {Moved} moved; pumped {PumpedMillilitres:N0} mL + {PumpedLitres:N0} L, "
+        + $"emitted {EmittedMillilitres:N0} mL + {EmittedLitres:N0} L, vaulted {VaultedMillilitres:N0} mL ({(Exact ? "exact" : "*** NOT EXACT ***")}); "
         + $"stalled: {NoOutlet} no outlet, {NoWater} no water, {NoRoom} no room, {Unloaded} unloaded, {Unanalysed} unanalysed, {Unpowered} unpowered; "
-        + $"power: generated {GeneratedMillijoules:N0} mJ, drawn {DrawnMillijoules:N0}, clamped {ClampedMillijoules:N0}, pack given {PackGivenMillijoules:N0}";
+        + $"power: generated {GeneratedMillijoules:N0} mJ, drawn {DrawnMillijoules:N0}, clamped {ClampedMillijoules:N0}, pack given {PackGivenMillijoules:N0}, held {HeldMillijoules:N0} ({HeldFromOwnMillijoules:N0} from own charges), own given {OwnGivenMillijoules:N0}, own returned {OwnReturnedMillijoules:N0}";
 }
 
 /// <summary>
@@ -87,8 +105,9 @@ public readonly record struct MachineTickReport(
 /// through the rock); the offer is the smaller of the budget and what is there; and from the
 /// channel's cursor over its outlets, each outlet takes the smaller of its room and what is
 /// left of the offer, the intake is drained by exactly that, the outlet is given exactly that.
-/// <c>pumped == emitted</c> holds per pump per boundary by construction — the room is read, then
-/// exactly that much moves — and the world's total is a constant of this layer.
+/// <c>pumped == emitted + vaulted</c> holds per pump per boundary by construction — the room is
+/// read, then exactly that much moves — and the world's total, the tiers' and what vaults took
+/// (IM-4b), is a constant of this layer.
 /// </para>
 /// <para>
 /// <b>The cheap read first, then the cells</b> (decision 7): up to eight <see cref="IFluidTerrain.IsLoaded"/>
@@ -117,7 +136,7 @@ public readonly record struct MachineTickReport(
 /// <b>The cursor is the channel's, in memory, reset at open</b> (decision 9): sixteen integers,
 /// advanced once per pump that moved anything, so two pumps on one channel reach two outlets in
 /// one boundary and one pump with two outlets alternates. Determinism is within a session from
-/// the same open — pumps in origin order, outlets per channel in origin order, both rebuilt when
+/// the same open — pumps by priority then origin order (decision 41), outlets per channel in origin order, both rebuilt when
 /// the set's version moves.
 /// </para>
 /// <para>
@@ -135,6 +154,23 @@ public readonly record struct MachineTickReport(
 /// no generation, no bill, no write-back — the game's <c>--nogate</c>.
 /// </para>
 /// <para>
+/// <b>A window is paid out of the cells between boundaries</b> (IDEAL-MACHINES-PLAN decisions 7
+/// and 8): the quantum backpack holds nothing, the recharge skips it, and a tool spending through
+/// it draws on its channel's enabled cells through <see cref="IChannelBank"/>, last-filled first.
+/// The run sums the pool from the cells as the draws left them, so the hand's spend has already
+/// happened when the consumers are paid, by priority then position (decisions 9 and 41).
+/// </para>
+/// <para>
+/// <b>A vault carries a minute of its own bill</b> (IM-3b). Its own charge's capacity is its bill as
+/// it stands for <see cref="MachineDefinition.OwnChargeMillis"/>; a charge over that goes back to the
+/// pool before the bills. A bill is paid from the pool as far as it goes and from the own charge for
+/// the rest, all or nothing, and unpaid only when both together fall short. After the consumers,
+/// what the pool has left refills the own charges in fill order, before the pack. A paid boundary
+/// pauses a lit fuse, and only an own charge that is whole again puts it out, so a fuse follows the
+/// channel's average and not its best boundary: under IM-3's rule a cell holding the unpaid pool paid
+/// one boundary in twenty and held a vault on a twentieth of its bill for ever.
+/// </para>
+/// <para>
 /// <b>Weights are the ring, not a second rule</b> (M10b, decision 5). A channel's ring is its
 /// outlets in origin order expanded by their <c>weight</c> port through the smooth weighted
 /// round-robin — each turn picks the outlet with the largest running credit, every credit grows by
@@ -144,8 +180,19 @@ public readonly record struct MachineTickReport(
 /// the ring; a pump walking it skips an outlet it already reached this boundary, so a weight of a
 /// hundred is one room read, not a hundred.
 /// </para>
+/// <para>
+/// <b>A vault that holds water is in its channel's ring</b> (IM-4b; IM-4's pass, decision 9), by its
+/// kind and <see cref="MachineDefinition.HoldsWater"/> and not by a link — a vault declares exactly one,
+/// its power sink. It sits among the outlets in origin order and weighs its <c>weight</c> port, one if
+/// it declares none. Its room is its free millilitres, read every boundary off its bytes, because a
+/// vault's writes move no version: switched off, dumping, a wreck or unreadable, it has none. What a
+/// pump puts in it is <c>vaulted</c> — in neither tier, so never <c>emitted</c> — through the store's
+/// own door for pumps, never the siphon's; the line is <c>pumped == emitted + vaulted</c>, and the
+/// world's water is the tiers' plus what the vaults took. A lake pump fills it in whole litres, as it
+/// fills a basin.
+/// </para>
 /// </remarks>
-public sealed class MachineTick
+public sealed class MachineTick : IChannelBank
 {
     /// <summary>The port every channel link reads.</summary>
     public const string ChannelPort = MachineLink.ChannelVia;
@@ -181,13 +228,31 @@ public sealed class MachineTick
     /// </summary>
     public const string EnabledPort = "enabled";
 
+    /// <summary>
+    /// The port a consumer with the <c>priority</c> extra declares, 0–9, higher paid first
+    /// (IDEAL-MACHINES-PLAN decision 41).
+    /// </summary>
+    public const string PriorityPort = MachineExtras.PriorityPort;
+
+    /// <summary>
+    /// What a consumer without the extra reads, and what every shipped one defaults to: the middle,
+    /// so equal priorities are today's position order and no M10 oracle moves.
+    /// </summary>
+    public const long DefaultPriority = 5;
+
     private long _builtAtVersion = -1;
+
+    // Decision 8: a window draws between boundaries, never inside the run; the draw asks this.
+    private bool _running;
     private readonly List<(MachineRow Row, MachineDefinition Definition)> _pumps = [];
     private readonly List<MachineRow>?[] _outlets = new List<MachineRow>?[Channels];
     private readonly int[] _outletCount = new int[Channels];
     private readonly int[] _cursor = new int[Channels];
     private readonly List<ChunkPos> _boxChunks = new(8);
     private readonly HashSet<MachineRow> _reached = [];
+
+    // IM-4b: the ring's tag — which of its entries are vaults, with their definitions; the rest are outlets.
+    private readonly Dictionary<MachineRow, MachineDefinition> _ringVaults = [];
 
     // The chunk columns the tick reads or writes water in, rebuilt with the rings (2026-09-19).
     private readonly HashSet<(int X, int Z)> _nearColumns = [];
@@ -196,6 +261,9 @@ public sealed class MachineTick
     private readonly List<(MachineRow Row, MachineDefinition Definition, int Channel)> _converters = [];
     private readonly List<(MachineRow Row, MachineDefinition Definition)>?[] _storage = new List<(MachineRow, MachineDefinition)>?[Channels];
     private readonly long[] _available = new long[Channels];
+
+    // IM-3: each channel's vaults in fill order, whose bills are paid before any consumer (decision 9).
+    private readonly List<(MachineRow Row, MachineDefinition Definition)>?[] _vaults = new List<(MachineRow, MachineDefinition)>?[Channels];
 
     /// <param name="machines">The rows; the tick reads them and never writes a row.</param>
     /// <param name="materials">Which rows are pumps and outlets, and at what rate.</param>
@@ -280,9 +348,18 @@ public sealed class MachineTick
             _packTakenSum += outgoing.TakenMillijoules;
             PackStowedMillijoules += stowed;
             PacksUnequipped++;
+
+            // An unequipped window draws on nothing: a stale reference would be a door into the
+            // pool whose taken no longer lands in the sums above.
+            outgoing.Bank = null;
         }
 
         Pack = pack;
+        if (pack is { IsWindow: true })
+        {
+            pack.Bank = this;
+        }
+
         return stowed;
     }
 
@@ -316,6 +393,13 @@ public sealed class MachineTick
             return -1;
         }
 
+        // Decision 7: a window holds nothing, so the debug fill gives it nothing — Alt+P fills
+        // the cells, never the window.
+        if (Pack.IsWindow)
+        {
+            return 0;
+        }
+
         long given = Pack.Give(millijoules);
         PackDebugMillijoules += given;
         return given;
@@ -335,6 +419,69 @@ public sealed class MachineTick
 
     /// <summary>Boundaries run.</summary>
     public long Boundaries { get; private set; }
+
+    /// <summary>The shortest a vault's fuse burns: ten seconds, his collapse fuse's (decision 28).</summary>
+    public const long FuseMinMillis = 10_000;
+
+    /// <summary>The longest, at a shortfall near zero; a channel that pays nothing pulls it halfway to the minimum.</summary>
+    public const long FuseMaxMillis = 20_000;
+
+    /// <summary>
+    /// What a fuse's draw is seeded from — the world's seed, set by the game — so a fuse is a property
+    /// of the world and the boundary, never of <c>Random.Shared</c> (M10-PLAN D5). Zero in a test.
+    /// </summary>
+    public ulong FuseSeed { get; set; }
+
+    /// <summary>Millijoules vault bills took from their channels' pools, over the lifetime — the pool identity's <c>held</c> term (decision 16).</summary>
+    public long HeldMillijoules { get; private set; }
+
+    /// <summary>
+    /// Millijoules the siphon drew from its channels' banks, over the lifetime — the pool identity's
+    /// <c>siphonPaid</c> (IM-4a). <see cref="IChannelBank"/>'s rule: every caller of its draw counts
+    /// what came out in a term of its own, as the pack counts <c>taken</c>.
+    /// </summary>
+    public long SiphonPaidMillijoules { get; private set; }
+
+    /// <summary>What a channel's enabled cells hold now — what a siphon's take can afford.</summary>
+    internal long BankOf(int channel) => ((IChannelBank)this).BankMillijoules(channel);
+
+    /// <summary>
+    /// The siphon's draw on a channel's bank, last-filled first, counted <c>siphonPaid</c>. Between
+    /// boundaries or in the boundary's window before the run, never inside it: the draw throws there.
+    /// </summary>
+    internal long PaySiphon(int channel, long millijoules)
+    {
+        long drawn = ((IChannelBank)this).Draw(channel, millijoules);
+        SiphonPaidMillijoules += drawn;
+        return drawn;
+    }
+
+    /// <summary>Of <see cref="HeldMillijoules"/>, what the vaults' own charges paid (IM-3b's pass, decision 4) — printed, never a term of its own.</summary>
+    public long HeldFromOwnMillijoules { get; private set; }
+
+    /// <summary>Millijoules the spare put into vaults' own charges, over the lifetime (decision 6) — a transfer inside <c>stored</c>.</summary>
+    public long OwnChargeGivenMillijoules { get; private set; }
+
+    /// <summary>Millijoules own charges over a minute of their bills gave back to their pools, over the lifetime (decision 2) — a transfer too.</summary>
+    public long OwnChargeReturnedMillijoules { get; private set; }
+
+    /// <summary>Vault-boundaries a lit fuse waited on because the bill was paid (decision 5).</summary>
+    public long FusesPaused { get; private set; }
+
+    /// <summary>Millijoules in every vault's own charge now — inside <see cref="StoredMillijoules"/>, printed apart.</summary>
+    public long VaultOwnChargeMillijoules => _machines.VaultOwnChargeMillijoules;
+
+    /// <summary>Vault-boundaries whose bill was paid in full, and those that were not.</summary>
+    public long VaultBillsPaid { get; private set; }
+
+    public long VaultBillsUnpaid { get; private set; }
+
+    /// <summary>Fuses lit by an unpaid bill, put out by an own charge whole again (IM-3b), and burned through to the dump.</summary>
+    public long FusesArmed { get; private set; }
+
+    public long FusesDisarmed { get; private set; }
+
+    public long FusesBurnt { get; private set; }
 
     /// <summary>Millijoules every converter generated, over the lifetime.</summary>
     public long GeneratedMillijoules { get; private set; }
@@ -396,7 +543,8 @@ public sealed class MachineTick
     }
 
     /// <summary>
-    /// The pool's identity over the session: every millijoule on a row or in the pack now is one
+    /// The pool's identity over the session: every millijoule on a row (a cell's charge or a vault's
+    /// own) or in the pack now is one
     /// that entered on a row, was generated, or was in a pack at hand-over, less what left on a
     /// row, what the pumps paid, what was clamped, what the tool took and what a swap stowed.
     /// No term is in flight.
@@ -404,8 +552,9 @@ public sealed class MachineTick
     public bool PowerExact =>
         StoredMillijoules + (Pack?.ChargeMillijoules ?? 0)
         == _machines.StoredMillijoulesEntering - _machines.StoredMillijoulesLeaving
-            + GeneratedMillijoules - DrawnByPumpsMillijoules - ClampedMillijoules
-            + PackInitialMillijoules + PackDebugMillijoules - PackTakenMillijoules - PackStowedMillijoules;
+            + GeneratedMillijoules - DrawnByPumpsMillijoules - ClampedMillijoules - HeldMillijoules
+            + PackInitialMillijoules + PackDebugMillijoules - PackTakenMillijoules - PackStowedMillijoules
+            - SiphonPaidMillijoules;
 
     /// <summary>Pump-boundaries that moved anything.</summary>
     public long Moves { get; private set; }
@@ -428,7 +577,16 @@ public sealed class MachineTick
     /// <summary>Of the litres emitted, litres delivered to an outlet whose mouth stands in a lake.</summary>
     public long EmittedLitresIntoLakes { get; private set; }
 
-    /// <summary>Pump-boundaries that found no outlet on their channel.</summary>
+    /// <summary>
+    /// Millilitres pumps put into vaults in their rings, over the lifetime (IM-4b) — the third term of
+    /// <see cref="CrossTierExact"/>. Equals <see cref="MachineSet.WaterVaultedMillilitres"/>' growth.
+    /// </summary>
+    public long VaultedMillilitres { get; private set; }
+
+    /// <summary>Vault room reads, over the lifetime — one per vault a pump reached, whatever its weight.</summary>
+    public long VaultRoomReads { get; private set; }
+
+    /// <summary>Pump-boundaries that found nothing in their ring: no outlet and no vault that holds water on their channel.</summary>
     public long StalledNoOutlet { get; private set; }
 
     /// <summary>Pump-boundaries that found nothing to take.</summary>
@@ -457,16 +615,20 @@ public sealed class MachineTick
 
     /// <summary>
     /// The machine layer's own identity over the lifetime: everything pumped, on either tier,
-    /// equals everything emitted, on either tier. Nothing is in flight after a call.
+    /// equals everything emitted, on either tier, plus everything put into vaults (IM-4b). Nothing
+    /// is in flight after a call.
     /// </summary>
     public bool CrossTierExact =>
         PumpedMillilitres + (PumpedLitres * FluidConstants.MillilitresPerLitre)
-        == EmittedMillilitres + (EmittedLitres * FluidConstants.MillilitresPerLitre);
+        == EmittedMillilitres + (EmittedLitres * FluidConstants.MillilitresPerLitre) + VaultedMillilitres;
 
     /// <summary>The cursor on <paramref name="channel"/>: which ring entry the next pump that moves anything reaches first.</summary>
     public int CursorOn(int channel) => _cursor[channel];
 
-    /// <summary>The ring on <paramref name="channel"/> as the last rebuild left it — the outlets expanded by weight, in turn order.</summary>
+    /// <summary>Vaults that hold water in the rings, as the last rebuild left them.</summary>
+    public int RingVaults => _ringVaults.Count;
+
+    /// <summary>The ring on <paramref name="channel"/> as the last rebuild left it — the outlets and the vaults that hold water, expanded by weight, in turn order.</summary>
     public IReadOnlyList<MachineRow> RingOn(int channel)
     {
         if (_builtAtVersion != _machines.Version)
@@ -504,13 +666,31 @@ public sealed class MachineTick
 
     private static readonly int WatchMachines = CallWatch.Register("machines: tick");
 
-    /// <summary>One boundary: every pump, in origin order.</summary>
+    /// <summary>One boundary: every pump, by priority and then in origin order (IDEAL-MACHINES-PLAN decision 41).</summary>
     /// <remarks>
     /// Refuses mid-tick through the simulation's own guard on the first <c>Pump</c> or
     /// <c>Emit</c>; a caller that reaches here inside a tick has not been taught to wait, and
     /// the grid read before the refusal would be a worker's.
     /// </remarks>
     public MachineTickReport Run()
+    {
+        if (_running)
+        {
+            throw new InvalidOperationException("The machine tick is already running; a boundary does not nest.");
+        }
+
+        _running = true;
+        try
+        {
+            return RunBoundary();
+        }
+        finally
+        {
+            _running = false;
+        }
+    }
+
+    private MachineTickReport RunBoundary()
     {
         using CallWatch.Scope callWatch = CallWatch.Time(WatchMachines);
         Boundaries++;
@@ -527,20 +707,25 @@ public sealed class MachineTick
         }
 
         int moved = 0;
-        long pumpedB = 0, pumpedA = 0, emittedB = 0, emittedA = 0;
+        long pumpedB = 0, pumpedA = 0, emittedB = 0, emittedA = 0, vaulted = 0;
         int noOutlet = 0, noWater = 0, noRoom = 0, unloaded = 0, unanalysed = 0, unpowered = 0;
 
         // M10c: the pool before the pumps — what every channel can pay this boundary.
         long generated = PowerOff ? 0 : BeginPower();
 
+        // IM-3: every vault's hold before any consumer, in fill order, each all or nothing (decision 9);
+        // IM-3b: an own charge over a minute of its bill back to the pool first.
+        long held = PowerOff ? 0 : PayHolds();
+
         foreach ((MachineRow row, MachineDefinition definition) in _pumps)
         {
-            long b0 = PumpedMillilitres, a0 = PumpedLitres, eb0 = EmittedMillilitres, ea0 = EmittedLitres;
+            long b0 = PumpedMillilitres, a0 = PumpedLitres, eb0 = EmittedMillilitres, ea0 = EmittedLitres, v0 = VaultedMillilitres;
             PumpStall stall = TickPump(row, definition);
             pumpedB += PumpedMillilitres - b0;
             pumpedA += PumpedLitres - a0;
             emittedB += EmittedMillilitres - eb0;
             emittedA += EmittedLitres - ea0;
+            vaulted += VaultedMillilitres - v0;
 
             // What the panel reads beside the number the player typed (M10b, decision 6).
             row.LastStall = stall;
@@ -579,11 +764,13 @@ public sealed class MachineTick
             }
         }
 
-        // M10c: the pack last, then the write-back and the clamp.
-        long drawn = 0, clamped = 0, packGiven = 0;
+        // IM-3b: the vaults' own charges from the spare, after the consumers (decision 6); then, as
+        // M10c had it, the pack last, the write-back and the clamp.
+        long drawn = 0, clamped = 0, packGiven = 0, ownGiven = 0;
         if (!PowerOff)
         {
             drawn = _drawnThisBoundary;
+            ownGiven = RechargeVaults();
             packGiven = RechargePack();
             clamped = WriteBack();
         }
@@ -591,11 +778,14 @@ public sealed class MachineTick
         Last = new MachineTickReport(
             pumps, outlets, moved, pumpedB, pumpedA, emittedB, emittedA,
             noOutlet, noWater, noRoom, unloaded, unanalysed, unpowered,
-            generated, drawn, clamped, packGiven);
+            generated, drawn, clamped, packGiven, held, _heldFromOwnThisBoundary, ownGiven, _ownReturnedThisBoundary,
+            vaulted, _ringVaults.Count);
         return Last;
     }
 
     private long _drawnThisBoundary;
+    private long _heldFromOwnThisBoundary;
+    private long _ownReturnedThisBoundary;
 
     /// <summary>
     /// Every converter's output and every storage row's charge, summed per channel into what the
@@ -681,10 +871,214 @@ public sealed class MachineTick
         return millijoules;
     }
 
+    /// <summary>
+    /// A vault's bill for one boundary, in millijoules (decision 16; IM-3's pass, decision 6): water
+    /// and blocks at their rates a cubic metre, for the boundary's milliseconds, rounded up so a vault
+    /// holding anything always costs something, in 128-bit arithmetic because a full god vault's
+    /// numerator is past a long.
+    /// </summary>
+    public static long BillOf(MachineDefinition definition, VaultContents contents, long boundaryMillis)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        ArgumentNullException.ThrowIfNull(contents);
+
+        // Milliwatts a cubic metre × millilitres × milliseconds ÷ (10⁶ mL a m³ × 10³ ms a s) = millijoules.
+        Int128 blocks = (Int128)definition.BlockHoldMilliwattsPerCubicMetre * contents.TotalVoxels * MachineDefinition.VoxelMillilitres;
+        Int128 water = (Int128)definition.WaterHoldMilliwattsPerCubicMetre * contents.WaterMillilitres;
+        Int128 numerator = (blocks + water) * boundaryMillis;
+        Int128 denominator = MachineDefinition.MillilitresPerCubicMetre * 1000;
+        Int128 bill = (numerator + denominator - 1) / denominator;
+        return bill > long.MaxValue ? long.MaxValue : (long)bill;
+    }
+
+    /// <summary>
+    /// A vault's own charge's capacity, in millijoules (IM-3b's pass, decision 2): a minute of its bill
+    /// as it stands — <see cref="BillOf"/> for <see cref="MachineDefinition.OwnChargeMillis"/>, the
+    /// same rounded-up arithmetic — so every vault on a dead channel holds for its minute, full or nearly
+    /// empty. An empty vault's is zero; a crate's is zero.
+    /// </summary>
+    public static long OwnChargeCapacity(MachineDefinition definition, VaultContents contents)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        return definition.OwnChargeMillis == 0 ? 0 : BillOf(definition, contents, definition.OwnChargeMillis);
+    }
+
+    /// <summary>
+    /// Every vault on every channel, in fill order (decisions 27, 28 and 34, as IM-3b's pass amended
+    /// them). First an own charge over a minute of its bill goes back to the pool. Then each bill is paid
+    /// from the pool as far as it goes and from the vault's own charge for the rest, all or nothing: a
+    /// paid bill pauses a lit fuse; an unpaid one lights it, or burns it down by the boundary's
+    /// milliseconds, and a fuse burned through leaves the vault dumping with its contents owed. The fuse
+    /// goes out at the recharge, never here (<see cref="RechargeVaults"/>). A wreck and a dumping vault pay
+    /// nothing and are charged nothing; an empty vault costs nothing and cannot fuse. Returns what was paid.
+    /// </summary>
+    private long PayHolds()
+    {
+        long paid = 0;
+        _heldFromOwnThisBoundary = 0;
+        _ownReturnedThisBoundary = 0;
+        for (int channel = 0; channel < Channels; channel++)
+        {
+            List<(MachineRow Row, MachineDefinition Definition)>? vaults = _vaults[channel];
+            if (vaults is null)
+            {
+                continue;
+            }
+
+            // Decision 2: a withdrawal lowered the capacity; the excess is the pool's before any bill.
+            foreach ((MachineRow row, MachineDefinition definition) in vaults)
+            {
+                if (!VaultState.TryRead(row, out VaultContents contents) || contents.Owes)
+                {
+                    continue;
+                }
+
+                long excess = contents.OwnChargeMillijoules - OwnChargeCapacity(definition, contents);
+                if (excess > 0)
+                {
+                    contents.OwnChargeMillijoules -= excess;
+                    VaultState.Write(row, contents);
+                    _available[channel] += excess;
+                    _ownReturnedThisBoundary += excess;
+                }
+            }
+
+            foreach ((MachineRow row, MachineDefinition definition) in vaults)
+            {
+                if (!VaultState.TryRead(row, out VaultContents contents) || contents.Owes)
+                {
+                    row.LastHoldPaid = false;
+                    continue;
+                }
+
+                // Decision 4: the pool as far as it goes, then the own charge for the rest; so the
+                // first-filled take the pool in a shortage and a consumer never drinks it while a
+                // vault is spending its own minute.
+                long bill = BillOf(definition, contents, _boundaryMillis);
+                long fromPool = Math.Min(_available[channel], bill);
+                long fromOwn = bill - fromPool;
+                if (fromOwn <= contents.OwnChargeMillijoules)
+                {
+                    _available[channel] -= fromPool;
+                    paid += bill;
+                    row.LastHoldPaid = true;
+                    if (bill > 0) VaultBillsPaid++;
+
+                    // Decision 5: a paid boundary pauses a lit fuse; only a whole own charge puts it out.
+                    if (contents.Phase == VaultPhase.Fusing) FusesPaused++;
+                    if (fromOwn > 0)
+                    {
+                        contents.OwnChargeMillijoules -= fromOwn;
+                        _heldFromOwnThisBoundary += fromOwn;
+                        VaultState.Write(row, contents);
+                    }
+
+                    continue;
+                }
+
+                // Unpaid: both together fall short, and neither is touched.
+                row.LastHoldPaid = false;
+                VaultBillsUnpaid++;
+                if (contents.Phase == VaultPhase.Holding)
+                {
+                    contents.Phase = VaultPhase.Fusing;
+                    contents.FuseMillisLeft = DrawFuseMillis(row, bill - fromPool - contents.OwnChargeMillijoules, bill);
+                    FusesArmed++;
+                }
+                else
+                {
+                    contents.FuseMillisLeft = (int)Math.Max(0, contents.FuseMillisLeft - _boundaryMillis);
+                    if (contents.FuseMillisLeft == 0)
+                    {
+                        contents.Phase = VaultPhase.Dumping;
+                        FusesBurnt++;
+                    }
+                }
+
+                VaultState.Write(row, contents);
+            }
+        }
+
+        HeldMillijoules += paid;
+        HeldFromOwnMillijoules += _heldFromOwnThisBoundary;
+        OwnChargeReturnedMillijoules += _ownReturnedThisBoundary;
+        return paid;
+    }
+
+    /// <summary>
+    /// IM-3b's pass, decisions 5 and 6: what each channel's pool has left after the consumers tops its
+    /// vaults' own charges up to a minute of their bills, in fill order, with no rate cap — the cells'
+    /// charge counts as spare, so a vault that spent its minute in a storm refills from a charged cell
+    /// before the sky clears.
+    /// A lit fuse whose vault is whole again goes out here, the only place one does. Before the pack,
+    /// which still draws last. Returns what went in.
+    /// </summary>
+    private long RechargeVaults()
+    {
+        long given = 0;
+        for (int channel = 0; channel < Channels; channel++)
+        {
+            List<(MachineRow Row, MachineDefinition Definition)>? vaults = _vaults[channel];
+            if (vaults is null)
+            {
+                continue;
+            }
+
+            foreach ((MachineRow row, MachineDefinition definition) in vaults)
+            {
+                if (!VaultState.TryRead(row, out VaultContents contents) || contents.Owes)
+                {
+                    continue;
+                }
+
+                long capacity = OwnChargeCapacity(definition, contents);
+                long give = Math.Min(_available[channel], capacity - contents.OwnChargeMillijoules);
+                bool changed = false;
+                if (give > 0)
+                {
+                    contents.OwnChargeMillijoules += give;
+                    _available[channel] -= give;
+                    given += give;
+                    changed = true;
+                }
+
+                if (contents.Phase == VaultPhase.Fusing && contents.OwnChargeMillijoules >= capacity)
+                {
+                    contents.Phase = VaultPhase.Holding;
+                    contents.FuseMillisLeft = 0;
+                    FusesDisarmed++;
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    VaultState.Write(row, contents);
+                }
+            }
+        }
+
+        OwnChargeGivenMillijoules += given;
+        return given;
+    }
+
+    /// <summary>
+    /// A fuse's length, by the collapse scheduler's own formula (IM-3's pass, decision 7):
+    /// <c>min + (max − min) × u × (1 − share / 2)</c>, the share the part of the bill the pool and the
+    /// own charge together could not pay, so a vault that has nothing draws 10–15 s and one just short
+    /// 10–20 s.
+    /// </summary>
+    private int DrawFuseMillis(MachineRow row, long shortfall, long bill)
+    {
+        double share = Math.Clamp(shortfall / (double)bill, 0.0, 1.0);
+        float unit = Hash64.ToUnitFloat(Hash64.Combine(FuseSeed ^ (ulong)Boundaries, row.Cell.X, row.Cell.Y, row.Cell.Z));
+        return (int)(FuseMinMillis + Math.Round((FuseMaxMillis - FuseMinMillis) * unit * (1.0 - (share / 2.0))));
+    }
+
     /// <summary>The pack draws last from its channel, to its capacity and its recharge bound. Returns what it took.</summary>
     private long RechargePack()
     {
-        if (Pack is null)
+        // A window takes no charge (decision 7): it holds nothing, and its channel's cells are the bank.
+        if (Pack is null || Pack.IsWindow)
         {
             return 0;
         }
@@ -732,7 +1126,107 @@ public sealed class MachineTick
         return clamped;
     }
 
-    /// <summary>The pumps and the per-channel outlets, in origin order, from the set as it stands.</summary>
+    /// <summary>What <paramref name="channel"/>'s enabled cells hold now — the bank a window spends (decision 8).</summary>
+    long IChannelBank.BankMillijoules(int channel)
+    {
+        if (_builtAtVersion != _machines.Version)
+        {
+            Rebuild();
+        }
+
+        long bank = 0;
+        List<(MachineRow Row, MachineDefinition Definition)>? rows = _storage[Math.Clamp(channel, 0, Channels - 1)];
+        if (rows is not null)
+        {
+            foreach ((MachineRow row, _) in rows)
+            {
+                bank += StorageState.Read(row);
+            }
+        }
+
+        return bank;
+    }
+
+    /// <summary>
+    /// Decision 8's draw: up to <paramref name="millijoules"/> out of the channel's enabled cells,
+    /// between boundaries, last-filled first.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Last-filled first</b> is the write-back read backwards: it fills the cells in position
+    /// order, each to capacity, so the last cells in that order are the emptiest, and a draw that
+    /// takes from them keeps the first ones full. The next boundary sums them all again, so the
+    /// order only matters to a cell removed before it — whose charge leaves as <c>leaving</c>.
+    /// </para>
+    /// <para>
+    /// <b>The charge is written directly</b>, never through <see cref="MachineSet.SetCharge"/>,
+    /// which would count the fall as <c>leaving</c> too and the caller's term would count it twice.
+    /// And <b>never inside the run</b>: the pool is summed at its start and written back at its end,
+    /// so a draw in between would be spent twice or lost to the write-back.
+    /// </para>
+    /// </remarks>
+    long IChannelBank.Draw(int channel, long millijoules)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(millijoules);
+        if (_running)
+        {
+            throw new InvalidOperationException("A window draws between boundaries, never inside the machine tick's run (decision 8).");
+        }
+
+        if (_builtAtVersion != _machines.Version)
+        {
+            Rebuild();
+        }
+
+        List<(MachineRow Row, MachineDefinition Definition)>? rows = _storage[Math.Clamp(channel, 0, Channels - 1)];
+        if (rows is null || millijoules == 0)
+        {
+            return 0;
+        }
+
+        long remaining = millijoules;
+        for (int i = rows.Count - 1; i >= 0 && remaining > 0; i--)
+        {
+            MachineRow row = rows[i].Row;
+            long held = StorageState.Read(row);
+            long take = Math.Min(held, remaining);
+            if (take <= 0)
+            {
+                continue;
+            }
+
+            StorageState.Write(row, held - take);
+            remaining -= take;
+        }
+
+        return millijoules - remaining;
+    }
+
+    /// <summary>
+    /// A consumer's priority (decision 41): its <see cref="PriorityPort"/> clamped to 0–9 when its
+    /// material has the <c>priority</c> extra, else <see cref="DefaultPriority"/> — the extra's one
+    /// reading site.
+    /// </summary>
+    public static long PriorityOf(MachineRow row, MachineDefinition definition) =>
+        definition.Has(MachineExtra.Priority) && row.TryGetPort(PriorityPort, out long priority)
+            ? Math.Clamp(priority, 0, 9)
+            : DefaultPriority;
+
+    /// <summary>The pumps in the order they are paid and ticked, as the last rebuild left them — priority, then position.</summary>
+    internal IReadOnlyList<MachineRow> PumpOrder
+    {
+        get
+        {
+            if (_builtAtVersion != _machines.Version)
+            {
+                Rebuild();
+            }
+
+            return _pumps.Select(p => p.Row).ToList();
+        }
+    }
+
+    /// <summary>The pumps by priority then origin order, and the per-channel outlets in origin order, from the set as it stands.</summary>
     private void Rebuild()
     {
         _pumps.Clear();
@@ -740,7 +1234,10 @@ public sealed class MachineTick
         StorageRowsOff = 0;
         _nearColumns.Clear();
         Array.Clear(_outlets);
+        Array.Clear(_outletCount);
         Array.Clear(_storage);
+        Array.Clear(_vaults);
+        _ringVaults.Clear();
 
         foreach (MachineRow row in _machines.Rows)
         {
@@ -760,6 +1257,7 @@ public sealed class MachineTick
                 case MachineKind.Outlet:
                     int channel = ChannelOf(row);
                     (_outlets[channel] ??= []).Add(row);
+                    _outletCount[channel]++;
                     AddNearColumns(row.Cell, 1);
                     break;
                 case MachineKind.Converter:
@@ -778,10 +1276,40 @@ public sealed class MachineTick
 
                     (_storage[ChannelOf(row)] ??= []).Add((row, definition));
                     break;
+                case MachineKind.Vault when definition.IsChannelVault:
+                    // A crate has no channel and no bill; a channel vault's bill is read each
+                    // boundary from its bytes, so a wreck or a dump in the list is simply skipped.
+                    int vaultChannel = ChannelOf(row);
+                    (_vaults[vaultChannel] ??= []).Add((row, definition));
+
+                    // IM-4b: one that holds water is in its channel's ring too, by kind and not by a
+                    // link, whatever state it is in — its room is read each boundary, never here.
+                    if (definition.HoldsWater)
+                    {
+                        (_outlets[vaultChannel] ??= []).Add(row);
+                        _ringVaults.Add(row, definition);
+                    }
+
+                    break;
             }
         }
 
-        _pumps.Sort(static (a, b) => CompareOrigin(a.Row, b.Row));
+        foreach (List<(MachineRow Row, MachineDefinition Definition)>? vaults in _vaults)
+        {
+            vaults?.Sort(static (a, b) =>
+            {
+                int byRate = a.Definition.BlockHoldMilliwattsPerCubicMetre.CompareTo(b.Definition.BlockHoldMilliwattsPerCubicMetre);
+                return byRate != 0 ? byRate : CompareOrigin(a.Row, b.Row);
+            });
+        }
+
+        // Decision 9 and 41: consumers are paid by priority, higher first, then by position (X, then
+        // Y, then Z). Equal priorities are position order, which is every pump before IM-2.
+        _pumps.Sort(static (a, b) =>
+        {
+            int byPriority = PriorityOf(b.Row, b.Definition).CompareTo(PriorityOf(a.Row, a.Definition));
+            return byPriority != 0 ? byPriority : CompareOrigin(a.Row, b.Row);
+        });
         _converters.Sort(static (a, b) => CompareOrigin(a.Row, b.Row));
         foreach (List<(MachineRow Row, MachineDefinition Definition)>? rows in _storage)
         {
@@ -791,7 +1319,6 @@ public sealed class MachineTick
         for (int channel = 0; channel < Channels; channel++)
         {
             List<MachineRow>? outlets = _outlets[channel];
-            _outletCount[channel] = outlets?.Count ?? 0;
             if (outlets is null)
             {
                 _cursor[channel] = 0;
@@ -850,6 +1377,9 @@ public sealed class MachineTick
 
     private static long WeightOf(MachineRow row) =>
         row.TryGetPort(WeightPort, out long weight) ? Math.Max(1, weight) : 1;
+
+    /// <summary>Position order, X then Y then Z — the tick's tie-break, shared with the store's fill order.</summary>
+    internal static int CompareOriginOf(MachineRow a, MachineRow b) => CompareOrigin(a, b);
 
     private static int CompareOrigin(MachineRow a, MachineRow b)
     {
@@ -958,8 +1488,24 @@ public sealed class MachineTick
                 continue;
             }
 
-            OutletRoomReads++;
-            long room = RoomAt(outlet, out bool toBasin, out int basin, out bool intoLake, out PumpStall reason);
+            bool toBasin = false, intoLake = false;
+            int basin = Watershed.Outlet;
+            long room;
+            PumpStall reason;
+            bool isVault = _ringVaults.TryGetValue(outlet, out MachineDefinition? vaultDefinition);
+            if (isVault)
+            {
+                // IM-4b: a vault's room is off its bytes, now; refusing, it has none (decision 11).
+                VaultRoomReads++;
+                room = MachineSet.VaultWaterRoom(outlet, vaultDefinition!);
+                reason = room == 0 ? PumpStall.NoRoom : PumpStall.None;
+            }
+            else
+            {
+                OutletRoomReads++;
+                room = RoomAt(outlet, out toBasin, out basin, out intoLake, out reason);
+            }
+
             if (room == 0)
             {
                 if (first == PumpStall.None) first = reason;
@@ -998,8 +1544,13 @@ public sealed class MachineTick
                 PumpedMillilitres += take;
             }
 
-            // And the outlet is given exactly that.
-            if (toBasin)
+            // And the outlet is given exactly that — or the vault, through the pump's own door.
+            if (isVault)
+            {
+                _machines.VaultWater(outlet, vaultDefinition!, take);
+                VaultedMillilitres += take;
+            }
+            else if (toBasin)
             {
                 long litres = take / FluidConstants.MillilitresPerLitre;
                 _water!.Emit(basin, litres);

@@ -1,429 +1,303 @@
 # Matthew's TODO
 
-Your file. `TODO.md` is the project's record — 6,400 lines of reasoning, mine to maintain;
-this one is the short list of things only you can do, and it should never outgrow a screen or
-two. Tick things off, scribble in the parking lot, delete anything you don't care about. I'll
-keep it current at the end of each session and I'll add to the feedback section when something
-new wants a person's eye.
+Your file. `TODO.md` is the project's open work and mine to maintain; this is the short list of
+things only you can do. Tick things off, scribble in the notes section, delete anything you don't
+care about. I keep it current at the end of each session.
 
-**Starting a world by name.** `start.cmd --world=deepmine` — if no world of that name exists it
-is created, otherwise it is opened, and the `M6:` line says which (`new world at …` or
-`opened …`). **Spaces are fine, but the whole flag has to be quoted**, because otherwise the
-shell hands the game four separate words:
+**Quick reference**
 
-```bash
-start.cmd "--world=Deep Mine"
-```
-
-`--world=Deep Mine` without quotes gives you errors in the log and lands you in `default`.
-
-**Every new world now gets a random landscape**, and its seed is shown in the upper right for the
-first few seconds after launch, in the form you'd type back in — note it down if you like the
-place. `start.cmd "--world=Deep Mine" --seed=690930704` builds that landscape again, in a world
-of any name; the flag takes decimal or `0x` hex and only means anything for a world that does not
-exist yet (an existing one keeps its own seed, and says so if you pass one). Measurement runs
-(`--profile`, `--fall`) still get the old fixed seed, so my recorded numbers keep reproducing.
-Banned characters are Windows' usual `\ / : * ? " < > |`; everything else — spaces, dashes,
-apostrophes — is allowed, and the name is case-insensitive, so `Deep Mine` and `deep mine` are
-one world. Avoid a trailing space or dot; Windows trims those. Worlds live in
-`%APPDATA%\Godot\app_userdata\Overburden\worlds\<name>\`, one folder each, and deleting the
-folder deletes the world. **A brand-new named world is also the only place `--clock=<seconds>`
-works** — it sets where in the forecast the world starts, and an existing world overrides it
-with what it remembers, so `start.cmd "--world=storm test" --clock=900` is how you open straight
-into weather rather than waiting for it.
-
-**How mountainous your world is, and where.** Three dials. All set when a world is created and
-none changeable afterwards — an unedited chunk is rebuilt from the world's own header, so a world
-that changed its relief would rebuild the landscape *around* whatever you had already dug, with
-your mine hanging in it. The game says so if you pass one to a world that exists.
-
-```bash
-start.cmd "--world=Big Country" --relief=4 --reliefbase=0.3 --reliefrare=0.4
-```
-
-| flag | what it sets | low end | shipped | high end |
-|---|---|---|---|---|
-| `--relief=<x>` | **how tall the mountains get** | `0.5` — nowhere rises much | `3` | `6` — dramatic peaks |
-| `--reliefbase=<x>` | **how flat the flat places are** | `0.1` — real plains | `0.4` | `1` — nowhere is flat |
-| `--reliefrare=<0..1>` | **how much of the map is mountain** | `0` — hills almost everywhere | `0.25` | `1` — only rare summits |
-
-**All three scales run low = less, high = more of the thing named.** Nothing is inverted.
-
-- `--relief` and `--reliefbase` are **multiples of the same base number**, so `--reliefbase` wants
-  to be the *smaller* of the two. If you pass a base above the relief the game warns once and
-  builds a uniform world rather than guessing which you meant.
-- The two of them are the **ceiling and the floor** of the same quantity: how far the ground
-  deviates up and down. `--relief=6 --reliefbase=0.1` is "plains and mountains"; `--relief=1
-  --reliefbase=1` is the old world, one lumpiness everywhere.
-- `--reliefrare` only decides **how the map is shared out between those two ends**. At 0 nearly
-  everywhere gets some height; at 1 the floor is nearly everywhere and the ceiling is reached only
-  on rare summits. It changes nothing about how tall or how flat the two ends are.
-
-A region — one journey from flat to mountainous and back — is about **2 km**, a few minutes of
-walking. The `M6: new world` line prints what you got, as `relief 19.2..144 voxel(s), mountains
-25% rare`, and the HUD's `relief` term tells you which kind of country you are standing in right
-now: near the floor is a plain, near the ceiling is a highland.
-
-**How to read a play afterwards.** The log is
-`%APPDATA%\Godot\app_userdata\Overburden\logs\godot.log` (the live or last session; the
-timestamped files beside it are older). Read it with `grep -a`, not plain grep — it has stray
-binary in it and grep will otherwise call it a binary file and print nothing. **Godot keeps five
-logs and then rotates**, so if you want a specific session kept, copy it aside before launching
-again. You don't have to read any of it — paste me a screenshot and say what felt wrong, and
-I'll go and find the numbers.
+- **A world by name:** `start.cmd "--world=Deep Mine"` — opened if it exists, created if not.
+  Quote the whole flag if the name has spaces, or you land in `default`.
+- **A new world's seed** shows in the upper right for a few seconds; `--seed=<n>` builds that
+  landscape again, on a *new* world only. `--clock=<seconds>` starts a new world somewhere in its
+  weather.
+- **Relief, new worlds only:** `--relief=` (how tall the mountains, shipped 3), `--reliefbase=`
+  (how flat the plains, 0.4), `--reliefrare=` (how rare the mountains, 0.25). Low = less of the
+  thing named; nothing is inverted.
+- **The log** is `%APPDATA%\Godot\app_userdata\Overburden\logs\godot.log`. Godot keeps five and
+  rotates, so copy one aside if you want it kept. You never have to read it — a screenshot and a
+  sentence is enough, and I'll find the numbers.
 
 ---
 
 ## Now
 
-- [ ] **Push, both branches (2026-09-26).** `main` (`git push origin main`) and
-      `water-column-test` (`git push`) are both ahead.
-- [ ] **The Tetris collapse (2026-09-26)**: a fresh Code chat on `main` that opens with *"read
-      docs/COLLAPSE-NOTES.md and do its planning pass"*. Your words and the six questions are in
-      there. Your building is restored; the demolished tower is kept as
-      `Regions16-pondlook-demolished-2026-09-26` for measuring.
-- [ ] **Your stone-edged pond** — planned tonight, not built. Walls you place will raise the
-      lake's rim (the pass is `docs/POND-PLAN.md`); once it's built, R into your ring on
-      `Regions16` should fill it to the wall, and the water will stop vanishing when the ring
-      closes. Nothing for you to do yet.
-- [ ] **Overhangs over the pond (2026-09-26, `start5`).** The lake should now reach under an
-      overhang from its own side, stop at a wall, come through a window whose sill is under the
-      water and through a doorway at the floor, and leave a walled, roofed room dry. Place a
-      block under an overhang and the water there should change at the next water tick. One
-      sentence back, plus a screenshot if anything looks wrong.
-- [ ] **Glass is in (2026-09-25).** `P` gives you 64 cells of it (pick it with `V` if it isn't
-      on the number row). Build a window, a wall and a roof. Light comes through the roof at full
-      strength, rain stops on it, and a glass wall holds water like stone. Things to tell me: is it
-      too milky (**2026-09-26: yes — 0.35 → 0.20 opaque on your sweep, and black glass, which only
-      takes light away; `--glassalpha=` and `--glassshade=` (0 black, 1 the old pale) try others with
-      no rebuild**), does a floor under glass gleaming in a storm bother you,
-      and does water seen through glass ever draw in the wrong order?
-- [ ] **M10d-2, the play** — the ten recipes below. This is the next milestone thing and it is
-      entirely yours; nothing else is blocked on me.
+- [ ] **Four things need you before the next builds**, three before IM-5 and one before IM-6 (TODO's
+      "Order and collisions" has the whole list of what should come first and what collides). The one
+      that was mine, the test that failed at random, is done (2026-10-01).
+      - **The clay pond leak: which world, and where?** The dump floods through the same water, so a leak
+        under it would look like the dump's fault. If the pond was in TajMahal2, it's retired now, but
+        a copy of it still opens for a probe.
+      - **A minute of your screen** for the windowed run (below, under "Waiting on your word"). It
+        measures what drawing a big flood costs, which the dump's 10 ML limit rests on.
+      - **The pond branch**: at least let me merge main into it, since the dump changes the same water
+        code; better, your verdict on it.
+      - **The hotbar's unit** is due sooner now: IM-6 shows water in the hotbar, so the "L doesn't fit"
+        question arrives with IM-6, not the inventory screen.
+
+- [ ] **Ctrl+Z on a fill that's still waiting** (IM-4c, built 2026-09-30): place a single block right into
+      water (or fill a chunk at range) and press Ctrl+Z at once. *Nothing should land.* Before, it came
+      back half a second later. The log says `undo — 1 placement(s) waiting for the boundary cancelled`.
+      A shape half in water puts its dry half down at the click: the first press cancels the wet half,
+      and a second takes back the dry half.
+
+- [ ] **Next session: the plan for walls that split a lake** ([docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md)),
+      your pick (2026-10-01): Tier A water turned into Tier B where you place voxels, so a wall through a
+      filled basin separates the water on each side and you can flood just the walled-off part. Your notes
+      are there verbatim with four questions. **Make your test world first**: `start.cmd` still says
+      `TajMahal2`, so a bare `start.cmd` now makes a fresh, empty world with that name. Use
+      `start.cmd "--world=<name>"`, or tell me the name and I'll put it in `start.cmd`.
+
+- [ ] **The pond branch's verdict.** `water-column-test` has the raised watershed and your water
+      grid built (walls you place raise the lake's rim; the lake reaches under what you build).
+      To play it: `git checkout water-column-test`, `start.cmd "--world=Regions16"` (or a copy),
+      R or Ctrl+R into your stone ring. *Does it fill to the wall, and does the water stay when
+      the ring closes?* Then `git checkout main`. "Merge it" or "retire it" is the verdict.
+      *Speed, re-measured 2026-09-29 on the optimised build:* the branch's water costs 1.9× main
+      at your pond, not 6×, and only because the pond keeps the water main spills. With the
+      raise off it's as fast as main. So speed isn't a reason to retire it. *Your note (2026-09-30):
+      more testing and optimising on the branch first* — noted in POND-PLAN and TODO. It's also
+      displacement done Tier A's way: a block cuts the lake's room, so the level rises.
+      *Also on the branch (2026-09-26, `start5`): overhangs over the pond.* The lake should reach under an
+      overhang from its own side, stop at a wall, come through a window whose sill is under the water
+      and through a doorway at the floor, and leave a walled, roofed room dry. Place a block under an
+      overhang and the water there should change at the next water tick. *Main was merged into the
+      branch on 2026-10-01*, so the branch has everything main has.
+- [ ] **M10d-2, the play** — the recipes below. Nothing else is blocked on me.
 
 ---
 
 ## The play queue — one sentence back on each
 
-Ten recipes. Do them in any order, over as many sessions as you like; a sentence each is
-plenty, and "it was fine" is a real answer. Run `start.cmd` on `default` unless a recipe says
-otherwise — flags go on the end of the `start.cmd` line.
+Any order, any number of sessions; "it was fine" is a real answer. Flags go on the end of the
+`start.cmd` line.
 
+### Recent builds
 
-
-### The quantum tunneller (2026-09-23)
-
-- [ ] `T` to `quantum_tunneller` (between the miner and the excavator). Click: one 2 m cube
-      gone, with a 2 m outline showing which. Hold Q: one every 0.25 s. Right click: fills the
-      2 m cube in front of the crosshair. One sentence: does 2 m feel like the right middle?
-- [x] **The excavator is one click one bite too** — done 2026-09-24 on your word; hold Q to
-      run it, as with the other two.
-
-### Water that spreads faster (2026-09-24)
-
-- [x] **Played 2026-09-24 evening — *"Playtested the latest water, loving it"*.**
-      On a **dug or placed floor** (grass soaks a puddle into the lake below, so it hides this),
-      press `R`. The puddle should race out to about 12 m in five seconds or so, then settle.
-      Compare with `--frontadvance=0` (the old creep), and if you like `--fluidhz=4` (everything
-      twice as fast, falling too). One sentence: does it read as water running across the floor,
-      or as a sheet snapping outward?
-
-### Streams that spread (2026-09-24, night)
-
-- [x] **Played 2026-09-24 night at `--fedband=6` — *"that hits deep i like it a lot will have to do
-      more load testing like but i think its the one"*. 6 is the default now.**
-      Water that is **still being fed** (your breach pit, a pump's outlet, a pour you keep
-      pressing `R` on) now pushes its tip out too: the last 4 m of the stream levels and takes up
-      to four more rows of dry floor a pass, while the body of the stream keeps its slope. Go to
-      the breach pit on `Regions13` and watch the water run across the pit floor. Compare with
-      `--fedadvance=0` (the old way). If the tip looks too flat, try `--fedband=2`; if it's still
-      slow, `--fedband=6`. One sentence: does the breach's water run across the floor now, and
-      does it still read as a stream?
 - [ ] **The load test you wanted.** Same world, same spot, two short sessions back to back:
-      `start3` then `start3 --fedadvance=0`. Just play normally for a few minutes each and quit;
-      I'll read the two logs (copy `godot.log` aside between them, the logs rotate). Tonight's
-      6N session ran the water at about 1 Hz on 1.08 million moving cells, and the question is
-      how much of that is the fed advance — my read is very little, the flood's size is the cost.
+      `start3` then `start3 --fedadvance=0`. Play normally for a few minutes each and quit; copy
+      `godot.log` aside between them. My read is that the flood's size is the cost, not the fed
+      advance — this says whether I'm right.
+- [ ] **The vacuum cell's switch.** Computer in hand, right-click a cell: set `enabled` to 0 and
+      the status goes amber (`OFF — holding …`), pumps that only had that cell stall. *Is a 0/1
+      box good enough, or do you want a real button?*
+- [ ] **Glass, the one left.** Does water seen through glass ever draw in the wrong order?
 
-### Far mode (2026-09-24)
+### Owed from the rain play
 
-- [ ] **F11** turns far mode on: the view climbs toward 8 chunks out and 4 up/down, a ring every
-      couple of seconds and only while the loader is idle — fly fast and it still drops back as
-      it always has. The HUD's view term says `(far, to r8h/4v)`. F11 again goes back to 6h/2v at
-      once. Costs about 50 MiB more memory and roughly twice the drawing. One sentence: does it
-      show you enough more to be worth it, and does turning it off feel instant?
-
-### The vacuum cell's switch (2026-09-23)
-
-- [ ] Computer in hand, right-click a vacuum cell: the panel has an `enabled` box under
-      `channel`. Set it to 0 and the status line turns amber (`OFF — holding …`); pumps that
-      only had that cell stall `unpowered`, and panels on the channel charge the other cells
-      instead. Set it back to 1 and it picks up where it stood. One sentence: is a 0/1 box
-      good enough, or do you want a real on/off button?
-
-### Owed from the relief change (2026-09-23)
-
-- [x] **Answered 2026-09-24 on `Regions12` at `--reliefrare=0.125`: *"I found the hills like
-      :-{D"*.** And on the shipped 0.25 (`Regions13`): *"Leave the default … hills seem common
-      enough even if you dont directly see them from the start"*. **The shape stays `0.4 / 3 / 0.25`.**
-- [x] ~~**Does a world have somewhere flat and somewhere mountainous?**~~ Launch a new world —
-      `start.cmd "--world=Shaped"` — and travel in one direction for a few minutes. The shipped
-      shape is my estimate off a sweep, not anybody's judgement. One sentence: are the flat places
-      flat enough, are the mountains big enough, and do you hit one often enough? The dials to
-      reach for are `--reliefbase` (lower = flatter plains), `--relief` (higher = bigger peaks)
-      and `--reliefrare` (higher = rarer). All on a *new* world.
-- [x] **Press F12.** The map draws your mine as darkened ground, your machines as coloured dots
-      in their own material's colour, and water where Tier A knows about it — with a rim showing
-      where that knowledge stops. It updates about once a second whether or not you move. The
-      rimmed shape looks like a diamond because it is a square in the world and the map is turned
-      to face the way you are.
-- [x] **Press F12.** The map is in. It faces the way you do, the red tick on the rim is north,
-      the arrow in the middle is you, and the caption says how much ground it covers and what
-      heights its colours mean. Esc or F12 closes it.
-- [x] **Answered 2026-09-24: *"map at 2km feels right"* — stays the default.**
-- [ ] ~~**Is 2 km the right width?**~~ Add `--mapscale=4` to the launch line for a half-kilometre map
-      and compare. 4 m a pixel reads as proper landscape; your 2 km is busier because the terrain's
-      own hills are only four pixels across at that scale. Going *wider* than 2 km makes it worse,
-      not calmer — the map starts aliasing and shows hills that are not there — so the useful range
-      is roughly 4 to 16 m a pixel. One sentence on which you would rather have as the default.
-- [x] **Answered 2026-09-24: *"love the compass"*.**
-- [ ] ~~**You have a compass now.**~~ The line above the status line reads `x 108  y 11  z 6 ·
-      facing 315° NW · relief 8.1 m`. North is −Z, east is +X — so walking north makes z go *down*
-      and walking east makes x go *up*. The relief number is how tall the terrain gets where you
-      are standing: near 4.8 m you are on a plain, near 36 m you are in the mountains.
-- [ ] **Worlds made before 2026-09-23 evening look different now.** Every world used to start at
-      exactly the same relief, whatever its seed — the noise is zero at the world's origin, and
-      that is where you spawn — so a few new worlds in a row genuinely were the same where you
-      landed. Fixed: a seed now offsets its own origin, and of 32 seeds 30 start somewhere
-      different, from a plain to hills. **Your Regions worlds will have changed shape**, because
-      terrain is regenerated rather than stored. They were throwaway anyway.
-- [ ] **Regions1–9 and `default` are all still on disk** in
-      `%APPDATA%\Godot\app_userdata\Overburden\worlds\`. The Regions ones were built while
-      settling the shape and are throwaway — delete them whenever. `default` is your old game and
-      is untouched.
-
-### Owed from the rain play (two sentences, still outstanding)
-
-- [ ] **1. The clay pond in the rain.** Stand by your clay pond through a shower
-      (`--clockscale=20` if you don't want to wait). *Does it fill at a rate that reads as rain?*
-      — the number behind it is `onto the player's material` climbing on the `M8b:` line while
-      `handed` doesn't.
-- [ ] **2. No more rain under your roof.** Stand inside a building you've roofed while it
-      rains. *Does water still appear indoors?* — should be none, and the log's rain line carries
-      `skipped of which N under a roof`.
+- [ ] **1. The clay pond in the rain.** You think it leaks. *Which world, and where's the pond?* Tell me
+      and I'll probe a copy (it's in TODO).
 
 ### M10d — the seven
 
-- [ ] **3. Dry.** Put the outlets past a divide (a valley whose lake isn't the one over your
-      shaft) or into a walled tank on a placed floor, and let the pumps run. *Did the mine read
-      as being pumped out, and could you tell where the water went?* — `below the seed surface`
-      on the `M8b:` line falls while `pumped` climbs.
-- [ ] **4. The storm.** No `Alt+P` (no free charge). Wait for rain or force it with
-      `--clockscale=20`. *Did the rain read as cutting the pumps — and if several were wet, did
-      the ones that kept running make sense?* Watch for the first-placed pumps hogging the
-      channel and starving later ones; if that's what you see, say so and I'll build the fix.
-- [ ] **5. The pillar.** `--collapse=0`. `T` to the excavator (`--nogate`, or bring two packs),
-      a 2 × 2 bite three chunks down, walk back under it and wait for the tint. Then stand under
-      the plug's centre and build a stone column floor to roof, eight cubes. The tint should go.
-      Then the same in clay. *Did the pillar read as shoring, and did clay holding the roof as
-      well as stone read wrong?*
-- [ ] **6. Collapse, four ways** (`--nogate`, on the excavator):
-      - *Settling* — four chunk bites in a 2 × 2, 24 m down in stone; wait the minute out, or
-        `--collapseafter=2,10`. *Did it read as the roof settling, or as a glitch?*
-      - *Attributable* — `--collapse=0`, same room, look up. *Could you say where it would go
-        before it went?*
-      - *The soil patch* — one chunk bite whose top face is in the surface soil, from beside it.
-        *Did dirt falling and stone holding read as two materials?*
-      - *The water brought it down* — the same 2 × 2 under a pond, then again with
-        `--saturation=0`. *Did the wet roof going and the dry one holding read as the lake's
-        doing?*
-- [ ] **7. The tiers and the hold.** Fresh pack (`P`, then right-click to equip), `Alt+P`, then
-      `T` through hand → steel → quantum miner → quantum excavator, holding Q on each. *Does the
-      excavator's two-chunks-a-pack read as the battery being the gate, and does the cycle's
-      order read as a ladder?*
-- [ ] **8. The panel by hand.** Computer in hand, right-click a pump. Use the arrows, type into
-      a box, put 99 in a field capped at 15, press Esc once with the field still live. *Is one
-      Esc or two what you expect?* (Either is a one-line change.)
-- [ ] **9. The pack across a quit.** Quit with a pack worn, reopen. The log says `a pack
-      equipped (header v4)` with its charge to the joule. Then `T` through the cycle. *Does Q
-      costing charge while T doesn't read as the design?*
-
-### The undo's edges
-
-Ctrl+Z itself is confirmed — *"Ctrl z feels good"* — so this is just the three cases the first
-press didn't reach.
-
-- [ ] **10. Undo's three.** (a) Bite something, spend the material building, then Ctrl+Z — it
-      should refuse the whole step and keep it, saying which material is missing, rather than
-      half-undoing. (b) Bite into a room, let it flood, Ctrl+Z — the rock comes back and the
-      water is *not* un-flooded; it says so once. (c) Three presses in a row, and a press for an
-      edit in a chunk you've since walked away from and back. *Did any of the three read as the
-      undo being broken rather than as a rule?*
+- [ ] **5. The pillar.** `--collapse=0`, the excavator (`--nogate`), a 2 × 2 bite three chunks
+      down, wait for the tint, then a stone column floor to roof under the plug's centre. Then
+      clay. *Did the pillar read as shoring, and did clay holding as well as stone read wrong?*
+- [ ] **6. Collapse, four ways** (`--nogate`, the excavator): *settling* (a 2 × 2 of chunk bites
+      24 m down; `--collapseafter=2,10`), *attributable* (`--collapse=0`, look up — could you say
+      where it would go?), *the soil patch* (dirt falling, stone holding), *the water brought it
+      down* (under a pond, then `--saturation=0`).
+- [ ] **7. The tiers and the hold.** Fresh pack (`P`, right-click to equip), `Alt+P`, then `T`
+      through the cycle holding Q on each. *Does the battery read as the gate, and the cycle as a
+      ladder?*
+- [ ] **8. The panel by hand.** Right-click a pump with the computer, type 99 into a box capped at
+      15, press Esc once with the field live. *One Esc or two?*
+- [ ] **9. The pack across a quit.** Quit wearing a pack, reopen. *Does Q costing charge while T
+      doesn't read as the design?*
+- [ ] **10. Undo's edges.** (a) Bite, spend the material, Ctrl+Z — refused whole? (b) Bite into a
+      room, let it flood, Ctrl+Z — rock back, water not un-flooded. (c) Three presses in a row,
+      and one for an edit in a chunk you've walked away from and back. *Did any read as broken?*
 
 ### Smaller ones, if you're near them anyway
 
-- [ ] **The courtyard's fourth wall.** Build the fourth wall of a walled pool on a lake's bank.
-      The pool should stop being the lake's at the next boundary — the plane gone from inside
-      the walls, `enclosed N kept` on the `M8b:` line. Also: does a courtyard on a slope read
-      right with its uphill wall on the higher ground?
-- [ ] **Clay as a lining.** Line the wettest wall of a room under the lake with clay. The `seep`
-      line's face count should fall by roughly the wall's count. *And does the colour read as
-      clay next to dirt?*
-- [ ] **The settled world's surface.** Any long session: near the end, when you're standing
-      still and the water is calm, the `M8b:` line's `last rebuild N panel(s)` should be a
-      handful and `install mean` single-digit milliseconds. If most panels still rebuild every
-      tick at rest, tell me — the lever is somewhere else and I know where.
-- [ ] **Memory.** Same session: the `M2c:` line's `live … at the last gen2` should be flat-ish
-      over an hour. A steadily climbing `live` is a real leak; a climbing working set with flat
-      `live` is just garbage and fine. (One 85-minute play looked alarming and was fine.)
+- [ ] **The courtyard's fourth wall** on a lake's bank — the pool should stop being the lake's at
+      the next boundary. Does a courtyard on a slope read right?
+- [ ] **Clay as a lining** on the wettest wall of a room under the lake — the `seep` line's face
+      count should fall by the wall's count. Does the colour read as clay?
+- [ ] **A long session's tail:** standing still with calm water, `last rebuild N panel(s)` on the
+      `M8b:` line should be a handful; `live … at the last gen2` on the `M2c:` line flat-ish over
+      an hour.
 
 ---
 
 ## Waiting on your word
 
-Nothing is blocked on these; they're all one-line changes when you have a view.
+Nothing is blocked on these; each is a small change once you have a view.
 
-- [x] **The water solve's levers (d-3)** — *"As recommended"*; decisions 1 and 2 built 2026-09-24.
-      The faster sort took the sort from 228 to 57 ms a pass; your layered lookup table became
-      the flood's index and made the flood about 10% faster (the water identical either way).
-- [x] **The solve's pass cap** — your yes, 2026-09-24, built the same day. On your big retired
-      world the water now ticks 0.73–0.80 times a second instead of 0.52, the solve a third of
-      each tick. **One correction**: I said a big lake would level "a second or so" later; on
-      that world it is about six seconds for the solve to sweep every height. On a normal world
-      nothing changes — the cap only bites on an enormous amount of awake water. If a big flood
-      ever reads as settling too slowly, `--solvecap=0` is the old behaviour and a bigger number
-      is the middle ground.
 
-- [x] **Water that spreads sideways faster** — *built 2026-09-24*; the play check is in the queue
-      above. Was: [docs/FRONT-ADVANCE-PLAN.md](docs/FRONT-ADVANCE-PLAN.md),
-      eight decisions, all with my recommendation. The short version: when the water-levelling
-      step flattens a puddle, it also pushes the puddle's edge out up to 4 cells (1 m) onto flat
-      dry floor each half-second, stopping at drops, rock, and before the water gets thinner than
-      2 L a cell. It matters most in your mines and on placed floors — on natural grass a puddle
-      already soaks into the lake below. Two things it deliberately doesn't do at first: water
-      still being poured (a pump's outlet) spreads at today's pace, and a very big lake's edge
-      still creeps. "As recommended" is enough to start.
-- [ ] **Water spreading faster, part 2 — steps 1 and 2 built 2026-09-24; step 3 is your call.**
-      The count said my guess was wrong: on a copy of your world in rain, the puddles marked "still
-      being poured into" really were — each got a tenth of itself or more in a second (rain
-      drops landing in small puddles, and the breach). So step 2 is right but won't change your
-      pit. Step 3 — letting real streams spread without flattening them — is the one that would.
-      "Build step 3" or "leave it". Was: the "Slice 2" section at the end of
-      [docs/FRONT-ADVANCE-PLAN.md](docs/FRONT-ADVANCE-PLAN.md), seven decisions. Your log showed four
-      puddles in five were skipped as "still being poured into" — and the game calls a puddle that
-      even if one rain drop or one litre of wall seepage landed anywhere in its 8 m chunk. The plan:
-      first count how much really pours into them; then only treat a puddle as a stream when the
-      inflow is a real share of it (seepage and rain stop counting); and only if streams still feel
-      slow after that, spread real streams too without flattening them. "As recommended" starts it.
-- [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), eight decisions with my
-      recommendations. Not scheduled; "as recommended" or any one of the eight back whenever
-      you like. Yours already folded in: blasted voxels go nowhere (3), and the roof gets one
-      harsher support check at the blast (4). Still open, the biggest: a blast destroys machines
-      it reaches (5).
+- [ ] **A minute of your screen, whenever suits.** The last IM-0 measurement (what drawing a big flood's
+      surface costs) only shows in a windowed run, which takes over the screen for about a minute. Say
+      "run the windowed one" when you're not playing.
 
-- [ ] **A rock placed in a lake.** Right now you can build a pier out into a lake and it deletes
-      no water. If that reads as wrong, I refuse it — one read. Your call after the play.
-      (*"not sure about 3 yet"*, from M9d.)
-- [ ] **The collapse delay's spread.** You said you wanted it unpredictable — *"if you have left
-      too much overhang"*. It's an exponential now, so a thin lip is usually about a minute and
-      occasionally three. Say "wider" or "tighter" after a session with a few falls and I'll move
-      the one constant.
-- [ ] **The hotbar's unit.** `1,767,903,281 L` does not fit in an 84 px slot. Litres under a
-      cubic metre and m³ above is my lean; "chunks" is the other candidate. Scheduled for the
-      inventory screen (M10g), your pick.
-- [ ] **Dust when a roof comes down** (M9c-2). Optional, never scheduled, and only worth doing if
-      the falls read as too quiet. Judged after the play above.
+- [ ] **The collapse: pieces that jump — I gave you the wrong size.** You said "leave it" when I
+      said "at most a metre". On a copy of your tower, one piece jumped 4.5 m (about 20 pieces in
+      800 jumped at all). Watch for it when you play: if you see a piece hop up, say "fix it" —
+      the fix is costlier to run, but it is the right one if it shows.
+- [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), six decisions still open. The biggest: a
+      blast destroys the machines it reaches (5). "As recommended" or any one back.
+- [ ] **The hotbar's unit.** `1,767,903,281 L` doesn't fit a slot. My lean: litres under a cubic
+      metre, m³ above. **Due before IM-6 now**, which puts water in the hotbar's last slot.
+- [ ] **Dust when a roof comes down** (M9c-2). Optional; only if falls read as too quiet.
 
 ---
 
-## Yours to run — I can't do these from the sandbox
+## Yours to run
 
-- [ ] **`git push`** when the tree is ahead (see Now).
-- [ ] **Delete the old world folders** if you want the space back. Under
-      `%APPDATA%\Godot\app_userdata\Overburden\worlds\`, these are scratch and safe to delete:
-      `edge`, `m6d2dug`, `m7c-clock`, `m7c-shaft`, `m7c-shot`, `m7d-pond`, `m7d-water`.
-      **Keep** the three `retired-*` ones — those are my measurement worlds and I open them as
-      copies. `default` is yours.
-- [ ] **Delete the pre-rename backup**: `%APPDATA%\Godot\app_userdata\MinerCraft\` — that's the
-      old folder from before the Overburden rename, superseded.
-- [ ] **Rename stage 4** (whenever you like, no hurry): the GitHub repo `MinerCraft` →
-      `Overburden`, the local folder, the remote URL. Stages 1–3 are done; nothing breaks while
-      this waits.
-- [ ] **Commit authorship.** Every commit carries `matthewcarven@gmail.com`. While the repo is
-      private this is cheap to rewrite; the moment it's public or anyone clones it, that address
-      is permanent public record. GitHub's `users.noreply.github.com` is the usual swap. Decide
-      before it goes public, not after.
+- [ ] **`git push`** whenever I say the tree is ahead.
+- [ ] **Delete the scratch worlds** if you want the space back (under
+      `%APPDATA%\Godot\app_userdata\Overburden\worlds\`): `edge`, `m6d2dug`, `m7c-clock`,
+      `m7c-shaft`, `m7c-shot`, `m7d-pond`, `m7d-water`, and `Regions1`–`Regions9`. **Keep** the
+      three `retired-*` worlds and `Regions16-pondlook-demolished-2026-09-26` — those are my
+      measurement worlds.
+- [ ] **Delete the pre-rename backup**: `%APPDATA%\Godot\app_userdata\MinerCraft\`.
+- [ ] **Rename stage 4**, no hurry: the GitHub repo `MinerCraft` → `Overburden`, the local folder,
+      the remote URL.
+- [ ] **Commit authorship.** Every commit carries your gmail address. Cheap to rewrite while the
+      repo is private, permanent once it's public — `users.noreply.github.com` is the usual swap.
 
 ---
 
-## Things I'd like your eye on — not scheduled, just wanted
+## Things I'd like your eye on — not scheduled
 
-These aren't checks against a build; they're the questions the tests can't answer. Take them one
-at a time whenever you feel like it, and ignore the rest.
-
-- [ ] **Does the mine read as the antagonist yet?** That's the whole premise — water and gravity
-      as the enemy, no mobs. Nobody has asked since the rain landed. If it currently reads as a
-      pleasant sandbox with weather, that's a design finding and I'd rather hear it now than
-      after another five milestones.
-- [ ] **Twenty minutes with nobody asking you to test anything.** Open a fresh world and just
-      play. What did you reach for that isn't there? That question finds a missing verb faster
-      than any recipe above.
-- [ ] **Is 5 m reach still right?** It was set when a pick was the only tool. Now Q reaches as
-      far as the world exists, so the short reach only binds the brush and the pick. Does that
-      split feel deliberate or accidental?
-- [ ] **The excavator at a chunk every 0.25 s** — does that read as a powerful tool or as the
-      game being switched off? The pack is meant to be the thing that makes it feel earned.
-- [ ] **Water from underneath.** Swim or wade under a surface and look up. There's an underwater
-      wash and the underside of the sheet doesn't draw. Does it read as being underwater, or as a
-      bug?
-- [ ] **Silence.** There's no audio at all and there never has been. Is that noticeable yet, or
-      is it fine until much later? (It's not on any roadmap — I'd want your word before it went
-      on one.)
-- [ ] **What's missing from the HUD when you're deep in a mine?** Depth, the water level above
-      you, the pack, the time of day — I can add a line cheaply, but I'd be guessing which.
-- [ ] **The pumps as a system.** Once you've had sixteen of them running: does placing and
-      channelling them read as building an operation, or as chores? That's the question that
-      decides how much of the ladder (M10e onward) is worth building.
+- [ ] **The pumps as a system** — building an operation, or chores?
 
 ---
 
 ## Notes to myself (fill in freely, I'll fold them into the plans)
 
-*Anything you notice mid-play and don't want to lose. Half a sentence is fine — I'll chase down
-what it means.*
-
 -
 -
 -
 
 ---
 
+## Answered lately
+
+- **TajMahal2 and the lakes** (2026-10-01): *"you can delete or retire tajmahal2 as you please"*. It is
+  retired, `retired-TajMahal2-2026-10-01`, moved and not deleted, so it can come back. Next session's plan
+  is the one you named, walls that split a lake, in LAKE-EDIT-NOTES with your words verbatim.
+- **The test that failed at random** (2026-10-01): fixed. Its failures may all have been one race, which
+  was fixed on 09-06, and the test was mostly not checking what its name says. Now it checks that every
+  run. Nothing you play changes.
+- **IM-5's sixteen decisions, the dump** (2026-09-30): *"As recommended please Claude uh just a plan"*.
+  Taken, not built yet: the water first (5a), then the blocks (5b). You also asked what in the TODO
+  should come first and what collides with planned work: that is TODO's new "Order and collisions" at
+  the top, ten of each, and the four that need you are at the top of this list.
+- **IM-4c and placing in a lake** (2026-09-30): you kept today's rule (*"Keep today's rule, plan
+  displacement"*), since your notes said displace rather than delete. So a block in a lake keeps the
+  lake's water, and nothing needs pricing. Built: Ctrl+Z cancels a fill that's still waiting (a bug, the
+  check is above), and the water line in the log shows the machines' and the siphon's litres. IM-4a and
+  IM-4b were built earlier the same day. Next on the plan is IM-5, the dump.
+- **Your notes** (2026-09-30), folded:
+  - *The lake over your quarry*: "draws nearly perfectly", a small gap filled by Tier B soon after.
+    Closed; the rest is the lakes talk.
+  - *The phonk*: "sounds good an want to leave it as is". Left as is.
+  - *F11*: six steps, 6/2 up to 16/12, the loader's reach as the ceiling. In TODO for your session:
+    16/12 is about five times 10/6's chunks, so the memory and limits get checked first.
+  - *Glass*: fine in rain and storms. Your stone-strong, clay-tight material is concrete in real life
+    (crushed stone, and cement burnt from limestone and clay): in MATERIALS-NOTES, a recipe chain for the
+    crafting milestone.
+  - *Dry (M10d 3)*: you could tell where the water came from and went; outlets read best on pillars
+    with gaps. *The storm (M10d 4)*: you like the rain slowing the pumps. Both recorded.
+  - *A rock placed in a lake*: displace it, or drop it from the sky. Into the lakes talk.
+
+- **Your two answers** (2026-09-30): *"1 and 2 as recommended"*. **2 is built:** your computer's clock is
+  at the end of the HUD's coordinates line; have a look next time you play. **1 is held**, for the reason
+  above; it's IM-4's decision 10 now.
+
+- **IM-3b's seven decisions** (2026-09-29): *"As recommended please Claude thanks Claude we seem to be in
+  tune on this like"*. Built the same night, while you played. A vault now carries a minute of its bill as
+  it stands, and its fuse waits while the bill is paid and goes out only when that minute is back. Before
+  this, a channel paying 5% of a vault's bill held it for ever. Nothing you play changes until IM-6.
+- **Your answers to "things I'd like your eye on"** (2026-09-29), folded:
+  - *The mine as antagonist*: water is landing, and you have nothing to dig for yet. Ores (iron, coal)
+    and a tree pass went into the worldgen notes.
+  - *5 m reach*: right for the low tiers, growing with tech; bare hands too punishing to start with. Into
+    the tools' plan (M10g).
+  - *The excavator*: *"excellent tool"*, for hallways and big rooms, and faster than mining by hand.
+    Noted; nothing changes.
+  - *Twenty minutes free*: your wearable quantum battery is IM-2's backpack, already built. The water
+    gun is IM-4's siphon, and your sizes (the miner's, the tunneller's and the excavator's) went into
+    IM-4's plan. Lithium-ion and li-poly packs are the middle rungs, for M10g.
+  - *Under the water*: Tier A should match Tier B's colour and see-through. Into TODO, buildable
+    alongside IM-4 on your word; it'll need a few screenshots.
+  - *Silence*: rain and wind, from your storm recordings first, PySynthRack if not. Into TODO's
+    cosmetics pass.
+  - *The HUD*: the time. Your question is above.
+
+- **IM-3's twelve decisions** (2026-09-29): *"as recommended please Claude"*. Built the same night: the vault
+  and the crate underneath (nothing you play changes until IM-6). Your warranty line is saved for the vault's
+  panel. **Your three asks mid-build, taken as recommended:** a vault carries a minute of its own bill in
+  energy (next, IM-3b); a lock on the vault panel's channel box; power shown as W/kW/MW on screen, the files
+  staying in watts (both IM-6).
+
+- **IM-1's eight decisions** (2026-09-29): *"as recommended please Claude"*. Built the same night: mod
+  files are strict now (a misspelt key is refused with a "did you mean"), each mod declares a `format`, the
+  six extras have their grammar and table, and only the computer opens panels. Nothing you play changes.
+- **Your new world renamed** (2026-09-29): `TajMahal2`, and `start.cmd` opens it.
+
+- **The quarry's bite** (2026-09-29): *"go with the 2m bite for the quarry"*. The measurement agreed:
+  a 2 m bite costs about half a millisecond on the fixed build.
+- **The ideal machines' ten forks and sixty-one decisions** (2026-09-29): *"Yes as recommended please
+  Claude"*. **TajMahal retired** the same night (*"I borked the supports so want to restart"*): it is now
+  `retired-TajMahal-2026-09-29`, and your next `start.cmd` makes a fresh TajMahal.
+- **The ideal machines, during the pass** (2026-09-29): *"One pool please Claude you should be able to
+  bankrupt yourself energy wise at the last tech"*; automated quarries and materials in; *"happy to have
+  water as an inventory item"* through a tool or machine at the last tech; the quarry only where chunks
+  are loaded, *"for OH&S reasons"* and so players can't lag a server; a per-player machine cap as a
+  trigger only; each player their own channels on servers (in TODO, its own pass).
+- **The collapse sensor's thirteen decisions** (2026-09-29): *"as recommended please Claude"*.
+- **The fuse** (2026-09-27): *"ideally the time would be from 10-20 seconds but randomly"* — arm 2
+  is built: 10–20 s, and the more overloaded the rock, the more it leans toward 10 (a gutted roof
+  draws in 10–15 s). `--collapseafter=` still changes it.
+- **The Tetris collapse, drawn** (2026-09-27): *"make it the default please"* — it is; the old
+  one-sweep fall is `--collapsemode=sweep`. The cyan: *"like they turn cyan yeah like it"*. The
+  black pieces stay: *"indicitave that you aint getting that back"*. The settler you saw was the
+  pile tumbling — 65% of what fell fell again. There is no sound in the game yet; that was the tablet.
+- **The collapse, part c's ten decisions** (2026-09-26): *"as recommended"*; c-1 is built.
+- **The Tetris collapse, played on your tower** (2026-09-26): *"yes slow to fast … buildings unless
+  in earthquakes usually give signs before they collapse"* — the pace table stays as built.
+- **No rain under your roof** (2026-09-26): *"no rain inside now the roof is dry"* — the log
+  agrees: 52,195 L rained, 2,098 drops onto what you built, 0 spawned under a roof.
+- **The quantum tunneller** (2026-09-26): *"I like the 2m cube"* — the 2 m middle tier stays.
+- **Glass's look** (2026-09-26): black at 0.20 — *"Glass looks GOOD!"*
+- **The Tetris collapse's decisions** (2026-09-26): *"as recommended"*; part a is built.
+- **Streams that spread** (2026-09-24): `--fedband=6` — *"i think its the one"*; the default.
+- **Water that spreads faster** (2026-09-24): *"loving it"*.
+- **The water solve's levers and pass cap** (2026-09-24): as recommended, built.
+- **Relief, the map, the compass** (2026-09-24): the default shape stays, 2 km stays, *"love the
+  compass"*.
+- **Every quantum tool one click one bite** (2026-09-24), Q held to run.
+- **Ctrl+Z** (2026-09-22): *"Ctrl z feels good, disallow if something falls yes"*.
+
+---
+
 ## Status, kept current for you
 
-Updated **2026-09-24, evening**.
+Updated **2026-10-01**. Pushed up to the 2026-09-30 close; this session's commit is yours to push.
+**Branches:** `main` and `water-column-test` only.
 
-- **This session (committed; `git push` is yours):** the water solver made faster on your big
-  world (0.52 → about 0.8 ticks a second), **F11 far mode**, **water that spreads sideways
-  faster** (`--frontadvance`, and `--fluidhz` to compare), and part 2's first two steps. Played
-  and kept: the map at 2 km, the compass, the hills' default. Suite **1,873** green.
-- **Next on my side:** part 2's step 3 (streams spreading without being flattened) — planned,
-  and I found a trap while closing, so it starts next session with a look at the code first.
-- `start2.cmd` and `start3.cmd` are yours and left out of git.
-
-Earlier the same day:
-
-- **Morning (all pushed, all unplayed):** the vacuum cell's on/off switch, the quantum
-  tunneller (2 m cube), every quantum tool one click one bite with Q held to run, and the TNT
-  notes with your design in them. Suite **1,829** green; r6 control to the digit.
-- `start2.cmd` is yours and I left it out of git — commit or delete it as you like.
-
-Earlier, **2026-09-23**:
-
-- Suite **1,735** green. The r6 streaming control reads to the digit. No errors in any of
-  today's four play logs.
-- `start.cmd` rebuilds the game before launching, so what you play is always the current tree.
-- Built and unplayed: the M10d instruments (the mine's own water is now a number on the `M8b:`
-  line), and the undo.
-- Next on my side, after your play: **d-3**, the water solve's cost measured on the retired
-  spread world — that one needs the game *closed*, so it waits for a session where you're not
-  playing.
+- **The ideal machines plan is taken**, [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md): the
+  bank, the vault and its dump, water in the inventory, the quarry (your 2 m bite), the six extras, and a
+  creative mode with a kit. **IM-1 to IM-4c are built**, all underneath: the mod-file rules, the
+  quantum backpack as a window onto your cells, a `priority` box on each pump's panel, the vault and
+  its bill, the siphon, and a vault taking a pump's water. **IM-5, the dump, is planned and taken**;
+  four things need you first (top of this list). The first thing you can play is IM-6.
+- **The undo bug is fixed** (IM-0b): a machine a fall destroys can no longer come back free after
+  Ctrl+Z. The build you started at 4:49 PM already has it. A Ctrl+Z right after a roof comes down now
+  says *the roof came down*, as it should.
+- **TajMahal2 is retired too** (2026-10-01, your word), as `retired-TajMahal2-2026-10-01`. `start.cmd`
+  still names `TajMahal2`, so a bare `start.cmd` makes a fresh one; give it your test world's name. The
+  first TajMahal is `retired-TajMahal-2026-09-29`.
+- **The collapse sensor:** all thirteen decisions taken, the first build step is ready.
+- **The Tetris collapse** is the default, with the cyan glitch, your phonk (left as is, your word) and a
+  10–20 s fuse.
+- **F11** goes 6 → 8 → 10 chunks out; your six steps to 16 are in TODO.
+- **Your pond branch** re-measured: 1.9× main's water cost at your pond, only because it keeps the
+  water main spills. Speed isn't a reason to retire it; your look decides.
+- **Water bodies are parked.** Your quarry does rest with the near/far setting off, but every cheap
+  fix with it on failed on your biggest world. What you play is unchanged.
+- **Backups:** the old TajMahal is `retired-TajMahal-2026-09-29`, with `backup-TajMahal-2026-09-28`
+  beside it; your tower is `backup-Regions16-pondlook-2026-09-26`. Say "restore my tower", or "bring the
+  old TajMahal back" (it would come back as `TajMahal`, and `TajMahal2` stays as it is).
+- `start2.cmd` to `start5.cmd` and `pondlook.cmd` are yours and left out of git.

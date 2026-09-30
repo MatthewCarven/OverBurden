@@ -375,7 +375,11 @@ decoupled from render framerate. Keeps it deterministic for possible multiplayer
   `ChunkGenerated`, `PlayerTick`, `ToolUsed`, `RecipeCrafted`. These are also
   approximately the multiplayer packets.
 - **Tier 1 (M1)**: data mods — JSON/TOML defs + textures from `mods/`. No code
-  execution, no security surface. Roughly 80% of what mods actually do.
+  execution, no security surface. Roughly 80% of what mods actually do. **Strict since
+  IM-1** (2026-09-29, IDEAL-MACHINES-PLAN decision 4): an unknown key at any level is
+  refused naming the file, its path and the nearest key; a key given twice is refused;
+  `$` keys are notes; `mod.json` declares a `format` (1), and a newer one is skipped in
+  one line. A machine's extras are declared in `extras.json`, one owner a pair.
 - **Tier 2 (M12)**: MoonSharp Lua. Pure C#, no native deps, works with Godot,
   sandboxable. Deferred until the API surface has settled and we know what is worth
   exposing.
@@ -417,6 +421,8 @@ transaction as the blob that first used it. See [M6-PLAN.md](M6-PLAN.md).
 
 ### Phase 1 — Engine (known quantity)
 
+**M0–M6 are built and played** (2026-08-25 to 2026-09-01); each plan in `docs/` keeps its reasoning.
+
 | | |
 |---|---|
 | M0 | Godot skeleton, `RenderingServer` cube, flycam |
@@ -432,14 +438,14 @@ transaction as the blob that first used it. See [M6-PLAN.md](M6-PLAN.md).
 | | |
 |---|---|
 | M7 | ✅ **built and played 2026-09-02** — watershed basins, Tier A rain accumulation, rain particles, wet shader, **a water surface you can watch rise** |
-| M8 | Tier B active fluid CA + Tier C groundwater seepage — *the mine floods* |
-| M9 | Structural integrity, collapse, saturation weakening — *the mine kills you* — **v0.5, the game exists**. Until M11 it buries you rather than kills you: a fall puts rubble in the body's box and the up-only unstick frees it or reports it buried; health is M11's (Matthew, 2026-09-13: *"for debugging I don't need it really"*) |
+| M8 | ✅ **built and played 2026-09-11** — Tier B active fluid CA + Tier C groundwater seepage — *the mine floods* |
+| M9 | ✅ **M9a–M9d built and played 2026-09-15**; the slow-then-fast collapse (COLLAPSE-PLAN) is its rework in progress — Structural integrity, collapse, saturation weakening — *the mine kills you* — **v0.5, the game exists**. Until M11 it buries you rather than kills you: a fall puts rubble in the body's box and the up-only unstick frees it or reports it buried; health is M11's (Matthew, 2026-09-13: *"for debugging I don't need it really"*) |
 
 ### Phase 3 — Depth
 
 | | |
 |---|---|
-| M10 | Machine framework, power, pumps, shoring, the inventory screen — *you fight back* |
+| M10 | **In progress** — M10a–M10c built (the entity, the pump, the programmer, power, the pack), M10d the play; the ladder (M10-LADDER-PLAN) runs to M10j — Machine framework, power, pumps, shoring, the inventory screen — *you fight back* |
 | M11 | Drills, conveyors, crafting, health — collapse damage, death, respawn with the inventory kept, fall damage, drowning; M9-PLAN decision 10 had pulled the minimum into M9 and Matthew sent it back here on 2026-09-13 — **v1.0** |
 | M12 | MoonSharp scripting API |
 | M13 | Distance LOD, biomes, polish |

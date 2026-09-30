@@ -26,11 +26,17 @@ public sealed class LoadResult
     /// </remarks>
     public required int ToolsLoaded { get; init; }
 
+    /// <summary>
+    /// (Extra, medium) pairs given by the mods' <c>extras.json</c> files, after conflicts (IM-1).
+    /// <c>required</c> for <see cref="ToolsLoaded"/>'s reason.
+    /// </summary>
+    public required int ExtrasLoaded { get; init; }
+
     public bool Success => Errors.Count == 0;
 
     public override string ToString() =>
         $"{Mods.Count} mod(s), {MaterialsLoaded} material(s), {ToolsLoaded} tool(s), " +
-        $"{Errors.Count} error(s)";
+        $"{ExtrasLoaded} extra reach(es), {Errors.Count} error(s)";
 }
 
 /// <summary>
@@ -41,6 +47,13 @@ public sealed class LoadResult
 /// privileged shortcut. That is the dogfood rule from docs/DESIGN.md: if stone cannot be
 /// expressed the way a third-party mod would express it, the format is wrong, and we find
 /// out now rather than at M12.
+/// <para>
+/// <b>Strict since IM-1</b> (IDEAL-MACHINES-PLAN, "IM-1 — the code-level pass"): every file is walked
+/// against the class it binds to before it is read (<see cref="StrictJson"/>), so an unknown key at
+/// any level is refused naming the file, the key's path and the nearest known name; a key given twice
+/// is refused; <c>$</c> keys are notes and dropped. A mod whose <c>format</c> is newer than this
+/// build's is skipped in one line before any of that.
+/// </para>
 /// </remarks>
 public sealed class ContentLoader
 {
@@ -51,12 +64,26 @@ public sealed class ContentLoader
         AllowTrailingCommas = true,
     };
 
+    private readonly MachineExtra _servedExtras;
+
+    /// <param name="servedExtras">
+    /// The extras a machine may opt into (IM-1's pass, decision 2): this build's
+    /// <see cref="MachineExtras.Served"/>, which the game never overrides. A test passes more to
+    /// reach the served path of an extra whose reader is a later slice.
+    /// </param>
+    public ContentLoader(MachineExtra servedExtras = MachineExtras.Served)
+    {
+        _servedExtras = servedExtras;
+    }
+
     public LoadResult Load(
         IContentSource source,
         Registry<MaterialDefinition> materials,
-        Registry<ToolDefinition> tools)
+        Registry<ToolDefinition> tools,
+        ExtrasTable? extras = null)
     {
         var errors = new List<string>();
+        extras ??= new ExtrasTable();
 
         // Pin air to 0 before anything else can take the slot. This reserves the number
         // only — air's properties still have to arrive from JSON below.
@@ -70,18 +97,27 @@ public sealed class ContentLoader
 
             return new LoadResult
             {
-                Mods = [], Errors = errors, MaterialsLoaded = 0, ToolsLoaded = 0,
+                Mods = [], Errors = errors, MaterialsLoaded = 0, ToolsLoaded = 0, ExtrasLoaded = 0,
             };
         }
 
-        var manifests = ReadManifests(source, errors);
-        ValidateDependencies(manifests, errors);
+        var skipped = new Dictionary<string, string>(StringComparer.Ordinal);
+        var manifests = ReadManifests(source, errors, skipped);
+        ValidateDependencies(manifests, skipped, errors);
+
+        // Every mod's table before any material (IM-1's pass, decision 4), so a machine's extras
+        // are checked against the whole union, and in load order, so the first owner of a pair is
+        // the same whatever order the mods were listed in (decision 5).
+        foreach (var manifest in manifests)
+        {
+            LoadExtras(source, manifest, extras, errors);
+        }
 
         int materialCount = 0;
         int toolCount = 0;
         foreach (var manifest in manifests)
         {
-            materialCount += LoadMaterials(source, manifest, materials, errors);
+            materialCount += LoadMaterials(source, manifest, materials, extras, errors);
             toolCount += LoadTools(source, manifest, tools, errors);
         }
 
@@ -101,7 +137,41 @@ public sealed class ContentLoader
             Errors = errors,
             MaterialsLoaded = materialCount,
             ToolsLoaded = toolCount,
+            ExtrasLoaded = extras.Count,
         };
+    }
+
+    /// <summary>
+    /// Reads one file strictly (IM-1's pass, decision 6): every unknown key and every key given twice
+    /// is an error naming <paramref name="file"/> and the key's path, and the file is refused whole;
+    /// <c>$</c> keys are notes, dropped at every level.
+    /// </summary>
+    private static bool TryReadStrict<T>(string json, string file, List<string> errors, out T? dto)
+        where T : class
+    {
+        dto = null;
+        var problems = new List<string>();
+        try
+        {
+            string clean = StrictJson.Clean(json, typeof(T), problems);
+            if (problems.Count > 0)
+            {
+                foreach (string problem in problems)
+                {
+                    errors.Add($"{file}: {problem}");
+                }
+
+                return false;
+            }
+
+            dto = JsonSerializer.Deserialize<T>(clean, JsonOptions);
+            return true;
+        }
+        catch (JsonException ex)
+        {
+            errors.Add($"{file}: not valid JSON — {ex.Message}");
+            return false;
+        }
     }
 
     /// <summary>
@@ -113,7 +183,8 @@ public sealed class ContentLoader
     /// numeric IDs are assigned in load order for content a world has not seen before,
     /// so a non-deterministic order would hand out different IDs on different runs.
     /// </remarks>
-    private static List<ModManifest> ReadManifests(IContentSource source, List<string> errors)
+    private static List<ModManifest> ReadManifests(
+        IContentSource source, List<string> errors, Dictionary<string, string> skipped)
     {
         var manifests = new List<ModManifest>();
 
@@ -123,23 +194,39 @@ public sealed class ContentLoader
             if (json is null)
             {
                 errors.Add($"Mod '{modId}' has no mod.json; skipped.");
+                skipped[modId] = "it has no mod.json";
                 continue;
             }
 
-            ModManifestJson? dto;
-            try
+            // IM-1's pass, decision 7: the format before anything else in the manifest, so a mod
+            // written for a newer build fails in one line rather than one a key it adds, and none
+            // of its files is read.
+            if (!TryReadFormat(json, out int format, out string? formatError))
             {
-                dto = JsonSerializer.Deserialize<ModManifestJson>(json, JsonOptions);
+                errors.Add($"Mod '{modId}': mod.json: {formatError}");
+                skipped[modId] = "its mod.json was refused";
+                continue;
             }
-            catch (JsonException ex)
+
+            if (format > ModManifest.CurrentFormat)
             {
-                errors.Add($"Mod '{modId}': mod.json is not valid JSON — {ex.Message}");
+                errors.Add(
+                    $"Mod '{modId}' is written for content format {format}; this build reads format " +
+                    $"{ModManifest.CurrentFormat}. Skipped, with none of its files read.");
+                skipped[modId] = $"it is written for content format {format}";
+                continue;
+            }
+
+            if (!TryReadStrict<ModManifestJson>(json, $"Mod '{modId}': mod.json", errors, out var dto))
+            {
+                skipped[modId] = "its mod.json was refused";
                 continue;
             }
 
             if (dto?.Id is null)
             {
                 errors.Add($"Mod '{modId}': mod.json has no 'id'.");
+                skipped[modId] = "its mod.json was refused";
                 continue;
             }
 
@@ -148,6 +235,7 @@ public sealed class ContentLoader
                 errors.Add(
                     $"Mod '{modId}': id '{dto.Id}' is not a valid namespace " +
                     "(lowercase a-z, 0-9, '_', '-', '.').");
+                skipped[modId] = "its mod.json was refused";
                 continue;
             }
 
@@ -156,6 +244,7 @@ public sealed class ContentLoader
                 errors.Add(
                     $"Mod directory '{modId}' declares id '{dto.Id}'; they must match so a " +
                     "mod's namespace is predictable from its folder.");
+                skipped[modId] = "its mod.json was refused";
                 continue;
             }
 
@@ -164,6 +253,7 @@ public sealed class ContentLoader
                 Id = dto.Id,
                 Name = dto.Name ?? dto.Id,
                 Version = dto.Version ?? "0.0.0",
+                Format = format,
                 // A dependency names a namespace, so a mod written when the base game was
                 // minercraft still finds it. The mod's own ID is not aliased: its folder is its
                 // namespace, and a folder called minercraft would read its files from nowhere.
@@ -177,7 +267,46 @@ public sealed class ContentLoader
             .ToList();
     }
 
-    private static void ValidateDependencies(List<ModManifest> manifests, List<string> errors)
+    /// <summary>
+    /// Reads a manifest's <c>format</c> alone: absent is 1, the grammar every mod written before the
+    /// number was written against; otherwise a whole number of 1 or more. Text that is not JSON
+    /// reads as 1 here and is refused by the strict read that follows.
+    /// </summary>
+    private static bool TryReadFormat(string json, out int format, out string? error)
+    {
+        format = ModManifest.CurrentFormat;
+        error = null;
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(json, StrictJson.DocumentOptions);
+            if (document.RootElement.ValueKind != JsonValueKind.Object) return true;
+
+            foreach (JsonProperty property in document.RootElement.EnumerateObject())
+            {
+                if (!string.Equals(property.Name, "format", StringComparison.OrdinalIgnoreCase)) continue;
+
+                if (property.Value.ValueKind != JsonValueKind.Number
+                    || !property.Value.TryGetInt32(out format)
+                    || format < 1)
+                {
+                    format = ModManifest.CurrentFormat;
+                    error = $"format must be a whole number of 1 or more (this build reads {ModManifest.CurrentFormat}).";
+                    return false;
+                }
+
+                return true;
+            }
+
+            return true;
+        }
+        catch (JsonException)
+        {
+            return true;
+        }
+    }
+
+    private static void ValidateDependencies(
+        List<ModManifest> manifests, Dictionary<string, string> skipped, List<string> errors)
     {
         var present = manifests.Select(m => m.Id).ToHashSet(StringComparer.Ordinal);
 
@@ -185,18 +314,88 @@ public sealed class ContentLoader
         {
             foreach (string dependency in manifest.Dependencies)
             {
-                if (!present.Contains(dependency))
-                {
-                    errors.Add($"Mod '{manifest.Id}' requires '{dependency}', which is not installed.");
-                }
+                if (present.Contains(dependency)) continue;
+
+                // A mod that was there and was refused is not "not installed": saying so sends its
+                // player looking for a download they already have.
+                errors.Add(skipped.TryGetValue(dependency, out string? why)
+                    ? $"Mod '{manifest.Id}' requires '{dependency}', which was skipped: {why}."
+                    : $"Mod '{manifest.Id}' requires '{dependency}', which is not installed.");
             }
         }
     }
 
-    private static int LoadMaterials(
+    /// <summary>
+    /// Adds one mod's <c>extras.json</c> to the table (IM-1's pass, decisions 3–5). The file is
+    /// refused whole if any extra, medium or form in it is; a pair another mod already gave is
+    /// refused on its own, naming both files, and the rest of the file stands.
+    /// </summary>
+    private static void LoadExtras(IContentSource source, ModManifest manifest, ExtrasTable table, List<string> errors)
+    {
+        string? json = source.ReadText(manifest.Id, ExtrasTable.FileName);
+        if (json is null) return;
+
+        string file = $"{manifest.Id}/{ExtrasTable.FileName}";
+        if (!TryReadStrict<Dictionary<string, Dictionary<string, string?>?>>(json, file, errors, out var dto)
+            || dto is null)
+        {
+            return;
+        }
+
+        var rows = new List<(MachineExtra Extra, string Medium, ExtraForm Form)>();
+        bool refused = false;
+        foreach ((string extraName, Dictionary<string, string?>? media) in dto)
+        {
+            if (!MachineExtras.TryParse(extraName, out MachineExtra extra, out string? extraError))
+            {
+                errors.Add($"{file}: {extraError}");
+                refused = true;
+                continue;
+            }
+
+            if (media is null)
+            {
+                errors.Add($"{file}: {extraName} names no media; it wants {{ \"<medium>\": \"<form>\" }}.");
+                refused = true;
+                continue;
+            }
+
+            foreach ((string medium, string? formName) in media)
+            {
+                if (!MachineExtras.MediumIsServed(medium, out string? mediumError))
+                {
+                    errors.Add($"{file}: {extraName}: {mediumError}");
+                    refused = true;
+                    continue;
+                }
+
+                if (!MachineExtras.TryParseForm(extra, formName, out ExtraForm form, out string? formError))
+                {
+                    errors.Add($"{file}: {extraName}.{medium}: {formError}");
+                    refused = true;
+                    continue;
+                }
+
+                rows.Add((extra, medium, form));
+            }
+        }
+
+        if (refused) return;
+
+        foreach ((MachineExtra extra, string medium, ExtraForm form) in rows)
+        {
+            if (!table.TryAdd(extra, medium, form, file, out string? conflict))
+            {
+                errors.Add($"{file}: {conflict}");
+            }
+        }
+    }
+
+    private int LoadMaterials(
         IContentSource source,
         ModManifest manifest,
         Registry<MaterialDefinition> materials,
+        ExtrasTable extras,
         List<string> errors)
     {
         int loaded = 0;
@@ -206,14 +405,8 @@ public sealed class ContentLoader
             string? json = source.ReadText(manifest.Id, path);
             if (json is null) continue;
 
-            MaterialJson? dto;
-            try
+            if (!TryReadStrict<MaterialJson>(json, $"{manifest.Id}/{path}", errors, out var dto))
             {
-                dto = JsonSerializer.Deserialize<MaterialJson>(json, JsonOptions);
-            }
-            catch (JsonException ex)
-            {
-                errors.Add($"{manifest.Id}/{path}: not valid JSON — {ex.Message}");
                 continue;
             }
 
@@ -291,7 +484,7 @@ public sealed class ContentLoader
                     continue;
                 }
 
-                if (!TryReadMachine(dto.Machine, out machine, out string? machineError))
+                if (!TryReadMachine(dto.Machine, extras, _servedExtras, out machine, out string? machineError))
                 {
                     errors.Add($"{manifest.Id}/{path}: machine: {machineError}");
                     continue;
@@ -315,6 +508,22 @@ public sealed class ContentLoader
                 }
             }
 
+            // IDEAL-MACHINES-PLAN decision 6: the computer's verb is keyed by this, not by "an item
+            // that is not a pack", so water, parts and ingots never open a panel. Only an item may be
+            // one: a block's click places, and a machine is a body.
+            bool programmer = dto.Programmer ?? false;
+            if (programmer && machine is not null)
+            {
+                errors.Add($"{manifest.Id}/{path}: a machine cannot be a \"programmer\"; a programmer is an item in the hand.");
+                continue;
+            }
+
+            if (programmer && dto.Placeable != false)
+            {
+                errors.Add($"{manifest.Id}/{path}: a \"programmer\" must be \"placeable\": false; it is an item in the hand, never a block.");
+                continue;
+            }
+
             var definition = new MaterialDefinition
             {
                 Id = id,
@@ -329,6 +538,7 @@ public sealed class ContentLoader
                 IsFluid = dto.Fluid ?? false,
                 IsReplaceable = dto.Replaceable ?? false,
                 IsPlaceable = dto.Placeable ?? true,
+                IsProgrammer = programmer,
                 Machine = machine,
                 Unit = unit,
             };
@@ -369,14 +579,8 @@ public sealed class ContentLoader
             string? json = source.ReadText(manifest.Id, path);
             if (json is null) continue;
 
-            ToolJson? dto;
-            try
+            if (!TryReadStrict<ToolJson>(json, $"{manifest.Id}/{path}", errors, out var dto))
             {
-                dto = JsonSerializer.Deserialize<ToolJson>(json, JsonOptions);
-            }
-            catch (JsonException ex)
-            {
-                errors.Add($"{manifest.Id}/{path}: not valid JSON — {ex.Message}");
                 continue;
             }
 
@@ -412,6 +616,27 @@ public sealed class ContentLoader
                         errors.Add($"{manifest.Id}/{path}: bite \"{biteName}\" is not a shape this build swings — sphere, cube, tunnel or chunk.");
                         continue;
                 }
+            }
+
+            // IM-4's pass, decision 5: what the tool takes, rock when absent. A water tool takes a
+            // lattice shape — the siphon comes in the quantum tools' three sizes — never the sphere.
+            ToolTakes takes = ToolTakes.Rock;
+            if (dto.Takes is { } takesName)
+            {
+                switch (takesName)
+                {
+                    case "rock": takes = ToolTakes.Rock; break;
+                    case "water": takes = ToolTakes.Water; break;
+                    default:
+                        errors.Add($"{manifest.Id}/{path}: takes \"{takesName}\" is not something a tool takes — rock or water.");
+                        continue;
+                }
+            }
+
+            if (takes == ToolTakes.Water && bite == ToolBite.Sphere)
+            {
+                errors.Add($"{manifest.Id}/{path}: a tool that takes water takes a lattice shape — bite cube, tunnel or chunk, never the sphere.");
+                continue;
             }
 
             // Rejected at the door rather than clamped, so that every tool the registry
@@ -457,6 +682,16 @@ public sealed class ContentLoader
                     continue;
                 }
 
+                // Each kind of tool is priced in its own unit, and the other unit is refused rather
+                // than ignored: a siphon written with joulesPerVoxel would otherwise load free.
+                if (takes == ToolTakes.Water ? powerDto.JoulesPerVoxel is not null : powerDto.JoulesPerLitre is not null)
+                {
+                    errors.Add(takes == ToolTakes.Water
+                        ? $"{manifest.Id}/{path}: a tool that takes water is priced power.joulesPerLitre, not joulesPerVoxel."
+                        : $"{manifest.Id}/{path}: power.joulesPerLitre prices a tool that takes water; this one takes rock (joulesPerVoxel).");
+                    continue;
+                }
+
                 long joules = powerDto.JoulesPerVoxel ?? 0;
                 if (joules < 0 || joules > ToolPower.MaxJoulesPerVoxel)
                 {
@@ -464,7 +699,14 @@ public sealed class ContentLoader
                     continue;
                 }
 
-                power = new ToolPower(powerDto.Via, joules);
+                long perLitre = powerDto.JoulesPerLitre ?? 0;
+                if (perLitre < 0 || perLitre > MachineDefinition.MaxJoulesPerLitre)
+                {
+                    errors.Add($"{manifest.Id}/{path}: power.joulesPerLitre must be within 0..{MachineDefinition.MaxJoulesPerLitre:N0}.");
+                    continue;
+                }
+
+                power = new ToolPower(powerDto.Via, joules, perLitre);
             }
 
             try
@@ -477,6 +719,7 @@ public sealed class ContentLoader
                     CooldownSeconds = cooldown,
                     Power = power,
                     Bite = bite,
+                    Takes = takes,
                 });
 
                 loaded++;
@@ -574,7 +817,8 @@ public sealed class ContentLoader
     /// the part that will</b> (M10a's pass, decision 11). A mod written for M10f that loaded on
     /// M10a and ticked nothing would be the lamp that did not glow, against a format mods write to.
     /// </remarks>
-    private static bool TryReadMachine(MachineJson dto, out MachineDefinition? machine, out string? error)
+    private static bool TryReadMachine(
+        MachineJson dto, ExtrasTable extras, MachineExtra served, out MachineDefinition? machine, out string? error)
     {
         machine = null;
 
@@ -585,6 +829,7 @@ public sealed class ContentLoader
             case "outlet": kind = MachineKind.Outlet; break;
             case "converter": kind = MachineKind.Converter; break;
             case "storage": kind = MachineKind.Storage; break;
+            case "vault": kind = MachineKind.Vault; break;
             case "generator":
                 error = "kind 'generator' is not in this build — the burner and the crank are M10f.";
                 return false;
@@ -646,6 +891,31 @@ public sealed class ContentLoader
             }
 
             capacityMillijoules = capacityJoules * MachineDefinition.PerMille;
+        }
+
+        // IM-3's pass, decision 1: the vault's inside in whole cubic metres, and its hold in watts a
+        // cubic metre read as whole milliwatts — a fraction the bill cannot hold exactly is refused
+        // rather than rounded, efficiency's rule, so the file and the pool agree.
+        long insideMillilitres = 0;
+        if (dto.InsideCubicMetres is { } inside)
+        {
+            if (inside <= 0 || inside > MachineDefinition.MaxInsideCubicMetres)
+            {
+                error = $"insideCubicMetres must be within 1..{MachineDefinition.MaxInsideCubicMetres:N0}.";
+                return false;
+            }
+
+            insideMillilitres = inside * MachineDefinition.MillilitresPerCubicMetre;
+        }
+
+        long waterHold = 0, blockHold = 0;
+        if (dto.HoldWattsPerCubicMetre is { } hold)
+        {
+            if (!TryReadMilliwatts(hold.Water, "water", out waterHold, out error)
+                || !TryReadMilliwatts(hold.Blocks, "blocks", out blockHold, out error))
+            {
+                return false;
+            }
         }
 
         var links = new List<MachineLink>();
@@ -717,6 +987,43 @@ public sealed class ContentLoader
             }
         }
 
+        // IM-1's pass, decisions 2–4: each extra by name, its form over the machine's medium from
+        // the mods' table. The rules that need no table are the validator's; whether this build
+        // serves the extra is asked last, after every other rule has had its say.
+        var forms = new Dictionary<MachineExtra, ExtraForm>();
+        if (dto.Extras is { Count: > 0 })
+        {
+            string? medium = MachineDefinition.MediumOf(links, out string? mediumError);
+            if (medium is null)
+            {
+                error = $"extras: {mediumError}";
+                return false;
+            }
+
+            foreach ((string name, ExtraJson? options) in dto.Extras)
+            {
+                if (!MachineExtras.TryParse(name, out MachineExtra extra, out string? extraError))
+                {
+                    error = $"extras: {extraError}";
+                    return false;
+                }
+
+                if (options is null)
+                {
+                    error = $"extras: '{name}' must be an object, {{}} in this build.";
+                    return false;
+                }
+
+                if (!extras.TryGetForm(extra, medium, out ExtraForm form))
+                {
+                    error = $"extras: '{name}' has no reach over '{medium}'; no mod's {ExtrasTable.FileName} gives it a form there.";
+                    return false;
+                }
+
+                forms[extra] = form;
+            }
+        }
+
         var read = new MachineDefinition
         {
             Kind = kind,
@@ -729,8 +1036,14 @@ public sealed class ContentLoader
             CapacityMillijoules = capacityMillijoules,
             Carried = dto.Carried ?? false,
             RechargeWatts = dto.RechargeWatts,
+            InsideMillilitres = insideMillilitres,
+            WaterHoldMilliwattsPerCubicMetre = waterHold,
+            BlockHoldMilliwattsPerCubicMetre = blockHold,
+            HoldsWater = dto.HoldsWater ?? false,
+            OwnChargeSeconds = dto.OwnChargeSeconds,
             Links = links,
             Ports = ports,
+            ExtraForms = forms,
         };
 
         if (!read.TryValidate(out error))
@@ -738,7 +1051,45 @@ public sealed class ContentLoader
             return false;
         }
 
+        foreach (MachineExtra extra in forms.Keys)
+        {
+            if ((served & extra) == 0)
+            {
+                error =
+                    $"extras: '{MachineExtras.NameOf(extra)}' is not served in this build; " +
+                    $"{MachineExtras.ServedBy(extra)} reads it, and switches it on.";
+                return false;
+            }
+        }
+
         machine = read;
+        return true;
+    }
+
+    /// <summary>A hold in watts a cubic metre as whole milliwatts, three decimals at most; absent is nothing.</summary>
+    private static bool TryReadMilliwatts(double? watts, string what, out long milliwatts, out string? error)
+    {
+        milliwatts = 0;
+        error = null;
+        if (watts is not { } value)
+        {
+            return true;
+        }
+
+        double thousandths = value * MachineDefinition.PerMille;
+        if (double.IsNaN(thousandths) || double.IsInfinity(thousandths) || thousandths != Math.Round(thousandths))
+        {
+            error = $"holdWattsPerCubicMetre.{what} must be a whole number of milliwatts (three decimals at most).";
+            return false;
+        }
+
+        if (thousandths < 0 || thousandths > MachineDefinition.MaxHoldMilliwattsPerCubicMetre)
+        {
+            error = $"holdWattsPerCubicMetre.{what} must be within 0..{MachineDefinition.MaxHoldMilliwattsPerCubicMetre / MachineDefinition.PerMille:N0}.";
+            return false;
+        }
+
+        milliwatts = (long)Math.Round(thousandths);
         return true;
     }
 
@@ -748,6 +1099,9 @@ public sealed class ContentLoader
         public string? Name { get; set; }
         public string? Version { get; set; }
         public List<string>? Dependencies { get; set; }
+
+        /// <summary>Read first, alone, by <see cref="TryReadFormat"/>; here so the strict walk knows the key.</summary>
+        public double? Format { get; set; }
     }
 
     private sealed class MachineJson
@@ -764,6 +1118,23 @@ public sealed class ContentLoader
         public long? RechargeWatts { get; set; }
         public Dictionary<string, MachineLinkJson?>? Links { get; set; }
         public Dictionary<string, MachinePortJson?>? Ports { get; set; }
+        public Dictionary<string, ExtraJson?>? Extras { get; set; }
+        public long? InsideCubicMetres { get; set; }
+        public HoldJson? HoldWattsPerCubicMetre { get; set; }
+        public bool? HoldsWater { get; set; }
+        public long? OwnChargeSeconds { get; set; }
+    }
+
+    /// <summary>A vault's hold, in watts a cubic metre: water and blocks apart (decision 16).</summary>
+    private sealed class HoldJson
+    {
+        public double? Water { get; set; }
+        public double? Blocks { get; set; }
+    }
+
+    /// <summary>An extra's options: none yet, so the strict walk refuses any key inside one.</summary>
+    private sealed class ExtraJson
+    {
     }
 
     private sealed class MachineLinkJson
@@ -796,6 +1167,7 @@ public sealed class ContentLoader
         public bool? Fluid { get; set; }
         public bool? Replaceable { get; set; }
         public bool? Placeable { get; set; }
+        public bool? Programmer { get; set; }
         public string? Unit { get; set; }
         public MachineJson? Machine { get; set; }
     }
@@ -808,11 +1180,13 @@ public sealed class ContentLoader
         public float? CooldownSeconds { get; set; }
         public ToolPowerJson? Power { get; set; }
         public string? Bite { get; set; }
+        public string? Takes { get; set; }
     }
 
     private sealed class ToolPowerJson
     {
         public string? Via { get; set; }
         public long? JoulesPerVoxel { get; set; }
+        public long? JoulesPerLitre { get; set; }
     }
 }

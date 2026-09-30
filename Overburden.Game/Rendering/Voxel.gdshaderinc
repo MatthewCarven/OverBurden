@@ -105,12 +105,27 @@ uniform bool tint_in_view_space = false;
 uniform vec3 strain_tint : source_color = vec3(0.78, 0.30, 0.22);
 uniform float strain_amount : hint_range(0.0, 1.0) = 0.6;
 
+#ifdef VOXEL_PIECE
+// A FALLING PIECE (COLLAPSE-PLAN part c, decision 3). A piece has no mesher to bake light into its
+// corners, so its light is one sample of the grid at its centre, set per piece as an instance
+// uniform once a step — sky and block, no AO. Nothing it passes through is at risk any more, so no
+// strain. Translation only, like a chunk, so the model normal is the world normal.
+instance uniform vec2 piece_light = vec2(1.0, 0.0);
+
+void vertex() {
+	layer = UV2.x;
+	strain = 0.0;
+	shade = piece_light;
+	world_normal = NORMAL;
+}
+#else
 void vertex() {
 	layer = UV2.x;
 	strain = UV2.y;
 	shade = COLOR.rg;
 	world_normal = NORMAL;
 }
+#endif
 
 // The cheap fake for directional shading that every voxel game uses: top brightest, the two
 // horizontal axes different from each other so a box reads as a box, bottom darkest.

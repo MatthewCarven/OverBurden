@@ -26,12 +26,20 @@ namespace Overburden.Core.Content;
 /// </remarks>
 public static class ToolTiers
 {
-    /// <summary>The tools in cycle order: weakest first, smallest bite first among equals, ID as the tie-break.</summary>
+    /// <summary>
+    /// The tools in cycle order: every rock tool before every water tool (IM-4's pass, decision 5),
+    /// then weakest first, smallest bite first among equals, ID as the tie-break.
+    /// </summary>
+    /// <remarks>
+    /// The water rule first because a siphon's threshold means nothing — it takes no rock — and at
+    /// its default of 0 it would otherwise sort before the hand pick.
+    /// </remarks>
     public static List<ToolDefinition> Order(IEnumerable<ToolDefinition> tools)
     {
         ArgumentNullException.ThrowIfNull(tools);
         return tools
-            .OrderBy(t => t.HardnessThreshold)
+            .OrderBy(t => t.Takes)
+            .ThenBy(t => t.HardnessThreshold)
             .ThenBy(t => t.Bite)
             .ThenBy(t => t.Id.ToString(), StringComparer.Ordinal)
             .ToList();
@@ -46,9 +54,10 @@ public static class ToolTiers
             throw new ArgumentException("No tools to choose a default from.", nameof(ordered));
         }
 
+        // A rock tool: a fresh world starts on a pick, never on a free siphon sorted last.
         for (int i = ordered.Count - 1; i >= 0; i--)
         {
-            if (ordered[i].IsFree)
+            if (ordered[i].IsFree && ordered[i].Takes == ToolTakes.Rock)
             {
                 return ordered[i];
             }

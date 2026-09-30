@@ -50,6 +50,15 @@ public class MachineTickTests(ITestOutputHelper output)
     // relay with its bill, and a pack.
     private const int Panel = 6, DimPanel = 7, BigCell = 8, SmallCell = 9, BilledPump = 10, PackMaterial = 11;
 
+    // IM-2: the relay with the priority extra (decision 41), and the quantum backpack's window (decision 7).
+    private const int PriorityPump = 12, WindowPack = 13;
+
+    // IM-3b: a small vault — 1 m³ at the low grade's rates — to stand beside a pump on its channel.
+    private const int SmallVault = 14;
+
+    // IM-4b: the small vault with a weight port, and a channel vault that holds blocks only.
+    private const int WeightedVault = 15, DryVault = 16;
+
     /// <summary>The relay's rate: 100 L/s is 50,000 mL a boundary, 3.2 cells.</summary>
     private const long RelayMillilitresPerBoundary = 50_000;
 
@@ -104,24 +113,74 @@ public class MachineTickTests(ITestOutputHelper output)
         Ports = [new PortDefinition("channel", 0, 0, 15), new PortDefinition("weight", 1, 1, 100)],
     };
 
+    private static readonly MachineDefinition SmallVaultDefinition = new()
+    {
+        Kind = MachineKind.Vault,
+        InsideMillilitres = MachineDefinition.MillilitresPerCubicMetre,
+        WaterHoldMilliwattsPerCubicMetre = 25_000,
+        BlockHoldMilliwattsPerCubicMetre = 2_500,
+        HoldsWater = true,
+        Links = [new MachineLink("power", MachineMedium.Power, MachineRole.Sink, MachineLink.ChannelVia, null, "channel")],
+        Ports = [new PortDefinition("channel", 0, 0, 15), new PortDefinition(MachineTick.EnabledPort, 1, 0, 1)],
+    };
+
+    private static readonly MachineDefinition WeightedVaultDefinition = new()
+    {
+        Kind = MachineKind.Vault,
+        InsideMillilitres = MachineDefinition.MillilitresPerCubicMetre,
+        WaterHoldMilliwattsPerCubicMetre = 25_000,
+        BlockHoldMilliwattsPerCubicMetre = 2_500,
+        HoldsWater = true,
+        Links = [new MachineLink("power", MachineMedium.Power, MachineRole.Sink, MachineLink.ChannelVia, null, "channel")],
+        Ports = [new PortDefinition("channel", 0, 0, 15), new PortDefinition(MachineTick.EnabledPort, 1, 0, 1), new PortDefinition("weight", 1, 1, 100)],
+    };
+
+    private static readonly MachineDefinition DryVaultDefinition = new()
+    {
+        Kind = MachineKind.Vault,
+        InsideMillilitres = MachineDefinition.MillilitresPerCubicMetre,
+        BlockHoldMilliwattsPerCubicMetre = 2_500,
+        Links = [new MachineLink("power", MachineMedium.Power, MachineRole.Sink, MachineLink.ChannelVia, null, "channel")],
+        Ports = [new PortDefinition("channel", 0, 0, 15)],
+    };
+
+    /// <summary>The billed relay with the priority extra and its port, 0–9 at 5, as the shipped relay has since IM-2.</summary>
+    private static MachineDefinition PriorityPumpAt(long millilitresPerSecond, long joulesPerLitre)
+    {
+        MachineDefinition plain = PumpAt(millilitresPerSecond, joulesPerLitre: joulesPerLitre);
+        return new MachineDefinition
+        {
+            Kind = plain.Kind,
+            MillilitresPerSecond = plain.MillilitresPerSecond,
+            JoulesPerLitre = plain.JoulesPerLitre,
+            IntakeRadiusCells = plain.IntakeRadiusCells,
+            Links = plain.Links,
+            Ports = [.. plain.Ports, new PortDefinition(MachineTick.PriorityPort, MachineTick.DefaultPriority, 0, 9)],
+            ExtraForms = new Dictionary<MachineExtra, ExtraForm> { [MachineExtra.Priority] = ExtraForm.Port },
+        };
+    }
+
     internal static readonly MaterialTable Materials = MaterialTable.ForTesting(
-        //             air    stone  pump   outlet slow   wide   panel  dim    big    small  billed pack
-        isOpaque: [false, true, true, true, true, true, true, true, true, true, true, true],
-        isFluid: [false, false, false, false, false, false, false, false, false, false, false, false],
-        textureLayer: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-        hardness: [0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 1.0f, 1.0f, 3.0f, 3.0f, 3.0f, 1.0f],
+        //             air    stone  pump   outlet slow   wide   panel  dim    big    small  billed pack   prio   window vault  weighed dry
+        isOpaque: [false, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true],
+        isFluid: [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false],
+        textureLayer: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+        hardness: [0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 1.0f, 1.0f, 3.0f, 3.0f, 3.0f, 1.0f, 3.0f, 1.0f, 3.0f, 3.0f, 3.0f],
         machine:
         [
             null, null, PumpAt(100_000), OutletDefinition, PumpAt(470), PumpAt(100_000, radius: 2),
             PanelAt(500), PanelAt(500, 900), CellOf(BigCellCapacity), CellOf(SmallCellCapacity),
             PumpAt(100_000, joulesPerLitre: RelayBill), CellOf(PackCapacity, carried: true, rechargeWatts: 1000),
+            PriorityPumpAt(100_000, RelayBill), WindowTests.WindowDefinition, SmallVaultDefinition,
+            WeightedVaultDefinition, DryVaultDefinition,
         ],
         unit:
         [
             default, default, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells,
             MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Count,
+            MaterialUnit.Cells, MaterialUnit.Count, MaterialUnit.Cells, MaterialUnit.Cells, MaterialUnit.Cells,
         ],
-        placeable: [true, true, true, true, true, true, true, true, true, true, true, false]);
+        placeable: [true, true, true, true, true, true, true, true, true, true, true, false, true, false, true, true, true]);
 
     /// <summary>The sky a test dictates: a cell's open columns, or nothing loaded over it.</summary>
     private sealed class DictatedSky : ISolarSky
@@ -419,19 +478,23 @@ public class MachineTickTests(ITestOutputHelper output)
             return held;
         }
 
-        /// <summary>Both tiers' identities, the seam's, the machine layer's, and the whole world's, exactly.</summary>
+        /// <summary>
+        /// Both tiers' identities, the seam's, the machine layer's, the store's water line and the whole
+        /// world's, exactly: since IM-4b the world is the tiers and the vaults, and the siphon's twins are
+        /// terms of both tiers.
+        /// </summary>
         public void AssertIdentity()
         {
             long a = Water.StoredLitres;
             Assert.Equal(
-                Water.ReceivedLitres + Water.InjectedLitres + Water.EmittedLitres
-                    - Water.SpilledLitres - Water.DrawnLitres - Water.SeepedLitres - Water.PumpedLitres,
+                Water.ReceivedLitres + Water.InjectedLitres + Water.EmittedLitres + Water.PouredLitres
+                    - Water.SpilledLitres - Water.DrawnLitres - Water.SeepedLitres - Water.PumpedLitres - Water.SiphonedLitres,
                 a);
 
             long b = Fluid.TotalMillilitres;
             Assert.Equal(
-                Fluid.AddedMillilitres + Fluid.EmittedMillilitres - Fluid.RemovedMillilitres
-                    - Fluid.DisplacedMillilitres - Fluid.HandedMillilitres - Fluid.PumpedMillilitres,
+                Fluid.AddedMillilitres + Fluid.EmittedMillilitres + Fluid.PouredMillilitres - Fluid.RemovedMillilitres
+                    - Fluid.DisplacedMillilitres - Fluid.HandedMillilitres - Fluid.PumpedMillilitres - Fluid.SiphonedMillilitres,
                 b);
             Fluid.Publish();
             Assert.True(Fluid.Published.IdentityExact, "the published identity disagrees with the live one");
@@ -440,7 +503,9 @@ public class MachineTickTests(ITestOutputHelper output)
             Assert.Equal(Water.DrawnLitres * Litre, Drain.DrawnMillilitres);
             Assert.Equal(Fluid.HandedMillilitres, Handoff.HandedMillilitres);
             Assert.Equal((Water.ReceivedLitres * Litre) + Handoff.PendingMillilitres, Handoff.HandedMillilitres);
-            Assert.True(Tick.CrossTierExact, "pumped != emitted across the tiers");
+            Assert.True(Tick.CrossTierExact, "pumped != emitted + vaulted across the tiers");
+            Assert.Equal(Tick.VaultedMillilitres, Machines.WaterVaultedMillilitres);
+            Assert.True(Machines.StoreWaterExact, "the store's water line broke");
             Assert.Equal(Fluid.PumpedMillilitres, Tick.PumpedMillilitres);
             Assert.Equal(Fluid.EmittedMillilitres, Tick.EmittedMillilitres);
             Assert.Equal(Water.PumpedLitres, Tick.PumpedLitres);
@@ -452,7 +517,8 @@ public class MachineTickTests(ITestOutputHelper output)
             Assert.Equal(
                 ((Water.InjectedLitres - Water.SpilledLitres) * Litre)
                     + Fluid.AddedMillilitres - Drain.DrawnMillilitres - Fluid.RemovedMillilitres - Fluid.DisplacedMillilitres,
-                (a * Litre) + Handoff.PendingMillilitres + b);
+                (a * Litre) + Handoff.PendingMillilitres + b
+                    + Machines.HeldWaterMillilitres + Machines.OwedWaterMillilitres - Machines.VaultWaterEntering + Machines.VaultWaterLeaving);
         }
     }
 
@@ -750,6 +816,104 @@ public class MachineTickTests(ITestOutputHelper output)
 
         // The cell is spent: both stall at the next boundary, with water and room still there.
         Assert.Equal(2, twin.Boundary(step: false).Unpowered);
+        Assert.True(twin.Tick.PowerExact);
+        twin.AssertIdentity();
+    }
+
+    [Fact]
+    public void AVaultsBillComesBeforeThePumpAndItsMinuteRefillsOnlyFromWhatThePumpLeaves()
+    {
+        // IM-3b's pass, decisions 4 and 6. A full small vault bills 1.25 J a boundary and carries a
+        // minute of it, 150 J; this one is 10 J short. The cell holds the bill and 25 L of pumping. The
+        // pool pays the bill (never the vault's own charge while the pool can), the pump drinks the rest,
+        // and the minute gets nothing, because the spare is what is left after the consumers.
+        var twin = new Twin();
+        MachineRow pump = twin.Place(Twin.PumpCell, BilledPump);
+        twin.Place(Twin.RimOutlet, Outlet);
+        MachineRow cell = twin.Place(Twin.RoomOutlet, BigCell, charge: 1_250 + (25_000L * RelayBill));
+
+        var contents = new VaultContents { OwnChargeMillijoules = 140_000 };
+        contents.Add(Stone, 64);
+        var vault = new MachineRow(new BrushCell(8, 2, 8), SmallVault, BrushFacing.PositiveX, SmallVaultDefinition.DefaultPorts());
+        VaultState.Write(vault, contents);
+        twin.Machines.Add(vault);
+        Assert.Equal(1_250 + (25_000L * RelayBill) + 140_000, twin.Machines.StoredMillijoulesEntering);
+
+        twin.PourIntoRoom(120 * Cap);
+        twin.Fluid.Settle(200);
+
+        MachineTickReport report = twin.Boundary(step: false);
+
+        Assert.Equal(1_250, report.HeldMillijoules);
+        Assert.Equal(0, report.HeldFromOwnMillijoules);
+        Assert.Equal(25_000L, pump.LastMovedMillilitres);
+        Assert.Equal(0, report.OwnGivenMillijoules);
+        Assert.True(VaultState.TryRead(vault, out VaultContents after));
+        Assert.Equal(140_000, after.OwnChargeMillijoules);
+        Assert.Equal(0L, ChargeOf(cell));
+        Assert.True(twin.Tick.PowerExact);
+        twin.AssertIdentity();
+    }
+
+    [Fact]
+    public void TheBankPaysTheHigherPriorityPumpFirstAndEqualPrioritiesByPosition()
+    {
+        // IDEAL-MACHINES-PLAN decisions 9 and 41, on the fixture of the origin-order test above: 75 L
+        // of joules for two 50 L pumps. At equal priority the first in position order is paid in
+        // full; raise the second to 9 and it is.
+        foreach (bool raised in new[] { false, true })
+        {
+            var twin = new Twin();
+            MachineRow a = twin.Place(Twin.PumpCell, PriorityPump);
+            MachineRow b = twin.Place(new BrushCell(11, 2, 10), PriorityPump);
+            Assert.True(MachineTickOriginBefore(a, b));
+            twin.Place(Twin.RimOutlet, Outlet);
+            twin.Place(Twin.RimOutletB, Outlet);
+            twin.Place(Twin.RoomOutlet, BigCell, charge: 75_000L * RelayBill);
+            twin.PourIntoRoom(200 * Cap);
+            twin.Fluid.Settle(200);
+            if (raised)
+            {
+                Assert.Equal(PortWriteResult.Set, twin.Machines.SetPort(b.Cell, MachineTick.PriorityPort, 9).Result);
+            }
+
+            MachineTickReport report = twin.Boundary(step: false);
+
+            Assert.Equal(2, report.Moved);
+            Assert.Equal(raised ? 25_000L : RelayMillilitresPerBoundary, a.LastMovedMillilitres);
+            Assert.Equal(raised ? RelayMillilitresPerBoundary : 25_000L, b.LastMovedMillilitres);
+            Assert.Equal(75_000L * RelayBill, report.DrawnMillijoules);
+            Assert.True(twin.Tick.PowerExact);
+            twin.AssertIdentity();
+        }
+    }
+
+    [Fact]
+    public void AWindowsSpendComesOutOfTheBankBeforeThePumpsArePaid()
+    {
+        // Decision 9: "The hand's spend has already happened." 75 L of joules in the cell; the tool
+        // spends 25 L's worth through the window between boundaries; the pump is paid from what is
+        // left, 50 L, and the next boundary it stalls unpowered.
+        var twin = new Twin();
+        MachineRow pump = twin.Place(Twin.PumpCell, BilledPump);
+        twin.Place(Twin.RimOutlet, Outlet);
+        MachineRow cell = twin.Place(Twin.RoomOutlet, BigCell, charge: 75_000L * RelayBill);
+        twin.PourIntoRoom(120 * Cap);
+        twin.Fluid.Settle(200);
+        var window = new EquippedPack(WindowPack, Materials.Machine(WindowPack)!, chargeMillijoules: 0, channel: 0);
+        twin.Tick.EquipPack(window);
+
+        Assert.Equal(25_000L * RelayBill, window.Take(25_000L * RelayBill));
+        Assert.Equal(50_000L * RelayBill, ChargeOf(cell));
+
+        MachineTickReport report = twin.Boundary(step: false);
+        Assert.Equal(RelayMillilitresPerBoundary, pump.LastMovedMillilitres);
+        Assert.Equal(0L, ChargeOf(cell));
+        Assert.Equal(0L, report.PackGivenMillijoules);
+        Assert.True(twin.Tick.PowerExact);
+
+        twin.Boundary(step: false);
+        Assert.Equal(PumpStall.Unpowered, pump.LastStall);
         Assert.True(twin.Tick.PowerExact);
         twin.AssertIdentity();
     }
@@ -2175,4 +2339,353 @@ public class MachineTickTests(ITestOutputHelper output)
             $"seed {seed:X}: {offered / Litre:N0} L offered, {pumpedInAll / Litre:N0} L pumped over {moves} pump-boundaries, "
             + $"{stalledAway} stalled on a chunk away, {stalledNoRoom} no room, {stalledNoWater} no water, {quits} quit(s), {machines.Count} row(s) at the end");
     }
+
+    // ---------------------------------------------------------------- IM-4b: the vault in the ring
+
+    private static readonly BrushCell VaultCell = new(8, 2, 8);
+
+    /// <summary>An empty vault on the channel, placed as the fixture places a body; <paramref name="contents"/> written first, a restored row's shape.</summary>
+    private static MachineRow VaultOn(Twin twin, BrushCell cell, int material = SmallVault, int channel = 0, VaultContents? contents = null, int weight = 1)
+    {
+        var row = new MachineRow(cell, material, BrushFacing.PositiveX, Materials.Machine(material)!.DefaultPorts());
+        row.SetPortUnchecked("channel", channel);
+        if (row.TryGetPort("weight", out _))
+        {
+            row.SetPortUnchecked("weight", weight);
+        }
+
+        if (contents is not null)
+        {
+            VaultState.Write(row, contents);
+        }
+
+        twin.Machines.Add(row);
+        return row;
+    }
+
+    private static long WaterIn(MachineRow vault)
+    {
+        Assert.True(VaultState.TryRead(vault, out VaultContents contents));
+        return contents.WaterMillilitres;
+    }
+
+    [Fact]
+    public void APumpFillsAVaultInItsRingAndPumpedEqualsEmittedPlusVaulted()
+    {
+        // IM-4's pass, decision 9: no outlet on the channel, only a vault that holds water. The relay's
+        // 50 L a boundary goes into it, counted vaulted and never emitted, through the pump's own door
+        // on the store — not the siphon's, whose seam would read it as a take.
+        var twin = new Twin();
+        MachineRow pump = twin.Place(Twin.PumpCell, Pump);
+        MachineRow vault = VaultOn(twin, VaultCell);
+        twin.PourIntoRoom(120 * Cap);
+        twin.Fluid.Settle(200);
+        Assert.Equal([vault], twin.Tick.RingOn(0));
+
+        MachineTickReport report = twin.Boundary(step: false);
+
+        Assert.Equal(PumpStall.None, pump.LastStall);
+        Assert.Equal(RelayMillilitresPerBoundary, WaterIn(vault));
+        Assert.Equal(RelayMillilitresPerBoundary, report.VaultedMillilitres);
+        Assert.Equal(0, report.EmittedInAll);
+        Assert.Equal(RelayMillilitresPerBoundary, report.PumpedInAll);
+        Assert.True(report.Exact);
+        Assert.Equal((0, 1), (report.Outlets, report.Vaults));
+        Assert.Equal(RelayMillilitresPerBoundary, twin.Tick.VaultedMillilitres);
+        Assert.Equal(RelayMillilitresPerBoundary, twin.Machines.WaterVaultedMillilitres);
+        Assert.Equal(0, twin.Machines.WaterDepositedMillilitres);
+        Assert.Equal(1, twin.Tick.VaultRoomReads);
+        twin.AssertIdentity();
+
+        // A second boundary: the room is read again off the bytes, and the vault keeps filling.
+        twin.Boundary(step: false);
+        Assert.Equal(2 * RelayMillilitresPerBoundary, WaterIn(vault));
+        twin.AssertIdentity();
+    }
+
+    [Fact]
+    public void ALakePumpFillsAVaultInWholeLitres()
+    {
+        // A pump in the bowl's lake drinks whole litres, and a vault takes them as a basin would:
+        // Tier A's pumped term is the vault's water to the litre.
+        var twin = new Twin();
+        twin.Lake(120_000);
+        twin.Place(Twin.BedPump, Pump);
+        MachineRow vault = VaultOn(twin, VaultCell);
+
+        for (int i = 0; i < 10; i++)
+        {
+            twin.Boundary(step: false);
+        }
+
+        Assert.True(twin.Water.PumpedLitres > 0, "the lake pump never drank");
+        Assert.Equal(twin.Water.PumpedLitres * Litre, WaterIn(vault));
+        Assert.Equal(0, WaterIn(vault) % Litre);
+        Assert.Equal(twin.Water.PumpedLitres * Litre, twin.Tick.VaultedMillilitres);
+        twin.AssertIdentity();
+    }
+
+    [Fact]
+    public void ALakePumpPassesOverAVaultWithLessThanALitreOfRoom()
+    {
+        // A vault's room need not be whole litres — a Tier B pump or the siphon fills it in millilitres
+        // — and a lake pump moves whole litres. With half a litre of room the vault is no room for it,
+        // and the pump goes on to the outlet after it. Without the rounding it would ask the lake for
+        // no litres, read that as a dry lake and stop walking the ring (IM-4b's battery: nothing else
+        // gave a lake pump a vault with a fraction of a litre of room).
+        var twin = new Twin();
+        twin.Lake(120_000);
+        MachineRow pump = twin.Place(Twin.BedPump, Pump);
+        var halfALitre = new VaultContents { WaterMillilitres = MachineDefinition.MillilitresPerCubicMetre - 500 };
+        MachineRow vault = VaultOn(twin, VaultCell, contents: halfALitre);
+        twin.Place(Twin.RimOutlet, Outlet);
+        Assert.Same(vault, twin.Tick.RingOn(0)[0]);
+
+        MachineTickReport report = twin.Boundary(step: false);
+
+        Assert.Equal(PumpStall.None, pump.LastStall);
+        Assert.Equal(0, report.VaultedMillilitres);
+        Assert.Equal(RelayMillilitresPerBoundary, report.EmittedInAll);
+        Assert.Equal(MachineDefinition.MillilitresPerCubicMetre - 500, WaterIn(vault));
+        twin.AssertIdentity();
+    }
+
+    [Fact]
+    public void AVaultWithLessRoomThanTheOfferPassesTheRestToTheNextEntry()
+    {
+        // The vault is first in origin order with 20 L of room; the relay's 50 L puts 20 into it and
+        // 30 on the rim outlet, and the pump moved — a partly full vault is an outlet with less room.
+        var twin = new Twin();
+        twin.Place(Twin.PumpCell, Pump);
+        var nearlyFull = new VaultContents { WaterMillilitres = MachineDefinition.MillilitresPerCubicMetre - 20_000 };
+        MachineRow vault = VaultOn(twin, VaultCell, contents: nearlyFull);
+        twin.Place(Twin.RimOutlet, Outlet);
+        Assert.True(MachineTickOriginBefore(vault, twin.Tick.RingOn(0)[1]));
+        twin.PourIntoRoom(120 * Cap);
+        twin.Fluid.Settle(200);
+
+        MachineTickReport report = twin.Boundary(step: false);
+
+        Assert.Equal(20_000, report.VaultedMillilitres);
+        Assert.Equal(30_000, report.EmittedInAll);
+        Assert.Equal(MachineDefinition.MillilitresPerCubicMetre, WaterIn(vault));
+        Assert.Equal(30_000, twin.OverMouthOf(Twin.RimOutlet));
+        twin.AssertIdentity();
+    }
+
+    [Fact]
+    public void AFullVaultAloneStallsNoRoomAndAFullOneFirstStillLetsThePumpMove()
+    {
+        // Decision 11: no separate "full". A full vault alone in the ring reads no room, the first
+        // reason met; with an outlet after it, the pump moves and the stall is nobody's.
+        var full = new VaultContents { WaterMillilitres = MachineDefinition.MillilitresPerCubicMetre };
+
+        var alone = new Twin();
+        MachineRow lonePump = alone.Place(Twin.PumpCell, Pump);
+        VaultOn(alone, VaultCell, contents: full);
+        alone.PourIntoRoom(120 * Cap);
+        alone.Fluid.Settle(200);
+        MachineTickReport stalled = alone.Boundary(step: false);
+        Assert.Equal(PumpStall.NoRoom, lonePump.LastStall);
+        Assert.Equal(1, stalled.NoRoom);
+        Assert.Equal(0, stalled.PumpedInAll);
+        alone.AssertIdentity();
+
+        var paired = new Twin();
+        MachineRow pump = paired.Place(Twin.PumpCell, Pump);
+        VaultOn(paired, VaultCell, contents: full);
+        paired.Place(Twin.RimOutlet, Outlet);
+        paired.PourIntoRoom(120 * Cap);
+        paired.Fluid.Settle(200);
+        MachineTickReport moved = paired.Boundary(step: false);
+        Assert.Equal(PumpStall.None, pump.LastStall);
+        Assert.Equal(RelayMillilitresPerBoundary, moved.EmittedInAll);
+        Assert.Equal(0, moved.VaultedMillilitres);
+        paired.AssertIdentity();
+    }
+
+    [Theory]
+    [InlineData("switched off")]
+    [InlineData("dumping")]
+    [InlineData("a wreck")]
+    [InlineData("unreadable")]
+    public void ARefusingVaultTakesNothingAndIsNoticedWithNoRebuild(string state)
+    {
+        // Decision 9's refusals. The vault, alone in the ring, takes one boundary's water; then its
+        // state changes by a write that moves no version (only the enabled port goes through SetPort,
+        // which does), and the next boundary moves nothing and stalls no room: the room is read every
+        // boundary. Alone, because with an outlet after it the channel's cursor sends the second
+        // boundary to the outlet first and the vault is never asked — the first draft of this test had
+        // one, and passed with the Owes and unreadable refusals both removed (IM-4b's battery).
+        var twin = new Twin();
+        MachineRow pump = twin.Place(Twin.PumpCell, Pump);
+        MachineRow vault = VaultOn(twin, VaultCell);
+        twin.PourIntoRoom(200 * Cap);
+        twin.Fluid.Settle(200);
+
+        MachineTickReport first = twin.Boundary(step: false);
+        Assert.Equal(RelayMillilitresPerBoundary, first.VaultedMillilitres);
+        long version = twin.Machines.Version;
+
+        Assert.True(VaultState.TryRead(vault, out VaultContents contents));
+        switch (state)
+        {
+            case "switched off":
+                Assert.Equal(PortWriteResult.Set, twin.Machines.SetPort(vault.Cell, MachineTick.EnabledPort, 0).Result);
+                break;
+            case "dumping":
+                contents.Phase = VaultPhase.Dumping;
+                VaultState.Write(vault, contents);
+                Assert.Equal(version, twin.Machines.Version);
+                break;
+            case "a wreck":
+                contents.Wreck = true;
+                VaultState.Write(vault, contents);
+                Assert.Equal(version, twin.Machines.Version);
+                break;
+            case "unreadable":
+                byte[] bytes = VaultState.Encode(contents);
+                bytes[0] = VaultState.Version + 1;
+                vault.KindState = bytes;
+                Assert.Equal(version, twin.Machines.Version);
+                break;
+        }
+
+        MachineTickReport second = twin.Boundary(step: false);
+        Assert.Equal(0, second.PumpedInAll);
+        Assert.Equal(PumpStall.NoRoom, pump.LastStall);
+        Assert.Equal(2, twin.Tick.VaultRoomReads);
+        Assert.Equal(RelayMillilitresPerBoundary, twin.Tick.VaultedMillilitres);
+        Assert.True(twin.Tick.CrossTierExact);
+        Assert.True(twin.Tick.PowerExact);
+        if (state != "unreadable")
+        {
+            Assert.Equal(RelayMillilitresPerBoundary, WaterIn(vault));
+            twin.AssertIdentity();
+        }
+    }
+
+    [Fact]
+    public void AVaultWeighsItsWeightPortAndABlockOnlyVaultIsNotInTheRing()
+    {
+        // Decision 9: in the ring by kind and holdsWater, weighing its weight port, one where the
+        // material declares none. A channel vault that holds blocks only bills and fuses like any
+        // vault, and a pump never reaches it.
+        var twin = new Twin();
+        twin.Place(Twin.PumpCell, Pump);
+        MachineRow weighted = VaultOn(twin, VaultCell, WeightedVault, weight: 3);
+        MachineRow plain = VaultOn(twin, new BrushCell(8, 2, 10));
+        MachineRow outlet = twin.Place(Twin.RimOutlet, Outlet);
+        VaultOn(twin, new BrushCell(8, 3, 8), DryVault);
+
+        IReadOnlyList<MachineRow> ring = twin.Tick.RingOn(0);
+        Assert.Equal(5, ring.Count);
+        Assert.Equal(3, ring.Count(r => ReferenceEquals(r, weighted)));
+        Assert.Equal(1, ring.Count(r => ReferenceEquals(r, plain)));
+        Assert.Equal(1, ring.Count(r => ReferenceEquals(r, outlet)));
+        Assert.Equal(2, twin.Tick.RingVaults);
+    }
+
+    [Fact]
+    public void TwoPumpsOnOneVaultReadItsRoomAfresh()
+    {
+        // Two relays over a ring of one vault with 60 L of room: the first puts 50 in, the second reads
+        // the 10 left, off the bytes as the first left them, and puts 10 in. (With an outlet in the ring
+        // too, the channel's cursor would send the second to the outlet first, as it should.)
+        var twin = new Twin();
+        MachineRow a = twin.Place(Twin.PumpCell, Pump);
+        MachineRow b = twin.Place(new BrushCell(11, 2, 10), Pump);
+        Assert.True(MachineTickOriginBefore(a, b));
+        var roomFor60 = new VaultContents { WaterMillilitres = MachineDefinition.MillilitresPerCubicMetre - 60_000 };
+        MachineRow vault = VaultOn(twin, VaultCell, contents: roomFor60);
+        twin.PourIntoRoom(200 * Cap);
+        twin.Fluid.Settle(200);
+
+        MachineTickReport report = twin.Boundary(step: false);
+
+        Assert.Equal((RelayMillilitresPerBoundary, 10_000L), (a.LastMovedMillilitres, b.LastMovedMillilitres));
+        Assert.Equal(60_000, report.VaultedMillilitres);
+        Assert.Equal(0, report.EmittedInAll);
+        Assert.Equal(MachineDefinition.MillilitresPerCubicMetre, WaterIn(vault));
+        Assert.Equal(2, twin.Tick.VaultRoomReads);
+        twin.AssertIdentity();
+    }
+
+    /// <summary>The ray's world for a siphon over the fixture: rock at and under the seed surface, air above it and wherever it was dug, placed bodies solid.</summary>
+    private sealed class TwinWorld(Twin twin) : IVoxelWorld
+    {
+        public bool TryGetMaterial(VoxelPos v, out int materialId)
+        {
+            materialId = Air;
+            if (!twin.Terrain.Loaded.Contains(v.Chunk)) return false;
+            bool air = !twin.Terrain.Placed.Contains(v) && (twin.Terrain.Dug.Contains(v) || v.Y > twin.Seed.SurfaceHeightAt(v.X, v.Z));
+            materialId = air ? Air : Stone;
+            return true;
+        }
+    }
+
+    [Fact]
+    public void ThePumpAndTheSiphonShareAStoreAndEveryLineHoldsOverARandomRun()
+    {
+        // The pump's door and the siphon's on one channel's store, over a hundred boundaries in the
+        // game's order (the siphon at the boundary's window, then the tick): the vault switched on and
+        // off at random, the siphon pouring the store back into the room and taking from it, paid from a
+        // cell. The siphon's twins, the store's line, the pool, the machine layer and both tiers hold
+        // after every boundary, and the water goes round: room, pump, vault, siphon, room.
+        var twin = new Twin();
+        twin.Place(Twin.PumpCell, Pump);
+        MachineRow vault = VaultOn(twin, VaultCell);
+        twin.Place(Twin.RimOutlet, Outlet);
+        twin.Place(Twin.RoomOutlet, BigCell, charge: 100_000L * 1_000_000);
+        twin.PourIntoRoom(300 * Cap);
+        twin.Fluid.Settle(200);
+
+        var siphon = new Siphon(twin.Fluid, twin.Water, twin.Ceiling, new TwinWorld(twin), twin.Machines, twin.Tick, twin.Fluid.WakeCell);
+        var backpack = new EquippedPack(WindowPack, WindowTests.WindowDefinition, 0, channel: 0);
+        var cube = new ToolDefinition
+        {
+            Id = Identifier.Parse("test:siphon"),
+            Bite = ToolBite.Cube,
+            Takes = ToolTakes.Water,
+            Power = new ToolPower(MachineLink.ChannelVia, 0, 1_000),
+        };
+
+        var random = new Random(0x4B);
+        long pouredBack = 0;
+        int movedWhileOff = 0;
+        for (int boundary = 0; boundary < 100; boundary++)
+        {
+            if (random.Next(5) == 0)
+            {
+                twin.Machines.SetPort(vault.Cell, MachineTick.EnabledPort, MachineTick.IsEnabled(vault) ? 0 : 1);
+            }
+
+            if (random.Next(3) == 0)
+            {
+                int x = Twin.RoomMin + random.Next(20), z = Twin.PourZMin + random.Next(12);
+                var eye = new System.Numerics.Vector3((x + 0.5f) * VoxelConstants.VoxelSize, 20.5f * VoxelConstants.VoxelSize, (z + 0.5f) * VoxelConstants.VoxelSize);
+                siphon.Enqueue(random.Next(2) == 0 ? SiphonVerb.Pour : SiphonVerb.Take, eye, new System.Numerics.Vector3(0, -1, 0), 100f, cube, backpack);
+            }
+
+            pouredBack += siphon.Apply().PouredMillilitres;
+            MachineTickReport report = twin.Boundary();
+            if (!MachineTick.IsEnabled(vault) && report.PumpedInAll > 0)
+            {
+                Assert.Equal(0, report.VaultedMillilitres);
+                movedWhileOff++;
+            }
+
+            Assert.True(siphon.Exact, "a siphon twin disagrees");
+            Assert.True(twin.Tick.PowerExact, "the pool identity broke");
+            Assert.True(twin.Machines.StoreWaterExact, "the store's water line broke");
+            Assert.Equal(twin.Tick.VaultedMillilitres, twin.Machines.WaterVaultedMillilitres);
+            twin.AssertIdentity();
+        }
+
+        Assert.True(twin.Tick.VaultedMillilitres > 0, "the pump never filled the vault");
+        Assert.True(pouredBack > 0, "the siphon never poured the store back");
+        Assert.True(siphon.TakenMillilitres > 0 && siphon.PaidMillijoules > 0, "the siphon never took a paid litre");
+        Assert.True(movedWhileOff > 0, "the pump never moved water with the vault switched off");
+    }
+
 }

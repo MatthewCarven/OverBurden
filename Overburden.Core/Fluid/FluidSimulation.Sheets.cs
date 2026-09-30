@@ -314,6 +314,30 @@ public sealed partial class FluidSimulation
     /// One flood's bookkeeping. <see cref="Parent"/> is union-find: a sheet whose parent is not
     /// itself was joined to another and its lists are empty.
     /// </summary>
+    /// <summary>
+    /// Cells a solve's writes woke that were not awake already, over the lifetime (2026-09-28, water
+    /// bodies part a: is the solve under the near/far order waking the pool it levels?). Levelled
+    /// and packed sheets only; the fed advance's wakes are not in it.
+    /// </summary>
+    public long SolveCellsWoken { get; private set; }
+
+    /// <summary>The part of <see cref="SolveCellsWoken"/> that was the cell above a sheet cell the solve took water from.</summary>
+    public long SolveAboveWoken { get; private set; }
+
+    /// <summary>
+    /// Whether the solve wakes the cell above a sheet cell it took water from. True, the default, is
+    /// every figure. False is his fourth variation (2026-09-28, <i>"prioritize settle down but not
+    /// up"</i>), a measurement arm: water above a drained cell is not prompted to fall and can hang
+    /// until something else wakes it, which the probe counts as "over room".
+    /// </summary>
+    public bool SolveWakesAbove { get; set; } = true;
+
+    /// <summary>Sheets levelled or packed whose first cell is far from the viewer, over the lifetime. Zero with no near/far order.</summary>
+    public long SolveFarSheetsLevelled { get; private set; }
+
+    /// <summary>The part of <see cref="SolveCellsWoken"/> woken by those far sheets.</summary>
+    public long SolveFarCellsWoken { get; private set; }
+
     private sealed class Sheet
     {
         /// <summary>
@@ -601,7 +625,15 @@ public sealed partial class FluidSimulation
 
                 moved += Apply(sheet, out int cellsWritten);
                 written += cellsWritten;
-                woken += WakeAfterSolve(sheet);
+                int sheetWoken = WakeAfterSolve(sheet);
+                woken += sheetWoken;
+                SolveCellsWoken += sheetWoken;
+                if (_nearRings > 0 && !IsNear(_cellPos[sheet.Head]))
+                {
+                    SolveFarSheetsLevelled++;
+                    SolveFarCellsWoken += sheetWoken;
+                }
+
                 ListRested(sheet);
             }
 
@@ -1549,17 +1581,30 @@ public sealed partial class FluidSimulation
         int woken = 0;
         for (int record = sheet.Head; record >= 0; record = _cellNext[record])
         {
-            if ((_cellFlags[record] & CellFront) != 0 && Wake(_cellPos[record]))
+            if ((_cellFlags[record] & CellFront) != 0)
             {
-                woken++;
-            }
-
-            if (_cellTarget[record] < _cellAmount[record])
-            {
-                VoxelPos above = Above(_cellPos[record]);
-                if (_grid.AmountAt(above) > 0 && Wake(above))
+                bool newly = Wake(_cellPos[record]);
+                if (newly)
                 {
                     woken++;
+                }
+
+                PromoteSolveWake(_cellPos[record], newly);
+            }
+
+            if (SolveWakesAbove && _cellTarget[record] < _cellAmount[record])
+            {
+                VoxelPos above = Above(_cellPos[record]);
+                if (_grid.AmountAt(above) > 0)
+                {
+                    bool newly = Wake(above);
+                    if (newly)
+                    {
+                        woken++;
+                        SolveAboveWoken++;
+                    }
+
+                    PromoteSolveWake(above, newly);
                 }
             }
         }

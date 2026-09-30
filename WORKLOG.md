@@ -1,5 +1,1510 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-01 — the scheduler flake: one race may be every sighting, and the test now tests its name
+
+TODO's "Do first" 1, before IM-5a, whose mutation battery can't have a random red. He asked for the TODO read
+for what comes first (*"please Claude"*), and this was the one item that was mine alone.
+
+**The history, read first.** Every sighting of
+`JobSchedulerTests.AThrowingJobFaultsWithoutTakingTheWorkerDownWithIt` from M3c to M6c-1 recorded only the test's
+name. The "ten-second wait expired" reading in the M6b-3 and M6c-1 entries was inferred, never read off a message.
+And the test as M2a wrote it (`d2cef3a`) disposed on the survivor's event, which is the race diagnosed on
+2026-09-06 (`d97f789`). **So one race may account for every sighting.** None has been recorded since the fix.
+
+**A replica, run many times.** A file-based app in the scratchpad, pinned to net8.0 (runtime 8.0.31) with
+`#:property TargetFramework=net8.0`, runs the test body with its arms interleaved per iteration:
+
+| Run | control (pre-09-06) | today (09-06) | new |
+|---|---|---|---|
+| idle, 10,000 an arm | **6,925 failed** (thrower `Dropped`) | 10,000 passed | — |
+| 16 spinning threads + his chess tables run, 300 an arm | 1 failed | 300 passed | 300 passed |
+| 32 spinning threads, 50 an arm | 50 passed | 50 passed | — |
+
+The longest the survivor waited was 1.6 ms idle and 102 ms under 32 spinning threads, against the test's 10 s
+patience. A 10 s starvation was never seen. (The first 2,000-an-arm run was on .NET 10 by accident, before the
+pin: control 867 failed, today none.)
+
+**Two faults in the test itself, found while reading it:**
+- **It mostly didn't test its name.** Newest-first before the first sweep means the survivor ran *before*
+  the thrower in 9,620 of 10,000 idle runs and in all 300 under load, so a worker killed by the exception
+  passed. Mutation MA below, a fault that ends the worker, was caught 12 times in 300 (4%).
+- **M6c-1's diagnostic couldn't tell its two causes apart.** It said "Completed means a starved thread,
+  Dropped means the worker died". But a starved worker woken by the shutdown leaves its loop at the top
+  (`_shutdown` checked, or the wait's `OperationCanceledException`) without taking the job, so the survivor
+  comes back Dropped either way.
+
+**The fix, test only; nothing in Core changed.** The survivor is submitted once the thrower has reported
+(`PendingResults == 1`), so it can run only on a worker that outlived the exception, and neither race is left.
+Each failure path now names its cause:
+- the thrower's wait reports its `RunCount`: 0 is a starved worker, 1 a fault never reported;
+- the survivor's expiry waits a second `Patience`: late is starved, never is a worker gone.
+
+**Its mutation battery**, three mutations to `JobScheduler.RunEntry`, against the replica's three arms (300 each,
+300 ms patience) and the real test:
+
+| Mutation | control | today | new | the real test says |
+|---|---|---|---|---|
+| MA: a fault ends the worker (`_shutdown.Cancel()` in the catch) | 237 | **12** | **300** | *"the survivor never ran in 20 s — the worker did not survive the exception."* |
+| MB: a fault never posted | 300 | 300 | 300 | *"the thrower did not report within 10 s; it ran 1 time(s) — … 1 a fault never reported."* |
+| MC: a fault reported `Completed` | 300 | 300 | 300 | `Assert.Equal() Failure` on the outcome |
+
+`EverySubmittedJobReportsExactlyOnce` caught MA and MB as well. Source restored byte for byte after each.
+
+**Suite 2,175 of 2,175; the scheduler class 25 of 25 in the real test host.** The owed check is closed. If
+the test ever fails again, its message says which of the three it was.
+
+**Also today, his word on two things:**
+- *"you can delete or retire tajmahal2 as you please"*: retired as `retired-TajMahal2-2026-10-01` (a dated move,
+  10.4 MB). `start.cmd` still names it, so a bare `start.cmd` makes a fresh empty one until he names his test
+  world.
+- **The next session is the lake plan**: *"the plan for the tier a to tier b conversion upon voxels being
+  placed I just want a way to seperate tier a water sections from each other after the basin has filled"*.
+  Verbatim in LAKE-EDIT-NOTES, "Chosen as the next session's topic".
+
+## 2026-09-30 — session close: pull request #2 merged, branches tidied
+
+He clicked "Create PR" on `main`. The two unpushed IM-5 planning commits went up on a branch, `im5-plan`,
+as pull request #2 into `main`; he merged it with a merge commit, and `git pull` fast-forwarded his `main`.
+At his word, `im5-plan` was deleted (local and remote), and so was `claude/todo-cleanup-q5noj6`: pull
+request #1's branch from 2026-09-26, fully in `main` since then (0 commits `main` lacked). The branches are
+now `main` and `water-column-test`.
+
+CLAUDE.md's hand-over was rewritten short for the next session. The day's running one, from IM-4a's
+battery to IM-5's taken decisions, moved verbatim into STATUS-HISTORY. The session: IM-4a's mutation battery,
+IM-4b built, IM-4c's pass and its reduced build, his notes folded, IM-5's pass taken, and TODO's order and
+collisions. **See you in a fresh chat** (his words).
+
+## 2026-09-30 — IM-5's decisions taken; TODO read for order and collisions
+
+*"As recommended please Claude uh just a plan and can you inspect the todo for items that either a. should
+be done first, or b. collide with existing planned works"*. IM-5's sixteen are taken, not built. TODO has a
+new top section, **"Order and collisions"**, ten of each. What came out of reading it against the plans:
+- **Before IM-5a:**
+  - the flaky scheduler test (a mutation battery can't have a random red);
+  - the clay pond's suspected leak (the dump floods through the same engine);
+  - IM-0's windowed surface install (the 10 ML ceiling's render half was never measured);
+  - main merged into the pond branch (5a adds a Tier A door while the branch rewrites the watershed).
+- **Before IM-6:** the hotbar's unit (IM-6 puts water in the hotbar, so his question comes early) and the
+  build warnings.
+- **Before IM-7:** the engine-wide pin, newly in Levers (IM-5's decision 8, its lever).
+- **Collapse f-1** before IM-9 (it switches on the `sense` extra), ideally before IM-6.
+- **A stale reference, fixed:** TODO's M10g line planned the hotbar "at the next version (v6; a v5 world)",
+  and M11's "v5". The header is v7 and IM-6 takes v8.
+- **Collisions worth a pass's attention:**
+  - water bodies part a and LAKE-EDIT's sooner hand-back are one question;
+  - the pond branch decides where a surface dump into a walled pond goes, and should precede LAKE-EDIT's pass;
+  - F11's 16h/12v and "machines only where you are" want IM-7's pass to decide whether machine work follows
+    the view;
+  - TNT's machine-destroying blast makes wrecks, so it reads IM-5 first.
+
+## 2026-09-30 — IM-5's code-level pass: the dump, split in two, sixteen decisions handed back
+
+*"start IM-5 please Claude"*. The plan's riskiest slice, read before building through three read-only
+searches: the vault's end of life, the world's write path, and the water's doors and the disk. Fourteen facts;
+the ones that change the plan:
+- **A dump has no end in the code.** A burnt-out vault stays `Dumping` for ever, an emptied one can be picked,
+  and Ctrl+Z would revive it dead. Wrecks are never removed. Recommended: an empty vault goes back to
+  `Holding`, and an empty wreck is removed with the journal paused.
+- **Decision 36's session carry is not a consistent cut.** An unload batch holds only the unloading chunks,
+  while the session holds the pocket and every machine row. Carrying them together trades the duplicate for
+  new mints and losses, and the one consistent write throws mid-tick. The duplicate itself is M10-PLAN's
+  accepted placement lag since M6c. Recommended: accept it, and pin written chunks until the autosave,
+  engine-wide, as its own slice.
+- **The write path checks no material**, and vaults can hold pumps, cells, panels and packs. A loose pump
+  voxel is cleared without credit at its chunk's next arrival. Recommended: decohere what can't lie loose.
+- `RoomAt` can't be reused (one layer's room, no `Cover`), and decision 31 contradicts itself for a loaded
+  surface mouth; the siphon owns the pour twins. The row's spare fuse clock can time the 10 s release with no
+  codec change.
+- **The heap half of the budget is unmeasured**; every pile write drives the whole hook (the field's clone,
+  the portal scan, support re-derives, remesh). So 5b starts with its bench.
+
+The split: **5a** the water (two twins, the Tier A release, the Tier B ball on its own budget, the ceilings,
+the end of a dump, the `dump` bracket) and **5b** the pile (a supported heap, the refusals, the material
+guard, the undo's forget, the bench). The cyan glitch on a pile goes to IM-6.
+
+## 2026-09-30 — IM-4c built, reduced at his word; his list's notes folded
+
+*"As recommended please Claude, build IM-4c also I updated my todo"*. His list's notes, written in the same
+sitting, said he would rather a block **displaced** lake water than deleted it (*"if we can displace the water,
+or as a worst case just drop it from the sky into the same position"*), and that he wants a wall to break a
+lake's sheet. Both couldn't be built, so I asked. He took **"keep today's rule, plan displacement"**: a block
+in a lake stays a pier, deleting nothing, so the fill-then-dig loop moves no water and nothing needs a price.
+IM-4's decision 10 is withdrawn.
+
+Built, in a worktree: **Ctrl+Z while placements wait for the boundary cancels them, and does nothing else.**
+The replay had redone an undone click. A chunk fill writes nothing at the click, so an undo in that half
+second had also spent itself on an older step before the fill landed. **`M7d:` prints Tier A's pumped, emitted,
+siphoned and poured litres.** The fix is in the Game assembly, which no test reaches; the solution builds and
+the r6 control is the check. His hand check: click a fill into water, press Ctrl+Z at once, and nothing lands.
+
+His notes, folded (he'll work through TODO in another session):
+- **Building in a lake** (displacement, walls breaking a sheet, a hand-back at ~95%): verbatim in a new
+  [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md), with what the code offers. The band already drops
+  walled-in columns, and the pond branch is displacement by capacity. Four questions for its pass.
+- **The pond branch**: not a verdict; *test and optimise further on the branch*. POND-PLAN, TODO.
+- **The lake over a quarry**: *"draws nearly perfectly"*; a small gap is filled by Tier B soon after. Closed.
+- **The phonk**: *"sounds good an want to leave it as is"*. Closed.
+- **F11**: six rungs, to 16h/12v, the loader's reach an artificial ceiling. Into TODO with the arithmetic:
+  16/12 is 4.7 times 10/6's chunks, so the caps and memory are to be checked first.
+- **Glass**: the storm gleam reads fine. His wish for a manufactured material as strong as stone and as
+  waterproof as clay went into MATERIALS-NOTES; it is concrete, a recipe chain for M10g.
+- **The clay pond in the rain**: he suspects a leak. An owed check in TODO; it needs the world and the place.
+- **M10d 3 and 4**: he could tell where the water went (outlets read best on pillars with gaps), and he
+  likes the rain slowing the pumps.
+
+## 2026-09-30 — IM-4c's code-level pass: decision 10 did not fit, ten decisions handed back
+
+*"start IM-4c please Claude"* (he pushed IM-4b first). Three read-only searches mapped the placement paths,
+the payment paths and Tier A, each reporting file and line; I checked the facts the recommendation turns on.
+IM-4's decision 10 does not fit the code in four places, so the build is held:
+- **The collapse asks `HoldsWater`** at a landing and while a piece falls. Making it answer for lakes would
+  change every collapse in a lake and a pinned test. Recommended: a lake read of its own.
+- **Only a fill at range pays**, and `Place.Put`'s budget is a voxel count at one price. Recommended: a
+  millijoule budget, priced at arm's reach too, paid through `Pack.Pay` (lead-acid or window, no new
+  `PowerExact` term).
+- **Tier B's displaced water is known only after the write**, so pricing it is credit. Recommended: leave the
+  flooded-room door as it is today, printed, with a pre-count as a named lever.
+- **"Refused `Wet`"**: `Unpowered` already means "couldn't pay". Recommended.
+
+Also: machines, rubble and the debug writers stay piers; part-litres ride a session carry per lake; the top
+voxel of a band is charged its fraction. The price in lead-acid terms: a full pack fills 3.6 m³ of lake, and
+67 minutes of recharge buys each further cubic metre.
+
+**A live bug found alongside:** Ctrl+Z does not drop the pending fills, so an undo in the half second before
+the boundary is redone by the replay, dry voxels and all. It is fixed in 4c whichever way the decisions go.
+
+## 2026-09-30 — IM-4b built: the vault in the ring
+
+*"yes please Claude, start IM-4b"*, after he closed the game (his log: 0 `ERROR`, TajMahal2 saved on quit). The
+pass's decisions 9 and 11 fitted the code, so it went straight to building, in a worktree. The plan's "IM-4b —
+built" has the file list.
+- A channel vault that holds water joins its channel's ring by kind, weighs its `weight` port, and has its
+  room read off its bytes every time a pump reaches it. Switched off, dumping, a wreck or unreadable, it has
+  none. What goes in is `vaulted` through the pump's own door, so `pumped == emitted + vaulted`, and the
+  store's water line gains the term. There is no `Full` stall (decision 11).
+- **Every existing test stayed green with the change in** and no test touched: the pass's "unmoved with no
+  vault". IM-3b's vault beside a pump is full of stone, so it takes nothing.
+- **Suite 2,175** (+12). Sixteen mutations, all red now.
+
+What the battery found, three weak or missing tests in my own new ones:
+- **The refusal test passed with the dumping, wreck and unreadable refusals removed.** After its first
+  boundary the channel's cursor moved on to the outlet after the vault, which took everything, so the second
+  boundary never asked the vault. Standing the vault alone in its ring made all three red. It's the old lesson
+  (a scenario where both arms agree tests nothing), met this time through the round-robin.
+- **A mutation I called equivalent wasn't.** Without the whole-litre rounding, a lake pump reaching a vault
+  with under a litre of room asks the lake for no litres, reads a dry lake and stops walking the ring. A test
+  pins it now.
+- One prediction was wrong the safe way (an existing ring test already counted outlets across a rebuild).
+
+Also, his question on the startup warnings: they are the build's, ten of them, and lint as he thought. The
+one that looked like it could bite (CA2014, a `stackalloc` in a loop) is six passes of 12 bytes. They're in
+TODO as a small chore.
+
+## 2026-09-30 — IM-4a's mutation battery: thirty-six red, twelve after six new tests
+
+*"IM-4a's deliberate code-breaking check, which I skipped to close on time."* He was playing TajMahal2, so it
+ran in a worktree, and nothing in it touched Core or Game source. Thirty-six mutations, each applied to a pristine
+file, run against the siphon's six test classes, and restored byte-identical (hash-checked). Any that stayed
+green was re-run against the whole suite before being called a hole. Every colour was predicted before the run,
+and every prediction held.
+- **Twenty-four red first time**, each on a named test: TODO's seven (the siphon through `Add`, no room check,
+  the pocket's refusal, `Cover`, the sort rule, a guard, the identity's terms) and seventeen more across the
+  bank, the cuts, the queue and the grammar.
+- **Twelve green on all 2,157**, as predicted. Six new tests and two asserts close them, and all twelve are red
+  now: a Tier B take meeting a full store, a free siphon as the default, the siphon's two reads mid-tick, the
+  store's fill order and last-filled-first, its water line across a reopen and a remove, a partial take lowering
+  the level from the top, and a pour into a brimming lake that spills. The plan's "IM-4a — the mutation battery"
+  has the table.
+- **Suite 2,163** (+6). No r6 control is owed, since only tests and docs changed.
+
+What it found:
+- **The siphon through `Add` or `Remove` keeps Tier B's identity exact**, because those doors count `injected`
+  and `removed`. Only the siphon's `Exact` catches the wrong door, so the pass's "red on the identity" named
+  the wrong line. In the game, the detector is the `PushError` on `!_siphon.Exact`.
+- **Two cuts were caught only by the random battery** (a room take cut to the bank, a lake pour cut to the
+  store): IM-3b's stream-fragility in a new place. Both have dedicated assertions now.
+- **Tier A's identity is checked with the siphon's terms for the first time**, across a spill: 1,000 L poured
+  into a brimming bowl spills 1,000, and both engines count it.
+
+## 2026-09-30 — IM-4a built: the siphon underneath, closed early
+
+*"As recommended please Claude, build IM-4a"* took the pass's twelve. First the owed r6 control on `3db5e60`
+(the HUD's clock and the window's gate print): `2601 / 325 / 3446 at 411`, 0 `ERROR`, and his morning session
+on TajMahal2 was clean. IM-4a was built in a worktree; the plan's "IM-4a — built" has the file list.
+**Suite 2,157**, green but for one fixture that overfilled the bowl (200,000 L spilled 32,000; now 120,000).
+
+What the build found:
+- **The aim cannot be resolved at the click.** The Tier B grid refuses reads while the worker owns it,
+  which is most of the time between boundaries. So the op keeps the ray, and the boundary casts it.
+- **`IChannelBank`'s contract** (every drawer counts its own term) meant the siphon's payment is a new
+  `PowerExact` term, `siphonPaid`. The pass had it as "the bank's draw".
+- `VolumetricInventory.Reset` goes through `Add`, so one refusal covers the world file's restore too:
+  ten doors, not nine.
+
+**He closed the session here** (*"see you in a fresh Code Chat"*). The r6 control after the merge read
+`2601 / 325 / 3446 at 411`, 0 `ERROR`. The mutation battery is owed first next session, in TODO.
+
+## 2026-09-30 — IM-4's code-level pass: twelve decisions handed back, and the lake fill held
+
+*"1 and 2 as recommended, then IM-4's pass please Claude"*. He was playing, so this ran in a worktree.
+- **2**, the HUD's clock, is built (its own entry below).
+- **1**, "a block deletes the lake water it fills", was held before any code. Priced out, a free delete
+  makes fill-then-dig a lake drain: the excavator's 8 m fill and dig cost about 3.3 MJ for 512 kL, 6 J a
+  litre against a pump's 1,000. The same loop already exists in a flooded room with no room around it.
+  That is a price on a door into the water, which is IM-4's subject, so it became the pass's decision 10.
+  My recommendation of the day before hadn't stated this cost.
+
+The pass read decisions 23–26 against the code through three read-only searches, each reporting file and
+line. Ten facts; the ones that move the plan's wording:
+- `PourPending` is the debug relay's (the R keys), a single slot through `Add`, not the relay pump's.
+- The machine tick's pumped and emitted counters are pinned equal to both engines', so the siphon needs new
+  twins.
+- Tier A's identity is never evaluated in the game.
+- The crosshair ray passes through water, and `InLake` is false without `Cover`.
+- The tool format can't say "siphon" (no `takes`, no per-litre price, and T would sort it first).
+- The store holds water as a field, and `--stock=` would put an unrefused ID in the pocket.
+- A vault may not declare a fluid link.
+- The pump's stall is the first refusal met.
+- `HandOff` and `DisplaceLifted` have no mid-tick guard.
+
+The twelve are in the plan. The split is 4a (the siphon's queue, doors and twins, the ray, the ID and the
+pocket's refusal, the guards), 4b (the vault in the ring) and 4c (the lake fill, priced at 1,000 J a litre,
+refused `Wet` with no bank).
+
+Found alongside and fixed: the "fill at range stopped short" line printed a window's own charge, always 0 mJ;
+it names the bank now.
+
+## 2026-09-30 — the computer's clock on the HUD
+
+*"1 and 2 as recommended"*, 2 being the HUD's time. It is the computer's clock, in Windows' short time format,
+at the end of the "where" line (coordinates, bearing, relief), refreshed with it at 10 Hz. The world has no
+day and night, since the panel's solar sum has no time of day, so the player's own time is the one worth
+showing. A day cycle is the revisit trigger, and would be a second clock. No screenshot, because he was
+playing; his next look is the check.
+
+## 2026-09-29 (night) — IM-3b's r6, and his answers to "things I'd like your eye on", folded
+
+The r6 control on the merged IM-3b build read `2601 / 325 / 3446 at 411`, 0 `ERROR`. His TajMahal2 session,
+which ended mid-build (*"i just quit"*), was copied aside first: 0 `ERROR`, thousands of voxels placed, none of
+them wet.
+
+He answered seven of MATTHEW-TODO's eight unscheduled questions in his notes. Verbatim, with where each went:
+- *"Is deleteing tier a water when placing voxels on the todo?"* It is TODO's "a rock placed in a lake".
+  Today placement under a lake takes no water. The rule (delete, displace or refuse) went back to him, with
+  delete recommended: Minecraft's rule, and cheap.
+- *Antagonist:* *"Water is increasingly becoming a problem, but my main focus has been on water until
+  recently, also I have nothing to dig for, like we need to do iron coal etc and tree pass at some point"*.
+  Into WORLDGEN-NOTES.
+- *Reach:* *"yeah but only for the lower tier tools you can increase this depending on tech level like hands
+  would be a bit punishing to start with i reckon"*. Into TODO's Later, for M10g and the game mode.
+- *The excavator:* *"excellent tool, like you will want hallways and big rooms also the more you have to mine
+  through in multiplayer, if we go that route eventually, will give more time to offset damage like also
+  mines manually faster"*. A verdict; nothing changes.
+- *Twenty minutes:* *"dreaming of a lithium ion,li poly or quantum portable(wearable) battery/storage backpack
+  like some sort of fluid capture gun that can take out chunks of water at sizes to match the quantum
+  miner/tunneler/excavator"*. The quantum backpack is IM-2's window, and the gun is IM-4's siphon. His sizes
+  went into decision 26 for IM-4's pass, and the lithium packs into decision 7 as M10g's middle rungs.
+- *Under the water:* *"under tier b water looks real under tier A not so much like i was going to get you to
+  match the colour and transparency of the tier b water, and you can do this now i think the engine for water
+  is as good as its gonna get"*. Into TODO's Later, buildable alongside IM-4.
+- *Silence:* *"do you reckon you could pysynthrack to generate the sounds of wind and rain? I do have some
+  prerecorded storm sounds i have recorded maybe something like that when it rains like?"*. Into TODO's
+  Later. This is sound raised a second time, the cosmetics pass's trigger.
+- *The HUD:* *"the time would be useful but are we talking time as in ticks or the local time? I'm leaning on
+  the local time you were too?"*. There is no day and night (the panel's solar sum has no time of day), so
+  "local time" went back to him as a question, with his computer's clock recommended for now.
+
+Found while folding: the pass and a comment in `RechargeVaults` said "at night". There is no night; both now
+say "in a storm".
+
+## 2026-09-29 (night) — IM-3b built: the vault's own minute, and a fuse that follows the average
+
+*"As recommended please Claude thanks Claude we seem to be in tune on this like"* took the pass's seven. It was
+built in a worktree, since he was playing TajMahal2 when it started; he quit mid-build, and his log read 0
+`ERROR`. The plan's "IM-3b — built" has the file list.
+
+- **The own charge rides `ChargeOf`**, so `PowerExact` needed no new term. The pass had found this before
+  any code, correcting TODO.
+- **The hole is closed and measured.** A vault on 5, 50, 95 and 99% of its bill now dumps after 28, 57, 596
+  and 2,885 boundaries; under IM-3's rule, 5% had held for 4,000.
+- **Eleven mutations, eleven red**, each on its own test, among them "a paid boundary puts the fuse out".
+- Suite **2,140** (+13).
+
+One lesson from the build: **a coverage assertion in a randomised test is a claim about the random stream,
+not just the code.** The thousand-operation identity test asked its one stream for a new number, and every
+later operation moved; the identity held, but no pick moved contents any more. The new draws come from a
+second stream now, so IM-3's path is unchanged. Next time a random battery gains an operation, give it its
+own stream.
+
+## 2026-09-29 (night) — IM-3's r6 control, and IM-3b's code-level pass: seven decisions handed back
+
+*"IM-3b, next please Claude thanks!"*. First, the check IM-3 owed: the r6 control on its build read `2601 / 325
+/ 3446 at 411`, 0 `ERROR`, with the game closed and his log copied aside first.
+
+IM-3b is a new part (his vault's own energy, taken mid-build), so it got its pass: the paragraph read against
+`MachineTick`'s pool, `VaultState`, `ChargeOf` and the vault half of the set. Five facts; two of them change
+what was taken.
+
+- **IM-3's fuse is put out by any cell, measured.** The unpaid pool is written back into the cells, builds up,
+  and pays the whole bill one boundary in N. One paid boundary puts the fuse out, and a broke channel's fuse is
+  10–15 s. So a throwaway test (reverted) held a vault for 4,000 boundaries on 5% of its bill; at 3% it
+  dumped in 25. The demo's storm is 25% of its vault's bill, so decision 12's "the weather finishes it" never
+  happens. Nothing a player can reach (no vault ships before IM-6). An own charge refilled from the spare is
+  the same store as the cell, so it would not close this by itself.
+- **A minute of the *full* bill is a capacity, not a time.** The demo's vault is 5% full, and 2.4 MJ against a
+  1.5 kW deficit lasts about 27 minutes, through every storm. The varying parameter is the fill.
+- The own charge needs **no `PowerExact` term**: `ChargeOf` already carries a row's stored energy into the
+  identity. TODO said it would need one.
+- `MoveAtPick`'s fresh `VaultContents()` is the one write that would drop the charge out of the books.
+- The pool's "spare" includes the cells.
+
+The seven recommendations are in the plan ("IM-3b — the code-level pass"). The two forks:
+- **A minute of its bill as it stands** (capacity recomputed each boundary, the excess back to the pool),
+  against the fixed minute of the full bill he took.
+- **A paid boundary pauses a lit fuse and only a full own charge puts it out**, amending 28.
+
+Nothing is built.
+
+## 2026-09-29 (late) — IM-3 built: the vault and the crate
+
+*"as recommended please Claude"* took the pass's twelve decisions. It was built in a worktree
+(`.claude/worktrees/im3`, branched from local `HEAD`, not `origin/main`), since he might start playing, then
+fast-forwarded into main. The suite is **2,127** (+39), and **twelve mutations went red**. The plan's "IM-3 —
+built" has the file list.
+
+Two bugs the tests found before any play could:
+- **The pick's move never ran.** The world's write hook marks the row damaged before the carve calls
+  `Taken`, so a "not damaged yet" guard skipped every move.
+- **A drain enumeration hazard.** A wreck cleared with its row standing re-marks itself and would have
+  modified the damaged list mid-walk.
+
+One test-harness lesson: **a reopen in a test must restore before wiring the journal**, as Main does, or
+the restore's re-adds become an undoable step.
+
+His three asks mid-build were taken as recommended and put in TODO, not built:
+- the vault's own energy (one minute of its bill; IM-3b);
+- a lock on the vault's channel box (IM-6);
+- power auto-scaled on screen (IM-6).
+
+His warranty line is in the plan for the vault's panel. **He asked for an early close** because of the
+context window. The r6 control on this build is owed.
+
+## 2026-09-29 (late) — IM-3's code-level pass: twelve decisions handed back
+
+*"start on IM-3 please Claude"*. IM-3 is the first new kind since the sensor was planned, and rule 17's
+row-removal paths cross the carve, the drain, the reconcile, the undo and restore, so it got its pass. Seven
+facts from the code. Four put the plan's wording one level above where the answer sits:
+- **The carve has no question to ask before it takes a body voxel**: `Taken` comes after the write and the
+  credit.
+- **One swing can take two vaults**, and one picked voxel dismantles a whole machine. So moving contents
+  "at the drain" can fail with a body already credited. They move at the first `Taken` instead.
+- **A wreck is a row with no body**, keyed by cell. The drain would destroy it when a block lands in its cell,
+  and the reconcile would rebuild it.
+- **A god vault's bill** for one voxel is 0.5 mJ, which floors to free, and its full bill overflows a long.
+
+The twelve recommendations are in the plan ("IM-3 — the code-level pass"). The fuse reuses the collapse
+scheduler's formula and `Hash64` seeding; "a signalled cell never unpays a hold" moves to f-1, since there
+is no signal to test yet. Nothing is built.
+
+## 2026-09-29 (late) — IM-2 built: the quantum backpack is a window, and consumers are paid by priority
+
+*"start on IM-2 please Claude"*. Decisions 7, 8, 9 and 41 were read against the pack, the tick and the tool
+call sites first, and they fit, so no pass was handed back. The deciding fact: the tools pay only through
+`EquippedPack.VoxelsAffordable` and `Pay`, so a window answering both from its channel's cells changes no
+call site. The plan's "IM-2 — built" has the file-by-file account.
+
+- **The draw** is behind an internal `IChannelBank` that `MachineTick` implements explicitly. It takes the
+  last-filled cell first (the write-back read backwards), writes `StorageState` directly, and throws inside
+  `Run`. The pack counts what it takes as `taken`, so `PowerExact` needed no new term: 1,000 random
+  operations of every door into the pool, exact after each.
+- **Priority**: the relay pump ships `priority` 0–9 at 5, and a pump without the extra reads 5, so every
+  existing test passed unchanged. That was the "equal priorities are position order" check, for free.
+  Played worlds' pumps take the port at its default on open.
+- **Shipped**: `quantum_backpack.json` with a cyan swatch on layer 13. `P` does not seed it until IM-6's bank
+  line; `--pack=overburden:quantum_backpack` wears one.
+- **The prints name the bank** for a window, and the power line prints `pack initial` with the full formula.
+  The first oracle run printed `the pack at 0 mJ of 0 mJ` for a window, which would have misled the next
+  person reading a log.
+
+**Checks:**
+- Suite **2,088**.
+- **Ten mutations**: nine red on their own tests, one green as predicted (a window's zero capacity already
+  refuses the fill).
+- The r6 control to the digit.
+- M10a-3's loaded arm exact.
+- The window's own oracle: `306,650,000 by the tool`, the same on two runs. Its 26 unpowered swings are the
+  ones before `--pump` places the cell, as the log's order shows. `--port=pump:priority=9` sets and 42
+  clamps to 9, checked headless before COMMANDS.md claimed it.
+
+## 2026-09-29 (late) — IM-1's r6 control, to the digit
+
+*"game's closed, run the r6 check please Claude"*. His play log (7:17–9:22 PM on `TajMahal2`) was copied aside
+first, the Game rebuilt, and the control run headless: `2601 viewed / 325 drawn / 3446 jobs` at 411 quads a
+drawn chunk, 0 `ERROR`, in 18 s. The game's content line reads `6 extra reach(es), 0 error(s)`, so the strict
+loader passed the shipped files inside Godot as well as in the suite. IM-1 is closed.
+
+## 2026-09-29 (late) — IM-1 built: the strict loader, format, the extras and their table, programmer
+
+*"as recommended please Claude"* took the pass's eight decisions, and IM-1 was built the same session.
+Suite **2,076** (+70). The plan's "IM-1 — built" has the file-by-file account.
+
+- **The strict walk** (`StrictJson`) reads the loader's own classes by reflection, so it and the binding
+  cannot disagree. It reports every unknown key with its path and nearest name (`machine.links.charge.carrys
+  — did you mean 'carries'?`), refuses a key given twice, and drops `$` notes at every level, maps included.
+  It hands the serialiser the original text when nothing was dropped, so type errors keep their line numbers.
+- **The existing 2,006 passed under it unchanged.** No fixture or shipped file used a key the loader does not
+  bind.
+- **`format`** is read alone, before the manifest's keys. A newer mod fails in one line with none of its files
+  read, and a mod depending on it is told "skipped", not "not installed".
+- **The extras.** Six bits and six quantum forms. The base game's `extras.json` ships the quantum row. Media
+  are checked by the `via` rule, with a did-you-mean for `channel`. One (extra, medium) pair has one owner.
+  Every extra is refused on a machine, naming its slice, until that slice switches it on in
+  `MachineExtras.Served`.
+- **The three-mod fixture** loads identically in all 24 listing orders. It has three conflicts, one between
+  two third-party mods.
+- **`programmer`** keys the computer's verb in `PlaceController`; any other item's click does nothing.
+
+**The mutation battery: twelve rules, twelve red**, each on its own test, and files restored byte-identical
+(hash-checked). My first draft of the three-mod fixture asserted two conflicts where it built three; I caught
+it by recounting the fixture before the first run.
+
+**He was playing through the build.** `start.cmd` launched at 7:17 PM on `TajMahal2`, and his log's `Content:`
+line has no extras term and 0 `ERROR`, so his binary predates the loader change. The Game DLL on disk is IM-1's
+now, and his next launch rebuilds anyway. **The r6 control is owed.** It waits for the game to close, per the
+probing rule (a headless run beside him steals CPU and rotates his log).
+
+## 2026-09-29 (late) — his new TajMahal renamed TajMahal2
+
+*"Can you rename my new Taj Mahal world to Taj Mahal 2 so when we retire it it does not conflict"*. With
+Godot closed, `worlds/TajMahal` (one `world.db`, last written 6:46 PM) moved to `worlds/TajMahal2`, and
+`start.cmd` names `--world=TajMahal2`. A world's name is only its folder (`Main.cs:9189`), so nothing inside
+the file needed changing. Spelt without spaces to match the old name and to need no quoting on a command line.
+None of his own launchers (`start2`–`start5`, `pondlook`) named TajMahal.
+
+## 2026-09-29 (late) — IM-1's code-level pass: eight decisions handed back
+
+*"start on IM-1 please Claude"*. The hand-over said to hold a short code-level pass if decisions 1–6
+didn't fit the code, and four places didn't:
+- **Collapse f-1 is not built**, so IM-1 cannot "move f-1's `onsignal`", and nothing is saved under f-1 to
+  restore.
+- **Every extra's reader is a later slice** (f-1, IM-2, IM-9), so any opt-in in IM-1 would load and do
+  nothing, which the strict loader exists to refuse.
+- **There is no medium registry**, and the one served medium is the engine word `channel`, against decision
+  3's "namespaced content IDs".
+- **System.Text.Json on net8 can't be made strict the way the plan wants.** A throwaway probe on .NET 8.0.31
+  read three things. A key given twice loads the second silently, `"kind"` against `"Kind"` included. A
+  `$comment` inside `links` throws. The built-in `Disallow` stops at the first key, names the loader's
+  private class, refuses `$comment`, and suggests nothing.
+
+The pass is in the plan ("IM-1 — the code-level pass"). Its eight recommendations:
+- IM-1 goes before f-1, and f-1 builds on it.
+- An extra is refused on a machine until its reader lands, naming the slice.
+- A medium is named and checked as a `via` is.
+- The grammar, with the base game's `extras.json` quantum row and five reserved lower forms.
+- One (extra, medium) pair has one owner.
+- A reflection-driven strict walk: every unknown key with a did-you-mean, duplicates refused, `$` keys
+  dropped.
+- `format` reads as 1 when absent.
+- `programmer` is answered by the table.
+
+Every key in the shipped files is bound today, so the walk refuses none of them. COLLAPSE-PLAN's part-f
+amendment points at decision 1. Nothing is built.
+
+## 2026-09-29 (close) — the panel's papers kept, and the session handed to a fresh chat
+
+*"Please commit anything you please to memory and/or markdown files along with anything we need
+saved"*. The panel's working papers were only in the session's scratchpad, and the plan cites them by
+name, so they are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/):
+the briefs, the five reader maps, the four designs, the three verdicts, the critic's review, and IM-0's
+batch script. They are snapshots at `71e6eed`, and the README says the plan won wherever they disagree.
+COMMANDS.md gained IM-0's two recipe facts: a profile never restores the saved position, and a
+flythrough leaves a basin behind. **Next, in a fresh chat: IM-1** (CLAUDE.md, "Where things stand").
+
+## 2026-09-29 (night) — IM-0: the measurements on the fixed build, and the quarry's 2 m bite
+
+*"start on IM-0 please Claude"*, with his note that TajMahal has no active machines, so the machine
+bracket was read on `retired-pool` (127 rows) and `retired-spread` (209, the load test) instead. His new
+TajMahal session (4:49–5:10 PM, the IM-0b build) was copied aside first: 0 `ERROR`, nine collapses
+clearing the undo as they should.
+
+The r6 control read `2601 / 325 / 3446 at 411` to the digit, which closes IM-0b's owed control. Then 22
+headless runs, every arm twice and alternated, 0 `ERROR` in all:
+- **`machines`: 0.63–0.88 ms mean**, under the 1 ms trigger with little room. The 11–17 ms max is the
+  opening boundary.
+- **The bite: the 2 m cut is 0.42–0.53 ms mean** and the 1 m cube 0.16–0.20 ms, 2–2.5× cheaper per voxel
+  than the pre-fix figures. The worst (7.4–8.8 ms) is the same for both arms, so it cannot choose between
+  them. **He took the 2 m bite** for the quarry: *"go with the 2m bite for the quarry"*.
+- **Tier B: insertion at 0.5–1.1 µs a cell.** A 10 ML pour held 2 Hz at 385 ms of tick wall and ~16 ms of
+  main thread a boundary, heavy but carried. The plan's 10 ML ceiling and 3,200-cell budget both stand,
+  now measured.
+
+**Two things did not measure what they were meant to.** The "wet" bite arms were dry, because the
+flythrough left `--fillbasin`'s basin behind, so a bite under a lake is IM-7's bench. The windowed
+surface install waits for his say-so, since a windowed run takes his focus. `--entangletunnel` is in
+COMMANDS.md now. The plan's "IM-0 — measured" has the tables.
+
+## 2026-09-29 (night) — IM-0b: Ctrl+Z minted machines, and the drain's world-side writes are unjournalled
+
+*"start on IM-0b please Claude"*. **Reproduced first, on the unfixed code**, with a throwaway probe
+(deleted after): a pump whose whole body fell, then Ctrl+Z (`Undone; rows 1`), then its chunk arriving
+(`1 rebuilt … body voxels standing 64; pump in inventory 0`). A whole machine for nothing, and it needs no
+stock, because a whole-body fall leaves nothing in the step to pay for.
+
+**Wider than the plan's row.** Reading the drain showed the reconcile's four branches were journalled
+too, and each was a mint through Ctrl+Z: an undone rebuild credits 64 voxels and leaves the row to be
+rebuilt again; an undone return gives the row back to be returned and credited again. So the rule is **only
+a pick's dismantle is the player's edit**; the reconcile and the destroy after a fall run with the journal
+off. `IEditJournal` gained `Recording` so `MachineSet` can switch it (Main wires both hooks to one history).
+
+Seven cases in `MachineDrainTests`, six of which failed against the old code. A four-mutation battery was
+caught at exactly its expected counts (1, 4, 2 and 6), with the file restored byte-identical. Suite
+**2,006**; the Game compiles (to a scratch folder). **The r6 control is owed**: he relaunched at 4:49 PM,
+and `start.cmd`'s build already carries the fix. The old TajMahal's last play log is copied aside as
+`logs/play-2026-09-29-TajMahal-last-before-retiring.log`. Written up in UNDO-PLAN.
+
+## 2026-09-29 (night, later) — The ideal machines taken as recommended; TajMahal retired
+
+*"Yes as recommended please Claude"*: all sixty-one decisions and the ten forks. The plan, the brief, the
+collapse plan's part f (its three amendments) and CLAUDE.md say so. Next on my side: IM-0b (the live undo
+bug), IM-0 (measurements), then IM-1.
+
+*"can you also either retire or delete my Taj Mahal world please I borked the supports so want to
+restart"*. Retired, not deleted, as the other played worlds were: with Godot checked closed, `TajMahal/`
+moved to `retired-TajMahal-2026-09-29/` (6 MB), beside `backup-TajMahal-2026-09-28`. It stays the
+measurement world for the water-bodies probes and IM-0 (`--at=-268,-5,1284`, on a copy). `start.cmd` still
+names `--world=TajMahal`, so his next launch creates a fresh world by that name with a new seed; no other
+start script of his opens it.
+
+## 2026-09-29 (night) — The ideal machines: the planning pass, run as a panel
+
+*"IDEAL-MACHINES-BRIEF.md please Claude … Lets design"*. His data arrived first: *"a handover crossover
+… between your mobile batter and quantum storage … same with quantum backpacks and quantum storage
+containers about the same size as the current machine blocks"*. Six more taken during the pass, all in
+the brief verbatim: **one pool** (*"you should be able to bankrupt yourself energy wise at the last
+tech"*); the scope; **automated quarries**; **materials**; **water in the inventory** at the last tech
+through a tool or machine made for it; **the quarry only where chunks are loaded** (*"OH&S reasons"*, and
+for servers), with a per-player machine cap as a trigger only; and **each player their own channels on
+servers**, which went into TODO's new multiplayer section.
+
+The panel: five readers, four designers (engine cost, gameplay, mod format, physical plausibility), three
+judges (Core, CPU, gameplay). The engine design won two lenses and the gameplay design one. Two findings
+worth keeping beyond this plan:
+- **A live bug in the shipped game.** The machine drain's destroy branch is journalled (`Main.cs:4465`)
+  and the reconcile rebuilds an all-air body from its row (`MachineSet.cs:446-457`), so a pump destroyed
+  by a fall, then Ctrl+Z, then its chunk arriving, comes back free. The plan's IM-0b fixes it.
+- **Under one pool, collapse f-1's cell reader starves a vault.** A signalled-off cell unpays the vault's
+  bill and it dumps: decision 10's rejected flood by another road. Three of four designs missed it; the fix
+  is to pay the hold before signal overrides.
+
+I wrote the synthesis myself as the plan, then ran a completeness critic on it. **It found ten must-fix
+defects**: the demo's climax could not fire (the sun paid a part-full vault's bill), three figures were
+7–10× out, the Tier B ceiling was per vault with vaults unlimited, two reconcile branches removed full
+vaults, the backpack's JSON was unpinned (so it would have been two pools), the hand valve reopened
+decision 10 on a misread quote, the hold had no `PowerExact` term. All fixed in the plan. One change of
+substance came out of it: **a broke channel only stalls while the sun covers the bills; a storm is when
+vaults let go.** That is decision 12, and his to like or not.
+
+**[docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md)**: sixty-one decisions, ten forks, a split of
+IM-0 (measurements, no code), IM-0b (the live bug), and IM-1 to IM-10. Handed back.
+
+## 2026-09-29 (evening) — The ideal machines chat, and the session closed for a fresh one
+
+*"lets have that ideal machine tier chat now … a few "extras" that the previous tier may or may not
+inherit"*. Recommended, and agreed:
+- **The extras rule:** defined once, opted into in JSON, reaching as far as the tier's membership.
+- **Six extras:** sense and respond, recall, remote panel, remote charge, priority, map telemetry.
+- **A storage container ladder** up to his quantum vault, *"bigger on the inside"*, which dumps its
+  water and voxels when its power fails.
+- **Grades** on parts, from his 2026-09-25 words.
+- **Automated mining kept but deferred** past the demo, with conveyors as membership, not belts.
+
+His three answers: all six; inheritance in JSON; the creative-mode demo first. He asked to plan in a
+fresh chat with a bigger context. **The brief is [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md)**:
+his words verbatim, the constraints numbered for the panel's agents, and the method. He said he would
+submit some data; it had not arrived at the close, and the brief says to ask for it first.
+
+## 2026-09-29 — Collapse part f: the sensor's pass
+
+*"start on collapse part f please Claude"*, with him testing alongside, so the pass is docs only and
+any code goes in a worktree. Three read-only maps (the machine tick and ports, the collapse's state,
+the docs on signals), then decision 13 read against them (COLLAPSE-PLAN, "Part f").
+- **The paragraph sat one level above the answer twice.** `CollapseDirector.Events` exists only once
+  a fuse has burnt down, and the warning, the 10–20 s fuse, is in the scheduler's private timers
+  (reachable per chunk by `TryGetTimer`). And "switching a cell off" cannot write `enabled`, which
+  is his saved panel setting; the signal is an override in the tick, never stored.
+- **The machine tick runs before the collapse sweep**, so a sensor sees the collapse one boundary
+  (0.5 s) late. Accepted.
+- **A new kind is C#** (`MachineKind` is a closed enum). `sensor` with `"senses": "collapse"`, so a
+  later sensor reuses the kind.
+- **The "ideal machines" chat the design waited for never happened**, so the signal is kept to a
+  per-channel boolean recomputed each boundary, which that chat could replace without undoing.
+- Thirteen decisions and a three-slice split (f-1 Core, f-2 wire with `--placeat=` and the oracle,
+  f-3 his play) are handed back.
+
+## 2026-09-29 — The pond branch re-measured on the optimised build: 1.9×, and still the water
+
+*"the water-column-test proved to be slower than the original solver didn't it?"*, then *"you might
+want to re run it given optimisation"*. The 2026-09-26 table (branch tick 6× main) was taken while
+Core was built unoptimised. Re-run in the same shape: a scratch worktree of `water-column-test` with
+today's main merged in (conflicts in `Main.cs` and `WaterSurface.cs` were keep-both; its suite 2,043
+passing; never pushed, and the worktree removed after). Both Core DLLs checked optimised
+(DebuggableAttribute 2). A fresh copy of `Regions16` each run, the play flags plus `--profile --speed=0
+--fillbasin=1000000 --measure=30 --watch`, alternated, 0 ERROR lines in all ten.
+
+**Where the pond is, recovered:** 2026-09-26 never wrote the `--at=` down. `Regions16`'s saved spawn
+pours into basin 214; `Regions16-pondlook`'s spawn, from the demolition log, is <-852, 32, 282>, and
+**`--at=-852,34,282`** is the pond: main spills there, and the branch holds (basin 512, level 4.71,
+against 515 and 4.61 on 2026-09-26).
+
+| `--watch` mean, 65 ticks a run | runs | fluid tick | sheet solve, a pass | the pour |
+|---|---|---|---|---|
+| main | 5 | 16.7–18.9 ms | 11.1–12.2 ms | basin 342: all 1,000,000 L spilled, level 0.00 |
+| pond branch (main merged) | 3 | **32.6–34.9 ms** | 19.1–20.0 ms | basin 512: **0 L spilled, level 4.71** |
+| pond branch, `--raise=0` | 2 | 17.3–18.0 ms | 11.3–11.8 ms | basin 342: all spilled |
+
+**The branch is 1.9× main now, not 6×, and it is still the water, not the code.** With the raise off it
+ticks as main does; with it on, the pond keeps the million litres main spills. Against 2026-09-26 both
+arms are faster: main's tick 33.5 → ~18 ms, the branch's 200 → ~34 ms. The pond code's own watched
+cost: observing the box and its columns 5.3 ms/s, the grid's builds and reads 9.3 ms/s, against the
+enclosure falling from 4.8 to 0.65 ms/s. That is about +10 ms/s, with 92 ms once at open. One call
+passes the plan's 5 ms bar: a cached grid read peaked at 16 ms once.
+
+## 2026-09-29 — c-3 fails, and part a's fix search stops here
+
+*"yes build c-3 please Claude"*, and *"do not worry if we don't end up with something better than what
+we had … there are limits"*. c-3 was c-2's promotion without the walk: a promoted carried cell joined
+the near batch and left `_queued`, its carry entry a tombstone that admission skipped. Suite 1,999 with
+it. On the load test (copies of `retired-spread`, 480 s, alternated, 0 ERROR lines):
+
+| arm | last tick | worker wall mean | awake as reported |
+|---|---|---|---|
+| control | 929 / 937 | 404 / 421 ms | 2.69 M / 2.70 M |
+| c-3 | 440 / 458 | 968 / 932 ms | **16.2 M / 22.7 M** |
+
+**An awake count five times the held cells is the carry growing, a leak in the tombstone scheme:** a
+tombstoned cell woken again is back in `_queued`, so its old entry comes alive beside the new one, and
+duplicates pile up (10 M and 7.7 M tombstones skipped, 37–40 M promotions). Mending it wants a
+generation stamp per carry entry, a restructure of the carry rather than a tweak. **The code was
+reverted, not committed.**
+
+**Where part a stops:** the order-on default stands (the play arm, 1.9 Hz on the load test). The
+finding kept is c-2's: promoting the whole far front of a levelled sheet closes two thirds of the
+order-on/off gap on his pool, so the lag is most of the loop. A cheap way to promote needs O(1) removal
+from the carry, and that is a planned piece of its own, not a session's variation.
+
+## 2026-09-29 — c-2 on the load test: the idea holds, the walk does not
+
+*"yes please Claude"*. On mains, copies of `retired-spread-2026-09-22` (47.8 ML in 3.1 M cells, 209
+machines), order on, 480 s, alternated control / c-2 / control / c-2, 0 ERROR lines, copies deleted:
+
+| arm | last tick | rate | worker wall mean / max | promoted near |
+|---|---|---|---|---|
+| control | 918 / 947 | ~1.9 Hz | 443 / 408 ms, max 687 / 623 | — |
+| c-2 (`--solvefrontnear=2`) | 397 / 395 | ~0.8 Hz | 1,062 / 1,080 ms, max 1,678 / 1,650 | 30.5 M |
+
+**c-2 as built more than halves the load test's tick rate.** The cost is its implementation: every
+tick that promotes a carried cell walks the whole far carry (~2 M cells here) through the reclassify
+path, and it promotes ~64 k cells a tick. On TajMahal the carry is ~200 k and the walk was cheap.
+
+**The idea still stands** (two thirds of the order-on/off gap on his pool, twice). **Next:** c-2
+without the walk. Promoted carried cells go straight into the near batch and are tombstoned in the
+carry, so admission skips them. That is O(promoted) a tick rather than O(backlog). Then both worlds
+again, alternated.
+
+## 2026-09-29 — A steadier measure and a second round: c-2 holds
+
+*"maybe we re run benchmarks for a 2nd run?"* First the measure: the probe's single awake count
+read 187–668 k over six order-on controls. The periodic `queued` term averaged over each run's last
+five minutes (61 samples, 5 s apart) reads 351–451 k over the same runs. Then a second round, on
+mains, alternated (control, c-2, order off, 4th), 0 ERROR lines, pool loaded, copies deleted:
+
+| arm | runs | queued, mean over the last 5 min | worker wall mean |
+|---|---|---|---|
+| order off | 4 | 80 k, 109 k (unfed), 174 k, 180 k | 186–217 ms |
+| **c-2, `--solvefrontnear=2`** | 2 | **198 k, 236 k** | 211–224 ms |
+| candidate a, `--solvecarry=0` | 1 | 314 k | 243 ms |
+| candidate c, `--solvefrontnear=1` | 1 | 331 k | 297 ms |
+| order on, controls | 7 | 351–451 k | 285–322 ms |
+| 4th, `--solvewakeup=0` | 2 | 434 k, 444 k | 335–340 ms |
+
+**c-2 holds up in both rounds**, below all seven controls and closing about two thirds of the gap to
+the order off, at the order off's worker cost. **The 4th makes no difference, twice.** The single probe
+is noisy even with the order off (round 2 read 235 k where two earlier runs read 27 k), so rankings
+now use the five-minute mean (`tail_mean.py` in the session scratchpad; it reads `at tick N, Q queued`).
+
+**Before c-2 could be a default:** the load test (does it keep ~1.9 Hz on 3.2 M cells, when its
+reclassify walk is O(backlog) a tick?), then tests and a mutation battery. The worker wall's max
+(1.5 s once in round 1) is the walk's cost to watch.
+
+## 2026-09-29 — Two more variations: the carried front, and settle down but not up
+
+*"nah try the 3rd variation … maybe better info"*, then *"prioritize settle down but not up … in a 4th"*.
+Both measurement arms, defaults unchanged, suite 1,999; his backup, fed, order on, in the quarry,
+`--rainshare=0`, 900 s, 0 ERROR lines, pool loaded, each against its own control.
+
+- **Third, `--solvefrontnear=2`:** candidate c plus the front cells already waiting in the carry,
+  pulled out through the carry's reclassify walk. **141,079 awake** against its control's 187,413;
+  far levellings 808 k against ~1.1 M; worker wall 211 against 322 ms (max 1.5 s: the walk). 55 M
+  cells promoted. The lowest order-on reading yet, and still 5× the order-off 27 k.
+- **Fourth, `--solvewakeup=0`:** the solve no longer wakes the cell above one it drained. The new
+  count (`N of all above a drained cell`) says **99% of the solve's wakes are that upward wake**
+  (10.76 M of 10.90 M in the control). Off, the solve woke 0.82 M, but it levelled **more** far
+  sheets (1.48 M against 1.02 M), 527,880 awake against its control's 667,872, and **7,091 cells
+  slept with room below them**: water left hanging, as expected.
+
+**What the fourth says:** the solve's own wakes are not what unsettles the far sheets; the
+automaton's visits are. And the upward wake names which sheets they are: layers with water above
+them, inside the pool's depth, not its surface.
+
+**The controls are too noisy for one probe:** six order-on runs read 187 k, 215 k, 218 k, 310 k,
+370 k and **668 k** awake at 900 s. Only the order-off arm (27 k, twice) and perhaps the third
+variant stand clear of that. A ranking wants a steadier quantity, such as the queued curve's
+mean over the last five minutes, or the time to fall under 10%, and repeats.
+
+## 2026-09-28 — Candidate c fails too; back to planning
+
+*"try candidate c please Claude"*. `FluidSimulation.SolveFrontNear` (default false) and
+`--solvefrontnear=1`: a far cell the solve newly wakes is classed near at the next composition. A
+front cell already in the carry is not promoted. The settle term's wake count carries `N promoted
+near`. A measurement arm; suite 1,999, no test of its own.
+
+His backup, fed, order on, in the quarry, `--rainshare=0`, 900 s, 0 ERROR lines, pool loaded:
+
+| | candidate c | order-on control |
+|---|---|---|
+| awake at 900 s | 338,638 | 217,876 |
+| far sheets levelled or packed | 1,088,615 | about the same as every order-on run |
+| far cells the solve woke / promoted near | 8.84 M / 4.59 M | — |
+| worker wall mean | 297 ms | 321 ms |
+
+**It did what it was built to do and it did not help:** half the far front it woke was promoted,
+and the far levellings are as many as ever. The other half was already waiting in the carry.
+
+The order-on arm now reads 215 k, 218 k, 310 k and 370 k awake across four runs; candidates a and
+c read 415 k and 339 k. Neither fix gets near the order-off arm's 27 k. **Two guesses at the loop
+have failed, so this drops back to planning** (the working agreement): the next step is an
+observation, not a third variation. The plan names it and a pragmatic alternative.
+
+## 2026-09-28 — Candidate a fails: the loop does not run through the carry's seeds
+
+*"try candidate a please Claude"*. `FluidSimulation.SolveSeedsFromCarry` (default true) and
+`--solvecarry=0`: the solve is seeded from the pending list only. A measurement arm; the suite is
+unchanged at 1,999 and it has no test of its own.
+
+His backup, fed, order on, viewer in the quarry, `--rainshare=0`, 900 s, 0 ERROR lines, pool loaded:
+
+| | candidate a | order-on control |
+|---|---|---|
+| awake at 900 s | 415,160 | 214,900 |
+| levelled by ~1,000 passes | 1.34 M (0 carry seeds, every pass) | 0.96 M |
+| worker wall mean | 243 ms | 310 ms |
+| boundaries waited | 12 | 234 |
+
+**The far sheets are still re-levelled every pass, reached through the pending list alone.** The
+order-on arm's awake at 900 s also varies a lot between runs (214,900, 309,642, 369,661), so one probe
+cannot rank a candidate within that range; candidate a sits at its top, nowhere near the order-off 27 k.
+
+**A sharper reading of the loop:** a sheet that straddles the near/far edge. Its near half is visited
+every tick and its far half late, so near cells keep moving water against stale far neighbours and
+unsettle it; the solve re-levels the whole sheet, and its writes wake the far front, which waits
+again. **Next:** candidate c (the plan): the front a levelled sheet wakes is admitted as near for
+one tick, so the automaton settles it at once, as with the order off.
+
+## 2026-09-28 — The solve counts: far sheets levelled over and over, waking what they level
+
+*"start on the solve counts please Claude"*. Three lifetime counters on `FluidSimulation`, printed on
+the settle term as `woke N cell(s) (F far sheet(s) levelled or packed woke W)`:
+- `SolveCellsWoken`: cells a levelled or packed sheet's writes woke that were not awake;
+- `SolveFarSheetsLevelled` and `SolveFarCellsWoken`: the same for sheets whose first cell is far.
+Three tests (`SolveWakeCountTests`); a battery of three recipes, each caught (2, 3, 1 failing).
+Suite 1,999.
+
+His backup, fed, viewer in the quarry, `--rainshare=0`, 900 s, 0 ERROR lines, pool loaded:
+
+| | order on | order off |
+|---|---|---|
+| awake at 900 s | 309,642 | 27,126 |
+| passes | 1,774 | 1,800 |
+| sheets levelled + packed | 1,172,966 | 199,230 |
+| of them far | **1,109,252 (95%)** | — |
+| cells the solve woke | 10,234,529 | 5,977,072 |
+| of them by far sheets | **9,176,886 (90%)** | — |
+| worker wall mean | 285 ms | 205 ms |
+
+**The lead holds.** Under the order the extra levellings are far sheets, ~625 a pass, on a pool
+whose far part is a few thousand sheets, so the same sheets are levelled hundreds of times. Each
+levelling wakes its front, the woken far cells go to the carry and are visited late, and the next
+pass is seeded from the carry and finds the sheet unsettled again. With the order off the automaton
+visits the front next tick and the sheet settles.
+
+**Next:** an arm that stops the loop, measured the same way. The cheapest is a flag that leaves the far
+carry out of the solve's seeds (the pending set only). It costs what the carry seeds were added
+for on 2026-09-19: a wholly far sheet is invisible to the solve and levels by the automaton alone.
+
+## 2026-09-28 — The far floor fails too; the lead is the solve under the order
+
+*"yes start the load test sweep please Claude"*. On mains (checked), copies of `retired-spread`, the
+order on, 480 s each, the default floor bracketing the sweep, 0 ERROR lines, 47.8 ML loaded in all:
+
+| `--fluidfar=` | ticks by 480 s | rate | worker wall mean | awake |
+|---|---|---|---|---|
+| 512 (before) | 944 | 1.97 Hz | 426 ms | 2.63 M |
+| 250 k | 929 | 1.94 Hz | 439 ms | 2.68 M |
+| 500 k | 459 | 0.96 Hz | 951 ms | 2.66 M |
+| 1 M | 449 | 0.94 Hz | 958 ms | 2.18 M |
+| 512 (after) | 945 | 1.97 Hz | 416 ms | 2.73 M |
+
+**Option 4 fails.** 250 k barely binds, because near admission is already ~250 k here. From 500 k
+the job passes the 500 ms boundary and the rate halves: the boundary quantises it, and a tick
+that misses one waits for the next. The wall rises more than the visits do (~670 k at 951 ms
+against ~610 k at 426 ms), which is unexplained and worth a profile.
+
+**And the throttle cannot be the whole of TajMahal.** There, with the order on, far admission was
+117–253 k a tick against 157–187 k deferred, so the queue is nearly all admitted every tick, yet the
+pool stayed 13× more awake. From the 900 s logs already taken (fed, order off against on):
+- sheets levelled 149,865 against **1,264,716** (8.4×), in 1,785 against 1,713 passes;
+- sheets left alone 1.05 M against 4.63 M; seeds a pass 554 k against 1.05 M; capped passes 733
+  against 1,128.
+
+**The lead, a hypothesis:** under the order the solve is seeded with the far carry. It levels far
+sheets the automaton has not finished, its writes wake those cells, and they never stay still long
+enough to sleep. With the order off, the automaton levels the pool itself and the solve leaves it
+alone. **Next:** count, under the order, how many levelled sheets came from carry seeds and how many
+cells the solve's writes wake. If that is the loop, the fix is in what the solve is seeded with,
+not in the quota. Nothing ran after this: his game was open.
+
+## 2026-09-28 — The load test: the order off is too slow there, so option 1 is out
+
+*"carry on with the load test please Claude"*, on mains power (checked). A fresh alternation, off /
+on / off / on, on copies of `retired-spread-2026-09-22` at the saved spawn (47.8 ML in 3.1 M cells,
+209 machines loaded), 480 s each, 0 ERROR lines, every copy deleted:
+
+| arm | ticks by 480 s | rate | worker wall mean / max | boundaries waited | awake |
+|---|---|---|---|---|---|
+| order off | 640 / 558 | 1.33 / 1.16 Hz | 692 / 821 ms, max 1.4 s | 470 / 533 | 1.56 M / 1.57 M (49%) |
+| order on | 919 / 876 | 1.91 / 1.83 Hz | 452 / 477 ms, max 0.79 s | 253 / 371 | 2.59 M / 2.68 M (81–84%) |
+
+**With the order off the water beside you ticks ~35% slower here**, under the plan's 1.5 Hz reverse
+trigger, so option 1 (drop `--fluidnear=2`) is out as it stands. It still rests more (49% against
+~83% awake). The worst frame is the same either way (245–325 ms), because the tick is on the worker.
+This afternoon's single order-on arm (82%, 416 ms) agrees with today's pair.
+
+**The middle road needs no code:** `--fluidfar=<cells>`, the far floor. Far admission is
+max(floor, near awake), and the floor is 512, which is what starves a pool once the near side is
+small (the bench's 236 near cells holding 36 k far). A floor of a few hundred thousand admits far
+water in bulk, and it is a count, not a clock, so the order's determinism holds. **Next:** a floor
+sweep (say 250 k, 500 k, 1 M), both worlds: the load test's tick rate must stay at 1.5 Hz or more,
+and his TajMahal pool's awake at 900 s should approach the order-off arm's 2%.
+
+## 2026-09-28 — The load test, order on against off: one arm of four, held
+
+*"yes run the load test comparison please Claude"*, then *"hold here … going onto battery power"*.
+Four arms were planned on fresh copies of `retired-spread-2026-09-22`, alternated on / off / on /
+off, 480 s each, the saved spawn (<-57.6, 0.25, -9.5>), which loads 47.8 ML in 3.1 M cells from
+578 panels with 209 machines. **Only the first arm finished**; the second was stopped and its copy
+deleted. Battery power would have skewed the timing arms anyway.
+
+**Order on, 480 s, 0 ERROR:** 2,594,586 awake of 3,178,110 held (82%); the queued curve 3.36 M →
+2.75 M over 840 ticks; 236,743 near + the same far a tick with 2.11 M deferred; worker wall mean
+416 ms, max 780, 125 boundaries waited. **Owed:** the order-off arm and the repeat of each. The
+quantity is the tick rate the near water gets with the order off. The probe runner is
+`taj_arm.sh` in the session scratchpad; its recipe is `SRC=<world> taj_arm.sh <fluidnear> <tag>
+"<flags>" <probe seconds> <wait seconds>`: copy, check the game is closed, run headless, kill by PID,
+delete the copy.
+
+## 2026-09-28 — Water bodies part a: his pool rests with the near/far order off
+
+*"carry on with the unfed pool run please Claude"*. `--nowater` turned out to remove Tier B too,
+so two measurement flags went in instead:
+- **`--portaldrain=0`**: the lakes stop draining into Tier B (the drain stays, `drawn` reads 0);
+- **the queued count on the `M8b:` line**, from the published snapshot: awake cells held or not,
+  plus paused (no 15 ms walk), so a run has a curve and not one probe.
+
+His backup, viewer in the quarry (`--at=-268,-5,1284`), `--rainshare=0`, probed at 900 s, 0 ERROR
+lines in every run, the whole pool loaded:
+
+| arm | awake at 900 s | of held | worker wall mean | boundaries waited |
+|---|---|---|---|---|
+| order off, unfed | 3,959 | 0.3% | 186 ms | 22 |
+| order off, fed (1.63 ML drawn) | 28,657 | 2.0% | 246 ms | 119 |
+| **order on (the play arm), fed** | **369,661** | **26%** | 339 ms | 328 |
+
+**The near/far order is what keeps his pool awake.** With it off the pool rests in about 12–14
+minutes, fed or not, and a fed rim staying awake while the interior sleeps is what happens by
+itself (the fed arm's 2%). One run per arm; the 13× gap is far beyond the machine's two speeds.
+
+**This morning's "his pool is not a queue" was wrong**, read at 120 s, before the pool had time to
+settle whatever the order. Corrected in the plan, CLAUDE.md, TODO and his status. The bench had
+already said the order slows a slump's rest 2×; on his pool it is 13× at 15 minutes.
+
+**Next, before any rule:** the order exists so a far flood cannot slow near water (the sim-thread
+slices, M8b; pumps' columns since 2026-09-19). On the worker arm that is a question of tick wall.
+The load-test world (`retired-spread-2026-09-22`, 3.4 M cells active at open) with the order off
+against on says whether turning it off costs his near water anything. The plan names the options.
+
+## 2026-09-28 — F11 gets a third rung: r10h/6v
+
+*"extending the draw distance a 3rd time via f11 … 6 horizontal to 8 and 10 with the vertical
+distances set in increasing values respectively"*. Far mode is now a rung, not a bool: F11 steps
+6h/2v → 8h/4v → 10h/6v → 6h/2v. `FarRungs` in `Main`, `SetFarRung`, `--far=2` starts on the top.
+Nothing else about the lazy climb changes. Vertical follows horizontal up to the ceiling
+(`VerticalFor`), so 6v is reached as the box climbs.
+
+Headless, `--nosave --adaptive=1 --lightbudget=16`, 4,000 frames, one run each: rung 2 at r10h/6v
+is **10,625 tracked / 1,486 drawn / 499 k quads, working set 375 MiB**, against rung 1's 5,733 / 756 /
+272 k and 281 MiB. 0 `ERROR`; the r6 control 2601 / 325 / 3446 at 411. The step down from 10h is
+the same trim as from 8h, and his play is its check, as before. **Owed:** his eye on whether 10h/6v
+is worth its drawing, and whether the climb stutters in a played world, which headless cannot say.
+
+## 2026-09-28 — Water bodies part a: the clean pool rests, and his pool is not a queue
+
+*"start the clean test pool yes please Claude"*. The bench's new `--rest` arm: a walled box with a
+flat floor, filled once, ticked at the game's own settle until nothing is awake. Tick counts are
+deterministic, so they hold across the machine's two speeds.
+
+**The automaton rests a pool.** The same volume three ways, half full:
+- **level** (the control): rests in 1 tick at every size.
+- **block** (a block half the width that slumps, a dam break): rests in 149 ticks at 8 m square,
+  217 at 16 m, 452 at 32 m (3.8 min), all 8 m deep. At his quarry's 28 m depth, 16 m square: 410
+  ticks (3.4 min).
+- **edge** (4.1 ML poured along one wall at ~700 L/tick, his lake's rate, then stopped), 32 m
+  square: about 28% of the pool stays awake while it is fed. It rests 533 ticks (4.4 min) after the
+  feed stops. Every rest is real (`VerifyQuiescent`) and conserved exact.
+- My first inlet, a 4 × 4 corner, choked at ~120 L/tick; its arms never delivered and are not a
+  result.
+
+**The near/far order slows rest without stopping it** (`--restnear 1`, the viewer in the corner
+chunk). The 32 m block rests at tick 908 against 452, on the same total visits. The cliff the
+code's own comment names is real: at tick 500, 236 near cells were awake and far water was held at
+the 512-cell floor with 36 k queued. The fed pool fell under 1% awake at the same tick either way
+(7,058 against 7,062).
+
+**His pool is not a queue** (*superseded the same day: at 900 s it is the order — see above*). Last night's log read 1.03 M of 1.18 M "awake" as deferred far cells,
+so I ran his backup with the order on and off, alternated. The first four runs measured the wrong
+water: a probe spawns at his saved position, y 62 m, and the quarry (chunk layer −2) is nine layers
+below the view's vertical reach, so 77 kL of films loaded and the pool never did. **A TajMahal
+probe needs `--at=-268,-5,1284`.** Standing in the quarry, all four arms loaded 20.1 ML from 255
+panels, 0 ERROR lines, at 120 s:
+- order on: 1.01 M and 1.14 M awake, ~230 k deferred, ~400 k near visited a tick;
+- order off: 1.00 M and 0.95 M awake, every awake cell visited every tick.
+Last night's million deferred depended on where the viewer stood.
+
+**So part a's rule is not about the automaton's rest, nor the queue.** What his pool has that the
+box does not is a feed that never stops, 213–215 surface levels, and five times the cells. **Next:**
+his backup with the lake's feed gone (`--nowater`, which removes every lake, so no drain) and the
+order off, standing in the quarry, for 10–20 minutes. If it rests, the rule is about the feed.
+
+## 2026-09-28 — Water bodies part a: what the awake set is
+
+*"as recommended"* took all nine decisions. Part a opened with a measurement:
+- The probe sorts the awake cells, and the simulation's own terrain is asked about the cells over
+  room.
+- On a TajMahal copy at 120 s, of 1.30 M awake: 466 k full cells and 288 k level surface cells
+  (more than half with nothing to do), 370 k partial cells over room (the pool levelling through
+  its depth; the field agrees there is room), and 104 k unlevel surface cells.
+- The surface stands at 235 distinct levels (his terraces).
+- **Ruled out:** levelling fed sheets (`--fedshare=100`: 1.25 M awake against 1.26 M).
+- **Next:** a clean fixture (a flat box poured once, no lake) to separate the automaton's rest
+  from his world's feed and terraces (WATER-BODIES-PLAN, "Taken, and part a begun").
+- Two probe runs fell into a new empty world while his game was open. Every runner now checks
+  the process list first.
+
+## 2026-09-28 — Water bodies: the pass, and the pool that never rests
+
+*"plan the water bodies with me please Claude"*.
+- **Two code maps:**
+  - storage and persistence: the world file is at schema 4, so bodies would be 5;
+  - the lake machinery: `VolumeCurve` is a heightfield and cannot hold a 3D void, and no 3D flood
+    over water exists yet.
+- **The measurement:** `WaterComponents` and `--bodyprobe=`. Its first two runs fired at open,
+  because the trigger compared the world's age (7,303 s); it now counts from the session.
+- **Backed up** his world as `backup-TajMahal-2026-09-28`, on his *"once i have a backup"*.
+
+**His TajMahal at 320 s:** 1.35 M cells, 20.5 ML, in 838 components.
+- One component holds **99.6%**: the quarry pool, 28 m tall, all below the seed, 44% full cells.
+- 811 components are films and puddles under 64 cells, mostly ~1 L of rain on his build's floors.
+- **1.2 M cells are still awake after 5.5 minutes at full speed.** 58% of the visits move under
+  100 mL.
+- One whole flood costs 285–382 ms.
+
+**So rest comes before bodies.** A body forms from resting cells, and this pool never rests. The
+2026-09-27 "a sleep threshold saves a fifth" was read on the unoptimised build. Nine decisions are
+in WATER-BODIES-PLAN.
+
+**The 20-minute falsifier:**
+- 1.16 M of 1.39 M cells are still awake.
+- The lake keeps feeding the quarry at ~1.4 kL/s (1.67 ML drawn).
+- 59% of the visits move under 100 mL.
+It does not rest on its own, so part a stands, with the inflow and the dithering to separate.
+
+## 2026-09-28 — The water was slow because Core was built unoptimised
+
+*"profile it please Claude"*. The sampler, attached to the game process (not the console wrapper,
+whose 5 threads hold no managed frames), on a copy of TajMahal (18.7 ML, 1.2 M cells). Under
+`FluidSimulation.Advance`, 22.6 s on the CPU:
+- `Record` → `Wake` → `WakeNeighboursOf` took 47%;
+- `CanHold` through `LakeBoundedTerrain` → `FluidFieldView` took 40%;
+- `VoxelPos.get_Chunk` alone was 12% self, `get_Local` 10%, `ChunkPos.Equals` 6%.
+
+**One-line getters as real call frames mean the JIT did not optimise them.**
+- `DOTNET_TieredCompilation=0` changed nothing (0.84 / 1.00 Hz against 0.91 / 0.89 tiered,
+  interleaved).
+- The Core DLL the game loads carried `DebuggableAttribute(263)`, which is DisableOptimizations.
+- `dotnet msbuild -getProperty:Optimize` read `true` for the Game and `false` for Core.
+
+**The mechanism:** `Directory.Build.props` is imported before the SDK defaults Configuration. So a
+project given no configuration sees `''` at the 2026-09-15 condition `'$(Configuration)' ==
+'Debug'` and is not optimised. The Game's own SDK sets Configuration first, which is why the
+2026-09-15 fix looked whole. Core and Persistence, built as the Game's references by `dotnet build
+Overburden.Game` (start.cmd's build), were not optimised. A `dotnet test` or solution build in
+between (Configuration global) optimised them. **So which build a play ran on depended on the last
+build command.**
+
+**The fix:** `'$(Configuration)' == 'Debug' or '$(Configuration)' == ''`. All four projects read
+`Optimize true`, and the game's Core DLL carries 2.
+
+**Measured, alternating old and fixed four times on fresh copies, 45 s each:**
+
+| | old | fixed |
+|---|---|---|
+| tick wall | 1,021 / 922 ms | **185 / 184 ms** |
+| tick rate | 0.89 / 0.96 Hz | **2.00 / 2.00 Hz** |
+| visits | 778 / 679 ms | **118 / 119 ms** |
+| sheet solve | 238 / 235 ms | **63 / 62 ms** |
+| visits a second | 269 k / 278 k | **676 k / 672 k** |
+| boundary on the main thread | 79 / 73 ms | **20 / 20 ms** |
+
+Also: the r6 control holds (2601 / 325 / 3446 at 411), and the suite passes at 1,996.
+
+**So the water on his quarry runs at full speed.** Yesterday's levers (colour waves, bodies) are
+re-read against the fixed build before any is taken. *Possibly related, not claimed:* some of this
+machine's "two speeds" readings may have been an unoptimised Core; any figure taken through
+`dotnet build Overburden.Game` since 2026-09-15 is suspect.
+
+## 2026-09-27 — Tier B at scale, measured: the pour is flowing, not dithering
+
+His *"what would you do to speed up the tier b water"*, then *"water being slow to move, more the
+whole thing seems to cpu intensive am i asking to much or have i set a condition on the abstraction
+that has caused this path to be expensive"*, then *"measure it"*.
+
+**Built:** the `fluidmove` line (`FluidSimulation.VisitsByMove` / `MillilitresByMove`).
+
+**The run:** a copy of TajMahal after his second play, which holds 18.7 ML in 1.23 M cells
+(8.5 ML below the seed). It was measured for 120 s at the play arms (`--fluidnear=2
+--fluidjob=1`), with zero ERROR lines.
+
+**Visits:** 32.4 M in 99 ticks. 20.4 ML were moved — more than the water there is.
+
+| Move per visit | Share of visits | Share of the volume moved |
+|---|---|---|
+| rested | 7.9% | — |
+| under 10 mL | 3.4% | 0.0% |
+| 10–99 mL | 16.2% | 1.3% |
+| 0.1–1 L | 50.1% | 29.8% |
+| 1–5 L | 15.9% | 51.7% |
+| 5 L and over | 1.6% | 17.2% |
+| empty or other | 4.9% | — |
+
+- **It is flowing, not dithering.** A sleep threshold at 100 mL would drop a fifth of the visits
+  and 1.3% of the volume. That is not the lever.
+- **The tick is 0.82 Hz against 2** (1,136 ms wall), so water runs at 41% of its speed.
+  - The visits are 877 ms of it (77%). There are 270 k visits a second, ~2.7 µs a visit.
+  - The sheet solve is 253 ms, and it hit its 500 k cap in 60 of 99 passes (378 k seeds left).
+- **The boundary** costs 60 ms mean on the main thread: capture 24, hand-off and drain 24, field
+  sync 9.
+- **Near against far visits:** 16.5 M against 15.9 M; 361 k were deferred at the end.
+- **The lake loop is still running:** handed 353 kL and drawn 199 kL in the 2 minutes.
+
+**What it means:** WATER-THREAD-PLAN's colour-wave trigger was closed on 2026-09-19 because the
+solve dominated. It now reads the other way — the visits are 77% of the tick — which is the
+condition that note set for believing it again. The levers in order are:
+1. a profile of the visit loop (a single-thread 2× would be cheap);
+2. colour waves across cores (the big one, since visit order is physics);
+3. water bodies (WATER-BODIES-NOTES), which retire a settled pool but not a levelling one.
+
+His answer on direction is owed.
+
+## 2026-09-27 — The lake over a quarry: built
+
+*"as recommended please Claude"*.
+- **Built:** `BiteFill` (Core) and the surface's skip: no plane over a sample that is mostly a dug
+  pit not yet full; `--lakeoverbite=1` is the old arm.
+- **The budget forced a cheaper refresh** (6.8 → 0.86 ms mean on his quarry): only wet samples,
+  stop once decided, one slice in four a boundary.
+- **Verified:**
+  - the windowed A/B on two identical copies shows the squared sheet gone;
+  - the r6 control holds;
+  - suite 1,996, and both batteries (6 and 8 recipes) caught everything.
+- **Found:** the hand-off costs 32 ms a boundary with his pour in motion (TODO, for the load test).
+- A heredoc mangled `\n` in a battery script again. It failed before running, so nothing changed.
+
+## 2026-09-27 — The lake over a quarry: the pass
+
+*"look into the water please"*. Two code maps (the hand-off and the plane) and two runs on copies of
+TajMahal:
+- a 5-minute headless run;
+- one usable windowed shot (one of three: one faced away, one did not save).
+**The plane assumes a bite under a lake is already full.** His quarry fills at ~1.7 kL/s, so the
+sheet hangs over dry floor for minutes. The drawn/handed loop was his pour: without it, handed rose
+10 kL in 5 minutes against 320 kL drawn. The enclosure's bound is not the mechanism, since water
+below the seed is never handed. Seven decisions are in M8-PLAN; recommended: draw over a bite only
+where it is full.
+
+## 2026-09-27 — A lake sheet over his dry quarry (reported, not yet investigated)
+
+On TajMahal, a new world, he dug a quarry into a valley and poured ~8.1 ML. Flat Tier A sheets
+hang over dry pit floor (screenshot). His log: drawn 1.29 ML and handed 1.76 ML both climbing (a
+treadmill), 1,231 enclosure floods all open at the bound, every identity exact. It is in TODO with
+the likely mechanism; it waits on his word to investigate.
+
+## 2026-09-27 — The fuse is 10–20 s, bounded, leaning with the deficit
+
+His *"ideally the time would be from 10-20 seconds but randomly so people dont fully know until they
+have played a few times"*; arm 2 of two (*"2 please"*).
+- **The draw:** `min + (max − min) × u × (1 − deficit / 2K)`. A thin lip goes in 10–20 s, a gutted
+  roof in 10–15 s. It replaces M9d's exponential over 2–60 s, which was right while the fuse was the
+  only warning; the Tetris collapse's 15 s slow start is now a second one.
+- **Test:** rewritten, with a battery of 5 recipes, all caught. Suite 1,988.
+- **Headless, zero ERROR lines:**
+  - the plug under `--collapsemode=sweep --collapseafter=1,2` still reads four falls one boundary
+    apart, 20 voxels, `at risk 0`;
+  - in pieces, one event, 20 voxels;
+  - at the new default, the event started between 10 and 15 s into the window.
+
+## 2026-09-27 — Collapse part e: the phonk
+
+*"as recommended please Claude love the ideas!"*
+- **Built:** his track plays while a collapse is live, from the top, looped, sped up to ×1.25 at
+  the pace's cap, faded over 2 s. The rules are in Core (`CollapseMusicCue`, 12 tests; suite
+  1,988) and the player in Game.
+- **Headless:** the keystone in pieces printed 20 speed steps (×1.01 → ×1.248) and one fade.
+- **His release plan:** he owns FL Studio Producer Edition and will remix Korobeiniki himself
+  (*"will remix the original for release"*, *"My remix wont clip the stereo either"*). The
+  downloaded track stays out of the repo; his remix is the one that ships.
+- **He played it on his tower** (log `tower-phonk-2026-09-27.log` under `app_userdata`): one
+  collapse, the music from ×1 to ×1.248 and one fade. On *"restore my tower please"* the backup went
+  back again; that collapse is kept as `Regions16-pondlook-pieces-2026-09-27-2`.
+
+## 2026-09-27 — The Tetris collapse is the default
+
+*"make it the default please"*, and the glitch: *"like they turn cyan yeah like it"*.
+- `_collapsePieces = true`; `--collapsemode=sweep` is the old fall.
+- **Checked after the flip, zero ERROR lines each:**
+  - the r6 control reads 2601 / 325 / 3446 at 411;
+  - the plug at the default reads one event, 8 pieces, 20 voxels, `at risk 0`;
+  - the plug under `--collapsemode=sweep` reads 4 falls, 20 voxels, `at risk 0`, as recorded.
+- COMMANDS' two M9 oracles now carry `--collapsemode=sweep`.
+- **He asked about a sound effect:** the game has no audio at all (no `Audio` anywhere in
+  `Overburden.Game`), so it was his mum's tablet.
+
+## 2026-09-27 — His first play of the drawn collapse; the tower restored
+
+- **He played part c on his tower** (eight screenshots: tetrominoes in the air, the cyan glitch
+  crawling over the roof, the pile at the base). Log kept as
+  `app_userdata/Overburden/logs/tower-pictures-2026-09-27.log`; its one `ERROR` match is the mod
+  loader's "0 error(s)".
+- **The log's numbers:** 8 events, 5,036 pieces, 268,699 voxels, released == landed, 0 lost;
+  lifted 22,879 L == returned; 8 lifts, all off a reservation, at most 13 voxels; pictures 5,021
+  made, 1,117 cap hits (22%); update max 15.0 ms, corruption max 3.5 ms.
+- **"The settler firing" is the pile tumbling:** 174,529 of 268,699 voxels (65%) fell again. The
+  probe's 3% was a smaller bite, so the refall share grows with the collapse's size.
+- **Some pieces were drawn black** in one shot, mid-fall inside the tower. The likely cause is a
+  piece lit from a cell with no light (inside rock or under the roof). **He keeps it:** *"I like
+  that they are not the original colour like its indicitave that you aint getting that back"* —
+  not a defect, don't fix it.
+- **Restored on his "Restore my backup please":** `Regions16-pondlook` now holds
+  `backup-Regions16-pondlook-2026-09-26` (same size); the collapsed world was kept as
+  `Regions16-pondlook-pieces-2026-09-27`, never deleted.
+
+## 2026-09-26 (a new chat) — Collapse c-2: the pieces drawn falling
+
+*"leave it, lets continue with c-2 please"*.
+- **Built:** a mesh per piece in its own materials through the mesher's own quads, lit from the
+  grid, moved a mino a step; the glitch on the next second's minos; `--collapsepictures=0`.
+- **Seen on a copy of his tower in daylight:** 1 m clay and stone tetrominoes in the air, the
+  pond pouring through, rubble spreading at the base.
+- **Three things the look runs changed:**
+  - the hand-off counts installed meshes (cap hits 94% → 45%);
+  - the corruption is keyed by mino, not piece (21 ms → 3.7 ms worst);
+  - a lamp is no light for a collapse, since it falls too.
+- **Decision 11 goes back to him:** his tower's copy lifted a piece 4.5 m, not the bench's 1 m.
+- Suite 1,976. He moved the mouse during two windowed runs; the shots that mattered were taken
+  with it off.
+
+## 2026-09-26 (a new chat) — Collapse c-1: what the renderer needs, and fewer jumping pieces
+
+*"as recommended please"*. Core only:
+- **Built:** the rotation voxel by voxel (`VoxelCells`), each voxel's material at release, the
+  cells a piece is drawn in, the next second's queue (`Upcoming`), the water's factor, and a
+  landing that waits while another piece is drawn in its rest. Suite 1,961 → 1,973.
+- **On the bench,** landings no longer lift pieces. Ten lifts remain in ~3,000 pieces, all of them
+  a second mechanism: a re-plot's last clear spot inside another flight's reservation, chosen on
+  its path after it was solved. They rise 2–4 voxels. That goes to him as decision 11, with
+  "accept" recommended.
+- **Battery:** 13 recipes, 12 caught, 1 identity deleted; the boundary's wait was a hole, now
+  tested.
+
+## 2026-09-26 (a new chat) — Collapse part c: the code-level pass
+
+*"ok lets continue with part c please"*. Read against the voxel shader, the mesh apply, the light
+grid, the solver's rotations and his two plays: seven facts, ten decisions, nothing built. What
+changes the design:
+- **The shader is unshaded, with light baked per vertex**, so a piece needs light handed to it:
+  one sample of the grid at its centre a step, through an instance uniform.
+- **A chunk's remesh lands frames after the edit**, so a picture shown at release z-fights the
+  old rock, and one removed at landing leaves a hole. It waits on `NeedsRemesh` at both ends.
+- **The rotation is recoverable exactly**, so pieces fall in their own materials, voxel for voxel.
+- **The tower's 40 lifted pieces** were landings written into a picture. Fixed in Core: a landing
+  waits while another picture is drawn in its rest.
+- **A mesh per piece**, not decision 6's MultiMesh: 65 transforms at the tower's peak against 2,332
+  cubes rewritten a step.
+
+## 2026-09-26 (a new chat) — "How much can the center spire support?" — reach, not weight
+
+*"hold on the restore … i want to know how much the center spire can support on its own"*. This
+was already decided: M9-PLAN decision 1, reach not load, rejected because weight loses the unique
+fixpoint the tint and the collapse depend on. The answer, from `SupportRule` and the content:
+- **Up:** any height; rest refunds to the cap.
+- **A flat stone arm:** 7.5 m (30 voxels at cost 4).
+- **Hanging:** 3.75 m (cost 8).
+- **A 45° corbel:** unlimited — a step out and a step up net zero, the arch.
+- **Other materials:** clay 2 m, glass 1.5 m, rubble 0.5 m.
+
+`--collapse=0` is the tool for testing it without losses. Weight, if he ever wants it, is a new
+pass against a locked decision, with the tint's guarantee as the cost. The restore is held.
+
+## 2026-09-26 (a new chat) — The pace capped at ×16
+
+*"cap the top please though"*. `CollapsePace.MaxMultiplier`, 16 by default, is decision 4's last
+row, reached at 35 s: 48 pieces a second of 1 m minos, and the fall at its 10 m/s cap since ×10.
+The tower's third event ran to ×644 at 62 s, and only the frame budget held it back.
+`--collapsecap=` moves it, and the pace test now reads 16 at 35, 40 and 62 s.
+
+## 2026-09-26 (a new chat) — His verdict on the tower: slow to fast
+
+*"yes slow to fast, um that is sort of realistic like because buildings unless in earthquakes
+usually give signs before they collapse"*. Decisions 3 and 4 (the fuse, the flat 15 s, the
+doubling) stand as built, recorded in COLLAPSE-PLAN's "Played". The earthquake aside is colour; it
+names the no-warning collapse, which is TNT's shake if that is ever built.
+
+## 2026-09-26 (a new chat) — The tower comes down in pieces
+
+Matthew mined out the bottom of his tower on `Regions16-pondlook` under `--collapsemode=pieces` and
+sent twelve screenshots, no words yet. The log has zero ERROR lines.
+
+**Four events:**
+
+| event | from | chunks | pieces | voxels | time | peak pace | mino |
+|---|---|---|---|---|---|---|---|
+| 1 | Y 96 voxels (24 m) | 17 | 450 | 12,653 | 48.4 s | ×102 | 1 m |
+| 2 | underground | 1 | 22 | 65 | 13.4 s | ×1 | 0.25 m |
+| 3 | Y 43 voxels | 7 | 219 | 5,365 | 61.7 s | ×644 | 1 m |
+| 4 | underground | 5 | 211 | 2,343 | 34.2 s | ×14 | 1 m |
+
+**Totals:**
+- **The identity:** 902 pieces; 20,426 voxels released == landed, 0 lost. 10,328 of them were
+  rubble falling again, the tumble.
+- **The water:** 130 wet landings, lifted 8,802 L == returned 8,802 L, displaced 0, none had to
+  climb. It is ten times the glass session's water, and still exact.
+- **The costs:** worst frame 51.8 ms, solve max 41.8 ms, cut max 25.6 ms on the worker.
+
+What the pictures show:
+- **The corruption front:** the tower's underside and its pillar are eaten in a checkerboard of
+  1 m pieces — Tetris gone bad, as he described it.
+- **The strain tint** on the pink column that went next.
+- **Water from the pond on the roof** pouring through the gaps.
+- **The rubble spread wide** around the lake's edge at the base, not heaped: his *"debris to not
+  stack highly"*.
+
+**Two things for part c:**
+- **96 flights were blocked, 40 of them where they stood** and lifted clear. With nothing drawn,
+  that is invisible. Drawn, a piece would jump up. The likely cause is a landing written into the
+  cells a picture occupies. Pieces are pictures to each other (decision 6), so c has to choose
+  between a pop, a reservation of the path, or landing it where it stands.
+- **The pace has no ceiling:** ×644 at 62 s. The frame budget holds it (the worst frame was 52
+  ms), but the table in decision 4 was never meant to run that far. A cap on the multiplier is a
+  one-number lever if c's look wants one.
+
+## 2026-09-26 (a new chat) — The rain play's owed check 2, answered
+
+Matthew, after the glass play: *"so no rain inside now the roof is dry"*. It is MATTHEW-TODO's owed
+check "No rain under your roof", closed. The same session's log: rained 52,195 L in 1,378 drops,
+2,098 onto the player's material, **0 skipped under a roof**, and every water identity exact. The
+roof leak that was fixed was droplets spawned under the roof by the adaptive box's top row (see
+the memory "check where water is born"); this is the play that confirms it.
+
+## 2026-09-26 (a new chat) — The first play in pieces: his glass
+
+Matthew played `Regions16-pondlook` with `--collapsemode=pieces --collapseafter=2,10` and building
+glass up at the tower's top (Y 128–144 voxels, 32–36 m): *"the glass behaves interestingly like i
+had to do a lot of cleanup :-{D … some of the cleanup made its way onto the clay roof … after the
+glass "settled" i like it!"* Three screenshots.
+
+From the log, which has zero ERROR lines:
+- **Eight events, all small:** 150 pieces, 505 voxels released == landed, 0 lost.
+- **The two big ones:** event 1 had 178 voxels in 32 s, reached pace ×11 and 1 m pieces. Event 6
+  had 192 voxels in 23 s.
+- **The water:** 131 landings went wet, 450 L lifted == returned, displaced 0, none needed to climb.
+- **The rest:** one unstick (0.25 m); the undo was cleared as the collapse wrote. The worst frame
+  was 23.5 ms; the cut took 0.30 ms mean.
+
+Why the glass: glass reaches 6 voxels (1.5 m), so glass hung more than 1.5 m from a support is at
+risk, and it came down piece by piece until what stood was held — "settled". What falls lands as
+rubble (M9c-1's rule), which is the cleanup. Debris steers up to 2 m to the lowest landing it can
+reach, away from where the event started, which put some of it on the clay roof. The tower itself
+has not been knocked down yet: the tower check in MATTHEW-TODO is still his.
+
+## 2026-09-26 (a new chat) — Collapse b-2: the wire; the keystone is a race
+
+Matthew: *"ok Claude lets continue I cant wait to see my tower collapse"*. `--collapsemode=pieces`
+wires the director into `Main`: every frame, wet landings at the boundary, the undo cleared by
+the collapse's writes, the unstick after a landing, `LandAll` at the quit, the `M9: event` line
+and the `pieces:` term. The default stays `sweep` until part c draws the fall.
+
+- **The plug in pieces**: one event, 6 pieces, 20 voxels in 12.1 s, `at risk 0` — the bench's
+  six.
+- **The keystone in pieces**: 1,184 pieces, 70,065 voxels released == landed, lifted 782 L ==
+  returned, displaced 0.
+- r6 to the digit; the plug's sweep arm as recorded.
+- **The keystone's sweep arm read differently from its record, and the control showed why.**
+  Five runs an arm, today's code against the code before b-1, give the same spread (15,985 to
+  24,973 voxels, 0 to 31 L), and one of today's reproduces the record exactly. It is a race
+  between the plug's last fall and the pour at 5 s. COMMANDS says so now. A recorded oracle is
+  one draw until it has been run twice.
+
+## 2026-09-26 (a new chat) — Collapse b-2, step 1: the cut on a worker
+
+Matthew: *"Yes please Claude thanks :-{D"*. The re-cut goes to `CollapseDirector.CutRunner`.
+The gather stays on the sim thread; the cut is pure. The old queue keeps releasing while a cut
+runs, and what it released comes out of the cut when the cut lands. Suite 1,955 → 1,961.
+
+- **The frame's p99 in the room went from 249–277 ms to 8–9 ms**, over alternated arms in the
+  machine's slow phase. The worst frame went from 300–330 ms to 30–40 ms; what is left of it is
+  the gather and a solve.
+- **The bench's simulated clock outran the worker**: the mid-air chunk's first cut never landed in
+  600 simulated seconds. A simulated frame now takes a real 16 ms while a cut is out.
+- **Battery: 9 recipes, 8 caught, 1 identity** (the released voxels taken out of the cut's set —
+  deleted). The two mino recipes missed until a test crossed 20 s with a cut held.
+
+## 2026-09-26 (a new chat) — Collapse b-1: the director, in Core
+
+Matthew: *"As recommended please Claude"* — the part-b pass's fourteen decisions taken as
+written. `CollapseDirector` sits between the events and the world. It starts and joins events at
+the fuse's word, re-plans from the members' snapshots, releases, solves, re-checks each step,
+lands dry pieces in the frame and wet ones at the boundary, returns the water up to the room, and
+keeps `released == landed + in flight + lost`. The scheduler hands a due fuse to it when its
+`Director` is set. The bench's `--pieces` now drives it, and every oracle holds on every fixture.
+Suite 1,937 → 1,955. The game is untouched.
+
+- **The re-cut is the cost: 29 ms mean, 133 ms worst in the room.** The profile has no hot spot:
+  it is linear in the at-risk set, at about twenty tuple-hash lookups a voxel. Decision 7's
+  named lever, the cut on a worker, has its trigger fired on the bench. b-2 should start there,
+  on his word.
+- **I guessed the cost wrong first.** `FrontDistances` re-sorted per component, which is
+  quadratic. Fixed it exactly, and the numbers did not move. Kept as a bound, and its comment
+  says so.
+- **A test found a defect in the frame budget:** the one solve past 2 ms was spent by asking an
+  event with nothing due. It showed as a flake, because the budget is wall-clock.
+- **The battery:** 21 recipes, 20 caught, 1 identity (the at-risk half of the release gate,
+  redundant by construction). Three holes were closed: where wet water goes first, when an event
+  ends, and a voxel mined out of the queue — without the world read it fell as rubble made from
+  air.
+- The plug comes down as one event or two, since diagonal chunks do not join. The solver lets a
+  piece rest standing, because it ranks by bottom voxel. "Rescued" in the room is mostly the
+  pile propping the roof.
+
+## 2026-09-26 (a new chat) — Collapse part b: the code-level pass
+
+Matthew: *"lets continue please … i think we were working on the tetris collapse system"*. Part
+b's paragraph read against `Main.SweepCollapse`, `CollapseScheduler`, `Collapse.TryFall`, the
+pipeline's `SetVoxel` and `HoldsWater`, `FillWater`, the quit and the bench's `PieceDrop`; written
+into COLLAPSE-PLAN as eight facts and fourteen decisions, nothing built.
+
+The facts that change the design:
+- **Placement already has the dry/wet split** — dry voxels on any frame, wet ones queued to the
+  boundary with `FillWater` — so decision 6's landing rule is an existing rule, race included.
+- **The cavity is not there when a wet piece lands.** The sweep returned lifted water into its
+  own run's cavity in the same sweep, so `displaced 0` was a construction. A piece lands a second
+  later and up to 2 m away, and a lake has filled its cavity by then. The return order becomes
+  box, cavity, up the column to the first room; `displaced 0` becomes a measurement.
+- **`CollapseFlight` never re-checks its path**, and **reservations are per event**. Both belong
+  to the caller, which is part b.
+- **A fast event goes in waves**: every write requeues seven chunks, so past ~20 s a member may
+  not settle until its queue runs dry, and a rescue registers early and not late.
+
+Split at the Core/wire seam: b-1 a Core `CollapseDirector` that the bench's `--pieces` drives
+too, b-2 the game. The default stays `sweep` until part c draws the fall. The sensor (part f)
+reads the director's events, so b does not wait for the ideal-machines chat.
+
+## 2026-09-26 (late night) — TODO.md cut to the open work
+
+Matthew: *"TODO.md please wipe out anything we don't need"*. It was 559 KB and 6,600 lines, and
+said of itself that it was "not a list anybody can act from": 810 ticked boxes with their
+reasoning, and 353 unticked ones, most of them notes inside finished milestones or questions
+settled since (the collapse's debris, the power model, the deferred collapse, the drainable hole).
+
+The whole file moved unchanged to `docs/TODO-HISTORY.md` — only its title and its relative links
+changed — so every "in TODO under M…" in this worklog and the plans still resolves. The new
+TODO.md is 186 lines: next on my side (collapse b–f, M10e–j), what waits on his word, owed checks,
+the named levers with their triggers, and the later milestones. CLAUDE.md's convention now says to
+delete a ticked line at the session's close once its finding is here and in its plan, so TODO
+does not grow back into a record.
+
+## 2026-09-26 (late night) — Collapse a-2: the landing solver and the event
+
+Part a is done, all in Core and not wired. `LandingSolver` gives each piece the lowest reachable
+rest over its orientations and every steer within 2 m, with ties going away from the centre. Only
+descending placements count, which keeps the termination proof. `CollapseEvent` runs the queue,
+the pace, the flights and the counts, and writes nothing. On the bench (`--pieces`) every fixture
+comes down in pieces with every oracle holding.
+
+Three things came out of it:
+- **The solve went from 2–6 ms mean (195 max) to 0.5–0.9 ms (19 max)** through two exact levers,
+  leading faces and a column jump, both held equal to the naive arm by a test.
+- **Half of a big collapse is rubble tumbling off the pile.** Rubble reaches 2 voxels, and a
+  tetracube can't perch. Whether it reads as settling or as churn is a play question.
+- **A real defect:** a flight launched between two advances was credited with the time before
+  its launch. It was found by a test written for a battery miss.
+
+Suite 1,937; the battery caught fourteen of sixteen, and both misses are closed. Part b, the wire,
+wants its own pass.
+
+## 2026-09-26 (night) — Collapse a-1: the pace, the shapes, the cutter
+
+All fourteen decisions were taken on *"as recommended"*, and a-1 was built in Core the same
+session. `PieceCutter` cuts an at-risk set into tetracubes along a front spreading from the
+origin, with no mino released before the one it stands on. The constraint turned out to be one
+flag per mino, not a graph. 86% of the pieces lie flat, which is what reads as Tetris; the test
+for it came from a battery miss. Suite 1,922; the battery caught ten of twelve, and the misses
+were an identity and that hole. Details are in COLLAPSE-PLAN's "a-1 — built". Next is a-2, the
+landing solver and the event.
+
+## 2026-09-26 (evening) — The collapse's planning pass
+
+[docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), on `main`. Nothing is built. His second brief
+added 3D Tetris shapes, a release rate of 2–4 a second, a fall climbing from one step a second
+to ten, *"height does not matter"* (the prank: tunnel under them and set off a collapse), debris
+going to the lowest point and spreading away from what is still standing, pieces that separate,
+and *"like digital corruption spreading"*.
+
+Three things the code said:
+- **The fall is pinned to the 2 Hz fluid boundary** because its water needs the grid. So a piece
+  steps every frame, and only a wet landing waits for the boundary.
+- **One release unsettles the chunk and its six neighbours.** At ten releases a second, derive
+  latency would set the pace. So a chunk's pieces are planned from one settled snapshot, and the
+  next settle prunes the plan. The pruning is also the rescue: a shored piece leaves the queue.
+- **A piece written into the world every step runs the whole hook chain**, and tears at chunk
+  seams. So the fall is render-only: one MultiMesh of cubes, and the world is written at the
+  landing.
+
+**His three answers.** The block is the voxel, with the shapes left to me. His tower is ~1,550
+voxel tetracubes, eight minutes at 3 a second, so the mino grows with the event's age: 0.25 m,
+then 0.5 m, then 1 m. The fall is 1 m/s climbing to 10 m/s. The chimney goes to the sky once the
+event is serious. He also set the timing: easy to rescue at first, accelerating from 15 s, past
+rebuilding by about 30 s. That became a table by age (flat 15 s, doubling every 5), replacing my
+first draft's Tetris levels by pieces released. The other nine decisions are recommended and
+wait on his word.
+
 ## 2026-09-26 (afternoon) — Controlled demolition, and the collapse he wants next
 
 He knocked out a support under a ~40 m placed stone tower on the pond world, having asked for

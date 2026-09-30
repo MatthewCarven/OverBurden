@@ -736,6 +736,13 @@ public static class Carve
             return Bucket.AlreadyAir;
         }
 
+        // A vault holding anything reads as too hard until its contents have somewhere to go (IM-3's
+        // pass, decision 3) — asked before the hardness check, so a refused pick carves nothing.
+        if (bodies is not null && materials.IsMachine(material) && bodies.Refuses(voxel, material))
+        {
+            return Bucket.TooHard;
+        }
+
         if (materials.Hardness(material) > hardnessThreshold)
         {
             return Bucket.TooHard;

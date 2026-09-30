@@ -1,3 +1,5 @@
+using Overburden.Core.Machines;
+
 namespace Overburden.Core.Content;
 
 /// <summary>
@@ -24,6 +26,20 @@ public sealed class GameContent
     /// </remarks>
     public Registry<ToolDefinition> Tools { get; } = new("tools", ToolDefinition.Unknown);
 
+    /// <summary>Every mod's <c>extras.json</c>, unioned (IDEAL-MACHINES-PLAN decision 3): which form each extra takes over each medium.</summary>
+    public ExtrasTable Extras { get; } = new();
+
+    private readonly MachineExtra _servedExtras;
+
+    /// <param name="servedExtras">
+    /// The extras a machine may opt into — this build's <see cref="MachineExtras.Served"/>. The game
+    /// never passes it; a test does, to reach an extra whose reader is a later slice.
+    /// </param>
+    public GameContent(MachineExtra servedExtras = MachineExtras.Served)
+    {
+        _servedExtras = servedExtras;
+    }
+
     /// <summary>
     /// Loads content from <paramref name="source"/>, optionally restoring a world's saved
     /// numeric ID assignment first.
@@ -40,6 +56,6 @@ public sealed class GameContent
             Materials.SeedIdTable(savedMaterialIds);
         }
 
-        return new ContentLoader().Load(source, Materials, Tools);
+        return new ContentLoader(_servedExtras).Load(source, Materials, Tools, Extras);
     }
 }

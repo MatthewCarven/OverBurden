@@ -36,8 +36,17 @@ namespace Overburden.Core.Machines;
 /// and a row that lost a voxel to anything else is destroyed without — whether it fell whole or
 /// half, however far the rubble went, and the voxels the player mined off it first are theirs.
 /// </para>
+/// <para>
+/// <b>Only a pick's dismantle is the player's edit; everything else the drain writes is the
+/// world's</b> (IM-0b, 2026-09-29). The dismantle lands in the player's undo step with the swing
+/// that caused it, so Ctrl+Z puts the machine back whole. The reconcile and the destroy after a
+/// fall run with the journal off: journalled, each was a mint through Ctrl+Z. An undone destroy
+/// re-added the row over the air the fall left, and the chunk's next arrival rebuilt the body from
+/// it; an undone rebuild credited its 64 voxels and left the row to be rebuilt again; an undone
+/// return gave the row back to be returned again.
+/// </para>
 /// </remarks>
-public sealed class MachineSet : IMachineBodies
+public sealed partial class MachineSet : IMachineBodies
 {
     private readonly Dictionary<BrushCell, MachineRow> _rows = [];
     private readonly Dictionary<ChunkPos, List<MachineRow>> _byChunk = [];
@@ -124,23 +133,31 @@ public sealed class MachineSet : IMachineBodies
     public bool HasRowsIn(ChunkPos chunk) => _byChunk.ContainsKey(chunk);
 
     /// <summary>
-    /// Millijoules of charge that entered the set on storage rows — added, placed or restored —
-    /// over the session. With <see cref="StoredMillijoulesLeaving"/>, the pool identity's
-    /// <c>loaded</c> and <c>stowed</c> terms in one pair (M10c).
+    /// Millijoules of charge that entered the set on storage rows and vaults' own charges — added,
+    /// placed or restored — over the session. With <see cref="StoredMillijoulesLeaving"/>, the pool
+    /// identity's <c>loaded</c> and <c>stowed</c> terms in one pair (M10c).
     /// </summary>
     public long StoredMillijoulesEntering { get; private set; }
 
-    /// <summary>Millijoules of charge that left the set on storage rows removed — dismantled, destroyed, or replaced at a restore.</summary>
+    /// <summary>Millijoules of charge that left the set on rows removed — dismantled, destroyed, or replaced at a restore.</summary>
     public long StoredMillijoulesLeaving { get; private set; }
 
-    /// <summary>The charge on a row, or zero when its material is not a storage here.</summary>
+    /// <summary>The charge on a row: a placed cell's, or a vault's own (IM-3b); zero for anything else here.</summary>
     /// <remarks>
     /// Through the table, never by reading the bytes alone: another kind's state could carry a
     /// version byte of 1 and eight bytes after it, and a set built without a table (a test's)
-    /// counts no charge at all rather than guessing.
+    /// counts no charge at all rather than guessing. <b>A vault's own charge is counted here</b>, so
+    /// the pool identity carries it with no term of its own: a bill it pays is <c>held</c>, a
+    /// recharge or a return is a transfer inside <c>stored</c>, and a pick, Ctrl+Z and a reopen count
+    /// it as they count a cell's (IM-3b's pass, fact 3). A vault whose bytes this build cannot read
+    /// counts none, as it counts no contents.
     /// </remarks>
-    public long ChargeOf(MachineRow row) =>
-        _materials?.Machine(row.MaterialId) is { Kind: MachineKind.Storage, Carried: false } ? StorageState.Read(row) : 0;
+    public long ChargeOf(MachineRow row) => _materials?.Machine(row.MaterialId) switch
+    {
+        { Kind: MachineKind.Storage, Carried: false } => StorageState.Read(row),
+        { Kind: MachineKind.Vault } => VaultState.TryRead(row, out VaultContents contents) ? contents.OwnChargeMillijoules : 0,
+        _ => 0,
+    };
 
     /// <summary>
     /// Sets the charge on the storage row at <paramref name="cell"/>, clamped to its capacity,
@@ -169,10 +186,14 @@ public sealed class MachineSet : IMachineBodies
     public long CapacityOf(MachineRow row) =>
         _materials?.Machine(row.MaterialId) is { Kind: MachineKind.Storage, Carried: false } storage ? storage.CapacityMillijoules : 0;
 
-    /// <summary>Adds a row. Refuses a second row at the same cell: one cell, one body.</summary>
-    /// <summary>Told about every row added or removed, for the undo (UNDO-PLAN). Null keeps nothing.</summary>
+    /// <summary>
+    /// Told about every row added or removed, for the undo (UNDO-PLAN). Null keeps nothing. It must be
+    /// the journal the drain's editor writes to as well (Main wires both to one history), because the
+    /// drain switches it off around the world's own writes.
+    /// </summary>
     public Editing.IEditJournal? Journal { get; set; }
 
+    /// <summary>Adds a row. Refuses a second row at the same cell: one cell, one body.</summary>
     public void Add(MachineRow row)
     {
         ArgumentNullException.ThrowIfNull(row);
@@ -190,6 +211,8 @@ public sealed class MachineSet : IMachineBodies
 
         rows.Add(row);
         StoredMillijoulesEntering += ChargeOf(row);
+        VaultVoxelsEntering += KnownVaultVoxels(row);
+        VaultWaterEntering += KnownVaultWater(row);
         Version++;
         Journal?.MachineChanged(row, added: true);
     }
@@ -210,6 +233,8 @@ public sealed class MachineSet : IMachineBodies
         }
 
         StoredMillijoulesLeaving += ChargeOf(row);
+        VaultVoxelsLeaving += KnownVaultVoxels(row);
+        VaultWaterLeaving += KnownVaultWater(row);
         Version++;
         Journal?.MachineChanged(row, added: false);
         return true;
@@ -324,6 +349,13 @@ public sealed class MachineSet : IMachineBodies
             return;
         }
 
+        // A wreck has no body to lose (IM-3's pass, decision 5): a block placed in its cell, a
+        // second fall, or the drain clearing what a first one left is no damage to it.
+        if (IsKnownWreck(row))
+        {
+            return;
+        }
+
         row.Lost++;
         MarkDamaged(row);
     }
@@ -339,6 +371,15 @@ public sealed class MachineSet : IMachineBodies
         if (!_rows.TryGetValue(BrushCell.FromVoxel(voxel), out MachineRow? row) || materialId != row.MaterialId)
         {
             return;
+        }
+
+        // A vault's contents go to its sisters at the pick's first voxel, the instant Refuses allowed
+        // it (IM-3's pass, decision 4). The world's hook has already marked the row damaged by now —
+        // the write comes before this call — which is why the move leaves the row out by name and
+        // not by the mark; after the first voxel the vault is empty and this does nothing.
+        if (IsVault(row))
+        {
+            MoveAtPick(row);
         }
 
         row.Carved++;
@@ -376,21 +417,30 @@ public sealed class MachineSet : IMachineBodies
 
         if (_arrivals.Count > 0)
         {
-            foreach (ChunkPos chunk in _arrivals)
+            // The reconcile is the world keeping rows and bodies agreeing, never the player's edit.
+            bool recording = PauseJournal();
+            try
             {
-                _queued.Remove(chunk);
-
-                VoxelChunk? voxels = voxelsOf(chunk);
-                if (voxels is null)
+                foreach (ChunkPos chunk in _arrivals)
                 {
-                    ChunksLeftBeforeDrain++;
-                    report.Left++;
-                    continue;
-                }
+                    _queued.Remove(chunk);
 
-                Reconcile(chunk, voxels, world, inventory, ref report);
-                ChunksReconciled++;
-                report.Reconciled++;
+                    VoxelChunk? voxels = voxelsOf(chunk);
+                    if (voxels is null)
+                    {
+                        ChunksLeftBeforeDrain++;
+                        report.Left++;
+                        continue;
+                    }
+
+                    Reconcile(chunk, voxels, world, inventory, ref report);
+                    ChunksReconciled++;
+                    report.Reconciled++;
+                }
+            }
+            finally
+            {
+                ResumeJournal(recording);
             }
 
             _arrivals.Clear();
@@ -398,13 +448,19 @@ public sealed class MachineSet : IMachineBodies
 
         if (_damaged.Count > 0)
         {
-            foreach (MachineRow row in _damaged)
+            // A snapshot, because a vault kept as a wreck is cleared with its row still standing,
+            // and a row whose bytes this build cannot read is marked again by that write (IM-3).
+            // Marks the drain's own writes leave are not damage, and go with the snapshot.
+            MachineRow[] damaged = [.. _damaged];
+            _damaged.Clear();
+            _damagedSet.Clear();
+            foreach (MachineRow row in damaged)
             {
-                _damagedSet.Remove(row);
                 Dismantle(row, world, inventory, ref report);
             }
 
             _damaged.Clear();
+            _damagedSet.Clear();
         }
 
         return report;
@@ -422,6 +478,12 @@ public sealed class MachineSet : IMachineBodies
             // A copy, because a row removed below leaves the list under the loop.
             foreach (MachineRow row in rows.ToArray())
             {
+                // A wreck is never rebuilt and never removed here (IM-3's pass, decision 5).
+                if (IsKnownWreck(row))
+                {
+                    continue;
+                }
+
                 int present = 0;
                 bool allAir = true;
                 for (int lz = 0; lz < BrushCell.Voxels; lz++)
@@ -455,6 +517,15 @@ public sealed class MachineSet : IMachineBodies
                         Rebuilt++;
                         report.Rebuilt++;
                     }
+                    else if (HoldsAnything(row))
+                    {
+                        // Rock where a vault stood that holds something: the body goes back to the
+                        // inventory as a returned one would, and the row stays as a wreck with its
+                        // contents owed — it never leaves the books (decision 17).
+                        inventory?.Add(row.MaterialId, BrushCell.Voxels * BrushCell.Voxels * BrushCell.Voxels);
+                        KeepAsWreck(row);
+                        report.Wrecked++;
+                    }
                     else
                     {
                         // The cell is not air — the chunk regenerated as rock because its write
@@ -470,7 +541,16 @@ public sealed class MachineSet : IMachineBodies
                 }
 
                 // Part of a body on disk is a fall's — the dismantle never leaves one — so it is
-                // destroyed. The row goes first, so the writes below are not damage the hook counts.
+                // destroyed; a vault holding anything becomes a wreck instead, its body cleared.
+                if (HoldsAnything(row))
+                {
+                    KeepAsWreck(row);
+                    ClearBodyVoxels(world, row.Cell, row.MaterialId);
+                    report.Wrecked++;
+                    continue;
+                }
+
+                // The row goes first, so the writes below are not damage the hook counts.
                 Remove(row.Cell);
                 ClearBodyVoxels(world, row.Cell, row.MaterialId);
                 DestroyedAtArrival++;
@@ -539,25 +619,87 @@ public sealed class MachineSet : IMachineBodies
             return;
         }
 
-        bool credit = row.Lost == row.Carved;
-
-        // The row first, so the writes below are not damage the hook counts against a row that
-        // no longer exists.
-        Remove(row.Cell);
-        int cleared = ClearBodyVoxels(world, row.Cell, row.MaterialId);
-
-        if (credit)
+        // A wreck has no body to lose (IM-3's pass, decision 5): a block placed in its cell, or a
+        // second fall, marks it and nothing follows. A vault that still holds anything is never
+        // removed here — the pick moved its contents already, so one that holds is a fall's, or a
+        // move that could not happen — and becomes a wreck, its body cleared as the fall left it.
+        if (IsVault(row) && (IsKnownWreck(row) || HoldsAnything(row)))
         {
+            if (IsKnownWreck(row))
+            {
+                KeepAsWreck(row);
+                return;
+            }
+
+            bool picked = row.Lost == row.Carved;
+            KeepAsWreck(row);
+            bool wasRecording = PauseJournal();
+            try
+            {
+                int cleared = ClearBodyVoxels(world, row.Cell, row.MaterialId);
+                if (picked)
+                {
+                    inventory?.Add(row.MaterialId, cleared);
+                }
+            }
+            finally
+            {
+                ResumeJournal(wasRecording);
+            }
+
+            report.Wrecked++;
+            return;
+        }
+
+        // In both arms the row goes first, so the writes after it are not damage the hook counts
+        // against a row that no longer exists.
+        if (row.Lost == row.Carved)
+        {
+            // A pick did it: the player's edit, journalled into their step.
+            Remove(row.Cell);
+            int cleared = ClearBodyVoxels(world, row.Cell, row.MaterialId);
             inventory?.Add(row.MaterialId, cleared);
             Dismantled++;
             DismantledVoxelsCredited += cleared;
             report.Dismantled++;
             report.CreditedVoxels += cleared;
+            return;
         }
-        else
+
+        // Something else took a voxel, a fall: the world's write, which the undo must never see.
+        bool recording = PauseJournal();
+        try
         {
-            Destroyed++;
-            report.DestroyedAtDrain++;
+            Remove(row.Cell);
+            ClearBodyVoxels(world, row.Cell, row.MaterialId);
+        }
+        finally
+        {
+            ResumeJournal(recording);
+        }
+
+        Destroyed++;
+        report.DestroyedAtDrain++;
+    }
+
+    /// <summary>Switches the journal off for the world's own writes; returns what it was, for <see cref="ResumeJournal"/>.</summary>
+    private bool PauseJournal()
+    {
+        if (Journal is null)
+        {
+            return false;
+        }
+
+        bool was = Journal.Recording;
+        Journal.Recording = false;
+        return was;
+    }
+
+    private void ResumeJournal(bool was)
+    {
+        if (Journal is not null)
+        {
+            Journal.Recording = was;
         }
     }
 
@@ -651,6 +793,8 @@ public sealed class MachineSet : IMachineBodies
         foreach (MachineRow leaving in _rows.Values)
         {
             StoredMillijoulesLeaving += ChargeOf(leaving);
+            VaultVoxelsLeaving += KnownVaultVoxels(leaving);
+            VaultWaterLeaving += KnownVaultWater(leaving);
         }
 
         _rows.Clear();
@@ -661,7 +805,7 @@ public sealed class MachineSet : IMachineBodies
         _damagedSet.Clear();
         Version++;
 
-        int unknown = 0, dropped = 0, defaulted = 0, clamped = 0;
+        int unknown = 0, dropped = 0, defaulted = 0, clamped = 0, overfull = 0;
 
         foreach (StoredMachine entry in stored)
         {
@@ -715,6 +859,15 @@ public sealed class MachineSet : IMachineBodies
                 }
             }
 
+            // A vault's contents are never clamped (IM-3's pass, decision 11), unlike a cell's
+            // charge: a grade retuned smaller keeps what it holds, refuses deposits, and is counted.
+            if (_materials?.Machine(row.MaterialId) is { Kind: MachineKind.Vault } vault
+                && VaultState.TryRead(row, out VaultContents contents)
+                && contents.UsedMillilitres > vault.InsideMillilitres)
+            {
+                overfull++;
+            }
+
             if (_rows.ContainsKey(row.Cell))
             {
                 throw new BlobFormatException(
@@ -724,7 +877,7 @@ public sealed class MachineSet : IMachineBodies
             Add(row);
         }
 
-        return new RestoreReport(stored.Count, unknown, dropped, defaulted, clamped);
+        return new RestoreReport(stored.Count, unknown, dropped, defaulted, clamped, overfull);
     }
 }
 
@@ -765,11 +918,13 @@ public readonly record struct PortWrite(PortWriteResult Result, long Value)
 /// <param name="Dropped">Ports no declaration names, removed.</param>
 /// <param name="Defaulted">Declared ports the row lacked, supplied.</param>
 /// <param name="Clamped">Values outside their bounds, clamped.</param>
-public readonly record struct RestoreReport(int Rows, int Unknown, int Dropped, int Defaulted, int Clamped)
+/// <param name="Overfull">Vaults holding more than their inside — kept, never clamped, refusing deposits (IM-3).</param>
+public readonly record struct RestoreReport(int Rows, int Unknown, int Dropped, int Defaulted, int Clamped, int Overfull = 0)
 {
     public override string ToString() =>
         $"{Rows} machine row(s) read ({Unknown} of unknown kind), {Dropped} port(s) dropped, "
-        + $"{Defaulted} defaulted, {Clamped} clamped";
+        + $"{Defaulted} defaulted, {Clamped} clamped"
+        + (Overfull > 0 ? $", {Overfull} vault(s) overfull" : string.Empty);
 }
 
 /// <summary>What one <see cref="MachineSet.Drain"/> did.</summary>
@@ -802,12 +957,15 @@ public struct DrainReport
     /// <summary>Rows destroyed at the drain — a fall took a voxel.</summary>
     public int DestroyedAtDrain;
 
+    /// <summary>Vaults holding something made wrecks instead of removed, at the drain or at an arrival (IM-3).</summary>
+    public int Wrecked;
+
     /// <summary>True when the drain wrote or credited anything.</summary>
     public readonly bool DidAnything =>
-        Rebuilt + Returned + Destroyed + OrphanVoxels + Dismantled + DestroyedAtDrain > 0;
+        Rebuilt + Returned + Destroyed + OrphanVoxels + Dismantled + DestroyedAtDrain + Wrecked > 0;
 
     public override readonly string ToString() =>
         $"{Reconciled} reconciled ({Left} left), {Rebuilt} rebuilt, {Returned} returned, {Destroyed} destroyed, "
         + $"{OrphanVoxels} orphan voxel(s) cleared; {Dismantled} dismantled ({CreditedVoxels} credited), "
-        + $"{DestroyedAtDrain} destroyed";
+        + $"{DestroyedAtDrain} destroyed, {Wrecked} wrecked";
 }

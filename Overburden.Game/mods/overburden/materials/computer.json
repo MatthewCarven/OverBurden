@@ -6,5 +6,6 @@
   "density": 2000,
   "textureLayer": 7,
   "unit": "count",
-  "placeable": false
+  "placeable": false,
+  "programmer": true
 }

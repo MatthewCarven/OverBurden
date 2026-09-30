@@ -1,0 +1,9 @@
+{
+  "$comment": "How far each extra reaches on each medium (IDEAL-MACHINES-PLAN decision 3). Only the quantum medium, channel, is served; the lower tiers' rows land with their membership (M10e/f).",
+  "sense":     { "channel": "switch" },
+  "recall":    { "channel": "return" },
+  "remote":    { "channel": "board" },
+  "charge":    { "channel": "window" },
+  "priority":  { "channel": "port" },
+  "telemetry": { "channel": "state" }
+}

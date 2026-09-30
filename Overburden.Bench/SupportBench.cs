@@ -69,7 +69,8 @@ internal static class SupportBench
         bool isDebug,
         int restRefund,
         float supportScale,
-        int rubbleId = -1)
+        int rubbleId = -1,
+        bool pieces = false)
     {
         Console.WriteLine("Support bench — M9a's field over the plan's seven fixtures");
         if (isDebug)
@@ -195,6 +196,34 @@ internal static class SupportBench
         Console.WriteLine("Cross-sections through each room's middle. The eye has to agree with the table before the rule is believed.");
         Console.Write(sections);
 
+        if (rubbleId >= 0 && pieces)
+        {
+            Console.WriteLine();
+            Console.WriteLine("The collapse in pieces (--pieces): every fixture cut into Tetris pieces and dropped on a simulated clock at 60 frames a second — the cutter's front, the solver's lowest-spot-and-spread, the event's pace.");
+            Console.WriteLine("The oracles: solid voxels conserved, sum(Y) strictly down at every landing, released == landed + in flight, and no piece resting above any descending placement its own search simulated.");
+            foreach (Fixture fixture in fixtures)
+            {
+                // The picture reaches the floor the rubble lands on, as Drop's does.
+                ChunkPos lowestDug = fixture.Dug.MinBy(c => c.Y);
+                int lowY = lowestDug.OriginVoxel.Y - 3;
+                if (!(fixture.Chunks.GetValueOrDefault(lowestDug.Offset(0, -1, 0)) is { IsUniform: true } under && materials.IsSolid(under.UniformValue)))
+                {
+                    lowY -= VoxelConstants.ChunkSize;
+                }
+
+                Fixture shown = new()
+                {
+                    Name = fixture.Name, Chunks = fixture.Chunks, Dug = fixture.Dug, SliceZ = fixture.SliceZ,
+                    SliceMinX = fixture.SliceMinX, SliceMaxX = fixture.SliceMaxX, SliceMinY = Math.Min(fixture.SliceMinY, lowY),
+                    SliceMaxY = fixture.SliceMaxY, Table = fixture.Table, Note = fixture.Note,
+                };
+                PieceDrop.Run(fixture.Name, fixture.Chunks, fixture.Dug, fixture.Table, materials, rule, rubbleId,
+                    region => Slice(region, shown, materials, rubbleId));
+            }
+
+            return 0;
+        }
+
         if (rubbleId >= 0)
         {
             // Fixture 2 again, flooded: a fresh room, because the dry one above has been dropped.
@@ -219,7 +248,7 @@ internal static class SupportBench
     /// (the pipeline's <c>Support.Edited</c>) and the automaton (<c>Disturb</c>), the hook chain
     /// in miniature — the test world's editor, over the bench's chunks.
     /// </summary>
-    private sealed class DictionaryEditor(Dictionary<ChunkPos, VoxelChunk> chunks, SupportRegion region) : IVoxelEditor
+    internal sealed class DictionaryEditor(Dictionary<ChunkPos, VoxelChunk> chunks, SupportRegion region) : IVoxelEditor
     {
         public FluidSimulation? Fluid { get; set; }
 
@@ -260,7 +289,7 @@ internal static class SupportBench
     }
 
     /// <summary>Solid voxels and the sum of their Y over the fixture — decision 6's two oracles.</summary>
-    private static (long Solid, long SumY) Census(Dictionary<ChunkPos, VoxelChunk> chunks, MaterialTable materials)
+    internal static (long Solid, long SumY) Census(Dictionary<ChunkPos, VoxelChunk> chunks, MaterialTable materials)
     {
         long solid = 0;
         long sumY = 0;

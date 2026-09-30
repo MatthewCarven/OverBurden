@@ -308,6 +308,32 @@ public sealed class PlaceController(
     /// <summary>Machine placements refused wet and waiting for the boundary.</summary>
     public int PendingMachines => _pendingMachines.Count;
 
+    /// <summary>Every placement waiting for the boundary: wet fills, chunk fills and machines.</summary>
+    public int PendingPlacements => _pendingWetFills.Count + _pendingChunkFills.Count + _pendingMachines.Count;
+
+    /// <summary>Placements a Ctrl+Z cancelled before the boundary ran them, over the session.</summary>
+    public int PlacementsCancelled { get; private set; }
+
+    /// <summary>
+    /// Drops every placement waiting for the boundary and returns how many (IM-4c's pass, decision 9).
+    /// </summary>
+    /// <remarks>
+    /// <b>Ctrl+Z's answer to a click the boundary has not run.</b> Without it the boundary replays a
+    /// queued shape whole: a wet fill's dry part, which the click placed and the undo took back, came
+    /// back with the rest, and a chunk fill, which writes nothing at the click, landed after an undo
+    /// that had spent itself on an older step. Nothing queued has been paid for or taken from the
+    /// pocket — both happen when the boundary places it — so a cancel refunds nothing.
+    /// </remarks>
+    public int CancelPending()
+    {
+        int cancelled = PendingPlacements;
+        _pendingWetFills.Clear();
+        _pendingChunkFills.Clear();
+        _pendingMachines.Clear();
+        PlacementsCancelled += cancelled;
+        return cancelled;
+    }
+
     /// <summary>Machines placed at the click, over the session.</summary>
     public int MachinesPlaced { get; private set; }
 
@@ -333,6 +359,13 @@ public sealed class PlaceController(
     /// computer it opens the machine under the crosshair.
     /// </summary>
     public bool SelectedIsItem => MaterialId >= 0 && !materials.IsPlaceable(MaterialId);
+
+    /// <summary>
+    /// Whether the selected item is a programmer — the computer — whose right-click opens panels
+    /// (IDEAL-MACHINES-PLAN decision 6). Any other item has no verb yet: water, parts and ingots
+    /// never open a panel.
+    /// </summary>
+    public bool SelectedIsProgrammer => SelectedIsItem && materials.IsProgrammer(MaterialId);
 
     /// <summary>
     /// The row a right-click edge with the computer selected landed on this frame, for the
@@ -528,7 +561,13 @@ public sealed class PlaceController(
             // the pass. The computer's verb is a right-click edge on a machine body under the
             // crosshair — the hit voxel's cell, mining's aim rather than building's — and on
             // anything else the click opens the equipped pack's panel (M10c-3) or, with none,
-            // does nothing at all.
+            // does nothing at all. Only a programmer has that verb (IM-1): any other item's click
+            // does nothing, rather than opening a panel because it happens not to be a block.
+            if (!SelectedIsProgrammer)
+            {
+                return false;
+            }
+
             if (clicked && Outcome == RayOutcome.Hit
                 && Machines is not null
                 && pipeline.TryGetMaterial(hit.Voxel, out int hitMaterial)

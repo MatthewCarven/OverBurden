@@ -22,6 +22,12 @@ public enum UndoOutcome
 
     /// <summary>A voxel's chunk would not take the write — it left the box between the edit and the press.</summary>
     Unreachable,
+
+    /// <summary>
+    /// The step would take away a vault that holds something — contents, a wreck's, or bytes this
+    /// build cannot read (IM-3's pass, decision 10). Its contents never leave the books with a row.
+    /// </summary>
+    VaultHolds,
 }
 
 /// <summary>What one undo did.</summary>
@@ -291,6 +297,22 @@ public sealed class EditHistory : IEditJournal
         }
 
         Step step = _steps[^1];
+
+        // A vault that holds anything is never taken away by an undo (IM-3's pass, decision 10) —
+        // asked here, before anything is written, because Apply removes rows before it writes
+        // voxels and a refusal inside it would half-apply the step. The step stays, as an
+        // out-of-stock one does.
+        if (machines is not null)
+        {
+            foreach ((MachineRow row, bool added) in step.Machines)
+            {
+                if (added && machines.TryGet(row.Cell, out MachineRow live) && machines.HoldsAnything(live))
+                {
+                    Refusals++;
+                    return new UndoReport(UndoOutcome.VaultHolds, StepsLeft: _steps.Count, RefusedMaterialId: live.MaterialId);
+                }
+            }
+        }
 
         // The whole step's cost first, so a refusal leaves the world untouched rather than
         // half-restored. Net per material: what goes back costs, what is taken away credits.

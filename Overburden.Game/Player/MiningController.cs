@@ -506,15 +506,19 @@ public sealed class MiningController(
         // means what it meant. Q makes the bite enormous; Alt is how you put it down again
         // without leaving the mode, which at unlimited reach is the only way to do fine work at
         // the far end of a cave.
+        // At range, a vault holding anything is too hard whatever room its sisters have (IM-3,
+        // decision 17): a stray bite 500 m away never moves a store. The pick asks the set itself.
+        Overburden.Core.Machines.IMachineBodies? bodies =
+            tool.AtRange && Bodies is Overburden.Core.Machines.MachineSet set ? set.AtRange : Bodies;
         CarveResult result = precise
-            ? Carve.Chip(pipeline, materials, hit, tool, Inventory, Bodies, budget)
+            ? Carve.Chip(pipeline, materials, hit, tool, Inventory, bodies, budget)
             : TakesWholeChunk
-                ? Carve.Chunk(pipeline, materials, hit, tool, Inventory, Bodies, budget)
+                ? Carve.Chunk(pipeline, materials, hit, tool, Inventory, bodies, budget)
                 : TakesCube
-                    ? Carve.Cube(pipeline, materials, hit, tool, Inventory, Bodies, budget)
+                    ? Carve.Cube(pipeline, materials, hit, tool, Inventory, bodies, budget)
                     : TakesTunnel
-                        ? Carve.Tunnel(pipeline, materials, hit, tool, Inventory, Bodies, budget)
-                        : Carve.Swing(pipeline, materials, hit, tool, Inventory, Bodies, budget);
+                        ? Carve.Tunnel(pipeline, materials, hit, tool, Inventory, bodies, budget)
+                        : Carve.Swing(pipeline, materials, hit, tool, Inventory, bodies, budget);
 
         long paid = cost > 0 && Pack is not null ? Pack.Pay(result.Removed, cost) : 0;
         LastResult = result;

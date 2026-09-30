@@ -138,6 +138,17 @@ public sealed class WaterSurface
     /// <summary>Wet or ring samples left undrawn on the last rebuild for being enclosed.</summary>
     public int EnclosedSamples { get; private set; }
 
+    /// <summary>
+    /// The lake over a quarry (2026-09-27): a sample that is mostly a dug pit not yet full to the
+    /// seed draws no plane, and the ring never dilates into one — the pit's own water shows at its
+    /// true height instead of a sheet over dry floor. Null draws the plane over every bite, the
+    /// pre-2026-09-27 arm, <c>--lakeoverbite=1</c>.
+    /// </summary>
+    public Overburden.Core.Fluid.BiteFill? BiteFill { get; set; }
+
+    /// <summary>Wet or ring samples left undrawn on the last rebuild for standing over an unfilled bite.</summary>
+    public int UnfilledBiteSamples { get; private set; }
+
     public void SetBrightness(float brightness) =>
         _material.SetShaderParameter("sky_brightness", brightness);
 
@@ -196,6 +207,8 @@ public sealed class WaterSurface
         var drawLevel = new double[samples];
         EnclosedSamples = 0;
         bool[]? gridCell = GridCells(field, samples);
+        UnfilledBiteSamples = 0;
+        int cell = field.CellVoxels;
         for (int sz = 0; sz < pitch; sz++)
         {
             for (int sx = 0; sx < pitch; sx++)
@@ -212,6 +225,13 @@ public sealed class WaterSurface
                     // Walled in at the lake's level: not the lake's, whatever the level says.
                     wet = false;
                     EnclosedSamples++;
+                }
+
+                if (wet && BiteFill is not null && BiteFill.IsUnfilled(field.WorldXOf(sx) / cell, field.WorldZOf(sz) / cell))
+                {
+                    // Over a pit the lake has not filled yet: the plane assumes a full bite.
+                    wet = false;
+                    UnfilledBiteSamples++;
                 }
 
                 drawLabel[i] = wet ? label : Watershed.Outlet;
@@ -275,6 +295,13 @@ public sealed class WaterSurface
                             if (Enclosure is not null && Enclosure.IsEnclosed(field.WorldXOf(nx), field.WorldZOf(nz), (int)System.Math.Floor(level)))
                             {
                                 EnclosedSamples++;
+                                continue;
+                            }
+
+                            // Nor over an unfilled bite: the shore stops at the pit's rim.
+                            if (BiteFill is not null && BiteFill.IsUnfilled(field.WorldXOf(nx) / cell, field.WorldZOf(nz) / cell))
+                            {
+                                UnfilledBiteSamples++;
                                 continue;
                             }
 

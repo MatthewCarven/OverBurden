@@ -52,3 +52,13 @@ next, then M9.
   the clock already exists for; finding is placement only.
 - **Is the first age stone-and-wood before any metal?** That decides whether wooden tools exist
   at all, and the wooden → brass → iron → steel pump ladder (M10-NOTES, *Wading*) hangs off it.
+
+## His word, 2026-09-29: something to dig for
+
+Asked whether the mine reads as the antagonist yet, he wrote (verbatim): *"Water is increasingly becoming a
+problem, but my main focus has been on water until recently, also I have nothing to dig for, like we need
+to do iron coal etc and tree pass at some point"*. So the water half of the antagonist is landing, and
+**the missing half is a reason to dig**: ores (iron and coal named first) and a tree pass. This is the first
+time he has asked for it rather than thought ahead, but it is still "at some point", so not scheduled. The
+three questions above are still the pass's opening. The first, how deep is deep, now has a stake: ore under
+the water table is what would make "water is increasingly a problem" the price of the thing you dig for.

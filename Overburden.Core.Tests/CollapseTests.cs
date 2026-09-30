@@ -585,32 +585,45 @@ public class CollapseTests
     // ------------------------------------------------------------------ the timer
 
     [Fact]
-    public void TheWindowShortensWithTheDeficitAndTheJitterIsExponentialAboutIt()
+    public void TheDrawIsBoundedInsideTheWindowAndLeansShorterWithTheDeficit()
     {
-        var window = new CollapseWindow { MinSeconds = 2, MaxSeconds = 60 };
-        const float mean = CollapseWindow.MeanUnit;
+        // His 10-20 s (2026-09-27), the default, and arm 2: the deficit pulls the upper end
+        // halfway in, so a thin lip draws in 10-20 s and a gutted roof in 10-15 s.
+        CollapseWindow window = CollapseWindow.Default;
+        Assert.Equal(10.0, window.MinSeconds);
+        Assert.Equal(20.0, window.MaxSeconds);
 
-        // At the mean unit the draw is the deficit's delay itself: the window's two numbers are
-        // the mean's ends (M9d, decision 7).
-        Assert.Equal(60.0, window.DelaySeconds(0, mean), 4);
-        Assert.Equal(2.0, window.DelaySeconds(K, mean), 4);
-        Assert.Equal(2.0, window.DelaySeconds(10 * K, mean), 4);
-        Assert.Equal(31.0, window.DelaySeconds(K / 2, mean), 4);
+        Assert.Equal(10.0, window.DelaySeconds(0, 0f), 9);
+        Assert.Equal(15.0, window.DelaySeconds(0, 0.5f), 6);
+        Assert.Equal(20.0, window.DelaySeconds(0, 1f), 9);
+        Assert.Equal(15.0, window.DelaySeconds(K, 1f), 9);
+        Assert.Equal(15.0, window.DelaySeconds(10 * K, 1f), 9);
+        Assert.Equal(12.5, window.DelaySeconds(K, 0.5f), 6);
+        Assert.Equal(17.5, window.DelaySeconds(K / 2, 1f), 9);
+        Assert.Equal(10.0, window.DelaySeconds(K, 0f), 9);
 
-        // The plug: deficit 8 has a mean near the maximum, and the same lip goes in five seconds
-        // or three minutes — the median is 0.69 of the mean, a unit of 0.05 is one draw in twenty
-        // under a twentieth of it, and 0.95 is one in twenty over three times it.
-        double plug = window.DelaySeconds(8, mean);
-        Assert.InRange(plug, 55.0, 57.0);
-        Assert.Equal(plug * 0.693147, window.DelaySeconds(8, 0.5f), 2);
-        Assert.InRange(window.DelaySeconds(8, 0.05f), plug * 0.05, plug * 0.052);
-        Assert.InRange(window.DelaySeconds(8, 0.95f), plug * 2.99, plug * 3.0);
-        Assert.Equal(0.0, window.DelaySeconds(8, 0f), 6);
+        // The plug's deficit of 8 is a thin lip: nearly the whole window.
+        Assert.Equal(10.0 + (10.0 * (1.0 - (8.0 / K / 2.0))), window.DelaySeconds(8, 1f), 9);
 
-        // Bounded above at the unit's cap, so a draw is never infinite; strictly increasing in
-        // the unit, so the seed's order is the due's order.
-        Assert.InRange(window.DelaySeconds(8, 1f), plug * 13.8, plug * 13.9);
-        Assert.True(window.DelaySeconds(8, 0.3f) < window.DelaySeconds(8, 0.31f));
+        // Never outside the window, never longer for a larger deficit, strictly increasing in the
+        // unit so the seed's order is the due's order; a unit outside [0, 1] is clamped.
+        for (int deficit = 0; deficit <= 2 * K; deficit += 7)
+        {
+            for (float u = 0f; u <= 1f; u += 0.01f)
+            {
+                double d = window.DelaySeconds(deficit, u);
+                Assert.InRange(d, 10.0, 20.0);
+                Assert.True(window.DelaySeconds(deficit + 7, u) <= d);
+                Assert.True(window.DelaySeconds(deficit, u + 0.01f) > d || u + 0.01f > 1f);
+            }
+        }
+
+        Assert.Equal(10.0, window.DelaySeconds(8, -3f), 9);
+        Assert.Equal(window.DelaySeconds(8, 1f), window.DelaySeconds(8, 7f), 9);
+
+        // A window given backwards is the minimum, fixed; a closed one is its one value.
+        Assert.Equal(30.0, new CollapseWindow { MinSeconds = 30, MaxSeconds = 20 }.DelaySeconds(0, 0.9f), 9);
+        Assert.Equal(1.0, new CollapseWindow { MinSeconds = 1, MaxSeconds = 1 }.DelaySeconds(8, 0.9f), 9);
 
         // The sweep flag: zero everywhere is the instant arm.
         Assert.Equal(0.0, Instant.DelaySeconds(8, 0.7f));
@@ -618,7 +631,7 @@ public class CollapseTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new CollapseWindow { MaxSeconds = double.NaN });
     }
 
-    /// <summary>The widest a draw can be at a given deficit: the mean at the unit's cap.</summary>
+    /// <summary>The widest a draw can be at a given deficit: the unit at 1.</summary>
     private static long WidestMillis(CollapseWindow window, int deficit) =>
         (long)Math.Ceiling(window.DelaySeconds(deficit, 1f) * 1000.0) + 1;
 
@@ -1028,7 +1041,9 @@ public class CollapseTests
         IReadOnlyList<Identifier> exported = content.Materials.ExportIdTable();
         Assert.Equal(saved, exported.Take(saved.Count));
         Identifier[] appended = [.. exported.Skip(saved.Count)];
-        Assert.Equal(9, appended.Length);
+        Assert.Equal(11, appended.Length);
+        Assert.Contains(Identifier.Parse("overburden:water"), appended);
+        Assert.Contains(Identifier.Parse("overburden:quantum_backpack"), appended);
         Assert.Contains(Identifier.Parse("overburden:rubble"), appended);
         Assert.Contains(Identifier.Parse("overburden:clay"), appended);
         Assert.Contains(Identifier.Parse("overburden:glass"), appended);

@@ -28,3 +28,7 @@ Godot_v*/
 # obligation we do not need; if code is ever genuinely lifted, it moves out of here
 # and carries its license notice with it.
 reference/
+
+# His own media — the collapse's phonk track (COLLAPSE-PLAN decision 11: "the track is his and
+# stays out of the repo"). A downloaded remix is someone's recording; fine on his machine only.
+media/

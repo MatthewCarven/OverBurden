@@ -584,6 +584,56 @@ public sealed class WaterSystem : IWaterTable
         return spilled;
     }
 
+    /// <summary>Litres the siphon took out of lakes into the store, over the lifetime (IM-4a).</summary>
+    /// <remarks>
+    /// A term of Tier A's identity beside <see cref="PumpedLitres"/>, and its own term for the reason
+    /// the pump got one: <c>pumped</c> is pinned equal to the machine tick's own counter, and the siphon
+    /// is not a pump. <c>held == rained + injected + received + emitted + poured − spilled − drawn −
+    /// seeped − pumped − siphoned</c>. Tier A's identity is not evaluated in the game (IM-4's pass,
+    /// fact 3), so the siphon's own counters are what this is checked against.
+    /// </remarks>
+    public long SiphonedLitres { get; private set; }
+
+    /// <summary>Litres the siphon poured from the store into lakes, over the lifetime, spilled ones included (IM-4a).</summary>
+    public long PouredLitres { get; private set; }
+
+    /// <summary>
+    /// Takes up to <paramref name="litres"/> out of the lake this basin is part of into the siphon's
+    /// hand, and returns what was taken — which the caller puts in the store. <see cref="Pump"/>'s
+    /// shape with its own counter (IM-4's pass, decision 3).
+    /// </summary>
+    public long Siphon(int basin, long litres)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(litres);
+        if (Water is null)
+        {
+            return 0;
+        }
+
+        long taken = Water.Remove(basin, litres);
+        SiphonedLitres += taken;
+        return taken;
+    }
+
+    /// <summary>
+    /// Pours whole litres from the store into the lake this basin is part of, or out of the world
+    /// when the basin is <see cref="Watershed.Outlet"/>. Returns what spilled, which
+    /// <see cref="SpilledLitres"/> counts as an outlet's spill is. <see cref="Emit"/>'s shape with its own counter.
+    /// </summary>
+    public long Pour(int basin, long litres)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(litres);
+        if (Water is null)
+        {
+            throw new InvalidOperationException("No window is installed, so there is no basin to pour into.");
+        }
+
+        PouredLitres += litres;
+        long spilled = basin == Watershed.Outlet ? litres : Water.Add(basin, litres);
+        SpilledLitres += spilled;
+        return spilled;
+    }
+
     /// <summary>Pours litres into a basin from nothing — the debug seam for Tier A. Returns what spilled.</summary>
     public long Inject(int basin, long litres)
     {

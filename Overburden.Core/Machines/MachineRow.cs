@@ -110,6 +110,12 @@ public sealed class MachineRow
     /// <summary>Millilitres the pump moved at the last boundary, both tiers in millilitres. Session-only.</summary>
     public long LastMovedMillilitres { get; internal set; }
 
+    /// <summary>
+    /// Whether the vault's bill was paid at the last boundary (IM-3b) — so the panel can say a lit
+    /// fuse is waiting rather than burning. Session-only: a reopen reads false until the first boundary.
+    /// </summary>
+    public bool LastHoldPaid { get; internal set; }
+
     /// <summary>The port's value, or its absence.</summary>
     public bool TryGetPort(string name, out long value) => _ports.TryGetValue(name, out value);
 

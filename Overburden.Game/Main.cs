@@ -25,6 +25,7 @@ using Overburden.Core.Worldgen;
 using Overburden.Game.Diagnostics;
 using Overburden.Game.Machines;
 using Overburden.Game.Player;
+using Overburden.Game.Audio;
 using Overburden.Game.Rendering;
 using Overburden.Game.Ui;
 using Overburden.Persistence;
@@ -302,15 +303,21 @@ public partial class Main : Node3D
 
     /// <summary>
     /// Far mode (F11, <c>--far</c>; Matthew, 2026-09-24: <i>"just enable processing that far, dont
-    /// change the way we lazily load"</i>): the adaptive radius's ceiling raised to
-    /// <see cref="FarHorizontal"/>h/<see cref="FarVertical"/>v. Nothing else changes — the policy
-    /// still climbs a ring a cadence only while the derive backlog is empty and the light step
-    /// is under half its budget, and still falls to the floor while moving with a backlog.
+    /// change the way we lazily load"</i>): the adaptive radius's ceiling raised a rung of
+    /// <see cref="FarRungs"/>. Nothing else changes — the policy still climbs a ring a cadence only
+    /// while the derive backlog is empty and the light step is under half its budget, and still
+    /// falls to the floor while moving with a backlog. 0 is the configured ceiling; F11 steps
+    /// 0 → 1 → 2 → 0 (the third rung on his word, 2026-09-28).
     /// </summary>
-    private bool _farMode;
+    private int _farRung;
 
-    private const int FarHorizontal = 8;
-    private const int FarVertical = 4;
+    /// <summary>
+    /// The far rungs' ceilings, horizontal and vertical, rung 1 first: 8h/4v (2026-09-24) and 10h/6v
+    /// (2026-09-28, <i>"6 horizontal to 8 and 10 with the vertical distances set in increasing
+    /// values respectively"</i>). The 10h/6v box is 5,733 chunks against 2,601 at 8h/4v and 845 at
+    /// 6h/2v.
+    /// </summary>
+    private static readonly (int Horizontal, int Vertical)[] FarRungs = [(8, 4), (10, 6)];
     private ViewRadiusState _radiusState;
     private int _radiusShrinks;
     private int _radiusGrows;
@@ -820,6 +827,10 @@ public partial class Main : Node3D
     /// </summary>
     private MachineTick? _machineTick;
 
+    // IM-4a: the siphon's queue, drained in the boundary's window before the machine tick. Nothing
+    // enqueues yet: the siphon on T and its clicks are IM-6's.
+    private Siphon? _siphon;
+
     /// <summary>The live simulation terrain the tick reads — the field wrapped in the lake ceiling, never a captured view.</summary>
     private IFluidTerrain? _machineTerrain;
 
@@ -891,6 +902,60 @@ public partial class Main : Node3D
     /// <summary>The timers and the fall — swept at the fluid boundary, or every frame when there is no water.</summary>
     private CollapseScheduler? _collapse;
 
+    /// <summary>
+    /// <c>--collapsemode=pieces</c> (COLLAPSE-PLAN part b): a due fuse starts a Tetris event the
+    /// director runs a frame at a time. <b>The default since 2026-09-27</b>, on his play of part c
+    /// (decision 12): *"make it the default please"*. <c>sweep</c> is M9c-1's one-sweep fall, the
+    /// arm every M9 oracle before that date was recorded at.
+    /// </summary>
+    private bool _collapsePieces = true;
+
+    /// <summary><c>--collapsegrace=</c> and <c>--collapsedouble=</c>, world seconds: the pace table's flat start and its doubling (decision 4).</summary>
+    private CollapsePace _collapsePace = CollapsePace.Default;
+
+    /// <summary><c>--collapsespread=</c>, metres a piece may steer each way (decision 7).</summary>
+    private float _collapseSpread = LandingSolver.DefaultSpreadMetres;
+
+    /// <summary><c>--collapsebudget=</c>, milliseconds of releases a frame before one more solve (decision 4).</summary>
+    private double _collapseBudget = CollapseDirector.DefaultBudgetMillis;
+
+    /// <summary>The events and their pieces, under <c>--collapsemode=pieces</c>; null under the sweep.</summary>
+    private CollapseDirector? _collapseDirector;
+
+    /// <summary>
+    /// <c>--collapsepictures=0</c> draws nothing in the air — part b's look, the control part c's
+    /// screenshots are judged against (COLLAPSE-PLAN part c, decision 9).
+    /// </summary>
+    private bool _collapsePicturesOn = true;
+
+    /// <summary>The pieces in the air and the corruption on the queue; windowed runs under <c>pieces</c> only.</summary>
+    private CollapsePictures? _collapsePictures;
+
+    /// <summary>The falling pieces' rock and glass materials, kept in step with the chunks' by <see cref="SetVoxelParameter"/>.</summary>
+    private ShaderMaterial? _pieceMaterial;
+    private ShaderMaterial? _pieceGlassMaterial;
+
+    /// <summary>
+    /// <c>--collapsemusic=</c>: the phonk's file (COLLAPSE-PLAN part e) — a path, relative ones
+    /// against the repo's root, or <c>0</c> for silence. Default <c>media/TETRIS_PHONK.mp3</c>, his
+    /// track, gitignored.
+    /// </summary>
+    private string _collapseMusicPath = "media/TETRIS_PHONK.mp3";
+
+    /// <summary><c>--collapsemusicmax=</c>, the music's speed at the pace's cap (decision 3), and <c>--collapsevolume=</c>, its dB (decision 6).</summary>
+    private double _collapseMusicMax = CollapseMusicCue.DefaultMaxPitch;
+    private float _collapseVolumeDb = -6f;
+
+    /// <summary>The phonk's player, under <c>pieces</c> when the file is there; null otherwise.</summary>
+    private CollapseMusic? _collapseMusic;
+
+    /// <summary>Why there is no music, for the <c>M9:</c> line.</summary>
+    private string _collapseMusicOff = "not set up";
+
+    private double _collapseFrameMillisSum;
+    private double _collapseFrameMillisMax;
+    private long _collapseFrames;
+
     /// <summary>The last three edits, for Ctrl+Z (UNDO-PLAN). Always on; it costs a branch a voxel.</summary>
     private readonly EditHistory _history = new();
 
@@ -932,6 +997,26 @@ public partial class Main : Node3D
 
     /// <summary>Draws whole litres out of Tier A into Tier B at each tick boundary.</summary>
     private PortalDrain? _drain;
+
+    /// <summary>
+    /// The lake over a quarry (M8-PLAN, 2026-09-27): which samples are mostly a dug pit not yet
+    /// full to the seed, refreshed at the boundary after the drain; the surface draws no plane
+    /// over them. Null under <c>--lakeoverbite=1</c>, the control arm that draws as before.
+    /// </summary>
+    private BiteFill? _biteFill;
+    private bool _lakeOverBite;
+
+    /// <summary>
+    /// <c>--bodyprobe=&lt;seconds&gt;</c> (the water-bodies pass, 2026-09-28): at that world time, once,
+    /// Tier B's held water split into connected components, printed. Negative is off.
+    /// </summary>
+    private double _bodyProbeSeconds = -1;
+
+    /// <summary>World milliseconds at the first boundary that asked — the probe's zero, because a restored world's clock starts at its saved age.</summary>
+    private long _bodyProbeBase = -1;
+
+    /// <summary>The terrain the simulation was built over, kept for the body probe's "can this voxel hold water".</summary>
+    private IFluidTerrain? _probeTerrain;
 
     private long _drawnAtWarm;
 
@@ -1148,6 +1233,24 @@ public partial class Main : Node3D
     /// <summary>Suppresses the water entirely. The control arm for the measurement.</summary>
     private bool _noWater;
 
+    /// <summary>
+    /// <c>--portaldrain=0</c> (2026-09-28, water bodies part a): the lakes stop draining into Tier B
+    /// through dug portals. A measurement arm — his quarry pool unfed — and nothing a play should
+    /// set: the drain object stays, so the identity's <c>drawn</c> term reads zero rather than
+    /// vanishing.
+    /// </summary>
+    private bool _portalDrainOn = true;
+
+    /// <summary><c>--solvecarry=0</c> (2026-09-28): the solve is not seeded from the far carry. See <see cref="FluidSimulation.SolveSeedsFromCarry"/>.</summary>
+    private bool _solveCarry = true;
+
+    /// <summary><c>--solvefrontnear=1</c> (2026-09-28): candidate c. See <see cref="FluidSimulation.SolveFrontNear"/>.</summary>
+    private bool _solveFrontNear;
+    private bool _solveFrontNearCarried;
+
+    /// <summary><c>--solvewakeup=0</c> (2026-09-28): the solve does not wake the cell above one it drained. See <see cref="FluidSimulation.SolveWakesAbove"/>.</summary>
+    private bool _solveWakeUp = true;
+
     /// <summary>The rain, or null in a run that has no renderer to draw it with.</summary>
     private Rain? _rain;
 
@@ -1189,6 +1292,10 @@ public partial class Main : Node3D
     /// session did.
     /// </remarks>
     private int _remeshesAtWarm = -1;
+
+    /// <summary>The fluid's visits and millilitres by move size at the first warm frame, for the <c>fluidmove</c> line.</summary>
+    private long[]? _visitsByMoveAtWarm;
+    private long[]? _millilitresByMoveAtWarm;
     private int _relightsAtWarm = -1;
 
     /// <summary>
@@ -1302,6 +1409,19 @@ public partial class Main : Node3D
             _glassMaterial.SetShaderParameter("glass_shade", glassShade);
         }
 
+        // Part c: the falling pieces' materials, the same texture array under the piece shader,
+        // and glass's two looks carried across so a falling pane matches a standing one.
+        _pieceMaterial = VoxelMaterial.CreateVariant(_material, "res://Rendering/VoxelPiece.gdshader");
+        _pieceGlassMaterial = VoxelMaterial.CreateVariant(_material, "res://Rendering/VoxelPieceGlass.gdshader");
+        foreach (string glass in new[] { "glass_alpha", "glass_shade" })
+        {
+            Variant look = _glassMaterial.GetShaderParameter(glass);
+            if (look.VariantType != Variant.Type.Nil)
+            {
+                _pieceGlassMaterial.SetShaderParameter(glass, look);
+            }
+        }
+
         SetVoxelParameter("tint_in_view_space", _tintInViewSpace);
 
         // Not created in a headless run: there is no renderer, so every particle is a buffer
@@ -1341,6 +1461,11 @@ public partial class Main : Node3D
         _generator = new WorldGenerator(settings, BuildStrata());
         SetUpWater();
         _materials = MaterialTable.From(Content.Materials);
+
+        // IM-4's pass, decision 8: water lives in the store, never the pocket. One refusal at Add
+        // covers every door — the world file's restore, --stock= (which seeds every material), P,
+        // a withdrawal, an undo's refund — because every one of them reaches Add.
+        _inventory.RefuseMaterials(_materials.Fluids());
 
         var viewers = new ViewerSet();
         _scheduler = new JobScheduler(viewers);
@@ -1474,9 +1599,9 @@ public partial class Main : Node3D
 
         _viewer = _pipeline.Streamer.AddViewer(
             _lastViewerChunk, _radiusState.Horizontal, _radiusState.Vertical);
-        if (_farMode)
+        if (_farRung > 0)
         {
-            SetFarMode(true, "--far");
+            SetFarRung(_farRung, "--far");
         }
 
         SetUpMining();
@@ -1799,6 +1924,12 @@ public partial class Main : Node3D
                 case "raise" when int.TryParse(value, out int raise):
                     _raiseOn = raise != 0;
                     break;
+                case "lakeoverbite" when int.TryParse(value, out int overBite):
+                    _lakeOverBite = overBite != 0;
+                    break;
+                case "bodyprobe" when double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double probe):
+                    _bodyProbeSeconds = probe;
+                    break;
                 case "at" when value.Split(',') is [string ax, string ay, string az]
                                && float.TryParse(ax, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float atX)
                                && float.TryParse(ay, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float atY)
@@ -1883,6 +2014,40 @@ public partial class Main : Node3D
                     _collapseWindow = window;
                     break;
 
+                // COLLAPSE-PLAN part b: the collapse in Tetris pieces, and its four knobs.
+                case "collapsemode" when value is "sweep" or "pieces":
+                    _collapsePieces = value == "pieces";
+                    break;
+                case "collapsepictures" when int.TryParse(value, out int pictures):
+                    _collapsePicturesOn = pictures != 0;
+                    break;
+
+                // Part e: the phonk — its file, its speed at the cap and its volume.
+                case "collapsemusic" when value.Length > 0:
+                    _collapseMusicPath = value;
+                    break;
+                case "collapsemusicmax" when double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double musicMax) && double.IsFinite(musicMax) && musicMax >= 1 && musicMax <= 4:
+                    _collapseMusicMax = musicMax;
+                    break;
+                case "collapsevolume" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float volume) && float.IsFinite(volume) && volume <= 24:
+                    _collapseVolumeDb = volume;
+                    break;
+                case "collapsegrace" when double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double grace) && double.IsFinite(grace) && grace >= 0:
+                    _collapsePace = _collapsePace with { GraceSeconds = grace };
+                    break;
+                case "collapsedouble" when double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double doubling) && double.IsFinite(doubling) && doubling > 0:
+                    _collapsePace = _collapsePace with { DoubleSeconds = doubling };
+                    break;
+                case "collapsecap" when double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double cap) && double.IsFinite(cap) && cap >= 1:
+                    _collapsePace = _collapsePace with { MaxMultiplier = cap };
+                    break;
+                case "collapsespread" when float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float spread) && float.IsFinite(spread) && spread >= 0:
+                    _collapseSpread = spread;
+                    break;
+                case "collapsebudget" when double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double budget) && double.IsFinite(budget) && budget >= 0:
+                    _collapseBudget = budget;
+                    break;
+
                 // M9b's provocation: an n × n square of chunks bitten under the player when the
                 // window opens, through the edit path, --breach's shape one scale up. Depth in
                 // chunks below the player's; --inbite drops the camera into it for the screenshot,
@@ -1899,6 +2064,20 @@ public partial class Main : Node3D
 
                 // M8c-2: the seepage rate's sweep, rainfallScale's shape. Zero is off — no index,
                 // no drain, no scans — which is the control arm and the back-out.
+                case "solvewakeup":
+                    _solveWakeUp = value.Length == 0 || value != "0";
+                    break;
+                case "solvefrontnear":
+                    // 1: cells the solve newly wakes; 2: and those already waiting in the carry.
+                    _solveFrontNear = value.Length == 0 || value != "0";
+                    _solveFrontNearCarried = value == "2";
+                    break;
+                case "solvecarry":
+                    _solveCarry = value.Length == 0 || value != "0";
+                    break;
+                case "portaldrain":
+                    _portalDrainOn = value.Length == 0 || value != "0";
+                    break;
                 case "seepscale" when double.TryParse(value, out double seepScale):
                     _seepScale = Math.Max(0.0, seepScale);
                     break;
@@ -2359,7 +2538,12 @@ public partial class Main : Node3D
                 // --adaptive=0 is the fixed radius, which is also the default, so a profile that
                 // names neither is the arm every recorded figure was taken in.
                 case "far":
-                    _farMode = value.Length == 0 || value != "0";
+                    // --far alone or --far=1 is the first rung, --far=2 the second, --far=0 off.
+                    _farRung = value.Length == 0
+                        ? 1
+                        : int.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int rung)
+                            ? Math.Clamp(rung, 0, FarRungs.Length)
+                            : 1;
                     break;
 
                 case "adaptive":
@@ -2632,10 +2816,11 @@ public partial class Main : Node3D
             return;
         }
 
-        // Far mode: the adaptive radius's ceiling, toggled. See SetFarMode.
+        // Far mode: the adaptive radius's ceiling, a rung up each press and back to the configured
+        // ceiling after the last. See SetFarRung.
         if (key.Keycode == Key.F11)
         {
-            SetFarMode(!_farMode, "F11");
+            SetFarRung((_farRung + 1) % (FarRungs.Length + 1), "F11");
             return;
         }
 
@@ -2764,8 +2949,8 @@ public partial class Main : Node3D
 
         _hud.Refresh(
             delta, _inventory, _materials, Content.Materials, _place, _mining, precise,
-            _adaptiveRadius || _farMode
-                ? $"r{_radiusState.Horizontal}h/{_radiusState.Vertical}v{(_farMode ? $" (far, to r{_radiusConfig.CeilingHorizontal}h/{_radiusConfig.CeilingVertical}v)" : string.Empty)}"
+            _adaptiveRadius || _farRung > 0
+                ? $"r{_radiusState.Horizontal}h/{_radiusState.Vertical}v{(_farRung > 0 ? $" (far {_farRung}, to r{_radiusConfig.CeilingHorizontal}h/{_radiusConfig.CeilingVertical}v)" : string.Empty)}"
                 : null,
             _pack,
             _place.SelectedIsPack ? _carriedPacks.FullestMillijoules(_place.MaterialId) : 0,
@@ -2994,7 +3179,9 @@ public partial class Main : Node3D
         {
             GD.Print(
                 $"M10: pack — {Hud.DisplayName(Content.Materials, pack.MaterialId)} equipped {how}: "
-                + $"{MachinePanel.ChargeOf(pack.ChargeMillijoules, pack.CapacityMillijoules)} on channel {pack.Channel}"
+                + (pack.IsWindow
+                    ? $"a window onto channel {pack.Channel}'s cells, {MachinePanel.Joules(pack.SpendableMillijoules)} in the bank"
+                    : $"{MachinePanel.ChargeOf(pack.ChargeMillijoules, pack.CapacityMillijoules)} on channel {pack.Channel}")
                 + (_mining is { MillijoulesPerVoxel: > 0 } m ? $" — {pack.VoxelsAffordable(m.MillijoulesPerVoxel):N0} voxel(s) at {m.MillijoulesPerVoxel / MachineDefinition.PerMille:N0} J each" : string.Empty));
         }
 
@@ -3596,6 +3783,8 @@ public partial class Main : Node3D
             {
                 _remeshesAtWarm = _pipeline.EditRemeshes;
                 _relightsAtWarm = _pipeline.RelightRemeshes;
+                _visitsByMoveAtWarm = (long[]?)_fluid?.VisitsByMove.Clone();
+                _millilitresByMoveAtWarm = (long[]?)_fluid?.MillilitresByMove.Clone();
                 _sweepsAtWarm = _scheduler!.Sweeps;
             }
 
@@ -3661,6 +3850,8 @@ public partial class Main : Node3D
     {
         _material?.SetShaderParameter(name, value);
         _glassMaterial?.SetShaderParameter(name, value);
+        _pieceMaterial?.SetShaderParameter(name, value);
+        _pieceGlassMaterial?.SetShaderParameter(name, value);
     }
 
     private void UpdateWeather(double delta)
@@ -4159,7 +4350,13 @@ public partial class Main : Node3D
             {
                 PowerOff = _noGate,
                 Sky = _solarSky,
+
+                // IM-3: a vault's fuse is a property of the world and the boundary (decision 28).
+                FuseSeed = _settings.Seed,
             };
+
+            // IM-4a: the siphon — the miner's ray world, the lake bands it covers, the store and the bank.
+            _siphon = new Siphon(_fluid, _water, _lakeCeiling, _pipeline!, _machines, _machineTick, _fluid.WakeCell);
             if (_noGate)
             {
                 GD.Print("M10: --nogate — the pool is off and every pump is free (the pre-M10c arm)");
@@ -4186,6 +4383,30 @@ public partial class Main : Node3D
     }
 
     /// <summary>The <c>machines</c> bracket's second half: every pump, once, through the tick.</summary>
+    /// <summary>
+    /// IM-4a: the siphon's queue at the boundary (its pass, decision 2) — where the fluid's ownership has
+    /// cleared and before the machine tick, whose run the bank's draw may not enter. Every twin checked
+    /// after it, as the machine tick's own line is.
+    /// </summary>
+    private void RunSiphon()
+    {
+        if (_siphon is null || _siphon.Waiting == 0)
+        {
+            return;
+        }
+
+        SiphonReport report = _siphon.Apply();
+        if (report.DidAnything)
+        {
+            GD.Print($"M10: siphon — {report}");
+        }
+
+        if (!_siphon.Exact)
+        {
+            GD.PushError($"M10: siphon — a twin disagrees with the siphon's own counters after {report}");
+        }
+    }
+
     private void RunMachineTick()
     {
         if (_machineTick is null || _machines is null || _machines.Count == 0)
@@ -4443,6 +4664,20 @@ public partial class Main : Node3D
         }
 
         _undoPresses++;
+
+        // IM-4c's pass, decision 9: a press while placements wait for the boundary cancels them and
+        // does nothing else. The boundary would otherwise replay a queued shape the press had just
+        // taken the dry part of, or land a chunk fill after the press spent itself on an older step.
+        // A wet fill's dry part, placed at the click, stays: it is the next press's step.
+        if (_place is { PendingPlacements: > 0 } place)
+        {
+            int cancelled = place.CancelPending();
+            GD.Print(
+                $"M10: undo — {cancelled} placement(s) waiting for the boundary cancelled, nothing else undone "
+                + $"({place.PlacementsCancelled} cancelled this session); press again for the step before");
+            return;
+        }
+
         UndoReport report = _history.Undo(_pipeline, _materials, _inventory, _machines);
         const double litre = VolumetricInventory.LitresPerVoxel;
         switch (report.Outcome)
@@ -4458,7 +4693,9 @@ public partial class Main : Node3D
                 GD.Print("M10: undo — nothing to undo");
                 break;
             case UndoOutcome.EmptyAfterAFall:
-                GD.Print("M10: undo — nothing to undo: the roof came down since your last edit, and rubble cannot be put back");
+                GD.Print(_collapseDirector is { Events.Count: > 0 }
+                    ? "M10: undo — nothing to undo: a collapse is under way, and rubble cannot be put back"
+                    : "M10: undo — nothing to undo: the roof came down since your last edit, and rubble cannot be put back");
                 break;
             case UndoOutcome.OutOfStock:
                 GD.Print(
@@ -5129,7 +5366,9 @@ public partial class Main : Node3D
             _printedFillRefused = true;
             GD.Print(
                 $"M10: gate — the fill at range stopped short: the rest of the shape needs {MachinePanel.Joules(_place.LastRefusedNeedMillijoules)} and the pack "
-                + (_pack is null ? "is not equipped" : $"holds {MachinePanel.Joules(_pack.ChargeMillijoules)}")
+                + (_pack is null ? "is not equipped"
+                    : _pack.IsWindow ? $"is a window on a bank of {MachinePanel.Joules(_pack.SpendableMillijoules)}"
+                    : $"holds {MachinePanel.Joules(_pack.ChargeMillijoules)}")
                 + $" ({_place.UnpoweredPlacements:N0} placement(s) stopped short, {_place.VoxelsUnpowered:N0} voxel(s) unpowered, this session)");
         }
         else if (placed && !_place.RefusedUnpoweredThisFrame)
@@ -5223,17 +5462,20 @@ public partial class Main : Node3D
         {
             _printedGateRanOut = true;
             GD.Print(
-                $"M10: gate — the pack ran out mid-bite: removed {last.Removed}, unpowered {last.Unpowered} of {last.Candidates}; "
-                + $"paid {MachinePanel.Joules(_mining.LastPaidMillijoules)}, the pack at {MachinePanel.Joules(_pack.ChargeMillijoules)}");
+                $"M10: gate — the {PackNoun()} ran out mid-bite: removed {last.Removed}, unpowered {last.Unpowered} of {last.Candidates}; "
+                + $"paid {MachinePanel.Joules(_mining.LastPaidMillijoules)}, the {PackNoun()} at {MachinePanel.Joules(_pack.SpendableMillijoules)}");
         }
         else if (last.Removed == 0 && !_printedGateEmpty)
         {
             _printedGateEmpty = true;
             GD.Print(
-                $"M10: gate — the pack is spent: removed 0, unpowered {last.Unpowered} of {last.Candidates}; "
-                + $"the pack at {MachinePanel.Joules(_pack.ChargeMillijoules)} buys nothing at {_mining.MillijoulesPerVoxel / MachineDefinition.PerMille:N0} J a voxel");
+                $"M10: gate — the {PackNoun()} is spent: removed 0, unpowered {last.Unpowered} of {last.Candidates}; "
+                + $"the {PackNoun()} at {MachinePanel.Joules(_pack.SpendableMillijoules)} buys nothing at {_mining.MillijoulesPerVoxel / MachineDefinition.PerMille:N0} J a voxel");
         }
     }
+
+    /// <summary>What the gate's lines call what the tool spends: the pack, or for a window its channel's bank (IM-2).</summary>
+    private string PackNoun() => _pack is { IsWindow: true } window ? $"bank on channel {window.Channel}" : "pack";
 
     private void UpdateMining(double delta)
     {
@@ -5633,6 +5875,8 @@ public partial class Main : Node3D
                + $"{water.SpilledLitres:N0} L spilled, {water.InjectedLitres:N0} L injected, "
                + $"{water.DrawnLitres:N0} L drawn into Tier B, {water.SeepedLitres:N0} L seeped into it, "
                + $"{water.ReceivedLitres:N0} L received from it, "
+               + $"{water.PumpedLitres:N0} L pumped out and {water.EmittedLitres:N0} L emitted in by machines, "
+               + $"{water.SiphonedLitres:N0} L siphoned out and {water.PouredLitres:N0} L poured in, "
                + $"{water.RainDivertedMicrolitres / 1_000_000.0:N1} L rained into it as cells ({water.RainOwedMicrolitres / 1_000_000.0:N1} L still owed) | "
                + $"window {water.SpanMetres} m x{water.WindowsInstalled}, "
                + $"{_lastAnalysisMillis:F1} ms to analyse, scale x{water.RainfallScale}"
@@ -5646,11 +5890,15 @@ public partial class Main : Node3D
                      + (_waterGrids is null ? string.Empty
                          : $"; grid {_waterGrids.Grids:N0} chunk column(s), {_waterGrids.BuiltColumnsReached:N0} built-in column(s) under water, "
                            + $"{_waterGrids.Builds:N0} build(s) in {_waterGrids.BuildMillis:F1} ms, {_waterGrids.Hits:N0} hit(s)"))
+               + (_biteFill is null
+                   ? " | the plane draws over every bite (--lakeoverbite=1)"
+                   : $" | {_biteFill.UnfilledSamples} sample(s) over an unfilled bite ({_biteFill.SamplesAsked:N0} asked, {_biteFill.SamplesSkipped:N0} dry of lake, {_biteFill.CellsRead:N0} seed cell(s) read)")
                + (_waterSurface is null
                    ? " | no surface drawn (headless or --nowater)"
                    : $" | surface {_waterSurface.QuadCount} quad(s) over "
                      + $"{_waterSurface.WetBasins} basin(s), {_waterSurface.RingSamples} shore sample(s), "
                      + (_waterSurface.GridSamples > 0 ? $"{_waterSurface.GridSamples} grid sample(s) as {_waterSurface.GridQuads} quad(s), " : string.Empty)
+                     + $"{_waterSurface.UnfilledBiteSamples} undrawn over an unfilled bite, "
                      + $"{_waterSurface.LastRebuildMillis:F2} ms");
     }
 
@@ -5786,6 +6034,7 @@ public partial class Main : Node3D
             : $"surface   {_waterSurface.QuadCount} quad(s) over {_waterSurface.WetBasins} basin(s), "
               + $"{_waterSurface.RingSamples} dry sample(s) drawing a neighbour's shore ({(_waterSurface.DilateShore ? "--shore=1" : "--shore=0")}), "
               + $"{_waterSurface.EnclosedSamples} enclosed sample(s) undrawn, "
+              + $"{_waterSurface.UnfilledBiteSamples} over an unfilled bite undrawn (--lakeoverbite=1 draws them), "
               + $"{_waterSurface.LastRebuildMillis:F2} ms to rebuild, "
               + $"{_waterSurface.Rebuilds} rebuild(s)\n";
 
@@ -5793,6 +6042,7 @@ public partial class Main : Node3D
                + $"{_water.InjectedLitres:N0} L injected, {_water.DrawnLitres:N0} L drawn into Tier B, "
                + $"{_water.SeepedLitres:N0} L seeped into it, {_water.ReceivedLitres:N0} L received from it, "
                + $"{_water.PumpedLitres:N0} L pumped out of lakes, {_water.EmittedLitres:N0} L emitted into basins, "
+               + (_water.SiphonedLitres + _water.PouredLitres > 0 ? $"{_water.SiphonedLitres:N0} L siphoned out of lakes, {_water.PouredLitres:N0} L poured into them, " : string.Empty)
                + $"{_water.RainDivertedMicrolitres / 1_000_000.0:N1} L rained into Tier B as {_rainDrops:N0} cell(s) + {_rainDropsOntoPlaced:N0} onto the player's material ({_water.RainOwedMicrolitres / 1_000_000.0:N1} L still owed, {_rainDropsSkipped:N0} drop(s) skipped of which {_rainDropsUnderARoof:N0} under a roof; "
                + $"placed {_rainOnPlaced?.PlacedColumns ?? 0:N0} column(s) in {_rainOnPlaced?.ChunkColumnsWithPlaced ?? 0:N0} chunk column(s), {_rainOnPlaced?.Rescans ?? 0:N0} rescan(s), {_rainOnPlaced?.Backlog ?? 0:N0} owed, {_rainOnPlaced?.Forfeited ?? 0:N0} forfeited), "
                + $"{held * 60.0 / seconds:N0} L per wall-clock minute at scale "
@@ -5960,11 +6210,69 @@ public partial class Main : Node3D
         {
             FireEnabled = _collapseOn,
         };
+
+        if (_collapsePieces)
+        {
+            // Part b: the fuse hands a due chunk to the director. The cut runs on the pool (b-2's
+            // first step); the gather, the releases and the landings are the sim thread's.
+            _collapseDirector = new CollapseDirector(_support, _pipeline, _materials, rubble, _settings.Seed, _fluid)
+            {
+                Pace = _collapsePace,
+                SpreadMetres = _collapseSpread,
+                BudgetMillis = _collapseBudget,
+                CutRunner = work => System.Threading.Tasks.Task.Run(work),
+            };
+            _collapse.Director = _collapseDirector;
+
+            // Part c: the pictures, in a windowed run — headless draws nothing, and building
+            // meshes there would only move the headless profile every figure is compared against.
+            bool windowed = !DisplayServer.GetName().Equals("headless", StringComparison.Ordinal);
+            if (_collapsePicturesOn && windowed && _pieceMaterial is not null && _pieceGlassMaterial is not null)
+            {
+                _collapsePictures = new CollapsePictures(this, _pipeline, _materials, rubble, _pieceMaterial, _pieceGlassMaterial);
+            }
+
+            SetUpCollapseMusic();
+            GD.Print(
+                $"M9: collapse in pieces (--collapsemode=pieces) — a due fuse starts an event: Tetris pieces from a spreading front, "
+                + $"flat {_collapsePace.GraceSeconds:0.##} s then doubling every {_collapsePace.DoubleSeconds:0.##} s up to x{_collapsePace.MaxMultiplier:0.##} (--collapsegrace=, --collapsedouble=, --collapsecap=), "
+                + $"steering up to {_collapseSpread:0.##} m (--collapsespread=), {_collapseBudget:0.##} ms of releases a frame (--collapsebudget=), "
+                + $"the cut on a worker; "
+                + (_collapsePictures is not null
+                    ? "each piece drawn falling in its own materials, a mino a step, and the next second's pieces glitching (--collapsepictures=0 draws none)"
+                    : _collapsePicturesOn ? "nothing drawn (headless)" : "nothing drawn (--collapsepictures=0) — a piece is air at its release and rubble at its landing"));
+        }
         GD.Print(
             $"M9: collapse {(_collapseOn ? "on" : "arming only (--collapse=0)")} — a settled chunk with something at risk arms "
-            + $"{_collapseWindow.MinSeconds:0.##}–{_collapseWindow.MaxSeconds:0.##} s of world time by its deficit as the mean of a seeded exponential draw "
+            + $"{_collapseWindow.MinSeconds:0.##}–{_collapseWindow.MaxSeconds:0.##} s of world time, a seeded draw whose upper end the deficit pulls up to halfway in "
             + $"(--collapseafter=min,max); rubble is ID {rubble}; the sweep runs "
             + $"{(_fluid is null ? "every frame, no water to wait for (--nowater)" : "at each fluid boundary, waiting on fluid-pending chunks")}");
+    }
+
+    /// <summary>
+    /// Part e: the phonk, when its file is there. Headless loads and steps it too — the dummy driver
+    /// plays nothing, but the <c>M9: music</c> lines print, so its timing is a headless check.
+    /// </summary>
+    private void SetUpCollapseMusic()
+    {
+        if (_collapseMusicPath == "0")
+        {
+            _collapseMusicOff = "off (--collapsemusic=0)";
+        }
+        else
+        {
+            string path = System.IO.Path.IsPathRooted(_collapseMusicPath)
+                ? _collapseMusicPath
+                : System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), "..", _collapseMusicPath));
+            var cue = new CollapseMusicCue { MaxPitch = _collapseMusicMax, CapMultiplier = _collapsePace.MaxMultiplier };
+            _collapseMusic = CollapseMusic.Load(this, path, cue, _collapseVolumeDb, out string why);
+            _collapseMusicOff = $"off — {why}";
+        }
+
+        GD.Print(_collapseMusic is { } music
+            ? $"M9: music — {System.IO.Path.GetFileName(music.Path)} ({music.LengthSeconds:F0} s, looped) while a collapse is live, from x1 speed to x{_collapseMusicMax:0.###} at the pace's x{_collapsePace.MaxMultiplier:0.#}, "
+              + $"{_collapseVolumeDb:0.#} dB, fading over {CollapseMusicCue.DefaultFadeSeconds:0.#} s (--collapsemusic=<path>|0, --collapsemusicmax=, --collapsevolume=)"
+            : $"M9: music {_collapseMusicOff}");
     }
 
     /// <summary>
@@ -5995,6 +6303,22 @@ public partial class Main : Node3D
         finally
         {
             _history.Recording = recording;
+        }
+
+        // Part b: the wet landings, where the grid is the frame's — after the fuse, which may have
+        // just started an event, and inside the same recording-off bracket.
+        if (_collapseDirector is not null)
+        {
+            _history.Recording = false;
+            try
+            {
+                CollapseStep wet = _collapseDirector.Boundary(_clock.ElapsedMillis);
+                AfterCollapseStep(wet);
+            }
+            finally
+            {
+                _history.Recording = recording;
+            }
         }
 
         double sweepMillis = Milliseconds(t0, Stopwatch.GetTimestamp());
@@ -6031,7 +6355,79 @@ public partial class Main : Node3D
                 + water
                 + (fire.CascadeStage ? ", cascade" : string.Empty)
                 + $" at t {fire.WorldMillis / 1000.0:F1} s; the sweep took {sweepMillis:F1} ms");
-            UnstickAfterFall(r);
+            UnstickAfterFall(r.Written, $"the fall in chunk {r.Chunk}");
+        }
+    }
+
+    /// <summary>
+    /// Part b, every frame: the director's releases, flights and dry landings, with the fall's
+    /// three rules — nothing journalled, the undo stack cleared when the collapse writes, the body
+    /// lifted clear of a landing — and the <c>M9: event</c> line when one ends.
+    /// </summary>
+    private void FrameCollapse()
+    {
+        if (_collapseDirector is null)
+        {
+            return;
+        }
+
+        long t0 = Stopwatch.GetTimestamp();
+        bool recording = _history.Recording;
+        _history.Recording = false;
+        CollapseStep step;
+        try
+        {
+            step = _collapseDirector.Frame(_clock.ElapsedMillis);
+        }
+        finally
+        {
+            _history.Recording = recording;
+        }
+
+        _collapsePictures?.Update(_collapseDirector, _clock.ElapsedMillis);
+        if (_collapseMusic is not null)
+        {
+            double? fastest = null;
+            foreach (CollapseEvent ev in _collapseDirector.Events)
+            {
+                double multiplier = ev.Pace.Multiplier(ev.AgeSeconds(_clock.ElapsedMillis));
+                fastest = Math.Max(fastest ?? 0, multiplier);
+            }
+
+            _collapseMusic.Update(fastest);
+        }
+
+        double millis = Milliseconds(t0, Stopwatch.GetTimestamp());
+        _collapseFrames++;
+        _collapseFrameMillisSum += millis;
+        _collapseFrameMillisMax = Math.Max(_collapseFrameMillisMax, millis);
+        AfterCollapseStep(step);
+
+        foreach (CollapseEventSummary e in _collapseDirector.TakeEnded())
+        {
+            GD.Print(
+                $"M9: event {e.Id} — from {e.Origin} over {e.Members} chunk(s): {e.Pieces:N0} piece(s), {e.Voxels:N0} voxel(s) in {e.AgeSeconds:F1} s, "
+                + $"peak pace x{e.PeakMultiplier:0.#}, mino {e.PeakMino}, {e.RescuedVoxels:N0} rescued (the pile's props count), {e.LostVoxels:N0} lost");
+        }
+    }
+
+    /// <summary>A director step that wrote: the undo stack goes (UNDO-PLAN decision 4, his "disallow if something falls"), and a landing may have buried the body.</summary>
+    private void AfterCollapseStep(CollapseStep step)
+    {
+        if (!step.Wrote)
+        {
+            return;
+        }
+
+        if (_history.Steps > 0)
+        {
+            GD.Print($"M10: undo — the stack is cleared ({_history.Steps} step(s)): a collapse is under way");
+            _history.Clear();
+        }
+
+        if (step.Landed > 0)
+        {
+            UnstickAfterFall(step.Written, "a collapse's landing");
         }
     }
 
@@ -6041,7 +6437,7 @@ public partial class Main : Node3D
     /// <see cref="PlayerSpawn.TryUnstick"/> — up only, 4 m — or say it is buried and leave it,
     /// with <c>F</c> the only door until M11. Walking only: the flying body has no collision.
     /// </summary>
-    private void UnstickAfterFall(CollapseResult fall)
+    private void UnstickAfterFall(IReadOnlyCollection<ChunkPos> writtenChunks, string what)
     {
         if (_player is null || _pipeline is null || _materials is null || _player.Mode != PlayerMode.Walk)
         {
@@ -6051,7 +6447,7 @@ public partial class Main : Node3D
         Overburden.Core.Physics.Aabb box = _player.State.Box;
         (VoxelPos lo, VoxelPos hi) = box.VoxelBounds;
         bool overlaps = false;
-        foreach (ChunkPos written in fall.Written)
+        foreach (ChunkPos written in writtenChunks)
         {
             if (written.X >= lo.Chunk.X && written.X <= hi.Chunk.X
                 && written.Y >= lo.Chunk.Y && written.Y <= hi.Chunk.Y
@@ -6072,12 +6468,12 @@ public partial class Main : Node3D
             _collapseFreed++;
             float lifted = freed.Min.Y - box.Min.Y;
             _player.Teleport(freed.FeetCentre);
-            GD.Print($"M9: the player was freed {lifted:F2} m up after the fall in chunk {fall.Chunk}");
+            GD.Print($"M9: the player was freed {lifted:F2} m up after {what}");
         }
         else
         {
             _collapseBuried++;
-            GD.Print($"M9: the player is buried under the fall in chunk {fall.Chunk} — past the {PlayerSpawn.DefaultMaxUnstickMetres} m unstick; F is the door until M11");
+            GD.Print($"M9: the player is buried under {what} — past the {PlayerSpawn.DefaultMaxUnstickMetres} m unstick; F is the door until M11");
         }
     }
 
@@ -6106,7 +6502,41 @@ public partial class Main : Node3D
                + $"(mean drop {(voxels > 0 ? drop / (double)voxels : 0):F1}, deepest {c.DeepestDrop}), {stale:N0} stale skipped, "
                + (_fluid is null ? "no water" : $"lifted {lifted / litre:N0} L / returned {returned / litre:N0} L{(c.DisplacedMillilitres > 0 ? $" (*** {c.DisplacedMillilitres} mL DISPLACED ***)" : string.Empty)}")
                + $", {freed} freed / {buried} buried; {sweeps:N0} sweep(s), mean {(sweeps > 0 ? sweepMillis / sweeps : 0):F3} ms, "
-               + $"worst {_collapseSweepMillisMax:F1} ms, longest fall {_collapseFallMillisMax:F1} ms";
+               + $"worst {_collapseSweepMillisMax:F1} ms, longest fall {_collapseFallMillisMax:F1} ms"
+               + PieceTerms();
+    }
+
+    /// <summary>Part b's terms, over the lifetime: the events, the pieces, the identity, the water and the costs.</summary>
+    private string PieceTerms()
+    {
+        if (_collapseDirector is not { } d)
+        {
+            return "; pieces off (--collapsemode=sweep)";
+        }
+
+        const double litre = FluidConstants.MillilitresPerLitre;
+        long inFlight = d.InFlightVoxels;
+        bool identity = d.ReleasedVoxels == d.LandedVoxels + inFlight + d.LostVoxels;
+        return $"; pieces: {d.Events.Count} event(s) live ({d.Started:N0} started, {d.Ended:N0} ended, {d.Joined:N0} chunk(s) joined), "
+               + $"{d.Released:N0} piece(s) released / {d.Landed:N0} landed / {d.InFlight:N0} in flight; "
+               + $"voxels released {d.ReleasedVoxels:N0} == landed {d.LandedVoxels:N0} + in flight {inFlight:N0} + lost {d.LostVoxels:N0}"
+               + (identity ? string.Empty : " *** IDENTITY BROKEN ***")
+               + $", {d.RescuedVoxels:N0} rescued (the pile's props count), {d.RefallVoxels:N0} fell again, {d.Waited:N0} waited, {d.Blocked:N0} blocked ({d.LiftedByABlock:N0} lifted), "
+               + $"{d.WetLandings:N0} wet ({d.WetWaiting} waiting)"
+               + (_fluid is null ? string.Empty : $", lifted {d.LiftedMillilitres / litre:N0} L / returned {d.ReturnedMillilitres / litre:N0} L ({d.ClimbedMillilitres / litre:N0} L up a column) / displaced {d.DisplacedMillilitres / litre:N0} L")
+               + $"; {d.Replans:N0} re-plan(s), {d.CutsApplied:N0}/{d.CutsStarted:N0} worker cut(s) landed, {d.ReleasedDuringCuts:N0} voxel(s) released meanwhile, "
+               + $"cut ms mean {(d.Replans > 0 ? d.CutMillisSum / d.Replans : 0):F2} / max {d.CutMillisMax:F1} (worker), gather max {d.GatherMillisMax:F1} ms, "
+               + $"solve ms mean {(d.Solves > 0 ? d.SolveMillisSum / d.Solves : 0):F2} / max {d.SolveMillisMax:F1}, "
+               + $"frame ms mean {(_collapseFrames > 0 ? _collapseFrameMillisSum / _collapseFrames : 0):F3} / max {_collapseFrameMillisMax:F1}"
+               + $"; {d.WaitedForPicture:N0} landing-frame(s) waited for a picture, {d.SlowedInWater:N0} flight-frame(s) slowed in water, "
+               + $"{d.LiftedByABlock:N0} lifted ({d.LiftedOffAReservation:N0} off a reservation, {d.LiftVoxelsMax} voxel(s) at most)"
+               + (_collapseMusic is not { } music
+                   ? $"; music {_collapseMusicOff}"
+                   : $"; music {(music.Cue.Playing ? $"playing at x{music.Cue.Pitch:0.###}" : "quiet")}, {music.Cue.Starts:N0} start(s) / {music.Cue.Stops:N0} fade(s)")
+               + (_collapsePictures is not { } pic
+                   ? "; no pictures"
+                   : $"; pictures: {pic.Made:N0} made, {pic.Drawn} drawn now, held {pic.HeldAtRelease:N0} frame(s) at release / {pic.HeldAtLanding:N0} at landing, "
+                     + $"{pic.CapHits:N0} cap hit(s), {pic.CorruptVoxels:N0} voxel(s) corrupted now ({pic.CorruptionBuilt:N0} overlay(s) built), update ms last {pic.LastMillis:F2} / max {pic.MaxMillis:F1} (corruption max {pic.MaxCorruptionMillis:F1})");
     }
 
     /// <summary>The bite provocation, and the <c>M9: at open</c> line once.</summary>
@@ -6126,6 +6556,9 @@ public partial class Main : Node3D
         {
             SweepCollapse();
         }
+
+        // Part b: the pieces move every frame; only a wet landing waits for the boundary.
+        FrameCollapse();
 
         // Once, when the fill has lit and every derive the open queued has landed — the moment
         // the at-risk count is the world's rather than a round's. A named world's open is what
@@ -6369,6 +6802,7 @@ public partial class Main : Node3D
         // and every fixture and bench arm stays valid. See FluidField.
         _field = _fluidFieldOn ? new FluidField(terrain) : null;
         IFluidTerrain simTerrain = (IFluidTerrain?)_field ?? terrain;
+        _probeTerrain = terrain;
         if (_lakeCeiling is not null)
         {
             simTerrain = new LakeBoundedTerrain(simTerrain, _lakeCeiling);
@@ -6386,6 +6820,24 @@ public partial class Main : Node3D
             GD.Print($"M8d: a visit falls at most {_fallCells} cell(s) (--fallcells; {FluidSimulation.DefaultFallCells} is the default, 1 the pre-M8d-3 arm)");
         }
         _fluid.FarFloorCells = _fluidFarFloor;
+        _fluid.SolveSeedsFromCarry = _solveCarry;
+        _fluid.SolveFrontNear = _solveFrontNear;
+        _fluid.SolveFrontNearCarried = _solveFrontNearCarried;
+        _fluid.SolveWakesAbove = _solveWakeUp;
+        if (!_solveWakeUp)
+        {
+            GD.Print("M8b: --solvewakeup=0 — the solve does not wake the cell above one it drained (a measurement arm)");
+        }
+        if (_solveFrontNear)
+        {
+            GD.Print(_solveFrontNearCarried
+                ? "M8b: --solvefrontnear=2 — every far cell of a levelled sheet's front, woken or already carried, is visited as near at the next tick (a measurement arm)"
+                : "M8b: --solvefrontnear=1 — a far cell the solve wakes is visited as near at the next tick (a measurement arm)");
+        }
+        if (!_solveCarry)
+        {
+            GD.Print("M8b: --solvecarry=0 — the solve is seeded from the pending list only, not the far carry (a measurement arm)");
+        }
         // M10d-1: the mine's share of held, off the loaded sky columns' seed heights — the "dry" oracle.
         _fluid.Underground = new UndergroundWater(_seedHeights);
         _fluidBudgetTicks = FluidSimulation.BudgetTicks(_fluidBudget);
@@ -6430,6 +6882,15 @@ public partial class Main : Node3D
         _seeps = _water is not null && _seepScale > 0 ? new SeepIndex(_seedHeights, terrain) : null;
         _portalTracker = new PortalTracker(_portals, _seeps);
         _drain = _water is null ? null : new PortalDrain(_portals, _water, _fluid);
+        if (_drain is not null && !_portalDrainOn)
+        {
+            GD.Print("M8b: --portaldrain=0 — the lakes do not drain into Tier B through dug portals (a measurement arm)");
+        }
+        _biteFill = _water is null || _lakeOverBite ? null : new BiteFill(_portals, _fluid.Grid);
+        if (_waterSurface is not null)
+        {
+            _waterSurface.BiteFill = _biteFill;
+        }
         _seepDrain = _seeps is null ? null : new SeepDrain(_seeps, _water!, _fluid, _seepScale, tickSeconds: _fluidTickSeconds, mode: _seepMode);
         GD.Print(_seepDrain is null
             ? $"M8c: seepage is off ({(_water is null ? "no water" : "--seepscale=0")}); the seep index is not built"
@@ -6614,7 +7075,27 @@ public partial class Main : Node3D
 
             long t1 = Stopwatch.GetTimestamp();
             _handoff?.Absorb();
-            _drain?.Draw();
+            if (_portalDrainOn)
+            {
+                _drain?.Draw();
+            }
+            if (_bodyProbeSeconds >= 0 && _bodyProbeBase < 0)
+            {
+                _bodyProbeBase = _clock.ElapsedMillis;
+            }
+
+            if (_bodyProbeSeconds >= 0 && _clock.ElapsedMillis - _bodyProbeBase >= _bodyProbeSeconds * 1000.0 && _fluid is not null)
+            {
+                _bodyProbeSeconds = -1;
+                PrintBodyProbe();
+            }
+
+            _biteFill?.Refresh(_water is null ? null : (sx, sz) =>
+            {
+                // The drain's own test: a sample whose basin holds nothing draws no plane.
+                int basin = _water.BasinAtSample(sx, sz);
+                return basin != Watershed.Outlet && _water.Water is not null && _water.Water.StoredIn(basin) > 0;
+            });
 
             // M8c-2: the flush re-scans any chunk a burst of edits left stale, then the seep
             // drain reads the index. Timed apart from the drains it sits beside, because the
@@ -6640,6 +7121,7 @@ public partial class Main : Node3D
             long t2 = Stopwatch.GetTimestamp();
             TakePending();
             PourPending();
+            RunSiphon();
             DropRain();
             RunPendingFills();
             long t2m = Stopwatch.GetTimestamp();
@@ -7614,6 +8096,7 @@ public partial class Main : Node3D
               + $"{_settle.CellsWritten:N0} written, "
               + $"largest sheet {_settle.LargestSheet:N0}, longest pass {_settle.LongestMillis:F1} ms, "
               + $"last pass seeded {f.SolveSeedsLast:N0} ({f.SolveCarrySeedsLast:N0} from the carry), "
+              + $"woke {f.SolveCellsWoken:N0} cell(s) ({f.SolveFarSheetsLevelled:N0} far sheet(s) levelled or packed woke {f.SolveFarCellsWoken:N0}; {f.SolveAboveWoken:N0} of all above a drained cell; {f.SolveFrontPromoted:N0} promoted near), "
               + SettlePhases();
 
         long drawn = _drain?.DrawnMillilitres ?? 0;
@@ -7632,7 +8115,7 @@ public partial class Main : Node3D
               + $"{_fluidJobsWaited:N0} boundary(ies) waited; "
             : string.Empty;
         return $"{p.TotalMillilitres / litre:N0} L moving in {p.HeldCells:N0} cell(s) over "
-               + $"{p.Panels} panel(s) ({p.PanelBytes / 1024.0 / 1024.0:F1} MiB; {p.UndergroundMillilitres / litre:N0} L in {p.UndergroundPanels:N0} panel(s) below the seed surface) at tick {p.Ticks:N0}; "
+               + $"{p.Panels} panel(s) ({p.PanelBytes / 1024.0 / 1024.0:F1} MiB; {p.UndergroundMillilitres / litre:N0} L in {p.UndergroundPanels:N0} panel(s) below the seed surface) at tick {p.Ticks:N0}, {p.AwakeHeld:N0} queued (awake cells held or not, plus paused); "
                + $"injected {(p.Added - drawn - seeped - _rainedIntoBMillilitres) / litre:N0} L, "
                + $"rained {_rainedIntoBMillilitres / litre:N0} L ({_rainDrops:N0} drop(s), {_rainDropsOntoPlaced:N0} onto the player's material over {_rainOnPlaced?.PlacedColumns ?? 0:N0} column(s), {_rainDropsSkipped:N0} skipped of which {_rainDropsUnderARoof:N0} under a roof"
                + (_rainOnPlaced is { Backlog: > 0 } or { Forfeited: > 0 } ? $"; {_rainOnPlaced!.Backlog:N0} cell(s) owed to placed columns, {_rainOnPlaced.Forfeited:N0} forfeited to the basin" : string.Empty)
@@ -7646,7 +8129,8 @@ public partial class Main : Node3D
                   + $" ({_enclosure.OpenAtBound:N0} open at the bound, {_enclosure.OpenAtBoundThroughGround:N0} of them out through natural ground; {_enclosure.OpenAtUnloaded:N0} at an unloaded chunk;"
                   + $" farthest open {_enclosure.FarthestOpen:N0} / closed {_enclosure.FarthestClosed:N0} voxel(s) of {Enclosure.BoundVoxels}), {_enclosure.Regions:N0} region(s) / {_enclosure.CachedCells:N0} cell(s) cached, {_enclosure.Evicted:N0} evicted, {_lakeCeiling?.RebuiltForEnclosure ?? 0:N0} band(s) rebuilt for it") + ") — "
                + $"pumped {p.Pumped / litre:N0} L, emitted {p.Emitted / litre:N0} L — "
-               + $"held == injected + rained + drawn + seeped + loaded + emitted − removed − displaced − handed − evicted − pumped: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
+               + (p.Siphoned + p.Poured > 0 ? $"siphoned {p.Siphoned / litre:N0} L, poured {p.Poured / litre:N0} L — " : string.Empty)
+               + $"held == injected + rained + drawn + seeped + loaded + emitted{(p.Siphoned + p.Poured > 0 ? " + poured" : string.Empty)} − removed − displaced − handed − evicted − pumped{(p.Siphoned + p.Poured > 0 ? " − siphoned" : string.Empty)}: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
                + $"received == handed: {HandoffIdentity()}, "
                + $"lifted {p.Lifted / litre:N0} L == returned {p.Returned / litre:N0} L + displaced {p.LiftDisplaced / litre:N0} L by falls and fills: {(p.LiftExact ? "exact" : "*** NO ***")}; "
                + seep
@@ -7707,18 +8191,19 @@ public partial class Main : Node3D
     }
 
     /// <summary>
-    /// Raises or restores the view's ceiling. On, the adaptive radius climbs toward
-    /// r<see cref="FarHorizontal"/>h/<see cref="FarVertical"/>v at its own pace — a ring a cadence,
-    /// only while it can afford one — so turning it on costs nothing until the derive is idle.
-    /// Off, the box is trimmed to the configured ceiling at once, because the policy never
-    /// shrinks from above its ceiling by itself. Without <c>--adaptive=1</c> there is nothing to
-    /// climb lazily, and the box jumps.
+    /// Sets the view's ceiling to a far rung, or restores it at rung 0. Up a rung, the adaptive
+    /// radius climbs toward the rung's ceiling at its own pace — a ring a cadence, only while it
+    /// can afford one — so raising it costs nothing until the derive is idle. Down (rung 0 after
+    /// the last), the box is trimmed to the new ceiling at once, because the policy never shrinks
+    /// from above its ceiling by itself. Without <c>--adaptive=1</c> there is nothing to climb
+    /// lazily, and the box jumps.
     /// </summary>
-    private void SetFarMode(bool on, string why)
+    private void SetFarRung(int rung, string why)
     {
-        _farMode = on;
-        int horizontal = on ? Math.Max(FarHorizontal, ViewDistanceHorizontal) : ViewDistanceHorizontal;
-        int vertical = on ? Math.Max(FarVertical, ViewDistanceVertical) : ViewDistanceVertical;
+        _farRung = rung;
+        bool on = rung > 0;
+        int horizontal = on ? Math.Max(FarRungs[rung - 1].Horizontal, ViewDistanceHorizontal) : ViewDistanceHorizontal;
+        int vertical = on ? Math.Max(FarRungs[rung - 1].Vertical, ViewDistanceVertical) : ViewDistanceVertical;
         _radiusConfig = _radiusConfig with { CeilingHorizontal = horizontal, CeilingVertical = vertical };
         if (_secondsAtRadius.Length < horizontal + 1)
         {
@@ -7756,7 +8241,7 @@ public partial class Main : Node3D
         }
 
         GD.Print(
-            $"M2c: far mode {(on ? "on" : "off")} ({why}) — ceiling r{horizontal}h/{vertical}v, "
+            $"M2c: far mode {(on ? $"on, rung {rung} of {FarRungs.Length}" : "off")} ({why}) — ceiling r{horizontal}h/{vertical}v, "
             + $"now r{_radiusState.Horizontal}h/{_radiusState.Vertical}v; {how}");
     }
 
@@ -7918,7 +8403,8 @@ public partial class Main : Node3D
                + $"evicted {p.Evicted / litre:N0} L with {f.EvictedPanels:N0} panel(s), "
                + $"removed {p.Removed / litre:N0} L, displaced {p.Displaced / litre:N0} L, "
                + $"handed {p.Handed / litre:N0} L, pumped {p.Pumped / litre:N0} L, emitted {p.Emitted / litre:N0} L — "
-               + $"held == injected + drawn + seeped + loaded + emitted − removed − displaced − handed − evicted − pumped: {(p.IdentityExact ? "exact" : "*** NO ***")}; "
+               + (p.Siphoned + p.Poured > 0 ? $"siphoned {p.Siphoned / litre:N0} L, poured {p.Poured / litre:N0} L — " : string.Empty)
+               + $"held == injected + drawn + seeped + loaded + emitted{(p.Siphoned + p.Poured > 0 ? " + poured" : string.Empty)} − removed − displaced − handed − evicted − pumped{(p.Siphoned + p.Poured > 0 ? " − siphoned" : string.Empty)}: {(p.IdentityExact ? "exact" : "*** NO ***")}; "
                + $"lifted {p.Lifted / litre:N0} L == returned {p.Returned / litre:N0} L + displaced {p.LiftDisplaced / litre:N0} L by falls and fills: {(p.LiftExact ? "exact" : "*** NO ***")}; "
                + $"{_relayPendingMillilitres / litre:N0} L still to pour; "
                + $"paused {p.Paused:N0} cell(s) in {f.PausedChunkCount:N0} chunk(s), "
@@ -7938,9 +8424,79 @@ public partial class Main : Node3D
                + $"{f.NearCellsVisited - _fluidNearAtWarm:N0} near visit(s) against "
                + $"{f.FarCellsVisited - _fluidFarAtWarm:N0} far, {f.FarBacklog:N0} deferred at the end, "
                + $"{f.ThrottledTicks - _fluidThrottledAtWarm:N0} tick(s) deferred something\n"
+               + FluidMoveLine(f)
                + tick
                + field
                + surface;
+    }
+
+    /// <summary>The water-bodies pass's measurement: components of held water, largest first.</summary>
+    private void PrintBodyProbe()
+    {
+        WaterComponents.Report r = WaterComponents.Measure(_fluid!.Grid, _seedHeights);
+        long total = 0;
+        foreach (WaterComponents.Component c in r.Components)
+        {
+            total += c.Millilitres;
+        }
+
+        int single = r.Components.Count(c => c.Cells == 1);
+        int small = r.Components.Count(c => c.Cells is > 1 and < 64);
+        int big = r.Components.Count(c => c.Cells >= 64);
+        long bigLitres = r.Components.Where(c => c.Cells >= 64).Sum(c => c.Millilitres) / 1000;
+        GD.Print(
+            $"M8e: body probe {(_clock.ElapsedMillis - _bodyProbeBase) / 1000.0:F0} s into the session — {r.HeldCells:N0} held cell(s), {total / 1000:N0} L, "
+            + $"{r.Components.Count:N0} component(s) ({single:N0} single cells, {small:N0} of 2-63, {big:N0} of 64 or more holding {bigLitres:N0} L), "
+            + $"{_fluid.ActiveCellCount:N0} awake; the flood took {r.Millis:F0} ms");
+        foreach (WaterComponents.Component c in r.Components.Take(12))
+        {
+            GD.Print(
+                $"M8e:   {c.Cells:N0} cell(s), {c.Millilitres / 1000:N0} L, {100.0 * c.FullCells / c.Cells:F0}% full, "
+                + $"Y {c.MinY}..{c.MaxY}, {100.0 * c.BelowSeed / c.Cells:F0}% below the seed, lowest {c.Lowest}");
+        }
+
+        if (_probeTerrain is not null)
+        {
+            IFluidTerrain sim = (IFluidTerrain?)_field ?? _probeTerrain;
+            WaterComponents.Kinds k = WaterComponents.Classify(_fluid.Grid, _fluid.AwakeHeldCells(), _probeTerrain.CanHold, sim.CanHold);
+            static string Bands(string[] names, long[] counts) =>
+                string.Join(", ", names.Select((n, i) => $"{n} {counts[i]:N0}"));
+            GD.Print($"M8e: kinds, awake — {Bands(WaterComponents.KindNames, k.Awake)}; asleep — {Bands(WaterComponents.KindNames, k.Asleep)} ({k.Millis:F0} ms)");
+            GD.Print($"M8e: surface cells at {k.SurfaceLevels:N0} distinct Y level(s); their largest difference to a side, awake — {Bands(WaterComponents.DiffNames, k.SurfaceDiffAwake)}; asleep — {Bands(WaterComponents.DiffNames, k.SurfaceDiffAsleep)}");
+            GD.Print($"M8e: awake surface cells by amount — {Bands(WaterComponents.AmountNames, k.SurfaceAmountAwake)}");
+            GD.Print($"M8e: awake cells over room, the voxel below as the simulation's terrain answers — {Bands(WaterComponents.OverRoomNames, k.OverRoomWhy)}");
+        }
+    }
+
+    /// <summary>
+    /// The <c>fluidmove</c> line (2026-09-27): the window's visits by how much each moved, and the
+    /// litres each size carried — whether an awake set is flowing or dithering.
+    /// </summary>
+    private string FluidMoveLine(FluidSimulation f)
+    {
+        string[] names = ["rested", "<10 mL", "10-99 mL", "0.1-1 L", "1-5 L", ">=5 L", "empty/other"];
+        var visits = new long[FluidSimulation.MoveBuckets];
+        var millilitres = new long[FluidSimulation.MoveBuckets];
+        long total = 0, moved = 0;
+        for (int i = 0; i < visits.Length; i++)
+        {
+            visits[i] = f.VisitsByMove[i] - (_visitsByMoveAtWarm?[i] ?? 0);
+            millilitres[i] = f.MillilitresByMove[i] - (_millilitresByMoveAtWarm?[i] ?? 0);
+            total += visits[i];
+            moved += millilitres[i];
+        }
+
+        var parts = new List<string>();
+        for (int i = 0; i < visits.Length; i++)
+        {
+            double share = total > 0 ? 100.0 * visits[i] / total : 0;
+            double carried = moved > 0 ? 100.0 * millilitres[i] / moved : 0;
+            parts.Add(i is 0 or 6
+                ? $"{names[i]} {visits[i]:N0} ({share:F1}%)"
+                : $"{names[i]} {visits[i]:N0} ({share:F1}%, {millilitres[i] / 1000.0:N0} L = {carried:F1}% of the volume)");
+        }
+
+        return $"fluidmove {total:N0} visit(s) in the window, {moved / 1000.0:N0} L moved: " + string.Join(", ", parts) + "\n";
     }
 
     /// <summary>The range the wet term covered while measuring, so a zero has a denominator.</summary>
@@ -7999,7 +8555,9 @@ public partial class Main : Node3D
                     : $"gate      {_mining.VoxelsUnpowered:N0} voxel(s) unpowered over {_mining.UnpoweredSwings:N0} swing(s), "
                       + $"{_mining.SwingsWithNoPack:N0} swing(s) with no pack; paid {_mining.MillijoulesPaid:N0} mJ ({MachinePanel.Joules(_mining.MillijoulesPaid)}) at "
                       + $"{_mining.MillijoulesPerVoxel / MachineDefinition.PerMille:N0} J a voxel; the pack "
-                      + (_pack is null ? "none" : $"at {_pack.ChargeMillijoules:N0} mJ ({MachinePanel.Joules(_pack.ChargeMillijoules)}) of {MachinePanel.Joules(_pack.CapacityMillijoules)}")
+                      + (_pack is null ? "none"
+                          : _pack.IsWindow ? $"is a window onto channel {_pack.Channel}, the bank at {_pack.SpendableMillijoules:N0} mJ ({MachinePanel.Joules(_pack.SpendableMillijoules)})"
+                          : $"at {_pack.ChargeMillijoules:N0} mJ ({MachinePanel.Joules(_pack.ChargeMillijoules)}) of {MachinePanel.Joules(_pack.CapacityMillijoules)}")
                       + $"; last swing {_mining.LastResult}\n")
                 : _noGate && _mining.EntangledSwings > 0 ? "gate      off (--nogate)\n" : string.Empty) +
             (_mining.EntangledSwings > 0
@@ -8065,11 +8623,12 @@ public partial class Main : Node3D
         MachineTick t = _machineTick;
         const double litre = FluidConstants.MillilitresPerLitre;
         MachineTickReport last = t.Last;
-        return $" | tick: {last.Pumps} pump(s) over {last.Outlets} outlet(s), "
+        return $" | tick: {last.Pumps} pump(s) over {last.Outlets} outlet(s) and {last.Vaults} vault(s), "
                + $"pumped {t.PumpedMillilitres / litre:N0} L from Tier B + {t.PumpedLitres:N0} L from Tier A, "
                + $"emitted {t.EmittedMillilitres / litre:N0} L into Tier B + {t.EmittedLitres:N0} L into Tier A "
-               + $"({t.EmittedLitresIntoLakes:N0} into a lake, {t.EmittedLitresToUnloadedOutlets:N0} to an outlet the box has not loaded) — "
-               + $"pumped == emitted across the tiers: {(t.CrossTierExact ? "exact" : "*** NO ***")}; "
+               + $"({t.EmittedLitresIntoLakes:N0} into a lake, {t.EmittedLitresToUnloadedOutlets:N0} to an outlet the box has not loaded), "
+               + $"vaulted {t.VaultedMillilitres / litre:N0} L — "
+               + $"pumped == emitted + vaulted across the tiers: {(t.CrossTierExact ? "exact" : "*** NO ***")}; "
                + $"{t.Moves:N0} move(s), stalled {t.StalledNoOutlet:N0} no outlet / {t.StalledNoWater:N0} no water ({t.IntakesSkippedDry:N0} off the panel counts) / "
                + $"{t.StalledNoRoom:N0} no room / {t.StalledUnloaded:N0} unloaded / {t.StalledUnanalysed:N0} unanalysed / {t.StalledUnpowered:N0} unpowered; "
                + $"{t.IntakeVoxelsRead:N0} intake voxel(s) read; "
@@ -8089,12 +8648,20 @@ public partial class Main : Node3D
         long samples = t.SolarSampled + t.SolarUnsampled;
         string open = samples > 0 ? $"{t.OpenColumnsSum / (double)samples:F1}" : "–";
         return $" | power: {t.StorageRows:N0} cell(s){(t.StorageRowsOff > 0 ? $" (+{t.StorageRowsOff:N0} off)" : "")} hold {MachinePanel.Joules(t.StoredMillijoules)}, "
-               + $"pack {(t.Pack is null ? "none" : $"{MachinePanel.Joules(t.Pack.ChargeMillijoules)} of {MachinePanel.Joules(t.Pack.CapacityMillijoules)} (ch {t.Pack.Channel})")}, "
+               + $"pack {(t.Pack is null ? "none" : t.Pack.IsWindow ? $"a window on ch {t.Pack.Channel}" : $"{MachinePanel.Joules(t.Pack.ChargeMillijoules)} of {MachinePanel.Joules(t.Pack.CapacityMillijoules)} (ch {t.Pack.Channel})")}, "
                + $"generated {MachinePanel.Joules(t.GeneratedMillijoules)} ({t.Converters:N0} panel(s), open {open}/16 mean, {t.SolarUnsampled:N0} unsampled, overcast {t.OvercastByte}/256), "
                + $"drawn {MachinePanel.Joules(t.DrawnByPumpsMillijoules)} by pumps + {MachinePanel.Joules(t.PackTakenMillijoules)} by the tool, clamped {MachinePanel.Joules(t.ClampedMillijoules)}, "
-               + $"pack given {MachinePanel.Joules(t.PackGivenMillijoules)}, stowed {MachinePanel.Joules(t.PackStowedMillijoules)} by {t.PacksUnequipped:N0} swap(s)"
+               + $"pack given {MachinePanel.Joules(t.PackGivenMillijoules)}, stowed {MachinePanel.Joules(t.PackStowedMillijoules)} by {t.PacksUnequipped:N0} swap(s), "
+               + $"pack initial {MachinePanel.Joules(t.PackInitialMillijoules)}"
                + (t.PackDebugMillijoules > 0 ? $", {MachinePanel.Joules(t.PackDebugMillijoules)} debug-filled into the pack" : string.Empty)
-               + $" — pool == entering − leaving + generated − drawn − clamped − stowed{(t.PackDebugMillijoules > 0 ? " + debug" : string.Empty)}: {(t.PowerExact ? "exact" : "*** NO ***")}";
+               + (t.HeldMillijoules + t.VaultBillsUnpaid > 0
+                   ? $", held {MachinePanel.Joules(t.HeldMillijoules)} by {t.VaultBillsPaid:N0} vault bill(s), {MachinePanel.Joules(t.HeldFromOwnMillijoules)} of it from their own charges "
+                     + $"({t.VaultBillsUnpaid:N0} unpaid; fuses {t.FusesArmed:N0} lit, {t.FusesPaused:N0} boundary(ies) paused, {t.FusesDisarmed:N0} out, {t.FusesBurnt:N0} burnt); "
+                     + $"own charges hold {MachinePanel.Joules(t.VaultOwnChargeMillijoules)} of the {MachinePanel.Joules(t.StoredMillijoules)} stored, "
+                     + $"given {MachinePanel.Joules(t.OwnChargeGivenMillijoules)}, returned {MachinePanel.Joules(t.OwnChargeReturnedMillijoules)}"
+                   : string.Empty)
+               + (t.SiphonPaidMillijoules > 0 ? $", siphon paid {MachinePanel.Joules(t.SiphonPaidMillijoules)}" : string.Empty)
+               + $" — pool == entering − leaving + generated − drawn − clamped − held + initial − taken − stowed{(t.PackDebugMillijoules > 0 ? " + debug" : string.Empty)}{(t.SiphonPaidMillijoules > 0 ? " − siphonPaid" : string.Empty)}: {(t.PowerExact ? "exact" : "*** NO ***")}";
     }
 
     /// <summary>The profile's <c>machines</c> block, with the window's own denominators.</summary>
@@ -8111,7 +8678,18 @@ public partial class Main : Node3D
                       + $"{_machines.DestroyedAtArrival} destroyed, {_machines.OrphanVoxelsCleared} orphan voxel(s) cleared, "
                       + $"{_machines.ChunksSkippedByPalette} skipped by palette; "
                       + $"drain {_machineDrainCalls} call(s), {(_machineDrainCalls > 0 ? _machineDrainMillisSum / _machineDrainCalls : 0):F2} ms mean, {_machineDrainMillisMax:F2} max; "
-                      + $"port writes {_machines.PortWrites} ({_machines.PortWritesClamped} clamped), computer {_place?.ComputerOpens ?? 0} open(s) / {_place?.ComputerMisses ?? 0} miss(es)\n";
+                      + $"port writes {_machines.PortWrites} ({_machines.PortWritesClamped} clamped), computer {_place?.ComputerOpens ?? 0} open(s) / {_place?.ComputerMisses ?? 0} miss(es)\n"
+                      + (_machines.VaultVoxelsEntering + _machines.DepositedVoxels + _machines.VaultsWrecked > 0
+                          ? $"vaults    held {_machines.HeldVoxels:N0} + owed {_machines.OwedVoxels:N0} voxel(s) == entering {_machines.VaultVoxelsEntering:N0} − leaving {_machines.VaultVoxelsLeaving:N0} "
+                            + $"+ deposited {_machines.DepositedVoxels:N0} − withdrawn {_machines.WithdrawnVoxels:N0}: {(_machines.StoreExact ? "exact" : "*** NO ***")}; "
+                            + $"{_machines.VaultsWrecked:N0} wreck(s), {_machines.VaultMovesAtPick:N0} pick move(s) ({_machines.VoxelsMovedAtPick:N0} voxel(s)), {_machines.PickVoxelsRefused:N0} body voxel(s) refused, "
+                            + $"{_machines.UnreadableVaults:N0} unreadable\n"
+                          : string.Empty)
+                      + (_machines.VaultWaterEntering + _machines.WaterDepositedMillilitres + _machines.WaterVaultedMillilitres > 0
+                          ? $"vaults    water held {_machines.HeldWaterMillilitres:N0} + owed {_machines.OwedWaterMillilitres:N0} mL == entering {_machines.VaultWaterEntering:N0} − leaving {_machines.VaultWaterLeaving:N0} "
+                            + $"+ siphoned {_machines.WaterDepositedMillilitres:N0} − poured {_machines.WaterWithdrawnMillilitres:N0} + vaulted by pumps {_machines.WaterVaultedMillilitres:N0}: "
+                            + $"{(_machines.StoreWaterExact ? "exact" : "*** NO ***")}\n"
+                          : string.Empty);
         if (_machineTick is null)
         {
             return rows + "machtick  none (--nowater)\n";
@@ -8129,7 +8707,7 @@ public partial class Main : Node3D
                + $"machtick  {ticks:N0} tick(s) in the window over {t.Last.Pumps} pump(s) and {t.Last.Outlets} outlet(s), {moves:N0} move(s); "
                + $"pumped {pumpedB / litre:N0} L from Tier B + {pumpedA:N0} L from Tier A ({pumpedInWindow / seconds:N1} L/s over the window), "
                + $"emitted {emittedB / litre:N0} L into Tier B + {emittedA:N0} L into Tier A; in all pumped {t.PumpedMillilitres / litre:N0} + {t.PumpedLitres:N0} L, "
-               + $"emitted {t.EmittedMillilitres / litre:N0} + {t.EmittedLitres:N0} L — pumped == emitted across the tiers: {(t.CrossTierExact ? "exact" : "*** NO ***")}; "
+               + $"emitted {t.EmittedMillilitres / litre:N0} + {t.EmittedLitres:N0} L, vaulted {t.VaultedMillilitres / litre:N0} L — pumped == emitted + vaulted across the tiers: {(t.CrossTierExact ? "exact" : "*** NO ***")}; "
                + $"stalled {t.StalledNoOutlet:N0} no outlet / {t.StalledNoWater:N0} no water / {t.StalledNoRoom:N0} no room / {t.StalledUnloaded:N0} unloaded / {t.StalledUnanalysed:N0} unanalysed / {t.StalledUnpowered:N0} unpowered; "
                + $"{t.IntakeVoxelsRead:N0} intake voxel(s) read in all, {t.IntakesSkippedDry:N0} intake(s) answered dry off the panel counts; "
                + $"tick {(ticks > 0 ? (_machineTickMillisSum - _machineTickMillisSumAtWarm) / ticks : 0):F3} ms mean in the window, {_machineTickMillisMax:F3} max over the run\n"
@@ -8148,11 +8726,11 @@ public partial class Main : Node3D
         long drawn = t.DrawnByPumpsMillijoules - _drawnByPumpsAtWarm;
         long clamped = t.ClampedMillijoules - _clampedAtWarm;
         return $"power     in the window: generated {generated:N0} mJ, drawn {drawn:N0} by pumps, clamped {clamped:N0}; "
-               + $"in all: generated {t.GeneratedMillijoules:N0} mJ, drawn {t.DrawnByPumpsMillijoules:N0} by pumps + {t.PackTakenMillijoules:N0} by the tool, clamped {t.ClampedMillijoules:N0}, pack given {t.PackGivenMillijoules:N0}, stowed {t.PackStowedMillijoules:N0}; "
+               + $"in all: generated {t.GeneratedMillijoules:N0} mJ, drawn {t.DrawnByPumpsMillijoules:N0} by pumps + {t.PackTakenMillijoules:N0} by the tool, clamped {t.ClampedMillijoules:N0}, pack given {t.PackGivenMillijoules:N0}, stowed {t.PackStowedMillijoules:N0}, pack initial {t.PackInitialMillijoules:N0}; "
                + $"{t.StorageRows:N0} cell(s){(t.StorageRowsOff > 0 ? $" (+{t.StorageRowsOff:N0} off)" : "")} hold {t.StoredMillijoules:N0} mJ ({MachinePanel.Joules(t.StoredMillijoules)}), pack {(t.Pack is null ? "none" : $"{t.Pack.ChargeMillijoules:N0} mJ ({MachinePanel.Joules(t.Pack.ChargeMillijoules)})")}; "
                + $"{t.Converters:N0} panel(s), sampled {t.SolarSampled:N0} / unsampled {t.SolarUnsampled:N0} (sky answered {_solarSky?.Answered ?? 0:N0}, no column {_solarSky?.Unanswered ?? 0:N0}), "
                + $"open {(t.SolarSampled + t.SolarUnsampled > 0 ? t.OpenColumnsSum / (double)(t.SolarSampled + t.SolarUnsampled) : 0):F2}/16 mean, overcast {t.OvercastByte}/256 at the last boundary; "
-               + $"pool == entering − leaving + generated − drawn − clamped − stowed: {(t.PowerExact ? "exact" : "*** NO ***")}\n";
+               + $"pool == entering − leaving + generated − drawn − clamped + initial − taken − stowed: {(t.PowerExact ? "exact" : "*** NO ***")}\n";
     }
 
     private string PlacementLines()
@@ -8416,6 +8994,8 @@ public partial class Main : Node3D
     /// </summary>
     private void OnMeshReady(StreamedChunk chunk, ChunkMesh mesh)
     {
+        _collapsePictures?.NoteMeshReady(chunk.Position);
+
         // Re-meshing an existing chunk replaces its instance; M3 makes that the common case.
         OnMeshDiscarded(chunk.Position);
 
@@ -9198,6 +9778,15 @@ public partial class Main : Node3D
             GD.Print(
                 $"M8b: finished the tick in flight before the quit — {remaining:N0} cell(s) in "
                 + $"{Milliseconds(before, Stopwatch.GetTimestamp()):F1} ms");
+        }
+
+        // Part b, decision 11: what is in flight lands where it would have, before the save —
+        // under the save's own gate, since a wet landing lifts through the grid.
+        if (_collapseDirector is { InFlight: > 0 } landing && _fluid is not { GridOwnedByTick: true })
+        {
+            _history.Recording = false;
+            CollapseStep landed = landing.LandAll(_clock.ElapsedMillis);
+            GD.Print($"M9: at quit — {landed.Landed} piece(s) in flight landed where they would have, {landed.Voxels:N0} voxel(s)");
         }
 
         // The water as it stands at the instant it is written, because the periodic line is up to
