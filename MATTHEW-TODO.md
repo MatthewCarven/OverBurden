@@ -22,35 +22,16 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
-- [ ] **IM-4c's ten decisions: placing in a lake, priced** (the plan's "IM-4c — the code-level pass").
-      Reading the code first showed your "delete, priced" doesn't fit it as I'd written it, in four places,
-      so I held the build. The recommendations:
-      - **A block you place in a lake deletes the water under the lake's surface and pays 1,000 J a litre**
-        (a 1 m cube is 1 MJ), at arm's reach too, from whatever pack you wear. A lead-acid pack pays too: a
-        full one fills 3.6 m³ of lake, then 67 minutes of recharge for each more. What you can't pay for
-        doesn't land, reported as "unpowered".
-      - **Falling rubble and machines don't delete anything**, as today. A pump is meant to stand in a lake.
-      - **Filling a sealed, flooded room stays as it is today** (the water that can't move is deleted free,
-        and printed). Pricing it needs a separate piece of work.
-      - **Ctrl+Z gives back neither the water nor the joules**, same as a fill at range today.
+- [ ] **Ctrl+Z on a fill that's still waiting** (IM-4c, built 2026-09-30): place a single block right into
+      water (or fill a chunk at range) and press Ctrl+Z at once. *Nothing should land.* Before, it came
+      back half a second later. The log says `undo — 1 placement(s) waiting for the boundary cancelled`.
+      A shape half in water puts its dry half down at the click: the first press cancels the wet half,
+      and a second takes back the dry half.
 
-      Found alongside, a bug I'd fix either way: Ctrl+Z pressed in the half second before a wet placement
-      lands gets undone by the placement landing anyway. "As recommended" takes all ten.
-
-- [x] **IM-4's twelve decisions** — *"As recommended please Claude, build IM-4a"*. **IM-4a is built**:
-      the siphon, underneath. Nothing you play changes yet, because the siphon arrives on T in IM-6. **Its
-      code-breaking check ran 2026-09-30:** 36 deliberate breakages; 24 were caught straight away, and the 12
-      that got through are caught now by 6 new tests. **IM-4b is built too** (2026-09-30): a vault on a pump's
-      channel takes its water like an outlet, until it's full or switched off. Nothing to play until IM-6
-      ships the vault. Next: IM-4c (placing in a lake, priced). What you took:
-      - **Placing in a lake** (you took "delete"; I held it before building). A free delete turns
-        fill-then-dig into a lake drain: the excavator deletes 512,000 L for about 3.3 MJ, 150 times
-        cheaper than a pump. **Recommended: the block still deletes the water, but pays the siphon's
-        price,** 1 MJ for a 1 m cube in a lake. With no power to pay, the lake part is refused and the rest
-        of the shape lands. The other options: delete for free (the drain stays), or keep today's rule
-        (nothing moves).
-      - **The siphon in your three sizes** (1 m, 2 m, 8 m) is three tools on T, so T has eight stops.
-        The other option is one siphon whose size B changes.
+- [ ] **Building in lakes, the talk you wanted** ([docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md)):
+      your three notes verbatim (displace the water, a wall breaking a lake's sheet, handing Tier B back
+      sooner at ~95%), what the code already has toward each, and four questions. Today a block in a
+      lake keeps the lake's water, as you chose. Say when you want to talk it through.
 
 - [ ] **The pond branch's verdict.** `water-column-test` has the raised watershed and your water
       grid built (walls you place raise the lake's rim; the lake reaches under what you build).
@@ -59,7 +40,9 @@ care about. I keep it current at the end of each session.
       the ring closes?* Then `git checkout main`. "Merge it" or "retire it" is the verdict.
       *Speed, re-measured 2026-09-29 on the optimised build:* the branch's water costs 1.9× main
       at your pond, not 6×, and only because the pond keeps the water main spills. With the
-      raise off it's as fast as main. So speed isn't a reason to retire it.
+      raise off it's as fast as main. So speed isn't a reason to retire it. *Your note (2026-09-30):
+      more testing and optimising on the branch first* — noted in POND-PLAN and TODO. It's also
+      displacement done Tier A's way: a block cuts the lake's room, so the level rises.
 - [ ] **M10d-2, the play** — the recipes below. Nothing else is blocked on me.
 
 ---
@@ -71,49 +54,22 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 ### Recent builds
 
-- [ ] **The lake over your quarry.** A pit the lake hasn't filled yet no longer gets the lake's
-      sheet over it — you see the pit's own water at its real height instead. Your old quarry is in
-      the retired TajMahal (`start.cmd "--world=retired-TajMahal-2026-09-29"`), or dig a pit beside a
-      lake in your new world. *Does the lake's edge at the pit's rim read right, or does it stop short
-      or overhang?* (For comparison, `--lakeoverbite=1` draws it the old way.)
-
-- [ ] **The phonk.** Your track now plays while a collapse runs. It starts from the top, speeds up
-      with the collapse (up to 25% faster at the top), and fades out over 2 s when the last piece
-      lands. Knock your tower down with the sound on:
-      `start.cmd "--world=Regions16-pondlook"` (the fuse is 10–20 s by default now)
-      *Is the top speed right — too tame, or too chipmunk? And is the volume right?* Say "faster",
-      "slower", "louder" or "quieter" (the settings are `--collapsemusicmax=` and
-      `--collapsevolume=`). When your remix is ready, drop it in `media/` under the same name, or
-      point `--collapsemusic=` at it.
-
 - [ ] **The load test you wanted.** Same world, same spot, two short sessions back to back:
       `start3` then `start3 --fedadvance=0`. Play normally for a few minutes each and quit; copy
       `godot.log` aside between them. My read is that the flood's size is the cost, not the fed
       advance — this says whether I'm right.
-- [ ] **F11, far mode — now three steps.** Each press goes up a step: 6 out and 2 up/down, then
-      8 and 4, then 10 and 6, then back to 6 and 2 at once. The view climbs to each step while the
-      loader is idle. The 10/6 step is about twice the drawing of 8/4 and about 95 MiB more.
-      *Is 10/6 worth it, does it stutter while it climbs, and does the drop back feel instant?*
-      (`start.cmd --far=2` starts on the top step.)
 - [ ] **The vacuum cell's switch.** Computer in hand, right-click a cell: set `enabled` to 0 and
       the status goes amber (`OFF — holding …`), pumps that only had that cell stall. *Is a 0/1
       box good enough, or do you want a real button?*
-- [ ] **Glass, the two left.** Does a floor under a glass roof gleaming in a storm bother you, and
-      does water seen through glass ever draw in the wrong order?
+- [ ] **Glass, the one left.** Does water seen through glass ever draw in the wrong order?
 
 ### Owed from the rain play
 
-- [ ] **1. The clay pond in the rain** (`--clockscale=20` if you don't want to wait). *Does it fill
-      at a rate that reads as rain?*
+- [ ] **1. The clay pond in the rain.** You think it leaks. *Which world, and where's the pond?* Tell me
+      and I'll probe a copy (it's in TODO).
 
 ### M10d — the seven
 
-- [ ] **3. Dry.** Outlets past a divide, or into a walled tank on a placed floor; let the pumps
-      run. *Did the mine read as pumped out, and could you tell where the water went?*
-- [ ] **4. The storm.** No `Alt+P`. Wait for rain or `--clockscale=20`. *Did the rain read as
-      cutting the pumps, and did the ones that kept running make sense?* (Watch for the
-      pumps first in position order — west first — hogging the channel. Each pump's panel now has
-      a `priority` box, 0–9 at 5: higher is paid first, if you want to pick who runs.)
 - [ ] **5. The pillar.** `--collapse=0`, the excavator (`--nogate`), a 2 × 2 bite three chunks
       down, wait for the tint, then a stone column floor to roof under the plug's centre. Then
       clay. *Did the pillar read as shoring, and did clay holding as well as stone read wrong?*
@@ -159,8 +115,6 @@ Nothing is blocked on these; each is a small change once you have a view.
       the fix is costlier to run, but it is the right one if it shows.
 - [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), six decisions still open. The biggest: a
       blast destroys the machines it reaches (5). "As recommended" or any one back.
-- [ ] **A rock placed in a lake.** A pier into a lake deletes no water today. If that reads wrong,
-      I refuse it. (*"not sure about 3 yet"*, from M9d.)
 - [ ] **The hotbar's unit.** `1,767,903,281 L` doesn't fit a slot. My lean: litres under a cubic
       metre, m³ above. Due with the inventory screen (M10g).
 - [ ] **Dust when a roof comes down** (M9c-2). Optional; only if falls read as too quiet.
@@ -198,6 +152,24 @@ Nothing is blocked on these; each is a small change once you have a view.
 ---
 
 ## Answered lately
+
+- **IM-4c and placing in a lake** (2026-09-30): you kept today's rule (*"Keep today's rule, plan
+  displacement"*), since your notes said displace rather than delete. So a block in a lake keeps the
+  lake's water, and nothing needs pricing. Built: Ctrl+Z cancels a fill that's still waiting (a bug, the
+  check is above), and the water line in the log shows the machines' and the siphon's litres. IM-4a and
+  IM-4b were built earlier the same day. Next on the plan is IM-5, the dump.
+- **Your notes** (2026-09-30), folded:
+  - *The lake over your quarry*: "draws nearly perfectly", a small gap filled by Tier B soon after.
+    Closed; the rest is the lakes talk.
+  - *The phonk*: "sounds good an want to leave it as is". Left as is.
+  - *F11*: six steps, 6/2 up to 16/12, the loader's reach as the ceiling. In TODO for your session:
+    16/12 is about five times 10/6's chunks, so the memory and limits get checked first.
+  - *Glass*: fine in rain and storms. Your stone-strong, clay-tight material is concrete in real life
+    (crushed stone, and cement burnt from limestone and clay): in MATERIALS-NOTES, a recipe chain for the
+    crafting milestone.
+  - *Dry (M10d 3)*: you could tell where the water came from and went; outlets read best on pillars
+    with gaps. *The storm (M10d 4)*: you like the rain slowing the pumps. Both recorded.
+  - *A rock placed in a lake*: displace it, or drop it from the sky. Into the lakes talk.
 
 - **Your two answers** (2026-09-30): *"1 and 2 as recommended"*. **2 is built:** your computer's clock is
   at the end of the HUD's coordinates line; have a look next time you play. **1 is held**, for the reason
@@ -272,23 +244,23 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-09-29, night**. Commits to push: `git fetch`, then `git log origin/main..main` lists them.
+Updated **2026-09-30**. Commits to push: `git fetch`, then `git log origin/main..main` lists them.
 
 - **The ideal machines plan is taken**, [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md): the
   bank, the vault and its dump, water in the inventory, the quarry (your 2 m bite), the six extras, and a
-  creative mode with a kit. **IM-1 and IM-2 are built**: the mod-file rules underneath; the quantum
-  backpack as a window onto your cells (not handed out by `P` until IM-6); and a `priority` box on
-  each pump's panel, 0–9 at 5, higher paid first. IM-3, the vault, is next. The first thing you can
-  play is IM-6.
+  creative mode with a kit. **IM-1 to IM-4c are built**, all underneath: the mod-file rules, the
+  quantum backpack as a window onto your cells, a `priority` box on each pump's panel, the vault and
+  its bill, the siphon, and a vault taking a pump's water. IM-5, the dump, is next. The first thing you
+  can play is IM-6.
 - **The undo bug is fixed** (IM-0b): a machine a fall destroys can no longer come back free after
   Ctrl+Z. The build you started at 4:49 PM already has it. A Ctrl+Z right after a roof comes down now
   says *the roof came down*, as it should.
 - **Your new world is `TajMahal2` now** (renamed at your ask), and `start.cmd` opens it. The old one is
   retired as `retired-TajMahal-2026-09-29`.
 - **The collapse sensor:** all thirteen decisions taken, the first build step is ready.
-- **The Tetris collapse** is the default, with the cyan glitch, your phonk and a 10–20 s fuse. Your
-  ear on the phonk is still owed.
-- **F11** now goes 6 → 8 → 10 chunks out; you've played it to the top.
+- **The Tetris collapse** is the default, with the cyan glitch, your phonk (left as is, your word) and a
+  10–20 s fuse.
+- **F11** goes 6 → 8 → 10 chunks out; your six steps to 16 are in TODO.
 - **Your pond branch** re-measured: 1.9× main's water cost at your pond, only because it keeps the
   water main spills. Speed isn't a reason to retire it; your look decides.
 - **Water bodies are parked.** Your quarry does rest with the near/far setting off, but every cheap
