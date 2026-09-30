@@ -1795,8 +1795,9 @@ What every answer needed, built in a worktree and merged:
   profile had.
 
 **How it was checked.** `PlaceController` lives in the Game assembly, which the test suite does not
-reference, so this is the one piece of the slice with no unit test; it is ten lines. The solution builds;
-the r6 control after the merge is the run. The hand check is his: click a fill into water, press Ctrl+Z at
+reference, so this is the one piece of the slice with no unit test; it is ten lines. The solution builds, and
+the r6 control after the merge read `2601 / 325 / 3446 at 411`, 0 `ERROR`, its `M7d:` line printing the new
+terms. The hand check is his: click a fill into water, press Ctrl+Z at
 once, and nothing should land.
 
 ## Must not ship
