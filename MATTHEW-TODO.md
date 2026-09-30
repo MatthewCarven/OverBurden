@@ -30,8 +30,8 @@ care about. I keep it current at the end of each session.
         a copy of it still opens for a probe.
       - **A minute of your screen** for the windowed run (below, under "Waiting on your word"). It
         measures what drawing a big flood costs, which the dump's 10 ML limit rests on.
-      - **The pond branch**: at least let me merge main into it, since the dump changes the same water
-        code; better, your verdict on it.
+      - ~~**The pond branch**: at least let me merge main into it~~ — merged (2026-10-01), so the branch
+        has everything main has. Your verdict on it is still the open half.
       - **The hotbar's unit** is due sooner now: IM-6 shows water in the hotbar, so the "L doesn't fit"
         question arrives with IM-6, not the inventory screen.
 
@@ -44,9 +44,7 @@ care about. I keep it current at the end of each session.
 - [ ] **Next session: the plan for walls that split a lake** ([docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md)),
       your pick (2026-10-01): Tier A water turned into Tier B where you place voxels, so a wall through a
       filled basin separates the water on each side and you can flood just the walled-off part. Your notes
-      are there verbatim with four questions. **Make your test world first**: `start.cmd` still says
-      `TajMahal2`, so a bare `start.cmd` now makes a fresh, empty world with that name. Use
-      `start.cmd "--world=<name>"`, or tell me the name and I'll put it in `start.cmd`.
+      are there verbatim with four questions. Your test world `LakeTest` is made, and `start.cmd` opens it.
 
 - [ ] **The pond branch's verdict.** `water-column-test` has the raised watershed and your water
       grid built (walls you place raise the lake's rim; the lake reaches under what you build).
@@ -58,6 +56,11 @@ care about. I keep it current at the end of each session.
       raise off it's as fast as main. So speed isn't a reason to retire it. *Your note (2026-09-30):
       more testing and optimising on the branch first* — noted in POND-PLAN and TODO. It's also
       displacement done Tier A's way: a block cuts the lake's room, so the level rises.
+      *Also on the branch (2026-09-26, `start5`): overhangs over the pond.* The lake should reach under an
+      overhang from its own side, stop at a wall, come through a window whose sill is under the water
+      and through a doorway at the floor, and leave a walled, roofed room dry. Place a block under an
+      overhang and the water there should change at the next water tick. *Main was merged into the
+      branch on 2026-10-01*, so the branch has everything main has.
 - [ ] **M10d-2, the play** — the recipes below. Nothing else is blocked on me.
 
 ---
@@ -168,6 +171,10 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Answered lately
 
+- **The pond branch merge** (2026-10-01): *"go ahead and merge main into the pond branch"*. Done: 99
+  commits, two small code conflicts (both sides had added things side by side), all 2,219 tests pass and
+  the r6 check reads to the digit. The clay-roof drip you reported on 09-26 lived only on the branch; it's
+  on main now too, beside the clay pond leak, since they may be the same thing.
 - **TajMahal2 and the lakes** (2026-10-01): *"you can delete or retire tajmahal2 as you please"*. It is
   retired, `retired-TajMahal2-2026-10-01`, moved and not deleted, so it can come back. Next session's plan
   is the one you named, walls that split a lake, in LAKE-EDIT-NOTES with your words verbatim.
@@ -269,7 +276,8 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-10-01**. Pushed up to the 2026-09-30 close; this session's commit is yours to push.
+Updated **2026-10-01**. **Both branches want a push**: `main` (`git push origin main`) and
+`water-column-test` (`git push origin water-column-test`, which carries the merge of main into it).
 **Branches:** `main` and `water-column-test` only.
 
 - **The ideal machines plan is taken**, [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md): the
@@ -281,9 +289,8 @@ Updated **2026-10-01**. Pushed up to the 2026-09-30 close; this session's commit
 - **The undo bug is fixed** (IM-0b): a machine a fall destroys can no longer come back free after
   Ctrl+Z. The build you started at 4:49 PM already has it. A Ctrl+Z right after a roof comes down now
   says *the roof came down*, as it should.
-- **TajMahal2 is retired too** (2026-10-01, your word), as `retired-TajMahal2-2026-10-01`. `start.cmd`
-  still names `TajMahal2`, so a bare `start.cmd` makes a fresh one; give it your test world's name. The
-  first TajMahal is `retired-TajMahal-2026-09-29`.
+- **TajMahal2 is retired too** (2026-10-01, your word), as `retired-TajMahal2-2026-10-01`. Your test
+  world is `LakeTest`, and `start.cmd` opens it. The first TajMahal is `retired-TajMahal-2026-09-29`.
 - **The collapse sensor:** all thirteen decisions taken, the first build step is ready.
 - **The Tetris collapse** is the default, with the cyan glitch, your phonk (left as is, your word) and a
   10–20 s fuse.

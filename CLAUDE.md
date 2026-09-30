@@ -196,12 +196,13 @@ plan is half built: all sixty-one decisions were taken on 2026-09-29. **Built:**
 (with its mutation battery, thirty-six red), IM-4b (a vault in its pump's ring, `pumped == emitted + vaulted`)
 and IM-4c, reduced at his word (a block in a lake stays a pier; Ctrl+Z cancels placements still waiting for the
 boundary). **Taken and not built:** IM-5, the dump, split into 5a (the water) and 5b (the pile). Suite
-**2,175**. The branches are `main` and `water-column-test` only; this session's commit is his to push.
+**2,175**. The branches are `main` and `water-column-test` only, and main is merged into the branch (2026-10-01;
+the branch's suite 2,219). Both branches are his to push.
 
 **Next session, his pick (2026-10-01): the plan for converting Tier A to Tier B where voxels are placed**, so a
 wall built through a filled basin separates its water and one walled area can be flooded on its own
 ([docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md), "Chosen as the next session's topic", his words
-verbatim). A plan, not a build. He is making a test world for it: ask its name, and read TODO's collisions 1,
+verbatim). A plan, not a build. His test world for it is `LakeTest`; read TODO's collisions 1,
 2 and 7 first (water bodies part a, the pond branch and the look under a lake share the hand-off and the
 watershed).
 
@@ -216,7 +217,7 @@ hand-over, slice by slice, is in [docs/STATUS-HISTORY.md](docs/STATUS-HISTORY.md
 - ~~the flaky `JobSchedulerTests` test~~, done 2026-10-01 (WORKLOG);
 - the clay pond's suspected leak: ask him which world and where;
 - IM-0's windowed surface install, which needs his screen for about a minute (the 10 ML ceiling's render half);
-- main merged into `water-column-test`, or his verdict on it.
+- ~~main merged into `water-column-test`~~, done 2026-10-01 (`927daef`); his verdict on it is still open.
 
 Then **IM-5a** (the plan's "IM-5 — the code-level pass", decisions 2–10). Before IM-6: the hotbar's unit (his)
 and the build warnings. Before IM-7: the engine-wide pin (TODO's Levers).
@@ -244,9 +245,9 @@ change, harmlessly; a tree that compiled halfway through a change would have put
 
 **TajMahal is retired** (2026-09-29, his word: *"I borked the supports so want to restart"*): moved to
 `retired-TajMahal-2026-09-29`. **TajMahal2 is retired too** (2026-10-01, his word: *"you can delete or retire
-tajmahal2 as you please"*), as `retired-TajMahal2-2026-10-01`. `start.cmd` still names `--world=TajMahal2`, so
-a bare `start.cmd` makes a fresh empty one; change it to his test world's name when he gives it. A world's name
-is only its folder under `worlds/`, so a rename is a folder move with the game closed.
+tajmahal2 as you please"*), as `retired-TajMahal2-2026-10-01`. **His test world is `LakeTest`**
+(made 2026-10-01, seed `0x2C15F365`), and he pointed `start.cmd` at it himself. A world's name is only its
+folder under `worlds/`, so a rename is a folder move with the game closed.
 
 - **Water bodies part a is parked** ([docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md), "c-3,
   run"). His pool rests with the near/far order off (2% awake at 900 s), but every cheap fix under the

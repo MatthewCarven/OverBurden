@@ -19,8 +19,10 @@ Run the game:
 start.cmd
 ```
 
-**`start.cmd` passes `-- --lightbudget=16 --adaptive=1` itself** — the first since 2026-09-03,
-Matthew's "lighting switch", and the second since 2026-09-06, the adaptive view radius. (It carried
+**`start.cmd` passes `-- --lightbudget=16 --adaptive=1 --fluidnear=2 --fluidjob=1` itself, then
+`"--world=<his world>"`** (`LakeTest` since 2026-10-01) — the first since 2026-09-03, Matthew's "lighting
+switch", the second since 2026-09-06, the adaptive view radius, and the two water flags since the water
+thread's slices 1 and 3b (2026-09-09 and 09-10). (It carried
 `--spread=counted` from 2026-09-07 to 2026-09-09 for the counted divisor's play; the A/B read the same
 under both rules and the flag came out — pass it yourself to see that arm.) It launches the Debug build — **which
 since the evening of 2026-09-15 is JIT-optimised: `Directory.Build.props` sets `Optimize` for the

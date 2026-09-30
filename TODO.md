@@ -32,7 +32,8 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
    the size of cost a 10 ML dump creates, and it predates the fixed build.
 4. **The pond branch — at least merge main into it before IM-5a; better, his verdict.** IM-5a adds a Tier A
    door to `WaterSystem` while the branch rewrites the watershed, so each slice on main widens the merge. The
-   verdict also decides where a surface dump into a walled pond goes.
+   verdict also decides where a surface dump into a walled pond goes. **The merge is done (2026-10-01, his
+   word, `927daef`; WORKLOG): 99 commits, suite 2,219, r6 to the digit.** The verdict is still his.
 5. **The hotbar's unit (his, in MATTHEW-TODO) — before IM-6.** IM-6 puts water in the hotbar's last slot
    (decision 23), so *"1,767,903,281 L doesn't fit"* arrives with IM-6, not M10g.
 6. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.
@@ -112,8 +113,8 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
       2026-09-30, verbatim in [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md) with what the code already
       offers and four questions. **His pick for the next session (2026-10-01): the plan for converting Tier
       A to Tier B where voxels are placed**, so a wall built through a filled basin separates its water and
-      one walled area can be flooded on its own (the notes' "Chosen as the next session's topic"). He is
-      making a test world for it; TajMahal2 is retired. Read collisions 1, 2 and 7 above first: the pond
+      one walled area can be flooded on its own (the notes' "Chosen as the next session's topic"). His test
+      world for it is `LakeTest` (`start.cmd` names it); TajMahal2 is retired. Read collisions 1, 2 and 7 above first: the pond
       branch and water bodies part a touch the same hand-off and watershed. (The
       lake over a quarry, his look 2026-09-30: *"draws nearly perfectly"*, a small gap sometimes, filled
       by Tier B soon after.)
@@ -237,6 +238,30 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
 - [ ] **The clay pond in the rain may leak** — his note (2026-09-30): *"IDK i think we have a leak
       bug"*, on the rain play's clay pond check. Ask which world and where before probing; then a copy,
       the `seep` line's face count and the pond's litres over a storm (`--clockscale=20`).
+- [ ] **Water under his clay roof (2026-09-26, `start5` on `Regions16-pondlook`; found on the pond branch,
+      brought over when main was merged into it, 2026-10-01)** — may be the clay pond above's — *"water seems
+      to be leaking through my clay roof not sure why it might be residual or horizontal travel
+      idk honestly"*. Clay is permeability 0 and a Tier B cell cannot enter a solid voxel, so the
+      question is where the water is born, not the roof. Candidates, cheapest first:
+      (1) **rain on placed tops lands on the roof as cells** and runs off an open edge or a gap
+      into the room;
+      (2) **Tier B travelling sideways** in from an opening — his pours and the diggings under
+      the pond were moving 1.7 ML;
+      (3) **sweat seepage from natural faces in a dug chunk** under the table (71 L that
+      session);
+      (4) water that was inside before the roof closed.
+      **What to capture next time**: the coordinates under the drip (the HUD line), a
+      screenshot looking up at it, and the `M8b:` line's `rained … onto the player's material`
+      and `seeped` terms at that moment. Not the overhang pass's; see POND-PLAN's last section.
+      **Looked at the same day on a copy, from his position (x -849 m, y 34 m, z 283 m), with
+      temporary probes (not committed): the roof is sound (stone 148-151, clay 152-155, no gap).
+      The drip he saw is rain running off the clay eave 2 m past his glass wall, falling outside
+      and seen through the glass. Separately the south glass wall (z 1140-1143) has a one-voxel
+      slot at y 134 through its whole thickness, found at x -3413, so the room's air reaches
+      open sky. The floor holds a sealed 1,550 L film (1 L a cell, y 128) that touches no outside
+      water, and nothing flowed through the slot while it rained, so the film most likely
+      predates the roof or came in from a ledge elsewhere along the slot. Told him: fill the
+      slot; a film that returns after a rainy session is a real path, traced the same way.**
 - [ ] **The ten build warnings `start.cmd` prints** (his question, 2026-09-30; he took them for lint, and
       they are): eight nullable ones in `Main.cs` (CS8618, CS8602), `MapPanel.Scale` hiding Godot's
       `Control.Scale` (CS0108), and CA2014 on a `stackalloc` in a loop in `LightPropagator.ForEachCellAround`
