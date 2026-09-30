@@ -49,7 +49,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | Ores, layers, trees, permeability — his thinking-ahead. Not scheduled; its three questions are his. |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written and taken as recommended (2026-09-28)**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a (rest) comes before any body. **Part a is parked (2026-09-29)**: the pool rests with the near/far order off, but every cheap fix under the order failed the load test; a carry with O(1) removal is the open piece. `--bodyprobe=` and `--rest` measure it. |
 | [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md) | **Building in a lake** (2026-09-30): his words verbatim on displacement, a wall breaking a lake's sheet, and a sooner Tier B → A hand-back, with what the code offers and four questions. Not scheduled; he wants to talk it through. Today a block in a lake is a pier. |
-| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-4c done (2026-09-30; 4c kept today's lake rule at his word); IM-5's code-level pass written, sixteen decisions wait on his word.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
+| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-4c done (2026-09-30; 4c kept today's lake rule at his word); IM-5's sixteen decisions taken (2026-09-30), not built; TODO's "Order and collisions" says what comes first.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
 
 ## Non-negotiables
 
@@ -240,7 +240,11 @@ click), and `M7d:` prints Tier A's machine and siphon terms. **IM-5's code-level
 plan's "IM-5 — the code-level pass"): sixteen decisions wait on his word. It splits the dump into 5a (the
 water: two new twins, a 10 s Tier A release on the fuse's clock, a Tier B ball with its own budget, and the
 end of a dump) and 5b (the pile, bench first). It found decision 36's session carry isn't a consistent cut,
-and that the crash duplicate it guards against is placement's accepted lag since M6c. **Next: his answer.**
+and that the crash duplicate it guards against is placement's accepted lag since M6c. **All sixteen taken as
+recommended**, with *"just a plan"* for that session. He also asked which TODO items should come first and
+which collide with planned work: **TODO's "Order and collisions"**, at its top, ten of each. Before IM-5a:
+the flaky scheduler test, the clay pond's suspected leak (his answer: which world), IM-0's windowed surface
+install (his screen), and main merged into the pond branch. **Next: those, then IM-5a.**
 It splits into 4a (the siphon's queue, doors and twins, the water ray, the ID and the pocket's refusal),
 4b (the vault in the ring) and 4c (the lake fill, priced). The facts it turned up include:
 - `PourPending` is the debug R key's, not the relay's;

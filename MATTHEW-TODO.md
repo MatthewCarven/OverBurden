@@ -22,27 +22,16 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
-- [ ] **IM-5's sixteen decisions: the dump** (the plan's "IM-5 — the code-level pass"). The dump is what
-      happens when a vault's fuse burns out. Reading the code first changed three things, so I held the
-      build. The recommendations, in play terms:
-      - **Two steps, not one**: the water first (5a), then the blocks (5b), which get timed on your machine
-        before their speed is set.
-      - **The water**: a vault on the surface or in a lake empties into the lake over about 10 seconds, so
-        you see it rise. A vault down in your workings pours out as real water around itself, a ball at a
-        time, and floods the mine. One down in a chunk that isn't loaded waits until you walk back to it.
-      - **The blocks** land as a heap around the vault, built from the bottom up so it stands, within 32 m.
-        Not in water, not in a lake, not in a machine, not on you. Ctrl+Z can't touch it.
-      - **When it's done**, the empty vault is an ordinary empty vault again, not a dead one. A wreck (a
-        vault a collapse took) disappears once empty.
-      - **Pumps, panels and packs stored in a vault can't be dumped as loose blocks**, so they're lost
-        ("decohered"), and the log says what. The same goes for anything past the big limits (10 ML of
-        flood water at once underground, 10,000 m³ of blocks per dump).
-      - **A crash can double a dump**, if the pile's chunk was saved and the game dies before the next
-        30-second save. Building a wall already has exactly this, and it was accepted back at M6c. The
-        plan's fix for it turned out to cause new losses elsewhere, so I recommend accepting it for now,
-        and one proper fix later for everything that writes to the world.
-
-      "As recommended" takes all sixteen.
+- [ ] **Four things need you before the next builds**, three before IM-5 and one before IM-6 (TODO's
+      "Order and collisions" has the whole list of what should come first and what collides):
+      - **The clay pond leak: which world, and where?** The dump floods through the same water, so a leak
+        under it would look like the dump's fault.
+      - **A minute of your screen** for the windowed run (below, under "Waiting on your word"). It
+        measures what drawing a big flood costs, which the dump's 10 ML limit rests on.
+      - **The pond branch**: at least let me merge main into it, since the dump changes the same water
+        code; better, your verdict on it.
+      - **The hotbar's unit** is due sooner now: IM-6 shows water in the hotbar, so the "L doesn't fit"
+        question arrives with IM-6, not the inventory screen.
 
 - [ ] **Ctrl+Z on a fill that's still waiting** (IM-4c, built 2026-09-30): place a single block right into
       water (or fill a chunk at range) and press Ctrl+Z at once. *Nothing should land.* Before, it came
@@ -138,7 +127,7 @@ Nothing is blocked on these; each is a small change once you have a view.
 - [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), six decisions still open. The biggest: a
       blast destroys the machines it reaches (5). "As recommended" or any one back.
 - [ ] **The hotbar's unit.** `1,767,903,281 L` doesn't fit a slot. My lean: litres under a cubic
-      metre, m³ above. Due with the inventory screen (M10g).
+      metre, m³ above. **Due before IM-6 now**, which puts water in the hotbar's last slot.
 - [ ] **Dust when a roof comes down** (M9c-2). Optional; only if falls read as too quiet.
 
 ---
@@ -175,6 +164,10 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Answered lately
 
+- **IM-5's sixteen decisions, the dump** (2026-09-30): *"As recommended please Claude uh just a plan"*.
+  Taken, not built yet: the water first (5a), then the blocks (5b). You also asked what in the TODO
+  should come first and what collides with planned work: that is TODO's new "Order and collisions" at
+  the top, ten of each, and the four that need you are at the top of this list.
 - **IM-4c and placing in a lake** (2026-09-30): you kept today's rule (*"Keep today's rule, plan
   displacement"*), since your notes said displace rather than delete. So a block in a lake keeps the
   lake's water, and nothing needs pricing. Built: Ctrl+Z cancels a fill that's still waiting (a bug, the

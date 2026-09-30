@@ -1,5 +1,28 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-30 — IM-5's decisions taken; TODO read for order and collisions
+
+*"As recommended please Claude uh just a plan and can you inspect the todo for items that either a. should
+be done first, or b. collide with existing planned works"*. IM-5's sixteen are taken, not built. TODO has a
+new top section, **"Order and collisions"**, ten of each. What came out of reading it against the plans:
+- **Before IM-5a:**
+  - the flaky scheduler test (a mutation battery can't have a random red);
+  - the clay pond's suspected leak (the dump floods through the same engine);
+  - IM-0's windowed surface install (the 10 ML ceiling's render half was never measured);
+  - main merged into the pond branch (5a adds a Tier A door while the branch rewrites the watershed).
+- **Before IM-6:** the hotbar's unit (IM-6 puts water in the hotbar, so his question comes early) and the
+  build warnings.
+- **Before IM-7:** the engine-wide pin, newly in Levers (IM-5's decision 8, its lever).
+- **Collapse f-1** before IM-9 (it switches on the `sense` extra), ideally before IM-6.
+- **A stale reference, fixed:** TODO's M10g line planned the hotbar "at the next version (v6; a v5 world)",
+  and M11's "v5". The header is v7 and IM-6 takes v8.
+- **Collisions worth a pass's attention:**
+  - water bodies part a and LAKE-EDIT's sooner hand-back are one question;
+  - the pond branch decides where a surface dump into a walled pond goes, and should precede LAKE-EDIT's pass;
+  - F11's 16h/12v and "machines only where you are" want IM-7's pass to decide whether machine work follows
+    the view;
+  - TNT's machine-destroying blast makes wrecks, so it reads IM-5 first.
+
 ## 2026-09-30 — IM-5's code-level pass: the dump, split in two, sixteen decisions handed back
 
 *"start IM-5 please Claude"*. The plan's riskiest slice, read before building through three read-only

@@ -11,6 +11,68 @@ the reasoning, the worklog holds what happened, and this file holds only what is
 [MATTHEW-TODO.md](MATTHEW-TODO.md) is his short list — the play queue and the decisions waiting on
 his word — and this file points at it rather than repeating it.
 
+## Order and collisions — read before starting a slice (2026-09-30)
+
+His ask, the day IM-5's decisions were taken: which open items **should be done first**, and which
+**collide with planned work**. The planned order is the ideal machines' IM-5a, IM-5b, IM-6 (the first
+playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1 alongside; then the ladder
+(M10e–j). Each line names the slice it must come before.
+
+**Do first, before the slice named:**
+1. **The flaky `JobSchedulerTests` test — before IM-5a.** IM-5a ends in a mutation battery, and a test that
+   fails at random reads as a mutation caught or missed (Owed checks).
+2. **The clay pond's suspected leak — before IM-5a.** IM-5a floods through the same Tier B engine, and a leak
+   under it would read as the dump's. Blocked on his answer: which world, and where.
+3. **IM-0's windowed surface install — before IM-5a fixes the 10 ML ceiling.** The ceiling rests on IM-0's
+   headless half (385 ms of tick wall, about 16 ms of main thread a boundary). Drawing a 10 ML flood's
+   surface is unmeasured, and a dump underground is exactly that. It takes his screen for about a minute.
+   Re-read "For the load test" beside it: the hand-off's absorb at 32 ms a boundary from 530 k awake cells is
+   the size of cost a 10 ML dump creates, and it predates the fixed build.
+4. **The pond branch — at least merge main into it before IM-5a; better, his verdict.** IM-5a adds a Tier A
+   door to `WaterSystem` while the branch rewrites the watershed, so each slice on main widens the merge. The
+   verdict also decides where a surface dump into a walled pond goes.
+5. **The hotbar's unit (his, in MATTHEW-TODO) — before IM-6.** IM-6 puts water in the hotbar's last slot
+   (decision 23), so *"1,767,903,281 L doesn't fit"* arrives with IM-6, not M10g.
+6. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.
+7. **Collapse f-1 — before IM-9, ideally before IM-6.** IM-9's power sensor needs the `sense` extra f-1
+   switches on, and f-1 carries the rule that a signalled-off cell never unpays a vault's bill (COLLAPSE-PLAN,
+   the ideal-machines amendments), which IM-6's playable vault relies on.
+8. **The engine-wide pin — before IM-7.** A chunk any door wrote stays loaded until the next autosave (IM-5's
+   decision 8, its lever). IM-5 accepted the crash duplicate for the dump, as for placement; the quarry writes
+   every boundary across many chunks and would multiply it. Its own pass (Levers).
+9. **The `FluidField.Invalidate` lever and "a chunk-aware write path" — measured in IM-5b's bench first.**
+   The pile writes up to 512 voxels a boundary, each cloning 4 KiB, and the quarry bites the same way. Design
+   the bulk write once, for the pile, the quarry and the fill.
+10. **The quantum rate that reads low on a profile — before IM-7's bench** quotes a rate.
+
+**Collisions, two planned works on one code path or one question:**
+1. **Water bodies part a and LAKE-EDIT's "hand back sooner at ~95%"** both change when Tier B hands back to
+   Tier A (the hand-off and the solve). One pass, not two: LAKE-EDIT's question 3 is part a's.
+2. **The pond branch, LAKE-EDIT's displacement, IM-4c's pier and IM-5a's surface dump.** On the branch a block
+   cuts a lake's room and a wall becomes a basin's rim, so a surface dump into a walled pond goes where the
+   branch's watershed says. Decide the branch before LAKE-EDIT's pass.
+3. **F11's six rungs and "machines only where you are"** (taken 9: IM-7's quarry, and IM-5's release on
+   arrival). 16h/12v loads 4.7 times 10h/6v's chunks, so quarries would run, and unloaded dumps release, over
+   that much more ground. IM-7's pass decides whether machine work follows the view or a fixed radius, before
+   the rungs go in.
+4. **TNT's six decisions and IM-5.** A blast that destroys a vault makes a wreck, which dumps by IM-5's rules
+   (the end of a dump, 5b's pile). TNT's pass reads IM-5 first.
+5. **Header versions.** The header is v7 and IM-6 takes v8. M10g's line below said "v6; a v5 world" and
+   M11's "v5 at M11"; both are corrected to "the next version after IM-6's".
+6. **IM-6's water slot and M10g's nine-slot hotbar.** IM-6's pass reads the history's "An inventory screen,
+   and slots that stay put", so the water slot fits the assignment M10g brings.
+7. **Tier A seen from under it (Later) and LAKE-EDIT's wall breaking a sheet** both change how `WaterSurface`
+   draws a lake. Do the look after LAKE-EDIT's decisions, or in the same pass.
+8. **Each player's own channels (multiplayer) and IM-6's formats.** IM-6 fixes the header's mode byte and the
+   kit on per-world channels. Per-player channels later is a row and save change; IM-6's pass should not make
+   channels harder to key by player.
+9. **A brush that defers whole when wet (Levers) and IM-4c's Ctrl+Z.** Built, it makes a wet fill's undo one
+   press, not two. A synergy.
+10. **The pile and a landing collapse's reserved cells.** A pile voxel in one forces a re-plot (collapse part
+    c's decision 11, lifts off a reservation). 5b's refusal of reserved cells covers it.
+11. **The commit-authorship rewrite and every branch.** A `filter-repo` rewrite has to take
+    `water-column-test` too; do it with no branch in flight.
+
 ## Next, on my side
 
 - [ ] **The ideal machines — all sixty-one decisions taken as recommended (2026-09-29)**
@@ -34,11 +96,12 @@ his word — and this file points at it rather than repeating it.
       today's lake rule (a pier) and asked for displacement as its own pass, so decision 10 is withdrawn.
       Built: Ctrl+Z cancels placements waiting for the boundary (a live bug), and `M7d:` prints Tier A's
       machine and siphon terms; r6 to the digit after the merge. **IM-5's code-level pass is written,
-      sixteen decisions wait on his word** (the plan, "IM-5 — the code-level pass"): split into 5a (the
+      sixteen decisions taken as recommended 2026-09-30** (the plan, "IM-5 — the code-level pass"; he
+      asked for the plan only that day, and for the order and collisions above): split into 5a (the
       water, the end of a dump, the bracket) and 5b (the pile, with its bench first). Three amend the plan: a
       dump's end (an empty vault back to `Holding`, an empty wreck removed), decision 36's session carry
       replaced by accepting placement's crash lag (an unload batch is not a consistent cut), and machine
-      materials decohered rather than piled. **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
+      materials decohered rather than piled. **Next: IM-5a**, after "Do first" 1–4 above. **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
       runway counting the recharge and the return as transfers. **Into IM-6's panel:** his warranty line on the
       vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;
       files stay in watts). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his
@@ -104,7 +167,8 @@ his word — and this file points at it rather than repeating it.
 - [ ] **M10g — recipes, stations, parts and the inventory screen**: the loader's second pass,
       jobs by value, the remainder per output, `unit`; the inventory screen — one `Control` on
       `E` tapped: the grid of every holding, the hotbar as a nine-slot assignment in the header
-      at the next version (v6; a v5 world opens with its first nine holdings in ID order), assign
+      at the next version after IM-6's v8 (the header is v7 today; an older world opens with its first
+      nine holdings in ID order), assign
       by number key and by drag, the grid's filter (all / blocks / parts / machines), the craft
       pane within reach of a station, litres → m³ from 1,000 L (the hotbar's unit, his to
       confirm), a total and no cap; `--assign=<slot>=<id>` and `--openinventory` the seams; the
@@ -193,6 +257,10 @@ Each waits on its trigger; the history has the measurement behind each (grep it 
 - [ ] A chunk-aware write path for the entangled fill and bite (the palette filled per chunk).
 - [ ] The water tick across workers; a quit that finishes the tick rather than cancelling it;
       bake fields as jobs.
+- [ ] **The engine-wide pin**: a chunk any door wrote (a placement, an outlet, the siphon's pour, a dump,
+      a quarry) stays loaded until the next autosave, at most 30 s, so the chunk and the session land
+      together and a crash can't double what was written (IM-5's decision 8; M10-PLAN decision 4's
+      accepted lag). Its own pass. Trigger: before IM-7, whose quarry writes every boundary.
 
 ## Later — not scheduled
 
@@ -260,7 +328,7 @@ Not scheduled; *"It will get a full planning pass too"* (2026-09-29). What it st
       - [ ] **The periodic table as data underneath, never as blocks** — all 118 in
             `elements.json`; a material declares a composition in element mass-parts; recipes
             checked for element balance at load. Cost: the inventory leaves whole voxels for
-            millilitres (v5 at M11, alone).
+            millilitres (a header version of its own at M11, after IM-6's v8 and M10g's).
 
 ### M12 — Modding tier 2
 
