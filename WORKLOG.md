@@ -1,5 +1,35 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-30 — IM-4c built, reduced at his word; his list's notes folded
+
+*"As recommended please Claude, build IM-4c also I updated my todo"*. His list's notes, written in the same
+sitting, said he would rather a block **displaced** lake water than deleted it (*"if we can displace the water,
+or as a worst case just drop it from the sky into the same position"*), and that he wants a wall to break a
+lake's sheet. Both couldn't be built, so I asked. He took **"keep today's rule, plan displacement"**: a block
+in a lake stays a pier, deleting nothing, so the fill-then-dig loop moves no water and nothing needs a price.
+IM-4's decision 10 is withdrawn.
+
+Built, in a worktree: **Ctrl+Z while placements wait for the boundary cancels them, and does nothing else.**
+The replay had redone an undone click. A chunk fill writes nothing at the click, so an undo in that half
+second had also spent itself on an older step before the fill landed. **`M7d:` prints Tier A's pumped, emitted,
+siphoned and poured litres.** The fix is in the Game assembly, which no test reaches; the solution builds and
+the r6 control is the check. His hand check: click a fill into water, press Ctrl+Z at once, and nothing lands.
+
+His notes, folded (he'll work through TODO in another session):
+- **Building in a lake** (displacement, walls breaking a sheet, a hand-back at ~95%): verbatim in a new
+  [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md), with what the code offers. The band already drops
+  walled-in columns, and the pond branch is displacement by capacity. Four questions for its pass.
+- **The pond branch**: not a verdict; *test and optimise further on the branch*. POND-PLAN, TODO.
+- **The lake over a quarry**: *"draws nearly perfectly"*; a small gap is filled by Tier B soon after. Closed.
+- **The phonk**: *"sounds good an want to leave it as is"*. Closed.
+- **F11**: six rungs, to 16h/12v, the loader's reach an artificial ceiling. Into TODO with the arithmetic:
+  16/12 is 4.7 times 10/6's chunks, so the caps and memory are to be checked first.
+- **Glass**: the storm gleam reads fine. His wish for a manufactured material as strong as stone and as
+  waterproof as clay went into MATERIALS-NOTES; it is concrete, a recipe chain for M10g.
+- **The clay pond in the rain**: he suspects a leak. An owed check in TODO; it needs the world and the place.
+- **M10d 3 and 4**: he could tell where the water went (outlets read best on pillars with gaps), and he
+  likes the rain slowing the pumps.
+
 ## 2026-09-30 — IM-4c's code-level pass: decision 10 did not fit, ten decisions handed back
 
 *"start IM-4c please Claude"* (he pushed IM-4b first). Three read-only searches mapped the placement paths,

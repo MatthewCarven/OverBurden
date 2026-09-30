@@ -639,7 +639,7 @@ name, bounds or default.
 | **IM-1** Core (amended by its pass, below; **built 2026-09-29**) | The strict loader; `extras`, the flag set, the per-material bit, `extras.json` (quantum row), its union and media check; `programmer`. | Every shipped file loads; a misspelt key at each level is refused, naming it; two mods giving one (extra, medium) pair are refused; a misspelt medium is refused; a mod with a newer `format` fails in one line; water and parts no longer open a panel; a three-mod fixture loads the same in every order; rows saved under f-1 restore unchanged. Mutation: disable the refusal, and the misspelt-key fixture goes red. |
 | **IM-2** Core (**built 2026-09-29**) | The window (7, 8): the backpack's JSON, the validator's exemption, `RechargePack`, `FillPack` and `Give` refusing a window, the direct draw; the priority consumer list; `packInitial` printed. | `PowerExact` exact over a thousand random bites and boundaries; the worn backpack's saved charge is 0 after a hundred boundaries, Alt+P and a save; a draw inside `Run` throws. Mutations: drop the `packTaken` credit, red; write the draw through `SetCharge`, red. Equal priorities reproduce position order. |
 | **IM-3** Core (amended by its pass, below) | The `vault` kind and the crate; the codec; the store view and fill order; the bill (`held`) and its order before signal overrides; the fuse; every row-removal rule of 17; the store's voxel identity. | Identity exact over a thousand random operations, the undo included; a signalled cell never unpays a hold; two vaults both bill; a save during a fuse resumes at the saved milliseconds; a wreck survives a reopen and is never rebuilt; both reconcile branches keep contents; an unknown codec version refuses the pick and the undo; `overfull` at restore; a refused pick carves nothing; the undo refusal is a pre-flight; `SetPort` moves contents with the row. Mutations: journal a full row, red; bill with no `held` term, red. |
-| **IM-4** Core (its pass, 2026-09-30, splits it into 4a–4c, twelve decisions taken; **4a and 4b built**; 4c's code-level pass written, ten decisions wait on his word) | Water's doors: the ID, the pocket's refusal, the siphon's queue and rules, the vault in the outlet ring, the twins, `pumped == emitted + vaulted`, the store's water line. | M8's oracle unmoved with no vault; a siphon take then pour restores a basin exactly; a click then a quit moves nothing; a take on a Tier A lake draws the basin; ~~the pump stalls `full` only when every ring entry refuses~~ a full vault reads `NoRoom`, the first refusal met (the pass's decision 11). Mutation: drop `vaulted`, red. |
+| **IM-4** Core (its pass, 2026-09-30, splits it into 4a–4c, twelve decisions taken; **4a, 4b and 4c built**; 4c kept today's lake rule at his word, displacement is its own pass) | Water's doors: the ID, the pocket's refusal, the siphon's queue and rules, the vault in the outlet ring, the twins, `pumped == emitted + vaulted`, the store's water line. | M8's oracle unmoved with no vault; a siphon take then pour restores a basin exactly; a click then a quit moves nothing; a take on a Tier A lake draws the basin; ~~the pump stalls `full` only when every ring entry refuses~~ a full vault reads `NoRoom`, the first refusal met (the pass's decision 11). Mutation: drop `vaulted`, red. |
 | **IM-5** Core | The dump: the pile writer, the Tier A release, the Tier B ball with its twin sized to the budget, the ceilings and decoherence, the global budgets, owed while unloaded, the unload batch's session, the dead state; a heap-writer bench arm. | A fixture room receives every voxel once; a pile into a chunk that unloads, then a kill with no session save, then a reopen, counts every voxel once; the unloaded arm releases at arrival; N vaults dumping share the budget exactly; the Tier B ceiling decoheres the excess; power returning after the fuse does nothing; Ctrl+Z cannot touch the pile; Tier B exact, Tier A's counters seam-checked. Mutation: route the dump through `Add`, and the seam goes red. |
 | **IM-6** Wire | Header v8, the mode and `--mode=creative`; kits and the first cell's grant; the debug keys off in creative; the card; the HUD bank line, runway and store percentage; the panel's stock section; the siphon on T; the vault and crate JSON and textures; `M10:` store terms. | r6 to the digit; a v7 world opens as sandbox; the kit is granted once and not on reopen; every creative-off key does nothing; headless: a new creative world (`--world=probe-creative --mode=creative`) with `--placeat=` vaults and cells bankrupts channel 0 under a storm clock, and the log reads own charge spent, then fuse, then dump (IM-3b), every identity exact. **Playable: the bank, the vault, water and the dump.** |
 | **IM-7** Core | The `quarry` kind: the box, `Facing`, the cursor, the skips, the scan cap, the stalls, the allotment and the carve's draw (`dug`), recording off with the chunk forget. | Digs a fixture box once, top down; never a machine or a full vault; pays exactly the voxels removed × 50 J; `OFF SITE` on an unloaded chunk; `flooded`; the cursor survives a save; Ctrl+Z on a hand dig in a chunk the quarry wrote is dropped, and in an untouched chunk still works; a Release bench arm at 1, 4 and 16 quarries. Mutation: quarry writes with recording on, red. |
@@ -1444,7 +1444,9 @@ Ten facts, then twelve decisions. **Nothing is built; the twelve wait on his wor
 
    *Cost:* a mod can't make a water vault that pumps skip. *The other arm:* let a vault declare a fluid
    sink, which changes the validator and its test.
-10. **◆ The lake fill: a placement pays 1,000 J for every litre it deletes** (fact 9; this is his "delete",
+10. *(Withdrawn at IM-4c, 2026-09-30: he kept today's rule, a pier that deletes nothing, and asked for
+    displacement as its own pass; see "IM-4c — the code-level pass", his answer.)*
+    **◆ The lake fill: a placement pays 1,000 J for every litre it deletes** (fact 9; this is his "delete",
     with its price). A voxel placed in a lake deletes 15.625 L, so a 1 m cube costs 1 MJ. The deleted litres
     are a printed Tier A term, with a millilitre carry per basin. Tier B's `displaced` remainder, in a full
     room, pays the same. With no bank to pay, the deleting voxels are refused `Wet` and the rest of the shape
@@ -1765,6 +1767,37 @@ dropped, the pending fills kept on undo.
 
 **The riskiest part is decision 3**: `Put`'s budget changes shape under every placement. *Estimate:* one
 session, Core (`Place`, `WaterSystem`, the lake read) and the wire (`PlaceController`, `Main`'s prints).
+
+**His answer (2026-09-30): today's rule stays, and displacement gets its own pass.** He wrote "as
+recommended", and in the same breath, in his list's notes, that he would rather the water were displaced
+than deleted: *"A rock placed in a lake. - um if we can displace the water, or as a worst case just drop it
+from the sky into the same position like"*, and that he wants a placed wall to break a lake's sheet. Asked
+which he meant, he took **"keep today's rule, plan displacement"**. So:
+- **Decision 10 of IM-4's pass is withdrawn**, and with it this pass's decisions 1–8 and 10. A block
+  placed in a lake stays a pier: it deletes nothing, so the fill-then-dig loop moves no water and needs no
+  price. His notes, verbatim, and what the code already offers toward displacement are in
+  [LAKE-EDIT-NOTES.md](LAKE-EDIT-NOTES.md).
+- **Decision 9's bug fix is built** (below), and fact 10's `M7d:` terms, since both stand whatever the lake
+  does. The lake read (decision 1) is not built: nothing would call it until the displacement pass says
+  what it asks.
+
+## IM-4c — built (2026-09-30)
+
+What every answer needed, built in a worktree and merged:
+- **Ctrl+Z while placements wait for the boundary cancels them, and that press does nothing else**
+  (`PlaceController.CancelPending`, called first in `Main.Undo`). The boundary would otherwise replay a
+  queued shape whole, redoing a wet fill's dry part the undo had taken back, or land a chunk fill after
+  the press spent itself on an older step. A wet fill's dry part, placed at the click, stays: it is the next
+  press's step. Nothing queued has been paid for or taken from the pocket yet (both happen when the boundary
+  places it), so a cancel refunds nothing. The press prints `M10: undo — N placement(s) waiting for the
+  boundary cancelled`.
+- **The periodic `M7d:` line** prints Tier A's pumped, emitted, siphoned and poured litres, which only the
+  profile had.
+
+**How it was checked.** `PlaceController` lives in the Game assembly, which the test suite does not
+reference, so this is the one piece of the slice with no unit test; it is ten lines. The solution builds;
+the r6 control after the merge is the run. The hand check is his: click a fill into water, press Ctrl+Z at
+once, and nothing should land.
 
 ## Must not ship
 

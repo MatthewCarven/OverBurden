@@ -308,6 +308,32 @@ public sealed class PlaceController(
     /// <summary>Machine placements refused wet and waiting for the boundary.</summary>
     public int PendingMachines => _pendingMachines.Count;
 
+    /// <summary>Every placement waiting for the boundary: wet fills, chunk fills and machines.</summary>
+    public int PendingPlacements => _pendingWetFills.Count + _pendingChunkFills.Count + _pendingMachines.Count;
+
+    /// <summary>Placements a Ctrl+Z cancelled before the boundary ran them, over the session.</summary>
+    public int PlacementsCancelled { get; private set; }
+
+    /// <summary>
+    /// Drops every placement waiting for the boundary and returns how many (IM-4c's pass, decision 9).
+    /// </summary>
+    /// <remarks>
+    /// <b>Ctrl+Z's answer to a click the boundary has not run.</b> Without it the boundary replays a
+    /// queued shape whole: a wet fill's dry part, which the click placed and the undo took back, came
+    /// back with the rest, and a chunk fill, which writes nothing at the click, landed after an undo
+    /// that had spent itself on an older step. Nothing queued has been paid for or taken from the
+    /// pocket — both happen when the boundary places it — so a cancel refunds nothing.
+    /// </remarks>
+    public int CancelPending()
+    {
+        int cancelled = PendingPlacements;
+        _pendingWetFills.Clear();
+        _pendingChunkFills.Clear();
+        _pendingMachines.Clear();
+        PlacementsCancelled += cancelled;
+        return cancelled;
+    }
+
     /// <summary>Machines placed at the click, over the session.</summary>
     public int MachinesPlaced { get; private set; }
 

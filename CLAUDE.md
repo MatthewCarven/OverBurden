@@ -48,7 +48,8 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | Elements, and why not "just implement chemistry": geology that reacts to water, machine recipes as the chemistry set. |
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | Ores, layers, trees, permeability — his thinking-ahead. Not scheduled; its three questions are his. |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written and taken as recommended (2026-09-28)**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a (rest) comes before any body. **Part a is parked (2026-09-29)**: the pool rests with the near/far order off, but every cheap fix under the order failed the load test; a carry with O(1) removal is the open piece. `--bodyprobe=` and `--rest` measure it. |
-| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-4b done (the vault in the ring, 2026-09-30); IM-4c's code-level pass written, ten decisions wait on his word.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
+| [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md) | **Building in a lake** (2026-09-30): his words verbatim on displacement, a wall breaking a lake's sheet, and a sooner Tier B → A hand-back, with what the code offers and four questions. Not scheduled; he wants to talk it through. Today a block in a lake is a pier. |
+| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-4c done (2026-09-30; 4c kept today's lake rule at his word); IM-5 next.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
 
 ## Non-negotiables
 
@@ -230,11 +231,12 @@ code-level pass" and "IM-4a — built"; suite 2,157). Its r6 control read to the
 red, twelve of them after six new tests closed the holes they found; suite 2,163. **IM-4b is built** (the
 plan's "IM-4b — built"): a channel vault that holds water is in its channel's pump ring, its room read off its
 bytes every boundary, filled through the pump's own door, and `pumped == emitted + vaulted`; suite 2,175,
-sixteen mutations red; its r6 control read to the digit. **IM-4c's code-level pass is written** (the plan's
-"IM-4c — the code-level pass"): IM-4's decision 10 did not fit the code in four places, so the build is held
-and ten decisions wait on his word, four of them amending decision 10. It found a live bug, fixed in 4c either
-way: Ctrl+Z does not drop the pending fills, so an undo just before the boundary is redone. **Next: his answer,
-then IM-4c.**
+sixteen mutations red; its r6 control read to the digit. **IM-4c is built, reduced at his word** (the plan's
+"IM-4c — the code-level pass", his answer, and "IM-4c — built"). Its pass found IM-4's decision 10 did not fit
+the code; asked, he kept today's rule (a block in a lake is a pier, deleting nothing, so there is no drain to
+price) and wants displacement as its own pass ([docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md), his words
+verbatim). Built: Ctrl+Z cancels placements waiting for the boundary (a live bug: the replay redid an undone
+click), and `M7d:` prints Tier A's machine and siphon terms. **Next on the plan: IM-5** (the dump).
 It splits into 4a (the siphon's queue, doors and twins, the water ray, the ID and the pocket's refusal),
 4b (the vault in the ring) and 4c (the lake fill, priced). The facts it turned up include:
 - `PourPending` is the debug R key's, not the relay's;
@@ -281,14 +283,15 @@ deliberately untracked.
 - Tetris pieces are the default; every M9 oracle recorded before 2026-09-27 wants
   `--collapsemode=sweep`.
 - Also built: the cyan glitch (*"like it"*), black pieces kept on his word, the phonk from `media/`
-  (gitignored; his ear on speed and volume is owed), and the 10–20 s fuse leaning with the deficit.
+  (gitignored; his ear, 2026-09-30: *"sounds good an want to leave it as is"*), and the 10–20 s fuse
+  leaning with the deficit.
 - Open: part d (the chimney); **part f (the sensor): thirteen decisions taken 2026-09-29, f-1 next**; decision 11 (lifts off a reservation, up to 4.5 m) on his "fix it".
 - **The keystone oracle is a race**: read `at risk 0` and lifted == returned, not its falls.
 
 **Waiting on him** (all in MATTHEW-TODO): the pond branch's verdict (merge or retire
-`water-column-test`); the fed-advance load test (`start3` against `start3 --fedadvance=0`); the
-M10d play queue and the older checks; glass's storm gleam and water sort order; TNT's six
-decisions. **Played 2026-09-26: the quantum tunneller's 2 m cube is the right middle tier —
+`water-column-test`; his word 2026-09-30 is to test and optimise further on the branch); the fed-advance
+load test (`start3` against `start3 --fedadvance=0`); the M10d play queue (3 and 4 answered 2026-09-30) and
+the older checks; glass's water sort order; TNT's six decisions; the talk on building in lakes. **Played 2026-09-26: the quantum tunneller's 2 m cube is the right middle tier —
 *"I like the 2m cube"*.**
 
 **Worlds.** His played worlds are under `app_userdata/Overburden/worlds/`; the `MinerCraft/`

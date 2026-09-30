@@ -168,3 +168,7 @@ seeds 64 cells of glass. `--courtyardmaterial=<id>` and `--courtyardroof=1` buil
 glass box. **Looked at**: from inside a roofed glass courtyard the hills show through the walls
 with a pale tint and the grass inside is at full daylight; looking up, the roof is a faint pane
 against the sky. **The glass reads a little milky at 0.35** — the alpha is his to move.
+
+**His look (2026-09-30):** *"it looks fine during rain and storms"*. The storm gleam under a glass roof
+stays as built. Water behind glass drawn in the wrong order is still open. He wants a manufactured
+material as strong as stone and as waterproof as clay: [MATERIALS-NOTES.md](MATERIALS-NOTES.md), "His wish".

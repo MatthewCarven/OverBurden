@@ -284,3 +284,10 @@ flags and `--profile --speed=0 --fillbasin=1000000 --measure=30 --watch`, altern
 branch ticks as main. The pond's own watched cost nets about +10 ms/s (observing the box and columns
 5.3 ms/s, the grid 9.3 ms/s, the enclosure down 4.2 ms/s), plus 92 ms once at open. Speed is not an
 argument against the merge; the verdict is his look at the pond.
+
+## His word (2026-09-30)
+
+Not a verdict yet: *"not sure here um we could do further testing like put further testing and
+optimisation on the branch for this test branch"*. So the branch stays, and the next work on it is testing
+and optimising there. It is also the answer to displacement in Tier A's own terms: edits cut a lake's
+capacity, so a block raises the level ([LAKE-EDIT-NOTES.md](LAKE-EDIT-NOTES.md)).

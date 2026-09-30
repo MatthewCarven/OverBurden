@@ -30,19 +30,28 @@ his word — and this file points at it rather than repeating it.
       only after six new tests closed the holes they found (the plan, "IM-4a — the mutation battery"; suite
       2,163). **IM-4b is built** (the plan, "IM-4b — built"; the vault in the ring, `pumped == emitted +
       vaulted`, the pump's own door; suite 2,175, sixteen mutations red; its r6 control read to the digit after
-      the merge). **IM-4c's code-level pass is written, ten decisions wait on his word** (the plan, "IM-4c —
-      the code-level pass"): decision 10 did not fit the code in four places (the collapse asks `HoldsWater`,
-      only fills at range pay, Tier B's displaced is known after the write, and "refused `Wet`"). **Owed in
-      4c either way:** Ctrl+Z drops the pending fills, a live bug (an undo in the half second before the
-      boundary is redone by the replay). **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
+      the merge). **IM-4c is built, reduced at his word** (the plan, "IM-4c — built"): his answer kept
+      today's lake rule (a pier) and asked for displacement as its own pass, so decision 10 is withdrawn.
+      Built: Ctrl+Z cancels placements waiting for the boundary (a live bug), and `M7d:` prints Tier A's
+      machine and siphon terms. **Next on this plan: IM-5** (the dump). **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
       runway counting the recharge and the return as transfers. **Into IM-6's panel:** his warranty line on the
       vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;
       files stay in watts). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his
       say-so, it takes his focus); a bite under a lake (IM-7's bench); a dump underground (IM-5's).
-- [ ] **The lake over a quarry — built 2026-09-27, his look owed.** The plane draws no sheet over
-      a pit that is not yet full ([docs/M8-PLAN.md](docs/M8-PLAN.md), "built"). Open: his eye on the
-      old TajMahal's quarry (now `retired-TajMahal-2026-09-29`), or on any pit beside a lake in his new
-      world; the named lever if the rim reads badly is clipping the quad against the seed.
+- [ ] **Building in a lake: displacement, a wall breaking a sheet, and a sooner hand-back** — his notes,
+      2026-09-30, verbatim in [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md) with what the code already
+      offers and four questions. Its own pass, when he wants it; he said he has to talk it through. (The
+      lake over a quarry, his look 2026-09-30: *"draws nearly perfectly"*, a small gap sometimes, filled
+      by Tier B soon after.)
+- [ ] **F11: six rungs**, his ask (2026-09-30): 6h/2v, 8h/4v, 10h/6v, 12h/8v, 14h/10v, 16h/12v, and
+      *"Its ok if the lazy loader never reaches the maximum like we will use that as an artificial
+      limit"*. The rungs are one array, `FarRungs` (`Main.cs:320`, today `(8, 4), (10, 6)`). 16h/12v is
+      33 × 33 × 25 = 27,225 chunks against 10h/6v's 5,733, 4.7 times as many: read
+      [docs/SCALE.md](docs/SCALE.md) and check every cap sized to the radius, and the memory, before
+      adding them.
+- [ ] **The pond branch: test and optimise further on the branch**, his word (2026-09-30), not a
+      verdict yet ([docs/POND-PLAN.md](docs/POND-PLAN.md)). It is also the displacement answer in Tier A's
+      own terms (LAKE-EDIT-NOTES).
 - [ ] **Water bodies — part a (rest)**
       ([docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md), "His pool rests with the near/far
       order off"). The clean box rests, and so does his pool with the order off (2% awake at 900 s,
@@ -71,7 +80,8 @@ his word — and this file points at it rather than repeating it.
       (lifts off a reservation, up to 4.5 m on a copy, 3.25 m in his play) on his "fix it"; the
       hand-off's cap (22–45% hit under a big collapse — the lever is a longer cap).
 - [ ] **Collapse part d**, per the plan's split: the chimney, whichever arm he takes — a tunnel
-      under a placed house, headless on a scratch world. (e, the phonk, is built; his ear is owed.)
+      under a placed house, headless on a scratch world. (e, the phonk, is built and his ear is in:
+      *"sounds good an want to leave it as is"*, 2026-09-30.)
 - [ ] **Collapse part f — thirteen decisions taken as recommended (2026-09-29); f-1 next**
       ([docs/COLLAPSE-PLAN.md](docs/COLLAPSE-PLAN.md), "Part f, the collapse sensor"). Thirteen
       decisions; the sensor trips on a fuse, not only a fall, and its signal is an unsaved override,
@@ -108,19 +118,19 @@ his word — and this file points at it rather than repeating it.
       grid, [docs/POND-PLAN.md](docs/POND-PLAN.md), built there, not on main).
 - [ ] **M10d-2, the play** — the seven recipes in the ladder plan's "M10d — the planning pass".
       Watch for origin-order draw starving later pumps under panels-only power (decision 4; the
-      lever is the outlets' ring on the pumps, not built until seen).
+      lever is the outlets' ring on the pumps, not built until seen). **Two answered (2026-09-30):**
+      3, dry: *"could tell where it was getting pickuped up from and where it was going"*, and outlets
+      read best up on pillars with gaps between them; 4, the storm: *"I kind of like that the rain slow
+      the pumps"*. Five to go.
 - [ ] **The fed-advance load test** (`start3` against `start3 --fedadvance=0`). Front advance
       slice 2c, the pro-rata advance for real streams, waits on it
       ([docs/FRONT-ADVANCE-PLAN.md](docs/FRONT-ADVANCE-PLAN.md), "Slice 2").
-- [ ] **Glass**: a floor under a glass roof gleaming in a storm; water behind glass drawn in the
-      wrong order. Triggers: either noticed in play.
+- [ ] **Glass**: water behind glass drawn in the wrong order, trigger noticed in play. (The storm
+      gleam, his look 2026-09-30: *"it looks fine during rain and storms"*.) His wish the same day, for
+      the materials pass: something as strong as stone and as waterproof as clay, manufactured
+      ([docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md), "His wish").
 - [ ] **TNT** — [docs/TNT-NOTES.md](docs/TNT-NOTES.md), six decisions. Needs from M9 before the
       shake: a rule per derive, and a fall from an explicit set.
-- [ ] **A rock placed in a lake** — he asked, 2026-09-29: *"Is deleteing tier a water when placing
-      voxels on the todo?"*, and took "delete" on 2026-09-30. Before building it, the cost turned up: a
-      fill-then-dig loop would drain a lake at about 6 J a litre. So it became IM-4's decision 10 (IM-4c),
-      the deletion priced at the siphon's 1,000 J a litre; it waits on his word with the rest of IM-4.
-      (M9-PLAN decision 3's edge; the one read is `LakeCeiling.InLake` beside `HoldsWater`, after `Cover`.)
 - [ ] **Dust when a roof comes down** (M9c-2), optional, only if falls read as too quiet.
 - [ ] **Precision mining's key: Ctrl or Alt.** Ctrl descends in fly mode (~1.8 m sunk between
       chips); Alt means *crawl* there, so it pairs. One line in `MiningController`.
@@ -149,6 +159,9 @@ his word — and this file points at it rather than repeating it.
       hand-off taking from a cell the worker levelled on its captured view after the chunk left.
 - [ ] **`JobSchedulerTests.AThrowingJobFaultsWithoutTakingTheWorkerDownWithIt` has failed
       intermittently** — not a flake until the reason is found.
+- [ ] **The clay pond in the rain may leak** — his note (2026-09-30): *"IDK i think we have a leak
+      bug"*, on the rain play's clay pond check. Ask which world and where before probing; then a copy,
+      the `seep` line's face count and the pond's litres over a storm (`--clockscale=20`).
 - [ ] **The ten build warnings `start.cmd` prints** (his question, 2026-09-30; he took them for lint, and
       they are): eight nullable ones in `Main.cs` (CS8618, CS8602), `MapPanel.Scale` hiding Godot's
       `Control.Scale` (CS0108), and CA2014 on a `stackalloc` in a loop in `LightPropagator.ForEachCellAround`

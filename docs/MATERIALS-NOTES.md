@@ -273,6 +273,21 @@ wake when water shrinks a gas cell's room, the squeeze generalised from *the ter
 holding* to *the room shrank*, a rest store for a fluid Tier A never rained — is the gas
 milestone's, and none of it is made harder by waiting.
 
+## His wish (2026-09-30): a manufactured material
+
+From his list's notes, answering the glass check, verbatim:
+
+> I want something as strong as stone but as waterproof as clay that I need to manufacture from materials
+> like stone and others. (stone pulveriser and some kind of other additions IDK how to do this in real life
+> let alone a game :-D)
+
+The real-world answer is **concrete**: crushed stone and sand (aggregate), bound by cement made from
+limestone and clay burnt in a kiln, and set with water. In compression it is as strong as a soft stone,
+and dense and well cured it passes water about as slowly as clay. In this game's terms it is a recipe chain through machines
+(a pulveriser for the aggregate, a kiln for the cement, then a mixer), which is this file's "machine
+recipes as the chemistry set". Its behaviour would be clay's `permeability` with stone's `hardness` and
+support. Not scheduled; it waits on the materials pass and on crafting (M10g).
+
 ## Deliberately not here
 
 - Real reaction chemistry — stoichiometry between arbitrary inputs, mixtures in a voxel. Off the

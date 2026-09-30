@@ -1044,7 +1044,9 @@ decision 8's licence question has its answer: his own arrangement ships and the 
 - The keystone in pieces (`--measure=60`): 20 speed steps from ×1.01 to ×1.248 as the pace
   climbed to ×15.7, then the fade after the event (812 pieces, 43,640 voxels, 50.5 s), `at risk 0`.
 
-**Owed:** his ear. Whether ×1.25 at the top is too tame or too chipmunk is `--collapsemusicmax=`;
+**His ear (2026-09-30):** *"sounds good an want to leave it as is"*. The defaults stand.
+
+**Was owed:** his ear. Whether ×1.25 at the top is too tame or too chipmunk is `--collapsemusicmax=`;
 the loudness is `--collapsevolume=`. The −6 dB default leaves headroom for a downloaded track that
 may clip; he says his own remix will not, so it can go to 0 dB when it arrives.
 

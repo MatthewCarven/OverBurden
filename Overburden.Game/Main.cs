@@ -4540,6 +4540,20 @@ public partial class Main : Node3D
         }
 
         _undoPresses++;
+
+        // IM-4c's pass, decision 9: a press while placements wait for the boundary cancels them and
+        // does nothing else. The boundary would otherwise replay a queued shape the press had just
+        // taken the dry part of, or land a chunk fill after the press spent itself on an older step.
+        // A wet fill's dry part, placed at the click, stays: it is the next press's step.
+        if (_place is { PendingPlacements: > 0 } place)
+        {
+            int cancelled = place.CancelPending();
+            GD.Print(
+                $"M10: undo — {cancelled} placement(s) waiting for the boundary cancelled, nothing else undone "
+                + $"({place.PlacementsCancelled} cancelled this session); press again for the step before");
+            return;
+        }
+
         UndoReport report = _history.Undo(_pipeline, _materials, _inventory, _machines);
         const double litre = VolumetricInventory.LitresPerVoxel;
         switch (report.Outcome)
@@ -5716,6 +5730,8 @@ public partial class Main : Node3D
                + $"{water.SpilledLitres:N0} L spilled, {water.InjectedLitres:N0} L injected, "
                + $"{water.DrawnLitres:N0} L drawn into Tier B, {water.SeepedLitres:N0} L seeped into it, "
                + $"{water.ReceivedLitres:N0} L received from it, "
+               + $"{water.PumpedLitres:N0} L pumped out and {water.EmittedLitres:N0} L emitted in by machines, "
+               + $"{water.SiphonedLitres:N0} L siphoned out and {water.PouredLitres:N0} L poured in, "
                + $"{water.RainDivertedMicrolitres / 1_000_000.0:N1} L rained into it as cells ({water.RainOwedMicrolitres / 1_000_000.0:N1} L still owed) | "
                + $"window {water.SpanMetres} m x{water.WindowsInstalled}, "
                + $"{_lastAnalysisMillis:F1} ms to analyse, scale x{water.RainfallScale}"
