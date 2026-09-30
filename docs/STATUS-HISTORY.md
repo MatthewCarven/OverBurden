@@ -13,6 +13,74 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md on 2026-09-30, at the session's close** (the day's running hand-over, from IM-4a's
+mutation battery to IM-5's taken decisions, superseded by a short one):
+
+**2026-09-29, night — the ideal machines pass is done, all sixty-one decisions are taken as
+recommended** (*"Yes as recommended please Claude"*), **IM-0b is built, IM-0 measured, IM-1 to IM-3b
+built, IM-4a (its mutation battery run) and IM-4b, 2026-09-30.** Suite **2,175**. Unpushed commits are his to push; `git fetch` then
+`git log origin/main..main` lists them.
+
+**The plan to build: [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md).** The shape: a channel is an
+account (one bank, one store); the quantum backpack is a window that holds nothing; a vault bills for what it
+holds, and an unpaid bill fuses it (10–20 s, cyan) and dumps it; a storm is when vaults let go; the quarry is a
+machine with a shared budget, only where you are; water is an inventory item through the siphon; creative is a
+header byte and a kit. **IM-0b is built** (the drain's world-side writes unjournalled, so Ctrl+Z no longer
+mints machines; UNDO-PLAN's last section). **IM-0 is measured** (the plan's "IM-0 — measured"): `machines`
+0.63–0.88 ms mean on 127 and 209 rows; the 2 m bite 0.42–0.53 ms, and he took it for the quarry; Tier B
+insertion 0.5–1.1 µs a cell, a 10 ML pour carried at 2 Hz. **IM-1 is built** (the plan, "IM-1 — the
+code-level pass" and "IM-1 — built"; eight decisions taken as recommended): mod files are strict (a walk over
+the loader's own classes, every unknown key with a did-you-mean, duplicates refused, `$` notes), `mod.json`
+declares `format` 1, the six extras have their grammar and the base game's `extras.json`, and only a
+`programmer` opens panels. **Every extra is refused on a machine until its slice switches it on in
+`MachineExtras.Served`**: f-1 `Sense`, IM-2 `Charge` and `Priority` (on), IM-9 the other three. **IM-2 is
+built** (the plan's "IM-2 — built"): `quantum_backpack` is a window, and a tool paying through it draws on
+its channel's enabled cells through an internal `IChannelBank`, last-filled first, never inside `Run`. The
+relay pump has a `priority` port (0–9 at 5), and consumers are paid by priority then position. `P` does not
+seed the backpack until IM-6; `--pack=overburden:quantum_backpack` wears one. **IM-3 is built** (the plan,
+"IM-3 — built"; suite 2,127): the vault and the crate, the store and its doors, the pick that asks first and
+moves at `Taken`, wrecks, the bill and the fuse, `UndoOutcome.VaultHolds`. Its r6 control read to the digit.
+**IM-3b is built** (the plan's "IM-3b — the code-level pass" and "IM-3b — built"; seven decisions taken as
+recommended). A vault carries a minute of its bill as it stands (`ownChargeSeconds`, 60). It pays what the pool
+can't, is refilled from the spare after the consumers, and rides `ChargeOf`, so `PowerExact` has no new term. A
+fuse lights once the minute is spent, waits on a paid boundary, and goes out only when the minute is whole.
+That closed IM-3's hole, where any cell held a vault on 5% of its bill for ever. Suite 2,140; the r6 control
+to the digit after the merge. **His answers to MATTHEW-TODO's unscheduled questions are folded** (WORKLOG,
+2026-09-29): ores and trees into WORLDGEN-NOTES, the siphon's sizes into IM-4's decision 26, and Tier A's
+underwater look, weather sound and reach by tier into TODO's Later. His two answers the next morning
+(*"1 and 2 as recommended"*): the computer's clock is on the HUD. Placing into a lake was held before
+building it, because a free delete opens a fill-then-dig drain at about 6 J a litre, and went into IM-4's pass.
+**IM-4's pass is written, all twelve decisions taken, and IM-4a is built** (the plan's "IM-4 — the
+code-level pass" and "IM-4a — built"; suite 2,157). Its r6 control read to the digit after the merge.
+**IM-4a's mutation battery is done** (the plan's "IM-4a — the mutation battery"): thirty-six mutations, all
+red, twelve of them after six new tests closed the holes they found; suite 2,163. **IM-4b is built** (the
+plan's "IM-4b — built"): a channel vault that holds water is in its channel's pump ring, its room read off its
+bytes every boundary, filled through the pump's own door, and `pumped == emitted + vaulted`; suite 2,175,
+sixteen mutations red; its r6 control read to the digit. **IM-4c is built, reduced at his word** (the plan's
+"IM-4c — the code-level pass", his answer, and "IM-4c — built"). Its pass found IM-4's decision 10 did not fit
+the code; asked, he kept today's rule (a block in a lake is a pier, deleting nothing, so there is no drain to
+price) and wants displacement as its own pass ([docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md), his words
+verbatim). Built: Ctrl+Z cancels placements waiting for the boundary (a live bug: the replay redid an undone
+click), and `M7d:` prints Tier A's machine and siphon terms. **IM-5's code-level pass is written** (the
+plan's "IM-5 — the code-level pass"): sixteen decisions wait on his word. It splits the dump into 5a (the
+water: two new twins, a 10 s Tier A release on the fuse's clock, a Tier B ball with its own budget, and the
+end of a dump) and 5b (the pile, bench first). It found decision 36's session carry isn't a consistent cut,
+and that the crash duplicate it guards against is placement's accepted lag since M6c. **All sixteen taken as
+recommended**, with *"just a plan"* for that session. He also asked which TODO items should come first and
+which collide with planned work: **TODO's "Order and collisions"**, at its top, ten of each. Before IM-5a:
+the flaky scheduler test, the clay pond's suspected leak (his answer: which world), IM-0's windowed surface
+install (his screen), and main merged into the pond branch. **Next: those, then IM-5a.**
+It splits into 4a (the siphon's queue, doors and twins, the water ray, the ID and the pocket's refusal),
+4b (the vault in the ring) and 4c (the lake fill, priced). The facts it turned up include:
+- `PourPending` is the debug R key's, not the relay's;
+- the pump counters are pinned equal across engines, so the siphon needs new twins;
+- the crosshair ray passes through water;
+- the tool format has no way to say "siphon";
+- a vault may not declare a fluid link.
+
+IM-6's panel owes his warranty line, a lock on the channel box, and power
+auto-scaled on screen.
+
 **Moved from CLAUDE.md on 2026-09-29, night** (the evening hand-over, superseded by the ideal machines pass):
 
 **2026-09-29, evening — the session closed here for a fresh chat.** Suite **1,999**; the r6 control to

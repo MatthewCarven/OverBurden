@@ -259,14 +259,16 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-09-30**. Commits to push: `git fetch`, then `git log origin/main..main` lists them.
+Updated **2026-09-30, at the session's close**. One commit to push (the close); `git fetch`, then
+`git log origin/main..main` lists it. **Branches:** `main` and `water-column-test` only. Pull request #2 is
+merged, and `im5-plan` and the old `todo-cleanup` are deleted.
 
 - **The ideal machines plan is taken**, [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md): the
   bank, the vault and its dump, water in the inventory, the quarry (your 2 m bite), the six extras, and a
   creative mode with a kit. **IM-1 to IM-4c are built**, all underneath: the mod-file rules, the
   quantum backpack as a window onto your cells, a `priority` box on each pump's panel, the vault and
-  its bill, the siphon, and a vault taking a pump's water. IM-5, the dump, is next. The first thing you
-  can play is IM-6.
+  its bill, the siphon, and a vault taking a pump's water. **IM-5, the dump, is planned and taken**;
+  four things need you first (top of this list). The first thing you can play is IM-6.
 - **The undo bug is fixed** (IM-0b): a machine a fall destroys can no longer come back free after
   Ctrl+Z. The build you started at 4:49 PM already has it. A Ctrl+Z right after a roof comes down now
   says *the roof came down*, as it should.

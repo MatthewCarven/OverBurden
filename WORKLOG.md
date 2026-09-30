@@ -1,5 +1,18 @@
 ﻿# Overburden — Worklog
 
+## 2026-09-30 — session close: pull request #2 merged, branches tidied
+
+He clicked "Create PR" on `main`. The two unpushed IM-5 planning commits went up on a branch, `im5-plan`,
+as pull request #2 into `main`; he merged it with a merge commit, and `git pull` fast-forwarded his `main`.
+At his word, `im5-plan` was deleted (local and remote), and so was `claude/todo-cleanup-q5noj6`: pull
+request #1's branch from 2026-09-26, fully in `main` since then (0 commits `main` lacked). The branches are
+now `main` and `water-column-test`.
+
+CLAUDE.md's hand-over was rewritten short for the next session. The day's running one, from IM-4a's
+battery to IM-5's taken decisions, moved verbatim into STATUS-HISTORY. The session: IM-4a's mutation battery,
+IM-4b built, IM-4c's pass and its reduced build, his notes folded, IM-5's pass taken, and TODO's order and
+collisions. **See you in a fresh chat** (his words).
+
 ## 2026-09-30 — IM-5's decisions taken; TODO read for order and collisions
 
 *"As recommended please Claude uh just a plan and can you inspect the todo for items that either a. should
