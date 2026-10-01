@@ -1,5 +1,31 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-01 — the lake pass: converting to Tier B can't separate; the pond branch's split is the route, and it loses a side
+
+*"yes please Claude, start the lake pass"*. Three read-only searches (Tier A's model, the edit path, Tier B's
+cost to take a piece of lake), each reporting file and line. I checked the load-bearing facts by hand. Written as
+[docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md): twelve facts, seven decisions, nothing built. What changes the
+plan:
+- **His conversion can't reach his end.** Tier B is refused inside a lake's band, Tier B found there is handed
+  whole within two boundaries, and the hand-back goes to the one unsplit basin, since Tier A has one level per
+  basin and no wall. So the sides rejoin once the water rests. Inside an enclosure the water is never handed
+  back at all.
+- **The pond branch already divides a lake at a wall** (POND-PLAN decision 4), **but splits the litres
+  wrongly.** The ledger keys water by pit, so every litre goes to the side holding the old pit, which fills
+  toward the wall's top, and the other side starts dry. Checked in the branch's `BasinLedger` and `BasinWater.Add`.
+  No test built a wall across a filled lake. POND-PLAN's decision 4 now says so.
+- **Recommended fix:** share each old lake among the new basins by the water that stood over each cell, which
+  also gives his displacement. Slices L-1 and L-2 on the branch, then his play on `LakeTest` as the branch's
+  deciding test.
+- **The enclosure's answer depends on which cell asks first** (`Enclosure.cs:395–406`). The bound is a distance
+  from the asking cell, by design, and the first flood's answer is cached for every cell it visited. So a 16–32 m
+  walled area can read either way, and flip when an edit drops the cache. It is a candidate for his "bleed in and
+  out of walls". Slice E-1 on main.
+- **Portals ignore walls**: a hole inside walls under a lake drains the whole lake. The raise answers it.
+
+His `LakeTest` play (00:10–00:54) was read for context: 0 `ERROR`, 24 ML injected, 6.6 M voxels placed, 1,389
+enclosed floods against 18,685 open at the bound.
+
 ## 2026-10-01 — session close
 
 *"Please commit anything you please to memory and/or markdown files … see you in a fresh Code Chat"*. Both

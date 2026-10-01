@@ -113,6 +113,13 @@ and the outside lake is unchanged. On that, the surface and the ceiling stop ask
 A dam or a pier raises cells inside a lake, and the priority flood cuts the lake there. Each
 side becomes its own basin, holding its own water. That is the dam you would want.
 
+**Not as built (found 2026-10-01, [LAKE-EDIT-PLAN.md](LAKE-EDIT-PLAN.md), fact 10).** The split
+is right but the litres are not. The ledger keys water by pit, so after a same-origin
+re-analysis all of the old lake's water goes to the side that holds its old pit. That side fills
+toward the wall's top and the other side starts dry. No test built a wall across a filled lake.
+The fix is LAKE-EDIT-PLAN's decision 2: share each old lake by the water that stood over each
+cell, which is slice L-1 on this branch.
+
 ### 5. A pit that disappears hands its water to the basin now under it — *new, recommended*
 
 Fact 5's fix. On a same-origin install, any ledger pit inside the new window that is not a pit

@@ -50,7 +50,9 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
    Tier A (the hand-off and the solve). One pass, not two: LAKE-EDIT's question 3 is part a's.
 2. **The pond branch, LAKE-EDIT's displacement, IM-4c's pier and IM-5a's surface dump.** On the branch a block
    cuts a lake's room and a wall becomes a basin's rim, so a surface dump into a walled pond goes where the
-   branch's watershed says. Decide the branch before LAKE-EDIT's pass.
+   branch's watershed says. Decide the branch before LAKE-EDIT's pass. **The pass (2026-10-01) went the
+   other way round**: it routes the lake split through the branch (LAKE-EDIT-PLAN decision 1), so its L-1
+   and L-2 become the branch's deciding test.
 3. **F11's six rungs and "machines only where you are"** (taken 9: IM-7's quarry, and IM-5's release on
    arrival). 16h/12v loads 4.7 times 10h/6v's chunks, so quarries would run, and unloaded dumps release, over
    that much more ground. IM-7's pass decides whether machine work follows the view or a fixed radius, before
@@ -106,15 +108,19 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
       vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;
       files stay in watts). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his
       say-so, it takes his focus); a bite under a lake (IM-7's bench); a dump underground (IM-5's).
-- [ ] **Building in a lake: displacement, a wall breaking a sheet, and a sooner hand-back** — his notes,
-      2026-09-30, verbatim in [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md) with what the code already
-      offers and four questions. **His pick for the next session (2026-10-01): the plan for converting Tier
-      A to Tier B where voxels are placed**, so a wall built through a filled basin separates its water and
-      one walled area can be flooded on its own (the notes' "Chosen as the next session's topic"). His test
-      world for it is `LakeTest` (`start.cmd` names it); TajMahal2 is retired. Read collisions 1, 2 and 7 above first: the pond
-      branch and water bodies part a touch the same hand-off and watershed. (The
-      lake over a quarry, his look 2026-09-30: *"draws nearly perfectly"*, a small gap sometimes, filled
-      by Tier B soon after.)
+- [ ] **Building in a lake: walls that split a lake — the pass is written, seven decisions wait on his word**
+      ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), 2026-10-01; his notes in
+      [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md)). The finding: converting lake water to Tier B can't
+      keep the sides apart, because the hand-back rejoins the one lake. The pond branch's raise already
+      divides a lake at a wall, but it gives all the litres to the side holding the old pit (fact 10, no test
+      covered it). Recommended:
+      - **L-1 and L-2 on the branch** (share each old lake by the water over each cell; `--dam=`; a headless
+        oracle), then his play on `LakeTest`, which becomes the branch's deciding test;
+      - **E-1 on main**: the enclosure's answer stops depending on which cell asks first (fact 5; a candidate
+        for the sheet that "bleeds in and out of walls").
+
+      His question, open: what the walled area beneath TajMahal2 was. (The lake over a quarry, his look
+      2026-09-30: *"draws nearly perfectly"*, a small gap sometimes, filled by Tier B soon after.)
 - [ ] **F11: six rungs**, his ask (2026-09-30): 6h/2v, 8h/4v, 10h/6v, 12h/8v, 14h/10v, 16h/12v, and
       *"Its ok if the lazy loader never reaches the maximum like we will use that as an artificial
       limit"*. The rungs are one array, `FarRungs` (`Main.cs:320`, today `(8, 4), (10, 6)`). 16h/12v is
