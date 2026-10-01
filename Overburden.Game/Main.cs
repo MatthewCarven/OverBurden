@@ -7655,18 +7655,24 @@ public partial class Main : Node3D
             ? _water.LevelAt(under)
             : null;
         string where = "through the player";
+        int lakeBasin = under;
         if (lakeLevel is null && _breachBasin != Watershed.Outlet && _water.LevelAt(_breachBasin) is double filled)
         {
             Basin pit = _water.Window.Watershed.Basins[_breachBasin];
             px = pit.PitX + (HeightField.DefaultCellVoxels / 2);
             pz = pit.PitZ + (HeightField.DefaultCellVoxels / 2);
             lakeLevel = filled;
+            lakeBasin = _breachBasin;
             where = $"through basin {_breachBasin}'s pit, which --fillbasin filled";
         }
 
-        if (lakeLevel is not double level)
+        // A puddle is not a lake to split: the first run on a played world stood over 7 L.
+        long underHeld = lakeLevel is null ? 0 : _water.Water.StoredIn(_water.Water.LakeTopOf(lakeBasin));
+        if (lakeLevel is not double level || underHeld < DamMinimumLitres)
         {
-            GD.Print("M8: dam — no wet lake under the player and no --fillbasin pour to build across; nothing built (--dam)");
+            GD.Print(
+                $"M8: dam — the lake at ({px}, {pz}) holds {underHeld:N0} L, under the {DamMinimumLitres:N0} L a dam is built across; "
+                + $"nothing built. The fullest lakes in the window, for --waterprobe=x,z: {FullestLakes(px, pz, 5)} (--dam)");
             return;
         }
 
@@ -7757,6 +7763,41 @@ public partial class Main : Node3D
     }
 
     private double _damBuiltAt;
+
+    /// <summary>The least a lake must hold for <c>--dam</c> to build across it: ten cubic metres.</summary>
+    private const long DamMinimumLitres = 10_000;
+
+    /// <summary>The fullest lakes in the window, each by the pit of its first basin, its level, what it holds and how far away.</summary>
+    private string FullestLakes(int fromX, int fromZ, int count)
+    {
+        if (_water?.Window is null || _water.Water is null)
+        {
+            return "no window";
+        }
+
+        var lakes = new Dictionary<int, (int Basin, long Held)>();
+        foreach (Basin basin in _water.Window.Watershed.Basins)
+        {
+            int top = _water.Water.LakeTopOf(basin.Index);
+            long held = _water.Water.StoredIn(top);
+            if (held > 0 && !lakes.ContainsKey(top))
+            {
+                lakes[top] = (basin.Index, held);
+            }
+        }
+
+        var parts = new List<string>();
+        foreach ((int basin, long held) in lakes.Values.OrderByDescending(l => l.Held).Take(count))
+        {
+            Basin b = _water.Window.Watershed.Basins[basin];
+            int x = b.PitX + (HeightField.DefaultCellVoxels / 2);
+            int z = b.PitZ + (HeightField.DefaultCellVoxels / 2);
+            double metres = Math.Sqrt(((double)(x - fromX) * (x - fromX)) + ((double)(z - fromZ) * (z - fromZ))) * VoxelConstants.VoxelSize;
+            parts.Add($"{x},{z} ({held:N0} L, level {_water.LevelAt(basin):F2}, {metres:F0} m away)");
+        }
+
+        return parts.Count == 0 ? "none" : string.Join("; ", parts);
+    }
 
     /// <summary>The dam's second reading, once the window has caught up with it, and the pour into side A.</summary>
     private void ReadDamIfDue()
