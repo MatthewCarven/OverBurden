@@ -13,6 +13,17 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md on 2026-10-01, at L-2's close** (the opening of L-1's hand-over, superseded when L-2 was
+built):
+
+**2026-10-01 (evening) — L-1 is built on the pond branch; the next session builds L-2 there.** A same-origin
+re-analysis now shares each old lake by the water that stood over each cell, so a wall across a full lake leaves
+each side what it held ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), "L-1 — built"). The test written first
+showed the old rule giving the old pit's side every litre. The rule it replaced, `Rehome`, also deleted a stored
+lake whose pit lay inside the window but was not one of its basins, at the first raise; that is fixed too. Suite
+**2,231** on the branch, thirteen mutations red, r6 to the digit. Both branches have commits for him to push. The
+lake pass's close is in STATUS-HISTORY.
+
 **Moved from CLAUDE.md on 2026-10-01, at L-1's close** (the opening of the lake pass's hand-over, superseded when
 L-1 was built):
 
