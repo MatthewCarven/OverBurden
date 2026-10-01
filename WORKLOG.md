@@ -1,5 +1,39 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-01 (evening) — L-1: a wall across a lake keeps both sides' water
+
+*"start L-1 please Claude"*. Built in a worktree of the pond branch (`lake-l1`), so the main folder and
+`start.cmd` stayed on `main`. LAKE-EDIT-PLAN decisions 2 and 3, recorded in full in its "L-1 — built".
+
+**The test came first, and it went red as fact 10 said.** In a 32-sample trough at plane 7 with a wall
+across it, the side with the old pit took 84,000 L and filled to its bank, and the other side kept only the
+12,000 L that overflowed. Now `BasinLedger.ShareByLevel` gives each new basin the water that stood over its
+cells at the old level, in whole litres by largest remainder. The wall's own strip goes to the side the wall
+drains to. West 64,000 L, east 32,000 L, east still exactly at 7.
+
+**Found on the way: `Rehome` deleted stored lakes.** It moved every ledger row inside the window that the new
+window had no pit for. That covered rows an earlier window stored, whose pit fell inside this window but was
+not one of its basins. A pit on the edge ring (where a window move puts it) was deleted, counted as "would
+not fit back". A pit inside another basin's catchment was poured into that basin. 30,000 L went in the test,
+red on the old code. Rows the old window did not hold are now left alone.
+
+**Twelve tests, thirteen mutations, all red.** `leaf-level` and `lake-per-basin` go red on one fixture only:
+a wall raised through the surface of a lake spanning two pits. Suite 2,219 → 2,231. The r6 control on the
+branch build: 2601 / 325 / 3446 at 411, no `ERROR`.
+
+**Cost**, the game's 512 m window (391 basins), optimised: 0.26–0.58 ms a re-analysis against 0.03 ms by pit.
+The plan guessed "a few ms". With tiering on, the first arm read 3.2 ms; by the arm order that is code the JIT
+had not optimised yet (an inference).
+
+**A correction to decision 3's arithmetic**, made in the plan. Its 14 cm spread a wall's strip over the whole
+lake, which is right for a wall under the water. A wall that splits the lake usually drains all one way, so
+one side rises by up to twice that, and the other not at all. His status line had said "nudges both levels"
+and is corrected.
+
+`M7d:` prints `split N lake(s), M L shared by level, D L displaced`. That was L-2's first bullet, done here
+because the line had read `RehomedPits`. **Next: L-2** (`--dam=`, the headless oracle, a screenshot), brief
+in TODO. E-1 on main alongside.
+
 ## 2026-10-01 (later) — session close: the lake pass
 
 *"Please commit anything you please to memory and/or markdown files … see you in a fresh Code Chat"*.

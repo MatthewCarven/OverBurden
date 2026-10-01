@@ -49,7 +49,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | Ores, layers, trees, permeability — his thinking-ahead. Not scheduled; its three questions are his. |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written and taken as recommended (2026-09-28)**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a (rest) comes before any body. **Part a is parked (2026-09-29)**: the pool rests with the near/far order off, but every cheap fix under the order failed the load test; a carry with O(1) removal is the open piece. `--bodyprobe=` and `--rest` measure it. |
 | [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md) | **Building in a lake** (2026-09-30): his words verbatim on displacement, a wall breaking a lake's sheet, and a sooner Tier B → A hand-back, with what the code offers and four questions. Today a block in a lake is a pier. |
-| [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md) | **Walls that split a lake, the code-level pass (2026-10-01): all seven decisions taken as recommended, nothing built.** His Tier B conversion can't separate (the hand-back rejoins the one lake); the pond branch's raise divides a lake but gives every litre to the old pit's side (fact 10). Recommended: share by the water over each cell (L-1, L-2 on the branch), and make the enclosure's answer independent of who asks first (E-1, main). |
+| [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md) | **Walls that split a lake, the code-level pass (2026-10-01): all seven decisions taken as recommended; L-1 built on the pond branch the same day.** His Tier B conversion can't separate (the hand-back rejoins the one lake); the pond branch's raise divides a lake but gives every litre to the old pit's side (fact 10). Recommended: share by the water over each cell (L-1, L-2 on the branch), and make the enclosure's answer independent of who asks first (E-1, main). |
 | [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-4c done (2026-09-30; 4c kept today's lake rule at his word); IM-5's sixteen decisions taken (2026-09-30), not built; TODO's "Order and collisions" says what comes first.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
 
 ## Non-negotiables
@@ -192,27 +192,30 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 ## Where things stand
 
-**2026-10-01 (later), session close — the next session builds L-1, the lake split, on the pond branch.** This
-session was the lake pass: three read-only searches, twelve facts checked by hand where they bore weight, and
-seven decisions, all taken as recommended ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md)). No code changed.
-Main's doc commits from it are his to push. The previous close's opening (the flaky test, the merges, the flags)
-is in STATUS-HISTORY.
+**2026-10-01 (evening) — L-1 is built on the pond branch; the next session builds L-2 there.** A same-origin
+re-analysis now shares each old lake by the water that stood over each cell, so a wall across a full lake leaves
+each side what it held ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), "L-1 — built"). The test written first
+showed the old rule giving the old pit's side every litre. The rule it replaced, `Rehome`, also deleted a stored
+lake whose pit lay inside the window but was not one of its basins, at the first raise; that is fixed too. Suite
+**2,231** on the branch, thirteen mutations red, r6 to the digit. Both branches have commits for him to push. The
+lake pass's close is in STATUS-HISTORY.
 
 The ideal machines plan is half built: all sixty-one decisions were taken on 2026-09-29. **Built:** IM-0b, IM-1 to
 IM-3b, IM-4a (with its mutation battery, thirty-six red), IM-4b (a vault in its pump's ring, `pumped == emitted +
 vaulted`) and IM-4c, reduced at his word (a block in a lake stays a pier; Ctrl+Z cancels placements still waiting
 for the boundary). **Taken and not built:** IM-5, the dump, split into 5a (the water) and 5b (the pile). Suite
-**2,175** on main and **2,219** on the branch, r6 to the digit on both. The branches are `main` and
-`water-column-test` only; the branch is pushed, and main is ahead by this session's docs.
+**2,175** on main and **2,231** on the branch, r6 to the digit on both. The branches are `main` and
+`water-column-test` only; main is ahead of its remote by the lake pass's docs and L-1's record, and the branch by
+L-1.
 
 **The lake plan is taken (2026-10-01): [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), all seven decisions
 as recommended; one question is still his (what the walled area beneath TajMahal2 was).** His means,
 converting Tier A to Tier B where voxels are placed, can't keep the sides apart. The pond branch's raise
-already divides a lake at a wall, but its ledger gives every litre to the side holding the old pit. **Next
-session, build:**
-- **L-1** (Core: share each old lake by the water over each cell, decision 2, with its oracles and a
-  battery), in a worktree of `water-column-test`, since `start.cmd` builds the main folder;
-- then **L-2** (the wire, `--dam=`, the headless oracle);
+already divides a lake at a wall, and **L-1 (built) makes each side keep the water that stood over it**. A
+wall's own strip of water goes to the side the wall drains to, usually all of it, so that side can rise up to
+twice decision 3's 14 cm (corrected in the plan). **Next session, build:**
+- **L-2** (the wire: `--dam=`, the headless oracle, a screenshot; `M7d:`'s terms came with L-1), in a worktree
+  of `water-column-test`, since `start.cmd` builds the main folder. TODO carries its brief;
 - **E-1** on main alongside.
 
 His test world is `LakeTest`.
@@ -234,8 +237,8 @@ Then **IM-5a** (the plan's "IM-5 — the code-level pass", decisions 2–10). Be
 and the build warnings. Before IM-7: the engine-wide pin (TODO's Levers).
 
 **His open threads:**
-- building in lakes: the plan is taken ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md)), and his play on
-  `LakeTest` after L-2 is the pond branch's deciding test;
+- building in lakes: the plan is taken and L-1 built ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md)), and
+  his play on `LakeTest` after L-2 is the pond branch's deciding test;
 - F11's six rungs (in TODO, the caps checked first);
 - testing and optimising on the pond branch.
 

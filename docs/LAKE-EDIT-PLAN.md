@@ -1,8 +1,8 @@
 # Walls that split a lake — the code-level pass (2026-10-01)
 
-**All seven decisions taken as recommended** (2026-10-01, *"as recommended please Claude"*). Nothing is
-built yet. The next session builds L-1 on the pond branch, in a worktree of the branch; E-1 on main can go
-alongside. His question about the walled area beneath TajMahal2 is still open.
+**All seven decisions taken as recommended** (2026-10-01, *"as recommended please Claude"*). **L-1 is built**
+(2026-10-01, on the pond branch; "L-1 — built" below). Next is L-2 on the branch, with E-1 on main alongside. His
+question about the walled area beneath TajMahal2 is still open.
 
 His ask, verbatim in [LAKE-EDIT-NOTES.md](LAKE-EDIT-NOTES.md):
 
@@ -138,7 +138,11 @@ it raises the level of the basin that cell joins.
 **Stated cost, at Tier A's grain:** a thin wall displaces its whole 2 m strip. Take a 25 cm wall across a
 40 m lake, 2 m deep. It displaces 160 m³ where its stone is 20 m³, so a 40 × 30 m lake rises about 14 cm
 instead of 2 cm (arithmetic). Counting only the stone would leave the rest of the strip's water with
-nowhere to stand in Tier A: deleted, or converted.
+nowhere to stand in Tier A: deleted, or converted. **Corrected at L-1:** the 14 cm spreads the strip over the
+whole lake, which is right for a wall under the water. A wall that splits the lake sends each strip cell's
+water to the side that cell now drains to, and the flood usually drains a whole wall one way (to the side with
+the lower rim, then the lower floor). So that side, about half the area, rises by up to twice as much: about
+28 cm in the example, and the other side not at all.
 
 **Revisit:** a play where the rise reads too big. The lever is a finer raise, the branch's own question.
 
@@ -196,9 +200,86 @@ part a's (TODO's collision 1), and part a is parked on a far carry with O(1) rem
 | Slice | Where | What | Oracle |
 |---|---|---|---|
 | **E-1** | main | The enclosure's bound as the area's extent (6) | Every cell of one area answers alike; both bound tests unchanged; r6 to the digit |
-| **L-1** | branch | The split by level, displacement included (2, 3) | Decision 2's five; a mutation battery |
-| **L-2** | branch | `M7d:` terms, `--dam=`, headless oracle, screenshot (5) | Both levels kept, one side poured; r6 to the digit on the branch |
+| **L-1** ✓ | branch | The split by level, displacement included (2, 3). **Built 2026-10-01** | Decision 2's five; a mutation battery |
+| **L-2** | branch | ~~`M7d:` terms~~ (done in L-1), `--dam=`, headless oracle, screenshot (5) | Both levels kept, one side poured; r6 to the digit on the branch |
 | **His play** | branch | `LakeTest`: a wall across a filled lake, R into one side | POND-PLAN's seventh criterion, and the branch's verdict |
+
+## L-1 — built (2026-10-01, on `water-column-test`)
+
+**The test written first went red as fact 10 said.** A trough of 32 samples at plane 7, then a wall across it.
+The west side, which held the old pit, took 84,000 L and filled to its bank at plane 10. The east kept only the
+12,000 L that overflowed into it. Now the west holds 64,000 L and the east 32,000 L, the east still at 7.
+
+**What was built:**
+- `BasinLedger.ShareByLevel(old, oldWater, next)` replaces `Rehome`. It removes the old window's rows, then shares
+  each old lake (the node `BasinWater.LakeTopOf` names) by `(old level − old height)` over every cell, counted to
+  the new basin holding the cell. Shares are whole litres by largest remainder and join the new pits' rows as
+  additions. `Seed` then pours them through `Add`. A share counted to a cell that now drains off the window
+  leaves the world, folded into `SeedOverflowLitres`.
+- `WaterSystem.Install` uses it on a same-origin re-analysis instead of `Absorb`; a window move is unchanged.
+- `WaterSystem.SplitLakes`, `SplitLitres` and `DisplacedLitres`. A lake counts as split when its shares, once
+  poured, stand under two or more lake tops, so a wall under the water splits nothing. Displaced litres are the
+  material under the old level: under each raised cell, the lower of the old level and the new top, less the
+  old floor.
+- `M7d:` prints `split N lake(s), M L shared by level, D L displaced` in place of the rehome term. That was L-2's
+  first bullet, done here because the line read `RehomedPits`.
+
+**Found on the way: `Rehome` deleted stored lakes.** It moved every ledger row inside the window that the new
+window had no pit for. A row an earlier window had stored, whose pit lay inside this window but was not one of its
+basins, went at the first raise. On the edge ring (where a window move puts it) it was deleted, counted as
+water that would not fit back. Inside another basin's catchment it was poured into that basin. The test was red
+on the old code (30,000 L gone). Rows the old window did not hold are now left alone, as a window move leaves them.
+
+**Tests: twelve in `LakeSplitTests`,** four `RaisedSurfaceTests` rewritten. Decision 2's five oracles:
+- a wall across a full lake: east exactly at 7, west at 3 + 64/12 with the strip, the banked row replaced, not
+  added to;
+- R into one side: that side to 8, the other unchanged;
+- the wall taken down (Ctrl+Z): one level, 7.5, the total conserved;
+- a ring round a dry area and a raise elsewhere: no litre moved, nothing split or displaced;
+- conservation to the litre when the shares are not whole.
+
+And the cases the battery needed:
+- a ring built in a lake keeps the water that stood inside it, as its own pond at the old level;
+- the remainder goes to the largest fraction;
+- a wall under the water splits nothing and displaces its own height;
+- a wall raised up through the surface splits the lake at the level it had above both pits;
+- a pond filled with a block sends its water off the window, counted;
+- a stored lake whose pit falls on a moved window's edge survives a raise.
+
+**Thirteen mutations, all red.** The plan's four were by pit, by area, the new height for the old, and the
+remainder dropped. The other nine:
+- the old rows kept;
+- the leaf's level for the lake's;
+- displacement without its minimum;
+- splits counted by destinations;
+- outlet shares uncounted;
+- the remainder to the smallest fraction;
+- splits not counted;
+- a share replacing the row;
+- one lake per basin.
+
+`leaf-level` and `lake-per-basin` are caught only by the wall raised through the surface, the one fixture whose
+old lake spans two pits.
+
+**Cost**, on the game's 512 m window at the profile seed (391 basins, a file-based bench, tiering off, 55 rounds
+alternated): the share alone is 0.26 ms median with every basin full and 0.58 ms at a quarter full. By pit it was
+0.03 ms. Decision 2 estimated "a few ms"; it is under one. With tiering on, the first arm's median was 3.2 ms. By
+the arm order, that is code the JIT had not yet optimised, which the first re-analyses of a play will pay (an
+inference, not measured separately). It runs once per re-analysis, after a quiet second of building.
+
+**Suite 2,219 → 2,231. The r6 control on the branch build: 2601 / 325 / 3446 at 411**, to the digit, no `ERROR`.
+
+**Stated consequences, none a decision:**
+- **A ring built in a lake keeps its water as a pond of its own** at the old level. That is decision 2 applied;
+  main's courtyard draws a walled-in column dry instead (fact 7).
+- **A raised cell's water goes wherever the cell now drains**, off the window included. On the shore of a lake
+  the lake is always the lower neighbour, so this needs a pond whose only rim was the window's edge.
+- **A lake made of several pits has its ledger rows re-spread among them at every raise.** No litre moves between
+  lakes, only which pit's row holds it. Each pit's row is now the water over its own catchment, where `Absorb`
+  credited a shared slab to the leftmost pit. It matters only to a later window move that cuts the lake.
+- **The fallback** for a lake whose cells weigh nothing is unreachable while `VolumeCurve.LevelAt` keeps any
+  positive volume strictly above the floor, so no recipe can reach it. It moves the lake by its first pit rather
+  than deleting it.
 
 ## For him, not a decision
 

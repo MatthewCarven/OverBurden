@@ -13,6 +13,15 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md on 2026-10-01, at L-1's close** (the opening of the lake pass's hand-over, superseded when
+L-1 was built):
+
+**2026-10-01 (later), session close — the next session builds L-1, the lake split, on the pond branch.** This
+session was the lake pass: three read-only searches, twelve facts checked by hand where they bore weight, and
+seven decisions, all taken as recommended ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md)). No code changed.
+Main's doc commits from it are his to push. The previous close's opening (the flaky test, the merges, the flags)
+is in STATUS-HISTORY.
+
 **Moved from CLAUDE.md on 2026-10-01, at the lake pass's close** (the opening of the previous close's
 hand-over, superseded when the lake plan was written and taken):
 
