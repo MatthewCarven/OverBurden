@@ -308,6 +308,29 @@ public class EnclosureTests
     }
 
     [Fact]
+    public void ARegionAnswersOnlyTheCellsItVisitedNotEveryCellOfItsBox()
+    {
+        // An L-shaped courtyard: its box takes in the notch, which is outside the walls. Asked
+        // inside first, the region is the L's; the notch must still read open, by its own flood.
+        (World world, Enclosure enclosure) = Fixture();
+        static bool Inside(int x, int z) => x >= 1 && z >= 1 && ((x <= 20 && z <= 10) || (x <= 10 && z <= 20));
+        for (int z = 0; z <= 21; z++)
+        for (int x = 0; x <= 21; x++)
+        {
+            if (!Inside(x, z) && (Inside(x + 1, z) || Inside(x - 1, z) || Inside(x, z + 1) || Inside(x, z - 1)
+                                  || Inside(x + 1, z + 1) || Inside(x - 1, z - 1) || Inside(x + 1, z - 1) || Inside(x - 1, z + 1)))
+            {
+                Place(world, enclosure, new VoxelPos(x, Level, z));
+            }
+        }
+
+        Assert.True(enclosure.IsEnclosed(5, 15, Level));
+        Assert.True(enclosure.IsEnclosed(18, 3, Level));
+        Assert.False(enclosure.IsEnclosed(18, 18, Level));
+        Assert.Equal(2, enclosure.Floods);
+    }
+
+    [Fact]
     public void APillarInsideAnAreaIsNotAnsweredFromTheAreasRegion()
     {
         // The pillar is a wall the flood met inside the area's box: its bit is cleared, so asking
