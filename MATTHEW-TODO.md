@@ -22,6 +22,16 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
+- [ ] **Walls that split a lake, on your pond branch: the branch's deciding test** (L-1 and L-2, built
+      2026-10-01). `git checkout water-column-test`, then `start.cmd` (it opens `LakeTest`). Build a wall across
+      a filled lake, standing above the water and tied into the banks at both ends, wait a second, then R into
+      one side. *Does each side keep its own level, and does R raise only the side you pour into?* The side the
+      wall drains to rises a little as the wall goes up, because the wall pushes its own water there. Then
+      `git checkout main`. If you'd rather the game build one: `start.cmd --dam=80 --damafter=15
+      --waterprobe=140,164` puts a stone wall across your 4.2 ML lake 33 m from your spawn. It's written into
+      `LakeTest` for real. In my picture of it the wall's west end looked reddish. If yours does, that may be the
+      support tint, and it may come down.
+
 - [ ] **Four things need you before the next builds**, three before IM-5 and one before IM-6 (TODO's
       "Order and collisions" has the whole list of what should come first and what collides). The one
       that was mine, the test that failed at random, is done (2026-10-01).
@@ -294,17 +304,18 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-10-01, evening, after L-1**. Both branches have commits to push (`git push origin main
+Updated **2026-10-01, night, after L-2**. Both branches have commits to push (`git push origin main
 water-column-test`). **Branches:** `main` and `water-column-test` only, and the pond branch has everything main
 has.
 
-- **Walls that split a lake: the first half is built on your pond branch** (L-1, 2026-10-01). A wall across a
-  full lake now leaves each side the water that stood over it; before, the side with the lake's lowest point got
-  all of it and the other side was left nearly dry. The water the wall itself stands in goes to one side, which
-  rises a little: up to about 28 cm for a wall across a 40 × 30 m lake 2 m deep. It also fixed a branch bug: a
-  lake stored from an earlier visit, near the edge of the area the water is worked out over, could vanish the
-  moment you placed a block. Next is the `--dam=` test and a picture (L-2), then your play on `LakeTest`. Nothing
-  to play yet.
+- **Walls that split a lake are built on your pond branch** (L-1 and L-2, 2026-10-01), and it's your turn: the
+  play is at the top of "Now". A wall across a full lake leaves each side the water that stood over it. The water
+  the wall stands in goes to the side it drains to, which rises a little: up to about 28 cm for a wall across a
+  40 × 30 m lake 2 m deep, and 18 cm on your 4.2 ML lake in my test. It also fixed a branch bug: a lake stored
+  from an earlier visit, near the edge of the area the water is worked out over, could vanish the moment you
+  placed a block.
+- **Sorry about your log**: my test run started while you were playing at 8:19 PM and renamed your log, so it
+  stops at 8:24. The rest is kept as `play-LakeTest-2026-10-01-2019.log`. Your world wasn't touched.
 
 - **The ideal machines plan is taken**, [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md): the
   bank, the vault and its dump, water in the inventory, the quarry (your 2 m bite), the six extras, and a

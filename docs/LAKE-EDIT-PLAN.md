@@ -1,8 +1,9 @@
 # Walls that split a lake — the code-level pass (2026-10-01)
 
-**All seven decisions taken as recommended** (2026-10-01, *"as recommended please Claude"*). **L-1 is built**
-(2026-10-01, on the pond branch; "L-1 — built" below). Next is L-2 on the branch, with E-1 on main alongside. His
-question about the walled area beneath TajMahal2 is still open.
+**All seven decisions taken as recommended** (2026-10-01, *"as recommended please Claude"*). **L-1 and L-2 are
+built** (2026-10-01, on the pond branch; "L-1 — built" and "L-2 — built" below). Next is his play on `LakeTest`,
+the branch's deciding test, with E-1 on main alongside. His question about the walled area beneath TajMahal2 is
+still open.
 
 His ask, verbatim in [LAKE-EDIT-NOTES.md](LAKE-EDIT-NOTES.md):
 
@@ -201,7 +202,7 @@ part a's (TODO's collision 1), and part a is parked on a far carry with O(1) rem
 |---|---|---|---|
 | **E-1** | main | The enclosure's bound as the area's extent (6) | Every cell of one area answers alike; both bound tests unchanged; r6 to the digit |
 | **L-1** ✓ | branch | The split by level, displacement included (2, 3). **Built 2026-10-01** | Decision 2's five; a mutation battery |
-| **L-2** | branch | ~~`M7d:` terms~~ (done in L-1), `--dam=`, headless oracle, screenshot (5) | Both levels kept, one side poured; r6 to the digit on the branch |
+| **L-2** ✓ | branch | ~~`M7d:` terms~~ (done in L-1), `--dam=`, headless oracle, screenshot (5). **Built 2026-10-01** | Both levels kept, one side poured; r6 to the digit on the branch |
 | **His play** | branch | `LakeTest`: a wall across a filled lake, R into one side | POND-PLAN's seventh criterion, and the branch's verdict |
 
 ## L-1 — built (2026-10-01, on `water-column-test`)
@@ -280,6 +281,66 @@ inference, not measured separately). It runs once per re-analysis, after a quiet
 - **The fallback** for a lake whose cells weigh nothing is unreachable while `VolumeCurve.LevelAt` keeps any
   positive volume strictly above the floor, so no recipe can reach it. It moves the lake by its first pit rather
   than deleting it.
+
+## L-2 — built (2026-10-01, on `water-column-test`)
+
+**`--dam=<metres>`** builds a straight stone wall a metre thick across the lake. It goes through the player when
+they stand over a lake holding 10,000 L or more, else through the pit `--fillbasin` filled, and
+`--waterprobe=x,z` stands it elsewhere. It is written through the pipeline's edit path, air voxels only, as the
+courtyard is. The details:
+- **The top** is `--damheight=` (1) m over the water.
+- **The ends.** Every column gets at least one block, so a column on a bank still raises its cell. Each end runs
+  two cells past where the bank tops the wall, and the print says `tied into the bank` or
+  `OPEN, the length ran out`.
+- **The options.** `--damaxis=x` turns it east–west, `--damafter=` holds it for a windowed run whose chunks are
+  still loading, and `--dampour=` pours into side A once the split is read.
+- **Over a puddle** it builds nothing and lists the five fullest lakes in the window, each as a `--waterprobe=`.
+  The first `LakeTest` run stood over 7 L, because his saved position had moved off the lake.
+
+The `M8: dam —` lines read both sides, three cells off the line, at three points:
+- before the build;
+- once the installed window has caught up with the raise map that holds the dam;
+- after the pour.
+
+`M7d:`'s split terms came with L-1. The flags and both recipes are in COMMANDS.md, verbatim.
+
+**The seeded oracle** (profile seed, basin 292, 1.2 ML):
+
+| | Side A | Side B |
+|---|---|---|
+| Before the dam | one lake at −5.828 | the same lake |
+| After the re-analysis (1.1 s) | −5.828, unchanged | −5.112, the wall's strip (+18 cm) |
+| After 100,000 L into A | −4.249 | −5.112, unchanged |
+
+Held 1,200,000 → 1,200,000 L, nothing would not fit back or spilled, 117,573 L displaced. The north end ran out of
+length on ground below the wall's top (`OPEN`). It still splits the lake at this level, but a fuller lake could go
+round it.
+
+**On a copy of `LakeTest`**, aimed at his 4,175,582 L lake 33 m from his spawn (`--waterprobe=140,164`), both ends
+tied into the bank:
+
+| | Side A | Side B |
+|---|---|---|
+| Before the dam | one lake at −29.339 | the same lake |
+| After the re-analysis (1.2 s) | −29.219, 1,104,810 L | −28.612, 3,066,336 L |
+| After 100,000 L into A | −28.630 | −28.612, unchanged |
+
+The sides sum exactly to the 4,171,146 L shared. That is 4,436 L under the "before" reading, because the lake was
+draining and being rained on in the 1.2 s between. Here the strip went to both sides, cell by cell, most of it
+east. **Decision 4's moment between the wall and the split was 1.1–1.2 s in every run.**
+
+**The screenshot** (a windowed run on a fresh copy, `--damafter=13`, shots at 14 s and 26 s, his saved heading
+of 312° NW): the wall stands out of the lake, with the water drawn on both sides and no sheet over the wall.
+Its west end reads reddish. That may be the support tint (a stretch at risk), but no fuse or fall came in the
+run's 26 s, and it is not checked. The two levels, 0.6 voxel apart, cannot be told apart at that distance.
+
+**The r6 control on this build: 2601 / 325 / 3446 at 411**, to the digit, no `ERROR`. Core is untouched; the
+suite was run anyway and reads L-1's 2,231.
+
+**An incident, mine.** I checked for his game at the slice's start and not before each launch. He launched at
+20:19:39, and my seeded run at 20:24:32 rotated the shared `godot.log`. His session's log stops there, and the rest
+of it, to 20:28, is lost. His world was not touched, because a `--profile` run opens none. The check now goes in
+the same command as every launch.
 
 ## For him, not a decision
 

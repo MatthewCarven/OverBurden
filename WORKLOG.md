@@ -1,5 +1,33 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-01 (night) — L-2: `--dam=`, and a dam splits his lake
+
+*"start L-2 please Claude"*. Built in a worktree of the pond branch (`lake-l2`); the record is
+LAKE-EDIT-PLAN's "L-2 — built", and the flags and recipes are in COMMANDS.md.
+
+**`--dam=<metres>`** builds a stone wall a metre thick across the lake under the player (or through the
+pit `--fillbasin` filled, or at `--waterprobe=`). Its top is a metre over the water, and it runs bank to
+bank. It reads both sides before the build, after the window catches up with the dam, and after
+`--dampour=`.
+- **Seeded**, profile seed, basin 292 at 1.2 ML: one lake at −5.828 became two. A stayed at −5.828, and B
+  rose to −5.112 with the wall's strip. Held 1,200,000 → 1,200,000 L, 117,573 L displaced. 100,000 L into A
+  raised A only.
+- **On a copy of `LakeTest`**, his 4.2 ML lake 33 m from his spawn: A −29.339 → −29.219, B → −28.612, the
+  sides summing exactly to the litres shared. 100,000 L into A raised A to −28.630, and B stayed at −28.612.
+- **The split lands 1.1–1.2 s after the wall in every run**: decision 4's accepted moment, measured.
+- **The screenshot**: the wall stands out of his lake with water drawn on both sides. Its west end reads
+  reddish, perhaps the support tint, which is not checked and is owed in TODO.
+- **r6 to the digit**, no `ERROR`. Core untouched.
+
+**The first `LakeTest` run stood over 7 L**, because his saved position had moved off the lake. So the dam now
+refuses anything under 10,000 L and lists the five fullest lakes as `--waterprobe=` targets.
+
+**And a slip of mine.** He launched at 20:19:39, five minutes after I had last checked, and my seeded run
+started at 20:24:32 and rotated the shared log. His session's log stops there. The kept part is
+`play-LakeTest-2026-10-01-2019.log`, beside his afternoon's `…-1519.log`. The check now goes in the same command
+as every launch. He said he'd *"felt some kind of feeling like I should not be running it"*; he should run it
+whenever he likes.
+
 ## 2026-10-01 (evening) — L-1: a wall across a lake keeps both sides' water
 
 *"start L-1 please Claude"*. Built in a worktree of the pond branch (`lake-l1`), so the main folder and

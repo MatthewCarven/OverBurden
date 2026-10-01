@@ -152,6 +152,37 @@ sample(s) undrawn`. **The oracle, verbatim, reads `handed 0 L` with
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --courtyard=8 --injectlitres=20000 --measure=25
 ```
 
+**The dam (2026-10-01, L-2; on the pond branch only, since it needs the raise).** **`--dam=<metres>`**
+builds a straight stone wall a metre thick, at most that long, across the lake: through the player
+when they stand over a lake holding 10,000 L or more, else through the pit `--fillbasin` filled.
+`--waterprobe=x,z` (voxels) stands it elsewhere. Its top is **`--damheight=<metres>`** (1) over the
+water. Each end runs two cells past where the bank tops it, and the print says `tied into the bank`
+or `OPEN, the length ran out`. **`--damaxis=x`** runs it east–west (default north–south),
+**`--damafter=<seconds>`** holds it past its due moment for a windowed run whose chunks are still
+loading, and **`--dampour=<litres>`** pours into side A once the split is read. Over a puddle it
+builds nothing and lists the five fullest lakes in the window, each as a `--waterprobe=x,z`.
+
+Its `M8: dam —` lines read both sides three cells off the line:
+- before the build;
+- after the window has caught up with the raise map that holds the dam, with the split terms, the
+  ledger's held, and what would not fit back or spilled;
+- after the pour.
+
+The `M7d:` line carries `split N lake(s), M L shared by level, D L displaced`. **The seeded oracle,
+verbatim:** basin 292 at the profile seed, 1.2 ML. It reads `ONE lake` at -5.828, then `TWO lakes`
+with side A at -5.828 and side B at -5.112, `held 1,200,000 → 1,200,000 L, +0 L would not fit back,
++0 L spilled`, `117,573 L displaced`. After the pour, A is at -4.249 and B at -5.112:
+
+```bash
+../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --at=37,2,57 --fillbasin=1200000 --dam=80 --dampour=100000 --measure=20
+```
+
+On a **copy** of `LakeTest`, his 4.2 ML lake 33 m from his spawn, add `--world=<copy>
+--waterprobe=140,164` to the same flags without `--at` and `--fillbasin`. Rain and the lake's own
+draining move its figures between runs. On 2026-10-01 it read A -29.339 → -29.219 and
+B → -28.612, the sides summing exactly to the litres shared, then 100,000 L into A gave A -28.630 and
+left B at -28.612.
+
 In the game **`--fluidsurface=debug`** is the pre-M8d-1 arm — one quad a surface cell *in Tier A's
 shader*, the geometry and the look every M8b and M8c screenshot had, the control for every M8d-2
 screenshot — and `nosides`, `nobottoms`, `notops`, `nomerge` leave one thing out of the mesh (in the
