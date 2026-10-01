@@ -775,7 +775,8 @@ public partial class Main : Node3D
     /// water; each end runs on two cells past where the bank reaches the top, so Tier A sees it tied
     /// in. <c>--damaxis=x</c> runs it east–west instead of north–south. The headless oracle for
     /// walls that split a lake: both sides' lakes before, after the re-analysis that sees it, and
-    /// after <c>--dampour=&lt;litres&gt;</c> into one side.
+    /// after <c>--dampour=&lt;litres&gt;</c> into one side. <c>--damafter=&lt;seconds&gt;</c> holds it
+    /// past its due moment, for a windowed run whose chunks are still loading.
     /// </summary>
     private int _damMetres;
 
@@ -784,6 +785,14 @@ public partial class Main : Node3D
     private bool _damAlongX;
 
     private long _damPourLitres;
+
+    /// <summary>
+    /// <c>--damafter=&lt;seconds&gt;</c>: hold the dam that long past its due moment. A played world takes
+    /// ~14 s to light in a windowed run, and a wall written into chunks that have not loaded is skipped.
+    /// </summary>
+    private double _damAfterSeconds;
+
+    private double _damDelayElapsed;
 
     /// <summary>Where the dam's oracle is: 0 not built, 1 built and waiting for the re-analysis, 2 read after it, 3 poured.</summary>
     private int _damStage;
@@ -2007,6 +2016,9 @@ public partial class Main : Node3D
                     break;
                 case "dampour" when long.TryParse(value, out long damPour) && damPour > 0:
                     _damPourLitres = damPour;
+                    break;
+                case "damafter" when double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double damAfter) && damAfter >= 0:
+                    _damAfterSeconds = damAfter;
                     break;
 
                 // M8b-2c's two seams. --fillbasin is the Tier A relay: litres into the basin
@@ -7627,6 +7639,12 @@ public partial class Main : Node3D
         bool due = _profiler is null ? _secondsSinceStart >= 3.0 : _profiler.Warm;
         if (!due || _water.Window is null || _water.Water is null || (_fillBasinLitres > 0 && !_breached))
         {
+            return;
+        }
+
+        if (_damDelayElapsed < _damAfterSeconds)
+        {
+            _damDelayElapsed += GetProcessDeltaTime();
             return;
         }
 
