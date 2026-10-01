@@ -170,14 +170,15 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Answered lately
 
-- **Walls that split a lake, seven decisions** (2026-10-01): *"as recommended please Claude"*. Taken, not
-  built yet ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md)). In short:
+- **Walls that split a lake, seven decisions** (2026-10-01): *"as recommended please Claude"*. Taken, and
+  the first half built the same day (L-1, below in the status) ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md)).
+  In short:
   - turning the lake into Tier B can't keep two sides apart, because the water rejoins the one lake once it
     settles;
   - your pond branch already divides a lake at a wall, but it gives all the water to one side and leaves
     the other dry, a bug no test caught;
-  - so the fix goes on the branch: each side keeps the water that stood over it, and the wall nudges both
-    levels up a little;
+  - so the fix goes on the branch: each side keeps the water that stood over it, and the water the wall
+    itself stands in goes to the side it drains to (usually one side), which rises a little;
   - then your play on `LakeTest` (a wall across a full lake, R into one side) becomes the branch's deciding
     test;
   - one small fix on main as well: whether a walled area counts as walled in can depend on which spot is
@@ -293,12 +294,17 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-10-01, at the lake pass's close**. Main has this session's doc commits to push (`git push origin
-main`); the pond branch is pushed. **Branches:** `main` and `water-column-test` only. The pond branch has
-everything main had before today's docs, and the next merge brings them over.
+Updated **2026-10-01, evening, after L-1**. Both branches have commits to push (`git push origin main
+water-column-test`). **Branches:** `main` and `water-column-test` only, and the pond branch has everything main
+has.
 
-- **Walls that split a lake: the plan is taken** (2026-10-01), all seven as recommended. Next is building the
-  fix on your pond branch, then your play on `LakeTest`.
+- **Walls that split a lake: the first half is built on your pond branch** (L-1, 2026-10-01). A wall across a
+  full lake now leaves each side the water that stood over it; before, the side with the lake's lowest point got
+  all of it and the other side was left nearly dry. The water the wall itself stands in goes to one side, which
+  rises a little: up to about 28 cm for a wall across a 40 × 30 m lake 2 m deep. It also fixed a branch bug: a
+  lake stored from an earlier visit, near the edge of the area the water is worked out over, could vanish the
+  moment you placed a block. Next is the `--dam=` test and a picture (L-2), then your play on `LakeTest`. Nothing
+  to play yet.
 
 - **The ideal machines plan is taken**, [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md): the
   bank, the vault and its dump, water in the inventory, the quarry (your 2 m bite), the six extras, and a

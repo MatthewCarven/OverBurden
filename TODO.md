@@ -108,31 +108,32 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
       vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;
       files stay in watts). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his
       say-so, it takes his focus); a bite under a lake (IM-7's bench); a dump underground (IM-5's).
-- [ ] **Building in a lake: walls that split a lake — all seven decisions taken as recommended (2026-10-01),
-      nothing built; next is L-1 in a worktree of `water-column-test`, E-1 on main alongside**
-      ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), 2026-10-01; his notes in
+- [ ] **Building in a lake: walls that split a lake — all seven decisions taken as recommended (2026-10-01);
+      L-1 built on `water-column-test` the same day; next is L-2 on the branch, E-1 on main alongside**
+      ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), "L-1 — built"; his notes in
       [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md)). The finding: converting lake water to Tier B can't
       keep the sides apart, because the hand-back rejoins the one lake. The pond branch's raise already
-      divides a lake at a wall, but it gives all the litres to the side holding the old pit (fact 10, no test
-      covered it). Taken:
-      - **L-1 and L-2 on the branch** (share each old lake by the water over each cell; `--dam=`; a headless
-        oracle), then his play on `LakeTest`, which becomes the branch's deciding test;
+      divides a lake at a wall; **L-1 fixed its litres**: each side now keeps the water that stood over it,
+      where it gave every litre to the side holding the old pit. It also stopped `Rehome` deleting stored lakes
+      whose pit lay inside the window but was not one of its basins. Suite 2,231, thirteen mutations red, r6 to
+      the digit on the branch. Still to do:
+      - **L-2 on the branch**: `--dam=`, a headless oracle, a screenshot; then his play on `LakeTest`, which
+        becomes the branch's deciding test (POND-PLAN's seventh criterion);
       - **E-1 on main**: the enclosure's answer stops depending on which cell asks first (fact 5; a candidate
         for the sheet that "bleeds in and out of walls").
 
-      **L-1's brief, in order (LAKE-EDIT-PLAN decision 2 is the spec):**
-      1. A worktree of the branch: `git worktree add -b lake-l1 .claude/worktrees/lake-l1 water-column-test`,
-         then `EnterWorktree` with that path (the notebook's recipe).
-      2. Read, on the branch: `WaterSystem.Install`'s same-origin path (it calls `Ledger.Rehome`),
-         `BasinLedger.Absorb` / `Rehome` / `Seed`, `BasinWater.CaptureByBasin` / `LevelAt` / `Add`, and
-         `RaisedSurfaceTests`' pier and ring-down tests, which are the fixtures to copy.
-      3. **Write the wall-across-a-full-lake test first and watch it fail**, with the pit side risen and the
-         other side dry.
-      4. Share each old lake (its top node in the old merge tree) by `(old level − old height)` over each cell,
-         counted to the new basin holding the cell. Use whole litres by largest remainder, then `Add` per new
-         basin. A window move stays by pit.
-      5. Decision 2's five oracles; a battery (by pit, by area, the new height for the old, the remainder
-         dropped); the suite; r6 on the branch.
+      **L-2's brief, in order (LAKE-EDIT-PLAN decision 5 is the spec; `M7d:`'s terms were done in L-1):**
+      1. A worktree of the branch, as L-1's: `git worktree add -b lake-l2 .claude/worktrees/lake-l2
+         water-column-test`, then `EnterWorktree` with that path.
+      2. `--dam=<metres>`: a wall across the lake under the player, built the way `--courtyard=` builds its ring
+         (branch `Main.cs:750–769`), tied into the banks. Placed material raises the cells, and the re-analysis
+         follows after `RaiseQuietSeconds` (1 s) of quiet.
+      3. A headless oracle on a copy of `LakeTest`: both sides' levels and `M7d:`'s `split … shared by level …
+         displaced` before and after the dam, then an R-style pour into one side. Read the first `M8b:` line's
+         `loaded` before believing it. Headless builds no surface, but the levels are Tier A's.
+      4. A screenshot on a copy of `LakeTest` (windowed; it takes his focus, so say so first).
+      5. r6 to the digit on the branch, the suite, and the record. Expect a strip's rise on **one** side, up to
+         twice decision 3's 14 cm (corrected at L-1).
 
       His question, open: what the walled area beneath TajMahal2 was. (The lake over a quarry, his look
       2026-09-30: *"draws nearly perfectly"*, a small gap sometimes, filled by Tier B soon after.)

@@ -120,7 +120,14 @@ toward the wall's top and the other side starts dry. No test built a wall across
 The fix is LAKE-EDIT-PLAN's decision 2: share each old lake by the water that stood over each
 cell, which is slice L-1 on this branch.
 
-### 5. A pit that disappears hands its water to the basin now under it — *new, recommended*
+### 5. A pit that disappears hands its water to the basin now under it — *new, recommended; superseded 2026-10-01*
+
+**Superseded by LAKE-EDIT-PLAN's decision 2, built as L-1** ("L-1 — built" there). A same-origin install now
+shares each old lake by the water that stood over each cell, which covers a covered pit and also splits a lake
+at a wall (this rule gave a split lake's every litre to the side holding the old pit). The rule below also took
+rows the old window never held: a lake stored by an earlier window, whose pit lay inside this one but was not
+its basin, was deleted or poured into another basin at the first raise. L-1 leaves those rows alone. The text
+is kept as it was decided:
 
 Fact 5's fix. On a same-origin install, any ledger pit inside the new window that is not a pit
 of the new window has its litres re-homed. They go to the basin whose catchment now holds that
@@ -213,7 +220,7 @@ make Tier A a transient that must terminate. The reply to him gives the three re
 
 | Slice | What | Oracle |
 |---|---|---|
-| **a — Core** | `RaisedSurface` in `Overburden.Core/Hydrology/`: per chunk column, 16 cells' raise off a `SkyColumn` and the seed, cached by revision; a version; an immutable `Snapshot(window)` for the worker. `HeightField.Sample` takes an optional snapshot and takes the max. `BasinLedger` re-homes a vanished pit (5). **`WaterGrid` in `Overburden.Core/Fluid/`** (10): the padded flood over a raised component, one water column per voxel column, replaced rather than mutated. | **No raise is byte-identical to today's field**, and the r6 control is to the digit. A ring of placed stone around a natural pond raises its saddle to the ring's lowest top, and the capacity grows by the ring's inside area × the rise. Removing the ring spills the excess. A pier over the pit re-homes its litres (the total is conserved). A roof over the pond reads as raised (the cost pinned). **The grid:** a one-voxel wall across a cell's middle is lake inside and dry outside; a gap at the water line floods through it; a wall on a chunk seam finds its seeds through the pad; an unraised chunk column builds no grid and its bands are unchanged to the column. |
+| **a — Core** | `RaisedSurface` in `Overburden.Core/Hydrology/`: per chunk column, 16 cells' raise off a `SkyColumn` and the seed, cached by revision; a version; an immutable `Snapshot(window)` for the worker. `HeightField.Sample` takes an optional snapshot and takes the max. `BasinLedger` re-homes a vanished pit (5; superseded 2026-10-01 by LAKE-EDIT-PLAN's L-1, which shares each lake by level). **`WaterGrid` in `Overburden.Core/Fluid/`** (10): the padded flood over a raised component, one water column per voxel column, replaced rather than mutated. | **No raise is byte-identical to today's field**, and the r6 control is to the digit. A ring of placed stone around a natural pond raises its saddle to the ring's lowest top, and the capacity grows by the ring's inside area × the rise. Removing the ring spills the excess. A pier over the pit re-homes its litres (the total is conserved). A roof over the pond reads as raised (the cost pinned). **The grid:** a one-voxel wall across a cell's middle is lake inside and dry outside; a gap at the water line floods through it; a wall on a chunk seam finds its seeds through the pad; an unraised chunk column builds no grid and its bands are unchanged to the column. |
 | **b — the wire** | The open-time derive from the stored columns (1) with its ms printed; the live map fed where `RainOnPlaced` is fed; the re-analysis (8); `LakeCeiling` reading the grid in raised cells (7); the surface drawing raised cells from the grid and dropping `Enclosure` (9); the hand-off's narrowed ask (6). `M7d:` gains `raised N sample(s) in M chunk column(s), K re-analysis(es) for an edit, derived at open in T ms`, and the ceiling's line `grid G chunk column(s), C water column(s), F ms`. | Headless: `--courtyard=8` with the pour lands in the courtyard's own basin, the outside unchanged (3); the r6 control to the digit; every identity exact. A screenshot on a copy of his world: water to the wall inside, none outside. Then his play. |
 
 **Read before a's code:** `RainOnPlaced`'s placed-set scan (the predicate is reused, not copied),
@@ -266,8 +273,11 @@ ledger seeds it, it does not fit, and it leaves as `SeedOverflowLitres`: printed
    6× main's (200 against 33 ms), and that is his pond holding the pour**: 406 kL of it drains
    into Tier B through the dug ground under it. The branch with `--raise=0` ticks as main does.
 6. **His word.** The play verdict decides. The five above are what a *"no"* would be read against.
+7. **A wall across a full lake keeps both sides' water, and R into one side raises only that side**
+   (added 2026-10-01 by LAKE-EDIT-PLAN's decision 5; L-1 built the Core half the same day). His play on
+   `LakeTest` after L-2 is the test, and it is the branch's deciding one.
 
-**Retired instead?** Then this section records which of the six failed and why, the branch is
+**Retired instead?** Then this section records which of the seven failed and why, the branch is
 deleted, and main's DESIGN amendment is reverted to *not built, and why*.
 
 ## Built
@@ -291,7 +301,9 @@ and not on "a pit went missing". Suite 1,888 → 1,905. The game passes no raise
 behaviour is unchanged by construction; the r6 control is b's to read.
 
 **One thing not tested:** a re-homed pit whose sample now drains out of the window (`left`). The
-bowl fixture cannot make that happen without an edge-cell raise, and it is one line.
+bowl fixture cannot make that happen without an edge-cell raise, and it is one line. *(2026-10-01: `Rehome`
+is gone, replaced by L-1's share by level; its `left` is tested there, by a pond beside the window's edge
+filled with a block, and the `outlet-uncounted` recipe goes red on it.)*
 
 ### a-2 — the water grid (2026-09-25, on `water-column-test`)
 
