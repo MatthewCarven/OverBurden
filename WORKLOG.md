@@ -1,5 +1,12 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-01 — the lake plan's seven decisions taken
+
+*"as recommended please Claude"*. All seven of [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md) are taken.
+Nothing is built. Next is L-1, sharing each old lake by the water over each cell, in a worktree of
+`water-column-test`; then L-2; E-1 on main alongside. His question about the walled area beneath TajMahal2 is
+still open, on his list.
+
 ## 2026-10-01 — the lake pass: converting to Tier B can't separate; the pond branch's split is the route, and it loses a side
 
 *"yes please Claude, start the lake pass"*. Three read-only searches (Tier A's model, the edit path, Tier B's

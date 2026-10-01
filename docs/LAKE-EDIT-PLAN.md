@@ -1,5 +1,9 @@
 # Walls that split a lake — the code-level pass (2026-10-01)
 
+**All seven decisions taken as recommended** (2026-10-01, *"as recommended please Claude"*). Nothing is
+built yet. The next session builds L-1 on the pond branch, in a worktree of the branch; E-1 on main can go
+alongside. His question about the walled area beneath TajMahal2 is still open.
+
 His ask, verbatim in [LAKE-EDIT-NOTES.md](LAKE-EDIT-NOTES.md):
 
 > next session we can cover the plan for the tier a to tier b conversion upon voxels being placed I just
@@ -80,7 +84,7 @@ Tier A, the edit path and Tier B; the load-bearing facts were checked by hand.
 
 ## Decisions
 
-### 1. The wall is seen by Tier A, through the pond branch's raise, not by converting water to Tier B — *recommended*
+### 1. The wall is seen by Tier A, through the pond branch's raise, not by converting water to Tier B — *taken as recommended (2026-10-01)*
 
 - **(a) Tier A sees the wall.** The branch's raise with decision 2's fix. Separation is permanent, and its
   running cost is the branch's own (below), nothing more. **Recommended.**
@@ -103,7 +107,7 @@ under it.
 **Revisit:** if he retires the branch, (b) inside an enclosure is the only route left, and it separates
 only closed loops of placed material under 32 m.
 
-### 2. A split keeps each side's water: re-home by the old level, cell by cell, not by pit — *recommended*
+### 2. A split keeps each side's water: re-home by the old level, cell by cell, not by pit — *taken as recommended (2026-10-01)*
 
 On a same-origin re-analysis (a raise, never a window move), each old lake's litres are shared among the
 new basins **in proportion to the water that stood over each cell at the old level**: `(old level − old
@@ -125,7 +129,7 @@ the window.
 - **Cost:** a pass over the window's 65,536 samples at each same-origin install, on the sim thread. That is
   an estimate (a few ms), measured in the slice.
 
-### 3. Displacement: a raised cell's water goes to the basin that now holds the cell — *recommended*
+### 3. Displacement: a raised cell's water goes to the basin that now holds the cell — *taken as recommended (2026-10-01)*
 
 This is his *"displace the water"*. It falls out of decision 2's weights, because the old height is used.
 A raised cell holds no Tier A water any more (its height is the wall's top), so the water Tier A had over
@@ -138,7 +142,7 @@ nowhere to stand in Tier A: deleted, or converted.
 
 **Revisit:** a play where the rise reads too big. The lever is a finer raise, the branch's own question.
 
-### 4. The moment between the wall and the re-analysis is accepted, and the conversion is its lever — *recommended*
+### 4. The moment between the wall and the re-analysis is accepted, and the conversion is its lever — *taken as recommended (2026-10-01)*
 
 Until the raise has been quiet for a second and the re-analysis lands (about 130 ms on a worker), the lake
 is still one. In that window, a pour on one side joins the whole lake, and a hole inside the walls draws the
@@ -147,7 +151,7 @@ whole lake through its portals.
 **Revisit:** a play where a wall's first seconds read wrong. His conversion, scoped to the wall's cells, is
 the named lever for that moment.
 
-### 5. Built on the branch, in two slices, and it becomes the branch's deciding test — *recommended*
+### 5. Built on the branch, in two slices, and it becomes the branch's deciding test — *taken as recommended (2026-10-01)*
 
 - **L-1, Core:** the split by level (decision 2), its tests and battery, on `water-column-test`.
 - **L-2, the wire:**
@@ -161,7 +165,7 @@ and R into one side raises only that side.** Then his play on the branch: on `La
 filled lake, and R into one side. Built in a worktree of the branch, since `start.cmd` builds whatever the
 main folder holds.
 
-### 6. On main, the enclosure's answer stops depending on which cell asks first — *recommended, a small slice of its own*
+### 6. On main, the enclosure's answer stops depending on which cell asks first — *taken as recommended (2026-10-01), a small slice of its own*
 
 Today's rule is deliberate (fact 5). The proposal: a walled area reads open when **its own extent** passes
 128 voxels in x or z, so every cell of one area gives one answer. That is the comment's *"an enclosure up to
@@ -180,7 +184,7 @@ Today's rule is deliberate (fact 5). The proposal: a walled area reads open when
 **Slice E-1, on main**, independent of the branch. If the branch merges, only the hand-off still asks, on
 raised samples, so the fix narrows but still applies.
 
-### 7. The ~95% hand-back stays with water bodies part a — *recommended*
+### 7. The ~95% hand-back stays with water bodies part a — *taken as recommended (2026-10-01)*
 
 Under the raise, separation does not wait on the hand-back, so this plan does not need it. The question is
 part a's (TODO's collision 1), and part a is parked on a far carry with O(1) removal. Out of scope here.

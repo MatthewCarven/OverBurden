@@ -1,7 +1,7 @@
 # Building in a lake — notes (2026-09-30)
 
-**The code-level pass is written: [LAKE-EDIT-PLAN.md](LAKE-EDIT-PLAN.md) (2026-10-01), seven decisions waiting
-on his word.** Its short answer: converting the water to Tier B cannot keep the sides apart, because water handed
+**The code-level pass is written and taken: [LAKE-EDIT-PLAN.md](LAKE-EDIT-PLAN.md) (2026-10-01), all seven
+decisions as recommended.** Its short answer: converting the water to Tier B cannot keep the sides apart, because water handed
 back to Tier A rejoins the one lake. The pond branch's raise already makes a wall divide a lake, but it splits
 the litres wrongly, so the plan fixes that on the branch. The four questions below are answered there:
 1 → decisions 2 and 3; 2 → decision 1; 3 → decision 7; 4 → decisions 1 and 4.

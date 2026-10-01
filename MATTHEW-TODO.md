@@ -41,21 +41,9 @@ care about. I keep it current at the end of each session.
       A shape half in water puts its dry half down at the click: the first press cancels the wet half,
       and a second takes back the dry half.
 
-- [ ] **Walls that split a lake: seven decisions** ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md),
-      2026-10-01). "As recommended" or any one back. The short of it:
-      - **Turning the lake into Tier B can't keep the two sides apart.** When the water settles it goes back to
-        the one lake, which has no wall in it, so the sides join again within seconds.
-      - **Your pond branch already makes a wall divide a lake**, but it gives all the water to one side and
-        leaves the other dry. That's a bug, and no test caught it.
-      - **The plan fixes that on the branch**: each side keeps the water that stood over it, and the wall
-        nudges both levels up a little (displacement). Then your play on `LakeTest`, a wall across a full lake
-        and R into one side, becomes the branch's deciding test.
-      - **One small fix on main as well**: whether a walled area counts as walled in can depend on which spot
-        gets checked first, so it can flip. That may be the sheet you saw "bleed in and out of walls".
-
-      **One question:** the walled area beneath TajMahal2. Was it built above the ground or dug below it,
-      about how wide, and what went wrong: the lake showing inside, the lake getting in, or not being able to
-      flood it on its own?
+- [ ] **One question on walls that split a lake:** the walled area beneath TajMahal2. Was it built above the
+      ground or dug below it, about how wide, and what went wrong: the lake showing inside, the lake getting
+      in, or not being able to flood it on its own? It decides whether the plan covers that case as it is.
 
 - [ ] **The pond branch's verdict.** `water-column-test` has the raised watershed and your water
       grid built (walls you place raise the lake's rim; the lake reaches under what you build).
@@ -182,6 +170,19 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Answered lately
 
+- **Walls that split a lake, seven decisions** (2026-10-01): *"as recommended please Claude"*. Taken, not
+  built yet ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md)). In short:
+  - turning the lake into Tier B can't keep two sides apart, because the water rejoins the one lake once it
+    settles;
+  - your pond branch already divides a lake at a wall, but it gives all the water to one side and leaves
+    the other dry, a bug no test caught;
+  - so the fix goes on the branch: each side keeps the water that stood over it, and the wall nudges both
+    levels up a little;
+  - then your play on `LakeTest` (a wall across a full lake, R into one side) becomes the branch's deciding
+    test;
+  - one small fix on main as well: whether a walled area counts as walled in can depend on which spot is
+    checked first. That may be the sheet that "bled in and out of walls".
+
 - **`start.cmd`'s settings as the game's defaults** (2026-10-01): *"as recommended"*. Not now; they
   flip when we make the first build someone else plays (in TODO under "Later", with the reasons).
   **And the `--adaptive=false` bug is fixed**: it and four other on/off flags now read 1/0, true/false,
@@ -296,7 +297,8 @@ Updated **2026-10-01, at the session's close**. Both branches were pushed; the s
 thing to push (`git push origin main`). **Branches:** `main` and `water-column-test` only, and the pond
 branch has everything main has.
 
-- **Walls that split a lake: the plan is written** (2026-10-01), seven decisions at the top of this list.
+- **Walls that split a lake: the plan is taken** (2026-10-01), all seven as recommended. Next is building the
+  fix on your pond branch, then your play on `LakeTest`.
 
 - **The ideal machines plan is taken**, [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md): the
   bank, the vault and its dump, water in the inventory, the quarry (your 2 m bite), the six extras, and a

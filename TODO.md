@@ -108,12 +108,13 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
       vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;
       files stay in watts). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his
       say-so, it takes his focus); a bite under a lake (IM-7's bench); a dump underground (IM-5's).
-- [ ] **Building in a lake: walls that split a lake — the pass is written, seven decisions wait on his word**
+- [ ] **Building in a lake: walls that split a lake — all seven decisions taken as recommended (2026-10-01),
+      nothing built; next is L-1 in a worktree of `water-column-test`, E-1 on main alongside**
       ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), 2026-10-01; his notes in
       [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md)). The finding: converting lake water to Tier B can't
       keep the sides apart, because the hand-back rejoins the one lake. The pond branch's raise already
       divides a lake at a wall, but it gives all the litres to the side holding the old pit (fact 10, no test
-      covered it). Recommended:
+      covered it). Taken:
       - **L-1 and L-2 on the branch** (share each old lake by the water over each cell; `--dam=`; a headless
         oracle), then his play on `LakeTest`, which becomes the branch's deciding test;
       - **E-1 on main**: the enclosure's answer stops depending on which cell asks first (fact 5; a candidate
