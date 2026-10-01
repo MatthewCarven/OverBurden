@@ -266,11 +266,21 @@ public sealed class WaterSystem : IWaterTable
     /// </remarks>
     public long SeedOverflowLitres { get; private set; }
 
-    /// <summary>Pits a same-origin re-analysis no longer had, whose water went to the basin now under them, over the lifetime.</summary>
-    public long RehomedPits { get; private set; }
+    /// <summary>
+    /// Old lakes a same-origin re-analysis left standing as two or more lakes, over the lifetime: a
+    /// wall across one, or a ring built in one (docs/LAKE-EDIT-PLAN.md, L-1).
+    /// </summary>
+    /// <remarks>
+    /// Counted after the shares are poured, by the lakes they stand in: an old lake whose shares
+    /// landed under two lake tops. A wall lower than the water splits nothing, and says so.
+    /// </remarks>
+    public long SplitLakes { get; private set; }
 
-    /// <summary>Litres those pits carried to their new basins, over the lifetime.</summary>
-    public long RehomedLitres { get; private set; }
+    /// <summary>Litres the <see cref="SplitLakes"/> held, shared by level among their sides, over the lifetime.</summary>
+    public long SplitLitres { get; private set; }
+
+    /// <summary>Litres of lake water whose room a raise took, over the lifetime — see <see cref="LevelShare.Displaced"/>.</summary>
+    public long DisplacedLitres { get; private set; }
 
     /// <summary>
     /// The lattice-aligned origin of the window that should be analysed for a player at this
@@ -362,26 +372,33 @@ public sealed class WaterSystem : IWaterTable
             && Window.Watershed.Field.OriginZ == window.Watershed.Field.OriginZ
             && Window.Watershed.Field.Pitch == window.Watershed.Field.Pitch;
 
+        LevelShare? share = null;
         if (Window is not null && Water is not null)
         {
-            Ledger.Absorb(Window.Watershed, Water);
-        }
-
-        if (sameOrigin)
-        {
-            // A re-analysis of the same ground can only differ by a raise (docs/POND-PLAN.md,
-            // decision 5), so a pit it no longer has was covered by one — a pier, a filled pond —
-            // and its water goes to the basin now under it rather than waiting in the ledger at
-            // a coordinate no basin has. Never on a window move: a pit that falls on a moved
-            // window's edge ring is still a pit, waiting for a window that holds it.
-            (int pits, long litres, long left) = Ledger.Rehome(window.Watershed);
-            RehomedPits += pits;
-            RehomedLitres += litres;
-            SeedOverflowLitres += left;
+            if (sameOrigin)
+            {
+                // A re-analysis of the same ground can only differ by a raise (docs/POND-PLAN.md,
+                // decision 5): a pier, a wall, a filled pond. Each old lake is shared by the water
+                // that stood over each cell, so a wall across one leaves each side what it held
+                // (docs/LAKE-EDIT-PLAN.md, decision 2). Never on a window move: a pit that falls
+                // on a moved window's edge ring is still a pit, waiting for a window that holds it.
+                share = Ledger.ShareByLevel(Window.Watershed, Water, window.Watershed);
+                SeedOverflowLitres += share.Left;
+                DisplacedLitres += share.Displaced;
+            }
+            else
+            {
+                Ledger.Absorb(Window.Watershed, Water);
+            }
         }
 
         var water = new BasinWater(window.Tree);
         SeedOverflowLitres += Ledger.Seed(window.Watershed, water);
+
+        if (share is not null)
+        {
+            CountSplits(share, water);
+        }
 
         Window = window;
         Water = water;
@@ -413,6 +430,26 @@ public sealed class WaterSystem : IWaterTable
         _rain = new BasinRainfall(
             window.Watershed, water, _seed, _integratedToMillis, RainfallScale);
         _rain.Divert(owed);
+    }
+
+    /// <summary>Counts the old lakes whose shares now stand in two or more lakes.</summary>
+    private void CountSplits(LevelShare share, BasinWater water)
+    {
+        var tops = new HashSet<int>();
+        for (int lake = 0; lake < share.Lakes; lake++)
+        {
+            tops.Clear();
+            foreach (int basin in share.Destinations[lake])
+            {
+                tops.Add(water.LakeTopOf(basin));
+            }
+
+            if (tops.Count > 1)
+            {
+                SplitLakes++;
+                SplitLitres += share.LakeLitres[lake];
+            }
+        }
     }
 
     /// <summary>Rains everything that fell since the last call. Returns litres that left the world.</summary>

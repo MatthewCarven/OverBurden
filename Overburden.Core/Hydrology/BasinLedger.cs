@@ -109,67 +109,272 @@ public sealed class BasinLedger
         }
     }
 
-    private static readonly int WatchRehome = CallWatch.Register("raise: re-home the ledger");
+    private static readonly int WatchShare = CallWatch.Register("raise: share the lakes by level");
 
     /// <summary>
-    /// Moves the water of every stored pit inside this window that the window no longer has as a
-    /// pit to the basin whose catchment now holds that sample. Returns the pits moved, the litres
-    /// they carried, and the litres that left because the sample now drains out of the world.
+    /// Replaces what the ledger held for the old window's basins with the old window's water,
+    /// shared among the new window's basins by the water that stood over each cell at the old
+    /// level (docs/LAKE-EDIT-PLAN.md, decision 2). Rows the old window did not hold are untouched.
     /// </summary>
     /// <remarks>
-    /// <b>For a re-analysis of the same ground only</b> — see <see cref="WaterSystem.Install"/>.
-    /// There the only way a pit disappears is a raise over it (docs/POND-PLAN.md, fact 5), and
-    /// without this its litres would stay here at a coordinate no basin has: counted in every
-    /// total, drawn nowhere, forever. The litres join the new pit's entry as an addition, since
-    /// this is one basin's water arriving in another's and not a window's view being replaced.
+    /// <para>
+    /// <b>For a re-analysis of the same ground only</b>, where the two windows' samples are the same
+    /// cells and differ only by a raise — see <see cref="WaterSystem.Install"/>. A window move stays
+    /// by pit (<see cref="Absorb"/> then <see cref="Seed"/>), since the land did not change.
+    /// </para>
+    /// <para>
+    /// <b>Each old lake</b> — the node <see cref="BasinWater.LakeTopOf"/> names for its basins — is
+    /// shared in proportion to <c>(old level − old height)</c> over every cell under it, counted to
+    /// whichever new basin now holds the cell. So a wall across a full lake leaves each side the
+    /// water that stood over it, and the wall's own strip goes to the basin that now holds the
+    /// wall's cells, which is decision 3's displacement. <b>The old height, not the new</b>: the
+    /// new one would give a raised cell nothing, and the strip's water would be spread over both
+    /// sides in proportion instead of landing where the wall drains. For an unchanged lake this
+    /// gives back exactly what it held, and for a merge (a wall taken down) everything goes to the
+    /// one basin, as by-pit did.
+    /// </para>
+    /// <para>
+    /// <b>Whole litres by largest remainder</b>, so each old lake's total is exact. The shares join
+    /// the new pits' rows as additions — a row the old window did not hold may already be waiting
+    /// at a new pit — and <see cref="Seed"/> then pours them through <see cref="BasinWater.Add"/>,
+    /// so a share that no longer fits fills and spills by the usual rules, counted there. A share
+    /// counted to a cell that now drains off the window leaves the world, and is returned as
+    /// <see cref="LevelShare.Left"/>.
+    /// </para>
+    /// <para>
+    /// <b>Rows the old window did not hold are left alone, which by-pit did not do.</b> Its
+    /// predecessor, <c>Rehome</c>, moved every row inside the window that the new window had no pit
+    /// for, so a lake stored by an earlier window whose pit fell on this window's edge ring was
+    /// deleted at the first raise, and one whose pit fell inside another basin's catchment was
+    /// poured into that basin. Those rows wait for a window that can see them, as a window move
+    /// leaves them.
+    /// </para>
     /// </remarks>
-    public (int Pits, long Litres, long Left) Rehome(Watershed watershed)
+    public LevelShare ShareByLevel(Watershed old, BasinWater oldWater, Watershed next)
     {
-        using CallWatch.Scope callWatch = CallWatch.Time(WatchRehome);
-        ArgumentNullException.ThrowIfNull(watershed);
-        HeightField field = watershed.Field;
-        int span = field.Pitch * field.CellVoxels;
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchShare);
+        ArgumentNullException.ThrowIfNull(old);
+        ArgumentNullException.ThrowIfNull(oldWater);
+        ArgumentNullException.ThrowIfNull(next);
 
-        var pits = new HashSet<(int X, int Z)>();
-        foreach (Basin basin in watershed.Basins)
+        HeightField before = old.Field;
+        HeightField after = next.Field;
+        if (before.OriginX != after.OriginX || before.OriginZ != after.OriginZ
+            || before.Pitch != after.Pitch || before.CellVoxels != after.CellVoxels)
         {
-            pits.Add((basin.PitX, basin.PitZ));
+            throw new ArgumentException(
+                "Sharing by level reads one cell in both windows, so it is for a re-analysis of the "
+                + "same ground only. A window move stays by pit.",
+                nameof(next));
         }
 
-        var moving = new List<((int X, int Z) From, long Litres)>();
-        foreach (KeyValuePair<(int X, int Z), long> entry in _litres)
+        // The old window's rows go; its water comes back below, shared.
+        foreach (Basin basin in old.Basins)
         {
-            (int x, int z) = entry.Key;
-            bool inside = x >= field.OriginX && x < field.OriginX + span
-                && z >= field.OriginZ && z < field.OriginZ + span;
-            if (inside && !pits.Contains(entry.Key))
-            {
-                moving.Add((entry.Key, entry.Value));
-            }
+            _litres.Remove((basin.PitX, basin.PitZ));
         }
 
-        // Sorted, so a rehome is the same arithmetic every time — the ledger is a dictionary.
-        moving.Sort(static (a, b) => a.From.X != b.From.X ? a.From.X.CompareTo(b.From.X) : a.From.Z.CompareTo(b.From.Z));
-
-        long litres = 0, left = 0;
-        foreach (((int X, int Z) from, long amount) in moving)
+        // Each old basin's lake: the top node, its level, and what it holds. Tops partition the
+        // basins (BasinWater.LakeTop), so a lake is found once and every basin in it maps to it.
+        int leaves = old.Basins.Count;
+        var lakeOf = new int[leaves];
+        var lakeByTop = new Dictionary<int, int>();
+        var levels = new List<double>();
+        var stored = new List<long>();
+        var firstBasin = new List<int>();
+        for (int basin = 0; basin < leaves; basin++)
         {
-            _litres.Remove(from);
-            litres += amount;
-            Basin? target = watershed.BasinAt(
-                (from.X - field.OriginX) / field.CellVoxels,
-                (from.Z - field.OriginZ) / field.CellVoxels);
-            if (target is null)
+            int top = oldWater.LakeTopOf(basin);
+            long held = oldWater.StoredIn(top);
+            if (held == 0)
             {
-                left += amount;
+                lakeOf[basin] = -1;
                 continue;
             }
 
-            var key = (target.PitX, target.PitZ);
-            _litres[key] = LitresAt(key.PitX, key.PitZ) + amount;
+            if (!lakeByTop.TryGetValue(top, out int lake))
+            {
+                lake = levels.Count;
+                lakeByTop[top] = lake;
+                levels.Add(oldWater.LevelAt(basin));
+                stored.Add(held);
+                firstBasin.Add(basin);
+            }
+
+            lakeOf[basin] = lake;
         }
 
-        return (moving.Count, litres, left);
+        // The water over each cell at its lake's old level, counted to the new basin holding it.
+        var weights = new Dictionary<long, double>();
+        double displacedDepth = 0;
+        ReadOnlySpan<int> oldHeights = before.Heights;
+        ReadOnlySpan<int> newHeights = after.Heights;
+        ReadOnlySpan<int> oldLabels = old.Labels;
+        ReadOnlySpan<int> newLabels = next.Labels;
+        for (int i = 0; i < oldHeights.Length; i++)
+        {
+            int label = oldLabels[i];
+            if (label == Watershed.Outlet || lakeOf[label] < 0)
+            {
+                continue;
+            }
+
+            int lake = lakeOf[label];
+            double level = levels[lake];
+            int height = oldHeights[i];
+            if (height >= level)
+            {
+                continue;
+            }
+
+            long key = ((long)lake << 32) | (uint)newLabels[i];
+            weights[key] = weights.GetValueOrDefault(key) + (level - height);
+
+            // What the raise took the room of: the material between the old floor and the old
+            // level. A diagnostic only — the share above already sends the whole column's water
+            // to the basin holding the cell.
+            if (newHeights[i] > height)
+            {
+                displacedDepth += Math.Min(level, newHeights[i]) - height;
+            }
+        }
+
+        // Sorted by lake then new basin, so the arithmetic is the same every time — the weights
+        // are a dictionary.
+        var entries = new List<(int Lake, int Basin, double Weight)>(weights.Count);
+        foreach (KeyValuePair<long, double> entry in weights)
+        {
+            entries.Add(((int)(entry.Key >> 32), (int)(uint)entry.Key, entry.Value));
+        }
+
+        entries.Sort(static (a, b) => a.Lake != b.Lake ? a.Lake.CompareTo(b.Lake) : a.Basin.CompareTo(b.Basin));
+
+        var destinations = new int[levels.Count][];
+        var shares = new List<(int Basin, long Share, double Fraction)>();
+        long total = 0, left = 0;
+        int start = 0;
+        for (int lake = 0; lake < levels.Count; lake++)
+        {
+            int end = start;
+            double sum = 0;
+            while (end < entries.Count && entries[end].Lake == lake)
+            {
+                sum += entries[end].Weight;
+                end++;
+            }
+
+            long held = stored[lake];
+            total += held;
+            shares.Clear();
+            if (sum > 0)
+            {
+                long assigned = 0;
+                for (int k = start; k < end; k++)
+                {
+                    double exact = held * (entries[k].Weight / sum);
+                    long share = (long)Math.Floor(exact);
+                    shares.Add((entries[k].Basin, share, exact - share));
+                    assigned += share;
+                }
+
+                Apportion(shares, held - assigned);
+            }
+            else
+            {
+                // Unreachable while LevelAt keeps a lake with water strictly above its floor, which
+                // VolumeCurve.LevelAt does for any positive volume: the floor cell then weighs
+                // something. Kept so a broken invariant moves the lake by its first pit rather
+                // than deleting it.
+                Basin pit = old.Basins[firstBasin[lake]];
+                int sx = (pit.PitX - before.OriginX) / before.CellVoxels;
+                int sz = (pit.PitZ - before.OriginZ) / before.CellVoxels;
+                shares.Add((next.LabelAt(sx, sz), held, 0));
+            }
+
+            var reached = new List<int>(shares.Count);
+            foreach ((int basin, long share, _) in shares)
+            {
+                if (share == 0)
+                {
+                    continue;
+                }
+
+                if (basin == Watershed.Outlet)
+                {
+                    left += share;
+                    continue;
+                }
+
+                Basin target = next.Basins[basin];
+                var key = (target.PitX, target.PitZ);
+                _litres[key] = LitresAt(key.PitX, key.PitZ) + share;
+                reached.Add(basin);
+            }
+
+            destinations[lake] = [.. reached];
+            start = end;
+        }
+
+        long displaced = (long)Math.Round(displacedDepth * before.LitresPerVoxelOfDepth, MidpointRounding.AwayFromZero);
+        return new LevelShare(levels.Count, total, left, displaced, destinations, [.. stored]);
+    }
+
+    /// <summary>
+    /// Hands out what the floors left over, one litre at a time, to the largest fractions first
+    /// (ties to the lower basin), so a lake's shares add up to exactly what it held.
+    /// </summary>
+    /// <remarks>
+    /// In exact arithmetic the remainder is between zero and one less than the share count. A
+    /// floor taken on a rounded product can land one either side, so a negative remainder takes a
+    /// litre back from the smallest fractions holding one — the total is the invariant, not which
+    /// side a rounding litre falls on.
+    /// </remarks>
+    private static void Apportion(List<(int Basin, long Share, double Fraction)> shares, long remainder)
+    {
+        if (remainder == 0)
+        {
+            return;
+        }
+
+        var order = new int[shares.Count];
+        for (int i = 0; i < order.Length; i++)
+        {
+            order[i] = i;
+        }
+
+        Array.Sort(order, (a, b) => shares[a].Fraction != shares[b].Fraction
+            ? shares[b].Fraction.CompareTo(shares[a].Fraction)
+            : shares[a].Basin.CompareTo(shares[b].Basin));
+
+        while (remainder > 0)
+        {
+            for (int k = 0; k < order.Length && remainder > 0; k++)
+            {
+                (int basin, long share, double fraction) = shares[order[k]];
+                shares[order[k]] = (basin, share + 1, fraction);
+                remainder--;
+            }
+        }
+
+        while (remainder < 0)
+        {
+            bool took = false;
+            for (int k = order.Length - 1; k >= 0 && remainder < 0; k--)
+            {
+                (int basin, long share, double fraction) = shares[order[k]];
+                if (share > 0)
+                {
+                    shares[order[k]] = (basin, share - 1, fraction);
+                    remainder++;
+                    took = true;
+                }
+            }
+
+            if (!took)
+            {
+                throw new InvalidOperationException("A lake's shares came to more than it held, with nothing left to take back.");
+            }
+        }
     }
 
     /// <summary>Every basin holding water, in a fixed order.</summary>
@@ -225,3 +430,16 @@ public sealed class BasinLedger
 
     public void Clear() => _litres.Clear();
 }
+
+/// <summary>What one same-origin re-analysis did with the old window's water (<see cref="BasinLedger.ShareByLevel"/>).</summary>
+/// <param name="Lakes">The old window's lakes that held water.</param>
+/// <param name="Litres">What they held between them, every litre of it shared.</param>
+/// <param name="Left">Litres counted to cells that now drain off the window, which left the world.</param>
+/// <param name="Displaced">
+/// Litres of the old water whose room a raise took: under each raised cell, the old level or the
+/// new top, whichever is lower, less the old floor. A diagnostic; the share already moved them.
+/// </param>
+/// <param name="Destinations">Per old lake, the new basins that took a share of it.</param>
+/// <param name="LakeLitres">Per old lake, what it held.</param>
+public sealed record LevelShare(
+    int Lakes, long Litres, long Left, long Displaced, int[][] Destinations, long[] LakeLitres);

@@ -327,7 +327,7 @@ public sealed class RaisedSurfaceTests
         long natural = (4 + (24 * 3)) * PerVoxel;
         Assert.Equal(natural, system.Ledger.TotalLitres);
         Assert.Equal(poured - natural, system.SeedOverflowLitres);
-        Assert.Equal(0, system.RehomedPits);
+        Assert.Equal(0, system.SplitLakes);
     }
 
     [Fact]
@@ -341,40 +341,46 @@ public sealed class RaisedSurfaceTests
         system.Install(WaterSystem.Analyse(BowlTerrain, 0, 0, 9, Cell, Raise(((4, 4), 5))));
         system.Bank();
 
-        Assert.Equal(1, system.RehomedPits);
-        Assert.Equal(poured, system.RehomedLitres);
+        Assert.Equal(0, system.SplitLakes);
         Assert.Equal(0, system.SeedOverflowLitres);
         Assert.Equal(poured, system.Ledger.TotalLitres);
         Assert.Equal(0, system.Ledger.LitresAt(4 * Cell, 4 * Cell));
         Basin now = Assert.Single(system.Window!.Watershed.Basins, b => b.CatchmentSamples > 1);
         Assert.Equal(poured, system.Ledger.LitresAt(now.PitX, now.PitZ));
+
+        // The pier took the room of the water over the old pit: the level stood at (30 + 2 + 72)
+        // / 25 = 4.16 over a floor at 2, and the pier's top at 5 is above it.
+        Assert.Equal(2_160, system.DisplacedLitres);
     }
 
     [Fact]
-    public void RehomedWaterJoinsWhatTheNewPitAlreadyHeldAndAPitOutsideTheWindowStays()
+    public void ASharedLakeJoinsWhatTheNewPitAlreadyHeldAndARowOutsideTheWindowStays()
     {
         Watershed pier = Watershed.Analyse(HeightField.Sample(BowlTerrain, 0, 0, 9, Cell, Raise(((4, 4), 5))));
         Basin now = Assert.Single(pier.Basins, b => b.CatchmentSamples > 1);
         Assert.NotEqual((4 * Cell, 4 * Cell), (now.PitX, now.PitZ));
 
+        // A row waiting at the pier window's pit (not a pit of the open window, so not poured),
+        // and one far outside the window.
         var ledger = new BasinLedger();
         ledger.Load(
             [
-                new StoredBasin(4 * Cell, 4 * Cell, 30),
                 new StoredBasin(now.PitX, now.PitZ, 12),
                 new StoredBasin(400 * Cell, 4 * Cell, 99),
             ],
             storedCellMetres: 2,
             currentCellMetres: 2);
+        var system = new WaterSystem(BowlTerrain, 7, ledger, pitch: 9);
+        system.Install(WaterSystem.Analyse(BowlTerrain, 0, 0, 9, Cell));
+        system.Inject(IndexOfPit(system), 30);
 
-        (int pits, long litres, long left) = ledger.Rehome(pier);
+        system.Install(WaterSystem.Analyse(BowlTerrain, 0, 0, 9, Cell, Raise(((4, 4), 5))));
+        system.Bank();
 
-        Assert.Equal(1, pits);
-        Assert.Equal(30, litres);
-        Assert.Equal(0, left);
         Assert.Equal(42, ledger.LitresAt(now.PitX, now.PitZ));
         Assert.Equal(99, ledger.LitresAt(400 * Cell, 4 * Cell));
         Assert.Equal(0, ledger.LitresAt(4 * Cell, 4 * Cell));
+        Assert.Equal(42, system.StoredLitres);
     }
 
     [Fact]
@@ -389,7 +395,7 @@ public sealed class RaisedSurfaceTests
         system.Install(WaterSystem.Analyse(BowlTerrain, 4 * Cell, 0, 9, Cell));
         system.Bank();
 
-        Assert.Equal(0, system.RehomedPits);
+        Assert.Equal(0, system.DisplacedLitres);
         Assert.Equal(poured, system.Ledger.LitresAt(4 * Cell, 4 * Cell));
     }
 }

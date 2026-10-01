@@ -5910,7 +5910,9 @@ public partial class Main : Node3D
                + (_raised is null
                    ? " | raise off"
                    : $" | raised {_raised.Count:N0} sample(s) ({_raised.Scans:N0} scan(s)), {_raiseReanalyses:N0} re-analysis(es) for an edit"
-                     + (water.RehomedPits > 0 ? $", {water.RehomedPits:N0} pit(s) rehomed with {water.RehomedLitres:N0} L" : string.Empty)
+                     + (water.SplitLakes > 0 || water.DisplacedLitres > 0
+                         ? $", split {water.SplitLakes:N0} lake(s), {water.SplitLitres:N0} L shared by level, {water.DisplacedLitres:N0} L displaced"
+                         : string.Empty)
                      + $", derived at open from {_raiseDerivedColumns:N0} column(s) in {_raiseDeriveMillis:F1} ms"
                      + (_waterGrids is null ? string.Empty
                          : $"; grid {_waterGrids.Grids:N0} chunk column(s), {_waterGrids.BuiltColumnsReached:N0} built-in column(s) under water, "
