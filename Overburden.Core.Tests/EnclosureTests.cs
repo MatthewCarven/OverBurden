@@ -212,6 +212,156 @@ public class EnclosureTests
         Assert.True(inside.IsEnclosed(0, 0, Level));
     }
 
+    // ---- E-1 (docs/LAKE-EDIT-PLAN.md, decision 6): the answer is the area's, not the asker's ----
+
+    /// <summary>
+    /// A courtyard whose walls stand at 0 and <paramref name="wallAt"/> on both axes, so its
+    /// inside is <c>wallAt − 1</c> voxels across.
+    /// </summary>
+    private static (World World, Enclosure Enclosure) Courtyard(int wallAt)
+    {
+        (World world, Enclosure enclosure) = Fixture();
+        world.LoadBox(-8, -8, 8, 8);
+        Wall(world, enclosure, 0, 0, wallAt, wallAt, Level);
+        return (world, enclosure);
+    }
+
+    [Theory]
+    [InlineData(1, 1)]      // a corner, beside two walls
+    [InlineData(1, 60)]     // beside one wall
+    [InlineData(60, 60)]    // the middle
+    [InlineData(120, 3)]    // the far side
+    public void EveryCellOfA30MetreCourtyardAnswersEnclosedWhicheverCellAsksFirst(int firstX, int firstZ)
+    {
+        // 120 voxels inside. Asked first beside a wall, the old bound (64 voxels from the asker)
+        // read it open and cached that for every cell it visited, the middle included; asked first
+        // in the middle it read enclosed. Now the answer is the courtyard's.
+        (World _, Enclosure enclosure) = Courtyard(121);
+
+        Assert.True(enclosure.IsEnclosed(firstX, firstZ, Level));
+        for (int z = 1; z <= 120; z++)
+        for (int x = 1; x <= 120; x++)
+        {
+            Assert.True(enclosure.IsEnclosed(x, z, Level));
+        }
+
+        Assert.Equal(1, enclosure.Floods);
+
+        // The region is the courtyard's own box, not the flood's 257-wide scratch.
+        Assert.Equal(120 * 120, enclosure.CachedBoxBits);
+        Assert.Equal(120, enclosure.WidestClosed);
+    }
+
+    [Theory]
+    [InlineData(1, 1)]
+    [InlineData(80, 80)]
+    [InlineData(160, 2)]
+    public void EveryCellOfA40MetreCourtyardAnswersOpenWhicheverCellAsksFirst(int firstX, int firstZ)
+    {
+        (World _, Enclosure enclosure) = Courtyard(161);
+
+        Assert.False(enclosure.IsEnclosed(firstX, firstZ, Level));
+        for (int z = 1; z <= 160; z += 3)
+        for (int x = 1; x <= 160; x += 3)
+        {
+            Assert.False(enclosure.IsEnclosed(x, z, Level));
+        }
+
+        Assert.Equal(0, enclosure.EnclosedFloods);
+
+        // An area grows a voxel at a time, so it opens one past the bound.
+        Assert.Equal(Enclosure.ExtentVoxels + 1, enclosure.WidestOpen);
+    }
+
+    [Theory]
+    [InlineData(1, 1)]
+    [InlineData(60, 80)]
+    public void AnAreaNarrowOneWayAndWideTheOtherReadsOpen(int firstX, int firstZ)
+    {
+        // 120 inside east–west, 160 north–south: the bound is either axis.
+        (World world, Enclosure enclosure) = Fixture();
+        world.LoadBox(-8, -8, 8, 8);
+        Wall(world, enclosure, 0, 0, 121, 161, Level);
+
+        Assert.False(enclosure.IsEnclosed(firstX, firstZ, Level));
+        Assert.Equal(0, enclosure.EnclosedFloods);
+    }
+
+    [Fact]
+    public void OnceAFloodKnowsItIsOpenItFillsOnlyTheBoxRoundItsStart()
+    {
+        // An open field with one placed block 50 voxels west, so the column is not quiet. Before
+        // E-1 an open flood filled the 129-wide box round its start and cached it; it still does,
+        // and no more — the cap on regions is sized to that coverage. Less its four corners, as
+        // before E-1 (a corner's neighbours are both on the box's edge, which an open flood does
+        // not expand) and the block; plus a few cells past the box, the area's tips, expanded
+        // before the flood knew. Now 16,638; by the same count 16,636 before E-1 (arithmetic).
+        (World world, Enclosure enclosure) = Fixture();
+        world.LoadBox(-8, -8, 8, 8);
+        Place(world, enclosure, new VoxelPos(-50, Level, 0));
+
+        Assert.False(enclosure.IsEnclosed(0, 0, Level));
+
+        const int box = (2 * Enclosure.BoundVoxels) + 1;
+        Assert.InRange(enclosure.CellsVisited, (box * box) - 5, (box * box) + box);
+        Assert.InRange(enclosure.CachedBoxBits, box * box, (box + 2) * (box + 2));
+    }
+
+    [Fact]
+    public void ARegionAnswersOnlyTheCellsItVisitedNotEveryCellOfItsBox()
+    {
+        // An L-shaped courtyard: its box takes in the notch, which is outside the walls. Asked
+        // inside first, the region is the L's; the notch must still read open, by its own flood.
+        (World world, Enclosure enclosure) = Fixture();
+        static bool Inside(int x, int z) => x >= 1 && z >= 1 && ((x <= 20 && z <= 10) || (x <= 10 && z <= 20));
+        for (int z = 0; z <= 21; z++)
+        for (int x = 0; x <= 21; x++)
+        {
+            if (!Inside(x, z) && (Inside(x + 1, z) || Inside(x - 1, z) || Inside(x, z + 1) || Inside(x, z - 1)
+                                  || Inside(x + 1, z + 1) || Inside(x - 1, z - 1) || Inside(x + 1, z - 1) || Inside(x - 1, z + 1)))
+            {
+                Place(world, enclosure, new VoxelPos(x, Level, z));
+            }
+        }
+
+        Assert.True(enclosure.IsEnclosed(5, 15, Level));
+        Assert.True(enclosure.IsEnclosed(18, 3, Level));
+        Assert.False(enclosure.IsEnclosed(18, 18, Level));
+        Assert.Equal(2, enclosure.Floods);
+    }
+
+    [Fact]
+    public void APillarInsideAnAreaIsNotAnsweredFromTheAreasRegion()
+    {
+        // The pillar is a wall the flood met inside the area's box: its bit is cleared, so asking
+        // its own column reads the block, not the courtyard.
+        (World world, Enclosure enclosure) = Courtyard(121);
+        Place(world, enclosure, new VoxelPos(60, Level, 60));
+
+        Assert.True(enclosure.IsEnclosed(10, 10, Level));
+        Assert.False(enclosure.IsEnclosed(60, 60, Level));
+        Assert.True(enclosure.IsEnclosed(61, 60, Level));
+        Assert.Equal(1, enclosure.Floods);
+    }
+
+    [Theory]
+    [InlineData(1, 1)]
+    [InlineData(64, 64)]
+    [InlineData(65, 65)]
+    [InlineData(128, 128)]
+    public void TheBoundIsTheAreasExtent128VoxelsAcrossEnclosedAnd129Open(int firstX, int firstZ)
+    {
+        // Walls at 0 and 129: 128 inside, enclosed from a corner, the middle and the far corner.
+        // From (64, 64) the nearest wall is 64 voxels and two chunk columns away, which is what
+        // the no-edits shortcut must still see.
+        (World _, Enclosure exactly) = Courtyard(129);
+        Assert.True(exactly.IsEnclosed(firstX, firstZ, Level));
+
+        // Walls at 0 and 130: 129 inside, open from the same cells.
+        (World _, Enclosure wider) = Courtyard(130);
+        Assert.False(wider.IsEnclosed(firstX, firstZ, Level));
+    }
+
     [Fact]
     public void AnUnloadedVoxelIsOpenAndTheChunksArrivalDropsTheRegionEvenWithNoEdits()
     {
