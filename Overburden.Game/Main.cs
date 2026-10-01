@@ -6668,7 +6668,7 @@ public partial class Main : Node3D
             GD.Print(_enclosure is null
                 ? "M8: --enclosure=0 — the player's walls enclose nothing: a walled pool on natural ground is the lake outside (the pre-2026-09-20 arm, the control)"
                 : $"M8: the player's material encloses, nature's does not — a column walled in at a level by placed voxels is not the basin's and not the lake's "
-                  + $"(a flood at the level, {Enclosure.BoundVoxels} voxel(s) to the bound, an estimate; --enclosure=0 is the control)");
+                  + $"(a flood at the level, open past an area {Enclosure.ExtentVoxels} voxel(s) across, an estimate; --enclosure=0 is the control)");
         }
 
         // M8b-3b: the settle. Needs no Tier A, because a flooded mine has no Tier A body — the
@@ -7881,7 +7881,7 @@ public partial class Main : Node3D
                + (_lakeCeiling is null ? string.Empty : $"; lake {_lakeCeiling.ChunkColumns:N0} column(s), {_lakeCeiling.Rebuilt:N0} rebuilt, {_lakeCeiling.WokenSubmerged:N0} woken")
                + (_enclosure is null ? string.Empty : $"; enclosed {_handoff?.EnclosedKept ?? 0:N0} kept, {_enclosure.Floods:N0} flood(s) / {_enclosure.EnclosedFloods:N0} closed"
                   + $" ({_enclosure.OpenAtBound:N0} open at the bound, {_enclosure.OpenAtBoundThroughGround:N0} of them out through natural ground; {_enclosure.OpenAtUnloaded:N0} at an unloaded chunk;"
-                  + $" farthest open {_enclosure.FarthestOpen:N0} / closed {_enclosure.FarthestClosed:N0} voxel(s) of {Enclosure.BoundVoxels}), {_enclosure.Regions:N0} region(s) / {_enclosure.CachedCells:N0} cell(s) cached, {_enclosure.Evicted:N0} evicted, {_lakeCeiling?.RebuiltForEnclosure ?? 0:N0} band(s) rebuilt for it") + ") — "
+                  + $" widest open {_enclosure.WidestOpen:N0} / closed {_enclosure.WidestClosed:N0} voxel(s) across of {Enclosure.ExtentVoxels}), {_enclosure.Regions:N0} region(s) / {_enclosure.CachedCells:N0} cell(s) cached, {_enclosure.Evicted:N0} evicted, {_lakeCeiling?.RebuiltForEnclosure ?? 0:N0} band(s) rebuilt for it") + ") — "
                + $"pumped {p.Pumped / litre:N0} L, emitted {p.Emitted / litre:N0} L — "
                + (p.Siphoned + p.Poured > 0 ? $"siphoned {p.Siphoned / litre:N0} L, poured {p.Poured / litre:N0} L — " : string.Empty)
                + $"held == injected + rained + drawn + seeped + loaded + emitted{(p.Siphoned + p.Poured > 0 ? " + poured" : string.Empty)} − removed − displaced − handed − evicted − pumped{(p.Siphoned + p.Poured > 0 ? " − siphoned" : string.Empty)}: {(p.IdentityExact ? "exact" : "*** NO ***")}, "
@@ -8114,7 +8114,7 @@ public partial class Main : Node3D
               + (_enclosure is null
                   ? "enclosure off (--enclosure=0, or no water)\n"
                   : $"enclosure {_handoff.EnclosedLastPass:N0} cell(s) kept on the last pass, {_handoff.EnclosedKept:N0} in all; "
-                    + $"{_enclosure.Floods:N0} flood(s), {_enclosure.EnclosedFloods:N0} closed ({_enclosure.OpenAtBound:N0} open at the bound, {_enclosure.OpenAtBoundThroughGround:N0} through natural ground, {_enclosure.OpenAtUnloaded:N0} at an unloaded chunk; farthest open {_enclosure.FarthestOpen:N0} / closed {_enclosure.FarthestClosed:N0} of {Enclosure.BoundVoxels}), {_enclosure.CellsVisited:N0} cell(s) visited, "
+                    + $"{_enclosure.Floods:N0} flood(s), {_enclosure.EnclosedFloods:N0} closed ({_enclosure.OpenAtBound:N0} open at the bound, {_enclosure.OpenAtBoundThroughGround:N0} through natural ground, {_enclosure.OpenAtUnloaded:N0} at an unloaded chunk; widest open {_enclosure.WidestOpen:N0} / closed {_enclosure.WidestClosed:N0} across of {Enclosure.ExtentVoxels}), {_enclosure.CellsVisited:N0} cell(s) visited, "
                     + $"{_enclosure.CacheHits:N0} hit(s), {_enclosure.Quiet:N0} quiet, {_enclosure.Dropped:N0} dropped, {_enclosure.Evicted:N0} evicted; "
                     + $"{_enclosure.Regions:N0} region(s) / {_enclosure.CachedCells:N0} cell(s) cached, {_enclosure.EditedChunks:N0} edited chunk(s); "
                     + $"{_lakeCeiling?.RebuiltForEnclosure ?? 0:N0} band(s) rebuilt for it"

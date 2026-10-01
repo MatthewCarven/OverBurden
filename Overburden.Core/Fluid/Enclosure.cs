@@ -22,9 +22,17 @@ namespace Overburden.Core.Fluid;
 /// in which <b>only the player's material is an obstacle</b> — a solid voxel above the seed
 /// surface of its column, which is how it differs from the seed, or natural rock with such a
 /// voxel standing on it, because a wall claims the ground under it — and natural rock with
-/// nothing on it is walked through as air is. The flood is <i>enclosed</i> if it runs out of cells before reaching the bound, and
-/// <i>open</i> if it reaches the bound, an unloaded voxel, or a cell more than
-/// <see cref="BoundVoxels"/> from where it started.
+/// nothing on it is walked through as air is. The flood is <i>enclosed</i> if it runs out of cells,
+/// and <i>open</i> if it reaches an unloaded voxel or the area it has walked spans more than
+/// <see cref="ExtentVoxels"/> in x or in z.
+/// </para>
+/// <para>
+/// <b>The bound is the area's extent, not a distance from the cell that asked</b>
+/// (docs/LAKE-EDIT-PLAN.md, decision 6, E-1, 2026-10-01). Until then a flood read open at
+/// <see cref="BoundVoxels"/> from its start and cached that for every cell it visited, so a walled
+/// area 16–32 m across read enclosed when first asked near its middle and open when first asked
+/// near a wall, and the answer could flip when an edit dropped the cache. Now every cell of one
+/// area gives one answer, whichever asks first.
 /// </para>
 /// <para>
 /// <b>Costs stated.</b> A natural pit below the lake stays the lake's, by Tier A's own model — it
@@ -32,7 +40,7 @@ namespace Overburden.Core.Fluid;
 /// the flood walks through it; the fourth wall is the fix, a rule a player can learn — and it may
 /// stand on the hill, since a wall claims its footing (the first version had no footing rule, and
 /// the headless courtyard on the spawn's slope leaked at every level below its uphill wall's
-/// ground). An enclosure wider than <c>2 × BoundVoxels</c> reads as open. A wall with a gap at
+/// ground). An enclosure wider than <see cref="ExtentVoxels"/> reads as open. A wall with a gap at
 /// the water's level reads as open — the flood finds the gap, and so does the water. Below the
 /// seed surface a placed voxel cannot be told from rock, so a wall built up from the floor of a
 /// dug pit encloses only above grade — and a dug pit's water is never on the plane, so it was
@@ -44,9 +52,10 @@ namespace Overburden.Core.Fluid;
 /// per chunk column by the pipeline's hooks: an edit at a level drops every region at that level
 /// whose cells or walls stand in the edited chunk's column; a chunk arriving with edits, or one a
 /// region reached as unloaded, drops the regions in its column; a forget drops them too. An open
-/// flood is the expensive answer — up to <c>(2 × BoundVoxels + 1)²</c> cells — so a column with no
-/// edited chunk within the bound is answered open with no flood and no cache: no edits, no walls,
-/// nothing to enclose. That is every column of the r6 control and every oracle that places
+/// flood is the expensive answer — up to <c>(ExtentVoxels + 1)²</c> cells before it decides, and the
+/// box of <c>(2 × BoundVoxels + 1)²</c> round its start after — so a column with no edited chunk
+/// within reach is answered open with no flood and no cache: no edits, no walls, nothing to
+/// enclose. That is every column of the r6 control and every oracle that places
 /// nothing, and it is what keeps the predicate free where it has nothing to say.
 /// </para>
 /// <para>
@@ -59,12 +68,21 @@ namespace Overburden.Core.Fluid;
 public sealed class Enclosure
 {
     /// <summary>
-    /// How far a flood may run from its start before reading as open — 64 voxels, 16 m, so an
-    /// enclosure up to 32 m across is seen whole. <b>An estimate</b>: the box it bounds is 16,641
-    /// cells, a millisecond or two of reads on the open answer, and the widest thing anyone has
-    /// walled is a courtyard.
+    /// The widest a walled area may be, in x or in z, and still read as enclosed: 128 voxels, 32 m,
+    /// whichever of its cells asks (E-1). <b>An estimate</b>, kept from the pre-E-1 bound, whose
+    /// comment promised this and kept it only from near an area's middle. A flood visits at most
+    /// <c>129²</c> cells before it decides, a millisecond or two of reads, and the widest thing anyone
+    /// has walled is a courtyard.
     /// </summary>
-    public const int BoundVoxels = 64;
+    public const int ExtentVoxels = 128;
+
+    /// <summary>
+    /// How far round its start a flood keeps filling once it knows it is open: 64 voxels. That is
+    /// the box every open answer was cached over before E-1, so an open region covers what it did
+    /// and a lake's footprint needs no more regions than it did. The cap is load-bearing — see
+    /// <see cref="MaxRegions"/>.
+    /// </summary>
+    public const int BoundVoxels = ExtentVoxels / 2;
 
     /// <summary>
     /// The most regions the cache holds before the oldest are evicted, ~3 KB each — 4,096 is
@@ -78,11 +96,20 @@ public sealed class Enclosure
     /// </summary>
     public const int MaxRegions = 4096;
 
-    /// <summary>A region's box is the bound either side of its start: this many cells a side.</summary>
-    private const int BoxSide = (2 * BoundVoxels) + 1;
+    /// <summary>
+    /// The flood's scratch box, this many cells a side round its start: an area
+    /// <see cref="ExtentVoxels"/> across that holds the start fits inside it wherever the start
+    /// stands in it. 8 KB of bits, once. A region is stored over its own cells' box, not this.
+    /// </summary>
+    private const int ScratchSide = (2 * ExtentVoxels) + 1;
 
-    /// <summary>Chunk columns either side of the start the pre-check looks at for edits: the bound in chunks, rounded up.</summary>
-    private const int PrecheckChunks = (BoundVoxels + VoxelConstants.ChunkSize - 1) / VoxelConstants.ChunkSize;
+    /// <summary>
+    /// Chunk columns either side of the start the pre-check looks at for edits. In an enclosed area
+    /// at most <see cref="ExtentVoxels"/> across, the straight line east and west from any cell
+    /// meets walls whose distances add to at most <c>ExtentVoxels + 1</c>, so one of them is within
+    /// <c>ExtentVoxels / 2</c>: that distance in chunks, rounded up. Two, as before E-1.
+    /// </summary>
+    private const int PrecheckChunks = ((ExtentVoxels / 2) + VoxelConstants.ChunkSize - 1) / VoxelConstants.ChunkSize;
 
     private readonly IVoxelWorld _world;
     private readonly MaterialTable _materials;
@@ -101,7 +128,7 @@ public sealed class Enclosure
 
     // The flood's scratch, reused: a queue and the visited bits of one flood over its box.
     private readonly Queue<(int X, int Z)> _queue = new();
-    private readonly System.Collections.BitArray _visited = new(BoxSide * BoxSide);
+    private readonly System.Collections.BitArray _visited = new(ScratchSide * ScratchSide);
     private readonly HashSet<(int X, int Z)> _columns = [];
     private readonly HashSet<(int X, int Z)> _unloaded = [];
     private int _cells;
@@ -129,11 +156,11 @@ public sealed class Enclosure
 
     /// <summary>
     /// Why the open floods opened, over the lifetime — the instrument a pond that will not fill
-    /// wants (2026-09-22, *"water doesn't seem to be building up in my clay pond"*): reached
-    /// <see cref="BoundVoxels"/> from where they started, and of those how many walked through
-    /// natural ground at the level on the way (a hillside standing in for a wall) against only
-    /// through air (a gap, or a pond wider than the bound); or reached a chunk that was not
-    /// loaded. A flood counts once, under the first reason it met.
+    /// wants (2026-09-22, *"water doesn't seem to be building up in my clay pond"*): walked an area
+    /// wider than <see cref="ExtentVoxels"/>, and of those how many walked through natural ground
+    /// at the level on the way (a hillside standing in for a wall) against only through air (a
+    /// gap, or a pond wider than the bound); or reached a chunk that was not loaded. A flood counts
+    /// once, under the first reason it met.
     /// </summary>
     public long OpenAtBound { get; private set; }
 
@@ -141,14 +168,19 @@ public sealed class Enclosure
 
     public long OpenAtUnloaded { get; private set; }
 
-    /// <summary>The furthest an open flood ran from its start before it opened, in voxels, over the lifetime.</summary>
-    public int FarthestOpen { get; private set; }
+    /// <summary>
+    /// The widest area an open flood had walked when it opened, in voxels across its wider axis,
+    /// over the lifetime. Past <see cref="ExtentVoxels"/> by one when it opened at the bound.
+    /// </summary>
+    public int WidestOpen { get; private set; }
 
-    /// <summary>The furthest a closed flood reached from its start, in voxels, over the lifetime — how big the biggest pond was.</summary>
-    public int FarthestClosed { get; private set; }
+    /// <summary>The widest area a closed flood walked, in voxels across its wider axis, over the lifetime — how big the biggest pond was.</summary>
+    public int WidestClosed { get; private set; }
+
+    /// <summary>Bits held by the cached regions, each stored over its own cells' box rather than the flood's scratch: what the cache costs in memory.</summary>
+    internal long CachedBoxBits { get; private set; }
 
     private bool _throughGround;
-    private int _reach;
 
     /// <summary>Of those, floods that ran out of cells — an enclosure found.</summary>
     public long EnclosedFloods { get; private set; }
@@ -334,26 +366,39 @@ public sealed class Enclosure
         _columns.Clear();
         _unloaded.Clear();
         _cells = 0;
-        int originX = startX - BoundVoxels;
-        int originZ = startZ - BoundVoxels;
+        int originX = startX - ExtentVoxels;
+        int originZ = startZ - ExtentVoxels;
 
         bool open = false;
         bool atBound = false, atUnloaded = false;
         _throughGround = false;
-        _reach = 0;
+        int minX = startX, maxX = startX, minZ = startZ, maxZ = startZ;
+        int widthWhenOpened = 0;
         _queue.Enqueue((startX, startZ));
         _visited[Bit(originX, originZ, startX, startZ)] = true;
         while (_queue.TryDequeue(out (int X, int Z) cell))
         {
             _cells++;
             _columns.Add((cell.X >> VoxelConstants.ChunkSizeLog2, cell.Z >> VoxelConstants.ChunkSizeLog2));
-            int reach = Math.Max(Math.Abs(cell.X - startX), Math.Abs(cell.Z - startZ));
-            _reach = Math.Max(_reach, reach);
-            if (reach >= BoundVoxels)
+            minX = Math.Min(minX, cell.X);
+            maxX = Math.Max(maxX, cell.X);
+            minZ = Math.Min(minZ, cell.Z);
+            maxZ = Math.Max(maxZ, cell.Z);
+            if (!open && (maxX - minX >= ExtentVoxels || maxZ - minZ >= ExtentVoxels))
             {
-                // The bound: whatever is past it, this flood cannot say the walls close.
+                // The area is wider than the bound on an axis: whatever is past it, this flood
+                // cannot say the walls close, from this cell or from any other cell of the area.
                 open = true;
                 atBound = true;
+                widthWhenOpened = Math.Max(maxX - minX, maxZ - minZ) + 1;
+            }
+
+            // Known open: fill only the box round the start, as every open flood did before E-1,
+            // so the region covers what it did. Until then every cell expands — a cell is at most
+            // ExtentVoxels − 1 from the start while the area still fits, so its neighbours fit the
+            // scratch.
+            if (open && Math.Max(Math.Abs(cell.X - startX), Math.Abs(cell.Z - startZ)) >= BoundVoxels)
+            {
                 continue;
             }
 
@@ -366,6 +411,7 @@ public sealed class Enclosure
             if (open && !wasOpen)
             {
                 atUnloaded = true;
+                widthWhenOpened = Math.Max(maxX - minX, maxZ - minZ) + 1;
             }
         }
 
@@ -373,11 +419,11 @@ public sealed class Enclosure
         if (!open)
         {
             EnclosedFloods++;
-            FarthestClosed = Math.Max(FarthestClosed, _reach);
+            WidestClosed = Math.Max(WidestClosed, Math.Max(maxX - minX, maxZ - minZ) + 1);
         }
         else
         {
-            FarthestOpen = Math.Max(FarthestOpen, _reach);
+            WidestOpen = Math.Max(WidestOpen, widthWhenOpened);
             if (atBound)
             {
                 OpenAtBound++;
@@ -392,22 +438,37 @@ public sealed class Enclosure
             }
         }
 
-        // The region: every cell visited shares the answer, as a bitset over the flood's box;
-        // every chunk column a cell or a wall stood in, and every column found unloaded, can
-        // drop it. Walls were marked visited too, so the bits are cleared for them here: a wall's
-        // own column is answered by the readers, never by a region.
-        int id = _nextRegion++;
-        var region = new Region(y, !open, originX, originZ, new System.Collections.BitArray(_visited), _cells, [.. _columns], [.. _unloaded]);
-        foreach ((int X, int Z) wall in _walls)
+        // The region: every cell visited shares the answer, as a bitset over the box of its own
+        // cells — not the scratch, which is 8 KB; a courtyard's region is its courtyard. Every
+        // chunk column a cell or a wall stood in, and every column found unloaded, can drop it.
+        // Walls were marked visited too, so the bits are cleared for them here: a wall's own
+        // column is answered by the readers, never by a region.
+        int width = maxX - minX + 1, height = maxZ - minZ + 1;
+        var bits = new System.Collections.BitArray(width * height);
+        for (int z = minZ; z <= maxZ; z++)
         {
-            region.Bits[Bit(originX, originZ, wall.X, wall.Z)] = false;
+            for (int x = minX; x <= maxX; x++)
+            {
+                bits[((z - minZ) * width) + (x - minX)] = _visited[Bit(originX, originZ, x, z)];
+            }
         }
 
+        foreach ((int X, int Z) wall in _walls)
+        {
+            if (wall.X >= minX && wall.X <= maxX && wall.Z >= minZ && wall.Z <= maxZ)
+            {
+                bits[((wall.Z - minZ) * width) + (wall.X - minX)] = false;
+            }
+        }
+
+        int id = _nextRegion++;
+        var region = new Region(y, !open, minX, minZ, width, height, bits, _cells, [.. _columns], [.. _unloaded]);
         _regions[id] = region;
         CachedCells += _cells;
-        for (int cz = originZ >> VoxelConstants.ChunkSizeLog2; cz <= (originZ + BoxSide - 1) >> VoxelConstants.ChunkSizeLog2; cz++)
+        CachedBoxBits += (long)width * height;
+        for (int cz = minZ >> VoxelConstants.ChunkSizeLog2; cz <= maxZ >> VoxelConstants.ChunkSizeLog2; cz++)
         {
-            for (int cx = originX >> VoxelConstants.ChunkSizeLog2; cx <= (originX + BoxSide - 1) >> VoxelConstants.ChunkSizeLog2; cx++)
+            for (int cx = minX >> VoxelConstants.ChunkSizeLog2; cx <= maxX >> VoxelConstants.ChunkSizeLog2; cx++)
             {
                 if (!_index.TryGetValue((cx, cz, y), out List<int>? ids))
                 {
@@ -442,7 +503,7 @@ public sealed class Enclosure
         return !open;
     }
 
-    private static int Bit(int originX, int originZ, int x, int z) => ((z - originZ) * BoxSide) + (x - originX);
+    private static int Bit(int originX, int originZ, int x, int z) => ((z - originZ) * ScratchSide) + (x - originX);
 
     private readonly List<(int X, int Z)> _walls = [];
 
@@ -547,9 +608,10 @@ public sealed class Enclosure
         }
 
         CachedCells -= region.CellCount;
-        for (int cz = region.OriginZ >> VoxelConstants.ChunkSizeLog2; cz <= (region.OriginZ + BoxSide - 1) >> VoxelConstants.ChunkSizeLog2; cz++)
+        CachedBoxBits -= (long)region.Width * region.Height;
+        for (int cz = region.OriginZ >> VoxelConstants.ChunkSizeLog2; cz <= (region.OriginZ + region.Height - 1) >> VoxelConstants.ChunkSizeLog2; cz++)
         {
-            for (int cx = region.OriginX >> VoxelConstants.ChunkSizeLog2; cx <= (region.OriginX + BoxSide - 1) >> VoxelConstants.ChunkSizeLog2; cx++)
+            for (int cx = region.OriginX >> VoxelConstants.ChunkSizeLog2; cx <= (region.OriginX + region.Width - 1) >> VoxelConstants.ChunkSizeLog2; cx++)
             {
                 if (_index.TryGetValue((cx, cz, region.Y), out List<int>? ids))
                 {
@@ -589,13 +651,13 @@ public sealed class Enclosure
         }
     }
 
-    /// <summary>One flood's answer: the level, the verdict, and a bitset over the box round its start of the cells that share it.</summary>
-    private sealed record Region(int Y, bool Enclosed, int OriginX, int OriginZ, System.Collections.BitArray Bits, int CellCount, HashSet<(int X, int Z)> Columns, HashSet<(int X, int Z)> Unloaded)
+    /// <summary>One flood's answer: the level, the verdict, and a bitset over its own cells' box of the cells that share it.</summary>
+    private sealed record Region(int Y, bool Enclosed, int OriginX, int OriginZ, int Width, int Height, System.Collections.BitArray Bits, int CellCount, HashSet<(int X, int Z)> Columns, HashSet<(int X, int Z)> Unloaded)
     {
         public bool Covers(int x, int z)
         {
             int lx = x - OriginX, lz = z - OriginZ;
-            return lx >= 0 && lx < BoxSide && lz >= 0 && lz < BoxSide && Bits[(lz * BoxSide) + lx];
+            return lx >= 0 && lx < Width && lz >= 0 && lz < Height && Bits[(lz * Width) + lx];
         }
     }
 }
