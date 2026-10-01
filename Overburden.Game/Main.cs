@@ -768,6 +768,34 @@ public partial class Main : Node3D
     /// <summary>The courtyard's footprint, walls included, and the plane its walls rise from at its centre — what the raise's oracle reads the basin against.</summary>
     private (int X0, int Z0, int X1, int Z1, int Floor, int Top)? _courtyardBox;
 
+    /// <summary>
+    /// <c>--dam=&lt;metres&gt;</c>: a straight wall a metre thick across the lake under the player, at
+    /// most that long, when the measured window opens and after <c>--fillbasin</c>'s pour
+    /// (docs/LAKE-EDIT-PLAN.md, L-2). Its top stands <c>--damheight=&lt;metres&gt;</c> (1) over the
+    /// water; each end runs on two cells past where the bank reaches the top, so Tier A sees it tied
+    /// in. <c>--damaxis=x</c> runs it east–west instead of north–south. The headless oracle for
+    /// walls that split a lake: both sides' lakes before, after the re-analysis that sees it, and
+    /// after <c>--dampour=&lt;litres&gt;</c> into one side.
+    /// </summary>
+    private int _damMetres;
+
+    private int _damHeightMetres = 1;
+
+    private bool _damAlongX;
+
+    private long _damPourLitres;
+
+    /// <summary>Where the dam's oracle is: 0 not built, 1 built and waiting for the re-analysis, 2 read after it, 3 poured.</summary>
+    private int _damStage;
+
+    /// <summary>The raise version before the dam's writes: the reading waits for the map to move past it and the window to catch up.</summary>
+    private long _damRaiseVersion;
+
+    /// <summary>A point on each side of the dam, three cells off its line, in world voxels.</summary>
+    private (int X, int Z) _damSideA, _damSideB;
+
+    private long _damHeldBefore, _damOverflowBefore, _damSpilledBefore, _damSplitBefore, _damSplitLitresBefore, _damDisplacedBefore;
+
     private bool _injected;
 
     private double _secondsSinceStart;
@@ -1965,6 +1993,20 @@ public partial class Main : Node3D
                     break;
                 case "courtyardroof" when int.TryParse(value, out int courtyardRoof):
                     _courtyardRoof = courtyardRoof != 0;
+                    break;
+
+                // L-2's dam: a wall across the lake under the player, the split's headless oracle.
+                case "dam" when int.TryParse(value, out int dam) && dam >= 2:
+                    _damMetres = dam;
+                    break;
+                case "damheight" when int.TryParse(value, out int damHeight) && damHeight >= 1:
+                    _damHeightMetres = damHeight;
+                    break;
+                case "damaxis" when value is "x" or "z":
+                    _damAlongX = value == "x";
+                    break;
+                case "dampour" when long.TryParse(value, out long damPour) && damPour > 0:
+                    _damPourLitres = damPour;
                     break;
 
                 // M8b-2c's two seams. --fillbasin is the Tier A relay: litres into the basin
@@ -7008,6 +7050,7 @@ public partial class Main : Node3D
         _secondsSinceStart += delta;
         InjectIfDue();
         BreachIfDue();
+        DamIfDue();
 
         if (_profiler is { Warm: true } && !_fluidWarmSeen)
         {
@@ -7542,6 +7585,232 @@ public partial class Main : Node3D
         GD.Print(
             $"M8: courtyard — a {_courtyardMetres} m square of {_courtyardMaterial} walls {_courtyardWallMetres} m tall{(_courtyardRoof ? ", roofed" : string.Empty)} round the player at {here}: "
             + $"{written:N0} voxel(s) written, {skipped:N0} not air or not loaded (--courtyard)");
+    }
+
+    /// <summary>
+    /// <c>--dam</c>: a wall across the lake under the player, and the split's oracle read round it
+    /// (docs/LAKE-EDIT-PLAN.md, L-2).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Built where the water is.</b> Through the player when they stand over a wet lake, and
+    /// otherwise through the pit <c>--fillbasin</c> poured into, which is where a headless run's lake
+    /// is. Written through the pipeline's edit path, air voxels only, as the courtyard is, so the
+    /// raise observes it as it observes a brush.
+    /// </para>
+    /// <para>
+    /// <b>Every column gets at least one block</b>, from its seed surface up to the top or one over
+    /// the ground, whichever is higher. A raise is a cell's highest placed top, so a column on a bank
+    /// already above the top still raises its cell, and the wall has no gap at Tier A's 2 m grain
+    /// where it meets the shore.
+    /// </para>
+    /// <para>
+    /// <b>Read after the window has caught up with the map that holds the dam</b>: the raise has
+    /// moved past where it stood at the build, nothing is in flight, and the installed window was
+    /// analysed at the current version. A raise that never moves (<c>--raise=0</c>, or nothing written)
+    /// is reported after 30 s rather than waited on forever.
+    /// </para>
+    /// </remarks>
+    private void DamIfDue()
+    {
+        if (_damMetres <= 0 || _damStage >= 2 || _water is null || _pipeline is null || _materials is null)
+        {
+            return;
+        }
+
+        if (_damStage == 1)
+        {
+            ReadDamIfDue();
+            return;
+        }
+
+        bool due = _profiler is null ? _secondsSinceStart >= 3.0 : _profiler.Warm;
+        if (!due || _water.Window is null || _water.Water is null || (_fillBasinLitres > 0 && !_breached))
+        {
+            return;
+        }
+
+        _damStage = 2;
+        VoxelPos player = _waterProbe is { } probe ? new VoxelPos(probe.X, PlayerVoxel().Y, probe.Z) : PlayerVoxel();
+        int px = player.X, pz = player.Z;
+        double? lakeLevel = _water.TryBasinAtVoxel(px, pz, out int under) && under != Watershed.Outlet
+            ? _water.LevelAt(under)
+            : null;
+        string where = "through the player";
+        if (lakeLevel is null && _breachBasin != Watershed.Outlet && _water.LevelAt(_breachBasin) is double filled)
+        {
+            Basin pit = _water.Window.Watershed.Basins[_breachBasin];
+            px = pit.PitX + (HeightField.DefaultCellVoxels / 2);
+            pz = pit.PitZ + (HeightField.DefaultCellVoxels / 2);
+            lakeLevel = filled;
+            where = $"through basin {_breachBasin}'s pit, which --fillbasin filled";
+        }
+
+        if (lakeLevel is not double level)
+        {
+            GD.Print("M8: dam — no wet lake under the player and no --fillbasin pour to build across; nothing built (--dam)");
+            return;
+        }
+
+        int stone = MaterialId("overburden:stone");
+        if (stone == MaterialIds.AirNumericId)
+        {
+            GD.Print("M8: dam — overburden:stone is not in this world's content; nothing built (--dam)");
+            return;
+        }
+
+        int thick = BrushCell.Voxels;
+        int half = _damMetres * BrushCell.Voxels / 2;
+        int topVoxel = (int)Math.Ceiling(level) + (_damHeightMetres * BrushCell.Voxels) - 1;
+        long versionAtBuild = _raised?.Version ?? 0;
+
+        // Side points three cells off the line, at the line's middle: far enough that the wall's own
+        // cells (it raises one or two) are never the cell asked.
+        int off = 3 * HeightField.DefaultCellVoxels;
+        _damSideA = _damAlongX ? (px, pz - off) : (px - off, pz);
+        _damSideB = _damAlongX ? (px, pz + off) : (px + off, pz);
+        string before = $"{DamSide("A", _damSideA)}; {DamSide("B", _damSideB)}; {DamLakes()}";
+
+        _water.Bank();
+        _damHeldBefore = _water.Ledger.TotalLitres;
+        _damOverflowBefore = _water.SeedOverflowLitres;
+        _damSpilledBefore = _water.SpilledLitres;
+        _damSplitBefore = _water.SplitLakes;
+        _damSplitLitresBefore = _water.SplitLitres;
+        _damDisplacedBefore = _water.DisplacedLitres;
+
+        int written = 0, skipped = 0;
+        var reach = new int[2];
+        var tied = new bool[2];
+        for (int end = 0; end < 2; end++)
+        {
+            int step = end == 0 ? -1 : 1;
+            int pastBank = -1;
+            for (int along = end == 0 ? 0 : 1; along <= half; along++)
+            {
+                int offset = step * along;
+                bool bank = true;
+                for (int across = -(thick / 2); across < thick - (thick / 2); across++)
+                {
+                    (int x, int z) = _damAlongX ? (px + offset, pz + across) : (px + across, pz + offset);
+                    int surface = _seedHeights!.SurfaceHeightAt(x, z);
+                    bank &= surface >= topVoxel;
+                    for (int y = surface + 1; y <= Math.Max(topVoxel, surface + 1); y++)
+                    {
+                        var voxel = new VoxelPos(x, y, z);
+                        if (_pipeline.Streamer.TryGetMaterial(voxel, out int existing) && existing == MaterialIds.AirNumericId
+                            && _pipeline.SetVoxel(voxel, stone))
+                        {
+                            written++;
+                        }
+                        else
+                        {
+                            skipped++;
+                        }
+                    }
+                }
+
+                reach[end] = offset;
+                if (bank && pastBank < 0)
+                {
+                    pastBank = 0;
+                }
+
+                // Two cells past the bank, so the cell where the bank first tops the wall is raised
+                // too, whichever corner of it the watershed samples.
+                if (pastBank >= 0 && ++pastBank > 2 * HeightField.DefaultCellVoxels)
+                {
+                    tied[end] = true;
+                    break;
+                }
+            }
+        }
+
+        ObserveRaise();
+        _damRaiseVersion = versionAtBuild;
+        _damStage = 1;
+        _damBuiltAt = _secondsSinceStart;
+        string axis = _damAlongX ? "east–west" : "north–south";
+        GD.Print(
+            $"M8: dam — a {axis} wall {thick} voxels thick {where} at ({px}, {pz}), top voxel {topVoxel} ({_damHeightMetres} m over the water at {level:F3}); "
+            + $"ends at {reach[0] * VoxelConstants.VoxelSize:F0} m ({(tied[0] ? "tied into the bank" : "OPEN, the length ran out")}) and "
+            + $"+{reach[1] * VoxelConstants.VoxelSize:F0} m ({(tied[1] ? "tied into the bank" : "OPEN, the length ran out")}); "
+            + $"{written:N0} voxel(s) written, {skipped:N0} not air or not loaded. Before: {before} (--dam)");
+    }
+
+    private double _damBuiltAt;
+
+    /// <summary>The dam's second reading, once the window has caught up with it, and the pour into side A.</summary>
+    private void ReadDamIfDue()
+    {
+        bool caughtUp = _raised is not null && _raised.Version != _damRaiseVersion
+                        && _waterAnalysis is null && _installedRaiseVersion == _raised.Version;
+        if (!caughtUp)
+        {
+            if (_secondsSinceStart - _damBuiltAt > 30.0)
+            {
+                _damStage = 2;
+                GD.Print(
+                    $"M8: dam — 30 s after the build the window has not caught up with a raise that includes it "
+                    + $"(raise {(_raised is null ? "off" : $"version {_raised.Version}, installed {_installedRaiseVersion}, was {_damRaiseVersion}")}); "
+                    + "no reading (--dam)");
+            }
+
+            return;
+        }
+
+        _damStage = 2;
+        _water!.Bank();
+        GD.Print(
+            $"M8: dam — after the re-analysis, {_secondsSinceStart - _damBuiltAt:F1} s on: {DamSide("A", _damSideA)}; {DamSide("B", _damSideB)}; {DamLakes()}; "
+            + $"split {_water.SplitLakes - _damSplitBefore:N0} lake(s), {_water.SplitLitres - _damSplitLitresBefore:N0} L shared by level, "
+            + $"{_water.DisplacedLitres - _damDisplacedBefore:N0} L displaced; held {_damHeldBefore:N0} → {_water.Ledger.TotalLitres:N0} L, "
+            + $"+{_water.SeedOverflowLitres - _damOverflowBefore:N0} L would not fit back, +{_water.SpilledLitres - _damSpilledBefore:N0} L spilled (--dam)");
+
+        if (_damPourLitres > 0)
+        {
+            if (!_water.TryBasinAtVoxel(_damSideA.X, _damSideA.Z, out int basin) || basin == Watershed.Outlet)
+            {
+                GD.Print("M8: dam — side A drains off the window, so --dampour has nowhere to go");
+                return;
+            }
+
+            long spilled = _water.Inject(basin, _damPourLitres);
+            GD.Print(
+                $"M8: dam — poured {_damPourLitres:N0} L into side A's basin {basin}, {spilled:N0} L spilled: "
+                + $"{DamSide("A", _damSideA)}; {DamSide("B", _damSideB)}; {DamLakes()} (--dampour)");
+        }
+    }
+
+    /// <summary>One side of the dam: its basin, the lake that basin stands in, its level and what that lake holds.</summary>
+    private string DamSide(string name, (int X, int Z) at)
+    {
+        if (_water?.Water is null || !_water.TryBasinAtVoxel(at.X, at.Z, out int basin) || basin == Watershed.Outlet)
+        {
+            return $"side {name} at ({at.X}, {at.Z}) drains off the window";
+        }
+
+        if (_water.LevelAt(basin) is not double level)
+        {
+            return $"side {name} at ({at.X}, {at.Z}) basin {basin}, dry";
+        }
+
+        int top = _water.Water.LakeTopOf(basin);
+        return $"side {name} at ({at.X}, {at.Z}) basin {basin} in lake {top}, level {level:F3}, the lake holding {_water.Water.StoredIn(top):N0} L";
+    }
+
+    /// <summary>Whether the dam's two sides stand in one lake or two.</summary>
+    private string DamLakes()
+    {
+        if (_water?.Water is null
+            || !_water.TryBasinAtVoxel(_damSideA.X, _damSideA.Z, out int a) || a == Watershed.Outlet
+            || !_water.TryBasinAtVoxel(_damSideB.X, _damSideB.Z, out int b) || b == Watershed.Outlet
+            || _water.LevelAt(a) is null || _water.LevelAt(b) is null)
+        {
+            return "not both wet";
+        }
+
+        return _water.Water.LakeTopOf(a) == _water.Water.LakeTopOf(b) ? "ONE lake" : "TWO lakes";
     }
 
     /// <summary>
