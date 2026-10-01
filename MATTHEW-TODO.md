@@ -281,9 +281,11 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-10-01**. **Both branches want a push**: `main` (`git push origin main`) and
-`water-column-test` (`git push origin water-column-test`, which carries the merge of main into it).
-**Branches:** `main` and `water-column-test` only.
+Updated **2026-10-01, at the session's close**. Both branches were pushed; the session-close commit is the only
+thing to push (`git push origin main`). **Branches:** `main` and `water-column-test` only, and the pond
+branch has everything main has.
+
+- **Next session: walls that split a lake**, the plan (top of this list), on `LakeTest`.
 
 - **The ideal machines plan is taken**, [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md): the
   bank, the vault and its dump, water in the inventory, the quarry (your 2 m bite), the six extras, and a

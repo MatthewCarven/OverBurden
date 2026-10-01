@@ -191,13 +191,20 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 ## Where things stand
 
-**2026-10-01 — the next session is his lake plan, and the flaky scheduler test is fixed.** The ideal machines
-plan is half built: all sixty-one decisions were taken on 2026-09-29. **Built:** IM-0b, IM-1 to IM-3b, IM-4a
-(with its mutation battery, thirty-six red), IM-4b (a vault in its pump's ring, `pumped == emitted + vaulted`)
-and IM-4c, reduced at his word (a block in a lake stays a pier; Ctrl+Z cancels placements still waiting for the
-boundary). **Taken and not built:** IM-5, the dump, split into 5a (the water) and 5b (the pile). Suite
-**2,175**. The branches are `main` and `water-column-test` only, and main is merged into the branch (2026-10-01;
-the branch's suite 2,219). Both branches are his to push.
+**2026-10-01, session close — the next session is his lake plan.** This session:
+- the flaky scheduler test is fixed, and now tests its name every run;
+- main is merged into the pond branch, twice;
+- TajMahal2 is retired, and his test world is `LakeTest`;
+- five on/off flags read `false` as off now (`--adaptive=false` had meant on);
+- `start.cmd`'s four flags stay off the code defaults until the first exported build (his word, as
+  recommended).
+
+The ideal machines plan is half built: all sixty-one decisions were taken on 2026-09-29. **Built:** IM-0b, IM-1 to
+IM-3b, IM-4a (with its mutation battery, thirty-six red), IM-4b (a vault in its pump's ring, `pumped == emitted +
+vaulted`) and IM-4c, reduced at his word (a block in a lake stays a pier; Ctrl+Z cancels placements still waiting
+for the boundary). **Taken and not built:** IM-5, the dump, split into 5a (the water) and 5b (the pile). Suite
+**2,175** on main and **2,219** on the branch, r6 to the digit on both. Everything is pushed; the branches are
+`main` and `water-column-test` only.
 
 **Next session, his pick (2026-10-01): the plan for converting Tier A to Tier B where voxels are placed**, so a
 wall built through a filled basin separates its water and one walled area can be flooded on its own
@@ -214,17 +221,17 @@ header byte and a kit. Each slice has a "code-level pass" and a "built" section 
 hand-over, slice by slice, is in [docs/STATUS-HISTORY.md](docs/STATUS-HISTORY.md).
 
 **Before IM-5a: TODO's "Order and collisions"**, at the top of TODO:
-- ~~the flaky `JobSchedulerTests` test~~, done 2026-10-01 (WORKLOG);
-- the clay pond's suspected leak: ask him which world and where;
+- the clay pond's suspected leak: ask him which world and where. The 09-26 clay-roof drip on
+  `Regions16-pondlook` (in TODO beside it, brought over from the branch) may be the same thing;
 - IM-0's windowed surface install, which needs his screen for about a minute (the 10 ML ceiling's render half);
-- ~~main merged into `water-column-test`~~, done 2026-10-01 (`927daef`); his verdict on it is still open.
+- his verdict on the pond branch. Main is merged in, so merge again after each slice on main.
 
 Then **IM-5a** (the plan's "IM-5 — the code-level pass", decisions 2–10). Before IM-6: the hotbar's unit (his)
 and the build warnings. Before IM-7: the engine-wide pin (TODO's Levers).
 
 **His open threads:**
 - building in lakes ([docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md): displacement, a wall breaking a
-  lake's sheet, a sooner hand-back), which he wants to talk through;
+  lake's sheet, a sooner hand-back), the next session's plan;
 - F11's six rungs (in TODO, the caps checked first);
 - testing and optimising on the pond branch.
 

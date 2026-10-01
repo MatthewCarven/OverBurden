@@ -19,10 +19,7 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
 (M10e–j). Each line names the slice it must come before.
 
 **Do first, before the slice named:**
-1. ~~**The flaky `JobSchedulerTests` test — before IM-5a.**~~ **Done 2026-10-01** (WORKLOG): one race, fixed on
-   09-06, may account for every sighting; the test now submits the survivor after the thrower reports, so it
-   tests its name every run instead of about one in twenty-five (none under load), and each failure says
-   which cause it saw.
+1. ~~The flaky `JobSchedulerTests` test~~ — done 2026-10-01 (WORKLOG).
 2. **The clay pond's suspected leak — before IM-5a.** IM-5a floods through the same Tier B engine, and a leak
    under it would read as the dump's. Blocked on his answer: which world, and where.
 3. **IM-0's windowed surface install — before IM-5a fixes the 10 ML ceiling.** The ceiling rests on IM-0's
@@ -30,11 +27,10 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
    surface is unmeasured, and a dump underground is exactly that. It takes his screen for about a minute.
    Re-read "For the load test" beside it: the hand-off's absorb at 32 ms a boundary from 530 k awake cells is
    the size of cost a 10 ML dump creates, and it predates the fixed build.
-4. **The pond branch — at least merge main into it before IM-5a; better, his verdict.** IM-5a adds a Tier A
-   door to `WaterSystem` while the branch rewrites the watershed, so each slice on main widens the merge. The
-   verdict also decides where a surface dump into a walled pond goes. **The merge is done (2026-10-01, his
-   word, `927daef`, and again as `964165e` after his push; WORKLOG): suite 2,219, r6 to the digit.** The
-   verdict is still his.
+4. **The pond branch — his verdict, better before IM-5a.** Main is merged into it (2026-10-01, `927daef` and
+   `964165e`; WORKLOG), so the gap is closed for now. Merge again after each slice on main, since IM-5a adds a
+   Tier A door to `WaterSystem` while the branch rewrites the watershed. The verdict also decides where a
+   surface dump into a walled pond goes.
 5. **The hotbar's unit (his, in MATTHEW-TODO) — before IM-6.** IM-6 puts water in the hotbar's last slot
    (decision 23), so *"1,767,903,281 L doesn't fit"* arrives with IM-6, not M10g.
 6. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.
@@ -234,8 +230,6 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
 - [ ] **What drained a paused cell is unproved.** If the `M6:` count of awake indexes dropped for
       holding nothing keeps climbing on a world written entirely after the fix, look at the
       hand-off taking from a cell the worker levelled on its captured view after the chunk left.
-- [x] **`JobSchedulerTests.AThrowingJobFaultsWithoutTakingTheWorkerDownWithIt` has failed
-      intermittently** — not a flake until the reason is found. **Closed 2026-10-01** (WORKLOG).
 - [ ] **The clay pond in the rain may leak** — his note (2026-09-30): *"IDK i think we have a leak
       bug"*, on the rain play's clay pond check. Ask which world and where before probing; then a copy,
       the `seep` line's face count and the pond's litres over a storm (`--clockscale=20`).

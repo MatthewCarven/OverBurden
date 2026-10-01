@@ -1,5 +1,13 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-01 — session close
+
+*"Please commit anything you please to memory and/or markdown files … see you in a fresh Code Chat"*. Both
+branches were pushed. CLAUDE.md's hand-over is rewritten for the close, and the version it replaces is in
+STATUS-HISTORY. TODO's closed lines are gone: the flaky test is now one line, the owed check is deleted, and the
+pond item keeps only his verdict. His list's status block says the next session is the lake plan, on
+`LakeTest`. One new memory, on merging main into a long branch so the next merge is clean.
+
 ## 2026-10-01 — main merged into the pond branch a second time
 
 *"pushed, merge main into the pond branch again please Claude"*. `964165e` on `water-column-test`: main's three
