@@ -304,7 +304,7 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-10-01, night, after L-2**. Both branches have commits to push (`git push origin main
+Updated **2026-10-01, late night, after E-1**. Both branches have commits to push (`git push origin main
 water-column-test`). **Branches:** `main` and `water-column-test` only, and the pond branch has everything main
 has.
 
@@ -316,6 +316,10 @@ has.
   placed a block.
 - **Sorry about your log**: my test run started while you were playing at 8:19 PM and renamed your log, so it
   stops at 8:24. The rest is kept as `play-LakeTest-2026-10-01-2019.log`. Your world wasn't touched.
+- **A walled area now counts as walled however the game looks at it** (E-1, on main and on your pond branch).
+  Before, a walled area 16–32 m across could count as walled in when checked from near its middle and as open
+  when checked from near a wall, and an edit could flip it. That may be the lake's sheet bleeding in and out of
+  walls you saw; if it happens again, tell me where.
 
 - **The ideal machines plan is taken**, [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md): the
   bank, the vault and its dump, water in the inventory, the quarry (your 2 m bite), the six extras, and a

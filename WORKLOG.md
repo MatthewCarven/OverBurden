@@ -1,5 +1,33 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-01 (late night) — E-1: a walled area's answer is the area's
+
+*"start E-1 please Claude"*. LAKE-EDIT-PLAN decision 6, built on main in a worktree, then main merged into the
+pond branch. The record is the plan's "E-1 — built".
+
+**The test came first, and it went red as fact 5 said.** In a 30 m courtyard, asked first from a corner, an edge or
+its far side, the flood read open, because it was 64 voxels from the asker. That answer was cached for every cell
+it visited, the middle included. Only the middle, asked first, read enclosed. A 128-wide courtyard read open from
+everywhere.
+
+**Now a flood reads open once the area it has walked spans more than 128 voxels in x or z.** Its scratch is 257²
+bits, so an area that wide fits round any start. Once it knows it is open, it fills only the 129-box round its
+start, as before, so open regions cover what they did. A region is stored over its own cells' box. The no-edits
+shortcut stays at two chunk columns: in an area at most 128 across, some wall is within 64 voxels along any row.
+
+**Sixteen new test cases, twelve mutations red.** The suite is 2,175 → 2,191 on main and 2,247 on the merged
+branch. r6 holds to the digit on both, and the courtyard oracle reads as recorded (`handed 0 L`, 6 floods, 6
+closed). The dam oracle is unchanged on the merged branch, to the litre.
+
+**On a copy of `LakeTest`**, standing headless at his spawn, pre-E-1 against E-1, alternated:
+- the same two enclosures in both arms;
+- the enclosure at 3.24 / 2.88 against 4.13 / 3.92 ms a second, the worst call 15–17 ms in both;
+- about 30 floods a run now opening at an unloaded chunk instead of at the old bound. A flood started beside a
+  wall walks up to 128 voxels the other way before deciding. Its region is dropped when that chunk arrives, so it
+  is run again.
+
+That is under the pond plan's 5 ms bar, and the lever is named in TODO.
+
 ## 2026-10-01 (night) — L-2: `--dam=`, and a dam splits his lake
 
 *"start L-2 please Claude"*. Built in a worktree of the pond branch (`lake-l2`); the record is
