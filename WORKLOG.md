@@ -1,5 +1,61 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-01 (later) — session close: the lake pass
+
+*"Please commit anything you please to memory and/or markdown files … see you in a fresh Code Chat"*.
+CLAUDE.md's opening paragraph is rewritten for the close, and the one it replaces is in STATUS-HISTORY. TODO
+carries L-1's brief in order, test first. His list keeps the one open question (the walled area beneath
+TajMahal2). There is one new memory, `lake-split-plan`. Main is ahead by this session's doc commits, his to push.
+
+## 2026-10-01 — the lake plan's seven decisions taken
+
+*"as recommended please Claude"*. All seven of [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md) are taken.
+Nothing is built. Next is L-1, sharing each old lake by the water over each cell, in a worktree of
+`water-column-test`; then L-2; E-1 on main alongside. His question about the walled area beneath TajMahal2 is
+still open, on his list.
+
+## 2026-10-01 — the lake pass: converting to Tier B can't separate; the pond branch's split is the route, and it loses a side
+
+*"yes please Claude, start the lake pass"*. Three read-only searches (Tier A's model, the edit path, Tier B's
+cost to take a piece of lake), each reporting file and line. I checked the load-bearing facts by hand. Written as
+[docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md): twelve facts, seven decisions, nothing built. What changes the
+plan:
+- **His conversion can't reach his end.** Tier B is refused inside a lake's band, Tier B found there is handed
+  whole within two boundaries, and the hand-back goes to the one unsplit basin, since Tier A has one level per
+  basin and no wall. So the sides rejoin once the water rests. Inside an enclosure the water is never handed
+  back at all.
+- **The pond branch already divides a lake at a wall** (POND-PLAN decision 4), **but splits the litres
+  wrongly.** The ledger keys water by pit, so every litre goes to the side holding the old pit, which fills
+  toward the wall's top, and the other side starts dry. Checked in the branch's `BasinLedger` and `BasinWater.Add`.
+  No test built a wall across a filled lake. POND-PLAN's decision 4 now says so.
+- **Recommended fix:** share each old lake among the new basins by the water that stood over each cell, which
+  also gives his displacement. Slices L-1 and L-2 on the branch, then his play on `LakeTest` as the branch's
+  deciding test.
+- **The enclosure's answer depends on which cell asks first** (`Enclosure.cs:395–406`). The bound is a distance
+  from the asking cell, by design, and the first flood's answer is cached for every cell it visited. So a 16–32 m
+  walled area can read either way, and flip when an edit drops the cache. It is a candidate for his "bleed in and
+  out of walls". Slice E-1 on main.
+- **Portals ignore walls**: a hole inside walls under a lake drains the whole lake. The raise answers it.
+
+His `LakeTest` play (00:10–00:54) was read for context: 0 `ERROR`, 24 ML injected, 6.6 M voxels placed, 1,389
+enclosed floods against 18,685 open at the bound.
+
+## 2026-10-01 — session close
+
+*"Please commit anything you please to memory and/or markdown files … see you in a fresh Code Chat"*. Both
+branches were pushed. CLAUDE.md's hand-over is rewritten for the close, and the version it replaces is in
+STATUS-HISTORY. TODO's closed lines are gone: the flaky test is now one line, the owed check is deleted, and the
+pond item keeps only his verdict. His list's status block says the next session is the lake plan, on
+`LakeTest`. One new memory, on merging main into a long branch so the next merge is clean.
+
+## 2026-10-01 — main merged into the pond branch a second time
+
+*"pushed, merge main into the pond branch again please Claude"*. `964165e` on `water-column-test`: main's three
+commits since the first merge (its records, the defaults question, the on/off flag fix). **No conflicts**: the
+clay-roof item and the overhang check had gone into main byte-identical to the branch's copies, so each merged as
+one change and landed once. Done in a worktree again. **Suite 2,219 of 2,219; the r6 control 2601 / 325 / 3446
+at 411**, to the digit. His push went up before `c9e83b3`, so main was one commit ahead at the time.
+
 ## 2026-10-01 — the defaults stay the measurement arms for now; `--adaptive=false` no longer means on
 
 **His question, then *"as recommended"*: should `start.cmd`'s four flags (`--lightbudget=16 --adaptive=1

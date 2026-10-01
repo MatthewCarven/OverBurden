@@ -48,7 +48,8 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/MATERIALS-NOTES.md](docs/MATERIALS-NOTES.md) | Elements, and why not "just implement chemistry": geology that reacts to water, machine recipes as the chemistry set. |
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | Ores, layers, trees, permeability — his thinking-ahead. Not scheduled; its three questions are his. |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written and taken as recommended (2026-09-28)**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a (rest) comes before any body. **Part a is parked (2026-09-29)**: the pool rests with the near/far order off, but every cheap fix under the order failed the load test; a carry with O(1) removal is the open piece. `--bodyprobe=` and `--rest` measure it. |
-| [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md) | **Building in a lake** (2026-09-30): his words verbatim on displacement, a wall breaking a lake's sheet, and a sooner Tier B → A hand-back, with what the code offers and four questions. **The next session's plan (2026-10-01, his pick): Tier A → B where voxels are placed, so a wall separates a filled basin's water.** Today a block in a lake is a pier. |
+| [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md) | **Building in a lake** (2026-09-30): his words verbatim on displacement, a wall breaking a lake's sheet, and a sooner Tier B → A hand-back, with what the code offers and four questions. Today a block in a lake is a pier. |
+| [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md) | **Walls that split a lake, the code-level pass (2026-10-01): all seven decisions taken as recommended, nothing built.** His Tier B conversion can't separate (the hand-back rejoins the one lake); the pond branch's raise divides a lake but gives every litre to the old pit's side (fact 10). Recommended: share by the water over each cell (L-1, L-2 on the branch), and make the enclosure's answer independent of who asks first (E-1, main). |
 | [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-4c done (2026-09-30; 4c kept today's lake rule at his word); IM-5's sixteen decisions taken (2026-09-30), not built; TODO's "Order and collisions" says what comes first.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
 
 ## Non-negotiables
@@ -191,20 +192,30 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 ## Where things stand
 
-**2026-10-01 — the next session is his lake plan, and the flaky scheduler test is fixed.** The ideal machines
-plan is half built: all sixty-one decisions were taken on 2026-09-29. **Built:** IM-0b, IM-1 to IM-3b, IM-4a
-(with its mutation battery, thirty-six red), IM-4b (a vault in its pump's ring, `pumped == emitted + vaulted`)
-and IM-4c, reduced at his word (a block in a lake stays a pier; Ctrl+Z cancels placements still waiting for the
-boundary). **Taken and not built:** IM-5, the dump, split into 5a (the water) and 5b (the pile). Suite
-**2,175**. The branches are `main` and `water-column-test` only, and main is merged into the branch (2026-10-01;
-the branch's suite 2,219). Both branches are his to push.
+**2026-10-01 (later), session close — the next session builds L-1, the lake split, on the pond branch.** This
+session was the lake pass: three read-only searches, twelve facts checked by hand where they bore weight, and
+seven decisions, all taken as recommended ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md)). No code changed.
+Main's doc commits from it are his to push. The previous close's opening (the flaky test, the merges, the flags)
+is in STATUS-HISTORY.
 
-**Next session, his pick (2026-10-01): the plan for converting Tier A to Tier B where voxels are placed**, so a
-wall built through a filled basin separates its water and one walled area can be flooded on its own
-([docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md), "Chosen as the next session's topic", his words
-verbatim). A plan, not a build. His test world for it is `LakeTest`; read TODO's collisions 1,
-2 and 7 first (water bodies part a, the pond branch and the look under a lake share the hand-off and the
-watershed).
+The ideal machines plan is half built: all sixty-one decisions were taken on 2026-09-29. **Built:** IM-0b, IM-1 to
+IM-3b, IM-4a (with its mutation battery, thirty-six red), IM-4b (a vault in its pump's ring, `pumped == emitted +
+vaulted`) and IM-4c, reduced at his word (a block in a lake stays a pier; Ctrl+Z cancels placements still waiting
+for the boundary). **Taken and not built:** IM-5, the dump, split into 5a (the water) and 5b (the pile). Suite
+**2,175** on main and **2,219** on the branch, r6 to the digit on both. The branches are `main` and
+`water-column-test` only; the branch is pushed, and main is ahead by this session's docs.
+
+**The lake plan is taken (2026-10-01): [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), all seven decisions
+as recommended; one question is still his (what the walled area beneath TajMahal2 was).** His means,
+converting Tier A to Tier B where voxels are placed, can't keep the sides apart. The pond branch's raise
+already divides a lake at a wall, but its ledger gives every litre to the side holding the old pit. **Next
+session, build:**
+- **L-1** (Core: share each old lake by the water over each cell, decision 2, with its oracles and a
+  battery), in a worktree of `water-column-test`, since `start.cmd` builds the main folder;
+- then **L-2** (the wire, `--dam=`, the headless oracle);
+- **E-1** on main alongside.
+
+His test world is `LakeTest`.
 
 **The plan to build: [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md).** The shape: a channel is an
 account (one bank, one store); the quantum backpack is a window that holds nothing; a vault bills for what it
@@ -214,17 +225,17 @@ header byte and a kit. Each slice has a "code-level pass" and a "built" section 
 hand-over, slice by slice, is in [docs/STATUS-HISTORY.md](docs/STATUS-HISTORY.md).
 
 **Before IM-5a: TODO's "Order and collisions"**, at the top of TODO:
-- ~~the flaky `JobSchedulerTests` test~~, done 2026-10-01 (WORKLOG);
-- the clay pond's suspected leak: ask him which world and where;
+- the clay pond's suspected leak: ask him which world and where. The 09-26 clay-roof drip on
+  `Regions16-pondlook` (in TODO beside it, brought over from the branch) may be the same thing;
 - IM-0's windowed surface install, which needs his screen for about a minute (the 10 ML ceiling's render half);
-- ~~main merged into `water-column-test`~~, done 2026-10-01 (`927daef`); his verdict on it is still open.
+- his verdict on the pond branch. Main is merged in, so merge again after each slice on main.
 
 Then **IM-5a** (the plan's "IM-5 — the code-level pass", decisions 2–10). Before IM-6: the hotbar's unit (his)
 and the build warnings. Before IM-7: the engine-wide pin (TODO's Levers).
 
 **His open threads:**
-- building in lakes ([docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md): displacement, a wall breaking a
-  lake's sheet, a sooner hand-back), which he wants to talk through;
+- building in lakes: the plan is taken ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md)), and his play on
+  `LakeTest` after L-2 is the pond branch's deciding test;
 - F11's six rungs (in TODO, the caps checked first);
 - testing and optimising on the pond branch.
 

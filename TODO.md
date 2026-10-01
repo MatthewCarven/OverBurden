@@ -19,10 +19,7 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
 (M10e–j). Each line names the slice it must come before.
 
 **Do first, before the slice named:**
-1. ~~**The flaky `JobSchedulerTests` test — before IM-5a.**~~ **Done 2026-10-01** (WORKLOG): one race, fixed on
-   09-06, may account for every sighting; the test now submits the survivor after the thrower reports, so it
-   tests its name every run instead of about one in twenty-five (none under load), and each failure says
-   which cause it saw.
+1. ~~The flaky `JobSchedulerTests` test~~ — done 2026-10-01 (WORKLOG).
 2. **The clay pond's suspected leak — before IM-5a.** IM-5a floods through the same Tier B engine, and a leak
    under it would read as the dump's. Blocked on his answer: which world, and where.
 3. **IM-0's windowed surface install — before IM-5a fixes the 10 ML ceiling.** The ceiling rests on IM-0's
@@ -30,10 +27,10 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
    surface is unmeasured, and a dump underground is exactly that. It takes his screen for about a minute.
    Re-read "For the load test" beside it: the hand-off's absorb at 32 ms a boundary from 530 k awake cells is
    the size of cost a 10 ML dump creates, and it predates the fixed build.
-4. **The pond branch — at least merge main into it before IM-5a; better, his verdict.** IM-5a adds a Tier A
-   door to `WaterSystem` while the branch rewrites the watershed, so each slice on main widens the merge. The
-   verdict also decides where a surface dump into a walled pond goes. **The merge is done (2026-10-01, his
-   word, `927daef`; WORKLOG): 99 commits, suite 2,219, r6 to the digit.** The verdict is still his.
+4. **The pond branch — his verdict, better before IM-5a.** Main is merged into it (2026-10-01, `927daef` and
+   `964165e`; WORKLOG), so the gap is closed for now. Merge again after each slice on main, since IM-5a adds a
+   Tier A door to `WaterSystem` while the branch rewrites the watershed. The verdict also decides where a
+   surface dump into a walled pond goes.
 5. **The hotbar's unit (his, in MATTHEW-TODO) — before IM-6.** IM-6 puts water in the hotbar's last slot
    (decision 23), so *"1,767,903,281 L doesn't fit"* arrives with IM-6, not M10g.
 6. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.
@@ -53,7 +50,9 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
    Tier A (the hand-off and the solve). One pass, not two: LAKE-EDIT's question 3 is part a's.
 2. **The pond branch, LAKE-EDIT's displacement, IM-4c's pier and IM-5a's surface dump.** On the branch a block
    cuts a lake's room and a wall becomes a basin's rim, so a surface dump into a walled pond goes where the
-   branch's watershed says. Decide the branch before LAKE-EDIT's pass.
+   branch's watershed says. Decide the branch before LAKE-EDIT's pass. **The pass (2026-10-01) went the
+   other way round**: it routes the lake split through the branch (LAKE-EDIT-PLAN decision 1), so its L-1
+   and L-2 become the branch's deciding test.
 3. **F11's six rungs and "machines only where you are"** (taken 9: IM-7's quarry, and IM-5's release on
    arrival). 16h/12v loads 4.7 times 10h/6v's chunks, so quarries would run, and unloaded dumps release, over
    that much more ground. IM-7's pass decides whether machine work follows the view or a fixed radius, before
@@ -109,15 +108,34 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
       vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;
       files stay in watts). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his
       say-so, it takes his focus); a bite under a lake (IM-7's bench); a dump underground (IM-5's).
-- [ ] **Building in a lake: displacement, a wall breaking a sheet, and a sooner hand-back** — his notes,
-      2026-09-30, verbatim in [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md) with what the code already
-      offers and four questions. **His pick for the next session (2026-10-01): the plan for converting Tier
-      A to Tier B where voxels are placed**, so a wall built through a filled basin separates its water and
-      one walled area can be flooded on its own (the notes' "Chosen as the next session's topic"). His test
-      world for it is `LakeTest` (`start.cmd` names it); TajMahal2 is retired. Read collisions 1, 2 and 7 above first: the pond
-      branch and water bodies part a touch the same hand-off and watershed. (The
-      lake over a quarry, his look 2026-09-30: *"draws nearly perfectly"*, a small gap sometimes, filled
-      by Tier B soon after.)
+- [ ] **Building in a lake: walls that split a lake — all seven decisions taken as recommended (2026-10-01),
+      nothing built; next is L-1 in a worktree of `water-column-test`, E-1 on main alongside**
+      ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), 2026-10-01; his notes in
+      [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md)). The finding: converting lake water to Tier B can't
+      keep the sides apart, because the hand-back rejoins the one lake. The pond branch's raise already
+      divides a lake at a wall, but it gives all the litres to the side holding the old pit (fact 10, no test
+      covered it). Taken:
+      - **L-1 and L-2 on the branch** (share each old lake by the water over each cell; `--dam=`; a headless
+        oracle), then his play on `LakeTest`, which becomes the branch's deciding test;
+      - **E-1 on main**: the enclosure's answer stops depending on which cell asks first (fact 5; a candidate
+        for the sheet that "bleeds in and out of walls").
+
+      **L-1's brief, in order (LAKE-EDIT-PLAN decision 2 is the spec):**
+      1. A worktree of the branch: `git worktree add -b lake-l1 .claude/worktrees/lake-l1 water-column-test`,
+         then `EnterWorktree` with that path (the notebook's recipe).
+      2. Read, on the branch: `WaterSystem.Install`'s same-origin path (it calls `Ledger.Rehome`),
+         `BasinLedger.Absorb` / `Rehome` / `Seed`, `BasinWater.CaptureByBasin` / `LevelAt` / `Add`, and
+         `RaisedSurfaceTests`' pier and ring-down tests, which are the fixtures to copy.
+      3. **Write the wall-across-a-full-lake test first and watch it fail**, with the pit side risen and the
+         other side dry.
+      4. Share each old lake (its top node in the old merge tree) by `(old level − old height)` over each cell,
+         counted to the new basin holding the cell. Use whole litres by largest remainder, then `Add` per new
+         basin. A window move stays by pit.
+      5. Decision 2's five oracles; a battery (by pit, by area, the new height for the old, the remainder
+         dropped); the suite; r6 on the branch.
+
+      His question, open: what the walled area beneath TajMahal2 was. (The lake over a quarry, his look
+      2026-09-30: *"draws nearly perfectly"*, a small gap sometimes, filled by Tier B soon after.)
 - [ ] **F11: six rungs**, his ask (2026-09-30): 6h/2v, 8h/4v, 10h/6v, 12h/8v, 14h/10v, 16h/12v, and
       *"Its ok if the lazy loader never reaches the maximum like we will use that as an artificial
       limit"*. The rungs are one array, `FarRungs` (`Main.cs:320`, today `(8, 4), (10, 6)`). 16h/12v is
@@ -233,8 +251,6 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
 - [ ] **What drained a paused cell is unproved.** If the `M6:` count of awake indexes dropped for
       holding nothing keeps climbing on a world written entirely after the fix, look at the
       hand-off taking from a cell the worker levelled on its captured view after the chunk left.
-- [x] **`JobSchedulerTests.AThrowingJobFaultsWithoutTakingTheWorkerDownWithIt` has failed
-      intermittently** — not a flake until the reason is found. **Closed 2026-10-01** (WORKLOG).
 - [ ] **The clay pond in the rain may leak** — his note (2026-09-30): *"IDK i think we have a leak
       bug"*, on the rain play's clay pond check. Ask which world and where before probing; then a copy,
       the `seep` line's face count and the pond's litres over a storm (`--clockscale=20`).

@@ -41,10 +41,9 @@ care about. I keep it current at the end of each session.
       A shape half in water puts its dry half down at the click: the first press cancels the wet half,
       and a second takes back the dry half.
 
-- [ ] **Next session: the plan for walls that split a lake** ([docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md)),
-      your pick (2026-10-01): Tier A water turned into Tier B where you place voxels, so a wall through a
-      filled basin separates the water on each side and you can flood just the walled-off part. Your notes
-      are there verbatim with four questions. Your test world `LakeTest` is made, and `start.cmd` opens it.
+- [ ] **One question on walls that split a lake:** the walled area beneath TajMahal2. Was it built above the
+      ground or dug below it, about how wide, and what went wrong: the lake showing inside, the lake getting
+      in, or not being able to flood it on its own? It decides whether the plan covers that case as it is.
 
 - [ ] **The pond branch's verdict.** `water-column-test` has the raised watershed and your water
       grid built (walls you place raise the lake's rim; the lake reaches under what you build).
@@ -171,6 +170,19 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Answered lately
 
+- **Walls that split a lake, seven decisions** (2026-10-01): *"as recommended please Claude"*. Taken, not
+  built yet ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md)). In short:
+  - turning the lake into Tier B can't keep two sides apart, because the water rejoins the one lake once it
+    settles;
+  - your pond branch already divides a lake at a wall, but it gives all the water to one side and leaves
+    the other dry, a bug no test caught;
+  - so the fix goes on the branch: each side keeps the water that stood over it, and the wall nudges both
+    levels up a little;
+  - then your play on `LakeTest` (a wall across a full lake, R into one side) becomes the branch's deciding
+    test;
+  - one small fix on main as well: whether a walled area counts as walled in can depend on which spot is
+    checked first. That may be the sheet that "bled in and out of walls".
+
 - **`start.cmd`'s settings as the game's defaults** (2026-10-01): *"as recommended"*. Not now; they
   flip when we make the first build someone else plays (in TODO under "Later", with the reasons).
   **And the `--adaptive=false` bug is fixed**: it and four other on/off flags now read 1/0, true/false,
@@ -281,9 +293,12 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-10-01**. **Both branches want a push**: `main` (`git push origin main`) and
-`water-column-test` (`git push origin water-column-test`, which carries the merge of main into it).
-**Branches:** `main` and `water-column-test` only.
+Updated **2026-10-01, at the lake pass's close**. Main has this session's doc commits to push (`git push origin
+main`); the pond branch is pushed. **Branches:** `main` and `water-column-test` only. The pond branch has
+everything main had before today's docs, and the next merge brings them over.
+
+- **Walls that split a lake: the plan is taken** (2026-10-01), all seven as recommended. Next is building the
+  fix on your pond branch, then your play on `LakeTest`.
 
 - **The ideal machines plan is taken**, [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md): the
   bank, the vault and its dump, water in the inventory, the quarry (your 2 m bite), the six extras, and a
