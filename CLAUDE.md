@@ -192,20 +192,18 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 ## Where things stand
 
-**2026-10-01, session close — the next session is his lake plan.** This session:
-- the flaky scheduler test is fixed, and now tests its name every run;
-- main is merged into the pond branch, twice;
-- TajMahal2 is retired, and his test world is `LakeTest`;
-- five on/off flags read `false` as off now (`--adaptive=false` had meant on);
-- `start.cmd`'s four flags stay off the code defaults until the first exported build (his word, as
-  recommended).
+**2026-10-01 (later), session close — the next session builds L-1, the lake split, on the pond branch.** This
+session was the lake pass: three read-only searches, twelve facts checked by hand where they bore weight, and
+seven decisions, all taken as recommended ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md)). No code changed.
+Main's doc commits from it are his to push. The previous close's opening (the flaky test, the merges, the flags)
+is in STATUS-HISTORY.
 
 The ideal machines plan is half built: all sixty-one decisions were taken on 2026-09-29. **Built:** IM-0b, IM-1 to
 IM-3b, IM-4a (with its mutation battery, thirty-six red), IM-4b (a vault in its pump's ring, `pumped == emitted +
 vaulted`) and IM-4c, reduced at his word (a block in a lake stays a pier; Ctrl+Z cancels placements still waiting
 for the boundary). **Taken and not built:** IM-5, the dump, split into 5a (the water) and 5b (the pile). Suite
-**2,175** on main and **2,219** on the branch, r6 to the digit on both. Everything is pushed; the branches are
-`main` and `water-column-test` only.
+**2,175** on main and **2,219** on the branch, r6 to the digit on both. The branches are `main` and
+`water-column-test` only; the branch is pushed, and main is ahead by this session's docs.
 
 **The lake plan is taken (2026-10-01): [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), all seven decisions
 as recommended; one question is still his (what the walled area beneath TajMahal2 was).** His means,

@@ -13,6 +13,17 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md on 2026-10-01, at the lake pass's close** (the opening of the previous close's
+hand-over, superseded when the lake plan was written and taken):
+
+**2026-10-01, session close — the next session is his lake plan.** This session:
+- the flaky scheduler test is fixed, and now tests its name every run;
+- main is merged into the pond branch, twice;
+- TajMahal2 is retired, and his test world is `LakeTest`;
+- five on/off flags read `false` as off now (`--adaptive=false` had meant on);
+- `start.cmd`'s four flags stay off the code defaults until the first exported build (his word, as
+  recommended).
+
 **Moved from CLAUDE.md on 2026-10-01, at the session's close** (the session's running hand-over, superseded by
 the close's):
 

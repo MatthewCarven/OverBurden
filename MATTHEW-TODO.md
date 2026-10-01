@@ -293,9 +293,9 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-10-01, at the session's close**. Both branches were pushed; the session-close commit is the only
-thing to push (`git push origin main`). **Branches:** `main` and `water-column-test` only, and the pond
-branch has everything main has.
+Updated **2026-10-01, at the lake pass's close**. Main has this session's doc commits to push (`git push origin
+main`); the pond branch is pushed. **Branches:** `main` and `water-column-test` only. The pond branch has
+everything main had before today's docs, and the next merge brings them over.
 
 - **Walls that split a lake: the plan is taken** (2026-10-01), all seven as recommended. Next is building the
   fix on your pond branch, then your play on `LakeTest`.

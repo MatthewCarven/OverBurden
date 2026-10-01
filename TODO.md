@@ -120,6 +120,20 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
       - **E-1 on main**: the enclosure's answer stops depending on which cell asks first (fact 5; a candidate
         for the sheet that "bleeds in and out of walls").
 
+      **L-1's brief, in order (LAKE-EDIT-PLAN decision 2 is the spec):**
+      1. A worktree of the branch: `git worktree add -b lake-l1 .claude/worktrees/lake-l1 water-column-test`,
+         then `EnterWorktree` with that path (the notebook's recipe).
+      2. Read, on the branch: `WaterSystem.Install`'s same-origin path (it calls `Ledger.Rehome`),
+         `BasinLedger.Absorb` / `Rehome` / `Seed`, `BasinWater.CaptureByBasin` / `LevelAt` / `Add`, and
+         `RaisedSurfaceTests`' pier and ring-down tests, which are the fixtures to copy.
+      3. **Write the wall-across-a-full-lake test first and watch it fail**, with the pit side risen and the
+         other side dry.
+      4. Share each old lake (its top node in the old merge tree) by `(old level − old height)` over each cell,
+         counted to the new basin holding the cell. Use whole litres by largest remainder, then `Add` per new
+         basin. A window move stays by pit.
+      5. Decision 2's five oracles; a battery (by pit, by area, the new height for the old, the remainder
+         dropped); the suite; r6 on the branch.
+
       His question, open: what the walled area beneath TajMahal2 was. (The lake over a quarry, his look
       2026-09-30: *"draws nearly perfectly"*, a small gap sometimes, filled by Tier B soon after.)
 - [ ] **F11: six rungs**, his ask (2026-09-30): 6h/2v, 8h/4v, 10h/6v, 12h/8v, 14h/10v, 16h/12v, and

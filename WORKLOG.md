@@ -1,5 +1,12 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-01 (later) — session close: the lake pass
+
+*"Please commit anything you please to memory and/or markdown files … see you in a fresh Code Chat"*.
+CLAUDE.md's opening paragraph is rewritten for the close, and the one it replaces is in STATUS-HISTORY. TODO
+carries L-1's brief in order, test first. His list keeps the one open question (the walled area beneath
+TajMahal2). There is one new memory, `lake-split-plan`. Main is ahead by this session's doc commits, his to push.
+
 ## 2026-10-01 — the lake plan's seven decisions taken
 
 *"as recommended please Claude"*. All seven of [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md) are taken.
