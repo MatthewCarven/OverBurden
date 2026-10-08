@@ -765,6 +765,46 @@ public partial class Main : Node3D
 
     private bool _courtyardBuilt;
 
+    /// <summary>The courtyard's footprint, walls included, and the plane its walls rise from at its centre — what the raise's oracle reads the basin against.</summary>
+    private (int X0, int Z0, int X1, int Z1, int Floor, int Top)? _courtyardBox;
+
+    /// <summary>
+    /// <c>--dam=&lt;metres&gt;</c>: a straight wall a metre thick across the lake under the player, at
+    /// most that long, when the measured window opens and after <c>--fillbasin</c>'s pour
+    /// (docs/LAKE-EDIT-PLAN.md, L-2). Its top stands <c>--damheight=&lt;metres&gt;</c> (1) over the
+    /// water; each end runs on two cells past where the bank reaches the top, so Tier A sees it tied
+    /// in. <c>--damaxis=x</c> runs it east–west instead of north–south. The headless oracle for
+    /// walls that split a lake: both sides' lakes before, after the re-analysis that sees it, and
+    /// after <c>--dampour=&lt;litres&gt;</c> into one side. <c>--damafter=&lt;seconds&gt;</c> holds it
+    /// past its due moment, for a windowed run whose chunks are still loading.
+    /// </summary>
+    private int _damMetres;
+
+    private int _damHeightMetres = 1;
+
+    private bool _damAlongX;
+
+    private long _damPourLitres;
+
+    /// <summary>
+    /// <c>--damafter=&lt;seconds&gt;</c>: hold the dam that long past its due moment. A played world takes
+    /// ~14 s to light in a windowed run, and a wall written into chunks that have not loaded is skipped.
+    /// </summary>
+    private double _damAfterSeconds;
+
+    private double _damDelayElapsed;
+
+    /// <summary>Where the dam's oracle is: 0 not built, 1 built and waiting for the re-analysis, 2 read after it, 3 poured.</summary>
+    private int _damStage;
+
+    /// <summary>The raise version before the dam's writes: the reading waits for the map to move past it and the window to catch up.</summary>
+    private long _damRaiseVersion;
+
+    /// <summary>A point on each side of the dam, three cells off its line, in world voxels.</summary>
+    private (int X, int Z) _damSideA, _damSideB;
+
+    private long _damHeldBefore, _damOverflowBefore, _damSpilledBefore, _damSplitBefore, _damSplitLitresBefore, _damDisplacedBefore;
+
     private bool _injected;
 
     private double _secondsSinceStart;
@@ -1082,6 +1122,45 @@ public partial class Main : Node3D
     private Enclosure? _enclosure;
 
     private bool _enclosureOn = true;
+
+    /// <summary>
+    /// The raised watershed (docs/POND-PLAN.md): the player's material above the seed raises a
+    /// sample to its highest placed top. Null without water or under <c>--raise=0</c>, the
+    /// pre-2026-09-25 arm in which the watershed sees only the seed terrain.
+    /// </summary>
+    private RaisedSurface? _raised;
+
+    private bool _raiseOn = true;
+
+    /// <summary><c>--waterprobe=x,z</c>: the column the water line's "under you" reads instead of the player's — a measurement seam, for a pond the saved position is not standing in.</summary>
+    private (int X, int Z)? _waterProbe;
+
+    /// <summary>Matthew's water grids, the ceiling's and the surface's one cache (decision 10). Null with <see cref="_raised"/>.</summary>
+    private WaterGrids? _waterGrids;
+
+    /// <summary>The raise version the installed window was analysed at; -1 before one lands.</summary>
+    private long _installedRaiseVersion = -1;
+
+    /// <summary>The raise version the analysis in flight was submitted at.</summary>
+    private long _submittedRaiseVersion = -1;
+
+    /// <summary>Whether the analysis in flight was submitted for a raise rather than a window move.</summary>
+    private bool _submittedForRaise;
+
+    /// <summary>The raise's version when it last moved, and when — the re-analysis waits a quiet second.</summary>
+    private long _raiseSeenVersion;
+
+    private double _raiseMovedAt;
+
+    /// <summary>Same-origin analyses submitted because a raise moved, over the session.</summary>
+    private long _raiseReanalyses;
+
+    private double _raiseDeriveMillis;
+
+    private int _raiseDerivedColumns;
+
+    /// <summary>How long a raise must be still before the same ground is analysed again — decision 8, an estimate.</summary>
+    private const double RaiseQuietSeconds = 1.0;
 
     private long _handedAtWarm;
 
@@ -1456,6 +1535,9 @@ public partial class Main : Node3D
                 // The courtyard: a wall placed or taken down drops the cached regions at its level
                 // in its column, and the ceiling rebuilds a band whose top is that level.
                 _enclosure?.VoxelChanged(voxel);
+                // The overhang pass: the water grid reads voxels under a column's top now, where
+                // an edit moves no sky revision, so it counts the edit. A counter, nothing else.
+                _waterGrids?.VoxelChanged(voxel);
             },
             // M10a-2: an arrival with rows in it, or a palette that might hold a machine
             // material, is queued for the frame's drain. O(palette) here, no voxel read, no write:
@@ -1466,6 +1548,7 @@ public partial class Main : Node3D
                 // The courtyard: a chunk with edits may hold walls; one a flood reached as unloaded
                 // changes the answer either way. Bookkeeping only — no read, no flood, here.
                 _enclosure?.ChunkArrived(position, hasEdits);
+                _waterGrids?.ChunkArrived(position);
             },
             chunkCacheBytes: _chunkCacheMiB * 1024 * 1024,
             distanceOrderedDerives: !_deriveFifo,
@@ -1474,6 +1557,7 @@ public partial class Main : Node3D
             {
                 _portalTracker?.OnChunkForgotten(position);
                 _enclosure?.ChunkForgotten(position);
+                _waterGrids?.ChunkForgotten(position);
 
                 // UNDO-PLAN decision 5: the chunk reloads its *edited* state when it comes
                 // back, so a step that touched it can neither be applied nor deferred.
@@ -1874,6 +1958,9 @@ public partial class Main : Node3D
                 case "enclosure" when int.TryParse(value, out int enclosure):
                     _enclosureOn = enclosure != 0;
                     break;
+                case "raise" when int.TryParse(value, out int raise):
+                    _raiseOn = raise != 0;
+                    break;
                 case "lakeoverbite" when int.TryParse(value, out int overBite):
                     _lakeOverBite = overBite != 0;
                     break;
@@ -1885,6 +1972,9 @@ public partial class Main : Node3D
                                && float.TryParse(ay, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float atY)
                                && float.TryParse(az, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float atZ):
                     _spawnAt = new System.Numerics.Vector3(atX, atY, atZ);
+                    break;
+                case "waterprobe" when value.Split(',') is [string px, string pz] && int.TryParse(px, out int probeX) && int.TryParse(pz, out int probeZ):
+                    _waterProbe = (probeX, probeZ);
                     break;
 
                 // The water's control arm, the same shape as --norain. The analysis is the only
@@ -1912,6 +2002,23 @@ public partial class Main : Node3D
                     break;
                 case "courtyardroof" when int.TryParse(value, out int courtyardRoof):
                     _courtyardRoof = courtyardRoof != 0;
+                    break;
+
+                // L-2's dam: a wall across the lake under the player, the split's headless oracle.
+                case "dam" when int.TryParse(value, out int dam) && dam >= 2:
+                    _damMetres = dam;
+                    break;
+                case "damheight" when int.TryParse(value, out int damHeight) && damHeight >= 1:
+                    _damHeightMetres = damHeight;
+                    break;
+                case "damaxis" when value is "x" or "z":
+                    _damAlongX = value == "x";
+                    break;
+                case "dampour" when long.TryParse(value, out long damPour) && damPour > 0:
+                    _damPourLitres = damPour;
+                    break;
+                case "damafter" when double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double damAfter) && damAfter >= 0:
+                    _damAfterSeconds = damAfter;
                     break;
 
                 // M8b-2c's two seams. --fillbasin is the Tier A relay: litres into the basin
@@ -3993,6 +4100,23 @@ public partial class Main : Node3D
             HeightField.DefaultCellVoxels,
             _rainfallScale,
             _clock.ElapsedMillis);
+
+        if (_raiseOn)
+        {
+            // Decision 1: derived from the columns the store already holds, before the first
+            // analysis is submitted, so the first window sees every wall the world has.
+            _raised = new RaisedSurface(HeightField.DefaultCellVoxels);
+            long started = Stopwatch.GetTimestamp();
+            _raiseDerivedColumns = _store is null ? 0 : _raised.DeriveFrom(_store, _generator);
+            _raiseDeriveMillis = Milliseconds(started, Stopwatch.GetTimestamp());
+            _raiseSeenVersion = _raised.Version;
+            GD.Print($"M7d: the player's material raises the watershed — {_raised.Count:N0} sample(s) raised from "
+                + $"{_raiseDerivedColumns:N0} stored column(s) in {_raiseDeriveMillis:F1} ms (--raise=0 is the control)");
+        }
+        else
+        {
+            GD.Print("M7d: --raise=0 — the watershed sees only the seed terrain (the pre-2026-09-25 arm, the control)");
+        }
     }
 
     /// <summary>
@@ -4031,6 +4155,7 @@ public partial class Main : Node3D
             if (finished.IsCompletedSuccessfully)
             {
                 _water.Install(finished.Result);
+                _installedRaiseVersion = _submittedRaiseVersion;
             }
             else
             {
@@ -4046,31 +4171,84 @@ public partial class Main : Node3D
             _waterSurface.Update(_lastFrameSeconds, _water);
         }
 
+        ObserveRaise();
+
         if (_waterAnalysis is not null)
         {
             return;
         }
 
-        VoxelPos here = PlayerVoxel();
+        // --waterprobe= analyses round the probe, not the player: a profile's camera stands at the
+        // origin, and a pond 870 m away is off its window.
+        VoxelPos here = _waterProbe is { } probe ? new VoxelPos(probe.X, 0, probe.Z) : PlayerVoxel();
+        bool forRaise = false;
         if (!_water.NeedsWindowFor(here.X, here.Z))
         {
-            return;
+            // Decision 8: the same ground again once a raise has been still for a second.
+            if (_raised is null
+                || _raised.Version == _installedRaiseVersion
+                || _clock.ElapsedMillis / 1000.0 < _raiseMovedAt + RaiseQuietSeconds)
+            {
+                return;
+            }
+
+            forRaise = true;
+            _raiseReanalyses++;
         }
 
         // Captured into locals before the closure, because every one of these is read on a worker
         // and three of them are fields this class rewrites.
         ISurfaceHeights heights = _generator;
-        (int originX, int originZ) = _water.WindowOriginFor(here.X, here.Z);
+        (int originX, int originZ) = forRaise
+            ? (_water.Window!.Watershed.Field.OriginX, _water.Window.Watershed.Field.OriginZ)
+            : _water.WindowOriginFor(here.X, here.Z);
         int pitch = _water.Pitch;
         int cell = _water.CellVoxels;
+        RaisedSamples? raised = _raised?.Snapshot();
+        _submittedRaiseVersion = _raised?.Version ?? -1;
+        _submittedForRaise = forRaise;
 
         _waterAnalysis = System.Threading.Tasks.Task.Run(() =>
         {
             long started = Stopwatch.GetTimestamp();
-            WaterWindow window = WaterSystem.Analyse(heights, originX, originZ, pitch, cell);
+            WaterWindow window = WaterSystem.Analyse(heights, originX, originZ, pitch, cell, raised);
             _lastAnalysisMillis = Milliseconds(started, Stopwatch.GetTimestamp());
             return window;
         });
+    }
+
+    private static readonly int WatchObserveRaise = CallWatch.Register("raise: observe the box (a frame)");
+
+    /// <summary>
+    /// Reads every loaded chunk column's placed tops into the raise map — a revision compare each,
+    /// a scan only where an edit moved a height — and notes when the map last moved.
+    /// </summary>
+    private void ObserveRaise()
+    {
+        using CallWatch.Scope callWatch = CallWatch.Time(WatchObserveRaise);
+        if (_raised is null || _pipeline is null)
+        {
+            return;
+        }
+
+        ChunkPos viewer = ViewerChunk();
+        int rings = _radiusState.Horizontal + 2;
+        for (int cz = viewer.Z - rings; cz <= viewer.Z + rings; cz++)
+        {
+            for (int cx = viewer.X - rings; cx <= viewer.X + rings; cx++)
+            {
+                if (_pipeline.Streamer.ColumnAt(cx, cz) is { } column)
+                {
+                    _raised.Observe(column);
+                }
+            }
+        }
+
+        if (_raised.Version != _raiseSeenVersion)
+        {
+            _raiseSeenVersion = _raised.Version;
+            _raiseMovedAt = _clock.ElapsedMillis / 1000.0;
+        }
     }
 
     /// <summary>Where the player is, in voxels. The camera while flying, the body while walking.</summary>
@@ -5724,6 +5902,27 @@ public partial class Main : Node3D
     /// analysed is a wire that came loose, and from outside they look identical.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// The basin under the player — its pit, its saddle, what it holds against what it can — so a
+    /// play report about one pond can be read off one line (docs/POND-PLAN.md: a raised rim shows
+    /// as the saddle moving and the capacity growing).
+    /// </summary>
+    private string UnderYou(WaterSystem water)
+    {
+        VoxelPos player = PlayerVoxel();
+        (int X, int Z) here = _waterProbe ?? (player.X, player.Z);
+        string who = _waterProbe is null ? "under you" : $"under ({here.X}, {here.Z})";
+        if (!water.TryBasinAtVoxel(here.X, here.Z, out int basin) || basin == Watershed.Outlet)
+        {
+            return $" | {who}: no basin";
+        }
+
+        Basin b = water.Window!.Watershed.Basins[basin];
+        double? level = water.LevelAt(basin);
+        return $" | {who}: basin pit ({b.PitX}, {b.PitZ}), saddle {b.SaddleHeight}, "
+            + $"{water.Water!.StoredIn(basin):N0} of {b.CapacityLitres:N0} L, level {(level is { } l ? l.ToString("F2") : "dry")}";
+    }
+
     private string WaterSummary()
     {
         WaterSystem water = _water!;
@@ -5761,6 +5960,17 @@ public partial class Main : Node3D
                + $"window {water.SpanMetres} m x{water.WindowsInstalled}, "
                + $"{_lastAnalysisMillis:F1} ms to analyse, scale x{water.RainfallScale}"
                + overflow
+               + UnderYou(water)
+               + (_raised is null
+                   ? " | raise off"
+                   : $" | raised {_raised.Count:N0} sample(s) ({_raised.Scans:N0} scan(s)), {_raiseReanalyses:N0} re-analysis(es) for an edit"
+                     + (water.SplitLakes > 0 || water.DisplacedLitres > 0
+                         ? $", split {water.SplitLakes:N0} lake(s), {water.SplitLitres:N0} L shared by level, {water.DisplacedLitres:N0} L displaced"
+                         : string.Empty)
+                     + $", derived at open from {_raiseDerivedColumns:N0} column(s) in {_raiseDeriveMillis:F1} ms"
+                     + (_waterGrids is null ? string.Empty
+                         : $"; grid {_waterGrids.Grids:N0} chunk column(s), {_waterGrids.BuiltColumnsReached:N0} built-in column(s) under water, "
+                           + $"{_waterGrids.Builds:N0} build(s) in {_waterGrids.BuildMillis:F1} ms, {_waterGrids.Hits:N0} hit(s)"))
                + (_biteFill is null
                    ? " | the plane draws over every bite (--lakeoverbite=1)"
                    : $" | {_biteFill.UnfilledSamples} sample(s) over an unfilled bite ({_biteFill.SamplesAsked:N0} asked, {_biteFill.SamplesSkipped:N0} dry of lake, {_biteFill.CellsRead:N0} seed cell(s) read)")
@@ -5768,6 +5978,7 @@ public partial class Main : Node3D
                    ? " | no surface drawn (headless or --nowater)"
                    : $" | surface {_waterSurface.QuadCount} quad(s) over "
                      + $"{_waterSurface.WetBasins} basin(s), {_waterSurface.RingSamples} shore sample(s), "
+                     + (_waterSurface.GridSamples > 0 ? $"{_waterSurface.GridSamples} grid sample(s) as {_waterSurface.GridQuads} quad(s), " : string.Empty)
                      + $"{_waterSurface.UnfilledBiteSamples} undrawn over an unfilled bite, "
                      + $"{_waterSurface.LastRebuildMillis:F2} ms");
     }
@@ -5875,6 +6086,30 @@ public partial class Main : Node3D
         long held = _water.Ledger.TotalLitres;
         string flight = _waterAnalysis is null ? string.Empty : ", one still in flight";
 
+        string courtyard = string.Empty;
+        if (_courtyardBox is { } box && _water.Window is not null)
+        {
+            // The raise's oracle (docs/POND-PLAN.md, decision 3): the basin under the courtyard's
+            // centre, where its pit is, and where its water stands against the floor and the walls.
+            (int sampleX, int sampleZ) = _water.SampleOf((box.X0 + box.X1) / 2, (box.Z0 + box.Z1) / 2);
+            int basin = _water.BasinAtSample(sampleX, sampleZ);
+            if (basin == Watershed.Outlet)
+            {
+                courtyard = "courtyard the sample at its centre drains out of the window\n";
+            }
+            else
+            {
+                Basin b = _water.Window.Watershed.Basins[basin];
+                bool pitInside = b.PitX >= box.X0 && b.PitX <= box.X1 && b.PitZ >= box.Z0 && b.PitZ <= box.Z1;
+                double? level = _water.LevelAt(basin);
+                courtyard = $"courtyard basin pit at ({b.PitX}, {b.PitZ}) {(pitInside ? "inside" : "OUTSIDE")} the walls, saddle {b.SaddleHeight}, "
+                    + $"holding {_water.Water!.StoredIn(basin):N0} L, level {(level is { } l ? l.ToString("F2") : "dry")} "
+                    + $"against a floor of {box.Floor} and a wall top of {box.Top}\n";
+            }
+        }
+
+        string map = _waterProbe is { } probe ? WatershedMap(probe.X, probe.Z, 20) : string.Empty;
+
         string surface = _waterSurface is null
             ? "surface   not drawn (headless or --nowater)\n"
             : $"surface   {_waterSurface.QuadCount} quad(s) over {_waterSurface.WetBasins} basin(s), "
@@ -5896,7 +6131,87 @@ public partial class Main : Node3D
                + $"analysis  {_lastAnalysisMillis:F1} ms for a {_water.SpanMetres} m window "
                + $"({_water.Pitch}x{_water.Pitch} samples), {_water.WindowsInstalled} installed"
                + $"{flight}\n"
+               + courtyard
+               + map
                + surface;
+    }
+
+    /// <summary>
+    /// <c>--waterprobe=</c>'s picture: the watershed round a column, one character a 2 m sample,
+    /// north up. Three grids side by side: the field's height against the probe's (a digit per
+    /// voxel above it, <c>-</c> below, <c>+</c> past nine), the samples the player has raised
+    /// (<c>#</c>), and the basin each drains to (<c>.</c> out of the window, a letter per basin, the
+    /// probe's basin <c>@</c>).
+    /// </summary>
+    private string WatershedMap(int voxelX, int voxelZ, int half)
+    {
+        if (_water?.Window is null)
+        {
+            return "map       no window\n";
+        }
+
+        Watershed watershed = _water.Window.Watershed;
+        HeightField field = watershed.Field;
+        int cell = field.CellVoxels;
+        int cx = (voxelX - field.OriginX) / cell;
+        int cz = (voxelZ - field.OriginZ) / cell;
+        if (cx < 0 || cz < 0 || cx >= field.Pitch || cz >= field.Pitch)
+        {
+            return "map       the probe is off the window\n";
+        }
+
+        int centreHeight = field.HeightAt(cx, cz);
+        int centreLabel = watershed.LabelAt(cx, cz);
+        var text = new System.Text.StringBuilder();
+        if (_raised is not null && _generator is not null)
+        {
+            // How far each raise stands over its sample's own seed plane, bucketed, and the
+            // tallest few by place — a dam is a raise far over the ground.
+            var buckets = new SortedDictionary<int, int>();
+            var tall = new List<(int Rise, int X, int Z, int Plane)>();
+            foreach (KeyValuePair<(int X, int Z), int> raise in _raised.Samples)
+            {
+                int seedPlane = _generator.SurfaceHeightAt(raise.Key.X * cell, raise.Key.Z * cell) + 1;
+                int rise = raise.Value - seedPlane;
+                int bucket = rise <= 0 ? 0 : rise <= 2 ? 2 : rise <= 4 ? 4 : rise <= 8 ? 8 : rise <= 16 ? 16 : 99;
+                buckets[bucket] = buckets.GetValueOrDefault(bucket) + 1;
+                tall.Add((rise, raise.Key.X * cell, raise.Key.Z * cell, raise.Value));
+            }
+
+            tall.Sort((a, b) => b.Rise.CompareTo(a.Rise));
+            text.Append("raises    over the corner's seed plane: ");
+            foreach ((int bucket, int count) in buckets) text.Append($"≤{bucket}: {count}  ");
+            text.Append("| tallest: ");
+            foreach ((int rise, int x, int z, int plane) in tall.Take(8)) text.Append($"({x}, {z}) +{rise} to {plane}  ");
+            text.Append('\n');
+        }
+
+        text.Append($"map       round ({voxelX}, {voxelZ}): field {centreHeight}, label {centreLabel}; heights | raised | basins\n");
+        for (int sz = cz - half; sz <= cz + half; sz++)
+        {
+            var heights = new System.Text.StringBuilder();
+            var raised = new System.Text.StringBuilder();
+            var basins = new System.Text.StringBuilder();
+            for (int sx = cx - half; sx <= cx + half; sx++)
+            {
+                if (sx < 0 || sz < 0 || sx >= field.Pitch || sz >= field.Pitch)
+                {
+                    heights.Append(' '); raised.Append(' '); basins.Append(' ');
+                    continue;
+                }
+
+                int d = field.HeightAt(sx, sz) - centreHeight;
+                heights.Append(sx == cx && sz == cz ? 'X' : d < 0 ? '-' : d > 9 ? '+' : (char)('0' + d));
+                int worldSampleX = (field.OriginX / cell) + sx, worldSampleZ = (field.OriginZ / cell) + sz;
+                raised.Append(_raised is not null && _raised.TryGetRaised(worldSampleX, worldSampleZ, out _) ? '#' : '.');
+                int label = watershed.LabelAt(sx, sz);
+                basins.Append(label == Watershed.Outlet ? '.' : label == centreLabel ? '@' : (char)('a' + (label % 26)));
+            }
+
+            text.Append("          ").Append(heights).Append("  ").Append(raised).Append("  ").Append(basins).Append('\n');
+        }
+
+        return text.ToString();
     }
 
     // ---------------------------------------------------------------- M9b: the support field in the loop
@@ -6549,12 +6864,20 @@ public partial class Main : Node3D
         // built before the ceiling because the ceiling's bands ask it at their tops. It reads the
         // streamer as the world — the sim thread's own view — and the seed off the columns.
         _enclosure = _water is null || !_enclosureOn ? null : new Enclosure(_pipeline.Streamer, _materials!, _seedHeights);
+
+        // The pond (2026-09-25, decisions 3 and 10): with the raise on, a walled pool wide enough
+        // to be a basin is its own basin, and the grid draws and bands the cells the player built
+        // in — so the surface and the ceiling stop asking the enclosure. The hand-off still asks
+        // it, on a raised sample only (decision 6).
+        _waterGrids = _water is null || _raised is null ? null : new WaterGrids(_pipeline.Streamer, _water, _water.CellVoxels, _pipeline.Streamer, _materials);
         if (_waterSurface is not null)
         {
-            _waterSurface.Enclosure = _enclosure;
+            _waterSurface.Enclosure = _waterGrids is null ? _enclosure : null;
+            _waterSurface.Grids = _waterGrids;
+            _waterSurface.Raised = _raised;
         }
 
-        _lakeCeiling = _water is null || !_lakeBody ? null : new LakeCeiling(_seedHeights, _water, _enclosure);
+        _lakeCeiling = _water is null || !_lakeBody ? null : new LakeCeiling(_seedHeights, _water, _waterGrids is null ? _enclosure : null, _waterGrids);
 
         // The field is a terrain over a terrain, so the simulation cannot tell which it was given
         // and every fixture and bench arm stays valid. See FluidField.
@@ -6658,7 +6981,7 @@ public partial class Main : Node3D
 
         // M8b-3a: the other direction. Water resting on the seed ground is the basin's, by the
         // rain model; measured to remove 99.3–99.5% of a surface spill's visits (--spill).
-        _handoff = _water is null ? null : new SurfaceHandoff(_seedHeights, _water, _fluid, _lakeCeiling, _enclosure);
+        _handoff = _water is null ? null : new SurfaceHandoff(_seedHeights, _water, _fluid, _lakeCeiling, _enclosure) { Raised = _raised };
         GD.Print(_lakeCeiling is null
             ? $"M8d: no lakes to keep Tier B out of ({(_water is null ? "no water" : "--lakebody=0, the measurement arm: a hole in a bank treadmills")})"
             : "M8d: a lake is a body Tier B cannot enter — the band over a lake's bed up to its top is not holdable, "
@@ -6739,6 +7062,7 @@ public partial class Main : Node3D
         _secondsSinceStart += delta;
         InjectIfDue();
         BreachIfDue();
+        DamIfDue();
 
         if (_profiler is { Warm: true } && !_fluidWarmSeen)
         {
@@ -7268,9 +7592,284 @@ public partial class Main : Node3D
             }
         }
 
+        int floor = _seedHeights!.SurfaceHeightAt(here.X, here.Z) + 1;
+        _courtyardBox = (x0, z0, x1, z1, floor, floor + height);
         GD.Print(
             $"M8: courtyard — a {_courtyardMetres} m square of {_courtyardMaterial} walls {_courtyardWallMetres} m tall{(_courtyardRoof ? ", roofed" : string.Empty)} round the player at {here}: "
             + $"{written:N0} voxel(s) written, {skipped:N0} not air or not loaded (--courtyard)");
+    }
+
+    /// <summary>
+    /// <c>--dam</c>: a wall across the lake under the player, and the split's oracle read round it
+    /// (docs/LAKE-EDIT-PLAN.md, L-2).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Built where the water is.</b> Through the player when they stand over a wet lake, and
+    /// otherwise through the pit <c>--fillbasin</c> poured into, which is where a headless run's lake
+    /// is. Written through the pipeline's edit path, air voxels only, as the courtyard is, so the
+    /// raise observes it as it observes a brush.
+    /// </para>
+    /// <para>
+    /// <b>Every column gets at least one block</b>, from its seed surface up to the top or one over
+    /// the ground, whichever is higher. A raise is a cell's highest placed top, so a column on a bank
+    /// already above the top still raises its cell, and the wall has no gap at Tier A's 2 m grain
+    /// where it meets the shore.
+    /// </para>
+    /// <para>
+    /// <b>Read after the window has caught up with the map that holds the dam</b>: the raise has
+    /// moved past where it stood at the build, nothing is in flight, and the installed window was
+    /// analysed at the current version. A raise that never moves (<c>--raise=0</c>, or nothing written)
+    /// is reported after 30 s rather than waited on forever.
+    /// </para>
+    /// </remarks>
+    private void DamIfDue()
+    {
+        if (_damMetres <= 0 || _damStage >= 2 || _water is null || _pipeline is null || _materials is null)
+        {
+            return;
+        }
+
+        if (_damStage == 1)
+        {
+            ReadDamIfDue();
+            return;
+        }
+
+        bool due = _profiler is null ? _secondsSinceStart >= 3.0 : _profiler.Warm;
+        if (!due || _water.Window is null || _water.Water is null || (_fillBasinLitres > 0 && !_breached))
+        {
+            return;
+        }
+
+        if (_damDelayElapsed < _damAfterSeconds)
+        {
+            _damDelayElapsed += GetProcessDeltaTime();
+            return;
+        }
+
+        _damStage = 2;
+        VoxelPos player = _waterProbe is { } probe ? new VoxelPos(probe.X, PlayerVoxel().Y, probe.Z) : PlayerVoxel();
+        int px = player.X, pz = player.Z;
+        double? lakeLevel = _water.TryBasinAtVoxel(px, pz, out int under) && under != Watershed.Outlet
+            ? _water.LevelAt(under)
+            : null;
+        string where = "through the player";
+        int lakeBasin = under;
+        if (lakeLevel is null && _breachBasin != Watershed.Outlet && _water.LevelAt(_breachBasin) is double filled)
+        {
+            Basin pit = _water.Window.Watershed.Basins[_breachBasin];
+            px = pit.PitX + (HeightField.DefaultCellVoxels / 2);
+            pz = pit.PitZ + (HeightField.DefaultCellVoxels / 2);
+            lakeLevel = filled;
+            lakeBasin = _breachBasin;
+            where = $"through basin {_breachBasin}'s pit, which --fillbasin filled";
+        }
+
+        // A puddle is not a lake to split: the first run on a played world stood over 7 L.
+        long underHeld = lakeLevel is null ? 0 : _water.Water.StoredIn(_water.Water.LakeTopOf(lakeBasin));
+        if (lakeLevel is not double level || underHeld < DamMinimumLitres)
+        {
+            GD.Print(
+                $"M8: dam — the lake at ({px}, {pz}) holds {underHeld:N0} L, under the {DamMinimumLitres:N0} L a dam is built across; "
+                + $"nothing built. The fullest lakes in the window, for --waterprobe=x,z: {FullestLakes(px, pz, 5)} (--dam)");
+            return;
+        }
+
+        int stone = MaterialId("overburden:stone");
+        if (stone == MaterialIds.AirNumericId)
+        {
+            GD.Print("M8: dam — overburden:stone is not in this world's content; nothing built (--dam)");
+            return;
+        }
+
+        int thick = BrushCell.Voxels;
+        int half = _damMetres * BrushCell.Voxels / 2;
+        int topVoxel = (int)Math.Ceiling(level) + (_damHeightMetres * BrushCell.Voxels) - 1;
+        long versionAtBuild = _raised?.Version ?? 0;
+
+        // Side points three cells off the line, at the line's middle: far enough that the wall's own
+        // cells (it raises one or two) are never the cell asked.
+        int off = 3 * HeightField.DefaultCellVoxels;
+        _damSideA = _damAlongX ? (px, pz - off) : (px - off, pz);
+        _damSideB = _damAlongX ? (px, pz + off) : (px + off, pz);
+        string before = $"{DamSide("A", _damSideA)}; {DamSide("B", _damSideB)}; {DamLakes()}";
+
+        _water.Bank();
+        _damHeldBefore = _water.Ledger.TotalLitres;
+        _damOverflowBefore = _water.SeedOverflowLitres;
+        _damSpilledBefore = _water.SpilledLitres;
+        _damSplitBefore = _water.SplitLakes;
+        _damSplitLitresBefore = _water.SplitLitres;
+        _damDisplacedBefore = _water.DisplacedLitres;
+
+        int written = 0, skipped = 0;
+        var reach = new int[2];
+        var tied = new bool[2];
+        for (int end = 0; end < 2; end++)
+        {
+            int step = end == 0 ? -1 : 1;
+            int pastBank = -1;
+            for (int along = end == 0 ? 0 : 1; along <= half; along++)
+            {
+                int offset = step * along;
+                bool bank = true;
+                for (int across = -(thick / 2); across < thick - (thick / 2); across++)
+                {
+                    (int x, int z) = _damAlongX ? (px + offset, pz + across) : (px + across, pz + offset);
+                    int surface = _seedHeights!.SurfaceHeightAt(x, z);
+                    bank &= surface >= topVoxel;
+                    for (int y = surface + 1; y <= Math.Max(topVoxel, surface + 1); y++)
+                    {
+                        var voxel = new VoxelPos(x, y, z);
+                        if (_pipeline.Streamer.TryGetMaterial(voxel, out int existing) && existing == MaterialIds.AirNumericId
+                            && _pipeline.SetVoxel(voxel, stone))
+                        {
+                            written++;
+                        }
+                        else
+                        {
+                            skipped++;
+                        }
+                    }
+                }
+
+                reach[end] = offset;
+                if (bank && pastBank < 0)
+                {
+                    pastBank = 0;
+                }
+
+                // Two cells past the bank, so the cell where the bank first tops the wall is raised
+                // too, whichever corner of it the watershed samples.
+                if (pastBank >= 0 && ++pastBank > 2 * HeightField.DefaultCellVoxels)
+                {
+                    tied[end] = true;
+                    break;
+                }
+            }
+        }
+
+        ObserveRaise();
+        _damRaiseVersion = versionAtBuild;
+        _damStage = 1;
+        _damBuiltAt = _secondsSinceStart;
+        string axis = _damAlongX ? "east–west" : "north–south";
+        GD.Print(
+            $"M8: dam — a {axis} wall {thick} voxels thick {where} at ({px}, {pz}), top voxel {topVoxel} ({_damHeightMetres} m over the water at {level:F3}); "
+            + $"ends at {reach[0] * VoxelConstants.VoxelSize:F0} m ({(tied[0] ? "tied into the bank" : "OPEN, the length ran out")}) and "
+            + $"+{reach[1] * VoxelConstants.VoxelSize:F0} m ({(tied[1] ? "tied into the bank" : "OPEN, the length ran out")}); "
+            + $"{written:N0} voxel(s) written, {skipped:N0} not air or not loaded. Before: {before} (--dam)");
+    }
+
+    private double _damBuiltAt;
+
+    /// <summary>The least a lake must hold for <c>--dam</c> to build across it: ten cubic metres.</summary>
+    private const long DamMinimumLitres = 10_000;
+
+    /// <summary>The fullest lakes in the window, each by the pit of its first basin, its level, what it holds and how far away.</summary>
+    private string FullestLakes(int fromX, int fromZ, int count)
+    {
+        if (_water?.Window is null || _water.Water is null)
+        {
+            return "no window";
+        }
+
+        var lakes = new Dictionary<int, (int Basin, long Held)>();
+        foreach (Basin basin in _water.Window.Watershed.Basins)
+        {
+            int top = _water.Water.LakeTopOf(basin.Index);
+            long held = _water.Water.StoredIn(top);
+            if (held > 0 && !lakes.ContainsKey(top))
+            {
+                lakes[top] = (basin.Index, held);
+            }
+        }
+
+        var parts = new List<string>();
+        foreach ((int basin, long held) in lakes.Values.OrderByDescending(l => l.Held).Take(count))
+        {
+            Basin b = _water.Window.Watershed.Basins[basin];
+            int x = b.PitX + (HeightField.DefaultCellVoxels / 2);
+            int z = b.PitZ + (HeightField.DefaultCellVoxels / 2);
+            double metres = Math.Sqrt(((double)(x - fromX) * (x - fromX)) + ((double)(z - fromZ) * (z - fromZ))) * VoxelConstants.VoxelSize;
+            parts.Add($"{x},{z} ({held:N0} L, level {_water.LevelAt(basin):F2}, {metres:F0} m away)");
+        }
+
+        return parts.Count == 0 ? "none" : string.Join("; ", parts);
+    }
+
+    /// <summary>The dam's second reading, once the window has caught up with it, and the pour into side A.</summary>
+    private void ReadDamIfDue()
+    {
+        bool caughtUp = _raised is not null && _raised.Version != _damRaiseVersion
+                        && _waterAnalysis is null && _installedRaiseVersion == _raised.Version;
+        if (!caughtUp)
+        {
+            if (_secondsSinceStart - _damBuiltAt > 30.0)
+            {
+                _damStage = 2;
+                GD.Print(
+                    $"M8: dam — 30 s after the build the window has not caught up with a raise that includes it "
+                    + $"(raise {(_raised is null ? "off" : $"version {_raised.Version}, installed {_installedRaiseVersion}, was {_damRaiseVersion}")}); "
+                    + "no reading (--dam)");
+            }
+
+            return;
+        }
+
+        _damStage = 2;
+        _water!.Bank();
+        GD.Print(
+            $"M8: dam — after the re-analysis, {_secondsSinceStart - _damBuiltAt:F1} s on: {DamSide("A", _damSideA)}; {DamSide("B", _damSideB)}; {DamLakes()}; "
+            + $"split {_water.SplitLakes - _damSplitBefore:N0} lake(s), {_water.SplitLitres - _damSplitLitresBefore:N0} L shared by level, "
+            + $"{_water.DisplacedLitres - _damDisplacedBefore:N0} L displaced; held {_damHeldBefore:N0} → {_water.Ledger.TotalLitres:N0} L, "
+            + $"+{_water.SeedOverflowLitres - _damOverflowBefore:N0} L would not fit back, +{_water.SpilledLitres - _damSpilledBefore:N0} L spilled (--dam)");
+
+        if (_damPourLitres > 0)
+        {
+            if (!_water.TryBasinAtVoxel(_damSideA.X, _damSideA.Z, out int basin) || basin == Watershed.Outlet)
+            {
+                GD.Print("M8: dam — side A drains off the window, so --dampour has nowhere to go");
+                return;
+            }
+
+            long spilled = _water.Inject(basin, _damPourLitres);
+            GD.Print(
+                $"M8: dam — poured {_damPourLitres:N0} L into side A's basin {basin}, {spilled:N0} L spilled: "
+                + $"{DamSide("A", _damSideA)}; {DamSide("B", _damSideB)}; {DamLakes()} (--dampour)");
+        }
+    }
+
+    /// <summary>One side of the dam: its basin, the lake that basin stands in, its level and what that lake holds.</summary>
+    private string DamSide(string name, (int X, int Z) at)
+    {
+        if (_water?.Water is null || !_water.TryBasinAtVoxel(at.X, at.Z, out int basin) || basin == Watershed.Outlet)
+        {
+            return $"side {name} at ({at.X}, {at.Z}) drains off the window";
+        }
+
+        if (_water.LevelAt(basin) is not double level)
+        {
+            return $"side {name} at ({at.X}, {at.Z}) basin {basin}, dry";
+        }
+
+        int top = _water.Water.LakeTopOf(basin);
+        return $"side {name} at ({at.X}, {at.Z}) basin {basin} in lake {top}, level {level:F3}, the lake holding {_water.Water.StoredIn(top):N0} L";
+    }
+
+    /// <summary>Whether the dam's two sides stand in one lake or two.</summary>
+    private string DamLakes()
+    {
+        if (_water?.Water is null
+            || !_water.TryBasinAtVoxel(_damSideA.X, _damSideA.Z, out int a) || a == Watershed.Outlet
+            || !_water.TryBasinAtVoxel(_damSideB.X, _damSideB.Z, out int b) || b == Watershed.Outlet
+            || _water.LevelAt(a) is null || _water.LevelAt(b) is null)
+        {
+            return "not both wet";
+        }
+
+        return _water.Water.LakeTopOf(a) == _water.Water.LakeTopOf(b) ? "ONE lake" : "TWO lakes";
     }
 
     /// <summary>
@@ -7310,7 +7909,9 @@ public partial class Main : Node3D
         }
 
         _breached = true;
-        VoxelPos player = PlayerVoxel();
+        // --waterprobe= points the pour at a column of the caller's choosing too — a pond the
+        // saved position is not standing in.
+        VoxelPos player = _waterProbe is { } probe ? new VoxelPos(probe.X, PlayerVoxel().Y, probe.Z) : PlayerVoxel();
         (int sampleX, int sampleZ) = _water.SampleOf(player.X, player.Z);
         int basin = _water.BasinAtSample(sampleX, sampleZ);
 

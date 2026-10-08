@@ -137,6 +137,12 @@ public sealed class BasinWater
     }
 
     /// <summary>
+    /// The node whose slab is the surface of the lake this basin is part of — <see cref="LevelAt"/>'s
+    /// own walk, so two basins answer the same node exactly when they stand in one lake.
+    /// </summary>
+    public int LakeTopOf(int basin) => LakeTop(basin, out _);
+
+    /// <summary>
     /// Takes water out of the lake this basin is part of, through its floor, and returns what was
     /// taken — less than asked when the lake runs out on the way down.
     /// </summary>

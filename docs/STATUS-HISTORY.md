@@ -89,6 +89,18 @@ commit is his to push.
 **His fresh one is `TajMahal2`** (renamed the same night at his ask, *"so when we retire it it does not
 conflict"*), and `start.cmd` names `--world=TajMahal2`.
 
+**From the pond branch's own CLAUDE.md, moved here when main was merged into `water-column-test` (2026-10-01)**; main never carried it:
+
+**Pick up here (2026-09-26, afternoon). The water waits; the Tetris collapse is next, in a
+fresh chat on `main`: read [docs/COLLAPSE-NOTES.md](docs/COLLAPSE-NOTES.md) and do its planning
+pass.** The pond branch (`water-column-test`, overhangs and chunk-seam chaining) is built and
+still waits on his verdict before it is merged or retired. Both branches need a push. His
+`Regions16-pondlook` is restored from `backup-Regions16-pondlook-2026-09-26`. The demolished
+tower is `Regions16-pondlook-demolished-2026-09-26` (open it only as a copy), and its log is
+`logs/demolition-2026-09-26.log`. **Alt+G takes water back**, since NVIDIA's overlay owns
+Alt+R on his machine. His clay-roof leak is in TODO under "Needs a human eye": the drip is the
+eave's runoff outside, and a slot in the south glass wall that let air in is now filled.
+
 **Moved from CLAUDE.md on 2026-09-30, at the session's close** (the day's running hand-over, from IM-4a's
 mutation battery to IM-5's taken decisions, superseded by a short one):
 

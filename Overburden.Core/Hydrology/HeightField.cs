@@ -126,12 +126,18 @@ public sealed class HeightField
 
     /// <summary>Samples a square window. <paramref name="originX"/> and
     /// <paramref name="originZ"/> must lie on the lattice.</summary>
+    /// <param name="raised">
+    /// Where the player has built above the seed (docs/POND-PLAN.md): a raised sample reads the
+    /// higher of its seed plane and its raise, and nothing lowers one. Null, or a snapshot with
+    /// nothing in the window, samples exactly as before — the field is byte-identical.
+    /// </param>
     public static HeightField Sample(
         ISurfaceHeights heights,
         int originX,
         int originZ,
         int pitch,
-        int cellVoxels = DefaultCellVoxels)
+        int cellVoxels = DefaultCellVoxels,
+        IRaisedSamples? raised = null)
     {
         using CallWatch.Scope callWatch = CallWatch.Time(WatchSample);
         ArgumentNullException.ThrowIfNull(heights);
@@ -178,7 +184,17 @@ public sealed class HeightField
             {
                 // One above the topmost solid voxel: the plane the water stands on. See the
                 // remarks — the field stored the solid voxel's own index from M7 to M8b-2a.
-                int height = heights.SurfaceHeightAt(originX + (sx * cellVoxels), worldZ) + 1;
+                int worldX = originX + (sx * cellVoxels);
+                int height = heights.SurfaceHeightAt(worldX, worldZ) + 1;
+                if (raised is not null
+                    && raised.TryGetRaised(worldX / cellVoxels, worldZ / cellVoxels, out int plane)
+                    && plane > height)
+                {
+                    // The origin is on the lattice, so these divisions are exact for negative
+                    // coordinates too — no floor needed.
+                    height = plane;
+                }
+
                 if (height <= -MaxAbsoluteHeight || height >= MaxAbsoluteHeight)
                 {
                     throw new ArgumentOutOfRangeException(
