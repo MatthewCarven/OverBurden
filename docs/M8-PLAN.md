@@ -660,7 +660,8 @@ material — a solid voxel above its column's seed, or natural rock with such a 
 (a wall claims its footing; without that rule the headless courtyard on the spawn's slope leaked at
 every level below its uphill wall's ground) — natural rock with nothing on it walked through as air
 is (a natural pit's rim never encloses: the pit is the lake's, by this model), open at the bound
-(`Enclosure.BoundVoxels`, 64 — an estimate) or at an unloaded voxel, enclosed otherwise. The
+(`Enclosure.BoundVoxels`, 64 — an estimate; since E-1, 2026-10-01, the area's own extent, `ExtentVoxels` 128,
+see LAKE-EDIT-PLAN) or at an unloaded voxel, enclosed otherwise. The
 hand-off leaves a rested cell on the plane standing when its column is enclosed at the cell's own
 level (`EnclosedKept`); `LakeCeiling` gives a column no band when it is enclosed at the lake's top,
 and rebuilds a band whose top an edit, an arrival or a forget may have moved (`MarkDirty`,

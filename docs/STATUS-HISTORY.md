@@ -13,6 +13,17 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md on 2026-10-01, at E-1's close** (the opening of L-2's hand-over, superseded when E-1 was
+built):
+
+**2026-10-01 (night) — L-1 and L-2 are built on the pond branch; next is his play on `LakeTest`, the branch's
+deciding test.** L-2 added `--dam=` and its headless oracle ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md),
+"L-2 — built"). On the profile seed and on a copy of `LakeTest`, a dam split one lake into two. Each side kept
+its level, except that the side the wall drains to rose with its strip, and a pour into one side raised only that
+side. The screenshot shows the wall standing out of the water, drawn on both sides. r6 to the digit. **My headless
+run started while he played and cut his session's log at 20:24:32**: the Godot check goes in the same command as
+every launch. Both branches have commits for him to push. L-1's close is in STATUS-HISTORY.
+
 **Moved from CLAUDE.md on 2026-10-01, at L-2's close** (the opening of L-1's hand-over, superseded when L-2 was
 built):
 

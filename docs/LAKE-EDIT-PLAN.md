@@ -1,9 +1,9 @@
 # Walls that split a lake — the code-level pass (2026-10-01)
 
 **All seven decisions taken as recommended** (2026-10-01, *"as recommended please Claude"*). **L-1 and L-2 are
-built** (2026-10-01, on the pond branch; "L-1 — built" and "L-2 — built" below). Next is his play on `LakeTest`,
-the branch's deciding test, with E-1 on main alongside. His question about the walled area beneath TajMahal2 is
-still open.
+built** (2026-10-01, on the pond branch; "L-1 — built" and "L-2 — built" below), **and E-1** (2026-10-01, on
+main, merged into the branch; "E-1 — built" below). Next is his play on `LakeTest`, the branch's deciding test.
+His question about the walled area beneath TajMahal2 is still open.
 
 His ask, verbatim in [LAKE-EDIT-NOTES.md](LAKE-EDIT-NOTES.md):
 
@@ -200,7 +200,7 @@ part a's (TODO's collision 1), and part a is parked on a far carry with O(1) rem
 
 | Slice | Where | What | Oracle |
 |---|---|---|---|
-| **E-1** | main | The enclosure's bound as the area's extent (6) | Every cell of one area answers alike; both bound tests unchanged; r6 to the digit |
+| **E-1** ✓ | main | The enclosure's bound as the area's extent (6). **Built 2026-10-01** | Every cell of one area answers alike; both bound tests unchanged; r6 to the digit |
 | **L-1** ✓ | branch | The split by level, displacement included (2, 3). **Built 2026-10-01** | Decision 2's five; a mutation battery |
 | **L-2** ✓ | branch | ~~`M7d:` terms~~ (done in L-1), `--dam=`, headless oracle, screenshot (5). **Built 2026-10-01** | Both levels kept, one side poured; r6 to the digit on the branch |
 | **His play** | branch | `LakeTest`: a wall across a filled lake, R into one side | POND-PLAN's seventh criterion, and the branch's verdict |
@@ -341,6 +341,70 @@ suite was run anyway and reads L-1's 2,231.
 20:19:39, and my seeded run at 20:24:32 rotated the shared `godot.log`. His session's log stops there, and the rest
 of it, to 20:28, is lost. His world was not touched, because a `--profile` run opens none. The check now goes in
 the same command as every launch.
+
+## E-1 — built (2026-10-01, on main, merged into the pond branch)
+
+**The test written first went red as fact 5 said.** A 30 m courtyard (120 voxels inside), asked first from a
+corner, an edge or its far side, read open. The flood had reached 64 voxels from the asker, and that answer was
+cached for every cell it visited, the middle included. Asked first from the middle, it read enclosed. A courtyard
+128 wide read open from everywhere, because the old bound effectively stopped at 127 inside.
+
+**What was built**, in `Enclosure`:
+- **`ExtentVoxels` (128).** A flood reads open once the area it has walked spans more than that in x or in z, or
+  at an unloaded voxel. Every cell of one area now gives one answer, whichever asks first.
+- **A 257 × 257-bit scratch** (8 KB, once), so an area that wide fits round any start.
+- **`BoundVoxels` (64)** is now only how far round its start a flood keeps filling once it knows it is open. That
+  is the box every open answer was cached over before, so open regions cover what they did and `MaxRegions` holds.
+- **A region is stored over its own cells' box**, not the scratch. A courtyard's region is its courtyard.
+- **The no-edits shortcut stays at two chunk columns.** In an area at most 128 across, the straight line east and
+  west from any cell meets walls whose distances add to 129 or less, so one is within 64 voxels.
+- **`FarthestOpen/Closed` (reach from the asker) became `WidestOpen/Closed`** (the area's width), printed on `M8b:`
+  and the profile as `widest open / closed … across of 128`.
+
+**Tests**: sixteen new cases.
+- A 30 m courtyard is enclosed from every cell, whichever of four asks first, in one flood, its region the
+  courtyard's 120 × 120.
+- A 40 m one is open from every cell, opening at 129 across.
+- An area 120 one way and 160 the other is open.
+- At exactly 128 across it is enclosed and at 129 open, from a corner, the middle (64 voxels and two chunk columns
+  from the nearest wall) and the far corner.
+- An open flood still fills only the box round its start: 16,638 cells against 16,636 by the same count before.
+- A pillar inside an area is answered by its own column.
+- An L-shaped courtyard's notch, inside its region's box, reads open by its own flood.
+- Both existing bound tests keep their answers.
+
+**Twelve mutations, all red**:
+- the old reach rule;
+- the extent off by one;
+- the extent on x only;
+- an open flood filling the whole scratch, or stopping at once;
+- walls left in a region;
+- a region answering its whole box;
+- the shortcut at one chunk or at four;
+- both width counters short by one;
+- the box bits counted at the scratch's size.
+
+The "whole box" recipe is also caught by an existing ceiling test.
+
+**Suite 2,175 → 2,191 on main, 2,247 on the merged branch. r6 to the digit on both**, no `ERROR`. The courtyard
+oracle reads as recorded, `handed 0 L` with `6 flood(s), 6 closed`. On the merged branch the dam oracle is
+unchanged to the litre (−5.828 / −5.112, then −4.249 / −5.112).
+
+**Cost, on a copy of `LakeTest`** (headless at his spawn, `--profile --speed=0 --measure=30 --watch`, a fresh copy
+each run, pre-E-1 and E-1 alternated twice):
+
+| Run | Floods | Enclosed | Open at the bound / at an unloaded chunk | Cells visited | Enclosure |
+|---|---|---|---|---|---|
+| pre-E-1 | 95 | 2 | 93 / 0 | 834,443 | 3.24 ms/s |
+| E-1 | 106 | 2 | 70 / 34 | 903,006 | 4.13 ms/s |
+| pre-E-1 | 88 | 2 | 86 / 0 | 783,992 | 2.88 ms/s |
+| E-1 | 96 | 2 | 66 / 28 | 805,616 | 3.92 ms/s |
+
+The same enclosures in both arms, and about 1 ms a second more, with the worst single call 15–17 ms in both. The
+extra cost has one cause. A flood started beside one of his walls now walks up to 128 voxels the other way before
+deciding, and near the loaded ground's edge it meets an unloaded chunk first. That is still open, but its region is
+dropped when the chunk arrives, so the flood is run again. It is under the pond plan's 5 ms bar. The lever, if it
+shows in a play, is a bound on how far a flood walks from its start before it decides.
 
 ## For him, not a decision
 

@@ -137,12 +137,13 @@ reads as the lake), and the `boundary` line a `lake` bracket.
 pre-2026-09-20 arm in which a walled pool on natural ground is the lake outside (the hand-off
 hands it, the ceiling puts its air in the lake, the plane draws through the walls), the control
 and not a play arm; on, the player's material encloses and nature's does not (a flood at the level,
-64 voxels to the bound — an estimate; a wall claims its footing). **`--courtyard=<metres>`** builds
+open once the area spans more than 128 voxels in x or z, since E-1 (2026-10-01; 64 voxels from the asker
+before) — an estimate; a wall claims its footing). **`--courtyard=<metres>`** builds
 a square ring of stone walls that wide, `--courtyardwalls=<metres>` (2) tall, on the ground round
 the player when the window opens, before `--injectlitres` pours inside it — the provocation. The
 `M8b:` line's `handed` bracket carries `enclosed N kept, F flood(s) / C closed (O open at the
-bound, G of them out through natural ground; U at an unloaded chunk; farthest open / closed of
-64), R region(s), B band(s) rebuilt for it` — the why since 2026-09-22, because a pond that
+bound, G of them out through natural ground; U at an unloaded chunk; widest open / closed across of
+128), R region(s), B band(s) rebuilt for it` (`farthest … of 64` before E-1) — the why since 2026-09-22, because a pond that
 would not fill read `116 flood(s) / 0 closed` and the log could not say which rule — the
 profile has an `enclosure` line under `handoff`, and the `surface` line prints `N enclosed
 sample(s) undrawn`. **The oracle, verbatim, reads `handed 0 L` with

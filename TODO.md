@@ -109,30 +109,24 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
       files stay in watts). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his
       say-so, it takes his focus); a bite under a lake (IM-7's bench); a dump underground (IM-5's).
 - [ ] **Building in a lake: walls that split a lake — all seven decisions taken as recommended (2026-10-01);
-      L-1 and L-2 built on `water-column-test` the same day; next is his play on `LakeTest`, E-1 on main any
-      time** ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), "L-1 — built" and "L-2 — built"; his notes in
+      L-1 and L-2 built on `water-column-test`, E-1 on main and merged in, the same day; next is his play on
+      `LakeTest`** ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), "L-1 — built", "L-2 — built" and "E-1 —
+      built"; his notes in
       [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md)). The finding: converting lake water to Tier B can't
       keep the sides apart, because the hand-back rejoins the one lake. The pond branch's raise already
       divides a lake at a wall; **L-1 fixed its litres**: each side now keeps the water that stood over it,
       where it gave every litre to the side holding the old pit. It also stopped `Rehome` deleting stored lakes
       whose pit lay inside the window but was not one of its basins. **L-2 added `--dam=`**: on a copy of
-      `LakeTest` it split his 4.2 ML lake in 1.2 s, and a pour into one side raised only that side. Still to do:
+      `LakeTest` it split his 4.2 ML lake in 1.2 s, and a pour into one side raised only that side. **E-1 made the
+      enclosure's answer the walled area's**, whichever cell asks first (fact 5; a candidate for the sheet that
+      "bleeds in and out of walls"). Still to do:
       - **his play on `LakeTest` on the branch** (MATTHEW-TODO has the recipe): POND-PLAN's seventh criterion,
         and the branch's deciding test;
-      - **E-1 on main**: the enclosure's answer stops depending on which cell asks first (fact 5; a candidate
-        for the sheet that "bleeds in and out of walls");
       - **owed from L-2's screenshot**: the dam's west end read reddish. Is that the support tint, and would that
-        stretch fall? Read it on the next look at a dam.
-
-      **E-1's brief (LAKE-EDIT-PLAN decision 6 is the spec), on main, in a worktree if he may play:**
-      1. Today a flood reads open once it is 64 voxels from the asking cell (`Enclosure.cs:352–357`), and the
-         answer is cached for every cell it visited (`:395–406`), so a walled area 16–32 m across answers by who
-         asks first.
-      2. Make the bound the area's own extent: open once the flood's x or z extent passes 128 voxels. The visited
-         bits then cover any 129-wide box holding the start (257 × 257 bits, 8 KB).
-      3. The oracle, written first and watched failing: every cell of a 30 m courtyard answers enclosed and every
-         cell of a 40 m one open, whichever asks first. Both existing bound tests keep their answers, plus a
-         battery, the suite, and r6 to the digit.
+        stretch fall? Read it on the next look at a dam;
+      - **E-1's lever, if the enclosure shows in a play**: on `LakeTest` it went from 3.1 to 4.0 ms a second, and
+        about 30 floods a run now open at an unloaded chunk (re-flooded when it arrives) where they opened at the
+        old bound. A bound on how far a flood walks from its start before deciding would take that back.
 
       His question, open: what the walled area beneath TajMahal2 was. (The lake over a quarry, his look
       2026-09-30: *"draws nearly perfectly"*, a small gap sometimes, filled by Tier B soon after.)
