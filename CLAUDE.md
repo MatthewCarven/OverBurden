@@ -192,19 +192,24 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 ## Where things stand
 
-**2026-10-09 — the pond branch is merged into main, on his verdict.** His first play on it split three lakes as
-he built, R into one side raised only that side, his glass pit held, and his pumps moved 1.68 ML with pumped ==
-emitted. Then: *"yes only that side rose, merge it"*. Before main took it, POND-PLAN's criterion 4 was checked
-on the merged tree:
-- the suite, 2,247;
-- r6 to the digit;
-- the courtyard holding its 20,000 L at 6.89, with `--raise=0` reading main's old `handed 0 L, 6 floods`;
-- the keystone and the a-3 pump as recorded, every identity exact;
-- the dam to the litre.
+**2026-10-09, session close — the next session builds IM-5a, the dump's water.** This session merged the pond
+branch into main on his verdict, after his first play on it. Three lakes split as he built, R into one side raised
+only that side, and his glass pit held ([docs/POND-PLAN.md](docs/POND-PLAN.md), "His verdict: merged"). Before
+the merge, a six-run A/B on `LakeTest` found the branch matching main, and every one of POND-PLAN's merge checks
+held on the merged tree. **Main is the only branch, local and remote** (he deleted `water-column-test`), suite
+**2,247**, everything pushed. The merge's own opening is in STATUS-HISTORY.
 
-A six-run A/B on `LakeTest` found the same frame times and water rate as main ([docs/POND-PLAN.md](docs/POND-PLAN.md),
-"His verdict: merged"). **Main is the only line of work now**; `water-column-test` stays on the remote until he
-deletes it. E-1's close is in STATUS-HISTORY.
+**Next session, in order:**
+1. **His two answers, at the start** (TODO's "Do first" 2 and 3):
+   - which world the clay pond leak was in, and where (if he cannot place it, close it as not reproduced);
+   - about a minute of his screen for IM-0's windowed surface install, the 10 ML ceiling's render half.
+2. **Re-read IM-5's code-level pass against the merged code before building.** The pass is dated 2026-09-30 and
+   predates the raise on main. `WaterSystem` now shares lakes by level (L-1); `LakeCeiling` and the surface read
+   the water grid; the hand-off asks the enclosure only where the watershed cannot see a pool. Use three
+   read-only searches, as every pass has. A fact that moved amends the plan; a new decision goes to him.
+3. **Build IM-5a** (decisions 2–10) in a worktree, since `start.cmd` builds the main folder.
+
+Unblocked alternative if he would rather: collapse f-1 (Core and tests, thirteen decisions taken).
 
 The ideal machines plan is half built: all sixty-one decisions were taken on 2026-09-29. **Built:** IM-0b, IM-1 to
 IM-3b, IM-4a (with its mutation battery, thirty-six red), IM-4b (a vault in its pump's ring, `pumped == emitted +
@@ -235,7 +240,8 @@ hand-over, slice by slice, is in [docs/STATUS-HISTORY.md](docs/STATUS-HISTORY.md
 - the clay pond's suspected leak: ask him which world and where. The 09-26 clay-roof drip on
   `Regions16-pondlook` (in TODO beside it, brought over from the branch) may be the same thing;
 - IM-0's windowed surface install, which needs his screen for about a minute (the 10 ML ceiling's render half);
-- his verdict on the pond branch: **given 2026-10-09, merged**, so IM-5a builds on the raised watershed.
+- his verdict on the pond branch: **given 2026-10-09, merged**, so IM-5a builds on the raised watershed;
+- a re-read of IM-5's pass against the merged code, which it predates.
 
 Then **IM-5a** (the plan's "IM-5 — the code-level pass", decisions 2–10). Before IM-6: the hotbar's unit (his)
 and the build warnings. Before IM-7: the engine-wide pin (TODO's Levers).

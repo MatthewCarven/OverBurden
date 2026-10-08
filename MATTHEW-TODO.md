@@ -22,9 +22,8 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
-- [ ] **Four things need you before the next builds**, three before IM-5 and one before IM-6 (TODO's
-      "Order and collisions" has the whole list of what should come first and what collides). The one
-      that was mine, the test that failed at random, is done (2026-10-01).
+- [ ] **Two things at the start of next session, before IM-5a (the dump's water), and one before IM-6**
+      (TODO's "Order and collisions" has the whole list). About five minutes of yours.
       - **The clay pond leak: which world, and where?** The dump floods through the same water, so a leak
         under it would look like the dump's fault. If the pond was in TajMahal2, it's retired now, but
         a copy of it still opens for a probe.
@@ -285,10 +284,14 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-10-09, after the merge**. Main has commits to push (`git push origin main`). **Your pond branch
-is merged into main**, so main is the only branch you need; `water-column-test` is still on GitHub until you
-delete it, which is `git branch -d water-column-test` then `git push origin --delete water-column-test`, whenever
-you like.
+Updated **2026-10-09, session close**. Nothing to push. **Your pond branch is merged into main** and you've
+deleted it, so main is the only branch, here and on GitHub.
+
+- **Next session: IM-5a, the dump's water.** At its start I'll ask the two things at the top of "Now": which
+  world your clay pond leak was in (if you can't remember, I'll close it), and a minute of your screen. Then I
+  re-check its plan against the merged code before building, since the plan was written before your walls
+  could raise a lake on main. If you'd rather start with something needing nothing from you, collapse f-1 is
+  ready.
 
 - **Walls that split a lake are on main now** (L-1, L-2 and E-1). A wall across a full lake leaves each side the
   water that stood over it. The water the wall stands in goes to the side it drains to, which rises a little:

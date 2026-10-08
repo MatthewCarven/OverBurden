@@ -71,8 +71,8 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
    press, not two. A synergy.
 10. **The pile and a landing collapse's reserved cells.** A pile voxel in one forces a re-plot (collapse part
     c's decision 11, lifts off a reservation). 5b's refusal of reserved cells covers it.
-11. **The commit-authorship rewrite and every branch.** A `filter-repo` rewrite has to take
-    `water-column-test` too; do it with no branch in flight.
+11. **The commit-authorship rewrite and every branch.** A `filter-repo` rewrite takes every branch; do it with
+    no branch in flight. Since 2026-10-09 main is the only one (`water-column-test` merged and deleted).
 
 ## Next, on my side
 
@@ -102,7 +102,8 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
       water, the end of a dump, the bracket) and 5b (the pile, with its bench first). Three amend the plan: a
       dump's end (an empty vault back to `Holding`, an empty wreck removed), decision 36's session carry
       replaced by accepting placement's crash lag (an unload batch is not a consistent cut), and machine
-      materials decohered rather than piled. **Next: IM-5a**, after "Do first" 1–4 above. **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
+      materials decohered rather than piled. **Next: IM-5a**, after "Do first" 2 and 3 above (1 and 4 are done), and after a re-read of its pass
+      against the merged watershed, which the pass (2026-09-30) predates. **Into IM-6:** the grade files at `ownChargeSeconds` 60, the
       runway counting the recharge and the return as transfers. **Into IM-6's panel:** his warranty line on the
       vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;
       files stay in watts). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his

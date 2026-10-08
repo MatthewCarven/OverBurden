@@ -13,6 +13,22 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md at the 2026-10-09 session close** (the merge's opening, superseded by the close's):
+
+**2026-10-09 — the pond branch is merged into main, on his verdict.** His first play on it split three lakes as
+he built, R into one side raised only that side, his glass pit held, and his pumps moved 1.68 ML with pumped ==
+emitted. Then: *"yes only that side rose, merge it"*. Before main took it, POND-PLAN's criterion 4 was checked
+on the merged tree:
+- the suite, 2,247;
+- r6 to the digit;
+- the courtyard holding its 20,000 L at 6.89, with `--raise=0` reading main's old `handed 0 L, 6 floods`;
+- the keystone and the a-3 pump as recorded, every identity exact;
+- the dam to the litre.
+
+A six-run A/B on `LakeTest` found the same frame times and water rate as main ([docs/POND-PLAN.md](docs/POND-PLAN.md),
+"His verdict: merged"). **Main is the only line of work now**; `water-column-test` stays on the remote until he
+deletes it. E-1's close is in STATUS-HISTORY.
+
 **Moved from CLAUDE.md on 2026-10-09, when the pond branch was merged** (the opening of E-1's hand-over):
 
 **2026-10-01 (late night) — E-1 is built on main and merged into the pond branch; next is his play on
