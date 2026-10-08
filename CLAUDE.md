@@ -269,7 +269,10 @@ folder under `worlds/`, so a rename is a folder move with the game closed.
   and needs a far carry with O(1) removal, a planned piece of its own. Bodies wait on it. The ranking
   measure is the five-minute queued mean, not one probe.
 - **The pond branch is 1.9× main at his pond on the optimised build, not 6×**, and only because it keeps
-  the water main spills ([docs/POND-PLAN.md](docs/POND-PLAN.md), "Re-measured"). The verdict is his look.
+  the water main spills ([docs/POND-PLAN.md](docs/POND-PLAN.md), "Re-measured"). **On `LakeTest` (2026-10-09,
+  three runs each, alternated) it matches main**: the same frame times and water rate, about 9 ms a second of its
+  own work, the same total water (WORKLOG). The verdict is his look; his first play on it split three lakes and
+  his glass pit held.
 - **F11 has a third rung**, r10h/6v; he played it to the top.
 - **Where a probe must stand:** the old TajMahal's pool `--at=-268,-5,1284` (a copy of
   `retired-TajMahal-2026-09-29`, never `TajMahal2`), his pond on `Regions16` `--at=-852,34,282`. A saved

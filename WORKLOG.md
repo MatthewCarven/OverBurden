@@ -1,5 +1,50 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-09 — his first play on the pond branch, and main against the branch on `LakeTest`
+
+**His play, 01:01–02:19, on `LakeTest`** (log kept as `play-LakeTest-pond-2026-10-09.log`, no `ERROR`):
+- **The split fired in play for the first time.** As he built, three lakes split, 413,561 L shared by level and
+  7,000 L displaced, over 86 re-analyses for edits.
+- **His glass pit holds.** He dug out a large area, ringed eight chunks of glass round an empty centre chunk, and
+  poured 8 ML with Ctrl+R in all, 2 ML of it into the pit. His word: *"the water stays in the glass, centre's
+  filling and spilling as intended"*. That is Tier B in dug ground, which walls always held, so it is not the
+  split's test.
+- Afterwards 17.2 ML was moving in 1.2 M cells, and surface installs reached 181 ms.
+- **Still owed:** R into one side of a split lake, POND-PLAN's seventh criterion.
+
+**Main against the pond branch** (his word: *"statistics are brutally honest"*):
+- six headless runs, alternated main / pond three times each;
+- each on a fresh copy of `LakeTest` as he saved it;
+- `start.cmd`'s four flags plus `--profile --speed=0 --measure=60 --watch`;
+- each arm a detached worktree build, its Core and Persistence checked optimised.
+
+| per arm, mean (range) | main | pond |
+|---|---|---|
+| frame ms mean / p99 / max | 7.2 / 18.9 / 141.6 | 7.2 / 19.0 / 141.5 |
+| water ticks a second | 2.0 | 2.0 |
+| a tick on the worker, mean / max | 92.4 (87–97) / 207 ms | 91.3 (87–94) / 203 ms |
+| fluid on the sim thread, a frame | 23.9 (23.6–24.3) ms | 24.5 (24.4–24.6) ms |
+| lake ceiling / enclosure / hand-off | 3.1 / 1.5 / 9.3 ms/s | 4.7 / 0.4 / 8.8 ms/s |
+| the branch's own: raise observe / water grid | — | 5.5 / ~3.6 ms/s |
+| Tier A held + Tier B moving | 137.70 + 17.67 ML | 137.44 + 17.93 ML |
+| would not fit back at open | 125,912 L | 122,489 L |
+| memory static | 39.4 MiB | 39.5 MiB |
+
+**What the table says:**
+- **Frame times and the water's rate are the same.** The tick's ranges overlap.
+- **The branch does about 9 ms a second more work**: raise, grid and ceiling, less the enclosure it no longer
+  floods. It also pays 0.6 ms more a frame on the sim thread, the one gap where the ranges do not overlap, and
+  194 ms once at open to derive the raise.
+- **Both hold the same total**, 155.37 ML, to 2,236 L. The branch keeps 0.26 ML more as Tier B cells inside what
+  he built, where main hands it to Tier A.
+- **The share by level ran twice at open, 16.7 ms then 1.5 ms**: the first call is code not yet optimised, as
+  L-1's bench predicted.
+
+**The caveats:** standing still at the profile's spawn, near his lakes but not on his pit, with no building in the
+window. A play that edits pays a re-analysis on a worker, about 130 ms, after every quiet second. And the 1.9× at
+his old pond (POND-PLAN, "Re-measured") was a world where the branch kept water main spilled. Here main spills only
+126 kL at open.
+
 ## 2026-10-01 (late night) — E-1: a walled area's answer is the area's
 
 *"start E-1 please Claude"*. LAKE-EDIT-PLAN decision 6, built on main in a worktree, then main merged into the

@@ -23,7 +23,8 @@ care about. I keep it current at the end of each session.
 ## Now
 
 - [ ] **Walls that split a lake, on your pond branch: the branch's deciding test** (L-1 and L-2, built
-      2026-10-01). `git checkout water-column-test`, then `start.cmd` (it opens `LakeTest`). Build a wall across
+      2026-10-01). *Played 2026-10-09: your building split three lakes, and the glass pit holds. Still to try: R
+      into one side of a split lake.* `git checkout water-column-test`, then `start.cmd` (it opens `LakeTest`). Build a wall across
       a filled lake, standing above the water and tied into the banks at both ends, wait a second, then R into
       one side. *Does each side keep its own level, and does R raise only the side you pour into?* The side the
       wall drains to rises a little as the wall goes up, because the wall pushes its own water there. Then
@@ -304,8 +305,10 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-10-01, late night, after E-1**. Both branches have commits to push (`git push origin main
-water-column-test`). **Branches:** `main` and `water-column-test` only, and the pond branch has everything main
+Updated **2026-10-09, after your first pond-branch play**. Main has a commit to push (`git push origin main`).
+- **Main against your pond branch on `LakeTest`**, three runs each: the same frame times (7.2 ms, worst ~141 ms)
+  and the same water rate (2 ticks a second). The branch does about 9 ms a second of extra work, which you won't
+  feel, and both hold the same total water. Numbers in WORKLOG. **Branches:** `main` and `water-column-test` only, and the pond branch has everything main
 has.
 
 - **Walls that split a lake are built on your pond branch** (L-1 and L-2, 2026-10-01), and it's your turn: the
