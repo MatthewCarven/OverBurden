@@ -2,8 +2,9 @@
 
 **All seven decisions taken as recommended** (2026-10-01, *"as recommended please Claude"*). **L-1 and L-2 are
 built** (2026-10-01, on the pond branch; "L-1 — built" and "L-2 — built" below), **and E-1** (2026-10-01, on
-main, merged into the branch; "E-1 — built" below). Next is his play on `LakeTest`, the branch's deciding test.
-His question about the walled area beneath TajMahal2 is still open.
+main, merged into the branch; "E-1 — built" below). **His play passed (2026-10-09)**: R into one side of a
+split lake raised only that side, and on his word the pond branch is merged into main. His question about the
+walled area beneath TajMahal2 is still open.
 
 His ask, verbatim in [LAKE-EDIT-NOTES.md](LAKE-EDIT-NOTES.md):
 
@@ -203,7 +204,7 @@ part a's (TODO's collision 1), and part a is parked on a far carry with O(1) rem
 | **E-1** ✓ | main | The enclosure's bound as the area's extent (6). **Built 2026-10-01** | Every cell of one area answers alike; both bound tests unchanged; r6 to the digit |
 | **L-1** ✓ | branch | The split by level, displacement included (2, 3). **Built 2026-10-01** | Decision 2's five; a mutation battery |
 | **L-2** ✓ | branch | ~~`M7d:` terms~~ (done in L-1), `--dam=`, headless oracle, screenshot (5). **Built 2026-10-01** | Both levels kept, one side poured; r6 to the digit on the branch |
-| **His play** | branch | `LakeTest`: a wall across a filled lake, R into one side | POND-PLAN's seventh criterion, and the branch's verdict |
+| **His play** ✓ | branch | `LakeTest`: a wall across a filled lake, R into one side. **Played 2026-10-09: passed; merged** | POND-PLAN's seventh criterion, and the branch's verdict |
 
 ## L-1 — built (2026-10-01, on `water-column-test`)
 

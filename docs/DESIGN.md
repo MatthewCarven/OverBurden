@@ -285,7 +285,8 @@ visible here.
   while the world is open.
 - **Edits do not change the watershed at M7.** Water reaching an excavation is Tier B, which is
   M8; the seam for an edited-surface watershed is `SkyColumn`, which already exists and already
-  persists. **Amended 2026-09-25 (docs/POND-PLAN.md, taken on Matthew's word, not yet built):
+  persists. **Amended 2026-09-25 (docs/POND-PLAN.md, taken on Matthew's word; built on `water-column-test` and merged
+  into main 2026-10-09 on his verdict):
   the player's material above the seed surface raises the watershed — a cell's sample is the
   maximum of its seed and its placed tops — and nothing lowers it.** The trigger was his stone
   edge round a natural pond, which the lake could not see and spilled past.

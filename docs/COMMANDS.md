@@ -146,14 +146,16 @@ bound, G of them out through natural ground; U at an unloaded chunk; widest open
 128), R region(s), B band(s) rebuilt for it` (`farthest … of 64` before E-1) — the why since 2026-09-22, because a pond that
 would not fill read `116 flood(s) / 0 closed` and the log could not say which rule — the
 profile has an `enclosure` line under `handoff`, and the `surface` line prints `N enclosed
-sample(s) undrawn`. **The oracle, verbatim, reads `handed 0 L` with
-`6 flood(s), 6 closed` and rests by tick ~85; with `--enclosure=0` it reads `handed 20,000 L`:**
+sample(s) undrawn`. **Since the pond branch merged (2026-10-09) the raise is on, so the courtyard is its own
+basin and the oracle, verbatim, reads `courtyard basin … holding 20,000 L, level 6.89 against a floor of 5 and a
+wall top of 13` with `handed 20,000 L` and no flood. `--raise=0` is the pre-merge arm and reads `handed 0 L`
+with `6 flood(s), 6 closed`, resting by tick ~85; with `--enclosure=0` as well it reads `handed 20,000 L`:**
 
 ```bash
 ../GAME/Godot_v4.7.1-stable_mono_win64/Godot_v4.7.1-stable_mono_win64_console.exe --path Overburden.Game --headless -- --profile --speed=0 --courtyard=8 --injectlitres=20000 --measure=25
 ```
 
-**The dam (2026-10-01, L-2; on the pond branch only, since it needs the raise).** **`--dam=<metres>`**
+**The dam (2026-10-01, L-2; it needs the raise, so it is on main since the pond branch merged, 2026-10-09).** **`--dam=<metres>`**
 builds a straight stone wall a metre thick, at most that long, across the lake: through the player
 when they stand over a lake holding 10,000 L or more, else through the pit `--fillbasin` filled.
 `--waterprobe=x,z` (voxels) stands it elsewhere. Its top is **`--damheight=<metres>`** (1) over the
@@ -354,8 +356,8 @@ DOTNET_TieredCompilation=0 dotnet run --project Overburden.Bench -c Release -- -
 ask): calls and min / mean / max ms a call for each function `CallWatch` names in Core and Game.
 That is 21 coarse ones on main (the tick job, the solve and its flood and apply, the lake ceiling,
 the hand-off, the enclosure, both surfaces, the watershed's four stages, light derive and
-propagate, mesh, generate, support, the pipeline update, machines) and six more on
-`water-column-test` (the grid, the raise). A time is wall and inclusive, over the whole run, the
+propagate, mesh, generate, support, the pipeline update, machines) and six more since
+the pond branch merged (the grid, the raise). A time is wall and inclusive, over the whole run, the
 open included. Off, a watch is one flag read a call. The flood's inner reads are never watched,
 because they are tens of nanoseconds and a stopwatch would time itself; those are the sampler's.
 **`--at=x,y,z`** (metres, flying) puts a profile's camera at a subject, on both branches. **The

@@ -1,5 +1,30 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-09 — the pond branch merged into main, on his verdict
+
+*"yes only that side rose, merge it unless you think otherwise or it requires further testing"*. That was his answer
+on POND-PLAN's seventh criterion, R into one side of a split lake, and his verdict. Merged in a worktree off main
+(`merge-pond`), then main fast-forwarded:
+- **The code is the branch's, byte for byte.** Main had no code the branch lacked.
+- **The two doc conflicts**, WORKLOG and MATTHEW-TODO, were main's newer text over the branch's older: both sides
+  had inserted E-1's entry, and main tonight's above it.
+
+**POND-PLAN's criterion 4 on the merged tree, before main took it:**
+- the suite, 2,247;
+- the r6 control to the digit;
+- the courtyard reads its own basin `holding 20,000 L, level 6.89 against a floor of 5 and a wall top of 13`, the
+  branch's recorded figure. `--raise=0` reads main's pre-merge `handed 0 L` with `6 flood(s), 6 closed`, so the
+  old recipe is now the raise's control arm, and COMMANDS says so;
+- the keystone `at risk 0` at the end, `lifted 0 L == returned 0 L + displaced 0 L: exact`;
+- the a-3 pump `drawn 1,000 == pumped 1,000 == emitted 1,000`, all 22 identity lines exact;
+- L-2's dam to the litre;
+- no `ERROR` in any run.
+
+**Docs:** DESIGN's 2026-09-25 amendment reads built and merged. POND-PLAN gains "His verdict: merged" with all
+seven criteria as they stood. CLAUDE.md, TODO, MATTHEW-TODO, COMMANDS and LAKE-EDIT-PLAN no longer describe a
+branch waiting on a verdict. Also fixed: my earlier record had spliced a sentence onto the wrong line of his status
+block. `water-column-test` stays on the remote until he deletes it; the commands are in his status.
+
 ## 2026-10-09 — his first play on the pond branch, and main against the branch on `LakeTest`
 
 **His play, 01:01–02:19, on `LakeTest`** (log kept as `play-LakeTest-pond-2026-10-09.log`, no `ERROR`):

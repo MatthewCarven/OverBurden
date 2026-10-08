@@ -41,7 +41,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/UNDO-PLAN.md](docs/UNDO-PLAN.md) | Ctrl+Z, three steps. **Built and played 2026-09-22.** A fall clears the stack; the journal hangs off `SetVoxel` and `MachineSet`; an undo must not journal its own writes. |
 | [docs/MAP-NOTES.md](docs/MAP-NOTES.md) | F12, the map. **Built 2026-09-23 (slices a–d), played: 2 km stays.** A picture must not depend on the viewer; the ramp is fitted to the view; the map aliases past ~16 m a pixel. |
 | [docs/GLASS-PLAN.md](docs/GLASS-PLAN.md) | Glass. **Built 2026-09-25 on main; the look played 2026-09-26** (black, 0.20 — *"Glass looks GOOD!"*). The sky column asks `IsSolid`, so glass is a roof to rain and a true skylight. Open: a floor under glass gleams in a storm; water behind glass sort order. |
-| [docs/POND-PLAN.md](docs/POND-PLAN.md) | The raised watershed and his water grid. **Built on the branch `water-column-test`, not on main**; its "better" criteria are in the branch's copy of this file, and the merge waits on his verdict. |
+| [docs/POND-PLAN.md](docs/POND-PLAN.md) | The raised watershed and his water grid. **Built on the branch `water-column-test` and merged into main 2026-10-09 on his verdict**: walls you place raise a lake's rim, and the lake reaches under what you build. Its seven "better" criteria and how each stood at the merge are at the end. |
 | [docs/TNT-NOTES.md](docs/TNT-NOTES.md) | Blasting. Notes, not scheduled; his design folded in (blasted voxels go nowhere; the shake). Six decisions still his. |
 | [docs/ADAPTIVE-RADIUS-PLAN.md](docs/ADAPTIVE-RADIUS-PLAN.md) | The adaptive view radius. **Built 2026-09-06**; the plan's dwell rule was wrong, the built section says why. F11 far mode raises its ceiling. |
 | [docs/CHUNK-CACHE-PLAN.md](docs/CHUNK-CACHE-PLAN.md) | The retained-chunk cache. **Built.** Read slice 2's section before touching `LightPropagator`. |
@@ -49,7 +49,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/WORLDGEN-NOTES.md](docs/WORLDGEN-NOTES.md) | Ores, layers, trees, permeability — his thinking-ahead. Not scheduled; its three questions are his. |
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written and taken as recommended (2026-09-28)**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a (rest) comes before any body. **Part a is parked (2026-09-29)**: the pool rests with the near/far order off, but every cheap fix under the order failed the load test; a carry with O(1) removal is the open piece. `--bodyprobe=` and `--rest` measure it. |
 | [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md) | **Building in a lake** (2026-09-30): his words verbatim on displacement, a wall breaking a lake's sheet, and a sooner Tier B → A hand-back, with what the code offers and four questions. Today a block in a lake is a pier. |
-| [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md) | **Walls that split a lake, the code-level pass (2026-10-01): all seven decisions taken as recommended; L-1 and L-2 built on the pond branch and E-1 on main, the same day.** His Tier B conversion can't separate (the hand-back rejoins the one lake); the pond branch's raise divides a lake but gives every litre to the old pit's side (fact 10). Recommended: share by the water over each cell (L-1, L-2 on the branch), and make the enclosure's answer independent of who asks first (E-1, main). |
+| [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md) | **Walls that split a lake, the code-level pass (2026-10-01): all seven decisions taken as recommended; L-1, L-2 and E-1 built the same day; his play passed 2026-10-09, and all of it is on main since the pond branch merged.** His Tier B conversion can't separate (the hand-back rejoins the one lake); the pond branch's raise divides a lake but gives every litre to the old pit's side (fact 10). Recommended: share by the water over each cell (L-1, L-2 on the branch), and make the enclosure's answer independent of who asks first (E-1, main). |
 | [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-4c done (2026-09-30; 4c kept today's lake rule at his word); IM-5's sixteen decisions taken (2026-09-30), not built; TODO's "Order and collisions" says what comes first.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
 
 ## Non-negotiables
@@ -192,22 +192,26 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 ## Where things stand
 
-**2026-10-01 (late night) — E-1 is built on main and merged into the pond branch; next is his play on
-`LakeTest`, the branch's deciding test.** The enclosure reads open on a walled area's own extent (more than 128
-voxels in x or z), so every cell of one area gives one answer whichever asks first
-([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), "E-1 — built"). The test came first and went red: a 30 m
-courtyard asked first beside a wall read open. Twelve mutations went red. r6 holds on both branches, the courtyard
-oracle reads as recorded, and the dam oracle is unchanged on the merged branch. On a copy of `LakeTest` it costs
-about 1 ms a second more, 3.1 → 4.0 ms/s, alternated. Both branches have commits for him to push. L-2's close is
-in STATUS-HISTORY.
+**2026-10-09 — the pond branch is merged into main, on his verdict.** His first play on it split three lakes as
+he built, R into one side raised only that side, his glass pit held, and his pumps moved 1.68 ML with pumped ==
+emitted. Then: *"yes only that side rose, merge it"*. Before main took it, POND-PLAN's criterion 4 was checked
+on the merged tree:
+- the suite, 2,247;
+- r6 to the digit;
+- the courtyard holding its 20,000 L at 6.89, with `--raise=0` reading main's old `handed 0 L, 6 floods`;
+- the keystone and the a-3 pump as recorded, every identity exact;
+- the dam to the litre.
+
+A six-run A/B on `LakeTest` found the same frame times and water rate as main ([docs/POND-PLAN.md](docs/POND-PLAN.md),
+"His verdict: merged"). **Main is the only line of work now**; `water-column-test` stays on the remote until he
+deletes it. E-1's close is in STATUS-HISTORY.
 
 The ideal machines plan is half built: all sixty-one decisions were taken on 2026-09-29. **Built:** IM-0b, IM-1 to
 IM-3b, IM-4a (with its mutation battery, thirty-six red), IM-4b (a vault in its pump's ring, `pumped == emitted +
 vaulted`) and IM-4c, reduced at his word (a block in a lake stays a pier; Ctrl+Z cancels placements still waiting
 for the boundary). **Taken and not built:** IM-5, the dump, split into 5a (the water) and 5b (the pile). Suite
-**2,191** on main and **2,247** on the branch, r6 to the digit on both. The branches are `main` and
-`water-column-test` only, and both are ahead of their remotes by E-1 and its record (the branch by the merge
-too).
+**2,247** on main, r6 to the digit. The pond branch is merged, and main is ahead of its remote by the merge and
+its record.
 
 **The lake plan is taken (2026-10-01): [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), all seven decisions
 as recommended; one question is still his (what the walled area beneath TajMahal2 was).** His means,
@@ -215,8 +219,8 @@ converting Tier A to Tier B where voxels are placed, can't keep the sides apart.
 already divides a lake at a wall, and **L-1 and L-2 (built) make each side keep the water that stood over it,
 with `--dam=` to show it headless**. A wall's own strip of water goes to the side its cells drain to, often most
 of it to one side, so that side can rise up to twice decision 3's 14 cm (corrected in the plan). **E-1 (built,
-on both branches) makes a walled area's answer the area's.** **Next: his play on `LakeTest`** on the branch
-(MATTHEW-TODO has the recipe), which is POND-PLAN's seventh criterion and the branch's deciding test.
+on both branches) makes a walled area's answer the area's.** **His play passed (2026-10-09)**: R into one side
+of a split lake raised only that side, and on his word the pond branch is merged.
 
 His test world is `LakeTest`.
 
@@ -231,16 +235,14 @@ hand-over, slice by slice, is in [docs/STATUS-HISTORY.md](docs/STATUS-HISTORY.md
 - the clay pond's suspected leak: ask him which world and where. The 09-26 clay-roof drip on
   `Regions16-pondlook` (in TODO beside it, brought over from the branch) may be the same thing;
 - IM-0's windowed surface install, which needs his screen for about a minute (the 10 ML ceiling's render half);
-- his verdict on the pond branch. Main is merged in, so merge again after each slice on main.
+- his verdict on the pond branch: **given 2026-10-09, merged**, so IM-5a builds on the raised watershed.
 
 Then **IM-5a** (the plan's "IM-5 — the code-level pass", decisions 2–10). Before IM-6: the hotbar's unit (his)
 and the build warnings. Before IM-7: the engine-wide pin (TODO's Levers).
 
 **His open threads:**
-- building in lakes: L-1 and L-2 are built ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md)), and his play
-  on `LakeTest` is the pond branch's deciding test;
-- F11's six rungs (in TODO, the caps checked first);
-- testing and optimising on the pond branch.
+- the walled area beneath TajMahal2, his question in [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md);
+- F11's six rungs (in TODO, the caps checked first).
 
 **How the slices have gone:** every one has had a code-level pass first. Each pass used three read-only
 searches in parallel, facts with file and line, the load-bearing ones checked by hand, then numbered decisions
@@ -268,11 +270,10 @@ folder under `worlds/`, so a rename is a folder move with the game closed.
   order failed the load test. c-2 (promote a levelled sheet's far front) closes two thirds of the gap
   and needs a far carry with O(1) removal, a planned piece of its own. Bodies wait on it. The ranking
   measure is the five-minute queued mean, not one probe.
-- **The pond branch is 1.9× main at his pond on the optimised build, not 6×**, and only because it keeps
-  the water main spills ([docs/POND-PLAN.md](docs/POND-PLAN.md), "Re-measured"). **On `LakeTest` (2026-10-09,
-  three runs each, alternated) it matches main**: the same frame times and water rate, about 9 ms a second of its
-  own work, the same total water (WORKLOG). The verdict is his look; his first play on it split three lakes and
-  his glass pit held.
+- **The pond branch is merged (2026-10-09).** On `LakeTest`, three runs each, alternated, it matched main: the
+  same frame times and water rate, about 9 ms a second of its own work, the same total water (WORKLOG). At his
+  old pond it measured 1.9× main, only because it keeps the water main spilled
+  ([docs/POND-PLAN.md](docs/POND-PLAN.md), "Re-measured").
 - **F11 has a third rung**, r10h/6v; he played it to the top.
 - **Where a probe must stand:** the old TajMahal's pool `--at=-268,-5,1284` (a copy of
   `retired-TajMahal-2026-09-29`, never `TajMahal2`), his pond on `Regions16` `--at=-852,34,282`. A saved
@@ -293,10 +294,9 @@ deliberately untracked.
 - Open: part d (the chimney); **part f (the sensor): thirteen decisions taken 2026-09-29, f-1 next**; decision 11 (lifts off a reservation, up to 4.5 m) on his "fix it".
 - **The keystone oracle is a race**: read `at risk 0` and lifted == returned, not its falls.
 
-**Waiting on him** (all in MATTHEW-TODO): the pond branch's verdict (merge or retire
-`water-column-test`; his word 2026-09-30 is to test and optimise further on the branch); the fed-advance
+**Waiting on him** (all in MATTHEW-TODO): the fed-advance
 load test (`start3` against `start3 --fedadvance=0`); the M10d play queue (3 and 4 answered 2026-09-30) and
-the older checks; glass's water sort order; TNT's six decisions; the talk on building in lakes. **Played 2026-09-26: the quantum tunneller's 2 m cube is the right middle tier —
+the older checks; glass's water sort order; TNT's six decisions. **Played 2026-09-26: the quantum tunneller's 2 m cube is the right middle tier —
 *"I like the 2m cube"*.**
 
 **Worlds.** His played worlds are under `app_userdata/Overburden/worlds/`; the `MinerCraft/`

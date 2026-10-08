@@ -13,6 +13,17 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md on 2026-10-09, when the pond branch was merged** (the opening of E-1's hand-over):
+
+**2026-10-01 (late night) — E-1 is built on main and merged into the pond branch; next is his play on
+`LakeTest`, the branch's deciding test.** The enclosure reads open on a walled area's own extent (more than 128
+voxels in x or z), so every cell of one area gives one answer whichever asks first
+([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), "E-1 — built"). The test came first and went red: a 30 m
+courtyard asked first beside a wall read open. Twelve mutations went red. r6 holds on both branches, the courtyard
+oracle reads as recorded, and the dam oracle is unchanged on the merged branch. On a copy of `LakeTest` it costs
+about 1 ms a second more, 3.1 → 4.0 ms/s, alternated. Both branches have commits for him to push. L-2's close is
+in STATUS-HISTORY.
+
 **Moved from CLAUDE.md on 2026-10-01, at E-1's close** (the opening of L-2's hand-over, superseded when E-1 was
 built):
 

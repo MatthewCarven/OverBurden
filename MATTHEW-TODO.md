@@ -22,17 +22,6 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
-- [ ] **Walls that split a lake, on your pond branch: the branch's deciding test** (L-1 and L-2, built
-      2026-10-01). *Played 2026-10-09: your building split three lakes, and the glass pit holds. Still to try: R
-      into one side of a split lake.* `git checkout water-column-test`, then `start.cmd` (it opens `LakeTest`). Build a wall across
-      a filled lake, standing above the water and tied into the banks at both ends, wait a second, then R into
-      one side. *Does each side keep its own level, and does R raise only the side you pour into?* The side the
-      wall drains to rises a little as the wall goes up, because the wall pushes its own water there. Then
-      `git checkout main`. If you'd rather the game build one: `start.cmd --dam=80 --damafter=15
-      --waterprobe=140,164` puts a stone wall across your 4.2 ML lake 33 m from your spawn. It's written into
-      `LakeTest` for real. In my picture of it the wall's west end looked reddish. If yours does, that may be the
-      support tint, and it may come down.
-
 - [ ] **Four things need you before the next builds**, three before IM-5 and one before IM-6 (TODO's
       "Order and collisions" has the whole list of what should come first and what collides). The one
       that was mine, the test that failed at random, is done (2026-10-01).
@@ -41,8 +30,7 @@ care about. I keep it current at the end of each session.
         a copy of it still opens for a probe.
       - **A minute of your screen** for the windowed run (below, under "Waiting on your word"). It
         measures what drawing a big flood costs, which the dump's 10 ML limit rests on.
-      - ~~**The pond branch**: at least let me merge main into it~~ — merged (2026-10-01), so the branch
-        has everything main has. Your verdict on it is still the open half.
+      - ~~**The pond branch**~~ — merged into main, your verdict (2026-10-09).
       - **The hotbar's unit** is due sooner now: IM-6 shows water in the hotbar, so the "L doesn't fit"
         question arrives with IM-6, not the inventory screen.
 
@@ -56,21 +44,6 @@ care about. I keep it current at the end of each session.
       ground or dug below it, about how wide, and what went wrong: the lake showing inside, the lake getting
       in, or not being able to flood it on its own? It decides whether the plan covers that case as it is.
 
-- [ ] **The pond branch's verdict.** `water-column-test` has the raised watershed and your water
-      grid built (walls you place raise the lake's rim; the lake reaches under what you build).
-      To play it: `git checkout water-column-test`, `start.cmd "--world=Regions16"` (or a copy),
-      R or Ctrl+R into your stone ring. *Does it fill to the wall, and does the water stay when
-      the ring closes?* Then `git checkout main`. "Merge it" or "retire it" is the verdict.
-      *Speed, re-measured 2026-09-29 on the optimised build:* the branch's water costs 1.9× main
-      at your pond, not 6×, and only because the pond keeps the water main spills. With the
-      raise off it's as fast as main. So speed isn't a reason to retire it. *Your note (2026-09-30):
-      more testing and optimising on the branch first* — noted in POND-PLAN and TODO. It's also
-      displacement done Tier A's way: a block cuts the lake's room, so the level rises.
-      *Also on the branch (2026-09-26, `start5`): overhangs over the pond.* The lake should reach under an
-      overhang from its own side, stop at a wall, come through a window whose sill is under the water
-      and through a doorway at the floor, and leave a walled, roofed room dry. Place a block under an
-      overhang and the water there should change at the next water tick. *Main was merged into the
-      branch on 2026-10-01*, so the branch has everything main has.
 - [ ] **M10d-2, the play** — the recipes below. Nothing else is blocked on me.
 
 ---
@@ -180,6 +153,13 @@ Nothing is blocked on these; each is a small change once you have a view.
 ---
 
 ## Answered lately
+
+- **The pond branch: merged** (2026-10-09): *"yes only that side rose, merge it unless you think otherwise or it
+  requires further testing"*. Your play split three lakes as you built, R into one side raised only that side,
+  your glass pit held, and your pumps moved 1.68 ML with every litre accounted for. Before main took it I ran the
+  checks the plan set: all 2,247 tests, the r6 check, the courtyard, the collapse and pump checks and the dam,
+  all as recorded and every water total exact. It's on main now. `water-column-test` is still on GitHub until you
+  delete it (the commands are in the status below).
 
 - **Walls that split a lake, seven decisions** (2026-10-01): *"as recommended please Claude"*. Taken, and
   the first half built the same day (L-1, below in the status) ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md)).
@@ -305,21 +285,18 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-10-09, after your first pond-branch play**. Main has a commit to push (`git push origin main`).
-- **Main against your pond branch on `LakeTest`**, three runs each: the same frame times (7.2 ms, worst ~141 ms)
-  and the same water rate (2 ticks a second). The branch does about 9 ms a second of extra work, which you won't
-  feel, and both hold the same total water. Numbers in WORKLOG. **Branches:** `main` and `water-column-test` only, and the pond branch has everything main
-has.
+Updated **2026-10-09, after the merge**. Main has commits to push (`git push origin main`). **Your pond branch
+is merged into main**, so main is the only branch you need; `water-column-test` is still on GitHub until you
+delete it, which is `git branch -d water-column-test` then `git push origin --delete water-column-test`, whenever
+you like.
 
-- **Walls that split a lake are built on your pond branch** (L-1 and L-2, 2026-10-01), and it's your turn: the
-  play is at the top of "Now". A wall across a full lake leaves each side the water that stood over it. The water
-  the wall stands in goes to the side it drains to, which rises a little: up to about 28 cm for a wall across a
-  40 × 30 m lake 2 m deep, and 18 cm on your 4.2 ML lake in my test. It also fixed a branch bug: a lake stored
-  from an earlier visit, near the edge of the area the water is worked out over, could vanish the moment you
-  placed a block.
-- **Sorry about your log**: my test run started while you were playing at 8:19 PM and renamed your log, so it
-  stops at 8:24. The rest is kept as `play-LakeTest-2026-10-01-2019.log`. Your world wasn't touched.
-- **A walled area now counts as walled however the game looks at it** (E-1, on main and on your pond branch).
+- **Walls that split a lake are on main now** (L-1, L-2 and E-1). A wall across a full lake leaves each side the
+  water that stood over it. The water the wall stands in goes to the side it drains to, which rises a little:
+  about 18 cm on your 4.2 ML lake in my test. You played it, and R raised only the side you poured into.
+- **Main against your pond branch on `LakeTest`**, three runs each before the merge: the same frame times
+  (7.2 ms, worst ~141 ms) and the same water speed (2 ticks a second). The branch's extra work is about 9 ms a
+  second, which you won't feel, and both held the same total water. Numbers in WORKLOG.
+- **A walled area now counts as walled however the game looks at it** (E-1).
   Before, a walled area 16–32 m across could count as walled in when checked from near its middle and as open
   when checked from near a wall, and an edit could flip it. That may be the lake's sheet bleeding in and out of
   walls you saw; if it happens again, tell me where.
@@ -339,8 +316,6 @@ has.
 - **The Tetris collapse** is the default, with the cyan glitch, your phonk (left as is, your word) and a
   10–20 s fuse.
 - **F11** goes 6 → 8 → 10 chunks out; your six steps to 16 are in TODO.
-- **Your pond branch** re-measured: 1.9× main's water cost at your pond, only because it keeps the
-  water main spills. Speed isn't a reason to retire it; your look decides.
 - **Water bodies are parked.** Your quarry does rest with the near/far setting off, but every cheap
   fix with it on failed on your biggest world. What you play is unchanged.
 - **Backups:** the old TajMahal is `retired-TajMahal-2026-09-29`, with `backup-TajMahal-2026-09-28`

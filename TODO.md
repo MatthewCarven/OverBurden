@@ -27,10 +27,9 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
    surface is unmeasured, and a dump underground is exactly that. It takes his screen for about a minute.
    Re-read "For the load test" beside it: the hand-off's absorb at 32 ms a boundary from 530 k awake cells is
    the size of cost a 10 ML dump creates, and it predates the fixed build.
-4. **The pond branch — his verdict, better before IM-5a.** Main is merged into it (2026-10-01, `927daef` and
-   `964165e`; WORKLOG), so the gap is closed for now. Merge again after each slice on main, since IM-5a adds a
-   Tier A door to `WaterSystem` while the branch rewrites the watershed. The verdict also decides where a
-   surface dump into a walled pond goes.
+4. ~~**The pond branch — his verdict, better before IM-5a.**~~ **Given 2026-10-09: merged into main**
+   (POND-PLAN, "His verdict: merged"). IM-5a now builds on the raised watershed, and a surface dump into a walled
+   pond goes to the pond's own basin.
 5. **The hotbar's unit (his, in MATTHEW-TODO) — before IM-6.** IM-6 puts water in the hotbar's last slot
    (decision 23), so *"1,767,903,281 L doesn't fit"* arrives with IM-6, not M10g.
 6. **The ten build warnings — before IM-6**, the big wire slice, so a new warning stands out.
@@ -52,7 +51,7 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
    cuts a lake's room and a wall becomes a basin's rim, so a surface dump into a walled pond goes where the
    branch's watershed says. Decide the branch before LAKE-EDIT's pass. **The pass (2026-10-01) went the
    other way round**: it routes the lake split through the branch (LAKE-EDIT-PLAN decision 1), so its L-1
-   and L-2 become the branch's deciding test.
+   and L-2 become the branch's deciding test. **Settled 2026-10-09: the test passed and the branch is merged.**
 3. **F11's six rungs and "machines only where you are"** (taken 9: IM-7's quarry, and IM-5's release on
    arrival). 16h/12v loads 4.7 times 10h/6v's chunks, so quarries would run, and unloaded dumps release, over
    that much more ground. IM-7's pass decides whether machine work follows the view or a fixed radius, before
@@ -108,9 +107,9 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
       vault, **a lock on the vault's channel box**, and **power auto-scaled on screen** (W/kW/MW;
       files stay in watts). Plays after IM-6, IM-8 and IM-9. **Owed from IM-0:** the windowed surface install (his
       say-so, it takes his focus); a bite under a lake (IM-7's bench); a dump underground (IM-5's).
-- [ ] **Building in a lake: walls that split a lake — all seven decisions taken as recommended (2026-10-01);
-      L-1 and L-2 built on `water-column-test`, E-1 on main and merged in, the same day; next is his play on
-      `LakeTest`** ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), "L-1 — built", "L-2 — built" and "E-1 —
+- [ ] **Building in a lake: walls that split a lake — built (L-1, L-2, E-1, 2026-10-01), played and passed
+      (2026-10-09), and on main since the pond branch merged; three small things left open below**
+      ([docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), "L-1 — built", "L-2 — built" and "E-1 —
       built"; his notes in
       [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md)). The finding: converting lake water to Tier B can't
       keep the sides apart, because the hand-back rejoins the one lake. The pond branch's raise already
@@ -119,9 +118,8 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
       whose pit lay inside the window but was not one of its basins. **L-2 added `--dam=`**: on a copy of
       `LakeTest` it split his 4.2 ML lake in 1.2 s, and a pour into one side raised only that side. **E-1 made the
       enclosure's answer the walled area's**, whichever cell asks first (fact 5; a candidate for the sheet that
-      "bleeds in and out of walls"). Still to do:
-      - **his play on `LakeTest` on the branch** (MATTHEW-TODO has the recipe): POND-PLAN's seventh criterion,
-        and the branch's deciding test;
+      "bleeds in and out of walls"). **His play (2026-10-09)**: three lakes split as he built, and R into one side
+      raised only that side. Left open:
       - **owed from L-2's screenshot**: the dam's west end read reddish. Is that the support tint, and would that
         stretch fall? Read it on the next look at a dam;
       - **E-1's lever, if the enclosure shows in a play**: on `LakeTest` it went from 3.1 to 4.0 ms a second, and
@@ -136,9 +134,6 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
       33 × 33 × 25 = 27,225 chunks against 10h/6v's 5,733, 4.7 times as many: read
       [docs/SCALE.md](docs/SCALE.md) and check every cap sized to the radius, and the memory, before
       adding them.
-- [ ] **The pond branch: test and optimise further on the branch**, his word (2026-09-30), not a
-      verdict yet ([docs/POND-PLAN.md](docs/POND-PLAN.md)). It is also the displacement answer in Tier A's
-      own terms (LAKE-EDIT-NOTES).
 - [ ] **Water bodies — part a (rest)**
       ([docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md), "His pool rests with the near/far
       order off"). The clean box rests, and so does his pool with the order off (2% awake at 900 s,
@@ -202,8 +197,6 @@ playable), IM-7 and IM-8 (the quarry), IM-9, IM-10 (his play), with collapse f-1
 
 ## Waiting on his word — the detail is in MATTHEW-TODO
 
-- [ ] **The pond branch**: merge or retire `water-column-test` (the raised watershed and his water
-      grid, [docs/POND-PLAN.md](docs/POND-PLAN.md), built there, not on main).
 - [ ] **M10d-2, the play** — the seven recipes in the ladder plan's "M10d — the planning pass".
       Watch for origin-order draw starving later pumps under panels-only power (decision 4; the
       lever is the outlets' ring on the pumps, not built until seen). **Two answered (2026-09-30):**

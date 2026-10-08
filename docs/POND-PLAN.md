@@ -1,5 +1,7 @@
 # A pond you have shaped — the raised watershed
 
+**Merged into main 2026-10-09, on his verdict** ("His verdict: merged", at the end).
+
 Matthew's play, 2026-09-25, on `Regions16`. He was edging a natural pond with stone. Two
 reports, twenty minutes apart:
 
@@ -579,3 +581,40 @@ Not a verdict yet: *"not sure here um we could do further testing like put furth
 optimisation on the branch for this test branch"*. So the branch stays, and the next work on it is testing
 and optimising there. It is also the answer to displacement in Tier A's own terms: edits cut a lake's
 capacity, so a block raises the level ([LAKE-EDIT-NOTES.md](LAKE-EDIT-NOTES.md)).
+
+## His verdict: merged (2026-10-09)
+
+**His first play on the branch** (01:01–02:19 on `LakeTest`, the log kept as `play-LakeTest-pond-2026-10-09.log`,
+no `ERROR`):
+- his building split three lakes, 413,561 L shared by level;
+- a glass pit he dug and ringed held his Ctrl+R pours;
+- 103 machines pumped 1,682,291 L, emitted 1,682,291 L;
+- every water identity was exact on every line.
+
+His answer on the seventh criterion, then his verdict: *"yes only that side rose, merge it unless you think
+otherwise or it requires further testing"*.
+
+**The criteria, as they stood at the merge:**
+1. His pond fills to his wall, and
+2. the water stays when a ring closes: on his word, 2026-09-26.
+3. The courtyard holds: `--courtyard=8` with the pour reads the courtyard's own basin `holding 20,000 L, level
+   6.89 against a floor of 5 and a wall top of 13`, as recorded at b. `--raise=0` reads main's pre-merge
+   `handed 0 L` with `6 flood(s), 6 closed`.
+4. Nothing else moved, on the merged tree:
+   - the suite, 2,247;
+   - the r6 control to the digit;
+   - the keystone `at risk 0` at the end with `lifted 0 L == returned 0 L + displaced 0 L: exact`;
+   - the a-3 pump `drawn 1,000 == pumped 1,000 == emitted 1,000`, all 22 identity lines exact;
+   - L-2's dam to the litre;
+   - no `ERROR` anywhere.
+5. The costs, on `LakeTest` (2026-10-09, three runs each, alternated, a fresh copy each): the same frame times
+   (7.2 ms mean, ~141 ms worst) and water rate (2 ticks a second). The branch did about 9 ms a second of its own
+   work (raise 5.5, grid ~3.6, ceiling +1.6, enclosure −1.1), 0.6 ms more a frame on the sim thread, and 194 ms
+   once at open. Both held the same total water to 2,236 L. Under the ~5 ms bar on the sim thread.
+6. His word: *"merge it"*.
+7. A wall across a full lake keeps both sides' water, and R into one side raises only that side: his play,
+   2026-10-09.
+
+**The merge** (`water-column-test` into main, 2026-10-09) took the branch's code byte for byte. Its two doc
+conflicts, WORKLOG and MATTHEW-TODO, were main's newer text over the branch's older. `water-column-test` stays on
+the remote until he deletes it.
