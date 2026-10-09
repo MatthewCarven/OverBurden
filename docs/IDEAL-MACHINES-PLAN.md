@@ -1999,7 +1999,9 @@ and the boundary's order is as it was (`Main.cs:7204–7281`). What moved:
    `Main.cs:8289`). `RoomFor` can't stand in for "loaded", because on the field arm it answers from baked bits
    for a chunk that has gone (`FluidField.cs:140–165`). Only `PourB`'s ten-line loop (`Siphon.cs:458–469`) is
    worth sharing. The siphon's budget is first come, first served (`:282–303`); the dump's own is round-robin,
-   as decision 4 says.
+   as decision 4 says. *(Built a little differently: the mouth's chunk gates the pour, and a cell in a chunk
+   not loaded to the water is passed over, so a big ball near the loaded box's edge still pours. See "IM-5a —
+   built", choice 4.)*
 5. **`+ dumped` reaches five copies of the identity**, not one: `IdentityExact` (`FluidSimulation.Job.cs:411`),
    `MachineTickTests.cs:495–497`, `PumpBench.cs:332–334`, and the `M8b:` and quit prints (`Main.cs:8488`, `:8762`).
 6. **The store's water line has no alarm.** `StoreWaterExact` (`MachineSet.Vaults.cs:76–78`, whose comment
@@ -2025,6 +2027,94 @@ and the boundary's order is as it was (`Main.cs:7204–7281`). What moved:
 **The hand-off, checked.** Water under the seed surface is never handed (`SurfaceHandoff.cs:179`), so a vault in
 the workings stays Tier B's whole. The merge's one change: ball water that reaches seed + 1 on an unraised
 sample is handed even when walled in.
+
+## IM-5a — built (2026-10-10)
+
+Built in a worktree (`im5a`), so `start.cmd` kept building the clean main folder. **Nothing he plays changes
+yet:** no vault ships until IM-6, so no fuse burns and no wreck is made in his worlds.
+
+**What is there** (decisions 2–10, with the re-read):
+- **`VaultDump`** (`Core/Machines/VaultDump.cs`), in the siphon's shape. It keeps its own counters, and its
+  `Exact` checks four twins against them: Tier A's `DumpedLitres`, Tier B's `DumpedMillilitres`, and the
+  store's `WaterDumpedMillilitres` and `WaterDecoheredMillilitres`. The store's water line is checked beside
+  them.
+- **The doors.** Tier A: `WaterSystem.Dump(basin, litres)`, `Pour`'s shape with its own counter; the outlet
+  basin spills. Tier B: `FluidSimulation.Dump(voxel, millilitres)`, which shares `Pour`'s path through a new
+  private `FillFromOutside`.
+- **The identity.** `FluidPublished` gains `Dumped`, and `IdentityExact` gains `+ dumped`, as do the other
+  four copies the re-read found.
+- **The store.** `MachineSet.ReleaseWater` takes what landed and what was decohered, and sets the clock, in
+  one read and one write. A standing vault left empty goes back to `Holding` there; an empty wreck is
+  returned to the caller, which removes it after its walk through `RemoveSpentWreck`, with the journal
+  paused. `StoreWaterExact` gains `− dumped − decohered`.
+- **The clock.** `PayHolds` sets 10,000 ms when a fuse burns out. `MakeWreck` sets it too, unless the vault
+  was already dumping.
+- **The game** (decision 9). The `dump` bracket runs after the machine tick and stamps `t3` again. `dump` is
+  on the boundary line's mean and worst. `M10: dump —` is printed when a vault starts or ends its dump, and
+  every tenth boundary in between. A `PushError` fires when `Exact` fails. Tier B's `dumped` is on the `M8b:`
+  and quit lines and Tier A's on the `M7d:` lines, and the profile's machines block has the store's full
+  line and a `dump` line.
+
+**Six choices the pass left open, made in the build.** Each is small, and any can be reversed on his word:
+1. **The ball's radius holds what is owed, and is never under 2 m (8 voxels).** At 2 m a small dump's ball
+   reaches the floor around its own cell. A 10 ML ball is about 13 m.
+2. **A whole pass that lands nothing rests the ball for 10 s.** Without it, a vault in a full room would spend
+   its share of the budget every boundary for nothing. The plan named "no room" only for 5b's pile.
+3. **The ceiling is checked the first boundary a vault is seen owing**, in the dump's bracket, not at the
+   burnout in `PayHolds`. For a fuse that is the same boundary, and it covers a wreck too, since a fall starts
+   a dump as well. The check is held in memory and repeats harmlessly after a reopen: what was admitted
+   fitted, and owed water only falls.
+4. **The mouth's chunk gates a pour; a cell in a chunk not loaded to the water is passed over.** The re-read
+   said "every chunk the ball touches", which would leave a big ball near the loaded box's edge waiting for
+   ever.
+5. **An owing vault with nothing in it ends at the next boundary.** No path makes one; this heals a row read
+   from disk.
+6. **The release clock runs down every boundary a vault owes, whichever tier.** So a lake's share that waited
+   off the window lands at once when the window reaches it.
+
+**Tests:**
+- Thirteen in `VaultDumpTests`, over the machine tick's bowl and a room dug under the rim:
+  - a lake's share in exactly 20 boundaries, with 678 mL decohered;
+  - a vault off the window owing;
+  - a ball within the budget until its vault is empty;
+  - the round-robin's shares (1,068 / 1,066 / 1,066);
+  - a cell in an unloaded chunk passed over though its field says it holds, with the loaded arm beside it;
+  - a ball covering the lake's bands before it pours, from a pit under the bowl;
+  - a rest and its waking;
+  - the ceiling, decohering 2 ML once and nothing after a reopen;
+  - a vault owing while unloaded, pouring only at the boundary;
+  - power coming back changing nothing;
+  - the ends: a vault holding again, and a wreck gone with nothing for Ctrl+Z, its own charge leaving
+    through `leaving`;
+  - an empty owing row healed;
+  - a fuse burning out through the tick and releasing in the same boundary.
+- One more in `VaultTests`: a fall starts a wreck's clock, but not mid-release. The existing burn test now
+  asserts the clock.
+- Every test checks both tiers' identities, the published one, the store's line, the dump's `Exact`, the
+  pool, and the whole world's water. **Suite 2,261.**
+
+**The mutation battery: 28 of 28 red.** It covered the plan's five (the dump through `Add`, the release
+clock never set, the ceiling skipped, the end state left `Dumping`, the wreck removed with the journal on) and
+twenty-three more:
+- each door and counter skipped;
+- the identity and the publish without `dumped`;
+- the store's line without `decohered`;
+- the tier forced either way;
+- the pacing all at once, and the sub-litre rest kept;
+- the mouth's gate and the cell's gate;
+- the cover skipped;
+- the budget ignored or not shared, and the remainder to the last;
+- the rest never set;
+- the admissions forgotten;
+- `MakeWreck` restarting the clock;
+- the heal skipped, and the ceiling's excess counted but not released.
+
+The cover would have gone green: the fixture refreshes every loaded column's band, so nothing depended on
+it. That was seen while the battery was being written, so its test was added first. The test takes the
+bowl's columns out of the reach.
+
+**Owed:** the r6 control and one headless run on the merged tree, after his play (a headless run from any
+copy rotates his log); and IM-0's windowed surface install, which sets the render half of the 10 ML ceiling.
 
 ## Must not ship
 

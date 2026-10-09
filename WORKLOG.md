@@ -1,11 +1,36 @@
 ﻿# Overburden — Worklog
 
+## 2026-10-10 — IM-5a built: the dump's water
+
+In the worktree `im5a`, while he was set to play. A burnt-out vault or a wreck now releases its water at the
+boundary. Above the seed surface it goes to the basin of its own sample, a twentieth of what is left each
+boundary for ten seconds. In the workings it pours a ball of cells within its own 3,200-cell budget, shared
+round-robin. Past 10 ML in the workings a new dump is decohered at once. The ends: a standing vault goes back to
+`Holding`, and a wreck is removed with the journal paused. Every door has its own counter, and the dump has its
+own `Exact`. The plan's "IM-5a — built" has the whole account.
+
+- **Six choices the pass left open were made in the build**, listed in the plan for his word. They are the 2 m
+  minimum ball, a 10 s rest after a pass that lands nothing, the ceiling checked when a vault is first seen
+  owing, the mouth's chunk gating with unloaded cells passed over, a heal for an empty owing row, and the clock
+  running down whichever tier.
+- **Suite 2,261** (2,247 + 13 in `VaultDumpTests` + 1 in `VaultTests`). The tests passed on their first run.
+- **The mutation battery: 28 of 28 red**, run in two chunks under ten minutes, each mutation restored from a
+  byte copy, and the tree checked clean against the commit after each chunk.
+  - One hole was seen before it ran: the ball's lake cover was invisible, because the fixture refreshes every
+    loaded column's band. A test that takes the bowl's columns out of the reach was written first, and the
+    mutation went red.
+  - The parser didn't capture the failing tests' names under `-v q`, only their counts. Every mutation's count
+    was above zero.
+- **The game builds with the same ten warnings** as before, none of them new.
+- **Not yet run:** the r6 control and a headless run. He hadn't launched by the time the battery finished (the
+  newest log is the previous session's last probe, 02:53), and a headless run from any copy rotates his log.
+
 ## 2026-10-09 (evening) — IM-5a's session opens: his two answers
 
 *"1.will replay the game now and try the clay again i might start a fresh world like if that is ok? 2. yes please
 and 3 after please"*. Read against the hand-over's order (his two answers, the re-read, the build):
-- **The clay pond leak**: he can't point at the old one, so he is building a clay pond in a fresh world to see
-  it again. Told him `start.cmd --world=<name>` (a later `--world=` beats `LakeTest`), `--clockscale=20` if he'd
+- **The clay pond leak**: rather than name the old one's world, he is going to play and try clay again, perhaps
+  in a fresh world. Told him `start.cmd --world=<name>` (a later `--world=` beats `LakeTest`), `--clockscale=20` if he'd
   rather not wait for rain, and the three things to capture: the HUD coordinates under the drip, a screenshot,
   the time. No headless Godot while he plays, since each launch rotates his log.
 - **The windowed surface install: yes**, run once he's out of the game, since it takes the screen and would
