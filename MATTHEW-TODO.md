@@ -22,16 +22,25 @@ care about. I keep it current at the end of each session.
 
 ## Now
 
-- [ ] **Two things at the start of next session, before IM-5a (the dump's water), and one before IM-6**
-      (TODO's "Order and collisions" has the whole list). About five minutes of yours.
-      - **The clay pond leak: which world, and where?** The dump floods through the same water, so a leak
-        under it would look like the dump's fault. If the pond was in TajMahal2, it's retired now, but
-        a copy of it still opens for a probe.
-      - **A minute of your screen** for the windowed run (below, under "Waiting on your word"). It
-        measures what drawing a big flood costs, which the dump's 10 ML limit rests on.
-      - ~~**The pond branch**~~ — merged into main, your verdict (2026-10-09).
+- [ ] **Two things from your 2026-10-09 answers, and one before IM-6** (TODO's "Order and collisions" has the
+      whole list).
+      - **The clay, played again** (your *"will replay the game now and try the clay again"*). If it leaks, I need
+        the HUD coordinates under the drip, a screenshot, and roughly when. A fresh world is fine:
+        `start.cmd --world=ClayTest` (any name). Add `--clockscale=20` if you'd rather not wait for rain.
+      - **The windowed run** (your *"yes please"*): say "done" or "run it" once you're out of the game. It
+        takes the screen for about a minute.
       - **The hotbar's unit** is due sooner now: IM-6 shows water in the hotbar, so the "L doesn't fit"
         question arrives with IM-6, not the inventory screen.
+
+- [ ] **Six small choices I made building IM-5a** (the dump's water). The plan didn't settle them. Say
+      "as built" or name one to change (the plan's "IM-5a — built" has them):
+      1. a dump's ball of water is at least 2 m across its radius, bigger for more water;
+      2. if a whole sweep of the ball finds no room, it waits 10 s before trying again;
+      3. the 10 ML limit is checked the first moment a vault owes water (a fall counts as well as a fuse);
+      4. a ball pours once the chunk above the vault is loaded, and skips the parts in chunks that aren't;
+      5. a vault owing nothing at all just ends its dump;
+      6. the 10-second release clock runs even while the water waits, so water held off the map lands at once
+         when the map reaches it.
 
 - [ ] **Ctrl+Z on a fill that's still waiting** (IM-4c, built 2026-09-30): place a single block right into
       water (or fill a chunk at range) and press Ctrl+Z at once. *Nothing should land.* Before, it came
@@ -65,8 +74,8 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 
 ### Owed from the rain play
 
-- [ ] **1. The clay pond in the rain.** You think it leaks. *Which world, and where's the pond?* Tell me
-      and I'll probe a copy (it's in TODO).
+- [ ] **1. The clay pond in the rain.** You think it leaks, and you're playing it again to see (2026-10-09).
+      Tell me the world and where, and I'll probe a copy (it's in TODO).
 
 ### M10d — the seven
 
@@ -105,9 +114,8 @@ Any order, any number of sessions; "it was fine" is a real answer. Flags go on t
 Nothing is blocked on these; each is a small change once you have a view.
 
 
-- [ ] **A minute of your screen, whenever suits.** The last IM-0 measurement (what drawing a big flood's
-      surface costs) only shows in a windowed run, which takes over the screen for about a minute. Say
-      "run the windowed one" when you're not playing.
+- [ ] **A minute of your screen: yes given (2026-10-09).** The last IM-0 measurement (what drawing a big
+      flood's surface costs) only shows in a windowed run. I run it once you say you're out of the game.
 
 - [ ] **The collapse: pieces that jump — I gave you the wrong size.** You said "leave it" when I
       said "at most a metre". On a copy of your tower, one piece jumped 4.5 m (about 20 pieces in
@@ -284,14 +292,20 @@ Nothing is blocked on these; each is a small change once you have a view.
 
 ## Status, kept current for you
 
-Updated **2026-10-09, session close**. Nothing to push. **Your pond branch is merged into main** and you've
-deleted it, so main is the only branch, here and on GitHub.
+Updated **2026-10-10**. **Main is ahead of GitHub by this session's commits: a `git push` whenever suits.**
 
-- **Next session: IM-5a, the dump's water.** At its start I'll ask the two things at the top of "Now": which
-  world your clay pond leak was in (if you can't remember, I'll close it), and a minute of your screen. Then I
-  re-check its plan against the merged code before building, since the plan was written before your walls
-  could raise a lake on main. If you'd rather start with something needing nothing from you, collapse f-1 is
-  ready.
+- **IM-5a is built: the dump's water.** When a vault's fuse burns out, or a fall wrecks it, its water goes back
+  into the world. On the surface it goes into the lake that ground drains to, over about ten seconds. In the
+  mine it pours out around the vault, a little each half second.
+  - More than 10 ML waiting to pour in the mine is lost at once.
+  - An emptied vault works again; an emptied wreck disappears, and Ctrl+Z can't bring it back.
+  - **Nothing you play changes yet:** no vault ships until IM-6.
+  - First I re-checked the plan against your merged walls and lakes. It all still held, and two small mistakes
+    in my own plan got fixed.
+  - All 2,261 tests pass, and I broke the code 28 deliberate ways to check the tests notice: every one did.
+  - The game's quick check reads exactly as recorded.
+- **Next: IM-5b**, the dumped blocks as a pile, its speed test first. Before that: the clay and the windowed run
+  (top of "Now").
 
 - **Walls that split a lake are on main now** (L-1, L-2 and E-1). A wall across a full lake leaves each side the
   water that stood over it. The water the wall stands in goes to the side it drains to, which rises a little:

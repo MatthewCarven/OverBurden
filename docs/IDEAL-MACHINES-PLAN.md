@@ -2113,8 +2113,8 @@ The cover would have gone green: the fixture refreshes every loaded column's ban
 it. That was seen while the battery was being written, so its test was added first. The test takes the
 bowl's columns out of the reach.
 
-**Owed:** the r6 control and one headless run on the merged tree, after his play (a headless run from any
-copy rotates his log); and IM-0's windowed surface install, which sets the render half of the 10 ML ceiling.
+**On main** (fast-forwarded the same night): the r6 control to the digit, 2601 / 325 / 3446 at 411, no
+`ERROR`. **Owed:** IM-0's windowed surface install, which sets the render half of the 10 ML ceiling.
 
 ## Must not ship
 

@@ -13,6 +13,27 @@ or two each.
 
 ## Where things stood
 
+**Moved from CLAUDE.md on 2026-10-10** (the 2026-10-09 close, superseded by IM-5a's build):
+
+**2026-10-09, session close — the next session builds IM-5a, the dump's water.** This session merged the pond
+branch into main on his verdict, after his first play on it. Three lakes split as he built, R into one side raised
+only that side, and his glass pit held ([docs/POND-PLAN.md](docs/POND-PLAN.md), "His verdict: merged"). Before
+the merge, a six-run A/B on `LakeTest` found the branch matching main, and every one of POND-PLAN's merge checks
+held on the merged tree. **Main is the only branch, local and remote** (he deleted `water-column-test`), suite
+**2,247**, everything pushed. The merge's own opening is in STATUS-HISTORY.
+
+**Next session, in order:**
+1. **His two answers, at the start** (TODO's "Do first" 2 and 3):
+   - which world the clay pond leak was in, and where (if he cannot place it, close it as not reproduced);
+   - about a minute of his screen for IM-0's windowed surface install, the 10 ML ceiling's render half.
+2. **Re-read IM-5's code-level pass against the merged code before building.** The pass is dated 2026-09-30 and
+   predates the raise on main. `WaterSystem` now shares lakes by level (L-1); `LakeCeiling` and the surface read
+   the water grid; the hand-off asks the enclosure only where the watershed cannot see a pool. Use three
+   read-only searches, as every pass has. A fact that moved amends the plan; a new decision goes to him.
+3. **Build IM-5a** (decisions 2–10) in a worktree, since `start.cmd` builds the main folder.
+
+Unblocked alternative if he would rather: collapse f-1 (Core and tests, thirteen decisions taken).
+
 **Moved from CLAUDE.md at the 2026-10-09 session close** (the merge's opening, superseded by the close's):
 
 **2026-10-09 — the pond branch is merged into main, on his verdict.** His first play on it split three lakes as

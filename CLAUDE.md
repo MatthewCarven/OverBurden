@@ -50,7 +50,7 @@ STATUS-HISTORY, so nothing out of date reads as current.
 | [docs/WATER-BODIES-NOTES.md](docs/WATER-BODIES-NOTES.md), [docs/WATER-BODIES-PLAN.md](docs/WATER-BODIES-PLAN.md) | Resting water as one number over a void. **The pass is written and taken as recommended (2026-09-28)**: his TajMahal pool is one component holding 99.6% of the water, and it never comes to rest, so part a (rest) comes before any body. **Part a is parked (2026-09-29)**: the pool rests with the near/far order off, but every cheap fix under the order failed the load test; a carry with O(1) removal is the open piece. `--bodyprobe=` and `--rest` measure it. |
 | [docs/LAKE-EDIT-NOTES.md](docs/LAKE-EDIT-NOTES.md) | **Building in a lake** (2026-09-30): his words verbatim on displacement, a wall breaking a lake's sheet, and a sooner Tier B → A hand-back, with what the code offers and four questions. Today a block in a lake is a pier. |
 | [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md) | **Walls that split a lake, the code-level pass (2026-10-01): all seven decisions taken as recommended; L-1, L-2 and E-1 built the same day; his play passed 2026-10-09, and all of it is on main since the pond branch merged.** His Tier B conversion can't separate (the hand-back rejoins the one lake); the pond branch's raise divides a lake but gives every litre to the old pit's side (fact 10). Recommended: share by the water over each cell (L-1, L-2 on the branch), and make the enclosure's answer independent of who asks first (E-1, main). |
-| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-4c done (2026-09-30; 4c kept today's lake rule at his word); IM-5's sixteen decisions taken (2026-09-30), not built; TODO's "Order and collisions" says what comes first.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
+| [docs/IDEAL-MACHINES-BRIEF.md](docs/IDEAL-MACHINES-BRIEF.md), [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md) | **The ideal machines (2026-09-29).** The brief holds his words and **nine taken decisions** verbatim (one pool, bankruptcy a feature; quarries; materials; water in the inventory; the quarry only where you are). **The plan is the panel's result: sixty-one decisions, all taken as recommended (2026-09-29); IM-0b through IM-4c done (2026-09-30; 4c kept today's lake rule at his word); IM-5's sixteen decisions taken (2026-09-30); IM-5a built (2026-10-10, after a re-read against the merged watershed), IM-5b next; TODO's "Order and collisions" says what comes first.** Read its "Eight facts" first, especially fact 3 (the undo can mint today) and fact 7 (a sensor can starve a vault). **The panel's papers are kept in [docs/panel/ideal-machines-2026-09-29/](docs/panel/ideal-machines-2026-09-29/)**: the reader maps are file-by-file maps of the machine code (as at `71e6eed`), the place to start an IM slice. |
 
 ## Non-negotiables
 
@@ -192,31 +192,35 @@ vendored here; `start.cmd` falls back to the shared copy in `../GAME/`.
 
 ## Where things stand
 
-**2026-10-09, session close — the next session builds IM-5a, the dump's water.** This session merged the pond
-branch into main on his verdict, after his first play on it. Three lakes split as he built, R into one side raised
-only that side, and his glass pit held ([docs/POND-PLAN.md](docs/POND-PLAN.md), "His verdict: merged"). Before
-the merge, a six-run A/B on `LakeTest` found the branch matching main, and every one of POND-PLAN's merge checks
-held on the merged tree. **Main is the only branch, local and remote** (he deleted `water-column-test`), suite
-**2,247**, everything pushed. The merge's own opening is in STATUS-HISTORY.
+**2026-10-10 — IM-5a is built and on main; the next session builds IM-5b, the pile, its bench first.** This
+session re-read IM-5's pass against the merged watershed. Every decision still builds; ten facts moved, two of them
+errors in the pass itself. Then it built IM-5a in a worktree:
+- a burnt-out vault's or a wreck's water goes to its own sample's basin over ten seconds, or, in the workings,
+  as a ball of cells within its own budget;
+- a new dump past 10 ML in the workings is decohered at once;
+- an emptied vault holds again, and an emptied wreck is removed with nothing for Ctrl+Z.
+
+The record is [docs/IDEAL-MACHINES-PLAN.md](docs/IDEAL-MACHINES-PLAN.md), "IM-5a — the re-read" and "IM-5a —
+built". Suite **2,261**, twenty-eight mutations red, r6 to the digit on main. **Main is ahead of its remote** by
+this session's commits; he pushes. Nothing he plays changes until IM-6 ships a vault.
 
 **Next session, in order:**
-1. **His two answers, at the start** (TODO's "Do first" 2 and 3):
-   - which world the clay pond leak was in, and where (if he cannot place it, close it as not reproduced);
-   - about a minute of his screen for IM-0's windowed surface install, the 10 ML ceiling's render half.
-2. **Re-read IM-5's code-level pass against the merged code before building.** The pass is dated 2026-09-30 and
-   predates the raise on main. `WaterSystem` now shares lakes by level (L-1); `LakeCeiling` and the surface read
-   the water grid; the hand-off asks the enclosure only where the watershed cannot see a pool. Use three
-   read-only searches, as every pass has. A fact that moved amends the plan; a new decision goes to him.
-3. **Build IM-5a** (decisions 2–10) in a worktree, since `start.cmd` builds the main folder.
+1. **What he found with the clay.** He was replaying to see the leak again, perhaps in a fresh world. Read that
+   play's log first (`grep -a`, the `M8b:` deltas, the coordinates he gives); if it doesn't reproduce, close it.
+2. **The windowed surface install**, his yes given 2026-10-09, run only when he is out of the game. The recipe is
+   `--profile --speed=0 --fluidnear=2 --fluidjob=1 --measure=60 --injectlitres=10000000`, windowed; read the
+   `fluidsurf` line's `install mean / max`. It decides whether the 10 ML ceiling stands for the render.
+3. **The six choices IM-5a's build made** (the plan's "IM-5a — built") go to him with the status; any he reverses
+   is a small change.
+4. **IM-5b: its bench first** (decision 15), then the pile, in a worktree.
 
 Unblocked alternative if he would rather: collapse f-1 (Core and tests, thirteen decisions taken).
 
 The ideal machines plan is half built: all sixty-one decisions were taken on 2026-09-29. **Built:** IM-0b, IM-1 to
 IM-3b, IM-4a (with its mutation battery, thirty-six red), IM-4b (a vault in its pump's ring, `pumped == emitted +
-vaulted`) and IM-4c, reduced at his word (a block in a lake stays a pier; Ctrl+Z cancels placements still waiting
-for the boundary). **Taken and not built:** IM-5, the dump, split into 5a (the water) and 5b (the pile). Suite
-**2,247** on main, r6 to the digit. The pond branch is merged, and main is ahead of its remote by the merge and
-its record.
+vaulted`), IM-4c, reduced at his word (a block in a lake stays a pier; Ctrl+Z cancels placements still waiting
+for the boundary), and **IM-5a, the dump's water** (2026-10-10, twenty-eight mutations red). **Taken and not
+built:** IM-5b, the pile. Suite **2,261** on main, r6 to the digit.
 
 **The lake plan is taken (2026-10-01): [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md), all seven decisions
 as recommended; one question is still his (what the walled area beneath TajMahal2 was).** His means,
@@ -236,15 +240,14 @@ machine with a shared budget, only where you are; water is an inventory item thr
 header byte and a kit. Each slice has a "code-level pass" and a "built" section in the plan; the previous
 hand-over, slice by slice, is in [docs/STATUS-HISTORY.md](docs/STATUS-HISTORY.md).
 
-**Before IM-5a: TODO's "Order and collisions"**, at the top of TODO:
-- the clay pond's suspected leak: ask him which world and where. The 09-26 clay-roof drip on
+**Still standing from TODO's "Order and collisions"**, at the top of TODO:
+- the clay pond's suspected leak: he is replaying to see it again. The 09-26 clay-roof drip on
   `Regions16-pondlook` (in TODO beside it, brought over from the branch) may be the same thing;
-- IM-0's windowed surface install, which needs his screen for about a minute (the 10 ML ceiling's render half);
-- his verdict on the pond branch: **given 2026-10-09, merged**, so IM-5a builds on the raised watershed;
-- a re-read of IM-5's pass against the merged code, which it predates.
+- IM-0's windowed surface install, his yes given, run when he is out of the game (the 10 ML ceiling's render
+  half).
 
-Then **IM-5a** (the plan's "IM-5 — the code-level pass", decisions 2–10). Before IM-6: the hotbar's unit (his)
-and the build warnings. Before IM-7: the engine-wide pin (TODO's Levers).
+Then **IM-5b** (the pile, decisions 11–16, its bench first). Before IM-6: the hotbar's unit (his) and the build
+warnings. Before IM-7: the engine-wide pin (TODO's Levers).
 
 **His open threads:**
 - the walled area beneath TajMahal2, his question in [docs/LAKE-EDIT-PLAN.md](docs/LAKE-EDIT-PLAN.md);

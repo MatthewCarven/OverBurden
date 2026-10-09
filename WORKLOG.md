@@ -22,8 +22,9 @@ own `Exact`. The plan's "IM-5a — built" has the whole account.
   - The parser didn't capture the failing tests' names under `-v q`, only their counts. Every mutation's count
     was above zero.
 - **The game builds with the same ten warnings** as before, none of them new.
-- **Not yet run:** the r6 control and a headless run. He hadn't launched by the time the battery finished (the
-  newest log is the previous session's last probe, 02:53), and a headless run from any copy rotates his log.
+- **Main fast-forwarded to it, and the r6 control read to the digit on main**: 2601 / 325 / 3446 at 411, no
+  `ERROR`. He hadn't launched by then (the newest log was the previous session's last probe, 02:53), so the
+  rotation cost nothing of his. The worktree and its branch are gone.
 
 ## 2026-10-09 (evening) — IM-5a's session opens: his two answers
 
